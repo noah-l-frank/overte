@@ -4,6 +4,8 @@
 #include <QFile>
 #include <QGuiApplication>
 #include <QWheelEvent>
+#include <QTouchEvent>
+#include <QTouchDevice>
 #include <QKeyEvent>
 #include <QQuickWindow>
 #include <QQuickRenderControl>
@@ -15,6 +17,7 @@
 #include <QQmlFileSelector>
 #include <QDir>
 #include <memory>
+#include <limits>
 #include <cassert>
 #include <cstdio>
 #include <jni.h>
@@ -26,11 +29,50 @@ extern "C" void Java_org_overte_web_EmbeddedWebView_nativeResumeRequest(JNIEnv*,
 extern "C" void Java_org_overte_web_EmbeddedWebView_nativeCreated(JNIEnv*, jclass, jlong, jlong, jboolean);
 #include "inline-backend-tests.h"
 class Probe : public NativeWebViewItem {
-public: using NativeWebViewItem::inputMethodQuery; using NativeWebViewItem::wheelEvent; using NativeWebViewItem::keyPressEvent;
+public: using NativeWebViewItem::touchEvent; using NativeWebViewItem::touchUngrabEvent; using NativeWebViewItem::inputMethodQuery; using NativeWebViewItem::wheelEvent; using NativeWebViewItem::keyPressEvent; using NativeWebViewItem::inputMethodEvent;
+    mutable int enabledQueries { 0 };
+    QVariant inputMethodQuery(Qt::InputMethodQuery query) const override {
+        if (query == Qt::ImEnabled) ++enabledQueries;
+        return NativeWebViewItem::inputMethodQuery(query);
+    }
 };
 int main(int argc, char** argv) {
     qputenv("QT_QUICK_BACKEND", "software");
     QGuiApplication app(argc, argv);
+    {
+        // Compare the native editor contract with a real Qt text control:
+        // rendered preedit is separate from committed surrounding text.
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData("import QtQuick 2.15; TextInput { width:240; height:80; text:'ab' }", QUrl());
+        std::unique_ptr<QObject> object(component.create());
+        auto* reference = qobject_cast<QQuickItem*>(object.get()); assert(reference);
+        QQuickWindow window; window.resize(240,80); window.show(); window.requestActivate();
+        reference->setParentItem(window.contentItem()); reference->forceActiveFocus();
+        reference->setProperty("cursorPosition",1); QCoreApplication::processEvents();
+        QInputMethodEvent preedit("XY", {{QInputMethodEvent::Cursor,1,1,QVariant()}});
+        QCoreApplication::sendEvent(reference,&preedit);
+        assert(reference->property("text").toString()=="ab");
+        assert(reference->property("preeditText").toString()=="XY");
+        QInputMethodQueryEvent query(Qt::ImQueryInput | Qt::ImAbsolutePosition | Qt::ImTextBeforeCursor | Qt::ImTextAfterCursor);
+        QCoreApplication::sendEvent(reference,&query);
+        assert(query.value(Qt::ImSurroundingText).toString()=="ab");
+        assert(query.value(Qt::ImCursorPosition).toInt()==1 && query.value(Qt::ImAnchorPosition).toInt()==1);
+        assert(query.value(Qt::ImAbsolutePosition).toInt()==1);
+        assert(query.value(Qt::ImTextBeforeCursor).toString()=="a" && query.value(Qt::ImTextAfterCursor).toString()=="b");
+        QInputMethodEvent commit; commit.setCommitString("Z"); QCoreApplication::sendEvent(reference,&commit);
+        assert(reference->property("text").toString()=="aZb" && reference->property("cursorPosition").toInt()==2);
+        reference->setProperty("text","abc");
+        assert(QMetaObject::invokeMethod(reference,"select",Q_ARG(int,1),Q_ARG(int,2)));
+        QInputMethodEvent empty;
+        QCoreApplication::sendEvent(reference,&empty);
+        assert(reference->property("text").toString()=="abc" && reference->property("selectedText").toString()=="b");
+        QInputMethodEvent selectionOnly(QString(),{{QInputMethodEvent::Selection,0,1,QVariant()}});
+        QCoreApplication::sendEvent(reference,&selectionOnly);
+        assert(reference->property("text").toString()=="abc" && reference->property("selectedText").toString()=="a");
+        reference->setParentItem(nullptr);
+        puts("PASS: actual Qt TextInput renders preedit separately from committed surrounding text and native cursor offsets");
+    }
     // Exercise actual native frame ingestion, Qt texture painting and premultiplied BGRA.
     QQuickRenderControl control; QQuickWindow raster(&control); raster.resize(8,8); raster.setColor(Qt::transparent);
     Probe pixels; pixels.setParentItem(raster.contentItem()); pixels.setSize(QSizeF(8,8));
@@ -100,6 +142,13 @@ int main(int argc, char** argv) {
         R"({"active":true,"sensitive":true,"text":"must-never-be-retained","cursor":3,"anchor":0})"));
     QCoreApplication::processEvents(); assert(item.inputMethodQuery(Qt::ImSurroundingText).toString().isEmpty());
     assert(item.editorFocused() && item.editorPassword());
+    assert(send(grant, 1, QUrl("https://one.test"), true,
+        R"({"active":true,"sensitive":true,"text":"must-never-be-retained","length":4,"cursor":4,"anchor":4,"absoluteCursor":4})"));
+    QCoreApplication::processEvents();
+    assert(item.inputMethodQuery(Qt::ImSurroundingText).toString() == QString(4, QChar(0x2022)));
+    assert(item.inputMethodQuery(Qt::ImCursorPosition).toInt() == 4);
+    assert(item.inputMethodQuery(Qt::ImAbsolutePosition).toInt() == 4);
+    assert(item.inputMethodQuery(Qt::ImCurrentSelection).toString().isEmpty());
     QJsonObject initialization; auto* transport = item.findChild<NativeWebTransport*>(); assert(transport);
     QObject::connect(transport, &NativeWebTransport::outbound, [&](const QJsonObject& message) { if (message.value("type").toInt() == 10) initialization = message; });
     auto channel = [&](const QJsonObject& object) { return item.acceptMessage(grant, 1, QUrl("https://one.test/document"), QUrl("https://one.test"), true, "channel", QJsonDocument(object).toJson(QJsonDocument::Compact)); };
@@ -263,6 +312,253 @@ int main(int argc, char** argv) {
             assert(!env->ExceptionCheck());
             puts("PASS: actual QWheelEvent reaches private JNI with document/grant/page/position/horizontal/pixel intent; foreign bridge remains denied and inactive input rejects");
         }
+        {
+            Probe touch; touch.setSize(QSizeF(100,80)); touch.acceptForeground(true);
+            touch.setSourceIdentity("world-touch-source"); touch.setSurface(NativeWebViewItem::WorldEntity);
+            touch.setUrl("https://owned.test/touch"); touch.componentComplete(); QCoreApplication::processEvents();
+            auto number=[&](const char* name){return env->GetStaticIntField(boundary,env->GetStaticFieldID(boundary,name,"I"));};
+            auto real=[&](const char* name){return env->GetStaticFloatField(boundary,env->GetStaticFieldID(boundary,name,"F"));};
+            QTouchDevice device; device.setType(QTouchDevice::TouchScreen); device.setCapabilities(QTouchDevice::Position);
+            auto send=[&](QEvent::Type type, Qt::TouchPointState state, QPointF position) {
+                QTouchEvent::TouchPoint point(7); point.setState(state); point.setPos(position);
+                QTouchEvent event(type,&device,Qt::NoModifier,state,{point}); event.ignore();
+                touch.touchEvent(&event); assert(event.isAccepted());
+            };
+            const auto hoverBefore=number("pointers");
+            QTouchEvent::TouchPoint hovering(7); hovering.setState(Qt::TouchPointStationary); hovering.setPos({20,30});
+            QTouchEvent hoverBegin(QEvent::TouchBegin,&device,Qt::NoModifier,Qt::TouchPointStationary,{hovering});
+            hoverBegin.ignore(); touch.touchEvent(&hoverBegin);
+            assert(!hoverBegin.isAccepted() && number("pointers")==hoverBefore);
+            send(QEvent::TouchUpdate,Qt::TouchPointPressed,{20,30});
+            assert(number("pointers")==hoverBefore+1 && number("pointerAction")==0);
+            send(QEvent::TouchUpdate,Qt::TouchPointReleased,{20,30});
+            send(QEvent::TouchUpdate,Qt::TouchPointPressed,{25,35});
+            assert(number("pointers")==hoverBefore+3 && number("pointerAction")==0);
+            send(QEvent::TouchUpdate,Qt::TouchPointReleased,{25,35});
+            const auto before=number("pointers");
+            send(QEvent::TouchBegin,Qt::TouchPointPressed,{20,30});
+            assert(number("pointers")==before+1 && number("pointerAction")==0 && real("pointerX")==20 && real("pointerY")==30);
+            send(QEvent::TouchUpdate,Qt::TouchPointMoved,{25,35});
+            assert(number("pointers")==before+2 && number("pointerAction")==2);
+            send(QEvent::TouchEnd,Qt::TouchPointReleased,{25,35});
+            assert(number("pointers")==before+3 && number("pointerAction")==1);
+            send(QEvent::TouchBegin,Qt::TouchPointPressed,{10,15});
+            QTouchEvent canceled(QEvent::TouchCancel,&device);touch.touchEvent(&canceled);
+            assert(canceled.isAccepted() && number("pointers")==before+5 && number("pointerAction")==3);
+            send(QEvent::TouchBegin,Qt::TouchPointPressed,{10,15});touch.touchUngrabEvent();
+            assert(number("pointers")==before+7 && number("pointerAction")==3);
+            QTouchEvent orphan(QEvent::TouchUpdate,&device);touch.touchEvent(&orphan);
+            assert(number("pointers")==before+7 && !env->ExceptionCheck());
+            // Entity surfaces deliver to a real QQuickWindow, which chooses the
+            // item and transforms the point before invoking its touch handler.
+            QQuickWindow touchWindow; touchWindow.resize(100,80);
+            touch.setParentItem(touchWindow.contentItem()); touchWindow.show();
+            QCoreApplication::processEvents();
+            auto windowSend=[&](QEvent::Type type, Qt::TouchPointState state, QPointF position) {
+                QTouchEvent::TouchPoint point(1); point.setState(state);
+                point.setPos(position); point.setScreenPos(position);
+                QTouchEvent event(type,&device,Qt::NoModifier,state,{point});
+                event.setWindow(&touchWindow); event.setTarget(touchWindow.contentItem());
+                event.ignore(); QCoreApplication::sendEvent(&touchWindow,&event);
+                QCoreApplication::processEvents();
+            };
+            const auto windowBefore=number("pointers");
+            windowSend(QEvent::TouchBegin,Qt::TouchPointPressed,{20,30});
+            assert(number("pointers")==windowBefore+1 && number("pointerAction")==0
+                && real("pointerX")==20 && real("pointerY")==30);
+            windowSend(QEvent::TouchEnd,Qt::TouchPointReleased,{20,30});
+            assert(number("pointers")==windowBefore+2 && number("pointerAction")==1);
+            const auto hoverWindowBefore=number("pointers");
+            windowSend(QEvent::TouchBegin,Qt::TouchPointStationary,{20,30});
+            assert(number("pointers")==hoverWindowBefore);
+            windowSend(QEvent::TouchUpdate,Qt::TouchPointPressed,{20,30});
+            assert(number("pointers")==hoverWindowBefore+1 && number("pointerAction")==0);
+            windowSend(QEvent::TouchUpdate,Qt::TouchPointReleased,{20,30});
+            windowSend(QEvent::TouchUpdate,Qt::TouchPointPressed,{25,35});
+            assert(number("pointers")==hoverWindowBefore+3 && number("pointerAction")==0);
+            windowSend(QEvent::TouchUpdate,Qt::TouchPointReleased,{25,35});
+            touch.setParentItem(nullptr); touchWindow.hide();
+            // The Java texture backend clamps the requested scene size. Its
+            // input coordinates must not be clamped again from a captured frame.
+            touch.setSize(QSizeF(4000,3000));
+            touch.acceptPage(touch.generation(),1,QUrl("https://owned.test/touch"));
+            QByteArray clampedPixels(2048*1536*4, char(255));
+            touch.acceptFrame(touch.generation(),1,
+                reinterpret_cast<const unsigned char*>(clampedPixels.constData()),clampedPixels.size(),2048,1536);
+            send(QEvent::TouchBegin,Qt::TouchPointPressed,{2000,1500});
+            assert(real("pointerX")==2000 && real("pointerY")==1500);
+            send(QEvent::TouchEnd,Qt::TouchPointReleased,{2000,1500});
+            QQuickItem scaledParent; scaledParent.setScale(2);
+            touch.setParentItem(&scaledParent);
+            send(QEvent::TouchBegin,Qt::TouchPointPressed,{500,400});
+            assert(real("pointerX")==1000 && real("pointerY")==800);
+            send(QEvent::TouchEnd,Qt::TouchPointReleased,{500,400});
+            touch.setParentItem(nullptr);
+            puts("PASS: actual Qt touch press/move/release/cancel/ungrab reaches private pointer JNI; orphan input cannot leave a pressed pointer");
+        }
+        {
+            QQuickWindow window; window.resize(240,120); window.show(); window.requestActivate();
+            Probe cursor; cursor.setParentItem(window.contentItem()); cursor.setSize(QSizeF(200,100));
+            cursor.acceptForeground(true); cursor.setSourceIdentity("cursor-owned-source");
+            const QUrl document("https://cursor.test/page"); cursor.setUrl(document.toString()); cursor.componentComplete();
+            cursor.forceActiveFocus(); QCoreApplication::processEvents(); assert(cursor.hasActiveFocus());
+            const auto grant=cursor.generation(); cursor.acceptPage(grant,1,document);
+            QImage frame(100,50,QImage::Format_ARGB32_Premultiplied); frame.fill(Qt::white);
+            cursor.acceptFrame(grant,1,frame.constBits(),frame.sizeInBytes(),frame.width(),frame.height());
+            const QByteArray state=R"({"active":true,"text":"abcdef","cursor":5,"anchor":1,"kind":"text",
+                "x":10,"y":5,"width":60,"height":20,"caret":{"x":20,"y":6,"width":1,"height":12},
+                "anchorCaret":{"x":30,"y":7,"width":1,"height":12}})";
+            assert(cursor.acceptMessage(grant,1,document,QUrl("https://cursor.test"),true,"editor",state));
+            QCoreApplication::processEvents();
+            assert(cursor.inputMethodQuery(Qt::ImCursorRectangle).toRectF()==QRectF(40,12,2,24));
+            assert(cursor.inputMethodQuery(Qt::ImAnchorRectangle).toRectF()==QRectF(60,14,2,24));
+            for (const auto* kind : {"textarea", "contenteditable"}) {
+                auto multiline = QJsonDocument::fromJson(state).object();
+                multiline["kind"] = QString::fromLatin1(kind);
+                assert(cursor.acceptMessage(grant,1,document,QUrl("https://cursor.test"),true,"editor",
+                    QJsonDocument(multiline).toJson(QJsonDocument::Compact)));
+                QCoreApplication::processEvents();
+                assert(cursor.inputMethodQuery(Qt::ImHints).toInt() & Qt::ImhMultiLine);
+            }
+            assert(cursor.acceptMessage(grant,1,document,QUrl("https://cursor.test"),true,"editor",state));
+            QCoreApplication::processEvents();
+            assert(!(cursor.inputMethodQuery(Qt::ImHints).toInt() & Qt::ImhMultiLine));
+            const auto count=[&]{return env->GetStaticIntField(boundary,env->GetStaticFieldID(boundary,"edits","I"));};
+            const auto before=count();
+            bool accepted = false;
+            assert(QMetaObject::invokeMethod(&cursor,"moveInputCursorToPoint",Qt::DirectConnection,
+                Q_RETURN_ARG(bool,accepted),Q_ARG(QPointF,QPointF(50,30)),Q_ARG(int,1)) && accepted && count()==before+1);
+            auto encoded=static_cast<jstring>(env->GetStaticObjectField(boundary,env->GetStaticFieldID(boundary,"lastEdit","Ljava/lang/String;")));
+            const auto* bytes=env->GetStringUTFChars(encoded,nullptr);
+            const auto command=QJsonDocument::fromJson(QByteArray(bytes)).object();
+            env->ReleaseStringUTFChars(encoded,bytes);env->DeleteLocalRef(encoded);
+            assert(command.value("action")=="point" && command.value("x").toDouble()==25 && command.value("y").toDouble()==15
+                && command.value("handle").toInt()==1);
+            assert(cursor.inputMethodQuery(Qt::ImCursorPosition).toInt()==5); // Await actual browser acknowledgement.
+            assert(!cursor.moveInputCursorToPoint(QPointF(-1,0),1));
+            assert(!cursor.moveInputCursorToPoint(QPointF(std::numeric_limits<double>::quiet_NaN(),5),1));
+            assert(count()==before+1);
+            for (int handle : {2,3}) {
+                assert(cursor.moveInputCursorToPoint(QPointF(50,30),handle));
+                auto value=static_cast<jstring>(env->GetStaticObjectField(boundary,env->GetStaticFieldID(boundary,"lastEdit","Ljava/lang/String;")));
+                const auto* text=env->GetStringUTFChars(value,nullptr);
+                assert(QJsonDocument::fromJson(QByteArray(text)).object().value("handle").toInt()==handle);
+                env->ReleaseStringUTFChars(value,text);env->DeleteLocalRef(value);
+            }
+            assert(!cursor.moveInputCursorToPoint(QPointF(50,30),0));
+            assert(!cursor.moveInputCursorToPoint(QPointF(50,30),4));
+            assert(count()==before+3);
+            cursor.setEnabled(false);assert(!cursor.moveInputCursorToPoint(QPointF(50,30),1));cursor.setEnabled(true);
+            cursor.setVisible(false);assert(!cursor.moveInputCursorToPoint(QPointF(50,30),1));
+            assert(count()==before+3 && !env->ExceptionCheck());
+            cursor.setParentItem(nullptr);
+            puts("PASS: real Qt/JNI cursor point converts to CSS, keeps actual caret/anchor rectangles and rejects invalid/inactive input without guessing an index");
+        }
+        {
+            QQuickWindow window; window.resize(240,120); window.show(); window.requestActivate();
+            Probe input; input.setParentItem(window.contentItem()); input.setSize(QSizeF(240,120));
+            input.acceptForeground(true); input.setSourceIdentity("synchronous-query-source");
+            const QUrl document("https://input.test/page");input.setUrl(document.toString());input.componentComplete();
+            input.forceActiveFocus();QCoreApplication::processEvents();assert(input.hasActiveFocus());
+            const auto grant=input.generation();input.acceptPage(grant,1,document);
+            assert(input.acceptMessage(grant,1,document,QUrl("https://input.test"),true,"editor",
+                R"({"active":true,"text":"ab","cursor":1,"anchor":1,"absoluteCursor":1,"kind":"textarea","editor":"1","sequence":0})"));
+            QCoreApplication::processEvents();
+            QInputMethodEvent commit;commit.setCommitString("Z");input.inputMethodEvent(&commit);assert(commit.isAccepted());
+            // Qt's Android input context queries again before a WebView callback can run.
+            assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()=="aZb" && "Accepted native commit must be visible to immediate Qt queries before the browser acknowledgement");
+            assert(input.inputMethodQuery(Qt::ImCursorPosition).toInt()==2);
+            assert(input.inputMethodQuery(Qt::ImTextBeforeCursor).toString()=="aZ");
+            assert(input.inputMethodQuery(Qt::ImTextAfterCursor).toString()=="b");
+            auto packet = [&] {
+                auto value=static_cast<jstring>(env->GetStaticObjectField(boundary,env->GetStaticFieldID(boundary,"lastEdit","Ljava/lang/String;")));
+                const auto* chars=env->GetStringChars(value,nullptr);
+                const auto object=QJsonDocument::fromJson(QString::fromUtf16(reinterpret_cast<const ushort*>(chars),env->GetStringLength(value)).toUtf8()).object();
+                env->ReleaseStringChars(value,chars);env->DeleteLocalRef(value);return object;
+            };
+            auto acknowledge = [&](const QString& text,int cursor,int anchor,const QString& owner,double sequence,bool sensitive=false,int absolute=-1) {
+                const QJsonObject state{{"active",true},{"editor",owner},{"sequence",sequence},{"kind",sensitive?"password":"textarea"},
+                    {"text",sensitive?QString():text},{"length",text.size()},{"sensitive",sensitive},{"cursor",cursor},{"anchor",anchor},
+                    {"absoluteCursor",absolute<0?cursor:absolute}};
+                assert(input.acceptMessage(grant,1,document,QUrl("https://input.test"),true,"editor",QJsonDocument(state).toJson(QJsonDocument::Compact)));
+                QCoreApplication::processEvents();
+            };
+            const double firstSequence=packet().value("sequence").toDouble();assert(firstSequence>0 && packet().value("editor")=="1");
+            commit.setCommitString("W");input.inputMethodEvent(&commit);const double secondSequence=packet().value("sequence").toDouble();
+            assert(secondSequence>firstSequence && input.inputMethodQuery(Qt::ImSurroundingText).toString()=="aZWb");
+            acknowledge("aZb",2,2,"1",firstSequence);
+            assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()=="aZWb" && input.inputMethodQuery(Qt::ImCursorPosition).toInt()==3);
+            acknowledge("ab",1,1,"1",0);
+            assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()=="aZWb");
+            acknowledge("PAGE!",5,5,"1",secondSequence); // A page formatter is authoritative.
+            assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()=="PAGE!");
+            commit.setCommitString("!");input.inputMethodEvent(&commit);const double oldOwnerSequence=packet().value("sequence").toDouble();
+            acknowledge("other",5,5,"2",0);acknowledge("PAGE!!",6,6,"1",oldOwnerSequence);
+            assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()=="other");
+            acknowledge("abc",2,1,"3",0);
+            commit.setCommitString(QString::fromUtf8("漢😀"));input.inputMethodEvent(&commit);
+            assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()==QString::fromUtf8("a漢😀c"));
+            assert(input.inputMethodQuery(Qt::ImCursorPosition).toInt()==4);
+            QKeyEvent backspace(QEvent::KeyPress,Qt::Key_Backspace,Qt::NoModifier);input.keyPressEvent(&backspace);
+            assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()==QString::fromUtf8("a漢c"));
+            assert(input.inputMethodQuery(Qt::ImCursorPosition).toInt()==2);
+            acknowledge("ab",1,1,"4",0,true);
+            commit.setCommitString(QString::fromUtf8("secret😀"));input.inputMethodEvent(&commit);
+            assert(packet().value("commit").toString()==QString::fromUtf8("secret😀")); // Only the outgoing edit carries typed input.
+            assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()==QString(10,QChar(0x2022)));
+            acknowledge("ab",1,1,"4",0,true); // Replay retains lengths, never password characters.
+            assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()==QString(10,QChar(0x2022)));
+            acknowledge("ab",1,1,"5",0);
+            QInputMethodEvent preedit("XY",{{QInputMethodEvent::Cursor,1,1,QVariant()}});input.inputMethodEvent(&preedit);
+            assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()=="ab" && input.inputMethodQuery(Qt::ImCursorPosition).toInt()==1);
+            commit.setCommitString("Z");input.inputMethodEvent(&commit);
+            assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()=="aZb" && input.inputMethodQuery(Qt::ImCursorPosition).toInt()==2);
+            acknowledge("ab",1,1,"6",0,false,10001);commit.setCommitString("Z");input.inputMethodEvent(&commit);
+            assert(input.inputMethodQuery(Qt::ImAbsolutePosition).toInt()==10002);
+            QInputMethodEvent selected(QString(),{{QInputMethodEvent::Selection,0,2,QVariant()}});input.inputMethodEvent(&selected);
+            assert(input.inputMethodQuery(Qt::ImCurrentSelection).toString()=="aZ");
+            acknowledge("a",1,1,"7",0);commit.setCommitString(QString(16384,'x'));input.inputMethodEvent(&commit);
+            assert(input.inputMethodQuery(Qt::ImAbsolutePosition).toInt()==16385 && input.inputMethodQuery(Qt::ImSurroundingText).toString().size()<=16384);
+            acknowledge("",0,0,"8",0);commit.setCommitString("a");input.inputMethodEvent(&commit);
+            const double canceledSequence=packet().value("sequence").toDouble();commit.setCommitString("b");input.inputMethodEvent(&commit);
+            const double followingSequence=packet().value("sequence").toDouble();
+            assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()=="ab");
+            acknowledge("",0,0,"8",canceledSequence); // The page canceled the first edit; retain the later intent.
+            assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()=="b" && input.inputMethodQuery(Qt::ImCursorPosition).toInt()==1);
+            acknowledge("b",1,1,"8",followingSequence);assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()=="b");
+            acknowledge("",0,0,"9",0);commit.setCommitString("now-private");input.inputMethodEvent(&commit);
+            acknowledge("",0,0,"9",0,true); // A page can make the same field sensitive while input is pending.
+            assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()==QString(11,QChar(0x2022)));
+            acknowledge("abc",2,1,"10",0);
+            QInputMethodEvent empty;
+            input.inputMethodEvent(&empty);
+            assert(empty.isAccepted());
+            assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()=="abc" && "An empty IME update must preserve selected text, as real Qt TextInput does");
+            assert(input.inputMethodQuery(Qt::ImCurrentSelection).toString()=="b");
+            QInputMethodEvent selectionOnly(QString(),{{QInputMethodEvent::Selection,0,1,QVariant()}});
+            input.inputMethodEvent(&selectionOnly);
+            assert(selectionOnly.isAccepted() && input.inputMethodQuery(Qt::ImSurroundingText).toString()=="abc");
+            assert(input.inputMethodQuery(Qt::ImCurrentSelection).toString()=="a");
+            acknowledge("ab",1,1,"11",0);
+            QInputMethodEvent pendingPreedit("XY",{}); input.inputMethodEvent(&pendingPreedit);
+            commit.setCommitString("Z"); input.inputMethodEvent(&commit);
+            const double rejectedCommitSequence=packet().value("sequence").toDouble();
+            QInputMethodEvent finishPendingComposition; input.inputMethodEvent(&finishPendingComposition);
+            // The page cancels the commit, so its old preedit still exists.
+            // The later empty update must remain queued to finish that preedit.
+            const QJsonObject canceledComposition{{"active",true},{"editor","11"},{"sequence",rejectedCommitSequence},
+                {"kind","textarea"},{"text","ab"},{"cursor",1},{"anchor",1},{"absoluteCursor",1},{"composing",true}};
+            assert(input.acceptMessage(grant,1,document,QUrl("https://input.test"),true,"editor",
+                QJsonDocument(canceledComposition).toJson(QJsonDocument::Compact)));
+            QCoreApplication::processEvents();
+            QKeyEvent followingNewline(QEvent::KeyPress,Qt::Key_Return,Qt::NoModifier);
+            input.keyPressEvent(&followingNewline);
+            assert(input.inputMethodQuery(Qt::ImSurroundingText).toString()=="a\nb" && "Finishing a pending composition must survive page cancellation of an earlier commit");
+            input.acceptForeground(false);QCoreApplication::processEvents();
+            assert(!input.editorFocused() && input.inputMethodQuery(Qt::ImSurroundingText).toString().isEmpty());
+            input.setParentItem(nullptr);
+            puts("PASS: actual accepted Qt/JNI commit updates immediate surrounding/cursor queries while browser delivery is delayed");
+        }
         Probe wire; wire.setSize(QSizeF(100,100)); wire.acceptForeground(true);
         wire.setSourceIdentity("wire-owned-source"); wire.setUrl("https://wire.test/page"); wire.componentComplete();
         QCoreApplication::processEvents();
@@ -330,9 +626,12 @@ int main(int argc, char** argv) {
             key.setSourceIdentity("key-owned-source"); key.setUrl("https://owned.test/key"); key.componentComplete();
             QCoreApplication::processEvents(); const auto grant=key.generation(); const QUrl document("https://foreign.test/key");
             key.acceptPage(grant,1,document); key.forceActiveFocus(); QCoreApplication::processEvents(); assert(key.hasActiveFocus());
+            assert(QGuiApplication::focusObject() == &key && !key.editorFocused());
+            key.enabledQueries = 0;
             assert(key.acceptMessage(grant,1,document,QUrl("https://foreign.test"),true,"editor",
                 R"({"active":true,"text":"typed","cursor":5,"anchor":5,"kind":"text"})"));
             QCoreApplication::processEvents(); assert(key.editorFocused() && !key.allowsBridgeDocument(grant,1,document));
+            assert(key.enabledQueries > 0 && "First asynchronous DOM focus must refresh Qt input-method acceptance");
             auto count=[&]{return env->GetStaticIntField(boundary,env->GetStaticFieldID(boundary,"edits","I"));};
             auto command=[&]{auto value=static_cast<jstring>(env->GetStaticObjectField(boundary,env->GetStaticFieldID(boundary,"lastEdit","Ljava/lang/String;")));
                 const auto* bytes=env->GetStringUTFChars(value,nullptr);auto object=QJsonDocument::fromJson(bytes).object();
@@ -345,6 +644,10 @@ int main(int argc, char** argv) {
             for(auto modifier:{Qt::ControlModifier,Qt::AltModifier,Qt::MetaModifier}) {
                 QKeyEvent modified(QEvent::KeyPress,Qt::Key_Return,modifier,"\r");key.keyPressEvent(&modified);assert(!modified.isAccepted() && count()==before+2);
             }
+            key.enabledQueries = 0;
+            assert(key.acceptMessage(grant,1,document,QUrl("https://foreign.test"),true,"editor", R"({"active":false})"));
+            QCoreApplication::processEvents();
+            assert(!key.editorFocused() && key.enabledQueries > 0 && "DOM blur must refresh Qt input-method acceptance");
             key.acceptForeground(false);QCoreApplication::processEvents();key.keyPressEvent(&enter);
             assert(!enter.isAccepted() && count()==before+2 && !env->ExceptionCheck());
             puts("PASS: actual foreign-page Qt Return/keypad Enter reaches private edit JNI as enter+shift, including empty text; modifiers and inactive input reject");

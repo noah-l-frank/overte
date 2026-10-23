@@ -115,6 +115,10 @@ public:
     void setVertexReplacements(const std::unordered_map<std::string, std::string>& replacements);
     void setFragmentReplacements(const std::unordered_map<std::string, std::string>& replacements);
 
+    // Only an initialized GLES-compatible material may enter that backend.
+    bool _supportsGLES { false };
+    uint32_t _standardInputsBufferSlot { 0 };
+
     gpu::Shader::Source _vertexSource;
     gpu::Shader::Source _vertexSourceSkinned;
     gpu::Shader::Source _vertexSourceSkinnedDQ;

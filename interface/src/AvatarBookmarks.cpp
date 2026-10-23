@@ -82,6 +82,11 @@ void addAvatarEntities(const QVariantList& avatarEntities) {
         entityTree->withWriteLock([&entityTree, id, &entityProperties, &success] {
             EntityItemPointer entity = entityTree->addEntity(id, entityProperties);
             if (entity) {
+                if (entityProperties.localDimensionsChanged()) {
+                    // A freshly loaded avatar may still be settling its joint
+                    // scale. Preserve the saved local size through that change.
+                    entity->setUnscaledDimensions(entityProperties.getLocalDimensions());
+                }
                 if (entityProperties.queryAACubeRelatedPropertyChanged()) {
                     // due to parenting, the server may not know where something is in world-space, so include the bounding cube.
                     bool success;
@@ -342,6 +347,7 @@ QVariantMap AvatarBookmarks::getAvatarDataToBookmark() {
     if (entityTree) {
         // V8TODO: Creating new script engine each time is very inefficient
         ScriptEnginePointer scriptEngine = newScriptEngine();
+        auto guard = scriptEngine->getScopeGuard();
         auto avatarEntities = myAvatar->getAvatarEntityDataNonDefault();
         for (auto entityID : avatarEntities.keys()) {
             auto entity = entityTree->findEntityByID(entityID);
@@ -355,6 +361,7 @@ QVariantMap AvatarBookmarks::getAvatarDataToBookmark() {
             auto desiredProperties = entity->getEntityProperties(params);
             desiredProperties += PROP_LOCAL_POSITION;
             desiredProperties += PROP_LOCAL_ROTATION;
+            desiredProperties += PROP_LOCAL_DIMENSIONS;
             desiredProperties -= PROP_JOINT_ROTATIONS_SET;
             desiredProperties -= PROP_JOINT_ROTATIONS;
             desiredProperties -= PROP_JOINT_TRANSLATIONS_SET;

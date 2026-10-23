@@ -15,6 +15,10 @@
 
 #include "Application.h"
 
+#if defined(ANDROID_APP_PHONE_INTERFACE) && defined(USE_GL)
+#include <OffscreenUi.h>
+#endif
+
 #include <AnimationCache.h>
 #include <input-plugins/KeyboardMouseDevice.h>
 #include <MainWindow.h>
@@ -292,6 +296,11 @@ void Application::setKeyboardFocusEntity(const QUuid& id) {
         }
 
         _keyboardFocusedEntity.set(id);
+
+#if defined(ANDROID_APP_PHONE_INTERFACE) && defined(USE_GL)
+        const auto ui = getOffscreenUI();
+        updatePhoneInputMethodEnabled(ui && ui->isFocusText());
+#endif
 
         auto entityScriptingInterface = DependencyManager::get<EntityScriptingInterface>();
         if (id != UNKNOWN_ENTITY_ID) {

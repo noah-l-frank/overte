@@ -27,6 +27,11 @@ class Dependency { public: virtual ~Dependency() = default; };
 struct DependencyManager { template<class T> static T* get() { static T instance; return &instance; } };
 ''')
             (directory / 'domain-methods.inc').write_text(methods)
+            menu = (ROOT / 'interface/src/Menu.cpp').read_text()
+            start = menu.index('    connect(domainAccountManager.data(), &DomainAccountManager::hasLogInChanged,')
+            end = menu.index('\n    });', start) + len('\n    });')
+            (directory / 'menu-domain-login-connection.inc').write_text(
+                menu[start:end].replace('connect(', 'QObject::connect(', 1))
             # Actual production header and its Q_OBJECT/signals, not a field rewrite.
             subprocess.run([str(pathlib.Path(libexec) / 'moc'), '-I', str(directory),
                             str(include_root / 'libraries/networking/src/DomainAccountManager.h'),

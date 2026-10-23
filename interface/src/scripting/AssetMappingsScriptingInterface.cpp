@@ -85,7 +85,7 @@ void AssetMappingsScriptingInterface::getMapping(QString path, QJSValue callback
     request->start();
 }
 
-void AssetMappingsScriptingInterface::uploadFile(QString path, QString mapping, QJSValue startedCallback, QJSValue completedCallback, bool dropEvent) {
+void AssetMappingsScriptingInterface::uploadFile(QString path, QString mapping, QJSValue startedCallback, QJSValue completedCallback, bool dropEvent, bool mappingConfirmed) {
     static const QString helpText =
         "Upload your asset to a specific folder by entering the full path. Specifying "
         "a new folder name will automatically create that folder for you.";
@@ -94,32 +94,34 @@ void AssetMappingsScriptingInterface::uploadFile(QString path, QString mapping, 
         "Use the field below to place your file in a specific folder or to rename it. "
         "Specifying a new folder name will automatically create that folder for you.";
 
-    auto offscreenUI = DependencyManager::get<OffscreenUi>();
-    if (!offscreenUI) {
-        completedCallback.call({ -1 });
-        return;
+    // Native tablet callers present their own nonblocking path/overwrite dialogs.
+    // A nested modal event loop can delete the calling QML page while its
+    // document-selection JavaScript is still on the stack.
+    if (!mappingConfirmed) {
+        auto offscreenUI = DependencyManager::get<OffscreenUi>();
+        if (!offscreenUI) {
+            completedCallback.call({ -1 });
+            return;
+        }
+        auto result = offscreenUI->inputDialog(OffscreenUi::ICON_INFORMATION, "Specify Asset Path",
+                                               dropEvent ? dropHelpText : helpText, mapping);
+        if (!result.isValid()) {
+            completedCallback.call({ -1 });
+            return;
+        }
+        mapping = result.toString();
     }
-
-    auto result = offscreenUI->inputDialog(OffscreenUi::ICON_INFORMATION, "Specify Asset Path",
-                                           dropEvent ? dropHelpText : helpText, mapping);
-
-    if (!result.isValid() || result.toString() == "") {
-        completedCallback.call({ -1 });
-        return;
-    }
-    mapping = result.toString();
     mapping = mapping.trimmed();
-
-    if (mapping[0] != '/') {
-        mapping = "/" + mapping;
+    if (mapping.isEmpty()) {
+        completedCallback.call({ -1 });
+        return;
     }
-
-    // Check for override
-    if (isKnownMapping(mapping)) {
+    if (!mapping.startsWith('/')) { mapping.prepend('/'); }
+    if (!mappingConfirmed && isKnownMapping(mapping)) {
+        auto offscreenUI = DependencyManager::get<OffscreenUi>();
         auto message = mapping + "\n" + "This file already exists. Do you want to overwrite it?";
-        auto button = offscreenUI->messageBox(OffscreenUi::ICON_QUESTION, "Overwrite File", message,
-                                              QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
-        if (button == QMessageBox::No) {
+        if (!offscreenUI || offscreenUI->messageBox(OffscreenUi::ICON_QUESTION, "Overwrite File", message,
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::No) {
             completedCallback.call({ -1 });
             return;
         }
@@ -267,9 +269,11 @@ void AssetMappingsScriptingInterface::advanceBundle(const std::shared_ptr<Bundle
             connect(upload,&QObject::destroyed,[originals,id,instance] { originals->destroyed(id,instance); });
         }
 #endif
-        connect(upload, &AssetUpload::finished, upload, &QObject::deleteLater);
         connect(upload, &AssetUpload::finished, this, [this, state](AssetUpload* upload, const QString& hash) {
             const auto error = upload->getErrorString();
+            // The completion crosses from AssetClient's thread to this object's
+            // thread. Keep the upload alive until its result has been consumed.
+            upload->deleteLater();
             if (!error.isEmpty() || !QRegularExpression("^[a-fA-F0-9]{64}$").match(hash).hasMatch()) {
                 finishBundle(state, error.isEmpty() ? "Invalid uploaded asset hash." : error); return;
             }
@@ -291,10 +295,10 @@ void AssetMappingsScriptingInterface::advanceBundle(const std::shared_ptr<Bundle
             connect(request,&QObject::destroyed,[originals,id,instance] { originals->destroyed(id,instance); });
         }
 #endif
-        connect(request, &SetMappingRequest::finished, request, &QObject::deleteLater);
         connect(request, &SetMappingRequest::finished, this, [this, state](SetMappingRequest* request) {
             const auto error = request->getErrorString();
             if (error.isEmpty()) state->published.append(request->getPath());
+            request->deleteLater();
             if (!error.isEmpty()) { finishBundle(state, error); return; }
             ++state->index; advanceBundle(state);
         });

@@ -251,6 +251,31 @@ TestCase {
             items = items.concat(namedItems(item.children[i], name));
         return items;
     }
+    function test_shortScaledSurfaceKeepsBookmarkActionsReachable() {
+        page.width = 850;
+        page.height = 286;
+        var metrics = control("placesTouchMetrics");
+        metrics.profile.directTouch = true;
+        metrics.profile.screenSpaceContentScale = 2.66;
+        deliver("BOOKMARKS_DATA", {data: {Favorite: "hifi://favorite"}});
+        click("bookmarksTab");
+        var visit = control("visitBookmark");
+        var list = visit.parent;
+        while (list && typeof list.positionViewAtIndex !== "function") list = list.parent;
+        verify(list !== null);
+        verify(list.height >= 120, "The scaled phone must retain a usable list viewport");
+        var viewport = control("placesViewport");
+        viewport.contentY = viewport.contentHeight - viewport.height;
+        wait(100);
+        for (var i = 0; i < 3; ++i) {
+            var item = control(["visitBookmark", "renameBookmark", "deleteBookmark"][i]);
+            var pos = item.mapToItem(page, 0, 0);
+            verify(pos.y >= 0 && pos.y + item.height <= page.height + 1,
+                   "Bookmark actions must be reachable by normal scrolling");
+        }
+        click("visitBookmark");
+        compare(lastMessage("TELEPORT").address, "hifi://favorite");
+    }
     function test_scrolledPlaceDelegate_data() {
         return [{tag: "narrow", width: 320, fontScale: 1},
                 {tag: "narrow-large-text", width: 320, fontScale: 1.5},

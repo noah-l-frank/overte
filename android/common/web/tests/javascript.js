@@ -35,12 +35,17 @@ const subframe = { window: null, top: {}, __overteEditorNative: privateDocument.
 subframe.window = subframe;
 vm.runInContext(fs.readFileSync(path.join(resources, "editor-transport.js"), "utf8"), vm.createContext(subframe));
 assert.equal(subframe.__overteEditorTransport, undefined, "subframes cannot install the editor helper");
-const states = [], events = [];
+const states = [], events = [], viewportEvents = {}, animationFrames = [];
 class Input {
     constructor(text, type = "text") { this.value = text; this.type = type; this.selectionStart = this.selectionEnd = text.length; }
     setRangeText(text, start, end) { this.value = this.value.slice(0, start) + text + this.value.slice(end); this.selectionStart = this.selectionEnd = start + text.length; }
     setSelectionRange(start, end, direction) { this.selectionStart = start; this.selectionEnd = end; this.selectionDirection = direction; }
-    getBoundingClientRect() { return { x: 1, y: 2, width: 100, height: 40 }; }
+    getBoundingClientRect() { return this.bounds || { x: 1, y: 2, width: 100, height: 40 }; }
+    scrollIntoView(options) {
+        this.revealCount = (this.revealCount || 0) + 1;
+        this.revealOptions = options;
+        this.bounds = { ...this.getBoundingClientRect(), y: 0 };
+    }
     addEventListener() {}
     removeEventListener() {}
     dispatchEvent(event) { events.push(event); return this.onEvent ? this.onEvent(event) !== false : true; }
@@ -52,6 +57,11 @@ for (const name of Object.getOwnPropertyNames(Input.prototype)) {
     if (name !== "constructor") TextArea.prototype[name] = Input.prototype[name];
 }
 const editor = { HTMLInputElement: Input, HTMLTextAreaElement: TextArea,
+    innerWidth: 400, innerHeight: 900,
+    visualViewport: { width: 400, height: 120, offsetLeft: 0, offsetTop: 0,
+        addEventListener(name, callback) { viewportEvents['visual-' + name] = callback; } },
+    addEventListener(name, callback) { viewportEvents[name] = callback; },
+    requestAnimationFrame(callback) { animationFrames.push(callback); },
     CompositionEvent: class { constructor(type, values) { Object.assign(this, { type }, values); } },
     InputEvent: class { constructor(type, values) { Object.assign(this, { type }, values); } },
     KeyboardEvent: class { constructor(type, values) { Object.assign(this, { type }, values); } },
@@ -75,6 +85,7 @@ editor.__overteEditor.edit({ text: "bad", replaceStart: -2, replaceLength: 1 });
 assert.equal(editor.document.activeElement.value, "a😀b", "nonlocal replacement cannot split UTF-16 pair");
 editor.document.activeElement = new Input("secret", "password"); editor.__overteEditor.publish();
 assert.equal(states.at(-1).text, ""); assert.equal(states.at(-1).sensitive, true);
+assert.equal(states.at(-1).length, 6, "Only password length crosses the DOM/native boundary");
 editor.document.activeElement = new Input("a".repeat(20000)); editor.__overteEditor.publish();
 assert(states.at(-1).text.length <= 16384); assert.equal(states.at(-1).cursor, 8192);
 editor.document.activeElement = new Input("ab😀cd");
@@ -132,6 +143,29 @@ editor.__overteEditor.edit({ text: "bad" }); assert.equal(line.value, "single");
 line.readOnly = false;
 line.onEvent = event => { if (event.type === "keydown") editor.document.activeElement = new Input("replacement"); return true; };
 editor.__overteEditor.edit({ text: "bad" }); assert.equal(line.value, "single");
+const hiddenEditor = new Input("kept 🙂");
+hiddenEditor.bounds = { x: 1, y: 140, width: 100, height: 40 };
+editor.document.activeElement = hiddenEditor;
+assert.equal(typeof viewportEvents.resize, "function", "Resizing the browser must reveal its active DOM editor");
+viewportEvents.resize(); viewportEvents['visual-resize']();
+assert.equal(animationFrames.length, 1, "Coalesce layout and visual viewport resize events");
+animationFrames.shift()();
+assert.equal(hiddenEditor.revealCount, 1);
+assert.equal(hiddenEditor.revealOptions.block, "nearest");
+assert.equal(hiddenEditor.value, "kept 🙂");
+assert.equal(editor.document.activeElement, hiddenEditor);
+viewportEvents.resize(); animationFrames.shift()();
+assert.equal(hiddenEditor.revealCount, 1, "Do not scroll an already visible editor");
+const privateEditor = new Input("invented password", "password");
+privateEditor.bounds = { x: 1, y: 140, width: 100, height: 40 };
+editor.document.activeElement = privateEditor;
+viewportEvents.resize(); animationFrames.shift()();
+assert.equal(privateEditor.revealCount, 1);
+assert.equal(states.at(-1).sensitive, true);
+assert.equal(states.at(-1).text, "", "Revealing a password must retain the existing privacy boundary");
+privateEditor.readOnly = true; privateEditor.bounds.y = 140;
+viewportEvents.resize(); animationFrames.shift()();
+assert.equal(privateEditor.revealCount, 1, "Do not act on a read-only editor");
 if (process.argv[2]) {
     const messages = [], client = { __overteNative: { postMessage(data) { messages.push(JSON.parse(data)); } }, console };
     client.window = client; client.top = client;

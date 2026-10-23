@@ -87,7 +87,8 @@ public:  // ScriptEngine implementation
 
     std::unique_ptr<ScriptEngineScopeGuard> getScopeGuard() override;
     virtual void abortEvaluation() override;
-    bool isEvaluationAborted() const { return _abortRequested.load(); }
+    void runCleanup(const std::function<void()>& cleanup) override;
+    bool isEvaluationAborted() const { return _abortRequested.load() && !_cleanupRunning.load(); }
     virtual void clearExceptions() override;
     virtual ScriptContext* currentContext() const override;
     Q_INVOKABLE virtual ScriptValue evaluate(const QString& program, const QString& fileName = QString()) override;
@@ -260,6 +261,9 @@ protected:
 
     // V8TODO: clean up isolate when script engine is destroyed?
     std::atomic<bool> _abortRequested { false };
+    std::atomic<bool> _cleanupStarted { false };
+    std::atomic<bool> _cleanupRunning { false };
+    std::atomic<unsigned long long> _abortGeneration { 0 };
     v8::Isolate* _v8Isolate;
 
     struct CustomMarshal {

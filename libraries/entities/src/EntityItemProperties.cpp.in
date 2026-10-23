@@ -1320,7 +1320,7 @@ void EntityItemProperties::copySimulationRestrictedProperties(const EntityItemPo
         setAcceleration(entity->getAcceleration());
     }
     if (!_localDimensionsChanged && !_dimensionsChanged) {
-        setLocalDimensions(entity->getScaledDimensions());
+        setDimensions(entity->getScaledDimensions());
     }
 }
 

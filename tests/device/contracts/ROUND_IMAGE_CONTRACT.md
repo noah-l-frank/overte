@@ -33,3 +33,14 @@ The same fixture checks zero-size geometry recovery and a requested sourceSize
 change while the window is hidden. All seven fill modes and prior provider/error,
 clip, border and visibility checks remain. No additional repaint workaround was
 needed in this path; native Qt5 and full device timing remain unaccepted.
+
+Overte's RenderControl scene window stays hidden while a separate visible proxy
+receives the rendered surface. SharedObject now exposes that proxy as
+`offscreenRenderWindow`; RoundImage observes its visibility when it belongs to
+the supplied `offscreenWindow`. Ordinary shown/hidden QQuickViews retain their
+existing behavior. This matches Qt's effective-window check in grabToImage.
+The existing Qt6 software fixture additionally renders actual pixels through a
+hidden QQuickWindow with a visible RenderControl proxy, including a hidden-proxy
+source-size change, subsequent green pixels, clipping, and error clearing. The
+previous component fails the initial cyan-pixel assertion. This is a host
+regression test, not native Qt5 or Phone device acceptance.

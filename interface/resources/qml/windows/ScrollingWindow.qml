@@ -76,7 +76,7 @@ Windows.Window {
             id: scrollView
             interactive: window.contentFlickableInteractive
             contentItem.children: [ content ]
-            contentHeight: content.height
+            contentHeight: content.height * content.scale
             boundsBehavior: Flickable.StopAtBounds
             property bool isScrolling: (contentHeight - height) > 10 ? true : false
 
@@ -121,6 +121,29 @@ Windows.Window {
 
         function scrollBy(delta) {
             scrollView.flickableItem.contentY += delta;
+        }
+
+        function resetContentPosition() {
+            scrollView.cancelFlick();
+            scrollView.contentY = 0;
+        }
+
+        function ensureEditorVisible(editor, margin) {
+            // Only scroll editors belonging to this window, including editors
+            // inside a page's own Flickable. Cursor geometry keeps a multiline
+            // editor usable without trying to expose its entire height.
+            var ancestor = editor;
+            while (ancestor && ancestor !== content) { ancestor = ancestor.parent; }
+            if (!ancestor || scrollView.height <= 0) { return; }
+            var cursor = editor.cursorRectangle;
+            var top = editor.mapToItem(scrollView, 0, cursor ? cursor.y : 0).y;
+            var bottom = editor.mapToItem(scrollView, 0,
+                cursor ? cursor.y + cursor.height : editor.height).y;
+            var extent = Math.min(Math.abs(bottom - top), scrollView.height);
+            var delta = top < margin ? top - margin
+                : Math.max(0, top + extent + margin - scrollView.height);
+            scrollView.contentY = Math.max(0, Math.min(
+                scrollView.contentY + delta, Math.max(0, scrollView.contentHeight - scrollView.height)));
         }
 
         Rectangle {

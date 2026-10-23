@@ -39,6 +39,7 @@ signals:
 };
 class SnapshotUploader;
 class SnapshotMetaData { public: QUrl getURL() { return {}; } };
+class SecondaryCameraJobConfig;
 class Snapshot : public QObject {
     Q_OBJECT
 public:
@@ -77,6 +78,7 @@ public:
     QMutex _captureMutex;
     QHash<QString,SnapshotCapture> _captures;
     SnapshotCapture _capture360;
+    QPointer<SecondaryCameraJobConfig> _secondaryCamera360;
     QTimer _snapshotTimer;
     bool _taking360Snapshot {false}, _waitingOnSnapshot {false};
     QImage _imageArray[6];
@@ -85,6 +87,7 @@ signals:
     void uploadStatusChanged(QString path,QString status,QString error);
 };
 class SecondaryCameraJobConfig : public QObject {
+    Q_OBJECT
 public:
     int textureWidth {640},textureHeight {480};bool enabled {false};
     bool isEnabled() const { return enabled; }
@@ -93,8 +96,8 @@ public:
     void setPosition(glm::vec3 position) { setProperty("position",QVariantList{position.x,position.y,position.z}); }
     void setOrientation(glm::quat rotation) { setProperty("orientation",QVariantList{rotation.w,rotation.x,rotation.y,rotation.z}); }
 };
-struct RenderConfig { SecondaryCameraJobConfig camera; QObject* getConfig(QString) { return &camera; } };
-struct RenderEngine { RenderConfig config; RenderConfig* getConfiguration() { return &config; } };
+struct RenderConfig { SecondaryCameraJobConfig camera; QObject unrelated; bool cameraAvailable {true}, wrongType {false}, useOverride {false}; QObject* overrideCamera {nullptr}; QObject* getConfig(QString) { return useOverride ? overrideCamera : !cameraAvailable ? nullptr : wrongType ? &unrelated : &camera; } };
+struct RenderEngine { RenderConfig config; bool configAvailable {true}; RenderConfig* getConfiguration() { return configAvailable ? &config : nullptr; } };
 class RenderApplication : public QGuiApplication {
 public:
     using QGuiApplication::QGuiApplication;
@@ -102,7 +105,8 @@ public:
     struct Compositor { Reticle* reticle; Reticle* getReticleInterface() { return reticle; } } compositor {&reticle};
     Compositor& getApplicationCompositor() { return compositor; }
     RenderEngine engine;
-    RenderEngine* getRenderEngine() { return &engine; }
+    bool engineAvailable {true};
+    RenderEngine* getRenderEngine() { return engineAvailable ? &engine : nullptr; }
     void takeSnapshot(bool,bool,float,const QString&,const QString&);
     void takeSecondaryCamera360Snapshot(const glm::vec3&,const bool&,const bool&,const QString&,const QString&);
     using Operation = std::tuple<std::function<void(const QImage&)>,float,bool>;

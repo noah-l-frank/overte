@@ -3,10 +3,27 @@
 // Execute the complete shipped app; the tablet, avatar and entity APIs are boundaries.
 const assert = require("node:assert/strict");
 const path = require("node:path");
+const fs = require("node:fs");
+const vm = require("node:vm");
 const test = require("node:test");
 const { createScriptApi, createTabletApi, FakeSignal, runProductionScript } = require("../support");
 
 const source = path.resolve(__dirname, "../../../scripts/system/avatarapp.js");
+
+function qmlFunction(relative, name, context) {
+    const qml = fs.readFileSync(path.resolve(__dirname, "../../../", relative), "utf8");
+    const begin = qml.indexOf("function " + name + "(");
+    assert.ok(begin >= 0, name);
+    const brace = qml.indexOf("{", begin);
+    let depth = 1, end = brace + 1;
+    while (depth && end < qml.length) {
+        if (qml[end] === "{") depth++;
+        if (qml[end] === "}") depth--;
+        end++;
+    }
+    assert.equal(depth, 0);
+    return vm.runInNewContext("(" + qml.slice(begin, end) + ")", context);
+}
 
 function start(touch) {
     const Script = createScriptApi();
@@ -121,4 +138,47 @@ test("Avatar URL, bookmarks, scale and wearables retain their ordinary operation
     h.Script.end();
     assert.equal(h.Script.timers.size, 0);
     assert.equal(h.MyAvatar.targetScaleChanged.listenerCount, 0);
+});
+
+test("Matching favorite metadata never reapplies the current avatar or wearables", () => {
+    const avatar = { name: "", avatarScale: 1.004589715 };
+    const bookmark = { name: "saved" };
+    let loads = 0;
+    const update = qmlFunction("interface/resources/qml/hifi/AvatarApp.qml", "updateCurrentAvatarInBookmarks", {
+        allAvatars: { findAvatarIndexByValue: () => 0, get: () => bookmark },
+        view: { selectAvatar: () => loads++ }
+    });
+    update(avatar);
+    assert.equal(avatar.name, "saved");
+    assert.equal(loads, 0, "matching metadata must not reload the avatar");
+});
+
+test("Actual wearable size notification edits avatar-local dimensions", () => {
+    const natural = { x: .01, y: .218, z: .02 };
+    const calls = [];
+    const context = { modified: false, realValue: 2,
+        getCurrentWearable: () => ({ id: "own", naturalDimensions: natural }),
+        wearablesCombobox: { currentIndex: 0 },
+        wearableUpdated: (...args) => calls.push(args) };
+    const notify = qmlFunction("interface/resources/qml/hifi/avatarapp/AdjustWearables.qml", "notifyScaleChanged", context);
+    for (const scale of [2, .75]) {
+        context.realValue = scale;
+        notify();
+        const properties = calls.at(-1)[2];
+        assert.deepEqual(JSON.parse(JSON.stringify(properties)), { localDimensions:
+            Object.fromEntries(Object.entries(natural).map(([k, v]) => [k, scale * v])) });
+    }
+});
+
+test("Reopened wearable size uses the retained local frame at different avatar scales", () => {
+    const scale = qmlFunction("interface/resources/qml/hifi/avatarapp/AdjustWearables.qml", "getWearableScale", {});
+    assert.equal(scale(null), 1);
+    for (const parentScale of [.5, 1, 1.004589715, 2]) {
+        for (const expected of [2, .75]) {
+            const natural = { x: .01, y: .218, z: .02 };
+            const local = Object.fromEntries(Object.entries(natural).map(([k, v]) => [k, v * expected]));
+            const world = Object.fromEntries(Object.entries(local).map(([k, v]) => [k, v * parentScale]));
+            assert.equal(scale({ dimensions: world, localDimensions: local, naturalDimensions: natural }), expected);
+        }
+    }
 });

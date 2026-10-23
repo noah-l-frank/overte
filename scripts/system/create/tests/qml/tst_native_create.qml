@@ -5,6 +5,7 @@ import QtTest 1.2
 import "../../qml"
 
 Item {
+    id: testScene
     width: 480
     height: 720
     NativeCreate { id: page; anchors.fill: parent }
@@ -153,9 +154,43 @@ Item {
             compare(requests.count, 0)
             verify(page.statusError)
         }
+        function test_landscapeSwipeOverAdvancedEditorScrollsPage() {
+            testScene.width = 856
+            testScene.height = 290
+            page.currentTab = 2
+            selection()
+            wait(80)
+            var editor = findChild(page, "NativeCreateAdvanced")
+            var flick = editor.parent
+            while (flick && typeof flick.contentY !== "number") { flick = flick.parent }
+            verify(flick !== null)
+            try {
+                flick.cancelFlick()
+                var editorY = editor.mapToItem(flick.contentItem, 0, 0).y
+                flick.contentY = editorY - flick.height + 30
+                wait(80)
+                page.forceActiveFocus()
+                var before = flick.contentY
+                mouseDrag(editor, editor.width * 0.7, 12, 0, -85,
+                    Qt.LeftButton, Qt.NoModifier, 30)
+                tryVerify(function() { return flick.contentY > before + 10 }, 1500)
+                verify(!editor.activeFocus, "A page swipe must not activate the text editor")
+                flick.cancelFlick()
+                click("NativeCreateAdvanced")
+                verify(editor.activeFocus)
+                editor.selectAll()
+                keyClick(Qt.Key_A)
+                compare(editor.text, "a")
+            } finally {
+                flick.cancelFlick()
+                page.forceActiveFocus()
+                testScene.width = 480
+                testScene.height = 720
+            }
+        }
         function test_narrowLayout() {
-            page.width = 320
-            page.height = 600
+            testScene.width = 320
+            testScene.height = 600
             page.currentTab = 0
             wait(20)
             var shape = findChild(page, "NativeCreateNew_Shape")
@@ -167,6 +202,43 @@ Item {
                 verify(tab.width > 0 && tab.height >= 44)
                 verify(tab.mapToItem(page, tab.width, 0).x <= page.width)
             }
+            testScene.width = 480
+            testScene.height = 720
+        }
+        function test_mouseDragReachesLowerCreationControls() {
+            testScene.height = 300
+            page.currentTab = 0
+            wait(100)
+            compare(page.height, 300)
+            var shape = findChild(page, "NativeCreateNew_Shape")
+            var flick = shape.parent
+            while (flick && typeof flick.contentY !== "number") { flick = flick.parent }
+            verify(flick !== null)
+            flick.contentY = 0
+            verify(flick.contentHeight > flick.height)
+            mouseDrag(flick, flick.width / 2, flick.height - 12, 0, -flick.height / 2,
+                Qt.LeftButton, Qt.NoModifier, 400)
+            tryVerify(function() { return flick.contentY > 0 })
+            flick.cancelFlick()
+            flick.contentY = 0
+            testScene.height = 720
+        }
+        function test_landscapeListKeepsACompleteRowVisible() {
+            testScene.width = 856
+            testScene.height = 290
+            page.currentTab = 1
+            page.fromScript({ method: "nativeCreate.list", params: {
+                entities: [{id:"owned-row",name:"Owned fixture",type:"Shape",locked:false}], selectedIDs:[] } })
+            wait(50)
+            var list = findChild(page, "NativeCreateEntityList")
+            var row = findChild(page, "NativeCreateEntity_owned-row")
+            verify(row !== null)
+            verify(row.height >= 44)
+            verify(list.height >= row.height, "viewport=" + list.height + " row=" + row.height)
+            mouseClick(row, row.width / 2, row.height / 2)
+            compare(last().params.ids[0], "owned-row")
+            testScene.width = 480
+            testScene.height = 720
         }
         function test_detailedCreationEntry() {
             page.currentTab = 0

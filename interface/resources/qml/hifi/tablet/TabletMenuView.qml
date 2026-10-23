@@ -89,15 +89,19 @@ FocusScope {
 
         delegate: TabletMenuItem {
             id: menuItem
-            text: name
+            // QAction labels can change while this menu remains open, for
+            // example after logging out. Follow the source, not its model copy.
+            text: source ? (source.type === MenuAdapter.Menu ? source.title :
+                           source.type === MenuAdapter.Item ? source.text : "")
+                         + (phoneSupported ? "" : " (Unavailable on this device)") : ""
             source: item
             platformEnabled: phoneSupported
             touchTextScale: touchMetrics.textScale
             minimumControlHeight: touchMetrics.adaptiveMinimumControlHeight
-            activeFocusOnTab: name !== "" && item.enabled && phoneSupported
+            activeFocusOnTab: menuItem.text !== "" && item.enabled && phoneSupported
             Accessible.role: item.type === MenuAdapter.Menu
                 ? Accessible.Button : Accessible.MenuItem
-            Accessible.name: name
+            Accessible.name: menuItem.text
             Accessible.description: phoneSupported
                 ? (item.type === MenuAdapter.Menu
                     ? qsTr("Open submenu") : qsTr("Activate menu item"))
@@ -107,7 +111,7 @@ FocusScope {
             onImplicitWidthChanged: listView !== null ? listView.scheduleRecalcSize() : 0
 
             MouseArea {
-                enabled: name !== "" && item.enabled && phoneSupported
+                enabled: menuItem.text !== "" && item.enabled && phoneSupported
                 anchors.fill: parent
                 Accessible.ignored: true
                 hoverEnabled: touchMetrics.hoverSupported

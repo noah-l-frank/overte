@@ -11,6 +11,8 @@
 
 #include "CharacterController.h"
 
+#include <cmath>
+
 #include <AvatarConstants.h>
 #include <NumericalConstants.h>
 #include <PhysicsCollisionGroups.h>
@@ -19,6 +21,22 @@
 #include "PhysicsHelpers.h"
 #include "PhysicsLogging.h"
 #include "TemporaryPairwiseCollisionFilter.h"
+
+namespace {
+
+bool isValidGroundRay(const btVector3& from, const btVector3& to) {
+    for (int axis = 0; axis < 3; ++axis) {
+        if (!std::isfinite(from[axis]) || !std::isfinite(to[axis])) {
+            return false;
+        }
+    }
+    const btVector3 direction = to - from;
+    // Bullet normalizes the segment and asserts on fuzzy-zero vectors. A short
+    // probe can collapse after rounding even when both world positions are finite.
+    return std::isfinite(direction.length2()) && !direction.fuzzyZero();
+}
+
+} // namespace
 
 const float STUCK_PENETRATION = -0.05f; // always negative into the object.
 const float STUCK_IMPULSE = 500.0f;
@@ -330,6 +348,10 @@ void CharacterController::preStep(btCollisionWorld* collisionWorld) {
     const btScalar FLOOR_PROXIMITY_THRESHOLD = 0.3f * _radius;
     btScalar rayLength = _radius + FLOOR_PROXIMITY_THRESHOLD;
     btVector3 rayEnd = rayStart - rayLength * _currentUp;
+
+    if (!isValidGroundRay(rayStart, rayEnd)) {
+        return;
+    }
 
     // scan down for nearby floor
     ClosestNotMe rayCallback(_rigidBody);
@@ -946,7 +968,9 @@ void CharacterController::updateState() {
 
     ClosestNotMe rayCallback(_rigidBody);
     rayCallback.m_closestHitFraction = 1.0f;
-    _physicsEngine->getDynamicsWorld()->rayTest(rayStart, rayEnd, rayCallback);
+    if (isValidGroundRay(rayStart, rayEnd)) {
+        _physicsEngine->getDynamicsWorld()->rayTest(rayStart, rayEnd, rayCallback);
+    }
     bool rayHasHit = rayCallback.hasHit();
     quint64 now = usecTimestampNow();
     if (rayHasHit) {

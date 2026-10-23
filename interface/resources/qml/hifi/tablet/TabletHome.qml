@@ -419,7 +419,10 @@ Item {
             }
 
             interactive: false
-            height: presentation.pageIndicatorHeight
+            // Reserve the delegates' full touch area above the Close button.
+            // A shorter indicator lets its page targets overlap Close.
+            height: visible ? Math.max(presentation.pageIndicatorHeight,
+                implicitHeight, presentation.minimumTouchTarget) : 0
             anchors.bottom: closeTabletButton.top
             anchors.horizontalCenter: parent.horizontalCenter
             count: swipeView.count

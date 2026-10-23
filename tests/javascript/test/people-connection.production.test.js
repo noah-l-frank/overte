@@ -70,20 +70,23 @@ function world() {
                         if (responseMode === "hold") {
                             held.push(() => {
                                 this.status = 200; this.statusText = "OK"; this.readyState = 4;
-                                this.responseText = JSON.stringify({ status: "success", connection: { username: "held-peer", new_connection: true } });
+                                this.responseText = JSON.stringify({ status: "success", data: { connection: { username: "held-peer", new_connection: true } } });
                                 this.onreadystatechange();
                             });
                             return;
                         }
-                        if (responseMode === "401") { status = 401; value = {}; }
+                        if (this.method !== "POST") { status = 404; value = {}; }
+                        else if (responseMode === "401") { status = 401; value = {}; }
                         else if (responseMode === "network") { status = 0; value = {}; }
                         else if (responseMode === "malformed") { value = { status: "success" }; }
+                        else if (responseMode === "failed-pending") { value = { status: "failure", data: { connection: "pending" } }; }
                         else {
-                            const pair = this.method === "POST" ? JSON.parse(body).user_connection_request : Object.fromEntries(url.searchParams);
-                            if (this.method === "POST") { proposals.set(pair.node_id, pair.proposed_node_id); }
-                            value = proposals.get(pair.proposed_node_id) === pair.node_id
-                                ? { status: "success", connection: { username: "confirmed-peer", new_connection: true } }
-                                : { status: "success", connection: "pending" };
+                            const pair = JSON.parse(body).user_connection_request;
+                            proposals.set(pair.node_id, pair.proposed_node_id);
+                            const connection = proposals.get(pair.proposed_node_id) === pair.node_id
+                                ? { username: "confirmed-peer", new_connection: true } : "pending";
+                            value = responseMode === "legacy-flat" ? { status: "success", connection }
+                                : { status: "success", data: { connection } };
                         }
                     }
                     this.status = status; this.statusText = status === 200 ? "OK" : "Unavailable";
@@ -168,20 +171,24 @@ test("normal touch People requests and actual Pico Pal opens an explicit consent
     a.stop(); b.stop(); assert.equal(w.timers.size, 0);
 });
 
-test("two real Pal engines submit reciprocal authenticated protocol bytes and poll through the actual request serializer", () => {
-    const w = world(), { a, b } = w.pair(); a.ui.open(); a.request(B); w.deliver(); b.respond(true); w.deliver();
-    assert.equal(w.posts().length, 2);
-    for (const row of w.posts()) {
-        assert.equal(row.headers["Content-type"], "application/json");
-        assert.deepEqual(JSON.parse(row.body), { user_connection_request: { node_id: row.owner, proposed_node_id: row.owner === A ? B : A } });
+test("two real Pal engines handle Iamus data and legacy flat connection envelopes through the actual request serializer", () => {
+    for (const format of ["normal", "legacy-flat"]) {
+        const w = world(), { a, b } = w.pair(); w.mode(format); a.ui.open(); a.request(B); w.deliver(); b.respond(true); w.deliver();
+        assert.equal(w.posts().length, 2);
+        for (const row of w.posts()) {
+            assert.equal(row.headers["Content-type"], "application/json");
+            assert.deepEqual(JSON.parse(row.body), { user_connection_request: { node_id: row.owner, proposed_node_id: row.owner === A ? B : A } });
+        }
+        w.advance(200);
+        assert.equal(a.ui.state.phase, "success"); assert.equal(b.ui.state.phase, "success");
+        const poll = w.posts()[2];
+        assert.ok(poll); assert.equal(poll.headers["Content-type"], "application/json");
+        assert.deepEqual(JSON.parse(poll.body), { user_connection_request: { node_id: poll.owner,
+            proposed_node_id: poll.owner === A ? B : A } });
+        assert.ok(a.ui.sent.some(row => row.method === "refreshConnections"));
+        assert.ok(b.ui.sent.some(row => row.method === "refreshConnections"));
+        a.stop(); b.stop(); assert.equal(w.timers.size, 0);
     }
-    w.advance(200);
-    assert.equal(a.ui.state.phase, "success"); assert.equal(b.ui.state.phase, "success");
-    const poll = w.http.find(row => row.method === "GET" && row.url.includes("/user/connection_request?"));
-    assert.ok(poll); assert.equal(poll.body, null); assert.equal(poll.headers["Content-type"], undefined);
-    assert.ok(a.ui.sent.some(row => row.method === "refreshConnections"));
-    assert.ok(b.ui.sent.some(row => row.method === "refreshConnections"));
-    a.stop(); b.stop(); assert.equal(w.timers.size, 0);
 });
 
 test("self, invalid, offline, ignored, replicated and anonymous local requests cannot submit or invite", () => {
@@ -236,7 +243,7 @@ test("peer loss, account/session/domain/endpoint changes and invitation timeout 
 });
 
 test("real request transport errors and malformed service replies never manufacture a connection", () => {
-    for (const mode of ["401", "network", "malformed"]) {
+    for (const mode of ["401", "network", "malformed", "failed-pending"]) {
         const w = world(), { a, b } = w.pair(); w.mode(mode); a.request(B); w.deliver(); b.respond(true); w.deliver();
         assert.equal(a.ui.state.phase, "error"); assert.equal(b.ui.state.phase, "error");
         if (mode === "401") { assert.match(a.ui.state.message, /signed in/); }

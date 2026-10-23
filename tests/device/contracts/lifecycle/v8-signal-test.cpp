@@ -3,6 +3,8 @@
 #include <QVariant>
 #include <QList>
 #include <QLoggingCategory>
+#include <QCoreApplication>
+#include <QPointer>
 #include <v8.h>
 #include <libplatform/libplatform.h>
 #include <atomic>
@@ -24,6 +26,9 @@ struct ManagerBoundary {
     int notifications { 0 };
     void scriptErrorMessage(const QString&, const QString&, int) { ++notifications; }
 };
+struct ScriptEngine {
+    struct ScriptEngineScopeGuard { virtual ~ScriptEngineScopeGuard() = default; };
+};
 struct ScriptEngineV8 {
     v8::Isolate* isolate;
     v8::Local<v8::Context> context;
@@ -34,6 +39,9 @@ struct ScriptEngineV8 {
     void abortEvaluation();
 #include "abort-state.inc"
     v8::Isolate* getIsolate() { return isolate; }
+    using ScriptEngineScopeGuard = ScriptEngine::ScriptEngineScopeGuard;
+#include "method-scopeguard-type.inc"
+    std::unique_ptr<ScriptEngineScopeGuard> getScopeGuard();
     v8::Local<v8::Context> getContext() { return context; }
     V8ScriptValue castVariantToValue(const QVariant& value) {
         ++conversions;
@@ -45,6 +53,20 @@ struct ScriptEngineV8 {
     void popContext() { ++pops; }
 };
 #include "abort-method.inc"
+#include "method-scopeguard.inc"
+class ScriptMethodV8Proxy final : public QObject {
+public:
+    ScriptEngineV8* _engine;
+    v8::Persistent<v8::Value> _objectLifetime;
+    ScriptMethodV8Proxy(ScriptEngineV8* engine, v8::Local<v8::Value> value) : _engine(engine) {
+        _objectLifetime.Reset(engine->getIsolate(), value);
+    }
+    ~ScriptMethodV8Proxy() override;
+    static void weakHandleCallback(const v8::WeakCallbackInfo<ScriptMethodV8Proxy>&);
+};
+// Complete production destructor and weak callback, real Qt deferred deletion,
+// and the complete production V8 Locker/Isolate scope guard.
+#include "method-lifetime.inc"
 QString getFileNameFromTryCatch(const v8::TryCatch&, v8::Isolate*, v8::Local<v8::Context>) { return {}; }
 class ScriptSignalV8Proxy final : public ScriptSignalV8ProxyBase, public ReadWriteLockable {
 public:
@@ -72,6 +94,7 @@ static void record(const v8::FunctionCallbackInfo<v8::Value>& info) {
 static void next(const v8::FunctionCallbackInfo<v8::Value>&) { ++second; }
 static void markEntered(const v8::FunctionCallbackInfo<v8::Value>&) { entered.store(true, std::memory_order_release); }
 int main(int argc, char** argv) {
+    QCoreApplication app(argc, argv);
     assert(argc == 2);
     const std::string mode(argv[1]);
     v8::V8::InitializeICUDefaultLocation(argv[0]);
@@ -82,6 +105,46 @@ int main(int argc, char** argv) {
     v8::Isolate::CreateParams parameters;
     parameters.array_buffer_allocator = allocator.get();
     auto isolate = v8::Isolate::New(parameters);
+    if (mode == "method-live-delete" || mode == "method-weak-deferred-delete") {
+        ManagerBoundary manager;
+        ScriptEngineV8 engine { isolate, {}, &manager };
+        ScriptMethodV8Proxy* method;
+        {
+            auto scope = engine.getScopeGuard();
+            v8::HandleScope handles(isolate);
+            auto context = v8::Context::New(isolate);
+            v8::Context::Scope contextScope(context);
+            method = new ScriptMethodV8Proxy(&engine, v8::Object::New(isolate));
+            if (mode == "method-weak-deferred-delete") {
+                method->_objectLifetime.SetWeak(method, ScriptMethodV8Proxy::weakHandleCallback,
+                                               v8::WeakCallbackType::kParameter);
+            }
+        }
+        QPointer<ScriptMethodV8Proxy> observed(method);
+        int destroyed = 0;
+        QObject::connect(method, &QObject::destroyed, [&] { ++destroyed; });
+        {
+            // Qt can deliver DeferredDelete while this isolate is current but
+            // outside the Locker used for the preceding script invocation.
+            v8::Isolate::Scope currentWithoutLocker(isolate);
+            if (mode == "method-weak-deferred-delete") {
+                {
+                    auto scope = engine.getScopeGuard();
+                    v8::HandleScope handles(isolate);
+                    isolate->LowMemoryNotification();
+                }
+                assert(method->_objectLifetime.IsEmpty());
+                QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            } else {
+                delete method;
+            }
+        }
+        assert(observed.isNull() && destroyed == 1);
+        isolate->Dispose();
+        v8::V8::Dispose();
+        v8::V8::DisposePlatform();
+        return 0;
+    }
     {
         v8::Isolate::Scope isolateScope(isolate);
         v8::HandleScope handles(isolate);

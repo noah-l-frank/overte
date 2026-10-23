@@ -148,57 +148,76 @@ Rectangle {
     }
     FolderListModel { id: files; folder: root.dir; nameFilters: root.patterns; showDirs: true; showHidden: root.showHidden; showDotAndDotDot: false; sortField: [FolderListModel.Name, FolderListModel.Size, FolderListModel.Time][sortBox.currentIndex]; sortReversed: descending.checked }
     HifiControls.TouchUiMetrics { id: metrics }
-    ColumnLayout {
+    Flickable {
+        anchors.fill: parent; anchors.margins: 12
         visible: !root.bundle
-        anchors.fill: parent; anchors.margins: 12; spacing: 8
-        Label { text: root.caption; color: "white"; font.pixelSize: 22; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-        RowLayout {
-            Layout.fillWidth: true
-            Button { objectName: "fileBack"; text: "Back"; implicitHeight: 48; enabled: root.backStack.length > 0; onClicked: { var stack = root.backStack.slice(), previous = stack.pop(); root.backStack = stack; root.enterDirectory(previous, false); } }
-            Button { objectName: "fileUp"; text: "Up"; implicitHeight: 48; enabled: String(files.parentFolder).length > 0; onClicked: root.enterDirectory(files.parentFolder) }
-            TextField { id: pathInput; objectName: "fileFolderPath"; Layout.fillWidth: true; implicitHeight: 48; onAccepted: { var url = root.helper.pathToUrl(text); if (root.helper.urlIsDir(url)) root.enterDirectory(url); else root.error = "Folder unavailable."; } }
+        clip: true
+        contentWidth: width
+        contentHeight: contentItem.childrenRect.height
+        boundsBehavior: Flickable.StopAtBounds
+        pressDelay: 0
+        ScrollBar.vertical: ScrollBar { }
+        ColumnLayout {
+            width: parent.parent.width; spacing: 8
+            Label { text: root.caption; color: "white"; font.pixelSize: 22; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            RowLayout {
+                Layout.fillWidth: true
+                Button { objectName: "fileBack"; text: "Back"; implicitHeight: 48; enabled: root.backStack.length > 0; onClicked: { var stack = root.backStack.slice(), previous = stack.pop(); root.backStack = stack; root.enterDirectory(previous, false); } }
+                Button { objectName: "fileUp"; text: "Up"; implicitHeight: 48; enabled: String(files.parentFolder).length > 0; onClicked: root.enterDirectory(files.parentFolder) }
+                TextField { id: pathInput; objectName: "fileFolderPath"; Layout.fillWidth: true; implicitHeight: 48; onAccepted: { var url = root.helper.pathToUrl(text); if (root.helper.urlIsDir(url)) root.enterDirectory(url); else root.error = "Folder unavailable."; } }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Button { objectName: "fileHome"; text: "Home"; implicitHeight: 48; onClicked: root.enterDirectory(root.helper.home()) }
+                ComboBox { model: root.helper.drives(); Layout.fillWidth: true; implicitHeight: 48; onActivated: root.enterDirectory(root.helper.pathToUrl(currentText)) }
+                CheckBox { text: "Hidden"; checked: root.showHidden; onToggled: root.showHidden = checked }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                ComboBox { id: sortBox; objectName: "fileSort"; model: ["Name", "Size", "Modified"]; Layout.fillWidth: true; implicitHeight: 48 }
+                CheckBox { id: descending; text: "Descending" }
+            }
+            ListView {
+                id: list; objectName: "fileList"; Layout.fillWidth: true; Layout.preferredHeight: Math.max(100, root.height - 680); clip: true; model: files
+                ScrollBar.vertical: ScrollBar {}
+                Keys.onReturnPressed: { if (currentIndex >= 0) { root.choose(currentIndex); if (!files.isFolder(currentIndex)) root.accept(); } }
+                delegate: ItemDelegate { objectName: "fileRow" + index; width: list.width; height: 48; text: (fileIsDir ? "▸ " : "") + fileName + (fileIsDir ? "" : " · " + fileSize + " bytes"); highlighted: root.chosen.indexOf(String(fileUrl)) !== -1; onClicked: root.choose(index) }
+            }
+            ComboBox { id: filterBox; objectName: "fileFilter"; model: root.filters; Layout.fillWidth: true; implicitHeight: 48 }
+            TextField { id: filename; objectName: "fileNameInput"; placeholderText: root.selectDirectory ? "Folder path" : "Filename or full path"; Layout.fillWidth: true; implicitHeight: 48; onAccepted: root.accept() }
+            Label { text: root.bundleMode ? "Select the main file and all required companions, or import their folder. Relative paths are preserved." : ""; visible: root.bundleMode; color: "white"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+            Label { text: root.error; visible: text.length > 0; color: "#ffaaaa"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+            Flow {
+                Layout.fillWidth: true; spacing: 8
+                Button { objectName: "systemDocumentPicker"; text: "System documents"; implicitHeight: 48; visible: !root.saveDialog && !root.selectDirectory; enabled: !root.requestId; onClicked: root.openSystemPicker() }
+                Button { objectName: "systemDocumentTree"; text: "System folder"; implicitHeight: 48; visible: root.bundleMode; enabled: !root.requestId; onClicked: root.openSystemTree() }
+                Button { objectName: "fileAccept"; text: root.saveDialog ? "Save" : "Select"; implicitHeight: 48; enabled: !root.requestId; onClicked: root.accept() }
+                Button { objectName: "fileCancel"; text: "Cancel"; implicitHeight: 48; onClicked: root.cancel() }
+            }
+            NativeKeyboardHost { Layout.fillWidth: true; Layout.preferredHeight: implicitHeight; inputFocused: filename.activeFocus || pathInput.activeFocus }
         }
-        RowLayout {
-            Layout.fillWidth: true
-            Button { objectName: "fileHome"; text: "Home"; implicitHeight: 48; onClicked: root.enterDirectory(root.helper.home()) }
-            ComboBox { model: root.helper.drives(); Layout.fillWidth: true; implicitHeight: 48; onActivated: root.enterDirectory(root.helper.pathToUrl(currentText)) }
-            CheckBox { text: "Hidden"; checked: root.showHidden; onToggled: root.showHidden = checked }
-        }
-        RowLayout {
-            Layout.fillWidth: true
-            ComboBox { id: sortBox; objectName: "fileSort"; model: ["Name", "Size", "Modified"]; Layout.fillWidth: true; implicitHeight: 48 }
-            CheckBox { id: descending; text: "Descending" }
-        }
-        ListView {
-            id: list; objectName: "fileList"; Layout.fillWidth: true; Layout.fillHeight: true; clip: true; model: files
-            ScrollBar.vertical: ScrollBar {}
-            Keys.onReturnPressed: { if (currentIndex >= 0) { root.choose(currentIndex); if (!files.isFolder(currentIndex)) root.accept(); } }
-            delegate: ItemDelegate { objectName: "fileRow" + index; width: list.width; height: 48; text: (fileIsDir ? "▸ " : "") + fileName + (fileIsDir ? "" : " · " + fileSize + " bytes"); highlighted: root.chosen.indexOf(String(fileUrl)) !== -1; onClicked: root.choose(index) }
-        }
-        ComboBox { id: filterBox; objectName: "fileFilter"; model: root.filters; Layout.fillWidth: true; implicitHeight: 48 }
-        TextField { id: filename; objectName: "fileNameInput"; placeholderText: root.selectDirectory ? "Folder path" : "Filename or full path"; Layout.fillWidth: true; implicitHeight: 48; onAccepted: root.accept() }
-        Label { text: root.bundleMode ? "Select the main file and all required companions, or import their folder. Relative paths are preserved." : ""; visible: root.bundleMode; color: "white"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-        Label { text: root.error; visible: text.length > 0; color: "#ffaaaa"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-        Flow {
-            Layout.fillWidth: true; spacing: 8
-            Button { objectName: "systemDocumentPicker"; text: "System documents"; implicitHeight: 48; visible: !root.saveDialog && !root.selectDirectory; enabled: !root.requestId; onClicked: root.openSystemPicker() }
-            Button { objectName: "systemDocumentTree"; text: "System folder"; implicitHeight: 48; visible: root.bundleMode; enabled: !root.requestId; onClicked: root.openSystemTree() }
-            Button { objectName: "fileAccept"; text: root.saveDialog ? "Save" : "Select"; implicitHeight: 48; enabled: !root.requestId; onClicked: root.accept() }
-            Button { objectName: "fileCancel"; text: "Cancel"; implicitHeight: 48; onClicked: root.cancel() }
-        }
-        NativeKeyboardHost { Layout.fillWidth: true; Layout.preferredHeight: implicitHeight; inputFocused: filename.activeFocus || pathInput.activeFocus }
     }
-    ColumnLayout {
-        visible: !!root.bundle; anchors.fill: parent; anchors.margins: 12; spacing: 8
-        Label { text: "Review files and choose the main file"; color: "white"; font.pixelSize: 22; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-        Label { text: "Only the main script is executed. Companions remain available at their relative paths."; visible: !!root.primaryFilter; color: "white"; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-        ComboBox { id: primary; objectName: "bundlePrimary"; model: root.bundle ? root.bundle.relativePaths : []; Layout.fillWidth: true; implicitHeight: 48 }
-        ListView { objectName: "bundleFiles"; model: root.bundle ? root.bundle.relativePaths : []; Layout.fillWidth: true; Layout.fillHeight: true; clip: true; delegate: Label { text: modelData; color: "white"; width: ListView.view.width; wrapMode: Text.WrapAnywhere; height: Math.max(40, implicitHeight) } }
-        Label { text: root.error; visible: !!text; color: "#ffaaaa"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-        RowLayout {
-            Button { objectName: "bundleBack"; text: "Change selection"; implicitHeight: 48; onClicked: { root.bundle = null; root.error = ""; } }
-            Button { objectName: "bundleConfirm"; text: "Use files"; implicitHeight: 48; enabled: primary.currentIndex >= 0; onClicked: root.confirmBundle() }
-            Button { objectName: "bundleCancel"; text: "Cancel"; implicitHeight: 48; onClicked: root.cancel() }
+    Flickable {
+        anchors.fill: parent; anchors.margins: 12
+        visible: !!root.bundle
+        clip: true
+        contentWidth: width
+        contentHeight: contentItem.childrenRect.height
+        boundsBehavior: Flickable.StopAtBounds
+        pressDelay: 0
+        ScrollBar.vertical: ScrollBar { }
+        ColumnLayout {
+            width: parent.parent.width; spacing: 8
+            Label { text: "Review files and choose the main file"; color: "white"; font.pixelSize: 22; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            Label { text: "Only the main script is executed. Companions remain available at their relative paths."; visible: !!root.primaryFilter; color: "white"; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            ComboBox { id: primary; objectName: "bundlePrimary"; model: root.bundle ? root.bundle.relativePaths : []; Layout.fillWidth: true; implicitHeight: 48 }
+            ListView { objectName: "bundleFiles"; model: root.bundle ? root.bundle.relativePaths : []; Layout.fillWidth: true; Layout.preferredHeight: Math.max(120, root.height - 450); clip: true; delegate: Label { text: modelData; color: "white"; width: ListView.view.width; wrapMode: Text.WrapAnywhere; height: Math.max(40, implicitHeight) } }
+            Label { text: root.error; visible: !!text; color: "#ffaaaa"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+            RowLayout {
+                Button { objectName: "bundleBack"; text: "Change selection"; implicitHeight: 48; onClicked: { root.bundle = null; root.error = ""; } }
+                Button { objectName: "bundleConfirm"; text: "Use files"; implicitHeight: 48; enabled: primary.currentIndex >= 0; onClicked: root.confirmBundle() }
+                Button { objectName: "bundleCancel"; text: "Cancel"; implicitHeight: 48; onClicked: root.cancel() }
+            }
         }
     }
     Dialog {

@@ -18,6 +18,11 @@
 #define GRAPHICS_BUFFER_MATERIAL 0
 #define GRAPHICS_BUFFER_SKINNING 1
 #define GRAPHICS_MAX_SKINNING_CLUSTERS 128
+#define GRAPHICS_MAX_SKINNING_INFLUENCES 8
+// Extended index words retain two seven-bit palette indices and a complete
+// secondary uint16 weight. Bit 30 is reserved; legacy words have no high flag.
+#define GRAPHICS_SKINNING_EXTENDED_FLAG 0x80000000u
+#define GRAPHICS_SKINNING_RESERVED_FLAG 0x40000000u
 #define GRAPHICS_BUFFER_TRIPLANAR_SCALE 2
 
 #define GRAPHICS_BUFFER_KEY_LIGHT 3

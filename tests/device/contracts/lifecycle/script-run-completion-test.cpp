@@ -17,17 +17,40 @@ std::function<void()> threadNameHook;
 void setThreadName(const std::string&) { if (threadNameHook) threadNameHook(); }
 Q_LOGGING_CATEGORY(scriptengine, "overte.test.script-run")
 struct ScriptEngines { bool stopped = false; bool isStopped() const { return stopped; } };
+struct ScriptSyntaxCheckResult {
+    enum State { Valid, Error };
+    State result = Valid;
+    State state() const { return result; }
+};
+struct Program {
+    std::shared_ptr<ScriptSyntaxCheckResult> syntax;
+    auto checkSyntax() { return syntax; }
+};
 struct Engine {
     int scopes = 0, evaluations = 0, disconnects = 0, aborts = 0, threadAssignments = 0;
     std::function<void()> onEvaluate, onDisconnect;
+    bool syntaxFailure = false, syntaxUnavailable = false, nullProgram = false, runtimeFailure = false;
+    int programs = 0;
+    std::shared_ptr<Program> newProgram(const QString&, const QString&) {
+        ++programs;
+        if (nullProgram) return {};
+        auto program = std::make_shared<Program>();
+        if (!syntaxUnavailable) {
+            program->syntax = std::make_shared<ScriptSyntaxCheckResult>();
+            if (syntaxFailure) program->syntax->result = ScriptSyntaxCheckResult::Error;
+        }
+        return program;
+    }
+    int evaluate(const std::shared_ptr<Program>&) { return evaluate(QString(), QString()); }
     std::unique_ptr<int> getScopeGuard() { ++scopes; return std::make_unique<int>(0); }
     int evaluate(const QString&, const QString&) { ++evaluations; if (onEvaluate) onEvaluate(); return 0; }
     void abortEvaluation() { ++aborts; }
+    void runCleanup(const std::function<void()>& cleanup) { assert(aborts > 0); cleanup(); }
     void setThread(QThread*) { ++threadAssignments; }
-    bool hasUncaughtException() { return false; }
+    bool hasUncaughtException() { return runtimeFailure && evaluations > 0; }
     bool isEvaluating() { return false; }
     QString uncaughtException() { return {}; }
-    void clearExceptions() {}
+    void clearExceptions() { runtimeFailure = false; }
     void processEvents() {}
     void perManagerLoopIterationCleanup() {}
     void disconnectSignalProxies() { ++disconnects; if (onDisconnect) onDisconnect(); }
@@ -43,6 +66,8 @@ public:
     std::atomic<bool> _isStopping { false }, _isFinished { false }, _isRunning { false }, _isDoneRunning { false };
 #include "run-state.inc"
     bool _isInitialized = false, _isThreaded = false, _abortOnUncaughtException = false;
+    bool userLoaded = false;
+    bool isUserLoaded() const { return userLoaded; }
     QString _fileNameString = "fixture.js", _scriptContents = "fixture";
     int _returnValue = 0, initializations = 0, timerStops = 0;
     qint64 _lastUpdate = 0;
@@ -69,6 +94,7 @@ signals:
     void doneRunning();
     void update(float);
     void unhandledException(QString);
+    void errorLoadingScript(QString);
 };
 #include "run.inc"
 #include "run.moc"
@@ -83,13 +109,21 @@ int main(int argc, char** argv) {
     QPointer<ScriptManager> observed(owner.get());
     owner->_scriptEngines = engines;
     auto engine = owner->_engine;
+    owner->userLoaded = mode == "valid-user" || mode == "syntax-error" || mode == "syntax-unavailable" || mode == "null-program" || mode == "runtime-error";
+    engine->syntaxFailure = mode == "syntax-error";
+    engine->syntaxUnavailable = mode == "syntax-unavailable";
+    engine->nullProgram = mode == "null-program";
+    engine->runtimeFailure = mode == "runtime-error";
     std::weak_ptr<ScriptManager> weak = owner;
     engine->onEvaluate = [weak] {
         if (auto manager = weak.lock()) {
             QTimer::singleShot(0, manager.get(), [weak] { if (auto m = weak.lock()) m->stop(false); });
         }
     };
-    int finished = 0, done = 0, ending = 0, releases = 0;
+    int finished = 0, done = 0, ending = 0, releases = 0, loadErrors = 0;
+    QObject::connect(owner.get(), &ScriptManager::errorLoadingScript, [&](const QString& filename) {
+        assert(filename == "fixture.js"); ++loadErrors;
+    });
     auto attachObservers = [&] {
     QObject::connect(owner.get(), &ScriptManager::finished, [&](const QString&, std::shared_ptr<ScriptManager> value) {
         assert(value.get() == observed); ++finished;
@@ -161,7 +195,9 @@ int main(int argc, char** argv) {
     else {
         assert(owner->_isDoneRunning && owner->_isFinished && owner->_isStopping && !owner->_isRunning);
         const bool noInit = mode == "prestop" || mode == "globalstop" || mode == "threaded";
-        const bool noEval = noInit || mode == "initstop" || mode == "runningstop";
+        const bool invalid = mode == "syntax-error" || mode == "syntax-unavailable" || mode == "null-program";
+        const bool noEval = noInit || mode == "initstop" || mode == "runningstop" || invalid;
+        assert(loadErrors == int(invalid || mode == "runtime-error"));
         assert(owner->initializations == int(!noInit) && ending == int(!noInit));
         assert(engine->evaluations == int(!noEval) && owner->timerStops == 1);
         const int scopes = engine->scopes;

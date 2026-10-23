@@ -201,6 +201,15 @@ private slots:
             evaluate(dual, palette, {0,0,0,0}, {std::numeric_limits<float>::quiet_NaN(),
                 std::numeric_limits<float>::infinity(), -1, 0});
             expect(unchanged);
+            evaluate(dual, palette, {0xc0000000u,0xc0000000u,0xc0000000u,0xc0000000u}, {1,1,1,1});
+            expect(unchanged); // Reserved extended words must not become palette loads.
+            const uint32_t secondaryWeight = uint32_t(65535) << 14;
+            evaluate(dual, palette, {0x80000000u | secondaryWeight | (2u << 7),
+                0x80000000u,0x80000000u,0x80000000u}, {0,0,0,0});
+            expect(unchanged); // Secondary index 2 is outside the actual two-entry palette.
+            evaluate(dual, palette, {0x80000000u | secondaryWeight | (1u << 7),
+                0x80000000u,0x80000000u,0x80000000u}, {0,0,0,0});
+            expect({6,2,3,1, 0,1,0, 1,0,0}); // First usable DQ reference may be secondary.
             evaluate(dual, palette, {65535,1,128,127}, {0,1,0,0});
             expect({6,2,3,1, 0,1,0, 1,0,0});
             if (!dual) { QVERIFY(graphics::updateSkinningPalette(palette, std::vector<glm::mat4>{dq.getMatrix()}, 1)); }
@@ -289,6 +298,87 @@ private slots:
             }
         }
         glDisableVertexAttribArray(0); glDisableVertexAttribArray(1);
+#endif
+    }
+    void completeEightInfluencePackedAnimation() {
+#ifdef Q_OS_LINUX
+        // Use the existing fixture for a real skeleton, then supply native HFM
+        // eight-lane data. This does not claim glTF JOINTS_1 support.
+        GLTFSerializer serializer;
+        auto model = serializer.read(skinning_test::manyUsedJoints(8), {}, QUrl("file:///extended-skeleton.gltf"));
+        QVERIFY(model);
+        auto& source = model->meshes[0];
+        source.skinningInfluenceCount = 8;
+        source.clusterIndices.resize(source.vertices.size() * 8);
+        source.clusterWeights.resize(source.vertices.size() * 8);
+        for (int vertex = 0; vertex < source.vertices.size(); ++vertex) {
+            for (int lane = 0; lane < 8; ++lane) {
+                source.clusterIndices[vertex * 8 + lane] = uint16_t(lane);
+                // Powers of two times 257 sum to exactly 65535. All eight
+                // lanes matter, especially the dominant secondary lane 7.
+                source.clusterWeights[vertex * 8 + lane] = vertex == 1
+                    ? uint16_t(lane == 7 ? 65535 : 0) : vertex == 2 ? uint16_t(0) : uint16_t(257u << lane);
+            }
+        }
+        baker::Baker bake(model, {}, QUrl()); bake.run();
+        QCOMPARE(model->loadErrorCount, 0);
+        const auto& mesh = bake.getHFMModel()->meshes[0];
+        QVERIFY(mesh._mesh);
+        QCOMPARE(mesh.clusters.size(), 8);
+        const auto& streams = mesh._mesh->getVertexStream();
+        const auto indexAttribute = mesh._mesh->getVertexFormat()->getAttribute(gpu::Stream::SKIN_CLUSTER_INDEX);
+        const auto weightAttribute = mesh._mesh->getVertexFormat()->getAttribute(gpu::Stream::SKIN_CLUSTER_WEIGHT);
+        QCOMPARE(indexAttribute.getSize(), uint32_t(16));
+        QCOMPARE(weightAttribute.getSize(), uint32_t(8));
+        QCOMPARE(indexAttribute._channel, weightAttribute._channel);
+        const size_t channel = indexAttribute._channel;
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+        glBufferData(GL_ARRAY_BUFFER, streams.getBuffers()[channel]->getSize(), streams.getBuffers()[channel]->getData(), GL_STATIC_DRAW);
+        glVertexAttribIPointer(0, 4, GL_UNSIGNED_INT, streams.getStrides()[channel],
+            reinterpret_cast<void*>(size_t(streams.getOffsets()[channel]) + indexAttribute._offset));
+        glVertexAttribPointer(1, 4, GL_UNSIGNED_SHORT, GL_TRUE, streams.getStrides()[channel],
+            reinterpret_cast<void*>(size_t(streams.getOffsets()[channel]) + weightAttribute._offset));
+        glEnableVertexAttribArray(0); glEnableVertexAttribArray(1);
+        struct DisableAttributes {
+            ~DisableAttributes() { glDisableVertexAttribArray(0); glDisableVertexAttribArray(1); }
+        } disableAttributes;
+        for (bool animated : {false, true}) {
+            const glm::quat rotation = animated ? glm::angleAxis(glm::radians(90.0f), glm::vec3(0,0,1)) : glm::quat(1,0,0,0);
+            std::vector<glm::vec3> translations;
+            std::vector<glm::mat4> matrices;
+            std::vector<Model::TransformDualQuaternion> dqs;
+            for (int joint = 0; joint < 8; ++joint) {
+                translations.push_back(animated ? glm::vec3(float(1u << joint), float(joint), 0) : glm::vec3(0));
+                Model::TransformDualQuaternion transform(glm::vec3(1), joint % 2 ? -rotation : rotation, translations.back());
+                matrices.push_back(transform.getMatrix());
+                dqs.push_back(transform);
+            }
+            for (bool dual : {false, true}) {
+                gpu::BufferPointer palette;
+                if (dual) { QVERIFY(graphics::updateSkinningPalette(palette, dqs, 8)); }
+                else { QVERIFY(graphics::updateSkinningPalette(palette, matrices, 8)); }
+                for (int vertex = 0; vertex < 3; ++vertex) {
+                    glm::vec3 translation(0);
+                    bool weighted = false;
+                    for (int lane = 0; lane < 8; ++lane) {
+                        const auto weight = mesh.clusterWeights[vertex * 8 + lane];
+                        if (!weight) { continue; }
+                        weighted = true;
+                        const auto index = mesh.clusterIndices[vertex * 8 + lane];
+                        QVERIFY(index < translations.size());
+                        translation += translations[index] * (float(weight) / 65535.0f);
+                    }
+                    const glm::vec3 point = weighted ? rotation * mesh.vertices[vertex] + translation : mesh.vertices[vertex];
+                    const glm::vec3 normal = weighted ? rotation * mesh.normals[vertex] : mesh.normals[vertex];
+                    const glm::vec3 tangent = weighted ? rotation * glm::vec3(1,0,0) : glm::vec3(1,0,0);
+                    // Enabled vertex arrays make evaluate consume the actual
+                    // production baker bytes, not repacked test inputs.
+                    evaluate(dual, palette, {}, {}, glm::vec4(mesh.vertices[vertex], 1), mesh.normals[vertex], vertex);
+                    expect({point.x,point.y,point.z,1, normal.x,normal.y,normal.z, tangent.x,tangent.y,tangent.z});
+                }
+            }
+        }
 #endif
     }
     void mixedFallbackBounds_data() {

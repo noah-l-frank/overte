@@ -159,6 +159,32 @@ Item {
             nativeView.nativeClosed();
             compare(browser.visible, false);
         }
+        function test_shortPhoneImeSurfaceKeepsDocumentAndEditorSpace() {
+            var tablet = create(tabletComponent, { url: "https://example.test/input", height: 64 });
+            var web = tablet.webViewCore;
+            tryVerify(function() { return web.backend !== null; });
+            var originalBackend = web.backend;
+            tablet.touchProfile.directTouch = true;
+            tablet.touchProfile.screenSpacePresentation = true;
+            tablet.touchProfile.keyboardVisible = true;
+            wait(30);
+            verify(web.height >= 48, "The document must retain usable editor height above the phone IME");
+            compare(web.backend, originalBackend);
+            compare(web.backend.operations.length, 0);
+            tablet.touchProfile.keyboardVisible = false;
+            tablet.touchProfile.screenSpaceContentScale = 2.75;
+            wait(30);
+            ["EmbeddedWebBack", "EmbeddedWebForward", "EmbeddedWebReload", "EmbeddedWebClose"].forEach(function(name) {
+                var button = findChild(tablet, name);
+                verify(button.height * 2.75 >= 48, "A compact button must remain touchable");
+                verify(button.height * 2.75 <= 80, "A screen-space browser toolbar must not occupy a double-scaled row");
+                verify(button.width >= button.contentItem.implicitWidth, "The full label must fit");
+                verify(button.width <= button.contentItem.implicitWidth + 20, "The button must fit its text with bounded padding");
+            });
+            verify(findChild(tablet, "EmbeddedWebReload").visible);
+            mouseClick(findChild(tablet, "EmbeddedWebReload"));
+            compare(web.backend.operations.join(","), "reload");
+        }
         function test_worldQmlMessagesSurviveSourceReplacement() {
             var world = create(worldComponent, { url: Qt.resolvedUrl("FakeDocument.qml").toString() });
             tryVerify(function() { return world.item !== null; });

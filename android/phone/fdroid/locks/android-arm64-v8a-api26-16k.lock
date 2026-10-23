@@ -13,7 +13,7 @@
         "spirv-cross/1.4.350.0#904299c8c5fd6cbe677e09fb9ce8ff5f%1788770410.0248816",
         "scribe/2019.02@overte/stable#0c2eaba1220f4c3091a2d60773ee476a%1788770410.0141342",
         "quazip/1.4#b5b53ba941dd1da8e788f0c47b9ba8f5%1788770409.996887",
-        "qt/5.15.18-2026.01.04@overte/stable#4fd1f62ee1914f2f3ec4fe298a07c283",
+        "qt/5.15.18-2026.01.04@overte/stable#6beda35278be474ac0d18e0e9cf1a653",
         "pcre2/10.42#a0b25dffca18f5987304619e9c93fb44%1788770409.9597633",
         "opus/1.5.2#18fcc73dcd16edae063173f3ceb3ed56%1788770409.9490554",
         "openxr/1.1.46@overte/stable#7ac70ec1fe70bb9c9cddeba10906b4dd%1788770409.9387352",
@@ -54,7 +54,7 @@
         "spirv-headers/1.4.350.0#e00d02f9314156c0d0afa8cecc7e43c7%1788770410.03555",
         "spirv-cross/1.4.350.0#904299c8c5fd6cbe677e09fb9ce8ff5f%1788770410.0248816",
         "scribe/2019.02@overte/stable#0c2eaba1220f4c3091a2d60773ee476a%1788770410.0141342",
-        "qt/5.15.18-2026.01.04@overte/stable#4fd1f62ee1914f2f3ec4fe298a07c283",
+        "qt/5.15.18-2026.01.04@overte/stable#6beda35278be474ac0d18e0e9cf1a653",
         "pkgconf/2.2.0#4ac315b50ef734072b00ff3aacbf52bf%1788770409.9702342",
         "pcre2/10.42#a0b25dffca18f5987304619e9c93fb44%1788770409.9597633",
         "ninja/1.13.2#c8c5dc2a52ed6e4e42a66d75b4717ceb%1788770409.8565474",
@@ -85,7 +85,7 @@
             "glm/0.9.9.5"
         ],
         "qt/[~5.15]": [
-            "qt/5.15.18-2026.01.04@overte/stable#4fd1f62ee1914f2f3ec4fe298a07c283"
+            "qt/5.15.18-2026.01.04@overte/stable#6beda35278be474ac0d18e0e9cf1a653"
         ],
         "openssl/[>=1.1 <4]": [
             "openssl/3.5.8@overte/stable"

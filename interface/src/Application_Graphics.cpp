@@ -17,6 +17,9 @@
 #include <PhoneLoadingDiagnostics.h>
 
 #include <memory>
+#include <cmath>
+#include <limits>
+#include <QInputMethod>
 
 #include <QtQml/QQmlContext>
 
@@ -354,10 +357,10 @@ void Application::initializeUi() {
 #if defined(ANDROID_APP_PHONE_INTERFACE) && defined(USE_GL)
     // The Android text-selection UI treats an always IME-enabled GL viewport
     // as a text editor and anchors its controls at GLWidget's fallback cursor
-    // rectangle near the top-left corner. Enable IME only while an actual
-    // offscreen QML text field owns focus.
+    // rectangle near the top-left corner. Enable IME while a QML editor or
+    // world surface owns keyboard focus; the world editor answers ImEnabled.
     connect(offscreenUi.data(), &OffscreenUi::focusTextChanged, _primaryWidget, [this](bool focusText) {
-        _primaryWidget->setAttribute(Qt::WA_InputMethodEnabled, focusText);
+        updatePhoneInputMethodEnabled(focusText);
         if (!focusText && _primaryWidget->hasFocus()) {
             // The offscreen editor changed, but Android still sees the same
             // focused GL widget. Qt 5's Android reset/hideInputPanel does not
@@ -366,6 +369,14 @@ void Application::initializeUi() {
             // Do not steal focus if another widget already owns it.
             _primaryWidget->clearFocus();
             _primaryWidget->setFocus(Qt::OtherFocusReason);
+        }
+    });
+    connect(QGuiApplication::inputMethod(), &QInputMethod::cursorRectangleChanged,
+            _primaryWidget, [this, offscreenUi] {
+        if ((offscreenUi->isFocusText() || _keyboardFocusedEntity.get() != UNKNOWN_ENTITY_ID) && _primaryWidget->hasFocus()) {
+            // Geometry comes from the actual focused editor. Notify Qt Android
+            // through the native focus object it watches for cursor changes.
+            emit _primaryWidget->cursorPositionChanged();
         }
     });
 #endif
@@ -471,6 +482,85 @@ void Application::initializeUi() {
 #endif
 }
 
+#if defined(ANDROID_APP_PHONE_INTERFACE) && defined(USE_GL)
+void Application::updatePhoneInputMethodEnabled(bool focusText) {
+    if (_primaryWidget) {
+        _primaryWidget->setAttribute(Qt::WA_InputMethodEnabled,
+            focusText || _keyboardFocusedEntity.get() != UNKNOWN_ENTITY_ID);
+    }
+}
+
+static qreal phoneWorldKeyboardPan(const QRectF& field, const QVariantMap& metrics,
+                                  qreal previous, bool gestureActive) {
+    // A keyboard transition must not move a page between pointer down and up.
+    if (gestureActive) return previous;
+    const qreal height = metrics.value("surfaceHeight").toDouble();
+    const qreal inset = metrics.value("imeInsetBottom").toDouble();
+    if (!metrics.value("valid").toBool() || !metrics.value("keyboardVisible").toBool()
+            || !std::isfinite(height) || !std::isfinite(inset)
+            || height <= 0 || inset <= 0 || inset >= height || field.isEmpty()
+            || !std::isfinite(field.left()) || !std::isfinite(field.right())
+            || !std::isfinite(field.top()) || !std::isfinite(field.bottom())) return 0;
+    const qreal top = qMax(qreal(0), metrics.value("safeInsetTop").toDouble());
+    const qreal availableBottom = height - inset;
+    const qreal margin = qMin(qreal(12) * metrics.value("density", 1.0).toDouble(),
+                             qMax(qreal(0), (availableBottom - top) / 10));
+    const qreal needed = qMax(qreal(0), field.bottom() - availableBottom + margin);
+    const qreal roomAbove = qMax(qreal(0), field.top() - top - margin);
+    return qMin(needed, qMin(roomAbove, height));
+}
+
+QRectF Application::getPhoneWorldInputRectangle(const glm::mat4& projection, Qt::InputMethodQuery rectangle) const {
+    const auto id = _keyboardFocusedEntity.get();
+    if (id == UNKNOWN_ENTITY_ID || !_primaryWidget || isHMDMode()) return {};
+    const auto tabletInterface = DependencyManager::get<TabletScriptingInterface>();
+    const auto metrics = tabletInterface->getTouchUiRuntimeMetrics();
+    if (!metrics.value("valid").toBool()) return {};
+    auto tablet = tabletInterface->getTablet("com.highfidelity.interface.tablet.system");
+    if ((tablet && tablet->property("tabletShown").toBool()) || getOffscreenUI()->isFocusText()) return {};
+    auto renderer = std::dynamic_pointer_cast<render::entities::WebEntityRenderer>(
+        getEntities()->renderableForEntityId(id));
+    std::array<glm::vec3, 4> corners;
+    if (!renderer || !renderer->getInputMethodWorldBounds(_myCamera.getPosition(), corners, rectangle)) return {};
+    const auto worldToClip = projection * glm::inverse(_myCamera.getTransform());
+    const qreal width = metrics.value("surfaceWidth").toDouble();
+    const qreal height = metrics.value("surfaceHeight").toDouble();
+    if (width <= 0 || height <= 0) return {};
+    qreal left = std::numeric_limits<qreal>::max(), top = left;
+    qreal right = std::numeric_limits<qreal>::lowest(), bottom = right;
+    for (const auto& point : corners) {
+        const auto clip = worldToClip * glm::vec4(point, 1.0f);
+        if (!std::isfinite(clip.w) || clip.w <= 0) return {};
+        const qreal x = (clip.x / clip.w + 1.0) * width / 2;
+        const qreal y = (1.0 - clip.y / clip.w) * height / 2;
+        if (!std::isfinite(x) || !std::isfinite(y)) return {};
+        left = qMin(left, x); right = qMax(right, x);
+        top = qMin(top, y); bottom = qMax(bottom, y);
+    }
+    return QRectF(QPointF(left, top), QPointF(right, bottom));
+}
+
+glm::mat4 Application::applyPhoneWorldInputProjection(const glm::mat4& projection) {
+    const auto metrics = DependencyManager::get<TabletScriptingInterface>()->getTouchUiRuntimeMetrics();
+    const qreal rawPan = phoneWorldKeyboardPan(getPhoneWorldInputRectangle(projection), metrics,
+                                              _phoneWorldKeyboardPanPixels, _phoneWebTouchId >= 0);
+    const qreal pan = qRound(rawPan * 2) / qreal(2);
+    if (!qFuzzyCompare(pan + 1, _phoneWorldKeyboardPanPixels + 1)) {
+        _phoneWorldKeyboardPanPixels = pan;
+        // Refresh native handles after the new projection has been installed.
+        QMetaObject::invokeMethod(this, [] {
+            if (auto input = QGuiApplication::inputMethod())
+                input->update(Qt::ImCursorRectangle | Qt::ImAnchorRectangle);
+        }, Qt::QueuedConnection);
+    }
+    const qreal height = metrics.value("surfaceHeight").toDouble();
+    if (pan <= 0 || height <= 0) return projection;
+    glm::mat4 shift(1.0f);
+    shift[3][1] = 2 * pan / height;
+    return shift * projection;
+}
+#endif
+
 void Application::resizeGL() {
     PROFILE_RANGE(render, __FUNCTION__);
     if (nullptr == _displayPlugin) {
@@ -489,8 +579,12 @@ void Application::resizeGL() {
 
     // FIXME the aspect ratio for stereo displays is incorrect based on this.
     float aspectRatio = displayPlugin->getRecommendedAspectRatio();
-    _myCamera.setProjection(glm::perspective(glm::radians(_fieldOfView.get()), aspectRatio,
-                                             DEFAULT_NEAR_CLIP, DEFAULT_FAR_CLIP));
+    auto projection = glm::perspective(glm::radians(_fieldOfView.get()), aspectRatio,
+                                       DEFAULT_NEAR_CLIP, DEFAULT_FAR_CLIP);
+#if defined(ANDROID_APP_PHONE_INTERFACE) && defined(USE_GL)
+    projection = applyPhoneWorldInputProjection(projection);
+#endif
+    _myCamera.setProjection(projection);
     // Possible change in aspect ratio
     {
         QMutexLocker viewLocker(&_viewMutex);
@@ -537,6 +631,9 @@ void Application::updateRenderArgs(float deltaTime) {
                     getActiveDisplayPlugin()->getRecommendedAspectRatio(),
                     DEFAULT_NEAR_CLIP * sensorToWorldScale,
                     DEFAULT_FAR_CLIP);
+#if defined(ANDROID_APP_PHONE_INTERFACE) && defined(USE_GL)
+                adjustedProjection = applyPhoneWorldInputProjection(adjustedProjection);
+#endif
                 _viewFrustum.setProjection(adjustedProjection);
                 _viewFrustum.calculate();
             }

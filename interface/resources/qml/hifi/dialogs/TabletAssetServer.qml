@@ -22,6 +22,8 @@ Rectangle {
     property var pendingBundle: null
     property string bundleRequest: ""
     property string uploadedPrimaryUrl: ""
+    property string singleUploadUrl: ""
+    property string singleUploadMapping: ""
     property bool busy: false
     property string status: ""
     property var lifecycle: ({active: true})
@@ -66,12 +68,55 @@ Rectangle {
         newPath = normalizedPath(newPath);
         if (!newPath || newPath === "/") { status = "Enter a valid asset path."; return; }
         if (oldPath.slice(-1) === "/" && newPath.slice(-1) !== "/") newPath += "/";
+        if (newPath === oldPath) { status = "Rename complete."; return; }
+        if (oldPath.slice(-1) === "/" && newPath.indexOf(oldPath) === 0) {
+            status = "Cannot move a folder inside itself."; return;
+        }
         if (Assets.isKnownFolder(newPath)) { status = "Cannot overwrite an existing folder."; return; }
+        if (oldPath.slice(-1) === "/") { renameFolder(oldPath, newPath); return; }
         if (Assets.isKnownMapping(newPath) && newPath !== oldPath) {
             pendingRenameOld = oldPath; pendingRenameNew = newPath; overwriteDialog.open(); return;
         }
         busy = true;
         Assets.renameMapping(oldPath, newPath, resultHandler("Rename"));
+    }
+    function renameFolder(oldPath, newPath) {
+        // Older asset servers accept file renames but reject trailing slashes
+        // before reaching their folder branch. Rename the actual mappings so
+        // folder operations also work with these existing domains.
+        busy = true;
+        var finish = resultHandler("Rename");
+        Assets.getAllMappings(function(error, mappings) {
+            if (error) { finish(error); return; }
+            var paths = Object.keys(mappings).filter(function(path) { return path.indexOf(oldPath) === 0; }).sort();
+            if (!paths.length) { finish("The selected folder no longer exists."); return; }
+            var moves = paths.map(function(path) { return {oldPath: path, newPath: newPath + path.slice(oldPath.length)}; });
+            if (moves.some(function(move) { return mappings[move.newPath] !== undefined; })) {
+                finish("The destination contains an existing asset."); return;
+            }
+            var completed = [];
+            function rollback(reason) {
+                if (!completed.length) { finish(reason); return; }
+                var move = completed.pop();
+                Assets.renameMapping(move.newPath, move.oldPath, function(rollbackError) {
+                    if (rollbackError) {
+                        finish(reason + " Some moved assets could not be restored: " + String(rollbackError));
+                        return;
+                    }
+                    rollback(reason);
+                });
+            }
+            function next(index) {
+                if (index === moves.length) { finish(""); return; }
+                var move = moves[index];
+                Assets.renameMapping(move.oldPath, move.newPath, function(renameError) {
+                    if (renameError) { rollback(String(renameError)); return; }
+                    completed.push(move);
+                    next(index + 1);
+                });
+            }
+            next(0);
+        });
     }
     property string pendingRenameOld: ""
     property string pendingRenameNew: ""
@@ -91,8 +136,19 @@ Rectangle {
     }
     function setBakingEnabled(enabled) {
         if (!writable() || busy || !bakingAvailable()) return;
+        var paths = selectedPaths();
+        var lifetime = lifecycle;
+        var finished = resultHandler("Baking selection");
         busy = true;
-        Assets.setBakingEnabled(selectedPaths(), enabled, resultHandler("Baking selection"));
+        Assets.setBakingEnabled(paths, enabled, function(error) {
+            if (!lifetime.active) return;
+            if (error || enabled) { finished(error); return; }
+            if (!writable()) { finished("Asset Server permission changed."); return; }
+            // Older servers remove named bake metadata on the first disable.
+            // Repeat the idempotent operation to install their canonical
+            // original-file redirect as well, so the asset stays Not Baked.
+            Assets.setBakingEnabled(paths, false, finished);
+        });
     }
     function canAddToWorld(url) { return selectedItemCount === 1 && /\.(fbx|obj|gltf|glb|vrm|jpg|jpeg|png)(?:[?#]|$)/i.test(url); }
     function importSucceeded(id) {
@@ -132,11 +188,32 @@ Rectangle {
         if (!local || !fileDialogHelper.urlIsFile(url)) { status = "Select a readable local document."; return; }
         var folder = selectedPath ? selectedPath.slice(0, selectedPath.lastIndexOf("/") + 1) : "/";
         var name = local.replace(/\\/g, "/").split("/").pop();
+        singleUploadUrl = url;
+        singlePath.text = folder + name;
+        Qt.callLater(function() { if (root.lifecycle.active) singleDialog.open(); });
+    }
+    function confirmSingleUpload() {
+        var path = normalizedPath(singlePath.text);
+        if (!path || path === "/" || path.slice(-1) === "/") {
+            singleUploadUrl = ""; status = "Enter a valid file mapping."; return;
+        }
+        singleUploadMapping = path;
+        if (Assets.isKnownMapping(path)) { singleOverwriteDialog.open(); }
+        else { startSingleUpload(); }
+    }
+    function cancelSingleUpload() {
+        singleUploadUrl = ""; singleUploadMapping = ""; status = "Upload canceled.";
+    }
+    function startSingleUpload() {
+        if (!writable() || busy || !singleUploadUrl) { singleUploadUrl = ""; return; }
+        var local = fileDialogHelper.urlToPath(singleUploadUrl);
         var lifetime = lifecycle;
-        busy = true;
-        status = "Preparing upload...";
-        Assets.uploadFile(local, folder + name, function() { if (lifetime.active) status = "Uploading " + name; },
-            resultHandler("Upload", function(error) { if (error === -1) status = "Upload canceled."; }), dropping === true);
+        var name = singleUploadMapping.split("/").pop();
+        singleUploadUrl = "";
+        busy = true; status = "Preparing upload...";
+        Assets.uploadFile(local, singleUploadMapping,
+            function() { if (lifetime.active) status = "Uploading " + name; },
+            resultHandler("Upload", function(error) { if (error === -1) status = "Upload canceled."; }), false, true);
     }
     function uploadClicked(url) {
         if (!writable() || busy) return;
@@ -198,35 +275,88 @@ Rectangle {
     HifiControls.TouchUiMetrics { id: metrics }
     Component { id: fileBrowser; NativeFileBrowser { bundleMode: true; caption: "Select an asset and its companion files" } }
     DropArea { anchors.fill: parent; onDropped: function(drop) { if (drop.hasUrls && drop.urls.length === 1 && root.writable()) { root.uploadFile(drop.urls[0], true); drop.acceptProposedAction(); } } }
-    ColumnLayout {
-        anchors.fill: parent; anchors.margins: 12; spacing: 8
-        Label { text: root.title; font.pixelSize: 22; color: "white"; Layout.fillWidth: true }
-        Label { text: root.assetWriteAllowed ? "Browse and manage domain assets" : "Browse domain assets · writing unavailable"; color: "#cccccc"; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-        Flow {
-            Layout.fillWidth: true; spacing: 8
-            Button { objectName: "assetRefresh"; text: "Refresh"; implicitHeight: 48; onClicked: root.reload() }
-            Button { objectName: "assetImport"; text: "Add to World"; implicitHeight: 48; enabled: root.importAllowed && root.canAddToWorld(root.selectedUrl); onClicked: root.addToWorld() }
-            Button { objectName: "assetCopyUrl"; text: "Copy URL"; implicitHeight: 48; enabled: root.selectedUrl.length > 0; onClicked: Window.copyToClipboard(root.selectedUrl) }
+    Flickable {
+        id: assetScroll
+        anchors.fill: parent; anchors.margins: 12
+        clip: true
+        contentWidth: width
+        contentHeight: contentItem.childrenRect.height
+        boundsBehavior: Flickable.StopAtBounds
+        pressDelay: 0
+        ScrollBar.vertical: ScrollBar { }
+        ColumnLayout {
+            id: assetColumn
+            width: assetScroll.width
+            spacing: 8
+            Label { text: root.title; font.pixelSize: 22; color: "white"; Layout.fillWidth: true }
+            Label { text: root.assetWriteAllowed ? "Browse and manage domain assets" : "Browse domain assets · writing unavailable"; color: "#cccccc"; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            Flow {
+                Layout.fillWidth: true; spacing: 8
+                Button { objectName: "assetRefresh"; text: "Refresh"; implicitHeight: 48; onClicked: root.reload() }
+                Button { objectName: "assetImport"; text: "Add to World"; implicitHeight: 48; enabled: root.importAllowed && root.canAddToWorld(root.selectedUrl); onClicked: root.addToWorld() }
+                Button { objectName: "assetCopyUrl"; text: "Copy URL"; implicitHeight: 48; enabled: root.selectedUrl.length > 0; onClicked: Window.copyToClipboard(root.selectedUrl) }
+            }
+            TextField { id: search; objectName: "assetFilter"; placeholderText: "Filter assets and folders"; Layout.fillWidth: true; implicitHeight: 48; onTextChanged: tree.filterText = text }
+            CheckBox { text: "Select multiple"; checked: tree.multiSelect; onToggled: tree.multiSelect = checked }
+            NativeModelTree { id: tree; objectName: "assetTree"; Layout.fillWidth: true; Layout.preferredHeight: 120; sourceModel: root.assetProxyModel; folderRole: 257; statusRole: 261 }
+            Label { text: root.selectedUrl; color: "#cccccc"; elide: Text.ElideMiddle; Layout.fillWidth: true }
+            Label { text: root.updatesCount, root.currentIndex !== null ? String(root.assetProxyModel.data(root.currentIndex, 262) || "") : ""; visible: text.length > 0; color: "#ffaaaa"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+            CheckBox { objectName: "assetBaking"; text: "Use baked version"; palette.windowText: "#dddddd"; enabled: root.assetWriteAllowed && !root.busy && root.bakingAvailable(); checked: root.currentIndex !== null && root.bakingAvailable() && root.assetProxyModel.data(root.currentIndex, 261) !== "Not Baked"; onToggled: root.setBakingEnabled(checked) }
+            Flow {
+                Layout.fillWidth: true; spacing: 8
+                Button { objectName: "assetBundleCancel"; text: "Cancel upload"; implicitHeight: 48; visible: !!root.bundleRequest; onClicked: { Assets.cancelUploadBundle(root.bundleRequest); root.status = "Canceling upload; waiting for the current server operation..."; } }
+                Button { objectName: "assetUploadedImport"; text: "Add uploaded model"; implicitHeight: 48; visible: /\.(fbx|obj|gltf|glb|vrm)$/i.test(root.uploadedPrimaryUrl); enabled: root.importAllowed && !root.busy; onClicked: root.importUploadedMain() }
+                Button { objectName: "assetUpload"; text: "Upload with companions"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy; onClicked: root.uploadClicked() }
+                Button { objectName: "assetSingleUpload"; text: "Upload one file"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy; onClicked: root.uploadSingleClicked() }
+                Button { objectName: "assetRename"; text: "Rename"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy && root.selectedItemCount === 1; onClicked: { renamePath.text = root.selectedPath; renameDialog.open(); } }
+                Button { objectName: "assetDelete"; text: "Delete"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy && root.selectedItemCount > 0; onClicked: deleteDialog.open() }
+                Button { objectName: "assetMapping"; text: "Set Mapping"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy; onClicked: mappingDialog.open() }
+            }
+            BusyIndicator { running: root.busy; visible: running; Layout.preferredHeight: 36 }
+            Label { objectName: "assetStatus"; text: root.status; color: "#cccccc"; wrapMode: Text.WordWrap; Layout.fillWidth: true; visible: text.length > 0 }
+            NativeKeyboardHost { id: inputKeyboard; Layout.fillWidth: true; Layout.preferredHeight: implicitHeight; inputFocused: search.activeFocus }
         }
-        TextField { id: search; objectName: "assetFilter"; placeholderText: "Filter assets and folders"; Layout.fillWidth: true; implicitHeight: 48; onTextChanged: tree.filterText = text }
-        CheckBox { text: "Select multiple"; checked: tree.multiSelect; onToggled: tree.multiSelect = checked }
-        NativeModelTree { id: tree; objectName: "assetTree"; Layout.fillWidth: true; Layout.fillHeight: true; sourceModel: root.assetProxyModel; folderRole: 257; statusRole: 261 }
-        Label { text: root.selectedUrl; color: "#cccccc"; elide: Text.ElideMiddle; Layout.fillWidth: true }
-        Label { text: root.updatesCount, root.currentIndex !== null ? String(root.assetProxyModel.data(root.currentIndex, 262) || "") : ""; visible: text.length > 0; color: "#ffaaaa"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-        CheckBox { objectName: "assetBaking"; text: "Use baked version"; enabled: root.assetWriteAllowed && !root.busy && root.bakingAvailable(); checked: root.currentIndex !== null && root.bakingAvailable() && root.assetProxyModel.data(root.currentIndex, 261) !== "Not Baked"; onToggled: root.setBakingEnabled(checked) }
-        Flow {
-            Layout.fillWidth: true; spacing: 8
-            Button { objectName: "assetBundleCancel"; text: "Cancel upload"; implicitHeight: 48; visible: !!root.bundleRequest; onClicked: { Assets.cancelUploadBundle(root.bundleRequest); root.status = "Canceling upload; waiting for the current server operation..."; } }
-            Button { objectName: "assetUploadedImport"; text: "Add uploaded model"; implicitHeight: 48; visible: /\.(fbx|obj|gltf|glb|vrm)$/i.test(root.uploadedPrimaryUrl); enabled: root.importAllowed && !root.busy; onClicked: root.importUploadedMain() }
-            Button { objectName: "assetUpload"; text: "Upload with companions"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy; onClicked: root.uploadClicked() }
-            Button { objectName: "assetSingleUpload"; text: "Upload one file"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy; onClicked: root.uploadSingleClicked() }
-            Button { objectName: "assetRename"; text: "Rename"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy && root.selectedItemCount === 1; onClicked: { renamePath.text = root.selectedPath; renameDialog.open(); } }
-            Button { objectName: "assetDelete"; text: "Delete"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy && root.selectedItemCount > 0; onClicked: deleteDialog.open() }
-            Button { objectName: "assetMapping"; text: "Set Mapping"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy; onClicked: mappingDialog.open() }
+    }
+    Dialog {
+        id: singleDialog
+        objectName: "singleUploadDialog"
+        title: "Specify asset path"
+        font.pixelSize: 16
+        modal: true; focus: true
+        width: Math.min(root.width - 24, 500)
+        x: (root.width - width) / 2
+        y: Qt.platform.os === "android" && !HMD.active && singlePath.activeFocus
+            ? 0 : Math.max(0, (root.height - height) / 2)
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        Column {
+            width: parent.width
+            TextField {
+                id: singlePath
+                objectName: "assetSinglePath"
+                width: parent.width; implicitHeight: 48
+                placeholderText: "/asset/path"
+                Keys.onEscapePressed: function(event) { singleDialog.reject(); event.accepted = true; }
+            }
+            NativeKeyboardHost { width: parent.width; inputFocused: singleDialog.visible && singlePath.activeFocus }
         }
-        BusyIndicator { running: root.busy; visible: running; Layout.preferredHeight: 36 }
-        Label { objectName: "assetStatus"; text: root.status; color: "#cccccc"; wrapMode: Text.WordWrap; Layout.fillWidth: true; visible: text.length > 0 }
-        NativeKeyboardHost { id: inputKeyboard; Layout.fillWidth: true; Layout.preferredHeight: implicitHeight; inputFocused: search.activeFocus }
+        onAccepted: root.confirmSingleUpload()
+        onRejected: root.cancelSingleUpload()
+        onClosed: { singlePath.focus = false; Qt.inputMethod.hide(); tree.view.forceActiveFocus(); }
+    }
+    Dialog {
+        id: singleOverwriteDialog
+        objectName: "singleUploadOverwriteDialog"
+        title: "Overwrite existing asset?"
+        font.pixelSize: 16
+        modal: true; focus: true
+        width: Math.min(root.width - 24, 500)
+        x: (root.width - width) / 2
+        y: Math.max(0, (root.height - height) / 2)
+        standardButtons: Dialog.Yes | Dialog.No
+        Label { width: parent.width; text: root.singleUploadMapping; wrapMode: Text.WrapAnywhere }
+        onAccepted: root.startSingleUpload()
+        onRejected: root.cancelSingleUpload()
+        onClosed: tree.view.forceActiveFocus()
     }
     Dialog {
         id: renameDialog

@@ -651,6 +651,25 @@ void convertImageToHDRTexture(gpu::Texture* texture, Image&& image, BackendTarge
     }
 }
 
+// Small color palettes must not collapse into a single ETC2 block average.
+// Keep RGBA byte order explicit for GLES; retain every mip through 1x1.
+void assignGlesColorMips(gpu::Texture* texture, Image image, int baseMipLevel,
+                         bool buildMips, const std::atomic<bool>& abortProcessing, int face) {
+    image = image.getConvertedToFormat(Image::Format_RGBA8888);
+    int mip = baseMipLevel;
+    while (!abortProcessing.load()) {
+        if (face >= 0) {
+            texture->assignStoredMipFace(mip, face, image.getByteCount(), image.getBits());
+        } else {
+            texture->assignStoredMip(mip, image.getByteCount(), image.getBits());
+        }
+        if (!buildMips || (image.getWidth() == 1 && image.getHeight() == 1)) { break; }
+        image = image.getScaled({ std::max(1u, image.getWidth() / 2), std::max(1u, image.getHeight() / 2) },
+                                Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        ++mip;
+    }
+}
+
 void convertImageToLDRTexture(gpu::Texture* texture, Image&& image, BackendTarget target, int baseMipLevel, bool buildMips, const std::atomic<bool>& abortProcessing, int face) {
     // Take a local copy to force move construction
     // https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#f18-for-consume-parameters-pass-by-x-and-stdmove-the-parameter
@@ -786,6 +805,10 @@ void convertImageToLDRTexture(gpu::Texture* texture, Image&& image, BackendTarge
             }
         }
     } else {
+        if (mipFormat == gpu::Element::COLOR_SRGBA_32 || mipFormat == gpu::Element::COLOR_RGBA_32) {
+            assignGlesColorMips(texture, std::move(localCopy), baseMipLevel, buildMips, abortProcessing, face);
+            return;
+        }
         int numMips = 1;
 
         if (buildMips) {
@@ -930,6 +953,13 @@ gpu::TexturePointer TextureUsage::process2DTextureColorFromImage(Image&& srcImag
                                                                  BackendTarget target, bool isStrict, const std::atomic<bool>& abortProcessing) {
     PROFILE_RANGE(resource_parse, "process2DTextureColorFromImage");
     Image image = processSourceImage(std::move(srcImage), false, target);
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    // A maximum 4x4 palette costs at most 64 bytes at full resolution.
+    // ETC2's low-effort encoding can erase its distinct source colors.
+    if (target == BackendTarget::GLES32 && image.getWidth() <= 4 && image.getHeight() <= 4) {
+        compress = false;
+    }
+#endif
 
     bool validAlpha = image.hasAlphaChannel();
     bool alphaAsMask = false;
@@ -964,8 +994,7 @@ gpu::TexturePointer TextureUsage::process2DTextureColorFromImage(Image&& srcImag
             }
         } else {
             if (target == BackendTarget::GLES32) {
-                //TODO: is this correct? It seems that no format is set for uncompressed texture on GLES
-                qDebug() << "TextureUsage::process2DTextureColorFromImage: no format is set for uncompressed texture on GLES";
+                formatGPU = formatMip = gpu::Element::COLOR_SRGBA_32;
             } else {
                 formatGPU = gpu::Element::COLOR_SRGBA_32;
                 formatMip = gpu::Element::COLOR_SBGRA_32;

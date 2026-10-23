@@ -33,6 +33,9 @@
 #include <QUuid>
 
 #include <AccountManager.h>
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+#include "../../security/storage/LinuxProtectedAccountStore.h"
+#endif
 #include <AssetClient.h>
 #include <BuildInfo.h>
 #include <CrashAnnotations.h>
@@ -230,6 +233,12 @@ DomainServer::DomainServer(int argc, char* argv[]) :
     qDebug() << "[VERSION] We will be using this name to find ICE servers:" << _iceServerAddr;
 
     connect(this, &QCoreApplication::aboutToQuit, this, &DomainServer::aboutToQuit);
+
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+    if (!AccountManager::installProtectedAccountStore(overte::security::linuxProtectedAccountStore())) {
+        qWarning("OVT_STORAGE_UNAVAILABLE");
+    }
+#endif
 
     // make sure we have a fresh AccountManager instance
     // (need this since domain-server can restart itself and maintain static variables)
@@ -1664,7 +1673,7 @@ void DomainServer::sendHeartbeatToMetaverse(const QString& networkAddress, const
     // add access level for anonymous connections
     // consider the domain to be "restricted" if anonymous connections are disallowed
     static const QString RESTRICTED_ACCESS_FLAG = "restricted";
-    NodePermissions anonymousPermissions = _settingsManager.getPermissionsForName(NodePermissions::standardNameAnonymous);
+    NodePermissions anonymousPermissions = _settingsManager.getStandardPermissionsForName(NodePermissions::standardNameAnonymous);
     domainObject[RESTRICTED_ACCESS_FLAG] = !anonymousPermissions.can(NodePermissions::Permission::canConnectToDomain);
 
     const auto& temporaryDomainKey = DependencyManager::get<AccountManager>()->getTemporaryDomainKey(getID());

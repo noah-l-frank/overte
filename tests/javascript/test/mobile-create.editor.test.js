@@ -32,7 +32,7 @@ function editor({ toolbarMode = false, operatingSystem } = {}) {
     const routes = new Map();
     const state = { nextID: 0, domain: true, avatar: true, locks: true, importOK: true,
         pasteEmpty: false, clipboardError: false, edits: [], deletes: [], mappings: new Set(),
-        voxelWrites: [], pendingVoxels: {}, controllerValid: false, pickID: null, pickPoint: { x: 1, y: 1, z: 1 },
+        voxelWrites: [], pendingVoxels: {}, controllerValid: false, pickID: null, pickCoarseRequired: false, rayRequests: [], touchUIHit: false, pickPoint: { x: 1, y: 1, z: 1 },
         poll(count = 1) { for (let i = 0; i < count; i++) { [...timers.values()].forEach(callback => callback()); } },
         compress() { Object.entries(this.pendingVoxels).forEach(([id, value]) => { world.get(id).voxelData = value; }); this.pendingVoxels = {}; },
         route(input, value) { routes.get(input)(value); }
@@ -62,7 +62,9 @@ function editor({ toolbarMode = false, operatingSystem } = {}) {
         findEntities: () => [...world.keys()], findEntitiesByType: () => [], getChildrenIDs: () => [],
         editEntity(id, properties) {
             state.edits.push([id, structuredClone(properties)]);
-            if (world.has(id)) { Object.assign(world.get(id), structuredClone(properties)); }
+            // EntityItemProperties skips null/undefined ScriptValues in the native V8 path.
+            const accepted = Object.fromEntries(Object.entries(properties).filter(([, value]) => value != null));
+            if (world.has(id)) { Object.assign(world.get(id), structuredClone(accepted)); }
             return id;
         },
         deleteEntity(id) { state.deletes.push(id); world.delete(id); },
@@ -72,7 +74,11 @@ function editor({ toolbarMode = false, operatingSystem } = {}) {
         setVoxelSphere: (id, ...args) => voxelWrite("sphere", id, ...args),
         setVoxelsInCuboid: (id, ...args) => voxelWrite("cube", id, ...args),
         isVoxelDataReady: id => world.has(id) && !(id in state.pendingVoxels),
-        findRayIntersection: () => ({ intersects: true, entityID: state.pickID, intersection: state.pickPoint })
+        findRayIntersection: (ray, filter) => {
+            state.rayRequests.push(filter);
+            return { intersects: !state.pickCoarseRequired || !!(filter & 1024),
+                entityID: state.pickID, intersection: state.pickPoint };
+        }
     });
     const listeners = [];
     const selection = helper({ selections: [], savedProperties: {},
@@ -119,11 +125,13 @@ function editor({ toolbarMode = false, operatingSystem } = {}) {
             getSnapToGrid: () => false, getOrigin: () => vector }); },
         EditTools: Helper, EditVoxels: Helper,
         Window: helper({ innerWidth: 800, innerHeight: 600, x: 0, y: 0,
+            isPointOnDesktopWindow: () => state.touchUIHit,
             domainChanged: signal(), svoImportRequested: signal(), browseChanged: signal(), promptTextChanged: signal() }),
         HMD: { active: false, displayModeChanged: signal() },
         MyAvatar: { position: { ...vector }, orientation: { x: 0, y: 0, z: 0, w: 1 }, sessionUUID: "self", SELF_ID: "self" },
         Camera: { position: { ...vector }, orientation: { x: 0, y: 0, z: 0, w: 1 }, mode: "first person",
-            computePickRay: () => ({ origin: { ...vector }, direction: { x: 0, y: 0, z: 1 } }) },
+            computePickRay: (x, y) => ({ origin: { ...vector }, direction: state.touchRay
+                ? state.touchRay(x, y) : { x: 0, y: 0, z: 1 } }) },
         Vec3: helper({ ZERO: vector, UNIT_Z: { x: 0, y: 0, z: 1 }, sum, multiply,
             multiplyQbyV: (q, v) => v, multiplyVbyV: (a, b) => ({ x: a.x * b.x, y: a.y * b.y, z: a.z * b.z }),
             subtract: (a, b) => sum(a, multiply(-1, b)), dot: (a, b) => a.x * b.x + a.y * b.y + a.z * b.z,
@@ -135,6 +143,9 @@ function editor({ toolbarMode = false, operatingSystem } = {}) {
         Controller: helper({ Standard: { LY: 0, LX: 1, RTClick: 2, LTClick: 3, RT: 4, LT: 5,
             LeftHand: 6, RightHand: 7, LeftGrip: 8, RightGrip: 9 }, Hardware: { Application: { PlatformMac: 0 }, Keyboard: {} },
             mousePressEvent: signal(), mouseMoveEvent: signal(), mouseReleaseEvent: signal(),
+            touchBeginEvent: signal(), touchUpdateEvent: signal(), touchEndEvent: signal(),
+            captureTouchEvents: () => { state.touchCaptured = true; },
+            releaseTouchEvents: () => { state.touchCaptured = false; },
             keyPressEvent: signal(), keyReleaseEvent: signal(),
             newMapping: name => ({ enable: () => state.mappings.add(name), disable: () => state.mappings.delete(name),
                 from: input => ({ to: callback => routes.set(input, callback),
@@ -157,7 +168,8 @@ function editor({ toolbarMode = false, operatingSystem } = {}) {
         getControllerWorldLocation: hand => ({ valid: hand >= 0 && state.controllerValid,
             translation: { ...vector }, rotation: { x: 0, y: 0, z: 0, w: 1 } }),
         TRIGGER_ON_VALUE: 0.5,
-        Toolbars: helper(), Desktop: helper(), Picks: {}, print: noop, console
+        Toolbars: helper(), Desktop: helper(), Picks: { PICK_DOMAIN_ENTITIES: 1, PICK_AVATAR_ENTITIES: 2,
+            PICK_LOCAL_ENTITIES: 4, PICK_COARSE: 1024 }, print: noop, console
     };
     const listContext = runProductionScript(path.join(base, "entityList/entityList.js"), globals).context;
     globals.EntityListTool = listContext.EntityListTool;
@@ -251,10 +263,19 @@ test("native import executes Clipboard placement, reports failure and records re
     assert.equal(world.get(selection.selections[0]).entityHostType, "avatar");
 });
 
-test("native delete uses the existing editor and undo preserves avatar ownership", () => {
+test("native parent, unparent and delete preserve avatar ownership through undo", () => {
     const { world, selection, send } = editor();
+    send("create", { properties: { type: "Shape", name: "Avatar parent" }, host: "avatar" });
+    const parent = selection.selections[0];
     send("create", { properties: { type: "Shape", name: "Avatar shape" }, host: "avatar" });
     const id = selection.selections[0];
+    selection.setSelections([id, parent]);
+    send("tool", { action: "parent" });
+    assert.equal(world.get(id).parentID, parent);
+    selection.setSelections([id]);
+    send("tool", { action: "unparent" });
+    assert.equal(world.get(id).parentID, "none", "Unparent must pass an explicit null UUID to the native engine");
+    assert.equal(world.has(parent), true);
     send("tool", { action: "delete" });
     assert.equal(world.has(id), false);
     send("tool", { action: "undo" });
@@ -358,22 +379,85 @@ function volume(environment, extra = {}) {
 }
 
 test("real voxel ray actions wait for delayed compression and reuse production undo/redo", () => {
+    for (const input of ["mouse", "touch"]) {
+        const environment = editor();
+        const { app, state, world, Controller, send, tablet } = environment;
+        const id = volume(environment);
+        tablet.tabletShown = false;
+        if (input === "touch") {
+            // An empty native volume has no mesh to hit; its front boundary
+            // must seed an interior cell, not a negative voxel coordinate.
+            state.pickCoarseRequired = true;
+            state.pickPoint = { x: 0, y: 0, z: 0 };
+            Controller.touchBeginEvent.emit({ touchPoints: 1, x: 400, y: 250 });
+            Controller.touchEndEvent.emit({ touchPoints: 1, isReleased: true, x: 400, y: 250 });
+        } else {
+            Controller.mousePressEvent.emit({ isLeftButton: true, x: 0, y: 0 });
+            Controller.mouseReleaseEvent.emit({});
+        }
+        assert.equal(state.voxelWrites.length, 1, input + " must change a real voxel");
+        assert.equal(state.voxelWrites[0].kind, "single");
+        if (input === "touch") {
+            assert.ok(state.rayRequests.some(filter => filter & 1024), "empty volumes need a coarse pick");
+            assert.deepEqual(structuredClone(state.voxelWrites[0].args[0]), { x: 0, y: 0, z: 0 });
+        }
+        state.poll(5);
+        assert.equal(app.undoHistory.history.length, 0);
+        state.compress();
+        state.poll(3);
+        assert.equal(app.undoHistory.history.length, 1);
+        send("tool", { action: "undo" });
+        assert.equal(world.get(id).voxelData, "before");
+        send("tool", { action: "redo" });
+        assert.equal(world.get(id).voxelData, "compressed-1");
+    }
+});
+
+test("continuous finger strokes use current touch coordinates and form one undo transaction", () => {
     const environment = editor();
-    const { app, state, world, Controller, send } = environment;
+    const { app, state, world, Controller, tablet, send, frame } = environment;
     const id = volume(environment);
-    Controller.mousePressEvent.emit({ isLeftButton: true, x: 0, y: 0 });
-    Controller.mouseReleaseEvent.emit({});
-    assert.equal(state.voxelWrites.length, 1);
-    assert.equal(state.voxelWrites[0].kind, "single");
-    state.poll(5);
-    assert.equal(app.undoHistory.history.length, 0);
-    state.compress();
-    state.poll(3);
+    tablet.tabletShown = false;
+    send("settings", { voxelEditDynamics: "continuous" });
+    state.touchRay = x => ({ x: (x - 400) / 100, y: 0, z: 1 });
+    Controller.touchBeginEvent.emit({ touchPoints: 1, x: 400, y: 250 });
+    assert.equal(state.voxelWrites.length, 1, "continuous drawing starts at touch-down");
+    assert.equal(state.touchCaptured, true);
+    Controller.touchUpdateEvent.emit({ touchPoints: 1, x: 650, y: 250 });
+    frame(0.25);
+    assert.equal(state.voxelWrites.length, 2);
+    assert.equal(state.voxelWrites[1].args[0].x, 1, "the ray follows the finger rather than MouseX");
+    Controller.touchEndEvent.emit({ touchPoints: 1, isReleased: true, x: 650, y: 250 });
+    assert.equal(state.touchCaptured, false);
+    frame(0.5);
+    assert.equal(state.voxelWrites.length, 2, "release stops painting");
+    state.compress(); state.poll(3);
     assert.equal(app.undoHistory.history.length, 1);
     send("tool", { action: "undo" });
     assert.equal(world.get(id).voxelData, "before");
     send("tool", { action: "redo" });
-    assert.equal(world.get(id).voxelData, "compressed-1");
+    assert.equal(world.get(id).voxelData, "compressed-2");
+});
+
+test("continuous finger drawing releases capture on cancellation, UI, permission loss and shutdown", () => {
+    for (const stop of ["cancel", "multitouch", "ui", "permission", "mode", "shutdown", "miss"]) {
+        const environment = editor();
+        const { state, Controller, tablet, send, frame, ending } = environment;
+        volume(environment); tablet.tabletShown = false;
+        send("settings", { voxelEditDynamics: "continuous" });
+        if (stop === "miss") { state.pickID = "missing"; }
+        Controller.touchBeginEvent.emit({ touchPoints: 1, x: 400, y: 250 });
+        const writes = state.voxelWrites.length;
+        if (stop === "cancel") { Controller.touchEndEvent.emit({ touchPoints: 1, isReleased: false, x: 400, y: 250 }); }
+        if (stop === "multitouch") { Controller.touchUpdateEvent.emit({ touchPoints: 2, x: 400, y: 250 }); }
+        if (stop === "ui") { tablet.tabletShown = true; }
+        if (stop === "permission") { state.domain = false; }
+        if (stop === "mode") { send("settings", { createAppMode: "object" }); }
+        if (stop === "shutdown") { ending.emit(); }
+        frame(0.5);
+        assert.equal(state.voxelWrites.length, writes, stop);
+        assert.notEqual(state.touchCaptured, true, stop + " releases touch capture");
+    }
 });
 
 test("voxel actions reject locks, foreign avatars and tablet pointers and stop on permission loss", () => {
@@ -391,6 +475,15 @@ test("voxel actions reject locks, foreign avatars and tablet pointers and stop o
     click();
     assert.equal(state.voxelWrites.length, 0);
     selection.pointingAtTabletLeft = false;
+    environment.tablet.tabletShown = false;
+    const begin = () => Controller.touchBeginEvent.emit({ touchPoints: 1, x: 400, y: 250 });
+    const end = () => Controller.touchEndEvent.emit({ touchPoints: 1, isReleased: true, x: 400, y: 250 });
+    state.touchUIHit = true; begin(); end(); state.touchUIHit = false;
+    environment.tablet.tabletShown = true; begin(); end(); environment.tablet.tabletShown = false;
+    begin(); Controller.touchUpdateEvent.emit({ touchPoints: 1, x: 450, y: 250 }); end();
+    begin(); Controller.touchUpdateEvent.emit({ touchPoints: 2, x: 400, y: 250 }); end();
+    begin(); Controller.touchEndEvent.emit({ touchPoints: 1, isReleased: false, x: 400, y: 250 });
+    assert.equal(state.voxelWrites.length, 0, "UI, pan, multitouch and cancel must not paint");
     send("settings", { voxelEditDynamics: "continuous" });
     click();
     assert.equal(state.voxelWrites.length, 1);

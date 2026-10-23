@@ -1,7 +1,8 @@
 """Export the real engine abort state/method into explicit host ownership seams."""
 def write_abort_fixture(root, scratch):
     header = (root / 'libraries/script-engine/src/v8/ScriptEngineV8.h').read_text()
-    state = next(line for line in header.splitlines() if 'std::atomic<bool> _abortRequested' in line)
+    state = '\n'.join(line for line in header.splitlines() if 'std::atomic<' in line and
+                      any(name in line for name in ('_abortRequested', '_cleanupStarted', '_cleanupRunning', '_abortGeneration')))
     state += '\n' + next(line for line in header.splitlines() if 'bool isEvaluationAborted() const' in line)
     source = (root / 'libraries/script-engine/src/v8/ScriptEngineV8.cpp').read_text()
     method = 'void ScriptEngineV8::abortEvaluation(' + source.split(

@@ -17,6 +17,7 @@
 #include "ApplicationLifecycle.h"
 #if defined(ANDROID_APP_PHONE_INTERFACE)
 #include <android/log.h>
+#include <InputMethodQueryEventWithArgument.h>
 #endif
 
 #include <QtCore/QMimeData>
@@ -24,6 +25,7 @@
 #include <QtCore/QThread>
 #include <AddressManager.h>
 #include <DomainAccountManager.h>
+#include <cmath>
 
 #include <controllers/InputRecorder.h>
 #include <display-plugins/CompositorHelper.h>
@@ -39,6 +41,7 @@
 #include <scripting/ControllerScriptingInterface.h>
 #include <shared/FileUtils.h>
 #include <ui/DialogsManager.h>
+#include <ui/TabletScriptingInterface.h>
 
 #include "AudioClient.h"
 #include "GLCanvas.h"
@@ -161,6 +164,12 @@ bool Application::event(QEvent* event) {
             keyReleaseEvent(static_cast<QKeyEvent*>(event));
             return true;
         case QEvent::FocusOut:
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+            if (_phoneWebTouchId >= 0) {
+                QTouchEvent cancel(QEvent::TouchCancel);
+                handlePhoneWebTouchEvent(&cancel);
+            }
+#endif
             focusOutEvent(static_cast<QFocusEvent*>(event));
             return true;
         case QEvent::FocusIn:
@@ -173,15 +182,30 @@ bool Application::event(QEvent* event) {
         }
 
         case QEvent::TouchBegin:
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+            if (handlePhoneWebTouchEvent(static_cast<QTouchEvent*>(event))) { event->accept(); return true; }
+#endif
             touchBeginEvent(static_cast<QTouchEvent*>(event));
             event->accept();
             return true;
         case QEvent::TouchEnd:
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+            if (handlePhoneWebTouchEvent(static_cast<QTouchEvent*>(event))) { event->accept(); return true; }
+#endif
             touchEndEvent(static_cast<QTouchEvent*>(event));
             return true;
         case QEvent::TouchUpdate:
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+            if (handlePhoneWebTouchEvent(static_cast<QTouchEvent*>(event))) { event->accept(); return true; }
+#endif
             touchUpdateEvent(static_cast<QTouchEvent*>(event));
             return true;
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+        case QEvent::TouchCancel:
+            if (handlePhoneWebTouchEvent(static_cast<QTouchEvent*>(event))) { event->accept(); return true; }
+            touchEndEvent(static_cast<QTouchEvent*>(event));
+            return true;
+#endif
         case QEvent::Gesture:
             touchGestureEvent((QGestureEvent*)event);
             return true;
@@ -862,6 +886,40 @@ void Application::mouseReleaseEvent(QMouseEvent* event) {
     }
 }
 
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+bool Application::handlePhoneWebTouchEvent(QTouchEvent* event) {
+    if (_controllerScriptingInterface->isTouchCaptured()) {
+        if (_phoneWebTouchId >= 0) getEntities()->webTouchEvent(QEvent::TouchCancel, {});
+        _phoneWebTouchId = -1;
+        return false;
+    }
+    if (event->type() == QEvent::TouchBegin && event->touchPoints().size() != 1) return false;
+    if (event->type() != QEvent::TouchBegin && _phoneWebTouchId < 0) return false;
+    auto type = event->type();
+    QPointF position;
+    int pointId = -1;
+    for (const auto& point : event->touchPoints()) {
+        if (type != QEvent::TouchBegin && point.id() != _phoneWebTouchId) continue;
+        pointId = point.id(); position = point.pos();
+        if (point.state() == Qt::TouchPointReleased) type = QEvent::TouchEnd;
+        break;
+    }
+    if (pointId < 0) type = QEvent::TouchCancel;
+    QMouseEvent mouse(QEvent::MouseMove, position, Qt::NoButton, Qt::NoButton, event->modifiers());
+    auto ui = getOffscreenUI();
+    auto mapped = ui->mapToVirtualScreen(getApplicationCompositor().getMouseEventPosition(&mouse));
+    if (type == QEvent::TouchBegin) ui->unfocusWindows();
+    const auto target = getEntities()->webTouchEvent(type, mapped,
+        [this](const QUuid& id) { setKeyboardFocusEntity(id); });
+    const bool captured = _phoneWebTouchId >= 0;
+    if (type == QEvent::TouchBegin && !target.isNull()) {
+        _phoneWebTouchId = pointId;
+    }
+    if (type == QEvent::TouchEnd || type == QEvent::TouchCancel || target.isNull()) _phoneWebTouchId = -1;
+    return captured || !target.isNull();
+}
+#endif
+
 void Application::touchBeginEvent(QTouchEvent* event) {
     TouchEvent thisEvent(*event); // on touch begin, we don't compare to last event
     _controllerScriptingInterface->emitTouchBeginEvent(thisEvent); // send events to any registered scripts
@@ -969,6 +1027,29 @@ void Application::dropEvent(QDropEvent *event) {
 }
 
 bool Application::handleInputMethodEventForFocusedEntity(QEvent* event) {
+#if defined(ANDROID_APP_PHONE_INTERFACE) && defined(USE_GL)
+    if (auto* positional = dynamic_cast<InputMethodQueryEventWithArgument*>(event)) {
+        event->ignore();
+        const auto id = _keyboardFocusedEntity.get();
+        const auto handle = property("_overtePhoneNativeCursorHandle").toInt();
+        const auto ui = getOffscreenUI();
+        const auto tablet = DependencyManager::get<TabletScriptingInterface>()->getTablet("com.highfidelity.interface.tablet.system");
+        if (positional->queries() != Qt::ImCursorPosition || !positional->argument.canConvert<QPointF>()
+                || id == UNKNOWN_ENTITY_ID || handle < 1 || handle > 3
+                || !_primaryWidget || !_primaryWidget->hasFocus() || isHMDMode()
+                || ui->isFocusText() || (tablet && tablet->property("tabletShown").toBool())
+                || _controllerScriptingInterface->isTouchCaptured()) return false;
+        const auto point = positional->argument.toPointF();
+        if (!std::isfinite(point.x()) || !std::isfinite(point.y())) return false;
+        QMouseEvent mouse(QEvent::MouseMove, point, Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+        const auto mapped = ui->mapToVirtualScreen(getApplicationCompositor().getMouseEventPosition(&mouse));
+        if (!getEntities()->moveWebInputCursor(id, mapped, handle)) return false;
+        // The exact document moves its selection asynchronously. Leaving the
+        // value invalid prevents Qt from overwriting it with the old index.
+        event->accept();
+        return true;
+    }
+#endif
     if (_keyboardFocusedEntity.get() != UNKNOWN_ENTITY_ID) {
         switch (event->type()) {
             case QEvent::InputMethod:
@@ -979,6 +1060,26 @@ bool Application::handleInputMethodEventForFocusedEntity(QEvent* event) {
                     event->setAccepted(false);
                     QCoreApplication::sendEvent(eventHandler, event);
                     if (event->isAccepted()) {
+#if defined(ANDROID_APP_PHONE_INTERFACE) && defined(USE_GL)
+                        if (event->type() == QEvent::InputMethodQuery) {
+                            auto query = static_cast<QInputMethodQueryEvent*>(event);
+                            if (query->queries() & (Qt::ImCursorRectangle | Qt::ImAnchorRectangle)) {
+                                const auto metrics = DependencyManager::get<TabletScriptingInterface>()->getTouchUiRuntimeMetrics();
+                                const qreal width = metrics.value("surfaceWidth").toDouble();
+                                const qreal height = metrics.value("surfaceHeight").toDouble();
+                                if (width > 0 && height > 0) {
+                                    const qreal sx = qreal(_primaryWidget->width()) / width;
+                                    const qreal sy = qreal(_primaryWidget->height()) / height;
+                                    for (auto key : { Qt::ImCursorRectangle, Qt::ImAnchorRectangle }) {
+                                        if (!(query->queries() & key)) continue;
+                                        auto rectangle = getPhoneWorldInputRectangle(_myCamera.getProjection(), key);
+                                        if (!rectangle.isEmpty()) query->setValue(key, QRectF(rectangle.x() * sx, rectangle.y() * sy,
+                                            rectangle.width() * sx, rectangle.height() * sy));
+                                    }
+                                }
+                            }
+                        }
+#endif
                         _lastAcceptedKeyPress = usecTimestampNow();
                         return true;
                     }

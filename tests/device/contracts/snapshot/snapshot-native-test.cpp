@@ -100,9 +100,9 @@ int main(int argc,char** argv) {
     QThread::msleep(5);cancelledPanorama->cancel();conversion.join();require(cancelledImage.isNull());
     faces={};
     auto snapshots=DependencyManager::get<Snapshot>();
-    int terminals=0;QString phase;
-    QObject::connect(snapshots.data(),&Snapshot::captureStatusChanged,[&](QString,QString status,QString,QString){
-        phase=status;if(status=="complete"||status=="error"||status=="cancelled"){++terminals;}
+    int terminals=0;QString phase,lastError;
+    QObject::connect(snapshots.data(),&Snapshot::captureStatusChanged,[&](QString,QString status,QString,QString error){
+        lastError=error;phase=status;if(status=="complete"||status=="error"||status=="cancelled"){++terminals;}
     });
     auto old=snapshots->beginCapture("render-old");require(bool(old));
     SnapshotAnimated::saveSnapshotAnimated(still,1.0f,DependencyManager::get<WindowScriptingInterface>(),old);
@@ -157,6 +157,58 @@ int main(int argc,char** argv) {
     QElapsedTimer cubeDeadline;cubeDeadline.start();
     while(terminals<8&&cubeDeadline.elapsed()<15000){drain();QThread::msleep(1);}
     require(terminals==8&&phase=="complete");require(QImageReader(root+"/cube-api.png").size()==QSize(8192,6144));
+    // A missing or wrong renderer config must produce one terminal failure,
+    // release the capture slot, and admit a subsequent capture without a crash.
+    for (int missing=0; missing<4; ++missing) {
+        app.engineAvailable = missing != 0;
+        app.engine.configAvailable = missing != 1;
+        app.engine.config.cameraAvailable = missing != 2;
+        app.engine.config.wrongType = missing == 3;
+        const auto id = QString("unavailable-%1").arg(missing);
+        const int before = terminals;
+        window->takeSecondaryCamera360Snapshot(glm::vec3(1,2,3),true,false,id+".png",id);drain();
+        require(terminals==before+1 && phase=="error" && lastError=="secondary-camera-unavailable");
+        require(!snapshots->_capture360 && !snapshots->_snapshotTimer.isActive());
+        require(app.operators.empty() && !QFile::exists(root+"/"+id+".png"));
+        snapshots->restoreSecondaryCamera(); // Missing cleanup target is safe too.
+    }
+    app.engineAvailable=true;app.engine.configAvailable=true;
+    app.engine.config.cameraAvailable=true;app.engine.config.wrongType=false;
+    const int beforeLostCamera=terminals;
+    window->takeSecondaryCamera360Snapshot(glm::vec3(1,2,3),true,false,"lost-camera.png","lost-camera");drain();
+    snapshots->takeNextSnapshot();require(app.operators.size()==1);
+    apiOperation=std::move(app.operators.front());app.operators.pop();
+    app.engine.config.cameraAvailable=false;
+    std::get<0>(apiOperation)(red);drain();
+    require(terminals==beforeLostCamera+1 && phase=="error" && lastError=="secondary-camera-unavailable");
+    require(!snapshots->_capture360 && !snapshots->_snapshotTimer.isActive());
+    require(!snapshots->_taking360Snapshot && !snapshots->_waitingOnSnapshot);
+    require(!camera.enabled && camera.textureWidth==640 && camera.textureHeight==480);
+    require(!snapshots->_secondaryCamera360);
+    require(!QFile::exists(root+"/lost-camera.png"));
+    std::get<0>(apiOperation)(red);drain();require(terminals==beforeLostCamera+1);
+    app.engine.config.cameraAvailable=true;
+    SecondaryCameraJobConfig replacementCamera;
+    replacementCamera.enabled=true;replacementCamera.textureWidth=123;replacementCamera.textureHeight=456;
+    const int beforeReplacement=terminals;
+    window->takeSecondaryCamera360Snapshot(glm::vec3(1,2,3),true,false,"replace-camera.png","replace-camera");drain();
+    snapshots->takeNextSnapshot();apiOperation=std::move(app.operators.front());app.operators.pop();
+    app.engine.config.useOverride=true;app.engine.config.overrideCamera=&replacementCamera;
+    std::get<0>(apiOperation)(red);drain();
+    require(terminals==beforeReplacement+1 && phase=="error");
+    require(!camera.enabled && camera.textureWidth==640 && camera.textureHeight==480);
+    require(replacementCamera.enabled && replacementCamera.textureWidth==123 && replacementCamera.textureHeight==456);
+    auto destroyedCamera=std::make_unique<SecondaryCameraJobConfig>();
+    app.engine.config.overrideCamera=destroyedCamera.get();
+    const int beforeDestruction=terminals;
+    window->takeSecondaryCamera360Snapshot(glm::vec3(1,2,3),true,false,"destroy-camera.png","destroy-camera");drain();
+    snapshots->takeNextSnapshot();apiOperation=std::move(app.operators.front());app.operators.pop();
+    destroyedCamera.reset();app.engine.config.overrideCamera=nullptr;
+    std::get<0>(apiOperation)(red);drain();
+    require(terminals==beforeDestruction+1 && phase=="error");
+    require(!snapshots->_capture360 && !snapshots->_secondaryCamera360 && !snapshots->_snapshotTimer.isActive());
+    require(!QFile::exists(root+"/destroy-camera.png"));
+    app.engine.config.useOverride=false;
     auto accounts=DependencyManager::get<AccountManager>();
     const QByteArray uploadJSON=R"({"data":{"thumbnail_url":"https://example.invalid/thumbnail.png","image_url":"https://example.invalid/photo.png","id":"42","original_image_file_name":"photo.png"}})";
     auto uploader=new SnapshotUploader(QUrl("hifi://place/path"),still);

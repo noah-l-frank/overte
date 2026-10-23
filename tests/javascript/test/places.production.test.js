@@ -494,6 +494,9 @@ test("production Places sends validated portal requests and ignores duplicate re
     const sent = JSON.parse(harness.Messages.sent[0].message);
     assert.equal(sent.url, "hifi://portal");
     assert.deepEqual(sent.position, { x: 0, y: 0, z: -2 });
+    assert.equal(harness.entityAdds.length, 1);
+    assert.equal(harness.entityAdds[0].script, "qrc:///scripts/system/places/portal.js",
+        "the bundled portal must use immutable application code rather than the Android extraction cache");
 
     const request = harness.xhr.requests[0];
     request.respond(200, { data: { places: [] } });

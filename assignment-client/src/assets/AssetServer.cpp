@@ -573,6 +573,42 @@ void AssetServer::cleanupUnmappedFiles() {
     }
 }
 
+static bool hasReferenceOutsideOwnBakedContent(const AssetUtils::Mappings& mappings,
+                                             const AssetUtils::AssetHash& hash) {
+    const auto ownBakedFolder = AssetUtils::HIDDEN_BAKED_CONTENT_FOLDER + hash + "/";
+    return std::any_of(mappings.begin(), mappings.end(), [&](const auto& mapping) {
+        return mapping.second == hash && !mapping.first.startsWith(ownBakedFolder);
+    });
+}
+
+static void removeOrphanedBakedMappings(AssetUtils::Mappings& mappings,
+                                      QSet<QString>& hashesToCheckForDeletion) {
+    auto pending = hashesToCheckForDeletion.values();
+    while (!pending.isEmpty()) {
+        const auto hash = pending.takeLast();
+        if (hasReferenceOutsideOwnBakedContent(mappings, hash)) {
+            continue;
+        }
+        const auto ownBakedFolder = AssetUtils::HIDDEN_BAKED_CONTENT_FOLDER + hash + "/";
+        auto mapping = mappings.begin();
+        while (mapping != mappings.end()) {
+            if (mapping->first.startsWith(ownBakedFolder)) {
+                const auto dependentHash = mapping->second;
+                hashesToCheckForDeletion.insert(dependentHash);
+                pending.append(dependentHash);
+                mapping = mappings.erase(mapping);
+            } else {
+                ++mapping;
+            }
+        }
+    }
+
+    // Dependencies shared by another public mapping or bake remain live.
+    for (const auto& mapping : mappings) {
+        hashesToCheckForDeletion.remove(mapping.second);
+    }
+}
+
 void AssetServer::cleanupBakedFilesForDeletedAssets() {
     qCInfo(asset_server) << "Performing baked asset cleanup for deleted assets";
 
@@ -592,13 +628,8 @@ void AssetServer::cleanupBakedFilesForDeletedAssets() {
 
     // enumerate the hashes for which we have baked content
     for (const auto& hash : bakedHashes) {
-        // check if we have a mapping that points to this hash
-        auto matchingMapping = std::find_if(std::begin(_fileMappings), std::end(_fileMappings),
-                                            [&hash](const std::pair<AssetUtils::AssetPath, AssetUtils::AssetHash> mappingPair) {
-            return mappingPair.second == hash;
-        });
-
-        if (matchingMapping == std::end(_fileMappings)) {
+        // A disabled bake's own alias does not keep its deleted source alive.
+        if (!hasReferenceOutsideOwnBakedContent(_fileMappings, hash)) {
             // we didn't find a mapping for this hash, remove any baked content we still have for it
             removeBakedPathsForDeletedAsset(hash);
         }
@@ -1181,17 +1212,13 @@ bool AssetServer::deleteMappings(const AssetUtils::AssetPathList& paths) {
         }
     }
 
+    // Include owned bake aliases and outputs in this same persistence step.
+    // Failure restores the entire old map before any asset file is removed.
+    removeOrphanedBakedMappings(_fileMappings, hashesToCheckForDeletion);
+
     // deleted the old mappings, attempt to persist to file
     if (writeMappingsToFile()) {
         // persistence succeeded we are good to go
-
-        // TODO iterate through hashesToCheckForDeletion instead
-        for (auto& pair : _fileMappings) {
-            auto it = hashesToCheckForDeletion.find(pair.second);
-            if (it != hashesToCheckForDeletion.end()) {
-                hashesToCheckForDeletion.erase(it);
-            }
-        }
 
         // we now have a set of hashes that are unmapped - we will delete those asset files
         for (auto& hash : hashesToCheckForDeletion) {
@@ -1200,8 +1227,6 @@ bool AssetServer::deleteMappings(const AssetUtils::AssetPathList& paths) {
 
             if (removeableFile.remove()) {
                 qCDebug(asset_server) << "\tDeleted" << hash << "from asset files directory since it is now unmapped.";
-
-                removeBakedPathsForDeletedAsset(hash);
             } else {
                 qCDebug(asset_server) << "\tAttempt to delete unmapped file" << hash << "failed";
             }

@@ -24,6 +24,10 @@
 #include <gl/OffscreenGLCanvas.h>
 #include <shared/ReadWriteLockable.h>
 #include <NetworkingConstants.h>
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+#include <InputMethodQueryEventWithArgument.h>
+#include <cmath>
+#endif
 #include <MetaverseAPI.h>
 
 #include "Logging.h"
@@ -237,6 +241,16 @@ bool OffscreenSurface::eventFilter(QObject* originalDestination, QEvent* event) 
             auto window = getWindow();
             if (window && window->activeFocusItem()) {
                 event->ignore();
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+                if (auto positional = dynamic_cast<InputMethodQueryEventWithArgument*>(event)) {
+                    if (!positional->argument.canConvert<QPointF>()) { return false; }
+                    auto focus = window->activeFocusItem();
+                    const auto point = positional->argument.toPointF();
+                    if (!focus->isEnabled() || !focus->isVisible()
+                            || !std::isfinite(point.x()) || !std::isfinite(point.y())) { return false; }
+                    return positional->queryOwner(focus, focus->mapFromScene(mapToVirtualScreen(point)));
+                }
+#endif
                 if (QCoreApplication::sendEvent(window->activeFocusItem(), event)) {
                     bool eventAccepted = event->isAccepted();
                     if (event->type() == QEvent::InputMethodQuery) {

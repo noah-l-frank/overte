@@ -39,6 +39,7 @@ public:
     // Hides the phone's screen-space dialog and releases the script/UI input
     // focus acquired by showWithSelection(). Safe to call more than once.
     static void hidePhoneDialog();
+    static bool phoneLoginOwnsInput();
 #endif
 
 signals:

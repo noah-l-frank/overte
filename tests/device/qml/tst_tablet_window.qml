@@ -13,7 +13,9 @@ TestCase {
     height: 1400
     readonly property string homeSource: "hifi/tablet/TabletHome.qml"
     readonly property string placesSource: "scripts/system/places/PicoPlaces.qml"
+    readonly property string chatSource: Qt.resolvedUrl("../../../scripts/communityScripts/armored-chat/armored_chat.qml")
     property var currentWindow: null
+    SignalSpy { id: cursorGeometry; target: Qt.inputMethod; signalName: "cursorRectangleChanged" }
     // Only the native desktop, page-loading and TabletProxy service boundaries
     // are substituted. WindowRoot, ScrollingWindow and Places are production QML.
     QtObject {
@@ -48,12 +50,23 @@ TestCase {
                 qmlLoadFailed(parent, parent.qmlLoadGeneration)
                 return
             }
-            var factory = source === placesSource ? placesFactory : homeFactory
+            var factory = source === chatSource ? Qt.createComponent(chatSource)
+                : source === placesSource ? placesFactory : homeFactory
+            if (source === chatSource) {
+                if (factory.status !== Component.Ready) { throw new Error(factory.errorString()) }
+                callback(factory.createObject(parent, { tabletMode: true }))
+                return
+            }
             callback(factory.createObject(parent))
         }
     }
-    Component { id: homeFactory; Item {} }
+    Component { id: homeFactory; Item {
+        property string url: ""
+        property string scriptURL: ""
+        property real screenSpaceMinimumContentHeight: 0
+    } }
     Component { id: placesFactory; Places.PicoPlaces {} }
+    Component { id: scrollEditorFactory; TextInput { width: 180; height: 40; y: 500 } }
     Component {
         id: windowFactory
         TabletUi.WindowRoot {
@@ -133,6 +146,158 @@ TestCase {
         compare(proxy.closes, 1)
     }
 
+    function test_declaredPageMinimumKeepsShortFormReachable() {
+        var window = openTablet()
+        var profile = findChild(window, "tabletTouchProfile")
+        profile.directTouch = true
+        profile.surfaceWidth = 1080
+        profile.surfaceHeight = 440
+        profile.safeInsetBottom = 0
+        profile.screenSpaceContentScale = 2.5
+        tryCompare(window, "height", 440)
+        window.loadSource("short-form.qml")
+        var loader = findChild(window, "loader")
+        tryVerify(function() { return loader.item !== null && window.footer.visible })
+        loader.item.screenSpaceMinimumContentHeight = 706
+        tryVerify(function() { return loader.item.height >= 706 })
+        verify(window.contentFlickableInteractive)
+        var scroll = null
+        for (var i = 0; i < window.pane.children.length; ++i) {
+            var child = window.pane.children[i]
+            if (typeof child.contentY === "number" && typeof child.flick === "function") {
+                scroll = child
+            }
+        }
+        verify(scroll !== null)
+        tryVerify(function() {
+            return window.footer.mapToItem(window, 0, window.footer.height).y <= window.height + 1
+        })
+        var footerY = window.footer.mapToItem(window, 0, 0).y
+        mouseDrag(scroll, scroll.width / 2, scroll.height - 20, 0, -scroll.height / 2)
+        tryVerify(function() { return scroll.contentY > 20 })
+        compare(window.footer.mapToItem(window, 0, 0).y, footerY)
+        // A compact modal can release the page minimum again.
+        loader.item.screenSpaceMinimumContentHeight = 0
+        tryVerify(function() { return loader.height < 706 })
+        tryCompare(window, "contentFlickableInteractive", false)
+    }
+
+    function test_editorFocusBeforeImeKeepsScrolledPageStable() {
+        var window = openTablet()
+        var profile = findChild(window, "tabletTouchProfile")
+        profile.directTouch = true
+        profile.surfaceWidth = 1080
+        profile.surfaceHeight = 600
+        profile.safeInsetBottom = 0
+        profile.screenSpaceContentScale = 2.5
+        profile.keyboardVisible = false
+        window.loadSource("short-form.qml")
+        var loader = findChild(window, "loader")
+        tryVerify(function() { return loader.item !== null })
+        loader.item.screenSpaceMinimumContentHeight = 706
+        var editor = createTemporaryObject(scrollEditorFactory, loader.item)
+        verify(editor !== null)
+        tryVerify(function() { return loader.item.height >= 706 })
+        var scroll = null
+        for (var i = 0; i < window.pane.children.length; ++i) {
+            var child = window.pane.children[i]
+            if (typeof child.contentY === "number" && typeof child.flick === "function") {
+                scroll = child
+            }
+        }
+        verify(scroll !== null)
+        wait(120)
+        scroll.contentY = editor.y * loader.contentScale - 80
+        wait(80)
+        var before = scroll.contentY
+        verify(before > 50)
+        var position = editor.mapToItem(window, 0, 0)
+        verify(position.y >= 0 && position.y + editor.height * loader.contentScale < window.height)
+        mouseClick(editor, editor.width / 2, editor.height / 2)
+        tryVerify(function() { return editor.activeFocus })
+        // Native IME visibility arrives after editor focus on Android. A tap
+        // must not move the selected field away while that update is pending.
+        wait(120)
+        compare(profile.keyboardVisible, false)
+        verify(Math.abs(scroll.contentY - before) < 1,
+            "Focusing a visible editor reset the scroll before native IME arrival")
+        profile.imeInsetBottom = 240
+        profile.keyboardVisible = true
+        tryCompare(window, "height", 360)
+        tryVerify(function() {
+            var cursor = editor.cursorRectangle
+            var top = editor.mapToItem(scroll, 0, cursor.y).y
+            var bottom = editor.mapToItem(scroll, 0, cursor.y + cursor.height).y
+            return top >= -1 && bottom <= scroll.height + 1
+        })
+        wait(120)
+        cursorGeometry.clear()
+        window.revealFocusedEditor()
+        tryVerify(function() { return cursorGeometry.count > 0 }, 1000,
+            "The native cursor geometry must refresh after the real pane exposes the editor")
+        profile.keyboardVisible = false
+        profile.imeInsetBottom = 0
+        tryCompare(scroll, "contentY", 0)
+    }
+
+    function test_clearLongChatAfterNativeKeyboardReopen() {
+        var window = openTablet()
+        var profile = findChild(window, "tabletTouchProfile")
+        profile.directTouch = true
+        profile.surfaceWidth = 2400
+        profile.surfaceHeight = 1080
+        profile.safeInsetLeft = 132
+        profile.safeInsetTop = 74
+        profile.safeInsetBottom = 84
+        profile.screenSpaceContentScale = 8 / 3
+        profile.keyboardVisible = false
+        window.loadSource(chatSource)
+        var loader = findChild(window, "loader")
+        tryVerify(function() { return loader.item !== null })
+        wait(120)
+        var input = loader.item.messageInput
+        var draft = ("PARITY-P82-PASTE-20261022 Grüße 🙂 "
+            + new Array(101).join("p82-abcdefghijklmn ")).slice(0, 1425) + "\n"
+        input.text = draft
+        input.cursorPosition = draft.length
+        input.forceActiveFocus()
+        profile.imeInsetBottom = 686
+        profile.keyboardVisible = true
+        wait(150)
+
+        profile.keyboardVisible = false
+        profile.imeInsetBottom = 0
+        wait(120)
+        var entry = findChild(loader.item, "chatEntryScroll")
+        mouseClick(entry, Math.min(80, entry.width / 3), entry.height / 2)
+        verify(input.activeFocus)
+        profile.imeInsetBottom = 686
+        profile.keyboardVisible = true
+        wait(150)
+        keyClick(Qt.Key_A, Qt.ControlModifier)
+        keyClick(Qt.Key_Backspace)
+        compare(input.text, "")
+
+        var scroll = null
+        for (var i = 0; i < window.pane.children.length; ++i) {
+            var child = window.pane.children[i]
+            if (typeof child.contentY === "number" && typeof child.flick === "function") {
+                scroll = child
+            }
+        }
+        verify(scroll !== null)
+        tryVerify(function() {
+            var cursor = input.cursorRectangle
+            var top = input.mapToItem(scroll, 0, cursor.y).y
+            var bottom = input.mapToItem(scroll, 0, cursor.y + cursor.height).y
+            return top >= -1 && bottom <= scroll.height + 1
+        }, 1000, "Clearing the reopened draft moved its cursor outside the tablet viewport")
+        var send = findChild(loader.item, "chatSend")
+        var sendTop = send.mapToItem(scroll, 0, 0).y
+        verify(sendTop < scroll.height && sendTop + send.height * loader.contentScale > 0,
+            "Clearing the reopened draft hid Send outside the tablet viewport")
+    }
+
     function test_reopenDuringFade_data() {
         return [
             {tag: "touch", screenSpace: true},
@@ -178,6 +343,13 @@ TestCase {
             verify(proxy.tabletShown)
             window.loadSource(placesSource)
             tryVerify(function() { return window.footer.visible })
+            // The OS browser remains a boundary; the complete WindowRoot must
+            // implement the same close callback as the immersive tablet root.
+            window.loadWebBase("https://example.test/close", "", null)
+            tryCompare(loader, "source", "hifi/tablet/TabletWebView.qml")
+            tryCompare(loader.item, "url", "https://example.test/close")
+            window.returnToPreviousApp()
+            tryCompare(loader, "source", placesSource)
             var close = findChild(window.footer, "nav.close")
             mouseClick(close, close.width / 2, close.height / 2)
             verify(!window.shown)

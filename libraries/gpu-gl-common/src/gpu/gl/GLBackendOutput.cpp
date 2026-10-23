@@ -16,6 +16,7 @@
 #endif
 
 #include <QtGui/QImage>
+#include <cstring>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QtCore/QCoreApplication>
 #include <QtGui/QOpenGLContext>
@@ -201,7 +202,30 @@ void GLBackend::downloadFramebuffer(const FramebufferPointer& srcFramebuffer, co
     }
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, getFramebufferID(srcFramebuffer));
-    glReadPixels(region.x, region.y, region.z, region.w, format, GL_UNSIGNED_BYTE, destImage.bits());
+    if (format == GL_RGBA) {
+        // GLES guarantees RGBA byte order. ARGB32 uses native-endian QRgb
+        // words (BGRA bytes on Android), so reading directly into it swaps red
+        // and blue. Convert the byte-ordered image before handing it to Qt's
+        // codecs, preserving any larger destination's scanline stride.
+        QImage pixels(region.z, region.w, QImage::Format_RGBA8888);
+        if (pixels.isNull()) {
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            qCWarning(gpugllogging) << "GLBackend::downloadFramebuffer : readback allocation failed";
+            return;
+        }
+        glReadPixels(region.x, region.y, region.z, region.w, format, GL_UNSIGNED_BYTE, pixels.bits());
+        const auto converted = pixels.convertToFormat(QImage::Format_ARGB32);
+        if (converted.isNull()) {
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            qCWarning(gpugllogging) << "GLBackend::downloadFramebuffer : readback conversion failed";
+            return;
+        }
+        for (int row = 0; row < region.w; ++row) {
+            std::memcpy(destImage.scanLine(row), converted.constScanLine(row), region.z * sizeof(QRgb));
+        }
+    } else {
+        glReadPixels(region.x, region.y, region.z, region.w, format, GL_UNSIGNED_BYTE, destImage.bits());
+    }
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
     (void) CHECK_GL_ERROR();

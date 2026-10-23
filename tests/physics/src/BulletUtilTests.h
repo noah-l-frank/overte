@@ -22,6 +22,7 @@ private slots:
     void fromGLMToBullet();
     void rotateVectorTest();
     void clampLengthTest();
+    void characterFloorRaySafety();
 };
 
 #endif // hifi_BulletUtilTests_h

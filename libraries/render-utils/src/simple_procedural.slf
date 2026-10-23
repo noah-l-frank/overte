@@ -11,9 +11,13 @@
 //  See the accompanying file LICENSE or http://www.apache.org/licenses/LICENSE-2.0.html
 //
 
-<@include DeferredBufferWrite.slh@>
+<@if HIFI_USE_FORWARD@>
+    OUTPUT(0, vec4, _fragColor0);
+<@else@>
+    <@include DeferredBufferWrite.slh@>
+<@endif@>
 
-<@if HIFI_USE_TRANSLUCENT@>
+<@if HIFI_USE_FORWARD or HIFI_USE_TRANSLUCENT@>
     <@include DefaultMaterials.slh@>
 
     <@include GlobalLight.slh@>
@@ -67,6 +71,8 @@ float getProceduralFragmentWithPosition(inout ProceduralFragmentWithPosition pro
 
 #line 2030
 void main(void) {
+    TransformCamera cam = getTransformCamera();
+    vec3 posEye = _positionES.xyz;
     vec3 normal = evalFrontOrBackFaceNormal(normalize(_normalWS.xyz));
     vec3 diffuse = _color.rgb;
     vec3 fresnel = DEFAULT_FRESNEL;
@@ -78,10 +84,8 @@ void main(void) {
 
     float emissiveAmount = 0.0;
 
-<@if HIFI_USE_TRANSLUCENT@>
+<@if HIFI_USE_FORWARD or HIFI_USE_TRANSLUCENT@>
     float alpha = _color.a;
-    TransformCamera cam = getTransformCamera();
-    vec3 posEye = _positionES.xyz;
 <@else@>
     float alpha = 1.0;
 <@endif@>
@@ -101,7 +105,6 @@ void main(void) {
 #if defined(PROCEDURAL_V3)
     ProceduralFragment proceduralData = ProceduralFragment(
 #else
-    TransformCamera cam = getTransformCamera();
     vec4 position = cam._viewInverse * _positionES;
     ProceduralFragmentWithPosition proceduralData = ProceduralFragmentWithPosition(
         position.xyz,
@@ -135,7 +138,7 @@ void main(void) {
 #if defined(PROCEDURAL_V4)
     position = vec4(proceduralData.position, 1.0);
     vec4 posEye4 = cam._view * position;
-<@if HIFI_USE_TRANSLUCENT@>
+<@if HIFI_USE_FORWARD or HIFI_USE_TRANSLUCENT@>
     posEye = posEye4.xyz;
 <@endif@>
     vec4 posClip = cam._projection * posEye4;
@@ -144,7 +147,30 @@ void main(void) {
 
 #endif
 
-<@if not HIFI_USE_TRANSLUCENT@>
+<@if HIFI_USE_FORWARD or HIFI_USE_TRANSLUCENT@>
+    vec4 color;
+    if (emissiveAmount > 0.0) {
+        color = vec4(diffuse, alpha);
+    } else {
+        color = vec4(evalGlobalLightingAlphaBlended(
+            cam._viewInverse,
+            1.0,
+            occlusion,
+            posEye,
+            normal,
+            diffuse,
+            fresnel,
+            metallic,
+            emissive,
+            roughness, alpha),
+            alpha);
+    }
+    <@if HIFI_USE_FORWARD@>
+        _fragColor0 = color;
+    <@else@>
+        packDeferredFragmentTranslucentUnlit(color.a, color.rgb);
+    <@endif@>
+<@else@>
     if (emissiveAmount > 0.0) {
         packDeferredFragmentLightmap(
             _prevPositionCS,
@@ -166,24 +192,5 @@ void main(void) {
             occlusion,
             scattering);
     }
-<@else@>
-    vec4 color;
-    if (emissiveAmount > 0.0) {
-        color = vec4(diffuse, alpha);
-    } else {
-        color = vec4(evalGlobalLightingAlphaBlended(
-            cam._viewInverse,
-            1.0,
-            occlusion,
-            posEye,
-            normal,
-            diffuse,
-            fresnel,
-            metallic,
-            emissive,
-            roughness, alpha),
-            alpha);
-    }
-    packDeferredFragmentTranslucentUnlit(color.a, color.rgb);
 <@endif@>
 }

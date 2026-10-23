@@ -699,7 +699,9 @@ def preparePhoneQtAndroidJar = tasks.register('preparePhoneQtAndroidJar', Jar) {
     def phoneQtJavaOverrides = [
         'org/qtproject/qt5/android/QtLayout.class',
         'org/qtproject/qt5/android/QtLayout$LayoutParams.class',
-        'org/qtproject/qt5/android/QtEditText.class'
+        'org/qtproject/qt5/android/QtEditText.class',
+        'org/qtproject/qt5/android/CursorHandle.class',
+        'org/qtproject/qt5/android/CursorView.class'
     ]
     inputs.property 'phoneQtJavaOverrides', phoneQtJavaOverrides
     archiveFileName = 'QtAndroid-phone.jar'

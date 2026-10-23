@@ -25,6 +25,9 @@
 
 #include "Context.h"
 #include "GLHelpers.h"
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+#include <InputMethodQueryEventWithArgument.h>
+#endif
 
 class GLPaintEngine : public QPaintEngine {
     bool begin(QPaintDevice *pdev) override { return true; }
@@ -98,6 +101,23 @@ QVariant GLWidget::inputMethodQuery(Qt::InputMethodQuery query) const {
     return QWidget::inputMethodQuery(query);
 }
 
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+QVariant GLWidget::inputMethodQuery(Qt::InputMethodQuery query, QVariant argument) const {
+    // Keep the normal event-filter route for queries without an argument too:
+    // the offscreen editor owns surrounding text and the current selection.
+    if (!argument.isValid()) {
+        QInputMethodQueryEvent event(query);
+        event.ignore();
+        QCoreApplication::sendEvent(const_cast<GLWidget*>(this), &event);
+        return event.value(query);
+    }
+    if (query != Qt::ImCursorPosition) { return {}; }
+    InputMethodQueryEventWithArgument event(query, argument);
+    QCoreApplication::sendEvent(const_cast<GLWidget*>(this), &event);
+    return event.value(query);
+}
+#endif
+
 bool GLWidget::event(QEvent* event) {
     switch (event->type()) {
         case QEvent::MouseMove:
@@ -126,6 +146,14 @@ bool GLWidget::event(QEvent* event) {
             }
             break;
         case QEvent::InputMethodQuery:
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+            // The world mapper validates and projects the native point before
+            // the document can claim it. Raw points never reach world QML.
+            if (dynamic_cast<InputMethodQueryEventWithArgument*>(event)) {
+                event->ignore();
+                return QCoreApplication::sendEvent(QCoreApplication::instance(), event) && event->isAccepted();
+            }
+#endif
             if (QCoreApplication::sendEvent(QCoreApplication::instance(), event)) {
                 return true;
             }

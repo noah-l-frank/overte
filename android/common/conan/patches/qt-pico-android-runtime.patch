@@ -121,3 +121,24 @@ index b2ca70ce455..fc4689e2a92 100644
          return;
      }
 
+diff --git a/qtbase/src/plugins/platforms/android/qandroidinputcontext.cpp b/qtbase/src/plugins/platforms/android/qandroidinputcontext.cpp
+--- a/qtbase/src/plugins/platforms/android/qandroidinputcontext.cpp
++++ b/qtbase/src/plugins/platforms/android/qandroidinputcontext.cpp
+@@ -1573,8 +1573,17 @@
+                                   oldComposingTextLen);
+         }
+     }
+
++    // An explicit empty Android commit replaces the selected text too.
++    // Collapse the selection before encoding its range, so Qt removes it once.
++    if (!focusObjectWasComposing && m_composingText.isEmpty()
++            && oldComposingTextLen == 0 && absoluteCursorPos != absoluteAnchorPos) {
++        setCursorPosition();
++        event.setCommitString({}, effectiveAbsoluteCursorPos - absoluteCursorPos,
++                              qAbs(absoluteCursorPos - absoluteAnchorPos));
++    }
++
+     if (m_composingText.isEmpty())
+         clear();
+
+     QGuiApplication::sendEvent(m_focusObject, &event);

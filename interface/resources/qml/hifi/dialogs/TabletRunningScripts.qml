@@ -19,6 +19,7 @@ Rectangle {
     property bool developerMenuEnabled: false
     property bool isHMD: HMD.active
     property string status: ""
+    readonly property int controlHeight: Math.max(32, metrics.adaptiveMinimumControlHeight)
     signal sendToScript(var message)
     function filename(url) { return String(url).split(/[?#]/)[0].replace(/\\/g, "/").split("/").pop(); }
     function canEditScript(url) { var name = filename(url); return developerMenuEnabled || (name !== "controllerScripts.js" && name !== "defaultScripts.js"); }
@@ -45,39 +46,71 @@ Rectangle {
     Connections {
         target: root.scripts
         function onScriptCountChanged() { root.updateRunningScripts(); }
-        function onScriptLoadError(url, error) { root.status = "Failed to load " + String(url) + (error ? ": " + error : ""); }
+        function onScriptLoadError(url, error) { root.status = "Failed to load " + root.filename(url) + (error ? ": " + error : ""); }
     }
     Timer { interval: 1000; repeat: true; running: root.visible; onTriggered: root.developerMenuEnabled = MenuInterface.isOptionChecked("Developer Menu") }
     HifiControls.TouchUiMetrics { id: metrics }
+    Flickable {
+        id: viewport
+        objectName: "scriptViewport"
+        anchors.fill: parent; anchors.margins: 12
+        clip: true
+        contentWidth: width
+        contentHeight: content.height
+        boundsBehavior: Flickable.StopAtBounds
+        pressDelay: metrics.pressDelay
+        flickDeceleration: metrics.flickDeceleration
+        maximumFlickVelocity: metrics.maximumFlickVelocity
+        ScrollBar.vertical: ScrollBar {}
     ColumnLayout {
-        id: scriptLayout
-        anchors.fill: parent; anchors.margins: 12; spacing: 8
-        Label { text: root.title; color: "white"; font.pixelSize: 22; Layout.fillWidth: true }
+        id: content
+        width: viewport.width
+        height: Math.max(viewport.height, heading.implicitHeight
+            + (statusLabel.visible ? statusLabel.implicitHeight + spacing : 0)
+            + actions.height + running.Layout.preferredHeight + loaders.height
+            + filter.implicitHeight + 180 + 6 * spacing + keyboard.implicitHeight)
+        spacing: 8
+        Label { id: heading; text: root.title; color: "white"; font.pixelSize: 22; Layout.fillWidth: true }
+        Label {
+            id: statusLabel
+            objectName: "scriptStatus"
+            text: root.status
+            color: "#cccccc"
+            wrapMode: Text.WordWrap
+            maximumLineCount: 3
+            elide: Text.ElideRight
+            Layout.fillWidth: true
+            visible: text.length > 0
+            Accessible.role: Accessible.StaticText
+            Accessible.name: text
+        }
         Flow {
+            id: actions
             Layout.fillWidth: true; spacing: 8
-            Button { objectName: "scriptReloadAll"; text: "Reload All"; implicitHeight: 48; onClicked: root.reloadAll() }
-            Button { objectName: "scriptStopAll"; text: "Stop All"; implicitHeight: 48; onClicked: root.stopAll() }
-            Button { objectName: "scriptLoadDefaults"; text: "Load Defaults"; visible: root.developerMenuEnabled; implicitHeight: 48; onClicked: root.loadDefaults() }
+            Button { objectName: "scriptReloadAll"; text: "Reload All"; implicitHeight: root.controlHeight; onClicked: root.reloadAll() }
+            Button { objectName: "scriptStopAll"; text: "Stop All"; implicitHeight: root.controlHeight; onClicked: root.stopAll() }
+            Button { objectName: "scriptLoadDefaults"; text: "Load Defaults"; visible: root.developerMenuEnabled; implicitHeight: root.controlHeight; onClicked: root.loadDefaults() }
         }
         ListView {
             id: running; objectName: "runningScriptList"; Layout.fillWidth: true; Layout.preferredHeight: Math.min(220, root.height / 3); clip: true; model: root.runningScriptsModel
             ScrollBar.vertical: ScrollBar {}
             delegate: RowLayout {
-                width: running.width; height: 48
+                width: running.width; height: root.controlHeight
                 Label { text: root.filename(modelData.url || modelData.path); color: "white"; Layout.fillWidth: true; elide: Text.ElideMiddle; ToolTip.text: modelData.url || modelData.path; ToolTip.visible: scriptHover.containsMouse; MouseArea { id: scriptHover; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton } }
-                Button { objectName: "scriptRestart" + index; text: "Restart"; enabled: root.canEditScript(modelData.url || modelData.path); implicitHeight: 48; onClicked: root.reloadScript(modelData.url || modelData.path) }
-                Button { objectName: "scriptStop" + index; text: "Stop"; enabled: root.canEditScript(modelData.url || modelData.path); implicitHeight: 48; onClicked: root.stopScript(modelData.url || modelData.path) }
+                Button { objectName: "scriptRestart" + index; text: "Restart"; enabled: root.canEditScript(modelData.url || modelData.path); implicitHeight: root.controlHeight; onClicked: root.reloadScript(modelData.url || modelData.path) }
+                Button { objectName: "scriptStop" + index; text: "Stop"; enabled: root.canEditScript(modelData.url || modelData.path); implicitHeight: root.controlHeight; onClicked: root.stopScript(modelData.url || modelData.path) }
             }
         }
         Flow {
+            id: loaders
             Layout.fillWidth: true; spacing: 8
-            Button { objectName: "scriptFromUrl"; text: "From URL"; implicitHeight: 48; onClicked: ApplicationInterface.loadScriptURLDialog() }
-            Button { objectName: "scriptFromFile"; text: "From File"; implicitHeight: 48; onClicked: ApplicationInterface.loadDialog() }
-            Button { objectName: "scriptLoadSelected"; text: "Load Selected"; implicitHeight: 48; enabled: browser.currentIndex !== null && !!root.scriptsModel.data(browser.currentIndex, 256); onClicked: root.loadScript(root.scriptsModel.data(browser.currentIndex, 256)) }
+            Button { objectName: "scriptFromUrl"; text: "From URL"; implicitHeight: root.controlHeight; onClicked: ApplicationInterface.loadScriptURLDialog() }
+            Button { objectName: "scriptFromFile"; text: "From File"; implicitHeight: root.controlHeight; onClicked: ApplicationInterface.loadDialog() }
+            Button { objectName: "scriptLoadSelected"; text: "Load Selected"; implicitHeight: root.controlHeight; enabled: browser.currentIndex !== null && !!root.scriptsModel.data(browser.currentIndex, 256); onClicked: root.loadScript(root.scriptsModel.data(browser.currentIndex, 256)) }
         }
-        TextField { objectName: "scriptFilter"; placeholderText: "Filter installed scripts"; Layout.fillWidth: true; implicitHeight: 48; onTextChanged: browser.filterText = text; id: filter }
-        NativeModelTree { id: browser; objectName: "scriptTree"; Layout.fillWidth: true; Layout.fillHeight: true; sourceModel: root.scriptsModel; onActivated: function(index) { root.loadScript(root.scriptsModel.data(index, 256)); } }
-        Label { id: scriptStatus; text: root.status; color: "#cccccc"; wrapMode: Text.WordWrap; Layout.fillWidth: true; visible: text.length > 0 }
-        NativeKeyboardHost { Layout.fillWidth: true; Layout.preferredHeight: implicitHeight; inputFocused: filter.activeFocus }
+        TextField { objectName: "scriptFilter"; placeholderText: "Filter installed scripts"; Layout.fillWidth: true; implicitHeight: root.controlHeight; onTextChanged: browser.filterText = text; id: filter }
+        NativeModelTree { id: browser; objectName: "scriptTree"; Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 180; sourceModel: root.scriptsModel; onActivated: function(index) { root.loadScript(root.scriptsModel.data(index, 256)); } }
+        NativeKeyboardHost { id: keyboard; Layout.fillWidth: true; Layout.preferredHeight: implicitHeight; inputFocused: filter.activeFocus }
+    }
     }
 }

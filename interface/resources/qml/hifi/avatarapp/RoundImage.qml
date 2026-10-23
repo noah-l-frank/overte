@@ -13,7 +13,12 @@ Item {
     property alias status: image.status
     property alias progress: image.progress
     onRadiusChanged: drawing.requestPaint()
-    readonly property var captureWindow: root.Window.window
+    // RenderControl renders the hidden QQuickWindow through a visible proxy.
+    // Use the same effective window as Qt's grabToImage visibility check.
+    readonly property var captureWindow:
+        typeof offscreenWindow !== "undefined" && root.Window.window === offscreenWindow
+            && typeof offscreenRenderWindow !== "undefined" && offscreenRenderWindow
+                ? offscreenRenderWindow : root.Window.window
     onCaptureWindowChanged: synchronizeImage()
     Connections {
         target: root.captureWindow

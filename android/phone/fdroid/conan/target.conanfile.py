@@ -14,7 +14,7 @@ class OverteAndroidTarget(_module.PicoOverte):
     name = "OverteAndroidSourceTarget"
     qt_ref = (
         "qt/5.15.18-2026.01.04@overte/stable"
-        "#4fd1f62ee1914f2f3ec4fe298a07c283"
+        "#6beda35278be474ac0d18e0e9cf1a653"
     )
     openexr_ref = "openexr/3.2.12"
     default_options = dict(_module.PicoOverte.default_options)
@@ -31,7 +31,7 @@ class OverteAndroidTarget(_module.PicoOverte):
     def build_requirements(self):
         self.tool_requires(
             "qt/5.15.18-2026.01.04@overte/stable"
-            "#4fd1f62ee1914f2f3ec4fe298a07c283",
+            "#6beda35278be474ac0d18e0e9cf1a653",
             run=True,
         )
         self.tool_requires("glslang/1.4.350.0", run=True)

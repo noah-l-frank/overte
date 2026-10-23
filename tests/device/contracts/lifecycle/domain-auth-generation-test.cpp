@@ -50,9 +50,39 @@ struct NetworkAccessManager : QNetworkAccessManager {
 static std::vector<QString> logs;
 static void capture(QtMsgType, const QMessageLogContext&, const QString& value) { logs.push_back(value); }
 static void waitTimers() { QEventLoop loop; QTimer::singleShot(550, &loop, &QEventLoop::quit); loop.exec(); }
+struct DomainMenuAction : QObject {
+    int changes { 0 }; bool visible { false };
+    void setVisible(bool value) {
+        assert(QThread::currentThread() == thread());
+        visible = value; ++changes;
+    }
+};
+static void connectDomainMenu(QPointer<DomainAccountManager> domainAccountManager, DomainMenuAction* domainLogin) {
+#include "menu-domain-login-connection.inc"
+}
 int main(int argc, char** argv) {
     QCoreApplication app(argc, argv);
     qInstallMessageHandler(capture);
+    {
+        // Execute the actual Menu.cpp connection with a manager emitting from
+        // its network thread. The UI receiver must update on its own thread
+        // and queued signals must become harmless when its menu is destroyed.
+        QThread worker;
+        auto manager = new DomainAccountManager;
+        manager->moveToThread(&worker);
+        QObject::connect(&worker, &QThread::finished, manager, &QObject::deleteLater);
+        auto action = std::make_unique<DomainMenuAction>();
+        connectDomainMenu(manager, action.get());
+        worker.start();
+        QMetaObject::invokeMethod(manager, [manager] { manager->setAuthURL(QUrl("https://menu.invalid/auth")); }, Qt::BlockingQueuedConnection);
+        assert(action->changes == 0);
+        QCoreApplication::processEvents();
+        assert(action->changes == 1 && action->visible);
+        QMetaObject::invokeMethod(manager, [manager] { manager->setAuthURL(QUrl()); }, Qt::BlockingQueuedConnection);
+        action.reset();
+        QCoreApplication::processEvents();
+        worker.quit(); assert(worker.wait(2000));
+    }
     auto& network = NetworkAccessManager::getInstance();
     // Actual entire production methods/receivers: no password POST for an
     // insecure endpoint, one queued current outcome, no token/cache revival.
@@ -287,6 +317,8 @@ int main(int argc, char** argv) {
         "{\"access_token\":\"\"}", "{\"access_token\":\"  \\t\"}",
         "{\"access_token\":\"t\",\"refresh_token\":null}",
         "{\"access_token\":\"t\",\"refresh_token\":1}",
+        QByteArray("{\"access_token\":\"") + QByteArray(4096, 't') + "\"}",
+        QByteArray("{\"access_token\":\"t\",\"refresh_token\":\"") + QByteArray(4096, 'r') + "\"}",
         QByteArray("{\"access_token\":\"t\",\"padding\":\"") + QByteArray(1024 * 1024, 'x') + "\"}"
     };
     for (const auto& payload : invalidPayloads) {

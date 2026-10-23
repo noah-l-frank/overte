@@ -47,6 +47,11 @@ TestCase {
         mouseClick(firstRow, firstRow.width / 2, firstRow.height / 2)
         tryCompare(stack, "depth", 2)
         tryVerify(function() { return stack.currentItem.currentItem !== null })
+        // Account actions change their label after dispatch while the menu
+        // remains open. The visible and accessible names must follow it.
+        toggle.text = "Renamed toggle"
+        tryCompare(stack.currentItem.currentItem, "text", "Renamed toggle")
+        compare(stack.currentItem.currentItem.Accessible.name, "Renamed toggle")
         spy.target = toggle
         spy.signalName = "triggered"
         spy.clear()

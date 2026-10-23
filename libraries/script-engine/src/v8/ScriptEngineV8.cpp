@@ -17,6 +17,7 @@
 #include "V8PropertyCopy.h"
 
 #include <chrono>
+#include <condition_variable>
 #include <cstring>
 #include <mutex>
 #include <thread>
@@ -44,6 +45,7 @@
 #include <shared/AbstractLoggerInterface.h>
 
 #include <Profile.h>
+#include <Finally.h>
 
 #include <v8-profiler.h>
 
@@ -1028,12 +1030,12 @@ Q_INVOKABLE ScriptValue ScriptEngineV8::evaluate(const ScriptProgramPointer& pro
             if (!v8Program.constGet()->Run(context).ToLocal(&result)) {
                 Q_ASSERT(tryCatchRun.HasCaught());
                 auto runError = tryCatchRun.Message();
-                if (tryCatchRun.HasTerminated() || _v8Isolate->IsExecutionTerminating() || runError.IsEmpty()) {
-                    setUncaughtException(tryCatchRun, "script evaluation");
-                } else {
+                if (!tryCatchRun.HasTerminated() && !_v8Isolate->IsExecutionTerminating() && !runError.IsEmpty()) {
                     errorValue = ScriptValue(new ScriptValueV8Wrapper(this, V8ScriptValue(this, runError->Get())));
-                    raiseException(errorValue, "evaluation error");
                 }
+                // Retain the same uncaught state as source-string evaluation.
+                // Reporting alone must not let a failed initial program run on.
+                setUncaughtException(tryCatchRun, "script evaluation");
                 hasFailed = true;
             } else {
                 // V8TODO this is just to check if run will always return false for uncaught exception
@@ -1234,12 +1236,46 @@ ScriptValue ScriptEngineV8::undefinedValue() {
 }
 
 void ScriptEngineV8::abortEvaluation() {
+    _abortGeneration.fetch_add(1);
+    _cleanupRunning.store(false);
     _abortRequested.store(true);
     // V8 permits termination from another thread without acquiring its Locker.
     // Taking a scope/Locker here would wait for the very script being stopped.
     // The engine owns this isolate for its lifetime; this does not interrupt a
     // blocking native callback or prove that manager teardown has completed.
     _v8Isolate->TerminateExecution();
+}
+
+void ScriptEngineV8::runCleanup(const std::function<void()>& cleanup) {
+    if (QThread::currentThread() != thread() || !_abortRequested.load() || _cleanupStarted.exchange(true)) {
+        return;
+    }
+    // stop() must interrupt ordinary JS immediately. Only scriptEnding gets
+    // this one terminal window so it can remove its entities and tablet UI.
+    // A concurrent stop or the watchdog closes the window without a Locker.
+    const auto generation = _abortGeneration.load();
+    std::mutex mutex;
+    std::condition_variable changed;
+    bool finished = false;
+    std::thread watchdog;
+    Finally finish([&] {
+        _cleanupRunning.store(false);
+        _v8Isolate->TerminateExecution();
+        { std::lock_guard<std::mutex> lock(mutex); finished = true; }
+        changed.notify_one();
+        if (watchdog.joinable()) { watchdog.join(); }
+    });
+    _cleanupRunning.store(true);
+    _v8Isolate->CancelTerminateExecution();
+    if (_abortGeneration.load() != generation) { return; }
+    watchdog = std::thread([&] {
+        std::unique_lock<std::mutex> lock(mutex);
+        if (!changed.wait_for(lock, std::chrono::milliseconds(500), [&] { return finished; })) {
+            abortEvaluation();
+        }
+    });
+    // As with abortEvaluation, a blocking native callback cannot be preempted.
+    cleanup();
 }
 
 void ScriptEngineV8::clearExceptions() {

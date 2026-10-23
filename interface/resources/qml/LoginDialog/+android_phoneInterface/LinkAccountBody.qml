@@ -66,7 +66,19 @@ Item {
         anchors.leftMargin: Math.min(touchMetrics.spacingLarge, parent.width / 4)
         anchors.rightMargin: anchors.leftMargin
         anchors.topMargin: Math.min(touchMetrics.spacingLarge, parent.height / 4)
-        anchors.bottomMargin: anchors.topMargin
+        // Android's IME overlays the full offscreen surface instead of
+        // resizing it. Keep the focused field inside the unobscured viewport.
+        anchors.bottomMargin: anchors.topMargin + (touchMetrics.keyboardVisible
+            ? Math.min(Math.max(0, touchMetrics.keyboardInsetBottom),
+                       Math.max(0, phoneLogin.height - 2 * anchors.topMargin - 1))
+            : 0)
+        onHeightChanged: Qt.callLater(function() {
+            if (username.activeFocus) {
+                touchMetrics.ensureVisible(viewport, username)
+            } else if (password.activeFocus) {
+                touchMetrics.ensureVisible(viewport, password)
+            }
+        })
         contentWidth: width
         contentHeight: Math.max(height, panel.height)
         clip: true
@@ -197,6 +209,18 @@ Item {
                         phoneLogin.dismiss()
                     }
                 }
+            }
+        }
+    }
+
+    Connections {
+        target: root
+        ignoreUnknownSignals: true
+        function onShownChanged() {
+            // Native Android Back hides the root before QML receives the key.
+            // Run the same credential and request cleanup as the Cancel button.
+            if (!root.shown) {
+                phoneLogin.dismiss()
             }
         }
     }

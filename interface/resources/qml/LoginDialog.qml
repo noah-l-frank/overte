@@ -50,9 +50,11 @@ FocusScope {
 
     LoginDialog {
         id: loginDialog
+        anchors.fill: parent
 
         Loader {
             id: bodyLoader
+            anchors.fill: parent
         }
     }
 

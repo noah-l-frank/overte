@@ -12,6 +12,7 @@
 
 import "../../windows" as Windows
 import QtQuick 2.0
+import QtQuick.Window 2.2 as NativeWindow
 import Hifi 1.0
 import TabletScriptingInterface 1.0
 
@@ -21,7 +22,8 @@ import controlsUit 1.0 as HifiControls
 Windows.ScrollingWindow {
     id: tabletRoot
     objectName: "tabletRoot"
-    property string username: "Unknown user"
+    property string username: typeof Account !== "undefined" && Account ? Account.username : "Unknown user"
+    readonly property string usernameShort: username.substring(0, 14) + (username.length > 14 ? "..." : "")
     readonly property string semanticScreenId: {
         if (!loader.item) { return "" }
         return loader.item.hasOwnProperty("semanticScreenId")
@@ -44,6 +46,16 @@ Windows.ScrollingWindow {
         if (_inlineSource) { _inlineSource.retire(); }
         _inlineSource = null;
     }
+
+    function _releaseScreenSpaceInput() {
+        if (!screenSpaceMode) { return; }
+        // Qt 5's Android hideInputPanel only closes the keyboard. Moving
+        // focus out of the old editor also resets its native selection handles
+        // and edit toolbar before the tablet page is hidden or destroyed.
+        tabletRoot.forceActiveFocus(Qt.OtherFocusReason);
+        Qt.inputMethod.reset();
+        Qt.inputMethod.hide();
+    }
     property string semanticBackTarget: ""
     HifiControls.TouchUiProfile { id: touchUiProfile; objectName: "tabletTouchProfile" }
     property bool screenSpaceMode: false
@@ -54,6 +66,7 @@ Windows.ScrollingWindow {
     property int screenSpaceSafeInsetBottom: touchUiProfile.safeInsetBottom
     property int screenSpaceImeInsetBottom: touchUiProfile.imeInsetBottom
     property bool screenSpaceKeyboardVisible: touchUiProfile.keyboardVisible
+    readonly property var inputWindow: tabletRoot.NativeWindow.Window.window
     property int screenSpaceSurfaceWidth: touchUiProfile.surfaceWidth
     property int screenSpaceSurfaceHeight: touchUiProfile.surfaceHeight
     property real screenSpaceDensity: touchUiProfile.density
@@ -64,8 +77,59 @@ Windows.ScrollingWindow {
     closable: !screenSpaceMode
     pinnable: !screenSpaceMode
     alwaysOnTop: screenSpaceMode
-    contentFlickableInteractive: !touchUiProfile.directTouch || !screenSpaceMode
+    contentFlickableInteractive: !touchUiProfile.directTouch || !screenSpaceMode || screenSpaceKeyboardVisible
+        || loader.height * loader.contentScale > pane.scrollHeight + 1
     TabletSurfaceGeometry { id: surfaceGeometry; profile: touchUiProfile }
+
+    function refreshInputMethodGeometry() {
+        var editor = inputWindow ? inputWindow.activeFocusItem : null;
+        if (!screenSpaceMode || !editor) { return; }
+        // Ancestor scrolling does not change the editor's local cursor rect.
+        // Publish its new scene position after the pane/layout update settles.
+        Qt.callLater(function() {
+            if (screenSpaceMode && editor && inputWindow && inputWindow.activeFocusItem === editor) {
+                Qt.inputMethod.update(Qt.ImCursorRectangle | Qt.ImAnchorRectangle);
+            }
+        });
+    }
+
+    function revealFocusedEditor() {
+        if (!screenSpaceMode) { return; }
+        if (!screenSpaceKeyboardVisible) {
+            return;
+        }
+        if (inputWindow && inputWindow.activeFocusItem) {
+            pane.ensureEditorVisible(inputWindow.activeFocusItem, 8);
+            refreshInputMethodGeometry();
+        }
+    }
+    // Android reports IME insets after focus and may animate them. Wait until
+    // the page has its new geometry before exposing its focused editor.
+    Timer { id: editorReveal; interval: 50; onTriggered: revealFocusedEditor() }
+    onScreenSpaceKeyboardVisibleChanged: {
+        // Editor focus precedes native IME visibility. Reset only when the
+        // keyboard actually hides, so focusing a scrolled field cannot move
+        // it away before Android reports the new keyboard geometry.
+        if (screenSpaceMode && !screenSpaceKeyboardVisible) {
+            pane.resetContentPosition();
+            refreshInputMethodGeometry();
+        }
+        editorReveal.restart();
+    }
+    onScreenSpaceImeInsetBottomChanged: editorReveal.restart()
+    Connections {
+        target: tabletRoot.inputWindow
+        function onActiveFocusItemChanged() { editorReveal.restart(); }
+    }
+    Connections {
+        target: tabletRoot.inputWindow ? tabletRoot.inputWindow.activeFocusItem : null
+        ignoreUnknownSignals: true
+        // A multiline editor can shrink without changing focus or IME insets.
+        // Follow its cursor after layout settles, including after clearing a
+        // draft that was focused again while the keyboard was hidden.
+        function onCursorRectangleChanged() { editorReveal.restart(); }
+        function onHeightChanged() { editorReveal.restart(); }
+    }
 
     function setScreenSpaceMode(value) {
         screenSpaceMode = value
@@ -94,7 +158,10 @@ Windows.ScrollingWindow {
     Connections {
         target: tabletRoot
         function onShownChanged() {
-            if (!tabletRoot.shown) { tabletRoot._retireInlineSource(); }
+            if (!tabletRoot.shown) {
+                tabletRoot._releaseScreenSpaceInput();
+                tabletRoot._retireInlineSource();
+            }
             // Host/window closes can bypass the navigation footer. Release the
             // shared mobile input capture whenever the tablet is dismissed.
             // Observe the requested state, not visibility during a fade.
@@ -150,6 +217,7 @@ Windows.ScrollingWindow {
     }
 
     function loadSource(url) {
+        _releaseScreenSpaceInput();
         _retireInlineSource();
         var restoringPrevious = semanticBackTarget !== "" && semanticBackTarget === url
         semanticBackTarget = ""
@@ -188,7 +256,16 @@ Windows.ScrollingWindow {
         return true
     }
 
+    // Shared native Web callers use this callback for both tablet presenters.
+    function returnToPreviousApp() {
+        return returnToPreviousSemanticScreen();
+    }
+
     function loadWebContent(source, url, injectJavaScriptUrl, nativeSource) {
+        if (loader.source !== "" && loader.source !== source) {
+            semanticSourceHistory = semanticSourceHistory.concat([loader.source]);
+        }
+        _releaseScreenSpaceInput();
         if (_inlineSource) {
             if (_inlineSource === nativeSource) { _inlineSource.suspend(); }
             else { _inlineSource.retire(); }
@@ -305,9 +382,19 @@ Windows.ScrollingWindow {
         }
         readonly property real contentScale: tabletRoot.screenSpaceMode
             ? tabletRoot.screenSpaceContentScale : 1.0
+        readonly property real pageMinimumHeight: tabletRoot.screenSpaceMode && item
+            && typeof item.screenSpaceMinimumContentHeight === "number"
+            && isFinite(item.screenSpaceMinimumContentHeight)
+                ? Math.max(0, item.screenSpaceMinimumContentHeight) : 0
         transformOrigin: Item.TopLeft
         scale: contentScale
-        height: pane.scrollHeight / contentScale
+        // Do not collapse forms to zero height when the landscape IME leaves
+        // fewer pixels than their header and navigation need. Keep the page
+        // laid out and scroll its actual focused field into the small viewport.
+        height: Math.max(pane.scrollHeight / contentScale,
+            tabletRoot.screenSpaceMode && tabletRoot.screenSpaceKeyboardVisible ? 360 : 0,
+            pageMinimumHeight)
+        onHeightChanged: editorReveal.restart()
         width: pane.contentWidth / contentScale
         // ScrollingWindow reparents its content into the Flickable.
         onParentChanged: {

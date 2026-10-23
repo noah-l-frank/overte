@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import QtQuick 2.7
 import QtQuick.Controls 2.2 as QuickControls
+import controlsUit 1.0 as HiFiControls
 
 Item {
     id: flick
+    HiFiControls.TouchUiMetrics { id: touchMetrics }
+    property alias touchProfile: touchMetrics.profile
     property alias url: webView.url
     property alias canGoBack: webView.canGoBack
     property alias canGoForward: webView.canGoForward
@@ -17,6 +20,7 @@ Item {
     property alias inlineDocument: webView.inlineDocument
     property string urlTag: "noDownload=false"
     property bool interactive: true
+    readonly property bool compactNavigation: touchMetrics.directTouch && flick.touchProfile.screenSpacePresentation
     property bool blurOnCtrlShift: true
     signal newViewRequestedCallback(var request)
     signal loadingChangedCallback(var loadRequest)
@@ -31,11 +35,21 @@ Item {
     Row {
         id: navigation
         width: parent.width
-        height: 48
+        // The phone surface already ends above the native IME. Reserve the
+        // remaining height for the focused document; tablet navigation stays
+        // available outside this browser toolbar.
+        visible: !(touchMetrics.directTouch && touchMetrics.systemImeAvailable
+            && flick.touchProfile.screenSpacePresentation && touchMetrics.keyboardVisible)
+        height: visible ? (flick.compactNavigation
+            ? Math.max(touchMetrics.adaptiveMinimumControlHeight, Math.ceil(26 * touchMetrics.textScale)) : 48) : 0
         spacing: 4
         QuickControls.Button {
             objectName: "EmbeddedWebBack"
-            width: (navigation.width - 12) / 4
+            width: flick.compactNavigation
+                ? Math.max(touchMetrics.adaptiveMinimumControlHeight,
+                    Math.min(contentItem.implicitWidth + 16, (navigation.width - 12) / 4))
+                : (touchMetrics.directTouch ? Math.min(implicitWidth + 24, (navigation.width - 12) / 4)
+                    : (navigation.width - 12) / 4)
             height: navigation.height
             text: qsTr("Back")
             enabled: flick.interactive && webView.canGoBack
@@ -44,7 +58,11 @@ Item {
         }
         QuickControls.Button {
             objectName: "EmbeddedWebForward"
-            width: (navigation.width - 12) / 4
+            width: flick.compactNavigation
+                ? Math.max(touchMetrics.adaptiveMinimumControlHeight,
+                    Math.min(contentItem.implicitWidth + 16, (navigation.width - 12) / 4))
+                : (touchMetrics.directTouch ? Math.min(implicitWidth + 24, (navigation.width - 12) / 4)
+                    : (navigation.width - 12) / 4)
             height: navigation.height
             text: qsTr("Forward")
             enabled: flick.interactive && webView.canGoForward
@@ -53,7 +71,11 @@ Item {
         }
         QuickControls.Button {
             objectName: "EmbeddedWebReload"
-            width: (navigation.width - 12) / 4
+            width: flick.compactNavigation
+                ? Math.max(touchMetrics.adaptiveMinimumControlHeight,
+                    Math.min(contentItem.implicitWidth + 16, (navigation.width - 12) / 4))
+                : (touchMetrics.directTouch ? Math.min(implicitWidth + 24, (navigation.width - 12) / 4)
+                    : (navigation.width - 12) / 4)
             height: navigation.height
             text: qsTr("Reload")
             enabled: flick.interactive && webView.url.length > 0
@@ -62,7 +84,11 @@ Item {
         }
         QuickControls.Button {
             objectName: "EmbeddedWebClose"
-            width: (navigation.width - 12) / 4
+            width: flick.compactNavigation
+                ? Math.max(touchMetrics.adaptiveMinimumControlHeight,
+                    Math.min(contentItem.implicitWidth + 16, (navigation.width - 12) / 4))
+                : (touchMetrics.directTouch ? Math.min(implicitWidth + 24, (navigation.width - 12) / 4)
+                    : (navigation.width - 12) / 4)
             height: navigation.height
             text: qsTr("Close")
             focusPolicy: Qt.NoFocus

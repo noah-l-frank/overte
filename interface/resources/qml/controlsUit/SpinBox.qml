@@ -93,6 +93,7 @@ SpinBox {
     }
 
     validator: DoubleValidator {
+        locale: spinBox.locale.name
         decimals: spinBox.decimals
         bottom: Math.min(spinBox.realFrom, spinBox.realTo)
         top:  Math.max(spinBox.realFrom, spinBox.realTo)
@@ -179,15 +180,13 @@ SpinBox {
     }
 
     Keys.onPressed: {
-        if (event.key === Qt.Key_Return) {
+        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             if (!spinboxText.acceptableInput) {
                 var number = spinBox.valueFromText(spinboxText.text, spinBox.locale) / spinBox.factor
 
-                if (number < spinBox.minimumValue) {
-                    number = spinBox.minimumValue;
-                } else if (number > maximumValue) {
-                    number = spinBox.maximumValue;
-                }
+                if (!isFinite(number)) number = spinBox.realValue;
+                number = Math.max(Math.min(spinBox.realFrom, spinBox.realTo),
+                    Math.min(Math.max(spinBox.realFrom, spinBox.realTo), number));
 
                 spinboxText.text = spinBox.textFromValue(Math.round(number * factor), spinBox.locale)
             }

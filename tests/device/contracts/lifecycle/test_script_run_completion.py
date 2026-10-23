@@ -44,7 +44,7 @@ class ScriptRunCompletion(unittest.TestCase):
             subprocess.run(['c++', '-std=c++17', '-fPIC', '-pthread', '-I', str(ROOT), '-I', str(scratch),
                 str(driver), str(ROOT / 'libraries/shared/src/shared/LocalFileAccessGate.cpp'),
                 '-o', str(binary), *flags], check=True, timeout=40)
-            modes = ('normal', 'prestop', 'globalstop', 'initstop', 'runningstop', 'reentrant', 'release', 'threaded', 'threadlaunch', 'threadlaunch-disconnect')
+            modes = ('normal', 'prestop', 'globalstop', 'initstop', 'runningstop', 'reentrant', 'release', 'threaded', 'threadlaunch', 'threadlaunch-disconnect', 'valid-user', 'syntax-error', 'syntax-unavailable', 'null-program', 'runtime-error')
             if os.environ.get('OVERTE_SCRIPT_RUN_CASES'):
                 selected = tuple(os.environ['OVERTE_SCRIPT_RUN_CASES'].split(','))
                 self.assertTrue(set(selected) <= set(modes))

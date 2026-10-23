@@ -866,7 +866,9 @@
                     "canCastShadow": false,
                     "collisionless": true,
                     "userData": JSON.stringify(userdata),
-                    "script": ROOT + "portal.js",
+                    // Entity scripts from the writable Android extraction cache require consent.
+                    // This original bundled script is embedded as immutable client code instead.
+                    "script": "qrc:///scripts/system/places/portal.js",
                     "visible": "false",
                     "grab": {
                         "grabbable": false

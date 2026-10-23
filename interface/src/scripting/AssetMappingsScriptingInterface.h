@@ -84,7 +84,7 @@ public:
 
     Q_INVOKABLE void setMapping(QString path, QString hash, QJSValue callback = QJSValue());
     Q_INVOKABLE void getMapping(QString path, QJSValue callback = QJSValue());
-    Q_INVOKABLE void uploadFile(QString path, QString mapping, QJSValue startedCallback = QJSValue(), QJSValue completedCallback = QJSValue(), bool dropEvent = false);
+    Q_INVOKABLE void uploadFile(QString path, QString mapping, QJSValue startedCallback = QJSValue(), QJSValue completedCallback = QJSValue(), bool dropEvent = false, bool mappingConfirmed = false);
     // Upload bytes first, then publish companions before the main mapping. Known mapping conflicts stop publication; concurrent remote changes remain server-authoritative.
     Q_INVOKABLE QString uploadBundle(QStringList paths, QStringList relativePaths, QString destination,
                                     QString primaryPath, QJSValue progress, QJSValue completed);

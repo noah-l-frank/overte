@@ -117,10 +117,15 @@ Rectangle {
         } else if (message.action === "snapshotUploadComplete") {
             images = images.map(function(row) {
                 if (isGif(row.localPath) === isGif(message.image_url)) {
-                    var next = JSON.parse(JSON.stringify(row)); next.story_id = message.story_id; return next
+                    var next = JSON.parse(JSON.stringify(row));
+                    next.story_id = message.story_id; next.image_url = message.image_url;
+                    return next
                 }
                 return row
             })
+        } else if (message.action === "snapshotUrlCopied") {
+            statusError = false
+            statusText = qsTr("Snapshot URL copied.")
         } else if (message.action === "uploadStatus") {
             if (message.path !== uploadPath) { return }
             uploadPath = ""
@@ -144,13 +149,18 @@ Rectangle {
         }
     }
 
-    Controls.ScrollView {
+    Quick.Flickable {
         id: scroll
         anchors.fill: parent
         anchors.margins: 16
-        contentWidth: availableWidth
+        clip: true
+        contentWidth: width
+        contentHeight: contentItem.childrenRect.height
+        boundsBehavior: Quick.Flickable.StopAtBounds
+        pressDelay: 0
+        Controls.ScrollBar.vertical: Controls.ScrollBar { }
         ColumnLayout {
-            width: scroll.availableWidth
+            width: scroll.width
             spacing: 12
             Quick.Text { text: qsTr("Snapshots"); color: "white"; font.pixelSize: 26 }
             Quick.Text { Layout.fillWidth: true; text: root.statusText; color: root.statusError ? "#ffb1a9" : "#cdd9e4"; wrapMode: Quick.Text.Wrap }
@@ -264,6 +274,12 @@ Rectangle {
                         Controls.Button { text: qsTr("Save to device"); visible: platform.capabilities.indexOf("save") !== -1; enabled: !platform.busy && !root.capturing; onClicked: root.exportImage(modelData.localPath, "save") }
                         Controls.Button { text: qsTr("System share"); visible: platform.capabilities.indexOf("share") !== -1; enabled: !platform.busy && !root.capturing; onClicked: root.exportImage(modelData.localPath, "share") }
                         Controls.Button { text: qsTr("Upload for URL"); enabled: root.loggedIn && root.canShare && !root.uploadPath && !root.capturing; onClicked: root.upload(modelData.localPath) }
+                        Controls.Button {
+                            objectName: "snapshotCopyUrl"
+                            text: qsTr("Copy URL")
+                            visible: !!modelData.image_url
+                            onClicked: root.send("copySnapshotUrl", { url: modelData.image_url, story_id: modelData.story_id })
+                        }
                         Controls.Button { text: qsTr("Share with connections"); visible: !!modelData.story_id; enabled: root.canBlast && !modelData.blastButtonDisabled; onClicked: root.send("blastToConnections", { story_id: modelData.story_id, isGif: root.isGif(modelData.localPath) }) }
                         Controls.Button { text: qsTr("Share with everyone"); visible: !!modelData.story_id; enabled: !modelData.hifiButtonDisabled; onClicked: root.send("shareSnapshotWithEveryone", { story_id: modelData.story_id, isGif: root.isGif(modelData.localPath) }) }
                     }

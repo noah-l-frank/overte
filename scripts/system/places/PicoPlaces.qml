@@ -43,7 +43,7 @@ Rectangle {
     readonly property int placeCount: placesModel.count
     readonly property int bookmarkCount: bookmarksModel.count
     readonly property int serverCount: serversModel.count
-    readonly property int controlHeight: Math.max(48, touchMetrics.adaptiveMinimumControlHeight)
+    readonly property int controlHeight: Math.max(32, touchMetrics.adaptiveMinimumControlHeight)
 
     ListModel { id: placesModel }
     ListModel { id: bookmarksModel }
@@ -150,10 +150,25 @@ Rectangle {
     }
     Component.onCompleted: Qt.callLater(requestContent)
 
-    ColumnLayout {
+    Flickable {
+        id: viewport
+        objectName: "placesViewport"
         anchors.fill: parent
         anchors.margins: 12
         anchors.bottomMargin: 12 + (root.keyboardItem ? root.keyboardItem.height : 0)
+        clip: true
+        contentWidth: width
+        contentHeight: content.height
+        boundsBehavior: Flickable.StopAtBounds
+        pressDelay: touchMetrics.pressDelay
+        flickDeceleration: touchMetrics.flickDeceleration
+        maximumFlickVelocity: touchMetrics.maximumFlickVelocity
+        ScrollBar.vertical: ScrollBar {}
+        ColumnLayout {
+        id: content
+        width: viewport.width
+        height: Math.max(viewport.height, 4 * root.controlHeight + 180 + 4 * spacing
+            + (directoryWarningText.visible ? directoryWarningText.implicitHeight + spacing : 0))
         spacing: 8
         RowLayout {
             Layout.fillWidth: true
@@ -185,7 +200,7 @@ Rectangle {
                     onTriggered: root.dispatch("SET_HOME") }
             }
         }
-        Text { Layout.fillWidth: true; visible: root.directoryWarning !== ""; text: root.directoryWarning
+        Text { id: directoryWarningText; Layout.fillWidth: true; visible: root.directoryWarning !== ""; text: root.directoryWarning
             color: "#ffdc8a"; wrapMode: Text.WordWrap }
         TabBar {
             id: tabs
@@ -198,6 +213,9 @@ Rectangle {
             currentIndex: tabs.currentIndex
             Layout.fillWidth: true
             Layout.fillHeight: true
+            // A scaled screen-space surface may be only a few hundred QML
+            // pixels tall. Scroll the header instead of squeezing lists away.
+            Layout.minimumHeight: 180
             ColumnLayout {
                 RowLayout {
                     Layout.fillWidth: true
@@ -289,14 +307,15 @@ Rectangle {
                         Text { text: failed ? qsTr("Directory unavailable. Refresh to retry.") : serverRegion
                             color: failed ? "#ffdc8a" : "#dddddd"; Layout.fillWidth: true; wrapMode: Text.WordWrap }
                         RowLayout {
-                            CheckBox { font.pixelSize: Math.round(16 * touchMetrics.textScale); objectName: "fetchServer"; text: qsTr("Fetch"); checked: fetched; implicitHeight: root.controlHeight
+                            CheckBox { font.pixelSize: Math.round(16 * touchMetrics.textScale); palette.windowText: "#dddddd"; objectName: "fetchServer"; text: qsTr("Fetch"); checked: fetched; implicitHeight: root.controlHeight
                                 enabled: !root.loading; onClicked: root.changeServer(serverIndex, "FETCH_META", checked) }
-                            CheckBox { font.pixelSize: Math.round(16 * touchMetrics.textScale); objectName: "pinServer"; text: qsTr("Pin"); checked: pinned; implicitHeight: root.controlHeight
+                            CheckBox { font.pixelSize: Math.round(16 * touchMetrics.textScale); palette.windowText: "#dddddd"; objectName: "pinServer"; text: qsTr("Pin"); checked: pinned; implicitHeight: root.controlHeight
                                 enabled: !root.loading; onClicked: root.changeServer(serverIndex, "PIN_META", checked) }
                         }
                     }
                 }
             }
+        }
         }
     }
     Popup {

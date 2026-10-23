@@ -35,6 +35,25 @@ TestCase {
             compare(message.mode, modes[i]); compare(message.filename, "Photo")
         }
     }
+    function test_landscape_drag_reaches_capture() {
+        review.width = 856
+        review.height = 290
+        wait(30)
+        var button = findChild(review, "snapshotCapture")
+        var flick = button.parent
+        while (flick && typeof flick.contentY !== "number") { flick = flick.parent }
+        verify(flick)
+        verify(flick.contentHeight > flick.height)
+        mouseDrag(flick, flick.width * 0.8, flick.height * 0.85, 0, -flick.height * 0.6,
+            Qt.LeftButton, Qt.NoModifier, 200)
+        tryVerify(function() { return flick.contentY > 0 })
+        flick.cancelFlick()
+        var point = button.mapToItem(flick, button.width / 2, button.height / 2)
+        verify(point.y > 0 && point.y < flick.height)
+        mouseClick(button, button.width / 2, button.height / 2)
+        compare(outgoing.count, 1)
+        compare(outgoing.signalArguments[0][0].action, "takeSnapshot")
+    }
     function visualItem(item, name) {
         if (!item) { return null }
         if (item.objectName === name) { return item }
@@ -160,6 +179,26 @@ TestCase {
         compare(review.images.length, 2); compare(review.images[0].story_id, 42)
         review.fromScript({type:"snapshot",action:"snapshotUploadComplete",image_url:"https://host/animation.gif",story_id:99})
         compare(review.images[0].story_id,42); compare(review.images[1].story_id,99)
+        compare(review.images[0].image_url, undefined)
+        compare(review.images[1].image_url, "https://host/animation.gif")
+    }
+    function test_uploaded_url_can_be_copied_from_the_actual_review_button() {
+        review.fromScript({type:"snapshot", action:"showPreviousImages", options:{isLoggedIn:true,canShare:true},
+            image_data:[{localPath:"/native/still.png"}]})
+        var button = null
+        tryVerify(function() { button = visualItem(review, "snapshotCopyUrl"); return button !== null })
+        compare(button.visible, false)
+        review.fromScript({type:"snapshot",action:"snapshotUploadComplete",image_url:"https://host/snapshot.png",story_id:42})
+        tryVerify(function() { button = visualItem(review, "snapshotCopyUrl"); return button !== null && button.visible })
+        outgoing.clear()
+        mouseClick(button)
+        compare(outgoing.count, 1)
+        compare(outgoing.signalArguments[0][0].action, "copySnapshotUrl")
+        compare(outgoing.signalArguments[0][0].url, "https://host/snapshot.png")
+        compare(outgoing.signalArguments[0][0].story_id, 42)
+        review.fromScript({type:"snapshot",action:"snapshotUrlCopied"})
+        compare(review.statusError, false)
+        compare(review.statusText, "Snapshot URL copied.")
     }
     function test_upload_ticket_errors_and_old_completion() {
         review.upload("/native/still.png")

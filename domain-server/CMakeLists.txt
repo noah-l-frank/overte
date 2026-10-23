@@ -13,6 +13,13 @@ endif ()
 # setup the project and link required Qt modules
 setup_hifi_project(Network)
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
+    find_package(Qt5 COMPONENTS DBus REQUIRED)
+    target_sources(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/security/storage/LinuxProtectedAccountStore.cpp)
+    target_link_libraries(${TARGET_NAME} Qt5::DBus)
+endif()
+
+
 # Fix up the rpath so macdeployqt works
 if (APPLE)
   set_target_properties(${TARGET_NAME} PROPERTIES INSTALL_RPATH "@executable_path/../Frameworks")

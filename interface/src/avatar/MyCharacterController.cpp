@@ -11,6 +11,8 @@
 
 #include "MyCharacterController.h"
 
+#include <cmath>
+
 #include <BulletUtil.h>
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 
@@ -240,6 +242,17 @@ bool MyCharacterController::hasSpawnSupport() const {
     // the still-unloaded jetty at the requested spawn position.
     const btVector3 from = _position;
     const btVector3 to = from - (_halfHeight + _radius + btScalar(0.75) * _scaleFactor) * _currentUp;
+    // Finite world positions can still round a short segment down to zero.
+    // Bullet normalizes the direction before querying even an empty world.
+    for (int axis = 0; axis < 3; ++axis) {
+        if (!std::isfinite(from[axis]) || !std::isfinite(to[axis])) {
+            return false;
+        }
+    }
+    const btVector3 direction = to - from;
+    if (!std::isfinite(direction.length2()) || direction.fuzzyZero()) {
+        return false;
+    }
     class SupportRay : public btCollisionWorld::ClosestRayResultCallback {
     public:
         SupportRay(const btVector3& from, const btVector3& to, const btCollisionObject* me, int mask) :
@@ -259,11 +272,11 @@ bool MyCharacterController::hasSpawnSupport() const {
     return result.hasHit() && result.m_hitNormalWorld.dot(_currentUp) >= _minFloorNormalDotUp;
 }
 
-bool MyCharacterController::updateSpawnHold(bool physicsReady) {
+bool MyCharacterController::updateSpawnHold(bool physicsReady, bool mayReport) {
     const bool wasHeld = _spawnGate.held();
     const double now = static_cast<double>(usecTimestampNow()) / USECS_PER_SECOND;
-    const bool supportReady = physicsReady && hasSpawnSupport();
-    const bool notifyFailure = _spawnGate.update(now, physicsReady, supportReady);
+    const bool supportReady = wasHeld && physicsReady && hasSpawnSupport();
+    const bool notifyFailure = _spawnGate.update(now, physicsReady, supportReady, mayReport);
     static double lastGroundDiagnostic { 0.0 };
     if (_spawnGate.held() && now - lastGroundDiagnostic >= 5.0) {
         lastGroundDiagnostic = now;

@@ -1,5 +1,58 @@
 // Copyright 2026 Overte contributors.
 // SPDX-License-Identifier: Apache-2.0
+#if defined(OVERTE_ASSET_SERVER_OWNERSHIP_TEST)
+#include <cassert>
+#include <QSet>
+#include <QStringList>
+#include "AssetUtils.h"
+#include "asset-baking-cleanup.inc"
+static void testBakedMappingOwnership() {
+    const QString original(64, 'a'), baked(64, 'b'), other(64, 'c');
+    const QString own = AssetUtils::HIDDEN_BAKED_CONTENT_FOLDER + original + '/';
+    const QString foreign = AssetUtils::HIDDEN_BAKED_CONTENT_FOLDER + other + '/';
+    {
+        AssetUtils::Mappings mappings {{own + "asset.fbx", original}};
+        QSet<QString> candidates {original};
+        removeOrphanedBakedMappings(mappings, candidates);
+        assert(mappings.empty() && "Deleting the final public mapping must remove its disabled self-alias");
+        assert(candidates == QSet<QString>{original});
+    }
+    for (const auto& owner : {QString("/another.fbx"), foreign + "dependency.fbx"}) {
+        AssetUtils::Mappings mappings {{own + "asset.fbx", original}, {owner, original}};
+        const auto before = mappings;
+        QSet<QString> candidates {original};
+        removeOrphanedBakedMappings(mappings, candidates);
+        assert(mappings == before && candidates.empty());
+    }
+    {
+        AssetUtils::Mappings mappings {{own + "asset.fbx", original}, {own + "texture.ktx", baked},
+                                      {"/shared.ktx", baked}, {"/unrelated.fbx", other}};
+        QSet<QString> candidates {original};
+        removeOrphanedBakedMappings(mappings, candidates);
+        assert(mappings.size() == 2 && mappings.at("/shared.ktx") == baked
+               && mappings.at("/unrelated.fbx") == other);
+        assert(candidates == QSet<QString>{original});
+    }
+    {
+        AssetUtils::Mappings mappings {{own + "asset.fbx", original}, {own + "texture.ktx", baked},
+                                      {AssetUtils::HIDDEN_BAKED_CONTENT_FOLDER + baked + "/asset.ktx", baked}};
+        QSet<QString> candidates {original};
+        removeOrphanedBakedMappings(mappings, candidates);
+        assert(mappings.empty());
+        const QSet<QString> expected {original, baked};
+        assert(candidates == expected);
+    }
+    {
+        AssetUtils::Mappings mappings {{own + "asset.fbx", original}, {"/keep.fbx", other}};
+        const auto before = mappings;
+        QSet<QString> candidates;
+        removeOrphanedBakedMappings(mappings, candidates);
+        assert(mappings == before && candidates.empty());
+    }
+}
+
+int main() { testBakedMappingOwnership(); }
+#else
 // Engine/network/headset boundaries only. Tree models and FileDialogHelper are production Qt.
 #include <QApplication>
 #include <memory>
@@ -30,6 +83,7 @@
 Q_LOGGING_CATEGORY(asset_client,"test.asset-client")
 #include "bundle-script.h"
 #include "bundle-dialogs.h"
+
 
 class ScriptApi : public QObject {
     Q_OBJECT
@@ -64,6 +118,7 @@ class AssetsApi : public QObject {
     Q_PROPERTY(QObject* mappingModel READ mapping CONSTANT)
 public:
     AssetModel tree; QSortFilterProxyModel proxy; QVariantList calls; QString error;
+    QQmlEngine* engine { nullptr }; QVariantMap renameMappings; int renameFailAt { -1 }; int renameAttempt { 0 };
     AssetsApi() { proxy.setSourceModel(&tree); populate(); }
     void populate() {
         tree.clear();
@@ -76,10 +131,16 @@ public:
     Q_INVOKABLE bool isKnownFolder(QString path) { return path == "/models/"; }
     void done(QJSValue callback) { callback.call({error}); }
     Q_INVOKABLE void deleteMappings(QStringList paths,QJSValue callback) { calls.append(QVariantMap{{"kind","delete"},{"paths",paths}});done(callback); }
-    Q_INVOKABLE void renameMapping(QString oldPath,QString newPath,QJSValue callback) { calls.append(QVariantMap{{"kind","rename"},{"old",oldPath},{"new",newPath}});done(callback); }
+    Q_INVOKABLE void getAllMappings(QJSValue callback) { callback.call({error, engine->toScriptValue(renameMappings)}); }
+    Q_INVOKABLE void renameMapping(QString oldPath,QString newPath,QJSValue callback) {
+        calls.append(QVariantMap{{"kind","rename"},{"old",oldPath},{"new",newPath}});
+        if (renameAttempt++ == renameFailAt) { callback.call({QStringLiteral("rename interrupted")}); return; }
+        if (error.isEmpty() && renameMappings.contains(oldPath)) { renameMappings.insert(newPath, renameMappings.take(oldPath)); }
+        done(callback);
+    }
     Q_INVOKABLE void setMapping(QString path,QString hash,QJSValue callback) { calls.append(QVariantMap{{"kind","mapping"},{"path",path},{"hash",hash}});done(callback); }
     Q_INVOKABLE void setBakingEnabled(QStringList paths,bool enabled,QJSValue callback) { calls.append(QVariantMap{{"kind","baking"},{"paths",paths},{"enabled",enabled}});done(callback); }
-    Q_INVOKABLE void uploadFile(QString path,QString mapping,QJSValue started,QJSValue callback,bool dropping=false) { calls.append(QVariantMap{{"kind","upload"},{"path",path},{"mapping",mapping},{"dropping",dropping}});started.call();done(callback); }
+    Q_INVOKABLE void uploadFile(QString path,QString mapping,QJSValue started,QJSValue callback,bool dropping=false,bool confirmed=false) { calls.append(QVariantMap{{"kind","upload"},{"path",path},{"mapping",mapping},{"dropping",dropping},{"confirmed",confirmed}});started.call();done(callback); }
     #include "bundle-api-declarations.inc"
 private:
     struct BundleUpload;
@@ -306,6 +367,10 @@ public:
     Q_INVOKABLE void developer(bool value){context.developer=value;}
     Q_INVOKABLE void denyImport(bool value){entities.deny=value;}
     Q_INVOKABLE void backendError(QString message){assets.error=message;}
+    Q_INVOKABLE void seedAssetRename(QVariantMap mappings, int failAt = -1) {
+        assets.renameMappings = mappings; assets.renameAttempt = 0; assets.renameFailAt = failAt;
+    }
+    Q_INVOKABLE QVariantMap assetRenameMappings() { return assets.renameMappings; }
     Q_INVOKABLE void assetBakingState(QString state) { assets.tree.item(0)->child(0)->setData(state,261); }
     Q_INVOKABLE void resetAssetModel() { assets.tree.clear(); }
     Q_INVOKABLE bool assetRefreshEnabled() { return assets.tree.automatic; }
@@ -330,6 +395,27 @@ public:
     Q_INVOKABLE QVariantList actualCallerScriptCalls(){return DependencyManager::get<ScriptEngines>()->calls;}
     Q_INVOKABLE QVariant actualCallerScriptResult(){return DependencyManager::get<ScriptEngines>()->localResult;}
     Q_INVOKABLE QVariant localScriptResult(){return scripts.localResult;}
+    Q_INVOKABLE QVariantMap bundledScriptResolution() {
+        const QUrl source("qrc:///scripts/system/places/portal.js");
+        ScriptManager manager;
+        manager.state.context.name = manager._fileNameString = source.toString();
+        // Match portal.js: resolve the script URL, then strip its filename.
+        const QUrl root(manager.resolvePath("").toString().split("portal.js").first());
+        const auto particle = manager.resolvePath("icons/portalFX.png");
+        const auto sound = manager.resolvePath("sounds/portalSound.mp3");
+        const auto teleport = manager.resolvePath("sounds/teleportSound.mp3");
+        return {{"packagedSourceNormalized", normalizeScriptURL(source) == source},
+            {"packagedSourceExpanded", expandScriptUrl(source) == source},
+            {"packagedBaseRetained", root.scheme() == "qrc" && root.path() == "/scripts/system/places/"},
+            {"packagedParticle", particle.scheme() == "qrc" && particle.path() == "/scripts/system/places/icons/portalFX.png"},
+            {"packagedLoopSound", sound.scheme() == "qrc" && sound.path() == "/scripts/system/places/sounds/portalSound.mp3"},
+            {"packagedTeleportSound", teleport.scheme() == "qrc" && teleport.path() == "/scripts/system/places/sounds/teleportSound.mp3"},
+            {"networkSourcePreserved", expandScriptUrl(QUrl("https://example.invalid/main.js")) == QUrl("https://example.invalid/main.js")},
+            {"assetSourcePreserved", expandScriptUrl(QUrl("atp:/main.js")) == QUrl("atp:/main.js")},
+            {"unsupportedSchemeRejected", expandScriptUrl(QUrl("gopher://example.invalid/main.js")).isEmpty()},
+            {"resourceAuthorityRejected", expandScriptUrl(QUrl("qrc://example.invalid/main.js")).isEmpty()},
+            {"relativeResourceRejected", expandScriptUrl(QUrl("qrc:relative/main.js")).isEmpty()}};
+    }
     Q_INVOKABLE void writeCompanions(){
         auto write=[this](const QString& name,const QByteArray& bytes){QFile f(fixtureDirectory()+"/"+name);QDir().mkpath(QFileInfo(f).absolutePath());Q_ASSERT(f.open(QFile::WriteOnly));Q_ASSERT(f.write(bytes)==bytes.size());};
         write("main.js","Script.include('nested/helper.js'); if (answer !== 42) throw new Error('missing companion'); answer;");
@@ -460,6 +546,7 @@ class Setup : public QObject {
 public: Services service;
 public slots:
     void qmlEngineAvailable(QQmlEngine* engine){
+        service.assets.engine = engine;
         auto* context=engine->rootContext();context->setContextProperty("TestServices",&service);
         context->setContextProperty("ProductionRoot",QUrl::fromLocalFile(qEnvironmentVariable("OVERTE_QML_SOURCE_ROOT")+"/"));
         context->setContextProperty("ScriptDiscoveryService",&service.scripts);context->setContextProperty("Assets",&service.assets);context->setContextProperty("Entities",&service.entities);context->setContextProperty("fileDialogHelper",&service.files);
@@ -469,3 +556,5 @@ public slots:
 };
 int main(int argc,char**argv){QApplication app(argc,argv);Setup setup;return quick_test_main_with_setup(argc,argv,"NativeScriptsAssets",nullptr,&setup);}
 #include "native-services.moc"
+
+#endif

@@ -530,7 +530,7 @@ function handleWearableMessages(channel, message, sender) {
 
     var updateWearable = function() {
         // for some reasons Entities.getEntityProperties returns more than was asked..
-        var propertyNames = ['localPosition', 'localRotation', 'dimensions', 'naturalDimensions'];
+        var propertyNames = ['localPosition', 'localRotation', 'dimensions', 'localDimensions', 'naturalDimensions'];
         var entityProperties = Entities.getEntityProperties(selectedAvatarEntityID, propertyNames);
         var properties = {};
 

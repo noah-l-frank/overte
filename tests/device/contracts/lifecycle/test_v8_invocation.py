@@ -29,7 +29,8 @@ class V8Invocation(unittest.TestCase):
             temporary = pathlib.Path(temporary)
             (temporary / "v8-invocation.inc").write_text(call + construct)
             engine_header = (ROOT / 'libraries/script-engine/src/v8/ScriptEngineV8.h').read_text()
-            state = next(line for line in engine_header.splitlines() if 'std::atomic<bool> _abortRequested' in line)
+            state = '\n'.join(line for line in engine_header.splitlines() if 'std::atomic<' in line and
+                any(name in line for name in ('_abortRequested', '_cleanupStarted', '_cleanupRunning', '_abortGeneration')))
             state += '\n' + next(line for line in engine_header.splitlines() if 'bool isEvaluationAborted() const' in line)
             engine_source = (ROOT / 'libraries/script-engine/src/v8/ScriptEngineV8.cpp').read_text()
             entry_source = (subprocess.check_output(['git', '-C', str(ROOT), 'show',

@@ -20,7 +20,28 @@ TestCase {
         return object;
     }
     function control(root, name) {var found = findChild(root,name);verify(found !== null,name);return found;}
-    function click(root, name) {wait(30);var item=control(root,name);verify(item.visible && item.enabled,name+" visible="+item.visible+" enabled="+item.enabled+" size="+item.width+"x"+item.height);mouseClick(item,item.width/2,item.height/2);wait(20);}
+    function click(root, name) {
+        wait(30)
+        var item=control(root,name)
+        verify(item.visible && item.enabled,name+" visible="+item.visible+" enabled="+item.enabled+" size="+item.width+"x"+item.height)
+        var ancestor=item.parent
+        while (ancestor) {
+            if (typeof ancestor.contentY === "number" && ancestor.height > 0) {
+                for (var attempt=0; attempt<20; ++attempt) {
+                    var point=item.mapToItem(ancestor,item.width/2,item.height/2)
+                    if (point.y >= 0 && point.y < ancestor.height) break
+                    var upward=point.y >= ancestor.height
+                    mouseDrag(ancestor,ancestor.width*0.85,ancestor.height*(upward?0.8:0.2),
+                        0,ancestor.height*(upward?-0.6:0.6),Qt.LeftButton,Qt.NoModifier,80)
+                    wait(30)
+                }
+                ancestor.cancelFlick()
+            }
+            ancestor=ancestor.parent
+        }
+        mouseClick(item,item.width/2,item.height/2)
+        wait(20)
+    }
     function initTestCase() {TestServices.bindSurface(testCase);}
     function init() {TestServices.reset(); selectedUrls = [];}
     function cleanup() {TestServices.removePicker();}
@@ -69,6 +90,64 @@ TestCase {
         click(browser,"fileAccept");
         compare(selectedUrls.length,1); compare(String(selectedUrls[0]),"file://"+TestServices.fixtureFile);
     }
+    function test_saveDialogFilenameAndActionsRemainAbovePhoneIme() {
+        var dialog = production("dialogs/FileDialog.qml");
+        dialog.saveDialog = true;
+        var profile = dialog.touchProfile;
+        profile.directTouch = true;
+        profile.screenSpacePresentation = true;
+        profile.surfaceWidth = 900;
+        profile.surfaceHeight = 900;
+        profile.keyboardVisible = true;
+        profile.imeInsetBottom = 550;
+        dialog.dir = "file://" + TestServices.fixtureDirectory;
+        var filename = control(dialog, "fileNameInput");
+        filename.forceActiveFocus();
+        filename.text = "export-with-keyboard.json";
+        var save = control(dialog, "fileAccept");
+        tryVerify(function() {
+            return filename.mapToItem(testCase, 0, 0).y >= 0
+                && save.mapToItem(testCase, 0, save.height).y <= 350;
+        }, 1000, "The filename and Save must be visible above the IME");
+        dialog.selectedFile.connect(function(url) { testCase.selectedUrls = [url]; });
+        mouseClick(save, save.width / 2, save.height / 2);
+        compare(selectedUrls.length, 1);
+        verify(String(selectedUrls[0]).endsWith("/export-with-keyboard.json"));
+    }
+    function test_queryDialogInputAndActionsRemainAbovePhoneIme() {
+        width = 900; height = 900;
+        try {
+            var dialog = production("dialogs/QueryDialog.qml");
+            dialog.title = "Open and Run Script";
+            dialog.label = "Script URL";
+            var profile = dialog.touchProfile;
+            profile.directTouch = true;
+            profile.screenSpacePresentation = true;
+            profile.surfaceWidth = 900;
+            profile.surfaceHeight = 900;
+            profile.keyboardVisible = true;
+            profile.imeInsetBottom = 550;
+            var input = control(dialog, "queryTextInput");
+            input.forceActiveFocus(); input.selectAll();
+            keyClick(Qt.Key_1); keyClick(Qt.Key_2);
+            var accept = control(dialog, "queryAccept");
+            tryVerify(function() {
+                return input.mapToItem(testCase, 0, 0).y >= 0
+                    && input.mapToItem(testCase, 0, input.height).y <= 350
+                    && accept.mapToItem(dialog, 0, 0).x >= 0
+                    && accept.mapToItem(dialog, accept.width, 0).x <= dialog.width
+                    && accept.mapToItem(testCase, 0, accept.height).y <= 350;
+            }, 1000, "The entered URL and OK must be visible above the IME");
+            var selected = null;
+            dialog.selected.connect(function(value) { selected = value; });
+            wait(100);
+            mouseClick(accept, accept.width / 2, accept.height / 2);
+            wait(30);
+            compare(selected, "12");
+        } finally {
+            width = 360; height = 760;
+        }
+    }
     function test_scriptLifecycleAndNativeTree() {
         var scripts=production("hifi/dialogs/TabletRunningScripts.qml");
         var tree=control(scripts,"scriptTree");
@@ -87,6 +166,25 @@ TestCase {
         tree.filterText="absent";wait(20);compare(tree.rows.length,0);
         TestServices.developer(true);scripts.developerMenuEnabled=true;click(scripts,"scriptLoadDefaults");
         compare(TestServices.scriptCalls[3].url,"https://example.invalid/defaults/defaultScripts.js");
+    }
+    function test_shortSurfaceKeepsInstalledScriptSelectionReachable() {
+        var scripts = production("hifi/dialogs/TabletRunningScripts.qml");
+        scripts.width = 850; scripts.height = 286;
+        wait(80);
+        var tree = control(scripts, "scriptTree");
+        verify(tree.height >= 120, "Installed scripts need a usable viewport on a scaled phone");
+        var viewport = control(scripts, "scriptViewport");
+        viewport.contentY = viewport.contentHeight - viewport.height;
+        wait(80);
+        var point = tree.mapToItem(scripts, 0, 0);
+        verify(point.y >= 0 && point.y + tree.height <= scripts.height + 1);
+        mouseClick(control(scripts, "nativeTreeRow0"), 12, 24);
+        wait(30);
+        compare(tree.rows.length, 2);
+        click(scripts, "nativeTreeRow1");
+        click(scripts, "scriptLoadSelected");
+        compare(TestServices.scriptCalls.length, 1);
+        compare(TestServices.scriptCalls[0].url, "https://example.invalid/ordinary.js");
     }
     function test_readOnlyBrowseImageModelImportAndFailure() {
         var assets=production("hifi/dialogs/TabletAssetServer.qml");
@@ -117,11 +215,13 @@ TestCase {
         assets.doRenameFile("/models/scene.fbx","/models/renamed.fbx");compare(TestServices.assetCalls[0].kind,"rename");
         assets.setMapping("/new.fbx","a".repeat(64));compare(TestServices.assetCalls[1].kind,"mapping");
         assets.setBakingEnabled(false);compare(TestServices.assetCalls[2].kind,"baking");
-        assets.doDeleteFile(["/models/scene.fbx"]);compare(TestServices.assetCalls[3].kind,"delete");
-        assets.uploadFile("file://"+TestServices.fixtureFile,false);compare(TestServices.assetCalls[4].kind,"upload");
-        compare(TestServices.assetCalls[4].mapping,"/models/ordinary.js");
+        assets.doDeleteFile(["/models/scene.fbx"]);compare(TestServices.assetCalls[4].kind,"delete");
+        assets.uploadFile("file://"+TestServices.fixtureFile,false);wait(20);
+        var uploadConfirm=control(assets,"singleUploadDialog").standardButton(Dialog.Ok);
+        mouseClick(uploadConfirm,uploadConfirm.width/2,uploadConfirm.height/2);wait(20);compare(TestServices.assetCalls[5].kind,"upload");
+        compare(TestServices.assetCalls[5].mapping,"/models/ordinary.js");
         TestServices.backendError("permission changed");assets.doDeleteFile(["/models/scene.fbx"]);verify(assets.status.indexOf("failed")!==-1);
-        TestServices.permissions(false,true);assets.doRenameFile("/models/scene.fbx","/later.fbx");compare(TestServices.assetCalls.length,6);
+        TestServices.permissions(false,true);assets.doRenameFile("/models/scene.fbx","/later.fbx");compare(TestServices.assetCalls.length,7);
     }
     function test_nativeModelChangesAndSurfaceCleanup() {
         TestServices.permissions(true,true);
@@ -136,6 +236,66 @@ TestCase {
         compare(tree.rows.length,0);compare(assets.selectedItemCount,0);compare(assets.selectedUrl,"");
         verify(!control(assets,"assetImport").enabled);
         assets.destroy();wait(30);verify(!TestServices.assetRefreshEnabled());
+    }
+    function test_folderRenamePreservesNestedMappingsAndUnrelatedAssets() {
+        TestServices.permissions(true, true);
+        TestServices.seedAssetRename({"/source/main.gltf":"a", "/source/mesh/triangle.bin":"b", "/other/keep.png":"c"});
+        var assets = production("hifi/dialogs/TabletAssetServer.qml");
+        assets.doRenameFile("/source/", "/renamed");
+        compare(assets.status, "Rename complete.");
+        verify(!assets.busy);
+        compare(TestServices.assetRenameMappings(), {"/renamed/main.gltf":"a", "/renamed/mesh/triangle.bin":"b", "/other/keep.png":"c"});
+        compare(TestServices.assetCalls.length, 2);
+        verify(TestServices.assetCalls.every(function(call) { return call.old.slice(-1) !== "/" && call.new.slice(-1) !== "/"; }));
+    }
+    function test_avatarUrlPopupStaysBoundedAndRevealsItsFocusedInput() {
+        testCase.height = 100;
+        try {
+            var popup = production("hifi/avatarapp/MessageBox.qml");
+            popup.titleText = "Specify Avatar URL";
+            popup.bodyText = "Avatar help and validation information. ".repeat(12);
+            popup.button1text = "Cancel"; popup.button2text = "Confirm";
+            popup.inputText.visible = true;
+            popup.inputText.text = "qrc:///meshes/defaultAvatar_full.fst";
+            popup.open();
+            popup.inputText.forceActiveFocus();
+            wait(80);
+            var panel = control(popup, "avatarMessageContainer");
+            var viewport = control(popup, "avatarMessageContent");
+            verify(panel.height <= popup.height - 16);
+            verify(viewport.contentY > 0);
+            var y = popup.inputText.mapToItem(viewport, 0, 0).y;
+            verify(y >= 0 && y + popup.inputText.height <= viewport.height);
+            var originalHeight = panel.height;
+            for (var i = 0; i < 3; ++i) { testCase.height = 120; wait(20); testCase.height = 100; wait(20); }
+            compare(panel.height, originalHeight);
+            popup.close(); wait(20);
+            verify(!popup.inputText.activeFocus);
+        } finally { testCase.height = 760; }
+    }
+    function test_folderRenameRollsBackCompletedFilesOnFailure() {
+        TestServices.permissions(true, true);
+        var original = {"/source/a.gltf":"a", "/source/b.bin":"b", "/other/keep.png":"c"};
+        TestServices.seedAssetRename(original, 1);
+        var assets = production("hifi/dialogs/TabletAssetServer.qml");
+        assets.doRenameFile("/source/", "/renamed/");
+        verify(assets.status.indexOf("Rename failed:") === 0);
+        verify(!assets.busy);
+        compare(TestServices.assetRenameMappings(), original);
+        compare(TestServices.assetCalls.length, 3);
+        compare(TestServices.assetCalls[2].old, "/renamed/a.gltf");
+        compare(TestServices.assetCalls[2].new, "/source/a.gltf");
+    }
+    function test_folderRenameRejectsDescendantAndExistingDestinationWithoutMutation() {
+        TestServices.permissions(true, true);
+        TestServices.seedAssetRename({"/source/a.gltf":"a", "/renamed/a.gltf":"b"});
+        var assets = production("hifi/dialogs/TabletAssetServer.qml");
+        assets.doRenameFile("/source/", "/source/nested/");
+        compare(assets.status, "Cannot move a folder inside itself.");
+        assets.doRenameFile("/source/", "/renamed/");
+        verify(assets.status.indexOf("destination contains") !== -1);
+        compare(TestServices.assetCalls.length, 0);
+        verify(!assets.busy);
     }
     function test_popupKeyboardFieldsAndCancel() {
         TestServices.permissions(true,true);
@@ -209,6 +369,8 @@ TestCase {
         scripts.loadScript(String(selectedUrls[0]));
         compare(TestServices.localScriptResult(),42);
         verify(scripts.status.indexOf("Loading main.js")===0);
+        var bundled=TestServices.bundledScriptResolution();
+        for (var key in bundled) verify(bundled[key], key);
     }
     function test_bundleUploadPreservesRealBytesAndModelReferences() {
         TestServices.writeCompanions();TestServices.permissions(true,true);
@@ -260,9 +422,36 @@ TestCase {
     function test_normalSingleUploadRouteRemainsAvailable() {
         TestServices.permissions(true,true);var assets=production("hifi/dialogs/TabletAssetServer.qml");
         click(assets,"assetSingleUpload");var browser=control(assets,"nativeFileBrowser");verify(!browser.bundleMode);
-        browser.finish(["file://"+TestServices.fixtureFile]);compare(TestServices.assetCalls[0].kind,"upload");
+        browser.finish(["file://"+TestServices.fixtureFile]);wait(40);
+        compare(TestServices.assetCalls.length,0);verify(control(assets,"singleUploadDialog").visible);
+        var cancel=control(assets,"singleUploadDialog").standardButton(Dialog.Cancel);
+        mouseClick(cancel,cancel.width/2,cancel.height/2);wait(20);
+        compare(TestServices.assetCalls.length,0);compare(assets.singleUploadUrl,"");
+        assets.uploadFile("file://"+TestServices.fixtureFile,false);wait(20);
+        var confirm=control(assets,"singleUploadDialog").standardButton(Dialog.Ok);
+        mouseClick(confirm,confirm.width/2,confirm.height/2);wait(20);
+        compare(TestServices.assetCalls[0].kind,"upload");verify(TestServices.assetCalls[0].confirmed);
         compare(TestServices.assetCalls[0].mapping,"/ordinary.js");
-        TestServices.permissions(false,true);verify(!control(assets,"assetSingleUpload").enabled);
+        assets.uploadFile("file://"+TestServices.fixtureFile,false);wait(20);
+        control(assets,"assetSinglePath").text="/exists.fbx";
+        confirm=control(assets,"singleUploadDialog").standardButton(Dialog.Ok);
+        mouseClick(confirm,confirm.width/2,confirm.height/2);wait(20);
+        verify(control(assets,"singleUploadOverwriteDialog").visible);compare(TestServices.assetCalls.length,1);
+        var reject=control(assets,"singleUploadOverwriteDialog").standardButton(Dialog.No);
+        mouseClick(reject,reject.width/2,reject.height/2);wait(20);compare(TestServices.assetCalls.length,1);
+        assets.uploadFile("file://"+TestServices.fixtureFile,false);wait(20);
+        control(assets,"assetSinglePath").text="/exists.fbx";
+        confirm=control(assets,"singleUploadDialog").standardButton(Dialog.Ok);
+        mouseClick(confirm,confirm.width/2,confirm.height/2);wait(20);
+        var overwrite=control(assets,"singleUploadOverwriteDialog").standardButton(Dialog.Yes);
+        mouseClick(overwrite,overwrite.width/2,overwrite.height/2);wait(20);
+        compare(TestServices.assetCalls.length,2);compare(TestServices.assetCalls[1].mapping,"/exists.fbx");
+        verify(TestServices.assetCalls[1].confirmed);
+        assets.uploadFile("file://"+TestServices.fixtureFile,false);wait(20);
+        TestServices.permissions(false,true);
+        confirm=control(assets,"singleUploadDialog").standardButton(Dialog.Ok);
+        mouseClick(confirm,confirm.width/2,confirm.height/2);wait(20);compare(TestServices.assetCalls.length,2);
+        verify(!control(assets,"assetSingleUpload").enabled);
     }
     function test_bundleFailureAndCancelReportActualPartialOutcome() {
         TestServices.writeCompanions();TestServices.permissions(true,true);TestServices.failBundleMapping(1);

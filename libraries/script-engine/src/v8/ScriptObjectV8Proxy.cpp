@@ -936,6 +936,12 @@ ScriptMethodV8Proxy::ScriptMethodV8Proxy(ScriptEngineV8* engine, QObject* object
 }
 
 ScriptMethodV8Proxy::~ScriptMethodV8Proxy() {
+    // Weak callbacks already clear the handle before scheduling deleteLater.
+    // Qt may deliver that deletion outside a V8 invocation or after retirement.
+    if (_objectLifetime.IsEmpty()) {
+        return;
+    }
+    auto scopeGuard = _engine->getScopeGuard();
     auto isolate = _engine->getIsolate();
     Q_ASSERT(isolate->IsCurrent());
     v8::HandleScope handleScope(isolate);

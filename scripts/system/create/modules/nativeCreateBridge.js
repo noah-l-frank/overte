@@ -205,6 +205,7 @@ function createBridge(context) {
             })) { status("Refresh the list before selecting these entities.", true); return true; }
             context.selection.setSelections(params.ids, bridge);
             selection();
+            status("", false);
         } else if (method === "edit" || method === "preview") {
             var unlocking = record(params.properties) && Object.keys(params.properties).length === 1
                 && params.properties.locked === false;

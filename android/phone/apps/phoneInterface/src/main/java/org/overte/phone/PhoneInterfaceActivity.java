@@ -46,6 +46,8 @@ public final class PhoneInterfaceActivity extends QtActivity
             | View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
 
     private static native void nativePrepareWeb(String cacheDirectory);
+    private static native void nativeCursorHandleContext(int handle);
+    public void onNativeCursorHandle(int handle) { nativeCursorHandleContext(handle); }
     void prepareNativeWeb() { nativePrepareWeb(getCacheDir().getAbsolutePath()); }
     public static void onWebSceneSize(int width, int height) {
         android.app.Activity current = QtNative.activity();
@@ -530,6 +532,9 @@ public final class PhoneInterfaceActivity extends QtActivity
                 hasHaptics());
         if (!snapshot.valid) {
             return;
+        }
+        if (embeddedWebHost != null) {
+            embeddedWebHost.keyboard(snapshot.keyboardVisible);
         }
         if (touchUiMetrics.offer(snapshot)) {
             touchUiMetricsRetryAttempts = 0;
