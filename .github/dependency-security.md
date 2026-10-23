@@ -6,11 +6,12 @@ separate review units. Do not combine those pull requests or auto-merge them.
 Every update must regenerate its committed lockfile and run the relevant smoke
 test before merge.
 
-Existing ordinary changes to `browser-client/package-lock.json` and
-`script-archive/marketplace/S3Server/package-lock.json` use their independent npm
-package, vulnerability, build and function checks. With the unchanged reviewed
-CodeQL 2.27.2 recipe, those two lockfiles do not change either language's
-extracted inputs, so a lockfile-only change needs no additional CodeQL analysis.
+Existing ordinary managed npm lockfile changes use their independent package,
+vulnerability, build and function checks. The reviewed CodeQL 2.27.2 recipe
+does not read these lockfiles. Under its exact protected job, managed manifests
+also omit analysis when only numeric registry dependency versions change and
+every other field and dependency name remains identical. URL dependencies,
+aliases, local paths, tags and unknown version syntax retain analysis.
 Changed source or analysis configuration still selects its analyses; unknown
 paths, membership or mode changes retain conservative verification.
 

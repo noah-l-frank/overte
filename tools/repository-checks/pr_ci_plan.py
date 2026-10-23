@@ -40,6 +40,9 @@ _ANDROID_NATIVE = _load("central_android_native_inputs", "tools/repository-check
 # import time so planning itself does not read files or load another module.
 _PACKAGES.tools = lambda: _TOOLS
 NPM_PROJECTS = (*_TOOLS.PROJECTS, _PACKAGES.S3, _PACKAGES.BROWSER, "browser-direct-client")
+# Exact protected CodeQL job: no dependency installation, custom queries or
+# source generation. A changed recipe must be reviewed before reusing this proof.
+_DEPENDENCY_CODEQL_JOB = "1071dc46404f3991ac748afe0d0001162b6e3bead5da4a888f14f1ed96979115"
 
 TARGETS = ("main", "apple-main", "apple-ios", "android-main",
            "android-phone", "android-vr", "android-vr-pico")
@@ -181,6 +184,9 @@ def _security(base_tree, candidate_tree, trusted_tree, changes, read_blob):
            or (path.startswith(".github/codeql/") and path != controls[1])
            for tree in (base_tree, candidate_tree) for path in tree):
         return {"languages": both, "reasons": [{"code": "custom-or-unknown-analysis-inputs"}]}
+    recipe = _blob(trusted_tree.get(controls[0]), read_blob).decode()
+    job = re.search(r"(?ms)^  codeql:\n.*?(?=^  [A-Za-z0-9_-]+:\n|\Z)", recipe)
+    dependency_recipe = bool(job and hashlib.sha256(job[0].encode()).hexdigest() == _DEPENDENCY_CODEQL_JOB)
     languages, reasons = set(), []
     native_count, native_bytes = 0, 0
     for change in changes:
@@ -201,8 +207,18 @@ def _security(base_tree, candidate_tree, trusted_tree, changes, read_blob):
                 native = all(b"\0" not in value and not value.decode("utf-8-sig").startswith("#!") for value in values)
             except (PlanError, KeyError, OSError, UnicodeError, TypeError):
                 pass
-        if ordinary and path in _CODEQL._PINNED_NPM_LOCKS:
+        version_only = False
+        if ordinary and dependency_recipe and path in _CODEQL._VERSION_ONLY_NPM_MANIFESTS:
+            try:
+                version_only = _CODEQL.npm_version_only_manifest(
+                    path, _blob(change["before"], read_blob), _blob(change["after"], read_blob))
+            except (PlanError, KeyError, OSError, UnicodeError, TypeError):
+                pass
+        if ordinary and (path in _CODEQL._PINNED_NPM_LOCKS
+                or dependency_recipe and path in _CODEQL._MANAGED_NPM_LOCKS):
             selected, reason = (), "reviewed-2.27.2-npm-lock"
+        elif version_only:
+            selected, reason = (), "reviewed-2.27.2-npm-version-only"
         elif native:
             selected, reason = (), "reviewed-2.27.2-native-source"
         elif ordinary and path in _CODEQL._PYTHON_POLICY_JSONS:
