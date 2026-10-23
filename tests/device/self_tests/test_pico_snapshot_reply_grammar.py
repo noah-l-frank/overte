@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 import tempfile
+import os
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -121,6 +122,40 @@ class SnapshotReplyGrammarTests(unittest.TestCase):
         pins,digest=read_pins();pins['codeUnits']+=1
         with patch('adapters.pico4.snapshot_cancel_owner.read_pins',return_value=(pins,digest)),self.assertRaises(NativeUIError):operation(o)
         self.assertIsNone(o.reply_grammar.previous)
+
+    @staticmethod
+    def replace_header(owner):
+        path=owner.store.path;raw=path.read_bytes();old=path.stat().st_ino;replacement=path.with_suffix('.replacement')
+        descriptor=os.open(replacement,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        with os.fdopen(descriptor,'wb') as output:output.write(raw);output.flush();os.fsync(output.fileno())
+        os.replace(replacement,path)
+        if path.read_bytes()!=raw or path.stat().st_ino==old:raise AssertionError('Counter requires actual same bytes/new inode')
+
+    def test_same_bytes_new_inode_after_actual_exit_or_during_commit_never_supplies_an_admission(self):
+        for turn in ('exit','commit'):
+            with self.subTest(turn=turn):
+                o,operation=self.boundary();raw=o.store.path.read_bytes();original=o.store.path.stat().st_ino;commit=o.reply_grammar.commit;calls=[]
+                def changed(candidate):
+                    calls.append('commit');commit(candidate)
+                    if turn=='commit':self.replace_header(o)
+                held=o.lock.held
+                @contextmanager
+                def exiting():
+                    with held():yield
+                    if turn=='exit':self.replace_header(o)
+                with patch.object(o.reply_grammar,'commit',side_effect=changed),patch.object(o.lock,'held',side_effect=exiting),self.assertRaises(NativeUIError):operation(o)
+                self.assertEqual(raw,o.store.path.read_bytes());self.assertNotEqual(original,o.store.path.stat().st_ino)
+                self.assertEqual([] if turn=='exit' else ['commit'],calls);self.assertTrue(o.reply_grammar.failed);self.assertIsNone(o.reply_grammar.previous)
+
+    def test_same_inode_unchanged_bytes_with_changed_original_time_metadata_refuses(self):
+        o,operation=self.boundary();raw=o.store.path.read_bytes();original=o.store.path.stat();held=o.lock.held;commit=o.reply_grammar.commit
+        @contextmanager
+        def changed():
+            with held():yield
+            os.utime(o.store.path,ns=(original.st_atime_ns,original.st_mtime_ns+1))
+        with patch.object(o.lock,'held',side_effect=changed),patch.object(o.reply_grammar,'commit',wraps=commit) as committed,self.assertRaises(NativeUIError):operation(o)
+        self.assertEqual(raw,o.store.path.read_bytes());self.assertEqual(original.st_ino,o.store.path.stat().st_ino)
+        self.assertEqual(0,committed.call_count);self.assertTrue(o.reply_grammar.failed);self.assertIsNone(o.reply_grammar.previous)
 
 
 if __name__=='__main__':unittest.main()

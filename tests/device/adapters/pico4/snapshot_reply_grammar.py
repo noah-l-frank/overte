@@ -13,13 +13,31 @@ from pathlib import Path
 import stat
 from adapters.chat_journey.source_chunks import json_digest
 from adapters.native_feature_observation import exact,integer,need,number
-from adapters.normal_feature_state import context
+from adapters.normal_feature_state import context,PrivateFeatureState
 from adapters.pico4.snapshot_originals import nonce,sha
 from feature_journeys.contract import json_document,typed_equal
 from adapters.pico4.snapshot_base_frame import original
 from adapters.pico4.snapshot_cancel import validate as cancel_packet
 
 PIN_PATH=Path(__file__).with_name('snapshot-script-pin.v1.json')
+
+
+def header_original(store,expected):
+    """One complete original header read; never admit a same-byte replacement."""
+    need(type(store) is PrivateFeatureState);store._parent();path=store.path
+    def signature(value):
+        return [value.st_dev,value.st_ino,value.st_size,value.st_mode,value.st_uid,value.st_gid,
+            value.st_nlink,value.st_mtime_ns,value.st_ctime_ns]
+    before=path.lstat()
+    need(stat.S_ISREG(before.st_mode) and stat.S_IMODE(before.st_mode)==0o600 and before.st_nlink==1
+        and before.st_uid==os.geteuid() and 0<=before.st_size<=65536)
+    descriptor=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+    with os.fdopen(descriptor,'rb') as source:
+        need(signature(os.fstat(source.fileno()))==signature(before))
+        raw=source.read(65537)
+        need(len(raw)==before.st_size and signature(before)==signature(os.fstat(source.fileno()))==signature(path.lstat()))
+    need(typed_equal(json_document(raw),expected))
+    return dict(physical=signature(before),sha256=hashlib.sha256(raw).hexdigest())
 
 
 def validate_reply(saved,requests,pid):

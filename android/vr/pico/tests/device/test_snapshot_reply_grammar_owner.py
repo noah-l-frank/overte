@@ -44,5 +44,19 @@ class SnapshotReplyOwnerTests(unittest.TestCase):
         self.assertEqual('cancel-observed',cold.reconcile()['stage']);self.assertEqual(inputs,(len(h.adb.inputs),len(h.h.transport.envelopes)))
         self.assertEqual(1,len(h.started));self.assertTrue(cold.originals.root.path.exists())
 
+    def test_actual_normal_cancel_same_byte_header_replacement_at_commit_refuses_and_retains_consumed_input(self):
+        h=self.model();commit=h.owner.reply_grammar.commit;replaced=[]
+        def changed(candidate):
+            commit(candidate)
+            if candidate['rows']:
+                before=h.owner.store.path.read_bytes();old=h.owner.store.path.stat().st_ino
+                SnapshotReplyGrammarTests.replace_header(h.owner)
+                replaced.append((before,old,h.owner.store.path.stat().st_ino))
+        with patch.object(h.owner.reply_grammar,'commit',side_effect=changed),self.assertRaises(NativeUIError):h.cancelled()
+        self.assertEqual(1,len(replaced));raw,old,current=replaced[0];self.assertEqual(raw,h.owner.store.path.read_bytes());self.assertNotEqual(old,current)
+        self.assertEqual(1,len(h.started));self.assertEqual('cancel-observed',h.owner.state['stage'])
+        self.assertTrue(h.owner.reply_grammar.failed);self.assertIsNone(h.owner.reply_grammar.previous)
+        self.assertTrue(h.owner.originals.root.path.exists());self.assertEqual(['tablet.open'],h.adb.controllers)
+
 
 if __name__=='__main__':unittest.main()
