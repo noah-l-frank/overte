@@ -216,6 +216,7 @@ public slots:
     Q_INVOKABLE QVariantMap featurePicoAssetsFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAssetsRead(const QVariantMap& command, bool abort = false);
     Q_INVOKABLE QVariantMap featurePicoAssetsReadRetire(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featurePicoAssetsUploadsObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAvatarState(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAvatarBookmarks(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAvatarBookmarkLoads(const QVariantMap& command);
@@ -318,6 +319,10 @@ private:
     std::shared_ptr<overte::e2e::PicoEmoteSceneFixture> _featureEmoteScene;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureEmoteSceneQueue;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAssetsReadQueue;
+    std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAssetsUploadsQueue;
+    QPointer<QObject> _featureAssetsUploadsManager;
+    QHash<QString,QVariantMap> _featureAssetsUploadsCommands,_featureAssetsUploadsResults;
+    quint64 _featureAssetsUploadsSequence {0};
     std::shared_ptr<overte::e2e::PicoAssetsReadJob> _featureAssetsRead;
     quint64 _featureAssetsReadSequence {0},_featureAssetsReadRetireSequence {0};
     QHash<QString,QVariantMap> _featureAssetsReadRetireCommands,_featureAssetsReadRetireResults;

@@ -15,6 +15,9 @@
 #include <QtCore/QThread>
 
 #include "AssetClient.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include <QCryptographicHash>
+#endif
 #include "NetworkLogging.h"
 
 const QString AssetUpload::PERMISSION_DENIED_ERROR = "You do not have permission to upload content to this asset-server.";
@@ -50,6 +53,15 @@ QString AssetUpload::getErrorString() const {
             return QString("Unknown error with code %1").arg(_error);
     }
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap AssetUpload::featurePicoOriginalUpload() const {
+    if (QThread::currentThread()!=thread()) { return {}; }
+    return {{"filenameSha256",QString::fromLatin1(QCryptographicHash::hash(_filename.toUtf8(),QCryptographicHash::Sha256).toHex())},
+        {"originalSha256",QString::fromLatin1(QCryptographicHash::hash(_data,QCryptographicHash::Sha256).toHex())},
+        {"originalBytes",_data.size()},{"errorCode",int(_error)}};
+}
+#endif
 
 void AssetUpload::start() {
     if (QThread::currentThread() != thread()) {

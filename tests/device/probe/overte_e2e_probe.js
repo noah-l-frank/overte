@@ -174,6 +174,7 @@
     var lastPicoAvatarPreferencesRequest = "";
     var lastPicoAssetsFilesRequest = "";
     var lastPicoAssetsReadRequest = "";
+    var lastPicoAssetsUploadsRequest = "";
     var lastPicoAssetsReadRetirementRequest = "";
     var lastPicoAvatarBookmarkLoadsRequest = "";
     var lastPicoAvatarBookmarksRequest = "";
@@ -1130,6 +1131,21 @@
             } catch (_picoEmoteSceneError) { /* Original ownership and missing scene facts remain unresolved. */ }
             Test.saveObject(picoEmoteScene, "feature-pico-emote-scene.json");
             return;
+        }
+
+        if (command && command.schemaVersion === 1 && command.action === "feature-pico-assets-uploads-observe"
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+            if(command.commandId===lastPicoAssetsUploadsRequest) {return;}lastPicoAssetsUploadsRequest=command.commandId;
+            var picoAssetsUploads={schemaVersion:1,requestId:command.commandId,available:false};
+            try {
+                if(typeof Test.featurePicoAssetsUploadsObservation === "function") {
+                    var actualPicoAssetsUploads=Test.featurePicoAssetsUploadsObservation(command);
+                    if(actualPicoAssetsUploads && actualPicoAssetsUploads.requestId===command.commandId) {picoAssetsUploads=actualPicoAssetsUploads;}
+                }
+            } catch (_picoAssetsUploadsError) { /* Missing original calls/resources remain unresolved. */ }
+            Test.saveObject(picoAssetsUploads,"feature-pico-assets-uploads.json");return;
         }
 
         if (command && command.schemaVersion === 1 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
@@ -2413,7 +2429,7 @@
                 || command.action === "feature-world-render-observe"
                 || command.action === "feature-pico-assets-files" || command.action === "feature-pico-assets-observe"
                 || command.action === "feature-pico-assets-download" || command.action === "feature-pico-assets-resolve"
-                || command.action === "feature-pico-assets-read-retire"
+                || command.action === "feature-pico-assets-read-retire" || command.action === "feature-pico-assets-uploads-observe"
                 || command.action === "feature-pico-avatar-state-observe"
                 || command.action === "feature-pico-avatar-bookmarks-observe"
                 || command.action === "feature-pico-avatar-bookmark-loads-observe"

@@ -34,6 +34,19 @@
 
 static const int AUTO_REFRESH_INTERVAL = 1000;
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+static QVariantMap assetsOriginalConnection(const QString& run) {
+    if (!QCoreApplication::instance() || QThread::currentThread()!=QCoreApplication::instance()->thread()
+            || !QCoreApplication::arguments().contains("--testScript") || !DependencyManager::isSet<NodeList>()) {return {};}
+    const auto nodes=DependencyManager::get<NodeList>();if(!nodes) {return {};}
+    const auto server=nodes->soloNodeOfType(NodeType::AssetServer);
+    return {{"domainId",nodes->getDomainHandler().getUUID().toString(QUuid::WithoutBraces)},
+        {"sessionId",nodes->getSessionUUID().toString(QUuid::WithoutBraces)},
+        {"assetServerId",server ? server->getUUID().toString(QUuid::WithoutBraces) : QString()},
+        {"domainSession",nodes->getDomainHandler().featureChatSession(run)}};
+}
+#endif
+
 int assetMappingModelMetatypeId = qRegisterMetaType<AssetMappingModel*>("AssetMappingModel*");
 
 AssetMappingsScriptingInterface::AssetMappingsScriptingInterface() {
@@ -77,6 +90,9 @@ void AssetMappingsScriptingInterface::getMapping(QString path, QJSValue callback
 }
 
 void AssetMappingsScriptingInterface::uploadFile(QString path, QString mapping, QJSValue startedCallback, QJSValue completedCallback, bool dropEvent) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    _e2eBundles->entry("single",{{"path",path},{"mapping",mapping},{"dropEvent",dropEvent}});
+#endif
     static const QString helpText =
         "Upload your asset to a specific folder by entering the full path. Specifying "
         "a new folder name will automatically create that folder for you.";
@@ -160,6 +176,9 @@ struct AssetMappingsScriptingInterface::BundleUpload {
 
 QString AssetMappingsScriptingInterface::uploadBundle(QStringList paths, QStringList relativePaths, QString destination,
                                                      QString primaryPath, QJSValue progress, QJSValue completed) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    _e2eBundles->entry("bundle",{{"paths",paths},{"relativePaths",relativePaths},{"destination",destination},{"primaryPath",primaryPath}});
+#endif
     if (!_bundleUploads.isEmpty()) return {};
     auto state = std::make_shared<BundleUpload>();
     state->id = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -170,6 +189,9 @@ QString AssetMappingsScriptingInterface::uploadBundle(QStringList paths, QString
     if (!destination.endsWith('/')) destination.append('/');
     state->destination = destination;
     _bundleUploads.insert(state->id, state);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    _e2eBundles->begin(state->id,state->files,state->relative,state->destination,state->primary,assetsOriginalConnection(QRegularExpression("\\A/e2e-([0-9a-f]{32})/\\z").match(state->destination).captured(1)));
+#endif
     QTimer::singleShot(0, this, [this, state] {
         QList<QUrl> files;
         for (const auto& path : state->files) files.append(QUrl::fromLocalFile(path));
@@ -212,6 +234,9 @@ QString AssetMappingsScriptingInterface::uploadBundle(QStringList paths, QString
 }
 
 bool AssetMappingsScriptingInterface::cancelUploadBundle(const QString& requestId) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    _e2eBundles->entry("cancel",{{"requestId",requestId}});
+#endif
     auto state = _bundleUploads.value(requestId);
     if (!state) return false;
     // An in-flight server operation settles before the terminal callback; no next operation starts.
@@ -221,6 +246,9 @@ bool AssetMappingsScriptingInterface::cancelUploadBundle(const QString& requestI
 
 void AssetMappingsScriptingInterface::finishBundle(const std::shared_ptr<BundleUpload>& state, const QString& error) {
     if (!_bundleUploads.remove(state->id)) return;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    _e2eBundles->end(state->id,error);
+#endif
     if (state->completed.isCallable()) {
         QJsonArray paths;
         for (const auto& path : state->published) paths.append(path);
@@ -243,6 +271,18 @@ void AssetMappingsScriptingInterface::advanceBundle(const std::shared_ptr<Bundle
     if (!DependencyManager::get<NodeList>()->getThisNodeCanWriteAssets()) { finishBundle(state, "Asset write permission was revoked."); return; }
     if (!state->publishing) {
         auto* upload = DependencyManager::get<AssetClient>()->createUpload(state->files[state->index]);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        const auto originals=_e2eBundles;const auto id=state->id;const auto instance=originals->issue(id,"upload",assetsOriginalConnection(originals->run(id)),upload);
+        if (!instance.isEmpty()) {
+            const auto finishedCapture=std::make_shared<int>(0),destroyedCapture=std::make_shared<int>(0);
+            const auto finishedConnection=connect(upload,&AssetUpload::finished,upload,[originals,id,instance,upload,finishedCapture](AssetUpload* actual,const QString& hash) {
+                auto value=actual && actual==upload ? actual->featurePicoOriginalUpload() : QVariantMap();if (!value.isEmpty()) { value["returnedHash"]=hash; }originals->finished(id,instance,value);
+            },Qt::DirectConnection);
+            const auto destroyedConnection=connect(upload,&QObject::destroyed,[originals,id,instance,destroyedCapture] { originals->destroyed(id,instance); });
+            originals->callback(instance,"finished",finishedConnection,finishedCapture);
+            originals->callback(instance,"destroyed",destroyedConnection,destroyedCapture);
+        }
+#endif
         connect(upload, &AssetUpload::finished, upload, &QObject::deleteLater);
         connect(upload, &AssetUpload::finished, this, [this, state](AssetUpload* upload, const QString& hash) {
             const auto error = upload->getErrorString();
@@ -257,6 +297,19 @@ void AssetMappingsScriptingInterface::advanceBundle(const std::shared_ptr<Bundle
         // Recheck local mapping knowledge immediately before publishing. Remote races remain server-authoritative.
         if (isKnownMapping(mapping)) { finishBundle(state, "An asset mapping appeared while uploading; it was not overwritten."); return; }
         auto* request = DependencyManager::get<AssetClient>()->createSetMappingRequest(mapping, state->hashes[state->index]);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        const auto originals=_e2eBundles;const auto id=state->id;const auto instance=originals->issue(id,"mapping",assetsOriginalConnection(originals->run(id)),request);
+        if (!instance.isEmpty()) {
+            const auto finishedCapture=std::make_shared<int>(0),destroyedCapture=std::make_shared<int>(0);
+            const auto finishedConnection=connect(request,&SetMappingRequest::finished,request,[originals,id,instance,request,finishedCapture](SetMappingRequest* actual) {
+                const auto value=actual && actual==request && QThread::currentThread()==actual->thread() ? QVariantMap{{"path",actual->getPath()},{"hash",actual->getHash()},{"errorCode",int(actual->getError())}} : QVariantMap();
+                originals->finished(id,instance,value);
+            },Qt::DirectConnection);
+            const auto destroyedConnection=connect(request,&QObject::destroyed,[originals,id,instance,destroyedCapture] { originals->destroyed(id,instance); });
+            originals->callback(instance,"finished",finishedConnection,finishedCapture);
+            originals->callback(instance,"destroyed",destroyedConnection,destroyedCapture);
+        }
+#endif
         connect(request, &SetMappingRequest::finished, request, &QObject::deleteLater);
         connect(request, &SetMappingRequest::finished, this, [this, state](SetMappingRequest* request) {
             const auto error = request->getErrorString();

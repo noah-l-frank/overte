@@ -177,6 +177,8 @@ TESTS = (
         'AvatarFavoritesTests.test_foreign_preferences_before_scale_cannot_be_adopted_by_url_effect_proof',
         'AvatarFavoritesTests.test_nonempty_persisted_entity_size_refuses_even_with_empty_live_handles',
         'AvatarFavoritesTests.test_unowned_avatar_data_refuses_before_any_normal_favorite_input'),
+    test('assets-upload-native', "interaction", PYTHON, "device/test_assets_upload_originals_native.py", requires=("c++", "pkg-config")),
+    test('assets-cancel-owner', "interaction", PYTHON, "device/test_assets_cancel_owner.py", requires=("c++", "pkg-config", "unshare")),
     test('assets-read-native', "interaction", PYTHON, "device/test_assets_read_native.py", requires=("c++", "pkg-config")),
     test('assets-read-job', "interaction", PYTHON, "device/test_assets_read_job_native.py", requires=("c++", "pkg-config")),
     test('assets-backend-source', "interaction", PYTHON, "device/test_assets_source.py", requires=("c++", "pkg-config")),

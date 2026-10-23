@@ -556,6 +556,16 @@ def create_adapter(args, base_class):
             return ui
 
         @_private
+        def _assets_uploads(self,target,*,source_lock,intent=None):
+            from adapters.pico4.assets_uploads import PicoAssetsUploads,FILE
+            lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            native=self._native_feature_observer(target)
+            def guard():lock.assert_held();native.guard()
+            return PicoAssetsUploads(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,guard,native.pid,intent=intent,monotonic=native.monotonic)
+
+        @_private
         def _assets_source(self,target,*,source_lock,download=False,resolve=False,intent=None):
             from adapters.pico4.assets_source import PicoAssetsSource,FILE,DOWNLOAD_FILE,RESOLVE_FILE
             lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
@@ -576,6 +586,26 @@ def create_adapter(args, base_class):
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
                 native.clock_ms,guard,native.pid,monotonic=native.monotonic)
 
+        def _assets_cancel_store(self,target,stage=1):
+            _need(type(stage) is int and 1<=stage<=6)
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','normal-assets-cancel-stage'+str(stage)+'-')))
+
+        @_private
+        def _assets_cancel_owner(self,target,run,fixture_url,phase,*,source_lock,stage=1):
+            from adapters.pico4.assets_cancel_owner import OwnedAssetsCancel
+            lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
+            store=self._assets_cancel_store(target,stage);original=store.read()
+            ticket=original['openTicket'] if original is not None else phase.read()['ticket']
+            files=self._assets_file_owner(target,run,ticket,fixture_url,stage=stage)
+            def guard():lock.assert_held();native.guard()
+            owner=OwnedAssetsCancel(store,binding,run,fixture_url,files,
+                self._assets_source(target,source_lock=lock),self._assets_uploads(target,source_lock=lock),
+                ui.io.capture,lambda intent,**options:self._assets_controls(target,intent,**options),phase,guard,native.clock_ms,
+                monotonic=native.monotonic)
+            return owner
+
         def _assets_file_store(self,target,stage=None):
             _need(stage is None or type(stage) is int and 1<=stage<=6)
             state,_ui=self._script_paths(target)
@@ -585,6 +615,7 @@ def create_adapter(args, base_class):
         def _assets_files_owned(self,target):
             # Native file absence alone cannot retire the whole UI/backend
             # owner. Keep even retired file transcripts until that final join.
+            if any(self._assets_cancel_store(target,stage).read() is not None for stage in range(1,7)):return True
             for stage in (None,1,2,3,4,5,6):
                 value=self._assets_file_store(target,stage).read()
                 if value is not None:return True

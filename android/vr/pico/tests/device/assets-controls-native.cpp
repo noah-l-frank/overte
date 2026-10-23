@@ -21,18 +21,47 @@
 #include "actual-pointer-route.inc"
 #include "tests/device/native/NormalControlUi.h"
 #include "tests/device/native/AssetsUiInventory.h"
+#define ASSETS_ORIGINAL_ENDPOINTS
 #include "avatar-navigation-observation-seams.h"
 namespace overte::e2e {
 inline bool placesField(const QString&){return false;}
 inline bool placesText(const QString&){return false;}
 inline bool placesScrollPoint(QQuickItem*,const QString&,QPointF&){return false;}
 }
+#if !defined(ANDROID_APP_PICO_INTERFACE)
 #define ANDROID_APP_PICO_INTERFACE
+#endif
+#include "PicoAssetsReadJob.h"
+#include "assets-read-endpoints-host.h"
+#include "MappingRequest.h"
+#include "AssetRequest.h"
+#include "assets-upload-mappings-host.h"
+#include "AssetsBundleOriginals.inc"
+void AssetMappingsScriptingInterface::advanceBundle(const std::shared_ptr<BundleUpload>& state) {
+ ++backendDispatches;finishBundle(state,"Explicit host backend is unavailable.");
+}
 #include "assets-files-getter-host.h"
 #include "actual-assets-navigation.inc"
 #undef ANDROID_APP_PICO_INTERFACE
 #include "libraries/ui/src/FileDialogHelper.h"
 Q_LOGGING_CATEGORY(uiLogging,"ui")
+Q_LOGGING_CATEGORY(asset_client,"assets-client-host")
+#include "AssetsReadOriginals.inc"
+namespace AssetUtils {
+QByteArray loadFromCache(const QUrl&){return {};}
+bool saveToCache(const QUrl&,const QByteArray&){return true;}
+}
+struct AssetsNativeClient {
+ QSharedPointer<AssetClient> client{new AssetClient,[](AssetClient* value){value->deleteLater();}};QThread worker;
+ AssetsNativeClient(){DependencyManager::slot<AssetClient>()=client;client->content="independent original mapping bytes";
+  const auto hash=QCryptographicHash::hash(client->content,QCryptographicHash::Sha256);
+  auto primitive=[](QByteArray& raw,const auto& value){raw.append(reinterpret_cast<const char*>(&value),sizeof(value));};
+  const QByteArray path="/foreign/original.bin";primitive(client->allReply,quint32(1));primitive(client->allReply,quint32(path.size()));
+  client->allReply+=path;client->allReply+=hash;primitive(client->allReply,AssetUtils::Irrelevant);
+  client->moveToThread(&worker);worker.start();
+ }
+ ~AssetsNativeClient(){DependencyManager::slot<AssetClient>().clear();client.clear();worker.quit();if(!worker.wait(1000)) {qFatal("Original host AssetClient did not retire");}}
+};
 using namespace overte::e2e;
 static QQuickItem* find(QQuickItem* node,const QString& name) {
  if(node->objectName()==name)return node;for(auto child:node->childItems())if(auto found=find(child,name))return found;return nullptr;
@@ -41,6 +70,11 @@ int main(int argc,char**argv){
  HostApplication app(argc,argv);PathUtils::qml=QUrl::fromLocalFile(QString::fromLocal8Bit(argv[5])+"/interface/resources/qml/");
  if(!app.arguments().contains("--testScript")){AssetsUi gated;if(!gated.observe(nullptr,nullptr).isEmpty())return 44;return 0;}
  QQmlEngine engine;engine.addImportPath(argv[1]);FileDialogHelper files;
+ const auto originalUploads=QSharedPointer<AssetMappingsScriptingInterface>::create();
+ DependencyManager::slot<AssetMappingsScriptingInterface>()=originalUploads;
+ const auto originalNodes=QSharedPointer<NodeList>::create();DependencyManager::slot<NodeList>()=originalNodes;
+ engine.rootContext()->setContextProperty("originalBundleService",originalUploads.data());
+ AssetsNativeClient originalReadClient;
  engine.rootContext()->setContextProperty("fileDialogHelper",&files);
  QStandardItemModel model;auto folder=new QStandardItem("e2e-root");folder->setData("/e2e-root/",256);folder->setData(true,257);
  auto main=new QStandardItem("main.gltf");main->setData("/e2e-root/main.gltf",256);main->setData(false,257);main->setData("atp:/e2e-root/main.gltf",259);main->setData("--",261);
@@ -76,7 +110,7 @@ QtObject {
  function uploadBundle(paths,relative,destination,primary,progress,done) {
    var manifest=fileDialogHelper.documentBundle(paths.map(function(path){return fileDialogHelper.pathToUrl(path)}));
    bundleOriginal=({files:paths,relative:relative,destination:destination,primary:primary,actual:manifest});
-   ++uploads;Qt.callLater(function(){done(null,JSON.stringify(relative),destination+primary)});return "synthetic-upload-request";
+   ++uploads;return originalBundleService.uploadBundle(paths,relative,destination,primary,progress,done);
  }
 })",QUrl("file:///explicit-assets-endpoints.qml"));
  QScopedPointer<QObject> service(helper.create());if(!service){qWarning()<<helper.errors();return 1;}
@@ -85,7 +119,7 @@ QtObject {
  if(!object){qWarning()<<component.errors();return 2;}auto root=qobject_cast<QQuickItem*>(object.data());if(!root)return 3;
  QQuickWindow window;window.resize(900,1200);root->setParentItem(window.contentItem());root->setSize(QSizeF(900,1200));window.show();window.requestActivate();QTest::qWait(120);
  overte::pico::e2e::NavigationUi ui;OffscreenQmlSurface surface(root,&window);int pointers=0;
- QJsonArray observations;auto capture=[&]{auto value=ui.observe(root,&window,true);observations.append(value);return value;};
+ QJsonObject lastNativeResult;QJsonArray observations;auto capture=[&]{auto value=ui.observe(root,&window,true);observations.append(value);return value;};
  auto row=[&](const QString& id){for(const auto& item:capture().value("controls").toArray()){auto value=item.toObject();if(value.value("id")==id)return value;}return QJsonObject();};
  auto command=[&](const QString& id,const QString& action,const QJsonValue& value=QJsonValue()){
   auto original=capture();auto control=row(id);
@@ -97,7 +131,7 @@ QtObject {
  auto apply=[&](const QJsonObject& request){
   auto pointerAt=[&](QQuickItem* item,const QPointF& point){++pointers;return sendPointerAt(item,&surface,point);};
   auto click=[&](QQuickItem* item){return pointerAt(item,item->mapToScene(QPointF(item->width()/2,item->height()/2)));};
-  auto result=ui.apply(root,&window,true,request,click,pointerAt);QTest::qWait(80);return result.value("performed").toBool();
+  auto result=ui.apply(root,&window,true,request,click,pointerAt);lastNativeResult=result;QTest::qWait(80);return result.value("performed").toBool();
  };
  auto input=[&](const QString&id,const QString&action,const QJsonValue&value=QJsonValue()){
   if(row(id).isEmpty()){
@@ -110,6 +144,22 @@ QtObject {
   if(!apply(command(id,action,value))){std::cerr<<"refused "<<id.toStdString()<<" "<<QJsonDocument(row(id)).toJson().toStdString()<<'\n';return false;}return true;
  };
  auto replace=[&](const QString&id,const QString&value){return input(id,"activate")&&input(id,"replace",value)&&row(id).value("text")==value;};
+ if(app.arguments().contains("--serve")) {
+  QTemporaryDir privateInputs;TestScriptingInterface owner;owner._testResultsLocation=privateInputs.path();owner._featureLifecycle=std::make_shared<AssetsHostLifecycle>();
+  std::string line;while(std::getline(std::cin,line)) {
+   const auto request=QJsonDocument::fromJson(QByteArray::fromStdString(line)).object();const auto action=request.value("action").toString();QJsonObject packet;
+   if(action=="host-observe-original-ui") {packet=capture();}
+   else if(action=="host-original-ui-input") {apply(request.value("original").toObject());packet=lastNativeResult;}
+   else if(action=="feature-pico-assets-files") {packet=QJsonObject::fromVariantMap(owner.featurePicoAssetsFiles(request.toVariantMap()));}
+   else if(action=="feature-pico-assets-uploads-observe") {packet=QJsonObject::fromVariantMap(owner.featurePicoAssetsUploadsObservation(request.toVariantMap()));}
+   else if(action=="feature-pico-assets-observe" || action=="feature-pico-assets-download" || action=="feature-pico-assets-resolve" || action=="feature-pico-assets-read-retire") {
+    QElapsedTimer elapsed;elapsed.start();QVariantMap actual;
+    do{QCoreApplication::processEvents();actual=action=="feature-pico-assets-read-retire"?owner.featurePicoAssetsReadRetire(request.toVariantMap()):owner.featurePicoAssetsRead(request.toVariantMap());
+     if(actual.value("pending")!=true)break;QThread::msleep(1);}while(elapsed.elapsed()<1000);packet=QJsonObject::fromVariantMap(actual);
+   }
+   std::cout<<QJsonDocument(packet).toJson(QJsonDocument::Compact).constData()<<std::endl;
+  }return 0;
+ }
  auto page=row("assets.page");if(page.value("profile")!="native-assets-v1"||page.value("canWrite")!=true){std::cerr<<"page "<<QJsonDocument(page).toJson().toStdString()<<" root "<<assetsPage(root)<<" original "<<assetsComponent(root,"/hifi/dialogs/TabletAssetServer.qml")<<"\n";auto tree=find(root,"assetTree");std::cerr<<"tree "<<tree<<" resolved "<<assetsTree(tree)<<" original "<<assetsComponent(tree,"/hifi/dialogs/NativeModelTree.qml")<<"\n"<<QJsonDocument(capture()).toJson().toStdString();return 4;}
  if(!replace("assets.filter","main.gltf"))return 5;
  QString selected;for(const auto& value:capture().value("controls").toArray()){auto r=value.toObject();if(r.value("mapping").toObject().value("path")=="/e2e-root/main.gltf")selected=r.value("id").toString();}
@@ -155,6 +205,9 @@ QtObject {
   {"operation","stage"},{"runId",QString(32,'a')},{"ownerToken",QString(64,'b')},{"files",fixedFiles}};
  const auto stagedFiles=inputOwner.featurePicoAssetsFiles(fileCommand).value("source").toMap();if(stagedFiles.value("exists")!=true)return 56;
  const auto privateRoot=QUrl(stagedFiles.value("directory").toString()).toLocalFile();
+ QVariantMap uploadCommand{{"schemaVersion",1},{"commandId",QString(32,'1')},{"action","feature-pico-assets-uploads-observe"},{"runId",QString(32,'a')}};
+ const auto uploadsBefore=inputOwner.featurePicoAssetsUploadsObservation(uploadCommand);
+ if(uploadsBefore.value("source").toMap().value("totalCalls")!=0||originalUploads->backendDispatches!=0)return 62;
  if(!navigate(privateRoot+"/gltf-bundle")||!pick(privateRoot+"/gltf-bundle/main.gltf"))return 57;
  // Original Cancel destroys actual picker/model; hidden objects stay live.
  auto browser=find(root,"nativeFileBrowser");if(!browser)return 49;
@@ -170,6 +223,8 @@ QtObject {
  auto retired=canceled.value("browsers").toArray()[0].toObject();
  if(retired.value("id")!=browserId||retired.value("rootAlive")!=false||retired.value("modelAlive")!=false
    ||retired.value("inCurrentTree")!=false||service->property("uploads").toInt()!=0)return 54;
+ uploadCommand["commandId"]=QString(32,'2');const auto uploadsAfter=inputOwner.featurePicoAssetsUploadsObservation(uploadCommand);
+ if(uploadsAfter.value("source")!=uploadsBefore.value("source")||originalUploads->backendDispatches!=0)return 63;
  fileCommand.remove("files");fileCommand["operation"]="observe";fileCommand["commandId"]=QString(32,'d');
  const auto filesAfterCancel=inputOwner.featurePicoAssetsFiles(fileCommand).value("source").toMap();
  if(filesAfterCancel.value("files")!=stagedFiles.value("files")||!QFileInfo::exists(privateRoot+"/gltf-bundle/main.gltf"))return 58;
@@ -184,6 +239,8 @@ QtObject {
    ||!input("assets-file.confirm","activate"))return 15;
  if(!replace("assets.destination.path","/e2e-test/gltf-bundle/")||!input("assets.destination.accept","activate"))return 16;
  auto receipt=createVariant(service->property("bundleOriginal")).toMap();
+ uploadCommand["commandId"]=QString(32,'3');const auto called=inputOwner.featurePicoAssetsUploadsObservation(uploadCommand).value("source").toMap();
+ if(called.value("totalCalls")!=1||called.value("originalActiveBundles")!=0||originalUploads->backendDispatches!=1)return 64;
  if(service->property("uploads").toInt()!=1||receipt.value("relative").toList().size()!=3||receipt.value("primary")!="main.gltf"
    ||!receipt.value("actual").toMap().value("error").toString().isEmpty()||receipt.value("destination")!="/e2e-test/gltf-bundle/"){std::cerr<<"upload "<<service->property("uploads").toInt()<<" "<<QJsonDocument::fromVariant(receipt).toJson().toStdString();return 17;}
  // Retire the actual selected main file while the original picker remains open.
@@ -200,6 +257,12 @@ QtObject {
   auto incomplete=capture().value("assetsUiInventory").toObject();
   if(incomplete.value("complete")!=false||!incomplete.value("browsers").toArray().isEmpty())return 60;}
  if(!capture().value("assetsUiInventory").toObject().value("complete").toBool())return 61;
+ uploadCommand["commandId"]=QString(32,'4');
+ if(inputOwner.featurePicoAssetsUploadsObservation(uploadCommand).value("source").toMap().value("totalCalls")!=1)return 65;
+ // Even rejected/invalid original calls invalidate a no-upload comparison.
+ originalUploads->uploadBundle({}, {}, "/invalid", "absent.gltf", {}, {});QTest::qWait(20);
+ uploadCommand["commandId"]=QString(32,'5');const auto rejected=inputOwner.featurePicoAssetsUploadsObservation(uploadCommand).value("source").toMap();
+ if(rejected.value("totalCalls")!=2||rejected.value("originalActiveBundles")!=0||originalUploads->backendDispatches!=1)return 66;
  QFile originals(argv[4]);if(!originals.open(QIODevice::WriteOnly)||originals.write(QJsonDocument(observations).toJson(QJsonDocument::Compact))<0)return 24;originals.close();
  if(pointers<20)return 45;
  std::cout<<"Original Pico Assets observer, pointer route, actual QML/files and counterexamples passed\n";return 0;

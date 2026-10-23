@@ -253,3 +253,106 @@ pre-fix read bodies from `338124860682e70885fc7486200c5cd0a0de8805`, with their
 original defaults and current explicit clock/copy endpoints. All four subcases
 failed as expected (`NativeUIError not raised`, 6.011 s); the native producer
 was unchanged. The fixed seven-case owning source run above is green.
+
+## Retained normal Cancel owner and original upload-call evidence
+
+`featurePicoAssetsUploadsObservation` is a closed Pico-only passive source. It
+reads the actual existing AssetMappingsScriptingInterface; absent dependencies
+cannot be instantiated by observation. Original single-upload, bundle-upload
+and cancel entry calls are counted before product admission, including invalid
+or busy calls. Their original argument digests and event epochs are immutable,
+private and finite (512 calls). Actual `_bundleUploads` occupancy is reported
+separately. Therefore a rejected call cannot masquerade as no attempted upload.
+The getter uses its own existing bounded weak queue and exact original
+DomainHandler per-connect generation, domain/session/server identities and
+actual rights. A blocked query or replaced original manager stays unavailable.
+
+The fixed Phone upload/request ledger and owner-thread byte/error getter are
+selected under Pico-only test gates. Upload/mapping observer callbacks copy
+original request members on the real request thread. Their separate immutable
+weak QObject references, actual Qt connections and observer-capture lifetimes
+remain retained until actual death and release. QObject::destroyed by itself
+cannot qualify release. These are test observations; no normal product handler,
+permission setter, mapping setter or source input path is substituted. Existing
+product queued callback behavior remains unchanged. Whole real asynchronous
+Asset Server upload/mapping completion is still unqualified by this packet.
+
+The private `_assets_cancel_owner` factory now joins the normal token controls,
+complete original native file owner, original GetAllMappingsRequest source,
+original upload-call source and independent browser/FolderListModel inventory.
+It accepts the existing v16 `upload-picker-open` and `upload-picker-cancel`
+fixture phases. Every normal input records its original token scope and the
+exact final native command before the existing one-shot writer. Original
+command IDs, native elapsed times and observed after-scopes remain in a bounded
+durable archive even after acknowledgement. A fresh original PhaseInputFence
+runs after the final SDK guard and again after the intent CAS. A phase advance
+cannot publish that command. Requested values and ACKs supply no effect proof.
+
+Normal open selects the original staged glTF main file. Normal Cancel must
+produce actual weak browser/model death, with unchanged original full mapping
+inventory and upload-call history. The negative interval requires three seconds
+of both host and native UI clock progress with no gap above 500 ms. Only fresh
+original file-consumer evidence permits known-file release. Native file absence
+is sampled again and checked alongside mappings/upload/UI after retained copies,
+history publication, final phase reads and root CAS. Decoded original UI DTOs
+and raw backend originals are retained separately. Combined original histories
+remain within the existing 512-frame/16-MiB budget and private state limit;
+source, checkpoint, freshness and quiet limits are unchanged.
+
+Lost normal Cancel replies reconstruct the same exact owner and reconcile by
+observation. They never repeat the original pointer. A delivered lost reply can
+prove file consumers have died; its unresolved original command still remains
+retained. An undelivered reply leaves actual live consumers and exact input
+bytes owned. Unknown source requests and failed final freshness remain pending.
+Root ownership and even retired file transcripts deliberately survive: actual
+QQmlContext/window survivors, uncertain inputs, server/oven/actor/render sources
+and whole application retirement remain unresolved obligations. Base cleanup
+refuses while any retained Cancel owner exists. No public `feature.assets.*`
+capability is added.
+
+The shared-build host fixture now joins the actual original Assets QML, whole
+Pico observe/apply and normal pointer/NativeFieldInput, complete production file,
+read and upload-source getters, complete MappingRequest/AssetRequest and original
+bundle-entry/validation/cancel/finish bodies in one real Qt process. Installation,
+SDK, keyboard device, fixture transport and server protocol/cache remain explicit
+host endpoints. The fixture's downstream bundle dispatch returns an unavailable
+backend error; it never manufactures uploaded bytes or server success. The
+original queued production upload callbacks are not qualified by that endpoint.
+The owning host executes the exact production `_assets_controls` and
+`_bind_create_transport` factories, including the original two-argument final
+callback bridge. Source review caught and corrected a private owner callback
+arity mismatch that the earlier direct host binding did not exercise.
+A separate small Qt test checks actual weak QObject/QtConnection/capture death,
+retained capture refusal, runtime-off, foreign-thread invalidation and the finite
+call ledger. Original normal destination acceptance increments the real entry
+count once; a rejected original bundle call increments it again.
+
+The first reserved owning compile hit its unchanged 90-second budget before any
+case under measured host RAM/swap pressure. No owned compiler descendants
+survived. The unchanged retry ran four cases in 29.703 s: normal Cancel, lost
+reply and final input phase refusal passed; the undelivered writer correctly
+refused but its explicit RuntimeError escaped the expected error interface.
+The owner now normalizes delivery uncertainty to NativeUIError while preserving
+pending ownership. The subsequent selected four groups passed in 35.34 s:
+`assets-cancel-owner` five cases 33.593 s, `assets-upload-native` 1.618 s,
+`assets-read-probe` ten cases 0.042 s and coverage 0.085 s. The fifth owner case
+ages the final CAS under a frozen native clock and refuses publication. These
+are host/source facts, not an actual server, oven or physical Pico run.
+
+The final frozen selection, including the production factory callback bridge
+and combined 512-frame/16-MiB accounting, passed all eight groups in 79.75 s:
+Cancel owner five cases 35.643 s, native upload originals 1.670 s, original read
+native 5.881 s, native read job 1.288 s, backend source seven cases 6.080 s,
+full probe ten cases 0.066 s, actual native Assets UI 29.056 s and coverage
+0.070 s. Each selector retained its 120-second limit and each compile retained
+90 seconds. The owning run was serial, with no source edits or parallel native
+build. Its private JUnit transcript remains with the packet evidence. No
+physical device, actual Asset Server or oven was run.
+
+This packet adds exactly two selectors locally (152→154), retaining all older
+checks and adding `native-pico-assets-uploads:1`, `pico-assets-uploads:1` and
+`pico-assets-cancel-owner:1`. Root counts and newer feature rows must be merged
+additively. Next executable work is the normal full companion upload with
+independent actual server blob/mapping/oven receipts, then normal import and
+original loaded-model/stereo/peer evidence, owned deletion and complete retained
+resource cleanup. Feature 13/14 remains partial.

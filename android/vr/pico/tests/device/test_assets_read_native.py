@@ -21,6 +21,16 @@ def compile_source(stage):
     environment=dict(os.environ);prefix=Path(environment['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
     environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),LD_LIBRARY_PATH=str(prefix/'usr/lib64'))
     flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt5Core'],text=True,env=environment))
+    stage=Path(stage);include,definitions=prepare_source(stage,environment,prefix)
+    binary=stage/'assets-read-test'
+    subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-fmax-errors=3',*definitions,*include,
+        str(HERE/'assets-read-native.cpp'),str(stage/'MappingRequest.cpp'),str(stage/'AssetRequest.cpp'),
+        str(stage/'MappingRequest-moc.cpp'),str(stage/'AssetRequest-moc.cpp'),'-o',str(binary),'-L'+str(prefix/'usr/lib64'),*flags],
+        check=True,timeout=90,env=environment)
+    return binary,environment
+
+
+def prepare_source(stage,environment,prefix):
     stage=Path(stage);network=ROOT/'libraries/networking/src'
     for name in ('MappingRequest.h','MappingRequest.cpp','AssetRequest.h','AssetRequest.cpp','AssetUtils.h','ByteRange.h'):
         (stage/name).write_bytes((network/name).read_bytes())
@@ -41,12 +51,7 @@ def compile_source(stage):
     definitions=['-DOVERTE_E2E_FEATURE_TESTS','-DANDROID_APP_PICO_INTERFACE']
     for name in ('MappingRequest','AssetRequest'):
         subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),*definitions,*include,str(stage/(name+'.h')),'-o',str(stage/(name+'-moc.cpp'))],check=True,timeout=15,env=environment)
-    binary=stage/'assets-read-test'
-    subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-fmax-errors=3',*definitions,*include,
-        str(HERE/'assets-read-native.cpp'),str(stage/'MappingRequest.cpp'),str(stage/'AssetRequest.cpp'),
-        str(stage/'MappingRequest-moc.cpp'),str(stage/'AssetRequest-moc.cpp'),'-o',str(binary),'-L'+str(prefix/'usr/lib64'),*flags],
-        check=True,timeout=90,env=environment)
-    return binary,environment
+    return include,definitions
 
 
 class AssetsReadNativeTests(unittest.TestCase):

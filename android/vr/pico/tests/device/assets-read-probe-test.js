@@ -8,9 +8,9 @@ const body=source.slice(source.indexOf('    function applyClientCommand(command)
 const keys=source.slice(source.indexOf('    function objectKeysMatch('),source.indexOf('    function httpUrl('));
 assert(body.startsWith('    function applyClientCommand'));assert(keys.startsWith('    function objectKeysMatch'));
 function fixture(getter) {
- const queue=[],saved=[],calls=[];const sandbox={Date:{now:()=>1000},lastPicoAssetsReadRequest:'',lastPicoAssetsReadRetirementRequest:'',
+ const queue=[],saved=[],calls=[];const sandbox={Date:{now:()=>1000},lastPicoAssetsReadRequest:'',lastPicoAssetsReadRetirementRequest:'',lastPicoAssetsUploadsRequest:'',
   Script:{setTimeout:(callback,delay)=>{assert.equal(delay,20);queue.push(callback);}},Test:{saveObject:(packet,file)=>saved.push({packet,file})}};
- for(const name of ['featurePicoAssetsRead','featurePicoAssetsReadRetire'])sandbox.Test[name]=(...args)=>{calls.push({name,args:JSON.parse(JSON.stringify(args))});return getter(...args);};
+ for(const name of ['featurePicoAssetsRead','featurePicoAssetsReadRetire','featurePicoAssetsUploadsObservation'])sandbox.Test[name]=(...args)=>{calls.push({name,args:JSON.parse(JSON.stringify(args))});return getter(...args);};
  vm.createContext(sandbox);vm.runInContext(keys+'\n'+body,sandbox);return {sandbox,saved,calls,drain(){let count=0;while(queue.length){assert(++count<=230);queue.shift()();}return count;}};
 }
 const run='b'.repeat(32),id='a'.repeat(32);
@@ -44,4 +44,12 @@ for(const result of [()=>{throw Error('native unavailable');},()=>({requestId:'e
  const f=fixture(result);f.sandbox.applyClientCommand({schemaVersion:1,commandId:id,runId:run,action:'feature-pico-assets-observe'});
  assert.equal(f.saved.length,1);assert.equal(f.saved[0].packet.available,false);
 }
-console.log('Original Assets probe dispatcher: 8 bounded source/retirement cases passed');
+{
+ const command={schemaVersion:1,commandId:id,runId:run,action:'feature-pico-assets-uploads-observe'};
+ const f=fixture(value=>({requestId:value.commandId,available:true}));f.sandbox.applyClientCommand(command);f.sandbox.applyClientCommand(command);
+ assert.equal(f.calls.length,1);assert.equal(f.calls[0].name,'featurePicoAssetsUploadsObservation');assert.deepStrictEqual(f.calls[0].args,[command]);
+ assert.equal(f.saved[0].file,'feature-pico-assets-uploads.json');
+ const unavailable=fixture(()=>{throw Error('original upload source absent');});unavailable.sandbox.applyClientCommand(command);
+ assert.equal(unavailable.saved[0].packet.available,false);
+}
+console.log('Original Assets probe dispatcher: 10 bounded source/retirement cases passed');

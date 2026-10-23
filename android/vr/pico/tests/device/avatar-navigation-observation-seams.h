@@ -30,10 +30,14 @@ class RenderScriptingInterface {public:
     double getViewportResolutionScale()const{return std::numeric_limits<double>::quiet_NaN();}
     bool getHazeEnabled()const{return false;}bool getMirrorsEnabled()const{return false;}
 };
+#if defined(ASSETS_ORIGINAL_ENDPOINTS)
+#include "assets-dependency-host.h"
+#else
 class DependencyManager {public:
     template<class T>static bool isSet(){return false;}
     template<class T>static QSharedPointer<T> get(){qFatal("Unavailable host dependency must not be instantiated");return {};}
 };
+#endif
 namespace overte::e2e {
 inline void ensureTabletHttpProvider(QQuickItem*){}
 struct AccountMenuUiContext {
