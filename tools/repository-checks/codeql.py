@@ -98,6 +98,10 @@ _PINNED_NPM_LOCKS = frozenset({
     "browser-client/package-lock.json",
     "script-archive/marketplace/S3Server/package-lock.json",
 })
+_MANAGED_NPM_LOCKS = _PINNED_NPM_LOCKS | {"server-console/package-lock.json", "tools/jsdoc/package-lock.json"}
+_VERSION_ONLY_NPM_MANIFESTS = frozenset(path.removesuffix("-lock.json") + ".json"
+                                      for path in _MANAGED_NPM_LOCKS)
+_REGISTRY_VERSION = re.compile(r"[~^]?(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
 # Exact 2.27.2 default extractor discovery at a7057b836bf29767461026718b14d20790b9085f:
 # JS may sniff headers, but these suffixes never produce extracted source. Python
 # recursive discovery follows .py/.pyw or extensionless scripts only. Existing
@@ -231,7 +235,7 @@ def _pinned_ci_metadata(change, base_tree, candidate_tree):
 
 
 def _pinned_npm_lock(change, base_tree, candidate_tree):
-    """Two existing ordinary lockfiles supply no pinned analysis inputs.
+    """Managed existing ordinary lockfiles supply no pinned analysis inputs.
 
     AutoBuild's JSON allowlist excludes package-lock.json. Dependency discovery
     reads package.json, and its resolver consumes that parsed manifest without
@@ -243,6 +247,47 @@ def _pinned_npm_lock(change, base_tree, candidate_tree):
                     for tree in (base_tree, candidate_tree))
             and all(isinstance(change[side], dict) and change[side]['mode'] == '100644'
                     and change[side]['type'] == 'blob' for side in ('before', 'after')))
+
+
+def npm_version_only_manifest(path, before, after):
+    """Prove a managed manifest changes only ordinary registry version strings.
+
+    The pinned no-build extractor does not install dependencies. Its package
+    entry points, module configuration, scripts and dependency names must stay
+    identical. Security queries can inspect dependency URLs, so aliases, URLs,
+    local paths, tags and unknown version syntax retain analysis.
+    """
+    if path not in _VERSION_ONLY_NPM_MANIFESTS:
+        return False
+    def nonfinite(value):
+        raise ValueError("nonfinite JSON")
+    try:
+        values = []
+        for raw in (before, after):
+            if type(raw) is not bytes or len(raw) > 1_000_000 or b"\0" in raw:
+                return False
+            value = json.loads(raw.decode("utf-8"), object_pairs_hook=inputs._unique_object,
+                               parse_constant=nonfinite)
+            if type(value) is not dict:
+                return False
+            values.append(value)
+        left, right = values
+        if left.keys() != right.keys():
+            return False
+        for field in ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies"):
+            a, b = left.get(field, {}), right.get(field, {})
+            if type(a) is not dict or type(b) is not dict or a.keys() != b.keys():
+                return False
+            for name in a:
+                if a[name] == b[name]:
+                    continue
+                if not all(type(version) is str and _REGISTRY_VERSION.fullmatch(version)
+                           for version in (a[name], b[name])):
+                    return False
+                a[name] = b[name] = None
+        return json.dumps(left, sort_keys=True, allow_nan=False) == json.dumps(right, sort_keys=True, allow_nan=False)
+    except (ValueError, TypeError, UnicodeError, RecursionError):
+        return False
 
 
 def _pinned_native_source(change, base_tree, candidate_tree, read_blob):
