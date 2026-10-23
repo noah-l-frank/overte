@@ -36,6 +36,9 @@ def no_orphans(directory,config):
 def retire_existing(runtime,selector,config):
     """Return None for no owner, cleaned for typed original end, else fail."""
     need(isinstance(runtime,IOSNavigationRuntime));directory=runtime.state_path(selector).parent
+    from ios.adapters.navigation_failed_preparation_cleanup import retire_existing as retire_failed
+    failed=retire_failed(runtime,selector,config)
+    if failed is not None:return failed
     store=PrivateFeatureState(directory/'ios-navigation-feature.json');value=store.read()
     if value is None:no_orphans(directory,config);return None
     exact(value,{'iosNavigationFeatureVersion','runId','artifactRoot','payload'})

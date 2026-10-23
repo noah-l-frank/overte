@@ -26,7 +26,8 @@ class NavigationSessionCleanupTests(unittest.TestCase):
         self.assertIsNone(retire_existing(self.runtime,'owned',None));self.assertEqual([],list(self.root.iterdir()))
 
     def test_actual_orphan_names_and_incomplete_owner_cannot_fall_through_to_stop(self):
-        for name in ('ios-navigation-whole-preparation.json','navigation-baseline-owned.json',
+        for name in ('ios-navigation-whole-preparation.json','ios-navigation-whole-feature.json',
+            'ios-navigation-preparation-abort.json','navigation-baseline-owned.json',
             'phase-publication-world-navigation-'+'a'*32+'-actor.json','ios-navigation-final-archive.json',
             'ios-navigation-feature.json'):
             store=PrivateFeatureState(self.root/name);store.write(dict(incomplete=True),None);before=store.path.read_bytes()

@@ -349,6 +349,11 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                     if operation=='feature.world-navigation.terminal' and values['stage']=='finish':
                         from ios.adapters.navigation_canonical_end import verify
                         verify(flow,values,result)
+                    elif operation=='feature.world-navigation.cleanup':
+                        from ios.adapters.navigation_failed_preparation_cleanup import verify
+                        if not verify(flow,values,result):
+                            client,session,state,target,_scope=runtime._existing(selector)
+                            self._binding(selector,client,session,state,target).verify()
                     else:
                         client,session,state,target,_scope=runtime._existing(selector)
                         self._binding(selector,client,session,state,target).verify()
@@ -380,8 +385,18 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             finally:
                 self._operation = self._retiring = None
 
-        @emote_session_entry
         def cleanup(self, selector):
+            # A typed Worlds end must precede any unrelated GPU-name scan or
+            # fallback lifecycle input, including when its SDK is already gone.
+            from ios.adapters.feature_configuration import configuration
+            from ios.adapters.navigation_runtime import IOSNavigationRuntime
+            from ios.adapters.navigation_session_cleanup import retire_existing
+            navigation=retire_existing(IOSNavigationRuntime(self),selector,configuration())
+            if navigation is not None:return navigation
+            return self._cleanup_other_features(selector)
+
+        @emote_session_entry
+        def _cleanup_other_features(self, selector):
             need(finalize_emotes(self,selector))
             # Graphics has its own paired original-world/final-Stop protocol.
             # Its durable handoff survives metadata retirement and a lost SDK
@@ -391,10 +406,6 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             from ios.adapters.create_runtime import IOSCreateRuntime
             from ios.adapters.create_finalization import finalize_existing
             config=configuration()
-            from ios.adapters.navigation_runtime import IOSNavigationRuntime
-            from ios.adapters.navigation_session_cleanup import retire_existing as retire_navigation
-            navigation=retire_navigation(IOSNavigationRuntime(self),selector,config)
-            if navigation is not None:return navigation
             finalize_existing(IOSCreateRuntime(self),selector,config,None if config is None else reader(config))
             graphics=state('ios-graphics-feature.json')
             graphics_retirement=state('ios-graphics-retirement.json')

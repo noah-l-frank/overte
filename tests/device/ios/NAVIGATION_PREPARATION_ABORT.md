@@ -54,7 +54,33 @@ file before native capture. A replacement PNG inode is rejected. Existing
 ordinary input and all failed parent bytes remain unchanged. Native/GPU source
 producers are explicitly modeled; normal Python/HTTP/files/PNG decoders run.
 
-These components do not yet route public whole cleanup or generic installed
-cleanup. Joining the partial-prefix reader to the same original abort owner,
-all failure branches and public/canonical integration remain open. Worlds
-remains partial and complete admission stays closed.
+Version two now joins that actual prefix decoder to the same once-only
+Stop/OS/SDK transaction. Its failure parent retains the typed prefix report as
+well as the original whole/preparation carriers. Literal version one remains
+the stricter pre-capture reader; persisted versions dispatch explicitly. No
+partial PNG becomes a successful image, and no baseline query is reissued.
+
+Public whole cleanup routes a genuinely preparing, pre-entry owner directly to
+this transaction. Once any abort intent exists, ordinary preparation cannot
+resume. The canonical post-cleanup guard reopens the actual failed-end graph
+instead of verifying a dead SDK. Generic installed cleanup also checks the
+typed Navigation namespace before unrelated feature scans or lifecycle inputs.
+Its first failed cleanup needs explicit matching private configuration; after
+the original end, historical replay needs only the retained exact fixture URL
+and local candidate scope. It cannot contact the fixture or recreate an SDK.
+
+Twenty-five focused cases pass (22.022 seconds), including the earlier literal
+version-one cases, actual source/captured-PNG/empty-file/Actor failures, real
+public and generic cleanup, historical replay and unknown Stop delivery.
+Five further counterexamples pass (7.369 seconds): replaced partial PNG inode,
+unresolved public abort/new input ownership, candidate-loss ordinary fallback,
+retained cleanup deadline and slow durable intent. A former cleanup-clock test
+expected an obsolete pending exception; its actual fixture has no observer
+images, so it now explicitly expects the real reader's incomplete-evidence
+rejection while preserving the original deadline checks.
+
+This version admits failed setup only while the feature-entry carrier is
+absent. Scene-entry/input failures and other live partial ownership cannot
+borrow its authority. The complete full journey, all remaining failure branches
+and complete capability admission remain separate requirements. Worlds stays
+partial; native compilation and physical timing remain unqualified.

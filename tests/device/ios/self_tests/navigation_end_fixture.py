@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from adapters.native_clock_join import digest
+from adapters.script_feature.history import unpack
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_feature.lock import ScriptSourceLock
@@ -36,11 +37,17 @@ from self_tests.test_navigation_resources import INPUTS
 
 
 class EndBoundary:
-    def __init__(self,test,*,connected=None):
+    def __init__(self,test,*,connected=None,preparing=False):
         self.test=test;self.installed=InstalledCodeTests();self.installed.setUp();test.addCleanup(self.installed.doCleanups)
         self.connected=connected
         if connected is not None:
-            flow=connected['flow'];flow.lock.assert_held();flow.load();actual=deepcopy(flow.state['binding']);pid=int(actual['processIdentity'])
+            flow=connected['flow'];flow.lock.assert_held();flow.load()
+            if preparing:
+                test.assertIsNone(flow.state)
+                preparation=PrivateFeatureState(flow.store.path.with_name('ios-navigation-whole-preparation.json')).read()
+                actual=deepcopy(unpack(preparation['payload'])[0]['binding'])
+            else:actual=deepcopy(flow.state['binding'])
+            pid=int(actual['processIdentity'])
             self.root=flow.store.path.parent;self.installed.scope={key:value for key,value in actual.items() if key!='processIdentity'}
             self.installed.store=PrivateFeatureState(self.root/'modeled-installed-code-binding.json')
             self.installed.process['pid']=pid;self.installed.reader.pid=pid;self.installed.native.clock_source['processId']=pid
@@ -74,7 +81,7 @@ class EndBoundary:
             self.fixture=NavigationFixtureReader(self.controller,self.run,epoch_ms=self.os.epoch,monotonic=lambda:self.os.clock);self.fixture.attach()
         else:
             self.run=flow.run;self.fixture=flow.fixture;self.controller=connected['world'].harness.client
-            self.ticket=connected['terminal'].state['description']['ticket']
+            self.ticket=None if preparing else connected['terminal'].state['description']['ticket']
         outer=self
         class SDKHandler(BaseHTTPRequestHandler):
             def log_message(self,*_args):pass
@@ -96,7 +103,7 @@ class EndBoundary:
                 if data['script']=='mobile: terminateApp':
                     test.assertEqual([dict(bundleId=outer.installed.native.bundle['bundleId'])],data['args']);outer.stops+=1
                     outer.installed.process=None
-                    if outer.connected is not None:outer.connected['world'].lifecycle.pid=None
+                    if outer.connected is not None and not preparing:outer.connected['world'].lifecycle.pid=None
                     if outer.stop_lost:self.connection.close();return
                     self.reply(200,True)
                 else:
@@ -123,7 +130,7 @@ class EndBoundary:
         def same_scope(value):return value==outer.scope
         self.base=Base()
         if connected is not None:
-            self.runtime=flow.runtime;self.runtime.adapter=self.base;self.flow=flow;self.terminal=connected['terminal'];self.controller.close()
+            self.runtime=flow.runtime;self.runtime.adapter=self.base;self.flow=flow;self.terminal=connected.get('terminal');self.controller.close()
             self.install_reader_clock(test);return
         self.runtime=IOSNavigationRuntime(self.base)
         flow=object.__new__(IOSNavigationFeature);flow.runtime=self.runtime;flow.selector='owned';flow.root=self.root;flow.run=self.run;flow.role='primary'

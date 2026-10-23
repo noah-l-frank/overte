@@ -56,6 +56,9 @@ class NavigationWholeFeature:
         f=self.flow
         with f.held():
             f.load();self.load()
+            # A failed preparation owns any uncertain Stop/OS/SDK delivery.
+            # Preparing it again cannot issue another capture or scene input.
+            need(PrivateFeatureState(f.store.path.with_name('ios-navigation-preparation-abort.json')).read() is None)
             if self.state is None:
                 if f.role!='primary':raise NavigationFeaturePending('Primary Worlds whole preparation is pending')
                 self.state=dict(phase='preparing',cleanup=None);self.save()
@@ -110,6 +113,12 @@ class NavigationWholeFeature:
 
     def _cleanup(self,call):
         f=self.flow
+        with f.held():
+            f.load();self.load()
+            if self.state is not None and self.state['phase']=='preparing' and f.state is None:
+                from ios.adapters.navigation_partial_preparation_abort import owner
+                result=owner(f).finish();need(result['status']=='failed' and result['processEnded'] and result['sdkAbsent'])
+                return {'performed':True}
         self.prepare()
         with f.held():
             f.load();self.load();phase=f.fixture.read();need(phase['verb']=='cleanup' and phase['inputs']=={})

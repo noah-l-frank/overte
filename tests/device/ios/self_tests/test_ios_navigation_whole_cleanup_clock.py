@@ -19,11 +19,12 @@ class NavigationWholeCleanupClockTests(unittest.TestCase):
         h=self.h;h.harness.client.activate(uuid.uuid4().hex,'cleanup',{})
         return dict(contractVersion=16,runId=h.run)
 
-    def test_original_pending_cleanup_clock_survives_reconstruction_without_an_input(self):
+    def test_original_failed_cleanup_clock_survives_reconstruction_without_an_input(self):
         self.whole.prepare();h=self.h;call=self.cleanup_call()
-        # This seam deliberately owns the still-unimplemented pre-restart
-        # restoration boundary. It must remain pending, never report success.
-        with self.assertRaises(NavigationFeaturePending):self.whole.cleanup(call)
+        # This fixture has not acquired either observer's original image.
+        # Its real restoration reader must reject incomplete evidence. That
+        # failure cannot renew the already retained ordinary-cleanup clock.
+        with self.assertRaises(NativeUIError):self.whole.cleanup(call)
         state=unpack(self.whole.store.read()['payload'])[0];started=deepcopy(state['cleanup']['started'])
         commands=deepcopy(h.flow_fixture.b.inputs);h.sdk.gpu.sleep(31)
         with self.assertRaises(NativeUIError) as caught:NavigationWholeFeature(h.flow).cleanup(call)

@@ -13,6 +13,7 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from ios.adapters import feature_configuration as config
 from ios.adapters.navigation_runtime import IOSNavigationRuntime
+from ios.adapters import navigation_failed_preparation_cleanup as failed_cleanup
 from ios.self_tests import test_ios_installed_adapter as fixtures
 from self_tests.test_feature_terminal import Boundary
 
@@ -41,6 +42,7 @@ class NavigationInstalledRoutingTests(unittest.TestCase):
               patch.object(config,'capabilities',return_value=['feature.world-navigation.'+kind for kind in queries]),
               patch('ios.adapters.appium_adapter.WebDriver',return_value=self.h.adapter.client),
               patch.object(self.h.adapter.client,'call',return_value={},create=True) as sdk,
+              patch.object(failed_cleanup,'verify',return_value=False),
               patch.object(IOSNavigationRuntime,'_navigation_feature',factory)):
             for kind,query in queries.items():
                 result=self.h.adapter.invoke('test-only','feature.world-navigation.'+kind,query)
@@ -72,6 +74,31 @@ class NavigationInstalledRoutingTests(unittest.TestCase):
         with patch.object(config,'configuration',return_value=None),self.assertRaises(NativeUIError):self.h.adapter.cleanup('test-only')
         self.assertEqual(before,self.h.commands);self.assertEqual(binding,self.h.adapter._binding_store('test-only').read())
         self.assertEqual(dict(incomplete=True),store.read())
+
+    def test_public_cleanup_ack_cannot_substitute_for_a_typed_failed_end(self):
+        run='a'*32;call=dict(contractVersion=16,runId=run)
+        class ForgedFlow:
+            def cleanup(_self,_call):return {'performed':True}
+        value=dict(iosFeatureAdapterVersion=5,areas=['world-navigation'],worldNavigation={})
+        before=deepcopy(self.h.commands)
+        with (patch.object(config,'configuration',return_value=value),patch.object(config,'reader',return_value=object()),
+              patch.object(config,'capabilities',return_value=['feature.world-navigation.cleanup']),
+              patch.object(IOSNavigationRuntime,'_navigation_feature',return_value=ForgedFlow()),
+              patch.object(IOSNavigationRuntime,'_existing',side_effect=AssertionError('Forged cleanup reached live SDK'))):
+            with self.assertRaises(NativeUIError):self.h.adapter.invoke('test-only','feature.world-navigation.cleanup',call)
+        self.assertEqual(before,self.h.commands);self.assertIsNone(self.h.adapter._operation)
+
+    def test_generic_typed_navigation_branch_precedes_unrelated_gpu_scans(self):
+        # The real generic entry is exercised here; the separate original-file
+        # tests qualify the typed Navigation verdict supplied by this spy.
+        from ios.adapters import navigation_session_cleanup as navigation
+        from ios.adapters import emote_session_cleanup as emotes
+        before=deepcopy(self.h.commands)
+        with (patch.object(config,'configuration',return_value=None),
+              patch.object(navigation,'retire_existing',return_value={'cleaned':True}) as typed,
+              patch.object(emotes,'owned',side_effect=AssertionError('Typed end reached unrelated GPU scan'))):
+            self.assertEqual({'cleaned':True},self.h.adapter.cleanup('test-only'))
+        typed.assert_called_once();self.assertEqual(before,self.h.commands)
 
 
 if __name__=='__main__':unittest.main()

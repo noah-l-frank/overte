@@ -469,3 +469,16 @@ worker-failure v1, finalization/reference/receipt v1 and SDK-retirement v1 regis
 entries with the Phone/Pico registry union. The shared journey remains v16.
 No protected or parallel branch is integrated here. The remaining eleven areas
 retain their concrete source gaps above; Worlds/navigation is next.
+
+
+Navigation follow-up, 2026-10-23: the completed fifteen-step original graph now
+replays its historical finish, canonical guard, generic cleanup and Actor exit
+within each unchanged real thirty-second reader budget, without transports or
+changes to its 626 original files. Earlier full-case results remain errors;
+a fresh full connected case is still required. Version-two failed pre-entry
+preparation now joins actual native/GPU/PNG prefixes to once-only process/SDK
+end through public and generic cleanup, retaining literal pre-capture version
+one. Its targeted routing/ownership/deadline cases pass. See
+[NAVIGATION_PREPARATION_ABORT.md](NAVIGATION_PREPARATION_ABORT.md) and
+[NAVIGATION_OBSERVATION_OWNER.md](NAVIGATION_OBSERVATION_OWNER.md).
+This remains partial; the four-area complete count is unchanged.
