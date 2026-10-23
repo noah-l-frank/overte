@@ -20,6 +20,7 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.pico4.assets_mapping_pair import IndependentAssetsMappings
 from adapters.pico4.assets_source import PicoAssetsSource
 from adapters.script_journey.lock import ScriptSourceLock
+from adapters.script_journey import lock as lock_module
 from adapters.script_journey.history import pack
 from feature_journeys.phase_fixture import PhaseFixtureReader
 from feature_journeys.witness import Client,Journal
@@ -65,13 +66,13 @@ class AssetsMappingPairTests(unittest.TestCase):
         self.phase=PhaseFixtureReader(PhaseClient(self.journal),RUN,'assets')
         self.pair=IndependentAssetsMappings(*(actor.source for actor in self.actors),*(actor.lock for actor in self.actors),self.phase)
         self.addCleanup(self.preserve)
-    def preserve(self):
+    def preserve(self,suffix=''):
         destination=os.environ.get('OVERTE_ASSETS_PAIR_EVIDENCE')
         if destination is None:return
         value=dict(assetsPairHostEvidenceVersion=1,artifactSha256=hashlib.sha256(Path(self.binary).read_bytes()).hexdigest(),
             pairedOriginals=pack(self.pair.history),sourceOriginals=[dict(processId=actor.process.pid,
                 originals=pack(actor.source.history),transportOriginals=pack(actor.received),pending=deepcopy(actor.source.pending)) for actor in self.actors],phaseOriginal=deepcopy(self.phase.previous))
-        PrivateFeatureState(Path(destination).resolve(strict=True)/(self._testMethodName+'.json')).write(value,None)
+        PrivateFeatureState(Path(destination).resolve(strict=True)/(self._testMethodName+suffix+'.json')).write(value,None)
     def test_actual_independent_process_originals_full_inventory_and_fresh_phase(self):
         result=self.pair.capture();first=deepcopy(self.pair.history)
         a,b=(json.loads(result[key]['raw']) for key in ('primary','independent'))
@@ -96,6 +97,42 @@ class AssetsMappingPairTests(unittest.TestCase):
         actor=self.actors[0]
         with self.assertRaises(NativeUIError):IndependentAssetsMappings(actor.source,actor.source,actor.lock,self.actors[1].lock,self.phase)
         self.assertTrue(all(not actor.commands for actor in self.actors))
+    def test_real_outer_lock_close_delay_or_failure_retains_sources_and_latches_attempt(self):
+        for mode in ('delay','native-jump','failure'):
+            with self.subTest(mode=mode):
+                if mode!='delay':
+                    self.actors=[]
+                    for role in ('primary','independent'):
+                        path=self.path/(mode+'-'+role);path.mkdir(mode=0o700);actor=Actor(self.binary,self.environment,path)
+                        self.actors.append(actor);self.addCleanup(actor.close)
+                    self.phase=PhaseFixtureReader(PhaseClient(self.journal),RUN,'assets')
+                    self.pair=IndependentAssetsMappings(*(actor.source for actor in self.actors),*(actor.lock for actor in self.actors),self.phase)
+                pair=self.pair;outer=pair.locks[0];descriptor=[None];offset=[0];native_offset=[0];closed=[]
+                native_epoch=int(time.time()*1000);monotonic=time.monotonic;host=monotonic();guard=self.actors[0].source.guard
+                def tracked():
+                    guard();descriptor[0]=outer._owner[1]
+                self.actors[0].source.guard=tracked
+                for actor in self.actors:
+                    actor.source.clock_ms=lambda:native_epoch+native_offset[0]
+                    actor.source.monotonic=(lambda:host) if mode=='native-jump' else (lambda:monotonic()+offset[0])
+                self.phase.monotonic=(lambda:host) if mode=='native-jump' else (lambda:monotonic()+offset[0])
+                close=lock_module.os.close
+                def actual_close(value):
+                    close(value)
+                    if value==descriptor[0]:
+                        closed.append(value)
+                        if mode=='failure':raise OSError('Explicit outer original close failure')
+                        if mode=='native-jump':native_offset[0]+=2000
+                        else:offset[0]+=2
+                original_seal=pair.seal;original_sources=pair.source_seals
+                with patch.object(lock_module.os,'close',side_effect=actual_close),self.assertRaises((NativeUIError,OSError)):
+                    pair.capture()
+                self.assertEqual(1,len(closed));self.assertTrue(pair.failed);self.assertEqual([],pair.history)
+                self.assertIs(original_seal,pair.seal);self.assertIs(original_sources,pair.source_seals)
+                self.assertTrue(all(len(actor.source.history)==1 for actor in self.actors));self.assertTrue(all(lock._owner is None for lock in pair.locks))
+                commands=[len(actor.commands) for actor in self.actors]
+                with self.assertRaises(NativeUIError):pair.capture()
+                self.assertEqual(commands,[len(actor.commands) for actor in self.actors]);self.preserve('-'+mode)
 
 
 if __name__=='__main__':unittest.main()

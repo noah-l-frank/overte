@@ -829,3 +829,25 @@ is `pico-assets-mapping-pair:1`; `assets-mapping-pair` adds one selector locally
 (157 to 158). Root must preserve its current catalog and add this selector.
 Actual server/oven receipts and independent scene/model/stereo observations
 remain required before whole Assets qualification. Feature 13/14 stays partial.
+
+Review found that the paired result originally left its two SourceLocks after
+the final clocks and seal mutation. Publication now follows both actual lock
+exits, including their checks and descriptor closes. Original guards run while
+the locks are held; fresh native epoch-only reads after both exits remain bound
+to the same original capture anchors, with elapsed host age checked again.
+The existing production epoch endpoint does not require the source locks or
+session reentry. No source packet is reacquired, guard replayed or timestamp
+replaced to hide exit time. A failed/uncertain attempt remains latched before
+any acquisition and cannot authorize another read; acquired raw source histories
+stay retained while the unpublished paired history and immutable seals remain
+unchanged.
+
+The corrected five-method owning selector passed in 6.151 seconds. One focused
+counter executes the actual outer `os.close`, then separately tests host aging
+with native epoch fixed, a native 2000 ms jump with host clock fixed, and an
+exception after the real close. Every subcase retains both acquired source
+histories, independently observes both locks released, refuses publication and
+another acquisition, and preserves the raw pipe responses. The earlier
+5.824-second host-delay/close-failure-only result remains separately recorded;
+it did not establish the native-jump direction. No packet/journal shape, version,
+budget, limit or cadence changed. These remain partial host/source results.
