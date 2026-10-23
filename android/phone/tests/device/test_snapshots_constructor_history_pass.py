@@ -70,7 +70,8 @@ class SnapshotConstructorHistoryPassTests(unittest.TestCase):
 
     def reconstruct(self,f,token,disposals,*,current=True):
         with f.lock.held():
-            token.before_load();f.load();token.after_load()
+            token.before_load()
+            if not (token.cleanup and not token.passive):f.load();token.after_load()
             role=PhoneSnapshotsRole(f,'primary',expected_previous=token.role_header,
                 _history_pass=token,_observe_disposals=disposals)
             token.before_read(role)
