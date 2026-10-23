@@ -215,3 +215,10 @@ freshness guards, timer release, quiet cadence and both complete three-second
 windows are unchanged. These historical timings identify redundant grammar
 work; they do not establish the exact last stage reached by the timed-out live
 fixture or complete the background dispatcher/flow join.
+
+The opt-in full host diagnostic now logs entry, return or exception at the
+original background child run, historical closure, final freshness guard,
+dispatcher snapshot/save/phase snapshot and flow finish. It invokes each
+original method once and preserves its result or exception. These timestamps
+are diagnostics, not source evidence or permission to continue an uncertain
+step. The default component fixtures do not install the wrappers.
