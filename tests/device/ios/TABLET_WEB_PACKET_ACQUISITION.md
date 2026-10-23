@@ -58,3 +58,12 @@ mutation, rejected raw retention, privacy-before-artifact, stale DOM snapshots
 and forbidden historical writes are covered.
 Native producers remain uncompiled and unexecuted; this packet alone does not
 complete Feature 7.
+
+
+The `emissions` component additionally retains the genuine shared
+`IOSWebScriptEmissions` source unchanged, including actual VM/root code,
+indexed V8 compiled-source stack, API/queued-capture/sink IDs and weak expiry.
+It uses its own query/raw/record namespace and the already closed concrete
+Tablet segment label. No World or Tablet identity/schema is relabelled. A safe
+matching later source-birth reset is retained as rejected immutable failure
+evidence and blocks the live owner; it cannot silently establish a new floor.
