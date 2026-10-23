@@ -263,3 +263,14 @@ refusal and the original cold-storage compatibility case passed 3/3 in 3.255
 seconds. The short Reader selector now contains all 16 component cases exactly
 once; the one actual oversize-storage diagnostic remains separate. No second
 long oversize run was repeated to test these local fences.
+
+The exactly one existing actual return/catalog case was then run on the fixed
+v3/fence sources and passed in 40.928 seconds (41.400 outer elapsed). It joined
+the original false common cleanup window to Stop2, preserved the actual extra
+publication tail, consumed an independently fresh Parent nonce, observed the
+normal Actor host return and real kernel ESRCH, retained both original seals
+and cataloged all physical bundle parts. The historical cache/path fences ran
+after the actual Actor exit without probing its dead process. Its original
+`sequenceSucceeded` remained false. No complete successful shared execution,
+application/profile restart, IPC finalization, archive retirement or final
+host-lifetime claim follows from this separate source-closure case.

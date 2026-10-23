@@ -171,3 +171,14 @@ must be typed/versioned across live writing, historical return and complete
 archival, count every part and original logical byte, and preserve all actual
 DTO fields/Native histories. No unchanged whole retry was run merely to obtain
 another timeout or to invent the missing source error context.
+
+After the version 3 Reader and historical literal-read fences were implemented,
+the same existing actual false-common/Stop2/nonce/kernel-return/seals/complete
+remote-catalog case passed in 40.928 seconds (41.400 outer elapsed). Every
+physical fragment part remained counted and cataloged, including the original
+v3 root/pending/complete transitions. This source integration check exercised
+the historical path after real Actor exit, with no extra live process guard.
+It did not execute the missing full recipe: its false flag remained false and
+no application/IPC/archive-retirement/host result is inferred. The next
+necessary measurement is the original complete common-executor path on the
+fixed storage/provenance sources, still under its unchanged 120-second bound.
