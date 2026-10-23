@@ -32,6 +32,7 @@ from adapters.pico4.navigation_prefix import NavigationPrefix, VERBS
 from adapters.pico4.navigation_prefix_source import NavigationPrefixSource
 from adapters.pico4.normal_navigation_origin import PicoNavigationOriginIO
 from adapters.pico4.normal_places import PicoPlacesIO
+from adapters.pico4.normal_scripts import PicoScriptIO
 from adapters.pico4.tablet_home import PicoTabletHome
 from adapters.script_journey.lock import ScriptSourceLock
 from adapters.token_places_ui import TokenPlacesUI
@@ -54,6 +55,7 @@ from feature_journeys import witness
 
 RUN=places.RUN
 INPUTS=directory_fixture.INPUTS
+PID=31
 
 
 class Model(origin_fixture.Model,directory_fixture.Model):
@@ -64,15 +66,23 @@ class Model(origin_fixture.Model,directory_fixture.Model):
         value=origin_fixture.Model.raw(self) if self.login else directory_fixture.Model.raw(self)
         # The actual Pico snapshot exports Origin v1 on every surface (not
         # only Login). Home itself is the original entity, never a QML button.
-        value['navigationOriginControlsVersion']=1
+        value['navigationOriginControlsVersion']=1;value['featureControlsVersion']=1;value['processId']=PID
         value['controls']=[row for row in value['controls'] if row['id']!='tablet.home']
         return value
     def send(self,command):
-        if self.login:return origin_fixture.Model.send(self,command)
-        return directory_fixture.Model.send(self,command)
+        if self.login:reply,epoch=origin_fixture.Model.send(self,command)
+        else:reply,epoch=directory_fixture.Model.send(self,command)
+        reply['processId']=PID;return reply,epoch
     def source_read(self,request):
-        directory_fixture.Model.source_read(self,request)
+        directory_fixture.Model.source_read(self,request);self.source_packet['processId']=PID
         if not self.page:self.source_packet['roots']=[]
+    def source_send(self,request):
+        origin_fixture.Model.source_send(self,request);self.packet['processId']=PID
+    def native_send(self,request):
+        super().native_send(request);self.native_packet['processId']=PID
+    def bookmarks(self):
+        from adapters.native_location_bookmarks import NativeLocationBookmarks
+        return NativeLocationBookmarks(self.native_send,lambda:json.dumps(self.native_packet),self.epoch,self.guard,PID,monotonic=lambda:self.clock,sleep=self.sleep)
     def private(self,request,kind):
         self.native_counters[kind]=self.native_counters.get(kind,0)+1
         sequence=self.native_counters[kind];scope=dict(bridgeId=self.bridge,generation=self.generation,sequence=self.sequence,
@@ -80,29 +90,30 @@ class Model(origin_fixture.Model,directory_fixture.Model):
         if kind=='panels':
             if self.page and self.root_birth is None:self.root_birth=self.epoch()
             value=dict(navigationPanelsVersion=2,commandId=request['commandId'],runId=RUN,instance='7'*32,sequence=sequence,
-                processId=123,capturedEpochMs=self.epoch(),complete=True,ui=scope|dict(open=True,ready=True),
+                processId=PID,capturedEpochMs=self.epoch(),complete=True,ui=scope|dict(open=True,ready=True),
                 roots=[] if not self.page else [dict(rootId='e'*32,profile='pico-places-v1',sourceSha256='d'*64,
                     firstObservedEpochMs=self.root_birth,alive=True,inCurrentTree=True,visible=True)],lookup=dict(complete=True,home=None,address=None))
         else:
             value=dict(navigationModalVersion=1,commandId=request['commandId'],runId=RUN,instance='8'*32,sequence=sequence,
-                processId=123,capturedEpochMs=self.epoch(),uiEpochMs=self.epoch(),uiElapsedMs=scope['elapsedMs'],
+                processId=PID,capturedEpochMs=self.epoch(),uiEpochMs=self.epoch(),uiElapsedMs=scope['elapsedMs'],
                 uiInputSequence=self.sequence,uiBridgeId=self.bridge,uiGeneration=self.generation,tabletOpen=True,rootComplete=True,records=[])
         self.native_packets[kind]=value
     def reader_for(self,kind):
         cls=NativeNavigationPanels if kind=='panels' else NativeNavigationModals
         return cls(lambda request:self.private(request,kind),lambda:json.dumps(self.native_packets.get(kind)),
-            self.epoch,self.guard,123,monotonic=lambda:self.clock,sleep=self.sleep)
+            self.epoch,self.guard,PID,monotonic=lambda:self.clock,sleep=self.sleep)
 
 
 @unittest.skipUnless(shutil.which('openssl'),'Existing ephemeral TLS fixture requires OpenSSL')
 class NavigationPrefixTests(unittest.TestCase):
+    model_type=Model
     @classmethod
     def setUpClass(cls):tls_fixture.AccountProviderTests.setUpClass.__func__(cls)
     @classmethod
     def tearDownClass(cls):tls_fixture.AccountProviderTests.tearDownClass.__func__(cls)
     def setUp(self):
         self.temporary=tempfile.TemporaryDirectory();self.temporary._finalizer.detach()
-        self.root=Path(self.temporary.name);self.root.chmod(0o700);self.model=Model(self.root)
+        self.root=Path(self.temporary.name);self.root.chmod(0o700);self.model=self.model_type(self.root)
         print('Retained original Navigation prefix fixture:',self.root,flush=True)
         self.address=patch.object(places,'ADDRESS',viewpoint_urls(INPUTS['sceneUrl'])['A']);self.address.start();self.addCleanup(self.address.stop)
         self.server=make_server('r'*64,'p'*64,navigation_resources=self.model.provider,tls_context=self.server_context)
@@ -118,10 +129,10 @@ class NavigationPrefixTests(unittest.TestCase):
         self.clients={role:Client(self.url+'/feature-fixture/v1',token) for role,token in (('primary','r'*64),('actor','p'*64))}
         for client in self.clients.values():client.run=RUN;client.area='world-navigation'
         self.lock=ScriptSourceLock(self.root/'script-sources.lock');self.activate('baseline')
-        self.binding=dict(sourceRevision='a'*40,artifactSha256='b'*64,processIdentity='123:synthetic-start',sessionId=self.model.bridge,
+        self.binding=dict(sourceRevision='a'*40,artifactSha256='b'*64,processIdentity=str(PID)+':synthetic-start',sessionId=self.model.bridge,
             generation=0,targetFingerprint='c'*64)
         self.world=arrival_fixture.Model(run=RUN);self.addCleanup(self.world.close);self.world.epoch=self.model.epoch
-        self.world.guard=self.model.guard;self.world.subject.edit=lambda value:value.update(processId=123)
+        self.world.guard=self.model.guard;self.world.subject.edit=lambda value:value.update(processId=PID)
         self.home_sequence=0;self.qstatus=None;self.qcommand=None;self.original_calls=0
         test=self
         class Transport(FakeTransport):
@@ -131,8 +142,10 @@ class NavigationPrefixTests(unittest.TestCase):
                     # never reenter HTTP, SDK/native guards or source readers.
                     with patch.object(test.flow.phase,'read',side_effect=AssertionError('HTTP in Session callback')):
                         before_publish(deepcopy(envelope));before_publish(deepcopy(envelope))
-                self.envelopes.append(deepcopy(envelope));test.model.home_count+=1
-                test.model.login=False;test.model.focus='';test.model.generation=str(uuid.uuid4())
+                self.envelopes.append(deepcopy(envelope))
+                if hasattr(test.model,'consume_controller'):test.model.consume_controller(envelope)
+                else:
+                    test.model.home_count+=1;test.model.login=False;test.model.focus='';test.model.generation=str(uuid.uuid4())
                 return dict(sequence=envelope['sequence'])
         self.xr=Transport();self.session=PicoOpenXrAdapterSession(self.xr,'owned-model',self.root);self.session.begin(self.binding['processIdentity'])
         self.flows={};self.flow=self.make('primary')
@@ -142,6 +155,7 @@ class NavigationPrefixTests(unittest.TestCase):
         if verb=='directory-search':
             prior=sum(row['stimulus']['verb']==verb for row in self.server.journal.runs[RUN]['phaseActivations'])
             inputs=dict(query=ctx['hidden' if prior==0 else 'name'])
+        elif verb=='directory-select':inputs=dict(destination=ctx['destination'])
         else:inputs={} if verb in ('baseline','open') else dict(name=ctx['renamed' if 'rename' in verb else 'name'])
         self.ticket=uuid.uuid4().hex;self.server.journal.activate(RUN,self.ticket,verb,inputs);self.model.provider.activate(RUN,self.ticket)
         return dict(contractVersion=CONTRACT_VERSION,runId=RUN,fixtureUrl=self.url+'/feature-fixture/v1/runs/'+RUN+'/',ticket=self.ticket,verb=verb,inputs=inputs)
@@ -158,27 +172,29 @@ class NavigationPrefixTests(unittest.TestCase):
     def make(self,role):
         adb=SimpleNamespace(write_debug_app_file=self.write,read_debug_app_file=self.read,epoch_milliseconds=lambda _target:self.model.epoch(),foreground_package=lambda _target:'org.overte.pico')
         adapter=SimpleNamespace(adb=adb,require_same_process=lambda *_args:self.model.guard(),require_pico_session_identity=lambda _target:self.binding['processIdentity'],
-            _installation=self.installed,probe_retry_policy=lambda:(1,0))
+            _installation=self.installed,probe_retry_policy=lambda:(1,0),require=lambda _target:True,pico_input_session=lambda _target:self.session)
         transport=NativeNavigationIO(adapter,'owned-model',self.binding['processIdentity'],lambda _op:None)
         navigation=PicoNavigation(transport,self.root/('normal-'+role+'.json'),dict(schemaVersion=1,sourceRevision='a'*40,
             artifactSha256='b'*64,installedCandidateVerified=True),self.binding['processIdentity'],INPUTS['sceneUrl'],monotonic=lambda:self.model.clock,sleep=self.model.sleep)
-        original=SimpleNamespace(navigation=navigation,capture=navigation.snapshot)
+        original=PicoScriptIO(navigation)
         def ui(intent):return TokenPlacesUI(PicoPlacesIO(original),intent,RUN,monotonic=lambda:self.model.clock,sleep=self.model.sleep)
-        env=origin_fixture.Model.reader(self.model);directory_native=directory_fixture.Model.reader(self.model);bookmarks_native=self.model.bookmarks()
+        from adapters.native_navigation_environment import NativeNavigationEnvironment
+        env=NativeNavigationEnvironment(self.model.source_send,lambda:json.dumps(self.model.packet) if self.model.packet else '',self.model.epoch,self.model.guard,PID,monotonic=lambda:self.model.clock,sleep=self.model.sleep)
+        directory_native=NativeNavigationDirectory(self.model.source_read,lambda:json.dumps(self.model.source_packet),self.model.epoch,self.model.guard,PID,monotonic=lambda:self.model.clock,sleep=self.model.sleep);bookmarks_native=self.model.bookmarks()
         def home():
             self.home_sequence+=1
-            return home_original()|dict(commandId=uuid.uuid4().hex,processId=123,sourceSequence=self.home_sequence,
-                elapsedMs=100+round(self.model.clock*1000),capturedEpochMs=self.model.epoch(),tabletShown=True,onHomeScreen=not self.model.login)
-        home_source=SimpleNamespace(pid=123,capture=home,guard=self.model.guard,clock_ms=self.model.epoch,monotonic=lambda:self.model.clock,sleep=self.model.sleep)
+            return home_original()|dict(commandId=uuid.uuid4().hex,processId=PID,sourceSequence=self.home_sequence,
+                elapsedMs=100+round(self.model.clock*1000),capturedEpochMs=self.model.epoch(),tabletShown=getattr(self.model,'shown',True),onHomeScreen=not self.model.login and not self.model.page)
+        home_source=SimpleNamespace(pid=PID,capture=home,guard=self.model.guard,clock_ms=self.model.epoch,monotonic=lambda:self.model.clock,sleep=self.model.sleep)
         origin=NavigationOrigin(PicoNavigationOriginIO(original),env,self.root/'navigation-prefix-origin.json',RUN,self.binding,self.model.guard,
             home=PicoTabletHome(home_source,lambda _pose:None),monotonic=lambda:self.model.clock,sleep=self.model.sleep)
         directory=NavigationDirectory(ui,directory_native,lambda:self.clients[role].request('/runs/'+RUN+'/navigation'),self.root/'navigation-prefix-directory.json',
             RUN,self.binding,self.model.provider.instance,INPUTS,self.url,directory_fixture.PROFILE,self.model.guard,monotonic=lambda:self.model.clock,sleep=self.model.sleep)
         bookmarks=NavigationBookmarks(ui,bookmarks_native,self.root/'navigation-prefix-bookmarks.json',RUN,self.binding,monotonic=lambda:self.model.clock,sleep=self.model.sleep)
         def probe(after):
-            value=self.world.probe(after);value['nativeMotion']['processId']=123;return value
+            value=self.world.probe(after);value['nativeMotion']['processId']=PID;return value
         def subject_send(request):self.world.update_subject();self.world.subject.send(request)
-        subject=NativeGraphicsSubject(subject_send,self.world.subject.original,self.model.epoch,self.model.guard,123,require_framework=True,
+        subject=NativeGraphicsSubject(subject_send,self.world.subject.original,self.model.epoch,self.model.guard,PID,require_framework=True,
             monotonic=lambda:self.model.clock,sleep=self.model.sleep)
         arrival=NavigationArrival(probe,subject,self.model.epoch,self.model.guard,RUN,self.binding,INPUTS['sceneUrl'],monotonic=lambda:self.model.clock)
         source=NavigationPrefixSource(ui(lambda _value:self.fail('Actor input')),arrival,bookmarks_native,self.model.reader_for('panels'),env,
@@ -192,14 +208,14 @@ class NavigationPrefixTests(unittest.TestCase):
     def test_original_a_origin_home_places_and_four_bookmark_actions_with_fresh_actor_sources(self):
         self.flow.prepare();baseline=self.flow.observe();self.assertEqual('A',baseline['state']['location']);self.assertFalse(baseline['state']['panel'])
         actor=self.make('actor');self.assertEqual(baseline['state'],actor.observe()['state'])
-        for index,verb in enumerate(VERBS):
+        for index,verb in enumerate(VERBS[:7]):
             call=self.activate(verb);self.flow.act(call)
             before=len(self.model.calls);actual=self.flow.observe();peer=actor.observe()
             self.assertEqual(before,len(self.model.calls));self.assertEqual(actual['state'],peer['state'])
             self.assertEqual('A',actual['state']['location']);self.assertTrue(actual['state']['panel'])
             self.assertEqual(expand(SCENARIOS['world-navigation']['steps'][index]['state'],context(RUN)),actual['state'])
             self.assertFalse(actual['fullNavigationRecipe']);self.assertTrue(actual['journalsRetained'])
-        self.assertEqual(1,self.model.home_count);self.assertEqual(len(VERBS),len(self.flow.state['completed']))
+        self.assertEqual(1,self.model.home_count);self.assertEqual(7,len(self.flow.state['completed']))
         self.assertEqual(origin_fixture.ORIGINAL,self.flow.origin.state['original']['selectedServer'])
         self.assertEqual(1,len(self.model.reads));self.assertTrue(self.original_calls)
         store=PrivateFeatureState(self.root/'navigation-prefix-primary-sources.json');record=store.read()

@@ -65,6 +65,8 @@ TESTS = (
     test("snapshot-reply-grammar", "interaction", PYTHON, "device/test_snapshot_reply_grammar_owner.py"),
     test("snapshot-settings-baseline", "interaction", PYTHON, "device/test_snapshot_settings_baseline.py"),
     test("snapshot-settings-close", "interaction", PYTHON, "device/test_snapshot_settings_close.py"),
+    test("navigation-environment-originals", "interaction", PYTHON, "device/test_navigation_environment.py", requires=("c++", "pkg-config")),
+    test("navigation-transit-prefix", "interaction", PYTHON, "device/test_navigation_transit_prefix.py", requires=("openssl",)),
     test("navigation-normal-prefix", "interaction", PYTHON, "device/test_navigation_prefix.py", requires=("openssl",)),
     test("snapshot-close-statuses", "interaction", PYTHON, "device/test_snapshot_close_statuses.py"),
     test("snapshot-close-owner", "interaction", PYTHON, "device/test_snapshot_close_owner.py"),

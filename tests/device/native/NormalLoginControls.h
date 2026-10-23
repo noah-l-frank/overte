@@ -143,7 +143,7 @@ inline void appendLoginControlObservation(QJsonObject& row, QQuickItem* item, co
     } else if (id!="login.entry") { inputReady=false; }
     if (phone || generic) {
         inputReady=inputReady && !domain && !closing && stage!="unavailable"
-            && (id=="login.cancel" || stage=="credentials" && !waiting && !context.pending && !context.tokenPresent);
+            && (id=="login.cancel" || (stage=="credentials" && !waiting && !context.pending && !context.tokenPresent));
         if (id=="login.page") {
             row["profile"]=phone ? "phone-login-v1" : "qml-login-v1";
             row["stage"]=stage;row["submitEndpointSha256"]=submission;

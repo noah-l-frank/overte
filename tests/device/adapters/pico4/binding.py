@@ -448,6 +448,7 @@ def create_adapter(args, base_class):
                 guard();_need(native.pid==int(binding['processIdentity'].split(':')[0]))
                 store=facade.world_render_store(target,role=role)
             foreign=[facade.world_render_store(target,role=value) for value in ('primary','actor') if value!=role]
+            foreign.extend(self._navigation_world_render_store(target,value) for value in ('primary','actor'))
             if role is not None:foreign.append(self._world_render_store(target))
             def world_guard():
                 lock.assert_held();native.guard()
@@ -533,8 +534,58 @@ def create_adapter(args, base_class):
             source=NavigationPrefixSource(ui(lambda _value:need(False)),self._navigation_arrival(target,run,inputs['sceneUrl']),
                 storage,self._navigation_panels(target),environment,self._navigation_modals(target),directory_source,status,
                 run,manager.binding,inputs,provider_instance,owned_origin,source_profile,native.clock_ms,guard)
+            def transit_factory(parent):
+                from adapters.navigation_transit import NavigationTransit
+                from adapters.navigation_stereo import NavigationStereo
+                from adapters.pico4.navigation_transit_join import NavigationTransitJoin
+                from feature_journeys.stereo_navigation_evidence import original_name
+                images=root/'navigation-prefix-images'
+                try:images.mkdir(mode=0o700)
+                except FileExistsError:pass
+                PrivateFeatureState(images/'boundary.json')._parent()
+                def stereo(ticket):
+                    return NavigationStereo(source.arrival,
+                        lambda:self._navigation_world_render_capture(target,role='primary',source_lock=lock),
+                        images/original_name(run,'primary',ticket),images,run,manager.binding,lock,guard,role='primary',journal_id=ticket,
+                        ui_factory=lambda:self._graphics_ui_observer(target),native_factory=lambda:self._native_feature_observer(target),monotonic=native.monotonic)
+                transit=NavigationTransit(ui,source.arrival,directory_source,storage,stereo,root/'navigation-prefix-transit.json',run,
+                    manager.binding,inputs['sceneUrl'],guard,directory=directory,home=bind_home(self,target,native),panels=source.readers['panels'],defer_stereo_until_close=True,
+                    monotonic=native.monotonic,sleep=native.sleep)
+                return NavigationTransitJoin(parent,transit,manager.ui,self._graphics_ui_observer(target),root/'navigation-prefix-transit-join.json')
             return NavigationPrefix(root/'navigation-prefix-owner.json',source,phase_source,lock,origin,directory,bookmarks,
-                self.pico_input_session(target),role=role,monotonic=native.monotonic)
+                self.pico_input_session(target),role=role,monotonic=native.monotonic,transit_factory=transit_factory)
+
+        def _navigation_world_render_store(self,target,role):
+            _need(role in ('primary','actor'))
+            return PrivateFeatureState(self._script_journey().state_path(target).with_name('navigation-prefix-world-render-'+role+'.json'))
+
+        @_private
+        def _navigation_world_render_capture(self,target,*,role,source_lock):
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding,SerializedWorldCapture
+            from adapters.world_render_receipts import NativeWorldReceiptInventory,NativeWorldReceiptBatchFiles,INVENTORY_FILE
+            _need(role in ('primary','actor'))
+            lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            _ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
+            _need(native.pid==int(binding['processIdentity'].split(':',1)[0]))
+            facade=PicoGraphicsBinding(self)
+            foreign=[self._navigation_world_render_store(target,'actor' if role=='primary' else 'primary'),self._world_render_store(target)]
+            foreign.extend(facade.world_render_store(target,role=value) for value in ('primary','actor'))
+            for name in ('_browser_world_render_store','_emote_world_render_store'):
+                factory=getattr(self,name,None)
+                if factory is not None:foreign.extend(factory(target,value) for value in ('primary','actor'))
+            def world_guard():
+                lock.assert_held();native.guard();_need(all(store.read() is None for store in foreign));return True
+            owner=WorldRenderOwner(self._navigation_world_render_store(target,role),binding,world_guard,role=role)
+            files=AndroidWorldRenderReceipts(self.adb,target,'org.overte.pico',world_guard)
+            options=dict(monotonic=native.monotonic,sleep=native.sleep)
+            storage=NativeWorldRenderStorage(native.send,files.read,native.clock_ms,world_guard,native.pid,receipt_intent=owner.receipt_intent,**options)
+            inventory=NativeWorldReceiptInventory(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+INVENTORY_FILE,attempts=1),
+                native.clock_ms,world_guard,native.pid,owner.owned,lambda:storage.instance,**options)
+            capture=NativeWorldRenderCapture(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+WORLD_RENDER_FILE,attempts=1),
+                storage,native.clock_ms,world_guard,native.pid,intent=owner.intent,stereo=True,require_cameras=True,**options)
+            return SerializedWorldCapture(capture,storage,owner,NativeWorldReceiptBatchFiles(files,inventory),source_lock=lock)
 
         @_private
         def _navigation_prefix_owned(self,target):
