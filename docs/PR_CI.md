@@ -5,9 +5,9 @@ native GitHub Actions jobs. This guide describes that implementation. Installing
 the source does not establish that its bootstrap passed or that branch rules have
 been migrated. The source routing covers all seven protected branches. The same trusted
 controller owns policy, shared host tests, packages, native C++, CodeQL and
-selected Android/iOS contracts. GitHub Actions remains disabled under the
-maintainer's local-only integration instruction; installing these sources does
-not claim a hosted execution or physical-device qualification.
+selected Android/iOS contracts. The protected source and execution checks
+qualify the exact candidate; successful host checks do not establish physical-device
+qualification.
 
 ## One context, one plan
 
@@ -29,6 +29,13 @@ candidate execution from acceptance:
    after selected execution owners finish, authenticates their native jobs and
    digest-bound execution record, and rechecks the current PR. Both contexts
    are required. Metadata-only runs cannot publish a replacement `required-ci`.
+
+Installed product workflows on a protected child retain their reviewed branch
+implementation. Central execution recipes and the automatic branch-cleanup
+workflow follow the current protected default-branch controller. An older
+child's disabled cleanup must not prevent a reviewed parent synchronization
+from adopting the active central workflow. Missing, edited, or obsolete central
+workflow bytes still fail source authentication.
 
 The original execution merge remains recorded even if GitHub later regenerates
 an equivalent merge commit. Equivalence requires the same base, head, parent
