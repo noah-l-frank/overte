@@ -555,6 +555,27 @@ def create_adapter(args, base_class):
                 navigation.io.bind_before_send(lambda command:before_send(command,navigation))
             return ui
 
+        @_private
+        def _assets_source(self,target,*,source_lock,download=False,resolve=False,intent=None):
+            from adapters.pico4.assets_source import PicoAssetsSource,FILE,DOWNLOAD_FILE,RESOLVE_FILE
+            lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            native=self._native_feature_observer(target)
+            def guard():lock.assert_held();native.guard()
+            name=DOWNLOAD_FILE if download else RESOLVE_FILE if resolve else FILE
+            return PicoAssetsSource(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+name,attempts=1),
+                native.clock_ms,guard,native.pid,download=download,resolve=resolve,intent=intent,monotonic=native.monotonic)
+
+        @_private
+        def _assets_read_retirement(self,target,*,source_lock):
+            from adapters.pico4.assets_read_retirement import AssetsReadRetirement,FILE
+            lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            native=self._native_feature_observer(target)
+            def guard():lock.assert_held();native.guard()
+            return AssetsReadRetirement(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,guard,native.pid,monotonic=native.monotonic)
+
         def _assets_file_store(self,target,stage=None):
             _need(stage is None or type(stage) is int and 1<=stage<=6)
             state,_ui=self._script_paths(target)

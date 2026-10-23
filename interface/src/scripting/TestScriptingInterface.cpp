@@ -61,6 +61,10 @@
 #include "../../../tests/device/native/PrivateCreateFiles.h"
 #if defined(ANDROID_APP_PICO_INTERFACE)
 #include "../../../tests/device/native/PrivateAssetsFiles.h"
+#include "../../../tests/device/native/PicoAssetsReadJob.h"
+#include <AssetClient.h>
+#include <AssetRequest.h>
+#include <MappingRequest.h>
 #endif
 #include "../../../tests/device/native/CreateBrowseSettingOwner.h"
 #include "../../../tests/device/native/CreateEntityLifetimes.h"
@@ -139,6 +143,8 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
         _featureLifecycle->start(path); // Failure leaves an unavailable observer.
 #if defined(ANDROID_APP_PICO_INTERFACE)
         _featureEmoteSceneQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
+        _featureAssetsReadQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
+        _featureAssetsRead=std::make_shared<overte::e2e::PicoAssetsReadJob>();
         _featureAssetsFilesQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAssetsFiles=std::make_shared<overte::e2e::PrivateAssetsFiles>();
         _featureAvatarStateQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
@@ -319,6 +325,127 @@ QVariantMap TestScriptingInterface::featurePicoAvatarBookmarks(const QVariantMap
         {"sequence",static_cast<qulonglong>(++_featureAvatarBookmarksSequence)},{"processId",QCoreApplication::applicationPid()},
         {"requestedEpochMs",requested},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
         {"source",QVariantMap{{"picoAvatarBookmarksVersion",1},{"instance",_featureAvatarBookmarkBirth},{"storage",read.values}}}};
+}
+
+QVariantMap TestScriptingInterface::featurePicoAssetsReadRetire(const QVariantMap& command) {
+    const auto queue=_featureAssetsReadQueue;if(!queue) {return {};}
+    if(QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoAssetsReadRetire(command),{}};
+        }).values;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);const auto request=command.value("commandId").toString();
+    const auto original=command.value("original").toMap();const auto action=original.value("action").toString();
+    if(_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty() || !qApp || thread()!=qApp->thread()
+            || !_featureAssetsRead || command.keys()!=QStringList{"action","commandId","original","schemaVersion"}
+            || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble()!=1
+            || json.value("action").toString()!="feature-pico-assets-read-retire" || !json.value("original").isObject()
+            || !json.value("commandId").isString() || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !overte::e2e::picoAssetsReadCommand(original,action=="feature-pico-assets-download",action=="feature-pico-assets-resolve")
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
+    if(_featureAssetsReadRetireCommands.contains(request)) {
+        if(_featureAssetsReadRetireCommands.value(request)!=command) {return {};}
+        if(_featureAssetsReadRetireResults.contains(request)) {return _featureAssetsReadRetireResults.value(request);}
+    } else {
+        if(_featureAssetsReadRetireCommands.size()>=512 || _featureAssetsReadRetireSequence>=9007199254740991ULL) {return {};}
+        _featureAssetsReadRetireCommands.insert(request,command);_featureAssetsReadRetireRequested.insert(request,QDateTime::currentMSecsSinceEpoch());
+    }
+    const auto requested=_featureAssetsReadRetireRequested.value(request);const auto source=_featureAssetsRead->retire(original);
+    const auto captured=QDateTime::currentMSecsSinceEpoch();
+    if(source.isEmpty() || captured<requested || captured-requested>=5000) {return {};}
+    if(source.value("retired")!=QVariant(true)) {return {{"pending",true},{"requestId",request}};}
+    const QVariantMap result{{"schemaVersion",1},{"requestId",request},{"runId",original.value("runId")},
+        {"instance",_featureObservationInstance},{"sequence",static_cast<qulonglong>(++_featureAssetsReadRetireSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},{"capturedEpochMs",captured},{"source",source}};
+    _featureAssetsReadRetireResults.insert(request,result);return result;
+}
+
+QVariantMap TestScriptingInterface::featurePicoAssetsRead(const QVariantMap& command,bool abort) {
+    const auto queue=_featureAssetsReadQueue;if(!queue) {return {};}
+    if(QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command,abort](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoAssetsRead(command,abort),{}};
+        }).values;
+    }
+    const bool download=command.value("action").toString()=="feature-pico-assets-download";
+    const bool resolve=command.value("action").toString()=="feature-pico-assets-resolve";
+    if(_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !qApp || thread()!=qApp->thread() || !_featureAssetsRead
+            || !overte::e2e::picoAssetsReadCommand(command,download,resolve)
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
+    const auto job=_featureAssetsRead;
+    if(!DependencyManager::isSet<AssetClient>() || !DependencyManager::isSet<NodeList>()) {
+        if(job->same(command)) {job->reject();return job->poll(command);}return {};
+    }
+    const auto nodes=DependencyManager::get<NodeList>();const auto assets=DependencyManager::get<AssetClient>();
+    if(!nodes || !assets) {return {};}
+    const auto server=nodes->soloNodeOfType(NodeType::AssetServer);
+    const auto domain=nodes->getDomainHandler().getUUID(),session=nodes->getSessionUUID();
+    const auto serverId=server ? server->getUUID() : QUuid();
+    const auto run=command.value("runId").toString();
+    const auto domainSession=nodes->getDomainHandler().featureChatSession(run);
+    const auto bind=[](QPointer<QObject>& weak,QString& birth,QObject* original) {
+        if(weak!=original) {weak=original;birth=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');}
+    };
+    bind(_featureAssetsClientObject,_featureAssetsClientBirth,assets.data());
+    bind(_featureAssetsNodesObject,_featureAssetsNodesBirth,nodes.data());
+    bind(_featureAssetsServerObject,_featureAssetsServerBirth,server.data());
+    const auto clientBirth=_featureAssetsClientBirth,nodesBirth=_featureAssetsNodesBirth,serverBirth=_featureAssetsServerBirth;
+    const bool canWrite=nodes->getThisNodeCanWriteAssets();
+    const QVariantMap context{{"domainId",domain.toString(QUuid::WithoutBraces)},{"sessionId",session.toString(QUuid::WithoutBraces)},
+        {"assetServerId",serverId.toString(QUuid::WithoutBraces)},{"domainSession",domainSession},{"canWrite",canWrite},
+        {"clientInstance",clientBirth},{"nodeListInstance",nodesBirth},{"assetServerInstance",serverBirth}};
+    const bool connected=server && !domain.isNull() && !session.isNull() && !serverId.isNull()
+        && nodes->getDomainHandler().isConnected() && !domainSession.isEmpty() && domainSession.value("connected")==QVariant(true);
+    if(job->same(command)) {
+        if(!connected || context!=job->context()) {job->reject();}
+        if(abort) {job->abort();}return job->poll(command);
+    }
+    if(abort || !connected || _featureAssetsReadSequence>=512 || !job->canBegin(command)) {return {};}
+    // Immutable owner-thread originals enter a mutex-protected result lane.
+    // These callbacks retain no TSI pointer, GUI context or requested verdict.
+    const auto finishedCapture=std::make_shared<int>(0),destroyedCapture=std::make_shared<int>(0);
+    const auto finish=[job,domainSession,clientBirth,nodesBirth,serverBirth,finishedCapture](QObject* request,QVariantMap source) {
+        if(!source.isEmpty()) {source.insert("domainSession",domainSession);source.insert("clientInstance",clientBirth);
+            source.insert("nodeListInstance",nodesBirth);source.insert("assetServerInstance",serverBirth);
+            if(QJsonDocument(QJsonObject::fromVariantMap(source)).toJson(QJsonDocument::Compact).size()>4*1024*1024) {source.clear();}}
+        job->finish(request,source,QDateTime::currentMSecsSinceEpoch());request->deleteLater();
+    };
+    const auto begin=[this,job,&command,&context,destroyedCapture](QObject* request) {
+        if(!request) {return false;}auto cancellation=new QObject(this);
+        QObject::connect(cancellation,&QObject::destroyed,request,&QObject::deleteLater,Qt::QueuedConnection);
+        if(!job->begin(command,request,cancellation,_featureObservationInstance,++_featureAssetsReadSequence,context)) {delete cancellation;return false;}
+        const auto connection=QObject::connect(request,&QObject::destroyed,[job,request,destroyedCapture] {job->destroyed(request);});
+        return job->callback("destroyed",connection,destroyedCapture);
+    };
+    if(!download && !resolve) {
+        auto request=assets->createGetAllMappingsRequest();if(!begin(request)) {return {};}
+        const auto connection=QObject::connect(request,&GetAllMappingsRequest::finished,request,[finish,domain,session,serverId,canWrite,request](GetAllMappingsRequest* actual) {
+            if(actual!=request || QThread::currentThread()!=request->thread()) {finish(request,{});return;}
+            finish(actual,actual->getError()==MappingRequest::NoError
+                ? overte::e2e::picoAssetsMappingsOriginal(actual->getMappings(),canWrite,domain.toString(QUuid::WithoutBraces),session.toString(QUuid::WithoutBraces),serverId.toString(QUuid::WithoutBraces)) : QVariantMap());
+        },Qt::DirectConnection);
+        if(!job->callback("finished",connection,finishedCapture)) {job->reject();return {};}request->start();
+    } else if(resolve) {
+        auto request=assets->createGetMappingRequest(command.value("path").toString());if(!begin(request)) {return {};}
+        const auto connection=QObject::connect(request,&GetMappingRequest::finished,request,[finish,domain,session,serverId,request](GetMappingRequest* actual) {
+            if(actual!=request || QThread::currentThread()!=request->thread()) {finish(request,{});return;}
+            finish(actual,actual->getError()==MappingRequest::NoError
+                ? overte::e2e::picoAssetsResolveOriginal(actual->featurePicoRequestedPath(),actual->getHash(),actual->wasRedirected(),actual->getRedirectedPath(),
+                    domain.toString(QUuid::WithoutBraces),session.toString(QUuid::WithoutBraces),serverId.toString(QUuid::WithoutBraces)) : QVariantMap());
+        },Qt::DirectConnection);
+        if(!job->callback("finished",connection,finishedCapture)) {job->reject();return {};}request->start();
+    } else {
+        auto request=assets->createRequest(command.value("hash").toString());if(!begin(request)) {return {};}
+        const auto connection=QObject::connect(request,&AssetRequest::finished,request,[finish,domain,session,serverId,request](AssetRequest* actual) {
+            if(actual!=request || QThread::currentThread()!=request->thread()) {finish(request,{});return;}
+            finish(actual,actual->getError()==AssetRequest::NoError && actual->getState()==AssetRequest::Finished
+                ? overte::e2e::picoAssetsDownloadOriginal(actual->getHash(),actual->getData(),actual->loadedFromCache(),
+                    domain.toString(QUuid::WithoutBraces),session.toString(QUuid::WithoutBraces),serverId.toString(QUuid::WithoutBraces)) : QVariantMap());
+        },Qt::DirectConnection);
+        if(!job->callback("finished",connection,finishedCapture)) {job->reject();return {};}request->start();
+    }
+    return job->poll(command);
 }
 
 QVariantMap TestScriptingInterface::featurePicoAssetsFiles(const QVariantMap& command) {
