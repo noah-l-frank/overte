@@ -13,6 +13,7 @@ REQUIRED = {
     "chat-cleanup-consumption": 1,
     "chat-observation-cursor": 1,
     "chat-observation-publisher": 1,
+    "chat-cursor-source-seal": 1,
     "chat-compiled-script-source": 2,
     "chat-compiled-model-samples": 1,
     "chat-compiled-cache-absence": 1,

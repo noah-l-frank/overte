@@ -58,9 +58,12 @@ class ChatObservationCursor:
         except BaseException:held.close();raise
 
     def control(self):
-        if self._freeze_guard is not None:need(self._freeze_guard() is True)
         need(not self.failed and not self.current.failed and same(self.store.read(),self.previous)
-            and len(self.rows)==len(self.hashes)==len(self.base['chunks']))
+            and len(self.rows)==len(self.hashes)==len(self.base['chunks'])
+            and all(same(self.base[key],value) for key,value in self.scope.items())
+            and self.scope['runId']==self.current.source.run and self.scope['fixtureUrl']==self.current.source.fixture_url
+            and self.scope['role']==self.current.samples.role and same(self.scope['binding'],self.current.samples.binding)
+            and same(self.scope['peerBinding'],self.current.samples.peer_binding))
         if self.root_stamp is not None:need(stamp(self.store.path.lstat())==self.root_stamp)
         plain(self.rows);need([digest(row) for row in self.rows]==self.hashes)
         self.history.verify()
@@ -76,6 +79,10 @@ class ChatObservationCursor:
     def bind_freeze(self,guard):
         need(callable(guard) and (self._freeze_guard is None or self._freeze_guard is guard))
         self._freeze_guard=guard
+
+    def query_allowed(self):
+        need(not self.failed)
+        if self._freeze_guard is not None:need(self._freeze_guard() is True)
 
     def final(self,started):
         """Read-only final authority for the current original query."""
@@ -100,6 +107,7 @@ class ChatObservationCursor:
 
     def select(self,owner):
         """Bind a new stage before querying it; no caller sequence is admitted."""
+        self.query_allowed()
         need(type(owner) is ChatObservationOwner and not self.failed and self.rows and not owner.rows
             and not owner.failed and owner.previous is None and owner._freeze_guard is None
             and (self.current.stage,owner.stage) in (('initial','active'),('active','cleanup'))
@@ -116,6 +124,7 @@ class ChatObservationCursor:
             need(ancestor is self.owners[0].samples.script_source)
         try:
             with self.held():
+                self.query_allowed()
                 self.control();need(self.base['phase']=='ready')
                 anchor=deepcopy(self.original(self.rows[-1]));self.write('selecting',nextStage=self.stage(owner))
                 owner.current() # Original flow/admission authority only, no native query.
@@ -161,9 +170,11 @@ class ChatObservationCursor:
             and all(epoch-oldest+math.ceil((ended-before)*1000)<=1500 for before,epoch,oldest in measured))
 
     def read(self,after_sequence=0):
+        self.query_allowed()
         need(not self.failed and integer(after_sequence,0,len(self.rows)) and len(self.rows)<MAX_FRAMES)
         try:
             with self.held():
+                self.query_allowed()
                 self.control();need(self.base['phase']=='ready');started=self.current.now()
                 self.write('reading');local=self.current.read(len(self.current.rows));self.query_pending=True
                 source=self.current.rows[-1];frame=self.current.original_source(source['reference']['index'])
