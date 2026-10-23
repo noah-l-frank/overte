@@ -29,6 +29,12 @@ READS=(1,2,3)
 
 def snapshot(initial,binding,value,fixture_url,*,floor=None):
     """Validate one retained read group; the provider supplies no product fact."""
+    from ios.adapters.navigation_observation_owner import pure_context
+    return pure_context('snapshot',[initial,binding,value,fixture_url,floor],
+        lambda:_snapshot(initial,binding,value,fixture_url,floor=floor))
+
+
+def _snapshot(initial,binding,value,fixture_url,*,floor=None):
     need(type(value) is dict and {'originals','clockJoin','provider','missing'}<=set(value)
         <={'originals','clockJoin','provider','missing','addressOwner','surfaceOwner'})
     raw=value['originals'];exact(raw,admission.ORIGINALS);clock=validate_join(value['clockJoin'],raw)
@@ -77,6 +83,12 @@ def transfer(initial,before,receipt,after,owner_files,fixture_url,*,version=VERS
     foreign startup world requires separate fresh admission and normal entry;
     a restart acknowledgment cannot make it an owned run scene.
     """
+    from ios.adapters.navigation_observation_owner import pure_context
+    return pure_context('transfer',[initial,before,receipt,after,owner_files,fixture_url,version],
+        lambda:_transfer(initial,before,receipt,after,owner_files,fixture_url,version=version))
+
+
+def _transfer(initial,before,receipt,after,owner_files,fixture_url,*,version=VERSION):
     need(type(version) is int and version in READS)
     if version==1:need('addressOwner' not in before and 'addressOwner' not in after)
     if version<3:need('surfaceOwner' not in before and 'surfaceOwner' not in after)
@@ -114,6 +126,11 @@ def transfer(initial,before,receipt,after,owner_files,fixture_url,*,version=VERS
 
 
 def validate(value,owner_files):
+    from ios.adapters.navigation_observation_owner import pure_context
+    return pure_context('validate',[value,owner_files],lambda:_validate(value,owner_files))
+
+
+def _validate(value,owner_files):
     exact(value,{'iosNavigationProcessContextVersion','initialAdmission','before','restart','after','ownerFiles',
         'fixtureUrl','oldScope','currentScope'})
     version=value['iosNavigationProcessContextVersion']

@@ -121,3 +121,33 @@ avoids exponential duplicate predecessor work without changing source clocks,
 schema, input deadlines or original bytes. Host counterexamples cover a real
 four-owner chain, a PNG changed after predecessor validation and a mutated
 predecessor original in memory.
+
+The same existing synchronous round now also shares completed historical
+baseline/restored PNG decoding. It first runs the entire actual typed source,
+PNG and ownership decoder between independent file inventories. Every actual
+read is then pinned by device/inode/mode/owner/link/size/mtime/ctime; hits and
+round exit recheck those pins and the complete carrier/context. Returned values
+are separate copies. Live acquisitions and any outer actual-read collector
+still perform full decoding, so a caller's read-set membership cannot disappear
+behind an earlier result. No live freshness, input permission, source quiet or
+global inventory verdict is cached.
+
+Profiling the existing restarted-restoration case found 450 pure process-context
+snapshot validations. Snapshot/transfer/context DTOs now share complete pure
+decoding within that same round, keyed by every unchanged original input,
+version, scope and owner-file argument. These validators perform no I/O. A
+changed byte/value obtains no old result; failed decoding is never retained.
+There is no persistent cache or schema/clock/deadline change.
+
+Four actual original-file cases cover one decode per round, independent return
+copies, new-round decoding, unchanged live decoding, changed bytes in the same
+inode, identical bytes in a replacement inode, round-exit changes and complete
+outer read membership. Two process-round cases count actual old/new decoding
+and reject changed candidate/native clock/owner/derived fields. Nine existing
+process cases additionally run inside the actual round, retaining literal
+versions 1/2/3 and their persistence/root/process counterexamples. The existing
+restarted source/image/quiet/publication/history case remains green: measured
+host duration changed from 38.321 to 34.513 seconds after image sharing, then
+26.920 seconds after pure process sharing. This is one host measurement, not
+physical iOS or general API timing qualification. Three original-process image
+cases also pass, including literal image/state version-1 replay.

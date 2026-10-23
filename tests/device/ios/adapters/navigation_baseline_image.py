@@ -202,6 +202,10 @@ class NavigationBaselineImage:
 
     def archive(self):
         self.bound();need(self.state is not None and self.state['phase']=='observed')
+        from ios.adapters.navigation_observation_owner import image_archive
+        return image_archive(self,self._archive)
+
+    def _archive(self):
         result,proof,raw=self.qualify();need(digest(result)==self.state['resultSha256']);return result,proof,raw
 
     def recover(self):

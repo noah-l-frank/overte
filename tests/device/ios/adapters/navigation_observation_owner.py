@@ -40,13 +40,61 @@ def validation_round():
     """Share pure validation within one synchronous call, then recheck files."""
     if _ARCHIVE_ROUND.get() is not None:
         yield;return
-    token=_ARCHIVE_ROUND.set({})
+    token=_ARCHIVE_ROUND.set(dict(observations={},images={},contexts={}))
     try:
         yield
-        for owner,carrier,_result in _ARCHIVE_ROUND.get().values():
+        for owner,carrier,_result in _ARCHIVE_ROUND.get()['observations'].values():
             owner.bound();need(same(owner.previous,carrier) and same(owner.envelope(owner.state),carrier))
             owner.image()
+        for owner,carrier,_result,pins in _ARCHIVE_ROUND.get()['images'].values():
+            image_pins(owner,carrier,pins)
     finally:_ARCHIVE_ROUND.reset(token)
+
+
+def pure_context(kind,inputs,decode):
+    """Memoize only complete pure process DTO inputs in this existing round."""
+    need(kind in ('snapshot','transfer','validate') and callable(decode))
+    current=_ARCHIVE_ROUND.get()
+    if current is None:return decode()
+    key=(kind,digest(inputs));cache=current['contexts']
+    if key not in cache:
+        value=decode();need(len(cache)<512);cache[key]=deepcopy(value)
+    return deepcopy(cache[key])
+
+
+def image_pins(owner,carrier,pins):
+    from ios.adapters.emote_original_lease import EmoteOriginalLease
+    owner.bound();need(same(owner.previous,carrier) and same(owner.envelope(owner.state),carrier))
+    for path,signature in pins.items():need(EmoteOriginalLease.signature(path.lstat())==signature)
+
+
+def image_archive(owner,decode):
+    """Share full immutable PNG/source decoding in the existing call round.
+
+    Live acquisition, clocks, input, quiet and inventory verdicts are never
+    cached. A fresh outer actual-read collector must see every original read.
+    """
+    from adapters.original_file_reads import active,scope as read_scope
+    from ios.adapters.emote_original_lease import EmoteOriginalLease
+    if not owner.historical or active():return decode()
+    current=_ARCHIVE_ROUND.get()
+    if current is None:
+        with validation_round():return image_archive(owner,decode)
+    owner.bound();need(same(owner.envelope(owner.state),owner.previous))
+    external={name:getattr(owner,name) for name in ('initial','prior','process_context','directory','owner_files','fixture_url') if hasattr(owner,name)}
+    key=(type(owner),str(owner.root),str(owner.store.path),digest([owner.previous,external]))
+    cache=current['images']
+    if key in cache:
+        original,carrier,result,pins=cache[key];image_pins(original,carrier,pins)
+        value=deepcopy(result);image_pins(owner,carrier,pins);return value
+    leases=[EmoteOriginalLease(root,[]) for root in {owner.root,owner.store.path.parent}]
+    with read_scope(fresh=True) as reads:
+        result=decode()
+        pins={path:EmoteOriginalLease.signature(path.lstat()) for path in reads|{owner.store.path}}
+    for lease in leases:lease.guard()
+    image_pins(owner,owner.previous,pins);need(len(cache)<128)
+    cache[key]=(owner,deepcopy(owner.previous),deepcopy(result),pins)
+    return deepcopy(result)
 SOURCES=dict(bookmarks=location_bookmarks.IOSLocationBookmarks,model=places_model.IOSPlacesModel,
     http=places_http.IOSPlacesHttp,dialogs=navigation_dialogs.IOSNavigationDialogs,replies=NativeNavigationReplies,ui=NativeInput)
 
@@ -307,9 +355,10 @@ class NavigationObservationOwner:
         # composition. Share repeated historical validation only within this
         # synchronous round; otherwise a long journey grows exponentially.
         # Every participating carrier/state/PNG is rechecked before returning.
-        cache=_ARCHIVE_ROUND.get()
-        if cache is None:
+        current=_ARCHIVE_ROUND.get()
+        if current is None:
             with validation_round():return self.archive()
+        cache=current['observations']
         self.bound();need(self.state is not None and self.state['phase'] in ('observed','marker-pending','failed'))
         need(same(self.envelope(self.state),self.previous));key=(str(self.store.path),digest(self.previous))
         if key in cache:return deepcopy(cache[key][2])

@@ -54,6 +54,11 @@ class NavigationProcessContextTests(unittest.TestCase):
                 processId=43,queryProcessId=42,requestedEpochMs=epoch+1,capturedEpochMs=epoch+1,presence='absent',
                 nativeResult=-1,nativeError=3,errorSymbol='ESRCH'))
         self.after=self.new_group(epoch+10)
+        # Exercise literal formats and every counterexample in the same pure
+        # validation round used by the actual feature API, with no global memo.
+        if getattr(self,'enable_context_round',True):
+            from ios.adapters.navigation_observation_owner import validation_round
+            replay=validation_round();replay.__enter__();self.addCleanup(replay.__exit__,None,None,None)
 
     @staticmethod
     def native_id(packet):return dict(pid=packet['processId'],instance=packet['instance'],lifecycle=deepcopy(packet['lifecycle']))
