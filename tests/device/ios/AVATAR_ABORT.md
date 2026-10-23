@@ -10,6 +10,11 @@ credentials are copied into its receipt.
 The owner persists its Stop intent before calling the canonical ordinary
 `app.stop`, with session recreation forbidden. A lost Stop return remains
 `stop-issued`; reconstruction only reads the original process state. The
+only admitted outer operation is `feature.avatar-people.cleanup` (or a direct
+component call with no outer operation). Its original value is cleared only
+around that one canonical Stop after durable admission, and restored in
+`finally`, including lost returns. Other feature operations cannot enter Stop.
+The
 unchanged `IOSProcessRetirement` Avatar profile supplies genuine role-owned
 numeric PID/bundle absence over at least three seconds on both original node
 and controller clocks. The owner cannot substitute a successful terminal live
@@ -42,11 +47,12 @@ ancillary responsibility. This supplies the process portion of later whole
 archival after SDK metadata retirement; it cannot qualify that whole archive
 or discharge account, preference, credential-file or provider ownership.
 
-Eight host tests use real private CAS journals and genuine loopback WebDriver
+Ten host tests use real private CAS journals and genuine loopback WebDriver
 HTTP. OS/native/feature-admission boundaries are explicitly modeled. They cover
 successful process/SDK retirement with failed status preserved, lost Stop and
 DELETE returns, ignored DELETE, interrupted passive GET, failed intent storage,
 changed candidate, changed failed intent and a slow intent write exhausting the
-original input deadline. The historical counterexample blocks every live
+original input deadline, exact outer-operation admission and lost-return
+restoration. The historical counterexample blocks every live
 resolver and rejects a changed failed-original hash. No native compilation, simulator or device run is
 claimed.

@@ -126,16 +126,18 @@ class IOSAvatarAbort:
         self.bound();operation_clock.check(self.state['operationClock'],self.epoch_ms(),self.monotonic())
 
     def stop(self):
-        self.bound();need(self.state['phase']=='failed' and self.runtime.adapter._operation is None)
+        self.bound();base=self.runtime.adapter;outer=base._operation
+        need(self.state['phase']=='failed' and outer in (None,'feature.avatar-people.cleanup'))
         need(same(IOSGraphicsRuntime._graphics_final_source(self.runtime,self.selector,self.binding),self.source))
         self.input_guard();self.state['phase']='stop-issued';self.save()
         # The canonical lifecycle owns the genuine terminateApp and binding
         # retirement. Any lost return leaves this exact send owned forever.
-        base=self.runtime.adapter;previous=base._session_recreation_forbidden;base._session_recreation_forbidden=True
+        need(base._operation==outer);previous=base._session_recreation_forbidden
+        base._session_recreation_forbidden=True;base._operation=None
         try:
             with transport_scope(self.input_guard):
                 self.input_guard();base.invoke(self.selector,'app.stop',{})
-        finally:base._session_recreation_forbidden=previous
+        finally:base._operation=outer;base._session_recreation_forbidden=previous
         self.state['stopReturned']=True;self.save()
 
     def process_round(self):

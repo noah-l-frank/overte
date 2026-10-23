@@ -150,5 +150,21 @@ class AvatarAbortTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):self.owner()
             self.assertEqual(0,self.stop_count)
 
+    def test_only_exact_cleanup_outer_is_temporarily_cleared_after_durable_stop_intent_and_restored_on_loss(self):
+        with self.lock.held():
+            owner=self.owner();base=self.runtime.adapter;base._operation='feature.avatar-people.cleanup';self.stop_lost=True
+            with self.assertRaises(OSError):owner.stop()
+            self.assertEqual('feature.avatar-people.cleanup',base._operation);self.assertFalse(base._session_recreation_forbidden)
+            self.assertEqual('stop-issued',self.owner().state['phase'])
+            with self.assertRaises(NativeUIError):self.owner().stop()
+            self.assertEqual(1,self.stop_count)
+
+    def test_foreign_outer_operation_cannot_issue_abort_stop(self):
+        with self.lock.held():
+            owner=self.owner();base=self.runtime.adapter;base._operation='feature.avatar-people.act'
+            with self.assertRaises(NativeUIError):owner.stop()
+            self.assertEqual('feature.avatar-people.act',base._operation);self.assertEqual(0,self.stop_count)
+            self.assertEqual('failed',self.owner().state['phase'])
+
 
 if __name__=='__main__':unittest.main()
