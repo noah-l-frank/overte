@@ -105,7 +105,7 @@ class AssetsRequestLifetimesTests(unittest.TestCase):
     def test_actual_original_request_births_child_deaths_and_unmodified_cancel_home_quiet(self):
         self.exercise(True);final=self.check(True);self.assertEqual(9,len(final['objects']))
         self.assertEqual(3,sum(row['kind']=='mapping' for row in final['objects']));self.assertEqual(3,sum(row['kind']=='asset' for row in final['objects']))
-        self.assertTrue(all(row['sameThreadAsResource']==(row['kind']=='resource') for row in final['objects']))
+        self.assertTrue(all(row['sameThreadAsResource']==(row['kind']=='resource' or getattr(self,'expected_child_same_thread',False)) for row in final['objects']))
         original=deepcopy(self.lifetime_store.read()) # Durable real originals precede counter mutation.
         for counter in ('booleanVersion','missingChild','deadWithoutBirth'):
             values=deepcopy(self.lifetime_frames)

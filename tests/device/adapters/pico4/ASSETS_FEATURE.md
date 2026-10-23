@@ -1164,3 +1164,58 @@ the preserved failed 45-measurement archive and the new 43-measurement archive.
 Removing the two test-gated friend blocks leaves the product header exactly
 byte-equivalent to the fixed parent. No additional unchanged native group was
 repeated for this packet.
+
+## Original ResourceManager factory and real reader owner thread
+
+The additive `assets-resource-manager` host case compiles the complete original
+`ResourceManager::createResourceRequest`, both `normalizeURL` methods,
+`getKnownUrls` and original scheme constants. Five provenance hashes bind those
+bodies/helpers. The fixture's manager declaration/startup and empty prefix
+configuration remain explicit host endpoints: it borrows the existing real
+AssetClient worker QThread. No complete ResourceManager constructor, cache
+startup, HTTP/File transport or renderer is claimed. Unsupported HTTP/File
+endpoint execution fails instead of supplying a fake resource result.
+
+The original factory creates the actual AssetResourceRequest, registers its
+normal parent-destruction connection and performs its original moveToThread.
+The actual outer reader and original mapping/asset children consequently live
+on the same real AssetClient thread, matching the product factory's owner-thread
+relationship. The weak lifetime collector is constructed and accessed there;
+all nine relative thread flags are measured true. Each actual outer object's
+original Qt class is AssetResourceRequest. Thread flags are read from those
+actual objects and are not projected from requested configuration.
+
+The existing unmodified bounded AudioSettingsQueue captures through weak
+QObject dispatch on that owner thread and retires its actual queued functor
+before returning a sample. A short owned caller thread lets the declared local
+GUI server endpoint process its ordinary file callbacks during that wait;
+GUI-to-worker blocking cannot prevent the worker's GUI file response. Queue
+cancellation/late-value rules and original bounds remain unchanged. Worker
+results publish through release/acquire; all QObject guards must actually
+become null. This worker path never substitutes a GUI DeferredDelete flush for
+worker-side death. Reader cleanup remains the host reader's explicit
+QObject::deleteLater, not product ModelCache retirement.
+
+The single owning case passes in 39.196 seconds including compilation. All
+existing original byte/file/independent-inventory/normal-input/nine-lifetime/
+cold-history/counter/Cancel/Home checks remain. Actual native byte work is
+71 ms. There are 45 source measurements (30 raw replies plus 15 unchanged
+byte-packet references), occupying 505 of 512 combined physical frame copies.
+Measured request-absence spans are 4049 ms for Cancel and 3327 ms for Home, with
+maximum actual sample gaps 274/342 ms. All nine known QObjects are absent and
+the owner queue reports its original functors retired. These values do not
+replace earlier results or claim a total speedup. Compile/selector limits stay
+90/120 seconds; original quiet, frame and local 16-MiB byte caps are unchanged.
+
+The private `pico-assets-resource-manager-host` format is version 1. Root must
+add its one selector while preserving Root's current catalog count. The older
+GUI-reader fixture remains its separately qualified host endpoint; no unchanged
+native group was rerun. Product manager startup/global queue/cache capacity,
+ResourceCache/ModelCache and renderer creation, geometry/texture/mesh-extents,
+peer/stereo and complete entity/context/window/history retirement remain open.
+Feature 13/14 is partial and no public Assets capability changes.
+
+Registry, seven Pico coverage tests (all 14 risk groups), six common Assets
+source cases, four focused repository groups and all 668 Markdown checks pass.
+The fixed native artifact and complete raw byte, file, phase, lifetime,
+independent-reader and original manager-body archives remain private.
