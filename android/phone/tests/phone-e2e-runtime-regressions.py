@@ -79,6 +79,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshots_ephemeral_role_disposal.py",
     "android/phone/tests/device/test_snapshots_constructor_history_pass.py",
     "android/phone/tests/device/test_snapshots_passive_constructor_history.py",
+    "android/phone/tests/device/test_snapshots_read_ready_slot.py",
     "android/phone/tests/device/test_snapshots_historical_png.py",
     "android/phone/tests/device/test_snapshots_original_clone.py",
     "android/phone/tests/device/test_snapshot_catalog_pass.py",
@@ -310,4 +311,4 @@ for name in selected + COMMON_HOST_CHECKS + (EXTENDED_HOST_CHECKS if args.extend
     # checks (the earlier seven alone measured78.826s). Use240s per module;
     # current source, lock, freshness and checkpoint deadlines do not change.
     subprocess.run(arguments, cwd=ROOT, check=True,
-                   timeout=10800 if name in EXTENDED_HOST_CHECKS else 600 if name.endswith("test_assets_feature.py") else 180 if name.endswith(("phone-chat-native-test.py","phone-chat-peer-native-test.py","phone-chat-history-native-test.py","phone-snapshot-settings-native-test.py")) else 240 if name.endswith(("test_graphics_feature.py","test_create_feature.py","test_avatar_people_feature.py","test_chat_feature.py","test_snapshots_full_retirement_audit.py","test_snapshots_retirement_actor_versions.py","test_snapshots_actor.py","test_snapshots_constructor_history_pass.py","test_snapshots_passive_constructor_history.py","test_snapshots_quiet_role_reuse.py","test_snapshots_primary_cleanup_stages.py","test_snapshots_primary_history_pass.py","test_snapshots_history_pass.py","test_snapshots_phase_transition.py","test_snapshots_feature_journey.py","test_snapshot_documents_journey_boundary.py")) else 90)
+                   timeout=10800 if name in EXTENDED_HOST_CHECKS else 600 if name.endswith("test_assets_feature.py") else 180 if name.endswith(("phone-chat-native-test.py","phone-chat-peer-native-test.py","phone-chat-history-native-test.py","phone-snapshot-settings-native-test.py")) else 240 if name.endswith(("test_graphics_feature.py","test_create_feature.py","test_avatar_people_feature.py","test_chat_feature.py","test_snapshots_full_retirement_audit.py","test_snapshots_retirement_actor_versions.py","test_snapshots_actor.py","test_snapshots_constructor_history_pass.py","test_snapshots_passive_constructor_history.py","test_snapshots_read_ready_slot.py","test_snapshots_quiet_role_reuse.py","test_snapshots_primary_cleanup_stages.py","test_snapshots_primary_history_pass.py","test_snapshots_history_pass.py","test_snapshots_phase_transition.py","test_snapshots_feature_journey.py","test_snapshot_documents_journey_boundary.py")) else 90)
