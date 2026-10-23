@@ -891,6 +891,14 @@ def create_adapter(args, base_class):
                 return owner
 
         @_private
+        def _snapshot_upload_source(self,target,*,source_lock=None):
+            from adapters.pico4.snapshot_upload_source import PicoSnapshotUploadSource,FILE
+            lock=self._script_journey()._lock(target,source_lock);native=self._native_feature_observer(target)
+            return PicoSnapshotUploadSource(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,lock,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
         def _snapshot_system_source(self,target,binding,authority,*,source_lock):
             from adapters.pico4.snapshot_system_source import PicoSnapshotSystemSource
             from adapters.pico4.graphics_binding import PicoGraphicsBinding

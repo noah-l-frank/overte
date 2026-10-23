@@ -138,6 +138,8 @@
     "native-snapshot-export-lease": {"current": 1, "reads": [1]},
     "pico-snapshot-export-controls": {"current": 1, "reads": [1]},
     "pico-snapshot-saved-originals": {"current": 1, "reads": [1]},
+    "pico-snapshot-upload-observation": {"current": 1, "reads": [1]},
+    "pico-snapshot-upload-originals": {"current": 2, "reads": [2]},
     "pico-snapshot-os-source": {"current": 1, "reads": [1]},
     "pico-snapshot-save-owner": {"current": 1, "reads": [1]},
     "pico-snapshot-save-originals": {"current": 1, "reads": [1]},

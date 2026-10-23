@@ -43,6 +43,9 @@
 #include "MainWindow.h"
 #include "Snapshot.h"
 #include "SnapshotUploader.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include <PicoSnapshotUploadEvidence.h>
+#endif
 #include "SnapshotAnimated.h"
 #include "SnapshotStorage.h"
 #include <QMutexLocker>
@@ -747,14 +750,24 @@ void Snapshot::uploadSnapshot(const QString& filename, const QUrl& href) {
     }
     SnapshotUploader* uploader = new SnapshotUploader(url, filename);
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    QFile* file = new overte::e2e::PicoSnapshotUploadFile(filename,uploader->featurePicoUploadJob());
+#else
     QFile* file = new QFile(filename);
+#endif
     if (!file->open(QIODevice::ReadOnly) || file->size() <= 0) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        overte::e2e::PicoSnapshotUploadEvidence::get().change(uploader->featurePicoUploadJob(),"terminal","error","file-unavailable");
+#endif
         delete file; delete uploader;
         emit DependencyManager::get<WindowScriptingInterface>()->snapshotShared(true, "Snapshot file is unavailable");
         emit uploadStatusChanged(filename, "error", "file-unavailable");
         return;
     }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    overte::e2e::PicoSnapshotUploadEvidence::get().file(uploader->featurePicoUploadJob(),file);
+#endif
     QHttpPart imagePart;
     const QString suffix = QFileInfo(filename).suffix().toLower();
     const QString mime = suffix == "gif" ? "image/gif" : suffix == "png" ? "image/png" : suffix == "webp" ? "image/webp" : "image/jpeg";
@@ -766,6 +779,9 @@ void Snapshot::uploadSnapshot(const QString& filename, const QUrl& href) {
     QHttpMultiPart* multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
     file->setParent(multiPart);  // we cannot delete the file now, so delete it with the multiPart
     multiPart->append(imagePart);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    overte::e2e::PicoSnapshotUploadEvidence::get().multipart(uploader->featurePicoUploadJob(),multiPart);
+#endif
 
     auto accountManager = DependencyManager::get<AccountManager>();
     if (!_uploadContextConnected) {
@@ -779,6 +795,9 @@ void Snapshot::uploadSnapshot(const QString& filename, const QUrl& href) {
     connect(uploader, &QObject::destroyed, this, [this, filename] { if (!_uploads.value(filename)) { _uploads.remove(filename); } });
     JSONCallbackParameters callbackParams(uploader, "uploadSuccess", "uploadFailure");
     callbackParams.requestTicket = uploader->nextTicket();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    callbackParams.picoSnapshotUploadJob=uploader->featurePicoUploadJob();callbackParams.picoSnapshotUploadStage="image";
+#endif
 
     accountManager->sendRequest(SNAPSHOT_UPLOAD_URL, AccountManagerAuth::Required, QNetworkAccessManager::PostOperation,
                                 callbackParams, nullptr, multiPart);

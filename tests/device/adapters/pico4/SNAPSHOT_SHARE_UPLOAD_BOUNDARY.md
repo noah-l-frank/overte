@@ -88,3 +88,8 @@ and checks original candidate/kernel/session/Activity/UID after the last guard.
 It changes no foreground-only input rule and deliberately rejects the existing
 Phone-only receiver. Normal VR chooser input and qualified recipient acquisition
 remain missing; passive OS identity is not a completed Share operation.
+
+The [Pico upload source](SNAPSHOT_UPLOAD_ORIGINALS.md) now adds original native
+file/request/reply/lifetime observations under the dedicated Pico test/runtime
+gates and existing source lock. Normal Upload owner composition and independent
+TLS receipt joins remain outstanding; the passive source does not execute them.
