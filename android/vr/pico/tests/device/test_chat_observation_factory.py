@@ -2,6 +2,8 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import unittest
+from copy import deepcopy
+from unittest.mock import patch
 
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
@@ -62,6 +64,7 @@ class PicoChatObservationFactoryTests(unittest.TestCase):
         self.assertFalse(self.adapter._chat_application_retained(self.target))
         stores=(self.adapter._chat_observation_store(self.target,'actor',stage='cleanup',witness=True),
             self.adapter._chat_cleanup_witness_store(self.target),
+            self.adapter._chat_cleanup_baseline_store(self.target),
             self.adapter._chat_cleanup_source_seal_store(self.target,witness=False),
             self.adapter._chat_cleanup_source_seal_store(self.target,witness=True))
         for store in stores:
@@ -69,6 +72,25 @@ class PicoChatObservationFactoryTests(unittest.TestCase):
             child.write(dict(explicitOriginalOrphan=True),None)
             self.assertTrue(self.adapter._chat_application_retained(self.target));self.assertTrue(child.path.exists())
         self.assertTrue(all(store.read() is None for store in stores));self.assertEqual([],self.h.native.inputs)
+
+    def test_optional_archive_baseline_metadata_never_invents_legacy_or_partial_seal_fields(self):
+        state,_ui=self.adapter._script_paths(self.target);key=state.stem.removeprefix('normal-script-state-')
+        directory=state.parent/('chat-evidence-'+key+'-'+seams.RUN);directory.mkdir(mode=0o700)
+        metadata=dict(picoChatArchivePlanVersion=4,runId=seams.RUN,
+            oldBinding=deepcopy(self.parent.binding),newBinding=deepcopy(self.parent.binding))
+        evidence=dict(metadata=metadata,chatEvidenceArchiveVersion=4,fileOwnership='closed-immutable-originals',
+            unlinkPolicy='original-source-16-unlinks-250ms',copyVerification='full-current-copy-and-original-physical-inventory')
+        # Archive-byte verification is an explicit seam here, not a claim
+        # this empty fixture directory is a sealed completed archive.
+        with patch('adapters.chat_journey.evidence_archive.completed_archive',return_value=evidence):
+            self.assertFalse(self.adapter._chat_application_retained(self.target));self.assertNotIn('chatCleanupSourceSeals',metadata)
+            metadata.update(chatCleanupBaselineSha256='a'*64,chatCleanupSourceSeals=['b'*64,'c'*64])
+            self.assertFalse(self.adapter._chat_application_retained(self.target))
+            for replacement in ({'chatCleanupBaselineSha256':True},{'chatCleanupSourceSeals':['b'*64,'b'*64]},
+                {'chatCleanupSourceSeals':'b'*64},{'chatCleanupSourceSeals':None}):
+                original=deepcopy(metadata);metadata.update(replacement)
+                with self.assertRaises((ValueError,NativeUIError)):self.adapter._chat_application_retained(self.target)
+                metadata.clear();metadata.update(original)
 
 
 if __name__=='__main__':unittest.main()

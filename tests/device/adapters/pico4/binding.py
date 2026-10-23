@@ -1021,6 +1021,10 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-cleanup-witness-')))
 
+        def _chat_cleanup_baseline_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-cleanup-baseline-')))
+
         def _chat_cleanup_source_seal_store(self,target,*,witness):
             _need(type(witness) is bool);state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-',
@@ -1086,6 +1090,7 @@ def create_adapter(args, base_class):
             # a missing parent root or ordinary application force-stop.
             stores=[self._chat_application_store(target),self._chat_restart_inputs_store(target),self._chat_archive_retirement_store(target),self._chat_host_close_store(target)]
             stores.append(self._chat_cleanup_witness_store(target))
+            stores.append(self._chat_cleanup_baseline_store(target))
             stores.extend(self._chat_cleanup_source_seal_store(target,witness=witness) for witness in (False,True))
             stores.extend(self._chat_observation_store(target,role,stage=stage,witness=witness)
                 for role,witness in (('primary',False),('actor',False),('actor',True))
@@ -1099,6 +1104,13 @@ def create_adapter(args, base_class):
                 run=path.name.removeprefix('chat-evidence-'+key+'-')
                 _need(re.fullmatch('[0-9a-f]{32}',run))
                 evidence=completed_archive(path);metadata=evidence['metadata']
+                if {'chatCleanupBaselineSha256','chatCleanupSourceSeals'}&set(metadata):
+                    _need(metadata.get('picoChatArchivePlanVersion')==4
+                        and type(metadata.get('chatCleanupBaselineSha256')) is str
+                        and re.fullmatch('[0-9a-f]{64}',metadata['chatCleanupBaselineSha256'])
+                        and type(metadata.get('chatCleanupSourceSeals')) is list and len(metadata['chatCleanupSourceSeals'])==2
+                        and all(type(value) is str and re.fullmatch('[0-9a-f]{64}',value) for value in metadata['chatCleanupSourceSeals'])
+                        and len(set(metadata['chatCleanupSourceSeals']))==2)
                 if metadata.get('picoChatArchivePlanVersion') in (2,3,4):_need(evidence.get('chatEvidenceArchiveVersion')==metadata['picoChatArchivePlanVersion'] and evidence.get('fileOwnership')=='closed-immutable-originals')
                 if metadata.get('picoChatArchivePlanVersion') in (3,4):_need(evidence.get('unlinkPolicy')=='original-source-16-unlinks-250ms')
                 if metadata.get('picoChatArchivePlanVersion')==4:_need(evidence.get('copyVerification')=='full-current-copy-and-original-physical-inventory')

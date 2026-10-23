@@ -274,6 +274,31 @@ class PicoChatComposition:
             self.failed=True
             raise NativeUIError('Pico Chat cache/IPC release is unresolved; original journals remain without replay') from None
 
+    def measure_cleanup_baseline(self,independent,after_epoch):
+        """Consume new independent common baseline before process/IPC close."""
+        from adapters.pico4.chat_cleanup_witness import PicoChatCleanupWitness
+        from adapters.chat_journey.cleanup_baseline import ChatCleanupBaseline
+        try:
+            need(not self.failed and type(independent) is PicoChatCleanupWitness
+                and independent.adapter is self.adapter and independent.target==self.target
+                and same(independent.parent_value,self.previous) and self.previous['phase']=='caches-retired'
+                and self.cache_release.defer_ipc and getattr(self,'cleanup_baseline',None) is None)
+            with self.held():
+                source=PhaseFixtureReader(self.source.client,self.source.run,'chat',epoch_ms=self.source.epoch_ms,
+                    monotonic=self.source.monotonic)
+                primary=self.adapter._chat_observation(self.target,source,self.cache_release.roles[0],stage='cleanup')
+                own_seal=self.adapter._chat_source_seal(self.target,primary,witness=False)
+            # The independent actor has different lock objects at the same
+            # original OS inodes. Never construct/seal it inside Parent.held.
+            actor_seal=self.adapter._chat_source_seal(self.target,independent.publisher,witness=True)
+            self.cleanup_baseline=ChatCleanupBaseline(primary,independent.publisher,(own_seal,actor_seal),
+                self.adapter._chat_cleanup_baseline_store(self.target),guard=self.guard,sleep=self.native.sleep)
+            result=deepcopy(self.cleanup_baseline.run(after_epoch));self.cleanup_baseline_receipt=deepcopy(result)
+            self.cleanup_baseline.receipt(result);self.guard();self.cleanup_baseline.fresh_pair();return result
+        except Exception:
+            self.failed=True
+            raise NativeUIError('Pico Chat common cleanup baseline is unresolved; original sources remain without replay') from None
+
     def restart_and_close_application(self,after_epoch):
         """Actual once-only restart, independent new originals and final IPC."""
         from adapters.pico4.chat_application_close import PicoChatApplicationClose
