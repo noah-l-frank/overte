@@ -1601,14 +1601,15 @@ def create_adapter(args, base_class):
         def _snapshot_originals_owned(self,target):
             store=self._snapshot_still_store(target,create=False)
             if store is None:return False
-            return (any(path.exists() or path.is_symlink() for path in (store.path,
-                store.path.with_name('snapshot-cancel-owner.json'),store.path.with_name('snapshot-cancel-files-owner.json'),
-                store.path.with_name('snapshot-cancel-originals.json'),store.path.with_name('snapshot-save-owner.json'),
-                store.path.with_name('snapshot-save-originals.json'),store.path.with_name('snapshot-upload-fail-owner.json'),
-                store.path.with_name('snapshot-upload-owner.json'),store.path.with_name('snapshot-upload-fail-originals.json'),
-                store.path.with_name('snapshot-upload-originals.json'),store.path.with_name('snapshot-background-owner.json'),
-                store.path.with_name('snapshot-background-originals.json')))
-                or any(path.name.startswith(('snapshot-cancel-originals.json.frame-','snapshot-save-originals.json.frame-','snapshot-upload-fail-originals.json.frame-','snapshot-upload-originals.json.frame-','snapshot-background-originals.json.frame-')) for path in store.path.parent.iterdir()))
+            names=('snapshot-cancel-owner.json','snapshot-cancel-files-owner.json','snapshot-cancel-originals.json',
+                'snapshot-save-owner.json','snapshot-save-originals.json','snapshot-upload-fail-owner.json','snapshot-upload-owner.json',
+                'snapshot-upload-fail-originals.json','snapshot-upload-originals.json','snapshot-background-owner.json','snapshot-background-originals.json')
+            paths=[store.path]+[store.path.with_name(name) for name in names]
+            paths.extend(store.path.with_name('snapshot-return-image-'+role+suffix) for role in ('primary','actor') for suffix in ('.json','-originals.json'))
+            prefixes=('snapshot-cancel-originals.json.frame-','snapshot-save-originals.json.frame-','snapshot-upload-fail-originals.json.frame-',
+                'snapshot-upload-originals.json.frame-','snapshot-background-originals.json.frame-',
+                'snapshot-return-image-primary-originals.json.frame-','snapshot-return-image-actor-originals.json.frame-')
+            return any(path.exists() or path.is_symlink() for path in paths) or any(path.name.startswith(prefixes) for path in store.path.parent.iterdir())
 
         @_private
         def _snapshot_cancel_owner(self,target,run,phase_source,*,source_lock=None):
@@ -1653,6 +1654,19 @@ def create_adapter(args, base_class):
                 parent.files.transport.artifacts,exports,run,publish)
             owner=PicoSnapshotSaveOwner(lock.path.with_name('snapshot-save-owner.json'),parent,exports,saved)
             return owner
+
+        @_private
+        def _snapshot_return_image(self,target,run,phase_source,artifact_root,*,parent=None,role='primary',source_lock=None):
+            from adapters.pico4.snapshot_background_owner import PicoSnapshotBackgroundOwner
+            from adapters.pico4.snapshot_return_image import PicoSnapshotReturnImage
+            _need(role in ('primary','actor'))
+            if parent is None:parent=self._snapshot_background_owner(target,run,phase_source,source_lock=source_lock)
+            _need(isinstance(parent,PicoSnapshotBackgroundOwner) and parent.run==run and parent.source is phase_source
+                and (source_lock is None or source_lock is parent.lock))
+            lock=self._script_journey()._lock(target,parent.lock)
+            return PicoSnapshotReturnImage(parent,lock.path.with_name('snapshot-return-image-'+role+'.json'),artifact_root,
+                lambda:self._world_render_capture(target,read_only=True,role=role,require_frame_view=True,source_lock=lock),
+                role=role,monotonic=phase_source.monotonic)
 
         @_private
         def _snapshot_background_owner(self,target,run,phase_source,*,parent=None,source_lock=None):

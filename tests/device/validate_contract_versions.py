@@ -314,6 +314,8 @@ REQUIRED = {
     "snapshot-upload-file": 2,
     "snapshot-upload-original": 2,
     "pico-snapshot-os-source": 1,
+    "pico-snapshot-return-image": 1,
+    "pico-snapshot-return-image-originals": 1,
     "pico-snapshot-background-owner": 1,
     "pico-snapshot-background-originals": 1,
     "pico-snapshot-upload-owner": 1,
