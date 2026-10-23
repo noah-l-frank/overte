@@ -1,6 +1,6 @@
 # Original independent Chat publication reads
 
-`ChatRemotePublication` version 1 passively joins actual independently received
+`ChatRemotePublication` version 2 passively joins actual independently received
 fixture rows to an originally live independent host process and its actual
 Actor3 publications. It constructs no live Actor, native reader, cursor or
 publisher from private files. It sends no input, publication, Stop command,
@@ -64,6 +64,19 @@ The reader has no method claiming common three-second cleanup, successful
 shared execution, either-eye stereo, source retirement or whole-feature
 closure. Its original process descriptors remain owned by the Parent; this
 component neither closes them nor claims their final lifetime.
+
+Version 2 additionally preserves the original read's host-monotonic start and
+primary/peer/phase/journal epochs in each immutable record. Under the exact
+Parent locks, `fresh_current()` verifies that same original record and current
+phase, then checks those unchanged original clocks. `released_fresh_current()`
+checks the same epochs after actual outer lock exit without a foreground guard.
+Neither method acquires a newer native sample. A later unconsumed Actor frame
+cannot make an older consumed frame fresh. `freeze(command)` binds the exact
+version 2 Stop request to the last consumed record and blocks further
+acquisition. It writes no Stop file and supplies no Stop-delivery ACK. Legacy
+version 1 roots remain historical/retained; their missing clock anchors are
+never invented or cold-adopted. The actual common consumption/one-write join is
+documented in [the remote cleanup prefix](REMOTE_CLEANUP_PREFIX.md).
 
 The source fixture uses a real separate owned Python stdin worker, actual
 original Actor/publisher/cursor/source writers and real process/OFD admission.
