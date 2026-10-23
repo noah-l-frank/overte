@@ -18,6 +18,27 @@ def digest(value):
     return hashlib.sha256(canonical(value)).hexdigest()
 
 
+def json_digest(value):
+    """Cache only exact JSON DTO types, including original dictionary keys.
+
+    JSON encoding alone aliases tuples/lists, subclasses and integer/string
+    keys. A digest hit must not bypass the original closed DTO validators.
+    This changes no persisted source/manifest format or ordinary digest.
+    """
+    pending=[value];seen=set()
+    while pending:
+        item=pending.pop();kind=type(item)
+        if kind in (dict,list):
+            if id(item) in seen:continue
+            seen.add(id(item))
+            if kind is dict:
+                need(all(type(key) is str for key in item));pending.extend(item.values())
+            else:pending.extend(item)
+        else:need(kind in (str,int,float,bool,type(None)))
+    # The ordinary canonical encoder still checks finite values and cycles.
+    return digest(value)
+
+
 class ChatSourceChunks:
     """Fixed numbered children, one complete original source bundle per file.
 

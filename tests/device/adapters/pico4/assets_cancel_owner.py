@@ -6,6 +6,7 @@ import math
 import time
 from urllib.parse import unquote,urlsplit
 from adapters.native_feature_observation import decode,exact,fresh,integer,need,number
+from adapters.chat_journey.source_chunks import json_digest
 from adapters.normal_feature_state import context
 from adapters.normal_ui import NativeUIError
 from adapters.phase_input_fence import PhaseInputFence
@@ -35,6 +36,7 @@ class OwnedAssetsCancel:
         self.files,self.mappings,self.uploads=files,mappings,uploads
         self.capture,self.controls,self.guard,self.clock_ms=capture,controls,guard,clock_ms
         self.monotonic,self.sleep=monotonic,sleep;self.previous=store.read();self.clock=None;self.draft=None;self.active_ui=None
+        self.validation_cache=self._sealed_validation_cache=None
         self.fence=CancelPhaseFence(phase,self);self.final_input=self.before_send
         self.mapping_intent=lambda command:self.source_intent('mappings',command)
         self.upload_intent=lambda command:self.source_intent('uploads',command)
@@ -99,10 +101,30 @@ class OwnedAssetsCancel:
             need(same(value['baselineUploads'],next(frame['frame'] for frame in frames if frame['role']=='uploads')))
             frame=value['baselineUploads'];assets_uploads.validate(decode(frame['raw']),frame['command'],self.uploads.pid,decode(frame['raw'])['capturedEpochMs'])
 
+    def validation_context(self,value):
+        # Only semantic parsing is reused. Every state() still performs its
+        # original complete physical store read and exact current-root check.
+        return dict(value=value,binding=self.binding,runId=self.run,fixtureUrl=self.url,
+            stage=self.files.native.stage,mappingsPid=self.mappings.pid,uploadsPid=self.uploads.pid,
+            fileHistoryCount=len(self.files.native.history),fileOriginalBytes=self.files.state['originals']['bytes'])
+
+    def validated(self,value):
+        need(self.validation_cache is self._sealed_validation_cache)
+        context=self.validation_context(value);key=json_digest(context);raw=canonical(context)
+        cached=self.validation_cache
+        if cached is not None:
+            need(type(cached) is tuple and len(cached)==2 and type(cached[0]) is str and type(cached[1]) is bytes)
+            if cached==(key,raw):return
+        self.validate(value)
+        need(json_digest(self.validation_context(value))==key and canonical(self.validation_context(value))==raw)
+        self.validation_cache=(key,raw);self._sealed_validation_cache=self.validation_cache
+
     def state(self):
-        value=self.store.read();need(value is not None and value==self.previous);self.validate(value);return value
+        value=self.store.read()
+        need(value is not None and json_digest(value)==json_digest(self.previous) and same(value,self.previous))
+        self.validated(value);return value
     def write(self,value):
-        self.validate(value);retained=deepcopy(value);self.store.write(value,self.previous);self.previous=retained
+        self.validated(value);retained=deepcopy(value);self.store.write(value,self.previous);self.previous=retained
     def now(self):
         value=self.monotonic();need(number(value,0,1e15) and (self.clock is None or value>=self.clock));self.clock=value;return value
     def admit(self,verb):
