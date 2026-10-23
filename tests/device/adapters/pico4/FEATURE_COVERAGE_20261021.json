@@ -1120,7 +1120,10 @@
         "tests/device/adapters/pico4/CHAT_CLEANUP_WITNESS.md",
         "tests/device/adapters/chat_journey/source_seal.py",
         "tests/device/adapters/chat_journey/SOURCE_SEAL.md",
-        "tests/device/self_tests/test_chat_source_seal.py"
+        "tests/device/self_tests/test_chat_source_seal.py",
+        "tests/device/adapters/chat_journey/cleanup_baseline.py",
+        "tests/device/adapters/chat_journey/CLEANUP_BASELINE.md",
+        "tests/device/feature_journeys/CLEANUP_CONSUMPTION.md"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1164,7 +1167,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Seal the independently consumed fresh Phase27/common3s cleanup baseline and include every new observation/publisher original in the complete archive before restart/IPC closure. Fresh private observations and independent cleanup witness/factory now pass owning checks. Explicit cold RPC/PID continuity, stereo and public operations remain missing; full warm archive/own-host860.797s applies to its older fixed source set.",
+      "nextExecutableStep": "Bind the actual external common cleanup consumption and its original global primary/Actor cursors before sealing and final archive. The private common3s baseline, fresh source seals and complete original catalog join pass owning Root checks64.310s/79.600s; updated actual factory49.496s. Optional post-baseline finalization hook counters pass1.394s. Private26phase publication history is not an external Journey cursor. Explicit cold RPC/PID continuity, stereo and public operations remain missing;860.797s full warm archive applies only to its older fixed source set.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

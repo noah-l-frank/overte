@@ -36,7 +36,7 @@ After equivalent synthetic-tool optimization and original-ledger cold reopening
 fixes, the same warm flow passes78.704s within120s: normal Cancel/Still/Save,
 independent actual host PNG,13 fresh Provider inspections, all15 quiet clocks
 and cold factory reopening without a repeated input. JNI/Android provider/UID
-and rendering boundaries remain explicit host seams. The catalog now contains158 groups; complete source areas stay3/14.
+and rendering boundaries remain explicit host seams. The catalog now contains160 groups; complete source areas stay3/14.
 
 The fixed Assets normal-input packet95aa81c067 is selected as25d8dcff66.
 The actual original QML and whole Pico observer/apply host case passes20.433s,
@@ -89,6 +89,18 @@ consumed-byte hashes, actual reply bytes and QObject death remain passive
 E2E/Pico-only observations. Normal upload/TLS/independent receiver composition
 and whole feature retirement remain open; no APK or device is qualified.
 
+Chat baseline0bcc11da8b is selected as64baf403f8 with disjoint owning groups.
+Integrated baseline64.310s, complete new-original catalog composition79.600s,
+actual Pico factory49.496s and coverage0.094s all pass (160 groups). The optional
+shared finalization hook019c514323, selected as6c3b15ee01, receives immutable
+actual cleanup-consumption bytes only after both cleanup calls and the original
+external3s wait; its five counters pass1.394s. Callback failure keeps both report
+flags false and cannot replay finalization. Public modules do not yet call it.
+The private26-phase publisher history does not represent an external Journey
+with multiple observations per phase: exact global primary/Actor cursors and
+consumed original rows must still join before capability admission. No newer
+whole archive run is claimed.
+
 | Area | Current Pico implementation | Concrete next boundary |
 | --- | --- | --- |
 | Worlds/navigation | Partial normal Places/bookmark/origin/directory/error and measured B/A transit with original stereo-source retirement | Fresh v2 image/actor publication, normal tablet and Go To closure, maturity composition, restart and independent final retirement |
@@ -100,7 +112,7 @@ and whole feature retirement remain open; no APK or device is qualified.
 | Web in tablet | Partial private26-action owner, independent actor/stereo and original per-role source/publication histories; current history-enabled complete run times out at120s | Complete current Journey verification, inactive-phase retirement, historical capture absence, immutable archive, host finalization and public binding |
 | Graphics | Complete source; actual public/session/common-engine route, original stereo/effects and independent final retirement host verified | Later compile and qualify the exact E2E candidate on Proxmox; no device work in this session |
 | Audio | Partial normal controls/cycle/history/PCM sources | Whole cycle owner, microphone stimulus, independent acoustic capture/publisher and lifecycle/cleanup join |
-| Chat | Partial private compiled/Witness journey, original archive/host close, new fresh observations and independent Phase27 cleanup witness/factory | Consume/seal final baseline, archive new originals before restart/IPC closure, cold RPC/PID continuity, stereo and public capability admission |
+| Chat | Partial private compiled/Witness journey, original archive/host close, fresh Phase27 baseline/seals and complete catalog join | Bind actual external common consumption/global primary and Actor cursors, cold RPC/PID continuity, stereo and public capability admission |
 | Snapshots | Partial Cancel/Still→normal Save owner, actual host PNG/provider/quiet and cold factory reopening verified within120s | Actual Pico OS chooser route, independent receiver/upload/actor/stereo and final callback/resource retirement |
 | Scripts | Complete source; host verified | Review/compile test-gated native source and later qualify the exact installed candidate through Proxmox |
 | Assets | Partial original VR Assets and bundle/destination/rename/import/delete controls, actual QML and whole Pico native input host verified | Original staging/upload/server mapping owner, oven/permission/model sources, independent actor and exact cleanup |
