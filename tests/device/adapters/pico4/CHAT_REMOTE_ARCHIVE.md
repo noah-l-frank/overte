@@ -278,3 +278,30 @@ This rechecks storage/return/catalog compatibility, not application/profile
 restart, IPC/archive retirement, full host finalization or complete shared
 execution. It does not qualify native/widget/network model seams as a product
 or device. A new true whole result remains absent.
+
+One next changed whole attempt used clean fixed
+`9aaa9e2720e145ee492c690899f39641ad7dd6e3`, with the same reviewed code as
+1943 and the unchanged 120-second limit. All 169 source bytes/HEAD matched
+before and after; manifest SHA-256 is
+`ef5b60e741328a03f5e259955e2e7d8c78a27aafe78bdac966bb02ec12365987`.
+It ended with timeout exit 124 after 120.012 s. Dispatcher steps 16, 17, 18
+and 19 completed at 82.299, 87.707, 101.234 and 111.347 s respectively.
+
+The original background child-to-dispatcher/flow join was actually reached
+and completed in this attempt. The child ran from 92.830 to 100.423 s. Its
+historical closure took 0.106259 s; the original final freshness check returned
+at 100.422 s. The dispatcher independently repeated that complete historical
+closure in 0.106002 s, finished its snapshot at 100.708 s and phase snapshot
+at 100.903 s. Original `flow.finish()` returned at 101.131 s and the parent
+durably completed step 18 at 101.234 s. The retained child still contains all
+31 pre-release and 31 post-release frames, exactly one arm/release pair and
+the original HOME/background/before-Resume/foreground OS observations. This
+is the completed original join, not a relabeling of `observed`.
+
+The final parent and flow retain 19 completed steps, last
+`network-remove-mixer`; no next input was issued. The ready Reader v3 contains
+88 complete logical originals/153 physical parts, no pending bundle and
+5,893,135 logical bytes. All originals remain retained. The true common hook,
+application/profile/IPC, archive and full host finalization were not reached.
+The next investigation concerns remaining common-wait/source-acquisition
+costs after the actual mixer removal. An unchanged whole retry is not evidence.
