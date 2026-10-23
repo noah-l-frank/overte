@@ -42,7 +42,7 @@ def admitted(owner,file_packet,scripts,button_packet,controls,binding,*,after_ep
     """Use originals only; no SDK, native query, filesystem write or selection."""
     binding=context(binding);need(integer(after_epoch,1) and re.fullmatch('[1-9][0-9]*',binding['processIdentity']))
     pid=int(binding['processIdentity']);owned=OwnedTabletWebAppFiles(None,Frozen(owner),binding).owned()
-    need(owned['tabletWebAppFilesVersion']==2)
+    need(owned['tabletWebAppFilesVersion']>=2)  # owned() accepts only closed current/legacy versions.
     exact(file_packet,{'schemaVersion','requestId','instance','sequence','requestedEpochMs','capturedEpochMs','processId','runId','operation','source'})
     need(type(file_packet['schemaVersion']) is int and file_packet['schemaVersion']==1
         and type(file_packet['requestId']) is str and re.fullmatch('ios-[0-9a-f]{32}',file_packet['requestId'])
@@ -52,7 +52,7 @@ def admitted(owner,file_packet,scripts,button_packet,controls,binding,*,after_ep
         and integer(file_packet['requestedEpochMs'],after_epoch) and integer(file_packet['capturedEpochMs'],file_packet['requestedEpochMs'])
         and file_packet['capturedEpochMs']-file_packet['requestedEpochMs']<5000)
     readback=file_packet['source'];NativeScriptFiles.validate_source(readback,'observe',owned['runId']);need(readback['exists'])
-    raw=originals(owned['featureRun'],owned['fixtureUrl'],owned['ticket'],owned['nonce'])
+    raw=originals(owned['featureRun'],owned['fixtureUrl'],owned['ticket'],owned['nonce'],version=owned['tabletWebAppFilesVersion'])
     need(all(row['exists'] for row in readback['files'])
         and {row['name']:base64.b64decode(row['base64'],validate=True) for row in readback['files']}==raw)
     url=readback['directory']+'/script.js'

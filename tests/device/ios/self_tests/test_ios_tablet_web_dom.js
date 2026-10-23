@@ -6,7 +6,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const root=path.resolve(__dirname,'../../../..');
 const source=require(path.join(root,'tests/device/native/ios_tablet_web_dom.js'));
 const reference=fs.readFileSync(path.join(root,'tests/device/fixture/parity/reference.js'),'utf8');
-function page({inline=false,bridge=true,inlineToken='c'.repeat(32)}={}) {
+function page({inline=false,bridge=true,inlineToken='c'.repeat(32),random=null}={}) {
     let epoch=100000,reading=false;const nodes=new Map(),handlers=new Map(),callbacks=[],outbound=[];
     const doc={readyState:'complete',title:inline?'Actual owned inline':'Actual original HTTP',activeElement:null,
         addEventListener(kind,callback) { if (!handlers.has(kind)) handlers.set(kind,[]);handlers.get(kind).push(callback); },
@@ -34,7 +34,7 @@ function page({inline=false,bridge=true,inlineToken='c'.repeat(32)}={}) {
     }
     const global={document:doc,Date:{now:()=>++epoch},URL,Promise,innerWidth:500,innerHeight:800,scrollX:0,scrollY:100,
         visualViewport:{width:500,height:400,offsetLeft:0,offsetTop:100,pageLeft:0,pageTop:100,scale:1},
-        crypto:{getRandomValues(bytes) { bytes.fill(17);return bytes; }},setInterval() { return 1; },setTimeout() { return 1; },
+        crypto:{getRandomValues(bytes) { if(random)random(bytes);else bytes.fill(17);return bytes; }},setInterval() { return 1; },setTimeout() { return 1; },
         getComputedStyle() { return {display:'block',visibility:'visible'}; },addEventListener() {},
         location:{href:inline?'http://'+inlineToken+'.overte-inline.invalid/index.html':'http://fixture.invalid/reference.html',pathname:'/reference.html',search:'',origin:'http://fixture.invalid',reload() {}},
         history:{back() {}},console};global.window=global;global.top=global;

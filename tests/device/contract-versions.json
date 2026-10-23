@@ -25,7 +25,7 @@
     "ios-world-web-whole-snapshot": {"current": 2, "reads": [2]},
     "ios-world-web-whole-snapshot-body": {"current": 2, "reads": [2]},
     "ios-world-web-snapshot-body": {"current": 1, "reads": [1]},
-    "ios-tablet-web-app-files": {"current": 2, "reads": [1, 2]},
+    "ios-tablet-web-app-files": {"current": 3, "reads": [1, 2, 3]},
     "ios-tablet-web-deferred": {"current": 1, "reads": [1]},
     "ios-tablet-web-defer-receipt": {"current": 1, "reads": [1]},
     "ios-uikit-input": {"current": 2, "reads": [1, 2]},

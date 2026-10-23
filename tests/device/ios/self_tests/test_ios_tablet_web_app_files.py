@@ -30,7 +30,7 @@ class TabletWebAppFilesTests(unittest.TestCase):
     def files(self):return OwnedTabletWebAppFiles(self.native,self.store,BINDING)
 
     def test_four_existing_bounded_files_reconstruct_actual_canonical_inline_input(self):
-        files=originals(RUN,ROOT,TICKET,NONCE);self.assertEqual(set(NAMES),set(files))
+        files=originals(RUN,ROOT,TICKET,NONCE,version=2);self.assertEqual(set(NAMES),set(files))
         self.assertTrue(all(0<len(raw)<=8192 for raw in files.values()))
         self.assertGreater(len(inline_data_url(RUN,TICKET,ROOT)),8192)
         chunk=lambda key:json.loads(files[key].decode().removeprefix('module.exports=').removesuffix(';\n'))
@@ -57,7 +57,8 @@ web.emit(JSON.stringify({contract:'overte-web-parity-v1',action:'echo',sequence:
 ending.emit();if(removed.length!==3||web.handlers.length||buttons.some(b=>b.clicked.handlers.length))throw Error('owned callbacks/buttons retained');
 web.emit(JSON.stringify({contract:'overte-web-parity-v1',action:'echo',sequence:18}));if(replies.length!==1||nav.length!==3)throw Error('ending navigated/retained callback');
 '''
-        replacements=dict(FILES=files,ROOT=ROOT,TICKET=TICKET,INLINE=inline_data_url(RUN,TICKET,ROOT))
+        inline=''.join(json.loads(files[key].removeprefix('module.exports=').removesuffix(';\n')) for key in ('companion.js','script-bundle/main.js'))
+        replacements=dict(FILES=files,ROOT=ROOT,TICKET=TICKET,INLINE=inline)
         program=re.sub(r'__(FILES|ROOT|TICKET|INLINE)__',lambda match:json.dumps(replacements[match[1]]),program)
         result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
         self.assertEqual(0,result.returncode,result.stderr)
@@ -67,7 +68,7 @@ web.emit(JSON.stringify({contract:'overte-web-parity-v1',action:'echo',sequence:
 
     def test_actual_storage_subrun_is_distinct_from_feature_run_and_originals_survive_rebuild(self):
         files=self.files();owner=files.reserve_app(RUN,ROOT,TICKET)
-        self.assertEqual(2,owner['tabletWebAppFilesVersion'])
+        self.assertEqual(3,owner['tabletWebAppFilesVersion'])
         self.assertNotEqual(RUN,owner['runId']);self.assertEqual(RUN,owner['featureRun'])
         self.assertEqual(owner,self.files().owned());directory=files.stage_reserved()
         self.assertEqual('file:///private/feature-script-'+owner['runId'],directory)
@@ -86,7 +87,8 @@ vm.runInNewContext(files['script.js'],{Script,Tablet:{getTablet:()=>tablet}});
 buttons[0].click();buttons[1].click();buttons[2].click();
 if(buttons.some(b=>b.properties.fixtureUrl!==root)||nav[0]!==root+'tickets/'+ticket+'/index.html'||nav[2]!==root+'tickets/'+ticket+'/reference.html'||nav[1]!==__INLINE__)throw Error('original URL changed by template replacement');
 '''
-        replacements=dict(FILES=files,ROOT=root,TICKET=TICKET,INLINE=inline_data_url(RUN,TICKET,root))
+        inline=''.join(json.loads(files[key].removeprefix('module.exports=').removesuffix(';\n')) for key in ('companion.js','script-bundle/main.js'))
+        replacements=dict(FILES=files,ROOT=root,TICKET=TICKET,INLINE=inline)
         program=re.sub(r'__(FILES|ROOT|TICKET|INLINE)__',lambda match:json.dumps(replacements[match[1]]),program)
         result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
         self.assertEqual(0,result.returncode,result.stderr)

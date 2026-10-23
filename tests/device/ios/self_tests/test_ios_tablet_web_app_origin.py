@@ -22,9 +22,9 @@ TICKET='7'*32
 NONCE='b'*32
 
 
-def originals_boundary():
-    raw=originals(RUN,ROOT,TICKET,NONCE);storage='8'*32;directory='file:///private/feature-script-'+storage;url=directory+'/script.js'
-    owner=dict(contractVersion=1,tabletWebAppFilesVersion=2,runId=storage,featureRun=RUN,ownerToken='9'*64,binding=BINDING,
+def originals_boundary(version=2):
+    raw=originals(RUN,ROOT,TICKET,NONCE,version=version);storage='8'*32;directory='file:///private/feature-script-'+storage;url=directory+'/script.js'
+    owner=dict(contractVersion=1,tabletWebAppFilesVersion=version,runId=storage,featureRun=RUN,ownerToken='9'*64,binding=BINDING,
         fixtureUrl=ROOT,ticket=TICKET,nonce=NONCE,hashes={key:hashlib.sha256(data).hexdigest() for key,data in raw.items()})
     files=dict(schemaVersion=1,requestId='ios-'+'1'*32,instance='2'*32,sequence=1,requestedEpochMs=EPOCH+1,capturedEpochMs=EPOCH+2,
         processId=31,runId=storage,operation='observe',source=dict(exists=True,directory=directory,files=[dict(name=key,exists=True,bytes=len(data),

@@ -20,9 +20,18 @@ from feature_journeys.navigation_scene import resource_root
 from feature_journeys.browser_fixture import inline_data_url
 from feature_journeys.fixtures import pinned_resource
 
-VERSION=2
-READS=(1,2)
+VERSION=3
+READS=(1,2,3)
 LABELS={'open':'WEB TEST','inline':'WEB INLINE','return':'WEB RETURN'}
+COMPACT_INLINE_STYLE='''<style id="owned-browser-controls-v1">
+body{margin:8px;font:16px sans-serif;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px}
+body>section{display:contents}section>*{display:none!important}
+section>label:has(>input#text),section>label:has(>input#foreign),#bridge,#bridgeStatus,#back,#reload,#recovery,section>a,#navigate{display:block!important}
+h1{grid-column:1;grid-row:1;font-size:18px;margin:0}#document{grid-column:1;grid-row:2;font-size:12px;margin:0;overflow-wrap:anywhere}
+#feature-marker{grid-column:2;grid-row:1/span 2;width:400px;max-width:100%;height:auto;justify-self:end}
+section>label,#bridgeStatus{grid-column:1/-1}button,input,a{font:inherit;min-height:40px;margin:0;padding:6px;box-sizing:border-box}
+input{width:100%;display:block}#bridgeStatus{min-height:24px;overflow-wrap:anywhere}
+</style>'''
 
 
 def originals(feature_run,fixture_url,ticket,nonce,*,version=VERSION):
@@ -30,6 +39,10 @@ def originals(feature_run,fixture_url,ticket,nonce,*,version=VERSION):
     for value in (feature_run,ticket,nonce):identifier(value)
     resource_root(fixture_url,feature_run)
     inline=inline_data_url(feature_run,ticket,fixture_url)
+    if version>=3:
+        prefix='data:text/html;charset=utf-8;base64,';need(inline.startswith(prefix))
+        html=base64.b64decode(inline[len(prefix):],validate=True).decode('utf-8');need(html.count('</head>')==1)
+        inline=prefix+base64.b64encode(html.replace('</head>',COMPACT_INLINE_STYLE+'</head>',1).encode()).decode()
     original=pinned_resource('web-source/client.js').decode()
     respond=original.split('    function respond(',1)[1].split('    function worldEvent(',1)[0]
     respond='    function respond('+respond

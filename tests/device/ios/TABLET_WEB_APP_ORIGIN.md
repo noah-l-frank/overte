@@ -4,7 +4,7 @@
 native source or host file and writes no state. Its version 1 result is
 preparation provenance, not an input, browser effect or cleanup receipt.
 
-Admission requires the current version 2 four-file app ownership record, exact
+Admission requires a closed version 2 or 3 four-file app ownership record, exact
 original native file readback, the actual directory returned by that source,
 and the unique running Script manager loading its `script.js`. The actual
 submitted UTF-16 root-code hash and length must equal the independently
@@ -29,6 +29,12 @@ app nonce. Labels, a requested URL, a click acknowledgment, or the existence
 of a similarly named running script cannot establish admission. Old version
 1 file ownership remains readable by its existing owner, but cannot acquire
 this current control-qualified app profile.
+
+The original generator is selected by the ownership record's actual version.
+New compact inline fixture inputs never replace old version 2 bytes during
+historical admission. Unknown future versions remain rejected by the closed
+owner reader before the source join. The origin result keeps version 1 because
+its fields and original-code/manager/control obligations are unchanged.
 
 `call_locations` derives the complete expected three-frame reply stack from
 the independent original root bytes. Locations use one-based UTF-16 columns,

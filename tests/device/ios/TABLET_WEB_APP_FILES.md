@@ -9,9 +9,13 @@ The original canonical inline HTML is 8887 bytes for the checked fixture and its
 canonical data URL is 11888 bytes. Existing native Script files remain limited
 to 8192 bytes each. The app therefore uses the existing four file names without
 changing their schema or byte bound: a small `script.js`, two actual
-`Script.require` modules containing consecutive unchanged data-URL segments, and
-a metadata module. Concatenation reconstructs exactly the canonical
-`inline_data_url(run,ticket,fixtureUrl)` bytes. No HTTP page becomes an inline
+`Script.require` modules containing consecutive data-URL segments, and
+a metadata module. Versions 1 and 2 reconstruct exactly the canonical
+`inline_data_url(run,ticket,fixtureUrl)` bytes. Version 3 adds only compact
+Tablet fixture CSS before encoding its inline input. It uses the same layout
+rules as the controlled HTTP fixture, allowing one configured marker region
+to be independently checked against both original DOMs. Shared `inline_source`
+and World fixture bytes remain unchanged. No HTTP page becomes an inline
 load receipt, and the native Sources/DOM/trace still independently prove the
 actual decoded inline carrier, binding and document.
 
@@ -43,7 +47,7 @@ readback of all four byte strings. Release uses only the saved storage UUID and
 owner token, observes actual directory absence, then retires its metadata;
 whole cleanup must separately archive the genuine native absence receipts.
 
-The current owner writes version 2 and reads versions 1 and 2. Version 2 uses
+The current owner writes version 3 and reads versions 1, 2 and 3. Version 2 uses
 one-pass unique template markers, so valid hostnames containing RUN, REFERENCE
 or NONCE cannot rewrite already inserted input bytes. Genuine version 1 owners
 reconstruct the exact original sequential-template bytes from the old generator;
@@ -51,6 +55,23 @@ their saved hashes, native files and namespace are not upgraded or relabelled.
 An independently frozen c75de13a9f hash fixture and native file readback check
 that compatibility. Legacy inputs lack the new actual fixture property and
 cannot qualify the new current app-control source.
+
+Version 3 preserves all original handlers, callbacks and root script bytes from
+version 2. Only its two inline modules and their metadata hash change. Existing
+version 2 ownership remains exactly readable and source-admissible; neither
+legacy byte set receives new CSS. Independently frozen `e614f70dae` hashes cover
+all four original files for both old versions. The new modules are 6519 bytes
+each for the tested URL, below the unchanged 8192-byte native limit. Geometry
+still comes from actual native presentation and original DOM rectangles; wrong
+configured marker geometry must fail. CSS input is not a rendering verdict.
+
+The persistent host app test driver executes actual generated Script callbacks
+and the pinned reference/observer JavaScript. Ordinary inputs create its host
+DOM events and actual Node V8 reply stacks. Its layout, UIKit/Qt/native routes
+and clocks are explicit models. The optional random callback in the existing
+DOM test helper supplies real Node entropy for new documents; the old default
+bytes remain unchanged. No host DOM rectangle qualifies real WebKit layout or
+device pixels.
 
 Seven host tests execute the actual generated JavaScript through Node with
 ordinary Tablet/Script boundary models, check all unchanged canonical inline
