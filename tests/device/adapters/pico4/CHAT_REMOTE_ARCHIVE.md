@@ -202,3 +202,16 @@ All original data remain retained. No true common hook, application/profile/
 IPC, archive-retirement or host result was reached. The next investigation
 must measure the original BG-child→dispatcher/flow guard path; another unchanged
 whole retry or relabeling of the observed child is not evidence of completion.
+
+The retained background history was then replayed only through the original
+pure grammar, using passive data views rather than constructing a live owner or
+querying a process. The unchanged 31 pre-release and 31 post-release rows caused
+632 `compose()` calls and took 0.614 s without profiling. Reusing the composed
+baseline and each composed row only inside that single validation reduced this
+to 130 calls and 0.119 s on the same retained originals. The implementation keeps
+no cache between calls. Mutating an earlier post-release row after a successful
+validation is still refused on the next call. Physical reads, source clocks,
+freshness guards, timer release, quiet cadence and both complete three-second
+windows are unchanged. These historical timings identify redundant grammar
+work; they do not establish the exact last stage reached by the timed-out live
+fixture or complete the background dispatcher/flow join.

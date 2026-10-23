@@ -119,6 +119,27 @@ class BackgroundTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.owner.run(20000)
         self.assertEqual(['lifecycle.background','app.launch'],self.original.inputs);self.assertTrue(self.original.foreground)
         self.assertEqual('failed',self.owner.state['phase']);self.assertTrue(self.native.released);self.assertTrue(self.store.path.exists())
+
+    def test_closed_history_recomposes_current_originals_without_repeated_baseline_or_warm_adoption(self):
+        from adapters.chat_journey.background import compose
+        self.owner.run(20000)
+        with patch('adapters.chat_journey.background.compose',wraps=compose) as measured:
+            self.owner.closed_history()
+        # The whole two-window grammar still inspects every original row. Its
+        # baseline and each row are composed once, rather than over 600 times.
+        self.assertGreaterEqual(measured.call_count,124)
+        self.assertLess(measured.call_count,150)
+        original_calls=len(self.native.commands);original_inputs=list(self.original.inputs)
+        for role in self.roles:
+            index=self.owner.state['releasedQuiet'][-2]['roles'][self.roles.index(role)]['index']
+            frame=role.frames[index];before=deepcopy(frame)
+            frame['view']['source']['ui']['draft']='unexpected'
+            with self.assertRaises(NativeUIError):self.owner.closed_history()
+            role.frames[index]=before
+        self.owner.closed_history()
+        self.assertEqual(original_calls,len(self.native.commands));self.assertEqual(original_inputs,self.original.inputs)
+        self.owner.run_id='f'*32
+        with self.assertRaises(NativeUIError):self.owner.closed_history()
     def test_cold_background_recovery_uses_only_os_sources_then_original_same_process_history(self):
         self.original.lost='lifecycle.background'
         with patch.object(ChatBackground,'recover_foreground',side_effect=NativeUIError('Explicit unavailable recovery transport')):

@@ -59,6 +59,15 @@ def status(packet,binding):
     return packet
 
 
+def _stable_pair(before,after,a,b):
+    """Compare two already composed originals within the current validation."""
+    need(a['open'] and a['channel']=='domain' and a['draft']=='' and b=={**a,'focused':False,'keyboard':False}
+        and after['view']['source']['ui']['generation']==before['view']['source']['ui']['generation'])
+    for key in ('primary','peer'):need(after[key]['source']['events']==before[key]['source']['events'])
+    first,last=before['lifecycle']['lifecycle'],after['lifecycle']['lifecycle']
+    need(last['backgrounds']>=first['backgrounds']+1 and last['activations']>=first['activations']+1 and last['launches']==first['launches'])
+
+
 class ChatBackground:
     """A restored timer is not Qt-object retirement or complete Chat cleanup."""
     def __init__(self,roles,source_factory,os_adapter,target,store,*,monotonic=time.monotonic,sleep=time.sleep):
@@ -106,14 +115,17 @@ class ChatBackground:
         self.state['sources'].append(dict(raw=self.source.last_raw,sha256=self.source.last_sha256));self.save(phase);self.now()
 
     def frames(self,refs):
-        need(type(refs) is list and len(refs)==2);frames=[]
+        return self._frames_states(refs)[0]
+
+    def _frames_states(self,refs):
+        need(type(refs) is list and len(refs)==2);frames=[];states=[]
         for role,reference in zip(self.roles,refs):
             exact(reference,{'index','ticket','queries','epochs'});need(integer(reference['index'],0,len(role.frames)-1));frame=role.frames[reference['index']]
             need(reference['ticket']==frame['ticket'] and reference['queries']==[frame[key].get('commandId',frame[key].get('requestId')) for key in ('primary','peer','view','lifecycle')]
-                and reference['epochs']==[frame[key]['capturedEpochMs'] for key in ('primary','peer','view','lifecycle')]
-                and 'state' in compose(role.run,frame,role.primary.pid,role.peer.pid,vr=True))
-            frames.append(frame)
-        return frames
+                and reference['epochs']==[frame[key]['capturedEpochMs'] for key in ('primary','peer','view','lifecycle')])
+            measured=compose(role.run,frame,role.primary.pid,role.peer.pid,vr=True);need('state' in measured)
+            frames.append(frame);states.append(measured['state'])
+        return frames,states
 
     def fresh_current(self,started,*,background=False):
         need(self.source.guard() is not False)
@@ -147,11 +159,7 @@ class ChatBackground:
     def stable(self,initial,current):
         for role,before,after in zip(self.roles,initial,current):
             a=compose(self.run_id,before,role.primary.pid,role.peer.pid,vr=True)['state'];b=compose(self.run_id,after,role.primary.pid,role.peer.pid,vr=True)['state']
-            need(a['open'] and a['channel']=='domain' and a['draft']=='' and b=={**a,'focused':False,'keyboard':False}
-                and after['view']['source']['ui']['generation']==before['view']['source']['ui']['generation'])
-            for key in ('primary','peer'):need(after[key]['source']['events']==before[key]['source']['events'])
-            first,last=before['lifecycle']['lifecycle'],after['lifecycle']['lifecycle']
-            need(last['backgrounds']>=first['backgrounds']+1 and last['activations']>=first['activations']+1 and last['launches']==first['launches'])
+            _stable_pair(before,after,a,b)
 
     def history(self,packet):
         need(packet['available'] and not packet['expired'] and self.state['sourceInputs'])
@@ -193,28 +201,31 @@ class ChatBackground:
         need(False)
 
     def closed_history(self):
-        need(self.state['before'] is not None and self.state['after'] is not None and len(self.state['sourceInputs'])==2 and self.state['sources'])
+        need(all(role.run==self.run_id for role in self.roles) and self.state['before'] is not None
+            and self.state['after'] is not None and len(self.state['sourceInputs'])==2 and self.state['sources'])
         packet=self.history(original_packet(self.state['sources'][-1],self.source.pid));release=self.state['sourceInputs'][1]
         need(packet['released'] and not packet['active'] and not packet['timerActive'] and packet['releaseCommandId']==release['commandId']
             and packet['lastIntentSequence']==release['intentSequence'])
-        self.stable(self.frames(self.state['before']),self.frames(self.state['after']))
+        initial,initial_states=self._frames_states(self.state['before']);final,final_states=self._frames_states(self.state['after'])
+        for before,after,a,b in zip(initial,final,initial_states,final_states):_stable_pair(before,after,a,b)
         release_packet=next(original_packet(row,self.source.pid) for row in self.state['sources']
             if original_packet(row,self.source.pid)['released'])
         original_lifecycle=None
         for key in ('quiet','releasedQuiet'):
             rows=self.state[key];need(len(rows)>=2);previous=None
             for row in rows:
-                current_lifecycle=[frame['lifecycle']['lifecycle'] for frame in self.frames(row['roles'])]
+                current,current_states=self._frames_states(row['roles'])
+                current_lifecycle=[frame['lifecycle']['lifecycle'] for frame in current]
                 if original_lifecycle is None:original_lifecycle=current_lifecycle
                 else:need(current_lifecycle==original_lifecycle)
-                self.stable(self.frames(self.state['before']),self.frames(row['roles']))
+                for before,after,a,b in zip(initial,current,initial_states,current_states):_stable_pair(before,after,a,b)
                 epochs=[epoch for ref in row['roles'] for epoch in ref['epochs']]
                 if key=='releasedQuiet':need(all(ref['epochs'][index]>=release_packet['capturedEpochMs'] for ref in row['roles'] for index in (0,2,3)))
                 if previous is not None:need(0<row['hostMonotonic']-previous['hostMonotonic']<=1.5 and all(0<end-begin<=1500 for begin,end in zip(previous['epochs'],epochs)))
                 previous={**row,'epochs':epochs}
             need(rows[-1]['hostMonotonic']-rows[0]['hostMonotonic']>=3
                 and all(end-begin>=3000 for begin,end in zip([epoch for ref in rows[0]['roles'] for epoch in ref['epochs']],epochs)))
-        need([frame['lifecycle']['lifecycle'] for frame in self.frames(self.state['after'])]==original_lifecycle)
+        need([frame['lifecycle']['lifecycle'] for frame in final]==original_lifecycle)
         need(all(a['index']<b['index'] for a,b in zip(self.state['quiet'][-1]['roles'],self.state['releasedQuiet'][0]['roles'])))
         osrows=self.state['os'];need(any(row['label']=='before-home' and row['packet']['foreground'] for row in osrows)
             and any(row['label']=='background' and not row['packet']['foreground'] for row in osrows)
