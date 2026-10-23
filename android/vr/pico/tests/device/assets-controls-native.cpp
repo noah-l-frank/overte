@@ -54,6 +54,10 @@ void AssetMappingsScriptingInterface::advanceBundle(const std::shared_ptr<Bundle
 Q_LOGGING_CATEGORY(entities,"assets-original-entity-host")
 #include "AssetsEntityOriginals.inc"
 #endif
+#if defined(ASSETS_ORIGINAL_RESOURCE_READ)
+#include "assets-resource-host.h"
+Q_LOGGING_CATEGORY(networking,"assets-original-resource-host")
+#endif
 #undef ANDROID_APP_PICO_INTERFACE
 #include "libraries/ui/src/FileDialogHelper.h"
 Q_LOGGING_CATEGORY(uiLogging,"ui")
@@ -71,6 +75,9 @@ Q_LOGGING_CATEGORY(qmlLogging,"qml-original-loader-host")
 #if defined(ASSETS_ORIGINAL_SERVER_QUERY)
 #include "assets-server-status-host.h"
 Q_LOGGING_CATEGORY(asset_server,"assets-normal-server-read-host")
+#if defined(ASSETS_ORIGINAL_RESOURCE_READ)
+#include "AssetsServerMappingOriginal.inc"
+#endif
 #endif
 namespace AssetUtils {
 QByteArray loadFromCache(const QUrl&){return {};}
@@ -141,6 +148,39 @@ int main(int argc,char**argv){
 #endif
 #else
  AssetsNativeClient originalReadClient;
+#endif
+#if defined(ASSETS_ORIGINAL_RESOURCE_READ)
+ const auto resourceStats=QSharedPointer<StatTracker>::create();DependencyManager::slot<StatTracker>()=resourceStats;
+ QJsonArray resourceWireOriginals;bool resourceAttempted=false;quint64 resourceSequence=0;const auto resourceInstance=QUuid::createUuid().toString(QUuid::WithoutBraces);
+ originalReadClient.client->originalServerMapping=[&](const QString& path) {
+  std::pair<AssetUtils::AssetServerError,QByteArray> result;
+  assert(QMetaObject::invokeMethod(&server,[&]{
+   assert(!path.contains('?'));const auto encoded=path.toUtf8();QByteArray input;const auto size=quint32(encoded.size());input.append(reinterpret_cast<const char*>(&size),sizeof(size));input+=encoded;
+   ReceivedMessage message(input);NLPacketList reply;server.handleGetMappingOperation(message,reply);assert(!reply.bytes.isEmpty());
+   result={AssetUtils::AssetServerError(quint8(reply.bytes.at(0))),reply.bytes.mid(1)};
+   resourceWireOriginals.append(QJsonObject{{"operation","mapping"},{"path",path},{"error",int(result.first)},
+    {"wireBase64",QString::fromLatin1(reply.bytes.toBase64())},{"serverFiles",server.originalFiles()},
+    {"serverInstance",server.instance},{"capturedEpochMs",static_cast<double>(QDateTime::currentMSecsSinceEpoch())}});
+  },Qt::BlockingQueuedConnection));return result;
+ };
+ originalReadClient.client->originalServerBlob=[&](const QString& hash) {
+  std::pair<AssetUtils::AssetServerError,QByteArray> result;
+  assert(QMetaObject::invokeMethod(&server,[&]{
+   assert(AssetUtils::isValidHash(hash));QFile input(server.getPathToAssetHash(hash));
+   result.first=AssetUtils::AssetNotFound;
+   if(input.open(QIODevice::ReadOnly)) {
+    struct stat before{},after{};assert(fstat(input.handle(),&before)==0 && S_ISREG(before.st_mode));result.second=input.read(1024*1024+1);
+    assert(input.atEnd() && result.second.size()<=1024*1024 && fstat(input.handle(),&after)==0
+     && before.st_dev==after.st_dev && before.st_ino==after.st_ino && before.st_size==after.st_size
+     && before.st_mtim.tv_sec==after.st_mtim.tv_sec && before.st_mtim.tv_nsec==after.st_mtim.tv_nsec
+     && before.st_ctim.tv_sec==after.st_ctim.tv_sec && before.st_ctim.tv_nsec==after.st_ctim.tv_nsec);
+    result.first=AssetUtils::NoError;
+   }
+   resourceWireOriginals.append(QJsonObject{{"operation","blob"},{"hash",hash},{"error",int(result.first)},
+    {"base64",QString::fromLatin1(result.second.toBase64())},{"serverFiles",server.originalFiles()},
+    {"serverInstance",server.instance},{"capturedEpochMs",static_cast<double>(QDateTime::currentMSecsSinceEpoch())}});
+  },Qt::BlockingQueuedConnection));return result;
+ };
 #endif
  engine.rootContext()->setContextProperty("fileDialogHelper",&files);
  QStandardItemModel model;QStandardItem* main=nullptr;
@@ -272,6 +312,34 @@ QtObject {
    if(action=="host-observe-original-ui") {packet=capture();}
 #if defined(ASSETS_ORIGINAL_ENTITY_LINK)
    else if(action=="host-original-entity-effect") {packet=entityBridge.snapshot(request.value("runId").toString());}
+#endif
+#if defined(ASSETS_ORIGINAL_RESOURCE_READ)
+   else if(action=="host-original-entity-resources") {
+    assert(!resourceAttempted);resourceAttempted=true; // An uncertain original read never silently reacquires.
+    const auto id=QUuid(request.value("entityId").toString());assert(entityBridge.api._entityTree && entityBridge.api._entityTree->objects.contains(id));
+    const auto entity=entityBridge.api._entityTree->objects.value(id);const auto originalUrl=QUrl(entity->properties.url);assert(originalUrl.scheme()=="atp");
+    QElapsedTimer budget;budget.start();QJsonArray packets;QByteArray mainBytes;const auto firstWire=resourceWireOriginals.size();
+    auto readResource=[&](const QUrl& url,const QString& role) {
+     AssetsResourceRead read(url);auto resource=new AssetResourceRequest(url,false);read.request=resource;
+     QObject::connect(resource,&ResourceRequest::finished,resource,[&]{
+      read.raw=resource->getData();read.result=resource->getResult();read.state=resource->getState();read.relative=resource->getRelativePathUrl();read.cache=resource->loadedFromCache();read.completed=true;
+      resource->deleteLater();
+     });
+     resource->send();
+     while(!read.completed && budget.elapsed()<1500){QTest::qWait(1);}
+     assert(read.completed);QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);assert(read.request.isNull());
+     auto captured=read.capture();captured["role"]=role;packets.append(captured);return read.raw;
+    };
+    mainBytes=readResource(originalUrl,"main");const auto doc=QJsonDocument::fromJson(mainBytes).object();
+    const auto mesh=doc.value("buffers").toArray().at(0).toObject().value("uri").toString();const auto texture=doc.value("images").toArray().at(0).toObject().value("uri").toString();
+    assert(!mesh.isEmpty() && !texture.isEmpty());readResource(originalUrl.resolved(QUrl(mesh)),"mesh");readResource(originalUrl.resolved(QUrl(texture)),"texture");
+    assert(resourceWireOriginals.size()==firstWire+6);
+    QJsonArray wires;for(auto index=firstWire;index<resourceWireOriginals.size();++index)wires.append(resourceWireOriginals.at(index));
+    packet=QJsonObject{{"assetsEntityResourcesHostVersion",1},{"requestId",request.value("requestId")},{"runId",request.value("runId")},
+     {"instance",resourceInstance},{"sequence",static_cast<double>(++resourceSequence)},{"entityId",id.toString(QUuid::WithoutBraces)},{"entityUrl",originalUrl.toString()},
+     {"resources",packets},{"serverOriginals",wires},{"serverInstance",server.instance},{"processId",static_cast<double>(QCoreApplication::applicationPid())},
+     {"capturedEpochMs",static_cast<double>(QDateTime::currentMSecsSinceEpoch())},{"elapsedMs",budget.elapsed()}};
+   }
 #endif
 #if defined(ASSETS_ORIGINAL_SERVER_QUERY)
    else if(action=="host-original-server-wire") {

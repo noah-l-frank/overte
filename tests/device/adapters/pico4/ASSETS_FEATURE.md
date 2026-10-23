@@ -1016,3 +1016,71 @@ repository policy/documentation/coverage groups pass. An overly broad
 package checks entered the full Pico catalog; its interrupted report is
 preserved and is not counted as a successful full-suite result. No unchanged
 owning positive was repeated to replace that interruption.
+
+## Original entity URL to independent original ATP bytes
+
+The next additive `assets-entity-resources` owning host case reads the actual
+created object's model URL from its stored entity, after original normal Add
+to World. It creates independent ATP readers; it does not claim the renderer
+created these requests. The complete original `AssetResourceRequest` header
+and implementation, `ResourceRequest` header and four method bodies execute
+with the existing complete original GetMapping/AssetRequest classes, original
+client factories and original server `handleGetMappingOperation`. Eight added
+file/body hashes bind these originals. Profiling/statistics/transport and
+bounded physical-file delivery remain declared endpoints. Read-only mapping
+queries have no skybox parameter, metadata write or oven dispatch.
+
+The original mapping request resolves the unchanged entity URL. The original
+AssetRequest verifies the physical response hash before its parent exposes
+bytes. Mesh and image URIs come from that actual glTF JSON and are resolved
+against the same actual URL, rather than caller-supplied companion URLs.
+All three returned raw byte arrays, original mapping-wire responses, physical
+file identities/hashes and server instance are archived. Every current server
+file tuple still matches all independent GetAll replies through subsequent
+normal Cancel/file-release/Home. The normal UI input and entity creator are
+not replayed by this independent reader.
+
+A durable pending command binds the exact prior raw entity original, binary/
+process/run scope and unique reader nonce before acquisition. The source latches
+its sole acquisition before reading; an uncertain attempt cannot silently
+reacquire another packet. Raw source bytes are saved before interpretation.
+Original native and host ages retain the 1500 ms bounds without replacing their
+anchors. The three complete reader lifecycles together took 74 ms in this run.
+Each outer ResourceRequest QPointer is bound to the actual newly created
+QObject; its original completion signal supplies the actual result/data and
+the host reader schedules QObject::deleteLater and independently measures
+QPointer absence. This retires its owned reader, not a product renderer cache.
+Private mapping/asset-child pointers are not exposed or guessed: their actual
+independent death remains unqualified by this packet. A null private member or
+an outer parent death is not substituted for that missing observation.
+
+The owning case passed in 39.694 seconds including compilation: actual glTF
+1758 bytes, mesh 96 bytes, image 76 bytes, all hashes matching the physical
+originals, and all three outer request objects dead. The required default
+`assets-read-native` regression passed in 5.269 seconds after adding optional
+mapping/blob transport callbacks; absent callbacks keep the original host path.
+The first 16.509-second compile failure (missing QUrlQuery definition in the
+new host include) remains preserved. Only that include was added before the
+successful targeted run. Limits remain 90 seconds per compiler, 120 per
+selector, and unchanged three-second/500-ms quiet windows. The new originals
+and their dependent copies count in the same 512-frame/16-MiB combined budget.
+The private `pico-assets-entity-resources-host` format is version 1; Root must
+merge its one selector additively and retain Root's current catalog count.
+
+The real renderer route is separate:
+`ModelEntityRenderer::doRenderUpdateAsynchronousTyped` creates a Model, calls
+`Model::setURL`, and obtains ModelCache geometry/resources. Its loaded geometry,
+texture state, mesh-extents dimension update, scene draw and independent
+actor/stereo observations are not supplied by this independent byte reader.
+Known entities/IDs, invalid original QML contexts, borrowed loader/window,
+child-request uncertainty and original histories/journals remain retained.
+No successful upload, actual server service/oven, automatic model load,
+renderer readiness, whole cleanup, device result or public feature capability
+is claimed. Feature 13/14 remains partial.
+
+Registry, seven Pico coverage tests (all 14 risk groups), six common Assets
+source cases, four focused repository groups and all 668 Markdown files pass.
+A read-only review of the retained raw archives additionally confirms the same
+server instance, producer PID and complete physical-file tuples across all
+22 independent original GetAll replies. The native owning positive was not
+repeated for this artifact review.

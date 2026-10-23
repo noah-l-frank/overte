@@ -62,7 +62,8 @@ public:
 #if defined(ASSETS_ORIGINAL_BUNDLE_UPLOADS)
    callback(true,blobs.contains(hash.toLatin1())?AssetUtils::NoError:AssetUtils::AssetNotFound,blobs.value(hash.toLatin1()));
 #else
-   callback(true,AssetUtils::NoError,content);
+   if(originalServerBlob){const auto actual=originalServerBlob(hash);callback(true,actual.first,actual.second);}
+   else callback(true,AssetUtils::NoError,content);
 #endif
   });return id;
  }
@@ -78,6 +79,7 @@ public:
  // Optional original server-body fixture. The ordinary request thread still
  // decodes its exact wire bytes; no requested/expected status is projected.
  std::function<QByteArray()> originalServerAll;
+ std::function<std::pair<AssetUtils::AssetServerError,QByteArray>(const QString&)> originalServerMapping,originalServerBlob;
  QSemaphore callbackReturned,allowDestroy;
 private:
  MessageID mapping(const MappingOperationCallback& callback,bool resolve,const QString& path=QString()){
@@ -85,6 +87,7 @@ private:
   QTimer::singleShot(10,this,[this,id,callback,resolve,path]{if(!pending.remove(id))return;
    auto reply=resolve?mappingReply:allReply;
    if(!resolve && originalServerAll)reply=originalServerAll();
+   if(resolve && originalServerMapping){const auto actual=originalServerMapping(path);callback(true,actual.first,QSharedPointer<ReceivedMessage>::create(actual.second));return;}
 #if defined(ASSETS_ORIGINAL_BUNDLE_UPLOADS)
    if(resolve) {
     if(!mappings.contains(path)){callback(true,AssetUtils::AssetNotFound,QSharedPointer<ReceivedMessage>::create(QByteArray()));return;}

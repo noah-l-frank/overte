@@ -229,6 +229,7 @@ TESTS = (
     test('assets-cancel-effects', "interaction", PYTHON, "device/test_assets_cancel_effects.py", requires=("c++", "pkg-config", "unshare")),
     test('assets-mapping-model', "interaction", PYTHON, "device/test_assets_mapping_model.py", requires=("c++", "pkg-config", "unshare")),
     test('assets-entity-effect', "interaction", PYTHON, "device/test_assets_entity_effect.py", requires=("c++", "pkg-config", "unshare")),
+    test('assets-entity-resources', "interaction", PYTHON, "device/test_assets_entity_resources.py", requires=("c++", "pkg-config", "unshare")),
     test('assets-read-native', "interaction", PYTHON, "device/test_assets_read_native.py", requires=("c++", "pkg-config")),
     test('assets-read-job', "interaction", PYTHON, "device/test_assets_read_job_native.py", requires=("c++", "pkg-config")),
     test('assets-backend-source', "interaction", PYTHON, "device/test_assets_source.py", requires=("c++", "pkg-config")),

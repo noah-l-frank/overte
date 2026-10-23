@@ -27,6 +27,11 @@ public:
  std::pair<AssetUtils::BakingStatus,QString> getAssetStatus(const AssetUtils::AssetPath&,const AssetUtils::AssetHash&);
  std::pair<bool,AssetMeta> readMetaFile(AssetUtils::AssetHash);
  void handleGetAllMappingOperation(NLPacketList&);
+#if defined(ASSETS_ORIGINAL_RESOURCE_READ)
+ void handleGetMappingOperation(ReceivedMessage&,NLPacketList&);
+ void writeMetaFile(const QString&,const AssetMeta&){qFatal("Writing skybox metadata is outside this read-only host qualification");}
+ void maybeBake(const QString&,const QString&){qFatal("Oven dispatch is outside this read-only host qualification");}
+#endif
  QString getPathToAssetHash(const AssetUtils::AssetHash&);
  QByteArray originalWire(){
   assert(QThread::currentThread()==thread() && _pendingBakes.isEmpty());++queries;NLPacketList packet;handleGetAllMappingOperation(packet);
