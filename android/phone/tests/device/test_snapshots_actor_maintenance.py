@@ -176,6 +176,15 @@ class SnapshotActorMaintenanceTests(unittest.TestCase):
                 time.sleep(.05);maintained=self.step(rig)
             self.assertEqual(accepted,rig.client.request('/runs/'+slot.harness.RUN)['entries'])
             rig.client.close();closed=self.step(rig)
+            if closed['state']['phase']=='watching':
+                # A retained history turn may observe actual closure and
+                # defer to the next cold, fresh closed-phase acquisition.
+                self.assertEqual(maintained['counts'],closed['counts'])
+                self.assertEqual(maintained['state']['last'],closed['state']['last'])
+                self.assertTrue(closed['state']['quiet']['complete'])
+                self.assertIsNone(closed['state']['closure'])
+                self.assertIsNone(closed['state']['pending'])
+                closed=self.step(rig)
             self.assertEqual('retired',closed['state']['phase'])
             self.assertFalse(closed['state']['closure']['active'])
             self.assertEqual(maintained['counts']['posts'],closed['counts']['posts'])
