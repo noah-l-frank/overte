@@ -47,7 +47,10 @@ class SnapshotActiveCancelHistoryTests(unittest.TestCase):
             self.assertEqual(['pending','cancelled'],cancelled['state']['captureHistory'])
             self.assertEqual(0,cancelled['state']['files'])
             rig.act('capture',dict(mode='still',format='png'))
-            rig.active_sequence=cancelled['sequence']
+            captured=rig.invoke('feature.snapshots.observe',dict(contractVersion=slot.harness.VERSION,
+                runId=slot.harness.RUN,afterSequence=cancelled['sequence']))
+            self.assertEqual(1,captured['state']['files'])
+            rig.active_sequence=captured['sequence']
             rig.active_feature_store=rig.adapter.snapshots_feature_store('test-only-appium')
             owner=unpack(rig.active_feature_store.read()['payload'])[0]
             self.assertEqual('active',owner['phase']);self.assertIsNone(owner['current'])
