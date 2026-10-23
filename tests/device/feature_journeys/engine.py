@@ -30,7 +30,8 @@ def matches(actual, expected):
 
 class Journey:
     def __init__(self, area, run, fixture_url, *, invoke, witness, activate,
-                 read_artifact, image_policy, continuity, monotonic, epoch_ms, sleep, report, navigation_source=None):
+                 read_artifact, image_policy, continuity, monotonic, epoch_ms, sleep, report, navigation_source=None,
+                 after_cleanup_baseline=None):
         if area not in SCENARIOS:
             raise ValueError('Unknown common feature area')
         self.area, self.run, self.url = area, identifier(run), fixture_url
@@ -66,6 +67,10 @@ class Journey:
         if area=='world-navigation' and not callable(navigation_source):raise ValueError('Original navigation HTTP source is required')
         self.navigation_source=navigation_source;self.navigation_previous=None;self.navigation_required=None
         self.navigation_instance=self.navigation_inputs=None
+        if after_cleanup_baseline is not None and not callable(after_cleanup_baseline):
+            raise ValueError('Post-baseline finalization requires a callable owner')
+        self.after_cleanup_baseline=after_cleanup_baseline
+        self.cleanup_consumption=None;self.cleanup_hook_started=False
 
     def now(self):
         value = number(self.monotonic())
@@ -408,6 +413,8 @@ class Journey:
         raise AssertionError('Common ' + self.area + ' ' + label + ': ' + last_problem)
 
     def execute(self):
+        if self.cleanup_hook_started:
+            raise ValueError('Consumed cleanup finalization cannot be replayed')
         scenario = SCENARIOS[self.area]
         expected_baseline = expand(scenario['baseline'], context(self.run))
         measured = scenario.get('measuredBaselineFields', [])
@@ -527,7 +534,20 @@ class Journey:
                         # active owner retires. Cleanup cannot reset a counter.
                         for key in ('worldAttempts','staleAttempts'):
                             cleanup_baseline[key]=self.samples[-1]['state'][key]
+                    cleanup_start=len(self.samples)
                     self.wait('cleanup-restored-baseline', ticket, barrier, cleanup_baseline, ['peer'], duration=3.0)
+                    if self.after_cleanup_baseline is not None:
+                        # These are historical observations actually consumed
+                        # above, never requested baseline facts or a fresh read.
+                        # Immutable bytes prevent the callback from changing
+                        # this checker's original phase/sample history.
+                        self.cleanup_consumption=json.dumps(dict(cleanupConsumptionVersion=1,
+                            contractVersion=VERSION,area=self.area,runId=self.run,fixtureUrl=self.url,
+                            ticket=ticket,actionBarrierEpochMs=barrier,sequenceSucceeded=primary is None,
+                            phase=self.phases[-1],samples=self.samples[cleanup_start:],finalSequence=self.sequence),
+                            sort_keys=True,separators=(',',':'),allow_nan=False).encode('utf-8')
+                        self.cleanup_hook_started=True
+                        self.after_cleanup_baseline(self.cleanup_consumption)
                     cleanup_okay = True
                 except BaseException as error:
                     cleanup_errors.append(error)

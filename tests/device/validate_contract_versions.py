@@ -37,6 +37,7 @@ REQUIRED = {
     "pico-browser-originals": 2,
     "pico-browser-geometry": 1,
     "pico-browser-app-controls": 1,
+    "feature-cleanup-consumption": 1,
     "chat-compiled-script-source": 2,
     "pico-emote-scene-source": 1,
     "pico-emote-scene-input": 1,

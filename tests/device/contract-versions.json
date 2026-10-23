@@ -93,6 +93,7 @@
     "artifact-manifest": {"current": 1, "reads": [1]},
     "capability-registry": {"current": 1, "reads": [1]},
     "feature-journey": {"current": 16, "reads": [16]},
+    "feature-cleanup-consumption": {"current": 1, "reads": [1]},
     "feature-navigation-provider": {"current": 2, "reads": [1, 2]},
     "pico-assets-ui-inventory": {"current": 1, "reads": [1]},
     "native-pico-assets-files": {"current": 1, "reads": [1]},
