@@ -70,6 +70,9 @@ testing includes its packager version check. Its registered standalone Node test
 may be covered by `npm test` only when the script is that exact command, has no
 pre/post hooks, and all ordinary registered inputs are present. The plan retains
 that logical coverage instead of running the same command twice.
+When all selected host suites are covered by package tasks, the separate host
+job is not selected. The package jobs must still succeed; any uncovered host
+suite continues to require the host job.
 
 CodeQL selects the actual Python or JavaScript/TypeScript extractor footprint.
 The trusted central analysis recipe and configuration govern the selection;
