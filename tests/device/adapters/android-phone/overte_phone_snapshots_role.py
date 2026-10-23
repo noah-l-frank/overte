@@ -219,7 +219,8 @@ class PhoneSnapshotsRole(PhoneCreateRole):
             rows=[row for frame in history for row in frame.get('workOriginals',([frame['scriptWork']] if frame.get('scriptWork') is not None else []))]
             if rows:self.work.restore(distinct(rows))
             self.track(self.work,'read','workOriginals')
-        self.documents=feature.documents(read_only=True,**baseline_args) if feature.state['docArm'] is not None else None
+        document_args={} if self.system else baseline_args
+        self.documents=feature.documents(read_only=True,**document_args) if feature.state['docArm'] is not None else None
         if self.documents is not None:
             floor=feature.state['docBinding']['floor']
             rows=[row for frame in history for row in frame.get('documentOriginals',([frame['measurement']['documents']] if frame.get('measurement') is not None and frame['measurement']['documents'] is not None else []))]

@@ -12,12 +12,14 @@ import os
 from _pickle import Pickler
 import threading
 
-from adapters.native_feature_observation import need
+from adapters.native_feature_observation import need,number
 from adapters.normal_feature_state import PrivateFeatureState
 from overte_phone_script_history import canonical,same
 from overte_phone_snapshots_history_pass import SnapshotHistoryReadPass,signature
 from overte_phone_snapshots_role import _UNPINNED,role_state,_restore_history_files
 from overte_phone_snapshots_evidence import SnapshotsOriginals
+from overte_phone_snapshot_system_context import SnapshotSystemContext
+from overte_phone_snapshot_documents_ui import SnapshotDocumentContext
 
 
 def _digest(value):return hashlib.sha256(canonical(value)).hexdigest()
@@ -46,11 +48,35 @@ def _same_phase(status,previous):
         need(same(status[key],previous[key]))
 
 
+def _callable_identity(value):
+    return (getattr(value,'__self__',None),getattr(value,'__func__',value))
+
+
+def _same_callable(value,expected):
+    actual=_callable_identity(value)
+    return all(a is b for a,b in zip(actual,expected))
+
+
+def passive_scope(feature):
+    """Check the existing passive scope; grant no new SDK or UI authority."""
+    f=feature;handoff=f.state['handoff'];need(type(handoff) is dict)
+    scope=f._system_scope
+    expected=SnapshotDocumentContext if 'snapshotDocumentResolutionVersion' in handoff['resolution'] else SnapshotSystemContext
+    need(type(scope) is expected and same(scope.binding,f.binding) and same(scope.chooser,handoff['resolution'])
+        and _same_callable(scope.guard,(scope,SnapshotSystemContext.guard))
+        and _same_callable(f.guard,_callable_identity(scope.guard))
+        and _same_callable(scope.authority,_callable_identity(f.header_authority))
+        and all(callable(getattr(scope,key,None)) for key in ('observe_binding','current_component','authority','monotonic'))
+        and (scope.last_clock is None or number(scope.last_clock,0,1e15)))
+    return scope
+
+
 class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
     """Reuse original byte/PNG/binary receipts without adopting a current fact."""
     @classmethod
-    def prepare(cls,feature,role,*,expected_role=_UNPINNED,previous_phase=None,cleanup=False):
-        f=feature;f.lock.assert_held();need(role in ('primary','actor') and type(cleanup) is bool)
+    def prepare(cls,feature,role,*,expected_role=_UNPINNED,previous_phase=None,cleanup=False,passive=False):
+        f=feature;f.lock.assert_held();need(role in ('primary','actor') and type(cleanup) is bool
+            and type(passive) is bool and not (cleanup and passive))
         if role!='primary' or f.role!='primary':return None
         store=PrivateFeatureState(f.store.path.with_name('phone-snapshots-'+role+'-originals.json'))
         try:before=signature(store.path)
@@ -69,19 +95,26 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
             return None
         need(signature(store.path)==before)
         state=role_state(header,f.binding,f.run,role)
-        if (f.state['phase'] not in (('cleaned',) if cleanup else ('baseline','active')) or f.state['current'] is not None or f.state['handoff'] is not None
+        if (f.state['phase'] not in (('cleaned',) if cleanup else ('baseline','active')) or f.state['current'] is not None
+                or (f.state['handoff'] is None if passive else f.state['handoff'] is not None)
                 or state['phase']!='ready' or state['pending'] is not None or state['sequence']==0):return None
+        if passive:
+            system=passive_scope(f);system_pin=cls._system_snapshot(system)
+            factory=_callable_identity(f.adapter._snapshot_system_context)
         f.bound();phase=f.phase.status(previous_phase)
         if previous_phase is not None:_same_phase(phase,previous_phase)
         need(phase['active'] and phase['activations'])
         if cleanup:f.cleanup_observe_phase(phase,previous_phase)
         elif phase['activations'][-1]['stimulus']['verb']=='cleanup':return None
-        return cls(f,role,store,header,state,phase,before,cleanup=cleanup)
+        if passive:
+            need(passive_scope(f) is system and _same_callable(f.adapter._snapshot_system_context,factory))
+            cls._system_matches(system,system_pin)
+        return cls(f,role,store,header,state,phase,before,cleanup=cleanup,passive=passive)
 
-    def __init__(self,feature,role,store,header,state,phase,role_signature,*,cleanup=False):
+    def __init__(self,feature,role,store,header,state,phase,role_signature,*,cleanup=False,passive=False):
         f=feature;f.lock.assert_held()
         self.feature,self.role_name,self.role_store=f,role,store
-        self.cleanup=cleanup
+        self.cleanup,self.passive=cleanup,passive
         self.role_header,self.state,self.phase=deepcopy(header),deepcopy(state),deepcopy(phase)
         self.feature_store=f.store;self.feature_header=deepcopy(f.previous)
         self.root,self.run,self.configuration=f.root,f.run,deepcopy(f.config)
@@ -91,27 +124,58 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         self.paths=(self.feature_store.path,self.role_store.path)
         self.signatures=(signature(self.feature_store.path),role_signature)
         self.prepared=dict(feature=self.feature_header,role=self.role_header,state=self.state,phase=self.phase,
-            binding=self.binding,configuration=self.configuration,featureStateSha256=self.feature_state_sha256,cleanup=cleanup)
+            binding=self.binding,configuration=self.configuration,featureStateSha256=self.feature_state_sha256,cleanup=cleanup,passive=passive)
         self.prepared_sha256=_digest(self.prepared)
         self.closed=self.started=self.replaying=False
         self.finished=self.claimed=self.read_claimed=False
         self.frames=self.digest=self.attached=None
         self.baseline=self.baseline_digest=None
         self.files={};self.file_seal=self.file_seal_sha256=None
+        self.system_scope=self.system_pin=self.system_factory=None
+        self.rebind_open=self.rebound=False
+        if passive:
+            self.system_factory=_callable_identity(f.adapter._snapshot_system_context)
+            self._pin_system(passive_scope(f))
         self._headers();self._memory()
 
-    def _headers(self):
+    def _pin_system(self,scope):
+        self.system_scope=scope
+        self.system_pin=self._system_snapshot(scope)
+
+    @staticmethod
+    def _system_snapshot(scope):
+        return dict(binding=deepcopy(scope.binding),chooser=deepcopy(scope.chooser),clock=scope.last_clock,
+            callbacks={key:_callable_identity(getattr(scope,key)) for key in ('observe_binding','current_component','authority','monotonic')})
+
+    @staticmethod
+    def _system_matches(scope,pin):
+        need(same(scope.binding,pin['binding']) and same(scope.chooser,pin['chooser'])
+            and all(_same_callable(getattr(scope,key),value) for key,value in pin['callbacks'].items())
+            and _same_callable(scope.guard,(scope,SnapshotSystemContext.guard))
+            and (pin['clock'] is None or number(scope.last_clock,pin['clock'],1e15)))
+
+    def _system_headers(self,*,current=True):
+        if not self.passive:return
+        f=self.feature;scope=self.system_scope;pin=self.system_pin
+        need(_same_callable(f.adapter._snapshot_system_context,self.system_factory))
+        self._system_matches(scope,pin)
+        if current:need(passive_scope(f) is scope)
+        pin['clock']=scope.last_clock
+
+    def _headers(self,*,check_system=True):
         f=self.feature
         need(not self.closed and os.getpid()==self.process and threading.get_ident()==self.thread
             and f.store is self.feature_store and (f.store.path,self.role_store.path)==self.paths
             and f.root==self.root and f.run==self.run and f.role==self.role_name=='primary'
             and same(f.config,self.configuration) and same(f.binding,self.binding)
             and type(self.cleanup) is bool and self.cleanup is self.prepared['cleanup']
+            and type(self.passive) is bool and self.passive is self.prepared['passive'] and not (self.cleanup and self.passive)
             and same(f.previous,self.feature_header)
             and getattr(f.adapter,'_existing_input_scope',None) is self.scope and same(self.scope,self.scope_value)
             and _digest(self.prepared)==self.prepared_sha256)
         for store,expected,pinned in zip((self.feature_store,self.role_store),(self.feature_header,self.role_header),self.signatures):
             need(signature(store.path)==pinned and same(store.read(),expected) and signature(store.path)==pinned)
+        self._system_headers(current=check_system)
         return True
 
     def _memory(self,*,verify_graph=True):
@@ -166,22 +230,40 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         # every such callback, before a constructor or current read escapes.
         self._headers();self._memory(verify_graph=verify_graph);self._verify_files()
         need(f.state['phase'] in (('cleaned',) if self.cleanup else ('baseline','active'))
-            and f.state['current'] is None and f.state['handoff'] is None)
+            and f.state['current'] is None and (f.state['handoff'] is not None if self.passive else f.state['handoff'] is None))
         return True
 
     def before_load(self):
         try:
-            need(not self.claimed);return self._qualification(verify_graph=False)
+            need(not self.claimed and not self.rebind_open and not self.rebound)
+            self._qualification(verify_graph=False)
+            self.rebind_open=self.passive;return True
         except BaseException:self.close();raise
 
     def after_load(self):
         try:
-            need(not self.claimed);return self._qualification(verify_graph=False)
+            need(not self.claimed)
+            if self.passive:
+                need(self.rebind_open and not self.rebound)
+                self._headers(check_system=False);self._memory(verify_graph=False);self._verify_files()
+                old=self.system_scope;new=passive_scope(self.feature)
+                need(new is not old and same(new.binding,self.system_pin['binding']) and same(new.chooser,self.system_pin['chooser']))
+                new_pin=self._system_snapshot(new)
+                need(old.guard() is True and new.guard() is True)
+                # The recreated scope has fresh factory callbacks. The factory
+                # and original SDK session, descriptors and old callbacks must
+                # still match after the last actual SDK query.
+                self._headers(check_system=False);self._memory(verify_graph=False);self._verify_files()
+                self._system_matches(new,new_pin)
+                need(passive_scope(self.feature) is new)
+                self._pin_system(new);self.rebind_open=False;self.rebound=True
+            return self._qualification(verify_graph=False)
         except BaseException:self.close();raise
 
     def frames_for(self,role):
         try:
             self.feature.lock.assert_held();need(not self.claimed and not self.closed and self.frames is not None)
+            need(not self.passive or self.rebound and not self.rebind_open)
             self._headers();self._memory();self._verify_files()
             need(role.feature is self.feature and role.role==self.role_name and role.store.path==self.role_store.path
                 and same(role.previous,self.role_header) and same(role.state,self.state) and not role._host_publication)
@@ -192,6 +274,7 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         """Reject a changed first constructor read before adopting its state."""
         try:
             self.feature.lock.assert_held();need(not self.claimed and self.started and self.digest is not None)
+            need(not self.passive or self.rebound and not self.rebind_open)
             self._headers();self._memory(verify_graph=False)
             need(role.feature is self.feature and role.role==self.role_name and role.store.path==self.role_store.path
                 and same(role.previous,self.role_header))
@@ -229,3 +312,4 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         # A shared actual graph belongs to the finished role until its own
         # facade disposal. Drop references only; never clear nested DTOs.
         self.closed=True;self.replaying=False;self.frames=None;self.attached=None;self.baseline=None
+        self.system_scope=self.system_pin=self.system_factory=None;self.rebind_open=False

@@ -563,7 +563,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                             history=SnapshotHistoryReadPass(role,prepared)
                             session.callback(history.close)
                     else:
-                        constructor_history=SnapshotConstructorHistoryPass.prepare(self,self.role)
+                        constructor_history=SnapshotConstructorHistoryPass.prepare(self,self.role,passive=self.state['handoff'] is not None)
                         if constructor_history is not None:session.callback(constructor_history.close)
                         else:
                             try:
@@ -608,7 +608,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                             previous_phase=deepcopy(history.phase)
                             history.close()
                             next_history=SnapshotConstructorHistoryPass.prepare(self,self.role,
-                                expected_role=role.previous,previous_phase=previous_phase,cleanup=history.cleanup)
+                                expected_role=role.previous,previous_phase=previous_phase,cleanup=history.cleanup,passive=history.passive)
                             # Once admitted, a lost owner or changed context
                             # never authorizes a fallback to a fresh bootstrap.
                             need(next_history is not None)
