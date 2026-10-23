@@ -203,6 +203,7 @@ REQUIRED = {
     "native-assets-request-lifetimes": 1,
     "pico-assets-resource-manager-host": 1,
     "pico-assets-resource-data-host": 1,
+    "pico-assets-geometry-parser-host": 1,
     "pico-assets-ui-inventory": 1,
     "native-pico-assets-files": 1,
     "pico-assets-file-owner": 1,

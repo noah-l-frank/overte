@@ -23,6 +23,7 @@ from adapters.assets_input import documents
 
 
 class AssetsEntityResourcesTests(unittest.TestCase):
+    resource_documents=staticmethod(documents)
     setUp=entity_module.AssetsEntityEffectTests.setUp
     make=entity_module.AssetsEntityEffectTests.make
     cancel_phase=entity_module.AssetsEntityEffectTests.cancel_phase
@@ -65,7 +66,7 @@ class AssetsEntityResourcesTests(unittest.TestCase):
             self.assertTrue(epoch<=packet['capturedEpochMs']<=self.host.epoch_milliseconds());self.assertLessEqual(packet['elapsedMs'],1500)
             self.assertEqual(entity['id'],packet['entityId']);self.assertEqual(entity['modelUrl'],packet['entityUrl'])
             self.assertEqual(['main','mesh','texture'],[row['role'] for row in packet['resources']]);self.resource_original=deepcopy(packet)
-            expected=documents();names=('main.gltf','mesh/triangle.bin','textures/checker.png')
+            expected=getattr(self,'resource_documents',documents)();names=('main.gltf','mesh/triangle.bin','textures/checker.png')
             for row,name in zip(packet['resources'],names):
                 data=base64.b64decode(row['base64'],validate=True)
                 self.assertEqual(expected['gltf-bundle/'+name],data);self.assertEqual(len(data),row['bytes']);self.assertEqual(hashlib.sha256(data).hexdigest(),row['sha256'])
