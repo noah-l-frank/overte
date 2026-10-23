@@ -22,7 +22,7 @@ from openxr_input.adapter_session import PicoOpenXrAdapterSession,AdapterSession
 
 
 class OriginalChannelTransport:
-    def __init__(self,test):self.test=test;self.envelopes=[];self.neutral=None;self.lose=False;self.ignore=False
+    def __init__(self,test):self.test=test;self.envelopes=[];self.neutral=None;self.lose=False;self.ignore=False;self.reads=[];self.held_sample=None
     def stage(self,envelope,profile,*,before_publish=None):
         test=self.test;state=test.home_store.read()
         test.assertEqual(envelope,state['envelope']);test.assertEqual('issued',state['phase'])
@@ -35,7 +35,9 @@ class OriginalChannelTransport:
         return dict(sequence=envelope['sequence'])
     def read_status(self,*,expected_nonce=None,expected_sequence=None):
         if expected_sequence is not None and self.lose:raise AdapterSessionError('Explicit lost host ACK after original delivery')
-        return deepcopy(self.neutral)
+        status=deepcopy(self.neutral)
+        if expected_sequence is None and self.held_sample==len(self.reads):status.update(state='active',activeCommandId='controller-button-1')
+        self.reads.append(deepcopy(status));return status
 
 
 class AssetsHomeOwnerTests(unittest.TestCase):
@@ -81,6 +83,9 @@ class AssetsHomeOwnerTests(unittest.TestCase):
         self.assertFalse(result['contextRetired']);self.assertTrue(result['retained']);self.assertEqual('home-retained',self.home_store.read()['phase'])
         self.assertTrue(result['page']['contextAlive']);self.assertFalse(result['page']['contextValid'])
         self.assertTrue(result['page']['loaderAlive'] and result['page']['windowAlive']);self.original_children()
+        state=self.home_store.read();self.assertEqual(2,state['assetsHomeOwnerVersion'])
+        self.assertEqual(len(unpack(state['pages'])),len(state['neutralReads']))
+        self.assertTrue(all(status==state['neutral'] for status in state['neutralReads'][1:]));self.assertEqual(state['neutral'],state['neutralFinal'][-1])
         history=deepcopy(unpack(self.home_store.read()['pages']));count=len(self.transport.envelopes);self.home_owner()
         self.assertTrue(same(history,self.home.pages.history));cold=self.home.reconcile();self.assertTrue(cold['homeObserved']);self.original_children()
         self.assertEqual(count,len(self.transport.envelopes));self.assertEqual(1,count)
@@ -94,6 +99,21 @@ class AssetsHomeOwnerTests(unittest.TestCase):
         self.assertTrue(result['homeObserved']);self.assertTrue(result['retained']);self.original_children()
         self.assertEqual(original['envelope'],self.home_store.read()['envelope']);self.assertEqual(1,len(self.transport.envelopes))
         self.assertTrue(all(command.get('operation')=='observe' for command in self.host.operations[len(operations):] if 'operation' in command))
+    def test_actual_held_status_inside_quiet_is_archived_and_refuses_home_qualification(self):
+        self.prepare();self.transport.held_sample=3
+        with self.assertRaises(NativeUIError):self.home.close_page()
+        state=self.home_store.read();self.assertEqual('issued',state['phase']);self.assertIsNone(state['quiet'])
+        self.assertEqual('active',state['neutralReads'][-1]['state']);self.assertEqual(self.transport.reads[-1],state['neutralReads'][-1])
+        self.assertEqual(state['neutral']['updatedEpochMs'],state['neutralReads'][-1]['updatedEpochMs'])
+        self.assertEqual(1,len(self.transport.envelopes));self.original_children()
+        self.assertFalse(json.loads(self.host.request(dict(action='host-original-assets-pointers')))['pageAlive'])
+    def test_legacy_v1_complete_journal_remains_unchanged_without_new_neutrality_claim(self):
+        self.prepare();self.assertTrue(self.home.close_page()['homeObserved']);current=self.home_store.read();legacy=deepcopy(current)
+        legacy['assetsHomeOwnerVersion']=1;del legacy['neutralReads'];del legacy['neutralFinal'];self.home_store.write(legacy,current)
+        before=self.home_store.path.read_bytes();reads=len(self.transport.reads);operations=len(self.host.operations);self.home_owner()
+        result=self.home.reconcile();self.assertEqual(dict(homeObserved=False,retained=True,legacyVersion=1),result)
+        self.assertEqual(before,self.home_store.path.read_bytes());self.assertEqual(reads,len(self.transport.reads));self.assertEqual(operations,len(self.host.operations))
+        self.assertEqual(1,len(self.transport.envelopes));self.original_children()
     def test_changed_original_file_journal_refuses_before_normal_home_input(self):
         self.prepare();original=deepcopy(self.files_before);changed=deepcopy(original);changed['stage']=True
         self.file_store.write(changed,original)
