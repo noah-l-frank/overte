@@ -1604,8 +1604,10 @@ def create_adapter(args, base_class):
             return (any(path.exists() or path.is_symlink() for path in (store.path,
                 store.path.with_name('snapshot-cancel-owner.json'),store.path.with_name('snapshot-cancel-files-owner.json'),
                 store.path.with_name('snapshot-cancel-originals.json'),store.path.with_name('snapshot-save-owner.json'),
-                store.path.with_name('snapshot-save-originals.json')))
-                or any(path.name.startswith(('snapshot-cancel-originals.json.frame-','snapshot-save-originals.json.frame-')) for path in store.path.parent.iterdir()))
+                store.path.with_name('snapshot-save-originals.json'),store.path.with_name('snapshot-upload-fail-owner.json'),
+                store.path.with_name('snapshot-upload-owner.json'),store.path.with_name('snapshot-upload-fail-originals.json'),
+                store.path.with_name('snapshot-upload-originals.json')))
+                or any(path.name.startswith(('snapshot-cancel-originals.json.frame-','snapshot-save-originals.json.frame-','snapshot-upload-fail-originals.json.frame-','snapshot-upload-originals.json.frame-')) for path in store.path.parent.iterdir()))
 
         @_private
         def _snapshot_cancel_owner(self,target,run,phase_source,*,source_lock=None):
@@ -1650,6 +1652,22 @@ def create_adapter(args, base_class):
                 parent.files.transport.artifacts,exports,run,publish)
             owner=PicoSnapshotSaveOwner(lock.path.with_name('snapshot-save-owner.json'),parent,exports,saved)
             return owner
+
+        @_private
+        def _snapshot_upload_owner(self,target,run,phase_source,verb,*,parent,source_lock=None,failure=None):
+            from adapters.pico4.snapshot_upload_owner import PicoSnapshotUploadOwner
+            from adapters.pico4.snapshot_save_owner import PicoSnapshotSaveOwner
+            from adapters.pico4.snapshot_upload_fixture import SnapshotUploadFixtureReader
+            from adapters.pico4.snapshot_upload_bytes import PicoSnapshotUploadBytes
+            _need(isinstance(parent,PicoSnapshotSaveOwner) and parent.run==run and parent.source is phase_source and verb in ('upload-fail','upload'))
+            if source_lock is None:source_lock=parent.lock
+            lock=self._script_journey()._lock(target,source_lock);_need(parent.lock is lock)
+            with lock.held():parent.load();_need(parent.state['stage']=='partial-ready')
+            fixture=SnapshotUploadFixtureReader(phase_source.client,run,epoch_ms=phase_source.epoch_ms,monotonic=phase_source.monotonic)
+            native=self._native_feature_observer(target)
+            independent=PicoSnapshotUploadBytes(fixture,native.guard,native.clock_ms,monotonic=native.monotonic)
+            return PicoSnapshotUploadOwner(lock.path.with_name('snapshot-'+verb+'-owner.json'),parent,
+                self._snapshot_upload_source(target,source_lock=lock),fixture,independent,native,verb,failure=failure)
 
         @_private
         def _snapshot_platform(self,target):
