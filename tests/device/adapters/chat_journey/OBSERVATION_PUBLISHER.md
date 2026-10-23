@@ -45,3 +45,10 @@ proves repeated initial/active observations, original normal Open, non-mutating
 pending input, exact lost-POST intent/no-resend, cached mutation and frozen-host
 native-age failures. The Pico factory checks use its existing owned stdin peer
 fixture, not a product or Assignment Client process. Device acceptance is zero.
+
+The outer source-lock context's actual exit is inside the same failure latch
+as the publication body. Its exception freezes the original cursor even when
+the inner cursor read, one received POST and final ready CAS already completed.
+The regression injects an exception only at depth zero after the actual held
+context exited. It was red before that enclosing latch; expected read-only
+`PhasePending` still leaves the owner usable before intent.

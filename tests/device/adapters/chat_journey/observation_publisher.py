@@ -69,13 +69,12 @@ class ChatObservationPublisher:
 
     def publish(self):
         need(not self.failed and len(self.rows)<MAX_FRAMES);pending=None
-        with self.cursor.held():
-            try:
-                self.control();need(self.base['phase']=='ready');self.preflight()
-            except PhasePending as error:pending=error
-            except Exception:self.failed=True;raise
-            if pending is None:
+        try:
+            with self.cursor.held():
                 try:
+                    self.control();need(self.base['phase']=='ready');self.preflight()
+                except PhasePending as error:pending=error
+                if pending is None:
                     started=self.cursor.current.now();self.write('reading',delivery='acquiring')
                     sample=self.cursor.read(len(self.cursor.rows));self.query_pending=True
                     observed=self.cursor.rows[-1];original=self.cursor.current.rows[-1]
@@ -90,7 +89,10 @@ class ChatObservationPublisher:
                     self.write('ready',delivery='ready',pending=None,chunks=chunks)
                     self.rows.append(row);self.hashes.append(digest(row));self.query_pending=False
                     self.control();self.cursor.final(started);clocks=self.cursor.clocks()
-                except Exception:self.failed=True;raise
+        except Exception:
+            # Context-manager exit belongs to this same publication. A
+            # completed-looking row cannot qualify an unreturned lock release.
+            self.failed=True;raise
         if pending is not None:raise pending
         try:self.cursor.released_fresh(clocks,started)
         except Exception:self.failed=True;raise

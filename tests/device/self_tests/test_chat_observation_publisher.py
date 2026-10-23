@@ -138,5 +138,31 @@ class ChatObservationPublisherTests(unittest.TestCase):
                 with self.assertRaises(NativeUIError):self.cursor.bind_freeze(lambda:True)
                 self.assertEqual(before,self.queries())
 
+    def test_actual_outer_lock_exit_failure_latches_publisher_and_freezes_original_cursor(self):
+        held=self.cursor.held;depth=[0];exits=[]
+        @contextmanager
+        def failed_outer_exit():
+            depth[0]+=1
+            try:
+                with held():yield
+            finally:
+                depth[0]-=1
+                if depth[0]==0:
+                    exits.append('actual outer lock released')
+                    raise OSError('Original outer lock metadata release failed')
+        self.cursor.held=failed_outer_exit
+        with self.assertRaises(OSError):self.owner.publish()
+        self.assertEqual(['actual outer lock released'],exits)
+        self.assertEqual(1,len(self.posts));self.assertEqual(1,len(self.cursor.rows))
+        self.assertEqual('ready',self.store.read()['phase'])
+        self.assertTrue(self.owner.failed);before=self.queries()
+        with self.assertRaises(NativeUIError):self.owner.publish()
+        self.assertEqual(before,self.queries());self.assertEqual(1,len(self.posts))
+        # The actual source locks remain available; the failed owner, rather
+        # than the injected exit wrapper, must reject any new cursor query.
+        self.cursor.held=held
+        with self.assertRaises(NativeUIError):self.cursor.read()
+        self.assertEqual(before,self.queries())
+
 
 if __name__=='__main__':unittest.main()
