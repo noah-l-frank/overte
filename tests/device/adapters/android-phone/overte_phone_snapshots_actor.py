@@ -6,6 +6,7 @@ retirement plan can never replace this actor's acquisition or quiet interval.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from contextlib import ExitStack
 import hashlib
 import os
 from adapters.native_feature_observation import exact,need,integer
@@ -807,7 +808,12 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         self._cleanup_reader=None;self._cleanup_anchor=(role.store,pin);return False
 
     def quiet_batch(self,role,prepared,started,*,warm=None,history=None,qualified_status=None):
-        f=self.feature;publication_warm=warm
+        with ExitStack() as passes:
+            return self._quiet_batch(role,prepared,started,warm=warm,history=history,
+                qualified_status=qualified_status,passes=passes)
+
+    def _quiet_batch(self,role,prepared,started,*,warm,history,qualified_status,passes):
+        f=self.feature;publication_warm=warm;batch_cue=None
         while True:
             if qualified_status is not None:
                 # finish() just checked these owners, graphs, files and phase
@@ -822,20 +828,24 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                 if not status['active']:return self.defer_cleanup_close(role,status,prepared['phase'])
                 self.cleanup_phase(status,prepared['phase'])
             cue=None;maintenance=None
-            published=(self.read_ready_mode() is not None and self.state['last'] is not None
+            mode=self.read_ready_mode()
+            if batch_cue is not None:self.primary_owner()
+            published=(mode is not None and self.state['last'] is not None
                 and self.state['last']['original']['sample']['ticket']==status['activations'][-1]['ticket'])
             if published:
                 cue=self.primary_cue(status)
                 if cue is None:maintenance=self.cleanup_maintenance(status)
                 if cue is None and maintenance is None:
                     self.retain_cleanup(role,status);return False
-            elif self.state['quiet'] is not None and self.state['quiet']['complete']:
+            elif mode is not None or self.state['quiet'] is not None and self.state['quiet']['complete']:
                 # A completed interval cannot create an unconsumed backlog.
                 # The Primary header is scheduling authority only; the next
                 # fact still comes from a new full independent acquisition.
                 cue=self.primary_cue(status)
-                if cue is None:
+                if cue is None and self.state['quiet'] is not None and self.state['quiet']['complete']:
                     self.retain_cleanup(role,status);return False
+            if batch_cue is not None:need(cue is not None and same(cue,batch_cue))
+            elif mode is not None and cue is not None:batch_cue=deepcopy(cue)
             if maintenance is not None:
                 self._ordinary_primary=deepcopy(maintenance);self.primary_owner()
             elif cue is not None:
@@ -874,12 +884,20 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                     facts={key:deepcopy(measured['state'][key]) for key in WITNESS_KEYS['snapshots']})
                 self.state.update(primaryCue=cue,pending=dict(sample=sample,issued=False));self.save();self.deliver()
                 self.retain_cleanup(role,status);return False
-            # Enrolled cleanup yields after each genuine sample so the next
-            # retained history replay can overlap another role's lock turn.
-            # Legacy cleanup keeps its original four-second scheduling slice.
-            if self.read_ready_mode() is not None or f.monotonic()-started>=4.0:
+            # Only an actual unconsumed slot permits a bounded quiet rebuild
+            # while its Primary waits unlocked. Maintenance still yields once.
+            if (mode is not None and batch_cue is None) or f.monotonic()-started>=4.0:
                 self.retain_cleanup(role,status);return False
-            f.sleep(.1)
+            if batch_cue is None:f.sleep(.1);continue
+            f.sleep(.05)
+            prepared=self.cleanup_anchor(role,status)
+            history=SnapshotActorHistoryPass(self,role,prepared,locked=True)
+            passes.callback(history.close)
+            history.read();qualified_status=history.finish()
+            if not qualified_status['active']:return self.defer_cleanup_close(role,qualified_status,prepared['phase'])
+            warm=self.cleanup_warm_pin(role,prepared,None,history=history)
+            warm.update(guard=getattr(f,'guard',None),system=getattr(f,'_system_scope',None),history=history)
+            publication_warm=warm
 
     @staticmethod
     def cleanup_phase(status,prepared):
