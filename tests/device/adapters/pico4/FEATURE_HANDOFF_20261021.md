@@ -2442,3 +2442,24 @@ coverage0.092s. Both initial integration failures are retained in the report.
 The catalog now has208 groups; complete source areas remain3/14. Post-Close
 original settings comparison and whole story/Qt/Executor/archive/host closure
 remain open; settingsRestored and device qualification remain false.
+
+## Original Assets entity and remote Chat archive wiring
+
+Assets source3a6c3a9211 is selected as18ed790321. Root2/209groups pass48.18s:
+coverage0.092s and two normal Add-to-World effect cases48.087s. Original native
+API/local-tree/factory dispatch and original creation marker bind the actual
+selected mapping URL; a nonempty returned ID without a local tree is refused
+as insertion evidence. Property/Octree/packet/factory/avatar/render endpoints
+remain explicit host seams. Entity and context remain retained; this proves
+neither a loaded/rendered model nor deletion. Actual renderer construction
+remains necessary before claiming automatic model/resource requests.
+
+Chat sourcef0d1209626 is selected asbb90fb10a6. Root original remote-catalog
+positive passes39.538s and coverage0.088s. Eighteen metadata/early-Parent/
+archive/actual-host-close and original warm Browser capture regressions pass
+23.568s. Exact returned roots, original transport chunks and independently
+qualified parent-consumed successor retain their actual stamps. The direct
+catalog diagnostic keeps sequenceSucceeded=false and all original files.
+The successful common True-hook/application/profile/IPC/archive/host route is
+wired, but its actual complete run still needs original image artifacts and
+qualification. Source-complete areas remain3/14; no APK/device result changes.

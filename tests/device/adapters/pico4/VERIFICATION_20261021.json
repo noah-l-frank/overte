@@ -3371,5 +3371,32 @@
       ]
     },
     "qualification": "Actual passive13-key Manager entries, Handle state/births, TSI dispatch and other-platform getter compiled; original Avatar mutation constructor/default destructor included, DI/storage/writer/UI remain seams. New Parent3 binds original SHA before first normal controller envelope; no retrospective old-run baseline, restore setter, complete story/Qt/Executor/archive/host release, APK or device qualification."
+  },
+  "assetsEntityEffectIntegration20261023": {
+    "status": "passed",
+    "catalog": 209,
+    "groups": 2,
+    "seconds": 48.18,
+    "checks": {
+      "coverage": 0.092,
+      "entityEffectTwoCases": 48.087
+    },
+    "sourceCommit": "3a6c3a9211e7178fcef85ac9597e5cf474b10f53",
+    "integrationCommit": "18ed790321",
+    "qualification": "Original QML mapping selection/import and original addModelEntity/addEntityInternal/addLocalEntityCopy/EntityTree/Factory/math/time bodies. Actual host QObject and creation marker, independent original server bytes and Cancel/File/Home. Property/factory/Octree/packet/avatar/renderer remain seams. Nonempty ID without a local tree cannot qualify insertion. Actual0.1 default retained; entity/context remain owned. No loaded/rendered/server-accepted/deleted entity or device qualification."
+  },
+  "chatRemoteCatalogIntegration20261023": {
+    "status": "targeted-passed-whole-true-chain-unqualified",
+    "catalog": 209,
+    "groups": 2,
+    "seconds": 39.63,
+    "checks": {
+      "coverage": 0.088,
+      "actualRemoteCatalogPositive": 39.538,
+      "metadataParentArchiveHostAndWarmBrowser18Cases": 23.568
+    },
+    "sourceCommit": "f0d1209626e0ff7d30971f4a6ac3c2ad19ad8e75",
+    "integrationCommit": "bb90fb10a6",
+    "qualification": "Actual immutable remote roots/chunks/nonce transport and current parent-consumed successor catalogued without stamp adoption. Direct diagnostic remains sequenceSucceeded=false and retains all original files. Existing typed app/profile/IPC/archive/host route is connected but the complete actual successful common execute-to-remote-host-close run remains unqualified."
   }
 }

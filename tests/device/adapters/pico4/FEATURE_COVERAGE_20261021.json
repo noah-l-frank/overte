@@ -1168,7 +1168,8 @@
         "tests/device/adapters/chat_journey/remote_consumed_sources.py",
         "tests/device/adapters/chat_journey/REMOTE_CONSUMED_SOURCES.md",
         "tests/device/self_tests/test_chat_remote_cleanup_prefix.py",
-        "tests/device/self_tests/test_chat_remote_consumed_sources.py"
+        "tests/device/self_tests/test_chat_remote_consumed_sources.py",
+        "tests/device/adapters/pico4/CHAT_REMOTE_ARCHIVE.md"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1212,7 +1213,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Bind the actual successful common Journey hook (actual sequenceSucceeded=true) to the existing application/profile/IPC/archive and host-close chain using the completed original remote-prefix/typed return/primary seal join. Root direct shared cleanup positive passes39.226s and preserves actual sequenceSucceeded=false; reader/literal12.398s and four failure cases81.462s also pass. No direct-wait result may authorize a whole successful recipe.",
+      "nextExecutableStep": "Execute the actual complete common Journey with original image artifacts, then actual True-Hook\u2192App/Profile/IPC\u2192RemoteArchive/Host closure. Existing route and exact original catalog are connected; Root catalog positive39.538s and18metadata/Parent/archive/host/warmBrowser checks23.568s pass. Direct catalog diagnostic preserves actual sequenceSucceeded=false and never retires sources or qualifies successful whole execution.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1436,7 +1437,10 @@
         "android/vr/pico/tests/device/test_assets_server_state.py",
         "android/vr/pico/tests/device/test_assets_mapping_pair.py",
         "android/vr/pico/tests/device/test_assets_cancel_effects.py",
-        "android/vr/pico/tests/device/test_assets_mapping_model.py"
+        "android/vr/pico/tests/device/test_assets_mapping_model.py",
+        "android/vr/pico/tests/device/test_assets_entity_effect.py",
+        "android/vr/pico/tests/device/assets-entity-host.h",
+        "android/vr/pico/tests/device/assets-entity-prepare.py"
       ],
       "declaredCheckpoints": 29,
       "inputVerbs": [
@@ -1490,7 +1494,7 @@
         "Drain oven/upload/picker workers and release actual staged originals",
         "Restore original server permission and prove complete namespace/resource absence"
       ],
-      "nextExecutableStep": "Join normal Add-to-World from the actual original AssetMappingModel/QML selected row to the actual EntityScriptingInterface/addEntityInternal/local EntityTree effect, preserving creation ownership and independent observations. Cancel/File/Home with same actual server body and separate GetAll process plus actual mapping model/proxy/QML refresh/filter/selection pass Root3/206groups68.78s. Retained context, successful upload, oven/Ready/model loading/stereo and whole cleanup remain open.",
+      "nextExecutableStep": "Bind the actual inserted Entity model URL to original AssetResourceRequest/GetMapping/AssetRequest bytes and real resource lifetime observations. The actual renderer/Model::setURL/ModelCache path is not constructed by the declared QObject factory seam; a separate bytes reader must not imply model loading. Root actual Add-to-World2cases+coverage pass48.18s; entity/context remain retained. Complete loaded-model/stereo/deletion/cleanup and whole feature remain open.",
       "nativeCompilation": "Selected whole Pico NavigationUi, original QML/pointer/FileDialogHelper/NativeFieldInput and production Assets-file getter/private descriptor storage host-compiled; complete application/APK unverified",
       "deviceQualification": "untested"
     },
