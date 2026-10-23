@@ -239,3 +239,17 @@ native read 5.716 s, native job 1.412 s, Python source 5.484 s, original probe
 source cases, eight probe cases and seven coverage checks. Documentation668,
 closed versions, common/product13, AST6, fixed-source provenance12 and whitespace
 checks passed. Limits and assertions were unchanged; no physical runs occurred.
+
+A follow-up seals publication after constructing both retained and returned
+copies, the raw digest and the next history frame. The final original guard,
+native epoch and elapsed host clock are sampled after that work; publication
+performs no later copy or history append. Frozen native-clock counterexamples
+age the final result copy and history admission independently for both source
+and readonly-retirement consumers. Each refuses without publishing a result or
+history; original read intent remains pending. The actual native producer's
+seven Python cases passed in 5.889 s. No limits or source timestamps changed.
+The same two counterexample methods were also executed against the exact
+pre-fix read bodies from `338124860682e70885fc7486200c5cd0a0de8805`, with their
+original defaults and current explicit clock/copy endpoints. All four subcases
+failed as expected (`NativeUIError not raised`, 6.011 s); the native producer
+was unchanged. The fixed seven-case owning source run above is green.

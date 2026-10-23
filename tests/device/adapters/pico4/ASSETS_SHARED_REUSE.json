@@ -54,7 +54,7 @@
       "path": "tests/device/adapters/pico4/assets_source.py",
       "sourcePath": "tests/device/adapters/android-phone/overte_phone_assets_source.py",
       "originalSha256": "212dd4ebd10dddb2932420b3bb1de54a7d915bdcfee2790f2a4c53eb6069f9eb",
-      "selectedSha256": "add41ec5a152cacb7159d3f9947aeb9e89d5e1c60a8eaf37e04914d0cd195e63",
+      "selectedSha256": "f4f9f8e89eef5c9f7a28d79cb5e6285997615445d2469cfa31603de718fc6e62",
       "adaptation": "Select strict original read parser/transport only; Pico source/action names, actual connection/dependency births, raw cold continuity, pending intent and combined native/host freshness; no Phone facade."
     }
   ],

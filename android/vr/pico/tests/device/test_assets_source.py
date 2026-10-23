@@ -13,6 +13,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 HERE=Path(__file__).resolve().parent;ROOT=HERE.parents[4]
 sys.path[:0]=[str(ROOT/'tests/device'),str(HERE)]
 from test_assets_read_native import compile_source
@@ -78,6 +79,38 @@ class AssetsSourceTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):reader.read(RUN)
         self.assertTrue(reader.pending);self.assertFalse(reader.history);self.assertEqual(1,len(self.operations))
         self.assertTrue(self.retirement().read(reader.pending)['source']['retired'])
+    def test_final_return_copy_age_refuses_both_sources_without_publication(self):
+        for retirement in (False,True):
+            with self.subTest(retirement=retirement):
+                self.host=0;original=self.reader();self.lost=True
+                with self.assertRaises(NativeUIError):original.read(RUN)
+                self.lost=False;self.host=0;reader=self.retirement() if retirement else self.reader()
+                epoch=int(time.time()*1000);reader.clock_ms=lambda:epoch;aged=False
+                def copying(value):
+                    nonlocal aged
+                    result=deepcopy(value)
+                    if type(value) is dict and 'capturedEpochMs' in value and not aged:
+                        aged=True;self.host+=2
+                    return result
+                module='adapters.pico4.assets_read_retirement' if retirement else 'adapters.pico4.assets_source'
+                with patch(module+'.deepcopy',side_effect=copying):
+                    with self.assertRaises(NativeUIError):reader.read(original.pending) if retirement else reader.read(RUN)
+                self.assertTrue(aged);self.assertIsNone(reader.last);self.assertFalse(reader.history)
+                if not retirement:self.assertIsNotNone(reader.pending)
+    def test_final_history_admission_age_refuses_both_sources_without_publication(self):
+        owner=self
+        class AgingHistory(list):
+            def append(self,value):owner.host+=2;return super().append(value)
+            def __add__(self,value):owner.host+=2;return super().__add__(value)
+        for retirement in (False,True):
+            with self.subTest(retirement=retirement):
+                self.host=0;original=self.reader();self.lost=True
+                with self.assertRaises(NativeUIError):original.read(RUN)
+                self.lost=False;self.host=0;reader=self.retirement() if retirement else self.reader();reader.history=AgingHistory()
+                epoch=int(time.time()*1000);reader.clock_ms=lambda:epoch
+                with self.assertRaises(NativeUIError):reader.read(original.pending) if retirement else reader.read(RUN)
+                self.assertEqual(2,self.host);self.assertIsNone(reader.last);self.assertFalse(reader.history)
+                if not retirement:self.assertIsNotNone(reader.pending)
     def test_changed_connection_birth_or_held_native_resource_never_supplies_inventory(self):
         reader=self.reader();reader.read(RUN)
         self.mutate=lambda value:value['source']['domainSession'].update(connectionBirth='f'*32)
