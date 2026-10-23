@@ -36,6 +36,7 @@ REQUIRED = {
     "observer-return-transport": 1,
     "chat-remote-actor-graph": 2,
     "chat-remote-actor-return": 1,
+    "chat-remote-publication": 1,
     "pico-chat-host-close": 1,
     "pico-chat-restart-io": 1,
     "pico-openxr-binding-transfer": 1,

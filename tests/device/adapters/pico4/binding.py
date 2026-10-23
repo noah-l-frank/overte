@@ -1049,6 +1049,33 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-remote-actor-return-')))
 
+        def _chat_remote_publication_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-remote-publication-')))
+
+        @_private
+        def _chat_remote_publication(self,target,parent,process,expected):
+            from adapters.pico4.chat_composition import PicoChatComposition
+            from adapters.chat_journey.remote_publication import ChatRemotePublication
+            from adapters.chat_journey.owned_peer import OwnedChatPeer
+            from fixture.chat_observer_process import LinuxChatObserverProcess
+            _need(type(parent) is PicoChatComposition and parent.adapter is self and parent.target==target and not parent.failed
+                and parent.previous['phase'] in ('prepared','step-completed','caches-retired')
+                and type(parent.peer) is OwnedChatPeer and type(process) is LinuxChatObserverProcess
+                and expected['hostProcessIdentity']==process.process_identity
+                and expected['runId']==parent.source.run and expected['fixtureUrl']==parent.source.fixture_url
+                and expected['binding']==parent.binding and expected['peerBinding']==parent.peer.binding)
+            parent.guard();process.guard()
+            stores=dict(actor=self._chat_cursor_actor_store(target),flow=self._chat_flow_inputs_store(target),
+                cleanup=self._chat_cleanup_admission_store(target),publisher=self._chat_observation_publisher_store(target),
+                cursor=self._chat_observation_cursor_store(target,'actor',witness=True),code=self._chat_script_source_store(target,'actor',witness=True))
+            for stage in ('initial','active','cleanup'):
+                stores[stage+'-observation']=self._chat_observation_store(target,'actor',stage=stage,witness=True)
+                stores[stage+'-samples']=(self._chat_samples_store(target,'actor',witness=True) if stage=='active' else
+                    self._chat_cache_absence_store(target,'actor',stage='final' if stage=='cleanup' else 'initial',witness=True))
+            return ChatRemotePublication(process,parent.source,stores,expected,(parent.lock,parent.peer.lock),
+                self._chat_remote_publication_store(target),peer_epoch_ms=parent.peer.clock_ms,guard=parent.guard)
+
         @_private
         def _chat_remote_actor_return(self,target,parent,process,expected):
             from adapters.pico4.chat_composition import PicoChatComposition
@@ -1235,6 +1262,7 @@ def create_adapter(args, base_class):
             stores.extend((self._chat_cursor_actor_store(target),self._chat_cursor_actor_stop_store(target),
                 self._chat_cursor_actor_return_store(target),self._chat_cursor_actor_consumption_store(target)))
             stores.append(self._chat_remote_actor_return_store(target))
+            stores.append(self._chat_remote_publication_store(target))
             stores.append(self._chat_cursor_cleanup_consumption_store(target))
             stores.append(self._chat_observation_publisher_store(target))
             stores.extend(self._chat_observation_cursor_store(target,role,witness=witness)
