@@ -1375,3 +1375,76 @@ count. The next integration boundary is the actual GeometryResource download
 handoff and original Baker, with real resource ownership and effects measured
 before any readiness claim. Feature 13/14 stays partial; public capabilities
 remain unchanged.
+
+### Original GeometryResource download and ownership, before Baker processing
+
+The additive `assets-geometry-resource` fixture replaces the preceding weak
+host Resource receiver with the full original Resource base and complete
+original Geometry/GeometryResource declarations. A host subtype only exposes
+the actual protected request for observation; it uses the original inherited
+constructor and overrides no product operation. Original setExtra, complete
+downloadFinished, mapping-loaded, resetTextures and deleter bodies are compiled,
+including the original global QThreadPool submission. Generic Resource request,
+progress, byte-loaded signal, download handoff, finished(false), self/reference
+handling and QObject deletion use their original method bodies. Cache startup,
+scheduling/index and FST operations remain declared boundaries. The fixture
+constructs an uncached resource and calls original setExtra(nullptr); the full
+ModelCache/getGeometryResource/GeometryExtra cache acquisition is not qualified.
+
+The original new-expression is compiled through a named passive derived reader.
+It invokes the original GeometryReader constructor and run with their actual
+arguments; weak owner binding checks the exact resource, URL and owner thread
+while the original handleReplyFinished self guard is active. Observation holds
+no strong Resource reference. All birth/run/destructor rows carry the same
+original resource identity. The existing parser/registry/HFM CPU implementation
+is reused byte-for-byte, excluding its separate main/host receiver. Recorded
+transport now uses the complete original ResourceRequest declaration, constructor
+and send methods, with a declared byte-delivery endpoint. Original
+ResourceRequestObserver.update events for both main and external mesh are saved.
+
+The indexed owning case is fully green: actual Qt GeometryResource construction,
+2066 original loaded bytes, real parser HFM handoff, balanced global worker,
+original failure delivery at the declared Baker stop, release of the external
+reference, actual resource and parented request QObject death, and unchanged
+normal Cancel/file/Home with independent original server files. The four owner
+rows show resourceLoaded/HFM false, then actual resourceFailed true, and finally
+actual absence. These are observed original fields, not substituted readiness.
+The parentless recorded mesh request remains alive before process exit; its
+retirement is not inferred. No actual Baker processing, setGeometryDefinition,
+network material/texture processing, rendering or stereo result is claimed.
+The complete NetworkMaterialResource declaration is compiled solely to satisfy
+Qt's original MaterialMapping metatype; no such object is constructed.
+
+The complete two-case selector remains RED in 64.064 seconds (63.435 inside
+unittest). The old unmodified nonindexed counter actually reaches the original
+parser refusal and retires its original GeometryResource/parented request in
+2 ms, with all raw originals saved. Its later ordinary Cancel stops at the
+unchanged 500-ms predicate: consecutive retained UI rows 6 and 7 have elapsed
+7505 to 8084 ms (579 ms), and original captured epochs 1792752745237 to
+1792752745818 (581 ms). This is a real sampling-gap refusal, not a selector
+timeout. The journal remains canceling/files-ready; no normal file-release or
+Home qualification follows from that case. No unchanged retry or shortened
+quiet period was performed. The existing strict semantic memo is already in
+use; no unmeasured performance change is attributed to this failure.
+
+Cold reconstruction of the fully green indexed case confirms 458/512 frames
+and 1,022,913 raw bytes, including four worker, four owner, two observer, two
+transport and one loader rows, envelope/handoff and complete dependent input
+copies. The counter's incomplete transcript remains separately retained and is
+not counted as a complete-path budget proof. Each actual native acquisition
+reports 2 ms. All consumed sources stayed unchanged. Existing 120-second
+selector/90-second compiler, 1.5-second acquisition, three-second/500-ms quiet
+and 512-frame/local 16-MiB caps are unchanged. Earlier generic Resource and
+nine-request lifetime proofs remain separate.
+
+Two preceding compile-only refusals remain preserved, with zero acquisitions:
+40.124 seconds exposed Qt's requirement for a complete NetworkMaterialResource
+metatype declaration; 45.209 seconds exposed duplicate original Resource bodies
+through forced includes in multiple translation units. The fixes add only the
+original type declaration and place the unchanged original method bodies in
+one translation unit; all other units receive declarations. No product source
+or functional behavior changed. The private format is
+`pico-assets-geometry-resource-host` version 1. Root must add the selector and
+coverage mapping additively without copying this worktree's catalog count.
+The next real boundary is original ModelCache extra admission and original
+Baker processing; feature 13/14 and whole Assets qualification remain partial.
