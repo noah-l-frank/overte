@@ -211,7 +211,11 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         frames=host.restore(self.state['inputs'],self.state['inputSequence'])
         self.bound();return frames
 
-    def original(self):
+    def original(self,*,_history_pass=None):
+        if _history_pass is not None:
+            from overte_phone_snapshots_constructor_history import SnapshotConstructorHistoryPass
+            need(type(_history_pass) is SnapshotConstructorHistoryPass and _history_pass.feature is self)
+            return _history_pass.original()
         return self.baseline_original(self.input_originals())
 
     def baseline_original(self,frames):
@@ -245,13 +249,15 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
             result=self.adapter._snapshot_system_files(self.selector,root,owner,self.binding,handoff['resolution'],self.header_authority,handoff_source)
         result.attach(self.state['filesBinding']);return result
 
-    def documents(self,*,read_only=True):
+    def documents(self,*,read_only=True,_history_pass=None):
+        need(_history_pass is None or read_only and self.state['handoff'] is None)
         need(self.state['docArm'] is not None)
         if read_only and self.state['handoff'] is not None:
             return self.adapter._snapshot_system_documents(self.selector,self.run,self.state['docArm'],self.config['receiverApkSha256'],
                 self.binding,self.state['handoff']['resolution'],self.header_authority,binding=self.state['docBinding'])
         return self.adapter._snapshot_documents(self.selector,self.run,self.state['docArm'],self.config['receiverApkSha256'],self.binding,
-            self.original()['documentResolution'],self.header_authority,read_only=read_only,binding=self.state['docBinding'])
+            (self.original() if _history_pass is None else self.original(_history_pass=_history_pass))['documentResolution'],
+            self.header_authority,read_only=read_only,binding=self.state['docBinding'])
 
     def consumer(self,*,read_only=True):
         need(self.state['consumerArm'] is not None)
@@ -261,9 +267,11 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         return self.adapter._snapshot_system_consumer(self.selector,self.run,self.state['consumerArm'],self.config['receiverApkSha256'],
             self.binding,self.state['handoff']['resolution'],self.header_authority,read_only=read_only,binding=self.state['consumerBinding'])
 
-    def settings(self,*,read_only=True):
+    def settings(self,*,read_only=True,_history_pass=None):
+        need(_history_pass is None or read_only)
         result=self.adapter._snapshot_settings(self.selector,read_only=read_only)
-        result.restore_source(self.original()['settings']);return result
+        original=self.original() if _history_pass is None else self.original(_history_pass=_history_pass)
+        result.restore_source(original['settings']);return result
 
     def initialize(self):
         need(self.role=='primary' and (self.state is None or self.state['phase']=='preparing'))

@@ -7,8 +7,9 @@ factories, all continuity-floor replay and both final qualifications stay locked
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import hashlib
-import marshal
+import io
 import os
+from _pickle import Pickler
 import threading
 
 from adapters.native_feature_observation import need
@@ -16,19 +17,27 @@ from adapters.normal_feature_state import PrivateFeatureState
 from overte_phone_script_history import canonical,same
 from overte_phone_snapshots_history_pass import SnapshotHistoryReadPass,signature
 from overte_phone_snapshots_role import _UNPINNED,role_state,_restore_history_files
+from overte_phone_snapshots_evidence import SnapshotsOriginals
 
 
 def _digest(value):return hashlib.sha256(canonical(value)).hexdigest()
 
 
-def graph_digest(value):
-    """Seal a same-call private graph; never encode a persistent original.
+class _GraphPickler(Pickler):
+    def reducer_override(self,value):
+        raise TypeError('Custom objects are not private JSON originals')
 
-    Version two preserves scalar/container types without reference-count or
-    alias encodings. A dictionary-order change is conservatively rejected.
-    No marshal reader or custom-object callback is part of this authority.
+
+def graph_digest(value):
+    """Hash only a same-call graph, without reductions or a payload reader.
+
+    Memo-free encoding preserves builtin scalar/container types and ignores
+    external or internal alias counts. Cycles and custom objects fail closed.
+    This encoding never supplies a persistent original or a source digest.
     """
-    return hashlib.sha256(marshal.dumps(value,2)).hexdigest()
+    with io.BytesIO() as stream:
+        encoder=_GraphPickler(stream,protocol=4);encoder.fast=True;encoder.dump(value)
+        return hashlib.sha256(stream.getbuffer()).hexdigest()
 
 
 def _same_phase(status,previous):
@@ -85,6 +94,7 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         self.closed=self.started=self.replaying=False
         self.finished=self.claimed=self.read_claimed=False
         self.frames=self.digest=self.attached=None
+        self.baseline=self.baseline_digest=None
         self.files={};self.file_seal=self.file_seal_sha256=None
         self._headers();self._memory()
 
@@ -106,6 +116,8 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
             and same(role_state(self.role_header,self.binding,self.run,self.role_name),self.state))
         if self.digest is not None and verify_graph:
             need(type(self.frames) is list and graph_digest(self.frames)==self.digest)
+        if self.baseline_digest is not None:
+            need(type(self.baseline) is dict and graph_digest(self.baseline)==self.baseline_digest)
         if self.attached is not None:self._reader(self.attached,verify_graph=verify_graph)
         return True
 
@@ -123,7 +135,16 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         try:
             need(not self.started and not self.closed and self.feature.lock._owner is None)
             self.started=True;self.guard();self._memory();self.replaying=True
-            try:frames=_restore_history_files(self.feature,self.role_name,self.state,self.guard,receipts=self)
+            try:
+                frames=_restore_history_files(self.feature,self.role_name,self.state,self.guard,receipts=self)
+                f=self.feature
+                host=SnapshotsOriginals(f.root,f.binding,f.run,'primary',self.guard,lambda *_:need(False),kind='snapshots-input')
+                read,manifest=host.read,host.manifest
+                host.read=lambda value:self.read_original(read,host.path,value)
+                host.manifest=lambda value:self.read_original(manifest,host.manifest_path,value)
+                inputs=host.restore(f.state['inputs'],f.state['inputSequence'])
+                self.baseline=f.baseline_original(inputs)
+                self.baseline_digest=graph_digest(self.baseline)
             finally:self.replaying=False
             self.guard();self._memory()
             self.frames=frames;self.digest=graph_digest(frames)
@@ -172,6 +193,21 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
             return True
         except BaseException:self.close();raise
 
+    def original(self):
+        """Return a defensive baseline only inside this admitted constructor."""
+        try:
+            f=self.feature;f.lock.assert_held()
+            need(not self.closed and self.claimed and not self.finished and not self.read_claimed
+                and self.attached is not None and self.baseline is not None)
+            f.bound();self._headers();self._memory(verify_graph=False);self._verify_files()
+            value=deepcopy(self.baseline)
+            f.bound()
+            # The last native callback may mutate a private graph or owner.
+            self._headers();self._memory(verify_graph=False);self._verify_files()
+            need(graph_digest(value)==self.baseline_digest)
+            return value
+        except BaseException:self.close();raise
+
     def finish_constructor(self,role):
         try:
             need(self.claimed and not self.finished and self.attached is role)
@@ -187,4 +223,4 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
     def close(self):
         # A shared actual graph belongs to the finished role until its own
         # facade disposal. Drop references only; never clear nested DTOs.
-        self.closed=True;self.replaying=False;self.frames=None;self.attached=None
+        self.closed=True;self.replaying=False;self.frames=None;self.attached=None;self.baseline=None
