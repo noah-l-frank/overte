@@ -216,10 +216,14 @@ class PicoChatCompositionTests(unittest.TestCase):
         witness=self.instance._chat_witness_composition(self.native.target,source,self.peer.config)
         self.addCleanup(witness.detach)
         process=witness.peer.process;pair=process.fd_owner;descriptor,anchor=pair.fd,pair.anchor
-        original=owner.store.path.read_bytes();os.close(descriptor)
-        foreign=os.open(f'/proc/{process.pid}/exe',os.O_RDONLY|os.O_CLOEXEC)
+        original=owner.store.path.read_bytes()
+        # Allocate the replacement while our exact original FD is still held.
+        # Other fixture gaps cannot affect this atomic, explicitly owned target.
+        replacement=os.open(f'/proc/{process.pid}/exe',os.O_RDONLY|os.O_CLOEXEC)
+        try:os.dup2(replacement,descriptor,inheritable=False)
+        finally:os.close(replacement)
+        foreign=descriptor
         try:
-            self.assertEqual(descriptor,foreign)
             self.assertFalse(witness.detach());self.assertFalse(witness.detach())
             self.assertIs(process,witness.peer.process);self.assertFalse(pair.closed);self.assertTrue(pair.lost)
             self.assertEqual(descriptor,pair.fd);self.assertEqual(pair.node,(os.fstat(foreign).st_dev,os.fstat(foreign).st_ino))
