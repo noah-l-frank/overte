@@ -38,6 +38,7 @@ from adapters.token_places_ui import TokenPlacesUI
 from feature_journeys.fixtures import context
 from feature_journeys.phase_fixture import PhaseFixtureReader
 from feature_journeys.scenarios import VERSION as CONTRACT_VERSION
+from feature_journeys.scenarios import SCENARIOS,expand
 from feature_journeys.server import make_server
 from feature_journeys.witness import Client, Journal
 from navigation_observation import viewpoint_urls
@@ -137,7 +138,11 @@ class NavigationPrefixTests(unittest.TestCase):
         self.flows={};self.flow=self.make('primary')
 
     def activate(self,verb):
-        ctx=context(RUN);inputs={} if verb in ('baseline','open') else dict(name=ctx['renamed' if 'rename' in verb else 'name'])
+        ctx=context(RUN)
+        if verb=='directory-search':
+            prior=sum(row['stimulus']['verb']==verb for row in self.server.journal.runs[RUN]['phaseActivations'])
+            inputs=dict(query=ctx['hidden' if prior==0 else 'name'])
+        else:inputs={} if verb in ('baseline','open') else dict(name=ctx['renamed' if 'rename' in verb else 'name'])
         self.ticket=uuid.uuid4().hex;self.server.journal.activate(RUN,self.ticket,verb,inputs);self.model.provider.activate(RUN,self.ticket)
         return dict(contractVersion=CONTRACT_VERSION,runId=RUN,fixtureUrl=self.url+'/feature-fixture/v1/runs/'+RUN+'/',ticket=self.ticket,verb=verb,inputs=inputs)
 
@@ -187,17 +192,14 @@ class NavigationPrefixTests(unittest.TestCase):
     def test_original_a_origin_home_places_and_four_bookmark_actions_with_fresh_actor_sources(self):
         self.flow.prepare();baseline=self.flow.observe();self.assertEqual('A',baseline['state']['location']);self.assertFalse(baseline['state']['panel'])
         actor=self.make('actor');self.assertEqual(baseline['state'],actor.observe()['state'])
-        for verb in VERBS:
+        for index,verb in enumerate(VERBS):
             call=self.activate(verb);self.flow.act(call)
             before=len(self.model.calls);actual=self.flow.observe();peer=actor.observe()
             self.assertEqual(before,len(self.model.calls));self.assertEqual(actual['state'],peer['state'])
             self.assertEqual('A',actual['state']['location']);self.assertTrue(actual['state']['panel'])
-            self.assertEqual([context(RUN)['destination']],actual['state']['searchResults'])
-            self.assertEqual('',actual['state']['searchQuery']);self.assertEqual('none',actual['state']['error']);self.assertFalse(actual['state']['addressDialog'])
-            expected='' if verb in ('open','bookmark-add-cancel') else context(RUN)['renamed' if verb=='bookmark-rename' else 'name']
-            self.assertEqual(expected,actual['state']['bookmarkName']);self.assertEqual(bool(expected),actual['state']['bookmark'])
+            self.assertEqual(expand(SCENARIOS['world-navigation']['steps'][index]['state'],context(RUN)),actual['state'])
             self.assertFalse(actual['fullNavigationRecipe']);self.assertTrue(actual['journalsRetained'])
-        self.assertEqual(1,self.model.home_count);self.assertEqual(5,len(self.flow.state['completed']))
+        self.assertEqual(1,self.model.home_count);self.assertEqual(len(VERBS),len(self.flow.state['completed']))
         self.assertEqual(origin_fixture.ORIGINAL,self.flow.origin.state['original']['selectedServer'])
         self.assertEqual(1,len(self.model.reads));self.assertTrue(self.original_calls)
         store=PrivateFeatureState(self.root/'navigation-prefix-primary-sources.json');record=store.read()
@@ -206,6 +208,42 @@ class NavigationPrefixTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.flow.source.advance_frames(changed,frames[2])
         changed=deepcopy(frames[1]);changed['phase']['activations'][0]['ticket']=uuid.uuid4().hex
         with self.assertRaises(ValueError):self.flow.source.advance_frames(changed,frames[2])
+
+    def test_hidden_and_owned_search_use_one_original_read_and_negative_quiet_without_resend(self):
+        self.flow.prepare()
+        for verb in VERBS[:5]:self.flow.act(self.activate(verb))
+        hidden=self.activate('directory-search');self.flow.act(hidden)
+        state=self.flow.observe()['state'];self.assertEqual(context(RUN)['hidden'],state['searchQuery']);self.assertEqual([],state['searchResults'])
+        quiet=self.flow.directory.state['active']['quiet'];self.assertTrue(quiet)
+        self.assertGreaterEqual(quiet[-1]['native']['capturedEpochMs']-quiet[0]['native']['capturedEpochMs'],3000)
+        call=self.activate('directory-search');self.model.lose_control=('places.search','replace')
+        with self.assertRaises(NativeUIError):self.flow.act(call)
+        count=sum((c['controlId'],c['action'])==('places.search','replace') for c in self.model.calls)
+        self.model.lose_control=None;self.flow=self.make('primary');self.flow.act(call)
+        self.assertEqual(count,sum((c['controlId'],c['action'])==('places.search','replace') for c in self.model.calls))
+        result=self.flow.observe()['state'];self.assertEqual(context(RUN)['name'],result['searchQuery'])
+        self.assertEqual([context(RUN)['destination']],result['searchResults']);self.assertEqual(1,len(self.model.reads))
+
+    def test_version_one_original_prefix_remains_readable_without_new_search_authority(self):
+        self.flow.prepare()
+        for verb in VERBS[:5]:self.flow.act(self.activate(verb))
+        # Version-envelope compatibility seam only. All five actual normal
+        # inputs/effects above are retained, never invented closed originals.
+        original=self.flow.store.read();legacy=deepcopy(original);legacy['navigationPrefixVersion']=1
+        self.flow.store.write(legacy,original);self.flow=self.make('primary')
+        self.assertEqual(context(RUN)['renamed'],self.flow.observe()['state']['bookmarkName'])
+        before=deepcopy(self.model.calls)
+        with self.assertRaises(NativeUIError):self.flow.act(self.activate('directory-search'))
+        self.assertEqual(before,self.model.calls);self.assertEqual(1,self.flow.store.read()['navigationPrefixVersion'])
+
+    def test_owned_search_cannot_replace_the_original_hidden_search_phase(self):
+        self.flow.prepare()
+        for verb in VERBS[:5]:self.flow.act(self.activate(verb))
+        # A valid later inventory value still has no authority at step six.
+        self.activate('directory-search');call=self.activate('directory-search')
+        before=deepcopy(self.model.calls);parent=self.flow.store.read();child=self.flow.directory.store.read()
+        with self.assertRaises(NativeUIError):self.flow.act(call)
+        self.assertEqual(before,self.model.calls);self.assertEqual(parent,self.flow.store.read());self.assertEqual(child,self.flow.directory.store.read())
 
     def opened(self):
         self.flow.prepare();self.flow.observe();self.flow.act(self.activate('open'))

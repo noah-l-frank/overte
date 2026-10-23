@@ -144,7 +144,7 @@ REQUIRED = {
     "world-render-receipt-inventory": 1,
     "pico-graphics-capture-binding": 1,
     "pico-navigation-address-observation": 1,
-    "pico-navigation-prefix": 1,
+    "pico-navigation-prefix": 2,
     "pico-navigation-prefix-source": 1,
     "pico-navigation-prefix-samples": 1,
     "pico-graphics-input-surface": 1,

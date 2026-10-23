@@ -1,7 +1,8 @@
 # Normal Navigation opening composition
 
 This private work composes the unchanged shared v16 recipe's first five
-actions with existing Pico input and original-source owners. It is not a
+actions (v1) and now through both directory searches (v2), with existing Pico
+input and original-source owners. It is not a
 public Navigation adapter, complete Source/Actor/Public triple or cleanup
 qualification. No product function or shared recipe is changed.
 
@@ -118,7 +119,7 @@ corresponding mechanisms.
 
 ## Private versions and verification entry
 
-The new closed headers are `pico-navigation-prefix` v1,
+The initial closed headers were `pico-navigation-prefix` v1,
 `pico-navigation-prefix-source` v1 and `pico-navigation-prefix-samples` v1,
 each reading only v1. Frame storage reuses unchanged `ChatSourceChunks` v1
 with distinct run/binding/role scope and full physical inventory/signatures.
@@ -156,3 +157,44 @@ passive pre-first-observation lease for that handle's initialized/cache flags
 or assert their restoration. It adds no getter/setter, dependency initializer,
 cache reset or product change. The actual startup/Auth and final original
 settings/cache/resource joins remain explicit whole-owner obligations.
+
+
+## Same-owner hidden and owned search continuation
+
+Private owner v2 continues a **new** run through the actual shared v16 sixth
+and seventh steps. Both the closed verb order and allowed inputs are derived
+from the unchanged common `SCENARIOS['world-navigation']` entries. The parent
+requires each completed/active ticket to match its original fixture stimulus;
+the first search cannot be replaced with the later owned-name search.
+
+The same existing `NavigationDirectory` child normally focuses and replaces
+its actual search field. Hidden filtering retains the original three-second
+negative native/UI quiet. The following owned-name search uses the same
+original HTTP read, outgoing message, consumed records and root revision,
+with the actual filtered model changing through ordinary input. Both roles'
+current source projection still derives field text and model rows independently
+of the requested search value. Lost applied replacement responses reconcile
+the original child pending intent without another Replace.
+
+Only the private parent version changes: current v2 reads v1/v2. A v1 owner
+retains its original five-action authority and may be read/reconciled there;
+it cannot receive a sixth action or acquire a retrospective v2 extension.
+Source and sample headers remain v1, and no selector, common contract, public
+capability, source read, cadence, cap or quiet window is changed.
+
+The new seven-step positive case passed in **3.518 s**, retaining its original
+TLS/Session/field/record histories. Three new focused cases passed in **7.738 s**:
+actual hidden three-second negative quiet followed by a lost applied owned-name
+Replace and cold no-resend recovery; readable five-action v1 envelope with no
+sixth-action authority; and later owned-name search refusing before any child
+write when it would replace the original hidden phase. The compatibility case
+changes only the version-envelope seam after five actually executed normal
+actions; it supplies no invented product state or whole-prefix authority.
+The v1 results above remain historical evidence of the first five actions only.
+
+
+The complete v2 owning selection passed **2/2 groups in 21.90 s**: twelve
+owner/factory cases in 21.838 s plus coverage in 0.058 s. Four targeted
+repository checks passed in 3.02 s; registry and whitespace checks passed.
+The selector count is unchanged. No compiler, application, device, final
+cleanup or whole-feature path was executed by this continuation.

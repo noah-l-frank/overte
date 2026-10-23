@@ -49,6 +49,6 @@ physical acceptance result. Device execution remains a separate later wave.
 
 
 The private [normal opening composition](NAVIGATION_PREFIX.md) now joins the
-original Origin/Home, Places/Directory and first five shared recipe actions
+original Origin/Home, Places/Directory and first seven shared recipe actions
 with independently queried primary/actor fields. It retains original journals
 and adds no public whole-Navigation capability or final retirement claim.
