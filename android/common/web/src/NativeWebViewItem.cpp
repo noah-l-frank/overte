@@ -13,6 +13,7 @@
 #include <QJSEngine>
 #include <QMimeDatabase>
 #include <QMouseEvent>
+#include <QTouchEvent>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QQmlContext>
@@ -23,6 +24,7 @@
 #include <QtQml>
 #include <jni.h>
 #include <atomic>
+#include <cmath>
 #include <limits>
 
 namespace {
@@ -79,7 +81,7 @@ NativeWebViewItem::NativeWebViewItem(QQuickItem* parent) : QQuickItem(parent),
     { QMutexLocker guard(&registryMutex);
       if (nextHandle > 0) { _handle = nextHandle; nextHandle = nextHandle == std::numeric_limits<jlong>::max() ? 0 : nextHandle + 1; registry.insert(_handle, this); } }
     _session.setForeground(foreground.load());
-    setFlag(ItemHasContents, true); setFlag(ItemAcceptsInputMethod, true); setAcceptedMouseButtons(Qt::LeftButton); setAcceptHoverEvents(true);
+    setFlag(ItemHasContents, true); setFlag(ItemAcceptsInputMethod, true); setAcceptedMouseButtons(Qt::LeftButton); setAcceptHoverEvents(true); setAcceptTouchEvents(true);
     _channel->registerObject("eventBridge", _bridge);
     _channel->registerObject("eventBridgeWrapper", new NativeBridgeWrapper(_bridge, this));
     _channel->connectTo(_transport);
@@ -410,7 +412,7 @@ void NativeWebViewItem::acceptInputFocus(quint64 revision, quint64 birth, bool f
         QPointer<NativeWebViewItem> self(this); QMetaObject::invokeMethod(this, [self, epoch] {
             if (!self) return;
             { QMutexLocker guard(&self->_mutex); if (self->_inputEpoch != epoch || self->_inputFocused) return; }
-            self->_pressed = false; self->resetEditor();
+            self->_pressed = false; self->_touchId = -1; self->resetEditor();
             if (auto* input = QGuiApplication::inputMethod()) { input->update(Qt::ImQueryInput); input->hide(); }
         }, Qt::QueuedConnection);
     }
@@ -529,8 +531,46 @@ void NativeWebViewItem::unfocus() { setFocus(false); resetEditor(); jvalue args[
 void NativeWebViewItem::openNative() { jvalue args[1]; args[0].j = _handle; call("openNative", "(J)V", args); }
 void NativeWebViewItem::goBack() { jvalue args[1]; args[0].j = _handle; call("goBack", "(J)V", args); }
 void NativeWebViewItem::pointer(int action, const QPointF& position) {
-    QPointF pixel = position; { QMutexLocker guard(&_mutex); if (!_image.isNull() && width() > 0 && height() > 0) pixel = QPointF(position.x() * _image.width()/width(), position.y() * _image.height()/height()); }
+    // Java maps the requested scene size to its density and capped texture.
+    // Using the captured image size here would apply the texture cap twice.
+    const auto sceneSize = sceneBounds().size();
+    QPointF pixel = position;
+    if (width() > 0 && height() > 0) {
+        pixel = QPointF(position.x() * sceneSize.width() / width(), position.y() * sceneSize.height() / height());
+    }
     jvalue args[4]; args[0].j = _handle; args[1].i = action; args[2].f = pixel.x(); args[3].f = pixel.y(); call("pointer", "(JIFF)V", args);
+}
+void NativeWebViewItem::touchEvent(QTouchEvent* event) {
+    if (event->type() == QEvent::TouchCancel) {
+        touchUngrabEvent(); event->accept(); return;
+    }
+    // World surfaces retain a stationary point while hovering. A subsequent
+    // press can therefore arrive as TouchUpdate, and hover alone is no press.
+    for (const auto& point : event->touchPoints()) {
+        if (point.state() != Qt::TouchPointPressed) continue;
+        if (event->type() != QEvent::TouchBegin && _touchId >= 0 && point.id() != _touchId) continue;
+        if (_pressed) pointer(3, {});
+        _touchId = point.id();
+        forceActiveFocus(Qt::MouseFocusReason);
+        _pressed = true;
+        pointer(0, point.pos());
+        event->accept(); return;
+    }
+    if (_touchId < 0 || !_pressed) { event->ignore(); return; }
+    for (const auto& point : event->touchPoints()) {
+        if (point.id() != _touchId) continue;
+        if (point.state() == Qt::TouchPointReleased || event->type() == QEvent::TouchEnd) {
+            pointer(1, point.pos()); _pressed = false; _touchId = -1;
+        } else if (point.state() == Qt::TouchPointMoved) {
+            pointer(2, point.pos());
+        }
+        event->accept(); return;
+    }
+    touchUngrabEvent(); event->accept();
+}
+void NativeWebViewItem::touchUngrabEvent() {
+    if (_touchId >= 0 && _pressed) pointer(3, {});
+    _touchId = -1; _pressed = false;
 }
 void NativeWebViewItem::mousePressEvent(QMouseEvent* event) { forceActiveFocus(Qt::MouseFocusReason); if (_pressed) pointer(3, {}); _pressed = true; pointer(0, event->localPos()); event->accept(); }
 void NativeWebViewItem::mouseMoveEvent(QMouseEvent* event) { if (!_pressed) { event->ignore(); return; } pointer(2, event->localPos()); event->accept(); }
@@ -563,30 +603,130 @@ void NativeWebViewItem::wheelEvent(QWheelEvent* event) {
     if (call("wheel", "(JJJLjava/lang/String;FFFFFFZ)V", args)) event->accept();
     jni.env->DeleteLocalRef(url);
 }
-void NativeWebViewItem::editorCommand(const QJsonObject& command) { if (!_editorActive || !hasActiveFocus()) return;
+bool NativeWebViewItem::editorCommand(const QJsonObject& command) {
+    if (!_editorActive || !hasActiveFocus() || _editorSequence >= 9007199254740991ULL
+            || _pendingEditorCommands.size() >= 4096) return false;
     quint64 grant, page; QUrl document;
     { QMutexLocker guard(&_mutex); grant = _session.generation(); page = _page; document = _document; }
-    if (!allowsEditorDocument(grant, page, document)) return;
-    Jni jni; if (!jni.env || !backend.load()) return;
+    if (!allowsEditorDocument(grant, page, document)) return false;
+    Jni jni; if (!jni.env || !backend.load()) return false;
+    const auto sequence = ++_editorSequence;
+    auto packet = command;
+    packet["editor"] = QString::number(_editorOwner); packet["sequence"] = double(sequence);
     jstring url = jni.string(document.toString(QUrl::FullyEncoded));
-    jstring data = jni.string(QString::fromUtf8(QJsonDocument(command).toJson(QJsonDocument::Compact)));
+    jstring data = jni.string(QString::fromUtf8(QJsonDocument(packet).toJson(QJsonDocument::Compact)));
+    bool sent = false;
     if (url && data) { jvalue args[5]; args[0].j = _handle; args[1].j = grant; args[2].j = page; args[3].l = url; args[4].l = data;
-        call("edit", "(JJJLjava/lang/String;Ljava/lang/String;)V", args); }
-    if (jni.env->ExceptionCheck()) jni.env->ExceptionClear();
+        sent = call("edit", "(JJJLjava/lang/String;Ljava/lang/String;)V", args); }
+    if (jni.env->ExceptionCheck()) { jni.env->ExceptionClear(); sent = false; }
     if (url) jni.env->DeleteLocalRef(url); if (data) jni.env->DeleteLocalRef(data);
+    if (!sent) return false;
+    auto pending = command;
+    if (_sensitive) {
+        // Retain only lengths for reconciliation, never typed password contents.
+        for (const auto* name : {"text", "commit", "preedit"}) {
+            if (pending.contains(name)) pending[name] = QString(pending.value(name).toString().size(), QChar(0x2022));
+        }
+    }
+    _pendingEditorCommands.append(qMakePair(sequence, pending));
+    applyPendingEditorCommand(pending);
+    return true;
+}
+void NativeWebViewItem::applyPendingEditorCommand(const QJsonObject& command) {
+    const auto action = command.value("action").toString();
+    if (action == "point") return; // Only browser layout can resolve a pointer position.
+    auto boundary = [](const QString& text, int index) {
+        return index >= 0 && index <= text.size() && !(index > 0 && index < text.size()
+            && text.at(index - 1).isHighSurrogate() && text.at(index).isLowSurrogate());
+    };
+    int start = qMin(_cursor, _anchor), end = qMax(_cursor, _anchor);
+    QString insertion;
+    if (action == "ime") {
+        insertion = command.value("commit").toString();
+        const bool hasPreedit = !command.value("preedit").toString().isEmpty();
+        // Qt can update just its selection. An empty update is not a request
+        // to replace the selected text with an empty string.
+        if (!insertion.isEmpty() || hasPreedit || _editorComposing || command.value("replaceLength").toInt() > 0) {
+            auto base = _editorText; base.remove(start, end - start);
+            start += command.value("replaceStart").toInt(); end = start + command.value("replaceLength").toInt();
+            if (!boundary(base, start) || !boundary(base, end) || start > end) return;
+            base.replace(start, end - start, insertion); _editorText = base;
+            _cursor = _anchor = start + insertion.size();
+            _editorComposing = hasPreedit;
+        }
+        const auto selected = command.value("selection").toObject();
+        if (!selected.isEmpty()) {
+            const int position = selected.value("start").toInt() - _surroundingStart;
+            const int focus = position + selected.value("length").toInt();
+            if (boundary(_editorText, position) && (_editorComposing || boundary(_editorText, focus))) {
+                _anchor = position; _cursor = _editorComposing ? position : focus;
+            }
+        }
+    } else if (action == "left" || action == "right" || action == "home" || action == "end") {
+        int next = _cursor;
+        if (action == "home") next = next > 0 ? _editorText.lastIndexOf('\n', next - 1) + 1 : 0;
+        else if (action == "end") { next = _editorText.indexOf('\n', next); if (next < 0) next = _editorText.size(); }
+        else {
+            const int direction = action == "left" ? -1 : 1;
+            next = qBound(0, next + direction, _editorText.size());
+            if (!boundary(_editorText, next)) next += direction;
+        }
+        if (!command.value("extend").toBool()) _anchor = next;
+        _cursor = next; _editorComposing = false;
+    } else {
+        if (action == "enter") {
+            if (_editorComposing || (_editorKind != "textarea" && _editorKind != "contenteditable")) return;
+            insertion = "\n";
+        } else if (action == "backspace") {
+            if (start == end && start > 0) { --start; if (!boundary(_editorText, start)) --start; }
+        } else if (action == "delete") {
+            if (start == end && end < _editorText.size()) { ++end; if (!boundary(_editorText, end)) ++end; }
+        } else insertion = command.value("text").toString();
+        if (!boundary(_editorText, start) || !boundary(_editorText, end)) return;
+        _editorText.replace(start, end - start, insertion); _cursor = _anchor = start + insertion.size();
+        _editorComposing = false;
+    }
+    // Match the browser's bounded surrounding-text window without dropping new input.
+    if (_editorText.size() > 16384) {
+        int first = qMax(0, _cursor - 8192);
+        if (!boundary(_editorText, first)) --first;
+        int last = qMin(_editorText.size(), first + 16384);
+        if (!boundary(_editorText, last)) --last;
+        _editorText = _editorText.mid(first, last - first); _surroundingStart += first;
+        _cursor -= first; _anchor = qBound(0, _anchor - first, _editorText.size());
+    }
+}
+bool NativeWebViewItem::moveInputCursorToPoint(const QPointF& position, int handle) {
+    if (_presentation != Texture || !_editorActive || !hasActiveFocus() || !isVisible() || !isEnabled()
+            || width() <= 0 || height() <= 0 || !std::isfinite(position.x()) || !std::isfinite(position.y())
+            || handle < 1 || handle > 3 || (handle != 1 && _cursor == _anchor)) return false;
+    QSize imageSize;
+    quint64 grant, page; QUrl document;
+    { QMutexLocker guard(&_mutex); imageSize = _image.size(); grant = _session.generation(); page = _page; document = _document; }
+    if (imageSize.isEmpty()) return false;
+    if (!allowsEditorDocument(grant, page, document)) return false;
+    const QPointF css(position.x() * imageSize.width() / width(), position.y() * imageSize.height() / height());
+    if (!std::isfinite(css.x()) || !std::isfinite(css.y()) || !_editorRect.contains(css)) return false;
+    // Finish the IME's old composition before requesting an asynchronous DOM
+    // selection. The caller leaves the positional QVariant invalid so Qt does
+    // not send a stale synchronous selection over the browser's later result.
+    if (auto* input = QGuiApplication::inputMethod()) input->commit();
+    editorCommand({{"action", "point"}, {"x", css.x()}, {"y", css.y()}, {"handle", handle}});
+    return true;
 }
 void NativeWebViewItem::keyPressEvent(QKeyEvent* event) {
     if (!_editorActive || (event->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))) { event->ignore(); return; }
+    QJsonObject command;
     if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)
-        editorCommand({{"action", "enter"}, {"shift", bool(event->modifiers() & Qt::ShiftModifier)}});
-    else if (event->key() == Qt::Key_Backspace) editorCommand({{"action", "backspace"}});
-    else if (event->key() == Qt::Key_Delete) editorCommand({{"action", "delete"}});
+        command = {{"action", "enter"}, {"shift", bool(event->modifiers() & Qt::ShiftModifier)}};
+    else if (event->key() == Qt::Key_Backspace) command = {{"action", "backspace"}};
+    else if (event->key() == Qt::Key_Delete) command = {{"action", "delete"}};
     else if (event->key() == Qt::Key_Left || event->key() == Qt::Key_Right || event->key() == Qt::Key_Home || event->key() == Qt::Key_End) {
         const auto action = event->key() == Qt::Key_Left ? "left" : event->key() == Qt::Key_Right ? "right" : event->key() == Qt::Key_Home ? "home" : "end";
-        editorCommand({{"action", action}, {"extend", bool(event->modifiers() & Qt::ShiftModifier)}});
+        command = {{"action", action}, {"extend", bool(event->modifiers() & Qt::ShiftModifier)}};
     }
-    else if (!event->text().isEmpty()) editorCommand({{"text", event->text()}}); else { event->ignore(); return; }
-    event->accept();
+    else if (!event->text().isEmpty()) command = {{"text", event->text()}}; else { event->ignore(); return; }
+    if (editorCommand(command)) event->accept(); else event->ignore();
 }
 void NativeWebViewItem::inputMethodEvent(QInputMethodEvent* event) {
     if (!_editorActive || !hasActiveFocus() || event->commitString().size() > 16384 || event->preeditString().size() > 16384) { event->ignore(); return; }
@@ -596,24 +736,88 @@ void NativeWebViewItem::inputMethodEvent(QInputMethodEvent* event) {
         if (attribute.type == QInputMethodEvent::Cursor) command["cursor"] = qBound(0, attribute.start, event->preeditString().size());
         if (attribute.type == QInputMethodEvent::Selection) command["selection"] = QJsonObject {{"start", _surroundingStart + attribute.start}, {"length", attribute.length}};
     }
-    editorCommand(command); event->accept();
+    if (_pendingEditorCommands.isEmpty() && !_editorComposing && event->commitString().isEmpty() && event->preeditString().isEmpty()
+            && event->replacementLength() == 0 && !command.contains("selection")) {
+        // Nothing changes in the real Qt editor contract. Do not manufacture
+        // DOM input events or consume a pending-command slot for this update.
+        // A page can reject an earlier pending commit; retain its following
+        // finish event until the actual composition state is acknowledged.
+        event->accept(); return;
+    }
+    if (editorCommand(command)) event->accept(); else event->ignore();
 }
 void NativeWebViewItem::resetEditor() {
     const bool changed = _editorActive; _editorActive = false; _editorText.clear();
+    _editorComposing = false; _editorOwner = _editorAcknowledged = 0; _pendingEditorCommands.clear();
+    _cursorRect = _anchorRect = _editorRect = {};
     if (changed) { emit editorStateChanged(); emit editorFocusChanged(false, false, false); }
 }
 void NativeWebViewItem::updateEditor(const QJsonObject& state) {
+    const auto previousOwner = _editorOwner;
+    const auto previousKind = _editorKind;
+    const bool active = state.value("active").toBool();
+    const auto owner = state.value("editor").toString().toULongLong();
+    if (state.contains("editor") && (!owner || owner > 9007199254740991ULL
+            || state.value("editor").toString() != QString::number(owner))) return;
+    if (state.contains("sequence") && !state.value("sequence").isDouble()) return;
+    const double rawSequence = state.value("sequence").toDouble();
+    if (!std::isfinite(rawSequence) || rawSequence < 0 || rawSequence > double(_editorSequence)
+            || std::floor(rawSequence) != rawSequence) return;
+    const auto acknowledged = quint64(rawSequence);
+    if (active && ((_editorOwner && owner && owner < _editorOwner)
+            || (owner == _editorOwner && acknowledged < _editorAcknowledged))) return;
+    if (!active || owner != _editorOwner) _pendingEditorCommands.clear();
+    _editorOwner = active ? owner : 0; _editorAcknowledged = acknowledged;
+    while (!_pendingEditorCommands.isEmpty() && _pendingEditorCommands.first().first <= acknowledged)
+        _pendingEditorCommands.removeFirst();
     const bool previousActive = editorFocused(), previousNumeric = editorNumeric(), previousPassword = editorPassword();
     _editorActive = state.value("active").toBool(); _sensitive = state.value("sensitive").toBool();
-    _editorText = _sensitive ? QString() : state.value("text").toString().left(16384);
+    // Qt's input connection needs matching surrounding length and selection,
+    // even for passwords. Retain only mask characters, never the DOM contents.
+    _editorText = _sensitive ? QString(qBound(0, state.value("length").toInt(), 16384), QChar(0x2022)) :
+        state.value("text").toString().left(16384);
     _cursor = qBound(0, state.value("cursor").toInt(), _editorText.size()); _anchor = qBound(0, state.value("anchor").toInt(), _editorText.size());
     _surroundingStart = qMax(0, state.value("absoluteCursor").toInt() - state.value("cursor").toInt());
-    _editorKind = state.value("kind").toString(); _cursorRect = QRectF(state.value("x").toDouble(), state.value("y").toDouble(), state.value("width").toDouble(), state.value("height").toDouble());
+    _editorKind = state.value("kind").toString();
+    _editorComposing = state.value("composing").toBool();
+    for (auto& pending : _pendingEditorCommands) {
+        if (_sensitive) {
+            for (const auto* name : {"text", "commit", "preedit"}) {
+                if (pending.second.contains(name)) pending.second[name] = QString(pending.second.value(name).toString().size(), QChar(0x2022));
+            }
+        }
+        applyPendingEditorCommand(pending.second);
+    }
+    const auto rectangle = [](const QJsonObject& object) {
+        const qreal x = object.value("x").toDouble(std::numeric_limits<double>::quiet_NaN());
+        const qreal y = object.value("y").toDouble(std::numeric_limits<double>::quiet_NaN());
+        const qreal w = object.value("width").toDouble(), h = object.value("height").toDouble();
+        if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(w) || !std::isfinite(h)
+                || !std::isfinite(x + w) || !std::isfinite(y + h) || w <= 0 || h <= 0) return QRectF();
+        return QRectF(x, y, w, h);
+    };
+    _editorRect = rectangle(state);
+    _cursorRect = rectangle(state.value("caret").toObject());
+    _anchorRect = rectangle(state.value("anchorCaret").toObject());
+    if (_cursorRect.isEmpty()) _cursorRect = _editorRect;
+    if (_anchorRect.isEmpty()) _anchorRect = _cursorRect;
     if (previousActive != editorFocused() || previousNumeric != editorNumeric() || previousPassword != editorPassword()) {
         emit editorStateChanged(); emit editorFocusChanged(editorFocused(), editorNumeric(), editorPassword());
     }
     if (_presentation == NativeOverlay) return; // The native WebView owns its OS input connection.
-    if (auto* input = QGuiApplication::inputMethod()) { input->update(Qt::ImQueryInput); if (_editorActive && hasActiveFocus()) input->show(); else input->hide(); }
+    if (auto* input = QGuiApplication::inputMethod()) {
+        // DOM focus arrives after Qt focus; refresh Qt's cached acceptance too.
+        input->update(Qt::ImEnabled | Qt::ImQueryInput | Qt::ImHints);
+        if (_editorActive && hasActiveFocus()) {
+            // A text/selection acknowledgement must not request the already
+            // visible OS keyboard again. Preserve field/hint changes and the
+            // normal retap after Back hides the input panel.
+            // That retap is explicit: Qt's visibility cache may still say
+            // visible after Android has already hidden the actual keyboard.
+            if (state.value("requestKeyboard").toBool() || !input->isVisible() || !previousActive || previousOwner != _editorOwner
+                    || previousKind != _editorKind || previousPassword != editorPassword()) input->show();
+        } else input->hide();
+    }
 }
 QVariant NativeWebViewItem::inputMethodQuery(Qt::InputMethodQuery query) const {
     if (query == Qt::ImEnabled) return _presentation == Texture && generation() && _editorActive && isVisible() && isEnabled() && hasActiveFocus();
@@ -624,14 +828,16 @@ QVariant NativeWebViewItem::inputMethodQuery(Qt::InputMethodQuery query) const {
     if (query == Qt::ImCursorPosition) return _cursor;
     if (query == Qt::ImAnchorPosition) return _anchor;
     if (query == Qt::ImCurrentSelection) return _editorText.mid(qMin(_cursor, _anchor), qAbs(_cursor - _anchor));
-    if (query == Qt::ImCursorRectangle) {
+    if (query == Qt::ImCursorRectangle || query == Qt::ImAnchorRectangle) {
+        const auto rectangle = query == Qt::ImAnchorRectangle ? _anchorRect : _cursorRect;
         if (_presentation == Texture && !_image.isNull()) {
             const auto x = width() / _image.width(), y = height() / _image.height();
-            return QRectF(_cursorRect.x() * x, _cursorRect.y() * y, _cursorRect.width() * x, _cursorRect.height() * y);
+            return QRectF(rectangle.x() * x, rectangle.y() * y, rectangle.width() * x, rectangle.height() * y);
         }
-        return _cursorRect;
+        return rectangle;
     }
     if (query == Qt::ImHints) return int(_sensitive ? Qt::ImhHiddenText | Qt::ImhSensitiveData | Qt::ImhNoPredictiveText :
+        _editorKind == "textarea" || _editorKind == "contenteditable" ? Qt::ImhMultiLine :
         _editorKind == "number" ? Qt::ImhFormattedNumbersOnly : _editorKind == "tel" ? Qt::ImhDialableCharactersOnly :
         _editorKind == "email" ? Qt::ImhEmailCharactersOnly : _editorKind == "url" ? Qt::ImhUrlCharactersOnly : Qt::ImhNone);
     return QQuickItem::inputMethodQuery(query);

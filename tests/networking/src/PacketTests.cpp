@@ -14,8 +14,62 @@
 #include <test-utils/QTestExtensions.h>
 
 #include <NLPacket.h>
+#include <DomainCheckInPacket.h>
+#include <ReceivedMessage.h>
+#include <QtNetwork/QUdpSocket>
 
 QTEST_MAIN(PacketTests)
+
+void PacketTests::largeDomainCredentialMessageTest() {
+    const QString username = QString::fromUtf8("domain-user-\xC3\xA4");
+    const QString credential = QString(2000, QLatin1Char('a')) + ":" + QString(600, QLatin1Char('r'));
+    QByteArray payload;
+    QDataStream output(&payload, QIODevice::WriteOnly);
+    output << username << credential;
+    QCOMPARE(output.status(), QDataStream::Ok);
+    QVERIFY(payload.size() > NLPacket::maxPayloadSize(PacketType::DomainConnectRequest));
+
+    const auto version = PacketVersion(versionForPacketType(PacketType::DomainConnectRequest) + 1);
+    auto packet = overte::network::domainCheckInPacket(PacketType::DomainConnectRequest, version, payload);
+    QVERIFY(packet);
+    QVERIFY(!packet->isReliable() && !packet->isPartOfMessage());
+    QCOMPARE(packet->getVersion(), version);
+    QCOMPARE(packet->getPayloadSize(), qint64(payload.size()));
+    QVERIFY(packet->getDataSize() <= overte::network::MAX_DOMAIN_CHECK_IN_DATAGRAM_BYTES);
+
+    // An actual UDP receive followed by the existing receiver's decoding path.
+    QUdpSocket sender, receiver;
+    QVERIFY(receiver.bind(QHostAddress(QHostAddress::LocalHost), quint16(0)));
+    QCOMPARE(sender.writeDatagram(packet->getData(), packet->getDataSize(),
+                                 QHostAddress::LocalHost, receiver.localPort()), packet->getDataSize());
+    QVERIFY(receiver.waitForReadyRead(3000));
+    const auto wireSize = receiver.pendingDatagramSize();
+    auto wire = std::make_unique<char[]>(wireSize);
+    QCOMPARE(receiver.readDatagram(wire.get(), wireSize), wireSize);
+    auto decoded = NLPacket::fromReceivedPacket(std::move(wire), wireSize, SockAddr());
+    ReceivedMessage received(*decoded);
+    QCOMPARE(received.getType(), PacketType::DomainConnectRequest);
+    QCOMPARE(received.getVersion(), version);
+    QCOMPARE(received.getMessage(), payload);
+    QDataStream input(received.getMessage());
+    QString actualUsername, actualCredential;
+    input >> actualUsername >> actualCredential;
+    QCOMPARE(input.status(), QDataStream::Ok);
+    QVERIFY(input.atEnd());
+    QCOMPARE(actualUsername, username);
+    QCOMPARE(actualCredential, credential);
+
+    auto shortPacket = overte::network::domainCheckInPacket(PacketType::DomainConnectRequest, version, "short");
+    QVERIFY(shortPacket && shortPacket->getPayloadSize() == 5);
+    QVERIFY(!shortPacket->isReliable() && !shortPacket->isPartOfMessage());
+    const auto maximum = overte::network::MAX_DOMAIN_CHECK_IN_DATAGRAM_BYTES -
+        NLPacket::totalHeaderSize(PacketType::DomainConnectRequest);
+    auto boundary = overte::network::domainCheckInPacket(PacketType::DomainConnectRequest, version, QByteArray(maximum, 'x'));
+    QVERIFY(boundary);
+    QCOMPARE(boundary->getDataSize(), overte::network::MAX_DOMAIN_CHECK_IN_DATAGRAM_BYTES);
+    QVERIFY(!overte::network::domainCheckInPacket(PacketType::DomainConnectRequest, version, QByteArray(maximum + 1, 'x')));
+    QVERIFY(!overte::network::domainCheckInPacket(PacketType::MixedAudio, version, "short"));
+}
 
 std::unique_ptr<NLPacket> copyToReadPacket(std::unique_ptr<NLPacket>& packet) {
     auto size = packet->getDataSize();

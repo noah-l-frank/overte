@@ -5,6 +5,9 @@
 #include <QQmlProperty>
 #include <QQmlEngine>
 #include <QQuickImageProvider>
+#include <QQuickRenderControl>
+#include <QQuickRenderTarget>
+#include <QQmlContext>
 #include <QTest>
 #include <QImage>
 #include <cassert>
@@ -19,6 +22,46 @@ struct CountedImages : QQuickImageProvider {
   QImage image(24,16,QImage::Format_ARGB32_Premultiplied);image.fill(request.width()>0 ? Qt::green : Qt::cyan);*size=image.size();return image;
  }
 };
+struct ProxyRenderControl : QQuickRenderControl {
+ QWindow* proxy;
+ explicit ProxyRenderControl(QWindow* window):proxy(window){}
+ QWindow* renderWindow(QPoint* offset) override {
+  if(offset)*offset=QPoint();
+  return proxy;
+ }
+};
+static void checkRenderControlPixels(const char* qml) {
+ QWindow proxy;proxy.resize(64,64);proxy.show();
+ ProxyRenderControl control(&proxy);QQuickWindow window(&control);
+ window.resize(64,64);window.setColor(Qt::transparent);
+ QImage image(64,64,QImage::Format_ARGB32_Premultiplied);image.fill(Qt::transparent);
+ window.setRenderTarget(QQuickRenderTarget::fromPaintDevice(&image));
+ QQmlEngine engine;engine.rootContext()->setContextProperty("offscreenWindow",&window);
+ engine.rootContext()->setContextProperty("offscreenRenderWindow",&proxy);
+ auto provider=new CountedImages;engine.addImageProvider("counted",provider);
+ QQmlComponent component(&engine,QUrl::fromLocalFile(qml));
+ auto root=qobject_cast<QQuickItem*>(component.create());assert(root);
+ root->setParentItem(window.contentItem());root->setWidth(64);root->setHeight(64);
+ assert(QQmlProperty(root,"border.width").write(0));root->setProperty("radius",16);
+ root->setProperty("source",QUrl("image://counted/proxy"));
+ auto render=[&]{for(int i=0;i<30;++i){QTest::qWait(5);control.polishItems();control.sync();control.render();}};
+ render();assert(!window.isVisible()&&proxy.isVisible());
+ assert(provider->requests==1&&root->property("status").toInt()==1);
+ if(image.pixelColor(32,32)!=QColor(Qt::cyan)) {
+  std::cerr<<"proxy center="<<image.pixelColor(32,32).name(QColor::HexArgb).toStdString()
+   <<" rootVisible="<<root->isVisible()<<" contentVisible="<<window.contentItem()->isVisible()
+   <<" captureBusy="<<root->property("captureBusy").toBool()
+   <<" captureAgain="<<root->property("captureAgain").toBool()<<std::endl;
+  for(auto child:root->childItems())std::cerr<<child->metaObject()->className()<<" visible="<<child->isVisible()<<" size="<<child->width()<<","<<child->height()<<std::endl;
+ }
+ assert(image.pixelColor(32,32)==QColor(Qt::cyan));assert(image.pixelColor(0,0).alpha()==0);
+ proxy.hide();assert(QQmlProperty(root,"sourceSize.width").write(12));render();
+ assert(provider->requests==2);proxy.show();render();
+ assert(provider->requests==2&&image.pixelColor(32,32)==QColor(Qt::green));
+ root->setProperty("source",QUrl("image://counted/missing"));render();
+ assert(image.pixelColor(32,32).alpha()==0);
+ delete root;control.invalidate();
+}
 int main(int argc,char**argv){
  QGuiApplication app(argc,argv);assert(argc==4);
  QQuickView rounded,reference;rounded.setColor(Qt::transparent);reference.setColor(Qt::transparent);
@@ -51,4 +94,5 @@ int main(int argc,char**argv){
  assert(r->setProperty("mipmap",true));assert(r->property("mipmap").toBool());assert(r->setProperty("smooth",false));assert(!r->property("smooth").toBool());
  r->setProperty("source",QUrl("image://counted/missing"));QTest::qWait(100);assert(provider->requests==4&&r->property("status").toInt()==3);image=rounded.grabWindow();assert(image.pixelColor(32,32).alpha()==0);
  r->setProperty("source",QUrl());QTest::qWait(100);assert(r->property("status").toInt()==0);image=rounded.grabWindow();assert(image.pixelColor(32,32).alpha()==0);
+ checkRenderControlPixels(argv[1]);
 }

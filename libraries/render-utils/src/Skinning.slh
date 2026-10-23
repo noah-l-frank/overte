@@ -16,7 +16,24 @@
 <@func declareSkinning(USE_DUAL_QUATERNION_SKINNING, USE_NORMAL, USE_TANGENT)@>
 
 const int MAX_CLUSTERS = GRAPHICS_MAX_SKINNING_CLUSTERS;
-const int INDICES_PER_VERTEX = 4;
+const int INDICES_PER_VERTEX = GRAPHICS_MAX_SKINNING_INFLUENCES;
+
+void decodeSkinningInfluence(uvec4 indices, vec4 primaryWeights, int lane, out uint index, out float weight) {
+    uint word = indices[lane % 4];
+    if ((word & GRAPHICS_SKINNING_EXTENDED_FLAG) == 0u) {
+        index = word;
+        weight = lane < 4 ? primaryWeights[lane % 4] : 0.0;
+    } else if ((word & GRAPHICS_SKINNING_RESERVED_FLAG) != 0u) {
+        index = uint(MAX_CLUSTERS);
+        weight = 0.0;
+    } else if (lane < 4) {
+        index = word & 127u;
+        weight = primaryWeights[lane];
+    } else {
+        index = (word >> 7) & 127u;
+        weight = float((word >> 14) & 65535u) / 65535.0;
+    }
+}
 
 UNIFORM_BUFFER(GRAPHICS_BUFFER_SKINNING, skinClusterBuffer) {
     mat4 clusterMatrices[MAX_CLUSTERS];
@@ -80,11 +97,15 @@ void evalSkinning(uvec4 skinClusterIndex, vec4 skinClusterWeight, vec4 inPositio
 <@endif@>
     vec4 polarityReference = vec4(0.0);
     bool hasReference = false;
-    for (int i = 0; i < INDICES_PER_VERTEX; i++) {
-        float clusterWeight = skinClusterWeight[i];
+    int influenceCount = any(notEqual(skinClusterIndex & uvec4(GRAPHICS_SKINNING_EXTENDED_FLAG), uvec4(0u)))
+        ? INDICES_PER_VERTEX : 4;
+    for (int i = 0; i < influenceCount; i++) {
+        uint clusterIndex;
+        float clusterWeight;
+        decodeSkinningInfluence(skinClusterIndex, skinClusterWeight, i, clusterIndex, clusterWeight);
         if (!(clusterWeight > 0.0) || isinf(clusterWeight) || isnan(clusterWeight) ||
-            skinClusterIndex[i] >= min(skinClusterInfo.x, uint(MAX_CLUSTERS))) { continue; }
-        mat4 clusterMatrix = clusterMatrices[skinClusterIndex[i]];
+            clusterIndex >= min(skinClusterInfo.x, uint(MAX_CLUSTERS))) { continue; }
+        mat4 clusterMatrix = clusterMatrices[clusterIndex];
 
         vec4 scale = clusterMatrix[0];
         vec4 real = clusterMatrix[1];
@@ -152,11 +173,15 @@ void evalSkinning(uvec4 skinClusterIndex, vec4 skinClusterWeight, vec4 inPositio
 <@endif@>
 
     bool hasInfluence = false;
-    for (int i = 0; i < INDICES_PER_VERTEX; i++) {
-        float clusterWeight = skinClusterWeight[i];
+    int influenceCount = any(notEqual(skinClusterIndex & uvec4(GRAPHICS_SKINNING_EXTENDED_FLAG), uvec4(0u)))
+        ? INDICES_PER_VERTEX : 4;
+    for (int i = 0; i < influenceCount; i++) {
+        uint clusterIndex;
+        float clusterWeight;
+        decodeSkinningInfluence(skinClusterIndex, skinClusterWeight, i, clusterIndex, clusterWeight);
         if (!(clusterWeight > 0.0) || isinf(clusterWeight) || isnan(clusterWeight) ||
-            skinClusterIndex[i] >= min(skinClusterInfo.x, uint(MAX_CLUSTERS))) { continue; }
-        mat4 clusterMatrix = clusterMatrices[skinClusterIndex[i]];
+            clusterIndex >= min(skinClusterInfo.x, uint(MAX_CLUSTERS))) { continue; }
+        mat4 clusterMatrix = clusterMatrices[clusterIndex];
         hasInfluence = true;
         newPosition += clusterMatrix * inPosition * clusterWeight;
 <@if USE_NORMAL@>

@@ -89,7 +89,8 @@ void checkPacking(const HFMMesh& mesh) {
     const auto& streams = mesh._mesh->getVertexStream();
     auto indices = format->getAttribute(gpu::Stream::SKIN_CLUSTER_INDEX);
     auto weights = format->getAttribute(gpu::Stream::SKIN_CLUSTER_WEIGHT);
-    QCOMPARE(indices.getSize(), uint32_t(4));
+    const bool extended = mesh.skinningInfluenceCount == 8;
+    QCOMPARE(indices.getSize(), uint32_t(extended ? 16 : 4));
     QCOMPARE(weights.getSize(), uint32_t(8));
     for (int vertex = 0; vertex < mesh.vertices.size(); ++vertex) {
         const auto* i = streams.getBuffers()[indices._channel]->getData() + streams.getOffsets()[indices._channel]
@@ -99,8 +100,18 @@ void checkPacking(const HFMMesh& mesh) {
         for (int lane = 0; lane < 4; ++lane) {
             uint16_t packedWeight{};
             std::memcpy(&packedWeight, w + lane * 2, 2);
-            QCOMPARE(uint16_t(i[lane]), mesh.clusterIndices[vertex * 4 + lane]);
-            QCOMPARE(packedWeight, mesh.clusterWeights[vertex * 4 + lane]);
+            const int source = vertex * mesh.skinningInfluenceCount + lane;
+            if (extended) {
+                uint32_t word{};
+                std::memcpy(&word, i + lane * 4, 4);
+                QCOMPARE(word & 0xc0000000u, uint32_t(0x80000000u));
+                QCOMPARE(uint16_t(word & 127u), mesh.clusterIndices[source]);
+                QCOMPARE(uint16_t((word >> 7) & 127u), mesh.clusterIndices[source + 4]);
+                QCOMPARE(uint16_t((word >> 14) & 65535u), mesh.clusterWeights[source + 4]);
+            } else {
+                QCOMPARE(uint16_t(i[lane]), mesh.clusterIndices[source]);
+            }
+            QCOMPARE(packedWeight, mesh.clusterWeights[source]);
         }
     }
 }
@@ -111,6 +122,30 @@ class SkinningTests : public QObject {
     Q_OBJECT
 private slots:
     void initTestCase() { DependencyManager::set<ResourceManager>(false); }
+    void nonIndexedImportedTriangles() {
+        auto doc = QJsonDocument::fromJson(smallSkinInLargeScene()).object();
+        auto meshes = doc["meshes"].toArray();
+        auto mesh = meshes[0].toObject();
+        auto primitives = mesh["primitives"].toArray();
+        auto primitive = primitives[0].toObject();
+        primitive.remove("indices");
+        primitives[0] = primitive;
+        mesh["primitives"] = primitives;
+        meshes[0] = mesh;
+        doc["meshes"] = meshes;
+        GLTFSerializer serializer;
+        auto model = serializer.read(QJsonDocument(doc).toJson(QJsonDocument::Compact), {},
+                                     QUrl("file:///non-indexed-skin.gltf"));
+        QVERIFY(model);
+        QCOMPARE(model->loadErrorCount, 0);
+        QCOMPARE(model->meshes.size(), 1);
+        QCOMPARE(model->meshes[0].parts.size(), 1);
+        QCOMPARE(model->meshes[0].parts[0].triangleIndices, QVector<int>({0, 1, 2}));
+        baker::Baker baker(model, {}, QUrl());
+        baker.run();
+        QVERIFY(baker.getHFMModel()->meshes[0]._mesh);
+        checkPacking(baker.getHFMModel()->meshes[0]);
+    }
     void compactImportedPalette() {
         GLTFSerializer serializer;
         auto model = serializer.read(smallSkinInLargeScene(), {}, QUrl("file:///offline-skin.gltf"));
@@ -396,9 +431,56 @@ private slots:
         FBXSerializer malformed;
         QVERIFY(!malformed.read(asciiFBX(2,true),{},QUrl("file:///malformed.fbx")));
         FBXSerializer extra;
-        QVERIFY(!extra.read(asciiFBX(6,false,false,true),{},QUrl("file:///extra-influences.fbx")));
+        // All but joint 1 paint vertex 0: ten clusters exceed eight influences.
+        QVERIFY(!extra.read(asciiFBX(10,false,false,true),{},QUrl("file:///extra-influences.fbx")));
         FBXSerializer invalid;
         QVERIFY(!invalid.read(asciiFBX(2,false,true),{},QUrl("file:///invalid-vertex.fbx")));
+    }
+    void extendedFBXInfluences_data() {
+        QTest::addColumn<int>("activeInfluences");
+        QTest::newRow("six-complete-influences") << 6;
+        QTest::newRow("seven-complete-influences") << 7;
+        QTest::newRow("eight-complete-influences") << 8;
+    }
+    void extendedFBXInfluences() {
+        QFETCH(int, activeInfluences);
+        FBXSerializer serializer;
+        auto model = serializer.read(asciiFBX(activeInfluences + 1, false, false, true), {},
+                                     QUrl("file:///complete-influences.fbx"));
+        QVERIFY2(model, "Supported source influences must all survive import");
+        QCOMPARE(model->loadErrorCount, 0);
+        QCOMPARE(model->meshes.size(), 1);
+        const auto& source = model->meshes[0];
+        QCOMPARE(source.skinningInfluenceCount, 8);
+        QCOMPARE(source.clusterIndices.size(), source.vertices.size() * 8);
+        QCOMPARE(source.clusterWeights.size(), source.vertices.size() * 8);
+        int maximumActive = 0;
+        for (int vertex = 0; vertex < source.vertices.size(); ++vertex) {
+            int active = 0;
+            for (int lane = 0; lane < 8; ++lane) { active += source.clusterWeights[vertex * 8 + lane] != 0; }
+            maximumActive = std::max(maximumActive, active);
+        }
+        QCOMPARE(maximumActive, activeInfluences);
+        baker::Baker bake(model, {}, QUrl()); bake.run();
+        QCOMPARE(model->loadErrorCount, 0);
+        checkPacking(bake.getHFMModel()->meshes[0]);
+    }
+    void extendedInfluenceValidation() {
+        QString error;
+        for (int count : {6, 9}) {
+            auto mesh = influenceMesh(8);
+            mesh.skinningInfluenceCount = count;
+            mesh.clusterIndices.fill(0, mesh.vertices.size() * count);
+            mesh.clusterWeights.fill(0, mesh.vertices.size() * count);
+            QVERIFY(!mesh.prepareSkinningPalette(200, error));
+            QVERIFY(error.contains("unsupported"));
+            QVERIFY(mesh.parts.isEmpty());
+        }
+        auto mismatched = influenceMesh(8);
+        mismatched.skinningInfluenceCount = 8;
+        QVERIFY(!mismatched.prepareSkinningPalette(200, error));
+        QVERIFY(error.contains("declared influence count"));
+        QVERIFY(mismatched.parts.isEmpty());
     }
     void fbxRawSourceVertex_data() {
         QTest::addColumn<QByteArray>("rawIndex");

@@ -120,7 +120,7 @@ class ReproducibleGraphTest(unittest.TestCase):
         cmake_rrev = "cmake/3.31.12#2f6c0934c9dc141602cd279f67cfe048"
         qt_rrev = (
             "qt/5.15.18-2026.01.04@overte/stable"
-            "#4fd1f62ee1914f2f3ec4fe298a07c283"
+            "#6beda35278be474ac0d18e0e9cf1a653"
         )
         self.assertIn(cmake_rrev, bootstrap)
         self.assertIn(qt_rrev, host)

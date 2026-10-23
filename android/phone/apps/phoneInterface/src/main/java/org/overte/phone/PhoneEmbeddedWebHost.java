@@ -34,7 +34,7 @@ final class PhoneEmbeddedWebHost implements EmbeddedWebHost {
     private final IdentityHashMap<WebView, Card> cards = new IdentityHashMap<>();
     private FrameLayout overlay;
     private int sceneWidth, sceneHeight;
-    private boolean initialized, resumed;
+    private boolean initialized, resumed, keyboardVisible;
     private final WebFilePickerState<Uri[]> files = new WebFilePickerState<>();
     PhoneEmbeddedWebHost(PhoneInterfaceActivity activity) { this.activity = activity; }
     void initialize() {
@@ -55,6 +55,11 @@ final class PhoneEmbeddedWebHost implements EmbeddedWebHost {
         files.deliver(inputAllowed()); reposition();
     }
     void scene(int width, int height) { sceneWidth = width; sceneHeight = height; reposition(); }
+    void keyboard(boolean visible) {
+        if (!ownsActivity() || keyboardVisible == visible) return;
+        keyboardVisible = visible;
+        reposition();
+    }
     void detach() {
         resumed = false;
         files.cancel();
@@ -108,7 +113,8 @@ final class PhoneEmbeddedWebHost implements EmbeddedWebHost {
         if (result == null) { card.frame.setVisibility(View.GONE); return false; }
         FrameLayout.LayoutParams frame = new FrameLayout.LayoutParams(result[6] - result[4], result[7] - result[5]);
         frame.leftMargin = result[4] - base[0]; frame.topMargin = result[5] - base[1]; card.frame.setLayoutParams(frame);
-        int fullWidth = result[2] - result[0], fullHeight = result[3] - result[1];
+        int[] viewport = PhoneWebGeometry.documentViewport(result, keyboardVisible);
+        int fullWidth = viewport[2], fullHeight = viewport[3];
         int bannerHeight = 0;
         if (card.banner.getVisibility() == View.VISIBLE) {
             card.banner.measure(View.MeasureSpec.makeMeasureSpec(fullWidth, View.MeasureSpec.EXACTLY),
@@ -116,9 +122,9 @@ final class PhoneEmbeddedWebHost implements EmbeddedWebHost {
             bannerHeight = Math.min(card.banner.getMeasuredHeight(), Math.max(0, fullHeight - 1));
         }
         FrameLayout.LayoutParams notice = new FrameLayout.LayoutParams(fullWidth, bannerHeight);
-        notice.leftMargin = result[0] - result[4]; notice.topMargin = result[1] - result[5]; card.banner.setLayoutParams(notice);
+        notice.leftMargin = viewport[0]; notice.topMargin = viewport[1]; card.banner.setLayoutParams(notice);
         FrameLayout.LayoutParams browser = new FrameLayout.LayoutParams(fullWidth, fullHeight - bannerHeight);
-        browser.leftMargin = result[0] - result[4]; browser.topMargin = result[1] - result[5] + bannerHeight; card.web.setLayoutParams(browser);
+        browser.leftMargin = viewport[0]; browser.topMargin = viewport[1] + bannerHeight; card.web.setLayoutParams(browser);
         card.frame.setVisibility(card.web.getVisibility() == View.VISIBLE ? View.VISIBLE : View.GONE);
         return true;
     }

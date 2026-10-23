@@ -32,6 +32,7 @@
 class QFile;
 class QTemporaryFile;
 class SnapshotUploader;
+class SecondaryCameraJobConfig;
 
 class SnapshotMetaData {
 public:
@@ -247,6 +248,7 @@ private:
     static QImage convertToEquirectangular(std::array<QImage, 6> images, SnapshotCapture capture);
     void complete360(const QImage&, const QString&, bool, const SnapshotCapture&);
     SnapshotCapture _capture360;
+    QPointer<SecondaryCameraJobConfig> _secondaryCamera360;
     QMutex _captureMutex;
     QHash<QString, SnapshotCapture> _captures;
     QHash<QString, QPointer<SnapshotUploader>> _uploads;

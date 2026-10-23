@@ -160,7 +160,7 @@ void GraphicsEngine::initializeRender() {
     // Set up the render engine
     render::CullFunctor cullFunctor = LODManager::shouldRender;
     _renderEngine->addJob<UpdateSceneTask>("UpdateScene");
-#ifndef Q_OS_ANDROID
+#if !defined(Q_OS_ANDROID) || defined(ANDROID_APP_PHONE_INTERFACE)
     _renderEngine->addJob<SecondaryCameraRenderTask>("SecondaryCameraJob", cullFunctor);
 #endif
     _renderEngine->addJob<RenderViewTask>("RenderMainView", cullFunctor, render::ItemKey::TAG_BITS_0, render::ItemKey::TAG_BITS_0);

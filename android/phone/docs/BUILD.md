@@ -23,6 +23,18 @@ For the device-free Actions checks and trusted build-runner architecture, see
 Run the commands in this document from the repository's `android/phone/`
 directory.
 
+## Local domain certificates in debug builds
+
+The Phone debug resource overlay adds Android's user-installed CA store through
+`debug-overrides`. Install a laboratory CA through Android Settings and verify
+its SHA-256 fingerprint before signing in to a local HTTPS domain. The private
+CA key stays on the laboratory server. TLS chain and hostname verification
+remain enabled; this does not accept arbitrary server certificates.
+
+The shared main configuration and release APK continue to trust system CAs.
+Android ignores `debug-overrides` when the application is not debuggable. See
+[Android's network security configuration](https://developer.android.com/privacy-and-security/security-config#TrustingDebugCa).
+
 ## Fast x86_64 emulator tests
 
 The production Phone APK remains ARM64-only. For local instrumentation tests,
@@ -858,6 +870,25 @@ source-only acceptance additionally requires the existing cold-build gates.
 
 ## Current Phone host matrix
 
+The world-texture capture retries a signaled buffer when its first latch still
+has the previous producer timestamp. Two bounded retries retain the exact
+document/surface lease and freshness checks without polling an idle page forever.
+The existing frame-gate host test covers stale signals, in-flight delivery, retry
+exhaustion and revocation. Actual final-frame refresh still requires the normal
+Gboard Undo/Redo device sequence; a Chromium screenshot can itself wake drawing.
+
+The Phone editor forwards Android API 34 range replacement through the existing
+native Qt composition, selection and commit operations. Android's inherited
+`BaseInputConnection` implementation otherwise edits a separate Java buffer.
+Older Android versions retain the original Qt connection. The shared Qt Android
+runtime patch normalizes an explicit empty Android commit over a selection into
+one replacement range, while ordinary empty or selection-only Qt events still
+preserve text. Existing host checks cover the Java dispatch boundary, rejected
+native transactions, both selection directions, surrogate pairs and a large
+selected span. Exact-package device qualification is required; the isolated Qt
+method alone did not fix the observed Gboard Undo failure. Rebuild the locked Qt
+recipe when its patch changes; reusing an older Qt binary does not include it.
+
 The structured profile below is authoritative for this Phone checkout. The nine
 Web focus/owner lifecycle cases execute on both API 26 and API 35. The actual
 Robolectric reports contain 116 cases, including 18 focus executions. The common
@@ -965,3 +996,11 @@ override and must reject a still-missing upstream layout fix.
 }
 ```
 <!-- android-test-profile:end -->
+
+The texture consumer returns each copied SurfaceTexture buffer immediately after
+GPU readback, and returns the initial visual-barrier drain without retaining it.
+A fresh frame encountered inside the capture interval is retained until its
+bounded deferred copy; it is not discarded just to return a buffer. This keeps
+producer ownership separate from CPU pixels already copied for the native host.
+This buffer-release candidate still requires normal device qualification without
+SurfaceFlinger or Chromium diagnostic captures, which can affect composition.

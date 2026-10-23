@@ -7,6 +7,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <stdexcept>
 #include <thread>
 #include <v8.h>
 #include <libplatform/libplatform.h>
@@ -18,6 +19,9 @@
 struct ScriptEngineV8 {
     v8::Isolate* _v8Isolate;
     void abortEvaluation();
+    void runCleanup(const std::function<void()>& cleanup);
+    QThread* owner = QThread::currentThread();
+    QThread* thread() const { return owner; }
 #include "abort-state.inc"
 };
 struct ScriptManager : QObject, std::enable_shared_from_this<ScriptManager> {
@@ -46,6 +50,65 @@ struct EntrySignal {
     bool stopDelivered { false };
 };
 
+void testCleanup(v8::Isolate* isolate, const std::string& mode) {
+    v8::Locker lock(isolate);
+    v8::Isolate::Scope scope(isolate);
+    v8::HandleScope handles(isolate);
+    auto context = v8::Context::New(isolate);
+    v8::Context::Scope enteredContext(context);
+    ScriptEngineV8 engine;
+    engine._v8Isolate = isolate;
+    std::atomic<int> removed { 0 };
+    auto cleaned = v8::Function::New(context, [](const v8::FunctionCallbackInfo<v8::Value>& info) {
+        ++*static_cast<std::atomic<int>*>(info.Data().As<v8::External>()->Value());
+    }, v8::External::New(isolate, &removed)).ToLocalChecked();
+    assert(context->Global()->Set(context, v8::String::NewFromUtf8Literal(isolate, "cleaned"), cleaned).FromJust());
+    auto source = v8::String::NewFromUtf8Literal(isolate, "cleaned();");
+    const bool looping = mode == "cleanup-loop" || mode == "cleanup-abort";
+    if (looping) source = v8::String::NewFromUtf8Literal(isolate, "cleaned(); while (true) {}");
+    auto script = v8::Script::Compile(context, source).ToLocalChecked();
+    int calls = 0;
+    engine.runCleanup([&] { ++calls; }); // No cleanup admission before stop.
+    assert(calls == 0);
+    engine.abortEvaluation();
+    if (mode == "cleanup-wrong-thread") {
+        std::thread wrong([&] { engine.runCleanup([&] { ++calls; }); });
+        wrong.join();
+        assert(calls == 0 && engine.isEvaluationAborted());
+    }
+    std::thread stopper;
+    if (mode == "cleanup-abort") {
+        stopper = std::thread([&] {
+            while (removed.load() == 0) { std::this_thread::yield(); }
+            engine.abortEvaluation();
+        });
+    }
+    const auto started = std::chrono::steady_clock::now();
+    bool threw = false;
+    try {
+        engine.runCleanup([&] {
+            ++calls;
+            assert(!engine.isEvaluationAborted());
+            v8::TryCatch caught(isolate);
+            v8::Local<v8::Value> result;
+            const bool ok = script->Run(context).ToLocal(&result);
+            assert(ok == !looping);
+            if (looping) { assert(caught.HasTerminated()); }
+            if (mode == "cleanup-throw") { throw std::runtime_error("cleanup"); }
+        });
+    } catch (const std::runtime_error&) { threw = true; }
+    if (stopper.joinable()) { stopper.join(); }
+    const auto elapsed = std::chrono::steady_clock::now() - started;
+    assert(elapsed < std::chrono::seconds(2));
+    if (mode == "cleanup-loop") { assert(elapsed >= std::chrono::milliseconds(400)); }
+    assert(threw == (mode == "cleanup-throw"));
+    assert(calls == 1 && removed.load() == 1 && engine.isEvaluationAborted());
+    engine.runCleanup([&] { ++calls; }); // Terminal window is one-shot.
+    assert(calls == 1);
+    isolate->CancelTerminateExecution(); // Ordinary admission remains closed.
+    assert(engine.isEvaluationAborted());
+}
+
 int main(int argc, char** argv) {
     QCoreApplication app(argc, argv);
     const bool stopping = std::string(argv[1]) != "normal";
@@ -59,6 +122,13 @@ int main(int argc, char** argv) {
     v8::Isolate::CreateParams params;
     params.array_buffer_allocator = allocator.get();
     auto isolate = v8::Isolate::New(params);
+    if (std::string(argv[1]).rfind("cleanup", 0) == 0) {
+        testCleanup(isolate, argv[1]);
+        isolate->Dispose();
+        v8::V8::Dispose();
+        v8::V8::DisposePlatform();
+        return 0;
+    }
     auto manager = std::make_shared<ScriptManager>();
     manager->_engine = std::make_shared<ScriptEngineV8>();
     manager->_engine->_v8Isolate = isolate;

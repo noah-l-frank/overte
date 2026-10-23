@@ -2191,7 +2191,7 @@
                 if (parentId !== null && parentId.length > 0 && parentId !== Uuid.NONE) {
                     parentCheck = true;
                 }
-                Entities.editEntity(id, {parentID: null});
+                Entities.editEntity(id, {parentID: Uuid.NONE});
                 return true;
             });
             if (parentCheck) {

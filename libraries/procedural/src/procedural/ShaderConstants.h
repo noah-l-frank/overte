@@ -16,6 +16,7 @@
 #define PROCEDURAL_SHADER_CONSTANTS_H
 
 #define PROCEDURAL_BUFFER_INPUTS 7
+#define PROCEDURAL_BUFFER_INPUTS_FORWARD 14
 
 #define PROCEDURAL_UNIFORM_CUSTOM 220
 
@@ -37,6 +38,7 @@ namespace procedural { namespace slot {
 namespace buffer {
 enum Bufffer {
     Inputs = PROCEDURAL_BUFFER_INPUTS,
+    InputsForward = PROCEDURAL_BUFFER_INPUTS_FORWARD,
 };
 }
 

@@ -616,6 +616,13 @@ private slots:
     void setShowTrackedObjects(bool value) { _showTrackedObjects = value; }
 
 private:
+#if defined(ANDROID_APP_PHONE_INTERFACE) && defined(USE_GL)
+    void updatePhoneInputMethodEnabled(bool focusText);
+    QRectF getPhoneWorldInputRectangle(const glm::mat4& projection,
+                                     Qt::InputMethodQuery rectangle = Qt::ImCursorRectangle) const;
+    glm::mat4 applyPhoneWorldInputProjection(const glm::mat4& projection);
+    qreal _phoneWorldKeyboardPanPixels { 0.0 };
+#endif
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     void domainURLChangedWithTicket(QUrl domainURL, const overte::network::RequestTicket& navigationTicket);
     void loadServerlessDomainWithTicket(QUrl domainURL, const overte::network::RequestTicket& navigationTicket);
@@ -691,6 +698,9 @@ private:
     void mouseDoublePressEvent(QMouseEvent* event);
     void mouseReleaseEvent(QMouseEvent* event);
 
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    bool handlePhoneWebTouchEvent(QTouchEvent* event);
+#endif
     void touchBeginEvent(QTouchEvent* event);
     void touchEndEvent(QTouchEvent* event);
     void touchUpdateEvent(QTouchEvent* event);
@@ -898,6 +908,7 @@ private:
     // Tracks a Back press consumed by phone screen-space UI so the matching
     // release is not exposed to scripts or treated as an app-backgrounding key.
     bool _phoneBackKeyConsumed { false };
+    int _phoneWebTouchId { -1 };
 #endif
     TouchEvent _lastTouchEvent;
     quint64 _lastAcceptedKeyPress { 0 };

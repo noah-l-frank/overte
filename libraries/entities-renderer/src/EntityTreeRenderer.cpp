@@ -15,6 +15,7 @@
 
 #include <glm/gtx/quaternion.hpp>
 #include <array>
+#include <cmath>
 #include <queue>
 
 #include <QEventLoop>
@@ -1049,7 +1050,7 @@ void EntityTreeRenderer::connectSignalsToSlots(EntityScriptingInterface* entityS
     connect(DependencyManager::get<SceneScriptingInterface>().data(), &SceneScriptingInterface::shouldRenderEntitiesChanged, this, &EntityTreeRenderer::updateEntityRenderStatus, Qt::QueuedConnection);
 }
 
-static glm::vec2 projectOntoEntityXYPlane(EntityItemPointer entity, const PickRay& pickRay, const RayToEntityIntersectionResult& rayPickResult) {
+static glm::vec2 projectOntoEntityXYPlane(EntityItemPointer entity, const PickRay& pickRay, const RayToEntityIntersectionResult& rayPickResult, glm::vec3* worldPoint = nullptr) {
 
     if (entity) {
 
@@ -1070,6 +1071,7 @@ static glm::vec2 projectOntoEntityXYPlane(EntityItemPointer entity, const PickRa
         } else {
             p = rayPickResult.intersection;
         }
+        if (worldPoint) { *worldPoint = p; }
         glm::vec3 localP = glm::inverse(entityRotation) * (p - entityPosition);
         glm::vec3 normalizedP = (localP / entityDimensions) + entityRegistrationPoint;
         return glm::vec2(normalizedP.x * entityDimensions.x,
@@ -1098,6 +1100,72 @@ static PointerEvent::Button toPointerButton(const QMouseEvent& event) {
     default:
         return PointerEvent::NoButtons;
     }
+}
+
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+bool EntityTreeRenderer::moveWebInputCursor(const QUuid& focusedEntity, const QPointF& position, int handle) {
+    if (!_tree || _shuttingDown || !_viewState || focusedEntity.isNull()
+            || !std::isfinite(position.x()) || !std::isfinite(position.y()) || handle < 1 || handle > 3) return false;
+    auto entity = getTree()->findEntityByID(focusedEntity);
+    if (!entity || entity->getType() != EntityTypes::Web) return false;
+    auto renderer = std::dynamic_pointer_cast<render::entities::WebEntityRenderer>(renderableForEntityId(focusedEntity));
+    if (!renderer) return false;
+    const PickRay ray = _viewState->computePickRay(position.x(), position.y());
+    RayToEntityIntersectionResult intersection;
+    const auto point = projectOntoEntityXYPlane(entity, ray, intersection);
+    return renderer->moveInputCursorToPoint(point, handle);
+}
+#endif
+
+QUuid EntityTreeRenderer::webTouchEvent(QEvent::Type type, const QPointF& position,
+                                      const std::function<void(const QUuid&)>& beforePress) {
+    if (!_tree || _shuttingDown) { _webTouchEntityID = UNKNOWN_ENTITY_ID; return UNKNOWN_ENTITY_ID; }
+    auto scripting = DependencyManager::get<EntityScriptingInterface>();
+    PickRay ray = _viewState->computePickRay(position.x(), position.y());
+    RayToEntityIntersectionResult hit;
+    if (type == QEvent::TouchBegin) {
+        _webTouchEntityID = UNKNOWN_ENTITY_ID;
+        const auto filter = PickFilter::getBitMask(PickFilter::FlagBit::DOMAIN_ENTITIES)
+            | PickFilter::getBitMask(PickFilter::FlagBit::AVATAR_ENTITIES)
+            | PickFilter::getBitMask(PickFilter::FlagBit::LOCAL_ENTITIES)
+            | PickFilter::getBitMask(PickFilter::FlagBit::VISIBLE);
+        hit = scripting->findRayIntersection(ray, filter);
+        auto entity = hit.intersects ? getTree()->findEntityByID(hit.entityID) : EntityItemPointer();
+        if (!entity || entity->getType() != EntityTypes::Web) return UNKNOWN_ENTITY_ID;
+        _webTouchEntityID = hit.entityID;
+    }
+    const auto target = _webTouchEntityID;
+    auto entity = getTree()->findEntityByID(target);
+    if (!entity) { _webTouchEntityID = UNKNOWN_ENTITY_ID; return UNKNOWN_ENTITY_ID; }
+    glm::vec3 intersection;
+    auto point = projectOntoEntityXYPlane(entity, ray, hit, &intersection);
+    const auto normal = entity->getWorldOrientation() * Vectors::UNIT_Z;
+    const bool released = type == QEvent::TouchEnd || type == QEvent::TouchCancel;
+    auto kind = type == QEvent::TouchBegin ? PointerEvent::Press : released ? PointerEvent::Release : PointerEvent::Move;
+    if (type == QEvent::TouchCancel) {
+        // Release outside the page so cancelling a gesture cannot activate its button.
+        point = glm::vec2(-1000.0f);
+        PointerEvent move(PointerEvent::Move, PointerManager::MOUSE_POINTER_ID, point,
+            intersection, normal, ray.direction, PointerEvent::NoButtons, PointerEvent::PrimaryButton);
+        emit scripting->mouseMoveOnEntity(target, move);
+    }
+    PointerEvent pointer(kind, PointerManager::MOUSE_POINTER_ID, point, intersection, normal, ray.direction,
+        kind == PointerEvent::Move ? PointerEvent::NoButtons : PointerEvent::PrimaryButton,
+        released ? PointerEvent::NoButtons : PointerEvent::PrimaryButton);
+    if (kind == PointerEvent::Press) {
+        // Bind keyboard routing and the render proxy before the first editor
+        // press can request Qt focus or publish asynchronous DOM editor state.
+        if (beforePress) beforePress(target);
+        emit scripting->mousePressOnEntity(target, pointer);
+        emit scripting->clickDownOnEntity(target, pointer);
+    } else if (kind == PointerEvent::Release) {
+        emit scripting->mouseReleaseOnEntity(target, pointer);
+        emit scripting->clickReleaseOnEntity(target, pointer);
+        _webTouchEntityID = UNKNOWN_ENTITY_ID;
+    } else {
+        emit scripting->mouseMoveOnEntity(target, pointer);
+    }
+    return target;
 }
 
 QUuid EntityTreeRenderer::mousePressEvent(QMouseEvent* event) {

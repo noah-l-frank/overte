@@ -7,7 +7,20 @@
 #include <QQmlEngine>
 #include <QUrl>
 #include <QFile>
+#include <QFileInfo>
+#include <QLoggingCategory>
 #include <memory>
+// Only the installed standard-library directory is a host boundary. Keep the
+// production URL normalizer/expander so packaged schemes cannot silently pass
+// through an identity substitute.
+namespace PathUtils {
+inline QUrl defaultScriptsLocation() { return QUrl("file:///overte-host-standard-scripts/"); }
+}
+inline const QLoggingCategory& scriptengine() {
+    static const QLoggingCategory category("overte.host.script.urls");
+    return category;
+}
+#include "script-url-body.inc"
 struct BundleContextInfo { QString name; QString fileName() { return name; } };
 struct BundleContext {
     QString name;
@@ -24,7 +37,6 @@ public:
     BundleEngine* _engine { &state };
     QString _parentURL, _fileNameString;
     QUrl resolvePath(const QString& include) const;
-    QUrl expandScriptUrl(const QUrl& url) const { return url; } // file URLs do not need packaged alias expansion.
     Q_INVOKABLE void include(const QString& path) {
         const auto url=resolvePath(path);
         QFile file(url.toLocalFile());

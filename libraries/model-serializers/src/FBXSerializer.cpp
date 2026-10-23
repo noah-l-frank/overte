@@ -11,6 +11,7 @@
 //
 
 #include "FBXSerializer.h"
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
@@ -1586,7 +1587,7 @@ HFMModel* FBXSerializer::extractHFMModel(const hifi::VariantHash& mapping, const
         // A single weighted joint still needs weights (partial/unpainted vertices).
         if (!clusterIDs.isEmpty()) {
             // this is a multi-mesh joint
-            const int WEIGHTS_PER_VERTEX = 4;
+            int WEIGHTS_PER_VERTEX = 8;
             if (extracted.mesh.vertices.size() > std::numeric_limits<int>::max() / WEIGHTS_PER_VERTEX) {
                 qCWarning(modelformat) << "Rejecting FBX: skin influence array exceeds representable size";
                 return nullptr;
@@ -1619,7 +1620,7 @@ HFMModel* FBXSerializer::extractHFMModel(const hifi::VariantHash& mapping, const
                         int newIndex = it.value();
                         if (weight == 0.0) { continue; }
                         if (++influenceCounts[newIndex] > WEIGHTS_PER_VERTEX) {
-                            qCWarning(modelformat) << "Rejecting FBX: more than four active influences per vertex";
+                            qCWarning(modelformat) << "Rejecting FBX: more than eight active influences per vertex";
                             return nullptr;
                         }
 
@@ -1639,6 +1640,23 @@ HFMModel* FBXSerializer::extractHFMModel(const hifi::VariantHash& mapping, const
                     }
                 }
             }
+
+            // Preserve the legacy HFM layout when all vertices fit four lanes.
+            // Compact toward the start of the arrays only after every source
+            // influence has been validated and retained.
+            if (std::none_of(influenceCounts.cbegin(), influenceCounts.cend(), [](int count) { return count > 4; })) {
+                for (int vertex = 0; vertex < extracted.mesh.vertices.size(); ++vertex) {
+                    for (int lane = 0; lane < 4; ++lane) {
+                        extracted.mesh.clusterIndices[vertex * 4 + lane] = extracted.mesh.clusterIndices[vertex * 8 + lane];
+                        weightAccumulators[vertex * 4 + lane] = weightAccumulators[vertex * 8 + lane];
+                    }
+                }
+                WEIGHTS_PER_VERTEX = 4;
+                numClusterIndices = extracted.mesh.vertices.size() * WEIGHTS_PER_VERTEX;
+                extracted.mesh.clusterIndices.resize(numClusterIndices);
+                weightAccumulators.resize(numClusterIndices);
+            }
+            extracted.mesh.skinningInfluenceCount = WEIGHTS_PER_VERTEX;
 
             // now that we have accumulated all supported influences for each vertex
             // normalize and compress to 16-bits

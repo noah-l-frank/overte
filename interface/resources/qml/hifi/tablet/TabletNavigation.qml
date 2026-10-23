@@ -19,7 +19,7 @@ Item {
         id: metrics
         availableWidth: navigation.width / navigation.contentScale
     }
-    implicitHeight: Math.max(48, Math.ceil(48 * metrics.textScale)) * contentScale
+    implicitHeight: Math.max(48, Math.ceil(26 * metrics.textScale * contentScale))
     height: shown ? implicitHeight : 0
 
     Row {
@@ -35,8 +35,8 @@ Item {
             delegate: HifiControls.Button {
                 objectName: "nav." + modelData.key
                 visible: modelData.key !== "back" || navigation.backVisible
-                width: Math.max(48, Math.min(112,
-                    (navigation.width / navigation.contentScale - 40) / 3))
+                width: Math.max(48 / navigation.contentScale, Math.min(112,
+                    implicitTextWidth + 16, (navigation.width / navigation.contentScale - 40) / 3))
                 height: navigation.implicitHeight / navigation.contentScale
                 text: modelData.label
                 fontSize: Math.round(16 * metrics.textScale)

@@ -22,6 +22,7 @@
 
 #include <QCryptographicHash>
 #include <QImageReader>
+#include <QBuffer>
 #include <QRunnable>
 #include <QThreadPool>
 #include <QNetworkReply>
@@ -177,6 +178,20 @@ static const float HIGH_MIPS_LOAD_PRIORITY { 9.0f }; // Make sure high mips load
 std::function<gpu::TexturePointer(const QUuid&)> Texture::_unboundTextureForUUIDOperator { nullptr };
 
 #if defined(ANDROID_APP_PHONE_INTERFACE)
+static bool phoneTinyColorPalette(const QByteArray& content, image::TextureUsage::Type type) {
+    if (type != image::TextureUsage::DEFAULT_TEXTURE && type != image::TextureUsage::STRICT_TEXTURE
+            && type != image::TextureUsage::ALBEDO_TEXTURE && type != image::TextureUsage::EMISSIVE_TEXTURE) {
+        return false;
+    }
+    // Metadata only: do not decode pixels before the image allocation guard.
+    QBuffer input;
+    input.setData(content);
+    input.open(QIODevice::ReadOnly);
+    QImageReader reader(&input);
+    const auto size = reader.size();
+    return size.isValid() && size.width() <= 4 && size.height() <= 4;
+}
+
 static int phoneLoadingCacheNamespace(const char* value, int length) {
     if ((length != 1 && length != 2) || value[0] < '1' || value[0] > '9') {
         return 0;
@@ -1543,6 +1558,13 @@ void ImageReader::read() {
         QCryptographicHash hasher(QCryptographicHash::Md5);
         hasher.addData(_content);
         hasher.addData(std::to_string(_extraHash).c_str());
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+        if (phoneTinyColorPalette(_content, networkTexture->getTextureType())) {
+            // Tiny color palettes use lossless RGBA instead of ETC2.
+            // Preserve other cached textures and let old entries expire normally.
+            hasher.addData("phone-tiny-color-rgba-v1");
+        }
+#endif
         hash = hasher.result().toHex().toStdString();
         loadingId = hash;
         PHONE_LOADING("phase=image_source id=%s url_hash=%s bytes=%d type=%d", hash.c_str(),

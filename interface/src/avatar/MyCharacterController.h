@@ -79,7 +79,7 @@ public:
     void beginSpawnHold();
     bool isSpawnHeld() const { return _spawnGate.held(); }
     // Called after preSimulation, on the physics thread, after entity transactions.
-    bool updateSpawnHold(bool physicsReady);
+    bool updateSpawnHold(bool physicsReady, bool mayReport = true);
     void playerStep(btCollisionWorld* world, btScalar dt) override;
 private:
     bool hasSpawnSupport() const;

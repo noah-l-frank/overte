@@ -61,16 +61,36 @@ Item {
             var send = findChild(page, "chatSend")
             verify(send.mapToItem(page, send.width, 0).x <= page.width)
             verify(page.messageInput.width > 200)
+            // A long mobile draft must leave navigation and message history usable.
+            page.keyboardEnabled = false
+            page.height = 150
+            var draft = new Array(81).join("long draft line\n")
+            page.messageInput.text = draft
+            wait(30)
+            verify(send.mapToItem(page, 0, 0).y >= 40, "draft overlaps the chat header")
+            verify(send.height <= (page.height - 40) / 2)
+            var scroll = findChild(page, "chatEntryScroll")
+            verify(scroll !== null)
+            page.messageInput.forceActiveFocus()
+            page.messageInput.cursorPosition = draft.length
+            tryVerify(function() {
+                var cursor = page.messageInput.cursorRectangle
+                var position = page.messageInput.mapToItem(scroll, cursor.x, cursor.y)
+                return position.y >= -1 && position.y + cursor.height <= scroll.height + 1
+            })
+            mouseClick(send, send.width / 2, send.height / 2)
+            var messages = requests.signalArguments.filter(function(row) { return row[0].type === "send_message" })
+            compare(messages.length, 1)
+            compare(messages[0][0].message, draft)
+            compare(page.messageInput.text, "")
         }
-        function test_keyboardHideAndBack() {
+        function test_keyboardHideUsesTabletNavigation() {
             page.messageInput.forceActiveFocus()
             tryCompare(page, "keyboardRaised", true)
             compare(KeyboardScriptingInterface.raised, true)
             page.fromScript({ type: "chat.hidden" })
             compare(page.keyboardRaised, false); compare(KeyboardScriptingInterface.raised, false)
-            var close = findChild(page, "chatClose")
-            mouseClick(close, close.width / 2, close.height / 2)
-            compare(last().type, "chat.close")
+            compare(findChild(page, "chatClose"), null)
         }
         function test_settingsRestoreFalseAndNoFeedback() {
             compare(requests.count, 0)

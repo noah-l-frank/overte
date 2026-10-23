@@ -10,4 +10,4 @@ patches:
       patch_sha256: "33d389780c86d24d6de3f9bed8a5fa28379ad45eddcb508c365bb9f24d1aa9d7"
     - base_path: "qt5"
       patch_file: "patches/qt-pico-android-runtime.patch"
-      patch_sha256: "ee87070ce3b613ca5d9111dcd6d21679e2b292329b572d93ae2f6ed2add6a9b3"
+      patch_sha256: "94d61671631eb51ebc052a6f1f2afb11893cfb1dc9fd317c426b4eb2f7ed4999"

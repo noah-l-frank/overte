@@ -335,7 +335,6 @@ EntityItemProperties convertPropertiesToScriptSemantics(const EntityItemProperti
     scriptSideProperties.setLocalRotation(entitySideProperties.getRotation());
     scriptSideProperties.setLocalVelocity(entitySideProperties.getVelocity());
     scriptSideProperties.setLocalAngularVelocity(entitySideProperties.getAngularVelocity());
-    scriptSideProperties.setLocalDimensions(entitySideProperties.getDimensions());
 
     bool success;
     glm::vec3 worldPosition = SpatiallyNestable::localToWorld(entitySideProperties.getPosition(),
@@ -358,18 +357,15 @@ EntityItemProperties convertPropertiesToScriptSemantics(const EntityItemProperti
                                                                                     entitySideProperties.getParentJointIndex(),
                                                                                     scalesWithParent,
                                                                                     success);
-    glm::vec3 worldDimensions = SpatiallyNestable::localToWorldDimensions(entitySideProperties.getDimensions(),
-                                                                          entitySideProperties.getParentID(),
-                                                                          entitySideProperties.getParentJointIndex(),
-                                                                          scalesWithParent,
-                                                                          success);
-
-
+    // Dimension copy getters/setters already provide both frames, unlike the
+    // position/rotation fields above. Copy getters clear the changed flags;
+    // retain their local value instead of converting the world value again.
+    scriptSideProperties.setLocalDimensions(entitySideProperties.getLocalDimensions());
     scriptSideProperties.setPosition(worldPosition);
     scriptSideProperties.setRotation(worldRotation);
     scriptSideProperties.setVelocity(worldVelocity);
     scriptSideProperties.setAngularVelocity(worldAngularVelocity);
-    scriptSideProperties.setDimensions(worldDimensions);
+    scriptSideProperties.setDimensions(entitySideProperties.getDimensions());
 
     return scriptSideProperties;
 }
@@ -425,13 +421,11 @@ EntityItemProperties convertPropertiesFromScriptSemantics(const EntityItemProper
     }
 
     if (scriptSideProperties.localDimensionsChanged()) {
-        entitySideProperties.setDimensions(scriptSideProperties.getLocalDimensions());
-    } else if (scriptSideProperties.dimensionsChanged()) {
-        glm::vec3 localDimensions = SpatiallyNestable::worldToLocalDimensions(entitySideProperties.getDimensions(),
-                                                                              entitySideProperties.getParentID(),
-                                                                              entitySideProperties.getParentJointIndex(),
-                                                                              scalesWithParent, success);
-        entitySideProperties.setDimensions(localDimensions);
+        // EntityItem::setProperties consumes scaled dimensions. Convert a
+        // local edit once; ordinary dimensions already have the native frame.
+        entitySideProperties.setDimensions(SpatiallyNestable::localToWorldDimensions(
+            scriptSideProperties.getLocalDimensions(), entitySideProperties.getParentID(),
+            entitySideProperties.getParentJointIndex(), scalesWithParent, success));
     }
 
     return entitySideProperties;

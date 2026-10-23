@@ -45,10 +45,14 @@ bool hfm::Mesh::validateSkinningPalette(QString& error) const {
         error = "palette exceeds the supported 128 clusters";
         return false;
     }
+    if (skinningInfluenceCount != 4 && skinningInfluenceCount != 8) {
+        error = "unsupported skinning influence count";
+        return false;
+    }
     if (clusterIndices.isEmpty() && clusterWeights.isEmpty()) { return true; }
-    const qint64 expected = qint64(vertices.size()) * 4;
+    const qint64 expected = qint64(vertices.size()) * skinningInfluenceCount;
     if (clusterIndices.size() != expected || clusterWeights.size() != expected) {
-        error = "skinning requires exactly four indices and weights per vertex";
+        error = "skinning indices and weights do not match the declared influence count";
         return false;
     }
     for (int lane = 0; lane < clusterIndices.size(); ++lane) {
@@ -73,6 +77,9 @@ bool hfm::Mesh::prepareSkinningPalette(int jointCount, QString& error) {
         return false;
     };
     if (!skinningDataValid) { return reject("previously rejected skinning data"); }
+    if (skinningInfluenceCount != 4 && skinningInfluenceCount != 8) {
+        return reject("unsupported skinning influence count");
+    }
     if (clusterIndices.isEmpty() && clusterWeights.isEmpty()) {
         // Rigid meshes use their first cluster as a local transform.
         for (const auto& cluster : clusters) {
@@ -83,9 +90,9 @@ bool hfm::Mesh::prepareSkinningPalette(int jointCount, QString& error) {
         if (!validateSkinningPalette(error)) { return reject(error); }
         return true;
     }
-    const qint64 expected = qint64(vertices.size()) * 4;
+    const qint64 expected = qint64(vertices.size()) * skinningInfluenceCount;
     if (clusterIndices.size() != expected || clusterWeights.size() != expected) {
-        return reject("skinning requires exactly four indices and weights per vertex");
+        return reject("skinning indices and weights do not match the declared influence count");
     }
     QVector<int> remap(clusters.size(), -1);
     for (int lane = 0; lane < clusterIndices.size(); ++lane) {

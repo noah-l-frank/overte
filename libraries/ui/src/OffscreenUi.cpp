@@ -17,6 +17,9 @@
 #include <QtQml/QtQml>
 
 #include <shared/QtHelpers.h>
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+#include <InputMethodQueryEventWithArgument.h>
+#endif
 #include <gl/GLHelpers.h>
 
 #include <AbstractUriHandler.h>
@@ -1128,6 +1131,25 @@ bool OffscreenUi::eventFilter(QObject* originalDestination, QEvent* event) {
     if (!filterEnabled(originalDestination, event)) {
         return false;
     }
+
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    // A focused world surface owns its surrounding text and cursor. An
+    // unfocused tablet can otherwise answer first with cursor position zero,
+    // causing Android's next IME transaction to insert before the last one.
+    // A real tablet editor retains priority over world keyboard focus.
+    if (event->type() == QEvent::InputMethodQuery && !isFocusText()) {
+        event->ignore();
+        if (QCoreApplication::sendEvent(QCoreApplication::instance(), event) && event->isAccepted()) {
+            return true;
+        }
+        if (dynamic_cast<InputMethodQueryEventWithArgument*>(event)) {
+            // Only Application's explicit world projection may claim this
+            // native point. Never reinterpret it in an unfocused tablet.
+            event->ignore();
+            return true;
+        }
+    }
+#endif
 
     // let the parent class do it's work
     bool result = OffscreenQmlSurface::eventFilter(originalDestination, event);

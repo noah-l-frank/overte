@@ -6,11 +6,11 @@
     },
     "host-tools": {
       "path": "android/phone/fdroid/locks/host-tools-linux-x86_64.lock",
-      "sha256": "4d9df65dfb1ab00c21fcb1dc4e5baef2bd50ef9ab484ea4105392922bfbfe252"
+      "sha256": "e751a4b548c00f2992f60bdebb49163676c39160b8269345672bb63462583bb5"
     },
     "target": {
       "path": "android/phone/fdroid/locks/android-arm64-v8a-api26-16k.lock",
-      "sha256": "d21a74b01b523156ab0379f0e25f4268804f7cffad5b3c391fcbe9d1e4652cc8"
+      "sha256": "dd98691d58b42de7cf6e2ce263c83c4f006229de0c05653da7ed769b915f0c51"
     }
   },
   "node": "SH-001",
@@ -2171,17 +2171,17 @@
       },
       "recipe": {
         "exported_files": {
-          "android/phone/fdroid/manifests/recipe-exports/qt/5.15.18-2026.01.04@overte/stable/export/conandata.yml": "b149bbcdc8005eb49cf327a26656e601bf48087aab28d51baa5bbf74a965bec8",
+          "android/phone/fdroid/manifests/recipe-exports/qt/5.15.18-2026.01.04@overte/stable/export/conandata.yml": "cf77240b9e023de68a5acaf9b7f02506058e6f117f595c3274045a17cc8b1be7",
           "android/phone/fdroid/manifests/recipe-exports/qt/5.15.18-2026.01.04@overte/stable/export/conanfile.py": "35950c13efdd89e805e355d6f3171ad1f500d8a8bc4bf8b209d4c9112e93d70b",
-          "android/phone/fdroid/manifests/recipe-exports/qt/5.15.18-2026.01.04@overte/stable/export/conanmanifest.txt": "4d069829e0c4bad94a4f44930ada4cc43e3738364ff7c8391da4a3339e43f183",
+          "android/phone/fdroid/manifests/recipe-exports/qt/5.15.18-2026.01.04@overte/stable/export/conanmanifest.txt": "74597243e8f453e076a1b7cd7d90a7d78b9371bcb7b1113939f152e5a33720e1",
           "android/phone/fdroid/manifests/recipe-exports/qt/5.15.18-2026.01.04@overte/stable/export/qtmodules5.15.18-2026.01.04.conf": "98d8632bcfa4cc7e7dc1659770bca0a1da4397c762ef5a4f99eb413e5b756b70",
           "android/phone/fdroid/manifests/recipe-exports/qt/5.15.18-2026.01.04@overte/stable/export_sources/patches/Fix-error-uintptr_t-does-not-name-a-type-in-QtDeclarative.patch": "33d389780c86d24d6de3f9bed8a5fa28379ad45eddcb508c365bb9f24d1aa9d7",
-          "android/phone/fdroid/manifests/recipe-exports/qt/5.15.18-2026.01.04@overte/stable/export_sources/patches/qt-pico-android-runtime.patch": "ee87070ce3b613ca5d9111dcd6d21679e2b292329b572d93ae2f6ed2add6a9b3"
+          "android/phone/fdroid/manifests/recipe-exports/qt/5.15.18-2026.01.04@overte/stable/export_sources/patches/qt-pico-android-runtime.patch": "94d61671631eb51ebc052a6f1f2afb11893cfb1dc9fd317c426b4eb2f7ed4999"
         },
         "path": "android/phone/fdroid/manifests/recipe-exports/qt/5.15.18-2026.01.04@overte/stable/export/conanfile.py",
         "sha256": "35950c13efdd89e805e355d6f3171ad1f500d8a8bc4bf8b209d4c9112e93d70b"
       },
-      "recipe_revision": "4fd1f62ee1914f2f3ec4fe298a07c283",
+      "recipe_revision": "6beda35278be474ac0d18e0e9cf1a653",
       "reference": "qt/5.15.18-2026.01.04@overte/stable",
       "sources": [
         {
@@ -3304,8 +3304,8 @@
   "recipe_export_index": {
     "path": "android/phone/fdroid/manifests/recipe-exports/index.json",
     "pkglist_path": "android/phone/fdroid/manifests/recipe-exports/pkglist.json",
-    "pkglist_sha256": "83876cb61679b0f5e0e05caf882bb503989355ffae074923cf6761e4d80d553a",
-    "sha256": "98b2e2b8fa4d45a603b3ad0820d988962156e3ca96101133c51fa95386ba04eb"
+    "pkglist_sha256": "50d703a587a18ab77df64edf1282695885c192d240242d9a2044229116d5fd92",
+    "sha256": "fb27457567d57f36a8e93cb55dec31482deabee467b2f9ac9d09a1174732fc85"
   },
   "schema_version": 1,
   "status": "SOURCE_CLOSURE_GATE_PASS",

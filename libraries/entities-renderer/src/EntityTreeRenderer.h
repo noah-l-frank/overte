@@ -108,6 +108,12 @@ public:
     FadeProperties getLayeredZoneFadeProperties(const TransitionType type) const { return _layeredZones.getFadeProperties(type); }
 
     // event handles which may generate entity related events
+    // Direct touch does a fresh ray pick; it cannot rely on a desktop mouse-hover result.
+    QUuid webTouchEvent(QEvent::Type type, const QPointF& position,
+                       const std::function<void(const QUuid&)>& beforePress = {});
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    bool moveWebInputCursor(const QUuid& focusedEntity, const QPointF& position, int handle);
+#endif
     QUuid mousePressEvent(QMouseEvent* event);
     void mouseReleaseEvent(QMouseEvent* event);
     void mouseDoublePressEvent(QMouseEvent* event);
@@ -216,6 +222,7 @@ private:
 
     EntityItemID _currentHoverOverEntityID;
     EntityItemID _currentClickingOnEntityID;
+    EntityItemID _webTouchEntityID;
 
     ScriptValueList createEntityArgs(const EntityItemID& entityID);
     void checkEnterLeaveEntities();

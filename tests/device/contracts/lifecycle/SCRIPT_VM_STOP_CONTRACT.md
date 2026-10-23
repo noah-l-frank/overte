@@ -31,8 +31,9 @@ This changes stop into an interruption request, including script-requested stop.
 JavaScript following that request is not guaranteed to run. Native cleanup must
 not depend on JavaScript finally/ending callbacks completing. V8 termination can
 unwind JavaScript but cannot forcibly bound a native callback, resource-cache
-abort, signal teardown, or destruction. Later evaluations/ending handlers and
-complete manager teardown require separate bounded-revocation work. There is no
+abort, signal teardown, or destruction. Ordinary later evaluations remain denied. Ending handlers use the bounded
+terminal window described below; complete native manager teardown still needs
+separate bounded-revocation work. There is no
 consent grant API added here: remote entity scripts remain default-denied. This
 closes the empty VM-abort implementation, not SH-005 acceptance or finite revoke.
 
@@ -64,3 +65,22 @@ overload admission is source-reviewed, not a full runtime proof of those bodies.
 This is still not a full-header, native/JITless or finite-revocation proof:
 property/proxy/conversion side effects and native resource/callback teardown
 need separate review. The deny-by-default entity consent fence stays intact.
+
+## One-shot terminal cleanup
+
+After stopping timers, the manager invokes `scriptEnding` through the engine's
+owner-thread-only `runCleanup`. The permanent stop latch is retained. A separate
+one-shot window temporarily admits the ending handlers, with a 500 ms watchdog
+that terminates looping JavaScript without waiting for the isolate Locker.
+Another stop closes this window immediately; a generation check prevents an
+intervening stop from being lost while V8 termination is cancelled. All exits,
+including a throwing native callback, close admission, restore termination and
+join the watchdog before the engine can be destroyed. Ordinary evaluations and
+a second cleanup invocation stay denied. Native callbacks remain non-preemptible.
+
+The existing real-V8 stop fixture additionally exercises actual JavaScript
+cleanup effects, looping cleanup, a concurrent stop during cleanup, wrong-thread
+admission, duplicate cleanup and C++ exception unwinding. The original manager
+completion fixture retains its terminal ordering and exactly-once assertions.
+These are focused host regressions, not new device E2E tests. Hardware evidence
+for script entities and tablet buttons is recorded separately per installed APK.

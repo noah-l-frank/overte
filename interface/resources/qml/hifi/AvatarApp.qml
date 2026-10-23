@@ -10,6 +10,11 @@ Rectangle {
     id: root
     width: 480
     height: 706
+    // Keep the favorite grid and wearable editor in the scrollable touch page.
+    // Modal dialogs retain the compact viewport used for native IME placement.
+    readonly property real screenSpaceMinimumContentHeight:
+        touchConfiguration.profile.screenSpacePresentation && !settings.visible
+            && !popup.visible && !createFavorite.visible ? 706 : 0
 
     function handleTabletBack() {
         if (settings.visible) {
@@ -175,7 +180,7 @@ Rectangle {
             if (newItemIndex <= (allAvatars.count - 1)) {
                 pageOfAvatars.append(allAvatars.get(newItemIndex));
             } else {
-                if (!pageOfAvatars.hasGetAvatars()) {
+                if (touchConfiguration.showGetMoreAvatars && !pageOfAvatars.hasGetAvatars()) {
                     pageOfAvatars.appendGetAvatars();
                 }
             }
@@ -213,7 +218,8 @@ Rectangle {
         } else {
             var bookmarkAvatar = allAvatars.get(bookmarkAvatarIndex);
             avatar.name = bookmarkAvatar.name;
-            view.selectAvatar(bookmarkAvatar);
+            // Matching a favorite updates selection metadata only. Reloading it
+            // here recreates wearables while the avatar scale is settling.
         }
     }
 
@@ -637,7 +643,8 @@ Rectangle {
                 }
 
                 property int itemsPerPage: 8
-                property int totalPages: Math.ceil((allAvatars.count + 1) / itemsPerPage)
+                property int totalPages: Math.max(1, Math.ceil(
+                    (allAvatars.count + (touchConfiguration.showGetMoreAvatars ? 1 : 0)) / itemsPerPage))
                 property int currentPage: 0;
                 onCurrentPageChanged: {
                     currentIndex = Qt.binding(currentAvatarIndexInBookmarksPage);

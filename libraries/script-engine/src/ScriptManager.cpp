@@ -1029,7 +1029,7 @@ void ScriptManager::run() {
         scriptInfoMessage("Script Engine stopping:" + getFilename(), getFilename(), -1);
 
         stopAllTimers(); // make sure all our timers are stopped if the script is ending
-        if (_isInitialized) { emit scriptEnding(); }
+        if (_isInitialized) { _engine->runCleanup([this] { emit scriptEnding(); }); }
 
         emit releaseEntityPacketSenderMessages(true);
 
@@ -1077,9 +1077,25 @@ void ScriptManager::run() {
 
     {
         PROFILE_RANGE(script, _fileNameString);
-        _returnValue = _engine->evaluate(_scriptContents, _fileNameString);
+        if (isUserLoaded()) {
+            auto program = _engine->newProgram(_scriptContents, _fileNameString);
+            auto syntax = program ? program->checkSyntax() : nullptr;
+            if (!syntax || syntax->state() != ScriptSyntaxCheckResult::Valid) {
+                emit errorLoadingScript(getFilename());
+                stop();
+            } else {
+                _returnValue = _engine->evaluate(program);
+            }
+        } else {
+            _returnValue = _engine->evaluate(_scriptContents, _fileNameString);
+        }
 
-        if (_engine->hasUncaughtException() && _abortOnUncaughtException) {
+        if (_engine->hasUncaughtException() && (isUserLoaded() || _abortOnUncaughtException)) {
+
+            // An exception during initial evaluation is a failed user-script
+            // load, including missing includes. Later callback exceptions
+            // retain the existing abortOnUncaughtException policy.
+            if (isUserLoaded()) { emit errorLoadingScript(getFilename()); }
 
             qCWarning(scriptengine) << "Engine has uncaught exception, stopping";
             stop();

@@ -9,6 +9,7 @@
 //
 
 import QtQuick 2.7
+import QtQuick.Window 2.2
 import QtQuick.Controls 2.3
 
 import controlsUit 1.0
@@ -17,6 +18,49 @@ import "../windows"
 
 ModalWindow {
     id: root
+    objectName: "QueryDialog"
+    property var touchProfile: queryTouchProfile
+    TouchUiProfile { id: queryTouchProfile }
+    readonly property bool touchPresentation: touchProfile.directTouch
+        && touchProfile.screenSpacePresentation && touchProfile.surfaceWidth > 0
+        && touchProfile.surfaceHeight > 0
+    readonly property var inputWindow: root.Window.window
+    anchors.centerIn: touchPresentation ? undefined : parent
+    minSize: Qt.vector2d(100, touchPresentation ? 64 : 100)
+    Binding {
+        target: root.frame
+        property: "titleVisible"
+        value: !(root.touchPresentation && root.touchProfile.keyboardVisible)
+    }
+    function alignTouchDialog() {
+        if (!touchPresentation) { return; }
+        var availableWidth = touchProfile.surfaceWidth - touchProfile.safeInsetLeft - touchProfile.safeInsetRight;
+        var availableHeight = touchProfile.surfaceHeight - touchProfile.safeInsetTop
+            - Math.max(touchProfile.safeInsetBottom, touchProfile.imeInsetBottom);
+        var bounds = framedRect();
+        var top = Math.max(0, -bounds.y);
+        var bottom = Math.max(0, bounds.height - height - top);
+        width = Math.min(d.preferredWidth, Math.max(360, availableWidth - (bounds.width - width)));
+        height = Math.min(d.preferredHeight, Math.max(64, availableHeight - top - bottom));
+        x = (touchProfile.screenSpaceOriginAtSafeArea ? 0 : touchProfile.safeInsetLeft)
+            + (availableWidth - width) / 2;
+        y = (touchProfile.screenSpaceOriginAtSafeArea ? 0 : touchProfile.safeInsetTop)
+            + top + Math.max(0, (availableHeight - top - bottom - height) / 2);
+    }
+    Timer { id: touchLayout; interval: 50; onTriggered: root.alignTouchDialog() }
+    onTouchPresentationChanged: touchLayout.restart()
+    onVisibleChanged: if (visible) { touchLayout.restart(); }
+    Connections {
+        target: root.touchProfile
+        function onKeyboardVisibleChanged() { touchLayout.restart(); }
+        function onImeInsetBottomChanged() { touchLayout.restart(); }
+        function onSurfaceHeightChanged() { touchLayout.restart(); }
+        function onSurfaceWidthChanged() { touchLayout.restart(); }
+    }
+    Connections {
+        target: root.inputWindow
+        function onActiveFocusItemChanged() { touchLayout.restart(); }
+    }
     HifiConstants { id: hifi }
     implicitWidth: 640
     implicitHeight: 320
@@ -71,12 +115,21 @@ ModalWindow {
             readonly property int maxWidth: 1280
             readonly property int minHeight: 120
             readonly property int maxHeight: 720
+            property real preferredWidth: 640
+            property real preferredHeight: 320
 
             function resize() {
                 var targetWidth = Math.max(titleWidth, pane.width)
                 var targetHeight = (items ? comboBox.controlHeight : textResult.controlHeight) + 5 * hifi.dimensions.contentSpacing.y + buttons.height
-                root.width = (targetWidth < d.minWidth) ? d.minWidth : ((targetWidth > d.maxWidth) ? d.maxWidth : targetWidth);
-                root.height = ((targetHeight < d.minHeight) ? d.minHeight : ((targetHeight > d.maxHeight) ? d.maxHeight : targetHeight)) + ((keyboardEnabled && keyboardRaised) ? (keyboard.raisedHeight + 2 * hifi.dimensions.contentSpacing.y) : 0)
+                preferredWidth = Math.max(d.minWidth, Math.min(d.maxWidth, targetWidth));
+                preferredHeight = Math.max(d.minHeight, Math.min(d.maxHeight, targetHeight))
+                    + ((keyboardEnabled && keyboardRaised) ? (keyboard.raisedHeight + 2 * hifi.dimensions.contentSpacing.y) : 0);
+                if (root.touchPresentation) {
+                    touchLayout.restart();
+                } else {
+                    root.width = preferredWidth;
+                    root.height = preferredHeight;
+                }
             }
         }
 
@@ -93,6 +146,7 @@ ModalWindow {
             // FIXME make a text field type that can be bound to a history for autocompletion
             TextField {
                 id: textResult
+                objectName: "queryTextInput"
                 text: root.items ? "" : (root.current === undefined || root.current === null ? "" : String(root.current))
                 label: root.label
                 visible: items ? false : true
@@ -150,6 +204,10 @@ ModalWindow {
             }
             Button {
                 id: cancelButton
+                objectName: "queryCancel"
+                width: root.touchPresentation
+                    ? Math.min(Math.max(100, implicitWidth), Math.max(0, (root.width - buttons.spacing) / 2))
+                    : hifi.dimensions.buttonWidth
                 action: cancelAction
                 KeyNavigation.left: acceptButton
                 KeyNavigation.up: items ? comboBox : textResult
@@ -157,6 +215,10 @@ ModalWindow {
             }
             Button {
                 id: acceptButton
+                objectName: "queryAccept"
+                width: root.touchPresentation
+                    ? Math.min(Math.max(100, implicitWidth), Math.max(0, (root.width - buttons.spacing) / 2))
+                    : hifi.dimensions.buttonWidth
                 action: acceptAction
                 KeyNavigation.right: cancelButton
                 KeyNavigation.up: items ? comboBox : textResult

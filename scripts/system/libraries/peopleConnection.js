@@ -99,20 +99,25 @@ function create(context) {
         var body = { node_id: record.identity.self, proposed_node_id: record.peer };
         function completed(error, response) {
             if (!current(record)) { return; }
-            if (!error && response && response.connection === "pending") {
+            // Iamus uses its ordinary data envelope; legacy directories return
+            // the same connection value at the top level.
+            var connection = response && response.data && typeof response.data === "object"
+                ? response.data.connection : response && response.connection;
+            if (!error && response && response.status === "success" && connection === "pending") {
                 if (++record.polls > 10) { finish("error", "No matching signed-in partner was confirmed. Refresh Connections and try again."); return; }
                 record.phase = "polling";
                 show("polling", "Waiting for the other signed-in request to be confirmed...", record);
                 pollTimer = context.setTimeout(function () {
                     pollTimer = null;
                     if (!current(record)) { return; }
-                    try { context.request({ uri: record.identity.endpoint + "/api/v1/user/connection_request", body: body }, completed); }
+                    try { context.request({ uri: record.identity.endpoint + "/api/v1/user/connection_request",
+                        method: "POST", json: true, body: { user_connection_request: body } }, completed); }
                     catch (exception) { if (current(record)) { finish("error", "The connection request could not be sent. Try again."); } }
                 }, 200);
-            } else if (!error && response && response.status === "success" && response.connection
-                    && typeof response.connection === "object" && typeof response.connection.username === "string"
-                    && response.connection.username.length > 0) {
-                var username = response.connection.username;
+            } else if (!error && response && response.status === "success" && connection
+                    && typeof connection === "object" && typeof connection.username === "string"
+                    && connection.username.length > 0) {
+                var username = connection.username;
                 finish("success", "The connection service confirmed your connection.");
                 if (!disposed && sameIdentity(record.identity, identity())) { context.connected(username); }
             } else { finish("error", failure(error, response)); }

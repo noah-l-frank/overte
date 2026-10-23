@@ -15,6 +15,7 @@
 #include "Application.h"
 #if defined(ANDROID_APP_PHONE_INTERFACE)
 #include <material-networking/PhoneKtxProbePool.h>
+#include "ui/LoginDialog.h"
 #endif
 #include <QRegularExpression>
 #include "ApplicationLifecycle.h"
@@ -2808,7 +2809,17 @@ void Application::idle() {
         if (!_keyboardFocusedEntity.get().isInvalidID()) {
             const quint64 LOSE_FOCUS_AFTER_ELAPSED_TIME = 30 * USECS_PER_SECOND; // if idle for 30 seconds, drop focus
             quint64 elapsedSinceAcceptedKeyPress = usecTimestampNow() - _lastAcceptedKeyPress;
-            if (elapsedSinceAcceptedKeyPress > LOSE_FOCUS_AFTER_ELAPSED_TIME) {
+            bool phoneWorldImeActive = false;
+#if defined(ANDROID_APP_PHONE_INTERFACE) && defined(USE_GL)
+            const auto metrics = DependencyManager::get<TabletScriptingInterface>()->getTouchUiRuntimeMetrics();
+            // Reading or thinking with the OS keyboard open is still editing.
+            // The projected editor query rejects hidden, foreign and non-text owners.
+            phoneWorldImeActive = elapsedSinceAcceptedKeyPress > LOSE_FOCUS_AFTER_ELAPSED_TIME
+                && metrics.value("valid").toBool() && metrics.value("keyboardVisible").toBool()
+                && _primaryWidget && _primaryWidget->hasFocus()
+                && !getPhoneWorldInputRectangle(_myCamera.getProjection()).isEmpty();
+#endif
+            if (elapsedSinceAcceptedKeyPress > LOSE_FOCUS_AFTER_ELAPSED_TIME && !phoneWorldImeActive) {
                 setKeyboardFocusEntity(UNKNOWN_ENTITY_ID);
             } else {
                 if (auto entity = getEntities()->getTree()->findEntityByID(_keyboardFocusedEntity.get())) {
@@ -4185,7 +4196,8 @@ void Application::update(float deltaTime) {
                 myAvatar->prepareForPhysicsSimulation();
                 myAvatar->getCharacterController()->preSimulation();
 #if defined(ANDROID_APP_PHONE_INTERFACE)
-                if (myAvatar->getCharacterController()->updateSpawnHold(_physicsEnabled)) {
+                if (myAvatar->getCharacterController()->updateSpawnHold(_physicsEnabled,
+                        !LoginDialog::phoneLoginOwnsInput())) {
                     OffscreenUi::asyncWarning(tr("World entry paused"),
                         tr("The ground at your destination is not ready. You are being held safely in place. "
                            "Use Go To to retry or choose another destination."));

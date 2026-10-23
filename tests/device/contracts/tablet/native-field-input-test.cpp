@@ -1,6 +1,7 @@
 // Copyright 2026 Overte contributors.
 // SPDX-License-Identifier: Apache-2.0
 #include "NativeFieldInput.h"
+#include "InputMethodQueryEventWithArgument.h"
 #include <QGuiApplication>
 #include <QQmlComponent>
 #include <QQmlEngine>
@@ -68,6 +69,76 @@ Item {
     check(first->property("changedCount").toInt() >= 2, "actual native text notifications occurred");
     check(overte::ui::submitFocusedField(first, &window), "normal Return delivered");
     check(first->property("acceptedCount").toInt() == 1, "actual Qt accepted signal occurred once");
+    check(overte::ui::replaceFocusedField(first, &window, "native cursor"), "cursor query starts with actual native text");
+    QInputMethodQueryEvent ordinary(Qt::ImCursorPosition);
+    QCoreApplication::sendEvent(first, &ordinary);
+    check(ordinary.value(Qt::ImCursorPosition).toInt() == 13, "ordinary position-less query returns the existing end cursor");
+    QRectF thirdCharacter;
+    check(QMetaObject::invokeMethod(first, "positionToRectangle", Qt::DirectConnection,
+        Q_RETURN_ARG(QRectF, thirdCharacter), Q_ARG(int, 3)), "real Qt exposes the third-character geometry");
+    // positionToRectangle reports text-layout coordinates; the native cursor
+    // rectangle also includes the actual control's padding.
+    const auto scenePoint = first->mapToScene(thirdCharacter.center()
+        + QPointF(first->property("leftPadding").toReal(), first->property("topPadding").toReal()));
+    InputMethodQueryEventWithArgument positional(Qt::ImCursorPosition, scenePoint);
+    check(positional.queryOwner(first, first->mapFromScene(positional.argument.toPointF())), "positional native query reaches actual Qt editor");
+    check(positional.value(Qt::ImCursorPosition).toInt() == 3, "native cursor query preserves the requested finger position");
+    check(first->property("cursorPosition").toInt() == 13, "query alone never moves selection or edits text");
+    QInputMethodEvent selection(QString(), {QInputMethodEvent::Attribute(QInputMethodEvent::Selection,
+        positional.value(Qt::ImCursorPosition).toInt(), 0, QVariant())});
+    QCoreApplication::sendEvent(first, &selection);
+    QInputMethodEvent insertAtCursor;
+    insertAtCursor.setCommitString("X");
+    QCoreApplication::sendEvent(first, &insertAtCursor);
+    check(first->property("text").toString() == "natXive cursor", "normal IME inserts at the returned position instead of appending");
+    check(!positional.queryOwner(nullptr, scenePoint), "missing cursor owner is rejected");
+    bool foreignQueryAccepted { true };
+    std::thread cursorWorker([&] { foreignQueryAccepted = positional.queryOwner(first, scenePoint); });
+    cursorWorker.join();
+    check(!foreignQueryAccepted, "foreign-thread cursor query is rejected before touching Qt UI");
+    auto explicitAndroidEmptyCommit = [&] {
+        const auto m_composingText = QString();
+        const bool focusObjectWasComposing = false;
+        const int oldComposingTextLen = 0;
+        const int absoluteCursorPos = first->property("cursorPosition").toInt();
+        QInputMethodQueryEvent query(Qt::ImAnchorPosition);
+        QCoreApplication::sendEvent(first, &query);
+        const int absoluteAnchorPos = query.value(Qt::ImAnchorPosition).toInt();
+        const int effectiveAbsoluteCursorPos = qMin(absoluteCursorPos, absoluteAnchorPos);
+        auto setCursorPosition = [&] {
+            QInputMethodEvent collapse(QString(), {QInputMethodEvent::Attribute(
+                QInputMethodEvent::Selection, absoluteCursorPos, 0, QVariant())});
+            QCoreApplication::sendEvent(first, &collapse);
+        };
+        QInputMethodEvent event;
+        event.setCommitString(QString());
+#include "android-empty-commit.inc"
+        QCoreApplication::sendEvent(first, &event);
+    };
+    for (const auto& positions : {QPair<int,int>(2,4), QPair<int,int>(4,2)}) {
+        check(overte::ui::replaceFocusedField(first, &window, "abcdef"), "empty Android commit starts with real text");
+        check(QMetaObject::invokeMethod(first, "select", Q_ARG(int, positions.first), Q_ARG(int, positions.second)),
+            "actual Qt creates the Android replacement selection");
+        QInputMethodEvent emptyUpdate;
+        QCoreApplication::sendEvent(first, &emptyUpdate);
+        check(first->property("text").toString() == "abcdef", "ordinary empty Qt update preserves selected text");
+        explicitAndroidEmptyCommit();
+        check(first->property("text").toString() == "abef", "explicit Android empty commit deletes only the selected span");
+        check(first->property("cursorPosition").toInt() == 2, "explicit Android deletion leaves the caret at the removed span");
+    }
+    check(overte::ui::replaceFocusedField(first, &window, "start-" + QString(1425, QChar('Q')) + "-end"),
+        "real field accepts the large clipboard comparison");
+    QMetaObject::invokeMethod(first, "select", Q_ARG(int, 6), Q_ARG(int, 1431));
+    explicitAndroidEmptyCommit();
+    check(first->property("text").toString() == "start--end", "Android Undo-sized deletion preserves both surrounding fragments");
+    check(first->property("cursorPosition").toInt() == 6, "large replacement caret is exact");
+    check(overte::ui::replaceFocusedField(first, &window, QString::fromUtf8("a🙂bc")), "Unicode deletion starts with actual native text");
+    QMetaObject::invokeMethod(first, "select", Q_ARG(int, 1), Q_ARG(int, 3));
+    explicitAndroidEmptyCommit();
+    check(first->property("text").toString() == "abc", "explicit Android deletion removes a whole surrogate pair");
+    const auto unchangedAfterDelete = first->property("text").toString();
+    explicitAndroidEmptyCommit();
+    check(first->property("text").toString() == unchangedAfterDelete, "empty commit with no selection preserves surrounding text");
     check(overte::ui::replaceFocusedField(first, &window, QString()), "empty replacement inputs delivered");
     check(first->property("text").toString().isEmpty(), "normal clear actually removed selected text");
     check(overte::ui::replaceFocusedField(first, &window, QString(4096, QChar('a'))), "maximum bounded native text accepted");

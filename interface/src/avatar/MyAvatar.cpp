@@ -1779,11 +1779,20 @@ void MyAvatar::handleChangedAvatarEntityData() {
             });
             continue;
         }
+        // Native dimensions are world-scaled. A saved local size must survive
+        // a fresh avatar joint scale during startup or a domain transition.
+        // Capture presence before sanitization marks every property changed;
+        // legacy blobs without localDimensions retain their existing behavior.
+        const bool hasLocalDimensions = properties.localDimensionsChanged();
+        const auto localDimensions = properties.getLocalDimensions();
         sanitizeAvatarEntityProperties(properties);
         if (canRezAvatarEntites) {
             entityTree->withWriteLock([&] {
                 EntityItemPointer entity = entityTree->addEntity(id, properties);
                 if (entity) {
+                    if (hasLocalDimensions) {
+                        entity->setUnscaledDimensions(localDimensions);
+                    }
                     packetSender->queueEditAvatarEntityMessage(entityTree, id);
                 }
             });
@@ -1808,9 +1817,17 @@ void MyAvatar::handleChangedAvatarEntityData() {
             });
         });
         if (!skip && canRezAvatarEntites) {
+            const bool hasLocalDimensions = properties.localDimensionsChanged();
+            const auto localDimensions = properties.getLocalDimensions();
             sanitizeAvatarEntityProperties(properties);
             entityTree->withWriteLock([&] {
                 if (entityTree->updateEntity(id, properties)) {
+                    if (hasLocalDimensions) {
+                        auto entity = entityTree->findEntityByID(id);
+                        if (entity) {
+                            entity->setUnscaledDimensions(localDimensions);
+                        }
+                    }
                     packetSender->queueEditAvatarEntityMessage(entityTree, id);
                 }
             });
@@ -1905,7 +1922,10 @@ bool MyAvatar::updateStaleAvatarEntityBlobs() const {
         entityTree->withReadLock([&] {
             EntityItemPointer entity = entityTree->findEntityByID(id);
             if (entity) {
-                properties = entity->getProperties();
+                EncodeBitstreamParams params;
+                auto desiredProperties = entity->getEntityProperties(params);
+                desiredProperties += PROP_LOCAL_DIMENSIONS;
+                properties = entity->getProperties(desiredProperties);
                 found = true;
             }
         });

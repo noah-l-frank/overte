@@ -4,6 +4,8 @@
 #include <QGuiApplication>
 #include <QJsonArray>
 #include <QKeyEvent>
+#include <QInputMethodEvent>
+#include <QLocale>
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QQuickWindow>
@@ -63,4 +65,50 @@ int main(int argc, char** argv) {
     delete panel;
     assert(fixture.snapshot(false).isEmpty());
     assert(!fixture.dismiss());
+
+    // The wearable editor uses this real shared control with a separate
+    // realFrom/realTo range. Exercise an actual IME commit and Return.
+    for (const char* localeName : { "en_US", "de_DE" }) {
+        QLocale::setDefault(QLocale(localeName));
+        QQmlComponent spinComponent(&engine);
+        spinComponent.setData(R"(
+            import QtQuick 2.7
+            import controlsUit 1.0 as Controls
+            Controls.SpinBox {
+                width: 250
+                realFrom: -10
+                realTo: 10
+                realStepSize: 0.01
+                realValue: 0.01
+            }
+        )", QUrl());
+        auto spin = qobject_cast<QQuickItem*>(spinComponent.create());
+        if (!spin) { qWarning() << spinComponent.errors(); }
+        assert(spin);
+        spin->setParentItem(window.contentItem());
+        auto numericInput = qobject_cast<QQuickItem*>(spin->property("contentItem").value<QObject*>());
+        assert(numericInput);
+        numericInput->forceActiveFocus();
+        QCoreApplication::processEvents();
+        QInputMethodEvent numericCommit;
+        numericCommit.setCommitString("0.50", -numericInput->property("cursorPosition").toInt(),
+                                     numericInput->property("text").toString().size());
+        QCoreApplication::sendEvent(numericInput, &numericCommit);
+        assert(numericInput->property("text").toString() == "0.50");
+        QCoreApplication::sendEvent(&window, &enter);
+        QCoreApplication::sendEvent(&window, &enterUp);
+        QCoreApplication::processEvents();
+        assert(qAbs(spin->property("realValue").toDouble() - 0.5) < 0.00001);
+        for (const auto& input : { QString("12.50"), QString("-12.50") }) {
+            QInputMethodEvent boundaryCommit;
+            boundaryCommit.setCommitString(input, -numericInput->property("cursorPosition").toInt(),
+                                          numericInput->property("text").toString().size());
+            QCoreApplication::sendEvent(numericInput, &boundaryCommit);
+            QCoreApplication::sendEvent(&window, &enter);
+            QCoreApplication::sendEvent(&window, &enterUp);
+            QCoreApplication::processEvents();
+            assert(qAbs(spin->property("realValue").toDouble() - (input.startsWith('-') ? -10.0 : 10.0)) < 0.00001);
+        }
+        delete spin;
+    }
 }

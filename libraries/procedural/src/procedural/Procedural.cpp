@@ -119,7 +119,7 @@ void ProceduralData::parse(const QJsonObject& proceduralData) {
 std::function<void(gpu::StatePointer, bool)> Procedural::opaqueStencil = [](gpu::StatePointer state, bool useAA) {};
 std::function<void(gpu::StatePointer)> Procedural::transparentStencil = [](gpu::StatePointer state) {};
 
-Procedural::Procedural(bool useAA) {
+Procedural::Procedural(bool useAA) : _standardInputsBufferSlot(procedural::slot::buffer::Inputs) {
     _opaqueState->setCullMode(gpu::State::CULL_NONE);
     _opaqueState->setDepthTest(true, true, ComparisonFunction::LESS_EQUAL);
     _opaqueState->setBlendFunction(false,
@@ -262,7 +262,7 @@ void Procedural::setProceduralData(const ProceduralData& proceduralData) {
 
 bool Procedural::isReady() const {
     auto backendApi = hifi::properties::getGraphicsAPI();
-    if (backendApi == hifi::properties::GraphicsAPI::GLES32) {
+    if (backendApi == hifi::properties::GraphicsAPI::GLES32 && !_supportsGLES) {
         return false;
     }
 
@@ -473,7 +473,7 @@ void Procedural::prepare(gpu::Batch& batch,
         finalPipeline = _errorPipelines[key];
     }
 
-    // FIXME: need to handle forward rendering
+    // The initialized material selects its render-target and lighting sources.
     batch.setPipeline(finalPipeline);
 
     bool recreateUniforms = _shaderDirty || _uniformsDirty || recompiledShader || _prevKey != key;
@@ -670,7 +670,7 @@ void Procedural::setupUniforms() {
         }
 
         _standardInputsBuffer->setSubData(0, _standardInputs);
-        batch.setUniformBuffer(procedural::slot::buffer::Inputs, _standardInputsBuffer, 0, sizeof(StandardInputs));
+        batch.setUniformBuffer(_standardInputsBufferSlot, _standardInputsBuffer, 0, sizeof(StandardInputs));
     });
 }
 
@@ -700,13 +700,26 @@ void Procedural::setFragmentReplacements(const std::unordered_map<std::string, s
 }
 
 void graphics::ProceduralMaterial::initializeProcedural() {
-    _procedural._vertexSource = gpu::Shader::getVertexShaderSource(shader::render_utils::vertex::simple_procedural);
-    _procedural._vertexSourceSkinned = gpu::Shader::getVertexShaderSource(shader::render_utils::vertex::simple_procedural_deformed);
-    _procedural._vertexSourceSkinnedDQ = gpu::Shader::getVertexShaderSource(shader::render_utils::vertex::simple_procedural_deformeddq);
-
-    // FIXME: Setup proper uniform slots and use correct pipelines for forward rendering
-    _procedural._opaqueFragmentSource = gpu::Shader::getFragmentShaderSource(shader::render_utils::fragment::simple_procedural);
-    _procedural._transparentFragmentSource = gpu::Shader::getFragmentShaderSource(shader::render_utils::fragment::simple_procedural_translucent);
+    bool phoneForward = false;
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    phoneForward = hifi::properties::getGraphicsAPI() == hifi::properties::GraphicsAPI::GLES32;
+#endif
+    if (phoneForward) {
+        _procedural._vertexSource = gpu::Shader::getVertexShaderSource(shader::render_utils::vertex::simple_procedural_forward);
+        _procedural._vertexSourceSkinned = gpu::Shader::getVertexShaderSource(shader::render_utils::vertex::simple_procedural_forward_deformed);
+        _procedural._vertexSourceSkinnedDQ = gpu::Shader::getVertexShaderSource(shader::render_utils::vertex::simple_procedural_forward_deformeddq);
+        _procedural._opaqueFragmentSource = gpu::Shader::getFragmentShaderSource(shader::render_utils::fragment::simple_procedural_forward);
+        _procedural._transparentFragmentSource = gpu::Shader::getFragmentShaderSource(shader::render_utils::fragment::simple_procedural_forward_translucent);
+        // Global forward lighting owns buffer 7 for its frame transform.
+        _procedural._standardInputsBufferSlot = procedural::slot::buffer::InputsForward;
+        _procedural._supportsGLES = true;
+    } else {
+        _procedural._vertexSource = gpu::Shader::getVertexShaderSource(shader::render_utils::vertex::simple_procedural);
+        _procedural._vertexSourceSkinned = gpu::Shader::getVertexShaderSource(shader::render_utils::vertex::simple_procedural_deformed);
+        _procedural._vertexSourceSkinnedDQ = gpu::Shader::getVertexShaderSource(shader::render_utils::vertex::simple_procedural_deformeddq);
+        _procedural._opaqueFragmentSource = gpu::Shader::getFragmentShaderSource(shader::render_utils::fragment::simple_procedural);
+        _procedural._transparentFragmentSource = gpu::Shader::getFragmentShaderSource(shader::render_utils::fragment::simple_procedural_translucent);
+    }
 
     _procedural._errorFallbackFragmentPath = ":" + QUrl("qrc:///shaders/errorShader.frag").path();
 }

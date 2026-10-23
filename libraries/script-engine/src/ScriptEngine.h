@@ -18,6 +18,7 @@
 #ifndef hifi_ScriptEngine_h
 #define hifi_ScriptEngine_h
 
+#include <functional>
 #include <memory>
 
 #include <QtCore/QFlags>
@@ -225,6 +226,10 @@ public:
      *
      */
     virtual void abortEvaluation() = 0;
+
+    // Owner-thread-only, bounded terminal cleanup. This does not reopen the
+    // engine for ordinary execution or allow a second cleanup lifecycle.
+    virtual void runCleanup(const std::function<void()>& cleanup) = 0;
 
     /**
      * @brief Clears uncaughtException and related

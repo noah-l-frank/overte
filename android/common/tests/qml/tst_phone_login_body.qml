@@ -25,6 +25,7 @@ TestCase {
         Item {
             id: root
             anchors.fill: parent
+            property bool shown: true
             function tryDestroy() { testCase.destroyCalls += 1 }
         }
 
@@ -62,6 +63,7 @@ TestCase {
     }
 
     function init() {
+        root.shown = true
         loginCalls = 0
         domainLoginCalls = 0
         dismissCalls = 0
@@ -86,6 +88,19 @@ TestCase {
         var result = findChild(body, name)
         verify(result !== null, "missing " + name)
         return result
+    }
+
+    function test_nativeHideScrubsCredentialsAndDismissesOnce() {
+        field("PhoneLoginUsername").text = "back-probe"
+        field("PhoneLoginPassword").text = "not-a-real-password"
+        root.shown = false
+        compare(field("PhoneLoginPassword").text, "")
+        compare(dismissCalls, 1)
+        compare(destroyCalls, 1)
+        root.shown = true
+        root.shown = false
+        compare(dismissCalls, 1)
+        compare(destroyCalls, 1)
     }
 
     function test_emptyCredentialsFailClosed() {

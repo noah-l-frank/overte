@@ -4,6 +4,15 @@ package org.overte.phone;
 
 /** Pixel mapping from the actual QML scene into its measured Qt Android surface. */
 final class PhoneWebGeometry {
+    static int[] documentViewport(int[] mapped, boolean keyboardVisible) {
+        // With an IME, the actual visible card is the browser viewport. Merely
+        // clipping a taller WebView leaves its focused DOM editor below it.
+        if (keyboardVisible) {
+            return new int[] {0, 0, mapped[6] - mapped[4], mapped[7] - mapped[5]};
+        }
+        return new int[] {mapped[0] - mapped[4], mapped[1] - mapped[5],
+            mapped[2] - mapped[0], mapped[3] - mapped[1]};
+    }
     static int[] map(int sceneWidth, int sceneHeight, int[] scene, int[] surface, int[] clip) {
         if (sceneWidth <= 1 || sceneHeight <= 1 || sceneWidth > 32768 || sceneHeight > 32768
                 || scene == null || surface == null || clip == null

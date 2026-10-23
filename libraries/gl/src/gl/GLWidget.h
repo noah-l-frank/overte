@@ -11,6 +11,7 @@
 #define hifi_GLWidget_h
 
 #include <QtWidgets/QWidget>
+#include <QtCore/QVariant>
 
 namespace gl {
     class Context;
@@ -36,6 +37,14 @@ public:
     gl::Context* context() { return _context; }
     QOpenGLContext* qglContext();
     virtual QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    Q_INVOKABLE QVariant inputMethodQuery(Qt::InputMethodQuery query, QVariant argument) const;
+
+signals:
+    // Qt Android observes this signal on its native focus object. The actual
+    // text editor is offscreen, so its cursor changes must reach this widget.
+    void cursorPositionChanged();
+#endif
 
 protected:
     virtual bool nativeEvent(const QByteArray &eventType, void *message, long *result) override;

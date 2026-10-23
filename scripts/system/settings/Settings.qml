@@ -84,12 +84,14 @@ Rectangle {
 		Loader {
 			id: graphicsPageLoader
 			active: touchConfiguration.showGraphicsSettings
+			visible: active && currentPage === "Graphics"
 			Layout.fillWidth: true
 			Layout.fillHeight: true
 			sourceComponent: Component { GraphicsSettings {} }
 		}
 		Loader {
 			active: touchConfiguration.showPicoInteractionSettings
+			visible: active && currentPage === "Pico Interaction"
 			Layout.fillWidth: true
 			Layout.fillHeight: true
 			sourceComponent: Component { PicoInteractionSettings {} }

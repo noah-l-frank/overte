@@ -34,6 +34,9 @@
 const bool VERBOSE_HTTP_REQUEST_DEBUGGING = false;
 namespace {
 constexpr qint64 MAX_DOMAIN_AUTH_RESPONSE_BYTES = 1024 * 1024;
+// QString credentials occupy UTF-16 on the admission wire. Reserve space for
+// the connection metadata within the bounded 8 KiB domain-check-in datagram.
+constexpr qint64 MAX_DOMAIN_AUTH_CREDENTIAL_CODE_UNITS = 3 * 1024;
 }
 
 DomainAccountManager::DomainAccountManager() {
@@ -231,10 +234,13 @@ void DomainAccountManager::requestAccessTokenFinished() {
     const auto accessToken = rootObject.value("access_token");
     const auto refreshToken = rootObject.value("refresh_token");
     const auto expiresIn = rootObject.value("expires_in");
+    const qint64 credentialCodeUnits = qint64(_currentAuth.username.size()) +
+        accessToken.toString().size() + refreshToken.toString().size();
     const bool validResponse = requestReply->error() == QNetworkReply::NoError &&
         payload.size() <= MAX_DOMAIN_AUTH_RESPONSE_BYTES && requestReply->bytesAvailable() == 0 &&
         parseError.error == QJsonParseError::NoError && jsonResponse.isObject() &&
         accessToken.isString() && !accessToken.toString().trimmed().isEmpty() &&
+        credentialCodeUnits <= MAX_DOMAIN_AUTH_CREDENTIAL_CODE_UNITS &&
         (refreshToken.isUndefined() || refreshToken.isString()) &&
         (expiresIn.isUndefined() || (expiresIn.isDouble() && expiresIn.toInt(-1) > 0));
     if (200 <= httpStatus && httpStatus < 300 && validResponse) {

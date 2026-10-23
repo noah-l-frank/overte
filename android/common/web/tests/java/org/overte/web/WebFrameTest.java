@@ -2,9 +2,38 @@
 // SPDX-License-Identifier: Apache-2.0
 package org.overte.web;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 public final class WebFrameTest {
     private static void check(boolean value) { if (!value) throw new AssertionError(); }
+    private static void checkPixelLayouts() {
+        ByteOrder[] orders = {ByteOrder.BIG_ENDIAN, ByteOrder.LITTLE_ENDIAN};
+        for (boolean direct : new boolean[]{false, true})
+        for (ByteOrder inputOrder : orders) for (ByteOrder outputOrder : orders)
+        for (int width : new int[]{1, 3, 17}) for (int height : new int[]{1, 3})
+        for (int pixelStride : new int[]{4, 5}) for (int padding : new int[]{0, 1, 4}) {
+            int stride = width * pixelStride + padding;
+            int required = (height - 1) * stride + (width - 1) * pixelStride + 4;
+            int size = width * height * 4;
+            ByteBuffer input = (direct ? ByteBuffer.allocateDirect(required) : ByteBuffer.allocate(required)).order(inputOrder);
+            ByteBuffer output = (direct ? ByteBuffer.allocateDirect(size + 7) : ByteBuffer.allocate(size + 7)).order(outputOrder);
+            for (int i = 0; i < output.capacity(); ++i) output.put(i, (byte) 0x6b);
+            for (int y = 0; y < height; ++y) for (int x = 0; x < width; ++x)
+            for (int channel = 0; channel < 4; ++channel)
+                input.put(y * stride + x * pixelStride + channel, (byte) (x * 17 + y * 29 + channel * 61 + 7));
+            input.position(Math.min(3, required));
+            WebFramePixels.pack(input, output, width, height, stride, pixelStride);
+            int[] channels = {2, 1, 0, 3};
+            for (int y = 0; y < height; ++y) for (int x = 0; x < width; ++x)
+            for (int channel = 0; channel < 4; ++channel)
+                check((output.get((y * width + x) * 4 + channel) & 255)
+                    == ((x * 17 + (height - y - 1) * 29 + channels[channel] * 61 + 7) & 255));
+            check(input.position() == Math.min(3, required) && input.limit() == required && input.order() == inputOrder);
+            check(output.position() == 0 && output.limit() == size && output.order() == outputOrder);
+            output.clear();
+            for (int i = size; i < output.capacity(); ++i) check(output.get(i) == (byte) 0x6b);
+        }
+    }
     public static void main(String[] arguments) {
         Object activity = new Object(), replacement = new Object();
         WebFrameGate gate = new WebFrameGate(activity);
@@ -13,9 +42,20 @@ public final class WebFrameTest {
         check(initial != null && gate.capture() == null); // No pixels before the actual visual callback.
         check(gate.visual(initial,100) && gate.admits(initial));
         check(!gate.fresh(initial,99) && !gate.fresh(initial,100));
+        gate.frameAvailable(); // A signaled buffer may not yet have a fresh timestamp.
+        check(gate.retry(initial) && gate.retry(initial) && !gate.retry(initial));
+        gate.frameAvailable();
+        // Delivery of older in-flight work must not consume the retry allowance
+        // for a producer notification received while that work was busy.
+        check(gate.deliver(initial,101));
+        check(!gate.fresh(initial,101) && gate.retry(initial));
+        check(gate.retry(initial) && !gate.retry(initial));
+        gate.frameAvailable();gate.invalidate();check(!gate.retry(initial));
+        initial=gate.begin(activity,1,1,1,"https://one.test/document");check(gate.visual(initial,100));
         check(gate.deliver(initial,101) && !gate.deliver(initial,101));
         check(!gate.deliver(initial,100) && gate.deliver(initial,102));
         gate.invalidate(); check(!gate.admits(initial) && !gate.visual(initial,100)); // Hide/pause while GL is in flight.
+        check(!gate.retry(initial));
         WebFrameGate.Ticket resumed = gate.begin(activity,1,1,1,"https://one.test/document");
         check(!gate.visual(initial,100) && !gate.admits(resumed));
         check(gate.visual(resumed,100) && gate.admits(resumed));
@@ -55,6 +95,7 @@ public final class WebFrameTest {
         check(rejected.get());
         WebFrameGate.Ticket last = gate.begin(activity,2,4,33,"https://one.test/next"); gate.close();
         check(!gate.visual(last,100) && !gate.admits(last) && gate.begin(activity,3,5,40,"https://one.test") == null);
+        gate.frameAvailable();check(!gate.retry(last));
         // Simulate a two-row GL readback with pixel/row padding: bottom row blue+white,
         // top row red+half-alpha green. Packing must flip rows and retain alpha/BGRA.
         ByteBuffer raw = ByteBuffer.allocate(24);
@@ -66,6 +107,7 @@ public final class WebFrameTest {
         int[] expected = {0,0,255,255,0,64,0,128,255,0,0,255,255,255,255,255};
         for (int index=0; index<16; ++index) check((packed.get(index)&255)==expected[index]);
         check(packed.position()==0 && packed.limit()==16);
+        checkPixelLayouts();
         int[][] invalid = {{0,2,12,5},{2,0,12,5},{2049,2,12,5},{2,2,9,5},{2,2,12,3}};
         for (int[] layout : invalid) {
             boolean denied=false;

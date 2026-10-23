@@ -38,6 +38,7 @@ public:
     QUrl _authURL { "https://private-test.invalid" };
     bool _isWaitingForTokenRefresh = false;
     bool _isWaitingForAccessToken = false;
+    bool _lastLoginTransportRejected = false;
     QString getMetaverseServerURLPath() { return "/api"; }
     void persistAccountToFile();
     bool setAccessTokens(const QString& response);

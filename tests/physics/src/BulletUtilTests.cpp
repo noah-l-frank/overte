@@ -12,8 +12,11 @@
 #include "BulletUtilTests.h"
 
 #include <iostream>
+#include <cmath>
+#include <limits>
 
 #include <BulletUtil.h>
+#include <CharacterController.h>
 #include <NumericalConstants.h>
 #include <GLMHelpers.h>
 
@@ -26,8 +29,97 @@ const glm::vec3 xAxis(1.0f, 0.0f, 0.0f);
 const glm::vec3 yAxis(0.0f, 1.0f, 0.0f);
 const glm::vec3 zAxis(0.0f, 0.0f, 1.0f);
 
+namespace {
+
+const CharacterController::FollowTimePerType NO_FOLLOW_TIME {};
+
+class FloorProbeController final : public CharacterController {
+public:
+    FloorProbeController() : CharacterController(NO_FOLLOW_TIME) {
+        auto shape = new btBoxShape(btVector3(0.2f, 1.0f, 0.2f));
+        _rigidBody = new btRigidBody(btRigidBody::btRigidBodyConstructionInfo(1.0f, nullptr, shape));
+    }
+
+    void setProbe(const btVector3& origin, btScalar radius, const btVector3& up = btVector3(0, 1, 0)) {
+        btTransform transform;
+        transform.setIdentity();
+        transform.setOrigin(origin);
+        _rigidBody->setWorldTransform(transform);
+        _radius = radius;
+        _halfHeight = 1.0f;
+        _currentUp = up;
+        _floorDistance = FLT_MAX;
+    }
+
+    btScalar floorDistance() const { return _floorDistance; }
+    void updateShapeIfNecessary() override {}
+    int32_t computeCollisionMask() const override { return BULLET_COLLISION_MASK_MY_AVATAR; }
+    void handleChangedCollisionMask() override {}
+
+protected:
+    void updateMassProperties() override {}
+};
+
+class FloorProbeWorld final : public btCollisionWorld {
+public:
+    using btCollisionWorld::btCollisionWorld;
+
+    void rayTest(const btVector3& from, const btVector3& to, RayResultCallback& callback) const override {
+        ++rayCalls;
+        // Record invalid submissions without letting Bullet abort the host suite.
+        // Valid probes below still use the real Bullet collision query.
+        if (passRaysToBullet) {
+            btCollisionWorld::rayTest(from, to, callback);
+        }
+    }
+
+    mutable int rayCalls { 0 };
+    bool passRaysToBullet { false };
+};
+
+} // namespace
+
 
 QTEST_MAIN(BulletUtilTests)
+
+void BulletUtilTests::characterFloorRaySafety() {
+    btStaticPlaneShape floorShape(btVector3(0, 1, 0), 0);
+    btCollisionObject floor;
+    floor.setCollisionShape(&floorShape);
+    btDefaultCollisionConfiguration configuration;
+    btCollisionDispatcher dispatcher(&configuration);
+    btDbvtBroadphase broadphase;
+    FloorProbeWorld world(&dispatcher, &broadphase, &configuration);
+    world.addCollisionObject(&floor);
+    FloorProbeController controller;
+
+    // A short ground probe collapses after rounding at a large finite origin.
+    const btScalar farOrigin = std::ldexp(btScalar(1), std::numeric_limits<btScalar>::digits + 2);
+    controller.setProbe(btVector3(0, farOrigin, 0), 0.2f);
+    controller.preStep(&world);
+    QCOMPARE(world.rayCalls, 0);
+    QCOMPARE(controller.floorDistance(), btScalar(FLT_MAX));
+
+    controller.setProbe(btVector3(0, 1, 0), btScalar(SIMD_EPSILON * 0.1));
+    controller.preStep(&world);
+    QCOMPARE(world.rayCalls, 0);
+
+    controller.setProbe(btVector3(0, std::numeric_limits<btScalar>::infinity(), 0), 0.2f);
+    controller.preStep(&world);
+    QCOMPARE(world.rayCalls, 0);
+
+    controller.setProbe(btVector3(0, 1, 0), 0.2f,
+                        btVector3(std::numeric_limits<btScalar>::quiet_NaN(), 1, 0));
+    controller.preStep(&world);
+    QCOMPARE(world.rayCalls, 0);
+
+    // Rejecting invalid probes must preserve actual nearby-floor detection.
+    world.passRaysToBullet = true;
+    controller.setProbe(btVector3(0, 1.15f, 0), 0.2f);
+    controller.preStep(&world);
+    QCOMPARE(world.rayCalls, 1);
+    QVERIFY(std::fabs(controller.floorDistance() + 0.05f) < 0.00001f);
+}
 
 void BulletUtilTests::fromBulletToGLM() {
     btVector3 bV(1.23f, 4.56f, 7.89f);

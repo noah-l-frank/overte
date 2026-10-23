@@ -118,12 +118,13 @@ class DomainFixtureTest(unittest.TestCase):
             assignment.chmod(0o700)
             ready = root / "ready.json"
             output = root / "output"
+            http_port = free_port()
             process = subprocess.Popen([
                 sys.executable, str(CONTROLLER),
                 "--domain-server", str(domain),
                 "--assignment-client", str(assignment),
                 "--domain-port", str(free_port()),
-                "--http-port", str(free_port()),
+                "--http-port", str(http_port),
                 "--script-port", "0",
                 "--assignment-warmup-seconds", "0.1",
                 "--output-dir", str(output),
@@ -147,7 +148,8 @@ class DomainFixtureTest(unittest.TestCase):
                 with urlopen(metadata["peerScriptUrl"], timeout=2) as response:
                     peer_script = response.read().decode("utf-8")
                 self.assertIn("Agent.isAvatar = true", peer_script)
-                for action in ("offline", "online"):
+                previous_generation = None
+                for action in ("offline", "online", "online"):
                     request = Request(
                         metadata["controlUrl"], method="POST",
                         data=json.dumps({"schemaVersion": 1, "action": action}).encode(),
@@ -160,6 +162,12 @@ class DomainFixtureTest(unittest.TestCase):
                         transition = json.loads(response.read())
                     self.assertEqual(action, transition["state"])
                     self.assertGreaterEqual(transition["generation"], 2)
+                    if action == "online":
+                        with urlopen(f"http://127.0.0.1:{http_port}/id", timeout=2) as response:
+                            self.assertEqual(metadata["domainId"], response.read().decode().strip())
+                        if previous_generation is not None:
+                            self.assertEqual(previous_generation, transition["generation"])
+                        previous_generation = transition["generation"]
                 self.assertIsNone(process.poll())
                 seeds = list((output / "runtime").rglob("shared-entities.json"))
                 self.assertEqual(2, len(seeds), "both real controlled starts must retain their own seed")

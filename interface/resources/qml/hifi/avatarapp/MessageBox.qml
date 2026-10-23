@@ -1,5 +1,6 @@
 import Hifi 1.0 as Hifi
 import QtQuick 2.5
+import QtQuick.Controls 2.2
 import stylesUit 1.0
 import controlsUit 1.0 as HifiControlsUit
 import "../../controls" as HifiControls
@@ -34,6 +35,8 @@ Rectangle {
     }
 
     function close() {
+        input.focus = false;
+        Qt.inputMethod.hide();
         visible = false;
 
         dialogButtons.yesButton.fontCapitalization = Font.AllUppercase;
@@ -67,13 +70,14 @@ Rectangle {
 
     Rectangle {
         id: mainContainer;
-        width: Math.max(parent.width * 0.8, 400)
+        objectName: "avatarMessageContainer"
+        width: Math.max(0, Math.min(parent.width - 16, Math.max(parent.width * 0.8, 400)))
         property int margin: 30;
 
-        height: childrenRect.height + margin * 2
-        onHeightChanged: {
-            console.debug('mainContainer: height = ', height)
-        }
+        // childrenRect also contains the full-size MouseArea. Deriving height
+        // from it grows the dialog on every layout pass and moves its field
+        // outside the landscape IME viewport.
+        height: Math.max(0, Math.min(parent.height - 16, contentViewport.contentHeight))
 
         MouseArea {
             anchors.fill: parent;
@@ -87,6 +91,29 @@ Rectangle {
         anchors.centerIn: parent
 
         color: "white"
+
+        Flickable {
+            id: contentViewport
+            objectName: "avatarMessageContent"
+            anchors.fill: parent
+            contentWidth: width
+            contentHeight: buttons.y + buttons.height + mainContainer.margin
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            pressDelay: 0
+            ScrollBar.vertical: ScrollBar { }
+
+            function revealInput() {
+                if (!root.visible || !input.visible || !input.activeFocus || height <= 0) { return; }
+                var top = input.mapToItem(contentViewport, 0, 0).y;
+                var delta = top < 8 ? top - 8 : Math.max(0, top + input.height + 8 - height);
+                contentY = Math.max(0, Math.min(contentY + delta, Math.max(0, contentHeight - height)));
+            }
+            onHeightChanged: Qt.callLater(revealInput)
+            Connections {
+                target: input
+                function onActiveFocusChanged() { Qt.callLater(contentViewport.revealInput); }
+            }
 
         // TextStyle1
         RalewaySemiBold {
@@ -116,6 +143,7 @@ Rectangle {
 
             InputTextStyle4 {
                 id: input
+                objectName: "avatarMessageInput"
                 visible: false
                 height: visible ? implicitHeight : 0
 
@@ -195,5 +223,6 @@ Rectangle {
             }
         }
 
+        }
     }
 }

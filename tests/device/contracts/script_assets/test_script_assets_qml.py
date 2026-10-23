@@ -35,6 +35,25 @@ flags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', '--libs',
     *['Qt' + major + name for name in ('QuickTest', 'Quick', 'Widgets', 'Test')]], env=environment, text=True))
 with tempfile.TemporaryDirectory(prefix='overte-native-script-assets-') as temporary:
     stage = Path(temporary)
+    server = (ROOT / 'assignment-client/src/assets/AssetServer.cpp').read_text()
+    def server_function(marker):
+        start = server.index(marker)
+        end = server.index('{', start) + 1
+        depth = 1
+        while depth:
+            depth += (server[end] == '{') - (server[end] == '}')
+            end += 1
+        return server[start:end]
+    cleanup = server_function('static bool hasReferenceOutsideOwnBakedContent(') + '\n'
+    cleanup += server_function('static void removeOrphanedBakedMappings(')
+    (stage / 'asset-baking-cleanup.inc').write_text(cleanup)
+    ownership_binary = stage / 'asset-server-ownership'
+    subprocess.run(['c++', '-std=c++17', '-fPIC', '-UNDEBUG',
+        '-DOVERTE_ASSET_SERVER_OWNERSHIP_TEST', str(FIXTURES / 'native-services.cpp'),
+        '-I' + str(stage), '-I' + str(ROOT / 'libraries/networking/src'),
+        *libraries, '-o', str(ownership_binary), *flags], env=environment, check=True, timeout=30)
+    subprocess.run([str(ownership_binary)], env=environment, check=True, timeout=10)
+    print('Production asset-server baking ownership regressions passed')
     route = (ROOT / 'interface/src/Application_UI.cpp').read_text()
     start = route.index('void Application::showAssetServerWidget(')
     end = route.index('\nvoid Application::', start + 1)
@@ -78,6 +97,17 @@ with tempfile.TemporaryDirectory(prefix='overte-native-script-assets-') as tempo
     start = manager.index('QUrl ScriptManager::resolvePath(')
     end = manager.index('\nQUrl ScriptManager::resourcesPath()', start)
     (stage / 'script-resolver-body.inc').write_text('inline ' + manager[start:end])
+    engines = (ROOT / 'libraries/script-engine/src/ScriptEngines.cpp').read_text()
+    def url_function(signature):
+        start = engines.index(signature)
+        end = engines.index('{', start) + 1
+        depth = 1
+        while depth:
+            depth += (engines[end] == '{') - (engines[end] == '}')
+            end += 1
+        return 'inline ' + engines[start:end] + '\n'
+    (stage / 'script-url-body.inc').write_text(''.join(url_function(signature) for signature in (
+        'QUrl normalizeScriptURL(', 'QString expandScriptPath(', 'QUrl expandScriptUrl(')))
     offscreen = (ROOT / 'libraries/ui/src/OffscreenUi.cpp').read_text()
     listener_start = offscreen.index('class FileDialogListener :')
     listener_end = offscreen.index('\nQString OffscreenUi::fileDialog(', listener_start)
@@ -101,6 +131,7 @@ with tempfile.TemporaryDirectory(prefix='overte-native-script-assets-') as tempo
         str(ROOT / 'libraries/ui/src/FileDialogHelper.cpp'), str(ROOT / 'libraries/ui/src/ui/Logging.cpp'),
         str(stage / 'files-moc.cpp'), str(stage / 'AssetUpload.cpp'), str(stage / 'upload-moc.cpp'), str(stage / 'peer-moc.cpp'), str(stage / 'script-moc.cpp'), str(stage / 'dialog-moc.cpp'),
         '-I' + str(FIXTURES), '-I' + str(stage), '-I' + str(ROOT / 'libraries/ui/src'),
+        '-I' + str(ROOT / 'libraries/networking/src'),
         *libraries, '-o', str(binary), *flags], env=environment, check=True, timeout=90)
     result = subprocess.run([str(binary), '-file-selector', 'android_picoInterface', '-file-selector', 'android_interface',
         '-import', str(ROOT / 'interface/resources/qml'), '-import', str(ROOT / 'tests/device/qml/imports'),

@@ -252,6 +252,9 @@ public:
     QVector<glm::vec2> texCoords1;
     QVector<uint16_t> clusterIndices;
     QVector<uint16_t> clusterWeights;
+    // Legacy meshes retain four lanes; FBX meshes may retain eight complete
+    // influences. The baker preserves the original four-lane GPU format.
+    int skinningInfluenceCount { 4 };
     QVector<int32_t> originalIndices;
 
     QVector<Cluster> clusters;

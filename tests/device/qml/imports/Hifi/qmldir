@@ -1,2 +1,3 @@
 module Hifi
 SoundEffect 1.0 SoundEffect.qml
+singleton Account 1.0 Account.qml

@@ -10,6 +10,12 @@ public final class PhoneWebGeometryHostTest {
         equal(PhoneWebGeometry.map(100,100,new int[]{-20,0,120,100},new int[]{0,0,300,150},new int[]{0,0,300,150}),-60,0,360,150,0,0,300,150);
         if (PhoneWebGeometry.map(0,100,new int[]{0,48,100,100},new int[]{0,0,300,150},new int[]{0,0,300,150}) != null) throw new AssertionError();
         if (PhoneWebGeometry.map(100,100,new int[]{0,110,100,130},new int[]{0,0,300,150},new int[]{0,0,300,150}) != null) throw new AssertionError();
+        int[] phoneImeClip = {132, 74, 2400, 837, 132, 74, 2390, 236};
+        equal(PhoneWebGeometry.documentViewport(phoneImeClip, false), 0, 0, 2268, 763);
+        equal(PhoneWebGeometry.documentViewport(phoneImeClip, true), 0, 0, 2258, 162);
+        equal(PhoneWebGeometry.documentViewport(new int[]{132, -50, 2400, 837, 132, 74, 2390, 236}, true),
+            0, 0, 2258, 162);
+        equal(PhoneWebGeometry.documentViewport(phoneImeClip, false), 0, 0, 2268, 763);
         System.out.println("PASS: actual scene-to-surface mapping, 48px toolbar, clipping, nonuniform scale and invalid layouts");
     }
 }

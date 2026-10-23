@@ -123,6 +123,7 @@ function onMessage(message) {
                 Settings.setValue("previousStillSnapUrl", "");
                 Settings.setValue("previousAnimatedSnapPath", "");
                 Settings.setValue("previousAnimatedSnapStoryID", "");
+                Settings.setValue("previousAnimatedSnapUrl", "");
                 Settings.setValue("previousAnimatedSnapBlastingDisabled", false);
                 Settings.setValue("previousAnimatedSnapHifiSharingDisabled", false);
             }
@@ -185,6 +186,13 @@ function onMessage(message) {
                 }
                 updatePrintPermissions();
             });
+            break;
+        case 'copySnapshotUrl':
+            if (nativeReview && typeof message.url === "string" && /^https?:\/\/[^\s]+$/i.test(message.url)) {
+                Window.copyToClipboard(message.url);
+                removeFromStoryIDsToMaybeDelete(message.story_id);
+                ui.sendMessage({ type: "snapshot", action: "snapshotUrlCopied" });
+            }
             break;
         case 'blastToConnections':
             isLoggedIn = Account.isLoggedIn();
@@ -391,6 +399,7 @@ function fillImageDataFromPrevious() {
         imageData.push({
             localPath: previousStillSnapPath,
             story_id: previousStillSnapStoryID,
+            image_url: Settings.getValue("previousStillSnapUrl", ""),
             blastButtonDisabled: previousStillSnapBlastingDisabled,
             hifiButtonDisabled: previousStillSnapHifiSharingDisabled,
             errorPath: Script.resourcesPath() + 'snapshot/img/no-image.jpg'
@@ -400,6 +409,7 @@ function fillImageDataFromPrevious() {
         imageData.push({
             localPath: previousAnimatedSnapPath,
             story_id: previousAnimatedSnapStoryID,
+            image_url: Settings.getValue("previousAnimatedSnapUrl", ""),
             blastButtonDisabled: previousAnimatedSnapBlastingDisabled,
             hifiButtonDisabled: previousAnimatedSnapHifiSharingDisabled,
             errorPath: Script.resourcesPath() + 'snapshot/img/no-image.jpg'
@@ -437,6 +447,7 @@ function snapshotUploaded(isError, reply) {
             });
             if (isGif) {
                 Settings.setValue("previousAnimatedSnapStoryID", storyID);
+                Settings.setValue("previousAnimatedSnapUrl", imageURL);
             } else {
                 Settings.setValue("previousStillSnapStoryID", storyID);
                 Settings.setValue("previousStillSnapUrl", imageURL);
@@ -524,6 +535,7 @@ function takeSnapshot(mode, title) {
     Settings.setValue("previousStillSnapUrl", "");
     Settings.setValue("previousAnimatedSnapPath", "");
     Settings.setValue("previousAnimatedSnapStoryID", "");
+    Settings.setValue("previousAnimatedSnapUrl", "");
     Settings.setValue("previousAnimatedSnapBlastingDisabled", false);
     Settings.setValue("previousAnimatedSnapHifiSharingDisabled", false);
     

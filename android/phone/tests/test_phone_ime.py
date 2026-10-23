@@ -8,6 +8,8 @@ ROOT = Path(__file__).resolve().parents[3]
 PRODUCTION = ROOT / 'android/phone/apps/phoneInterface/src/main/java/org/qtproject/qt5/android/QtEditText.java'
 
 STUBS = {
+    'android/os/Build.java': 'package android.os; public class Build { public static class VERSION { public static int SDK_INT=26; } }',
+    'android/annotation/TargetApi.java': 'package android.annotation; public @interface TargetApi { int value(); }',
     'android/content/Context.java': 'package android.content; public class Context {}',
     'android/text/InputType.java': 'package android.text; public class InputType { public static final int TYPE_CLASS_TEXT=1; }',
     'android/view/KeyEvent.java': 'package android.view; public class KeyEvent {}',
@@ -21,6 +23,19 @@ public class View {
  public boolean onKeyDown(int code, KeyEvent e) {return false;}
 }''',
     'android/view/inputmethod/InputConnection.java': 'package android.view.inputmethod; public interface InputConnection {}',
+    'android/view/inputmethod/TextAttribute.java': 'package android.view.inputmethod; public final class TextAttribute {}',
+    # Compile-only modern API declarations. This fixture exercises API 26 and
+    # must reject modern dispatch; the existing Robolectric suite uses the real SDK.
+    'android/view/inputmethod/InputConnectionWrapper.java': '''package android.view.inputmethod;
+public class InputConnectionWrapper implements InputConnection {
+ public InputConnectionWrapper(InputConnection target, boolean mutable) {throw new AssertionError("Modern connection on legacy fixture");}
+ public boolean beginBatchEdit() {throw new AssertionError("Modern connection on legacy fixture");}
+ public boolean endBatchEdit() {throw new AssertionError("Modern connection on legacy fixture");}
+ public boolean finishComposingText() {throw new AssertionError("Modern connection on legacy fixture");}
+ public boolean setSelection(int start, int end) {throw new AssertionError("Modern connection on legacy fixture");}
+ public boolean commitText(CharSequence text, int cursor) {throw new AssertionError("Modern connection on legacy fixture");}
+ public boolean replaceText(int start, int end, CharSequence text, int cursor, TextAttribute attributes) {throw new AssertionError("Modern connection on legacy fixture");}
+}''',
     'android/view/inputmethod/EditorInfo.java': '''package android.view.inputmethod;
 public class EditorInfo {
  public static final int IME_FLAG_NO_FULLSCREEN=0x2000000, IME_FLAG_NO_EXTRACT_UI=0x10000000;

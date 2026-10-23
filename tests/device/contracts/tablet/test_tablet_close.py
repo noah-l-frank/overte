@@ -136,8 +136,27 @@ Item {
   }
  }
 }'''.replace("ORIGINAL", source[start:end]))
+            # Execute the production Android normalization block from the
+            # recipe patch against the real Quick field below. JNI/batch
+            # dispatch remains outside this host contract.
+            patch = (ROOT / "android/phone/fdroid/recipes/qt/patches/qt-pico-android-runtime.patch").read_text()
+            additions = "\n".join(line[1:] for line in patch.splitlines()
+                                  if line.startswith("+") and not line.startswith("+++"))
+            marker = additions.find("    // An explicit empty Android commit")
+            normalization = ""
+            if marker >= 0:
+                start = additions.index("    if (!focusObjectWasComposing", marker)
+                end = additions.index("{", start) + 1
+                depth = 1
+                while depth:
+                    depth += (additions[end] == "{") - (additions[end] == "}")
+                    end += 1
+                normalization = additions[start:end]
+            (Path(temporary) / "android-empty-commit.inc").write_text(normalization)
             subprocess.run(["c++", "-std=c++17", "-fPIC", "-UNDEBUG", "-pthread",
+                "-I" + temporary,
                 "-I" + str(native), str(native / "NativeFieldInput.cpp"),
+                "-I" + str(ROOT / "libraries/shared/src"),
                 str(here / "native-field-input-test.cpp"), "-o", str(binary), *library_paths, *flags],
                 check=True, timeout=60, env=environment)
             subprocess.run(["unshare", "--user", "--map-root-user", "--net", str(binary), str(pager)],

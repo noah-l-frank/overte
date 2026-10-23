@@ -39,8 +39,10 @@ ctest --test-dir build/native -R '^skinning-(SkinningTests|ShaderSkinningTests)-
 
 ## Producer and shader contract
 
-HFM stores exactly four indices and four quantized weights per actual skinned
-vertex. Before baking, genuinely used cluster objects and their vertex indices
+HFM declares exactly four or eight indices and quantized weights per actual
+skinned vertex. FBX retains every active influence up to eight and uses the
+original four-lane HFM layout when every vertex fits it. Before baking,
+genuinely used cluster objects and their vertex indices
 are compacted together; global skeleton joint indices and both inverse bind
 representations remain attached to their original clusters. The runtime skeleton
 and matrix/DQ updates therefore consume the same ordering as packed vertices.
@@ -60,10 +62,20 @@ meshes.
 A used palette above 128 is explicitly rejected, without splitting, clamping or
 truncation. Invalid influence cardinalities, active indices outside the actual
 palette and invalid used joints/binds are also rejected before packing. glTF
-influence sets beyond four lanes and FBX vertices beyond four active influences
+influence sets beyond four lanes and FBX vertices beyond eight active influences
 are unsupported and rejected explicitly. FBX unpainted vertices retain its
 explicit mesh/root influence; its inactive root lanes do not require that root
 in the used palette.
+
+Four-lane GPU attributes and shader inputs remain unchanged. Eight-lane meshes
+use four unsigned 32-bit index words and the same four normalized uint16 primary
+weights. Each extended index word sets bit 31, stores its primary palette index
+in bits 0..6, the corresponding secondary index in bits 7..13 and the complete
+secondary uint16 weight in bits 14..29. Bit 30 is reserved and causes that word
+to be ignored when set. Palette compaction and validation establish the existing
+128-entry bound before packing, so both seven-bit indices are lossless. Shader
+loads still check the actual populated palette count. No active weight is
+discarded or quantized more coarsely to fit the extended format.
 
 FBX cluster source indices must be nonnegative integral values representable as
 an `int` before conversion and within the actual source vertex domain afterward.

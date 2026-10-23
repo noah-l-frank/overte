@@ -13,6 +13,7 @@
 #define hifi_RenderableWebEntityItem_h
 
 #include <QtCore/QSharedPointer>
+#include <array>
 #include <WebEntityItem.h>
 #include <InlineHtmlDocument.h>
 #include "RenderableEntityItem.h"
@@ -58,6 +59,13 @@ public:
 
     virtual void setProxyWindow(QWindow* proxyWindow) override;
     virtual QObject* getEventHandler() override;
+
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    bool getInputMethodWorldBounds(const glm::vec3& viewPosition,
+                                   std::array<glm::vec3, 4>& corners,
+                                   Qt::InputMethodQuery rectangle = Qt::ImCursorRectangle) const;
+    bool moveInputCursorToPoint(const glm::vec2& point, int handle);
+#endif
 
     gpu::TexturePointer getTexture() override { return _texture; }
 

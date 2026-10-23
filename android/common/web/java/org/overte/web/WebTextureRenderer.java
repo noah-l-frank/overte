@@ -85,29 +85,39 @@ final class WebTextureRenderer implements AutoCloseable {
     Context context() { return presentation.getContext(); }
     void attach(WebView view) {
         attached = view;
-        container.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        if (container != null) container.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     }
     private void present() {
         if (closed.get()) return;
         try {
             DisplayManager manager = (DisplayManager) activity.getSystemService(Context.DISPLAY_SERVICE);
             // No PUBLIC, AUTO_MIRROR or SECURE flag: capture only this app's own window.
-            display = manager.createVirtualDisplay("OverteWeb", width, height, 160, surface,
+            display = manager.createVirtualDisplay("OverteWeb", width, height, 160, surfaceActive ? surface : null,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY | DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION);
             if (display == null) throw new IllegalStateException("display unavailable");
             showPresentation(); surfaceReady = true; callback.ready(this);
         } catch (RuntimeException | OutOfMemoryError failure) { fail(); }
     }
     private void showPresentation() {
-        presentation = new Presentation(activity, display.getDisplay());
-        presentation.getWindow().addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
-            | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL);
-        presentation.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        container = new FrameLayout(presentation.getContext());
-        presentation.requestWindowFeature(Window.FEATURE_NO_TITLE);
-        presentation.setContentView(container); presentation.show();
-        presentation.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);
-        if (attached != null) container.addView(attached,new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT));
+        if (presentation == null) {
+            presentation = new Presentation(activity, display.getDisplay());
+            presentation.getWindow().addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+                | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL);
+            presentation.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            container = new FrameLayout(presentation.getContext());
+            presentation.requestWindowFeature(Window.FEATURE_NO_TITLE);
+            presentation.setContentView(container);
+            if (attached != null) container.addView(attached,new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT));
+        }
+        if (surfaceActive) {
+            presentation.show();
+            presentation.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT);
+        }
+    }
+    private void dismissPresentation() {
+        if (attached != null && container != null) container.removeView(attached);
+        if (presentation != null) presentation.dismiss();
+        presentation = null; container = null;
     }
     void resize(int requestedWidth, int requestedHeight) {
         int[] size = size(requestedWidth, requestedHeight);
@@ -124,9 +134,9 @@ final class WebTextureRenderer implements AutoCloseable {
                         // Presentation cancels itself when display metrics change. Recreate only
                         // its window; preserve the existing document and its native editor focus.
                         boolean focused = attached != null && attached.hasFocus();
-                        if (attached != null) container.removeView(attached);
-                        presentation.dismiss(); display.resize(w,h,160); showPresentation();
-                        if (focused) attached.requestFocus();
+                        dismissPresentation(); display.resize(w,h,160);
+                        if (surfaceActive) showPresentation();
+                        if (focused && surfaceActive && attached != null) attached.requestFocus();
                         surfaceReady = true; callback.resized();
                     }
                     catch (RuntimeException failure) { fail(); }
@@ -136,12 +146,24 @@ final class WebTextureRenderer implements AutoCloseable {
     }
     void invalidate() { gate.invalidate(); }
     void pause() {
+        if (closed.get()) return;
         gate.invalidate(); surfaceActive = false;
-        try { if (display != null) display.setSurface(null); } catch (RuntimeException failure) { fail(); }
+        try {
+            // A cached/frozen Activity must not retain its Presentation's input window.
+            // Keep the document and display for the next authorized visual barrier.
+            dismissPresentation();
+            if (display != null) display.setSurface(null);
+        } catch (RuntimeException failure) { fail(); }
     }
     void resume() {
         if (closed.get() || surfaceActive) return;
-        try { display.setSurface(surface); surfaceActive = true; } catch (RuntimeException failure) { fail(); }
+        try {
+            if (display != null) display.setSurface(surface);
+            surfaceActive = true;
+            if (display != null) showPresentation();
+        } catch (RuntimeException | OutOfMemoryError failure) {
+            surfaceActive = false; gate.invalidate(); fail();
+        }
     }
     void arm(WebView view, long grant, long page, String document) {
         if (closed.get() || !surfaceReady || !surfaceActive || gate.matches(grant,page,surfaceEpoch,document)) return;
@@ -157,6 +179,7 @@ final class WebTextureRenderer implements AutoCloseable {
                     if (closed.get()) return;
                     try {
                         texture.updateTexImage(); final long baseline = texture.getTimestamp();
+                        texture.releaseTexImage();
                         MAIN.post(() -> {
                             if (!closed.get() && gate.visual(ticket,baseline)) view.invalidate();
                         });
@@ -165,7 +188,7 @@ final class WebTextureRenderer implements AutoCloseable {
             }
         });
     }
-    private void onSignal() { if (!closed.get()) { signal = true; schedule(); } }
+    private void onSignal() { if (!closed.get()) { gate.frameAvailable(); signal = true; schedule(); } }
     private void schedule() {
         if (closed.get() || busy || !signal) return;
         signal = false; busy = true;
@@ -181,15 +204,23 @@ final class WebTextureRenderer implements AutoCloseable {
                     // Drain even before the visual barrier, preventing BufferQueue backpressure.
                     texture.updateTexImage();
                     timestamp = texture.getTimestamp();
-                    if (copy && gate.fresh(ticket,timestamp)) { texture.getTransformMatrix(matrix); draw(w,h); result = packed; }
+                    boolean fresh = gate.fresh(ticket,timestamp);
+                    if (copy && fresh) { texture.getTransformMatrix(matrix); draw(w,h); result = packed; }
+                    // Once copied, no GL reader needs this producer buffer. Return it
+                    // immediately so the virtual display can publish its final frame.
+                    // Retain a fresh throttled frame until its deferred copy runs.
+                    if (copy || !fresh) texture.releaseTexImage();
                 }
             } catch (RuntimeException | OutOfMemoryError failure) { fail(); }
             final ByteBuffer pixels = result; final long produced = timestamp;
             MAIN.post(() -> {
-                if (!closed.get() && epoch == surfaceEpoch && gate.fresh(ticket,produced)) {
+                if (!closed.get() && epoch == surfaceEpoch && gate.admits(ticket)) {
                     if (pixels != null && gate.deliver(ticket,produced)) {
                         lastCapture = SystemClock.uptimeMillis(); callback.frame(ticket,pixels,w,h);
-                    } else if (!retryScheduled) {
+                    } else if (!retryScheduled && gate.retry(ticket)) {
+                        // A producer notification does not guarantee that this latch
+                        // already acquired a newer buffer. Retry the final notification
+                        // too, retaining freshness checks and a bounded idle budget.
                         retryScheduled = true; MAIN.postDelayed(retryCapture,Math.max(1,100-(SystemClock.uptimeMillis()-lastCapture)));
                     }
                 }
@@ -203,9 +234,9 @@ final class WebTextureRenderer implements AutoCloseable {
     @Override public void close() {
         if (!closed.compareAndSet(false,true)) return;
         gate.close(); MAIN.removeCallbacks(retryCapture);
-        if (attached != null && container != null) { container.removeView(attached); attached = null; }
-        if (presentation != null) { try { presentation.dismiss(); } catch (RuntimeException ignored) { } }
-        if (display != null) display.release();
+        try { dismissPresentation(); } catch (RuntimeException ignored) { }
+        finally { attached = null; presentation = null; container = null; }
+        if (display != null) { display.release(); display = null; }
         gl.post(() -> { try { release(); } finally { thread.quitSafely(); } });
     }
     private void initialize() {

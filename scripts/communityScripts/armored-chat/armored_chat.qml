@@ -36,15 +36,6 @@ Rectangle {
             KeyboardScriptingInterface.raised = false
         }
     }
-    Button {
-        objectName: "chatClose"
-        visible: root.tabletMode
-        text: qsTr("BACK")
-        width: 100
-        height: 48
-        onClicked: root.toScript({ type: "chat.close" })
-    }
-
     property string pageVal: "local"
     property string last_message_user: ""
     property date last_message_time: new Date()
@@ -65,7 +56,6 @@ Rectangle {
     // User view
     Item {
         anchors.fill: parent;
-        anchors.topMargin: root.tabletMode ? 48 : 0
         anchors.bottomMargin: root.keyboardItem && root.keyboardItem.raised ? root.keyboardItem.height : 0
 
         // Navigation Bar
@@ -236,7 +226,7 @@ Rectangle {
             Rectangle {
                 id: chatRectangle
                 width: parent.width
-                height: Math.max(40, textArea.contentHeight + 10)
+                height: Math.min(Math.max(40, textArea.contentHeight + 10), Math.max(40, parent.height * 0.45))
                 color: Qt.rgba(0.9,0.9,0.9,1)
                 anchors.bottom: parent.bottom
 
@@ -244,41 +234,48 @@ Rectangle {
                     width: parent.width
                     height: parent.height
 
-                    TextArea {
-                        id: textArea
-                        objectName: "chatMessageInput"
-                        width: parent.width - 60;
-                        height: parent.height;
-                        wrapMode: Text.Wrap
-                        placeholderText: pageVal.charAt(0).toUpperCase() + pageVal.slice(1) + " chat message...";
-                        clip: false;
-                        font.italic: text == "";
-                        selectByMouse: true;
-                        topPadding: 5
-                        bottomPadding: 5
-                        leftPadding: 5
-                        rightPadding: 5
-                        font.pixelSize: 18
+                    ScrollView {
+                        id: inputScroll
+                        objectName: "chatEntryScroll"
+                        width: parent.width - 60
+                        height: parent.height
+                        clip: true
 
-                        Keys.onPressed: function(event) {
-                            if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
-                                event.accepted = true;
-                                toScript({type: "send_message", message: text, channel: pageVal});
-                                text = ""
+                        TextArea {
+                            id: textArea
+                            objectName: "chatMessageInput"
+                            width: inputScroll.availableWidth;
+                            wrapMode: Text.Wrap
+                            placeholderText: pageVal.charAt(0).toUpperCase() + pageVal.slice(1) + " chat message...";
+                            clip: true;
+                            font.italic: text == "";
+                            selectByMouse: true;
+                            topPadding: 5
+                            bottomPadding: 5
+                            leftPadding: 5
+                            rightPadding: 5
+                            font.pixelSize: 18
+
+                            Keys.onPressed: function(event) {
+                                if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
+                                    event.accepted = true;
+                                    toScript({type: "send_message", message: text, channel: pageVal});
+                                    text = ""
+                                }
                             }
-                        }
-                        onTextChanged: {
-                            if (text === "") {
-                                toScript({type: "action", action: "end_typing"});
-                            } else {
-                                toScript({type: "action", action: "start_typing"});
+                            onTextChanged: {
+                                if (text === "") {
+                                    toScript({type: "action", action: "end_typing"});
+                                } else {
+                                    toScript({type: "action", action: "start_typing"});
+                                }
                             }
-                        }
-                        onFocusChanged: {
-                            if (root.tabletMode) { root.keyboardRaised = focus; return; }
-                            if (!HMD.active) return;
-                            if (focus) return ApplicationInterface.showVRKeyboardForHudUI(true);
-                            ApplicationInterface.showVRKeyboardForHudUI(false);
+                            onFocusChanged: {
+                                if (root.tabletMode) { root.keyboardRaised = focus; return; }
+                                if (!HMD.active) return;
+                                if (focus) return ApplicationInterface.showVRKeyboardForHudUI(true);
+                                ApplicationInterface.showVRKeyboardForHudUI(false);
+                            }
                         }
                     }
                     Button {
@@ -294,12 +291,12 @@ Rectangle {
                         }
 
                         onClicked: {
-                            toScript({type: "send_message", message: parent.children[0].text, channel: pageVal});
+                            toScript({type: "send_message", message: textArea.text, channel: pageVal});
                             textArea.text = ""
                         }
                         Keys.onPressed: function(event) {
                             if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                                toScript({type: "send_message", message: parent.children[0].text, channel: pageVal});
+                                toScript({type: "send_message", message: textArea.text, channel: pageVal});
                                 textArea.text = ""
                             }
                         }

@@ -32,6 +32,18 @@ last two values as `OVERTE_E2E_DOMAIN_CONTROL_URL` and
 `OVERTE_E2E_DOMAIN_CONTROL_TOKEN`. Its `offline` and `online` commands affect
 only child process groups owned by this fixture instance.
 
+Before each `enter_controlled_domain()` navigation, sessions with those private
+control values request `online`. This operation checks the live process stack
+and `/id` identity when it is already running, or starts the stopped owned stack
+and waits for its assignment content. It does not restart a healthy domain.
+`domain-prerequisite.json` records the acknowledged state and generation without
+the control token. An unavailable or invalid controller is an infrastructure
+error before navigation. The normal pipeline and Jenkins entry points start
+the fixture owner automatically before domain suites; a ready file alone does
+not replace the live check. Direct external/mock sessions without either control
+value retain their existing externally managed lifecycle. Both values must be
+provided to enable automatic startup for a direct session.
+
 `domain-recovery` uses the same values plus `OVERTE_E2E_SCENE_URL`. It enters
 the domain, returns to the controlled serverless scene, proves that the domain
 is disconnected, and re-enters the exact domain without changing the

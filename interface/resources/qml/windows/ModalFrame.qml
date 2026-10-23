@@ -15,12 +15,14 @@ import controlsUit 1.0
 import stylesUit 1.0
 
 Frame {
+    id: modalFrame
+    property bool titleVisible: true
     HifiConstants { id: hifi }
 
     Rectangle {
         id: frameContent
 
-        readonly property bool hasTitle: window.title != ""
+        readonly property bool hasTitle: modalFrame.titleVisible && window.title != ""
 
         readonly property int frameMarginLeft: hifi.dimensions.modalDialogMargin.x
         readonly property int frameMarginRight: hifi.dimensions.modalDialogMargin.x

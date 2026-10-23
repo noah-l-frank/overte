@@ -6,6 +6,7 @@
 macro (SETUP_TESTCASE_DEPENDENCIES)
   target_bullet()
   link_hifi_libraries(shared test-utils physics gpu graphics)
+  include_hifi_library_headers(entities)
   package_libraries_for_deployment()
 endmacro ()
 

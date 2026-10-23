@@ -14,6 +14,7 @@
 #include <glm/gtc/packing.hpp>
 
 #include <LogHandler.h>
+#include <graphics/ShaderConstants.h>
 #include "ModelBakerLogging.h"
 #include "ModelMath.h"
 
@@ -98,9 +99,14 @@ void buildGraphicsMesh(const hfm::Mesh& hfmMesh, graphics::MeshPointer& graphics
     const int texCoordsSize = hfmMesh.texCoords.size() * texCoordsElement.getSize();
     const int texCoords1Size = hfmMesh.texCoords1.size() * texCoordsElement.getSize();
 
-    // Support for 4 skinning clusters:
-    // 4 Indices are uint8 ideally, uint16 if more than 256.
-    const auto clusterIndiceElement = (hfmMesh.clusters.size() < UINT8_MAX ? gpu::Element(gpu::VEC4, gpu::UINT8, gpu::XYZW) : gpu::Element(gpu::VEC4, gpu::UINT16, gpu::XYZW));
+    static_assert(GRAPHICS_MAX_SKINNING_CLUSTERS <= 128, "Extended skinning indices use seven palette bits");
+    const bool extendedSkinning = hfmMesh.skinningInfluenceCount == 8;
+    // Four-lane meshes keep their existing indices and normalized weights.
+    // Extended words add lanes 4..7 without another vertex attribute or a
+    // different shader input type. No active index or weight is truncated.
+    const auto clusterIndiceElement = extendedSkinning ? gpu::Element(gpu::VEC4, gpu::UINT32, gpu::XYZW)
+        : (hfmMesh.clusters.size() < UINT8_MAX ? gpu::Element(gpu::VEC4, gpu::UINT8, gpu::XYZW)
+                                             : gpu::Element(gpu::VEC4, gpu::UINT16, gpu::XYZW));
     // 4 Weights are normalized 16bits
     const auto clusterWeightElement = gpu::Element(gpu::VEC4, gpu::NUINT16, gpu::XYZW);
 
@@ -202,7 +208,20 @@ void buildGraphicsMesh(const hfm::Mesh& hfmMesh, graphics::MeshPointer& graphics
 
     // Clusters data
     if (clusterIndicesSize > 0) {
-        if (hfmMesh.clusters.size() < UINT8_MAX) {
+        if (extendedSkinning) {
+            QVector<uint32_t> packedIndices(numVerts * 4);
+            for (int vertex = 0; vertex < numVerts; ++vertex) {
+                for (int lane = 0; lane < 4; ++lane) {
+                    const int first = vertex * 8 + lane;
+                    const int second = first + 4;
+                    const uint32_t primary = hfmMesh.clusterWeights[first] ? hfmMesh.clusterIndices[first] : 0;
+                    const uint32_t secondary = hfmMesh.clusterWeights[second] ? hfmMesh.clusterIndices[second] : 0;
+                    packedIndices[vertex * 4 + lane] = GRAPHICS_SKINNING_EXTENDED_FLAG | primary
+                        | (secondary << 7) | (uint32_t(hfmMesh.clusterWeights[second]) << 14);
+                }
+            }
+            vertBuffer->setSubData(clusterIndicesOffset, clusterIndicesSize, (const gpu::Byte*) packedIndices.constData());
+        } else if (hfmMesh.clusters.size() < UINT8_MAX) {
             // yay! we can fit the clusterIndices within 8-bits
             int32_t numIndices = hfmMesh.clusterIndices.size();
             QVector<uint8_t> clusterIndices;
@@ -218,7 +237,15 @@ void buildGraphicsMesh(const hfm::Mesh& hfmMesh, graphics::MeshPointer& graphics
         }
     }
     if (clusterWeightsSize > 0) {
-        vertBuffer->setSubData(clusterWeightsOffset, clusterWeightsSize, (const gpu::Byte*) hfmMesh.clusterWeights.constData());
+        if (extendedSkinning) {
+            QVector<uint16_t> primaryWeights(numVerts * 4);
+            for (int vertex = 0; vertex < numVerts; ++vertex) {
+                for (int lane = 0; lane < 4; ++lane) { primaryWeights[vertex * 4 + lane] = hfmMesh.clusterWeights[vertex * 8 + lane]; }
+            }
+            vertBuffer->setSubData(clusterWeightsOffset, clusterWeightsSize, (const gpu::Byte*) primaryWeights.constData());
+        } else {
+            vertBuffer->setSubData(clusterWeightsOffset, clusterWeightsSize, (const gpu::Byte*) hfmMesh.clusterWeights.constData());
+        }
     }
 
 

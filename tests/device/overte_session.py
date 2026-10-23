@@ -376,6 +376,14 @@ class OverteSession:
         if not 2 <= stable_required <= 20:
             fail("OVERTE_E2E_DOMAIN_STABLE_SAMPLES must be from 2 through 20")
 
+        # The ready file describes the initial startup, not the current stack.
+        # Reuse the fixture owner's idempotent operation before navigation:
+        # it checks a running stack or starts an intentionally stopped one and
+        # waits for the domain identity and assignment-owned content.
+        if (os.environ.get("OVERTE_E2E_DOMAIN_CONTROL_URL")
+                or os.environ.get("OVERTE_E2E_DOMAIN_CONTROL_TOKEN")):
+            write_json("domain-prerequisite.json", self._domain_control("online"))
+
         identity = process_identity()
         assert_foreground("before domain navigation")
         before = self.snapshot("domain-before.json")
@@ -704,7 +712,8 @@ class OverteSession:
                 or port is None or parsed.path != "/v1/domain-state"
                 or parsed.username is not None or parsed.password is not None
                 or parsed.query or parsed.fragment or not token or len(token) > 256):
-            fail("controlled domain recovery requires a private loopback control endpoint")
+            raise InfrastructureError(
+                "controlled domain recovery requires a private loopback control endpoint")
         payload = json.dumps({"schemaVersion": 1, "action": action}).encode("utf-8")
         request = Request(url, data=payload, method="POST", headers={
             "Content-Type": "application/json",

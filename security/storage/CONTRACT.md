@@ -86,7 +86,7 @@ failure, no adapter/fallback, locked/corrupt stores, bounds and logout recovery.
 Platform owners must test their real adapter with these outcomes and register
 through the production entry point. Native locked/key/reinstall faults and
 plaintext absence on real devices are pending; the host fake is not OS evidence.
-Full Qt AccountManager compilation/integration, desktop protected adapters,
+Full Qt AccountManager compilation/integration, desktop OS qualification,
 SH-003/SH-005 acceptance, platform builds and downstream login/upgrade/locked-
 store checkpoints remain pending. Do not merge an unbound product or label a
 node PASS on the basis of this contract. PX-16 is a separate pinned release.
@@ -129,3 +129,37 @@ This verifies the local Qt6 metatype/stream encoding, not a cross-Qt-version
 migration corpus or semantic cryptographic validity of a private key/token.
 Qt5/native registration, untrusted-parser allocation behavior, native persistence
 and the complete platform/account lifecycle remain separate acceptance gates.
+
+## Linux Secret Service binding
+
+Linux Interface now registers `LinuxProtectedAccountStore` before constructing
+AccountManager. Its QtDBus dependency is restricted to non-Android Linux builds.
+The opaque binary map is stored in the user's native Secret Service, using only
+the public application identifier and `account-map-v1` as lookup attributes.
+Account identifiers, auth URLs and credentials never become item attributes or
+labels. The standard local session-bus `plain` transfer session is independent
+of keyring encryption at rest; the application writes no credential file or key.
+
+The default persistent collection must exist and be unlocked. A locked
+collection or item returns `Locked`; a missing native service/collection returns
+`Unavailable`. Neither enables a legacy fallback or creates an ephemeral
+collection. Calls never request interactive unlock/create prompts. Invalid
+secret metadata, malformed/empty/oversized records and ambiguous duplicate
+records fail closed. Logout deletes only matching application records and never
+reports a required prompt or failed deletion as success.
+
+GNOME Keyring returns `text/plain` even for an `application/octet-stream` secret.
+The Linux binding accepts that observed normalization without decoding or
+transforming the opaque bytes. Session/parameter validation, record size limits,
+the coordinator's serialized-map validation and exact write/readback remain
+required. Other MIME types remain corrupt. The real provider was independently
+observed to preserve NUL and high bytes exactly; that probe was then deleted.
+
+`tests/device/contracts/secure-storage/linux-store-test.cpp` compiles the actual
+adapter against Qt Core/DBus and exercises it against a private host-only D-Bus
+service double. The test bus must use a configuration without service activation
+directories; the test explicitly refuses an activatable native Secret Service
+before issuing requests. It covers binary data, native item creation/update,
+adapter recreation, absence/locks, corrupted metadata, duplicates and deletion.
+This is not evidence for real keyring durability, native client login, or a
+physical-device journey. Those require separate laboratory qualification.

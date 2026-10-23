@@ -16,6 +16,7 @@ final class WebFrameGate {
     private final Object owner;
     private Ticket current;
     private long serial, minimumTimestamp, deliveredTimestamp;
+    private int retries;
     private boolean visual, closed;
     WebFrameGate(Object owner) { if (owner == null) throw new IllegalArgumentException(); this.owner = owner; }
     synchronized Ticket begin(Object owner, long grant, long page, long surface, String document) {
@@ -37,10 +38,15 @@ final class WebFrameGate {
     synchronized boolean fresh(Ticket ticket, long timestamp) {
         return admits(ticket) && timestamp > minimumTimestamp && timestamp > deliveredTimestamp;
     }
+    synchronized void frameAvailable() { if (!closed) retries = 2; }
+    synchronized boolean retry(Ticket ticket) {
+        if (!admits(ticket) || retries == 0) return false;
+        --retries; return true;
+    }
     synchronized boolean deliver(Ticket ticket, long timestamp) {
         if (!fresh(ticket,timestamp)) return false;
         deliveredTimestamp = timestamp; return true;
     }
-    synchronized void invalidate() { current = null; visual = false; }
+    synchronized void invalidate() { current = null; visual = false; retries = 0; }
     synchronized void close() { invalidate(); closed = true; }
 }

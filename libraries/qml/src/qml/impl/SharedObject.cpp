@@ -153,6 +153,7 @@ void SharedObject::create(OffscreenSurface* surface) {
         qmlEngine->setIncubationController(_quickWindow->incubationController());
     }
     _qmlContext->setContextProperty("offscreenWindow", QVariant::fromValue(_quickWindow));
+    _qmlContext->setContextProperty("offscreenRenderWindow", QVariant::fromValue(_proxyWindow));
 #endif
 }
 
@@ -452,6 +453,9 @@ void SharedObject::setProxyWindow(QWindow* window) {
 #ifndef DISABLE_QML
     _proxyWindow = window;
     _renderControl->setRenderWindow(window);
+    if (_qmlContext) {
+        _qmlContext->setContextProperty("offscreenRenderWindow", QVariant::fromValue(window));
+    }
 #endif
 }
 

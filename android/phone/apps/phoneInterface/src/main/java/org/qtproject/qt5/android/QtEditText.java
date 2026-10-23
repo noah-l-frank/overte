@@ -45,6 +45,9 @@ import android.text.InputType;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputConnectionWrapper;
+import android.view.inputmethod.TextAttribute;
+import android.os.Build;
 import android.view.KeyEvent;
 
 public class QtEditText extends View
@@ -104,7 +107,36 @@ public class QtEditText extends View
                 | EditorInfo.IME_FLAG_NO_EXTRACT_UI;
         outAttrs.initialCapsMode = m_initialCapsMode;
         m_inputConnection = new QtInputConnection(this);
+        if (Build.VERSION.SDK_INT >= 34)
+            return new NativeRangeInputConnection(m_inputConnection);
         return m_inputConnection;
+    }
+
+    // BaseInputConnection.replaceText edits its own Editable rather than Qt's
+    // native editor. Keep the API-34 types out of the legacy connection class.
+    @android.annotation.TargetApi(34)
+    static final class NativeRangeInputConnection extends InputConnectionWrapper
+    {
+        NativeRangeInputConnection(InputConnection nativeEditor)
+        {
+            super(nativeEditor, false);
+        }
+
+        @Override
+        public boolean replaceText(int start, int end, CharSequence text,
+                                   int newCursorPosition, TextAttribute textAttribute)
+        {
+            if (start < 0 || end < 0)
+                throw new IllegalArgumentException("Replacement range must be nonnegative");
+            java.util.Objects.requireNonNull(text);
+            beginBatchEdit();
+            try {
+                return finishComposingText() && setSelection(start, end)
+                        && commitText(text, newCursorPosition);
+            } finally {
+                endBatchEdit();
+            }
+        }
     }
 
     @Override

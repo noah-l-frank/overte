@@ -76,6 +76,8 @@ EditVoxels = function() {
     var stroke = {};
     var strokeTimer = null;
     var strokePolls = 0;
+    var touchTap = null;
+    var touchStroke = null;
 
     that.triggerClickMapping = Controller.newMapping(Script.resolvePath('') + '-click-voxels');
     that.triggerPressMapping = Controller.newMapping(Script.resolvePath('') + '-press-voxels');
@@ -95,6 +97,7 @@ EditVoxels = function() {
     that.setActive = function(active) {
         isActive = (active === true);
         if (!isActive) {
+            touchTap = null;
             mouseReleaseEvent({});
             stopSphereResizing();
             that.triggeredHand = that.pressedHand = NO_HAND;
@@ -159,6 +162,7 @@ EditVoxels = function() {
                 editEnabled = true;
             } else {
                 editEnabled = false;
+                touchTap = null;
                 mouseReleaseEvent({});
                 stopSphereResizing();
             }
@@ -384,7 +388,6 @@ EditVoxels = function() {
 
     function mousePressEvent(event) {
         var wantDebug = false;
-        var attemptChangeOnEmpty = false;
         if (!editEnabled || !isActive) {
             return false;
         }
@@ -426,7 +429,8 @@ EditVoxels = function() {
             }
             return;
         }
-        var intersection = Entities.findRayIntersection(pickRay, Picks.PICK_DOMAIN_ENTITIES | Picks.PICK_AVATAR_ENTITIES | Picks.PICK_LOCAL_ENTITIES); // accurate picking
+        var pickFilter = Picks.PICK_DOMAIN_ENTITIES | Picks.PICK_AVATAR_ENTITIES | Picks.PICK_LOCAL_ENTITIES;
+        var intersection = Entities.findRayIntersection(pickRay, pickFilter); // accurate picking
 
         if (wantDebug) {
             print("Pick ray: " + JSON.stringify(pickRay));
@@ -445,17 +449,24 @@ EditVoxels = function() {
             }
         }
 
-        // if the PolyVox entity is empty, we can't pick against its "on" voxels.  try picking against its
-        // bounding box, instead.
-        if (attemptChangeOnEmpty) {
-            intersection = Entities.findRayIntersection(pickRay, false); // bounding box picking
-            if (intersection.intersects) {
-                if(attemptVoxelChange(pickRay.direction, intersection)){
-                    Script.update.connect(onUpdateHandler);
-                    isOnUpdateConnected = true;
-                    if (wantDebug) {
-                        print("onUpdateHandler connected");
-                    }
+        // Empty volumes have no mesh to intersect. Adding may seed a cell
+        // through the same volume's bounding box; erasing must remain a no-op.
+        if ((editAdd && !inverseOperation) || (!editAdd && inverseOperation)) {
+            intersection = Entities.findRayIntersection(pickRay, pickFilter | Picks.PICK_COARSE);
+            if (intersection.intersects && editable(Entities.getEntityProperties(intersection.entityID))) {
+                var boundary = Entities.worldCoordsToVoxelCoords(intersection.entityID, intersection.intersection);
+                var ahead = Entities.worldCoordsToVoxelCoords(intersection.entityID,
+                    Vec3.sum(intersection.intersection, pickRay.direction));
+                var inward = Vec3.normalize(Vec3.subtract(ahead, boundary));
+                // The ordinary add brush offsets outward from a solid face.
+                // Start half a cell inside an empty box so its first voxel is
+                // in bounds even when the ray enters at coordinate zero.
+                var inside = Entities.voxelCoordsToWorldCoords(intersection.entityID,
+                    Vec3.sum(boundary, Vec3.multiply(inward, 0.5)));
+                if (attemptVoxelChangeForEntity(intersection.entityID, pickRay.direction, inside)) {
+                    if (continuousEditing) { Script.update.connect(onUpdateHandler); isOnUpdateConnected = true; }
+                    isEditing = true;
+                    editedVoxelEntity = intersection.entityID;
                 }
             }
         }
@@ -467,6 +478,10 @@ EditVoxels = function() {
         if (wantDebug) {
             print("=============== eV::mouseReleaseEvent BEG =======================");
         }
+        if (touchStroke) {
+            touchStroke = null;
+            Controller.releaseTouchEvents();
+        }
         if(isOnUpdateConnected){
             Script.update.disconnect(onUpdateHandler);
             isOnUpdateConnected = false;
@@ -475,6 +490,60 @@ EditVoxels = function() {
         editedVoxelEntity = null;
         if (Object.keys(stroke).length && strokeTimer === null) { strokeTimer = Script.setInterval(settleStroke, 100); }
         return;
+    }
+
+    function worldTouchAllowed(event, ownStroke) {
+        if (!editEnabled || !isActive || (isEditing && !ownStroke) || HMD.active || triggered() || that.pressedHand !== NO_HAND
+                || !event || event.touchPoints !== 1
+                || typeof event.x !== "number" || typeof event.y !== "number"
+                || !isFinite(event.x) || !isFinite(event.y)) { return false; }
+        var tablet = Tablet.getTablet("com.highfidelity.interface.tablet.system");
+        return !(tablet && tablet.tabletShown)
+            && !(typeof Window.isPointOnDesktopWindow === "function"
+                && Window.isPointOnDesktopWindow({ x: event.x, y: event.y }));
+    }
+
+    function touchBeginEvent(event) {
+        if (touchStroke) { mouseReleaseEvent({}); }
+        touchTap = worldTouchAllowed(event) ? { x: event.x, y: event.y } : null;
+        if (touchTap && continuousEditing) {
+            touchTap = null;
+            mousePressEvent({ isLeftButton: true, x: event.x, y: event.y });
+            if (isEditing) {
+                // Capture only a stroke that actually hit an editable volume.
+                // Otherwise the normal world navigation retains the gesture.
+                touchStroke = { touchPoints: 1, x: event.x, y: event.y };
+                Controller.captureTouchEvents();
+            }
+        }
+    }
+
+    function touchUpdateEvent(event) {
+        if (touchStroke) {
+            if (!worldTouchAllowed(event, true)) { mouseReleaseEvent({}); }
+            else { touchStroke = { touchPoints: 1, x: event.x, y: event.y }; }
+            return;
+        }
+        if (!touchTap) { return; }
+        var dx = event.x - touchTap.x, dy = event.y - touchTap.y;
+        if (!worldTouchAllowed(event) || dx * dx + dy * dy > 144) { touchTap = null; }
+    }
+
+    function touchEndEvent(event) {
+        if (touchStroke) {
+            touchTap = null;
+            mouseReleaseEvent({});
+            return;
+        }
+        var tap = touchTap;
+        touchTap = null;
+        if (!tap || !event.isReleased || !worldTouchAllowed(event)) { return; }
+        var dx = event.x - tap.x, dy = event.y - tap.y;
+        if (dx * dx + dy * dy > 144) { return; }
+        // Reuse the production permission, brush, readiness and undo path.
+        // Deferring to release leaves camera pans and multitouch to navigation.
+        mousePressEvent({ isLeftButton: true, x: event.x, y: event.y });
+        mouseReleaseEvent({});
     }
 
     function keyPressEvent(event) {
@@ -647,6 +716,10 @@ EditVoxels = function() {
             mouseReleaseEvent({});
             return;
         }
+        if (touchStroke && !worldTouchAllowed(touchStroke, true)) {
+            mouseReleaseEvent({});
+            return;
+        }
         if (!brushPointer && (editedVoxelEntity === null || !editable(Entities.getEntityProperties(editedVoxelEntity)))) {
             mouseReleaseEvent({});
             return;
@@ -664,7 +737,8 @@ EditVoxels = function() {
         var hand = triggered() ? that.triggeredHand : that.pressedHand;
         
         if (hand === NO_HAND) {
-            pickRay = Camera.computePickRay(Controller.getValue(Controller.Hardware.Keyboard.MouseX), Controller.getValue(Controller.Hardware.Keyboard.MouseY));
+            pickRay = touchStroke ? Camera.computePickRay(touchStroke.x, touchStroke.y)
+                : Camera.computePickRay(Controller.getValue(Controller.Hardware.Keyboard.MouseX), Controller.getValue(Controller.Hardware.Keyboard.MouseY));
         }else{
             pickRay = controllerComputePickRay();
         }
@@ -743,18 +817,25 @@ EditVoxels = function() {
     }
 
     function cleanup() {
+        touchTap = null;
         mouseReleaseEvent({});
         stopSphereResizing();
         if (strokeTimer !== null) { Script.clearInterval(strokeTimer); strokeTimer = null; }
         stroke = {};
         Controller.mousePressEvent.disconnect(mousePressEvent);
         Controller.mouseReleaseEvent.disconnect(mouseReleaseEvent);
+        Controller.touchBeginEvent.disconnect(touchBeginEvent);
+        Controller.touchUpdateEvent.disconnect(touchUpdateEvent);
+        Controller.touchEndEvent.disconnect(touchEndEvent);
         Controller.keyPressEvent.disconnect(keyPressEvent);
         Controller.keyReleaseEvent.disconnect(keyReleaseEvent);
     }
 
     Controller.mousePressEvent.connect(mousePressEvent);
     Controller.mouseReleaseEvent.connect(mouseReleaseEvent);
+    Controller.touchBeginEvent.connect(touchBeginEvent);
+    Controller.touchUpdateEvent.connect(touchUpdateEvent);
+    Controller.touchEndEvent.connect(touchEndEvent);
     Controller.keyPressEvent.connect(keyPressEvent);
     Controller.keyReleaseEvent.connect(keyReleaseEvent);
     that.triggerClickMapping.from(controllerStandard.RTClick).peek().to(makeClickHandler(controllerStandard.RightHand));

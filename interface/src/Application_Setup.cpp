@@ -40,6 +40,9 @@
 
 #endif
 #include <AccountManager.h>
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+#include "../../security/storage/LinuxProtectedAccountStore.h"
+#endif
 #if defined(OVERTE_PICO_SETUP)
 #include "../../android/vr/pico/apps/picoInterface/security/PicoAccountStore.h"
 #else
@@ -459,6 +462,11 @@ bool setupEssentials(const QCommandLineParser& parser, bool runningMarkerExisted
     markEssential("virtualpad__manager");
     DependencyManager::set<DesktopPreviewProvider>();
     markEssential("desktoppreviewprovider");
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+    if (!AccountManager::installProtectedAccountStore(overte::security::linuxProtectedAccountStore())) {
+        qWarning("OVT_STORAGE_UNAVAILABLE");
+    }
+#endif
 #if defined(OVERTE_PICO_SETUP)
 #if defined(Q_OS_ANDROID)
     if (!AccountManager::installProtectedAccountStore(overte::pico::protectedAccountStore())) {
@@ -941,6 +949,22 @@ void Application::initialize(const QCommandLineParser &parser) {
     QFontDatabase::addApplicationFont(PathUtils::resourcesPath() + "fonts/FiraSans-SemiBold.ttf");
     QFontDatabase::addApplicationFont(PathUtils::resourcesPath() + "fonts/FiraSans-Regular.ttf");
     QFontDatabase::addApplicationFont(PathUtils::resourcesPath() + "fonts/FiraSans-Medium.ttf");
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    // New Android system emoji fonts use COLR v1, which Qt 5 paints as empty
+    // glyphs. Prefer a compatible outline fallback for missing text glyphs.
+    if (QFontDatabase::addApplicationFont(PathUtils::resourcesPath()
+            + "fonts/noto-emoji/NotoEmoji-Regular.ttf") >= 0) {
+        auto fallbacks = QString::fromUtf8(qgetenv("QT_ANDROID_FONTS"))
+            .split(';', Qt::SkipEmptyParts);
+        fallbacks.removeAll("Noto Emoji");
+        fallbacks.prepend("Noto Emoji");
+        // Keep ordinary Common-script glyphs (digits, punctuation and spaces)
+        // in a text font before trying the emoji font's wide keycap glyphs.
+        fallbacks.removeAll("Fira Sans");
+        fallbacks.prepend("Fira Sans");
+        qputenv("QT_ANDROID_FONTS", fallbacks.join(';').toUtf8());
+    }
+#endif
     _window->setWindowTitle("Overte");
 
     Model::setAbstractViewStateInterface(this); // The model class will sometimes need to know view state details from us

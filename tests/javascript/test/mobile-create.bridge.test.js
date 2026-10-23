@@ -74,7 +74,7 @@ function start() {
 }
 
 test("native Create reuses the production entity scan and excludes foreign avatar entities", () => {
-    const { state, selection, send } = start();
+    const { state, selection, send, status } = start();
     send("ready");
     const list = state.messages.find(message => message.method === "nativeCreate.list");
     assert.deepEqual(Array.from(list.params.entities, item => item.id), ["shape", "mine"]);
@@ -82,6 +82,12 @@ test("native Create reuses the production entity scan and excludes foreign avata
     assert.deepEqual(selection.selections, ["shape"]);
     send("select", { ids: ["foreign"] });
     assert.deepEqual(selection.selections, ["shape"]);
+    assert.equal(status().error, true);
+    send("refresh");
+    send("select", { ids: ["mine"] });
+    assert.deepEqual(selection.selections, ["mine"]);
+    assert.equal(status().error, false, "a valid selection must clear the stale list error");
+    assert.equal(status().text, "");
 });
 
 test("native property messages reject stale, locked, unowned and malformed edits", () => {

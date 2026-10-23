@@ -217,8 +217,18 @@ void Snapshot::save360Snapshot(const glm::vec3& cameraPosition,
     _snapshotFilename = filename;
     _notify360 = notify;
     _cubemapOutputFormat = cubemapOutputFormat;
-    SecondaryCameraJobConfig* secondaryCameraRenderConfig =
-        static_cast<SecondaryCameraJobConfig*>(qApp->getRenderEngine()->getConfiguration()->getConfig("SecondaryCamera"));
+    const auto renderEngine = qApp->getRenderEngine();
+    const auto renderConfig = renderEngine ? renderEngine->getConfiguration() : nullptr;
+    auto secondaryCameraRenderConfig = qobject_cast<SecondaryCameraJobConfig*>(
+        renderConfig ? renderConfig->getConfig("SecondaryCamera") : nullptr);
+    if (!secondaryCameraRenderConfig) {
+        const auto unavailableCapture = _capture360;
+        _capture360.reset();
+        captureStatus(unavailableCapture, "error", {}, "secondary-camera-unavailable");
+        return;
+    }
+
+    _secondaryCamera360 = secondaryCameraRenderConfig;
 
     // Save initial values of secondary camera render config
     _oldEnabled = secondaryCameraRenderConfig->isEnabled();
@@ -277,7 +287,20 @@ void Snapshot::takeNextSnapshot() {
                     _imageArray[_snapshotIndex] = snapshot;
                 }
 
-                SecondaryCameraJobConfig* config = static_cast<SecondaryCameraJobConfig*>(qApp->getRenderEngine()->getConfiguration()->getConfig("SecondaryCamera"));
+                const auto renderEngine = qApp->getRenderEngine();
+                const auto renderConfig = renderEngine ? renderEngine->getConfiguration() : nullptr;
+                auto config = qobject_cast<SecondaryCameraJobConfig*>(
+                    renderConfig ? renderConfig->getConfig("SecondaryCamera") : nullptr);
+                if (!config || config != _secondaryCamera360.data()) {
+                    _snapshotTimer.stop();
+                    restoreSecondaryCamera();
+                    _taking360Snapshot = false;
+                    _waitingOnSnapshot = false;
+                    _capture360.reset();
+                    for (auto& image : _imageArray) { image = {}; }
+                    captureStatus(capture, "error", {}, "secondary-camera-unavailable");
+                    return;
+                }
                 if (_snapshotIndex == 0) {
                     // Setup for Front Image capture
                     config->setOrientation(CAMERA_ORIENTATION_FRONT);
@@ -331,7 +354,11 @@ void Snapshot::takeNextSnapshot() {
 }
 
 void Snapshot::restoreSecondaryCamera() {
-        SecondaryCameraJobConfig* config = static_cast<SecondaryCameraJobConfig*>(qApp->getRenderEngine()->getConfiguration()->getConfig("SecondaryCamera"));
+        // Restore the exact camera modified by this capture, never a replacement
+        // renderer's camera. QPointer also handles destruction during capture.
+        auto config = _secondaryCamera360.data();
+        _secondaryCamera360.clear();
+        if (!config) { return; }
         config->resetSizeSpectatorCamera(_oldTextureWidth, _oldTextureHeight);
         config->setProperty("attachedEntityId", _oldAttachedEntityId);
         config->setProperty("vFoV", _oldvFoV);

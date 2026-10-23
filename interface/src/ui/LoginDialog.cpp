@@ -32,6 +32,7 @@
 #include "DialogsManager.h"
 #include "Menu.h"
 #include "PhoneLoginState.h"
+#include <atomic>
 #include "AccountLoginStateBinding.h"
 
 #include "Application.h"
@@ -46,7 +47,7 @@ const QUrl LOGIN_DIALOG = PathUtils::qmlUrl("OverlayLoginDialog.qml");
 
 #if defined(ANDROID_APP_PHONE_INTERFACE)
 namespace {
-bool phoneLoginOwnsUiFocus { false };
+std::atomic<bool> phoneLoginOwnsUiFocus { false };
 bool phoneLoginCleanupQueued { false };
 PhoneLoginState phoneLoginState;
 QPointer<AccountLoginStateBinding<AccountManager>> phoneAccountLoginBinding;
@@ -127,6 +128,11 @@ void LoginDialog::showWithSelection() {
     // Phones render Interface's offscreen surface directly. Opening the system
     // tablet here makes the dialog depend on HMD entities that do not exist in
     // the 2D phone client.
+    // Header and menu actions can originate inside the screen-space tablet.
+    // Hide that window before showing the separate login surface so it cannot
+    // cover the form or retain input focus over its credential fields.
+    auto tablet = DependencyManager::get<TabletScriptingInterface>()->getTablet("com.highfidelity.interface.tablet.system");
+    tablet->hideAndroidTablet();
     acquirePhoneLoginUiFocus();
     LoginDialog::show();
     return;
@@ -160,6 +166,10 @@ void LoginDialog::showWithSelection() {
 }
 
 #if defined(ANDROID_APP_PHONE_INTERFACE)
+bool LoginDialog::phoneLoginOwnsInput() {
+    return phoneLoginOwnsUiFocus.load();
+}
+
 void LoginDialog::hidePhoneDialog() {
     releasePhoneLoginUiFocus();
     LoginDialog::hide();

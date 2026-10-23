@@ -37,6 +37,7 @@
 #include "Assignment.h"
 #include "AudioHelpers.h"
 #include "DomainAccountManager.h"
+#include "DomainCheckInPacket.h"
 #include "SockAddr.h"
 #include "FingerprintUtils.h"
 
@@ -399,7 +400,11 @@ void NodeList::sendDomainServerCheckIn() {
 
         auto domainPacket = NLPacket::create(domainPacketType);
 
-        QDataStream packetStream(domainPacket.get());
+        // OAuth providers can return JWT credentials larger than one datagram.
+        // Serialize before choosing the transport so a QString write cannot
+        // overflow BasePacket's fixed payload buffer.
+        QByteArray domainPayload;
+        QDataStream packetStream(&domainPayload, QIODevice::WriteOnly);
 
         SockAddr localSockAddr = _localSockAddr;
         if (domainPacketType == PacketType::DomainConnectRequest) {
@@ -494,6 +499,16 @@ void NodeList::sendDomainServerCheckIn() {
         }
 
         flagTimeForConnectionStep(LimitedNodeList::ConnectionStep::SendDSCheckIn);
+
+        if (packetStream.status() != QDataStream::Ok) {
+            qCWarning(networking_ice) << overte::security::diagnosticEvent(overte::security::DiagnosticEvent::AuthFailed);
+            return;
+        }
+        domainPacket = overte::network::domainCheckInPacket(domainPacketType, domainPacket->getVersion(), domainPayload);
+        if (!domainPacket) {
+            qCWarning(networking_ice) << overte::security::diagnosticEvent(overte::security::DiagnosticEvent::AuthFailed);
+            return;
+        }
 
         // Send duplicate check-ins in the exponentially increasing sequence 1, 1, 2, 4, ...
         static const int MAX_CHECKINS_TOGETHER = 20;

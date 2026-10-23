@@ -92,6 +92,12 @@ QUrl normalizeScriptURL(const QUrl& rawScriptURL) {
             fullNormal.setPath("/~/" + fullNormal.path().mid(defaultScriptLoc.path().size()));
         }
         return fullNormal;
+    } else if (rawScriptURL.scheme() == "qrc" && rawScriptURL.isValid() &&
+               rawScriptURL.authority().isEmpty() && rawScriptURL.path().startsWith('/')) {
+        // Bundled entity scripts resolve their companion textures, sounds and
+        // includes through this helper too. Retain rooted Qt resources without
+        // treating a remote authority or a relative resource path as local.
+        return rawScriptURL;
     } else if (rawScriptURL.scheme() == "http" || rawScriptURL.scheme() == "https" || rawScriptURL.scheme() == "atp") {
         return rawScriptURL;
     } else {
@@ -110,7 +116,8 @@ QUrl expandScriptUrl(const QUrl& rawScriptURL) {
     QUrl normalizedScriptURL = normalizeScriptURL(rawScriptURL);
     if (normalizedScriptURL.scheme() == "http" ||
         normalizedScriptURL.scheme() == "https" ||
-        normalizedScriptURL.scheme() == "atp") {
+        normalizedScriptURL.scheme() == "atp" ||
+        normalizedScriptURL.scheme() == "qrc") {
         return normalizedScriptURL;
     } else if (normalizedScriptURL.scheme() == "file") {
         if (normalizedScriptURL.path().startsWith("/~/")) {
@@ -636,14 +643,16 @@ void ScriptEngines::onScriptEngineLoaded(const QString& rawScriptURL) {
     ScriptManagerPointer scriptEngine = qobject_cast<ScriptManager*>(sender())->shared_from_this();
     Q_ASSERT(scriptEngine != nullptr);
 
-    launchScriptEngine(scriptEngine);
-
     {
         QWriteLocker lock(&_scriptManagersHashLock);
         QUrl url = QUrl(rawScriptURL);
         QUrl normalized = normalizeScriptURL(url);
         _scriptManagersHash.insert(normalized, scriptEngine);
     }
+
+    // An initial syntax failure can finish immediately on the worker. Make
+    // the manager discoverable before starting it so completion removes it.
+    launchScriptEngine(scriptEngine);
 
     // Update settings with new script
     saveScripts();

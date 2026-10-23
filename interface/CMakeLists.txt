@@ -37,6 +37,15 @@ if (OVERTE_BUILD_TOOLS AND JSDOC_ENABLED)
     add_custom_qrc_path(CUSTOM_INTERFACE_QRC_PATHS "${CMAKE_BINARY_DIR}/tools/jsdoc/out/hifiJSDoc.json" "auto-complete/hifiJSDoc.json")
 endif()
 
+# Keep the Places entity script and its relative assets in the signed resource
+# bundle. Android also extracts system scripts to a writable cache, which is
+# correctly treated as untrusted file code by the entity-script consent gate.
+foreach(PORTAL_RESOURCE IN ITEMS portal.js icons/portalFX.png sounds/portalSound.mp3 sounds/teleportSound.mp3)
+  add_custom_qrc_path(CUSTOM_INTERFACE_QRC_PATHS
+    "${CMAKE_SOURCE_DIR}/scripts/system/places/${PORTAL_RESOURCE}"
+    "scripts/system/places/${PORTAL_RESOURCE}")
+endforeach()
+
 set(RESOURCES_QRC ${CMAKE_CURRENT_BINARY_DIR}/resources.qrc)
 if (HIFI_ANDROID AND HIFI_ANDROID_APP STREQUAL "phoneInterface" AND OVERTE_E2E_VOICE_TESTS)
   # The controlled client entity script is application code in dedicated E2E
@@ -341,6 +350,12 @@ target_link_libraries(
   Qt5::WebChannel Qt5::WebEngineCore Qt5::WebEngineWidgets
   ${PLATFORM_QT_LIBRARIES}
 )
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
+    find_package(Qt5 COMPONENTS DBus REQUIRED)
+    target_sources(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/security/storage/LinuxProtectedAccountStore.cpp)
+    target_link_libraries(${TARGET_NAME} Qt5::DBus)
+endif()
 
 if (UNIX AND NOT ANDROID AND NOT OVERTE_THREAD_DEBUGGING)
     if (CMAKE_SYSTEM_NAME MATCHES "Linux")

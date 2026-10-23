@@ -110,8 +110,8 @@ Rectangle {
                     positionVector.set(wearable[prop]);
                 } else if (prop === 'localRotationAngles') {
                     rotationVector.set(wearable[prop]);
-                } else if (prop === 'dimensions') {
-                    scalespinner.set(wearable[prop].x / wearable.naturalDimensions.x);
+                } else if (prop === 'dimensions' || prop === 'localDimensions') {
+                    scalespinner.set(getWearableScale(wearable));
                 }
                 modified = true;
             }
@@ -141,6 +141,16 @@ Rectangle {
 
     function getCurrentWearable() {
         return wearablesCombobox.currentIndex !== -1 ? wearablesCombobox.model.get(wearablesCombobox.currentIndex) : null;
+    }
+
+    function getWearableScale(wearable) {
+        if (!wearable) {
+            return 1.0;
+        }
+        // Native avatar snapshots retain both coordinate frames. Size edits
+        // belong to the avatar, independently of its current world scale.
+        var dimensions = wearable.localDimensions || wearable.dimensions;
+        return dimensions.x / wearable.naturalDimensions.x;
     }
 
     function selectWearableByID(entityID) {
@@ -282,7 +292,7 @@ Rectangle {
                     var currentWearable = getCurrentWearable();
                     var position = currentWearable ? currentWearable.localPosition : { x : 0, y : 0, z : 0 };
                     var rotation = currentWearable ? currentWearable.localRotationAngles : { x : 0, y : 0, z : 0 };
-                    var scale = currentWearable ? currentWearable.dimensions.x / currentWearable.naturalDimensions.x : 1.0;
+                    var scale = getWearableScale(currentWearable);
                     var joint = currentWearable ? currentWearable.parentJointIndex : -1;
                     softWearableTimer.restart();
 
@@ -551,7 +561,7 @@ Rectangle {
                         var naturalDimensions = currentWearable.naturalDimensions;
 
                         var properties = {
-                            dimensions: {
+                            localDimensions: {
                                 'x' : realValue * naturalDimensions.x,
                                 'y' : realValue * naturalDimensions.y,
                                 'z' : realValue * naturalDimensions.z

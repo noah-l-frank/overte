@@ -14,6 +14,11 @@ public final class WebLifecycleBoundary {
     public static long handle, creationRevision, hiddenRevision, hiddenActive;
     public static int hidden, creates, evaluations;
     public static void evaluate(long handle,long grant,long page,String script) { evaluations++; }
+    public static int pointers, pointerAction;
+    public static float pointerX, pointerY;
+    public static void pointer(long h,int action,float x,float y) {
+        pointers++; pointerAction=action; pointerX=x; pointerY=y;
+    }
     public static int wheels;
     public static long wheelHandle, wheelGrant, wheelPage;
     public static String wheelDocument;

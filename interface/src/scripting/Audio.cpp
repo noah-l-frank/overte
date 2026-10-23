@@ -11,6 +11,8 @@
 
 #include "Audio.h"
 
+#include <QDir>
+#include <QFileInfo>
 #include <shared/QtHelpers.h>
 
 #include "Application.h"
@@ -65,7 +67,10 @@ QUuid Audio::startRecording() {
         const QString AUDIO_FORMAT = "wav";
         QUuid id = QUuid::createUuid();
 
-        QString filepath = DependencyManager::get<Snapshot>()->_snapshotsLocation.get();
+        const QString filepath = DependencyManager::get<Snapshot>()->getSnapshotsLocation();
+        if (filepath.isEmpty() || QFileInfo(filepath).isSymLink() || !QDir().mkpath(filepath)) {
+            return QUuid();
+        }
         QString filename = FILENAME_PREFIX + id.toString() + "." + AUDIO_FORMAT;
         if (DependencyManager::get<AudioClient>()->startRecording(filepath + "/" + filename)) {
             return id;

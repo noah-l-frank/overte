@@ -30,6 +30,9 @@ Rectangle {
     property bool keyboardRaised: false
     property bool punctuationMode: false
     property var keyboardItem: null
+    // Offscreen touch input arrives as mouse events. Selecting text with that
+    // pointer would consume page swipes; headset pointers keep mouse selection.
+    readonly property bool mouseTextSelectionEnabled: typeof HMD !== "undefined" && HMD.active
     onKeyboardRaisedChanged: {
         if (typeof KeyboardScriptingInterface !== "undefined" && KeyboardScriptingInterface.use3DKeyboard) {
             KeyboardScriptingInterface.raised = keyboardEnabled && keyboardRaised
@@ -183,8 +186,8 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             Text { text: qsTr("CREATE"); color: "white"; font.pixelSize: 22; font.bold: true; Layout.fillWidth: true }
-            Button { objectName: "NativeCreateUndo"; text: qsTr("Undo"); enabled: root.canUndo; onClicked: root.tool("undo") }
-            Button { objectName: "NativeCreateRedo"; text: qsTr("Redo"); enabled: root.canRedo; onClicked: root.tool("redo") }
+            Button { objectName: "NativeCreateUndo"; font.pixelSize: 14; text: qsTr("Undo"); enabled: root.canUndo; onClicked: root.tool("undo") }
+            Button { objectName: "NativeCreateRedo"; font.pixelSize: 14; text: qsTr("Redo"); enabled: root.canRedo; onClicked: root.tool("redo") }
         }
 
         RowLayout {
@@ -219,10 +222,17 @@ Rectangle {
         StackLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumWidth: 0
+            Layout.minimumHeight: 0
             currentIndex: root.currentTab
 
-            ScrollView {
+            Flickable {
                 clip: true
+                contentWidth: width
+                contentHeight: contentItem.childrenRect.height
+                boundsBehavior: Flickable.StopAtBounds
+                pressDelay: 0
+                ScrollBar.vertical: ScrollBar { }
                 ColumnLayout {
                     width: parent.parent.width
                     spacing: 10
@@ -255,8 +265,8 @@ Rectangle {
                                 "Sound", "Canvas", "Empty", "Script"]
                             Button {
                                 objectName: "NativeCreateNew_" + modelData
-                                width: (parent.width - 6) / 2
-                                height: 52
+                                width: Math.max(100, implicitWidth)
+                                height: Math.max(44, implicitHeight)
                                 text: modelData
                                 font.pixelSize: 12
                                 onClicked: root.createEntity(modelData)
@@ -270,10 +280,15 @@ Rectangle {
             ColumnLayout {
                 RowLayout {
                     Layout.fillWidth: true
-                    TextField { id: listSearch; Layout.fillWidth: true; placeholderText: qsTr("Filter by name or type") }
-                    Button { objectName: "NativeCreateRefresh"; text: qsTr("Refresh"); onClicked: root.send("refresh") }
+                    TextField { id: listSearch; font.pixelSize: 14; Layout.fillWidth: true; Layout.minimumWidth: 80; placeholderText: qsTr("Filter by name or type") }
+                    Button { objectName: "NativeCreateRefresh"; font.pixelSize: 14; text: qsTr("Refresh"); onClicked: root.send("refresh") }
+                    CheckBox { id: multiSelect; font.pixelSize: 14; text: root.width < 450 ? qsTr("Multi") : qsTr("Select multiple entities"); palette.windowText: "white" }
+                    Text {
+                        text: root.width < 450 ? String(root.entityRows.length) : root.entityRows.length + qsTr(" nearby")
+                        color: "#d9e2e8"; font.pixelSize: 14
+                        Accessible.name: qsTr("%1 nearby entities").arg(root.entityRows.length)
+                    }
                 }
-                CheckBox { id: multiSelect; text: qsTr("Select multiple entities"); palette.windowText: "white" }
                 ListView {
                     id: entityList
                     objectName: "NativeCreateEntityList"
@@ -286,18 +301,24 @@ Rectangle {
                     delegate: Button {
                         objectName: "NativeCreateEntity_" + modelData.id
                         width: entityList.width
-                        height: 60
+                        height: 44
+                        font.pixelSize: 14
                         text: (modelData.name || qsTr("Unnamed")) + " — " + modelData.type + (modelData.locked ? " 🔒" : "")
                         highlighted: root.selectedIDs.indexOf(modelData.id) !== -1
                         onClicked: root.select(modelData.id)
                     }
                     ScrollBar.vertical: ScrollBar {}
                 }
-                Text { text: root.entityRows.length + qsTr(" nearby entities"); color: "#d9e2e8" }
             }
 
-            ScrollView {
+            Flickable {
+                id: propertiesScroller
                 clip: true
+                contentWidth: width
+                contentHeight: contentItem.childrenRect.height
+                boundsBehavior: Flickable.StopAtBounds
+                pressDelay: 0
+                ScrollBar.vertical: ScrollBar { }
                 ColumnLayout {
                     width: parent.parent.width
                     spacing: 8
@@ -409,7 +430,9 @@ Rectangle {
                             id: typedProperties
                             objectName: "NativeCreateTypedProperties"
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 360
+                            // Keep space around the nested list for the outer page gesture,
+                            // including short landscape touch viewports.
+                            Layout.preferredHeight: Math.min(360, propertiesScroller.height / 2)
                             clip: true
                             model: root.typedFieldRows.filter(function(field) {
                                 return field.path.toLowerCase().indexOf(propertySearch.text.toLowerCase()) !== -1
@@ -436,7 +459,15 @@ Rectangle {
                                     width: parent.width
                                     height: 76
                                     wrapMode: TextEdit.Wrap
-                                    selectByMouse: true
+                                    selectByMouse: root.mouseTextSelectionEnabled
+                                    color: "#f5f7fa"
+                                    selectionColor: "#365a7a"
+                                    selectedTextColor: "#ffffff"
+                                    background: Rectangle {
+                                        color: "#243340"
+                                        border.color: parent.activeFocus ? "#80b5d6" : "#526574"
+                                        radius: 3
+                                    }
                                     inputMethodHints: modelData.kind === "number" ? Qt.ImhFormattedNumbersOnly : Qt.ImhNone
                                     onTextChanged: {
                                         if (!activeFocus) { return }
@@ -470,9 +501,17 @@ Rectangle {
                             id: advanced
                             objectName: "NativeCreateAdvanced"
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 220
+                            Layout.preferredHeight: Math.min(220, propertiesScroller.height / 2)
                             wrapMode: TextEdit.Wrap
-                            selectByMouse: true
+                            selectByMouse: root.mouseTextSelectionEnabled
+                            color: "#f5f7fa"
+                            selectionColor: "#365a7a"
+                            selectedTextColor: "#ffffff"
+                            background: Rectangle {
+                                color: "#243340"
+                                border.color: parent.activeFocus ? "#80b5d6" : "#526574"
+                                radius: 3
+                            }
                             Connections { target: root; onSelectionChanged: if (!advanced.activeFocus) { advanced.text = JSON.stringify(root.selected ? root.selected.properties : {}, null, 2) } }
                         }
                         Button {
@@ -488,8 +527,13 @@ Rectangle {
                 }
             }
 
-            ScrollView {
+            Flickable {
                 clip: true
+                contentWidth: width
+                contentHeight: contentItem.childrenRect.height
+                boundsBehavior: Flickable.StopAtBounds
+                pressDelay: 0
+                ScrollBar.vertical: ScrollBar { }
                 ColumnLayout {
                     width: parent.parent.width
                     spacing: 6
@@ -585,8 +629,8 @@ Rectangle {
                         ]
                         Button {
                             objectName: "NativeCreateTool_" + modelData[0]
-                            width: (parent.width - 6) / 2
-                            height: 52
+                            width: Math.min(parent.width, Math.max(100, implicitWidth))
+                            height: 44
                             text: modelData[1]
                             font.pixelSize: 12
                             onClicked: root.tool(modelData[0])
@@ -596,8 +640,13 @@ Rectangle {
                 }
             }
 
-            ScrollView {
+            Flickable {
                 clip: true
+                contentWidth: width
+                contentHeight: contentItem.childrenRect.height
+                boundsBehavior: Flickable.StopAtBounds
+                pressDelay: 0
+                ScrollBar.vertical: ScrollBar { }
                 ColumnLayout {
                     width: parent.parent.width
                     spacing: 10

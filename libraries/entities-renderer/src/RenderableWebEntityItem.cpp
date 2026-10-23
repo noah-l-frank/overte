@@ -10,8 +10,12 @@
 
 #include "RenderableWebEntityItem.h"
 #include <atomic>
+#include <cmath>
 
 #include <QtCore/QTimer>
+#include <QtCore/QThread>
+#include <QtGui/QGuiApplication>
+#include <QtGui/QInputMethodEvent>
 #include <QtGui/QOpenGLContext>
 #include <QtGui/QTouchDevice>
 #include <QtQuick/QQuickItem>
@@ -685,6 +689,64 @@ QObject* WebEntityRenderer::getEventHandler() {
         return _webSurface->getEventHandler();
     });
 }
+
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+bool WebEntityRenderer::moveInputCursorToPoint(const glm::vec2& point, int handle) {
+    if (!qGuiApp || QThread::currentThread() != qGuiApp->thread()
+            || !std::isfinite(point.x) || !std::isfinite(point.y) || handle < 1 || handle > 3) return false;
+    QSharedPointer<OffscreenQmlSurface> surface;
+    float dpi { 0 }; bool visible { false };
+    withReadLock([&] { surface = _webSurface; dpi = _dpi; visible = _webSurfaceVisible; });
+    if (!surface || !visible || !std::isfinite(dpi) || dpi <= 0) return false;
+    auto window = surface->getWindow();
+    auto focus = window ? window->activeFocusItem() : nullptr;
+    if (!focus || focus->thread() != QThread::currentThread() || !focus->isVisible() || !focus->isEnabled()
+            || focus->metaObject()->indexOfMethod("moveInputCursorToPoint(QPointF,int)") < 0) return false;
+    const QPointF scene(point.x * METERS_TO_INCHES * dpi, point.y * METERS_TO_INCHES * dpi);
+    const auto local = focus->mapFromScene(scene);
+    bool accepted { false };
+    return QMetaObject::invokeMethod(focus, "moveInputCursorToPoint", Qt::DirectConnection,
+        Q_RETURN_ARG(bool, accepted), Q_ARG(QPointF, local), Q_ARG(int, handle)) && accepted;
+}
+
+bool WebEntityRenderer::getInputMethodWorldBounds(const glm::vec3& viewPosition,
+                                                std::array<glm::vec3, 4>& corners,
+                                                Qt::InputMethodQuery rectangle) const {
+    if (rectangle != Qt::ImCursorRectangle && rectangle != Qt::ImAnchorRectangle) return false;
+    if (!qGuiApp || QThread::currentThread() != qGuiApp->thread()) return false;
+    QSharedPointer<OffscreenQmlSurface> surface;
+    Transform transform;
+    BillboardMode billboardMode { BillboardMode::NONE };
+    bool visible { false };
+    withReadLock([&] {
+        surface = _webSurface;
+        transform = _renderTransform;
+        billboardMode = _billboardMode;
+        visible = _webSurfaceVisible;
+    });
+    if (!surface || !visible) return false;
+    auto window = surface->getWindow();
+    if (!window || window->width() <= 0 || window->height() <= 0) return false;
+    QInputMethodQueryEvent query(Qt::ImEnabled | rectangle);
+    QCoreApplication::sendEvent(window, &query);
+    if (!query.value(Qt::ImEnabled).toBool()) return false;
+    const QRectF field = query.value(rectangle).toRectF().intersected(
+        QRectF(QPointF(), QSizeF(window->size())));
+    if (field.isEmpty()) return false;
+    transform.setRotation(BillboardModeHelpers::getBillboardRotation(
+        transform.getTranslation(), transform.getRotation(), billboardMode, viewPosition));
+    const auto matrix = transform.getMatrix();
+    const std::array<QPointF, 4> points { field.topLeft(), field.topRight(),
+                                        field.bottomRight(), field.bottomLeft() };
+    for (size_t i = 0; i < points.size(); ++i) {
+        // QML's top-left origin maps to the rendered web quad's upper-left.
+        corners[i] = glm::vec3(matrix * glm::vec4(
+            points[i].x() / window->width() - 0.5,
+            0.5 - points[i].y() / window->height(), 0.0, 1.0));
+    }
+    return true;
+}
+#endif
 
 void WebEntityRenderer::emitScriptEvent(const QVariant& message) {
     emit scriptEventReceived(message);

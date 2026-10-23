@@ -31,6 +31,8 @@ private slots:
     // Test Packet writing past capacity
     void writePastCapacityTest();
 
+    void largeDomainCredentialMessageTest();
+
     // Test primitive reads and writes
     void primitiveTest();
 

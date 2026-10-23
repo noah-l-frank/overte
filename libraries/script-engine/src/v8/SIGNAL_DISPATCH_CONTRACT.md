@@ -28,3 +28,23 @@ optional performance-statistics build, registration/disconnection and QObject/
 V8 lifetime safety, sticky cancellation, blocking native callback behavior,
 informed consent/grant/finite revoke and original artifact/device acceptance.
 This is a callback failure-path prerequisite, not a complete revoke backend.
+
+Method-proxy retirement now distinguishes an already cleared weak handle from a
+live persistent handle. Deferred QObject deletion after the weak callback does
+not enter V8 or dereference the retired engine. A live handle is reset under the
+existing engine Locker/Isolate guard. The existing signal fixture additionally
+executes the complete production destructor, weak callback, and scope guard with
+real V8 garbage collection and Qt DeferredDelete outside the preceding Locker.
+Both prior deletion paths reproduce the native HandleScope locking fatal error;
+the repaired paths destroy the object exactly once. The 17 signal cases remain
+passing alongside these two lifetime cases using the cached native producer's
+libnode. Whole application shutdown and device acceptance remain separate.
+
+Avatar bookmark serialization now owns the fresh engine's scope while converting
+wearable entity properties. The existing host suite executes the complete
+production bookmark producer with the real V8 scope guard and isolate/context:
+empty bookmarks, one wearable with missing/filtered entries, and a distinct
+caller isolate. Before the guard, both wearable cases abort at the current-engine
+invariant; after it, all three preserve the bookmark data and restore the caller
+isolate. Entity lookup and serialization boundaries remain host fixtures; normal
+favorite creation with a wearable still requires device acceptance.

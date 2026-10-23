@@ -96,6 +96,7 @@ public:
     Q_INVOKABLE void stop(); Q_INVOKABLE void reload(); Q_INVOKABLE void goBack();
     Q_INVOKABLE void goForward(); Q_INVOKABLE void reloadAndBypassCache(); Q_INVOKABLE void unfocus();
     Q_INVOKABLE void openNative();
+    Q_INVOKABLE bool moveInputCursorToPoint(const QPointF& position, int handle);
     Q_INVOKABLE bool runJavaScript(const QString& source, const QJSValue& callback = QJSValue());
     Q_INVOKABLE bool emitScriptEvent(const QVariant& message);
     // JNI entry points: registry lifetime is held by the caller; no Android call while locked.
@@ -127,6 +128,7 @@ signals:
 protected:
     void geometryChanged(const QRectF& geometry, const QRectF& old) override;
     QSGNode* updatePaintNode(QSGNode* node, UpdatePaintNodeData*) override;
+    void touchEvent(QTouchEvent*) override; void touchUngrabEvent() override;
     void mousePressEvent(QMouseEvent*) override; void mouseMoveEvent(QMouseEvent*) override;
     void mouseReleaseEvent(QMouseEvent*) override; void mouseUngrabEvent() override;
     void hoverEnterEvent(QHoverEvent*) override; void hoverMoveEvent(QHoverEvent*) override; void hoverLeaveEvent(QHoverEvent*) override;
@@ -143,7 +145,8 @@ private:
     void create(); void retryCreation(); void navigate(); void synchronizeVisibility(); void updateGeometry(); void trackGeometry();
     bool evaluate(const QString& script, quint64 grant, quint64 page);
     void pointer(int action, const QPointF& position);
-    void editorCommand(const QJsonObject& command);
+    bool editorCommand(const QJsonObject& command);
+    void applyPendingEditorCommand(const QJsonObject& command);
     void resetEditor();
     void updateEditor(const QJsonObject& state);
     void injectUserScript(quint64 grant, quint64 page, const QUrl& url, int redirects = 0);
@@ -161,6 +164,7 @@ private:
     quint64 _inlineRevision { 0 };
     QVector<QPointer<QNetworkReply>> _scriptReplies;
     QString _currentUrl, _url, _scriptUrl, _userAgent, _sourceIdentity, _bootstrap;
+    int _touchId { -1 };
     bool _background { true }, _created { false }, _pending { false }, _retryPending { false }, _pressed { false };
     bool _suspendedDocument { false }, _sourceAuthorized { false };
     QUrl _resumeDocument;
@@ -184,7 +188,10 @@ private:
     bool _editorActive { false }, _sensitive { false };
     QString _editorText, _editorKind;
     int _cursor { 0 }, _anchor { 0 }, _surroundingStart { 0 };
-    QRectF _cursorRect;
+    bool _editorComposing { false };
+    quint64 _editorOwner { 0 }, _editorSequence { 0 }, _editorAcknowledged { 0 };
+    QVector<QPair<quint64, QJsonObject>> _pendingEditorCommands;
+    QRectF _cursorRect, _anchorRect, _editorRect;
     quint64 _nextRequest { 1 }, _inputEpoch { 0 };
     bool _inputFocused { true };
     QHash<quint64, QJSValue> _callbacks;
