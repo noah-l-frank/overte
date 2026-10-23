@@ -13,6 +13,16 @@ The module ledger does not expose module-code hashes; this join therefore
 does not establish the decoded inline document contents. The separate native
 Tablet source/carrier reader checks those actual bytes.
 
+An independent same-physical observer may acquire its own original file
+readback after ordinary Script load. Manager assignment must still follow the
+original setup authority, and the readback must precede that observer's
+actual Script snapshot. Root-code identity comes from the actual submitted
+UTF-16 bytes and exact native assigned URL, not the order of a disk read.
+Exclusive native directory, app nonce, returned controls and all original
+timestamps are preserved. Neither pre-load nor post-load file readback proves
+which module bytes were executed; only the independent actual native/source
+joins can supply such additional evidence.
+
 All three returned `addButton` originals and actual live Qt controls must
 belong to that same manager birth, assignment generation, submitted code and
 app nonce. Labels, a requested URL, a click acknowledgment, or the existence

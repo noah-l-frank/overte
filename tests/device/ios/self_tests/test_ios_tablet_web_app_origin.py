@@ -67,13 +67,30 @@ class TabletWebAppOriginTests(unittest.TestCase):
                 engine['required']['sequence']=4;engine['required']['modules'].append(dict(url='file:///foreign/missing.js',loaded=False,cached=False,sequence=4,capturedEpochMs=EPOCH+10))
             elif fault=='stopped':engine['stopping']=True
             elif fault=='pid':files['processId']=32
-            elif fault=='old-assignment':scripts['source']['membership']['managers'][0]['assignedEpochMs']=EPOCH
+            elif fault=='old-assignment':scripts['source']['membership']['managers'][0]['assignedEpochMs']=EPOCH-1
             elif fault=='early-readback':files['requestedEpochMs']=EPOCH-1
             elif fault=='extra-button':
                 item=deepcopy(buttons['buttons'][0]);item['id']='6'*32;item['uuid']='00000000-0000-4000-8000-000000000001';buttons['buttons'].append(item)
             elif fault=='legacy':owner['tabletWebAppFilesVersion']=1
             else:files['processId']=True
             with self.subTest(fault=fault),self.assertRaises(NativeUIError):admit(values)
+
+    def test_independent_postload_readback_keeps_actual_bytes_assignment_and_original_clocks(self):
+        values=list(originals_boundary());owner,files,scripts,buttons,controls,raw=values
+        files.update(requestedEpochMs=EPOCH+50,capturedEpochMs=EPOCH+51);before=deepcopy(values)
+        admitted=admit(values)
+        self.assertEqual(before,values);self.assertEqual(EPOCH+3,admitted['profile']['assignedEpochMs'])
+        self.assertGreater(files['requestedEpochMs'],scripts['source']['engines'][0]['code']['submittedEpochMs'])
+        self.assertEqual(EPOCH+4,admitted['profile']['code']['submittedEpochMs'])
+        for fault in ('root-bytes','vm-code','nonce','directory-reuse','foreign-pid','future-readback'):
+            changed=deepcopy(values);own,packet,script,button,control,_raw=changed
+            if fault=='root-bytes':packet['source']['files'][0]['base64']=base64.b64encode(b'changed original root').decode()
+            elif fault=='vm-code':script['source']['engines'][0]['code']['sha256']='0'*64
+            elif fault=='nonce':control['open']['nonce']='0'*32
+            elif fault=='directory-reuse':packet['source']['directory']='file:///private/feature-script-'+'0'*32
+            elif fault=='foreign-pid':packet['processId']=32
+            else:packet.update(requestedEpochMs=EPOCH+101,capturedEpochMs=EPOCH+102)
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):admit(changed)
 
     def test_independent_pins_match_real_generated_host_v8_frames_without_expected_frames_in_emitter(self):
         values=originals_boundary();result=admit(values);url=result['profile']['assignedUrl'];files={key:data.decode() for key,data in values[-1].items()}

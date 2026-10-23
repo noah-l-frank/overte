@@ -64,7 +64,11 @@ def admitted(owner,file_packet,scripts,button_packet,controls,binding,*,after_ep
         and len(engine['required']['modules'])==len(MODULES) and all(row['loaded'] for row in engine['required']['modules']))
     rows=[row for row in scripts['source']['membership']['managers'] if row['instance']==engine['required']['instance']]
     need(len(rows)==1);manager=rows[0];code=engine['code'];pins=call_locations(raw['script.js'],url)
-    need(manager['assigned'] and manager['url']==url and file_packet['capturedEpochMs']<=manager['assignedEpochMs']<=code['submittedEpochMs']
+    # An independent same-physical observer may read these exact files after
+    # ordinary Script load. Actual submitted root bytes, not disk-read order,
+    # identify the running VM. Required-module contents remain unclaimed.
+    need(manager['assigned'] and manager['url']==url and after_epoch<=manager['assignedEpochMs']<=code['submittedEpochMs']
+        and file_packet['capturedEpochMs']<=scripts['capturedEpochMs']
         and code['submitted'] and code['encoding']=='utf-16le-code-units' and code['codeUnits']==pins[0]['codeUnits'] and code['sha256']==pins[0]['sha256']
         and all(code['submittedEpochMs']<=row['capturedEpochMs'] for row in engine['required']['modules']))
     profile=dict(engineInstance=manager['instance'],assignedUrl=url,loadGeneration=manager['loadGeneration'],assignedEpochMs=manager['assignedEpochMs'],code=deepcopy(code))
