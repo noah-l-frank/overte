@@ -21,7 +21,9 @@ from ios.adapters.navigation_static_comparison import compare
 from ios.adapters.navigation_admission_owner import SOURCES
 from ios.adapters import navigation_product_state as product,navigation_places_state as places,navigation_error_state as errors
 
-VERSION=1
+VERSION=2
+READS=(1,2)
+REFERENCE_VERSION=1
 
 
 class NavigationRestoration:
@@ -30,7 +32,7 @@ class NavigationRestoration:
             and baseline.lock is flow.lock and baseline.root==flow.root and baseline.run==flow.run and baseline.role==flow.role)
         self.flow,self.baseline=flow,baseline;self.lock=flow.lock
         self.store=PrivateFeatureState(flow.store.path.with_name('ios-navigation-restoration-'+flow.role+'.json'))
-        self.previous=self.state=None;self.historical=False
+        self.previous=self.state=None;self.historical=False;self.version=VERSION
 
     def scope(self):
         f=self.flow;self.lock.assert_held();f.load();need(f.state is not None and f.state['stage']==1)
@@ -98,18 +100,20 @@ class NavigationRestoration:
         result.binding=deepcopy(flow.state['binding']);result.admission,result.transfer,result.observer,result.prior=initial,transfer,observer,prior
         result.process_context=process;result.owner_files=transfer.owner_files;result.directory=deepcopy(directory)
         result.previous=result.store.read();need(result.previous is not None)
+        result.version=result.previous['iosNavigationRestorationVersion']
         context=result.previous['context'];result.context=dict(binding=result.binding,cleanupTicket=context['cleanupTicket'],
             baselineSha256=digest(result.baseline.previous),admissionSha256=digest(initial.previous),transferSha256=digest(transfer.previous),
             previousOwnerSha256=digest(prior.previous),directorySha256=digest(directory))
         result.state=result.decode(result.previous);result.phase_original();result.bound();return result
 
     def envelope(self,state):
-        return dict(iosNavigationRestorationVersion=VERSION,runId=self.flow.run,role=self.flow.role,
+        return dict(iosNavigationRestorationVersion=self.version,runId=self.flow.run,role=self.flow.role,
             artifactRoot=str(self.flow.root),context=deepcopy(self.context),payload=pack([state]))
 
     def decode(self,value):
         exact(value,{'iosNavigationRestorationVersion','runId','role','artifactRoot','context','payload'})
         rows=unpack(value['payload']);need(len(rows)==1 and type(value['iosNavigationRestorationVersion']) is int
+            and value['iosNavigationRestorationVersion'] in READS
             and same(value,self.envelope(rows[0])))
         state=rows[0];exact(state,{'rows','pending'});need(type(state['rows']) is list and len(state['rows'])<=32)
         requests=set()
@@ -130,6 +134,7 @@ class NavigationRestoration:
 
     def load(self):
         need(not self.historical);self.scope();self.previous=self.store.read()
+        self.version=VERSION if self.previous is None else self.previous['iosNavigationRestorationVersion']
         self.state=dict(rows=[],pending=None) if self.previous is None else self.decode(self.previous)
         store=self.phase_store()
         if store.read() is None:
@@ -176,7 +181,7 @@ class NavigationRestoration:
         """One new original image or one retained lost return; never a resend."""
         f=self.flow;need(not self.historical)
         with f.held():
-            self.load();need(len(self.state['rows'])<32)
+            self.load();need(self.version==VERSION and len(self.state['rows'])<32)
             if self.state['pending'] is not None:
                 owner=self.image(self.state['pending']['requestId'],historical=False)
                 if owner.state is None:raise NavigationFeaturePending('Restored Worlds image delivery remains unresolved')
@@ -225,7 +230,11 @@ class NavigationRestoration:
         need(fields['addressDialog']==error['fields']['addressDialog'])
         need(type(index) is int and 1<=index<=len(self.state['rows']))
         sequence=f.state['observerOffsets'][f.role]+self.observer.state['sequence']+index
-        value=dict(schemaVersion=1,contractVersion=16,runId=f.run,sequence=sequence,capturedEpochMs=native['capturedEpochMs'],
+        # Public time belongs to the original bounded host acquisition. Native
+        # clocks stay intact in the typed image/clock join; they need not share
+        # the host's absolute epoch. Preserve the literal legacy v1 projection.
+        captured=clock['hostBeforeEpochMs'] if self.version>=2 else native['capturedEpochMs']
+        value=dict(schemaVersion=1,contractVersion=16,runId=f.run,sequence=sequence,capturedEpochMs=captured,
             state=fields,artifacts=[],resources=self.resources(owner),lifecycle=deepcopy(native['lifecycle']))
         return public_result('feature.world-navigation.observe',value)
 
@@ -234,14 +243,14 @@ class NavigationRestoration:
 
     def reference(self):
         self.bound();need(self.state['pending'] is None and self.state['rows'])
-        return dict(iosNavigationRestorationReferenceVersion=VERSION,**deepcopy(self.state['rows'][-1]))
+        return dict(iosNavigationRestorationReferenceVersion=REFERENCE_VERSION,**deepcopy(self.state['rows'][-1]))
 
     def validate_original(self,reference):
         """Immutable publication decoding without a live source or freshness claim."""
         self.lock.assert_held();need(same(self.store.read(),self.previous))
         state=self.decode(self.previous);exact(reference,{'iosNavigationRestorationReferenceVersion','index','requestId','ownerSha256','comparisonSha256'})
         need(type(reference['iosNavigationRestorationReferenceVersion']) is int
-            and reference['iosNavigationRestorationReferenceVersion']==VERSION
+            and reference['iosNavigationRestorationReferenceVersion']==REFERENCE_VERSION
             and type(reference['index']) is int and 1<=reference['index']<=len(state['rows']))
         row=state['rows'][reference['index']-1]
         need(same({key:reference[key] for key in row},row))

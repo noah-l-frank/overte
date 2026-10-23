@@ -35,7 +35,15 @@ native source or fixture. Its write and acquisition entrypoints reject use.
 An independently retained `ios-navigation-restoration-phase` version 1 carrier
 keeps the original cleanup authority before the restored image acquisition;
 this stricter terminal path cannot qualify an older archive lacking that
-original. Existing restoration and publication reference formats remain 1.
+original. Publication reference format remains 1.
+
+Restoration writer 2 derives public `capturedEpochMs` from the measured original
+`hostBeforeEpochMs`, as required by the existing canonical publisher and native
+clock join. Every native packet, native epoch and original host/native bracket
+remains unchanged. Historical replay uses the same original host timestamp;
+it never stamps an old result with the current time. Literal writer-1 archives
+retain their original native-epoch projection and remain readable. They cannot
+append new acquisitions or silently change the meaning of an earlier witness.
 
 `navigation_terminal_resources.held()` joins each retained alias to its actual
 Places model or Address UI root and original carrier hash. The binding uses a
