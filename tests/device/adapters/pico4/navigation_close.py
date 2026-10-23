@@ -10,6 +10,7 @@ import hashlib
 import time
 from adapters.native_feature_observation import exact,need,number
 from adapters.navigation_transit import NavigationTransit
+from adapters.pico4.navigation_lookup_close import NavigationDismissedLookup
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.normal_scripts import PicoScriptIO
@@ -19,24 +20,32 @@ from adapters.script_journey.history import canonical,pack,unpack
 from adapters.token_script_ui import TokenScriptUI
 from feature_journeys.contract import identifier
 
-VERSION=1
+VERSION=2
 
 
 class NavigationTabletClose:
     def __init__(self,transit,normal,graphics,path,guard,*,monotonic=time.monotonic,sleep=time.sleep):
-        need(isinstance(transit,NavigationTransit) and isinstance(normal,TokenScriptUI) and isinstance(normal.io,PicoScriptIO)
+        need(isinstance(transit,(NavigationTransit,NavigationDismissedLookup)) and isinstance(normal,TokenScriptUI) and isinstance(normal.io,PicoScriptIO)
              and isinstance(graphics,PicoGraphicsSource) and all(callable(f) for f in (guard,monotonic,sleep)))
-        need(transit.state is not None and transit.state['homeMode']=='ray' and transit.state['quiet']
-             and normal.io.navigation is transit.ui.io.original.navigation)
+        self.source_kind='dismissed-lookup' if isinstance(transit,NavigationDismissedLookup) else 'transit'
+        if self.source_kind=='transit':
+            need(transit.state is not None and transit.state['homeMode']=='ray' and transit.state['quiet']
+                 and normal.io.navigation is transit.ui.io.original.navigation)
+            self.ticket,self.home_original,self.source_original=transit.state['ticket'],transit.state['homeAfter'],transit.state['original']
+        else:
+            transit.bound();need(normal.io.navigation is transit.navigation)
+            self.ticket,self.home_original,self.source_original=transit.ticket,transit.home_original,transit.origin
         self.transit,self.normal,self.graphics=transit,normal,graphics
         self.run,self.binding,self.guard=transit.run,deepcopy(transit.binding),guard
         self.pid=int(self.binding['processIdentity'].split(':')[0]);need(graphics.pid==self.pid)
         self.monotonic,self.sleep,self.clock,self.deadline=monotonic,sleep,None,None
         self.store=PrivateFeatureState(path);self.disk=self.store.read();self.state=None
-        self.origin=hashlib.sha256(canonical(transit.state['original'])).hexdigest()
+        self.origin=hashlib.sha256(canonical(self.source_original)).hexdigest()
         if self.disk is not None:
-            exact(self.disk,{'navigationTabletCloseVersion','runId','binding','transitOriginalSha256','payload'})
-            need(type(self.disk['navigationTabletCloseVersion']) is int and self.disk['navigationTabletCloseVersion']==VERSION
+            version=self.disk.get('navigationTabletCloseVersion')
+            exact(self.disk,{'navigationTabletCloseVersion','runId','binding','transitOriginalSha256','payload'}|({'sourceKind'} if version==2 else set()))
+            need(type(version) is int and version in (1,VERSION)
+                 and (self.disk['sourceKind']==self.source_kind if version==2 else self.source_kind=='transit')
                  and self.disk['runId']==self.run and self.disk['binding']==self.binding and self.disk['transitOriginalSha256']==self.origin)
             rows=unpack(self.disk['payload']);need(len(rows)==1);self.validate(rows[0]);self.state=rows[0]
     def now(self):
@@ -48,7 +57,7 @@ class NavigationTabletClose:
         self.transit.archive(group);self.transit.final(group)
         home_packet(home,home.get('commandId'),self.pid,graphics['capturedEpochMs'])
         graphics_packet(graphics,graphics.get('commandId'),self.pid,graphics['capturedEpochMs'])
-        original=self.transit.state['homeAfter']
+        original=self.home_original
         need(all(home[k]==original[k] for k in ('instance','tabletId','homeId'))
              and home['sourceSequence']>original['sourceSequence'] and home['capturedEpochMs']>=original['capturedEpochMs'])
         need(0<=home['capturedEpochMs']-group['pose']['subject']['capturedEpochMs']
@@ -74,7 +83,7 @@ class NavigationTabletClose:
         need(a['instance']==b['instance'] and a['sequence']==b['sequence'] and a['generation']!=b['generation'])
     def validate(self,value):
         exact(value,{'ticket','phase','before','last','quiet','queries'});identifier(value['ticket'])
-        need(value['ticket']==self.transit.state['ticket'] and value['phase'] in ('closing','quiet','closed')
+        need(value['ticket']==self.ticket and value['phase'] in ('closing','quiet','closed')
              and type(value['quiet']) is list and len(value['quiet'])<=8
              and type(value['queries']) is list and len(value['queries'])<=1024 and len(set(value['queries']))==len(value['queries']))
         for query in value['queries']:identifier(query)
@@ -104,7 +113,7 @@ class NavigationTabletClose:
             if b!=value['last']:self.advance(b,value['last'])
     def save(self,value):
         self.now();self.validate(value)
-        disk=dict(navigationTabletCloseVersion=VERSION,runId=self.run,binding=self.binding,transitOriginalSha256=self.origin,payload=pack([value]))
+        disk=dict(navigationTabletCloseVersion=VERSION,runId=self.run,binding=self.binding,sourceKind=self.source_kind,transitOriginalSha256=self.origin,payload=pack([value]))
         self.store.write(disk,self.disk);self.disk=deepcopy(disk);self.state=deepcopy(value)
     def queries(self,value):return self.transit.query_ids(value['transit'])+[value['home']['commandId'],value['graphics']['commandId']]
     def sample(self):
@@ -116,7 +125,7 @@ class NavigationTabletClose:
             current['queries']+=queries;current['last']=value;self.save(current)
         return value
     def close(self,ticket):
-        identifier(ticket);need(ticket==self.transit.state['ticket'] and self.deadline is None);self.deadline=self.now()+20
+        identifier(ticket);need(ticket==self.ticket and self.deadline is None);self.deadline=self.now()+20
         try:return self.execute(ticket)
         except NativeUIError:raise
         except Exception:raise NativeUIError('Original Navigation tablet close remains unresolved') from None

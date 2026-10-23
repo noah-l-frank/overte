@@ -229,7 +229,7 @@ REQUIRED = {
     "navigation-stereo-owner": 2,
     "navigation-transit-operations": 3,
     "pico-navigation-transit-join": 1,
-    "navigation-tablet-close": 1,
+    "navigation-tablet-close": 2,
     "navigation-frame-publication": 1,
     "stereo-navigation-evidence": 1,
     "navigation-scene-stimulus": 1,

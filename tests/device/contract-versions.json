@@ -63,7 +63,7 @@
     "navigation-stereo-owner": {"current": 2, "reads": [1, 2]},
     "navigation-transit-operations": {"current": 3, "reads": [1, 2, 3]},
     "pico-navigation-transit-join": {"current": 1, "reads": [1]},
-    "navigation-tablet-close": {"current": 1, "reads": [1]},
+    "navigation-tablet-close": {"current": 2, "reads": [1, 2]},
     "navigation-frame-publication": {"current": 1, "reads": [1]},
     "stereo-navigation-evidence": {"current": 1, "reads": [1]},
     "navigation-scene-stimulus": {"current": 1, "reads": [1]},
