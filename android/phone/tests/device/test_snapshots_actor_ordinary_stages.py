@@ -25,24 +25,40 @@ stage_mutations=[]
 graph_mutation={}
 custom_effects=[]
 inline_stats=dict(entries=0,lockedReads=0,sleeps=0,mutations=0)
-def inline_batch(self,role,prepared):
-    self.feature.lock.assert_held()
-    assert role.system and self.feature.state['handoff'] is not None
+def passive_os_batch(self,role,prepared):
+    assert self.feature.lock._owner is None
+    assert role.system and self.feature.state['handoff'] is not None and prepared['passive'] is not None
     inline_stats['entries']+=1
+    print(json.dumps(dict(stage='prepared-os',lockReleased=True,counts=counts,
+        roleHeader=role.previous,frameCount=len(role.frames))),flush=True)
+    instruction=json.loads(sys.stdin.readline());fault=instruction.get('fault')
+    scope=self.feature._system_scope;sdk=getattr(adapter,'_existing_input_scope',None)
+    if fault=='os-binding':scope.binding=dict(scope.binding,processIdentity='32:foreign-start')
+    elif fault=='os-chooser':scope.chooser=dict(scope.chooser,component='foreign.app/foreign.app.Activity')
+    elif fault=='os-callback':
+        original_component=scope.current_component
+        scope.current_component=lambda:original_component()
+    elif fault=='os-sdk':adapter._existing_input_scope=dict(sdk or {})
+    elif fault=='os-dummy':
+        from types import SimpleNamespace
+        def forbidden_dummy_guard():custom_effects.append('dummy-guard');return True
+        self.feature._system_scope=SimpleNamespace(guard=forbidden_dummy_guard)
     read=role.read;bound=self.feature.bound
     def locked_read(*args,**kwargs):
         self.feature.lock.assert_held();inline_stats['lockedReads']+=1
         return read(*args,**kwargs)
     def late_bound():
         result=bound()
-        if mode=='inline-os-late-save' and self.state['pending'] is not None and not inline_stats['mutations']:
+        if mode=='passive-os-late-save' and self.state['pending'] is not None and not inline_stats['mutations']:
             inline_stats['mutations']+=1;role.frames[0]['controlledLateOsGraph']=True
         return result
     role.read=locked_read;self.feature.bound=late_bound
     try:return ordinary_batch(self,role,prepared)
-    finally:role.read=read;self.feature.bound=bound
+    finally:
+        role.read=read;self.feature.bound=bound
+        adapter._existing_input_scope=sdk
 def paused_batch(self,role,prepared):
-    if mode.startswith('inline-os'):return inline_batch(self,role,prepared)
+    if mode.startswith('passive-os'):return passive_os_batch(self,role,prepared)
     if mode!='pause':return ordinary_batch(self,role,prepared)
     assert self.feature.lock._owner is None
     print(json.dumps(dict(stage='prepared',lockReleased=True,counts=counts,
@@ -97,8 +113,7 @@ assert CHILD.count(SLEEP_ANCHOR)==1
 CHILD=CHILD.replace(SLEEP_ANCHOR,SLEEP_ANCHOR+r'''
     sleep=flow.feature.sleep
     def sleeping(value):
-        if mode.startswith('inline-os') and value==.1:
-            inline_stats['sleeps']+=1;raise AssertionError('OS ordinary acquisition must not release/yield between stages')
+        if mode.startswith('passive-os') and value==.1:inline_stats['sleeps']+=1
         return sleep(value)
     flow.feature.sleep=sleeping
 ''')
@@ -146,10 +161,16 @@ class SnapshotActorOrdinaryStagesTests(unittest.TestCase):
         self.assertTrue(measured['state']['shareSheet']);self.assertEqual(1,measured['state']['files'])
         return before
 
-    def test_actual_os_share_acquires_own_sample_inline_without_releasing_source_lock(self):
-        before=self.actual_share_scope();result=self.step('inline-os')
+    def test_actual_typed_os_share_releases_preparation_then_acquires_own_fresh_sample(self):
+        before=self.actual_share_scope();paused=self.step('passive-os')
+        self.assertEqual('prepared-os',paused['stage']);self.assertTrue(paused['lockReleased'])
+        self.assertEqual(before['counts']['reads'],paused['counts']['reads'])
+        # A genuine public Primary acquisition needs and actually obtains the
+        # child's released OS lock, then supplies a newer original cue only.
+        measured=self.primary();self.assertTrue(measured['state']['shareSheet'])
+        result=self.release()
         self.assertIsNone(result['error']);self.assertFalse(result['result'])
-        self.assertEqual(dict(entries=1,lockedReads=1,sleeps=0,mutations=0),result['inline'])
+        self.assertEqual(dict(entries=1,lockedReads=1,sleeps=1,mutations=0),result['inline'])
         self.assertEqual(before['counts']['reads']+1,result['counts']['reads'])
         self.assertEqual(before['counts']['posts']+1,result['counts']['posts'])
         self.assertEqual(self.primary_store.read(),result['state']['primaryCue']['header'])
@@ -160,15 +181,31 @@ class SnapshotActorOrdinaryStagesTests(unittest.TestCase):
     def test_actual_os_share_retains_last_native_save_graph_guard_before_post(self):
         before=self.actual_share_scope()
         originals={p:p.read_bytes() for p in self.rig.root.glob('emote-frame-snapshots-'+cue.harness.RUN+'-actor-*.json')}
-        self.assertTrue(originals);result=self.step('inline-os-late-save')
+        self.assertTrue(originals);paused=self.step('passive-os-late-save')
+        self.assertEqual('prepared-os',paused['stage']);self.assertTrue(paused['lockReleased'])
+        result=self.release()
         self.assertEqual('NativeUIError',result['error'])
-        self.assertEqual(dict(entries=1,lockedReads=1,sleeps=0,mutations=1),result['inline'])
+        self.assertEqual(dict(entries=1,lockedReads=1,sleeps=1,mutations=1),result['inline'])
         self.assertEqual(before['counts']['reads']+1,result['counts']['reads'])
         self.assertEqual(before['counts']['posts'],result['counts']['posts'])
         self.assertEqual(before['state']['primaryCue'],result['state']['primaryCue'])
         self.assertEqual(before['state']['pending'],result['state']['pending'])
         self.assertEqual(before['counts']['posts'],len(self.entries()))
         for path,raw in originals.items():self.assertEqual(raw,path.read_bytes())
+
+    def test_actual_os_descriptor_and_invalid_dummy_scope_changes_are_red_before_current_or_post(self):
+        before=self.actual_share_scope()
+        for fault in ('os-binding','os-chooser','os-callback','os-sdk','os-dummy'):
+            with self.subTest(fault=fault):
+                self.primary();paused=self.step('passive-os',cold=True)
+                self.assertEqual('prepared-os',paused['stage']);self.assertTrue(paused['lockReleased'])
+                self.assertEqual(before['counts']['reads'],paused['counts']['reads'])
+                result=self.release(fault);self.unchanged(before,result,error='NativeUIError')
+                self.assertEqual(0,result['inline']['lockedReads'])
+                # The invalid dummy guard is never accepted or called as a
+                # native/passive effect. All other mutations use the original
+                # actual SnapshotSystemContext descriptor from normal Share.
+                self.assertEqual(0,result['customEffects'])
 
     def test_ready_primary_can_advance_under_released_lock_before_own_current_sample(self):
         before,_=self.prepared()
