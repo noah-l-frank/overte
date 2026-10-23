@@ -512,6 +512,8 @@ REQUIRED = {
     "ios-navigation-process-end": 1,
     "ios-navigation-session-end": 1,
     "ios-navigation-final-archive": 1,
+    "ios-navigation-observer-worker": 1,
+    "ios-navigation-worker-failure": 1,
     "ios-navigation-run-retirement": 1,
     "ios-snapshot-exports": 1,
     "ios-snapshot-destination": 1,

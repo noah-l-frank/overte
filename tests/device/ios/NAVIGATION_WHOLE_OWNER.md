@@ -32,8 +32,17 @@ Qt, GPU, SDK/OS and acquisition clocks are explicitly modeled; actual Python,
 JavaScript, HTTP, files, journals and PNG validators run on the host. These
 results establish no physical iOS behavior or CPU timing qualification.
 
+`navigation_observer.py` acquires actual Actor originals and canonical receipts
+on the explicitly existing SDK. The source lock serializes its seal check and
+publication, so the original paired seal pauses all later acquisitions. A final
+archive merely requests the actual historical process/SDK verifier; its presence
+alone cannot complete the worker. Unknown publications retain a private failure
+marker, and timeout retains the entire ownership graph. Six focused host cases
+cover real initial publication and separately modeled worker seal scheduling.
+The worker is not yet qualified as part of the whole final journey or dispatch.
+
 Worlds remains partial. The full fifteen-step final integration, initial-process
-and partial-setup restoration, independent worker/configuration/dispatch and the
+and partial-setup restoration, whole worker/configuration/dispatch integration and the
 connected final process/SDK end still require qualification. The
 [final-end mechanics](NAVIGATION_PROCESS_END.md) have separate component coverage
 with an explicitly modeled live seal; that does not admit the whole connected

@@ -524,6 +524,8 @@
     "ios-navigation-process-end": {"current": 1, "reads": [1]},
     "ios-navigation-session-end": {"current": 1, "reads": [1]},
     "ios-navigation-final-archive": {"current": 1, "reads": [1]},
+    "ios-navigation-observer-worker": {"current": 1, "reads": [1]},
+    "ios-navigation-worker-failure": {"current": 1, "reads": [1]},
     "ios-navigation-run-retirement": {"current": 1, "reads": [1]},
     "ios-snapshot-exports": {"current": 1, "reads": [1]},
     "ios-snapshot-destination": {"current": 1, "reads": [1]},
