@@ -61,7 +61,7 @@ class SnapshotInputReplayGuardTests(unittest.TestCase):
             control.calls.clear()
             yield SimpleNamespace(feature=f,control=control,owner=owner,frames=frames,
                 paths=[owner.path(value) for value in values])
-        finally:original.doCleanups()
+        finally:self.assertTrue(original.doCleanups(),'Owned input fixture cleanup failed')
 
     @staticmethod
     def replace(path):
