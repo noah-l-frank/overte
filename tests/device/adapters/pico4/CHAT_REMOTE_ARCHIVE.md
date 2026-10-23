@@ -256,3 +256,25 @@ live acquisition or whole journey. New values retain strict JSON admission;
 external inspection is a copy, while internal byte/hash/scope/type replacement
 fails. The stored v3 original bytes, hashes, fragments and historical v1/v2
 decoder contracts remain unchanged. No new whole result follows this benchmark.
+
+The existing complete false-common/Stop2/return/seal/catalog owning case then
+passed with the new memory implementation: 1/1 in 36.711 s (37.170 outer
+elapsed), under the unchanged 120-second bound. Its fixed code packet is
+`1943fbb65c1f9ce8f3eefaf513dd98f0accf4db2`; execution HEAD
+`c130a52d2b97d98eb1efc361499ee5f8469428b5` differs only in documentation.
+All 169 runtime-source bytes matched before and after, manifest SHA-256
+`5bf9185d6ed6d4660e9407d21d2b2d52fad7481607b5bb3c3fd3bc2f4e5e7d38`.
+
+Only the already registered test tempfile-deletion cleanup was removed and the
+existing `preserve_originals=True` fixture option selected. Actual descriptor,
+process, kernel, source, clock and catalog checks ran unchanged. Parent and
+Actor originals remain retained. The ready v3 Reader contains 19 complete
+logical records/32 physical parts, 936,798 logical bytes and no pending bundle.
+The original receipt preserves consumed Actor sequence 22 and final sequence
+24, including both actual extra tail publications, fresh Parent nonce, normal
+host return/kernel ESRCH and both source seals. Every original fragment is in
+the immutable catalog. Its `sequenceSucceeded` remains explicitly false.
+This rechecks storage/return/catalog compatibility, not application/profile
+restart, IPC/archive retirement, full host finalization or complete shared
+execution. It does not qualify native/widget/network model seams as a product
+or device. A new true whole result remains absent.
