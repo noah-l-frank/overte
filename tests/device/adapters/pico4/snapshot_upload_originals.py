@@ -14,9 +14,11 @@ ALL_KINDS=KINDS+('received',)
 
 
 class SnapshotUploadOriginals(SnapshotCancelOriginals):
+    VERSION_KEY='snapshotUploadOriginalsVersion'
+    VERBS=('upload-fail','upload')
     def __init__(self,path,run,binding,verb):
-        need(nonce(run) and verb in ('upload-fail','upload'));self.root=PrivateFeatureState(path)
-        self.scope=dict(snapshotUploadOriginalsVersion=VERSION,runId=run,binding=deepcopy(context(binding)),role='snapshot-'+verb)
+        need(nonce(run) and verb in self.VERBS);self.root=PrivateFeatureState(path)
+        self.scope={self.VERSION_KEY:VERSION,'runId':run,'binding':deepcopy(context(binding)),'role':'snapshot-'+verb}
         self.history=ChatSourceChunks(self.root,self.scope);self.disk=self.root.read();self.values=[];self.indices={}
         if self.disk is not None:
             exact(self.disk,set(self.scope)|{'phase','chunks'})
@@ -41,3 +43,8 @@ class SnapshotUploadOriginals(SnapshotCancelOriginals):
         result['frames']=[dict({kind:self.get(kind,row[kind]) for kind in KINDS},hostMonotonic=row['hostMonotonic']) for row in state['frames']]
         if state['received'] is not None:result['received']=self.get('received',state['received'])
         self.verify();return result
+
+
+class SnapshotBackgroundOriginals(SnapshotUploadOriginals):
+    VERSION_KEY='snapshotBackgroundOriginalsVersion'
+    VERBS=('background',)

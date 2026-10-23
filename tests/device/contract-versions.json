@@ -144,6 +144,8 @@
     "snapshot-upload-file": {"current": 2, "reads": [2]},
     "snapshot-upload-original": {"current": 2, "reads": [2]},
     "pico-snapshot-os-source": {"current": 1, "reads": [1]},
+    "pico-snapshot-background-owner": {"current": 1, "reads": [1]},
+    "pico-snapshot-background-originals": {"current": 1, "reads": [1]},
     "pico-snapshot-upload-owner": {"current": 1, "reads": [1]},
     "pico-snapshot-upload-owner-originals": {"current": 1, "reads": [1]},
     "pico-snapshot-save-owner": {"current": 1, "reads": [1]},

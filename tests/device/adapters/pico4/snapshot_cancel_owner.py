@@ -23,6 +23,7 @@ from adapters.pico4.snapshot_capture_source import validate as file_packet,comma
 from adapters.pico4.snapshot_script_originals import PicoSnapshotScriptOriginals,validate as script_packet,accept as script_accept
 from adapters.pico4.snapshot_script_history import join_compilation
 from adapters.pico4.snapshot_cancel_originals import SnapshotCancelOriginals
+from adapters.pico4.snapshot_base_frame import original,validate as base_frame,clocks as base_clocks
 from adapters.pico4.snapshot_platform import PicoSnapshotPlatform,profile as platform_profile
 from adapters.pico4 import snapshot_originals as native_source
 from adapters.pico4.navigation import NativeNavigationIO,validate_snapshot,identifier
@@ -39,13 +40,6 @@ CANCEL_STAGES=('arm-issued','prepared','open-issued','opened','cancel-issued','c
         'quiet-issued','cancel-quiet','job-retire-issued','partial-ready')
 CAPTURE_STAGES=('capture-prepare-issued','capture-issued','captured','still-quiet-issued','still-ready')
 STAGES=CANCEL_STAGES+CAPTURE_STAGES
-
-
-def original(row,limit):
-    exact(row,{'raw','sha256'})
-    need(type(row['raw']) is str and len(row['raw'].encode())<=limit
-        and hashlib.sha256(row['raw'].encode()).hexdigest()==row['sha256'])
-    return decode(row['raw'])
 
 
 class PicoSnapshotCancelOwner:
@@ -115,29 +109,7 @@ class PicoSnapshotCancelOwner:
         cache[key]=(deepcopy(context),deepcopy(row),deepcopy(result));return result
 
     def original_frame(self,row):
-        exact(row,{'native','script','ui','files','inventory','work','hostMonotonic'})
-        native=original(row['native'],native_source.LIMIT);script=original(row['script'],65536)
-        native_source.validate(native,self.run,native['commandId'],self.native.pid,native['capturedEpochMs'])
-        script_packet(script,self.run,script['commandId'],self.native.pid,script['capturedEpochMs'])
-        need(native['snapshotNativeCaptureVersion']==2 and script['snapshotScriptOriginalsVersion'] in (2,3))
-        validate_snapshot(row['ui'],self.native.pid,row['ui']['updatedEpochMs'])
-        exact(row['files'],{'raw','sha256','request'})
-        packet=original({key:row['files'][key] for key in ('raw','sha256')},262144)
-        file_packet(packet,row['files']['request'],self.native.pid,packet['capturedEpochMs'])
-        need(packet['runId']==self.run and row['ui']['bridgeId']==self.binding['sessionId'] and number(row['hostMonotonic'],0,1e15))
-        exact(row['inventory'],{'files','rows','capturedEpochMs'})
-        need(row['inventory']['capturedEpochMs']==packet['capturedEpochMs']
-            and type(row['inventory']['files']) is list and type(row['inventory']['rows']) is list)
-        events=script['history']['events']
-        if events:
-            caller=events[-1]['caller'];value=row['work']
-            request=dict(schemaVersion=1,commandId=value['requestId'],action='feature-script-work-observe',managerInstance=caller['manager']['instance'])
-            work_packet(value,request,self.native.pid,value['capturedEpochMs'])
-            need(typed_equal(value['source']['manager'],caller['manager']) and typed_equal(value['source']['code'],caller['code']))
-            work_scope(value,caller['compilation'])
-        else:need(row['work'] is None)
-        clocks=self.clocks(row)[1:]
-        need(max(clocks)-min(clocks)<=1500);return native,script,packet
+        return base_frame(row,self.run,self.native.pid,self.binding['sessionId'])
 
     def validate(self,state,*,host_only=False):
         extra={'platform','migration','stillPlan','capture','captureQuiet'} if self.encoding_version==2 else set()
@@ -489,12 +461,7 @@ class PicoSnapshotCancelOwner:
                 self.save(state)
             result=self.report();self.fence();return result
 
-    @staticmethod
-    def clocks(row):
-        return (row['hostMonotonic']*1000,decode(row['native']['raw'])['capturedEpochMs'],decode(row['script']['raw'])['capturedEpochMs'],
-            row['ui']['updatedEpochMs'],decode(row['files']['raw'])['capturedEpochMs'])+(() if decode(row['script']['raw'])['snapshotScriptOriginalsVersion']!=3 else
-            (decode(row['script']['raw'])['captureContext']['capturedEpochMs'],))+(() if row['work'] is None else
-            (row['work']['capturedEpochMs'],row['work']['source']['work']['capturedEpochMs']))
+    clocks=staticmethod(base_clocks)
 
     @staticmethod
     def scoped_work(row):
