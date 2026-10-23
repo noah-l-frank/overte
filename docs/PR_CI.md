@@ -200,3 +200,9 @@ dispatch Actions, compile the complete application, or establish device
 acceptance. Report local checks, prospective input selection, native execution,
 and device evidence separately. GitHub changes belong only in
 `noah-l-frank/overte`; follow the existing branch and contribution policies.
+
+The isolated host namespace recreates only the fixed `ld`, `cc` and `c++`
+alternatives whose resolved ordinary files remain inside read-only `/usr`.
+This keeps the prepared Ubuntu compiler usable without exposing the host `/etc`
+directory. Runtime-identity unit fixtures supply explicit OS/package facts while
+still measuring real prepared files and rejecting changed system facts.
