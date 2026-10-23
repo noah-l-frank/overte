@@ -37,11 +37,21 @@ harness=build/'main.cpp'
 harness.write_text('''#include <QCoreApplication>
 #include <jni.h>
 #include "NativeSnapshotAdapter.h"
+#include "tests/device/native/PhoneSnapshotNativeBridge.h"
 extern "C" jboolean Java_org_overte_snapshot_SnapshotAdapter_nativeFeatureEnabled(JNIEnv*,jclass);
 int main(int argc,char** argv) {
     QCoreApplication app(argc,argv);
     const bool expected=QString::fromLocal8Bit(argv[1])=="enabled";
     if ((Java_org_overte_snapshot_SnapshotAdapter_nativeFeatureEnabled(nullptr,nullptr)==JNI_TRUE)!=expected)return 1;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto original=app.property(overte::e2e::phoneSnapshotNativeProviderProperty());
+    const bool installed=original.userType()==qMetaTypeId<overte::e2e::PhoneSnapshotNativeProvider>();
+    if (installed!=expected)return 4;
+    const auto provider=overte::e2e::phoneSnapshotNativeProvider();
+    if (bool(provider)!=expected)return 5;
+    if (!overte::e2e::phoneSnapshotExportObservation().isEmpty())return 6;
+    if (!overte::e2e::phoneSnapshotReadbackCommand("{}").isEmpty())return 7;
+#endif
     // An uninitialized backend must never be represented as observed success.
     if (!NativeSnapshotAdapter::featureExportObservation().isEmpty())return 2;
     if (!NativeSnapshotAdapter::featureReadbackCommand("{}").isEmpty())return 3;
@@ -55,7 +65,7 @@ for name,definitions in (
 ):
     binary=build/name
     subprocess.run(['c++','-std=c++17','-fPIC',*definitions,
-        '-I'+str(header.parent),'-I'+str(ROOT/'interface/src/ui'),
+        '-I'+str(ROOT),'-I'+str(header.parent),'-I'+str(ROOT/'interface/src/ui'),
         '-I'+str(jdk/'include'),'-I'+str(jdk/'include/linux'),
         str(source),str(moc),str(harness),'-o',str(binary),*flags],check=True,timeout=90)
     subprocess.run([str(binary),'disabled'],check=True,timeout=10)

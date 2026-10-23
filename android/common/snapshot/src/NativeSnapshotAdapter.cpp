@@ -13,6 +13,9 @@
 #include <jni.h>
 #include <atomic>
 #include <limits>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+#include "../../../../tests/device/native/PhoneSnapshotNativeBridge.h"
+#endif
 
 namespace {
 QMutex registryMutex;
@@ -64,7 +67,18 @@ bool featureEnabled() {
     return false;
 #endif
 }
-void registerType() { qmlRegisterType<NativeSnapshotAdapter>("Overte.Android", 1, 0, "NativeSnapshotAdapter"); }
+void registerType() {
+    qmlRegisterType<NativeSnapshotAdapter>("Overte.Android", 1, 0, "NativeSnapshotAdapter");
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    auto* app=QCoreApplication::instance();
+    if (featureEnabled() && app && QThread::currentThread()==app->thread()) {
+        overte::e2e::PhoneSnapshotNativeProvider provider{
+            [] { return NativeSnapshotAdapter::featureExportObservation(); },
+            [](const QString& command) { return NativeSnapshotAdapter::featureReadbackCommand(command); }};
+        app->setProperty(overte::e2e::phoneSnapshotNativeProviderProperty(),QVariant::fromValue(provider));
+    }
+#endif
+}
 }
 Q_COREAPP_STARTUP_FUNCTION(registerType)
 

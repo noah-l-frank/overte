@@ -88,7 +88,7 @@
 #include "../../../tests/device/native/PhoneSnapshotFastCancel.h"
 #include "../../../tests/device/native/PhoneSnapshotCaptureFiles.h"
 #include "../../../tests/device/native/PhoneSnapshotHandoff.h"
-#include "../../../android/common/snapshot/src/NativeSnapshotAdapter.h"
+#include "../../../tests/device/native/PhoneSnapshotNativeBridge.h"
 #include "../../../tests/device/native/PhoneNavigationMarker.h"
 #include "../../../tests/device/native/PhoneLifecycleEditor.h"
 #include "../../../tests/device/native/PhoneLifecycleWorldInput.h"
@@ -1356,7 +1356,7 @@ QVariantMap TestScriptingInterface::phoneSnapshotObservation(const QVariantMap& 
     if (!DependencyManager::isSet<OffscreenUi>()) { return {}; }
     const auto review=overte::e2e::phoneSnapshotReviewObservation(DependencyManager::get<OffscreenUi>()->getRootItem());
     if (review.isEmpty()) { return {}; }
-    const auto androidExport=QJsonDocument::fromJson(NativeSnapshotAdapter::featureExportObservation().toUtf8());
+    const auto androidExport=QJsonDocument::fromJson(overte::e2e::phoneSnapshotExportObservation().toUtf8());
     if (!androidExport.isObject()) { return {}; }
     source.insert("phoneSnapshotObservationVersion",5);source.insert("review",review);
     source.insert("androidExport",androidExport.object().toVariantMap());
@@ -1486,7 +1486,7 @@ QVariantMap TestScriptingInterface::phoneSnapshotReadback(const QVariantMap& com
             : (operation=="cancel" || operation=="remove-copy") ? (!request.isEmpty() || !nonce.match(id).hasMatch()) : true) { return {}; }
     const auto requested=QDateTime::currentMSecsSinceEpoch();
     const QJsonObject input{{"snapshotReadbackCommandVersion",1},{"action",operation},{"request",request},{"id",id}};
-    const auto raw=NativeSnapshotAdapter::featureReadbackCommand(QString::fromUtf8(QJsonDocument(input).toJson(QJsonDocument::Compact)));
+    const auto raw=overte::e2e::phoneSnapshotReadbackCommand(QString::fromUtf8(QJsonDocument(input).toJson(QJsonDocument::Compact)));
     const auto actual=QJsonDocument::fromJson(raw.toUtf8());
     if (!actual.isObject() || raw.toUtf8().size()>200000) { return {}; }
     return {{"schemaVersion",1},{"requestId",command.value("commandId")},{"runId",command.value("runId")},
