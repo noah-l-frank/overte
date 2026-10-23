@@ -484,7 +484,7 @@ REQUIRED = {
     "ios-navigation-surface-actions": 3,
     "ios-navigation-places-cleanup": 1,
     "ios-navigation-cleanup-call": 1,
-    "ios-navigation-missing-actions": 2,
+    "ios-navigation-missing-actions": 3,
     "ios-navigation-scene-admission": 1,
     "ios-scene-inventory-acquisition": 1,
     "ios-navigation-sample-owner": 1,

@@ -20,14 +20,14 @@ from feature_journeys.navigation_fixture import validate_status
 from ios.adapters.navigation_admission_owner import NavigationAdmissionOwner
 from ios.adapters.navigation_process_scope import NavigationProcessScope,owner_path
 from ios.adapters.navigation_observation_owner import fixture_original
-from ios.adapters.navigation_surface_actions import _SurfaceUI
+from ios.adapters.navigation_surface_actions import _SurfaceUI,NavigationSurfaceActions
 from ios.adapters.normal_input import NativeInput, observation
 from ios.adapters.normal_navigation import IOSNavigation, PROFILE
 from ios.adapters.graphics_history import follow_native
 from ios.adapters import navigation_error_state as errors, navigation_dialog_controls as controls, navigation_ui
 
-VERSION = 2
-READS = (1,2)
+VERSION = 3
+READS = (1,2,3)
 
 
 class _LookupNative:
@@ -53,7 +53,7 @@ class NavigationMissingActions:
         self.epoch_ms, self.monotonic = epoch_ms, monotonic
         self.started = self.last_clock = self.active = None
         self.lock.assert_held(); self.previous = store.read()
-        self.version=VERSION if self.previous is None else self.previous.get('iosNavigationMissingActionsVersion')
+        self.version=2 if self.previous is None else self.previous.get('iosNavigationMissingActionsVersion')
         self.state = None if self.previous is None else self.decode(self.previous)
         self.bound()
 
@@ -61,8 +61,14 @@ class NavigationMissingActions:
         return dict(iosNavigationMissingActionsVersion=self.version, binding=self.binding, runId=self.run, payload=pack([state]))
 
     def call(self, value, verb):
-        arguments('feature.world-navigation.act', value)
-        need(value['runId'] == self.run and value['fixtureUrl'] == self.admission.fixture.fixture_url and value['verb'] == verb)
+        if type(value) is dict and 'iosNavigationCleanupCallVersion' in value:
+            need(self.version>=3 and verb=='dismiss-error')
+            checker=object.__new__(NavigationSurfaceActions);checker.run=self.run;checker.admission=self.admission
+            checker.call(value);need(value['verb']=='cleanup')
+        else:
+            arguments('feature.world-navigation.act', value)
+            need(value['verb']==verb)
+        need(value['runId'] == self.run and value['fixtureUrl'] == self.admission.fixture.fixture_url)
         return value
 
     def decode(self, value):
@@ -70,7 +76,7 @@ class NavigationMissingActions:
         rows = unpack(value['payload']); need(type(value['iosNavigationMissingActionsVersion']) is int
             and value['iosNavigationMissingActionsVersion'] in READS and len(rows) == 1 and same(value,self.envelope(rows[0])))
         state = rows[0]; exact(state, {'missing','dismiss','component','admission','frames','proof','cleared'}
-            | ({'addressOwner'} if self.version==2 else set()))
+            | ({'addressOwner'} if self.version>=2 else set()))
         need(type(state['component']) is dict and set(state['component']) <= {'iosNormalNavigation'}
              and type(state['frames']) is list and len(state['frames']) <= 32)
         previous_ui = None
@@ -83,7 +89,7 @@ class NavigationMissingActions:
             if row['fixture'] is not None:
                 fixture_original(row['fixture'],self.run,self.admission.fixture.inputs,self.admission.fixture.instance)
                 if row['phase'] != 'checking': need(row['fixture']['ticket'] == row['call']['ticket']
-                    and row['fixture']['verb'] == verb and row['fixture']['inputs'] == {})
+                    and row['fixture']['verb'] == row['call']['verb'] and row['fixture']['inputs'] == {})
             if row['phase'] != 'checking': need(row['fixture'] is not None)
             for intent in row['intents']:
                 exact(intent, {'method','path','body','original'})
@@ -101,7 +107,7 @@ class NavigationMissingActions:
                 self.packet(row['returnedUi'])
                 if previous_ui is not None: self.follow_ui(previous_ui,row['returnedUi'])
                 previous_ui = row['returnedUi']
-        if self.version==2:
+        if self.version>=2:
             original=state['addressOwner']
             if original is not None:
                 from ios.adapters.navigation_address_inputs import transfer_original
@@ -152,6 +158,17 @@ class NavigationMissingActions:
 
     def bound(self):
         self.admission.bound(); need(same(self.store.read(),self.previous))
+        if self.state is not None and self.state['dismiss'] is not None:
+            call=self.state['dismiss']['call']
+            if 'iosNavigationCleanupCallVersion' in call and not getattr(self,'_phase_reading',False):
+                # This real authority request itself invokes transport guards.
+                # Its nested callback keeps every local/candidate/CAS check;
+                # only recursive acquisition of this same phase is excluded.
+                self._phase_reading=True
+                try:
+                    phase=self.admission.fixture.read()
+                    need(phase['verb']=='cleanup' and phase['ticket']==call['ticket'] and phase['inputs']=={})
+                finally:self._phase_reading=False
         now = self.monotonic(); need(number(now,0,1e15) and (self.last_clock is None or now >= self.last_clock))
         self.last_clock = now
         if self.started is not None: need(now-self.started < 30)
@@ -219,10 +236,10 @@ class NavigationMissingActions:
         self.started = self.bound(); self.active = key
         if self.state is None:
             self.state = dict(missing=None,dismiss=None,component={},admission=None,frames=[],proof=None,cleared=None)
-            if self.version==2:self.state['addressOwner']=None
+            if self.version>=2:self.state['addressOwner']=None
         self.state[key] = dict(call=call,phase='checking',fixture=None,intents=[],returnedUi=None); self.save()
         row = self.state[key]; row['fixture'] = self.admission.fixture.read(); self.save()
-        need(row['fixture']['ticket'] == call['ticket'] and row['fixture']['verb'] == verb and row['fixture']['inputs'] == {})
+        need(row['fixture']['ticket'] == call['ticket'] and row['fixture']['verb'] == call['verb'] and row['fixture']['inputs'] == {})
         return True
 
     def navigate(self, call):
@@ -234,7 +251,7 @@ class NavigationMissingActions:
             self.state['admission'] = self.lookup_admission(self.state,frame); self.save()
             row = self.state['missing']; row['phase'] = 'issued'; self.save()
             profile=dict(contractVersion=1,profile=PROFILE,sceneUrl=self.admission.fixture.inputs['sceneUrl'])
-            if self.version==2:
+            if self.version>=2:
                 from ios.adapters.navigation_address_inputs import NavigationAddressInputs
                 child=NavigationAddressInputs(PrivateFeatureState(self.store.path.with_name(
                     'ios-navigation-address-'+self.binding['processIdentity']+'-inputs.json')),self.binding,self.run,
@@ -280,9 +297,16 @@ class NavigationMissingActions:
             row = self.state['dismiss']; row['phase'] = 'issued'; self.save()
             # Retain the exact source reference before normal pointer delivery.
             row['intents'].append(dict(method='ERROR-OK',path='navigation.error.ok',body=deepcopy(reference),original=deepcopy(originals['ui']))); self.save()
-            self.native.navigation_error_input(reference=reference)
+            from adapters.operation_transport_guard import scope
+            with scope(self.bound):
+                self.bound();self.native.navigation_error_input(reference=reference)
             row.update(phase='delivered',returnedUi=self.capture()); self.save(); return {'performed':True}
         finally: self.active = self.started = None
+
+    def dismiss_cleanup(self,call):
+        """Ordinary owned OK under its actual cleanup ticket; no fake Act."""
+        need(self.version>=2 and type(call) is dict and 'iosNavigationCleanupCallVersion' in call)
+        self.version=VERSION;self.call(call,'dismiss-error');return self.dismiss(call)
 
     def observe_cleared(self):
         self.bound(); need(self.state is not None and self.state['dismiss'] is not None

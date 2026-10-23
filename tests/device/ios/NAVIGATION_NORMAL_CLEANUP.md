@@ -31,3 +31,18 @@ phase crossing after durable intent, ignored input, foreign content, changed
 journals, idempotent completed calls and unchanged legacy active recipes.
 No compilation or device execution was performed. Whole-run restoration,
 worker/dispatch and paired terminal retirement still gate Feature 1 admission.
+
+`NavigationMissingActions.dismiss_cleanup` additionally delivers the ordinary
+owned error OK using the actual cleanup ticket. It writes version 3 only for
+this private tagged path; active recipes still write 2, and readers retain
+literal versions 1 and 2. The original missing-name proof and actual modal/token
+remain mandatory. Cleanup is never represented as a fabricated Act ticket.
+
+The real phase is checked during every owned boundary and immediately before
+native transport. Its own nested authority request retains local/candidate/CAS
+guards without recursively acquiring the same authority. A changed phase after
+durable OK intent prevents delivery. An uncertain delivered OK is never resent;
+only a fresh original dialog/listener drainage observation may resolve its
+outcome. Four cleanup cases and twelve legacy cases pass on actual private
+journals and loopback/native models. This provides no scene restoration or
+whole-feature completion by itself.
