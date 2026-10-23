@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "local-packets-verified-scope-in-progress",
-  "qualification": "Source implementation, selected device-free host checks and focused original native component compilation; not a complete 63-group catalog or native application/device qualification.",
+  "qualification": "Selected source/device-free host checks and focused original native component compilation; not a complete current catalog run or application/APK/device qualification.",
   "sourceCompleteAreas": [
     "scripts",
     "authentication",
@@ -3023,5 +3023,36 @@
     "partition": "All original Cancel cases are selected exactly once in three disjoint groups; no per-case flow or observation window is shortened.",
     "priorQuietFailuresRetained": true,
     "qualification": "Actual selected Qt5 original navigation/UI/file/collector/TSI/backend bodies plus device-free owner composition. Installation/SDK/server protocol/oven/device keyboard and product rendering remain explicit seams. No complete Assets or Snapshot feature, server or device qualification."
+  },
+  "snapshotBackgroundAndObserverReturn20261023": {
+    "status": "passed",
+    "sourceCommits": [
+      "f1f0351b4597b84f9fe8961f884bfbebbe77b959",
+      "927dce78dc51c30a459e3278dba738daeca5753b"
+    ],
+    "integrationCommits": [
+      "cf1bfd2cdf",
+      "40084f9098"
+    ],
+    "catalogAtRun": 185,
+    "groups": 4,
+    "seconds": 199.75,
+    "checks": {
+      "coverage": 0.097,
+      "chatActorProcessTransport": 55.663,
+      "snapshotBackgroundNormalAndFactory": 40.898,
+      "snapshotBackgroundFences": 103.087
+    },
+    "qualification": "Actual original-file/process/OFD transport plus explicit device-free native/JS/Android/HTTP/background/clock seams. No fresh VR return image or whole resource retirement; all original journals retained."
+  },
+  "snapshotIntegratedWholeUploadPrefix20261023": {
+    "status": "passed",
+    "sourceCommit": "40084f9098",
+    "catalogAtRun": 185,
+    "selector": "snapshot-upload-owner",
+    "seconds": 69.61,
+    "unchangedLimitSeconds": 120,
+    "artifact": "/home/user/Documents/github/overte-pico-adapter-private-20261021/snapshot-upload-integrated-whole-prefix-20261023.xml",
+    "qualification": "Unchanged complete normal Cancel/Still/Save/offline Upload/successful Upload prefix with actual loopback TLS/PNG/story originals and strict930 cold phase/mutation/quiet guards. Native/JS/authentication/Android/render producers and preceding Share input metadata remain explicit seams. No complete Snapshot recipe, fresh VR return image or final resource retirement."
   }
 }

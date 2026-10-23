@@ -2144,3 +2144,39 @@ loopback TLS/PNG/story originals are used, while native/JS/authentication/Androi
 and rendering producers remain explicit seams. Share input metadata remains
 unqualified. Story/Executor/marker/restore and whole final cleanup remain open.
 Source-complete areas stay3/14, with no full app/APK/device qualification.
+
+
+## Integrated Snapshot OS return and original observer transport
+
+Fixed f1f0351b45 and927dce78dc are selected as cf1bfd2cdf and40084f9098.
+Snapshot HOME/return uses the actual common parent source lock, original
+passive OS binding and existing once-only lifecycle transport. Cold background
+recovery constructs no foreground Qt runtime and never resends uncertain HOME
+or Resume. Actual native lifecycle identity, unchanged launches and increased
+background/activation counts are required after return, followed by original
+3s quiet. The base DTO parser is extracted unchanged for passive validation;
+all original parent journals stay retained.
+
+The integrated four-group selection passes199.75s (catalog185): Chat Actor/
+process/transport55.663s, Snapshot normal+actual factory40.898s, background
+fences103.087s, coverage0.097s. All group limits remain120s. The unchanged full
+Snapshot Cancel→Still→Save→offline Upload→successful Upload prefix then passes
+69.610s in isolation at40084f, including strict930 provider-phase/mutation/
+contiguous-quiet guards and the extracted parser. This is the current integrated
+warm result, superseding the earlier agent-only warm qualification boundary.
+Actual TLS/PNG/story bytes are used; native/JS/authentication/Android/render
+producers remain explicit seams. Share effects, a new independent VR return
+image and full story/Executor/marker/original restore retirement remain open.
+
+The neutral observer transport moves unchanged original bytes, original physical
+chunk identities and a fresh independently consumed Parent nonce, then checks
+the actual originally acquired process has ended through final receipt copying.
+It provides no feature verdict; typed remote graph admission remains separate.
+The existing passive Actor plus18 actual two-process/kernel/OFD transport cases
+are selected together. No actual product observer or device was launched.
+
+Phone was additionally inspected read-only at fixed
+3fa8031aa6787af909c6a1701c21536d584c392b, with a clean reference worktree.
+Its newer passive Snapshot constructor-history ownership/bookend checks are
+under review for reuse. No moving HEAD, uncommitted Phone work or Phone input
+authority was selected. Complete source areas remain3/14.
