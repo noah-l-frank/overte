@@ -19,7 +19,7 @@ namespace overte::e2e {
 class SnapshotScriptHistory {
 public:
     SnapshotScriptHistory() : _instance(QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')) { _clock.start(); }
-    void record(const QString& kind,const QString& id,const QString& mode,int revision,const QVariantMap& caller) {
+    void record(const QString& kind,const QString& id,const QString& mode,int revision,const QVariantMap& caller,const QVariantMap& context={}) {
         if (!enabled()) { return; }
         QMutexLocker lock(&_mutex);
         const auto epoch=QDateTime::currentMSecsSinceEpoch(),elapsed=_clock.elapsed();
@@ -35,16 +35,32 @@ public:
                 || QJsonDocument::fromVariant(caller).toJson(QJsonDocument::Compact).size()>16384) {
             _complete=false;return;
         }
+#if defined(ANDROID_APP_PICO_INTERFACE)
+        if (context.value("snapshotCaptureContextVersion")!=1 || context.value("instance").toString().isEmpty()
+                || context.value("capturedEpochMs").toLongLong()<caller.value("invokedEpochMs").toLongLong()
+                || context.value("capturedEpochMs").toLongLong()>epoch || context.value("entries").toMap().size()!=3) { _complete=false;return; }
+#else
+        Q_UNUSED(context)
+#endif
         _epoch=epoch;_elapsed=elapsed;
-        _events.append(QVariantMap{{"sequence",_events.size()+1},{"kind",kind},{"id",id},{"mode",mode},
-            {"revision",revision},{"capturedEpochMs",epoch},{"elapsedMs",elapsed},{"caller",caller}});
+        QVariantMap event{{"sequence",_events.size()+1},{"kind",kind},{"id",id},{"mode",mode},
+            {"revision",revision},{"capturedEpochMs",epoch},{"elapsedMs",elapsed},{"caller",caller}};
+#if defined(ANDROID_APP_PICO_INTERFACE)
+        event.insert("context",context);
+#endif
+        _events.append(event);
     }
     QVariantMap snapshot() {
         if (!enabled()) { return {}; }
         QMutexLocker lock(&_mutex);
         const auto epoch=QDateTime::currentMSecsSinceEpoch(),elapsed=_clock.elapsed();
         if (epoch<=0 || epoch<_epoch || elapsed<_elapsed) { _complete=false; }
-        return {{"snapshotScriptHistoryVersion",1},{"instance",_instance},{"complete",_complete},
+#if defined(ANDROID_APP_PICO_INTERFACE)
+        constexpr int version=2;
+#else
+        constexpr int version=1;
+#endif
+        return {{"snapshotScriptHistoryVersion",version},{"instance",_instance},{"complete",_complete},
             {"sequence",_events.size()},{"events",_events}};
     }
 private:

@@ -56,6 +56,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <ScriptManager.h>
 #if defined(ANDROID_APP_PICO_INTERFACE)
+#include <SettingManager.h>
 #include "../../../tests/device/native/PicoSnapshotCaptureFiles.h"
 #endif
 #endif
@@ -180,7 +181,15 @@ void Snapshot::cancelCapture(const QString& requestId) {
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 void Snapshot::featureCaptureEvent(const QString& kind,const QString& id,const QString& mode,int revision) {
-    _featureCaptureScriptHistory.record(kind,id,mode,revision,ScriptManager::featureNativeCallContext());
+    if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")) { return; }
+    const auto caller=ScriptManager::featureNativeCallContext();
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    const auto manager=DependencyManager::isSet<Setting::Manager>() ? DependencyManager::get<Setting::Manager>() : QSharedPointer<Setting::Manager>{};
+    const auto context=manager ? manager->featureSnapshotCaptureContext() : QVariantMap{};
+    _featureCaptureScriptHistory.record(kind,id,mode,revision,caller,context);
+#else
+    _featureCaptureScriptHistory.record(kind,id,mode,revision,caller);
+#endif
 }
 
 QVariantMap Snapshot::featureSnapshotScriptOriginals(const QVariantMap& command) {
@@ -198,10 +207,21 @@ QVariantMap Snapshot::featureSnapshotScriptOriginals(const QVariantMap& command)
     _featureCaptureScriptQueries.insert(command.value("commandId").toString());
     const auto history=_featureCaptureScriptHistory.snapshot();
     if (history.isEmpty() || history.value("complete")!=true) {return {};}
-    const QVariantMap result{{"snapshotScriptOriginalsVersion",2},{"commandId",command.value("commandId")},
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    const auto manager=DependencyManager::isSet<Setting::Manager>() ? DependencyManager::get<Setting::Manager>() : QSharedPointer<Setting::Manager>{};
+    const auto context=manager ? manager->featureSnapshotCaptureContext() : QVariantMap{};
+    if (context.isEmpty()) { return {}; }
+    constexpr int version=3;
+#else
+    constexpr int version=2;
+#endif
+    QVariantMap result{{"snapshotScriptOriginalsVersion",version},{"commandId",command.value("commandId")},
         {"runId",_featureCaptureScriptRun},{"pid",QCoreApplication::applicationPid()},
         {"sequence",++_featureCaptureScriptSequence},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
         {"history",history},{"activeUploads",_uploads.size()}};
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    result.insert("captureContext",context);
+#endif
     return QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size()<=65536 ? result : QVariantMap{};
 }
 

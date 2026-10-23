@@ -357,3 +357,28 @@ namespace Setting {
         emit clearAllSettingsRequested();
     }
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include <QCoreApplication>
+#include <QDateTime>
+#include <QUrl>
+// The presence/value pattern and three keys follow the fixed Phone b62 source.
+// This Pico observer adds a bounded original read lock and manager birth.
+// No writer, cache initialization, endpoint setter or replacement value exists.
+QVariantMap Setting::Manager::featureSnapshotCaptureContext() const {
+    if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    QVariantMap entries;bool valid=true;
+    const bool acquired=withTryReadLock([&] {
+        for (const auto& key:QStringList{"previousSnapshotDomainID","previousSnapshotHref","previousStillSnapPath"}) {
+            const bool present=_settings.contains(key);const auto value=_settings.value(key);
+            if (present && (value.userType()!=QMetaType::QString || value.toString().size()>4096 || value.toString().contains(QChar::Null))) { valid=false;return; }
+            entries.insert(key,QVariantMap{{"present",present},{"value",present?value:QVariant{}}});
+        }
+    },25);
+    if (!acquired || !valid) { return {}; }
+    const auto captured=QDateTime::currentMSecsSinceEpoch();if (captured<=0) { return {}; }
+    const auto href=entries.value("previousSnapshotHref").toMap().value("value").toString();
+    return {{"snapshotCaptureContextVersion",1},{"instance",_featureSnapshotContextInstance},{"capturedEpochMs",captured},
+        {"entries",entries},{"normalizedHref",QUrl(href).toString()}};
+}
+#endif
