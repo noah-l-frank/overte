@@ -1219,3 +1219,79 @@ Registry, seven Pico coverage tests (all 14 risk groups), six common Assets
 source cases, four focused repository groups and all 668 Markdown checks pass.
 The fixed native artifact and complete raw byte, file, phase, lifetime,
 independent-reader and original manager-body archives remain private.
+
+## Original generic Resource data ownership
+
+The additive `assets-resource-data` owning host case continues the actual
+entity-URL byte path through the complete original generic Resource declaration,
+16 Resource method bodies and its qHash helper. These include constructor/init,
+ensureLoading/attemptRequest/makeRequest, progress/handleReplyFinished,
+finishedLoading, allReferencesCleared and destructor. The original request-event
+emitter and original Application uint64 type registration execute too. Twenty-one
+original body/declaration/helper hashes bind this selection. Cache scheduling,
+index/storage, manager startup, HTTP/File and profiling remain declared host
+endpoints. A host view exposes the actual protected request/started fields;
+it does not override data processing, manufacture completion or a render state.
+
+Two minimal dual E2E+Pico birth hooks occur immediately after the original
+mapping/asset assignments in AssetResourceRequest. An optional weak binding is
+attached on the actual owner thread before the first ordinary send. It requires
+TestScript, the exact original weak Resource owner/request, unchanged URL and
+actual QThread; a late or wrong binding fails observation and leaves request
+control untouched. The hook records only actual private original children.
+It never starts, finishes, cancels, resends or retains a request. Both the CPP
+and header remain byte-equivalent to the fixed parent with the test gates off.
+All original control flow remains, with only the two gated passive calls added.
+
+The new mode invokes the unchanged original factory body through a named
+compilation delegate; its narrow host wrapper only binds the observer before
+returning that actual QObject. The compilation alias is recorded separately.
+The complete original Resource makeRequest then issues its own ordinary send
+and receives its actual original progress/finished signals on the GUI Resource
+owner. The original handleReplyFinished emits the actual bytes and holds its
+own temporary strong self reference. The reader drops its external QShared
+reference inside the original finished signal: the real Resource remains alive
+until that original handler finishes, clears its request and releases its self
+guard. Its original deleter/allReferencesCleared then schedules normal deletion.
+Actual weak guards verify all three data owners and all nine request objects
+gone; no global cache, context, borrowed window or callback capacity is cleared.
+
+Each generic data owner has four original observations: constructed, loaded
+signal, finished with the external reference released, and actual retirement.
+The generic loaded bit is false when loaded(bytes) fires and true when the
+original base downloadFinished completes. That bit is generic byte processing,
+not parsed geometry, texture or Model readiness. Dead-object fields are null
+rather than invented false/zero states. Three actual ResourceRequestObserver
+emissions retain their original URL, caller and extra values. Every new data
+and observer observation counts against the existing combined budget.
+
+The single concretely corrected owning case passes in 40.327 seconds including
+compilation and the existing three original-copy counterexamples. Actual
+combined admission is 511 of 512 physical frame copies. There are 36 request
+lifetime measurements: 30 raw answers and six immutable references to actual
+child-birth hook originals. All old-mode datasets remain unchanged. New generic
+Resource acquisition uses its six immediate child-assignment birth samples;
+the original normal Cancel/Home snapshots observe subsequent actual absence.
+All nine requests, all three data owners and their actual thread relationships
+are verified. The actual byte phase takes 71 ms; original bytes remain
+1758/96/76. Measured Cancel/Home request-absence spans are 3917/3305 ms and
+maximum actual gaps 257/334 ms. The 120-second selector, 90-second compile,
+three-second/500-ms windows, 512-frame and local 16-MiB caps are unchanged.
+
+An earlier 16.176-second compile refusal is retained: the new dual-gated host
+binding include initially followed the harness's existing Pico undef. Moving
+only that include before the macro boundary made the changed case compile;
+there was no unchanged retry or product fix. All complete raw sources and
+negative evidence remain private. The private
+`pico-assets-resource-data-host` format is version 1. Root must add its single
+selector without replacing Root's current catalog count. Product ResourceCache
+scheduling/cache state, ModelCache/HFM geometry and texture processing, real
+renderer/independent actor/stereo effects and whole retained-resource retirement
+remain unqualified. Feature 13/14 stays partial; no public capability changes.
+
+Final registry, seven Pico coverage tests (all 14 risk groups), six common Assets
+source cases, four focused repository groups and all 668 Markdown checks pass.
+Gate-off comparison proves exact CPP/header equality and original control flow
+against the fixed parent. The measured 511-frame admission leaves one frame
+of capacity; other host schedules must still pass the unchanged runtime cap
+and cannot inherit this run's qualification from a projected count.

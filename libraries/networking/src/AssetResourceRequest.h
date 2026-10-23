@@ -20,7 +20,8 @@
 #include "ResourceRequest.h"
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
-namespace overte::e2e { class AssetsRequestLifetimes; }
+#include <memory>
+namespace overte::e2e { class AssetsRequestLifetimes; class AssetsRequestBirthBinding; class FeatureAssetRequestBirth; }
 #endif
 
 class AssetResourceRequest : public ResourceRequest {
@@ -43,6 +44,9 @@ private:
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
     // Passive weak observation of actual child requests; no lifetime mutation.
     friend class overte::e2e::AssetsRequestLifetimes;
+    friend class overte::e2e::AssetsRequestBirthBinding;
+    void featurePicoRequestBirth();
+    std::weak_ptr<overte::e2e::FeatureAssetRequestBirth> _featurePicoRequestBirth;
 #endif
     static bool urlIsAssetHash(const QUrl& url);
 
