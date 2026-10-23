@@ -216,3 +216,12 @@ sender, clock, guard or phase-query method, so it cannot resend input or silentl
 replace a source. The result is explicitly historical; this does not replace
 the still-required fresh factory/warm regression or establish Android provider,
 separate UID, rendered scene, whole Snapshot or resource-retirement acceptance.
+
+The persistent Save-fences regression additionally reopens real private Save
+envelopes and immutable frame chunks with `parent.files.state` still `None`.
+It accepts a disjoint planned copy and rejects collisions with both the original
+capture ID and another native file ID that has no host-cache artifact, as well
+as a ledger missing the original capture. Failed loads retain the exact on-disk
+bytes. Parent native/UI/phase effect proofs and their unrelated continuity are
+explicit narrow seams in these cases; they do not claim a full target factory
+run or repeat the long normal prefix.
