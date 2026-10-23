@@ -59,6 +59,9 @@ Q_LOGGING_CATEGORY(entities,"assets-original-entity-host")
 Q_LOGGING_CATEGORY(networking,"assets-original-resource-host")
 #if defined(ASSETS_OBSERVE_REQUEST_LIFETIMES)
 #include "tests/device/native/AssetsRequestLifetimes.h"
+#if defined(ASSETS_ORIGINAL_RESOURCE_DATA)
+#include "tests/device/native/AssetsRequestBirthBinding.h"
+#endif
 #endif
 #endif
 #undef ANDROID_APP_PICO_INTERFACE
@@ -74,6 +77,9 @@ Q_LOGGING_CATEGORY(qmlLogging,"qml-original-loader-host")
 #include "AssetsReadOriginals.inc"
 #if defined(ASSETS_ORIGINAL_RESOURCE_MANAGER_FACTORY)
 #include "assets-resource-manager-host.h"
+#if defined(ASSETS_ORIGINAL_RESOURCE_DATA)
+#include "assets-resource-data-host.h"
+#endif
 #endif
 #if defined(ASSETS_ORIGINAL_MAPPING_MODEL)
 #include "AssetsMappingOriginals.inc"
@@ -157,11 +163,22 @@ int main(int argc,char**argv){
 #endif
 #if defined(ASSETS_ORIGINAL_RESOURCE_READ)
  const auto resourceStats=QSharedPointer<StatTracker>::create();DependencyManager::slot<StatTracker>()=resourceStats;
+#if defined(ASSETS_ORIGINAL_RESOURCE_DATA)
+#include "AssetsResourceDataRegistration.inc"
+ const auto resourceEvents=QSharedPointer<ResourceRequestObserver>::create();DependencyManager::slot<ResourceRequestObserver>()=resourceEvents;
+ QJsonArray originalResourceSignals;
+ QObject::connect(resourceEvents.data(),&ResourceRequestObserver::resourceRequestEvent,&app,[&](const QVariantMap& value){originalResourceSignals.append(QJsonObject::fromVariantMap(value));});
+#endif
 #if defined(ASSETS_OBSERVE_REQUEST_LIFETIMES)
 #if defined(ASSETS_ORIGINAL_RESOURCE_MANAGER_FACTORY)
  overte::e2e::AudioSettingsQueue ownerQueue;std::shared_ptr<overte::e2e::AssetsRequestLifetimes> requestLifetimes;
  assert(QMetaObject::invokeMethod(originalReadClient.client.data(),[&]{requestLifetimes=std::make_shared<overte::e2e::AssetsRequestLifetimes>();},Qt::BlockingQueuedConnection));
  ResourceManager resourceManager(originalReadClient.worker);QObject resourceParent;
+#if defined(ASSETS_ORIGINAL_RESOURCE_DATA)
+ const auto resourceManagerBorrow=QSharedPointer<ResourceManager>(&resourceManager,[](ResourceManager*){});DependencyManager::slot<ResourceManager>()=resourceManagerBorrow;
+ const auto birthArchive=std::make_shared<overte::e2e::AssetsRequestBirthArchive>();
+ QList<std::shared_ptr<overte::e2e::AssetsRequestBirthBinding>> birthBindings;
+#endif
  const auto lifetimeSnapshot=[&](const QString& run) {
   return assetsOwnerSnapshot(ownerQueue,originalReadClient.client,[requestLifetimes,run](QObject*){return requestLifetimes->snapshot(run);});
  };
@@ -352,6 +369,43 @@ QtObject {
     QElapsedTimer budget;budget.start();QJsonArray packets;QByteArray mainBytes;const auto firstWire=resourceWireOriginals.size();
     auto readResource=[&](const QUrl& url,const QString& role) {
      AssetsResourceRead read(url);
+#if defined(ASSETS_ORIGINAL_RESOURCE_DATA)
+     QJsonArray dataOriginals;const auto run=request.value("runId").toString();
+     auto owner=QSharedPointer<HostUncachedResource>(new HostUncachedResource(url),[](HostUncachedResource* value){value->deleter();});
+     owner->setSelf(owner.staticCast<Resource>().toWeakRef());const QPointer<HostUncachedResource> originalOwner(owner.data());
+     const auto dataId=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
+     auto state=[&](const QString& phase) {
+      const auto object=originalOwner.data();return QJsonObject{{"phase",phase},{"id",dataId},{"alive",bool(object)},
+       {"observedEpochMs",static_cast<double>(QDateTime::currentMSecsSinceEpoch())},{"ownerThread",object ? QJsonValue(object->thread()==QThread::currentThread()) : QJsonValue()},
+       {"actualQtClass",object ? QJsonValue(QString::fromLatin1(object->metaObject()->className())) : QJsonValue()},
+       {"requestAlive",!read.request.isNull()},{"genericLoaded",object ? QJsonValue(object->isLoaded()) : QJsonValue()},
+       {"genericFailed",object ? QJsonValue(object->isFailed()) : QJsonValue()},
+       {"started",object ? QJsonValue(object->started()) : QJsonValue()},{"bytes",object ? QJsonValue(static_cast<double>(object->getBytes())) : QJsonValue()}};
+     };
+     dataOriginals.append(state("constructed"));
+     resourceManager.observedFactory=[&,run](QObject* parent,ResourceRequest* actual) {
+      assert(parent==originalOwner.data());const auto source=qobject_cast<AssetResourceRequest*>(actual);assert(source);
+      read.request=source;const auto binding=overte::e2e::AssetsRequestBirthBinding::attach(source,parent,run,requestLifetimes,birthArchive);
+      assert(binding);birthBindings.append(binding);
+     };
+     QObject::connect(owner.data(),&Resource::loaded,owner.data(),[&](const QByteArray& bytes) {read.raw=bytes;dataOriginals.append(state("loaded-signal"));});
+     bool finished=false;QString actualClass;bool ownerMatchesClient=false;
+     QObject::connect(owner.data(),&Resource::finished,owner.data(),[&](bool success) {
+      const auto object=originalOwner.data();assert(object && object->originalRequest());const auto actual=object->originalRequest();
+      read.result=actual->getResult();read.state=actual->getState();read.relative=actual->getRelativePathUrl();read.cache=actual->loadedFromCache();read.completed=success;
+      actualClass=QString::fromLatin1(actual->metaObject()->className());ownerMatchesClient=actual->thread()==originalReadClient.client->thread();
+      owner.clear();const auto retained=state("finished-external-reference-released");assert(originalOwner && owner.isNull());dataOriginals.append(retained);finished=true;
+     });
+     owner->ensureLoading();
+     while(!finished && budget.elapsed()<1500){QTest::qWait(1);}assert(finished && read.completed);
+     while((originalOwner || !read.request.isNull()) && budget.elapsed()<1500){QTest::qWait(1);}assert(!originalOwner && read.request.isNull());
+     dataOriginals.append(state("retired"));resourceManager.observedFactory={};
+     for(const auto& binding:birthBindings){assert(binding->valid() && !binding->sourceAlive() && !binding->ownerAlive());}
+     // Birth hooks retain every admitted live original. The existing normal
+     // Cancel/Home snapshots measure their subsequent actual absence.
+     auto captured=read.capture();captured["role"]=role;captured["actualClass"]=actualClass;captured["ownerMatchesClient"]=ownerMatchesClient;
+     captured["ownerQueueRetired"]=ownerQueue.settled();captured["dataOriginals"]=dataOriginals;packets.append(captured);return read.raw;
+#else
 #if defined(ASSETS_ORIGINAL_RESOURCE_MANAGER_FACTORY)
      auto base=resourceManager.createResourceRequest(&resourceParent,url,false);auto resource=qobject_cast<AssetResourceRequest*>(base);
      assert(resource && resource->thread()==originalReadClient.client->thread() && resource->thread()!=QThread::currentThread());
@@ -410,6 +464,7 @@ QtObject {
      captured["actualClass"]=actualClass;captured["ownerMatchesClient"]=ownerMatchesClient;captured["ownerQueueRetired"]=ownerQueue.settled();
 #endif
      packets.append(captured);return read.raw;
+#endif
     };
     mainBytes=readResource(originalUrl,"main");const auto doc=QJsonDocument::fromJson(mainBytes).object();
     const auto mesh=doc.value("buffers").toArray().at(0).toObject().value("uri").toString();const auto texture=doc.value("images").toArray().at(0).toObject().value("uri").toString();
@@ -421,7 +476,11 @@ QtObject {
      {"resources",packets},{"serverOriginals",wires},{"serverInstance",server.instance},{"processId",static_cast<double>(QCoreApplication::applicationPid())},
      {"capturedEpochMs",static_cast<double>(QDateTime::currentMSecsSinceEpoch())},{"elapsedMs",budget.elapsed()}};
 #if defined(ASSETS_OBSERVE_REQUEST_LIFETIMES)
+#if defined(ASSETS_ORIGINAL_RESOURCE_DATA)
+    packet["requestLifetimeOriginals"]=birthArchive->originals;packet["resourceObserverOriginals"]=originalResourceSignals;
+#else
     packet["requestLifetimeOriginals"]=requestLifetimeOriginals;
+#endif
 #endif
    }
 #endif

@@ -8,9 +8,14 @@
 #include "ResourceRequest.h"
 #include "AssetResourceRequest.h"
 #include "assets-resource-stat-host.h"
+#if defined(ASSETS_ORIGINAL_RESOURCE_DATA)
+#include "AssetsResourceObserver.h"
+#include "AssetsResourceObserverOriginal.inc"
+#else
 class ResourceRequestObserver {
 public:void update(const QUrl&,qint64,const QString&){qFatal("Unselected host request observer");}
 };
+#endif
 #include "AssetsResourceOriginals.inc"
 struct AssetsResourceRead {
  QPointer<ResourceRequest> request;

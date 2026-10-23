@@ -19,7 +19,16 @@ class ResourceManager {
 public:
  explicit ResourceManager(QThread& actualClientThread):_thread(actualClientThread){}
  QString normalizeURL(const QString&);QUrl normalizeURL(const QUrl&);
+#if defined(ASSETS_ORIGINAL_RESOURCE_DATA)
+ std::function<void(QObject*,ResourceRequest*)> observedFactory;
+ ResourceRequest* createOriginalResourceRequest(QObject*,const QUrl&,bool,qint64,const QString&);
+ ResourceRequest* createResourceRequest(QObject* parent,const QUrl& url,bool observable=true,qint64 caller=-1,const QString& extra="") {
+  auto actual=createOriginalResourceRequest(parent,url,observable,caller,extra);
+  if(actual && observedFactory){observedFactory(parent,actual);}return actual;
+ }
+#else
  ResourceRequest* createResourceRequest(QObject*,const QUrl&,bool=true,qint64=-1,const QString& = "");
+#endif
  using PrefixMap=std::map<QString,QString>;
  QThread& _thread;bool _atpSupportEnabled{true};PrefixMap _prefixMap;QMutex _prefixMapLock;
 };

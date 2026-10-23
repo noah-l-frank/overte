@@ -21,6 +21,17 @@
 #include "AssetUtils.h"
 #include "MappingRequest.h"
 #include "NetworkLogging.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include <QCoreApplication>
+#include <QThread>
+#include "FeatureAssetRequestBirth.h"
+void AssetResourceRequest::featurePicoRequestBirth() {
+    if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")
+            || thread() != QThread::currentThread()) { return; }
+    const auto binding = _featurePicoRequestBirth.lock();
+    if (binding) { binding->observe(this); }
+}
+#endif
 
 static const int DOWNLOAD_PROGRESS_LOG_INTERVAL_SECONDS = 5;
 
@@ -78,6 +89,9 @@ void AssetResourceRequest::requestMappingForPath(const AssetUtils::AssetPath& pa
 
     auto assetClient = DependencyManager::get<AssetClient>();
     _assetMappingRequest = assetClient->createGetMappingRequest(path);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    featurePicoRequestBirth();
+#endif
 
     // make sure we'll hear about the result of the get mapping request
     connect(_assetMappingRequest, &GetMappingRequest::finished, this, [this, path](GetMappingRequest* request){
@@ -148,6 +162,9 @@ void AssetResourceRequest::requestHash(const AssetUtils::AssetHash& hash) {
     // Make request to atp
     auto assetClient = DependencyManager::get<AssetClient>();
     _assetRequest = assetClient->createRequest(hash, _byteRange);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    featurePicoRequestBirth();
+#endif
 
     connect(_assetRequest, &AssetRequest::progress, this, &AssetResourceRequest::onDownloadProgress);
     connect(_assetRequest, &AssetRequest::finished, this, [this](AssetRequest* req) {

@@ -10,7 +10,7 @@ from test_assets_read_native import ROOT,HERE,original
 
 def prepare(stage,environment,prefix):
     stage=Path(stage);network=ROOT/'libraries/networking/src';provenance={}
-    for name in ('ResourceRequest.h','AssetResourceRequest.h','AssetResourceRequest.cpp'):
+    for name in ('ResourceRequest.h','AssetResourceRequest.h','AssetResourceRequest.cpp','FeatureAssetRequestBirth.h'):
         data=(network/name).read_bytes();(stage/name).write_bytes(data);provenance[name]=hashlib.sha256(data).hexdigest()
     source=(network/'ResourceRequest.cpp').read_text()
     signatures=('QString ResourceRequest::toHttpDateString(', 'void ResourceRequest::send(',

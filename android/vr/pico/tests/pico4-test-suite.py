@@ -157,6 +157,7 @@ TESTS = (
     test('assets-entity-resources', "interaction", PYTHON, "device/test_assets_entity_resources.py", requires=("c++", "pkg-config", "unshare")),
     test('assets-request-lifetimes', "interaction", PYTHON, "device/test_assets_request_lifetimes.py", requires=("c++", "pkg-config", "unshare")),
     test('assets-resource-manager', "interaction", PYTHON, "device/test_assets_resource_manager.py", requires=("c++", "pkg-config", "unshare")),
+    test('assets-resource-data', "interaction", PYTHON, "device/test_assets_resource_data.py", requires=("c++", "pkg-config", "unshare")),
     test('assets-read-native', "interaction", PYTHON, "device/test_assets_read_native.py", requires=("c++", "pkg-config")),
     test('assets-read-job', "interaction", PYTHON, "device/test_assets_read_job_native.py", requires=("c++", "pkg-config")),
     test('assets-backend-source', "interaction", PYTHON, "device/test_assets_source.py", requires=("c++", "pkg-config")),
