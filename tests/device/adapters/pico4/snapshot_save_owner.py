@@ -55,7 +55,7 @@ class PicoSnapshotSaveOwner:
         self.native=parent.native;self.store=PrivateFeatureState(path)
         need(self.store.path==self.lock.path.with_name('snapshot-save-owner.json') and saved.artifacts==parent.files.transport.artifacts
             and saved.context=={key:self.binding[key] for key in ('sourceRevision','artifactSha256','processIdentity')})
-        self.disk=self.state=self.anchor=None;self.current=False;self.decoded={}
+        self.disk=self.state=self.anchor=None;self.current=False;self.decoded={};self.upload_owner=None
         with self.lock.held():
             parent.load();need(parent.encoding_version==2 and parent.state['stage']=='still-ready')
             self.parent_disk=deepcopy(parent.disk);self.parent_digest=sha(self.parent_disk)
@@ -253,8 +253,18 @@ class PicoSnapshotSaveOwner:
         selected=self.parent.snapshot.ui.control(ui,control);need(selected is not None);export_control(selected)
         need(selected['inputReady'] and selected['path']==path and selected['token']==command['controlToken'])
 
+    def bind_upload_owner(self,owner):
+        from adapters.pico4.snapshot_upload_owner import PicoSnapshotUploadOwner
+        need(isinstance(owner,PicoSnapshotUploadOwner) and owner.parent is self and owner.lock is self.lock
+            and (self.upload_owner is None or self.upload_owner is owner
+                or self.upload_owner.verb=='upload-fail' and self.upload_owner.state['stage']=='partial-ready' and owner.failure is self.upload_owner))
+        self.upload_owner=owner
+
     def before_qml(self,command):
-        self.lock.assert_held();need(self.current and self.state['stage']=='input-issued' and not any(row['kind']=='qml' for row in self.state['deliveries']))
+        self.lock.assert_held()
+        if self.state['stage']=='partial-ready' and self.upload_owner is not None:
+            self.upload_owner.before_qml(command);return
+        need(self.current and self.state['stage']=='input-issued' and not any(row['kind']=='qml' for row in self.state['deliveries']))
         row=self.append();self.qml(command,row);self.before_export(row,self.state);self.parent.still_idle(row['base'],self.parent.state)
         state=deepcopy(self.state);state['deliveries'].append(dict(kind='qml',command=deepcopy(command),frame=len(state['frames'])-1));self.save(state);self.fence()
 

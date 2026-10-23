@@ -157,6 +157,8 @@ REQUIRED = {
     "snapshot-upload-file": 2,
     "snapshot-upload-original": 2,
     "pico-snapshot-os-source": 1,
+    "pico-snapshot-upload-owner": 1,
+    "pico-snapshot-upload-owner-originals": 1,
     "pico-snapshot-save-owner": 1,
     "pico-snapshot-save-originals": 1,
     "pico-snapshot-cancel-owner": 2,
