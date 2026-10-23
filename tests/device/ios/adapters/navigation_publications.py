@@ -27,7 +27,7 @@ VERSION=1
 
 
 class NavigationPublications:
-    def __init__(self,initial,observers,*,transfer=None,guard=lambda:True,
+    def __init__(self,initial,observers,*,transfer=None,restoration=None,guard=lambda:True,
                  epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic):
         need(isinstance(initial,NavigationAdmissionOwner) and type(observers) is dict
             and set(observers)==({0} if transfer is None else {0,1})
@@ -37,6 +37,12 @@ class NavigationPublications:
         self.lock,self.run,self.binding=initial.lock,initial.run,deepcopy(initial.binding)
         self.guard,self.epoch_ms,self.monotonic=guard,epoch_ms,monotonic
         self.role=observers[0].role;self.stage=max(observers)
+        self.restoration=restoration
+        if restoration is not None:
+            from ios.adapters.navigation_restoration import NavigationRestoration
+            need(type(restoration) is NavigationRestoration and transfer is not None
+                and restoration.lock is self.lock and restoration.flow.role==self.role
+                and restoration.flow.run==self.run and same(restoration.binding,observers[1].binding))
         self.store=PrivateFeatureState(initial.store.path.with_name('phase-publication-world-navigation-'+self.run+'-actor.json'))
         self.bound();self.validate_sources()
 
@@ -79,6 +85,9 @@ class NavigationPublications:
 
     def validate_original(self,reference):
         self.validate_sources()
+        if type(reference) is dict and 'iosNavigationRestorationReferenceVersion' in reference:
+            need(self.restoration is not None)
+            return self.restoration.validate_original(reference)
         if type(reference) is dict and set(reference)=={'requestId','ownerSha256'}:
             # A literal existing writer-1 stage-zero reference keeps its old
             # interpretation and bytes when the whole owner adopts the ledger.
@@ -123,8 +132,10 @@ class NavigationPublications:
         return PhaseWitnessPublisher(self.store,self.binding,phase,self.lock,self.bound,self.validate_original,
             epoch_ms=self.epoch_ms,monotonic=self.monotonic)
 
-    def publish(self,client):
-        publisher=self.publisher(client);publisher.publish(self.reference(self.observers[self.stage]))
+    def publish(self,client,*,restored=False):
+        need(type(restored) is bool and (not restored or self.restoration is not None))
+        reference=self.restoration.reference() if restored else self.reference(self.observers[self.stage])
+        publisher=self.publisher(client);publisher.publish(reference)
         receipt=publisher.load(publisher.state['records'][-1]);need(receipt['mode']=='published');return deepcopy(receipt['entry'])
 
     def resolve(self,client):

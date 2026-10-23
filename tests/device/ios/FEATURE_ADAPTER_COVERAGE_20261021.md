@@ -115,6 +115,10 @@ including unresolved and completely retained lost-return recovery. The additive
 [terminal profile](../feature_journeys/TERMINAL_RETIREMENT.md) now exists in the
 common operation/engine/module path. Its feature-specific source-to-seal and
 process-end decoders, failure restoration and full dispatcher remain required.
+The [current-process restoration owner](NAVIGATION_RESTORATION.md) now connects
+post-restart original source/image/input quiet to actual public fields and keeps
+retained Qt roots explicit. It does not retire those lifetimes or admit the whole
+feature.
 It still grants no complete capability. The exact remaining terminal-retirement
 interface mismatch and next additive integration step are documented in
 [the normal navigation handoff](adapters/NORMAL_NAVIGATION.md#concrete-terminal-retirement-interface-gap):

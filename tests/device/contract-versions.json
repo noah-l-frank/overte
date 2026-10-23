@@ -499,6 +499,8 @@
     "ios-navigation-quiet-original": {"current": 1, "reads": [1]},
     "ios-navigation-quiet-period": {"current": 1, "reads": [1]},
     "ios-navigation-whole-preparation": {"current": 1, "reads": [1]},
+    "ios-navigation-restoration": {"current": 1, "reads": [1]},
+    "ios-navigation-restoration-reference": {"current": 1, "reads": [1]},
     "ios-snapshot-exports": {"current": 1, "reads": [1]},
     "ios-snapshot-destination": {"current": 1, "reads": [1]},
     "ios-snapshot-share-original": {"current": 1, "reads": [1]},
