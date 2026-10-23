@@ -1151,6 +1151,8 @@ QVariantMap TestScriptingInterface::featureAvatarRenderObservation(const QVarian
     const auto model = avatar->getSkeletonModel();
     if (!model) { return {}; }
     const auto geometry = model->getGeometry();
+    const auto localRendering = avatar->property("shouldRenderLocally");
+    if (localRendering.userType() != QMetaType::Bool) { return {}; }
     QVariant loadedGeometry;
     if (geometry && geometry->isHFMModelLoaded()) {
         // This is the immutable loaded HFM source, never the requested Model URL.
@@ -1169,7 +1171,7 @@ QVariantMap TestScriptingInterface::featureAvatarRenderObservation(const QVarian
     auto quat = [](const glm::quat& value) { return QVariantList{value.x,value.y,value.z,value.w}; };
     const QVariantMap source {{"avatarRenderVersion",1},{"modelInstance",model->e2eModelInstance()},
         {"rigId",model->getRig().e2eRigId()},{"loaded",model->isLoaded()},{"visible",model->isVisible()},
-        {"addedToScene",model->isAddedToScene()},{"localRenderingEnabled",avatar->getShouldRenderLocally()},
+        {"addedToScene",model->isAddedToScene()},{"localRenderingEnabled",localRendering.toBool()},
         {"avatarShouldRender",avatar->shouldRender()},{"geometry",loadedGeometry},
         {"pose",QVariantMap{{"feetPosition",vec(avatar->getWorldFeetPosition())},
             {"orientation",quat(avatar->getWorldOrientation())},{"modelScale",avatar->getModelScale()}}},
