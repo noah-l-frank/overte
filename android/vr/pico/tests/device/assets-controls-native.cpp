@@ -60,6 +60,9 @@ Q_LOGGING_CATEGORY(qmlLogging,"qml-original-loader-host")
 #include "AssetsTabletOriginals.inc"
 #endif
 #include "AssetsReadOriginals.inc"
+#if defined(ASSETS_ORIGINAL_MAPPING_MODEL)
+#include "AssetsMappingOriginals.inc"
+#endif
 #if defined(ASSETS_ORIGINAL_SERVER_QUERY)
 #include "assets-server-status-host.h"
 Q_LOGGING_CATEGORY(asset_server,"assets-normal-server-read-host")
@@ -115,14 +118,24 @@ int main(int argc,char**argv){
   QByteArray wire;assert(QMetaObject::invokeMethod(&server,[&]{wire=server.originalWire();},Qt::BlockingQueuedConnection));return wire;
  });
  const auto foreignHash=putOriginal(server,originalReadClient.client->content);server._fileMappings["/foreign/original.bin"]=foreignHash;
+#if defined(ASSETS_ORIGINAL_MAPPING_MODEL)
+ server._fileMappings["/.baked/foreign-original/asset.bin"]=foreignHash;
+#endif
 #else
  AssetsNativeClient originalReadClient;
 #endif
  engine.rootContext()->setContextProperty("fileDialogHelper",&files);
- QStandardItemModel model;auto folder=new QStandardItem("e2e-root");folder->setData("/e2e-root/",256);folder->setData(true,257);
- auto main=new QStandardItem("main.gltf");main->setData("/e2e-root/main.gltf",256);main->setData(false,257);main->setData("atp:/e2e-root/main.gltf",259);main->setData("--",261);
+ QStandardItemModel model;QStandardItem* main=nullptr;
+#if !defined(ASSETS_ORIGINAL_MAPPING_MODEL)
+ auto folder=new QStandardItem("e2e-root");folder->setData("/e2e-root/",256);folder->setData(true,257);
+ main=new QStandardItem("main.gltf");main->setData("/e2e-root/main.gltf",256);main->setData(false,257);main->setData("atp:/e2e-root/main.gltf",259);main->setData("--",261);
  folder->appendRow(main);model.appendRow(folder);engine.rootContext()->setContextProperty("assetModel",&model);
- QQmlComponent helper(&engine);helper.setData(R"(import QtQml 2.7
+#else
+ assert(app.arguments().contains("--serve"));engine.rootContext()->setContextProperty("assetModel",originalUploads->getProxyModel());
+ quint64 modelUpdates=0;qint64 modelUpdatedEpoch=0;
+ QObject::connect(originalUploads->getAssetMappingModel(),&AssetMappingModel::updated,&app,[&]{++modelUpdates;modelUpdatedEpoch=QDateTime::currentMSecsSinceEpoch();});
+#endif
+ QQmlComponent helper(&engine);QByteArray helperCode=R"(import QtQml 2.7
 QtObject {
  property var proxyModel: assetModel
  property var mappingModel: QtObject { property bool autoRefreshEnabled: false; signal errorGettingMappings(string message); function refresh() {} }
@@ -155,7 +168,12 @@ QtObject {
    bundleOriginal=({files:paths,relative:relative,destination:destination,primary:primary,actual:manifest});
    ++uploads;return originalBundleService.uploadBundle(paths,relative,destination,primary,progress,done);
  }
-})",QUrl("file:///explicit-assets-endpoints.qml"));
+})";
+#if defined(ASSETS_ORIGINAL_MAPPING_MODEL)
+ helperCode.replace("property var mappingModel: QtObject { property bool autoRefreshEnabled: false; signal errorGettingMappings(string message); function refresh() {} }",
+   "property var mappingModel: originalBundleService.mappingModel");
+#endif
+ helper.setData(helperCode,QUrl("file:///explicit-assets-endpoints.qml"));
  QScopedPointer<QObject> service(helper.create());if(!service){qWarning()<<helper.errors();return 1;}
  for(const auto& name:QStringList{"Assets","Entities","MenuInterface","MyAvatar","Vec3","Quat","ApplicationInterface"})engine.rootContext()->setContextProperty(name,service.data());
  QUrl rootSource=QUrl::fromLocalFile(argv[2]);
@@ -231,6 +249,26 @@ QtObject {
     packet=QJsonObject{{"requestId",request.value("requestId")},{"wireBase64",QString::fromLatin1(server.originalWire().toBase64())},
      {"serverFiles",server.originalFiles()},{"serverInstance",server.instance},{"sourceSequence",static_cast<double>(server.queries)},
      {"processId",static_cast<double>(QCoreApplication::applicationPid())},{"capturedEpochMs",static_cast<double>(QDateTime::currentMSecsSinceEpoch())}};
+   }
+#endif
+#if defined(ASSETS_ORIGINAL_MAPPING_MODEL)
+   else if(action=="host-original-mapping-model") {
+    QCoreApplication::processEvents(); // Pump the host's otherwise stdin-blocked GUI loop.
+    auto actual=originalUploads->getAssetMappingModel();auto proxy=originalUploads->getProxyModel();QJsonArray rows;
+    std::function<void(const QModelIndex&,int)> walk=[&](const QModelIndex& parent,int depth) {
+     assert(depth<=64 && rows.size()<=4096);
+     for(int row=0;row<proxy->rowCount(parent);++row) {
+      const auto index=proxy->index(row,0,parent);
+      rows.append(QJsonObject{{"name",proxy->data(index,Qt::DisplayRole).toString()},{"path",proxy->data(index,Qt::UserRole).toString()},
+       {"folder",proxy->data(index,Qt::UserRole+1).toBool()},{"url",proxy->data(index,Qt::UserRole+3).toString()},
+       {"status",proxy->data(index,Qt::UserRole+5).toString()},{"error",proxy->data(index,Qt::UserRole+6).toString()}});walk(index,depth+1);
+     }
+    };walk(QModelIndex(),0);
+    packet=QJsonObject{{"className",QString::fromLatin1(actual->metaObject()->className())},{"proxyClassName",QString::fromLatin1(proxy->metaObject()->className())},
+     {"sourceMatches",proxy->sourceModel()==actual},{"ownerThread",actual->thread()==QThread::currentThread()},
+     {"autoRefreshEnabled",actual->isAutoRefreshEnabled()},{"numPendingBakes",actual->getNumPendingBakes()},
+     {"updatedSignals",static_cast<double>(modelUpdates)},{"lastUpdatedEpochMs",static_cast<double>(modelUpdatedEpoch)},
+     {"processId",static_cast<double>(QCoreApplication::applicationPid())},{"capturedEpochMs",static_cast<double>(QDateTime::currentMSecsSinceEpoch())},{"rows",rows}};
    }
 #endif
 #if defined(ASSETS_PERSISTENT_TABLET_HOST)

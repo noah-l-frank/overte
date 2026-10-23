@@ -872,3 +872,44 @@ transcripts remain separate. `assets-cancel-effects` adds one selector locally
 contract/version/capability or behavioral change. Whole actual server/oven,
 original loaded model/texture, independent rendered peer/stereo, complete
 application retirement and the retained context obligations remain open.
+
+## Original AssetMappingModel and normal QML selection
+
+The optional owning fixture now compiles the complete original
+`AssetMappingModel` declaration and seven method bodies, the original
+`AssetMappingsScriptingInterface` proxy constructor, original role/status
+conversion, metatype registration and unchanged 1000 ms timer interval. Twelve
+body/declaration/helper hashes bind that selection. The actual QML page receives
+this real model and `QSortFilterProxyModel`; fixture-created table rows supply
+no data in this mode. Normal model refresh creates the original GetAll request
+on the existing client thread and updates the real model through its original
+GUI callback. The host pumps its otherwise stdin-blocked GUI loop when observing
+the model, without setting its contents or calling QML handlers as input.
+
+Ordinary Refresh, filter focus/text and row selection travel through the
+existing production control factory, original pointer/NativeFieldInput and
+actual QML tree. Their original scopes, intended values, exact final native
+commands and after-scopes are durably recorded before their original writers,
+with fresh phase fences. A controlled foreign row is browsed only, never
+adopted for rename/delete/import. The real selected path/status match the
+independent server inventory. The hidden mapping stays in both complete backend
+reads while the original model hides it from the view. The selected unsupported
+row has actual disabled baking availability; no oven readiness or owned uploaded
+glTF action is inferred from that fixture row.
+
+This real model/selection then follows the existing independent Cancel/File/Home
+effect path. Actual normal Home destroys the page and stops the original model
+auto-refresh through QML destruction. The original mapping manager/model and
+invalid surviving context remain retained; neither a zero model pending-count
+nor stopped timer proves that all backend workers or global resources died.
+Combined admission also counts the additional model/UI/input/phase originals.
+
+The new `assets-mapping-model` owning case passed in 38.977 seconds. Its required
+default CancelEffects regression passed in 33.828 seconds (72.81 seconds
+together), preserving each original 90-second compile/120-second selector cap.
+The local catalog adds one selector (159 to 160); Root must preserve its current
+catalog when selecting it. Exact owner journals, raw model/UI/phase/input facts,
+both native artifacts and actual independent server replies remain in private
+evidence. There is no product behavior, version or capability change. Whole
+server/oven, uploaded owned mapping, loaded model/texture, independent rendered
+peer/stereo and complete retained-resource retirement remain unqualified.

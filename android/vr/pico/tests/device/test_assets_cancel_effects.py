@@ -65,6 +65,8 @@ class AssetsCancelEffectsTests(unittest.TestCase):
         self.assertEqual(primary['source']['mappings'],independent['source']['mappings']);return primary['source']['mappings']
     def test_normal_cancel_file_home_and_continuous_independent_unchanged_mapping_effect(self):
         baseline=self.mappings();self.assertEqual(1,len(baseline));self.assertEqual('/foreign/original.bin',baseline[0]['path'])
+        self.exercise_cancel_home(baseline)
+    def exercise_cancel_home(self,baseline):
         self.owner.open();self.assertEqual(baseline,self.mappings());self.cancel_phase();sample=self.owner.sample;quiet=[]
         def independently_observed_sample():
             value=sample();self.assertEqual(baseline,self.mappings());quiet.append(deepcopy(self.pair.history[-1]));return value
@@ -105,6 +107,7 @@ class AssetsCancelEffectsTests(unittest.TestCase):
         raw+=2*len(canonical([cancel['baselineMappings'],cancel['baselineUploads'],cancel['unresolvedInputs']]))
         counts+=len(self.final_uploads.history);raw+=len(canonical(self.final_uploads.history))
         self.assertLessEqual(counts,MAX_FRAMES);self.assertLessEqual(raw,MAX_RAW);self.assertTrue(self.pointers()['contextAlive'])
+        return counts,raw
 
 
 if __name__=='__main__':unittest.main()
