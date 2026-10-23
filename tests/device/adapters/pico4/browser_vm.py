@@ -7,6 +7,7 @@ capability is provided. Service/table absence never retires a live Qt object.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import hashlib
+import json
 import math
 import re
 from adapters.chat_journey.source_chunks import ChatSourceChunks,digest,json_digest
@@ -15,7 +16,7 @@ from adapters.native_script_observation import NativeScriptObservation,validate 
 from adapters.native_script_object_lifetimes import NativeScriptObjectLifetimes,validate as object_packet,selected,ACTION
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
-from adapters.script_journey.history import MAX_FRAMES,same
+from adapters.script_journey.history import MAX_FRAMES,canonical,same
 from adapters.script_journey.lock import ScriptSourceLock
 from adapters.pico4.browser_source import fixture
 from adapters.pico4.browser_measurements import browser_status
@@ -103,25 +104,51 @@ class PicoBrowserVm:
             and scripts.instance is None and objects.last is None)
         lock.assert_held();self.scripts,self.objects,self.store,self.lock,self.http=scripts,objects,store,lock,http
         self.scope=dict(picoBrowserVmVersion=VERSION,runId=run,fixtureUrl=url,scriptUrl=script_url,role=role,binding=deepcopy(binding))
-        self.chunks=ChatSourceChunks(store,self.scope);self.previous=store.read();self.frames=[];self.origin=None;self.failed=False;self.windows=[]
+        self.chunks=ChatSourceChunks(store,self.scope);self.previous=store.read();self._frames=();self._frame_hashes=();self._sealed_frames=self._frames;self._sealed_hashes=self._frame_hashes
+        self.origin=None;self.failed=False;self.windows=[]
         if self.previous is None:self.chunks.inventory(0)
         else:
             exact(self.previous,set(self.scope)|{'phase','revision','chunks','quiet'})
             need(all(same(self.previous[key],value) for key,value in self.scope.items()) and self.previous['phase']=='ready')
             self.windows=deepcopy(self.previous['quiet']);need(type(self.windows) is list and len(self.windows)<=16)
-            self.frames=self.chunks.load(self.previous['chunks']);need(self.previous['revision']==2*len(self.frames)+len(self.windows))
-            for index,frame in enumerate(self.frames):self.validate(frame,self.frames[:index])
+            frames=self.chunks.load(self.previous['chunks']);need(self.previous['revision']==2*len(frames)+len(self.windows))
+            for index,frame in enumerate(frames):
+                self.validate(frame,frames[index-1:index] if index else [])
+                self._append_cache(canonical(frame),json_digest(frame))
             for window in self.windows:
                 exact(window,{'first','last','afterEpochMs'});need(self.window(window['first'],window['last'],window['afterEpochMs']))
-            scripts.restore_history([row['scripts'] for row in self.frames])
-            if self.frames:objects.restore(self.frames[-1]['objectsAfter'])
+            scripts.restore_history([row['scripts'] for row in frames])
+            if frames:objects.restore(frames[-1]['objectsAfter'])
         self.cached_digest=self.cache_digest()
 
-    def cache_digest(self):return json_digest(dict(scope=self.scope,frames=self.frames,origin=self.origin,quiet=self.windows))
+    @property
+    def frames(self):
+        """Inspection copies; original VM transactions remain immutable bytes."""
+        return [json.loads(raw) for raw in self._frames]
+
+    @property
+    def frame_count(self):return len(self._frames)
+
+    def frame(self,index):
+        need(self._frames is self._sealed_frames and type(index) is int and -len(self._frames)<=index<len(self._frames))
+        return json.loads(self._frames[index])
+
+    def frame_hash(self,index):
+        need(self._frame_hashes is self._sealed_hashes and type(index) is int and -len(self._frame_hashes)<=index<len(self._frame_hashes))
+        return self._frame_hashes[index]
+
+    def _append_cache(self,raw,sha256):
+        # Only a fully validated new/cold original may enter this immutable
+        # prefix. Fresh capture performs this work before its last clock fence.
+        need(type(raw) is bytes and hashlib.sha256(raw).hexdigest()==sha256)
+        self._frames=self._frames+(raw,);self._frame_hashes=self._frame_hashes+(sha256,)
+        self._sealed_frames,self._sealed_hashes=self._frames,self._frame_hashes
+
+    def cache_digest(self):return json_digest(dict(scope=self.scope,frames=list(self._frame_hashes),origin=self.origin,quiet=self.windows))
 
     def verify(self):
-        self.lock.assert_held();need(not self.failed and same(self.store.read(),self.previous)
-            and self.cache_digest()==self.cached_digest);self.chunks.verify()
+        self.lock.assert_held();need(not self.failed and self._frames is self._sealed_frames and self._frame_hashes is self._sealed_hashes
+            and same(self.store.read(),self.previous) and self.cache_digest()==self.cached_digest);self.chunks.verify()
 
     def validate(self,frame,previous):
         origin,facts=join(frame,self.scope['scriptUrl'],self.scripts.pid,origin=self.origin)
@@ -141,7 +168,7 @@ class PicoBrowserVm:
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     def capture(self):
-        self.lock.assert_held();need(not self.failed and len(self.frames)<MAX_FRAMES)
+        self.lock.assert_held();need(not self.failed and self.frame_count<MAX_FRAMES)
         started=self.objects.monotonic();barrier=self.objects.clock_ms();need(number(started,0,1e15) and integer(barrier,1))
         def final(earliest):
             need(self.scripts.guard() is not False and self.objects.guard() is not False)
@@ -155,15 +182,16 @@ class PicoBrowserVm:
             scripts=self.scripts.read(self.scripts.sequence,require_effects=True,require_code_identity=True,require_load_history=True,require_membership=True)
             after=self.objects.read(before['sequence']);http=self.http()
             frame=dict(objectsBefore=before,scripts=scripts,objectsAfter=after,http=http,hostMonotonic=self.objects.monotonic())
-            facts=self.validate(frame,self.frames);candidate=deepcopy(frame);result=deepcopy(facts)
+            facts=self.validate(frame,[] if self.frame_count==0 else [self.frame(-1)])
+            sha256=json_digest(frame);candidate=canonical(frame);result=deepcopy(facts)
             self.write('ready',self.chunks.append(frame,manifest));self.chunks.verify();final(before['requestedEpochMs'])
-            self.frames.append(candidate);self.cached_digest=self.cache_digest();return result
+            self._append_cache(candidate,sha256);self.cached_digest=self.cache_digest();return result
         except Exception:
             self.failed=True;raise NativeUIError('Original browser VM ownership is retained; source transaction did not complete') from None
 
     def window(self,first,last,after_epoch):
-        need(integer(first,0,len(self.frames)-1) and integer(last,first,len(self.frames)-1) and last-first<64 and integer(after_epoch,1))
-        rows=self.frames[first:last+1]
+        need(integer(first,0,self.frame_count-1) and integer(last,first,self.frame_count-1) and last-first<64 and integer(after_epoch,1))
+        rows=[self.frame(index) for index in range(first,last+1)]
         for frame in rows:
             _origin,facts=join(frame,self.scope['scriptUrl'],self.scripts.pid,origin=self.origin)
             need(facts['retired'] and min(frame['objectsBefore']['requestedEpochMs'],frame['scripts']['requestedEpochMs'],
@@ -182,13 +210,14 @@ class PicoBrowserVm:
         for window in self.windows:
             if window['afterEpochMs']==after_epoch:return self.window(window['first'],window['last'],after_epoch)
         rows=[]
-        for frame in reversed(self.frames):
+        for index in reversed(range(self.frame_count)):
+            frame=self.frame(index)
             _origin,facts=join(frame,self.scope['scriptUrl'],self.scripts.pid,origin=self.origin)
             if not facts['retired'] or min(frame['objectsBefore']['requestedEpochMs'],frame['scripts']['requestedEpochMs'],
                     frame['objectsAfter']['requestedEpochMs'])<after_epoch:break
             rows.insert(0,frame)
         if not rows:return False
-        first,last=len(self.frames)-len(rows),len(self.frames)-1
+        first,last=self.frame_count-len(rows),self.frame_count-1
         if not self.window(first,last,after_epoch):return False
         need(len(self.windows)<16);started=self.objects.monotonic()
         windows=self.windows+[dict(first=first,last=last,afterEpochMs=after_epoch)]
@@ -196,7 +225,7 @@ class PicoBrowserVm:
         self.cached_digest=self.cache_digest()
         need(self.scripts.guard() is not False and self.objects.guard() is not False)
         measured=self.objects.monotonic();epoch=self.objects.clock_ms();ended=self.objects.monotonic()
-        captured=self.frames[-1]['objectsBefore']['source']['capturedEpochMs']
+        captured=self.frame(-1)['objectsBefore']['source']['capturedEpochMs']
         need(number(measured,started,started+1.5) and number(ended,measured,started+1.5))
         fresh(captured,epoch);need(epoch-captured+math.ceil((ended-measured)*1000)<=1500)
         return True

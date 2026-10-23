@@ -78,9 +78,10 @@ class PicoBrowserVmTests(unittest.TestCase):
     def test_same_json_tuple_or_subclass_cannot_change_cached_original_before_query(self):
         owner=self.b.owner();self.capture(owner);original=deepcopy(owner.frames[0]);count=self.b.count()
         with self.b.lock.held():
-            owner.frames[0]['scripts']['source']['engines']=tuple(owner.frames[0]['scripts']['source']['engines'])
-            with self.assertRaises((ValueError,RuntimeError)):owner.verify()
-            owner.frames[0]=deepcopy(original)
+            copy=owner.frames;copy[0]['scripts']['source']['engines']=tuple(copy[0]['scripts']['source']['engines'])
+            owner.verify();self.assertEqual(original,owner.frame(0))
+            from adapters.chat_journey.source_chunks import json_digest
+            with self.assertRaises((ValueError,RuntimeError)):json_digest(copy[0])
             class ForeignScope(dict):pass
             owner.scope=ForeignScope(owner.scope)
             with self.assertRaises((ValueError,RuntimeError)):owner.verify()
@@ -121,7 +122,10 @@ class PicoBrowserVmTests(unittest.TestCase):
                 b=Boundary(Path(directory));owner=b.owner()
                 with b.lock.held():
                     owner.capture();owner.capture();count=b.count()
-                    if fault=='frame':owner.frames[0]['hostMonotonic']+=.001
+                    if fault=='frame':
+                        from adapters.script_journey.history import canonical
+                        changed=owner.frame(0);changed['hostMonotonic']+=.001
+                        owner._frames=(canonical(changed),)+owner._frames[1:]
                     elif fault=='origin':owner.origin['manager']='f'*32
                     elif fault=='scope':owner.scope['binding']['sessionId']='foreign'
                     else:owner.windows.append(dict(first=0,last=1,afterEpochMs=1))

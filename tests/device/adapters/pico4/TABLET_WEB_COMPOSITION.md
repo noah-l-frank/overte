@@ -62,6 +62,18 @@ The next unchanged full Journey still times out120.117s; its originals remain
 retained. No current full Journey or whole-feature success is claimed. Growing
 VM-prefix serialization is the next measured reuse boundary to address.
 
+The same immutable-prefix rule now covers every original VM transaction.
+New/cold frames still undergo exact-type, compilation, HTTP, lifecycle and
+predecessor validation. All bytes are retained in the unchanged original chunks.
+Warm checks verify the admitted tuple identities, every original physical file
+and complete manifest, and the independently guarded per-frame hashes. Index
+access returns only a decoded inspection copy. Cleanup still checks every exact
+VM quiet frame and all three clocks; no window, cadence or source is omitted.
+The changed VM/history/image/coordinator/input lane passes59 cases in26.635s.
+The unchanged full Journey subsequently reaches27 phases and116 primary/actor
+samples with40 captures each, then times out120.106s during cleanup. All original
+files remain retained; no complete Journey or finalization result follows.
+
 The original DOM view has ten fields; the original measure protocol returns the
 five-field document identity. Matching those exact five fields preserves URL,
 handle, creation, grant and page equality while allowing the unchanged original

@@ -532,10 +532,10 @@ class PicoTabletWebFeature:
             exact(frame['vm'],{'scopeSha256','index','sha256'})
             need(frame['scriptUrl']==self.live_owner['scriptUrl'])
             vm=self.vm_reader(self.live_owner);vm.verify();reference=frame['vm'];index=reference['index']
-            need(integer(index,0,len(vm.frames)-1) and reference['scopeSha256']==digest(vm.scope)
-                and reference['sha256']==digest(vm.frames[index]))
+            need(integer(index,0,vm.frame_count-1) and reference['scopeSha256']==digest(vm.scope)
+                and reference['sha256']==vm.frame_hash(index))
             from adapters.pico4.browser_vm import join
-            _origin,facts=join(vm.frames[index],frame['scriptUrl'],pid,origin=vm.origin)
+            _origin,facts=join(vm.frame(index),frame['scriptUrl'],pid,origin=vm.origin)
             if not facts['retired'] and 'script:tablet-web-client' not in resources:resources.append('script:tablet-web-client')
         else:need(frame['scriptUrl'] is None)
         sample=result('feature.'+self.area+'.observe',frame['sample'])
@@ -559,7 +559,7 @@ class PicoTabletWebFeature:
             runtime['capturedEpochMs'],frame['diagnostic']['sampleEpochMs'],frame['phaseAfter']['capturedEpochMs']]
         clocks.extend(runtime['source'][key]['capturedEpochMs'] for key in ('nativeBefore','java','nativeAfter'))
         if frame['vm'] is not None:
-            original=vm.frames[frame['vm']['index']]
+            original=vm.frame(frame['vm']['index'])
             clocks.extend((original['objectsBefore']['source']['capturedEpochMs'],original['scripts']['capturedEpochMs'],
                 original['objectsAfter']['source']['capturedEpochMs']))
         need(min(before['capturedEpochMs'],native['capturedEpochMs'],runtime['source']['nativeBefore']['capturedEpochMs'])
@@ -631,14 +631,14 @@ class PicoTabletWebFeature:
             after['capturedEpochMs'],diagnostic['sampleEpochMs'],captured]
         epochs.extend(runtime['source'][key]['capturedEpochMs'] for key in ('nativeBefore','java','nativeAfter'))
         if vm is not None:
-            frame=vm.frames[-1];epochs.extend((frame['objectsBefore']['source']['capturedEpochMs'],
+            frame=vm.frame(-1);epochs.extend((frame['objectsBefore']['source']['capturedEpochMs'],
                 frame['scripts']['capturedEpochMs'],frame['objectsAfter']['source']['capturedEpochMs']))
         self.sample_fence=(deepcopy(phase),start,epoch_started,epochs)
         guard();self.write(self.role_store,self.role,state)
         self.verify_images(state,self.role)
         finished=self.completion_fence(owner)
         from adapters.chat_journey.source_chunks import digest
-        vm_reference=None if vm is None else dict(scopeSha256=digest(vm.scope),index=len(vm.frames)-1,sha256=digest(vm.frames[-1]))
+        vm_reference=None if vm is None else dict(scopeSha256=digest(vm.scope),index=vm.frame_count-1,sha256=vm.frame_hash(-1))
         history.finish(dict(phaseBefore=deepcopy(phase['status']),phaseAfter=finished['phase'],nativeBefore=before,nativeAfter=after,
             native=native,runtime=runtime,browser=status,diagnostic=diagnostic,scriptUrl=owner['scriptUrl'],vm=vm_reference,
             sample=candidate,startedHost=start,startedEpoch=epoch_started,finishedHost=finished['host'],finishedEpoch=finished['epoch']))
@@ -752,7 +752,7 @@ class PicoTabletWebFeature:
                 epochs=[native['capturedEpochMs'],runtime['capturedEpochMs']]
                 epochs.extend(runtime['source'][key]['capturedEpochMs'] for key in ('nativeBefore','java','nativeAfter'))
                 if vm is not None:
-                    original=vm.frames[-1];epochs.extend((original['objectsBefore']['source']['capturedEpochMs'],
+                    original=vm.frame(-1);epochs.extend((original['objectsBefore']['source']['capturedEpochMs'],
                         original['scripts']['capturedEpochMs'],original['objectsAfter']['source']['capturedEpochMs']))
                 self.sample_fence=(deepcopy(phase),sample_start,sample_epoch,epochs);self.completion_fence(owner)
                 if quiet.value['complete'] and vm_quiet:break
