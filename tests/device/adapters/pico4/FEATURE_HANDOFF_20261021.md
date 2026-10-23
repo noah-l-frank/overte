@@ -2180,3 +2180,22 @@ Phone was additionally inspected read-only at fixed
 Its newer passive Snapshot constructor-history ownership/bookend checks are
 under review for reuse. No moving HEAD, uncommitted Phone work or Phone input
 authority was selected. Complete source areas remain3/14.
+
+
+Fixed21bf4a14af selects asf23b2ae69d: Chat Actor v2 publishes its unchanged
+original host-closed bytes, independently consumes the actual Parent nonce and
+only then marks parent-consumed before normal return. Stop v1 and legacy Actor
+v1 gain no new return qualification. Integrated factory54.799s, Actor/process/
+transport43.508s and Graphics route15.308s pass. Remote typed graph admission
+and consumed-prefix handling remain separate work.
+
+Assets b2abc52f93/dc6c363565 select as8e7cd3356b/506388f3b9. Original complete
+dead browser rows form the initial baseline; each later stage owns only its
+one newly acknowledged browser/model and retains every older journal/file.
+All new reopening/file-loss cases pass; the first combined8-group run retains
+one old lost-Cancel500ms failure. The measured strict semantic memo and its
+three actual last-input counters then pass all20 Assets cases with unchanged
+physical reads/writes, windows and caps. See [the full cost qualification](ASSETS_FEATURE.md#integrated-original-semantic-validation-cost).
+The next actual Assets step is normal persistent TabletRoot Home/page/context
+retirement; the borrowed tablet surface window is not a destroyed-page proof.
+No complete new feature or application/device qualification is claimed.

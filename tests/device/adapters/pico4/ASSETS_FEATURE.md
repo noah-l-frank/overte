@@ -585,3 +585,33 @@ retained; the case does not qualify complete Cancel or file release. No clock,
 quiet predicate, cadence, limits or production behavior changed, and no
 unchanged retry was run. Further work prioritizes the complete remaining owner
 and backend joins rather than additional isolated delivery variations.
+
+
+## Integrated original semantic validation cost
+
+The fixed reopening and primary-loss packets are selected in Root. The first
+8/186-group selection passes7groups and retains one original lost-Cancel500ms
+quiet-interval failure; no all-green result is inferred. A narrow timing wrapper
+then measures the unchanged single case without removing an original read or
+write. It passes, showing356 complete historical grammar validations,444 full
+store reads,153 durable writes and20 original samples.
+
+A warm memo now reuses only exact previously validated historical semantics.
+Its key binds the complete strict JSON value, binding/run/fixture/stage, both
+actual source PIDs, original file-history count and original file-byte budget.
+The immutable tuple/bytes admission has a separate identity seal. Every state
+access still physically reads the complete current root and compares its exact
+typed content with the expected original. Changed inputs or dependencies cause
+a full grammar validation. Actual source queries, file byte/identity checks,
+all durable writes and final source/clock guards remain unchanged.
+
+The repeated instrumented case retains20samples,444reads and153writes; grammar
+validations fall356→147 (1.492→0.588s), state-read cost1.029→0.247s. Durable
+write time varies1.499→2.102s and total sample time3.196→3.222s, so these data
+do not establish an overall sampling speedup or unconditional scheduling
+reliability. Three actual final-input counters reject a changed file budget,
+JSON-equivalent previous tuple and equal replacement of the admitted cache.
+All20 unchanged normal/recovery/reopening and new cache cases pass in six
+selected groups across two runs (catalog187): core48.246s, cache24.337s,
+reopen41.562s, navigation27.215s, file68.334s, coverage0.123s. The original500ms,
+120s group/90s compile bounds and full physical proof obligations stay intact.

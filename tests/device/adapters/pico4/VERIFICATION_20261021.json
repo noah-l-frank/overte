@@ -3054,5 +3054,71 @@
     "unchangedLimitSeconds": 120,
     "artifact": "/home/user/Documents/github/overte-pico-adapter-private-20261021/snapshot-upload-integrated-whole-prefix-20261023.xml",
     "qualification": "Unchanged complete normal Cancel/Still/Save/offline Upload/successful Upload prefix with actual loopback TLS/PNG/story originals and strict930 cold phase/mutation/quiet guards. Native/JS/authentication/Android/render producers and preceding Share input metadata remain explicit seams. No complete Snapshot recipe, fresh VR return image or final resource retirement."
+  },
+  "chatParentReturnAndAssetsReopen20261023": {
+    "status": "seven-selected-groups-pass-one-prior-core-quiet-failure",
+    "sourceCommits": [
+      "21bf4a14afeae4ea0e691b91d6945f732bb10ec9",
+      "b2abc52f93c34cf301f3fd23f1a655458f1ef7e1",
+      "dc6c3635653d4a40fc65dae2993e8e01f679842e"
+    ],
+    "catalogAtRun": 186,
+    "checks": {
+      "coverage": 0.114,
+      "chatFactory": 54.799,
+      "chatActorAndTransport": 43.508,
+      "graphicsFeatureFlow": 15.308,
+      "assetsReopen": 50.308,
+      "assetsCorePriorQuietFailure": 48.698,
+      "assetsNavigationRecovery": 29.86,
+      "assetsFileRecovery": 74.866
+    },
+    "seconds": 317.47,
+    "qualification": "Direct actual Parent-nonce Actor-v2 publication and all added Assets reopening/file-loss cases pass; prior core lost-Cancel failed its unchanged500ms original UI interval. Retained source and diagnostic artifacts are not replaced by aggregate green claims."
+  },
+  "assetsOriginalValidationMemo20261023": {
+    "status": "passed",
+    "catalogAtRun": 187,
+    "cases": 20,
+    "groupsAcrossTwoSelections": 6,
+    "secondsAcrossTwoSelections": 209.82,
+    "checks": {
+      "coverage": 0.123,
+      "cacheFinalInputCounterexamples": 24.337,
+      "core": 48.246,
+      "reopen": 41.562,
+      "navigationRecovery": 27.215,
+      "fileRecovery": 68.334
+    },
+    "ownerSourceSha256": "798360c593c878ba4020d2e8f3c461c0d84d47ad19c4a0418b67519ba33e0c58",
+    "unchangedGroupLimitSeconds": 120,
+    "unchangedNativeCompileLimitSeconds": 90,
+    "unchangedOriginalQuietGapMs": 500,
+    "beforeDiagnostic": {
+      "sourceCommit": "506388f3b9",
+      "passed": true,
+      "samples": 20,
+      "grammarValidations": 356,
+      "grammarSeconds": 1.491659,
+      "stateReads": 231,
+      "stateSeconds": 1.029425,
+      "fullStoreReads": 444,
+      "durableWrites": 153,
+      "sampleSeconds": 3.19551,
+      "durableWriteSeconds": 1.498501
+    },
+    "afterDiagnostic": {
+      "passed": true,
+      "samples": 20,
+      "grammarValidations": 147,
+      "grammarSeconds": 0.588135,
+      "stateReads": 231,
+      "stateSeconds": 0.246591,
+      "fullStoreReads": 444,
+      "durableWrites": 153,
+      "sampleSeconds": 3.221789,
+      "durableWriteSeconds": 2.102271
+    },
+    "qualification": "Only exact already-validated historical JSON semantics are reused behind immutable bytes/cache identity, complete context dependencies and fresh full physical Store.read/root equality. Independent source queries, file identity/byte checks, durable writes, clocks/caps/windows remain unchanged. Three actual final-input counters reject changed file budget, JSON-equivalent prior tuple and equal cache replacement before any pointer. Measurements establish reduced semantic parsing; total sampling acceleration and universal scheduling reliability are not claimed. Previous timing failures remain retained."
   }
 }

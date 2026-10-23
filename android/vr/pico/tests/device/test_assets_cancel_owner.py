@@ -318,6 +318,28 @@ class AssetsCancelOwnerTests(unittest.TestCase):
         self.assertEqual(previous_owner,previous_store.read());self.assertEqual(previous_file_owner,previous_files.read())
         actual=self.host.files(stage=1).request('observe',self.run,previous_file_owner['ownerToken'])['source']
         self.assertTrue(actual['exists']);self.assertFalse(actual['retired']);self.assertEqual(before,actual['files'])
+    def cached_input_boundary(self,kind):
+        actual=NativeNavigationIO.guard;fired=[]
+        def guard(io):
+            actual(io)
+            import inspect
+            if inspect.currentframe().f_back.f_code.co_name=='send' and not fired:
+                fired.append(True);self.assertIsNotNone(self.owner.validation_cache)
+                if kind=='file-budget':self.owner.files.state['originals']['bytes']=16*1024*1024+1
+                elif kind=='previous-type':self.owner.previous['attempted']=tuple(self.owner.previous['attempted'])
+                else:
+                    cached=self.owner.validation_cache
+                    self.owner.validation_cache=tuple(list(cached))
+                    self.assertEqual(cached,self.owner.validation_cache);self.assertIsNot(cached,self.owner.validation_cache)
+        with patch.object(NativeNavigationIO,'guard',guard),self.assertRaises((NativeUIError,NavigationError)):
+            self.owner.open()
+        self.assertTrue(fired);self.assertFalse(self.host.inputs)
+        self.assertIsNotNone(self.store.read()['pendingInput']);self.assertEqual('ready',self.file_store.read()['phase'])
+
+    def test_changed_file_budget_behind_cached_journal_refuses_first_pointer(self):self.cached_input_boundary('file-budget')
+    def test_json_equivalent_previous_tuple_behind_cached_journal_refuses_first_pointer(self):self.cached_input_boundary('previous-type')
+    def test_equal_replacement_of_admitted_validation_cache_refuses_first_pointer(self):self.cached_input_boundary('cache-identity')
+
     def test_final_owner_cas_age_refuses_open_result_and_keeps_exact_inputs(self):
         self.synthetic=0;self.owner.monotonic=lambda:self.synthetic;write=self.store.write;aged=False
         def delayed(value,previous):
