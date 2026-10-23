@@ -131,3 +131,12 @@ sample freshness, independent actor/world stereo and complete final retirement.
 The tablet coordinator/grammar currently contain explicit tablet-only namespaces,
 source profiles and stereo joins; renaming or subclassing it does not qualify the
 world journey. No complete World Web capability is advertised.
+
+
+A focused native follow-up also checks the actual decoded image aspect against
+the current DOM viewport before world ray/IME admission, preserving the existing
+tablet aspect fence. A focused but mismatched viewport is unavailable before
+any IME/pointer attempt. The complete selected backend regression passes8.761s
+with that additional counter and unchanged tablet behavior; native originals
+remain retained. This closes a resize-boundary admission gap without claiming
+whole-journey or rendering qualification.

@@ -3732,5 +3732,14 @@
     "fullApplicationCompiled": false,
     "deviceAcceptance": false,
     "privateTextFactoryConstructorAfterward": "passed-one-actual-private-factory-case"
+  },
+  "worldTextViewportFollowup20261024": {
+    "status": "passed",
+    "tests": 1,
+    "durationSeconds": 8.761,
+    "actualImageDomAspectGuard": true,
+    "freshFullSelectedBackendCompilation": true,
+    "originalsRetained": true,
+    "fullFeatureRecipe": false
   }
 }

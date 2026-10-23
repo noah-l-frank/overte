@@ -301,6 +301,13 @@ void NativeWebViewItem::acceptFeaturePicoBrowserGeometry(qint64 handle,quint64 g
                 const auto parsed=QJsonDocument::fromJson(quoted.array()[0].toString().toUtf8());
                 if (parsed.isObject()) { original=parsed.object().toVariantMap(); }
             }
+            const auto imageMatchesDOM=[item,original] {
+                if (!item) { return false; }const auto viewport=original.value("viewport").toMap();
+                QMutexLocker guard(&item->_mutex);
+                return !item->_image.isNull() && viewport.value("width").toDouble()>0 && viewport.value("height").toDouble()>0
+                    && std::abs(double(item->_image.width())/item->_image.height()
+                        -viewport.value("width").toDouble()/viewport.value("height").toDouble())<=0.02;
+            };
             if (command.value("operation")=="commit-text") {
                 // A normal controller ray must already have focused this item.
                 // This operation cannot click/focus it or replace DOM state.
@@ -308,7 +315,7 @@ void NativeWebViewItem::acceptFeaturePicoBrowserGeometry(qint64 handle,quint64 g
                     command.value("control").toString(),QDateTime::currentMSecsSinceEpoch(),QSizeF(item->width(),item->height()));
                 const auto editor=original.value("editor").toMap();
                 const auto providerValue=qApp->property(overte::e2e::picoWorldWebTextProperty());
-                if (!focused || !point || !valid() || scope.tablet || scope.reference || scope.surface!="world"
+                if (!focused || !point || !valid() || !imageMatchesDOM() || scope.tablet || scope.reference || scope.surface!="world"
                         || scope.timer.elapsed()>=4000 || editor.value("focused")!=true
                         || !item->hasActiveFocus() || !item->inputMethodQuery(Qt::ImEnabled).toBool()
                         || item->_sensitive || item->_editorKind!=(command.value("control")=="foreign" ? "url" : "text")
@@ -341,7 +348,7 @@ void NativeWebViewItem::acceptFeaturePicoBrowserGeometry(qint64 handle,quint64 g
                     command.value("control").toString(),QDateTime::currentMSecsSinceEpoch(),QSizeF(item->width(),item->height()));
                 const auto providerValue=qApp->property(overte::e2e::picoWorldWebRayProperty());
                 QVariantMap ray;
-                if (!focused && point && valid() && !scope.tablet && !scope.reference && scope.surface=="world"
+                if (!focused && point && valid() && imageMatchesDOM() && !scope.tablet && !scope.reference && scope.surface=="world"
                         && providerValue.userType()==qMetaTypeId<overte::e2e::PicoWorldWebRayProvider>()) {
                     const auto provider=providerValue.value<overte::e2e::PicoWorldWebRayProvider>();
                     if (provider) { ray=provider(item,*point); }

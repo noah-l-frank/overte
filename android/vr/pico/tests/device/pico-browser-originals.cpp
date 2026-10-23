@@ -199,6 +199,10 @@ int main(int argc,char**argv){
         // Android editor callbacks; the provider itself never focuses an item.
         item->forceActiveFocus(Qt::MouseFocusReason);Java_org_overte_web_EmbeddedWebView_nativeInputFocus(env,java,handle,birth,grant,true);events();
         assert(item->acceptMessage(grant,1,QUrl(url),QUrl("http://127.0.0.1"),true,"editor",R"({"active":true,"text":"old","cursor":1,"anchor":1,"absoluteCursor":1,"kind":"text"})"));events();
+        auto mismatched=action("wrong-viewport");NativeWebViewItem::featurePicoBrowser(mismatched);
+        auto wrongViewport=geometry(mismatched,true);auto viewport=wrongViewport.value("viewport").toMap();viewport["height"]=300;wrongViewport["viewport"]=viewport;
+        NativeWebViewItem::acceptFeaturePicoBrowserGeometry(handle,grant,1,url,mismatched.value("commandId").toString(),quoted(wrongViewport),true);events();
+        assert(NativeWebViewItem::featurePicoBrowser(mismatched).value("status")=="unavailable" && count("edits")==beforeEdits && count("pointers")==beforePointers);
         auto commit=action(QString::fromUtf8("Grüße 🌍"));NativeWebViewItem::featurePicoBrowser(commit);
         NativeWebViewItem::acceptFeaturePicoBrowserGeometry(handle,grant,1,url,commit.value("commandId").toString(),quoted(geometry(commit,true)),true);events();
         const auto packet=NativeWebViewItem::featurePicoBrowser(commit);assert(packet.value("status")=="ready" && packet.value("picoBrowserVersion")==4);
