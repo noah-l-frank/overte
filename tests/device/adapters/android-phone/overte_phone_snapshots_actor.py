@@ -543,7 +543,14 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                 need(same(f.store.read(),f.previous))
                 prepared=dict(feature=deepcopy(f.previous),actor=deepcopy(self.previous),role=deepcopy(role.previous),
                     binding=deepcopy(f.binding),phase=deepcopy(status))
-            else:prepared=self.ordinary_prepare(role,status,cue,ordinary)
+            else:
+                prepared=self.ordinary_prepare(role,status,cue,ordinary)
+                # Only the foreground/current-free scope admits a Primary
+                # constructor-history unlock to overlap. OS/pending scopes
+                # keep this first lock; its nested held() is reentrant.
+                split=(f.state['phase'] in ('baseline','active') and f.state.get('current',False) is None
+                    and f.state['handoff'] is None and not role.system and getattr(f,'_system_scope',None) is None)
+                if not split:return self.ordinary_batch(role,prepared)
         # Preparation may replay a long immutable history. Release its lock
         # before the bounded current quiet interval so another role can run.
         # No measurement or publication authority survives this boundary.
