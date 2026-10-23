@@ -90,7 +90,7 @@ class AssetsEntityEffectTests(unittest.TestCase):
     def exercise(self,tree):
         self.entity_frames=[];self.model_frames=[];self.input_frames=[];self.effect_store=PrivateFeatureState(self.path/'entity-originals.json')
         baseline=self.mappings();model=self.model_snapshot();self.assertTrue(model['autoRefreshEnabled'])
-        for name,data in documents().items():
+        for name,data in getattr(self,'resource_documents',documents)().items():
             if name.startswith('gltf-bundle/'):
                 path='/original-model/'+name.split('/',1)[1];mapping=next(row for row in baseline if row['path']==path)
                 self.assertEqual(hashlib.sha256(data).hexdigest(),mapping['hash'])

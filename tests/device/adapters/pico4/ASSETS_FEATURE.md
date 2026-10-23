@@ -1265,3 +1265,83 @@ Gate-off comparison proves exact CPP/header equality and original control flow
 against the fixed parent. The measured 511-frame admission leaves one frame
 of capacity; other host schedules must still pass the unchanged runtime cap
 and cannot inherit this run's qualification from a projected count.
+
+### Original CPU geometry parser and real worker handoff
+
+The additive `assets-geometry-parser` selector compiles the complete current
+`GLTFSerializer` implementation/header and HFM declarations, original
+ModelLoader/format-registry/media-type methods, required original HFM skinning,
+material and transform CPU methods, and the complete original GeometryReader
+constructor/declaration and `run` body. Current product GLM construction flags
+are checked against CMake. The existing reviewed cgltf/glad/GLM headers are
+resolved read-only and hashed. No older Overte shared object is linked or
+presented as current-source evidence. The one named ModelLoader compilation
+delegate preserves its complete original body; a host wrapper records the
+actual arguments, returned model or exception without replacing a result or
+retrying a parser. Source and generated-fragment hashes are archived.
+
+The original unmodified parity glTF (1758/96/76 bytes) remains a refusal counter.
+The real parser reads its external buffer, then reports `No indices accessor`
+and returns no HFM model. A separate controlled indexed fixture adds an actual
+unsigned-short index accessor and six external buffer bytes. Its glTF/buffer/
+texture lengths are 2066/102/76 bytes; the old fixtures and texture bytes are
+unchanged. Both cases traverse the existing normal original mapping-model row,
+Add to World, original native ATP byte acquisition, and Cancel/file/Home path.
+The optional fixture supplier preserves the old default in both existing hash
+checks. No upload/product parser fix or synthetic ready state is introduced.
+
+The parser subprocess receives the complete original ATP packet, binds its
+exact raw SHA-256, and checks each supplied URL/body hash. Its transport is an
+explicit replay of those already acquired original bytes, not another current
+AssetResourceRequest acquisition. The original ModelLoader and glTF parser
+actually resolve/read the external mesh and build HFM. The indexed case returns
+one mesh with three actual vertices/indices/normals/UVs, one joint and material,
+and the original resolved checker texture URL. Its graphics mesh remains null;
+the texture descriptor does not prove image decoding or GPU upload.
+
+An observed derived QRunnable invokes the original GeometryReader constructor
+and unchanged `run` on a real QThreadPool worker. Original construction,
+run-entry, run-exit and destructor-entry rows, auto-delete state, actual thread
+identities and epochs are retained; actual `waitForDone` retires the runnable.
+The original pending/processing counters balance. The parsed HFM is observed
+at the explicitly declared Baker endpoint, which throws rather than supplying
+processed geometry. The original reader consequently delivers false to a
+separately declared host Resource receiver, whose QObject deletion is checked.
+This is not the original GeometryResource/downloadFinished route, actual Baker
+processing, model/texture readiness, rendering, stereo or original Resource
+self-guard qualification. The replay transport's parentless request is still
+alive before process exit; original request retirement is not inferred from
+process exit or forced destruction on another thread.
+
+The owning two-case selector is green in 60.135 seconds (59.548 seconds inside
+unittest, including fresh builds). Every consumed source remained unchanged.
+Both complete original packets, parser intent/response and normal journals are
+retained. Four worker rows, one loader row, one transport row, envelope/handoff
+and the complete dependent input copy are included in the shared accounting.
+Cold reconstruction confirms 470/512 frames per case, with 1,063,380 bytes for
+the indexed case and 1,061,163 for the original refusal. Each native parser
+packet reports 2 ms. The 120-second selector, 90-second compiler, existing
+1.5-second acquisitions, three-second/500-ms quiet windows, 512-frame and local
+16-MiB caps remain unchanged. The earlier generic Resource/9-request-lifetime
+511/512 proof remains separate and unchanged, not silently presented as jointly
+measured by this parser selector.
+
+The preceding 49.543-second two-case run remains red: the new fixture initially
+met an old hard-coded default hash comparison, and its evidence directory was
+incorrectly created with mode 755. Cleanup writers correctly refused that
+parent. Its source manifest, compile/test output and JUnit failure are retained,
+but that run's disposable case raw journals were not archived; they cannot be
+used as positive evidence. The corrected selector checks private ownership,
+mode and fresh output names before acquisition. Parser intent and raw response
+now live directly in the final private journal before interpretation, so their
+retention does not depend on cleanup. All inherited writer paths use that same
+validated parent and distinct case prefixes. Earlier compiler/link refusals and
+the original recorded-packet refusal are retained too; no unchanged retry is
+claimed as qualification.
+
+The private `pico-assets-geometry-parser-host` format is version 1. Root must
+add its selector and coverage mapping without copying this worktree's catalog
+count. The next integration boundary is the actual GeometryResource download
+handoff and original Baker, with real resource ownership and effects measured
+before any readiness claim. Feature 13/14 stays partial; public capabilities
+remain unchanged.
