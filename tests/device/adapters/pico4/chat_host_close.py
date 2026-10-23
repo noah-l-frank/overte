@@ -7,7 +7,6 @@ actor and process release remain the independent originals in the archive.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import os
-from pathlib import Path
 
 from adapters.chat_journey.archive_file import ClosedOriginalFile
 from adapters.chat_journey.evidence_archive import ChatEvidenceArchive
@@ -19,14 +18,10 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.pico4.chat_archive import PicoChatArchivePlan
 from adapters.pico4.chat_restart_io import PicoChatRestartIO
 from adapters.script_journey.history import same
+from adapters.host_process_identity import host_identity
 from openxr_input.binding_transfer import OriginalBindingTransfer
 
 VERSION=1
-
-
-def host_identity():
-    fields=Path('/proc/self/stat').read_text().rsplit(')',1)[1].split()
-    return str(os.getpid())+':'+fields[19]+':'+Path('/proc/sys/kernel/random/boot_id').read_text().strip()
 
 
 class PicoChatHostClose:

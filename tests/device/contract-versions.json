@@ -176,6 +176,7 @@
     "pico-chat-cursor-archive-extension": {"current": 1, "reads": [1]},
     "pico-chat-cursor-actor": {"current": 1, "reads": [1]},
     "chat-observer-process-presence": {"current": 1, "reads": [1]},
+    "observer-return-transport": {"current": 1, "reads": [1]},
     "pico-chat-host-close": {"current": 1, "reads": [1]},
     "pico-chat-restart-io": {"current": 1, "reads": [1]},
     "pico-openxr-binding-transfer": {"current": 1, "reads": [1]},
