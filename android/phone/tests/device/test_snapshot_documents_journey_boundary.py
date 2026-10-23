@@ -402,7 +402,16 @@ class SnapshotDocumentsCommonJourneyTests(unittest.TestCase):
         p=patch('urllib.request._opener',None);p.start();self.addCleanup(p.stop)
         for name in ('_snapshot_document_resolution','_snapshot_document_ui','_snapshot_documents','_snapshot_system_documents','_snapshot_phone_uid'):
             p=patch.object(self.adapter,name,getattr(self.proxy,name));p.start();self.addCleanup(p.stop)
-    def invoke(self,*args,**kwargs):return self.shared.SnapshotJourneyTests.invoke(self,*args,**kwargs)
+    def invoke(self,*args,**kwargs):
+        if __import__('os').environ.get('OVERTE_SNAPSHOT_HOST_PROFILE')!='1':return self.shared.SnapshotJourneyTests.invoke(self,*args,**kwargs)
+        import cProfile,pstats
+        profile=cProfile.Profile();profile.enable()
+        try:return self.shared.SnapshotJourneyTests.invoke(self,*args,**kwargs)
+        finally:
+            profile.disable();rows=pstats.Stats(profile).stats
+            own=[(round(value[3],3),value[1],Path(key[0]).name,key[2]) for key,value in rows.items() if str(ROOT) in key[0]]
+            print('Snapshot SDK26 host callers '+repr(sorted(own,reverse=True)[:16]),file=sys.stderr,flush=True)
+
     def act(self,*args,**kwargs):return self.shared.SnapshotJourneyTests.act(self,*args,**kwargs)
     def start_actor(self,*args,**kwargs):
         self.shared.SnapshotJourneyTests.start_actor(self,*args,**kwargs)
@@ -424,6 +433,52 @@ class SnapshotDocumentsCommonJourneyTests(unittest.TestCase):
         self.assertEqual('document-picker',result['state']['saveBackend']);self.assertEqual(1,result['state']['saved'])
 
 
+    def test_complete_document_picker_common_journey_and_closed_repeated_cleanup(self):
+        from feature_journeys.scenarios import SCENARIOS
+        if __import__('os').environ.get('OVERTE_SNAPSHOT_HOST_TRACE')=='1':
+            original=self.client.observe
+            def journal():
+                value=original();epoch=self.model.now()
+                ages=[(row['actorSequence'],epoch-row['capturedEpochMs'],row['receivedEpochMs']-row['capturedEpochMs']) for row in value['entries'][-3:]]
+                print('Snapshot SDK26 original journal ages '+repr(ages),file=sys.stderr,flush=True)
+                return value
+            self.client.observe=journal
+        result=self.shared.SnapshotJourneyTests.common(self)
+        self.assertEqual('document-picker',result['sourceProfile'])
+        steps=SCENARIOS['snapshots']['steps']
+        applicable=[(index,step) for index,step in enumerate(steps,1) if 'backends' not in step or 'document-picker' in step['backends']]
+        self.assertEqual(18,len(steps));self.assertEqual(15,len(applicable))
+        expected=[str(index).zfill(2)+'-'+step['verb'] for index,step in applicable]
+        actual=[row['phase'] for row in result['phases'] if row['phase'][:2].isdigit()]
+        self.assertEqual(expected,actual)
+        self.assertEqual([index for index,step in enumerate(steps,1) if 'backends' in step and 'document-picker' not in step['backends']],
+            [row['index'] for row in result['notApplicableSteps']])
+        self.assertEqual([3,5,6],[row['index'] for row in result['notApplicableSteps']])
+        from overte_phone_snapshots_retirement import completed_archive
+        from overte_phone_snapshots_evidence import SnapshotsOriginals
+        from overte_phone_script_history import unpack
+        _ui,_service,binding,guard,_installed=self.adapter.normal_feature_runtime('test-only-appium',read_only=True)
+        archive=completed_archive(self.root,binding,self.shared.RUN,guard)
+        owner=unpack(archive['owner']['payload'])[0];handoffs=owner['handoffs']
+        self.assertEqual(['document','document','share','share'],[row['kind'] for row in handoffs])
+        ids=[row['id'] for row in handoffs];self.assertEqual(4,len(set(ids)))
+        originals=SnapshotsOriginals(self.root,binding,self.shared.RUN,'primary',guard,
+            lambda *_:self.fail('Retirement review must not write originals'),kind='snapshots-input').restore(owner['inputs'],owner['inputSequence'])
+        for index,handoff in enumerate(handoffs):
+            before=originals[handoff['sourceIndex']-1]['handoffStart']
+            after=originals[handoff['retirementIndex']-1]['handoffEnd']
+            self.assertEqual(handoff['id'],before['handoffId']);self.assertEqual(handoff['id'],after['handoffId'])
+            self.assertEqual(before['source']['instance'],after['source']['instance'])
+            self.assertFalse(before['source']['retired']);self.assertTrue(after['source']['retired'])
+            self.assertEqual(set(ids[:index+1]),{row['handoffId'] for row in after['jobs']})
+            self.assertTrue(all(row['retired'] and row['complete'] and not row['timerActive'] and not row['readActive'] for row in after['jobs']))
+        provider=self.model.documents_boundary.provider
+        retired=provider.observe(self.shared.RUN,uuid.uuid4().hex)
+        self.assertTrue(retired['retired'] and retired['workersTerminated']);self.assertFalse(retired['root']['present'])
+        self.assertEqual(1,len(retired['documents']))
+        self.assertTrue(all(row['absent'] and row['deleteCalls']==1 for row in retired['documents']))
+        self.assertTrue(all(row['closed'] for row in retired['fdLifetimes']))
+        self.assertFalse((provider.parent/('overte-snapshot-documents-'+self.shared.RUN)).exists())
 
 
 # Used by the public normal-toolbar mutation counterprobe above.
