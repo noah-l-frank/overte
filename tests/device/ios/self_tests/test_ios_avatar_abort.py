@@ -95,6 +95,18 @@ class AvatarAbortTests(unittest.TestCase):
             self.assertEqual('delete-issued',owner.state['phase']);rebuilt=self.owner();self.assertTrue(rebuilt.delete())
             self.assertEqual(1,self.stop_count);self.assertEqual(1,self.calls.count('DELETE'));self.assertEqual('failed',rebuilt.result()['status'])
 
+    def test_ended_abort_archive_reopens_only_original_files_after_the_sdk_is_gone(self):
+        with self.lock.held():
+            owner=self.owner();owner.stop();self.quiet(owner);self.assertTrue(owner.delete());expected=owner.result()
+            calls=list(self.calls);queries=list(self.os.queries)
+            with (patch.object(self.runtime.adapter,'_candidate_guard',side_effect=AssertionError('No live factory during historical abort')),
+                 patch.object(self.runtime.adapter,'_target',side_effect=AssertionError('No SDK resolver during historical abort'))):
+                replay=IOSAvatarAbort.archive(self.feature,owner.previous);self.assertEqual(expected,replay.original_result())
+            self.assertEqual(calls,self.calls);self.assertEqual(queries,self.os.queries)
+            broken=deepcopy(owner.previous);broken['failure']['originalSha256']='f'*64
+            owner.store.write(broken,owner.previous)
+            with self.assertRaises(NativeUIError):IOSAvatarAbort.archive(self.feature,broken)
+
     def test_intent_save_failure_prevents_stop_and_changed_candidate_prevents_later_transports(self):
         with self.lock.held():
             owner=self.owner()

@@ -24,6 +24,25 @@ PHASES=('failed','stop-issued','os-quiet','delete-issued','aborted')
 
 class IOSAvatarAbort:
     """A separate failed lifecycle; no input retry or fabricated scene proof."""
+    @classmethod
+    def archive(cls,feature,value):
+        """Read actual failed-process originals after SDK metadata retirement.
+
+        This is only the OS/SDK part of failed preparation. Ancillary account,
+        file and preference ownership remains with its separate original graph.
+        No live candidate/session/native-source factory is invoked here.
+        """
+        from ios.adapters.avatar_feature import IOSAvatarFeature
+        need(isinstance(feature,IOSAvatarFeature));feature.lock.assert_held();feature.load()
+        need(feature.state is not None and feature.state['phase']=='preparing')
+        result=object.__new__(cls);result.feature,result.runtime,result.selector,result.lock=feature,feature.runtime,feature.selector,feature.lock
+        result.run,result.role=feature.run,feature.role;result.failure=deepcopy(feature.previous)
+        result.binding=context(feature.state['bindings'][feature.role])
+        result.store=PrivateFeatureState(feature.store.path.with_name('ios-avatar-'+feature.role+'-'+feature.run+'-abort.json'))
+        need(same(result.store.read(),value));result.previous=deepcopy(value)
+        result.source=deepcopy(process_source(value['source']));result.bundle=value['bundleId']
+        result.state=result.decode(value);need(result.state['phase']=='aborted');return result
+
     def __init__(self,feature,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic):
         from ios.adapters.avatar_feature import IOSAvatarFeature
         need(isinstance(feature,IOSAvatarFeature) and all(callable(x) for x in (epoch_ms,monotonic)))
@@ -165,6 +184,12 @@ class IOSAvatarAbort:
 
     def result(self):
         self.bound();self.decode(self.previous);need(self.state['phase']=='aborted')
+        return self.original_result()
+
+    def original_result(self):
+        """SDK-free failed status; never discharge ancillary responsibility."""
+        self.lock.assert_held();need(same(self.store.read(),self.previous));self.feature.load()
+        need(same(self.feature.previous,self.failure));self.decode(self.previous);need(self.state['phase']=='aborted')
         # Keep every original failed intent and subordinate resource ledger.
         # The next archive step must still qualify that complete byte graph.
         return dict(iosAvatarAbortResultVersion=1,runId=self.run,role=self.role,status='failed',

@@ -35,10 +35,18 @@ qualify an Avatar Scene/Complete witness. Those whole-owner duties remain
 mandatory. Retained hidden or unknown Login roots can be ended by actual OS
 process death; they are never represented as independently observed weak death.
 
-Seven host tests use real private CAS journals and genuine loopback WebDriver
+`IOSAvatarAbort.archive` reopens the actual failed feature and the immutable
+process/SDK originals without a live candidate, target, SDK or native-source
+factory. `original_result` retains the same failed status and outstanding
+ancillary responsibility. This supplies the process portion of later whole
+archival after SDK metadata retirement; it cannot qualify that whole archive
+or discharge account, preference, credential-file or provider ownership.
+
+Eight host tests use real private CAS journals and genuine loopback WebDriver
 HTTP. OS/native/feature-admission boundaries are explicitly modeled. They cover
 successful process/SDK retirement with failed status preserved, lost Stop and
 DELETE returns, ignored DELETE, interrupted passive GET, failed intent storage,
 changed candidate, changed failed intent and a slow intent write exhausting the
-original input deadline. No native compilation, simulator or device run is
+original input deadline. The historical counterexample blocks every live
+resolver and rejects a changed failed-original hash. No native compilation, simulator or device run is
 claimed.
