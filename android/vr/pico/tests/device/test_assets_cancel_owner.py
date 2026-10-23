@@ -144,6 +144,29 @@ class AssetsCancelOwnerTests(unittest.TestCase):
         count=len(self.host.inputs)
         with self.assertRaises(NativeUIError):self.owner.cancel()
         self.assertEqual(count,len(self.host.inputs));self.assertEqual([pending],self.store.read()['unresolvedInputs'])
+    def test_lost_navigation_and_cancel_replies_cold_reconcile_keeps_both_originals(self):
+        send=self.host.write_debug_app_file
+        def lose_navigation(target,package,path,raw):
+            import json
+            command=json.loads(raw)
+            if command['controlId']=='assets-file.folder' and command['action']=='replace':self.host.lose=True
+            return send(target,package,path,raw)
+        with patch.object(self.host,'write_debug_app_file',side_effect=lose_navigation),self.assertRaises((NativeUIError,NavigationError)):
+            self.owner.open()
+        navigation=deepcopy(self.store.read()['pendingInput']);admitted=deepcopy(self.store.read())
+        self.cancel_phase();self.make()
+        with self.assertRaises((NativeUIError,NavigationError)):self.owner.cancel()
+        cancel=deepcopy(self.store.read()['pendingInput']);originals=unpack(self.store.read()['inputs']);inputs=deepcopy(self.host.inputs)
+        self.assertEqual('assets-file.cancel',cancel['native']['controlId'])
+        self.assertNotEqual(navigation['native']['commandId'],cancel['native']['commandId'])
+        self.assertEqual([navigation],self.store.read()['unresolvedInputs']);self.assertIsNone(originals[-1]['after'])
+        self.host.lose=False;self.make();result=self.owner.reconcile();state=self.store.read()
+        self.assertTrue(result['cancelObserved'] and result['filesRetired']);self.assertEqual(inputs,self.host.inputs)
+        self.assertEqual(cancel,state['pendingInput']);self.assertEqual([navigation],state['unresolvedInputs'])
+        self.assertEqual(originals,unpack(state['inputs']))
+        self.assertEqual((admitted['browserId'],admitted['modelId']),(result['browser']['id'],result['browser']['modelId']))
+        self.assertFalse(result['browser']['rootAlive'] or result['browser']['modelAlive'])
+        self.assertEqual('retired',self.file_store.read()['phase']);self.assertEqual(0,self.owner.uploads.last['source']['totalCalls'])
     def test_final_owner_cas_age_refuses_open_result_and_keeps_exact_inputs(self):
         self.synthetic=0;self.owner.monotonic=lambda:self.synthetic;write=self.store.write;aged=False
         def delayed(value,previous):
