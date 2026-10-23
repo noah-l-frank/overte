@@ -27,6 +27,27 @@ def plain(value):
     else:need(value is None or type(value) in (str,bool,int,float))
 
 
+def stage_transition(before,frame,stage):
+    """Original stage continuity without creating or restoring a live owner."""
+    need(stage in ('active','cleanup'))
+    if stage=='active':opened(before,frame)
+    else:
+        for key in ('primary','peer','view','lifecycle'):
+            old,new=before[key],frame[key]
+            need(old['instance']==new['instance'] and old['processId']==new['processId']
+                and new['sequence']>old['sequence'] and new['capturedEpochMs']>=old['capturedEpochMs'])
+            if key in ('primary','peer'):
+                previous,current=old['source'],new['source']
+                need(previous['scopePresent'] and not previous['retired'] and not current['scopePresent'] and current['retired']
+                    and current['openedCommandId']==previous['openedCommandId'] and current['retiredCommandId']
+                    and current['retiredCommandId']!=current['openedCommandId']
+                    and current['selfSha256']==previous['selfSha256'] and current['mixerSha256']==previous['mixerSha256']
+                    and all(same(current['session'][field],previous['session'][field]) for field in
+                        ('instance','revision','connected','domainSha256','connectionBirth','connectedEpochMs')))
+            elif key=='view':need(old['source']['keyboard']['instance']==new['source']['keyboard']['instance'])
+            else:need(same(old['lifecycle'],new['lifecycle']))
+
+
 class ChatObservationCursor:
     """Actual queries across stage owners; never adopt a completed-looking root.
 
@@ -134,24 +155,7 @@ class ChatObservationCursor:
         except Exception:self.failed=True;raise
 
     def transition(self,frame):
-        if self.transition_anchor is None:return
-        before=self.transition_anchor
-        if self.current.stage=='active':opened(before,frame)
-        else:
-            for key in ('primary','peer','view','lifecycle'):
-                old,new=before[key],frame[key]
-                need(old['instance']==new['instance'] and old['processId']==new['processId']
-                    and new['sequence']>old['sequence'] and new['capturedEpochMs']>=old['capturedEpochMs'])
-                if key in ('primary','peer'):
-                    previous,current=old['source'],new['source']
-                    need(previous['scopePresent'] and not previous['retired'] and not current['scopePresent'] and current['retired']
-                        and current['openedCommandId']==previous['openedCommandId'] and current['retiredCommandId']
-                        and current['retiredCommandId']!=current['openedCommandId']
-                        and current['selfSha256']==previous['selfSha256'] and current['mixerSha256']==previous['mixerSha256']
-                        and all(same(current['session'][field],previous['session'][field]) for field in
-                            ('instance','revision','connected','domainSha256','connectionBirth','connectedEpochMs')))
-                elif key=='view':need(old['source']['keyboard']['instance']==new['source']['keyboard']['instance'])
-                else:need(same(old['lifecycle'],new['lifecycle']))
+        if self.transition_anchor is not None:stage_transition(self.transition_anchor,frame,self.current.stage)
 
     def clocks(self):
         owner=self.current;role=owner.samples;frame=role.frames[-1]

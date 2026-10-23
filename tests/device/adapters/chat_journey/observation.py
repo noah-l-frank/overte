@@ -25,6 +25,60 @@ VERSION=1
 STAGES=('initial','active','cleanup')
 
 
+def observation_sample(run,sequence,measured):
+    """Historical original measured fields; no acquisition or desired state."""
+    need('state' in measured)
+    value=dict(schemaVersion=1,contractVersion=CONTRACT_VERSION,runId=run,sequence=sequence,
+        capturedEpochMs=measured['capturedEpochMs'],state=deepcopy(measured['state']),artifacts=[],
+        resources=deepcopy(measured['resources']),lifecycle=deepcopy(measured['lifecycle']))
+    return result('feature.chat.observe',value)
+
+
+def validate_original_row(row,sequence,previous,*,run,authority,source_frame,source_count,sample):
+    """Same original grammar for warm queries and explicit historical DTOs."""
+    exact(row,{'sequence','before','after','authority','reference','sample'})
+    need(type(row['sequence']) is int and row['sequence']==sequence)
+    count=len(row['before']['activations']);expected_authority,original=authority(count)
+    need(same(expected_authority,row['authority']))
+    for key,prior in (('before',previous or original),('after',row['before'])):
+        packet=row[key];phase_packet(packet,run=run,area='chat',request=packet['requestId'],
+            epoch=packet['capturedEpochMs'],previous=prior)
+        need(packet['active'] and same(packet['activations'],original['activations']))
+    reference=row['reference'];exact(reference,{'index','ticket','queries','epochs','sourceSha256'})
+    need(integer(reference['index'],0,source_count-1))
+    frame=source_frame(reference['index'])
+    expected=dict(index=reference['index'],ticket=frame['ticket'],sourceSha256=digest(frame),
+        queries=[frame[key].get('commandId',frame[key].get('requestId')) for key in ('primary','peer','view','lifecycle')],
+        epochs=[frame[key]['capturedEpochMs'] for key in ('primary','peer','view','lifecycle')])
+    need(same(reference,expected) and frame['ticket']==row['before']['activations'][-1]['ticket']
+        and frame['afterEpochMs']==math.ceil(row['before']['activations'][-1]['activatedEpochMs'])
+        and same(row['sample'],sample(sequence,frame)))
+    return frame
+
+
+def original_authority(value,rows,stage,count,*,run,binding,peer_binding,cleanup=None,current=False):
+    """Historical input/phase authority, never an observation or effect."""
+    need(stage in STAGES and integer(count,1,27))
+    if stage=='cleanup':
+        need(count==27 and len(rows)==26 and all(row['phase']=='completed' for row in rows))
+        exact(cleanup,{'chatCleanupAdmissionVersion','runId','binding','peerBinding','flowSha256','phase','original'})
+        need(type(cleanup['chatCleanupAdmissionVersion']) is int and cleanup['chatCleanupAdmissionVersion']==1
+            and cleanup['runId']==run and cleanup['phase']=='admitted'
+            and same(cleanup['binding'],binding) and same(cleanup['peerBinding'],peer_binding)
+            and cleanup['flowSha256']==digest(value))
+        original=cleanup['original'];phase_packet(original,run=run,area='chat',request=original['requestId'],
+            epoch=original['capturedEpochMs'],previous=rows[-1]['after'])
+        need(original['active'] and len(original['activations'])==27
+            and original['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+        return dict(flowSha256=digest(value),cleanupSha256=digest(cleanup)),original
+    need(count<=len(rows) and (count==1 if stage=='initial' else count>=2))
+    row=rows[count-1]
+    if row['phase']!='completed':raise PhasePending('Original Chat input has not completed')
+    if current:need(count==len(rows))
+    prefix={**value,'payload':pack(rows[:count])}
+    return dict(flowSha256=digest(prefix),cleanupSha256=None),row['after']
+
+
 class ChatObservationOwner:
     """One stage/role; an uncertain reading never authorizes another query.
 
@@ -71,25 +125,8 @@ class ChatObservationOwner:
 
     def authority(self,count,*,current=False):
         value,rows=self.flow();need(integer(count,1,27))
-        if self.stage=='cleanup':
-            need(count==27 and len(rows)==26 and all(row['phase']=='completed' for row in rows))
-            cleanup=self.cleanup_store.read()
-            exact(cleanup,{'chatCleanupAdmissionVersion','runId','binding','peerBinding','flowSha256','phase','original'})
-            need(type(cleanup['chatCleanupAdmissionVersion']) is int and cleanup['chatCleanupAdmissionVersion']==1
-                and cleanup['runId']==self.source.run and cleanup['phase']=='admitted'
-                and same(cleanup['binding'],self.samples.binding) and same(cleanup['peerBinding'],self.samples.peer_binding)
-                and cleanup['flowSha256']==digest(value))
-            original=cleanup['original'];phase_packet(original,run=self.source.run,area='chat',request=original['requestId'],
-                epoch=original['capturedEpochMs'],previous=rows[-1]['after'])
-            need(original['active'] and len(original['activations'])==27
-                and original['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
-            return dict(flowSha256=digest(value),cleanupSha256=digest(cleanup)),original
-        need(count<=len(rows) and (count==1 if self.stage=='initial' else count>=2))
-        row=rows[count-1]
-        if row['phase']!='completed':raise PhasePending('Original Chat input has not completed')
-        if current:need(count==len(rows))
-        prefix={**value,'payload':pack(rows[:count])}
-        return dict(flowSha256=digest(prefix),cleanupSha256=None),row['after']
+        return original_authority(value,rows,self.stage,count,run=self.source.run,binding=self.samples.binding,
+            peer_binding=self.samples.peer_binding,cleanup=self.cleanup_store.read() if self.stage=='cleanup' else None,current=current)
 
     def current(self):
         value,rows=self.flow()
@@ -104,11 +141,8 @@ class ChatObservationOwner:
 
     def sample(self,sequence,frame):
         measured=self.samples._compose(frame)
-        need('state' in measured and not frame.get('settings') and not frame.get('transition'))
-        value=dict(schemaVersion=1,contractVersion=CONTRACT_VERSION,runId=self.source.run,sequence=sequence,
-            capturedEpochMs=measured['capturedEpochMs'],state=deepcopy(measured['state']),artifacts=[],
-            resources=deepcopy(measured['resources']),lifecycle=deepcopy(measured['lifecycle']))
-        return result('feature.chat.observe',value)
+        need(not frame.get('settings') and not frame.get('transition'))
+        return observation_sample(self.source.run,sequence,measured)
 
     def original_source(self,index):
         self.samples.history.verify();root=self.samples.store.read()
@@ -122,24 +156,8 @@ class ChatObservationOwner:
         return frames[0]
 
     def validate_row(self,row,sequence,previous=None):
-        exact(row,{'sequence','before','after','authority','reference','sample'})
-        need(type(row['sequence']) is int and row['sequence']==sequence)
-        count=len(row['before']['activations']);authority,original=self.authority(count)
-        need(same(authority,row['authority']))
-        for key,prior in (('before',previous or original),('after',row['before'])):
-            packet=row[key];phase_packet(packet,run=self.source.run,area='chat',request=packet['requestId'],
-                epoch=packet['capturedEpochMs'],previous=prior)
-            need(packet['active'] and same(packet['activations'],original['activations']))
-        reference=row['reference'];exact(reference,{'index','ticket','queries','epochs','sourceSha256'})
-        need(integer(reference['index'],0,len(self.samples.frames)-1))
-        frame=self.original_source(reference['index'])
-        expected=dict(index=reference['index'],ticket=frame['ticket'],sourceSha256=digest(frame),
-            queries=[frame[key].get('commandId',frame[key].get('requestId')) for key in ('primary','peer','view','lifecycle')],
-            epochs=[frame[key]['capturedEpochMs'] for key in ('primary','peer','view','lifecycle')])
-        need(same(reference,expected) and frame['ticket']==row['before']['activations'][-1]['ticket']
-            and frame['afterEpochMs']==math.ceil(row['before']['activations'][-1]['activatedEpochMs'])
-            and same(row['sample'],self.sample(sequence,frame)))
-        return frame
+        return validate_original_row(row,sequence,previous,run=self.source.run,authority=self.authority,
+            source_frame=self.original_source,source_count=len(self.samples.frames),sample=self.sample)
 
     def write(self,value):
         need(same(self.store.read(),self.previous));self.store.write(value,self.previous)

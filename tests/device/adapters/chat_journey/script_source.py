@@ -91,6 +91,20 @@ def identity(before,scripts,after,*,pid,epoch):
         code=code,compilation=matches[0]))
 
 
+def validate_transaction(frame,previous,*,pid):
+    exact(frame,{'ticket','afterEpochMs','before','scripts','after'})
+    identifier(frame['ticket']);need(integer(frame['afterEpochMs'],1)
+        and frame['before']['requestedEpochMs']>=frame['afterEpochMs'])
+    selected=identity(frame['before'],frame['scripts'],frame['after'],pid=pid,epoch=frame['after']['capturedEpochMs'])
+    if previous:
+        old=previous[-1]
+        need(all(frame['ticket']!=row['ticket'] for row in previous)
+            and selected==identity(old['before'],old['scripts'],old['after'],pid=pid,epoch=old['after']['capturedEpochMs']))
+        roots_packet(frame['before'],dict(schemaVersion=1,commandId=frame['before']['commandId'],
+            action='feature-script-roots-observe'),pid,frame['after']['capturedEpochMs'],previous=old['after'])
+        need(frame['scripts']['sequence']>old['scripts']['sequence'] and frame['scripts']['requestId']!=old['scripts']['requestId'])
+    return selected
+
 class ChatScriptSource:
     """Durable passive source transactions, serialized by the parent lock.
 
@@ -166,18 +180,7 @@ class ChatScriptSource:
         return set(self.transactions)|(self.predecessor.tickets() if self.predecessor is not None else set())
 
     def _validate(self,frame,previous):
-        exact(frame,{'ticket','afterEpochMs','before','scripts','after'})
-        identifier(frame['ticket']);need(integer(frame['afterEpochMs'],1)
-            and frame['before']['requestedEpochMs']>=frame['afterEpochMs'])
-        selected=identity(frame['before'],frame['scripts'],frame['after'],pid=self.roots.pid,epoch=frame['after']['capturedEpochMs'])
-        if previous:
-            old=previous[-1]
-            need(all(frame['ticket']!=row['ticket'] for row in previous)
-                and selected==identity(old['before'],old['scripts'],old['after'],pid=self.roots.pid,epoch=old['after']['capturedEpochMs']))
-            roots_packet(frame['before'],dict(schemaVersion=1,commandId=frame['before']['commandId'],
-                action='feature-script-roots-observe'),self.roots.pid,frame['after']['capturedEpochMs'],previous=old['after'])
-            need(frame['scripts']['sequence']>old['scripts']['sequence'] and frame['scripts']['requestId']!=old['scripts']['requestId'])
-        return selected
+        return validate_transaction(frame,previous,pid=self.roots.pid)
 
     def _write(self,value):
         need(same(self.store.read(),self.previous));self.store.write(value,self.previous)
