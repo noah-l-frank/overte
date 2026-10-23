@@ -1045,6 +1045,35 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-cursor-actor-consumption-')))
 
+        def _chat_remote_actor_return_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-remote-actor-return-')))
+
+        @_private
+        def _chat_remote_actor_return(self,target,parent,process,expected):
+            from adapters.pico4.chat_composition import PicoChatComposition
+            from adapters.chat_journey.remote_actor_return import ChatRemoteActorReturn
+            from adapters.chat_journey.cache_release import ChatCacheRelease
+            from fixture.chat_observer_process import LinuxChatObserverProcess
+            _need(type(parent) is PicoChatComposition and parent.adapter is self and parent.target==target and not parent.failed
+                and parent.previous['phase']=='caches-retired' and parent.previous['completedSteps']==26
+                and type(parent.cache_release) is ChatCacheRelease and parent.cache_release.defer_ipc
+                and type(process) is LinuxChatObserverProcess and expected['hostProcessIdentity']==process.process_identity
+                and expected['runId']==parent.source.run and expected['fixtureUrl']==parent.source.fixture_url
+                and expected['binding']==parent.binding and expected['peerBinding']==parent.peer.binding)
+            parent.guard();process.guard()
+            stores=dict(actor=self._chat_cursor_actor_store(target),stop=self._chat_cursor_actor_stop_store(target),
+                seal=self._chat_cursor_source_seal_store(target,witness=True),flow=self._chat_flow_inputs_store(target),
+                cleanup=self._chat_cleanup_admission_store(target),publisher=self._chat_observation_publisher_store(target),
+                cursor=self._chat_observation_cursor_store(target,'actor',witness=True),
+                code=self._chat_script_source_store(target,'actor',witness=True),
+                **{'return':self._chat_cursor_actor_return_store(target),'consumption':self._chat_cursor_actor_consumption_store(target)})
+            for stage in ('initial','active','cleanup'):
+                stores[stage+'-observation']=self._chat_observation_store(target,'actor',stage=stage,witness=True)
+                stores[stage+'-samples']=(self._chat_samples_store(target,'actor',witness=True) if stage=='active' else
+                    self._chat_cache_absence_store(target,'actor',stage='final' if stage=='cleanup' else 'initial',witness=True))
+            return ChatRemoteActorReturn(process,stores,expected,self._chat_remote_actor_return_store(target))
+
         @_private
         def _chat_cursor_actor(self,target,source,peer_config):
             from adapters.pico4.chat_cursor_actor import PicoChatCursorActor
@@ -1205,6 +1234,7 @@ def create_adapter(args, base_class):
             stores.append(self._chat_cleanup_baseline_store(target))
             stores.extend((self._chat_cursor_actor_store(target),self._chat_cursor_actor_stop_store(target),
                 self._chat_cursor_actor_return_store(target),self._chat_cursor_actor_consumption_store(target)))
+            stores.append(self._chat_remote_actor_return_store(target))
             stores.append(self._chat_cursor_cleanup_consumption_store(target))
             stores.append(self._chat_observation_publisher_store(target))
             stores.extend(self._chat_observation_cursor_store(target,role,witness=witness)

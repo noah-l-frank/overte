@@ -27,6 +27,10 @@ from fixture.chat_actor_process import LinuxChatActorProcess
 VERSION=1
 
 
+class ObserverProcessPresent(NativeUIError):
+    """The original PID is still present; this is never an absence sample."""
+
+
 class LinuxChatObserverProcess(LinuxChatActorProcess):
     """Acquire the exact originally LIVE observer before accepting its result.
 
@@ -102,7 +106,7 @@ class LinuxChatObserverProcess(LinuxChatActorProcess):
         try:os.kill(self.pid,0)
         except ProcessLookupError as error:need(error.errno==errno.ESRCH)
         except OSError:need(False)
-        else:raise NativeUIError('Original independent Chat observer is still present')
+        else:raise ObserverProcessPresent('Original independent Chat observer is still present')
         try:(Path('/proc')/str(self.pid)).lstat()
         except FileNotFoundError:pass
         else:need(False) # Includes PID reuse; no forgiveness from start mismatch.

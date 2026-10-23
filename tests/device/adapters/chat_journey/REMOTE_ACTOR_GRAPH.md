@@ -73,3 +73,10 @@ echo and actual original process absence. Remote common cleanup also needs an
 explicit versioned Stop/prefix boundary: an autonomous Actor may publish more
 real same-phase rows after the last consumed common witness. Existing Stop
 version 1 keeps its exact-current-sequence requirement unchanged.
+
+The explicit [typed return join](REMOTE_ACTOR_RETURN.md) now supplies the one
+controlled `parent-consumed` successor through the original neutral receiver.
+It retains the original payload cache/stamp, derives every successor field from
+the original consumed nonce record, and pins the new physical identity once.
+Only that separate typed return's real process-absence finalization consumes the
+attached pending graph; the historical parser itself provides no completion.

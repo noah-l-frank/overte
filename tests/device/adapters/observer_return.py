@@ -210,8 +210,10 @@ class ObserverReturnReceiver:
         raw,_physical=raw_file(self.ack_store);need(raw==self.intent_raw)
         result=deepcopy(self.intent);self.verify_ready();self.owner.guard();return result
 
-    def receipt(self):
-        need(self.issued and self.intent is not None and not self.complete
+    def consumed(self,*,historical=False):
+        """Original consumed metadata, without a process or feature verdict."""
+        need(type(historical) is bool and self.issued and self.intent is not None
+            and (self.complete if historical else not self.complete)
             and digest(self.intent)==self.intent_sha and canonical(self.intent)+b'\n'==self.intent_raw)
         value,raw,physical_stamp=state(self.store)
         exact(value,SCOPE|{'phase','chunks','consumption','consumptionSha256','consumptionStamp'})
@@ -222,6 +224,12 @@ class ObserverReturnReceiver:
         need(ack_raw==self.intent_raw and ack_stamp==value['consumptionStamp'])
         if self.consumed_stamp is None:self.consumed_stamp,self.consumed_raw=physical_stamp,raw
         need(physical_stamp==self.consumed_stamp and raw==self.consumed_raw);self.verify_parts()
+        result=deepcopy(value);self.verify_parts()
+        need(raw_file(self.store)==(raw,physical_stamp) and raw_file(self.ack_store)==(self.intent_raw,ack_stamp))
+        return result,raw,physical_stamp
+
+    def receipt(self):
+        value,raw,physical_stamp=self.consumed();ack_stamp=value['consumptionStamp']
         absence=self.owner.require_absent()
         result=dict(observerReturnReceiptVersion=VERSION,runId=self.scope['runId'],family=self.scope['family'],
             producerHostProcessIdentity=self.scope['producerHostProcessIdentity'],originalRequestId=self.scope['originalRequestId'],
@@ -230,4 +238,15 @@ class ObserverReturnReceiver:
         result=deepcopy(result);self.verify_parts()
         need(raw_file(self.store)==(self.consumed_raw,self.consumed_stamp)
             and raw_file(self.ack_store)==(self.intent_raw,ack_stamp))
+        self.result_raw=canonical(result);self.result_sha=hashlib.sha256(self.result_raw).hexdigest()
         self.owner.final_absence(absence);self.complete=True;return result
+
+    def historical_receipt(self):
+        """The same frozen returned event; no fresh PID/native fact is claimed."""
+        need(self.complete and type(self.result_raw) is bytes and hashlib.sha256(self.result_raw).hexdigest()==self.result_sha)
+        import json
+        result=json.loads(self.result_raw);value,raw,_physical=self.consumed(historical=True)
+        need(result['consumedRootSha256']==hashlib.sha256(raw).hexdigest()
+            and result['consumptionSha256']==value['consumptionSha256'])
+        self.owner.source_files();self.owner.fd_owner.require(self.owner.fd);self.owner.original_program()
+        self.verify_parts();return result
