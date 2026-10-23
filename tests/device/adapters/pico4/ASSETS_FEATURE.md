@@ -480,3 +480,13 @@ to the existing owning selector (now eight cases), with no selector, capability,
 source or limit change. It does not replace the separate whole-selector timing
 failure recorded above. The 120-second outer test bound and 90-second compiler
 bound remained unchanged.
+
+A second follow-up combines two actual lost replies: the delivered folder-field
+replacement and the later distinct normal Cancel. Cold reconstruction sends no
+input again. The navigation original remains in `unresolvedInputs`, the exact
+Cancel original remains in `pendingInput`, and neither input archive gains an
+invented receipt. Fresh independent original browser/model death, unchanged
+mapping/upload sources and the same quiet interval still qualify known-file
+release. This actual Qt/native case passed independently; it adds one case to
+the existing selector (nine cases) without changing production code, limits or
+the separately retained whole-selector timing result.
