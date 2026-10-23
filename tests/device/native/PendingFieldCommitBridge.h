@@ -10,7 +10,11 @@
 #include <cmath>
 
 namespace overte::e2e {
-using PendingCommitProvider = std::function<QVariantMap(const QVariantMap&)>;
+struct PendingCommitProvider {
+    std::function<QVariantMap(const QVariantMap&)> request;
+    explicit operator bool() const { return bool(request); }
+    QVariantMap operator()(const QVariantMap& command) const { return request ? request(command) : QVariantMap(); }
+};
 inline const char* pendingCommitProviderProperty() { return "_overteE2EOriginalPendingCommitOwnerV1"; }
 inline bool pendingCommitIdentifier(const QString& value, bool request = false) {
     return QRegularExpression(request ? "\\A(?:ios-)?[0-9a-f]{32}\\z" : "\\A[0-9a-f]{32}\\z").match(value).hasMatch();

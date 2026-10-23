@@ -39,10 +39,10 @@ inline void installPhonePendingCommitOwner(const std::function<bool()>& launchGu
         return pressed && released && original && surface;
     };
     const auto owner = std::make_shared<PendingFieldCommitOwner>(roots, pointer);
-    PendingCommitProvider provider = [owner, launchGuard](const QVariantMap& command) {
+    PendingCommitProvider provider { [owner, launchGuard](const QVariantMap& command) {
         if (!qApp || QThread::currentThread() != qApp->thread() || !launchGuard()) { return QVariantMap(); }
         return owner->request(command);
-    };
+    } };
     qApp->setProperty(pendingCommitProviderProperty(), QVariant::fromValue(provider));
 }
 } // namespace overte::e2e

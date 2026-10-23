@@ -11,7 +11,9 @@
 #include <cstdio>
 #include "tests/device/native/PhoneLifecycleEditor.h"
 #include "tests/device/native/PendingFieldCommitOwner.h"
+#include "tests/device/native/WebDOMObservationBridge.h"
 static QString stage;
+static QString activeEditor;
 QUrl PathUtils::defaultScriptsLocation(const QString&) { return QUrl::fromLocalFile(stage+"/scripts/"); }
 QUrl PathUtils::qmlUrl(const QString& relative) { return QUrl::fromLocalFile(stage+"/qml/"+relative); }
 class Services:public QObject {
@@ -25,9 +27,35 @@ public:
 signals:void scriptCountChanged();void scriptLoadError(const QString&,const QString&);
 };
 // ORIGINAL_TEST_BINDING
-static void need(bool value) { if(!value)throw std::runtime_error("Original lifecycle editor source contract"); }
+static void needAt(bool value,int line) {
+    if(!value)throw std::runtime_error("Original lifecycle editor source contract for "+activeEditor.toStdString()+" at line "+std::to_string(line));
+}
+#define need(value) needAt((value),__LINE__)
+static QVariantMap originalPendingProviderDispatch(const QVariantMap& command) {
+    // ORIGINAL_PENDING_PROVIDER_DISPATCH
+}
 int main(int argc,char**argv) {
     QGuiApplication app(argc,argv);stage=QString::fromLocal8Bit(argv[1]);const QString mode=argv[2],run(32,'a');
+    if(mode=="provider-types") {
+        using overte::e2e::PendingCommitProvider;
+        using overte::e2e::WebDOMProvider;
+        need(qMetaTypeId<PendingCommitProvider>()!=qMetaTypeId<WebDOMProvider>());
+        const QVariantMap command{{"actual-host-command",true}};
+        PendingCommitProvider empty;need(!empty && empty(command).isEmpty());
+        int pendingCalls=0,foreignCalls=0;
+        WebDOMProvider foreign=[&](const QVariantMap& value){++foreignCalls;return value;};
+        qApp->setProperty(overte::e2e::pendingCommitProviderProperty(),QVariant::fromValue(foreign));
+        need(originalPendingProviderDispatch(command).isEmpty() && foreignCalls==0);
+        PendingCommitProvider provider{[&](const QVariantMap& value){++pendingCalls;return value;}};
+        const auto copied=provider;
+        qApp->setProperty(overte::e2e::pendingCommitProviderProperty(),QVariant::fromValue(copied));
+        need(originalPendingProviderDispatch(command)==command && pendingCalls==1 && foreignCalls==0);
+        qApp->setProperty(overte::e2e::pendingCommitProviderProperty(),QVariant::fromValue(empty));
+        need(originalPendingProviderDispatch(command).isEmpty() && pendingCalls==1 && foreignCalls==0);
+        qApp->setProperty(overte::e2e::pendingCommitProviderProperty(),QVariant());
+        need(originalPendingProviderDispatch(command).isEmpty() && pendingCalls==1 && foreignCalls==0);
+        return 0;
+    }
     QQmlEngine engine;engine.addImportPath(stage);Services services;
     for(const auto& name:QStringList{"ScriptDiscoveryService","MenuInterface","HMD"})engine.rootContext()->setContextProperty(name,&services);
     QQuickWindow window;window.resize(640,1100);QQuickItem root(window.contentItem());root.setSize(QSizeF(640,1100));window.show();window.requestActivate();QTest::qWait(50);
@@ -58,6 +86,7 @@ int main(int argc,char**argv) {
         page->setParentItem(&root);page->setSize(QSizeF(640,1100));QTest::qWait(30);need(observe().isEmpty());return 0;
     }
     for(const auto& editor:QStringList{"create","chat","scripts"}) {
+        activeEditor=editor;
         auto page=create(editor);auto source=body();auto field=source.value("current").toMap();need(field.value("editor")==editor && field.value("text")=="");
         tokens.append(field.value("token").toString());
         if(mode=="foreign-token") {auto wrong=source;auto fields=field;fields["fieldToken"]=QString(32,'f');wrong["current"]=fields;need(input("focus",wrong).value("performed")==false);

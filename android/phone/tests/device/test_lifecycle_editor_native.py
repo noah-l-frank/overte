@@ -27,11 +27,16 @@ class LifecycleEditorNativeTests(unittest.TestCase):
         for name in ('TabletRunningScripts.qml','NativeModelTree.qml','NativeKeyboardHost.qml'):
             shutil.copyfile(ROOT/'interface/resources/qml/hifi/dialogs'/name,dialogs/name)
         controls=cls.stage/'controlsUit';controls.mkdir()
-        (controls/'qmldir').write_text('module controlsUit\nTouchUiMetrics 1.0 TouchUiMetrics.qml\nKeyboard 1.0 Keyboard.qml\n')
-        (controls/'TouchUiMetrics.qml').write_text('import QtQml\nQtObject { readonly property bool systemImeAvailable:true }\n')
+        (controls/'qmldir').write_text('module controlsUit\nTouchUiMetrics 1.0 TouchUiMetrics.qml\nTouchUiProfile 1.0 TouchUiProfile.qml\nTouchUiProfileBase 1.0 TouchUiProfileBase.qml\nKeyboard 1.0 Keyboard.qml\n')
+        for name in ('TouchUiMetrics.qml','TouchUiProfile.qml','TouchUiProfileBase.qml'):
+            shutil.copyfile(ROOT/'interface/resources/qml/controlsUit'/name,controls/name)
         (controls/'Keyboard.qml').write_text('import QtQuick\nItem {property bool raised:false;property bool numeric:false;property bool password:false;property real keyboardWidth:640;property real raisedHeight:300}\n')
         raw=(ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text();start=raw.index('QVariantMap TestScriptingInterface::phoneLifecycleEditor(')
         method=raw[start:raw.index('\n}',start)+2]
+        pending_start=raw.index('QVariantMap TestScriptingInterface::featurePendingCommitOwner(')
+        pending_end=raw.index('\n}',pending_start)
+        dispatch_start=raw.index('    const auto original = qApp->property(overte::e2e::pendingCommitProviderProperty());',pending_start,pending_end)
+        dispatch=raw[dispatch_start:pending_end]
         seams='''
 #include <QSharedPointer>
 class OffscreenUi {public:QQuickItem* root{nullptr};QQuickWindow* window{nullptr};QQuickItem* getRootItem(){return root;}QQuickWindow* getWindow(){return window;}};
@@ -45,7 +50,7 @@ std::shared_ptr<Lifecycle> _featureLifecycle=std::make_shared<Lifecycle>();
 std::shared_ptr<overte::e2e::PhoneLifecycleEditor> _phoneLifecycleEditor;quint64 _phoneLifecycleEditorSequence{0};};
 #define DependencyManager LifecycleDependencies
 '''+method+'\n#undef DependencyManager\n'
-        cpp=cls.stage/'lifecycle-editor-runtime.cpp';cpp.write_text((ROOT/'android/phone/tests/device/lifecycle-editor-runtime.cpp').read_text().replace('// ORIGINAL_TEST_BINDING',seams))
+        cpp=cls.stage/'lifecycle-editor-runtime.cpp';cpp.write_text((ROOT/'android/phone/tests/device/lifecycle-editor-runtime.cpp').read_text().replace('// ORIGINAL_TEST_BINDING',seams).replace('// ORIGINAL_PENDING_PROVIDER_DISPATCH',dispatch))
         subprocess.run(['/usr/lib64/qt6/libexec/moc',str(cpp),'-o',str(cls.stage/'lifecycle-editor-runtime.moc')],check=True,timeout=30)
         flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt6Core','Qt6Gui','Qt6Quick','Qt6Qml','Qt6Test'],text=True));cls.binary=cls.stage/'check'
         subprocess.run(['c++','-std=c++17','-fPIC','-DOVERTE_E2E_FEATURE_TESTS','-DANDROID_APP_PHONE_INTERFACE','-I'+str(ROOT),
@@ -61,5 +66,6 @@ std::shared_ptr<overte::e2e::PhoneLifecycleEditor> _phoneLifecycleEditor;quint64
     def test_foreign_field_token_does_not_focus_actual_editor(self):self.case('foreign-token')
     def test_private_external_draft_is_unavailable_and_never_exported(self):self.case('private-text')
     def test_same_named_foreign_qml_source_and_duplicate_actual_fields_are_unavailable(self):self.case('foreign-source');self.case('ambiguous')
+    def test_same_tu_providers_are_distinct_and_original_dispatch_rejects_foreign_variant(self):self.case('provider-types')
 
 if __name__=='__main__':unittest.main()
