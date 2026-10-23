@@ -47,3 +47,24 @@ The whole Emote coordinator, live terminal/publication join, actual process/SDK
 end and canonical routing must still consume this version explicitly. Complete
 capability admission stays closed. Native compilation, physical devices and
 physical acquisition/API deadlines remain unqualified.
+
+
+The separate `IOSEmoteHeldObserver` now retains the existing ordinary source,
+Script/Rig, image and original-publication pipeline with the explicit scope-two
+image reader. It changes no serialized observation format or measured fields.
+Existing observer reconstruction selects this same reader before decoding any
+retained observations. The old reader continues to refuse scope two; the new
+reader refuses scope one and unknown future versions.
+
+One connected active case passes in 5.386 seconds: actual original idle pixels,
+ordinary Open and Waving input, loaded caller/Rig pose progress, changed subject
+PNG, historical observer reconstruction without new GPU/native queries, and
+both incompatible scope-version counterexamples. All original files, bytes and
+inodes remain unchanged during reconstruction. Native producers are modeled;
+actual JavaScript, HTTP, original records and PNG decoding execute on the host.
+
+This active join does not solve the remaining lifetime boundary. The next full
+marker version must additionally require complete ScriptUiInventory2 and its
+original RootOwnership1, retain observed detached live manager/picker roots,
+and join them to terminal/process end. Current scope two is an explicit Web
+holder prototype; it cannot by itself advertise the complete Emote adapter.
