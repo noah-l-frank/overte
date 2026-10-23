@@ -56,6 +56,48 @@
       "originalSha256": "212dd4ebd10dddb2932420b3bb1de54a7d915bdcfee2790f2a4c53eb6069f9eb",
       "selectedSha256": "f4f9f8e89eef5c9f7a28d79cb5e6285997615445d2469cfa31603de718fc6e62",
       "adaptation": "Select strict original read parser/transport only; Pico source/action names, actual connection/dependency births, raw cold continuity, pending intent and combined native/host freshness; no Phone facade."
+    },
+    {
+      "path": "tests/device/native/PicoAssetsUploadOriginals.h",
+      "sourcePath": "tests/device/native/AssetsUploadOriginals.h",
+      "originalSha256": "458cf6af7a4a35f62d4a7212b46dd41a65acbcbca05670d3c2821a5a661b8143",
+      "selectedSha256": "7777b591949b43961017f8e0185e084e863d91cd5634330baabb3193d8774d1e",
+      "adaptation": "Select original bundle/request ledger; Pico-only runtime/GUI gates, every entry-call digest including rejection, fixed512-call bound, actual weak QObject/QtConnection/capture retirement and native per-connect generation."
+    },
+    {
+      "path": "tests/device/adapters/pico4/assets_uploads.py",
+      "sourcePath": "tests/device/adapters/android-phone/overte_phone_assets_uploads.py",
+      "originalSha256": "c6be00802d19afffe72a57cad761e0218eda08c31fb0e6e89bca0495186cdd30",
+      "selectedSha256": "15f6e317154ab86e46c4c060de80940dd79d0e6dbd809146364f5f4ade9c26c5",
+      "adaptation": "Select original upload receipt validators; retain Pico actual connection/call histories, native resource flags, source-intent and cold raw continuity; use shared read transport with final copy/history/native+host publication fence."
+    },
+    {
+      "path": "interface/src/scripting/AssetMappingsScriptingInterface.cpp",
+      "sourcePath": "interface/src/scripting/AssetMappingsScriptingInterface.cpp",
+      "originalSha256": "55463c81f85bd653a29aab2799e8647e8209a7ce50d0cbb3566c3b3927edb739",
+      "selectedSha256": "b3fe5e9d8408cbb8507aff4a0885213b92b3496b5719debc1813e3b0464b0ba2",
+      "adaptation": "Select passive original bundle/upload/mapping callbacks; Pico-only observer captures every original single/bundle/cancel call, actual dependency admission, original DomainHandler connection generation and actual QtConnection/weak/capture flags. Functional bodies remain unchanged."
+    },
+    {
+      "path": "interface/src/scripting/AssetMappingsScriptingInterface.h",
+      "sourcePath": "interface/src/scripting/AssetMappingsScriptingInterface.h",
+      "originalSha256": "9b6114c24689c0532e9d80b6601ee0b2ecd705a6f11d30f2077fe8feee44c0b5",
+      "selectedSha256": "c84065b3c4cb036428e970508c9c80b3715e4ed8b712e03f71f8095631c7b448",
+      "adaptation": "Pico-only passive member/observation getter and original live bundle occupancy; no new QML mutation input."
+    },
+    {
+      "path": "libraries/networking/src/AssetUpload.cpp",
+      "sourcePath": "libraries/networking/src/AssetUpload.cpp",
+      "originalSha256": "35f1af86f6050e4b2afc0d98b21a4ca714757ab691608db4d1bef097df6ca6c9",
+      "selectedSha256": "d5671ff7f0d74613b77c0eb5a44be198fbdc93da547978899281c112ae8b8674",
+      "adaptation": "Select only the passive original owner-thread upload-data/error getter with a Pico-only test gate; unchanged functional upload behavior."
+    },
+    {
+      "path": "libraries/networking/src/AssetUpload.h",
+      "sourcePath": "libraries/networking/src/AssetUpload.h",
+      "originalSha256": "30e177197b041ea090e4a934fe02dec926454ec78449058de78662ae276e30aa",
+      "selectedSha256": "a1ce7ca0baf43cc7334953c29abdf818450a97060666aac346df386419c167a7",
+      "adaptation": "Select native-only passive original upload getter under the Pico test gate."
     }
   ],
   "unchangedProductSources": [

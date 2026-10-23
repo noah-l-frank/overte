@@ -62,9 +62,4 @@ private:
  }
  MessageID next{0};QMap<MessageID,bool> pending;
 };
-class DependencyManager {
-public:
- template<class T> static QSharedPointer<T>& slot(){static QSharedPointer<T> value;return value;}
- template<class T> static bool isSet(){return !slot<T>().isNull();}
- template<class T> static QSharedPointer<T> get(){return slot<T>();}
-};
+#include "assets-dependency-host.h"

@@ -62,6 +62,7 @@
 #if defined(ANDROID_APP_PICO_INTERFACE)
 #include "../../../tests/device/native/PrivateAssetsFiles.h"
 #include "../../../tests/device/native/PicoAssetsReadJob.h"
+#include "AssetMappingsScriptingInterface.h"
 #include <AssetClient.h>
 #include <AssetRequest.h>
 #include <MappingRequest.h>
@@ -141,6 +142,7 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
 #if defined(ANDROID_APP_PICO_INTERFACE)
         _featureEmoteSceneQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAssetsReadQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
+        _featureAssetsUploadsQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAssetsRead=std::make_shared<overte::e2e::PicoAssetsReadJob>();
         _featureAssetsFilesQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAssetsFiles=std::make_shared<overte::e2e::PrivateAssetsFiles>();
@@ -322,6 +324,50 @@ QVariantMap TestScriptingInterface::featurePicoAvatarBookmarks(const QVariantMap
         {"sequence",static_cast<qulonglong>(++_featureAvatarBookmarksSequence)},{"processId",QCoreApplication::applicationPid()},
         {"requestedEpochMs",requested},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
         {"source",QVariantMap{{"picoAvatarBookmarksVersion",1},{"instance",_featureAvatarBookmarkBirth},{"storage",read.values}}}};
+}
+
+QVariantMap TestScriptingInterface::featurePicoAssetsUploadsObservation(const QVariantMap& command) {
+    const auto queue=_featureAssetsUploadsQueue;if(!queue) {return {};}
+    if(QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoAssetsUploadsObservation(command),{}};
+        }).values;
+    }
+    const auto request=command.value("commandId").toString(),run=command.value("runId").toString();
+    auto readCommand=command;readCommand["action"]="feature-pico-assets-observe";
+    if(command.value("action")!="feature-pico-assets-uploads-observe" || !overte::e2e::picoAssetsReadCommand(readCommand)
+            || _testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !qApp || thread()!=qApp->thread() || !DependencyManager::isSet<AssetMappingsScriptingInterface>()
+            || !DependencyManager::isSet<NodeList>() || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
+    if(_featureAssetsUploadsCommands.contains(request)) {
+        return _featureAssetsUploadsCommands.value(request)==command ? _featureAssetsUploadsResults.value(request) : QVariantMap{};
+    }
+    if(_featureAssetsUploadsCommands.size()>=512 || _featureAssetsUploadsSequence>=512) {return {};}
+    const auto manager=DependencyManager::get<AssetMappingsScriptingInterface>();const auto nodes=DependencyManager::get<NodeList>();
+    if(!manager || !nodes || (!_featureAssetsUploadsCommands.isEmpty() && (_featureAssetsUploadsManager.isNull() || _featureAssetsUploadsManager!=manager.data()))) {return {};}
+    const auto scope=[nodes,run] {
+        const auto server=nodes->soloNodeOfType(NodeType::AssetServer);const auto domainSession=nodes->getDomainHandler().featureChatSession(run);
+        if(!server || nodes->getDomainHandler().getUUID().isNull() || nodes->getSessionUUID().isNull() || server->getUUID().isNull()
+                || !nodes->getDomainHandler().isConnected() || domainSession.value("connected")!=QVariant(true)) {return QVariantMap{};}
+        return QVariantMap{{"domainId",nodes->getDomainHandler().getUUID().toString(QUuid::WithoutBraces)},
+            {"sessionId",nodes->getSessionUUID().toString(QUuid::WithoutBraces)},{"assetServerId",server->getUUID().toString(QUuid::WithoutBraces)},
+            {"domainSession",domainSession},{"canWrite",nodes->getThisNodeCanWriteAssets()}};
+    };
+    const auto requested=QDateTime::currentMSecsSinceEpoch();const auto connection=scope();if(connection.isEmpty()) {return {};}
+    _featureAssetsUploadsManager=manager.data();_featureAssetsUploadsCommands.insert(request,command);
+    const auto original=queue->read("client",manager.data(),[run](QObject* actual) {
+        return overte::e2e::AudioSettingsPart{static_cast<AssetMappingsScriptingInterface*>(actual)->featurePicoBundleOriginals(run),{}};
+    });
+    const auto captured=QDateTime::currentMSecsSinceEpoch();
+    if(original.values.isEmpty() || captured<requested || captured-requested>=1500 || scope()!=connection
+            || _featureAssetsUploadsManager.isNull() || _featureAssetsUploadsManager!=manager.data()
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
+    auto source=original.values;source.insert("connection",connection);
+    if(QJsonDocument(QJsonObject::fromVariantMap(source)).toJson(QJsonDocument::Compact).size()>4*1024*1024) {return {};}
+    const QVariantMap result{{"schemaVersion",1},{"requestId",request},{"runId",run},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureAssetsUploadsSequence)},{"processId",QCoreApplication::applicationPid()},
+        {"requestedEpochMs",requested},{"capturedEpochMs",captured},{"source",source}};
+    _featureAssetsUploadsResults.insert(request,result);return result;
 }
 
 QVariantMap TestScriptingInterface::featurePicoAssetsReadRetire(const QVariantMap& command) {

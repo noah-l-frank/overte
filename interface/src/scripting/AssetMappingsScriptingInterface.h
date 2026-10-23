@@ -20,6 +20,10 @@
 
 #include <AssetClient.h>
 #include <memory>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../tests/device/native/PicoAssetsUploadOriginals.h"
+#include <QThread>
+#endif
 #include <QSortFilterProxyModel>
 
 #include "DependencyManager.h"
@@ -68,6 +72,13 @@ class AssetMappingsScriptingInterface : public QObject, public Dependency {
     Q_PROPERTY(QAbstractProxyModel* proxyModel READ getProxyModel CONSTANT)
 public:
     AssetMappingsScriptingInterface();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    QVariantMap featurePicoBundleOriginals(const QString& run) const {
+        if(QThread::currentThread()!=thread()) {return {};}auto original=_e2eBundles->observe(run);if(original.isEmpty()) {return {};}
+        original.insert("originalActiveBundles",_bundleUploads.size());return original;
+    }
+    QVariantMap featurePicoReleaseBundleOriginals(const QString& run,const QString& instance,const QStringList& ids) { return _e2eBundles->release(run,instance,ids); }
+#endif
 
     Q_INVOKABLE AssetMappingModel* getAssetMappingModel() { return &_assetMappingModel; }
     Q_INVOKABLE QAbstractProxyModel* getProxyModel() { return &_proxyModel; }
@@ -90,6 +101,9 @@ public:
     Q_INVOKABLE void sortProxyModel(int column, Qt::SortOrder order = Qt::AscendingOrder);
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    std::shared_ptr<overte::e2e::PicoAssetsUploadOriginals> _e2eBundles=std::make_shared<overte::e2e::PicoAssetsUploadOriginals>();
+#endif
     struct BundleUpload;
     QHash<QString, std::shared_ptr<BundleUpload>> _bundleUploads;
     void advanceBundle(const std::shared_ptr<BundleUpload>& state);
