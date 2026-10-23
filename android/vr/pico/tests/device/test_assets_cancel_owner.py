@@ -223,6 +223,31 @@ class AssetsCancelOwnerTests(unittest.TestCase):
         self.assertEqual(1,sum(command['controlId']=='assets-file.accept' for command in self.host.inputs))
         self.assertEqual(1,sum(command['controlId']=='assets-file.cancel' for command in self.host.inputs))
         self.assertEqual(0,self.owner.uploads.last['source']['totalCalls'])
+    def test_lost_primary_retirement_reply_reconciles_before_original_error_and_cancel(self):
+        self.owner.open();before=deepcopy(self.owner.files.read()['source']['files']);send=self.owner.files.native.send
+        def lose_primary(command):
+            send(command)
+            if command.get('operation')=='retire-primary':self.host.raw=''
+        with patch.object(self.owner.files.native,'send',side_effect=lose_primary),self.assertRaises(NativeUIError):self.owner.files.retire_primary()
+        self.assertEqual('primary-issuing',self.file_store.read()['phase'])
+        inputs=deepcopy(self.host.inputs);originals=unpack(self.file_store.read()['originals']);self.make()
+        retired=self.owner.files.retire_primary();self.assertTrue(retired['primaryRetired']);self.assertEqual(inputs,self.host.inputs)
+        self.assertFalse(next(row for row in retired['files'] if row['name']=='gltf-bundle/main.gltf')['exists'])
+        self.assertEqual([row for row in before if row['name']!='gltf-bundle/main.gltf'],
+            [row for row in retired['files'] if row['name']!='gltf-bundle/main.gltf'])
+        self.assertEqual(originals,unpack(self.file_store.read()['originals'])[:len(originals)])
+        self.assertEqual(1,sum(command.get('operation')=='retire-primary' for command in self.host.operations))
+        self.owner.ui().input('assets-file.accept');sample=self.owner.sample();self.owner.unchanged(sample)
+        original=unpack(self.store.read()['uiOriginals'])[-1]
+        picker=next(row['picker'] for row in original['controls'] if row['id']=='assets-file.cancel')
+        self.assertEqual('A selected file is no longer available.',picker['error']);self.assertFalse(picker['review'])
+        self.assertEqual(0,sample['uploads']['source']['totalCalls']);self.cancel_phase();result=self.owner.cancel()
+        self.assertTrue(result['cancelObserved'] and result['filesRetired']);self.assertEqual('retired',self.file_store.read()['phase'])
+        self.assertFalse(result['browser']['rootAlive'] or result['browser']['modelAlive'])
+        self.assertEqual(1,sum(command.get('operation')=='retire-primary' for command in self.host.operations))
+        self.assertEqual(1,sum(command['controlId']=='assets-file.accept' for command in self.host.inputs))
+        self.assertEqual(1,sum(command['controlId']=='assets-file.cancel' for command in self.host.inputs))
+        self.assertEqual(0,self.owner.uploads.last['source']['totalCalls'])
     def test_next_stage_reopens_after_original_cancel_without_adopting_retired_browser(self):
         self.owner.open();self.cancel_phase();first=self.owner.cancel()['browser']
         previous_store,previous_files=self.store,self.file_store
