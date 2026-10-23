@@ -101,13 +101,18 @@ class PicoSnapshotCancelOwner:
         # may be decoded again by many journal/history joins in one warm owner.
         # Fresh source reads, filesystem signatures and cross-frame continuity
         # are outside this cache and still run at every original boundary.
-        key=hashlib.sha256(canonical(dict(context=self.frame_context(),original=row))).digest()
+        context=self.frame_context();key=hashlib.sha256(canonical(dict(context=context,original=row))).digest()
         cache=getattr(self,'_original_frame_cache',None)
         if cache is None:self._original_frame_cache=cache={}
-        if key in cache:return deepcopy(cache[key])
+        if key in cache:
+            previous_context,previous_original,result=cache[key]
+            # JSON bytes alone conflate list/tuple and coercible map keys.
+            # A warm hit must preserve the complete original Python grammar.
+            need(typed_equal(context,previous_context) and typed_equal(row,previous_original))
+            return deepcopy(result)
         result=self.original_frame(row)
         if len(cache)>=128:cache.pop(next(iter(cache)))
-        cache[key]=deepcopy(result);return result
+        cache[key]=(deepcopy(context),deepcopy(row),deepcopy(result));return result
 
     def original_frame(self,row):
         exact(row,{'native','script','ui','files','inventory','work','hostMonotonic'})

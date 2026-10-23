@@ -118,7 +118,24 @@ under the actual run/PID/bridge (and Save's pinned platform source). Cold owners
 validate again; any changed content or context validates again. Cached results
 are copied and bounded to 128 entries. Filesystem/manifest verification, native
 queries, cross-frame continuity, phase fences and current file reads are not
-cached. On the retained 16-frame archive, full validation measured 0.101859
+cached. The original microbenchmark on the retained 16-frame archive measured 0.101859
 seconds without memoization, 0.054369 cold with it, and 0.027822 warm; original
 decode/verify and unchanged encode/verify measured 0.003993/0.006162 seconds.
 This isolated comparison does not establish a new passing complete selection.
+
+The second authorized selection at fixed source `9913cfa34789f6aa9a5c66671eae8b31a5fb2520`
+(doc-only child `0c09a7346706a7d68ebacd59b508083c05f7d25d`) also failed at
+the unchanged 120-second limit, in 120.112 seconds. Its complete original
+Cancel/Still prefix persisted at 97.759 seconds; Save reached `quiet-issued`
+with eleven full frames, one Readback and two inspection requests by 116.540
+seconds. Its original files/journals are retained separately. The prefix was
+9.231 seconds slower than the first run; the microbenchmark supplies no claim
+of a whole-flow speedup under these host conditions.
+
+Subsequent source review also requires each warm memo hit to compare the entire
+copied original and validation context with `typed_equal`: canonical JSON bytes
+alone conflate tuples/lists or integer/string map keys. Exact type changes and
+container subclasses fail closed even when their JSON bytes match. Save's key
+also contains its actual parent's current validation context. Changed original
+owners cannot reuse an old pure DTO result. This correction does not supply a
+new passing warm run or retire either unfinished selection.

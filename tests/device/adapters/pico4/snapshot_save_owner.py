@@ -78,6 +78,7 @@ class PicoSnapshotSaveOwner:
 
     def frame_context(self):
         return dict(PicoSnapshotCancelOwner.frame_context(self),
+            parent=self.parent.frame_context(),
             platform=self.parent.state['platform']['original']['source'])
 
     def original_frame(self,row):

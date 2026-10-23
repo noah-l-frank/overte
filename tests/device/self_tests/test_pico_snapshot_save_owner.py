@@ -206,7 +206,8 @@ class SnapshotOriginalFrameMemoTests(unittest.TestCase):
         cold,cold_calls=self.fixture();cold.frame(dict(index=0));self.assertEqual(1,len(cold_calls))
     def test_save_platform_branch_is_part_of_the_exact_validation_context(self):
         owner=object.__new__(PicoSnapshotSaveOwner);owner.run=RUN;owner.native=SimpleNamespace(pid=123);owner.binding=dict(sessionId='own-bridge')
-        source=dict(sdk=34,saveBackend='media-store');owner.parent=SimpleNamespace(state=dict(platform=dict(original=dict(source=source))))
+        source=dict(sdk=34,saveBackend='media-store');parent_context=dict(pid=123,bridge='own-bridge')
+        owner.parent=SimpleNamespace(state=dict(platform=dict(original=dict(source=source))),frame_context=lambda:deepcopy(parent_context))
         calls=[]
         def validate(row):
             calls.append(deepcopy(source))
@@ -215,7 +216,17 @@ class SnapshotOriginalFrameMemoTests(unittest.TestCase):
         owner.original_frame=validate;owner.frame(dict(original='unchanged'));owner.frame(dict(original='unchanged'))
         self.assertEqual(1,len(calls));source['saveBackend']='documents'
         with self.assertRaises(NativeUIError):owner.frame(dict(original='unchanged'))
-        self.assertEqual(2,len(calls))
+        self.assertEqual(2,len(calls));source['saveBackend']='media-store';parent_context['pid']=124
+        owner.frame(dict(original='unchanged'));self.assertEqual(3,len(calls))
+    def test_equal_json_bytes_do_not_allow_a_tuple_subclass_or_coerced_dictionary_key_to_replace_original_types(self):
+        class DictSubclass(dict):pass
+        class ListSubclass(list):pass
+        owner,calls=self.fixture();owner.frame(dict(rows=[{'1':'source'}]))
+        changes=(dict(rows=({'1':'source'},)),dict(rows=ListSubclass([{'1':'source'}])),
+            DictSubclass(rows=[{'1':'source'}]),dict(rows=[{1:'source'}]))
+        for changed in changes:
+            with self.subTest(type=type(changed)),self.assertRaises(NativeUIError):owner.frame(changed)
+        self.assertEqual(1,len(calls));self.assertEqual((dict(rows=[{'1':'source'}]),),owner.frame(dict(rows=[{'1':'source'}])))
 
 
 class SnapshotSavePublicationTests(unittest.TestCase):
