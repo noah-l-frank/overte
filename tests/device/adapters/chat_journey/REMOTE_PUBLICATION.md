@@ -147,3 +147,22 @@ checks passed 4/4 in 3.219 seconds. A pure historical repeat of the same
 60-publication graph took 0.028861 seconds with the strict prefix, about 8.7
 times faster for grammar only. No live owner or fresh sample was constructed
 by that diagnostic; no new full execution or closure result follows from it.
+
+The subsequent actual warm-source profile identified repeated complete
+directory inventories as a larger cost than decoding: 143 Actor verifications
+included 0.949 seconds in inventories under profiling. `ChatSourceChunks`
+therefore still enumerates the entire actual directory on every verification,
+using `os.scandir` entry names instead of constructing pathlib objects for
+every unrelated file. Exact expected numbered names, unexpected-prefix/orphan
+refusal, original child signatures, byte loads/hashes and all final checks are
+unchanged. No directory contents or negative lookup is cached.
+
+Eleven focused inventory/identity/lost-write/clock/limit/legacy checks passed
+in disjoint selections of 5/0.294 seconds and 6/0.131 seconds. New counters
+cover a matching directory appearing after a successful check and five
+noncanonical/temporary/foreign frame names; no query or adoption follows.
+A read-only inventory benchmark over the same retained directory (664 actual
+entries, 61 original publisher children, 100 complete scans) took 0.239872
+seconds with the fixed old implementation and 0.042356 seconds with the new
+complete name scan. This comparison qualifies only inventory overhead; it is
+not a fresh target sample or another successful whole journey.
