@@ -1418,3 +1418,72 @@ or functional behavior changed. The private format is
 coverage mapping additively without copying this worktree's catalog count.
 The next real boundary is original ModelCache extra admission and original
 Baker processing; feature 13/14 and whole Assets qualification remain partial.
+
+### Original ModelCache extra and weak-cache acquisition
+
+The additive `assets-model-cache` selector continues the same original normal
+mapping row, Add to World, acquired ATP packet and Cancel/file/Home flow through
+the complete original `ModelCache::getGeometryResource`, `createResource`,
+GeometryExtra hash declarations and `ResourceCache::getResource`. The original
+cache method supplies setExtra, setExtraHash, setSelf, setCache, owner-thread
+placement and ordinary loading. A second identical-extra acquisition must return
+the exact same actual resource without another request. No constructor spelling
+is substituted in the original ModelCache factory. The host cache declaration,
+constructor, global registration, scheduler, alternate-extra copies, unused LRU
+and successful texture methods remain explicit boundaries. Unsupported branches
+refuse rather than manufacturing a resource or successful cleanup.
+
+The nonempty original mapping marker reaches the actual ModelLoader arguments.
+The complete original GeometryResource download/worker/parser and Baker-stop
+route remains unchanged. Since this route actually fails before loaded geometry,
+original `allReferencesCleared` takes its non-cacheable branch. Complete original
+cache removal, total-size update and counter reset remove the actual weak entry;
+three independent original cache inventories expose acquisition, same-extra
+reuse and retirement. Original observer events include both cache acquisitions.
+These cache/observer rows count against the same combined frame/byte admission.
+No original unused-resource or successful retained-LRU retirement is inferred.
+
+The first source-frozen selector is RED in 43.371 seconds with zero test cases
+and no normal input: the additional original updateTotalSize body required the
+original BYTES_PER_GIGABYTES declaration. The corrected generator now copies
+both original ResourceCache.h size constants, with separate provenance hashes.
+The original method body and product source remain unchanged. The corrected
+owning selector passes both original cases in 70.527 seconds (69.933 seconds
+inside unittest, including fresh compilation). All 2,536 consumed source files
+remain byte-identical before and after the selection. Complete raw intent,
+original input, native reply, source manifest and JUnit/output are retained in
+the private evidence area. No new feature capability is enabled.
+
+Cold reconstruction confirms 466/512 combined physical frame copies and
+1,026,378 bytes for the indexed case, and 482/512 copies and 1,063,537 bytes for
+the original nonindexed refusal. Actual native acquisitions take 4/2 ms. Each
+case records the same resource identity/Extra hash across its two acquisitions,
+then zero actual weak entries and zero cache bytes after original failure and
+resource death. Both normal Cancel/file/Home paths pass, with independent
+server originals unchanged. These are newly measured capacities, not projected
+counts or a retry of the earlier 579-ms failure on unchanged sources. The
+selector/compile limits remain 120/90 seconds; 1.5-second acquisitions,
+three-second/500-ms quiet windows, 512-frame and local 16-MiB caps are unchanged.
+
+The private `pico-assets-model-cache-host` format is version 1. The local catalog
+gains exactly one additive selector; Root must preserve its own existing count.
+Seven Pico coverage checks (all 14 risk rows), six common Assets semantics
+checks, the closed registry, four focused repository groups and whitespace pass.
+Earlier generic Resource/actual ATP request and pure parser qualifications remain
+separate; this acquisition consumes an explicit replay of the prior original
+ATP packet, not a new real AssetResourceRequest backend acquisition.
+
+A concrete existing whole-cleanup boundary remains: original
+`GLTFSerializer::requestData` creates its external buffer request with a null
+parent, waits for finished and returns only its bytes. It does not delete or
+schedule deletion of that request. Original ResourceManager adds the parent
+retirement connection only for a non-null parent and otherwise moves the object
+to its thread; neither ResourceRequest nor the outer AssetResourceRequest
+retires itself on finished. The previous actual replay ownership observation
+therefore still reports the external mesh request alive before process exit.
+This is a source-supported retained-owner boundary, not evidence of device
+qualification or a claim about every product shutdown path. A forced test
+release, alternate embedded fixture, different-thread destruction or process
+exit cannot replace the missing original consumer retirement proof. Functional
+product changes remain outside this task. Baker/geometry/material/render and
+independent actor/stereo integration remain separate executable work.

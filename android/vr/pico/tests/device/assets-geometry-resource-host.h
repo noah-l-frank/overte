@@ -75,9 +75,24 @@ Q_DECLARE_LOGGING_CATEGORY(modelnetworking)
 #include "assets-resource-cache-host.h"
 #include "AssetsResource.h"
 #include "AssetsGeometryResource.h"
+#if defined(ASSETS_ORIGINAL_MODEL_CACHE)
+// Startup, alternate-extra copies, successful texture construction and LRU
+// retention remain closed endpoints. Acquisition/removal methods are original.
+class ModelCache:public ResourceCache {
+ ModelLoader _modelLoader;
+public:
+ GeometryResource::Pointer getGeometryResource(const QUrl&,const GeometryMappingPair&,const QUrl&);
+ QSharedPointer<Resource> createResource(const QUrl&)override;
+ QSharedPointer<Resource> createResourceCopy(const QSharedPointer<Resource>&)override{
+  qFatal("Alternate-extra Resource copies are outside this original acquisition join");return {};
+ }
+};
+inline void GeometryResource::setTextures(){qFatal("Successful texture construction is outside the Baker-stop join");}
+#else
 class ModelCache {
 public:QSharedPointer<Resource> getResource(const QUrl&,const QUrl&,void*,size_t){qFatal("Nested FST/cache acquisition is outside this glTF join");return {};}
 };
+#endif
 class FSTReader {
 public:
  static QVariantHash readMapping(const QByteArray&){qFatal("FST processing is outside this glTF join");return {};}
