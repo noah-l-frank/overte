@@ -7,7 +7,8 @@ from urllib.parse import urlsplit
 from adapters.normal_feature_state import need
 from adapters.script_manager_status import validate as validate_manager
 
-VERSION = 1
+VERSION = 2
+READS = (1, 2)
 
 
 def text(value, limit):
@@ -15,13 +16,17 @@ def text(value, limit):
          and all(ord(char) >= 32 or char in '\r\n\t' for char in value))
 
 
-def validate(value):
-    need(type(value) is dict and set(value) == {'inventoryVersion', 'complete', 'managers', 'pickers', 'tabletPresent', 'tabletShown'}
-         and type(value['inventoryVersion']) is int and value['inventoryVersion'] == VERSION
+def validate(value, *, pid=None, epoch=None):
+    fields={'rootOwnership','rootMembership'} if type(value) is dict and type(value.get('inventoryVersion')) is int and value['inventoryVersion']==2 else set()
+    need(type(value) is dict and set(value) == {'inventoryVersion', 'complete', 'managers', 'pickers', 'tabletPresent', 'tabletShown'} | fields
+         and type(value['inventoryVersion']) is int and value['inventoryVersion'] in READS
          and type(value['complete']) is bool
          and type(value['tabletPresent']) is bool and type(value['tabletShown']) is bool
          and (not value['tabletShown'] or value['tabletPresent'])
          and all(type(value[key]) is list and len(value[key]) <= 16 for key in ('managers', 'pickers')))
+    if fields:
+        from adapters.script_ui_root_ownership import membership
+        membership(value,pid=pid,epoch=epoch)
     if not value['complete']:
         need(value['managers'] == [] and value['pickers'] == [])
         return value

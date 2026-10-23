@@ -88,7 +88,7 @@ def observation(value, pid, now_ms=None):
         if (type(value['scriptObservationVersion']) is not int or value['scriptObservationVersion'] != 1
                 or not _integer(value.get('scriptSourceSequence'), 1)):
             raise NativeUIError('Original iOS Script observation version or cursor is invalid')
-        validate_script_inventory(value.get('scriptInventory'))
+        validate_script_inventory(value.get('scriptInventory'),pid=pid,epoch=now_ms)
         if value['scriptInventory']['tabletShown'] != value.get('tabletShown'):
             raise NativeUIError('Original Script inventory and tablet visibility disagree')
         fields |= {'scriptObservationVersion', 'scriptSourceSequence', 'scriptInventory'}
