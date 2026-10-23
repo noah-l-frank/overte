@@ -222,3 +222,27 @@ dispatcher snapshot/save/phase snapshot and flow finish. It invokes each
 original method once and preserves its result or exception. These timestamps
 are diagnostics, not source evidence or permission to continue an uncertain
 step. The default component fixtures do not install the wrappers.
+
+Exactly one next complete attempt on clean fixed
+`c2954379f13e170939949ab2a60c301a7d37eacd` used the unchanged 120-second cap.
+The fixed manifest contains 168 host sources, SHA-256
+`8afc31c9081805ace688d3d32eb664512181e375b1d2607013d295c4d7128194`;
+every source byte and clean HEAD remained unchanged after the attempt. It
+ended with timeout exit 124 after 120.016 s. Dispatcher steps 14, 15 and 16
+completed at 76.590, 86.450 and 114.662 s respectively. The parent remains
+`step-completed` at 16; its last dispatcher/flow row is completed `open`.
+There is no issued next step or background child, so this attempt supplies no
+new observation of the background closure stages. The different whole-run
+timing cannot establish a speedup or regression of that unreached stage.
+
+The ready original Reader v3 and both cursors/publisher retain 77 completed
+logical publications, 121 physical parts, no pending bundle, 4,645,358 logical
+bytes and 2,182,594 physical bytes. The last literal is publication 77 in the
+actual `open` phase. A passive physical/history read verified that literal
+without constructing a live source owner. All originals remain retained; the
+true common hook, application/profile/IPC, archive and host finalization were
+not reached. The post-attempt host diagnostic reported load averages
+7.02/7.23/5.38 and about 13 GiB available memory; this is context, not a
+controlled performance explanation. No unchanged whole retry follows this
+result. The next investigation must measure the remaining original common
+wait/source-acquisition costs before another concrete change.
