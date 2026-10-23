@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
+import importlib.util
 import io
 import json
 from pathlib import Path
@@ -29,8 +30,6 @@ MAVEN = (
     ('guava', 'https://repo.maven.apache.org/maven2/com/google/guava/guava/23.0/guava-23.0.jar',
      '7baa80df284117e5b945b19b98d367a85ea7b7801bd358ff657946c3bd1b6596'),
 )
-QT_URL = 'https://github.com/noah-l-frank/overte/releases/download/pico4-deps-v1/pico4-qt-conan.tgz'
-QT_ARCHIVE_SHA = 'e9265b30ad84e1bba045e68fda0de380ab83776a65a339b9121eaee46073de25'
 QT_API_REFERENCE = 'qt/5.15.18-2026.01.04@overte/stable#4fc772a2dbcd84731eb6ff9904e6e358'
 FIXED_JARS = {
     'QtAndroid.jar': 'a9f64f066766e3908d64183a49c0722aff09495c5f17768213a2989a73edf893',
@@ -71,11 +70,26 @@ class DigestStream:
         return data
 
 
+def qt_archive():
+    # Resolve only from the trusted preparation checkout. The isolated compile
+    # command embeds this module's source and does not load or fetch bundles.
+    root = Path(__file__).resolve().parents[2]
+    spec = importlib.util.spec_from_file_location('android_dependency_policy',
+        root / 'tools/dependency-releases/check.py')
+    resolver = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(resolver)
+    bundle = resolver.load((root / resolver.POLICY).read_text())['bundles']['pico']
+    asset = 'pico4-qt-conan.tgz'
+    return (f"https://github.com/{resolver.REPOSITORY}/releases/download/{bundle['tag']}/{asset}",
+            bundle['assets'][asset])
+
+
 def qt_jar():
     # Stream the 777 MB verified Conan archive; retain only its small Java API.
     # No archive paths, symlinks, executables or native packages are extracted.
+    url, digest = qt_archive()
     jars = []
-    with urllib.request.urlopen(QT_URL, timeout=60) as source:
+    with urllib.request.urlopen(url, timeout=60) as source:
         stream = DigestStream(source)
         with tarfile.open(fileobj=stream, mode='r|gz') as archive:
             count, unpacked = 0, 0
@@ -90,7 +104,7 @@ def qt_jar():
                     jars.append(archive.extractfile(member).read())
         while stream.read(1024 * 1024):
             pass
-        require(stream.digest.hexdigest() == QT_ARCHIVE_SHA, 'Qt archive checksum mismatch')
+        require(stream.digest.hexdigest() == digest, 'Qt archive checksum mismatch')
     require(len(jars) == 1, 'Qt archive must contain exactly one Android API JAR')
     return jars[0]
 
