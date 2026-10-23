@@ -202,6 +202,8 @@ class SnapshotsActorTests(unittest.TestCase):
 
     def cleanup_frontier(self,*,ready=True,slot_mode=False):
         b=self.boundary;b.clean();self.reader.activate('d'*32,'cleanup',{})
+        # Align the explicit synthetic boundary with the real loaded Feature.
+        b.feature.state['current']=None;b.feature.guard=b.feature.bound
         b.feature.state['actions']=[dict(ticket='d'*32,phase='acknowledged')]
         b.provider.update(ticket='d'*32,activations=[dict(ticket=TICKET,verb='capture',capturedEpochMs=19000),
             dict(ticket='d'*32,verb='cleanup',capturedEpochMs=20000)])
@@ -263,9 +265,22 @@ class SnapshotsActorTests(unittest.TestCase):
             return deepcopy(role.previous),deepcopy(frame)
 
     def enroll_complete_without_post(self,step):
-        value=step();self.assertIsNone(value['error'],value)
-        self.assertTrue(value['state']['quiet']['complete']);self.assertGreaterEqual(value['counts']['reads'],3)
-        self.assertEqual(0,value['counts']['posts']);self.assertIsNone(value['state']['primaryCue'])
+        deadline=time.monotonic()+15;previous_reads=previous_sequence=None
+        while True:
+            value=step();self.assertIsNone(value['error'],value)
+            self.assertLessEqual(time.monotonic(),deadline,'Bounded genuine cleanup interval did not complete')
+            quiet=value['state']['quiet'];self.assertIsNotNone(quiet)
+            self.assertEqual(0,value['counts']['posts']);self.assertIsNone(value['state']['primaryCue'])
+            self.assertIsNone(value['state']['pending']);self.assertTrue(quiet['sequences'])
+            if previous_reads is not None:
+                self.assertEqual(previous_reads+1,value['counts']['reads'])
+                self.assertGreater(quiet['sequences'][-1],previous_sequence)
+            previous_reads=value['counts']['reads'];previous_sequence=quiet['sequences'][-1]
+            if quiet['complete']:break
+            self.assertLess(time.monotonic()+.1,deadline,'Bounded genuine cleanup interval did not complete')
+            time.sleep(.1)
+        self.assertGreaterEqual(value['counts']['reads'],3)
+        self.assertGreaterEqual(quiet['last']-quiet['started'],3);self.assertGreaterEqual(len(quiet['sequences']),3)
         return value
 
     def completed_frontier(self,step,**instruction):
