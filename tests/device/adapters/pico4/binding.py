@@ -1057,6 +1057,29 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-remote-cleanup-prefix-')))
 
+        def _chat_remote_consumed_sources_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-remote-consumed-sources-')))
+
+        @_private
+        def _chat_remote_consumed_sources(self,target,parent,prefix,returned):
+            from adapters.pico4.chat_composition import PicoChatComposition
+            from adapters.chat_journey.remote_cleanup_prefix import ChatRemoteCleanupPrefix
+            from adapters.chat_journey.remote_actor_return import ChatRemoteActorReturn
+            from adapters.chat_journey.remote_consumed_sources import ChatRemoteConsumedSources
+            _need(type(parent) is PicoChatComposition and parent.adapter is self and parent.target==target and not parent.failed
+                and parent.previous['phase']=='caches-retired' and type(prefix) is ChatRemoteCleanupPrefix
+                and prefix.completed and not prefix.failed and prefix.store.path==self._chat_remote_cleanup_prefix_store(target).path
+                and prefix.primary.current.samples is parent.cache_release.roles[0]
+                and prefix.scope['runId']==parent.source.run and prefix.scope['binding']==parent.binding
+                and prefix.scope['peerBinding']==parent.peer.binding
+                and type(returned) is ChatRemoteActorReturn and returned.complete and not returned.failed
+                and returned.store.path==self._chat_remote_actor_return_store(target).path
+                and returned.process is prefix.actor.process)
+            parent.guard();prefix.control();returned.receipt()
+            seal=self._chat_cursor_source_seal(target,prefix.primary,witness=False)
+            return ChatRemoteConsumedSources(prefix,returned,seal,self._chat_remote_consumed_sources_store(target))
+
         @_private
         def _chat_remote_cleanup_prefix(self,target,parent,primary,actor):
             from adapters.pico4.chat_composition import PicoChatComposition
@@ -1310,6 +1333,7 @@ def create_adapter(args, base_class):
             stores.append(self._chat_remote_actor_return_store(target))
             stores.append(self._chat_remote_publication_store(target))
             stores.append(self._chat_remote_cleanup_prefix_store(target))
+            stores.append(self._chat_remote_consumed_sources_store(target))
             stores.append(self._chat_cursor_cleanup_consumption_store(target))
             stores.append(self._chat_observation_publisher_store(target))
             stores.extend(self._chat_observation_cursor_store(target,role,witness=witness)

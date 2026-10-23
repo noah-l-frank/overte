@@ -65,6 +65,11 @@ Parent host closure remain separate required joins before fixture closure or a
 whole-feature result. This component does not infer those outcomes from a Stop
 request or source receipt.
 
+The separate [consumed-source/return join](REMOTE_CONSUMED_SOURCES.md) now
+matches those preserved literal prefixes to the complete actual typed return
+and seals the original primary cursor. It retains the unchanged sequence flag;
+its source completion does not replace application/archive/host closure.
+
 The host source fixture keeps its actual primary flow/cursor in the Parent.
 A separate owned Python worker creates its own original Actor, publisher,
 cursor, source journals and two real captured descriptor pairs. It independently
