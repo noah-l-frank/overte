@@ -90,6 +90,7 @@ REQUIRED = {
     "chat-observer-process-presence": 1,
     "observer-return-transport": 1,
     "chat-remote-actor-graph": 1,
+    "chat-remote-actor-return": 1,
     "pico-chat-host-close": 1,
     "pico-chat-restart-io": 1,
     "pico-openxr-binding-transfer": 1,

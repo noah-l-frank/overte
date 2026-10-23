@@ -15,7 +15,7 @@ from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
 from adapters.independent_chat_receiver import binding_pid
 from adapters.native_feature_observation import exact,integer,need
 from adapters.normal_feature_state import PrivateFeatureState,context
-from adapters.observer_return import state,physical,parent_node
+from adapters.observer_return import ObserverReturnReceiver,state,physical,parent_node
 from adapters.script_journey.history import canonical,same,MAX_FRAMES
 from feature_journeys.contract import identifier
 from feature_journeys.scenarios import VERSION as CONTRACT_VERSION
@@ -51,7 +51,7 @@ class ChatRemoteActorGraph:
         self.expected=deepcopy(expected);self.expected_sha=digest(expected)
         self.raw,self.source_stamp=raw,deepcopy(source_stamp);self.root=json.loads(raw)
         plain(self.root);need(canonical(self.root)+b'\n'==raw);exact(self.root,ACTOR)
-        self.pending=True;self.failed=False;self.files={};self.histories={};self.roots={};self.frames={};self.total=0
+        self.pending=True;self.failed=False;self.successor=None;self.successor_sha=None;self.files={};self.histories={};self.roots={};self.frames={};self.total=0
         self.validate_actor();self.load();self.validate();self.cache_sha=self.cache_digest();self.verify()
 
     def retain(self,key):
@@ -178,6 +178,24 @@ class ChatRemoteActorGraph:
             need(type(row['sequence']) is int and row['sequence']==index+1 and row['cursorSha256']==digest(cursor) and same(row['payload'],payload))
         stop=self.root['stopCommand'];need(stop['afterSequence']==len(self.frames['publisher']) and stop['ticket']==self.frames['publisher'][-1]['payload']['ticket'])
 
+    def admit_successor(self,receiver):
+        """One exact nonce-bound successor; original payload stays historical."""
+        need(type(receiver) is ObserverReturnReceiver and receiver.issued and not receiver.complete and self.pending
+            and self.successor is None and not self.failed and receiver.raw==self.raw
+            and receiver.scope['family']=='pico-chat-cursor-actor'
+            and receiver.scope['sourceStamp']==self.source_stamp
+            and receiver.scope['producerHostProcessIdentity']==self.expected['hostProcessIdentity']
+            and receiver.scope['runId']==self.expected['runId']
+            and receiver.scope['originalRequestId']==self.expected['stopCommand']['commandId'])
+        self._verify(ignore_actor=True);value,_raw,_physical=receiver.consumed()
+        expected={**self.root,'phase':'parent-consumed','returnId':value['returnId'],'returnSha256':digest(value),
+            'consumptionSha256':value['consumptionSha256'],
+            'parentHostProcessIdentity':value['consumption']['consumerHostProcessIdentity']}
+        observed,raw,physical_stamp=state(self.stores['actor'])
+        need(same(observed,expected))
+        self.successor=(raw,physical_stamp);self.successor_sha=digest(dict(sha256=hashlib.sha256(raw).hexdigest(),stamp=physical_stamp))
+        self.verify()
+
     def cache_digest(self):
         return digest(dict(expected=self.expected,root=self.root,sourceStamp=self.source_stamp,rawSha256=hashlib.sha256(self.raw).hexdigest(),
             roots=self.roots,frames=self.frames,flow=self.flow,cleanup=self.cleanup,paths=self.paths,parent=self.parent,
@@ -189,7 +207,7 @@ class ChatRemoteActorGraph:
         try:self._verify()
         except Exception:self.failed=True;raise
 
-    def _verify(self):
+    def _verify(self,*,ignore_actor=False):
         for value in (self.root,self.roots,self.frames,self.expected,self.flow,self.cleanup):plain(value)
         physical(self.source_stamp)
         need(type(self.files) is dict and set(self.files)==STORES and set(self.histories)==set(self.frames)==set(self.roots)==set(GRAPH)
@@ -200,6 +218,12 @@ class ChatRemoteActorGraph:
             and self.cache_digest()==self.cache_sha and parent_node(self.stores['actor'])==self.parent
             and all(str(store.path)==self.paths[key] for key,store in self.stores.items()))
         for key,(raw,physical_stamp) in self.files.items():
+            if key=='actor':
+                if ignore_actor:continue
+                if self.successor is not None:
+                    need(type(self.successor) is tuple and len(self.successor)==2 and type(self.successor[0]) is bytes)
+                    raw,physical_stamp=self.successor;physical(physical_stamp)
+                    need(digest(dict(sha256=hashlib.sha256(raw).hexdigest(),stamp=physical_stamp))==self.successor_sha)
             value,current,physical_now=state(self.stores[key]);need(current==raw and physical_now==physical_stamp)
         for key,history in self.histories.items():
             need(history.root is self.stores[key] and type(history.identities) is list

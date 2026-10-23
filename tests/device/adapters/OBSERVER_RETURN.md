@@ -75,3 +75,10 @@ the foreign handle survives, then reaps that actual worker and obtains ESRCH.
 The original reader failed this case (`accepted:closed`, 0.206 seconds).
 After the narrow OFD fix, all 12 return cases plus the seven original process
 cases passed, 19/19 in 2.474 seconds. No wire format or feature admission changed.
+
+`consumed()` exposes the independently echoed original metadata for a typed
+feature's controlled successor, without a kernel verdict. After a real returned
+receipt, `historical_receipt()` checks that same original packet, consumed root,
+nonce, chunks and retained program descriptions. It performs no new PID query
+and does not make old target/native facts fresh. Its use remains warm and
+physically pinned; a completed-looking file cannot reconstruct this receiver.
