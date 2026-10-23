@@ -104,3 +104,35 @@ complete capability admission remains closed and physical timing is unqualified.
 The combined rooted/legacy observer, normal-marker and holder-policy regression
 selection passes fifteen host cases in 31.215 seconds. Contract-version and all
 five selected project checks pass; no blocked operation was attempted.
+
+
+## Global input quiet with held resources
+
+`emote_rooted_quiet.refresh` and `extend` connect scope three to the existing
+original global pointer and Keys2/UIKit owners. Both owners must match the
+actual run, role, binding, private root and held source lock. Their original
+baselines precede normal marker setup. Every new marker cut is bracketed by
+actual key/pointer acquisitions; the existing typed owners qualify the full
+window, including completed dispatch/callback history and UIKit keyboard/IME.
+Neither a release acknowledgment nor hidden UI supplies input quiescence.
+
+The same reads preserve normal scene/View restoration, ended Script/dialog
+callbacks, zero active animation override, unchanged actual native animation
+call history and all cached Web/UI holders. New root/resource/input activity
+requires a fresh three-second window. Extension preserves the original window
+and refuses intervening activity. An interrupted passive read retains its
+actual partial source ownership and old immutable quiet history; those old
+records cannot become a current held-resource projection. `held_originals()`
+requires the actual source lock, no pending read and the last selected cut to
+be the latest scope frame. No normal input is replayed by either function.
+
+Seven combined quiet/marker/observation cases pass in 78.315 seconds. A separate
+real lost-passive-return case passes in 23.867 seconds and preserves partial
+originals until a distinct successful acquisition. Two final ownership tests
+pass in 14.740 seconds: a genuine other-role key owner is rejected before any
+source read, and ordinary matching owners still qualify the full quiet window
+and fresh extension. The first diagnostic attempt had created input baselines
+after marker setup; the original native-prefix decoder correctly refused that
+fixture. The corrected producer order preserves the unchanged prefix checks.
+All native/UI/OS and acquisition clocks here remain explicit host models.
+These additions supply no process-end result or complete Emote admission.

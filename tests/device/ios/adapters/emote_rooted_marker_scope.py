@@ -60,7 +60,9 @@ class IOSEmoteRootedMarkerScope(IOSEmoteHeldMarkerScope):
 
     def held_originals(self):
         """Closed terminal projection with all actual contributing originals."""
+        self.lock.assert_held()
         need(self.state['phase']=='released' and self.state['pending'] is None and len(self.state['quiet'])>=3)
+        need(self.state['quiet'][-1]==len(self.frames))
         selected=self.state['baseline'] if self.state['cleanupMode']=='unloaded' else self.state['webAdmission']
         need(selected is not None and self.state['baseline'] is not None)
         admitted=self.frames[selected-1];current=self.frames[self.state['quiet'][-1]-1]
