@@ -179,6 +179,9 @@ class FeatureObservation:
             uikit_input_command(command)
         elif command.get('action')=='feature-ios-tablet-web-closures':tablet_closures_command(command)
         elif command.get('action')=='feature-ios-tablet-web-dom':tablet_web_dom_command(command)
+        elif command.get('action')=='feature-ios-world-web-whole-snapshot':
+            from ios.adapters.world_web_whole_snapshot import command as world_whole_snapshot_command
+            world_whole_snapshot_command(command)
         elif command.get('action')=='feature-ios-world-web-snapshot':
             from ios.adapters.world_web_snapshot import command as world_snapshot_command
             world_snapshot_command(command)
@@ -620,6 +623,14 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSTabletWebDOM(self.send,lambda:self.original(remote=remote,limit=TABLET_WEB_DOM_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def world_web_whole_snapshot(self,clock_source=None):
+        from ios.adapters.world_web_whole_snapshot import IOSWorldWebWholeSnapshot,FILE,LIMIT
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSWorldWebWholeSnapshot(self.send,lambda:self.original(remote=remote,limit=LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def world_web_snapshot(self,clock_source=None):

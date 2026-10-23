@@ -22,6 +22,8 @@
     "ios-tablet-web": {"current": 1, "reads": [1]},
     "ios-tablet-web-state": {"current": 1, "reads": [1]},
     "ios-world-web-snapshot": {"current": 1, "reads": [1]},
+    "ios-world-web-whole-snapshot": {"current": 2, "reads": [2]},
+    "ios-world-web-whole-snapshot-body": {"current": 2, "reads": [2]},
     "ios-world-web-snapshot-body": {"current": 1, "reads": [1]},
     "ios-tablet-web-app-files": {"current": 2, "reads": [1, 2]},
     "ios-tablet-web-deferred": {"current": 1, "reads": [1]},

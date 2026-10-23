@@ -1763,6 +1763,24 @@
             }
             return true;
         }
+        if (command && command.action === "feature-ios-world-web-whole-snapshot") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
+                    && typeof command.fixtureUrl === "string" && command.fixtureUrl.length <= 512
+                    && new RegExp("^https?://[^/?#@\\s]+/feature-fixture/v1/runs/"+command.runId+"/$").test(command.fixtureUrl)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId","fixtureUrl"])) {
+                var worldWholeSnapshot={iosWorldWebSnapshotVersion:2,commandId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSWorldWebWholeSnapshot === "function") {
+                        var originalWholeSnapshot=Test.featureIOSWorldWebWholeSnapshot(command);
+                        if (originalWholeSnapshot && originalWholeSnapshot.commandId===command.commandId) { worldWholeSnapshot=originalWholeSnapshot; }
+                    }
+                } catch (_worldWholeSnapshotError) { /* Actual pending callback remains owned by its native source. */ }
+                Test.saveObject(worldWholeSnapshot,"feature-ios-world-web-whole-snapshot.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-world-web-snapshot") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36

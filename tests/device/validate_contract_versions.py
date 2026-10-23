@@ -30,6 +30,8 @@ REQUIRED = {
     "ios-tablet-web": 1,
     "ios-tablet-web-state": 1,
     "ios-world-web-snapshot": 1,
+    "ios-world-web-whole-snapshot": 2,
+    "ios-world-web-whole-snapshot-body": 2,
     "ios-world-web-snapshot-body": 1,
     "ios-tablet-web-app-files": 2,
     "ios-tablet-web-deferred": 1,

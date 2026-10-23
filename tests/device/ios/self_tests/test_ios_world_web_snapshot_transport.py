@@ -14,7 +14,7 @@ from adapters.normal_ui import NativeUIError
 from ios.adapters import feature_observation,world_web_snapshot as snapshot
 from ios.self_tests.test_ios_feature_observation import Native
 from ios.self_tests.world_web_snapshot_fixture import SnapshotNative
-from ios.self_tests.world_web_sources_fixture import RUN,URL
+from ios.self_tests.world_web_source_boundary import RUN,URL
 from self_tests.test_native_feature_observation import probe_source
 
 

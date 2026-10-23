@@ -11,7 +11,7 @@ import zlib
 from adapters.normal_ui import NativeUIError
 from ios.adapters import world_web_snapshot as snapshot
 from ios.self_tests.world_web_snapshot_fixture import SnapshotNative,packed,encoded
-from ios.self_tests.world_web_sources_fixture import RUN,URL
+from ios.self_tests.world_web_source_boundary import RUN,URL
 
 
 class WorldWebSnapshotTests(unittest.TestCase):

@@ -7,6 +7,8 @@ never becomes a reconstructed or requested source outcome.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import base64
+from contextlib import contextmanager
+from contextvars import ContextVar
 from copy import deepcopy
 import hashlib
 import json
@@ -15,6 +17,7 @@ import zlib
 from adapters.native_feature_observation import decode,exact,fresh,integer,need
 from ios.adapters.world_web_source import IOSWorldWebSource,command as source_command
 from adapters.script_feature.history import same
+from adapters.native_clock_join import digest
 
 VERSION=1
 ACTION='feature-ios-world-web-snapshot'
@@ -66,7 +69,37 @@ def unpack(payload):
     need(type(value) is dict);return value
 
 
+_BODY=ContextVar('overte_world_web_snapshot_body_validation',default=None)
+
+
+@contextmanager
+def validation_round():
+    """Bounded pure DTO validation reuse; supplies no original file proof."""
+    if _BODY.get() is not None:yield;return
+    token=_BODY.set({})
+    try:yield
+    finally:_BODY.reset(token)
+
+
+def _validated_body(value):
+    proofs=_BODY.get();key=None if proofs is None else digest(value)
+    if proofs is not None and key in proofs:return proofs[key]
+    result=_body(value)
+    if proofs is not None and len(proofs)<256:proofs[key]=result
+    return result
+
+
 def body(value):
+    return deepcopy(_validated_body(value))
+
+
+def selected(value,names):
+    """Independent selected originals only, from the fully validated body."""
+    need(type(names) in (list,tuple) and len(names)==len(set(names)) and set(names)<=set(ACTIONS))
+    _original,parts=_validated_body(value);return {name:deepcopy(parts[name]) for name in names}
+
+
+def _body(value):
     from ios.adapters import world_web_source,world_web_dom,world_web_work,world_web_geometry,world_web_keys,emote_world,pointer_state,create_entities
     modules=dict(ledgerBefore=world_web_source,document=world_web_dom,world=emote_world,work=world_web_work,
         geometry=world_web_geometry,keys=world_web_keys,pointer=pointer_state,entities=create_entities,ledgerAfter=world_web_source)
@@ -128,9 +161,9 @@ def body(value):
         before,after=(packet['capturedEpochMs'],packet['capturedEpochMs']) if name=='document' else (packet['clockBefore']['epochMs'],packet['clockAfter']['epochMs'])
         own=[row for row in calls if row['name']==name]
         need(own[0]['clockBefore']['epochMs']<=before<=after<=own[-1]['clockAfter']['epochMs'])
-    from ios.adapters.world_web_history import current_view
+    from ios.adapters.world_web_trace import current_view
     need((current_view(results['ledgerBefore']) is None)==(commands['document'] is None))
-    return deepcopy(original),deepcopy(results)
+    return original,results
 
 
 def validate(value,query,pid,epoch=None,previous=None):
@@ -145,7 +178,7 @@ def validate(value,query,pid,epoch=None,previous=None):
     if epoch is not None:fresh(value['clockAfter']['epochMs'],epoch)
     if value['status'] in ('ready','pending'):
         if value['status']=='ready':need(value['complete'])
-        body(value)
+        _validated_body(value)
     else:need(value['payload'] is None)
     if previous is not None:
         validate(previous,dict(query,commandId=previous['commandId']),pid)
