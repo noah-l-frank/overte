@@ -50,13 +50,45 @@ units, manager birth and actual evaluation logs. This is deliberately distinct
 from exact whole-stack provenance: it does not pin every line/column, reject all
 unknown frames or establish a complete approved call-path shape. Whole Feature
 3 must additionally qualify independent exact callsite profiles. An origin-only
-result is insufficient for that claim. Entity Caller1 also remains legacy;
-actual indexed entity-frame evidence requires its separately reviewed component.
+result is insufficient for that claim.
+
+The optional `avatarCallers` component in Entity Caller1 now records its own
+`avatarEntityCallersVersion: 1`, actual resolver completeness, original neutral
+V8 stack and indexed module matches. The existing admitted manager/thread scope
+captures these originals before the product entity call. Entity observation
+records them with the genuine returned UUID or completed local deletion; generic
+Create still selects its unchanged Caller1 subset. Legacy Entity originals
+without this component remain byte-for-byte readable and cannot pass the new
+explicit strong entity qualification. An incomplete present component fails
+closed. Its first V8 source observation may occur after the scope's invocation
+timestamp and must precede the original entity-return event; it is not a compile
+timestamp.
+
+`avatar-callsite-pins.v1.json` independently pins six repository sources and
+closed whole-stack profiles, including each frame's source, UTF-16 line/column
+and reviewed outgoing call/property token. `avatar_exact_callers.qualify` joins
+actual submitted known modules first, then checks every original frame against
+one exact profile. It rejects additional unknown or nested frames, wrong
+positions, wrong compiled bytes and evaluation/constructor frames. The genuine
+installed root from the actual module rows binds the appUi frame's URL hash;
+appUi is not fabricated as a submitted-code ledger row. Source pins are never
+derived from observed frames. Explicit wrappers qualify owned new timer births,
+actual consumed XHR Open/read pairs and the new Entity component; public legacy
+component APIs retain their weaker historical interpretation.
+
+Host Node checks execute the complete unchanged request/request-service modules
+and AvatarApp. They independently observe the Open/read sites, actual wearable
+add/delete calls, callback-created timers and bookmark callback location at the
+modeled native boundary. All profile tokens/compiled-byte identities are also
+checked against separate repository bytes. Other approved profiles are pinned
+source paths; no native execution or exhaustive real-engine path coverage is
+claimed. Whole integration must invoke the strong wrappers for its owned
+originals and remains pending.
 
 Host checks cover actual loopback POST, the existing Fixture validator, factory
 and fixed AFC transport, original native clocks, literal legacy bytes, table
 capacity, reference/prefix/caller counterexamples and source-level entrypoint
 wiring. Qt/V8 boundaries are explicitly modeled. No native compilation or
-device execution has been performed. Whole Feature 3 timing, exact call paths,
-paired final cleanup and final dispatch remain unqualified; this component
+device execution has been performed. Whole Feature 3 timing, full native path
+coverage, paired final cleanup and final dispatch remain unqualified; this component
 does not advertise a feature capability.

@@ -1347,6 +1347,9 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* man
         const auto original=manager->featureAvatarScriptObservation();
         _featureNativeCallContext.insert("avatarCode",QVariantMap{{"avatarScriptVersion",original.value("avatarScriptVersion")},
             {"instance",original.value("instance")},{"complete",original.value("complete")},{"code",original.value("code")}});
+        const auto avatarCallers=overte::e2e::AvatarV8Callers::resolve(manager->featureAvatarV8Stack(),original.value("code").toList());
+        _featureNativeCallContext.insert("avatarCallers",QVariantMap{{"avatarEntityCallersVersion",1},
+            {"complete",avatarCallers.complete},{"callerStack",avatarCallers.stack},{"callerModules",avatarCallers.modules}});
     }
 #endif
 }

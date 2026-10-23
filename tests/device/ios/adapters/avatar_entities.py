@@ -28,7 +28,8 @@ def command(value):
 
 
 def caller(value,epoch):
-    exact(value,{'callerVersion','method','sequence','invokedEpochMs','manager','code','callerChain','avatarCode'})
+    exact(value,{'callerVersion','method','sequence','invokedEpochMs','manager','code','callerChain','avatarCode'}
+        |({'avatarCallers'} if type(value) is dict and 'avatarCallers' in value else set()))
     need(type(value['callerVersion']) is int and value['callerVersion']==1 and value['method'] in ('addEntity','deleteEntity')
         and integer(value['sequence'],1,1000000000) and integer(value['invokedEpochMs'],1,epoch))
     membership(dict(complete=True,revision=1,managers=[value['manager']]),epoch)
@@ -39,6 +40,9 @@ def caller(value,epoch):
     source=value['avatarCode'];exact(source,{'avatarScriptVersion','instance','complete','code'})
     avatar_scripts.code_projection(source,epoch);need(source['complete'])
     entries=[row for row in source['code'] if row['url']==chain[0]];need(entries and all(row['submittedEpochMs']<=value['invokedEpochMs'] for row in entries))
+    if 'avatarCallers' in value:
+        from ios.adapters.avatar_exact_callers import entity_component
+        entity_component(value['avatarCallers'],epoch,source['code'])
     return value
 
 

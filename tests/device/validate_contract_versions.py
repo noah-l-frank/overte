@@ -179,6 +179,8 @@ REQUIRED = {
     "original-frame-store": 1,
     "ios-avatar-originals": 1,
     "ios-avatar-scripts": 2,
+    "ios-avatar-callsite-pins": 1,
+    "native-avatar-entity-callers": 1,
     "ios-avatar-ui-work": 2,
     "ios-avatar-operation-clock": 1,
     "ios-avatar-cleanup-input-call": 2,

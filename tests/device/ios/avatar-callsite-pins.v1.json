@@ -1,0 +1,502 @@
+{
+  "avatarCallsitePinsVersion": 1,
+  "encoding": "utf-16le-code-units",
+  "sources": {
+    "/system/avatarapp.js": {
+      "codeUnits": 26267,
+      "sha256": "45ccb7045419a537f39854d2461b4c4b1383e855d69d28e1f86275db2715f66e"
+    },
+    "/system/pal.js": {
+      "codeUnits": 45320,
+      "sha256": "9c06306a8b3693c72961a9f40c6244b6b365629f73a81e1d27b53864701f5ae8"
+    },
+    "/system/libraries/peopleConnection.js": {
+      "codeUnits": 11585,
+      "sha256": "749f488851f5c0303e82c44c46059b1146a22f16d8ade7416613465cfdb1ed83"
+    },
+    "/modules/request.js": {
+      "codeUnits": 3452,
+      "sha256": "d1a7bfbdef56ffb74bee06310d7405ac097cce49dd68ece76efdffce2aa5cacb"
+    },
+    "/system/request-service.js": {
+      "codeUnits": 2433,
+      "sha256": "5b0a283f2ff5d6f92eb52c2c59252fe7d133bbc1b4aea2a245d051da12588053"
+    },
+    "/modules/appUi.js": {
+      "codeUnits": 16425,
+      "sha256": "b8e6d123c2aced16d9933e2cf0bd60644f2b97fb2214a4c6d5f07b026f527ab4"
+    }
+  },
+  "profiles": {
+    "xhr-response-callback": {
+      "kind": "xhr-read",
+      "frames": [
+        {
+          "source": "/modules/request.js",
+          "line": 30,
+          "column": 54,
+          "token": "responseText"
+        }
+      ]
+    },
+    "xhr-page-request": {
+      "kind": "xhr-open",
+      "frames": [
+        {
+          "source": "/modules/request.js",
+          "line": 78,
+          "column": 21,
+          "token": "open("
+        },
+        {
+          "source": "/system/request-service.js",
+          "line": 36,
+          "column": 13,
+          "token": "request("
+        }
+      ]
+    },
+    "protocol-request-watch": {
+      "kind": "timer",
+      "frames": [
+        {
+          "source": "/system/pal.js",
+          "line": 63,
+          "column": 60,
+          "token": "setTimeout("
+        },
+        {
+          "source": "/system/libraries/peopleConnection.js",
+          "line": 68,
+          "column": 25,
+          "token": "setTimeout("
+        },
+        {
+          "source": "/system/libraries/peopleConnection.js",
+          "line": 135,
+          "column": 9,
+          "token": "watch("
+        },
+        {
+          "source": "/system/pal.js",
+          "line": 323,
+          "column": 27,
+          "token": "request("
+        }
+      ]
+    },
+    "protocol-incoming-watch": {
+      "kind": "timer",
+      "frames": [
+        {
+          "source": "/system/pal.js",
+          "line": 63,
+          "column": 60,
+          "token": "setTimeout("
+        },
+        {
+          "source": "/system/libraries/peopleConnection.js",
+          "line": 68,
+          "column": 25,
+          "token": "setTimeout("
+        },
+        {
+          "source": "/system/libraries/peopleConnection.js",
+          "line": 155,
+          "column": 13,
+          "token": "watch("
+        },
+        {
+          "source": "/system/pal.js",
+          "line": 931,
+          "column": 23,
+          "token": "receive("
+        }
+      ]
+    },
+    "protocol-watch-tick": {
+      "kind": "timer",
+      "frames": [
+        {
+          "source": "/system/pal.js",
+          "line": 63,
+          "column": 60,
+          "token": "setTimeout("
+        },
+        {
+          "source": "/system/libraries/peopleConnection.js",
+          "line": 77,
+          "column": 29,
+          "token": "setTimeout("
+        }
+      ]
+    },
+    "protocol-poll-delay": {
+      "kind": "timer",
+      "frames": [
+        {
+          "source": "/system/pal.js",
+          "line": 63,
+          "column": 60,
+          "token": "setTimeout("
+        },
+        {
+          "source": "/system/libraries/peopleConnection.js",
+          "line": 106,
+          "column": 37,
+          "token": "setTimeout("
+        },
+        {
+          "source": "/modules/request.js",
+          "line": 43,
+          "column": 17,
+          "token": "callback("
+        }
+      ]
+    },
+    "pal-open-refresh": {
+      "kind": "timer",
+      "frames": [
+        {
+          "source": "/system/pal.js",
+          "line": 878,
+          "column": 19,
+          "token": "setInterval("
+        },
+        {
+          "source": "/system/pal.js",
+          "line": 904,
+          "column": 22,
+          "token": "createUpdateInterval("
+        },
+        {
+          "source": "/modules/appUi.js",
+          "line": 128,
+          "column": 26,
+          "token": "onOpened("
+        }
+      ]
+    },
+    "pal-message-select": {
+      "kind": "timer",
+      "frames": [
+        {
+          "source": "/system/pal.js",
+          "line": 949,
+          "column": 41,
+          "token": "setTimeout("
+        }
+      ]
+    },
+    "avatar-wearable-added": {
+      "kind": "timer",
+      "frames": [
+        {
+          "source": "/system/avatarapp.js",
+          "line": 30,
+          "column": 28,
+          "token": "setTimeout("
+        },
+        {
+          "source": "/system/avatarapp.js",
+          "line": 102,
+          "column": 5,
+          "token": "executeLater("
+        },
+        {
+          "source": "/system/avatarapp.js",
+          "line": 354,
+          "column": 9,
+          "token": "updateAvatarWearables("
+        }
+      ]
+    },
+    "avatar-wearable-deleted": {
+      "kind": "timer",
+      "frames": [
+        {
+          "source": "/system/avatarapp.js",
+          "line": 30,
+          "column": 28,
+          "token": "setTimeout("
+        },
+        {
+          "source": "/system/avatarapp.js",
+          "line": 102,
+          "column": 5,
+          "token": "executeLater("
+        },
+        {
+          "source": "/system/avatarapp.js",
+          "line": 367,
+          "column": 9,
+          "token": "updateAvatarWearables("
+        }
+      ]
+    },
+    "avatar-wearable-revert": {
+      "kind": "timer",
+      "frames": [
+        {
+          "source": "/system/avatarapp.js",
+          "line": 30,
+          "column": 28,
+          "token": "setTimeout("
+        },
+        {
+          "source": "/system/avatarapp.js",
+          "line": 102,
+          "column": 5,
+          "token": "executeLater("
+        },
+        {
+          "source": "/system/avatarapp.js",
+          "line": 312,
+          "column": 17,
+          "token": "updateAvatarWearables("
+        }
+      ]
+    },
+    "avatar-native-wearable-added": {
+      "kind": "timer",
+      "frames": [
+        {
+          "source": "/system/avatarapp.js",
+          "line": 30,
+          "column": 28,
+          "token": "setTimeout("
+        },
+        {
+          "source": "/system/avatarapp.js",
+          "line": 102,
+          "column": 5,
+          "token": "executeLater("
+        },
+        {
+          "source": "/system/avatarapp.js",
+          "line": 499,
+          "column": 5,
+          "token": "updateAvatarWearables("
+        }
+      ]
+    },
+    "avatar-native-wearable-deleted": {
+      "kind": "timer",
+      "frames": [
+        {
+          "source": "/system/avatarapp.js",
+          "line": 30,
+          "column": 28,
+          "token": "setTimeout("
+        },
+        {
+          "source": "/system/avatarapp.js",
+          "line": 102,
+          "column": 5,
+          "token": "executeLater("
+        },
+        {
+          "source": "/system/avatarapp.js",
+          "line": 506,
+          "column": 5,
+          "token": "updateAvatarWearables("
+        }
+      ]
+    },
+    "avatar-bookmark-loaded": {
+      "kind": "timer",
+      "frames": [
+        {
+          "source": "/system/avatarapp.js",
+          "line": 30,
+          "column": 28,
+          "token": "setTimeout("
+        },
+        {
+          "source": "/system/avatarapp.js",
+          "line": 568,
+          "column": 5,
+          "token": "executeLater("
+        }
+      ]
+    },
+    "avatar-bookmark-loaded-reentrant": {
+      "kind": "timer",
+      "frames": [
+        {
+          "source": "/system/avatarapp.js",
+          "line": 30,
+          "column": 28,
+          "token": "setTimeout("
+        },
+        {
+          "source": "/system/avatarapp.js",
+          "line": 568,
+          "column": 5,
+          "token": "executeLater("
+        },
+        {
+          "source": "/system/avatarapp.js",
+          "line": 269,
+          "column": 25,
+          "token": "loadBookmark("
+        }
+      ]
+    },
+    "avatar-wearable-grab-interval": {
+      "kind": "timer",
+      "frames": [
+        {
+          "source": "/system/avatarapp.js",
+          "line": 553,
+          "column": 52,
+          "token": "setInterval("
+        }
+      ]
+    },
+    "avatar-wearable-create": {
+      "kind": "entity-add",
+      "frames": [
+        {
+          "source": "/system/avatarapp.js",
+          "line": 351,
+          "column": 33,
+          "token": "addEntity("
+        }
+      ]
+    },
+    "avatar-wearable-delete": {
+      "kind": "entity-delete",
+      "frames": [
+        {
+          "source": "/system/avatarapp.js",
+          "line": 364,
+          "column": 18,
+          "token": "deleteEntity("
+        }
+      ]
+    },
+    "protocol-submit-accepted": {
+      "kind": "xhr-open",
+      "frames": [
+        {
+          "source": "/modules/request.js",
+          "line": 78,
+          "column": 21,
+          "token": "open("
+        },
+        {
+          "source": "/system/libraries/peopleConnection.js",
+          "line": 120,
+          "column": 23,
+          "token": "request("
+        },
+        {
+          "source": "/system/libraries/peopleConnection.js",
+          "line": 160,
+          "column": 63,
+          "token": "submit("
+        },
+        {
+          "source": "/system/pal.js",
+          "line": 931,
+          "column": 23,
+          "token": "receive("
+        }
+      ]
+    },
+    "protocol-submit-ready": {
+      "kind": "xhr-open",
+      "frames": [
+        {
+          "source": "/modules/request.js",
+          "line": 78,
+          "column": 21,
+          "token": "open("
+        },
+        {
+          "source": "/system/libraries/peopleConnection.js",
+          "line": 120,
+          "column": 23,
+          "token": "request("
+        },
+        {
+          "source": "/system/libraries/peopleConnection.js",
+          "line": 161,
+          "column": 79,
+          "token": "submit("
+        },
+        {
+          "source": "/system/pal.js",
+          "line": 931,
+          "column": 23,
+          "token": "receive("
+        }
+      ]
+    },
+    "protocol-poll-request": {
+      "kind": "xhr-open",
+      "frames": [
+        {
+          "source": "/modules/request.js",
+          "line": 78,
+          "column": 21,
+          "token": "open("
+        },
+        {
+          "source": "/system/libraries/peopleConnection.js",
+          "line": 109,
+          "column": 35,
+          "token": "request("
+        }
+      ]
+    },
+    "pal-connected-profile": {
+      "kind": "xhr-open",
+      "frames": [
+        {
+          "source": "/modules/request.js",
+          "line": 78,
+          "column": 21,
+          "token": "open("
+        },
+        {
+          "source": "/system/pal.js",
+          "line": 464,
+          "column": 5,
+          "token": "request("
+        },
+        {
+          "source": "/system/pal.js",
+          "line": 506,
+          "column": 5,
+          "token": "requestJSON("
+        },
+        {
+          "source": "/system/pal.js",
+          "line": 540,
+          "column": 9,
+          "token": "getInfoAboutUser("
+        },
+        {
+          "source": "/system/pal.js",
+          "line": 83,
+          "column": 9,
+          "token": "getConnectionData("
+        },
+        {
+          "source": "/system/libraries/peopleConnection.js",
+          "line": 117,
+          "column": 87,
+          "token": "connected("
+        },
+        {
+          "source": "/modules/request.js",
+          "line": 43,
+          "column": 17,
+          "token": "callback("
+        }
+      ]
+    }
+  }
+}

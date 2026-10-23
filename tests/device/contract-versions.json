@@ -173,6 +173,8 @@
     "original-frame-store": {"current": 1, "reads": [1]},
     "ios-avatar-originals": {"current": 1, "reads": [1]},
     "ios-avatar-scripts": {"current": 2, "reads": [1, 2]},
+    "ios-avatar-callsite-pins": {"current": 1, "reads": [1]},
+    "native-avatar-entity-callers": {"current": 1, "reads": [1]},
     "ios-avatar-ui-work": {"current": 2, "reads": [1, 2]},
     "ios-avatar-operation-clock": {"current": 1, "reads": [1]},
     "ios-avatar-cleanup-input-call": {"current": 2, "reads": [1, 2]},
