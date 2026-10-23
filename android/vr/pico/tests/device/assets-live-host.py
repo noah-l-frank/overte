@@ -24,7 +24,7 @@ from adapters.pico4.assets_pages import PicoAssetsPages
 # by this declared host. No copied or parallel input implementation.
 _binding_path=Path(original_binding.__file__)
 _binding_tree=ast.parse(_binding_path.read_text())
-_method_names={'_bind_create_transport','_assets_controls'}
+_method_names={'_bind_create_transport','_assets_controls','_assets_home_owner'}
 _methods=[node for node in ast.walk(_binding_tree) if isinstance(node,ast.FunctionDef) and node.name in _method_names]
 assert len(_methods)==len(_method_names)
 _factory_tree=ast.Module(body=[ast.ClassDef(name='OriginalAssetsControlsFactory',bases=[],keywords=[],body=_methods,decorator_list=[])],type_ignores=[])
