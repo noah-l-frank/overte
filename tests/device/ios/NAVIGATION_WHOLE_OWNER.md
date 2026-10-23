@@ -32,6 +32,18 @@ Qt, GPU, SDK/OS and acquisition clocks are explicitly modeled; actual Python,
 JavaScript, HTTP, files, journals and PNG validators run on the host. These
 results establish no physical iOS behavior or CPU timing qualification.
 
+The subsequent connected eight-step case passed the entire process/SDK ending
+and historical worker exit (one case, 2702.960 seconds; all 372 frozen source
+hashes unchanged, no blocked operation). Every active Actor publication uses
+the actual worker step and its actual original return. After the same original
+paired seal, the worker pauses without acquisition. The real final owners issue
+one Stop, join separate original OS-absence windows and issue one SDK DELETE,
+verify GET 404 and remove only the matching SDK/installed metadata. Repeated
+finish and actual worker exit then reopen the complete original graph with
+native, fixture and SDK transport forbidden. The loopback SDK, files and typed
+owners are real; native bundle, Qt/GPU, OS and acquisition-clock producers are
+explicit host models configured before their first responses.
+
 `navigation_observer.py` acquires actual Actor originals and canonical receipts
 on the explicitly existing SDK. The source lock serializes its seal check and
 publication, so the original paired seal pauses all later acquisitions. A final
@@ -39,7 +51,8 @@ archive merely requests the actual historical process/SDK verifier; its presence
 alone cannot complete the worker. Unknown publications retain a private failure
 marker, and timeout retains the entire ownership graph. Six focused host cases
 cover real initial publication and separately modeled worker seal scheduling.
-The worker is not yet qualified as part of the whole final journey or dispatch.
+The connected compact case qualifies this worker scheduling/end seam; full
+fifteen-step and canonical dispatch qualification remain open.
 The shared runtime factory now binds this same whole owner to an explicitly
 selected private artifact root. Two focused host cases exercise actual initial
 baselines, normal entry and source observation through that factory and reject
@@ -47,9 +60,10 @@ foreign configuration fields. The worker uses this factory without creating a
 new SDK. Public complete capability admission remains closed.
 
 Worlds remains partial. The full fifteen-step final integration, initial-process
-and partial-setup restoration, whole worker/configuration/dispatch integration and the
-connected final process/SDK end still require qualification. The
+and partial-setup restoration and whole configuration/dispatch integration still
+require qualification. The
 [final-end mechanics](NAVIGATION_PROCESS_END.md) have separate component coverage
-with an explicitly modeled live seal; that does not admit the whole connected
-graph or a complete feature capability. Native compilation and devices remain
+with an explicitly modeled live seal; the separate connected case supplies the
+actual whole source/PNG seal. Neither admits a complete feature capability.
+Native compilation and devices remain
 untested.

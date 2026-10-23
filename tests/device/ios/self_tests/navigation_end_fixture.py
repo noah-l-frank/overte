@@ -36,22 +36,45 @@ from self_tests.test_navigation_resources import INPUTS
 
 
 class EndBoundary:
-    def __init__(self,test):
+    def __init__(self,test,*,connected=None):
         self.test=test;self.installed=InstalledCodeTests();self.installed.setUp();test.addCleanup(self.installed.doCleanups)
-        self.installed.active();self.root=self.installed.store.path.parent;self.os=Boundary()
+        self.connected=connected
+        if connected is not None:
+            flow=connected['flow'];flow.lock.assert_held();flow.load();actual=deepcopy(flow.state['binding']);pid=int(actual['processIdentity'])
+            self.root=flow.store.path.parent;self.installed.scope={key:value for key,value in actual.items() if key!='processIdentity'}
+            self.installed.store=PrivateFeatureState(self.root/'modeled-installed-code-binding.json')
+            self.installed.process['pid']=pid;self.installed.reader.pid=pid;self.installed.native.clock_source['processId']=pid
+            # This producer is constructed before its first response. No
+            # earlier native bundle original is converted into this process.
+            self.installed.native.mutate=lambda packet:packet.update(processId=pid,instance=format(pid+9000,'032x'))
+            self.installed.binding=self.installed.make()
+        else:self.root=self.installed.store.path.parent;pid=42
+        self.installed.active();self.os=Boundary()
+        if connected is not None:
+            self.os.__class__=type('ConnectedEndClock',(type(self.os),),{
+                'clock':property(lambda _:flow.monotonic(),lambda _,value:flow.sleep(max(0,value-flow.monotonic()))),
+                'epoch':lambda _:int(flow.epoch_ms())})
+            self.os.pid=pid;self.os.anchor=dict(sequence=1,pid=pid,appStates=[4,4],bundlePids=[pid,pid],
+                clockBefore=dict(epochMs=self.os.node_epoch()-5000,monotonicMs=1000),
+                clockAfter=dict(epochMs=self.os.node_epoch()-4990,monotonicMs=1010))
         self.good=self.exists=True;self.stop_lost=self.delete_lost=self.delete_ignored=False
         self.stops=0;self.requests=[];self.get_lost=False
-        self.binding=dict(self.installed.scope,processIdentity='42');self.scope=deepcopy(self.installed.scope)
-        self.sdk=PrivateFeatureState(self.root/'sdk-session.json');self.sdk.write(deepcopy(self.scope),None)
-        self.payload=self.root/'modeled-navigation-original.json';self.payload.write_text('{"modeledLiveSeal":true}')
-        self.payload.chmod(0o600);self.payload_bytes=self.payload.read_bytes()
-        reader,actor=secrets.token_hex(32),secrets.token_hex(32)
-        server=make_server(reader,actor);server.journal.clock=self.os.epoch
-        origin='http://127.0.0.1:'+str(server.server_port)
-        server.navigation_resources=NavigationResources(INPUTS|dict(sceneUrl=origin+'/navigation/scene.json'),clock_ms=self.os.epoch,scene_profile=PROFILE)
-        self.start_server(server,test);self.controller=Client(origin+'/feature-fixture/v1',reader)
-        self.run,_=self.controller.register('world-navigation');self.ticket='c'*32;self.controller.activate(self.ticket,'cleanup',{})
-        self.fixture=NavigationFixtureReader(self.controller,self.run,epoch_ms=self.os.epoch,monotonic=lambda:self.os.clock);self.fixture.attach()
+        self.binding=dict(self.installed.scope,processIdentity=str(pid));self.scope=deepcopy(self.installed.scope)
+        self.sdk=PrivateFeatureState(flow.runtime.state_path(flow.selector) if connected is not None else self.root/'sdk-session.json')
+        self.sdk.write(deepcopy(self.scope),None)
+        if connected is None:
+            self.payload=self.root/'modeled-navigation-original.json';self.payload.write_text('{"modeledLiveSeal":true}')
+            self.payload.chmod(0o600);self.payload_bytes=self.payload.read_bytes()
+            reader,actor=secrets.token_hex(32),secrets.token_hex(32)
+            server=make_server(reader,actor);server.journal.clock=self.os.epoch
+            origin='http://127.0.0.1:'+str(server.server_port)
+            server.navigation_resources=NavigationResources(INPUTS|dict(sceneUrl=origin+'/navigation/scene.json'),clock_ms=self.os.epoch,scene_profile=PROFILE)
+            self.start_server(server,test);self.controller=Client(origin+'/feature-fixture/v1',reader)
+            self.run,_=self.controller.register('world-navigation');self.ticket='c'*32;self.controller.activate(self.ticket,'cleanup',{})
+            self.fixture=NavigationFixtureReader(self.controller,self.run,epoch_ms=self.os.epoch,monotonic=lambda:self.os.clock);self.fixture.attach()
+        else:
+            self.run=flow.run;self.fixture=flow.fixture;self.controller=connected['world'].harness.client
+            self.ticket=connected['terminal'].state['description']['ticket']
         outer=self
         class SDKHandler(BaseHTTPRequestHandler):
             def log_message(self,*_args):pass
@@ -73,6 +96,7 @@ class EndBoundary:
                 if data['script']=='mobile: terminateApp':
                     test.assertEqual([dict(bundleId=outer.installed.native.bundle['bundleId'])],data['args']);outer.stops+=1
                     outer.installed.process=None
+                    if outer.connected is not None:outer.connected['world'].lifecycle.pid=None
                     if outer.stop_lost:self.connection.close();return
                     self.reply(200,True)
                 else:
@@ -97,7 +121,11 @@ class EndBoundary:
                 backend.WebDriver(outer.target['serverUrl']).execute(outer.binding['sessionId'],'mobile: terminateApp',dict(bundleId=outer.target['appId']))
                 gate.finish_retirement();return dict(stopped=True)
         def same_scope(value):return value==outer.scope
-        self.base=Base();self.runtime=IOSNavigationRuntime(self.base)
+        self.base=Base()
+        if connected is not None:
+            self.runtime=flow.runtime;self.runtime.adapter=self.base;self.flow=flow;self.terminal=connected['terminal'];self.controller.close()
+            self.install_reader_clock(test);return
+        self.runtime=IOSNavigationRuntime(self.base)
         flow=object.__new__(IOSNavigationFeature);flow.runtime=self.runtime;flow.selector='owned';flow.root=self.root;flow.run=self.run;flow.role='primary'
         flow.store=PrivateFeatureState(self.root/'modeled-navigation-parent.json');flow.fixture=self.fixture;flow.client=self.controller
         state=dict(stage=1,binding=self.binding,providerInstance=self.fixture.instance,providerInputs=self.fixture.inputs)
@@ -124,9 +152,12 @@ class EndBoundary:
         terminal.replay=replay
         terminal.roles=lambda:dict(primary=SimpleNamespace(admission=SimpleNamespace(archive=lambda:dict(providerInstance=self.fixture.instance,providerInputs=self.fixture.inputs))))
         self.terminal=terminal;self.controller.close()
+        self.install_reader_clock(test)
+
+    def install_reader_clock(self,test):
         original=IOSGraphicsRuntime._retired_process_observer
         def reader(*args):
-            value=original(*args);value.epoch_ms=self.os.epoch;value.monotonic=lambda:self.os.clock;return value
+            value=original(*args);value.epoch_ms=self.flow.epoch_ms;value.monotonic=self.flow.monotonic;return value
         clock=patch.object(IOSGraphicsRuntime,'_retired_process_observer',side_effect=reader);clock.start();test.addCleanup(clock.stop)
 
     @staticmethod

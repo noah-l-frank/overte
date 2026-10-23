@@ -38,11 +38,15 @@ slow Stop intent persistence, changed source bytes and transport-free repeat.
 A fully rehashed role wrapper cannot reuse Primary's original OS nonces/counters
 as independent Actor observations.
 The live Navigation seal and OS/native producers are explicitly models in these
-mechanics tests. The connected full Navigation source/PNG journey has separate
-live-seal coverage; joining that whole graph to this final end remains required.
+mechanics tests. A separate connected compact eight-step Navigation source/PNG
+journey now passes the entire same-owner final end and actual worker exit:
+ordinary restoration, original paired seal, one Stop, separate OS windows,
+one DELETE/404/CAS and transport-free repeated finish/worker completion. Its
+372 frozen source hashes remain unchanged. OS/native producers and clocks are
+still explicit models; the qualified Python/HTTP/file/PNG joins are actual.
 These tests qualify neither physical iOS behavior nor CPU/transport performance.
 
-Worlds is still partial: initial-process/partial-setup restoration, whole end
-integration, worker/configuration/dispatch and the full final fifteen-step run
+Worlds is still partial: initial-process/partial-setup restoration, canonical
+configuration/dispatch and the full final fifteen-step run
 remain open. No complete capability is advertised. Native compilation and all
 devices remain untested.

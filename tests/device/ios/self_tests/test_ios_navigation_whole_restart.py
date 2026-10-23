@@ -56,13 +56,27 @@ class NavigationWholeRestartTests(unittest.TestCase):
         self.journey(SCENARIOS['world-navigation']['steps'])
 
     def test_compact_normal_restart_and_restoration_join_the_same_live_terminal_sources(self):
+        self.journey(self.compact_steps())
+
+    def compact_steps(self):
         steps=SCENARIOS['world-navigation']['steps']
         close=deepcopy(steps[14]);close['state']=dict(steps[4]['state'],panel=False,searchResults=[])
-        self.journey([steps[0],steps[2],steps[4],close,steps[11],steps[12],steps[13],steps[14]])
+        return [steps[0],steps[2],steps[4],close,steps[11],steps[12],steps[13],steps[14]]
 
-    def journey(self,steps):
+    def test_compact_original_whole_seal_joins_once_sdk_end_and_file_only_replay(self):
+        self.journey(self.compact_steps(),end=True)
+
+    def journey(self,steps,*,end=False):
         h=self.h;whole=self.whole;actor=self.actor();ctx=context(h.run)
-        current=whole.observe(dict(contractVersion=16,runId=h.run,afterSequence=0));actor.publish()
+        def publication():
+            if not end:return actor.publish()
+            from ios import navigation_observer as worker
+            original=actor.publish;returned=[]
+            def actual():
+                value=original();returned.append(value);return value
+            with patch.object(actor,'publish',side_effect=actual):self.assertIsNone(worker.step(actor,dict(target=h.flow.selector)))
+            self.assertEqual(1,len(returned));return returned[0]
+        current=whole.observe(dict(contractVersion=16,runId=h.run,afterSequence=0));publication()
         for step in steps:
             # A failed source join invalidates this composed journey. Stop at
             # that first failure instead of spending later steps on its state.
@@ -75,22 +89,25 @@ class NavigationWholeRestartTests(unittest.TestCase):
             if step['verb']=='restart-app':self.next_ui=NextUI(self.new,self)
             current=whole.observe(dict(contractVersion=16,runId=h.run,afterSequence=current['sequence']))
             self.assertTrue(matches(current['state'],expand(step['state'],ctx)),(step['verb'],current['state']))
-            entry=actor.publish();self.assertEqual(ticket,entry['ticket']);self.assertEqual(current['state'],entry['facts'])
+            entry=publication();self.assertEqual(ticket,entry['ticket']);self.assertEqual(current['state'],entry['facts'])
+            if end:print('NAVIGATION completed',step['verb'],flush=True)
         self.assertEqual(['app.stop','app.launch'],h.lifecycle.calls)
         with h.flow.held():self.restored_images()
         ticket=uuid.uuid4().hex;h.harness.client.activate(ticket,'cleanup',{})
         self.assertEqual({'performed':True},whole.cleanup(dict(contractVersion=16,runId=h.run)))
+        if end:print('NAVIGATION ordinary restoration complete',flush=True)
         # Actor acquires its own three genuine restored cuts and canonical
         # witness deliveries, independently of Primary's cleanup acquisitions.
         for index in range(3):
             if index:self.new.sdk.gpu.sleep(1.6)
-            actor.publish()
+            publication()
         owner=NavigationTerminal(h.flow);description=owner.inspect();samples=[]
         for index in range(3):
             if index:self.new.sdk.gpu.sleep(1.6)
             current=whole.observe(dict(contractVersion=16,runId=h.run,afterSequence=current['sequence']))
-            samples.append(dict(primary=current,actor=actor.publish()))
+            samples.append(dict(primary=current,actor=publication()))
         seal=owner.seal(description,samples);commands=deepcopy(self.new.gpu.commands)
+        if end:print('NAVIGATION original paired live seal complete',flush=True)
         with h.flow.held():
             def forbidden(*_args,**_kwargs):self.fail('Historical terminal replay attempted transport')
             with patch.object(h.runtime,'_sources',side_effect=forbidden),patch.object(h.flow.client,'request',side_effect=forbidden):
@@ -98,3 +115,19 @@ class NavigationWholeRestartTests(unittest.TestCase):
         self.assertEqual(commands,self.new.gpu.commands)
         self.assertTrue(all(description['roles'][role]['heldResources'] for role in ('primary','actor')))
         self.assertEqual(['app.stop','app.launch'],h.lifecycle.calls)
+        if end:
+            from ios import navigation_observer as worker
+            from ios.self_tests.navigation_end_fixture import EndBoundary
+            from ios.adapters import appium_adapter as backend
+            with patch.object(h.runtime,'_sources',side_effect=forbidden),patch.object(actor.flow.client,'request',side_effect=forbidden):
+                self.assertIsNone(worker.step(actor,dict(target=h.flow.selector)))
+            with h.flow.held():bridge=EndBoundary(self,connected=dict(flow=h.flow,terminal=owner,world=h))
+            result=owner.finish(seal);requests=deepcopy(bridge.requests)
+            print('NAVIGATION process and SDK end complete',flush=True)
+            self.assertEqual(1,bridge.stops);self.assertEqual(1,sum(method=='DELETE' for method,_ in requests))
+            self.assertIsNone(h.lifecycle.pid);self.assertIsNone(bridge.sdk.read());self.assertIsNone(bridge.installed.store.read())
+            with patch.object(h.runtime,'_sources',side_effect=forbidden),patch.object(h.flow.client,'request',side_effect=forbidden),patch.object(backend.WebDriver,'call',side_effect=forbidden):
+                self.assertEqual(result,owner.finish(seal))
+                with patch.object(actor.flow.client,'request',side_effect=forbidden):
+                    self.assertEqual(0,worker.step(actor,dict(target=h.flow.selector)))
+            self.assertEqual(requests,bridge.requests);self.assertEqual(commands,self.new.gpu.commands)
