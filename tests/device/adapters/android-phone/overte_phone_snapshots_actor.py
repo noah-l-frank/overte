@@ -19,7 +19,7 @@ from overte_phone_create_actor import quiet_window
 from overte_phone_script_history import pack,unpack,same,canonical
 from overte_phone_script_lock import PhoneScriptSourceBusy
 from overte_phone_snapshots_role import PhoneSnapshotsRole,SnapshotPhaseDeferred,role_state
-from overte_phone_snapshots_constructor_history import graph_digest
+from overte_phone_snapshots_constructor_history import graph_digest,passive_scope,SnapshotConstructorHistoryPass
 from overte_phone_snapshots_measurements import SnapshotPending
 from overte_phone_snapshots_evidence import SnapshotsOriginals
 from overte_phone_emote_originals import BLOCK
@@ -154,7 +154,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         self.store=PrivateFeatureState(feature.store.path.with_name('phone-snapshots-actor-lifecycle.json'))
         self.previous=self.state=None
         self._cleanup_reader=None;self._cleanup_anchor=None;self._cleanup_failed=False;self._cleanup_started=False
-        self._ordinary_failed=False;self._ordinary_primary=None;self._ordinary_publication=None
+        self._ordinary_failed=False;self._ordinary_primary=None;self._ordinary_publication=None;self._cleanup_publication=None
 
     def load(self):
         f=self.feature;f.bound();actual=self.store.read()
@@ -190,7 +190,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             need(same(store.read(),self._ordinary_primary))
 
     def save(self):
-        self.feature.bound();self.primary_owner();self.ordinary_publication();need(same(self.store.read(),self.previous))
+        self.feature.bound();self.primary_owner();self.ordinary_publication();self.cleanup_publication();need(same(self.store.read(),self.previous))
         value=dict(snapshotsActorVersion=ACTOR_VERSION,runId=self.feature.run,binding=self.feature.binding,payload=pack([self.state]))
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.primary_owner();self.previous=deepcopy(value)
 
@@ -217,7 +217,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             if self._cleanup_started:self._cleanup_failed=True
             elif self._ordinary_entered:self._ordinary_failed=True
             raise
-        finally:self._ordinary_primary=None;self._ordinary_publication=None
+        finally:self._ordinary_primary=None;self._ordinary_publication=None;self._cleanup_publication=None
 
     def poll_delay(self):
         """Yield briefly only between this flow's verified cleanup samples.
@@ -306,14 +306,24 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         """Seal only preparation; no current sample survives the lock gap."""
         self.ordinary_owners(role,pin)
         need(role.state['phase']=='ready' and role.state['pending'] is None and not role._host_publication)
-        prepared=dict(pin=pin,phase=deepcopy(status),cue=deepcopy(cue),role=deepcopy(role.previous),
+        f=self.feature
+        passive=(SnapshotConstructorHistoryPass._system_snapshot(passive_scope(f))
+            if role.system and f.state['phase'] in ('baseline','active') and f.state.get('current',False) is None
+            and f.state['handoff'] is not None else None)
+        prepared=dict(passive=passive,pin=pin,phase=deepcopy(status),cue=deepcopy(cue),role=deepcopy(role.previous),
             roleState=digest(role.state),frames=graph_digest(role.frames),count=len(role.frames),
             featureState=digest(self.feature.state),actorState=digest(self.state),configuration=deepcopy(self.feature.config))
         self.ordinary_prepared_owners(role,prepared);return prepared
 
+    def ordinary_passive_owners(self,role,prepared):
+        if prepared['passive'] is not None:
+            need(role.system is True and passive_scope(self.feature) is prepared['pin']['system'])
+            SnapshotConstructorHistoryPass._system_matches(prepared['pin']['system'],prepared['passive'])
+            prepared['passive']['clock']=prepared['pin']['system'].last_clock
+
     def ordinary_prepared_owners(self,role,prepared,*,feature_header=True,verify_graph=True):
         """Pure owner/graph checks before a current target guard can run."""
-        f=self.feature;f.lock.assert_held();pin=prepared['pin']
+        f=self.feature;f.lock.assert_held();pin=prepared['pin'];self.ordinary_passive_owners(role,prepared)
         need(same(f.previous,pin['feature']) and same(self.previous,pin['actor'])
             and same(self.store.read(),pin['actor']) and same(role.previous,prepared['role'])
             and same(role.store.read(),prepared['role']) and same(f.binding,pin['binding'])
@@ -409,6 +419,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         context=self._ordinary_publication
         if context is None:return
         role,prepared,header=context;f=self.feature;pin=prepared['pin'];f.lock.assert_held()
+        self.ordinary_passive_owners(role,prepared)
         need(same(f.previous,pin['feature']) and same(f.store.read(),pin['feature'])
             and same(role.previous,header) and same(role.store.read(),header)
             and same(role.state,role_state(header,f.binding,f.run,'actor'))
@@ -522,57 +533,123 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                 self.cleanup_phase(status,retained[1]['phase'])
                 need(f.state['phase']=='cleaned' and self.state['phase']=='watching' and self.state['pending'] is None
                     and self.state['closure'] is None and self.state['partialClosure'] is None)
-                return self.quiet_batch(retained[0],retained[1],started)
-            need(self.state['phase']=='watching')
-            if self.state['pending'] is not None:
-                self.primary_continuity();self.deliver();return False
-            if f.state['phase'] not in ('baseline','active','cleaned'):return False
-            current=status['activations'][-1];verb=current['stimulus']['verb']
-            if verb=='baseline' and f.state['phase']!='baseline':return False
-            if verb not in ('baseline','cleanup') and (not f.state['actions'] or f.state['actions'][-1]['ticket']!=current['ticket'] or f.state['actions'][-1]['phase']!='acknowledged'):return False
-            if verb=='cleanup' and f.state['phase']!='cleaned':return False
-            if verb!='cleanup' and f.state['phase']=='cleaned':return False
-            if verb=='cleanup':self._cleanup_started=True
-            self._ordinary_entered=verb!='cleanup'
-            cue=None if verb=='cleanup' else self.primary_cue(status)
-            if verb!='cleanup' and cue is None:return False
-            ordinary=None if verb=='cleanup' else self.ordinary_pin(cue)
-            role=PhoneSnapshotsRole(f,'actor',**({} if anchor is None else {'expected_previous':anchor[1]['role']}))
-            if anchor is not None:need(same(role.previous,anchor[1]['role']))
-            if role.state['phase']=='reading':role.recover()
-            if verb=='cleanup':
-                need(same(f.store.read(),f.previous))
-                prepared=dict(feature=deepcopy(f.previous),actor=deepcopy(self.previous),role=deepcopy(role.previous),
-                    binding=deepcopy(f.binding),phase=deepcopy(status))
+                # A finished interval still needs a new own acquisition.
+                # Release preparation so a waiting Primary can replay its
+                # immutable history before this actor captures the next fact.
+                cue=self.primary_cue(status) if self.state['quiet'] is not None and self.state['quiet']['complete'] else None
+                if cue is None:return self.quiet_batch(retained[0],retained[1],started)
+                role,prepared=retained;verb='cleanup'
+                warm=self.cleanup_warm_pin(role,prepared,cue)
             else:
-                prepared=self.ordinary_prepare(role,status,cue,ordinary)
-                # Only the foreground/current-free scope admits a Primary
-                # constructor-history unlock to overlap. OS/pending scopes
-                # keep this first lock; its nested held() is reentrant.
-                split=(f.state['phase'] in ('baseline','active') and f.state.get('current',False) is None
-                    and f.state['handoff'] is None and not role.system and getattr(f,'_system_scope',None) is None)
-                if not split:return self.ordinary_batch(role,prepared)
+                warm=None
+                need(self.state['phase']=='watching')
+                if self.state['pending'] is not None:
+                    self.primary_continuity();self.deliver();return False
+                if f.state['phase'] not in ('baseline','active','cleaned'):return False
+                current=status['activations'][-1];verb=current['stimulus']['verb']
+                if verb=='baseline' and f.state['phase']!='baseline':return False
+                if verb not in ('baseline','cleanup') and (not f.state['actions'] or f.state['actions'][-1]['ticket']!=current['ticket'] or f.state['actions'][-1]['phase']!='acknowledged'):return False
+                if verb=='cleanup' and f.state['phase']!='cleaned':return False
+                if verb!='cleanup' and f.state['phase']=='cleaned':return False
+                if verb=='cleanup':self._cleanup_started=True
+                self._ordinary_entered=verb!='cleanup'
+                cue=None if verb=='cleanup' else self.primary_cue(status)
+                if verb!='cleanup' and cue is None:return False
+                ordinary=None if verb=='cleanup' else self.ordinary_pin(cue)
+                role=PhoneSnapshotsRole(f,'actor',**({} if anchor is None else {'expected_previous':anchor[1]['role']}))
+                if anchor is not None:need(same(role.previous,anchor[1]['role']))
+                if role.state['phase']=='reading':role.recover()
+                if verb=='cleanup':
+                    need(same(f.store.read(),f.previous))
+                    prepared=dict(feature=deepcopy(f.previous),actor=deepcopy(self.previous),role=deepcopy(role.previous),
+                        binding=deepcopy(f.binding),phase=deepcopy(status))
+                else:
+                    prepared=self.ordinary_prepare(role,status,cue,ordinary)
+                    # Overlap only the exact foreground or passive scope
+                    # admitted by the Primary constructor-history pass. A
+                    # pending input retains the original continuous lock.
+                    foreground=(f.state['handoff'] is None and not role.system and getattr(f,'_system_scope',None) is None)
+                    split=(f.state['phase'] in ('baseline','active') and f.state.get('current',False) is None
+                        and (foreground or prepared['passive'] is not None))
+                    if not split:return self.ordinary_batch(role,prepared)
         # Preparation may replay a long immutable history. Release its lock
         # before the bounded current quiet interval so another role can run.
         # No measurement or publication authority survives this boundary.
         f.sleep(.1)
         if verb!='cleanup':return self.ordinary_batch(role,prepared)
-        return self.cleanup_batch(role,prepared)
+        return self.cleanup_batch(role,prepared,warm=warm)
 
-    def cleanup_batch(self,role,prepared):
+    def cleanup_warm_pin(self,role,prepared,cue):
+        f=self.feature;f.lock.assert_held();self.cleanup_owners(role,prepared,loaded=True)
+        scope=getattr(f.adapter,'_existing_input_scope',None)
+        warm=dict(cue=deepcopy(cue),featureState=digest(f.state),actorState=digest(self.state),
+            roleState=deepcopy(role.state),frames=graph_digest(role.frames),count=len(role.frames),configuration=deepcopy(f.config),
+            sdk=scope,sdkValue=deepcopy(scope))
+        self.cleanup_warm_owners(role,prepared,warm);return warm
+
+    def cleanup_warm_owners(self,role,prepared,warm,*,verify_graph=True):
+        """Same-call preparation only; no current fact survives the yield."""
+        f=self.feature;f.lock.assert_held();self.cleanup_owners(role,prepared);self.cleanup_owners(role,prepared,loaded=True)
+        need(same(role.state,warm['roleState'])
+            and same(role.state,role_state(prepared['role'],f.binding,f.run,'actor'))
+            and same(self.state,unpack(prepared['actor']['payload'])[0])
+            and same(f.state,unpack(prepared['feature']['payload'])[0])
+            and digest(f.state)==warm['featureState'] and digest(self.state)==warm['actorState']
+            and same(f.config,warm['configuration']) and not role._host_publication
+            and getattr(f.adapter,'_existing_input_scope',None) is warm['sdk']
+            and same(getattr(f.adapter,'_existing_input_scope',None),warm['sdkValue']))
+        if 'guard' in warm:
+            need(getattr(f,'guard',None) is warm['guard'] and getattr(f,'_system_scope',None) is warm['system'])
+        if verify_graph:need(graph_digest(role.frames)==warm['frames'])
+        return True
+
+    def cleanup_publication(self):
+        """Preserve the old graph through the last actual Actor save guard."""
+        if self._cleanup_publication is None:return
+        role,prepared,warm,header=self._cleanup_publication;f=self.feature;f.lock.assert_held()
+        need(same(f.previous,prepared['feature']) and same(f.store.read(),prepared['feature'])
+            and same(f.state,unpack(prepared['feature']['payload'])[0])
+            and same(role.previous,header) and same(role.store.read(),header)
+            and same(role.state,role_state(header,f.binding,f.run,'actor'))
+            and same(f.binding,prepared['binding']) and same(f.config,warm['configuration'])
+            and same(self.state['process'],unpack(prepared['actor']['payload'])[0]['process'])
+            and getattr(f,'guard',None) is warm['guard'] and getattr(f,'_system_scope',None) is warm['system']
+            and getattr(f.adapter,'_existing_input_scope',None) is warm['sdk']
+            and same(getattr(f.adapter,'_existing_input_scope',None),warm['sdkValue'])
+            and len(role.frames)>warm['count']
+            and graph_digest(role.frames[:warm['count']])==warm['frames'])
+
+    def cleanup_batch(self,role,prepared,*,warm=None):
         f=self.feature
         with f.lock.held():
             started=f.monotonic()
             # Pin all three actual owners before loading any changed state.
             self.cleanup_owners(role,prepared)
+            if warm is not None:self.cleanup_warm_owners(role,prepared,warm)
             f.load();self.load();self.cleanup_owners(role,prepared,loaded=True)
+            if warm is not None:
+                self.cleanup_warm_owners(role,prepared,warm)
+                # load() legitimately rebuilds its foreground guard once.
+                # Its newly qualified scope must then survive every callback.
+                warm.update(guard=getattr(f,'guard',None),system=getattr(f,'_system_scope',None))
             f.bound();role.bound();role.history_authority()
             need(f.state['phase']=='cleaned' and self.state['phase']=='watching' and self.state['pending'] is None
                 and self.state['closure'] is None and self.state['partialClosure'] is None)
             status=f.phase.status()
             if not status['active']:return self.defer_cleanup_close(role,status,prepared['phase'])
             self.cleanup_phase(status,prepared['phase'])
-            return self.quiet_batch(role,prepared,started)
+            if warm is not None:
+                primary=PrivateFeatureState(f.store.path.with_name('phone-snapshots-primary-originals.json'))
+                header=primary.read()
+                def historical():
+                    self.cleanup_warm_owners(role,prepared,warm,verify_graph=False)
+                    need(same(primary.read(),header));return True
+                # Candidate N was actually observed before the gap. It may
+                # advance, but cannot disappear or roll back to consumed N-1.
+                validate_primary_cue(f,warm['cue'],header,history_guard=historical)
+                self.cleanup_warm_owners(role,prepared,warm)
+            if warm is None:return self.quiet_batch(role,prepared,started)
+            return self.quiet_batch(role,prepared,started,warm=warm)
 
     def defer_cleanup_close(self,role,status,prepared):
         """A completed own quiet receipt may close between fresh phase reads.
@@ -604,8 +681,8 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         # fresh absence; no warmed reader or old role header is reused.
         self._cleanup_reader=None;self._cleanup_anchor=(role.store,pin);return False
 
-    def quiet_batch(self,role,prepared,started):
-        f=self.feature
+    def quiet_batch(self,role,prepared,started,*,warm=None):
+        f=self.feature;publication_warm=warm
         while True:
             f.bound();role.history_authority()
             # Reuse only normal reader continuity. Every old file still
@@ -623,6 +700,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                 if cue is None:
                     self.retain_cleanup(role,status);return False
                 self._ordinary_primary=deepcopy(cue['header']);self.primary_owner()
+            if warm is not None:self.cleanup_warm_owners(role,prepared,warm)
             try:measured=role.read(role.state['sequence'])
             except SnapshotPending:
                 after=f.phase.status(status)
@@ -632,6 +710,9 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                 after=f.phase.status(status)
                 if after['active']:raise
                 return self.defer_cleanup_close(role,after,prepared['phase'])
+            if publication_warm is not None:
+                self._cleanup_publication=(role,prepared,publication_warm,deepcopy(role.previous))
+            warm=None # The old role state changed, but its graph prefix remains pinned.
             need(measured['resources']==[] and role.frames[-1]['ticket']==status['activations'][-1]['ticket'])
             after=role.frames[-1]['phaseAfter']
             if not after['active']:return self.defer_cleanup_close(role,after,prepared['phase'])

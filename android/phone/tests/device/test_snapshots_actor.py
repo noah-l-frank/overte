@@ -99,6 +99,7 @@ def cleanup_frontier_actor(boundary,url,queue,command):
     f.phase.provider=lambda:dict(boundary.provider,active=phase.status()['active'])
     f.monotonic,f.sleep=time.monotonic,time.sleep
     actor=PhoneSnapshotsActor(f);counts=dict(reads=0,posts=0);points=[];lose_reply=[False];lost_replies=[0]
+    pause_warm=[False];memory_mutated=[False]
     original_read=PhoneSnapshotsRole.read;original_quiet=module.quiet_window;request=actor.client.request
     def read(role,*args,**kwargs):
         counts['reads']+=1
@@ -117,6 +118,32 @@ def cleanup_frontier_actor(boundary,url,queue,command):
             raise RuntimeError('Actual accepted POST reply deliberately lost')
         return result
     actor.client.request=transport
+    def sleep(seconds):
+        if (pause_warm[0] and f.lock._owner is None and actor.state is not None
+                and actor.state['quiet'] is not None and actor.state['quiet']['complete']):
+            pause_warm[0]=False
+            queue.put(dict(event='warm-gap',pid=os.getpid(),counts=deepcopy(counts),lockReleased=True))
+            if not command.poll(15):raise RuntimeError('Warm cleanup gap IPC expired')
+            action=command.recv()
+            if action=='pid':
+                f.binding=deepcopy(f.binding);f.binding['processIdentity']='32:foreign-start'
+            elif action=='sdk':f.adapter._existing_input_scope=dict(foreignScope=True)
+            elif action in ('last-native-memory','last-save-memory'):
+                original=f.bound;callbacks=[0]
+                def after_native():
+                    result=original()
+                    caller=sys._getframe(1).f_code.co_name
+                    if caller=='validate_primary_cue':callbacks[0]+=1
+                    mutate=(action=='last-native-memory' and caller=='validate_primary_cue' and callbacks[0]==2
+                        or action=='last-save-memory' and caller=='save' and actor.state['pending'] is not None)
+                    if mutate and not memory_mutated[0]:
+                        actor._cleanup_reader[0].frames[0]['lateNativeGraphChange']=True
+                        memory_mutated[0]=True
+                    return result
+                f.bound=after_native
+            elif action!='continue':raise RuntimeError('Unknown warm cleanup gap instruction')
+        time.sleep(seconds)
+    f.sleep=sleep
     try:
         with patch.object(PhoneSnapshotsRole,'read',read),patch.object(module,'quiet_window',quiet):
             while command.poll(25):
@@ -125,13 +152,14 @@ def cleanup_frontier_actor(boundary,url,queue,command):
                 if instruction.get('cold'):
                     actor=PhoneSnapshotsActor(f)
                     # The same actual Client retains only its transport wrapper.
-                lose_reply[0]=instruction.get('loseReply',False)
+                lose_reply[0]=instruction.get('loseReply',False);pause_warm[0]=instruction.get('pauseWarm',False)
                 first=len(points);error=None;result=None
                 try:result=actor.step()
                 except Exception as caught:error=dict(error=type(caught).__name__,message=str(caught))
                 header=PrivateFeatureState(boundary.root/'phone-snapshots-actor-originals.json').read()
                 queue.put(dict(error=error,result=result,pid=os.getpid(),counts=deepcopy(counts),
-                    points=deepcopy(points[first:]),state=deepcopy(actor.state),roleHeader=header,lostReplies=lost_replies[0]))
+                    points=deepcopy(points[first:]),state=deepcopy(actor.state),roleHeader=header,lostReplies=lost_replies[0],memoryMutated=memory_mutated[0],
+                    actorHeader=PrivateFeatureState(boundary.root/'phone-snapshots-actor-lifecycle.json').read()))
         raise RuntimeError('Cleanup frontier IPC command expired')
     except Exception as error:
         queue.put(dict(fatal=type(error).__name__,message=str(error)))
@@ -172,6 +200,10 @@ class SnapshotsActorTests(unittest.TestCase):
         b.provider.update(ticket='d'*32,activations=[dict(ticket=TICKET,verb='capture',capturedEpochMs=19000),
             dict(ticket='d'*32,verb='cleanup',capturedEpochMs=20000)])
         if ready:self.advance_cleanup_primary()
+        from overte_phone_snapshots_feature import PhoneSnapshotsFeature
+        with b.feature.lock.held():
+            b.feature.previous=b.feature.store.read();PhoneSnapshotsFeature.save(b.feature)
+            self.assertEqual(b.feature.previous,b.feature.store.read())
         self.server.shutdown();self.thread.join(3);self.assertFalse(self.thread.is_alive())
         ctx=multiprocessing.get_context('fork');queue=ctx.Queue();parent,child=ctx.Pipe()
         process=ctx.Process(target=cleanup_frontier_actor,args=(b,self.url,queue,child));process.start();child.close()
@@ -184,9 +216,15 @@ class SnapshotsActorTests(unittest.TestCase):
             if process.is_alive():process.terminate();process.join(3)
             parent.close();queue.close()
         self.addCleanup(stop)
-        def step(**instruction):
-            self.assertTrue(process.is_alive());parent.send(instruction)
-            value=queue.get(timeout=20);self.assertNotIn('fatal',value,value)
+        def step(*,at_gap=None,**instruction):
+            self.assertTrue(process.is_alive())
+            if at_gap is not None:instruction['pauseWarm']=True
+            parent.send(instruction);value=queue.get(timeout=20);self.assertNotIn('fatal',value,value)
+            if at_gap is not None:
+                self.assertEqual('warm-gap',value.get('event'),value);self.assertTrue(value['lockReleased'])
+                self.assertNotEqual(os.getpid(),value['pid'])
+                action=at_gap(value);parent.send('continue' if action is None else action)
+                value=queue.get(timeout=20);self.assertNotIn('fatal',value,value)
             self.assertNotEqual(os.getpid(),value['pid']);return value
         return step
 
@@ -269,6 +307,78 @@ class SnapshotsActorTests(unittest.TestCase):
         self.assertEqual(accepted[0],recovered['state']['last']['receipt'])
         held=step();self.assertIsNone(held['error'],held);self.assert_no_further_acquisition(recovered,held)
         self.assertEqual(accepted,self.reader.request('/runs/'+RUN)['entries'])
+
+    def test_cleanup_warm_gap_requalifies_a_genuine_newer_primary_prefix(self):
+        step=self.cleanup_frontier();first=self.completed_frontier(step);self.advance_cleanup_primary();advanced=[]
+        def gap(value):
+            self.assertEqual(first['counts'],value['counts'])
+            advanced.append(self.advance_cleanup_primary()) # Acquires the actual source lock while Actor waits.
+        fresh=step(at_gap=gap);self.assertIsNone(fresh['error'],fresh)
+        self.assertGreater(fresh['counts']['reads'],first['counts']['reads']);self.assertEqual(2,fresh['counts']['posts'])
+        self.assertEqual(advanced[0],fresh['state']['primaryCue']['header'])
+
+    def cleanup_warm_gap_counter(self,mutation):
+        step=self.cleanup_frontier();first=self.completed_frontier(step);self.advance_cleanup_primary();changed={}
+        def gap(value):
+            self.assertEqual(first['counts'],value['counts'])
+            # All mutations occur after genuine first-stage admission and
+            # source-lock release, before any second-stage current acquisition.
+            if mutation in ('feature','actor','role'):
+                name={'feature':'feature.json','actor':'phone-snapshots-actor-lifecycle.json',
+                    'role':'phone-snapshots-actor-originals.json'}[mutation]
+                store=PrivateFeatureState(self.root/name);previous=store.read()
+                if mutation=='actor':
+                    state=unpack(previous['payload'])[0];state['dropped'].append(dict(foreignWarmOwner=True))
+                    foreign=dict(previous,payload=pack([state]))
+                elif mutation=='role':
+                    foreign=deepcopy(previous);foreign['binding']['targetFingerprint']='f'*64
+                else:
+                    state=unpack(previous['payload'])[0];state['phase']='active'
+                    foreign=dict(previous,payload=pack([state]))
+                store.write(foreign,previous);changed.update(store=store,foreign=foreign)
+            elif mutation=='candidate-rollback':
+                store=PrivateFeatureState(self.root/'phone-snapshots-primary-originals.json')
+                foreign=deepcopy(first['state']['primaryCue']['header']);store.write(foreign,store.read())
+                changed.update(store=store,foreign=foreign)
+            elif mutation=='phase':self.reader.activate('e'*32,'cleanup',{})
+            elif mutation=='old-file':
+                path=next(self.root.glob('emote-frame-snapshots-'+RUN+'-actor-*.json'))
+                raw=path.read_bytes()+b' ';path.write_bytes(raw);changed.update(path=path,raw=raw)
+            else:
+                self.assertIn(mutation,('pid','sdk','last-native-memory'));return mutation
+        rejected=step(at_gap=gap);self.assertEqual('NativeUIError',rejected['error']['error'],rejected)
+        self.assertEqual(first['counts'],rejected['counts'])
+        self.assertEqual(first['state']['primaryCue'],rejected['state']['primaryCue'])
+        self.assertEqual(1,len(self.reader.request('/runs/'+RUN)['entries']))
+        if 'store' in changed:self.assertEqual(changed['foreign'],changed['store'].read())
+        if 'path' in changed:self.assertEqual(changed['raw'],changed['path'].read_bytes())
+        if mutation=='last-native-memory':self.assertTrue(rejected['memoryMutated'])
+        else:self.assertFalse(rejected['memoryMutated'])
+
+    def test_cleanup_warm_gap_rejects_changed_feature_owner(self):self.cleanup_warm_gap_counter('feature')
+    def test_cleanup_warm_gap_rejects_changed_actor_owner(self):self.cleanup_warm_gap_counter('actor')
+    def test_cleanup_warm_gap_rejects_changed_role_owner(self):self.cleanup_warm_gap_counter('role')
+    def test_cleanup_warm_gap_rejects_changed_process_binding(self):self.cleanup_warm_gap_counter('pid')
+    def test_cleanup_warm_gap_rejects_changed_sdk_scope(self):self.cleanup_warm_gap_counter('sdk')
+    def test_cleanup_warm_gap_rejects_new_actual_cleanup_activation(self):self.cleanup_warm_gap_counter('phase')
+    def test_cleanup_warm_gap_rejects_candidate_rollback_to_consumed_floor(self):self.cleanup_warm_gap_counter('candidate-rollback')
+    def test_cleanup_warm_gap_reopens_and_rejects_changed_old_original(self):self.cleanup_warm_gap_counter('old-file')
+    def test_cleanup_warm_gap_rechecks_memory_after_last_native_callback(self):self.cleanup_warm_gap_counter('last-native-memory')
+
+    def test_cleanup_warm_publication_rechecks_old_graph_after_last_save_native_guard(self):
+        step=self.cleanup_frontier();first=self.completed_frontier(step);self.advance_cleanup_primary()
+        old_files={path:path.read_bytes() for pattern in ('emote-frame-snapshots-'+RUN+'-actor-*.json',
+            'emote-index-snapshots-'+RUN+'-actor-*.json','snapshots-file-'+RUN+'-actor-*.bin')
+            for path in self.root.glob(pattern)}
+        self.assertTrue(old_files)
+        rejected=step(at_gap=lambda _value:'last-save-memory')
+        self.assertEqual('NativeUIError',rejected['error']['error'],rejected);self.assertTrue(rejected['memoryMutated'])
+        self.assertGreater(rejected['counts']['reads'],first['counts']['reads'])
+        self.assertEqual(first['counts']['posts'],rejected['counts']['posts'])
+        durable=unpack(rejected['actorHeader']['payload'])[0]
+        self.assertIsNone(durable['pending']);self.assertEqual(first['state']['primaryCue'],durable['primaryCue'])
+        self.assertEqual(1,len(self.reader.request('/runs/'+RUN)['entries']))
+        for path,raw in old_files.items():self.assertEqual(raw,path.read_bytes())
 
     def run_actor(self,token='a'*64):
         # Ordinary preparation pins an actual Feature owner across its lock
