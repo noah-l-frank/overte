@@ -56,6 +56,25 @@ class NavigationPrefixFactoryTests(unittest.TestCase):
                 self.assertIsNone(capture.owner.store.read());store.discard({})
         self.assertEqual([],h.native.inputs);self.assertEqual([],h.native.controllers)
 
+    def test_browser_emote_and_legacy_capture_guards_reject_both_navigation_owner_stores(self):
+        h=self.h;root=h.instance._script_journey().state_path(h.native.target).parent
+        lock=ScriptSourceLock(root/'script-sources.lock');artifacts=root/'emote-capture-sources';artifacts.mkdir(mode=0o700)
+        phase=PhaseFixtureReader(Client('https://fixture.invalid/feature-fixture/v1','f'*64),RUN,'emotes')
+        with lock.held():
+            source=h.instance._emote_sources(h.native.target,phase,'primary',artifacts,lock)
+            captures=[h.instance._browser_world_render_capture(h.native.target,role='primary',source_lock=lock),
+                h.instance._emote_world_render_capture(h.native.target,source)]
+        captures.append(h.instance._world_render_capture(h.native.target))
+        for capture in captures:
+            with capture.source_lock.held():
+                capture.owner.guard()
+                for role in ('primary','actor'):
+                    store=h.instance._navigation_world_render_store(h.native.target,role);store.write({},None)
+                    with self.subTest(kind=capture.owner.store.path.name,role=role),self.assertRaisesRegex(ValueError,'OVT_PICO_BINDING_REJECTED'):
+                        capture.owner.guard()
+                    self.assertIsNone(capture.owner.store.read());store.discard({})
+        self.assertEqual([],h.native.inputs);self.assertEqual([],h.native.controllers)
+
     def test_original_parent_child_chunk_and_environment_archive_orphans_block_cleanup_admission(self):
         h=self.h;root=h.instance._script_journey().state_path(h.native.target).parent
         self.assertFalse(h.instance._navigation_prefix_owned(h.native.target))

@@ -857,6 +857,7 @@ def create_adapter(args, base_class):
             foreign=[self._emote_world_render_store(target,'actor' if role=='primary' else 'primary'),self._world_render_store(target)]
             foreign.extend(facade.world_render_store(target,role=value) for value in ('primary','actor'))
             foreign.extend(self._browser_world_render_store(target,value) for value in ('primary','actor'))
+            foreign.extend(self._navigation_world_render_store(target,value) for value in ('primary','actor'))
             def world_guard():
                 lock.assert_held();native.guard();_need(source.guard() is not False and all(store.read() is None for store in foreign));return True
             owner=WorldRenderOwner(self._emote_world_render_store(target,role),binding,world_guard,role=role)
@@ -2228,6 +2229,7 @@ def create_adapter(args, base_class):
             foreign=[self._browser_world_render_store(target,'actor' if role=='primary' else 'primary'),self._world_render_store(target)]
             foreign.extend(facade.world_render_store(target,role=value) for value in ('primary','actor'))
             foreign.extend(self._emote_world_render_store(target,value) for value in ('primary','actor'))
+            foreign.extend(self._navigation_world_render_store(target,value) for value in ('primary','actor'))
             def world_guard():
                 lock.assert_held();native.guard();_need(all(store.read() is None for store in foreign));return True
             owner=WorldRenderOwner(self._browser_world_render_store(target,role),binding,world_guard,role=role)
