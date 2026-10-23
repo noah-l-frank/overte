@@ -143,3 +143,10 @@ real inode replacement, cold native lifetime refusal, lost replies, retained
 consumer refusal, foreign binding/raw-byte tampering and frozen native clock.
 The local catalog gains exactly two selectors (146→148); registry additions
 are `native-pico-assets-files:1` and `pico-assets-file-owner:1`.
+
+A narrow follow-up closes release reconciliation too: once `retiring` is
+persisted, reentry issues only a fresh observation. A lost delivered release
+qualifies only actual retired absence; undelivered or partial cleanup retains
+its pending intent and exact files/originals without sending cleanup again.
+Two actual compiled-native countercases passed in 3.924 seconds, including
+original-byte prefix preservation and separate attempted/delivered counts.

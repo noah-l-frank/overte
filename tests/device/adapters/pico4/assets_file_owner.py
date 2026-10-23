@@ -92,6 +92,10 @@ class OwnedAssetsFiles:
         if self.previous is None:self.save()
         if self.state['phase']=='retired':
             actual=self.read()['source'];need(actual['retired'] and not actual['exists']);return actual
-        self.save('retiring');need(consumer_retirement() is True)
-        self.read('release');actual=self.read()['source'];need(actual['retired'] and not actual['exists'])
+        if self.state['phase']!='retiring':
+            self.save('retiring');need(consumer_retirement() is True)
+            self.read('release')
+        # Lost or undelivered cleanup stays an original pending intent. A cold
+        # retry observes only; partial/absent-without-retirement stays retained.
+        actual=self.read()['source'];need(actual['retired'] and not actual['exists'])
         need(consumer_retirement() is True);self.save('retired');return deepcopy(actual)
