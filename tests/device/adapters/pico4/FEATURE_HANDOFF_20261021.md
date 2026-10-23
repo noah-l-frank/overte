@@ -31,8 +31,12 @@ the archive, witness, Snapshot export/Save fences and Avatar URL/Favorite
 fences through their owning selectors. Chat's new same-file recycled-FD test
 now atomically replaces its known owned descriptor instead of assuming the
 next OS allocation number; the integrated composition group passes25.501s.
-Save's two complete warm attempts remain red at120s, with original evidence
-retained. The catalog now contains150 groups; complete source areas stay3/14.
+Save's earlier two complete warm attempts remain retained red at120s.
+After equivalent synthetic-tool optimization and original-ledger cold reopening
+fixes, the same warm flow passes78.704s within120s: normal Cancel/Still/Save,
+independent actual host PNG,13 fresh Provider inspections, all15 quiet clocks
+and cold factory reopening without a repeated input. JNI/Android provider/UID
+and rendering boundaries remain explicit host seams. The catalog now contains152 groups; complete source areas stay3/14.
 
 The fixed Assets normal-input packet95aa81c067 is selected as25d8dcff66.
 The actual original QML and whole Pico observer/apply host case passes20.433s,
@@ -42,6 +46,12 @@ counts and dialog absence are independently checked. Backend/mapping/upload
 original ownership remains the next step; this adds no whole feature.
 Chat observation and synthetic APK-tool fixture packets also pass their owning
 archive/APK/Save-fence groups; the positive Favorite flow passes53.373s.
+
+The new independent cleanup-witness selector passes91.557s and original Save
+fences pass1.829s. Adding the six factory/wrapper cases to the existing archive
+selection exceeded its unchanged120s limit. They now have a disjoint
+`chat-cleanup-factory` selector; no case or limit is removed. That selector and
+the restored archive group still require their own integrated verification.
 
 | Area | Current Pico implementation | Concrete next boundary |
 | --- | --- | --- |
@@ -54,8 +64,8 @@ archive/APK/Save-fence groups; the positive Favorite flow passes53.373s.
 | Web in tablet | Partial private26-action owner, independent actor/stereo and original per-role source/publication histories; current history-enabled complete run times out at120s | Complete current Journey verification, inactive-phase retirement, historical capture absence, immutable archive, host finalization and public binding |
 | Graphics | Complete source; actual public/session/common-engine route, original stereo/effects and independent final retirement host verified | Later compile and qualify the exact E2E candidate on Proxmox; no device work in this session |
 | Audio | Partial normal controls/cycle/history/PCM sources | Whole cycle owner, microphone stimulus, independent acoustic capture/publisher and lifecycle/cleanup join |
-| Chat | Partial private compiled/Witness journey, Erase/Profile/caches/restart/IPC, complete original archive and own-host close verified | Repeated fresh public observations, Phase27 cleanup witness, cold RPC/PID continuity, stereo and public capability admission |
-| Snapshots | Partial Cancel/Still→normal Save owner with original Java provider/readback/PNG and strict typed source memo | Complete warm verification under120s, actual Pico OS chooser route, independent receiver/upload/actor/stereo and final callback/resource retirement |
+| Chat | Partial private compiled/Witness journey, original archive/host close, new fresh observations and independent Phase27 cleanup witness/factory | Consume/seal final baseline, archive new originals before restart/IPC closure, cold RPC/PID continuity, stereo and public capability admission |
+| Snapshots | Partial Cancel/Still→normal Save owner, actual host PNG/provider/quiet and cold factory reopening verified within120s | Actual Pico OS chooser route, independent receiver/upload/actor/stereo and final callback/resource retirement |
 | Scripts | Complete source; host verified | Review/compile test-gated native source and later qualify the exact installed candidate through Proxmox |
 | Assets | Partial original VR Assets and bundle/destination/rename/import/delete controls, actual QML and whole Pico native input host verified | Original staging/upload/server mapping owner, oven/permission/model sources, independent actor and exact cleanup |
 | Lifecycle/input | Partial normal Create/Unicode/world/X and subsequent new Chat draft, original VR keyboard/context and process retirement components | Native background history, second world/Scripts/pending/stale flow, independent peer and full restoration/retirement |

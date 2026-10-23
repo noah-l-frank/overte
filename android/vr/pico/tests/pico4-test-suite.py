@@ -47,6 +47,7 @@ TESTS = (
     test('chat-application-admission', "interaction", PYTHON, "pico-chat-application-close-test.py", 'admission'),
     test('chat-application-delivery', "interaction", PYTHON, "pico-chat-application-close-test.py", 'delivery'),
     test('chat-application-post-ipc', "interaction", PYTHON, "pico-chat-application-close-test.py", 'post-ipc'),
+    test('chat-cleanup-factory', "interaction", PYTHON, "pico-chat-application-close-test.py", 'cleanup-factory'),
     test('chat-cleanup-witness', "interaction", PYTHON, "pico-chat-application-close-test.py", 'cleanup-witness'),
     test('chat-application-archive', "interaction", PYTHON, "pico-chat-application-close-test.py", 'archive'),
     test("chat-composition", "interaction", PYTHON, "device/test_chat_composition.py"),
