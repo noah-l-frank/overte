@@ -32,13 +32,17 @@ var SelectionManager={selections:[entityID],createApp:{pushVoxelStroke:function(
     pointingAtDesktopWindowLeft:false,pointingAtDesktopWindowRight:false};
 function initializeOriginalTools(){
     var tools=EditTools({createToolsWindow:windowActor}),voxels=EditVoxels();tools.addListener(voxels.updateEditSettings);
-    var bridge=module.exports.createBridge({isActive:function(){return true;},entities:Entities,avatar:MyAvatar,selection:SelectionManager,
+    var bridge=module.exports.createBridge({isActive:function(){return true;},entities:Entities,avatar:MyAvatar,selection:SelectionManager,app:SelectionManager.createApp,
         // Explicit entity-list transport actor for the original ready branch.
-        refresh:function(){bridge.acceptList({type:"update",entities:[{id:entityID,type:"PolyVox"}]});},
+        refresh:function(){bridge.acceptList({type:"update",entities:typeof nativeVoxel!=='undefined' && !nativeVoxel.properties(entityID).type?[]:[{id:entityID,type:"PolyVox"}]});},
         history:{canUndo:function(){return savedStrokes.length>0;},canRedo:function(){return false;}},numericFocus:function(){},
         applyEditSettings:tools.applyNativeSettings,editSettings:tools.getSettings,send:function(message){outputs.push(copy(message));}});
     tools.onNativeUpdate=bridge.sendSettings;
     voxels.onStrokeStatus=bridge.reportStatus;voxels.onStrokeSettled=bridge.selection;
-    return {handle:bridge.handle,settings:tools.getSettings,stroke:function(){mappings.rtclick(true);mappings.rtclick(false);
-        Object.keys(intervals).forEach(function(id){intervals[id]();});return copy({calls:cuboidCalls,strokes:savedStrokes,volume:volume,remainingTimers:Object.keys(intervals)});}};
+    return {handle:bridge.handle,settings:tools.getSettings,stroke:function(){
+        if(typeof nativeVoxel==='undefined' || !nativeVoxel.ignored()){mappings.rtclick(true);mappings.rtclick(false);}
+        if(typeof nativeVoxel==='undefined'){Object.keys(intervals).forEach(function(id){intervals[id]();});}
+        else if(!nativeVoxel.waitForTimers()){throw Error('Original native stroke did not retire');}
+        return copy({calls:cuboidCalls,strokes:savedStrokes,
+            volume:typeof nativeVoxel==='undefined'?volume:nativeVoxel.values(),remainingTimers:Object.keys(intervals)});}};
 }

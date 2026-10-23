@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 import subprocess
 from test_assets_read_native import ROOT, HERE, original
+from native_cpu_mesh_originals import CPU_SUPPORT_SOURCES,source_unit,mesh_fragment,buffer_fragment
 
 
 def prepare(stage, environment, prefix):
@@ -64,24 +65,9 @@ class LogHandler {public:static LogHandler& getInstance(){static LogHandler valu
         text=read('libraries/model-baker/src/model-baker/'+name+'.cpp')
         write('model-baker/'+name+'.cpp',text);units.append('#include "model-baker/'+name+'.cpp"')
     for path in ('libraries/task/src/task/Task.cpp','libraries/task/src/task/Config.cpp',
-            'libraries/shared/src/shared/JSONHelpers.cpp','libraries/shared/src/shared/QtHelpers.cpp',
-            'libraries/gpu/src/gpu/Resource.cpp',
-            'libraries/gpu/src/gpu/Sysmem.cpp','libraries/gpu/src/gpu/PageManager.cpp',
-            'libraries/gpu/src/gpu/Format.cpp','libraries/gpu/src/gpu/Stream.cpp',
-            'libraries/shared/src/AABox.cpp',
-            'libraries/shared/src/GeometryUtil.cpp'):
-        read(path)
-        if path=='libraries/gpu/src/gpu/Resource.cpp':
-            units.append('namespace gpu {\n#include "'+str(ROOT/path)+'"\n}')
-        else:units.append('#include "'+str(ROOT/path)+'"')
-    geometry=read('libraries/graphics/src/graphics/Geometry.cpp')
-    mesh_methods={signature:original(geometry,signature) for signature in
-        ('Mesh::Mesh()', 'Mesh::~Mesh(', 'void Mesh::setVertexFormatAndStream(',
-         'void Mesh::setIndexBuffer(', 'void Mesh::setPartBuffer(', 'Box Mesh::evalPartBound(')}
-    write('AssetsOriginalBakerMesh.inc','#include <graphics/Geometry.h>\nnamespace graphics {\n'+
-        '\n'.join(mesh_methods.values())+'\n}\n')
-    for name,body in mesh_methods.items():provenance[name]=hashlib.sha256(body.encode()).hexdigest()
-    units.append('#include "AssetsOriginalBakerMesh.inc"')
+            'libraries/shared/src/shared/JSONHelpers.cpp','libraries/shared/src/shared/QtHelpers.cpp',*CPU_SUPPORT_SOURCES):
+        read(path);units.append(source_unit(path))
+    units.append(mesh_fragment(read,write,provenance))
     profile=read('libraries/shared/src/Profile.cpp')
     base_ctor=original(profile,'ProfileDurationBase::ProfileDurationBase(')
     categories='\n'.join(next(line for line in profile.splitlines() if line.startswith('Q_LOGGING_CATEGORY('+name+','))
@@ -93,22 +79,7 @@ ProfileDuration::ProfileDuration(const QLoggingCategory& category,const QString&
 ProfileDuration::~ProfileDuration(){}
 ''')
     units.append('#include "AssetsBakerProfileHost.inc"')
-    buffer=read('libraries/gpu/src/gpu/Buffer.cpp')
-    buffer_signatures=('void Buffer::incrementCreatedBufferCount(', 'uint32_t Buffer::getBufferCPUCount(',
-        'Buffer::Size Buffer::getBufferCPUMemSize(', 'Buffer::Buffer(uint32_t usage, Size pageSize)',
-        'Buffer::~Buffer(', 'Buffer::Size Buffer::resize(', 'void Buffer::markDirty(',
-        'Buffer::Size Buffer::setData(', 'Buffer::Size Buffer::setSubData(', 'Buffer::Size Buffer::getSize(',
-        'BufferView::BufferView()', 'BufferView::BufferView(const Element&',
-        'BufferView::BufferView(const BufferPointer& buffer, const Element&',
-        'BufferView::BufferView(const BufferPointer& buffer, Size offset, Size size, uint16 stride,')
-    blocks={signature:original(buffer,signature) for signature in buffer_signatures}
-    constants='\n'.join(line for line in buffer.splitlines() if line.startswith(('ContextMetricCount Buffer::','ContextMetricSize Buffer::','const Element BufferView::')))
-    write('AssetsOriginalBuffer.inc','''#include <gpu/Buffer.h>
-using namespace gpu;
-#define COUNT_BUFFER_CREATIONS
-'''+constants+'\n'+'\n'.join(blocks.values()))
-    for key,value in blocks.items():provenance[key]=hashlib.sha256(value.encode()).hexdigest()
-    units.append('#include "AssetsOriginalBuffer.inc"')
+    units.append(buffer_fragment(read,write,provenance))
     hfm=read('libraries/hfm/src/hfm/HFM.cpp')
     write('AssetsOriginalBakerHfm.inc',original(hfm,'void HFMModel::computeKdops('))
     units.append('#include "AssetsOriginalBakerHfm.inc"')
