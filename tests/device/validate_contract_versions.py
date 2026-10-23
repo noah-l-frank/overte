@@ -286,6 +286,7 @@ REQUIRED = {
     "ios-tablet-web-input-original": 1,
     "ios-tablet-web-native-input": 1,
     "ios-tablet-web-observer-admission": 1,
+    "ios-tablet-web-app-origin": 1,
     "ios-tablet-web-packets": 1,
     "ios-tablet-web-source-packet": 1,
     "ios-tablet-web-source-packet-frame": 1,
