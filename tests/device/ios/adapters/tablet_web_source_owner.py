@@ -31,6 +31,14 @@ ORDER=('sources','trace','dom','buttons','uikit','state','closures','emissions',
 FRAME_KEYS={'trace':'ledger','dom':'document','uikit':'touches','emissions':'emitter'}
 
 
+def active_browser(value):
+    """An active acquisition cannot consume a retired-only fixture inventory."""
+    need(type(value) is dict and type(value.get('browserFixtureVersion')) is int
+        and value['browserFixtureVersion']==1)
+    from ios.adapters.world_web_measurements import browser_original
+    return browser_original(value)
+
+
 class TabletSourcePhaseChanged(ValueError):pass
 
 
@@ -167,6 +175,7 @@ class TabletWebSourceOwner:
         if value['status']=='returned':
             need(len(result)==len(ORDER) and value['browser'] is not None and value['after'] is not None and value['nativeAfter'] is not None
                 and value['phaseBefore'] is not None and value['phaseAfter'] is not None)
+            active_browser(value['browser'])
             result['browser']=deepcopy(value['browser']);self._clock(value['clockJoin'],result)
             clock=value['clockJoin'];need(same(clock['nativeBefore'],value['nativeBefore']) and same(clock['nativeAfter'],value['nativeAfter'])
                 and clock['hostBeforeEpochMs']>=before['epochMs'] and clock['hostBeforeMonotonic']>=before['monotonic']
@@ -308,6 +317,7 @@ class TabletWebSourceOwner:
                 child=self.children[name];part=dict(component=name,index=len(child.state['records'])+1,reference=None);pending['components'].append(part);self.save()
                 parts[FRAME_KEYS.get(name,name)]=child.capture(readers[name]);part['reference']=deepcopy(child.state['records'][-1]);self.save()
             parts['browser']=browser();pending['browser']=deepcopy(parts['browser']);self.save()
+            active_browser(pending['browser'])
             pending['nativeAfter']=native.read(native.sequence);pending['after']=self.stamp();self.save()
             pending['phaseAfter']=phase.status(first['status']);self.save()
             pending['clockJoin']=dict(hostBeforeEpochMs=window.started['hostBeforeEpochMs'],hostBeforeMonotonic=window.started['hostBeforeMonotonic'],
@@ -331,8 +341,13 @@ class TabletWebSourceOwner:
     def facts(self,origins):
         frames=self.history();need(not self.blocked and frames);return derive(frames,self.app_sources(),self.binding,origins)
 
-    def facts_at(self,reference,origins):
-        """Historical only; later pages/apps cannot replace this actual frame."""
+    def frame_at(self,reference):
+        """Original native frame only, including incomplete app setup/disposal.
+
+        This performs no page/app fact derivation. A selected failed frame can
+        never be read as returned; accepted failed originals remain prefix
+        floors and ownership rather than a replacement observation.
+        """
         need(self.historical);frames=self.history();full=self.originals.expand(reference);index=full['index']
         need(1<=index<=len(self.state['records']) and same(reference,self.state['records'][index-1]))
         rows=[self.originals.read(self.originals.expand(ref)) for ref in self.state['records'][:index]]
@@ -342,4 +357,9 @@ class TabletWebSourceOwner:
         count=sum(row['status']=='returned' for row in rows);need(count>=1)
         need(current['phaseBefore']['active'] and current['phaseAfter']['active'] and current['phaseBefore']['activations'] and current['phaseAfter']['activations']
             and current['phaseBefore']['activations'][-1]['ticket']==current['phaseAfter']['activations'][-1]['ticket'])
-        return derive(frames[:count],self.app_sources(current['apps']),self.binding,origins),deepcopy(current),deepcopy(frames[count-1])
+        return deepcopy(current),deepcopy(frames[count-1]),deepcopy(frames[:count])
+
+    def facts_at(self,reference,origins):
+        """Historical facts require the separate complete actual app joins."""
+        current,frame,frames=self.frame_at(reference)
+        return derive(frames,self.app_sources(current['apps']),self.binding,origins),current,frame

@@ -94,6 +94,16 @@ class TabletWebSourceOwnerTests(unittest.TestCase):
         self.assertEqual(record,original);self.assertEqual(parts['document'],measured['document']);self.assertEqual(os.getpid(),original['hostProcessId'])
         with self.assertRaises(NativeUIError):self.capture(historical)
         self.assertEqual(9,len(self.boundary.calls))
+    def test_historical_frame_without_admitted_app_remains_original_and_cannot_supply_app_facts(self):
+        source=self.owner();parts,record=self.capture(source);reference=deepcopy(source.state['records'][0])
+        calls=deepcopy(self.boundary.calls);historical=self.owner(historical=True)
+        actual,frame,history=historical.frame_at(reference)
+        self.assertEqual(record,actual);self.assertEqual(parts,frame);self.assertEqual([parts],history)
+        actual['browser']['responses'].clear();frame['sources']['roots'].clear()
+        self.assertEqual(record,historical.frame_at(reference)[0])
+        with self.assertRaises(NativeUIError):historical.facts_at(reference,ORIGINS)
+        with self.assertRaises(NativeUIError):source.frame_at(reference)
+        self.assertEqual(calls,self.boundary.calls)
     def test_lost_native_query_retains_earlier_actual_originals_and_never_resumes_or_resends(self):
         source=self.prepare();self.boundary.lost='state'
         with self.assertRaises(NativeUIError):self.capture(source)
@@ -105,6 +115,30 @@ class TabletWebSourceOwnerTests(unittest.TestCase):
         foreign=ScriptSourceLock(self.root/'foreign.lock')
         with foreign.held(),self.assertRaises(NativeUIError):self.owner(lock=foreign)
         self.assertEqual([],list(self.root.glob('tabletweb-*')));self.assertEqual([],self.boundary.calls)
+
+    def test_retired_browser_original_is_retained_but_stops_before_terminal_native_query(self):
+        source=self.prepare();retired=deepcopy(self.frame['browser']);retired['browserFixtureVersion']=2
+        # A widened neutral parser cannot authorize retired inventory for this
+        # active source. The actual callback result is still owned first.
+        with patch('ios.adapters.world_web_measurements.browser_original',return_value=retired) as neutral:
+            with self.assertRaises(NativeUIError):
+                source.capture({name:self.boundary.reader(name) for name in ORDER},self.boundary.native(),self.boundary.phase,lambda:retired)
+            neutral.assert_not_called()
+        self.assertEqual(1,self.boundary.native_count)
+        self.assertEqual('failed',source.state['pending']['status'])
+        self.assertEqual(retired,source.state['pending']['browser'])
+        self.assertIsNone(source.state['pending']['nativeAfter'])
+        rebuilt=self.owner(historical=True)
+        self.assertTrue(rebuilt.blocked);self.assertEqual(retired,rebuilt.state['pending']['browser'])
+
+    def test_returned_history_cannot_substitute_retired_browser_even_with_updated_original_digest(self):
+        from adapters.native_clock_join import digest
+        source=self.prepare();parts,record=self.capture(source)
+        changed=deepcopy(record);changed['browser']['browserFixtureVersion']=2
+        parts['browser']=deepcopy(changed['browser']);changed['clockJoin']['originalsSha256']=digest(parts)
+        with patch('ios.adapters.world_web_measurements.browser_original',return_value=changed['browser']) as neutral:
+            with self.assertRaises(NativeUIError):source._record(changed,1,None)
+            neutral.assert_not_called()
     def test_actor_publication_uses_its_real_original_decoder_and_committed_journal_once(self):
         source=self.prepare();observer=TabletWebObserver(source,{name:self.boundary.reader(name) for name in ORDER},self.boundary.native(),self.boundary.phase,
             lambda:deepcopy(self.frame['browser']),ORIGINS)
