@@ -446,6 +446,31 @@ class CommandTests(unittest.TestCase):
             with self.assertRaises(CLI.C.ContextError):
                 CLI.complete(self.context, self.plan, {**needs, "extra": {"result": "success"}})
 
+    def test_package_covered_host_suite_requires_npm_without_an_empty_host_job(self):
+        self.plan.update(host_suites=["server-console-behavior"], npm_projects=["server-console"],
+            covered_tasks={"suite:server-console-behavior": "npm:server-console"})
+        owners = CLI.expected_owners(self.plan)
+        self.assertFalse(owners["host"])
+        self.assertTrue(owners["npm"])
+        self.assertEqual(owners, OBSERVER.expected_owners(self.plan))
+        needs = {"plan": {"result": "success"}, **{name: {
+            "result": "success" if selected else "skipped"} for name, selected in owners.items()}}
+        with patch.dict(os.environ, self.env), patch.object(CLI.C, "bookend", return_value={}):
+            CLI.complete(self.context, self.plan, needs)
+            for result in ("skipped", "failure"):
+                changed = deepcopy(needs)
+                changed["npm"]["result"] = result
+                with self.subTest(result=result), self.assertRaises(CLI.C.ContextError):
+                    CLI.complete(self.context, self.plan, changed)
+
+    def test_an_uncovered_host_suite_still_requires_the_host_job(self):
+        self.plan.update(host_suites=["server-console-behavior"], npm_projects=["server-console"])
+        self.assertTrue(CLI.expected_owners(self.plan)["host"])
+        self.plan["covered_tasks"] = {"suite:server-console-behavior": "npm:server-console"}
+        self.plan["host_suites"].append("another-contract")
+        self.assertTrue(CLI.expected_owners(self.plan)["host"])
+        self.assertEqual(CLI.expected_owners(self.plan), OBSERVER.expected_owners(self.plan))
+
     def test_upload_proof_binds_native_run_attempt_caller_and_original_analysis(self):
         upload = "12345678-1234-4234-8234-000000000001"
         with patch.dict(os.environ, self.env):
