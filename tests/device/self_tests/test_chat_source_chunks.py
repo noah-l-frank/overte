@@ -60,6 +60,22 @@ class SourceChunkTests(unittest.TestCase):
         self.read(1);before=self.queries();child=self.h.samples.history.store(0);old=child.read();child.write(old,old)
         with self.assertRaises(NativeUIError):self.read(2)
         self.assertEqual(before,self.queries());self.assertEqual('ready',self.h.store.read()['phase'])
+
+    def test_complete_inventory_detects_a_new_matching_directory_after_success(self):
+        self.read(1);history=self.h.samples.history;history.verify();before=self.queries()
+        extra=self.h.store.path.with_name(self.h.store.path.name+'.frame-unadmitted')
+        extra.mkdir(mode=0o700)
+        with self.assertRaises(NativeUIError):history.verify()
+        self.assertEqual(before,self.queries());self.assertTrue(extra.is_dir())
+
+    def test_inventory_rejects_every_noncanonical_frame_name_without_queries_or_adoption(self):
+        for suffix in ('0000.json','000.json.backup','000.json.tmp','-001.json','foreign'):
+            with self.subTest(suffix=suffix):
+                self.setUp();history=self.h.samples.history;history.inventory(0);before=self.queries()
+                extra=self.h.store.path.with_name(self.h.store.path.name+'.frame-'+suffix)
+                extra.write_bytes(b'unadmitted fixture sentinel');extra.chmod(0o600)
+                with self.assertRaises(NativeUIError):history.inventory(0)
+                self.assertEqual(before,self.queries());self.assertEqual(b'unadmitted fixture sentinel',extra.read_bytes())
     def test_lost_child_write_retains_reading_intent_and_never_requeries_or_adopts(self):
         original=PrivateFeatureState.write
         def lost(store,value,previous):

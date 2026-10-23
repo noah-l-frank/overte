@@ -35,9 +35,13 @@ class ChatSourceChunks:
 
     def inventory(self,count):
         need(integer(count,0,MAX_FRAMES));self.root._parent()
-        expected={self.store(index).path.name for index in range(count)}
         prefix=self.root.path.name+'.frame-'
-        actual={entry.name for entry in self.root.path.parent.iterdir() if entry.name.startswith(prefix)}
+        expected={prefix+f'{index:03d}.json' for index in range(count)}
+        # Still enumerate the complete actual directory on EVERY check. Avoid
+        # constructing a pathlib object for every unrelated entry; inventories
+        # compare names only, while signature()/load() retain all file checks.
+        with os.scandir(self.root.path.parent) as entries:
+            actual={entry.name for entry in entries if entry.name.startswith(prefix)}
         need(actual==expected)
 
     def signature(self,index):
