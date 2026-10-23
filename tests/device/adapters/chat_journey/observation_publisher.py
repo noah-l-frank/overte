@@ -29,19 +29,29 @@ class ChatObservationPublisher:
             and store.path not in (cursor.store.path,cursor.current.store.path) and store.read() is None)
         self.cursor,self.store,self.client=cursor,store,cursor.current.source.client
         self.previous=None;self.rows=[];self.hashes=[];self.failed=False;self.query_pending=False;self.root_stamp=None
+        self._freeze_guard=None
         self.scope=dict(chatObservationPublisherVersion=VERSION,runId=cursor.scope['runId'],fixtureUrl=cursor.scope['fixtureUrl'],
             binding=deepcopy(cursor.scope['binding']),peerBinding=deepcopy(cursor.scope['peerBinding']),cursor=cursor.store.path.name)
         self.history=ChatSourceChunks(store,self.scope);self.history.inventory(0)
         self.base={**self.scope,'phase':'ready','delivery':'ready','chunks':[],'pending':None}
-        self.read_guard=self.alive;cursor.bind_freeze(self.read_guard)
+        self.read_guard=self.query_allowed;cursor.bind_freeze(self.read_guard)
 
     def alive(self):
         return not self.failed and same(self.store.read(),self.previous)
 
+    def bind_freeze(self,guard):
+        need(callable(guard) and (self._freeze_guard is None or self._freeze_guard is guard))
+        self._freeze_guard=guard
+
+    def query_allowed(self):
+        return self.alive() and (self._freeze_guard is None or self._freeze_guard() is True)
+
     def control(self):
         need(self.alive() and self.cursor.current.source.client is self.client
             and len(self.rows)==len(self.hashes)==len(self.base['chunks'])
-            and len(self.cursor.rows)==len(self.rows)+(1 if self.query_pending else 0))
+            and len(self.cursor.rows)==len(self.rows)+(1 if self.query_pending else 0)
+            and all(same(self.base[key],value) for key,value in self.scope.items())
+            and all(same(self.scope[key],self.cursor.scope[key]) for key in ('runId','fixtureUrl','binding','peerBinding')))
         if self.root_stamp is not None:need(stamp(self.store.path.lstat())==self.root_stamp)
         plain(self.rows);need([digest(row) for row in self.rows]==self.hashes)
         self.history.verify();self.cursor.control()
@@ -54,7 +64,7 @@ class ChatObservationPublisher:
         self.root_stamp=stamp(info);self.previous=self.base=deepcopy(value)
 
     def select(self,observation):
-        need(not self.failed)
+        need(self.query_allowed())
         try:
             self.control();need(self.base['phase']=='ready');self.cursor.select(observation);self.control()
         except Exception:self.failed=True;raise
@@ -68,9 +78,10 @@ class ChatObservationPublisher:
         observation.matching(active,original)
 
     def publish(self):
-        need(not self.failed and len(self.rows)<MAX_FRAMES);pending=None
+        need(self.query_allowed() and len(self.rows)<MAX_FRAMES);pending=None
         try:
             with self.cursor.held():
+                need(self.query_allowed())
                 try:
                     self.control();need(self.base['phase']=='ready');self.preflight()
                 except PhasePending as error:pending=error

@@ -2200,6 +2200,25 @@ def create_adapter(args, base_class):
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-',
                 'chat-cleanup-'+('witness' if witness else 'primary')+'-source-seal-')))
 
+        def _chat_cursor_source_seal_store(self,target,*,witness):
+            _need(type(witness) is bool);state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-',
+                'chat-global-'+('witness' if witness else 'primary')+'-source-seal-')))
+
+        @_private
+        def _chat_cursor_source_seal(self,target,owner,*,witness):
+            from adapters.chat_journey.observation_cursor import ChatObservationCursor
+            from adapters.chat_journey.observation_publisher import ChatObservationPublisher
+            from adapters.chat_journey.cursor_source_seal import ChatCursorSourceSeal
+            _need(type(witness) is bool and type(owner) is (ChatObservationPublisher if witness else ChatObservationCursor))
+            cursor=owner.cursor if witness else owner
+            _need(cursor.scope['role']==('actor' if witness else 'primary')
+                and cursor.store.path==self._chat_observation_cursor_store(target,cursor.scope['role'],witness=witness).path
+                and (not witness or owner.store.path==self._chat_observation_publisher_store(target).path))
+            native=self._native_feature_observer(target);native.guard()
+            _need(cursor.scope['binding']==self._scripts(target).binding)
+            return ChatCursorSourceSeal(owner,self._chat_cursor_source_seal_store(target,witness=witness))
+
         @_private
         def _chat_source_seal(self,target,owner,*,witness):
             from adapters.chat_journey.source_seal import ChatSourceSeal
@@ -2265,6 +2284,7 @@ def create_adapter(args, base_class):
             stores.extend(self._chat_observation_cursor_store(target,role,witness=witness)
                 for role,witness in (('primary',False),('actor',False),('actor',True)))
             stores.extend(self._chat_cleanup_source_seal_store(target,witness=witness) for witness in (False,True))
+            stores.extend(self._chat_cursor_source_seal_store(target,witness=witness) for witness in (False,True))
             stores.extend(self._chat_observation_store(target,role,stage=stage,witness=witness)
                 for role,witness in (('primary',False),('actor',False),('actor',True))
                 for stage in ('initial','active','cleanup'))
