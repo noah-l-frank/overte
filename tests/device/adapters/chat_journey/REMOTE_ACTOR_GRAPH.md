@@ -1,6 +1,6 @@
 # Typed historical independent Chat graph
 
-`ChatRemoteActorGraph` version 1 admits historical original bytes only. It does
+`ChatRemoteActorGraph` version 2 admits historical original bytes only. It does
 not construct `PicoChatCursorActor`, source owners, native readers, descriptor
 owners or a new observation from private files. It remains `pending`; it has
 no operation that returns a completed process, cleanup or whole-feature result.
@@ -9,11 +9,18 @@ The distinct original live-process/nonce/kernel join remains required.
 The original typed Parent supplies all fixed paths and expected run, fixture,
 bindings, original Actor host identity/instance and original Stop command.
 Manifest contents cannot discover a path. The parser admits exactly the current
-Actor version 2 terminal `host-closed` payload, the literal current original
+Actor version 2 or 3 terminal `host-closed` payload, the literal current original
 Actor file and physical stamp, original private Stop bytes/stamp and original
 source seal. Legacy Actor version 1 gains no qualification. The current Actor's
 two captured descriptor pairs must have distinct original handles and nodes;
 their historical descriptions alone do not prove kernel closure.
+
+Actor 2 admits only the unchanged exact-current Stop1 grammar. Actor 3 admits
+Stop1 or the explicit [Stop2 prefix boundary](../pico4/CHAT_CURSOR_ACTOR.md).
+Its mandatory `returnedPublication` certificate must match the final original
+publisher row, both sealed root values and their actual physical stamps.
+Builtin JSON types and canonical equality are checked; bool/number equivalence
+cannot adopt a different stamp. No certificate is invented for legacy Actor 2.
 
 The original seal must enumerate exactly nine fixed graph roots: independent
 Publisher/Cursor, Initial/Active/Cleanup observation and sample roots, and the
@@ -69,10 +76,12 @@ or full common-journey qualification. Public Chat capability remains disabled.
 
 The next composition is the actual typed Parent consumption of the original
 Actor return, including the controlled `parent-consumed` successor, fresh nonce
-echo and actual original process absence. Remote common cleanup also needs an
-explicit versioned Stop/prefix boundary: an autonomous Actor may publish more
-real same-phase rows after the last consumed common witness. Existing Stop
-version 1 keeps its exact-current-sequence requirement unchanged.
+echo and actual original process absence. Remote common cleanup must bind the
+Stop2 request's consumption digest to actual externally consumed common cleanup
+bytes and its requested payload to the original consumed Actor prefix. The
+historical parser only checks that prefix against the complete original
+publisher graph. It cannot prove external consumption from request metadata.
+Stop1 keeps its exact-current requirement.
 
 The explicit [typed return join](REMOTE_ACTOR_RETURN.md) now supplies the one
 controlled `parent-consumed` successor through the original neutral receiver.

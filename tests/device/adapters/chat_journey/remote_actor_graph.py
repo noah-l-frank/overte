@@ -6,6 +6,7 @@ import hashlib
 import json
 
 from adapters.chat_journey.evidence_archive import LIMIT_BYTES,LIMIT_FILES,stamp
+from adapters.chat_journey.actor_stop import shape as stop_shape,validate as validate_stop,validate_publication_return
 from adapters.chat_journey.flow_inputs import validate_flow
 from adapters.chat_journey.observation import (STAGES,observation_sample,original_authority,validate_original_row)
 from adapters.chat_journey.observation_cursor import stage_transition,plain
@@ -21,7 +22,7 @@ from feature_journeys.contract import identifier
 from feature_journeys.scenarios import VERSION as CONTRACT_VERSION
 from feature_journeys.witness import projection
 
-VERSION=1
+VERSION=2
 GRAPH=('publisher','cursor','initial-observation','initial-samples','code','active-observation','active-samples',
     'cleanup-observation','cleanup-samples')
 STORES={*GRAPH,'actor','stop','seal','flow','cleanup'}
@@ -37,8 +38,9 @@ class ChatRemoteActorGraph:
 
     All paths are supplied by the original typed Parent factory. The returned
     manifest may neither discover paths nor construct live source/Actor owners.
-    Version 1 admits exactly the current Actor v2's single original witness
-    code source and three complete stages; extensions fail closed.
+    Version 2 admits Actor v2/v3's single original witness code source and
+    three complete stages, with explicit Stop1/Stop2 admission per Actor.
+    Other extensions fail closed.
     """
     def __init__(self,raw,source_stamp,stores,expected):
         need(type(raw) is bytes and 0<len(raw)<=65536 and type(stores) is dict and set(stores)==STORES
@@ -50,7 +52,8 @@ class ChatRemoteActorGraph:
         self.stores=dict(stores);self.paths={key:str(store.path) for key,store in stores.items()};self.parent=parent_node(stores['actor'])
         self.expected=deepcopy(expected);self.expected_sha=digest(expected)
         self.raw,self.source_stamp=raw,deepcopy(source_stamp);self.root=json.loads(raw)
-        plain(self.root);need(canonical(self.root)+b'\n'==raw);exact(self.root,ACTOR)
+        plain(self.root);need(canonical(self.root)+b'\n'==raw)
+        exact(self.root,ACTOR|({'returnedPublication'} if self.root.get('picoChatCursorActorVersion')==3 else set()))
         self.pending=True;self.failed=False;self.successor=None;self.successor_sha=None;self.files={};self.histories={};self.roots={};self.frames={};self.total=0
         self.validate_actor();self.load();self.validate();self.cache_sha=self.cache_digest();self.verify()
 
@@ -62,7 +65,7 @@ class ChatRemoteActorGraph:
 
     def validate_actor(self):
         value=self.root;expected=self.expected
-        need(type(value['picoChatCursorActorVersion']) is int and value['picoChatCursorActorVersion']==2
+        need(type(value['picoChatCursorActorVersion']) is int and value['picoChatCursorActorVersion'] in (2,3)
             and all(same(value[key],expected[key]) for key in EXPECTED)
             and value['phase']=='host-closed' and value['sourceScope']=='original-independent-chat-host-handles'
             and type(value['closedPairs']) is int and value['closedPairs']==2
@@ -74,11 +77,10 @@ class ChatRemoteActorGraph:
                 and row['fd']!=row['anchor'])
         need(len({field for row in value['pairs'] for field in (row['fd'],row['anchor'])})==4
             and len({tuple(row['node']) for row in value['pairs']})==2)
-        stop=value['stopCommand'];exact(stop,{'picoChatCursorActorStopVersion','commandId','instance','runId','afterSequence','ticket'})
-        need(type(stop['picoChatCursorActorStopVersion']) is int and stop['picoChatCursorActorStopVersion']==1
-            and stop['instance']==expected['instance'] and stop['runId']==expected['runId']
-            and integer(stop['afterSequence'],1,MAX_FRAMES))
-        identifier(stop['commandId']);identifier(stop['ticket']);physical(value['stopStamp'])
+        stop=value['stopCommand'];version=stop_shape(stop)
+        need(stop['instance']==expected['instance'] and stop['runId']==expected['runId']
+            and (value['picoChatCursorActorVersion']>=3 or version==1))
+        physical(value['stopStamp'])
         need(value['sealSha256']==digest(value['seal']))
         observed=self.retain('actor');need(same(observed,value) and self.files['actor']==(self.raw,self.source_stamp))
         observed=self.retain('stop');need(same(observed,stop) and self.files['stop'][1]==value['stopStamp']
@@ -176,7 +178,10 @@ class ChatRemoteActorGraph:
             payload=dict(ticket=local['before']['activations'][-1]['ticket'],actor='owned-observer',actorSequence=index+1,
                 capturedEpochMs=cursor['sample']['capturedEpochMs'],facts=projection('chat',cursor['sample']['state']))
             need(type(row['sequence']) is int and row['sequence']==index+1 and row['cursorSha256']==digest(cursor) and same(row['payload'],payload))
-        stop=self.root['stopCommand'];need(stop['afterSequence']==len(self.frames['publisher']) and stop['ticket']==self.frames['publisher'][-1]['payload']['ticket'])
+        validate_stop(self.root['stopCommand'],instance=self.expected['instance'],run=run,published=self.frames['publisher'])
+        if self.root['picoChatCursorActorVersion']==3:
+            validate_publication_return(self.root['returnedPublication'],publisher=publisher,cursor=self.roots['cursor'],rows=self.frames['publisher'],
+                publisher_stamp=self.files['publisher'][1],cursor_stamp=self.files['cursor'][1])
 
     def admit_successor(self,receiver):
         """One exact nonce-bound successor; original payload stays historical."""

@@ -41,7 +41,7 @@ class PicoChatCursorActorTests(unittest.TestCase):
         a.consumption_store=PrivateFeatureState(h.root/'actual-actor-consumption.json')
         a.return_sender=None;a.return_started=a.parent_consumed=False
         a.failed=a.started=a.closed=False;a.publisher=h.owner;a.seal=None;a.seal_receipt=None;a.stop_value=a.stop_stamp=a.stop_raw=None
-        a.scope=dict(picoChatCursorActorVersion=2,instance=uuid.uuid4().hex,runId=a.source.run,fixtureUrl=a.source.fixture_url,
+        a.scope=dict(picoChatCursorActorVersion=3,instance=uuid.uuid4().hex,runId=a.source.run,fixtureUrl=a.source.fixture_url,
             binding=deepcopy(h.cursor.scope['binding']),peerBinding=deepcopy(h.cursor.scope['peerBinding']),hostProcessIdentity=host_identity())
         a.scope_sha=digest(a.scope)
         original=a.original=PicoChatWitness.__new__(PicoChatWitness);original.binding=deepcopy(a.scope['binding'])
@@ -67,7 +67,7 @@ class PicoChatCursorActorTests(unittest.TestCase):
             _chat_observation=lambda _target,_source,samples,**kw:h.observation(samples,'active') if kw['stage']=='active' else cleanup_owner[0],
             _chat_cache_absence=lambda *_args,**_kwargs:cleanup_owner[0].samples,
             _chat_cursor_source_seal=lambda _target,publisher,**_kwargs:ChatCursorSourceSeal(publisher,PrivateFeatureState(h.root/'actual-actor-seal.json')))
-        a.save('publishing',pairs=[deepcopy(row) for _owner,row in a.pairs]);a.publish()
+        a.save('publishing',pairs=[deepcopy(row) for _owner,row in a.pairs],returnedPublication=None);a.publish()
         # Preserve the actual native ordinary Open and both original stage
         # sources, with the remaining 24 inputs explicitly metadata seams.
         h.flow.next(1)
@@ -76,7 +76,7 @@ class PicoChatCursorActorTests(unittest.TestCase):
         parent_store.write(self.parent,parent_store.read());a.publish()
         self.command=dict(picoChatCursorActorStopVersion=1,commandId=uuid.uuid4().hex,instance=a.scope['instance'],
             runId=a.source.run,afterSequence=len(a.publisher.rows),ticket=a.publisher.rows[-1]['payload']['ticket'])
-        a.stop_store.write(self.command,None)
+        if not getattr(self,'defer_stop_command',False):a.stop_store.write(self.command,None)
 
     def independent_parent_consumption(self):
         # Actual second host process and independent original-byte/nonce read.
@@ -101,7 +101,7 @@ original={key:value[key] for key in SCOPE};scope(original);need(value['phase']==
 frames=ChatSourceChunks(store,original).load(value['chunks'])
 payload=b''.join(base64.b64decode(row['rawBase64'],validate=True) for row in frames)
 need(hashlib.sha256(payload).hexdigest()==original['payloadSha256'])
-root=json.loads(payload);need(root['picoChatCursorActorVersion']==2 and root['phase']=='host-closed')
+root=json.loads(payload);need(root['picoChatCursorActorVersion']==3 and root['phase']=='host-closed')
 need(payload==canonical(root)+b'\\n')
 ack=dict(observerReturnConsumptionVersion=1,scopeSha256=digest(original),returnId=original['returnId'],
     originalRequestId=original['originalRequestId'],producerHostProcessIdentity=original['producerHostProcessIdentity'],

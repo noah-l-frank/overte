@@ -9,22 +9,23 @@ import os
 import hashlib
 
 from adapters.chat_journey.evidence_archive import stamp,private
+from adapters.chat_journey.actor_stop import validate as validate_stop,publication_return
 from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
 from adapters.chat_journey.owned_peer import OwnedChatPeer
 from adapters.chat_journey.observation_cursor import plain
 from adapters.native_fd_owner import OriginalDescriptor
-from adapters.native_feature_observation import exact,integer,need
+from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.observer_return import ObserverReturnSender,state as return_state
 from adapters.pico4.chat_composition import PicoChatWitness,record
 from adapters.pico4.chat_host_close import host_identity
 from adapters.script_journey.history import same,canonical
+from adapters.script_journey.lock import ScriptSourceBusy
 from feature_journeys.phase_fixture import PhasePending,PhaseFixtureReader
 from feature_journeys.witness import Client
 
-VERSION=2
-STOP_VERSION=1
+VERSION=3
 RETURN_FAMILY='pico-chat-cursor-actor'
 
 
@@ -79,7 +80,7 @@ class PicoChatCursorActor:
                 pairs.append((owner,dict(label=label,node=list(owner.node),fd=owner.fd,anchor=owner.anchor)))
             self.pairs=tuple(pairs)
             self.pairs_sha=digest([row for _owner,row in self.pairs])
-            self.save('publishing',pairs=[deepcopy(row) for _owner,row in self.pairs])
+            self.save('publishing',pairs=[deepcopy(row) for _owner,row in self.pairs],returnedPublication=None)
         except BaseException:
             self.quarantine()
             # Acquisition failure never supplies a closure receipt. Retain the
@@ -114,7 +115,8 @@ class PicoChatCursorActor:
         self.previous=deepcopy(value);self.previous_sha=digest(value);self.root_stamp=original_stamp
         need(stamp(self.store.path.lstat())==original_stamp)
 
-    def control(self):
+    def metadata_control(self):
+        """No native/foreground observation while an original input is pending."""
         plain(self.previous);need(digest(self.previous)==self.previous_sha)
         need(not self.failed and not self.started and not self.closed and same(self.store.read(),self.previous)
             and self.previous['phase']=='publishing' and digest(self.scope)==self.scope_sha
@@ -123,12 +125,16 @@ class PicoChatCursorActor:
             and host_identity()==self.scope['hostProcessIdentity'])
         parent=record(self.adapter._chat_composition_store(self.target).read())
         need(parent['runId']==self.source.run and parent['fixtureUrl']==self.source.fixture_url
-            and same(parent['binding'],self.scope['binding']) and same(parent['peerBinding'],self.scope['peerBinding'])
-            and same(self.adapter._scripts(self.target).binding,self.scope['binding'])
-            and self.original.native.guard() is not False and self.original.peer.guard() is True)
+            and same(parent['binding'],self.scope['binding']) and same(parent['peerBinding'],self.scope['peerBinding']))
         for owner,row in self.pairs:
             need(owner.node==tuple(row['node']) and owner.fd==row['fd'] and owner.anchor==row['anchor'])
             owner.require(owner.fd)
+        return parent
+
+    def control(self):
+        parent=self.metadata_control()
+        need(same(self.adapter._scripts(self.target).binding,self.scope['binding'])
+            and self.original.native.guard() is not False and self.original.peer.guard() is True)
         return parent
 
     def advance(self,parent):
@@ -148,14 +154,34 @@ class PicoChatCursorActor:
 
     def publish(self):
         need(not self.failed and not self.started and not self.closed)
+        before=deepcopy(self.publisher.previous)
         try:
-            parent=self.control()
+            parent=self.metadata_control()
             if parent['phase'] not in ('step-completed','caches-retired'):
                 raise PhasePending('Original Chat input or cleanup owner has not completed')
-            self.advance(parent);started=self.publisher.observation.now();sequence=self.publisher.publish()
-            self.control();self.publisher.cursor.final(started)
-            self.publisher.cursor.released_fresh(self.publisher.cursor.clocks(),started)
+            pending=False
+            with self.held():
+                # Parent inputs hold their distinct same-inode source locks.
+                # A phase recheck under these original locks precedes every
+                # foreground/native guard and actual new observation.
+                parent=self.metadata_control()
+                if parent['phase'] not in ('step-completed','caches-retired'):
+                    pending=True
+                else:
+                    parent=self.control();self.advance(parent);started=self.publisher.observation.now()
+                    sequence=self.publisher.publish();self.control();self.publisher.cursor.final(started)
+                    proof=publication_return(sequence,self.publisher.rows[-1],self.publisher.previous,self.publisher.cursor.previous,
+                        stamp(self.publisher.store.path.lstat()),stamp(self.publisher.cursor.store.path.lstat()))
+                    self.save('publishing',returnedPublication=proof);clocks=self.publisher.cursor.clocks()
+            if pending:raise PhasePending('Original Chat input or cleanup owner has not completed')
+            # Includes final owner CAS and actual outer OS-lock exit, using
+            # only the same original clocks; no foreground guard after release.
+            self.publisher.cursor.released_fresh(clocks,started)
             return sequence
+        except ScriptSourceBusy:
+            if not self.publisher.failed and not self.publisher.cursor.failed and same(self.publisher.previous,before):
+                raise PhasePending('Original Chat source locks are held by its actual input owner') from None
+            self.quarantine();raise NativeUIError('Original independent Chat query became uncertain during contention') from None
         except PhasePending:
             if not self.publisher.failed and not self.publisher.cursor.failed:raise
             self.quarantine()
@@ -190,14 +216,8 @@ class PicoChatCursorActor:
         parent=self.control();self.started=True
         raw,original_stamp=self.stop_bytes();value=self.stop_store.read()
         need(stamp(self.stop_store.path.lstat())==original_stamp and raw==canonical(value)+b'\n')
-        exact(value,{'picoChatCursorActorStopVersion','commandId','instance','runId','afterSequence','ticket'})
-        need(type(value['picoChatCursorActorStopVersion']) is int and value['picoChatCursorActorStopVersion']==STOP_VERSION
-            and type(value['commandId']) is str and len(value['commandId'])==32
-            and all(c in '0123456789abcdef' for c in value['commandId'])
-            and value['instance']==self.scope['instance'] and value['runId']==self.source.run
-            and integer(value['afterSequence'],1) and value['afterSequence']==len(self.publisher.rows)
-            and value['ticket']==self.publisher.rows[-1]['payload']['ticket']
-            and parent['phase']=='caches-retired' and self.publisher.observation.stage=='cleanup'
+        validate_stop(value,instance=self.scope['instance'],run=self.source.run,published=self.publisher.rows)
+        need(parent['phase']=='caches-retired' and self.publisher.observation.stage=='cleanup'
             and self.publisher.base['phase']=='ready' and self.publisher.base['delivery']=='ready'
             and self.publisher.base['pending'] is None and not self.publisher.query_pending and not self.publisher.cursor.query_pending)
         self.stop_value=deepcopy(value);self.stop_stamp=original_stamp;self.stop_raw=raw

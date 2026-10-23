@@ -88,7 +88,12 @@ constructor and actual kernel boundary are covered separately. No whole
 feature or device result is inferred.
 
 Remote cleanup next needs the original externally consumed common cursor prefix
-and a distinct versioned Stop boundary. An autonomous Actor may have additional
-real same-phase publications beyond the last consumed common witness. Existing
-Stop v1 retains exact-current-sequence behavior; no caller offset or invented
-absence is admitted.
+joined to the explicit Actor3/Stop2 boundary. An autonomous Actor may have extra
+real same-phase publications beyond the last consumed common witness. The
+version 2 historical graph parser preserves and checks all of them, and the
+returned `sourceGraphVersion` names that actual parser version. Its Stop2
+consumption digest is request metadata until joined to actual shared cleanup
+bytes. Stop1 keeps its exact-current-sequence behavior; no caller offset or
+invented absence is admitted. The actual two-process typed-return positive
+also passed against Actor3 and the version 2 parser in the six-case 38.332-second
+Stop/source run.
