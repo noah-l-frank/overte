@@ -37,7 +37,7 @@ class IOSEmoteRenderedRetirement(IOSEmoteRetirement):
 
     def envelope(self,state):
         value=super().envelope(state);del value['iosEmoteRetirementVersion']
-        value['iosEmoteRenderedRetirementVersion']=VERSION;value['framesPath']=str(self.frames_owner.store.path)
+        value['iosEmoteRenderedRetirementVersion']=self.FORMAT_VERSION;value['framesPath']=str(self.frames_owner.store.path)
         return value
 
     def record_store(self,index):
@@ -46,7 +46,7 @@ class IOSEmoteRenderedRetirement(IOSEmoteRetirement):
 
     def wrap(self,original):
         exact(original,{'nativeReference','frames','initialReference','currentReference'})
-        return dict(iosEmoteRenderedRetirementOriginalVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,
+        return dict(iosEmoteRenderedRetirementOriginalVersion=self.FORMAT_VERSION,runId=self.run,role=self.role,binding=self.binding,
             primaryBinding=self.primary_binding,phaseInstance=self.phase_instance,fixtureUrl=self.fixture_url,payload=pack([original]))
 
     def original(self,reference):
@@ -87,7 +87,7 @@ class IOSEmoteRenderedRetirement(IOSEmoteRetirement):
         need(initial in frames.state['records'] and frames.state['records'] and current==frames.state['records'][-1])
         first,old_raw=frames.frame(initial);last,new_raw=frames.frame(current)
         need(frames.original(initial)['kind']=='initial' and frames.original(current)['kind']=='cleanup')
-        scope=IOSEmoteMarkerScope.archive(native_original['scope'],root=self.root,binding=self.binding,run=self.run,role=self.role,lock=self.lock)
+        scope=self.Marker.archive(native_original['scope'],root=self.root,binding=self.binding,run=self.run,role=self.role,lock=self.lock)
         baseline=scope.frames[scope.state['baseline']-1]
         need(first['clockJoin']['hostAfterMonotonic']<=baseline['clockJoin']['hostBeforeMonotonic']
             and first['clockJoin']['hostAfterEpochMs']<=baseline['clockJoin']['hostBeforeEpochMs'])

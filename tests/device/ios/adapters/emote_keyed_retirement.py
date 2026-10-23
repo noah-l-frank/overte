@@ -32,7 +32,7 @@ class IOSEmoteKeyedRetirement(IOSEmoteRetirement):
         if self.previous is not None:self.state=self.decode(self.previous)
 
     def envelope(self,state):
-        return dict(iosEmoteKeyedRetirementVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,primaryBinding=self.primary_binding,
+        return dict(iosEmoteKeyedRetirementVersion=self.FORMAT_VERSION,runId=self.run,role=self.role,binding=self.binding,primaryBinding=self.primary_binding,
             fixtureUrl=self.fixture_url,phaseInstance=self.phase_instance,artifactRoot=str(self.root),imagePolicy=self.policy,
             renderedPath=str(self.rendered_owner.store.path),keysPath=str(self.keys_owner.store.path),payload=pack([state]))
 
@@ -41,7 +41,7 @@ class IOSEmoteKeyedRetirement(IOSEmoteRetirement):
 
     def wrap(self,original):
         exact(original,{'renderedReference','keys'})
-        return dict(iosEmoteKeyedRetirementOriginalVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,
+        return dict(iosEmoteKeyedRetirementOriginalVersion=self.FORMAT_VERSION,runId=self.run,role=self.role,binding=self.binding,
             primaryBinding=self.primary_binding,phaseInstance=self.phase_instance,fixtureUrl=self.fixture_url,payload=pack([original]))
 
     def original(self,reference):
@@ -55,7 +55,7 @@ class IOSEmoteKeyedRetirement(IOSEmoteRetirement):
         rendered=self.rendered_owner;ref=original['renderedReference'];need(ref in rendered.state['records'])
         derived=rendered.derive(ref);frame_original=rendered.original(ref)
         native=rendered.native_owner.original(frame_original['nativeReference'])
-        scope=IOSEmoteMarkerScope.archive(native['scope'],root=self.root,binding=self.binding,run=self.run,role=self.role,lock=self.lock)
+        scope=self.Marker.archive(native['scope'],root=self.root,binding=self.binding,run=self.run,role=self.role,lock=self.lock)
         keys=IOSEmoteKeys.archive(original['keys'],store=Frozen(self.keys_owner.store.path,original['keys']),root=self.root,
             binding=self.binding,run=self.run,role=self.role,lock=self.lock)
         closure=keys.closed(scope);last=closure['last']['clockJoin']

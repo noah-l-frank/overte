@@ -33,6 +33,10 @@ class Frozen(PrivateFeatureState):
 
 
 class IOSEmoteRetirement:
+    FORMAT_VERSION=1
+    Marker=IOSEmoteMarkerScope
+    Decoder=IOSEmoteObservationDecoder
+
     def __init__(self,store,root,binding,primary_binding,run,role,fixture_url,phase_instance,lock,primary_lock,policy,paths,guard):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock) and isinstance(primary_lock,ScriptSourceLock) and callable(guard))
         self.store,self.root,self.binding,self.primary_binding=store,Path(root),deepcopy(context(binding)),deepcopy(context(primary_binding))
@@ -44,7 +48,7 @@ class IOSEmoteRetirement:
         self.previous=store.read();self.state=dict(records=[],abandoned=[],pending=None)
         if self.previous is not None:self.state=self.decode(self.previous)
 
-    def envelope(self,state):return dict(iosEmoteRetirementVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,
+    def envelope(self,state):return dict(iosEmoteRetirementVersion=self.FORMAT_VERSION,runId=self.run,role=self.role,binding=self.binding,
         primaryBinding=self.primary_binding,fixtureUrl=self.fixture_url,phaseInstance=self.phase_instance,artifactRoot=str(self.root),imagePolicy=self.policy,
         paths={key:None if value is None else str(value) for key,value in self.paths.items()},payload=pack([state]))
 
@@ -54,7 +58,7 @@ class IOSEmoteRetirement:
     def original(self,reference):
         exact(reference,{'index','sha256'});value=self.record_store(reference['index']).read();need(value is not None and digest(value)==reference['sha256'])
         exact(value,{'iosEmoteRetirementOriginalVersion','runId','role','binding','primaryBinding','phaseInstance','fixtureUrl','payload'})
-        need(type(value['iosEmoteRetirementOriginalVersion']) is int and value['iosEmoteRetirementOriginalVersion']==VERSION
+        need(type(value['iosEmoteRetirementOriginalVersion']) is int and value['iosEmoteRetirementOriginalVersion']==self.FORMAT_VERSION
             and value['runId']==self.run and value['role']==self.role and same(value['binding'],self.binding)
             and same(value['primaryBinding'],self.primary_binding) and value['phaseInstance']==self.phase_instance and value['fixtureUrl']==self.fixture_url)
         rows=unpack(value['payload']);need(len(rows)==1);return rows[0]
@@ -82,7 +86,7 @@ class IOSEmoteRetirement:
 
     def wrap(self,original):
         exact(original,{'observation','sources','peers','scope','fileReceipts','sampleOwners','inputOwners','entities','pointers'})
-        return dict(iosEmoteRetirementOriginalVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,
+        return dict(iosEmoteRetirementOriginalVersion=self.FORMAT_VERSION,runId=self.run,role=self.role,binding=self.binding,
             primaryBinding=self.primary_binding,phaseInstance=self.phase_instance,fixtureUrl=self.fixture_url,payload=pack([original]))
 
     def save(self):
@@ -106,8 +110,12 @@ class IOSEmoteRetirement:
         if self.role=='actor':peers=IOSEmotePeerSources(Frozen(self.paths['peers'],original['peers']),self.root,self.binding,self.run,None,
             self.lock,lambda:True,historical=True)
         else:need(original['peers'] is None)
-        decoder=IOSEmoteObservationDecoder(sources,self.binding,self.role,self.root,self.policy,self.lock,phase_instance=self.phase_instance,peers=peers)
+        decoder=self.Decoder(sources,self.binding,self.role,self.root,self.policy,self.lock,phase_instance=self.phase_instance,peers=peers)
         return sources,peers,decoder
+
+    def web_quiet(self,scope,current,admitted):
+        drain=drained_partial if scope.state['cleanupMode']!='full' else drained_owned_resources
+        return drain(current['web'],admitted['web'])
 
     def derive(self,reference):
         """Pure callback: reread original files; no SDK, HTTP or live guard."""
@@ -117,7 +125,7 @@ class IOSEmoteRetirement:
         need(public['state']==SCENARIOS['emotes']['baseline'] and public['resources']==[] and not public['artifacts'])
         current=decoder.source(original['observation']['source'])
         need(current['phaseAfter']['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
-        scope=IOSEmoteMarkerScope.archive(original['scope'],root=self.root,binding=self.binding,run=self.run,role=self.role,lock=self.lock)
+        scope=self.Marker.archive(original['scope'],root=self.root,binding=self.binding,run=self.run,role=self.role,lock=self.lock)
         need(scope.state['phase']=='released' and scope.state['pending'] is None and len(scope.state['quiet'])>=3 and scope.state['quiet'][-1]==len(scope.frames))
         baseline=scope.frames[scope.state['baseline']-1];owned=scope.state['admission'];quiet=[scope.frames[index-1] for index in scope.state['quiet']]
         need(scope.quiet_interval(quiet[0],quiet[-1]))
@@ -126,11 +134,10 @@ class IOSEmoteRetirement:
             body_preserved(baseline['world'],frame['world']);view_preserved(baseline['world'],frame['world'])
             if scope.state['cleanupMode']=='unloaded':
                 scope.unexecuted(frame);need(frame['world']['source']['tree']['entities']==baseline['world']['source']['tree']['entities'])
-                drained_partial(frame['web'],baseline['web'])
+                self.web_quiet(scope,frame,baseline)
             else:
                 scope.restored_marker(baseline,frame,owned,scope.state['stopBarrier'])
-                drain=drained_partial if scope.state['cleanupMode'] in ('partial-execution','finished-execution') else drained_owned_resources
-                drain(frame['web'],scope.frames[scope.state['webAdmission']-1]['web'])
+                self.web_quiet(scope,frame,scope.frames[scope.state['webAdmission']-1])
         entities=IOSEmoteMarkerEntities.archive(original['entities'],store=Frozen(self.paths['entities'],original['entities']),root=self.root,
             binding=self.binding,run=self.run,role=self.role,lock=self.lock)
         pointers=IOSEmotePointers.archive(original['pointers'],store=Frozen(self.paths['pointers'],original['pointers']),root=self.root,

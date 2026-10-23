@@ -136,3 +136,8 @@ after marker setup; the original native-prefix decoder correctly refused that
 fixture. The corrected producer order preserves the unchanged prefix checks.
 All native/UI/OS and acquisition clocks here remain explicit host models.
 These additions supply no process-end result or complete Emote admission.
+
+The [rooted cleanup components](EMOTE_ROOTED_RETIREMENT.md) now connect these
+actual scope/input originals to version-two native, file, rendered and keyed
+historical decoders and the existing Emote Web-scene-quiet profile. Whole
+coordination, independent publication and terminal OS/SDK end remain open.
