@@ -370,4 +370,5 @@ class PicoChatWitness:
         return self.publisher.publish()
 
     def detach(self):
-        if self.peer is not None:self.peer.close_host()
+        """Report this independent witness's own host pairs only."""
+        return self.peer is None or self.peer.close_host() is True
