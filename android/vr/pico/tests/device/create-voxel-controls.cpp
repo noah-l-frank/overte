@@ -23,6 +23,9 @@
 #include "tests/device/native/NormalScriptControls.h"
 #include "tests/device/native/NormalControlUi.h"
 #include "actual-create-voxel-input.inc"
+#ifdef OVERTE_CREATE_VOXEL_NATIVE_JOIN
+#include "create-voxel-native-join.h"
+#endif
 
 int main(int argc,char**argv){
     QGuiApplication app(argc,argv);using namespace overte::e2e;
@@ -47,6 +50,14 @@ int main(int argc,char**argv){
     auto source=[&](const QString& file){QFile input(path+'/'+file);assert(input.open(QIODevice::ReadOnly));return QString::fromUtf8(input.readAll());};
     evaluate(source("android/vr/pico/tests/device/create-voxel-backend.js"));
     for(const auto& file:{"scripts/system/create/modules/nativeCreateBridge.js","scripts/system/create/editModes/editModes.js","scripts/system/create/editModes/editVoxels.js"}){evaluate(source(file),file);}
+#ifdef OVERTE_CREATE_VOXEL_NATIVE_JOIN
+    NativeCreateVoxelJoin nativeVoxel;
+    QQmlEngine::setObjectOwnership(&nativeVoxel,QQmlEngine::CppOwnership);
+    engine.globalObject().setProperty("nativeVoxel",engine.newQObject(&nativeVoxel));
+    evaluate(source("android/vr/pico/tests/device/create-voxel-native-bindings.js"));
+    QFile originalDelete(app.arguments().at(app.arguments().size()-3));assert(originalDelete.open(QIODevice::ReadOnly));
+    evaluate(QString::fromUtf8(originalDelete.readAll()),"original-voxel-delete.js");
+#endif
     auto backend=evaluate("initializeOriginalTools()");int delivered=0;
     auto drain=[&]{
         while(delivered<calls.size()){
@@ -98,11 +109,21 @@ int main(int argc,char**argv){
     assert(measured.value("voxelSphereSize").toDouble()==.5 && measured.value("voxelEditMode")==QJsonValue("cube") && measured.value("voxelRemove").toBool());
     auto stroke=backend.property("stroke").call();if(stroke.isError()){qFatal("%s",qPrintable(stroke.toString()+"\n"+stroke.property("stack").toString()));}
     const auto changed=QJsonObject::fromVariantMap(stroke.toVariant().toMap());
+    #ifdef OVERTE_CREATE_VOXEL_NATIVE_JOIN
+    if(nativeVoxel.ignored()){
+        assert(changed.value("calls").toArray().isEmpty() && changed.value("strokes").toArray().isEmpty());
+        int count=0;for(const auto& value:changed.value("volume").toArray()){count+=value.toInt()!=0;}assert(count==64);
+    }else{
+#endif
     assert(changed.value("calls").toArray().size()==1 && changed.value("strokes").toArray().size()==1 && changed.value("remainingTimers").toArray().isEmpty());
     const auto mutation=changed.value("calls").toArray().first().toObject();assert(mutation.value("value").toInt()==0);
     assert(mutation.value("low").toObject()==QJsonObject({{"x",2},{"y",2},{"z",3}}));
     assert(mutation.value("size").toObject()==QJsonObject({{"x",4},{"y",4},{"z",4}}));
     int nonzero=0;for(const auto& value:changed.value("volume").toArray()){nonzero+=value.toInt()!=0;}assert(nonzero==16);
+#ifdef OVERTE_CREATE_VOXEL_NATIVE_JOIN
+    }
+    nativeVoxel.observe("after-original-stroke");
+#endif
     // Original tool settings are restored through the same real normal route.
     choose("create-voxel.shape",0);apply(tools,"create-voxel.remove","activate");
     apply(tools,"create-voxel.diameter","activate");apply(tools,"create-voxel.diameter","replace","0.3");apply(tools,"create-voxel.apply","activate");choose("create-voxel.mode",0);
@@ -126,5 +147,18 @@ int main(int argc,char**argv){
     assert(pointers==originalPointers);
     QJsonArray counterexamples{"moved-token","disabled","higher-overlay","clipped"};
     QJsonObject output{{"settingsReceipt",settingsReceipt},{"before",baseline},{"configured",measured},{"restored",restored},{"stroke",changed},{"pointerCalls",pointers},{"counterexamples",counterexamples}};
+#ifdef OVERTE_CREATE_VOXEL_NATIVE_JOIN
+    nativeVoxel.observe("settings-restored");
+    apply(normal,"create.tab.2","activate");
+    apply(normal,"create.delete","activate");
+    // Same normal editor Delete, actual Qt deferred destruction and original
+    // weak observers; the scene-release endpoint remains an explicit host seam.
+    QTest::qWait(100);nativeVoxel.observe("delete-quiet");
+    QElapsedTimer quiet;quiet.start();
+    while(quiet.elapsed()<3100){QTest::qWait(100);nativeVoxel.observe("delete-quiet");}
+    output["nativeJoin"]=QJsonArray::fromVariantList(nativeVoxel.history());
+    output["deleteCommands"]=QJsonArray::fromVariantList(evaluate("deletedCommands").toVariant().toList());
+    output["deleteLists"]=QJsonArray::fromVariantList(evaluate("deletedLists").toVariant().toList());
+#endif
     delete page;QTextStream(stdout)<<QJsonDocument(output).toJson(QJsonDocument::Compact)<<'\n';
 }

@@ -2,6 +2,9 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import os
+import hashlib
+import threading
+import time
 import json
 import sys
 from pathlib import Path
@@ -9,6 +12,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+from contextlib import nullcontext
 import unittest
 
 HERE=Path(__file__).resolve().parent;ROOT=HERE.parents[4]
@@ -54,16 +58,61 @@ public:
     (stage/'actual-pointer-route.inc').write_text('\n'.join(bodies))
 
 
+def native_trace_process(command,environment,trace):
+    """Actual independent host receipts of bounded, immediately written frames."""
+    receipts=[];failure=[];done=threading.Event()
+    def consume():
+        source=None;pending=b'';total=0
+        try:
+            with trace.with_suffix('.host-receipts.jsonl').open('x') as observed:
+                while True:
+                    if source is None and trace.exists():source=trace.open('rb')
+                    chunk=source.read(65536) if source else b''
+                    if chunk:
+                        total+=len(chunk)
+                        if total>16*1024*1024:raise ValueError('Original native trace exceeds its byte inventory')
+                        pending+=chunk
+                        while b'\n' in pending:
+                            line,pending=pending.split(b'\n',1)
+                            host_ns=time.monotonic_ns();host_epoch=time.time_ns()//1_000_000
+                            original=json.loads(line)
+                            if len(receipts)>=512:raise ValueError('Original native trace exceeds its frame inventory')
+                            receipt=dict(sequence=original['sequence'],capturedHostMonotonicNs=host_ns,
+                                capturedHostEpochMs=host_epoch,sourceSha256=hashlib.sha256(line+b'\n').hexdigest())
+                            receipts.append(receipt);observed.write(json.dumps(receipt,sort_keys=True)+'\n');observed.flush()
+                    elif done.is_set():
+                        if pending:raise ValueError('Incomplete original native frame')
+                        break
+                    else:done.wait(.01)
+        except BaseException as error:failure.append(error)
+        finally:
+            if source:source.close()
+    reader=threading.Thread(target=consume,name='create-original-native-host-receipts',daemon=True);reader.start()
+    try:output=subprocess.check_output(command,text=True,timeout=30,env=environment)
+    finally:
+        done.set();reader.join(timeout=2)
+    if reader.is_alive():raise RuntimeError('Original native receipt reader did not stop')
+    if failure:raise failure[0]
+    lines=trace.read_bytes().splitlines(keepends=True)
+    return dict(raw=output,hostReceipts=receipts,traceLines=lines)
+
+
 class CreatePolyvoxControlsNativeTests(unittest.TestCase):
-    def run_original(self, cpp):
+    def run_original(self, cpp, modes=None):
         environment=dict(os.environ);major=environment.get('OVERTE_NATIVE_QT_MAJOR','5');self.assertEqual('5',major)
         prefix=Path(environment['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
         environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),
             LD_LIBRARY_PATH=str(prefix/'usr/lib64'),QT_PLUGIN_PATH=str(prefix/'usr/lib64/qt5/plugins'),
             QML2_IMPORT_PATH=str(prefix/'usr/lib64/qt5/qml'),QML_IMPORT_PATH=str(prefix/'usr/lib64/qt5/qml'))
         flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs',
-            *('Qt5'+module for module in ('Core','Gui','Qml','Quick','Test'))],text=True,env=environment))
-        with tempfile.TemporaryDirectory(prefix='create-original-polyvox-') as directory:
+            *('Qt5'+module for module in (('Core','Gui','Qml','Quick','Test','Concurrent') if modes else ('Core','Gui','Qml','Quick','Test')))],text=True,env=environment))
+        evidence=environment.get('OVERTE_CREATE_VOXEL_NATIVE_EVIDENCE_DIR') if modes else None
+        destination=None
+        if evidence:
+            destination=Path(evidence);destination.mkdir(parents=True,exist_ok=False,mode=0o700)
+        context=(nullcontext(tempfile.mkdtemp(prefix='create-original-polyvox-',dir=destination))
+            if destination else tempfile.TemporaryDirectory(prefix='create-original-polyvox-'))
+        with context as directory:
             stage=Path(directory);pointer_source(stage);binary=stage/'test';imports=stage/'imports/TabletScriptingInterface';imports.mkdir(parents=True)
             (imports/'qmldir').write_text('module TabletScriptingInterface\nsingleton Tablet 1.0 Tablet.qml\nsingleton TabletEnums 1.0 TabletEnums.qml\n')
             (imports/'Tablet.qml').write_text('pragma Singleton\nimport QtQuick 2.7\nQtObject { function playSound(value) {} }\n')
@@ -102,12 +151,33 @@ class CreatePolyvoxControlsNativeTests(unittest.TestCase):
                 code+='\n'+original(edit,'function sortSelectedEntities(')+'\n'+original(edit,'function recursiveDelete(')
                 code+='\n'+original(edit,'createApp.deleteSelectedEntities = function()')+';\n'
                 (stage/'original-recovery.js').write_text(code)
-            subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-I'+directory,'-I'+str(ROOT),
+            additional=[];native_flags=[]
+            if modes:
+                import importlib.util
+                spec=importlib.util.spec_from_file_location('create_voxel_native_prepare',HERE/'create-voxel-native-prepare.py')
+                prepare=importlib.util.module_from_spec(spec);spec.loader.exec_module(prepare)
+                additional=prepare.prepare(stage,environment,prefix)
+                native_flags=['-DANDROID_APP_PICO_INTERFACE','-DGLM_FORCE_RADIANS','-DGLM_ENABLE_EXPERIMENTAL','-DGLM_FORCE_CTOR_INIT','-fmax-errors=4','-ffunction-sections','-fdata-sections','-Wl,--gc-sections','-pthread',
+                    '-I'+str(HERE),
+                    *('-I'+str(ROOT/path) for path in ('libraries/shared/src','libraries/gpu/src','libraries/graphics/src'))]
+            subprocess.run(['c++','-std=c++20' if modes else '-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-I'+directory,'-I'+str(ROOT),
                 '-I'+str(ROOT/'libraries/ui/src'),'-I'+str(ROOT/'libraries/script-engine/src'),
-                '-isystem',str(Path(environment['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),str(HERE/cpp),str(ROOT/'libraries/ui/src/ui/NativeFieldInput.cpp'),
+                '-isystem',str(Path(environment['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),*native_flags,str(HERE/cpp),*additional,str(ROOT/'libraries/ui/src/ui/NativeFieldInput.cpp'),
                 '-o',str(binary),'-L'+str(prefix/'usr/lib64'),*flags],check=True,timeout=90,env=environment)
             environment.update(QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',QT_FORCE_STDERR_LOGGING='1')
             subprocess.run(['unshare','--user','--map-root-user','--net',str(binary),str(ROOT),str(stage/'imports')],check=True,timeout=30,env=environment)
+            if modes:
+                results={}
+                for mode in modes:
+                    environment['OVERTE_CREATE_VOXEL_NATIVE_MODE']=mode
+                    trace=(destination if destination else stage)/(mode+'-source.jsonl')
+                    environment['OVERTE_CREATE_VOXEL_NATIVE_TRACE']=str(trace)
+                    results[mode]=native_trace_process(['unshare','--user','--map-root-user','--net',str(binary),
+                        '--testScript',str(stage/'original-voxel-delete.js'),str(ROOT),str(stage/'imports')],environment,trace)
+                    if destination:(destination/(mode+'.json')).write_text(results[mode]['raw'])
+                if destination:
+                    (destination/'original-provenance.json').write_bytes((stage/'create-voxel-native-original-provenance.json').read_bytes())
+                return results
             output=subprocess.check_output(['unshare','--user','--map-root-user','--net',str(binary),'--testScript',str(ROOT),str(stage/'imports')],
                 text=True,timeout=30,env=environment)
             return output

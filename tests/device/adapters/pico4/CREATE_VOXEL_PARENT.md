@@ -108,6 +108,14 @@ death, and retained/dead texture guards. Its cache actor follows original
 ResourceCache::getResource by moving newly created resource QObjects to the GUI
 thread. No product affinity or lifetime is changed.
 
+[`create-voxel-source-native`](CREATE_VOXEL_SOURCE_JOIN.md) joins that existing
+normal TOOLS fixture to complete original native VoxelVolume, meshing,
+compression and shape preparation, actual timers, the existing atomic getter
+and weak resource collectors, then normal settings restoration and Delete.
+Its native/host quiet clocks and explicit tree/scene/SDK endpoints are documented
+separately. It does not replace the production parent or qualify device/GPU
+retirement.
+
 `create-voxel-owner` and `create-voxel-guards` partition `test_create_voxel_owner.py`: production parent,
 Session, private CAS, phase/source histories and token owners with explicitly
 declared native/controller/UI/domain actors. Tight cases cover normal edit and
