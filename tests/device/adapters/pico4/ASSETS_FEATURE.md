@@ -467,3 +467,16 @@ checks passed. The catalog remains 154 selectors, with no version/capability
 change. Feature 13/14 remains partial: all results here are host qualification,
 and the original upload failure and missing server/oven/device evidence above
 remain unchanged.
+
+An additional ordinary recovery case passed independently in 21.052 seconds:
+the folder-field replacement is not delivered after the original consumer IDs
+have been admitted. A fresh actual native command sequence proves that the
+replacement did not execute. Cold reconstruction sends only a distinct normal
+Cancel with a new command ID, using the still-next native sequence. The exact
+unsent replacement remains retained in the original input archive and unresolved
+list. Actual original browser/model death and original file absence qualify the
+known release; another Cancel attempt refuses without input. This adds one case
+to the existing owning selector (now eight cases), with no selector, capability,
+source or limit change. It does not replace the separate whole-selector timing
+failure recorded above. The 120-second outer test bound and 90-second compiler
+bound remained unchanged.
