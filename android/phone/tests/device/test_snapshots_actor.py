@@ -85,6 +85,58 @@ def actor_until_closed(boundary,url,queue,command,report_progress=False):
     except Exception as error:queue.put(dict(error=type(error).__name__,message=str(error)))
 
 
+def cleanup_frontier_actor(boundary,url,queue,command):
+    """Drive the real cleanup actor from another process; IPC carries no facts.
+
+    SDK/native producers are the existing explicit component seams. Original
+    files, reader continuity, the HTTP journal and three-second quiet windows
+    execute unchanged. Wrappers only count calls or lose an actual POST reply.
+    """
+    import overte_phone_snapshots_actor as module
+    f=boundary.feature;f.role='actor';f.load=lambda:setattr(f,'previous',f.store.read())
+    phase=PhaseFixtureReader(Client(url,'a'*64),RUN,'snapshots',epoch_ms=lambda:boundary.epoch)
+    f.phase.client=phase.client;f.phase.status=phase.status
+    f.phase.provider=lambda:dict(boundary.provider,active=phase.status()['active'])
+    f.monotonic,f.sleep=time.monotonic,time.sleep
+    actor=PhoneSnapshotsActor(f);counts=dict(reads=0,posts=0);points=[];lose_reply=[False];lost_replies=[0]
+    original_read=PhoneSnapshotsRole.read;original_quiet=module.quiet_window;request=actor.client.request
+    def read(role,*args,**kwargs):
+        counts['reads']+=1
+        return original_read(role,*args,**kwargs)
+    def quiet(previous,now,sequence):
+        result=original_quiet(previous,now,sequence)
+        points.append(dict(previousLast=None if previous is None else previous['last'],
+            started=result['started'],last=result['last'],sequence=sequence,complete=result['complete']))
+        return result
+    def transport(path,*args,**kwargs):
+        is_post=path=='/runs/'+RUN+'/samples' and bool(args)
+        if is_post:counts['posts']+=1
+        result=request(path,*args,**kwargs)
+        if is_post and lose_reply[0]:
+            lose_reply[0]=False;lost_replies[0]+=1
+            raise RuntimeError('Actual accepted POST reply deliberately lost')
+        return result
+    actor.client.request=transport
+    try:
+        with patch.object(PhoneSnapshotsRole,'read',read),patch.object(module,'quiet_window',quiet):
+            while command.poll(25):
+                instruction=command.recv()
+                if instruction=='exit':return
+                if instruction.get('cold'):
+                    actor=PhoneSnapshotsActor(f)
+                    # The same actual Client retains only its transport wrapper.
+                lose_reply[0]=instruction.get('loseReply',False)
+                first=len(points);error=None;result=None
+                try:result=actor.step()
+                except Exception as caught:error=dict(error=type(caught).__name__,message=str(caught))
+                header=PrivateFeatureState(boundary.root/'phone-snapshots-actor-originals.json').read()
+                queue.put(dict(error=error,result=result,pid=os.getpid(),counts=deepcopy(counts),
+                    points=deepcopy(points[first:]),state=deepcopy(actor.state),roleHeader=header,lostReplies=lost_replies[0]))
+        raise RuntimeError('Cleanup frontier IPC command expired')
+    except Exception as error:
+        queue.put(dict(fatal=type(error).__name__,message=str(error)))
+
+
 class SnapshotsActorTests(unittest.TestCase):
     def setUp(self):
         temporary=tempfile.TemporaryDirectory(prefix='snapshot-actor-');self.addCleanup(temporary.cleanup);self.root=Path(temporary.name)
@@ -102,6 +154,122 @@ class SnapshotsActorTests(unittest.TestCase):
         f.role='primary';f.phase.client=phase.client;f.phase.status=phase.status
         with f.lock.held():
             primary=PhoneSnapshotsRole(f,'primary');primary.read(primary.state['sequence'])
+            self.capture_primary_header=deepcopy(primary.previous)
+    def advance_cleanup_primary(self):
+        """Create a genuinely new Primary original through the normal reader."""
+        f=self.boundary.feature
+        with f.lock.held():
+            primary=PhoneSnapshotsRole(f,'primary')
+            measured=primary.read(primary.state['sequence'])
+            self.assertEqual([],measured['resources'])
+            self.assertEqual('d'*32,primary.frames[-1]['ticket'])
+            self.assertEqual(primary.previous,primary.store.read())
+            return deepcopy(primary.previous)
+
+    def cleanup_frontier(self,*,ready=True):
+        b=self.boundary;b.clean();self.reader.activate('d'*32,'cleanup',{})
+        b.feature.state['actions']=[dict(ticket='d'*32,phase='acknowledged')]
+        b.provider.update(ticket='d'*32,activations=[dict(ticket=TICKET,verb='capture',capturedEpochMs=19000),
+            dict(ticket='d'*32,verb='cleanup',capturedEpochMs=20000)])
+        if ready:self.advance_cleanup_primary()
+        self.server.shutdown();self.thread.join(3);self.assertFalse(self.thread.is_alive())
+        ctx=multiprocessing.get_context('fork');queue=ctx.Queue();parent,child=ctx.Pipe()
+        process=ctx.Process(target=cleanup_frontier_actor,args=(b,self.url,queue,child));process.start();child.close()
+        self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start()
+        def stop():
+            if process.is_alive():
+                try:parent.send('exit')
+                except (BrokenPipeError,EOFError,OSError):pass
+                process.join(3)
+            if process.is_alive():process.terminate();process.join(3)
+            parent.close();queue.close()
+        self.addCleanup(stop)
+        def step(**instruction):
+            self.assertTrue(process.is_alive());parent.send(instruction)
+            value=queue.get(timeout=20);self.assertNotIn('fatal',value,value)
+            self.assertNotEqual(os.getpid(),value['pid']);return value
+        return step
+
+    def completed_frontier(self,step,**instruction):
+        value=step(**instruction);self.assertIsNone(value['error'],value)
+        quiet=value['state']['quiet'];self.assertIsNotNone(quiet)
+        self.assertTrue(quiet['complete']);self.assertGreaterEqual(quiet['last']-quiet['started'],3)
+        self.assertGreaterEqual(len(quiet['sequences']),3)
+        self.assertEqual(1,value['counts']['posts']);self.assertIsNone(value['state']['pending'])
+        self.assertEqual(1,len(self.reader.request('/runs/'+RUN)['entries']))
+        return value
+
+    def assert_no_further_acquisition(self,before,after):
+        self.assertEqual(before['counts'],after['counts'])
+        self.assertEqual(before['roleHeader'],after['roleHeader'])
+
+    def test_cleanup_frontier_publishes_once_then_requires_new_own_read(self):
+        step=self.cleanup_frontier();first=self.completed_frontier(step)
+        held=step();self.assertIsNone(held['error'],held);self.assert_no_further_acquisition(first,held)
+        self.assertEqual(first['state']['primaryCue'],held['state']['primaryCue'])
+        primary=self.advance_cleanup_primary();fresh=step();self.assertIsNone(fresh['error'],fresh)
+        self.assertGreater(fresh['counts']['reads'],held['counts']['reads']);self.assertEqual(2,fresh['counts']['posts'])
+        self.assertEqual(primary,fresh['state']['primaryCue']['header'])
+        previous=unpack(first['roleHeader']['payload'])[0];current=unpack(fresh['roleHeader']['payload'])[0]
+        self.assertGreater(current['sequence'],previous['sequence'])
+        self.assertEqual(current['sequence'],fresh['state']['last']['original']['sample']['actorSequence'])
+        entries=self.reader.request('/runs/'+RUN)['entries'];self.assertEqual(2,len(entries))
+        self.assertGreater(entries[-1]['actorSequence'],entries[0]['actorSequence'])
+
+    def test_cleanup_frontier_real_gap_restarts_the_complete_quiet_interval(self):
+        step=self.cleanup_frontier();first=self.completed_frontier(step)
+        time.sleep(1.6);self.advance_cleanup_primary();fresh=step();self.assertIsNone(fresh['error'],fresh)
+        self.assertTrue(fresh['points']);point=fresh['points'][0]
+        self.assertGreater(point['last']-point['previousLast'],1.5)
+        self.assertEqual(point['last'],point['started']);self.assertFalse(point['complete'])
+        quiet=fresh['state']['quiet'];self.assertTrue(quiet['complete'])
+        self.assertGreaterEqual(quiet['last']-quiet['started'],3);self.assertGreaterEqual(len(quiet['sequences']),3)
+        self.assertGreater(quiet['started'],first['state']['quiet']['last'])
+        self.assertEqual(2,fresh['counts']['posts'])
+        self.assertEqual(quiet['sequences'][-1],fresh['state']['last']['original']['sample']['actorSequence'])
+
+    def cleanup_frontier_header_counter(self,mutation):
+        step=self.cleanup_frontier();first=self.completed_frontier(step)
+        store=PrivateFeatureState(self.root/'phone-snapshots-primary-originals.json');previous=store.read()
+        if mutation=='missing':store.discard(previous);foreign=None
+        elif mutation=='regressed':foreign=deepcopy(self.capture_primary_header);store.write(foreign,previous)
+        else:
+            self.assertEqual('foreign',mutation);foreign=deepcopy(previous)
+            foreign['binding']['targetFingerprint']='f'*64;store.write(foreign,previous)
+        rejected=step();self.assertEqual('NativeUIError',rejected['error']['error'],rejected)
+        self.assert_no_further_acquisition(first,rejected);self.assertEqual(foreign,store.read())
+        self.assertEqual(1,len(self.reader.request('/runs/'+RUN)['entries']))
+        self.assertTrue(list(self.root.glob('emote-frame-snapshots-'+RUN+'-primary-*.json')))
+
+    def test_cleanup_frontier_rejects_a_foreign_primary_owner(self):self.cleanup_frontier_header_counter('foreign')
+    def test_cleanup_frontier_rejects_a_missing_known_primary_owner(self):self.cleanup_frontier_header_counter('missing')
+    def test_cleanup_frontier_rejects_an_actual_earlier_primary_header(self):self.cleanup_frontier_header_counter('regressed')
+
+    def test_cleanup_without_ready_frontier_keeps_actual_quiet_progress(self):
+        step=self.cleanup_frontier(ready=False);waiting=step();self.assertIsNone(waiting['error'],waiting)
+        self.assertGreaterEqual(waiting['counts']['reads'],3);self.assertEqual(0,waiting['counts']['posts'])
+        quiet=waiting['state']['quiet'];self.assertTrue(quiet['complete'])
+        self.assertGreaterEqual(quiet['last']-quiet['started'],3);self.assertGreaterEqual(len(quiet['sequences']),3)
+        self.assertIsNone(waiting['state']['primaryCue']);self.assertIsNone(waiting['state']['last'])
+        self.assertFalse(self.reader.request('/runs/'+RUN)['entries'])
+        self.advance_cleanup_primary();fresh=step();self.assertIsNone(fresh['error'],fresh)
+        self.assertGreater(fresh['counts']['reads'],waiting['counts']['reads']);self.assertEqual(1,fresh['counts']['posts'])
+        self.assertEqual(fresh['state']['quiet']['sequences'][-1],fresh['state']['last']['original']['sample']['actorSequence'])
+
+    def test_cleanup_uncertain_post_recovers_receipt_without_reacquiring_or_reposting(self):
+        step=self.cleanup_frontier();uncertain=step(loseReply=True)
+        self.assertEqual('NativeUIError',uncertain['error']['error'],uncertain)
+        self.assertEqual(1,uncertain['lostReplies'])
+        self.assertEqual(1,uncertain['counts']['posts']);self.assertTrue(uncertain['state']['pending']['issued'])
+        self.assertIsNotNone(uncertain['state']['primaryCue']);self.assertIsNone(uncertain['state']['last'])
+        accepted=self.reader.request('/runs/'+RUN)['entries'];self.assertEqual(1,len(accepted))
+        recovered=step(cold=True);self.assertIsNone(recovered['error'],recovered)
+        self.assert_no_further_acquisition(uncertain,recovered);self.assertIsNone(recovered['state']['pending'])
+        self.assertEqual(uncertain['state']['primaryCue'],recovered['state']['primaryCue'])
+        self.assertEqual(accepted[0],recovered['state']['last']['receipt'])
+        held=step();self.assertIsNone(held['error'],held);self.assert_no_further_acquisition(recovered,held)
+        self.assertEqual(accepted,self.reader.request('/runs/'+RUN)['entries'])
+
     def run_actor(self,token='a'*64):
         # Ordinary preparation pins an actual Feature owner across its lock
         # gap. Write it through the real owner save before the separate child;
@@ -133,6 +301,7 @@ class SnapshotsActorTests(unittest.TestCase):
     def test_own_original_quiet_and_actual_closed_phase_precede_actor_retirement(self):
         b=self.boundary;b.clean();self.reader.activate('d'*32,'cleanup',{});b.feature.state['actions']=[dict(ticket='d'*32,phase='acknowledged')]
         b.provider.update(ticket='d'*32,activations=[dict(ticket=TICKET,verb='capture',capturedEpochMs=19000),dict(ticket='d'*32,verb='cleanup',capturedEpochMs=20000)])
+        self.advance_cleanup_primary()
         self.server.shutdown();self.thread.join(3)
         ctx=multiprocessing.get_context('fork');queue=ctx.Queue();receive,send=ctx.Pipe(duplex=False)
         process=ctx.Process(target=actor_until_closed,args=(b,self.url,queue,receive));process.start()
@@ -153,6 +322,7 @@ class SnapshotsActorTests(unittest.TestCase):
         from overte_phone_script_lock import PhoneScriptSourceLock
         b=self.boundary;b.clean();self.reader.activate('d'*32,'cleanup',{});b.feature.state['actions']=[dict(ticket='d'*32,phase='acknowledged')]
         b.provider.update(ticket='d'*32,activations=[dict(ticket=TICKET,verb='capture',capturedEpochMs=19000),dict(ticket='d'*32,verb='cleanup',capturedEpochMs=20000)])
+        self.advance_cleanup_primary()
         self.server.shutdown();self.thread.join(3)
         ctx=multiprocessing.get_context('fork');queue=ctx.Queue();receive,send=ctx.Pipe(duplex=False)
         process=ctx.Process(target=actor_until_closed,args=(b,self.url,queue,receive,True));process.start()
@@ -176,6 +346,7 @@ class SnapshotsActorTests(unittest.TestCase):
     def between_lock_counter(self,mutation):
         b=self.boundary;b.clean();self.reader.activate('d'*32,'cleanup',{});b.feature.state['actions']=[dict(ticket='d'*32,phase='acknowledged')]
         b.provider.update(ticket='d'*32,activations=[dict(ticket=TICKET,verb='capture',capturedEpochMs=19000),dict(ticket='d'*32,verb='cleanup',capturedEpochMs=20000)])
+        self.advance_cleanup_primary()
         self.server.shutdown();self.thread.join(3)
         ctx=multiprocessing.get_context('fork');queue=ctx.Queue();receive,send=ctx.Pipe(duplex=False)
         process=ctx.Process(target=actor_until_closed,args=(b,self.url,queue,receive,True));process.start()
