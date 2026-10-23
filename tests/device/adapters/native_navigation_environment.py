@@ -13,7 +13,7 @@ from adapters.native_account_observation import validate as account_packet, acce
 from adapters.normal_ui import NativeUIError
 from adapters.token_create_ui import nonce
 
-VERSION = 1
+VERSION = 2
 FILE = 'feature-navigation-environment.json'
 HEX = r'[0-9a-f]{32}'
 DIGEST = r'[0-9a-f]{64}'
@@ -44,8 +44,9 @@ def command(value):
 def validate(value, request, pid, epoch):
     command(request)
     exact(value, {'navigationEnvironmentVersion', 'commandId', 'runId', 'instance', 'sequence', 'processId', 'capturedEpochMs',
-                  'selectedSettingPresent', 'selectedServer', 'effectiveServer', 'environmentOverride', 'otherSettingsSha256', 'account', 'ui'})
-    need(type(value['navigationEnvironmentVersion']) is int and value['navigationEnvironmentVersion'] == VERSION
+                  'selectedSettingPresent', 'selectedServer', 'effectiveServer', 'environmentOverride', 'otherSettingsSha256', 'account', 'ui'}
+        | ({'settings','accountServer'} if value.get('navigationEnvironmentVersion')==2 else set()))
+    need(type(value['navigationEnvironmentVersion']) is int and value['navigationEnvironmentVersion'] in (1,VERSION)
          and value['commandId'] == request['commandId'] and value['runId'] == request['runId']
          and type(value['instance']) is str and re.fullmatch(HEX, value['instance'])
          and integer(value['sequence'], 1, 4096) and integer(pid, 1) and value['processId'] == pid and integer(value['processId'], 1)
@@ -54,12 +55,29 @@ def validate(value, request, pid, epoch):
     fresh(value['capturedEpochMs'], epoch)
     endpoint(value['selectedServer']);endpoint(value['effectiveServer'])
     account_packet(value['account'], value['capturedEpochMs'])
+    if value['navigationEnvironmentVersion']==2:
+        settings=value['settings'];exact(settings,{'navigationSettingsEntriesVersion','instance','capturedEpochMs','selectedPresent',
+            'selectedType','rawSettingsSha256','otherSettingsSha256','handlesAbsent'})
+        need(type(settings['navigationSettingsEntriesVersion']) is int and settings['navigationSettingsEntriesVersion']==1
+            and type(settings['instance']) is str and re.fullmatch(HEX,settings['instance'])
+            and integer(settings['capturedEpochMs'],1,value['capturedEpochMs']) and value['capturedEpochMs']-settings['capturedEpochMs']<=1500
+            and type(settings['selectedPresent']) is bool and settings['selectedPresent']==value['selectedSettingPresent']
+            and type(settings['selectedType']) is str and settings['selectedType'] in (('url','string') if settings['selectedPresent'] else ('absent',))
+            and settings['handlesAbsent'] is True and settings['otherSettingsSha256']==value['otherSettingsSha256']
+            and all(type(settings[key]) is str and re.fullmatch(DIGEST,settings[key]) for key in ('rawSettingsSha256','otherSettingsSha256')))
+        endpoint(value['accountServer'])
+        need(value['accountServer']==value['effectiveServer'] and value['account']['observation']['endpointSha256']==hashlib.sha256(value['accountServer'].encode('utf-8')).hexdigest())
     ui = value['ui']
-    exact(ui, {'bridgeId', 'generation', 'sequence', 'elapsedMs', 'observedEpochMs', 'loginPageAlive', 'passwordEmpty', 'serverDraftSha256', 'serverFocused'})
+    exact(ui, {'bridgeId', 'generation', 'sequence', 'elapsedMs', 'observedEpochMs', 'loginPageAlive', 'passwordEmpty', 'serverDraftSha256', 'serverFocused'}
+        | ({'open','ready'} if value['navigationEnvironmentVersion']==2 else set()))
     need(nonce(ui['bridgeId']) and nonce(ui['generation']) and integer(ui['sequence']) and integer(ui['elapsedMs'])
          and integer(ui['observedEpochMs'], 1) and 0 <= value['capturedEpochMs'] - ui['observedEpochMs'] <= 1500
          and type(ui['loginPageAlive']) is bool)
     need(type(ui['passwordEmpty']) is bool if ui['loginPageAlive'] else ui['passwordEmpty'] is None)
+    if value['navigationEnvironmentVersion']==2:
+        need(type(ui['open']) is bool and type(ui['ready']) is bool and (not ui['ready'] or ui['open'])
+            and (ui['ready'] or not ui['open'] and not ui['loginPageAlive']
+                 and ui['passwordEmpty'] is None and ui['serverDraftSha256'] is None and ui['serverFocused'] is None))
     if ui['serverDraftSha256'] is None:
         need(ui['serverFocused'] is None)
     else:
@@ -69,11 +87,15 @@ def validate(value, request, pid, epoch):
 
 
 def continuation(previous, current):
-    need(current['instance'] == previous['instance'] and current['processId'] == previous['processId']
+    need(current['navigationEnvironmentVersion']==previous['navigationEnvironmentVersion']
+         and current['instance'] == previous['instance'] and current['processId'] == previous['processId']
          and current['sequence'] > previous['sequence'] and current['capturedEpochMs'] >= previous['capturedEpochMs']
          and current['ui']['bridgeId'] == previous['ui']['bridgeId']
          and all(current['ui'][k] >= previous['ui'][k] for k in ('sequence', 'elapsedMs', 'observedEpochMs')))
     account_continuation(previous['account']['observation'], current['account'])
+    if current['navigationEnvironmentVersion']==2:
+        need(previous['settings']['instance']==current['settings']['instance']
+            and current['settings']['capturedEpochMs']>=previous['settings']['capturedEpochMs'])
 
 
 def logged_out(value):
@@ -104,11 +126,18 @@ class NativeNavigationEnvironment:
                 except (ValueError, NativeUIError):
                     value = None
                 if type(value) is dict and value.get('commandId') == request['commandId']:
-                    validate(value, request, self.pid, self.clock_ms())
+                    epoch=self.clock_ms();validate(value, request, self.pid, epoch)
                     if self.last is not None:
                         continuation(self.last, value)
                     now = self.monotonic();need(number(now, 0, 1e15) and previous <= now and now - started < 5 and self.guard() is not False)
-                    self.last = deepcopy(value);return value
+                    result=deepcopy(value);retained=deepcopy(value)
+                    need(self.guard() is not False)
+                    completed=self.monotonic();final_epoch=self.clock_ms()
+                    need(number(completed,now,1e15) and completed-started<5
+                         and max(final_epoch-value['capturedEpochMs'],
+                             epoch-value['capturedEpochMs']+(completed-started)*1000)<=1500)
+                    fresh(value['capturedEpochMs'],final_epoch)
+                    self.last = retained;return result
                 now = self.monotonic();need(number(now, 0, 1e15) and previous <= now);previous = now
                 if now - started >= 5 or attempt == 50:
                     break

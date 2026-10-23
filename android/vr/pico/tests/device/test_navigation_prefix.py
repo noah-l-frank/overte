@@ -36,6 +36,26 @@ class NavigationPrefixFactoryTests(unittest.TestCase):
         self.assertIs(owner.origin.io.original,owner.source.normal.io.original)
         self.assertEqual([],h.native.inputs);self.assertEqual([],h.native.controllers)
         self.assertIsNone(owner.store.read());self.assertNotIn('feature.world-navigation.act',h.instance.capabilities(h.native.target))
+    def test_actual_navigation_capture_reuses_same_script_lock_and_refuses_every_foreign_store(self):
+        from adapters.pico4.graphics_binding import PicoGraphicsBinding
+        h=self.h;root=h.instance._script_journey().state_path(h.native.target).parent
+        lock=ScriptSourceLock(root/'script-sources.lock')
+        with lock.held():
+            capture=h.instance._navigation_world_render_capture(h.native.target,role='primary',source_lock=lock)
+            self.assertIs(capture.source_lock,lock);self.assertTrue(capture.capture.stereo);self.assertTrue(capture.capture.require_cameras)
+            self.assertEqual(root/'navigation-prefix-world-render-primary.json',capture.owner.store.path)
+            capture.owner.guard()
+            foreign=[h.instance._navigation_world_render_store(h.native.target,'actor'),h.instance._world_render_store(h.native.target)]
+            foreign.extend(PicoGraphicsBinding(h.instance).world_render_store(h.native.target,role=role) for role in ('primary','actor'))
+            for name in ('_browser_world_render_store','_emote_world_render_store'):
+                factory=getattr(h.instance,name,None)
+                if factory is not None:foreign.extend(factory(h.native.target,role) for role in ('primary','actor'))
+            for store in foreign:
+                store.write({},None)
+                with self.subTest(path=store.path),self.assertRaisesRegex(ValueError,'OVT_PICO_BINDING_REJECTED'):capture.owner.guard()
+                self.assertIsNone(capture.owner.store.read());store.discard({})
+        self.assertEqual([],h.native.inputs);self.assertEqual([],h.native.controllers)
+
     def test_original_parent_child_chunk_and_environment_archive_orphans_block_cleanup_admission(self):
         h=self.h;root=h.instance._script_journey().state_path(h.native.target).parent
         self.assertFalse(h.instance._navigation_prefix_owned(h.native.target))

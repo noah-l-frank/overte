@@ -94,6 +94,7 @@ def projection(frame,run,binding,inputs,provider_instance,origin,profile,receipt
         # receipt. This prefix never turns an unrelated/hidden modal into none.
         need(not any(row['rootAlive'] or row['listenerAlive'] for row in modals['records']))
         logged_out(env)
+        if env['navigationEnvironmentVersion']==2:need(env['ui']['open']==ui['open'] and env['ui']['ready']==ui['ready'])
         need(env['selectedSettingPresent'] and env['selectedServer']==env['effectiveServer']==origin
             and not env['environmentOverride'] and env['account']['observation']['endpointSha256']==sha(origin)
             and not env['ui']['loginPageAlive'])

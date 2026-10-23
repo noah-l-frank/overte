@@ -24,14 +24,15 @@ from feature_journeys.contract import identifier
 from feature_journeys.fixtures import context as fixture_context
 from navigation_observation import viewpoint_urls
 
-VERSION=2
+VERSION=3
 LEGACY_FIELDS={'ticket','kind','stage','original','last','pending','scrollDirection','scrolls','stereoSha256','quiet','queries'}
 
 class NavigationTransit:
     def __init__(self,ui_factory,arrival,roots,bookmarks,stereo_factory,path,run,binding,scene_url,guard,*,directory=None,home=None,panels=None,
-                 monotonic=time.monotonic,sleep=time.sleep):
+                 monotonic=time.monotonic,sleep=time.sleep,defer_stereo_until_close=False):
         identifier(run);context(binding);viewpoint_urls(scene_url)
         need(all(callable(f) for f in (ui_factory,stereo_factory,guard,monotonic,sleep)))
+        need(type(defer_stereo_until_close) is bool);self.defer_stereo=defer_stereo_until_close
         self.arrival,self.roots,self.bookmarks,self.stereo_factory=arrival,roots,bookmarks,stereo_factory
         self.run,self.binding,self.scene_url,self.guard=run,deepcopy(binding),scene_url,guard
         need(home is None or isinstance(home,PicoTabletHome));need(home is None or panels is not None)
@@ -41,13 +42,14 @@ class NavigationTransit:
         self.ui=ui_factory(self.intent);need(isinstance(self.ui,TokenPlacesUI) and self.ui.run==run)
         if self.disk is not None:
             exact(self.disk,{'navigationTransitVersion','runId','binding','sceneUrl','payload'})
-            need(type(self.disk['navigationTransitVersion']) is int and self.disk['navigationTransitVersion'] in (1,2)
+            need(type(self.disk['navigationTransitVersion']) is int and self.disk['navigationTransitVersion'] in (1,2,3)
                  and self.disk['runId']==run and self.disk['binding']==binding and self.disk['sceneUrl']==scene_url)
             values=unpack(self.disk['payload']);need(len(values)==1)
             if self.disk['navigationTransitVersion']==1:
                 exact(values[0],LEGACY_FIELDS)
                 # Historical QML input is never reinterpreted as a VR gesture.
                 values[0].update(homeMode='qml',homeBefore=None,homeAfter=None)
+            need(self.defer_stereo==(self.disk['navigationTransitVersion']==3))
             self.validate(values[0]);self.state=values[0]
     def now(self):
         need(self.guard() is not False);value=self.monotonic()
@@ -82,7 +84,8 @@ class NavigationTransit:
              and all(b['ui']['scope'][k]>=a['ui']['scope'][k] for k in ('sequence','elapsedMs'))
              and b['ui']['observedEpochMs']>=a['ui']['observedEpochMs'])
     def validate(self,value):
-        exact(value,LEGACY_FIELDS|{'homeMode','homeBefore','homeAfter'})
+        exact(value,LEGACY_FIELDS|{'homeMode','homeBefore','homeAfter'}|({'stereoDeferred'} if self.defer_stereo else set()))
+        if self.defer_stereo:need(value['stereoDeferred'] is True and value['stereoSha256'] is None)
         identifier(value['ticket']);need(value['kind'] in ('directory','bookmark') and integer(value['stage'],0,5)
             and value['scrollDirection'] in ('up','down') and integer(value['scrolls'],0,64)
             and type(value['quiet']) is list and len(value['quiet'])<=8)
@@ -146,7 +149,7 @@ class NavigationTransit:
             facts=stereo_frame(stereo.state['frame'],stereo.image_bytes(),self.run,self.binding,self.scene_url)
             need(facts['location']==self.target(value['kind'])
                  and all(q in value['queries'] for q in self.stereo_queries(stereo)))
-        if value['stage']==5:need(value['stereoSha256'] is not None)
+        if value['stage']==5 and not self.defer_stereo:need(value['stereoSha256'] is not None)
         previous=None
         for group in value['quiet']:
             self.archive(group);self.final(group,value);self.advance(value['original'],group)
@@ -167,7 +170,7 @@ class NavigationTransit:
             else:self.advance(b,value['last'])
     def save(self,value):
         self.now();self.validate(value)
-        disk=dict(navigationTransitVersion=VERSION,runId=self.run,binding=self.binding,sceneUrl=self.scene_url,payload=pack([value]))
+        disk=dict(navigationTransitVersion=3 if self.defer_stereo else 2,runId=self.run,binding=self.binding,sceneUrl=self.scene_url,payload=pack([value]))
         self.store.write(disk,self.disk);self.disk=deepcopy(disk);self.state=deepcopy(value)
     def intent(self,value):
         need(self.state is not None and self.state['pending'] is None)
@@ -257,7 +260,7 @@ class NavigationTransit:
             need(page is not None and not page['loading'] and not page['dialog']['visible']
                  and self.location(group)==('A' if kind=='directory' else 'B'))
             self.save(dict(ticket=ticket,kind=kind,stage=0,original=group,last=group,pending=None,scrollDirection='up',scrolls=0,
-                stereoSha256=None,quiet=[],queries=self.query_ids(group),homeMode='qml' if self.home is None else 'ray',homeBefore=None,homeAfter=None))
+                stereoSha256=None,quiet=[],queries=self.query_ids(group),homeMode='qml' if self.home is None else 'ray',homeBefore=None,homeAfter=None,**(dict(stereoDeferred=True) if self.defer_stereo else {})))
         need(self.state['ticket']==ticket and self.state['kind']==kind)
         if self.state['quiet']:self.final(self.sample());return dict(performed=True)
         while self.state['stage']<4:
@@ -301,6 +304,10 @@ class NavigationTransit:
             if stage==1:current['scrolls']+=1
             else:current['stage']+=1
             self.save(current)
+        if self.state['stage']==4 and self.defer_stereo:
+            # Explicit UI/arrival retirement only. No capture or image claim;
+            # the parent must normally close the tablet before stereo v2.
+            current=deepcopy(self.state);current['stage']=5;self.save(current)
         if self.state['stage']==4:
             stereo=self.stereo_factory(ticket);result=stereo.acquire(ticket)
             need(stereo_frame(result['frame'],stereo.image_bytes(),self.run,self.binding,self.scene_url)['location']==self.target(kind))

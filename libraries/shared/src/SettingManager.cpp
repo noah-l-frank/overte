@@ -362,6 +362,57 @@ namespace Setting {
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QUrl>
+#include <QCryptographicHash>
+#include <QDataStream>
+QVariantMap Setting::Manager::featureNavigationEnvironmentEntries() const {
+    if (!QCoreApplication::instance() || QThread::currentThread()!=thread()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    const QString selectedKey{"private/selectedMetaverseURL"};
+    const QStringList keys{selectedKey,"placesAppPinnedMetaverse","placesAppMetaverseToFetch","placesAppMaturityFilter"};
+    QVariantMap entries,other;bool valid=true;qint64 captured{0};
+    const bool acquired=withTryReadLock([&] {
+        for (const auto& key:keys) {
+            // Never dereference an active Handle, invoke its getters or accept
+            // persisted state in place of a deferred/cached runtime value.
+            if (_handles.contains(key)) { valid=false;return; }
+            const bool present=_settings.contains(key);const auto value=_settings.value(key);
+            if (present) {
+                if (key==selectedKey) {
+                    if (value.userType()!=QMetaType::QString && value.userType()!=QMetaType::QUrl) { valid=false;return; }
+                    const auto text=value.userType()==QMetaType::QUrl ? value.toUrl().toString(QUrl::FullyEncoded) : value.toString();
+                    if (text.isEmpty() || text.size()>1024 || text.contains(QChar::Null)) { valid=false;return; }
+                } else {
+                    if (value.userType()!=QMetaType::QStringList && value.userType()!=QMetaType::QVariantList) { valid=false;return; }
+                    if (value.userType()==QMetaType::QStringList) {
+                        const auto list=value.toStringList();if (list.size()>256) { valid=false;return; }
+                        for (const auto& text:list) { if (text.size()>4096 || text.contains(QChar::Null)) { valid=false;return; } }
+                    } else {
+                        const auto list=value.toList();if (list.size()>256) { valid=false;return; }
+                        for (const auto& item:list) {
+                            if (item.userType()!=QMetaType::QString || item.toString().size()>4096 || item.toString().contains(QChar::Null)) { valid=false;return; }
+                        }
+                    }
+                }
+            }
+            const QVariantMap entry{{"present",present},{"value",present?value:QVariant{}},{"valueType",present?value.userType():QMetaType::UnknownType}};
+            entries.insert(key,entry);if (key!=selectedKey) { other.insert(key,entry); }
+        }
+        captured=QDateTime::currentMSecsSinceEpoch();
+    },25);
+    if (!acquired || !valid || captured<=0) { return {}; }
+    const auto hash=[](const QVariantMap& map) {
+        QByteArray raw;QDataStream stream(&raw,QIODevice::WriteOnly);stream.setVersion(QDataStream::Qt_5_12);stream<<map;
+        if (stream.status()!=QDataStream::Ok || raw.size()>65536) { return QString{}; }
+        return QString::fromLatin1(QCryptographicHash::hash(raw,QCryptographicHash::Sha256).toHex());
+    };
+    const auto allHash=hash(entries),otherHash=hash(other);
+    if (allHash.isEmpty() || otherHash.isEmpty()) { return {}; }
+    const auto selected=entries.value(selectedKey).toMap();
+    return {{"navigationSettingsEntriesVersion",1},{"instance",_featureSnapshotContextInstance},{"capturedEpochMs",captured},
+        {"selectedPresent",selected.value("present")},{"selectedValue",selected.value("value")},
+        {"selectedType",selected.value("present").toBool() ? selected.value("valueType").toInt()==QMetaType::QUrl ? "url" : "string" : "absent"},
+        {"rawSettingsSha256",allHash},{"otherSettingsSha256",otherHash},{"handlesAbsent",true}};
+}
 // The presence/value pattern and three keys follow the fixed Phone b62 source.
 // This Pico observer adds a bounded original read lock and manager birth.
 // No writer, cache initialization, endpoint setter or replacement value exists.
