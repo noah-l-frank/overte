@@ -190,13 +190,9 @@ def loaded_relative_modules(engine):
     return sorted(modules)
 
 
-class NativeScriptObservation:
-    def __init__(self, send, read, clock_ms, guard, pid, *, ios=False,
-                 monotonic=time.monotonic, sleep=time.sleep):
-        need(all(callable(v) for v in (send, read, clock_ms, guard, monotonic, sleep))
-             and integer(pid, 1) and type(ios) is bool)
-        self.send, self.original, self.clock_ms, self.guard, self.pid = send, read, clock_ms, guard, pid
-        self.ios, self.monotonic, self.sleep = ios, monotonic, sleep
+class ScriptOriginalHistory:
+    """Pure historical continuity state, without transport or current authority."""
+    def __init__(self):
         self.instance, self.sequence, self.engines = None, 0, {}
         self.active, self.retired = set(), set()
         self.effect_rows, self.absent_effects = {}, set()
@@ -297,6 +293,32 @@ class NativeScriptObservation:
         self.instance, self.sequence = value['instance'], value['sequence']
         self.captured_epoch=value['capturedEpochMs']
 
+
+def original_history(frames,pid,*,ios=False):
+    """Validate original frames only; never construct a native reader."""
+    need(type(frames) is list and len(frames)<=512 and integer(pid,1) and type(ios) is bool)
+    candidate=ScriptOriginalHistory()
+    for value in frames:
+        need(type(value) is dict and type(value.get('requestId')) is str
+             and re.fullmatch(('ios-' if ios else '')+'[0-9a-f]{32}',value['requestId']) is not None)
+        validate(value,value['requestId'],pid,value.get('capturedEpochMs'))
+        need(candidate.instance in (None,value['instance']) and value['sequence']>candidate.sequence
+             and value['capturedEpochMs']>=candidate.captured_epoch)
+        next_history=candidate._history_transition(value,require_effects=True,require_code_identity=True,
+            require_load_history=True,require_membership=True)
+        candidate._commit_history(value,next_history)
+    return candidate
+
+
+class NativeScriptObservation(ScriptOriginalHistory):
+    def __init__(self, send, read, clock_ms, guard, pid, *, ios=False,
+                 monotonic=time.monotonic, sleep=time.sleep):
+        need(all(callable(v) for v in (send, read, clock_ms, guard, monotonic, sleep))
+             and integer(pid, 1) and type(ios) is bool)
+        self.send, self.original, self.clock_ms, self.guard, self.pid = send, read, clock_ms, guard, pid
+        self.ios, self.monotonic, self.sleep = ios, monotonic, sleep
+        super().__init__()
+
     def restore_history(self, frames):
         """Restore history only; historical frames never count as a fresh read.
 
@@ -309,17 +331,8 @@ class NativeScriptObservation:
              and self.membership is None and not self.effect_rows and not self.absent_effects
              and not self.effects_required and not self.code_required and not self.compilations_required and not self.retired_managers
              and self.captured_epoch==0)
-        candidate=NativeScriptObservation(self.send,self.original,self.clock_ms,self.guard,self.pid,
-            ios=self.ios,monotonic=self.monotonic,sleep=self.sleep)
-        for value in frames:
-            need(type(value) is dict and type(value.get('requestId')) is str
-                 and re.fullmatch(('ios-' if self.ios else '')+'[0-9a-f]{32}',value['requestId']) is not None)
-            validate(value,value['requestId'],self.pid,value.get('capturedEpochMs'))
-            need(candidate.instance in (None,value['instance']) and value['sequence']>candidate.sequence
-                 and value['capturedEpochMs']>=candidate.captured_epoch)
-            next_history=candidate._history_transition(value,require_effects=True,require_code_identity=True,
-                require_load_history=True,require_membership=True)
-            candidate._commit_history(value,next_history)
+        need(all(callable(value) for value in (self.send,self.original,self.clock_ms,self.guard,self.monotonic,self.sleep)))
+        candidate=original_history(frames,self.pid,ios=self.ios)
         for key in ('instance','sequence','engines','active','retired','effect_rows','absent_effects',
                     'effects_required','code_required','compilations_required','loads','membership','retired_managers','captured_epoch'):
             setattr(self,key,deepcopy(getattr(candidate,key)))
