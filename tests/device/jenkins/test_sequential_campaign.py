@@ -2,7 +2,9 @@
 """Host-only campaign orchestration counters; these grant no device acceptance."""
 from __future__ import annotations
 
+from contextlib import redirect_stderr
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -219,6 +221,56 @@ class SequentialCampaignTests(unittest.TestCase):
         self.assertFalse(value['results'][0]['attempted'])
         self.assertEqual(ET.parse(self.stage / 'junit.xml').getroot().get('errors'), '1')
         self.assertNotIn(str(self.root), result.stdout + result.stderr)
+
+    @unittest.skipUnless(os.name == 'posix' and os.geteuid() != 0, 'Real owner permission-denial counter')
+    def test_public_write_denial_continues_all_targets_stays_red_and_preserves_complete_fallback(self):
+        for mode in ('recovers', 'unavailable', 'unsafe-path'):
+            with self.subTest(mode=mode):
+                if mode != 'recovers':
+                    self.tearDownFixture()
+                    self.setUp()
+                def execute(argv, cwd, env, timeout, log):
+                    outcome = self.executor(argv, cwd, env, timeout, log)
+                    if self.calls[-1] == 'first':
+                        self.stage.chmod(0)
+                    elif mode == 'recovers':
+                        self.stage.chmod(0o700)
+                    return outcome
+                instance = self.make(execute)
+                if mode == 'unsafe-path':
+                    self.stage.mkdir(parents=True)
+                    foreign = self.root / 'must-not-overwrite.xml'
+                    foreign.write_text('foreign original')
+                    (self.stage / 'junit.xml').symlink_to(foreign)
+                    with self.assertRaisesRegex(campaign.CampaignError, 'unsafe-junit-output'):
+                        instance.run()
+                    self.assertEqual(self.calls, [])
+                    self.assertEqual(instance.staging_errors, 0)
+                    self.assertEqual(foreign.read_text(), 'foreign original')
+                    continue
+                console = io.StringIO()
+                try:
+                    with redirect_stderr(console):
+                        self.assertEqual(instance.run(), 1)
+                finally:
+                    self.stage.chmod(0o700)
+                self.assertEqual(self.calls, ['first', 'second'])
+                private = json.loads((instance.private / 'progress.json').read_text())
+                self.assertEqual(private['status'], 'failed')
+                self.assertGreaterEqual(private['publicStagingErrors'], 1)
+                self.assertEqual([row['status'] for row in private['results']], ['passed', 'passed'])
+                self.assertTrue(all(row['attempted'] for row in private['results']))
+                fallback = [line for line in console.getvalue().splitlines()
+                            if line.startswith('CAMPAIGN_SANITIZED_FALLBACK ')]
+                self.assertEqual(len(fallback), 1)
+                self.assertEqual(json.loads(fallback[0].split(' ', 1)[1]), private)
+                self.assertNotIn('private-selector', console.getvalue())
+                self.assertNotIn(str(self.root), console.getvalue())
+                if mode == 'recovers':
+                    self.assertEqual(self.read_summary(), private)
+                    junit = ET.parse(self.stage / 'junit.xml').getroot()
+                    self.assertEqual(junit.get('errors'), '1')
+                    self.assertIsNotNone(junit.find("testcase[@name='campaign-public-staging']/error"))
 
     @unittest.skipUnless(sys.platform.startswith('linux') and hasattr(os, 'fork'), 'Linux subreaper contract')
     def test_real_escaped_orphan_missing_summary_is_cleaned_and_next_target_runs(self):

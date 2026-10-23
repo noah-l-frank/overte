@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 from copy import deepcopy
+import errno
 import hashlib
 import importlib.util
 import json
@@ -234,6 +235,7 @@ class Campaign:
         self.private = self.root / 'private-sequential-results'
         self.private.mkdir(mode=0o700, exist_ok=False)
         self.executor = executor
+        self.staging_errors = 0
         self.manifest_sha = manifest_sha
         runs = self.manifest['runs']
         require(type(runs) is list and runs, 'missing-target-inventory')
@@ -344,29 +346,59 @@ class Campaign:
                 require(identity.get(key) == digest(output / filename), 'result-identity-content-mismatch')
         return dict(status=status, reason=reason, setup=setup)
 
-    def publish(self):
-        value = dict(schemaVersion=1, sourceRevision=self.manifest['sourceRevision'],
+    def summary(self):
+        return dict(schemaVersion=1, sourceRevision=self.manifest['sourceRevision'],
                      artifactSha256=self.manifest['apk']['sha256'], manifestSha256=self.manifest_sha,
-                     status='passed' if all(r['status'] == 'passed' for r in self.results) else 'failed',
-                     plannedTargets=len(self.results), results=self.results)
-        atomic_json(self.stage / 'summary.json', value)
-        suite = ET.Element('testsuite', name='android-phone-sequential-campaign', tests=str(len(self.results)),
+                     status='passed' if not self.staging_errors and all(r['status'] == 'passed' for r in self.results) else 'failed',
+                     publicStagingErrors=self.staging_errors, plannedTargets=len(self.results), results=self.results)
+
+    def publish(self):
+        value = self.summary()
+        require(self.stage.resolve() == self.stage.absolute(), 'unsafe-stage-directory')
+        self.stage.mkdir(parents=True, mode=0o700, exist_ok=True)
+        suite = ET.Element('testsuite', name='android-phone-sequential-campaign', tests=str(len(self.results) + bool(self.staging_errors)),
                            failures=str(sum(r['status'] == 'failed' for r in self.results)),
-                           errors=str(sum(r['status'] == 'error' for r in self.results)))
+                           errors=str(sum(r['status'] == 'error' for r in self.results) + bool(self.staging_errors)))
         for row in self.results:
             case = ET.SubElement(suite, 'testcase', name=row['id'], classname='android-phone.campaign', time=str(row['durationSeconds']))
             if row['status'] in ('failed', 'error'):
                 ET.SubElement(case, 'failure' if row['status'] == 'failed' else 'error', message=row['reason'])
+        if self.staging_errors:
+            case = ET.SubElement(suite, 'testcase', name='campaign-public-staging', classname='android-phone.infrastructure')
+            ET.SubElement(case, 'error', message='public-aggregate-write-failed')
         path = self.stage / 'junit.xml'
         require(not path.is_symlink(), 'unsafe-junit-output')
         temporary = path.with_name('junit.' + uuid.uuid4().hex + '.tmp')
         with os.fdopen(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600), 'wb') as output:
             ET.ElementTree(suite).write(output, encoding='utf-8', xml_declaration=True)
         os.replace(temporary, path)
+        # Publish the aggregate decision only after its corresponding JUnit.
+        atomic_json(self.stage / 'summary.json', value)
         return value['status']
 
+    def preserve_progress(self):
+        try:
+            atomic_json(self.private / 'progress.json', self.summary())
+        except OSError as error:
+            if error.errno in (errno.ELOOP, errno.ENOTDIR):
+                raise CampaignError('unsafe-private-progress-path') from error
+            print('Private campaign progress could not be written; retain sanitized console results.', file=sys.stderr)
+
+    def publish_progress(self):
+        self.preserve_progress()
+        try:
+            self.publish()
+        except OSError as error:
+            # Only publication I/O is recoverable. Path/contract validation
+            # errors remain hard failures, not permission to adopt new inputs.
+            if error.errno in (errno.ELOOP, errno.ENOTDIR):
+                raise CampaignError('unsafe-public-output-path') from error
+            self.staging_errors += 1
+            self.preserve_progress()
+            print('Public campaign aggregate write failed; campaign remains failed and later targets continue.', file=sys.stderr)
+
     def run(self):
-        self.publish()
+        self.publish_progress()
         for index, row in enumerate(self.manifest['runs']):
             started = time.monotonic()
             result = self.results[index]
@@ -393,8 +425,14 @@ class Campaign:
                               else 'campaign-input-or-runner-error')
             finally:
                 result['durationSeconds'] = round(time.monotonic() - started, 3)
-                self.publish()
-        return 0 if self.publish() == 'passed' else 1
+                self.publish_progress()
+        self.publish_progress()
+        value = self.summary()
+        if self.staging_errors:
+            # This contains only the same sanitized fields as the public JSON,
+            # including the complete attempted-ID inventory if staging stays down.
+            print('CAMPAIGN_SANITIZED_FALLBACK ' + json.dumps(value, sort_keys=True), file=sys.stderr)
+        return 0 if value['status'] == 'passed' else 1
 
 
 def main():
