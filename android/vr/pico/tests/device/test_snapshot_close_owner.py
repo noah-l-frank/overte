@@ -32,7 +32,7 @@ class SnapshotCloseFactoryTests(unittest.TestCase):
     def test_orphan_close_parent_original_manifest_or_chunk_keeps_base_cleanup_closed(self):
         h=original.PicoNormalScriptsTests();h.setUp();self.addCleanup(h.doCleanups)
         root=h.instance._script_journey().state_path(h.native.target).parent
-        for name in ('snapshot-close-owner.json','snapshot-close-originals.json','snapshot-close-originals.json.frame-000.json'):
+        for name in ('snapshot-close-owner.json','snapshot-close-originals.json','snapshot-close-originals.json.frame-000.json','snapshot-close-statuses.json','snapshot-close-statuses.json.frame-000.json'):
             path=root/name;path.write_text('{}');path.chmod(0o600)
             try:self.assertTrue(h.instance._snapshot_originals_owned(h.native.target))
             finally:path.unlink()

@@ -8,6 +8,7 @@ This component does not invent the missing thirteen-key settings baseline.
 from copy import deepcopy
 from adapters.native_feature_observation import decode,exact,need,integer,number
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.pico4.snapshot_close_statuses import SnapshotCloseStatuses,LIMIT as STATUS_LIMIT
 from adapters.pico4.snapshot_return_image import PicoSnapshotReturnImage
 from adapters.pico4.snapshot_upload_originals import SnapshotUploadOriginals
 from adapters.pico4.snapshot_upload_owner import sha,provider_phase,quiet_indices
@@ -21,7 +22,8 @@ from feature_journeys.contract import typed_equal,json_document
 from feature_journeys.phase_fixture import validate as phase_packet
 from openxr_input.controller_protocol import validate_envelope
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 STAGES=('prepare-issued','prepared','restore-issued','restored','close-issued','closed','quiet-issued','partial-closed')
 
 
@@ -35,7 +37,7 @@ class PicoSnapshotCloseOwner:
         need(isinstance(parent,PicoSnapshotReturnImage) and parent.role=='primary')
         self.parent,self.bg,self.run,self.binding,self.lock,self.source=parent,parent.parent,parent.run,deepcopy(parent.binding),parent.lock,parent.source
         self.store=PrivateFeatureState(path);need(self.store.path==self.lock.path.with_name('snapshot-close-owner.json'))
-        self.disk=self.state=self.state_sha=self.anchor=None;self.current=False;self.controller_anchor=self.controller_envelope=None
+        self.encoding_version=VERSION;self.disk=self.state=self.state_sha=self.anchor=None;self.current=False;self.controller_anchor=self.controller_envelope=None
         with self.lock.held():
             parent.load();need(parent.state['phase']=='complete');self.parent_disk=deepcopy(parent.disk);self.parent_sha=sha(self.parent_disk)
             need(self.bg.status()['foreground']);self.upload=self.bg.live();self.base=self.upload.base
@@ -56,7 +58,9 @@ class PicoSnapshotCloseOwner:
                 original=[row for row in cancel['deliveries'] if row['stage']=='open-issued' and row['kind']=='qml' and row['command']['controlId']==control]
                 need(len(original)==1);ui=cancel['frames'][original[0]['frame']]['ui'];choice=self.snapshot.ui.control(ui,control)
                 need(choice is not None and choice['checked'] is True)
-            self.preference_sha=sha(self.preference);self.originals=SnapshotCloseOriginals(self.lock.path.with_name('snapshot-close-originals.json'),self.run,self.binding,'close')
+            self.preference_sha=sha(self.preference)
+            self.statuses=SnapshotCloseStatuses(self.lock.path.with_name('snapshot-close-statuses.json'),self.run,self.binding,self.session.profile)
+            self.originals=SnapshotCloseOriginals(self.lock.path.with_name('snapshot-close-originals.json'),self.run,self.binding,'close')
             self.load();self.session_binding();self.base.bind_close_owner(self)
 
     def bound(self):
@@ -65,7 +69,8 @@ class PicoSnapshotCloseOwner:
             and sha(self.session_basis)==self.session_basis_sha and typed_equal(self.session_basis,json_document(canonical(self.session_basis))))
         if self.state is not None:
             need(typed_equal(self.store.read(),self.disk) and sha(self.state)==self.state_sha and typed_equal(self.state,json_document(canonical(self.state))));self.originals.verify()
-        now=self.native.monotonic();need(number(now,0,1e15));return now
+        self.statuses.verify()
+        now=self.native.monotonic();need(number(now,0,1e15) and (not self.statuses.values or now>=self.statuses.values[-1]['original']['observedHostMonotonic']));return now
 
     def session_binding(self):
         # Host-only cursor admission outside the original Session callback.
@@ -106,7 +111,8 @@ class PicoSnapshotCloseOwner:
             and not any(control['id'].startswith(('snapshot.mode.','snapshot.format.')) for control in ui['controls']))
 
     def validate(self,state):
-        exact(state,{'stage','source','parentSha256','frames','steps','restoration','controller','neutral','neutrals','closedGeneration','quiet','received'})
+        exact(state,{'stage','source','parentSha256','frames','steps','restoration','controller','neutral','neutrals','closedGeneration','quiet','received'}
+            | ({'statusFrames'} if self.encoding_version==2 else set()))
         need(state['stage'] in STAGES and state['parentSha256']==self.parent_sha and state['received'] is None
             and type(state['frames']) is list and len(state['frames'])<=96 and type(state['steps']) is list and len(state['steps'])<=4)
         self.phase(state['source']);previous=None;closed=False
@@ -151,48 +157,79 @@ class PicoSnapshotCloseOwner:
         if controller is not None:
             exact(controller,{'before','envelope'});need(integer(controller['before'],0,len(state['frames'])-1) and state['restoration'] is not None and controller['before']>state['restoration'] and self.restored(state['frames'][controller['before']]))
             if controller['envelope'] is not None:self.envelope(controller['envelope'])
+        if self.encoding_version==2:
+            need(type(state['statusFrames']) is list and len(state['statusFrames'])==len(state['frames']));last_status=-1
+            for index,reference in enumerate(state['statusFrames']):
+                if reference is None:continue
+                need(integer(reference,last_status+1,len(self.statuses.values)-1) and controller is not None and controller['envelope'] is not None and index>controller['before'])
+                actual=self.statuses.read(reference);need(typed_equal(actual['envelope'],controller['envelope']) and actual['observedHostMonotonic']<=state['frames'][index]['hostMonotonic']);last_status=reference
+            for original in self.statuses.values:
+                need(controller is not None and controller['envelope'] is not None and typed_equal(original['original']['envelope'],controller['envelope']))
         need(type(state['neutrals']) is list and len(state['neutrals'])<=len(state['frames']));last=-1
         for row in state['neutrals']:
             exact(row,{'frame','value'});index=row['frame'];need(integer(index,last+1,len(state['frames'])-1) and not state['frames'][index]['base']['ui']['open']
                 and controller is not None and controller['envelope'] is not None)
-            PicoLifecycleBack.neutral(row['value'],controller['envelope'],max(clocks(state['frames'][index])[1:])-1500)
+            if self.encoding_version==1:PicoLifecycleBack.neutral(row['value'],controller['envelope'],max(clocks(state['frames'][index])[1:])-1500)
+            else:
+                reference=state['statusFrames'][index];need(reference is not None and typed_equal(self.statuses.read(reference)['status'],row['value']))
+                self.neutral(row['value'],state['frames'][index],state)
             need(row['value']['updatedEpochMs']<=max(clocks(state['frames'][index])[1:])+250);last=index
         need((state['neutral'] is None)==(not state['neutrals']))
         if state['neutral'] is not None:need(typed_equal(state['neutral'],state['neutrals'][-1]['value']))
         if state['stage'] in ('closed','quiet-issued','partial-closed'):
             need(controller is not None and controller['envelope'] is not None and state['neutral'] is not None
                 and state['closedGeneration'] is not None and state['frames'] and not state['frames'][-1]['base']['ui']['open']
-                and [row['frame'] for row in state['neutrals']]==[index for index,row in enumerate(state['frames']) if not row['base']['ui']['open']])
+                and (self.encoding_version==2 or [row['frame'] for row in state['neutrals']]==[index for index,row in enumerate(state['frames']) if not row['base']['ui']['open']]))
         need(type(state['quiet']) is list and len(state['quiet'])<=1 and bool(state['quiet'])==(state['stage']=='partial-closed'))
         for window in state['quiet']:
-            exact(window,{'indices'});indices=window['indices'];quiet_indices(indices,len(state['frames']));start=previous=signature=None
+            exact(window,{'indices'} | ({'finalStatus'} if self.encoding_version==2 else set()));indices=window['indices'];quiet_indices(indices,len(state['frames']));start=previous=signature=None
             for index in indices:
-                row=state['frames'][index];need(not row['base']['ui']['open']);value=self.quiet_clocks(row,state,index);key=self.signature(row)
+                row=state['frames'][index];need(not row['base']['ui']['open']);value=self.quiet_clocks(row,state,index);key=self.signature(row,state,index)
                 if start is None:start=value;signature=key
                 else:need(key==signature and all(0<=b-a<=500 for a,b in zip(previous,value)))
                 previous=value
             need(all(b-a>=3000 for a,b in zip(start,previous)))
+            if self.encoding_version==2:self.status_window(state,window)
 
     def load(self):
         self.bound();disk=self.store.read();need(self.disk is None or typed_equal(self.disk,disk))
-        if disk is None:need(self.state is None);self.originals.verify();return
+        if disk is None:need(self.state is None and self.originals.disk is None and self.statuses.disk is None);self.originals.verify();return
         exact(disk,{'snapshotCloseOwnerVersion','runId','binding','fixtureUrl','preference','payload'})
-        need(type(disk['snapshotCloseOwnerVersion']) is int and disk['snapshotCloseOwnerVersion']==VERSION and disk['runId']==self.run
+        need(type(disk['snapshotCloseOwnerVersion']) is int and disk['snapshotCloseOwnerVersion'] in READS and disk['runId']==self.run
             and typed_equal(disk['binding'],self.binding) and disk['fixtureUrl']==self.source.fixture_url and typed_equal(disk['preference'],self.preference))
-        rows=unpack(disk['payload']);need(len(rows)==1);state=self.originals.decode(rows[0]);self.validate(state);self.disk,self.state=deepcopy(disk),state;self.state_sha=sha(state);self.bound()
+        self.encoding_version=disk['snapshotCloseOwnerVersion'];rows=unpack(disk['payload']);need(len(rows)==1);state=self.originals.decode(rows[0]);self.validate(state);self.disk,self.state=deepcopy(disk),state;self.state_sha=sha(state);self.bound()
 
     def save(self,state,*,host_only=False):
-        self.bound();need(typed_equal(self.store.read(),self.disk));self.validate(state)
+        need(self.encoding_version==VERSION);self.bound();need(typed_equal(self.store.read(),self.disk));self.validate(state)
         disk=dict(snapshotCloseOwnerVersion=VERSION,runId=self.run,binding=self.binding,fixtureUrl=self.source.fixture_url,preference=self.preference,payload=pack([self.originals.encode(state,host_only=host_only)]))
         self.store.write(disk,self.disk);need(typed_equal(self.store.read(),disk));self.disk,self.state=deepcopy(disk),state;self.state_sha=sha(state);self.bound()
 
+    def record_status(self):
+        self.lock.assert_held();self.statuses.verify()
+        need(self.encoding_version==2 and len(self.statuses.values)<STATUS_LIMIT and self.state['controller'] is not None and self.state['controller']['envelope'] is not None)
+        value=self.session.observe_owned_status(self.binding['processIdentity'],self.state['controller']['envelope'])
+        # The immutable private answer is committed before UI acquisition,
+        # neutral validation or any subsequent failure. No filtered poll here.
+        return self.statuses.append(self.state['controller']['envelope'],value,self.native.monotonic())
+
+    def neutral(self,value,row,state):
+        before=state['frames'][state['controller']['before']]
+        PicoLifecycleBack.neutral(value,state['controller']['envelope'],max(clocks(before)[1:]))
+        need(value['updatedEpochMs']<=max(clocks(row)[1:])+250)
+
     def observe(self):
-        need(self.bg.status()['foreground']);started=self.bound();requested=self.native.clock_ms()
-        neutral=self.session.require_owned_neutral(self.binding['processIdentity'],self.state['controller']['envelope']) if self.state['stage'] in ('close-issued','closed','quiet-issued','partial-closed') and self.state['controller']['envelope'] is not None else None
-        row=self.upload.read_frame();self.frame(row,self.state)
-        state=deepcopy(self.state);state['frames'].append(row)
-        if neutral is not None and not row['base']['ui']['open']:state['neutrals'].append(dict(frame=len(state['frames'])-1,value=deepcopy(neutral)));state['neutral']=deepcopy(neutral)
-        self.save(state);need(self.native.guard() is not False);epoch=self.native.clock_ms();completed=self.bound();captured=min(clocks(row)[1:])
+        need(self.encoding_version==VERSION and self.bg.status()['foreground']);started=self.bound();requested=self.native.clock_ms();reference=None
+        if self.state['stage'] in ('close-issued','closed','quiet-issued','partial-closed') and self.state['controller']['envelope'] is not None:reference=self.record_status()
+        row=self.upload.read_frame();self.frame(row,self.state);state=deepcopy(self.state);state['frames'].append(row);state['statusFrames'].append(reference)
+        if state['stage']=='partial-closed':state.update(stage='quiet-issued',quiet=[])
+        neutral=None if reference is None else self.statuses.read(reference)['status'];valid=False
+        if reference is not None:
+            try:self.neutral(neutral,row,state);valid=True
+            except Exception:pass  # Preserve the original answer/frame first.
+        if valid and not row['base']['ui']['open']:state['neutrals'].append(dict(frame=len(state['frames'])-1,value=deepcopy(neutral)));state['neutral']=deepcopy(neutral)
+        self.save(state)
+        if reference is not None:self.neutral(neutral,row,state)
+        need(self.native.guard() is not False);epoch=self.native.clock_ms();completed=self.bound();captured=min(clocks(row)[1:])
         need(-250<=epoch-captured and max(epoch-captured,requested-captured+(completed-started)*1000)<=1500);self.anchor=(started,requested,captured);return row
 
     def fence(self):
@@ -248,15 +285,15 @@ class PicoSnapshotCloseOwner:
 
     def prepare(self):
         with self.lock.held():
-            self.load();need(self.state is None or self.state['stage']=='prepare-issued')
+            self.load();need(self.encoding_version==VERSION and (self.state is None or self.state['stage']=='prepare-issued'))
             if self.state is None:
                 value=self.source.status(self.bg.state['source']);self.phase(value)
-                self.save(dict(stage='prepare-issued',source=value,parentSha256=self.parent_sha,frames=[],steps=[],restoration=None,controller=None,neutral=None,neutrals=[],closedGeneration=None,quiet=[],received=None))
+                self.save(dict(stage='prepare-issued',source=value,parentSha256=self.parent_sha,frames=[],statusFrames=[],steps=[],restoration=None,controller=None,neutral=None,neutrals=[],closedGeneration=None,quiet=[],received=None))
             row=self.observe();need(row['base']['ui']['open']);state=deepcopy(self.state);state['stage']='prepared';self.save(state);result=self.report();self.fence();return result
 
     def restore(self):
         with self.lock.held():
-            self.load();need(self.state['stage'] in ('prepared','restore-issued'))
+            self.load();need(self.encoding_version==VERSION and self.state['stage'] in ('prepared','restore-issued'))
             if self.state['stage']=='restore-issued':return self.reconcile()
             for field,options in (('mode',MODES),('format',FORMATS)):
                 row=self.observe();value=self.preference['original'+field.title()];current=row['base']['ui']['picoSnapshotReview']['review'][field]
@@ -275,7 +312,7 @@ class PicoSnapshotCloseOwner:
 
     def close(self):
         with self.lock.held():
-            self.load();need(self.state['stage']=='restored');row=self.observe();need(self.restored(row))
+            self.load();need(self.encoding_version==VERSION and self.state['stage']=='restored');row=self.observe();need(self.restored(row))
             state=deepcopy(self.state);state.update(stage='close-issued',controller=dict(before=len(state['frames'])-1,envelope=None));self.save(state);self.fence();self.current=True
             try:self.snapshot.ui.controller('tablet.close')
             finally:self.current=False
@@ -283,7 +320,7 @@ class PicoSnapshotCloseOwner:
 
     def reconcile(self):
         with self.lock.held():
-            self.load();need(self.state['stage'] in ('restore-issued','close-issued','closed','quiet-issued','partial-closed'))
+            self.load();need(self.encoding_version==VERSION and self.state['stage'] in ('restore-issued','close-issued','closed','quiet-issued','partial-closed'))
             if self.state['stage']=='close-issued':
                 need(self.state['controller']['envelope'] is not None)
             row=self.observe();state=deepcopy(self.state)
@@ -295,25 +332,45 @@ class PicoSnapshotCloseOwner:
 
     def quiet(self):
         with self.lock.held():
-            self.load();need(self.state['stage'] in ('closed','quiet-issued'));state=deepcopy(self.state);state['stage']='quiet-issued';self.save(state)
+            self.load();need(self.encoding_version==VERSION and self.state['stage'] in ('closed','quiet-issued'));state=deepcopy(self.state);state['stage']='quiet-issued';self.save(state)
             start=previous=signature=None;indices=[]
             for attempt in range(65):
-                row=self.observe();need(not row['base']['ui']['open']);value=self.quiet_clocks(row,self.state,len(self.state['frames'])-1);key=self.signature(row)
+                row=self.observe();need(not row['base']['ui']['open']);value=self.quiet_clocks(row,self.state,len(self.state['frames'])-1);key=self.signature(row,self.state,len(self.state['frames'])-1)
                 if start is None or any(b-a>500 for a,b in zip(previous,value)):start=value;signature=key;indices=[]
                 need(key==signature);previous=value;indices.append(len(self.state['frames'])-1);self.fence()
                 if all(b-a>=3000 for a,b in zip(start,value)):
-                    state=deepcopy(self.state);state.update(stage='partial-closed',quiet=[dict(indices=indices)]);self.save(state);result=self.report();self.fence();return result
+                    final=self.record_status();self.neutral(self.statuses.read(final)['status'],row,self.state)
+                    state=deepcopy(self.state);state.update(stage='partial-closed',quiet=[dict(indices=indices,finalStatus=final)]);self.save(state);result=self.report();self.fence();return result
                 need(attempt<64);self.native.sleep(.25)
 
-    @staticmethod
-    def quiet_clocks(row,state,index):
+    def quiet_clocks(self,row,state,index):
+        if self.encoding_version==2:return clocks(row)
         values=[sample['value'] for sample in state['neutrals'] if sample['frame']==index];need(len(values)==1)
         return (*clocks(row),values[0]['updatedEpochMs'])
 
-    def signature(self,row):
-        return sha(dict(work=self.base.scoped_work(row['base']),review=row['base']['ui']['picoSnapshotReview'],generation=row['base']['ui']['generation'],provider=row['provider']['requests']))
+    def status_window(self,state,window):
+        indices=window['indices'];references=[state['statusFrames'][index] for index in indices]
+        need(all(integer(value,0,len(self.statuses.values)-1) for value in references))
+        final=window['finalStatus'];need(integer(final,0,len(self.statuses.values)-1) and references==list(range(references[0],final)))
+        first=self.statuses.read(references[0]);previous=first['observedHostMonotonic'];need(0<=state['frames'][indices[0]]['hostMonotonic']-previous<=.5)
+        for position,reference in enumerate([*references,final]):
+            original=self.statuses.read(reference);row=state['frames'][indices[min(position,len(indices)-1)]];self.neutral(original['status'],row,state)
+            need(typed_equal(original['envelope'],state['controller']['envelope']) and typed_equal(original['status'],first['status'])
+                and 0<=original['observedHostMonotonic']-previous<=.5)
+            previous=original['observedHostMonotonic']
+        need(previous-first['observedHostMonotonic']>=3)
+
+    def signature(self,row,state,index):
+        status=None if self.encoding_version==1 else self.statuses.read(state['statusFrames'][index])['status']
+        value=dict(work=self.base.scoped_work(row['base']),review=row['base']['ui']['picoSnapshotReview'],generation=row['base']['ui']['generation'],provider=row['provider']['requests'])
+        if self.encoding_version==2:value['controllerStatus']=status
+        return sha(value)
 
     def report(self):
+        current=False
+        if self.encoding_version==2 and self.statuses.values and self.state['controller'] is not None:
+            try:self.neutral(self.statuses.values[-1]['original']['status'],self.state['frames'][-1],self.state);current=True
+            except Exception:pass
         return dict(qualification='PICO_SNAPSHOT_NORMAL_CLOSE_COMPONENT_ONLY',stage=self.state['stage'],fullSnapshotRecipe=False,deviceAcceptance=False,
             checkedModeFormatRestored=self.state['restoration'] is not None,tabletClosed=self.state['stage'] in ('closed','quiet-issued','partial-closed'),
-            originalControllerNeutral=self.state['neutral'] is not None,completeSettingsBaseline=False,qtObjectsRetired=False,globalExportExecutorRetired=False,journalRetained=True)
+            originalControllerNeutral=current,continuousOriginalNeutral=self.encoding_version==2 and self.state['stage']=='partial-closed' and self.state['quiet'][0]['finalStatus']==len(self.statuses.values)-1,legacyVersion=1 if self.encoding_version==1 else None,completeSettingsBaseline=False,qtObjectsRetired=False,globalExportExecutorRetired=False,journalRetained=True)
