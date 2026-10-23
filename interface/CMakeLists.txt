@@ -53,9 +53,8 @@ if (HIFI_ANDROID AND HIFI_ANDROID_APP STREQUAL "phoneInterface" AND OVERTE_E2E_V
   add_custom_qrc_path(CUSTOM_INTERFACE_QRC_PATHS
     "${CMAKE_SOURCE_DIR}/tests/device/fixture/scripted_interactable.js"
     "overte-e2e/scripted_interactable.js")
-  add_custom_qrc_path(CUSTOM_INTERFACE_QRC_PATHS
-    "${CMAKE_SOURCE_DIR}/tests/device/fixture/ControlledTextInput.qml"
-    "qml/hifi/ControlledTextInput.qml")
+  # resources/qml/hifi/ControlledTextInput.qml already provides this alias.
+  # Do not add a second fixture provider to the signed resource bundle.
 endif()
 set(RESOURCES_RCC ${CMAKE_CURRENT_BINARY_DIR}/resources.rcc)
 set(INTERFACE_QRC_EXCLUDES "")
