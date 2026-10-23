@@ -716,7 +716,7 @@ int ScriptEngineV8::featureFunctionScriptId(const ScriptValue& function) const {
             || QThread::currentThread()!=_manager->thread() || !_v8Isolate || !_v8Isolate->IsCurrent()) { return 0; }
     const auto original=ScriptValueV8Wrapper::unwrap(function);
     if (!original || original->getV8Engine()!=this) { return 0; }
-    v8::HandleScope handles(_v8Isolate);const auto value=original->toV8Value().get();
+    v8::HandleScope handles(_v8Isolate);const auto value=original->toV8Value().constGet();
     return value.IsEmpty() || !value->IsFunction() ? 0 : featureFunctionScriptId(value.As<v8::Function>());
 }
 
