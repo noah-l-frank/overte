@@ -144,3 +144,30 @@ The next concrete optimization target is avoidable path construction during
 the same full directory scan, followed by the measured strict type walk.
 Complete source bytes, inventory membership, original stamps, hashes and
 final freshness remain independent mandatory checks.
+
+The next exactly one full attempt used the clean fixed
+`f6224f74d1a0bf99b31b1c99014f3e1e322a3ba0` source manifest, including the common
+Root chunk-path dependency. It reached original `completedSteps=15` at 65.439
+seconds and `completedSteps=17` at 92.868 seconds. It ended with a real passive
+remote-source refusal after 94.428 seconds (94.966 seconds outer elapsed),
+before the unchanged 120-second cap. The old test report writer also exceeded
+its unchanged 64-KiB file limit and masked the original suppressed error
+context. No success hook/application/archive/host result was obtained.
+
+Read-only analysis of the retained originals passed the complete cold graph
+grammar. Actor publisher/cursor/code each contain 79 original rows (three
+initial and 76 active); the remote reader remains `reading` with 78 committed
+records and no next child. Its physical uncompressed history totals exactly
+4,750,743 bytes, below 16 MiB, and its frame count is below 512. The last four
+original leaf encoded-data lengths are 46,784/47,904/48,212/48,572 bytes against
+the unchanged 49,152-byte packed-leaf limit. This identifies a concrete packed
+bundle-size suspicion, not a reconstructed original failed sample: that
+unpublished input/context was not persisted by the old writer.
+
+The new [lossless bundle/diagnostic codec](../chat_journey/SOURCE_BUNDLES.md)
+first fixes report masking and proves real oversize/cold reconstruction
+counterexamples without raising any bound. A future remote-reader migration
+must be typed/versioned across live writing, historical return and complete
+archival, count every part and original logical byte, and preserve all actual
+DTO fields/Native histories. No unchanged whole retry was run merely to obtain
+another timeout or to invent the missing source error context.

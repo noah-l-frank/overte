@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import cProfile
 import os
 import pstats
+import sys
 import time
 import unittest
 from unittest.mock import patch
@@ -32,6 +33,7 @@ from self_tests.chat_remote_cleanup_fixture import RemoteActorFixture
 from self_tests.test_chat_script_source import CompiledBoundary
 from self_tests.test_chat_warm_archive import WarmArchiveTests
 from self_tests.test_native_chat_observation import RUN,command as chat_command
+from self_tests import chat_diagnostic
 
 
 class RemoteJourneyTests(RemoteActorFixture,unittest.TestCase):
@@ -54,6 +56,7 @@ class RemoteJourneyTests(RemoteActorFixture,unittest.TestCase):
             return request(path,*args,**kwargs)
         self.p.source.client.request=journal_request
         self.source=self.p.source;self.slot=ChatRemoteCleanupSlot();self.consumer=None;self.reports=[];self.cleanup_calls=0
+        self.report_error=None;self.error_diagnostic_issued=False
         self.started=time.monotonic()
         self.primary=ChatObservationCursor(self.observation(self.p.initial[0],'initial'),w.store(self.directory/'external-primary-cursor.json'))
         self.stores=dict(actor=w.store(self.directory/'remote-actor.json'),flow=self.p.flow.store,
@@ -122,9 +125,22 @@ class RemoteJourneyTests(RemoteActorFixture,unittest.TestCase):
     def report(self,value):
         self.reports.append(value)
         if self.full:
-            PrivateFeatureState(self.host_root/'common-journey-report.json').write(value,None)
+            error=sys.exc_info()[1]
+            if error is not None:self.preserve_error(error)
+            try:
+                chat_diagnostic.write(self.host_root,'common-journey-report',value)
+            except Exception as diagnostic_error:
+                self.report_error=diagnostic_error
+                print('Private diagnostic remained unresolved: '+type(diagnostic_error).__name__,file=sys.stderr,flush=True)
             print('Remote common report sequenceCompleted='+str(value['sequenceCompleted'])+
                 ' cleanupSucceeded='+str(value['cleanupSucceeded'])+' seconds='+str(round(time.monotonic()-self.started,3)),flush=True)
+
+    def preserve_error(self,error):
+        if self.error_diagnostic_issued:return
+        self.error_diagnostic_issued=True
+        try:chat_diagnostic.write(self.host_root,'original-error-contexts',chat_diagnostic.exception(error))
+        except Exception as diagnostic_error:
+            print('Original error diagnostic remained unresolved: '+type(diagnostic_error).__name__,file=sys.stderr,flush=True)
 
     def no_artifact(self,*_args):raise AssertionError('Current common Chat requires only independent peer observations')
 
@@ -214,7 +230,12 @@ class RemoteJourneyTests(RemoteActorFixture,unittest.TestCase):
         print('Actual warm source profile retained in '+str(self.host_root/'actual-warm-source-profile.json'),flush=True)
 
     def test_complete_shared_execute_then_original_remote_app_archive_and_host(self):
-        started=time.monotonic();self.journey.execute()
+        started=time.monotonic()
+        try:self.journey.execute()
+        except BaseException as error:self.preserve_error(error);raise
+        # Report loss cannot overwrite an actual source/cleanup error. On an
+        # otherwise successful execute it still forbids test finalization.
+        if self.report_error is not None:raise self.report_error
         print('Remote common execute completed seconds='+str(round(time.monotonic()-started,3)),flush=True)
         self.assertTrue(self.reports[-1]['sequenceCompleted']);self.assertTrue(self.journey._cleanup_sequence_succeeded)
         self.assertEqual(26,len(self.p.dispatcher.base['steps']));self.assertEqual(2,self.cleanup_calls)

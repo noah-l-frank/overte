@@ -135,6 +135,8 @@ REQUIRED = {
     "native-chat-view": 2,
     "chat-journey-samples": 4,
     "chat-journey-source-chunks": 1,
+    "chat-source-bundles": 1,
+    "chat-host-diagnostic": 1,
     "chat-cache-absence-samples": 1,
     "chat-mixer-owner": 1,
     "chat-normal-input": 2,
