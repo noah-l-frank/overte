@@ -25,7 +25,9 @@ class IndependentAssetsMappings:
         self.sources=(primary,independent);self.locks=tuple(sorted((primary_lock,independent_lock),key=lambda lock:str(lock.path)))
         self.phase=phase;self.history=[];self.seal=canonical([]);self.source_seals=(canonical([]),canonical([]))
         self._sealed_history,self._sealed_sources=self.seal,self.source_seals
+        self.failed=False
     def capture(self):
+        need(not self.failed);self.failed=True
         with ExitStack() as stack:
             for lock in self.locks:stack.enter_context(lock.held())
             json_digest(self.history)
@@ -56,13 +58,22 @@ class IndependentAssetsMappings:
             size=len(canonical(history))+sum(len(canonical(source.history)) for source in self.sources)
             need(counts<=MAX_FRAMES and size<=MAX_RAW)
             seal=canonical(history);source_seals=tuple(canonical(source.history) for source in self.sources)
+            native_epochs=[]
             for source,packet,(started,requested) in zip(self.sources,packets,anchors):
                 need(source.guard() is not False);epoch=source.clock_ms();ended=source.monotonic()
                 need(number(ended,started,started+1.5) and integer(epoch,requested))
                 fresh(packet['capturedEpochMs'],max(epoch,requested+math.ceil((ended-started)*1000)))
-            ended=self.phase.monotonic();epoch=self.phase.epoch_ms()
-            need(number(ended,phase_started,phase_started+1.5) and number(epoch,phase_epoch,phase_epoch+1500))
-            # No result copy, digest or append follows the final original clocks.
-            self.history,self.seal,self.source_seals=history,seal,source_seals
-            self._sealed_history,self._sealed_sources=seal,source_seals
-            return result
+                native_epochs.append(epoch)
+        # Actual clock_ms is independently bound to the existing native epoch
+        # endpoint; it neither acquires SourceLocks nor queries a source packet.
+        # Both clocks after real exits still use the original capture anchors.
+        for source,packet,(started,requested),previous_epoch in zip(self.sources,packets,anchors,native_epochs):
+            epoch=source.clock_ms();ended=source.monotonic()
+            need(integer(epoch,previous_epoch) and number(ended,started,started+1.5))
+            fresh(packet['capturedEpochMs'],max(epoch,requested+math.ceil((ended-started)*1000)))
+        ended=self.phase.monotonic();epoch=self.phase.epoch_ms()
+        need(number(ended,phase_started,phase_started+1.5) and number(epoch,phase_epoch,phase_epoch+1500))
+        # No result copy, digest, append or lock exit follows these final clocks.
+        self.history,self.seal,self.source_seals=history,seal,source_seals
+        self._sealed_history,self._sealed_sources=seal,source_seals;self.failed=False
+        return result
