@@ -19,6 +19,7 @@ from adapters.pico4.snapshot_export_readbacks import os_destinations
 from adapters.pico4.snapshot_saved_files import original_stat
 from adapters.pico4.snapshot_save_originals import SnapshotSaveOriginals
 from adapters.pico4.navigation import PicoNavigation
+from adapters.script_journey.history import pack
 import self_tests.test_pico_snapshot_exports as source_tests
 packet,RUN=source_tests.packet,source_tests.RUN
 
@@ -81,6 +82,55 @@ class SnapshotSaveOriginalsTests(unittest.TestCase):
         self.assertEqual('birth',cold.get('frame',reference)['native']['original'])
         with self.assertRaises(NativeUIError):SnapshotSaveOriginals(owner.root.path,'b'*32,binding)
         with self.assertRaises(NativeUIError):owner.put('reply',dict(ack=True))
+    def cold_ledger(self,*,copy_id='d'*32,capture_present=True):
+        # Only the already-owned Parent native/UI/phase effect proofs are seams.
+        # Exercise the actual persisted Save envelope/chunks, cold load and full
+        # Save state grammar. No cache, native query or input method is supplied.
+        from adapters.normal_feature_state import PrivateFeatureState
+        import adapters.pico4.snapshot_save_owner as module
+        root,binding,originals=self.fixture();owner=object.__new__(PicoSnapshotSaveOwner)
+        capture='a'*32;other='b'*32;ids=[other]+([capture] if capture_present else [])
+        files=dict(source=dict(rows=[dict(id=id) for id in ids]))
+        value=packet(PicoSnapshotExports.envelope(RUN));value['lease']=dict(present=True,native=dict(handle='42'))
+        frame=dict(exports=dict(raw=json.dumps(value)),hostMonotonic=1.)
+        owner.parent=SimpleNamespace(files=SimpleNamespace(state=None),state=dict(frames=[dict(original='parent')],capture=dict(file=dict(fileId=capture))),
+            frame=lambda row:({}, {}, deepcopy(files)))
+        owner.run=RUN;owner.binding=binding;owner.parent_digest='c'*64
+        owner.source=SimpleNamespace(fixture_url='https://original.invalid/fixture')
+        owner.lock=SimpleNamespace(assert_held=lambda:None);owner.pin=lambda:None
+        owner.phase=lambda value:value;owner.artifact_root=lambda:dict(device=1,inode=2)
+        owner.frame=lambda row:({}, {}, deepcopy(files),deepcopy(value));owner.stable_capture=lambda row:None
+        owner.qml=lambda command,row:None;owner.before_export=lambda row,state:None;owner.export_proof=lambda state:None
+        owner.exports=SimpleNamespace(last=value);owner.store=PrivateFeatureState(root/'snapshot-save-owner.json')
+        owner.originals=originals;owner.disk=owner.state=None
+        artifact=dict(name='snapshot-owned-'+RUN+'-'+copy_id+'.bin',bytes=3,sha256='e'*64,phase='planned',file=None,removeIntent=False)
+        read=dict(schemaVersion=1,commandId='1'*32,action='feature-pico-snapshot-exports',runId=RUN,operation='read',exportRequest='2'*32,resourceId='3'*32)
+        state=dict(stage='read-issued',source=dict(original='save-phase'),parentSha256=owner.parent_digest,frames=[frame],
+            deliveries=[dict(kind='qml',command=dict(commandId='f'*32),frame=0)],requests=[read],export=dict(identity=dict(request='2'*32)),
+            readId='3'*32,saved=None,artifacts={copy_id:artifact},artifactRoot=dict(device=1,inode=2),scope=RUN,quiet=[],inspection='',completedInspections={})
+        disk=dict(snapshotSaveOwnerVersion=1,runId=RUN,binding=binding,fixtureUrl=owner.source.fixture_url,payload=pack([originals.encode(state)]))
+        owner.store.write(disk,None)
+        owner.originals=SnapshotSaveOriginals(originals.root.path,RUN,binding)
+        return owner,module
+    def reopen_ledger(self,owner,module):
+        # Unrelated continuity is independently covered by original-source tests;
+        # this counterexample isolates the exact cold ownership/collision boundary.
+        from unittest.mock import patch
+        with patch.object(module.native_source,'accept',side_effect=lambda before,after:after), \
+                patch.object(module,'script_accept',side_effect=lambda before,after:after), \
+                patch.object(module,'file_continuity',return_value=None):
+            owner.load()
+    def test_persisted_cold_save_reopens_without_a_warm_file_cache_or_new_source_input(self):
+        owner,module=self.cold_ledger();self.reopen_ledger(owner,module)
+        self.assertIsNone(owner.parent.files.state);self.assertEqual('read-issued',owner.state['stage'])
+        self.assertEqual({'d'*32},set(owner.state['artifacts']));self.assertEqual(1,len(owner.state['frames']))
+    def test_cold_saved_copy_cannot_collide_with_any_original_native_file_or_lose_original_capture(self):
+        for id,present in (('a'*32,True),('b'*32,True),('d'*32,False)):
+            owner,module=self.cold_ledger(copy_id=id,capture_present=present);before=owner.store.path.read_bytes()
+            with self.subTest(id=id,present=present),self.assertRaises(NativeUIError):self.reopen_ledger(owner,module)
+            self.assertEqual(before,owner.store.path.read_bytes());self.assertIsNone(owner.state)
+            self.assertIsNone(owner.parent.files.state)
+
     def test_orphan_child_or_changed_original_cannot_be_adopted(self):
         root,binding,owner=self.fixture();reference=owner.put('frame',dict(original='immutable'))
         child=owner.history.store(0).path;before=child.read_bytes();child.write_bytes(before+b' ')
