@@ -2628,3 +2628,37 @@ after delivery; no ACK supplies an editor effect. Negative delivery preserves
 its original focused DOM/native metadata and attempted epoch. The enclosing
 v16 phase/script/server/actor/stereo/cleanup composition remains incomplete;
 complete source feature count remains3/14.
+
+
+The current root integration verifies five selected groups in69.83s: coverage10,
+Reader/decoder36 (29.245s), native Environment6 (3.463s), Transit4 (17.212s)
+and normal Navigation prefix14 (19.794s). Navigation sourceacce7adbc1 is
+selected as9dba88cd4e; existing Close v2 remains intact. Original first8 actions
+now compose normal Visit/Home, real Places retirement quiet, normal controller
+Close, closed quiet and original stereo-v2 capture/receipt/memory retirement.
+The native Environment v2 collector uses the actual Manager's passive bounded
+read and independent Account/authURL, refusing active Handles instead of calling
+a getter that can initialize/save one. Browser/Emote/Graphics reverse guards
+also refuse both Navigation capture journals (a30f63c3e4). Public/later feature
+steps and whole final retirement remain incomplete.
+
+Decoderf9df6183a4 is selected as48d3324918 and its seven codec cases are included
+additively in the existing Reader group. The fixed actual61-query source profile
+passes29.821s with170 source hashes and unchanged54/143 full-verification counts;
+measured historical loading saves roughly26ms, not a whole qualification. The
+retained whole still fails at120.014s after19steps, with only2.000/3.000s of the
+mixer-off quiet window. The fixed profile reportaca7803ef5 is selected as9024188a61.
+The Chat agent continues the next executable Lifecycle/Input14 area; no original
+Chat observations are reused as new samples.
+
+Original Baker CPU source07d742f713 is selected as744a51ee2b. Root's two owning
+cases pass77.729s plus coverage0.101s, with227 additive catalog groups. The
+original ModelCache/GeometryResource/worker now executes the real original
+Baker/Task/CPU-Mesh graph; HFM identity is unchanged and actual Buffer/Task/HFM
+roots retire after the worker. Material/texture/geometry-definition/renderer
+work remains an explicit later boundary. The parentless external mesh request
+still survives, so whole Assets cleanup is unavailable. Existing Create resource
+observers and fixed Phone a2bb99d9b9 metadata are read-only reuse references,
+not an integrated material/renderer proof. The Assets agent continues the
+separate actual Create4 Voxel-source/retirement join. Completed source areas
+remain3/14, all devices remain untested and the full APK remains uncompiled.

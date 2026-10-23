@@ -3741,5 +3741,78 @@
     "freshFullSelectedBackendCompilation": true,
     "originalsRetained": true,
     "fullFeatureRecipe": false
+  },
+  "navChatIntegrated20261024": {
+    "status": "passed-selected-groups",
+    "catalogGroups": 226,
+    "selectionSeconds": 69.83,
+    "groups": {
+      "coverage-matrix": {
+        "tests": 10,
+        "selectorSeconds": 0.112
+      },
+      "chat-remote-publication": {
+        "tests": 36,
+        "selectorSeconds": 29.245
+      },
+      "navigation-environment-originals": {
+        "tests": 6,
+        "selectorSeconds": 3.463
+      },
+      "navigation-transit-prefix": {
+        "tests": 4,
+        "selectorSeconds": 17.212
+      },
+      "navigation-normal-prefix": {
+        "tests": 14,
+        "selectorSeconds": 19.794
+      }
+    },
+    "navigationSource": "acce7adbc18c768f8b32c42f85ad101a9385042e",
+    "navigationSelectedAs": "9dba88cd4e",
+    "existingTabletCloseV2Preserved": true,
+    "captureReverseGuards": "a30f63c3e4",
+    "decoderSource": "f9df6183a4bb7ccf37f602757a57442a1da14a02",
+    "decoderSelectedAs": "48d3324918",
+    "originalsRetained": true,
+    "fullFeatureRecipe": false,
+    "deviceAcceptance": false
+  },
+  "chatActualDecoderProfile20261024": {
+    "source": "f9df6183a4",
+    "resultSource": "aca7803ef5",
+    "resultSelectedAs": "9024188a61",
+    "status": "passed",
+    "queries": 61,
+    "durationSeconds": 29.821,
+    "runtimeSources": 170,
+    "manifestSha256": "64eb8b561ed11e9f9e559a18a2a40da00a4bd30f5c7eaac583e3f21bbe62d6e1",
+    "sourceBytesUnchanged": true,
+    "verificationCounts": [
+      54,
+      143
+    ],
+    "wholeQualified": false,
+    "causalOverallSpeedupClaim": false
+  },
+  "assetsBakerRoot20261024": {
+    "source": "07d742f7139bf9ede1137da2a9bba5efb2f1832b",
+    "selectedAs": "744a51ee2b",
+    "status": "passed",
+    "owningCases": 2,
+    "selectorSeconds": 77.729,
+    "coverageSeconds": 0.101,
+    "selectionSeconds": 77.83,
+    "catalogGroups": 227,
+    "agentSeconds": 77.153,
+    "freshNativeCompilation": true,
+    "originalsRetained": true,
+    "actualHfmIdentityUnchanged": true,
+    "actualCpuBufferCountAfterWorker": 0,
+    "actualTaskAndHfmWeakRootsDead": true,
+    "externalMeshRequestStillAlive": true,
+    "materialsTexturesRendererQualified": false,
+    "fullFeatureRecipe": false,
+    "deviceAcceptance": false
   }
 }
