@@ -264,7 +264,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         """Keep the completed journal valid without acquiring another sample."""
         self.feature.lock.assert_held();last=self.state['last'];need(last is not None)
         sample=last['original']['sample']
-        need(self.state['pending'] is None and self.state['primaryCue'] is not None
+        need(self.state['pending'] is None and (self.state['primaryCue'] is not None or self.read_ready_mode() is None)
             and last['original']['issued'] is True and same({key:last['receipt'][key] for key in sample},sample))
 
     def primary_continuity(self,status=None):
@@ -622,7 +622,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                 # A finished interval still needs a new own acquisition.
                 # Release preparation so a waiting Primary can replay its
                 # immutable history before this actor captures the next fact.
-                published=(mode is not None and self.state['last'] is not None
+                published=(self.state['last'] is not None
                     and self.state['last']['original']['sample']['ticket']==status['activations'][-1]['ticket'])
                 cue=self.primary_cue(status) if published or self.state['quiet'] is not None and self.state['quiet']['complete'] else None
                 if published and cue is None:
@@ -645,7 +645,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                 if verb=='cleanup' and f.state['phase']!='cleaned':return False
                 if verb!='cleanup' and f.state['phase']=='cleaned':return False
                 if verb=='cleanup':self._cleanup_started=True
-                if (verb=='cleanup' and mode is not None and self.state['last'] is not None
+                if (verb=='cleanup' and self.state['last'] is not None
                         and self.state['last']['original']['sample']['ticket']==current['ticket']
                         and self.primary_cue(status) is None):
                     self.cleanup_receipt();return False
@@ -804,8 +804,12 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                 self.cleanup_phase(status,prepared['phase'])
             cue=None
             mode=self.read_ready_mode()
+            # Legacy cleanup has no enrolled Primary slot producer. Preserve
+            # any already known scheduling floor without requiring its advance;
+            # publication still requires a new own read and real quiet proof.
+            if mode is None:self.primary_continuity(status)
             if batch_cue is not None:self.primary_owner()
-            published=(mode is not None and self.state['last'] is not None
+            published=(self.state['last'] is not None
                 and self.state['last']['original']['sample']['ticket']==status['activations'][-1]['ticket'])
             if published:
                 cue=self.primary_cue(status)
@@ -817,7 +821,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                 # The Primary header is scheduling authority only; the next
                 # fact still comes from a new full independent acquisition.
                 cue=self.primary_cue(status)
-                if cue is None and self.state['quiet'] is not None and self.state['quiet']['complete']:
+                if mode is not None and cue is None and self.state['quiet'] is not None and self.state['quiet']['complete']:
                     self.retain_cleanup(role,status);return False
             if batch_cue is not None:need(cue is not None and same(cue,batch_cue))
             elif mode is not None and cue is not None:batch_cue=deepcopy(cue)
@@ -846,12 +850,14 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             self.save()
             if quiet['complete']:
                 if cue is None:cue=self.primary_cue(status)
-                if cue is None:
+                if mode is not None and cue is None:
                     self.retain_cleanup(role,status);return False
-                self._ordinary_primary=deepcopy(cue['header']);self.primary_owner()
+                if cue is not None:
+                    self._ordinary_primary=deepcopy(cue['header']);self.primary_owner()
                 sample=dict(ticket=status['activations'][-1]['ticket'],actor='owned-observer',actorSequence=measured['sequence'],capturedEpochMs=measured['capturedEpochMs'],
                     facts={key:deepcopy(measured['state'][key]) for key in WITNESS_KEYS['snapshots']})
-                self.state.update(primaryCue=cue,pending=dict(sample=sample,issued=False));self.save();self.deliver()
+                if cue is not None:self.state['primaryCue']=cue
+                self.state['pending']=dict(sample=sample,issued=False);self.save();self.deliver()
                 self.retain_cleanup(role,status);return False
             # Only an actual unconsumed slot permits a bounded quiet rebuild
             # while its Primary waits unlocked. Initial warmup yields once.

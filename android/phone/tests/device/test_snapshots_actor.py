@@ -105,11 +105,21 @@ def cleanup_frontier_actor(boundary,url,queue,command):
     f.phase.provider=lambda:dict(boundary.provider,active=phase.status()['active'])
     f.monotonic,f.sleep=time.monotonic,time.sleep
     actor=PhoneSnapshotsActor(f);counts=dict(reads=0,posts=0);points=[];lose_reply=[False];lost_replies=[0]
-    pause_warm=[False];memory_mutated=[False]
+    pause_warm=[False];memory_mutated=[False];read_fault=[None];cached_read=[None]
+    actual_reads=[0];ignored_reads=[0];foreign_sources=[0];quiet_stops=[0]
+    native_source=boundary.native_source.mutate
+    def native(value):
+        native_source(value)
+        if read_fault[0]=='foreign-native':value['processId']=999;foreign_sources[0]+=1
+    boundary.native_source.mutate=native
     original_read=PhoneSnapshotsRole.read;original_quiet=module.quiet_window;request=actor.client.request
     def read(role,*args,**kwargs):
         counts['reads']+=1
-        return original_read(role,*args,**kwargs)
+        if read_fault[0]=='ignored':
+            assert cached_read[0] is not None
+            ignored_reads[0]+=1;return deepcopy(cached_read[0])
+        actual_reads[0]+=1
+        value=original_read(role,*args,**kwargs);cached_read[0]=deepcopy(value);return value
     def quiet(previous,now,sequence):
         result=original_quiet(previous,now,sequence)
         points.append(dict(previousLast=None if previous is None else previous['last'],
@@ -159,13 +169,22 @@ def cleanup_frontier_actor(boundary,url,queue,command):
                     actor=PhoneSnapshotsActor(f)
                     # The same actual Client retains only its transport wrapper.
                 lose_reply[0]=instruction.get('loseReply',False);pause_warm[0]=instruction.get('pauseWarm',False)
+                read_fault[0]=instruction.get('readFault');save=actor.save
+                def saved_quiet():
+                    save()
+                    if (instruction.get('stopAfterQuiet') and actor.state['quiet'] is not None
+                            and actor.state['quiet']['complete'] and actor.state['last'] is actor.state['pending'] is None):
+                        quiet_stops[0]+=1
+                        raise NativeUIError('Controlled interruption after actual durable quiet, before any publication')
                 first=len(points);error=None;result=None
-                try:result=actor.step()
+                try:
+                    with patch.object(actor,'save',saved_quiet):result=actor.step()
                 except Exception as caught:error=dict(error=type(caught).__name__,message=str(caught))
                 header=PrivateFeatureState(boundary.root/'phone-snapshots-actor-originals.json').read()
                 queue.put(dict(error=error,result=result,pid=os.getpid(),counts=deepcopy(counts),
                     points=deepcopy(points[first:]),state=deepcopy(actor.state),roleHeader=header,lostReplies=lost_replies[0],memoryMutated=memory_mutated[0],
-                    actorHeader=PrivateFeatureState(boundary.root/'phone-snapshots-actor-lifecycle.json').read()))
+                    actorHeader=PrivateFeatureState(boundary.root/'phone-snapshots-actor-lifecycle.json').read(),
+                    actualReads=actual_reads[0],ignoredReads=ignored_reads[0],foreignSources=foreign_sources[0],quietStops=quiet_stops[0]))
         raise RuntimeError('Cleanup frontier IPC command expired')
     except Exception as error:
         queue.put(dict(fatal=type(error).__name__,message=str(error)))
@@ -226,7 +245,9 @@ class SnapshotsActorTests(unittest.TestCase):
                 except (BrokenPipeError,EOFError,OSError):pass
                 process.join(3)
             if process.is_alive():process.terminate();process.join(3)
-            parent.close();queue.close()
+            parent.close();queue.close();queue.join_thread()
+            self.assertFalse(process.is_alive(),'Owned cleanup Actor did not stop')
+            self.assertEqual(0,process.exitcode,'Owned cleanup Actor did not exit normally')
         self.addCleanup(stop)
         def step(*,at_gap=None,**instruction):
             self.assertTrue(process.is_alive())
@@ -414,16 +435,57 @@ class SnapshotsActorTests(unittest.TestCase):
     def test_cleanup_frontier_rejects_a_missing_known_primary_owner(self):self.cleanup_frontier_header_counter('missing')
     def test_cleanup_frontier_rejects_an_actual_earlier_primary_header(self):self.cleanup_frontier_header_counter('regressed')
 
-    def test_cleanup_without_ready_frontier_keeps_actual_quiet_progress(self):
-        step=self.cleanup_frontier(ready=False);waiting=step();self.assertIsNone(waiting['error'],waiting)
-        self.assertGreaterEqual(waiting['counts']['reads'],3);self.assertEqual(0,waiting['counts']['posts'])
+    def test_cleanup_without_ready_frontier_publishes_first_actual_quiet_then_waits(self):
+        step=self.cleanup_frontier(ready=False);waiting=self.completed_frontier(step)
+        self.assertGreaterEqual(waiting['actualReads'],3)
         quiet=waiting['state']['quiet'];self.assertTrue(quiet['complete'])
         self.assertGreaterEqual(quiet['last']-quiet['started'],3);self.assertGreaterEqual(len(quiet['sequences']),3)
-        self.assertIsNone(waiting['state']['primaryCue']);self.assertIsNone(waiting['state']['last'])
-        self.assertFalse(self.reader.request('/runs/'+RUN)['entries'])
+        self.assertIsNone(waiting['state']['primaryCue'])
+        self.assertEqual(self.capture_primary_header,PrivateFeatureState(self.root/'phone-snapshots-primary-originals.json').read())
+        held=step();self.assertIsNone(held['error'],held);self.assert_no_further_acquisition(waiting,held)
+        self.assertEqual(waiting['actorHeader'],held['actorHeader']);self.assertEqual(waiting['state'],held['state'])
         self.advance_cleanup_primary();fresh=step();self.assertIsNone(fresh['error'],fresh)
-        self.assertGreater(fresh['counts']['reads'],waiting['counts']['reads']);self.assertEqual(1,fresh['counts']['posts'])
+        self.assertGreater(fresh['actualReads'],waiting['actualReads']);self.assertEqual(2,fresh['counts']['posts'])
         self.assertEqual(fresh['state']['quiet']['sequences'][-1],fresh['state']['last']['original']['sample']['actorSequence'])
+
+    def interrupted_uncued_quiet(self):
+        step=self.cleanup_frontier(ready=False);value=step(stopAfterQuiet=True)
+        self.assertEqual('NativeUIError',value['error']['error'],value);self.assertEqual(1,value['quietStops'])
+        quiet=value['state']['quiet'];self.assertTrue(quiet['complete'])
+        self.assertGreaterEqual(quiet['last']-quiet['started'],3);self.assertGreaterEqual(len(quiet['sequences']),3)
+        self.assertGreaterEqual(value['actualReads'],3);self.assertEqual(0,value['counts']['posts'])
+        self.assertIsNone(value['state']['pending']);self.assertIsNone(value['state']['last'])
+        self.assertIsNone(value['state']['primaryCue']);self.assertFalse(self.reader.request('/runs/'+RUN)['entries'])
+        self.assertEqual(quiet,unpack(value['actorHeader']['payload'])[0]['quiet'])
+        return step,value
+
+    def test_legacy_saved_complete_quiet_requires_new_read_and_real_gap_reset_before_first_receipt(self):
+        step,first=self.interrupted_uncued_quiet();time.sleep(1.6)
+        fresh=step(cold=True);self.assertIsNone(fresh['error'],fresh)
+        self.assertGreater(fresh['actualReads'],first['actualReads']);self.assertGreaterEqual(len(fresh['points']),3)
+        point=fresh['points'][0];self.assertGreater(point['last']-point['previousLast'],1.5)
+        self.assertEqual(point['started'],point['last']);self.assertFalse(point['complete'])
+        quiet=fresh['state']['quiet'];self.assertTrue(quiet['complete'])
+        self.assertGreaterEqual(quiet['last']-quiet['started'],3);self.assertGreaterEqual(len(quiet['sequences']),3)
+        self.assertEqual(1,fresh['counts']['posts']);self.assertIsNone(fresh['state']['primaryCue'])
+        self.assertEqual(quiet['sequences'][-1],fresh['state']['last']['original']['sample']['actorSequence'])
+        held=step();self.assertIsNone(held['error'],held);self.assert_no_further_acquisition(fresh,held)
+        self.assertEqual(fresh['actorHeader'],held['actorHeader']);self.assertEqual(fresh['state'],held['state'])
+
+    def test_legacy_saved_complete_quiet_cannot_publish_an_ignored_read_returning_old_facts(self):
+        step,first=self.interrupted_uncued_quiet()
+        rejected=step(cold=True,readFault='ignored');self.assertEqual('NativeUIError',rejected['error']['error'],rejected)
+        self.assertEqual(first['actualReads'],rejected['actualReads']);self.assertEqual(1,rejected['ignoredReads'])
+        self.assertEqual(first['counts']['reads']+1,rejected['counts']['reads']);self.assertEqual(0,rejected['counts']['posts'])
+        self.assertEqual(first['actorHeader'],rejected['actorHeader']);self.assertEqual(first['roleHeader'],rejected['roleHeader'])
+        self.assertEqual([],rejected['points']);self.assertFalse(self.reader.request('/runs/'+RUN)['entries'])
+
+    def test_legacy_saved_complete_quiet_cannot_publish_a_foreign_actual_native_source(self):
+        step,first=self.interrupted_uncued_quiet()
+        rejected=step(cold=True,readFault='foreign-native');self.assertEqual('NativeUIError',rejected['error']['error'],rejected)
+        self.assertGreater(rejected['actualReads'],first['actualReads']);self.assertGreater(rejected['foreignSources'],0)
+        self.assertEqual(0,rejected['counts']['posts']);self.assertEqual(first['actorHeader'],rejected['actorHeader'])
+        self.assertEqual([],rejected['points']);self.assertFalse(self.reader.request('/runs/'+RUN)['entries'])
 
     def test_cleanup_uncertain_post_recovers_receipt_without_reacquiring_or_reposting(self):
         step=self.cleanup_frontier();uncertain=step(loseReply=True)
