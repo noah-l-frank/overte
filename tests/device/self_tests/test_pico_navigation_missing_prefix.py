@@ -145,7 +145,7 @@ class NavigationMissingPrefixTests(unittest.TestCase):
         for verb in prefix.VERBS[:8]:self.flow.act(self.activate(verb))
     def test_continuous_nine_normal_steps_tls404_and_independent_visible_original_modal(self):
         self.flow.prepare();self.flow.observe();actor=self.make('actor');actor.observe()
-        for index,verb in enumerate(prefix.VERBS):
+        for index,verb in enumerate(prefix.VERBS[:9]):
             self.flow.act(self.activate(verb));actual=self.flow.observe();peer=actor.observe()
             expected=expand(SCENARIOS['world-navigation']['steps'][index]['state'],context(prefix.RUN))
             if index==8:self.assertIn(actual['state']['addressDialog'],expected.pop('addressDialog')['oneOf'])

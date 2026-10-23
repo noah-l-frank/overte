@@ -1162,8 +1162,17 @@ def create_adapter(args, base_class):
                     root/'navigation-prefix-missing.json',run,manager.binding,provider_instance,inputs,owned_origin,guard,
                     monotonic=native.monotonic,sleep=native.sleep)
                 return NavigationMissingJoin(parent,lookup,root/'navigation-prefix-missing-join.json')
+            def dismissal_factory(parent):
+                from adapters.navigation_error_dismissal import NavigationErrorDismissal
+                from adapters.pico4.normal_navigation_error import PicoNavigationErrorIO
+                from adapters.token_navigation_error_ui import TokenNavigationErrorUI
+                from adapters.pico4.navigation_dismissal_join import NavigationDismissalJoin
+                child=NavigationErrorDismissal(lambda intent:TokenNavigationErrorUI(PicoNavigationErrorIO(manager.ui.io),intent,run),
+                    source.readers['replies'],source.readers['modals'],status,root/'navigation-prefix-dismissal.json',run,manager.binding,
+                    provider_instance,inputs,owned_origin,guard,monotonic=native.monotonic,sleep=native.sleep)
+                return NavigationDismissalJoin(parent,parent.missing(),child,manager.ui,self._graphics_ui_observer(target),root/'navigation-prefix-dismissal-join.json')
             return NavigationPrefix(root/'navigation-prefix-owner.json',source,phase_source,lock,origin,directory,bookmarks,
-                self.pico_input_session(target),role=role,monotonic=native.monotonic,transit_factory=transit_factory,missing_factory=missing_factory)
+                self.pico_input_session(target),role=role,monotonic=native.monotonic,transit_factory=transit_factory,missing_factory=missing_factory,dismissal_factory=dismissal_factory)
 
         def _navigation_world_render_store(self,target,role):
             _need(role in ('primary','actor'))
