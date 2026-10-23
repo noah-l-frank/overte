@@ -66,7 +66,7 @@ class PicoSnapshotCancelOwner:
         self.prefix='parity-'+run[:16]+'-animated'
         self.still_prefix='parity-'+run[:16]+'-still-png';self.encoding_version=VERSION;self.decoded_cache={}
         self.disk=self.state=self.anchor=self.controller_anchor=self.controller_envelope=None
-        self.current=False;self.last_clock=None;self.save_owner=None
+        self.current=False;self.last_clock=None;self.save_owner=None;self.close_owner=None
         with session._lock():self.session_origin=deepcopy(session._load())
         self.reviewed=json.loads(Path(__file__).with_name('snapshot-script-pin.v1.json').read_text())
         self.qml_callback=self.before_qml;self.cancel_callback=self.before_cancel;self.file_callback=self.before_file
@@ -355,8 +355,15 @@ class PicoSnapshotCancelOwner:
             and (self.save_owner is None or self.save_owner is owner))
         self.save_owner=owner
 
+    def bind_close_owner(self,owner):
+        from adapters.pico4.snapshot_close_owner import PicoSnapshotCloseOwner
+        need(isinstance(owner,PicoSnapshotCloseOwner) and owner.base is self and owner.lock is self.lock
+            and (getattr(self,'close_owner',None) is None or self.close_owner is owner))
+        self.close_owner=owner
+
     def before_qml(self,command):
         self.lock.assert_held()
+        if getattr(self,'close_owner',None) is not None:self.close_owner.before_qml(command);return
         if self.state['stage']=='still-ready' and self.save_owner is not None:
             self.save_owner.before_qml(command);return
         need(self.current);self.allowed(command,self.state['stage']);self.append_frame()
@@ -378,14 +385,17 @@ class PicoSnapshotCancelOwner:
         self.append_frame();self.delivery('cancel',command);self.fence()
 
     def before_controller(self,operation):
+        if getattr(self,'close_owner',None) is not None:self.close_owner.before_controller(operation);return
         self.lock.assert_held();need(self.current and self.state['stage']=='open-issued' and operation=='tablet.open')
         self.append_frame();self.controller_anchor=self.fence();self.controller_envelope=None
 
     def controller_intent(self,envelope):
+        if getattr(self,'close_owner',None) is not None:self.close_owner.controller_intent(envelope);return
         self.lock.assert_held();need(self.controller_anchor is not None and self.controller_envelope is None)
         self.delivery('controller',envelope,host_only=True);self.controller_envelope=deepcopy(envelope);self.before_publish(envelope)
 
     def before_publish(self,envelope):
+        if getattr(self,'close_owner',None) is not None:self.close_owner.before_publish(envelope);return
         need(typed_equal(self.controller_envelope,envelope) and self.controller_anchor is not None)
         started,age=self.controller_anchor;now=self.native.monotonic();need(number(now,started,1e15) and age+(now-started)*1000<=1500)
 

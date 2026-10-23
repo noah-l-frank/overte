@@ -103,7 +103,7 @@ class PicoSnapshotBackgroundOwner:
         self.bound();row=self.os_status(deepcopy(self.binding));exact(row,{'binding','foreground','running'})
         need(typed_equal(row['binding'],self.binding) and type(row['foreground']) is bool and row['running'] is True);self.bound();return deepcopy(row)
 
-    def frame(self,row,*,returned,historical=False):
+    def stable_frame(self,row,*,returned,historical=False):
         native,script,files,upload,account=frame_packet(row,self.run,self.pid,self.binding['sessionId'])
         before=frame_packet(self.origin,self.run,self.pid,self.binding['sessionId']);old_native,old_script,old_files,old_upload,old_account=before
         if not historical:
@@ -114,8 +114,6 @@ class PicoSnapshotBackgroundOwner:
             and typed_equal(files['source']['rows'],old_files['source']['rows'])
             and all(typed_equal(row['base']['inventory'][key],self.origin['base']['inventory'][key]) for key in ('files','rows'))
             and typed_equal(upload['source']['jobs'],old_upload['source']['jobs']) and typed_equal(upload['source']['events'],old_upload['source']['events']))
-        ui,old_ui=row['base']['ui'],self.origin['base']['ui'];need(ui['open'] and ui['ready'] and ui['generation']==old_ui['generation']
-            and typed_equal(ui['picoSnapshotReview'],old_ui['picoSnapshotReview']))
         lifecycle,old=account['lifecycle'],old_account['lifecycle']
         need(account['instance']==old_account['instance'] and lifecycle['launches']==old['launches']
             and all(typed_equal(account['account'][key],old_account['account'][key]) for key in ('loggedIn','principalSha256'))
@@ -129,6 +127,12 @@ class PicoSnapshotBackgroundOwner:
         provider=row['provider'];mutation_scope(provider,self.origin['provider'],[])
         need(provider['uploads']==self.origin['provider']['uploads'] and provider['stories']==self.origin['provider']['stories']==1
             and not provider['inflight'] and not provider['held'])
+        return account
+
+    def frame(self,row,*,returned,historical=False):
+        account=self.stable_frame(row,returned=returned,historical=historical)
+        ui,old_ui=row['base']['ui'],self.origin['base']['ui'];need(ui['open'] and ui['ready'] and ui['generation']==old_ui['generation']
+            and typed_equal(ui['picoSnapshotReview'],old_ui['picoSnapshotReview']))
         return account
 
     def validate(self,state):
