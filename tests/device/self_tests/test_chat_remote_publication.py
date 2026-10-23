@@ -20,6 +20,7 @@ from unittest.mock import patch
 
 from adapters.chat_journey.remote_publication import ChatRemotePublication,original_record
 from adapters.chat_journey.source_chunks import ChatSourceChunks
+from adapters.chat_journey import source_bundles
 from adapters.script_journey.history import canonical,pack,MAX_PACKED,MAX_RAW
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
@@ -182,6 +183,28 @@ class ChatRemotePublicationTests(unittest.TestCase):
         self.assertLessEqual(len(root['chunks']),512);self.assertLessEqual(root['logicalBytes'],MAX_RAW)
         self.assertLessEqual(owner.history.raw_bytes,MAX_RAW);self.assertIsNone(owner.stop_intent)
         print(json.dumps(summary,sort_keys=True),flush=True)
+
+    def test_historical_original_rejects_alias_injected_during_literal_read_without_process_guard(self):
+        owner=self.owner;owner.acquire(0);original=source_bundles.original
+        def forbidden():raise AssertionError('Historical original must not probe a returned process')
+        owner.process.guard=forbidden;self.assertEqual(owner.rows[0],owner.original(0))
+        def alias(*args):
+            result=original(*args)
+            facts=owner.rows[0]['received']['entries'][0]['facts'];facts['messages']=tuple(facts['messages'])
+            return result
+        with patch.object(source_bundles,'original',side_effect=alias),self.assertRaises(NativeUIError):owner.original(0)
+        self.assertTrue(owner.failed)
+        with self.assertRaises(NativeUIError):owner.original(0)
+
+    def test_historical_original_rejects_path_change_during_literal_read_without_process_guard(self):
+        owner=self.owner;owner.acquire(0);original=source_bundles.original
+        def forbidden():raise AssertionError('Historical original must not probe a returned process')
+        owner.process.guard=forbidden
+        def changed(*args):
+            result=original(*args);owner.stores['code'].path=owner.stores['code'].path.with_name('foreign-code.json');return result
+        with patch.object(source_bundles,'original',side_effect=changed),self.assertRaises(NativeUIError):owner.original(0)
+        self.assertTrue(owner.failed)
+        with self.assertRaises(NativeUIError):owner.original(0)
 
     def test_final_cas_native_jump_with_frozen_host_keeps_originals_unqualified(self):
         owner=self.owner;write=owner.store.write

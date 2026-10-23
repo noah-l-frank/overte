@@ -220,12 +220,46 @@ original phase/extra-post/physical-replacement/type/old-clock/freeze counters
 passed in 6.439 seconds. A separate pure v1-storage test passed in 0.063
 seconds; it restores no missing clocks or live source.
 
-The existing passing Reader component entrypoint is now
-`remote_publication_component_tests()`, retaining all 14 cases. A new separately
-named actual oversize-publication diagnostic is intentionally excluded until
-its dedicated measured run. It uses only genuine new Actor queries and stops
+The passing Reader component entrypoint is
+`remote_publication_component_tests()`. The separately named actual
+oversize-publication diagnostic is excluded from that shorter selection.
+It uses only genuine new Actor queries and stops
 at an observed original packed-leaf overrun; no requested checkpoint/state is
 injected. Full return/archive integration and that storage diagnostic must be
 checked before another full common-executor attempt. Public Chat remains
 disabled, and neither the 94-second refused run nor fragment tests imply a
 successful whole journey.
+
+The actual oversize-publication case subsequently passed 1/1 in 74.341 seconds
+(74.593 outer elapsed). Its 56 complete original records used 111 actual
+physical parts. The last original contained 93,305 canonical bytes and its
+unchanged old `pack()` representation required 49,224 encoded bytes, actually
+exceeding the unchanged 49,152-byte limit; old packing refused as expected.
+The v3 value reconstructed byte-for-byte with SHA256
+`363b13a3b492620b7ac0092013901da1bb2564ede6119cbaa13ca5ba729e2120`.
+Logical originals totalled 3,964,722 bytes and physical fragment frames
+2,160,188 bytes, each below its original 16-MiB budget. Every one of the 111
+parts counted against the original 512-frame budget. Original files and the
+storage summary remain retained; no input state or checkpoint was requested.
+
+A separate read-only cold pass through those same retained files reconstructed
+all 56 records/111 parts in 0.353769 seconds with the same last-original SHA.
+It created no live owner, made no native query and granted no current sample.
+Neither storage check qualifies the remaining true shared execution,
+application/IPC, whole archive or final host lifetime.
+
+Historical `original(index)` now checks its original warm JSON/type/digest and
+fixed-path identities before and after literal reconstruction, together with
+the original physical checks. These metadata/physical halves contain no live
+process or foreground observation; normal live `control()` retains its original
+metadata → actual process guard → physical-check order. Historical failures
+latch the reader and cannot be retried after restoring a mutated cache.
+
+Two actual counters first demonstrated the gap (both red, 1.646 seconds): a
+same-canonical list→tuple alias or a source path change injected during the
+literal read passed the old post-copy comparison. Both now refuse without
+invoking a deliberately forbidden process guard. Those counters, repeated-read
+refusal and the original cold-storage compatibility case passed 3/3 in 3.255
+seconds. The short Reader selector now contains all 16 component cases exactly
+once; the one actual oversize-storage diagnostic remains separate. No second
+long oversize run was repeated to test these local fences.
