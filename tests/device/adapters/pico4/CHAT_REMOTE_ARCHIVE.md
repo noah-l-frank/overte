@@ -349,3 +349,27 @@ pending bundle. Both seals and every original physical fragment remain in the
 catalog. This rechecks compatibility across real host return and kernel ESRCH;
 it does not claim application/IPC/archive retirement, whole host finalization,
 native product/device qualification or successful true common execution.
+
+One changed whole attempt then ran on clean fixed
+`4c306b25b04ca9e6086d89c7d158f5c14a0b5a17`, with e8 code and the same
+120-second bound. All 169 source bytes/HEAD matched before and after,
+manifest SHA-256
+`6341e9987789f815751acbaf84c0621efa3d751af3ff3be1ea52248136297d9e`.
+It ended with timeout exit 124 after 120.014 s. The original complete
+background child/dispatcher/flow join returned again, with parent step 18
+completed at 94.495 s. Step 19 `network-remove-mixer` completed at 104.265 s;
+no next input was issued. The ready Reader retains 93 logical originals/168
+physical parts, 6,514,466 logical bytes and no pending bundle. All original
+files remain retained; no true common hook/app/IPC/archive/host result exists.
+
+Read-only replay of both original histories narrows this boundary further.
+There are exactly nine complete primary samples and nine independently
+published Actor observations for that actual mixer-removal phase. Each primary
+state and Actor fact set satisfies the unchanged common expected state.
+Their captured epochs are 59,550 through 61,550 ms at the original 250-ms
+cadence, a 2,000-ms span. The actual negative checkpoint still requires
+3,000 ms. The primary global cursor remains `reading` for its next query,
+with 93 completed rows; its incomplete transaction is not adopted. These
+facts show matching progress without a completed quiet window. They do not
+permit shortening the cadence/window, relabeling a sample or retrying an
+uncertain input. Another unchanged whole retry is not scheduled.
