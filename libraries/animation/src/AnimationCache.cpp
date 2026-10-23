@@ -219,11 +219,11 @@ QVariantMap AnimationCache::featureResourceObservation() {
         if (_resources.size()>1024) { return unavailable; }
         original=_resources; // Weak owners only; no resource creation or load.
     }
-    int slots=0,expired=0;QHash<QString,QVariantMap> rows;
+    int slotCount=0,expired=0;QHash<QString,QVariantMap> rows;
     QList<QPair<QWeakPointer<Resource>,bool>> observed;
     for (auto urls=original.constBegin();urls!=original.constEnd();++urls) {
         for (auto slot=urls.value().constBegin();slot!=urls.value().constEnd();++slot) {
-            if (++slots>1024) { return unavailable; }
+            if (++slotCount>1024) { return unavailable; }
             // Drop all temporary strong refs outside the registry read lock.
             // Resource state/HFM publication belongs to the actual GUI thread.
             const auto resource=slot.value().toStrongRef();
@@ -254,7 +254,7 @@ QVariantMap AnimationCache::featureResourceObservation() {
     }
     auto ids=rows.keys();std::sort(ids.begin(),ids.end());QVariantList resources;
     for (const auto& id:ids) { resources.append(rows.value(id)); }
-    return {{"complete",true},{"registrySlots",slots},{"expiredSlots",expired},{"resources",resources}};
+    return {{"complete",true},{"registrySlots",slotCount},{"expiredSlots",expired},{"resources",resources}};
 }
 
 QVariantMap Animation::featureResourceObservation() const {
