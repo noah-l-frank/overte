@@ -14,16 +14,30 @@ checks original Qt keys, pointer state and UIKit keyboard geometry inside its
 original native acquisition window. An unreleased key blocks admission and
 retains the incomplete acquisition and its input owner.
 
-Four focused host cases cover unchanged historical replay after SDK disappearance,
+`navigation_initial_comparison.compare` joins the actual untouched image to a
+later image from that same process and GPU source. It requires distinct original
+requests/frames, increasing counters, the original extent/view and a full-target
+RGBA comparison. A later modeled background change outside the feature marker
+passes source acquisition but fails this comparison.
+
+`navigation_initial_quiet.compose` additionally joins at least three actual
+source/image/input cuts across separate original host, native, Qt-key and pointer
+windows of at least three seconds. Continued callbacks/input events, a reused
+frame or a shorter window cannot qualify quiet. This keeps retained UI roots
+explicit until a later independent OS end.
+
+Seven focused host cases cover unchanged historical replay after SDK disappearance,
 actual retained roots and original PNG bytes, original unreleased-key rejection,
-and changed scene/process/preferences/source/clock/root counterexamples. Normal
+changed scene/process/preferences/source/clock/root counterexamples, the full
+pixel comparison and original quiet windows. A real later modeled pointer
+contact and three genuine cuts without three seconds are rejected. Normal
 input, HTTP, source decoders, private files and PNG ownership are real; native,
 Qt, GPU and SDK behavior and acquisition clocks are explicitly modeled. The
 first modeled producer lacked ordinary static return; it was extended before
 future responses, without rewriting retained packets. A subsequent check also
 caught and corrected the initial-process surface-journal namespace.
 
-This component does not yet provide full-target baseline pixel comparison,
-three-second paired quiet, cleanup/Actor publication/terminal integration or
-partially completed preparation retirement. Worlds remains partial; no complete
+This component does not yet provide paired role quiet, whole cleanup/Actor
+publication/terminal integration or partially completed preparation retirement.
+Worlds remains partial; no complete
 capability, compilation or device qualification is claimed.

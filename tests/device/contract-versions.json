@@ -508,6 +508,8 @@
     "ios-navigation-initial-restored-state": {"current": 1, "reads": [1]},
     "ios-navigation-initial-restored-image": {"current": 1, "reads": [1]},
     "ios-navigation-initial-restored-original": {"current": 1, "reads": [1]},
+    "ios-navigation-initial-static-comparison": {"current": 1, "reads": [1]},
+    "ios-navigation-initial-quiet-period": {"current": 1, "reads": [1]},
     "ios-navigation-restored-image": {"current": 1, "reads": [1]},
     "ios-navigation-restored-original": {"current": 1, "reads": [1]},
     "ios-navigation-static-comparison": {"current": 1, "reads": [1]},

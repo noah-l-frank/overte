@@ -496,6 +496,8 @@ REQUIRED = {
     "ios-navigation-initial-restored-state": 1,
     "ios-navigation-initial-restored-image": 1,
     "ios-navigation-initial-restored-original": 1,
+    "ios-navigation-initial-static-comparison": 1,
+    "ios-navigation-initial-quiet-period": 1,
     "ios-navigation-restored-image": 1,
     "ios-navigation-restored-original": 1,
     "ios-navigation-static-comparison": 1,
