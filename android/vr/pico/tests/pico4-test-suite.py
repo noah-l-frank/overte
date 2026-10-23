@@ -60,6 +60,7 @@ TESTS = (
     test('chat-cursor-cleanup-consumption', "interaction", PYTHON, "pico-chat-application-close-test.py", 'cursor-cleanup-consumption'),
     test('chat-cursor-archive', "interaction", PYTHON, "pico-chat-application-close-test.py", 'cursor-archive'),
     test('chat-cursor-actor', "interaction", PYTHON, "pico-chat-application-close-test.py", 'cursor-actor'),
+    test('chat-cursor-stop', "interaction", PYTHON, "pico-chat-application-close-test.py", 'cursor-stop'),
     test('chat-application-archive', "interaction", PYTHON, "pico-chat-application-close-test.py", 'archive'),
     test("chat-composition", "interaction", PYTHON, "device/test_chat_composition.py"),
     test("chat-cache-release-positive", "interaction", PYTHON, "pico-chat-cache-release-test.py", "positive"),
