@@ -67,6 +67,7 @@ REQUIRED = {
     "chat-compiled-model-samples": 1,
     "chat-compiled-cache-absence": 1,
     "chat-cleanup-admission": 1,
+    "chat-observation-owner": 1,
     "pico-chat-application-close": 1,
     "chat-evidence-archive": 4,
     "pico-chat-archive-plan": 4,
