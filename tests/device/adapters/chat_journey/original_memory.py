@@ -4,11 +4,20 @@
 import hashlib
 import json
 
-from adapters.chat_journey.observation_cursor import plain
 from adapters.native_feature_observation import integer,need
 from adapters.script_journey.history import canonical,MAX_FRAMES,MAX_RAW
 
 VERSION=1
+
+
+def plain(value):
+    """JSON type identity matters as well as canonical bytes."""
+    if type(value) is dict:
+        need(all(type(key) is str for key in value))
+        for field in value.values():plain(field)
+    elif type(value) is list:
+        for field in value:plain(field)
+    else:need(value is None or type(value) in (str,bool,int,float))
 
 
 class ChatOriginalMemory:
@@ -42,10 +51,14 @@ class ChatOriginalMemory:
         self._identities();return len(self.raws)
 
     def row(self,index):
+        self.row_digest(index)
+        return json.loads(self.raws[index])
+
+    def row_digest(self,index):
         self._identities();need(integer(index,0,len(self.raws)-1))
         raw,sha=self.raws[index],self.hashes[index]
         need(type(raw) is bytes and type(sha) is str and hashlib.sha256(raw).hexdigest()==sha)
-        return json.loads(raw)
+        return sha
 
     def inspect(self):
         return [self.row(index) for index in range(self.count())]

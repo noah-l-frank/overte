@@ -205,6 +205,7 @@
     "chat-remote-actor-return": {"current": 1, "reads": [1]},
     "chat-remote-publication": {"current": 3, "reads": [1, 2, 3]},
     "chat-remote-original-memory": {"current": 1, "reads": [1]},
+    "chat-observation-original-memory": {"current": 1, "reads": [1]},
     "chat-remote-cleanup-prefix": {"current": 1, "reads": [1]},
     "chat-remote-consumed-sources": {"current": 1, "reads": [1]},
     "pico-chat-host-close": {"current": 1, "reads": [1]},
