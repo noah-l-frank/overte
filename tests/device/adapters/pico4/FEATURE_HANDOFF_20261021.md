@@ -2385,3 +2385,22 @@ return/capture completion. No source/cadence/quiet/cap reduction or unchanged
 qualification retry is applied. Archive/host closure and the complete production
 observer entrypoint remain executable source work, with product/Qt/native/GPU/
 OS seams and unqualified whole application/device scope explicitly preserved.
+
+## Original Assets Cancel/server/model integration
+
+Fixed source1c4e715b81 and a0caa0bf7e are selected as6fd98f0a41 and0c340f50e1.
+Root3/206groups pass68.78s: coverage0.099s, original Cancel/File/Home plus
+independent same-server GetAll33.405s and actual AssetMappingModel/proxy with
+normal refresh/filter/selection35.277s. No actual file/mapping/upload effect is
+invented from input ACKs. Hidden original backend mappings remain present while
+the real proxy filters them. Auto-refresh stops at Home; the manager/context
+remain retained. Add-to-World/local entity effect, upload/oven, loaded model,
+stereo, complete context retirement and whole feature qualification remain open.
+
+The selected Chat consumed-cleanup/Stop2 packet87390b3bb9 has two disjoint
+owning selectors: one complete positive case and three failure cases. Each
+case and its entire quiet window remains intact within the unchanged120s
+per-selector bound. Root integration checks for these selectors are pending;
+the agent's original67.363s positive and82.587s two-counter results remain
+separate source evidence. The catalog now has206 groups; complete source areas
+remain3/14.

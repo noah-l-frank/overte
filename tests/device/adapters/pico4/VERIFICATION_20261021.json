@@ -3308,5 +3308,25 @@
     "profiledOriginalActorSampleSeconds": 0.365,
     "unchangedGroupLimitSeconds": 120,
     "qualification": "Actual warm Parent and separate reviewed Linux Actor process, original analytical source bridge, existing stereo/VM/HTTP readers, full production binding factory method, consumed nonce and normal reaped ESRCH. Full physical source/PNG admission and fresh all-capture3s retirement on the short prefix; same-byte original replacement and uncertain batch delivery retain ownership. Product/native/Qt/GPU/OS clocks remain explicit seams. Whole combined run, archive/host closure, public capability, APK and device qualification remain open."
+  },
+  "assetsOriginalModelCancelIntegration20261023": {
+    "status": "passed",
+    "catalog": 206,
+    "groups": 3,
+    "seconds": 68.78,
+    "checks": {
+      "coverage": 0.099,
+      "cancelEffects": 33.405,
+      "mappingModel": 35.277
+    },
+    "sourceCommits": [
+      "1c4e715b81ebd0b9c98804f9f89b0fef3603d467",
+      "a0caa0bf7e0d60b9400552a212137af932a68449"
+    ],
+    "integrationCommits": [
+      "6fd98f0a41",
+      "0c340f50e1"
+    ],
+    "qualification": "Actual original QML and AssetMappingModel/proxy, original GetAll/status/meta/disk bodies and real independent source process. Network/assignment/controller are host seams. Full original negative effect quiet/cadence and bounds remain unchanged; no Add-to-World, upload, oven, loaded model, stereo, complete context release or device qualification."
   }
 }

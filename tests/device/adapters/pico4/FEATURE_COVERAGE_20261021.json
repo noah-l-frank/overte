@@ -1419,7 +1419,9 @@
         "tests/device/adapters/pico4/assets_home_owner.py",
         "tests/device/adapters/pico4/assets_mapping_pair.py",
         "android/vr/pico/tests/device/test_assets_server_state.py",
-        "android/vr/pico/tests/device/test_assets_mapping_pair.py"
+        "android/vr/pico/tests/device/test_assets_mapping_pair.py",
+        "android/vr/pico/tests/device/test_assets_cancel_effects.py",
+        "android/vr/pico/tests/device/test_assets_mapping_model.py"
       ],
       "declaredCheckpoints": 29,
       "inputVerbs": [
@@ -1473,7 +1475,7 @@
         "Drain oven/upload/picker workers and release actual staged originals",
         "Restore original server permission and prove complete namespace/resource absence"
       ],
-      "nextExecutableStep": "Compose normal Cancel/File/Home2 with the actual independent GetAll pair and preserved before/after inventory. Root normal/held/file Home cases pass, but Legacy/lostHome cases fail before Home at existing Cancel500ms/1.5s bounds; no full Home group green. Actual server/meta/disk status passes5.695s; five independent mapping/real-lock-exit/both-clock cases pass6.278s. Retained invalid context, successful upload/oven/Actor stereo and whole cleanup remain open.",
+      "nextExecutableStep": "Join normal Add-to-World from the actual original AssetMappingModel/QML selected row to the actual EntityScriptingInterface/addEntityInternal/local EntityTree effect, preserving creation ownership and independent observations. Cancel/File/Home with same actual server body and separate GetAll process plus actual mapping model/proxy/QML refresh/filter/selection pass Root3/206groups68.78s. Retained context, successful upload, oven/Ready/model loading/stereo and whole cleanup remain open.",
       "nativeCompilation": "Selected whole Pico NavigationUi, original QML/pointer/FileDialogHelper/NativeFieldInput and production Assets-file getter/private descriptor storage host-compiled; complete application/APK unverified",
       "deviceQualification": "untested"
     },
