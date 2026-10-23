@@ -57,10 +57,20 @@ class IOSAvatarSources:
             need(isinstance(readers['ui'],IOSAvatarIO) and readers['native'].pid==self.pid)
         self.frames=[];self.previous=None;self.failed=False
         self.state=dict(phase='ready',revision=0,manifests=[],pending=None)
-        self.originals=IOSAvatarOriginals(root,binding,run,role,guard,self.storage_intent,monotonic=monotonic)
-        lock.assert_held();self.previous=store.read()
+        self.originals=IOSAvatarOriginals(root,binding,run,role,self.file_guard,self.storage_intent,monotonic=monotonic)
+        lock.assert_held()
+        if not historical:need(guard() is not False)
+        self.previous=store.read()
         if self.previous is not None:self.state,self.frames=self.decode(self.previous)
         if not historical and self.frames:self.restore_readers()
+        if not historical:need(guard() is not False)
+
+    def file_guard(self):
+        # Private immutable originals are not product acquisitions. Keep their
+        # real lock/file checks without reacquiring SDK data for every file.
+        # Live constructor boundaries, saves, captures and transports retain
+        # their full candidate guard; historical reads remain SDK-free.
+        self.lock.assert_held();return True
 
     def envelope(self,state,*,version=VERSION):
         return dict(iosAvatarSourcesVersion=version,runId=self.run,role=self.role,binding=self.binding,artifactRoot=str(self.root),payload=pack([state]))
@@ -102,7 +112,7 @@ class IOSAvatarSources:
         need(self.state['phase']=='reading' and name not in self.state['pending']['partial'])
         self.state['pending']['partial'][name]=deepcopy(value);self.save()
     def storage_intent(self,kind,value):
-        need(self.state['phase']=='reading' and kind in ('original','manifest'));pending=self.state['pending'];old=pending[kind]
+        need(not self.historical and self.state['phase']=='reading' and kind in ('original','manifest'));pending=self.state['pending'];old=pending[kind]
         if kind=='original':
             self.originals.original(value);need(value['index']==len(self.frames)+1)
             if old is None:need(value['phase']=='planned')
@@ -131,7 +141,10 @@ class IOSAvatarSources:
         need(len(set(queries))==len(queries))
         if previous:follow_native(previous['clockJoin']['nativeAfter'],first)
         for name,module in channels.items():
-            packet=originals[name];module.original(packet)
+            packet=originals[name];need(type(packet) is dict)
+            query=dict(schemaVersion=1,commandId=packet.get('requestId'),action=module.ACTION,runId=self.run)
+            prior=previous['originals'].get(name) if previous is not None else None
+            module.validate(packet,query,self.pid,previous=prior)
             version_key,version=VERSIONS[name];need(type(packet[version_key]) is int
                 and (packet[version_key]==version or name=='state' and packet[version_key]==3
                     or name in ('http','scripts') and packet[version_key]==1))
@@ -145,9 +158,6 @@ class IOSAvatarSources:
                  and packet['clockAfter']['epochMs']<=acquisition['nativeAfterEpochMs']<=last['capturedEpochMs']
                  and number(acquisition['hostBeforeMonotonic'],clock['hostBeforeMonotonic'],clock['hostAfterMonotonic'])
                  and number(acquisition['hostAfterMonotonic'],acquisition['hostBeforeMonotonic'],clock['hostAfterMonotonic']))
-            if previous and name in previous['originals']:
-                query=dict(schemaVersion=1,commandId=packet['requestId'],action=module.ACTION,runId=self.run)
-                module.validate(packet,query,self.pid,previous=previous['originals'][name])
         native_widgets(originals['widgets'],self.pid,originals['widgets']['sampleEpochMs'])
         need(same(project(originals['widgets']),frame['ui']) and originals['native']['processId']==self.pid)
         need(originals['people']['source']['tabletShown']==frame['ui']['open'])

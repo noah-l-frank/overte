@@ -10,6 +10,7 @@ This component sends no SDK, native command, normal input or file deletion.
 from copy import deepcopy
 import hashlib
 import os
+from adapters.original_file_reads import record as record_original_read
 from adapters.native_clock_join import digest,validate_join
 from adapters.native_feature_observation import exact,integer,need,number,validate as native_packet
 from ios.adapters.avatar_sources import IOSAvatarSources,CHANNELS,ACQUISITIONS
@@ -33,15 +34,17 @@ class IOSAvatarSourceRecovery:
             lambda:True,None,historical=True)
         scope=object.__new__(cls);scope.sources,scope.lock=archived,archived.lock
         scope.store=PrivateFeatureState(sources.store.path.with_name('ios-avatar-'+sources.role+'-source-recovery.json'))
-        scope.previous=scope.store.read();scope.state=scope.decode(value)
+        current=scope.store.read();scope.previous=deepcopy(value);scope.current=same(current,value)
+        scope.state=scope.decode(value);need(same(scope.store.read(),current))
         return scope
 
     def __init__(self,sources):
         need(isinstance(sources,IOSAvatarSources) and not sources.historical)
         self.sources,self.lock=sources,sources.lock
         self.store=PrivateFeatureState(sources.store.path.with_name('ios-avatar-'+sources.role+'-source-recovery.json'))
-        self.previous=self.store.read();self.state=dict(records=[],pending=None)
+        self.previous=self.store.read();self.state=dict(records=[],pending=None);self.current=True
         if self.previous is not None:self.state=self.decode(self.previous)
+        else:need(self.record_store(1).read() is None)
 
     def envelope(self,state):
         s=self.sources
@@ -49,7 +52,7 @@ class IOSAvatarSourceRecovery:
             artifactRoot=str(s.root),payload=pack([state]))
 
     def bound(self):
-        self.sources.bound();need(same(self.store.read(),self.previous))
+        need(not self.sources.historical);self.sources.bound();need(same(self.store.read(),self.previous))
 
     def save(self):
         self.bound();value=self.envelope(self.state);self.store.write(value,self.previous)
@@ -63,7 +66,7 @@ class IOSAvatarSourceRecovery:
         """Inspect only an inode already acquired by the interrupted writer."""
         self.sources.originals.original(original);path=self.sources.originals.path(original)
         if original['phase']=='planned':
-            need(not path.exists());return None
+            need(not os.path.lexists(path));return None
         descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
         with os.fdopen(descriptor,'rb') as stream:
             # Partial contents are retained honestly, not validated as a
@@ -74,6 +77,7 @@ class IOSAvatarSourceRecovery:
         if original['phase']=='saved':
             need(len(raw)==original['bytes'] and hashlib.sha256(raw).hexdigest()==original['sha256'])
             self.sources.originals.read(original)
+        record_original_read(path)
         return dict(file=deepcopy(original['file']),bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest())
 
     def attempt(self,value):
@@ -102,7 +106,7 @@ class IOSAvatarSourceRecovery:
             target=deepcopy(prior);target.update(phase='ready',pending=None)
             need(same(pending['targetOwner'],self.sources.envelope(target)))
             if pending['reference'] is not None:need(same(self.record(pending['reference']),pending['attempt']))
-        else:need(len(state['records'])==128 or self.record_store(len(state['records'])+1).read() is None)
+        else:need(not self.current or len(state['records'])==128 or self.record_store(len(state['records'])+1).read() is None)
         return deepcopy(state)
 
     def recover(self):
