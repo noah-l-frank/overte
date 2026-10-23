@@ -96,6 +96,7 @@ class IOSPlacesFlow:
     def inspect(self):
         self.bound();packet=self.model.read(self.run);value=self.capture()
         root=models.join_controls(packet,value);need(packet['iosPlacesModelVersion']==2)
+        self.model_original=deepcopy(packet)
         self.bound();return value,root
 
     def wait(self,predicate):
@@ -110,8 +111,9 @@ class IOSPlacesFlow:
 
     def input(self,key,action='activate',value=None,*,selected=None):
         self.bound();need(self.call is not None and controls.control_id(key,2) and key!='places.page' and action in ('activate','replace'))
-        if action=='replace':need(key in ('places.search','places.bookmark-name') and value in
-            (self.ctx['name'],self.ctx['renamed'],self.ctx['hidden']))
+        if action=='replace':need(key in ('places.search','places.bookmark-name') and (value in
+            (self.ctx['name'],self.ctx['renamed'],self.ctx['hidden']) or
+            key=='places.search' and value=='' and self.call.get('iosNavigationCleanupCallVersion')==1))
         else:need(value is None)
         original=self.capture();row=self.row(original,key);need(row['enabled'] and row['inputReady'])
         if controls.ROW.fullmatch(key):need(selected is not None)
@@ -170,6 +172,47 @@ class IOSPlacesFlow:
         self.input('places.search');self.wait(lambda value,_root:self.row(value,'places.search')['focused'])
         self.input('places.search','replace',query)
         self.wait(lambda value,root:self.row(value,'places.search')['value']==root['search']==query)
+
+    def cleanup(self,call):
+        """Normal owned form cancellation/deletion; not restoration evidence.
+
+        The whole cleanup owner must persist each intent and independently
+        compare the original bookmark inventory after these delivered inputs.
+        """
+        from adapters.native_feature_observation import exact
+        call=deepcopy(call)
+        exact(call,{'iosNavigationCleanupCallVersion','contractVersion','runId','ticket','verb','inputs','fixtureUrl'})
+        need(type(call['iosNavigationCleanupCallVersion']) is int and call['iosNavigationCleanupCallVersion']==1
+            and type(call['contractVersion']) is int and call['contractVersion']==16
+            and call['runId']==self.run and call['verb']=='cleanup' and call['inputs']=={})
+        identifier(call['ticket']);source=urlsplit(self.inputs['sceneUrl'])
+        need(call['fixtureUrl']==source.scheme+'://'+source.netloc+'/feature-fixture/v1/runs/'+self.run+'/'
+            and self.started is self.call is None)
+        self.started=self.bound();self.call=call
+        try:
+            _value,root=self.inspect()
+            if root['popup']=='bookmark':
+                dialog=root['dialog'];need(dialog['visible'] and dialog['originalName'] in ('',self.ctx['name'],self.ctx['renamed'])
+                    and dialog['name'] in ('',self.ctx['name'],self.ctx['renamed'])
+                    and same_viewpoint(dialog['address'],self.urls['A']))
+                self.input('places.bookmark-cancel');self.wait(lambda _value,root:root['popup']=='none' and not root['dialog']['visible'])
+            else:need(root['popup']=='none' and not root['dialog']['visible'])
+            self.tab(1)
+            for name in (self.ctx['name'],self.ctx['renamed']):
+                _value,root=self.inspect()
+                if name in root['bookmarkAddresses']:
+                    need(same_viewpoint(root['bookmarkAddresses'][name],self.urls['A']))
+                    selected=self.owned_row('bookmark-delete',name,self.urls['A'])
+                    self.input(selected['control']['id'],selected=selected)
+                    self.wait(lambda _value,root:name not in root['bookmarkAddresses'])
+            self.tab(0);value,root=self.inspect()
+            need(root['search'] in ('',self.ctx['name'],self.ctx['hidden']))
+            if root['search']:
+                self.input('places.search');self.wait(lambda value,_root:self.row(value,'places.search')['focused'])
+                self.input('places.search','replace','')
+                self.wait(lambda value,root:self.row(value,'places.search')['value']==root['search']=='')
+            self.bound();return {'performed':True}
+        finally:self.started=self.call=None
 
     def invoke(self,call):
         from feature_journeys.contract import arguments

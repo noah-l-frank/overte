@@ -141,6 +141,39 @@ class NavigationPlacesInputsTests(unittest.TestCase):
                 self.assertEqual(event['original']['scope']['sequence']+1,command['sequence'])
                 self.assertEqual('b'*32,event['call']['ticket'])
 
+    def cleanup_call(self):
+        return dict(self.call('cleanup'),iosNavigationCleanupCallVersion=1)
+
+    def test_cleanup_cancels_owned_form_removes_actual_run_bookmarks_and_clears_search_with_normal_inputs(self):
+        with self.lock.held():
+            self.act('bookmark-add',name=self.ctx['name']);self.act('bookmark-rename',name=self.ctx['renamed'])
+            self.act('directory-search',query=self.ctx['hidden'])
+            self.assertEqual({'performed':True},self.flow().cleanup(self.cleanup_call()))
+            self.assertEqual({'unowned':'hifi://unowned'},json.loads(self.sdk.path.read_text()))
+            self.assertEqual('',self.sdk.page['search'])
+            self.assertTrue(any(row['value']=='' and row['controlId']=='places.search' for row in self.intents))
+            before=len(self.intents);self.flow().cleanup(self.cleanup_call())
+            self.assertTrue(all(row['action']=='activate' for row in self.intents[before:]))
+
+    def test_cleanup_cancels_actual_owned_unsaved_form_and_retains_foreign_entries(self):
+        with self.lock.held():
+            flow=self.flow();flow.started=flow.bound();flow.call=self.call('bookmark-add',name=self.ctx['name'])
+            flow.tab(1);flow.input('places.bookmark-add');flow.started=flow.call=None
+            self.assertEqual('bookmark',self.sdk.page['popup'])
+            self.flow().cleanup(self.cleanup_call())
+            self.assertEqual('none',self.sdk.page['popup'])
+            self.assertEqual({'unowned':'hifi://unowned'},json.loads(self.sdk.path.read_text()))
+
+    def test_cleanup_refuses_unknown_bookmark_address_or_foreign_form_before_deleting_anything(self):
+        with self.lock.held():
+            self.sdk.bookmarks[self.ctx['name']]='hifi://foreign';self.sdk.persist();before=self.sdk.path.read_bytes()
+            with self.assertRaises(NativeUIError):self.flow().cleanup(self.cleanup_call())
+            self.assertEqual(before,self.sdk.path.read_bytes())
+            self.sdk.page.update(popup='bookmark',dialog=dict(visible=True,originalName='foreign',name='foreign',address=self.sdk.urls['A']))
+            count=len(self.intents)
+            with self.assertRaises(NativeUIError):self.flow().cleanup(self.cleanup_call())
+            self.assertEqual(count,len(self.intents));self.assertEqual(before,self.sdk.path.read_bytes())
+
     def test_ignored_tab_ack_times_out_without_retrying_an_input(self):
         with self.lock.held():
             self.sdk.ignore=True;before=self.sdk.path.read_bytes()

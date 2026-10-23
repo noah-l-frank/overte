@@ -15,7 +15,7 @@ from ios.adapters.navigation_process_context import source_basis
 from ios.adapters.navigation_process_owner import NavigationProcessOwner
 
 NAMES=frozenset(('ios-navigation-surface-actions.json','ios-navigation-places-actions.json',
-    'ios-navigation-composite-actions.json','ios-navigation-missing-actions.json'))
+    'ios-navigation-composite-actions.json','ios-navigation-missing-actions.json','ios-navigation-places-cleanup.json'))
 
 
 class NavigationProcessScope:

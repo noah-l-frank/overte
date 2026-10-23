@@ -22,10 +22,10 @@ from ios.adapters.normal_input import NativeInput, observation
 from ios.adapters.normal_navigation import IOSNavigation, PROFILE
 from ios.adapters import places_controls as controls
 
-VERSION = 2
-READS = (1, 2)
+VERSION = 3
+READS = (1, 2, 3)
 SURFACES = {'open': ('open',), 'close': ('close',),
-            'directory-select': ('close',), 'bookmark-visit': ('open', 'close')}
+            'directory-select': ('close',), 'bookmark-visit': ('open', 'close'), 'cleanup': ('open', 'close')}
 
 
 class _SurfaceUI(NativeUI):
@@ -93,11 +93,20 @@ class NavigationSurfaceActions:
         self.state = None if self.previous is None else self.decode(self.previous)
         self.bound()
 
-    def envelope(self, state, version=VERSION):
+    def envelope(self, state, version=None):
+        if version is None:version=3 if any(row['call']['verb']=='cleanup' for row in state['actions']) else 2
         return dict(iosNavigationSurfaceActionsVersion=version, binding=self.binding, runId=self.run, payload=pack([state]))
 
     def call(self, value):
-        arguments('feature.world-navigation.act', value)
+        if type(value) is dict and 'iosNavigationCleanupCallVersion' in value:
+            from feature_journeys.contract import identifier
+            exact(value,{'iosNavigationCleanupCallVersion','contractVersion','runId','ticket','verb','inputs','fixtureUrl'})
+            need(type(value['iosNavigationCleanupCallVersion']) is int and value['iosNavigationCleanupCallVersion']==1
+                and type(value['contractVersion']) is int and value['contractVersion']==16
+                and value['verb']=='cleanup' and value['inputs']=={})
+            identifier(value['ticket']);identifier(value['runId'])
+        else:
+            arguments('feature.world-navigation.act', value)
         need(value['runId'] == self.run and value['verb'] in SURFACES
              and value['fixtureUrl'] == self.admission.fixture.fixture_url)
         return value
@@ -133,17 +142,18 @@ class NavigationSurfaceActions:
              and len(rows) == 1 and same(value, self.envelope(rows[0], version)))
         state = rows[0]; exact(state, {'component', 'actions'})
         need(type(state['component']) is dict and set(state['component']) <= {'iosNormalNavigation'}
-             and type(state['actions']) is list and 1 <= len(state['actions']) <= (8 if version == 1 else 12))
+             and type(state['actions']) is list and 1 <= len(state['actions']) <= (8 if version == 1 else 12 if version == 2 else 32))
         tickets = set(); calls = {}; previous = None; owned_page = None; previous_phase = None
         for index, row in enumerate(state['actions']):
             exact(row, {'call', 'phase', 'fixture', 'before', 'intents', 'after', 'page'}
-                  | ({'surface'} if version == 2 else set()))
+                  | ({'surface'} if version >= 2 else set()))
             call = self.call(row['call']); ticket = call['ticket']
-            surface = row['surface'] if version == 2 else call['verb']
+            surface = row['surface'] if version >= 2 else call['verb']
             need(surface in SURFACES[call['verb']] and (ticket, surface) not in tickets)
             if ticket in calls: need(same(calls[ticket], call))
             calls[ticket] = call
             if version == 1: need(call['verb'] in ('open', 'close'))
+            if call['verb']=='cleanup':need(version>=3)
             if index: need(surface != state['actions'][index-1].get('surface', state['actions'][index-1]['call']['verb']))
             tickets.add((ticket, surface))
             need(row['phase'] in ('checking', 'issued', 'acknowledged')
@@ -169,7 +179,7 @@ class NavigationSurfaceActions:
                 need(event['method'] == 'POST' and re.fullmatch(r'/element/[A-Za-z0-9_.:%-]{1,480}/click', event['path'])
                      and event['body'] == {} or event['method'] == 'DELETE' and event['path'] == '/actions' and event['body'] is None)
                 packets.append(event['original'])
-                if surface == 'close' and version == 2:
+                if surface == 'close' and version >= 2:
                     self.close_intent(event, owned_page, row['intents'][:event_index])
             if row['after'] is not None: packets.append(row['after'])
             for packet in packets:
@@ -278,7 +288,7 @@ class NavigationSurfaceActions:
                     need(last['phase'] == 'acknowledged' and last['surface'] == surface and same(last['call'], call)); self.decode(self.previous)
                     return {'performed': True}
                 need(last['phase'] == 'acknowledged')
-            need(len(rows) < 12 and (not rows or rows[-1]['surface'] != surface))
+            need(len(rows) < (32 if call['verb']=='cleanup' else 12) and (not rows or rows[-1]['surface'] != surface))
             row = dict(call=call, surface=surface, phase='checking', fixture=None, before=None, intents=[], after=None, page=None)
             rows.append(row); self.save()
             row['fixture'] = self.admission.fixture.read(); self.save()

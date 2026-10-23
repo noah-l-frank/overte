@@ -187,6 +187,40 @@ class NavigationSurfaceActionsTests(unittest.TestCase):
             self.assertEqual(2,new['iosNavigationSurfaceActionsVersion']);self.assertEqual('open',first.pop('surface'))
             self.assertEqual(state['actions'][0],first)
 
+    def cleanup_call(self):
+        ticket=uuid.uuid4().hex;self.h.h.fixture.harness.client.activate(ticket,'cleanup',{})
+        return dict(iosNavigationCleanupCallVersion=1,contractVersion=16,runId=self.admission.run,
+            ticket=ticket,verb='cleanup',inputs={},fixtureUrl=self.fixture.fixture_url)
+
+    def test_owned_cleanup_closes_actual_page_without_fabricating_an_active_close_phase(self):
+        with self.h.h.lock.held():
+            self.owner().act(self.call('open'));call=self.cleanup_call();owner=self.owner()
+            owner.act(call,surface='close');original=deepcopy(owner.store.read());before=list(self.b.inputs)
+            self.assertIsNone(self.b.screen);self.assertEqual(3,original['iosNavigationSurfaceActionsVersion'])
+            row=owner.state['actions'][-1];self.assertEqual('cleanup',row['fixture']['verb'])
+            self.assertEqual(call,row['call']);self.assertEqual('close',row['surface'])
+            self.owner().act(call,surface='close');self.assertEqual(before,self.b.inputs)
+            self.assertEqual(original,owner.store.read())
+
+    def test_cleanup_can_open_and_close_for_owned_form_recovery_under_one_actual_phase(self):
+        with self.h.h.lock.held():
+            call=self.cleanup_call();self.owner().act(call,surface='open');owner=self.owner()
+            owner.act(call,surface='close');before=list(self.b.inputs)
+            self.assertEqual(['open','close'],[row['surface'] for row in owner.state['actions']])
+            self.assertEqual([call,call],[row['call'] for row in owner.state['actions']])
+            self.assertIsNone(self.b.screen)
+            with self.assertRaises(NativeUIError):self.owner().act(call,surface='open')
+            self.assertEqual(before,self.b.inputs)
+
+    def test_cleanup_tag_cannot_authorize_wrong_phase_or_relabel_an_ordinary_action(self):
+        with self.h.h.lock.held():
+            active=self.call('open');before=list(self.b.inputs)
+            with self.assertRaises(NativeUIError):self.owner().act(dict(active,iosNavigationCleanupCallVersion=1),surface='open')
+            self.assertIsNone(self.owner().store.read())
+            call=self.cleanup_call();self.call('open')
+            with self.assertRaises(NativeUIError):self.owner().act(call,surface='open')
+            self.assertEqual(before,self.b.inputs)
+
     def test_lost_composite_close_result_blocks_new_phase_and_does_not_resend(self):
         with self.h.h.lock.held():
             call=self.call('bookmark-visit');self.owner().act(call,surface='open');owner=self.owner();write=owner.store.write

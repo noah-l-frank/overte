@@ -119,6 +119,9 @@ The [current-process restoration owner](NAVIGATION_RESTORATION.md) now connects
 post-restart original source/image/input quiet to actual public fields and keeps
 retained Qt roots explicit. It does not retire those lifetimes or admit the whole
 feature.
+[Normal cleanup](NAVIGATION_NORMAL_CLEANUP.md) now owns actual cleanup-phase
+Places form cancellation, run-bookmark deletion, search clearing and surface
+transitions with pretransport journals and no replay of uncertain inputs.
 It still grants no complete capability. The exact remaining terminal-retirement
 interface mismatch and next additive integration step are documented in
 [the normal navigation handoff](adapters/NORMAL_NAVIGATION.md#concrete-terminal-retirement-interface-gap):
