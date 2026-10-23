@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "feature-cleanup-consumption": 1,
     "chat-compiled-script-source": 2,
     "chat-compiled-model-samples": 1,
     "chat-compiled-cache-absence": 1,

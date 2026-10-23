@@ -38,6 +38,7 @@
     "artifact-manifest": {"current": 1, "reads": [1]},
     "capability-registry": {"current": 1, "reads": [1]},
     "feature-journey": {"current": 16, "reads": [16]},
+    "feature-cleanup-consumption": {"current": 1, "reads": [1]},
     "feature-navigation-provider": {"current": 2, "reads": [1, 2]},
     "asset-input-bundle": {"current": 1, "reads": [1]},
     "native-navigation-replies": {"current": 2, "reads": [1, 2]},
