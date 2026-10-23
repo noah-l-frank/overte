@@ -557,6 +557,14 @@ def main() -> int:
         nonlocal domain_process, assignment_processes, assignment_agent_processes
         nonlocal domain_id, generation, stack_state, mixer, create_permissions, assets_permissions
         if stack_state == "online":
+            if domain_process is None or any(process.poll() is not None for process in (
+                    domain_process, *assignment_processes, *assignment_agent_processes)):
+                raise RuntimeError("controlled domain stack is no longer running")
+            observed_id = wait_for_domain(
+                domain_process, f"http://127.0.0.1:{args.http_port}/id",
+                args.startup_timeout_seconds)
+            if observed_id != domain_id:
+                raise RuntimeError("controlled domain readiness identity changed")
             return
         # The broker and assignment seed start afresh on each controlled
         # restart. Reusing persisted entities would retain the previous seed

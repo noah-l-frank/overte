@@ -32,6 +32,19 @@ last two values as `OVERTE_E2E_DOMAIN_CONTROL_URL` and
 `OVERTE_E2E_DOMAIN_CONTROL_TOKEN`. Its `offline` and `online` commands affect
 only child process groups owned by this fixture instance.
 
+Before each `enter_controlled_domain()` navigation, sessions with either private
+control value request `online`; both values must be valid together. The existing
+owner checks its live domain and assignment children plus the current `/id` when
+already online, or starts its stopped owned stack and waits for assignment
+content. A healthy stack is not restarted. A stale ready file is insufficient.
+`domain-prerequisite.json` records state/generation without the private token.
+An unavailable, invalid or foreign-identity owner blocks navigation as an
+infrastructure error before adapter input. External/mock sessions with neither
+control value retain their externally managed lifecycle. This process/identity
+check supplies no client arrival, grounded-pose or rendered-world verdict.
+The manifest's actual `spawnPath` keeps feet on the known y=0 floor; do not
+replace it with a raised camera-height address.
+
 `domain-recovery` uses the same values plus `OVERTE_E2E_SCENE_URL`. It enters
 the domain, returns to the controlled serverless scene, proves that the domain
 is disconnected, and re-enters the exact domain without changing the

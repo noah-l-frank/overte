@@ -3,12 +3,14 @@
 
 from __future__ import annotations
 
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 
 
@@ -16,6 +18,108 @@ DEVICE_ROOT = Path(__file__).resolve().parents[1]
 
 
 class InteractionAndDomainRecoveryTest(unittest.TestCase):
+    def controlled_domain_environment(self, *, unavailable=False):
+        state = {"online": False, "starts": 0, "requests": []}
+
+        class Control(BaseHTTPRequestHandler):
+            def do_POST(self):
+                command = json.loads(self.rfile.read(
+                    int(self.headers["Content-Length"])))
+                if (self.path != "/v1/domain-state"
+                        or self.headers.get("X-Overte-E2E-Token") != "self-test-only"
+                        or command != {"schemaVersion": 1, "action": "online"}):
+                    self.send_error(400)
+                    return
+                state["requests"].append("online")
+                if unavailable:
+                    self.send_error(503)
+                    return
+                if not state["online"]:
+                    state["starts"] += 1
+                    state["online"] = True
+                body = json.dumps({"schemaVersion": 1, "state": "online",
+                                   "generation": state["starts"]}).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Control)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(thread.join, 2)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        manifest = json.loads((DEVICE_ROOT / "fixture/domain-manifest.json").read_text())
+        domain_id = "11111111-2222-4333-8444-555555555555"
+        return state, {
+            "OVERTE_E2E_SCENE_URL": "http://fixture.invalid/scene.json",
+            "OVERTE_E2E_DOMAIN_URL": "hifi://127.0.0.1:40102" + manifest["spawnPath"],
+            "OVERTE_E2E_DOMAIN_HOST": "127.0.0.1",
+            "OVERTE_E2E_DOMAIN_ID": domain_id,
+            "OVERTE_E2E_DOMAIN_MARKERS_JSON": json.dumps(json.loads(
+                (DEVICE_ROOT / "fixture/domain-manifest.json").read_text())["requiredMarkers"]),
+            "OVERTE_MOCK_E2E_DOMAIN_ID": domain_id,
+            "OVERTE_E2E_DOMAIN_CONTROL_URL": (
+                f"http://127.0.0.1:{server.server_port}/v1/domain-state"),
+            "OVERTE_E2E_DOMAIN_CONTROL_TOKEN": "self-test-only",
+        }
+
+    def test_domain_navigation_starts_stopped_fixture_and_reuses_online_stack(self):
+        state, environment = self.controlled_domain_environment()
+        temporary, _root, output, result = self.run_suite("domain-recovery", environment)
+        try:
+            self.assertEqual(0, result.returncode, result.stdout)
+            self.assertEqual(["online", "online"], state["requests"])
+            self.assertEqual(1, state["starts"])
+            for module in ("domain-enter", "domain-roundtrip"):
+                receipt = json.loads((output / "modules" / module / "domain-prerequisite.json").read_text())
+                self.assertEqual({"schemaVersion": 1, "state": "online", "generation": 1}, receipt)
+        finally:
+            temporary.cleanup()
+
+    def test_domain_controller_failure_blocks_navigation_as_infrastructure(self):
+        state, environment = self.controlled_domain_environment(unavailable=True)
+        temporary, root, output, result = self.run_suite("domain-smoke", environment)
+        try:
+            self.assertEqual(1, result.returncode, result.stdout)
+            self.assertEqual(["online"], state["requests"])
+            self.assertEqual(0, json.loads((root / "state.json").read_text()).get("domainEnterCount", 0))
+            summary = json.loads((output / "summary.json").read_text())
+            entry = next(item for item in summary["results"] if item["id"] == "domain-enter")
+            self.assertEqual("error", entry["status"])
+            self.assertFalse((output / "modules/domain-enter/domain-navigation-result.json").exists())
+        finally:
+            temporary.cleanup()
+
+    def test_partial_or_nonlocal_owner_configuration_blocks_navigation(self):
+        for invalid in ("missing-url", "missing-token", "foreign-endpoint"):
+            with self.subTest(invalid=invalid):
+                state, environment = self.controlled_domain_environment()
+                if invalid == "missing-url":
+                    environment["OVERTE_E2E_DOMAIN_CONTROL_URL"] = ""
+                elif invalid == "missing-token":
+                    environment["OVERTE_E2E_DOMAIN_CONTROL_TOKEN"] = ""
+                else:
+                    environment["OVERTE_E2E_DOMAIN_CONTROL_URL"] = (
+                        "http://fixture.invalid:40100/v1/domain-state")
+                temporary, root, output, result = self.run_suite("domain-smoke", environment)
+                try:
+                    self.assertEqual(1, result.returncode, result.stdout)
+                    self.assertEqual([], state["requests"])
+                    self.assertEqual(0, json.loads((root / "state.json").read_text())
+                                     .get("domainEnterCount", 0))
+                    summary = json.loads((output / "summary.json").read_text())
+                    entry = next(item for item in summary["results"]
+                                 if item["id"] == "domain-enter")
+                    self.assertEqual("error", entry["status"])
+                    self.assertFalse((output / "modules/domain-enter/domain-navigation-result.json").exists())
+                finally:
+                    temporary.cleanup()
+
     def run_suite(self, suite: str, environment: dict[str, str], module_ids=None):
         temporary = tempfile.TemporaryDirectory(prefix=f"overte-{suite}-")
         root = Path(temporary.name)
@@ -111,7 +215,7 @@ class InteractionAndDomainRecoveryTest(unittest.TestCase):
         domain_id = "11111111-2222-4333-8444-555555555555"
         temporary, root, output, result = self.run_suite("domain-recovery", {
             "OVERTE_E2E_SCENE_URL": "http://fixture.invalid/scene.json",
-            "OVERTE_E2E_DOMAIN_URL": "hifi://127.0.0.1:40102/0,2,4/0,0,0,1",
+            "OVERTE_E2E_DOMAIN_URL": "hifi://127.0.0.1:40102" + manifest["spawnPath"],
             "OVERTE_E2E_DOMAIN_HOST": "127.0.0.1",
             "OVERTE_E2E_DOMAIN_ID": domain_id,
             "OVERTE_E2E_DOMAIN_MARKERS_JSON": json.dumps(manifest["requiredMarkers"]),
@@ -141,7 +245,7 @@ class InteractionAndDomainRecoveryTest(unittest.TestCase):
         domain_id = "11111111-2222-4333-8444-555555555555"
         temporary, root, output, result = self.run_suite("domain-recovery", {
             "OVERTE_E2E_SCENE_URL": "http://fixture.invalid/scene.json",
-            "OVERTE_E2E_DOMAIN_URL": "hifi://127.0.0.1:40282/0,2,4/0,0,0,1",
+            "OVERTE_E2E_DOMAIN_URL": "hifi://127.0.0.1:40282" + manifest["spawnPath"],
             "OVERTE_E2E_DOMAIN_HOST": "127.0.0.1",
             "OVERTE_E2E_DOMAIN_ID": domain_id,
             "OVERTE_E2E_DOMAIN_MARKERS_JSON": json.dumps(manifest["requiredMarkers"]),
@@ -165,7 +269,7 @@ class InteractionAndDomainRecoveryTest(unittest.TestCase):
         domain_id = "11111111-2222-4333-8444-555555555555"
         temporary, _root, output, result = self.run_suite("domain-recovery", {
             "OVERTE_E2E_SCENE_URL": "http://fixture.invalid/scene.json",
-            "OVERTE_E2E_DOMAIN_URL": "hifi://127.0.0.1:40102/0,2,4/0,0,0,1",
+            "OVERTE_E2E_DOMAIN_URL": "hifi://127.0.0.1:40102" + manifest["spawnPath"],
             "OVERTE_E2E_DOMAIN_HOST": "127.0.0.1",
             "OVERTE_E2E_DOMAIN_ID": domain_id,
             "OVERTE_E2E_DOMAIN_MARKERS_JSON": json.dumps(manifest["requiredMarkers"]),

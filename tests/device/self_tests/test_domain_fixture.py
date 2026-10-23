@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 import json
+import ast
+import copy
+import importlib.util
 import os
 from pathlib import Path
 import socket
@@ -13,6 +16,7 @@ import tempfile
 import time
 import unittest
 import uuid
+from types import SimpleNamespace
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
@@ -24,10 +28,14 @@ FAKE_DOMAIN = r'''#!/usr/bin/env python3
 import http.server, os, pathlib, signal, sys, uuid
 identity = sys.argv[sys.argv.index("-d") + 1] if "-d" in sys.argv else str(uuid.uuid4())
 (pathlib.Path(os.environ["XDG_DATA_HOME"]) / "domain-pid.json").write_text(str(os.getpid()))
+identity_path = pathlib.Path(os.environ["XDG_DATA_HOME"]) / "served-domain-id"
+identity_path.write_text(identity)
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/id":
-            payload = (identity + "\n").encode()
+            with identity_path.with_name("id-reads").open("a") as reads:
+                reads.write("read\n")
+            payload = (identity_path.read_text() + "\n").encode()
             self.send_response(200); self.send_header("Content-Length", str(len(payload)))
             self.end_headers(); self.wfile.write(payload)
         else:
@@ -82,6 +90,83 @@ def free_port() -> int:
 
 
 class DomainFixtureTest(unittest.TestCase):
+    def online_noop_fixture(self):
+        """Use the exact nested source with real private children and HTTP /id.
+
+        Only the already-online branch is isolated from the controller monitor;
+        otherwise its periodic failure exit could race the guard under test.
+        The full controller's startup/recovery is checked separately below.
+        """
+        temporary = tempfile.TemporaryDirectory(prefix="overte-domain-online-test-")
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        domain_file = root / "domain.py"
+        domain_file.write_text(FAKE_DOMAIN)
+        identity = str(uuid.uuid4())
+        port = free_port()
+        environment = dict(os.environ, XDG_DATA_HOME=str(root),
+                           HIFI_DOMAIN_SERVER_HTTP_PORT=str(port))
+        domain = subprocess.Popen([sys.executable, str(domain_file), "-d", identity],
+                                  env=environment, stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL)
+        child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(20)"],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        def stop(process):
+            if process.poll() is None:
+                process.terminate()
+            process.wait(timeout=3)
+        self.addCleanup(stop, domain)
+        self.addCleanup(stop, child)
+
+        spec = importlib.util.spec_from_file_location("domain_online_counter", CONTROLLER)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.assertEqual(identity, module.wait_for_domain(
+            domain, f"http://127.0.0.1:{port}/id", 3))
+        tree = ast.parse(CONTROLLER.read_text())
+        main = next(node for node in tree.body
+                    if isinstance(node, ast.FunctionDef) and node.name == "main")
+        start = next(node for node in main.body
+                     if isinstance(node, ast.FunctionDef) and node.name == "start_stack")
+        names = ("domain_process", "assignment_processes", "assignment_agent_processes",
+                 "domain_id", "generation", "stack_state", "mixer",
+                 "create_permissions", "assets_permissions")
+        factory = ast.parse("def bind_online(" + ",".join(names) + "):\n    pass\n").body[0]
+        factory.body = [copy.deepcopy(start), ast.parse("return start_stack").body[0]]
+        namespace = dict(vars(module), args=SimpleNamespace(
+            http_port=port, startup_timeout_seconds=1))
+        exec(compile(ast.fix_missing_locations(ast.Module(body=[factory], type_ignores=[])),
+                     str(CONTROLLER), "exec"), namespace)
+        invoke = namespace["bind_online"](domain, [child], [], identity, 1, "online",
+                                           None, None, None)
+        return root, domain, child, invoke
+
+    def test_online_noop_reads_current_id_and_rejects_foreign_identity(self):
+        root, domain, child, invoke = self.online_noop_fixture()
+        reads = root / "id-reads"
+        before = len(reads.read_text().splitlines())
+        self.assertIsNone(invoke())
+        self.assertIsNone(invoke())
+        self.assertEqual(before + 2, len(reads.read_text().splitlines()))
+        (root / "served-domain-id").write_text(str(uuid.uuid4()))
+        with self.assertRaisesRegex(RuntimeError, "readiness identity changed"):
+            invoke()
+        self.assertIsNone(domain.poll())
+        self.assertIsNone(child.poll())
+
+    def test_online_noop_rejects_exited_assignment_and_domain_without_ack(self):
+        for kind in ("assignment", "domain"):
+            with self.subTest(kind=kind):
+                root, domain, child, invoke = self.online_noop_fixture()
+                reads = root / "id-reads"
+                before = reads.read_bytes()
+                stopped = child if kind == "assignment" else domain
+                stopped.terminate()
+                stopped.wait(timeout=3)
+                with self.assertRaisesRegex(RuntimeError, "stack is no longer running"):
+                    invoke()
+                self.assertEqual(before, reads.read_bytes())
+
     def test_domain_fixture_contract(self):
         result = subprocess.run(
             [sys.executable, str(CONTROLLER), "--check"], text=True,
@@ -131,12 +216,13 @@ class DomainFixtureTest(unittest.TestCase):
             assignment.chmod(0o700)
             ready = root / "ready.json"
             output = root / "output"
+            http_port = free_port()
             process = subprocess.Popen([
                 sys.executable, str(CONTROLLER),
                 "--domain-server", str(domain),
                 "--assignment-client", str(assignment),
                 "--domain-port", str(free_port()),
-                "--http-port", str(free_port()),
+                "--http-port", str(http_port),
                 "--script-port", "0",
                 "--assignment-warmup-seconds", "0.1",
                 "--output-dir", str(output),
@@ -209,7 +295,8 @@ class DomainFixtureTest(unittest.TestCase):
                     for name, pid in before_pids.items():
                         if name != "pid-4.json":
                             self.assertEqual(pid, int((first_data / name).read_text()))
-                for action in ("offline", "online"):
+                previous_generation = None
+                for action in ("offline", "online", "online"):
                     request = Request(
                         metadata["controlUrl"], method="POST",
                         data=json.dumps({"schemaVersion": 1, "action": action}).encode(),
@@ -222,6 +309,12 @@ class DomainFixtureTest(unittest.TestCase):
                         transition = json.loads(response.read())
                     self.assertEqual(action, transition["state"])
                     self.assertGreaterEqual(transition["generation"], 2)
+                    if action == "online":
+                        with urlopen(f"http://127.0.0.1:{http_port}/id", timeout=2) as response:
+                            self.assertEqual(metadata["domainId"], response.read().decode().strip())
+                        if previous_generation is not None:
+                            self.assertEqual(previous_generation, transition["generation"])
+                        previous_generation = transition["generation"]
                 self.assertIsNone(process.poll())
                 configured = output / "chat-actor-config.json"
                 self.assertEqual(chat_receiver, configured.exists())
