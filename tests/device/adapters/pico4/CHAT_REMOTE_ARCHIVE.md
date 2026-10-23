@@ -56,3 +56,50 @@ retirement was claimed. This is not a controlled performance comparison with
 earlier host runs. Full successful shared execution, actual application/restart,
 complete remote archival and the new final remote-host closure branch have not
 been qualified by this packet. Public Chat capability remains disabled.
+
+## Full common-executor measurement
+
+The separate `test_chat_remote_journey.RemoteJourneyTests` source fixture now
+starts the original warm Parent at `prepared/0`, before any consumed fixture
+activation. Its actual independent Python Actor reports original process
+readiness before baseline publication. The Parent retains the existing native,
+widget, network and SDK producers as explicit model seams. Only closed native
+queries and literal producer response strings cross the owned stdin channel;
+the Actor owns its own native readers, validation histories, source journals,
+cursor and publisher. The simulated source-clock transport reports the same
+producer clocks; it does not qualify real device freshness or performance.
+No target state, requested checkpoint or live Parent/Actor object is serialized.
+
+The unchanged shared v16 Chat recipe requests `peer` evidence in every step;
+it does not request image evidence. The diagnostic calls the actual
+`Journey.execute()`, including normal input dispatch, original observation
+cadence/windows, double cleanup and the original success hook. Its prepared
+continuation then connects actual remote Stop2/typed return and both seals to
+the existing application/profile/IPC, remote archive and host-close methods.
+Those continuation calls have not been reached successfully by this full test.
+The native app/AC binary, true product process restart and Chat stereo/tablet
+render surface remain separately unqualified.
+
+The narrow original baseline/open transport test passed in 3.391 seconds;
+the input/expected-state rejection case passed in 0.761 seconds. Earlier narrow
+attempts exposed a fixture variable shadow and a test assumption of one sample
+per window; both were corrected without changing the common cadence. The final
+prefix consumed six actual independent publications, not an injected cursor.
+
+Exactly one full measurement used an external unchanged 120-second cap. It
+ended with timeout exit 124 after original Parent `completedSteps=14` at
+115.379 seconds (baseline plus 13 normal recipe steps). The preserved source
+roots contain 60 returned independent publications and 61 primary observations.
+No success hook, Stop2, typed return, application close, archive retirement or
+host-finalization result was reached. All Parent/Actor originals and the
+private timing log were retained. The original full measurement is a red
+diagnostic, excluded from the two-case passing component selector. It is not a
+split whole journey, and no timeout, cadence, source or resource limit changed.
+
+Historical read-only cost inspection of those retained literals measured
+0.130 seconds for the current complete Actor root/child read and 0.260 seconds
+for one full original source-graph grammar pass at 60 publications; the current
+reader-history read took 0.062 seconds and its rows digest 0.016 seconds. These
+are host diagnostics only. They identify repeated full-prefix validation as
+the next executable investigation, not a qualification or a new warm owner
+constructed from the failed run.

@@ -61,12 +61,25 @@ def script(value):full(value);value.update(processId=123,capturedEpochMs=native.
 boundary.script.mutate=script;root_reader,script_reader=boundary.readers()
 for reader in (root_reader,script_reader):
     reader.pid=123;reader.clock_ms=lambda:native.epoch;reader.monotonic=lambda:native.host;reader.sleep=h.flow.sleep
+def original_queries(reader,kind):
+    # The independent reader owns validation/history. Only the exact native
+    # command and the producer's literal response cross this test transport.
+    pending=[None]
+    def send(command):
+        print(json.dumps(dict(kind='native-query',source=kind,command=command)),flush=True)
+        reply=json.loads(sys.stdin.readline());pending[0]=reply['raw']
+        native.epoch=reply['epoch'];native.host=reply['host']
+    reader.send=send;reader.original=lambda:pending[0]
+if config.get('originalQueries',False):
+    original_queries(root_reader,'roots');original_queries(script_reader,'scripts')
 with locks[0].held():code=ChatScriptSource(config['runId'],'actor',config['binding'],root_reader,script_reader,stores['code'],locks[0],monotonic=lambda:native.host)
 def samples(stage):
     original=h.flow.h;kind=CompiledChatSamples if stage=='active' else CompiledChatCacheAbsence
     readers=(original.h.primary.reader(),original.h.peer.reader(),original.h.view.reader(vr=True),original.h.native.reader())
     readers[1].pid=456
     for reader in readers:reader.clock_ms=lambda:native.epoch;reader.monotonic=lambda:native.host;reader.sleep=h.flow.sleep
+    if config.get('originalQueries',False):
+        for reader,channel in zip(readers,('primary','peer','view','lifecycle')):original_queries(reader,channel)
     return kind(config['runId'],'actor',config['binding'],config['peerBinding'],*readers,
         stores[stage+'-samples'],*locks,vr=True,script_source=code,monotonic=lambda:native.host)
 def observation(stage,role=None):
@@ -93,13 +106,17 @@ a.adapter=SimpleNamespace(_chat_composition_store=lambda _target:PrivateFeatureS
     _chat_cache_absence=lambda *_args,**_kw:samples('cleanup'),
     _chat_cursor_source_seal=lambda _target,publisher,**_kw:ChatCursorSourceSeal(publisher,stores['seal']))
 initial=observation('initial');cursor=ChatObservationCursor(initial,stores['cursor']);a.publisher=ChatObservationPublisher(cursor,stores['publisher'])
-a.save('publishing',pairs=[deepcopy(row) for _owner,row in a.pairs],returnedPublication=None);a.publish()
+a.save('publishing',pairs=[deepcopy(row) for _owner,row in a.pairs],returnedPublication=None)
+if not config.get('deferInitialPublish',False):a.publish()
 PrivateFeatureState(config['metadata']).write(dict(expected={key:a.scope[key] for key in
     ('runId','fixtureUrl','binding','peerBinding','hostProcessIdentity','instance')}),None)
 print(json.dumps(dict(kind='ready')),flush=True)
 for line in sys.stdin:
     command=json.loads(line);action=command['action']
     if action=='exit':break
+    if config.get('originalQueries',False):
+        print(json.dumps(dict(kind='native-clock')),flush=True)
+        clock=json.loads(sys.stdin.readline());native.epoch=clock['epoch'];native.host=clock['host']
     if action=='publish':value=a.publish()
     elif action=='tick':h.flow.sleep(command['seconds']);value=True
     elif action=='advance':
@@ -114,15 +131,18 @@ for line in sys.stdin:
 
 
 class RemoteActorFixture:
-    def start_actor(self,parent,stores,locks,admission):
-        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
+    def start_actor(self,parent,stores,locks,admission,*,original_queries=False,defer_initial_publish=False,preserve_originals=False):
+        temporary=tempfile.TemporaryDirectory()
+        if preserve_originals:temporary._finalizer.detach()
+        else:self.addCleanup(temporary.cleanup)
         self.host_root=Path(temporary.name);self.host_root.chmod(0o700);(self.host_root/'tmp').mkdir(mode=0o700)
         self.entry=self.host_root/'original-actor.py';self.entry.write_text(ACTOR_WORKER.replace('DEVICE_PATH',repr(str(Path(__file__).resolve().parents[1]))));self.entry.chmod(0o600)
         self.metadata=PrivateFeatureState(self.host_root/'metadata.json');config=PrivateFeatureState(self.host_root/'config.json')
         config.write(dict(metadata=str(self.metadata.path),stores={key:str(store.path) for key,store in stores.items()},
             locks=[str(lock.path) for lock in locks],parent=str(admission.path),epoch=parent.native.epoch,host=parent.native.host,
             runId=parent.initial.source.run,fixtureUrl=parent.initial.source.fixture_url,
-            binding=parent.cursor.scope['binding'],peerBinding=parent.cursor.scope['peerBinding']),None)
+            binding=parent.cursor.scope['binding'],peerBinding=parent.cursor.scope['peerBinding'],
+            originalQueries=original_queries,deferInitialPublish=defer_initial_publish),None)
         self.journal=parent.flow.w.journal;self.run=parent.initial.source.run;self.token=uuid.uuid4().hex
         self.worker=subprocess.Popen([sys.executable,str(self.entry),'--config',str(config.path)],stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,stderr=subprocess.PIPE,env={'PYTHONDONTWRITEBYTECODE':'1','TMPDIR':str(self.host_root/'tmp'),
@@ -144,6 +164,14 @@ class RemoteActorFixture:
             if not raw:
                 self.worker.wait(timeout=5);self.fail(self.worker.stderr.read().decode())
             value=json.loads(raw)
+            if value['kind']=='native-clock':
+                self.worker.stdin.write((json.dumps(self.native_clock())+'\n').encode());self.worker.stdin.flush()
+                continue
+            if value['kind']=='native-query':
+                result=self.native_query(value['source'],value['command'])
+                self.assertIs(type(result),str)
+                self.worker.stdin.write((json.dumps(dict(raw=result,**self.native_clock()))+'\n').encode());self.worker.stdin.flush()
+                continue
             if value['kind']!='fixture':self.assertEqual(kind,value['kind']);return value.get('value')
             path=value['path']
             if path.endswith('/phase'):result=self.journal.phase(self.run,value['phaseNonce'])
