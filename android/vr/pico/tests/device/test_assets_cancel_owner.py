@@ -167,6 +167,38 @@ class AssetsCancelOwnerTests(unittest.TestCase):
         self.assertEqual((admitted['browserId'],admitted['modelId']),(result['browser']['id'],result['browser']['modelId']))
         self.assertFalse(result['browser']['rootAlive'] or result['browser']['modelAlive'])
         self.assertEqual('retired',self.file_store.read()['phase']);self.assertEqual(0,self.owner.uploads.last['source']['totalCalls'])
+    def release_reply_boundary(self,delivered):
+        self.owner.open();before=deepcopy(self.owner.files.read()['source']['files']);self.cancel_phase()
+        send=self.owner.files.native.send;attempts=[];actual=[]
+        def lose_release(command):
+            if command.get('operation')=='release':
+                attempts.append(deepcopy(command))
+                if delivered:send(command);actual.append(deepcopy(command))
+                else:self.host.operations.append(deepcopy(command))
+                self.host.raw=''
+            else:send(command)
+        with patch.object(self.owner.files.native,'send',side_effect=lose_release),self.assertRaises(NativeUIError):self.owner.cancel()
+        self.assertEqual(1,len(attempts));self.assertEqual(int(delivered),len(actual))
+        self.assertEqual('retiring',self.file_store.read()['phase']);self.assertEqual('canceling',self.store.read()['phase'])
+        inputs=deepcopy(self.host.inputs);originals=unpack(self.store.read()['inputs']);files=unpack(self.file_store.read()['originals'])
+        self.assertEqual('assets-file.cancel',inputs[-1]['controlId']);self.assertTrue(all(row['after'] is not None for row in originals))
+        self.make()
+        if delivered:
+            result=self.owner.reconcile();self.assertTrue(result['cancelObserved'] and result['filesRetired'])
+            self.assertFalse(result['browser']['rootAlive'] or result['browser']['modelAlive'])
+            self.assertEqual('retired',self.file_store.read()['phase'])
+            source=self.owner.files.read()['source'];self.assertTrue(source['retired']);self.assertFalse(source['exists'])
+        else:
+            for repeat in range(2):
+                with self.assertRaises(NativeUIError):self.owner.reconcile()
+                self.assertEqual('retiring',self.file_store.read()['phase'])
+                self.assertEqual(before,self.owner.files.read()['source']['files']);self.make()
+        self.assertEqual(inputs,self.host.inputs);self.assertEqual(originals,unpack(self.store.read()['inputs']))
+        self.assertEqual(files,unpack(self.file_store.read()['originals'])[:len(files)])
+        releases=[command for command in self.host.operations if command.get('operation')=='release']
+        self.assertEqual(attempts,releases);self.assertEqual(0,self.owner.uploads.last['source']['totalCalls'])
+    def test_lost_file_release_reply_after_normal_cancel_reconciles_without_resend(self):self.release_reply_boundary(True)
+    def test_undelivered_file_release_after_normal_cancel_keeps_exact_files_without_resend(self):self.release_reply_boundary(False)
     def test_final_owner_cas_age_refuses_open_result_and_keeps_exact_inputs(self):
         self.synthetic=0;self.owner.monotonic=lambda:self.synthetic;write=self.store.write;aged=False
         def delayed(value,previous):
