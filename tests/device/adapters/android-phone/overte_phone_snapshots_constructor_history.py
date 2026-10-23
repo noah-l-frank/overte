@@ -49,8 +49,8 @@ def _same_phase(status,previous):
 class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
     """Reuse original byte/PNG/binary receipts without adopting a current fact."""
     @classmethod
-    def prepare(cls,feature,role,*,expected_role=_UNPINNED,previous_phase=None):
-        f=feature;f.lock.assert_held();need(role in ('primary','actor'))
+    def prepare(cls,feature,role,*,expected_role=_UNPINNED,previous_phase=None,cleanup=False):
+        f=feature;f.lock.assert_held();need(role in ('primary','actor') and type(cleanup) is bool)
         if role!='primary' or f.role!='primary':return None
         store=PrivateFeatureState(f.store.path.with_name('phone-snapshots-'+role+'-originals.json'))
         try:before=signature(store.path)
@@ -69,17 +69,19 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
             return None
         need(signature(store.path)==before)
         state=role_state(header,f.binding,f.run,role)
-        if (f.state['phase'] not in ('baseline','active') or f.state['current'] is not None or f.state['handoff'] is not None
+        if (f.state['phase'] not in (('cleaned',) if cleanup else ('baseline','active')) or f.state['current'] is not None or f.state['handoff'] is not None
                 or state['phase']!='ready' or state['pending'] is not None or state['sequence']==0):return None
         f.bound();phase=f.phase.status(previous_phase)
         if previous_phase is not None:_same_phase(phase,previous_phase)
         need(phase['active'] and phase['activations'])
-        if phase['activations'][-1]['stimulus']['verb']=='cleanup':return None
-        return cls(f,role,store,header,state,phase,before)
+        if cleanup:f.cleanup_observe_phase(phase,previous_phase)
+        elif phase['activations'][-1]['stimulus']['verb']=='cleanup':return None
+        return cls(f,role,store,header,state,phase,before,cleanup=cleanup)
 
-    def __init__(self,feature,role,store,header,state,phase,role_signature):
+    def __init__(self,feature,role,store,header,state,phase,role_signature,*,cleanup=False):
         f=feature;f.lock.assert_held()
         self.feature,self.role_name,self.role_store=f,role,store
+        self.cleanup=cleanup
         self.role_header,self.state,self.phase=deepcopy(header),deepcopy(state),deepcopy(phase)
         self.feature_store=f.store;self.feature_header=deepcopy(f.previous)
         self.root,self.run,self.configuration=f.root,f.run,deepcopy(f.config)
@@ -89,7 +91,7 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         self.paths=(self.feature_store.path,self.role_store.path)
         self.signatures=(signature(self.feature_store.path),role_signature)
         self.prepared=dict(feature=self.feature_header,role=self.role_header,state=self.state,phase=self.phase,
-            binding=self.binding,configuration=self.configuration,featureStateSha256=self.feature_state_sha256)
+            binding=self.binding,configuration=self.configuration,featureStateSha256=self.feature_state_sha256,cleanup=cleanup)
         self.prepared_sha256=_digest(self.prepared)
         self.closed=self.started=self.replaying=False
         self.finished=self.claimed=self.read_claimed=False
@@ -104,6 +106,7 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
             and f.store is self.feature_store and (f.store.path,self.role_store.path)==self.paths
             and f.root==self.root and f.run==self.run and f.role==self.role_name=='primary'
             and same(f.config,self.configuration) and same(f.binding,self.binding)
+            and type(self.cleanup) is bool and self.cleanup is self.prepared['cleanup']
             and same(f.previous,self.feature_header)
             and getattr(f.adapter,'_existing_input_scope',None) is self.scope and same(self.scope,self.scope_value)
             and _digest(self.prepared)==self.prepared_sha256)
@@ -157,11 +160,13 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         self._headers();self._memory(verify_graph=False);self._verify_files()
         f.bound()
         if role is not None:role.bound()
-        _same_phase(f.phase.status(self.phase),self.phase)
+        status=f.phase.status(self.phase);_same_phase(status,self.phase)
+        if self.cleanup:f.cleanup_observe_phase(status,self.phase)
         # Target/phase callbacks can change a graph or file. Recheck after
         # every such callback, before a constructor or current read escapes.
         self._headers();self._memory(verify_graph=verify_graph);self._verify_files()
-        need(f.state['phase'] in ('baseline','active') and f.state['current'] is None and f.state['handoff'] is None)
+        need(f.state['phase'] in (('cleaned',) if self.cleanup else ('baseline','active'))
+            and f.state['current'] is None and f.state['handoff'] is None)
         return True
 
     def before_load(self):

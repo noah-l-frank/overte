@@ -614,6 +614,15 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             status=f.phase.status()
             if not status['active']:return self.defer_cleanup_close(role,status,prepared['phase'])
             self.cleanup_phase(status,prepared['phase'])
+            cue=None
+            if self.state['quiet'] is not None and self.state['quiet']['complete']:
+                # A completed interval cannot create an unconsumed backlog.
+                # The Primary header is scheduling authority only; the next
+                # fact still comes from a new full independent acquisition.
+                cue=self.primary_cue(status)
+                if cue is None:
+                    self.retain_cleanup(role,status);return False
+                self._ordinary_primary=deepcopy(cue['header']);self.primary_owner()
             try:measured=role.read(role.state['sequence'])
             except SnapshotPending:
                 after=f.phase.status(status)
@@ -630,9 +639,13 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             quiet=quiet_window(self.state['quiet'],now,measured['sequence']);quiet['final']=proof;self.state['quiet']=quiet
             self.save()
             if quiet['complete']:
+                if cue is None:cue=self.primary_cue(status)
+                if cue is None:
+                    self.retain_cleanup(role,status);return False
+                self._ordinary_primary=deepcopy(cue['header']);self.primary_owner()
                 sample=dict(ticket=status['activations'][-1]['ticket'],actor='owned-observer',actorSequence=measured['sequence'],capturedEpochMs=measured['capturedEpochMs'],
                     facts={key:deepcopy(measured['state'][key]) for key in WITNESS_KEYS['snapshots']})
-                self.state['pending']=dict(sample=sample,issued=False);self.save();self.deliver()
+                self.state.update(primaryCue=cue,pending=dict(sample=sample,issued=False));self.save();self.deliver()
                 self.retain_cleanup(role,status);return False
             # Yield after a completed sample. A four-second scheduling slice
             # lets a fifth genuine observation finish the unchanged three-second

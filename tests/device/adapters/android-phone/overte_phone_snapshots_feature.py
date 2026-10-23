@@ -554,12 +554,14 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                     if self.state is None or self.state['phase']=='preparing':self.initialize()
                     need(self.state['phase'] in ('baseline','active','cleaned'))
                     if self.state['phase']=='cleaned':
-                        constructor_history=None
-                        role=PhoneSnapshotsRole(self,self.role,_observe_disposals=observations)
-                        if role.state['phase']=='reading':role.recover()
-                        prepared=self.cleanup_observe_pin(role)
-                        history=SnapshotHistoryReadPass(role,prepared)
-                        session.callback(history.close)
+                        constructor_history=SnapshotConstructorHistoryPass.prepare(self,self.role,cleanup=True)
+                        if constructor_history is not None:session.callback(constructor_history.close)
+                        else:
+                            role=PhoneSnapshotsRole(self,self.role,_observe_disposals=observations)
+                            if role.state['phase']=='reading':role.recover()
+                            prepared=self.cleanup_observe_pin(role)
+                            history=SnapshotHistoryReadPass(role,prepared)
+                            session.callback(history.close)
                     else:
                         constructor_history=SnapshotConstructorHistoryPass.prepare(self,self.role)
                         if constructor_history is not None:session.callback(constructor_history.close)
@@ -595,13 +597,18 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                         role=PhoneSnapshotsRole(self,self.role,expected_previous=history.role_header,
                             _observe_disposals=observations,_history_pass=history)
                         history.before_read(role)
-                        try:return role.read(call['afterSequence'])
+                        try:
+                            value=role.read(call['afterSequence'])
+                            if history.cleanup:
+                                self.cleanup_observe_phase(role.frames[-1]['phaseBefore'],history.phase)
+                                self.cleanup_observe_phase(role.frames[-1]['phaseAfter'],history.phase)
+                            return value
                         except SnapshotPending:
                             need(attempt<50)
                             previous_phase=deepcopy(history.phase)
                             history.close()
                             next_history=SnapshotConstructorHistoryPass.prepare(self,self.role,
-                                expected_role=role.previous,previous_phase=previous_phase)
+                                expected_role=role.previous,previous_phase=previous_phase,cleanup=history.cleanup)
                             # Once admitted, a lost owner or changed context
                             # never authorizes a fallback to a fresh bootstrap.
                             need(next_history is not None)
