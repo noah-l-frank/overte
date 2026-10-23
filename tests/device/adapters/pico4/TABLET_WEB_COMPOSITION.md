@@ -251,3 +251,11 @@ The regular owning selector, including the complete Journey and all existing
 parent/image/input/quiet counterexamples, passes98.796s under its unchanged120s
 limit. Together with coverage the owning run is2/139 green98.85s; the four
 repository suites pass2.92s and the contract registry/whitespace checks pass.
+
+The next unchanged complete Journey still times out120.109s, with97 primary/actor
+samples at the Hold Inline Message stage (38/37 original captures retained).
+A separate read-only200-call benchmark on that exact retained owner measures
+1.552s before and0.312s after the immutable-owner memo. This confirms a pure
+host validation improvement only; it does not qualify the full Journey or alter
+any original count, clock, file check or timeout. All diagnostic attempts and
+original files remain retained.

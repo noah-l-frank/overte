@@ -1117,7 +1117,10 @@
         "tests/device/adapters/chat_journey/observation.py",
         "tests/device/adapters/chat_journey/cleanup_witness.py",
         "tests/device/adapters/pico4/chat_cleanup_witness.py",
-        "tests/device/adapters/pico4/CHAT_CLEANUP_WITNESS.md"
+        "tests/device/adapters/pico4/CHAT_CLEANUP_WITNESS.md",
+        "tests/device/adapters/chat_journey/source_seal.py",
+        "tests/device/adapters/chat_journey/SOURCE_SEAL.md",
+        "tests/device/self_tests/test_chat_source_seal.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1339,7 +1342,9 @@
         "tests/device/adapters/pico4/assets_files.py",
         "tests/device/adapters/pico4/assets_file_owner.py",
         "android/vr/pico/tests/device/test_assets_files_native.py",
-        "android/vr/pico/tests/device/test_assets_file_owner.py"
+        "android/vr/pico/tests/device/test_assets_file_owner.py",
+        "tests/device/native/AssetsUiInventory.h",
+        "tests/device/adapters/pico4/assets_inventory.py"
       ],
       "declaredCheckpoints": 29,
       "inputVerbs": [

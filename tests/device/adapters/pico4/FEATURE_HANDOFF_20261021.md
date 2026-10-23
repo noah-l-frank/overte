@@ -36,7 +36,7 @@ After equivalent synthetic-tool optimization and original-ledger cold reopening
 fixes, the same warm flow passes78.704s within120s: normal Cancel/Still/Save,
 independent actual host PNG,13 fresh Provider inspections, all15 quiet clocks
 and cold factory reopening without a repeated input. JNI/Android provider/UID
-and rendering boundaries remain explicit host seams. The catalog now contains154 groups; complete source areas stay3/14.
+and rendering boundaries remain explicit host seams. The catalog now contains157 groups; complete source areas stay3/14.
 
 The fixed Assets normal-input packet95aa81c067 is selected as25d8dcff66.
 The actual original QML and whole Pico observer/apply host case passes20.433s,
@@ -52,8 +52,22 @@ fences pass1.829s. Adding the six factory/wrapper cases to the existing archive
 selection exceeded its unchanged120s limit. They now have a disjoint
 `chat-cleanup-factory` selector; no case or limit is removed. The disjoint factory and restored archive selectors subsequently pass49.208s
 and72.498s. The same five-group selection passes actual Assets native files
-3.669s, file owner7.096s and coverage0.080s. All154 groups remain present;
-only these selected groups are qualified by that run.
+3.669s, file owner7.096s and coverage0.080s. That catalog contained154 groups; the later seal selectors bring the current
+count to157. Only the selected groups are qualified by each run.
+
+Warm Chat source seals337f633133+c31157a553 are selected with three disjoint
+positive/admission/freshness selectors. A separate full-byte reader preserves
+the exact admitted chunk identities even when a same-byte replacement occurs
+between verification and reading; the regression failed before the fix. A seal
+is complete only after successful lock exit and its original final clocks.
+Physical root identity begins with its seal snapshot, without claiming an inode
+for earlier mutable CAS writes. The disjoint integrated selections pass positive11.742s, admission59.271s
+and freshness39.497s. The updated actual Pico factory passes48.452s and
+coverage0.080s; all five selected groups are green. The four repository suites,
+closed registry, probe syntax and whitespace checks also pass.
+Assets normal Cancel/picker/model/original-file joins subsequently pass all
+three owning groups33.34s; contexts remain separately reported and unretired.
+Snapshot OS-source/final-authority fences pass2.261s with unchanged coverage.
 
 | Area | Current Pico implementation | Concrete next boundary |
 | --- | --- | --- |
