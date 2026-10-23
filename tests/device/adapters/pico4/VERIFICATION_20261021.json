@@ -3270,5 +3270,27 @@
       "chatPublication": "2a01c99a70"
     },
     "qualification": "Actual independent source/process/OFD/files with explicit native/HTTP/Parent seams. Both original source-lock exits and original native/host clocks bound to paired capture. No live Actor reconstruction. Full production factory/product HTTP, whole cleanup/Stop/archive and device qualification remain open."
+  },
+  "snapshotClose2Integration20261023": {
+    "status": "passed",
+    "sourceCommits": [
+      "94bcf2aff68b3fd18e01f59d24ec7cdfd79a4fba",
+      "47504ca09a1bbf580aee1680e868030f2c1ddf83"
+    ],
+    "integrationCommits": [
+      "52dc0101c7",
+      "e262f9af46"
+    ],
+    "catalog": 200,
+    "groups": 5,
+    "seconds": 257.11,
+    "checks": {
+      "coverage": 0.092,
+      "statusLegacyCapacity": 64.65,
+      "normalAndFactory": 59.277,
+      "recovery": 61.8,
+      "fences": 71.288
+    },
+    "qualification": "Actual normal original control/controller paths and private files with explicit producer/Parent seams. One-read actual controller answers preserved before later failures; original transition epoch constant, original frame/host3s and500ms unchanged.96-slot pre-read guard; legacy1 readonly. No retrospective13-key baseline, complete Qt/story/Executor/marker/journal retirement, whole feature or device qualification."
   }
 }

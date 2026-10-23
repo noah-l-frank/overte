@@ -1262,7 +1262,9 @@
         "tests/device/adapters/pico4/snapshot_return_image.py",
         "tests/device/adapters/pico4/SNAPSHOT_RETURN_IMAGE.md",
         "tests/device/adapters/pico4/snapshot_close_owner.py",
-        "tests/device/adapters/pico4/SNAPSHOT_CLOSE_OWNER.md"
+        "tests/device/adapters/pico4/SNAPSHOT_CLOSE_OWNER.md",
+        "tests/device/adapters/pico4/snapshot_close_statuses.py",
+        "android/vr/pico/tests/device/test_snapshot_close_statuses.py"
       ],
       "declaredCheckpoints": 18,
       "inputVerbs": [
@@ -1312,7 +1314,7 @@
         "Delete only actual owned private/saved/received/uploaded originals",
         "Restore permissions/preferences and observe quiet absent leases"
       ],
-      "nextExecutableStep": "Select and qualify corrected Close2 status-history/actual transition-clock successor to integrated Close base52dc0101c7; do not require transition timestamps to advance or infer13-key baseline from old runs. Then new-run passive original13-key lease, independent scene/Actor/panorama/cubemap and full story/Qt/Executor/marker/archive cleanup. All originals remain retained.",
+      "nextExecutableStep": "Implement passive original13-key settings/handle-cache lease for NEW runs before first input, then independent scene/Actor/panorama/cubemap and whole story/Qt/Executor/marker/archive retirement. Corrected Close2 normal checked Mode/Format restore/controller Close/recovery/status/legacy/capacity/fences all pass Root5/200groups257.11s with unchanged3s/500ms/120s bounds. Actual status transition epoch remains constant; no setter/maybeInit/retrospective baseline or whole-feature/device qualification.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

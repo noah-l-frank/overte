@@ -2340,3 +2340,29 @@ stays90s. The integrated Snapshot Close base52dc0101c7 awaits its corrected
 original transition-clock/status-history successor before Root qualification.
 No complete-feature or application/device claim is added; source-complete3/14
 and device-qualified0/14 remain unchanged.
+
+
+## Integrated original Snapshot Close2 status history
+
+Fixed47504ca09a selects ase262f9af46 on the original Close base52dc0101c7;
+the shared one-read Session dependency is already present and is not selected
+twice. Actual controller answers are retained in immutable chunks before UI
+acquisition or neutral assessment. Held, unknown and unframed answers remain
+evidence even when the following frame fails. Capacity is checked before the
+next SDK read; the counter creates all96 original files and confirms no97th
+transport read. Existing scope/cursor/nonce, full frame/host3s and500ms bounds
+remain. Native updatedEpochMs is an original transition time and remains
+constant throughout quiet; it is never retimed or treated as a periodic clock.
+Legacy Close1 stays read-only without a new continuous-neutrality claim.
+
+Root5/200groups pass257.11s: coverage0.092s, three status/legacy/capacity
+cases64.650s, normal/factory59.277s, recovery61.800s, fences71.288s. The
+new status selector is disjoint; no complete case or original window is split.
+Registry versions are Close2/read1,2 and status history1. The pass establishes
+normal checked Mode/Format restoration and actual original controller Close,
+new closed generation, independently sampled neutral answers and3s quiet under
+the declared producer/Parent seams. It does not add a missing13-key baseline
+to old runs or retire Qt objects, stories, global Executor, markers or journals.
+Full Snapshot and device qualification remain false. The next passive settings
+lease is limited to genuinely new runs before first input, with no getter
+initialization, setters or retrospective baseline.
