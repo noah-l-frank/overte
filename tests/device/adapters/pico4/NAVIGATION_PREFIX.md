@@ -1,0 +1,158 @@
+# Normal Navigation opening composition
+
+This private work composes the unchanged shared v16 recipe's first five
+actions with existing Pico input and original-source owners. It is not a
+public Navigation adapter, complete Source/Actor/Public triple or cleanup
+qualification. No product function or shared recipe is changed.
+
+The entry preflight requires actual grounded A from the independent native
+probe and original GUI avatar source, no owned bookmark, an original present
+metaverse preference, and the existing normal anonymous Login/server surface.
+Acquiring that initial surface through the full startup/Auth lifecycle remains
+a parent integration obligation. An absent setting, credential-bearing account,
+foreign environment override or wrong viewpoint refuses rather than being
+repaired. Origin selection uses the existing `NavigationOrigin` normal server
+field and its original Home-entity ray. The parent preserves the original
+geometry, exact existing Session envelope and host/native phase anchor; locked
+intent/publication callbacks use only host state, CAS and monotonic time.
+
+`NavigationPrefix` retains one actual normal IO, input Session and
+`ScriptSourceLock` for Origin, Places, Directory and Bookmark children.
+`open` uses the original bounded Places entry/paging and ordinary Refresh,
+actual HTTP response, original Places response consumption and current QML
+records. Add-cancel, Add, Rename-cancel and Rename use the existing complete
+bookmark owner, including independent native map/backing-file revisions and
+three-second native/UI quiet. A normal tab action returns to the current
+directory after each bookmark operation. This reads the real directory tab;
+it does not relabel an original bookmark-tab snapshot to satisfy a validator.
+
+Every child action has a durable parent phase/action intent. Every actual QML
+command is retained at the existing final `NativeNavigationIO.before_send`
+boundary. Candidate/process/foreground guards precede the last exact Phase
+read. That phase follows the last parent command CAS; only clock validation
+follows. An unknown cold Home/paging effect remains unavailable. Existing child
+pending journals reconcile actual applied effects and never resend uncertain
+inputs. No acknowledgement supplies an observed feature value.
+
+Each fixed role acquires its own new original bracket and immutable frame
+chunks. The actor uses a separate client/source-reader set and cannot perform
+input or preparation. Neither role copies the other's returned projection.
+All eight fields are independently derived:
+
+| Public field | Actual source |
+| --- | --- |
+| `location` | matching grounded probe and GUI avatar/scene observations |
+| `bookmark`, `bookmarkName` | original LocationBookmarks map and backing file, joined to current owned UI rows |
+| `searchQuery` | actual field SHA plus length, decoded only over the closed permitted texts |
+| `searchResults` | actual current QML model rows joined to original response-read/message/root/HTTP-receipt provenance |
+| `error` | absence of all original live modal roots and listeners in this opening prefix |
+| `panel` | current original visible Places root, source SHA and UI generation |
+| `addressDialog` | original complete native root inventory, with no current address root |
+
+The before/after bracket must agree on original UI controls/input scope,
+bookmark storage and projection. Births, read IDs, native cursors, original
+immutable histories and pose sources advance across role frames. Unowned
+bookmarks and original other-settings digest remain unchanged. Currentness is
+checked after archival/CAS and final guards; historical validation does not
+retime a source. Standalone parent, child, frame and original environment
+archives block generic successful cleanup. No finalizer or journal deletion
+is supplied by this prefix.
+
+## Current host evidence and boundaries
+
+The continuous opening prefix now passes its narrow host proof; the full
+Navigation feature remains **partial and unqualified**. Its first direct
+invocation failed on an import path before any fixture action (0.344 s).
+The next invocation refused the HTTP test producer at the unchanged original
+HTTPS endpoint guard before `prepare` (0.503 s). The producer now reuses the
+existing ephemeral TLS fixture and exact private trusted Python opener; no CA
+is installed, global trust is unchanged, and certificate/hostname verification
+remain enabled.
+
+The HTTPS run ended red after 0.854 s. Three ordinary server-field inputs and
+one committed original `input.primary` Home envelope were reached; the Session
+advanced to sequence two. The original Origin Home pending intent and all
+private journals remain. The combined Qt model omitted the Origin v1 header
+on Home; the actual `PicoE2eNavigationUi.cpp` exports it unconditionally. The
+model correction preserves that original header on Login/Home and removes the
+synthetic QML Home button, matching the existing entity-ray tests. A narrow
+Login/Home snapshot grammar check passed without input, owner, Session or
+network execution. The corrected continuous prefix passed in **4.819 s**.
+The subsequent seven-case owning host check passed in **11.086 s**.
+Both roles independently acquired every field after each of the first five
+actions; the original child map/file quiet histories and journals remain.
+
+The counterexamples cover a consumed Save with lost response and cold reopen
+without a second Save, ignored persistence with the original pending input
+retained, phase advancement in the last source guard preventing the QML writer,
+a changed query inside a source bracket, a real grounded B pose disagreeing
+with a stale A Places address, and a two-second final clock change preventing
+publication without retiming any original. Complete conflicting source
+brackets are archived before projection is refused. An unresolved reading
+intent/orphan chunk cannot be adopted as a successful old sample.
+
+Two actual Pico-factory cases passed in **0.543 s**, proving the exact retained
+normal IO/source-lock/Session wiring without input and the standalone
+parent/chunk/environment-archive ownership guard. Factory boundaries use the
+existing synthetic APK/SDK/native UI fixture; this is not installed-device
+identity or a cleanup release.
+
+The host case executes actual Python owners, transports, Session, private file
+reads/writes and owned loopback TLS response delivery. Qt widgets, native
+probe/avatar/storage collectors, VM callbacks and OS/controller consumption
+remain explicit producers. No native/compiler/device result follows from it.
+The complete fifteen actions, scene challenge/stereo/changed images, later
+lookup, actual restart, initial Auth/startup entry, maturity/origin restoration,
+Script/XHR/Web/Qt resources, public routing, independent publication and final
+retirement remain incomplete. All owner journals stay obligations.
+
+Source review used fixed Root
+`e75cf9e34f1b4116a58087069514d4aba8b510e6` and fixed read-only Phone
+`5527d540e99cc6dba4204a5e904a854e6e1cd2b4`. Phone's independently acquired
+role-frame/phase structure informed the join; its native view, touch input,
+mono images, stable-bridge assumptions and newer contract are not adopted as
+Pico facts or authority. Existing shared `PhaseFixtureReader`, source chunks,
+normal Pico transport and actual Session publication hooks remain the only
+corresponding mechanisms.
+
+
+## Private versions and verification entry
+
+The new closed headers are `pico-navigation-prefix` v1,
+`pico-navigation-prefix-source` v1 and `pico-navigation-prefix-samples` v1,
+each reading only v1. Frame storage reuses unchanged `ChatSourceChunks` v1
+with distinct run/binding/role scope and full physical inventory/signatures.
+These versions do not change the shared feature recipe or authorize adoption
+of a foreign/older owner. Public Navigation capabilities stay unavailable.
+
+The owning `navigation-normal-prefix` selector registers the seven continuous
+owner/source cases and two actual Pico-factory cases. The same portable owner
+module is included in the existing control-plane self-test selection. It
+requires the already used OpenSSL tool for the ephemeral TLS fixture and starts
+no compiler, application, device or external service. The per-case native,
+source, quiet, byte/frame caps and suite's 120-second deadline remain unchanged.
+
+
+The final owning selector and coverage mapping passed **2/2 groups in 12.32 s**
+(`navigation-normal-prefix`: nine cases, 12.260 s; coverage: 0.060 s).
+The four targeted repository checks passed in **2.91 s**; compatibility registry
+validation and whitespace checks also passed. No complete quick/Pico catalog,
+native build, application or device was run for this packet.
+
+
+Final historical continuity review also pins both the original provider response
+prefix and the complete original fixture activation prefix across role frames;
+the positive flow includes two pure old-history mutation counters. The resulting
+owning selector plus coverage passed **2/2 groups in 12.05 s** (nine owning cases,
+11.991 s; coverage, 0.057 s). The late clock counter was then made specifically
+independent of its frozen host clock and passed alone in **1.177 s**. It advances
+only the final native clock by two seconds after the actual CAS/guard and
+preserves both original bracket epochs.
+
+The reused environment collector reads original settings through `Settings`
+and calls `MetaverseAPI::getCurrentMetaverseServerURL()`. That existing product
+getter uses `Setting::Handle<QUrl>::get()`. This packet does not establish a
+passive pre-first-observation lease for that handle's initialized/cache flags
+or assert their restoration. It adds no getter/setter, dependency initializer,
+cache reset or product change. The actual startup/Auth and final original
+settings/cache/resource joins remain explicit whole-owner obligations.

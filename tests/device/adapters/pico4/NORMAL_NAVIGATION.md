@@ -46,3 +46,9 @@ candidate verifier/dispatcher tests with synthetic APK/tool/ADB/Qt-file/OpenXR
 boundaries. These are input and binding tests. They do not provide a real APK,
 native Android/OpenXR application compilation, a device scene arrival or any
 physical acceptance result. Device execution remains a separate later wave.
+
+
+The private [normal opening composition](NAVIGATION_PREFIX.md) now joins the
+original Origin/Home, Places/Directory and first five shared recipe actions
+with independently queried primary/actor fields. It retains original journals
+and adds no public whole-Navigation capability or final retirement claim.
