@@ -16,6 +16,6 @@ if __name__=='__main__':
         prefix='self_tests.test_pico_browser_independent_process.PicoBrowserIndependentProcessTests.'
         whole='test_complete_shared_journey_then_original_independent_return_and_all_capture_retirement'
         names=[whole] if part=='independent-journey' else [name for name in unittest.defaultTestLoader.getTestCaseNames(PicoBrowserIndependentProcessTests) if name!=whole]
-        suite=unittest.defaultTestLoader.loadTestsFromNames([prefix+name for name in names])
+        suite=unittest.defaultTestLoader.loadTestsFromNames([prefix+name for name in names]+(['self_tests.test_pico_browser_actor'] if part=='independent' else []))
     else:suite=unittest.defaultTestLoader.loadTestsFromName('self_tests.test_pico_browser_actor_'+part)
     raise SystemExit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

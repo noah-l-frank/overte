@@ -59,9 +59,10 @@ class PicoTabletWebFeature:
     surface="tablet"
     action="pico-tablet-web"
     version_field="picoTabletWebFeatureVersion"
-    def __init__(self,adapter,selector,source,artifact_root,foreign_fixture_url,*,role='primary',monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,adapter,selector,source,artifact_root,foreign_fixture_url,*,role='primary',monotonic=time.monotonic,sleep=time.sleep,require_new_actor=False):
         need(isinstance(source,PhaseFixtureReader) and source.area==self.area and role in ('primary','actor')
-            and callable(monotonic) and callable(sleep))
+            and callable(monotonic) and callable(sleep) and type(require_new_actor) is bool
+            and (not require_new_actor or role=='actor'))
         self.adapter,self.selector,self.source,self.role=adapter,selector,source,role
         self.run,self.fixture_url=source.run,source.fixture_url
         self.artifact_root=Path(artifact_root);PrivateFeatureState(self.artifact_root/(self.area+'-boundary.json'))._parent()
@@ -85,7 +86,17 @@ class PicoTabletWebFeature:
         self.actor_retirement=None
         self.capture_retirement=None
         self.remote_capture_retirement=None
+        self.require_new_actor=require_new_actor;self._actor_started=False
         self.completed_store=PrivateFeatureState(self.artifact_root/(self.area+'-'+self.run+'-retirement.json'))
+
+    def new_actor_sources(self):
+        """A new observer process cannot adopt an old live publication owner."""
+        from adapters.chat_journey.source_chunks import ChatSourceChunks
+        self.lock.assert_held();need(self.role=='actor' and self.require_new_actor and not self._actor_started)
+        for name in ('actor','actor-sources','actor-vm','actor-retirement','actor-export','actor-return','actor-consumption','actor-remote-receipt'):
+            store=PrivateFeatureState(self.store.path.with_name('pico-tablet-web-'+name+'.json'))
+            need(store.read() is None);ChatSourceChunks(store,{}).inventory(0)
+        need(not any(path.name.startswith('tablet-web-'+self.run+'-actor-') for path in self.artifact_root.iterdir()))
 
     def manager_store(self):
         return getattr(self.adapter,self.area.replace('-','_')+'_manager_store')(self.selector)
@@ -627,10 +638,12 @@ class PicoTabletWebFeature:
     def publish_active(self):
         need(self.role=='actor')
         with self.serialized(),self.adapter.existing_input_session(self.selector):
+            if self.require_new_actor and not self._actor_started:self.new_actor_sources()
             owner=self.owner();need(owner is not None);state=self.role_state()
             need(state['publication'] is None or state['publication']['phase']=='accepted')
             phase=self.phase(owner)
             value=self.acquire(owner,phase,state)
+            self._actor_started=True
             payload=dict(ticket=phase['ticket'],actor='owned-observer',actorSequence=value['sequence'],capturedEpochMs=value['capturedEpochMs'],facts=projection(self.area,value['state']))
             history=self.source_history(owner);history.begin('publication-intent',value['sequence'])
             state['publication']=dict(phase='issued',payload=deepcopy(payload));self.write(self.role_store,self.role,state)
@@ -728,11 +741,11 @@ class PicoTabletWebFeature:
 
     def finalize(self):
         # This private composition is deliberately unavailable as a complete
-        # feature. Current browser/renderer emptiness does not prove original
-        # Script VM destruction or fresh absence of every retired capture.
-        # Keep all original role/owner/metadata journals for that next join.
+        # feature. Complete VM/capture owners still need immutable source
+        # archival and actual final host closure. Keep their original
+        # role/owner/metadata journals until that enclosing transaction.
         need(self.role=='primary')
-        raise NativeUIError('Original browser VM and capture finalization are not integrated; ownership is retained')
+        raise NativeUIError('Original browser archive and host finalization are not integrated; ownership is retained')
 
     def retire_original_captures(self,actor):
         from adapters.pico4.browser_capture_retirement import PicoBrowserCaptureRetirement

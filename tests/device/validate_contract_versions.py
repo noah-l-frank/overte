@@ -15,6 +15,7 @@ REQUIRED = {
     "pico-browser-actor-graph": 1,
     "pico-browser-actor-return": 1,
     "pico-browser-actor-retirement": 1,
+    "pico-browser-actor": 1,
     "pico-browser-remote-capture-retirement": 1,
     "pico-browser-capture-retirement": 1,
     "pico-world-render-retirements": 1,
@@ -154,7 +155,7 @@ REQUIRED = {
     'native-account-menu-controls': 1,
     'pico-authentication-feature-binding': 1,
     'pico-tablet-home-observation': 1,
-    'pico-feature-observer': 3,
+    'pico-feature-observer': 4,
     'owned-feature-observer': 1,
 
     'script-journey-actions': 1,

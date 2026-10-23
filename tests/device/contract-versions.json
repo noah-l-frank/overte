@@ -7,6 +7,7 @@
     "pico-browser-actor-graph": {"current": 1, "reads": [1]},
     "pico-browser-actor-return": {"current": 1, "reads": [1]},
     "pico-browser-actor-retirement": {"current": 1, "reads": [1]},
+    "pico-browser-actor": {"current": 1, "reads": [1]},
     "pico-browser-remote-capture-retirement": {"current": 1, "reads": [1]},
     "pico-browser-capture-retirement": {"current": 1, "reads": [1]},
     "pico-world-render-retirements": {"current": 1, "reads": [1]},
@@ -394,7 +395,7 @@
     "native-account-menu-controls": {"current": 1, "reads": [1]},
     "pico-authentication-feature-binding": {"current": 1, "reads": [1]},
     "pico-tablet-home-observation": {"current": 1, "reads": [1]},
-    "pico-feature-observer": {"current": 3, "reads": [1, 2, 3]},
+    "pico-feature-observer": {"current": 4, "reads": [1, 2, 3, 4]},
     "native-qml-load-inventory": {"current": 1, "reads": [1]},
     "owned-feature-observer": {"current": 1, "reads": [1]}
   },

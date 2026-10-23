@@ -2404,3 +2404,26 @@ per-selector bound. Root integration checks for these selectors are pending;
 the agent's original67.363s positive and82.587s two-counter results remain
 separate source evidence. The catalog now has206 groups; complete source areas
 remain3/14.
+
+## Existing Browser observer and consumed Chat return integration
+
+The [existing observer's Browser-v4 route](BROWSER_ACTOR_ENTRYPOINT.md) owns one
+new original Actor lifetime through original phase retirement, export and
+actual Parent nonce consumption. Cold roots/orphans are checked under the
+original source lock before first acquisition and again after pending input.
+Its actual separate-process host source/return/all-capture prefix now passes
+six cases45.540s. Fifteen configuration/new-owner/legacy-observer cases also
+pass1.583s. The first attempt's overbroad test classification of host-clock
+RPCs remains recorded; every post-export product/candidate/epoch/source query
+is still forbidden. Whole26-action timing, source archive and host closure
+remain open, with native/SDK/Qt/GPU/OS seams unchanged.
+
+Chat fixed95d6648cc8 and5ec69c263e are selected as87390b3bb9 and04fc6aa8b8.
+The actual shared consumed cleanup now binds its unchanged bytes to exactly
+one Stop2 intent, the real separate-process return/full original graph and
+original primary seal. Extra actual Actor publications remain retained.
+The direct diagnostic preserves sequenceSucceeded=false and cannot authorize
+a successful whole application/archive recipe. Root5/206groups pass178.72s:
+coverage0.096s, reader/literal12.398s, complete prefix/return/seal39.226s,
+four failure cases81.462s and Browser45.540s. Full successful common-hook/
+application/profile/IPC/archive/host composition remains in progress.

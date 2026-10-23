@@ -27,28 +27,38 @@ from self_tests.pico_browser_process_fixture import ProductSources
 
 WORKER='''import json,sys
 sys.path.insert(0,DEVICE_PATH)
+from types import MethodType
 from adapters.normal_feature_state import PrivateFeatureState
-from adapters.pico4.tablet_web_feature import PicoTabletWebFeature
-from feature_journeys.phase_fixture import PhaseFixtureReader,PhaseRetired
-from feature_journeys.witness import Client
+from adapters.pico4.tablet_web_binding import PicoTabletWebBinding
+from adapters.pico4.browser_actor_graph import PicoBrowserActorExport
+from adapters.pico4.feature_observer import run
+from feature_journeys.phase_fixture import PhaseRetired
 from self_tests.pico_browser_process_fixture import IndependentBrowserSources
 config=PrivateFeatureState(sys.argv[2]).read();target=IndependentBrowserSources(config['sources']);clock=target.clock
-source=PhaseFixtureReader(Client(config['fixtureBase'],config['actorToken']),config['sources']['run'],'tablet-web',epoch_ms=clock.epoch,monotonic=clock.now)
-actor=PicoTabletWebFeature(target,'target',source,target.artifacts,config['sources']['foreign'],role='actor',monotonic=clock.now,sleep=clock.sleep)
+# Only execution scheduling is controlled here; the production loop acquires
+# all original product/phase sources, owns publication/export and consumes ACK.
+def gate(_seconds=0):
+    action=sys.stdin.readline().strip()
+    if action not in ('publish','retire','consume'):raise ValueError('No other independent fixture scheduling operation')
+def feature(self,*args,**kwargs):
+    actor=PicoTabletWebBinding.feature(self,*args,**kwargs);publish=actor.publish
+    def observed():
+        value=publish();print(json.dumps(dict(kind='publication',sample=value),separators=(',',':')),flush=True);return value
+    actor.publish=observed;return actor
+target.feature=MethodType(feature,target)
+original_return=PicoBrowserActorExport.publish_return
+def returned(self):
+    value=original_return(self);print(json.dumps(dict(kind='retired')),flush=True);return value
+PicoBrowserActorExport.publish_return=returned
 print(json.dumps(dict(kind='ready')),flush=True)
 try:
- for raw in sys.stdin:
-    action=raw.strip()
-    if action=='publish':result=dict(kind='publication',sample=actor.publish())
-    elif action=='retire':
-        try:actor.publish()
-        except PhaseRetired:pass
-        else:raise AssertionError('Original inactive phase was not returned')
-        exported=actor.export_original_actor(config['request']);exported.publish_return();result=dict(kind='retired')
-    elif action=='consume':exported.consume_return();result=dict(kind='consumed')
-    elif action=='exit':break
-    else:raise ValueError('No other independent fixture operation')
-    print(json.dumps(result,separators=(',',':')),flush=True)
+ gate()
+ result=run(target,dict(area='tablet-web',target='target',runId=config['sources']['run'],fixtureUrl=config['fixtureBase'],
+    actorToken=config['actorToken'],artifactRoot=config['sources']['artifacts'],foreignFixtureUrl=config['sources']['foreign'],
+    originalRequestId=config['request'],durationSeconds=1800),monotonic=clock.now,sleep=gate)
+ if result!=0:raise AssertionError('Original production observer did not consume Parent return')
+ print(json.dumps(dict(kind='consumed')),flush=True)
+ if sys.stdin.readline().strip()!='exit':raise ValueError('Original terminal fixture was not released')
 finally:target.close()
 '''
 
@@ -133,7 +143,11 @@ class PicoBrowserIndependentProcessTests(unittest.TestCase):
 
     def consume_original_return(self):
         self.command('retire','retired');owner=self.returned();owner.acknowledge()
-        queries=len(self.sources.calls);self.command('consume','consumed');self.assertEqual(queries,len(self.sources.calls))
+        queries=len(self.sources.calls);self.command('consume','consumed')
+        # The production loop retains its real host-monotonic deadline after
+        # export. Only this analytical fixture transports that local clock over
+        # RPC; no product/candidate/epoch/source query may occur after export.
+        self.assertTrue(all(action=='host' for action in self.sources.calls[queries:]))
         self.command('exit');self.worker.wait(timeout=5);result=owner.finish()
         self.assertTrue(owner.complete);self.assertEqual(result,owner.receipt());return owner
 

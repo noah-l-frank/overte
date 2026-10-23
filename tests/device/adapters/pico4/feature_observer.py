@@ -27,26 +27,38 @@ from adapters.pico4.script_journey import PicoScriptJourney
 from adapters.pico4.script_observer import run as publish_scripts
 from feature_journeys.witness import Client
 
-VERSION=3
+VERSION=4
 
 
 def configuration(path):
     value=PrivateFeatureState(path).read()
     graphics=type(value) is dict and value.get('area')=='graphics'
     chat=type(value) is dict and value.get('area')=='chat'
+    browser=type(value) is dict and value.get('area')=='tablet-web'
     exact(value,{'picoFeatureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'}
-        |({'artifactRoot'} if graphics else set())|({'peerConfig'} if chat else set()))
-    need(type(value['picoFeatureObserverVersion']) is int and value['picoFeatureObserverVersion'] in (1,2,3)
+        |({'artifactRoot'} if graphics or browser else set())|({'peerConfig'} if chat else set())
+        |({'foreignFixtureUrl','runId','originalRequestId'} if browser else set()))
+    need(type(value['picoFeatureObserverVersion']) is int and value['picoFeatureObserverVersion'] in (1,2,3,4)
          and (not graphics or value['picoFeatureObserverVersion']==2)
          and (not chat or value['picoFeatureObserverVersion']==3)
-         and value['area'] in ('authentication','scripts','graphics','chat') and type(value['target']) is str and 1<=len(value['target'])<=256
+         and (browser==(value['picoFeatureObserverVersion']==4))
+         and value['area'] in ('authentication','scripts','graphics','chat','tablet-web') and type(value['target']) is str and 1<=len(value['target'])<=256
          and all(33<=ord(c)<127 for c in value['target'])
          and type(value['candidateArguments']) is list and 1<=len(value['candidateArguments'])<=80
          and all(type(item) is str and bool(item) for item in value['candidateArguments'])
          and number(value['durationSeconds'],30,1800))
     Client(value['fixtureUrl'],value['actorToken']) # Parse only; no transport.
     if value['area']=='authentication':origin(value['fixtureUrl'])
-    if graphics:artifact_directory(value['artifactRoot'])
+    if graphics or browser:artifact_directory(value['artifactRoot'])
+    if browser:
+        from adapters.pico4.browser_source import fixture
+        from feature_journeys.contract import identifier
+        from urllib.parse import urlsplit
+        identifier(value['runId']);identifier(value['originalRequestId'])
+        for key in ('fixtureUrl','foreignFixtureUrl'):
+            need(type(value[key]) is str);fixture(value['runId'],value[key]+'/runs/'+value['runId']+'/')
+        a,b=(urlsplit(value[key]) for key in ('fixtureUrl','foreignFixtureUrl'))
+        need((a.scheme,a.netloc)!=(b.scheme,b.netloc))
     if chat:
         need(type(value['peerConfig']) is str)
         peer=Path(value['peerConfig']);need(peer.is_absolute() and peer.resolve(strict=True)==peer)
@@ -55,6 +67,9 @@ def configuration(path):
 
 
 def run(journey,config,*,monotonic=time.monotonic,sleep=time.sleep):
+    if config['area']=='tablet-web':
+        from adapters.pico4.browser_actor import run as publish_browser
+        return publish_browser(journey,config,monotonic=monotonic,sleep=sleep)
     if config['area']=='chat':
         from adapters.pico4.chat_cursor_actor import run as publish_chat
         return publish_chat(journey,config,monotonic=monotonic,sleep=sleep)
@@ -87,7 +102,9 @@ def main(argv=None):
         os.environ['OVERTE_PICO_FEATURE_SCRIPTS']=os.environ['OVERTE_PICO_FEATURE_AUTHENTICATION']='0'
         os.environ['OVERTE_PICO_FEATURE_GRAPHICS']='0'
         original=binding.create_adapter(candidate,adapter.AndroidAdapter)
-        journey=(original if config['area']=='chat' else PicoAuthenticationJourney(original) if config['area']=='authentication' else
+        from adapters.pico4.tablet_web_binding import PicoTabletWebBinding
+        journey=(original if config['area']=='chat' else PicoTabletWebBinding(original) if config['area']=='tablet-web' else
+            PicoAuthenticationJourney(original) if config['area']=='authentication' else
             PicoGraphicsJourney(original,artifact_root=config['artifactRoot']) if config['area']=='graphics' else PicoScriptJourney(original))
         return run(journey,config)
     except (OSError,RuntimeError,ValueError,TypeError,KeyError,RecursionError):

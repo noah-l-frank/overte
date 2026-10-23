@@ -39,10 +39,10 @@ class PicoTabletWebBinding(PicoScriptJourney):
         # their own target-specific namespace and cannot adopt Script ownership.
         return self.original._script_journey()._lock(target,source_lock)
 
-    def feature(self,target,source,artifact_root,foreign_fixture_url,*,role='primary'):
+    def feature(self,target,source,artifact_root,foreign_fixture_url,*,role='primary',require_new_actor=False):
         from adapters.pico4.tablet_web_feature import PicoTabletWebFeature
         return PicoTabletWebFeature(self,target,source,artifact_root,foreign_fixture_url,role=role,
-            monotonic=source.monotonic)
+            monotonic=source.monotonic,require_new_actor=require_new_actor)
 
     def check_flow(self,target,flow,*,input=False):
         from adapters.pico4.tablet_web_feature import PicoTabletWebFeature
