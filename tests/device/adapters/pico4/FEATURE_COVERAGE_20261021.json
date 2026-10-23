@@ -739,7 +739,8 @@
         "tests/device/self_tests/test_pico_browser_independent_process.py",
         "tests/device/adapters/pico4/browser_actor.py",
         "tests/device/adapters/pico4/BROWSER_ACTOR_ENTRYPOINT.md",
-        "tests/device/self_tests/test_pico_browser_actor.py"
+        "tests/device/self_tests/test_pico_browser_actor.py",
+        "tests/device/adapters/pico4/browser_cleanup_consumption.py"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -778,7 +779,7 @@
         "open"
       ],
       "missingOperationsOrEvidence": [
-        "The current complete26-action Journey plus original separate-process return and complete capture retirement exceeds the unchanged120s selector limit. Corrected original baseline preserves28 phases; stage diagnostics finish common cleanup only at117.571/119.892s. No whole pass or source-area completion is claimed.",
+        "The last complete26-action process Journey attempt exceeds unchanged120s at120.110s. Its newer production observer/common-cleanup hook path has not been rerun as a full case. Original28-phase validation remains; no successful whole execution is claimed.",
         "The existing feature observer now has closed Browser-v4 configuration and one warm original Actor lifetime through terminal export and actual Parent nonce. Its real separate-process source return and all-capture short prefix pass45.540s with three admission/configuration cases. Native/SDK producers remain seams; immutable archive and all final host closure remain open.",
         "Product/GPU/Qt/DOM/Java/OS/native clock endpoints remain explicit analytical host seams. Whole APK/HMD qualification remains unavailable."
       ],
@@ -793,7 +794,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Compose the completed original Parent/typed Actor-return/full capture owners with immutable original source archive and all final host closure. The existing observer loop now refuses cold journals/orphans under the original source lock and performs terminal return without product queries. Combined whole26-action process Journey remains red under120s; optimize only measured pure costs without reducing reads, guards, cadence or quiet windows.",
+      "nextExecutableStep": "Complete immutable source archive and actual host closure using the original common-cleanup owner plus typed Actor-return/full capture owners. Actual direct common cleanup\u2192separate process return\u2192Capture2 nine cases pass62.384s and retain sequenceSucceeded=false. True-source admission checks all28 original activations and complete primary common sample history; full execute remains unqualified under the prior120s timing failure. No source/cadence/quiet/budget reduction.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },

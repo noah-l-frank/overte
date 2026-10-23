@@ -86,6 +86,7 @@ class PicoTabletWebFeature:
         self.actor_retirement=None
         self.capture_retirement=None
         self.remote_capture_retirement=None
+        self.cleanup_consumption=None
         self.require_new_actor=require_new_actor;self._actor_started=False
         self.completed_store=PrivateFeatureState(self.artifact_root/(self.area+'-'+self.run+'-retirement.json'))
 
@@ -764,6 +765,12 @@ class PicoTabletWebFeature:
         need(self.role=='primary' and self.capture_retirement is None and self.remote_capture_retirement is None)
         self.remote_capture_retirement=PicoBrowserRemoteCaptureRetirement(self,returned)
         return self.remote_capture_retirement.run()
+
+    def common_cleanup_slot(self):
+        from adapters.pico4.browser_cleanup_consumption import PicoBrowserCleanupConsumption
+        need(self.role=='primary' and self.cleanup_consumption is None)
+        self.cleanup_consumption=PicoBrowserCleanupConsumption(self)
+        return self.cleanup_consumption
 
 
 def re_script(value):

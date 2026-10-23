@@ -3398,5 +3398,22 @@
     "sourceCommit": "f0d1209626e0ff7d30971f4a6ac3c2ad19ad8e75",
     "integrationCommit": "bb90fb10a6",
     "qualification": "Actual immutable remote roots/chunks/nonce transport and current parent-consumed successor catalogued without stamp adoption. Direct diagnostic remains sequenceSucceeded=false and retains all original files. Existing typed app/profile/IPC/archive/host route is connected but the complete actual successful common execute-to-remote-host-close run remains unqualified."
+  },
+  "browserCommonCleanupRemote2Integration20261023": {
+    "status": "targeted-passed-whole-archive-host-open",
+    "catalog": 209,
+    "groups": 2,
+    "seconds": 62.47,
+    "checks": {
+      "coverage": 0.091,
+      "independentProcessFiveCasesAndAdmissionFourCases": 62.384,
+      "initialCompletePositive": 21.538
+    },
+    "versions": {
+      "commonCleanupConsumption": 1,
+      "remoteCaptureWithOriginalCommonConsumption": 2,
+      "legacyRemoteCaptureWithoutCommonConsumption": 1
+    },
+    "qualification": "Actual shared cleanup wait and callback bytes, complete primary original sample rows, accepted original Actor publication payloads, original typed process return and complete3s all-capture retirement. Actual direct diagnostic keeps sequenceSucceeded=false. Same-byte common child replacement, frozen-host native clock jump after landed ready CAS, uncoupled callback/root/orphan refusals retain sources. Full common execute path has not been rerun after the new hook; its prior120.110s process timing failure remains. Immutable archive and host closure, source completeness, APK and devices remain unqualified."
   }
 }

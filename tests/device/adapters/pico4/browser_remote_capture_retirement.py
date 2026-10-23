@@ -12,7 +12,7 @@ from adapters.pico4.browser_capture_retirement import PicoBrowserCaptureRetireme
 from adapters.pico4.browser_stereo import original_name
 from adapters.script_journey.history import same,unpack
 
-VERSION=1
+VERSION=2
 
 
 class PicoBrowserRemoteCaptureRetirement(PicoBrowserCaptureRetirement):
@@ -34,10 +34,35 @@ class PicoBrowserRemoteCaptureRetirement(PicoBrowserCaptureRetirement):
         returned=self.returned.receipt() # Outside a distinct same-inode Parent lock.
         need(self.store.read() is None)
         primary_owner,_state=self.role(self.primary);remote=self.returned.graph
-        self.scope=dict(picoBrowserRemoteCaptureRetirementVersion=VERSION,runId=self.primary.run,
+        common=self.primary.cleanup_consumption
+        self.scope=dict(picoBrowserRemoteCaptureRetirementVersion=1 if common is None else VERSION,runId=self.primary.run,
             fixtureUrl=self.primary.fixture_url,binding=deepcopy(self.binding),ownerToken=primary_owner['ownerToken'])
+        if common is not None:
+            from adapters.pico4.browser_cleanup_consumption import PicoBrowserCleanupConsumption
+            need(type(common) is PicoBrowserCleanupConsumption and common.primary is self.primary
+                and common.complete and not common.failed)
+            receipt=common.receipt()
+            need(same(common.scope['binding'],self.binding) and common.scope['ownerToken']==primary_owner['ownerToken'])
+            self.add(common.store,receipt,'primary')
+            for index in range(len(common.chunks.identities)):
+                store=common.chunks.store(index);self.add(store,store.read(),'primary')
+            self.scope.update(commonCleanupSha256=digest(receipt),commonSequenceSucceeded=receipt['header']['sequenceSucceeded'])
         with self.returned.lock.held():
             remote.verify();need(same(remote.owner,primary_owner))
+            if common is not None:
+                accepted={row['sequence']:row['original']['payload'] for row in remote.source_history.rows
+                    if row['event']=='publication-accepted'}
+                original={row['sequence']:row['original'] for row in remote.source_history.rows if row['event']=='sample'}
+                matched=0
+                for sample in json.loads(common.raw)['samples']:
+                    witness=sample['witness']
+                    if witness is None:continue
+                    payload=accepted[witness['actorSequence']];frame=original[witness['actorSequence']]
+                    need(all(same(witness[key],value) for key,value in payload.items())
+                        and frame['phaseBefore']['activations'][-1]['ticket']==sample['ticket']
+                        and frame['sample']['capturedEpochMs']==witness['capturedEpochMs'])
+                    matched+=1
+                need(matched>=3)
             # Admit every exact physical source, including metadata; original
             # PNGs retain their separate full-byte readers below.
             for row in remote.manifest:

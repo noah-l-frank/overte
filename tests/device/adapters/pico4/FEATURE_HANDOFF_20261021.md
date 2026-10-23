@@ -2463,3 +2463,18 @@ catalog diagnostic keeps sequenceSucceeded=false and all original files.
 The successful common True-hook/application/profile/IPC/archive/host route is
 wired, but its actual complete run still needs original image artifacts and
 qualification. Source-complete areas remain3/14; no APK/device result changes.
+
+## Actual common Browser cleanup source continuation
+
+The existing shared Journey cleanup callback now retains its exact original
+consumed bytes through `PicoBrowserCleanupConsumption` version1. Complete
+physical source identities and the original last product clocks survive the
+ready CAS and real source-lock exit. Remote capture profile2 admits this root/
+children and joins the consumed peer payloads to their original accepted
+Actor publications and native samples. Profile1 receives no common-proof claim.
+Root2/209groups pass62.47s: coverage0.091s and nine process/configuration/
+admission/counter cases62.384s. A separate initial positive passes21.538s.
+Direct cleanup remains sequenceSucceeded=false. No previous phase, query,
+quiet interval or whole case is removed. Full execute after the new hook has
+not been rerun; its prior120.110s failure remains. Immutable archive and actual
+host closure are the next enclosing source transaction. Complete areas stay3/14.

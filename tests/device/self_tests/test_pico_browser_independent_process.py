@@ -137,8 +137,21 @@ class PicoBrowserIndependentProcessTests(unittest.TestCase):
         self.assertTrue(primary['state']['open']);self.assertEqual(primary['state'],actor['state'])
         self.assertNotEqual(primary['artifacts'][0]['name'],actor['artifacts'][0]['name'])
         f.act('close');self.observe();self.command('publish','publication')
-        f.activate('cleanup');f.primary.cleanup(dict(contractVersion=VERSION,runId=f.run))
-        for _ in range(14):self.observe();self.command('publish','publication');f.clock.sleep(.25)
+        ticket=f.activate('cleanup');f.primary.cleanup(dict(contractVersion=VERSION,runId=f.run))
+        from feature_journeys.engine import Journey
+        slot=f.primary.common_cleanup_slot()
+        def invoke(operation,values):return getattr(f.primary,operation.rsplit('.',1)[1])(values)
+        def witness():self.command('publish','publication');return f.client.observe()
+        journey=Journey('tablet-web',f.run,f.fixture_url,invoke=invoke,witness=witness,activate=f.client.activate,
+            read_artifact=lambda _name:None,image_policy={},continuity=lambda *_args:None,
+            monotonic=f.clock.now,epoch_ms=f.clock.epoch,sleep=f.clock.sleep,report=lambda _value:None,
+            after_cleanup_baseline=slot.callback)
+        slot.attach(journey);barrier=f.clock.epoch();start=len(journey.samples)
+        from feature_journeys.scenarios import SCENARIOS
+        expected=SCENARIOS['tablet-web']['baseline']
+        journey.wait('cleanup-restored-baseline',ticket,barrier,expected,['peer'],duration=3)
+        journey.consumed_cleanup(ticket,barrier,start)
+        self.assertTrue(slot.complete);self.assertFalse(slot.receipt()['header']['sequenceSucceeded'])
         f.client.close();return self.consume_original_return()
 
     def consume_original_return(self):
@@ -155,6 +168,9 @@ class PicoBrowserIndependentProcessTests(unittest.TestCase):
         owner=self.original_return();f=self.f
         captures=f.primary.retire_returned_actor_captures(owner);capture=f.primary.remote_capture_retirement
         self.assertTrue(capture.completed);self.assertEqual(captures,capture.receipt());self.assertTrue(captures['complete'])
+        self.assertEqual(2,captures['picoBrowserRemoteCaptureRetirementVersion'])
+        self.assertFalse(captures['commonSequenceSucceeded'])
+        self.assertTrue(f.primary.cleanup_consumption.store.path.exists())
         self.assertEqual({'primary','actor'},{row['owner']['role'] for row in capture.proofs})
         self.assertGreaterEqual(len(capture.frames),3);self.assertGreaterEqual(len(self.batches),3)
         self.assertTrue(owner.close_host())
@@ -169,12 +185,14 @@ class PicoBrowserIndependentProcessTests(unittest.TestCase):
         from feature_journeys.stereo_browser_evidence import PROFILE
         from self_tests.test_stereo_navigation_evidence import POLICY
         f=self.f;reports=[];policy=deepcopy(POLICY);policy['profile']=PROFILE
+        slot=f.primary.common_cleanup_slot()
         def invoke(operation,values):return getattr(f.primary,operation.rsplit('.',1)[1])(values)
         def witness():self.command('publish','publication');return f.client.observe()
         journey=Journey('tablet-web',f.run,f.fixture_url,invoke=invoke,witness=witness,activate=f.client.activate,
             read_artifact=lambda name:read_private_artifact(f.artifacts,name),image_policy=dict(screen=policy),
-            continuity=lambda *_args:None,monotonic=f.clock.now,epoch_ms=f.clock.epoch,sleep=f.clock.sleep,report=reports.append)
-        journey.execute();self.assertEqual(28,len(journey.phases));self.assertTrue(reports[-1]['sequenceCompleted'])
+            continuity=lambda *_args:None,monotonic=f.clock.now,epoch_ms=f.clock.epoch,sleep=f.clock.sleep,report=reports.append,
+            after_cleanup_baseline=slot.callback)
+        slot.attach(journey);journey.execute();self.assertEqual(28,len(journey.phases));self.assertTrue(reports[-1]['sequenceCompleted'])
         self.assertTrue(reports[-1]['cleanupSucceeded']);self.assertFalse(reports[-1]['deviceAcceptance'])
         if f.run in f.server.browser_resources.runs:f.client.close()
         owner=self.consume_original_return();captures=f.primary.retire_returned_actor_captures(owner)
@@ -203,6 +221,30 @@ class PicoBrowserIndependentProcessTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):capture.receipt()
         self.assertEqual(before,len(self.batches));self.assertTrue(capture.catalog.rows)
         self.assertTrue(all(row['store'].path.exists() for row in capture.catalog.rows.values()))
+
+    def test_same_byte_consumed_common_chunk_replacement_refuses_before_capture_query(self):
+        owner=self.original_return();common=self.f.primary.cleanup_consumption
+        path=common.chunks.store(0).path;raw=path.read_bytes();replacement=path.with_name('changed-common-original.json')
+        replacement.write_bytes(raw);replacement.chmod(0o600);replacement.replace(path)
+        with self.assertRaises(NativeUIError):self.f.primary.retire_returned_actor_captures(owner)
+        self.assertTrue(common.failed);self.assertEqual([],self.batches);self.assertEqual(raw,path.read_bytes())
+        self.assertFalse(self.f.primary.remote_capture_retirement.completed)
+
+    def test_late_common_ready_cas_with_frozen_host_keeps_original_hook_unqualified(self):
+        from unittest.mock import patch
+        write=PrivateFeatureState.write;f=self.f;changed=[]
+        def landed(store,value,previous):
+            result=write(store,value,previous)
+            if store.path.name=='pico-tablet-web-cleanup-consumption.json' and value['phase']=='ready':
+                f.clock.base+=2000;changed.append(True)
+            return result
+        with patch.object(PrivateFeatureState,'write',landed):
+            with self.assertRaises(NativeUIError):self.original_return()
+        common=f.primary.cleanup_consumption
+        self.assertEqual([True],changed);self.assertTrue(common.failed);self.assertFalse(common.complete)
+        self.assertEqual('ready',common.store.read()['phase']);self.assertEqual([],self.batches)
+        self.assertIsNone(f.primary.remote_capture_retirement);self.assertTrue(common.journey.cleanup_hook_started)
+        with self.assertRaises((ValueError,NativeUIError)):common.consume(common.raw)
 
 
 if __name__=='__main__':unittest.main()

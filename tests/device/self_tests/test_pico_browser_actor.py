@@ -57,5 +57,14 @@ class PicoBrowserActorTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):f.actor.publish()
         self.assertEqual(before,len(f.target.command_log));self.assertEqual({'retainedOriginal':True},store.read())
 
+    def test_common_cleanup_cannot_be_injected_without_actual_hook_or_adopt_existing_root(self):
+        from adapters.pico4.browser_cleanup_consumption import PicoBrowserCleanupConsumption
+        f=self.fixture();slot=f.primary.common_cleanup_slot();before=len(f.target.command_log)
+        with self.assertRaises(NativeUIError):slot.consume(b'{}')
+        self.assertTrue(slot.failed);self.assertFalse(slot.complete);self.assertIsNone(slot.store.read())
+        slot.store.write(dict(retainedOriginal=True),None)
+        with self.assertRaises((ValueError,NativeUIError)):PicoBrowserCleanupConsumption(f.primary)
+        self.assertEqual(before,len(f.target.command_log));self.assertEqual({'retainedOriginal':True},slot.store.read())
+
 
 if __name__=='__main__':unittest.main()

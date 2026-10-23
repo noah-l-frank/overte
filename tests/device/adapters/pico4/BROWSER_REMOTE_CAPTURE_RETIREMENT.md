@@ -43,3 +43,31 @@ The original source archive, final host closure, complete product observer
 entrypoint, public feature capability and whole APK/device qualification remain
 open. The earlier direct host Journey pass103.801s precedes the final pure
 Script-history relocation and is not a pass for this combined process case.
+
+## Original common consumption profile
+
+`PicoBrowserCleanupConsumption` version1 attaches to the existing actual
+Journey callback before it is used. Only the callback's identical original
+raw bytes may enter. Every consumed primary sample is joined to its original
+history; successful execution additionally requires all original28 baseline/
+action/cleanup activations and the complete original common primary history.
+A direct cleanup wait keeps sequenceSucceeded=false. Source-lock exit, complete
+physical rechecks and the same last sample's original native/host clocks all
+precede warm completion. A landed ready CAS cannot renew an old product sample.
+Cold roots, orphan children, unaffiliated bytes and repeated callbacks fail.
+
+Remote capture profile2 admits that original root and every child into the
+existing catalog. It also compares every consumed peer payload with its exact
+accepted publication and original native sample in the returned Actor graph;
+at least three actual matches are required. Original common bytes, bindings,
+owner token and sequence flag are sealed into the capture scope. The old
+no-common profile1 retains its narrower meaning; it acquires no new claim.
+
+The short existing process case now uses the actual shared cleanup wait and
+hook rather than a manual sample loop. Its five process cases plus four
+configuration/admission cases pass62.384s; coverage0.091s. New cases reject
+same-byte common child replacement before any capture query and a2s native
+jump after the final ready CAS with a frozen host clock. All files/intents
+remain retained on failure. The complete execute test is still one case with
+its new callback, and has not been rerun after this hook. Its earlier120.110s
+timeout remains an unresolved whole-path qualification, not a current pass.
