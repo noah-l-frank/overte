@@ -61,6 +61,7 @@ TESTS = (
     test("audio-settings-source", "audio", PYTHON, "device/test_audio_settings.py", requires=("node", "c++", "pkg-config")),
     test("snapshot-save-owner", "interaction", PYTHON, "device/test_snapshot_save_owner.py", "SnapshotSaveFlowTests.test_normal_cancel_still_save_independent_provider_png_and_current_original_quiet"),
     test("snapshot-save-fences", "interaction", PYTHON, "device/test_snapshot_save_owner.py", "SnapshotSaveAdmissionTests", "SnapshotSaveEnvelopeTests", "SnapshotSaveFenceTests", "SnapshotSaveFactoryTests", "SnapshotSaveOriginalsTests", "SnapshotSavePreparationRecoveryTests", "SnapshotSaveAcquisitionTests", "SnapshotOriginalFrameMemoTests", "SnapshotSavePublicationTests", "SnapshotSyntheticAnalyzerTests", "SnapshotSystemSourceTests"),
+    test("snapshot-upload-tls", "interaction", PYTHON, "device/test_snapshot_upload_tls.py", requires=("openssl",)),
     test("snapshot-upload-originals", "interaction", PYTHON, "device/test_snapshot_upload_source.py", requires=("node", "c++", "pkg-config")),
     test("snapshot-export-originals", "interaction", PYTHON, "device/test_snapshot_exports.py", requires=("node", "javac", "java", "c++", "pkg-config")),
     test("snapshot-cancel-still-owner", "interaction", PYTHON, "device/test_snapshot_cancel_owner.py", "SnapshotStillSequenceTests.test_continuous_normal_cancel_then_still_original_png_fd_ui_and_live_work_quiet"),
