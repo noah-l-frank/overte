@@ -55,9 +55,11 @@ class WorldWebVisibility(unittest.TestCase):
         methods = '\n'.join(body(release_source if 'destroyWebSurface' in marker else source, marker)
                             for marker in signatures)
         methods += '\n' + body(current, 'void WebEntityRenderer::synchronizeWebVisibility(')
+        methods += '\n' + body(current, 'void WebEntityRenderer::synchronizeInlineDocument(')
         header = (ROOT / 'libraries/entities-renderer/src/RenderableWebEntityItem.h').read_text()
         members = '\n'.join(line for line in header.splitlines() if
-                            '_webSurfaceLease;' in line or '_webSurfaceVisible ' in line)
+                            '_webSurfaceLease;' in line or '_webSurfaceVisible ' in line or
+                            '_inlineDocument' in line)
         constants_source = source
         constants_baseline = os.environ.get('OVERTE_WEB_PROPERTY_BASELINE')
         if constants_baseline:

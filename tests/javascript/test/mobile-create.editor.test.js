@@ -7,7 +7,7 @@ const { FakeSignal, createTabletApi, runProductionScript } = require("../support
 // Run the complete production editor. Only engine APIs and unrelated viewport
 // helpers are substituted; property conversion, creation, import and history
 // below execute the shipped edit.js and EntityListTool implementations.
-function editor() {
+function editor({ toolbarMode = false, operatingSystem } = {}) {
     const base = path.resolve(__dirname, "../../../scripts/system/create");
     const signal = () => {
         const result = new FakeSignal();
@@ -92,7 +92,7 @@ function editor() {
     });
     const Tablet = createTabletApi();
     const tablet = Tablet.getTablet("com.highfidelity.interface.tablet.system");
-    tablet.toolbarMode = false;
+    tablet.toolbarMode = toolbarMode;
     tablet.setLandscape = noop;
     // TabletProxy pushes into Edit.qml's stack without changing the app screen.
     tablet.pushOntoStack = source => tablet.navigation.push({ type: "stack", args: [source] });
@@ -112,6 +112,7 @@ function editor() {
             setInterval(callback) { const id = {}; timers.set(id, callback); return id; },
             clearInterval: id => timers.delete(id) },
         Entities, Tablet, SelectionManager: selection,
+        PlatformInfo: { getComputer: () => JSON.stringify({ OS: operatingSystem }) },
         SelectionDisplay: helper({ getSpaceMode: () => "world" }),
         EntityIconOverlayManager: Helper, CameraManager: Helper, GridTool: Helper,
         Grid: function() { return helper({ snapToGrid: value => value, snapToSurface: value => value,
@@ -166,9 +167,22 @@ function editor() {
     const app = selection.createApp;
     tablet.buttons.find(button => button.properties.text === "CREATE").click();
     const send = (method, params = {}) => tablet.fromQml.emit({ method: "nativeCreate." + method, params });
-    send("ready");
+    const openedEditor = tablet.navigation.some(route => route.type === "qml" &&
+        route.args[0] === path.join(base, "qml/Edit.qml"));
+    if (openedEditor) { send("ready"); }
     return { app, state, world, selection, tablet, send, ending, Entities, Window: globals.Window,
         Controller: globals.Controller, frame: delta => globals.Script.update.emit(delta), timers };
+}
+
+for (const operatingSystem of ["ANDROID", "IOS"]) {
+    test(operatingSystem + " normal Create entry works with the mobile toolbar presenter and no bootstrap globals", () => {
+        const state = editor({ toolbarMode: true, operatingSystem });
+        assert.ok(state.tablet.navigation.some(route => route.type === "qml" &&
+            route.args[0].endsWith("/qml/Edit.qml")), "normal CREATE click must open its actual native editor entry");
+        state.send("create", { host: "domain", properties: { type: "Shape", name: "Normal mobile entry" } });
+        assert.equal(state.world.size, 1);
+        assert.equal(state.world.get(state.selection.selections[0]).name, "Normal mobile entry");
+    });
 }
 
 test("native Create drives production creation, property conversion and undo/redo", () => {
