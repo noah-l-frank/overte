@@ -2218,17 +2218,25 @@ def create_adapter(args, base_class):
 
         @_private
         def _browser_originals(self,target,*,source_lock,tablet=True,read_only=True):
-            from adapters.pico4.browser_source import PicoBrowserIO,FILE
+            from adapters.pico4.browser_source import FILE
             from adapters.pico4.tablet_browser_source import PicoTabletBrowserIO
+            from adapters.pico4.world_browser_ray import PicoWorldBrowserIO
             source_lock=self._script_journey()._lock(target,source_lock)
             _need(type(tablet) is bool and type(read_only) is bool)
             native=self._native_feature_observer(target)
             def guard():
                 source_lock.assert_held();native.guard();return True
-            return (PicoTabletBrowserIO if tablet else PicoBrowserIO)(native.send,
+            return (PicoTabletBrowserIO if tablet else PicoWorldBrowserIO)(native.send,
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
                 native.clock_ms,guard,native.pid,source_lock=source_lock,read_only=read_only,
                 monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
+        def _world_browser_click(self,target,*,source_lock,intent,stream_intent,before_publish):
+            from adapters.pico4.world_browser_ray import bind_world_click
+            lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            io=self._browser_originals(target,source_lock=lock,tablet=False,read_only=False)
+            return bind_world_click(self,target,io,intent,stream_intent,before_publish)
 
         @_private
         def _web_dom(self,target):

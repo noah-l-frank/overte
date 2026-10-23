@@ -24,7 +24,7 @@ QVariantMap worldWebPacket(const QVariantMap& command,WorldWebScope& scope,const
     const auto now=QDateTime::currentMSecsSinceEpoch();
     if (now<=0 || now<scope.epoch || scope.sequence>=9007199254740991ULL || !scope.complete) { return {}; }
     scope.epoch=now;
-    QVariantMap packet{{"picoBrowserVersion",2},{"commandId",command.value("commandId")},{"runId",command.value("runId")},
+    QVariantMap packet{{"picoBrowserVersion",command.value("operation")=="measure-ray" ? 3 : 2},{"commandId",command.value("commandId")},{"runId",command.value("runId")},
         {"ownerToken",scope.token},{"instance",scope.instance},{"sequence",static_cast<qulonglong>(++scope.sequence)},
         {"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",now},{"status",status},{"source",source}};
     const auto id=command.value("commandId").toString();
@@ -148,12 +148,12 @@ QVariantMap NativeWebViewItem::featurePicoBrowser(const QVariantMap& command) {
                 || !scope.originalPackets.contains(nonce)) { return {}; }
         const auto old=scope.originalPackets.value(nonce);
         if (old.value("status")!="pending") { return old; }
-        if ((operation=="input" || operation=="measure") && scope.timer.isValid() && scope.timer.elapsed()>=4000) {
+        if ((operation=="input" || operation=="measure" || operation=="measure-ray") && scope.timer.isValid() && scope.timer.elapsed()>=4000) {
             if (scope.focusTimer) { scope.focusTimer->stop();scope.focusTimer->deleteLater(); }
             scope.receipt=worldWebPacket(command,scope,"unavailable");return scope.receipt;
         }
     } else if (scope.originalCommands.size()>=4096) { scope.complete=false;return {}; }
-    if (operation!="input" && operation!="measure" && scope.lastCommand.value("commandId")==command.value("commandId")) {
+    if (operation!="input" && operation!="measure" && operation!="measure-ray" && scope.lastCommand.value("commandId")==command.value("commandId")) {
         if (scope.lastCommand!=command) { return {}; }
         if (scope.lastPacket.value("status")=="ready" || scope.lastPacket.value("status")=="unavailable") { return scope.lastPacket; }
     }
@@ -199,7 +199,7 @@ QVariantMap NativeWebViewItem::featurePicoBrowser(const QVariantMap& command) {
         scope.originalPackets.clear();scope.geometryOriginal.clear();scope.retired=true;scope.held.clear();scope.deliveries.clear();scope.documents.clear();scope.requests.clear();scope.replies.clear();scope.inputs.clear();scope.dom.clear();
         return worldWebPacket(command,scope,"ready",{{"retired",true}});
     }
-    if (operation=="input" || operation=="measure") {
+    if (operation=="input" || operation=="measure" || operation=="measure-ray") {
         if (scope.retired) { return {}; }
         if (!scope.input.isEmpty() && scope.input.value("commandId")==command.value("commandId")) {
             if (scope.input!=command) { return {}; }
@@ -275,7 +275,8 @@ void NativeWebViewItem::acceptFeaturePicoBrowserGeometry(qint64 handle,quint64 g
             const auto run=found.key();const auto command=scope.input;
             const auto valid=[item,grant,page,document,command] {
                 if (!item || !featureEnabled() || !item->isVisible() || !item->isEnabled()
-                        || item->_presentation!=Texture || item->_surface!=Tablet || !item->window()
+                        || item->_presentation!=Texture
+                        || item->_surface!=(command.value("operation")=="measure-ray" ? WorldEntity : Tablet) || !item->window()
                         || QGuiApplication::applicationState()!=Qt::ApplicationActive
                         || !item->allowsEditorDocument(grant,page,QUrl(document))) { return false; }
                 QMutexLocker guard(&item->_mutex);
@@ -298,6 +299,25 @@ void NativeWebViewItem::acceptFeaturePicoBrowserGeometry(qint64 handle,quint64 g
             if (quoted.isArray() && quoted.array().size()==1 && quoted.array()[0].isString()) {
                 const auto parsed=QJsonDocument::fromJson(quoted.array()[0].toString().toUtf8());
                 if (parsed.isObject()) { original=parsed.object().toVariantMap(); }
+            }
+            if (command.value("operation")=="measure-ray") {
+                // A passive original, never a pointer/focus/text operation.
+                // Its world geometry is produced by the scene owner from this
+                // exact NativeWebViewItem and its actual QML/window transform.
+                const auto point=overte::e2e::picoBrowserPoint(original,request,run,document,
+                    command.value("control").toString(),QDateTime::currentMSecsSinceEpoch(),QSizeF(item->width(),item->height()));
+                const auto providerValue=qApp->property(overte::e2e::picoWorldWebRayProperty());
+                QVariantMap ray;
+                if (!focused && point && valid() && !scope.tablet && !scope.reference && scope.surface=="world"
+                        && providerValue.userType()==qMetaTypeId<overte::e2e::PicoWorldWebRayProvider>()) {
+                    const auto provider=providerValue.value<overte::e2e::PicoWorldWebRayProvider>();
+                    if (provider) { ray=provider(item,*point); }
+                }
+                const bool okay=!ray.isEmpty() && valid() && scope.timer.elapsed()<4000;
+                scope.receipt=worldWebPacket(command,scope,okay ? "ready" : "unavailable",
+                    okay ? QVariantMap{{"geometryRaw",QString::fromUtf8(result)},{"worldRay",ray},
+                        {"nativeView",QVariantMap{{"handle",QString::number(item->_handle)},{"creation",qulonglong(item->_creationRevision)},
+                            {"grant",qulonglong(grant)},{"page",qulonglong(page)},{"url",document}}}} : QVariantMap());return;
             }
             if (command.value("operation")=="measure") {
                 // Preserve the original read even when the control is offscreen.

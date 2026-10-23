@@ -14,19 +14,20 @@ inline bool picoBrowserCommand(const QVariantMap& input) {
     const auto operation=object.value("operation").toString();
     QSet<QString> keys{"schemaVersion","commandId","action","runId","fixtureUrl","operation","ownerToken"};
     if (reference) { keys.insert("surface"); }
-    if (operation=="input" || operation=="measure") { keys.unite({"handle","creation","grant","page","control"}); }
+    if (operation=="input" || operation=="measure" || operation=="measure-ray") { keys.unite({"handle","creation","grant","page","control"}); }
     if (operation=="input") { keys.insert("text"); }
     const auto actual=object.keys();
     if (QSet<QString>(actual.begin(),actual.end())!=keys || (object.value("action")!=QJsonValue("pico-world-web") && !reference && !tablet)
             || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(object.value("ownerToken").toString()).hasMatch()
-            || !QStringList{"reserve","observe","measure","input","retire","arm-held","deliver-held","cancel-held"}.contains(operation)) { return false; }
+            || !QStringList{"reserve","observe","measure","measure-ray","input","retire","arm-held","deliver-held","cancel-held"}.contains(operation)) { return false; }
+    if (operation=="measure-ray" && (tablet || reference)) { return false; }
     if (!tablet && QStringList{"arm-held","deliver-held","cancel-held"}.contains(operation)) { return false; }
     if (reference && !QStringList{"world","tablet"}.contains(object.value("surface").toString())) { return false; }
     auto base=input;base.remove("surface");
     for (const auto& key:QStringList{"operation","ownerToken","handle","creation","grant","page","control","text"}) { base.remove(key); }
     base.insert("action","feature-web-runtime-observe");
     if (!webRuntimeCommand(base)) { return false; }
-    if (operation!="input" && operation!="measure") { return true; }
+    if (operation!="input" && operation!="measure" && operation!="measure-ray") { return true; }
     if (!QRegularExpression("\\A[1-9][0-9]{0,18}\\z").match(object.value("handle").toString()).hasMatch()
             || !QStringList{"text","bridge","reference","second","recovery","back","reload","foreign","navigate","play","pause","seekStart","seek","scroll-up","scroll-down"}.contains(object.value("control").toString())
             || (operation=="input" && (!object.value("text").isString() || object.value("text").toString().size()>512))) { return false; }

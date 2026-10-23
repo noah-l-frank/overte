@@ -21,6 +21,7 @@ from feature_journeys.contract import identifier
 
 FILE='feature-pico-browser.json'
 VERSION=2
+WORLD_RAY_VERSION=3
 CONTROLS={'text','bridge','reference','second','recovery','back','reload','foreign','navigate','scroll-up','scroll-down'}
 IDENTITY={'handle','creation','grant','page','url'}
 
@@ -36,19 +37,20 @@ def fixture(run,url):
 def command(value):
     need(type(value) is dict);op=value.get('operation');fields={'schemaVersion','commandId','action','runId','fixtureUrl','operation','ownerToken'}
     reference=value.get('action')=='pico-web-reference'
-    exact(value,fields|({'surface'} if reference else set())|({'handle','creation','grant','page','control'} if op in ('input','measure') else set())|({'text'} if op=='input' else set()))
+    exact(value,fields|({'surface'} if reference else set())|({'handle','creation','grant','page','control'} if op in ('input','measure','measure-ray') else set())|({'text'} if op=='input' else set()))
     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['action'] in ('pico-world-web','pico-tablet-web','pico-web-reference')
-        and op in ('reserve','observe','measure','input','retire','arm-held','deliver-held','cancel-held')
+        and op in ('reserve','observe','measure','measure-ray','input','retire','arm-held','deliver-held','cancel-held')
+        and (op!='measure-ray' or value['action']=='pico-world-web')
         and (op not in ('arm-held','deliver-held','cancel-held') or value['action']=='pico-tablet-web'))
     identifier(value['commandId']);identifier(value['ownerToken'])
     if reference:
         fixture(value['runId'],value['fixtureUrl'])
         need(value['surface'] in ('world','tablet'))
     else:fixture(value['runId'],value['fixtureUrl'])
-    if op in ('input','measure'):
+    if op in ('input','measure','measure-ray'):
         need(type(value['handle']) is str and re.fullmatch('[1-9][0-9]{0,18}',value['handle'])
             and all(integer(value[k],1) for k in ('creation','grant','page')) and value['control'] in ({'play','pause','seekStart','seek'} if reference else CONTROLS)
-            and (op=='measure' or type(value['text']) is str and len(value['text'].encode('utf-16-le'))//2<=512
+            and (op in ('measure','measure-ray') or type(value['text']) is str and len(value['text'].encode('utf-16-le'))//2<=512
             and not any(ord(c)<32 or ord(c)==127 or 0xE000<=ord(c)<=0xE05E for c in value['text'])
             and (value['control'] in ('text','foreign') or not value['text'])))
     return value
@@ -64,7 +66,8 @@ def identity(row):
 def validate(value,request,pid,epoch):
     command(request)
     exact(value,{'picoBrowserVersion','commandId','runId','ownerToken','instance','sequence','processId','capturedEpochMs','status','source'})
-    need(type(value['picoBrowserVersion']) is int and value['picoBrowserVersion'] in (1,VERSION)
+    need(type(value['picoBrowserVersion']) is int
+        and (value['picoBrowserVersion']==WORLD_RAY_VERSION if request['operation']=='measure-ray' else value['picoBrowserVersion'] in (1,VERSION))
         and value['commandId']==request['commandId'] and value['runId']==request['runId'] and value['ownerToken']==request['ownerToken']
         and integer(value['processId'],1) and value['processId']==pid and integer(value['sequence'],1)
         and value['status'] in ('pending','ready','unavailable'))
@@ -72,11 +75,15 @@ def validate(value,request,pid,epoch):
     source=value['source']
     if value['status']!='ready':exact(source,set());return value
     op=request['operation']
-    if op=='measure':
-        need(value['picoBrowserVersion']==2);exact(source,{'geometryRaw','nativeView'})
+    if op in ('measure','measure-ray'):
+        need(value['picoBrowserVersion']==(WORLD_RAY_VERSION if op=='measure-ray' else VERSION))
+        exact(source,{'geometryRaw','nativeView'}|({'worldRay'} if op=='measure-ray' else set()))
         view=source['nativeView'];exact(view,IDENTITY);identity(view)
         need(all(view[k]==request[k] for k in ('handle','creation','grant','page')))
         geometry_original(source['geometryRaw'],request,view['url'],value['capturedEpochMs'],visible=False)
+        if op=='measure-ray':
+            from adapters.pico4.world_browser_ray import validate as validate_ray
+            validate_ray(value,request)
         return value
     if op!='observe':
         field={'reserve':'reserved','input':'delivered','retire':'retired','arm-held':'armed','deliver-held':'delivered','cancel-held':'cancelled'}[op]
@@ -262,9 +269,9 @@ class PicoBrowserIO:
         request=command(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action=self.action if reference_surface is None else 'pico-web-reference',runId=run,
             fixtureUrl=url,ownerToken=owner,operation=operation,**({'surface':reference_surface} if reference_surface is not None else {}),**fields))
         try:
-            self.lock.assert_held();need(not self.read_only or operation in ('observe','measure'))
+            self.lock.assert_held();need(not self.read_only or operation in ('observe','measure','measure-ray'))
             start=previous=self.monotonic();requested=self.clock_ms();need(number(start,0,1e15) and integer(requested,1) and self.guard() is not False)
-            if operation not in ('observe','measure') and self.before_send is not None:
+            if operation not in ('observe','measure','measure-ray') and self.before_send is not None:
                 need(callable(self.before_send));self.before_send(deepcopy(request))
             self.send(request)
             for attempt in range(51):
@@ -273,7 +280,8 @@ class PicoBrowserIO:
                 except json.JSONDecodeError:value=None
                 now=self.monotonic();need(number(now,previous,start+5));previous=now
                 if type(value) is dict and value.get('commandId')==request['commandId']:
-                    epoch=self.clock_ms();validate(value,request,self.pid,epoch);need(value['picoBrowserVersion']==VERSION)
+                    epoch=self.clock_ms();validate(value,request,self.pid,epoch)
+                    need(value['picoBrowserVersion']==(WORLD_RAY_VERSION if operation=='measure-ray' else VERSION))
                     need(value['capturedEpochMs']>=requested and value['status']!='unavailable')
                     if value['status']=='ready':
                         continuity(self.last,value);need(self.guard() is not False)
@@ -290,8 +298,9 @@ class PicoBrowserIO:
                             and max(final-value['capturedEpochMs'],requested-value['capturedEpochMs']+math.ceil((finished-start)*1000))<=1500)
                         if operation=='observe' and reference_surface is None and value['source']['current']:
                             fresh(value['source']['current']['source']['dom']['capturedEpochMs'],final)
-                        if operation=='measure':
+                        if operation in ('measure','measure-ray'):
                             geometry_original(value['source']['geometryRaw'],request,value['source']['nativeView']['url'],final,visible=False)
+                            if operation=='measure-ray':fresh(value['source']['worldRay']['capturedEpochMs'],final)
                         self.last=retained;return returned
                 need(attempt<50 and now-start<5);self.sleep(.1)
         except Exception:raise NativeUIError('Original Pico World Web source or input is unavailable') from None

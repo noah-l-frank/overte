@@ -6,6 +6,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../../../../tests/device/native/PendingFieldCommitOwner.h"
 #include "../../../../../../tests/device/native/PicoBrowserInputBridge.h"
+#include "../../../../../../tests/device/native/PicoWorldWebRay.h"
 #include "../../../../../../tests/device/native/LifecycleUiObservation.h"
 #include "../../../../../../tests/device/native/LifecycleBackgroundHistory.h"
 #include "../../../../../../tests/device/native/AssetsPageObservation.h"
@@ -24,6 +25,8 @@
 #include <scripting/HMDScriptingInterface.h>
 #include <QElapsedTimer>
 #include <QInputMethodEvent>
+#include <QQmlContext>
+#include <QQmlEngine>
 #include <QUuid>
 #endif
 
@@ -414,6 +417,74 @@ void installBrowserInputProvider() {
     qApp->setProperty(picoBrowserInputProperty(),QVariant::fromValue(provider));
 }
 
+void installWorldWebRayProvider() {
+    using namespace overte::e2e;
+    if (!qApp || QThread::currentThread()!=qApp->thread() || !bridgeEnabled()
+            || !previewDirectory(BRIDGE_DIRECTORY) || qApp->property(picoWorldWebRayProperty()).isValid()) { return; }
+    PicoWorldWebRayProvider provider=[](QQuickItem* item,const QPointF& local) -> QVariantMap {
+        if (!bridgeEnabled() || !previewDirectory(BRIDGE_DIRECTORY) || !item || !effectiveVisible(item)
+                || item->thread()!=qApp->thread() || !item->window() || item->window()->thread()!=qApp->thread()
+                || !qApp->isHMDMode() || QGuiApplication::applicationState()!=Qt::ApplicationActive
+                || !DependencyManager::isSet<EntityScriptingInterface>()
+                || !DependencyManager::isSet<HMDScriptingInterface>() || !DependencyManager::isSet<AvatarManager>()) { return {}; }
+        const auto identity=item->property("sourceIdentity").toString();
+        if (!identity.startsWith("web-entity:")) { return {}; }
+        const QUuid id(identity.mid(11));
+        auto* context=QQmlEngine::contextForObject(item);
+        if (id.isNull() || identity!="web-entity:"+id.toString(QUuid::WithoutBraces)
+                || !context || !context->isValid() || context->contextProperty("nativeWebSourceIdentity").toString()!=identity) { return {}; }
+        const auto properties=DependencyManager::get<EntityScriptingInterface>()->getEntityProperties(id);
+        if (properties.getType()!=EntityTypes::Web || properties.getEntityHostType()!=entity::HostType::LOCAL
+                || properties.getName()!=QStringLiteral("OVERTE_PARITY_WEB_REFERENCE") || !properties.getParentID().isNull()
+                || !properties.getVisible() || properties.getIgnorePickIntersection()
+                || properties.getSourceUrl()!=item->property("url").toString()) { return {}; }
+        const auto dimensions=properties.getDimensions();const auto registration=properties.getRegistrationPoint();
+        const auto dpi=properties.getDpi();
+        if (!std::isfinite(dpi) || dpi<1 || dpi>1024
+                || glm::any(glm::lessThanEqual(dimensions,glm::vec3(0)))
+                || !std::isfinite(dimensions.x) || !std::isfinite(dimensions.y) || !std::isfinite(dimensions.z)
+                || registration!=glm::vec3(.5f)) { return {}; }
+        // Match the actual renderer's window-size cap and RayPick's XY-plane
+        // mapping. Parent-scaled/noncentral geometry remains unavailable until
+        // its existing product projection can be independently qualified.
+        constexpr float pixelsPerInchMeter=39.3701f;
+        const float factor=pixelsPerInchMeter*dpi;
+        glm::vec2 rendered=glm::vec2(dimensions)*factor;
+        const auto longest=std::max(rendered.x,rendered.y);
+        if (longest>4096) { rendered*=4096/longest; }
+        const auto scene=item->mapToScene(local);auto* window=item->window();
+        if (window->width()!=int(rendered.x) || window->height()!=int(rendered.y)
+                || !std::isfinite(scene.x()) || !std::isfinite(scene.y()) || scene.x()<0 || scene.y()<0
+                || scene.x()>=window->width() || scene.y()>=window->height()
+                || !item->contains(local) || !NormalControlUi::ownsPoint(item,window,scene)) { return {}; }
+        const auto rotation=properties.getRotation();const auto position=properties.getPosition();
+        if (!std::isfinite(position.x) || !std::isfinite(position.y) || !std::isfinite(position.z)
+                || !std::isfinite(rotation.x) || !std::isfinite(rotation.y) || !std::isfinite(rotation.z)
+                || !std::isfinite(rotation.w) || std::abs(glm::dot(rotation,rotation)-1.f)>1e-5f) { return {}; }
+        const auto point=position+rotation*glm::vec3(float(scene.x())/factor-registration.x*dimensions.x,
+            (1-registration.y)*dimensions.y-float(scene.y())/factor,0);
+        const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();
+        const auto hmd=DependencyManager::get<HMDScriptingInterface>();
+        if (!avatar || !hmd->isHMDMode()) { return {}; }
+        const auto vec=[](const glm::vec3& value){return QVariantList{value.x,value.y,value.z};};
+        const auto point2=[](const QPointF& value){return QVariantList{value.x(),value.y()};};
+        const QVariantList quad{point2(item->mapToScene(QPointF(0,0))),point2(item->mapToScene(QPointF(item->width(),0))),
+            point2(item->mapToScene(QPointF(item->width(),item->height()))),point2(item->mapToScene(QPointF(0,item->height())))};
+        QVariantList matrix;const auto sensor=avatar->getSensorToWorldMatrix();
+        for (int column=0;column<4;++column) { for (int row=0;row<4;++row) { matrix.append(sensor[column][row]); } }
+        return {{"worldWebRayVersion",1},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+            {"sourceIdentity",identity},{"entityId",id.toString(QUuid::WithoutBraces)},
+            {"entityName",properties.getName()},{"entityType",QStringLiteral("Web")},{"hostType",QStringLiteral("local")},
+            {"sourceUrl",properties.getSourceUrl()},{"visible",properties.getVisible()},
+            {"ignorePickIntersection",properties.getIgnorePickIntersection()},
+            {"position",vec(position)},{"rotation",QVariantList{rotation.x,rotation.y,rotation.z,rotation.w}},
+            {"dimensions",vec(dimensions)},{"registrationPoint",vec(registration)},{"dpi",dpi},
+            {"scenePoint",QVariantList{scene.x(),scene.y()}},{"itemQuad",quad},{"surfaceSize",QVariantList{window->width(),window->height()}},
+            {"worldPoint",vec(point)},{"sensorToWorld",matrix},{"headPosition",vec(hmd->getPosition())}};
+    };
+    qApp->setProperty(picoWorldWebRayProperty(),QVariant::fromValue(provider));
+}
+
 void installPendingCommitOwner() {
     using namespace overte::e2e;
     if (!qApp || QThread::currentThread() != qApp->thread() || !bridgeEnabled()
@@ -464,6 +535,7 @@ private:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         installPendingCommitOwner();
         installBrowserInputProvider();
+        installWorldWebRayProvider();
         installSnapshotCancelProvider();
 #endif
         const Observation observation = observeTablet();

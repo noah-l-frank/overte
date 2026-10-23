@@ -10,6 +10,7 @@
 #include "../../../../tests/device/native/WebDOMObservationBridge.h"
 #include "../../../../tests/device/native/WebRuntimeBridge.h"
 #include "../../../../tests/device/native/PicoBrowserFeatureBridge.h"
+#include "../../../../tests/device/native/PicoWorldWebRay.h"
 #endif
 #include <QFile>
 #include <QFocusEvent>

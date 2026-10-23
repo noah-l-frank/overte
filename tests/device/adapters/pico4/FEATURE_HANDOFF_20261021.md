@@ -2565,3 +2565,43 @@ pre-input baseline25.539s, default return-image27.092s and return fences33.509s.
 Each selector retains its unchanged120s bound. Agent's existing full
 false-common/Stop2/kernel-return/seal/catalog case passes40.928s with v3/guard;
 false remainsfalse and no enclosing archive or whole result is inferred.
+
+## Latest whole Browser result after immutable graph admission
+
+One complete case atd2095e7c96 remains red at unchanged120s. All26actions and
+28phases were reached: normal Close87.079s, cleanup wait108.594s, original
+Actor export21parts and actual return transport1part ready. Parent nonce,
+remote receipt, capture/archive/host completion were not reached. Originals
+remain in the private tmpfjfxzruf archive with the1085-file frozen manifest.
+No whole green follows from the short prefixes. Pure historical image-cost
+measurement(~0.039s/call) and opener setup(~0.00052s/call) led to no speculative
+cache/transport change. Actual independent Parent cold graph admission remains
+the next profiling boundary; Root moves to the missing normal world-Web ray
+source while the other agents advance Navigation/Assets/Chat.
+
+
+Fixed local integration on 2026-10-24 selects Chat through7b1c62cbfd,
+Navigation55351/af6f and Assets GeometryResource51d8. The additive Navigation
+merge preserves every original cleanup guard (cb0b6a15ba); a failed initial
+import was corrected before input. Navigation12 + immutable-memory7/cursor10
+cases pass29.247s; that combined command remained red solely because its extra
+BG class name was misspelled. The corrected original BG case passes3.155s.
+Navigation now reaches the first seven original v16 steps with independent
+actual eight-field observations, including Hidden3s and Name search. Whole
+public/image/restart/restoration/retirement composition remains open.
+
+Chat's actual BG->Dispatcher->Flow join is closed, with unchanged original
+physical/native/clock checks and immutable admitted Reader/Cursor bytes. The
+latest fixed whole remains red120.014s after19steps: nine matching original
+mixer-off observations per role span2.000s, below required3.000s. Actual
+false-common Return/ESRCH/seals/all32V3parts passes36.890s. Neither this prefix
+nor the whole timeout qualifies Chat App/archive/host completion.
+
+[World Web original ray and ordinary trigger](WORLD_BROWSER_RAY.md) adds the
+passive world-only measure-ray protocol and existing-session one-shot input.
+The 23-case selected host regression passes11.403s, including ten new owning
+cases and fresh native compilation. Literal rays and source hashes are retained
+privately. Entity/HMD/Android/transport seams remain explicit. Complete trusted
+DOM effects, IME/recovery, actor/world stereo and whole retirement are still
+missing. The additive catalog now contains223groups; complete source areas
+remain3/14 and devices remain untested.

@@ -112,7 +112,12 @@
         "tests/device/adapters/navigation_bookmark_restart.py",
         "tests/device/adapters/navigation_restart_proof.py",
         "tests/device/self_tests/test_navigation_bookmark_restart.py",
-        "tests/device/adapters/pico4/NAVIGATION_BOOKMARK_RESTART.md"
+        "tests/device/adapters/pico4/NAVIGATION_BOOKMARK_RESTART.md",
+        "tests/device/adapters/pico4/navigation_prefix.py",
+        "tests/device/adapters/pico4/navigation_prefix_source.py",
+        "tests/device/adapters/pico4/NAVIGATION_PREFIX.md",
+        "tests/device/self_tests/test_pico_navigation_prefix.py",
+        "android/vr/pico/tests/device/test_navigation_prefix.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -157,7 +162,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Compose the existing normal Places/origin/directory/lookup/OK/close and B/A stereo owners plus explicit v2 restart-to-normal-Delete bookmark handoff into the complete two-role parent. Normal reopening, maturity/origin preservation, fresh independent actor/image publication, original stream/Script/XHR/Web/cache retirement and final journal absence remain required; neither a native restart nor the handoff alone completes Navigation.",
+      "nextExecutableStep": "Extend the same two-role, original eight-field normal Navigation prefix (first seven v16 steps, Hidden three-second window and Name search) with actual Transit/Home/Close, original closed-source observations and independently joined stereo. Public parent, restart/restoration, whole quiet and final retirement remain incomplete; v1 retained parents gain no search authority.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -605,7 +610,13 @@
         "tests/device/adapters/native_web_runtime.py",
         "tests/device/native/WEB_RUNTIME_OBSERVATION.md",
         "android/common/web/java/org/overte/web/WebTextureObservation.java",
-        "tests/device/adapters/pico4/browser_source.py"
+        "tests/device/adapters/pico4/browser_source.py",
+        "tests/device/adapters/pico4/WORLD_BROWSER_RAY.md",
+        "tests/device/adapters/pico4/world_browser_ray.py",
+        "tests/device/native/PicoWorldWebRay.h",
+        "android/vr/pico/tests/device/test_world_web_ray.py",
+        "android/vr/pico/tests/device/world-web-ray-native.cpp",
+        "tests/device/self_tests/test_pico_world_browser_ray.py"
       ],
       "declaredCheckpoints": 19,
       "inputVerbs": [
@@ -655,8 +666,8 @@
         "Revoke actual view/grant/nonce authority",
         "Drain original retained callbacks and prove absent owned entities/view resources"
       ],
-      "nextExecutableStep": "Bind actual world entity dimensions/pose and controller-ray hit projection to normal browser input, then join existing native DOM observations with native script echo and original server receipts; Phone touch coordinates are not a Pico route.",
-      "nativeCompilation": "unverified",
+      "nextExecutableStep": "Compose the host-verified actual entity/item/DOM ray and existing-session normal trigger with independently read trusted DOM/script/server effects under the original phase owner. IME/navigation/recovery, actor/world stereo and complete resource/archive/host retirement remain open; the 23-case component/regression check is not a whole world feature.",
+      "nativeCompilation": "Selected complete NativeWebViewItem TU plus unchanged world-provider, RayPick and renderer projection bodies compile and pass Qt5 host checks; entity/avatar/HMD and Android DOM/transport are explicit seams. Complete application/APK and device behavior unverified.",
       "deviceQualification": "untested"
     },
     {
@@ -785,7 +796,7 @@
         "open"
       ],
       "missingOperationsOrEvidence": [
-        "Newest whole process case at e75cf9e34f remains red at unchanged120s: all26 actions/28phases, normal Close91.762s, cleanup wait114.148s, Actor export21parts/666originals ready; no return transport, capture/archive/host completion. Both roles sequence138/40images preserved. A subsequent immutable historical VM/graph guard passes eight owning return cases32.924s and preserves original wire digest/full physical reads, but no new whole success is claimed.",
+        "Latest complete process case at d2095e7c96 remains red at unchanged120s after immutable historical graph fix: all26actions/28phases, Close87.079s, cleanup wait108.594s, Actor export21parts and return transport ready1part; no Parent consumption/remote receipt/capture/archive/host completion. Originals tmpfjfxzruf retained. No whole success is claimed.",
         "The actual short common-cleanup/typed independent-process return/capture prefix now completes original immutable archive and actual host-pair closure (two cases76.242s); lost initial intent and late final sentry-unlink counters pass75.589s. These prefixes preserve sequenceSucceeded=false and cannot qualify finalization. Complete successful common execution and the public coordinator remain unverified.",
         "Product/GPU/Qt/DOM/Java/OS/native clock endpoints remain explicit analytical host seams. Whole APK/HMD qualification remains unavailable."
       ],
@@ -800,7 +811,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Verify the same single complete26-action/28-phase process Journey with the immutable historical VM/graph guard, then actual typed return, all-capture retirement, immutable archive and host closure within unchanged120s. Only after true complete original common success may the public coordinator be enabled. Every original file/read/quiet interval remains; latest whole failure is retained.",
+      "nextExecutableStep": "Profile actual independent Parent cold admission of the ready666-original graph before another whole retry; preserve all original bytes/physical checks/phase windows and120s. The subsequent standalone image/opener measurements show only0.039s/0.00052s per call, so no speculative cache/transport changes are made. Enclosing source/archive/host short prefixes are verified, full common+return+archive under deadline remains open; continue other authorized feature sources meanwhile.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },
@@ -1179,7 +1190,9 @@
         "tests/device/adapters/pico4/CHAT_REMOTE_ARCHIVE.md",
         "tests/device/adapters/chat_journey/source_bundles.py",
         "tests/device/adapters/chat_journey/SOURCE_BUNDLES.md",
-        "tests/device/self_tests/test_chat_source_bundles.py"
+        "tests/device/self_tests/test_chat_source_bundles.py",
+        "tests/device/adapters/chat_journey/original_memory.py",
+        "tests/device/self_tests/test_chat_original_memory.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1223,7 +1236,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Verify the fixed Reader3 lossless original-bundle storage and pure historical pre/post metadata/path/physical guards through actual typed Return/Archive/Host, then rerun the unchanged complete common Journey only after this concrete integration. Agent actual oversize case passes74.341s with56logical/111physicalparts and exact93305-byte record; oldpack49224 exceeds49152 and still refuses. Root integrated Reader25.448s/bundle4.362s and Agent real false-common/Stop2/kernel-return/catalog40.928s pass; enclosing Archive/Host and true whole remain pending; earlier whole94.428s failure and false common prefix remain, no complete/public Chat claim.",
+      "nextExecutableStep": "Reduce only measured remaining Source transaction costs with full original physical/native/clock checks, then rerun the unchanged 25-step whole. Latest fixed e8 whole fails at 120.014 s after 19 steps: both roles retain nine matching mixer-off originals spanning 2.000 s of the required 3.000 s. BG->Dispatcher->Flow is verified; actual false-common Return/ESRCH/seals/V3 catalog passes 36.890 s, but true common/App/archive/host whole remains unqualified.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1459,7 +1472,11 @@
         "libraries/networking/src/FeatureAssetRequestBirth.h",
         "tests/device/native/AssetsRequestBirthBinding.h",
         "android/vr/pico/tests/device/test_assets_resource_data.py",
-        "android/vr/pico/tests/device/assets-resource-data-prepare.py"
+        "android/vr/pico/tests/device/assets-resource-data-prepare.py",
+        "android/vr/pico/tests/device/test_assets_geometry_parser.py",
+        "android/vr/pico/tests/device/assets-geometry-parser-native.cpp",
+        "android/vr/pico/tests/device/test_assets_geometry_resource.py",
+        "android/vr/pico/tests/device/assets-geometry-resource-native.cpp"
       ],
       "declaredCheckpoints": 29,
       "inputVerbs": [
@@ -1513,7 +1530,7 @@
         "Drain oven/upload/picker workers and release actual staged originals",
         "Restore original server permission and prove complete namespace/resource absence"
       ],
-      "nextExecutableStep": "Bind the actual inserted Entity model URL to original AssetResourceRequest/GetMapping/AssetRequest bytes and real resource lifetime observations. The actual renderer/Model::setURL/ModelCache path is not constructed by the declared QObject factory seam; a separate bytes reader must not imply model loading. Root actual Add-to-World2cases+coverage pass48.18s; entity/context remain retained. Complete loaded-model/stereo/deletion/cleanup and whole feature remain open.",
+      "nextExecutableStep": "Join the original ModelCache/GeometryExtra/ResourceCache caller to the existing actual GeometryResource download/worker/parser before original Baker/renderer/effect retirement. Root parser selector passes 60.178 s; selected GeometryResource agent packet retains a 579-ms Cancel failure over its unchanged 500-ms guard. Parentless parser replay-request lifetime remains unqualified; no forced deletion or product fix may substitute for original release.",
       "nativeCompilation": "Selected whole Pico NavigationUi, original QML/pointer/FileDialogHelper/NativeFieldInput and production Assets-file getter/private descriptor storage host-compiled; complete application/APK unverified",
       "deviceQualification": "untested"
     },

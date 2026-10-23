@@ -206,3 +206,10 @@ with explicit SDK/OpenXR/Home effects: initial open, Home, original app/paging,
 close, ignored/lost Home, ignored page effect, changed fixture and slow host
 CAS/frozen native clock. The whole owner/phase/actor/archive coordination remains
 partial; these normal input components alone grant no feature capability.
+
+
+The additive [world ray component](WORLD_BROWSER_RAY.md) introduces a world-only
+passive `measure-ray` v3 response. Existing ordinary/tablet responses remain v2;
+legacy v1/v2 retain their exact forms. The tablet actuator remains Tablet-only.
+This component adds normal calibrated OpenXR trigger input without declaring the
+complete world-Web feature or qualifying trusted DOM effects.

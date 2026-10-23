@@ -3596,5 +3596,101 @@
     "settingsRestored": false,
     "fullFeatureRecipe": false,
     "deviceAcceptance": false
+  },
+  "browserWholeImmutableGraph20261023": {
+    "sourceHead": "d2095e7c96aba506c5792c4a893dcdae190ab004",
+    "sourceManifestFiles": 1085,
+    "status": "failed-unchanged-120s",
+    "exitCode": 124,
+    "phases": 28,
+    "normalCloseSeconds": 87.079,
+    "cleanupWaitSeconds": 108.594,
+    "actorExportParts": 21,
+    "returnTransportParts": 1,
+    "parentConsumption": false,
+    "originalsRetained": true,
+    "archiveHostComplete": false,
+    "deviceAcceptance": false
+  },
+  "agentIntegration20261024": {
+    "chatSource": "7b1c62cbfd",
+    "chatSelectedAs": "c769d28bd4",
+    "navigationSources": [
+      "55351ecf5e",
+      "af6f7ba202"
+    ],
+    "navigationSelectedAs": [
+      "84c3591182",
+      "2b7a4acdde"
+    ],
+    "assetsGeometryResourceSource": "51d8eee021",
+    "assetsSelectedAs": "db227707f2",
+    "rootMergeGuardFix": "cb0b6a15ba",
+    "sourceCompleteAreasUnchanged": true,
+    "navigationMemoryCursor": {
+      "passedCases": 29,
+      "durationSeconds": 29.247,
+      "commandStatus": "failed-only-because-additional-BG-class-name-was-invalid",
+      "originalsRetained": true
+    },
+    "correctedBackgroundCase": {
+      "status": "passed",
+      "tests": 1,
+      "durationSeconds": 3.155
+    },
+    "initialBindingImportFailure": "Corrected additive merge retained every original cleanup guard; no tests/input had run before failure."
+  },
+  "assetsParserRoot20261023": {
+    "source": "cecc0e4941",
+    "selectedAs": "222b53646b",
+    "status": "passed",
+    "tests": 2,
+    "durationSeconds": 60.178,
+    "qualification": "Original CPU parser and wrapper/loader only; Baker/renderer and final retirement unavailable",
+    "originalsRetained": true
+  },
+  "chatWholeFixedE8Source20261024": {
+    "source": "4c306b25b0",
+    "resultCommit": "7b1c62cbfd",
+    "status": "failed-unchanged-120s",
+    "durationSeconds": 120.014,
+    "exitCode": 124,
+    "completedSteps": 19,
+    "lastCompletionSeconds": 104.265,
+    "backgroundFlowJoined": true,
+    "matchingMixerOffOriginalsEachRole": 9,
+    "quietObservedMs": 2000,
+    "quietRequiredMs": 3000,
+    "originalsRetained": true,
+    "fullFeatureRecipe": false
+  },
+  "worldRay20261024": {
+    "status": "passed-selected-components",
+    "tests": 23,
+    "durationSeconds": 11.403,
+    "worldOwningCases": 10,
+    "unchangedBrowserIoRevealCases": 12,
+    "originalNativeBackendCase": 1,
+    "freshNativeCompilation": true,
+    "literalNativeOutputs": 3,
+    "sourceHashesRetained": true,
+    "fullApplicationCompiled": false,
+    "fullFeatureRecipe": false,
+    "deviceAcceptance": false,
+    "earlierHarnessFailures": [
+      "Missing explicit host library search path",
+      "SourceLock argument omitted from host fixture construction"
+    ],
+    "nativeHitTestOriginal": true,
+    "nativeRefusalVariants": 20,
+    "requiredChecks": {
+      "repositorySuitesPassed": 4,
+      "repositorySeconds": 3.12,
+      "coverageTestsPassed": 10,
+      "coverageRisksMapped": "14/14",
+      "contractRegistry": "passed",
+      "probeSyntax": "passed",
+      "whitespace": "passed"
+    }
   }
 }
