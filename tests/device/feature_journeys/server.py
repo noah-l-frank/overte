@@ -3,6 +3,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import argparse
+import base64
 from contextlib import ExitStack
 import hmac
 import hashlib
@@ -30,6 +31,8 @@ from feature_journeys.script_fixture import ScriptResources
 from feature_journeys.graphics_resources import GraphicsResources, RESOURCE as GRAPHICS_SCENE,ALL_RESOURCES as GRAPHICS_RESOURCES,profile_name as graphics_profile
 from feature_journeys.graphics_fixture import LEGACY_PROFILE as LEGACY_GRAPHICS_PROFILE
 
+from feature_journeys.snapshot_upload_service import SnapshotUploadService,SNAPSHOTS as SNAPSHOT_UPLOAD,STORIES as SNAPSHOT_STORIES,MAX_BODY as SNAPSHOT_MAX_BODY
+
 PREFIX = '/feature-fixture/v1'
 
 
@@ -55,7 +58,35 @@ def read_account_body(stream,connection,size,*,monotonic=time.monotonic):
     finally:connection.settimeout(2)
 
 
+def read_snapshot_body(stream,connection,size,received,*,monotonic=time.monotonic):
+    # Preserve the existing two-second absolute transport bound while exposing
+    # only actual received chunks to the private partial-body owner.
+    from feature_journeys.contract import number
+    previous=number(monotonic());deadline=previous+2;count=0
+    try:
+        while count<size:
+            now=number(monotonic());remaining=deadline-now
+            if now<previous or remaining<=0:raise ValueError('Snapshot body deadline expired')
+            previous=now;connection.settimeout(remaining);chunk=stream.read1(size-count)
+            if type(chunk) is not bytes or not chunk or len(chunk)>size-count:raise ValueError('Partial Snapshot body')
+            received.append(chunk);count+=len(chunk)
+        now=number(monotonic())
+        if now<previous or now>=deadline:raise ValueError('Snapshot body deadline expired')
+        return b''.join(received)
+    finally:connection.settimeout(2)
+
+
 class Handler(BaseHTTPRequestHandler):
+    def handle(self):
+        try:super().handle()
+        except (BrokenPipeError,ConnectionResetError,ssl.SSLEOFError,TimeoutError):
+            if getattr(self.server,'snapshot_upload_service',None) is None:raise
+            # Qt can close an unused speculative TLS connection before any
+            # HTTP request line exists. Actual Snapshot request/body ownership
+            # is tracked separately by ingress, including partial-body errors.
+            self.close_connection=True
+
+
     def log_message(self, *args):
         pass  # No private URLs, tokens, account aliases or request bodies in logs.
 
@@ -185,6 +216,48 @@ class Handler(BaseHTTPRequestHandler):
         self.send(status,value)
         return True
 
+    def snapshot_upload_request(self,parsed):
+        if parsed.path not in (SNAPSHOT_UPLOAD,SNAPSHOT_STORIES) and not parsed.path.startswith(SNAPSHOT_STORIES+'/'):return False
+        provider=self.server.snapshot_upload_service;self.close_connection=True
+        if provider is None or not isinstance(self.connection,ssl.SSLSocket) or self.connection.version() not in ('TLSv1.2','TLSv1.3'):
+            self.send(404,{'error':'not-found'});return True
+        authorities=self.headers.get_all('Host',[])
+        if authorities!=[urlsplit(provider.origin).netloc] or len(self.headers.get_all('Authorization',[]))>1:raise ValueError('Original Snapshot HTTPS authority is required')
+        with provider.ingress(self.headers.get('Authorization','')):
+            raw=b''
+            if self.command=='POST':
+                lengths=self.headers.get_all('Content-Length',[])
+                if len(lengths)!=1 or not lengths[0].isdigit() or not 0<int(lengths[0])<=SNAPSHOT_MAX_BODY or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Encoding'):raise ValueError('Invalid bounded Snapshot upload body')
+                received=[]
+                try:raw=read_snapshot_body(self.rfile,self.connection,int(lengths[0]),received)
+                except (ValueError,OSError):
+                    provider.incomplete(self.headers.get('Authorization',''),self.command,self.path,self.headers.get('Content-Type',''),b''.join(received))
+                    raise ValueError('Original Snapshot body was incomplete') from None
+            elif self.headers.get('Content-Length') not in (None,'0') or self.headers.get('Transfer-Encoding'):raise ValueError('Unexpected Snapshot request body')
+            with provider.response(self.headers.get('Authorization',''),self.command,self.path,self.headers.get('Content-Type',''),raw) as response:
+                if response[0]==0:
+                    try:self.connection.shutdown(2)
+                    except OSError:pass
+                else:self.send(response[0],response[1],response_id=response[2],observe_write=response[3])
+        return True
+
+
+    def send_snapshot_original(self,metadata,body):
+        # A distinct binary route preserves the existing 1 MiB JSON Client
+        # limit. The service measured these bytes from its retained multipart.
+        encoded=base64.b64encode(json.dumps(metadata,sort_keys=True,separators=(',',':')).encode()).decode('ascii')
+        if len(encoded)>8192 or type(body) is not bytes or not 0<len(body)<=SNAPSHOT_MAX_BODY:
+            raise ValueError('Original Snapshot binary response exceeds its bound')
+        self.send_response(200)
+        self.send_header('Content-Type',metadata['image']['mime'])
+        self.send_header('Content-Length',str(len(body)))
+        self.send_header('Cache-Control','no-store')
+        self.send_header('X-Content-Type-Options','nosniff')
+        self.send_header('X-Overte-Snapshot-Original',encoded)
+        self.end_headers()
+        if self.wfile.write(body)!=len(body):raise ValueError('Incomplete original Snapshot binary response')
+
+
     def handle_request(self):
         try:
             parsed = urlsplit(self.path)
@@ -205,6 +278,7 @@ class Handler(BaseHTTPRequestHandler):
             adapter_markers=self.headers.get_all('X-Overte-Fixture-Adapter-Read',[])
             if adapter_markers and (adapter_markers!=['1'] or not adapter_reader):return self.send(403,{'error':'forbidden'})
             if adapter_reader and self.command!='GET':return self.send(403,{'error':'forbidden'})
+            if self.snapshot_upload_request(parsed):return
             if self.account_request(parsed):return
             if self.navigation_scene_request(parsed):return
             if self.navigation_request(parsed):return
@@ -258,6 +332,10 @@ class Handler(BaseHTTPRequestHandler):
             if self.command=='GET' and parts==['graphics-provider']:
                 if self.server.graphics_resources is None:return self.send(503,{'error':'graphics-provider-unavailable'})
                 return self.send(200,dict(self.server.graphics_resources.ready(),internalErrors=self.server.internal_errors))
+            if self.command=='GET' and parts==['snapshot-upload-provider']:
+                provider=self.server.snapshot_upload_service
+                if provider is None:return self.send(503,{'error':'snapshot-upload-provider-unavailable'})
+                return self.send(200,dict(snapshotUploadServiceVersion=provider.VERSION,instance=provider.instance,domainId=provider.domain_id,origin=provider.origin,internalErrors=self.server.internal_errors))
             body = None
             if self.command == 'POST':
                 size = int(self.headers.get('Content-Length', '0'))
@@ -278,6 +356,9 @@ class Handler(BaseHTTPRequestHandler):
                 if body['area']=='create' and self.server.create_permissions is not None:
                     try:self.server.create_permissions.provision(run)
                     except (OSError,RuntimeError):return self.send(503,{"error":"create-permissions-unavailable"})
+                if body['area']=='snapshots' and self.server.snapshot_upload_service is not None:
+                    try:self.server.snapshot_upload_service.provision(run)
+                    except BaseException:self.server.journal.close(run);raise
                 if body['area']=='graphics' and self.server.graphics_resources is not None:
                     try:self.server.graphics_resources.provision(run,profile=selected)
                     except Exception:
@@ -316,6 +397,34 @@ class Handler(BaseHTTPRequestHandler):
                     try:source=provider.snapshot(run,nonce,phase)
                     except (OSError,RuntimeError):return self.send(503,{"error":"create-permissions-unavailable"})
                 return self.send(200,source)
+            if parts[2:]==['snapshot-upload']:
+                provider=self.server.snapshot_upload_service
+                if self.command!='GET' or provider is None:return self.send(503,{'error':'snapshot-upload-provider-unavailable'})
+                nonces=self.headers.get_all('X-Overte-Snapshot-Upload-Read',[])
+                if len(nonces)!=1:raise ValueError('Fresh original Snapshot upload nonce is required')
+                return self.send(200,provider.snapshot(run,identifier(nonces[0])))
+            if len(parts)==6 and parts[2:4]==['snapshot-upload','original']:
+                if (self.command!='GET' or self.server.snapshot_upload_service is None or len(self.headers.get_all('Authorization',[]))!=1
+                        or not isinstance(self.connection,ssl.SSLSocket) or self.connection.version() not in ('TLSv1.2','TLSv1.3')):return self.send(403,{'error':'forbidden'})
+                if parsed.query or self.headers.get('Content-Length') not in (None,'0') or self.headers.get('Transfer-Encoding'):
+                    raise ValueError('Unexpected original Snapshot binary query body')
+                metadata,payload=self.server.snapshot_upload_service.image_original(run,identifier(parts[4]),identifier(parts[5]))
+                return self.send_snapshot_original(metadata,payload)
+            if parts[2:]==['snapshot-upload','credentials']:
+                if (self.command!='GET' or not (reader or adapter_reader) or self.server.snapshot_upload_service is None
+                        or not isinstance(self.connection,ssl.SSLSocket) or self.connection.version() not in ('TLSv1.2','TLSv1.3')):
+                    return self.send(403,{'error':'forbidden'})
+                # Only the primary adapter's normal owned login needs these
+                # private inputs. Actor publishing stays credential-free and
+                # cannot borrow an unrelated account run through this route.
+                original=self.server.journal.runs.get(run)
+                if (original is None or original['area']!='snapshots'
+                        or not self.server.snapshot_upload_service.has_run(run)):
+                    return self.send(404,{'error':'not-found'})
+                return self.send(200,self.server.snapshot_upload_service.credentials(run))
+            if parts[2:]==['snapshot-upload','control']:
+                if self.command!='POST' or not reader or self.server.snapshot_upload_service is None:return self.send(403,{'error':'forbidden'})
+                exact(body,{'operation'},'Snapshot upload fixture control');self.server.snapshot_upload_service.control(run,body['operation']);return self.send(200,{})
             if parts[2:]==['phase']:
                 if self.command!='GET':return self.send(403,{'error':'forbidden'})
                 requests=self.headers.get_all('X-Overte-Phase-Read',[])
@@ -385,12 +494,17 @@ class Handler(BaseHTTPRequestHandler):
                     with self.server.journal.lock:
                         self.server.journal.activate(run, body['ticket'], body['verb'], body['inputs'])
                         self.server.script_resources.activate(run,body['ticket'])
+                elif self.server.journal.runs[run]['area']=='snapshots' and self.server.snapshot_upload_service is not None:
+                    with self.server.journal.lock:
+                        self.server.journal.activate(run,body['ticket'],body['verb'],body['inputs'])
+                        self.server.snapshot_upload_service.activate(run,body['ticket'],body['verb'])
                 else:self.server.journal.activate(run, body['ticket'], body['verb'], body['inputs'])
                 if self.server.journal.runs[run]['area']=='world-navigation':
                     self.server.navigation_resources.activate(run,body['ticket'])
                 if body['verb']=='restore-resource' and self.server.browser_resources.has_run(run):
                     self.server.browser_resources.control(run,{'operation':'restore-resource'})
-                if self.server.account_provider is not None and run in self.server.account_provider.runs:
+                if (self.server.account_provider is not None and run in self.server.account_provider.runs
+                        and not (self.server.snapshot_upload_service is not None and self.server.snapshot_upload_service.has_run(run))):
                     self.server.account_provider.activate(run,body['ticket'])
                     stimulus=self.server.journal.active(run)['stimulus']
                     if stimulus['verb']=='login-submit' and stimulus['inputs'].get('account')=='delayed':
@@ -415,6 +529,11 @@ class Handler(BaseHTTPRequestHandler):
                         try:self.server.create_permissions.retire(run)
                         except (OSError,RuntimeError):return self.send(503,{"error":"create-permissions-unavailable"})
                         self.server.journal.close(run)
+                    return self.send(200,{})
+                if self.server.snapshot_upload_service is not None and self.server.snapshot_upload_service.has_run(run):
+                    with self.server.journal.lock:
+                        self.server.snapshot_upload_service.retire(run)
+                        if run in self.server.journal.runs:self.server.journal.close(run)
                     return self.send(200,{})
                 if self.server.graphics_resources is not None and self.server.graphics_resources.has_run(run):
                     with self.server.journal.lock:
@@ -464,7 +583,7 @@ class FixtureServer(ThreadingHTTPServer):
         super().server_close()
 
 
-def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,adapter_token=None,create_permissions=None):
+def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,adapter_token=None,create_permissions=None,snapshot_upload_service=None):
     if adapter_token is not None and (type(adapter_token) is not str or not 32<=len(adapter_token)<=256
             or not adapter_token.isascii() or any(not 33<=ord(c)<=126 for c in adapter_token)
             or adapter_token in (reader_token,actor_token)):
@@ -489,11 +608,14 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
         raise ValueError('Graphics provider requires its original primary owner')
     if create_permissions is not None and (not isinstance(create_permissions,CreatePermissionProvider) or browser_peer_of is not None):
         raise ValueError("Create Settings provider requires its original primary owner")
+    if snapshot_upload_service is not None and (not isinstance(snapshot_upload_service,SnapshotUploadService) or snapshot_upload_service.accounts is not account_provider or tls_context is None or browser_peer_of is not None):
+        raise ValueError('Snapshot service requires its original HTTPS account owner')
     server = FixtureServer(address, Handler)
     server.account_provider,server.tls_context=account_provider,tls_context
     server.navigation_resources=navigation_resources
     server.graphics_resources=graphics_resources
     server.create_permissions=create_permissions
+    server.snapshot_upload_service=snapshot_upload_service
     server.script_resources=ScriptResources() if browser_peer_of is None else browser_peer_of.script_resources
     server.internal_errors=0
     server.reader_token, server.actor_token = reader_token, actor_token
@@ -519,6 +641,7 @@ def main():
     from adapters.normal_feature_state import PrivateFeatureState
     config=PrivateFeatureState(args.private_config.absolute()).read()
     fields={'readerToken','actorToken','host','port'}|({'adapterToken'} if 'adapterToken' in config else set())|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())|({'browserPeer'} if 'browserPeer' in config else set())|({'navigationProvider'} if 'navigationProvider' in config else set())|({'graphicsProvider'} if 'graphicsProvider' in config else set())|({'navigationSceneProfile'} if 'navigationSceneProfile' in config else set())|({'createPermissionProvider'} if 'createPermissionProvider' in config else set())
+    fields|=({'snapshotUploadService'} if 'snapshotUploadService' in config else set())
     exact(config,fields,'private fixture configuration')
     tls=None;provider=None
     if 'tls' in config:
@@ -545,9 +668,13 @@ def main():
         details=config["createPermissionProvider"]
         exact(details,{"controlUrl","controlToken","domainId","stateFile"},"private Create Settings provider")
         create_permissions=CreatePermissionProvider({k:v for k,v in details.items() if k!="stateFile"},PrivateFeatureState(Path(details["stateFile"])))
+    snapshot_upload=None
+    if 'snapshotUploadService' in config:
+        exact(config['snapshotUploadService'],{'domainId','root','origin'},'owned Snapshot HTTPS service')
+        values=config['snapshotUploadService'];snapshot_upload=SnapshotUploadService(provider,values['domainId'],values['root'],values['origin'])
     with ExitStack() as owned:
         server=owned.enter_context(make_server(config['readerToken'],config['actorToken'],(config['host'],config['port']),
-            account_provider=provider,tls_context=tls,navigation_resources=navigation,graphics_resources=graphics,adapter_token=config.get('adapterToken'),create_permissions=create_permissions))
+            account_provider=provider,tls_context=tls,navigation_resources=navigation,graphics_resources=graphics,adapter_token=config.get('adapterToken'),create_permissions=create_permissions,snapshot_upload_service=snapshot_upload))
         peer=None;worker=None
         if 'browserPeer' in config:
             exact(config['browserPeer'],{'host','port'},'private second browser listener')

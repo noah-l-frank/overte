@@ -107,3 +107,9 @@ actual collection that exceeds the private 200-KiB raw-source bound. The native
 harness creates that original oversized collection from explicit reply-signal
 seams, observes unavailable and proves the same query cannot be retimed later.
 Malformed commands do not consume admission. Source history/rows remain intact.
+
+The additive [original TLS join](SNAPSHOT_UPLOAD_TLS.md) now supplies the
+independent owned backend/file/binary side from fixed Phone b62, with private
+physical metadata version two. It preserves the native source as a separate
+role. Its actual loopback wire proof uses explicit HTTP/native DTO producers;
+it is not yet the combined ordinary Pico Upload owner or a device result.
