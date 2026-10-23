@@ -85,6 +85,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshots_actor.py",
     "android/phone/tests/device/test_snapshots_actor_schedule_migration.py",
     "android/phone/tests/device/test_snapshots_actor_primary_cue.py",
+    "android/phone/tests/device/test_snapshots_actor_ordinary_stages.py",
     "android/phone/tests/device/test_snapshots_cleanup_close_race.py",
     "android/phone/tests/device/test_snapshots_actor_schedule.py",
     "android/phone/tests/device/test_snapshots_polling.py",

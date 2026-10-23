@@ -1072,6 +1072,32 @@ and [`test_snapshots_actor.py`](../../../../android/phone/tests/device/test_snap
 The subsequent cleanup-only source adjustment retains the same ordinary cue
 methods; these results are not relabelled as a run of its new close-race cases.
 
+Ordinary acquisitions now separate immutable preparation from current effects
+using the existing two-stage source-lock discipline. After constructing and
+validating its original Role, the Actor pins the actual Feature, Actor and Role
+headers, history graph, configuration and exact native/SDK scope. It releases
+the lock before reacquiring it for complete original-file and owner checks and
+a new independent current read. A genuinely newer ready Primary candidate must
+retain the entire actually prepared candidate's original prefix. Reading or
+pending Primary state defers without adopting that owner. One actual owned
+fixture activation and normal input advance discards the preparation without
+an Actor state, cue, sample or POST; the next step starts with the new scope.
+Foreign owners, changed old files/graphs and replaced scopes remain errors.
+The old graph and exact owners are checked again after the final native save
+guard and before pending, issued and receipt compare-and-swap writes.
+
+Eight independent TLS/private-file/separate-process stage cases passed in
+35.621 seconds on Actor SHA-256
+`52933915304a61ff9006b51a15197f7da3634a588941c7944f165e54ebb9c859`;
+see [`ordinary-stage counters`](../../../../android/phone/tests/device/test_snapshots_actor_ordinary_stages.py).
+The existing Actor module passed separately, fifteen cases in 32.688 seconds,
+after its two one-shot fixtures persisted a real Feature header through the
+original Feature save path. The earlier combined regression run remains
+41 passes, one failure and one error in 189.633 seconds; its unchanged other
+28 cases cover cue, migration and phase behavior on the same Actor bytes.
+These are host test-logic results with synthetic native/SDK boundaries. They
+do not establish either complete backend's timing or product/device acceptance.
+
 An ordinary actor acquisition admits its actual phase before reading native,
 avatar or measurement sources. One proven owned activation advance can defer
 that acquisition: two actual stable new phase observations and the old phase
