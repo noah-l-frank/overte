@@ -46,6 +46,7 @@ class LinuxChatObserverProcess(LinuxChatActorProcess):
             and self.configuration.is_absolute() and self.configuration.resolve(strict=True)==self.configuration)
         PrivateFeatureState(self.configuration)._parent();info=self.configuration.lstat();private(info)
         self.configuration_stamp=stamp(info);self.entry_sha256=entry_sha256
+        parent=self.configuration.parent.lstat();self.parent_node=(parent.st_dev,parent.st_ino,parent.st_uid,parent.st_mode)
         try:
             self.entry_owner=OriginalDescriptor(self.entry,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
             info=os.fstat(self.entry_owner.fd)
@@ -74,7 +75,9 @@ class LinuxChatObserverProcess(LinuxChatActorProcess):
             and os.pread(self.entry_owner.fd,1024*1024+1,0)==self.entry_original
             and hashlib.sha256(self.entry_original).hexdigest()==self.entry_sha256)
         PrivateFeatureState(self.configuration)._parent();info=self.configuration.lstat();private(info)
-        need(stamp(info)==self.configuration_stamp)
+        parent=self.configuration.parent.lstat()
+        need(stamp(info)==self.configuration_stamp
+            and (parent.st_dev,parent.st_ino,parent.st_uid,parent.st_mode)==self.parent_node)
 
     def original_program(self):
         need(self.sha256==self.expected_executable_sha256 and digest(self.executable)==self.executable_stamp_sha
@@ -115,11 +118,22 @@ class LinuxChatObserverProcess(LinuxChatActorProcess):
             executableSha256=self.sha256,entrySha256=self.entry_sha256,configurationStamp=deepcopy(self.configuration_stamp),
             requestedEpochMs=before,capturedEpochMs=int(time.time()*1000))
         result=deepcopy(value);self.source_files();self.fd_owner.require(self.fd);self.original_program();self._absent()
+        self.last_absence_sha=digest(result);self.last_absence_started=started
         ended_epoch=int(time.time()*1000)
         need(Path('/proc/sys/kernel/random/boot_id').read_text().strip()==self.boot
             and before<=result['capturedEpochMs']<=ended_epoch<=before+1500
             and 0<=time.monotonic()-started<=1.5)
         return result
+
+    def final_absence(self,value):
+        """Keep a returned original sample fresh through its receiver's copy."""
+        need(hasattr(self,'last_absence_sha') and digest(value)==self.last_absence_sha)
+        self.fd_owner.require(self.fd);self.source_files();self.original_program();self._absent()
+        ended=int(time.time()*1000)
+        need(self.process_identity==self.original_identity
+            and Path('/proc/sys/kernel/random/boot_id').read_text().strip()==self.boot
+            and value['requestedEpochMs']<=value['capturedEpochMs']<=ended<=value['requestedEpochMs']+1500
+            and 0<=time.monotonic()-self.last_absence_started<=1.5)
 
     def close(self):
         okay=super().close()
