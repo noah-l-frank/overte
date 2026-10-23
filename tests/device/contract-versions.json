@@ -324,6 +324,7 @@
     "ios-avatar-final-copy": {"current": 1, "reads": [1]},
     "ios-avatar-final-copy-storage": {"current": 1, "reads": [1]},
     "ios-avatar-abort": {"current": 1, "reads": [1]},
+    "ios-avatar-abort-credentials": {"current": 1, "reads": [1]},
     "ios-avatar-abort-result": {"current": 1, "reads": [1]},
     "ios-avatar-login-lifetime": {"current": 1, "reads": [1]},
     "ios-login-ui-roots": {"current": 1, "reads": [1]},

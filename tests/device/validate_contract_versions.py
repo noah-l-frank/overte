@@ -330,6 +330,7 @@ REQUIRED = {
     "ios-avatar-final-copy": 1,
     "ios-avatar-final-copy-storage": 1,
     "ios-avatar-abort": 1,
+    "ios-avatar-abort-credentials": 1,
     "ios-avatar-abort-result": 1,
     "ios-avatar-login-lifetime": 1,
     "ios-login-ui-roots": 1,
