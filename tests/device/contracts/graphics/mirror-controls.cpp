@@ -67,6 +67,7 @@ App* qApp;
 class RenderScriptingInterface : public QObject {
     Q_OBJECT
 @PROPERTY@
+@CAPABILITY_PROPERTY@
     // Remaining behaviors are explicit UI boundaries. Their shared notification
     // signal matches the production properties so live QML bindings stay valid.
     Q_PROPERTY(bool localLightingEnabled MEMBER _localLightingEnabled NOTIFY settingsChanged)
@@ -89,6 +90,7 @@ public:
 @PERSISTENCE_MEMBER@
 @SETTINGS@
     void loadSettings();bool getMirrorsEnabled() const;void setMirrorsEnabled(bool);void forceMirrorsEnabled(bool);
+    bool isDeferredRenderingAvailable() const;
     enum RenderMethod { DEFERRED,FORWARD };
     QStringList getScreens() const { return {"Default"}; }
     void setFullScreenScreen(const QString& value) { _fullScreenScreen=value; }

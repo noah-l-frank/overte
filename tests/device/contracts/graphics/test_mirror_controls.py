@@ -79,6 +79,7 @@ class MirrorControls(unittest.TestCase):
         # Keep production property/declarations/conditional settings, not a
         # hand-authored property which could hide a broken QML API spelling.
         prop = re.search(r'^    Q_PROPERTY\(bool mirrorsEnabled[^\n]+', header, re.M).group()
+        capability_prop = re.search(r'^    Q_PROPERTY\(bool deferredRenderingAvailable[^\n]+', header, re.M).group()
         persistence_member = re.search(
             r'^[ \t]*bool _settingsPersistenceEnabled[ \t]*\{[^\n;]+\};', header, re.M)
         if not persistence_member:
@@ -88,7 +89,8 @@ class MirrorControls(unittest.TestCase):
         runtime_start = header.index('#if defined(ANDROID_APP_PHONE_INTERFACE)\n    bool _mirrorsEnabled')
         runtime = header[runtime_start:header.index('#endif', runtime_start) + len('#endif')]
         methods = '\n'.join(block(source, marker) for marker in (
-            'void RenderScriptingInterface::loadSettings(', 'bool RenderScriptingInterface::getMirrorsEnabled(',
+            'void RenderScriptingInterface::loadSettings(', 'bool RenderScriptingInterface::isDeferredRenderingAvailable(',
+            'bool RenderScriptingInterface::getMirrorsEnabled(',
             'void RenderScriptingInterface::setMirrorsEnabled(', 'void RenderScriptingInterface::forceMirrorsEnabled('))
         job_class = task_header[task_header.index('class JobConfig : public QObject'):
                                 task_header.index('using QConfigPointer')]
@@ -117,7 +119,8 @@ class MirrorControls(unittest.TestCase):
             raise AssertionError('Deferred nesting changed')
         cls.android_mirrors = not re.search(r'#ifndef Q_OS_ANDROID\s+if \(depth < RenderMirrorTask::MAX_MIRROR_DEPTH\)', forward)
         template = (HERE / 'mirror-controls.cpp').read_text()
-        for key, value in {'PROPERTY': prop, 'SETTINGS': settings, 'RUNTIME': runtime,
+        for key, value in {'PROPERTY': prop, 'CAPABILITY_PROPERTY': capability_prop,
+                           'SETTINGS': settings, 'RUNTIME': runtime,
                            'PERSISTENCE_MEMBER': persistence_member.group(),
                            'METHODS': methods, 'JOB_CLASS': job_class, 'JOB_METHODS': job_methods,
                            'MIRROR_COUNT': count}.items():
