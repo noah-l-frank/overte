@@ -21,7 +21,7 @@ from test_assets_read_native import prepare_source
 
 
 
-def compile_ui(stage,*,original_uploads=False,sanitize=False,persistent_tablet=False):
+def compile_ui(stage,*,original_uploads=False,sanitize=False,persistent_tablet=False,original_server=False):
     environment=dict(os.environ);prefix=Path(environment['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
     environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),
         LD_LIBRARY_PATH=str(prefix/'usr/lib64'),QT_PLUGIN_PATH=str(prefix/'usr/lib64/qt5/plugins'),
@@ -53,6 +53,9 @@ def compile_ui(stage,*,original_uploads=False,sanitize=False,persistent_tablet=F
     bundle+='\n'+original(header,'QVariantMap featurePicoBundleOriginals(').replace('QVariantMap featurePicoBundleOriginals(',
         'QVariantMap AssetMappingsScriptingInterface::featurePicoBundleOriginals(').replace(') const {',') {')
     upload_arguments=['-fsanitize=address','-fno-omit-frame-pointer','-g1'] if sanitize else []
+    if original_server:
+        from test_assets_server_state import prepare_server_originals
+        prepare_server_originals(stage);upload_arguments+=['-DASSETS_ORIGINAL_SERVER_QUERY']
     if persistent_tablet:
         spec=importlib.util.spec_from_file_location('assets_tablet_prepare',HERE/'assets-tablet-prepare.py')
         prepare=importlib.util.module_from_spec(spec);spec.loader.exec_module(prepare)

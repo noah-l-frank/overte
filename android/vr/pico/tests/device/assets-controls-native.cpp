@@ -60,13 +60,18 @@ Q_LOGGING_CATEGORY(qmlLogging,"qml-original-loader-host")
 #include "AssetsTabletOriginals.inc"
 #endif
 #include "AssetsReadOriginals.inc"
+#if defined(ASSETS_ORIGINAL_SERVER_QUERY)
+#include "assets-server-status-host.h"
+Q_LOGGING_CATEGORY(asset_server,"assets-normal-server-read-host")
+#endif
 namespace AssetUtils {
 QByteArray loadFromCache(const QUrl&){return {};}
 bool saveToCache(const QUrl&,const QByteArray&){return true;}
 }
 struct AssetsNativeClient {
  QSharedPointer<AssetClient> client{new AssetClient,[](AssetClient* value){value->deleteLater();}};QThread worker;
- AssetsNativeClient(){DependencyManager::slot<AssetClient>()=client;client->content="independent original mapping bytes";
+ explicit AssetsNativeClient(std::function<QByteArray()> serverWire={}){DependencyManager::slot<AssetClient>()=client;client->content="independent original mapping bytes";
+  client->originalServerAll=std::move(serverWire);
   const auto hash=QCryptographicHash::hash(client->content,QCryptographicHash::Sha256);
   auto primitive=[](QByteArray& raw,const auto& value){raw.append(reinterpret_cast<const char*>(&value),sizeof(value));};
   const QByteArray path="/foreign/original.bin";primitive(client->allReply,quint32(1));primitive(client->allReply,quint32(path.size()));
@@ -103,7 +108,16 @@ int main(int argc,char**argv){
  DependencyManager::slot<AssetMappingsScriptingInterface>()=originalUploads;
  const auto originalNodes=QSharedPointer<NodeList>::create();DependencyManager::slot<NodeList>()=originalNodes;
  engine.rootContext()->setContextProperty("originalBundleService",originalUploads.data());
+#if defined(ASSETS_ORIGINAL_SERVER_QUERY)
+ QTemporaryDir serverFiles;AssetServer server;server._filesDirectory=QDir(serverFiles.path());
+ assert(serverFiles.isValid());
+ AssetsNativeClient originalReadClient([&]{
+  QByteArray wire;assert(QMetaObject::invokeMethod(&server,[&]{wire=server.originalWire();},Qt::BlockingQueuedConnection));return wire;
+ });
+ const auto foreignHash=putOriginal(server,originalReadClient.client->content);server._fileMappings["/foreign/original.bin"]=foreignHash;
+#else
  AssetsNativeClient originalReadClient;
+#endif
  engine.rootContext()->setContextProperty("fileDialogHelper",&files);
  QStandardItemModel model;auto folder=new QStandardItem("e2e-root");folder->setData("/e2e-root/",256);folder->setData(true,257);
  auto main=new QStandardItem("main.gltf");main->setData("/e2e-root/main.gltf",256);main->setData(false,257);main->setData("atp:/e2e-root/main.gltf",259);main->setData("--",261);
@@ -212,6 +226,13 @@ QtObject {
   std::string line;while(std::getline(std::cin,line)) {
    const auto request=QJsonDocument::fromJson(QByteArray::fromStdString(line)).object();const auto action=request.value("action").toString();QJsonObject packet;
    if(action=="host-observe-original-ui") {packet=capture();}
+#if defined(ASSETS_ORIGINAL_SERVER_QUERY)
+   else if(action=="host-original-server-wire") {
+    packet=QJsonObject{{"requestId",request.value("requestId")},{"wireBase64",QString::fromLatin1(server.originalWire().toBase64())},
+     {"serverFiles",server.originalFiles()},{"serverInstance",server.instance},{"sourceSequence",static_cast<double>(server.queries)},
+     {"processId",static_cast<double>(QCoreApplication::applicationPid())},{"capturedEpochMs",static_cast<double>(QDateTime::currentMSecsSinceEpoch())}};
+   }
+#endif
 #if defined(ASSETS_PERSISTENT_TABLET_HOST)
    else if(action=="host-observe-assets-pages" && persistent) {
     packet=assetsPages.observe(root,&window,tablet->shown(),tablet->onHomeScreen(),loader->_featureQmlLoads->snapshot());

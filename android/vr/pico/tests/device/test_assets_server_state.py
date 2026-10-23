@@ -20,11 +20,8 @@ sys.path.insert(0,str(ROOT/'tests/device'))
 from adapters.pico4.assets_source import validate
 
 
-def build(stage):
-    stage=Path(stage);environment=dict(os.environ);prefix=Path(environment['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
-    environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),LD_LIBRARY_PATH=str(prefix/'usr/lib64'))
-    flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt5Core'],text=True,env=environment))
-    include,definitions=prepare_source(stage,environment,prefix)
+def prepare_server_originals(stage):
+    stage=Path(stage)
     header=(ROOT/'assignment-client/src/assets/AssetServer.h').read_text()
     types=header[header.index('using BakeVersion ='):header.index('class BakeAssetTask;')]
     (stage/'AssetsServerTypes.inc').write_text(types)
@@ -38,6 +35,15 @@ def build(stage):
     provenance={key:hashlib.sha256(value.encode()).hexdigest() for key,value in blocks.items()}
     provenance['AssetServerTypes']=hashlib.sha256(types.encode()).hexdigest();provenance['AssetServerConstantsAndHelpers']=hashlib.sha256(constants.encode()).hexdigest()
     (stage/'server-original-provenance.json').write_text(json.dumps(provenance,sort_keys=True))
+    return provenance
+
+
+def build(stage):
+    stage=Path(stage);environment=dict(os.environ);prefix=Path(environment['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
+    environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),LD_LIBRARY_PATH=str(prefix/'usr/lib64'))
+    flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt5Core'],text=True,env=environment))
+    include,definitions=prepare_source(stage,environment,prefix)
+    provenance=prepare_server_originals(stage)
     binary=stage/'assets-server-state'
     subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-fmax-errors=3',*definitions,*include,
         str(HERE/'assets-server-state-native.cpp'),str(stage/'MappingRequest.cpp'),str(stage/'AssetRequest.cpp'),
