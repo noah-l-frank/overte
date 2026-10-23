@@ -126,6 +126,22 @@
         41.815
       ],
       "qualification": "Original host Resource byte/ownership and lifetime case including compiler; Snapshot grammar/actual owner counters; bounded Chat diagnostic packets. No whole-feature/application/device result"
+    },
+    {
+      "command": "Integrated immutable historical Browser VM/graph guard and Snapshot header-inode owning selectors",
+      "groups": 3,
+      "durationsSeconds": [
+        0.094,
+        32.924,
+        12.589
+      ],
+      "qualification": "Eight actual Browser return/VM cases and twelve Snapshot pure/actual-owner counters; latest Browser whole120s remains red"
+    },
+    {
+      "command": "tablet-web-evidence-archive after immutable historical graph guard",
+      "tests": 2,
+      "durationSeconds": 76.578,
+      "qualification": "Actual source/archive/host short prefixes; false common flag, no whole recipe"
     }
   ],
   "picoCommands": [

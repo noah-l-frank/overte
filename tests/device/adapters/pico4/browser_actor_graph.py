@@ -60,23 +60,41 @@ def original(path,expected=None):
 class BrowserOriginalVm:
     """Read-only historical DTO; never constructs or restores native readers."""
     def __init__(self,root,frames,pid):
+        json_digest(root);json_digest(frames);need(type(frames) is list)
         self.scope={key:value for key,value in root.items() if key not in ('phase','revision','chunks','quiet')}
-        self.frames=deepcopy(frames);self.origin=None
-        for index,frame in enumerate(self.frames):
-            self.origin,_facts=validate_frame(frame,self.frames[index-1:index],self.origin,self.scope['scriptUrl'],pid)
-        original_history([frame['scripts'] for frame in self.frames],pid)
+        frames=deepcopy(frames);self.origin=None
+        for index,frame in enumerate(frames):
+            self.origin,_facts=validate_frame(frame,frames[index-1:index],self.origin,self.scope['scriptUrl'],pid)
+        original_history([frame['scripts'] for frame in frames],pid)
+        # Same immutable canonical-prefix rule as the existing warm Pico VM.
+        # Every new/cold original above still receives the full old grammar.
+        self._frames=tuple(canonical(frame) for frame in frames)
+        self._hashes=tuple(digest(frame) for frame in frames)
+        self._sealed_frames,self._sealed_hashes=self._frames,self._hashes
         self.windows=deepcopy(root['quiet'])
         need(type(self.windows) is list and len(self.windows)<=16 and root['phase']=='ready'
             and type(root['revision']) is int and root['revision']==2*len(frames)+len(self.windows))
         for entry in self.windows:
             exact(entry,{'first','last','afterEpochMs'})
             need(window(len(frames),self.frame,entry['first'],entry['last'],entry['afterEpochMs'],self.origin,self.scope['scriptUrl'],pid))
-        self.sealed=json_digest(dict(scope=self.scope,frames=self.frames,origin=self.origin,windows=self.windows))
+        self.sealed=self.cache_digest()
+    def immutable(self):
+        need(type(self._frames) is tuple and type(self._hashes) is tuple
+            and self._frames is self._sealed_frames and self._hashes is self._sealed_hashes)
     @property
-    def frame_count(self):return len(self.frames)
-    def frame(self,index):return deepcopy(self.frames[index])
-    def frame_hash(self,index):return json_digest(self.frames[index])
-    def verify(self):need(json_digest(dict(scope=self.scope,frames=self.frames,origin=self.origin,windows=self.windows))==self.sealed)
+    def frames(self):
+        self.immutable();return [json.loads(raw) for raw in self._frames]
+    @property
+    def frame_count(self):self.immutable();return len(self._frames)
+    def frame(self,index):
+        self.immutable();need(type(index) is int and -len(self._frames)<=index<len(self._frames))
+        return json.loads(self._frames[index])
+    def frame_hash(self,index):
+        self.immutable();need(type(index) is int and -len(self._hashes)<=index<len(self._hashes))
+        return self._hashes[index]
+    def cache_digest(self):
+        self.immutable();return json_digest(dict(scope=self.scope,frames=list(self._hashes),origin=self.origin,windows=self.windows))
+    def verify(self):need(self.cache_digest()==self.sealed)
 
 
 class PicoBrowserActorGraph:
@@ -112,7 +130,11 @@ class PicoBrowserActorGraph:
                 and row['name'] not in ('','.','..') and '/' not in row['name'] and '\\' not in row['name'])
             key=(row['location'],row['name']);need(key not in self.files);self.files[key]=deepcopy(row)
             total+=row['stamp'][5];need(total<=LIMIT_BYTES)
-        self.load();need(self.used==set(self.files));self.sealed=self.cache_digest();self.failed=False;self.verify()
+        self.load();need(self.used==set(self.files));self.sealed=self.cache_digest()
+        # Preserve the original v1 graph digest on the wire. The separate warm
+        # guard substitutes only independently admitted immutable row hashes.
+        self._original_digest=self.sealed;self._validation_seal=self.validation_digest()
+        self.failed=False;self.verify()
 
     def file(self,path):
         location='state' if path.parent==self.export.path.parent else 'artifact'
@@ -198,10 +220,18 @@ class PicoBrowserActorGraph:
             paths={key:str(store.path) for key,store in self.stores.items()},export=str(self.export.path),
             artifacts=str(self.artifacts),lock=str(self.lock.path)))
 
+    def validation_digest(self):
+        return json_digest(dict(expected=self.expected,root=self.root,manifest=self.manifest,owner=self.owner,role=self.role,
+            images=self.images,inactive=self.inactive,retirement=self.retirement,files=[dict(key=list(key),value=value) for key,value in self.files.items()],
+            vm=self.vm.cache_digest(),history=self.source_history.cache_digest(),quiet=self.quiet.value,
+            paths={key:str(store.path) for key,store in self.stores.items()},export=str(self.export.path),
+            artifacts=str(self.artifacts),lock=str(self.lock.path)))
+
     def verify(self):
         self.lock.assert_held()
         try:
-            need(not self.failed and self.cache_digest()==self.sealed and parent_node(self.export)==self.parent
+            need(not self.failed and self.sealed is self._original_digest and self.validation_digest()==self._validation_seal
+                and parent_node(self.export)==self.parent
                 and parent_node(PrivateFeatureState(self.artifacts/'boundary.json'))==self.artifact_parent
                 and state(self.export)==(self.root,self.raw,self.source_stamp))
             self.export_chunks.verify()

@@ -71,3 +71,30 @@ closure and public operation admission. The current capture owner still expects
 its original warm Actor. Its use with the new remote return is not implemented;
 `finalize` remains unavailable. Full application/APK and device qualification
 remain open.
+
+## Immutable historical VM and graph validation
+
+Historical VM frames now follow the existing warm VM rule: all new/cold frames
+receive complete original grammar and Script history validation, then immutable
+canonical bytes and independent hashes retain that exact admission. Inspection
+returns copies. Warm validation checks original tuple identities and all current
+mutable header values; it does not serialize every old VM body again.
+The enclosing graph still reads every original file in full under its original
+physical stamp on every verification. Its original v1 graph digest is unchanged
+on the wire; a separate warm validation seal substitutes only admitted VM and
+source-history hashes. No live reader, source query, scope, clock or file check
+is removed. Three focused counters pass0.163s; the eight actual return/VM cases
+pass32.924s with coverage0.094s after integration.
+
+On the retained failed whole run,20 pure135-frame VM checks measured0.256066s
+before and0.001434s after. One full666-original graph digest measured0.234758s
+and the separate warm validation digest0.046515s, preserving the original wire
+digest. These historical measurements are not a new whole or freshness proof.
+The newest complete process case remains red at120s: all26 actions and28 phases
+were reached, cleanup wait ended114.148s, and the Actor export was ready with21
+parts; return transport, capture retirement, archive and host completion were
+not reached. Original primary/Actor sequences138 and40 captures per role remain.
+
+The subsequent integrated two-case source-archive/actual-host prefix selector
+also passes76.578s under its unchanged120s bound. This validates the warm graph
+guard through the enclosing transaction; its common-success flag remainsfalse.

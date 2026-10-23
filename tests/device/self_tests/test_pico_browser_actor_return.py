@@ -94,6 +94,7 @@ class PicoBrowserActorReturnTests(unittest.TestCase):
         self.owner.acknowledge();self.command('consume','consumed');self.command('exit');self.worker.wait(timeout=5)
     def test_actual_original_graph_nonce_consumption_kernel_exit_and_parent_handle_close(self):
         owner=self.owner;self.assertFalse(owner.complete);owner.acknowledge()
+        self.assertEqual(owner.graph.sealed,owner.graph.cache_digest()) # Original v1 wire digest remains unchanged.
         with self.assertRaises(BrowserActorReturnPending):owner.finish()
         self.command('consume','consumed')
         with self.assertRaises(BrowserActorReturnPending):owner.finish()
@@ -145,6 +146,64 @@ class PicoBrowserActorReturnTests(unittest.TestCase):
         self.assertEqual('complete',self.owner.store.read()['phase'])
         with self.assertRaises(NativeUIError):self.owner.receipt()
         self.assertTrue(all(store.path.exists() for store in self.stores.values()))
+
+
+class HistoricalBrowserVmTests(unittest.TestCase):
+    def setUp(self):
+        from self_tests import test_pico_browser_vm as fixture
+        h=fixture.PicoBrowserVmTests();h.setUp();self.addCleanup(h.doCleanups);self.b=h.b
+        self.owner=self.b.owner()
+        for _ in range(3):h.capture(self.owner)
+        self.root=self.owner.store.read();self.frames=self.owner.frames;self.pid=self.owner.scripts.pid
+
+    def historical(self):
+        from adapters.pico4.browser_actor_graph import BrowserOriginalVm
+        return BrowserOriginalVm(self.root,self.frames,self.pid)
+
+    def test_complete_cold_grammar_precedes_immutable_prefix_and_inspection_cannot_mutate_it(self):
+        from copy import deepcopy
+        from adapters.pico4 import browser_actor_graph as module
+        from adapters.chat_journey.source_chunks import json_digest
+        calls=self.b.count()
+        with patch.object(module,'validate_frame',wraps=module.validate_frame) as grammar:
+            historical=self.historical();self.assertEqual(3,grammar.call_count)
+            original=deepcopy(self.frames);inspection=historical.frames
+            inspection[0]['scripts']['source']['engines']=tuple(inspection[0]['scripts']['source']['engines'])
+            self.frames[0]['hostMonotonic']+=1
+            for _ in range(3):historical.verify()
+            self.assertEqual(3,grammar.call_count);self.assertEqual(original,historical.frames)
+            self.assertEqual(json_digest(original[0]),historical.frame_hash(0));self.assertEqual(original[-1],historical.frame(-1))
+            with self.assertRaises(NativeUIError):historical.frame(True)
+        self.assertEqual(calls,self.b.count())
+
+    def test_changed_immutable_prefix_header_or_json_alias_refuses_without_any_native_query(self):
+        from adapters.script_journey.history import canonical
+        calls=self.b.count()
+        for fault in ('frame','hash','origin','scope-alias','quiet'):
+            with self.subTest(fault=fault):
+                historical=self.historical()
+                if fault=='frame':
+                    row=historical.frame(0);row['hostMonotonic']+=1
+                    historical._frames=(canonical(row),)+historical._frames[1:]
+                elif fault=='hash':historical._hashes=('f'*64,)+historical._hashes[1:]
+                elif fault=='origin':historical.origin['manager']='f'*32
+                elif fault=='scope-alias':
+                    class Foreign(dict):pass
+                    historical.scope=Foreign(historical.scope)
+                else:historical.windows.append(dict(first=0,last=1,afterEpochMs=1))
+                with self.assertRaises(NativeUIError):historical.verify()
+        self.assertEqual(calls,self.b.count())
+
+    def test_new_cold_foreign_compilation_and_equivalent_container_alias_are_never_memo_admissions(self):
+        from copy import deepcopy
+        from adapters.pico4.browser_actor_graph import BrowserOriginalVm
+        calls=self.b.count()
+        for fault in ('code','alias'):
+            rows=deepcopy(self.frames)
+            if fault=='code':rows[0]['scripts']['source']['engines'][0]['compiled']['compilations'][0]['sha256']='f'*64
+            else:rows[0]['scripts']['source']['engines']=tuple(rows[0]['scripts']['source']['engines'])
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):BrowserOriginalVm(self.root,rows,self.pid)
+        self.assertEqual(calls,self.b.count())
 
 
 if __name__=='__main__':unittest.main()

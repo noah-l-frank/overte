@@ -2525,3 +2525,17 @@ Chat diagnostics preserve oversize unpublished originals in lossless bounded
 parts; the live Reader remainsv2 in this packet and the whole failure remains.
 Four repository groups pass2.76s; registry/probe syntax/diff checks pass.
 Only3/14 complete source areas remain qualified, with no application/device run.
+
+## Latest Browser whole deadline and original identity guards
+
+The whole process case is rerun once at e75cf9e34f, under unchanged120s, and
+remains red: normal Close91.762s, full cleanup wait/28phases114.148s, Actor export
+ready21parts and666 original manifest entries, no return transport or enclosing
+archive/host completion. Both roles retain sequence138/40 images; no prefix
+result supersedes this failure. An immutable historical VM/graph optimization
+then retains the exact v1 wire digest, full cold grammar and every original
+byte/stamp read. Its three focused counters pass0.163s; owning Actor-return
+eight cases32.924s. Snapshot dfcbef13 is selected asf8ebb85276; the original
+header inode/full metadata/raw SHA remain pinned through actual lock exit and
+memo commit. Its owning selector passes12.589s, coverage0.094s. No new full
+Browser or Snapshot success is claimed.
