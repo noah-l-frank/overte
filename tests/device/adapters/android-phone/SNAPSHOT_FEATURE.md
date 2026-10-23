@@ -1132,6 +1132,30 @@ The constructor module therefore uses the existing 240-second aggregate host
 budget; every original per-file, source, checkpoint and quiet bound is unchanged.
 The measured pure graph-check saving is not a successful complete backend run.
 
+The later constructor packet keeps those guard positions and persistent hashes,
+and uses a fresh C Pickler in memo-free protocol-4 mode solely for the transient
+graph fingerprint. Its fixed reducer override rejects custom objects; there is
+no payload reader, persistent-ID hook, external reducer or buffer callback.
+Actual alias, scalar-type, unsupported-object and bounded-cycle checks remain
+required. The earlier format-2 measurements and results above are historical.
+
+The admitted Primary constructor additionally reuses only its original historical
+baseline. Its unlocked pass first reads and validates every actual input manifest
+and frame through the existing file receipts. Each constructor baseline lookup
+checks current native authority before and after, then rechecks owner headers,
+Feature state and input indices, file identities/metadata and its private graph
+seal after the last callback. It returns a defensive copy. Explicit private
+arguments bind the baseline, Settings and Documents factories to the attached,
+unfinished constructor. Closed, foreign, unattached or OS-scope tokens fail.
+Normal loading, full `input_originals`, current account/effect reads, default
+constructors and cleanup retain their full original paths.
+
+The expanded nineteen-case constructor module passed in 102.305 seconds. A
+separate run of the existing thirteen stage, nineteen Role and twenty-two Feature
+checks passed all 54 cases in 102.810 seconds. Their actual before/after runtime
+source hashes were unchanged. These scoped host results still require a complete
+unchanged SDK26 and SDK29 module result before whole-backend qualification.
+
 An ordinary actor acquisition admits its actual phase before reading native,
 avatar or measurement sources. One proven owned activation advance can defer
 that acquisition: two actual stable new phase observations and the old phase
