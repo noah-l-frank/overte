@@ -131,6 +131,24 @@ session Stop and its independent process-absence proof must be joined without
 turning an ended renderer into a fresh live-world reading. No hidden root is
 reported as destroyed and no unresolved owner is discarded.
 
+Historical restoration now reconstructs the original role/process graph without
+SDK, native or fixture queries and retains a separate original cleanup authority.
+The actual retired fixture authority has its own bounded decoder. The active
+whole-owner host seam passed the eleven shared pre-restart steps with independent
+source acquisitions and canonical actor receipts. Full restart/restoration/seal,
+partial-setup failure cleanup, process/SDK end and public dispatch remain pending;
+the long combined rerun ended with external SIGTERM and supplies no test result.
+Two narrow producer-model regressions additionally bind a new marker URL to the
+actual imported HTTP body and preserve error history after callback completion.
+
+The gated [Script UI root source](adapters/SCRIPT_UI_ROOT_OWNERSHIP.md) now retains
+actual manager/picker operands with weak ownership and observed identities,
+including hidden roots. Literal inventory v1 remains readable. NativeInput
+transport joins reject foreign processes and stale nested clocks. The new
+[Avatar abort owner](AVATAR_ABORT.md) retains failed preparation through one
+normal Stop, original OS quiet and SDK absence; it preserves failed status and
+all remaining ownership. These components do not increase the completed count.
+
 Snapshots now also has [native owned-file responsibility](SNAPSHOT_OWNED_FILES.md).
 It joins the actual empty-prefix/list/status or write-path originals, rejects
 pre-existing/changed output, and observes one exact native unlink plus the actual

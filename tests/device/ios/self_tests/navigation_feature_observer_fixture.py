@@ -89,7 +89,8 @@ class Whole:
         def replies():
             value=json.loads(original_replies())
             if self.dialogs.native_error is not None:
-                value.update(currentLookupGeneration=2,currentLookupActive=True,events=[deepcopy(self.dialogs.native_error)])
+                value.update(currentLookupGeneration=2,currentLookupActive=not any(row['kind']=='response' for row in self.dialogs.events),
+                    events=[deepcopy(self.dialogs.native_error)])
             return json.dumps(value)
         self.sources=dict(bookmarks=self.books.reader(),model=self.model.reader(),http=self.http.reader(),
             dialogs=self.dialogs.reader(),ui=f.f.h.native,replies=NativeNavigationReplies(self.reply_queries.append,
@@ -125,6 +126,10 @@ class Whole:
             inventory.clock=self.sdk.gpu.clock;inventory.url=current;inventory.body=raw
             inventory.raw={row['id'].strip('{}'):json.dumps(row,sort_keys=True).encode() for row in json.loads(raw)['Entities']}
             inventory.revision=inventory.after_revision=3;inventory.commit()
+            # Model the actual entity imported from these fresh HTTP bytes.
+            # A prior scene's marker URL cannot accompany a new commit body.
+            imported=json.loads(raw)['Entities'][-1]
+            self.run_source['challengeMarker']['entity']['sourceUrl']=imported['sourceUrl']
         self.sdk.navigation.url=current;self.sdk.navigation.source=deepcopy(self.run_source)
         self.sdk.navigation.source['sceneUrl']=current
         if not self.ignore_motion:
