@@ -46,12 +46,16 @@ class AssetsCancelOwnerTests(unittest.TestCase):
         self.journal=Journal();self.run=self.journal.register('assets');self.openTicket='1'*32
         self.journal.activate(self.run,self.openTicket,'upload-picker-open',{'resource':'gltf-bundle/main.gltf'})
         self.client=OriginalPhaseClient(self.journal,self.run);self.url=self.client.url+'/runs/'+self.run+'/'
-        self.store=PrivateFeatureState(self.path/'cancel.json');self.file_store=PrivateFeatureState(self.path/'files.json');self.make()
+        self.stage=1;self.store=PrivateFeatureState(self.path/'cancel.json');self.file_store=PrivateFeatureState(self.path/'files.json');self.make()
     def make(self):
-        files=OwnedAssetsFiles(self.host.files(),self.file_store,self.binding,self.run,self.openTicket,self.url)
+        files=OwnedAssetsFiles(self.host.files(stage=self.stage),self.file_store,self.binding,self.run,self.openTicket,self.url)
         self.owner=OwnedAssetsCancel(self.store,self.binding,self.run,self.url,files,self.host.mappings(),self.host.uploads(),
             self.host.io.original.capture,self.host.controls,PhaseFixtureReader(self.client,self.run,'assets'),self.host.guard,self.host.epoch_milliseconds)
-    def cancel_phase(self):self.journal.activate(self.run,'2'*32,'upload-picker-cancel',{})
+    def cancel_phase(self,ticket='2'*32):self.journal.activate(self.run,ticket,'upload-picker-cancel',{})
+    def next_stage(self):
+        self.stage=2;self.openTicket='3'*32
+        self.journal.activate(self.run,self.openTicket,'upload-picker-open',{'resource':'gltf-bundle/main.gltf'})
+        self.store=PrivateFeatureState(self.path/'cancel-stage2.json');self.file_store=PrivateFeatureState(self.path/'files-stage2.json');self.make()
     def test_normal_cancel_exact_files_originals_and_retained_contexts(self):
         self.assertTrue(self.owner.open()['pickerObserved']);self.cancel_phase();result=self.owner.cancel()
         self.assertTrue(result['cancelObserved']);self.assertTrue(result['filesRetired']);self.assertTrue(result['retained'])
@@ -219,6 +223,76 @@ class AssetsCancelOwnerTests(unittest.TestCase):
         self.assertEqual(1,sum(command['controlId']=='assets-file.accept' for command in self.host.inputs))
         self.assertEqual(1,sum(command['controlId']=='assets-file.cancel' for command in self.host.inputs))
         self.assertEqual(0,self.owner.uploads.last['source']['totalCalls'])
+    def test_next_stage_reopens_after_original_cancel_without_adopting_retired_browser(self):
+        self.owner.open();self.cancel_phase();first=self.owner.cancel()['browser']
+        previous_store,previous_files=self.store,self.file_store
+        previous_owner=deepcopy(previous_store.read());previous_file_owner=deepcopy(previous_files.read())
+        self.next_stage();self.assertTrue(self.owner.open()['pickerObserved']);current=self.store.read()
+        self.assertNotEqual(first['id'],current['browserId']);self.assertNotEqual(first['modelId'],current['modelId'])
+        baseline=unpack(current['uiOriginals'])[0]['assetsUiInventory']['browsers'];self.assertEqual(1,len(baseline))
+        self.assertEqual((first['id'],first['modelId']),(baseline[0]['id'],baseline[0]['modelId']))
+        self.assertFalse(baseline[0]['rootAlive'] or baseline[0]['modelAlive'])
+        self.make();self.cancel_phase('4'*32);result=self.owner.cancel()
+        self.assertTrue(result['cancelObserved'] and result['filesRetired'])
+        self.assertEqual((current['browserId'],current['modelId']),(result['browser']['id'],result['browser']['modelId']))
+        self.assertFalse(result['browser']['rootAlive'] or result['browser']['modelAlive'])
+        self.assertEqual(previous_owner,previous_store.read());self.assertEqual(previous_file_owner,previous_files.read())
+        self.assertEqual(2,sum(command['controlId']=='assets.upload' for command in self.host.inputs))
+        self.assertEqual(2,sum(command['controlId']=='assets-file.cancel' for command in self.host.inputs))
+        self.assertEqual(0,self.owner.uploads.last['source']['totalCalls'])
+    def test_next_stage_with_live_original_consumers_refuses_before_staging_or_pointer(self):
+        self.owner.open();first=self.owner;before=deepcopy(first.files.read()['source']['files']);inputs=deepcopy(self.host.inputs)
+        self.next_stage()
+        with self.assertRaises(NativeUIError):self.owner.open()
+        self.assertEqual(inputs,self.host.inputs);self.assertIsNone(self.file_store.read())
+        self.assertEqual([],self.store.read()['attempted']);self.assertIsNone(self.store.read()['browserId'])
+        self.assertIsNone(self.store.read()['modelId']);self.assertEqual(before,first.files.read()['source']['files'])
+        original=unpack(self.store.read()['uiOriginals'])[0]['assetsUiInventory']['browsers'][0]
+        self.assertTrue(original['rootAlive'] and original['modelAlive']);self.assertEqual(0,self.owner.uploads.last['source']['totalCalls'])
+    def test_next_stage_lost_first_open_reply_never_adopts_retired_or_new_browser(self):
+        self.owner.open();self.cancel_phase();self.owner.cancel()
+        previous_store,previous_files=self.store,self.file_store
+        previous_owner=deepcopy(previous_store.read());previous_file_owner=deepcopy(previous_files.read())
+        self.next_stage();self.host.lose=True
+        with self.assertRaises((NativeUIError,NavigationError)):self.owner.open()
+        self.host.lose=False;state=self.store.read();pending=deepcopy(state['pendingInput'])
+        self.assertIsNone(state['browserId']);self.assertIsNone(state['modelId'])
+        baseline=unpack(state['uiOriginals'])[0]['assetsUiInventory']['browsers'];self.assertEqual(1,len(baseline))
+        files=deepcopy(self.owner.files.read()['source']['files']);self.make();self.cancel_phase('4'*32);result=self.owner.cancel()
+        self.assertFalse(result['cancelObserved']);self.assertEqual([pending],self.store.read()['unresolvedInputs'])
+        self.assertIsNone(self.store.read()['browserId']);self.assertIsNone(self.store.read()['modelId'])
+        current=unpack(self.store.read()['uiOriginals'])[-1]['assetsUiInventory']['browsers'];self.assertEqual(2,len(current))
+        self.assertEqual(baseline[0],next(row for row in current if row['id']==baseline[0]['id']))
+        self.assertTrue(all(not row['rootAlive'] and not row['modelAlive'] for row in current))
+        self.assertEqual(files,self.owner.files.read()['source']['files']);self.assertEqual('ready',self.file_store.read()['phase'])
+        inputs=deepcopy(self.host.inputs);self.make();self.assertFalse(self.owner.reconcile()['cancelObserved'])
+        self.assertEqual(inputs,self.host.inputs);self.assertEqual(files,self.owner.files.read()['source']['files'])
+        self.assertEqual(previous_owner,previous_store.read());self.assertEqual(previous_file_owner,previous_files.read())
+    def test_retained_stage1_lost_cancel_then_stage2_lost_open_never_adopts_or_releases(self):
+        self.owner.open();before=deepcopy(self.owner.files.read()['source']['files']);self.cancel_phase();self.host.lose=True
+        with self.assertRaises((NativeUIError,NavigationError)):self.owner.cancel()
+        self.host.lose=False;previous_store,previous_files=self.store,self.file_store
+        previous_owner=deepcopy(previous_store.read());previous_file_owner=deepcopy(previous_files.read())
+        self.assertEqual('canceling',previous_owner['phase']);self.assertIsNotNone(previous_owner['pendingInput'])
+        self.assertEqual('ready',previous_file_owner['phase'])
+        self.next_stage();self.host.lose=True
+        with self.assertRaises((NativeUIError,NavigationError)):self.owner.open()
+        self.host.lose=False;state=self.store.read();pending=deepcopy(state['pendingInput'])
+        self.assertIsNone(state['browserId']);self.assertIsNone(state['modelId'])
+        baseline=unpack(state['uiOriginals'])[0]['assetsUiInventory']['browsers'];self.assertEqual(1,len(baseline))
+        self.assertFalse(baseline[0]['rootAlive'] or baseline[0]['modelAlive'])
+        files=deepcopy(self.owner.files.read()['source']['files']);self.make();self.cancel_phase('4'*32);result=self.owner.cancel()
+        self.assertFalse(result['cancelObserved']);self.assertEqual([pending],self.store.read()['unresolvedInputs'])
+        self.assertIsNone(self.store.read()['browserId']);self.assertIsNone(self.store.read()['modelId'])
+        current=unpack(self.store.read()['uiOriginals'])[-1]['assetsUiInventory']['browsers'];self.assertEqual(2,len(current))
+        self.assertEqual(baseline[0],next(row for row in current if row['id']==baseline[0]['id']))
+        self.assertTrue(all(not row['rootAlive'] and not row['modelAlive'] for row in current))
+        self.assertEqual(files,self.owner.files.read()['source']['files']);self.assertEqual('ready',self.file_store.read()['phase'])
+        inputs=deepcopy(self.host.inputs);self.make();self.assertFalse(self.owner.reconcile()['cancelObserved'])
+        self.assertEqual(inputs,self.host.inputs);self.assertEqual(files,self.owner.files.read()['source']['files'])
+        self.assertEqual(previous_owner,previous_store.read());self.assertEqual(previous_file_owner,previous_files.read())
+        actual=self.host.files(stage=1).request('observe',self.run,previous_file_owner['ownerToken'])['source']
+        self.assertTrue(actual['exists']);self.assertFalse(actual['retired']);self.assertEqual(before,actual['files'])
     def test_final_owner_cas_age_refuses_open_result_and_keeps_exact_inputs(self):
         self.synthetic=0;self.owner.monotonic=lambda:self.synthetic;write=self.store.write;aged=False
         def delayed(value,previous):
