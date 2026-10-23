@@ -20,7 +20,7 @@ from test_assets_read_native import prepare_source
 
 
 
-def compile_ui(stage):
+def compile_ui(stage,*,original_uploads=False,sanitize=False):
     environment=dict(os.environ);prefix=Path(environment['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
     environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),
         LD_LIBRARY_PATH=str(prefix/'usr/lib64'),QT_PLUGIN_PATH=str(prefix/'usr/lib64/qt5/plugins'),
@@ -51,6 +51,17 @@ def compile_ui(stage):
     header=(ROOT/'interface/src/scripting/AssetMappingsScriptingInterface.h').read_text()
     bundle+='\n'+original(header,'QVariantMap featurePicoBundleOriginals(').replace('QVariantMap featurePicoBundleOriginals(',
         'QVariantMap AssetMappingsScriptingInterface::featurePicoBundleOriginals(').replace(') const {',') {')
+    upload_arguments=['-fsanitize=address','-fno-omit-frame-pointer','-g1'] if sanitize else []
+    if original_uploads:
+        bundle+='\n'+original(mappings,'void AssetMappingsScriptingInterface::advanceBundle(')
+        network=ROOT/'libraries/networking/src'
+        for name in ('AssetUpload.h','AssetUpload.cpp'):(stage/name).write_bytes((network/name).read_bytes())
+        factories=(network/'AssetClient.cpp').read_text()
+        (stage/'AssetsUploadOriginalFactories.inc').write_text('\n'.join(original(factories,signature) for signature in
+            ('AssetUpload* AssetClient::createUpload(const QString&','SetMappingRequest* AssetClient::createSetMappingRequest(')))
+        subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),'-DOVERTE_E2E_FEATURE_TESTS','-DANDROID_APP_PICO_INTERFACE',
+            str(stage/'AssetUpload.h'),'-o',str(stage/'AssetUpload-moc.cpp')],check=True,timeout=15,env=environment)
+        upload_arguments+=['-DASSETS_ORIGINAL_BUNDLE_UPLOADS',str(stage/'AssetUpload.cpp'),str(stage/'AssetUpload-moc.cpp')]
     (stage/'AssetsBundleOriginals.inc').write_text(bundle)
     subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),str(HERE/'assets-upload-mappings-host.h'),'-o',str(stage/'upload-moc.cpp')],check=True,timeout=15,env=environment)
     bundle=stage/('feature-assets-'+'a'*32)/'gltf-bundle';(bundle/'mesh').mkdir(parents=True);(bundle/'textures').mkdir()
@@ -61,7 +72,7 @@ def compile_ui(stage):
         '-I'+str(stage),'-I'+str(HERE),'-I'+str(ROOT),'-I'+str(ROOT/'libraries/shared/src'),'-I'+str(ROOT/'libraries/ui/src'),
         '-I'+str(ROOT/'libraries/script-engine/src'),'-I'+str(ROOT/'tests/device/native'),'-isystem',str(Path(environment['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),
         str(HERE/'assets-controls-native.cpp'),str(ROOT/'libraries/ui/src/FileDialogHelper.cpp'),
-        str(ROOT/'libraries/ui/src/ui/NativeFieldInput.cpp'),str(stage/'helper-moc.cpp'),str(stage/'upload-moc.cpp'),str(stage/'MappingRequest.cpp'),str(stage/'AssetRequest.cpp'),str(stage/'MappingRequest-moc.cpp'),str(stage/'AssetRequest-moc.cpp'),'-o',str(binary),
+        str(ROOT/'libraries/ui/src/ui/NativeFieldInput.cpp'),str(stage/'helper-moc.cpp'),str(stage/'upload-moc.cpp'),str(stage/'MappingRequest.cpp'),str(stage/'AssetRequest.cpp'),str(stage/'MappingRequest-moc.cpp'),str(stage/'AssetRequest-moc.cpp'),*upload_arguments,'-o',str(binary),
         '-L'+str(prefix/'usr/lib64'),*flags],check=True,timeout=90,env=environment)
     args=[str(stage/'imports'),str(ROOT/'interface/resources/qml/hifi/dialogs/TabletAssetServer.qml'),str(bundle),str(stage/'originals.json'),str(ROOT)]
     environment.update(QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',QT_LOGGING_RULES='*.warning=true',QT_FORCE_STDERR_LOGGING='1')

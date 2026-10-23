@@ -36,10 +36,17 @@ inline bool placesScrollPoint(QQuickItem*,const QString&,QPointF&){return false;
 #include "MappingRequest.h"
 #include "AssetRequest.h"
 #include "assets-upload-mappings-host.h"
+#if defined(ASSETS_ORIGINAL_BUNDLE_UPLOADS)
+#include "AssetUpload.h"
+#endif
 #include "AssetsBundleOriginals.inc"
+#if defined(ASSETS_ORIGINAL_BUNDLE_UPLOADS)
+#include "AssetsUploadOriginalFactories.inc"
+#else
 void AssetMappingsScriptingInterface::advanceBundle(const std::shared_ptr<BundleUpload>& state) {
  ++backendDispatches;finishBundle(state,"Explicit host backend is unavailable.");
 }
+#endif
 #include "assets-files-getter-host.h"
 #include "actual-assets-navigation.inc"
 #undef ANDROID_APP_PICO_INTERFACE
@@ -58,6 +65,9 @@ struct AssetsNativeClient {
   auto primitive=[](QByteArray& raw,const auto& value){raw.append(reinterpret_cast<const char*>(&value),sizeof(value));};
   const QByteArray path="/foreign/original.bin";primitive(client->allReply,quint32(1));primitive(client->allReply,quint32(path.size()));
   client->allReply+=path;client->allReply+=hash;primitive(client->allReply,AssetUtils::Irrelevant);
+#if defined(ASSETS_ORIGINAL_BUNDLE_UPLOADS)
+  client->mappings.insert(QString::fromUtf8(path),QString::fromLatin1(hash.toHex()));
+#endif
   client->moveToThread(&worker);worker.start();
  }
  ~AssetsNativeClient(){DependencyManager::slot<AssetClient>().clear();client.clear();worker.quit();if(!worker.wait(1000)) {qFatal("Original host AssetClient did not retire");}}

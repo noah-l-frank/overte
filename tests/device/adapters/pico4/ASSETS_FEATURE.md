@@ -356,3 +356,69 @@ additively. Next executable work is the normal full companion upload with
 independent actual server blob/mapping/oven receipts, then normal import and
 original loaded-model/stereo/peer evidence, owned deletion and complete retained
 resource cleanup. Feature 13/14 remains partial.
+
+
+## Original positive upload worker/GUI failure (retained diagnosis)
+
+The next opt-in host path now compiles the complete original `advanceBundle`,
+`AssetUpload.cpp`, `SetMappingRequest`, their original AssetClient factories and
+the normal companion-picker/review/destination route. The actual client worker
+runs on its original separate QThread. Only the server protocol/cache endpoint
+is in memory: it accepts the actual request bytes and hashes, and separate
+original GetAllMappingsRequest decoding reads its actual current inventory.
+This is not an actual server, physical blob file, oven or backend receipt.
+The earlier Cancel/default UI path retains its unavailable-backend endpoint.
+No production method or callback ordering was changed for this diagnostic.
+
+The ordinary upload is **red**. The first original request read 96 real staged
+bytes on the worker and returned their correct SHA with `errorCode=0`. The
+independent request source then observed its real QObject death and both Qt
+connections and capture markers gone. The GUI subsequently completed that
+bundle with `Unknown error with code 48`; the exact error digest is
+`5d6a6c77f12473d22ade5cd9a26f9bb1cd9dade6c6c7f2f44753d6debf5bb5fe`.
+No mapping was published; the separate original GetAll inventory retained only
+its initial foreign mapping. Raw originals, exact input/file journals and the
+native log survive in private evidence. An initial exploratory script returned
+its packets without asserting bundle success; that exit status is not an upload
+pass. The checked diagnostic now requires actual bundle success and returns
+nonzero on this original failure.
+
+The existing AddressSanitizer link could not run: its configured shared library
+`/usr/lib64/libasan.so.8.0.0` is absent and no static library is installed. No
+runtime was installed. Existing gdb and the already-built exact native binary
+then independently observed this sequence at the same actual object address:
+
+1. `AssetUpload::~AssetUpload()` runs on worker thread 4 through the ordinary
+   Qt deferred-event path.
+2. `AssetUpload::getErrorString()` runs later on GUI thread 1 for that already
+   destroyed object, reading enum value 48.
+3. Its caller is the original queued `advanceBundle` upload-completion lambda,
+   dispatched through `QObject::event`.
+
+The original source connects worker-side `deleteLater` before the GUI callback
+that reads the raw request pointer. The native stack proves this actual
+use-after-destruction in the unchanged product path. Debugger scheduling is a
+diagnostic boundary; the independent undebugged normal-input source run had
+already observed the same failure and exact error digest. The standalone gdb
+run eventually exits 64 at the old fixture's intentionally unchanged
+unavailable-backend expectation, so it supplies a stack rather than a green
+positive-upload acceptance result.
+
+`android/vr/pico/tests/device/assets-upload-worker-diagnostic.py` reproduces the
+normal path with an explicitly supplied existing 0700 evidence directory. Its
+original input/file archive is retained for diagnosis; it is not a complete
+Upload owner or whole v16 journey and is deliberately outside the green
+catalog. Host process exit cannot qualify same-process product retirement.
+No product repair, forced same-thread callback, held request, reordered deletion,
+resend, source retiming or cleanup adoption is authorized or implemented.
+Positive upload remains blocked by this original product lifetime failure;
+independent server/oven/permission sources and retained recovery remain useful
+next work. Feature 13/14 remains partial.
+
+After adding only the optional diagnostic build path, the normal owning
+`assets-native-ui` regression passed unchanged in 26.790 s (one of 154 local
+selectors, 120-second selector and 90-second compile budgets). The default
+Cancel/unavailable-backend route remains green; this result does not qualify
+the red positive-upload path above. The same original evidence files and native
+stacks were preserved. No additional positive diagnostic or product behavior
+change was included in that final regression.
