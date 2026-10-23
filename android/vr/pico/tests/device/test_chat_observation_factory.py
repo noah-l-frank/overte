@@ -104,6 +104,12 @@ class PicoChatObservationFactoryTests(unittest.TestCase):
             self.adapter._chat_remote_actor_return(self.target,self.parent,object(),{})
         self.assertIsNone(store.read());self.assertEqual([],self.h.native.inputs)
 
+    def test_remote_publication_cannot_acquire_an_unknown_process_or_bypass_original_parent(self):
+        store=self.adapter._chat_remote_publication_store(self.target)
+        with self.assertRaises((ValueError,NativeUIError)):
+            self.adapter._chat_remote_publication(self.target,self.parent,object(),{})
+        self.assertIsNone(store.read());self.assertEqual([],self.h.native.inputs)
+
     def test_rootless_original_observation_and_cleanup_publisher_chunks_keep_generic_cleanup_closed(self):
         self.assertFalse(self.adapter._chat_application_retained(self.target))
         stores=(self.adapter._chat_observation_store(self.target,'actor',stage='cleanup',witness=True),
@@ -119,7 +125,7 @@ class PicoChatObservationFactoryTests(unittest.TestCase):
             self.adapter._chat_cursor_cleanup_consumption_store(self.target),
             self.adapter._chat_cursor_actor_store(self.target),self.adapter._chat_cursor_actor_stop_store(self.target),
             self.adapter._chat_cursor_actor_return_store(self.target),self.adapter._chat_cursor_actor_consumption_store(self.target),
-            self.adapter._chat_remote_actor_return_store(self.target))
+            self.adapter._chat_remote_actor_return_store(self.target),self.adapter._chat_remote_publication_store(self.target))
         for store in stores:
             child=PrivateFeatureState(store.path.with_name(store.path.name+'.frame-000.json'))
             child.write(dict(explicitOriginalOrphan=True),None)

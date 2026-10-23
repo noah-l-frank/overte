@@ -60,7 +60,7 @@ class PicoChatCursorActorTests(unittest.TestCase):
         self.parent=dict(picoChatCompositionVersion=6,runId=a.source.run,fixtureUrl=a.source.fixture_url,binding=a.scope['binding'],
             peerBinding=a.scope['peerBinding'],peerOriginBasis='native-configured-metadata-only',phase='step-completed',completedSteps=1)
         parent_store.write(self.parent,None);self.parent_store=parent_store
-        cleanup_owner=[]
+        cleanup_owner=[];self.cleanup_owner=cleanup_owner
         peer.reader=lambda:cleanup_owner[0].samples.peer
         a.adapter=SimpleNamespace(_chat_composition_store=lambda _target:parent_store,
             _scripts=lambda _target:SimpleNamespace(binding=a.scope['binding']),
@@ -68,6 +68,7 @@ class PicoChatCursorActorTests(unittest.TestCase):
             _chat_cache_absence=lambda *_args,**_kwargs:cleanup_owner[0].samples,
             _chat_cursor_source_seal=lambda _target,publisher,**_kwargs:ChatCursorSourceSeal(publisher,PrivateFeatureState(h.root/'actual-actor-seal.json')))
         a.save('publishing',pairs=[deepcopy(row) for _owner,row in a.pairs],returnedPublication=None);a.publish()
+        if getattr(self,'initial_only',False):return
         # Preserve the actual native ordinary Open and both original stage
         # sources, with the remaining 24 inputs explicitly metadata seams.
         h.flow.next(1)

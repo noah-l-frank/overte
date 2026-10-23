@@ -15,6 +15,7 @@ from adapters.chat_journey.script_source import validate_transaction
 from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
 from adapters.independent_chat_receiver import binding_pid
 from adapters.native_feature_observation import exact,integer,need
+from adapters.native_script_observation import original_history
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.observer_return import ObserverReturnReceiver,state,physical,parent_node
 from adapters.script_journey.history import canonical,same,MAX_FRAMES
@@ -31,6 +32,88 @@ ACTOR={'picoChatCursorActorVersion','instance','runId','fixtureUrl','binding','p
     'phase','pairs','stopCommand','stopStamp','stopSha256','seal','sealSha256','closedPairs','sourceScope'}
 SEAL={'chatCursorSourceSealVersion','runId','role','binding','peerBinding','kind','journal','phase','originals'}
 ORIGINAL={'journal','sha256','chunkCount','stamp','chunkManifestSha256','framesSha256','chunkStampsSha256'}
+
+
+def validate_actor_pairs(rows):
+    need(type(rows) is list and len(rows)==2)
+    for row,label in zip(rows,('peer-directory','peer-executable')):
+        exact(row,{'label','node','fd','anchor'})
+        need(row['label']==label and type(row['node']) is list and len(row['node'])==2
+            and all(integer(field,0) for field in row['node']) and integer(row['fd'],0) and integer(row['anchor'],0)
+            and row['fd']!=row['anchor'])
+    need(len({field for row in rows for field in (row['fd'],row['anchor'])})==4
+        and len({tuple(row['node']) for row in rows})==2)
+
+
+def validate_source_graph(roots,frames_by_key,stores,expected,flow,flow_rows,cleanup,stages=STAGES):
+    """Original complete stage-prefix grammar; no acquisition or freshness."""
+    need(type(stages) is tuple and 1<=len(stages)<=len(STAGES) and stages==STAGES[:len(stages)])
+    run,binding,peer=expected['runId'],expected['binding'],expected['peerBinding']
+    pid,peer_pid=binding_pid(binding),binding_pid(peer)
+    code=roots['code'];exact(code,{'chatScriptObservationVersion','runId','role','binding','phase','revision','chunks'})
+    need(type(code['chatScriptObservationVersion']) is int and code['chatScriptObservationVersion']==1
+        and code['runId']==run and code['role']=='actor' and same(code['binding'],binding)
+        and type(code['revision']) is int and code['revision']==2*len(frames_by_key['code']))
+    for index,frame in enumerate(frames_by_key['code']):validate_transaction(frame,frames_by_key['code'][:index],pid=pid)
+    original_history([frame['scripts'] for frame in frames_by_key['code']],pid)
+    code_frames={frame['ticket']:frame for frame in frames_by_key['code']};need(len(code_frames)==len(frames_by_key['code']))
+    observed=[];selected=[]
+    for stage in stages:
+        key=stage+'-samples';root=roots[key];frames=frames_by_key[key]
+        version='chatCompiledSamplesVersion' if stage=='active' else 'chatCompiledCacheAbsenceVersion'
+        exact(root,{version,'runId','role','binding','peerBinding','vr','phase','revision','chunks'})
+        need(type(root[version]) is int and root[version]==1 and root['runId']==run and root['role']=='actor'
+            and same(root['binding'],binding) and same(root['peerBinding'],peer) and root['vr'] is True
+            and type(root['revision']) is int and root['revision']==2*len(frames))
+        for index,frame in enumerate(frames):
+            compose(run,frame,pid,peer_pid,vr=True,cache_absent=stage!='active');continuity(frames[:index],frame)
+            need(same(frame['compiledChat'],code_frames[frame['compiledChat']['ticket']]))
+        key=stage+'-observation';root=roots[key];rows=frames_by_key[key]
+        exact(root,{'chatObservationOwnerVersion','contractVersion','runId','fixtureUrl','role','binding','peerBinding','stage',
+            'transcript','flowJournal','cleanupAdmission','phase','revision','chunks'})
+        need(type(root['chatObservationOwnerVersion']) is int and root['chatObservationOwnerVersion']==1
+            and type(root['contractVersion']) is int and root['contractVersion']==CONTRACT_VERSION
+            and all(same(root[name],expected[name]) for name in ('runId','fixtureUrl','binding','peerBinding'))
+            and root['role']=='actor' and root['stage']==stage and root['transcript']==stores[stage+'-samples'].path.name
+            and root['flowJournal']==stores['flow'].path.name
+            and root['cleanupAdmission']==(stores['cleanup'].path.name if stage=='cleanup' else None)
+            and type(root['revision']) is int and root['revision']==2*len(rows))
+        if stage!='cleanup':need(root['transcript'] in flow['baselineTranscripts' if stage=='initial' else 'transcripts'][1:])
+        def authority(count):return original_authority(flow,flow_rows,stage,count,run=run,binding=binding,peer_binding=peer,cleanup=cleanup)
+        def sample(sequence,frame):
+            need(not frame.get('settings') and not frame.get('transition'))
+            return observation_sample(run,sequence,compose(run,frame,pid,peer_pid,vr=True,cache_absent=stage!='active'))
+        for index,row in enumerate(rows):
+            frame=validate_original_row(row,index+1,rows[index-1]['after'] if index else None,run=run,authority=authority,
+                source_frame=lambda position:frames[position],source_count=len(frames),sample=sample)
+            selected.append((stage,index+1,row,frame))
+        observed.append(dict(stage=stage,observation=stores[key].path.name,
+            scopeSha256=digest({name:value for name,value in root.items() if name not in ('phase','revision','chunks')})))
+    cursor=roots['cursor']
+    initial_shape=stages==('initial',) and 'nextStage' not in cursor
+    exact(cursor,{'chatObservationCursorVersion','runId','fixtureUrl','binding','peerBinding','role','phase','chunks','stages'}
+        | (set() if initial_shape else {'nextStage'}))
+    need(type(cursor['chatObservationCursorVersion']) is int and cursor['chatObservationCursorVersion']==1 and cursor['role']=='actor'
+        and all(same(cursor[name],expected[name]) for name in ('runId','fixtureUrl','binding','peerBinding'))
+        and cursor.get('nextStage') is None and same(cursor['stages'],observed) and len(frames_by_key['cursor'])==len(selected))
+    prior=None
+    for index,(row,(stage,sequence,original,frame)) in enumerate(zip(frames_by_key['cursor'],selected)):
+        exact(row,{'sequence','stageIndex','sourceSequence','observationSha256','sample'})
+        need(type(row['sequence']) is int and row['sequence']==index+1 and type(row['stageIndex']) is int
+            and row['stageIndex']==STAGES.index(stage) and type(row['sourceSequence']) is int and row['sourceSequence']==sequence
+            and row['observationSha256']==digest(original) and same(row['sample'],{**original['sample'],'sequence':index+1}))
+        if prior is not None and stage!=prior[0]:stage_transition(prior[1],frame,stage)
+        prior=(stage,frame)
+    publisher=roots['publisher'];exact(publisher,{'chatObservationPublisherVersion','runId','fixtureUrl','binding','peerBinding','cursor','phase','delivery','chunks','pending'})
+    need(type(publisher['chatObservationPublisherVersion']) is int and publisher['chatObservationPublisherVersion']==1
+        and all(same(publisher[name],expected[name]) for name in ('runId','fixtureUrl','binding','peerBinding'))
+        and publisher['cursor']==stores['cursor'].path.name and publisher['delivery']=='ready' and publisher['pending'] is None
+        and len(frames_by_key['publisher'])==len(frames_by_key['cursor']))
+    for index,(row,cursor,selected_row) in enumerate(zip(frames_by_key['publisher'],frames_by_key['cursor'],selected)):
+        exact(row,{'sequence','cursorSha256','payload'});local=selected_row[2]
+        payload=dict(ticket=local['before']['activations'][-1]['ticket'],actor='owned-observer',actorSequence=index+1,
+            capturedEpochMs=cursor['sample']['capturedEpochMs'],facts=projection('chat',cursor['sample']['state']))
+        need(type(row['sequence']) is int and row['sequence']==index+1 and row['cursorSha256']==digest(cursor) and same(row['payload'],payload))
 
 
 class ChatRemoteActorGraph:
@@ -68,15 +151,8 @@ class ChatRemoteActorGraph:
         need(type(value['picoChatCursorActorVersion']) is int and value['picoChatCursorActorVersion'] in (2,3)
             and all(same(value[key],expected[key]) for key in EXPECTED)
             and value['phase']=='host-closed' and value['sourceScope']=='original-independent-chat-host-handles'
-            and type(value['closedPairs']) is int and value['closedPairs']==2
-            and type(value['pairs']) is list and len(value['pairs'])==2)
-        for row,label in zip(value['pairs'],('peer-directory','peer-executable')):
-            exact(row,{'label','node','fd','anchor'})
-            need(row['label']==label and type(row['node']) is list and len(row['node'])==2
-                and all(integer(field,0) for field in row['node']) and integer(row['fd'],0) and integer(row['anchor'],0)
-                and row['fd']!=row['anchor'])
-        need(len({field for row in value['pairs'] for field in (row['fd'],row['anchor'])})==4
-            and len({tuple(row['node']) for row in value['pairs']})==2)
+            and type(value['closedPairs']) is int and value['closedPairs']==2)
+        validate_actor_pairs(value['pairs'])
         stop=value['stopCommand'];version=stop_shape(stop)
         need(stop['instance']==expected['instance'] and stop['runId']==expected['runId']
             and (value['picoChatCursorActorVersion']>=3 or version==1))
@@ -116,68 +192,8 @@ class ChatRemoteActorGraph:
         for key in ('flow','cleanup'):ChatSourceChunks(self.stores[key],{}).inventory(0)
 
     def validate(self):
-        run,binding,peer=self.expected['runId'],self.expected['binding'],self.expected['peerBinding']
-        pid,peer_pid=binding_pid(binding),binding_pid(peer)
-        code=self.roots['code'];exact(code,{'chatScriptObservationVersion','runId','role','binding','phase','revision','chunks'})
-        need(type(code['chatScriptObservationVersion']) is int and code['chatScriptObservationVersion']==1
-            and code['runId']==run and code['role']=='actor' and same(code['binding'],binding)
-            and type(code['revision']) is int and code['revision']==2*len(self.frames['code']))
-        for index,frame in enumerate(self.frames['code']):validate_transaction(frame,self.frames['code'][:index],pid=pid)
-        code_frames={frame['ticket']:frame for frame in self.frames['code']};need(len(code_frames)==len(self.frames['code']))
-        observed=[];selected=[]
-        for stage in STAGES:
-            key=stage+'-samples';root=self.roots[key];frames=self.frames[key]
-            version='chatCompiledSamplesVersion' if stage=='active' else 'chatCompiledCacheAbsenceVersion'
-            exact(root,{version,'runId','role','binding','peerBinding','vr','phase','revision','chunks'})
-            need(type(root[version]) is int and root[version]==1 and root['runId']==run and root['role']=='actor'
-                and same(root['binding'],binding) and same(root['peerBinding'],peer) and root['vr'] is True
-                and type(root['revision']) is int and root['revision']==2*len(frames))
-            for index,frame in enumerate(frames):
-                compose(run,frame,pid,peer_pid,vr=True,cache_absent=stage!='active');continuity(frames[:index],frame)
-                need(same(frame['compiledChat'],code_frames[frame['compiledChat']['ticket']]))
-            key=stage+'-observation';root=self.roots[key];rows=self.frames[key]
-            exact(root,{'chatObservationOwnerVersion','contractVersion','runId','fixtureUrl','role','binding','peerBinding','stage',
-                'transcript','flowJournal','cleanupAdmission','phase','revision','chunks'})
-            need(type(root['chatObservationOwnerVersion']) is int and root['chatObservationOwnerVersion']==1
-                and type(root['contractVersion']) is int and root['contractVersion']==CONTRACT_VERSION
-                and all(same(root[name],self.expected[name]) for name in ('runId','fixtureUrl','binding','peerBinding'))
-                and root['role']=='actor' and root['stage']==stage and root['transcript']==self.stores[stage+'-samples'].path.name
-                and root['flowJournal']==self.stores['flow'].path.name
-                and root['cleanupAdmission']==(self.stores['cleanup'].path.name if stage=='cleanup' else None)
-                and type(root['revision']) is int and root['revision']==2*len(rows))
-            if stage!='cleanup':need(root['transcript'] in self.flow['baselineTranscripts' if stage=='initial' else 'transcripts'][1:])
-            def authority(count):return original_authority(self.flow,self.flow_rows,stage,count,run=run,binding=binding,peer_binding=peer,cleanup=self.cleanup)
-            def sample(sequence,frame):
-                need(not frame.get('settings') and not frame.get('transition'))
-                return observation_sample(run,sequence,compose(run,frame,pid,peer_pid,vr=True,cache_absent=stage!='active'))
-            for index,row in enumerate(rows):
-                frame=validate_original_row(row,index+1,rows[index-1]['after'] if index else None,run=run,authority=authority,
-                    source_frame=lambda position:frames[position],source_count=len(frames),sample=sample)
-                selected.append((stage,index+1,row,frame))
-            observed.append(dict(stage=stage,observation=self.stores[key].path.name,
-                scopeSha256=digest({name:value for name,value in root.items() if name not in ('phase','revision','chunks')})))
-        cursor=self.roots['cursor'];exact(cursor,{'chatObservationCursorVersion','runId','fixtureUrl','binding','peerBinding','role','phase','chunks','stages','nextStage'})
-        need(type(cursor['chatObservationCursorVersion']) is int and cursor['chatObservationCursorVersion']==1 and cursor['role']=='actor'
-            and all(same(cursor[name],self.expected[name]) for name in ('runId','fixtureUrl','binding','peerBinding'))
-            and cursor['nextStage'] is None and same(cursor['stages'],observed) and len(self.frames['cursor'])==len(selected))
-        prior=None
-        for index,(row,(stage,sequence,original,frame)) in enumerate(zip(self.frames['cursor'],selected)):
-            exact(row,{'sequence','stageIndex','sourceSequence','observationSha256','sample'})
-            need(type(row['sequence']) is int and row['sequence']==index+1 and type(row['stageIndex']) is int
-                and row['stageIndex']==STAGES.index(stage) and type(row['sourceSequence']) is int and row['sourceSequence']==sequence
-                and row['observationSha256']==digest(original) and same(row['sample'],{**original['sample'],'sequence':index+1}))
-            if prior is not None and stage!=prior[0]:stage_transition(prior[1],frame,stage)
-            prior=(stage,frame)
-        publisher=self.roots['publisher'];exact(publisher,{'chatObservationPublisherVersion','runId','fixtureUrl','binding','peerBinding','cursor','phase','delivery','chunks','pending'})
-        need(type(publisher['chatObservationPublisherVersion']) is int and publisher['chatObservationPublisherVersion']==1
-            and all(same(publisher[name],self.expected[name]) for name in ('runId','fixtureUrl','binding','peerBinding'))
-            and publisher['cursor']==self.stores['cursor'].path.name and publisher['delivery']=='ready' and publisher['pending'] is None
-            and len(self.frames['publisher'])==len(self.frames['cursor']))
-        for index,(row,cursor,selected_row) in enumerate(zip(self.frames['publisher'],self.frames['cursor'],selected)):
-            exact(row,{'sequence','cursorSha256','payload'});local=selected_row[2]
-            payload=dict(ticket=local['before']['activations'][-1]['ticket'],actor='owned-observer',actorSequence=index+1,
-                capturedEpochMs=cursor['sample']['capturedEpochMs'],facts=projection('chat',cursor['sample']['state']))
-            need(type(row['sequence']) is int and row['sequence']==index+1 and row['cursorSha256']==digest(cursor) and same(row['payload'],payload))
+        validate_source_graph(self.roots,self.frames,self.stores,self.expected,self.flow,self.flow_rows,self.cleanup)
+        run=self.expected['runId'];publisher=self.roots['publisher']
         validate_stop(self.root['stopCommand'],instance=self.expected['instance'],run=run,published=self.frames['publisher'])
         if self.root['picoChatCursorActorVersion']==3:
             validate_publication_return(self.root['returnedPublication'],publisher=publisher,cursor=self.roots['cursor'],rows=self.frames['publisher'],
