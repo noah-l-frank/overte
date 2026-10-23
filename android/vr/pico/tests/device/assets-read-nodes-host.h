@@ -18,8 +18,8 @@ class HostAssetNode:public QObject {public:QUuid getUUID()const{return QUuid("22
 class NodeList:public QObject {
 public:
  HostDomain& getDomainHandler(){return domain;}
- QUuid getSessionUUID()const{return QUuid("32345678-1234-4234-8234-123456789abc");}
+ QUuid getSessionUUID()const{return session;}
  QSharedPointer<HostAssetNode> soloNodeOfType(char){return server;}
  bool getThisNodeCanWriteAssets()const{return allowed;}
- HostDomain domain;bool allowed{true};QSharedPointer<HostAssetNode> server{new HostAssetNode};
+ HostDomain domain;QUuid session{"32345678-1234-4234-8234-123456789abc"};bool allowed{true};QSharedPointer<HostAssetNode> server{new HostAssetNode};
 };

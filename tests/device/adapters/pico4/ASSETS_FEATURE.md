@@ -758,3 +758,44 @@ unchanged file-journal counter is still the fifth method in the complete owning
 selector and was not rerun or omitted from the catalog. The targeted four-case
 result does not replace that earlier complete-selector limit. All compiler,
 selector, cadence and original quiet limits remain unchanged.
+
+## Independent original mapping readers
+
+`IndependentAssetsMappings` joins two dedicated existing Pico mapping sources,
+each guarded by its own original process and private source lock. Their actual
+PIDs, source instances, client/NodeList/AssetServer object births and client
+sessions must differ, while their original domain/server UUIDs and complete
+mapping inventories agree. Hidden mappings and original error rows remain in
+the comparison. Actual permission values are preserved independently; no shared
+permission, oven readiness, model load, peer rendering or fourteen-field feature
+state is invented from this partial read observation.
+
+Fresh original fixture phases before and after both reads must retain the same
+activation barrier. The exact raw JSON/SHA frames and phase originals are kept
+in a bounded paired transcript, with immutable sealed canonical source/history
+prefixes and exact JSON types. Shared limits count both native frames and both
+phase originals per pair, including separately retained source histories. All
+result copies, hashes and next-history construction precede final original
+native and host clock fences. Failed observation retains the source originals
+and any pending original command; it does not publish a partial pair or replay
+an input.
+
+The owning fixture runs two actual native producer processes, each with the
+complete existing original request/getter bodies and original Qt request thread.
+Fresh host source/session births are assigned when those actors start. The
+network/protocol and NodeList endpoints remain declared host boundaries: this
+does not qualify a live shared Asset Server or independent rendered peer. No
+service, oven, device, product handler or public capability is started/changed.
+
+All four owning cases passed in 5.468 seconds with unchanged 90-second compiler
+and 120-second selector limits. They observe a complete independent pair and
+unchanged original prefix, reject a primary DTO supplied as the other actual
+PID, reject a fixture phase advance, and reject one process reused for both
+roles before any request. Original pipe responses are archived before the
+counter's deliberate DTO mutation, alongside exact source histories/pending
+commands, phase originals and the tested native artifact hash. The earlier
+6.536-second green transcript remains separate. The new closed source contract
+is `pico-assets-mapping-pair:1`; `assets-mapping-pair` adds one selector locally
+(157 to 158). Root must preserve its current catalog and add this selector.
+Actual server/oven receipts and independent scene/model/stereo observations
+remain required before whole Assets qualification. Feature 13/14 stays partial.
