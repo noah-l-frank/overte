@@ -29,6 +29,19 @@ normal-input fixtures and lost-return cases. Native/GPU/SDK boundaries and clock
 are explicitly modeled; these tests do not qualify physical iOS behavior or
 host timing. No native compilation or device execution was performed.
 
+`from_history()` reconstructs the exact original admission, restart receipt,
+transferred process, role source graph and baseline without requesting an SDK,
+native source or fixture. Its write and acquisition entrypoints reject use.
+An independently retained `ios-navigation-restoration-phase` version 1 carrier
+keeps the original cleanup authority before the restored image acquisition;
+this stricter terminal path cannot qualify an older archive lacking that
+original. Existing restoration and publication reference formats remain 1.
+
+`navigation_terminal_resources.held()` joins each retained alias to its actual
+Places model or Address UI root and original carrier hash. The binding uses a
+hash of the actual SDK session identifier. This privacy projection cannot
+establish root destruction or substitute for the later OS process proof.
+
 This component currently supports the already-proven restarted process only.
 Partial setup, pre-restart failure restoration, paired worker/dispatcher and
 source-to-terminal process/SDK retirement remain required before the complete

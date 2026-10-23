@@ -60,6 +60,17 @@ class NavigationRestorationTests(unittest.TestCase):
                 transfer=owner.transfer,restoration=owner,guard=h.flow.clock,epoch_ms=h.now,monotonic=h.mono)
             self.assertEqual(derived,publications.validate_original(reference))
             self.assertEqual(commands,self.new.gpu.commands)
+            from ios.adapters.navigation_terminal_resources import held
+            last=owner.image(reference['requestId'],historical=True);retained=held(last)
+            self.assertEqual(samples[-1]['resources'],[row['resource'] for row in retained['heldResources']])
+            self.assertTrue(all(row['kind']=='qt-root' for row in retained['heldResources']))
+            def forbidden(*_args,**_kwargs):self.fail('Historical restoration attempted transport')
+            with patch.object(h.flow.runtime,'_sources',side_effect=forbidden),patch.object(h.flow.client,'request',side_effect=forbidden):
+                archived=NavigationRestoration.from_history(h.flow,baseline=owner.baseline)
+                self.assertEqual(derived,archived.validate_original(reference))
+                self.assertEqual(proof,archived.quiet())
+                with self.assertRaises(NativeUIError):archived.advance()
+            self.assertEqual(commands,self.new.gpu.commands)
 
     def test_unknown_child_delivery_blocks_another_query_and_preserves_its_pending_owner(self):
         owner=self.configure();write=owner.store.write;lost=[]
