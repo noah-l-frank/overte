@@ -84,6 +84,7 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap featureSnapshotCaptureOriginals(const QVariantMap& command);
     QVariantMap featureSnapshotScriptOriginals(const QVariantMap& command);
+    QVariantMap featureSnapshotSettingsOriginals(const QVariantMap& command);
     Q_INVOKABLE void featureCaptureEvent(const QString& kind,const QString& id,const QString& mode,int revision);
 #endif
     void captureStatus(const SnapshotCapture&, const QString& phase, const QString& path = {}, const QString& error = {});
@@ -264,6 +265,12 @@ private:
     QSet<QString> _featureCaptureScriptQueries;
     QString _featureCaptureScriptRun;
     quint64 _featureCaptureScriptSequence{0};
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    const QString _featureSettingsInstance{QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
+    QSet<QString> _featureSettingsQueries;
+    QString _featureSettingsRun;
+    quint64 _featureSettingsSequence{0};
+#endif
 #endif
     QHash<QString, QPointer<SnapshotUploader>> _uploads;
     bool _uploadContextConnected { false };

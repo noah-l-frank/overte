@@ -1601,6 +1601,25 @@ def create_adapter(args, base_class):
             return PicoSnapshotCancel(io,native.clock_ms,native.pid,lock,monotonic=native.monotonic,sleep=native.sleep)
 
         @_private
+        def _snapshot_settings_baseline(self,target,run,phase_source,*,parent=None,source_lock=None):
+            from adapters.pico4.snapshot_settings_baseline import PicoSnapshotSettingsBaseline
+            from adapters.pico4.snapshot_cancel_owner import PicoSnapshotCancelOwner
+            if parent is None:parent=self._snapshot_cancel_owner(target,run,phase_source,source_lock=source_lock)
+            _need(isinstance(parent,PicoSnapshotCancelOwner) and parent.run==run and parent.source is phase_source
+                and (source_lock is None or source_lock is parent.lock))
+            lock=self._script_journey()._lock(target,parent.lock)
+            return PicoSnapshotSettingsBaseline(parent,self._snapshot_settings_originals(target,source_lock=lock),
+                lock.path.with_name('snapshot-settings-baseline.json'),may_capture=lambda:not self._snapshot_originals_owned(target))
+
+        @_private
+        def _snapshot_settings_originals(self,target,*,source_lock=None):
+            from adapters.pico4.snapshot_settings_originals import PicoSnapshotSettingsOriginals,FILE
+            lock=self._script_journey()._lock(target,source_lock);native=self._native_feature_observer(target)
+            return PicoSnapshotSettingsOriginals(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,lock,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
         def _snapshot_script_originals(self,target,*,source_lock=None):
             from adapters.pico4.snapshot_script_originals import PicoSnapshotScriptOriginals,FILE
             source_lock=self._script_journey()._lock(target,source_lock)
@@ -1619,11 +1638,12 @@ def create_adapter(args, base_class):
             names=('snapshot-cancel-owner.json','snapshot-cancel-files-owner.json','snapshot-cancel-originals.json',
                 'snapshot-save-owner.json','snapshot-save-originals.json','snapshot-upload-fail-owner.json','snapshot-upload-owner.json',
                 'snapshot-upload-fail-originals.json','snapshot-upload-originals.json','snapshot-background-owner.json','snapshot-background-originals.json',
-                'snapshot-close-owner.json','snapshot-close-originals.json','snapshot-close-statuses.json')
+                'snapshot-close-owner.json','snapshot-close-originals.json','snapshot-close-statuses.json',
+                'snapshot-settings-baseline.json','snapshot-settings-baseline-originals.json')
             paths=[store.path]+[store.path.with_name(name) for name in names]
             paths.extend(store.path.with_name('snapshot-return-image-'+role+suffix) for role in ('primary','actor') for suffix in ('.json','-originals.json'))
             prefixes=('snapshot-cancel-originals.json.frame-','snapshot-save-originals.json.frame-','snapshot-upload-fail-originals.json.frame-',
-                'snapshot-upload-originals.json.frame-','snapshot-background-originals.json.frame-','snapshot-close-originals.json.frame-','snapshot-close-statuses.json.frame-',
+                'snapshot-upload-originals.json.frame-','snapshot-background-originals.json.frame-','snapshot-close-originals.json.frame-','snapshot-close-statuses.json.frame-','snapshot-settings-baseline-originals.json.frame-',
                 'snapshot-return-image-primary-originals.json.frame-','snapshot-return-image-actor-originals.json.frame-')
             return any(path.exists() or path.is_symlink() for path in paths) or any(path.name.startswith(prefixes) for path in store.path.parent.iterdir())
 
@@ -1646,6 +1666,12 @@ def create_adapter(args, base_class):
                 self._snapshot_native_originals(target,source_lock=lock),self._snapshot_script_originals(target,source_lock=lock),
                 self._snapshot_cancel(target,before_send=before_cancel,source_lock=lock),files,
                 self._script_roots_observer(target),self._script_execution_observer(target),self._script_work(target),self._snapshot_platform(target),self.pico_input_session(target),phase_source)
+            baseline=PrivateFeatureState(lock.path.with_name('snapshot-settings-baseline.json')).read()
+            if baseline is not None:self._snapshot_settings_baseline(target,run,phase_source,parent=owner,source_lock=lock)
+            else:
+                _need(owner.encoding_version!=3 and not any(lock.path.with_name(name).exists() or lock.path.with_name(name).is_symlink()
+                    for name in ('snapshot-settings-baseline-originals.json',))
+                    and not any(path.name.startswith('snapshot-settings-baseline-originals.json.frame-') for path in lock.path.parent.iterdir()))
             return owner
 
         @_private

@@ -184,3 +184,8 @@ constant-event-clock case also passed together in 53.569 s.
 Four selected repository checks passed in 3.93 s; the contract registry and
 documentation/diff checks also passed. No compiler, native product run, device
 operation or service was started for V2.
+
+
+New runs can now opt into the separate [passive pre-input baseline](SNAPSHOT_SETTINGS_BASELINE.md).
+It supplies original thirteen-key/cache data and an actual first-input binding;
+it does not restore values, upgrade old runs or qualify this whole cleanup.

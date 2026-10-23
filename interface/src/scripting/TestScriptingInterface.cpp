@@ -1199,6 +1199,34 @@ QVariantMap TestScriptingInterface::featureSnapshotCaptureOriginals(const QVaria
 #endif
 }
 
+QVariantMap TestScriptingInterface::featureSnapshotSettingsOriginals(const QVariantMap& command) {
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    const auto queue=_featureSnapshotQueue;if(!queue) {return {};}
+    if(QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command](QObject* original) {
+            auto owner=static_cast<TestScriptingInterface*>(original);
+            return overte::e2e::AudioSettingsPart{owner->featureSnapshotSettingsOriginals(command),{}};
+        }).values;
+    }
+    const auto keys=command.keys();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp || !qApp->isHMDMode()
+            || !overte::e2e::previewDirectory(_testResultsLocation) || !DependencyManager::isSet<Snapshot>()
+            || QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","action","commandId","runId"}
+            || command.value("action").userType()!=QMetaType::QString || command.value("action").toString()!="feature-pico-snapshot-settings-originals"
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
+    const auto original=DependencyManager::get<Snapshot>();if(!original) {return {};}
+    auto request=command;request.remove("action");
+    const auto result=queue->read("client",original.data(),[request](QObject* owner) {
+        return overte::e2e::AudioSettingsPart{static_cast<Snapshot*>(owner)->featureSnapshotSettingsOriginals(request),{}};
+    });
+    if(!queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
+    return result.values;
+#else
+    Q_UNUSED(command) return {};
+#endif
+}
+
 QVariantMap TestScriptingInterface::featureSnapshotScriptOriginals(const QVariantMap& command) {
 #if defined(ANDROID_APP_PICO_INTERFACE)
     const auto queue=_featureSnapshotQueue;if(!queue) {return {};}
@@ -2578,7 +2606,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-navigation-modals.json" || filename == "feature-navigation-environment.json" || filename == "feature-navigation-directory.json"
             || filename == "feature-process-presence.json"
             || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
-            || filename == "feature-lifecycle-drive.json" || filename == "feature-lifecycle-gesture.json" || filename == "feature-audio-settings.json" || filename == "feature-snapshot-capture-originals.json" || filename == "feature-snapshot-script-originals.json" || filename == "feature-pico-snapshot-files.json" || filename == "feature-pico-snapshot-exports.json" || filename == "feature-pico-snapshot-upload.json" || filename == "feature-script-work.json"
+            || filename == "feature-lifecycle-drive.json" || filename == "feature-lifecycle-gesture.json" || filename == "feature-audio-settings.json" || filename == "feature-snapshot-capture-originals.json" || filename == "feature-snapshot-script-originals.json" || filename == "feature-pico-snapshot-settings-originals.json" || filename == "feature-pico-snapshot-files.json" || filename == "feature-pico-snapshot-exports.json" || filename == "feature-pico-snapshot-upload.json" || filename == "feature-script-work.json"
             || filename == "feature-web-runtime.json" || filename == "feature-tablet-http.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-roots.json"

@@ -8,6 +8,7 @@ All original journals remain obligations for the subsequent capture/export flow.
 from copy import deepcopy
 import hashlib
 import json
+import re
 from pathlib import Path
 import uuid
 
@@ -34,8 +35,8 @@ from openxr_input.adapter_session import PicoOpenXrAdapterSession
 from openxr_input.controller_protocol import validate_envelope
 from snapshot_observation import inspect_snapshot
 
-VERSION=2
-READS=(1,2)
+VERSION=3
+READS=(1,2,3)
 CANCEL_STAGES=('arm-issued','prepared','open-issued','opened','cancel-issued','cancel-observed',
         'quiet-issued','cancel-quiet','job-retire-issued','partial-ready')
 CAPTURE_STAGES=('capture-prepare-issued','capture-issued','captured','still-quiet-issued','still-ready')
@@ -64,9 +65,9 @@ class PicoSnapshotCancelOwner:
             and self.store.path==self.lock.path.with_name('snapshot-cancel-owner.json')
             and session.bound_process_identity()==binding['processIdentity'])
         self.prefix='parity-'+run[:16]+'-animated'
-        self.still_prefix='parity-'+run[:16]+'-still-png';self.encoding_version=VERSION;self.decoded_cache={}
+        self.still_prefix='parity-'+run[:16]+'-still-png';self.encoding_version=2;self.settings_baseline_sha=None;self.decoded_cache={}
         self.disk=self.state=self.anchor=self.controller_anchor=self.controller_envelope=None
-        self.current=False;self.last_clock=None;self.save_owner=None;self.close_owner=None
+        self.current=False;self.last_clock=None;self.save_owner=None;self.close_owner=None;self.settings_baseline=None
         with session._lock():self.session_origin=deepcopy(session._load())
         self.reviewed=json.loads(Path(__file__).with_name('snapshot-script-pin.v1.json').read_text())
         self.qml_callback=self.before_qml;self.cancel_callback=self.before_cancel;self.file_callback=self.before_file
@@ -112,9 +113,9 @@ class PicoSnapshotCancelOwner:
         return base_frame(row,self.run,self.native.pid,self.binding['sessionId'])
 
     def validate(self,state,*,host_only=False):
-        extra={'platform','migration','stillPlan','capture','captureQuiet'} if self.encoding_version==2 else set()
+        extra={'platform','migration','stillPlan','capture','captureQuiet'} if self.encoding_version>=2 else set()
         exact(state,{'stage','source','baseline','sessionOrigin','frames','deliveries','plan','job','requests','replies','vm','quiet'}|extra)
-        need(self.encoding_version in READS and (self.encoding_version==2 or state['stage'] in CANCEL_STAGES))
+        need(self.encoding_version in READS and (self.encoding_version>=2 or state['stage'] in CANCEL_STAGES))
         origin=state['sessionOrigin'];exact(origin,{'schemaVersion','sessionNonce','processIdentity','nextSequence'})
         need(type(origin['schemaVersion']) is int and origin['schemaVersion']==self.session_origin['schemaVersion']
             and origin['processIdentity']==self.binding['processIdentity']
@@ -192,7 +193,7 @@ class PicoSnapshotCancelOwner:
                 need(command['runId']==self.run and command['operation']=='plan' and command['prefix'] in (self.prefix,self.still_prefix)
                     and (selected is None or command['operationId']==selected['id']))
                 need((command['prefix']==self.prefix and delivery['stage']=='cancel-issued')
-                    or (self.encoding_version==2 and command['prefix']==self.still_prefix and delivery['stage']=='capture-prepare-issued'))
+                    or (self.encoding_version>=2 and command['prefix']==self.still_prefix and delivery['stage']=='capture-prepare-issued'))
         captures=[row for row in state['deliveries'] if row['kind']=='qml' and row['command']['controlId']=='snapshot.capture']
         need(len(captures)<=1)
         for delivery in captures:self.capture_admission(state['frames'][delivery['frame']],state)
@@ -217,7 +218,7 @@ class PicoSnapshotCancelOwner:
             need(history['events'])
             join_compilation(history,state['vm']['execution'],root_url(root['source']['defaultScriptsUrl'])+'system/snapshot.js',self.reviewed)
         if state['stage'] in ('cancel-observed','quiet-issued','cancel-quiet','job-retire-issued','partial-ready')+CAPTURE_STAGES:need(state['vm'] is not None)
-        if self.encoding_version==2:
+        if self.encoding_version>=2:
             if state['migration'] is not None:
                 exact(state['migration'],{'fromVersion','originalSha256'})
                 need(type(state['migration']['fromVersion']) is int and state['migration']['fromVersion']==1
@@ -256,12 +257,14 @@ class PicoSnapshotCancelOwner:
         if self.disk is not None:need(typed_equal(disk,self.disk))
         if disk is None:
             need(self.state is None and self.originals.disk is None);self.originals.verify();return
-        exact(disk,{'snapshotCancelOwnerVersion','runId','binding','fixtureUrl','payload'})
+        exact(disk,{'snapshotCancelOwnerVersion','runId','binding','fixtureUrl','payload'}|({'settingsBaselineOriginalSha256'} if disk.get('snapshotCancelOwnerVersion')==3 else set()))
         need(type(disk['snapshotCancelOwnerVersion']) is int and disk['snapshotCancelOwnerVersion'] in READS
             and disk['runId']==self.run and typed_equal(disk['binding'],self.binding) and disk['fixtureUrl']==self.source.fixture_url)
         self.encoding_version=disk['snapshotCancelOwnerVersion']
+        if self.encoding_version==3:
+            self.settings_baseline_sha=disk['settingsBaselineOriginalSha256'];need(type(self.settings_baseline_sha) is str and re.fullmatch('[0-9a-f]{64}',self.settings_baseline_sha) is not None)
         rows=unpack(disk['payload']);need(len(rows)==1)
-        state=self.originals.decode(rows[0]) if self.encoding_version==2 else rows[0]
+        state=self.originals.decode(rows[0]) if self.encoding_version>=2 else rows[0]
         self.validate(state)
         if state['frames']:
             native,script,_packet=self.frame(state['frames'][-1])
@@ -276,8 +279,10 @@ class PicoSnapshotCancelOwner:
 
     def save(self,state,*,host_only=False):
         self.lock.assert_held();need(typed_equal(self.store.read(),self.disk));self.validate(state,host_only=host_only)
-        encoded=self.originals.encode(state,host_only=host_only) if self.encoding_version==2 else state
+        encoded=self.originals.encode(state,host_only=host_only) if self.encoding_version>=2 else state
         disk=dict(snapshotCancelOwnerVersion=self.encoding_version,runId=self.run,binding=self.binding,fixtureUrl=self.source.fixture_url,payload=pack([encoded]))
+        if self.encoding_version==3:
+            need(self.settings_baseline is not None and self.settings_baseline.identity()==self.settings_baseline_sha);disk['settingsBaselineOriginalSha256']=self.settings_baseline_sha
         self.store.write(disk,self.disk);need(typed_equal(self.store.read(),disk));self.disk,self.state=deepcopy(disk),deepcopy(state)
 
     def read_frame(self,operation='read'):
@@ -355,6 +360,14 @@ class PicoSnapshotCancelOwner:
             and (self.save_owner is None or self.save_owner is owner))
         self.save_owner=owner
 
+    def bind_settings_baseline(self,owner):
+        from adapters.pico4.snapshot_settings_baseline import PicoSnapshotSettingsBaseline
+        need(isinstance(owner,PicoSnapshotSettingsBaseline) and owner.parent is self and owner.lock is self.lock
+            and (getattr(self,'settings_baseline',None) is None or self.settings_baseline is owner))
+        self.settings_baseline=owner
+        if self.state is None:self.encoding_version=3
+        else:need(self.encoding_version==3 and owner.identity()==self.settings_baseline_sha)
+
     def bind_close_owner(self,owner):
         from adapters.pico4.snapshot_close_owner import PicoSnapshotCloseOwner
         need(isinstance(owner,PicoSnapshotCloseOwner) and owner.base is self and owner.lock is self.lock
@@ -387,12 +400,16 @@ class PicoSnapshotCancelOwner:
     def before_controller(self,operation):
         if getattr(self,'close_owner',None) is not None:self.close_owner.before_controller(operation);return
         self.lock.assert_held();need(self.current and self.state['stage']=='open-issued' and operation=='tablet.open')
-        self.append_frame();self.controller_anchor=self.fence();self.controller_envelope=None
+        self.append_frame()
+        if getattr(self,'settings_baseline',None) is not None:self.settings_baseline.before_input()
+        self.controller_anchor=self.fence();self.controller_envelope=None
 
     def controller_intent(self,envelope):
         if getattr(self,'close_owner',None) is not None:self.close_owner.controller_intent(envelope);return
         self.lock.assert_held();need(self.controller_anchor is not None and self.controller_envelope is None)
-        self.delivery('controller',envelope,host_only=True);self.controller_envelope=deepcopy(envelope);self.before_publish(envelope)
+        self.delivery('controller',envelope,host_only=True)
+        if getattr(self,'settings_baseline',None) is not None:self.settings_baseline.input_intent(envelope)
+        self.controller_envelope=deepcopy(envelope);self.before_publish(envelope)
 
     def before_publish(self,envelope):
         if getattr(self,'close_owner',None) is not None:self.close_owner.before_publish(envelope);return
@@ -402,6 +419,8 @@ class PicoSnapshotCancelOwner:
     def prepare(self):
         with self.lock.held():
             self.load();need(self.state is None and self.snapshot.state is None and self.snapshot.ui.state is None and self.files.store.read() is None)
+            if getattr(self,'settings_baseline',None) is not None:
+                self.settings_baseline.capture();self.settings_baseline_sha=self.settings_baseline.identity()
             source=self.fixture('baseline',{})
             self.save(dict(stage='arm-issued',source=source,baseline=deepcopy(source),sessionOrigin=deepcopy(self.session_origin),frames=[],deliveries=[],plan=None,
                 job=uuid.uuid4().hex,requests=[],replies=[],vm=None,quiet=[],migration=None,platform=None,stillPlan=None,capture=None,captureQuiet=[]))
@@ -451,7 +470,7 @@ class PicoSnapshotCancelOwner:
                 row=self.append_frame();native,script,_packet=self.frame(row)
                 if self.state['stage']=='arm-issued':
                     need(not native['requests'] and not script['history']['events'] and not row['ui']['open'])
-                    if self.encoding_version==2 and self.state['platform'] is None:
+                    if self.encoding_version>=2 and self.state['platform'] is None:
                         state=deepcopy(self.state);state['platform']=dict(where='baseline',original=self.platform.read());self.save(state)
                     self.issued('prepared')
                 else:
@@ -516,7 +535,7 @@ class PicoSnapshotCancelOwner:
     def upgrade(self):
         """Explicit private schema CAS; no historical backend fact is invented."""
         self.lock.assert_held();need(self.state['stage']=='partial-ready')
-        if self.encoding_version==2:return
+        if self.encoding_version>=2:return
         need(self.encoding_version==1)
         from adapters.script_journey.history import canonical
         state=deepcopy(self.state);state.update(platform=None,stillPlan=None,capture=None,captureQuiet=[],
@@ -524,7 +543,7 @@ class PicoSnapshotCancelOwner:
         self.encoding_version=2;self.save(state)
 
     def capture_admission(self,row,state):
-        need(self.encoding_version==2 and state['stillPlan'] is not None)
+        need(self.encoding_version>=2 and state['stillPlan'] is not None)
         native,script,files=self.frame(row)
         need(not native['requests'] and len(script['history']['events'])==2
             and [event['kind'] for event in script['history']['events']]==['pending','cancelled']
@@ -596,7 +615,7 @@ class PicoSnapshotCancelOwner:
     def reconcile_still(self):
         """New sources only; no Capture, preference or controller resend."""
         with self.lock.held():
-            self.load();need(self.encoding_version==2 and self.state['stage'] in CAPTURE_STAGES)
+            self.load();need(self.encoding_version>=2 and self.state['stage'] in CAPTURE_STAGES)
             row=self.append_frame();native,script,packet=self.frame(row)
             if self.state['stage']=='capture-issued' and len(native['requests'])==1:
                 request=native['requests'][0];events=script['history']['events'];review=row['ui'].get('picoSnapshotReview')

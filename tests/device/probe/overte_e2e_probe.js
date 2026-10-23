@@ -185,6 +185,7 @@
     var lastAudioSettingsRequest = "";
     var lastSnapshotCaptureRequest = "";
     var lastSnapshotScriptRequest = "";
+    var lastSnapshotSettingsRequest = "";
     var lastPicoSnapshotFilesRequest = "";
     var lastPicoSnapshotExportsRequest = "";
     var lastPicoSnapshotUploadRequest = "";
@@ -1882,6 +1883,23 @@
         if (command && command.schemaVersion === 1
                 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                 && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && command.action === "feature-pico-snapshot-settings-originals"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
+            if (command.commandId === lastSnapshotSettingsRequest) { return; }
+            lastSnapshotSettingsRequest = command.commandId;
+            var snapshotOriginals = {snapshotSettingsOriginalsVersion: 1, commandId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureSnapshotSettingsOriginals === "function") {
+                    var actualSnapshot = Test.featureSnapshotSettingsOriginals(command);
+                    if (actualSnapshot && actualSnapshot.commandId === command.commandId) { snapshotOriginals = actualSnapshot; }
+                }
+            } catch (_snapshotOriginalError) { /* Original settings/cache reads remain unavailable. */ }
+            Test.saveObject(snapshotOriginals, "feature-pico-snapshot-settings-originals.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
                 && command.action === "feature-snapshot-script-originals"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
             if (command.commandId === lastSnapshotScriptRequest) { return; }
@@ -2441,7 +2459,7 @@
                 || command.action === "feature-scene-load-observe"
                 || command.action === "feature-tablet-http-observe"
                 || command.action === "feature-lifecycle-drive-observe" || command.action === "feature-lifecycle-gesture-observe"
-                || command.action === "feature-audio-settings-observe" || command.action === "feature-snapshot-capture-originals" || command.action === "feature-snapshot-script-originals" || command.action === "feature-script-work-observe" || command.action === "feature-script-roots-observe"
+                || command.action === "feature-audio-settings-observe" || command.action === "feature-snapshot-capture-originals" || command.action === "feature-snapshot-script-originals" || command.action === "feature-pico-snapshot-settings-originals" || command.action === "feature-script-work-observe" || command.action === "feature-script-roots-observe"
                 || command.action === "pico-snapshot-files-observe" || command.action === "pico-snapshot-files-control" || command.action === "feature-pico-snapshot-exports" || command.action === "feature-pico-snapshot-upload"
                 || command.action === "feature-web-runtime-observe"
                 || command.action === "feature-world-render-storage"

@@ -27,6 +27,9 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include "SettingInterface.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include <QCoreApplication>
+#endif
 
 
 Q_DECLARE_LOGGING_CATEGORY(settings_handle)
@@ -262,6 +265,15 @@ namespace Setting {
             maybeInit();
             return _isSet;
         }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        QVariantMap featureSnapshotFormatState() const {
+            static_assert(std::is_same<T,QString>::value,"Only the original Snapshot string handle is observed");
+            if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+            return {{"initialized",featureSnapshotCacheInitialized()},{"set",_isSet},
+                {"value",QVariant::fromValue(_value)},{"defaultValue",QVariant::fromValue(_defaultValue)}};
+        }
+#endif
 
         /**
          * @brief Returns the default value for this setting
