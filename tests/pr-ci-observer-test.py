@@ -100,6 +100,27 @@ class RecordTests(unittest.TestCase):
             with self.subTest(key=key), self.assertRaises(O.ObserverError):
                 O.expected_owners({**plan, key: "false"})
 
+    def test_package_coverage_accepts_a_skipped_host_but_requires_successful_npm(self):
+        self.plan.update(host_suites=["server-console-behavior"], npm_projects=["server-console"],
+            covered_tasks={"suite:server-console-behavior": "npm:server-console"})
+        self.record["plan"] = deepcopy(self.plan)
+        self.record["owners"]["host"]["result"] = "skipped"
+        self.record["owners"]["npm"]["result"] = "success"
+        self.assertIs(self.verify(), self.record)
+        for result in ("skipped", "failure"):
+            self.record["owners"]["npm"]["result"] = result
+            with self.subTest(result=result), self.assertRaises(O.ObserverError):
+                self.verify()
+        self.plan["host_suites"].append("another-contract")
+        self.assertTrue(O.expected_owners(self.plan)["host"])
+
+    def test_invalid_coverage_cannot_deselect_a_required_host_job(self):
+        for covered in ([], {"suite:one": "npm:missing"}, {"suite:unknown": "npm:server-console"},
+                        {"suite:one": ["npm:server-console"]}):
+            with self.subTest(covered=covered), self.assertRaises(O.ObserverError):
+                O.expected_owners({**self.plan, "npm_projects": ["server-console"],
+                                   "covered_tasks": covered})
+
     def test_context_run_and_controller_cannot_disagree_with_transport(self):
         for key, value in (("run_id", 124), ("run_attempt", 2), ("controller", "7" * 40),
                            ("repository_id", float(O.C.REPOSITORY_ID))):
