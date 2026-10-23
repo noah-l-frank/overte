@@ -62,6 +62,16 @@ class MirrorControls(unittest.TestCase):
         cls.qt_toolchain = {'major': QT_MAJOR, 'version': cls.qt_version, 'moc': str(moc), 'libdir': libdir}
         cls.temp = tempfile.TemporaryDirectory(prefix='overte-mirrors-')
         cls.stage = Path(cls.temp.name)
+        runtime = cls.stage / 'runtime'
+        runtime.mkdir(mode=0o700)
+        fonts = cls.stage / 'fonts.conf'
+        fonts.write_text('<fontconfig><dir>/usr/share/fonts</dir><cachedir>'
+                         + str(cls.stage / 'font-cache') + '</cachedir></fontconfig>')
+        # The isolated CI namespace deliberately has no host /etc or desktop
+        # runtime. Supply only these test-owned public Qt prerequisites.
+        cls.environment = os.environ | {'XDG_RUNTIME_DIR': str(runtime),
+            'FONTCONFIG_FILE': str(fonts), 'FONTCONFIG_PATH': str(cls.stage),
+            'QT_QPA_PLATFORM': 'offscreen', 'QT_QUICK_BACKEND': 'software'}
         source = (ROOT / 'interface/src/scripting/RenderScriptingInterface.cpp').read_text()
         header = (ROOT / 'interface/src/scripting/RenderScriptingInterface.h').read_text()
         task_header = (ROOT / 'libraries/task/src/task/Config.h').read_text()
@@ -143,7 +153,7 @@ class MirrorControls(unittest.TestCase):
 
     def invoke(self, product, file, action):
         result = subprocess.run([str(self.binaries[product]), str(file), action, str(ROOT)],
-                                env=os.environ | {'QT_QPA_PLATFORM': 'offscreen', 'QT_QUICK_BACKEND': 'software'},
+                                env=self.environment,
                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         if result.stderr:

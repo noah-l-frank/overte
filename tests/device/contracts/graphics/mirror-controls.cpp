@@ -185,8 +185,11 @@ int main(int argc,char** argv) {
         engine.rootContext()->setContextProperty("header",api(engine,R"(import QtQml 2.15; QtObject { property real height: 40 })"));
         QQuickItem parent;parent.setWidth(1024);parent.setHeight(768);
         QQmlComponent c(&engine,QUrl::fromLocalFile(root+"/scripts/system/settings/Settings.qml"));
-        auto item=qobject_cast<QQuickItem*>(c.create());if(!item){for(auto error:c.errors())std::cerr<<error.toString().toStdString()<<'\n';return 2;}
-        item->setParentItem(&parent);item->setProperty("currentPage","Graphics");app.processEvents();auto control=item->findChild<QObject*>("settings.graphics.mirrors");assert(control);
+        auto item=qobject_cast<QQuickItem*>(c.beginCreate(engine.rootContext()));if(!item){for(auto error:c.errors())std::cerr<<error.toString().toStdString()<<'\n';return 2;}
+        // Production Settings binds to its visual parent during completion.
+        item->setParentItem(&parent);item->setProperty("currentPage","Graphics");c.completeCreate();
+        if(c.isError()){for(auto error:c.errors())std::cerr<<error.toString().toStdString()<<'\n';delete item;return 2;}
+        app.processEvents();auto control=item->findChild<QObject*>("settings.graphics.mirrors");assert(control);
         out["qml_initial"]=control->property("settingEnabled").toBool();
         QObject* toggle=nullptr;for(auto child:control->findChildren<QObject*>()) if(child->inherits("QQuickSwitch")) { toggle=child;break; }assert(toggle);
         assert(QMetaObject::invokeMethod(toggle,"toggle"));out["qml_false"]=!render.getMirrorsEnabled()&&allMatch(config,false);

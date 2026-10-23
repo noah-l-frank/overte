@@ -77,6 +77,14 @@ class RenderPreferences(unittest.TestCase):
     def setUpClass(cls):
         cls.temp=tempfile.TemporaryDirectory(prefix='overte-render-prefs-')
         cls.stage=Path(cls.temp.name)
+        runtime=cls.stage/'runtime';runtime.mkdir(mode=0o700)
+        fonts=cls.stage/'fonts.conf'
+        fonts.write_text('<fontconfig><dir>/usr/share/fonts</dir><cachedir>'
+                         +str(cls.stage/'font-cache')+'</cachedir></fontconfig>')
+        # No host /etc or desktop runtime is available in isolated CI.
+        cls.environment=os.environ|{'XDG_RUNTIME_DIR':str(runtime),
+            'FONTCONFIG_FILE':str(fonts),'FONTCONFIG_PATH':str(cls.stage),
+            'QT_QPA_PLATFORM':'offscreen'}
         cls.binary,cls.version=build(cls.stage)
         cls.observations=[]
     @classmethod
@@ -85,7 +93,7 @@ class RenderPreferences(unittest.TestCase):
             Path(os.environ['OVERTE_RENDER_PREFS_EVIDENCE']).write_text(json.dumps({'source_root':str(ROOT),'render_cpp_ref':os.environ.get('OVERTE_RENDER_PREFERENCES_REF'),'qt_version':cls.version,'production_sha256':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in [ROOT/'interface/src/scripting/RenderScriptingInterface.cpp',ROOT/'interface/src/scripting/RenderScriptingInterface.h',ROOT/'libraries/shared/src/SettingHandle.h']},'observations':cls.observations,'boundary':__doc__},indent=2)+'\n')
         cls.temp.cleanup()
     def invoke(self,file,action):
-        r=subprocess.run([str(self.binary),str(file),action],capture_output=True,text=True,timeout=15,env=os.environ|{'QT_QPA_PLATFORM':'offscreen'})
+        r=subprocess.run([str(self.binary),str(file),action],capture_output=True,text=True,timeout=15,env=self.environment)
         self.assertEqual(r.returncode,0,r.stderr+r.stdout)
         self.assertFalse(r.stderr,r.stderr)
         out=json.loads(r.stdout);self.assertEqual(out['qt_version'],self.version)
