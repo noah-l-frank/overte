@@ -8,6 +8,7 @@
 #include "../../../../../../tests/device/native/PicoBrowserInputBridge.h"
 #include "../../../../../../tests/device/native/LifecycleUiObservation.h"
 #include "../../../../../../tests/device/native/LifecycleBackgroundHistory.h"
+#include "../../../../../../tests/device/native/AssetsPageObservation.h"
 #include <PathUtils.h>
 #include "../../../../../../tests/device/native/PrivatePreviewFiles.h"
 #include "../../../../../../tests/device/native/PicoSnapshotFastCancel.h"
@@ -481,6 +482,7 @@ private:
         loginObservationTick();
         graphicsObservationTick();
         homeObservationTick();
+        assetsPageObservationTick();
         snapshotCancelTick();
 #endif
     }
@@ -700,6 +702,30 @@ private:
 
     // Original editor/context identities and physical VR keyboard owners.
     // No input, requested generation or UI-property mutation exists here.
+    void assetsPageObservationTick() {
+        const QString path=BRIDGE_DIRECTORY+"/assets-pages-command.json";
+        QFile input(path);
+        if(QFileInfo(path).isSymLink() || !input.open(QIODevice::ReadOnly) || input.size()>4096) {return;}
+        QJsonParseError error;const auto document=QJsonDocument::fromJson(input.readAll(),&error);
+        if(error.error!=QJsonParseError::NoError || !document.isObject()) {return;}
+        const auto command=document.object();const auto id=command.value("commandId").toString();
+        if(!exactKeys(command,{"schemaVersion","commandId","action"}) || command.value("schemaVersion")!=QJsonValue(1)
+                || command.value("action")!=QJsonValue(QStringLiteral("observe"))
+                || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
+                || _assetsPageNonces.contains(id) || _assetsPageNonces.size()>=4096) {return;}
+        _assetsPageNonces.insert(id);
+        if(QThread::currentThread()!=qApp->thread() || !DependencyManager::isSet<TabletScriptingInterface>()) {return;}
+        const auto tablet=DependencyManager::get<TabletScriptingInterface>()->getTablet(SYSTEM_TABLET);
+        const auto root=tablet ? tablet->getTabletRoot() : nullptr;
+        const auto surface=tablet ? tablet->getTabletSurface() : nullptr;
+        const auto window=surface ? surface->getWindow() : nullptr;
+        if(!tablet || !surface) {return;}
+        auto packet=_assetsPages.observe(root,window,tablet->property("tabletShown").toBool(),tablet->onHomeScreen(),surface->featureQmlLoadObservation());
+        if(packet.isEmpty()) {return;}
+        packet["commandId"]=id;packet["action"]=QStringLiteral("observe");
+        writeJson(BRIDGE_DIRECTORY+"/assets-pages.json",packet);
+    }
+
     void lifecycleObservationTick() {
         const QString path=BRIDGE_DIRECTORY+"/lifecycle-ui-command.json";
         QFile input(path);
@@ -876,6 +902,8 @@ private:
         {"scripts",PathUtils::qmlUrl("hifi/dialogs/TabletRunningScripts.qml")}
     }};
     QSet<QString> _lifecycleObservationNonces;
+    overte::e2e::AssetsPageObservation _assetsPages;
+    QSet<QString> _assetsPageNonces;
     overte::e2e::LifecycleBackgroundHistory _lifecycleBackground {this,[this](const QString& run) { return lifecycleCurrent(run); }};
     overte::e2e::ScriptFileUi _scriptObservation;
     overte::e2e::LoginUi _loginObservation;

@@ -53,6 +53,12 @@ void AssetMappingsScriptingInterface::advanceBundle(const std::shared_ptr<Bundle
 #include "libraries/ui/src/FileDialogHelper.h"
 Q_LOGGING_CATEGORY(uiLogging,"ui")
 Q_LOGGING_CATEGORY(asset_client,"assets-client-host")
+#if defined(ASSETS_PERSISTENT_TABLET_HOST)
+#include "assets-tablet-host.h"
+#include "tests/device/native/AssetsPageObservation.h"
+Q_LOGGING_CATEGORY(qmlLogging,"qml-original-loader-host")
+#include "AssetsTabletOriginals.inc"
+#endif
 #include "AssetsReadOriginals.inc"
 namespace AssetUtils {
 QByteArray loadFromCache(const QUrl&){return {};}
@@ -79,7 +85,20 @@ static QQuickItem* find(QQuickItem* node,const QString& name) {
 int main(int argc,char**argv){
  HostApplication app(argc,argv);PathUtils::qml=QUrl::fromLocalFile(QString::fromLocal8Bit(argv[5])+"/interface/resources/qml/");
  if(!app.arguments().contains("--testScript")){AssetsUi gated;if(!gated.observe(nullptr,nullptr).isEmpty())return 44;return 0;}
+#if defined(ASSETS_PERSISTENT_TABLET_HOST)
+ std::unique_ptr<HostUnrelatedQml> unrelated;
+#endif
  QQmlEngine engine;engine.addImportPath(argv[1]);FileDialogHelper files;
+#if defined(ASSETS_PERSISTENT_TABLET_HOST)
+ const bool persistent=app.arguments().contains("--persistent-tablet");
+ std::unique_ptr<HostSurfaceLoader> loader;std::unique_ptr<TabletProxy> tablet;std::unique_ptr<HostPicoStandardChannel> standard;
+ if(persistent) {
+  engine.rootContext()->setBaseUrl(PathUtils::qml);
+  unrelated=std::make_unique<HostUnrelatedQml>(QUrl::fromLocalFile(QFileInfo(argv[1]).absolutePath()+"/unrelated-tablet-content.qml"));
+  engine.setUrlInterceptor(unrelated.get());loader=std::make_unique<HostSurfaceLoader>(&engine);
+  engine.rootContext()->setContextProperty("QmlSurface",loader.get());
+ }
+#endif
  const auto originalUploads=QSharedPointer<AssetMappingsScriptingInterface>::create();
  DependencyManager::slot<AssetMappingsScriptingInterface>()=originalUploads;
  const auto originalNodes=QSharedPointer<NodeList>::create();DependencyManager::slot<NodeList>()=originalNodes;
@@ -125,9 +144,43 @@ QtObject {
 })",QUrl("file:///explicit-assets-endpoints.qml"));
  QScopedPointer<QObject> service(helper.create());if(!service){qWarning()<<helper.errors();return 1;}
  for(const auto& name:QStringList{"Assets","Entities","MenuInterface","MyAvatar","Vec3","Quat","ApplicationInterface"})engine.rootContext()->setContextProperty(name,service.data());
- QQmlComponent component(&engine,QUrl::fromLocalFile(argv[2]));QScopedPointer<QObject> object(component.create());
+ QUrl rootSource=QUrl::fromLocalFile(argv[2]);
+#if defined(ASSETS_PERSISTENT_TABLET_HOST)
+ if(persistent)rootSource=PathUtils::qmlUrl("hifi/tablet/TabletRoot.qml");
+#endif
+ QQmlComponent component(&engine,rootSource);QScopedPointer<QObject> object(component.create());
  if(!object){qWarning()<<component.errors();return 2;}auto root=qobject_cast<QQuickItem*>(object.data());if(!root)return 3;
  QQuickWindow window;window.resize(900,1200);root->setParentItem(window.contentItem());root->setSize(QSizeF(900,1200));window.show();window.requestActivate();QTest::qWait(120);
+#if defined(ASSETS_PERSISTENT_TABLET_HOST)
+ overte::e2e::AssetsPageObservation assetsPages;
+ QPointer<QQuickItem> originalAssetsPage,originalAssetsLoader;
+ QPointer<QQmlContext> originalAssetsContext;QPointer<QQuickWindow> originalAssetsWindow(&window);
+ if(persistent) {
+  loader->root=root;tablet=std::make_unique<TabletProxy>();tablet->_qmlTabletRoot=root;
+  tablet->loadQMLSourceImpl(QUrl::fromLocalFile(argv[2]).toString(),false,false);QTest::qWait(120);
+  originalAssetsPage=find(root,"AssetServer");originalAssetsLoader=find(root,"loader");
+  auto filter=find(root,"assetFilter");
+  for(auto context=filter ? qmlContext(filter) : nullptr;context;context=context->parentContext()) {
+   if(context->baseUrl()==QUrl::fromLocalFile(argv[2]) && context->nameForObject(originalAssetsPage)=="root") {originalAssetsContext=context;break;}
+  }
+  if(!originalAssetsPage || !originalAssetsContext || !originalAssetsLoader)return 72;
+  standard=std::make_unique<HostPicoStandardChannel>();
+  engine.globalObject().setProperty("gTablet",engine.newQObject(tablet.get()));
+  engine.globalObject().setProperty("standardEndpoint",engine.newQObject(standard.get()));
+  const QString endpoints=R"(
+   var Settings={getValue:function(name,fallback){if(name!=="deferTabletCreationUntilOpen")throw Error("Foreign setting");return true;}};
+   var controllerStandard={LeftPrimaryThumb:501};
+   var Controller={newMapping:function(name){if(name!=="pico-tablet-x-back")throw Error("Foreign mapping");return {
+    from:function(channel){if(channel!==501)throw Error("Foreign channel");return {peek:function(){return {to:function(callback){standardEndpoint.install(callback);}};}};},enable:function(){}};}};
+   function checkTablet() {} function print() {}
+   var HMD={closeTablet:function(){throw Error("A second Home input is outside this host scope");}};
+  )";
+  QFile script(QString::fromLocal8Bit(argv[5])+"/scripts/system/tablet-ui/tabletUI.js");if(!script.open(QIODevice::ReadOnly))return 70;
+  const QString original=QString::fromUtf8(script.readAll());const auto start=original.indexOf("    var picoBackMapping = null;");
+  const auto end=original.indexOf("    var updateShowTabletTimer",start);
+  if(start<0 || end<=start || engine.evaluate(endpoints+original.mid(start,end-start),"original-pico-x-mapping.js").isError() || !standard->callback.isCallable())return 71;
+ }
+#endif
  overte::pico::e2e::NavigationUi ui;OffscreenQmlSurface surface(root,&window);int pointers=0;
  QJsonObject lastNativeResult;QJsonArray observations;auto capture=[&]{auto value=ui.observe(root,&window,true);observations.append(value);return value;};
  auto row=[&](const QString& id){for(const auto& item:capture().value("controls").toArray()){auto value=item.toObject();if(value.value("id")==id)return value;}return QJsonObject();};
@@ -159,6 +212,21 @@ QtObject {
   std::string line;while(std::getline(std::cin,line)) {
    const auto request=QJsonDocument::fromJson(QByteArray::fromStdString(line)).object();const auto action=request.value("action").toString();QJsonObject packet;
    if(action=="host-observe-original-ui") {packet=capture();}
+#if defined(ASSETS_PERSISTENT_TABLET_HOST)
+   else if(action=="host-observe-assets-pages" && persistent) {
+    packet=assetsPages.observe(root,&window,tablet->shown(),tablet->onHomeScreen(),loader->_featureQmlLoads->snapshot());
+    if(!packet.isEmpty()){packet["commandId"]=request.value("commandId");packet["action"]="observe";}
+   }
+   else if(action=="host-normal-pico-x" && persistent) {
+    const bool pressed=standard->publish(true),released=standard->publish(false);QTest::qWait(80);
+    packet=QJsonObject{{"accepted",pressed && released},{"edges",standard->edges},{"held",standard->held}};
+   }
+   else if(action=="host-original-assets-pointers" && persistent) {
+    packet=QJsonObject{{"pageAlive",!originalAssetsPage.isNull()},{"contextAlive",!originalAssetsContext.isNull()},
+     {"contextValid",originalAssetsContext && originalAssetsContext->isValid()},
+     {"loaderAlive",!originalAssetsLoader.isNull()},{"windowAlive",!originalAssetsWindow.isNull()}};
+   }
+#endif
    else if(action=="host-original-ui-input") {apply(request.value("original").toObject());packet=lastNativeResult;}
    else if(action=="feature-pico-assets-files") {packet=QJsonObject::fromVariantMap(owner.featurePicoAssetsFiles(request.toVariantMap()));}
    else if(action=="feature-pico-assets-uploads-observe") {packet=QJsonObject::fromVariantMap(owner.featurePicoAssetsUploadsObservation(request.toVariantMap()));}
