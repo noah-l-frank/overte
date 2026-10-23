@@ -93,6 +93,37 @@ class RemoteJourneyTests(RemoteActorFixture,unittest.TestCase):
             _chat_remote_actor_return_store=w.store(self.directory/'remote-typed-return.json')).items():
             setattr(self.p.adapter,name,lambda _target,store=store:store)
         self.p.adapter._chat_cursor_source_seal_store=lambda _target,**_kw:w.store(self.directory/'remote-primary-seal.json')
+        if self.full:self.trace_background_join()
+
+    def trace_background_join(self):
+        """Timing only: preserve original return/exception and once-only calls."""
+        def trace(label,callback,enabled=lambda *_args,**_kwargs:True):
+            def call(*args,**kwargs):
+                if not enabled(*args,**kwargs):return callback(*args,**kwargs)
+                started=time.monotonic()
+                def event(phase):
+                    print('Remote BG join '+label+' '+phase+' seconds='+str(round(time.monotonic()-self.started,3))+
+                        ' elapsed='+str(round(time.monotonic()-started,6)),flush=True)
+                event('begin')
+                try:result=callback(*args,**kwargs)
+                except BaseException:
+                    event('error');raise
+                event('returned');return result
+            return call
+        dispatcher=self.p.dispatcher;factory=dispatcher.factories['background']
+        def background():
+            owner=factory()
+            owner.run=trace('child.run',owner.run)
+            owner.closed_history=trace('child.closed_history',owner.closed_history)
+            owner.fresh_current=trace('child.final_freshness',owner.fresh_current,
+                lambda *_args,**_kwargs:owner.state is not None and owner.state['phase']=='observed')
+            return owner
+        dispatcher.factories['background']=background
+        active=lambda *_args,**_kwargs:bool(dispatcher.base['steps']) and dispatcher.base['steps'][-1]['route']=='background'
+        dispatcher.snapshot=trace('dispatcher.snapshot',dispatcher.snapshot,lambda kind,_owner:kind=='background')
+        for name in ('save','phase_snapshot'):
+            setattr(dispatcher,name,trace('dispatcher.'+name,getattr(dispatcher,name),active))
+        dispatcher.flow.finish=trace('flow.finish',dispatcher.flow.finish,active)
 
     def observation(self,samples,stage):
         return ChatObservationOwner(self.source,samples,self.p.flow.store,
