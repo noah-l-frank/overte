@@ -103,3 +103,21 @@ reader-history read took 0.062 seconds and its rows digest 0.016 seconds. These
 are host diagnostics only. They identify repeated full-prefix validation as
 the next executable investigation, not a qualification or a new warm owner
 constructed from the failed run.
+
+After selecting the fixed common phase-inventory dependency and the strictly
+bound warm source-graph grammar, exactly one changed full measurement again
+used the same 120-second cap. It ended with exit 124. Original dispatcher
+`completedSteps=14` was reached at 86.852 seconds and `completedSteps=15` at
+100.236 seconds. The preserved flow still ends with its completed `close`
+input; timeout occurred during that unchanged observation window, before any
+next input. Its roots contain 69 consumed independent-reader records, 70
+independent publications and 70 primary observations. The separately retained
+first run was not overwritten or relabeled.
+
+The new attempt supplies no successful common hook, Stop2/return, application,
+archive or host-close result. Read-only inspection measured the complete
+15-row flow grammar at 0.007675 seconds (0.020 seconds under profiling), so
+that grammar alone is not identified as the remaining dominant cost. Further
+profiling must use actual warm Parent/Actor calls; the failed files cannot
+reconstruct live owners. All original limits, cadence and complete physical
+byte/stamp/inventory passes remain in force.
