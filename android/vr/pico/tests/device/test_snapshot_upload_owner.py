@@ -146,7 +146,8 @@ class SnapshotUploadFlowTests(unittest.TestCase):
             sequence=self.upload_sequence,processId=123,requestedEpochMs=epoch,capturedEpochMs=epoch,source=source))
 
     def observe_account(self,command):
-        self.feature.send(command);value=self.feature.sample;value.update(instance=self.h.producer.outer,capturedEpochMs=self.h.clock())
+        self.feature.send(command);value=self.feature.sample;value.update(instance=self.h.producer.outer,requestedEpochMs=self.h.clock(),capturedEpochMs=self.h.clock(),animation={})
+        value.pop('animationFence',None) # This explicit Account model supplies no Rig observation.
         account=account_model();account.update(loggedIn=bool(self.token),principalSha256=hashlib.sha256(('e2e-'+RUN).encode()).hexdigest())
         account['observation'].update(capturedEpochMs=self.h.clock(),endpointSha256=hashlib.sha256(self.origin.encode()).hexdigest(),tokenPresent=bool(self.token),tokenValid=bool(self.token))
         value['account']=account;self.account_raw=json.dumps(value)
