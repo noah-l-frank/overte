@@ -17,10 +17,11 @@ from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
 from ios.adapters.feature_observation import FeatureObservation
 from ios.adapters.emote_native_prefix import follow
-from ios.adapters import snapshot_owned_files as source,snapshot_file_work
+from ios.adapters import snapshot_owned_files as source,snapshot_file_work,snapshot_work,snapshot_captures,snapshot_exports,snapshot_inputs
 
 VERSION=1
-KINDS={'owned':source,'file-work':snapshot_file_work}
+KINDS={'owned':source,'file-work':snapshot_file_work,'script-work':snapshot_work,'captures':snapshot_captures,
+    'exports':snapshot_exports,'inputs':snapshot_inputs}
 
 
 def originals(packet):

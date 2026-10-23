@@ -23,7 +23,9 @@ AVATAR_LABELS=frozenset({'scripts','http','people','uikit','geometry','partial',
 TABLET_COMPONENTS=frozenset({'native','sources','trace','dom','emissions','buttons','state','uikit','keys','pointer','closures','deferred',
     'scripts','work','terminal','dialogs','widgets','geometry','http','phase','record','partial'})
 POSTLOGOUT_LABELS=frozenset({'parts','record','partial'})
-PROFILES={'snapshot-file-work':dict(parent='snapshotFileWorkPartsVersion',body='snapshotFileWorkPartBodyVersion',schema='snapshotFileWorkPart',
+PROFILES={'snapshot-native-sources':dict(parent='snapshotSourcePartsVersion',body='snapshotSourcePartBodyVersion',schema='snapshotSourcePart',
+        labels=frozenset({'raw'}),subjects=frozenset({'work','captures','exports','inputs'})),
+    'snapshot-file-work':dict(parent='snapshotFileWorkPartsVersion',body='snapshotFileWorkPartBodyVersion',schema='snapshotFileWorkPart',
         labels=frozenset({'raw'}),subjects=frozenset({'primary','actor'})),
     'avatar-postlogout':dict(parent='avatarPostLogoutSegmentsVersion',body='avatarPostLogoutSegmentBodyVersion',schema='avatarPostLogoutSegment',
         labels=POSTLOGOUT_LABELS,subjects=frozenset({'primary','actor'})),
@@ -42,7 +44,8 @@ class OriginalPacketSegments:
         need(type(self).PROFILE in PROFILES);profile=PROFILES[type(self).PROFILE]
         need(subject in profile['subjects'] and callable(intent));self.subject,self.intent=subject,intent
         self.parent_key,self.body_key,self.labels=profile['parent'],profile['body'],profile['labels']
-        namespace=('snapshot-'+subject+'-file-work-parts' if type(self).PROFILE=='snapshot-file-work' else
+        namespace=('snapshot-'+subject+'-source-parts' if type(self).PROFILE=='snapshot-native-sources' else
+            'snapshot-'+subject+'-file-work-parts' if type(self).PROFILE=='snapshot-file-work' else
             'avatar-'+subject+'-tail-parts' if type(self).PROFILE=='avatar-tail' else
             'avatar-'+subject+'-postlogout-parts' if type(self).PROFILE=='avatar-postlogout' else 'tabletweb-'+subject+'-source-parts')
         self.store=OriginalFrameStore(root,binding,run,role,guard,self.transition,

@@ -26,11 +26,11 @@ class Frames:
     def read(self,reference):
         value=self.store.read(reference);exact(value,{'query','rawParts','acquisition'})
         owner=self.owner;owner.parent(value['rawParts'],value['query'])
-        raw=owner.parts().read(value['rawParts']).decode('utf-8');packet=decode(raw,limit=source.LIMIT)
+        raw=owner.parts().read(value['rawParts']).decode('utf-8');packet=decode(raw,limit=owner._source.LIMIT)
         frame=dict(query=value['query'],raw=raw,packet=packet,acquisition=value['acquisition'])
-        original(frame,owner.pid,'file-work');return frame
+        original(frame,owner.pid,owner._kind);return frame
     def write(self,index,frame):
-        owner=self.owner;original(frame,owner.pid,'file-work');parent=owner.state['rawParts']
+        owner=self.owner;original(frame,owner.pid,owner._kind);parent=owner.state['rawParts']
         owner.parent(parent,frame['query']);need(owner.parts().read(parent).decode('utf-8')==frame['raw'])
         return self.store.write(index,dict(query=deepcopy(frame['query']),rawParts=deepcopy(parent),acquisition=deepcopy(frame['acquisition'])))
 
@@ -42,15 +42,17 @@ class SnapshotFileWorkPacket(SnapshotOwnedPacket):
     _schema='snapshotNativeFileWork'
     _kind='file-work'
     _source=source
+    _segments=FileWorkSegments
+    _segment_subject=None
 
     def parts(self,live=False):
-        return FileWorkSegments(self.store.path.parent,self.binding,self.run,self.role,self.role,
+        return self._segments(self.store.path.parent,self.binding,self.run,self.role,self._segment_subject or self.role,
             self.guard if live else lambda:True,self.part_intent if live else lambda *_:need(False),monotonic=time.monotonic)
     def files(self,live=False):return Frames(self,live)
     def parent(self,value,query):
-        source.command(query);self.parts().parent(value)
+        self._source.command(query);self.parts().parent(value)
         need(value['label']=='raw' and value['tag']==hashlib.sha256(canonical(query)).hexdigest()
-            and value['first']==(self.index-1)*8+1 and value['bytes']<=source.LIMIT)
+            and value['first']==(self.index-1)*8+1 and value['bytes']<=self._source.LIMIT)
 
     def load(self,value):
         states=unpack(value['payload']);need(len(states)==1);state=deepcopy(states[0]);need('rawParts' in state and 'snapshots' in state)
@@ -69,7 +71,7 @@ class SnapshotFileWorkPacket(SnapshotOwnedPacket):
     def reserve(self):
         self.bound();need(self.state is None)
         import uuid
-        query=source.command(dict(schemaVersion=1,action=source.ACTION,commandId='ios-'+uuid.uuid4().hex,runId=self.run))
+        query=self._source.command(dict(schemaVersion=1,action=self._source.ACTION,commandId='ios-'+uuid.uuid4().hex,runId=self.run))
         self.state=dict(phase='reserved',query=query,started=None,storage=None,proof=None,rawParts=None,snapshots=None)
         self.save();return deepcopy(query)
 
@@ -103,16 +105,16 @@ class SnapshotFileWorkPacket(SnapshotOwnedPacket):
         try:
             parent=self.state['rawParts']
             if parent is None:
-                raw=self.feature.original(remote=self.feature.remote.rsplit('/',1)[0]+'/'+source.FILE,limit=source.LIMIT)
-                packet=decode(raw,limit=source.LIMIT);source.validate(packet,self.state['query'],self.pid)
+                raw=self.feature.original(remote=self.feature.remote.rsplit('/',1)[0]+'/'+self._source.FILE,limit=self._source.LIMIT)
+                packet=decode(raw,limit=self._source.LIMIT);self._source.validate(packet,self.state['query'],self.pid)
                 self.parts(live=True).write('raw',hashlib.sha256(canonical(self.state['query'])).hexdigest(),raw.encode(),(self.index-1)*8+1)
                 parent=self.state['rawParts']
             # Recovery reads complete actual parts without repeating a query,
             # AFC read, allocation or original file write.
-            raw=self.parts().read(parent).decode('utf-8');packet=decode(raw,limit=source.LIMIT)
-            source.validate(packet,self.state['query'],self.pid);after=self.native.read(self.native.sequence)
+            raw=self.parts().read(parent).decode('utf-8');packet=decode(raw,limit=self._source.LIMIT)
+            self._source.validate(packet,self.state['query'],self.pid);after=self.native.read(self.native.sequence)
             span=dict(self.state['started'],hostAfterEpochMs=self.epoch_ms(),hostAfterMonotonic=self.monotonic(),nativeAfter=deepcopy(after))
-            frame=dict(query=deepcopy(self.state['query']),raw=raw,packet=packet,acquisition=span);original(frame,self.pid,'file-work')
+            frame=dict(query=deepcopy(self.state['query']),raw=raw,packet=packet,acquisition=span);original(frame,self.pid,self._kind)
             proof=self.files(live=True).write(self.index,frame)
             self.state.update(phase='retained',proof=proof);self.save();return deepcopy(frame)
         except Exception:
