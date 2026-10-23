@@ -119,3 +119,12 @@ profile measured 304 actual fsync calls taking 7.736 seconds in total, showing
 that durable writes materially contribute to the remaining cost. This does not
 authorize skipping owned transitions, changing the deadline or filesystem
 maintenance. Whole-feature timing and completion remain unqualified.
+
+Candidate continuity is checked immediately before each complete entry decode,
+outside the immutable-original read inventory. Its installed-candidate proof
+journal can legitimately advance after a fresh observation of the same actual
+candidate; it is operational ownership metadata rather than an immutable
+postlogout source. Both full typed decodes, every declared nested original,
+exact owner context and CAS bytes remain bound. A changed actual candidate
+still refuses the next query. Focused tests cover both same-candidate journal
+advancement and changed-candidate rejection without another transport.

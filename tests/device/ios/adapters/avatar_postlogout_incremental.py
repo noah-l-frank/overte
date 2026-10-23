@@ -28,10 +28,12 @@ class AvatarPendingRound:
         self.context=self.owner_context();self.rows=canonical(owner.state['rows']);self.first=owner.state['nextSegment']
         self.last_pending=None;self.last_segment=self.first;self.metadata=canonical(owner.previous)
         self.missing=set();self.paths=set();self.previous_model=None
+        self.entry_bound()
         with scope(fresh=True) as first:
             self.entry();self.declared()
         self.paths.update(set(first)-{owner.store.path});self.signatures=self.sign(self.paths);AvatarRecordCache.absent(self.missing)
         original_paths=set(self.paths);original_missing=set(self.missing)
+        self.entry_bound()
         with scope(fresh=True) as second:
             self.entry();self.declared()
         self.paths.update(set(second)-{owner.store.path})
@@ -71,9 +73,16 @@ class AvatarPendingRound:
             return result
         except OSError:raise NativeUIError('Original Avatar file inventory is unavailable') from None
 
-    def entry(self):
+    def entry_bound(self):
+        # Candidate continuity may read its mutable proof journal. That guard
+        # is mandatory before every decode/transport, but its operational
+        # metadata is not an immutable postlogout original. Collect only the
+        # following complete typed decoder and declared original graph.
         o=self.owner;need(self.owner_context()==self.context and canonical(o.previous)==self.metadata)
         o.bound()
+
+    def entry(self):
+        o=self.owner;need(self.owner_context()==self.context and canonical(o.previous)==self.metadata)
         decoded=dict(rows=[],pending=None,nextSegment=1) if o.previous is None else o.parse(o.previous)
         decoded.setdefault('nextSegment',1)
         need(same(decoded,o.state) and decoded['pending'] is None and canonical(decoded['rows'])==self.rows

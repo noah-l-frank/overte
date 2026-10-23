@@ -8,6 +8,33 @@ from ios.self_tests.test_ios_avatar_postlogout_reads import AvatarPostLogoutRead
 
 
 class AvatarPostLogoutIncrementalTests(AvatarPostLogoutReadsTests):
+    def test_incremental_mutable_candidate_observation_is_rechecked_without_becoming_an_immutable_original(self):
+        from adapters.normal_feature_state import PrivateFeatureState
+        journal=PrivateFeatureState(self.root/'installed-candidate-observation.json')
+        journal.write(dict(candidate='a'*40,sequence=1),None);checks=[]
+        owner=self.owner();original_guard=owner.guard;factory=owner.accounts_factory
+        def bound():
+            value=journal.read();self.assertEqual(value['candidate'],'a'*40);checks.append(value['sequence']);return original_guard()
+        owner.guard=bound
+        def accounts():
+            value=journal.read();journal.write(dict(value,sequence=value['sequence']+1),value)
+            return factory()
+        owner.accounts_factory=accounts;first=owner.capture();owner.proof(first);second=owner.capture();owner.proof(second)
+        self.assertGreater(max(checks),min(checks));self.assertEqual([1,2],[row['index'] for row in owner.state['rows']])
+
+    def test_incremental_changed_actual_candidate_still_fails_before_any_later_query(self):
+        from adapters.native_feature_observation import need
+        from adapters.normal_feature_state import PrivateFeatureState
+        journal=PrivateFeatureState(self.root/'installed-candidate-observation.json');journal.write(dict(candidate='a'*40),None)
+        owner=self.owner();original=owner.guard;factory=owner.accounts_factory;calls=[]
+        def bound():need(journal.read()['candidate']=='a'*40);return original()
+        owner.guard=bound
+        def accounts():
+            result=factory();value=journal.read();journal.write(dict(candidate='b'*40),value);calls.append(deepcopy(self.calls));return result
+        owner.accounts_factory=accounts
+        with self.assertRaises(NativeUIError):owner.capture()
+        self.assertEqual(calls[-1],self.calls);self.assertIsNone(owner._pending_round)
+
     def test_incremental_old_row_change_is_rejected_before_the_next_transport(self):
         owner=self.owner();owner.capture();intent=owner.segments.intent;at_change=[]
         def actual(parent):
