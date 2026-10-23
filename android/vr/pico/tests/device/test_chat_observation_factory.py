@@ -69,6 +69,16 @@ class PicoChatObservationFactoryTests(unittest.TestCase):
         with self.assertRaises((ValueError,NativeUIError)):self.adapter._chat_observation_cursor(self.target,initial,witness=True)
         self.assertEqual([],self.h.native.inputs)
 
+    def test_original_actor_publisher_factory_requires_fixed_independent_cursor_and_keeps_exact_guard_owner(self):
+        original=self.original
+        initial=self.adapter._chat_observation(self.target,original.publisher.source,original.publisher.initial_samples,stage='initial',witness=True)
+        cursor=self.adapter._chat_observation_cursor(self.target,initial,witness=True)
+        publisher=self.adapter._chat_observation_publisher(self.target,cursor)
+        self.assertIs(cursor,publisher.cursor);self.assertIs(publisher.read_guard,cursor._freeze_guard)
+        self.assertIs(original.publisher.source.client,publisher.client);self.assertEqual([],publisher.rows)
+        self.assertEqual(self.adapter._chat_observation_publisher_store(self.target).path,publisher.store.path)
+        self.assertIsNone(publisher.store.read());self.assertEqual([],self.h.native.inputs)
+
     def test_rootless_original_observation_and_cleanup_publisher_chunks_keep_generic_cleanup_closed(self):
         self.assertFalse(self.adapter._chat_application_retained(self.target))
         stores=(self.adapter._chat_observation_store(self.target,'actor',stage='cleanup',witness=True),
@@ -77,7 +87,8 @@ class PicoChatObservationFactoryTests(unittest.TestCase):
             self.adapter._chat_cleanup_source_seal_store(self.target,witness=False),
             self.adapter._chat_cleanup_source_seal_store(self.target,witness=True),
             self.adapter._chat_observation_cursor_store(self.target,'primary'),
-            self.adapter._chat_observation_cursor_store(self.target,'actor',witness=True))
+            self.adapter._chat_observation_cursor_store(self.target,'actor',witness=True),
+            self.adapter._chat_observation_publisher_store(self.target))
         for store in stores:
             child=PrivateFeatureState(store.path.with_name(store.path.name+'.frame-000.json'))
             child.write(dict(explicitOriginalOrphan=True),None)
