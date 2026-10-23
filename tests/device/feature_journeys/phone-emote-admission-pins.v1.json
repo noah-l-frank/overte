@@ -1,6 +1,6 @@
 {
   "phoneEmoteAdmissionCatalogVersion": 1,
-  "sourceBase": "90f659091b92bcb1ee85aeb0053c737193d1fa9a",
+  "sourceBase": "53bae7a33827e9bd2b7664c7c032badc61c735c7",
   "managers": [
     "defaultScripts.js",
     "system/create/edit.js",
@@ -2047,8 +2047,8 @@
       "runtimePath": "system/avatarapp.js",
       "kind": "script",
       "encoding": "utf-16le-code-units",
-      "codeUnits": 26267,
-      "sha256": "45ccb7045419a537f39854d2461b4c4b1383e855d69d28e1f86275db2715f66e"
+      "codeUnits": 26286,
+      "sha256": "60211f0f2ca0948c1ff24e8db8f87d6fb3f2bd5f0c9fab901113681723ee4542"
     },
     {
       "path": "scripts/system/away.js",
@@ -2383,8 +2383,8 @@
       "runtimePath": "system/create/edit.js",
       "kind": "script",
       "encoding": "utf-16le-code-units",
-      "codeUnits": 162887,
-      "sha256": "4358ff98986be6bb0038d4b16aa9d0c47bbf334af80fb66c48fb07f1dc1eef30"
+      "codeUnits": 162892,
+      "sha256": "28185aa1952160c96c9d4ea3a7defe6781e72b7f07e03dc266e33930b87db488"
     },
     {
       "path": "scripts/system/create/editModes/editModes.js",
@@ -2399,8 +2399,8 @@
       "runtimePath": "system/create/editModes/editVoxels.js",
       "kind": "script",
       "encoding": "utf-16le-code-units",
-      "codeUnits": 32430,
-      "sha256": "1d45f0bf32f83e1eff37a2959551d6b219a3ca870270edd7022b4d5f16d7c15e"
+      "codeUnits": 36581,
+      "sha256": "04c92005463139538f1762124d006f402d1ca5a38a6ddae75ffe28631cebfc19"
     },
     {
       "path": "scripts/system/create/entityList/entityList.js",
@@ -2519,8 +2519,8 @@
       "runtimePath": "system/create/modules/nativeCreateBridge.js",
       "kind": "script",
       "encoding": "utf-16le-code-units",
-      "codeUnits": 15596,
-      "sha256": "1ba41687ccb705c6a57d9226d7351d4da67c93128ac8426f0309f9f02d651e6f"
+      "codeUnits": 15627,
+      "sha256": "2ee35ed11bf7595ee92d51a4255b1d62bcccf400e8719462d9d755a0e4623b21"
     },
     {
       "path": "scripts/system/create/modules/picoPropertiesValidation.js",
@@ -2879,8 +2879,8 @@
       "runtimePath": "system/libraries/peopleConnection.js",
       "kind": "script",
       "encoding": "utf-16le-code-units",
-      "codeUnits": 11585,
-      "sha256": "749f488851f5c0303e82c44c46059b1146a22f16d8ade7416613465cfdb1ed83"
+      "codeUnits": 11954,
+      "sha256": "ecb049f5df774efcd10d06011887e63397edadb341e80f8f0874b7592c4171a3"
     },
     {
       "path": "scripts/system/libraries/picoTabletSettings.js",
@@ -3039,8 +3039,8 @@
       "runtimePath": "system/places/places.js",
       "kind": "script",
       "encoding": "utf-16le-code-units",
-      "codeUnits": 33334,
-      "sha256": "cdb8de19691d6ba411be453edec14a1152c6a97924ecf2e05eb3cbbf310f0cd6"
+      "codeUnits": 33552,
+      "sha256": "fc94fb6a919aa5c670d9b3073f7dee1aafe1e570ee8d1e62450b021389567afb"
     },
     {
       "path": "scripts/system/places/placesHtml.js",
@@ -3111,8 +3111,8 @@
       "runtimePath": "system/snapshot.js",
       "kind": "script",
       "encoding": "utf-16le-code-units",
-      "codeUnits": 40013,
-      "sha256": "6dc13093c056d3c89e3f2d86e5d09bca88e7cd623afe8acae14e8775808529ba"
+      "codeUnits": 40727,
+      "sha256": "35b3752d4b20402f9e4e1905e3a313fa32764f36700c2e941767bf2e04409c51"
     },
     {
       "path": "scripts/system/tablet-goto.js",
