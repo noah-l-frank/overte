@@ -3120,5 +3120,31 @@
       "durableWriteSeconds": 2.102271
     },
     "qualification": "Only exact already-validated historical JSON semantics are reused behind immutable bytes/cache identity, complete context dependencies and fresh full physical Store.read/root equality. Independent source queries, file identity/byte checks, durable writes, clocks/caps/windows remain unchanged. Three actual final-input counters reject changed file budget, JSON-equivalent prior tuple and equal cache replacement before any pointer. Measurements establish reduced semantic parsing; total sampling acceleration and universal scheduling reliability are not claimed. Previous timing failures remain retained."
+  },
+  "snapshotReturnAndRemoteChatGraph20261023": {
+    "status": "passed",
+    "sourceCommits": [
+      "2e6da0be3dc6672d0d5080293d21e730f4ad63a1",
+      "57390230a26ca5ca4e317a59cfe066fba39bb5e0",
+      "925e1dc330534a285985f68ffcdbc5bffcb584d1"
+    ],
+    "integrationCommits": [
+      "1ef02bb507",
+      "fa0a237830",
+      "d271fbe7a0"
+    ],
+    "catalogAtRun": 189,
+    "groups": 7,
+    "seconds": 199.25,
+    "checks": {
+      "coverage": 0.091,
+      "chatCursor": 9.31,
+      "chatGraphSeal": 21.325,
+      "chatCleanupConsumption": 63.902,
+      "chatActorProcessReturnRemoteGraph": 33.52,
+      "snapshotReturnImageAndFactory": 29.389,
+      "snapshotReturnFences": 41.715
+    },
+    "qualification": "Actual private original PNG/receipt/files/OFD/process sources and existing render/storage/inventory readers with explicit GPU/Android/native/product/Parent seams. Snapshot source/lifecycle bookends surround a new two-eye used-camera capture, temporary memory/receipt absence and final physical stamps. Chat remote graph remains historical pending admission only; literal transport reads now own actual OFD pairs and reject recycled numbers without closing foreign handles. No whole feature/device or full journal retirement qualification."
   }
 }

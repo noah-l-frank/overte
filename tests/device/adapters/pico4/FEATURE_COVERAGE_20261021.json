@@ -1140,7 +1140,10 @@
         "tests/device/adapters/chat_journey/cursor_source_seal.py",
         "tests/device/adapters/chat_journey/CURSOR_SOURCE_SEAL.md",
         "tests/device/adapters/chat_journey/cursor_cleanup_consumption.py",
-        "tests/device/adapters/pico4/chat_cursor_actor.py"
+        "tests/device/adapters/pico4/chat_cursor_actor.py",
+        "tests/device/adapters/chat_journey/remote_actor_graph.py",
+        "tests/device/adapters/observer_return.py",
+        "tests/device/adapters/chat_journey/REMOTE_ACTOR_GRAPH.md"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1184,7 +1187,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Compose the actual original live observer-process return handshake with the global consumed cleanup, complete immutable source archive and final host/RPC closure. Preserve direct-cleanup sequenceSucceeded=false and independent actor source ownership.",
+      "nextExecutableStep": "Join the pending typed nine-root remote Actor graph to its controlled parent-consumed successor and original transport/kernel receipt. Add explicit versioned consumed-prefix Stop admission; never rebase the global cursor or restore live Actor owners from files. Then compose complete immutable archive/host/RPC/stereo closure.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1243,7 +1246,9 @@
         "tests/device/adapters/pico4/SNAPSHOT_UPLOAD_OWNER.md",
         "tests/device/adapters/pico4/snapshot_background_owner.py",
         "tests/device/adapters/pico4/snapshot_base_frame.py",
-        "tests/device/adapters/pico4/SNAPSHOT_BACKGROUND_OWNER.md"
+        "tests/device/adapters/pico4/SNAPSHOT_BACKGROUND_OWNER.md",
+        "tests/device/adapters/pico4/snapshot_return_image.py",
+        "tests/device/adapters/pico4/SNAPSHOT_RETURN_IMAGE.md"
       ],
       "declaredCheckpoints": 18,
       "inputVerbs": [
@@ -1293,7 +1298,7 @@
         "Delete only actual owned private/saved/received/uploaded originals",
         "Restore permissions/preferences and observe quiet absent leases"
       ],
-      "nextExecutableStep": "Obtain a new independent original backend PNG after the integrated normal HOME/return owner and a separate actual stereo VR return image; compose normal Close and retained story/Executor/marker cleanup plus original restoration. The unchanged complete Upload prefix passes69.610s at integrated40084f with strict930 guards; background normal/factory and error groups pass. Share metadata does not prove Share.",
+      "nextExecutableStep": "Compose normal Close and original checked mode/format restoration after the now integrated fresh two-eye used-camera return capture and original memory/receipt retirement. Qualify scene challenge/marker, independent Actor, Panorama/Cubemap, retained story/Executor/marker cleanup and complete original restoration; old runs have no invented13-key pre-input lease.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

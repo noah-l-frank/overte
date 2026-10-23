@@ -2199,3 +2199,34 @@ physical reads/writes, windows and caps. See [the full cost qualification](ASSET
 The next actual Assets step is normal persistent TabletRoot Home/page/context
 retirement; the borrowed tablet surface window is not a destroyed-page proof.
 No complete new feature or application/device qualification is claimed.
+
+
+## Fresh Snapshot return originals and pending remote Chat graph
+
+Fixed2e6da0be3d/57390230a2/925e1dc330 are selected as
+1ef02bb507/fa0a237830/d271fbe7a0. The original stereo retirement dependency
+is already byte-identical in Root and is not selected twice. Snapshot uses
+the existing canonical capture/source lock and original WorldRender/Storage/
+Inventory/Graphics readers, requiring both eyes and actual used-camera data.
+Fresh Snapshot/lifecycle originals bracket the new capture; actual temporary
+Memory/receipt absence precedes shared owner discard. Own parent/header/chunk
+and complete PNG physical identity checks also follow the last native guard.
+Unknown acquisition/release remains retained without cold replay. Existing
+parents stay unchanged. GPU/Android/native/render producers are explicit host
+seams; scene/challenge, independent Actor, Panorama/Cubemap, normal Close and
+full original preferences/story/Executor/marker retirement remain open.
+
+Chat's pending remote DTO validates exactly the nine original Actor-v2 graph
+roots, original flow/admission/stop/seal and every physical immutable child,
+using the same extracted native/V8/phase/observation/transition grammar as warm
+readers. No live Actor is reconstructed and no historical packet becomes fresh.
+Its controlled successor plus original transport/kernel receipt must still be
+joined; Stop1 stays strict and cannot be relaxed into a fabricated cursor
+offset. The literal transport reader now owns actual descriptor pairs and
+refuses same-file recycled numbers without closing foreign handles.
+
+All seven selected groups pass199.25s (catalog189): cursor9.310s, seal21.325s,
+cleanup consumption63.902s, Actor/process/return/remote graph33.520s, Snapshot
+return/factory29.389s, return fences41.715s, coverage0.091s. All120s group
+limits remain unchanged. Source-complete areas stay3/14; no full application,
+physical device or complete whole-resource retirement is claimed.

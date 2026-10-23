@@ -14,7 +14,7 @@ def selected(part):
     if part=='cursor-cleanup-consumption':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_cursor_cleanup_consumption')
     if part=='cursor-archive':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_cursor_archive')
     if part=='cursor-actor':return unittest.defaultTestLoader.loadTestsFromNames([
-        'self_tests.test_pico_chat_cursor_actor','self_tests.test_chat_observer_process','self_tests.test_observer_return'])
+        'self_tests.test_pico_chat_cursor_actor','self_tests.test_chat_observer_process','self_tests.test_observer_return','self_tests.test_chat_remote_actor_graph'])
     if part=='cursor-source-seal':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_cursor_source_seal')
     if part=='observation-cursor':return unittest.defaultTestLoader.loadTestsFromNames([
         'self_tests.test_chat_observation_cursor','self_tests.test_chat_observation_publisher'])
