@@ -87,6 +87,7 @@ REQUIRED = {
     "pico-chat-archive-plan": 4,
     "pico-chat-cursor-archive-extension": 1,
     "pico-chat-cursor-actor": 1,
+    "chat-observer-process-presence": 1,
     "pico-chat-host-close": 1,
     "pico-chat-restart-io": 1,
     "pico-openxr-binding-transfer": 1,
