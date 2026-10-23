@@ -505,6 +505,43 @@ def create_adapter(args, base_class):
                 self._location_bookmarks(target), path, run, manager.binding)
 
         @_private
+        def _navigation_prefix(self,target,run,phase_source,status,provider_instance,inputs,owned_origin,source_profile,*,source_lock,role='primary'):
+            from adapters.native_feature_observation import need
+            from adapters.navigation_bookmarks import NavigationBookmarks
+            from adapters.navigation_directory import NavigationDirectory
+            from adapters.navigation_origin import NavigationOrigin
+            from adapters.pico4.navigation_prefix import NavigationPrefix
+            from adapters.pico4.navigation_prefix_source import NavigationPrefixSource
+            from adapters.pico4.normal_navigation_origin import PicoNavigationOriginIO
+            from adapters.pico4.normal_places import PicoPlacesIO
+            from adapters.pico4.tablet_home import bind_home
+            from adapters.token_places_ui import TokenPlacesUI
+            lock=self._script_journey()._lock(target,source_lock)
+            lock.assert_held()
+            manager=self._scripts(target);native=self._native_feature_observer(target)
+            root=lock.path.parent
+            def guard():lock.assert_held();return native.guard()
+            def ui(intent):return TokenPlacesUI(PicoPlacesIO(manager.ui.io),intent,run,monotonic=native.monotonic,sleep=native.sleep)
+            environment=self._navigation_environment(target);storage=self._location_bookmarks(target)
+            directory_source=self._navigation_directory_source(target)
+            origin=NavigationOrigin(PicoNavigationOriginIO(manager.ui.io),environment,root/'navigation-prefix-origin.json',
+                run,manager.binding,guard,home=bind_home(self,target,native),monotonic=native.monotonic,sleep=native.sleep)
+            directory=NavigationDirectory(ui,directory_source,status,root/'navigation-prefix-directory.json',run,manager.binding,
+                provider_instance,inputs,owned_origin,source_profile,guard,monotonic=native.monotonic,sleep=native.sleep)
+            bookmarks=NavigationBookmarks(ui,storage,root/'navigation-prefix-bookmarks.json',run,manager.binding,
+                monotonic=native.monotonic,sleep=native.sleep)
+            source=NavigationPrefixSource(ui(lambda _value:need(False)),self._navigation_arrival(target,run,inputs['sceneUrl']),
+                storage,self._navigation_panels(target),environment,self._navigation_modals(target),directory_source,status,
+                run,manager.binding,inputs,provider_instance,owned_origin,source_profile,native.clock_ms,guard)
+            return NavigationPrefix(root/'navigation-prefix-owner.json',source,phase_source,lock,origin,directory,bookmarks,
+                self.pico_input_session(target),role=role,monotonic=native.monotonic)
+
+        @_private
+        def _navigation_prefix_owned(self,target):
+            root=self._script_journey()._state_directory(target,create=False)
+            return root is not None and any(path.name.startswith(('navigation-prefix-','navigation-')) for path in root.iterdir())
+
+        @_private
         def _navigation_arrival(self, target, run, scene_url):
             from adapters.navigation_arrival import NavigationArrival
             manager=self._scripts(target);native=self._native_feature_observer(target)
@@ -1804,7 +1841,7 @@ def create_adapter(args, base_class):
                         discard_stopped_state(path)
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
-                _need(not snapshot_error and not audio_error and not create_error and not self._create_management(target).owned()
+                _need(not self._navigation_prefix_owned(target) and not snapshot_error and not audio_error and not create_error and not self._create_management(target).owned()
                       and not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._lifecycle_back_store(target).read() is None
                       and (self._lifecycle_world_store(target,create=False) is None or self._lifecycle_world_store(target,create=False).read() is None)
