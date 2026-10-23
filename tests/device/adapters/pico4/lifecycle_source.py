@@ -130,12 +130,14 @@ class PicoLifecycleSource:
                 epoch=self.clock_ms();validate(value,request,self.pid,epoch)
                 need(value['capturedEpochMs']>=requested)
                 current=accept(self.previous,summary(value))
-                need(self.guard() is not False)
+                result=deepcopy(value);sha=hashlib.sha256(raw.encode()).hexdigest()
+                need(self.guard() is not False);epoch=self.clock_ms()
                 completed=self.monotonic();need(number(completed,0,1e15) and previous<=completed and completed-started<5
+                    and -250<=epoch-value['capturedEpochMs']
                     and max(epoch-value['capturedEpochMs'],
                         requested-value['capturedEpochMs']+(completed-started)*1000)<=1500)
-                self.previous,self.last_raw,self.last_sha256=current,raw,hashlib.sha256(raw.encode()).hexdigest()
-                return deepcopy(value)
+                self.previous,self.last_raw,self.last_sha256=current,raw,sha
+                return result
             if attempt<50:self.sleep(.1)
         need(False)
 

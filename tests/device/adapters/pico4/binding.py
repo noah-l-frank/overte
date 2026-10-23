@@ -2028,6 +2028,16 @@ def create_adapter(args, base_class):
                 if path.name in names or path.name.startswith('lifecycle-background-originals.json.frame-'):return True
             return False
 
+        def _lifecycle_pending_owned(self,target):
+            store=self._lifecycle_world_store(target,create=False)
+            if store is None:return False
+            parent=store.path.parent;store._parent()
+            names={'lifecycle-pending-owner.json','lifecycle-pending-originals.json'}
+            for index,path in enumerate(parent.iterdir()):
+                _need(index<4096)
+                if path.name in names or path.name.startswith('lifecycle-pending-originals.json.frame-'):return True
+            return False
+
         @_private
         def _lifecycle_world(self,target,run,*,source_lock=None):
             from adapters.pico4.lifecycle_world import PicoLifecycleWorld
@@ -2206,6 +2216,24 @@ def create_adapter(args, base_class):
                 lambda operation,owned:facade._graphics_lifecycle_input(target,operation,owned),runtime,
                 monotonic=world.monotonic if world is not None else time.monotonic,
                 sleep=world.sleep if world is not None else time.sleep)
+
+        @_private
+        def _lifecycle_pending_owner(self,target,run,*,source_lock=None,world=None,background=None):
+            from adapters.pico4.lifecycle_pending import PicoLifecyclePending
+            from adapters.pico4.lifecycle_world import PicoLifecycleWorld
+            from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
+            if world is None:world=self._lifecycle_world(target,run,source_lock=source_lock)
+            _need(type(world) is PicoLifecycleWorld and world.run==run
+                and (source_lock is None or world.lock is source_lock))
+            if background is None:
+                background=self._lifecycle_background_owner(target,run,source_lock=world.lock,world=world)
+            _need(type(background) is PicoLifecycleBackground and background.lock is world.lock
+                and background.run==run and background.binding==world.binding)
+            route,_observe,binding=self._script_runtime(target)
+            _need(binding==world.binding)
+            pending=self._pending_owner(target)
+            return PicoLifecyclePending(background,world,route,pending,
+                self._lifecycle_world_store(target).path.with_name('lifecycle-pending-owner.json'))
 
         def _lifecycle_back_store(self,target):
             state,_ui=self._script_paths(target)
@@ -3532,6 +3560,7 @@ def create_adapter(args, base_class):
                       and self._lifecycle_back_store(target).read() is None
                       and (self._lifecycle_world_store(target,create=False) is None or self._lifecycle_world_store(target,create=False).read() is None)
                       and not self._lifecycle_background_owned(target)
+                      and not self._lifecycle_pending_owned(target)
                       and (self._audio_page_store(target,create=False) is None or self._audio_page_store(target,create=False).read() is None)
                       and not self._audio_capture_owned(target)
                       and self._script_restart_inputs_store(target).read() is None
