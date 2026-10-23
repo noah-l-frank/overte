@@ -1,5 +1,33 @@
 # Android Phone Snapshot adapter
 
+## Current Android Phone closure, 2026-10-23
+
+All **14/14** common v18 areas have Phone source composition and scoped host
+journey evidence. Snapshot now joins the other thirteen areas: the unchanged
+original SDK26–28 whole module passed **27/27**, and the unchanged original
+SDK29+ whole module passed **23/23**, both on source
+`7be78768fa023ea88eada5ddfabd1189ff9d665f` and the same twelve actual runtime files.
+Their actual before/after runtime-map SHA-256 is
+`c3759c9aeba00d8483ff8df2a98b100df2de3a4cc7a4c12c844e6616ac0e347a`.
+The strict closed-proof qualifier passed with `sourceComplete=14`; the machine
+matrix is taken from its output, rather than reconstructed from expected pins.
+The other thirteen areas retain their documented scoped evidence; they were
+not all rerun by the final Snapshot qualification.
+
+This is source/test-logic closure with explicit synthetic native/Android seams.
+It does not claim a complete registered-suite run, a complete Android native/APK
+build, real Android OS behavior or physical acceptance. Required capabilities,
+private controls, original evidence and source admission still fail closed;
+turning on a flag alone cannot supply them. Pico and iOS have separate sessions
+and receive no qualification from this Phone result.
+
+The detailed component measurements below are historical evidence at their
+original sources unless explicitly identified as the final 7be whole runs.
+They retain actual counts and failed results. The current scheduling section
+and [source evidence record](SOURCE_STATUS.md#evidence-scope-and-history) govern
+current integration status; component timing is not Android device timing.
+
+
 ## Guarded host publication
 
 Snapshot role reads keep actual target checks at entry, immediately before
@@ -26,17 +54,17 @@ native FD/inode/close originals and independent binary acquisition, including
 partial output ownership and one-send durable retirement. Its component sources
 and host contracts are verified within the boundaries
 documented below. The public facade, independent actor and strict retirement
-are implemented; full common SDK29+ and SDK26–28 qualification is still pending.
+are implemented and both unchanged complete SDK29+ and SDK26–28 host modules
+have now passed on the identical final runtime12 inputs listed above.
 
 The existing normal `snapshot.open/capture/files/close` implementation remains
 the owner of the catalog's `snapshot-output-parity` foundation. It obtains
 original files independently of input delivery. The current common contract is
 **v18**. The Phone adapter contains the default-off
 `feature.snapshots.act|observe|cleanup` triple and its guarded public dispatch.
-Registration is source availability, not full qualification: both complete
-Android backend replays, required foundations and recovery counterexamples must
-pass before this area joins the thirteen completed Phone source/host
-compositions. Device acceptance and a complete Android client build remain
+Registration alone is source availability. Both complete Android host backend
+modules, their required foundations and scoped recovery tests now qualify this
+area as the fourteenth Phone source/host composition. Device acceptance and a complete Android client build remain
 unverified. Historical v17 contracts and earlier component results are retained.
 
 ## Passive native source v5
@@ -862,7 +890,8 @@ selection passed 51 cases in 29.488 seconds. The separate
 [full retirement audit](../../../../android/phone/tests/device/test_snapshots_full_retirement_audit.py)
 passed five cases in 90.218 seconds with actual TLS bodies, filesystem effects
 and a separate actor process. These are targeted host/component results;
-complete common SDK29+ and SDK26–28 replay qualification remains pending.
+at that historical stage they did not qualify either complete backend. The
+final complete backend runs are recorded above.
 
 An already owned facade constructor establishes only immutable host-header
 identity. Every `load()` selects actual foreground, background-recovery or
@@ -1189,10 +1218,11 @@ hidden by the digest. The pass closes on success or failure before a new normal
 role acquisition. Paths outside an explicitly admitted historical pass retain
 their original locked authority. Eight host test methods exercise this helper. The public observation
 path is integrated with eleven stage/ownership cases and seven late-after-read
-file/owner counterexamples. Both complete common replay qualifications remain
-pending; these tests alone do not qualify the whole Snapshot composition.
+file/owner counterexamples. Those targeted tests alone did not qualify either complete backend. The final
+complete qualification is separately recorded above.
 
-Ordinary Primary observation has a separate constructor pass,
+Primary observation uses the constructor pass below; ordinary baseline/active
+and cleanup-foreground admission remain distinct. Ordinary Primary observation has a separate constructor pass,
 `SnapshotConstructorHistoryPass`. Under the first source lock, `prepare()`
 requires a baseline/active feature with no current action or OS handoff and an
 existing nonempty ready Primary role journal. It pins the actual feature/role
@@ -1209,8 +1239,16 @@ sealed metadata receipt. No target reader factory, native observation, input,
 recovery, publication or source clock query is permitted in this unlocked pass.
 Its graph digest describes historical bytes, never a current measured effect.
 
-After reacquisition, `before_load()` checks the pinned owners before `load()`
-can adopt state; `after_load()` checks the newly parsed state again. The normal
+After reacquisition, `before_load()` checks pinned owners and fresh target/phase
+authority. Ordinary active and passive paths retain `load()` and `after_load()`.
+Cleanup foreground alone omits that duplicate second load and after-load check:
+Feature RAM/header/refs/config/binding/SDK scope and guard/runtime-guard/
+scope-ready/factory identities were pinned before prepare callbacks, checked
+after them and remain unchanged through before-load qualification. A changed
+pin is rejected, never adopted. Fresh source factories and native guards still
+recheck installed identity. Replay-only metadata guards replace repeated owner
+JSON parsing only during callback-free historical body reads; full owner reads
+remain at replay start/end and all locked/callback bookends. The normal
 Role constructor independently checks its first actual role-header read with
 `constructor_header()` before parsing state or creating readers. `frames_for()`
 consumes only the sealed original graph for that exact constructor. All usual
@@ -1223,9 +1261,9 @@ Equal-payload header replacement is rejected through the original inode and
 modification/change metadata. No historical check substitutes for the new
 current sources acquired by `Role.read()`.
 
-Actor, generic, OS-handoff, pending, preparing, cleaned and empty-bootstrap paths
-retain their existing guarded behavior; cleanup continues to use its separate
-history pass. A missing known role journal is not an empty bootstrap. Actual
+Actor, generic, OS-handoff, pending, preparing and empty-bootstrap paths retain
+their existing guarded behavior. Cleaned foreground uses the explicitly
+admitted cleanup constructor pass described in the causal scheduling section. A missing known role journal is not an empty bootstrap. Actual
 remaining frame/index originals, run-owned PNG/binary outputs, private transfer
 directories or the observer-file owner journal make that fallback fail closed.
 An actual partial read retains its durable diagnostic and owner. Retry pins the
@@ -1264,7 +1302,8 @@ bootstrap and busy paths retain 250 ms. This scheduling hint grants no target
 or publication authority; the next step still validates every original and
 acquires fresh sources. The cleanup pause leaves two opportunities for the
 existing 25 ms source-lock contender poll. Actual fairness, complete lock holds
-and the complete common deadline still need qualification together.
+and the complete common deadline required later whole qualification together,
+now separately recorded above.
 
 Primary cleanup no longer serializes an unchanged full history graph at every
 owner comparison. Cheap checks still validate the current headers, role state
@@ -1293,9 +1332,9 @@ reset the actor quiet interval. A later bounded run with the actual common
 primary and actor cadence at that revision, thirty additional primary frames and thirty actor
 frames, retained ten advancing quiet samples without a reset; the largest
 completion gap was 1.424 seconds. The separate actor acquired the actual shared
-source lock once during each unlocked history pass. This scheduling check does
-not qualify either complete SDK29+ or SDK26–28 common replay, which remain
-pending, including strict ordinary-phase transition recovery.
+source lock once during each unlocked history pass. This scheduling check
+did not itself qualify either complete backend. Final whole results, including
+ordinary-phase transition recovery, are separately recorded above.
 
 Closure may race an already completed cleanup batch. A narrow deferral requires
 the actor's own durably completed quiet interval and its actual issued cleanup
@@ -1306,9 +1345,8 @@ the warm reader is discarded while its trusted Role header is retained. The
 next normal step reconstructs from that exact header, recovers the partial
 original and obtains fresh closed-phase sources and restoration proof before
 retirement. Incomplete quiet, missing receipt, changed phase/owner or unresolved
-source work cannot qualify this path. New dedicated close-race counters are
-still awaiting their recorded result at this handoff; no pass is inferred from
-the ordinary scheduling tests.
+source work cannot qualify this path. The later dedicated close-race counters and original whole modules have their
+own recorded results; no close-race pass is inferred from ordinary scheduling tests.
 
 The durable owner is written before setup can acquire settings, capture-file or
 document leases. Baseline preparation takes readonly originals before ordinary
@@ -1373,12 +1411,12 @@ versions, missing originals, a foreign late process identity and a rolled-back
 role floor. A separate held-exit case verifies that a retired actor which still
 runs cannot authorize any archive or journal removal.
 
-The historical compiler, Java/JNI, Qt, file, transport, reducer, actor and
-recovery results above remain scoped host evidence. The current focused facade
-suite has twenty-two passing cases, including actual private filesystem/journal
-recovery and an actual separate actor process. Full public common SDK29+ and
-SDK26–28 replay qualification is still pending; this document does not promote
-Snapshot to the thirteen qualified Phone compositions. No hardware run,
+The historical compiler, Java/JNI, Qt, file, transport, reducer, Actor and
+recovery results above remain scoped host evidence. The historical focused
+facade suite had twenty-two passing cases, including private filesystem/journal
+recovery and a separate Actor process. Final unchanged whole modules now pass
+27/27 and 23/23 at the identical final runtime12, closing the fourteenth Phone
+source/host composition. No hardware run,
 installation, complete Android build, Proxmox laboratory result or device
 acceptance is claimed by these source and host checks.
 
@@ -1460,3 +1498,163 @@ change is introduced. This is not evidence of a product resource leak, nor a
 claim that every Python object becomes immediately unreachable. Immutable
 originals, pending recovery journals, actual native resources and retained
 independent Actor readers keep their existing owners and retirement rules.
+
+## Causal cleanup scheduling and retained Actor history
+
+The following current mechanisms are implemented and covered by the complete
+SDK26–28 whole27 and SDK29+ whole23 host qualifications at Root 7be/runtime c375.
+They establish no client-build or device acceptance. Earlier measurements and
+failed runs above retain their original source and evidence scopes.
+
+Full cleanup may enroll the already known, live, separate Actor by saving
+`cleanupStages.readReadyMode` in the same feature-owner compare-and-swap that
+makes `phase:cleaned` visible. The closed mode grammar is
+`{snapshotCleanupReadReadyVersion:1,actorProcess:{pid,start}}`; `start` is the
+actual process-birth identity. Enrollment cannot be supplied by an expected
+result, a new caller-selected process or partial cleanup. An absent marker
+preserves the legacy path. A present malformed marker or foreign Actor fails
+validation rather than falling back to legacy behavior. This adds no new Actor
+journal version: the lifecycle remains version 3 and `primaryCue` remains
+version 1.
+
+For an enrolled cleanup observation, the Primary first performs its complete
+constructor-history pass. Its unlocked work still opens and validates all
+historical manifests, frame JSON, PNGs and binaries under the actual pinned
+owners. Current factories and continuity-floor reconstruction stay locked.
+After constructor qualification it appends an ordinary durable diagnostic
+original containing `readReadySlot`. The slot has version 1, an opaque `slotId`,
+`preparedRoleSequence`, `preparedRoleOwnerSha256`, the exact
+`preparedRoleHeader`, `featureOwnerSha256` and the enrolled `actorProcess`.
+Both recorded phase packets must identify the same active cleanup activation
+and ticket. The slot header advances its exact prepared ready Role by one
+original and retains the complete prior manifest prefix. The diagnostic has
+`image:null`, `binaries:[]`, `retirement:null` and no measured effect facts.
+
+The constructor pass checks the old owner and all receipts immediately before
+the slot's first durable intent compare-and-swap. Only acknowledgement of that
+same owned slot can reseal the pass against its new ready header and originals.
+A resumed pending slot must recover its actual durable original; it cannot
+adopt an unrelated diagnostic or silently rebase to a foreign Role owner.
+The Primary then releases the source lock and waits for the separate Actor's
+actual issued-sample/receipt join with `primaryCue` equal to that exact slot
+header. The Actor must have completed its own contiguous quiet interval and
+its last quiet sequence must equal the published sample's own Role sequence.
+The Primary checks the exact Actor owner on both sides of the fresh fixture
+clock query; its adapter credential does not acquire peer measurement facts.
+Both original capture and service-receipt times retain the existing 1.5-second
+freshness check. The wait retains its twenty-second real monotonic bound.
+After relocking, the Primary requalifies the constructor pass and all original
+file receipts before obtaining a new current Primary sample.
+
+A slot, Primary cue or matching service receipt is scheduling authority only.
+No Primary fact, time or sequence becomes an Actor observation. Every accepted
+Actor sample comes from a new independent `Role.read()` and fresh restoration
+checks. Reusing a sample acquired before the slot cannot satisfy that slot.
+An unchanged consumed slot or a reading/pending Primary owner permits neither
+a further current Actor read nor a new publication. At the earlier maintenance
+implementation, a later ready normal measurement could authorize an unpublished
+sample. That historical behavior is superseded by the current slot-only wait:
+a normal successor alone grants no post-receipt current read. The issued sample,
+receipt and existing real quiet timestamps remain unchanged until a NEW typed
+slot permits a new independent acquisition and, if needed, real quiet rebuilding.
+
+`SnapshotActorHistoryPass` moves only complete historical host-file replay out
+of the retained Actor's next source-lock turn. At the end of the preceding
+verified cleanup step, while its existing lock is still held, preparation pins
+the three actual Feature, Actor lifecycle and Actor Role headers and their
+file identities; trusted configuration, binding, private root, run,
+process/thread, state/frame graphs, SDK scope and guard identity are pinned too.
+Preparation performs no new native observation after the receipt. The next step
+reopens every old Actor original before its first lock acquisition. It uses
+the existing complete readers and actual byte/hash/schema/PNG checks, including
+planned absence, with sealed metadata receipts and unchanged per-file bounds.
+The Primary header is deliberately outside this historical pass: the Primary
+may legitimately append its next slot during the unlocked replay.
+
+After relocking, the retained pass requires all three owners, graphs and scope
+to remain unchanged. It brackets fresh current target/phase guards with actual
+header and original-file metadata checks. Exact owner inode and modification/
+change metadata reject equal-payload replacement and restoration. Because no
+owner changed, it does not reload or adopt new Feature or Actor state. The
+actual latest typed-slot decision is made only after relocking. Before
+the new current read it checks all receipts again; restoration and the final
+Actor-save guard retain old-file receipt and graph-prefix checks. The pass
+closes when that step ends, including on failure. The complete Actor lifecycle
+graph must still match its pinned owner after the new read and restoration,
+before its own quiet-window update. Each enrolled Actor save separately pins
+the intended lifecycle DTO before its fresh bound callback and checks that same
+graph after all save guards, immediately before the durable compare-and-swap.
+A callback cannot shorten the real quiet interval by rewriting its start time.
+Historical receipts contain no cached current source response or product fact.
+
+Initial enrolled warmup retains its one-sample scheduling. After an issued
+cleanup receipt, no further current Role acquisition is allowed without a NEW
+validated typed slot, including after a normal Primary successor. Unchanged
+consumed, reading and diagnostic Primary state supplies no acquisition
+permission. A validated unconsumed typed read-ready slot is the sole exception:
+while its Primary waits unlocked, a bounded four-second turn may rebuild quiet.
+Every additional sample first obtains a NEW same-lock ActorHistory pass with
+complete actual old-byte replay, fresh qualification and a new pinned prefix;
+no old pass is reused or resealed. The real quiet rule remains at least three
+advancing samples over three real seconds, with any gap greater than 1.5 seconds
+resetting the interval. Every used batch pass closes on return or failure.
+Legacy (`readReadyMode` absent) has a narrow first-receipt rule: after actual
+independent current reads and real quiet completion, it can publish its first
+cleanup receipt without a new matching Primary cue. The known Primary history
+floor is preserved through `primary_continuity`; no cue, Primary fact or time
+is invented. Subsequent receipt/advance rules and strict fresh closed-phase
+proof remain required. Mode1 typed-slot behavior is unchanged by that fix.
+Neither a slot, scheduling yield nor incomplete quiet supplies a witness.
+
+Changed or missing known owners, modified/missing old files, changed graphs or
+SDK scope, foreign slots/receipts and incomplete cleanup remain failures;
+there is no cache-based fallback or owner rebase. A partial current read keeps
+its durable recovery responsibility. Actual fixture closure still requires
+the separate fresh closed-phase read, restoration proof, Actor retirement and
+observed process exit. A narrow close-race deferral requires the already durable
+completed quiet interval and matching issued sample/receipt; it creates no
+closure proof. Finalization reopens archived slot originals and checks their
+typed mode/process, prepared-owner digest, exact manifest prefix and archived
+Actor cue. Repeated retirement cannot rewrite those private originals or infer
+success from absent journals. All slot and owner details remain private;
+public results retain the existing opaque-resource and privacy rules.
+
+## Per-call historical guards and file scans
+
+`Feature.input_originals()` still opens and validates every actual input body,
+hash and schema on every call. Only repeated unchanged owner-JSON parsing is
+replaced by a per-call exact metadata guard. Current RAM is pinned independently
+of durable state, allowing legitimate unsaved owned transactions while rejecting
+callback mutation. Full owner, graph and file-receipt checks follow the final
+native callback; deleting or replacing an already read file still fails before
+return. No current result or historical baseline is cached across calls.
+
+`SnapshotHistoryReadPass._verify_files()` checks the actual private root before
+and after its callback-free metadata scan. Its full device/inode/owner/mode/link/
+size/mtime/ctime signature must match only across that scan; every file retains
+its exact signature and `path.parent == root` check. Root identity is not pinned
+across legitimate own archive writes. Actual filesystem counterprobes reject
+root chmod/restore ABA, file replacement or absence and foreign parents.
+
+## Historical evidence scope
+
+Earlier progress counts and failed runs describe their original source revisions,
+not the current state. The earlier SDK29 whole23 on Root `060cbac1add4653ec491346c8d7cc55716dbbbed`
+remains **RED: 22 passed, one failed**. Its separately passing full Common test
+does not turn that module green. The subsequent Legacy first-receipt correction,
+focused original finalizer regression and new complete 27/23 runs establish the
+current source scope. No historical result or byte pin was rewritten.
+
+The 45-case Actor component run passed on source `95e1f3af` (byte-identically
+joined as Root `7be78768`), but separately pre-archived only **11/12** runtime
+paths. `script_observer.py` was omitted from that component's pre-run archive;
+its post-only original and matching source-commit blob remain recorded as such.
+A clean commit check is not a substitute for a separate pre-run byte archive.
+That component result is not whole-backend qualification. The later complete
+27/23 runs have their own actual twelve-file before/after evidence.
+
+Future physical acceptance must run through the Proxmox Jenkins laboratory
+using the official `overte-jenkins` wrapper. Workstation Jenkins, local Appium
+servers and direct local device-test runners must not be started. Host/mock
+examples remain device-free; this closure ran no physical laboratory job.
+A complete APK build remains unperformed at the user's request.

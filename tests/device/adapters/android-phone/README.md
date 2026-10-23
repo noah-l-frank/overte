@@ -21,13 +21,15 @@ remains separate.
 The [Snapshot handoff](SNAPSHOT_FEATURE.md) documents the integrated default-off
 `feature.snapshots.act|observe|cleanup` source, independent original role/actor,
 native capture/review/export sources and strict post-fixture-close retirement.
-Source registration is present; full common backend/recovery qualification and
-real-device acceptance remain pending. [SOURCE_STATUS.md](SOURCE_STATUS.md)
+Source and host composition are complete: unchanged SDK26 whole27 and SDK29
+whole23 pass on identical final runtime12. Complete Android/APK build and
+real-device acceptance remain unverified. [SOURCE_STATUS.md](SOURCE_STATUS.md)
 records the current source/host qualification.
 
 This Phone-owned entry delegates device behavior to the original Shared Android
-adapter. Its manifest retains `android-phone-adb`. The Shared Android and Appium
-adapters are not modified and gain no installation claim from this wrapper.
+adapter. Its manifest retains `android-phone-adb`. The wrapper retains the Shared Android installed-candidate identity boundary;
+its explicitly enabled Phone feature composition gains no installation claim
+from delegation or a host test.
 Default configuration is diagnostic/unbound and emits no execution identity.
 
 `appium.json` similarly delegates to the original Shared Android Appium adapter,
@@ -50,7 +52,11 @@ creation/reuse and before every operation (session creation may itself install a
 application). It does not fabricate touch/probe observations. Unbound Appium
 diagnostics retain the original behavior and advertise no added capabilities.
 
-For a future authorized bound run, place the existing Phone candidate verifier's
+Physical bound runs are permitted only inside Proxmox Jenkins lab jobs invoked
+through the official `overte-jenkins` wrapper, never through a local workstation
+Appium server or direct local device runner. Host checks below are device-free.
+
+For a future authorized bound lab run, place the existing Phone candidate verifier's
 arguments in a private adapter manifest command after `adapter.py`: `--record`,
 `--artifact`, `--expected-source-sha`, `--expected-inputs`, `--expected-version-code`,
 `--minimum-version-code`, `--channel`, and all six original SH-009 evidence paths
@@ -122,4 +128,35 @@ HTTP/PCM and independently owned PC playout sources are documented in
 The separate passive Snapshot upload source, original HTTPS multipart/Story
 receiver and its focused native qualification are documented in
 [SNAPSHOT_UPLOAD.md](SNAPSHOT_UPLOAD.md). The complete Snapshot facade and
-Android OS Save/Share retirement are qualified separately.
+Android OS Save/Share retirement are exercised in the two final scoped host
+modules; actual Android OS/device behavior remains unverified.
+
+## Current Android Phone closure, 2026-10-23
+
+All **14/14** common v18 areas have Phone source composition and scoped host
+journey evidence. Snapshot now joins the other thirteen areas: the unchanged
+original SDK26–28 whole module passed **27/27**, and the unchanged original
+SDK29+ whole module passed **23/23**, both on source
+`7be78768fa023ea88eada5ddfabd1189ff9d665f` and the same twelve actual runtime files.
+Their actual before/after runtime-map SHA-256 is
+`c3759c9aeba00d8483ff8df2a98b100df2de3a4cc7a4c12c844e6616ac0e347a`.
+The strict closed-proof qualifier passed with `sourceComplete=14`; the machine
+matrix is taken from its output, rather than reconstructed from expected pins.
+The other thirteen areas retain their documented scoped evidence; they were
+not all rerun by the final Snapshot qualification.
+
+This is source/test-logic closure with explicit synthetic native/Android seams.
+It does not claim a complete registered-suite run, a complete Android native/APK
+build, real Android OS behavior or physical acceptance. Required capabilities,
+private controls, original evidence and source admission still fail closed;
+turning on a flag alone cannot supply them. Pico and iOS have separate sessions
+and receive no qualification from this Phone result.
+
+Future physical acceptance must run through the Proxmox Jenkins laboratory
+using the official `overte-jenkins` wrapper. Workstation Jenkins, local Appium
+servers and direct local device-test runners must not be started. Host/mock
+examples remain device-free; this closure ran no physical laboratory job.
+A complete APK build remains unperformed at the user's request.
+
+See [evidence scope and history](SOURCE_STATUS.md#evidence-scope-and-history) for
+actual whole inputs/results, historical failures and the Actor45 pre-pin gap.

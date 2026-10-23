@@ -39,11 +39,9 @@ assertion failure.
 The fourteen-area [feature journeys](FEATURE_JOURNEYS.md) compose the existing
 modules with missing feature workflows. See the [coverage matrix](FEATURE_COVERAGE.md)
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md): shared logic is implemented;
-thirteen complete Phone catalog compositions have source/host evidence:
-Authentication, Avatar/People, Create, Emotes, World Web, Tablet Web, Graphics,
-Audio, Chat, Scripts, Assets, Lifecycle/Input and World Navigation. Snapshots
-has its public facade/dispatch and independent role/actor source, while full
-common/recovery qualification remains in progress. The current
+all fourteen complete Phone catalog compositions have source/host evidence,
+including Snapshots with actual unchanged SDK26 whole27 and SDK29 whole23 runs
+on identical twelve-file runtime inputs. The current
 [Phone source matrix](adapters/android-phone/SOURCE_STATUS.md) separates these
 states and lists every mandatory foundation and private prerequisite. Required
 missing capabilities keep the aggregate suite red. Shared v18 cleanup requires
@@ -59,28 +57,28 @@ request observations with that fixture; hardware qualification is still pending.
 - `smoke`: stable process launch and foreground state.
 - `asset-smoke`: one launch followed by controlled local texture delivery,
   ready resource state, uniquely tagged Image-entity use, and stable
-  process/foreground evidence. Test logic is implemented; product-adapter
-  activation remains pending. See [`ASSET_LOAD_E2E.md`](ASSET_LOAD_E2E.md).
+  process/foreground evidence. Phone source/host composition is implemented; hardware
+  acceptance remains unverified. See [`ASSET_LOAD_E2E.md`](ASSET_LOAD_E2E.md).
 - `sound-smoke`: controlled WAV request, decode readiness, and observable
   in-client injector lifecycle; see [`SOUND_E2E.md`](SOUND_E2E.md).
 - `web-video-parity`: normal world/tablet Web entry followed by independent
   native capture analysis of play/pause/seek/resumed video pixels. Implemented modules are
-  hardware-free tested; native adapter activation and device acceptance remain
-  pending. See [`WEB_VIDEO_E2E.md`](WEB_VIDEO_E2E.md).
+  hardware-free tested; Phone source composition is implemented and device
+  acceptance remains unverified. See [`WEB_VIDEO_E2E.md`](WEB_VIDEO_E2E.md).
 - `snapshot-output-parity`: normal SNAP controls followed by fresh original
-  PNG/JPEG/GIF/panorama/cubemap file decoding. Native adapter activation and
-  device acceptance remain pending. See [`SNAPSHOT_E2E.md`](SNAPSHOT_E2E.md).
+  PNG/JPEG/GIF/panorama/cubemap file decoding. Phone source composition is implemented;
+  complete native build and device acceptance remain unverified. See [`SNAPSHOT_E2E.md`](SNAPSHOT_E2E.md).
 - `scripts-management-parity`: normal Running Scripts URL load/restart/stop
-  controls and independent execution/companion/failed-load observations. Native
-  adapter activation and device acceptance remain pending. See
+  controls and independent execution/companion/failed-load observations. Phone source
+  composition is implemented; complete native build and device acceptance remain unverified. See
   [`SCRIPTS_MANAGEMENT_E2E.md`](SCRIPTS_MANAGEMENT_E2E.md).
 - `create-management-parity`: normal avatar Cube create/edit/history/delete and
-  parent-child JSON import with fresh read-only entity observations. Native
-  adapter activation and device acceptance remain pending. See
+  parent-child JSON import with fresh read-only entity observations. Phone source
+  composition is implemented; complete native build and device acceptance remain unverified. See
   [`CREATE_MANAGEMENT_E2E.md`](CREATE_MANAGEMENT_E2E.md).
 - `places-navigation-parity`: normal Go To and Back/Forward with independently
   observed controlled scene addresses, grounded avatar arrivals and advancing
-  presentation. Native adapter activation and device acceptance remain pending.
+  presentation. Phone source composition is implemented; complete native build and device acceptance remain unverified.
   See [`PLACES_NAVIGATION_E2E.md`](PLACES_NAVIGATION_E2E.md).
 - `e2e-core`: launch, controlled scene and grounded spawn, signed look in four
   directions, body-relative movement in four directions, neutral input,
@@ -193,8 +191,8 @@ feature extensions additionally use direct boundary-model counterexamples;
 the stock mock does not advertise their product capabilities. The integrated
 [`adapters/desktop_oculix/`](adapters/desktop_oculix/) and
 [`adapters/appium/`](adapters/appium/) implementations advertise smaller,
-truthful capability sets. The shared Appium layer contains no Android or iOS
-product implementation history. Real target configuration must remain outside
+truthful capability sets. The Phone-owned wrapper supplies its explicitly enabled feature composition;
+shared transport capabilities alone do not establish product qualification. Real target configuration must remain outside
 the checkout; never commit device identifiers, account paths, signing data, or
 CI credentials.
 
@@ -276,7 +274,9 @@ OVERTE_MOCK_TABLET_UI_PROFILE=flat python3 tests/device/run.py \
   --output-dir "$run_root/tablet" --allow-virtual --require-complete
 ```
 
-Run on one discovered physical target and keep results outside the checkout:
+The following physical command is an internal Proxmox lab-job invocation,
+not permission to run a workstation device test. Trigger and inspect the job
+through the official `overte-jenkins` wrapper and retain results outside the checkout:
 
 ```bash
 python3 tests/device/run.py \
@@ -287,7 +287,7 @@ python3 tests/device/run.py \
 
 Jenkins runs suites with `--require-complete`, so a target that lacks any
 capability required by the selected suite is an infrastructure error instead of
-a misleading partial pass. Use that flag for manual acceptance runs as well.
+a misleading partial pass. Keep that flag on authorized physical acceptance jobs as well.
 
 Use `--target` only when discovery yields multiple targets. The value is never
 persisted, but shell tracing must still be disabled around it in CI.
@@ -331,3 +331,33 @@ controls remain mandatory. See [the voice contract](VOICE_ROUNDTRIP.md).
 Native product ownership tests belong in the product test profile. Shared
 self-tests exercise portable protocol and observation seams without requiring
 Android product sources on the platform-neutral branch.
+
+## Current Android Phone closure, 2026-10-23
+
+All **14/14** common v18 areas have Phone source composition and scoped host
+journey evidence. Snapshot now joins the other thirteen areas: the unchanged
+original SDK26–28 whole module passed **27/27**, and the unchanged original
+SDK29+ whole module passed **23/23**, both on source
+`7be78768fa023ea88eada5ddfabd1189ff9d665f` and the same twelve actual runtime files.
+Their actual before/after runtime-map SHA-256 is
+`c3759c9aeba00d8483ff8df2a98b100df2de3a4cc7a4c12c844e6616ac0e347a`.
+The strict closed-proof qualifier passed with `sourceComplete=14`; the machine
+matrix is taken from its output, rather than reconstructed from expected pins.
+The other thirteen areas retain their documented scoped evidence; they were
+not all rerun by the final Snapshot qualification.
+
+This is source/test-logic closure with explicit synthetic native/Android seams.
+It does not claim a complete registered-suite run, a complete Android native/APK
+build, real Android OS behavior or physical acceptance. Required capabilities,
+private controls, original evidence and source admission still fail closed;
+turning on a flag alone cannot supply them. Pico and iOS have separate sessions
+and receive no qualification from this Phone result.
+
+Future physical acceptance must run through the Proxmox Jenkins laboratory
+using the official `overte-jenkins` wrapper. Workstation Jenkins, local Appium
+servers and direct local device-test runners must not be started. Host/mock
+examples remain device-free; this closure ran no physical laboratory job.
+A complete APK build remains unperformed at the user's request.
+
+See [the source evidence record](adapters/android-phone/SOURCE_STATUS.md#evidence-scope-and-history)
+for exact whole-run, historical failure and component-pin scopes.

@@ -1,21 +1,35 @@
 # Android Phone source coverage
 
-This source assessment is pinned to `8112c717643b76d3d4682057f29a0f485fd32efe`
-(2026-10-22) and supersedes the earlier matrix assessment at
-`4b6ad2974cc85549aafa30f8ef9530bba404f568`. The versioned
-[JSON matrix](phone-source-coverage.v1.json) records
-all 14 common v18 areas, their actual Phone Appium declarations/dispatch,
-default-off flags, every catalog foundation and its required capabilities,
-and existing test/handoff paths. It is documentation, not another runner or
-acceptance result. The source review itself runs no target or build. The explicitly recorded parent
-host checks use synthetic native/SDK boundaries and controlled loopback services.
+## Current Android Phone closure, 2026-10-23
 
-“Implemented” below describes source composition. “Reported” means existing
-handoffs report targeted host verification with explicit synthetic target
-boundaries; it does not mean this audit repeated those tests or ran a complete
-physical suite. Native component compilation is a separate dimension. **Every
-row remains full-Android-build unverified and device untested.** Pico and iOS
-are unknown here and belong to separate sessions.
+All **14/14** common v18 areas have Phone source composition and scoped host
+journey evidence. Snapshot now joins the other thirteen areas: the unchanged
+original SDK26–28 whole module passed **27/27**, and the unchanged original
+SDK29+ whole module passed **23/23**, both on source
+`7be78768fa023ea88eada5ddfabd1189ff9d665f` and the same twelve actual runtime files.
+Their actual before/after runtime-map SHA-256 is
+`c3759c9aeba00d8483ff8df2a98b100df2de3a4cc7a4c12c844e6616ac0e347a`.
+The strict closed-proof qualifier passed with `sourceComplete=14`; the machine
+matrix is taken from its output, rather than reconstructed from expected pins.
+The other thirteen areas retain their documented scoped evidence; they were
+not all rerun by the final Snapshot qualification.
+
+This is source/test-logic closure with explicit synthetic native/Android seams.
+It does not claim a complete registered-suite run, a complete Android native/APK
+build, real Android OS behavior or physical acceptance. Required capabilities,
+private controls, original evidence and source admission still fail closed;
+turning on a flag alone cannot supply them. Pico and iOS have separate sessions
+and receive no qualification from this Phone result.
+
+The versioned [JSON matrix](phone-source-coverage.v1.json) records actual public
+triples, default-off flags, original catalog foundations and required capability
+unions. The final matrix is emitted by the strict closed-proof qualifier; it is
+documentation, not another runner or a physical acceptance receipt.
+
+“Implemented” means source composition. “Reported” means prior feature handoffs
+provide scoped host evidence with synthetic native/SDK boundaries. This final
+Snapshot work did not rerun every other feature or all registered tests.
+**Every row remains full-Android-build unverified and device untested.**
 
 | Area | Public facade source | Whole catalog source join | Host facade | Native qualification available | Handoff |
 | --- | --- | --- | --- | --- | --- |
@@ -28,104 +42,87 @@ are unknown here and belong to separate sessions.
 | Graphics | Implemented | Implemented with prerequisites | Reported | Area instrumentation uncompiled | [Graphics](GRAPHICS_FEATURE.md) |
 | Audio | Implemented | Implemented with prerequisites | Reported | Partial Qt audio components | [Audio](AUDIO_FEATURE.md) |
 | Chat | Implemented | Implemented with prerequisites | Reported | Partial Qt / QML / peer / Settings | [Chat](CHAT_FEATURE.md) |
-| Snapshots | Implemented; full replay pending | **Pending whole SDK29+/SDK26–28 common qualification** | Targeted facade / actor / recovery / retirement | Partial Qt / Java / filesystem / HTTPS | [Snapshots](SNAPSHOT_FEATURE.md) |
+| Snapshots | Implemented | Implemented with prerequisites | Actual whole SDK26 27/27 and SDK29 23/23 | Partial Qt / Java / filesystem / HTTPS | [Snapshots](SNAPSHOT_FEATURE.md) |
 | Scripts | Implemented | Implemented with prerequisites | Reported | Area instrumentation uncompiled | [Scripts](SCRIPT_FEATURE.md) |
 | Assets | Implemented | Implemented with prerequisites | Reported | Partial Qt / QML / file / geometry / oven components | [Assets](ASSETS_FEATURE.md) |
 | Lifecycle / Input | Implemented | Implemented with prerequisites | Reported | Partial original Qt / QML / IME / keyboard / timer | [Lifecycle / Input](LIFECYCLE_INPUT_FEATURE.md) |
 | Tablet Web | Implemented | Implemented with prerequisites | Reported | Partial Qt / inline leases / JNI / Java / R8 | [Tablet Web](TABLET_WEB_FEATURE.md) |
 
-All available public triples are in the existing [Phone Appium adapter](appium_adapter.py).
-The complete flags alone do not supply every private target control or compiled
-hook. The JSON lists the full capability union for each suite, including
-`launch-smoke`, and expands every reused foundation's original catalog inputs.
+All public triples use the existing [Phone Appium dispatcher](appium_adapter.py).
 The unchanged [common capability gate](../../modules/feature_capability_gate.py)
-requires that union before an area can pass. Candidate/artifact/session/PID,
-private credential/configuration, separate actor, freshness, ordinary input and
-original file/byte/lifetime obligations remain necessary. An ACK supplies no
-observed product effect.
+requires each suite's full capability union, including `launch-smoke` and every
+reused foundation. Installed candidate/artifact/session/PID, private credentials,
+source admission, separate Actor, freshness, ordinary input and original file/
+image/audio/peer/lifetime obligations remain mandatory. Neither a flag nor an
+ACK supplies a measured product effect.
 
-## Concrete open joins at this revision
+## Evidence scope and history
 
-- **Create resolved:** The [original collaboration foundation](CREATE_COLLABORATION_FOUNDATION.md)
-  now provides guarded Appium dispatch and runs the unchanged mandatory entity-sync
-  module and Create gate from a serverless initial world. All 12 new parent
-  source/host cases passed in 24.642 seconds. The original actor and independently
-  received native properties must prove each edit; delivery acknowledgements,
-  ignored domain entry and lost returns cannot produce a false success.
-- **World Navigation resolved:** Exact HTTP scene/profile/provider admission
-  through ordinary Go To inputs now runs unchanged `domain_roundtrip.py`,
-  `places_navigation.py`, feature preparation and the mandatory gate. Actual
-  advancing domain/scene arrivals prove effects. SDK session/generation/target,
-  PID and installed bytes stay pinned around every input; lost returns are never
-  replayed. Parent integration passed 71 combined Navigation/Create/OS-input
-  cases in 55.364 seconds, with explicit synthetic target boundaries.
-- **Snapshots in progress:** The public facade/default-off triple, independent
-  original role/actor, v8 observer and original-bound retirement source are now
-  integrated. Parent verification passed 67 targeted original/dispatch/Qt/TLS
-  cases in 88.631 seconds. That union does not execute a complete common area.
-  Targeted counterprobes now cover partial bootstrap and pre-export cleanup,
-  constructor-to-lock foreground/OS authority changes, passive history floors,
-  uncertain background/Save/Share delivery, and interrupted journal retirement.
-  The full-retirement audit additionally passes five actual host composition
-  cases (90.218 seconds): normal Capture/Save/upload and cleanup, separate actor
-  quiet/exit, repeated public finalization, late-file/open-FD preservation,
-  foreign child ownership and resume after an actual child unlink. These are
-  scoped host results. Both whole MediaStore SDK29+ and SDK26–28 document-picker
-  common replays and their integrated recovery qualification remain open;
-  Snapshots stays outside the 13 qualified full catalog joins.
+| Final Snapshot evidence | Exact scope |
+| --- | --- |
+| SDK26–28 original whole module | 27/27 PASS; unittest 170.489 s, outer 170.94254893495236 s; all 15 applicable normal actions, original cleanup/recovery/finalization tests; no skip/timeout. |
+| SDK29+ original whole module | 23/23 PASS; unittest 193.012 s (whole-loader 193.01258141500875 s), outer 193.57261233997997 s; original complete Common test 113.06485598394647 s; no skip/timeout. |
+| Original late-start Actor finalizer regression | 1/1 PASS on Root `7be78768`; 17.596 s; actual separate child exit and unchanged repeated finalization. It is focused evidence, not a whole backend. |
+| Actual source binding | Both wholes use Root `7be78768fa023ea88eada5ddfabd1189ff9d665f`; actual pure twelve-runtime-file pre/post maps match `c3759c9aeba00d8483ff8df2a98b100df2de3a4cc7a4c12c844e6616ac0e347a`. SDK29 maps are explicitly derived from its unchanged actual 408-input pre/post reports, with hash provenance. |
+| Original SDK29 test source | SHA-256 `e99ad31a02e90ecf08ccac1edd3fe7135bff40ed8a001294a2f7d4c389acd7fb`; actual invoked whole loader and native argv archived, without selectors or argv rewriting. |
+| Final source closure | 402 production paths matched exact Root, zero production differences/unstable reads; 19 unselected support-counter differences remain explicit. The latter were not executed by SDK29. |
+| Private preservation | SDK29 retained all 616 actual original files before teardown, raw log/result, invoked loader/harness, actual source archives, before/after pins and empty process-group proof. All prior failed evidence remains unchanged. |
 
-The [owned Snapshot marker refresh](SNAPSHOT_FEATURE.md#owned-marker-refresh-v3)
-uses the original active local fixture rather than repeating `prepare`.
-Initial marker source v2 remains unchanged; refreshed source v3 preserves
-creation/view/entity identity and appends original edit inputs and times.
-The Qt/reader/Probe/facade selection passed 51 checks in 29.488 seconds.
-Lost replies recover only the archived request's actual native effect;
-current object URL and fresh current-ticket rendered pixels remain separate
-requirements. This closes the demonstrated second-prepare source mismatch,
-not the pending whole-common qualification.
+The strict qualifier's final output has `sourceComplete=14`. These are host
+source/test-logic measurements: actual Python, private files, separate processes,
+loopback services and actual Java helper paths are exercised; native renderer,
+Android UID/package/SDK/OS and device boundaries remain explicitly synthetic.
+The registered 242 checks (3 dependency-light, 51 prepared, 187 common, 1 extended)
+are an inventory, not a claim that one complete 242-check campaign ran.
 
-These are source findings, not skipped passing checkpoints. Missing abilities
-stay red; this review changes no dispatch or gate to conceal them.
+Earlier progress counts and failed runs describe their original source revisions,
+not the current state. The earlier SDK29 whole23 on Root `060cbac1add4653ec491346c8d7cc55716dbbbed`
+remains **RED: 22 passed, one failed**. Its separately passing full Common test
+does not turn that module green. The subsequent Legacy first-receipt correction,
+focused original finalizer regression and new complete 27/23 runs establish the
+current source scope. No historical result or byte pin was rewritten.
 
-## Scope of evidence and updates
+The 45-case Actor component run passed on source `95e1f3af` (byte-identically
+joined as Root `7be78768`), but separately pre-archived only **11/12** runtime
+paths. `script_observer.py` was omitted from that component's pre-run archive;
+its post-only original and matching source-commit blob remain recorded as such.
+A clean commit check is not a substitute for a separate pre-run byte archive.
+That component result is not whole-backend qualification. The later complete
+27/23 runs have their own actual twelve-file before/after evidence.
 
-The current [observer](script_observer.py) uses closed grammar **v8**, with
-historical v2–v7 grammars retained separately. Snapshot admission/configuration,
-public facade, independent actor and strict finalizer are integrated; their
-whole common backend/recovery qualification remains pending. Some older
-handoffs still mention v17 or earlier observer versions. Current source imports
-common `VERSION=18`; the matrix uses that source and preserves the historical
-handoffs as qualified evidence. This document does not amend their old results.
+At historical Root `060cbac1add4653ec491346c8d7cc55716dbbbed` / map `3fd0f028dc02d20e54f8d56a52ec8d0ca6d7eb8ca68979246c376456caeaea26`,
+SDK26 passed 27/27 (161.846 s), while SDK29 remained 22 passed/one failed
+(205.63402422703803 s). The failure was the unchanged original late-start Actor
+case reaching its 30-second receipt deadline before client close; its separately
+passing Common method (104.1559442479629 s) did not qualify that whole module.
+Earlier freshness/20-second-cleanup failures likewise remain RED at their
+original sources. The newer passes neither erase them nor repair their pins.
 
-Original C++/Java compiler-component checks do not build full Android application
-translation units, exercise a real Android renderer/IME/OS, prove live
-network/peer/AssetServer/oven behavior, or establish microphone/camera/device
-acceptance. Assets additionally documents an unresolved product upload callback
-lifetime risk and missing host GLM for a full HFM syntax check; those are not
-resolved by its synthetic composition test. Fixed executable-source admission pins reproduce the current Probe and script
-bytes at source `90f659091b92bcb1ee85aeb0053c737193d1fa9a`; they do not
-qualify a compiled APK. Final full-composition/count reconciliation remains open.
+Component stages such as the earlier 67 targeted parent checks (88.631 s),
+51 marker-refresh checks (29.488 s) and five full-retirement host cases
+(90.218 s) retain their original counts and source scopes. They are not rebranded
+as the final complete backend runs.
 
-The [dedicated debug build](../../../../android/phone/docs/BUILD.md#dedicated-feature-e2e-debug-build)
-requires explicit `overteFeatureTests=ON` and the separate foundation hooks.
-The option is default OFF and forced OFF for non-debug types. Seven actual
-Gradle-loader/Groovy/CMake component checks and the existing release checks pass.
-The earlier missing-own-graph and standard-cache finding is not a dependency
-availability result. A subsequent local inventory verified all eleven sealed
-dependency archives, including the Qt 5.15.18 Android Debug runtime, host tools,
-16 KiB sentinel, SDK and AGP 8.13.2 payload. These dependency originals are not
-an APK or a build receipt for this branch. An own writable dependency graph,
-verified generated lock, offline Gradle cache and isolated toolchain execution
-still have to be prepared without reusing another session's product outputs.
-The last recorded full-build resource admission failed its original RAM floor.
-Builds and compiler checks are authorized; no complete Android build is claimed.
+## Native build and physical acceptance
 
-The matrix was checked directly against catalog/scenario membership, actual
-operation sets and invoke branches, current default-off flags/observer grammar,
-all repository-relative evidence paths and documentation links. The supplemental
-review confirms the 14 declared triples, default-off admission, original catalog
-foundations and v18 cleanup dispatch in source; it runs no tests or builds and
-preserves the pending Snapshot aggregate qualification. After the pending joins integrate,
-reassess affected rows and
-record the new exact source revision; do not replace a historical assessment
-with an unversioned claim of completion.
+Partial Qt/QML/C++/JNI/Java/R8/filesystem checks cover only the boundaries named
+in each feature handoff. They do not build all Android product translation
+units or prove a real renderer/IME/OS, microphone, network peer, AssetServer or
+oven. Authentication, Graphics and Scripts instrumentation still includes
+uncompiled area paths. Assets also documents its unresolved product upload
+callback lifetime risk and missing host GLM for a full HFM syntax check; host
+composition does not resolve them.
+
+The [dedicated E2E debug option](../../../../android/phone/docs/BUILD.md#dedicated-feature-e2e-debug-build)
+is default OFF and forced OFF for non-debug builds; its foundation hooks and
+installed-code admission remain mandatory. Prior Gradle-loader/Groovy/CMake and
+release component checks, eleven sealed dependency archives and the earlier
+resource-admission failure retain their actual scopes. Dependency availability
+is not an APK receipt. No complete APK/native build was performed in this closure,
+and none is requested now; no new resource-capacity conclusion is asserted.
+
+Future physical acceptance must run through the Proxmox Jenkins laboratory
+using the official `overte-jenkins` wrapper. Workstation Jenkins, local Appium
+servers and direct local device-test runners must not be started. Host/mock
+examples remain device-free; this closure ran no physical laboratory job.
+A complete APK build remains unperformed at the user's request.

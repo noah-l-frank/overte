@@ -12,12 +12,19 @@ late file remains a failure. No automatic replay of uncertain input is added.
 
 The Phone dispatcher selects its existing strong finalize methods from an
 independent nonce-bound provider observation. It does not infer any product
-result from provider metadata. Pico/iOS implementations must adopt v18 in their
-own branches before advertising these flows. Historical v17 files below are
+result from provider metadata. Pico/iOS implementations must independently satisfy v18 in their
+own branches before advertising these flows; their current status is outside
+this Phone continuation. Historical v17 files below are
 retained; v17 observations are rejected by the v18 runner. This source contract
 change carries no physical-device acceptance.
 
-# Feature adapter handoff, contract v17
+# Historical feature adapter handoff, contract v17
+
+The following v17 introduction and component roll-in notes describe historical
+source packets and their original counts. They are not current Phone integration
+status or the current wire grammar. Current versioned requests and retirement
+are defined by the linked v18 contract and the current Phone closure below.
+Older incomplete/missing-adapter statements retain only that historical scope.
 
 The default-off [Phone Avatar/People adapter](adapters/android-phone/AVATAR_PEOPLE.md)
 now composes all 15 public actions, mandatory multi-user foundation and common
@@ -858,7 +865,11 @@ proof retention stay red. Existing source/input original kinds remain closed.
 Independent current input/Rig/image/actor and whole-feature coordination remain
 required; the complete Phone count stays 3/14 and native source is uncompiled.
 
-## Android Phone integration continuation (2026-10-22)
+## Historical Android Phone integration continuation (2026-10-22)
+
+This section records intermediate source packets and their actual targeted test
+counts. Its incomplete joins and in-progress replays were subsequently superseded
+by the current Phone closure below; it grants no whole-suite acceptance.
 
 The current [coverage matrix](FEATURE_COVERAGE.md) supersedes the historical
 three-area progress counts above: ten complete Phone source/host compositions
@@ -917,55 +928,48 @@ union and changed probe-code pins remain central integration checks; no global
 coverage count or acceptance claim is changed by this packet.
 
 
-## Current Phone integration, 2026-10-22
+## Current Android Phone closure, 2026-10-23
 
-Thirteen full Phone catalog compositions have source/host evidence:
-Authentication, Avatar/People, Create, Emotes, World Web, Tablet Web, Graphics,
-Audio, Chat, Scripts, Assets, Lifecycle/Input and World Navigation. The
-[exact source matrix](adapters/android-phone/SOURCE_STATUS.md) supersedes the
-historical area counts above and separates public facades from full catalog
-joins. Create now includes the [original entity-sync foundation](adapters/android-phone/CREATE_COLLABORATION_FOUNDATION.md);
-12 parent tests passed in 24.642 seconds. Lifecycle/Input includes all three
-mandatory foundations and independent actor/v18 finalization; its parent
-source/registration union passed 51 cases in 44.043 seconds. The current Chat
-parent replay passed all 20 composition/recovery cases in 149.199 seconds.
-Its aggregate host budget is 240 seconds, matching other complete compositions;
-source freshness, per-checkpoint and quiet-window deadlines are unchanged.
+All **14/14** common v18 areas have Phone source composition and scoped host
+journey evidence. Snapshot now joins the other thirteen areas: the unchanged
+original SDK26–28 whole module passed **27/27**, and the unchanged original
+SDK29+ whole module passed **23/23**, both on source
+`7be78768fa023ea88eada5ddfabd1189ff9d665f` and the same twelve actual runtime files.
+Their actual before/after runtime-map SHA-256 is
+`c3759c9aeba00d8483ff8df2a98b100df2de3a4cc7a4c12c844e6616ac0e347a`.
+The strict closed-proof qualifier passed with `sourceComplete=14`; the machine
+matrix is taken from its output, rather than reconstructed from expected pins.
+The other thirteen areas retain their documented scoped evidence; they were
+not all rerun by the final Snapshot qualification.
 
-World Navigation now includes its mandatory exact HTTP scene/profile/provider
-join, unchanged foundation module proofs and strict original SDK continuity. Snapshots has its five-format
-foundation, original capture/VM/review/file/settings sources, consumer and
-uploaded wire originals, controlled SDK26–28 DocumentsProvider/ordinary picker
-ownership and passive native handoff sources. Its public facade, actor and
-closed retirement source are integrated, with 67 targeted parent cases passing.
-Targeted bootstrap, foreground/OS authority, background/handoff lost-return and
-full retirement recovery are verified within their documented host boundaries;
-both whole common backend replays and integrated recovery qualification remain
-open. Required missing capabilities
-continue to fail the aggregate suite. Observer v8 preserves historical v2–v7
-closed grammars and admits Snapshot actor configuration/dispatch; the full
-Snapshot common/recovery qualification remains pending.
+This is source/test-logic closure with explicit synthetic native/Android seams.
+It does not claim a complete registered-suite run, a complete Android native/APK
+build, real Android OS behavior or physical acceptance. Required capabilities,
+private controls, original evidence and source admission still fail closed;
+turning on a flag alone cannot supply them. Pico and iOS have separate sessions
+and receive no qualification from this Phone result.
 
-The integrated [owned marker refresh](adapters/android-phone/SNAPSHOT_FEATURE.md#owned-marker-refresh-v3)
-corrects the second-`prepare` mismatch at `background-resume`: it updates only
-the existing owned marker's challenge URL, preserves original run/entity/view/
-creation identity, and retains an append-only v3 edit history. Delivery ACKs
-prove no image; the actual URL getter and a new current-ticket world PNG are
-mandatory. Lost replies are observed from the durable original request without
-another edit or `prepare`. The Qt/native-header, Probe, reader and facade
-selection passed 51 checks in 29.488 seconds. Five separate full-retirement
-host cases passed in 90.218 seconds, including actual actor quiet/exit, a late
-owned file with an open FD, foreign child ownership and interruption after a
-real child unlink. These results add no whole-common or physical acceptance.
-The other thirteen source/host-qualified areas retain their status.
+Create includes the original mandatory entity-sync foundation; Lifecycle/Input
+includes all three foundations; Chat retains all 25 common actions and strict
+v18 retirement. Snapshot includes its five-format foundation, original capture,
+VM/review/settings/file sources, consumer and uploaded-wire originals, measured
+SDK26–28 DocumentsProvider and SDK29+ MediaStore backends, independent Actor,
+source recovery and post-fixture-close finalization. Observer grammar is v8,
+with historical v2–v7 grammars kept separate. Native/component compiler checks
+retain their own boundaries and do not qualify the product translation units.
 
-These host simulations, real private-file tests and partial Qt/Java/JNI/compiler
-checks establish source/test logic only. Full Android compilation, actual OS
-behavior and device acceptance remain unverified. Pico/iOS belong to separate
-sessions. Shared source admission pins include the owned marker refresh and
-match the integrated source catalog. Both complete Snapshot backend replays
-and aggregate verification remain pending; current component checks do not
-qualify those complete journeys.
+The [Snapshot causal cleanup guide](adapters/android-phone/SNAPSHOT_FEATURE.md#causal-cleanup-scheduling-and-retained-actor-history)
+defines typed-slot scheduling, fresh independent reads, real quiet rebuilding,
+Legacy first receipt and complete retirement. The [source evidence record](adapters/android-phone/SOURCE_STATUS.md#evidence-scope-and-history)
+records actual whole inputs/results and the historical Actor45 pre-pin gap.
+No fixture clock, freshness bound, quiet rule or missing-capability policy was
+weakened to obtain the current result.
+
+Future physical acceptance must run through the Proxmox Jenkins laboratory
+using the official `overte-jenkins` wrapper. Workstation Jenkins, local Appium
+servers and direct local device-test runners must not be started. Host/mock
+examples remain device-free; this closure ran no physical laboratory job.
+A complete APK build remains unperformed at the user's request.
 
 ## Controlled SDK26–28 Documents destination component
 
@@ -980,11 +984,12 @@ MediaStore identity/version-1 semantics remain unchanged; Docs use native OS
 source v2 with the separately measured storage owner package. The strict
 `os_destinations` reader joins that closed identity without accepting general SAF.
 
-Host verification includes 5 actual file-owner tests (21 scenarios), 4 actual
+Historical component verification included 5 actual file-owner tests (21 scenarios), 4 actual
 Provider/native Access tests, 4 closed v2-source tests, 4 existing OS retirement
 tests, 1 existing destination-owner test (11 scenarios), 1 unchanged Consumer
 owner test (11 scenarios), 9 readback-source tests and 5 asynchronous-job tests.
 Prepared API34 javac/d8/aapt2 creates an unsigned/uninstalled fixture; native SAF
 Java also compiles against API34. Android API producers remain explicit host
-seams. No Android runtime/device acceptance, normal SDK picker/host reader
-composition or complete Snapshot capability is claimed by this component.
+seams. That component alone claimed no Android runtime/device acceptance or complete
+Snapshot qualification. The later complete host Documents composition is now
+covered by the actual 27-test module; Android runtime/device acceptance stays open.

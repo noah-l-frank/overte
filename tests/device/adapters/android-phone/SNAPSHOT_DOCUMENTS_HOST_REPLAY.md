@@ -1,8 +1,31 @@
 # Snapshot Documents host replay
 
 This packet implements the Android Phone SDK 26–28 Documents producer and its
-original-file proof. Full common Snapshot closure is still pending. This is not
-Android device acceptance or a complete Android build claim.
+original-file proof. The unchanged complete SDK26 host module now passes 27/27;
+SDK29 passes 23/23 on the identical final runtime12. This is neither Android
+device acceptance nor a complete Android build claim.
+
+## Current Android Phone closure, 2026-10-23
+
+All **14/14** common v18 areas have Phone source composition and scoped host
+journey evidence. Snapshot now joins the other thirteen areas: the unchanged
+original SDK26–28 whole module passed **27/27**, and the unchanged original
+SDK29+ whole module passed **23/23**, both on source
+`7be78768fa023ea88eada5ddfabd1189ff9d665f` and the same twelve actual runtime files.
+Their actual before/after runtime-map SHA-256 is
+`c3759c9aeba00d8483ff8df2a98b100df2de3a4cc7a4c12c844e6616ac0e347a`.
+The strict closed-proof qualifier passed with `sourceComplete=14`; the machine
+matrix is taken from its output, rather than reconstructed from expected pins.
+The other thirteen areas retain their documented scoped evidence; they were
+not all rerun by the final Snapshot qualification.
+
+This is source/test-logic closure with explicit synthetic native/Android seams.
+It does not claim a complete registered-suite run, a complete Android native/APK
+build, real Android OS behavior or physical acceptance. Required capabilities,
+private controls, original evidence and source admission still fail closed;
+turning on a flag alone cannot supply them. Pico and iOS have separate sessions
+and receive no qualification from this Phone result.
+
 
 | Layer | Qualification |
 | --- | --- |
@@ -54,7 +77,13 @@ unchanged 18-step catalog; the three Photos-only permission steps are the
 catalog's explicit non-applicable cases. Save picker and both Share handoffs
 remain included, producing exactly four native handoff lifetimes.
 
-At this packet's handoff, 103 selected source/host tests passed. Four bounded
+## Historical component and failed-run evidence
+
+The following packet history retains each original result and source scope.
+Any then-open backend qualification was later superseded by the actual final
+27/23 runs above; no historical failure or pin has been reclassified.
+
+At this packet's historical handoff, 103 selected source/host tests passed. Four bounded
 actual first-Share cycles also returned original primary sources and three new
 actor receipts aged 1156/1196/1250 ms, below the unchanged 1500 ms limit. This
 bounded diagnostic does not qualify the full common journey. Earlier complete
@@ -75,7 +104,7 @@ The subsequent retained-reader/warm-CAS implementation is integrated with
 targeted ownership and recovery counters. It rechecks actual trusted headers,
 reopens all historical originals and reads fresh complete samples; retained
 reader continuity never authorizes header adoption or old current facts.
-Complete SDK26 replay still needs a new successful unchanged common run. Normal
+At that stage, complete SDK26 replay still required a successful unchanged common run. Normal
 operation deadlines, original clocks and the three-second quiet contract are
 unchanged.
 
@@ -97,8 +126,9 @@ its five-second bound, but grants no native, input, recovery or publication
 authority. The ordinary constructor runs all source factories and continuity
 floors after reacquisition; exact first-header validation, full native/phase
 requalification, sealed file receipts and historical graph checks precede any
-normal current read. Actor, pending, OS and cleaned paths retain their existing
-guards. Lost known journals or remaining unframed PNG/binary/observer ownership
+normal current read. Actor, pending and OS paths retain their existing guards. The later cleanup-
+foreground path uses its explicitly pinned cleanup constructor admission; see
+the current causal scheduling guide for the final scope. Lost known journals or remaining unframed PNG/binary/observer ownership
 cannot silently become a new baseline.
 
 Fourteen direct
@@ -111,9 +141,9 @@ also passed in 50.175 seconds. The latter release only the operation-owned
 reader's own references after all guards and finalizers; stored files, returned
 DTOs, durable journals and retained Actor readers are unchanged. Production GC
 policy is unchanged. These targeted host results do not establish the new
-pass's full-journey timing or qualify SDK26/SDK29. Both complete host backend
-qualifications, the final integrated-source audit, the Android APK build and
-physical device acceptance remain separate and unverified here.
+pass's full-journey timing or qualify SDK26/SDK29. At that historical stage, both complete backend qualifications and final
+source closure remained open. They now have separate final evidence above;
+Android APK build and physical acceptance remain unverified.
 
 The first complete constructor-pass replay also remains red: the unchanged
 SDK26 method failed at `12-share-cancel` after 58.683 seconds. Two unseen
@@ -142,7 +172,10 @@ uses its independent publication credential. No Primary expected state, source
 fact or receipt is copied. Actual cue and independently acquired pending sample
 share one own CAS, with Primary-owner checks after the native guard and after
 the write. Cold pending/receipt recovery retains that pin and precedes the gate.
-Cleanup quiet and closed-fixture proof remain ungated by Primary advancement.
+That statement describes the ordinary active gate. Current enrolled cleanup
+uses actual typed read-ready slots after its first receipt; Legacy first receipt
+can proceed from its own genuine quiet without a new Primary cue. Closed-fixture
+proof still requires a new actual read. See the current causal scheduling guide.
 
 The six new
 [`actual scheduling counters`](../../../../android/phone/tests/device/test_snapshots_actor_primary_cue.py)
@@ -177,14 +210,39 @@ that proposed timing change. Actual full-run source and raw log originals are
 retained in `SDK26_CUE_NEXT_SOURCE_PINS.json` and
 `SDK26_CUE_ORIGINAL_27_MODULE.log` in the local SDK26 report directory.
 
-No complete SDK26/SDK29 host result, final integrated-source audit,
-complete Android APK build or physical-device acceptance follows from these
-component checks. The source-qualified count remains thirteen of fourteen.
+No complete backend, APK build or physical acceptance follows from those
+component checks alone. The subsequent final unchanged 27/23 runs and exact
+source closure now establish fourteen source/host compositions; complete Android
+APK/native build and physical-device acceptance remain open.
 
 The current [source coverage review](SOURCE_STATUS.md) distinguishes source and
 component checks from complete common qualification. The
 [Snapshot guide](SNAPSHOT_FEATURE.md#bounds-failure-recovery-and-complete-retirement)
 describes the shared ownership, quiet and v18 closed-fixture retirement contract.
 
-No feature flag, shared capability count, admission source pin or cross-platform
-status was updated by this handoff. Pico and iOS remain separate sessions.
+The historical component handoff did not promote flags or acceptance. Current
+Phone qualification preserves default-off admission and unchanged mandatory
+capability gates. Pico and iOS remain separate sessions.
+
+## Historical evidence scope
+
+Earlier progress counts and failed runs describe their original source revisions,
+not the current state. The earlier SDK29 whole23 on Root `060cbac1add4653ec491346c8d7cc55716dbbbed`
+remains **RED: 22 passed, one failed**. Its separately passing full Common test
+does not turn that module green. The subsequent Legacy first-receipt correction,
+focused original finalizer regression and new complete 27/23 runs establish the
+current source scope. No historical result or byte pin was rewritten.
+
+The 45-case Actor component run passed on source `95e1f3af` (byte-identically
+joined as Root `7be78768`), but separately pre-archived only **11/12** runtime
+paths. `script_observer.py` was omitted from that component's pre-run archive;
+its post-only original and matching source-commit blob remain recorded as such.
+A clean commit check is not a substitute for a separate pre-run byte archive.
+That component result is not whole-backend qualification. The later complete
+27/23 runs have their own actual twelve-file before/after evidence.
+
+Future physical acceptance must run through the Proxmox Jenkins laboratory
+using the official `overte-jenkins` wrapper. Workstation Jenkins, local Appium
+servers and direct local device-test runners must not be started. Host/mock
+examples remain device-free; this closure ran no physical laboratory job.
+A complete APK build remains unperformed at the user's request.

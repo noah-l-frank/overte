@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "documentKind": "android-phone-source-coverage",
-  "assessedRevision": "8112c717643b76d3d4682057f29a0f485fd32efe",
-  "assessedDate": "2026-10-22",
+  "assessedRevision": "7be78768fa023ea88eada5ddfabd1189ff9d665f",
+  "assessedDate": "2026-10-23",
   "scope": {
     "platform": "android-phone",
     "entrypoint": "tests/device/adapters/android-phone/appium.json",
@@ -11,7 +11,7 @@
     "ios": "unknown-separate-session",
     "deviceAcceptance": "untested",
     "fullAndroidBuild": "unverified",
-    "qualification": "Documentation of inspected source wiring and handoff-reported targeted host/component checks. No new runner, test result, build receipt or acceptance gate."
+    "qualification": "Inspected source wiring and recorded source/host composition evidence, including both complete Snapshot common backend host modules on the exact assessed implementation. Explicit target seams and partial native compiler limits remain. No new acceptance gate, complete Android build or device result."
   },
   "interpretation": {
     "sourceImplemented": "Public facade and full catalog composition are separate; a green synthetic private facade does not close a missing mandatory foundation.",
@@ -425,8 +425,8 @@
     {
       "id": "snapshot-public-composition-pending",
       "area": "snapshots",
-      "status": "pending-full-common-replay-and-interrupted-recovery",
-      "finding": "Public facade, original independent actor, passive histories, targeted partial/bootstrap/background/handoff/retirement recovery, original-owned marker refresh and strict publication are integrated and host/component checked. Actual whole MediaStore and SDK26-28 Documents replays remain red on independent source freshness and continuous actor quiet scheduling. No timeout, source time, old witness or missing result is normalized into success. Full Android build and all devices remain unverified.",
+      "status": "source-host-composition-resolved",
+      "finding": "Both mandatory complete unchanged Snapshot common v18 host backend modules passed on the recorded same-source implementation with actual independent Actor and full per-feature closure. Every original input/source/file/provider/quiet/Actor-exit/finalization obligation remains mandatory. Old witnesses, ACKs, expected facts, missing capabilities and later fresh rows do not erase failures. These are scoped host/source results; full Android APK compilation and all physical device acceptance remain unverified.",
       "evidence": [
         {
           "path": "tests/device/adapters/android-phone/appium_adapter.py"
@@ -436,10 +436,35 @@
         },
         {
           "path": "tests/device/adapters/android-phone/SNAPSHOT_FEATURE.md"
+        },
+        {
+          "path": "tests/device/adapters/android-phone/overte_phone_snapshots_constructor_history.py"
+        },
+        {
+          "path": "tests/device/adapters/android-phone/overte_phone_snapshots_actor.py"
+        },
+        {
+          "path": "tests/device/adapters/android-phone/overte_phone_snapshots_actor_history.py"
+        },
+        {
+          "path": "android/phone/tests/device/test_snapshot_documents_journey_boundary.py"
+        },
+        {
+          "path": "android/phone/tests/device/test_snapshots_actor_history.py"
+        },
+        {
+          "path": "android/phone/tests/device/test_snapshots_input_replay_guard.py"
+        },
+        {
+          "path": "android/phone/tests/device/test_snapshots_locked_slot_rebuild.py"
+        },
+        {
+          "path": "android/phone/tests/device/test_snapshots_cleanup_constructor_scope.py"
         }
       ],
       "sourcePacket": "603e30c4d9",
-      "wiringPacket": "72a555788c"
+      "wiringPacket": "72a555788c",
+      "resolutionImplementationRevision": "7be78768fa023ea88eada5ddfabd1189ff9d665f"
     }
   ],
   "rows": [
@@ -1246,12 +1271,12 @@
       "domainPrerequisite": true,
       "sourceImplemented": {
         "publicFacade": true,
-        "completeCatalogComposition": false
+        "completeCatalogComposition": true
       },
       "hostVerified": {
         "publicFacadeReported": true,
         "componentChecksReported": true,
-        "wholeCatalogSuiteRun": "both-backends-attempted-not-yet-passing"
+        "wholeCatalogSuiteRun": "both-backends-host-passed"
       },
       "nativePartial": {
         "status": "component-checks-reported",
@@ -1290,12 +1315,12 @@
         }
       },
       "prerequisites": [
-        "OVERTE_PHONE_FEATURE_SNAPSHOTS=1 (source opt-in; full common/recovery qualification pending)",
+        "OVERTE_PHONE_FEATURE_SNAPSHOTS=1 (default-off source opt-in; actual compiled E2E hooks and original controls remain required)",
         "OVERTE_PHONE_NORMAL_SNAPSHOT=1 (existing owned five-format foundation)",
         "OVERTE_PHONE_SNAPSHOTS_CONFIGURATION (closed secret-free original config)",
         "controlled domain and original HTTPS OAuth account/upload fixture",
-        "separately credentialed v8 Snapshot actor; actual pinned receiving fixture APK",
-        "complete common MediaStore/document-picker replay and interrupted recovery remain pending"
+        "separately credentialed observer-v8 Snapshot actor with lifecycle-v3 ownership; actual pinned receiving fixture APK remains required",
+        "Complete MediaStore SDK29+ and document-picker SDK26-28 common host replays qualified; actual Android OS/APK/device qualification remains separate"
       ],
       "foundationModules": [
         "domain-enter",
@@ -1316,7 +1341,7 @@
         "snapshot.files",
         "snapshot.open"
       ],
-      "originalEvidence": "Integrated original capture/review/VM and normal inputs; independent role/actor originals, actual host file/inode/byte retirement, SDK26 original Java Documents writer, OS Save/Share/readback/receiver and actual controlled TLS/OAuth/multipart bodies. Full common backend qualification remains pending on strict actor freshness/continuous quiet scheduling.",
+      "originalEvidence": "Both unchanged common v18 backend host modules passed on the recorded integrated implementation: SDK26 WHOLE27 and SDK29 WHOLE23. The facade composes original normal inputs, independently credentialed Actor-v3 current measurements, Primary-cue-v1 scheduling only, actual private files/inodes/bytes, controlled loopback HTTPS OAuth/multipart originals and strict fixture-close/quiet/Actor-exit/repeated retirement. SDK29 native/SDK/OS/consumer/render signals remain explicit synthetic producers. SDK26 also executes unchanged SnapshotDocumentsEvidence Java in a separate host JVM with actual file/FD/hash/delete/absence effects; Android PackageManager/Binder/UID/APK/native/renderer are explicit host seams. Mandatory foundations and targeted recovery remain required. No complete Android client/APK build or physical device acceptance is claimed.",
       "hostTestPaths": [
         "android/phone/tests/device/test_snapshot_foundation.py",
         "android/phone/tests/device/test_snapshot_handoff_audit.py",
@@ -1340,7 +1365,36 @@
         "android/phone/tests/device/test_snapshot_documents_acquisition_lease.py",
         "android/phone/tests/device/test_snapshots_historical_png.py",
         "android/phone/tests/device/test_snapshots_original_clone.py",
-        "android/phone/tests/device/test_snapshot_catalog_pass.py"
+        "android/phone/tests/device/test_snapshot_catalog_pass.py",
+        "android/phone/tests/device/test_snapshots_marker_phase.py",
+        "android/phone/tests/device/test_snapshots_retirement_actor_versions.py",
+        "android/phone/tests/device/test_snapshots_storage_intent.py",
+        "android/phone/tests/device/test_snapshots_distinct.py",
+        "android/phone/tests/device/test_snapshots_actor_schedule.py",
+        "android/phone/tests/device/test_snapshots_polling.py",
+        "android/phone/tests/device/test_snapshots_resident_actor.py",
+        "android/phone/tests/device/test_snapshots_partial_read_resume.py",
+        "android/phone/tests/device/test_snapshots_phase_transition.py",
+        "android/phone/tests/device/test_snapshots_primary_cleanup_stages.py",
+        "android/phone/tests/device/test_snapshots_history_pass.py",
+        "android/phone/tests/device/test_snapshots_primary_history_pass.py",
+        "android/phone/tests/device/test_snapshots_quiet_role_reuse.py",
+        "android/phone/tests/device/test_snapshots_evidence.py",
+        "android/phone/tests/device/test_snapshots_ephemeral_role_disposal.py",
+        "android/phone/tests/device/test_snapshots_constructor_history_pass.py",
+        "android/phone/tests/device/test_snapshots_actor_schedule_migration.py",
+        "android/phone/tests/device/test_snapshots_actor_primary_cue.py",
+        "android/phone/tests/device/test_snapshots_cleanup_close_race.py",
+        "android/phone/tests/device/test_snapshots_passive_constructor_history.py",
+        "android/phone/tests/device/test_snapshots_read_ready_slot.py",
+        "android/phone/tests/device/test_snapshots_closing_cancel_history.py",
+        "android/phone/tests/device/test_snapshots_actor_maintenance.py",
+        "android/phone/tests/device/test_snapshots_actor_ordinary_stages.py",
+        "android/phone/tests/device/test_snapshots_active_cancel_history.py",
+        "android/phone/tests/device/test_snapshots_actor_history.py",
+        "android/phone/tests/device/test_snapshots_input_replay_guard.py",
+        "android/phone/tests/device/test_snapshots_locked_slot_rebuild.py",
+        "android/phone/tests/device/test_snapshots_cleanup_constructor_scope.py"
       ],
       "nativeCheckPaths": [
         "android/phone/tests/device/test_snapshot_capture_files_native.py",
@@ -1359,9 +1413,7 @@
         "tests/device/adapters/android-phone/SNAPSHOT_PUBLIC_COMPOSITION_AUDIT.md",
         "tests/device/adapters/android-phone/SNAPSHOT_DOCUMENTS_HOST_REPLAY.md"
       ],
-      "gapIds": [
-        "snapshot-public-composition-pending"
-      ]
+      "gapIds": []
     },
     {
       "area": "scripts",
