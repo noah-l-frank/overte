@@ -41,6 +41,7 @@
     "feature-cleanup-consumption": {"current": 1, "reads": [1]},
     "chat-cleanup-consumption": {"current": 1, "reads": [1]},
     "chat-observation-cursor": {"current": 1, "reads": [1]},
+    "chat-observation-publisher": {"current": 1, "reads": [1]},
     "feature-navigation-provider": {"current": 2, "reads": [1, 2]},
     "asset-input-bundle": {"current": 1, "reads": [1]},
     "native-navigation-replies": {"current": 2, "reads": [1, 2]},

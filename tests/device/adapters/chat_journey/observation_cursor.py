@@ -41,6 +41,7 @@ class ChatObservationCursor:
             and store.read() is None)
         self.current=initial;self.owners=[initial];self.store=store;self.previous=None;self.rows=[];self.hashes=[]
         self.failed=False;self.root_stamp=None;self.transition_anchor=None;self.started=None;self.query_pending=False
+        self._freeze_guard=None
         self.scope=dict(chatObservationCursorVersion=VERSION,runId=initial.source.run,fixtureUrl=initial.source.fixture_url,
             binding=deepcopy(initial.samples.binding),peerBinding=deepcopy(initial.samples.peer_binding),role=initial.samples.role)
         self.history=ChatSourceChunks(store,self.scope);self.history.inventory(0)
@@ -57,6 +58,7 @@ class ChatObservationCursor:
         except BaseException:held.close();raise
 
     def control(self):
+        if self._freeze_guard is not None:need(self._freeze_guard() is True)
         need(not self.failed and not self.current.failed and same(self.store.read(),self.previous)
             and len(self.rows)==len(self.hashes)==len(self.base['chunks']))
         if self.root_stamp is not None:need(stamp(self.store.path.lstat())==self.root_stamp)
@@ -70,6 +72,15 @@ class ChatObservationCursor:
             need(len(owner.rows)==len(admitted)+(1 if self.query_pending and owner is self.current else 0))
             need(all(row['sourceSequence']==index+1 and digest(owner.rows[index])==row['observationSha256']
                 for index,row in enumerate(admitted)))
+
+    def bind_freeze(self,guard):
+        need(callable(guard) and (self._freeze_guard is None or self._freeze_guard is guard))
+        self._freeze_guard=guard
+
+    def final(self,started):
+        """Read-only final authority for the current original query."""
+        self.control();need(self.rows and self.base['phase']=='ready')
+        self.original(self.rows[-1]);self.current.final(self.current.rows[-1],started)
 
     def write(self,phase,**changes):
         self.control();value={**self.base,**deepcopy(changes),'phase':phase};self.store.write(value,self.previous)

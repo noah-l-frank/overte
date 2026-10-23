@@ -1031,6 +1031,20 @@ def create_adapter(args, base_class):
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-',
                 'chat-'+('witness' if witness else role)+'-observation-cursor-')))
 
+        def _chat_observation_publisher_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-original-observation-publisher-')))
+
+        @_private
+        def _chat_observation_publisher(self,target,cursor):
+            from adapters.chat_journey.observation_cursor import ChatObservationCursor
+            from adapters.chat_journey.observation_publisher import ChatObservationPublisher
+            _need(type(cursor) is ChatObservationCursor and cursor.scope['role']=='actor'
+                and cursor.store.path==self._chat_observation_cursor_store(target,'actor',witness=True).path)
+            native=self._native_feature_observer(target);native.guard()
+            _need(cursor.scope['binding']==self._scripts(target).binding)
+            return ChatObservationPublisher(cursor,self._chat_observation_publisher_store(target))
+
         @_private
         def _chat_observation_cursor(self,target,initial,*,witness=False):
             from adapters.chat_journey.observation import ChatObservationOwner
@@ -1109,6 +1123,7 @@ def create_adapter(args, base_class):
             stores=[self._chat_application_store(target),self._chat_restart_inputs_store(target),self._chat_archive_retirement_store(target),self._chat_host_close_store(target)]
             stores.append(self._chat_cleanup_witness_store(target))
             stores.append(self._chat_cleanup_baseline_store(target))
+            stores.append(self._chat_observation_publisher_store(target))
             stores.extend(self._chat_observation_cursor_store(target,role,witness=witness)
                 for role,witness in (('primary',False),('actor',False),('actor',True)))
             stores.extend(self._chat_cleanup_source_seal_store(target,witness=witness) for witness in (False,True))
