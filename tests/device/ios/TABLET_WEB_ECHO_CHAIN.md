@@ -4,6 +4,14 @@
 ready DOM packet, complete UIKit input ledger and native Script-emission
 ledger. It neither issues input nor queries or writes any source.
 
+Current State2 composition also retains the actual presentation-target join.
+UIKit input and presentation observations mint independent weak object IDs.
+The current decoder uses the original State2 `presentation.target` and verifies
+its exact generation/source and presentation snapshot; it never equates those
+two namespaces. The state-less helper remains readable for the literal legacy
+same-ID fixture contract, and current `tablet_web_history` always supplies State2
+when the original frame has that source version. No stored DTO is upgraded.
+
 The result separates four observations:
 
 - `attempts`: trusted DOM bridge clicks with actual touch down/up originals,

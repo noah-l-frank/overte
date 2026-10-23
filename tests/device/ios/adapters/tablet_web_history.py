@@ -108,7 +108,8 @@ def derive(frames,apps,binding,origins):
         else:
             candidates=[value for value in profiles.values() if value['profile']['assignedEpochMs']<=measured['document']['begin']['clock']['epochMs']]
             need(candidates);app=max(candidates,key=lambda value:value['profile']['assignedEpochMs'])
-        joined=chain(frame['ledger'],frame['sources'],document,frame['touches'],frame['emitter'],app['profile'],app['locations'])
+        joined=chain(frame['ledger'],frame['sources'],document,frame['touches'],frame['emitter'],app['profile'],app['locations'],
+            state_packet=frame['state'] if frame['state']['iosTabletWebStateVersion']>=2 else None)
         if measured['origin']=='foreign':need(not joined['delivered'] and not joined['accepted'] and not joined['echoes'])
         for collection,target in (('attempts',attempts),('delivered',delivered),('accepted',accepted),('echoes',echoes)):target.extend(joined[collection])
     current=latest['document'];opened=current['status']=='ready'

@@ -35,12 +35,23 @@ def _document(ledger,sources,document):
     return record
 
 
-def attempts(ledger,document,touches):
+def attempts(ledger,document,touches,*,state_packet=None):
     """Complete genuine WK contact/DOM gesture pairs; no input intent or ACK."""
     native.original(ledger);dom.original(document);uikit.original(touches)
     need(ledger['complete'] and touches['complete'] and document['status']=='ready'
         and all(ledger[key]==document[key]==touches[key] for key in ('runId','fixtureUrl','processId')))
     body=document['source']['dom'];view=document['source']['nativeView'];key=native.document_key(view)
+    target_view=document['source']['presentationAfter']['view']
+    if state_packet is not None:
+        from ios.adapters import tablet_web_state as state
+        state.original(state_packet);need(state_packet['iosTabletWebStateVersion']>=2 and state_packet['uikitInstance']==touches['instance']
+            and all(state_packet[key]==touches[key] for key in ('runId','fixtureUrl','processId')))
+        actual=state.current_presentation(state_packet,view['source'],handle=view['handle'])
+        need(actual['generation']==view['grant'] and actual['snapshot']['view']==document['source']['presentationAfter']['view'])
+        # UIKitInput and Presentation independently mint weak object IDs.
+        # State2 joins their actual original pointers through target, rather
+        # than equating those two opaque namespaces.
+        target_view=actual['target']
     begins=[row for row in ledger['events'] if row['kind']=='document-began' and native.document_key(row['identity'])==key]
     need(len(begins)==1);birth=begins[0]
     end=min([row['clock']['epochMs'] for row in ledger['events'] if row['sequence']>birth['sequence']
@@ -50,7 +61,7 @@ def attempts(ledger,document,touches):
         source=row['source']
         if (row['kind']!='touch' or source is None or 'identity' not in source or _view(source['identity'])!=_view(view)
             or not birth['clock']['epochMs']<=row['began']['epochMs']<end):continue
-        need(source['identity']['source']==view['source'] and source['view']==document['source']['presentationAfter']['view']
+        need(source['identity']['source']==view['source'] and source['view']==target_view
             and not row['active'] and row['ended'] is not None and row['ended']['epochMs']<end)
         callbacks=[dispatch for dispatch in touches['dispatches'] if any(phase['contact']==row['id'] for phase in dispatch['phases'])]
         need(callbacks and all(item['returned'] is not None and item['finally'] is not None for item in callbacks))
@@ -87,15 +98,18 @@ def attempts(ledger,document,touches):
     return result
 
 
-def chain(ledger,sources,document,touches,emitter,profile,locations):
+def chain(ledger,sources,document,touches,emitter,profile,locations,*,state_packet=None):
     """One actual document; callers retain its own original active ledger."""
     native.join_sources(ledger,sources);dom.join_sources(document,sources);uikit.join_sources(touches,sources,ledger);emissions.original(emitter)
     need(emitter['complete'] and all(emitter[key]==ledger[key] for key in ('runId','fixtureUrl','processId')))
+    if state_packet is not None:
+        from ios.adapters import tablet_web_state as state
+        state.join(state_packet,sources,ledger,touches)
     _document(ledger,sources,document)
     view=document['source']['nativeView'];key=native.document_key(view)
     events=[row for row in ledger['events'] if native.document_key(row['identity'])==key]
     returns={row['detail']['entry']:row for row in events if row['kind']=='signal-return'}
-    inputs=attempts(ledger,document,touches);delivered=[];accepted=[];echoes=[];used=set();request_sequences=set();used_calls=set()
+    inputs=attempts(ledger,document,touches,state_packet=state_packet);delivered=[];accepted=[];echoes=[];used=set();request_sequences=set();used_calls=set()
     for delivery in events:
         if delivery['kind']!='script-delivery':continue
         message=delivery['detail']['message'];request=packet(message)
