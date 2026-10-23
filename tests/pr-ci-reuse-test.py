@@ -239,7 +239,17 @@ class ReuseExecution(unittest.TestCase):
 
 class RuntimeIdentity(unittest.TestCase):
     def test_relocated_equal_tools_match_but_real_bytes_and_interpreter_inputs_do_not(self):
-        with tempfile.TemporaryDirectory(prefix='reuse-runtime-') as tmp:
+        # The execution sandbox deliberately omits host /etc and its package
+        # database. Keep those system facts explicit while measuring real tools.
+        os_release = ['ID=runtime-fixture\nVERSION_ID=1\n']
+        read_text = Path.read_text
+        def fixture_text(path, *args, **kwargs):
+            if path == Path('/etc/os-release'):
+                return os_release[0]
+            return read_text(path, *args, **kwargs)
+        with tempfile.TemporaryDirectory(prefix='reuse-runtime-') as tmp, \
+                patch.object(Path, 'read_text', fixture_text), \
+                patch.object(REUSE.subprocess, 'check_output', return_value=b'fixture-package=1:amd64\n'):
             left,right=[Path(tmp)/name for name in ('original','relocated')]
             for root in (left,right):
                 (root/'bin').mkdir(parents=True)
@@ -256,6 +266,8 @@ class RuntimeIdentity(unittest.TestCase):
             config=right/'pyvenv.cfg'
             config.write_text(config.read_text().replace('/usr/bin','/other/interpreter'))
             self.assertNotEqual(first, REUSE.observed_runtime([str(right)]))
+            os_release[0] = 'ID=runtime-fixture\nVERSION_ID=2\n'
+            self.assertNotEqual(first, REUSE.observed_runtime([str(left)]))
 
 class ReuseBudget(unittest.TestCase):
     def fixture(self):
