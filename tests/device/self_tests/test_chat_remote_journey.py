@@ -10,6 +10,9 @@ sent. This does not qualify a native app/AC binary, device or public capability.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 from types import SimpleNamespace
+import cProfile
+import os
+import pstats
 import time
 import unittest
 from unittest.mock import patch
@@ -34,7 +37,8 @@ from self_tests.test_native_chat_observation import RUN,command as chat_command
 class RemoteJourneyTests(RemoteActorFixture,unittest.TestCase):
     def setUp(self):
         self.full=self._testMethodName=='test_complete_shared_execute_then_original_remote_app_archive_and_host'
-        name=('test_all_original_compiled_stages_then_parent_erase_caches_restart_ipc_and_archive' if self.full else
+        self.diagnostic=self.full or self._testMethodName=='test_profile_actual_warm_source_calls_with_originals_retained'
+        name=('test_all_original_compiled_stages_then_parent_erase_caches_restart_ipc_and_archive' if self.diagnostic else
             'test_three_original_parent_steps_have_no_synthetic_completed_prefix_or_shared_witness_owner')
         self.warm=WarmArchiveTests(name);self.warm.setUp();self.addCleanup(self.warm.doCleanups)
         w=self.warm;self.p=w.parent;self.d=w.d;self.native=self.d.h.native;self.directory=w.root
@@ -70,8 +74,8 @@ class RemoteJourneyTests(RemoteActorFixture,unittest.TestCase):
         self.native_requests=[]
         local=SimpleNamespace(native=self.native,initial=self.primary.current,cursor=self.primary,flow=self.d)
         self.start_actor(local,{**self.stores,**self.return_stores},w.h.locks,self.p.store,
-            original_queries=True,defer_initial_publish=True,preserve_originals=self.full)
-        if self.full:print('Remote journey Actor originals retained in '+str(self.host_root),flush=True)
+            original_queries=True,defer_initial_publish=True,preserve_originals=self.diagnostic)
+        if self.diagnostic:print('Remote journey Actor originals retained in '+str(self.host_root),flush=True)
         self.assertEqual('prepared',self.p.previous['phase']);self.assertEqual(0,self.p.previous['completedSteps'])
         self.assertIsNone(self.stores['publisher'].read());self.assertEqual([],self.native_requests)
         self.owner=ChatRemotePublication(self.process,self.source,self.stores,self.expected,w.h.locks,
@@ -186,6 +190,28 @@ class RemoteJourneyTests(RemoteActorFixture,unittest.TestCase):
         with self.assertRaises(NativeUIError):self.native_query('primary',command)
         self.assertEqual(before,len(self.warm.h.model.primary.commands));self.assertEqual([],self.native_requests)
         self.assertIsNone(self.stores['publisher'].read());self.assertEqual('prepared',self.p.previous['phase'])
+
+    def test_profile_actual_warm_source_calls_with_originals_retained(self):
+        self.test_prepared_actor_waits_then_queries_original_parent_bytes_for_baseline_and_normal_open()
+        while len(self.owner.rows)<60:
+            self.primary.read(len(self.primary.rows));self.command('publish')
+            self.owner.acquire(self.owner.rows[-1]['publication']['sequence'])
+            if len(self.owner.rows)%10==0:print('Actual same-phase source rows='+str(len(self.owner.rows))+
+                ' seconds='+str(round(time.monotonic()-self.started,3)),flush=True)
+        def functions(profile):
+            return sorted(((ct,tt,nc,cc,os.path.basename(path)+':'+str(line)+':'+name)
+                for (path,line,name),(cc,nc,tt,ct,_callers) in pstats.Stats(profile).stats.items()),reverse=True)[:25]
+        primary=cProfile.Profile();primary.enable();self.primary.read(len(self.primary.rows));primary.disable()
+        self.command('profile-start');parent=cProfile.Profile();parent.enable()
+        self.command('publish');self.owner.acquire(self.owner.rows[-1]['publication']['sequence']);parent.disable()
+        actor=self.command('profile-stop')
+        report=dict(scope='actual-owned-python-source-fixture',sourceRows=len(self.owner.rows),
+            completedSteps=self.p.previous['completedSteps'],nativeAndWidgetProducers='explicit-model-seams',
+            actualDeviceFreshnessQualified=False,primary=functions(primary),parent=functions(parent),actor=actor)
+        PrivateFeatureState(self.host_root/'actual-warm-source-profile.json').write(report,None)
+        self.assertEqual(2,self.p.previous['completedSteps']);self.assertEqual(61,len(self.owner.rows))
+        self.assertFalse(self.journey.cleanup_hook_started);self.assertIsNone(self.stop_store.read())
+        print('Actual warm source profile retained in '+str(self.host_root/'actual-warm-source-profile.json'),flush=True)
 
     def test_complete_shared_execute_then_original_remote_app_archive_and_host(self):
         started=time.monotonic();self.journey.execute()

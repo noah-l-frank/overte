@@ -21,7 +21,7 @@ from fixture.chat_observer_process import LinuxChatObserverProcess
 from self_tests.test_chat_remote_actor_return import WORKER as RETURN_WORKER
 
 ACTOR_WORKER=RETURN_WORKER.split('h=fixture.PicoChatCursorActorTests();h.setUp();actor=h.actor')[0]+'''
-import json,uuid,os
+import json,uuid,os,cProfile,pstats
 from copy import deepcopy
 from types import SimpleNamespace
 from adapters.chat_actor_files import ChatActorFiles
@@ -125,6 +125,13 @@ for line in sys.stdin:
     elif action=='late':native.epoch+=2000;value=True
     elif action=='stop':a.stop_once();a.publish_return();value=True
     elif action=='consume':a.consume_return();value=True
+    elif action=='profile-start' and config.get('originalQueries',False):
+        profile=cProfile.Profile();profile.enable();value=True
+    elif action=='profile-stop' and config.get('originalQueries',False):
+        profile.disable();stats=pstats.Stats(profile)
+        rows=sorted(((ct,tt,nc,cc,os.path.basename(path)+':'+str(line)+':'+name)
+            for (path,line,name),(cc,nc,tt,ct,_callers) in stats.stats.items()),reverse=True)[:25]
+        value=dict(scope='actual-owned-python-source-fixture',functions=rows)
     else:raise ValueError('Closed fixture command')
     print(json.dumps(dict(kind='reply',value=value)),flush=True)
 '''
