@@ -122,5 +122,30 @@ class PicoChatObservationFactoryTests(unittest.TestCase):
                 with self.assertRaises((ValueError,NativeUIError)):self.adapter._chat_application_retained(self.target)
                 metadata.clear();metadata.update(original)
 
+    def test_global_archive_metadata_requires_complete_true_extension_without_legacy_proof_aliases(self):
+        state,_ui=self.adapter._script_paths(self.target);key=state.stem.removeprefix('normal-script-state-')
+        directory=state.parent/('chat-evidence-'+key+'-'+seams.RUN);directory.mkdir(mode=0o700)
+        metadata=dict(picoChatArchivePlanVersion=4,runId=seams.RUN,
+            oldBinding=deepcopy(self.parent.binding),newBinding=deepcopy(self.parent.binding))
+        evidence=dict(metadata=metadata,chatEvidenceArchiveVersion=4,fileOwnership='closed-immutable-originals',
+            unlinkPolicy='original-source-16-unlinks-250ms',copyVerification='full-current-copy-and-original-physical-inventory')
+        extension=dict(chatCursorCleanupConsumptionVersion=1,chatCursorCleanupConsumptionSha256='a'*64,
+            chatCursorSourceSeals=['b'*64,'c'*64],chatCursorSequenceSucceeded=True)
+        # The original completed_archive byte/hash verifier is explicitly a
+        # seam in this parser test; an empty directory is not a real archive.
+        with patch('adapters.chat_journey.evidence_archive.completed_archive',return_value=evidence):
+            for key,value in extension.items():
+                metadata[key]=value
+                with self.assertRaises((ValueError,NativeUIError)):self.adapter._chat_application_retained(self.target)
+                del metadata[key]
+            metadata.update(extension);self.assertFalse(self.adapter._chat_application_retained(self.target))
+            for changes in (dict(chatCursorCleanupConsumptionVersion=True),dict(chatCursorSequenceSucceeded=False),
+                dict(chatCursorSequenceSucceeded=1),dict(chatCursorCleanupConsumptionSha256='unknown'),
+                dict(chatCursorSourceSeals=['b'*64,'b'*64]),dict(chatCursorSourceSeals=('b'*64,'c'*64)),
+                dict(chatCleanupBaselineSha256='d'*64,chatCleanupSourceSeals=['e'*64,'f'*64])):
+                original=deepcopy(metadata);metadata.update(changes)
+                with self.assertRaises((ValueError,NativeUIError)):self.adapter._chat_application_retained(self.target)
+                metadata.clear();metadata.update(original)
+
 
 if __name__=='__main__':unittest.main()
