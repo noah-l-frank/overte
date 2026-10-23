@@ -740,7 +740,10 @@
         "tests/device/adapters/pico4/browser_actor.py",
         "tests/device/adapters/pico4/BROWSER_ACTOR_ENTRYPOINT.md",
         "tests/device/self_tests/test_pico_browser_actor.py",
-        "tests/device/adapters/pico4/browser_cleanup_consumption.py"
+        "tests/device/adapters/pico4/browser_cleanup_consumption.py",
+        "tests/device/adapters/pico4/browser_archive_source.py",
+        "tests/device/adapters/pico4/BROWSER_ARCHIVE_SOURCE.md",
+        "tests/device/adapters/original_source_unlink_fence.py"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -794,7 +797,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Complete immutable source archive and actual host closure using the original common-cleanup owner plus typed Actor-return/full capture owners. Actual direct common cleanup\u2192separate process return\u2192Capture2 nine cases pass62.384s and retain sequenceSucceeded=false. True-source admission checks all28 original activations and complete primary common sample history; full execute remains unqualified under the prior120s timing failure. No source/cadence/quiet/budget reduction.",
+      "nextExecutableStep": "Compose the warm primary/actual common/typed process-return/full capture owners with existing immutable ChatEvidenceArchive and shared original16-unlinks/250ms fence, then close actual catalog/program descriptors. New original primary VM/browser/lifecycle/diagnostic/all-capture release source3cases pass65.987s; legacy Actor6cases39.550s and typed return5cases36.433s pass after shared acquisition extraction. No archive/unlink/full host or whole-execute qualification yet.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },

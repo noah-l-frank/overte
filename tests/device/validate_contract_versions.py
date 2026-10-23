@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "pico-browser-archive-release": 1,
     "original-source-unlink-fence": 1,
     "pico-browser-vm": 1,
     "pico-browser-history": 1,

@@ -88,6 +88,7 @@ TESTS = (
     test("tablet-web-actor-retirement", "interaction", PYTHON, "pico-browser-actor-retirement-test.py"),
     test("tablet-web-actor-return", "interaction", PYTHON, "pico-browser-actor-retirement-test.py", "--part", "return"),
     test("tablet-web-independent-process", "interaction", PYTHON, "pico-browser-actor-retirement-test.py", "--part", "independent"),
+    test("tablet-web-archive-source", "interaction", PYTHON, "pico-browser-actor-retirement-test.py", "--part", "archive-source"),
     test("tablet-web-independent-journey", "interaction", PYTHON, "pico-browser-actor-retirement-test.py", "--part", "independent-journey"),
     test("tablet-web-capture-retirement", "interaction", PYTHON, "pico-browser-capture-retirement-test.py"),
     test("world-render-retirements", "interaction", PYTHON, "pico-world-render-retirements-test.py", requires=("c++", "pkg-config", "node")),

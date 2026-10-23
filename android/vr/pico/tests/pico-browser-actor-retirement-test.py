@@ -9,13 +9,15 @@ import argparse
 ROOT=Path(__file__).resolve().parents[4]
 sys.path.insert(0,str(ROOT/'tests/device'))
 if __name__=='__main__':
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--part',choices=('retirement','return','independent','independent-journey'),default='retirement')
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--part',choices=('retirement','return','independent','independent-journey','archive-source'),default='retirement')
     part=parser.parse_args().part
-    if part in ('independent','independent-journey'):
+    if part in ('independent','independent-journey','archive-source'):
         from self_tests.test_pico_browser_independent_process import PicoBrowserIndependentProcessTests
         prefix='self_tests.test_pico_browser_independent_process.PicoBrowserIndependentProcessTests.'
         whole='test_complete_shared_journey_then_original_independent_return_and_all_capture_retirement'
-        names=[whole] if part=='independent-journey' else [name for name in unittest.defaultTestLoader.getTestCaseNames(PicoBrowserIndependentProcessTests) if name!=whole]
+        names=[name for name in unittest.defaultTestLoader.getTestCaseNames(PicoBrowserIndependentProcessTests)
+            if (name==whole if part=='independent-journey' else name.startswith('test_archive_source_') if part=='archive-source'
+                else name!=whole and not name.startswith('test_archive_source_'))]
         suite=unittest.defaultTestLoader.loadTestsFromNames([prefix+name for name in names]+(['self_tests.test_pico_browser_actor'] if part=='independent' else []))
     else:suite=unittest.defaultTestLoader.loadTestsFromName('self_tests.test_pico_browser_actor_'+part)
     raise SystemExit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

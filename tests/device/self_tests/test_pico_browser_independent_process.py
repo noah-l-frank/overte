@@ -246,5 +246,48 @@ class PicoBrowserIndependentProcessTests(unittest.TestCase):
         self.assertIsNone(f.primary.remote_capture_retirement);self.assertTrue(common.journey.cleanup_hook_started)
         with self.assertRaises((ValueError,NativeUIError)):common.consume(common.raw)
 
+    def test_archive_source_queries_new_original_primary_vm_browser_and_complete_capture_inventory(self):
+        owner=self.original_return();f=self.f;f.primary.retire_returned_actor_captures(owner)
+        capture=f.primary.remote_capture_retirement;old_capture=capture.reader.sequence
+        vm=f.primary.vm_cache;old_scripts=vm.scripts.sequence;old_frame=vm.frame(-1)
+        inputs=sum(row['operation']=='input' for row in f.target.command_log)
+        source=f.primary.archive_release_source()
+        with f.primary.lock.held():
+            proof=source();source.final(proof);source.current_phase(proof)
+        self.assertGreater(proof['frame']['scripts']['sequence'],old_scripts)
+        self.assertGreater(proof['captures']['sequence'],old_capture)
+        self.assertEqual(old_frame,vm.frame(-1));self.assertFalse(proof['frame']['phaseAfter']['active'])
+        self.assertEqual(inputs,sum(row['operation']=='input' for row in f.target.command_log))
+        self.assertEqual('ready',source.store.read()['phase']);self.assertEqual(1,len(source.previous['chunks']))
+        self.assertEqual({'primary','actor'},{row['owner']['role'] for row in source.proofs})
+        self.assertTrue(all(row['store'].path.exists() for row in capture.catalog.rows.values()))
+        self.assertTrue(owner.close_host())
+        with self.assertRaises(NativeUIError):f.primary.finalize()
+
+    def test_archive_source_uncertain_capture_reply_keeps_exact_intent_and_cannot_resend(self):
+        owner=self.original_return();f=self.f;f.primary.retire_returned_actor_captures(owner)
+        source=f.primary.archive_release_source();self.lose=True;before=len(self.batches)
+        with self.assertRaises(NativeUIError):source()
+        self.assertTrue(source.failed);self.assertEqual(before+1,len(self.batches))
+        value=source.store.read();self.assertEqual('reading',value['phase']);self.assertIsNotNone(value['pending']['capture'])
+        with self.assertRaises(NativeUIError):source()
+        self.assertEqual(before+1,len(self.batches));self.assertTrue(owner.close_host())
+        self.assertTrue(all(row['store'].path.exists() for row in f.primary.remote_capture_retirement.catalog.rows.values()))
+
+    def test_archive_source_late_ready_cas_with_frozen_host_cannot_qualify_release(self):
+        from unittest.mock import patch
+        owner=self.original_return();f=self.f;f.primary.retire_returned_actor_captures(owner)
+        source=f.primary.archive_release_source();write=PrivateFeatureState.write;changed=[]
+        def landed(store,value,previous):
+            result=write(store,value,previous)
+            if store.path==source.store.path and value['phase']=='ready':
+                f.clock.base+=2000;changed.append(True)
+            return result
+        with patch.object(PrivateFeatureState,'write',landed):
+            with self.assertRaises(NativeUIError):source()
+        self.assertEqual([True],changed);self.assertTrue(source.failed);self.assertEqual('ready',source.store.read()['phase'])
+        with self.assertRaises(NativeUIError):source()
+        self.assertTrue(owner.close_host())
+
 
 if __name__=='__main__':unittest.main()

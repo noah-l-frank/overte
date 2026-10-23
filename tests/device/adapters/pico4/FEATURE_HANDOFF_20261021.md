@@ -2478,3 +2478,22 @@ Direct cleanup remains sequenceSucceeded=false. No previous phase, query,
 quiet interval or whole case is removed. Full execute after the new hook has
 not been rerun; its prior120.110s failure remains. Immutable archive and actual
 host closure are the next enclosing source transaction. Complete areas stay3/14.
+
+## Original ATP bytes, raw Snapshot close and Browser archive sources
+
+Root3/211groups pass46.53s: coverage0.090s, actual original ATP byte/outer
+resource-death join38.805s and six raw Snapshot close cases7.639s. Sources
+431871eef0 andc5744e4c03 are selected asc9186dd986 and6d062572a5. Renderer/
+ModelCache and child-request lifetime are not inferred; Snapshot closed-frame
+producers are narrow seams and no complete normal prefix/raw restore is claimed.
+
+The [new Browser archive source](BROWSER_ARCHIVE_SOURCE.md) uses the same original
+retirement acquisition as the Actor, with a narrowly typed primary grammar.
+Fresh original VM/browser/Java/lifecycle/diagnostic and complete capture queries
+follow the actual common/return/capture prefix. Root2/212groups pass66.08s:
+coverage0.093s and three original source cases65.987s. Lost aggregate reply and
+late ready-CAS/native-clock counterexamples retain every original and refuse
+replay. Unchanged Actor/return groups also pass39.550/36.433s, total76.08s with
+coverage. Shared16-unlinks/250ms mechanics e70601ba93 retain every original guard;
+18 existing fence/index cases pass3.372s. The next transaction still must make
+the immutable archive and close actual host owners. Complete areas stay3/14.

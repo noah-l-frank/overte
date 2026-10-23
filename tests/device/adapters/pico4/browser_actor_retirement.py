@@ -23,7 +23,7 @@ from feature_journeys.phase_fixture import validate as phase_packet
 VERSION=1
 
 
-def validate_original_frame(value,owner,state,anchor,origin,active,*,run,fixture_url):
+def validate_original_frame(value,owner,state,anchor,origin,active,*,run,fixture_url,role='actor'):
     """Historical original grammar only; no query or current release authority.
 
     Callers separately bind the originally returned bytes and physical graph.
@@ -37,8 +37,10 @@ def validate_original_frame(value,owner,state,anchor,origin,active,*,run,fixture
     json_digest(value);context(owner['binding']);pid=int(owner['binding']['processIdentity'].split(':',1)[0])
     exact(value,{'phaseBefore','phaseAfter','nativeBefore','nativeAfter','browser','runtime','objectsBefore','scripts',
         'objectsAfter','diagnostic','compiledHttpAnchor','startedHost','startedEpoch','finishedHost','finishedEpoch'})
-    need(owner['phase']=='cleaned' and owner['scriptUrl'] is not None and state['quiet'] is not None and state['quiet']['complete']
-        and state['native']['source']['retired'] and state['publication'] is not None and state['publication']['phase']=='accepted')
+    need(role in ('primary','actor') and owner['phase']=='cleaned' and owner['scriptUrl'] is not None
+        and state['quiet'] is not None and state['quiet']['complete'] and state['native']['source']['retired']
+        and (state['publication'] is None if role=='primary' else
+            state['publication'] is not None and state['publication']['phase']=='accepted'))
     previous=state['phase'];need(previous['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
     for name in ('phaseBefore','phaseAfter'):
         packet=value[name]
@@ -80,6 +82,61 @@ def validate_original_frame(value,owner,state,anchor,origin,active,*,run,fixture
         need(max(value['finishedEpoch']-captured,
             value['startedEpoch']-captured+math.ceil((value['finishedHost']-value['startedHost'])*1000))<=1500)
     return value
+
+
+def acquire_original_retirement_frame(producer,started,epoch_started,*,include_inactive=True):
+    """Same original queries; caller supplies its own physical/final clock fence.
+
+    Historical HTTP remains compilation provenance, never a fresh read of a
+    retired fixture. No reader or live owner is reconstructed from files.
+    """
+    self=producer;flow=self.flow
+    before=flow.source.status(self.inactive);self.phase(before,self.inactive)
+    native_before=flow.adapter._native_feature_observer(flow.selector,read_only=True).read(0)
+    browser=flow.sample_native(self.owner,self.state['native'])
+    reader=flow.adapter._web_runtime_observer(flow.selector,read_only=True);reader.last=deepcopy(self.state['runtime'])
+    runtime=reader.read(flow.run,flow.fixture_url)
+    objects_before=self.vm.objects.read(self.anchor['objectsAfter']['sequence'])
+    scripts=self.vm.scripts.read(self.vm.scripts.sequence,require_effects=True,require_code_identity=True,
+        require_load_history=True,require_membership=True)
+    objects_after=self.vm.objects.read(objects_before['sequence'])
+    vm_frame=dict(objectsBefore=objects_before,scripts=scripts,objectsAfter=objects_after,
+        http=deepcopy(self.anchor['http']),hostMonotonic=flow.monotonic())
+    # Historical HTTP is only the already admitted compilation
+    # receipt, never a fresh observation of the retired fixture.
+    origin,facts=join(vm_frame,self.owner['scriptUrl'],self.vm.scripts.pid,origin=self.vm.origin)
+    need(same(origin,self.vm.origin) and facts==dict(retired=True,running=False))
+    object_packet(objects_before,dict(schemaVersion=1,commandId=objects_before['commandId'],action=ACTION),
+        self.vm.scripts.pid,objects_after['capturedEpochMs'],previous=self.anchor['objectsAfter'])
+    old_loads=self.anchor['scripts']['source']['loads'];loads=scripts['source']['loads']
+    need(scripts['instance']==self.anchor['scripts']['instance']
+        and scripts['sequence']>self.anchor['scripts']['sequence']
+        and loads['sequence']>=old_loads['sequence']
+        and same(loads['events'][:len(old_loads['events'])],old_loads['events'])
+        and not any(row['url']==self.owner['scriptUrl'] for row in loads['events'][len(old_loads['events']):]))
+    _ui,observe,_binding,guard,_installed=flow.adapter.normal_feature_runtime(flow.selector,read_only=True)
+    diagnostic,_epoch=observe(0)
+    service_packet(diagnostic,flow.source.epoch_ms())
+    need(not any(row['url']==self.owner['scriptUrl'] for row in diagnostic['scripts']))
+    native_after=flow.adapter._native_feature_observer(flow.selector,read_only=True).read(0)
+    active=self.history.last
+    need(native_before['instance']==native_after['instance']==active['nativeAfter']['instance']
+        and native_after['sequence']>native_before['sequence']>active['nativeAfter']['sequence']
+        and native_before['lifecycle']==native_after['lifecycle']==self.state['lifecycle'])
+    need(diagnostic['instance']==active['diagnostic']['instance']
+        and diagnostic['sampleSequence']>active['diagnostic']['sampleSequence'])
+    quiet_frame(dict(host=flow.monotonic(),browser=browser,runtime=runtime),flow.run,flow.fixture_url,
+        self.owner['ownerToken'],self.vm.scripts.pid,retired=True)
+    after=flow.source.status(before);self.phase(after,before)
+    epochs=([self.inactive['capturedEpochMs']] if include_inactive else [])+[before['capturedEpochMs'],after['capturedEpochMs'],browser['capturedEpochMs'],
+        runtime['capturedEpochMs'],native_before['capturedEpochMs'],native_after['capturedEpochMs'],
+        objects_before['requestedEpochMs'],scripts['requestedEpochMs'],objects_after['requestedEpochMs'],diagnostic['sampleEpochMs']]
+    epochs.extend(runtime['source'][key]['capturedEpochMs'] for key in ('nativeBefore','java','nativeAfter'))
+    row=dict(phaseBefore=before,phaseAfter=after,nativeBefore=native_before,nativeAfter=native_after,
+        browser=browser,runtime=runtime,objectsBefore=objects_before,scripts=scripts,objectsAfter=objects_after,
+        diagnostic=diagnostic,compiledHttpAnchor=deepcopy(self.anchor['http']),
+        startedHost=started,startedEpoch=epoch_started)
+    return row,epochs,guard,active
 
 
 class PicoBrowserActorRetirement:
@@ -164,51 +221,7 @@ class PicoBrowserActorRetirement:
             with flow.lock.held(),flow.adapter.existing_input_session(flow.selector):
                 started=flow.monotonic();epoch_started=flow.source.epoch_ms();flow.runtime(self.owner)
                 self.write('reading',[]);self.clocks(started,epoch_started,[epoch_started])
-                before=flow.source.status(self.inactive);self.phase(before,self.inactive)
-                native_before=flow.adapter._native_feature_observer(flow.selector,read_only=True).read(0)
-                browser=flow.sample_native(self.owner,self.state['native'])
-                reader=flow.adapter._web_runtime_observer(flow.selector,read_only=True);reader.last=deepcopy(self.state['runtime'])
-                runtime=reader.read(flow.run,flow.fixture_url)
-                objects_before=self.vm.objects.read(self.anchor['objectsAfter']['sequence'])
-                scripts=self.vm.scripts.read(self.vm.scripts.sequence,require_effects=True,require_code_identity=True,
-                    require_load_history=True,require_membership=True)
-                objects_after=self.vm.objects.read(objects_before['sequence'])
-                vm_frame=dict(objectsBefore=objects_before,scripts=scripts,objectsAfter=objects_after,
-                    http=deepcopy(self.anchor['http']),hostMonotonic=flow.monotonic())
-                # Historical HTTP is only the already admitted compilation
-                # receipt, never a fresh observation of the retired fixture.
-                origin,facts=join(vm_frame,self.owner['scriptUrl'],self.vm.scripts.pid,origin=self.vm.origin)
-                need(same(origin,self.vm.origin) and facts==dict(retired=True,running=False))
-                object_packet(objects_before,dict(schemaVersion=1,commandId=objects_before['commandId'],action=ACTION),
-                    self.vm.scripts.pid,objects_after['capturedEpochMs'],previous=self.anchor['objectsAfter'])
-                old_loads=self.anchor['scripts']['source']['loads'];loads=scripts['source']['loads']
-                need(scripts['instance']==self.anchor['scripts']['instance']
-                    and scripts['sequence']>self.anchor['scripts']['sequence']
-                    and loads['sequence']>=old_loads['sequence']
-                    and same(loads['events'][:len(old_loads['events'])],old_loads['events'])
-                    and not any(row['url']==self.owner['scriptUrl'] for row in loads['events'][len(old_loads['events']):]))
-                _ui,observe,_binding,guard,_installed=flow.adapter.normal_feature_runtime(flow.selector,read_only=True)
-                diagnostic,_epoch=observe(0)
-                service_packet(diagnostic,flow.source.epoch_ms())
-                need(not any(row['url']==self.owner['scriptUrl'] for row in diagnostic['scripts']))
-                native_after=flow.adapter._native_feature_observer(flow.selector,read_only=True).read(0)
-                active=self.history.last
-                need(native_before['instance']==native_after['instance']==active['nativeAfter']['instance']
-                    and native_after['sequence']>native_before['sequence']>active['nativeAfter']['sequence']
-                    and native_before['lifecycle']==native_after['lifecycle']==self.state['lifecycle'])
-                need(diagnostic['instance']==active['diagnostic']['instance']
-                    and diagnostic['sampleSequence']>active['diagnostic']['sampleSequence'])
-                quiet_frame(dict(host=flow.monotonic(),browser=browser,runtime=runtime),flow.run,flow.fixture_url,
-                    self.owner['ownerToken'],self.vm.scripts.pid,retired=True)
-                after=flow.source.status(before);self.phase(after,before)
-                epochs=[self.inactive['capturedEpochMs'],before['capturedEpochMs'],after['capturedEpochMs'],browser['capturedEpochMs'],
-                    runtime['capturedEpochMs'],native_before['capturedEpochMs'],native_after['capturedEpochMs'],
-                    objects_before['requestedEpochMs'],scripts['requestedEpochMs'],objects_after['requestedEpochMs'],diagnostic['sampleEpochMs']]
-                epochs.extend(runtime['source'][key]['capturedEpochMs'] for key in ('nativeBefore','java','nativeAfter'))
-                row=dict(phaseBefore=before,phaseAfter=after,nativeBefore=native_before,nativeAfter=native_after,
-                    browser=browser,runtime=runtime,objectsBefore=objects_before,scripts=scripts,objectsAfter=objects_after,
-                    diagnostic=diagnostic,compiledHttpAnchor=deepcopy(self.anchor['http']),
-                    startedHost=started,startedEpoch=epoch_started)
+                row,epochs,guard,active=acquire_original_retirement_frame(self,started,epoch_started)
                 flow.runtime(self.owner);guard();self.originals();ended,epoch=self.clocks(started,epoch_started,epochs)
                 row.update(finishedHost=ended,finishedEpoch=epoch)
                 validate_original_frame(row,self.owner,self.state,self.anchor,self.vm.origin,active,run=flow.run,fixture_url=flow.fixture_url)

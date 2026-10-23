@@ -3415,5 +3415,45 @@
       "legacyRemoteCaptureWithoutCommonConsumption": 1
     },
     "qualification": "Actual shared cleanup wait and callback bytes, complete primary original sample rows, accepted original Actor publication payloads, original typed process return and complete3s all-capture retirement. Actual direct diagnostic keeps sequenceSucceeded=false. Same-byte common child replacement, frozen-host native clock jump after landed ready CAS, uncoupled callback/root/orphan refusals retain sources. Full common execute path has not been rerun after the new hook; its prior120.110s process timing failure remains. Immutable archive and host closure, source completeness, APK and devices remain unqualified."
+  },
+  "assetsBytesSnapshotCloseIntegration20261023": {
+    "status": "passed",
+    "catalog": 211,
+    "groups": 3,
+    "seconds": 46.53,
+    "checks": {
+      "coverage": 0.09,
+      "snapshotRawCloseSixCases": 7.639,
+      "assetsEntityResourceOneCase": 38.805
+    },
+    "commits": {
+      "assetsSource": "431871eef010dee17114302f6e332240d9a98267",
+      "assetsIntegration": "c9186dd986",
+      "snapshotSource": "c5744e4c03aa8579c74c3a5f290a5043e592c0e1",
+      "snapshotIntegration": "6d062572a5"
+    },
+    "qualification": "Original entity URL, independent complete ATP mapping/hash/byte requests and actual outer resource QObject death with explicit factory/network/renderer seams. Snapshot raw observation binds original pre-input baseline to fresh closed-frame/neutral bookends; narrow Closed producers are seams, not a completed normal whole prefix. No automatic renderer/model request, child-request death, raw settings restoration, continuous final quiet or whole feature/device result."
+  },
+  "sharedOriginalUnlinkMechanics20261023": {
+    "status": "passed",
+    "commit": "e70601ba93",
+    "cases": 18,
+    "seconds": 3.372,
+    "qualification": "Mechanical reuse only; exact typed Chat source, original16-unlinks/250ms/1.5s source guards and complete physical/copy/manifest/inventory checks unchanged."
+  },
+  "browserArchiveSourceIntegration20261023": {
+    "status": "targeted-passed-archive-host-still-open",
+    "catalog": 212,
+    "groups": 2,
+    "seconds": 66.08,
+    "checks": {
+      "coverage": 0.093,
+      "newPrimaryArchiveSourceThreeCases": 65.987,
+      "firstNewPrimaryPositive": 21.485,
+      "unchangedActorSixCases": 39.55,
+      "unchangedTypedReturnFiveCases": 36.433,
+      "actorReturnAndCoverageTotal": 76.08
+    },
+    "qualification": "Same original retirement source acquisition shared by actual Actor and warm primary. New family1 requires completed original common/VM/Java/capture owners and typed real process return, journals exact aggregate command before transport, reads new original VM/browser/lifecycle/diagnostic/all-capture packets and retains original1.5s clocks through actual exits. Lost reply cannot replay; landed ready CAS/native+2s with frozen host is unqualified. No source unlink, archive completion, full final host release, public feature, whole execute, APK or device claim."
   }
 }
