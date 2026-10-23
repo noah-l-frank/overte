@@ -47,13 +47,15 @@ class AssetsFilesOwnerTests(unittest.TestCase):
         self.directory=tempfile.TemporaryDirectory(prefix='pico-assets-private-owner-');self.addCleanup(self.directory.cleanup)
         self.process=subprocess.Popen([str(self.binary),'--testScript','--serve'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True,env=self.environment)
         self.addCleanup(self.close_process)
-        self.raw='';self.lost=None;self.operations=[];self.host=0
+        self.raw='';self.lost=None;self.undelivered=None;self.operations=[];self.delivered=[];self.host=0
         self.binding=dict(sourceRevision='1'*40,artifactSha256='2'*64,processIdentity='owned-native-fixture',sessionId='assets-test',generation=1,targetFingerprint='3'*64)
         self.store=PrivateFeatureState(Path(self.directory.name)/'assets-owner.json');self.make()
     def close_process(self):
         self.process.stdin.close();self.process.wait(timeout=3);self.process.stdout.close()
     def send(self,value):
-        self.operations.append(value['operation']);self.process.stdin.write(json.dumps(value)+'\n');self.process.stdin.flush()
+        self.operations.append(value['operation'])
+        if self.undelivered==value['operation']:self.raw='';return
+        self.delivered.append(value['operation']);self.process.stdin.write(json.dumps(value)+'\n');self.process.stdin.flush()
         actual=self.process.stdout.readline();self.assertTrue(actual)
         self.raw='' if self.lost==value['operation'] else actual
     def sleep(self,seconds):self.host+=seconds
@@ -83,6 +85,28 @@ class AssetsFilesOwnerTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.owner.release(lambda:False)
         self.assertEqual(self.operations,before);self.assertEqual(self.store.read()['phase'],'ready')
         self.owner.release(lambda:True)
+    def test_lost_release_reply_only_observes_actual_retirement_without_resend(self):
+        self.owner.prepare();self.lost='release'
+        with self.assertRaises(NativeUIError):self.owner.release(lambda:True)
+        self.assertEqual(self.store.read()['phase'],'retiring');self.lost=None;self.make()
+        self.assertTrue(self.owner.release(lambda:True)['retired'])
+        self.assertEqual(self.operations.count('release'),1);self.assertEqual(self.delivered.count('release'),1)
+        self.make();self.assertTrue(self.owner.release(lambda:True)['retired'])
+        self.assertEqual(self.operations.count('release'),1)
+    def test_undelivered_release_keeps_original_bytes_and_never_retries_mutation(self):
+        self.owner.prepare();self.undelivered='release'
+        with self.assertRaises(NativeUIError):self.owner.release(lambda:True)
+        from adapters.script_journey.history import unpack
+        before=unpack(self.store.read()['originals']);self.assertEqual(self.store.read()['phase'],'retiring')
+        self.undelivered=None;self.make()
+        for _ in range(2):
+            with self.assertRaises(NativeUIError):self.owner.release(lambda:True)
+        after=unpack(self.store.read()['originals']);self.assertEqual(before,after[:len(before)])
+        actual=self.owner.read()['source'];self.assertTrue(actual['exists']);self.assertFalse(actual['retiring'])
+        self.assertTrue(all(row['exists'] for row in actual['files']))
+        self.assertEqual(self.store.read()['phase'],'retiring');self.assertEqual(self.operations.count('release'),1)
+        self.assertEqual(self.delivered.count('release'),0)
+
     def test_frozen_native_clock_cannot_hide_host_age_after_original_read(self):
         self.owner.prepare();native=self.owner.native;epoch=int(time.time()*1000);calls=0
         native.clock_ms=lambda:epoch
