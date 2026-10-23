@@ -4,6 +4,7 @@
 from pathlib import Path
 import json
 import os
+import re
 import shlex
 import subprocess
 import tempfile
@@ -45,7 +46,10 @@ std::shared_ptr<overte::e2e::PhoneLifecycleWorldInput> _phoneLifecycleWorldInput
 #undef qApp
 #define qApp (static_cast<HostApplication*>(QCoreApplication::instance()))
 '''+test
-        cpp=cls.stage/'actual.cpp';cpp.write_text((ROOT/'android/phone/tests/device/lifecycle-world-runtime.cpp').read_text().replace('// ORIGINAL_KEYBOARD_METHODS',functions).replace('// ORIGINAL_TEST_BINDING',seams))
+        header=(ROOT/'libraries/input-plugins/src/input-plugins/KeyboardMouseDevice.h').read_text()
+        declarations=re.findall(r'QVariantMap\s+e2eForwardKeyObservation\(\)\s*(?:const\s*)?;',header)
+        if len(declarations)!=1:raise AssertionError('Original keyboard observation declaration is not unique')
+        cpp=cls.stage/'actual.cpp';cpp.write_text((ROOT/'android/phone/tests/device/lifecycle-world-runtime.cpp').read_text().replace('// ORIGINAL_KEYBOARD_METHODS',functions).replace('// ORIGINAL_KEYBOARD_OBSERVATION_DECLARATION',declarations[0]).replace('// ORIGINAL_TEST_BINDING',seams))
         flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt6Widgets','Qt6Gui','Qt6Core','Qt6Test'],text=True));cls.binary=cls.stage/'check'
         subprocess.run(['c++','-std=c++17','-fPIC','-DOVERTE_E2E_FEATURE_TESTS','-DANDROID_APP_PHONE_INTERFACE','-I'+str(ROOT),str(cpp),'-o',str(cls.binary),*flags],check=True,timeout=30)
     def case(self,mode):

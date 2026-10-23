@@ -83,7 +83,7 @@ void KeyboardMouseDevice::keyReleaseEvent(QKeyEvent* event) {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
-QVariantMap KeyboardMouseDevice::e2eForwardKeyObservation() const {
+QVariantMap KeyboardMouseDevice::e2eForwardKeyObservation() {
     if (QThread::currentThread()!=thread() || !_inputDevice)return {};
     const auto channel=_inputDevice->makeInput(Qt::Key_Up).getChannel();
     return {{"keyboardPluginActive",isActive()},{"upChannel",channel},{"upPressed",_inputDevice->getButton(channel)}};

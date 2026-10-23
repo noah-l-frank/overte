@@ -128,7 +128,7 @@ protected:
 public:
     const std::shared_ptr<InputDevice>& getInputDevice() const { return _inputDevice; }
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
-    QVariantMap e2eForwardKeyObservation() const;
+    QVariantMap e2eForwardKeyObservation();
 #endif
 
 protected:

@@ -23,7 +23,10 @@ public:
     enum {KEYBOARD_MASK=0x00ff};
     class InputDevice:public controller::InputDevice {public:controller::Input makeInput(Qt::Key code)const;int _deviceID{19};};
     std::shared_ptr<InputDevice> _inputDevice=std::make_shared<InputDevice>();bool enabled{true};
-    bool isActive()const{return enabled;}void keyPressEvent(QKeyEvent*);void keyReleaseEvent(QKeyEvent*);QVariantMap e2eForwardKeyObservation()const;
+    // Match the production Plugin getter's non-const API. The observation's
+    // declaration is imported from the original KeyboardMouseDevice header.
+    bool isActive(){return enabled;}void keyPressEvent(QKeyEvent*);void keyReleaseEvent(QKeyEvent*);
+    // ORIGINAL_KEYBOARD_OBSERVATION_DECLARATION
 };
 // ORIGINAL_KEYBOARD_METHODS
 class Receiver:public QWidget {
