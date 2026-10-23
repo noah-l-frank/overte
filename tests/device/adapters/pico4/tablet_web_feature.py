@@ -83,6 +83,7 @@ class PicoTabletWebFeature:
         self.quiet_cache=None;self.quiet_cache_scope=None
         self.history_cache=None;self.history_scope=None
         self.actor_retirement=None
+        self.capture_retirement=None
         self.completed_store=PrivateFeatureState(self.artifact_root/(self.area+'-'+self.run+'-retirement.json'))
 
     def manager_store(self):
@@ -827,6 +828,13 @@ class PicoTabletWebFeature:
         # Keep all original role/owner/metadata journals for that next join.
         need(self.role=='primary')
         raise NativeUIError('Original browser VM and capture finalization are not integrated; ownership is retained')
+
+    def retire_original_captures(self,actor):
+        from adapters.pico4.browser_capture_retirement import PicoBrowserCaptureRetirement
+        need(self.role=='primary' and self.capture_retirement is None)
+        # Retain the actual warm owner before admission opens any host handle.
+        self.capture_retirement=PicoBrowserCaptureRetirement(self,actor)
+        return self.capture_retirement.run()
 
 
 def re_script(value):

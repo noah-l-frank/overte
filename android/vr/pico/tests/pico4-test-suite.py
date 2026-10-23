@@ -79,6 +79,7 @@ TESTS = (
     test("tablet-web-owner", "interaction", PYTHON, "pico-tablet-web-owner-test.py"),
     test("tablet-web-journey", "interaction", PYTHON, "pico-tablet-web-journey-test.py"),
     test("tablet-web-actor-retirement", "interaction", PYTHON, "pico-browser-actor-retirement-test.py"),
+    test("tablet-web-capture-retirement", "interaction", PYTHON, "pico-browser-capture-retirement-test.py"),
     test("world-render-retirements", "interaction", PYTHON, "pico-world-render-retirements-test.py", requires=("c++", "pkg-config", "node")),
     test("browser-entry", "interaction", PYTHON, "pico-browser-entry-test.py"),
     test("browser-originals", "webview", PYTHON, "pico-browser-originals-test.py", requires=("c++", "pkg-config", "javac", "java", "node")),

@@ -2914,5 +2914,34 @@
     },
     "qualification": "Actual warm whole source graphs and historical physical receipts; initial/Open and original cleanup machinery execute, remaining24 input metadata/native/widget/network/clock producers are explicit seams. No whole external Journey, actor process closure, cold RPC, archive join or stereo/public capability.",
     "journalsRetired": false
+  },
+  "browserCompleteSharedJourney20261023": {
+    "status": "passed",
+    "sourceCommit": "028f3b3170",
+    "picoGroups": 1,
+    "catalogAtRun": 170,
+    "selector": "tablet-web-journey",
+    "seconds": 101.013,
+    "unchangedLimitSeconds": 120,
+    "artifact": "/home/user/Documents/github/overte-pico-adapter-private-20261021/browser-recovered-host-q_4k4c40/result.xml",
+    "qualification": "All26 shared actions, both independent original source clients, original two-eye evidence, complete histories and common cleanup run unchanged. Product/native/VM/render/clock producers are explicit host seams. This is not durable final archival/host or Actor-process qualification.",
+    "wholeFeatureCapability": false,
+    "priorTimeoutsRetained": true
+  },
+  "browserCaptureRetirement20261023": {
+    "status": "passed",
+    "protocol": 1,
+    "picoGroups": 2,
+    "catalogAtRun": 171,
+    "seconds": 86.06,
+    "checks": {
+      "cases": 6,
+      "captureRetirement": 85.978,
+      "coverage": 0.084
+    },
+    "qualification": "Actual warm primary/Actor role histories, VM and quiet owners, physical metadata/PNG bytes, kernel-owned catalog descriptors and distinct same-inode OS locks. Native/render/GPU aggregation and clocks remain explicit host seams; separate selected native batch/getter/TSI Qt5 tests are recorded independently.",
+    "wholeFeatureCapability": false,
+    "journalsRetired": false,
+    "remaining": "Immutable archival, actual independent Actor-process completion and all final host closure; complete public/RPC composition."
   }
 }

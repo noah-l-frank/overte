@@ -724,7 +724,9 @@
         "tests/device/self_tests/test_pico_browser_actor_retirement.py",
         "tests/device/adapters/pico4/world_render_retirements.py",
         "tests/device/native/PicoWorldRenderRetirements.h",
-        "tests/device/adapters/pico4/WORLD_RENDER_RETIREMENTS.md"
+        "tests/device/adapters/pico4/WORLD_RENDER_RETIREMENTS.md",
+        "tests/device/adapters/pico4/browser_capture_retirement.py",
+        "tests/device/adapters/pico4/BROWSER_CAPTURE_RETIREMENT.md"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -778,7 +780,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Join the new complete original capture-inventory window to a durable browser finalization owner derived from both original source histories and the returned inactive Actor receipt; then immutable archive and actual host closure. Selected exact native GPU/getter/new TSI bodies, real queued/cancelled QObject dispatch and Python/Node/private-factory checks pass6.247s; existing nine browser stereo cases pass16.990s. The new reader is not a durable owner or complete-manifest authority. Full26-action Journey remains red at the unchanged120s limit; complete capability and app/APK/device qualification remain unavailable.",
+      "nextExecutableStep": "Join the actual returned complete-history capture retirement to immutable archival, independent Actor-process closure and all host-resource release. New durable warm owner derives both manifests from every original historical sample, retains the exact source/PNG graph and query intents, and verifies every capture for3s; six owning cases pass85.978s. Separate native batch/GUI dispatch is compiled. The unchanged full26-action shared Journey passed101.013s within120s at028f3b3170 under recovered host load. The new focused cleanup prefix is not whole finalization; public capability and full app/APK/device qualification remain unavailable.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },

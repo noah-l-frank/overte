@@ -36,7 +36,7 @@ After equivalent synthetic-tool optimization and original-ledger cold reopening
 fixes, the same warm flow passes78.704s within120s: normal Cancel/Still/Save,
 independent actual host PNG,13 fresh Provider inspections, all15 quiet clocks
 and cold factory reopening without a repeated input. JNI/Android provider/UID
-and rendering boundaries remain explicit host seams. The catalog now contains170 groups; complete source areas stay3/14.
+and rendering boundaries remain explicit host seams. The catalog now contains171 groups; complete source areas stay3/14.
 
 The fixed Assets normal-input packet95aa81c067 is selected as25d8dcff66.
 The actual original QML and whole Pico observer/apply host case passes20.433s,
@@ -2041,3 +2041,33 @@ producers remain explicit seams. Exact external global cleanup consumption,
 new-source archive catalog, actor-process/IPC/host release, cold RPC and
 Chat-specific stereo/public capability remain missing. No journals are retired
 by this packet and source-complete areas stay3/14.
+
+
+## Complete unchanged shared browser Journey and durable capture ownership
+
+The original `tablet-web-journey` selector passes101.013s within the unchanged
+120s limit at028f3b3170. This isolated run followed measured host recovery from
+full RAM/swap pressure. All26 actions, both original source clients, original
+two-eye evidence, complete source histories and common cleanup remain present;
+no sample, clock, cadence, evidence check or deadline changed. The earlier
+timeouts remain historical retained results. Actual product/native/VM/render
+and clock producers remain explicit host seams. This corrects the current
+whole shared-Journey status; it does not qualify durable finalization.
+
+[Complete capture retirement](BROWSER_CAPTURE_RETIREMENT.md) version1 now binds
+the actual warm primary and inactive Actor receipt to every original source
+and PNG. Its manifest is derived from every historical sample, so a shortened
+current role list cannot omit an old capture. The existing closed-original
+catalog preserves exact physical identity/full bytes; durable query intents
+precede native transport. Every selected capture must remain absent over the
+same original3s/500ms continuous native/host window. All final copies/CAS,
+candidate/session checks, actual source-lock exit and a final full physical
+pass precede the original clocks. Cold, lost, late or same-byte-replaced
+originals remain owned without replay. The six focused owning cases pass
+85.978s; coverage0.084s (2/171 groups,86.06s) passes. Both actual host lock
+objects use the same kernel inode, and the native aggregate source has its
+separate compiled checks. This normal Open/Close/cleanup prefix remains a
+focused model proof, with explicit native/render/clock seams. No journals are
+unlinked and no independent Actor-process or complete host closure is claimed.
+Immutable archival and final process/host/RPC composition remain executable
+work; complete source areas stay3/14 and public Browser capability stays closed.

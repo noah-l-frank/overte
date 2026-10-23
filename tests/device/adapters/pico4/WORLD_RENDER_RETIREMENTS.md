@@ -39,10 +39,10 @@ to the process. A prior single-capture helper incorrectly equated those UUIDs;
 that join is corrected with a counterexample using distinct producer births.
 
 This source alone does not establish that its supplied manifest includes the
-entire historical browser run. A durable enclosing finalization owner must
-derive that complete set from admitted original histories, preserve an intent
-before querying and include every original journal/PNG/context in its immutable
-archive before host closure. Cold reconstruction of this reader is not an
+entire historical browser run. The [durable capture owner](BROWSER_CAPTURE_RETIREMENT.md) now derives that
+complete set from admitted original histories and preserves each query intent.
+The enclosing finalization still must include every original journal/PNG/context
+in its immutable archive before host closure. Cold reconstruction of this reader is not an
 authorized recovery route. Browser `finalize()` and public capability remain
 closed until that composition and the whole unchanged Journey are verified.
 

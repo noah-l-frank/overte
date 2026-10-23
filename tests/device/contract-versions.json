@@ -4,6 +4,7 @@
     "pico-browser-vm": {"current": 1, "reads": [1]},
     "pico-browser-history": {"current": 1, "reads": [1]},
     "pico-browser-actor-retirement": {"current": 1, "reads": [1]},
+    "pico-browser-capture-retirement": {"current": 1, "reads": [1]},
     "pico-world-render-retirements": {"current": 1, "reads": [1]},
     "native-script-object-lifetimes": {"current": 1, "reads": [1]},
     "pico-tablet-web-binding": {"current": 1, "reads": [1]},
