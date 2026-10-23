@@ -5,7 +5,7 @@ from copy import deepcopy
 import hashlib
 import uuid
 
-from adapters.chat_journey.remote_actor_graph import ChatRemoteActorGraph,STORES
+from adapters.chat_journey.remote_actor_graph import ChatRemoteActorGraph,STORES,VERSION as GRAPH_VERSION
 from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
 from adapters.chat_journey.observation_cursor import plain
 from adapters.native_feature_observation import need
@@ -100,7 +100,7 @@ class ChatRemoteActorReturn:
             except ObserverProcessPresent:
                 raise ChatRemoteActorPending('Original Actor PID is still present; no kernel absence exists') from None
             self.graph.verify()
-            result=dict(sourceGraphVersion=1,sourceGraphSha256=self.graph.cache_sha,
+            result=dict(sourceGraphVersion=GRAPH_VERSION,sourceGraphSha256=self.graph.cache_sha,
                 originalActorSha256=hashlib.sha256(self.graph.raw).hexdigest(),originalActorStamp=deepcopy(self.graph.source_stamp),
                 finalActorSha256=hashlib.sha256(self.graph.successor[0]).hexdigest(),finalActorStamp=deepcopy(self.graph.successor[1]),
                 sourceSealSha256=self.graph.root['sealSha256'],processReturn=deepcopy(returned))
