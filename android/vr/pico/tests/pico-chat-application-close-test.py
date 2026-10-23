@@ -21,6 +21,7 @@ def selected(part):
         'self_tests.test_chat_remote_journey.remote_journey_component_tests','self_tests.test_chat_source_bundles'])
     if part=='remote-publication':return unittest.defaultTestLoader.loadTestsFromNames([
         'self_tests.test_chat_remote_publication.remote_publication_component_tests',
+        'self_tests.test_chat_decoded_chunks',
         'self_tests.test_chat_remote_consumed_sources','self_tests.test_chat_source_graph_prefix'])
     if part=='cursor-stop':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_actor_stop')
     if part=='cursor-cleanup-consumption':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_cursor_cleanup_consumption')
