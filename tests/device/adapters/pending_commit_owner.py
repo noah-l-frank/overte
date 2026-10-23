@@ -93,48 +93,67 @@ def validate(value,request,pid,epoch_ms):
     return value
 
 
+def accept(previous,current):
+    """Original owner/event continuity, shared by live and historical joins."""
+    if previous is not None:
+        old=previous
+        need(current['instance']==old['instance'] and current['sequence']>old['sequence']
+             and current['capturedEpochMs']>=old['capturedEpochMs']
+             and current['canonicalComponentUrl']==old['canonicalComponentUrl']
+             and current['lastIntentSequence']>=old['lastIntentSequence'])
+        if old['runId']==current['runId'] and old['commit']:
+            need(bool(current['commit']) and all(current['commit'][key]==old['commit'][key] for key in ('captureCommandId','fieldToken')))
+            a,b=old['commit']['observation'],current['commit']['observation']
+            need(all(a[key]==b[key] for key in ('instance','eventId','processId','createdEpochMs','source'))
+                 and b['sequence']>a['sequence'] and b['capturedEpochMs']>=a['capturedEpochMs']
+                 and b['elapsedMs']>=a['elapsedMs'] and len(b['events'])>=len(a['events'])
+                 and b['events'][:len(a['events'])]==a['events'])
+
+
 class NativePendingCommitOwner:
     def __init__(self,send,original,clock_ms,guard,pid,*,ios=False,intent=None,monotonic=time.monotonic,sleep=time.sleep):
         need(all(callable(f) for f in (send,original,clock_ms,guard,monotonic,sleep))
              and integer(pid,1) and type(ios) is bool and (intent is None or callable(intent)))
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,original,clock_ms,guard,pid
         self.ios,self.intent,self.monotonic,self.sleep=ios,intent,monotonic,sleep
-        self.last=None
+        self.last=self.last_raw=self.last_request=None;self._before_send=None
+
+    def bind_before_send(self,callback):
+        need(callable(callback) and (self._before_send is None or self._before_send is callback))
+        self._before_send=callback
 
     def exchange(self,request):
         command(request,ios=self.ios)
         try:
             need(self.guard() is not False)
-            started=self.monotonic();need(number(started,0,1e15));previous=started
+            started=self.monotonic();requested=self.clock_ms()
+            need(number(started,0,1e15) and integer(requested,1));previous=started
             if request['operation']!='observe':
                 need(self.intent is not None)
                 self.intent(deepcopy(request)) # Durable owner intent precedes the one actual send.
                 need(self.guard() is not False)
+                if self._before_send is not None:self._before_send(deepcopy(request))
             self.send(deepcopy(request))
             for attempt in range(51):
                 now=self.monotonic();need(number(now,0,1e15) and previous<=now and now-started<5)
                 need(self.guard() is not False)
                 raw=self.original()
-                need(not raw or len(raw)<=32768)
+                need(type(raw) is str and len(raw.encode())<=32768)
                 try:value=decode(raw) if raw else None
                 except ValueError:value=None
                 if type(value) is dict and value.get('commandId')==request['commandId']:
                     validate(value,request,self.pid,self.clock_ms())
-                    if self.last is not None:
-                        old=self.last
-                        need(value['instance']==old['instance'] and value['sequence']>old['sequence']
-                             and value['capturedEpochMs']>=old['capturedEpochMs']
-                             and value['canonicalComponentUrl']==old['canonicalComponentUrl']
-                             and value['lastIntentSequence']>=old['lastIntentSequence'])
-                        if old['runId']==value['runId'] and old['commit']:
-                            need(bool(value['commit']) and all(value['commit'][key]==old['commit'][key] for key in ('captureCommandId','fieldToken')))
-                            a,b=old['commit']['observation'],value['commit']['observation']
-                            need(all(a[key]==b[key] for key in ('instance','eventId','processId','createdEpochMs','source'))
-                                 and b['sequence']>a['sequence'] and b['capturedEpochMs']>=a['capturedEpochMs']
-                                 and b['elapsedMs']>=a['elapsedMs'] and len(b['events'])>=len(a['events'])
-                                 and b['events'][:len(a['events'])]==a['events'])
-                    now=self.monotonic();need(number(now,0,1e15) and previous<=now and now-started<5 and self.guard() is not False)
-                    self.last=deepcopy(value);return value
+                    accept(self.last,value)
+                    # Copies, continuity and final candidate guard precede the
+                    # last original clock. A frozen native clock cannot hide
+                    # elapsed decoding, persistence or guard work.
+                    retained,result,original_request=deepcopy(value),deepcopy(value),deepcopy(request)
+                    need(self.guard() is not False);epoch=self.clock_ms();now=self.monotonic()
+                    need(integer(epoch,1) and number(now,0,1e15) and previous<=now and now-started<5
+                         and -250<=epoch-value['capturedEpochMs']
+                         and max(epoch-value['capturedEpochMs'],requested-value['capturedEpochMs']+(now-started)*1000)<=1500)
+                    self.last,self.last_raw,self.last_request=retained,raw,original_request
+                    return result
                 now=self.monotonic();need(number(now,0,1e15) and previous<=now);previous=now
                 if now-started>=5 or attempt==50:break
                 self.sleep(min(.1,5-(now-started)))

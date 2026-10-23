@@ -402,6 +402,8 @@ REQUIRED = {
     "native-lifecycle-background": 1,
     "pico-lifecycle-background-owner": 1,
     "pico-lifecycle-background-originals": 1,
+    "pico-lifecycle-pending-owner": 1,
+    "pico-lifecycle-pending-originals": 1,
     "native-navigation-replies": 2,
     "native-navigation-modals": 1,
     "native-navigation-error-controls": 1,
