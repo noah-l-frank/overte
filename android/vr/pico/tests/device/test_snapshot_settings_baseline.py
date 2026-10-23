@@ -23,8 +23,10 @@ from adapters.pico4.snapshot_settings_originals import ACTION,FILE,KEYS
 
 
 class BaselineBoundary:
-    def __init__(self,test):
-        self.h=original.SnapshotCancelOwnerTests();self.h.setUp();test.addCleanup(self.h.doCleanups)
+    def __init__(self,test,*,host=None,entry_source=lambda:{},manager_instance='c'*32):
+        if host is None:
+            host=original.SnapshotCancelOwnerTests();host.setUp();test.addCleanup(host.doCleanups)
+        self.h=host
         self.sequence=0;self.packet=None;self.dirty=False;self.cache=False;self.parent=self.h.owner
         write=self.h.adb.write_debug_app_file;read=self.h.adb.read_debug_app_file
         def write_source(target,package,path,raw):
@@ -33,12 +35,14 @@ class BaselineBoundary:
                 self.sequence+=1;entries={key:dict(present=False,value=None) for key in KEYS}
                 entries['alsoTakeAnimatedSnapshot']=dict(present=True,value=self.h.adb.mode=='animated')
                 entries['snapshotFormat']=dict(present=True,value=self.h.adb.format)
+                for key,entry_value in entry_source().items():
+                    if key in KEYS:entries[key]=dict(present=True,value=deepcopy(entry_value))
                 if self.dirty:entries['previousStillSnapPath']=dict(present=True,value='/foreign/actual-change.png')
                 initialized=self.h.adb.screen=='snapshot';cache=dict(initialized=initialized,set=initialized,value=self.h.adb.format if initialized else '',defaultValue='')
                 # Explicit typed-serialization seam, not a Qt binary receipt.
                 blob=json.dumps(dict(entries=entries,formatCache=cache),sort_keys=True).encode()
                 self.packet=dict(snapshotSettingsOriginalsVersion=1,commandId=value['commandId'],runId=value['runId'],pid=123,
-                    sequence=self.sequence,capturedEpochMs=self.h.clock(),source=dict(snapshotInstance='d'*32,managerInstance='c'*32,
+                    sequence=self.sequence,capturedEpochMs=self.h.clock(),source=dict(snapshotInstance='d'*32,managerInstance=manager_instance,
                         entriesEpochMs=self.h.clock(),entries=entries,formatCache=cache,typedSerializedBase64=base64.b64encode(blob).decode(),typedSha256=hashlib.sha256(blob).hexdigest()))
                 return
             return write(target,package,path,raw)
@@ -58,7 +62,8 @@ class BaselineBoundary:
 
 class SnapshotSettingsBaselineTests(unittest.TestCase):
     def test_actual_factory_new_original_before_normal_input_header_marker_and_host_only_stream_seal(self):
-        m=BaselineBoundary(self);lease=m.attach();m.parent.prepare();baseline=lease.originals.get('settings',lease.state['original'])
+        m=BaselineBoundary(self,entry_source=lambda:dict(previousSnapshotHref='hifi://original/preinput'));lease=m.attach();m.parent.prepare();baseline=lease.originals.get('settings',lease.state['original'])
+        self.assertEqual(dict(present=True,value='hifi://original/preinput'),lease.packet(lease.state['original'])['source']['entries']['previousSnapshotHref'])
         self.assertEqual(3,m.parent.disk['snapshotCancelOwnerVersion']);self.assertEqual(m.identity(lease),m.parent.disk['settingsBaselineOriginalSha256'])
         self.assertFalse(lease.packet(lease.state['original'])['source']['formatCache']['initialized']);self.assertEqual([],m.h.adb.controllers)
         m.h.activate('open');m.parent.open();self.assertTrue(lease.report()['originalInputBound']);self.assertEqual(['tablet.open'],m.h.adb.controllers)

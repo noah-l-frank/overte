@@ -25,8 +25,8 @@ from self_tests.test_world_render_receipt_inventory import Boundary as Inventory
 
 
 class ReturnBoundary:
-    def __init__(self,root):
-        self.b=Boundary(root);self.bg=self.b.owner();self.bg.prepare();self.bg.home();self.bg.resume();self.bg.quiet()
+    def __init__(self,root,*,background=None):
+        self.b=Boundary(root) if background is None else background;self.bg=self.b.owner();self.bg.prepare();self.bg.home();self.bg.resume();self.bg.quiet()
         self.images=root/'return-images';self.images.mkdir(mode=0o700);self.native_root=root/'return-native';self.native_root.mkdir(mode=0o700)
         self.gpu=CameraBoundary();self.storage=StorageBoundary();self.storage.raw=self.gpu.raw;self.inventory=InventoryBoundary(self.native_root)
         for path in self.native_root.iterdir():path.unlink()
