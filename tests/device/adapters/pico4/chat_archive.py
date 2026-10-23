@@ -20,6 +20,7 @@ from adapters.script_journey.history import same
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
 
 VERSION=4
+CURSOR_EXTENSION_VERSION=1
 
 
 class PicoChatArchivePlan:
@@ -60,13 +61,23 @@ class PicoChatArchivePlan:
             self.add(parent.input_close.input.store,parent.input_close.input.disk)
             for cache in parent.cache_release.caches:
                 cache.validate();self.add_owner(cache);self.add(cache.capture.owner.store,cache.capture.owner.owned())
-            # The separate publisher must have independently acquired all 26
-            # original fixture stages. Historical reconstruction performs no
-            # publication, target input or new effect observation.
-            self.witness=self.historical_witness()
-            for role in (self.witness.initial_samples,self.witness.samples):self.add_role(role)
-            self.add_owner(self.witness)
-            self.cleanup_metadata=self.add_cleanup_baseline()
+            # Preserve the legacy exact 26-stage publisher when no explicit
+            # global consumed graph is bound. Historical reconstruction never
+            # publishes, delivers target input or acquires new target effects.
+            consumed=getattr(parent,'cursor_cleanup_consumption',None)
+            if consumed is None:
+                self.witness=self.historical_witness()
+                for role in (self.witness.initial_samples,self.witness.samples):self.add_role(role)
+                self.add_owner(self.witness)
+                self.cleanup_metadata=self.add_cleanup_baseline()
+            else:
+                # A global publisher has real repeated observations under a
+                # fixture phase. Never reconstruct a private 26-row witness
+                # or silently rebase its actual externally consumed cursor.
+                parent.require_consumed_cleanup(consumed)
+                need(getattr(parent,'cleanup_baseline',None) is None)
+                self.witness=None
+                self.cleanup_metadata=self.add_cursor_cleanup_consumption(consumed)
             # Last _scripts access: subsequent process/source factories MUST
             # keep these actual old-PID host contexts untouched.
             manager=self.adapter._scripts(self.target)
@@ -148,6 +159,48 @@ class PicoChatArchivePlan:
                 need(digest(stamps)==original['chunkStampsSha256'])
         # Optional v4 metadata: old archives never acquire this missing proof.
         return dict(chatCleanupBaselineSha256=digest(receipt),chatCleanupSourceSeals=list(receipt['sealSha256']))
+
+    def add_cursor_cleanup_consumption(self,consumed):
+        """Catalog the exact returned warm graph, including every predecessor.
+
+        This physical acquisition also supports the explicit direct-wait
+        diagnostic. Only the constructor's actual Parent hook admission can
+        authorize process restart and final archival; a false sequence flag
+        remains false in the archive metadata and cannot authorize that path.
+        """
+        from adapters.chat_journey.cursor_cleanup_consumption import ChatCursorCleanupConsumption
+        from adapters.chat_journey.cursor_source_seal import ChatCursorSourceSeal
+        from adapters.chat_journey.evidence_archive import stamp
+        p=self.parent
+        need(type(consumed) is ChatCursorCleanupConsumption
+            and consumed.primary.samples is p.cache_release.roles[0]
+            and consumed.store.path==self.adapter._chat_cursor_cleanup_consumption_store(self.target).path
+            and consumed.scope['runId']==p.source.run and consumed.scope['fixtureUrl']==p.source.fixture_url
+            and same(consumed.scope['binding'],p.binding) and same(consumed.scope['peerBinding'],p.peer.binding))
+        receipt=consumed.receipt();self.add_owner(consumed)
+        need(self.catalog.rows['primary/'+consumed.store.path.name]['stamp']==consumed.root_stamp)
+        for witness,(seal,value) in enumerate(zip(consumed.seals,consumed.seal_receipts)):
+            need(type(seal) is ChatCursorSourceSeal
+                and seal.store.path==self.adapter._chat_cursor_source_seal_store(self.target,witness=bool(witness)).path)
+            seal.receipt(value);self.add_owner(seal)
+            need(self.catalog.rows['primary/'+seal.store.path.name]['stamp']==seal.seal_stamp
+                and len(seal.owners)==len(value['originals']))
+            for owner,original in zip(seal.owners,value['originals']):
+                need(owner.store.path.name==original['journal']);self.add_owner(owner)
+                root=self.catalog.rows['primary/'+owner.store.path.name]
+                need(root['stamp']==original['stamp'] and digest(root['expected'])==original['sha256'])
+                stamps=[]
+                for index in range(original['chunkCount']):
+                    row=self.catalog.rows['primary/'+owner.history.store(index).path.name];physical=row['stamp']
+                    stamps.append([physical[position] for position in (0,1,5,3,2,4,6,7)])
+                need(digest(stamps)==original['chunkStampsSha256'])
+            # Receipt revalidation cannot refresh native facts. It proves the
+            # same returned original graph still exists after its last copy.
+            seal.receipt(value)
+        need(same(consumed.receipt(),receipt) and stamp(consumed.store.path.lstat())==consumed.root_stamp)
+        header=receipt['externalConsumption']['header']
+        return dict(chatCursorCleanupConsumptionVersion=CURSOR_EXTENSION_VERSION,chatCursorCleanupConsumptionSha256=digest(receipt),
+            chatCursorSourceSeals=list(receipt['sealSha256']),chatCursorSequenceSucceeded=header['sequenceSucceeded'])
 
     def pre_stop_inventory(self):
         # This exact known reader root must remain mutable for the new

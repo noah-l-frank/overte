@@ -103,6 +103,7 @@
     "pico-chat-application-close": {"current": 1, "reads": [1]},
     "chat-evidence-archive": {"current": 4, "reads": [1, 2, 3, 4]},
     "pico-chat-archive-plan": {"current": 4, "reads": [1, 2, 3, 4]},
+    "pico-chat-cursor-archive-extension": {"current": 1, "reads": [1]},
     "pico-chat-host-close": {"current": 1, "reads": [1]},
     "pico-chat-restart-io": {"current": 1, "reads": [1]},
     "pico-openxr-binding-transfer": {"current": 1, "reads": [1]},

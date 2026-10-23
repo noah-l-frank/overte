@@ -299,10 +299,43 @@ class PicoChatComposition:
             self.failed=True
             raise NativeUIError('Pico Chat common cleanup baseline is unresolved; original sources remain without replay') from None
 
-    def restart_and_close_application(self,after_epoch):
+    def require_consumed_cleanup(self,consumed):
+        """Only the actual successful shared hook may authorize this path.
+
+        A returned direct-wait source receipt remains useful historical
+        evidence, but it cannot qualify the whole externally executed recipe.
+        This does not assert independent Actor host-process finalization.
+        """
+        from adapters.chat_journey.cursor_cleanup_consumption import ChatCursorCleanupConsumption,ChatCleanupFinalizationSlot
+        need(type(consumed) is ChatCursorCleanupConsumption and not self.failed
+            and self.previous['phase']=='caches-retired' and self.previous['completedSteps']==26
+            and self.cache_release.defer_ipc and consumed.primary.samples is self.cache_release.roles[0]
+            and type(consumed.slot) is ChatCleanupFinalizationSlot and consumed.slot.consumer is consumed
+            and consumed.slot.issued and not consumed.slot.failed
+            and consumed.slot.journey is consumed.journey and consumed.journey.cleanup_hook_started
+            and consumed.journey.after_cleanup_baseline is consumed.slot.callback
+            and consumed.journey._cleanup_sequence_succeeded is True
+            and consumed.scope['runId']==self.source.run and consumed.scope['fixtureUrl']==self.source.fixture_url
+            and same(consumed.scope['binding'],self.binding) and same(consumed.scope['peerBinding'],self.peer.binding)
+            and consumed.store.path==self.adapter._chat_cursor_cleanup_consumption_store(self.target).path)
+        value=consumed.receipt();header=value['externalConsumption']['header']
+        need(header['sequenceSucceeded'] is True and header['ticket']==self.cleanup_fence.original()['activations'][-1]['ticket'])
+        self.guard();return value
+
+    def bind_consumed_cleanup(self,consumed):
+        need(getattr(self,'cursor_cleanup_consumption',None) is None and getattr(self,'cleanup_baseline',None) is None)
+        try:
+            value=self.require_consumed_cleanup(consumed)
+            self.cursor_cleanup_consumption=consumed;return value
+        except Exception:
+            self.failed=True
+            raise NativeUIError('Original shared Chat cleanup consumption did not authorize finalization; all originals remain') from None
+
+    def restart_and_close_application(self,after_epoch,*,cleanup_consumption=None):
         """Actual once-only restart, independent new originals and final IPC."""
         from adapters.pico4.chat_application_close import PicoChatApplicationClose
         try:
+            if cleanup_consumption is not None:self.bind_consumed_cleanup(cleanup_consumption)
             need(not self.failed and integer(after_epoch,1) and self.previous['phase']=='caches-retired'
                 and self.cache_release is not None and self.cache_release.defer_ipc
                 and getattr(self,'application_close',None) is None)

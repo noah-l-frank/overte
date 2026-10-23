@@ -1200,6 +1200,18 @@ def create_adapter(args, base_class):
                 run=path.name.removeprefix('chat-evidence-'+key+'-')
                 _need(re.fullmatch('[0-9a-f]{32}',run))
                 evidence=completed_archive(path);metadata=evidence['metadata']
+                cursor_fields={'chatCursorCleanupConsumptionVersion','chatCursorCleanupConsumptionSha256',
+                    'chatCursorSourceSeals','chatCursorSequenceSucceeded'}
+                if cursor_fields&set(metadata):
+                    _need(cursor_fields<=set(metadata) and metadata.get('picoChatArchivePlanVersion')==4
+                        and not {'chatCleanupBaselineSha256','chatCleanupSourceSeals'}&set(metadata)
+                        and type(metadata['chatCursorCleanupConsumptionVersion']) is int
+                        and metadata['chatCursorCleanupConsumptionVersion']==1 and metadata['chatCursorSequenceSucceeded'] is True
+                        and type(metadata['chatCursorCleanupConsumptionSha256']) is str
+                        and re.fullmatch('[0-9a-f]{64}',metadata['chatCursorCleanupConsumptionSha256'])
+                        and type(metadata['chatCursorSourceSeals']) is list and len(metadata['chatCursorSourceSeals'])==2
+                        and all(type(value) is str and re.fullmatch('[0-9a-f]{64}',value) for value in metadata['chatCursorSourceSeals'])
+                        and len(set(metadata['chatCursorSourceSeals']))==2)
                 if {'chatCleanupBaselineSha256','chatCleanupSourceSeals'}&set(metadata):
                     _need(metadata.get('picoChatArchivePlanVersion')==4
                         and type(metadata.get('chatCleanupBaselineSha256')) is str
