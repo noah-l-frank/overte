@@ -1517,3 +1517,113 @@ release, alternate embedded fixture, different-thread destruction or process
 exit cannot replace the missing original consumer retirement proof. Functional
 product changes remain outside this task. Baker/geometry/material/render and
 independent actor/stereo integration remain separate executable work.
+
+### Original Baker CPU graph source join
+
+The next additive `assets-model-baker` host mode follows that same original
+ModelCache resource into the complete original Baker/Task engine. One named
+Baker compilation alias permits passive input/processed-HFM and actual task-root
+observations. The derived run invokes the unchanged original engine once, then
+stops before GeometryResource material/texture construction. It never supplies
+processed geometry to the product resource or reports that resource ready.
+Original CPU normals, tangents, blendshapes, joints, flow, graphics-mesh packing,
+Buffer/Sysmem/PageManager/Format/Stream and mesh-bound calculations are selected
+from current source, with original declarations and provenance hashes. The CPU
+unity translation avoids repeated header parsing without reusing a source binary
+or splitting the original compiler/selector deadline.
+
+Profile publication and shared repeated-message logging are declared host
+endpoints. JobConfig's original std::chrono measurements remain in the unchanged
+Task engine. The original extra-material-map job body remains, but its optional
+external material construction endpoint refuses. The original Draco job is
+disabled by its original configuration; attempted execution refuses. No disabled
+job, absent material-map branch, GPU backend submission, image decode, texture
+upload or renderer result is treated as qualified by this mode. Actual weak
+Baker root/input observations and original CPU Buffer counters must prove their
+retirement after the original worker exits. The source-only introduction did not qualify compilation or execution; the
+subsequent actual owning result below defines the measured host scope. Public
+feature capabilities remain closed.
+
+The first source-frozen Baker selector remains RED in 50.521 seconds with zero
+cases/acquisitions. Original ModelMath.h has no inclusion guard, so putting the
+original Task translation units into one CPU unity file repeated its safeGet
+templates. The host generator now prefixes only its staged ModelMath copy with
+`#pragma once` and records a separate compiled-header hash; all original header
+bytes follow unchanged and the product file remains untouched. The compiler
+refusal, original source manifest and zero-acquisition JUnit/log are retained.
+Owning verification of this corrected host translation is pending.
+
+The second changed source-frozen selector remains RED in 56.531 seconds, again
+with zero cases/acquisitions. The ModelMath duplicate is gone. Actual QtHelpers
+also includes the original Profile.h through a relative path, exposing the
+host's duplicate ProfileDuration declaration; full graphics/Geometry.cpp also
+collides with the distinct global Geometry owner declaration. The revised host
+now uses the actual original Profile declarations/base constructor with an
+explicit profiling-publication endpoint, and compiles complete original
+QtHelpers. Its six required original graphics Mesh methods have an explicit
+graphics namespace binding, excluding the unrelated graphics::Geometry owner.
+The product headers/bodies remain unchanged. Both refusals and immutable source
+manifests remain retained; the next changed translation is still unqualified.
+
+The third changed source-frozen selector reaches the linker and remains RED in
+54.267 seconds with zero cases/acquisitions. All prior declaration/namespace
+errors are resolved. Original PrepareJointsTask requires the quaternion QDebug
+stream operator from original StreamUtils.cpp. The generator now selects that
+complete original operator, with its own source/body hash. This adds the missing
+link dependency and changes no product/task/observation behavior. All three
+negative compiler/link results and immutable source manifests remain retained;
+no owning or whole-feature success is inferred from compilation progress.
+
+
+The corrected fourth owning selection is GREEN in 77.153 seconds (76.561 seconds
+inside unittest, including fresh compilation), with both original normal
+Entity/Cancel/file/Home cases complete. All 2,662 consumed source files remain
+byte-identical before and after that run. The indexed model actually traverses
+the original full Baker/Task graph. Its processed graphics Mesh exposes three
+actual packed vertices, indices 0/1/2 and one actual part, plus original normals,
+tangents, joints, material and unresolved texture descriptor. The original HFM
+pointer identity is unchanged across processing. These CPU buffers are not GPU
+backend submissions, decoded texture pixels, renderer objects or stereo images.
+
+Original Buffer counts move 0→4 during processing and back to 0 after original
+Baker/engine/worker destruction. The same actual task-root identity is observed
+throughout the four weak lifecycle rows; both task root and HFM weak owner are
+absent after the real global worker retires. The original GeometryResource still
+fails at the declared pre-material stop, remains HFM/resource-loaded false,
+releases its actual parented request and removes its actual weak cache entry.
+The original nonindexed fixture refuses before Baker creation and has no Baker
+rows or processed model; it does not inherit the indexed success.
+
+Cold reconstruction confirms 487/512 combined physical frame copies and
+1,067,238 bytes for indexed processing, and 482/512 copies and 1,063,671 bytes
+for the original refusal. The processed HFM is counted as a separate original
+alongside all four Baker lifecycle rows and the inherited worker/cache/owner/
+loader/observer/transport/envelope and dependent input copies. Actual native
+acquisitions take 3/2 ms. The 120-second selector, 90-second compiler,
+1.5-second acquisition, three-second/500-ms quiet, 512-frame and local 16-MiB
+bounds remain unchanged. All three earlier zero-acquisition refusals remain
+negative evidence; none was retried without its concrete source correction.
+
+The private `pico-assets-model-baker-host` format is version 1. Root must add its
+single selector without replacing Root's current catalog count. Source replay,
+cache startup/scheduler/LRU, optional material-map/Draco/profiling endpoints and
+the still-alive external mesh request retain their explicit boundaries. Actual
+setGeometryDefinition, NetworkMaterial/NetworkTexture/PNG processing, original
+Model/render-factory ownership, independent actor/stereo and whole cleanup remain
+open. The existing dual-gated CreateModelResources collector can supply the
+actual Model/Geometry/material/texture weak observations when those real source
+links are composed; a second Assets-specific getter is unnecessary. Feature
+13/14 stays partial; no whole application or physical device is qualified.
+
+A further read-only reuse review freezes Phone source at commit
+`a2bb99d9b96fd20fcd8f514f9e11e3e3d8eb8429`, inspected alongside committed Phone
+HEAD `a7be274da152b9d0b77e2fe5bb9874c5b1e18a31`. Its common
+`E2EGeometryInput.h` seals the real GeometryReader URL/body digests, byte count,
+instance and original epoch after Baker and before HFM publication, with
+render-thread/draw propagation. That metadata can close the loaded-byte identity
+link for empty OBJ serializer URLs and baked FBX redirects without retaining
+another input buffer or retiming the reader. The Phone handoff explicitly
+qualifies synthetic Baker/model endpoints only; it supplies no original full
+Baker CPU proof. This review neither copies Phone WIP nor adopts its facade,
+platform identity, mono rendering or version-18 journey. The metadata code is
+not selected in this Baker packet and remains a concrete shared next step.

@@ -27,6 +27,7 @@ HERE=Path(__file__).resolve().parent
 class AssetsGeometryResourceTests(unittest.TestCase):
     prepare_name="assets-geometry-resource-prepare.py"
     model_cache=False
+    model_baker=False
     make=resources_module.AssetsEntityResourcesTests.make
     cancel_phase=resources_module.AssetsEntityResourcesTests.cancel_phase
     home_owner=resources_module.AssetsEntityResourcesTests.home_owner
@@ -66,7 +67,8 @@ class AssetsGeometryResourceTests(unittest.TestCase):
                 parserArtifactSha256=hashlib.sha256(self.parser.read_bytes()).hexdigest(),
                 originalCppSources={name:json.loads((self.parser_stage/name).read_text()) for name in
                     (('geometry-resource-original-provenance.json','geometry-parser-original-provenance.json','resource-data-original-provenance.json')+
-                     (('model-cache-original-provenance.json',) if self.model_cache else ())) },
+                     (('model-cache-original-provenance.json',) if self.model_cache else ())+
+                     (('model-baker-original-provenance.json',) if self.model_baker else ())) },
                 pending=True,raw=None,processReturncode=None,stderr=None)
             self.parser_store.write(pending,None);previous=deepcopy(pending);started=time.monotonic()
             completed=subprocess.run([str(self.parser),str(packet),str(output)],env=self.environment,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=1.5)
@@ -79,7 +81,7 @@ class AssetsGeometryResourceTests(unittest.TestCase):
             native=json.loads(pending['raw']);self.parser_original=native
             self.assertEqual(1,native['geometryResourceHostEvidenceVersion']);self.assertTrue(native['protocolValid'] and native['workerRetired'])
             self.assertEqual(pending['inputSha256'],native['sourcePacketSha256'])
-            self.assertFalse(native['bakerProcessingQualified'] or native['rendererReadinessQualified'])
+            self.assertFalse(native['rendererReadinessQualified']);self.assertEqual(self.model_baker and self.indexed,native['bakerProcessingQualified'])
             self.assertEqual(0,native['pending']);self.assertEqual(0,native['processing']);self.assertEqual(1,native['cacheCompletions'])
             main=self.resource_original['resources'][0];self.assertEqual(main['sha256'],native['loadedOriginalSha256'])
             owner=native['ownerOriginals'];self.assertEqual(['constructed','loaded-signal','finished-external-reference-released','retired'],[row['phase'] for row in owner])
@@ -105,7 +107,7 @@ class AssetsGeometryResourceTests(unittest.TestCase):
     def exercise_cancel_home(self,baseline):
         counts,raw=resources_module.AssetsEntityResourcesTests.exercise_cancel_home(self,baseline)
         self.assertEqual(self.parser_disk,self.parser_store.read());native=self.parser_original
-        for key in ('workerOriginals','loaderOriginals','transportOriginals','ownerOriginals','resourceObserverOriginals','cacheOriginals'):counts+=len(native.get(key,[]))
+        for key in ('workerOriginals','loaderOriginals','transportOriginals','ownerOriginals','resourceObserverOriginals','cacheOriginals','bakerOriginals'):counts+=len(native.get(key,[]))
         counts+=2;raw+=len(canonical(native))+len(self.parser_disk['inputOriginal'].encode())
         return counts,raw
     def test_original_geometry_nonindexed_parser_refusal_and_original_owner_retirement(self):
