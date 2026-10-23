@@ -114,6 +114,7 @@ class SnapshotActorHistoryPass(SnapshotHistoryReadPass):
 
     def _verify_files(self):
         if self.locked_replay:self._replay_owner()
+        need(signature(self.feature.store.path)==self.signatures[0])
         return super()._verify_files()
 
     def actor_unchanged(self):
