@@ -12,6 +12,7 @@ from adapters.native_feature_observation import exact,need,integer
 from adapters.normal_feature_state import PrivateFeatureState
 from feature_journeys.witness import Client,WITNESS_KEYS
 from feature_journeys.phase_fixture import validate as phase_packet
+from feature_journeys.contract import number
 from fixture.messages_mixer import start_identity
 from overte_phone_assets_actor import PhoneAssetsActor
 from overte_phone_create_actor import quiet_window
@@ -462,7 +463,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         This does not establish new closure authority or publish a sample. The
         following normal step still acquires its full closed-phase proof.
         """
-        need(not status['active'] and prepared['active'] and integer(status['retiredEpochMs'],1)
+        need(not status['active'] and prepared['active'] and number(status['retiredEpochMs'],1)
             and self.state['phase']=='watching' and self.state['pending'] is None
             and self.state['closure'] is None and self.state['partialClosure'] is None
             and self.state['quiet'] is not None and self.state['quiet']['complete'] is True)
@@ -475,7 +476,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         sample=last['original']['sample'];receipt=last['receipt']
         need(sample['ticket']==prepared['activations'][-1]['ticket']
             and same({key:receipt[key] for key in sample},sample)
-            and integer(receipt['sequence'],1) and integer(receipt['receivedEpochMs'],1))
+            and integer(receipt['sequence'],1) and number(receipt['receivedEpochMs'],1))
         need((role.state['phase']=='ready' and role.state['pending'] is None)
             or (role.state['phase']=='reading' and type(role.state['pending']) is dict))
         pin=dict(feature=deepcopy(self.feature.previous),actor=deepcopy(self.previous),role=deepcopy(role.previous),
