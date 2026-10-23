@@ -2255,10 +2255,11 @@ def create_adapter(args, base_class):
 
         @_private
         def _browser_stereo(self,target,path,artifact_root,run,scene_url,*,role,source_lock,journal_id,
-                fixture_url,foreign_fixture_url,owner_token,script_url,http):
+                fixture_url,foreign_fixture_url,owner_token,script_url,http,surface='tablet'):
             from adapters.pico4.browser_stereo import PicoBrowserStereo
             from adapters.navigation_arrival import NavigationArrival
             lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            _need(type(surface) is str and surface in ('tablet','world'))
             _ui,observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
             _need(native.pid==int(binding['processIdentity'].split(':')[0]))
             def probe(after):
@@ -2267,10 +2268,12 @@ def create_adapter(args, base_class):
                 run,binding,scene_url,monotonic=native.monotonic)
             return PicoBrowserStereo(arrival,lambda:self._browser_world_render_capture(target,role=role,source_lock=lock),
                 path,artifact_root,run,binding,lock,native.guard,fixture_url=fixture_url,foreign_fixture_url=foreign_fixture_url,
-                owner_token=owner_token,script_url=script_url,browser_factory=lambda:self._browser_originals(target,source_lock=lock),
+                owner_token=owner_token,script_url=script_url,
+                browser_factory=(lambda:self._browser_originals(target,source_lock=lock)) if surface=='tablet' else
+                    (lambda:self._browser_originals(target,source_lock=lock,tablet=False)),
                 runtime_factory=lambda:self._web_runtime_observer(target),scripts=observe,http=http,role=role,journal_id=journal_id,
                 ui_factory=lambda:self._graphics_ui_observer(target),native_factory=lambda:self._native_feature_observer(target),
-                monotonic=native.monotonic)
+                monotonic=native.monotonic,surface=surface)
 
         @_private
         def _browser_app_controls(self,target,*,source_lock,read_only=True):

@@ -33,6 +33,8 @@ REQUIRED = {
     "pico-browser-quiet": 1,
     "pico-browser-stereo-source": 1,
     "pico-browser-stereo-owner": 1,
+    "pico-world-browser-stereo-source": 1,
+    "pico-world-browser-stereo-owner": 1,
     "stereo-browser-evidence": 1,
     "normal-input-phase-fence": 1,
     "pico-browser-entry": 1,

@@ -55,9 +55,12 @@ class Journey:
         if area=='world-navigation' and type(self.policy) is dict and type(self.policy.get('screen')) is dict and 'profile' in self.policy['screen']:
             from .stereo_navigation_evidence import policy as navigation_policy
             navigation_policy(self.policy['screen']);self.stereo_navigation=True
-        if area=='tablet-web' and type(self.policy) is dict and type(self.policy.get('screen')) is dict and 'profile' in self.policy['screen']:
-            from .stereo_browser_evidence import policy as browser_policy
-            browser_policy(self.policy['screen']);self.stereo_browser=True
+        if area in ('tablet-web','world-web') and type(self.policy) is dict and type(self.policy.get('screen')) is dict and 'profile' in self.policy['screen']:
+            from .stereo_browser_evidence import policy as browser_policy,PROFILE,WORLD_PROFILE
+            browser_policy(self.policy['screen'])
+            if self.policy['screen']['profile']!=(PROFILE if area=='tablet-web' else WORLD_PROFILE):
+                raise ValueError('Original browser stereo profile belongs to another surface')
+            self.stereo_browser=True
         self.lifecycle = None
         self.required_lifecycle = None
         self.sit_variants = set()

@@ -629,7 +629,10 @@
         "tests/device/self_tests/test_pico_world_browser_text.py",
         "tests/device/adapters/pico4/browser_vm.py",
         "tests/device/adapters/pico4/browser_vm_grammar.py",
-        "tests/device/self_tests/test_pico_world_browser_vm.py"
+        "tests/device/self_tests/test_pico_world_browser_vm.py",
+        "tests/device/adapters/pico4/WORLD_BROWSER_STEREO.md",
+        "tests/device/self_tests/test_pico_world_browser_stereo.py",
+        "android/vr/pico/tests/device/test_world_web_stereo.py"
       ],
       "declaredCheckpoints": 19,
       "inputVerbs": [
@@ -679,7 +682,7 @@
         "Revoke actual view/grant/nonce authority",
         "Drain original retained callbacks and prove absent owned entities/view resources"
       ],
-      "nextExecutableStep": "Compose normal Script-manager opening/loading/stopping of the exact pinned world client with the verified world ray/focus/IME/readback and original server/DOM/script receipts under the existing complete v16 phase recipe. Shared VM world v1 has separate code/scope provenance and actual-factory/orphan/late-memo counters (22 selected cases 5.627 s); tablet defaults remain unchanged. World-specific stereo, independent publisher, navigation/recovery and full resource/archive/host retirement remain open.",
+      "nextExecutableStep": "Compose normal world Script load and unchanged v16 phase ownership with the existing original world VM profile, calibrated controller ray/IME and independent HTTP/DOM/native effects. The shared stereo owner now has explicit world source/owner v1 scopes, current entity/document brackets, common per-eye verifier/replay guards and actual private factory; six new and fourteen legacy cases pass. Trusted ROI image consumers do not qualify arbitrary renderer draw/material/billboard behavior. Independent actor/publisher and whole resource/scene/host retirement remain required.",
       "nativeCompilation": "Selected complete NativeWebViewItem TU plus unchanged world-provider, RayPick and renderer projection bodies compile and pass Qt5 host checks; entity/avatar/HMD and Android DOM/transport are explicit seams. Complete application/APK and device behavior unverified.",
       "deviceQualification": "untested"
     },

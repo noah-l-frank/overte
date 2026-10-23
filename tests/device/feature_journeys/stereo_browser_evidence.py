@@ -8,8 +8,8 @@ from pathlib import PurePosixPath
 import time
 from adapters.native_feature_observation import exact,need
 from adapters.normal_feature_state import context
-from adapters.pico4.browser_stereo import original_name,VERSION as OWNER_VERSION
-from adapters.pico4.browser_stereo_source import validate as frame_packet
+from adapters.pico4.browser_stereo import original_name,owner_version
+from adapters.pico4.browser_stereo_source import validate as frame_packet,surface as frame_surface
 from adapters.graphics_journey.originals import record as image_record
 from adapters.graphics_journey.samples import retirement
 from adapters.owned_world_render import WorldRenderOwner
@@ -21,12 +21,13 @@ from .stereo_navigation_evidence import eye_regions,stereo_source_identity,advan
 
 VERSION=1
 PROFILE='pico-stereo-tablet-web-v1'
+WORLD_PROFILE='pico-stereo-world-web-v1'
 LIMIT=65536
 
 
 def policy(value):
     exact(value,{'source','profile','sceneUrl','eyes'})
-    need(value['source']=='world-render-target' and value['profile']==PROFILE)
+    need(value['source']=='world-render-target' and value['profile'] in (PROFILE,WORLD_PROFILE))
     viewpoint_urls(value['sceneUrl']);need('?' not in value['sceneUrl']);exact(value['eyes'],{'left','right'})
     for eye in value['eyes'].values():
         exact(eye,{'marker','subject'})
@@ -39,22 +40,24 @@ def policy(value):
 
 def archive(metadata,raw,run,ticket,external_policy,*,role='primary'):
     policy(external_policy)
-    return archive_sources(metadata,raw,run,ticket,external_policy['sceneUrl'],role=role)
+    surface='tablet' if external_policy['profile']==PROFILE else 'world'
+    return archive_sources(metadata,raw,run,ticket,external_policy['sceneUrl'],role=role,surface=surface)
 
 
-def archive_sources(metadata,raw,run,ticket,scene_url,*,role='primary'):
+def archive_sources(metadata,raw,run,ticket,scene_url,*,role='primary',surface='tablet'):
     """Validate retained original provenance independently of pixel ROI policy."""
     identifier(run);identifier(ticket);viewpoint_urls(scene_url)
     need(type(metadata) is bytes and 0<len(metadata)<=LIMIT and role in ('primary','actor'))
     body=json_document(metadata)
-    exact(body,{'picoBrowserStereoOwnerVersion','runId','binding','role','artifactRoot','journalId','scope','payload'})
-    need(type(body['picoBrowserStereoOwnerVersion']) is int and body['picoBrowserStereoOwnerVersion']==OWNER_VERSION
+    version=owner_version(surface)
+    exact(body,set(version)|{'runId','binding','role','artifactRoot','journalId','scope','payload'})
+    need(all(type(body[key]) is int and body[key]==number for key,number in version.items())
         and body['runId']==run and body['role']==role and type(body['artifactRoot']) is str
         and 0<len(body['artifactRoot'])<=4096 and PurePosixPath(body['artifactRoot']).is_absolute())
     identifier(body['journalId']);context(body['binding']);rows=unpack(body['payload']);need(len(rows)==1);state=rows[0]
     exact(state,{'ticket','phase','before','captureIntent','frame','image','memory','files','owner','proof'})
     need(state['ticket']==ticket and state['phase']=='complete' and type(state['frame']) is dict)
-    frame=state['frame'];facts=frame_packet(frame,raw,run,body['binding'],scene_url)
+    frame=state['frame'];need(frame_surface(frame)==surface);facts=frame_packet(frame,raw,run,body['binding'],scene_url)
     exact(body['scope'],{'fixtureUrl','foreignFixtureUrl','ownerToken','scriptUrl'})
     need(all(frame[key]==value for key,value in body['scope'].items()) and state['before']==frame['before'])
     WorldRenderOwner.acquisition(state['captureIntent']);need(state['captureIntent']['commandId']==frame['capture']['requestId'])
@@ -80,6 +83,9 @@ def source_identity(frame,facts):
             packet=frame[family+suffix];value['cursors'][family+suffix]=packet['sequence'];value['requests'][family+suffix]=packet['commandId']
         value['cursors']['java'+suffix]=frame['runtime'+suffix]['source']['java']['sequence']
         value['cursors']['scripts'+suffix]=frame['scripts'+suffix]['sampleSequence']
+        if frame_surface(frame)=='world':
+            packet=frame['world'+suffix]
+            value['cursors']['browserWorld'+suffix]=packet['sequence'];value['requests']['browserWorld'+suffix]=packet['commandId']
     return value
 
 
@@ -89,6 +95,9 @@ def advance(previous,current):
     advance_sources(previous,current)
     need(all(current['cursors'][family+'Before']>previous['cursors'][family+'After']
         for family in ('browser','runtime','java','scripts')))
+    need(previous['state']['surface']==current['state']['surface'])
+    if current['state']['surface']=='world':
+        need(current['cursors']['browserWorldBefore']>previous['cursors']['browserWorldAfter'])
 
 
 def observation(raw,metadata,run,ticket,fixture_url,external_policy,sample,*,previous=None,changed=False,role='primary',monotonic=time.monotonic):
@@ -96,11 +105,12 @@ def observation(raw,metadata,run,ticket,fixture_url,external_policy,sample,*,pre
     def budget():
         nonlocal last
         now=monotonic();need(type(now) in (int,float) and math.isfinite(now) and 0<=started<=last<=now and now-started<5);last=now
-    budget();result('feature.tablet-web.observe',sample);need(sample['runId']==run)
+    budget();policy(external_policy);surface='tablet' if external_policy['profile']==PROFILE else 'world'
+    result('feature.'+surface+'-web.observe',sample);need(sample['runId']==run)
     body,state,facts=archive(metadata,raw,run,ticket,external_policy,role=role);frame=state['frame']
     need(frame['fixtureUrl']==fixture_url);eye_regions(frame['capture']['source'],external_policy)
     artifacts={row['kind']:row for row in sample['artifacts']};need('image' in artifacts and 'file' in artifacts)
-    for kind,name in (('image',state['image']['name']),('file',original_name(run,role,body['journalId']))):
+    for kind,name in (('image',state['image']['name']),('file',original_name(run,role,body['journalId'],surface=surface))):
         row=artifacts[kind];need(row['name']==name and row['ticket']==ticket and row['capturedEpochMs']==frame['capture']['capturedEpochMs'])
     need(sample['state']==facts['state'] and sample['capturedEpochMs']==facts['earliestEpochMs']
         and sample['lifecycle']==frame['nativeBefore']['lifecycle'])

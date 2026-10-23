@@ -28,6 +28,8 @@
     "pico-browser-entry": {"current": 1, "reads": [1]},
     "pico-browser-stereo-source": {"current": 1, "reads": [1]},
     "pico-browser-stereo-owner": {"current": 1, "reads": [1]},
+    "pico-world-browser-stereo-source": {"current": 1, "reads": [1]},
+    "pico-world-browser-stereo-owner": {"current": 1, "reads": [1]},
     "stereo-browser-evidence": {"current": 1, "reads": [1]},
     "native-avatar-bookmark-loads": {"current": 1, "reads": [1]},
     "pico-avatar-bookmark-loads-source": {"current": 1, "reads": [1]},

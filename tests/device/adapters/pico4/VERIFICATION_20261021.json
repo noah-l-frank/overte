@@ -3885,5 +3885,61 @@
     "fullFeatureRecipe": false,
     "fullApplicationCompiled": false,
     "deviceAcceptance": false
+  },
+  "worldStereoRoot20261024": {
+    "status": "passed-selected-host-components",
+    "initialPositive": {
+      "tests": 1,
+      "durationSeconds": 0.925,
+      "status": "passed"
+    },
+    "earlierRedCommands": [
+      {
+        "tests": 1,
+        "durationSeconds": 0.44,
+        "cause": "new host fixture supplied null text metadata for a text control",
+        "productSourceChanged": false
+      },
+      {
+        "tests": 6,
+        "durationSeconds": 5.797,
+        "passed": 5,
+        "cause": "new profile-counter Journey constructor omitted required arguments",
+        "productSourceChanged": false
+      }
+    ],
+    "finalOwning": {
+      "cases": 6,
+      "selectorSeconds": 6.155,
+      "coverageSeconds": 0.09,
+      "selectionSeconds": 6.245,
+      "catalogGroups": 229,
+      "status": "passed"
+    },
+    "legacy": {
+      "cases": 14,
+      "durationSeconds": 23.232,
+      "status": "passed"
+    },
+    "repository": {
+      "suites": 4,
+      "durationSeconds": 2.793,
+      "status": "passed"
+    },
+    "registryProbeSyntaxWhitespace": "passed",
+    "pinnedSourceFiles": 13,
+    "pinnedSourcesUnchanged": true,
+    "separateWorldOwnerAndSourceV1": true,
+    "tabletDefaultWireAndNamesPreserved": true,
+    "failedAcquiredWorldBracketsRetained": true,
+    "uncertainCaptureNeverResent": true,
+    "actualFactoryUsesCanonicalLockAndWorldReader": true,
+    "originalFilesAndSourceEvidenceRetained": true,
+    "newNativeProducer": false,
+    "entityDomQtAndroidHmdGpuAndPixels": "explicit-host-producer-seams",
+    "arbitraryDrawMaterialProjectionQualified": false,
+    "completeFeature": false,
+    "fullApplicationCompiled": false,
+    "deviceAcceptance": false
   }
 }

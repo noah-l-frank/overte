@@ -2693,3 +2693,19 @@ durable intent. Original source files and journals remain. The modal
 intentionally remains live for action ten. Qt, VM, native Reply and OS remain
 explicit host seams. Whole Navigation, final retirement, the application/APK
 and devices remain unqualified. Completed source areas remain 3/14.
+
+
+World Web now uses the existing original browser stereo owner and common Journey
+image verifier through an explicit world profile and separate v1 owner/source
+discriminators. The private factory selects the actual world reader and
+canonical capture lock. Current entity/item geometry and consumed document
+identity bracket each submitted two-eye capture; unresolved acquired originals
+remain retained and a lost capture is never sent again. Six new owning cases
+pass in 6.155 s; fourteen existing tablet/browser stereo cases pass in 23.232 s.
+Coverage, registry, probe syntax and all four repository suites pass. The
+catalog gains one group (229 total). Entity/DOM/Qt/Android/HMD/GPU/pixel producers
+remain host seams; trusted ROI consumers do not qualify arbitrary Web render
+materials, billboard or draw projection. Normal world phase/Script/input
+composition, independent actor and whole retirement remain open. See
+[the exact stereo handoff](WORLD_BROWSER_STEREO.md). Completed source areas
+remain 3/14, with no full application/APK or device qualification.

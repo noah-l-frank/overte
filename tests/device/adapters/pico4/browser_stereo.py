@@ -1,4 +1,4 @@
-"""Durable original two-eye capture of the visible Pico tablet browser.
+"""Durable original two-eye capture of the Pico tablet or world browser.
 
 Reuses the actual Pico world-render owner, original file writer and complete
 native receipt retirement. This is source provenance, not challenge/pixel proof
@@ -12,7 +12,7 @@ from adapters.native_feature_observation import exact,need,number
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
 from adapters.navigation_arrival import pose_packet
-from adapters.pico4.browser_stereo_source import validate as stereo_frame,FIELDS,VERSION as SOURCE_VERSION
+from adapters.pico4.browser_stereo_source import validate as stereo_frame,fields,source_version,surface as frame_surface
 from adapters.pico4.browser_source import fixture
 from adapters.pico4.browser_measurements import browser_status
 from adapters.graphics_journey.originals import GraphicsOriginals,record as image_record,transition as image_transition
@@ -29,15 +29,21 @@ from adapters.original_stereo_retirement import OriginalStereoRetirement
 VERSION=1
 
 
-def original_name(run,role,journal_id):
-    identifier(run);identifier(journal_id);need(role in ('primary','actor'))
-    return 'tablet-web-'+run+'-'+role+'-'+journal_id+'.native.json'
+def original_name(run,role,journal_id,*,surface='tablet'):
+    identifier(run);identifier(journal_id);need(role in ('primary','actor') and type(surface) is str and surface in ('tablet','world'))
+    return surface+'-web-'+run+'-'+role+'-'+journal_id+'.native.json'
+
+
+def owner_version(surface):
+    need(type(surface) is str and surface in ('tablet','world'))
+    return {'picoBrowserStereoOwnerVersion':VERSION} if surface=='tablet' else {'picoWorldBrowserStereoOwnerVersion':1}
 
 
 class PicoBrowserStereo(OriginalStereoRetirement):
     def __init__(self,arrival,capture_factory,path,artifact_root,run,binding,lock,guard,*,
             fixture_url,foreign_fixture_url,owner_token,script_url,browser_factory,runtime_factory,scripts,http,
-            role='primary',journal_id,ui_factory,native_factory,monotonic=time.monotonic):
+            role='primary',journal_id,ui_factory,native_factory,monotonic=time.monotonic,surface='tablet'):
+        owner_version(surface);self.surface=surface;self.surface_sha=json_digest(surface)
         fixture(run,fixture_url);fixture(run,foreign_fixture_url);identifier(owner_token);identifier(journal_id)
         # Reuse the closed committed shared feature-script URL grammar.
         import re
@@ -58,16 +64,18 @@ class PicoBrowserStereo(OriginalStereoRetirement):
         self.images=GraphicsOriginals(artifact_root,binding,run,role,0,guard,self.image_intent,monotonic=monotonic)
         self.validated_image=None
         if self.disk is not None:
-            version=self.disk.get('picoBrowserStereoOwnerVersion')
-            exact(self.disk,{'picoBrowserStereoOwnerVersion','runId','binding','role','artifactRoot','payload','journalId','scope'})
-            need(type(version) is int and version==VERSION and self.disk.get('journalId')==journal_id and self.disk['scope']==self.scope
+            version=owner_version(surface)
+            exact(self.disk,set(version)|{'runId','binding','role','artifactRoot','payload','journalId','scope'})
+            need(all(type(self.disk[key]) is int and self.disk[key]==number for key,number in version.items())
+                 and self.disk.get('journalId')==journal_id and self.disk['scope']==self.scope
                  and self.disk['runId']==run and self.disk['binding']==binding and self.disk['role']==role
                  and self.disk['artifactRoot']==str(self.images.root))
             rows=unpack(self.disk['payload']);need(len(rows)==1);self.validate(rows[0]);self.state=rows[0]
         if journal_id is not None:
-            need(self.store.path.parent==self.images.root and self.store.path.name==original_name(run,role,journal_id))
+            need(self.store.path.parent==self.images.root and self.store.path.name==original_name(run,role,journal_id,surface=surface))
         self.deadline=self.clock=None
     def now(self):
+        need(json_digest(self.surface)==self.surface_sha)
         self.lock.assert_held();need(self.guard() is not False);value=self.monotonic()
         need(number(value,0,1e15) and (self.clock is None or value>=self.clock) and (self.deadline is None or value<=self.deadline))
         self.clock=value;return value
@@ -79,7 +87,7 @@ class PicoBrowserStereo(OriginalStereoRetirement):
             from adapters.owned_world_render import WorldRenderOwner
             WorldRenderOwner.acquisition(value['captureIntent']);need(value['phase']!='ready')
         if value['frame'] is not None:
-            frame=value['frame'];exact(frame,FIELDS);need(all(frame[key]==item for key,item in self.scope.items()))
+            frame=value['frame'];exact(frame,fields(self.surface));need(frame_surface(frame)==self.surface and all(frame[key]==item for key,item in self.scope.items()))
             need(value['before']==frame['before'] and frame['capture']['requestId']==value['captureIntent']['commandId'])
         if value['image'] is not None:
             image_record(value['image']);image=value['image']
@@ -97,7 +105,7 @@ class PicoBrowserStereo(OriginalStereoRetirement):
         if value['phase']=='complete':need(value['image'] is not None and value['image']['phase']=='saved' and value['proof'] is not None)
     def save(self,value):
         self.now();self.validate(value)
-        disk=dict(picoBrowserStereoOwnerVersion=VERSION,runId=self.run,binding=self.binding,role=self.role,scope=self.scope,
+        disk=dict(**owner_version(self.surface),runId=self.run,binding=self.binding,role=self.role,scope=self.scope,
                   artifactRoot=str(self.images.root),journalId=self.journal_id,payload=pack([value]))
         self.store.write(disk,self.disk);self.disk=deepcopy(disk);self.state=deepcopy(value)
     def image_intent(self,image):
@@ -113,7 +121,7 @@ class PicoBrowserStereo(OriginalStereoRetirement):
         # stamp; decode its unchanged complete source semantics once per owner.
         image_record(image);path=self.images.root/image['name'];before=signature(path.lstat())
         key=json_digest(dict(frame=frame,image=image,runId=self.run,binding=self.binding,role=self.role,
-            scope=self.scope,sceneUrl=self.arrival.scene_url,artifactRoot=str(self.images.root)))
+            scope=self.scope,surface=self.surface,sceneUrl=self.arrival.scene_url,artifactRoot=str(self.images.root)))
         expected=(key,tuple(before))
         need(self.validated_image is None or self.validated_image==expected)
         raw=GraphicsOriginals.archive(self.images.root,image) if historical else self.images.read(image)
@@ -126,9 +134,9 @@ class PicoBrowserStereo(OriginalStereoRetirement):
         """Original complete source journal plus PNG; no fresh sample is implied."""
         from adapters.native_feature_observation import integer
         need(integer(sequence,1) and self.state is not None and self.state['phase']=='complete'
-             and self.state['frame']['picoBrowserStereoSourceVersion']==SOURCE_VERSION
+             and all(type(self.state['frame'].get(key)) is int and self.state['frame'][key]==number for key,number in source_version(self.surface).items())
              and self.store.path.parent==self.images.root
-             and self.journal_id is not None and self.store.path.name==original_name(self.run,self.role,self.journal_id)
+             and self.journal_id is not None and self.store.path.name==original_name(self.run,self.role,self.journal_id,surface=self.surface)
              and self.store.read()==self.disk)
         self.image_bytes();capture=self.state['frame']['capture'];ticket=self.state['ticket']
         return [dict(kind=kind,name=name,sequence=sequence,capturedEpochMs=capture['capturedEpochMs'],ticket=ticket,
@@ -172,22 +180,33 @@ class PicoBrowserStereo(OriginalStereoRetirement):
             ui=self.ui_factory();ui_before=ui.capture()
             browser=self.browser_factory();runtime=self.runtime_factory()
             browser_before=browser.request(self.run,self.scope['fixtureUrl'],self.scope['ownerToken'],'observe')
+            if self.surface=='world':
+                world_before=browser.measure_ray(self.run,self.scope['fixtureUrl'],self.scope['ownerToken'],browser_before['source']['current']['source']['nativeView'],'text')
             runtime_before=runtime.read(self.run,self.scope['fixtureUrl'])
             scripts_before,_epoch=self.scripts(0);http_before=browser_status(self.http())
             capture,raw=owned.read(0);self.now()
             http_after=browser_status(self.http(),http_before)
             scripts_after,_epoch=self.scripts(scripts_before['sampleSequence'])
             runtime_after=runtime.read(self.run,self.scope['fixtureUrl'])
+            if self.surface=='world':
+                world_after=browser.measure_ray(self.run,self.scope['fixtureUrl'],self.scope['ownerToken'],browser_before['source']['current']['source']['nativeView'],'text')
             browser_after=browser.request(self.run,self.scope['fixtureUrl'],self.scope['ownerToken'],'observe')
             ui_after=ui.capture();after=self.arrival.read(floor=before)
             native_after=native.read(native_before['sequence'])
-            frame=dict(picoBrowserStereoSourceVersion=SOURCE_VERSION,runId=self.run,binding=self.binding,**self.scope,
+            frame=dict(**source_version(self.surface),runId=self.run,binding=self.binding,**self.scope,
                 before=before,capture=capture,after=after,uiBefore=ui_before,uiAfter=ui_after,
                 nativeBefore=native_before,nativeAfter=native_after,browserBefore=browser_before,browserAfter=browser_after,
                 runtimeBefore=runtime_before,runtimeAfter=runtime_after,scriptsBefore=scripts_before,scriptsAfter=scripts_after,
                 httpBefore=http_before,httpAfter=http_after)
+            if self.surface=='world':frame.update(worldBefore=world_before,worldAfter=world_after)
+            current=deepcopy(self.state);current['frame']=frame;current['phase']='framed'
+            if self.surface=='world':
+                # Retain the complete acquired originals before refusing any
+                # entity/document/bracket disagreement. No image verdict or
+                # retirement is implied by this unresolved acquisition record.
+                self.save(current)
             stereo_frame(frame,raw,self.run,self.binding,self.arrival.scene_url)
-            current=deepcopy(self.state);current['frame']=frame;current['phase']='framed';self.save(current)
+            if self.surface=='tablet':self.save(current)
             self.images.write(ticket,capture,raw);self.now()
             current=deepcopy(self.state);current['phase']='saved';self.save(current);self.retire(owned)
         current=deepcopy(self.state);current['phase']='complete';self.save(current);return deepcopy(self.state)
