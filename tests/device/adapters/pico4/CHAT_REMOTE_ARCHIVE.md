@@ -305,3 +305,21 @@ The final parent and flow retain 19 completed steps, last
 application/profile/IPC, archive and full host finalization were not reached.
 The next investigation concerns remaining common-wait/source-acquisition
 costs after the actual mixer removal. An unchanged whole retry is not evidence.
+
+The existing actual warm-source diagnostic was subsequently measured once on
+clean c53, with the same code as 1943 and 169 unchanged source files. It passed
+in 31.363 s (31.856 outer elapsed), retaining all 61 original source queries
+after only the original baseline and normal Open. Its report explicitly marks
+native/widget producers as model seams and device freshness as unqualified.
+It does not advance or synthesize the remaining common inputs.
+
+The single profiled current transaction measured primary read at 0.226 s,
+independent Actor publication at 0.535 s and Parent acquisition at 0.538 s.
+Actor cursor control ran 13 times for 0.262 s cumulative; recursive JSON-type
+validation cost 0.131 s. Parent snapshot cost 0.265 s, seven complete original
+loads 0.112 s, and 19 cache digests 0.107 s. Actor's 143 full source-history
+checks and directory inventories still cost 0.157/0.095 s. These nested profile
+times are not additive, controlled performance benchmarks or device results.
+They identify mutable cursor/observation JSON processing as the next pure
+candidate to measure and harden. Complete physical I/O, native guards, query
+provenance, original clocks and all quiet windows remain required.
