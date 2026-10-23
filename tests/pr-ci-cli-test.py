@@ -330,13 +330,22 @@ class GateTests(unittest.TestCase):
         with self.assertRaisesRegex(CLI.C.ContextError, "original PR caller"):
             self.run_gate("pull_request")
 
+    def run_source_policy_cli(self):
+        with tempfile.TemporaryDirectory(prefix="pr-ci-source-policy-") as tmp:
+            event = Path(tmp) / "event.json"
+            event.write_text(json.dumps({"number": 42, "pull_request": self.pr}))
+            with patch.object(sys, "argv", ["pr_ci.py", "source-policy", "--event", str(event),
+                    "--event-name", "pull_request_target", "--number", "42",
+                    "--controller", self.controller]):
+                return CLI.main()
+
     def test_fast_source_policy_validates_sources_without_reading_execution_metadata(self):
         self.ordinary_worker()
         with patch.object(CLI, "API", return_value=self.api), \
              patch.object(CLI, "git", return_value=(self.controller+"\n").encode()), \
              patch.object(CLI, "remote_selection", return_value=(self.plan,self.actual_tree,self.source_tree)), \
              patch.dict(os.environ,self.environment), redirect_stdout(io.StringIO()):
-            CLI.source_policy({"number":42,"pull_request":self.pr},"pull_request_target",42,self.controller)
+            self.assertEqual(0, self.run_source_policy_cli())
         self.assertFalse(any(call[1].startswith(("actions/", "check-suites/", "code-scanning/")) for call in self.api.calls))
 
     def test_fast_source_policy_rejects_candidate_workflow_mutation(self):
@@ -346,7 +355,7 @@ class GateTests(unittest.TestCase):
              patch.object(CLI, "git", return_value=(self.controller+"\n").encode()), \
              patch.object(CLI, "remote_selection", return_value=(self.plan,self.actual_tree,self.source_tree)), \
              patch.dict(os.environ,self.environment), self.assertRaises(TRANSPORT.TransportError):
-            CLI.source_policy({"number":42,"pull_request":self.pr},"pull_request_target",42,self.controller)
+            self.run_source_policy_cli()
 
     def test_new_main_product_commit_preserves_controller_but_policy_or_runtime_change_does_not(self):
         self.ordinary_worker()
