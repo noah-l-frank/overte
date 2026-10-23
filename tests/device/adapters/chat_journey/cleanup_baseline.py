@@ -44,6 +44,7 @@ class ChatCleanupBaseline:
         need(len(set(paths))==len(paths) and all(path.parent==store.path.parent for path in paths))
         self.guard,self.sleep=guard,sleep;self.previous=None;self.failed=self.started=self.completed=False
         self.rows=[];self.latest_started=None;self.journey=None;self.seal_receipts=None;self.root_stamp=None
+        self.external_consumer=None
         self.scope=dict(chatCleanupBaselineVersion=VERSION,runId=primary.source.run,fixtureUrl=primary.source.fixture_url,
             binding=deepcopy(primary.samples.binding),peerBinding=deepcopy(primary.samples.peer_binding),
             primaryObservation=primary.store.path.name,actorPublisher=actor.store.path.name,
@@ -107,7 +108,7 @@ class ChatCleanupBaseline:
         self.fresh_pair();return value
 
     def run(self,after_epoch):
-        need(not self.failed and not self.started and integer(after_epoch,1));self.started=True
+        need(not self.failed and not self.started and self.external_consumer is None and integer(after_epoch,1));self.started=True
         try:
             self.save('measuring')
             with self.held(self.primary):
@@ -121,32 +122,37 @@ class ChatCleanupBaseline:
                 epoch_ms=self.primary.source.epoch_ms,sleep=self.sleep,report=lambda _value:None)
             self.journey.required_lifecycle=deepcopy(self.actor.active_original['lifecycle']['lifecycle'])
             self.journey.wait('cleanup-restored-baseline',ticket,barrier,deepcopy(SCENARIOS['chat']['baseline']),['peer'],duration=3.0)
-            for index,sample in enumerate(self.journey.samples):
-                source=self.primary.rows[index]
-                need(sample['sequence']==source['sequence'] and sample['capturedEpochMs']==source['sample']['capturedEpochMs']
-                    and same(sample['state'],source['sample']['state']) and same(sample['resources'],source['sample']['resources'])
-                    and sample['witness'] is not None)
-                published=self.actor.rows[index]
-                need(all(same(sample['witness'][key],field) for key,field in published['payload'].items()))
-                row=dict(common=deepcopy(sample),primaryObservationSha256=digest(source),actorPublicationSha256=digest(published))
-                with self.held(self.primary):
-                    chunks=self.history.append(row,self.previous['chunks'])
-                    self.save('measured',chunks=chunks);self.rows.append(row)
-            self.fresh_pair();self.save('sealing-actor');actor=self.seals[1].run()
-            self.save('sealing-primary');primary=self.seals[0].run()
-            self.seal_receipts=(primary,actor)
-            receipts=[seal.receipt(value) for seal,value in zip(self.seals,self.seal_receipts)]
-            self.save('complete',phase='ready',common=deepcopy(self.journey.phases[-1]),
-                sealSha256=[digest(value) for value in receipts])
-            from adapters.chat_journey.evidence_archive import stamp,private
-            info=self.store.path.lstat();private(info);self.root_stamp=stamp(info)
-            value=deepcopy(self.previous);self.control();self.fresh_pair();self.completed=True;return value
+            return self.complete(self.journey.samples,self.journey.phases[-1])
         except Exception:
             self.failed=True
             # Quarantine the exact already-bound warm sources. No new owner
             # can acquire their existing journals or replace these callbacks.
             for seal in self.seals:seal.failed=True
             raise
+
+    def complete(self,samples,phase):
+        """Join exact consumed originals; never run another baseline here."""
+        need(self.started and not self.failed and not self.completed and not self.rows
+            and len(samples)==len(self.primary.rows)==len(self.actor.rows) and samples)
+        for index,sample in enumerate(samples):
+            source=self.primary.rows[index]
+            need(sample['sequence']==source['sequence'] and sample['capturedEpochMs']==source['sample']['capturedEpochMs']
+                and same(sample['state'],source['sample']['state']) and same(sample['resources'],source['sample']['resources'])
+                and same(sample['lifecycle'],source['sample']['lifecycle']) and sample['witness'] is not None)
+            published=self.actor.rows[index]
+            need(all(same(sample['witness'][key],field) for key,field in published['payload'].items()))
+            row=dict(common=deepcopy(sample),primaryObservationSha256=digest(source),actorPublicationSha256=digest(published))
+            with self.held(self.primary):
+                chunks=self.history.append(row,self.previous['chunks'])
+                self.save('measured',chunks=chunks);self.rows.append(row)
+        self.fresh_pair();self.save('sealing-actor');actor=self.seals[1].run()
+        self.save('sealing-primary');primary=self.seals[0].run()
+        self.seal_receipts=(primary,actor)
+        receipts=[seal.receipt(value) for seal,value in zip(self.seals,self.seal_receipts)]
+        self.save('complete',phase='ready',common=deepcopy(phase),sealSha256=[digest(value) for value in receipts])
+        from adapters.chat_journey.evidence_archive import stamp,private
+        info=self.store.path.lstat();private(info);self.root_stamp=stamp(info)
+        value=deepcopy(self.previous);self.control();self.fresh_pair();self.completed=True;return value
 
     def receipt(self,value):
         from adapters.chat_journey.evidence_archive import stamp

@@ -23,6 +23,12 @@ Decoding or changing a decoded copy cannot change the engine's original rows.
 This is historical consumption, not a new source acquisition or a freshness
 extension. The hook's return value is not a product release observation.
 
+The wait pins its original phase and consumed sample bytes before returning.
+The hook emitter refuses a caller-created window or a changed original window.
+Its `sequenceSucceeded` is supplied only by the actual `execute()` path, never
+by a caller argument. A direct invocation after a cleanup-only wait records
+false; that narrow component proof cannot qualify a full external journey.
+
 A feature finalizer must bind its exact warm source owners and compare these
 consumed rows to their original observations and independently received actor
 rows. It must preserve the existing phase/native-clock fences before further
