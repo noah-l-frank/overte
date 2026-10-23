@@ -110,7 +110,8 @@ class ReuseAPI(API):
 
 
 def expected_owners(plan):
-    return {"policy": True, "host": bool(plan["host_suites"]),
+    host = any("suite:" + name not in plan.get("covered_tasks", {}) for name in plan["host_suites"])
+    return {"policy": True, "host": host,
             "npm": bool(plan["npm_projects"]), "native": plan["native"]["mode"] != "skip",
             "codeql": bool(plan["codeql_languages"]), "security": bool(plan["workflow_security"]),
             "android": bool(plan["android_required"]), "ios": bool(plan["ios_required"])}
