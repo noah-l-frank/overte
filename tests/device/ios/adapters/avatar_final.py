@@ -7,12 +7,16 @@ It publishes nothing and never replays an input or an interrupted query.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from contextlib import contextmanager
+from contextvars import ContextVar
+from functools import wraps
 from pathlib import Path
 from adapters.native_clock_join import digest
 from adapters.native_feature_observation import exact,integer,need,number
 from adapters.normal_feature_state import PrivateFeatureState,context
+from adapters.original_file_reads import active as reading,scope as read_scope
 from adapters.phase_retirement_publisher import PhaseRetirementPublisher
-from adapters.script_feature.history import pack,unpack,same
+from adapters.script_feature.history import pack,unpack,same,canonical
 from feature_journeys.contract import identifier
 from ios.adapters.avatar_authority import AvatarAuthorityReader
 from ios.adapters.avatar_postlogout_reads import IOSAvatarPostLogoutReads
@@ -21,9 +25,75 @@ from ios.adapters.avatar_pointers import IOSAvatarPointers
 from ios.adapters.avatar_final_quiet import account_equal
 from ios.adapters import world_web_keys
 from ios.adapters.emote_native_prefix import follow
+from ios.adapters.emote_original_lease import EmoteOriginalLease
 
 VERSION=1
 ROLES=('primary','actor')
+_ROUND=ContextVar('ios_avatar_final_original_round',default=None)
+
+
+@contextmanager
+def validation_round():
+    """One synchronous historical traversal, with no live-query authority."""
+    if _ROUND.get() is not None:yield;return
+    token=_ROUND.set({})
+    try:
+        yield
+        for entry in _ROUND.get().values():entry.guard(finished=True)
+    finally:_ROUND.reset(token)
+
+
+def checked(function):
+    @wraps(function)
+    def call(*args,**kwargs):
+        with validation_round():return function(*args,**kwargs)
+    return call
+
+
+def group_context(owner):
+    for lock in owner.locks.values():lock.assert_held()
+    return (type(owner),str(owner.root),str(owner.store.path),owner.run,owner.role,
+        (type(owner.authority),id(owner.authority),owner.authority.run,type(owner.authority.client),id(owner.authority.client),owner.authority.client.url),
+        tuple((role,id(owner.locks[role]),str(owner.locks[role].path)) for role in ROLES),
+        canonical(dict(original=owner.previous,bindings=owner.bindings,inputs=owner.inputs)))
+
+
+class _HistoricalGroup:
+    """Already decoded original components, never a cached quiet verdict."""
+    def __init__(self,owner,value,collector):
+        need(owner.historical);self.owner,self.context,self.collector=owner,group_context(owner),collector
+        roots={owner.root,owner.store.path.parent}
+        for subject in ROLES:
+            item=owner.input(subject);roots.add(Path(item['root']))
+            roots.update(Path(path).parent for path in item['paths'].values())
+        self.leases=[EmoteOriginalLease(root,[]) for root in sorted(roots)]
+        with read_scope(fresh=True) as reads:self.parts=owner._group(value)
+        self.pins={path:EmoteOriginalLease.signature(path.lstat()) for path in reads}
+        self.guard()
+
+    def guard(self,*,finished=False):
+        owner=self.owner;need(owner.historical and group_context(owner)==self.context)
+        if finished:need(hasattr(owner,'state'))
+        if hasattr(owner,'state'):need(same(owner.envelope(owner.state),owner.previous))
+        for subject,parts in self.parts.items():
+            for kind,version_key in (('post','iosAvatarPostLogoutReadsVersion'),('tail','iosAvatarPostLogoutTailVersion'),('pointers',None)):
+                child=parts[kind];child.lock.assert_held();need(child.historical and same(child.store.read(),child.previous))
+                need(child.lock is owner.locks[subject] and child.store.path==Path(owner.inputs[subject]['paths'][kind])
+                    and child.root==Path(owner.inputs[subject]['root']) and child.run==owner.run and child.role==owner.role
+                    and same(child.binding,owner.bindings[subject]))
+                current=child.envelope(child.state) if version_key is None else child.envelope(child.state,version=child.previous[version_key])
+                need(same(current,child.previous))
+        for lease in self.leases:lease.guard()
+        for path,pin in self.pins.items():
+            PrivateFeatureState(path)._parent();need(EmoteOriginalLease.signature(path.lstat())==pin)
+
+    def read(self):
+        self.guard()
+        result={subject:{key:(value if key in ('post','tail','pointers') else deepcopy(value)) for key,value in parts.items()}
+            for subject,parts in self.parts.items()}
+        self.guard()
+        if self.collector is not None:self.collector.update(self.pins)
+        return result
 
 
 class Frozen(PrivateFeatureState):
@@ -112,6 +182,17 @@ class IOSAvatarFinal:
         return dict(post=post,tail=tail,pointers=pointer,model=body['model'],ui=ui,left=left,right=right,proof=proof)
 
     def group(self,value):
+        current=_ROUND.get()
+        if not self.historical or current is None:return self._group(value)
+        collector=None
+        if reading():
+            with read_scope() as collector:pass
+        key=(group_context(self),canonical(value),id(collector))
+        if key not in current:
+            need(len(current)<256);current[key]=_HistoricalGroup(self,value,collector)
+        entry=current[key];need(entry.collector is collector);return entry.read()
+
+    def _group(self,value):
         exact(value,{'ticket','phaseInstance','sequence','subjects','provider','providerClock','acquisition'})
         identifier(value['ticket']);identifier(value['phaseInstance']);need(integer(value['sequence'],1));exact(value['subjects'],set(ROLES))
         a=PhaseRetirementPublisher.acquisition(value['acquisition']);p=PhaseRetirementPublisher.acquisition(value['providerClock'])
