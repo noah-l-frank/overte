@@ -1126,7 +1126,9 @@
         "tests/device/self_tests/test_chat_source_seal.py",
         "tests/device/adapters/chat_journey/cleanup_baseline.py",
         "tests/device/adapters/chat_journey/CLEANUP_BASELINE.md",
-        "tests/device/feature_journeys/CLEANUP_CONSUMPTION.md"
+        "tests/device/feature_journeys/CLEANUP_CONSUMPTION.md",
+        "tests/device/adapters/chat_journey/cleanup_consumption.py",
+        "tests/device/adapters/chat_journey/CLEANUP_CONSUMPTION.md"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1170,7 +1172,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Bind the actual external common cleanup consumption and its original global primary/Actor cursors before sealing and final archive. The private common3s baseline, fresh source seals and complete original catalog join pass owning Root checks64.310s/79.600s; updated actual factory49.496s. Optional post-baseline finalization hook counters pass1.394s. Private26phase publication history is not an external Journey cursor. Explicit cold RPC/PID continuity, stereo and public operations remain missing;860.797s full warm archive applies only to its older fixed source set.",
+      "nextExecutableStep": "Continue original global primary/Actor cursors and repeated same-phase independent publication into actual external consumption before archival. Strict exact-warm-Journey consumption76.588s and unchanged baseline62.299s pass integrated Root checks; a cleanup-only positive records sequenceSucceeded=false and never claims a whole external journey. No caller offset or private26phase cursor is admitted. Cold RPC/PID continuity, stereo and public operations remain missing.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1218,7 +1220,11 @@
         "libraries/networking/src/PicoSnapshotUploadEvidence.h",
         "tests/device/adapters/pico4/snapshot_upload_source.py",
         "tests/device/adapters/pico4/SNAPSHOT_UPLOAD_ORIGINALS.md",
-        "android/vr/pico/tests/device/test_snapshot_upload_source.py"
+        "android/vr/pico/tests/device/test_snapshot_upload_source.py",
+        "tests/device/feature_journeys/snapshot_upload_service.py",
+        "tests/device/adapters/pico4/snapshot_upload_fixture.py",
+        "tests/device/adapters/pico4/snapshot_upload_bytes.py",
+        "tests/device/adapters/pico4/SNAPSHOT_UPLOAD_TLS.md"
       ],
       "declaredCheckpoints": 18,
       "inputVerbs": [
@@ -1268,7 +1274,7 @@
         "Delete only actual owned private/saved/received/uploaded originals",
         "Restore permissions/preferences and observe quiet absent leases"
       ],
-      "nextExecutableStep": "Compose the normal Pico upload with the integrated private original-file/request/reply/lifetime source, independent TLS receiver and durable ownership. Its owning native/Python/factory group passes9.000s on Root; selected Qt5 host bodies compile, without APK/device qualification. The warm Save flow remains host-verified78.704s. Actual chooser VR input, Pico-qualified recipient, independent actor/stereo and whole restoration/resource/archive retirement remain missing.",
+      "nextExecutableStep": "Join the ordinary Pico Upload input and durable parent intent to original native upload provenance and the now host-verified independent TLS bytes/service V2. Integrated TLS21.836s, affected Create permissions11.523s and30 Account cases16.467s pass. Native HTTP/DTO producers remain seams; normal Pico client TLS/whole upload, actual chooser VR input/recipient, independent actor/stereo and final resource/archive retirement remain missing.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1354,7 +1360,11 @@
         "android/vr/pico/tests/device/test_assets_files_native.py",
         "android/vr/pico/tests/device/test_assets_file_owner.py",
         "tests/device/native/AssetsUiInventory.h",
-        "tests/device/adapters/pico4/assets_inventory.py"
+        "tests/device/adapters/pico4/assets_inventory.py",
+        "tests/device/native/PicoAssetsReadJob.h",
+        "tests/device/adapters/pico4/assets_source.py",
+        "tests/device/adapters/pico4/assets_read_retirement.py",
+        "android/vr/pico/tests/device/test_assets_source.py"
       ],
       "declaredCheckpoints": 29,
       "inputVerbs": [
@@ -1408,7 +1418,7 @@
         "Drain oven/upload/picker workers and release actual staged originals",
         "Restore original server permission and prove complete namespace/resource absence"
       ],
-      "nextExecutableStep": "Join actual native picker consumers to the now host-verified fixed-bundle native file owner and normal Cancel/upload UI, then original AssetClient mapping/upload effects. Lost release is observe-only; full context/backend/worker/actor retirement remains missing.",
+      "nextExecutableStep": "Join normal staged-file picker Cancel and original upload-call evidence to durable ownership, then original server mapping/oven, actor and final cleanup. Original AssetClient mapping/resolution/download and exact request/callback retirement pass four owning Root groups plus coverage13.21s. Final-copy/history clock counters fail before the selected fix and pass afterward. No live server/oven/upload or whole capability is qualified.",
       "nativeCompilation": "Selected whole Pico NavigationUi, original QML/pointer/FileDialogHelper/NativeFieldInput and production Assets-file getter/private descriptor storage host-compiled; complete application/APK unverified",
       "deviceQualification": "untested"
     },

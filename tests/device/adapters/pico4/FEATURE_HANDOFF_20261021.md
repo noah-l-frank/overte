@@ -36,7 +36,7 @@ After equivalent synthetic-tool optimization and original-ledger cold reopening
 fixes, the same warm flow passes78.704s within120s: normal Cancel/Still/Save,
 independent actual host PNG,13 fresh Provider inspections, all15 quiet clocks
 and cold factory reopening without a repeated input. JNI/Android provider/UID
-and rendering boundaries remain explicit host seams. The catalog now contains161 groups; complete source areas stay3/14.
+and rendering boundaries remain explicit host seams. The catalog now contains167 groups; complete source areas stay3/14.
 
 The fixed Assets normal-input packet95aa81c067 is selected as25d8dcff66.
 The actual original QML and whole Pico observer/apply host case passes20.433s,
@@ -1953,3 +1953,28 @@ the current catalog to161 groups without changing any deadline.
 The owning integrated browser checks pass: existing owner32.338s, new Actor
 retirement60.330s and coverage0.086s (3/161 selected groups). The four repository
 suites pass3.55s; closed versions, probe syntax and whitespace checks pass.
+
+## Integrated independent original reads and consumption
+
+Assets3381248606 and final-publication fix8c3fdf88d4 are selected as
+d072cd2235 and54041aa343. Four actual Qt5 native/job/source/probe groups plus
+coverage pass13.21s; the source group includes final-copy/history clock counters
+that were red in all four subcases against the previous bodies. Original
+AssetClient results and request/callback retirement are host verified; live
+server/oven/upload and whole capability remain unavailable.
+
+Strict Chat consumptionc1597cb685 is selected asb51e5c4b65. Integrated common
+baseline62.299s, original consumption76.588s and coverage0.087s pass. Exact
+immutable bytes from the actual warm checker bind unchanged original rows;
+cleanup-only positives explicitly retain sequenceSucceeded=false. Global
+external cursor continuation and repeated independent publication remain open.
+
+Snapshot TLS4afad59f58 is selected as1f79a542ce. Real owned loopback HTTPS,
+multipart/response private files and independent Actor/Adapter byte acquisition
+pass21.836s. Retained Create permission routes pass11.523s and all30 existing
+Account provider cases pass16.467s. Service/file/original version2 pins complete
+physical metadata and the original root identity. Native HTTP and DTO producers
+remain seams; normal Pico Upload, actor/stereo and whole resource retirement
+are still missing. The four repository checks pass4.20s and registry/probe/
+whitespace checks pass. The catalog contains167 groups; source-complete areas
+remain3/14, with no app/APK/device qualification.
