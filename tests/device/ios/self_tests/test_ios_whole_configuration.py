@@ -37,7 +37,7 @@ class WholeConfigurationTests(unittest.TestCase):
         self.target=dict(physical=True,normalScripts=dict(contractVersion=1,profile=PROFILE),
             nativeUiObservation=dict(kind='uikit-documents',version=1),probe=dict(kind='ios-documents'),testBuild={'configured':True})
 
-    def test_all_existing_whole_settings_validate_without_transport_but_complete_admission_stays_closed(self):
+    def test_worlds_admission_is_complete_and_other_whole_settings_stay_closed_without_transport(self):
         def forbidden(*_args,**_kwargs):self.fail('Configuration attempted fixture transport')
         with patch.object(Client,'request',side_effect=forbidden):
             for area,(field,_) in config.WHOLE_SETTINGS.items():
@@ -45,7 +45,16 @@ class WholeConfigurationTests(unittest.TestCase):
                 self.store.write(value,self.store.read())
                 with self.subTest(area=area),patch.dict(os.environ,{'OVERTE_IOS_FEATURE_ADAPTER_CONFIG':str(self.store.path)}):
                     self.assertEqual(value,config.configuration());self.assertEqual(before,value)
-                    with self.assertRaises(NativeUIError):config.capabilities(self.target)
+                    if area=='world-navigation':
+                        self.assertEqual(['feature.world-navigation.'+kind for kind in ('act','cleanup','observe','terminal')],config.capabilities(self.target))
+                    else:
+                        with self.assertRaises(NativeUIError):config.capabilities(self.target)
+
+    def test_partial_area_cannot_borrow_complete_worlds_admission(self):
+        value=dict(self.empty,areas=['world-navigation','avatar-people'],worldNavigation=self.settings['world-navigation'],
+            avatarPeople=self.settings['avatar-people'])
+        self.store.write(value,None)
+        with patch.dict(os.environ,{'OVERTE_IOS_FEATURE_ADAPTER_CONFIG':str(self.store.path)}),self.assertRaises(NativeUIError):config.capabilities(self.target)
 
     def test_literal_legacy_versions_remain_readable_without_new_fields_or_byte_rewrite(self):
         for version in range(1,5):

@@ -176,18 +176,20 @@ root visibility, input-release ACKs and historical PNGs cannot fill either fact.
 This is a concrete interface mismatch, not permission to delete a product object
 through instrumentation or to return an invented clean public observation.
 
-Worlds therefore remains partial and its complete capability is not advertised.
-Existing accepted originals and all uncertain ownership remain durable. The
-additive shared [terminal-retirement protocol](../../feature_journeys/TERMINAL_RETIREMENT.md)
-is now implemented and host-tested separately from default v16. Its optional
-capability remains unadvertised until the actual iOS source-to-seal and process-end
-decoders exist. [Whole preparation](../NAVIGATION_WHOLE_PREPARATION.md) now connects
-both original untouched images, a new actual admission and one ordinary Go To.
-The remaining whole integration must
-first seal actual live restored/quiet native and peer originals; then perform
-the normally owned final session Stop, independently prove installed-process
-absence, and bind that original absence to the exact retained UI/input/GPU
-owners before final metadata retirement. Its lifecycle result must remain
-separate from a fresh live-world observation. Preserve v16 historical grammar
-and reconcile the new closed protocol with the other platform branches. No
-functional product change, device/build run or protocol weakening was made here.
+The additive shared [terminal-retirement protocol](../../feature_journeys/TERMINAL_RETIREMENT.md)
+resolves this lifecycle mismatch through its own advertised capability. The
+[whole coordinator](../NAVIGATION_WHOLE_OWNER.md) now joins actual original
+restored/quiet native and peer observations to its live seal, then retires the
+owned fixture and performs the once-only normal session Stop. Independent
+original OS-absence windows, immutable source/input/GPU archives and actual
+SDK deletion remain bound to the same retained owners. The final lifecycle
+result is separate from a fresh live-world observation; default v16 historical
+grammar and its original zero-resource behavior remain unchanged.
+
+The full fifteen-step connected host case and separate failed-preparation,
+canonical dispatch and historical end regressions pass. Explicit private
+configuration5 now advertises the complete four-operation Navigation path;
+the existing catalog module selects the process-end profile from its terminal
+capability. No functional product change, device/build run or physical timing
+qualification was made here. Native producers and their acquisition clocks
+remain explicit models in these host cases.

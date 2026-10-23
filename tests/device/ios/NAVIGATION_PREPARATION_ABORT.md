@@ -79,11 +79,11 @@ expected an obsolete pending exception; its actual fixture has no observer
 images, so it now explicitly expects the real reader's incomplete-evidence
 rejection while preserving the original deadline checks.
 
-This version admits failed setup only while the feature-entry carrier is
+Version two admits failed setup only while the feature-entry carrier is
 absent. Scene-entry/input failures and other live partial ownership cannot
-borrow its authority. The complete full journey, all remaining failure branches
-and complete capability admission remain separate requirements. Worlds stays
-partial; native compilation and physical timing remain unqualified.
+borrow that earlier authority. The explicit version-three initial-entry branch
+below supplies its own decoder. Native compilation and physical timing remain
+unqualified.
 
 
 ## Uncertain initial ordinary entry
@@ -116,8 +116,9 @@ PNG decoders and loopback SDK HTTP are production host code.
 
 Literal pre-capture version one and partial-pre-entry version two keep their
 exact earlier grammar and authority. This later source does not reinterpret
-those original failure records. Complete capability admission is still held
-until the final canonical configuration gate and regressions are integrated.
+those original failure records. The final canonical configuration gate and
+regressions are now integrated; [the whole-owner handoff](NAVIGATION_WHOLE_OWNER.md)
+records the separate successful full journey and complete private admission.
 
 
 Regression verification keeps both earlier failed-preparation readers and normal

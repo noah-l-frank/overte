@@ -51,13 +51,14 @@ archive merely requests the actual historical process/SDK verifier; its presence
 alone cannot complete the worker. Unknown publications retain a private failure
 marker, and timeout retains the entire ownership graph. Six focused host cases
 cover real initial publication and separately modeled worker seal scheduling.
-The connected compact case qualifies this worker scheduling/end seam; full
-fifteen-step and canonical dispatch qualification remain open.
+The connected compact case first qualified this worker scheduling/end seam;
+the later full fifteen-step qualification below also covers canonical dispatch.
 The shared runtime factory now binds this same whole owner to an explicitly
 selected private artifact root. Two focused host cases exercise actual initial
 baselines, normal entry and source observation through that factory and reject
 foreign configuration fields. The worker uses this factory without creating a
-new SDK. Public complete capability admission remains closed.
+new SDK. Explicit private configuration5 now admits the complete four-operation path,
+as qualified below.
 
 The connected original-process open/close case additionally passes ordinary
 cleanup and the same paired source-to-end protocol without a restart. Writer-3
@@ -75,11 +76,38 @@ terminal/process/SDK graph; valid public End DTOs and forged archive markers
 cannot create or complete missing private owners. Separate negative cases
 exercise those refusals without transport.
 
-Worlds remains partial. The full fifteen-step final integration,
-partial-setup restoration and whole configuration/dispatch integration still
-require qualification. The
-[final-end mechanics](NAVIGATION_PROCESS_END.md) have separate component coverage
-with an explicitly modeled live seal; the separate connected case supplies the
-actual whole source/PNG seal. Neither admits a complete feature capability.
-Native compilation and devices remain
-untested.
+The fresh complete fifteen-step case passes in 692.934 seconds, with all 406
+frozen source hashes unchanged and zero blocked operations. It includes actual
+restart, cancellation/error paths, original restoration, both role publications,
+the same paired live seal, once-only Stop/SDK end, pure canonical verification,
+generic cleanup and actual historical worker exit. Earlier full-run deadline
+errors remain errors. Reopening the retained actual 626-file graph after the
+entry-failure integration passes generic normal cleanup in 27.008 seconds and
+worker exit in 26.868 seconds, each inside its unchanged real thirty-second
+budget with no transport or changed original bytes/inodes.
+
+The [failed-preparation owner](NAVIGATION_PREPARATION_ABORT.md) separately covers
+pre-capture, actual partial native/GPU/PNG and uncertain initial-entry ownership.
+Its writer3 reads literal versions1/2/3 without changing earlier authority. It
+retains failed state and unknown delivery; no scene entry, restored baseline or
+successful seal is invented. Six initial-entry failure cases pass in 21.199
+seconds; thirty-one earlier abort, worker, routing and cleanup regressions pass
+in 32.140 seconds. Public, generic and worker end paths retain and validate the
+actual original graph after SDK deletion.
+
+Explicit private configuration5 admits `feature.world-navigation.act`,
+`observe`, `cleanup` and `terminal`. The catalog module selects
+`ios-native-process-end-v1` from the advertised terminal capability and passes
+it through the existing OverteSession/installed-adapter operation path. The
+module retires its own fixture only after the actual live seal. There is no
+live observation after final process end. Sixteen focused final configuration,
+canonical routing and API-entry cases pass; mixed configuration containing a
+partial area remains rejected and literal configuration1/2/3/4 stays readable
+without rewriting its bytes or inode.
+
+Worlds/navigation is source-complete and host-tested. The
+[final-end mechanics](NAVIGATION_PROCESS_END.md) also retain their separate
+component coverage with an explicitly modeled live seal; the complete case uses
+the actual whole source/PNG seal. Native/Qt/GPU/OS and acquisition-clock producers
+remain explicit host models. Native compilation, physical iOS timing and devices
+remain untested.

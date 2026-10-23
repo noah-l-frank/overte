@@ -19,7 +19,7 @@ AREAS=LEGACY_AREAS|frozenset(WHOLE_SETTINGS)
 # Emotes retains its readable v4 configuration and operation implementation.
 # Real cached marker resources still need the two-stage native/process finalizer
 # before this area can again advertise a complete operation triple.
-COMPLETE_AREAS=frozenset(('scripts','authentication','graphics','create'))
+COMPLETE_AREAS=frozenset(('scripts','authentication','graphics','create','world-navigation'))
 OPERATIONS=frozenset('feature.'+area+'.'+kind for area in AREAS for kind in ('act','observe','cleanup'))|frozenset(
     'feature.'+area+'.terminal' for area in WHOLE_SETTINGS)
 

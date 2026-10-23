@@ -1,7 +1,7 @@
 # iOS source coverage and executable adapter handoff, 2026-10-21
 
-**Scripts, Authentication, Graphics and Create are source-complete and host-tested; ten areas remain partial.**
-All fourteen shared v16 journeys exist. These four areas have complete iOS
+**Worlds/navigation, Authentication, Create, Graphics and Scripts are source-complete and host-tested; nine areas remain partial.**
+All fourteen shared v16 journeys exist. These five areas have complete iOS
 input/observation/cleanup coordinators. Native compilation is unverified and
 devices are untested. Host results do not represent product acceptance,
 installation, build or laboratory execution.
@@ -16,151 +16,37 @@ Explicit configuration v3 admits its complete triple; legacy v1/v2 stays readabl
 Passive native State4 remains uncompiled. Missing coordinator metadata with any
 retained Create carrier refuses SDK teardown instead of forgetting ownership.
 
-Worlds also has a passive [original Go To visibility inventory](NAVIGATION_UI.md).
-It preserves hidden retained roots independently of input hit testing; it is a
-state-projection prerequisite and does not change the partial area count.
-The [Places/bookmark field projection](NAVIGATION_PLACES_STATE.md) now joins
-actual saved/loaded maps, current model/field/UI originals and retained genuine
-directory consumption without retiming the original response. Arrival, current
-error and independent publication still need the whole-journey coordinator.
-The [error-state projection](NAVIGATION_ERROR_STATE.md) preserves the original
-missing ticket while fresh native modal/listener lifetime reads establish
-dismissal and independent Go To visibility. Whole-state publication remains open.
-An [eight-field original-state join](NAVIGATION_PRODUCT_STATE.md) now combines
-these fields with the original challenge PNG and final current scene/pose under
-one bounded native acquisition. Durable whole-run ownership, ordinary input,
-independent publication, restart and repeated cleanup remain required.
-A [durable per-role image index](NAVIGATION_SAMPLES.md) now reserves each request,
-seals immutable child originals, rejects reused frames/source rollback and chooses
-the preceding actual observed image for changed evidence. Failed partial attempts
-remain terminal or unresolved; the whole coordinator still needs to own them.
-A [whole-observation owner](NAVIGATION_OBSERVATION_OWNER.md) now checkpoints the
-original outer clock and all eleven accepted sources, links immutable image
-archives and checks the immediate predecessor across field/source histories.
-It resolves fully retained lost returns without rereading sources. An explicit
-source-only failure path preserves the sealed PNG and every accepted partial
-source floor, including older channels missing from that partial read.
-Unresolved GPU captures remain owned separately. The
-[independent observation ledger](NAVIGATION_OBSERVER.md) reserves role-local
-original owners and uses the canonical publisher for actual journal receipts,
-lost-return resolution and immutable publication history. Stage-1 publication
-still needs actual restart transfer and the cross-cohort cursor; the whole
-action/observation/cleanup coordinator remains partial.
-Its runtime factory now uses the existing candidate-qualified iOS session,
-original native clocks and typed HTTP/AFC readers without launching or sending
-input. This is source wiring; complete operation dispatch is still required.
-Version-2 [whole-tree inventory](SCENE_INVENTORY.md) also freezes actual imported
-body hashes and editable maps at native commit, so a later admission can reject
-unsaved edits before leaving. A static, script-free
-[base-scene input](NAVIGATION_SCENE.md) now preserves the same original bytes
-before/during/after a run, with independent original socket histories. The scene
-owner still needs to admit and restore it; native changes remain uncompiled.
-The [original admission validator](NAVIGATION_SCENE_ADMISSION.md) now joins eight
-fresh source packets to that actual static body/map and rejects unsaved edits,
-unowned UI, unsupported bookmark storage and conflicting preferences. The durable
-scene/input/cleanup owner remains to be integrated.
-Its [durable acquisition owner](NAVIGATION_ADMISSION_OWNER.md) now retains the
-static source, eight originals and both native clock brackets through lost reads
-and lost final returns. The candidate-qualified factory sends no input; expired
-or partial acquisition cannot become fresh admission on reconstruction.
-A [one-send ordinary scene input owner](NAVIGATION_SCENE_INPUTS.md) now journals
-entry and static return over existing Go To input, checking the actual unchanged
-owned scene before return. Its delivery acknowledgments do not prove arrival or
-restoration; complete Places/restart/publication/quiet cleanup remain partial.
-The [normal Places recipes](NAVIGATION_PLACES_INPUTS.md) now cover native
-bookmark add/rename cancellation, visit/delete, search and directory selection
-using original tokens/model joins and a mandatory per-input intent callback.
-Error/restart and independent whole-run publication/cleanup remain to be connected.
-An [open-page action owner](NAVIGATION_PLACES_ACTIONS.md) now retains genuine
-phase and per-input originals across whole calls, rejects replay after uncertain
-delivery and carries original source floors. Whole page/scene/restart ownership,
-independent observation/publication and repeated quiet cleanup remain partial.
-An [ordinary surface owner](NAVIGATION_SURFACE_ACTIONS.md) now checkpoints actual
-Open/Home/Places/Close inputs and retains the observed page root. Replaced or
-pre-existing surfaces and lost returns cannot authorize new input or cleanup.
-Whole composite arrival/close, error, restart and repeated quiet cleanup remain open.
-An [ordinary missing-name/OK owner](NAVIGATION_MISSING_ACTIONS.md) now retains the
-actual input barrier, 404/modal proof and exact OK reference. Lost results cannot
-replay input; partial lifetime deletion remains unresolved. Address-root closure,
-whole operation publication, restart and repeated quiet cleanup remain open.
-A [composite action coordinator](NAVIGATION_COMPOSITE_ACTIONS.md) now connects
-normal directory/bookmark selection to independent fresh native scene/pose and
-owned page reads before normal close. Lost selections never replay; retained
-arrival recovery requires another fresh read before close, and lost close
-results recover only an actual existing child acknowledgment. Missing-address
-closure, restart transfer, publication and whole repeated cleanup remain open.
+The complete [Worlds/navigation coordinator](NAVIGATION_WHOLE_OWNER.md) joins
+ordinary Go To/Places/bookmark/error input, original scene/pose/native sources,
+full-target PNGs, an independent Actor publisher and actual restart transfer.
+Its unchanged fifteen-step shared journey passes with repeated paired cleanup,
+actual held Qt roots, the common live terminal seal and once-only process/SDK
+end. Canonical verification, generic cleanup and actual worker exit reopen the
+original graph without fixture, native, GPU or SDK transport. The connected case
+passes in 692.934 seconds with 406 frozen sources unchanged and zero blocked
+operations. Subsequent normal-end generic cleanup and worker replay each pass
+within their unchanged real thirty-second budgets, preserving all 626 original
+files and inodes. Earlier full-case budget errors remain errors.
 
-An [original process-context transfer](NAVIGATION_PROCESS_CONTEXT.md) now binds
-actual old-PID absence and full new-candidate/native birth to independently read
-new scene/bookmark/UI sources. Its durable acquisition owner retains partial
-reads and original deadlines through lost returns. The
-[ordinary restart controller](NAVIGATION_PROCESS_CONTEXT.md) now joins original
-pre-stop sources, both logical observers' actual GPU drains, pointer closure,
-one-send normal Stop/Launch, actual old-PID absence and new native birth. Later
-source/observer publication handoff and full quiet cleanup remain open.
+[Failed preparation](NAVIGATION_PREPARATION_ABORT.md) separately retains actual
+pre-capture, partial native/GPU/PNG and uncertain initial ordinary-entry
+ownership through the same once-only process/SDK transaction. Literal abort
+versions one and two retain their exact original grammar; version three adds
+the independently decoded initial-entry journals. Failed cleanup cannot claim
+restoration or successful journey completion and cannot replay unknown input.
+The public postguard and generic cleanup read the actual typed failed end;
+the independent worker returns failure only after verifying that end.
 
-The internal [active action coordinator](NAVIGATION_FEATURE.md) now retains
-the initial admission and routes ordinary first-process scene entry, Places
-and lookup inputs through these original owners. Parent return loss adopts
-actual child acknowledgments; uncertain delivery and the original operation
-deadline survive reconstruction. Whole observation/publication, restart
-handoff and final static restoration remain open; Worlds is still partial.
-
-Current Worlds code now includes ordinary restart/current-process action and
-publication transfer, immutable untouched and restored full-target PNGs, and
-actual Keys2/pointer/UIKit source cuts with genuine three-second quiet joins.
-The [whole preparation owner](NAVIGATION_WHOLE_PREPARATION.md) now connects both
-untouched original images, a later actual admission and one ordinary Go To,
-including unresolved and completely retained lost-return recovery. The additive
-[terminal profile](../feature_journeys/TERMINAL_RETIREMENT.md) now exists in the
-common operation/engine/module path. Its feature-specific source-to-seal and
-process-end decoders, failure restoration and full dispatcher remain required.
-The [current-process restoration owner](NAVIGATION_RESTORATION.md) now connects
-post-restart original source/image/input quiet to actual public fields and keeps
-retained Qt roots explicit. It does not retire those lifetimes or admit the whole
-feature.
-[Normal cleanup](NAVIGATION_NORMAL_CLEANUP.md) now owns actual cleanup-phase
-Places form cancellation, run-bookmark deletion, search clearing and surface
-transitions with pretransport journals and no replay of uncertain inputs.
-It still grants no complete capability. The exact remaining terminal-retirement
-interface mismatch and next additive integration step are documented in
-[the normal navigation handoff](adapters/NORMAL_NAVIGATION.md#concrete-terminal-retirement-interface-gap):
-normal AddressBar close only hides the global Qt root, while v16 requires live
-post-cleanup observations after all retained resources are absent. A final
-session Stop and its independent process-absence proof must be joined without
-turning an ended renderer into a fresh live-world reading. No hidden root is
-reported as destroyed and no unresolved owner is discarded.
-
-Historical restoration now reconstructs the original role/process graph without
-SDK, native or fixture queries and retains a separate original cleanup authority.
-The actual retired fixture authority has its own bounded decoder. The active
-whole-owner host seam passed the eleven shared pre-restart steps with independent
-source acquisitions and canonical actor receipts. The connected compact
-[whole-owner case](NAVIGATION_WHOLE_OWNER.md) additionally passed eight steps
-including restart, ordinary restoration, both role publications and the live
-terminal seal, once-only process/SDK end, SDK metadata CAS and actual worker
-exit, with transport-free historical replay afterward (2702.960 seconds,
-372 unchanged frozen source hashes, zero blocked operations). A separate original-process
-open/close case also passes ordinary cleanup, paired quiet/seal, once-only process/SDK end
-and transport-free worker completion (1037.725 seconds, 381 unchanged sources).
-The original-process open/close/missing-name error case now also passes owned error
-cleanup, paired original source/PNG quiet, once-only process/SDK end, pure canonical
-post-end verification and historical worker exit with both role transports forbidden
-(1543.350 seconds, 392 unchanged sources, zero blocked operations). Literal initial
-image/state version 1 remains readable; writer 2 retains actual missing-error ownership.
-Partial-setup failure cleanup, full fifteen-step final qualification and public
-dispatch remain pending.
-The separate [process/SDK end mechanics](NAVIGATION_PROCESS_END.md) pass ten
-focused host cases with real loopback SDK/fixture HTTP and installed-code
-ownership, while their live seal and OS producers remain explicitly modeled.
-The separate connected compact case supplies the actual whole source/PNG seal
-and joins those actual final owners; native/OS producers remain explicit models.
-The independent Navigation worker now passes six focused cases, including an
-actual initial Actor source/publication and separately modeled seal scheduling.
-It pauses acquisitions after the seal and requires the historical end verifier
-before returning success. Canonical dispatch qualification remains open.
-Two narrow producer-model regressions additionally bind a new marker URL to the
-actual imported HTTP body and preserve error history after callback completion.
+Explicit private configuration version five admits the Navigation `act`,
+`observe`, `cleanup` and `terminal` operations. The existing catalog module
+selects [the process-end profile](../feature_journeys/TERMINAL_RETIREMENT.md)
+when this terminal capability is advertised; it uses the unchanged OverteSession
+and installed-adapter path. The remaining partial areas cannot borrow this
+admission. Hidden Qt roots remain actual held resources until independently
+proved process absence; they never become invented empty live inventories.
+Native/Qt/GPU/OS producers and acquisition clocks remain explicit host models.
+The actual Python/JavaScript, loopback HTTP, original files, journals and PNG
+validators run; no native compilation, device or physical timing result follows.
 
 The gated [Script UI root source](adapters/SCRIPT_UI_ROOT_OWNERSHIP.md) now retains
 actual manager/picker operands with weak ownership and observed identities,
@@ -313,14 +199,14 @@ native/server/OS/receiver endpoints, not fixture delivery or requested filenames
 ## Fourteen-area matrix
 
 Every row remains **compilation unverified; devices untested**. Scripts,
-Authentication, Graphics and Create are source-complete with their unchanged full shared
-journeys and independent actor regressions. The other ten rows remain
+Worlds/navigation, Authentication, Graphics and Create are source-complete with their unchanged full shared
+journeys and independent actor regressions. The other nine rows remain
 **logic present; iOS adapter partial**; their complete triples are still missing. “Partial”
 credits only the specifically listed components.
 
 | Area | Existing iOS components and actual product sources | Concrete missing interface/evidence and next implementation packet |
 | --- | --- | --- |
-| Worlds/navigation | Original selected-QML Places root/row/modal identities and bound ordinary pointer/IME input are present in [the Places component](PLACES_CONTROLS.md), with strict original references, actual server/filter checkbox state, popup eligibility and legacy Back/Forward compatibility. Model v2 retains [typed loaded preferences](PLACES_PREFERENCES.md), actual native origin/protocol, server drafts and hidden popups. The passive [bookmark source](LOCATION_BOOKMARKS.md) independently retains actual loaded entries, load errors and stable original persistence bytes with native clocks. The [Places model source](PLACES_MODEL.md) retains actual materialized rows, raw records, modal values and hidden-root dispatch queues. The [native XHR source](PLACES_HTTP.md) joins original response bytes, real text consumption and a response-specific actual materialized description; it retains reply/timer/callback/XHR lifetime history. Existing `normal_navigation.py` drives native Go To/Places history; `_navigation_replies` reads actual named-lookup error IDs. The [missing-place dialog source](NAVIGATION_DIALOGS.md) now joins that actual callback to its native-created modal, original OK control/response and separate dialog/listener destruction. Product: `scripts/system/places/places.js` and the actual iOS-selected shared-touch `PicoPlaces.qml`. Native additions remain uncompiled. | [Original native scene/pose state](NAVIGATION_STATE.md) now binds the real committed scene, fixed marker geometry, actual MyAvatar physics and camera to a native clock bracket and PID. [Rendered-state prerequisites](NAVIGATION_RENDERED_STATE.md) additionally join original Vulkan pixels, recorded camera, actual fixture-wall effects and GPU absence. An [opt-in normal scene fixture](NAVIGATION_SCENE.md) now supplies a real polling challenge Web marker and original scene socket receipts; [native v2 marker observation and per-ticket image decoding](NAVIGATION_CHALLENGE.md) now bind its real geometry/source, current decoded challenge and changed wall/floor pixels to original frames. A [read-only fixture attachment](NAVIGATION_FIXTURE_READER.md) now rejects phase crossings across original directory/scene sources. [One durable original image attempt](NAVIGATION_SAMPLE.md) now preserves capture intent, original files, failed ownership and actual GPU drainage without recapture. A [whole-tree native inventory](SCENE_INVENTORY.md) now retains actual global IDs, editable-wire fingerprints and original clocks for unowned-state comparisons. The internal [whole coordinator](NAVIGATION_WHOLE_OWNER.md) and independent original Actor publisher now join normal inputs, directory/error receipts, source/PNG observations, restart, ordinary restoration and the paired live seal. The compact eight-step host journey now passes the actual whole end, once-only Stop/SDK deletion/CAS and transport-free repeated finish/worker exit; separate mechanics and existing-runtime factory checks also pass. The original-process open/close whole case also passes the paired source-to-end protocol without a restart. The open/close/missing-name error whole case also passes ordinary restoration and the actual same end, pure canonical verification and historical worker exit. Full fifteen-step final qualification, partial-setup cleanup and canonical dispatch remain required. Complete capability admission remains closed. UI ACKs and server delivery do not supply product effects. |
+| Worlds/navigation | **Source-complete, host-tested.** Ordinary Go To/Places/bookmark/error controls; independently decoded scene/pose/preferences/HTTP/UI originals and PNGs; durable per-role ownership, original Actor publication, actual restart transfer and normal restoration. | See [the whole coordinator and final qualification](NAVIGATION_WHOLE_OWNER.md) and [failed-preparation ownership](NAVIGATION_PREPARATION_ABORT.md). All fifteen shared steps pass through paired quiet/live seal, once-only process/SDK end, canonical verification, generic cleanup and actual worker exit. Explicit configuration5 admits all four operations; literal older configuration and abort records remain readable. Retained roots stay held until OS absence. Native compilation, physical deadlines and device qualification remain unexecuted. |
 | Authentication | **Source-complete, host-tested.** Canonical full-candidate runtime, original Login/Menu tokens, private AFC credentials, measured preference restoration, separate actor/server proof, delayed reply consumer retirement, three restarts and durable cleanup/finalization. | See [operation/evidence/integration handoff](AUTHENTICATION_FEATURE_SOURCES.md). The unchanged seventeen-step journey passes with a real local HTTPS provider and synthetic iOS SDK/native sources. Requires the explicit dedicated HTTPS origin and existing typed/empty account preferences. Compilation and device qualification remain unexecuted. |
 | Avatar/contacts | [Actual loaded/requested state and original Renderer4](AVATAR_OBSERVATION.md), normal URL/bookmark/scale/wearable/People controls and durable input ownership, original bookmark bytes, SocialXHR/PeopleModel/AvatarScripts code and timer histories. [Two owned OAuth scopes and immutable source groups](AVATAR_ACCOUNTS.md) retain separate actual profile proofs and original native clocks. [Ordinary child-account preparation](AVATAR_LOGIN.md) now owns normal login/logout, a separate protected native GET, original credential/origin lease drainage and original preference restoration per role. | Still partial: integrate all Avatar/People actions, independently acquired peer consent/rendering and current GPU images, restoration, callback/lifetime drainage and repeated quiet cleanup. Isolated source and input helpers do not enable a full capability. |
 | Create | **Source-complete, host-tested.** Canonical three-operation dispatch, normal token/IME/Properties/world input, original imports/exports and model/texture/voxel effects, permission denial/retry, independent actor and original Vulkan images. State4 retains the actual hidden Properties search draft; ActionOwner2 retains immutable input-event carriers. | See [complete operation and integration handoff](adapters/CREATE_FEATURE.md). All 21 actions and observations pass through the actual Python runtime/HTTP/AFC owners with modeled SDK/native producers. Paired repeated quiet cleanup, all owned GPU drainage, lost publication recovery, original file/header/cursor checks and pre-SDK-delete finalization pass. Configuration3 is explicit; missing or malformed ownership prevents teardown. Native compilation and devices remain unverified. |
@@ -467,19 +353,15 @@ retain completed ownership without reporting new product observations.
 Reconcile the iOS-only configuration writer 2 (readers 1/2), observer-worker and
 worker-failure v1, finalization/reference/receipt v1 and SDK-retirement v1 registry
 entries with the Phone/Pico registry union. The shared journey remains v16.
-No protected or parallel branch is integrated here. The remaining eleven areas
-retain their concrete source gaps above; Worlds/navigation is next.
+No protected or parallel branch is integrated here. This Graphics-stage result
+preceded the later Create and Navigation completions; the current matrix above
+records five complete areas and nine remaining partial areas.
 
 
-Navigation follow-up, 2026-10-23: the completed fifteen-step original graph now
-replays its historical finish, canonical guard, generic cleanup and Actor exit
-within each unchanged real thirty-second reader budget, without transports or
-changes to its 626 original files. Earlier full-case results remain errors;
-the fresh full connected case now passes (692.934 seconds), with all 406
-frozen sources unchanged and zero blocked operations. Version-two failed pre-entry
-preparation now joins actual native/GPU/PNG prefixes to once-only process/SDK
-end through public and generic cleanup, retaining literal pre-capture version
-one. Its targeted routing/ownership/deadline cases pass. See
-[NAVIGATION_PREPARATION_ABORT.md](NAVIGATION_PREPARATION_ABORT.md) and
-[NAVIGATION_OBSERVATION_OWNER.md](NAVIGATION_OBSERVATION_OWNER.md).
-This remains partial; the four-area complete count is unchanged.
+Navigation completion, 2026-10-23: the full fifteen-step case, retained
+normal-end replay, pre-entry/partial-entry failed cleanup and canonical routing
+are integrated. Six initial-entry failure cases pass in 21.199 seconds;
+thirty-one legacy abort, worker and routing regressions pass in 32.140 seconds.
+Sixteen final configuration/routing/API-entry cases also pass. Complete private
+Navigation admission is enabled; the current count is five complete source-level
+areas and nine partial areas. This count establishes no build or device result.
