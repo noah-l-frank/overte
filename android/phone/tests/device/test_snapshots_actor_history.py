@@ -54,26 +54,27 @@ class SnapshotActorHistoryTests(unittest.TestCase):
 
         def mutate(token):
             f,a,r=token.feature,token.actor,token.role
+            mutation=kind.removeprefix('mid-')
             path=None
-            if kind.startswith(('feature-','actor-','role-')):
-                store={'feature':f.store,'actor':a.store,'role':r.store}[kind.split('-')[0]]
+            if mutation.startswith(('feature-','actor-','role-')):
+                store={'feature':f.store,'actor':a.store,'role':r.store}[mutation.split('-')[0]]
                 before=deepcopy(store.read())
-                if kind.endswith('-aba'):store.write(before,before)
+                if mutation.endswith('-aba'):store.write(before,before)
                 else:
                     state=unpack(before['payload'])[0]
-                    if kind.startswith('feature-'):state['cleanupStages']['counterForeignOwner']=True
-                    elif kind.startswith('actor-'):state['dropped'].append(dict(counterForeignOwner=True))
+                    if mutation.startswith('feature-'):state['cleanupStages']['counterForeignOwner']=True
+                    elif mutation.startswith('actor-'):state['dropped'].append(dict(counterForeignOwner=True))
                     else:state['phase']='retired'
                     store.write(dict(before,payload=pack([state])),before)
                 path=store.path
-            elif kind in ('old-frame','manifest','missing'):
-                prefix='emote-index-' if kind=='manifest' else 'emote-frame-'
+            elif mutation in ('old-frame','manifest','missing'):
+                prefix='emote-index-' if mutation=='manifest' else 'emote-frame-'
                 path=next(path for path,pinned in token.file_seal if pinned is not None and path.name.startswith(prefix))
-                if kind=='missing':path.unlink()
+                if mutation=='missing':path.unlink()
                 else:path.write_bytes(path.read_bytes()+b' ')
-            elif kind=='graph':r.frames[0]['counterLateGraph']=True
-            elif kind=='sdk-identity':f.adapter._existing_input_scope=dict(counterForeignScope=True)
-            elif kind in ('quiet-restored','quiet-final-save'):a.state['quiet']['started']-=.125
+            elif mutation=='graph':r.frames[0]['counterLateGraph']=True
+            elif mutation=='sdk-identity':f.adapter._existing_input_scope=dict(counterForeignScope=True)
+            elif mutation in ('quiet-restored','quiet-final-save'):a.state['quiet']['started']-=.125
             else:raise AssertionError('Unknown controlled history mutation')
             if path is not None:
                 durable_changes.put((str(path),None if kind=='missing' else path.read_bytes()))
@@ -142,6 +143,12 @@ class SnapshotActorHistoryTests(unittest.TestCase):
         def actual_file(engine,path,descriptor,value):
             result=original_file(engine,path,descriptor,value)
             token=selected[0]
+            if shared[0] and kind.startswith('mid-') and token is not None and not shared[2]:
+                self.assertTrue(token.replaying,'Mutation did not occur inside the actual replay')
+                self.assertIsNone(token.feature.lock._owner)
+                self.assertEqual(path.stat().st_ino,os.fstat(descriptor).st_ino)
+                with token.feature.lock.held():
+                    token.feature.lock.assert_held();mark(5);mutate(token)
             if shared[0] and kind=='positive' and token is not None and not shared[4]:
                 self.assertIsNone(token.feature.lock._owner)
                 self.assertEqual(path.stat().st_ino,os.fstat(descriptor).st_ino)
@@ -172,12 +179,13 @@ class SnapshotActorHistoryTests(unittest.TestCase):
             try:self.assertTrue(fixture.doCleanups(),'Owned Actor fixture cleanup failed')
             finally:durable_changes.close();durable_changes.join_thread()
 
-    def assert_rejected_before_current(self,fixture,step,first,shared,entries,*,callback=False):
+    def assert_rejected_before_current(self,fixture,step,first,shared,entries,*,callback=False,replay_complete=True):
         value=step();self.assertEqual('NativeUIError',value['error']['error'],value)
         self.assertEqual(first['counts'],value['counts'])
         self.assertEqual(first['state']['last'],value['state']['last'])
         self.assertEqual(entries,fixture.reader.request('/runs/'+component.RUN)['entries'])
-        self.assertEqual(1,shared[1],'Counter did not follow a complete actual replay')
+        self.assertEqual(1 if replay_complete else 0,shared[1],
+            'Unexpected actual replay completion count')
         self.assertEqual(0,shared[6],'Replay attempted current authority outside lock')
         if callback:self.assertGreater(shared[3],0,'Fresh original callback was not reached')
 
@@ -199,6 +207,11 @@ class SnapshotActorHistoryTests(unittest.TestCase):
             with self.subTest(kind=kind),self.controlled(kind) as (fixture,step,first,shared,entries):
                 self.assert_rejected_before_current(fixture,step,first,shared,entries)
                 self.assertEqual(1,shared[2])
+        for kind in ('mid-feature-header','mid-role-aba','mid-graph'):
+            with self.subTest(kind=kind),self.controlled(kind,timing='during-replay') as (fixture,step,first,shared,entries):
+                self.assert_rejected_before_current(fixture,step,first,shared,entries,replay_complete=False)
+                self.assertEqual(1,shared[2],'Actual mid-replay mutation was not reached')
+                self.assertEqual(1,shared[5],'Actual source lock was not acquired during the original file read')
 
     def test_late_fresh_callbacks_cannot_change_graph_sdk_owner_or_old_original(self):
         for kind,timing in (('graph','native-callback'),('graph','phase-callback'),
