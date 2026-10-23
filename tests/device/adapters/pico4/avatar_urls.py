@@ -9,25 +9,23 @@ Avatar/People contexts, bookmarks, wearables, peer and backend are not retired.
 from copy import deepcopy
 import hashlib
 import math
-import os
-import re
-import stat
 import time
 from urllib.parse import urljoin
 from adapters.native_feature_observation import decode,exact,fresh,integer,need,number
-from adapters.normal_feature_state import context,PrivateFeatureState
+from adapters.normal_feature_state import context
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.avatar_state import NativePicoAvatarState,ACTION,validate,continuity,failed,sha
 from adapters.pico4 import avatar_preferences as preference_source
+from adapters.pico4.avatar_originals import AvatarOriginalFrames
 from adapters.pico4.avatar_people_ui import TokenAvatarPeopleUI,control_id,text,project
 from adapters.pico4.navigation import validate_snapshot
-from adapters.script_journey.history import pack,unpack,same,canonical
+from adapters.script_journey.history import pack,unpack,same
 from adapters.script_journey.lock import ScriptSourceLock
 from adapters.token_create_ui import scope,nonce
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
 from feature_journeys.fixtures import pinned_resource
 
-VERSION=2
+VERSION=3
 
 
 def packet(record,pid):
@@ -43,18 +41,15 @@ def loaded_url(url):
 
 
 class PicoAvatarUrls:
-    def __init__(self,store,binding,phase,lock,native,widgets,controls,guard,*,preferences,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,store,binding,phase,lock,native,widgets,controls,guard,*,preferences,favorites=None,monotonic=time.monotonic,sleep=time.sleep):
         need(isinstance(phase,PhaseFixtureReader) and phase.area=='avatar-people' and isinstance(lock,ScriptSourceLock)
-            and all(callable(v) for v in (native,widgets,controls,guard,preferences,monotonic,sleep)))
+            and all(callable(v) for v in (native,widgets,controls,guard,preferences,monotonic,sleep)) and (favorites is None or callable(favorites)))
         self.store,self.binding,self.phase,self.lock=store,deepcopy(context(binding)),phase,lock
         self.native,self.widgets,self.controls_factory,self.guard,self.monotonic,self.sleep=native,widgets,controls,guard,monotonic,sleep
         self.pid=int(binding['processIdentity'].split(':')[0]);need(integer(self.pid,1));self.run=phase.run
-        prefix='avatar-urls-owner-';suffix='-'+self.run+'.json';name=self.store.path.name
-        need(name.startswith(prefix) and name.endswith(suffix));artifact_key=name[len(prefix):-len(suffix)]
-        need(re.fullmatch('[0-9a-f]{32}',artifact_key) is not None)
-        self.frame_prefix='avatar-urls-frame-'+artifact_key+'-'+self.run+'-'
+        self.originals=AvatarOriginalFrames(store,self.binding,self.run,phase.fixture_url,'urls')
         self.preferences_factory,self.preferences_reader,self.version=preferences,None,VERSION
-        self._frame_references={};self._frame_originals={};self._frame_files={}
+        self.favorites_factory=favorites
         self.previous=store.read();self.clock=self.anchor=None;self.failed=False;self._reconciling=False;self._before_send=self.before_send
         self.state=dict(stage='reserved',baseline=None,baselineIndex=None,prepared=None,frames=[],calls=[],inputs=[],pending=None,unresolved=[],restored=False)
         self.bound()
@@ -64,7 +59,7 @@ class PicoAvatarUrls:
         now=self.monotonic();need(number(now,0,1e15) and (self.clock is None or now>=self.clock));self.clock=now
     def restore(self,value):
         exact(value,{'picoAvatarUrlsOwnerVersion','binding','runId','fixtureUrl','payload'})
-        need(type(value['picoAvatarUrlsOwnerVersion']) is int and value['picoAvatarUrlsOwnerVersion'] in (1,VERSION) and same(value['binding'],self.binding)
+        need(type(value['picoAvatarUrlsOwnerVersion']) is int and value['picoAvatarUrlsOwnerVersion'] in (1,2,VERSION) and same(value['binding'],self.binding)
             and value['runId']==self.run and value['fixtureUrl']==self.phase.fixture_url)
         self.version=value['picoAvatarUrlsOwnerVersion']
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
@@ -109,7 +104,7 @@ class PicoAvatarUrls:
         else:need(state['stage']=='reserved' and not state['calls'])
         tickets=set()
         for call in state['calls']:
-            exact(call,{'ticket','verb','url','phase','attempted','settled','quiet','before'})
+            exact(call,{'ticket','verb','url','phase','attempted','settled','quiet','before'}|({'externalSubject'} if self.version>=3 else set()))
             activation=self.phase_original(call['phase']);need(call['ticket']==activation['ticket'] and call['ticket'] not in tickets
                 and call['verb'] in ('avatar-url','avatar-restore','cleanup') and activation['stimulus']['verb']==call['verb']
                 and type(call['attempted']) is bool and type(call['settled']) is bool and (not call['settled'] or call['attempted']))
@@ -118,6 +113,7 @@ class PicoAvatarUrls:
                 original_phase=state['frames'][call['before']-1]['phaseAfter']
                 need(self.phase_original(original_phase)['ticket']==call['ticket'] and same(original_phase['activations'],call['phase']['activations']))
             tickets.add(call['ticket']);text(call['url'])
+            if self.version>=3 and call['externalSubject'] is not None:self.favorite_original(call,state)
             if call['settled']:self.quiet_original(state,call)
             else:need(call['quiet'] is None)
             if call['verb']=='avatar-url':need(call['url']==self.phase.fixture_url+'tickets/'+call['ticket']+'/'+activation['stimulus']['inputs']['resource'])
@@ -139,57 +135,36 @@ class PicoAvatarUrls:
         exact(command,fields);s=intent['scope'];need(type(command['schemaVersion']) is int and command['schemaVersion']==1 and nonce(command['commandId'])
             and command['bridgeId']==s['instance'] and command['generation']==s['generation'] and command['sequence']==s['sequence']+1
             and command['observedElapsedMs']==s['elapsedMs'] and all(command[k]==intent[k] for k in ('controlId','controlToken','action')))
-    def frame_original(self,reference):
-        exact(reference,{'avatarUrlFrameVersion','name','sha256'})
-        need(type(reference['avatarUrlFrameVersion']) is int and reference['avatarUrlFrameVersion']==1
-            and type(reference['sha256']) is str and len(reference['sha256'])==64 and all(c in '0123456789abcdef' for c in reference['sha256']))
-        name=self.frame_prefix+reference['sha256'][:32]+'.json';need(reference['name']==name)
-        if reference['sha256'] in self._frame_references:
-            need(same(self._frame_references[reference['sha256']],reference));self.verify_frame_file(reference)
-            return deepcopy(self._frame_originals[reference['sha256']])
-        record=PrivateFeatureState(self.store.path.with_name(name)).read();need(record is not None)
-        exact(record,{'avatarUrlFrameVersion','binding','runId','fixtureUrl','payload'})
-        need(type(record['avatarUrlFrameVersion']) is int and record['avatarUrlFrameVersion']==1 and same(record['binding'],self.binding)
-            and record['runId']==self.run and record['fixtureUrl']==self.phase.fixture_url)
-        values=unpack(record['payload']);need(len(values)==1 and hashlib.sha256(canonical(values[0])).hexdigest()==reference['sha256'])
-        self.verify_frame_file(reference,canonical(record)+b'\n')
-        self._frame_references[reference['sha256']]=deepcopy(reference);self._frame_originals[reference['sha256']]=deepcopy(values[0]);return values[0]
-    @staticmethod
-    def frame_stamp(info):
-        return (info.st_dev,info.st_ino,info.st_uid,info.st_mode,info.st_nlink,info.st_size,info.st_mtime_ns,info.st_ctime_ns)
-    def verify_frame_file(self,reference,original=None):
-        # Cache only parsing/decompression. Every admission and final input
-        # fence rereads the original bounded descriptor, inode/stamps and bytes.
-        store=PrivateFeatureState(self.store.path.with_name(reference['name']));store._parent();before=store.path.lstat()
-        need(stat.S_ISREG(before.st_mode) and before.st_nlink==1 and before.st_size<=65536
-            and (os.name=='nt' or before.st_uid==os.geteuid() and stat.S_IMODE(before.st_mode)==0o600))
-        descriptor=os.open(store.path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
-        with os.fdopen(descriptor,'rb') as stream:
-            opened=os.fstat(stream.fileno());need(self.frame_stamp(before)==self.frame_stamp(opened))
-            raw=stream.read(65537);after=os.fstat(stream.fileno());current=store.path.lstat()
-        stamp=self.frame_stamp(current);need(stamp==self.frame_stamp(after)==self.frame_stamp(opened) and len(raw)==current.st_size)
-        observed=(stamp,hashlib.sha256(raw).hexdigest());digest=reference['sha256']
-        if digest in self._frame_files:need(self._frame_files[digest]==observed)
-        else:need(original is not None and raw==original);self._frame_files[digest]=observed
+    def frame_original(self,reference):return self.originals.frame_original(reference)
+    def frame_reference(self,frame):return self.originals.frame_reference(frame)
     def verify_frames(self):
-        if self.version>=2:
-            for frame in self.state['frames']:
-                digest=hashlib.sha256(canonical(frame)).hexdigest();need(digest in self._frame_references)
-                self.verify_frame_file(self._frame_references[digest])
-    def frame_reference(self,frame):
-        # Fixed Phone5527 content-addressed private blob foundation. An original
-        # frame is never truncated to fit the root CAS envelope. Every leaf
-        # keeps the existing pack/PrivateFeatureState limits and exact binding.
-        digest=hashlib.sha256(canonical(frame)).hexdigest()
-        if digest in self._frame_references:
-            need(same(self._frame_originals[digest],frame));self.verify_frame_file(self._frame_references[digest]);return deepcopy(self._frame_references[digest])
-        name=self.frame_prefix+digest[:32]+'.json';reference=dict(avatarUrlFrameVersion=1,name=name,sha256=digest)
-        record=dict(avatarUrlFrameVersion=1,binding=self.binding,runId=self.run,fixtureUrl=self.phase.fixture_url,payload=pack([frame]))
-        store=PrivateFeatureState(self.store.path.with_name(name));old=store.read()
-        if old is None:store.write(record,None)
-        else:need(same(old,record))
-        need(same(store.read(),record));self.verify_frame_file(reference,canonical(record)+b'\n')
-        self._frame_references[digest]=deepcopy(reference);self._frame_originals[digest]=deepcopy(frame);return reference
+        if self.version>=2:self.originals.verify_frames(self.state['frames'])
+        if self.version>=3:
+            for call in self.state['calls']:
+                if call['externalSubject'] is not None:self.originals.frame_original(call['externalSubject'])
+    def favorite_original(self,call,state=None):
+        from adapters.pico4.avatar_favorite_effect import current
+        from adapters.pico4.avatar_favorites import validate_frame
+        state=self.state if state is None else state;need(call['verb'] in ('avatar-url','avatar-restore') and call['externalSubject'] is not None)
+        proof=self.originals.frame_original(call['externalSubject']);frame=state['frames'][call['before']-1]
+        actual=current(proof,self.binding,self.run,self.phase.fixture_url,packet(frame['native'],self.pid),self.preference_packet(frame['preferences']),call['phase'])
+        previous=[row for row in state['calls'][:state['calls'].index(call)] if row['settled']];need(previous)
+        known=packet(state['frames'][previous[-1]['quiet']['last']-1]['native'],self.pid)['source']
+        before=validate_frame(proof['frames'][proof['before']-1],self.pid,self.binding,self.run)
+        known_preferences=self.preference_packet(state['frames'][previous[-1]['quiet']['last']-1]['preferences'])
+        need(same(self.stable(before['native']['source']),self.stable(known))
+            and same(self.preference_stable(before['preferences']),self.preference_stable(known_preferences)));return actual
+    def favorite_admission(self,frame,known):
+        from adapters.pico4.avatar_favorites import PicoAvatarFavorites,validate_frame
+        from adapters.pico4.avatar_favorite_effect import current
+        need(self.version>=3 and callable(self.favorites_factory));owner=self.favorites_factory()
+        need(isinstance(owner,PicoAvatarFavorites) and same(owner.binding,self.binding) and owner.run==self.run)
+        proof=owner.effect_proof();actual=current(proof,self.binding,self.run,self.phase.fixture_url,packet(frame['native'],self.pid),self.preference_packet(frame['preferences']),frame['phaseAfter'])
+        before=validate_frame(proof['frames'][proof['before']-1],self.pid,self.binding,self.run)
+        previous=self.state['calls'][-1];known_preferences=self.preference_packet(self.state['frames'][previous['quiet']['last']-1]['preferences'])
+        need(same(self.stable(before['native']['source']),self.stable(known))
+            and same(self.preference_stable(before['preferences']),self.preference_stable(known_preferences)))
+        return actual['native']['source'],self.originals.frame_reference(proof)
     def save(self):
         self.bound();self.check(self.state)
         payload=deepcopy(self.state)
@@ -263,6 +238,10 @@ class PicoAvatarUrls:
         # Only the exact privately owned input is publishable after the last SDK
         # guard. A new fixture phase or expired native anchor prevents dispatch.
         identifier=command['controlId'];call=self.state['calls'][-1]
+        if self.version>=3 and call['externalSubject'] is not None:
+            from adapters.pico4.avatar_favorite_effect import current
+            frame=self.state['frames'][-1];current(self.originals.frame_original(call['externalSubject']),self.binding,self.run,self.phase.fixture_url,
+                packet(frame['native'],self.pid),self.preference_packet(frame['preferences']),frame['phaseAfter'])
         need(identifier in ('tablet.home','avatar.entry','avatar.url','avatar.dialog.input','avatar.dialog.confirm','avatar.dialog.cancel') or identifier.startswith('tablet.page.'))
         if command['action']=='replace':need(identifier=='avatar.dialog.input' and command['text']==call['url'])
         else:need(command['action']=='activate')
@@ -375,10 +354,12 @@ class PicoAvatarUrls:
     def act(self,*,cleanup=False):
         need(self.version>=2 and self.state['baseline'] is not None and self.state['stage'] in ('active','restored') and self.state['pending'] is None and (not self.state['unresolved'] or cleanup))
         self.sample();baseline=packet(self.state['baseline']['native'],self.pid)['source'];before=packet(self.state['frames'][-1]['native'],self.pid)['source']
-        need(all(abs(before[k]-baseline[k])<=.0001 for k in ('scale','targetScale')) and same(before['avatarEntityStorage'],baseline['avatarEntityStorage'])
+        external_subject=None
+        need(same(before['avatarEntityStorage'],baseline['avatarEntityStorage'])
             and self.state['frames'][-1]['widgets']['open'] and self.state['frames'][-1]['widgets']['ready'])
         phase=self.phase_fence(self.state['frames'][-1]['phaseAfter']);activation=self.phase_original(phase);verb=activation['stimulus']['verb'];ticket=activation['ticket']
         if verb=='cleanup':
+            need(all(abs(before[k]-baseline[k])<=.0001 for k in ('scale','targetScale')))
             owned={baseline['requestedUrl']}|{r['url'] for r in self.state['calls']}
             need(before['requestedUrl'] in owned and before['preferenceUrl']==before['requestedUrl']
                 and before['avatarLoads']['requestedSha256']==sha(before['requestedUrl'])
@@ -386,7 +367,8 @@ class PicoAvatarUrls:
                 and before['modelUrl'] in {before['requestedUrl'],'qrc:/meshes/defaultAvatar_full.fst'})
         else:
             if self.state['calls'] and self.state['calls'][-1]['settled']:
-                old=self.state['calls'][-1];known=packet(self.state['frames'][old['quiet']['last']-1]['native'],self.pid)['source'];need(self.matches(before,old))
+                old=self.state['calls'][-1];known=packet(self.state['frames'][old['quiet']['last']-1]['native'],self.pid)['source']
+                if not self.matches(before,old):known,external_subject=self.favorite_admission(self.state['frames'][-1],known)
             else:
                 known=baseline;need(self.matches(before,dict(verb='cleanup',url=baseline['requestedUrl'],before=1)))
             need(all(before[k]['currentGeneration']==known[k]['currentGeneration'] for k in ('avatarLoads','modelLoads')))
@@ -395,6 +377,7 @@ class PicoAvatarUrls:
             resource=activation['stimulus']['inputs']['resource'];need(resource in ('avatar-a.fst','missing.fst'));url=self.phase.fixture_url+'tickets/'+ticket+'/'+resource
         else:url=packet(self.state['baseline']['native'],self.pid)['source']['requestedUrl']
         self.state['calls'].append(dict(ticket=ticket,verb=verb,url=url,phase=phase,attempted=False,settled=False,quiet=None,before=len(self.state['frames'])));self.state['pending']=ticket;self.state['restored']=False
+        if self.version>=3:self.state['calls'][-1]['externalSubject']=external_subject
         if verb=='cleanup':self.state['stage']='restoring'
         self.save();call=self.state['calls'][-1];call['attempted']=True;self.save()
         ui=self.controls();ui.open()
