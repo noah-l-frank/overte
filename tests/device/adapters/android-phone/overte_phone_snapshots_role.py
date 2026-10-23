@@ -647,14 +647,21 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         settings=None if self.system else self.settings.request(f.run,'observe')
         cancels=[]
         if f.state['cancelJobs']:
-            originals=f.input_originals()
+            # Closing foreground readers need only the original index bound;
+            # their cancel packets still come from new native reads below.
+            # The later account validation retains its full original replay,
+            # including detection of an input changed during those reads.
+            if closing and not self.system:
+                originals=None;input_count=self.closing_input_count()
+            else:
+                originals=f.input_originals();input_count=len(originals)
             reader=None if self.system else f.adapter._snapshot_cancel(f.selector,read_only=True)
             if reader is not None:
                 previous=[packet for frame in self.history() if frame.get('measurement') is not None for packet in frame['measurement']['cancels']]
                 for packet_ in previous:reader.jobs[packet_['source']['job']]=deepcopy(packet_['source'])
                 if previous:reader.last=deepcopy(previous[-1])
             for job in f.state['cancelJobs']:
-                need(integer(job['sourceIndex'],1,len(originals)))
+                need(integer(job['sourceIndex'],1,input_count))
                 if self.system:
                     index=job['retirementIndex'] or job['sourceIndex']
                     key='snapshotCancelRetired' if job['retirementIndex'] else 'snapshotCancel'
@@ -736,6 +743,26 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         if any(job['uploaderAlive'] or job['fileAlive'] or job['multipartAlive'] for job in measurement['upload']['jobs']):resources.append('connection:snapshots-upload')
         lifecycle=native_after['lifecycle'] if native_after is not None else batch['context']['lifecycle']
         return result('feature.snapshots.observe',dict(schemaVersion=1,contractVersion=VERSION,runId=f.run,sequence=self.state['sequence'],capturedEpochMs=captured_epoch,state=measured,artifacts=artifacts,resources=sorted(resources),lifecycle=lifecycle))
+
+    def closing_input_count(self):
+        """Read an actual loaded owner count; never supply a measured fact."""
+        f=self.feature;f.lock.assert_held()
+        need(not self.system and f.state['phase'] in ('cleaned','retiring')
+            and f.state['current'] is None and f.state['handoff'] is None
+            and f.header_authority() is True)
+        header=f.store.read();need(same(header,f.previous))
+        exact(header,{'snapshotsFeatureVersion','runId','fixtureUrl','binding','configuration','payload'})
+        need(type(header['snapshotsFeatureVersion']) is int and header['snapshotsFeatureVersion']==1
+            and header['runId']==f.run and header['fixtureUrl']==f.fixture_url
+            and same(header['binding'],f.binding) and same(header['configuration'],f.config))
+        rows=unpack(header['payload']);need(len(rows)==1 and type(rows[0]) is dict)
+        owner=rows[0];count=owner['inputSequence']
+        need(set(owner)==set(f.state) and integer(count,0,1024) and integer(f.state['inputSequence'],0,1024)
+            and count==f.state['inputSequence'] and owner['phase']==f.state['phase']
+            and owner['phase'] in ('cleaned','retiring') and owner['current'] is None and owner['handoff'] is None
+            and type(owner['inputs']) is list and type(owner['cancelJobs']) is list
+            and same(owner['inputs'],f.state['inputs']) and same(owner['cancelJobs'],f.state['cancelJobs']))
+        return count
 
     def history_authority(self):
         """Only historical host IO; never a target/input/transfer guard."""

@@ -235,8 +235,10 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
     def _qualification(self,role=None,*,verify_graph=True):
         f=self.feature;f.lock.assert_held();need(self.started and self.digest is not None)
         self._headers();self._memory(verify_graph=False);self._verify_files()
-        f.bound()
+        # The role guard already performs the complete feature guard before
+        # comparing its own owner. Keep one actual guard at this boundary.
         if role is not None:role.bound()
+        else:f.bound()
         status=f.phase.status(self.phase);_same_phase(status,self.phase)
         if self.cleanup:f.cleanup_observe_phase(status,self.phase)
         # Target/phase callbacks can change a graph or file. Recheck after
