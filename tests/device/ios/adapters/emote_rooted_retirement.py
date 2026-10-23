@@ -41,15 +41,15 @@ class IOSEmoteRootedRenderedRetirement(IOSEmoteRenderedRetirement):
     FORMAT_VERSION=2
     Marker=IOSEmoteRootedMarkerScope
 
-    def __init__(self,store,native,frames):
+    def __init__(self,store,native,frames,*,historical=False):
         need(type(native) is IOSEmoteRootedNativeRetirement)
-        super().__init__(store,native,frames)
+        super().__init__(store,native,frames,historical=historical)
 
 
 class IOSEmoteRootedKeyedRetirement(IOSEmoteKeyedRetirement):
     FORMAT_VERSION=2
     Marker=IOSEmoteRootedMarkerScope
 
-    def __init__(self,store,rendered,keys):
+    def __init__(self,store,rendered,keys,*,historical=False):
         need(type(rendered) is IOSEmoteRootedRenderedRetirement)
-        super().__init__(store,rendered,keys)
+        super().__init__(store,rendered,keys,historical=historical)

@@ -22,9 +22,10 @@ VERSION=1
 
 
 class IOSEmoteKeyedRetirement(IOSEmoteRetirement):
-    def __init__(self,store,rendered,keys):
+    def __init__(self,store,rendered,keys,*,historical=False):
         need(isinstance(store,PrivateFeatureState) and isinstance(rendered,IOSEmoteRenderedRetirement) and isinstance(keys,IOSEmoteKeys))
         self.store,self.rendered_owner,self.keys_owner=store,rendered,keys
+        need(type(historical) is bool);self.historical=historical
         for name in ('root','binding','primary_binding','run','role','fixture_url','phase_instance','lock','primary_lock','policy','guard','paths'):
             setattr(self,name,getattr(rendered,name))
         need(keys.run==self.run and keys.role==self.role and keys.root==self.root and same(keys.binding,self.binding) and keys.lock is self.lock)

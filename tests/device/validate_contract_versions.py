@@ -58,6 +58,7 @@ REQUIRED = {
     "ios-emote-key-abandoned": 1,
     "ios-emote-keyed-retirement": 2,
     "ios-emote-keyed-retirement-original": 2,
+    "ios-emote-rooted-archive": 1,
     "ios-emote-feature": 2,
     "ios-emote-observer-worker": 1,
     "ios-emote-worker-failure": 1,

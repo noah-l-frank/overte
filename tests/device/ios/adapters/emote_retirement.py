@@ -37,11 +37,12 @@ class IOSEmoteRetirement:
     Marker=IOSEmoteMarkerScope
     Decoder=IOSEmoteObservationDecoder
 
-    def __init__(self,store,root,binding,primary_binding,run,role,fixture_url,phase_instance,lock,primary_lock,policy,paths,guard):
+    def __init__(self,store,root,binding,primary_binding,run,role,fixture_url,phase_instance,lock,primary_lock,policy,paths,guard,*,historical=False):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock) and isinstance(primary_lock,ScriptSourceLock) and callable(guard))
         self.store,self.root,self.binding,self.primary_binding=store,Path(root),deepcopy(context(binding)),deepcopy(context(primary_binding))
         self.run,self.role,self.fixture_url,self.phase_instance=identifier(run),role,fixture_url,identifier(phase_instance)
         self.lock,self.primary_lock,self.policy,self.guard=lock,primary_lock,deepcopy(policy),guard
+        need(type(historical) is bool);self.historical=historical
         need(role in ('primary','actor') and self.root.is_absolute() and self.root.resolve()==self.root and self.root.is_dir())
         exact(paths,{'sources','peers','files','entities','pointers'});self.paths={key:Path(value) if value is not None else None for key,value in paths.items()}
         need(self.paths['sources'] is not None and self.paths['files'] is not None and self.paths['entities'] is not None and self.paths['pointers'] is not None and (role=='actor')==(self.paths['peers'] is not None))
@@ -81,7 +82,7 @@ class IOSEmoteRetirement:
             exact(pending,{'index','value'});need(pending['index']==len(used)+1 and pending['index']<=128)
             candidate=pending['value'];need(same(candidate,self.wrap(unpack(candidate['payload'])[0])))
             existing=self.record_store(pending['index']).read();need(existing is None or same(existing,candidate))
-        elif len(used)<128:need(self.record_store(len(used)+1).read() is None)
+        elif not self.historical and len(used)<128:need(self.record_store(len(used)+1).read() is None)
         return deepcopy(state)
 
     def wrap(self,original):
@@ -90,10 +91,12 @@ class IOSEmoteRetirement:
             primaryBinding=self.primary_binding,phaseInstance=self.phase_instance,fixtureUrl=self.fixture_url,payload=pack([original]))
 
     def save(self):
+        need(not self.historical)
         need(same(self.store.read(),self.previous));value=self.envelope(self.state)
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     def current(self):
+        need(not self.historical)
         self.lock.assert_held();self.primary_lock.assert_held()
         actual=self.store.read()
         if not same(actual,self.previous):

@@ -27,13 +27,13 @@ def world_pixels(first,last,old_raw,new_raw):
 
 
 class IOSEmoteRenderedRetirement(IOSEmoteRetirement):
-    def __init__(self,store,native,frames):
+    def __init__(self,store,native,frames,*,historical=False):
         need(isinstance(native,IOSEmoteRetirement) and not isinstance(native,IOSEmoteRenderedRetirement)
             and isinstance(frames,IOSEmoteRestorationFrames) and same(native.binding,frames.binding)
             and native.run==frames.run and native.role==frames.role and native.root==frames.root)
         self.native_owner,self.frames_owner=native,frames
         super().__init__(store,native.root,native.binding,native.primary_binding,native.run,native.role,native.fixture_url,
-            native.phase_instance,native.lock,native.primary_lock,native.policy,native.paths,native.guard)
+            native.phase_instance,native.lock,native.primary_lock,native.policy,native.paths,native.guard,historical=historical)
 
     def envelope(self,state):
         value=super().envelope(state);del value['iosEmoteRetirementVersion']
@@ -72,7 +72,7 @@ class IOSEmoteRenderedRetirement(IOSEmoteRetirement):
             exact(pending,{'index','value'});need(pending['index']==len(used)+1 and pending['index']<=128)
             candidate=pending['value'];need(same(candidate,self.wrap(unpack(candidate['payload'])[0])))
             existing=self.record_store(pending['index']).read();need(existing is None or same(existing,candidate))
-        elif len(used)<128:need(self.record_store(len(used)+1).read() is None)
+        elif not self.historical and len(used)<128:need(self.record_store(len(used)+1).read() is None)
         return deepcopy(state)
 
     def derive(self,reference):

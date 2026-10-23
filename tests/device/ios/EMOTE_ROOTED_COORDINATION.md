@@ -34,7 +34,9 @@ scene1 and scene-gate regressions pass in 152.716 seconds.
 
 These fixtures reuse the original component-assembly seam. They do not qualify
 the complete installed-runtime transport factory, common full journey or real
-CPU freshness deadlines. Whole terminal inspect/seal/finish, original per-role
+CPU freshness deadlines. The [rooted component archive](EMOTE_ROOTED_ARCHIVE.md)
+now supports pure exact prefix replay after later records without reopening
+live ownership. Whole terminal inspect/seal/finish, original per-role
 OS/SDK end, completed/failed historical recovery, worker and canonical/generic
 integration remain required. Rooted finalization explicitly retains pending
 responsibility instead of entering the version-one native-drain finalizer.
