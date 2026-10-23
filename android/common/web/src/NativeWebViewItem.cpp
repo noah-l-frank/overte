@@ -11,6 +11,7 @@
 #include "../../../../tests/device/native/WebRuntimeBridge.h"
 #include "../../../../tests/device/native/PicoBrowserFeatureBridge.h"
 #include "../../../../tests/device/native/PicoWorldWebRay.h"
+#include "../../../../tests/device/native/PicoWorldWebText.h"
 #endif
 #include <QFile>
 #include <QFocusEvent>

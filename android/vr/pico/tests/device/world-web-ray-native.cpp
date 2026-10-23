@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Original provider/projection bodies; entity/avatar/HMD are explicit seams.
 #include "tests/device/native/PicoWorldWebRay.h"
+#include "tests/device/native/PicoWorldWebText.h"
+#include <QInputMethodEvent>
 #include <QDateTime>
 #include <QGuiApplication>
 #include <QQuickWindow>
@@ -67,11 +69,26 @@ struct WebEntityRenderer {
     glm::vec2 getWindowSize(const TypedEntityPointer&)const;void handlePointerEventAsTouch(const PointerEvent&);
 };
 struct RayPick {static glm::vec2 projectOntoXYPlane(const glm::vec3&,const glm::vec3&,const glm::quat&,const glm::vec3&,const glm::vec3&,bool);};
+struct EditorBoundary:QQuickItem {
+    using QQuickItem::QQuickItem;QString surrounding{QString::fromUtf8("old 🌍")};bool editorEnabled{true},sensitive{false};int events{0};
+    QString commit;int start{0},length{0};
+    QVariant inputMethodQuery(Qt::InputMethodQuery query)const override {
+        if(query==Qt::ImEnabled)return editorEnabled && hasActiveFocus();
+        if(query==Qt::ImSurroundingText)return surrounding;
+        if(query==Qt::ImCursorPosition || query==Qt::ImAbsolutePosition)return 2;
+        if(query==Qt::ImAnchorPosition)return 4;
+        if(query==Qt::ImHints)return int(sensitive ? Qt::ImhSensitiveData : Qt::ImhNone);
+        return QQuickItem::inputMethodQuery(query);
+    }
+    void inputMethodEvent(QInputMethodEvent* event)override {
+        ++events;commit=event->commitString();start=event->replacementStart();length=event->replacementLength();event->accept();
+    }
+};
 #include "actual-world-ray.inc"
 int main(int argc,char** argv){
     ApplicationBoundary app(argc,argv);assert(argc==2);QQuickWindow window;window.show();window.requestActivate();
     QCoreApplication::processEvents();assert(app.applicationState()==Qt::ApplicationActive);
-    QQmlEngine engine;QQmlContext context(engine.rootContext());QQuickItem clipper(window.contentItem());QQuickItem item(&clipper);
+    QQmlEngine engine;QQmlContext context(engine.rootContext());QQuickItem clipper(window.contentItem());EditorBoundary item(&clipper);item.setFlag(QQuickItem::ItemAcceptsInputMethod,true);
     QQuickItem overlay(window.contentItem());overlay.setZ(100);overlay.setVisible(false);
     QQmlEngine::setContextForObject(&item,&context);
     entities.id=QUuid("12345678-1234-1234-1234-123456789abc");
@@ -118,6 +135,23 @@ int main(int argc,char** argv){
         if(variant==18)item.setEnabled(false);
         if(variant==19)item.setOpacity(.005);
         assert(provider(&item,local).isEmpty());
+    }
+    entities.props=good;enabled=true;privateDirectory=true;dependencies=true;app.hmd=true;hmd.enabled=true;
+    item.setVisible(true);item.setEnabled(true);item.setOpacity(1);overlay.setVisible(false);clipper.setClip(false);clipper.setSize(QSizeF(window.size()));
+    item.setProperty("sourceIdentity",identity);item.setProperty("url",good.url);context.setContextProperty("nativeWebSourceIdentity",identity);
+    installWorldWebTextProvider();auto text=app.property(overte::e2e::picoWorldWebTextProperty()).value<overte::e2e::PicoWorldWebTextProvider>();assert(text);
+    const auto now=QDateTime::currentMSecsSinceEpoch();
+    assert(!item.hasActiveFocus());assert(!text(&item,local,"unfocused",now));assert(item.events==0);
+    item.forceActiveFocus(Qt::OtherFocusReason);QCoreApplication::processEvents();assert(item.hasActiveFocus());
+    assert(text(&item,local,QString::fromUtf8("Grüße 🌍"),QDateTime::currentMSecsSinceEpoch()));
+    assert(item.events==1 && item.commit==QString::fromUtf8("Grüße 🌍") && item.start==-2 && item.length==item.surrounding.size()-2);
+    for(int variant=0;variant<7;++variant){
+        item.editorEnabled=true;item.sensitive=false;overlay.setVisible(false);QString value="blocked";
+        auto originalEpoch=QDateTime::currentMSecsSinceEpoch();
+        if(variant==0)item.editorEnabled=false;if(variant==1)item.sensitive=true;if(variant==2)overlay.setVisible(true);
+        if(variant==3)originalEpoch-=1501;if(variant==4)value=QString(513,'x');if(variant==5)value=QString(QChar(0xE001));
+        if(variant==6)value=QString(QChar(0xD800));
+        assert(!text(&item,local,value,originalEpoch));assert(item.events==1);
     }
     QFile output(argv[1]);assert(output.open(QIODevice::WriteOnly));assert(output.write(QJsonDocument::fromVariant(originals).toJson())>0);output.close();
     puts("PASS original world ray provider, RayPick and renderer projection; explicit entity/HMD seams");

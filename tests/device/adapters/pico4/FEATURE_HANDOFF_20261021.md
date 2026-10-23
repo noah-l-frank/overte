@@ -2617,3 +2617,14 @@ requestData creates it without a parent or original deletion. This is a concrete
 unqualified retirement boundary; neither test deletion nor process exit supplies
 a cleanup proof. Baker, textures/renderer and whole Assets remain open; complete
 feature count remains3/14.
+
+
+World Web's source-owned text continuation adds world-only commit-text v4,
+retaining ordinary v2 and ray v3 forms. Normal ray/fresh focus/one IME/independent
+readback passes the seven new host counterexamples. Thirty combined cases pass
+12.537s with fresh original provider and complete selected NativeWebViewItem/JNI
+compilation. At the explicit Android consumer seam, real native text remains old
+after delivery; no ACK supplies an editor effect. Negative delivery preserves
+its original focused DOM/native metadata and attempted epoch. The enclosing
+v16 phase/script/server/actor/stereo/cleanup composition remains incomplete;
+complete source feature count remains3/14.

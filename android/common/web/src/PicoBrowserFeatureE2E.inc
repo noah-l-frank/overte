@@ -14,7 +14,7 @@ struct WorldWebScope {
     bool complete{true},retired{false};quint64 sequence{0};qint64 epoch{0};
     QVariantMap input,receipt,lastCommand,lastPacket;QElapsedTimer timer;
     QHash<QString,QByteArray> originalCommands;QHash<QString,QVariantMap> originalPackets;
-    qint64 pointerEpoch{0};QVariantMap geometryOriginal;bool pointerIssued{false},commitIssued{false},javaReadOutstanding{false};QPointer<QTimer> focusTimer;
+    int worldTextAttempts{0};qint64 pointerEpoch{0};QVariantMap geometryOriginal;bool pointerIssued{false},commitIssued{false},javaReadOutstanding{false};QPointer<QTimer> focusTimer;
 };
 QHash<QString,WorldWebScope> worldWebScopes;
 QString worldWebKey(const QVariantMap& row) {
@@ -24,7 +24,7 @@ QVariantMap worldWebPacket(const QVariantMap& command,WorldWebScope& scope,const
     const auto now=QDateTime::currentMSecsSinceEpoch();
     if (now<=0 || now<scope.epoch || scope.sequence>=9007199254740991ULL || !scope.complete) { return {}; }
     scope.epoch=now;
-    QVariantMap packet{{"picoBrowserVersion",command.value("operation")=="measure-ray" ? 3 : 2},{"commandId",command.value("commandId")},{"runId",command.value("runId")},
+    QVariantMap packet{{"picoBrowserVersion",command.value("operation")=="commit-text" ? 4 : command.value("operation")=="measure-ray" ? 3 : 2},{"commandId",command.value("commandId")},{"runId",command.value("runId")},
         {"ownerToken",scope.token},{"instance",scope.instance},{"sequence",static_cast<qulonglong>(++scope.sequence)},
         {"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",now},{"status",status},{"source",source}};
     const auto id=command.value("commandId").toString();
@@ -148,12 +148,12 @@ QVariantMap NativeWebViewItem::featurePicoBrowser(const QVariantMap& command) {
                 || !scope.originalPackets.contains(nonce)) { return {}; }
         const auto old=scope.originalPackets.value(nonce);
         if (old.value("status")!="pending") { return old; }
-        if ((operation=="input" || operation=="measure" || operation=="measure-ray") && scope.timer.isValid() && scope.timer.elapsed()>=4000) {
+        if ((operation=="input" || operation=="measure" || operation=="measure-ray" || operation=="commit-text") && scope.timer.isValid() && scope.timer.elapsed()>=4000) {
             if (scope.focusTimer) { scope.focusTimer->stop();scope.focusTimer->deleteLater(); }
             scope.receipt=worldWebPacket(command,scope,"unavailable");return scope.receipt;
         }
     } else if (scope.originalCommands.size()>=4096) { scope.complete=false;return {}; }
-    if (operation!="input" && operation!="measure" && operation!="measure-ray" && scope.lastCommand.value("commandId")==command.value("commandId")) {
+    if (operation!="input" && operation!="measure" && operation!="measure-ray" && operation!="commit-text" && scope.lastCommand.value("commandId")==command.value("commandId")) {
         if (scope.lastCommand!=command) { return {}; }
         if (scope.lastPacket.value("status")=="ready" || scope.lastPacket.value("status")=="unavailable") { return scope.lastPacket; }
     }
@@ -199,7 +199,7 @@ QVariantMap NativeWebViewItem::featurePicoBrowser(const QVariantMap& command) {
         scope.originalPackets.clear();scope.geometryOriginal.clear();scope.retired=true;scope.held.clear();scope.deliveries.clear();scope.documents.clear();scope.requests.clear();scope.replies.clear();scope.inputs.clear();scope.dom.clear();
         return worldWebPacket(command,scope,"ready",{{"retired",true}});
     }
-    if (operation=="input" || operation=="measure" || operation=="measure-ray") {
+    if (operation=="input" || operation=="measure" || operation=="measure-ray" || operation=="commit-text") {
         if (scope.retired) { return {}; }
         if (!scope.input.isEmpty() && scope.input.value("commandId")==command.value("commandId")) {
             if (scope.input!=command) { return {}; }
@@ -213,6 +213,7 @@ QVariantMap NativeWebViewItem::featurePicoBrowser(const QVariantMap& command) {
                 || command.value("grant").toULongLong()!=grant || command.value("page").toULongLong()!=page
                 || !selected->allowsEditorDocument(grant,page,document) || selected->_featureWebFinishedGrant!=grant
                 || selected->_featureWebFinishedPage!=page || selected->_featureWebFinishedDocument!=document) { return {}; }
+        if (operation=="commit-text" && scope.worldTextAttempts++>=128) { scope.complete=false;return {}; }
         if (operation=="input" && scope.inputs.size()>=128) { scope.complete=false;return {}; }
         if (operation=="input") { scope.inputs.append(QVariantMap{{"command",command},{"issuedEpochMs",QDateTime::currentMSecsSinceEpoch()},
             {"geometryRaw",QVariant()},{"focusRaw",QVariant()},{"pointerEpochMs",QVariant()},{"imeEpochMs",QVariant()},
@@ -222,7 +223,7 @@ QVariantMap NativeWebViewItem::featurePicoBrowser(const QVariantMap& command) {
         const auto id=jni.string(command.value("commandId").toString()),control=jni.string(command.value("control").toString());
         bool posted=false;scope.javaReadOutstanding=true;
         if (id && control) { jvalue args[5];args[0].j=selected->_handle;args[1].j=grant;args[2].j=page;args[3].l=id;args[4].l=control;
-            posted=call("featurePicoGeometry","(JJJLjava/lang/String;Ljava/lang/String;)V",args); }
+            posted=call(operation=="commit-text" ? "featurePicoFocus" : "featurePicoGeometry","(JJJLjava/lang/String;Ljava/lang/String;)V",args); }
         if (id) jni.env->DeleteLocalRef(id);if (control) jni.env->DeleteLocalRef(control);
         if (!posted) { scope.javaReadOutstanding=false;scope.receipt=worldWebPacket(command,scope,"unavailable"); }
         return scope.receipt;
@@ -268,7 +269,7 @@ void NativeWebViewItem::acceptFeaturePicoBrowserGeometry(qint64 handle,quint64 g
         if (item && item->thread()!=QThread::currentThread()) { return; }
         for (auto found=worldWebScopes.begin();found!=worldWebScopes.end();++found) {
             auto& scope=found.value();
-            if (scope.input.value("commandId")!=request || !scope.javaReadOutstanding || focused!=scope.pointerIssued) { continue; }
+            if (scope.input.value("commandId")!=request || !scope.javaReadOutstanding || focused!=(scope.input.value("operation")=="commit-text" || scope.pointerIssued)) { continue; }
             scope.javaReadOutstanding=false; // Original Java callback/UI delivery has returned, not a host timeout.
             if (scope.receipt.value("status")!="pending" || scope.retired || scope.commitIssued || scope.focusTimer) { return; }
             if (!item) { scope.receipt=worldWebPacket(scope.input,scope,"unavailable");return; }
@@ -276,7 +277,7 @@ void NativeWebViewItem::acceptFeaturePicoBrowserGeometry(qint64 handle,quint64 g
             const auto valid=[item,grant,page,document,command] {
                 if (!item || !featureEnabled() || !item->isVisible() || !item->isEnabled()
                         || item->_presentation!=Texture
-                        || item->_surface!=(command.value("operation")=="measure-ray" ? WorldEntity : Tablet) || !item->window()
+                        || item->_surface!=((command.value("operation")=="measure-ray" || command.value("operation")=="commit-text") ? WorldEntity : Tablet) || !item->window()
                         || QGuiApplication::applicationState()!=Qt::ApplicationActive
                         || !item->allowsEditorDocument(grant,page,QUrl(document))) { return false; }
                 QMutexLocker guard(&item->_mutex);
@@ -299,6 +300,38 @@ void NativeWebViewItem::acceptFeaturePicoBrowserGeometry(qint64 handle,quint64 g
             if (quoted.isArray() && quoted.array().size()==1 && quoted.array()[0].isString()) {
                 const auto parsed=QJsonDocument::fromJson(quoted.array()[0].toString().toUtf8());
                 if (parsed.isObject()) { original=parsed.object().toVariantMap(); }
+            }
+            if (command.value("operation")=="commit-text") {
+                // A normal controller ray must already have focused this item.
+                // This operation cannot click/focus it or replace DOM state.
+                const auto point=overte::e2e::picoBrowserPoint(original,request,run,document,
+                    command.value("control").toString(),QDateTime::currentMSecsSinceEpoch(),QSizeF(item->width(),item->height()));
+                const auto editor=original.value("editor").toMap();
+                const auto providerValue=qApp->property(overte::e2e::picoWorldWebTextProperty());
+                if (!focused || !point || !valid() || scope.tablet || scope.reference || scope.surface!="world"
+                        || scope.timer.elapsed()>=4000 || editor.value("focused")!=true
+                        || !item->hasActiveFocus() || !item->inputMethodQuery(Qt::ImEnabled).toBool()
+                        || item->_sensitive || item->_editorKind!=(command.value("control")=="foreign" ? "url" : "text")
+                        || item->_surroundingStart || item->_editorText!=editor.value("text").toString()
+                        || item->_cursor!=editor.value("cursor").toInt() || item->_anchor!=editor.value("anchor").toInt()
+                        || providerValue.userType()!=qMetaTypeId<overte::e2e::PicoWorldWebTextProvider>()) {
+                    scope.receipt=worldWebPacket(command,scope,"unavailable");return;
+                }
+                const auto provider=providerValue.value<overte::e2e::PicoWorldWebTextProvider>();
+                if (!provider || scope.commitIssued) { scope.receipt=worldWebPacket(command,scope,"unavailable");return; }
+                const QVariantMap before{{"text",item->_editorText},{"cursor",item->_cursor},{"anchor",item->_anchor},
+                    {"absoluteCursor",item->_surroundingStart+item->_cursor},{"kind",item->_editorKind},
+                    {"sensitive",item->_sensitive},{"focused",item->hasActiveFocus()},{"enabled",item->inputMethodQuery(Qt::ImEnabled)}};
+                const QVariantMap nativeView{{"handle",QString::number(item->_handle)},{"creation",qulonglong(item->_creationRevision)},
+                    {"grant",qulonglong(grant)},{"page",qulonglong(page)},{"url",document}};
+                scope.commitIssued=true;const auto attempted=QDateTime::currentMSecsSinceEpoch();
+                const bool delivered=provider(item,*point,command.value("text").toString(),original.value("capturedEpochMs").toLongLong());
+                // A negative/late delivery keeps the same original attempted
+                // event and metadata; it never becomes a DOM effect or retry.
+                const bool timely=valid() && scope.timer.elapsed()<4000;
+                scope.receipt=worldWebPacket(command,scope,"ready",{{"delivered",delivered && timely},
+                    {"focusRaw",QString::fromUtf8(result)},{"nativeBeforeIME",before},{"imeEpochMs",attempted},
+                    {"nativeView",nativeView}});return;
             }
             if (command.value("operation")=="measure-ray") {
                 // A passive original, never a pointer/focus/text operation.

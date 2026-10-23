@@ -7,6 +7,7 @@
 #include "../../../../../../tests/device/native/PendingFieldCommitOwner.h"
 #include "../../../../../../tests/device/native/PicoBrowserInputBridge.h"
 #include "../../../../../../tests/device/native/PicoWorldWebRay.h"
+#include "../../../../../../tests/device/native/PicoWorldWebText.h"
 #include "../../../../../../tests/device/native/LifecycleUiObservation.h"
 #include "../../../../../../tests/device/native/LifecycleBackgroundHistory.h"
 #include "../../../../../../tests/device/native/AssetsPageObservation.h"
@@ -485,6 +486,39 @@ void installWorldWebRayProvider() {
     qApp->setProperty(picoWorldWebRayProperty(),QVariant::fromValue(provider));
 }
 
+void installWorldWebTextProvider() {
+    using namespace overte::e2e;
+    if (!qApp || QThread::currentThread()!=qApp->thread() || !bridgeEnabled()
+            || !previewDirectory(BRIDGE_DIRECTORY) || qApp->property(picoWorldWebTextProperty()).isValid()) { return; }
+    PicoWorldWebTextProvider provider=[](QQuickItem* item,const QPointF& local,const QString& text,qint64 originalEpoch) {
+        if (!bridgeEnabled() || !previewDirectory(BRIDGE_DIRECTORY) || !item || !item->window()
+                || QThread::currentThread()!=qApp->thread() || item->thread()!=qApp->thread()
+                || item->window()->thread()!=qApp->thread() || item->window()->activeFocusItem()!=item || text.size()>512) { return false; }
+        const auto rayValue=qApp->property(picoWorldWebRayProperty());
+        if (rayValue.userType()!=qMetaTypeId<PicoWorldWebRayProvider>()) { return false; }
+        const auto ray=rayValue.value<PicoWorldWebRayProvider>();
+        if (!ray || ray(item,local).isEmpty()) { return false; }
+        for (int i=0;i<text.size();++i) {
+            const auto c=text.at(i);
+            if (c.unicode()<32 || c.unicode()==127 || (c.unicode()>=0xE000 && c.unicode()<=0xE05E) || c.isLowSurrogate()) { return false; }
+            if (c.isHighSurrogate() && (++i>=text.size() || !text.at(i).isLowSurrogate())) { return false; }
+        }
+        const auto old=item->inputMethodQuery(Qt::ImSurroundingText);
+        bool cursorOkay=false,anchorOkay=false;
+        const auto cursor=item->inputMethodQuery(Qt::ImCursorPosition).toInt(&cursorOkay),
+            anchor=item->inputMethodQuery(Qt::ImAnchorPosition).toInt(&anchorOkay);
+        if (!item->inputMethodQuery(Qt::ImEnabled).toBool() || old.userType()!=QMetaType::QString || old.toString().size()>512
+                || !cursorOkay || !anchorOkay || cursor<0 || anchor<0 || cursor>old.toString().size() || anchor>old.toString().size()
+                || item->inputMethodQuery(Qt::ImAbsolutePosition).toInt()!=cursor
+                || (item->inputMethodQuery(Qt::ImHints).toInt() & (Qt::ImhHiddenText | Qt::ImhSensitiveData))) { return false; }
+        QInputMethodEvent commit;
+        commit.setCommitString(text,-std::min(cursor,anchor),old.toString().size()-std::abs(cursor-anchor));
+        const auto now=QDateTime::currentMSecsSinceEpoch();
+        return originalEpoch>0 && now>=originalEpoch && now-originalEpoch<=1500 && QCoreApplication::sendEvent(item->window(),&commit);
+    };
+    qApp->setProperty(picoWorldWebTextProperty(),QVariant::fromValue(provider));
+}
+
 void installPendingCommitOwner() {
     using namespace overte::e2e;
     if (!qApp || QThread::currentThread() != qApp->thread() || !bridgeEnabled()
@@ -536,6 +570,7 @@ private:
         installPendingCommitOwner();
         installBrowserInputProvider();
         installWorldWebRayProvider();
+        installWorldWebTextProvider();
         installSnapshotCancelProvider();
 #endif
         const Observation observation = observeTablet();

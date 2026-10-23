@@ -16,6 +16,7 @@ from test_create_polyvox_controls_native import original
 HERE=Path(__file__).resolve().parent;ROOT=HERE.parents[4]
 sys.path.insert(0,str(ROOT/'tests/device'))
 from self_tests.test_pico_world_browser_ray import WorldBrowserRayTests,WorldBoundary,RUN,URL,OWNER,VIEW
+from self_tests.test_pico_world_browser_text import WorldBrowserTextTests
 from adapters.pico4.browser_source import validate
 from adapters.script_journey.lock import ScriptSourceLock
 
@@ -36,8 +37,9 @@ class WorldWebNativeRayTests(unittest.TestCase):
         sources=[ROOT/name for name in (
             'android/vr/pico/apps/picoInterface/e2e/PicoE2eTabletBridge.cpp',
             'libraries/entities-renderer/src/RenderableWebEntityItem.cpp','interface/src/raypick/RayPick.cpp',
-            'tests/device/native/PicoWorldWebRay.h','tests/device/native/NormalControlUi.h','tests/device/adapters/pico4/world_browser_ray.py',
-            'tests/device/adapters/pico4/browser_source.py','tests/device/self_tests/test_pico_world_browser_ray.py',
+            'tests/device/native/PicoWorldWebRay.h','tests/device/native/PicoWorldWebText.h','tests/device/native/NormalControlUi.h','tests/device/adapters/pico4/world_browser_ray.py',
+            'tests/device/adapters/pico4/browser_source.py','tests/device/adapters/pico4/world_browser_text.py',
+            'tests/device/self_tests/test_pico_world_browser_ray.py','tests/device/self_tests/test_pico_world_browser_text.py',
             'android/vr/pico/tests/device/world-web-ray-native.cpp','android/vr/pico/tests/device/test_world_web_ray.py')]
         signatures={str(path.relative_to(ROOT)):hashlib.sha256(path.read_bytes()).hexdigest() for path in sources}
         with tempfile.TemporaryDirectory(prefix='world-web-original-') as temporary:
@@ -48,7 +50,7 @@ class WorldWebNativeRayTests(unittest.TestCase):
             constants='\n'.join(line for line in renderer.splitlines() if line.startswith(('static int MAX_WINDOW_SIZE =','const float METERS_TO_INCHES =')))
             controls=(ROOT/'tests/device/native/NormalControlUi.h').read_text()
             hit_test='namespace overte::e2e { class NormalControlUi {public:\n'+original(controls,'static QRectF visibleRect(')+'\n'+original(controls,'static bool ownsPoint(')+'\n};}'
-            bodies=[constants,hit_test,original(bridge,'bool effectiveVisible('),original(bridge,'void installWorldWebRayProvider() {'),
+            bodies=[constants,hit_test,original(bridge,'bool effectiveVisible('),original(bridge,'void installWorldWebRayProvider() {'),original(bridge,'void installWorldWebTextProvider() {'),
                 original(renderer,'glm::vec2 WebEntityRenderer::getWindowSize('),
                 original(renderer,'void WebEntityRenderer::handlePointerEventAsTouch('),
                 original(raypick,'glm::vec2 RayPick::projectOntoXYPlane(')]
@@ -106,6 +108,10 @@ class WorldWebRayFactoryTests(unittest.TestCase):
                 click=adapter._world_browser_click(native.target,source_lock=lock,intent=intents.append,
                     stream_intent=streams.append,before_publish=publishes.append)
                 self.assertIs(click.io.lock,lock);self.assertEqual([],transport.envelopes)
+                text_input=adapter._world_browser_text(native.target,source_lock=lock,intent=intents.append,
+                    stream_intent=streams.append,before_publish=publishes.append,commit_intent=lambda _value:None)
+                self.assertIs(text_input.io.lock,lock);self.assertIs(text_input.click.io,text_input.io)
+                self.assertEqual([],transport.envelopes)
                 actor=adapter._browser_originals(native.target,source_lock=lock,tablet=False)
                 self.assertIs(actor.lock,lock);self.assertTrue(actor.read_only)
                 self.assertTrue(click.click(RUN,URL,OWNER,VIEW,'bridge')['performed'])

@@ -3716,5 +3716,21 @@
     "rendererReadinessQualified": false,
     "fullFeatureRecipe": false,
     "deviceAcceptance": false
+  },
+  "worldText20261024": {
+    "status": "passed-selected-components",
+    "tests": 30,
+    "durationSeconds": 12.537,
+    "newTextFlowCounterCases": 7,
+    "originalNativeProviderAndCompleteBackendCompiled": true,
+    "literalOriginalsRetained": true,
+    "nativeEditorStillOldAtAndroidSeam": true,
+    "sourceVersion": 4,
+    "ordinarySourceVersionUnchanged": 2,
+    "passiveRayVersionUnchanged": 3,
+    "fullFeatureRecipe": false,
+    "fullApplicationCompiled": false,
+    "deviceAcceptance": false,
+    "privateTextFactoryConstructorAfterward": "passed-one-actual-private-factory-case"
   }
 }

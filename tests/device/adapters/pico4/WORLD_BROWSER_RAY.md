@@ -78,3 +78,56 @@ Then complete normal IME/navigation/recovery, independently published original
 world stereo, full renderer/Java/Script/entity closure and final archive/host
 retirement. Keep the existing 120 s whole budget, 90 s compile cap, 512-frame and
 16 MiB limits, and all original quiet windows and freshness fences.
+
+
+## World text continuation (2026-10-24)
+
+`pico-browser-originals` v4 adds the world-only `commit-text` response; ordinary
+commands remain v2 and passive rays remain v3. `pico-world-web-text` v1 keeps the
+complete original focused geometry string, native editor text/cursor/anchor,
+kind/sensitivity/enabled/focus metadata, original IME attempt epoch and native
+view identity. It is limited to the closed `text`/`foreign` controls. Historical
+v1/v2/v3 forms keep their meanings. The separate `delivered` Boolean describes
+only the actual IME attempt. A false attempt retains these same originals.
+
+The native callback invokes no pointer or focus operation. It requires a fresh
+original focused DOM field, exact independently received native editor metadata,
+current world document/grant/page/image and matching original editor kind. The
+original world scene/hit-test provider must admit the actual item/point before
+one ordinary QInputMethodEvent goes through the actual QQuickWindow. Hidden or
+sensitive editors, unsupported selection/absolute-position ranges, private key
+codes, malformed UTF-16 and unbound/foreign sources are refused. The native view
+identity and editor metadata are copied before event dispatch, so synchronous
+item retirement cannot cause a post-event dereference. The actual native nonce
+is consumed before dispatch. There is no second IME attempt for that nonce.
+
+`PicoWorldTextInput` composes the existing one-shot normal controller ray, fresh
+independent focused geometry, a separate durable IME intent, one commit and a
+fresh independent geometry readback of the actual text. All stages share one
+five-second host/native budget, with the existing per-source and native callback
+limits retained. An ignored ray never acquires focus; a successful IME receipt
+without an actual editor change cannot complete the sequence. Any failure latches
+uncertain ownership, and the caller retains all phase, gesture and IME journals.
+The private `_world_browser_text` factory uses the same existing source lock and
+launcher/session. This is still a component of the enclosing world journey;
+fixture-phase ownership and whole cleanup are not replaced by these callbacks.
+
+Thirty selected cases pass in12.537s, including the seven new text cases and the
+unchanged browser regressions. The original text provider and complete selected
+NativeWebViewItem/JNI world callback are freshly compiled. An actual world-item
+host case verifies native focus refusal, one real Qt/Java IME delivery, unchanged
+actual native text at the substituted Android consumer, no pointer attempt,
+negative delivery behind an overlay, same-nonce replay without another event, and native source
+retirement. Entity/HMD resolution and the delivered normal-focus callback are
+explicit boundaries in that backend case; the original scene provider is compiled
+separately against real Qt transforms. Literal native outputs and extracted
+provider bodies are retained privately. Seven Python flow/counter cases use an
+explicit input-consumer model, with ignored-ray and ignored-IME variants. Neither
+model is Android WebView, OpenXR device or full application qualification.
+
+Next compose normal script/entity opening, these source-owned inputs and original
+HTTP/DOM/script replies into the existing v16 phase coordinator, preserving whole
+sample freshness, independent actor/world stereo and complete final retirement.
+The tablet coordinator/grammar currently contain explicit tablet-only namespaces,
+source profiles and stereo joins; renaming or subclassing it does not qualify the
+world journey. No complete World Web capability is advertised.

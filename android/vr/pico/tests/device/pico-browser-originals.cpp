@@ -4,6 +4,8 @@
 // Tablet singleton and Java scheduling are explicit host boundaries, not devices.
 #include "NativeWebViewItem.h"
 #include "tests/device/native/PicoBrowserFeatureBridge.h"
+#include "tests/device/native/PicoWorldWebRay.h"
+#include "tests/device/native/PicoWorldWebText.h"
 #include "tests/device/native/NormalControlUi.h"
 #include <PointerEvent.h>
 #include <QTouchDevice>
@@ -160,6 +162,58 @@ int main(int argc,char**argv){
         // A stale retained native item outside the actual tablet cannot get input.
         NativeWebViewItem foreign;foreign.setSize(QSizeF(640,480));assert(!input.pointer(&foreign,QPointF(160,100),QDateTime::currentMSecsSinceEpoch()));
         tabletBoundary.tablet->root=nullptr;tabletBoundary.tablet->surface=nullptr;
+    }
+    {
+        // Entity/HMD resolution is a declared boundary here. The unchanged
+        // original world provider is separately compiled against actual Qt
+        // scene transforms in world-web-ray-native.cpp. This path joins its
+        // original IME provider to the complete selected native backend/JNI.
+        QQuickWindow window;window.resize(640,480);window.show();window.requestActivate();events();
+        QQuickItem root(window.contentItem());root.setSize(QSizeF(640,480));
+        const QString run(32,'7'),owner(32,'8'),fixture="http://127.0.0.1/feature-fixture/v1/runs/"+run+"/",url=fixture+"tickets/"+QString(32,'9')+"/index.html";
+        auto cmd=[&](const QString&op){return QVariantMap{{"schemaVersion",1},{"commandId",nonce()},{"action","pico-world-web"},{"runId",run},{"fixtureUrl",fixture},{"operation",op},{"ownerToken",owner}};};
+        assert(NativeWebViewItem::featurePicoBrowser(cmd("reserve")).value("status")=="ready");
+        auto item=std::make_unique<BrowserItem>(&root);item->setSize(QSizeF(640,480));item->setSurface(NativeWebViewItem::WorldEntity);
+        item->setSourceIdentity("web-entity:12345678-1234-1234-1234-123456789abc");item->setUrl(url);item->componentComplete();events();
+        const auto handle=field("handle"),birth=field("birth");const auto grant=item->generation();
+        item->acceptCreated(true,birth);events();item->acceptPage(grant,1,QUrl(url));events();
+        const unsigned char pixels[4*4*3]={};item->acceptFrame(grant,1,pixels,sizeof(pixels),4,3);events();
+        item->acceptFeatureWebFinished(grant,1,QUrl(url));events();
+        PicoWorldWebRayProvider entityBoundary=[](QQuickItem* item,const QPointF& point){
+            return item && item->property("sourceIdentity").toString().startsWith("web-entity:")
+                && NormalControlUi::ownsPoint(item,item->window(),item->mapToScene(point)) ? QVariantMap{{"explicitEntityBoundary",true}} : QVariantMap();
+        };
+        app.setProperty(picoWorldWebRayProperty(),QVariant::fromValue(entityBoundary));installWorldWebTextProvider();
+        const auto action=[&](const QString&text){auto value=cmd("commit-text");value.insert("handle",QString::number(handle));value.insert("creation",qulonglong(birth));
+            value.insert("grant",qulonglong(grant));value.insert("page",1);value.insert("control","text");value.insert("text",text);return value;};
+        const auto geometry=[&](const QVariantMap& command,bool focused){return QVariantMap{{"webGeometryVersion",1},{"requestId",command.value("commandId")},{"instance",QString(32,'d')},{"sequence",1},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+            {"document",QVariantMap{{"runId",run},{"href",url},{"responseId",QString(32,'e')},{"readyState","complete"}}},{"control","text"},
+            {"editor",QVariantMap{{"focused",focused},{"text","old"},{"cursor",1},{"anchor",1}}},
+            {"viewport",QVariantMap{{"width",640},{"height",480},{"scale",1},{"offsetLeft",0},{"offsetTop",0}}},
+            {"rect",QVariantMap{{"x",80},{"y",60},{"width",160},{"height",80}}},{"center",QVariantMap{{"x",160},{"y",100}}},{"hit",true},{"enabled",true},{"connected",true}};};
+        const int beforePointers=count("pointers"),beforeEdits=count("edits");
+        auto unfocused=action("unfocused");assert(picoBrowserCommand(unfocused));NativeWebViewItem::featurePicoBrowser(unfocused);
+        NativeWebViewItem::acceptFeaturePicoBrowserGeometry(handle,grant,1,url,unfocused.value("commandId").toString(),quoted(geometry(unfocused,false)),true);events();
+        assert(NativeWebViewItem::featurePicoBrowser(unfocused).value("status")=="unavailable" && count("edits")==beforeEdits);
+        // Explicit substitute for the independently delivered normal ray and
+        // Android editor callbacks; the provider itself never focuses an item.
+        item->forceActiveFocus(Qt::MouseFocusReason);Java_org_overte_web_EmbeddedWebView_nativeInputFocus(env,java,handle,birth,grant,true);events();
+        assert(item->acceptMessage(grant,1,QUrl(url),QUrl("http://127.0.0.1"),true,"editor",R"({"active":true,"text":"old","cursor":1,"anchor":1,"absoluteCursor":1,"kind":"text"})"));events();
+        auto commit=action(QString::fromUtf8("Grüße 🌍"));NativeWebViewItem::featurePicoBrowser(commit);
+        NativeWebViewItem::acceptFeaturePicoBrowserGeometry(handle,grant,1,url,commit.value("commandId").toString(),quoted(geometry(commit,true)),true);events();
+        const auto packet=NativeWebViewItem::featurePicoBrowser(commit);assert(packet.value("status")=="ready" && packet.value("picoBrowserVersion")==4);
+        assert(packet.value("source").toMap().value("delivered")==true && count("edits")==beforeEdits+1 && count("pointers")==beforePointers);
+        assert(item->inputMethodQuery(Qt::ImSurroundingText)=="old");assert(NativeWebViewItem::featurePicoBrowser(commit)==packet && count("edits")==beforeEdits+1);
+        QQuickItem overlay(&root);overlay.setSize(QSizeF(640,480));overlay.setZ(100);
+        auto blocked=action("blocked");NativeWebViewItem::featurePicoBrowser(blocked);
+        NativeWebViewItem::acceptFeaturePicoBrowserGeometry(handle,grant,1,url,blocked.value("commandId").toString(),quoted(geometry(blocked,true)),true);events();
+        const auto refused=NativeWebViewItem::featurePicoBrowser(blocked);assert(refused.value("status")=="ready" && refused.value("source").toMap().value("delivered")==false);
+        assert(count("edits")==beforeEdits+1 && count("pointers")==beforePointers);
+        QFile file(QString::fromLocal8Bit(argv[1])+"/world-text-native-originals.json");assert(file.open(QFile::WriteOnly));
+        file.write(QJsonDocument::fromVariant(QVariantMap{{"request",commit},{"packet",packet},{"blockedRequest",blocked},{"blockedPacket",refused},
+            {"actualNativeTextAfter",item->inputMethodQuery(Qt::ImSurroundingText)},{"worldPointerAttempts",count("pointers")-beforePointers}}).toJson(QJsonDocument::Compact));file.close();
+        auto retire=cmd("retire");assert(NativeWebViewItem::featurePicoBrowser(retire).isEmpty());item.reset();events();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);events();
+        assert(NativeWebViewItem::featurePicoBrowser(retire).value("status")=="ready");assert(NativeWebViewItem::featurePicoBrowser(commit).isEmpty());
     }
     machine->DestroyJavaVM();puts("PASS actual selected native browser, retained originals, original Pico surface pointer/provider and normal Qt IME; Android DOM/Java scheduling/Tablet boundary substituted");
 }

@@ -22,6 +22,11 @@ from feature_journeys.contract import identifier
 FILE='feature-pico-browser.json'
 VERSION=2
 WORLD_RAY_VERSION=3
+WORLD_TEXT_VERSION=4
+
+
+def wire_version(operation):
+    return WORLD_TEXT_VERSION if operation=='commit-text' else WORLD_RAY_VERSION if operation=='measure-ray' else VERSION
 CONTROLS={'text','bridge','reference','second','recovery','back','reload','foreign','navigate','scroll-up','scroll-down'}
 IDENTITY={'handle','creation','grant','page','url'}
 
@@ -37,19 +42,20 @@ def fixture(run,url):
 def command(value):
     need(type(value) is dict);op=value.get('operation');fields={'schemaVersion','commandId','action','runId','fixtureUrl','operation','ownerToken'}
     reference=value.get('action')=='pico-web-reference'
-    exact(value,fields|({'surface'} if reference else set())|({'handle','creation','grant','page','control'} if op in ('input','measure','measure-ray') else set())|({'text'} if op=='input' else set()))
+    exact(value,fields|({'surface'} if reference else set())|({'handle','creation','grant','page','control'} if op in ('input','measure','measure-ray','commit-text') else set())|({'text'} if op in ('input','commit-text') else set()))
     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['action'] in ('pico-world-web','pico-tablet-web','pico-web-reference')
-        and op in ('reserve','observe','measure','measure-ray','input','retire','arm-held','deliver-held','cancel-held')
-        and (op!='measure-ray' or value['action']=='pico-world-web')
+        and op in ('reserve','observe','measure','measure-ray','commit-text','input','retire','arm-held','deliver-held','cancel-held')
+        and (op not in ('measure-ray','commit-text') or value['action']=='pico-world-web')
         and (op not in ('arm-held','deliver-held','cancel-held') or value['action']=='pico-tablet-web'))
     identifier(value['commandId']);identifier(value['ownerToken'])
     if reference:
         fixture(value['runId'],value['fixtureUrl'])
         need(value['surface'] in ('world','tablet'))
     else:fixture(value['runId'],value['fixtureUrl'])
-    if op in ('input','measure','measure-ray'):
+    if op in ('input','measure','measure-ray','commit-text'):
         need(type(value['handle']) is str and re.fullmatch('[1-9][0-9]{0,18}',value['handle'])
             and all(integer(value[k],1) for k in ('creation','grant','page')) and value['control'] in ({'play','pause','seekStart','seek'} if reference else CONTROLS)
+            and (op!='commit-text' or value['control'] in ('text','foreign'))
             and (op in ('measure','measure-ray') or type(value['text']) is str and len(value['text'].encode('utf-16-le'))//2<=512
             and not any(ord(c)<32 or ord(c)==127 or 0xE000<=ord(c)<=0xE05E for c in value['text'])
             and (value['control'] in ('text','foreign') or not value['text'])))
@@ -67,7 +73,7 @@ def validate(value,request,pid,epoch):
     command(request)
     exact(value,{'picoBrowserVersion','commandId','runId','ownerToken','instance','sequence','processId','capturedEpochMs','status','source'})
     need(type(value['picoBrowserVersion']) is int
-        and (value['picoBrowserVersion']==WORLD_RAY_VERSION if request['operation']=='measure-ray' else value['picoBrowserVersion'] in (1,VERSION))
+        and (value['picoBrowserVersion']==wire_version(request['operation']) if request['operation'] in ('measure-ray','commit-text') else value['picoBrowserVersion'] in (1,VERSION))
         and value['commandId']==request['commandId'] and value['runId']==request['runId'] and value['ownerToken']==request['ownerToken']
         and integer(value['processId'],1) and value['processId']==pid and integer(value['sequence'],1)
         and value['status'] in ('pending','ready','unavailable'))
@@ -75,6 +81,9 @@ def validate(value,request,pid,epoch):
     source=value['source']
     if value['status']!='ready':exact(source,set());return value
     op=request['operation']
+    if op=='commit-text':
+        from adapters.pico4.world_browser_text import validate_commit
+        validate_commit(value,request);return value
     if op in ('measure','measure-ray'):
         need(value['picoBrowserVersion']==(WORLD_RAY_VERSION if op=='measure-ray' else VERSION))
         exact(source,{'geometryRaw','nativeView'}|({'worldRay'} if op=='measure-ray' else set()))
@@ -281,7 +290,7 @@ class PicoBrowserIO:
                 now=self.monotonic();need(number(now,previous,start+5));previous=now
                 if type(value) is dict and value.get('commandId')==request['commandId']:
                     epoch=self.clock_ms();validate(value,request,self.pid,epoch)
-                    need(value['picoBrowserVersion']==(WORLD_RAY_VERSION if operation=='measure-ray' else VERSION))
+                    need(value['picoBrowserVersion']==wire_version(operation))
                     need(value['capturedEpochMs']>=requested and value['status']!='unavailable')
                     if value['status']=='ready':
                         continuity(self.last,value);need(self.guard() is not False)
@@ -301,6 +310,8 @@ class PicoBrowserIO:
                         if operation in ('measure','measure-ray'):
                             geometry_original(value['source']['geometryRaw'],request,value['source']['nativeView']['url'],final,visible=False)
                             if operation=='measure-ray':fresh(value['source']['worldRay']['capturedEpochMs'],final)
+                        if operation=='commit-text':
+                            geometry_original(value['source']['focusRaw'],request,value['source']['nativeView']['url'],final,focused=True)
                         self.last=retained;return returned
                 need(attempt<50 and now-start<5);self.sleep(.1)
         except Exception:raise NativeUIError('Original Pico World Web source or input is unavailable') from None

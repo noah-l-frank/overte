@@ -616,7 +616,10 @@
         "tests/device/native/PicoWorldWebRay.h",
         "android/vr/pico/tests/device/test_world_web_ray.py",
         "android/vr/pico/tests/device/world-web-ray-native.cpp",
-        "tests/device/self_tests/test_pico_world_browser_ray.py"
+        "tests/device/self_tests/test_pico_world_browser_ray.py",
+        "tests/device/adapters/pico4/world_browser_text.py",
+        "tests/device/native/PicoWorldWebText.h",
+        "tests/device/self_tests/test_pico_world_browser_text.py"
       ],
       "declaredCheckpoints": 19,
       "inputVerbs": [
@@ -651,7 +654,7 @@
         "open"
       ],
       "missingOperationsOrEvidence": [
-        "Normal trusted DOM input from an actual controller ray/world-surface hit",
+        "Whole original trusted DOM/script/server join around the host-verified normal world ray/focus/IME/readback sequence",
         "Whole normal script/entity/document coordinator with durable recovery ownership",
         "Original HTTP/DOM joins, world-specific stereo pixels, independent publisher and complete final retirement"
       ],
@@ -666,7 +669,7 @@
         "Revoke actual view/grant/nonce authority",
         "Drain original retained callbacks and prove absent owned entities/view resources"
       ],
-      "nextExecutableStep": "Compose the host-verified actual entity/item/DOM ray and existing-session normal trigger with independently read trusted DOM/script/server effects under the original phase owner. IME/navigation/recovery, actor/world stereo and complete resource/archive/host retirement remain open; the 23-case component/regression check is not a whole world feature.",
+      "nextExecutableStep": "Compose normal script/entity opening and host-verified ray/focus/IME/readback (30 selected cases 12.537 s) with original server/DOM/script receipts under the complete existing v16 phase owner. Tablet-only grammar/namespaces/stereo cannot be relabeled. Actor/world stereo, navigation/recovery and complete resource/archive/host retirement remain open.",
       "nativeCompilation": "Selected complete NativeWebViewItem TU plus unchanged world-provider, RayPick and renderer projection bodies compile and pass Qt5 host checks; entity/avatar/HMD and Android DOM/transport are explicit seams. Complete application/APK and device behavior unverified.",
       "deviceQualification": "untested"
     },

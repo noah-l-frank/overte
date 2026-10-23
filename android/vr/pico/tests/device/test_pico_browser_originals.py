@@ -107,7 +107,7 @@ class PicoBrowserOriginalTests(unittest.TestCase):
             route=stage/'actual-pointer-route.inc'
             route.write_text(route.read_text()+original((ROOT/'android/vr/pico/apps/picoInterface/e2e/PicoE2eTabletBridge.cpp').read_text(),'bool sendPointerScroll('))
             bridge=(ROOT/'android/vr/pico/apps/picoInterface/e2e/PicoE2eTabletBridge.cpp').read_text()
-            (stage/'actual-browser-provider.inc').write_text(original(bridge,'void installBrowserInputProvider() {'))
+            (stage/'actual-browser-provider.inc').write_text(original(bridge,'void installBrowserInputProvider() {')+'\n'+original(bridge,'void installWorldWebTextProvider() {'))
             (stage/'PathUtils.h').write_text('#pragma once\n#include <QUrl>\nclass PathUtils {public:static QUrl defaultScriptsLocation(){return QUrl("file:///host/scripts/");} static QUrl qmlUrl(const QString& s){return QUrl("file:///host/qml/"+s);}};\n')
             java=stage/'org/overte/web/EmbeddedWebView.java';java.parent.mkdir(parents=True);java.write_text(JAVA)
             subprocess.run([str(jdk/'bin/javac'),'-d',str(stage),str(java)],check=True,timeout=30)
@@ -130,6 +130,19 @@ class PicoBrowserOriginalTests(unittest.TestCase):
             actual=json.loads((stage/'native-originals.json').read_text());packet=actual['packet']
             validate(packet,actual['request'],packet['processId'],packet['capturedEpochMs'])
             validate(actual['measurePacket'],actual['measureRequest'],packet['processId'],actual['measurePacket']['capturedEpochMs'])
+            evidence=os.environ.get('OVERTE_WORLD_WEB_TEXT_EVIDENCE')
+            if evidence:
+                evidence=Path(evidence);info=evidence.lstat()
+                self.assertTrue(evidence.is_dir() and not evidence.is_symlink());self.assertEqual(0o700,info.st_mode & 0o777)
+                self.assertEqual(os.getuid(),info.st_uid);self.assertEqual([],list(evidence.iterdir()))
+                for name in ('world-text-native-originals.json','native-originals.json','actual-browser-provider.inc'):
+                    target=evidence/name;target.write_bytes((stage/name).read_bytes());target.chmod(0o600)
+            world=json.loads((stage/'world-text-native-originals.json').read_text())
+            validate(world['packet'],world['request'],packet['processId'],world['packet']['capturedEpochMs'])
+            validate(world['blockedPacket'],world['blockedRequest'],packet['processId'],world['blockedPacket']['capturedEpochMs'])
+            self.assertTrue(world['packet']['source']['delivered']);self.assertFalse(world['blockedPacket']['source']['delivered'])
+            self.assertEqual('old',world['packet']['source']['nativeBeforeIME']['text'])
+            self.assertEqual('old',world['actualNativeTextAfter']);self.assertEqual(0,world['worldPointerAttempts'])
             self.assertEqual('old',packet['source']['current']['source']['dom']['editor']['text'])
             self.assertEqual(['ready','unavailable','unavailable','ready','unavailable'],[row['completion']['status'] for row in packet['source']['inputs']])
             from adapters.normal_ui import NativeUIError

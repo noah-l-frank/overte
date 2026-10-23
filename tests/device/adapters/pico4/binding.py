@@ -2239,6 +2239,13 @@ def create_adapter(args, base_class):
             return bind_world_click(self,target,io,intent,stream_intent,before_publish)
 
         @_private
+        def _world_browser_text(self,target,*,source_lock,intent,stream_intent,before_publish,commit_intent):
+            from adapters.pico4.world_browser_text import PicoWorldTextInput
+            click=self._world_browser_click(target,source_lock=source_lock,intent=intent,
+                stream_intent=stream_intent,before_publish=before_publish)
+            return PicoWorldTextInput(click,commit_intent)
+
+        @_private
         def _web_dom(self,target):
             manager=self._scripts(target);native=self._native_feature_observer(target)
             native.guard();_need(native.pid==int(manager.binding['processIdentity'].split(':')[0]))
