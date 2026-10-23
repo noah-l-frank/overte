@@ -453,7 +453,8 @@ Validation on 2026-10-23 used fixed parent
 together in 26.987 seconds, using the complete existing production binder,
 normal events, native inventory and private-file storage. The seven-case owning
 selector also preserved a failing existing lost-Cancel quiet-interval result:
-its consecutive native source samples exceeded the unchanged 500 ms gap limit
+its consecutive native source samples failed the unchanged
+`0 < elapsedDelta <= 500` and `0 < capturedEpochDelta <= 500` admission check
 (42.213 seconds for all seven cases). Both new cases passed in that selection.
 Thus this packet does **not** claim a green whole owning selector. A temporary
 redundant-validation experiment produced no verified timing benefit and was
@@ -490,3 +491,15 @@ mapping/upload sources and the same quiet interval still qualify known-file
 release. This actual Qt/native case passed independently; it adds one case to
 the existing selector (nine cases) without changing production code, limits or
 the separately retained whole-selector timing result.
+
+The retained JUnits distinguish that local source-admission failure from the
+outer selector limit: the three recorded selectors ended after 39.356, 42.813
+and 58.826 seconds, all below 120 seconds. Their tracebacks point to the
+consecutive-original-sample predicate, not a selector or compile timeout. They
+do not contain the raw delta values or identify which conjunct failed; an exact
+gap value cannot be recovered from those transcripts. No quiet schedule,
+500 ms predicate, source clock, final freshness fence or complete original
+validation has been changed to make that selection pass. The next vertical
+join is lost or undelivered private-file release after the actual normal Cancel
+in this same original Qt process; the separate file-owner cases already cover
+that boundary without the composed UI/consumer owner.
