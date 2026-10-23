@@ -2244,3 +2244,27 @@ unchanged26-action Journey108.206s, Actor32.846s and capture108.288s pass
 not the current full-Journey result. Actual independent observer return and
 whole physical graph/PNG/archive/host closure are still required; no capability
 or complete-feature claim is added.
+
+
+## Integrated persistent Assets page and typed Chat return
+
+Fixedbcffa9a0eb/9669ec7b09 select asa1e13fcd2e/0353c5d8b0. The older
+agent catalog is reconciled additively:190groups, preserving every Root group,
+version and Assets semantic memo. The actual persistent TabletRoot/Offscreen
+loader/TabletProxy Home bodies and Pico X callback are host-compiled. Page and
+component death is measured separately from the actual surviving invalid
+context and borrowed live loader/window. No full context cleanup is inferred.
+
+Chat's typed historical return joins the complete nine-root original source
+graph, one exact Parent-nonce-bound Actor successor and neutral actual kernel
+return. The Parent receives original bytes/DTOs only. Four real two-process
+cases cover success, identical-byte successor replacement, lost final typed CAS
+and frozen native clock with final host-copy delay. No application observer is
+launched. The full production factory constructor positive remains unexecuted;
+its source/path/Parent guards and actual direct typed constructor/process
+boundary are checked separately. Stop2/prefix and whole archive remain open.
+
+Root4/190groups pass130.43s: coverage0.096s, original Chat factory42.123s,
+Actor/process/transport/pending graph/typed return58.251s, Assets page/Home
+29.955s. All120s selector/90s compile bounds remain. Source-complete3/14 and
+device-qualified0/14 remain unchanged.

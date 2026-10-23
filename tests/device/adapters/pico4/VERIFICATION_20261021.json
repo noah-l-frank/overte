@@ -3161,5 +3161,26 @@
     },
     "unchangedGroupLimitSeconds": 120,
     "qualification": "Shared pure historical grammar in the actual warm owner; original physical/producer sources remain explicit host seams. First focused active-phase test expectation corrected to include existing ValueError refusal. No independent process return, complete immutable archive, public capability, full application or device qualification."
+  },
+  "assetsPageAndChatTypedReturn20261023": {
+    "status": "passed",
+    "sourceCommits": [
+      "bcffa9a0ebc862e3f8417454815e5d4a415fade0",
+      "9669ec7b09294d3450bb694c463c0803d4a770c9"
+    ],
+    "integrationCommits": [
+      "a1e13fcd2e",
+      "0353c5d8b0"
+    ],
+    "catalogAtRun": 190,
+    "groups": 4,
+    "seconds": 130.43,
+    "checks": {
+      "coverage": 0.096,
+      "chatFactory": 42.123,
+      "chatActorProcessTransportGraphTypedReturn": 58.251,
+      "assetsPageHome": 29.955
+    },
+    "qualification": "Real retained Qt page/context/component and actual compiled original loader/Home/Pico X bodies with explicit controller/SDK/unrelated content seams; context survives invalid. Real two-process typed Chat graph/successor/nonce/kernel boundary with native/Parent/unexecuted inputs explicit seams. Full production constructor positive, whole feature/resource archive, full application and device qualification remain open."
   }
 }

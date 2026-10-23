@@ -1143,7 +1143,9 @@
         "tests/device/adapters/pico4/chat_cursor_actor.py",
         "tests/device/adapters/chat_journey/remote_actor_graph.py",
         "tests/device/adapters/observer_return.py",
-        "tests/device/adapters/chat_journey/REMOTE_ACTOR_GRAPH.md"
+        "tests/device/adapters/chat_journey/REMOTE_ACTOR_GRAPH.md",
+        "tests/device/adapters/chat_journey/remote_actor_return.py",
+        "tests/device/self_tests/test_chat_remote_actor_return.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1187,7 +1189,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Join the pending typed nine-root remote Actor graph to its controlled parent-consumed successor and original transport/kernel receipt. Add explicit versioned consumed-prefix Stop admission; never rebase the global cursor or restore live Actor owners from files. Then compose complete immutable archive/host/RPC/stereo closure.",
+      "nextExecutableStep": "Bind the actual common-Journey consumed prefix through explicit Stop2 without relaxing Stop1, then complete independent consumer/stereo/quiet/archive and host closure. Actual original nine-root graph plus controlled nonce successor and kernel return now pass integrated Actor/process/return58.251s; direct typed constructor/two-process boundary is tested, full production constructor positive remains unexecuted. No public capability or whole cleanup.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1392,7 +1394,10 @@
         "tests/device/native/PicoAssetsUploadOriginals.h",
         "tests/device/adapters/pico4/assets_uploads.py",
         "tests/device/adapters/pico4/assets_cancel_owner.py",
-        "android/vr/pico/tests/device/test_assets_cancel_owner.py"
+        "android/vr/pico/tests/device/test_assets_cancel_owner.py",
+        "tests/device/native/AssetsPageObservation.h",
+        "tests/device/adapters/pico4/assets_pages.py",
+        "android/vr/pico/tests/device/test_assets_page_home.py"
       ],
       "declaredCheckpoints": 29,
       "inputVerbs": [
@@ -1446,7 +1451,7 @@
         "Drain oven/upload/picker workers and release actual staged originals",
         "Restore original server permission and prove complete namespace/resource absence"
       ],
-      "nextExecutableStep": "Compose the normal persistent TabletRoot Home/page change with actual Page/Context/Component lifetime observations; keep the borrowed tablet surface window separate. Successive original picker stages and all20 Cancel/recovery/cache cases pass on the integrated host stand. Original server mapping/oven, independent Actor/stereo, full Upload and whole cleanup remain unqualified.",
+      "nextExecutableStep": "Compose the durable normal persistent TabletRoot Home owner with separate retained Cancel/File originals. Actual compiled loader/Home/X page observation passes29.955s on Root: page/components retire, original context remains alive invalid, borrowed loader/window remain live. Whole mapping/oven/Actor/stereo/Upload and complete cleanup remain unqualified.",
       "nativeCompilation": "Selected whole Pico NavigationUi, original QML/pointer/FileDialogHelper/NativeFieldInput and production Assets-file getter/private descriptor storage host-compiled; complete application/APK unverified",
       "deviceQualification": "untested"
     },
