@@ -251,6 +251,40 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         need(frame['readReadySlot']['featureOwnerSha256']==digest(f.previous))
         return frame['readReadySlot']
 
+    def cleanup_maintenance(self,status):
+        """Permit unpublished reads only after a consumed slot's real successor."""
+        f=self.feature;f.lock.assert_held()
+        if self.read_ready_mode() is None or self.state['last'] is None:return None
+        last=self.state['last'];sample=last['original']['sample'];ticket=status['activations'][-1]['ticket']
+        if sample['ticket']!=ticket:return None
+        need(self.state['pending'] is None and last['original']['issued'] is True
+            and same({key:last['receipt'][key] for key in sample},sample))
+        cue=self.state['primaryCue'];need(cue is not None)
+        store=PrivateFeatureState(f.store.path.with_name('phone-snapshots-primary-originals.json'))
+        header=store.read();state=role_state(header,f.binding,f.run,'primary');actor_header=deepcopy(self.previous)
+        def historical():
+            f.lock.assert_held();f.header_authority()
+            need(same(self.store.read(),actor_header) and same(store.read(),header));return True
+        validate_primary_cue(f,cue,header,history_guard=historical)
+        old=cue_state(f,cue)
+        if state['phase']!='ready' or state['pending'] is not None or state['sequence']<=old['sequence']:return None
+        host=SnapshotsOriginals(f.root,f.binding,f.run,'primary',historical,lambda *_:need(False),kind='snapshots')
+        previous=primary_manifests(host,old);need(previous)
+        self.read_ready_cue(cue['header'],host.read(host.expand(previous[-1])),historical,status=status)
+        entries=primary_manifests(host,state);need(entries)
+        frame=host.read(host.expand(entries[-1]))
+        if 'diagnostic' in frame or 'readReadySlot' in frame or type(frame.get('measurement')) is not dict:return None
+        before,after=frame['phaseBefore'],frame['phaseAfter']
+        phase_packet(before,run=f.run,area='snapshots',request=before['requestId'],epoch=before['capturedEpochMs'])
+        phase_packet(after,run=f.run,area='snapshots',request=after['requestId'],epoch=after['capturedEpochMs'],previous=before)
+        need(before['active'] and after['active'] and before['activations'] and frame['ticket']==ticket
+            and before['activations'][-1]['ticket']==ticket and before['activations'][-1]['stimulus']['verb']=='cleanup')
+        for packet in (before,after):
+            for key in ('fixturePhaseVersion','instance','runId','area','createdEpochMs','retiredEpochMs','activations','active'):
+                need(same(packet[key],status[key]))
+        need(f.bound() is True and historical() is True)
+        return deepcopy(header)
+
     def primary_continuity(self,status=None):
         """A saved publication may resume, but cannot forget its known owner."""
         f=self.feature;cue=self.state['primaryCue']
@@ -548,7 +582,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             if retained is not None:
                 self.cleanup_owners(*retained,loaded=True)
                 f.bound();retained[0].bound();retained[0].history_authority()
-            status=f.phase.status(self.state['closure']);self.read_ready_mode()
+            status=f.phase.status(self.state['closure']);mode=self.read_ready_mode()
             if f.state['phase']=='partial-cleaned':
                 need(f.state['partial'] is True and self.state['pending'] is self.state['last'] is self.state['quiet'] is None)
                 if status['active']:return False
@@ -580,7 +614,13 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                 # A finished interval still needs a new own acquisition.
                 # Release preparation so a waiting Primary can replay its
                 # immutable history before this actor captures the next fact.
-                cue=self.primary_cue(status) if self.state['quiet'] is not None and self.state['quiet']['complete'] else None
+                published=(mode is not None and self.state['last'] is not None
+                    and self.state['last']['original']['sample']['ticket']==status['activations'][-1]['ticket'])
+                cue=self.primary_cue(status) if published or self.state['quiet'] is not None and self.state['quiet']['complete'] else None
+                if published and cue is None and self.cleanup_maintenance(status) is None:
+                    # Do not seize the source lock for another measurement
+                    # while the Primary is still consuming our exact receipt.
+                    self.retain_cleanup(retained[0],status);return False
                 if cue is None:return self.quiet_batch(retained[0],retained[1],started)
                 role,prepared=retained;verb='cleanup'
                 warm=self.cleanup_warm_pin(role,prepared,cue)
@@ -596,6 +636,9 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                 if verb=='cleanup' and f.state['phase']!='cleaned':return False
                 if verb!='cleanup' and f.state['phase']=='cleaned':return False
                 if verb=='cleanup':self._cleanup_started=True
+                if (verb=='cleanup' and mode is not None and self.state['last'] is not None
+                        and self.state['last']['original']['sample']['ticket']==current['ticket']
+                        and self.primary_cue(status) is None and self.cleanup_maintenance(status) is None):return False
                 self._ordinary_entered=verb!='cleanup'
                 cue=None if verb=='cleanup' else self.primary_cue(status)
                 if verb!='cleanup' and cue is None:return False
@@ -735,14 +778,24 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             status=f.phase.status()
             if not status['active']:return self.defer_cleanup_close(role,status,prepared['phase'])
             self.cleanup_phase(status,prepared['phase'])
-            cue=None
-            if self.state['quiet'] is not None and self.state['quiet']['complete']:
+            cue=None;maintenance=None
+            published=(self.read_ready_mode() is not None and self.state['last'] is not None
+                and self.state['last']['original']['sample']['ticket']==status['activations'][-1]['ticket'])
+            if published:
+                cue=self.primary_cue(status)
+                if cue is None:maintenance=self.cleanup_maintenance(status)
+                if cue is None and maintenance is None:
+                    self.retain_cleanup(role,status);return False
+            elif self.state['quiet'] is not None and self.state['quiet']['complete']:
                 # A completed interval cannot create an unconsumed backlog.
                 # The Primary header is scheduling authority only; the next
                 # fact still comes from a new full independent acquisition.
                 cue=self.primary_cue(status)
                 if cue is None:
                     self.retain_cleanup(role,status);return False
+            if maintenance is not None:
+                self._ordinary_primary=deepcopy(maintenance);self.primary_owner()
+            elif cue is not None:
                 self._ordinary_primary=deepcopy(cue['header']);self.primary_owner()
             if warm is not None:self.cleanup_warm_owners(role,prepared,warm)
             try:measured=role.read(role.state['sequence'])
@@ -763,6 +816,10 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             proof=f.restored(snapshot=role.frames[-1]);now=f.monotonic()
             quiet=quiet_window(self.state['quiet'],now,measured['sequence']);quiet['final']=proof;self.state['quiet']=quiet
             self.save()
+            if maintenance is not None:
+                # One genuinely new quiet sample, never a publication. Yield
+                # even after a real gap reset; no cached fact satisfies a slot.
+                self.retain_cleanup(role,status);return False
             if quiet['complete']:
                 if cue is None:cue=self.primary_cue(status)
                 if cue is None:
