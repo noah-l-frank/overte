@@ -13,6 +13,13 @@ their actual weak operand remains alive. `firstObserved*` is observation time,
 not allocation time. `weakExpiredObserved*` is the time nullness was observed,
 not completion of a destructor, queued callback or OS process.
 
+`rootMembership` describes only the current independently complete whole-tree
+walk. Every current status row joins exactly one live original of the same kind
+and component source. Historical live originals may remain outside that walk
+after detachment; they stay owned in `rootOwnership` and are never reinserted as
+current members or treated as destroyed. A hidden root that remains in the
+actual walk still requires its exact current membership.
+
 The ledger is main-thread-only, except for an atomic sticky failure flag. It
 retains at most 64 identities and emits at most 16 KiB of compact JSON. Overflow,
 unknown operands, missing startup flags and incomplete whole walks cannot prove

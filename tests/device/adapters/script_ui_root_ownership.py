@@ -76,5 +76,8 @@ def membership(inventory,*,pid=None,epoch=None):
         for identity,row in zip(members[group],inventory[group]):
             need(identity in by_id);root=by_id[identity]
             need(root['weakAlive'] and root['kind']==kind and root['componentSource']==row['componentSource']);selected.append(identity)
-    need(len(set(selected))==len(selected) and set(selected)=={key for key,row in by_id.items() if row['weakAlive']})
+    # Current members are exactly the independently complete whole-tree walk.
+    # Historical weak originals also retain detached live QObjects; they are
+    # still owned, but are not inferred to be current walk members.
+    need(len(set(selected))==len(selected))
     return value
