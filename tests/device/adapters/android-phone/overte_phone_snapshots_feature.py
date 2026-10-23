@@ -705,7 +705,7 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                 # Adapter credentials expose only the original phase clock.
                 # The opaque issued-sample/receipt join stays in the actual
                 # independent actor journal; no peer fact is requested here.
-                actual=self.phase.client.observe()
+                actual=self.phase.client.request('/runs/'+self.run)
                 exact(actual,{'schemaVersion','runId','area','ticket','sampleEpochMs','entries'})
                 need(type(actual['schemaVersion']) is int and actual['schemaVersion']==1 and actual['runId']==self.run
                     and actual['area']=='snapshots' and actual['ticket']==ticket and type(actual['entries']) is list)
