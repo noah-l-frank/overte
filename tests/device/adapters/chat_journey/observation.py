@@ -42,7 +42,7 @@ class ChatObservationOwner:
         need(len(set(paths))==len(paths) and all(path.parent==store.path.parent for path in paths))
         self.source,self.samples,self.flow_store,self.store=source,samples,flow_store,store
         self.stage,self.cleanup_store,self.monotonic=stage,cleanup_store,monotonic
-        self.failed=False;self.clock=None;self.previous=store.read();self.rows=[]
+        self.failed=False;self.clock=None;self.previous=store.read();self.rows=[];self._freeze_guard=None
         self.scope=dict(chatObservationOwnerVersion=VERSION,contractVersion=CONTRACT_VERSION,runId=source.run,
             fixtureUrl=source.fixture_url,role=samples.role,binding=deepcopy(samples.binding),peerBinding=deepcopy(samples.peer_binding),
             stage=stage,transcript=samples.store.path.name,flowJournal=flow_store.path.name,
@@ -55,6 +55,10 @@ class ChatObservationOwner:
 
     def now(self):
         value=self.monotonic();need(number(value,0,1e15) and (self.clock is None or value>=self.clock));self.clock=value;return value
+
+    def bind_freeze(self,guard):
+        need(callable(guard) and (self._freeze_guard is None or self._freeze_guard is guard))
+        self._freeze_guard=guard
 
     def flow(self):
         value=self.flow_store.read();rows=validate_flow(value)
@@ -161,9 +165,11 @@ class ChatObservationOwner:
 
     def read(self,after_sequence=0):
         need(not self.failed and integer(after_sequence,0,len(self.rows)))
+        if self._freeze_guard is not None:need(self._freeze_guard() is True)
         pending=None
         with ExitStack() as held:
             for lock in sorted(self.samples.locks,key=lambda value:str(value.path)):held.enter_context(lock.held())
+            if self._freeze_guard is not None:need(self._freeze_guard() is True)
             try:
                 started=self.now();authority,original=self.current();active=self.source.read(original);self.matching(active,original)
             except PhasePending as error:pending=error

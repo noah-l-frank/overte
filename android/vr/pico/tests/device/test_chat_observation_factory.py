@@ -46,10 +46,24 @@ class PicoChatObservationFactoryTests(unittest.TestCase):
         self.assertIsNone(self.adapter._chat_observation_store(self.target,'actor',stage='cleanup',witness=True).read())
         self.assertEqual([],self.h.native.inputs)
 
+    def test_actual_primary_seal_factory_binds_only_fixed_cleanup_owner_without_native_queries(self):
+        parent=self.parent
+        samples=self.adapter._chat_cache_absence(self.target,seams.RUN,parent.peer.reader(),parent.peer.binding,
+            role='primary',stage='final',source_lock=parent.lock,peer_lock=parent.peer.lock,script_source=parent.code_sources[0])
+        owner=self.adapter._chat_observation(self.target,parent.source,samples,stage='cleanup')
+        before=len(self.h.prepare_chat.commands)
+        seal=self.adapter._chat_source_seal(self.target,owner,witness=False)
+        self.assertIs(owner,seal.owner);self.assertEqual(self.adapter._chat_cleanup_source_seal_store(self.target,witness=False).path,seal.store.path)
+        self.assertIsNone(seal.store.read());self.assertTrue(seal.live())
+        with self.assertRaises((ValueError,NativeUIError)):self.adapter._chat_source_seal(self.target,owner,witness=True)
+        self.assertEqual(before,len(self.h.prepare_chat.commands));self.assertEqual([],self.h.native.inputs)
+
     def test_rootless_original_observation_and_cleanup_publisher_chunks_keep_generic_cleanup_closed(self):
         self.assertFalse(self.adapter._chat_application_retained(self.target))
         stores=(self.adapter._chat_observation_store(self.target,'actor',stage='cleanup',witness=True),
-            self.adapter._chat_cleanup_witness_store(self.target))
+            self.adapter._chat_cleanup_witness_store(self.target),
+            self.adapter._chat_cleanup_source_seal_store(self.target,witness=False),
+            self.adapter._chat_cleanup_source_seal_store(self.target,witness=True))
         for store in stores:
             child=PrivateFeatureState(store.path.with_name(store.path.name+'.frame-000.json'))
             child.write(dict(explicitOriginalOrphan=True),None)
