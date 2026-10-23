@@ -22,7 +22,25 @@ from overte_phone_snapshots_role import PhoneSnapshotsRole
 HOOK=r'''
 ordinary_batch=module.PhoneSnapshotsActor.ordinary_batch
 stage_mutations=[]
+inline_stats=dict(entries=0,lockedReads=0,sleeps=0,mutations=0)
+def inline_batch(self,role,prepared):
+    self.feature.lock.assert_held()
+    assert role.system and self.feature.state['handoff'] is not None
+    inline_stats['entries']+=1
+    read=role.read;bound=self.feature.bound
+    def locked_read(*args,**kwargs):
+        self.feature.lock.assert_held();inline_stats['lockedReads']+=1
+        return read(*args,**kwargs)
+    def late_bound():
+        result=bound()
+        if mode=='inline-os-late-save' and self.state['pending'] is not None and not inline_stats['mutations']:
+            inline_stats['mutations']+=1;role.frames[0]['controlledLateOsGraph']=True
+        return result
+    role.read=locked_read;self.feature.bound=late_bound
+    try:return ordinary_batch(self,role,prepared)
+    finally:role.read=read;self.feature.bound=bound
 def paused_batch(self,role,prepared):
+    if mode.startswith('inline-os'):return inline_batch(self,role,prepared)
     if mode!='pause':return ordinary_batch(self,role,prepared)
     assert self.feature.lock._owner is None
     print(json.dumps(dict(stage='prepared',lockReleased=True,counts=counts,
@@ -49,7 +67,19 @@ module.PhoneSnapshotsActor.ordinary_batch=paused_batch
 ANCHOR="module.PhoneSnapshotsRole=construct\nflow=adapter.actor('synthetic',RUN,client)"
 assert cue.CHILD.count(ANCHOR)==1
 CHILD=cue.CHILD.replace(ANCHOR,"module.PhoneSnapshotsRole=construct\n"+HOOK+"\nflow=adapter.actor('synthetic',RUN,client)")
-CHILD=CHILD.replace('state=state)),flush=True)','state=state,stageMutations=len(stage_mutations))),flush=True)')
+CHILD=CHILD.replace('state=state)),flush=True)','state=state,stageMutations=len(stage_mutations),inline=inline_stats)),flush=True)')
+SLEEP_ANCHOR='    request=client.request;save=flow.save;write=flow.store.write'
+assert CHILD.count(SLEEP_ANCHOR)==1
+CHILD=CHILD.replace(SLEEP_ANCHOR,SLEEP_ANCHOR+r'''
+    sleep=flow.feature.sleep
+    def sleeping(value):
+        if mode.startswith('inline-os') and value==.1:
+            inline_stats['sleeps']+=1;raise AssertionError('OS ordinary acquisition must not release/yield between stages')
+        return sleep(value)
+    flow.feature.sleep=sleeping
+''')
+CHILD=CHILD.replace('finally:client.request=request;flow.save=save;flow.store.write=write',
+    'finally:client.request=request;flow.save=save;flow.store.write=write;flow.feature.sleep=sleep')
 
 
 class SnapshotActorOrdinaryStagesTests(unittest.TestCase):
@@ -84,6 +114,37 @@ class SnapshotActorOrdinaryStagesTests(unittest.TestCase):
         self.assertEqual(before['state']['primaryCue'],result['state']['primaryCue'])
         self.assertEqual(before['state']['pending'],result['state']['pending'])
         self.assertEqual(before['counts']['posts'],len(self.entries()))
+
+    def actual_share_scope(self):
+        self.rig.act('open');self.rig.act('capture',dict(mode='still',format='png'));self.primary()
+        before=self.step();self.assertIsNone(before['error'])
+        self.rig.act('share-open');measured=self.primary()
+        self.assertTrue(measured['state']['shareSheet']);self.assertEqual(1,measured['state']['files'])
+        return before
+
+    def test_actual_os_share_acquires_own_sample_inline_without_releasing_source_lock(self):
+        before=self.actual_share_scope();result=self.step('inline-os')
+        self.assertIsNone(result['error']);self.assertFalse(result['result'])
+        self.assertEqual(dict(entries=1,lockedReads=1,sleeps=0,mutations=0),result['inline'])
+        self.assertEqual(before['counts']['reads']+1,result['counts']['reads'])
+        self.assertEqual(before['counts']['posts']+1,result['counts']['posts'])
+        self.assertEqual(self.primary_store.read(),result['state']['primaryCue']['header'])
+        actual=self.entries()[-1];self.assertTrue(actual['facts']['shareSheet'])
+        self.assertGreater(actual['actorSequence'],before['state']['last']['receipt']['actorSequence'])
+        self.assertEqual(actual,result['state']['last']['receipt'])
+
+    def test_actual_os_share_retains_last_native_save_graph_guard_before_post(self):
+        before=self.actual_share_scope()
+        originals={p:p.read_bytes() for p in self.rig.root.glob('emote-frame-snapshots-'+cue.harness.RUN+'-actor-*.json')}
+        self.assertTrue(originals);result=self.step('inline-os-late-save')
+        self.assertEqual('NativeUIError',result['error'])
+        self.assertEqual(dict(entries=1,lockedReads=1,sleeps=0,mutations=1),result['inline'])
+        self.assertEqual(before['counts']['reads']+1,result['counts']['reads'])
+        self.assertEqual(before['counts']['posts'],result['counts']['posts'])
+        self.assertEqual(before['state']['primaryCue'],result['state']['primaryCue'])
+        self.assertEqual(before['state']['pending'],result['state']['pending'])
+        self.assertEqual(before['counts']['posts'],len(self.entries()))
+        for path,raw in originals.items():self.assertEqual(raw,path.read_bytes())
 
     def test_ready_primary_can_advance_under_released_lock_before_own_current_sample(self):
         before,_=self.prepared()
