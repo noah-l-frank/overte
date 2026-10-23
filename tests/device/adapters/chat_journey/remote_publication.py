@@ -25,7 +25,7 @@ from feature_journeys.contract import identifier
 from feature_journeys.phase_fixture import PhaseFixtureReader,PhasePending,PhaseRetired
 from fixture.chat_observer_process import LinuxChatObserverProcess
 
-VERSION=1
+VERSION=2
 EXPECTED={'runId','fixtureUrl','binding','peerBinding','hostProcessIdentity','instance'}
 STORES={'actor','flow','cleanup',*GRAPH}
 ACTOR=EXPECTED|{'picoChatCursorActorVersion','phase','pairs','returnedPublication'}
@@ -60,16 +60,16 @@ class ChatRemotePublication:
         self.scope=dict(chatRemotePublicationVersion=VERSION,**deepcopy(expected),journal=store.path.name)
         self.history=ChatSourceChunks(store,self.scope);self.history.inventory(0)
         self.previous=None;self.root_stamp=None;self.rows=[];self.admitted={};self.roots={}
-        self.failed=False;self.cache_sha=self.cache_digest();self.control()
+        self.stop_intent=None;self.failed=False;self.cache_sha=self.cache_digest();self.control()
 
     def cache_digest(self):
         need(type(self.history) is ChatSourceChunks and self.history.root is self.store and self.history.scope==digest(self.scope)
             and type(self.history.raw_bytes) is int and type(self.history.identities) is list
             and all(type(row) is tuple and len(row)==8 and all(type(field) is int for field in row) for row in self.history.identities))
-        for value in (self.expected,self.scope,self.previous,self.rows,self.admitted,self.roots,self.root_stamp,self.paths,self.lock_paths):plain(value)
+        for value in (self.expected,self.scope,self.previous,self.rows,self.admitted,self.roots,self.root_stamp,self.paths,self.lock_paths,self.stop_intent):plain(value)
         return digest(dict(expected=self.expected,scope=self.scope,previous=self.previous,rows=self.rows,
             admitted=self.admitted,roots=self.roots,stamp=self.root_stamp,paths=self.paths,locks=self.lock_paths,
-            history=dict(rawBytes=self.history.raw_bytes,identities=[list(row) for row in self.history.identities])))
+            history=dict(rawBytes=self.history.raw_bytes,identities=[list(row) for row in self.history.identities]),stop=self.stop_intent))
 
     def control(self):
         need(not self.failed and self.cache_digest()==self.cache_sha and digest(self.expected)==self.expected_sha
@@ -152,9 +152,9 @@ class ChatRemotePublication:
 
     def acquire(self,after_sequence):
         """Actual GET plus original source graph; no publication resend or offset."""
-        need(not self.failed and integer(after_sequence,0));entered=False;pending=None
+        need(not self.failed and self.stop_intent is None and integer(after_sequence,0));entered=False;pending=None
         try:
-            started=self.monotonic();self.control()
+            started=self.monotonic();need(number(started,0,1e15));self.control()
             with self.held():
                 entered=True
                 try:
@@ -188,6 +188,9 @@ class ChatRemotePublication:
                     self.fresh(clocks,started)
                     record=dict(actorRawBase64=base64.b64encode(snapshot['files']['actor'][0]).decode('ascii'),
                         actorStamp=snapshot['files']['actor'][1],publication=deepcopy(rows[-1]),received=received,
+                        phase=deepcopy(phase['status']),freshness=dict(startedMonotonic=started,primaryEpochMs=oldest,
+                            peerEpochMs=frame['peer']['capturedEpochMs'],phaseEpochMs=phase['status']['capturedEpochMs'],
+                            journalEpochMs=received['sampleEpochMs']),
                         roots={key:dict(rawBase64=base64.b64encode(raw).decode('ascii'),sha256=hashlib.sha256(raw).hexdigest(),stamp=physical)
                             for key,(raw,physical) in snapshot['files'].items()})
                     self.save('reading');chunks=self.history.append(record,[] if self.previous is None else self.previous['chunks'])
@@ -206,3 +209,38 @@ class ChatRemotePublication:
             self.failed=True;raise NativeUIError('Original remote Chat wait is unresolved') from None
         except BaseException:
             self.failed=True;raise NativeUIError('Original remote Chat publication is unresolved; originals remain') from None
+
+    def fresh_current(self):
+        """The same consumed originals, under Parent locks; never a new sample."""
+        need(not self.failed and self.rows and self.previous['phase']=='ready')
+        try:
+            for lock in self.locks:lock.assert_held()
+            self.control();need(self.guard() is not False)
+            record=self.rows[-1];value=self.history.store(len(self.rows)-1).read()
+            from adapters.script_journey.history import unpack
+            need(same(unpack(value['transcript']),[record]) and digest(value)==self.previous['chunks'][-1])
+            active=self.source.read(record['phase'])
+            need(same(active['status']['activations'],record['phase']['activations']))
+            need(self.guard() is not False);self.released_fresh_current()
+            return True
+        except BaseException:
+            self.failed=True;raise NativeUIError('The original consumed Chat publication is no longer qualified') from None
+
+    def released_fresh_current(self):
+        """Final same-original clocks after actual lock exit, without UI guard."""
+        try:
+            self.control();need(self.rows and self.previous['phase']=='ready');original=self.rows[-1]['freshness']
+            self.fresh(((self.source.epoch_ms,original['primaryEpochMs']),(self.peer_epoch_ms,original['peerEpochMs']),
+                (self.source.epoch_ms,original['phaseEpochMs']),(self.source.epoch_ms,original['journalEpochMs'])),original['startedMonotonic'])
+        except BaseException:
+            self.failed=True;raise NativeUIError('The original consumed Chat publication exceeded its original clocks') from None
+
+    def freeze(self,command):
+        """Freeze after the distinct durable Parent intent, not a Stop success."""
+        from adapters.chat_journey.actor_stop import shape
+        self.control();need(self.stop_intent is None and shape(command)==2 and self.rows
+            and command['instance']==self.expected['instance'] and command['runId']==self.expected['runId']
+            and command['ticket']==self.rows[-1]['publication']['payload']['ticket']
+            and command['consumedSequence']==self.rows[-1]['publication']['sequence']
+            and command['consumedPayloadSha256']==digest(self.rows[-1]['publication']['payload']))
+        self.stop_intent=deepcopy(command);self.cache_sha=self.cache_digest();self.control()

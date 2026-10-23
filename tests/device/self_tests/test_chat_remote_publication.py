@@ -11,6 +11,7 @@ import sys
 import tempfile
 import unittest
 import uuid
+from adapters.chat_journey.source_chunks import digest
 from contextlib import contextmanager
 from unittest.mock import patch
 
@@ -39,7 +40,9 @@ for stage in ('initial','active','cleanup'):
         h.h.h.samples('actor',h.h.flow.w.witness_store).store if stage=='active' else PrivateFeatureState(root/'global-actor-cleanup-samples.json'))
 expected={key:actor.scope[key] for key in ('runId','fixtureUrl','binding','peerBinding','hostProcessIdentity','instance')}
 PrivateFeatureState(config['metadata']).write(dict(stores={key:str(value.path) for key,value in stores.items()},expected=expected,
-    locks=[str(lock.path) for lock in (actor.original.lock,actor.original.peer.lock)]),None)
+    locks=[str(lock.path) for lock in (actor.original.lock,actor.original.peer.lock)],
+    stop=str(actor.stop_store.path),seal=str(root/'actual-actor-seal.json'),
+    returned=str(actor.return_store.path),consumption=str(actor.consumption_store.path)),None)
 print('ready',flush=True)
 for line in sys.stdin:
     command=json.loads(line);action=command['action']
@@ -47,6 +50,7 @@ for line in sys.stdin:
     if action=='phase':value=h.h.flow.w.journal.phase(run,command['nonce'])
     elif action=='snapshot':value=h.h.flow.w.journal.snapshot(run)
     elif action=='clock':value=dict(epoch=h.h.native.epoch,host=h.h.native.host)
+    elif action=='tick':h.h.flow.sleep(command['seconds']);value=True
     elif action=='publish':value=actor.publish()
     elif action=='advance':
         h.h.flow.next(1);h.parent['completedSteps']=2;h.parent_store.write(h.parent,h.parent_store.read());value=actor.publish()
@@ -58,6 +62,8 @@ for line in sys.stdin:
         payload=dict(actor.publisher.rows[-1]['payload']);payload['actorSequence']+=1
         h.h.flow.w.journal.publish(run,payload);value=True
     elif action=='retire':h.h.flow.w.journal.close(run);value=True
+    elif action=='stop':actor.stop_once();actor.publish_return();value=True
+    elif action=='consume':actor.consume_return();value=True
     else:raise ValueError('Closed source fixture command')
     print(json.dumps(value,separators=(',',':')),flush=True)
 '''
@@ -177,6 +183,22 @@ class ChatRemotePublicationTests(unittest.TestCase):
         self.command('publish')
         with self.assertRaises(NativeUIError):owner.acquire(1)
         self.assertTrue(owner.failed);self.assertEqual(1,len(owner.rows))
+
+    def test_newer_unconsumed_source_frame_cannot_refresh_original_consumed_native_epochs(self):
+        owner=self.owner;owner.acquire(0);self.command('late');self.command('publish')
+        with owner.held():
+            with self.assertRaises(NativeUIError):owner.fresh_current()
+        self.assertTrue(owner.failed);self.assertEqual(1,len(owner.rows))
+
+    def test_original_freeze_is_not_a_stop_ack_and_permanently_blocks_new_acquisition(self):
+        owner=self.owner;owner.acquire(0);row=owner.rows[-1]['publication']
+        command=dict(picoChatCursorActorStopVersion=2,commandId=uuid.uuid4().hex,instance=owner.expected['instance'],
+            runId=owner.expected['runId'],ticket=row['payload']['ticket'],consumedSequence=row['sequence'],
+            consumedPayloadSha256=digest(row['payload']),cleanupConsumptionSha256='b'*64)
+        owner.freeze(command);self.assertEqual(command,owner.stop_intent)
+        with self.assertRaises(NativeUIError):owner.acquire(row['sequence'])
+        self.assertFalse(owner.failed);self.assertEqual(1,len(owner.rows))
+        self.assertNotIn('stopCommand',self.stores['actor'].read())
 
 
 if __name__=='__main__':unittest.main()
