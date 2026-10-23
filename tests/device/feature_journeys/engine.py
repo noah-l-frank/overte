@@ -29,7 +29,8 @@ def matches(actual, expected):
 
 class Journey:
     def __init__(self, area, run, fixture_url, *, invoke, witness, activate,
-                 read_artifact, image_policy, continuity, monotonic, epoch_ms, sleep, report, navigation_source=None):
+                 read_artifact, image_policy, continuity, monotonic, epoch_ms, sleep, report, navigation_source=None,
+                 terminal_profile=None, retire_fixture=None):
         if area not in SCENARIOS:
             raise ValueError('Unknown common feature area')
         self.area, self.run, self.url = area, identifier(run), fixture_url
@@ -53,6 +54,21 @@ class Journey:
         if area=='world-navigation' and not callable(navigation_source):raise ValueError('Original navigation HTTP source is required')
         self.navigation_source=navigation_source;self.navigation_previous=None;self.navigation_required=None
         self.navigation_instance=self.navigation_inputs=None
+        from .terminal import PROFILE
+        if terminal_profile is not None and (terminal_profile!=PROFILE or not callable(retire_fixture)):
+            raise ValueError('Explicit terminal profile requires its owned fixture retirement port')
+        self.terminal_profile,self.retire_fixture=terminal_profile,retire_fixture
+        self.terminal_descriptor=self.terminal_seal=self.terminal_end=None
+        self.terminal_samples=[]
+
+    def terminal_call(self,stage,**fields):
+        from . import terminal
+        operation='feature.'+self.area+'.terminal'
+        request=dict(contractVersion=terminal.VERSION,runId=self.run,stage=stage,**fields)
+        arguments(operation,request)
+        value=result(operation,self.invoke(operation,request))
+        if value['stage']!=stage:raise ValueError('Terminal response belongs to a different stage')
+        return value
 
     def now(self):
         value = number(self.monotonic())
@@ -218,7 +234,10 @@ class Journey:
             if progressing_script and initial_effects is not None and value['state']['effects'] < initial_effects:
                 raise AssertionError('Active script effect counter regressed without a new engine')
             if label in {'owned-clean-baseline', 'cleanup-restored-baseline'}:
-                okay = okay and value['resources'] == []
+                if label=='cleanup-restored-baseline' and self.terminal_descriptor is not None:
+                    from .terminal import held
+                    okay=okay and value['resources']==held(self.terminal_descriptor['roles']['primary']['heldResources'])
+                else:okay = okay and value['resources'] == []
             if self.required_lifecycle is not None:
                 if self.system_ui:
                     # System UI may deactivate/background and restore the app.
@@ -259,6 +278,8 @@ class Journey:
                 okay = okay and peer_okay
             details, subject = [], None
             if okay:
+                terminal_window=self.terminal_descriptor is not None and label=='cleanup-restored-baseline'
+                if terminal_window:self.terminal_samples.append(dict(primary=deepcopy(value),actor=deepcopy(witness)))
                 try:
                     details, subject = self.artifacts(value, ticket, kinds)
                 except (AssertionError, OSError, EOFError, SyntaxError) as error:
@@ -275,7 +296,10 @@ class Journey:
                 if stable_since is None:
                     stable_since = current
                 stable_count += 1
-                if (stable_count >= 3 and current - stable_since >= duration
+                terminal_duration=(not terminal_window or all(
+                    self.terminal_samples[-1][role]['capturedEpochMs']-self.terminal_samples[0][role]['capturedEpochMs']>=3000
+                    for role in ('primary','actor')))
+                if (stable_count >= 3 and current - stable_since >= duration and terminal_duration
                         and (not progressing_script or value['state']['effects'] >= initial_effects + 2)):
                     if subject is not None:
                         self.previous_subject = subject
@@ -285,6 +309,7 @@ class Journey:
                     return value
             else:
                 stable_since, stable_count, initial_effects = None, 0, None
+                if label=='cleanup-restored-baseline':self.terminal_samples=[]
             if self.now() >= deadline:
                 break
             self.sleep(0.25)
@@ -406,6 +431,10 @@ class Journey:
                     # Idempotence must be real. Two acknowledgments alone cannot
                     # establish removal or restoration of the initial state.
                     self.call('cleanup')
+                    if self.terminal_profile is not None:
+                        from .terminal import description
+                        self.terminal_descriptor=self.terminal_call('inspect')['description']
+                        description(self.terminal_descriptor,area=self.area,run=self.run,ticket=ticket)
                     cleanup_baseline=dict(expected_baseline)
                     if self.area=='lifecycle-input':
                         # Original event history remains immutable after its
@@ -413,14 +442,30 @@ class Journey:
                         for key in ('worldAttempts','staleAttempts'):
                             cleanup_baseline[key]=self.samples[-1]['state'][key]
                     self.wait('cleanup-restored-baseline', ticket, barrier, cleanup_baseline, ['peer'], duration=3.0)
+                    if self.terminal_profile is not None:
+                        from .terminal import sealed,ended
+                        self.terminal_seal=self.terminal_call('seal',description=self.terminal_descriptor,samples=self.terminal_samples)['seal']
+                        sealed(self.terminal_seal,self.terminal_descriptor,self.terminal_samples)
+                        # Ended processes cannot supply fresh live-world facts.
+                        # Freeze the actual paired window before retiring its
+                        # fixture and invoking the separate one-send finalizer.
+                        self.retire_fixture()
+                        started=self.now()
+                        self.terminal_end=self.terminal_call('finish',seal=self.terminal_seal)['end']
+                        ended(self.terminal_end,self.terminal_seal)
+                        if self.now()-started>=30:raise ValueError('Terminal process retirement exceeded its bound')
                     cleanup_okay = True
                 except BaseException as error:
                     cleanup_errors.append(error)
-            self.report(dict(schemaVersion=1, contractVersion=VERSION, area=self.area, runId=self.run,
+            report=dict(schemaVersion=1, contractVersion=VERSION, area=self.area, runId=self.run,
                 phases=self.phases, samples=self.samples, cleanupEnabled=cleanup_enabled,
                 cleanupSucceeded=cleanup_okay, sequenceCompleted=primary is None and cleanup_okay,
                 testLogic='implemented', adapter='required-separately', deviceAcceptance=False,
-                sourceProfile=self.source_profile,notApplicableSteps=self.not_applicable))
+                sourceProfile=self.source_profile,notApplicableSteps=self.not_applicable)
+            if self.terminal_profile is not None:
+                report['terminalRetirement']=dict(profile=self.terminal_profile,description=self.terminal_descriptor,
+                    seal=self.terminal_seal,end=self.terminal_end)
+            self.report(report)
             if primary is None and cleanup_errors:
                 raise cleanup_errors[0]
         return self.phases

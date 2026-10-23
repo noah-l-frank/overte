@@ -41,13 +41,16 @@ def number(value, minimum=0, maximum=1e15):
 
 def operation_parts(operation):
     parts = operation.split('.')
-    if len(parts) != 3 or parts[0] != 'feature' or parts[1] not in SCENARIOS or parts[2] not in {'act', 'observe', 'cleanup'}:
+    if len(parts) != 3 or parts[0] != 'feature' or parts[1] not in SCENARIOS or parts[2] not in {'act', 'observe', 'cleanup', 'terminal'}:
         raise ValueError('Unknown feature operation')
     return parts[1:]
 
 
 def arguments(operation, value):
     area, kind = operation_parts(operation)
+    if kind=='terminal':
+        from .terminal import arguments as terminal_arguments
+        return terminal_arguments(area,value)
     fields = {'contractVersion', 'runId'}
     fields |= {'verb', 'inputs', 'ticket', 'fixtureUrl'} if kind == 'act' else {'afterSequence'} if kind == 'observe' else set()
     exact(value, fields, 'feature input')
@@ -229,6 +232,9 @@ def state(area, value, run=None):
 
 def result(operation, value):
     area, kind = operation_parts(operation)
+    if kind=='terminal':
+        from .terminal import result as terminal_result
+        return terminal_result(area,value)
     if kind in {'act', 'cleanup'}:
         exact(value, {'performed'}, 'feature acknowledgment')
         if value['performed'] is not True:

@@ -109,6 +109,10 @@
       "operation": "feature.assets.observe",
       "result": "Feature observation v2: independently sampled actual product state, native lifecycle counters, owned resources and original artifact references; no verdicts."
     },
+    "feature.assets.terminal": {
+      "operation": "feature.assets.terminal",
+      "result": "Opt-in iOS process-end retirement v1: original held native resources, paired live restoration seal, independent old-PID quiet, SDK deletion and immutable archives; separate from live v16 observations."
+    },
     "feature.audio.act": {
       "operation": "feature.audio.act",
       "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
@@ -120,6 +124,10 @@
     "feature.audio.observe": {
       "operation": "feature.audio.observe",
       "result": "Feature observation v2: independently sampled actual product state, native lifecycle counters, owned resources and original artifact references; no verdicts."
+    },
+    "feature.audio.terminal": {
+      "operation": "feature.audio.terminal",
+      "result": "Opt-in iOS process-end retirement v1: original held native resources, paired live restoration seal, independent old-PID quiet, SDK deletion and immutable archives; separate from live v16 observations."
     },
     "feature.authentication.act": {
       "operation": "feature.authentication.act",
@@ -133,6 +141,10 @@
       "operation": "feature.authentication.observe",
       "result": "Feature observation v2: independently sampled actual product state, native lifecycle counters, owned resources and original artifact references; no verdicts."
     },
+    "feature.authentication.terminal": {
+      "operation": "feature.authentication.terminal",
+      "result": "Opt-in iOS process-end retirement v1: original held native resources, paired live restoration seal, independent old-PID quiet, SDK deletion and immutable archives; separate from live v16 observations."
+    },
     "feature.avatar-people.act": {
       "operation": "feature.avatar-people.act",
       "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
@@ -144,6 +156,10 @@
     "feature.avatar-people.observe": {
       "operation": "feature.avatar-people.observe",
       "result": "Feature observation v2: independently sampled actual product state, native lifecycle counters, owned resources and original artifact references; no verdicts."
+    },
+    "feature.avatar-people.terminal": {
+      "operation": "feature.avatar-people.terminal",
+      "result": "Opt-in iOS process-end retirement v1: original held native resources, paired live restoration seal, independent old-PID quiet, SDK deletion and immutable archives; separate from live v16 observations."
     },
     "feature.chat.act": {
       "operation": "feature.chat.act",
@@ -157,6 +173,10 @@
       "operation": "feature.chat.observe",
       "result": "Feature observation v2: independently sampled actual product state, native lifecycle counters, owned resources and original artifact references; no verdicts."
     },
+    "feature.chat.terminal": {
+      "operation": "feature.chat.terminal",
+      "result": "Opt-in iOS process-end retirement v1: original held native resources, paired live restoration seal, independent old-PID quiet, SDK deletion and immutable archives; separate from live v16 observations."
+    },
     "feature.create.act": {
       "operation": "feature.create.act",
       "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
@@ -168,6 +188,10 @@
     "feature.create.observe": {
       "operation": "feature.create.observe",
       "result": "Feature observation v2: independently sampled actual product state, native lifecycle counters, owned resources and original artifact references; no verdicts."
+    },
+    "feature.create.terminal": {
+      "operation": "feature.create.terminal",
+      "result": "Opt-in iOS process-end retirement v1: original held native resources, paired live restoration seal, independent old-PID quiet, SDK deletion and immutable archives; separate from live v16 observations."
     },
     "feature.emotes.act": {
       "operation": "feature.emotes.act",
@@ -181,6 +205,10 @@
       "operation": "feature.emotes.observe",
       "result": "Feature observation v2: independently sampled actual product state, native lifecycle counters, owned resources and original artifact references; no verdicts."
     },
+    "feature.emotes.terminal": {
+      "operation": "feature.emotes.terminal",
+      "result": "Opt-in iOS process-end retirement v1: original held native resources, paired live restoration seal, independent old-PID quiet, SDK deletion and immutable archives; separate from live v16 observations."
+    },
     "feature.graphics.act": {
       "operation": "feature.graphics.act",
       "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
@@ -192,6 +220,10 @@
     "feature.graphics.observe": {
       "operation": "feature.graphics.observe",
       "result": "Feature observation v2: independently sampled actual product state, native lifecycle counters, owned resources and original artifact references; no verdicts."
+    },
+    "feature.graphics.terminal": {
+      "operation": "feature.graphics.terminal",
+      "result": "Opt-in iOS process-end retirement v1: original held native resources, paired live restoration seal, independent old-PID quiet, SDK deletion and immutable archives; separate from live v16 observations."
     },
     "feature.lifecycle-input.act": {
       "operation": "feature.lifecycle-input.act",
@@ -205,6 +237,10 @@
       "operation": "feature.lifecycle-input.observe",
       "result": "Feature observation v2: independently sampled actual product state, native lifecycle counters, owned resources and original artifact references; no verdicts."
     },
+    "feature.lifecycle-input.terminal": {
+      "operation": "feature.lifecycle-input.terminal",
+      "result": "Opt-in iOS process-end retirement v1: original held native resources, paired live restoration seal, independent old-PID quiet, SDK deletion and immutable archives; separate from live v16 observations."
+    },
     "feature.scripts.act": {
       "operation": "feature.scripts.act",
       "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
@@ -216,6 +252,10 @@
     "feature.scripts.observe": {
       "operation": "feature.scripts.observe",
       "result": "Feature observation v2: independently sampled actual product state, native lifecycle counters, owned resources and original artifact references; no verdicts."
+    },
+    "feature.scripts.terminal": {
+      "operation": "feature.scripts.terminal",
+      "result": "Opt-in iOS process-end retirement v1: original held native resources, paired live restoration seal, independent old-PID quiet, SDK deletion and immutable archives; separate from live v16 observations."
     },
     "feature.snapshots.act": {
       "operation": "feature.snapshots.act",
@@ -229,6 +269,10 @@
       "operation": "feature.snapshots.observe",
       "result": "Feature observation v2: independently sampled actual product state, native lifecycle counters, owned resources and original artifact references; no verdicts."
     },
+    "feature.snapshots.terminal": {
+      "operation": "feature.snapshots.terminal",
+      "result": "Opt-in iOS process-end retirement v1: original held native resources, paired live restoration seal, independent old-PID quiet, SDK deletion and immutable archives; separate from live v16 observations."
+    },
     "feature.tablet-web.act": {
       "operation": "feature.tablet-web.act",
       "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
@@ -240,6 +284,10 @@
     "feature.tablet-web.observe": {
       "operation": "feature.tablet-web.observe",
       "result": "Feature observation v2: independently sampled actual product state, native lifecycle counters, owned resources and original artifact references; no verdicts."
+    },
+    "feature.tablet-web.terminal": {
+      "operation": "feature.tablet-web.terminal",
+      "result": "Opt-in iOS process-end retirement v1: original held native resources, paired live restoration seal, independent old-PID quiet, SDK deletion and immutable archives; separate from live v16 observations."
     },
     "feature.world-navigation.act": {
       "operation": "feature.world-navigation.act",
@@ -253,6 +301,10 @@
       "operation": "feature.world-navigation.observe",
       "result": "Feature observation v2: independently sampled actual product state, native lifecycle counters, owned resources and original artifact references; no verdicts."
     },
+    "feature.world-navigation.terminal": {
+      "operation": "feature.world-navigation.terminal",
+      "result": "Opt-in iOS process-end retirement v1: original held native resources, paired live restoration seal, independent old-PID quiet, SDK deletion and immutable archives; separate from live v16 observations."
+    },
     "feature.world-web.act": {
       "operation": "feature.world-web.act",
       "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
@@ -264,6 +316,10 @@
     "feature.world-web.observe": {
       "operation": "feature.world-web.observe",
       "result": "Feature observation v2: independently sampled actual product state, native lifecycle counters, owned resources and original artifact references; no verdicts."
+    },
+    "feature.world-web.terminal": {
+      "operation": "feature.world-web.terminal",
+      "result": "Opt-in iOS process-end retirement v1: original held native resources, paired live restoration seal, independent old-PID quiet, SDK deletion and immutable archives; separate from live v16 observations."
     },
     "input.fly": {
       "operation": "input.fly",
