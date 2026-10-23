@@ -9,9 +9,10 @@ from copy import deepcopy
 import json
 import re
 from adapters.native_feature_observation import exact,fresh,integer,need
-from ios.adapters import tablet_web_source as native,uikit_input
+from ios.adapters import tablet_web_source as native,uikit_input,tablet_web_presentation
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 ACTION='feature-ios-tablet-web-state'
 FILE=ACTION+'.json'
 LIMIT=2097152
@@ -24,9 +25,11 @@ def command(value):
 
 
 def validate(value,query,pid,epoch=None,previous=None):
-    command(query);exact(value,{'iosTabletWebStateVersion','commandId','runId','fixtureUrl','instance','sequence','processId','clockDomain',
+    command(query);need(type(value) is dict);version=value.get('iosTabletWebStateVersion')
+    need(type(version) is int and version in READS)
+    exact(value,({'presentations'} if version>=2 else set())|{'iosTabletWebStateVersion','commandId','runId','fixtureUrl','instance','sequence','processId','clockDomain',
         'clockBefore','clockAfter','complete','uikitInstance','otherLiveTablets','owners','targets'})
-    need(type(value['iosTabletWebStateVersion']) is int and value['iosTabletWebStateVersion']==VERSION
+    need(type(value['iosTabletWebStateVersion']) is int and value['iosTabletWebStateVersion'] in READS
         and all(value[key]==query[key] for key in ('commandId','runId','fixtureUrl')) and integer(pid,1)
         and type(value['processId']) is int and value['processId']==pid and integer(value['sequence'],1)
         and value['clockDomain']=='native-main-ios-tablet-web-state' and type(value['complete']) is bool
@@ -36,11 +39,13 @@ def validate(value,query,pid,epoch=None,previous=None):
     need(max(b['epochMs']-a['epochMs'],b['monotonicMs']-a['monotonicMs'])<1500)
     if epoch is not None:fresh(b['epochMs'],epoch)
     need(type(value['owners']) is list and len(value['owners'])<=1024 and type(value['targets']) is list and len(value['targets'])<=1024)
-    ids=set();handles=set()
+    ids=set();handles=set();associations=set();physical={};current_sources=set()
     for row in value['owners']:
         exact(row,{'id','handle','source','firstObserved','expired','alive','current'});native.sources.identifier(row['id'])
         need(row['id'] not in ids and type(row['handle']) is str and re.fullmatch('[1-9][0-9]{0,18}',row['handle'])
-            and row['handle'] not in handles and type(row['alive']) is bool);ids.add(row['id']);handles.add(row['handle'])
+            and (version>=2 or row['handle'] not in handles) and type(row['alive']) is bool);ids.add(row['id']);handles.add(row['handle'])
+        association=(row['handle'],json.dumps(row['source'],sort_keys=True,separators=(',',':')))
+        need(association not in associations);associations.add(association)
         native.source_reference(row['source'],dict(query,action=native.ACTION));native.sources.stamp(row['firstObserved'],b)
         if row['expired'] is not None:native.sources.stamp(row['expired'],b,row['firstObserved']);need(not row['alive'])
         else:need(row['alive'])
@@ -49,6 +54,14 @@ def validate(value,query,pid,epoch=None,previous=None):
         else:
             need(row['alive']);exact(current,FLAGS|{'generation'});need(integer(current['generation']) and all(type(current[key]) is bool for key in FLAGS))
             if current['cleanupFailed']:need(not value['complete'])
+        if version>=2:
+            # Logical SourceStamp rows share the actual physical QObject state.
+            # Only sourceCurrent differs; a retired stamp does not fake zeros.
+            actual=(row['alive'],None if current is None else {k:v for k,v in current.items() if k!='sourceCurrent'})
+            if row['handle'] in physical:need(actual==physical[row['handle']])
+            physical[row['handle']]=actual
+            if current is not None and current['sourceCurrent']:
+                need(row['handle'] not in current_sources);current_sources.add(row['handle'])
     ids=set()
     for row in value['targets']:
         exact(row,{'source','kind','alive','windowAttached','superviewPresent','subtreeResponder'})
@@ -59,8 +72,23 @@ def validate(value,query,pid,epoch=None,previous=None):
         if row['kind']=='wk':uikit_input._identity(target['identity']);need(target['identity']['source']['fixtureUrl']==query['fixtureUrl'])
         else:uikit_input.qt_control(target['qtControl']);need(target['qtControl']['fixtureUrl']==query['fixtureUrl'] and target['qtControl']['featureRun']==query['runId'])
         if not row['alive']:need(not any(row[key] for key in ('windowAttached','superviewPresent','subtreeResponder')))
+    if version>=2:
+        need(type(value['presentations']) is list and len(value['presentations'])<=128);shown=set()
+        for row in value['presentations']:
+            exact(row,{'owner','handle','source','generation','snapshot','target'})
+            matches=[owner for owner in value['owners'] if owner['id']==row['owner']];need(len(matches)==1);owner=matches[0]
+            need(owner['alive'] and owner['current'] is not None and owner['current']['sourceCurrent']
+                and row['handle']==owner['handle'] and row['source']==owner['source'] and row['handle'] not in shown
+                and integer(row['generation'],1) and row['generation']==owner['current']['generation']
+                and all(owner['current'][key] for key in ('active','viewPresent','presentationPresent','presentationAttached','windowPresent')))
+            shown.add(row['handle']);tablet_web_presentation.current(row['snapshot'])
+            targets=[target for target in value['targets'] if target['kind']=='wk' and target['source']['view']==row['target']]
+            need(len(targets)==1);target=targets[0];identity=target['source']['identity']
+            need(target['alive'] and target['windowAttached'] and identity['source']==row['source']
+                and identity['handle']==row['handle'] and identity['grant']==row['generation'])
     if previous is not None:
         validate(previous,dict(query,commandId=previous['commandId']),pid)
+        need(version>=previous['iosTabletWebStateVersion'])
         need(all(value[key]==previous[key] for key in ('instance','uikitInstance','processId')) and value['sequence']>previous['sequence']
             and value['commandId']!=previous['commandId'] and (previous['complete'] or not value['complete']))
         native.sources.stamp(a,floor=previous['clockAfter'])
@@ -92,6 +120,18 @@ def join(value,sources,transcript,inputs):
     owned=[row for row in inputs['targets'] if uikit_input._owned(row,inputs)]
     need([row['source'] for row in value['targets']]==owned)
     return deepcopy(value)
+
+
+def current_presentation(value,source,*,handle=None):
+    """Select actual UIKit presentation without claiming a finished JS document.
+
+    The caller must retain and qualify its original source association and
+    ordinary toolbar target; this selection grants no independent input power.
+    """
+    original(value);need(value['iosTabletWebStateVersion']>=2 and value['complete'] and value['otherLiveTablets']==0)
+    native.source_reference(source,dict(schemaVersion=1,action=native.ACTION,commandId=value['commandId'],runId=value['runId'],fixtureUrl=value['fixtureUrl']))
+    rows=[row for row in value['presentations'] if row['source']==source and (handle is None or row['handle']==handle)]
+    need(len(rows)==1);return deepcopy(rows[0])
 
 
 def closed(value,sources,transcript,inputs,*,require_observed=True):

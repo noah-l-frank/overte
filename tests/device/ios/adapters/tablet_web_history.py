@@ -41,7 +41,12 @@ def _live(frame,document):
     need(len(owners)==1);actual=owners[0]['current'];need(actual is not None and actual['generation']==view['grant'])
     for key in ('active','viewPresent','presentationPresent','presentationAttached','windowPresent','sourceCurrent'):need(actual[key])
     need(not any(actual[key] for key in ('cleanupFailed','loading','openTimerActive','deadlineActive','resumeOnForeground')))
-    targets=[row for row in packet['targets'] if row['kind']=='wk' and row['source']['view']==document['source']['presentationAfter']['view']]
+    if packet['iosTabletWebStateVersion']>=2:
+        shown=state.current_presentation(packet,view['source'],handle=view['handle'])
+        need(shown['generation']==view['grant'] and shown['snapshot']['view']==document['source']['presentationAfter']['view'])
+        target_id=shown['target']
+    else:target_id=document['source']['presentationAfter']['view']  # Literal legacy v1 grammar.
+    targets=[row for row in packet['targets'] if row['kind']=='wk' and row['source']['view']==target_id]
     need(len(targets)==1 and targets[0]['alive'] and targets[0]['windowAttached'])
 
 

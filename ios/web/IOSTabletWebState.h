@@ -29,13 +29,19 @@ inline QVariantMap clock(State& actual) {
     actual.epoch=epoch;actual.mono=mono;return {{"epochMs",epoch},{"monotonicMs",mono}};
 }
 // Registration is an observation of an existing native object and its actual
-// historical SourceStamp. The read query cannot introduce a source association.
+// historical SourceStamp. Each source association is immutable; multiple
+// observations can share the same actual weak QObject. Neither firstObserved
+// nor sourceCurrent=false is an allocation birth or weak expiry. The read
+// query cannot introduce a source association.
 inline void observed(QObject* object,const QVariantMap& identity) {
     const auto fixture=tablet_web_trace::rootFor(identity);if (!object || fixture.isEmpty()) {return;}
-    auto& actual=state();for (const auto& row:actual.owners) {if (row->object==object && row->fixture==fixture) {return;}}
+    const auto source=identity.value("source").toMap();
+    auto& actual=state();for (const auto& row:actual.owners) {
+        if (row->object==object && row->fixture==fixture && QJsonObject::fromVariantMap(row->source)==QJsonObject::fromVariantMap(source)) {return;}
+    }
     if (actual.owners.size()>=1024) {actual.complete=false;return;}
     auto row=std::make_shared<Owner>();row->id=world_web_trace::nonce();row->handle=identity.value("handle").toString();row->fixture=fixture;
-    row->source=identity.value("source").toMap();row->object=object;row->firstObserved=clock(actual);actual.owners.push_back(row);
+    row->source=source;row->object=object;row->firstObserved=clock(actual);actual.owners.push_back(row);
 }
 } // namespace overte::ios::tablet_web_state
 Q_DECLARE_METATYPE(overte::ios::tablet_web_state::Provider)

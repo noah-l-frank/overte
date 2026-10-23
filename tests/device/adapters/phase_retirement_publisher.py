@@ -17,10 +17,10 @@ from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier, result, state as feature_state
 from feature_journeys.phase_fixture import PhaseFixtureReader, validate as phase_packet
 from feature_journeys.scenarios import SCENARIOS
-from feature_journeys.retirement_receipts import body as retirement_body,binding_from_context,digest as retirement_digest,summary as retirement_summary,stage as retirement_stage,SCENE_STAGE,SCENE_STAGES,WEB_SCENE_STAGE,WEB_SCENE_AREAS
+from feature_journeys.retirement_receipts import body as retirement_body,binding_from_context,digest as retirement_digest,summary as retirement_summary,stage as retirement_stage,SCENE_STAGE,SCENE_STAGES,WEB_SCENE_STAGE,WEB_SCENE_AREAS,AVATAR_SCOPED_STAGE
 
 VERSION = 2
-READS = (1,2,3)
+READS = (1,2,3,4)
 
 
 class PublicationPending(NativeUIError):
@@ -46,8 +46,9 @@ class PhaseRetirementPublisher:
              and all(callable(fn) for fn in (guard, validate_original, epoch_ms, monotonic)))
         self.store, self.binding, self.phase, self.lock = store, deepcopy(context(binding)), phase, lock
         self.run, self.area, self.url = phase.run, phase.area, phase.client.url
-        need(stage is None or stage==WEB_SCENE_STAGE and self.area in WEB_SCENE_AREAS)
-        self.stage=stage;self._body_version=3 if stage==WEB_SCENE_STAGE else VERSION
+        need(stage is None or stage==WEB_SCENE_STAGE and self.area in WEB_SCENE_AREAS
+            or stage==AVATAR_SCOPED_STAGE and self.area=='avatar-people')
+        self.stage=stage;self._body_version=4 if stage==AVATAR_SCOPED_STAGE else 3 if stage==WEB_SCENE_STAGE else VERSION
         self.instance = identifier(phase.previous['instance'])
         phase_packet(phase.previous, run=self.run, area=self.area,
                      request=phase.previous['requestId'], epoch=phase.previous['capturedEpochMs'])
@@ -96,7 +97,8 @@ class PhaseRetirementPublisher:
         need(type(derived) is dict);is_scene='scene' in derived
         exact(derived, {'ticket', 'scene' if is_scene else 'public', 'acquisition', 'retirement'}); identifier(derived['ticket'])
         if is_scene:
-            need(version==2 and self.area=='avatar-people' or version==3 and self.area in WEB_SCENE_AREAS);public=derived['scene']
+            need(version==2 and self.area=='avatar-people' or version==3 and self.area in WEB_SCENE_AREAS
+                or version==4 and self.area=='avatar-people');public=derived['scene']
         else:public=result('feature.'+self.area+'.observe',derived['public'])
         need(public['runId']==self.run)
         clock=self.acquisition(derived['acquisition'])
@@ -105,7 +107,7 @@ class PhaseRetirementPublisher:
         body=dict(phaseRetirementVersion=version,runId=self.run,area=self.area,phaseInstance=self.instance,
             ticket=derived['ticket'],role='actor',actorSequence=public['sequence'],binding=binding_from_context(self.binding),
             originalSha256=retirement['originalSha256'],acquisition=clock,quiet=retirement['quiet'],provenance=retirement['provenance'])
-        if version>=2:body['stage']=(WEB_SCENE_STAGE if version==3 else SCENE_STAGE) if is_scene else 'complete'
+        if version>=2:body['stage']=(AVATAR_SCOPED_STAGE if version==4 else WEB_SCENE_STAGE if version==3 else SCENE_STAGE) if is_scene else 'complete'
         if is_scene:body['scene']=deepcopy(public)
         else:body['cleanup']={key:public[key] for key in ('schemaVersion','contractVersion','runId','sequence','capturedEpochMs','resources','lifecycle')}
         retirement_body(body,run=self.run,area=self.area,phase_instance=self.instance)

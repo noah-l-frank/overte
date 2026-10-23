@@ -42,9 +42,9 @@ class TabletWebStateNativeTests(unittest.TestCase):
         header=(ROOT/'ios/web/IOSTabletWebState.h').read_text()
         self.assertIn('QPointer<QObject> object',header)
         observed=header.split('inline void observed(',1)[1]
-        self.assertLess(observed.index('row->object==object && row->fixture==fixture'),observed.index('row->source=identity.value("source")'))
+        self.assertLess(observed.index('row->object==object && row->fixture==fixture'),observed.index('row->source=source'))
         self.assertIn('if (!owner->object && owner->expired.isEmpty())',self.body)
-        self.assertIn('owner->object?currents.value(owner->handle):QVariant()',self.body)
+        self.assertIn('current.isEmpty()?QVariant():QVariant(current)',self.body)
         self.assertIn('"source",owner->source',self.body)
 
 

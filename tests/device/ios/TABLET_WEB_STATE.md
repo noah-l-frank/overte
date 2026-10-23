@@ -10,10 +10,13 @@ The actual existing IOSWebView registry is copied as QPointers. Only a genuine
 historical native SourceStamp associates an owner with a fixture. Each selected
 owner keeps its original handle, source reference and first-observed clock.
 This is an observed weak identity, not a claim about constructor time. The
-first source association is never reassigned or retimed when the same QObject
-later navigates or changes fixture; current document/navigation authority remains
-in the separate Sources/DOM/native transcript originals. Per-fixture rows keep
-the old original, and another fixture's live Tablet prevents closed admission.
+source association is never reassigned or retimed when the same QObject
+later navigates or changes fixture. Version 2 preserves a separate row for each
+actual QObject/SourceStamp pair. These logical observations share actual weak
+QObject lifetime and physical flags; only exact-stamp `sourceCurrent` differs.
+A retired stamp never invents physical absence or a new QObject allocation.
+Current document/navigation authority remains in the separate Sources/DOM/native
+transcript originals; another fixture's live Tablet prevents closed admission.
 
 A snapshot reads actual active/generation, private view/presentation/window,
 presentation attachment, current loading/input/image, open/deadline timer,
@@ -27,7 +30,14 @@ The existing UIKit input producer supplies separate actual zeroing weak WK and
 ordinary app-button targets. This query reads those actual objects' window and
 superview attachment and bounded actual descendant first-responder state. It
 retains no UI object over the query. Full original target associations and the
-UIKit source instance remain unchanged. There are no input values, coordinates,
+UIKit source instance remain unchanged. Version 2 additionally exposes an independent synchronous UIKit presentation
+snapshot for a genuinely current stamped owner. This includes original native
+geometry and current scene/window/controller authority, even while JS is not
+ready. The snapshot never claims DOM readiness or response success. Its explicit
+`target` is selected from the existing weak UIKit target by actual view pointer
+equality. UIKit-input IDs and presentation IDs are separate opaque identities;
+the reader joins this actual association instead of comparing unrelated UUIDs.
+No UIKit object is retained by this metadata. There are no input values,
 descriptions, private URLs or requested resource outcomes. Other live native
 Tablets are counted without exposing their addresses. Missing/changed hooks,
 an incomplete responder walk, overflow or clock discontinuity cannot become an empty result.
@@ -41,8 +51,13 @@ originals. A cached UIView may remain alive with a detached superview; that is
 kept as actual held responsibility. This helper proves no zeroing-weak resource
 retirement, callback drainage, final process death or image restoration.
 
-Action `feature-ios-tablet-web-state` and source version 1 have a closed query
-and 2 MiB packet bound. Every issued read nonce is handled by the existing probe
+Action `feature-ios-tablet-web-state` has an unchanged closed query
+and 2 MiB packet bound. The writer is version 2; literal version 1 remains
+readable with its original grammar and historical qualifications. Version 1
+cannot authorize the new native-only presentation route. `current_presentation`
+requires version 2, the exact actual source association and one matching current
+native target; ordinary input still separately retains its real toolbar lookup,
+geometry, native clock and durable once-only request intent. Every issued read nonce is handled by the existing probe
 once. The private original file is read through the existing AFC transport with
 the distinct original native clock bracket. Missing native implementation is
 unavailable, never an empty detached inventory. Whole-area ownership must still

@@ -1514,14 +1514,16 @@ QVariantMap IOSWebView::featureTabletWebStateObservation(const QVariantMap& comm
     auto& actual=tablet_web_state::state();const auto before=tablet_web_state::clock(actual);const auto fixture=command.value("fixtureUrl").toString();
     QList<QPointer<IOSWebView>> registry;
     {QMutexLocker guard(&featureRegistryMutex);if (featureRegistry.size()>128) {actual.complete=false;return {};}registry=featureRegistry.values();}
-    QVariantMap currents;QVariantList owners,targets;auto& inputs=uikit_input::state();quint64 otherLiveTablets=0;
+    QVariantMap currents,currentSources,currentPresentations;QVariantList owners,targets,presentations;
+    auto& inputs=uikit_input::state();quint64 otherLiveTablets=0;
     @try {
         for (const auto& owner:registry) {
             if (!owner) {continue;}
             tablet_web_state::observed(owner.data(),owner->featureBrowserIdentity(true));
+            const auto identity=owner->featureBrowserIdentity();
             auto& data=*owner->_private;
             if (data.cleanupFailed) {actual.complete=false;}
-            if (data.policy.surface()==web::Surface::Tablet && tablet_web_trace::rootFor(owner->featureBrowserIdentity())!=fixture
+            if (data.policy.surface()==web::Surface::Tablet && tablet_web_trace::rootFor(identity)!=fixture
                     && (data.generation || data.view || data.presentation || data.openTimer.isActive() || data.deadline.isActive() || !data.image.isNull())) {++otherLiveTablets;}
             QVariantMap current{{"active",owner->active()},{"generation",static_cast<qulonglong>(data.generation)},
                 {"viewPresent",static_cast<bool>(data.view!=nil)},{"presentationPresent",static_cast<bool>(data.presentation!=nil)},
@@ -1529,16 +1531,40 @@ QVariantMap IOSWebView::featureTabletWebStateObservation(const QVariantMap& comm
                 {"windowPresent",static_cast<bool>(data.window!=nil)},{"cleanupFailed",data.cleanupFailed},
                 {"imagePresent",!data.image.isNull()},{"inputActive",data.inputActive},{"loading",owner->loading()},
                 {"openTimerActive",data.openTimer.isActive()},{"deadlineActive",data.deadline.isActive()},{"resumeOnForeground",data.resumeOnForeground},
-                {"sourceCurrent",tablet_web_trace::rootFor(owner->featureBrowserIdentity())==fixture}};
-            currents.insert(QString::number(data.featureHandle),current);
+                {"sourceCurrent",tablet_web_trace::rootFor(identity)==fixture}};
+            const auto handle=QString::number(data.featureHandle);currents.insert(handle,current);
+            currentSources.insert(handle,identity.value("source"));
+            // Independent synchronous UIKit geometry is available while a
+            // genuine stamped page is loading. This is not a JS/DOM read.
+            if (current.value("sourceCurrent").toBool() && data.generation) {
+                const auto snapshot=tablet_web_presentation::observe(data.view,data.window,data.presentation,data.presenter);
+                if (tablet_web_presentation::current(snapshot)) {
+                    QString targetId;for (const auto& target:inputs.targets) {
+                        if (target.control.isEmpty() && target.view==data.view) {
+                            if (!targetId.isEmpty()) {actual.complete=false;}targetId=target.object;
+                        }
+                    }
+                    if (!targetId.isEmpty()) {currentPresentations.insert(handle,QVariantMap{{"snapshot",snapshot},{"target",targetId}});}
+                }
+            }
         }
         for (const auto& owner:actual.owners) {
             if (!owner->object && owner->expired.isEmpty()) {owner->expired=tablet_web_state::clock(actual);}
             if (owner->fixture!=fixture) {continue;}
             if (owner->object && !currents.contains(owner->handle)) {actual.complete=false;}
+            auto current=owner->object?currents.value(owner->handle).toMap():QVariantMap{};
+            if (!current.isEmpty()) {
+                current["sourceCurrent"]=current.value("sourceCurrent").toBool()
+                    && QJsonObject::fromVariantMap(currentSources.value(owner->handle).toMap())==QJsonObject::fromVariantMap(owner->source);
+                if (current.value("sourceCurrent").toBool() && currentPresentations.contains(owner->handle)) {
+                    presentations.push_back(QVariantMap{{"owner",owner->id},{"handle",owner->handle},{"source",owner->source},
+                        {"generation",current.value("generation")},{"snapshot",currentPresentations.value(owner->handle).toMap().value("snapshot")},
+                        {"target",currentPresentations.value(owner->handle).toMap().value("target")}});
+                }
+            }
             owners.push_back(QVariantMap{{"id",owner->id},{"handle",owner->handle},{"source",owner->source},{"firstObserved",owner->firstObserved},
                 {"expired",owner->expired.isEmpty()?QVariant():QVariant(owner->expired)},{"alive",!owner->object.isNull()},
-                {"current",owner->object?currents.value(owner->handle):QVariant()}});
+                {"current",current.isEmpty()?QVariant():QVariant(current)}});
         }
         // Read the actual zeroing weak targets, not private strong references
         // already cleared by tearDown. An ended/cached attached view remains
@@ -1563,11 +1589,12 @@ QVariantMap IOSWebView::featureTabletWebStateObservation(const QVariantMap& comm
     } @catch (NSException*) {actual.complete=false;return {};}
     if (actual.sequence>=9007199254740991ULL) {actual.complete=false;return {};}
     if (!inputs.complete || !inputs.installed || !uikit_input::methodUnchanged()) {actual.complete=false;}
-    QVariantMap packet{{"iosTabletWebStateVersion",1},{"commandId",command.value("commandId")},{"runId",command.value("runId")},
+    QVariantMap packet{{"iosTabletWebStateVersion",2},{"commandId",command.value("commandId")},{"runId",command.value("runId")},
         {"fixtureUrl",fixture},{"instance",actual.instance},{"sequence",static_cast<qulonglong>(++actual.sequence)},{"processId",QCoreApplication::applicationPid()},
         {"clockDomain","native-main-ios-tablet-web-state"},{"clockBefore",before},{"clockAfter",tablet_web_state::clock(actual)},
         {"complete",actual.complete},
-        {"uikitInstance",inputs.instance},{"otherLiveTablets",static_cast<qulonglong>(otherLiveTablets)},{"owners",owners},{"targets",targets}};
+        {"uikitInstance",inputs.instance},{"otherLiveTablets",static_cast<qulonglong>(otherLiveTablets)},{"owners",owners},{"targets",targets},
+        {"presentations",presentations}};
     if (QJsonDocument(QJsonObject::fromVariantMap(packet)).toJson(QJsonDocument::Compact).size()>2097152) {actual.complete=false;return {};}return packet;
 }
 
