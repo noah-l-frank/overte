@@ -19,6 +19,7 @@ from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
 from adapters.host_process_identity import host_identity
 from adapters.native_feature_observation import exact,integer,need
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.native_fd_owner import OriginalDescriptor
 from adapters.script_journey.history import canonical,same
 from fixture.chat_observer_process import LinuxChatObserverProcess
 
@@ -35,12 +36,17 @@ def parent_node(store):
 
 
 def raw_file(store):
-    store._parent();descriptor=os.open(store.path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
+    store._parent();owner=OriginalDescriptor(store.path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
+    descriptor=owner.fd
     try:
         info=os.fstat(descriptor);private(info);physical=stamp(info);raw=os.pread(descriptor,65537,0)
+        owner.require(descriptor)
         need(len(raw)==info.st_size and stamp(os.fstat(descriptor))==physical==stamp(store.path.lstat()))
-        store._parent();return raw,physical
-    finally:os.close(descriptor)
+        store._parent();owner.require(descriptor);return raw,physical
+    finally:
+        # A same-file recycled number is not this read's original OFD.
+        # Keep both uncertain halves for actual host process finalization.
+        need(OriginalDescriptor.close(owner) is True)
 
 
 def state(store):

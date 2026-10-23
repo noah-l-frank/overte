@@ -35,6 +35,26 @@ sender=ObserverReturnSender(PrivateFeatureState(root/'return.json'),PrivateFeatu
 sender.publish();print('ready',flush=True)
 for line in sys.stdin:
     if line.strip()=='consume':sender.consume();print('consumed',flush=True)
+    elif line.strip()=='fd-counter':
+        import os,fcntl
+        from unittest.mock import patch
+        from adapters import observer_return as original
+        from adapters.native_fd_owner import OriginalDescriptor,QUERY
+        from adapters.normal_ui import NativeUIError
+        foreign=OriginalDescriptor(source.path,os.O_RDONLY|os.O_CLOEXEC)
+        pread=os.pread;replaced=[]
+        def swap(descriptor,size,offset):
+            raw=pread(descriptor,size,offset)
+            if not replaced:os.dup2(foreign.fd,descriptor,inheritable=False);replaced.append(descriptor)
+            return raw
+        refused=False
+        with patch.object(os,'pread',side_effect=swap):
+            try:original.raw_file(source)
+            except NativeUIError:refused=True
+        try:retained=fcntl.fcntl(replaced[0],QUERY,foreign.anchor)==1
+        except OSError:retained=False
+        foreign.require(foreign.fd);foreign.close()
+        print(('refused' if refused else 'accepted')+':'+('retained' if retained else 'closed'),flush=True)
     elif line.strip()=='exit':break
     else:raise ValueError('No other fixture action')
 '''
@@ -91,6 +111,13 @@ class ObserverReturnTests(unittest.TestCase):
         return ObserverReturnReceiver(self.owner,self.store,self.ack,self.expected,admit=admit)
 
     def exit(self):self.command('exit');self.worker.wait(timeout=5)
+
+    def test_same_file_recycled_literal_read_fd_is_refused_without_closing_foreign_description(self):
+        # The worker retains the uncertain original half until actual process
+        # finalization. This host never closes the worker's foreign descriptor.
+        self.command('fd-counter','refused:retained');self.exit()
+        self.assertEqual('ESRCH',self.owner.require_absent()['errorSymbol'])
+        self.assertTrue(self.store.path.exists());self.assertIsNone(self.ack.read())
 
     def test_original_bytes_nonce_echo_and_actual_reaped_kernel_absence(self):
         receiver=self.acquire();self.assertEqual(self.payload,receiver.raw)
