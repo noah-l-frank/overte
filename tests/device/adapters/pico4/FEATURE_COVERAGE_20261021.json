@@ -1277,7 +1277,13 @@
         "tests/device/adapters/pico4/snapshot_close_owner.py",
         "tests/device/adapters/pico4/SNAPSHOT_CLOSE_OWNER.md",
         "tests/device/adapters/pico4/snapshot_close_statuses.py",
-        "android/vr/pico/tests/device/test_snapshot_close_statuses.py"
+        "android/vr/pico/tests/device/test_snapshot_close_statuses.py",
+        "tests/device/adapters/pico4/snapshot_settings_originals.py",
+        "tests/device/adapters/pico4/snapshot_settings_baseline.py",
+        "tests/device/adapters/pico4/SNAPSHOT_SETTINGS_BASELINE.md",
+        "tests/device/native/SnapshotSettingsOriginals.h",
+        "tests/device/contracts/snapshot/test_snapshot_settings_native.py",
+        "android/vr/pico/tests/device/test_snapshot_settings_baseline.py"
       ],
       "declaredCheckpoints": 18,
       "inputVerbs": [
@@ -1327,7 +1333,7 @@
         "Delete only actual owned private/saved/received/uploaded originals",
         "Restore permissions/preferences and observe quiet absent leases"
       ],
-      "nextExecutableStep": "Implement passive original13-key settings/handle-cache lease for NEW runs before first input, then independent scene/Actor/panorama/cubemap and whole story/Qt/Executor/marker/archive retirement. Corrected Close2 normal checked Mode/Format restore/controller Close/recovery/status/legacy/capacity/fences all pass Root5/200groups257.11s with unchanged3s/500ms/120s bounds. Actual status transition epoch remains constant; no setter/maybeInit/retrospective baseline or whole-feature/device qualification.",
+      "nextExecutableStep": "Observe original13-key raw/cache state after normal Mode/Format/controller Close and bind exact unchanged original settings or document the specific presence/value restoration boundary without setters or retroactive baseline. New Parent3 baseline6cases pass26.716s and integrated native/reader5cases2.769s; original Avatar hook dependency is compiled. Independent scene/Actor/panorama/cubemap and whole story/Qt/Executor/marker/archive/host retirement remain open.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

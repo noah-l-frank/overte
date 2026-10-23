@@ -3348,5 +3348,28 @@
       "cause": "Fixture counted pure host-monotonic RPCs as forbidden product observations; assertion now permits only host clock and still rejects every candidate/native/epoch/source query after export."
     },
     "qualification": "Existing production Browser observer loop and return binding with actual independent process/OFD/files/HTTP; original producers remain explicit analytical seams. Existing Chat common hook/Stop2/extra-tail/original typed return/primary seal join preserves actual false sequence flag in direct diagnostic; no successful whole recipe, archive/host closure, APK or device qualification."
+  },
+  "snapshotPassiveBaselineIntegration20261023": {
+    "status": "passed-after-native-dependency-and-coverage-repair",
+    "catalog": 208,
+    "sourceCommit": "cf055eb3fa4871a7dd01d8ac2380d652c8a2a0a9",
+    "integrationCommit": "e3e01c4b8f",
+    "harnessDependencyFix": "e2ad4f09aa",
+    "checks": {
+      "baselineSixCasesSeconds": 26.716,
+      "nativeAndReaderFiveCasesSeconds": 2.769,
+      "coverageSeconds": 0.092
+    },
+    "earlierIntegration": {
+      "groups": 3,
+      "passed": 1,
+      "failed": 2,
+      "seconds": 28.76,
+      "failures": [
+        "New selector IDs were not added to coverage during additive conflict resolution",
+        "Complete integrated Handle required original AvatarPreferenceMutation constructor/destructor in the explicit host harness"
+      ]
+    },
+    "qualification": "Actual passive13-key Manager entries, Handle state/births, TSI dispatch and other-platform getter compiled; original Avatar mutation constructor/default destructor included, DI/storage/writer/UI remain seams. New Parent3 binds original SHA before first normal controller envelope; no retrospective old-run baseline, restore setter, complete story/Qt/Executor/archive/host release, APK or device qualification."
   }
 }

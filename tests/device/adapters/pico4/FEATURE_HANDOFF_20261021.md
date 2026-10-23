@@ -2427,3 +2427,18 @@ a successful whole application/archive recipe. Root5/206groups pass178.72s:
 coverage0.096s, reader/literal12.398s, complete prefix/return/seal39.226s,
 four failure cases81.462s and Browser45.540s. Full successful common-hook/
 application/profile/IPC/archive/host composition remains in progress.
+
+## Passive Snapshot baseline integration
+
+Fixed cf055eb3fa is selected as e3e01c4b8f. New-run Parent3 pins the original
+thirteen raw keys, presence/types, actual Manager/Snapshot birth and existing
+Handle cache before the first normal controller envelope. It calls no lazy
+initializer or setter and does not retrofit an old run. The integrated six
+Baseline cases pass26.716s. The first native integration exposed the complete
+Handle's existing AvatarPreferenceMutation dependency; e2ad4f09aa compiles its
+actual original constructor/default destructor and real barrier in the explicit
+storage/DI harness. Getter/Reader five cases pass2.769s and repaired additive
+coverage0.092s. Both initial integration failures are retained in the report.
+The catalog now has208 groups; complete source areas remain3/14. Post-Close
+original settings comparison and whole story/Qt/Executor/archive/host closure
+remain open; settingsRestored and device qualification remain false.
