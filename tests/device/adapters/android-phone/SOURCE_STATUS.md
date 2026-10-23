@@ -1,5 +1,16 @@
 # Android Phone source coverage
 
+## Combined product and adapter source
+
+The completed manual-parity source is now joined with this adapter branch in
+merge `a434c7f8ce`. The exact 200-file product snapshot is retained as its second
+parent, while existing E2E hooks and the stricter fixture/lease corrections
+remain present. Post-merge compatibility checks, a matching complete E2E debug
+APK and a sequential Jenkins campaign have their own evidence in
+[the integration campaign handoff](INTEGRATED_CAMPAIGN.md). The reviews and
+fourteen-area host matrix below are historical at their stated revisions;
+they do not supply qualification of the combined build or device campaign.
+
 ## Final manual-session delta review
 
 The [final session review](FINAL_SESSION_REVIEW.md) identifies a new Snapshot

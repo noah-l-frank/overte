@@ -1,5 +1,9 @@
 # Android Phone final manual-session review, 2026-10-23
 
+This review records the pre-integration boundary. The subsequent authorized
+[combined-source campaign](INTEGRATED_CAMPAIGN.md) tracks product integration,
+matching build and actual Jenkins results separately.
+
 This is the second read-only review of the completed Android Phone manual-parity session. It continues the first [adapter review](PARITY_FINDINGS_REVIEW.md) from `d75486b78a4d7f5e4fa5fca2ba7f75f1e4e7f8cd`. Source inspection and local host checks do not convert manual results into automated acceptance. The other session's worktree, reports, installed packages and device reservations were not modified.
 
 ## Changes since the first review
