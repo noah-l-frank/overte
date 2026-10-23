@@ -20,6 +20,41 @@ import pr_ci_context as C
 
 
 class ApiRuntimeTests(unittest.TestCase):
+    def bundle_policy(self, root, policy):
+        resolver = root / 'tools/dependency-releases/check.py'
+        resolver.parent.mkdir(parents=True)
+        resolver.write_bytes((ROOT / 'tools/dependency-releases/check.py').read_bytes())
+        path = root / '.github/dependency-releases.json'
+        path.parent.mkdir()
+        path.write_text(json.dumps(policy))
+        return root / 'tools/repository-checks/pr_ci_android.py'
+
+    def test_qt_archive_follows_the_trusted_bundle_policy(self):
+        policy = json.loads((ROOT / '.github/dependency-releases.json').read_text())
+        policy['bundles']['pico']['tag'] = 'pico4-deps-v42'
+        policy['bundles']['pico']['assets']['pico4-qt-conan.tgz'] = 'b' * 64
+        with tempfile.TemporaryDirectory() as scratch:
+            script = self.bundle_policy(Path(scratch), policy)
+            with patch.object(A, '__file__', str(script)):
+                self.assertEqual(A.qt_archive(), (
+                    'https://github.com/noah-l-frank/overte/releases/download/pico4-deps-v42/pico4-qt-conan.tgz',
+                    'b' * 64))
+
+    def test_invalid_bundle_policy_is_rejected_before_downloading(self):
+        for invalid in ('repository', 'checksum'):
+            policy = json.loads((ROOT / '.github/dependency-releases.json').read_text())
+            if invalid == 'repository':
+                policy['repository'] = 'untrusted/repository'
+            else:
+                policy['bundles']['pico']['assets']['pico4-qt-conan.tgz'] = 'invalid'
+            with self.subTest(invalid=invalid), tempfile.TemporaryDirectory() as scratch:
+                script = self.bundle_policy(Path(scratch), policy)
+                with patch.object(A, '__file__', str(script)), \
+                        patch.object(A.urllib.request, 'urlopen') as download:
+                    with self.assertRaises(ValueError):
+                        A.qt_jar()
+                    download.assert_not_called()
+
     def archive(self, members):
         stream = io.BytesIO()
         with tarfile.open(fileobj=stream, mode='w:gz') as archive:
@@ -38,7 +73,8 @@ class ApiRuntimeTests(unittest.TestCase):
         payload = self.archive([('p/Qt/jar/QtAndroid.jar', tarfile.REGTYPE),
                                 ('../../ignored', tarfile.SYMTYPE)])
         with patch.object(A.urllib.request, 'urlopen', return_value=io.BytesIO(payload)), \
-                patch.object(A, 'QT_ARCHIVE_SHA', hashlib.sha256(payload).hexdigest()):
+                patch.object(A, 'qt_archive', return_value=(
+                    'https://example.invalid/qt.tgz', hashlib.sha256(payload).hexdigest())):
             self.assertEqual(A.qt_jar(), b'jar')
 
     def test_changed_archive_missing_duplicate_or_linked_api_is_rejected(self):
@@ -51,7 +87,8 @@ class ApiRuntimeTests(unittest.TestCase):
             payload = self.archive(members)
             with self.subTest(members=members), \
                     patch.object(A.urllib.request, 'urlopen', return_value=io.BytesIO(payload)), \
-                    patch.object(A, 'QT_ARCHIVE_SHA', digest or hashlib.sha256(payload).hexdigest()):
+                    patch.object(A, 'qt_archive', return_value=(
+                        'https://example.invalid/qt.tgz', digest or hashlib.sha256(payload).hexdigest())):
                 with self.assertRaises(ValueError):
                     A.qt_jar()
 
