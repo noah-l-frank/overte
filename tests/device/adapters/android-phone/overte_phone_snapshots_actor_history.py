@@ -17,14 +17,18 @@ from overte_phone_snapshots_role import role_state
 
 
 class SnapshotActorHistoryPass(SnapshotHistoryReadPass):
-    def __init__(self,actor,role,prepared):
+    def __init__(self,actor,role,prepared,*,locked=False):
         f=actor.feature;f.lock.assert_held()
+        need(type(locked) is bool)
         need(actor.read_ready_mode() is not None and f.role==role.role=='actor'
             and f.state['phase']=='cleaned' and f.state['current'] is f.state['handoff'] is None
             and actor.state['phase']=='watching' and actor.state['pending'] is None
             and role.state['phase']=='ready' and role.state['pending'] is None
             and not role.system and not role._host_publication and getattr(f,'_system_scope',None) is None)
         self.actor,self.role,self.feature=actor,role,f
+        self.locked_replay=locked
+        self.replay_lock=f.lock if locked else None
+        self.replay_lock_owner=f.lock._owner if locked else None
         self.prepared=deepcopy(prepared);self.prepared_digest=graph_digest(self.prepared)
         self.stores=(f.store,actor.store,role.store)
         self.paths=tuple(store.path for store in self.stores)
@@ -44,7 +48,11 @@ class SnapshotActorHistoryPass(SnapshotHistoryReadPass):
 
     def _headers(self,*,metadata_only=False):
         f,a,r=self.feature,self.actor,self.role
-        need(type(metadata_only) is bool and (not metadata_only or self.replaying and self.started and f.lock._owner is None)
+        need(type(self.locked_replay) is bool
+            and (self.replay_lock is f.lock and self.replay_lock_owner is not None and f.lock._owner is self.replay_lock_owner
+                if self.locked_replay else self.replay_lock is None and self.replay_lock_owner is None))
+        need(type(metadata_only) is bool and (not metadata_only or self.replaying and self.started
+                and (f.lock._owner is self.replay_lock_owner if self.locked_replay else f.lock._owner is None))
             and not self.closed and os.getpid()==self.process and threading.get_ident()==self.thread
             and (f.store,a.store,r.store)==self.stores and tuple(store.path for store in self.stores)==self.paths
             and f.root==self.root and f.run==self.run and f.role==r.role=='actor'
@@ -57,7 +65,7 @@ class SnapshotActorHistoryPass(SnapshotHistoryReadPass):
             need(same(current,header) and signature(store.path)==pinned)
             # During the complete host replay, every guard still checks the
             # exact owner inode and change metadata. Actual JSON owner reads
-            # bracket that replay and remain mandatory at every locked check.
+            # bracket that replay and remain mandatory at every qualification.
             if not metadata_only:need(same(store.read(),header))
             need(signature(store.path)==pinned)
         return True
@@ -71,13 +79,22 @@ class SnapshotActorHistoryPass(SnapshotHistoryReadPass):
             and tuple(graph_digest(value) for value in (f.state,a.state,r.state))==self.graphs[:3])
         if verify_graph:need(graph_digest(r.frames)==self.graphs[3])
 
+    def _replay_owner(self):
+        """Pure host authority; locked replay never survives its held turn."""
+        if self.locked_replay:
+            need(self.feature.lock is self.replay_lock and self.replay_lock_owner is not None
+                and self.feature.lock._owner is self.replay_lock_owner)
+            self.feature.lock.assert_held()
+        else:need(self.feature.lock._owner is None)
+        return True
+
     def guard(self):
-        need(self.feature.lock._owner is None and self.started)
+        need(self.started and self._replay_owner())
         return self._headers(metadata_only=self.replaying)
 
     def read(self):
         try:
-            need(not self.closed and not self.started and self.feature.lock._owner is None)
+            need(not self.closed and not self.started)
             self.started=True;self.guard();self._memory();self.replaying=True
             try:frames=self.role._restore_historical_originals(self.guard,receipts=self)
             finally:self.replaying=False
