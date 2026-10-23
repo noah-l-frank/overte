@@ -84,6 +84,26 @@ class NativeTests(unittest.TestCase):
         with self.assertRaises(T.TransportError):
             T.validate_jobs(rows,owners,context=context())
 
+    def test_unresolved_skipped_source_policy_name_has_no_execution_authority(self):
+        owners = {name: False for name in T.OWNERS}
+        owners['policy'] = True
+        rows = jobs(owners)
+        next(row for row in rows if row['name'].startswith('CodeQL ('))['name'] = 'CodeQL (${{ matrix.language }})'
+        name = "github.event_name == 'pull_request_target' && 'source-policy' || 'Source policy not applicable'"
+        extra = {'id': 2001, 'run_id': 123, 'run_attempt': 1, 'head_sha': context()['head'],
+                 'name': name, 'status': 'completed', 'conclusion': 'skipped', 'steps': []}
+        rows.append(extra)
+        self.assertTrue(T.validate_jobs(rows, owners, context=context()))
+        for changes in ({'conclusion': 'success'}, {'conclusion': 'failure'},
+                        {'steps': [{'name': 'Unexpected execution'}]}, {'name': name + ' changed'}):
+            invalid = deepcopy(rows)
+            invalid[-1].update(changes)
+            with self.subTest(changes=changes), self.assertRaises(T.TransportError):
+                T.validate_jobs(invalid, owners, context=context())
+        alias = {**extra, 'id': 2002, 'name': 'Source policy not applicable'}
+        with self.assertRaises(T.TransportError):
+            T.validate_jobs([*rows, alias], owners, context=context())
+
     def test_head_is_pr_head_not_synthetic_merge_and_lifecycle_may_run(self):
         self.assertEqual(self.verify_run()["head_sha"], context()["head"])
         c = context(); c["original_merge"] = "7" * 40
