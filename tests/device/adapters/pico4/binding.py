@@ -1606,8 +1606,9 @@ def create_adapter(args, base_class):
                 store.path.with_name('snapshot-cancel-originals.json'),store.path.with_name('snapshot-save-owner.json'),
                 store.path.with_name('snapshot-save-originals.json'),store.path.with_name('snapshot-upload-fail-owner.json'),
                 store.path.with_name('snapshot-upload-owner.json'),store.path.with_name('snapshot-upload-fail-originals.json'),
-                store.path.with_name('snapshot-upload-originals.json')))
-                or any(path.name.startswith(('snapshot-cancel-originals.json.frame-','snapshot-save-originals.json.frame-','snapshot-upload-fail-originals.json.frame-','snapshot-upload-originals.json.frame-')) for path in store.path.parent.iterdir()))
+                store.path.with_name('snapshot-upload-originals.json'),store.path.with_name('snapshot-background-owner.json'),
+                store.path.with_name('snapshot-background-originals.json')))
+                or any(path.name.startswith(('snapshot-cancel-originals.json.frame-','snapshot-save-originals.json.frame-','snapshot-upload-fail-originals.json.frame-','snapshot-upload-originals.json.frame-','snapshot-background-originals.json.frame-')) for path in store.path.parent.iterdir()))
 
         @_private
         def _snapshot_cancel_owner(self,target,run,phase_source,*,source_lock=None):
@@ -1652,6 +1653,31 @@ def create_adapter(args, base_class):
                 parent.files.transport.artifacts,exports,run,publish)
             owner=PicoSnapshotSaveOwner(lock.path.with_name('snapshot-save-owner.json'),parent,exports,saved)
             return owner
+
+        @_private
+        def _snapshot_background_owner(self,target,run,phase_source,*,parent=None,source_lock=None):
+            from adapters.pico4.snapshot_background_owner import PicoSnapshotBackgroundOwner
+            from adapters.pico4.snapshot_upload_owner import PicoSnapshotUploadOwner
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding
+            from adapters.normal_feature_state import context
+            if parent is not None:
+                _need(isinstance(parent,PicoSnapshotUploadOwner) and parent.run==run and parent.verb=='upload'
+                    and parent.source is phase_source and (source_lock is None or source_lock is parent.lock))
+                source_lock=parent.lock
+            lock=self._script_journey()._lock(target,source_lock)
+            path=lock.path.with_name('snapshot-background-owner.json');parent_disk=PrivateFeatureState(lock.path.with_name('snapshot-upload-owner.json')).read()
+            _need(parent_disk is not None);binding=context(parent_disk['binding']);facade=PicoGraphicsBinding(self)
+            def runtime():
+                # This factory is called only after the original OS foreground
+                # source has proved return. Cold BG load never enters Qt here.
+                if parent is not None:return parent
+                saved=self._snapshot_save_owner(target,run,phase_source,source_lock=lock)
+                failed=self._snapshot_upload_owner(target,run,phase_source,'upload-fail',parent=saved,source_lock=lock)
+                return self._snapshot_upload_owner(target,run,phase_source,'upload',parent=saved,source_lock=lock,failure=failed)
+            return PicoSnapshotBackgroundOwner(path,run,binding,lock,phase_source,
+                lambda owned:facade._graphics_lifecycle_status(target,owned),
+                lambda operation,owned,*,before_input:self._pico_lifecycle_input_once(target,operation,owned,before_input=before_input),
+                runtime,monotonic=phase_source.monotonic,sleep=parent.native.sleep if parent is not None else time.sleep)
 
         @_private
         def _snapshot_upload_owner(self,target,run,phase_source,verb,*,parent,source_lock=None,failure=None):

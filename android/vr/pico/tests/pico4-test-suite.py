@@ -104,6 +104,8 @@ TESTS = (
     test("audio-settings-source", "audio", PYTHON, "device/test_audio_settings.py", requires=("node", "c++", "pkg-config")),
     test("snapshot-save-owner", "interaction", PYTHON, "device/test_snapshot_save_owner.py", "SnapshotSaveFlowTests.test_normal_cancel_still_save_independent_provider_png_and_current_original_quiet"),
     test("snapshot-save-fences", "interaction", PYTHON, "device/test_snapshot_save_owner.py", "SnapshotSaveAdmissionTests", "SnapshotSaveEnvelopeTests", "SnapshotSaveFenceTests", "SnapshotSaveFactoryTests", "SnapshotSaveOriginalsTests", "SnapshotSavePreparationRecoveryTests", "SnapshotSaveAcquisitionTests", "SnapshotOriginalFrameMemoTests", "SnapshotSavePublicationTests", "SnapshotSyntheticAnalyzerTests", "SnapshotSystemSourceTests"),
+    test("snapshot-background-owner", "interaction", PYTHON, "device/test_snapshot_background_owner.py"),
+    test("snapshot-background-fences", "interaction", PYTHON, "device/test_snapshot_background_fences.py"),
     test("snapshot-upload-owner", "interaction", PYTHON, "device/test_snapshot_upload_owner.py", requires=("openssl",)),
     test("snapshot-upload-fences", "interaction", PYTHON, "device/test_snapshot_upload_fences.py"),
     test("snapshot-upload-tls", "interaction", PYTHON, "device/test_snapshot_upload_tls.py", requires=("openssl",)),
