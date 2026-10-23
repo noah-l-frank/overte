@@ -138,11 +138,13 @@ class PicoAssetsSource:
                         need(value['runId']==self.last['runId'] and value['instance']==self.last['instance'] and value['sequence']>self.last['sequence']
                             and value['capturedEpochMs']>=self.last['capturedEpochMs']
                             and all(value['source'][key]==self.last['source'][key] for key in ('domainId','sessionId','assetServerId','domainSession','clientInstance','nodeListInstance','assetServerInstance')))
-                    need(self.guard() is not False);fresh(value['capturedEpochMs'],self.clock_ms())
-                    current=self.monotonic();need(number(current,previous,1e15) and current-started<5)
-                    fresh(value['capturedEpochMs'],effective_epoch(self.clock_ms,requested,started,current))
-                    self.last=deepcopy(value);self.last_raw=raw;self.last_sha256=hashlib.sha256(raw.encode()).hexdigest()
-                    self.history.append(dict(command=deepcopy(request),raw=raw,sha256=self.last_sha256));self.pending=None;return deepcopy(value)
+                    retained=deepcopy(value);result=deepcopy(value);sha256=hashlib.sha256(raw.encode()).hexdigest()
+                    history=self.history+[dict(command=deepcopy(request),raw=raw,sha256=sha256)]
+                    need(self.guard() is not False)
+                    native=self.clock_ms();current=self.monotonic();need(number(current,previous,1e15) and current-started<5)
+                    fresh(value['capturedEpochMs'],effective_epoch(lambda:native,requested,started,current))
+                    self.last=retained;self.last_raw=raw;self.last_sha256=sha256;self.history=history
+                    self.pending=None;return result
                 if attempt<50:self.sleep(.1)
         except Exception:raise NativeUIError('Original Pico Assets read is unavailable or invalid') from None
         raise NativeUIError('Original Pico Assets read did not produce this request')

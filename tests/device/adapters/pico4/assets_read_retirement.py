@@ -55,10 +55,11 @@ class AssetsReadRetirement:
                 if type(value) is dict and value.get('requestId')==request['commandId']:
                     validate(value,request,self.pid,effective_epoch(self.clock_ms,requested,started,current));need(value['requestedEpochMs']>=requested)
                     if self.last is not None:need(value['instance']==self.last['instance'] and value['sequence']>self.last['sequence'] and value['capturedEpochMs']>=self.last['capturedEpochMs'])
-                    need(self.guard() is not False);current=self.monotonic();need(number(current,previous,1e15) and current-started<5)
-                    fresh(value['capturedEpochMs'],effective_epoch(self.clock_ms,requested,started,current))
-                    self.last=deepcopy(value);self.last_raw=raw;self.last_sha256=hashlib.sha256(raw.encode()).hexdigest()
-                    self.history.append(dict(command=deepcopy(request),raw=raw,sha256=self.last_sha256));return deepcopy(value)
+                    retained=deepcopy(value);result=deepcopy(value);sha256=hashlib.sha256(raw.encode()).hexdigest()
+                    history=self.history+[dict(command=deepcopy(request),raw=raw,sha256=sha256)]
+                    need(self.guard() is not False);native=self.clock_ms();current=self.monotonic();need(number(current,previous,1e15) and current-started<5)
+                    fresh(value['capturedEpochMs'],effective_epoch(lambda:native,requested,started,current))
+                    self.last=retained;self.last_raw=raw;self.last_sha256=sha256;self.history=history;return result
                 if attempt<50:self.sleep(.1)
         except Exception:raise NativeUIError('Original Pico Assets readonly resources remain unresolved') from None
         raise NativeUIError('Original Pico Assets readonly resources remain pending')
