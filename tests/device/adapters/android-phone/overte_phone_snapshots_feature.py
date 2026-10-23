@@ -32,6 +32,7 @@ from overte_phone_snapshot_handoff import bound as handoff_binding,control as ha
 from overte_phone_snapshot_upload_fixture import SnapshotUploadFixtureReader
 from overte_phone_snapshot_foundation import PhoneSnapshotFoundation
 from overte_phone_snapshot_cancel import validate as cancel_packet
+from overte_phone_snapshot_settings import validate as settings_packet
 from overte_phone_snapshot_upload_source import require_retired as upload_retired
 from overte_phone_snapshot_capture_facts import capture_facts
 from overte_phone_snapshots_measurements import SnapshotPending
@@ -182,6 +183,14 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         self._scope_ready=False
         host=SnapshotsOriginals(self.root,self.binding,self.run,'primary',self.header_authority,lambda *_:need(False),kind='snapshots-input')
         originals=host.restore(self.state['inputs'],self.state['inputSequence'])
+        # A captured original can precede its settingsIndex save. Reject an
+        # unsupported historical scope before selecting native/UI authority;
+        # never migrate the packet or replace its durable owner with a new lease.
+        for original in originals:
+            if 'snapshotsSettingsCaptured' in original:
+                settings=original['snapshotsSettingsCaptured']
+                settings_packet(settings,dict(schemaVersion=1,action='phone-snapshot-settings',operation='capture',
+                    runId=self.run,commandId=settings['commandId']),self.pid,settings['capturedEpochMs'])
         if originals:
             first=originals[0]['snapshotsBaseline']
             need(same(self.state['original'],dict(avatar=dict(source=dict(cameraMode=first['avatar']['source']['cameraMode'])))))

@@ -7,6 +7,8 @@ or physical device qualification is claimed by these narrow recovery tests.
 # SPDX-License-Identifier: Apache-2.0
 from contextlib import contextmanager
 from copy import deepcopy
+import base64
+import hashlib
 import os
 import json
 import subprocess
@@ -262,6 +264,67 @@ class SnapshotsFeatureTests(unittest.TestCase):
             self.assertTrue(proof['proof']['settings']['source']['retired']);self.assertFalse(proof['proof']['inventory']['files'])
             self.assertFalse(proof['proof']['readbacks']['source']['source']['initialized'])
         self.assertTrue(self.adapter.foreign_ui_open);self.assertFalse(any(row['operation'] not in ('capture','observe','restore','retire') for row in self.adapter.settings.calls))
+
+    def unsupported_settings_journal(self,*,legacy,index_saved):
+        """Archive a coherent old/incomplete producer packet in real originals."""
+        f=self.failed_preflight();self.adapter=LeasedAdapter(self.root);f=self.feature()
+        with f.lock.held():
+            f.load()
+            f.state['original']=dict(avatar=dict(source=dict(cameraMode='selfie')))
+            f.archive_input(dict(snapshotsBaseline=deepcopy(f.state['original'])))
+            f.state['settingsIntent']=dict(issued=True,requestedEpochMs=20000);f.save()
+            packet=self.adapter._snapshot_settings(None,read_only=False).request(self.run,'capture')
+            self.assertEqual(2,packet['snapshotSettingsLeaseVersion'])
+            source=packet['source'];del source['current']['entries']['previousAnimatedSnapUrl']
+            # Preserve the serialization/hash relationship: rejection must be
+            # the unsupported lease/scope, not unrelated corrupt byte evidence.
+            raw=self.adapter.settings.serialized(source['current'])
+            source['currentSerializedBase64']=base64.b64encode(raw).decode()
+            source['currentSha256']=source['originalSha256']=hashlib.sha256(raw).hexdigest()
+            if legacy:packet['snapshotSettingsLeaseVersion']=1
+            index=f.archive_input(dict(snapshotsSettingsCaptured=packet))
+            if index_saved:f.state['settingsIndex']=index;f.save()
+        return f
+
+    def assert_unsupported_settings_blocks_before_native_or_owner_change(self,*,legacy):
+        for index_saved in (False,True):
+            # Each subcase has a distinct genuine private journal/lease; no old
+            # owner is rewritten to set up another counter or migrated on error.
+            with self.subTest(index_saved=index_saved),tempfile.TemporaryDirectory(dir=self.root) as temporary:
+                outer_root,outer_adapter,outer_config=self.root,self.adapter,self.config
+                try:
+                    self.root=Path(temporary);self.root.chmod(0o700);self.adapter=Adapter(self.root)
+                    self.config=deepcopy(outer_config);self.config['artifactRoot']=str(self.root)
+                    f=self.unsupported_settings_journal(legacy=legacy,index_saved=index_saved)
+                    before={p.relative_to(self.root):p.read_bytes() for p in self.root.rglob('*')
+                        if p.is_file() and not p.name.endswith('.lock')}
+                    issued=deepcopy(self.adapter.settings.calls)
+                    runtime=self.adapter.normal_feature_runtime;settings=self.adapter._snapshot_settings
+                    controls=self.adapter._snapshot_normal_controls
+                    with patch.object(self.adapter,'normal_feature_runtime',wraps=runtime) as native_factory,\
+                            patch.object(self.adapter,'_snapshot_settings',wraps=settings) as settings_factory,\
+                            patch.object(self.adapter,'_snapshot_normal_controls',wraps=controls) as ui_factory:
+                        for operation in ('load','act'):
+                            resumed=self.feature()
+                            with self.subTest(operation=operation),self.assertRaises(NativeUIError):
+                                if operation=='load':
+                                    with resumed.lock.held():resumed.load()
+                                else:
+                                    resumed.act(dict(contractVersion=VERSION,runId=self.run,fixtureUrl=f.fixture_url,
+                                        ticket=uuid.uuid4().hex,verb='open',inputs={}))
+                            native_factory.assert_not_called();settings_factory.assert_not_called();ui_factory.assert_not_called()
+                            after={p.relative_to(self.root):p.read_bytes() for p in self.root.rglob('*')
+                                if p.is_file() and not p.name.endswith('.lock')}
+                            self.assertEqual(before,after)
+                            self.assertEqual(issued,self.adapter.settings.calls)
+                            self.assertTrue(self.adapter.foreign_ui_open)
+                finally:self.root,self.adapter,self.config=outer_root,outer_adapter,outer_config
+
+    def test_archived_v1_settings_reject_load_and_act_before_native_or_owner_change(self):
+        self.assert_unsupported_settings_blocks_before_native_or_owner_change(legacy=True)
+
+    def test_archived_v2_missing_key_rejects_load_and_act_before_native_or_owner_change(self):
+        self.assert_unsupported_settings_blocks_before_native_or_owner_change(legacy=False)
 
     def test_qualified_baseline_failure_before_first_export_retires_actual_leases_without_empty_os_facts(self):
         self.failed_preflight();self.adapter=NoExportAdapter(self.root);f=self.feature()
