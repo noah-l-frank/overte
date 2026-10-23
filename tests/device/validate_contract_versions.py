@@ -110,6 +110,7 @@ REQUIRED = {
     "chat-remote-publication": 3,
     "chat-remote-original-memory": 1,
     "chat-observation-original-memory": 1,
+    "chat-source-decoded-prefix": 1,
     "chat-remote-cleanup-prefix": 1,
     "chat-remote-consumed-sources": 1,
     "pico-chat-host-close": 1,

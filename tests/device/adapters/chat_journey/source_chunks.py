@@ -76,19 +76,24 @@ class ChatSourceChunks:
         self.inventory(len(self.identities))
         need(all(self.signature(index)==original for index,original in enumerate(self.identities)))
 
-    def load(self,manifest):
+    def load(self,manifest,*,decoder=None):
         need(type(manifest) is list and len(manifest)<=MAX_FRAMES
             and all(type(value) is str and re.fullmatch('[0-9a-f]{64}',value) for value in manifest))
+        if decoder is not None:
+            from adapters.chat_journey.decoded_chunks import ChatDecodedCandidate
+            need(type(decoder) is ChatDecodedCandidate);decoder.bind(self,manifest)
         self.inventory(len(manifest));frames=[];identities=[];total=2
         for index,expected in enumerate(manifest):
             before=self.signature(index);value=self.store(index).read();need(self.signature(index)==before);identities.append(before)
             exact(value,{'chatSampleChunkVersion','scopeSha256','index','transcript'})
             need(value['chatSampleChunkVersion']==VERSION and type(value['chatSampleChunkVersion']) is int
                 and value['scopeSha256']==self.scope and type(value['index']) is int and value['index']==index and digest(value)==expected)
-            frame=unpack(value['transcript']);need(len(frame)==1)
+            frame=unpack(value['transcript']) if decoder is None else decoder.decode(index,expected,before,value)
+            need(len(frame)==1)
             total+=value['transcript']['bytes']-2+(1 if index else 0);need(total<=MAX_RAW)
             frames.extend(frame)
         self.raw_bytes=total;self.identities=identities;self.verify()
+        if decoder is not None:decoder.finish()
         return frames
 
     def append(self,frame,manifest):

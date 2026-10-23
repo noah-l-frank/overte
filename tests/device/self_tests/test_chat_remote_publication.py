@@ -19,9 +19,10 @@ from contextlib import contextmanager
 from unittest.mock import patch
 
 from adapters.chat_journey.remote_publication import ChatRemotePublication,original_record
+from adapters.chat_journey.decoded_chunks import ChatDecodedPrefix
 from adapters.chat_journey.source_chunks import ChatSourceChunks
 from adapters.chat_journey import source_bundles
-from adapters.script_journey.history import canonical,pack,MAX_PACKED,MAX_RAW
+from adapters.script_journey.history import canonical,pack,unpack,MAX_PACKED,MAX_RAW
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.script_journey.lock import ScriptSourceLock
@@ -295,12 +296,48 @@ class ChatRemotePublicationTests(unittest.TestCase):
         self.assertTrue(owner.failed);self.assertEqual('ready',owner.store.read()['phase'])
         with self.assertRaises(NativeUIError):owner.acquire(0)
 
+    def test_decoder_prefix_commit_stays_inside_original_frozen_host_native_age(self):
+        owner=self.owner;commit=ChatDecodedPrefix.commit;calls=[]
+        def late(cache,candidate):
+            commit(cache,candidate);calls.append(cache.path)
+            if len(calls)==1:self.command('late')
+        with patch.object(ChatDecodedPrefix,'commit',late),self.assertRaises(NativeUIError):owner.acquire(0)
+        self.assertTrue(calls);self.assertTrue(owner.failed);self.assertEqual('ready',owner.store.read()['phase'])
+        with self.assertRaises(NativeUIError):owner.acquire(0)
+
+    def test_decoder_prefix_only_admits_after_original_outer_lock_exit(self):
+        owner=self.owner;held=owner.held
+        @contextmanager
+        def lost():
+            with held():yield
+            raise OSError('Actual outer lock exit failed before decoder admission')
+        owner.held=lost
+        with self.assertRaises(NativeUIError):owner.acquire(0)
+        self.assertTrue(owner.failed);self.assertEqual({},owner.decoders)
+
+    def test_decoder_commit_cannot_refresh_unrelated_mutated_ownership_checksum(self):
+        owner=self.owner;commit=ChatDecodedPrefix.commit;changed=[]
+        def mutate(cache,candidate):
+            commit(cache,candidate)
+            if not changed:
+                owner.expected['instance']='f'*32;changed.append(True)
+        with patch.object(ChatDecodedPrefix,'commit',mutate),self.assertRaises(NativeUIError):owner.acquire(0)
+        self.assertTrue(changed);self.assertTrue(owner.failed)
+        with self.assertRaises(NativeUIError):owner.acquire(0)
+
+    def test_warm_decoder_only_unpacks_new_original_parts_after_full_physical_load(self):
+        owner=self.owner;owner.acquire(0);before={key:len(cache.records) for key,cache in owner.decoders.items()}
+        self.command('publish')
+        with patch('adapters.chat_journey.decoded_chunks.unpack',wraps=unpack) as decoder:owner.acquire(1)
+        self.assertEqual(sum(len(cache.records)-before.get(key,0) for key,cache in owner.decoders.items()),decoder.call_count)
+        self.assertTrue(decoder.call_count);owner.control()
+
     def test_replacement_between_first_physical_capture_and_load_is_never_adopted(self):
         owner=self.owner;load=ChatSourceChunks.load;replaced=[]
-        def race(history,manifest):
+        def race(history,manifest,**options):
             if history.root.path==owner.stores['publisher'].path:
                 child=history.store(0);value=child.read();child.write(value,value);replaced.append(child.path)
-            return load(history,manifest)
+            return load(history,manifest,**options)
         with patch.object(ChatSourceChunks,'load',race):
             with self.assertRaises(NativeUIError):owner.acquire(0)
         self.assertTrue(replaced);self.assertTrue(owner.failed);self.assertIsNone(owner.store.read())
