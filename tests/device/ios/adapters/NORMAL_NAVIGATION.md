@@ -178,7 +178,12 @@ through instrumentation or to return an invented clean public observation.
 
 Worlds therefore remains partial and its complete capability is not advertised.
 Existing accepted originals and all uncertain ownership remain durable. The
-next executable integration is an additive shared terminal-retirement protocol:
+additive shared [terminal-retirement protocol](../../feature_journeys/TERMINAL_RETIREMENT.md)
+is now implemented and host-tested separately from default v16. Its optional
+capability remains unadvertised until the actual iOS source-to-seal and process-end
+decoders exist. [Whole preparation](../NAVIGATION_WHOLE_PREPARATION.md) now connects
+both original untouched images, a new actual admission and one ordinary Go To.
+The remaining whole integration must
 first seal actual live restored/quiet native and peer originals; then perform
 the normally owned final session Stop, independently prove installed-process
 absence, and bind that original absence to the exact retained UI/input/GPU

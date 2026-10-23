@@ -109,6 +109,12 @@ handoff and final static restoration remain open; Worlds is still partial.
 Current Worlds code now includes ordinary restart/current-process action and
 publication transfer, immutable untouched and restored full-target PNGs, and
 actual Keys2/pointer/UIKit source cuts with genuine three-second quiet joins.
+The [whole preparation owner](NAVIGATION_WHOLE_PREPARATION.md) now connects both
+untouched original images, a later actual admission and one ordinary Go To,
+including unresolved and completely retained lost-return recovery. The additive
+[terminal profile](../feature_journeys/TERMINAL_RETIREMENT.md) now exists in the
+common operation/engine/module path. Its feature-specific source-to-seal and
+process-end decoders, failure restoration and full dispatcher remain required.
 It still grants no complete capability. The exact remaining terminal-retirement
 interface mismatch and next additive integration step are documented in
 [the normal navigation handoff](adapters/NORMAL_NAVIGATION.md#concrete-terminal-retirement-interface-gap):

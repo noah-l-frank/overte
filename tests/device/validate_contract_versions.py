@@ -479,6 +479,7 @@ REQUIRED = {
     "ios-navigation-quiet-image": 1,
     "ios-navigation-quiet-original": 1,
     "ios-navigation-quiet-period": 1,
+    "ios-navigation-whole-preparation": 1,
     "ios-snapshot-exports": 1,
     "ios-snapshot-destination": 1,
     "ios-snapshot-share-original": 1,
