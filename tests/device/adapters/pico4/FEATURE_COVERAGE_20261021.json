@@ -772,7 +772,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Verify the complete history-enabled Journey under unchanged120s after measured validation/path reuse; then join inactive-phase actor retirement and freshly inspect every historical primary/actor capture before immutable archive, host closure and public operation/actor admission. Support owners are green; full current Journey remains timed out; complete source areas remain3/14.",
+      "nextExecutableStep": "Join inactive-phase actor retirement and fresh historical capture absence while profiling the remaining whole Journey cost. Immutable image projections retain full original physical reads/hash checks and cold source validation (46cases11.926s). The latest isolated full unchanged Journey still timed out120.037s at cleanup with126samples per role; no whole-run qualification. Archive, host closure and public binding remain missing; complete source areas3/14.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },
@@ -1208,7 +1208,11 @@
         "android/vr/pico/tests/device/test_snapshot_save_owner.py",
         "tests/device/adapters/pico4/snapshot_system_source.py",
         "tests/device/adapters/pico4/SNAPSHOT_SYSTEM_SOURCE.md",
-        "tests/device/self_tests/test_pico_snapshot_system_source.py"
+        "tests/device/self_tests/test_pico_snapshot_system_source.py",
+        "libraries/networking/src/PicoSnapshotUploadEvidence.h",
+        "tests/device/adapters/pico4/snapshot_upload_source.py",
+        "tests/device/adapters/pico4/SNAPSHOT_UPLOAD_ORIGINALS.md",
+        "android/vr/pico/tests/device/test_snapshot_upload_source.py"
       ],
       "declaredCheckpoints": 18,
       "inputVerbs": [
@@ -1258,7 +1262,7 @@
         "Delete only actual owned private/saved/received/uploaded originals",
         "Restore permissions/preferences and observe quiet absent leases"
       ],
-      "nextExecutableStep": "Compose actual normal Pico upload and original native request/file/callback observations. The unchanged warm Cancel/Still/Save, independent actual host PNG,13 fresh Provider inspections,15-clock quiet and cold factory reopening pass78.704s within120s on fixed0be54e4f3d. Passive original OS observation now retains one exact source-lock acquisition and rejects foreign chooser/Phone receiver; actual chooser VR input, Pico-qualified recipient, independent upload/actor/stereo and whole restoration/resource/archive retirement remain missing.",
+      "nextExecutableStep": "Compose the normal Pico upload with the integrated private original-file/request/reply/lifetime source, independent TLS receiver and durable ownership. Its owning native/Python/factory group passes9.000s on Root; selected Qt5 host bodies compile, without APK/device qualification. The warm Save flow remains host-verified78.704s. Actual chooser VR input, Pico-qualified recipient, independent actor/stereo and whole restoration/resource/archive retirement remain missing.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

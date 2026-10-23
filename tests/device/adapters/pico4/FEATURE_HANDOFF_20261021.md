@@ -36,7 +36,7 @@ After equivalent synthetic-tool optimization and original-ledger cold reopening
 fixes, the same warm flow passes78.704s within120s: normal Cancel/Still/Save,
 independent actual host PNG,13 fresh Provider inspections, all15 quiet clocks
 and cold factory reopening without a repeated input. JNI/Android provider/UID
-and rendering boundaries remain explicit host seams. The catalog now contains157 groups; complete source areas stay3/14.
+and rendering boundaries remain explicit host seams. The catalog now contains158 groups; complete source areas stay3/14.
 
 The fixed Assets normal-input packet95aa81c067 is selected as25d8dcff66.
 The actual original QML and whole Pico observer/apply host case passes20.433s,
@@ -78,6 +78,16 @@ the strengthened six-case image group passes6.828s, including identical complete
 cold inputs and physical reads on each warm hit. The preceding isolated whole
 Journey still timed out120.110s after126 samples per role at cleanup; this
 optimization alone does not qualify its complete journey or final retirement.
+The subsequent isolated projection run also timed out120.037s, retaining126
+samples per role and40 original captures per role at cleanup.
+
+Snapshot original-upload packet38974335c2 is selected as63d69fd024. Its
+actual Qt5 native/Python/private-factory owning group passes9.000s and coverage
+passes0.082s (158 groups). The four repository suites pass3.09s; the closed
+registry, probe syntax and whitespace checks pass. Full-stat file provenance,
+consumed-byte hashes, actual reply bytes and QObject death remain passive
+E2E/Pico-only observations. Normal upload/TLS/independent receiver composition
+and whole feature retirement remain open; no APK or device is qualified.
 
 | Area | Current Pico implementation | Concrete next boundary |
 | --- | --- | --- |
