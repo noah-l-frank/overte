@@ -160,6 +160,9 @@ def observation(value, pid, now_ms=None):
         if type(value['createControlsVersion']) is not int or value['createControlsVersion'] not in (1,2) or not _uuid(value.get('createGeneration')):
             raise NativeUIError('Native iOS Create control version/context is invalid')
         fields |= {'createControlsVersion','createGeneration'}
+    if type(value) is dict and 'loginRootOwnership' in value:
+        from ios.adapters.login_root_ownership import membership as login_roots
+        login_roots(value,pid=pid,epoch=now_ms);fields.add('loginRootOwnership')
     if type(value) is dict and 'loginControlsVersion' in value:
         if type(value['loginControlsVersion']) is not int or value['loginControlsVersion']!=LOGIN_VERSION or not _uuid(value.get('generation')):
             raise NativeUIError('Native iOS login control version/context is invalid')

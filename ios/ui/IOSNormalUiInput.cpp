@@ -32,6 +32,7 @@
 #include "../../tests/device/native/IOSAvatarUiInventory.h"
 #if defined(Q_OS_IOS)
 #include "../../tests/device/native/IOSNormalInputObservation.h"
+#include "../../tests/device/native/IOSLoginUiRootOwnership.h"
 #include "../../tests/device/native/IOSSnapshotExportControls.h"
 #include "../../tests/device/native/IOSSnapshotCaptureControls.h"
 #include "../../tests/device/native/IOSTabletAppButtonsObservation.h"
@@ -199,6 +200,9 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     overte::e2e::IOSNavigationUiInventory navigationInventory;
     overte::e2e::IOSEmoteUiInventory emoteInventory;
     overte::e2e::IOSAvatarUiInventory avatarInventory;
+#if defined(Q_OS_IOS)
+    overte::e2e::login_ui_roots::Inventory loginInventory;
+#endif
     QSet<QQuickItem*> surveyed;
     bool inventoryComplete {hud != nullptr && hud->window() != nullptr};
     std::function<void(QQuickItem*, int)> survey = [&](QQuickItem* node, int depth) {
@@ -211,6 +215,13 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         navigationInventory.visit(node);
         emoteInventory.visit(node);
         avatarInventory.visit(node);
+#if defined(Q_OS_IOS)
+        loginInventory.visit(node);
+        if (overte::e2e::script_ui_roots::enabled() && overte::e2e::login_ui_roots::operand(node)==node) {
+            if (!_loginRoots.contains(node) && _loginRoots.size()>=64) {_loginRootsComplete=false;}
+            else {_loginRoots.insert(node,node);}
+        }
+#endif
         if (!overte::e2e::avatarComponentSource(node).isEmpty()) { _avatarRoots.insert(node,node); }
         if (!overte::e2e::emoteComponentSource(node).isEmpty()) { _emoteRoots.insert(node,node); }
         if (!overte::e2e::IOSNavigationUiInventory::source(node).isEmpty()) { _navigationRoots.insert(node,node); }
@@ -248,6 +259,14 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     }
     const auto retainedAvatarRoots=_avatarRoots.values();
     for (const auto& root:retainedAvatarRoots) { if (root) { survey(root,0); } }
+#if defined(Q_OS_IOS)
+    for (auto it=_loginRoots.begin();it!=_loginRoots.end();) {
+        if (!it.value()) {it=_loginRoots.erase(it);continue;}++it;
+    }
+    const auto retainedLoginRoots=_loginRoots.values();
+    for (const auto& root:retainedLoginRoots) {if (root) {survey(root,0);}}
+    if (!_loginRootsComplete || _loginRoots.size()>64) {inventoryComplete=false;}
+#endif
     if (_avatarRoots.size()>16) { inventoryComplete=false; }
     if (_emoteRoots.size()>16) { inventoryComplete=false; }
     if (_navigationRoots.size()>16) { inventoryComplete=false; }
@@ -434,6 +453,9 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
             overte::e2e::appendCreateControlObservation(row,control.item,id);
         } else if (id.startsWith("login.")) {
             overte::e2e::appendLoginControlObservation(row,control.item,id,loginContext);
+#if defined(Q_OS_IOS)
+            loginInventory.control(control.item,id,control.token);
+#endif
         } else if (id.startsWith("graphics.") || (id == "settings.entry" && graphicsContext.valid)) {
             overte::e2e::appendGraphicsControlObservation(row,control.item,id,graphicsContext);
             if (row.value("viewport").toString() != "visible") { row["frame"] = QJsonValue(); }
@@ -452,6 +474,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
 #if defined(Q_OS_IOS)
+    result["loginRootOwnership"]=loginInventory.observation(inventoryComplete);
     result["tabletAppControlsVersion"]=1;
     result["snapshotExportControlsVersion"]=1;
     result["snapshotCaptureControlsVersion"]=1;

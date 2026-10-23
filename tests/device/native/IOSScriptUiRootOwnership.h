@@ -30,6 +30,8 @@ inline bool enabled() noexcept {
     } catch (...) {return false;}
 }
 
+enum class Profile {Scripts,Login};
+
 class Ledger {
     struct Root {
         QString id,kind,source;
@@ -37,6 +39,8 @@ class Ledger {
         qint64 observedEpoch,observedMono,expiredEpoch {0},expiredMono {0};
         quint64 observedSequence;
     };
+    Profile _profile;
+    QString schema() const {return _profile==Profile::Scripts ? QStringLiteral("iosScriptUiRootOwnershipVersion") : QStringLiteral("iosLoginUiRootOwnershipVersion");}
     const QString _instance {QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
     QElapsedTimer _timer;
     std::vector<Root> _roots;
@@ -44,12 +48,12 @@ class Ledger {
     quint64 _sequence {0},_observations {0};
     bool main() const noexcept {return qApp && QThread::currentThread()==qApp->thread();}
 public:
-    Ledger() { _timer.start(); }
+    explicit Ledger(Profile profile=Profile::Scripts) : _profile(profile) { _timer.start(); }
     QString observe(QQuickItem* item,const QString& kind,const QString& source) noexcept {
         if (!enabled()) { return {}; }
         if (!main()) { _complete.store(false);return {}; }
         try {
-            if (!item || item->thread()!=qApp->thread() || (kind!="manager" && kind!="picker") || source.isEmpty() || source.size()>4096) {
+            if (!item || item->thread()!=qApp->thread() || (_profile==Profile::Scripts ? kind!="manager" && kind!="picker" : kind!="tablet" && kind!="overlay" && kind!="dialog") || source.isEmpty() || source.size()>4096) {
                 _complete.store(false);return {};
             }
             for (const auto& root:_roots) {
@@ -65,8 +69,8 @@ public:
         } catch (...) { _complete.store(false);return {}; }
     }
     QJsonObject read(bool wholeTreeReady) noexcept {
-        if (!enabled()) { return {{"iosScriptUiRootOwnershipVersion",1},{"available",false}}; }
-        if (!main()) { _complete.store(false);return {{"iosScriptUiRootOwnershipVersion",1},{"available",false}}; }
+        if (!enabled()) { return {{schema(),1},{"available",false}}; }
+        if (!main()) { _complete.store(false);return {{schema(),1},{"available",false}}; }
         try {
             if (_sequence>=9007199254740991ULL) { _complete.store(false); }
             else { ++_sequence; }
@@ -79,8 +83,8 @@ public:
                     {"firstObservedEpochMs",root.observedEpoch},{"firstObservedMonotonicMs",root.observedMono},
                     {"weakAlive",alive},{"weakExpiredObservedEpochMs",root.expiredEpoch},{"weakExpiredObservedMonotonicMs",root.expiredMono}});
             }
-            QJsonObject value{{"iosScriptUiRootOwnershipVersion",1},{"available",true},{"instance",_instance},
-                {"clockDomain","native-main-ios-script-ui-roots"},
+            QJsonObject value{{schema(),1},{"available",true},{"instance",_instance},
+                {"clockDomain",_profile==Profile::Scripts ? "native-main-ios-script-ui-roots" : "native-main-ios-login-ui-roots"},
                 {"sequence",static_cast<double>(_sequence)},{"processId",QCoreApplication::applicationPid()},
                 {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"monotonicMs",_timer.elapsed()},
                 {"complete",_complete.load()},{"wholeTreeReady",wholeTreeReady},{"observationSequence",static_cast<double>(_observations)},
@@ -89,7 +93,7 @@ public:
                 _complete.store(false);value["complete"]=false;value["roots"]=QJsonArray();
             }
             return value;
-        } catch (...) { _complete.store(false);return {{"iosScriptUiRootOwnershipVersion",1},{"available",false}}; }
+        } catch (...) { _complete.store(false);return {{schema(),1},{"available",false}}; }
     }
 };
 inline Ledger& ledger() {static Ledger value;return value;}

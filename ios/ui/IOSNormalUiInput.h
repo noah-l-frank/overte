@@ -54,6 +54,8 @@ private:
     std::function<overte::e2e::GraphicsUiContext()> _graphicsReader;
     quint64 _avatarObservationSequence {0};
     QHash<QQuickItem*, QPointer<QQuickItem>> _avatarRoots;
+    QHash<QQuickItem*, QPointer<QQuickItem>> _loginRoots;
+    bool _loginRootsComplete {true};
     QString _emoteGeneration;
     QHash<QQuickItem*, QPointer<QQuickItem>> _emoteRoots;
     quint64 _emoteObservationSequence {0};
