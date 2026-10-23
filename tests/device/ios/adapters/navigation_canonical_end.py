@@ -32,17 +32,24 @@ def verify(whole,call,result):
             and PrivateFeatureState(f.store.path.with_name('ios-navigation-session-end.json')).read() is not None)
         owner=NavigationTerminal(f)
         need(owner.state is not None and same(owner.state['seal'],call['seal']))
-        owner.replay();process=NavigationProcessEnd(owner);process.verify()
-        sdk=NavigationSessionEnd(process);sdk.historical()
-        expected=dict(iosNavigationFinalArchiveVersion=1,runId=f.run,artifactRoot=str(f.root),binding=process.binding,
-            terminalOriginalSha256=digest(owner.previous),processOriginalSha256=digest(process.previous),
-            sdkOriginalSha256=digest(sdk.previous),sourceInventorySha256=digest(process.state['inventories']))
-        need(same(archive,expected) and same(store.read(),archive))
-        ended=dict(featureTerminalEndVersion=1,seal=deepcopy(call['seal']),roles={
-            role:dict(binding=deepcopy(prior['binding']),heldOriginalSha256=prior['originalSha256'],
-                stopOriginalSha256=digest(process.previous),osAbsence=process.role_os(role),
-                sdkDeletionOriginalSha256=digest(sdk.previous),archiveSha256=digest(archive))
-            for role,prior in owner.state['description']['roles'].items()})
-        protocol.ended(ended,call['seal']);need(same(result,dict(stage='finish',end=ended)))
-        process.verify();sdk.historical();need(same(store.read(),archive));f.clock()
-        return deepcopy(result)
+        process=NavigationProcessEnd(owner)
+        from ios.adapters.navigation_terminal_replay import checked
+        with checked(owner,process.mutable()) as proof:
+            process.checked_terminal=proof
+            return _verify(process,archive,store,call,result)
+
+
+def _verify(process,archive,store,call,result):
+    owner=process.terminal;f=owner.flow;process.verify();sdk=NavigationSessionEnd(process);sdk.historical()
+    expected=dict(iosNavigationFinalArchiveVersion=1,runId=f.run,artifactRoot=str(f.root),binding=process.binding,
+        terminalOriginalSha256=digest(owner.previous),processOriginalSha256=digest(process.previous),
+        sdkOriginalSha256=digest(sdk.previous),sourceInventorySha256=digest(process.state['inventories']))
+    need(same(archive,expected) and same(store.read(),archive))
+    ended=dict(featureTerminalEndVersion=1,seal=deepcopy(call['seal']),roles={
+        role:dict(binding=deepcopy(prior['binding']),heldOriginalSha256=prior['originalSha256'],
+            stopOriginalSha256=digest(process.previous),osAbsence=process.role_os(role),
+            sdkDeletionOriginalSha256=digest(sdk.previous),archiveSha256=digest(archive))
+        for role,prior in owner.state['description']['roles'].items()})
+    protocol.ended(ended,call['seal']);need(same(result,dict(stage='finish',end=ended)))
+    process.verify();sdk.historical();need(same(store.read(),archive));f.clock()
+    return deepcopy(result)

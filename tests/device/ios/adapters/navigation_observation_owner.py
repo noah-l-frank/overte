@@ -36,9 +36,9 @@ _ARCHIVE_ROUND=ContextVar('ios_navigation_original_archive_round',default=None)
 
 
 @contextmanager
-def validation_round():
+def validation_round(*,fresh=False):
     """Share pure validation within one synchronous call, then recheck files."""
-    if _ARCHIVE_ROUND.get() is not None:
+    if _ARCHIVE_ROUND.get() is not None and not fresh:
         yield;return
     token=_ARCHIVE_ROUND.set(dict(observations={},images={},contexts={}))
     try:
@@ -46,7 +46,7 @@ def validation_round():
         for owner,carrier,_result in _ARCHIVE_ROUND.get()['observations'].values():
             owner.bound();need(same(owner.previous,carrier) and same(owner.envelope(owner.state),carrier))
             owner.image()
-        for owner,carrier,_result,pins in _ARCHIVE_ROUND.get()['images'].values():
+        for owner,carrier,_result,pins,_collector in _ARCHIVE_ROUND.get()['images'].values():
             image_pins(owner,carrier,pins)
     finally:_ARCHIVE_ROUND.reset(token)
 
@@ -60,6 +60,21 @@ def pure_context(kind,inputs,decode):
     if key not in cache:
         value=decode();need(len(cache)<512);cache[key]=deepcopy(value)
     return deepcopy(cache[key])
+
+
+def reopened_owner(store,images,binding,run,role,stage,request,previous,value):
+    """Reuse the exact historical owner already qualified in this same round."""
+    current=_ARCHIVE_ROUND.get()
+    if current is None:return None
+    entry=current['observations'].get((str(store.path),digest(value)))
+    if entry is None:return None
+    owner,carrier,_result=entry
+    if not owner.historical or not owner.images.historical or not same(owner.images.previous,images.previous):return None
+    need(owner.lock is images.lock and owner.store.path==store.path and owner.images.store.path==images.store.path
+        and owner.images.root==images.root and same(owner.binding,binding) and same(carrier,value)
+        and (owner.run,owner.role,owner.stage,owner.request)==(run,role,stage,request)
+        and owner.previous_owner is previous)
+    owner.bound();need(same(owner.envelope(owner.state),carrier));return owner
 
 
 def image_pins(owner,carrier,pins):
@@ -76,16 +91,20 @@ def image_archive(owner,decode):
     """
     from adapters.original_file_reads import active,scope as read_scope
     from ios.adapters.emote_original_lease import EmoteOriginalLease
-    if not owner.historical or active():return decode()
+    if not owner.historical:return decode()
+    collector=None
+    if active():
+        with read_scope() as reads:collector=reads
     current=_ARCHIVE_ROUND.get()
     if current is None:
         with validation_round():return image_archive(owner,decode)
     owner.bound();need(same(owner.envelope(owner.state),owner.previous))
     external={name:getattr(owner,name) for name in ('initial','prior','process_context','directory','owner_files','fixture_url') if hasattr(owner,name)}
-    key=(type(owner),str(owner.root),str(owner.store.path),digest([owner.previous,external]))
+    key=(type(owner),str(owner.root),str(owner.store.path),digest([owner.previous,external]),id(collector))
     cache=current['images']
     if key in cache:
-        original,carrier,result,pins=cache[key];image_pins(original,carrier,pins)
+        original,carrier,result,pins,prior_collector=cache[key];need(prior_collector is collector);image_pins(original,carrier,pins)
+        if collector is not None:collector.update(pins)
         value=deepcopy(result);image_pins(owner,carrier,pins);return value
     leases=[EmoteOriginalLease(root,[]) for root in {owner.root,owner.store.path.parent}]
     with read_scope(fresh=True) as reads:
@@ -93,7 +112,10 @@ def image_archive(owner,decode):
         pins={path:EmoteOriginalLease.signature(path.lstat()) for path in reads|{owner.store.path}}
     for lease in leases:lease.guard()
     image_pins(owner,owner.previous,pins);need(len(cache)<128)
-    cache[key]=(owner,deepcopy(owner.previous),deepcopy(result),pins)
+    if collector is not None:collector.update(reads)
+    # Keep the exact collector alive: a later fresh collector cannot reuse its
+    # identity or hide a new collection behind an earlier successful traversal.
+    cache[key]=(owner,deepcopy(owner.previous),deepcopy(result),pins,collector)
     return deepcopy(result)
 SOURCES=dict(bookmarks=location_bookmarks.IOSLocationBookmarks,model=places_model.IOSPlacesModel,
     http=places_http.IOSPlacesHttp,dialogs=navigation_dialogs.IOSNavigationDialogs,replies=NativeNavigationReplies,ui=NativeInput)

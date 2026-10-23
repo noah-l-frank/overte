@@ -53,9 +53,14 @@ class NavigationImageRoundTests(unittest.TestCase):
             _live,owner,expected=self.prepared()
             with patch.object(owner,'qualify',wraps=owner.qualify) as decode,validation_round():
                 self.assertEqual(expected,owner.archive())
-                with read_scope(fresh=True) as reads:self.assertEqual(expected,owner.archive())
-                self.assertEqual(2,decode.call_count);self.assertIn(owner.component('base').path,reads)
+                with read_scope(fresh=True) as reads:
+                    self.assertEqual(expected,owner.archive());self.assertEqual(expected,owner.archive())
+                    self.assertEqual(2,decode.call_count)
+                self.assertIn(owner.component('base').path,reads)
                 pngs=set(self.h.root.rglob('*.png'));self.assertTrue(pngs);self.assertTrue(pngs<=reads)
+                with read_scope(fresh=True) as other:
+                    self.assertEqual(expected,owner.archive());self.assertEqual(3,decode.call_count)
+                    self.assertIsNot(reads,other);self.assertTrue(pngs<=other)
 
 
 if __name__=='__main__':unittest.main()

@@ -39,6 +39,13 @@ class NavigationProcessEnd:
         self.binding=deepcopy(context(self.flow.state['binding']));self.run=self.flow.run
         self.store=PrivateFeatureState(self.flow.store.path.with_name('ios-navigation-process-end.json'))
         self.previous=self.store.read();self.state=None if self.previous is None else self.decode(self.previous)
+        self.checked_terminal=None
+
+    def replay_terminal(self):
+        if self.checked_terminal is None:return self.terminal.replay()
+        from ios.adapters.navigation_terminal_replay import NavigationTerminalReplay
+        need(type(self.checked_terminal) is NavigationTerminalReplay and self.checked_terminal.terminal is self.terminal)
+        return self.checked_terminal.guard()
 
     def envelope(self,state):
         return dict(iosNavigationProcessEndVersion=VERSION,runId=self.run,binding=self.binding,payload=pack([state]))
@@ -133,13 +140,13 @@ class NavigationProcessEnd:
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     def prepare(self):
-        self.bound();need(self.state is None);self.terminal.replay()
+        self.bound();need(self.state is None);self.replay_terminal()
         f=self.flow;runtime=f.runtime
         source=IOSGraphicsRuntime._graphics_final_source(runtime,f.selector,self.binding)
         # A newly constructed finish caller has no live fixture attachment.
         # Recover its authority metadata from the fully decoded original
         # admission; the following reader still fetches fresh retired status.
-        original=self.terminal.roles()['primary'].admission.archive()
+        original=f.initial_owner().archive()
         f.fixture.instance=original['providerInstance'];f.fixture.inputs=deepcopy(original['providerInputs'])
         retirement=NavigationRunRetirement(f.fixture,self.terminal.state['description']['ticket']).read()
         self.state=dict(phase='prepared',source=deepcopy(source),bundleId=runtime.adapter._target(f.selector)['appId'],
@@ -158,7 +165,7 @@ class NavigationProcessEnd:
             and number(mono,clock['hostAfterMonotonic'],clock['hostBeforeMonotonic']+1.5) and mono-clock['hostBeforeMonotonic']<1.5)
 
     def stop(self):
-        self.bound();need(self.state is not None and self.state['phase']=='prepared');self.terminal.replay()
+        self.bound();need(self.state is not None and self.state['phase']=='prepared');self.replay_terminal()
         f=self.flow;base=f.runtime.adapter
         need(same(IOSGraphicsRuntime._graphics_final_source(f.runtime,f.selector,self.binding),self.state['source']))
         outer=base._operation;need(outer in (None,'feature.world-navigation.terminal'))
@@ -190,7 +197,7 @@ class NavigationProcessEnd:
     def verify(self):
         """Pure original graph/OS replay, including after the SDK is gone."""
         self.lock.assert_held();need(self.previous is not None and same(self.store.read(),self.previous))
-        self.state=self.decode(self.previous);need(self.state['phase']=='complete');self.terminal.replay();return deepcopy(self.previous)
+        self.state=self.decode(self.previous);need(self.state['phase']=='complete');self.replay_terminal();return deepcopy(self.previous)
 
     def role_os(self,role):
         self.verify();need(role in protocol.ROLES)

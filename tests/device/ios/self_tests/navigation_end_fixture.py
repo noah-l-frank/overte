@@ -150,7 +150,8 @@ class EndBoundary:
         terminal.store=PrivateFeatureState(self.root/'modeled-navigation-terminal.json');terminal.store.write(terminal.state,None);terminal.previous=terminal.store.read()
         def replay():test.assertEqual(self.payload_bytes,self.payload.read_bytes());return deepcopy(seal)
         terminal.replay=replay
-        terminal.roles=lambda:dict(primary=SimpleNamespace(admission=SimpleNamespace(archive=lambda:dict(providerInstance=self.fixture.instance,providerInputs=self.fixture.inputs))))
+        flow.initial_owner=lambda:SimpleNamespace(archive=lambda:dict(providerInstance=self.fixture.instance,providerInputs=self.fixture.inputs))
+        terminal.roles=lambda:dict(primary=SimpleNamespace(admission=flow.initial_owner()))
         self.terminal=terminal;self.controller.close()
         self.install_reader_clock(test)
 

@@ -27,7 +27,7 @@ class NavigationFinalization:
         with f.held():
             need(terminal.state is not None and same(terminal.store.read(),terminal.previous)
                 and same(seal,terminal.state['seal']))
-            protocol.sealed(seal,terminal.state['description'],terminal.state['samples']);terminal.replay()
+            protocol.sealed(seal,terminal.state['description'],terminal.state['samples'])
             store=PrivateFeatureState(f.store.path.with_name('ios-navigation-final-archive.json'));previous=store.read()
             if previous is not None:
                 # A completed immutable archive is historical authority only.
@@ -36,24 +36,31 @@ class NavigationFinalization:
                 need(PrivateFeatureState(f.store.path.with_name('ios-navigation-process-end.json')).read() is not None
                     and PrivateFeatureState(f.store.path.with_name('ios-navigation-session-end.json')).read() is not None)
             process=NavigationProcessEnd(terminal)
-            if previous is None:
-                if process.state is None:process.prepare()
-                if process.state['phase']=='prepared':process.stop()
-                while process.state['phase']!='complete':
-                    if process.advance():break
-                    f.clock();f.sleep(1.6);f.clock()
-            process.verify();sdk=NavigationSessionEnd(process)
-            if previous is None:sdk.finish()
-            process.verify();sdk.historical()
-            archive=dict(iosNavigationFinalArchiveVersion=VERSION,runId=f.run,artifactRoot=str(f.root),binding=process.binding,
-                terminalOriginalSha256=digest(terminal.previous),processOriginalSha256=digest(process.previous),
-                sdkOriginalSha256=digest(sdk.previous),sourceInventorySha256=digest(process.state['inventories']))
-            if previous is None:store.write(archive,None)
-            else:need(same(previous,archive))
-            need(same(store.read(),archive));process.verify();sdk.historical()
-            result=dict(featureTerminalEndVersion=1,seal=deepcopy(seal),roles={
-                role:dict(binding=deepcopy(prior['binding']),heldOriginalSha256=prior['originalSha256'],
-                    stopOriginalSha256=digest(process.previous),osAbsence=process.role_os(role),
-                    sdkDeletionOriginalSha256=digest(sdk.previous),archiveSha256=digest(archive))
-                for role,prior in terminal.state['description']['roles'].items()})
-            protocol.ended(result,seal);f.clock();return result
+            from ios.adapters.navigation_terminal_replay import checked
+            with checked(terminal,process.mutable()) as proof:
+                process.checked_terminal=proof
+                return self._finish(process,store,previous,seal)
+
+    def _finish(self,process,store,previous,seal):
+        terminal=self.terminal;f=self.flow
+        if previous is None:
+            if process.state is None:process.prepare()
+            if process.state['phase']=='prepared':process.stop()
+            while process.state['phase']!='complete':
+                if process.advance():break
+                f.clock();f.sleep(1.6);f.clock()
+        process.verify();sdk=NavigationSessionEnd(process)
+        if previous is None:sdk.finish()
+        process.verify();sdk.historical()
+        archive=dict(iosNavigationFinalArchiveVersion=VERSION,runId=f.run,artifactRoot=str(f.root),binding=process.binding,
+            terminalOriginalSha256=digest(terminal.previous),processOriginalSha256=digest(process.previous),
+            sdkOriginalSha256=digest(sdk.previous),sourceInventorySha256=digest(process.state['inventories']))
+        if previous is None:store.write(archive,None)
+        else:need(same(previous,archive))
+        need(same(store.read(),archive));process.verify();sdk.historical()
+        result=dict(featureTerminalEndVersion=1,seal=deepcopy(seal),roles={
+            role:dict(binding=deepcopy(prior['binding']),heldOriginalSha256=prior['originalSha256'],
+                stopOriginalSha256=digest(process.previous),osAbsence=process.role_os(role),
+                sdkDeletionOriginalSha256=digest(sdk.previous),archiveSha256=digest(archive))
+            for role,prior in terminal.state['description']['roles'].items()})
+        protocol.ended(result,seal);f.clock();return result

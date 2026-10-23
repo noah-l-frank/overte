@@ -127,9 +127,10 @@ baseline/restored PNG decoding. It first runs the entire actual typed source,
 PNG and ownership decoder between independent file inventories. Every actual
 read is then pinned by device/inode/mode/owner/link/size/mtime/ctime; hits and
 round exit recheck those pins and the complete carrier/context. Returned values
-are separate copies. Live acquisitions and any outer actual-read collector
-still perform full decoding, so a caller's read-set membership cannot disappear
-behind an earlier result. No live freshness, input permission, source quiet or
+are separate copies. Live acquisitions still perform full decoding. Each new
+actual-read collector also performs its own complete decoding; reuse within
+that same collector retains every original read pin and its membership. The
+exact collector stays alive until round exit, preventing identity reuse. No live freshness, input permission, source quiet or
 global inventory verdict is cached.
 
 Profiling the existing restarted-restoration case found 450 pure process-context
@@ -151,3 +152,33 @@ host duration changed from 38.321 to 34.513 seconds after image sharing, then
 26.920 seconds after pure process sharing. This is one host measurement, not
 physical iOS or general API timing qualification. Three original-process image
 cases also pass, including literal image/state version-1 replay.
+
+
+Repeated observer reopening in that same round now retains the exact already
+qualified historical owner, its actual predecessor object, immutable image
+index, binding, role, stage, request and source lock. Each use still runs the
+owner's ordinary archive and original guards. Another round constructs a new
+owner. Two focused cases check this path and reject changed in-memory facts.
+
+The terminal finalizer and canonical post-end reader pass a locally checked
+terminal traversal through one synchronous call. The initial full source/PNG/
+publication decoder runs cold under a fresh read collector and existing archive
+round. Every subsequent use and scope exit rechecks the original inventories,
+read pins, actual carriers, in-memory state and exact owner/runtime identities.
+Only the existing process/SDK transaction paths may change. The handoff expires
+at exit and grants no live input or freshness authority. Five counterexamples
+cover changed bytes, replaced inodes, unread new sources, another terminal and
+reuse after expiry. The actual SDK/OS mechanics remain independently checked.
+
+The first two full fifteen-step host attempts completed ordinary restoration,
+paired live sealing, once-only process/SDK end and canonical verification, then
+failed the default thirty-second generic historical reader budget. Their test
+results remain errors. The second attempt's 626 original files were retained at
+their original paths/inodes. On those unchanged originals, the corrected default
+reader passed in 26.350 seconds with all transports forbidden. Separate actual
+historical finish, canonical verification and Actor exit passed in 25.929,
+25.969 and 26.290 seconds; all 626 files stayed unchanged and no transport was
+attempted. These measurements use explicit native/Qt/GPU/SDK/OS and local
+candidate models; they do not qualify physical iOS timing. Twenty-three focused
+archive/ownership/process cases pass in 19.646 seconds. A fresh connected full
+case remains a separate required verification.

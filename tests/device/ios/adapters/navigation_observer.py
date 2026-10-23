@@ -18,7 +18,7 @@ from adapters.script_feature.history import pack,unpack,same
 from feature_journeys.contract import identifier,result as public_result
 from feature_journeys.phase_fixture import PhaseFixtureReader
 from feature_journeys.witness import Client
-from ios.adapters.navigation_observation_owner import NavigationObservationOwner,validation_round
+from ios.adapters.navigation_observation_owner import NavigationObservationOwner,validation_round,reopened_owner
 from ios.adapters.navigation_samples import NavigationSamples
 from ios.adapters.navigation_sample import NavigationMarkerPending
 from navigation_observation import same_viewpoint,viewpoint_urls
@@ -65,8 +65,10 @@ class NavigationObserver:
             if row['status']=='reserved':break
             store=PrivateFeatureState(self.path(row['requestId']));value=store.read()
             need(value is not None and digest(value)==row['ownerSha256'])
-            owner=NavigationObservationOwner(store,images,self.binding,self.run,self.role,self.stage,row['requestId'],
-                self.lock,lambda:True,previous=previous,historical=True)
+            owner=reopened_owner(store,images,self.binding,self.run,self.role,self.stage,row['requestId'],previous,value)
+            if owner is None:
+                owner=NavigationObservationOwner(store,images,self.binding,self.run,self.role,self.stage,row['requestId'],
+                    self.lock,lambda:True,previous=previous,historical=True)
             owner.archive();need(owner.state['phase']==row['status'] and owner.state['ticket']==row['ticket'])
             result.append(owner);previous=owner
         return result

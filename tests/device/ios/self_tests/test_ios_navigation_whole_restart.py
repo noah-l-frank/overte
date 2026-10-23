@@ -66,7 +66,10 @@ class NavigationWholeRestartTests(unittest.TestCase):
     def test_compact_original_whole_seal_joins_once_sdk_end_and_file_only_replay(self):
         self.journey(self.compact_steps(),end=True)
 
-    def journey(self,steps,*,end=False):
+    def test_all_fifteen_steps_use_common_terminal_and_canonical_historical_cleanup(self):
+        self.journey(SCENARIOS['world-navigation']['steps'],end=True,canonical=True)
+
+    def journey(self,steps,*,end=False,canonical=False):
         h=self.h;whole=self.whole;actor=self.actor();ctx=context(h.run)
         def publication():
             if not end:return actor.publish()
@@ -101,12 +104,17 @@ class NavigationWholeRestartTests(unittest.TestCase):
         for index in range(3):
             if index:self.new.sdk.gpu.sleep(1.6)
             publication()
-        owner=NavigationTerminal(h.flow);description=owner.inspect();samples=[]
+        from feature_journeys import terminal as protocol
+        owner=NavigationTerminal(h.flow)
+        def terminal(stage,**fields):return whole.terminal(dict(contractVersion=protocol.VERSION,runId=h.run,stage=stage,**fields))
+        description=terminal('inspect')['description'] if canonical else owner.inspect();samples=[]
         for index in range(3):
             if index:self.new.sdk.gpu.sleep(1.6)
             current=whole.observe(dict(contractVersion=16,runId=h.run,afterSequence=current['sequence']))
             samples.append(dict(primary=current,actor=publication()))
-        seal=owner.seal(description,samples);commands=deepcopy(self.new.gpu.commands)
+        seal=terminal('seal',description=description,samples=samples)['seal'] if canonical else owner.seal(description,samples)
+        if canonical:owner=NavigationTerminal(h.flow)
+        commands=deepcopy(self.new.gpu.commands)
         if end:print('NAVIGATION original paired live seal complete',flush=True)
         with h.flow.held():
             def forbidden(*_args,**_kwargs):self.fail('Historical terminal replay attempted transport')
@@ -122,12 +130,20 @@ class NavigationWholeRestartTests(unittest.TestCase):
             with patch.object(h.runtime,'_sources',side_effect=forbidden),patch.object(actor.flow.client,'request',side_effect=forbidden):
                 self.assertIsNone(worker.step(actor,dict(target=h.flow.selector)))
             with h.flow.held():bridge=EndBoundary(self,connected=dict(flow=h.flow,terminal=owner,world=h))
-            result=owner.finish(seal);requests=deepcopy(bridge.requests)
+            result=terminal('finish',seal=seal)['end'] if canonical else owner.finish(seal)
+            requests=deepcopy(bridge.requests)
             print('NAVIGATION process and SDK end complete',flush=True)
             self.assertEqual(1,bridge.stops);self.assertEqual(1,sum(method=='DELETE' for method,_ in requests))
             self.assertIsNone(h.lifecycle.pid);self.assertIsNone(bridge.sdk.read());self.assertIsNone(bridge.installed.store.read())
             with patch.object(h.runtime,'_sources',side_effect=forbidden),patch.object(h.flow.client,'request',side_effect=forbidden),patch.object(backend.WebDriver,'call',side_effect=forbidden):
-                self.assertEqual(result,owner.finish(seal))
+                if canonical:
+                    from ios.adapters.navigation_canonical_end import verify
+                    from ios.adapters.navigation_session_cleanup import retire_existing
+                    call=dict(contractVersion=protocol.VERSION,runId=h.run,stage='finish',seal=seal)
+                    expected=dict(stage='finish',end=result)
+                    self.assertEqual(expected,verify(whole,call,expected))
+                    self.assertEqual({'cleaned':True},retire_existing(h.runtime,h.flow.selector,None))
+                else:self.assertEqual(result,owner.finish(seal))
                 with patch.object(actor.flow.client,'request',side_effect=forbidden):
                     self.assertEqual(0,worker.step(actor,dict(target=h.flow.selector)))
             self.assertEqual(requests,bridge.requests);self.assertEqual(commands,self.new.gpu.commands)

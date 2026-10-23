@@ -13,9 +13,9 @@ from adapters.script_feature.history import same
 from feature_journeys.contract import identifier
 from feature_journeys.graphics_resources import fixture_url
 from feature_journeys.witness import Client
-from ios.adapters.navigation_feature import IOSNavigationFeature
 from ios.adapters.navigation_runtime import IOSNavigationRuntime
 from ios.adapters.navigation_terminal import NavigationTerminal
+from ios.adapters.navigation_whole_feature import NavigationWholeFeature
 
 PREFIXES=('ios-navigation-','navigation-','phase-publication-world-navigation-','phase-retirement-world-navigation-')
 
@@ -52,7 +52,8 @@ def retire_existing(runtime,selector,config):
     fixture_url(publication['fixtureUrl'])
     def forbidden(*_args,**_kwargs):need(False)
     passive=object.__new__(Client);passive.url=publication['fixtureUrl'];passive.request=forbidden
-    flow=IOSNavigationFeature(runtime,selector,passive,value['runId'],chosen['artifactRoot'])
+    whole=runtime._navigation_feature(selector,value['runId'],role='primary',client=passive,settings=chosen)
+    need(type(whole) is NavigationWholeFeature);flow=whole.flow
     with flow.held():
         flow.load();need(same(flow.previous,value) and same(store.read(),value))
         runtime.adapter._retired_candidate_scope(selector,{key:item for key,item in flow.state['binding'].items() if key!='processIdentity'})
