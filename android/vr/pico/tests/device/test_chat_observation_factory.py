@@ -1,0 +1,60 @@
+"""Original Pico factories, actual owned stdin peer; SDK/native producers are seams."""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+import unittest
+
+from adapters.normal_feature_state import PrivateFeatureState
+from adapters.normal_ui import NativeUIError
+from feature_journeys.phase_fixture import PhaseFixtureReader
+from feature_journeys.witness import Client
+import test_chat_composition as seams
+
+
+class PicoChatObservationFactoryTests(unittest.TestCase):
+    def setUp(self):
+        self.h=seams.PicoChatCompositionTests();self.h.setUp();self.addCleanup(self.h.doCleanups)
+        self.adapter,self.target=self.h.instance,self.h.native.target
+        self.parent=self.h.compose();self.h.prepare_sources(self.parent);self.parent.prepare()
+        source=PhaseFixtureReader(Client('http://127.0.0.1:48300/feature-fixture/v1','b'*48),seams.RUN,'chat')
+        self.original=self.adapter._chat_witness_composition(self.target,source,self.h.peer.config)
+        self.h.owners.append(self.original)
+
+    def samples(self):
+        original=self.original
+        return self.adapter._chat_cache_absence(self.target,seams.RUN,original.peer.reader(),original.peer.binding,
+            role='actor',stage='final',witness=True,source_lock=original.lock,peer_lock=original.peer.lock,
+            script_source=original.publisher.samples.script_source)
+
+    def test_original_final_actor_factory_preserves_independent_live_code_readers_and_lock_objects(self):
+        samples=self.samples();original=self.original
+        owner=self.adapter._chat_observation(self.target,original.publisher.source,samples,stage='cleanup',witness=True)
+        self.assertIs(original.publisher.source,owner.source);self.assertIsNot(self.parent.source.client,owner.source.client)
+        self.assertIs(samples.script_source,original.publisher.samples.script_source)
+        self.assertIs(samples.locks[0],original.lock);self.assertIs(samples.locks[1],original.peer.lock)
+        self.assertIsNot(samples.primary,original.publisher.samples.primary);self.assertIsNot(samples.peer,original.publisher.samples.peer)
+        self.assertIsNot(samples.view,original.publisher.samples.view);self.assertIsNot(samples.lifecycle,original.publisher.samples.lifecycle)
+        self.assertIsNot(samples.script_source,self.parent.code_sources[1])
+        self.assertEqual(self.adapter._chat_cleanup_admission_store(self.target).path,owner.cleanup_store.path)
+        self.assertIsNone(owner.store.read());self.assertEqual([],samples.frames);self.assertEqual([],self.h.native.inputs)
+
+    def test_adapter_credentials_and_premature_parent_cannot_construct_independent_cleanup_publisher(self):
+        samples=self.samples()
+        with self.assertRaises((ValueError,NativeUIError)):
+            self.adapter._chat_observation(self.target,self.parent.source,samples,stage='cleanup',witness=True)
+        with self.assertRaises((ValueError,NativeUIError)):self.adapter._chat_cleanup_witness(self.target,self.original)
+        self.assertIsNone(self.adapter._chat_cleanup_witness_store(self.target).read())
+        self.assertIsNone(self.adapter._chat_observation_store(self.target,'actor',stage='cleanup',witness=True).read())
+        self.assertEqual([],self.h.native.inputs)
+
+    def test_rootless_original_observation_and_cleanup_publisher_chunks_keep_generic_cleanup_closed(self):
+        self.assertFalse(self.adapter._chat_application_retained(self.target))
+        stores=(self.adapter._chat_observation_store(self.target,'actor',stage='cleanup',witness=True),
+            self.adapter._chat_cleanup_witness_store(self.target))
+        for store in stores:
+            child=PrivateFeatureState(store.path.with_name(store.path.name+'.frame-000.json'))
+            child.write(dict(explicitOriginalOrphan=True),None)
+            self.assertTrue(self.adapter._chat_application_retained(self.target));self.assertTrue(child.path.exists())
+        self.assertTrue(all(store.read() is None for store in stores));self.assertEqual([],self.h.native.inputs)
+
+
+if __name__=='__main__':unittest.main()

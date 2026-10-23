@@ -69,6 +69,8 @@ REQUIRED = {
     "chat-cleanup-admission": 1,
     "chat-observation-owner": 1,
     "chat-cleanup-witness": 1,
+    "pico-chat-observation": 1,
+    "pico-chat-cleanup-witness": 1,
     "pico-chat-application-close": 1,
     "chat-evidence-archive": 4,
     "pico-chat-archive-plan": 4,

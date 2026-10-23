@@ -2081,6 +2081,38 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-cleanup-admission-')))
 
+        def _chat_observation_store(self,target,role,*,stage,witness=False):
+            _need(role in ('primary','actor') and stage in ('initial','active','cleanup')
+                and type(witness) is bool and (not witness or role=='actor'))
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-',
+                'chat-'+('witness' if witness else role)+'-'+stage+'-observation-')))
+
+        def _chat_cleanup_witness_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-cleanup-witness-')))
+
+        @_private
+        def _chat_observation(self,target,source,samples,*,stage,witness=False):
+            from adapters.chat_journey.observation import ChatObservationOwner
+            from adapters.feature_fixture_access import AdapterFixtureClient
+            manager=self._scripts(target);native=self._native_feature_observer(target);native.guard()
+            _need(stage in ('initial','active','cleanup') and type(witness) is bool
+                and witness is (not isinstance(source.client,AdapterFixtureClient))
+                and samples.binding==manager.binding and source.run==samples.run)
+            expected=(self._chat_samples_store(target,samples.role,witness=witness) if stage=='active' else
+                self._chat_cache_absence_store(target,samples.role,stage='initial' if stage=='initial' else 'final',witness=witness))
+            _need(samples.store.path==expected.path)
+            return ChatObservationOwner(source,samples,self._chat_flow_inputs_store(target),
+                self._chat_observation_store(target,samples.role,stage=stage,witness=witness),stage=stage,
+                cleanup_store=self._chat_cleanup_admission_store(target) if stage=='cleanup' else None,
+                monotonic=native.monotonic)
+
+        @_private
+        def _chat_cleanup_witness(self,target,original):
+            from adapters.pico4.chat_cleanup_witness import PicoChatCleanupWitness
+            return PicoChatCleanupWitness(self,target,original)
+
         def _chat_cache_release_store(self,target):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-cache-release-')))
@@ -2101,6 +2133,10 @@ def create_adapter(args, base_class):
             # Rootless successor/retirement chunks must not disappear behind
             # a missing parent root or ordinary application force-stop.
             stores=[self._chat_application_store(target),self._chat_restart_inputs_store(target),self._chat_archive_retirement_store(target),self._chat_host_close_store(target)]
+            stores.append(self._chat_cleanup_witness_store(target))
+            stores.extend(self._chat_observation_store(target,role,stage=stage,witness=witness)
+                for role,witness in (('primary',False),('actor',False),('actor',True))
+                for stage in ('initial','active','cleanup'))
             stores.extend(self._chat_postrestart_store(target,kind) for kind in ('ui','primary-code','actor-code','primary-absence','actor-absence'))
             retained=any(self._chat_chunk_store_retained(store) for store in stores)
             state,_ui=self._script_paths(target);key=state.stem.removeprefix('normal-script-state-')
