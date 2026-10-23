@@ -22,6 +22,8 @@ from overte_phone_snapshots_role import PhoneSnapshotsRole
 HOOK=r'''
 ordinary_batch=module.PhoneSnapshotsActor.ordinary_batch
 stage_mutations=[]
+graph_mutation={}
+custom_effects=[]
 inline_stats=dict(entries=0,lockedReads=0,sleeps=0,mutations=0)
 def inline_batch(self,role,prepared):
     self.feature.lock.assert_held()
@@ -46,6 +48,7 @@ def paused_batch(self,role,prepared):
     print(json.dumps(dict(stage='prepared',lockReleased=True,counts=counts,
         roleHeader=role.previous,frameCount=len(role.frames))),flush=True)
     release=json.loads(sys.stdin.readline());fault=release.get('fault')
+    stage_mutations.clear();graph_mutation.clear();custom_effects.clear()
     scope=getattr(adapter,'_existing_input_scope',None)
     if fault=='scope':adapter._existing_input_scope=dict(scope or {})
     if fault=='graph':role.frames.append(dict(controlledForeignGraph=True))
@@ -54,8 +57,29 @@ def paused_batch(self,role,prepared):
         result=restore(*args,**kwargs);restored.append(True);return result
     def late_bound():
         result=bound()
-        if ((fault=='late-native-graph' and restored) or (fault=='late-save-graph' and self.state['pending'] is not None)) and not stage_mutations:
-            stage_mutations.append(True);role.frames[0]['controlledLateGraph']=True
+        late=fault in ('late-save-graph','late-save-bool-int','late-save-int-float','late-save-cycle','late-save-object') and self.state['pending'] is not None
+        if ((fault=='late-native-graph' and restored) or late) and not stage_mutations:
+            stage_mutations.append(True)
+            old=role.frames[0]['state']
+            if fault=='late-save-bool-int':
+                value=old['open'];assert type(value) is bool
+                old['open']=int(value);assert old['open']==value and type(old['open']) is int
+                graph_mutation.update(field='state.open',beforeType='bool',afterType='int',equalPythonValue=True)
+            elif fault=='late-save-int-float':
+                value=old['files'];assert type(value) is int
+                old['files']=float(value);assert old['files']==value and type(old['files']) is float
+                graph_mutation.update(field='state.files',beforeType='int',afterType='float',equalPythonValue=True)
+            elif fault=='late-save-cycle':
+                assert type(old['captureHistory']) is list
+                old['captureHistory'].append(old['captureHistory']);graph_mutation.update(kind='actual-cycle')
+            elif fault=='late-save-object':
+                class Foreign:
+                    def __getattribute__(self,name):custom_effects.append('getattribute');return object.__getattribute__(self,name)
+                    def __reduce_ex__(self,protocol):custom_effects.append('reduce-ex');raise AssertionError('Custom callback forbidden')
+                    def __reduce__(self):custom_effects.append('reduce');raise AssertionError('Custom callback forbidden')
+                    def __iter__(self):custom_effects.append('iter');raise AssertionError('Custom callback forbidden')
+                old['captureHistory'].append(Foreign());graph_mutation.update(kind='actual-foreign-object')
+            else:role.frames[0]['controlledLateGraph']=True
         return result
     role.restore_originals=actual_restore;self.feature.bound=late_bound
     try:return ordinary_batch(self,role,prepared)
@@ -67,7 +91,7 @@ module.PhoneSnapshotsActor.ordinary_batch=paused_batch
 ANCHOR="module.PhoneSnapshotsRole=construct\nflow=adapter.actor('synthetic',RUN,client)"
 assert cue.CHILD.count(ANCHOR)==1
 CHILD=cue.CHILD.replace(ANCHOR,"module.PhoneSnapshotsRole=construct\n"+HOOK+"\nflow=adapter.actor('synthetic',RUN,client)")
-CHILD=CHILD.replace('state=state)),flush=True)','state=state,stageMutations=len(stage_mutations),inline=inline_stats)),flush=True)')
+CHILD=CHILD.replace('state=state)),flush=True)','state=state,stageMutations=len(stage_mutations),inline=inline_stats,graphMutation=graph_mutation,customEffects=len(custom_effects))),flush=True)')
 SLEEP_ANCHOR='    request=client.request;save=flow.save;write=flow.store.write'
 assert CHILD.count(SLEEP_ANCHOR)==1
 CHILD=CHILD.replace(SLEEP_ANCHOR,SLEEP_ANCHOR+r'''
@@ -219,6 +243,34 @@ class SnapshotActorOrdinaryStagesTests(unittest.TestCase):
         self.assertEqual(before['state']['pending'],result['state']['pending'])
         self.assertEqual(before['counts']['posts'],len(self.entries()))
         for path,raw in originals.items():self.assertEqual(raw,path.read_bytes())
+
+    def rejected_late_typed_graph(self,fault,*,cold=False):
+        before,_=self.prepared(cold=cold)
+        originals={p:p.read_bytes() for p in self.rig.root.glob('emote-frame-snapshots-'+cue.harness.RUN+'-actor-*.json')}
+        self.assertTrue(originals);result=self.release(fault)
+        self.assertEqual(1,result['stageMutations']);self.assertEqual('NativeUIError',result['error'])
+        self.assertEqual(before['counts']['reads']+1,result['counts']['reads'])
+        self.assertEqual(before['counts']['posts'],result['counts']['posts'])
+        self.assertEqual(before['state']['primaryCue'],result['state']['primaryCue'])
+        self.assertEqual(before['state']['pending'],result['state']['pending'])
+        self.assertEqual(before['counts']['posts'],len(self.entries()))
+        self.assertEqual(0,result['customEffects'])
+        for path,raw in originals.items():self.assertEqual(raw,path.read_bytes())
+        return result
+
+    def test_equal_python_bool_to_int_is_not_the_same_original_graph(self):
+        actual=self.rejected_late_typed_graph('late-save-bool-int')
+        self.assertEqual(dict(field='state.open',beforeType='bool',afterType='int',equalPythonValue=True),actual['graphMutation'])
+
+    def test_equal_python_int_to_float_is_not_the_same_original_graph(self):
+        actual=self.rejected_late_typed_graph('late-save-int-float')
+        self.assertEqual(dict(field='state.files',beforeType='int',afterType='float',equalPythonValue=True),actual['graphMutation'])
+
+    def test_cycle_and_foreign_object_are_refused_without_callbacks_or_post(self):
+        for fault,kind in [('late-save-cycle','actual-cycle'),('late-save-object','actual-foreign-object')]:
+            with self.subTest(fault=fault):
+                actual=self.rejected_late_typed_graph(fault,cold=True)
+                self.assertEqual(dict(kind=kind),actual['graphMutation'])
 
     def test_actual_native_guard_callback_cannot_change_old_graph_before_current_read(self):
         before,_=self.prepared();result=self.release('late-native-graph')
