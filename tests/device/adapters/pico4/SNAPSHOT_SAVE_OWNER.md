@@ -139,3 +139,51 @@ container subclasses fail closed even when their JSON bytes match. Save's key
 also contains its actual parent's current validation context. Changed original
 owners cannot reuse an old pure DTO result. This correction does not supply a
 new passing warm run or retire either unfinished selection.
+
+## Diagnostic transport cost and equivalent synthetic tool
+
+One separately authorized cProfile run at fixed source
+`b4b76ba4a3fcc529b7de5093683749aa6dce97f8` ended diagnostically at 120.119
+seconds (exit 124). It retained all private fixture directories and incremental
+profile snapshots. Profiling/snapshot IO was additional test instrumentation;
+this was not an acceptance rerun. The last profile covers 105.076 seconds,
+not every instant of the enclosing wall-clock interval. The original owner
+reached `still-quiet-issued` with 69 base frames and 89 original chunks; no Save
+journal had yet been created.
+
+The measured nested cumulative costs must not be added together:
+
+| Original path | Calls | Cumulative seconds |
+| --- | ---: | ---: |
+| Candidate installation guard | 1751 | 72.690 |
+| Original `verify_candidate` | 1752 | 67.807 |
+| Original network policy verification | 1752 | 51.582 |
+| Actual tool processes (`run_tool`) | 8760 | 53.787 |
+| Parent `read_frame` | 69 | 60.127 |
+| Parent durable `save` | 168 | 25.287 |
+| Parent full state validation | 177 | 15.965 |
+| Original encode/verify | 168 | 6.678 |
+
+Direct poll time was 53.078 seconds; fsync was 5.159 seconds. Pure new original
+frame validation took 0.076 seconds across 69 new frames, while 9173 pure frame
+calls/memo paths took 3.661 seconds. Five actual host PNG reads took 0.0014
+seconds. This identifies repeated tool startup as the first measured target,
+not PNG bytes, discarded originals, weaker cadence or a longer timeout.
+
+Only the existing synthetic `apkanalyzer-stub` produced by
+`android/vr/pico/tests/pico-apk-verifier-test.py` changes: it still emits its
+controlled static test manifest/configuration, now through `/bin/sh` rather than
+starting Python twice for every candidate check. Actual subprocess invocation,
+arguments, source/tool hashes, APK snapshot/ZIP/hash, signing, package/version,
+network policy and installed-candidate/PID/session/foreground guards remain
+unchanged. There is no verifier result cache or production verifier edit.
+
+Four narrow checks compare real old-Python/new-shell CLI stdout bytes and exit
+codes for both branches, missing arguments, empty/ignored arguments and quoted
+multiline content, and exercise the actual original candidate/binding. Foreign
+package, changed APK, changed decoder bytes despite identical stdout, changed
+verifier argument and changed installed candidate still reject. These four
+checks passed in 0.823 seconds; the existing synthetic-APK verifier class passed
+14 checks in 1.624 seconds; the combined Save-fences selector passed 24 checks
+in 2.018 seconds (2.420 seconds including its runner). This fixture equivalence
+does not supply a new passing complete Save selection.

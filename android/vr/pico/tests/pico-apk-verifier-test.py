@@ -5,6 +5,7 @@ import json
 import importlib.util
 import os
 import shutil
+import shlex
 import sys
 from pathlib import Path
 import stat
@@ -62,6 +63,17 @@ NETWORK_MANIFEST = """<manifest xmlns:android="http://schemas.android.com/apk/re
     </application></manifest>"""
 
 
+def synthetic_analyzer_script(manifest, configuration):
+    """Same static host DTO/argument contract without Python startup per guard.
+
+    This is only the existing synthetic tool seam. The actual candidate
+    verifier, archive reads, tool/source hashes and every invocation stay real.
+    """
+    return ("#!/bin/sh\nset -eu\n[ \"$#\" -gt 0 ] || exit 1\n"
+            "if [ \"$1\" = manifest ]; then\n  printf '%s\\n' " + shlex.quote(manifest) +
+            "\nelse\n  printf '%s\\n' " + shlex.quote(configuration) + "\nfi\n")
+
+
 class PicoApkVerifierTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -70,8 +82,7 @@ class PicoApkVerifierTests(unittest.TestCase):
         self.network_config = (self.parent / "android/common/web/res/xml" / (NETWORK_NAME + ".xml")).read_text()
         self.aapt2 = self._tool("aapt2", "printf '  resource 0x7f010000 xml/" + NETWORK_NAME + "\\n    () (file) " + NETWORK_FILE + " type=XML\\n'\n")
         self.analyzer = self.directory / "apkanalyzer-stub"
-        self.analyzer.write_text("#!/usr/bin/env python3\nimport sys\n" +
-            "print(" + repr(NETWORK_MANIFEST) + " if sys.argv[1] == 'manifest' else " + repr(self.network_config) + ")\n")
+        self.analyzer.write_text(synthetic_analyzer_script(NETWORK_MANIFEST,self.network_config),encoding='utf-8')
         self.analyzer.chmod(0o755)
         self.aapt = self._tool(
             "aapt",

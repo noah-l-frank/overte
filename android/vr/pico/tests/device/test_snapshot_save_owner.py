@@ -12,6 +12,8 @@ import json
 import os
 from pathlib import Path
 import sys
+import subprocess
+import tempfile
 import unittest
 import uuid
 from unittest.mock import patch
@@ -163,6 +165,54 @@ class SnapshotSaveFactoryTests(unittest.TestCase):
                 with patch.object(fixture.adb,'write_debug_app_file',side_effect=AssertionError('Orphan input')):
                     with self.assertRaises((ValueError,RuntimeError)):fixture.adapter.invoke(fixture.adb.target,'snapshot.open',{})
             finally:path.unlink()
+
+
+class SnapshotSyntheticAnalyzerTests(unittest.TestCase):
+    # This is the exact shared synthetic APK fixture used by this normal flow.
+    # Production verifier, binding and tools still execute normally.
+    helper=prefix.existing.original.fixture.fixture
+    def candidate(self):
+        case=prefix.existing.original.fixture.CandidateIdentityTest('test_actual_candidate_entry_and_pending_semantics')
+        case.setUp();self.addCleanup(case.doCleanups);return case
+    def binding(self):
+        case=prefix.existing.original.NativeExecutionBindingTest();case.setUp();self.addCleanup(case.doCleanups)
+        return case
+    def test_actual_legacy_python_and_static_shell_tools_have_identical_output_and_exit_contract(self):
+        with tempfile.TemporaryDirectory(prefix='pico-static-analyzer-') as directory:
+            root=Path(directory);root.chmod(0o700);old=root/'original-python';new=root/'static-shell';canary=root/'must-not-exist'
+            manifest=self.helper.NETWORK_MANIFEST
+            configurations=("<network-security-config/>\n", "quote'\n% \\ $HOME $(touch "+str(canary)+")\n")
+            arguments=([],['manifest'],['manifest','print','/actual synthetic.apk'],['resources','xml','--file','res/xml/config.xml','/actual synthetic.apk'],['ignored-tail','argument'],[''])
+            for configuration in configurations:
+                old.write_text("#!/usr/bin/env python3\nimport sys\nprint("+repr(manifest)+" if sys.argv[1] == 'manifest' else "+repr(configuration)+")\n",encoding='utf-8')
+                new.write_text(self.helper.synthetic_analyzer_script(manifest,configuration),encoding='utf-8');old.chmod(0o700);new.chmod(0o700)
+                for args in arguments:
+                    before=subprocess.run([str(old),*args],capture_output=True,timeout=5)
+                    after=subprocess.run([str(new),*args],capture_output=True,timeout=5)
+                    with self.subTest(args=args):self.assertEqual((before.returncode,before.stdout),(after.returncode,after.stdout))
+                self.assertFalse(canary.exists())
+    def test_original_candidate_cli_keeps_pending_semantics_and_rejects_foreign_package_or_changed_apk(self):
+        case=self.candidate();result=case.invoke();self.assertEqual(0,result.returncode,result.stderr)
+        self.assertEqual('ARTIFACT_BYTES_BOUND_VERIFICATION_PENDING',json.loads(result.stdout)['identity_status'])
+        with patch.dict(os.environ,{'MOCK_PACKAGE':'org.example.foreign'}):self.assertEqual(2,case.invoke().returncode)
+        with case.apk.open('ab') as output:output.write(b'changed original APK')
+        self.assertEqual(2,case.invoke().returncode)
+    def test_real_binding_rechecks_changed_tool_bytes_even_when_its_stdout_is_unchanged(self):
+        case=self.binding();bound=case.instance();tool=case.fixture.fixture.analyzer
+        before=subprocess.run([str(tool),'manifest','print',str(case.fixture.apk)],capture_output=True,check=True).stdout
+        tool.write_bytes(tool.read_bytes()+b'\n# changed original decoder bytes\n')
+        after=subprocess.run([str(tool),'manifest','print',str(case.fixture.apk)],capture_output=True,check=True).stdout
+        self.assertEqual(before,after)
+        with self.assertRaisesRegex(ValueError,'^OVT_PICO_BINDING_REJECTED$'):bound.describe(case.fake.target)
+        self.assertEqual([],case.fake.events)
+    def test_real_binding_rejects_changed_verifier_arguments_and_installed_candidate_without_input(self):
+        for fault in ('argument','installed'):
+            case=self.binding();adapter=prefix.existing.original.adapter
+            args,binding=adapter.cli([*case.prefix,'describe','--target',case.fake.target]);bound=binding.create_adapter(args,adapter.AndroidAdapter)
+            if fault=='argument':args.expected_version_code=8
+            else:case.fake.digest='f'*64
+            with self.subTest(fault=fault),self.assertRaisesRegex(ValueError,'^OVT_PICO_BINDING_REJECTED$'):bound.describe(case.fake.target)
+            self.assertFalse(any(event and event[0] in ('install','am') for event in case.fake.events))
 
 
 if __name__=='__main__':unittest.main()
