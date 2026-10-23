@@ -52,4 +52,7 @@ The initial-process final Go To now routes through its existing
 typed `NavigationProcessReturn` path. Two focused host cases exercise the actual
 initial input journal and adoption of a completely retained lost child return
 without a second Go To. Both paths retain hidden Qt roots. This delivery does
-not yet admit initial-process restored images, paired cleanup or final end.
+not itself admit paired cleanup or final end. The separate
+[initial-process source/image owner](NAVIGATION_INITIAL_RESTORATION.md) now
+qualifies fresh restored source and input cuts; full baseline comparison,
+paired quiet and whole cleanup integration remain open.
