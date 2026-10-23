@@ -202,7 +202,7 @@ class AvatarUrlsTests(unittest.TestCase):
         def settle_original():
             if self.preferences_queries>=3:self.preference_conflict=False
         self.preference_reads_hook=settle_original
-        self.invoke('prepare');root=self.store.read();self.assertEqual(2,root['picoAvatarUrlsOwnerVersion']);self.assertFalse(self.native.inputs)
+        self.invoke('prepare');root=self.store.read();self.assertEqual(3,root['picoAvatarUrlsOwnerVersion']);self.assertFalse(self.native.inputs)
         state=unpack(root['payload'])[0];self.assertEqual(3,state['baselineIndex']);self.assertEqual(state['frames'][2],state['baseline'])
         with self.lock.held():
             owner=self.make();self.assertFalse(owner.preference_packet(owner.state['frames'][0]['preferences'])['source']['snapshot']['writer']['matchesPhysical'])
@@ -267,12 +267,21 @@ class AvatarUrlsTests(unittest.TestCase):
                 self.assertIsNotNone(unpack(self.store.read()['payload'])[0]['pending'])
                 self.assertEqual(mutated[0],None if not path.exists() else path.read_bytes())
                 self.assertTrue(self.instance._avatar_urls_owned(self.target))
+    def test_version_two_retains_strict_scale_without_favorite_admission(self):
+        self.invoke('prepare');current=self.store.read();legacy=deepcopy(current);legacy['picoAvatarUrlsOwnerVersion']=2;self.store.write(legacy,current)
+        self.activate('avatar-url',dict(resource='avatar-a.fst'));self.invoke('act')
+        self.assertEqual(2,self.store.read()['picoAvatarUrlsOwnerVersion'])
+        self.assertNotIn('externalSubject',unpack(self.store.read()['payload'])[0]['calls'][0])
+        self.source['scale']=self.source['targetScale']=1.5;self.activate('avatar-url',dict(resource='missing.fst'));before=len(self.native.inputs)
+        with self.assertRaises(RuntimeError):self.invoke('act')
+        self.assertEqual(before,len(self.native.inputs));self.assertTrue(self.instance._avatar_urls_owned(self.target))
     def test_legacy_pending_owner_is_read_only_reconciled_without_new_preference_baseline(self):
         self.invoke('prepare');self.activate('avatar-url',dict(resource='avatar-a.fst'));self.lost=True
         with self.assertRaises(RuntimeError):self.invoke('act')
         self.lost=False
         with self.lock.held():state=deepcopy(self.make().state)
         state.pop('baselineIndex')
+        for call in state['calls']:call.pop('externalSubject')
         for frame in state['frames']:frame.pop('preferences')
         state['baseline'].pop('preferences')
         from adapters.script_journey.history import pack

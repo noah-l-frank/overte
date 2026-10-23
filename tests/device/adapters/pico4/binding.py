@@ -622,6 +622,7 @@ def create_adapter(args, base_class):
             return PicoAvatarUrls(store,binding,phase,lock,lambda:self._avatar_state_observer(target),ui.io.capture,
                 lambda intent,before_send:self._avatar_people_controls(target,intent,before_send=before_send),native.guard,
                 preferences=lambda:self._avatar_preferences_observer(target),
+                favorites=lambda:self._avatar_favorites(target,run,source_lock=lock),
                 monotonic=native.monotonic,sleep=native.sleep)
 
         def _avatar_urls_owned(self,target):
@@ -635,6 +636,33 @@ def create_adapter(args, base_class):
             for path in parent.glob('avatar-urls-frame-'+key+'-*.json'):
                 _need(re.fullmatch('avatar-urls-frame-'+key+'-[0-9a-f]{32}-[0-9a-f]{32}\\.json',path.name))
                 if PrivateFeatureState(path).read() is not None:return True
+            return False
+
+        @_private
+        def _avatar_favorites(self,target,run,*,source_lock=None):
+            from adapters.feature_fixture_access import client
+            from adapters.pico4.avatar_favorites import PicoAvatarFavorites
+            from feature_journeys.phase_fixture import PhaseFixtureReader
+            _need(bool(os.environ.get('OVERTE_PICO_FEATURE_FIXTURE_CONFIG')) and self.pico_configuration is not None)
+            lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            phase=PhaseFixtureReader(client(Path(os.environ['OVERTE_PICO_FEATURE_FIXTURE_CONFIG']),
+                configured_url=os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL')),run,'avatar-people')
+            ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
+            key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32]
+            store=PrivateFeatureState(self.pico_configuration[1]/('avatar-favorites-owner-'+key+'-'+run+'.json'))
+            sources=dict(native=lambda:self._avatar_state_observer(target),preferences=lambda:self._avatar_preferences_observer(target),
+                bookmarks=lambda:self._avatar_bookmarks_observer(target),loads=lambda:self._avatar_bookmark_loads_observer(target))
+            return PicoAvatarFavorites(store,binding,phase,lock,sources,ui.io.capture,
+                lambda intent,before_send:self._avatar_people_controls(target,intent,before_send=before_send),native.guard,
+                lambda:self._avatar_urls(target,run,source_lock=lock),monotonic=native.monotonic,sleep=native.sleep)
+
+        def _avatar_favorites_owned(self,target):
+            if self.pico_configuration is None:return False
+            key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32];parent=self.pico_configuration[1]
+            for prefix,suffix in (('avatar-favorites-owner-',r'[0-9a-f]{32}'),('avatar-favorites-frame-',r'[0-9a-f]{32}-[0-9a-f]{32}')):
+                for path in parent.glob(prefix+key+'-*.json'):
+                    _need(re.fullmatch(prefix+key+'-'+suffix+r'\.json',path.name))
+                    if PrivateFeatureState(path).read() is not None:return True
             return False
 
         @_private
@@ -2481,7 +2509,7 @@ def create_adapter(args, base_class):
                         discard_stopped_state(path)
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
-                _need(not snapshot_error and not audio_error and not create_error and not self._create_management(target).owned() and not self._create_picker_owned(target) and not self._create_models_owned(target) and not self._create_feature_owned(target) and not self._avatar_urls_owned(target)
+                _need(not snapshot_error and not audio_error and not create_error and not self._create_management(target).owned() and not self._create_picker_owned(target) and not self._create_models_owned(target) and not self._create_feature_owned(target) and not self._avatar_urls_owned(target) and not self._avatar_favorites_owned(target)
                       and not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._lifecycle_back_store(target).read() is None
                       and (self._lifecycle_world_store(target,create=False) is None or self._lifecycle_world_store(target,create=False).read() is None)

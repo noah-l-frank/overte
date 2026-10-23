@@ -88,8 +88,9 @@ observation deadline. Polling is 250 ms; the owner has 128 source frames and
 128 inputs. The initial source must remain independently quiet for three
 seconds, be genuinely loaded with settled scale and
 matching live configured/advertised URL. URL-only calls preserve the captured
-scale and unowned packed storage; this partial owner refuses intervening scale
-changes instead of adopting them as a new baseline.
+scale and unowned packed storage; unclaimed intervening scale
+changes are refused. Version 3 admits only the independently observed owned
+Favorite effect described below.
 
 Lost confirmation or final-delivery replies reconcile through new read-only
 observations without repeating normal input. An ACK without a native load stays
@@ -442,3 +443,76 @@ passed through its owning wrapper with Qt5 in 2.877 seconds and directly with
 Qt6 in 3.845 seconds. Both disabled runtime admission and active `--testScript`
 were executed. The full Android application was not built and no physical
 device or OpenXR session was run.
+
+## Durable normal Favorite/Scale composition
+
+The private `_avatar_favorites` factory now composes the existing normal
+Favorite and Scale controls with four independent original sources: Avatar
+load/geometry state, native Handle/cache/writer/physical preferences, bookmark
+cache/raw physical file, and original Qt bookmark callback history. Its
+version-1 owner records exact phase tickets, original before-input controls,
+once/token envelopes and published native commands. Every effect requires
+three seconds of unchanged observed source and host time, with observations
+at most 500 ms apart. An acknowledgement or a selected bookmark argument is
+never accepted as the actual loaded avatar or scale.
+
+The new owner admits only the fixture's exact `e2e-<run>` name and scale 1.5.
+The original Favorite load clears worn avatar entities, and the QML may load
+a newly saved Favorite during its ordinary update. Therefore even Save
+requires absent unowned live AvatarEntity storage, zero actual native ID/data
+vectors and count Handle, and no persisted indexed rows or nonzero persisted
+array size. A lazy empty Handle cannot replace the actual cache, writer or
+physical baseline. The owner preserves every unrelated bookmark and checks
+the same target/run/candidate/fixture and current Avatar identity throughout.
+
+URL-owner version 3 can consume a Favorite effect only through a bounded
+immutable historical proof. It validates the original phase prefix, actual
+input controls/commands, four-source quiet interval, previous URL-owned
+subject and exact original preference source, and the current
+native/preferences subject. A foreign preference change before the Favorite
+operation cannot be adopted through its later effect proof. If an earlier
+normal Favorite operation changes lazy preference presence or native mutation
+sequence, a further independently joined receipt is required; this packet
+conservatively refuses rather than adopting that change. This admits the observed
+Scale 1.5 before the missing URL and the observed Choose of A before normal
+URL Restore. Version 2 retains its existing strict behavior; version 1 stays
+read-only. Neither version adopts a new baseline, changes a native source
+packet or substitutes an expected scale for an observed effect.
+
+Both owners use the same private immutable-frame acquisition implementation.
+Warm caches retain parsing only: every final input and completion fence
+rereads the full bounded original leaves and checks descriptor identity,
+permissions, stamps and bytes. The Favorite owner repeats exact phase/root
+checks after native acquisition and before the original writer. Losing the
+result of an already consumed Scale confirmation leaves the ticket pending;
+cold reconcile only observes and never publishes the input again. All
+existing limits remain: 128 frames, 512 native requests, 48 KiB packed payload
+and 64 KiB private file; no timeout or source-freshness threshold was raised.
+
+`avatar-favorites-owner` runs the composed Save, Scale, missing URL, Choose,
+Restore, Delete and retained cleanup path. `avatar-favorites-fences` owns the
+lost-result, final native-guard phase advance, unowned live attachment and
+persisted-size and foreign-preference counterexamples. These host cases use the real canonical
+binding, SDK/native navigation, source readers, phase journal and private
+CAS, with explicit Qt/model/storage DTO actors. Original QML/JS/C++/Qt source
+qualification remains in the separate existing native owning tests. The host
+journey is not a physical Pico run, downloaded-model or stereo/render proof.
+
+Deleting the owned bookmark and restoring live scale/URI does not establish
+exact original native Handle types/presence, JSON file bytes, QML contexts,
+Qt functor/Model resources or task retirement. The original snapshots and
+owners remain retained, and base cleanup refuses while they survive. A
+native exact settings/bookmark CAS restore, owned Wearables, contacts/peer
+and stereo evidence are still open. Full Feature 3 capability remains off.
+
+Validation on 2026-10-23: the final two new owning selectors passed all six
+cases in 89.45 seconds (composed owner 54.257 seconds; fences/recovery 35.192
+seconds), within each unchanged 120-second selector limit. The foreign
+preference case first validates the full observed effect and current native
+subject, asserts the exact physical-row difference, then checks the typed
+inner admission refusal before the shared source lock can mask errors. A
+reference error caught by an earlier final rerun was corrected before this
+passing run. The unchanged version-2 strict-scale countercase passed in
+6.146 seconds, and all three warm immutable-leaf mutation counterexamples
+passed in 4.810 seconds. The local catalog gains exactly two selectors; its
+local count is 114. Integration must preserve newer additive Root entries.
