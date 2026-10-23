@@ -94,6 +94,8 @@
     "capability-registry": {"current": 1, "reads": [1]},
     "feature-journey": {"current": 16, "reads": [16]},
     "feature-navigation-provider": {"current": 2, "reads": [1, 2]},
+    "native-assets-controls": {"current": 1, "reads": [1]},
+    "pico-assets-controls": {"current": 1, "reads": [1]},
     "asset-input-bundle": {"current": 1, "reads": [1]},
     "native-navigation-replies": {"current": 2, "reads": [1, 2]},
     "native-navigation-modals": {"current": 1, "reads": [1]},

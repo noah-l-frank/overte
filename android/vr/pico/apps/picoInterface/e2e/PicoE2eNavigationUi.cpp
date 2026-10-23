@@ -19,6 +19,7 @@
 #include "../../../../../../tests/device/native/PicoBrowserAppControls.h"
 #include "../../../../../../tests/device/native/NormalEmoteControls.h"
 #include "../../../../../../tests/device/native/NormalAvatarPeopleControls.h"
+#include "../../../../../../tests/device/native/NormalAssetsControls.h"
 #include "../../../../../../tests/device/native/NormalLifecycleControls.h"
 #include "../../../../../../tests/device/native/AudioPageObservation.h"
 #include "../../../../../../tests/device/native/ViewMenuLifetimes.h"
@@ -103,6 +104,8 @@ QString controlId(QQuickItem* item) {
     if (!browser.isEmpty()) { return browser; }
     const auto emote=overte::e2e::emoteControlId(item);
     if (!emote.isEmpty()) { return emote; }
+    const auto assets=overte::e2e::assetsControlId(item);
+    if (!assets.isEmpty() && assets!="tablet.home") {return assets;}
     const auto avatarPeople=overte::e2e::avatarPeopleControlId(item);
     if (!avatarPeople.isEmpty()) {return avatarPeople;}
     const auto snapshotExport=overte::e2e::picoSnapshotExportControlId(item);
@@ -298,6 +301,9 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 } else if (id.startsWith("emote.")) {
                     source=overte::e2e::emoteControlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
+                } else if (id.startsWith("assets.") || id.startsWith("assets-file.")) {
+                    source=overte::e2e::assetsControlSource(item,id);
+                    if (source.isEmpty()) {ambiguous=true;return;}
                 } else if (id.startsWith("avatar.") || id.startsWith("people.")) {
                     source=overte::e2e::avatarPeopleControlSource(item,id);
                     if (source.isEmpty()) {ambiguous=true;return;}
@@ -405,6 +411,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
             overte::e2e::appendPicoBrowserAppObservation(row,control.item,id);
         } else if (id.startsWith("emote.")) {
             overte::e2e::appendEmoteControlObservation(row,control.item,id);
+        } else if (id.startsWith("assets.") || id.startsWith("assets-file.")) {
+            overte::e2e::appendAssetsControlObservation(row,control.item,id);
         } else if (id.startsWith("avatar.") || id.startsWith("people.")) {
             overte::e2e::appendAvatarPeopleControl(row,control.item,id);
         } else if (id.startsWith("lifecycle.")) {
@@ -462,6 +470,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     result["emoteControlsVersion"] = 2;
     result["emoteSourceSequence"] = static_cast<double>(++_emoteSourceSequence);
     result["avatarPeopleControlsVersion"]=1;
+    result["assetsControlsVersion"]=1;
     result["lifecycleControlsVersion"] = 1;
     result["createExtraControlsVersion"]=1;
     result["createVoxelControlsVersion"]=1;
@@ -521,7 +530,7 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
             || observedAt > _clock.elapsed() || _clock.elapsed() - observedAt > 5000
             || (action != "activate" && action != "replace" && action != "submit" && action != "select-index"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-                && action != "scroll" && action != "set-value"
+                && action != "scroll" && action != "set-value" && action != "probe-disabled"
 #endif
                 )) { return result; }
     // Consume an admitted sequence before any input. An uncertain result may
@@ -529,9 +538,11 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
     _lastCommandSequence = sequence;
     const auto controlId = command.value("controlId").toString();
     const auto control = _controls.value(controlId);
+    const bool assetsDisabledProbe=action=="probe-disabled" && controlId=="assets.delete"
+        && current.value("assetsControlsVersion")==QJsonValue(1);
     if (!current.value("ready").toBool() || !control.item
             || command.value("controlToken") != QJsonValue(control.token)
-            || !enabled(control.item) || !visible(control.item, window)) {
+            || (!enabled(control.item) && !assetsDisabledProbe) || (assetsDisabledProbe && enabled(control.item)) || !visible(control.item, window)) {
         result["error"] = QStringLiteral("control-unavailable");
         return result;
     }
@@ -588,6 +599,10 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
         } else if (action=="scroll" && controlId=="emote.grid" && pointerScroll) {
             const auto direction=command.value("direction").toString();
             if (direction=="up" || direction=="down") { delivered=pointerScroll(control.item,point,direction=="up" ? 120 : -120); }
+        }
+    } else if (controlId.startsWith("assets.") || controlId.startsWith("assets-file.")) {
+        if (current.value("assetsControlsVersion")==QJsonValue(1)) {
+            delivered=overte::e2e::NormalControlUi::applyAssetsInput(control.item,window,controlId,action,command,pointerClick,pointerAt);
         }
     } else if (controlId.startsWith("avatar.") || controlId.startsWith("people.")) {
         if (current.value("avatarPeopleControlsVersion")!=QJsonValue(1)) {return result;}

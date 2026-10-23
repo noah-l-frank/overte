@@ -14,6 +14,7 @@
 #include "NormalChatControls.h"
 #include "NormalLifecycleControls.h"
 #include "NormalAvatarPeopleControls.h"
+#include "NormalAssetsControls.h"
 #include <ui/NativeFieldInput.h>
 #include <QCoreApplication>
 #include <QDateTime>
@@ -34,7 +35,7 @@ namespace overte::e2e {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 class NormalControlUi {
 public:
-    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, CreateExtra, CreateVoxel, Chat, Lifecycle, AvatarPeople };
+    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create, CreateExtra, CreateVoxel, Chat, Lifecycle, AvatarPeople, Assets };
     explicit NormalControlUi(Surface surface = Surface::ScriptFiles) : _surface(surface), _instance(nonce()), _generation(nonce()) { _clock.start(); }
 
     QJsonObject observe(QQuickItem* root, QQuickWindow* window, const AudioUiContext& audio = {}, const GraphicsUiContext& graphics = {}, const LoginUiContext& login = {}) {
@@ -64,6 +65,7 @@ public:
                     : _surface == Surface::CreateVoxel ? createVoxelControlId(item)
                     : _surface == Surface::Chat ? chatControlId(item)
                     : _surface == Surface::Lifecycle ? lifecycleControlId(item)
+                    : _surface == Surface::Assets ? assetsControlId(item)
                     : _surface == Surface::AvatarPeople ? avatarPeopleControlId(item) : scriptFileControlId(item);
                 if (!id.isEmpty()) {
                     if (controls.contains(id)) { ambiguous = true; return; }
@@ -76,8 +78,9 @@ public:
                         : _surface == Surface::CreateVoxel ? createVoxelControlSource(item,id)
                         : _surface == Surface::Chat ? chatControlSource(item,id)
                         : _surface == Surface::Lifecycle ? lifecycleControlSource(item,id)
+                        : _surface == Surface::Assets ? assetsControlSource(item,id)
                         : _surface == Surface::AvatarPeople ? avatarPeopleControlSource(item,id) : scriptFileControlSource(item);
-                    if ((_surface==Surface::AvatarPeople || _surface==Surface::Chat || _surface==Surface::Lifecycle || _surface==Surface::CreateExtra || _surface==Surface::CreateVoxel) && source.isEmpty()) { ambiguous=true;return; }
+                    if ((_surface==Surface::Assets || _surface==Surface::AvatarPeople || _surface==Surface::Chat || _surface==Surface::Lifecycle || _surface==Surface::CreateExtra || _surface==Surface::CreateVoxel) && source.isEmpty()) { ambiguous=true;return; }
                     controls.insert(id, {item, previous.item == item && previous.source == source ? previous.token : nonce(), source});
                 }
             }
@@ -110,6 +113,7 @@ public:
             else if (_surface == Surface::CreateVoxel) { appendCreateVoxelObservation(row,control.item,id); }
             else if (_surface == Surface::Chat) { appendChatControlObservation(row,control.item,id); }
             else if (_surface == Surface::Lifecycle) { appendLifecycleControlObservation(row,control.item,id); }
+            else if (_surface == Surface::Assets) { appendAssetsControlObservation(row,control.item,id); }
             else if (_surface == Surface::AvatarPeople) { appendAvatarPeopleControl(row,control.item,id); }
             else { appendScriptFileObservation(row, control.item, id); }
             rows.append(row);
@@ -128,6 +132,7 @@ public:
             : _surface == Surface::CreateVoxel ? "createVoxelControlsVersion"
             : _surface == Surface::Chat ? "chatControlsVersion"
             : _surface == Surface::Lifecycle ? "lifecycleControlsVersion"
+            : _surface == Surface::Assets ? "assetsControlsVersion"
             : _surface == Surface::AvatarPeople ? "avatarPeopleControlsVersion" : "fileControlsVersion"] = (_surface==Surface::Login || _surface==Surface::Chat) ? 2 : 1;
         if (_surface==Surface::CreateExtra) {result["createExtraUiInventory"]=createExtraUiLifetimes().snapshot();}
         if (_surface==Surface::ScriptFiles) { result["scriptInventory"]=scriptInventory.observation(ready); }
@@ -169,16 +174,20 @@ public:
                     : _surface == Surface::Create ? action != "activate" && action != "replace" && action != "select-index" && action != "scroll"
                     : _surface == Surface::Chat ? action != "activate" && action != "replace" && action != "submit"
                     : _surface == Surface::AvatarPeople ? action != "activate" && action != "replace" && action != "scroll" && action != "set-value"
+                    : _surface == Surface::Assets ? action != "activate" && action != "probe-disabled" && action != "replace" && action != "submit" && action != "select-index" && action != "scroll"
                     : _surface == Surface::Lifecycle ? action != "activate" && action != "replace"
                     : action != "activate" && action != "replace" && action != "submit" && action != "select-index")) { return result; }
         // Consume intent before dispatch; never replay uncertain native input.
         _lastCommandSequence = sequence;
         const auto id = command.value("controlId").toString();
         const auto control = _controls.value(id);
-        if (!control.item || !control.item->isEnabled() || command.value("controlToken") != QJsonValue(control.token)
+        const bool disabledProbe=_surface==Surface::Assets && action=="probe-disabled" && id=="assets.delete";
+        if (!control.item || (!control.item->isEnabled() && !disabledProbe) || (disabledProbe && control.item->isEnabled()) || command.value("controlToken") != QJsonValue(control.token)
                 || visibleRect(control.item, window).isEmpty()) { return result; }
         bool delivered {false};
-        if (_surface == Surface::AvatarPeople) {
+        if (_surface == Surface::Assets) {
+            delivered=applyAssetsInput(control.item,window,id,action,command,pointerClick,pointerAt);
+        } else if (_surface == Surface::AvatarPeople) {
             delivered=applyAvatarPeopleInput(control.item,window,id,action,command,pointerAt);
         } else if (_surface == Surface::Lifecycle) {
             QJsonObject row;appendLifecycleControlObservation(row,control.item,id);
@@ -361,12 +370,67 @@ public:
         return delivered && original && surface && focused() && key(surface,Qt::Key_Return);
     }
 
+    static bool selectAssetsChoice(QQuickItem* item,QQuickWindow* window,qint64 index) {
+        if (!item || !window || !assetsChoice(assetsControlId(item)) || !item->inherits("QQuickComboBox")
+                || !item->isEnabled() || visibleRect(item,window).isEmpty()
+                || index<0 || index>=32 || index>=item->property("count").toInt()) {return false;}
+        QPointer<QQuickItem> original=item;QPointer<QQuickWindow> surface=window;
+        const auto focused=[&] {
+            if (!original || !surface) {return false;}
+            auto popup=original->property("popup").value<QObject*>();
+            auto content=popup ? qobject_cast<QQuickItem*>(popup->property("contentItem").value<QObject*>()) : nullptr;
+            const bool shown=popup && popup->property("visible").toBool();bool actualFocus=ownsFocus(original,surface);
+            if (shown && content && content->window()==surface) {
+                for (auto focus=surface->activeFocusItem();focus;focus=focus->parentItem()) {if (focus==content) {actualFocus=true;}}
+            }
+            auto target=shown ? content : original.data();
+            return actualFocus && target && target->window()==surface && ownsPoint(target,surface,
+                target->mapToScene(QPointF(target->width()/2,target->height()/2)));
+        };
+        if (!focused()) {return false;}bool delivered=key(surface,Qt::Key_Home);
+        for (int step=0;delivered && step<index;++step) {delivered=focused() && key(surface,Qt::Key_Down);}
+        return delivered && focused() && key(surface,Qt::Key_Return);
+    }
+    static bool applyAssetsInput(QQuickItem* item,QQuickWindow* window,const QString& id,const QString& action,
+            const QJsonObject& command,const std::function<bool(QQuickItem*)>& pointerClick,
+            const std::function<bool(QQuickItem*,const QPointF&)>& pointerAt={}) {
+        if (!qApp || QThread::currentThread()!=qApp->thread() || !QCoreApplication::arguments().contains("--testScript")
+                || !item || !window || assetsControlId(item)!=id) {return false;}
+        const bool probe=action=="probe-disabled" && id=="assets.delete" && !item->isEnabled();
+        QJsonObject row;appendAssetsControlObservation(row,item,id);
+        if ((!row.value("inputReady").toBool() && !probe) || (action=="probe-disabled" && !probe)) {return false;}
+        const auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2));
+        if (action=="select-index" && assetsChoice(id)) {
+            qint64 index{0};return integer(command.value("index"),index) && selectAssetsChoice(item,window,index);
+        }
+        if (!ownsPoint(item,window,point,{},probe)) {return false;}
+        if (probe) {
+            // The existing Pico pointer guard refuses a disabled target item.
+            // Deliver the ordinary pointer at its independently verified exact
+            // point through THIS original enabled page, without enabling the
+            // button or calling any QML handler. Qt still sees disabled Delete.
+            auto page=assetsPage(item);
+            return page && page->isEnabled() && page->window()==window && pointerAt && pointerAt(page,point);
+        }
+        if (action=="activate" && id!="assets.page" && id!="assets.tree" && id!="assets-file.list") {return pointerClick && pointerClick(item);}
+        if (action=="replace" && assetsField(id) && command.value("text").isString() && createText(command.value("text").toString())) {
+            return overte::ui::replaceFocusedField(item,window,command.value("text").toString());
+        }
+        if (action=="submit" && id=="assets-file.folder") {return overte::ui::submitFocusedField(item,window);}
+        if (action=="scroll" && (id=="assets.tree" || id=="assets-file.list")) {
+            const auto direction=command.value("direction").toString();if (direction!="up" && direction!="down") {return false;}
+            QWheelEvent event(point,window->mapToGlobal(point.toPoint()),QPoint(),QPoint(0,direction=="up" ? 120 : -120),Qt::NoButton,Qt::NoModifier,Qt::NoScrollPhase,false);
+            return QCoreApplication::sendEvent(window,&event);
+        }
+        return false;
+    }
+
     // Conservative actual scene hit-test: an overlay/modal outside the
     // resolved item blocks input. Never replace the point by guessed coordinates.
     static bool ownsPoint(QQuickItem* item, QQuickWindow* window, const QPointF& point,
-                          const std::function<bool(QQuickItem*,QQuickItem*)>& decoration = std::function<bool(QQuickItem*,QQuickItem*)>()) {
+                          const std::function<bool(QQuickItem*,QQuickItem*)>& decoration = std::function<bool(QQuickItem*,QQuickItem*)>(),bool allowDisabled=false) {
         const auto visible=visibleRect(item,window);
-        if (visible.isEmpty() || !item->isEnabled() || !visible.contains(point)) { return false; }
+        if (visible.isEmpty() || (!item->isEnabled() && !allowDisabled) || !visible.contains(point)) { return false; }
         int visited{0};bool complete{true};
         std::function<QQuickItem*(QQuickItem*,int)> top=[&](QQuickItem* node,int depth)->QQuickItem* {
             if (!node || !complete) { return nullptr; }
@@ -465,6 +529,10 @@ public:
 class LoginUi : public NormalControlUi {
 public:
     LoginUi() : NormalControlUi(Surface::Login) {}
+};
+class AssetsUi : public NormalControlUi {
+public:
+    AssetsUi() : NormalControlUi(Surface::Assets) {}
 };
 class AudioUi : public NormalControlUi {
 public:
