@@ -89,8 +89,11 @@ class AssetsCancelEffectsTests(unittest.TestCase):
         self.assertTrue(all(reply['processId']==self.host.process.pid for reply in replies))
         self.assertEqual(1,len({reply['serverInstance'] for reply in replies}));self.assertEqual(1,len({json.dumps(reply['serverFiles'],sort_keys=True) for reply in replies}))
         for reply in replies:
-            self.assertEqual(1,len(reply['serverFiles']));blob=reply['serverFiles'][0]
-            self.assertTrue(blob['exists']);self.assertEqual(baseline[0]['hash'],blob['hash']);self.assertEqual(blob['hash'],blob['sha256']);self.assertGreater(blob['bytes'],0)
+            expected_hashes={mapping['hash'] for mapping in baseline}
+            self.assertEqual(expected_hashes,{blob['hash'] for blob in reply['serverFiles']})
+            self.assertEqual(len(expected_hashes),len(reply['serverFiles']))
+            for blob in reply['serverFiles']:
+                self.assertTrue(blob['exists']);self.assertEqual(blob['hash'],blob['sha256']);self.assertGreater(blob['bytes'],0)
         self.assertTrue(all(right['sourceSequence']>left['sourceSequence'] for left,right in zip(replies,replies[1:])))
         counts=4*len(self.pair.history)+len(self.primary.history)+len(self.actor.source.history)
         raw=len(canonical(self.pair.history))+len(canonical(self.primary.history))+len(canonical(self.actor.source.history))

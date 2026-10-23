@@ -21,7 +21,7 @@ from test_assets_read_native import prepare_source
 
 
 
-def compile_ui(stage,*,original_uploads=False,sanitize=False,persistent_tablet=False,original_server=False,original_model=False):
+def compile_ui(stage,*,original_uploads=False,sanitize=False,persistent_tablet=False,original_server=False,original_model=False,original_entity=False):
     environment=dict(os.environ);prefix=Path(environment['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
     environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),
         LD_LIBRARY_PATH=str(prefix/'usr/lib64'),QT_PLUGIN_PATH=str(prefix/'usr/lib64/qt5/plugins'),
@@ -61,6 +61,17 @@ def compile_ui(stage,*,original_uploads=False,sanitize=False,persistent_tablet=F
         spec=importlib.util.spec_from_file_location('assets_mapping_prepare',HERE/'assets-mapping-prepare.py')
         prepare=importlib.util.module_from_spec(spec);spec.loader.exec_module(prepare)
         upload_arguments+=prepare.prepare(stage,environment,prefix)
+    if original_entity:
+        assert original_server and original_model and persistent_tablet
+        spec=importlib.util.spec_from_file_location('assets_entity_prepare',HERE/'assets-entity-prepare.py')
+        prepare=importlib.util.module_from_spec(spec);spec.loader.exec_module(prepare)
+        upload_arguments+=prepare.prepare(stage,environment,prefix)
+        from adapters.assets_input import documents
+        fixture=stage/'original-entity-input';fixture.mkdir()
+        for name,data in documents().items():
+            if not name.startswith('gltf-bundle/'):continue
+            target=fixture/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
+        environment['OVERTE_ASSETS_ENTITY_FIXTURE']=str(fixture)
     if persistent_tablet:
         spec=importlib.util.spec_from_file_location('assets_tablet_prepare',HERE/'assets-tablet-prepare.py')
         prepare=importlib.util.module_from_spec(spec);spec.loader.exec_module(prepare)

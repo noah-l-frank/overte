@@ -49,6 +49,11 @@ void AssetMappingsScriptingInterface::advanceBundle(const std::shared_ptr<Bundle
 #endif
 #include "assets-files-getter-host.h"
 #include "actual-assets-navigation.inc"
+#if defined(ASSETS_ORIGINAL_ENTITY_LINK)
+#include "assets-entity-host.h"
+Q_LOGGING_CATEGORY(entities,"assets-original-entity-host")
+#include "AssetsEntityOriginals.inc"
+#endif
 #undef ANDROID_APP_PICO_INTERFACE
 #include "libraries/ui/src/FileDialogHelper.h"
 Q_LOGGING_CATEGORY(uiLogging,"ui")
@@ -111,6 +116,12 @@ int main(int argc,char**argv){
  DependencyManager::slot<AssetMappingsScriptingInterface>()=originalUploads;
  const auto originalNodes=QSharedPointer<NodeList>::create();DependencyManager::slot<NodeList>()=originalNodes;
  engine.rootContext()->setContextProperty("originalBundleService",originalUploads.data());
+#if defined(ASSETS_ORIGINAL_ENTITY_LINK)
+ AssetsEntityBridge entityBridge;
+ assert(EntityTypes::registerEntityType(EntityTypes::Model,"Model",[](const EntityItemID& id,const EntityItemProperties& p)->EntityItemPointer{return std::make_shared<EntityItem>(id,p);}));
+ if(app.arguments().contains("--entity-without-local-tree"))entityBridge.api._entityTree.reset();
+ engine.rootContext()->setContextProperty("originalEntityBridge",&entityBridge);
+#endif
 #if defined(ASSETS_ORIGINAL_SERVER_QUERY)
  QTemporaryDir serverFiles;AssetServer server;server._filesDirectory=QDir(serverFiles.path());
  assert(serverFiles.isValid());
@@ -120,6 +131,13 @@ int main(int argc,char**argv){
  const auto foreignHash=putOriginal(server,originalReadClient.client->content);server._fileMappings["/foreign/original.bin"]=foreignHash;
 #if defined(ASSETS_ORIGINAL_MAPPING_MODEL)
  server._fileMappings["/.baked/foreign-original/asset.bin"]=foreignHash;
+#if defined(ASSETS_ORIGINAL_ENTITY_LINK)
+ const QDir entityFixture(QString::fromUtf8(qgetenv("OVERTE_ASSETS_ENTITY_FIXTURE")));assert(entityFixture.exists());
+ for(const auto& name:QStringList{"main.gltf","mesh/triangle.bin","textures/checker.png"}) {
+  QFile input(entityFixture.filePath("gltf-bundle/"+name));assert(input.open(QIODevice::ReadOnly));const auto bytes=input.readAll();assert(!bytes.isEmpty());
+  server._fileMappings["/original-model/"+name]=putOriginal(server,bytes);
+ }
+#endif
 #endif
 #else
  AssetsNativeClient originalReadClient;
@@ -172,6 +190,14 @@ QtObject {
 #if defined(ASSETS_ORIGINAL_MAPPING_MODEL)
  helperCode.replace("property var mappingModel: QtObject { property bool autoRefreshEnabled: false; signal errorGettingMappings(string message); function refresh() {} }",
    "property var mappingModel: originalBundleService.mappingModel");
+#endif
+#if defined(ASSETS_ORIGINAL_ENTITY_LINK)
+ helperCode.replace("function getForward(value) { return ({x:0,y:0,z:-1}) }","function getForward(value) { return originalEntityBridge.forward(value) }");
+ helperCode.replace("function sum(a,b) { return ({x:0,y:0,z:2}) }","function sum(a,b) { return originalEntityBridge.sum(a,b) }");
+ helperCode.replace("function multiply(a,b) { return ({x:0,y:0,z:0}) }","function multiply(a,b) { return originalEntityBridge.multiply(a,b) }");
+ helperCode.replace("function fromPolar(a,b) { return ({x:0,y:0,z:0}) }","function fromPolar(a,b) { return originalEntityBridge.polar(a,b) }");
+ helperCode.replace("function addModelEntity() { ++imports; return \"12345678-1234-4234-8234-123456789abc\" }",
+   "function addModelEntity(name,url,textures,shape,dynamic,collisionless,grabbable,position,gravity) { ++imports; return originalEntityBridge.addModel(name,url,textures,shape,dynamic,collisionless,grabbable,position,gravity) }");
 #endif
  helper.setData(helperCode,QUrl("file:///explicit-assets-endpoints.qml"));
  QScopedPointer<QObject> service(helper.create());if(!service){qWarning()<<helper.errors();return 1;}
@@ -244,6 +270,9 @@ QtObject {
   std::string line;while(std::getline(std::cin,line)) {
    const auto request=QJsonDocument::fromJson(QByteArray::fromStdString(line)).object();const auto action=request.value("action").toString();QJsonObject packet;
    if(action=="host-observe-original-ui") {packet=capture();}
+#if defined(ASSETS_ORIGINAL_ENTITY_LINK)
+   else if(action=="host-original-entity-effect") {packet=entityBridge.snapshot(request.value("runId").toString());}
+#endif
 #if defined(ASSETS_ORIGINAL_SERVER_QUERY)
    else if(action=="host-original-server-wire") {
     packet=QJsonObject{{"requestId",request.value("requestId")},{"wireBase64",QString::fromLatin1(server.originalWire().toBase64())},
