@@ -150,3 +150,37 @@ qualifies only actual retired absence; undelivered or partial cleanup retains
 its pending intent and exact files/originals without sending cleanup again.
 Two actual compiled-native countercases passed in 3.924 seconds, including
 original-byte prefix preservation and separate attempted/delivered counts.
+
+## Original picker consumers and normal Cancel
+
+`assetsUiInventoryVersion:1` is an additive original navigation source, validated
+by `pico-assets-ui-inventory:1`. It admits only the exact resolved original
+NativeFileBrowser component and its actual `files` ID/QQuickFolderListModel,
+with distinct immutable browser/model/context/window identities. It keeps weak
+QObject references after hiding, detaching or deletion; a surviving context or
+window remains explicit. A foreign same-name/caption browser makes the current
+inventory incomplete, never an empty successful retirement. Traversal, original
+root history and object identities are finite. Native source timestamps remain
+fresh under the existing navigation envelope; legacy input-only producers can
+omit this additional source, and consumer composition requires it explicitly.
+
+The actual Qt5 fixture now joins the complete production private-file getter
+and native storage to the original Assets QML in the same GUI process. Normal
+folder-path/row events select its real staged main file. A hidden picker/model
+remains alive in the source. Normal Cancel causes Qt's original delayed picker
+and FolderListModel destruction; independently held QPointers confirm death.
+All seven original files remain byte/hash/inode-identical after Cancel. Only
+then does the native storage release its known exact files and observe absence.
+No QML handler call, enabled toggle, forced context destruction or product
+repair is used. The upload endpoint count remains zero across this Cancel
+cycle; that endpoint is still an explicit host seam, not independent Asset
+Server mapping/upload evidence. Surviving QML contexts remain open whole-owner
+obligations even after these file consumers have died.
+
+The final original Qt5 three-group selection passed 10 cases in 32.16 seconds:
+`assets-native-files` 3.928 s, `assets-file-owner` 5.327 s and `assets-native-ui`
+22.904 s. This includes the lost/undelivered cleanup countercases and whole
+original Pico observe/apply bodies. The getter fixture declaration is shared
+by these native checks; both compile the same entire production method. No new
+selector is added (local count remains148), and no whole Assets capability or
+backend success is claimed.

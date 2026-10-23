@@ -148,6 +148,7 @@ REQUIRED = {
     'feature-script-resources': 1,
     "native-pending-commit-owner": 1,
     "native-pending-field-commit": 1,
+    "pico-assets-ui-inventory": 1,
     "native-pico-assets-files": 1,
     "pico-assets-file-owner": 1,
     "native-assets-controls": 1,

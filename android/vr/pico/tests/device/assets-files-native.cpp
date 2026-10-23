@@ -9,23 +9,12 @@
 #include <cassert>
 #include <thread>
 #include <iostream>
-using overte::e2e::PrivateAssetsFiles;
-struct Lifecycle {QVariantMap snapshot() const {return {{"present",true}};}};
-class TestScriptingInterface:public QObject {
-public:
-    QVariantMap featurePicoAssetsFiles(const QVariantMap& command);
-    QString _testResultsLocation,_featureObservationInstance{QString(32,'e')};
-    std::shared_ptr<Lifecycle> _featureLifecycle;
-    std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAssetsFilesQueue{std::make_shared<overte::e2e::AudioSettingsQueue>()};
-    std::shared_ptr<PrivateAssetsFiles> _featureAssetsFiles{std::make_shared<PrivateAssetsFiles>()};
-    quint64 _featureAssetsFilesSequence{0};QHash<QString,QVariantMap> _featureAssetsFilesCommands,_featureAssetsFilesResults;
-};
-#include "AssetsFilesMethod.inc"
+#include "assets-files-getter-host.h"
 int main(int argc,char** argv) {
     QCoreApplication app(argc,argv);QTemporaryDir directory;assert(directory.isValid());
     TestScriptingInterface source;source._testResultsLocation=directory.path();
     if(app.arguments().contains("--serve")) {
-        source._featureLifecycle=std::make_shared<Lifecycle>();std::string line;
+        source._featureLifecycle=std::make_shared<AssetsHostLifecycle>();std::string line;
         while(std::getline(std::cin,line)) {
             const auto command=QJsonDocument::fromJson(QByteArray::fromStdString(line)).object().toVariantMap();
             const auto reply=source.featurePicoAssetsFiles(command);
@@ -38,7 +27,7 @@ int main(int argc,char** argv) {
     QVariantMap files;for(const auto& name:PrivateAssetsFiles::inputs()) {files[name]=QString::fromLatin1((name+"-original").toUtf8().toBase64());}
     call["files"]=files;
     assert(source.featurePicoAssetsFiles(call).isEmpty());
-    source._featureLifecycle=std::make_shared<Lifecycle>();
+    source._featureLifecycle=std::make_shared<AssetsHostLifecycle>();
     const auto staged=source.featurePicoAssetsFiles(call);assert(!staged.isEmpty());
     const auto original=staged.value("source").toMap();assert(original.value("exists")==QVariant(true));
     assert(original.value("files").toList().size()==7);assert(source.featurePicoAssetsFiles(call)==staged);

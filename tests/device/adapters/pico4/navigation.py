@@ -127,6 +127,10 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'chatControlsVersion' in value:
         fields.add('chatControlsVersion')
         need(type(value['chatControlsVersion']) is int and value['chatControlsVersion'] in (1,2))
+    if type(value) is dict and ('assetsUiInventoryVersion' in value or 'assetsUiInventory' in value):
+        from adapters.pico4.assets_inventory import original as assets_inventory
+        fields|={'assetsUiInventoryVersion','assetsUiInventory'};assets_inventory(value)
+        need(0<=epoch_ms-value['assetsUiInventory']['capturedEpochMs']<=1500)
     if type(value) is dict and 'assetsControlsVersion' in value:
         fields.add('assetsControlsVersion');need(type(value['assetsControlsVersion']) is int and value['assetsControlsVersion']==1)
     if type(value) is dict and 'avatarPeopleControlsVersion' in value:
