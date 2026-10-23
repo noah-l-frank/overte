@@ -6,6 +6,7 @@ All original journals remain obligations for the subsequent capture/export flow.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from functools import wraps
 import hashlib
 import json
 import re
@@ -14,6 +15,7 @@ import uuid
 
 from adapters.native_feature_observation import decode,exact,integer,need,number
 from adapters.normal_feature_state import PrivateFeatureState,context
+from adapters.normal_ui import NativeUIError
 from adapters.native_script_observation import NativeScriptObservation
 from adapters.native_script_roots import NativeScriptRoots,root_url,validate as roots_packet
 from adapters.native_script_work import NativeScriptWork,validate as work_packet,scope as work_scope
@@ -34,6 +36,8 @@ from feature_journeys.contract import typed_equal
 from openxr_input.adapter_session import PicoOpenXrAdapterSession
 from openxr_input.controller_protocol import validate_envelope
 from snapshot_observation import inspect_snapshot
+from adapters.pico4.snapshot_reply_grammar import SnapshotReplyGrammar,read_pins,scope as reply_scope,validate_reply
+from adapters.chat_journey.source_chunks import json_digest
 
 VERSION=3
 READS=(1,2,3)
@@ -41,6 +45,26 @@ CANCEL_STAGES=('arm-issued','prepared','open-issued','opened','cancel-issued','c
         'quiet-issued','cancel-quiet','job-retire-issued','partial-ready')
 CAPTURE_STAGES=('capture-prepare-issued','capture-issued','captured','still-quiet-issued','still-ready')
 STAGES=CANCEL_STAGES+CAPTURE_STAGES
+
+
+def reply_boundary(method):
+    """Commit only after the actual public operation's source-lock exit."""
+    @wraps(method)
+    def call(self,*args,**kwargs):
+        memo=getattr(self,'reply_grammar',None)
+        if memo is None:return method(self,*args,**kwargs)
+        need(type(memo) is SnapshotReplyGrammar)
+        depth=getattr(self,'_reply_depth',0);need(integer(depth,0,63));outer=depth==0;self._reply_depth=depth+1
+        if outer:self._reply_fence=None
+        try:
+            result=method(self,*args,**kwargs)
+        except BaseException:
+            if outer:memo.discard();self._reply_fence=None
+            raise
+        finally:self._reply_depth-=1
+        if outer:self.finish_reply_grammar()
+        return result
+    return call
 
 
 class PicoSnapshotCancelOwner:
@@ -70,6 +94,7 @@ class PicoSnapshotCancelOwner:
         self.current=False;self.last_clock=None;self.save_owner=None;self.close_owner=None;self.settings_baseline=None
         with session._lock():self.session_origin=deepcopy(session._load())
         self.reviewed=json.loads(Path(__file__).with_name('snapshot-script-pin.v1.json').read_text())
+        self.reply_grammar=SnapshotReplyGrammar();self._reply_scope=None;self._reply_fence=None;self._reply_depth=0
         self.qml_callback=self.before_qml;self.cancel_callback=self.before_cancel;self.file_callback=self.before_file
         self.controller_callback=self.before_controller;self.intent_callback=self.controller_intent;self.publish_callback=self.before_publish
         snapshot.ui.io.bind_before_send(self.qml_callback)
@@ -153,13 +178,21 @@ class PicoSnapshotCancelOwner:
             cancel_command(request);need(request['runId']==self.run and request['jobId']==state['job'] and request['commandId'] not in requests)
             requests[request['commandId']]=request
         starts=[request for request in requests.values() if request['operation']=='start'];need(len(starts)<=1)
-        for saved in state['replies']:
-            exact(saved,{'raw','sha256','anchor','request'});need(saved['request']['commandId'] in requests)
-            packet=original({key:saved[key] for key in ('raw','sha256')},262144)
-            exact(packet,{'commandId','packet'});value=packet['packet'];request=requests[packet['commandId']]
-            need(typed_equal(saved['request'],request));cancel_packet(value,request,self.native.pid,value['capturedEpochMs'])
-            exact(saved['anchor'],{'hostMonotonic','nativeEpochMs'})
-            need(number(saved['anchor']['hostMonotonic'],0,1e15) and integer(saved['anchor']['nativeEpochMs'],1))
+        def grammar(saved):validate_reply(saved,requests,self.native.pid)
+        memo=getattr(self,'reply_grammar',None)
+        if memo is None:
+            for saved in state['replies']:grammar(saved)
+        else:
+            need(type(memo) is SnapshotReplyGrammar)
+            if not host_only:
+                pins,pin_sha=read_pins();need(typed_equal(pins,self.reviewed))
+                self._reply_scope=reply_scope(self.run,self.binding,self.native.pid,pins,pin_sha)
+            need(self._reply_scope is not None)
+            # References to current requests remain checked on every call;
+            # only each byte-identical reply's pure internal grammar is warm.
+            for saved in state['replies']:
+                need(saved['request']['commandId'] in requests and typed_equal(saved['request'],requests[saved['request']['commandId']]))
+            memo.validate(self._reply_scope,state['replies'],grammar)
         next_controller=origin['nextSequence']
         for delivery in state['deliveries']:
             exact(delivery,{'kind','command','frame','stage'});need(delivery['kind'] in ('qml','controller','files','cancel')
@@ -318,12 +351,50 @@ class PicoSnapshotCancelOwner:
         need(self.native.guard() is not False);native_epoch=self.native.clock_ms()
         phase_started=self.now();phase_epoch=self.source.epoch_ms();value=self.source.status(self.state['source'])
         need(value['active'] and all(typed_equal(value[key],self.state['source'][key]) for key in ('instance','createdEpochMs','activations')))
+        memo=getattr(self,'reply_grammar',None);candidate=disk_sha=None
+        if memo is not None:need(type(memo) is SnapshotReplyGrammar)
+        if memo is not None and memo.pending is not None:
+            current=reply_scope(self.run,self.binding,self.native.pid,self.reviewed,self._reply_scope['scriptPinsSha256'])
+            candidate=memo.pending;memo.matches(candidate,current,self.state['replies']);disk_sha=json_digest(self.disk)
         final_native=self.native.clock_ms();final_epoch=self.source.epoch_ms();completed=self.now()
         need(number(final_native,native_epoch,1e15) and number(final_epoch,phase_epoch,1e15))
         age=max(final_native-captured,requested-captured+(completed-started)*1000,
             final_epoch-value['capturedEpochMs'],phase_epoch-value['capturedEpochMs']+(completed-phase_started)*1000)
         need(-250<=final_native-captured and -250<=final_epoch-value['capturedEpochMs'] and age<=1500)
+        if candidate is not None:
+            self._reply_fence=(candidate,completed,age,disk_sha,value['capturedEpochMs'],phase_started,phase_epoch)
         return completed,age
+
+    def finish_reply_grammar(self):
+        memo=self.reply_grammar;fence=self._reply_fence
+        need(type(memo) is SnapshotReplyGrammar)
+        if self.lock._owner is not None or fence is None:
+            memo.discard();self._reply_fence=None;return
+        candidate,completed,age,disk_sha,phase_captured,phase_started,phase_epoch=fence
+        try:
+            # Current pins/complete physical originals are qualified again
+            # after the actual outer lock exit. This acquires no new native
+            # packet, OS observation, UI state or controller status.
+            pins,pin_sha=read_pins();need(typed_equal(pins,self.reviewed))
+            current=reply_scope(self.run,self.binding,self.native.pid,pins,pin_sha)
+            memo.matches(candidate,current,self.state['replies'])
+            need(json_digest(self.disk)==disk_sha and typed_equal(self.store.read(),self.disk));self.originals.verify()
+            memo.commit(candidate)
+            need(typed_equal(self.store.read(),self.disk));self.originals.verify()
+            pins,pin_sha=read_pins();need(typed_equal(pins,self.reviewed))
+            current=reply_scope(self.run,self.binding,self.native.pid,pins,pin_sha);memo.admitted(current,self.state['replies'])
+            # A slow cache commit may neither advance an old source seal nor
+            # become an admission when the device or host clock is frozen.
+            native=self.native.clock_ms();fixture=self.source.epoch_ms();now=self.now()
+            started,requested,captured=self.anchor
+            need(number(now,completed,1e15) and number(native,1,1e15) and number(fixture,1,1e15)
+                and -250<=native-captured and -250<=fixture-phase_captured
+                and max(age+(now-completed)*1000,native-captured,requested-captured+(now-started)*1000,
+                    fixture-phase_captured,phase_epoch-phase_captured+(now-phase_started)*1000)<=1500)
+        except Exception:
+            memo.abort();raise NativeUIError('Snapshot reply grammar admission is unavailable') from None
+        except BaseException:memo.abort();raise
+        finally:self._reply_fence=None
 
     def fixture(self,verb,inputs):
         value=self.phase(self.source.status(None if self.state is None else self.state['source']))
@@ -416,6 +487,7 @@ class PicoSnapshotCancelOwner:
         need(typed_equal(self.controller_envelope,envelope) and self.controller_anchor is not None)
         started,age=self.controller_anchor;now=self.native.monotonic();need(number(now,started,1e15) and age+(now-started)*1000<=1500)
 
+    @reply_boundary
     def prepare(self):
         with self.lock.held():
             self.load();need(self.state is None and self.snapshot.state is None and self.snapshot.ui.state is None and self.files.store.read() is None)
@@ -429,6 +501,7 @@ class PicoSnapshotCancelOwner:
             state=deepcopy(self.state);state['platform']=dict(where='baseline',original=self.platform.read());self.save(state)
             self.issued('prepared');result=self.report();self.fence();return result
 
+    @reply_boundary
     def open(self):
         with self.lock.held():
             self.load();need(self.state['stage']=='prepared');self.issued('open-issued',self.fixture('open',{}));self.current=True
@@ -446,6 +519,7 @@ class PicoSnapshotCancelOwner:
         saved=self.cancel.original();saved['request']=deepcopy(envelope)
         state=deepcopy(self.state);state['replies'].append(saved);self.save(state);return value
 
+    @reply_boundary
     def start(self):
         with self.lock.held():
             self.load();need(self.state['stage']=='opened');self.issued('cancel-issued',self.fixture('capture-cancel',dict(mode='animated',format='png')))
@@ -462,6 +536,7 @@ class PicoSnapshotCancelOwner:
                 controlToken=control['token'],bridgeId=ui['bridgeId'],generation=ui['generation'],sequence=ui['lastCommandSequence']+1,observedElapsedMs=ui['elapsedMs'])
             self.send_cancel('start',command);return self.reconcile()
 
+    @reply_boundary
     def reconcile(self):
         """Only new original queries; an uncertain start is never repeated."""
         with self.lock.held():
@@ -511,6 +586,7 @@ class PicoSnapshotCancelOwner:
         need(not work['evaluating'] and not work['timers'] and not work['unknownTimers']
             and all(work[key]==0 for key in ('signalCallbacks','timerCallbacks','unknownSignalCallbacks','unknownTimerCallbacks')))
 
+    @reply_boundary
     def quiet(self):
         with self.lock.held():
             self.load();need(self.state['stage'] in ('cancel-observed','quiet-issued'));self.issued('quiet-issued');first=previous=counts=None
@@ -527,6 +603,7 @@ class PicoSnapshotCancelOwner:
                 self.native.sleep(.25)
             need(False)
 
+    @reply_boundary
     def retire_job(self):
         with self.lock.held():
             self.load();need(self.state['stage']=='cancel-quiet');self.issued('job-retire-issued')
@@ -554,6 +631,7 @@ class PicoSnapshotCancelOwner:
             and value['captureName']==self.still_prefix and value['captureSettingsLoaded']
             and not any(value[key] for key in ('capturing','processing','exportBusy','exportTicket','uploadPath')))
 
+    @reply_boundary
     def capture_still(self):
         with self.lock.held():
             self.load();need(self.state['stage']=='partial-ready');self.upgrade()
@@ -612,6 +690,7 @@ class PicoSnapshotCancelOwner:
             if key not in self.decoded_cache:self.decoded_cache[key]=inspect_snapshot(raw,mode='still',file_format='png')
         need(key in self.decoded_cache and typed_equal(record['decoded'],self.decoded_cache[key]))
 
+    @reply_boundary
     def reconcile_still(self):
         """New sources only; no Capture, preference or controller resend."""
         with self.lock.held():
@@ -647,6 +726,7 @@ class PicoSnapshotCancelOwner:
         work=self.scoped_work(row);need(not work['evaluating'] and not work['timers'] and not work['unknownTimers']
             and all(work[key]==0 for key in ('signalCallbacks','timerCallbacks','unknownSignalCallbacks','unknownTimerCallbacks')))
 
+    @reply_boundary
     def quiet_still(self):
         with self.lock.held():
             self.load();need(self.state['stage'] in ('captured','still-quiet-issued'));self.issued('still-quiet-issued');first=previous=counts=None

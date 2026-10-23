@@ -116,6 +116,7 @@ TESTS = (
     test("snapshot-save-owner", "interaction", PYTHON, "device/test_snapshot_save_owner.py", "SnapshotSaveFlowTests.test_normal_cancel_still_save_independent_provider_png_and_current_original_quiet"),
     test("snapshot-save-fences", "interaction", PYTHON, "device/test_snapshot_save_owner.py", "SnapshotSaveAdmissionTests", "SnapshotSaveEnvelopeTests", "SnapshotSaveFenceTests", "SnapshotSaveFactoryTests", "SnapshotSaveOriginalsTests", "SnapshotSavePreparationRecoveryTests", "SnapshotSaveAcquisitionTests", "SnapshotOriginalFrameMemoTests", "SnapshotSavePublicationTests", "SnapshotSyntheticAnalyzerTests", "SnapshotSystemSourceTests"),
     test("snapshot-settings-originals", "interaction", PYTHON, "device/test_snapshot_settings_originals.py"),
+    test("snapshot-reply-grammar", "interaction", PYTHON, "device/test_snapshot_reply_grammar_owner.py"),
     test("snapshot-settings-baseline", "interaction", PYTHON, "device/test_snapshot_settings_baseline.py"),
     test("snapshot-settings-close", "interaction", PYTHON, "device/test_snapshot_settings_close.py"),
     test("snapshot-close-statuses", "interaction", PYTHON, "device/test_snapshot_close_statuses.py"),
