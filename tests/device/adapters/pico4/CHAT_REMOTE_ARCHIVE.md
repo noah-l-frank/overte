@@ -335,3 +335,17 @@ publication measured 0.479 s versus 0.535 s, while Parent acquisition measured
 primary and 143 for Actor. The different fsync/physical timings and unchanged
 end-to-end time remain explicit. No deadline, cadence, physical verification
 or source observation was removed, and no new whole result follows.
+
+The existing full false-common/Stop2/return/seal/catalog case also passed with
+the new observer/cursor memory API: 1/1 in 36.890 s (37.360 outer elapsed),
+under the unchanged 120-second bound. Fixed a942 differs only in documentation
+from e8 code; all 169 source bytes remained unchanged, manifest SHA-256
+`3cc3a199a7b0083d397d7263cf9782605a925bebb7597f1a2c2edd6c93147ca4`.
+The exact same retention-only runner preserved original model and independent
+host files while actual descriptor/process/kernel/source/clock checks ran.
+The receipt remains `sequenceSucceeded=false`, consumed Actor 22/final 24;
+the ready v3 Reader retains 19 records/32 parts, 937,154 logical bytes and no
+pending bundle. Both seals and every original physical fragment remain in the
+catalog. This rechecks compatibility across real host return and kernel ESRCH;
+it does not claim application/IPC/archive retirement, whole host finalization,
+native product/device qualification or successful true common execution.
