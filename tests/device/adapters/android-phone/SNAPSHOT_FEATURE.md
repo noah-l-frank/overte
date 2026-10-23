@@ -1112,6 +1112,26 @@ cases passed separately in 3.753 seconds. Every Actor method except the split
 admission in `step_owned` is AST-identical to the preceding source. Full backend
 qualification remains separate.
 
+The large old-frame graphs now use a dedicated transient format-2 marshal/SHA-256
+mutation seal in the Actor preparation/publication checks and the Primary
+constructor history pass. Every seal is derived from actual previously validated
+originals and remains local to the current call. No marshal payload is stored or
+read. Dictionary-order changes conservatively fail; external references do not
+change the seal. Persistent canonical JSON, file hashes, cue/transition hashes,
+source guards and their positions remain unchanged. Format 4 was rejected
+because external references changed the bytes of an unchanged graph.
+
+The expanded thirteen-case stage module passed in 73.217 seconds, including
+late bool/integer and integer/float substitutions, a cycle and an unsupported
+object with no custom callback execution. The complete fifteen-case constructor
+module passed separately in 90.813 seconds. These results use Actor source
+`f289e2e0cf286a89015b9dece164ea999c0a458f3aeec4e6cbff48213cd0db27`
+and constructor-history source
+`280b5dedd6c1540b6f85da267f739878ff38c6b9ca01b7c1a9aa86e0af610a1a`.
+The constructor module therefore uses the existing 240-second aggregate host
+budget; every original per-file, source, checkpoint and quiet bound is unchanged.
+The measured pure graph-check saving is not a successful complete backend run.
+
 An ordinary actor acquisition admits its actual phase before reading native,
 avatar or measurement sources. One proven owned activation advance can defer
 that acquisition: two actual stable new phase observations and the old phase
