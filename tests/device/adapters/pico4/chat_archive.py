@@ -6,7 +6,6 @@ import hashlib
 import json
 import math
 import re
-import uuid
 
 from adapters.chat_actor_files import COMMAND,RESULT
 from adapters.chat_journey.evidence_archive import ChatArchiveCatalog,ChatEvidenceArchive
@@ -14,6 +13,7 @@ from adapters.chat_journey.script_source import identity as code_identity
 from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
 from adapters.native_feature_observation import fresh,need,number
 from adapters.native_chat_view import measured_keyboard
+from adapters.original_source_unlink_fence import OriginalSourceUnlinkFence
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.pico4.chat_application_close import birth
 from adapters.restart_inputs import validate_native_restart
@@ -398,57 +398,9 @@ class ChatArchiveReleaseSource:
         self.last=deepcopy(result);self.final(result);return result
 
 
-class ChatArchiveUnlinkFence:
-    """At most 16 unlinks/250 ms using the same original source acquisition.
-
-    The 250-ms window begins when that acquisition completes; its original
-    1.5-s host/native deadlines still include the complete acquisition. Every
-    actual unlink has a NEW independent phase query after its final intent.
-    Only prepare() before that intent may acquire a new source. Any failure
-    retains the original pending token and makes this warm fence unusable.
-    """
+class ChatArchiveUnlinkFence(OriginalSourceUnlinkFence):
+    """The unchanged Chat source/16-unlinks/250ms policy on shared mechanics."""
     def __init__(self,guard):
         need(type(guard) is ChatArchiveReleaseSource and guard.fresh_phase_final)
-        self.guard=guard;self.proof=None;self.snapshot=None;self.started=self.epoch=None
-        self.uses=0;self.pending=None;self.failed=False
-
-    def clocks(self):
-        measured=self.guard.app.now();epoch=self.guard.role.primary.clock_ms();ended=self.guard.app.now()
-        need(number(ended,measured,measured+1.5));return measured,epoch,ended
-
-    def window(self):
-        measured,epoch,ended=self.clocks()
-        need(number(measured,self.started,self.started+.250) and number(ended,measured,self.started+.250)
-            and number(epoch,self.epoch,self.epoch+250) and epoch-self.epoch+math.ceil((ended-measured)*1000)<=250)
-
-    def prepare(self):
-        try:
-            need(not self.failed and self.pending is None)
-            now,epoch,ended=self.clocks()
-            expired=self.proof is None or self.uses>=16 or now-self.started>=.250 or epoch-self.epoch>=250
-            if expired:
-                self.proof=deepcopy(self.guard());self.guard.final(self.proof)
-                self.snapshot=self.guard.cursors();self.started,self.epoch,_ended=self.clocks();self.uses=0
-            self.guard.final(self.proof,expected_cursors=self.snapshot);self.window()
-            need(same(self.snapshot,self.guard.cursors()))
-            token=dict(archiveUnlinkFenceVersion=1,requestId=uuid.uuid4().hex,sourceSha256=digest(self.proof),
-                sourceSequence=self.proof['compiledChat']['after']['sequence'],windowUse=self.uses+1)
-            self.pending=deepcopy(token);result=deepcopy(token)
-            self.guard.final(self.proof,expected_cursors=self.snapshot);self.window();return result
-        except Exception:self.failed=True;raise
-
-    def check(self,token):
-        try:
-            need(not self.failed and self.pending is not None and same(token,self.pending)
-                and digest(self.proof)==token['sourceSha256'] and same(self.snapshot,self.guard.cursors()))
-            self.window();self.guard.current_phase(self.proof)
-            need(same(self.snapshot,self.guard.cursors()))
-            self.window();self.guard.final(self.proof,expected_cursors=self.snapshot)
-        except Exception:self.failed=True;raise
-
-    def complete(self,token):
-        try:
-            need(not self.failed and self.pending is not None and same(token,self.pending) and digest(self.proof)==token['sourceSha256'])
-            self.guard.final(self.proof,expected_cursors=self.snapshot);self.window()
-            self.uses+=1;self.pending=None
-        except Exception:self.failed=True;raise
+        super().__init__(guard,now=lambda:guard.app.now(),clock_ms=lambda:guard.role.primary.clock_ms(),
+            source_sequence=lambda proof:proof['compiledChat']['after']['sequence'])

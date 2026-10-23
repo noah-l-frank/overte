@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "original-source-unlink-fence": {"current": 1, "reads": [1]},
     "pico-browser-vm": {"current": 1, "reads": [1]},
     "pico-browser-history": {"current": 1, "reads": [1]},
     "pico-browser-actor-export": {"current": 1, "reads": [1]},
