@@ -3,11 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 from adapters.native_feature_observation import exact,need
 from adapters.normal_feature_state import PrivateFeatureState
-from adapters.script_feature.history import same
+from adapters.script_feature.history import same,unpack
 from feature_journeys.contract import arguments
 from feature_journeys.graphics_resources import fixture_url
 from feature_journeys.witness import Client
-from ios.adapters.navigation_partial_preparation_abort import owner
+from ios.adapters.navigation_partial_preparation_abort import owner,finish
 from ios.adapters.navigation_whole_feature import NavigationWholeFeature
 
 
@@ -26,13 +26,15 @@ def verify(whole,call,result):
 def retire_existing(runtime,selector,config):
     """A persisted failed owner has priority over ordinary generic cleanup."""
     directory=runtime.state_path(selector).parent
-    if PrivateFeatureState(directory/'ios-navigation-feature.json').read() is not None:return None
+    feature=PrivateFeatureState(directory/'ios-navigation-feature.json').read()
     store=PrivateFeatureState(directory/'ios-navigation-whole-feature.json');value=store.read()
     previous=PrivateFeatureState(directory/'ios-navigation-preparation-abort.json').read()
     if value is None:
         need(previous is None);return None
     exact(value,{'iosNavigationWholeFeatureVersion','runId','artifactRoot','payload'})
     need(type(value['iosNavigationWholeFeatureVersion']) is int and value['iosNavigationWholeFeatureVersion']==1)
+    rows=unpack(value['payload']);need(len(rows)==1 and type(rows[0]) is dict)
+    if feature is not None and rows[0].get('phase')!='preparing':return None
     from ios.adapters.navigation_configuration import settings
     chosen=settings(dict(artifactRoot=value['artifactRoot']))
     if previous is None:
@@ -49,5 +51,5 @@ def retire_existing(runtime,selector,config):
     need(type(whole) is NavigationWholeFeature);f=whole.flow
     with f.held():
         whole.load();need(same(whole.previous,value) and same(store.read(),value))
-        result=owner(f).finish();need(result['status']=='failed' and result['processEnded'] and result['sdkAbsent'])
+        result=finish(f);need(result['status']=='failed' and result['processEnded'] and result['sdkAbsent'])
     return {'cleaned':True}

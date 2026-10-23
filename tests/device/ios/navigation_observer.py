@@ -17,7 +17,7 @@ if str(DEVICE_ROOT) not in sys.path:sys.path.insert(0,str(DEVICE_ROOT))
 from adapters.native_binding import PrivateParser,create_adapter
 from adapters.native_feature_observation import exact,need,number
 from adapters.normal_feature_state import PrivateFeatureState
-from adapters.script_feature.history import same
+from adapters.script_feature.history import same,unpack
 from adapters.script_feature.lock import ScriptSourceBusy
 from feature_journeys.contract import identifier
 from feature_journeys.evidence import MarkerNotReady
@@ -71,6 +71,17 @@ def step(whole,config):
     """One publication, or a sealed pause, or fully verified historical end."""
     need(type(whole) is NavigationWholeFeature);flow=whole.flow
     with flow.held():
+        abort=PrivateFeatureState(flow.store.path.with_name('ios-navigation-preparation-abort.json')).read()
+        if abort is not None:
+            # This failed setup cannot supply observations. While its one
+            # process/SDK transaction is pending, wait without new sources or
+            # worker metadata. A complete typed failed end permits failed exit.
+            need(type(abort) is dict);rows=unpack(abort.get('payload'))
+            need(len(rows)==1 and type(rows[0]) is dict)
+            if rows[0].get('phase')!='failed-ended':return None
+            from ios.adapters.navigation_partial_preparation_abort import owner as failed_owner
+            result=failed_owner(primary(flow)).result();need(result['status']=='failed' and result['processEnded'] and result['sdkAbsent'])
+            return 2
         failed=failure(flow,config);owner=NavigationTerminal(primary(flow))
         if owner.state is not None and owner.state['seal'] is not None:
             # Do not write even a worker marker after the immutable source-file

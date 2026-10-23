@@ -40,8 +40,20 @@ class NavigationPartialPreparationAbort(NavigationPreparationAbort):
 def owner(flow):
     """Dispatch literal persisted versions; a new partial owner writes two."""
     value=PrivateFeatureState(flow.store.path.with_name('ios-navigation-preparation-abort.json')).read()
-    if value is None:return NavigationPartialPreparationAbort(flow)
+    if value is None:
+        if flow.store.read() is None:return NavigationPartialPreparationAbort(flow)
+        from ios.adapters.navigation_entry_preparation_abort import NavigationEntryPreparationAbort
+        return NavigationEntryPreparationAbort(flow)
     need(type(value) is dict)
     version=value.get('iosNavigationPreparationAbortVersion')
-    need(type(version) is int and version in (1,2))
+    need(type(version) is int and version in (1,2,3))
+    if version==3:
+        from ios.adapters.navigation_entry_preparation_abort import NavigationEntryPreparationAbort
+        return NavigationEntryPreparationAbort(flow)
     return (NavigationPreparationAbort if version==1 else NavigationPartialPreparationAbort)(flow)
+
+
+def finish(flow):
+    """A completed failed end is immutable, including its original inode."""
+    transaction=owner(flow)
+    return transaction.result() if transaction.state['phase']=='failed-ended' else transaction.finish()

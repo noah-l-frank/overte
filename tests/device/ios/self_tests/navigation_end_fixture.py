@@ -42,8 +42,7 @@ class EndBoundary:
         self.connected=connected
         if connected is not None:
             flow=connected['flow'];flow.lock.assert_held();flow.load()
-            if preparing:
-                test.assertIsNone(flow.state)
+            if preparing and flow.state is None:
                 preparation=PrivateFeatureState(flow.store.path.with_name('ios-navigation-whole-preparation.json')).read()
                 actual=deepcopy(unpack(preparation['payload'])[0]['binding'])
             else:actual=deepcopy(flow.state['binding'])

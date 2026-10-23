@@ -115,9 +115,9 @@ class NavigationWholeFeature:
         f=self.flow
         with f.held():
             f.load();self.load()
-            if self.state is not None and self.state['phase']=='preparing' and f.state is None:
-                from ios.adapters.navigation_partial_preparation_abort import owner
-                result=owner(f).finish();need(result['status']=='failed' and result['processEnded'] and result['sdkAbsent'])
+            if self.state is not None and self.state['phase']=='preparing':
+                from ios.adapters.navigation_partial_preparation_abort import finish
+                result=finish(f);need(result['status']=='failed' and result['processEnded'] and result['sdkAbsent'])
                 return {'performed':True}
         self.prepare()
         with f.held():
