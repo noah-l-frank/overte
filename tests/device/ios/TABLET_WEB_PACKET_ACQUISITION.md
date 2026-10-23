@@ -1,7 +1,7 @@
 # Tablet original packet acquisition
 
 `TabletWebPackets` owns queries for the existing Tablet source, trace, DOM,
-button, current-state, closure and UIKit readers. It changes neither their
+button, current-state, closure, UIKit, emission and held-callback readers. It changes neither their
 native grammar nor their actual query protocol. Each role/component has its own
 process-bound private journal and immutable original files. The public capture
 returns only the existing reader's independently validated native result.
@@ -67,3 +67,11 @@ It uses its own query/raw/record namespace and the already closed concrete
 Tablet segment label. No World or Tablet identity/schema is relabelled. A safe
 matching later source-birth reset is retained as rejected immutable failure
 evidence and blocks the live owner; it cannot silently establish a new floor.
+
+The ninth `deferred` component retains the original Tablet-only held-callback
+DTO and its actual query/clock/PID, original callback body and command receipts.
+It uses the existing closed `deferred` Tablet segment label without changing
+other profiles, native sources, packet versions or size bounds. A callback
+still held by that source remains owned; storing or replaying its readback
+does not deliver/discard it or prove its destruction. Historical file reads
+use the same original-read membership hooks as the other components.

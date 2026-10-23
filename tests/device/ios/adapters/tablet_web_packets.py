@@ -18,12 +18,12 @@ from adapters.original_frame_store import OriginalFrameStore,MAX_FRAMES
 from adapters.script_feature.history import same,canonical
 from adapters.operation_transport_guard import scope as transport_scope
 from adapters.original_file_reads import record as original_read
-from ios.adapters import tablet_web_source,tablet_web_sources,tablet_web_dom,tablet_web_buttons,tablet_web_state,tablet_web_closures,uikit_input,web_script_emissions
+from ios.adapters import tablet_web_source,tablet_web_sources,tablet_web_dom,tablet_web_buttons,tablet_web_state,tablet_web_closures,uikit_input,web_script_emissions,tablet_web_deferred
 from ios.adapters.tablet_web_segments import TabletWebSourceSegments,CHUNK_BYTES,sha
 
 VERSION=1
 COMPONENTS={'trace':tablet_web_source,'sources':tablet_web_sources,'dom':tablet_web_dom,
-    'buttons':tablet_web_buttons,'state':tablet_web_state,'closures':tablet_web_closures,'uikit':uikit_input,'emissions':web_script_emissions}
+    'buttons':tablet_web_buttons,'state':tablet_web_state,'closures':tablet_web_closures,'uikit':uikit_input,'emissions':web_script_emissions,'deferred':tablet_web_deferred}
 CAPTURES=128
 
 
