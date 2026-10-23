@@ -3,6 +3,7 @@
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include "PlacesHttpObservation.h"
+#include "AvatarV8Callers.h"
 #include <QHash>
 #include <QMutex>
 #include <QMutexLocker>
@@ -26,15 +27,15 @@ public:
             {"encoding","utf-16le-code-units"},{"codeUnits",code.size()},
             {"sha256",QString::fromLatin1(QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex())}});
     }
-    QString created(int handle,const QStringList& callers,const QTimer* timer) {
-        bool relevant {false};for (const auto& caller:callers) {
-            relevant=relevant || PlacesHttpObservation::installed(caller,"/system/libraries/peopleConnection.js");
-        }
-        if (!enabled() || !relevant) { return {}; }
+    QString created(int handle,const AvatarV8Callers& callers,const QTimer* timer) {
+        if (!enabled() || !callers.hasSubmitted("/system/libraries/peopleConnection.js")) { return {}; }
+        if (!callers.complete) { unavailable();return {}; }
+        if (!callers.has("/system/libraries/peopleConnection.js")) { return {}; }
         QMutexLocker lock(&_mutex);
-        if (!_valid || !timer || handle<=0 || _handles.contains(handle) || _births>=256 || callers.size()>32) { _valid=false;return {}; }
+        if (!_valid || !timer || handle<=0 || _handles.contains(handle) || _births>=256) { _valid=false;return {}; }
+        const auto callerId=_callers.retain(callers);if (callerId.isEmpty()) { _valid=false;return {}; }
         const auto id=PlacesHttpObservation::nonce();++_births;_handles.insert(handle,id);_callbacks.insert(id,0);
-        append(id,"created",{{"handle",handle},{"callerChain",callers},{"active",timer->isActive()},
+        append(id,"created",{{"handle",handle},{"callerStackId",callerId},{"active",timer->isActive()},
             {"singleShot",timer->isSingleShot()},{"intervalMs",timer->interval()},{"remainingMs",timer->remainingTime()}});
         return id;
     }
@@ -57,7 +58,7 @@ public:
     }
     QVariantMap snapshot() const {
         QMutexLocker lock(&_mutex);
-        return {{"avatarScriptVersion",1},{"instance",_instance},{"complete",_valid},{"code",_code},{"events",_events}};
+        return {{"avatarScriptVersion",2},{"instance",_instance},{"complete",_valid},{"code",_code},{"events",_events},{"callerStacks",_callers.snapshot()}};
     }
     void unavailable() { QMutexLocker lock(&_mutex);_valid=false; }
 private:
@@ -73,7 +74,7 @@ private:
     }
     mutable QMutex _mutex;
     const QString _instance {PlacesHttpObservation::nonce()};
-    QVariantList _code,_events;QHash<int,QString> _handles;QHash<QString,int> _callbacks;
+    AvatarV8CallerTable _callers;QVariantList _code,_events;QHash<int,QString> _handles;QHash<QString,int> _callbacks;
     qint64 _epoch {0};int _births {0};bool _valid {true};
 };
 } // namespace overte::e2e

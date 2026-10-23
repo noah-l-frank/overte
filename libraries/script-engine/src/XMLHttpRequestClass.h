@@ -24,6 +24,7 @@
 #include <QTimer>
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include <QStringList>
+#include "AvatarV8Callers.h"
 #endif
 
 #include "ScriptEngine.h"
@@ -307,6 +308,7 @@ signals:
 private:
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     QStringList featureAvatarSocialCallers() const;
+    overte::e2e::AvatarV8Callers featureAvatarSocialV8Callers() const;
     void featureAvatarSocialOpen();
     void featureAvatarSocialFinished();
     QString _featureAvatarSocialId;

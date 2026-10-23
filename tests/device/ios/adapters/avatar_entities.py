@@ -37,7 +37,7 @@ def caller(value,epoch):
     for source in chain:text(source,4096)
     installed(chain[0],'/system/avatarapp.js')
     source=value['avatarCode'];exact(source,{'avatarScriptVersion','instance','complete','code'})
-    avatar_scripts.timer_states(dict(source,events=[]),epoch);need(source['complete'])
+    avatar_scripts.code_projection(source,epoch);need(source['complete'])
     entries=[row for row in source['code'] if row['url']==chain[0]];need(entries and all(row['submittedEpochMs']<=value['invokedEpochMs'] for row in entries))
     return value
 

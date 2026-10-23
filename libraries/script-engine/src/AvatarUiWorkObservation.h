@@ -3,6 +3,7 @@
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include "PlacesHttpObservation.h"
+#include "AvatarV8Callers.h"
 #include <QHash>
 #include <QMap>
 #include <QMutex>
@@ -18,9 +19,12 @@ namespace overte::e2e {
 class AvatarUiWorkObservation {
 public:
     explicit AvatarUiWorkObservation(QStringList suffixes={"/system/avatarapp.js","/system/pal.js","/system/libraries/peopleConnection.js",
-        "/modules/request.js","/system/request-service.js"},QString schema="avatarUiWorkVersion") :
-        _suffixes(std::move(suffixes)),_schema(std::move(schema)) {}
+        "/modules/request.js","/system/request-service.js"},QString schema="avatarUiWorkVersion",int version=1) :
+        _suffixes(std::move(suffixes)),_schema(std::move(schema)),_version(version) {
+        if ((_version!=1 && _version!=2) || (_version==2 && _schema!="avatarUiWorkVersion")) { _complete=false; }
+    }
     QString created(int handle,const QStringList& callers,const QTimer* timer) {
+        if (_version!=1) { unavailable();return {}; }
         bool relevant{false};for (const auto& caller:callers) { for (const auto& suffix:_suffixes) {
             relevant=relevant || PlacesHttpObservation::installed(caller,suffix);
         } }
@@ -32,6 +36,22 @@ public:
         _states.insert(id,QVariantMap{{"timerId",id},{"handle",handle},{"callerChain",callers},{"createdEpochMs",epoch},
             {"singleShot",timer->isSingleShot()},{"intervalMs",timer->interval()},{"activeAtBirth",timer->isActive()},
             {"remainingAtBirthMs",timer->remainingTime()},{"destroyedEpochMs",QVariant()},
+            {"fired",0},{"entered",0},{"left",0},{"depth",0},{"pendingDispatch",0},
+            {"lastFiredEpochMs",QVariant()},{"lastCallbackEpochMs",QVariant()},{"lastDispatchEpochMs",QVariant()}});
+        return id;
+    }
+    QString created(int handle,const AvatarV8Callers& callers,const QTimer* timer) {
+        if (!enabled() || !(callers.hasSubmitted("/system/avatarapp.js") || callers.hasSubmitted("/system/pal.js")
+                || callers.hasSubmitted("/system/libraries/peopleConnection.js"))) { return {}; }
+        if (_version!=2 || !callers.complete) { unavailable();return {}; }
+        bool relevant {false};for (const auto& suffix:_suffixes) { relevant=relevant || callers.has(suffix); }
+        if (!relevant) { return {}; }QMutexLocker lock(&_mutex);
+        if (!_complete || !timer || handle<=0 || _handles.contains(handle) || _states.size()>=256) { _complete=false;return {}; }
+        const auto callerId=_callers.retain(callers);if (callerId.isEmpty()) { _complete=false;return {}; }
+        const auto id=PlacesHttpObservation::nonce();const auto epoch=now();_handles.insert(handle,id);
+        _states.insert(id,QVariantMap{{"timerId",id},{"handle",handle},{"callerStackId",callerId},
+            {"createdEpochMs",epoch},{"singleShot",timer->isSingleShot()},{"intervalMs",timer->interval()},
+            {"activeAtBirth",timer->isActive()},{"remainingAtBirthMs",timer->remainingTime()},{"destroyedEpochMs",QVariant()},
             {"fired",0},{"entered",0},{"left",0},{"depth",0},{"pendingDispatch",0},
             {"lastFiredEpochMs",QVariant()},{"lastCallbackEpochMs",QVariant()},{"lastDispatchEpochMs",QVariant()}});
         return id;
@@ -66,7 +86,8 @@ public:
     QVariantMap snapshot() const {
         QMutexLocker lock(&_mutex);QVariantList states;
         for (auto it=_states.cbegin();it!=_states.cend();++it) { states.append(it.value()); }
-        return {{_schema,1},{"instance",_instance},{"complete",_complete},{"timers",states}};
+        QVariantMap result{{_schema,_version},{"instance",_instance},{"complete",_complete},{"timers",states}};
+        if (_version==2) { result.insert("callerStacks",_callers.snapshot()); }return result;
     }
     void unavailable() { QMutexLocker lock(&_mutex);_complete=false; }
 private:
@@ -83,9 +104,9 @@ private:
     mutable QMutex _mutex;
     const QString _instance{PlacesHttpObservation::nonce()};
     QHash<int,QString> _handles;
-    QMap<QString,QVariantMap> _states;
+    QMap<QString,QVariantMap> _states;AvatarV8CallerTable _callers;
     qint64 _epoch{0};bool _complete{true};
-    const QStringList _suffixes;const QString _schema;
+    const QStringList _suffixes;const QString _schema;const int _version;
 };
 } // namespace overte::e2e
 #endif

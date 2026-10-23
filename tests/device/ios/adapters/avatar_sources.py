@@ -32,7 +32,7 @@ ACQUISITIONS=dict(state='iosAvatarStateAcquisitionVersion',renderers='iosAvatarR
     http='iosAvatarSocialHttpAcquisitionVersion',people='iosPeopleModelAcquisitionVersion',scripts='iosAvatarScriptsAcquisitionVersion',
     entities='iosAvatarEntitiesAcquisitionVersion')
 VERSIONS=dict(state=('iosAvatarStateVersion',2),renderers=('iosAvatarRenderersVersion',4),
-    http=('iosAvatarSocialHttpVersion',1),people=('iosPeopleModelVersion',1),scripts=('iosAvatarScriptsVersion',1),entities=('iosAvatarEntitiesVersion',1))
+    http=('iosAvatarSocialHttpVersion',2),people=('iosPeopleModelVersion',1),scripts=('iosAvatarScriptsVersion',2),entities=('iosAvatarEntitiesVersion',1))
 
 
 class AvatarPhaseChanged(NativeUIError):pass
@@ -133,7 +133,8 @@ class IOSAvatarSources:
         for name,module in channels.items():
             packet=originals[name];module.original(packet)
             version_key,version=VERSIONS[name];need(type(packet[version_key]) is int
-                and (packet[version_key]==version or name=='state' and packet[version_key]==3))
+                and (packet[version_key]==version or name=='state' and packet[version_key]==3
+                    or name in ('http','scripts') and packet[version_key]==1))
             need(packet['processId']==self.pid and packet['runId']==self.run
                  and first['capturedEpochMs']<=packet['clockBefore']['epochMs']<=packet['clockAfter']['epochMs']<=last['capturedEpochMs'])
             acquisition=acquisitions[name]

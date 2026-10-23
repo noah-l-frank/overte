@@ -1577,12 +1577,14 @@ int ScriptManager::setupTimerWithInterval(const ScriptValue& function, int inter
     }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
-    const auto avatarTimer=_featureAvatarScript->created(handle,featureAvatarTimerCallers(),newTimer.get());
+    const auto avatarCallers=overte::e2e::AvatarV8Callers::resolve(featureAvatarV8Stack(),
+        _featureAvatarScript->snapshot().value("code").toList());
+    const auto avatarTimer=_featureAvatarScript->created(handle,avatarCallers,newTimer.get());
     if (!avatarTimer.isEmpty()) {
         const auto observer=_featureAvatarScript;
         QObject::connect(newTimer.get(),&QObject::destroyed,[observer,avatarTimer] { observer->destroyed(avatarTimer); });
     }
-    const auto avatarUiTimer=_featureAvatarUiWork->created(handle,featureAvatarTimerCallers(),newTimer.get());
+    const auto avatarUiTimer=_featureAvatarUiWork->created(handle,avatarCallers,newTimer.get());
     if (!avatarUiTimer.isEmpty()) {
         const auto observer=_featureAvatarUiWork;
         QObject::connect(newTimer.get(),&QObject::destroyed,[observer,avatarUiTimer] { observer->destroyed(avatarUiTimer); });

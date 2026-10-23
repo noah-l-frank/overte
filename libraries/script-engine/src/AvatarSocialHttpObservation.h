@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "AvatarV8Callers.h"
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -47,10 +48,12 @@ public:
         return {{"bytes",raw.size()},{"sha256",QString::fromLatin1(QCryptographicHash::hash(raw,QCryptographicHash::Sha256).toHex())},
             {"contentBase64",QString::fromLatin1(raw.toBase64())}};
     }
-    QString create(const QVariantMap& details) {
+    QString create(const QVariantMap& details,const AvatarV8Callers& callers) {
         std::lock_guard<std::mutex> lock(_mutex);
         if (!enabled() || !_valid || _xhrs.size()>=128) { _valid=false;return {}; }
-        const auto id=nonce();_xhrs.insert(id);append(id,"created",details);return id;
+        const auto callerId=_callers.retain(callers);if (callerId.isEmpty()) { _valid=false;return {}; }
+        auto original=details;original.insert("callerStackId",callerId);
+        const auto id=nonce();_xhrs.insert(id);append(id,"created",original);return id;
     }
     void event(const QString& id,const QString& kind,const QVariantMap& details={}) {
         if (id.isEmpty()) { return; }
@@ -58,10 +61,17 @@ public:
         if (!enabled() || !_valid || !_xhrs.contains(id)) { _valid=false;return; }
         append(id,kind,details);
     }
+    void eventWithCallers(const QString& id,const QString& kind,const QVariantMap& details,const AvatarV8Callers& callers) {
+        if (id.isEmpty()) { return; }std::lock_guard<std::mutex> lock(_mutex);
+        if (!enabled() || !_valid || !_xhrs.contains(id)) { _valid=false;return; }
+        const auto callerId=_callers.retain(callers);if (callerId.isEmpty()) { _valid=false;return; }
+        auto original=details;original.insert("callerStackId",callerId);append(id,kind,original);
+    }
     void invalid(const QString& id) {
         if (id.isEmpty()) { return; }
         std::lock_guard<std::mutex> lock(_mutex);_valid=false;
     }
+    void unavailable() { std::lock_guard<std::mutex> lock(_mutex);_valid=false; }
     QVariantMap snapshot(const QVariantMap& command) {
         std::lock_guard<std::mutex> lock(_mutex);
         const auto value=QJsonObject::fromVariantMap(command);const auto keys=value.keys();
@@ -71,10 +81,10 @@ public:
                 || _sequence>=1000000000) { return {}; }
         const auto before=clock();if (before.isEmpty()) { return {}; }
         const auto events=_events;const auto after=clock();if (after.isEmpty()) { return {}; }
-        QVariantMap result {{"iosAvatarSocialHttpVersion",1},{"requestId",command.value("commandId")},{"runId",command.value("runId")},
+        QVariantMap result {{"iosAvatarSocialHttpVersion",2},{"requestId",command.value("commandId")},{"runId",command.value("runId")},
             {"instance",_instance},{"sequence",static_cast<double>(++_sequence)},
             {"processId",static_cast<double>(QCoreApplication::applicationPid())},{"clockDomain","native-process-avatar-social-http"},
-            {"clockBefore",before},{"clockAfter",after},{"events",events}};
+            {"clockBefore",before},{"clockAfter",after},{"events",events},{"callerStacks",_callers.snapshot()}};
         if (QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size()>262144) { _valid=false;return {}; }
         return result;
     }
@@ -101,7 +111,7 @@ private:
     }
     std::mutex _mutex;
     QString _instance {nonce()};QElapsedTimer _clock;QVariantList _events;QSet<QString> _xhrs;
-    quint64 _sequence {0};qint64 _epoch {0},_elapsed {0};bool _valid {true};
+    AvatarV8CallerTable _callers;quint64 _sequence {0};qint64 _epoch {0},_elapsed {0};bool _valid {true};
 };
 inline AvatarSocialHttpObservation& avatarSocialHttp() { static AvatarSocialHttpObservation ledger;return ledger; }
 } // namespace overte::e2e

@@ -8,9 +8,10 @@ namespace overte::e2e {
 class IOSAvatarScriptsObservation {
 public:
     QVariantMap read(const QString& request,const QString& run,ScriptEngines* scripts) {
-        return _bracket.read("iosAvatarScriptsVersion","native-main-avatar-scripts",request,run,[&]() -> QVariantMap {
+        auto result=_bracket.read("iosAvatarScriptsVersion","native-main-avatar-scripts",request,run,[&]() -> QVariantMap {
             return scripts ? scripts->featureAvatarScriptObservation() : QVariantMap();
         });
+        if (!result.isEmpty()) { result["iosAvatarScriptsVersion"]=2; }return result;
     }
 private: NativeReadBracket _bracket;
 };

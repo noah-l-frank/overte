@@ -65,21 +65,34 @@ QStringList XMLHttpRequestClass::featureAvatarSocialCallers() const {
     return result;
 }
 
+overte::e2e::AvatarV8Callers XMLHttpRequestClass::featureAvatarSocialV8Callers() const {
+    if (!_engine || !_engine->manager() || QThread::currentThread()!=_engine->thread()) { return {}; }
+    const auto manager=_engine->manager();
+    return overte::e2e::AvatarV8Callers::resolve(manager->featureAvatarV8Stack(),
+        manager->featureAvatarScriptObservation().value("code").toList());
+}
+
 void XMLHttpRequestClass::featureAvatarSocialOpen() {
-    const auto callers=featureAvatarSocialCallers();bool owner {false};
-    for (const auto& caller:callers) {
-        owner=owner || overte::e2e::AvatarSocialHttpObservation::installed(caller,"/system/pal.js")
-            || overte::e2e::AvatarSocialHttpObservation::installed(caller,"/system/request-service.js")
-            || overte::e2e::AvatarSocialHttpObservation::installed(caller,"/system/libraries/peopleConnection.js");
-    }
-    if (!owner || !_async || !overte::e2e::AvatarSocialHttpObservation::endpoint(_url)
-            || (_method!="GET" && _method!="POST" && _method!="DELETE")) { return; }
+    if (!_async || !overte::e2e::AvatarSocialHttpObservation::endpoint(_url)
+            || (_method!="GET" && _method!="POST" && _method!="DELETE") || !_engine || !_engine->manager()
+            || QThread::currentThread()!=_engine->thread()) { return; }
     auto manager=_engine->manager();const auto membership=manager->featureLoadMembership(),submitted=manager->featureSourceIdentity();
     if (membership.value("assigned").userType()!=QMetaType::Bool || !membership.value("assigned").toBool()
             || !overte::e2e::AvatarSocialHttpObservation::installed(membership.value("url").toString(),"/defaultScripts.js")
             || submitted.value("submitted").userType()!=QMetaType::Bool || !submitted.value("submitted").toBool()) { return; }
-    _featureAvatarSocialId=overte::e2e::avatarSocialHttp().create({{"callerChain",callers},{"engine",membership},{"submitted",submitted},
-        {"requestUrl",_url.toString(QUrl::FullyEncoded)},{"method",_method},{"protocolSignature",protocolVersionsSignatureBase64()}});
+    bool managerRelevant {false};for (const auto& item:manager->featureAvatarScriptObservation().value("code").toList()) {
+        const auto source=item.toMap().value("url").toString();
+        managerRelevant=managerRelevant || overte::e2e::AvatarSocialHttpObservation::installed(source,"/system/pal.js")
+            || overte::e2e::AvatarSocialHttpObservation::installed(source,"/system/request-service.js")
+            || overte::e2e::AvatarSocialHttpObservation::installed(source,"/system/libraries/peopleConnection.js");
+    }
+    if (!managerRelevant) { return; }
+    const auto callers=featureAvatarSocialV8Callers();
+    if (!callers.complete) { overte::e2e::avatarSocialHttp().unavailable();return; }
+    if (!callers.top("/modules/request.js") || !(callers.has("/system/pal.js") || callers.has("/system/request-service.js")
+            || callers.has("/system/libraries/peopleConnection.js"))) { return; }
+    _featureAvatarSocialId=overte::e2e::avatarSocialHttp().create({{"engine",membership},{"submitted",submitted},
+        {"requestUrl",_url.toString(QUrl::FullyEncoded)},{"method",_method},{"protocolSignature",protocolVersionsSignatureBase64()}},callers);
     if (_featureAvatarSocialId.isEmpty()) { return; }
     const auto id=_featureAvatarSocialId;
     QObject::connect(this,&QObject::destroyed,[id] { overte::e2e::avatarSocialHttp().event(id,"xhr-destroyed"); });
@@ -191,12 +204,15 @@ XMLHttpRequestClass::~XMLHttpRequestClass() {
 
 ScriptValue XMLHttpRequestClass::getResponseText() const {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
-    const auto socialCallers=_featureAvatarSocialId.isEmpty() ? QStringList() : featureAvatarSocialCallers();
-    if (!_featureAvatarSocialTextRead && !socialCallers.isEmpty() && _readyState==DONE) {
-        _featureAvatarSocialTextRead=true;
-        overte::e2e::avatarSocialHttp().event(_featureAvatarSocialId,"text-read",{{"replyId",_featureAvatarSocialReplyId},
-            {"scriptSource",socialCallers.first()},
-            {"sha256",QString::fromLatin1(QCryptographicHash::hash(_rawResponseData,QCryptographicHash::Sha256).toHex())}});
+    if (!_featureAvatarSocialId.isEmpty() && !_featureAvatarSocialTextRead && _readyState==DONE) {
+        const auto callers=featureAvatarSocialV8Callers();
+        if (!callers.complete) { overte::e2e::avatarSocialHttp().invalid(_featureAvatarSocialId); }
+        else if (callers.top("/modules/request.js")) {
+            _featureAvatarSocialTextRead=true;
+            overte::e2e::avatarSocialHttp().eventWithCallers(_featureAvatarSocialId,"text-read",{{"replyId",_featureAvatarSocialReplyId},
+                {"scriptSource",callers.modules.first().toMap().value("url")},
+                {"sha256",QString::fromLatin1(QCryptographicHash::hash(_rawResponseData,QCryptographicHash::Sha256).toHex())}},callers);
+        }
     }
     const auto caller=_featurePlacesId.isEmpty() ? QString() : featurePlacesCaller();
     if (!_featurePlacesTextRead && !caller.isEmpty() && _readyState==DONE) {

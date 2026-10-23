@@ -1735,7 +1735,9 @@ protected:
             "/modules/request.js","/system/request-service.js"},"snapshotTimerWorkVersion")};
     QStringList featureAvatarTimerCallers() const;
     std::shared_ptr<overte::e2e::AvatarScriptObservation> _featureAvatarScript {std::make_shared<overte::e2e::AvatarScriptObservation>()};
-    std::shared_ptr<overte::e2e::AvatarUiWorkObservation> _featureAvatarUiWork {std::make_shared<overte::e2e::AvatarUiWorkObservation>()};
+    std::shared_ptr<overte::e2e::AvatarUiWorkObservation> _featureAvatarUiWork {
+        std::make_shared<overte::e2e::AvatarUiWorkObservation>(QStringList{"/system/avatarapp.js","/system/pal.js",
+            "/system/libraries/peopleConnection.js","/modules/request.js","/system/request-service.js"},"avatarUiWorkVersion",2)};
 #endif
     void featureCallbackBoundary(bool timer, bool entering);
     const bool _featureWorkEnabled {QCoreApplication::arguments().contains("--testScript")};
