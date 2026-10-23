@@ -28,24 +28,25 @@ class ChatSourceChunks:
     def __init__(self,store,scope):
         need(isinstance(store,PrivateFeatureState))
         self.root=store;self.scope=digest(scope);self.raw_bytes=2;self.identities=[]
+        self.root_path=store.path;self.prefix=store.path.name+'.frame-'
+        self.names=tuple(self.prefix+f'{index:03d}.json' for index in range(MAX_FRAMES));self.paths={}
 
-    def store(self,index):
-        need(integer(index,0,MAX_FRAMES-1))
-        return PrivateFeatureState(self.root.path.with_name(self.root.path.name+f'.frame-{index:03d}.json'))
+    def _path(self,index):
+        need(integer(index,0,MAX_FRAMES-1) and self.root.path==self.root_path)
+        if index not in self.paths:self.paths[index]=self.root_path.with_name(self.names[index])
+        return self.paths[index]
+
+    def store(self,index):return PrivateFeatureState(self._path(index))
 
     def inventory(self,count):
-        need(integer(count,0,MAX_FRAMES));self.root._parent()
-        prefix=self.root.path.name+'.frame-'
-        expected={prefix+f'{index:03d}.json' for index in range(count)}
-        # Still enumerate the complete actual directory on EVERY check. Avoid
-        # constructing a pathlib object for every unrelated entry; inventories
-        # compare names only, while signature()/load() retain all file checks.
-        with os.scandir(self.root.path.parent) as entries:
-            actual={entry.name for entry in entries if entry.name.startswith(prefix)}
+        need(integer(count,0,MAX_FRAMES) and self.root.path==self.root_path);self.root._parent()
+        expected=set(self.names[:count])
+        with os.scandir(self.root_path.parent) as entries:
+            actual={entry.name for entry in entries if entry.name.startswith(self.prefix)}
         need(actual==expected)
 
     def signature(self,index):
-        info=self.store(index).path.lstat()
+        info=self._path(index).lstat()
         need(stat.S_ISREG(info.st_mode) and info.st_nlink==1 and info.st_size<=65536
             and (os.name=='nt' or info.st_uid==os.geteuid() and stat.S_IMODE(info.st_mode)==0o600))
         return (info.st_dev,info.st_ino,info.st_size,info.st_uid,info.st_mode,info.st_nlink,info.st_mtime_ns,info.st_ctime_ns)
