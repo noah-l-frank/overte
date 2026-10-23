@@ -75,6 +75,12 @@ job is not selected. The package jobs must still succeed; any uncovered host
 suite continues to require the host job.
 
 CodeQL selects the actual Python or JavaScript/TypeScript extractor footprint.
+For the exact reviewed CodeQL job, existing managed npm lockfiles and changes
+limited to numeric registry dependency versions do not select an analysis.
+The manifest comparison preserves dependency names, scripts, entry points and
+all other fields. URL, alias, local-path, tag and unknown version specifications,
+new or removed manifests, source changes and analysis-control changes retain
+their ordinary analysis. Package audit and function tests remain required.
 The trusted central analysis recipe and configuration govern the selection;
 changing those controls requires both analyses. Reviewed npm-lock exclusions
 leave dependency security to npm audit. An unknown analysis configuration fails
@@ -135,6 +141,11 @@ their separate topology checks. The previous shared PR, synchronization and
 post-merge push producers are retired so an integrated PR does not repeat its
 host, package or CodeQL work. Explicit diagnostics, release jobs and maintenance
 schedules remain separate from PR acceptance.
+
+For the skipped source-policy placeholder, the observer accepts its evaluated
+name or the exact unevaluated display expression returned by GitHub. It must
+remain skipped with no executed steps; it cannot replace the protected
+`source-policy` check or authorize any execution.
 
 The Android owner executes the branch's complete reviewed platform inventory
 from [pr-ci-platforms.json](../.github/pr-ci-platforms.json). A candidate cannot

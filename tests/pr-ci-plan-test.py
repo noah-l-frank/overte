@@ -524,6 +524,80 @@ class CentralPlannerTests(unittest.TestCase):
         result = self.plan(self.candidate("browser-client/package-lock.json", '{"changed":true}'))
         self.assertEqual([], result["codeql_languages"])
 
+    def dependency_update(self):
+        manifest = {"name": "console", "main": "src/main.js", "scripts": {"test": "node --test"},
+                    "config": {"flag": True}, "devDependencies": {"electron": "44.3.0"}}
+        path = "server-console/package.json"
+        self.base[path] = self.objects.json_entry(manifest)
+        self.base["server-console/package-lock.json"] = self.objects.entry('{"lockfileVersion":2}')
+        self.trusted = deepcopy(self.base)
+        manifest["devDependencies"]["electron"] = "44.5.0"
+        candidate = self.candidate(path, json.dumps(manifest))
+        candidate["server-console/package-lock.json"] = self.objects.entry('{"lockfileVersion":3}')
+        return candidate, manifest
+
+    def test_registry_version_only_update_keeps_package_tests_without_codeql(self):
+        candidate, _ = self.dependency_update()
+        result = self.plan(candidate)
+        self.assertEqual([], result["codeql_languages"])
+        self.assertEqual(["server-console"], result["npm_projects"])
+        tasks = {task["id"]: task for task in result["tasks"]}
+        self.assertIn(["npm", "audit", "--audit-level=low"], tasks["npm:server-console"]["command"])
+        self.assertIn(["npm", "test"], tasks["npm:server-console"]["command"])
+        for path, languages in (("scripts/source.js", ["javascript-typescript"]),
+                                ("scripts/source.py", ["python"]),
+                                (".github/codeql/codeql-config.yml", list(PLANNER._CODEQL.LANGUAGES))):
+            mixed = deepcopy(candidate)
+            mixed[path] = self.objects.entry("changed source")
+            with self.subTest(path=path):
+                self.assertEqual(languages, self.plan(mixed)["codeql_languages"])
+
+    def test_manifest_runtime_configuration_and_unknown_dependency_specs_retain_codeql(self):
+        candidate, manifest = self.dependency_update()
+        for field, value in (("main", "changed.js"), ("type", "module"),
+                             ("config", {"flag": 1}),
+                             ("scripts", {"test": "node changed.js"}),
+                             ("devDependencies", {"electron": "http://example.invalid/pkg.tgz"}),
+                             ("devDependencies", {"electron": "npm:other@44.5.0"}),
+                             ("devDependencies", {"electron": "latest"}),
+                             ("devDependencies", {"electron": "44.5.0", "added": "1.0.0"})):
+            changed = deepcopy(manifest)
+            changed[field] = value
+            rejected = deepcopy(candidate)
+            rejected["server-console/package.json"] = self.objects.json_entry(changed)
+            with self.subTest(field=field, value=value):
+                self.assertEqual(["javascript-typescript"], self.plan(rejected)["codeql_languages"])
+        for raw in ('{"devDependencies":{"electron":"44.5.0","electron":"44.3.0"}}',
+                    '{"value":NaN}', 'not JSON'):
+            rejected = deepcopy(candidate)
+            rejected["server-console/package.json"] = self.objects.entry(raw)
+            with self.subTest(raw=raw):
+                self.assertEqual(["javascript-typescript"], self.plan(rejected)["codeql_languages"])
+
+    def test_dependency_omission_requires_the_exact_reviewed_codeql_job(self):
+        candidate, _ = self.dependency_update()
+        path = ".github/workflows/repository-checks.yml"
+        raw = self.objects.read(self.base[path]["sha"]).decode()
+        changed = self.objects.entry(raw.replace("  codeql:\n", "  codeql:\n    # unreviewed recipe change\n"))
+        for tree in (self.base, self.trusted, candidate):
+            tree[path] = changed
+        self.assertEqual(["javascript-typescript"], self.plan(candidate)["codeql_languages"])
+
+    def test_version_only_manifest_additions_deletions_and_modes_still_select_analysis(self):
+        candidate, _ = self.dependency_update()
+        path = "server-console/package.json"
+        for mode in ("100755", "120000"):
+            changed = deepcopy(candidate)
+            changed[path]["mode"] = mode
+            expected = ["javascript-typescript"] if mode == "100755" else list(PLANNER._CODEQL.LANGUAGES)
+            with self.subTest(mode=mode):
+                self.assertEqual(expected, self.plan(changed)["codeql_languages"])
+        for removed in ("before", "after"):
+            base, after = deepcopy(self.base), deepcopy(candidate)
+            (base if removed == "before" else after).pop(path)
+            with self.subTest(removed=removed):
+                self.assertIn("javascript-typescript", self.plan(after, base=base)["codeql_languages"])
+
     def test_real_analysis_control_changes_or_unknown_recipe_require_both_languages(self):
         for path in (".github/workflows/repository-checks.yml", ".github/codeql/codeql-config.yml"):
             with self.subTest(path=path):
