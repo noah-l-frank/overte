@@ -38,11 +38,14 @@ def construct(*args,**kwargs):
                 acquisitions.append(_name);return _actual(*args,**kwargs)
             setattr(owner,name,measured)
     read=role.read
-    def current(*args,**kwargs):reads.append(True);return read(*args,**kwargs)
+    def current(*args,**kwargs):
+        # Pause at the actual current-read boundary. Ordinary preparation may
+        # now release/requalify its lock before any current recipe starts.
+        if not gate[0]:
+            gate[0]=True
+            report(dict(ready=True,roleHeader=role.previous,actorHeader=flow.previous));assert command()=='read'
+        reads.append(True);return read(*args,**kwargs)
     role.read=current
-    if not gate[0]:
-        gate[0]=True
-        report(dict(ready=True,roleHeader=role.previous,actorHeader=flow.previous));assert command()=='read'
     return role
 module.PhoneSnapshotsRole=construct
 flow=adapter.actor('synthetic',RUN,client)

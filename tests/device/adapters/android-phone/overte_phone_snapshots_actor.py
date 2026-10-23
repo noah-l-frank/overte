@@ -153,7 +153,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         self.store=PrivateFeatureState(feature.store.path.with_name('phone-snapshots-actor-lifecycle.json'))
         self.previous=self.state=None
         self._cleanup_reader=None;self._cleanup_anchor=None;self._cleanup_failed=False;self._cleanup_started=False
-        self._ordinary_failed=False;self._ordinary_primary=None
+        self._ordinary_failed=False;self._ordinary_primary=None;self._ordinary_publication=None
 
     def load(self):
         f=self.feature;f.bound();actual=self.store.read()
@@ -189,7 +189,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             need(same(store.read(),self._ordinary_primary))
 
     def save(self):
-        self.feature.bound();self.primary_owner();need(same(self.store.read(),self.previous))
+        self.feature.bound();self.primary_owner();self.ordinary_publication();need(same(self.store.read(),self.previous))
         value=dict(snapshotsActorVersion=ACTOR_VERSION,runId=self.feature.run,binding=self.feature.binding,payload=pack([self.state]))
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.primary_owner();self.previous=deepcopy(value)
 
@@ -216,7 +216,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             if self._cleanup_started:self._cleanup_failed=True
             elif self._ordinary_entered:self._ordinary_failed=True
             raise
-        finally:self._ordinary_primary=None
+        finally:self._ordinary_primary=None;self._ordinary_publication=None
 
     def poll_delay(self):
         """Yield briefly only between this flow's verified cleanup samples.
@@ -300,6 +300,123 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             and same(getattr(f.adapter,'_existing_input_scope',None),pin['sdkValue']))
         f.bound();role.bound();role.history_authority();self.primary_owner()
         need(same(self._ordinary_primary,pin['primary']))
+
+    def ordinary_prepare(self,role,status,cue,pin):
+        """Seal only preparation; no current sample survives the lock gap."""
+        self.ordinary_owners(role,pin)
+        need(role.state['phase']=='ready' and role.state['pending'] is None and not role._host_publication)
+        prepared=dict(pin=pin,phase=deepcopy(status),cue=deepcopy(cue),role=deepcopy(role.previous),
+            roleState=digest(role.state),frames=digest(role.frames),count=len(role.frames),
+            featureState=digest(self.feature.state),actorState=digest(self.state),configuration=deepcopy(self.feature.config))
+        self.ordinary_prepared_owners(role,prepared);return prepared
+
+    def ordinary_prepared_owners(self,role,prepared,*,feature_header=True,verify_graph=True):
+        """Pure owner/graph checks before a current target guard can run."""
+        f=self.feature;f.lock.assert_held();pin=prepared['pin']
+        need(same(f.previous,pin['feature']) and same(self.previous,pin['actor'])
+            and same(self.store.read(),pin['actor']) and same(role.previous,prepared['role'])
+            and same(role.store.read(),prepared['role']) and same(f.binding,pin['binding'])
+            and same(self.state['process'],pin['process']) and same(f.config,prepared['configuration'])
+            and getattr(f,'guard',None) is pin['guard'] and getattr(f,'_system_scope',None) is pin['system']
+            and getattr(f.adapter,'_existing_input_scope',None) is pin['sdk']
+            and same(getattr(f.adapter,'_existing_input_scope',None),pin['sdkValue'])
+            and same(self._ordinary_primary,pin['primary']) and digest(f.state)==prepared['featureState']
+            and digest(self.state)==prepared['actorState'] and digest(role.state)==prepared['roleState']
+            and len(role.frames)==prepared['count'] and not role._host_publication)
+        if verify_graph:need(digest(role.frames)==prepared['frames'])
+        actual=f.store.read()
+        if feature_header:need(same(actual,pin['feature']))
+        else:
+            # A new ordinary activation may precede its normal Primary input.
+            # Never adopt that input or its new SDK/OS scope on this reader.
+            need(actual is not None and set(actual)==set(pin['feature'])
+                and same({key:value for key,value in actual.items() if key!='payload'},
+                {key:value for key,value in pin['feature'].items() if key!='payload'}))
+        return True
+
+    def ordinary_prepared_advance(self,role,prepared,status):
+        """Discard preparation for one actual new activation, without facts."""
+        f=self.feature;before=prepared['phase'];confirmed=f.phase.status(status)
+        previous=None
+        for packet in (before,status,confirmed):
+            phase_packet(packet,run=f.run,area='snapshots',request=packet['requestId'],epoch=packet['capturedEpochMs'],previous=previous)
+            need(packet['active'] and packet['activations']);previous=packet
+        old,new=before['activations'],status['activations']
+        need(len(new)==len(old)+1 and same(new[:-1],old) and same(new,confirmed['activations'])
+            and old[-1]['stimulus']['verb']!='cleanup' and new[-1]['stimulus']['verb']!='baseline')
+        self.ordinary_prepared_owners(role,prepared,feature_header=False)
+        primary=PrivateFeatureState(f.store.path.with_name('phone-snapshots-primary-originals.json'))
+        header=primary.read()
+        def historical():
+            self.ordinary_prepared_owners(role,prepared,feature_header=False,verify_graph=False)
+            need(same(primary.read(),header));return True
+        # This is only a known immutable scheduling floor. A changed scope
+        # cannot perform a native query on behalf of the abandoned reader.
+        validate_primary_cue(f,prepared['cue'],header,history_guard=historical,current_guard=historical)
+        historical();self.ordinary_prepared_owners(role,prepared,feature_header=False);return False
+
+    def ordinary_batch(self,role,prepared):
+        f=self.feature
+        with f.lock.held():
+            self.ordinary_prepared_owners(role,prepared,feature_header=False)
+            status=f.phase.status(prepared['phase'])
+            if not same(status['activations'],prepared['phase']['activations']):
+                return self.ordinary_prepared_advance(role,prepared,status)
+            need(status['active'] and prepared['phase']['active'])
+            self.ordinary_prepared_owners(role,prepared)
+            # Requalify the actually prepared candidate, including a legitimate
+            # newer ready Primary frame. An unfinished Primary read only waits.
+            primary=PrivateFeatureState(f.store.path.with_name('phone-snapshots-primary-originals.json'))
+            header=primary.read()
+            def historical():
+                self.ordinary_prepared_owners(role,prepared,verify_graph=False)
+                need(same(primary.read(),header));return True
+            validate_primary_cue(f,prepared['cue'],header,history_guard=historical)
+            cue=self.primary_cue(status)
+            if cue is None:
+                historical();self.ordinary_prepared_owners(role,prepared);return False
+            self._ordinary_primary=deepcopy(cue['header']);prepared['pin']['primary']=deepcopy(cue['header'])
+            self.ordinary_prepared_owners(role,prepared)
+            need(same(role.restore_originals(),role.frames))
+            self.ordinary_prepared_owners(role,prepared)
+            after=f.phase.status(status)
+            if not same(after['activations'],status['activations']):
+                return self.ordinary_prepared_advance(role,prepared,after)
+            need(after['active']);status=after
+            self.ordinary_owners(role,prepared['pin'])
+            self.ordinary_prepared_owners(role,prepared)
+            current=status['activations'][-1]
+            try:measured=role.read(role.state['sequence'],phase_admission=lambda reader,phase:self.ordinary_admission(reader,status,prepared['pin'],phase))
+            except SnapshotPhaseDeferred:return self.ordinary_transition(role,status,prepared['pin'],kind='before-sources')
+            except SnapshotPending:return False
+            self.ordinary_owners(role,prepared['pin'])
+            # A late current-reader callback must not mutate any old original
+            # graph before the new own sample and scheduling cue are committed.
+            need(len(role.frames)==prepared['count']+1 and digest(role.frames[:prepared['count']])==prepared['frames']
+                and digest(f.state)==prepared['featureState'] and digest(self.state)==prepared['actorState']
+                and same(f.config,prepared['configuration'])
+                and same(role.state,role_state(role.previous,f.binding,f.run,'actor')))
+            if role.frames[-1]['ticket']!=current['ticket']:
+                return self.ordinary_transition(role,status,prepared['pin'])
+            self._ordinary_publication=(role,prepared,deepcopy(role.previous))
+            sample=dict(ticket=current['ticket'],actor='owned-observer',actorSequence=measured['sequence'],capturedEpochMs=measured['capturedEpochMs'],
+                facts={key:deepcopy(measured['state'][key]) for key in WITNESS_KEYS['snapshots']})
+            self.state.update(primaryCue=cue,pending=dict(sample=sample,issued=False));self.save();self.deliver();return False
+
+    def ordinary_publication(self):
+        """Check the old graph after the last save guard, before its CAS."""
+        context=self._ordinary_publication
+        if context is None:return
+        role,prepared,header=context;f=self.feature;pin=prepared['pin'];f.lock.assert_held()
+        need(same(f.previous,pin['feature']) and same(f.store.read(),pin['feature'])
+            and same(role.previous,header) and same(role.store.read(),header)
+            and same(role.state,role_state(header,f.binding,f.run,'actor'))
+            and same(f.binding,pin['binding']) and same(f.config,prepared['configuration'])
+            and digest(f.state)==prepared['featureState'] and same(self.state['process'],pin['process'])
+            and getattr(f,'guard',None) is pin['guard'] and getattr(f,'_system_scope',None) is pin['system']
+            and getattr(f.adapter,'_existing_input_scope',None) is pin['sdk']
+            and same(getattr(f.adapter,'_existing_input_scope',None),pin['sdkValue'])
+            and len(role.frames)==prepared['count']+1 and digest(role.frames[:prepared['count']])==prepared['frames'])
 
     def ordinary_admission(self,role,status,pin,phase_before):
         if same(status['activations'],phase_before['activations']) and status['active']==phase_before['active']:return
@@ -426,20 +543,12 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                 need(same(f.store.read(),f.previous))
                 prepared=dict(feature=deepcopy(f.previous),actor=deepcopy(self.previous),role=deepcopy(role.previous),
                     binding=deepcopy(f.binding),phase=deepcopy(status))
-            else:
-                try:measured=role.read(role.state['sequence'],phase_admission=lambda reader,phase:self.ordinary_admission(reader,status,ordinary,phase))
-                except SnapshotPhaseDeferred:return self.ordinary_transition(role,status,ordinary,kind='before-sources')
-                except SnapshotPending:return False
-                self.ordinary_owners(role,ordinary)
-                if role.frames[-1]['ticket']!=current['ticket']:return self.ordinary_transition(role,status,ordinary)
-                sample=dict(ticket=current['ticket'],actor='owned-observer',actorSequence=measured['sequence'],capturedEpochMs=measured['capturedEpochMs'],
-                    facts={key:deepcopy(measured['state'][key]) for key in WITNESS_KEYS['snapshots']})
-                need(role.frames[-1]['ticket']==current['ticket'])
-                self.state.update(primaryCue=cue,pending=dict(sample=sample,issued=False));self.save();self.deliver();return False
+            else:prepared=self.ordinary_prepare(role,status,cue,ordinary)
         # Preparation may replay a long immutable history. Release its lock
         # before the bounded current quiet interval so another role can run.
         # No measurement or publication authority survives this boundary.
         f.sleep(.1)
+        if verb!='cleanup':return self.ordinary_batch(role,prepared)
         return self.cleanup_batch(role,prepared)
 
     def cleanup_batch(self,role,prepared):

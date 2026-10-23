@@ -103,6 +103,14 @@ class SnapshotsActorTests(unittest.TestCase):
         with f.lock.held():
             primary=PhoneSnapshotsRole(f,'primary');primary.read(primary.state['sequence'])
     def run_actor(self,token='a'*64):
+        # Ordinary preparation pins an actual Feature owner across its lock
+        # gap. Write it through the real owner save before the separate child;
+        # the component boundary's loader remains an explicit host seam.
+        from overte_phone_snapshots_feature import PhoneSnapshotsFeature
+        f=self.boundary.feature
+        with f.lock.held():
+            f.previous=f.store.read();PhoneSnapshotsFeature.save(f)
+            self.assertEqual(f.previous,f.store.read())
         # Fork only after stopping the loopback server thread; restart that
         # same listener immediately in the parent before any actor I/O.
         self.server.shutdown();self.thread.join(3);self.assertFalse(self.thread.is_alive())
