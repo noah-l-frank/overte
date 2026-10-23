@@ -45,6 +45,7 @@ void Interface::load() {}
 class Manager : public ReadWriteLockable {
 public:
     QHash<QString,QVariant> _settings;
+    overte::e2e::AvatarPreferenceBarrier _featureAvatarPreferencesBarrier;
     MANAGER_BIRTH
     QVariantMap featureSnapshotSettingsEntries() const;
 };
@@ -145,6 +146,13 @@ class SnapshotSettingsNativeTests(unittest.TestCase):
         manager_birth=next(line.strip() for line in manager.splitlines() if 'const QString _featureSnapshotContextInstance{' in line)
         snapshot_birth=next(line.strip() for line in snapshot.splitlines() if 'const QString _featureSettingsInstance{' in line)
         source=stage/'actual.cpp';source.write_text(PREFIX.replace('MANAGER_BIRTH',manager_birth).replace('SNAPSHOT_BIRTH',snapshot_birth)
+            # The integrated Handle's original mutation hook is compiled too;
+            # its actual closed-key guard excludes Snapshot keys. Storage/DI
+            # remain seams, never a fake no-op mutation implementation.
+            +'\nnamespace Setting {\n'+context.body((ROOT/'libraries/shared/src/SettingInterface.cpp').read_text(),
+                'AvatarPreferenceMutation::AvatarPreferenceMutation(')
+            +next(line.strip() for line in (ROOT/'libraries/shared/src/SettingInterface.cpp').read_text().splitlines()
+                if 'AvatarPreferenceMutation::~AvatarPreferenceMutation()=default;' in line)+'\n}\n'
             +context.body((ROOT/'libraries/shared/src/SettingManager.cpp').read_text(),'QVariantMap Setting::Manager::featureSnapshotSettingsEntries(')
             +context.body((ROOT/'interface/src/ui/Snapshot.cpp').read_text(),'QVariantMap Snapshot::featureSnapshotSettingsOriginals(')
             +context.body((ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text(),'QVariantMap TestScriptingInterface::featureSnapshotSettingsOriginals(')+MAIN)
