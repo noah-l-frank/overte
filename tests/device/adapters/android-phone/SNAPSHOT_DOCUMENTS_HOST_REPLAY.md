@@ -154,8 +154,30 @@ of the subsequent cleanup-only adjustment. That adjustment retains the same
 ordinary scheduling methods. Its close deferral requires already durable own
 quiet completion and a matching actual cleanup receipt, keeps any partial Role
 read's exact owner for fresh closed reconstruction, and supplies no success or
-retirement itself. The new dedicated close-race test result remains pending in
-this handoff. No complete SDK26/SDK29 host result, final integrated-source audit,
+retirement itself. Three dedicated close-race cases subsequently passed in
+47.182 seconds on Actor source
+`4b9454813db4fef63ab93210d999599b474e71d873cccdc3a6d48b71143be591`.
+They use the original fractional fixture clock and actual closure before and
+during the current Role read. Already durable quiet completion permits only a
+deferral; a new closed-phase read, actual child exit and unchanged repeated
+finalization remain necessary. Premature closure stays red. Seven exact
+legacy/v3 retirement cases passed separately in 86.738 seconds, including
+immutable legacy archives, real non-null cues and malformed ownership histories.
+
+The subsequent original SDK26 whole-module run remains red: 26 tests passed
+and one errored in 97.573 seconds. The complete common method stopped at
+`14-share-select-owned` because its independent Actor row was 1621 ms old at
+the original reader boundary, exceeding the unchanged 1500 ms limit. That row
+was 215 ms old at its real service receipt. There was one unconsumed Actor row;
+the v3 cue prevented the previously measured duplicate overtaking. The measured
+Primary path still included 379.989 ms of unlocked historical replay and a
+956.620 ms second lock hold before journal reading. These measurements motivate
+moving Actor preparation before its next fresh acquisition; they do not qualify
+that proposed timing change. Actual full-run source and raw log originals are
+retained in `SDK26_CUE_NEXT_SOURCE_PINS.json` and
+`SDK26_CUE_ORIGINAL_27_MODULE.log` in the local SDK26 report directory.
+
+No complete SDK26/SDK29 host result, final integrated-source audit,
 complete Android APK build or physical-device acceptance follows from these
 component checks. The source-qualified count remains thirteen of fourteen.
 
