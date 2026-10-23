@@ -305,8 +305,13 @@ class SnapshotReadReadySlotTests(unittest.TestCase):
                 def mutate(seen):
                     feature=seen['feature']
                     if kind in ('old-bytes','manifest-mode'):
-                        pattern='emote-frame-snapshots-'+harness.RUN+'-primary-*.json' if kind=='old-bytes' else 'emote-index-snapshots-'+harness.RUN+'-primary-*.json'
-                        path=sorted(rig.root.glob(pattern))[0];raw=path.read_bytes();mode=path.stat().st_mode&0o777
+                        prefix=('emote-frame-snapshots-' if kind=='old-bytes' else 'emote-index-snapshots-')+harness.RUN+'-primary-'
+                        token=seen['history']
+                        paths=sorted(path for path,receipt in token.files.items()
+                            if receipt is not None and path.name.startswith(prefix))
+                        self.assertTrue(paths,'Actual admitted history has no selected original receipt')
+                        path=paths[0];self.assertIn((path,token.files[path]),token.file_seal)
+                        raw=path.read_bytes();mode=path.stat().st_mode&0o777
                         if kind=='old-bytes':path.write_bytes(raw+b' ')
                         else:path.chmod(0o644)
                         def reset():path.write_bytes(raw);path.chmod(mode)
@@ -324,7 +329,12 @@ class SnapshotReadReadySlotTests(unittest.TestCase):
                         restore.append(lambda:setattr(rig.model,'now',now))
                 try:
                     seen=self.launch(rig,after_wait=mutate)
-                    self.assertIsInstance(seen['error'],NativeUIError)
+                    if kind=='sdk':
+                        from artifact_identity import IdentityError
+                        self.assertIsInstance(seen['error'],IdentityError)
+                        self.assertEqual('PHONE_EXISTING_INPUT_SESSION_CHANGED',str(seen['error']))
+                        self.assertIsNone(seen['result']);self.assertEqual(2,len(rig.client.observe()['entries']))
+                    else:self.assertIsInstance(seen['error'],NativeUIError)
                     if kind=='clock':
                         # The FG owner guard has no clock fact. The actual
                         # current reader must reject rollback without sealing
