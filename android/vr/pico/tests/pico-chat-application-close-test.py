@@ -11,7 +11,8 @@ sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'android/vr/pico/tests/device')]
 
 
 def selected(part):
-    if part=='observation-cursor':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_observation_cursor')
+    if part=='observation-cursor':return unittest.defaultTestLoader.loadTestsFromNames([
+        'self_tests.test_chat_observation_cursor','self_tests.test_chat_observation_publisher'])
     if part=='cleanup-consumption':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_cleanup_consumption')
     if part=='cleanup-baseline':return unittest.defaultTestLoader.loadTestsFromNames([
         'self_tests.test_chat_cleanup_baseline','self_tests.test_feature_cleanup_consumption'])
