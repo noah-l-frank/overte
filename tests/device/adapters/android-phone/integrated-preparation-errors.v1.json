@@ -1,0 +1,352 @@
+{
+  "apkSha256": "43ed8f0ad7e9e5fe4beaa7c39833441f42979ff209181eaf00e4ec933df41248",
+  "build": {
+    "jenkinsBuildNumber": 3,
+    "versionCode": 15
+  },
+  "evidenceSha256": {
+    "buildAndVerifiedPackageBinding": "d0e72d7a97ba0b1109c5cf5bb51811ae16d335c63b83af617a80044052a22f2e",
+    "junit": "ddddf2a40000f7a3f2cd3f26f5c917bbc76a1dc9b4485a5c8621562b6c88e9b4",
+    "moduleClassification": "53897b57b6903245247cc051dbbe0455d3aaa2c6fd6f6d2890e257e6948cc3bf",
+    "modulePacket": "d79d7032028eaa27b91f60fe3ebc93da47725f39f79d1efd77a18853ca849022",
+    "nativeResourceProbeDex": "b0ed94ff36933a2d79763dffe71b27b60db2f26a955152d368ab14d5fceb2db7",
+    "preparation": "add840071f5f34e83fe5255ce8f0cf88e3325c8b647e958cc248773c51cda5db",
+    "runtimeCleanupScope": "4e7d2e5db45dd5a479db7294104b1820caea80be60f103fce1d2eda7d3041c7e",
+    "summary": "5851c428d873e6edf09ea0d6b80589cada60ccc09364662d3bd05226199f9326"
+  },
+  "manifestSha256": "109d95a40539b3f625acd0ca9828b9fa4c2020925bd2062bb0c9b4ed674ac3b8",
+  "rows": [
+    {
+      "area": "world-navigation",
+      "id": "feature-world-navigation-required",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "owned-navigation-directory-and-source-bound-image-policy-required"
+      ]
+    },
+    {
+      "area": "authentication",
+      "id": "feature-authentication-required",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "trusted-HTTPS-account-owner-and-account-configuration-required"
+      ]
+    },
+    {
+      "area": "avatar-people",
+      "id": "feature-avatar-people-required",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "second-independent-ARM64-Phone-with-same-APK-and-HTTPS-account-required"
+      ]
+    },
+    {
+      "area": "create",
+      "id": "feature-create-required",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "source-matched-native-permission-AC-and-picker-configuration-required"
+      ]
+    },
+    {
+      "area": "emotes",
+      "id": "feature-emotes-required",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-domain-owner-inputs-required",
+        "actual-emotes-adapter-configuration-required-or-invalid",
+        "actual-emotes-source-bound-image-policy-required-or-invalid"
+      ]
+    },
+    {
+      "area": "graphics",
+      "id": "feature-graphics-required",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-graphics-adapter-configuration-required-or-invalid",
+        "actual-graphics-source-bound-image-policy-required-or-invalid"
+      ]
+    },
+    {
+      "area": "audio",
+      "id": "feature-audio-required",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-audio-adapter-configuration-required-or-invalid",
+        "actual-compatible-independent-PC-voice-peer-required",
+        "actual-domain-owner-inputs-required"
+      ]
+    },
+    {
+      "area": "chat",
+      "id": "feature-chat-required",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "source-matched-native-chat-receiver-AC-required"
+      ]
+    },
+    {
+      "area": "snapshots",
+      "id": "feature-snapshots-required",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "trusted-HTTPS-account-upload-and-original-Snapshot-policy-required"
+      ]
+    },
+    {
+      "area": "assets",
+      "id": "feature-assets-required",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "source-matched-native-asset-AC-worker-and-permission-owner-required"
+      ]
+    },
+    {
+      "area": "lifecycle-input",
+      "id": "feature-lifecycle-input-required",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-lifecycle-input-adapter-configuration-required-or-invalid",
+        "actual-lifecycle-input-source-bound-image-policy-required-or-invalid"
+      ]
+    },
+    {
+      "area": null,
+      "id": "voice-roundtrip",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-domain-owner-inputs-required",
+        "foundation-environment-missing:OVERTE_E2E_VOICE_PEER_CONFIG"
+      ]
+    },
+    {
+      "area": null,
+      "id": "update-upgrade",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "foundation-environment-missing:OVERTE_E2E_UPGRADE_FROM_VERSION",
+        "foundation-environment-missing:OVERTE_E2E_UPGRADE_TO_VERSION"
+      ]
+    },
+    {
+      "area": null,
+      "id": "domain-enter",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-domain-owner-inputs-required"
+      ]
+    },
+    {
+      "area": null,
+      "id": "domain-roundtrip",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-domain-owner-inputs-required"
+      ]
+    },
+    {
+      "area": null,
+      "id": "multi-user",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-domain-owner-inputs-required"
+      ]
+    },
+    {
+      "area": null,
+      "id": "network-fault-recovery",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-domain-owner-inputs-required"
+      ]
+    },
+    {
+      "area": null,
+      "id": "entity-sync",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-domain-owner-inputs-required"
+      ]
+    },
+    {
+      "area": null,
+      "id": "tablet",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "foundation-environment-missing:OVERTE_E2E_FEATURE_FIXTURE_URL",
+        "foundation-environment-missing:OVERTE_E2E_FEATURE_IMAGE_POLICY",
+        "foundation-environment-missing:OVERTE_E2E_FEATURE_READER_TOKEN",
+        "foundation-environment-missing:OVERTE_E2E_WEB_REFERENCE_SCRIPT_URL",
+        "foundation-environment-missing:OVERTE_E2E_WEB_VIDEO_ROIS"
+      ]
+    },
+    {
+      "area": null,
+      "id": "tablet-input-isolation",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "foundation-environment-missing:OVERTE_E2E_FEATURE_FIXTURE_URL",
+        "foundation-environment-missing:OVERTE_E2E_FEATURE_IMAGE_POLICY",
+        "foundation-environment-missing:OVERTE_E2E_FEATURE_READER_TOKEN"
+      ]
+    },
+    {
+      "area": null,
+      "id": "world-web-video",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "foundation-environment-missing:OVERTE_E2E_WEB_REFERENCE_SCRIPT_URL",
+        "foundation-environment-missing:OVERTE_E2E_WEB_VIDEO_ROIS"
+      ]
+    },
+    {
+      "area": null,
+      "id": "tablet-web-video",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "foundation-environment-missing:OVERTE_E2E_WEB_REFERENCE_SCRIPT_URL",
+        "foundation-environment-missing:OVERTE_E2E_WEB_VIDEO_ROIS"
+      ]
+    },
+    {
+      "area": null,
+      "id": "scripts-management",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "foundation-environment-missing:OVERTE_E2E_SCRIPTS_CONTROL_TOKEN",
+        "foundation-environment-missing:OVERTE_E2E_SCRIPTS_FIXTURE_URL"
+      ]
+    },
+    {
+      "area": null,
+      "id": "create-management",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "foundation-environment-missing:OVERTE_E2E_CREATE_CONTROL_TOKEN",
+        "foundation-environment-missing:OVERTE_E2E_CREATE_FIXTURE_URL"
+      ]
+    },
+    {
+      "area": "world-navigation",
+      "id": "feature-world-navigation",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-domain-owner-inputs-required",
+        "owned-navigation-directory-and-source-bound-image-policy-required"
+      ]
+    },
+    {
+      "area": "authentication",
+      "id": "feature-authentication",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "trusted-HTTPS-account-owner-and-account-configuration-required"
+      ]
+    },
+    {
+      "area": "avatar-people",
+      "id": "feature-avatar-people",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-domain-owner-inputs-required",
+        "second-independent-ARM64-Phone-with-same-APK-and-HTTPS-account-required"
+      ]
+    },
+    {
+      "area": "create",
+      "id": "feature-create",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-domain-owner-inputs-required",
+        "source-matched-native-permission-AC-and-picker-configuration-required"
+      ]
+    },
+    {
+      "area": "emotes",
+      "id": "feature-emotes",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-domain-owner-inputs-required",
+        "actual-emotes-adapter-configuration-required-or-invalid",
+        "actual-emotes-source-bound-image-policy-required-or-invalid"
+      ]
+    },
+    {
+      "area": "world-web",
+      "id": "feature-world-web",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-world-web-source-bound-image-policy-required-or-invalid"
+      ]
+    },
+    {
+      "area": "graphics",
+      "id": "feature-graphics",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-graphics-adapter-configuration-required-or-invalid",
+        "actual-graphics-source-bound-image-policy-required-or-invalid"
+      ]
+    },
+    {
+      "area": "audio",
+      "id": "feature-audio",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-audio-adapter-configuration-required-or-invalid",
+        "actual-compatible-independent-PC-voice-peer-required",
+        "actual-domain-owner-inputs-required"
+      ]
+    },
+    {
+      "area": "chat",
+      "id": "feature-chat",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-domain-owner-inputs-required",
+        "source-matched-native-chat-receiver-AC-required"
+      ]
+    },
+    {
+      "area": "snapshots",
+      "id": "feature-snapshots",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-domain-owner-inputs-required",
+        "trusted-HTTPS-account-upload-and-original-Snapshot-policy-required"
+      ]
+    },
+    {
+      "area": "assets",
+      "id": "feature-assets",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-domain-owner-inputs-required",
+        "source-matched-native-asset-AC-worker-and-permission-owner-required"
+      ]
+    },
+    {
+      "area": "lifecycle-input",
+      "id": "feature-lifecycle-input",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-lifecycle-input-adapter-configuration-required-or-invalid",
+        "actual-lifecycle-input-source-bound-image-policy-required-or-invalid"
+      ]
+    },
+    {
+      "area": "tablet-web",
+      "id": "feature-tablet-web",
+      "status": "ERROR",
+      "unresolvedPrerequisites": [
+        "actual-tablet-web-source-bound-image-policy-required-or-invalid"
+      ]
+    }
+  ],
+  "schemaVersion": 1,
+  "sourceRevision": "0a7de4299f4bb97e99c844288e6381efd973df0f",
+  "statuses": {
+    "preparationERROR": 37,
+    "preparationPREPARED": 32
+  }
+}

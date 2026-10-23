@@ -1,0 +1,1768 @@
+{
+  "apkSha256": "43ed8f0ad7e9e5fe4beaa7c39833441f42979ff209181eaf00e4ec933df41248",
+  "build": {
+    "jenkinsBuildNumber": 3,
+    "versionCode": 15
+  },
+  "evidenceSha256": {
+    "buildAndVerifiedPackageBinding": "d0e72d7a97ba0b1109c5cf5bb51811ae16d335c63b83af617a80044052a22f2e",
+    "junit": "ddddf2a40000f7a3f2cd3f26f5c917bbc76a1dc9b4485a5c8621562b6c88e9b4",
+    "moduleClassification": "53897b57b6903245247cc051dbbe0455d3aaa2c6fd6f6d2890e257e6948cc3bf",
+    "modulePacket": "d79d7032028eaa27b91f60fe3ebc93da47725f39f79d1efd77a18853ca849022",
+    "nativeResourceProbeDex": "b0ed94ff36933a2d79763dffe71b27b60db2f26a955152d368ab14d5fceb2db7",
+    "preparation": "add840071f5f34e83fe5255ce8f0cf88e3325c8b647e958cc248773c51cda5db",
+    "runtimeCleanupScope": "4e7d2e5db45dd5a479db7294104b1820caea80be60f103fce1d2eda7d3041c7e",
+    "summary": "5851c428d873e6edf09ea0d6b80589cada60ccc09364662d3bd05226199f9326"
+  },
+  "manifestSha256": "109d95a40539b3f625acd0ca9828b9fa4c2020925bd2062bb0c9b4ed674ac3b8",
+  "rows": [
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_PASSED",
+      "durationSeconds": 41.89,
+      "id": "launch-smoke",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 29.028,
+        "id": "launch-smoke",
+        "returncode": 0,
+        "status": "passed"
+      },
+      "reason": "module-result",
+      "returncode": 0,
+      "status": "passed",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 15.131,
+      "id": "feature-world-navigation-required",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.084,
+        "id": "feature-world-navigation-required",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 15.17,
+      "id": "feature-authentication-required",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.085,
+        "id": "feature-authentication-required",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 15.035,
+      "id": "feature-avatar-people-required",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.085,
+        "id": "feature-avatar-people-required",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 15.336,
+      "id": "feature-create-required",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.083,
+        "id": "feature-create-required",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 15.481,
+      "id": "feature-emotes-required",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.087,
+        "id": "feature-emotes-required",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "NO_ORIGINAL_MODULE_SUMMARY_OR_EXECUTION_PROOF",
+      "durationSeconds": 4.356,
+      "id": "feature-world-web-required",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": false,
+      "originalTarget": null,
+      "reason": "missing-summary",
+      "returncode": 2,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 15.138,
+      "id": "feature-graphics-required",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.085,
+        "id": "feature-graphics-required",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 15.079,
+      "id": "feature-audio-required",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.086,
+        "id": "feature-audio-required",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 15.232,
+      "id": "feature-chat-required",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.082,
+        "id": "feature-chat-required",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 15.368,
+      "id": "feature-snapshots-required",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.086,
+        "id": "feature-snapshots-required",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_PASSED",
+      "durationSeconds": 12.615,
+      "id": "feature-scripts-required",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.085,
+        "id": "feature-scripts-required",
+        "returncode": 0,
+        "status": "passed"
+      },
+      "reason": "module-result",
+      "returncode": 0,
+      "status": "passed",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 15.386,
+      "id": "feature-assets-required",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.084,
+        "id": "feature-assets-required",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 15.028,
+      "id": "feature-lifecycle-input-required",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.083,
+        "id": "feature-lifecycle-input-required",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "NO_ORIGINAL_MODULE_SUMMARY_OR_EXECUTION_PROOF",
+      "durationSeconds": 4.281,
+      "id": "feature-tablet-web-required",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": false,
+      "originalTarget": null,
+      "reason": "missing-summary",
+      "returncode": 2,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 45.159,
+      "id": "voice-roundtrip",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 29.713,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.132,
+        "id": "voice-roundtrip",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "REQUIRED_SETUP_NOT_PASSED",
+      "durationSeconds": 51.854,
+      "id": "update-upgrade",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 29.515,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        },
+        {
+          "durationSeconds": 9.425,
+          "id": "scene",
+          "returncode": 75,
+          "status": "error"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.0,
+        "id": "update-upgrade",
+        "returncode": 77,
+        "status": "skipped"
+      },
+      "reason": "setup-not-passed",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 54.357,
+      "id": "scene",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 29.477,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 9.412,
+        "id": "scene",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 50.12,
+      "id": "spawn-grounded",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 29.515,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 5.072,
+        "id": "spawn-grounded",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_FAILED",
+      "durationSeconds": 47.099,
+      "id": "domain-enter",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 29.837,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 4.203,
+        "id": "domain-enter",
+        "returncode": 1,
+        "status": "failed"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "failed",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_FAILED",
+      "durationSeconds": 51.503,
+      "id": "domain-roundtrip",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 29.692,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 8.659,
+        "id": "domain-roundtrip",
+        "returncode": 1,
+        "status": "failed"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "failed",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 50.176,
+      "id": "world-interaction",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 29.825,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 4.864,
+        "id": "world-interaction",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 50.137,
+      "id": "scripted-entity",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 29.671,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 4.98,
+        "id": "scripted-entity",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_FAILED",
+      "durationSeconds": 51.525,
+      "id": "multi-user",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 29.683,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 8.842,
+        "id": "multi-user",
+        "returncode": 1,
+        "status": "failed"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "failed",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_FAILED",
+      "durationSeconds": 51.861,
+      "id": "network-fault-recovery",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 29.805,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 8.904,
+        "id": "network-fault-recovery",
+        "returncode": 1,
+        "status": "failed"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "failed",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 80.19,
+      "id": "text-input",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 29.923,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 34.756,
+        "id": "text-input",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_PASSED",
+      "durationSeconds": 79.214,
+      "id": "audio-controls",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.366,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 35.557,
+        "id": "audio-controls",
+        "returncode": 0,
+        "status": "passed"
+      },
+      "reason": "module-result",
+      "returncode": 0,
+      "status": "passed",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_PRE_PROCESS_OR_CAPABILITY_ERROR",
+      "durationSeconds": 43.625,
+      "id": "settings-persistence",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.305,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.0,
+        "id": "settings-persistence",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 51.516,
+      "id": "lifecycle-under-load",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.562,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 5.235,
+        "id": "lifecycle-under-load",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 51.874,
+      "id": "render-health",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.826,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 5.192,
+        "id": "render-health",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "REQUIRED_SETUP_NOT_PASSED",
+      "durationSeconds": 47.938,
+      "id": "entity-sync",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.409,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        },
+        {
+          "durationSeconds": 4.358,
+          "id": "domain-enter",
+          "returncode": 1,
+          "status": "failed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.0,
+        "id": "entity-sync",
+        "returncode": 77,
+        "status": "skipped"
+      },
+      "reason": "setup-not-passed",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_PASSED",
+      "durationSeconds": 94.811,
+      "id": "permission-recovery",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.412,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 51.017,
+        "id": "permission-recovery",
+        "returncode": 0,
+        "status": "passed"
+      },
+      "reason": "module-result",
+      "returncode": 0,
+      "status": "passed",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 51.501,
+      "id": "crash-recovery-under-load",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.71,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 5.279,
+        "id": "crash-recovery-under-load",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "REQUIRED_SETUP_NOT_PASSED",
+      "durationSeconds": 53.641,
+      "id": "asset-load",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.416,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        },
+        {
+          "durationSeconds": 9.93,
+          "id": "scene",
+          "returncode": 75,
+          "status": "error"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.0,
+        "id": "asset-load",
+        "returncode": 77,
+        "status": "skipped"
+      },
+      "reason": "setup-not-passed",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "REQUIRED_SETUP_NOT_PASSED",
+      "durationSeconds": 53.946,
+      "id": "sound-playback",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.879,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        },
+        {
+          "durationSeconds": 9.808,
+          "id": "scene",
+          "returncode": 75,
+          "status": "error"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.0,
+        "id": "sound-playback",
+        "returncode": 77,
+        "status": "skipped"
+      },
+      "reason": "setup-not-passed",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 51.173,
+      "id": "look",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.655,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 4.96,
+        "id": "look",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 51.664,
+      "id": "move",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.821,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 5.042,
+        "id": "move",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 51.251,
+      "id": "input-neutral",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.555,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 5.075,
+        "id": "input-neutral",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 51.928,
+      "id": "collision",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 31.141,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 5.074,
+        "id": "collision",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 55.012,
+      "id": "scene-reload",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.732,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 8.462,
+        "id": "scene-reload",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 51.635,
+      "id": "jump",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.883,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 5.109,
+        "id": "jump",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 51.686,
+      "id": "fly",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 31.082,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 5.118,
+        "id": "fly",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 51.826,
+      "id": "tablet",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.929,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 5.101,
+        "id": "tablet",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 51.062,
+      "id": "tablet-input-isolation",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.357,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 5.219,
+        "id": "tablet-input-isolation",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_PASSED",
+      "durationSeconds": 86.453,
+      "id": "app-restart",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.765,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 42.062,
+        "id": "app-restart",
+        "returncode": 0,
+        "status": "passed"
+      },
+      "reason": "module-result",
+      "returncode": 0,
+      "status": "passed",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_FAILED",
+      "durationSeconds": 224.133,
+      "id": "tablet-e2e",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.75,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 180.101,
+        "id": "tablet-e2e",
+        "returncode": -15,
+        "status": "failed"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "failed",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 46.409,
+      "id": "world-web-video",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.575,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.105,
+        "id": "world-web-video",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 46.491,
+      "id": "tablet-web-video",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.751,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.088,
+        "id": "tablet-web-video",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 51.735,
+      "id": "snapshot-output-parity",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.779,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 5.098,
+        "id": "snapshot-output-parity",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 46.788,
+      "id": "scripts-management",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.736,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.093,
+        "id": "scripts-management",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 46.81,
+      "id": "create-management",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.997,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.105,
+        "id": "create-management",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 15.582,
+      "id": "accessibility",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.099,
+        "id": "accessibility",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 52.195,
+      "id": "places-navigation",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 30.685,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 5.377,
+        "id": "places-navigation",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "module-result",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_PASSED",
+      "durationSeconds": 338.446,
+      "id": "lifecycle-soak",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 323.488,
+        "id": "lifecycle-soak",
+        "returncode": 0,
+        "status": "passed"
+      },
+      "reason": "module-result",
+      "returncode": 0,
+      "status": "passed",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_PASSED",
+      "durationSeconds": 352.771,
+      "id": "idle-soak",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 336.8,
+        "id": "idle-soak",
+        "returncode": 0,
+        "status": "passed"
+      },
+      "reason": "module-result",
+      "returncode": 0,
+      "status": "passed",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "REQUIRED_SETUP_NOT_PASSED",
+      "durationSeconds": 16.206,
+      "id": "feature-world-navigation",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 0.108,
+          "id": "feature-world-navigation-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        {
+          "durationSeconds": 0.0,
+          "id": "launch-smoke",
+          "returncode": 77,
+          "status": "skipped"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.0,
+        "id": "feature-world-navigation",
+        "returncode": 77,
+        "status": "skipped"
+      },
+      "reason": "setup-not-passed",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "REQUIRED_SETUP_NOT_PASSED",
+      "durationSeconds": 15.736,
+      "id": "feature-authentication",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 0.108,
+          "id": "feature-authentication-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        {
+          "durationSeconds": 0.0,
+          "id": "launch-smoke",
+          "returncode": 77,
+          "status": "skipped"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.0,
+        "id": "feature-authentication",
+        "returncode": 77,
+        "status": "skipped"
+      },
+      "reason": "setup-not-passed",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "REQUIRED_SETUP_NOT_PASSED",
+      "durationSeconds": 15.731,
+      "id": "feature-avatar-people",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 0.098,
+          "id": "feature-avatar-people-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        {
+          "durationSeconds": 0.0,
+          "id": "launch-smoke",
+          "returncode": 77,
+          "status": "skipped"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.0,
+        "id": "feature-avatar-people",
+        "returncode": 77,
+        "status": "skipped"
+      },
+      "reason": "setup-not-passed",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "REQUIRED_SETUP_NOT_PASSED",
+      "durationSeconds": 15.906,
+      "id": "feature-create",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 0.122,
+          "id": "feature-create-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        {
+          "durationSeconds": 0.0,
+          "id": "launch-smoke",
+          "returncode": 77,
+          "status": "skipped"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.0,
+        "id": "feature-create",
+        "returncode": 77,
+        "status": "skipped"
+      },
+      "reason": "setup-not-passed",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "REQUIRED_SETUP_NOT_PASSED",
+      "durationSeconds": 15.706,
+      "id": "feature-emotes",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 0.109,
+          "id": "feature-emotes-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        {
+          "durationSeconds": 0.0,
+          "id": "launch-smoke",
+          "returncode": 77,
+          "status": "skipped"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.0,
+        "id": "feature-emotes",
+        "returncode": 77,
+        "status": "skipped"
+      },
+      "reason": "setup-not-passed",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "REQUIRED_SETUP_RESULT_MISSING",
+      "durationSeconds": 5.694,
+      "id": "feature-world-web",
+      "missingSetupIds": [
+        "feature-world-web-required",
+        "launch-smoke"
+      ],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": false,
+      "originalTarget": null,
+      "reason": "missing-summary",
+      "returncode": 2,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "REQUIRED_SETUP_NOT_PASSED",
+      "durationSeconds": 15.955,
+      "id": "feature-graphics",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 0.116,
+          "id": "feature-graphics-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        {
+          "durationSeconds": 0.0,
+          "id": "launch-smoke",
+          "returncode": 77,
+          "status": "skipped"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.0,
+        "id": "feature-graphics",
+        "returncode": 77,
+        "status": "skipped"
+      },
+      "reason": "setup-not-passed",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "REQUIRED_SETUP_NOT_PASSED",
+      "durationSeconds": 15.441,
+      "id": "feature-audio",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 0.124,
+          "id": "feature-audio-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        {
+          "durationSeconds": 0.0,
+          "id": "launch-smoke",
+          "returncode": 77,
+          "status": "skipped"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.0,
+        "id": "feature-audio",
+        "returncode": 77,
+        "status": "skipped"
+      },
+      "reason": "setup-not-passed",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "REQUIRED_SETUP_NOT_PASSED",
+      "durationSeconds": 15.715,
+      "id": "feature-chat",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 0.102,
+          "id": "feature-chat-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        {
+          "durationSeconds": 0.0,
+          "id": "launch-smoke",
+          "returncode": 77,
+          "status": "skipped"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.0,
+        "id": "feature-chat",
+        "returncode": 77,
+        "status": "skipped"
+      },
+      "reason": "setup-not-passed",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "REQUIRED_SETUP_NOT_PASSED",
+      "durationSeconds": 16.022,
+      "id": "feature-snapshots",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 0.118,
+          "id": "feature-snapshots-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        {
+          "durationSeconds": 0.0,
+          "id": "launch-smoke",
+          "returncode": 77,
+          "status": "skipped"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.0,
+        "id": "feature-snapshots",
+        "returncode": 77,
+        "status": "skipped"
+      },
+      "reason": "setup-not-passed",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+      "durationSeconds": 54.311,
+      "id": "feature-scripts",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 0.116,
+          "id": "feature-scripts-required",
+          "returncode": 0,
+          "status": "passed"
+        },
+        {
+          "durationSeconds": 32.613,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 5.905,
+        "id": "feature-scripts",
+        "returncode": 75,
+        "status": "error"
+      },
+      "reason": "observer-required-forced-cleanup",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": true
+    },
+    {
+      "classification": "REQUIRED_SETUP_NOT_PASSED",
+      "durationSeconds": 14.661,
+      "id": "feature-assets",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 0.099,
+          "id": "feature-assets-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        {
+          "durationSeconds": 0.0,
+          "id": "launch-smoke",
+          "returncode": 77,
+          "status": "skipped"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.0,
+        "id": "feature-assets",
+        "returncode": 77,
+        "status": "skipped"
+      },
+      "reason": "setup-not-passed",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "REQUIRED_SETUP_NOT_PASSED",
+      "durationSeconds": 14.503,
+      "id": "feature-lifecycle-input",
+      "missingSetupIds": [],
+      "originalInfrastructure": [],
+      "originalSetup": [
+        {
+          "durationSeconds": 0.091,
+          "id": "feature-lifecycle-input-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        {
+          "durationSeconds": 0.0,
+          "id": "launch-smoke",
+          "returncode": 77,
+          "status": "skipped"
+        }
+      ],
+      "originalSummaryExists": true,
+      "originalTarget": {
+        "durationSeconds": 0.0,
+        "id": "feature-lifecycle-input",
+        "returncode": 77,
+        "status": "skipped"
+      },
+      "reason": "setup-not-passed",
+      "returncode": 1,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    },
+    {
+      "classification": "REQUIRED_SETUP_RESULT_MISSING",
+      "durationSeconds": 4.991,
+      "id": "feature-tablet-web",
+      "missingSetupIds": [
+        "feature-tablet-web-required",
+        "launch-smoke"
+      ],
+      "originalInfrastructure": [],
+      "originalSetup": [],
+      "originalSummaryExists": false,
+      "originalTarget": null,
+      "reason": "missing-summary",
+      "returncode": 2,
+      "status": "error",
+      "targetModuleProcessCompletionProven": false
+    }
+  ],
+  "schemaVersion": 1,
+  "sourceRevision": "0a7de4299f4bb97e99c844288e6381efd973df0f",
+  "statuses": {
+    "ERROR": 57,
+    "FAIL": 5,
+    "PASS": 7,
+    "aggregateSKIP": 0,
+    "campaign": "failed",
+    "deviceJourneyAcceptance": "not-established-by-attempt-or-log-presence",
+    "originalSummaryFiles": 65,
+    "targetModuleProcessCompletionLogs": 49
+  }
+}

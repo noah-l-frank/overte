@@ -1,0 +1,694 @@
+{
+  "apkSha256": "43ed8f0ad7e9e5fe4beaa7c39833441f42979ff209181eaf00e4ec933df41248",
+  "build": {
+    "jenkinsBuildNumber": 3,
+    "versionCode": 15
+  },
+  "evidenceSha256": {
+    "buildAndVerifiedPackageBinding": "d0e72d7a97ba0b1109c5cf5bb51811ae16d335c63b83af617a80044052a22f2e",
+    "junit": "ddddf2a40000f7a3f2cd3f26f5c917bbc76a1dc9b4485a5c8621562b6c88e9b4",
+    "moduleClassification": "53897b57b6903245247cc051dbbe0455d3aaa2c6fd6f6d2890e257e6948cc3bf",
+    "modulePacket": "d79d7032028eaa27b91f60fe3ebc93da47725f39f79d1efd77a18853ca849022",
+    "nativeResourceProbeDex": "b0ed94ff36933a2d79763dffe71b27b60db2f26a955152d368ab14d5fceb2db7",
+    "preparation": "add840071f5f34e83fe5255ce8f0cf88e3325c8b647e958cc248773c51cda5db",
+    "runtimeCleanupScope": "4e7d2e5db45dd5a479db7294104b1820caea80be60f103fce1d2eda7d3041c7e",
+    "summary": "5851c428d873e6edf09ea0d6b80589cada60ccc09364662d3bd05226199f9326"
+  },
+  "manifestSha256": "109d95a40539b3f625acd0ca9828b9fa4c2020925bd2062bb0c9b4ed674ac3b8",
+  "rows": [
+    {
+      "androidPhoneAdapterSourceStatus": "present",
+      "area": "world-navigation",
+      "deviceAcceptanceStatus": "not-established",
+      "gate": {
+        "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+        "id": "feature-world-navigation-required",
+        "originalTarget": {
+          "durationSeconds": 0.084,
+          "id": "feature-world-navigation-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        "status": "error"
+      },
+      "journey": {
+        "classification": "REQUIRED_SETUP_NOT_PASSED",
+        "id": "feature-world-navigation",
+        "originalSetup": [
+          {
+            "durationSeconds": 0.108,
+            "id": "feature-world-navigation-required",
+            "returncode": 75,
+            "status": "error"
+          },
+          {
+            "durationSeconds": 0.0,
+            "id": "launch-smoke",
+            "returncode": 77,
+            "status": "skipped"
+          }
+        ],
+        "originalTarget": {
+          "durationSeconds": 0.0,
+          "id": "feature-world-navigation",
+          "returncode": 77,
+          "status": "skipped"
+        },
+        "status": "error"
+      },
+      "name": "Worlds / Navigation",
+      "nativeBuildStatus": "matching-full-debug-e2e-apk-compiled",
+      "preparationErrors": [
+        "actual-domain-owner-inputs-required",
+        "owned-navigation-directory-and-source-bound-image-policy-required"
+      ],
+      "preparationStatus": "error",
+      "runtimeAdapterCapabilityStatus": "not-verified-or-unavailable",
+      "sharedTestLogicStatus": "present",
+      "sourceCompositionStatus": "present"
+    },
+    {
+      "androidPhoneAdapterSourceStatus": "present",
+      "area": "authentication",
+      "deviceAcceptanceStatus": "not-established",
+      "gate": {
+        "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+        "id": "feature-authentication-required",
+        "originalTarget": {
+          "durationSeconds": 0.085,
+          "id": "feature-authentication-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        "status": "error"
+      },
+      "journey": {
+        "classification": "REQUIRED_SETUP_NOT_PASSED",
+        "id": "feature-authentication",
+        "originalSetup": [
+          {
+            "durationSeconds": 0.108,
+            "id": "feature-authentication-required",
+            "returncode": 75,
+            "status": "error"
+          },
+          {
+            "durationSeconds": 0.0,
+            "id": "launch-smoke",
+            "returncode": 77,
+            "status": "skipped"
+          }
+        ],
+        "originalTarget": {
+          "durationSeconds": 0.0,
+          "id": "feature-authentication",
+          "returncode": 77,
+          "status": "skipped"
+        },
+        "status": "error"
+      },
+      "name": "Authentication",
+      "nativeBuildStatus": "matching-full-debug-e2e-apk-compiled",
+      "preparationErrors": [
+        "trusted-HTTPS-account-owner-and-account-configuration-required"
+      ],
+      "preparationStatus": "error",
+      "runtimeAdapterCapabilityStatus": "not-verified-or-unavailable",
+      "sharedTestLogicStatus": "present",
+      "sourceCompositionStatus": "present"
+    },
+    {
+      "androidPhoneAdapterSourceStatus": "present",
+      "area": "avatar-people",
+      "deviceAcceptanceStatus": "not-established",
+      "gate": {
+        "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+        "id": "feature-avatar-people-required",
+        "originalTarget": {
+          "durationSeconds": 0.085,
+          "id": "feature-avatar-people-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        "status": "error"
+      },
+      "journey": {
+        "classification": "REQUIRED_SETUP_NOT_PASSED",
+        "id": "feature-avatar-people",
+        "originalSetup": [
+          {
+            "durationSeconds": 0.098,
+            "id": "feature-avatar-people-required",
+            "returncode": 75,
+            "status": "error"
+          },
+          {
+            "durationSeconds": 0.0,
+            "id": "launch-smoke",
+            "returncode": 77,
+            "status": "skipped"
+          }
+        ],
+        "originalTarget": {
+          "durationSeconds": 0.0,
+          "id": "feature-avatar-people",
+          "returncode": 77,
+          "status": "skipped"
+        },
+        "status": "error"
+      },
+      "name": "Avatar / Contacts",
+      "nativeBuildStatus": "matching-full-debug-e2e-apk-compiled",
+      "preparationErrors": [
+        "actual-domain-owner-inputs-required",
+        "second-independent-ARM64-Phone-with-same-APK-and-HTTPS-account-required"
+      ],
+      "preparationStatus": "error",
+      "runtimeAdapterCapabilityStatus": "not-verified-or-unavailable",
+      "sharedTestLogicStatus": "present",
+      "sourceCompositionStatus": "present"
+    },
+    {
+      "androidPhoneAdapterSourceStatus": "present",
+      "area": "create",
+      "deviceAcceptanceStatus": "not-established",
+      "gate": {
+        "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+        "id": "feature-create-required",
+        "originalTarget": {
+          "durationSeconds": 0.083,
+          "id": "feature-create-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        "status": "error"
+      },
+      "journey": {
+        "classification": "REQUIRED_SETUP_NOT_PASSED",
+        "id": "feature-create",
+        "originalSetup": [
+          {
+            "durationSeconds": 0.122,
+            "id": "feature-create-required",
+            "returncode": 75,
+            "status": "error"
+          },
+          {
+            "durationSeconds": 0.0,
+            "id": "launch-smoke",
+            "returncode": 77,
+            "status": "skipped"
+          }
+        ],
+        "originalTarget": {
+          "durationSeconds": 0.0,
+          "id": "feature-create",
+          "returncode": 77,
+          "status": "skipped"
+        },
+        "status": "error"
+      },
+      "name": "Create",
+      "nativeBuildStatus": "matching-full-debug-e2e-apk-compiled",
+      "preparationErrors": [
+        "actual-domain-owner-inputs-required",
+        "source-matched-native-permission-AC-and-picker-configuration-required"
+      ],
+      "preparationStatus": "error",
+      "runtimeAdapterCapabilityStatus": "not-verified-or-unavailable",
+      "sharedTestLogicStatus": "present",
+      "sourceCompositionStatus": "present"
+    },
+    {
+      "androidPhoneAdapterSourceStatus": "present",
+      "area": "emotes",
+      "deviceAcceptanceStatus": "not-established",
+      "gate": {
+        "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+        "id": "feature-emotes-required",
+        "originalTarget": {
+          "durationSeconds": 0.087,
+          "id": "feature-emotes-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        "status": "error"
+      },
+      "journey": {
+        "classification": "REQUIRED_SETUP_NOT_PASSED",
+        "id": "feature-emotes",
+        "originalSetup": [
+          {
+            "durationSeconds": 0.109,
+            "id": "feature-emotes-required",
+            "returncode": 75,
+            "status": "error"
+          },
+          {
+            "durationSeconds": 0.0,
+            "id": "launch-smoke",
+            "returncode": 77,
+            "status": "skipped"
+          }
+        ],
+        "originalTarget": {
+          "durationSeconds": 0.0,
+          "id": "feature-emotes",
+          "returncode": 77,
+          "status": "skipped"
+        },
+        "status": "error"
+      },
+      "name": "Emotes",
+      "nativeBuildStatus": "matching-full-debug-e2e-apk-compiled",
+      "preparationErrors": [
+        "actual-domain-owner-inputs-required",
+        "actual-emotes-adapter-configuration-required-or-invalid",
+        "actual-emotes-source-bound-image-policy-required-or-invalid"
+      ],
+      "preparationStatus": "error",
+      "runtimeAdapterCapabilityStatus": "not-verified-or-unavailable",
+      "sharedTestLogicStatus": "present",
+      "sourceCompositionStatus": "present"
+    },
+    {
+      "androidPhoneAdapterSourceStatus": "present",
+      "area": "world-web",
+      "deviceAcceptanceStatus": "not-established",
+      "gate": {
+        "classification": "NO_ORIGINAL_MODULE_SUMMARY_OR_EXECUTION_PROOF",
+        "id": "feature-world-web-required",
+        "originalTarget": null,
+        "status": "error"
+      },
+      "journey": {
+        "classification": "REQUIRED_SETUP_RESULT_MISSING",
+        "id": "feature-world-web",
+        "originalSetup": [],
+        "originalTarget": null,
+        "status": "error"
+      },
+      "name": "World Web",
+      "nativeBuildStatus": "matching-full-debug-e2e-apk-compiled",
+      "preparationErrors": [
+        "actual-world-web-source-bound-image-policy-required-or-invalid"
+      ],
+      "preparationStatus": "error",
+      "runtimeAdapterCapabilityStatus": "not-verified-or-unavailable",
+      "sharedTestLogicStatus": "present",
+      "sourceCompositionStatus": "present"
+    },
+    {
+      "androidPhoneAdapterSourceStatus": "present",
+      "area": "tablet-web",
+      "deviceAcceptanceStatus": "not-established",
+      "gate": {
+        "classification": "NO_ORIGINAL_MODULE_SUMMARY_OR_EXECUTION_PROOF",
+        "id": "feature-tablet-web-required",
+        "originalTarget": null,
+        "status": "error"
+      },
+      "journey": {
+        "classification": "REQUIRED_SETUP_RESULT_MISSING",
+        "id": "feature-tablet-web",
+        "originalSetup": [],
+        "originalTarget": null,
+        "status": "error"
+      },
+      "name": "Tablet Web",
+      "nativeBuildStatus": "matching-full-debug-e2e-apk-compiled",
+      "preparationErrors": [
+        "actual-tablet-web-source-bound-image-policy-required-or-invalid"
+      ],
+      "preparationStatus": "error",
+      "runtimeAdapterCapabilityStatus": "not-verified-or-unavailable",
+      "sharedTestLogicStatus": "present",
+      "sourceCompositionStatus": "present"
+    },
+    {
+      "androidPhoneAdapterSourceStatus": "present",
+      "area": "graphics",
+      "deviceAcceptanceStatus": "not-established",
+      "gate": {
+        "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+        "id": "feature-graphics-required",
+        "originalTarget": {
+          "durationSeconds": 0.085,
+          "id": "feature-graphics-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        "status": "error"
+      },
+      "journey": {
+        "classification": "REQUIRED_SETUP_NOT_PASSED",
+        "id": "feature-graphics",
+        "originalSetup": [
+          {
+            "durationSeconds": 0.116,
+            "id": "feature-graphics-required",
+            "returncode": 75,
+            "status": "error"
+          },
+          {
+            "durationSeconds": 0.0,
+            "id": "launch-smoke",
+            "returncode": 77,
+            "status": "skipped"
+          }
+        ],
+        "originalTarget": {
+          "durationSeconds": 0.0,
+          "id": "feature-graphics",
+          "returncode": 77,
+          "status": "skipped"
+        },
+        "status": "error"
+      },
+      "name": "Graphics",
+      "nativeBuildStatus": "matching-full-debug-e2e-apk-compiled",
+      "preparationErrors": [
+        "actual-graphics-adapter-configuration-required-or-invalid",
+        "actual-graphics-source-bound-image-policy-required-or-invalid"
+      ],
+      "preparationStatus": "error",
+      "runtimeAdapterCapabilityStatus": "not-verified-or-unavailable",
+      "sharedTestLogicStatus": "present",
+      "sourceCompositionStatus": "present"
+    },
+    {
+      "androidPhoneAdapterSourceStatus": "present",
+      "area": "audio",
+      "deviceAcceptanceStatus": "not-established",
+      "gate": {
+        "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+        "id": "feature-audio-required",
+        "originalTarget": {
+          "durationSeconds": 0.086,
+          "id": "feature-audio-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        "status": "error"
+      },
+      "journey": {
+        "classification": "REQUIRED_SETUP_NOT_PASSED",
+        "id": "feature-audio",
+        "originalSetup": [
+          {
+            "durationSeconds": 0.124,
+            "id": "feature-audio-required",
+            "returncode": 75,
+            "status": "error"
+          },
+          {
+            "durationSeconds": 0.0,
+            "id": "launch-smoke",
+            "returncode": 77,
+            "status": "skipped"
+          }
+        ],
+        "originalTarget": {
+          "durationSeconds": 0.0,
+          "id": "feature-audio",
+          "returncode": 77,
+          "status": "skipped"
+        },
+        "status": "error"
+      },
+      "name": "Audio",
+      "nativeBuildStatus": "matching-full-debug-e2e-apk-compiled",
+      "preparationErrors": [
+        "actual-audio-adapter-configuration-required-or-invalid",
+        "actual-compatible-independent-PC-voice-peer-required",
+        "actual-domain-owner-inputs-required"
+      ],
+      "preparationStatus": "error",
+      "runtimeAdapterCapabilityStatus": "not-verified-or-unavailable",
+      "sharedTestLogicStatus": "present",
+      "sourceCompositionStatus": "present"
+    },
+    {
+      "androidPhoneAdapterSourceStatus": "present",
+      "area": "chat",
+      "deviceAcceptanceStatus": "not-established",
+      "gate": {
+        "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+        "id": "feature-chat-required",
+        "originalTarget": {
+          "durationSeconds": 0.082,
+          "id": "feature-chat-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        "status": "error"
+      },
+      "journey": {
+        "classification": "REQUIRED_SETUP_NOT_PASSED",
+        "id": "feature-chat",
+        "originalSetup": [
+          {
+            "durationSeconds": 0.102,
+            "id": "feature-chat-required",
+            "returncode": 75,
+            "status": "error"
+          },
+          {
+            "durationSeconds": 0.0,
+            "id": "launch-smoke",
+            "returncode": 77,
+            "status": "skipped"
+          }
+        ],
+        "originalTarget": {
+          "durationSeconds": 0.0,
+          "id": "feature-chat",
+          "returncode": 77,
+          "status": "skipped"
+        },
+        "status": "error"
+      },
+      "name": "Chat",
+      "nativeBuildStatus": "matching-full-debug-e2e-apk-compiled",
+      "preparationErrors": [
+        "actual-domain-owner-inputs-required",
+        "source-matched-native-chat-receiver-AC-required"
+      ],
+      "preparationStatus": "error",
+      "runtimeAdapterCapabilityStatus": "not-verified-or-unavailable",
+      "sharedTestLogicStatus": "present",
+      "sourceCompositionStatus": "present"
+    },
+    {
+      "androidPhoneAdapterSourceStatus": "present",
+      "area": "snapshots",
+      "deviceAcceptanceStatus": "not-established",
+      "gate": {
+        "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+        "id": "feature-snapshots-required",
+        "originalTarget": {
+          "durationSeconds": 0.086,
+          "id": "feature-snapshots-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        "status": "error"
+      },
+      "journey": {
+        "classification": "REQUIRED_SETUP_NOT_PASSED",
+        "id": "feature-snapshots",
+        "originalSetup": [
+          {
+            "durationSeconds": 0.118,
+            "id": "feature-snapshots-required",
+            "returncode": 75,
+            "status": "error"
+          },
+          {
+            "durationSeconds": 0.0,
+            "id": "launch-smoke",
+            "returncode": 77,
+            "status": "skipped"
+          }
+        ],
+        "originalTarget": {
+          "durationSeconds": 0.0,
+          "id": "feature-snapshots",
+          "returncode": 77,
+          "status": "skipped"
+        },
+        "status": "error"
+      },
+      "name": "Snapshots",
+      "nativeBuildStatus": "matching-full-debug-e2e-apk-compiled",
+      "preparationErrors": [
+        "actual-domain-owner-inputs-required",
+        "trusted-HTTPS-account-upload-and-original-Snapshot-policy-required"
+      ],
+      "preparationStatus": "error",
+      "runtimeAdapterCapabilityStatus": "not-verified-or-unavailable",
+      "sharedTestLogicStatus": "present",
+      "sourceCompositionStatus": "present"
+    },
+    {
+      "androidPhoneAdapterSourceStatus": "present",
+      "area": "scripts",
+      "deviceAcceptanceStatus": "not-established",
+      "gate": {
+        "classification": "TARGET_MODULE_PROCESS_COMPLETED_PASSED",
+        "id": "feature-scripts-required",
+        "originalTarget": {
+          "durationSeconds": 0.085,
+          "id": "feature-scripts-required",
+          "returncode": 0,
+          "status": "passed"
+        },
+        "status": "passed"
+      },
+      "journey": {
+        "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+        "id": "feature-scripts",
+        "originalSetup": [
+          {
+            "durationSeconds": 0.116,
+            "id": "feature-scripts-required",
+            "returncode": 0,
+            "status": "passed"
+          },
+          {
+            "durationSeconds": 32.613,
+            "id": "launch-smoke",
+            "returncode": 0,
+            "status": "passed"
+          }
+        ],
+        "originalTarget": {
+          "durationSeconds": 5.905,
+          "id": "feature-scripts",
+          "returncode": 75,
+          "status": "error"
+        },
+        "status": "error"
+      },
+      "name": "Scripts",
+      "nativeBuildStatus": "matching-full-debug-e2e-apk-compiled",
+      "preparationErrors": [],
+      "preparationStatus": "prepared",
+      "runtimeAdapterCapabilityStatus": "mandatory-gate-passed-not-feature-acceptance",
+      "sharedTestLogicStatus": "present",
+      "sourceCompositionStatus": "present"
+    },
+    {
+      "androidPhoneAdapterSourceStatus": "present",
+      "area": "assets",
+      "deviceAcceptanceStatus": "not-established",
+      "gate": {
+        "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+        "id": "feature-assets-required",
+        "originalTarget": {
+          "durationSeconds": 0.084,
+          "id": "feature-assets-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        "status": "error"
+      },
+      "journey": {
+        "classification": "REQUIRED_SETUP_NOT_PASSED",
+        "id": "feature-assets",
+        "originalSetup": [
+          {
+            "durationSeconds": 0.099,
+            "id": "feature-assets-required",
+            "returncode": 75,
+            "status": "error"
+          },
+          {
+            "durationSeconds": 0.0,
+            "id": "launch-smoke",
+            "returncode": 77,
+            "status": "skipped"
+          }
+        ],
+        "originalTarget": {
+          "durationSeconds": 0.0,
+          "id": "feature-assets",
+          "returncode": 77,
+          "status": "skipped"
+        },
+        "status": "error"
+      },
+      "name": "Assets",
+      "nativeBuildStatus": "matching-full-debug-e2e-apk-compiled",
+      "preparationErrors": [
+        "actual-domain-owner-inputs-required",
+        "source-matched-native-asset-AC-worker-and-permission-owner-required"
+      ],
+      "preparationStatus": "error",
+      "runtimeAdapterCapabilityStatus": "not-verified-or-unavailable",
+      "sharedTestLogicStatus": "present",
+      "sourceCompositionStatus": "present"
+    },
+    {
+      "androidPhoneAdapterSourceStatus": "present",
+      "area": "lifecycle-input",
+      "deviceAcceptanceStatus": "not-established",
+      "gate": {
+        "classification": "TARGET_MODULE_PROCESS_COMPLETED_ERROR",
+        "id": "feature-lifecycle-input-required",
+        "originalTarget": {
+          "durationSeconds": 0.083,
+          "id": "feature-lifecycle-input-required",
+          "returncode": 75,
+          "status": "error"
+        },
+        "status": "error"
+      },
+      "journey": {
+        "classification": "REQUIRED_SETUP_NOT_PASSED",
+        "id": "feature-lifecycle-input",
+        "originalSetup": [
+          {
+            "durationSeconds": 0.091,
+            "id": "feature-lifecycle-input-required",
+            "returncode": 75,
+            "status": "error"
+          },
+          {
+            "durationSeconds": 0.0,
+            "id": "launch-smoke",
+            "returncode": 77,
+            "status": "skipped"
+          }
+        ],
+        "originalTarget": {
+          "durationSeconds": 0.0,
+          "id": "feature-lifecycle-input",
+          "returncode": 77,
+          "status": "skipped"
+        },
+        "status": "error"
+      },
+      "name": "Lifecycle / Input",
+      "nativeBuildStatus": "matching-full-debug-e2e-apk-compiled",
+      "preparationErrors": [
+        "actual-lifecycle-input-adapter-configuration-required-or-invalid",
+        "actual-lifecycle-input-source-bound-image-policy-required-or-invalid"
+      ],
+      "preparationStatus": "error",
+      "runtimeAdapterCapabilityStatus": "not-verified-or-unavailable",
+      "sharedTestLogicStatus": "present",
+      "sourceCompositionStatus": "present"
+    }
+  ],
+  "schemaVersion": 1,
+  "sourceRevision": "0a7de4299f4bb97e99c844288e6381efd973df0f",
+  "statuses": {
+    "fullFeatureJourneyError": 14,
+    "fullFeatureJourneyPassed": 0,
+    "mandatoryGateError": 13,
+    "mandatoryGatePassed": 1,
+    "otherClientQualification": "none",
+    "sourceCompositionAreas": 14
+  }
+}

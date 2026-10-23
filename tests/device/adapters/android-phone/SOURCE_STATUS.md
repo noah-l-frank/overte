@@ -1,6 +1,40 @@
 # Android Phone source coverage
 
-## Combined product and adapter source
+## Current combined Phone scope, 2026-10-24
+
+All **14/14** areas have Phone source composition; the scoped host results below
+retain their historical source revisions. They do not qualify all fourteen
+features on a device.
+
+Combined source `0a7de4299f4bb97e99c844288e6381efd973df0f` has a compiled,
+matching full debug E2E APK (version code **15**, SHA-256
+`43ed8f0ad7e9e5fe4beaa7c39833441f42979ff209181eaf00e4ec933df41248`).
+Actual native compilation, native/resource/Probe/Dex provenance and the installed
+APK identity were verified. The completed 69-target sequential Proxmox Jenkins
+build 3 is **RED: 7 PASS, 5 FAIL, 57 ERROR**, with no aggregate skips. All fourteen
+full feature journeys returned ERROR; only the Scripts mandatory gate passed.
+The 49 target module logs and 65 original summaries are host-process/status
+provenance, not 69 device journeys or full feature acceptance. Missing prerequisites
+remain errors, not successful skips. The earlier builds 1/2 stopped before tests;
+they are not relabeled as build 3.
+
+See the [current 14-area campaign matrix](INTEGRATED_COVERAGE.md) and
+[actual failure/cleanup handoff](INTEGRATED_FAILURES.md).
+
+The [E2E build option](../../../../android/phone/docs/BUILD.md#dedicated-feature-e2e-debug-build)
+remains default OFF. Private prerequisites, source admission and independent
+observations remain mandatory. This Phone work qualifies no Pico, iOS or other
+client. See the [integration campaign handoff](INTEGRATED_CAMPAIGN.md) and
+[historical source/host matrix](phone-source-coverage.v1.json) for their separate
+scopes.
+
+## Historical integration and host evidence
+
+The following reviews, matrix and native-build limitations retain their stated
+revisions and original evidence. Later compilation and installed-code provenance
+above do not rerun those host checks or turn historical failures into passes.
+
+### Combined product and adapter source integration provenance
 
 The completed manual-parity source is now joined with this adapter branch in
 merge `a434c7f8ce`. The exact 200-file product snapshot is retained as its second
@@ -11,7 +45,7 @@ APK and a sequential Jenkins campaign have their own evidence in
 fourteen-area host matrix below are historical at their stated revisions;
 they do not supply qualification of the combined build or device campaign.
 
-## Final manual-session delta review
+### Final manual-session delta review before product integration
 
 The [final session review](FINAL_SESSION_REVIEW.md) identifies a new Snapshot
 setting outside the old cleanup scope and upgrades the private settings lease
@@ -21,7 +55,7 @@ qualify their manually tested packages. Product/instrumentation integration,
 exact source admission and the documented automated observation gaps remain
 required. Historical host results below retain their original source scope.
 
-## Subsequent manual-parity review, 2026-10-23
+### Subsequent manual-parity review, 2026-10-23
 
 The [manual-parity findings review](PARITY_FINDINGS_REVIEW.md) corrects the
 People REST fixture and domain readiness checks and adds a genuine account-label
@@ -33,7 +67,7 @@ baseline. It does not qualify this later branch, the other session's product
 fixes, or any physical client. No product fix or source-pin update is included
 in this review.
 
-## Current Android Phone closure, 2026-10-23
+### Historical Android Phone source/host closure, 2026-10-23
 
 All **14/14** common v18 areas have Phone source composition and scoped host
 journey evidence. Snapshot now joins the other thirteen areas: the unchanged
@@ -89,7 +123,7 @@ source admission, separate Actor, freshness, ordinary input and original file/
 image/audio/peer/lifetime obligations remain mandatory. Neither a flag nor an
 ACK supplies a measured product effect.
 
-## Evidence scope and history
+### Historical evidence scope
 
 | Final Snapshot evidence | Exact scope |
 | --- | --- |
@@ -136,7 +170,7 @@ Component stages such as the earlier 67 targeted parent checks (88.631 s),
 (90.218 s) retain their original counts and source scopes. They are not rebranded
 as the final complete backend runs.
 
-## Native build and physical acceptance
+### Native build and physical acceptance at the historical host closure
 
 Partial Qt/QML/C++/JNI/Java/R8/filesystem checks cover only the boundaries named
 in each feature handoff. They do not build all Android product translation

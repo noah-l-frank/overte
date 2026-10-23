@@ -1,4 +1,28 @@
-# Current Android Phone adapter status
+# Android Phone adapter status
+
+## Current combined Phone scope, 2026-10-24
+
+All **14/14** areas have Phone source composition with historical scoped host
+evidence. Combined source `0a7de4299f4bb97e99c844288e6381efd973df0f` has a compiled
+full debug E2E APK, verified native/resource/Probe/Dex provenance and verified
+installed identity. The completed 69-target sequential Proxmox Jenkins build 3
+is **RED: 7 PASS, 5 FAIL, 57 ERROR**, with no aggregate skips. All fourteen full
+feature journeys returned ERROR; only the Scripts mandatory gate passed. No full
+feature area receives device acceptance.
+
+See the [current 14-area campaign matrix](INTEGRATED_COVERAGE.md) and
+[actual failure/cleanup handoff](INTEGRATED_FAILURES.md).
+
+See [the current source/build identity](SOURCE_STATUS.md#current-combined-phone-scope-2026-10-24)
+and [integration campaign handoff](INTEGRATED_CAMPAIGN.md). Default-off flags,
+private prerequisites and independent observations remain mandatory; missing
+prerequisites are errors. This Phone work qualifies no Pico, iOS or other client.
+
+## Historical implementation notes
+
+The entries below preserve earlier implementation stages at their original
+scope. Their three-of-fourteen counts, incomplete components and uncompiled-build
+statements describe those stages; they are not the current combined status above.
 
 The full v17 Script, Authentication and Graphics triples are now implemented through the
 existing adapter entrypoint, each under its explicit default-off configuration.
@@ -403,10 +427,10 @@ independent worker, native/fixture cleanup and interrupted host retirement.
 Together with source/input/causal cases this provides 105 focused Authentication
 host cases. No physical qualification is promoted by these simulations.
 
-# Phone adapter implementation, local source only
+## Historical Phone adapter implementation, local source only
 
-Active implementation scope is **Android Phone only** until all fourteen areas
-are complete. Pico and iOS work is paused and preserved on their own branches.
+At that historical stage, implementation scope was Android Phone only until all
+fourteen areas were complete; separate Pico and iOS branches were paused.
 
 [Durable normal Script inputs](SCRIPT_ACTIONS.md) now route all shared verbs
 through existing ordinary controls, freeze original native pre-input barriers
