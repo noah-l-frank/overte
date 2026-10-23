@@ -90,6 +90,8 @@
     "chat-cleanup-admission": {"current": 1, "reads": [1]},
     "chat-observation-owner": {"current": 1, "reads": [1]},
     "chat-cleanup-witness": {"current": 1, "reads": [1]},
+    "pico-chat-observation": {"current": 1, "reads": [1]},
+    "pico-chat-cleanup-witness": {"current": 1, "reads": [1]},
     "pico-chat-application-close": {"current": 1, "reads": [1]},
     "chat-evidence-archive": {"current": 4, "reads": [1, 2, 3, 4]},
     "pico-chat-archive-plan": {"current": 4, "reads": [1, 2, 3, 4]},
