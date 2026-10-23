@@ -19,6 +19,15 @@ compares them with the mutable in-memory rows/frames/transaction map, and
 preserves root and chunk manifests/digests. Original root identity includes
 device, inode, mode, UID, link count, size, mtime and ctime; chunk identities
 have the same complete stamp coverage. Identical rewritten roots are refused.
+Root stamps are first admitted at the initial seal snapshot, after matching
+the exact ready value held by the warm owner. The earlier mutable root CAS
+did not pin a persistent root inode, so this seal makes no retrospective root
+inode claim. That admitted seal snapshot must remain unchanged throughout
+and after sealing. Immutable child identities and raw byte count already
+belong to the original source history before this snapshot. The full physical
+load runs on a separate shallow reader, must match those exact admitted
+identities and byte count, and cannot replace the live owner's history cache
+even when loading fails. Replacement between verify and load stays unknown.
 All target/query limits remain unchanged. The root records
 `chatSourceSealVersion`, `runId`, `role`, `binding`, `peerBinding`, `kind`,
 `journal`, `phase` and `originals`. Each original has `journal`, `sha256`,
@@ -65,9 +74,16 @@ V8, widget and input metadata producers are explicit seams; the factory case
 uses an actual owned Linux stdin worker. No product app, AC, service, device
 or OpenXR runtime runs.
 
+An additional same-byte child-replacement counterexample reproduced unsafe
+acceptance before the reader-isolation fix (one red case in 10.773 seconds).
+The corrected replacement counterexample and original positive both passed
+in 21.881 seconds. The counterexample changes the physical child exactly
+between the original verification and full load and verifies that the live
+admitted identity list and byte count remain unchanged after refusal.
+
 The source module offers three disjoint catalog selectors:
 `source_seal_positive_tests()` (one case), `source_seal_admission_tests()`
-(five) and `source_seal_freshness_tests()` (four). Keep their existing
+(six) and `source_seal_freshness_tests()` (four). Keep their existing
 120-second catalog budgets separate under host load. The combined recovery
 convenience selector and entire module must not also be registered alongside
 those three. No full archive repetition was performed.
