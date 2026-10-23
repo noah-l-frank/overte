@@ -64,6 +64,9 @@ QVariantMap ScriptManager::featureLoadHistory() { return featureScriptLoads().sn
 #include "XMLHttpRequestClass.h"
 #include "WebSocketClass.h"
 #include "ScriptEngine.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "v8/ScriptEngineV8.h"
+#endif
 #include "ScriptEngineCast.h"
 #include "ScriptEngineLogging.h"
 #include "ScriptEngines.h"
@@ -1520,6 +1523,13 @@ void ScriptManager::timerFired(int handle) {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+QVariantMap ScriptManager::featureAvatarV8Stack() const {
+    if (!overte::e2e::IOSV8ScriptStack::enabled() || !_engine || QThread::currentThread()!=thread()) { return {}; }
+    const auto engine=qobject_cast<ScriptEngineV8*>(_engine.get());
+    if (!engine || QThread::currentThread()!=engine->thread()) { return {}; }
+    return engine->featureV8Stack();
+}
+
 QStringList ScriptManager::featureAvatarTimerCallers() const {
     if (!QCoreApplication::arguments().contains("--testScript") || !_engine || QThread::currentThread()!=thread()) { return {}; }
     QStringList result;auto context=_engine->currentContext();ScriptContextPointer owner;int depth {0};

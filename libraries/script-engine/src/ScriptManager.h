@@ -1055,6 +1055,8 @@ public:
     QVariantMap featureCreateSources() const { return _featureCreateSources.snapshot(); }
     QVariantMap featureSnapshotSources() const {return _featureSnapshotSources.snapshot();}
     QVariantMap featureSnapshotTimerWork() const {return _featureSnapshotTimerWork->snapshot();}
+    // Original indexed V8 frames; legacy callerChain helpers are unchanged.
+    QVariantMap featureAvatarV8Stack() const;
     QVariantMap featureAvatarScriptObservation() const { return _featureAvatarScript->snapshot(); }
     QVariantMap featureAvatarUiWorkObservation() const { return _featureAvatarUiWork->snapshot(); }
 #endif
