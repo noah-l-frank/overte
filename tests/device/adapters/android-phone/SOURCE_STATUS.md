@@ -1,5 +1,15 @@
 # Android Phone source coverage
 
+## Final manual-session delta review
+
+The [final session review](FINAL_SESSION_REVIEW.md) identifies a new Snapshot
+setting outside the old cleanup scope and upgrades the private settings lease
+to v2 with all fourteen keys. Final Copy URL, pixel-pack and Presentation fixes
+remain separately owned product changes; this branch does not import them or
+qualify their manually tested packages. Product/instrumentation integration,
+exact source admission and the documented automated observation gaps remain
+required. Historical host results below retain their original source scope.
+
 ## Subsequent manual-parity review, 2026-10-23
 
 The [manual-parity findings review](PARITY_FINDINGS_REVIEW.md) corrects the

@@ -1,5 +1,10 @@
 # Overte physical-device E2E harness
 
+The [final Android Phone manual-session delta review](adapters/android-phone/FINAL_SESSION_REVIEW.md)
+adds private Snapshot settings-lease v2 for the new animated-URL cleanup key.
+It preserves the distinction between manual product evidence and adapter
+automation; source integration and physical adapter acceptance remain open.
+
 The subsequent [Android Phone manual-parity review](adapters/android-phone/PARITY_FINDINGS_REVIEW.md)
 adds stricter fixture/readiness checks and exposes an unfixed account-label
 product regression. Historical source/host closure below is not a green result

@@ -1,5 +1,9 @@
 # Android Phone manual-parity findings: adapter review
 
+This first review is historical. See the subsequent
+[final session delta review](FINAL_SESSION_REVIEW.md) for the new Snapshot
+Copy URL setting, pixel-pack and Presentation changes and private lease v2.
+
 This review starts at `a7be274da152b9d0b77e2fe5bb9874c5b1e18a31` in an isolated local worktree. The previous source/host adapter baseline and the ongoing manual-parity session were not modified by this review. No APK, native build, installation, hardware test, Jenkins operation or remote write was performed.
 
 ## Result and integration boundary
