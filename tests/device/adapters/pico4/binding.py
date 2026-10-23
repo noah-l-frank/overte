@@ -973,11 +973,11 @@ def create_adapter(args, base_class):
             names=('snapshot-cancel-owner.json','snapshot-cancel-files-owner.json','snapshot-cancel-originals.json',
                 'snapshot-save-owner.json','snapshot-save-originals.json','snapshot-upload-fail-owner.json','snapshot-upload-owner.json',
                 'snapshot-upload-fail-originals.json','snapshot-upload-originals.json','snapshot-background-owner.json','snapshot-background-originals.json',
-                'snapshot-close-owner.json','snapshot-close-originals.json')
+                'snapshot-close-owner.json','snapshot-close-originals.json','snapshot-close-statuses.json')
             paths=[store.path]+[store.path.with_name(name) for name in names]
             paths.extend(store.path.with_name('snapshot-return-image-'+role+suffix) for role in ('primary','actor') for suffix in ('.json','-originals.json'))
             prefixes=('snapshot-cancel-originals.json.frame-','snapshot-save-originals.json.frame-','snapshot-upload-fail-originals.json.frame-',
-                'snapshot-upload-originals.json.frame-','snapshot-background-originals.json.frame-','snapshot-close-originals.json.frame-',
+                'snapshot-upload-originals.json.frame-','snapshot-background-originals.json.frame-','snapshot-close-originals.json.frame-','snapshot-close-statuses.json.frame-',
                 'snapshot-return-image-primary-originals.json.frame-','snapshot-return-image-actor-originals.json.frame-')
             return any(path.exists() or path.is_symlink() for path in paths) or any(path.name.startswith(prefixes) for path in store.path.parent.iterdir())
 

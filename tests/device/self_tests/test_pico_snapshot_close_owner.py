@@ -5,6 +5,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import tempfile
+import time
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -12,6 +13,10 @@ import uuid
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.navigation import NavigationError
 from adapters.pico4.snapshot_close_owner import PicoSnapshotCloseOwner
+from adapters.pico4.snapshot_close_statuses import SnapshotCloseStatuses,LIMIT as STATUS_LIMIT
+from adapters.script_journey.lock import ScriptSourceLock
+from adapters.script_journey.history import pack
+from adapters.pico4.snapshot_upload_owner import sha
 from adapters.pico4.snapshot_cancel_owner import PicoSnapshotCancelOwner
 from adapters.pico4.snapshot import PicoSnapshot,MODES,FORMATS
 from adapters.pico4.navigation import PicoNavigation,NativeNavigationIO
@@ -25,8 +30,8 @@ class CloseBoundary:
         self.m=ReturnBoundary(root);self.image=self.m.owner();self.image.acquire();self.b=self.m.b
         self.commands=[];self.last_sequence=self.b.origin['base']['ui']['lastCommandSequence'];self.popup=None
         self.open=True;self.generation=self.b.origin['base']['ui']['generation'];self.mode=self.b.origin['base']['ui']['picoSnapshotReview']['review']['mode']
-        self.format=self.b.origin['base']['ui']['picoSnapshotReview']['review']['format'];self.status={};self.ignore=False;self.lose=False
-        self.closed_generation=None;self.live_owner=None;self.publish_delay=0;source_frame=self.b.frame
+        self.format=self.b.origin['base']['ui']['picoSnapshotReview']['review']['format'];self.status={};self.neutral_epoch=self.b.epoch();self.ignore=False;self.lose=False
+        self.closed_generation=None;self.live_owner=None;self.publish_delay=0;self.held_at=None;self.unknown_at=None;self.status_samples=[];source_frame=self.b.frame
         def frame():
             value=source_frame();ui=value['base']['ui'];ui.update(open=self.open,ready=self.open,generation=self.generation,lastCommandSequence=self.last_sequence,elapsedMs=round(self.b.host*1000))
             ui['picoSnapshotReview']['review'].update(mode=self.mode,format=self.format)
@@ -47,7 +52,7 @@ class CloseBoundary:
                     b.host+=test.publish_delay
                     with patch.object(test.live_owner.source,'status',side_effect=AssertionError('Phase IO under publication')),patch.object(test.live_owner.store,'read',side_effect=AssertionError('File IO under publication')),patch.object(native,'guard',side_effect=AssertionError('Native guard under publication')):
                         before_publish(deepcopy(envelope));before_publish(deepcopy(envelope))
-                self.envelopes.append(deepcopy(envelope));self.sent.append(deepcopy(envelope))
+                self.envelopes.append(deepcopy(envelope));self.sent.append(deepcopy(envelope));test.neutral_epoch=b.epoch()
                 if not test.ignore:
                     test.open=False;test.generation=str(uuid.uuid4());test.closed_generation=test.generation
                 if test.lose=='controller-stage':raise OSError('Explicit lost consumed controller response')
@@ -55,7 +60,16 @@ class CloseBoundary:
             def read_status(self,**kwargs):
                 if test.lose=='controller-ack' and kwargs.get('expected_sequence') is not None:
                     test.lose=False;raise OSError('Explicit lost acknowledgement after actual Session cursor commit')
-                return dict(super().read_status(**kwargs),updatedEpochMs=b.epoch())
+                value=dict(super().read_status(**kwargs),updatedEpochMs=b.epoch())
+                if kwargs.get('expected_sequence') is None:
+                    # The original protocol publishes a transition epoch, not
+                    # a sampling clock. Neutral answers stay byte-equivalent.
+                    value.update(enabled=False,updatedEpochMs=test.neutral_epoch)
+                    count=len(test.live_owner.statuses.values) if test.live_owner is not None else -1
+                    if test.held_at==count:test.held_at=None;value.update(state='active',activeCommandId='tablet-close-2',enabled=True)
+                    if test.unknown_at==count:test.unknown_at=None;value=dict(state='unknown',detail='Explicit unavailable original DTO')
+                    test.status_samples.append(deepcopy(value))
+                return value
         self.transport=Transport();self.transport.sent=[];self.session=PicoOpenXrAdapterSession(self.transport,'synthetic-close-owner',root)
         # Seed the actual private Session file with the archived model's
         # original nonce/cursor. This test setup is not a production adoption.
@@ -121,8 +135,9 @@ class SnapshotCloseCase(unittest.TestCase):
 class SnapshotCloseOwnerTests(SnapshotCloseCase):
     def test_normal_original_mode_format_controls_then_controller_close_new_generation_neutral_and_quiet(self):
         m=self.model();owner=m.owner();old=m.image.store.read();owner.prepare();owner.restore();self.assertTrue(owner.report()['checkedModeFormatRestored'])
-        owner.close();result=owner.quiet();self.assertEqual('partial-closed',result['stage']);self.assertTrue(result['tabletClosed']);self.assertTrue(result['originalControllerNeutral'])
+        owner.close();result=owner.quiet();self.assertEqual('partial-closed',result['stage']);self.assertTrue(result['tabletClosed']);self.assertTrue(result['originalControllerNeutral']);self.assertTrue(result['continuousOriginalNeutral'])
         self.assertFalse(result['completeSettingsBaseline']);self.assertFalse(result['qtObjectsRetired']);self.assertFalse(result['fullSnapshotRecipe'])
+        self.assertEqual(1,len({row['original']['status']['updatedEpochMs'] for row in owner.statuses.values}));self.assertGreaterEqual(owner.state['frames'][-1]['hostMonotonic']-owner.state['frames'][owner.state['quiet'][0]['indices'][0]]['hostMonotonic'],3)
         self.assertEqual(old,m.image.store.read());self.assertEqual(m.closed_generation,owner.state['closedGeneration']);self.assertNotEqual(m.generation,m.b.origin['base']['ui']['generation'])
         self.assertEqual(['snapshot.mode','snapshot.mode.'+m.base.snapshot.state['originalMode'],'snapshot.format','snapshot.format.'+m.base.snapshot.state['originalFormat']],[row['controlId'] for row in m.commands])
         self.assertEqual(1,len(m.transport.sent));self.assertTrue(m.base.snapshot.path.exists());self.assertTrue(m.base.snapshot.ui.path.exists())
@@ -135,6 +150,8 @@ class SnapshotCloseOwnerTests(SnapshotCloseCase):
             state=deepcopy(reopened.state);state['steps'][1]['before']=0
             with self.assertRaises(NativeUIError):reopened.validate(state)
             state=deepcopy(reopened.state);state['neutrals'][-1]['value']['updatedEpochMs']+=2000;state['neutral']=deepcopy(state['neutrals'][-1]['value'])
+            with self.assertRaises(NativeUIError):reopened.validate(state)
+            state=deepcopy(reopened.state);state['quiet'][0]['finalStatus']-=1
             with self.assertRaises(NativeUIError):reopened.validate(state)
             state=deepcopy(reopened.state);state['closedGeneration']=m.b.origin['base']['ui']['generation']
             with self.assertRaises(NativeUIError):reopened.validate(state)
@@ -202,6 +219,69 @@ class SnapshotCloseFenceTests(SnapshotCloseCase):
         cold=m.owner(cold=True)
         with self.assertRaises(NativeUIError):cold.reconcile()
         self.assertEqual([],m.transport.sent);self.assertTrue(cold.store.path.exists())
+
+
+class SnapshotCloseStatusTests(SnapshotCloseCase):
+    def test_held_unknown_and_unframed_actual_answers_are_archived_once_before_rejection(self):
+        m=self.model();owner=m.owner();owner.prepare();owner.restore();owner.close();m.held_at=2;before=len(m.status_samples)
+        with self.assertRaises(NativeUIError):owner.quiet()
+        self.assertEqual(2,len(m.status_samples)-before);held=owner.statuses.read(len(owner.statuses.values)-1)
+        self.assertEqual('active',held['status']['state']);self.assertEqual(m.status_samples[-1],held['status']);self.assertEqual(m.neutral_epoch,held['status']['updatedEpochMs'])
+        self.assertEqual('quiet-issued',owner.state['stage']);self.assertFalse(owner.report()['originalControllerNeutral']);self.assertFalse(owner.report()['continuousOriginalNeutral'])
+        cold=m.owner(cold=True);self.assertEqual(held,cold.statuses.read(len(cold.statuses.values)-1));m.unknown_at=len(cold.statuses.values);before=len(m.status_samples)
+        with self.assertRaises(NativeUIError):cold.reconcile()
+        self.assertEqual(1,len(m.status_samples)-before);self.assertEqual(m.status_samples[-1],cold.statuses.read(len(cold.statuses.values)-1)['status'])
+        self.assertEqual('unknown',m.status_samples[-1]['state']);self.assertFalse(cold.report()['originalControllerNeutral'])
+        count=len(cold.statuses.values);frames=len(cold.state['frames'])
+        with patch.object(m.b.parent,'read_frame',side_effect=OSError('Explicit acquisition failure after actual status')),self.assertRaises(NativeUIError):cold.reconcile()
+        self.assertEqual(count+1,len(cold.statuses.values));self.assertEqual(frames,len(cold.state['frames']))
+        again=m.owner(cold=True);self.assertEqual(cold.statuses.values,again.statuses.values);self.assertFalse(again.report()['continuousOriginalNeutral'])
+        self.assertEqual(1,len(m.transport.sent));self.assertTrue(again.statuses.root.path.exists())
+        before=len(m.status_samples);original=deepcopy(again.statuses.values)
+        with m.b.lock.held():
+            again.statuses.values[-1]['original']['status']['state']='active'
+            with self.assertRaises(NativeUIError):again.bound()
+            again.statuses.values=original;again.bound()
+        self.assertEqual(before,len(m.status_samples))
+        held_header=again.store.path.with_suffix('.held');again.store.path.rename(held_header)
+        try:
+            with self.assertRaises(NativeUIError):m.owner(cold=True)
+            self.assertEqual(before,len(m.status_samples));self.assertEqual(1,len(m.transport.sent))
+        finally:held_header.rename(again.store.path)
+
+    def test_legacy_v1_closed_record_is_passively_read_without_rewrite_or_new_input(self):
+        m=self.model();owner=m.owner();owner.prepare();owner.restore();owner.close()
+        with m.b.lock.held():
+            state=deepcopy(owner.state);state.pop('statusFrames');legacy=deepcopy(owner.disk);legacy['snapshotCloseOwnerVersion']=1
+            legacy['payload']=pack([owner.originals.encode(state)]);owner.store.write(legacy,owner.disk)
+        raw=owner.store.path.read_bytes();queries=m.b.queries;reads=len(m.status_samples);cold=m.owner(cold=True)
+        self.assertEqual(1,cold.report()['legacyVersion']);self.assertFalse(cold.report()['continuousOriginalNeutral']);self.assertFalse(cold.report()['originalControllerNeutral'])
+        for operation in (cold.reconcile,cold.quiet,cold.restore,cold.close):
+            with self.assertRaises(NativeUIError):operation()
+        self.assertEqual(raw,cold.store.path.read_bytes());self.assertEqual(queries,m.b.queries);self.assertEqual(reads,len(m.status_samples));self.assertEqual(1,len(m.transport.sent))
+
+
+class SnapshotCloseStatusBudgetTests(unittest.TestCase):
+    def test_actual_full_private_status_store_refuses_another_read_before_transport(self):
+        # Narrow storage/API proof. The Parent/UI/candidate are not constructed
+        # here; the separately tested normal Close composition supplies them.
+        from self_tests.test_pico_snapshot_background_owner import fixture
+        binding=fixture()[0]['header']['binding'];identity=binding['processIdentity']
+        with tempfile.TemporaryDirectory(prefix='snapshot-status-cap-') as directory:
+            root=Path(directory);root.chmod(0o700);transport=FakeTransport();transport.reads=0;read=transport.read_status
+            def actual(**options):
+                transport.reads+=1;return dict(read(**options),updatedEpochMs=20000)
+            transport.read_status=actual;session=PicoOpenXrAdapterSession(transport,'synthetic-status-cap',root);session.begin(identity)
+            session.stage(identity,'tablet.close',dict(holdMilliseconds=1000));envelope=transport.envelopes[-1];before=session.state_path.read_bytes()
+            owner=object.__new__(PicoSnapshotCloseOwner);owner.encoding_version=2;owner.binding=binding;owner.session=session
+            owner.state=dict(controller=dict(envelope=envelope));owner.native=SimpleNamespace(monotonic=time.monotonic)
+            owner.lock=ScriptSourceLock(root/'script-sources.lock');owner.statuses=SnapshotCloseStatuses(root/'snapshot-close-statuses.json','e'*32,binding,session.profile)
+            with owner.lock.held():
+                for index in range(STATUS_LIMIT):self.assertEqual(index,owner.record_status())
+                reads=transport.reads;manifest=owner.statuses.root.path.read_bytes()
+                with self.assertRaises(NativeUIError):owner.record_status()
+                self.assertEqual(reads,transport.reads);self.assertEqual(manifest,owner.statuses.root.path.read_bytes())
+            self.assertEqual(STATUS_LIMIT,len(owner.statuses.values));self.assertEqual(1,len(transport.envelopes));self.assertEqual(before,session.state_path.read_bytes())
 
 
 if __name__=='__main__':unittest.main()

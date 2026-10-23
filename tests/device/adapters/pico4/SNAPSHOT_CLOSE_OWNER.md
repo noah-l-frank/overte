@@ -35,9 +35,11 @@ A hidden Review may remain present; its original values are checked when
 present. Original native capture requests, VM history, files, retired upload
 objects, script work, account identity, lifecycle return and backend mutation
 scope remain independently bound. Three seconds of contiguous quiet span every
-original source clock and actual Session-neutral status time, with gaps no
-greater than 500 ms. A fresh owned neutral status is read for every closed
-sample. All journals and the original UI/preference records remain retained.
+original advancing source/host clock, with gaps no greater than 500 ms. V2
+reads one original controller answer for every closed sample, preserves it
+before assessing it and requires the same neutral DTO throughout the window
+and in one final answer. All journals and the original UI/preference records
+remain retained.
 
 Unknown QML input is reconciled only by observing its original effect. Once the
 popup action is proven, restoration may issue the previously unissued option;
@@ -91,13 +93,13 @@ the first new host setup began a fresh synthetic Session; it was replaced by
 the archived original nonce/cursor, and source admission explicitly binds the
 original sequence before any new controller publication.
 
-The three disjoint selections retain the unchanged 120 s group deadline:
+The disjoint selections retain the unchanged 120 s group deadline:
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 TMPDIR=<owned-private-tmp> python3 \
   android/vr/pico/tests/pico4-test-suite.py \
   --test snapshot-close-owner --test snapshot-close-recovery \
-  --test snapshot-close-fences --test coverage-matrix \
+  --test snapshot-close-fences --test snapshot-close-statuses --test coverage-matrix \
   --junit <owned-private-report>
 ```
 
@@ -107,7 +109,8 @@ copied as Pico authority. Its thirteen-key settings lease also confirms why the
 three original capture-context keys are insufficient; no Phone restore setter,
 SDK authority or touch route is used here.
 
-The final source passed all eight component cases in disjoint owning selections:
+The V1 source originally passed eight host-component cases in disjoint owning
+selections; its status semantics are superseded by the V2 correction below:
 `snapshot-close-owner` 88.885 s (3 cases, final v5),
 `snapshot-close-recovery` 112.803 s (2 cases, v4), and
 `snapshot-close-fences` 114.831 s (3 cases, v4). Coverage passed in 0.059 s.
@@ -117,3 +120,67 @@ exception expectation; source was unchanged. All per-group deadlines stayed
 recipe prefix, compiler, native product process, device, renderer or service was
 run for this Close packet. The earlier separate warm prefix and current
 component originals must not be described as one whole acceptance result.
+
+## V2 original status correction
+
+The V1 implementation used `require_owned_neutral`, which can poll past an
+actual active answer. Its host fixture also assigned a new `updatedEpochMs`
+when reading status. The actual `Protocol::publishStatus` in
+`E2eInputProtocol.cpp` publishes that field at a state transition; it is not a
+sampling clock. Consequently the V1 host result was not a proof of the actual
+status behavior. V1 records remain strictly validated historical data and are
+read-only. They cannot produce `continuousOriginalNeutral` or resume input;
+there is no migration that adds missing actual answers.
+
+V2 uses the unchanged `PicoOpenXrAdapterSession.observe_owned_status` and test
+from reviewed `d01c48041bca48bd400d40f796b54849ef9a4c89`. The local dependency-only
+`0b4db57a58` must not be selected back into root. That helper validates the exact
+original process/nonce/cursor and returns exactly one original transport answer.
+It neither polls for neutral nor changes the Session cursor or native input.
+The complete returned JSON value is stored in the existing immutable chunk
+mechanism under `snapshot-close-statuses.json` before UI/frame acquisition or
+neutral validation. Every answer has its own sequence even when its bytes are
+identical. Original envelope, host observation time, private scope, manifest,
+full file signatures and strict JSON graph remain bound. Active, unknown and
+unlinked answers remain visible after cold construction, including when later
+frame acquisition fails. A missing owner header cannot adopt retained original
+manifests as a new owner. Orphan status manifests/chunks block base cleanup.
+
+A qualifying V2 window references every consecutive status original from its
+first frame through the final one-read answer. No intermediate answer can be
+filtered out or omitted by skipping a reference. Each answer must be neutral
+for the exact owned stream and byte-equivalent to the first DTO, including its
+unchanged actual transition epoch. That event must follow the original
+pre-controller frame; it is never retimed and is not required to advance over
+three seconds. The existing actual frame and host clocks still span at least
+three seconds at the same 250 ms sampling cadence and maximum 500 ms gap.
+Controller status reads have the same 96-entry bound as the existing owner
+frame bound; no timeout, frame cap, cadence or acceptance requirement is raised.
+An active or unknown returned value is retained before rejection. A new quiet
+attempt, if otherwise authorized, must establish a new complete actual window.
+Historical completion never erases later unresolved originals.
+
+The V2 host producer keeps the original transition epoch constant. Dedicated
+counterexamples return a held answer between neutral samples at that exact
+same epoch, then an unknown answer, and fail frame acquisition after a further
+actual answer. Each original remains unchanged and no extra controller command
+is delivered. Cold V1 reading performs no status query or input and rewrites
+neither the old header nor its parent originals. These remain host/native/SDK
+seams, not physical OpenXR evidence. Whole Snapshot, settings restoration and
+global resource-retirement boundaries above remain unchanged.
+
+V2 verification passed the four owning groups plus coverage in 361.64 s:
+normal/factory 88.515 s (3 cases), recovery 80.433 s (2 cases), fences 92.763 s
+(3 cases), and initial status/legacy 99.868 s (2 cases). Final self-review added
+a pre-read capacity check: once all 96 original-answer slots are full, another
+SDK response must not be requested if it cannot be retained. The status group
+then passed all 3 cases in 97.686 s, including a genuinely full private store
+with 96 immutable files, the actual Session helper and an unchanged transport
+read counter/cursor at refusal. Its held sample uses the actual active enabled
+flag. Coverage passed in 0.061 s. Existing deadlines, cadence and bounds remain
+unchanged. The shared helper's unchanged single-read test and the normal V2
+constant-event-clock case also passed together in 53.569 s.
+
+Four selected repository checks passed in 3.93 s; the contract registry and
+documentation/diff checks also passed. No compiler, native product run, device
+operation or service was started for V2.
