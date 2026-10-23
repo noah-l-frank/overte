@@ -42,6 +42,14 @@ Places model or Address UI root and original carrier hash. The binding uses a
 hash of the actual SDK session identifier. This privacy projection cannot
 establish root destruction or substitute for the later OS process proof.
 
+`NavigationRunRetirement` acquires the actual retired phase, navigation and
+scene authorities in a bounded original controller bracket. The final cleanup
+ticket must agree and all three sources must report retirement. Its historical
+decoder preserves integer provider/controller quantization and fractional
+phase clocks within one millisecond. Three loopback host tests cover exact
+replay, live/wrong-ticket refusal and changed provider/phase/clock context.
+This is fixture authority only; it supplies no product facts or process end.
+
 This component currently supports the already-proven restarted process only.
 Partial setup, pre-restart failure restoration, paired worker/dispatcher and
 source-to-terminal process/SDK retirement remain required before the complete

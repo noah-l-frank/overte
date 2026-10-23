@@ -511,6 +511,7 @@
     "ios-navigation-restoration": {"current": 1, "reads": [1]},
     "ios-navigation-restoration-reference": {"current": 1, "reads": [1]},
     "ios-navigation-restoration-phase": {"current": 1, "reads": [1]},
+    "ios-navigation-run-retirement": {"current": 1, "reads": [1]},
     "ios-snapshot-exports": {"current": 1, "reads": [1]},
     "ios-snapshot-destination": {"current": 1, "reads": [1]},
     "ios-snapshot-share-original": {"current": 1, "reads": [1]},
