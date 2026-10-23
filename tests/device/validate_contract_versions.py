@@ -84,7 +84,7 @@ REQUIRED = {
     "native-script-work": 2,
     "native-script-load-history": 1,
     "native-process-presence": 1,
-    "native-script-manager-status": 1,
+    "native-script-manager-status": 2,
     "phone-script-ui-inventory": 1,
     "phone-script-measurements": 2,
     "phone-existing-input-session": 1,

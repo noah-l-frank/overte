@@ -17,9 +17,10 @@ from self_tests.test_normal_script_missing import URL
 
 def observed(**changes):
     status = 'Failed to load ' + URL + ': server returned 404'
-    return dict(managerSourceVersion=1, available=True,
+    return dict(managerSourceVersion=2, available=True,
         componentSource='file:///actual/client/resources/qml/hifi/dialogs/TabletRunningScripts.qml',
-        statusText=status, labelText=status, rootVisible=True, labelVisible=True) | changes
+        statusText=status, labelText=status, rootVisible=True, labelVisible=True,
+        errorUrl=URL,errorEpochMs=20000) | changes
 
 
 def snapshot(value=None):
@@ -40,18 +41,28 @@ class ScriptManagerStatusTests(unittest.TestCase):
         for changes in ({'labelText': ''}, {'labelText': 'old error'}, {'rootVisible': False}, {'labelVisible': False}):
             with self.subTest(changes=changes), self.assertRaises(NativeUIError): missing_error(snapshot(observed(**changes)), URL)
 
-    def test_foreign_url_basename_only_or_loading_status_cannot_be_adopted(self):
-        for text in ('Failed to load missing.js', 'Loading missing.js', 'Failed to load ' + URL + '-foreign',
+    def test_foreign_url_or_loading_status_cannot_be_adopted(self):
+        for text in ('Loading missing.js', 'Failed to load ' + URL + '-foreign',
                      'Failed to load ' + URL.replace('fixture.test', 'foreign.test')):
             with self.subTest(text=text), self.assertRaises(NativeUIError):
                 missing_error(snapshot(observed(statusText=text, labelText=text)), URL)
+
+    def test_compact_label_needs_actual_full_url_and_current_signal_epoch(self):
+        text='Failed to load missing.js'
+        actual=missing_error(snapshot(observed(statusText=text,labelText=text)),URL,after_epoch=19999)
+        self.assertEqual(URL,actual['errorUrl']);self.assertEqual(text,actual['labelText'])
+        for fields in ({'errorUrl':URL.replace('fixture.test','foreign.test')},
+                       {'errorEpochMs':19998},{'errorUrl':'','errorEpochMs':0},
+                       {'managerSourceVersion':1}):
+            with self.subTest(fields=fields),self.assertRaises(NativeUIError):
+                missing_error(snapshot(observed(statusText=text,labelText=text,**fields)),URL,after_epoch=19999)
 
     def test_actual_optional_error_suffix_is_preserved_without_inventing_it(self):
         text = 'Failed to load ' + URL
         self.assertEqual(text, missing_error(snapshot(observed(statusText=text, labelText=text)), URL)['labelText'])
 
     def test_unavailable_old_or_missing_extension_is_not_an_empty_measured_status(self):
-        unavailable = dict(managerSourceVersion=1, available=False)
+        unavailable = dict(managerSourceVersion=2, available=False)
         self.assertEqual(unavailable, validate(unavailable))
         for packet in (snapshot(unavailable), dict(fileControlsVersion=1, ready=True, controls=[]),
                        dict(fileControlsVersion=1, ready=True, controls=[dict(id='scripts.from-file')])):
@@ -66,7 +77,7 @@ class ScriptManagerStatusTests(unittest.TestCase):
             with self.subTest(fault=fault), self.assertRaises(NativeUIError): manager_status(packet)
 
     def test_native_property_types_foreign_context_unknown_or_missing_fields_fail(self):
-        for edit in ({'managerSourceVersion': True}, {'available': 1}, {'rootVisible': 1}, {'statusText': None},
+        for edit in ({'managerSourceVersion': True}, {'managerSourceVersion':1}, {'available': 1}, {'rootVisible': 1}, {'statusText': None},
                      {'labelText': 'x' * 8193}, {'labelText': 'private\0bytes'}, {'extra': True},
                      {'componentSource': 'http://foreign.test/hifi/dialogs/TabletRunningScripts.qml'},
                      {'componentSource': 'file://foreign/hifi/dialogs/TabletRunningScripts.qml'},
@@ -89,12 +100,15 @@ class ScriptManagerStatusTests(unittest.TestCase):
         qml = (Path(__file__).resolve().parents[3] / 'interface/resources/qml/hifi/dialogs/TabletRunningScripts.qml').read_text()
         import re
         handler = re.search(r'function onScriptLoadError\(url, error\) \{([^}]+)\}', qml).group(1)
-        program = 'let root={status:""};const url=' + json.dumps(URL) + ',error="server returned 404";'
+        filename=re.search(r'function filename\(url\) \{([^}]+)\}',qml).group(1)
+        program = 'let root={status:"",lastLoadErrorUrl:"",lastLoadErrorEpochMs:0};root.filename=function(url){'+filename+'};const url=' + json.dumps(URL) + ',error="server returned 404";'
         program += handler + ';process.stdout.write(JSON.stringify(root));'
         completed = subprocess.run(['node', '-e', program], capture_output=True, text=True, timeout=5)
         self.assertEqual(0, completed.returncode, completed.stderr)
-        status = json.loads(completed.stdout)['status']
-        self.assertEqual(status, missing_error(snapshot(observed(statusText=status, labelText=status)), URL)['labelText'])
+        actual=json.loads(completed.stdout);status=actual['status']
+        self.assertEqual(URL,actual['lastLoadErrorUrl']);self.assertGreater(actual['lastLoadErrorEpochMs'],0)
+        self.assertEqual(status, missing_error(snapshot(observed(statusText=status, labelText=status,
+            errorUrl=actual['lastLoadErrorUrl'],errorEpochMs=actual['lastLoadErrorEpochMs'])), URL)['labelText'])
         with self.assertRaises(NativeUIError): missing_error(snapshot(observed(statusText=status, labelText='')), URL)
 
 

@@ -80,6 +80,11 @@ int main() { testBakedMappingOwnership(); }
 #include <QUuid>
 #include "FileDialogHelper.h"
 #include "bundle-network.h"
+// Compile the original guarded passive source in this existing host harness.
+// Only PathUtils registration and application startup are host boundaries.
+#define OVERTE_E2E_FEATURE_TESTS
+#include "tests/device/native/ScriptManagerStatus.h"
+#undef OVERTE_E2E_FEATURE_TESTS
 Q_LOGGING_CATEGORY(asset_client,"test.asset-client")
 #include "bundle-script.h"
 #include "bundle-dialogs.h"
@@ -327,6 +332,12 @@ class Services : public QObject {
     Q_PROPERTY(int fileDialogCount READ fileDialogCount)
     Q_PROPERTY(int urlDialogCount READ urlDialogCount)
 public:
+    Q_INVOKABLE QVariantMap managerStatus(QObject* root) {
+        return overte::e2e::scriptManagerRootStatus(qobject_cast<QQuickItem*>(root)).toVariantMap();
+    }
+    Q_INVOKABLE QVariantMap managerStatusFromControl(QObject* item) {
+        return overte::e2e::scriptManagerStatus(qobject_cast<QQuickItem*>(item)).toVariantMap();
+    }
     Q_INVOKABLE QString firstPartyAppSource(const QString& name) {
         // Execute the original router; only the Script/tablet OS boundary is
         // synthetic. The QML test loads the actual source selected by its tap.
@@ -554,7 +565,14 @@ public slots:
         for(auto* name:{"ApplicationInterface","HMD","MenuInterface","Tablet","KeyboardScriptingInterface","MyAvatar","Vec3","Quat","Window","webEntity","QmlSurface","Pointers","Controller","Reticle"})context->setContextProperty(name,&service.context);
     }
 };
-int main(int argc,char**argv){QApplication app(argc,argv);Setup setup;return quick_test_main_with_setup(argc,argv,"NativeScriptsAssets",nullptr,&setup);}
+int main(int argc,char**argv){
+    // The host app genuinely starts in the guarded E2E mode. Keep QuickTest's
+    // own original arguments separate so it does not parse this application flag.
+    QList<QByteArray> storage;for(int i=0;i<argc;++i)storage.append(argv[i]);storage.append("--testScript");
+    QVector<char*> applicationArgs;for(auto& argument:storage)applicationArgs.append(argument.data());applicationArgs.append(nullptr);
+    int applicationArgc=storage.size();QApplication app(applicationArgc,applicationArgs.data());
+    Setup setup;return quick_test_main_with_setup(argc,argv,"NativeScriptsAssets",nullptr,&setup);
+}
 #include "native-services.moc"
 
 #endif

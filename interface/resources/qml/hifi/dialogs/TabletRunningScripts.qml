@@ -19,6 +19,10 @@ Rectangle {
     property bool developerMenuEnabled: false
     property bool isHMD: HMD.active
     property string status: ""
+    // Passive original signal identity for the private E2E reader. Keep the
+    // compact user-facing label; never reconstruct this URL from a test input.
+    property string lastLoadErrorUrl: ""
+    property double lastLoadErrorEpochMs: 0
     readonly property int controlHeight: Math.max(32, metrics.adaptiveMinimumControlHeight)
     signal sendToScript(var message)
     function filename(url) { return String(url).split(/[?#]/)[0].replace(/\\/g, "/").split("/").pop(); }
@@ -46,7 +50,11 @@ Rectangle {
     Connections {
         target: root.scripts
         function onScriptCountChanged() { root.updateRunningScripts(); }
-        function onScriptLoadError(url, error) { root.status = "Failed to load " + root.filename(url) + (error ? ": " + error : ""); }
+        function onScriptLoadError(url, error) {
+            root.lastLoadErrorUrl = String(url);
+            root.lastLoadErrorEpochMs = Date.now();
+            root.status = "Failed to load " + root.filename(url) + (error ? ": " + error : "");
+        }
     }
     Timer { interval: 1000; repeat: true; running: root.visible; onTriggered: root.developerMenuEnabled = MenuInterface.isOptionChecked("Developer Menu") }
     HifiControls.TouchUiMetrics { id: metrics }

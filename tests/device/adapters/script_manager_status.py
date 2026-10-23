@@ -7,9 +7,9 @@ from urllib.parse import urlsplit
 from adapters.normal_feature_state import need
 from adapters.normal_script_manager import missing_script_url
 
-VERSION = 1
+VERSION = 2
 FIELDS = {'managerSourceVersion', 'available', 'componentSource', 'statusText',
-          'labelText', 'rootVisible', 'labelVisible'}
+          'labelText', 'rootVisible', 'labelVisible', 'errorUrl', 'errorEpochMs'}
 
 
 def validate(value):
@@ -29,6 +29,10 @@ def validate(value):
     for key in ('statusText', 'labelText'):
         need(type(value[key]) is str and len(value[key]) <= 8192
              and all(ord(char) >= 32 or char in '\r\n\t' for char in value[key]))
+    need(type(value['errorUrl']) is str and len(value['errorUrl'])<=8192
+         and all(ord(char)>=32 for char in value['errorUrl'])
+         and type(value['errorEpochMs']) is int and 0<=value['errorEpochMs']<=2**53-1
+         and (value['errorEpochMs']==0 if not value['errorUrl'] else value['errorEpochMs']>=1))
     return value
 
 
@@ -44,10 +48,18 @@ def manager_status(snapshot):
     return deepcopy(value)
 
 
-def missing_error(snapshot, url):
+def missing_status(value, url, *, after_epoch=0):
     missing_script_url(url)
-    value = manager_status(snapshot)
+    value=validate(value);need(value['available'])
     need(value['rootVisible'] and value['labelVisible'] and value['labelText'] == value['statusText'])
-    prefix = 'Failed to load ' + url
-    need(value['labelText'] == prefix or value['labelText'].startswith(prefix + ': '))
+    need(type(after_epoch) is int and after_epoch>=0 and value['errorUrl']==url
+         and value['errorEpochMs']>=after_epoch)
+    # The label may be compact, but an actual independently recorded full URL
+    # and signal epoch remain mandatory. A basename alone is never identity.
+    prefixes=('Failed to load '+url,'Failed to load '+urlsplit(url).path.rsplit('/',1)[-1])
+    need(any(value['labelText']==prefix or value['labelText'].startswith(prefix+': ') for prefix in prefixes))
     return value  # Original text, not a claimed NotFound callback or peer result.
+
+
+def missing_error(snapshot, url, *, after_epoch=0):
+    return deepcopy(missing_status(manager_status(snapshot),url,after_epoch=after_epoch))

@@ -219,7 +219,7 @@ class ScriptMeasurementTests(unittest.TestCase):
     def failure(self):
         self.empty()
         status = 'Failed to load ' + MISSING + ': server returned 404'
-        self.ui['scriptInventory']['managers'] = [observed(statusText=status, labelText=status)]
+        self.ui['scriptInventory']['managers'] = [observed(statusText=status, labelText=status,errorUrl=MISSING,errorEpochMs=20000)]
         history(self.execution, [event(url=MISSING)])
 
     def test_live_original_engine_code_loaded_companion_and_local_effect_supply_six_actual_fields(self):
@@ -349,13 +349,23 @@ class ScriptMeasurementTests(unittest.TestCase):
     def test_historical_or_foreign_label_broken_binding_and_hidden_error_fail(self):
         self.failure(); original = deepcopy(self.ui)
         for edit in ({'labelText': 'old error'}, {'labelVisible': False},
-                     {'statusText': 'Failed to load missing.js', 'labelText': 'Failed to load missing.js'},
+                     {'statusText': 'Failed to load missing.js', 'labelText': 'Failed to load missing.js',
+                      'errorUrl':MISSING.replace('fixture.test','foreign.test')},
+                     {'errorEpochMs':18999},
+                     {'errorEpochMs':20001},
                      {'statusText': 'Failed to load ' + MISSING.replace('fixture.test', 'foreign.test'),
                       'labelText': 'Failed to load ' + MISSING.replace('fixture.test', 'foreign.test')}):
             self.ui = deepcopy(original); self.ui['scriptInventory']['managers'][0].update(edit)
             with self.subTest(edit=edit), self.assertRaises(NativeUIError): self.measured()
         self.ui = deepcopy(original)
         with self.assertRaises(NativeUIError): self.measured(ticket='c' * 32)
+
+    def test_compact_label_joins_actual_full_url_signal_and_native_not_found(self):
+        self.failure();manager=self.ui['scriptInventory']['managers'][0]
+        manager.update(statusText='Failed to load missing.js',labelText='Failed to load missing.js')
+        self.assertEqual('not-found',self.measured()['state']['error'])
+        manager['errorUrl']=MISSING.replace(TICKET,'c'*32)
+        with self.assertRaises(NativeUIError):self.measured()
 
     def test_closing_actual_page_does_not_republish_retained_old_error(self):
         self.failure(); self.ui['scriptInventory']['tabletShown'] = False

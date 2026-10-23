@@ -56,7 +56,7 @@ class ScriptFeatureTests(unittest.TestCase):
         self.f.target['capabilities']['appium:autoLaunch']=False
         self.f.adapter.read_session(bound.SELECTOR)['targetFingerprint']=self.f.adapter.snapshot_fingerprint(self.f.target)
         self.clock=0.0;self.ticket_count=0;self.events=[];self.active_engine=None;self.retired=[]
-        self.engine_count=0;self.member_revision=0;self.status='';self.input_ignored=False
+        self.engine_count=0;self.member_revision=0;self.status='';self.error_url='';self.error_epoch=0;self.input_ignored=False
         self.birth='d'*32;self.load_birth='c'*32
         self.server=make_server(secrets.token_hex(32),secrets.token_hex(32))
         self.server.script_resources.clock_ms=self.epoch
@@ -122,7 +122,7 @@ class ScriptFeatureTests(unittest.TestCase):
                     opened=self.f.native.screen=='scripts'
                     picker_open=any('picker' in row for row in value['controls'])
                     value['scriptInventory']=inventory([observed(statusText=self.status,labelText=self.status,
-                        labelVisible=bool(self.status))] if opened else [],[picker()] if picker_open else [],
+                        labelVisible=bool(self.status),errorUrl=self.error_url,errorEpochMs=self.error_epoch)] if opened else [],[picker()] if picker_open else [],
                         tabletPresent=self.f.native.screen is not None,tabletShown=self.f.native.screen is not None)
             elif path.endswith('/feature-native-observation.json'):
                 def timestamps(node):
@@ -159,12 +159,13 @@ class ScriptFeatureTests(unittest.TestCase):
                 try:
                     self.assertEqual(404,error.code);error.read()
                     self.events.append(event(len(self.events)+1,url=self.f.native.text,callbackEpochMs=self.epoch()))
-                    self.status='Failed to load '+self.f.native.text+': server returned 404'
+                    self.error_url=self.f.native.text;self.error_epoch=self.epoch()
+                    self.status='Failed to load missing.js: server returned 404'
                 finally:error.close()
         self.f.native.mutation=input_mutation
         def launch():
             self.birth='a'*32;self.load_birth='7'*32;self.events=[];self.active_engine=None;self.retired=[]
-            self.member_revision=0;self.status=''
+            self.member_revision=0;self.status='';self.error_url='';self.error_epoch=0
             self.f.native.identity='32:15';self.f.native.screen=None;self.f.native.rows=[];self.f.native.instance='9'*32
             self.f.script_measurement_ui.ui.opened=False
             self.f.script_measurement_ui.ui.instance='e'*32

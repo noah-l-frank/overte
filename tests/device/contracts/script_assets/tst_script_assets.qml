@@ -148,6 +148,58 @@ TestCase {
             width = 360; height = 760;
         }
     }
+    function test_scriptManagerStatusUsesActualNestedLabelAndFullSignalIdentity() {
+        var scripts=production("hifi/dialogs/TabletRunningScripts.qml")
+        TestServices.loadError()
+        var actual=TestServices.managerStatus(scripts)
+        compare(actual.managerSourceVersion,2);verify(actual.available)
+        compare(actual.errorUrl,"https://example.invalid/fail.js")
+        verify(actual.errorEpochMs>0)
+        compare(actual.labelText,"Failed to load fail.js")
+        compare(actual.statusText,actual.labelText)
+        verify(actual.rootVisible && actual.labelVisible)
+        var carrier=TestServices.managerStatusFromControl(control(scripts,"scriptFromFile"))
+        compare(carrier,actual)
+        var label=control(scripts,"scriptStatus")
+        label.visible=false;verify(!TestServices.managerStatus(scripts).labelVisible)
+        label.visible=true
+        label.text="ignored display binding"
+        compare(TestServices.managerStatus(scripts).labelText,"ignored display binding")
+        verify(TestServices.managerStatus(scripts).statusText!=="ignored display binding")
+    }
+
+    function test_scriptManagerStatusRejectsForeignAndAmbiguousLabelObjects() {
+        var scripts=production("hifi/dialogs/TabletRunningScripts.qml")
+        TestServices.loadError()
+        var label=control(scripts,"scriptStatus")
+        label.objectName="removed-original-status"
+        var foreign=Qt.createQmlObject('import QtQuick 2.7; Text { objectName: "scriptStatus"; text: "foreign" }',scripts)
+        verify(!TestServices.managerStatus(scripts).available)
+        foreign.destroy();label.objectName="scriptStatus"
+        function heading(item) {
+            if(item.text==="Running Scripts")return item
+            for(var i=0;i<item.children.length;++i){var found=heading(item.children[i]);if(found)return found}
+            return null
+        }
+        var other=heading(scripts);verify(other!==null)
+        other.objectName="scriptStatus"
+        verify(!TestServices.managerStatus(scripts).available)
+    }
+
+    function test_scriptManagerStatusRejectsForeignInputCarrier() {
+        var scripts=production("hifi/dialogs/TabletRunningScripts.qml")
+        TestServices.loadError()
+        var original=control(scripts,"scriptFromFile")
+        verify(TestServices.managerStatusFromControl(original).available)
+        var foreign=Qt.createQmlObject('import QtQuick 2.7; import QtQuick.Controls 2.3; Button { objectName: "scriptFromFile" }',scripts)
+        verify(!TestServices.managerStatusFromControl(foreign).available)
+        foreign.parent=original.parent
+        verify(!TestServices.managerStatusFromControl(foreign).available)
+        verify(!TestServices.managerStatusFromControl(original).available)
+        foreign.destroy();wait(0)
+        verify(TestServices.managerStatusFromControl(original).available)
+    }
+
     function test_scriptLifecycleAndNativeTree() {
         var scripts=production("hifi/dialogs/TabletRunningScripts.qml");
         var tree=control(scripts,"scriptTree");

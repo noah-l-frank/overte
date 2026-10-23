@@ -6,6 +6,8 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QThread>
+#include <QDateTime>
+#include <functional>
 #include <cmath>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <PathUtils.h>
@@ -36,7 +38,7 @@ inline bool scriptManagerVisible(QQuickItem* item) {
 // Passive original root and separately bound Label properties. No handler,
 // model mutation, text assignment, preferred error or requested URL is input.
 inline QJsonObject scriptManagerRootStatus(QQuickItem* root) {
-    QJsonObject result{{"managerSourceVersion", 1}, {"available", false}};
+    QJsonObject result{{"managerSourceVersion", 2}, {"available", false}};
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (!qApp || !root || QThread::currentThread() != qApp->thread() || root->thread() != qApp->thread()
             || !QCoreApplication::arguments().contains("--testScript") || root->objectName() != "RunningScripts") { return result; }
@@ -51,32 +53,36 @@ inline QJsonObject scriptManagerRootStatus(QQuickItem* root) {
         }
     }
     if (!original) { return result; }
-    // The original Label is a direct child of the original manager's layout,
-    // not a delegate, popup or matching text elsewhere in the application.
-    QQuickItem* layout {nullptr}; int count {0};
-    for (auto child:root->childItems()) {
-        if (++count>128 || child->thread()!=root->thread()) { return result; }
-        if (original->nameForObject(child)=="scriptLayout") {
-            if (layout) { return result; }
-            layout=child;
+    // The product places the Label inside a Flickable now. A stable objectName
+    // is eligible only when this exact component context owns a declared id
+    // for that object; foreign inline objects/delegates cannot impersonate it.
+    QQuickItem* label {nullptr}; int visited {0}; bool invalid {false};
+    std::function<void(QQuickItem*,int)> walk=[&](QQuickItem* item,int depth) {
+        if (!item || invalid) { return; }
+        if (++visited>4096 || depth>128 || item->thread()!=root->thread()) { invalid=true;return; }
+        const auto declared=original->nameForObject(item);
+        if ((item->objectName()=="scriptStatus" || declared=="scriptStatus") && !declared.isEmpty()) {
+            if (label || !item->inherits("QQuickText")) { invalid=true;return; }
+            label=item;
         }
-    }
-    if (!layout) { return result; }
-    QQuickItem* label {nullptr}; count=0;
-    for (auto child:layout->childItems()) {
-        if (++count>128 || child->thread()!=root->thread()) { return result; }
-        if (original->nameForObject(child)=="scriptStatus") {
-            if (label || !child->inherits("QQuickText")) { return result; }
-            label=child;
-        }
-    }
+        for (auto child:item->childItems()) { walk(child,depth+1); }
+    };
+    walk(root,0);if (invalid) { return result; }
     const auto status=root->property("status");
     const auto text=label ? label->property("text") : QVariant();
+    const auto errorUrl=root->property("lastLoadErrorUrl");
+    const auto errorEpoch=root->property("lastLoadErrorEpochMs");
     if (!label || status.userType()!=QMetaType::QString || text.userType()!=QMetaType::QString
-            || status.toString().size()>8192 || text.toString().size()>8192) { return result; }
+            || errorUrl.userType()!=QMetaType::QString || errorEpoch.userType()!=QMetaType::Double
+            || status.toString().size()>8192 || text.toString().size()>8192 || errorUrl.toString().size()>8192
+            || !std::isfinite(errorEpoch.toDouble()) || errorEpoch.toDouble()<0
+            || errorEpoch.toDouble()>QDateTime::currentMSecsSinceEpoch()
+            || std::floor(errorEpoch.toDouble())!=errorEpoch.toDouble()
+            || (errorUrl.toString().isEmpty() ? errorEpoch.toDouble()!=0 : errorEpoch.toDouble()<1)) { return result; }
     result["available"]=true;
     result["componentSource"]=original->baseUrl().toString(QUrl::FullyEncoded);
     result["statusText"]=status.toString(); result["labelText"]=text.toString();
+    result["errorUrl"]=errorUrl.toString();result["errorEpochMs"]=static_cast<qint64>(errorEpoch.toDouble());
     result["rootVisible"]=scriptManagerVisible(root);
     result["labelVisible"]=label->window()==root->window() && scriptManagerVisible(label);
 #else
@@ -92,14 +98,29 @@ inline QJsonObject scriptManagerStatus(QQuickItem* item) {
         int depth {0};
         for (auto parent=item->parentItem();parent && ++depth<=128;parent=parent->parentItem()) {
             if (parent->objectName()!="RunningScripts") { continue; }
-            auto flow=item->parentItem();auto layout=flow ? flow->parentItem() : nullptr;
-            if (layout && layout->parentItem()==parent) { return scriptManagerRootStatus(parent); }
-            break;
+            auto loaders=item->parentItem();
+            auto content=loaders ? loaders->parentItem() : nullptr;
+            QQmlContext* original {nullptr}; int contexts {0};
+            for (auto context=qmlContext(item);context && ++contexts<=128;context=context->parentContext()) {
+                if (context->nameForObject(parent)=="root"
+                        && context->nameForObject(loaders)=="loaders"
+                        && context->nameForObject(content)=="content"
+                        && context->baseUrl()==PathUtils::qmlUrl(QStringLiteral("hifi/dialogs/TabletRunningScripts.qml"))) {
+                    original=context;break;
+                }
+            }
+            if (!original || qmlContext(item)!=qmlContext(loaders)) { break; }
+            int controls {0};
+            for (auto child:loaders->childItems()) {
+                if (child->objectName()=="scriptFromFile") { ++controls; }
+            }
+            if (controls!=1) { break; }
+            return scriptManagerRootStatus(parent);
         }
     }
 #else
     Q_UNUSED(item)
 #endif
-    return {{"managerSourceVersion",1},{"available",false}};
+    return {{"managerSourceVersion",2},{"available",false}};
 }
 } // namespace overte::e2e

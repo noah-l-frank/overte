@@ -39,7 +39,7 @@
     "native-script-compilations": {"current": 1, "reads": [1]},
     "native-script-load-history": {"current": 1, "reads": [1]},
     "native-process-presence": {"current": 1, "reads": [1]},
-    "native-script-manager-status": {"current": 1, "reads": [1]},
+    "native-script-manager-status": {"current": 2, "reads": [2]},
     "phone-script-ui-inventory": {"current": 1, "reads": [1]},
     "phone-script-measurements": {"current": 2, "reads": [2]},
     "phone-existing-input-session": {"current": 1, "reads": [1]},

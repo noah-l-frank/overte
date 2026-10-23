@@ -93,6 +93,7 @@ with tempfile.TemporaryDirectory(prefix='overte-native-script-assets-') as tempo
     (stage / 'AssetUpload.cpp').write_bytes((ROOT / 'libraries/networking/src/AssetUpload.cpp').read_bytes())
     (stage / 'AssetClient.h').write_text('#include "bundle-network.h"\n')
     (stage / 'NetworkLogging.h').write_text('#include <QLoggingCategory>\nQ_DECLARE_LOGGING_CATEGORY(asset_client)\n')
+    (stage / 'PathUtils.h').write_text('#pragma once\n#include <QUrl>\n#include <QString>\nnamespace PathUtils { inline QUrl qmlUrl(const QString& name) { return QUrl::fromLocalFile(qEnvironmentVariable("OVERTE_QML_SOURCE_ROOT")+"/"+name); } }\n')
     manager = (ROOT / 'libraries/script-engine/src/ScriptManager.cpp').read_text()
     start = manager.index('QUrl ScriptManager::resolvePath(')
     end = manager.index('\nQUrl ScriptManager::resourcesPath()', start)
@@ -130,7 +131,7 @@ with tempfile.TemporaryDirectory(prefix='overte-native-script-assets-') as tempo
     subprocess.run(['c++', '-std=c++17', '-fPIC', '-UNDEBUG', str(source),
         str(ROOT / 'libraries/ui/src/FileDialogHelper.cpp'), str(ROOT / 'libraries/ui/src/ui/Logging.cpp'),
         str(stage / 'files-moc.cpp'), str(stage / 'AssetUpload.cpp'), str(stage / 'upload-moc.cpp'), str(stage / 'peer-moc.cpp'), str(stage / 'script-moc.cpp'), str(stage / 'dialog-moc.cpp'),
-        '-I' + str(FIXTURES), '-I' + str(stage), '-I' + str(ROOT / 'libraries/ui/src'),
+        '-I' + str(FIXTURES), '-I' + str(stage), '-I' + str(ROOT), '-I' + str(ROOT / 'libraries/ui/src'),
         '-I' + str(ROOT / 'libraries/networking/src'),
         *libraries, '-o', str(binary), *flags], env=environment, check=True, timeout=90)
     result = subprocess.run([str(binary), '-file-selector', 'android_picoInterface', '-file-selector', 'android_interface',

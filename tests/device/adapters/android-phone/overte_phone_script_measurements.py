@@ -14,6 +14,7 @@ from adapters.native_script_files import originals
 from adapters.normal_script_manager import diagnostic, missing_script_url
 from adapters.normal_ui import NativeUIError
 from adapters.script_ui_inventory import ui_state
+from adapters.script_manager_status import missing_status
 from adapters.token_script_file_ui import file_url
 from feature_journeys.contract import identifier, state as validate_state
 from overte_phone_script_files import PhoneScriptFileIO, validate as validate_ui
@@ -104,9 +105,13 @@ def compose(run, ticket, directory, fixture_url, pid, execution, ui, service, li
         status = manager['statusText']
         need(manager['labelText'] == status)
         if status.startswith('Failed to load '):
-            url = status[len('Failed to load '):].split(': ', 1)[0]
+            url = manager['errorUrl']
             missing_script_url(url)
+            # Actual full signal URL/time, separate visible label, original
+            # native failure and ticket-scoped HTTP404 remain distinct proofs.
+            missing_status(manager,url,after_epoch=after_epoch)
             need(url == fixture_url + 'tickets/' + ticket + '/missing.js'
+                 and manager['errorEpochMs']<=ui['capturedEpochMs']
                  and manager['labelVisible'] and manager['labelText'] == status)
             events = [event for event in source['loads']['events'] if event['url'] == url]
             need(len(events) == 1 and events[0]['success'] is False and events[0]['status'] == 'NotFound'
