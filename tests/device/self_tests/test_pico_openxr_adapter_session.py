@@ -53,6 +53,17 @@ class FakeTransport:
 
 
 class PicoOpenXrAdapterSessionTests(unittest.TestCase):
+    def test_owned_status_preserves_one_active_answer_and_transition_epoch_without_replay(self):
+        self.session.begin('42:100')
+        self.session.stage('42:100','controller.button',dict(hand='left',control='primary',holdMilliseconds=120))
+        owned=self.transport.envelopes[0];original=self.session.state_path.read_bytes()
+        status=dict(enabled=True,acceptedSequence=owned['sequence'],acceptedNonce='[redacted]',state='active',activeCommandId='controller-button-1',updatedEpochMs=20000)
+        with mock.patch.object(self.transport,'read_status',return_value=status) as read:
+            self.assertEqual(status,self.session.observe_owned_status('42:100',owned));read.assert_called_once_with(expected_nonce=owned['sessionNonce'])
+            with self.assertRaises(AdapterSessionError):self.session.observe_owned_status('42:101',owned)
+            self.assertEqual(1,read.call_count)
+        self.assertEqual(original,self.session.state_path.read_bytes());self.assertEqual(1,len(self.transport.envelopes))
+
     def test_host_binding_absence_is_read_only_and_invalid_or_dangling_state_is_not_absence(self):
         self.assertTrue(self.session.is_unbound())
         self.assertFalse(self.session.state_path.exists())

@@ -440,6 +440,22 @@ class PicoOpenXrAdapterSession:
                 raise AdapterSessionError("Pico owned stream binding is unresolved")
             return self._wait_for_neutral(envelope["sessionNonce"], envelope["sequence"])
 
+    def observe_owned_status(self, process_identity: str, envelope: dict) -> dict:
+        """Read one original owned-stream status without filtering active replies.
+
+        A quiet-window owner must preserve and assess every sampled answer;
+        waiting for neutral here could hide an intervening held channel.
+        """
+        from .controller_protocol import validate_envelope
+        validate_envelope(envelope, self.profile)
+        with self._lock():
+            state = self._load()
+            if (state is None or state["processIdentity"] != process_identity
+                    or state["sessionNonce"] != envelope["sessionNonce"]
+                    or state["nextSequence"] != envelope["sequence"] + 1):
+                raise AdapterSessionError("Pico owned stream binding is unresolved")
+            return self.transport.read_status(expected_nonce=envelope["sessionNonce"])
+
     def neutralize_owned(self, process_identity: str, envelope: dict, *, intent) -> dict:
         """Remove only this exact current grant, retaining session/cursor ownership.
 
