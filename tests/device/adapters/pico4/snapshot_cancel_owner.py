@@ -119,7 +119,7 @@ class PicoSnapshotCancelOwner:
         native=original(row['native'],native_source.LIMIT);script=original(row['script'],65536)
         native_source.validate(native,self.run,native['commandId'],self.native.pid,native['capturedEpochMs'])
         script_packet(script,self.run,script['commandId'],self.native.pid,script['capturedEpochMs'])
-        need(native['snapshotNativeCaptureVersion']==2 and script['snapshotScriptOriginalsVersion']==2)
+        need(native['snapshotNativeCaptureVersion']==2 and script['snapshotScriptOriginalsVersion'] in (2,3))
         validate_snapshot(row['ui'],self.native.pid,row['ui']['updatedEpochMs'])
         exact(row['files'],{'raw','sha256','request'})
         packet=original({key:row['files'][key] for key in ('raw','sha256')},262144)
@@ -492,7 +492,8 @@ class PicoSnapshotCancelOwner:
     @staticmethod
     def clocks(row):
         return (row['hostMonotonic']*1000,decode(row['native']['raw'])['capturedEpochMs'],decode(row['script']['raw'])['capturedEpochMs'],
-            row['ui']['updatedEpochMs'],decode(row['files']['raw'])['capturedEpochMs'])+(() if row['work'] is None else
+            row['ui']['updatedEpochMs'],decode(row['files']['raw'])['capturedEpochMs'])+(() if decode(row['script']['raw'])['snapshotScriptOriginalsVersion']!=3 else
+            (decode(row['script']['raw'])['captureContext']['capturedEpochMs'],))+(() if row['work'] is None else
             (row['work']['capturedEpochMs'],row['work']['source']['work']['capturedEpochMs']))
 
     @staticmethod

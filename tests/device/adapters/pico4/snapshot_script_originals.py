@@ -9,9 +9,10 @@ from adapters.native_feature_observation import decode,exact,integer,need,number
 from adapters.script_journey.lock import ScriptSourceLock
 from adapters.pico4.snapshot_originals import nonce
 from adapters.pico4.snapshot_script_history import validate as history,continuity
+from adapters.pico4.snapshot_context import validate as context_packet
 
-VERSION=2
-READS=(1,2)
+VERSION=3
+READS=(1,2,3)
 FILE='feature-snapshot-script-originals.json'
 ACTION='feature-snapshot-script-originals'
 LIMIT=65536
@@ -20,13 +21,19 @@ LIMIT=65536
 def validate(value,run,request,pid,epoch):
     need(type(value) is dict)
     exact(value,{'snapshotScriptOriginalsVersion','commandId','runId','sequence','pid','capturedEpochMs','history'}
-        | ({'activeUploads'} if value.get('snapshotScriptOriginalsVersion')==2 else set()))
+        | ({'activeUploads'} if value.get('snapshotScriptOriginalsVersion') in (2,3) else set())
+        | ({'captureContext'} if value.get('snapshotScriptOriginalsVersion')==3 else set()))
     need(type(value['snapshotScriptOriginalsVersion']) is int and value['snapshotScriptOriginalsVersion'] in READS
         and nonce(run) and value['runId']==run and nonce(request) and value['commandId']==request
         and integer(value['pid'],1) and value['pid']==pid and integer(value['sequence'],1)
         and integer(value['capturedEpochMs'],1) and number(epoch,1,1e15) and -250<=epoch-value['capturedEpochMs']<=1500)
-    if value['snapshotScriptOriginalsVersion']==2:need(integer(value['activeUploads'],0,256))
+    if value['snapshotScriptOriginalsVersion'] in (2,3):need(integer(value['activeUploads'],0,256))
     history(value['history'],value['capturedEpochMs'])
+    if value['snapshotScriptOriginalsVersion']==3:
+        need(value['history']['snapshotScriptHistoryVersion']==2);context_packet(value['captureContext'],value['capturedEpochMs'])
+        need(-250<=epoch-value['captureContext']['capturedEpochMs']<=1500)
+        need(all(event['context']['instance']==value['captureContext']['instance'] for event in value['history']['events']))
+    else:need(value['history']['snapshotScriptHistoryVersion']==1)
     return value
 
 
@@ -39,6 +46,9 @@ def accept(previous,current):
             and current['sequence']>previous['sequence'] and current['commandId']!=previous['commandId']
             and current['capturedEpochMs']>=previous['capturedEpochMs'])
         continuity(previous['history'],current['history'])
+        if current['snapshotScriptOriginalsVersion']==3:
+            need(current['captureContext']['instance']==previous['captureContext']['instance']
+                and current['captureContext']['capturedEpochMs']>=previous['captureContext']['capturedEpochMs'])
     return deepcopy(current)
 
 
@@ -62,11 +72,13 @@ class PicoSnapshotScriptOriginals:
                     value=decode(raw)
                     if value.get('commandId')==request:
                         epoch=self.clock_ms();validate(value,run,request,self.pid,epoch)
-                        need(value['capturedEpochMs']>=requested);accepted=accept(self.previous,value)
+                        need(value['capturedEpochMs']>=requested)
+                        if value['snapshotScriptOriginalsVersion']==3:context_packet(value['captureContext'],value['capturedEpochMs'],minimum=requested)
+                        accepted=accept(self.previous,value)
                         result=deepcopy(accepted);saved=deepcopy(accepted)
                         need(self.guard() is not False);final=self.clock_ms();completed=self.monotonic()
                         need(number(completed,started,1e15) and number(final,epoch,1e15) and -250<=final-value['capturedEpochMs']
-                            and max(final-value['capturedEpochMs'],requested-value['capturedEpochMs']+(completed-started)*1000)<=1500)
+                            and max(final-min(value['capturedEpochMs'],value.get('captureContext',{}).get('capturedEpochMs',value['capturedEpochMs'])),requested-min(value['capturedEpochMs'],value.get('captureContext',{}).get('capturedEpochMs',value['capturedEpochMs']))+(completed-started)*1000)<=1500)
                         self.previous,self.last_raw=saved,raw;return result
                 need(self.monotonic()-started<5 and attempt<30);self.sleep(.1)
             need(False)

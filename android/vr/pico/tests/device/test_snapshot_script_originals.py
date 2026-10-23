@@ -13,6 +13,7 @@ sys.path.insert(0,str(ROOT/'tests/device'))
 from adapters.pico4.snapshot_script_originals import ACTION,FILE
 from adapters.android.adapter import ANDROID_CONTROL_COMMAND
 from self_tests.test_pico_snapshot_script_originals import SnapshotScriptHistoryTests,SnapshotScriptSourceTests,Boundary,RUN
+from self_tests.test_pico_snapshot_context import SnapshotContextTests
 
 
 class PicoSnapshotScriptOriginalTests(unittest.TestCase):
@@ -55,6 +56,8 @@ assert.equal(saved[1].value.available,false);assert.equal(saved[1].file,'feature
         subprocess.run(['node','-e',harness],check=True,timeout=5)
     def test_actual_original_snapshot_and_vm_scope_body(self):
         subprocess.run([sys.executable,str(ROOT/'tests/device/contracts/snapshot/test_snapshot_script_native.py')],check=True,timeout=90)
+    def test_actual_bounded_pico_setting_context_and_original_event_join(self):
+        subprocess.run([sys.executable,str(ROOT/'tests/device/contracts/snapshot/test_snapshot_context_native.py')],check=True,timeout=90)
 
 
 if __name__=='__main__':unittest.main()

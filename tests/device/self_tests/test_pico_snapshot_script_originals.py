@@ -101,7 +101,7 @@ class Boundary:
     def clock(self):return self.epoch+round(self.time*1000)
     def send(self,command):
         self.commands.append(deepcopy(command));self.sequence+=1
-        self.value=dict(snapshotScriptOriginalsVersion=source.VERSION,activeUploads=0,commandId=command['commandId'],runId=command['runId'],pid=31,
+        self.value=dict(snapshotScriptOriginalsVersion=2,activeUploads=0,commandId=command['commandId'],runId=command['runId'],pid=31,
             sequence=self.sequence,capturedEpochMs=self.clock(),history=deepcopy(self.history))
         if self.edit:self.edit(self.value)
     def read(self):return json.dumps(self.value)

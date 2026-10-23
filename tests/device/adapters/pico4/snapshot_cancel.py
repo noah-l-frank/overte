@@ -60,7 +60,7 @@ def original(value,epoch,*,allow_closed=False,caller=None,pid=None):
     native,script=value['native'],value['script']
     capture_packet(native,native['runId'],native['commandId'],native['pid'],value['capturedEpochMs'])
     script_packet(script,native['runId'],script['commandId'],native['pid'],value['capturedEpochMs'])
-    need(native['snapshotNativeCaptureVersion']==2 and script['snapshotScriptOriginalsVersion']==2
+    need(native['snapshotNativeCaptureVersion']==2 and script['snapshotScriptOriginalsVersion'] in (2,3)
         and native['commandId']!=script['commandId'])
     review(value['review']);need(value['review']['snapshotReviewObservationVersion']==2)
     visible=value['review']['present'] and value['review']['review']['visible']

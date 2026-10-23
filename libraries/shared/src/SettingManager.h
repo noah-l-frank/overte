@@ -130,6 +130,9 @@ namespace Setting {
         Manager(QObject *parent = nullptr);
 
         void customDeleter() override;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        QVariantMap featureSnapshotCaptureContext() const;
+#endif
 
         /**
          * @brief Returns the filename where the config file will be written
@@ -263,6 +266,9 @@ namespace Setting {
         friend void setupSettingsSaveThread();
 
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        const QString _featureSnapshotContextInstance{QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
+#endif
         QHash<QString, QVariant> _settings;
         QString _fileName;
         QThread _workerThread;

@@ -11,17 +11,18 @@ from adapters.native_script_membership import validate as membership
 from adapters.native_script_observation import validate_code
 from adapters.native_script_compilations import compilation
 from feature_journeys.contract import typed_equal
+from adapters.pico4.snapshot_context import validate as context_packet
 
 
 def validate(value,epoch):
     exact(value,{'snapshotScriptHistoryVersion','instance','complete','sequence','events'})
-    need(type(value['snapshotScriptHistoryVersion']) is int and value['snapshotScriptHistoryVersion']==1
+    need(type(value['snapshotScriptHistoryVersion']) is int and value['snapshotScriptHistoryVersion'] in (1,2)
         and type(value['instance']) is str and re.fullmatch('[0-9a-f]{32}',value['instance'])
         and value['complete'] is True and integer(value['sequence'],0,256)
         and type(value['events']) is list and len(value['events'])==value['sequence'])
-    contexts={};previous=elapsed=0;callers={}
+    contexts={};previous=elapsed=0;callers={};context_instance=None
     for index,row in enumerate(value['events'],1):
-        exact(row,{'sequence','kind','id','mode','revision','capturedEpochMs','elapsedMs','caller'})
+        exact(row,{'sequence','kind','id','mode','revision','capturedEpochMs','elapsedMs','caller'}|({'context'} if value['snapshotScriptHistoryVersion']==2 else set()))
         need(type(row['sequence']) is int and row['sequence']==index and row['kind'] in ('pending','processing','complete','cancelled','error')
             and type(row['id']) is str and re.fullmatch(r'snap_[0-9]{1,16}_[0-9]{1,10}',row['id'])
             and row['mode'] in ('still','animated','panorama','cubemap') and integer(row['revision'],1,2147483647)
@@ -29,6 +30,9 @@ def validate(value,epoch):
         caller=row['caller'];exact(caller,{'callerVersion','method','sequence','invokedEpochMs','manager','code','compilation','snapshotWork'})
         need(type(caller['callerVersion']) is int and caller['callerVersion']==2 and caller['method']=='featureCaptureEvent'
             and integer(caller['sequence'],1,1_000_000_000) and integer(caller['invokedEpochMs'],1,row['capturedEpochMs']))
+        if value['snapshotScriptHistoryVersion']==2:
+            context_packet(row['context'],row['capturedEpochMs'],minimum=caller['invokedEpochMs'])
+            need(context_instance is None or context_instance==row['context']['instance']);context_instance=row['context']['instance']
         membership(dict(complete=True,revision=1,managers=[caller['manager']]),caller['invokedEpochMs'])
         validate_code(caller['code'],caller['invokedEpochMs']);compilation(caller['compilation'],caller['invokedEpochMs'])
         work=caller['snapshotWork'];exact(work,{'snapshotScriptWorkVersion','scriptId','capturedEpochMs','timers','signalCallbacks',
@@ -66,7 +70,7 @@ def validate(value,epoch):
 
 
 def continuity(before,after):
-    need(after['instance']==before['instance'] and after['sequence']>=before['sequence']
+    need(after['snapshotScriptHistoryVersion']==before['snapshotScriptHistoryVersion'] and after['instance']==before['instance'] and after['sequence']>=before['sequence']
         and typed_equal(after['events'][:len(before['events'])],before['events']))
 
 
