@@ -182,3 +182,23 @@ It did not execute the missing full recipe: its false flag remained false and
 no application/IPC/archive-retirement/host result is inferred. The next
 necessary measurement is the original complete common-executor path on the
 fixed storage/provenance sources, still under its unchanged 120-second bound.
+
+Exactly one next complete attempt on the clean fixed
+`d1266eef19ce1bffd5a79cbf300be59c2a38613b` manifest used the same 120-second cap.
+It ended with timeout exit 124 after 120.011 seconds, without the earlier
+single-packed-record refusal. Original `completedSteps=15` occurred at 71.339
+seconds and `completedSteps=17` at 104.403 seconds. Parent and dispatcher still
+own an issued eighteenth `background-resume` step: its proof list is empty and
+the flow row is not completed. The child's `observed` state cannot replace that
+missing full join.
+
+The retained background child contains its original HOME/background/Resume/
+foreground OS observations, one arm/release pair, 31 quiet frames before
+release and 31 after release. Those windows were not shortened. The passive
+Reader v3 remains fully `ready` with 81 logical originals and 132 physical
+parts, no pending bundle, 5,078,505 logical bytes and 2,377,411 physical bytes.
+Its last original belongs to phase 17 `select-channel`, Actor sequence 81.
+All original data remain retained. No true common hook, application/profile/
+IPC, archive-retirement or host result was reached. The next investigation
+must measure the original BG-child→dispatcher/flow guard path; another unchanged
+whole retry or relabeling of the observed child is not evidence of completion.
