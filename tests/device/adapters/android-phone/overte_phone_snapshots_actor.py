@@ -594,9 +594,9 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             with f.lock.held():
                 status=history.finish()
                 if not status['active']:return self.defer_cleanup_close(role,status,prepared['phase'])
-                warm=self.cleanup_warm_pin(role,prepared,None)
+                warm=self.cleanup_warm_pin(role,prepared,None,history=history)
                 warm.update(guard=getattr(f,'guard',None),system=getattr(f,'_system_scope',None),history=history)
-                return self.quiet_batch(role,prepared,f.monotonic(),warm=warm,history=history)
+                return self.quiet_batch(role,prepared,f.monotonic(),warm=warm,history=history,qualified_status=status)
         finally:history.close()
 
     def step_owned(self):
@@ -700,13 +700,16 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         if verb!='cleanup':return self.ordinary_batch(role,prepared)
         return self.cleanup_batch(role,prepared,warm=warm)
 
-    def cleanup_warm_pin(self,role,prepared,cue):
-        f=self.feature;f.lock.assert_held();self.cleanup_owners(role,prepared,loaded=True)
+    def cleanup_warm_pin(self,role,prepared,cue,*,history=None):
+        f=self.feature;f.lock.assert_held()
+        if history is None:self.cleanup_owners(role,prepared,loaded=True)
+        else:need(history.actor is self and history.role is role and history.prepared is prepared)
         scope=getattr(f.adapter,'_existing_input_scope',None)
         warm=dict(cue=deepcopy(cue),featureState=digest(f.state),actorState=digest(self.state),
             roleState=deepcopy(role.state),frames=graph_digest(role.frames),count=len(role.frames),configuration=deepcopy(f.config),
             sdk=scope,sdkValue=deepcopy(scope))
-        self.cleanup_warm_owners(role,prepared,warm);return warm
+        if history is None:self.cleanup_warm_owners(role,prepared,warm)
+        return warm
 
     def cleanup_warm_owners(self,role,prepared,warm,*,verify_graph=True):
         """Same-call preparation only; no current fact survives the yield."""
@@ -803,17 +806,21 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         # fresh absence; no warmed reader or old role header is reused.
         self._cleanup_reader=None;self._cleanup_anchor=(role.store,pin);return False
 
-    def quiet_batch(self,role,prepared,started,*,warm=None,history=None):
+    def quiet_batch(self,role,prepared,started,*,warm=None,history=None,qualified_status=None):
         f=self.feature;publication_warm=warm
         while True:
-            f.bound();role.history_authority()
-            # Reuse only normal reader continuity. Every old file still
-            # passes its complete original inode/byte/hash validation.
-            if history is None:need(same(role.restore_originals(),role.frames))
-            else:history.check()
-            status=f.phase.status()
-            if not status['active']:return self.defer_cleanup_close(role,status,prepared['phase'])
-            self.cleanup_phase(status,prepared['phase'])
+            if qualified_status is not None:
+                # finish() just checked these owners, graphs, files and phase
+                # under this same lock; no current callback intervened.
+                need(history is not None);status=qualified_status;qualified_status=None
+            else:
+                f.bound();role.history_authority()
+                # Every old file retains its complete original validation.
+                if history is None:need(same(role.restore_originals(),role.frames))
+                else:history.check()
+                status=f.phase.status()
+                if not status['active']:return self.defer_cleanup_close(role,status,prepared['phase'])
+                self.cleanup_phase(status,prepared['phase'])
             cue=None;maintenance=None
             published=(self.read_ready_mode() is not None and self.state['last'] is not None
                 and self.state['last']['original']['sample']['ticket']==status['activations'][-1]['ticket'])
@@ -833,7 +840,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                 self._ordinary_primary=deepcopy(maintenance);self.primary_owner()
             elif cue is not None:
                 self._ordinary_primary=deepcopy(cue['header']);self.primary_owner()
-            if warm is not None:self.cleanup_warm_owners(role,prepared,warm)
+            if warm is not None and history is None:self.cleanup_warm_owners(role,prepared,warm)
             if history is not None:history.check()
             try:measured=role.read(role.state['sequence'])
             except SnapshotPending:
