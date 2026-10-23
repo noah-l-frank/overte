@@ -107,6 +107,13 @@ which produced measured multi-minute pauses while downloading individual Qt
 packages. Package signature verification and isolated candidate execution are
 unchanged.
 
+The iOS host role prepares Chromium Headless Shell with the reviewed
+`playwright@1.63.0` installer before candidate execution and verifies its shared
+libraries. A dedicated runtime leaf contains the browser and its discovery
+alias; the existing launcher mounts only that leaf read-only for the unchanged
+offline DOM contracts. Tests never download a browser or mount host profiles.
+See the [Playwright headless-shell installation guide](https://playwright.dev/docs/browsers#chromium-headless-shell).
+
 Host and npm execution now publish separate task receipts. For a direct
 parent-to-child propagation, the controller can reuse the original successful
 command only after authenticating its repository, owning ancestor, merged PR,

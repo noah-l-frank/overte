@@ -90,6 +90,23 @@ jobs:
           test -x /usr/lib/qt6/bin/qmltestrunner
           test -f /usr/lib/x86_64-linux-gnu/qt5/plugins/imageformats/libqsvg.so
           test -f /usr/lib/x86_64-linux-gnu/qt6/plugins/imageformats/libqsvg.so
+      - name: Prepare pinned Chromium for offline iOS DOM contracts
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/pr-ci-ios-browser/runtime
+        run: |
+          set -euo pipefail
+          npm exec --yes --ignore-scripts --package=playwright@1.63.0 -- playwright install --with-deps --only-shell chromium
+          browsers=("$PLAYWRIGHT_BROWSERS_PATH"/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell)
+          test "${#browsers[@]}" = 1
+          test -x "${browsers[0]}"
+          ldd "${browsers[0]}" > "$RUNNER_TEMP/pr-ci-ios-chrome-libraries.txt"
+          if grep -q 'not found' "$RUNNER_TEMP/pr-ci-ios-chrome-libraries.txt"; then
+            cat "$RUNNER_TEMP/pr-ci-ios-chrome-libraries.txt"
+            exit 1
+          fi
+          "${browsers[0]}" --version
+          mkdir -p "$RUNNER_TEMP/pr-ci-ios-browser/bin"
+          ln -s "${browsers[0]}" "$RUNNER_TEMP/pr-ci-ios-browser/bin/chrome-headless-shell"
       - name: Prepare tokenless namespace execution
         run: |
           set -euo pipefail
@@ -108,7 +125,8 @@ jobs:
           FULL_HOST: 'true'
         run: |
           node_root=$(dirname "$(dirname "$(readlink -f "$(command -v node)")")")
-          prepared=(--prepared-root "$node_root")
+          prepared=(--prepared-root "$node_root"
+            --prepared-root "$RUNNER_TEMP/pr-ci-ios-browser")
           if test "$FULL_HOST" = true; then
             prepared+=(--prepared-root "$(readlink -f "$JAVA_HOME")")
           fi
