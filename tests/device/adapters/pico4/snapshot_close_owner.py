@@ -1,7 +1,8 @@
 """Normal checked-control restoration and Tablet Close; retained originals.
 
-Only original mode/format UI values were admitted before this run's input.
-This component does not invent the missing thirteen-key settings baseline.
+Original mode/format UI values drive the ordinary restoration controls.
+An optional new-run thirteen-key lease permits a separate raw observation;
+this component never invents a missing baseline or writes old raw settings.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
@@ -347,6 +348,13 @@ class PicoSnapshotCloseOwner:
         if self.encoding_version==2:return clocks(row)
         values=[sample['value'] for sample in state['neutrals'] if sample['frame']==index];need(len(values)==1)
         return (*clocks(row),values[0]['updatedEpochMs'])
+
+    def observe_settings(self):
+        # An opt-in new-run baseline is required. This checkpoint observes raw
+        # settings after ordinary restoration/Close; it never supplies values.
+        # A later quiet() still needs its own complete continuous window.
+        from adapters.pico4.snapshot_settings_close import PicoSnapshotSettingsClose
+        return PicoSnapshotSettingsClose(self,self.lock.path.with_name('snapshot-settings-close.json')).observe()
 
     def status_window(self,state,window):
         indices=window['indices'];references=[state['statusFrames'][index] for index in indices]
