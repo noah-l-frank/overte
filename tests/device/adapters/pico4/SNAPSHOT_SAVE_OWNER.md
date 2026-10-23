@@ -187,3 +187,32 @@ checks passed in 0.823 seconds; the existing synthetic-APK verifier class passed
 14 checks in 1.624 seconds; the combined Save-fences selector passed 24 checks
 in 2.018 seconds (2.420 seconds including its runner). This fixture equivalence
 does not supply a new passing complete Save selection.
+
+## Retained warm result and cold file-identity correction
+
+The one authorized warm follow-up at
+`f6eda966b24e2ba8ee6d0d8508466c38187e7c07` finished inside the unchanged
+120-second limit, in 80.595 seconds (the original unittest took 79.968 seconds).
+It remained red: the full Cancel/Still/Save/PNG/13-inspection/three-second quiet
+path reached `partial-ready`, then the unchanged cold factory assertion failed.
+Only the outer original fixture directory was retained by the private harness;
+short-lived verifier APK snapshots kept their ordinary cleanup. All original
+owner assertions, source queries, inputs, guards and clocks were unchanged.
+
+A read-only reconstruction of those same actual retained journals reproduced
+the precise inner error: artifact collision validation dereferenced
+`parent.files.state['artifacts']`, but a fresh file-owner object's optional warm
+cache was `None`. No unknown inventory may become an empty default. The fix
+instead takes **all original native file IDs** from the already validated,
+immutable Parent file-source frame and requires its original captured file ID
+to be present. A saved copy must not collide with any such original ID. This
+binds collision authority to original file evidence, including native files
+that never had a host copy, rather than to warm runtime cache availability.
+
+The real cold `load()` then validates the same retained 33 full frames, thirteen
+inspection completions, exact original quiet windows/stat/hash/PNG and pinned
+parent with the cache still `None`. Its offline harness supplies no native
+sender, clock, guard or phase-query method, so it cannot resend input or silently
+replace a source. The result is explicitly historical; this does not replace
+the still-required fresh factory/warm regression or establish Android provider,
+separate UID, rendered scene, whole Snapshot or resource-retirement acceptance.
