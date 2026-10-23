@@ -1,6 +1,6 @@
 # Original independent Chat publication reads
 
-`ChatRemotePublication` version 2 passively joins actual independently received
+`ChatRemotePublication` version 3 passively joins actual independently received
 fixture rows to an originally live independent host process and its actual
 Actor3 publications. It constructs no live Actor, native reader, cursor or
 publisher from private files. It sends no input, publication, Stop command,
@@ -47,6 +47,23 @@ original bytes/stamps/digests of every source root used. Root transitions may
 extend the same admitted chunk prefixes; they cannot replace old children or
 change a source scope. The validated cache includes exact JSON types, root
 paths, lock paths, original signatures, manifests and chunk byte accounting.
+
+The internal `chat-remote-original-memory` version 1 representation stores only
+strictly JSON-typed admitted values as canonical immutable `bytes`, with pinned
+exact tuples, scope and per-record SHA-256. Every metadata check still hashes
+every original byte and verifies all identities, types and total accounting.
+It avoids recursively validating and serializing all old mutable JSON again.
+Persisted v3 roots, bundles, literal bytes, hashes and v1/v2 cold readers are
+unchanged. New acquisitions still pass the complete existing source grammar
+before admission. The memory container cannot restore or query a live owner.
+
+`rows` returns complete fresh inspection copies; changing those copies cannot
+change an admitted original. `row_count()` counts without decoding JSON, and
+`row(index)` decodes only the requested original. Internal byte, hash, scope,
+tuple identity, bytearray/subclass or accounting replacement is still refused;
+historical `original(index)` latches such a failure without probing a returned
+process. Physical file reads/inventory/stamps, native/process guards, actual
+phase/journal GETs and all original freshness checks remain unchanged.
 
 Actual primary and peer clocks qualify the original source epochs after the
 fresh phase/journal read, final private CAS/fsync, copies and guard. The oldest

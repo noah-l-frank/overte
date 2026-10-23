@@ -246,3 +246,13 @@ not reached. The post-attempt host diagnostic reported load averages
 controlled performance explanation. No unchanged whole retry follows this
 result. The next investigation must measure the remaining original common
 wait/source-acquisition costs before another concrete change.
+
+The next pure historical measurement used those actual 77 originals to isolate
+the old repeated `plain(rows)` plus canonical-digest work inside metadata
+checks. Ten passes took 0.384 s. The implemented immutable-original-memory
+control, still rehashing every original byte on each pass, plus its digest took
+0.024 s. This compares one pure metadata-processing component, not an entire
+live acquisition or whole journey. New values retain strict JSON admission;
+external inspection is a copy, while internal byte/hash/scope/type replacement
+fails. The stored v3 original bytes, hashes, fragments and historical v1/v2
+decoder contracts remain unchanged. No new whole result follows this benchmark.
