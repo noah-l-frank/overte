@@ -44,3 +44,11 @@ canonical stopped-session factories and restored-world snapshots. They use
 actual private files/loopback fixture requests with synthetic native/OS data.
 The source-only plugin remains uninstalled; native code is uncompiled and
 physical iOS/process/resource behavior is unqualified.
+
+The closed filename profiles additionally admit `navigation` and `avatar`.
+These profiles give each feature its own role/stage journal and immutable
+records; they do not change the original OS packet, clock requirements or
+decoder. Thirty-five targeted host cases include both namespaces, original
+legacy behavior and rejection of cross-feature archive relabeling. Avatar
+failure cleanup may use this passive source while retaining its failed status;
+an OS quiet window cannot turn incomplete preparation into feature success.

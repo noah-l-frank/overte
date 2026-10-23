@@ -20,7 +20,7 @@ from ios.adapters.installed_code import source as process_source
 
 VERSION = 1
 RECORD_VERSION = 1
-PROFILES = {'graphics':'graphics','emote':'emote','worldweb':'world-web'}
+PROFILES = {'graphics':'graphics','emote':'emote','worldweb':'world-web','navigation':'navigation','avatar':'avatar'}
 
 
 def filename(profile,role,stage):
