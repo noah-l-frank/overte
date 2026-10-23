@@ -158,5 +158,11 @@ int main(int argc,char** argv){
  result.insert("sameOriginal",sameOriginal);result.insert("mapping",QJsonObject::fromVariantHash(mapping.second));
  result.insert("mappingUrl",mapping.first.toString());result.insert("textureBaseUrl",textureBase.toString());
 #endif
+#if defined(ASSETS_ORIGINAL_MODEL_BAKER)
+ result.insert("modelBakerHostEvidenceVersion",1);result.insert("bakerOriginals",bakerOriginals);
+ result.insert("bakerHandoff",bakerHandoff);result.insert("bakerGraphAlive",!bakerGraphRoot.isNull());
+ result.insert("bakerInputAlive",!bakerInput.expired());result.insert("bakerBuffersRemaining",int(gpu::Buffer::getBufferCPUCount()));
+ result.insert("bakerProcessingQualified",!bakerHandoff.isEmpty());
+#endif
  const auto encoded=QJsonDocument(result).toJson(QJsonDocument::Compact);if(output.write(encoded)!=encoded.size()){return 10;}return protocolValid ? 0 : 7;
 }

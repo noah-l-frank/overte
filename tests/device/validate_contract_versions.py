@@ -166,6 +166,7 @@ REQUIRED = {
     "pico-assets-geometry-parser-host": 1,
     "pico-assets-geometry-resource-host": 1,
     "pico-assets-model-cache-host": 1,
+    "pico-assets-model-baker-host": 1,
     "pico-assets-ui-inventory": 1,
     "native-pico-assets-files": 1,
     "pico-assets-file-owner": 1,

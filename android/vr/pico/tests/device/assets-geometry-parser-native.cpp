@@ -41,6 +41,9 @@ hfm::Model::Pointer ModelLoader::load(const hifi::ByteArray& data,const hifi::Va
  }catch(...){frame["exception"]="non-std exception";frame["returnedEpochMs"]=QDateTime::currentMSecsSinceEpoch();loaderOriginals.append(frame);throw;}
 }
 #include "GeometryParserMaterialMapping.inc"
+#if defined(ASSETS_ORIGINAL_MODEL_BAKER)
+#include "AssetsOriginalBakerJoin.inc"
+#else
 namespace baker {
 class Baker {
 public:
@@ -70,8 +73,12 @@ public:
  MaterialMapping getMaterialMapping()const{qFatal("Baker did not run");return {};}
 };
 }
+#endif
 static const QString SCRIPT_FIELD="script";
 bool gunzip(const QByteArray&,QByteArray&){qFatal("Compressed models are outside this parser join");return false;}
+#if defined(ASSETS_ORIGINAL_MODEL_BAKER)
+#undef PROFILE_RANGE_EX
+#endif
 #define PROFILE_RANGE_EX(...)
 #include "GeometryReaderOriginals.inc"
 
