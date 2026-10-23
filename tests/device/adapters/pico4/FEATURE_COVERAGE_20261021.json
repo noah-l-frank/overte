@@ -1128,7 +1128,9 @@
         "tests/device/adapters/chat_journey/CLEANUP_BASELINE.md",
         "tests/device/feature_journeys/CLEANUP_CONSUMPTION.md",
         "tests/device/adapters/chat_journey/cleanup_consumption.py",
-        "tests/device/adapters/chat_journey/CLEANUP_CONSUMPTION.md"
+        "tests/device/adapters/chat_journey/CLEANUP_CONSUMPTION.md",
+        "tests/device/adapters/chat_journey/observation_cursor.py",
+        "tests/device/adapters/chat_journey/OBSERVATION_CURSOR.md"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1172,7 +1174,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Continue original global primary/Actor cursors and repeated same-phase independent publication into actual external consumption before archival. Strict exact-warm-Journey consumption76.588s and unchanged baseline62.299s pass integrated Root checks; a cleanup-only positive records sequenceSucceeded=false and never claims a whole external journey. No caller offset or private26phase cursor is admitted. Cold RPC/PID continuity, stereo and public operations remain missing.",
+      "nextExecutableStep": "Join repeated independent original publication to the new warm global query cursor, then exact external consumption/source seals and complete archive catalog. Cursor17.704s and updated actual Pico factory48.998s pass integrated Root checks. Every global sequence names a durable original local source row across initial/active/cleanup; no caller offsets or private26phase cursor are admitted. Shared cleanup-only positives remain sequenceSucceeded=false; cold RPC/PID, stereo and public operations remain missing.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

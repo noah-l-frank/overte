@@ -36,7 +36,7 @@ After equivalent synthetic-tool optimization and original-ledger cold reopening
 fixes, the same warm flow passes78.704s within120s: normal Cancel/Still/Save,
 independent actual host PNG,13 fresh Provider inspections, all15 quiet clocks
 and cold factory reopening without a repeated input. JNI/Android provider/UID
-and rendering boundaries remain explicit host seams. The catalog now contains167 groups; complete source areas stay3/14.
+and rendering boundaries remain explicit host seams. The catalog now contains168 groups; complete source areas stay3/14.
 
 The fixed Assets normal-input packet95aa81c067 is selected as25d8dcff66.
 The actual original QML and whole Pico observer/apply host case passes20.433s,
@@ -1978,3 +1978,12 @@ remain seams; normal Pico Upload, actor/stereo and whole resource retirement
 are still missing. The four repository checks pass4.20s and registry/probe/
 whitespace checks pass. The catalog contains167 groups; source-complete areas
 remain3/14, with no app/APK/device qualification.
+
+Chat original observation cursor1d817cbfd1 is selected as7958cd946e. The
+new owning cursor17.704s, updated actual Pico factory48.998s and coverage0.097s
+pass (3/168 selected groups). Global query sequences start with original initial
+absence and retain explicit local source-row references through active/cleanup
+transitions. No source sequence is rewritten and no caller offset is accepted.
+Repeated independent publication, exact external consumption/sealing and the
+complete new-source catalog join remain next; old archives do not gain those
+missing proofs.
