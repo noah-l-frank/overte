@@ -1,9 +1,10 @@
 # Original normal-input reception and interruption recovery
 
 The gated `IOSNormalInputObservation` is one passive ledger with an explicitly
-closed profile enum. Only `Avatar` is enabled. It records ordinary Avatar and
-People commands, plus shared Home/page commands while an actual Avatar/People
-root is present. Login and private credential controls are excluded. Future
+closed profile enum. Avatar and Snapshot have separate enabled profiles; this
+reader admits only Avatar. Its profile records ordinary Avatar and People
+commands, plus shared Home/page commands while an actual Avatar/People root is
+present. Login and private credential controls are excluded. Future
 control profiles must extend this same closed source deliberately.
 
 An original received event retains the inner command UUID and full command,
@@ -53,3 +54,12 @@ unverified. This component advertises no whole Avatar capability.
 
 Contracts `ios-normal-inputs`, `ios-avatar-inputs-acquisition`,
 `ios-avatar-input-reads` and `ios-avatar-input-read-record` write/read version 1.
+
+
+A planned original must have no directory entry, including a dangling symlink.
+The shared input/account partial-file reader uses `lexists` rather than following
+the target when checking that absence. Two host counterexamples retain a real
+planned query journal, create an actual dangling link at its reserved path and
+require recovery and subsequent reads to fail without another native query or
+journal retirement. The link remains owned for explicit resolution; the reader
+never removes it as a side effect of reconstruction. Wire versions are unchanged.

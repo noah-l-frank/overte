@@ -45,7 +45,7 @@ class IOSAvatarInputReads:
 
     def partial_file(self,original):
         self.originals.original(original);path=self.originals.path(original)
-        if original['phase']=='planned':need(not path.exists());return None
+        if original['phase']=='planned':need(not os.path.lexists(path));return None
         descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
         with os.fdopen(descriptor,'rb') as stream:
             self.originals.file(path,stream.fileno(),original);raw=stream.read(original['bytes']+1);self.originals.file(path,stream.fileno(),original)
