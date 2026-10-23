@@ -657,7 +657,8 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                 try:
                     with self.lock.held():
                         history.before_load()
-                        self.load();history.after_load()
+                        if not history.cleanup or history.passive:
+                            self.load();history.after_load()
                         role=PhoneSnapshotsRole(self,self.role,expected_previous=history.role_header,
                             _observe_disposals=observations,_history_pass=history)
                         waiting=self.prepare_read_ready(history,role) if history.cleanup else None

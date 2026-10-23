@@ -107,11 +107,20 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
             sdk_scope=getattr(f.adapter,'_existing_input_scope',None);need(type(sdk_scope) is dict)
             sdk_value=deepcopy(sdk_scope)
             need(same(feature_store.read(),feature_header) and signature(feature_store.path)==feature_signature)
+        foreground=None
+        if cleanup:
+            foreground=(f.guard,getattr(f,'_runtime_guard',None),_callable_identity(f.adapter.normal_feature_runtime))
+            need(f._scope_ready is True and getattr(f,'_system_scope',None) is None)
         f.bound();phase=f.phase.status(previous_phase)
         if previous_phase is not None:_same_phase(phase,previous_phase)
         need(phase['active'] and phase['activations'])
         if cleanup:f.cleanup_observe_phase(phase,previous_phase)
         elif phase['activations'][-1]['stimulus']['verb']=='cleanup':return None
+        if foreground is not None:
+            guard,runtime,factory=foreground
+            need(f.guard is guard and getattr(f,'_runtime_guard',None) is runtime
+                and f._scope_ready is True and getattr(f,'_system_scope',None) is None
+                and _same_callable(f.adapter.normal_feature_runtime,factory))
         if passive:
             need(passive_scope(f) is system and _same_callable(f.adapter._snapshot_system_context,factory))
             cls._system_matches(system,system_pin)
@@ -132,6 +141,10 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         self.binding=deepcopy(f.binding);self.feature_state_sha256=_digest(f.state)
         self.scope=getattr(f.adapter,'_existing_input_scope',None);need(type(self.scope) is dict)
         self.scope_value=deepcopy(self.scope);self.process,self.thread=os.getpid(),threading.get_ident()
+        self.cleanup_foreground=None
+        if cleanup and not passive:
+            need(f._scope_ready is True and getattr(f,'_system_scope',None) is None)
+            self.cleanup_foreground=(f.guard,getattr(f,'_runtime_guard',None),_callable_identity(f.adapter.normal_feature_runtime))
         self.paths=(self.feature_store.path,self.role_store.path)
         self.signatures=(signature(self.feature_store.path),role_signature)
         self.prepared=dict(feature=self.feature_header,role=self.role_header,state=self.state,phase=self.phase,
@@ -174,9 +187,11 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         if current:need(passive_scope(f) is scope)
         pin['clock']=scope.last_clock
 
-    def _headers(self,*,check_system=True,_slot_owner=None):
+    def _headers(self,*,check_system=True,_slot_owner=None,metadata_only=False):
         f=self.feature
-        need(not self.closed and os.getpid()==self.process and threading.get_ident()==self.thread
+        need(type(metadata_only) is bool and (not metadata_only or self.replaying and self.started
+                and f.lock._owner is None and _slot_owner is None)
+            and not self.closed and os.getpid()==self.process and threading.get_ident()==self.thread
             and f.store is self.feature_store and (f.store.path,self.role_store.path)==self.paths
             and f.root==self.root and f.run==self.run and f.role==self.role_name=='primary'
             and same(f.config,self.configuration) and same(f.binding,self.binding)
@@ -185,9 +200,18 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
             and same(f.previous,self.feature_header)
             and getattr(f.adapter,'_existing_input_scope',None) is self.scope and same(self.scope,self.scope_value)
             and _digest(self.prepared)==self.prepared_sha256)
+        if self.cleanup_foreground is not None:
+            guard,runtime,factory=self.cleanup_foreground
+            need(self.cleanup and not self.passive and f.guard is guard and getattr(f,'_runtime_guard',None) is runtime
+                and f._scope_ready is True and getattr(f,'_system_scope',None) is None
+                and _same_callable(f.adapter.normal_feature_runtime,factory))
         role_header,role_signature=(self.role_header,self.signatures[1]) if _slot_owner is None else _slot_owner
         for store,expected,pinned in zip((self.feature_store,self.role_store),(self.feature_header,role_header),(self.signatures[0],role_signature)):
-            need(signature(store.path)==pinned and same(store.read(),expected) and signature(store.path)==pinned)
+            need(signature(store.path)==pinned)
+            # Full owner payload reads bracket the complete unlocked body pass
+            # and remain mandatory at all locked callback qualifications.
+            if not metadata_only:need(same(store.read(),expected))
+            need(signature(store.path)==pinned)
         self._system_headers(current=check_system)
         return True
 
@@ -209,7 +233,7 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
 
     def guard(self):
         need(self.feature.lock._owner is None and self.started)
-        return self._headers()
+        return self._headers(metadata_only=self.replaying)
 
     def read(self):
         try:
