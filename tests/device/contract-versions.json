@@ -102,6 +102,7 @@
     "pico-assets-pages-source": {"current": 1, "reads": [1]},
     "pico-assets-home-owner": {"current": 2, "reads": [1, 2]},
     "pico-assets-mapping-pair": {"current": 1, "reads": [1]},
+    "pico-assets-entity-effect-host": {"current": 1, "reads": [1]},
     "pico-assets-ui-inventory": {"current": 1, "reads": [1]},
     "native-pico-assets-files": {"current": 1, "reads": [1]},
     "pico-assets-file-owner": {"current": 1, "reads": [1]},

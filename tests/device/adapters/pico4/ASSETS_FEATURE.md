@@ -913,3 +913,76 @@ both native artifacts and actual independent server replies remain in private
 evidence. There is no product behavior, version or capability change. Whole
 server/oven, uploaded owned mapping, loaded model/texture, independent rendered
 peer/stereo and complete retained-resource retirement remain unqualified.
+
+## Original Add to World and local entity dispatch
+
+The additive `assets-entity-effect` host selector starts from controlled,
+read-only glTF/mesh/texture mappings whose physical original server blobs match
+the pinned common input bytes. These are pre-existing fixture inputs, not an
+uploaded-owned mapping or an oven receipt. Normal Refresh/filter/row input uses
+the real original mapping model/proxy; normal Add to World and model-dialog
+confirmation traverse the existing pointer/control factory and original QML.
+Intent, final native command and phase originals remain durable before writing.
+No QML handler or entity API is invoked by the test as an input shortcut.
+
+This optional fixture compiles the complete original `addModelEntity`,
+`addEntity(bool)`, `addEntityInternal`, `addLocalEntityCopy`,
+`convertPropertiesFromScriptSemantics`, `synchronizeEditedGrabProperties`,
+legacy grab-data conversion, `EntityTree::addEntity`, type registration/factory
+dispatch and creation-time bodies. It also executes the original shape-name
+lookup, vector/quaternion conversion and pose/gravity math. The original
+`SharedUtil` microsecond clock uses its unchanged zero adjustment. Thirty-four
+body/enum/default/math/clock hashes bind the selection. Existing shared
+`CreateLocalCreations` arms before normal input and records the original
+successful local DOMAIN insertion branch; it never adopts an older ID.
+
+Generated property storage, unparented transforms, the Model QObject factory,
+Octree placement/post-add, packet queue, avatar pose, permissions and renderer
+remain explicit host endpoints. The complete product EntityItem, generated
+property implementation, spatial simulation, network acceptance and renderer
+are not compiled or qualified. The original native branch creates a real
+QObject in that declared local storage, with the same UUID, session, creation
+time and type as its original creation marker. The original QML produces
+`simple-compound`, non-dynamic/non-collisionless/non-grabbable properties,
+position two metres ahead of the supplied host pose and zero gravity. Its
+unchanged default dimensions are 0.1 metres and dimensions are not initialized;
+this is not proof of a settled unit-sized model.
+
+A second normal-input case attaches no local Tree before acquiring any
+originals. The unchanged API returns a nonempty UUID and dispatches to the host
+packet endpoint; the unchanged QML displays its success text. Actual local
+object and creation-marker inventories stay empty. That combination therefore
+cannot be admitted as an insertion effect. This is an ordinary effect-boundary
+counterexample, not a product fix or a delivery replay.
+
+Both cases continue through the existing normal Cancel/file-release/Home owner,
+with unchanged three-second/500-ms windows and independent full GetAll reads.
+The server check covers every original mapping hash and every physical blob,
+including hidden mappings; no mapping or blob changes. Final upload originals
+stay at zero calls. Per-case original entity/model/UI/input/phase archives count
+toward the existing combined 512-frame/16-MiB limits. The four raw entity replies
+are durably saved before interpretation. Actual Home retires the page and stops
+model refresh, while the actual invalid context remains retained. The created
+entity, or uncertain nonempty no-Tree ID/packet, is also explicitly retained:
+Home is not entity deletion or whole-resource cleanup.
+
+The two owning cases passed in 50.478 seconds including native compilation.
+The required unchanged MappingModel default regression passed in 34.949 seconds.
+An earlier 13.314-second compile failure is retained separately: the harness
+initially redeclared SharedUtil symbols and selected the wrong addEntity
+inline overload. The corrected fixture reuses the exact original clock and
+bool overload; no product source changed. The 90-second compile and 120-second
+selector limits remain unchanged. The local catalog adds only this selector;
+Root must preserve its current catalog count when selecting the packet.
+The private `pico-assets-entity-effect-host` format is version 1. No public
+feature capability or complete-area claim changes. Actual owned upload,
+server/oven, model/texture loads, independent rendered actor/stereo, normal
+entity deletion and retained context/window/history retirement remain open.
+
+Registry validation, seven Pico coverage checks (all 14 risk groups), six common
+Assets source checks, all 668 Markdown checks and four explicitly selected
+repository policy/documentation/coverage groups pass. An overly broad
+`--platform-only` repository selection was stopped locally after its two green
+package checks entered the full Pico catalog; its interrupted report is
+preserved and is not counted as a successful full-suite result. No unchanged
+owning positive was repeated to replace that interruption.

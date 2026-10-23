@@ -21,5 +21,7 @@ public:
  QUuid getSessionUUID()const{return session;}
  QSharedPointer<HostAssetNode> soloNodeOfType(char){return server;}
  bool getThisNodeCanWriteAssets()const{return allowed;}
+ bool getThisNodeCanRez()const{return true;}bool getThisNodeCanRezTmp()const{return true;}
+ bool getThisNodeCanRezAvatarEntities()const{return false;}
  HostDomain domain;QUuid session{"32345678-1234-4234-8234-123456789abc"};bool allowed{true};QSharedPointer<HostAssetNode> server{new HostAssetNode};
 };
