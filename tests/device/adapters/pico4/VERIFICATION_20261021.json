@@ -2898,5 +2898,21 @@
     "wholeFeatureCapability": false,
     "journalsRetired": false,
     "remaining": "Durable complete-history manifest owner, immutable archive/host closure, and unchanged120-second full browser Journey."
+  },
+  "chatCursorGraphSeal20261023": {
+    "status": "passed",
+    "sourceCommit": "c8c60efa017a002d0da4e07e8f6c988465b64e1a",
+    "integrationCommit": "3830a69e8e",
+    "picoGroups": 4,
+    "catalogAtRun": 170,
+    "seconds": 55.27,
+    "checks": {
+      "graphSeal": 15.659,
+      "cursorAndPublisher": 9.466,
+      "factory": 30.065,
+      "coverage": 0.079
+    },
+    "qualification": "Actual warm whole source graphs and historical physical receipts; initial/Open and original cleanup machinery execute, remaining24 input metadata/native/widget/network/clock producers are explicit seams. No whole external Journey, actor process closure, cold RPC, archive join or stereo/public capability.",
+    "journalsRetired": false
   }
 }

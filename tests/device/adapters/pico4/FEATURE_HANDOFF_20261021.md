@@ -36,7 +36,7 @@ After equivalent synthetic-tool optimization and original-ledger cold reopening
 fixes, the same warm flow passes78.704s within120s: normal Cancel/Still/Save,
 independent actual host PNG,13 fresh Provider inspections, all15 quiet clocks
 and cold factory reopening without a repeated input. JNI/Android provider/UID
-and rendering boundaries remain explicit host seams. The catalog now contains169 groups; complete source areas stay3/14.
+and rendering boundaries remain explicit host seams. The catalog now contains170 groups; complete source areas stay3/14.
 
 The fixed Assets normal-input packet95aa81c067 is selected as25d8dcff66.
 The actual original QML and whole Pico observer/apply host case passes20.433s,
@@ -2020,3 +2020,24 @@ manifest still needs a durable enclosing owner derived from all original
 histories, followed by immutable archive and host closure. Full browser
 Journey remains red at its unchanged120s limit; no new feature, APK or device
 qualification is claimed.
+
+
+## Complete original global Chat source graph seals
+
+Fixed c8c60efa017a002d0da4e07e8f6c988465b64e1a is selected as3830a69e8e.
+The separate version1 extension reuses original source seal machinery and
+includes every initial/active/cleanup observation/sample owner, all actual
+compiled-script predecessors, the global cursor and independent publisher.
+Query freezing preserves original actor guard ownership; historical physical
+verification never becomes permission for a fresh native query or old-PID
+access. Exact cached types, root/chunk identities, full bytes and original
+final clocks remain checked. See [the graph contract](../chat_journey/CURSOR_SOURCE_SEAL.md).
+
+Integrated source seal15.659s, cursor/publisher9.466s, actual Pico factory30.065s
+and coverage0.079s pass (4/170 groups,55.27s). The new disjoint selection
+preserves every case and unchanged120s limit. Actual initial/Open and source
+retirement machinery execute; remaining24 input metadata and product/native
+producers remain explicit seams. Exact external global cleanup consumption,
+new-source archive catalog, actor-process/IPC/host release, cold RPC and
+Chat-specific stereo/public capability remain missing. No journals are retired
+by this packet and source-complete areas stay3/14.

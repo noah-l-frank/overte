@@ -1134,7 +1134,9 @@
         "tests/device/adapters/chat_journey/CLEANUP_CONSUMPTION.md",
         "tests/device/adapters/chat_journey/observation_cursor.py",
         "tests/device/adapters/chat_journey/OBSERVATION_CURSOR.md",
-        "tests/device/adapters/chat_journey/observation_publisher.py"
+        "tests/device/adapters/chat_journey/observation_publisher.py",
+        "tests/device/adapters/chat_journey/cursor_source_seal.py",
+        "tests/device/adapters/chat_journey/CURSOR_SOURCE_SEAL.md"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1178,7 +1180,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Join exact global external cleanup consumption and complete original source seals/archive catalog to the current warm cursor and repeated independent publisher. Integrated original cursor/publisher22.334s, actual Pico factory51.045s and coverage0.104s pass; actual lock-exit failure latches uncertainty. Cleanup-only positives remain sequenceSucceeded=false; whole external journey, actor-process closure, cold RPC/PID and stereo/public operations remain missing.",
+      "nextExecutableStep": "Join actual common global cleanup consumption to the new complete original cursor/publisher graph seals, include every new root/chunk in the immutable archive, then actual actor-process/IPC/host closure. Fixed c8c60efa01 seals all three original stages and compiled-script predecessors; integrated seal15.659s, cursor/publisher9.466s, actual Pico factory30.065s and coverage0.079s pass. The differing times versus prior runs are measurements, not changed clocks or selectors. Whole external effects, cold RPC/PID and Chat-specific stereo/public operations remain missing.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

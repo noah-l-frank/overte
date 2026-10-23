@@ -56,6 +56,7 @@ TESTS = (
     test('chat-baseline-composition', "interaction", PYTHON, "pico-chat-application-close-test.py", 'baseline-composition'),
     test('chat-cleanup-consumption', "interaction", PYTHON, "pico-chat-application-close-test.py", 'cleanup-consumption'),
     test('chat-observation-cursor', "interaction", PYTHON, "pico-chat-application-close-test.py", 'observation-cursor'),
+    test('chat-cursor-source-seal', "interaction", PYTHON, "pico-chat-application-close-test.py", 'cursor-source-seal'),
     test('chat-application-archive', "interaction", PYTHON, "pico-chat-application-close-test.py", 'archive'),
     test("chat-composition", "interaction", PYTHON, "device/test_chat_composition.py"),
     test("chat-cache-release-positive", "interaction", PYTHON, "pico-chat-cache-release-test.py", "positive"),
