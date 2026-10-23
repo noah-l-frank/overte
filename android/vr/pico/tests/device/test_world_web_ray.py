@@ -17,6 +17,7 @@ HERE=Path(__file__).resolve().parent;ROOT=HERE.parents[4]
 sys.path.insert(0,str(ROOT/'tests/device'))
 from self_tests.test_pico_world_browser_ray import WorldBrowserRayTests,WorldBoundary,RUN,URL,OWNER,VIEW
 from self_tests.test_pico_world_browser_text import WorldBrowserTextTests
+from self_tests.test_pico_world_browser_vm import WorldBrowserVmTests
 from adapters.pico4.browser_source import validate
 from adapters.script_journey.lock import ScriptSourceLock
 
@@ -83,6 +84,40 @@ class WorldWebNativeRayTests(unittest.TestCase):
 
 
 class WorldWebRayFactoryTests(unittest.TestCase):
+    def test_actual_tablet_vm_facade_calls_original_observer_api_without_writing_or_querying(self):
+        import test_normal_scripts as original
+        from adapters.pico4.tablet_web_binding import PicoTabletWebBinding
+        from adapters.pico4.tablet_web_feature import PicoTabletWebFeature
+        from feature_journeys.phase_fixture import PhaseFixtureReader
+        from feature_journeys.witness import Client
+        h=original.PicoNormalScriptsTests();h.setUp();self.addCleanup(h.doCleanups)
+        adapter,native=h.instance,h.native;facade=PicoTabletWebBinding(adapter)
+        source=PhaseFixtureReader(Client('http://127.0.0.1/feature-fixture/v1','f'*64),RUN,'tablet-web')
+        artifacts=facade.state_path(native.target).parent/'vm-factory-artifacts';artifacts.mkdir(mode=0o700)
+        flow=PicoTabletWebFeature(facade,native.target,source,artifacts,'http://127.0.0.2/feature-fixture/v1')
+        with flow.lock.held():
+            binding=adapter._script_runtime(native.target)[2]
+            flow.live_owner=dict(binding=binding,scriptUrl=URL+'tickets/'+('e'*32)+'/client.js')
+            vm=facade._tablet_web_vm(native.target,flow)
+            self.assertIs(vm.lock,flow.lock);self.assertEqual('tablet',vm.surface());self.assertIsNone(vm.store.read())
+        self.assertEqual([],native.inputs);self.assertEqual([],native.controllers)
+
+    def test_actual_world_vm_factory_binds_script_lock_and_separate_physical_scope_without_source_query(self):
+        import test_normal_scripts as original
+        from adapters.script_journey.lock import ScriptSourceLock
+        from adapters.normal_feature_state import PrivateFeatureState
+        h=original.PicoNormalScriptsTests();h.setUp();self.addCleanup(h.doCleanups)
+        adapter,native=h.instance,h.native;lock=adapter._script_journey()._lock(native.target)
+        def forbidden():self.fail('A passive VM constructor queried HTTP')
+        with lock.held():
+            vm=adapter._world_browser_vm(native.target,RUN,URL,URL+'tickets/'+('e'*32)+'/client.js',
+                role='primary',source_lock=lock,http=forbidden)
+            self.assertIs(vm.lock,lock);self.assertEqual('world',vm.surface());self.assertIsNone(vm.store.read())
+            self.assertNotEqual(vm.store.path.parent,lock.path.parent);self.assertFalse(adapter._world_web_retained(native.target))
+            vm.store.write(dict(original='unresolved'),None)
+            self.assertTrue(adapter._world_web_retained(native.target))
+        self.assertEqual([],native.inputs);self.assertEqual([],native.controllers)
+
     def test_actual_private_factory_uses_existing_session_and_same_original_lock_without_claiming_feature(self):
         import test_normal_scripts as original
         from adapters.pico4.browser_source import FILE

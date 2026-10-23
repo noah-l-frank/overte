@@ -2292,6 +2292,23 @@ def create_adapter(args, base_class):
             return bind_world_click(self,target,io,intent,stream_intent,before_publish)
 
         @_private
+        def _world_web_retained(self,target):
+            journey=script_journey.PicoScriptJourney(self);journey.state_area='world-web'
+            path=journey.existing_state_path(target)
+            return path is not None and any(path.parent.iterdir())
+
+        @_private
+        def _world_browser_vm(self,target,run,fixture_url,script_url,*,role,source_lock,http):
+            from adapters.pico4.browser_vm import PicoBrowserVm
+            _need(role in ('primary','actor') and callable(http))
+            lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            _ui,_observe,binding=self._script_runtime(target)
+            journey=script_journey.PicoScriptJourney(self);journey.state_area='world-web'
+            return PicoBrowserVm(run,fixture_url,script_url,role,binding,
+                self._script_execution_observer(target),self._script_object_lifetimes(target,source_lock=lock),
+                journey._store(target,'pico-world-web-'+role+'-vm.json'),lock,http,surface='world')
+
+        @_private
         def _world_browser_text(self,target,*,source_lock,intent,stream_intent,before_publish,commit_intent):
             from adapters.pico4.world_browser_text import PicoWorldTextInput
             click=self._world_browser_click(target,source_lock=source_lock,intent=intent,
@@ -3320,7 +3337,7 @@ def create_adapter(args, base_class):
             try:
                 if self.pico_configuration is not None:
                     from adapters.pico4.tablet_web_binding import retained
-                    if retained(self,target):feature_error=True
+                    if retained(self,target) or self._world_web_retained(target):feature_error=True
                     if any(self._browser_world_render_store(target,role).read() is not None for role in ('primary','actor')):
                         feature_error=True
             except Exception:
@@ -3489,7 +3506,7 @@ def create_adapter(args, base_class):
                         discard_stopped_state(path)
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
-                _need(not self._navigation_prefix_owned(target) and not snapshot_error and not audio_error and not create_error and not self._assets_files_owned(target) and not self._create_management(target).owned() and not self._create_picker_owned(target) and not self._create_models_owned(target) and not self._create_feature_owned(target) and not self._avatar_urls_owned(target) and not self._avatar_favorites_owned(target)
+                _need(not self._world_web_retained(target) and not self._navigation_prefix_owned(target) and not snapshot_error and not audio_error and not create_error and not self._assets_files_owned(target) and not self._create_management(target).owned() and not self._create_picker_owned(target) and not self._create_models_owned(target) and not self._create_feature_owned(target) and not self._avatar_urls_owned(target) and not self._avatar_favorites_owned(target)
                       and not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._lifecycle_back_store(target).read() is None
                       and (self._lifecycle_world_store(target,create=False) is None or self._lifecycle_world_store(target,create=False).read() is None)

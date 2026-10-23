@@ -3814,5 +3814,35 @@
     "materialsTexturesRendererQualified": false,
     "fullFeatureRecipe": false,
     "deviceAcceptance": false
+  },
+  "worldVmProfile20261024": {
+    "status": "passed-selected-components",
+    "initialWorldAndLegacyCases": 17,
+    "initialSeconds": 4.199,
+    "firstCombinedCommand": {
+      "tests": 49,
+      "durationSeconds": 16.66,
+      "status": "failed-one-actual-factory-api-error",
+      "otherCasesPassed": 48
+    },
+    "correctedFactoryAndLegacy": {
+      "tests": 15,
+      "durationSeconds": 3.854,
+      "status": "passed"
+    },
+    "lateMemoCounterBeforeFix": "failed-native-jump-1501ms-not-rejected",
+    "finalWorldLegacyActualFactories": {
+      "tests": 22,
+      "durationSeconds": 5.627,
+      "status": "passed"
+    },
+    "tabletWireScopeAndCodePinUnchanged": true,
+    "worldCodePin": "web-source/client.js",
+    "worldContract": "pico-world-browser-vm:1",
+    "worldNamespaceOrphansBlockGenericCleanup": true,
+    "sdkV8QObjectProducers": "explicit-host-seams",
+    "completeWorldFeature": false,
+    "fullApplicationCompiled": false,
+    "deviceAcceptance": false
   }
 }

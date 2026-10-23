@@ -6,9 +6,9 @@ from adapters.native_script_object_lifetimes import validate as object_packet,AC
 from adapters.pico4.browser_measurements import browser_status
 
 
-def validate_frame(frame,previous,origin,script_url,pid):
+def validate_frame(frame,previous,origin,script_url,pid,*,surface='tablet'):
     from adapters.pico4.browser_vm import join
-    origin,facts=join(frame,script_url,pid,origin=origin)
+    origin,facts=join(frame,script_url,pid,origin=origin,surface=surface)
     if previous:
         old=previous[-1]
         object_packet(frame['objectsBefore'],dict(schemaVersion=1,commandId=frame['objectsBefore']['commandId'],action=ACTION),
@@ -19,12 +19,12 @@ def validate_frame(frame,previous,origin,script_url,pid):
     return origin,facts
 
 
-def window(frame_count,frame_at,first,last,after_epoch,origin,script_url,pid):
+def window(frame_count,frame_at,first,last,after_epoch,origin,script_url,pid,*,surface='tablet'):
     from adapters.pico4.browser_vm import join
     need(integer(first,0,frame_count-1) and integer(last,first,frame_count-1) and last-first<64 and integer(after_epoch,1))
     rows=[frame_at(index) for index in range(first,last+1)]
     for frame in rows:
-        _origin,facts=join(frame,script_url,pid,origin=origin)
+        _origin,facts=join(frame,script_url,pid,origin=origin,surface=surface)
         need(facts['retired'] and min(frame['objectsBefore']['requestedEpochMs'],frame['scripts']['requestedEpochMs'],
             frame['objectsAfter']['requestedEpochMs'])>=after_epoch)
     def clocks(frame):return [frame['objectsBefore']['source']['capturedEpochMs'],frame['scripts']['capturedEpochMs'],

@@ -148,7 +148,7 @@ class PicoTabletWebBinding(PicoScriptJourney):
         self.check_flow(target,flow);owner=flow.live_owner
         need(owner is not None and owner['scriptUrl'] is not None)
         return PicoBrowserVm(flow.run,flow.fixture_url,owner['scriptUrl'],flow.role,owner['binding'],
-            self.original._script_execution_observer(target,read_only=True),
+            self._script_execution_observer(target,read_only=True),
             self.original._script_object_lifetimes(target,source_lock=flow.lock),
             self._store(target,'pico-tablet-web-'+flow.role+'-vm.json'),flow.lock,
             lambda:flow.source.client.request('/runs/'+flow.run+'/browser'))

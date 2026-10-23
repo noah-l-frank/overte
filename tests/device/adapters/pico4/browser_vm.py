@@ -26,13 +26,14 @@ from feature_journeys.fixtures import pinned_resource
 VERSION=1
 
 
-def reviewed():
-    raw=pinned_resource('web-source/tablet-feature-client.js');units=raw.decode('utf-8').encode('utf-16le')
+def reviewed(surface='tablet'):
+    need(type(surface) is str and surface in ('tablet','world'))
+    raw=pinned_resource('web-source/tablet-feature-client.js' if surface=='tablet' else 'web-source/client.js');units=raw.decode('utf-8').encode('utf-16le')
     return dict(encoding='utf-16le-code-units',codeUnits=len(units)//2,sha256=hashlib.sha256(units).hexdigest()),raw
 
 
-def original_identity(scripts,url):
-    source=scripts['source'];pins,_raw=reviewed()
+def original_identity(scripts,url,*,surface='tablet'):
+    source=scripts['source'];pins,_raw=reviewed(surface)
     need(source.get('sourceIdentityVersion')==source.get('membershipSourceVersion')==source.get('compiledSourceVersion')==1
         and source.get('loadSourceVersion')==source.get('effectSourceVersion')==1 and source['loads']['complete']
         and source['membership']['complete'])
@@ -49,7 +50,7 @@ def original_identity(scripts,url):
     return dict(manager=member['instance'],membership=deepcopy(member),code=deepcopy(engine['code']),compilation=deepcopy(compiled[0]))
 
 
-def join(frame,url,pid,*,origin=None):
+def join(frame,url,pid,*,origin=None,surface='tablet'):
     exact(frame,{'objectsBefore','scripts','objectsAfter','http','hostMonotonic'})
     need(number(frame['hostMonotonic'],0,1e15))
     before,scripts,after=frame['objectsBefore'],frame['scripts'],frame['objectsAfter'];epoch=after['capturedEpochMs']
@@ -59,11 +60,11 @@ def join(frame,url,pid,*,origin=None):
     need(before['instance']==scripts['instance']==after['instance']
         and before['requestedEpochMs']<=before['capturedEpochMs']<=scripts['requestedEpochMs']
         <=scripts['capturedEpochMs']<=after['requestedEpochMs']<=epoch and epoch-before['requestedEpochMs']<=1500)
-    source=scripts['source'];pins,raw=reviewed()
+    source=scripts['source'];pins,raw=reviewed(surface)
     need(source.get('sourceIdentityVersion')==source.get('membershipSourceVersion')==source.get('compiledSourceVersion')==1
         and source.get('loadSourceVersion')==source.get('effectSourceVersion')==1 and source['loads']['complete']
         and source['membership']['complete'])
-    if origin is None:origin=original_identity(scripts,url)
+    if origin is None:origin=original_identity(scripts,url,surface=surface)
     exact(origin,{'manager','membership','code','compilation'})
     identifier(origin['manager'])
     life_before=selected(before,origin['manager']);life_after=selected(after,origin['manager'])
@@ -94,8 +95,8 @@ def join(frame,url,pid,*,origin=None):
 
 
 class PicoBrowserVm:
-    def __init__(self,run,url,script_url,role,binding,scripts,objects,store,lock,http):
-        fixture(run,url);identifier(run);context(binding)
+    def __init__(self,run,url,script_url,role,binding,scripts,objects,store,lock,http,*,surface='tablet'):
+        fixture(run,url);identifier(run);context(binding);need(type(surface) is str and surface in ('tablet','world'))
         need(role in ('primary','actor') and type(script_url) is str and script_url.startswith(url+'tickets/')
             and re.fullmatch('[0-9a-f]{32}/client\\.js',script_url[len(url+'tickets/'):])
             and isinstance(scripts,NativeScriptObservation) and not scripts.ios and isinstance(objects,NativeScriptObjectLifetimes)
@@ -103,7 +104,10 @@ class PicoBrowserVm:
             and scripts.pid==objects.pid==int(binding['processIdentity'].split(':',1)[0])
             and scripts.instance is None and objects.last is None)
         lock.assert_held();self.scripts,self.objects,self.store,self.lock,self.http=scripts,objects,store,lock,http
-        self.scope=dict(picoBrowserVmVersion=VERSION,runId=run,fixtureUrl=url,scriptUrl=script_url,role=role,binding=deepcopy(binding))
+        # Frozen tablet v1 keeps its exact scope and resource meaning. World
+        # v1 has a distinct contract discriminator, never a renamed old owner.
+        self.scope={('picoBrowserVmVersion' if surface=='tablet' else 'picoWorldBrowserVmVersion'):VERSION,
+            'runId':run,'fixtureUrl':url,'scriptUrl':script_url,'role':role,'binding':deepcopy(binding)}
         self.chunks=ChatSourceChunks(store,self.scope);self.previous=store.read();self._frames=();self._frame_hashes=();self._sealed_frames=self._frames;self._sealed_hashes=self._frame_hashes
         self.origin=None;self.failed=False;self.windows=[]
         if self.previous is None:self.chunks.inventory(0)
@@ -120,6 +124,13 @@ class PicoBrowserVm:
             scripts.restore_history([row['scripts'] for row in frames])
             if frames:objects.restore(frames[-1]['objectsAfter'])
         self.cached_digest=self.cache_digest()
+
+    def surface(self):
+        world='picoWorldBrowserVmVersion' in self.scope
+        field='picoWorldBrowserVmVersion' if world else 'picoBrowserVmVersion'
+        need(('picoBrowserVmVersion' not in self.scope if world else 'picoWorldBrowserVmVersion' not in self.scope)
+            and type(self.scope[field]) is int and self.scope[field]==VERSION)
+        return 'world' if world else 'tablet'
 
     @property
     def frames(self):
@@ -152,7 +163,7 @@ class PicoBrowserVm:
 
     def validate(self,frame,previous):
         from adapters.pico4.browser_vm_grammar import validate_frame
-        self.origin,facts=validate_frame(frame,previous,self.origin,self.scope['scriptUrl'],self.scripts.pid)
+        self.origin,facts=validate_frame(frame,previous,self.origin,self.scope['scriptUrl'],self.scripts.pid,surface=self.surface())
         return facts
 
     def write(self,phase,chunks,*,windows=None):
@@ -178,14 +189,15 @@ class PicoBrowserVm:
             frame=dict(objectsBefore=before,scripts=scripts,objectsAfter=after,http=http,hostMonotonic=self.objects.monotonic())
             facts=self.validate(frame,[] if self.frame_count==0 else [self.frame(-1)])
             sha256=json_digest(frame);candidate=canonical(frame);result=deepcopy(facts)
-            self.write('ready',self.chunks.append(frame,manifest));self.chunks.verify();final(before['requestedEpochMs'])
-            self._append_cache(candidate,sha256);self.cached_digest=self.cache_digest();return result
+            self.write('ready',self.chunks.append(frame,manifest));self.chunks.verify()
+            self._append_cache(candidate,sha256);self.cached_digest=self.cache_digest()
+            final(before['requestedEpochMs']);return result
         except Exception:
             self.failed=True;raise NativeUIError('Original browser VM ownership is retained; source transaction did not complete') from None
 
     def window(self,first,last,after_epoch):
         from adapters.pico4.browser_vm_grammar import window
-        return window(self.frame_count,self.frame,first,last,after_epoch,self.origin,self.scope['scriptUrl'],self.scripts.pid)
+        return window(self.frame_count,self.frame,first,last,after_epoch,self.origin,self.scope['scriptUrl'],self.scripts.pid,surface=self.surface())
 
     def quiet(self,after_epoch):
         """Record an exact complete suffix once; later reads retain its originals."""
@@ -195,7 +207,7 @@ class PicoBrowserVm:
         rows=[]
         for index in reversed(range(self.frame_count)):
             frame=self.frame(index)
-            _origin,facts=join(frame,self.scope['scriptUrl'],self.scripts.pid,origin=self.origin)
+            _origin,facts=join(frame,self.scope['scriptUrl'],self.scripts.pid,origin=self.origin,surface=self.surface())
             if not facts['retired'] or min(frame['objectsBefore']['requestedEpochMs'],frame['scripts']['requestedEpochMs'],
                     frame['objectsAfter']['requestedEpochMs'])<after_epoch:break
             rows.insert(0,frame)

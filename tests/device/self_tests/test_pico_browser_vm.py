@@ -168,8 +168,8 @@ class PicoBrowserVmTests(unittest.TestCase):
         from self_tests.test_pico_tablet_web_feature import PicoTabletWebFeatureTests
         fixture=PicoTabletWebFeatureTests();fixture.setUp();self.addCleanup(fixture.doCleanups)
         flow=fixture.flow();flow.prepare();b=Boundary(fixture.root)
-        def scripts(target,*,read_only):
-            self.assertTrue(read_only);reader=b.script.reader()
+        def scripts(target):
+            reader=b.script.reader()
             reader.clock_ms=lambda:b.objects.epoch;reader.monotonic=lambda:b.objects.host
             return reader
         def objects(target,*,source_lock):

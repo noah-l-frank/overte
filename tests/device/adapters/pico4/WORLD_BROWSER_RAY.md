@@ -140,3 +140,45 @@ any IME/pointer attempt. The complete selected backend regression passes8.761s
 with that additional counter and unchanged tablet behavior; native originals
 remain retained. This closes a resize-boundary admission gap without claiming
 whole-journey or rendering qualification.
+
+## Original world-script VM profile
+
+The existing `PicoBrowserVm` now accepts the closed `world` profile. It checks
+submitted/compiled UTF-16 code and original HTTP bytes against the unchanged
+pinned `web-source/client.js`; the default tablet profile still uses its exact
+`web-source/tablet-feature-client.js` pin and frozen v1 scope. The new
+`pico-world-browser-vm` v1 scope has the distinct `picoWorldBrowserVmVersion`
+discriminator. World and tablet records cannot be cold-adopted as each other.
+The same transaction, immutable original chunks, native Script/Object readers,
+three QObject lifetimes and complete three-clock quiet validator serve both.
+No duplicate VM or observation system is introduced.
+
+The private `_world_browser_vm` factory uses the original Script source lock
+and a separate target-specific `world-web` state namespace. Generic cleanup
+preserves and refuses unresolved world parents or rootless immutable chunks;
+a generic process stop is not resource retirement. Actor sources use their
+own original records and cursors. Service absence cannot stand in for actual
+manager, engine and worker destruction. Scope aliases, wrong compiler/HTTP
+pins and same-byte replacement chunks are counterexamples.
+
+An actual-factory regression exposed an unsupported `read_only` keyword sent
+to the original low-level Script observer. The world factory now calls the
+actual observer API; the existing tablet VM factory delegates through its
+existing guarded facade. Both real factory constructors are covered. The first
+49-case component command had one factory error; its other 48 cases passed.
+The corrected factories and legacy VM cases then passed15/15 in3.854s.
+
+A new frozen-host/native-jump counter also failed before the VM final-fence fix:
+the old code appended/hashes its memo after its final clock read. Memo admission
+and digest now precede that original final clock. Late work retains the ready-
+looking original journal and a permanently failed warm owner, without returning
+a fresh sample or issuing another query. All seven world-VM cases, twelve old
+VM cases and three actual private-factory cases pass22/22 in5.627s. The original
+SDK/V8/QObject producer DTOs remain declared host seams; these checks do not
+compile V8 or qualify product execution or devices.
+
+The next enclosing flow must normally open/load/stop this exact world script
+and join world DOM/HTTP/script replies, original world-specific stereo and an
+independent publisher under the unchanged v16 phase recipe. Tablet-only VM,
+image or archive profiles cannot be relabeled. Complete feature capability and
+whole final retirement remain unavailable.

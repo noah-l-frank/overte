@@ -15,6 +15,7 @@ REQUIRED = {
     "pico-browser-archive-release": 1,
     "original-source-unlink-fence": 1,
     "pico-browser-vm": 1,
+    "pico-world-browser-vm": 1,
     "pico-browser-history": 1,
     "pico-browser-actor-export": 1,
     "pico-browser-actor-graph": 1,

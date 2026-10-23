@@ -623,7 +623,10 @@
         "tests/device/self_tests/test_pico_world_browser_ray.py",
         "tests/device/adapters/pico4/world_browser_text.py",
         "tests/device/native/PicoWorldWebText.h",
-        "tests/device/self_tests/test_pico_world_browser_text.py"
+        "tests/device/self_tests/test_pico_world_browser_text.py",
+        "tests/device/adapters/pico4/browser_vm.py",
+        "tests/device/adapters/pico4/browser_vm_grammar.py",
+        "tests/device/self_tests/test_pico_world_browser_vm.py"
       ],
       "declaredCheckpoints": 19,
       "inputVerbs": [
@@ -673,7 +676,7 @@
         "Revoke actual view/grant/nonce authority",
         "Drain original retained callbacks and prove absent owned entities/view resources"
       ],
-      "nextExecutableStep": "Compose normal script/entity opening and host-verified ray/focus/IME/readback (30 selected cases 12.537 s) with original server/DOM/script receipts under the complete existing v16 phase owner. Tablet-only grammar/namespaces/stereo cannot be relabeled. Actor/world stereo, navigation/recovery and complete resource/archive/host retirement remain open.",
+      "nextExecutableStep": "Compose normal Script-manager opening/loading/stopping of the exact pinned world client with the verified world ray/focus/IME/readback and original server/DOM/script receipts under the existing complete v16 phase recipe. Shared VM world v1 has separate code/scope provenance and actual-factory/orphan/late-memo counters (22 selected cases 5.627 s); tablet defaults remain unchanged. World-specific stereo, independent publisher, navigation/recovery and full resource/archive/host retirement remain open.",
       "nativeCompilation": "Selected complete NativeWebViewItem TU plus unchanged world-provider, RayPick and renderer projection bodies compile and pass Qt5 host checks; entity/avatar/HMD and Android DOM/transport are explicit seams. Complete application/APK and device behavior unverified.",
       "deviceQualification": "untested"
     },

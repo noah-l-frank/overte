@@ -2662,3 +2662,15 @@ observers and fixed Phone a2bb99d9b9 metadata are read-only reuse references,
 not an integrated material/renderer proof. The Assets agent continues the
 separate actual Create4 Voxel-source/retirement join. Completed source areas
 remain3/14, all devices remain untested and the full APK remains uncompiled.
+
+
+World VM source now reuses the existing original browser transaction/quiet
+engine with the actual fixed world-client pin and a separate v1 scope/state
+namespace. Generic cleanup preserves unresolved world VM parents/orphans.
+Actual constructors exposed and corrected the Script-observer keyword mismatch
+for world/tablet factories. The new native-jump-after-memo counter failed before
+moving memo/digest before the final clock; seven world VM, twelve old VM and
+three actual factory cases pass22/22 in5.627s. The earlier49-case command remains
+recorded red for its one factory error (other48passed); no combined or whole
+success is invented. VM producer DTOs are explicit SDK/V8/QObject seams. Normal
+script/phase and world-stereo/actor/final-retirement composition remains open.
