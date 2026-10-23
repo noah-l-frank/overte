@@ -20,6 +20,7 @@ from overte_phone_script_history import pack,unpack,same,canonical
 from overte_phone_script_lock import PhoneScriptSourceBusy
 from overte_phone_snapshots_role import PhoneSnapshotsRole,SnapshotPhaseDeferred,role_state,validate_read_ready_mode,validate_read_ready_slot,validate_read_ready_slot_owner
 from overte_phone_snapshots_constructor_history import graph_digest,passive_scope,SnapshotConstructorHistoryPass
+from overte_phone_snapshots_actor_history import SnapshotActorHistoryPass
 from overte_phone_snapshots_measurements import SnapshotPending
 from overte_phone_snapshots_evidence import SnapshotsOriginals
 from overte_phone_emote_originals import BLOCK
@@ -153,7 +154,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         self.feature,self.client=feature,feature.phase.client
         self.store=PrivateFeatureState(feature.store.path.with_name('phone-snapshots-actor-lifecycle.json'))
         self.previous=self.state=None
-        self._cleanup_reader=None;self._cleanup_anchor=None;self._cleanup_failed=False;self._cleanup_started=False
+        self._cleanup_reader=None;self._cleanup_anchor=None;self._cleanup_history=None;self._cleanup_failed=False;self._cleanup_started=False
         self._ordinary_failed=False;self._ordinary_primary=None;self._ordinary_publication=None;self._cleanup_publication=None
 
     def load(self):
@@ -208,11 +209,13 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         self._cleanup_entered=False;self._ordinary_entered=False
         try:return self.step_owned()
         except PhoneScriptSourceBusy:
+            self.discard_cleanup_history()
             if self._cleanup_entered:
                 self._cleanup_reader=None
                 if self._cleanup_started:self._cleanup_failed=True
             raise
         except Exception:
+            self.discard_cleanup_history()
             self._cleanup_reader=None
             if self._cleanup_started:self._cleanup_failed=True
             elif self._ordinary_entered:self._ordinary_failed=True
@@ -567,10 +570,36 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         self.cleanup_owners(role,prepared);self._cleanup_anchor=(role.store,prepared);return prepared
 
     def retain_cleanup(self,role,phase):
+        self.discard_cleanup_history()
         self._cleanup_reader=(role,self.cleanup_anchor(role,phase))
+        if self.read_ready_mode() is not None:
+            # Prepare under this turn's existing lock, after our known saves.
+            # The next full host replay can overlap the Primary's slot lock.
+            self._cleanup_history=SnapshotActorHistoryPass(self,role,self._cleanup_reader[1])
+
+    def discard_cleanup_history(self):
+        if self._cleanup_history is not None:self._cleanup_history.close()
+        self._cleanup_history=None
+
+    def retained_cleanup_step(self,history):
+        f=self.feature;role=history.role;prepared=history.prepared
+        try:
+            # No lock acquisition or native query precedes this actual replay.
+            history.read()
+            with f.lock.held():
+                status=history.finish()
+                if not status['active']:return self.defer_cleanup_close(role,status,prepared['phase'])
+                warm=self.cleanup_warm_pin(role,prepared,None)
+                warm.update(guard=getattr(f,'guard',None),system=getattr(f,'_system_scope',None),history=history)
+                return self.quiet_batch(role,prepared,f.monotonic(),warm=warm,history=history)
+        finally:history.close()
 
     def step_owned(self):
         f=self.feature
+        if self._cleanup_history is not None:
+            history=self._cleanup_history;self._cleanup_history=None
+            self._cleanup_entered=True;self._cleanup_started=True
+            return self.retained_cleanup_step(history)
         # The facade supplies either its original foreground binding or the
         # explicit passive OS scope. Never establish a foreground-only scope
         # while the real Android chooser/receiver owns the active component.
@@ -705,6 +734,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             and same(getattr(f.adapter,'_existing_input_scope',None),warm['sdkValue'])
             and len(role.frames)>warm['count']
             and graph_digest(role.frames[:warm['count']])==warm['frames'])
+        if 'history' in warm:warm['history']._verify_files()
 
     def cleanup_batch(self,role,prepared,*,warm=None):
         f=self.feature
@@ -768,13 +798,14 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         # fresh absence; no warmed reader or old role header is reused.
         self._cleanup_reader=None;self._cleanup_anchor=(role.store,pin);return False
 
-    def quiet_batch(self,role,prepared,started,*,warm=None):
+    def quiet_batch(self,role,prepared,started,*,warm=None,history=None):
         f=self.feature;publication_warm=warm
         while True:
             f.bound();role.history_authority()
             # Reuse only normal reader continuity. Every old file still
             # passes its complete original inode/byte/hash validation.
-            need(same(role.restore_originals(),role.frames))
+            if history is None:need(same(role.restore_originals(),role.frames))
+            else:history.check()
             status=f.phase.status()
             if not status['active']:return self.defer_cleanup_close(role,status,prepared['phase'])
             self.cleanup_phase(status,prepared['phase'])
@@ -798,6 +829,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             elif cue is not None:
                 self._ordinary_primary=deepcopy(cue['header']);self.primary_owner()
             if warm is not None:self.cleanup_warm_owners(role,prepared,warm)
+            if history is not None:history.check()
             try:measured=role.read(role.state['sequence'])
             except SnapshotPending:
                 after=f.phase.status(status)
@@ -814,6 +846,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             after=role.frames[-1]['phaseAfter']
             if not after['active']:return self.defer_cleanup_close(role,after,prepared['phase'])
             proof=f.restored(snapshot=role.frames[-1]);now=f.monotonic()
+            if history is not None:history._verify_files()
             quiet=quiet_window(self.state['quiet'],now,measured['sequence']);quiet['final']=proof;self.state['quiet']=quiet
             self.save()
             if maintenance is not None:
@@ -829,10 +862,10 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                     facts={key:deepcopy(measured['state'][key]) for key in WITNESS_KEYS['snapshots']})
                 self.state.update(primaryCue=cue,pending=dict(sample=sample,issued=False));self.save();self.deliver()
                 self.retain_cleanup(role,status);return False
-            # Yield after a completed sample. A four-second scheduling slice
-            # lets a fifth genuine observation finish the unchanged three-second
-            # quiet window; source-lock acquisition and freshness limits remain.
-            if f.monotonic()-started>=4.0:
+            # Enrolled cleanup yields after each genuine sample so the next
+            # retained history replay can overlap another role's lock turn.
+            # Legacy cleanup keeps its original four-second scheduling slice.
+            if self.read_ready_mode() is not None or f.monotonic()-started>=4.0:
                 self.retain_cleanup(role,status);return False
             f.sleep(.1)
 
