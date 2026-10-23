@@ -102,7 +102,8 @@ class ChatRemotePublication:
             admitted=self.admitted,roots=self.roots,stamp=self.root_stamp,paths=self.paths,locks=self.lock_paths,
             history=dict(rawBytes=self.history.raw_bytes,identities=[list(row) for row in self.history.identities]),stop=self.stop_intent))
 
-    def control(self):
+    def metadata_control(self):
+        """Original warm JSON/path identity only; no live process observation."""
         need(type(self.grammar) is ChatSourceGraphPrefix and self.grammar is self._grammar);self.grammar.control()
         need(not self.failed and self.cache_digest()==self.cache_sha and digest(self.expected)==self.expected_sha
             and parent_node(self.store)==self.parent and self.process.process_identity==self.expected['hostProcessIdentity']
@@ -111,7 +112,8 @@ class ChatRemotePublication:
             and self.source.run==self.expected['runId'] and self.source.fixture_url==self.expected['fixtureUrl']
             and self.source.client.url+'/runs/'+self.source.run+'/'==self.expected['fixtureUrl']
             and self.store.path.name==self.scope['journal'])
-        self.process.guard();self.history.verify()
+    def physical_control(self):
+        self.history.verify()
         need(same(self.store.read(),self.previous))
         if self.previous is not None and self.scope['chatRemotePublicationVersion']==3:
             exact(self.previous,set(self.scope)|{'phase','chunks','bundles','pendingBundle','logicalBytes'})
@@ -134,6 +136,11 @@ class ChatRemotePublication:
         for path,signature in self.admitted.items():
             info=PrivateFeatureState(path).path.lstat()
             need([info.st_dev,info.st_ino,info.st_size,info.st_uid,info.st_mode,info.st_nlink,info.st_mtime_ns,info.st_ctime_ns]==signature)
+
+    def control(self):
+        # Preserve the live query's original guard/check order. Historical
+        # original() uses only the same pure metadata/physical halves below.
+        self.metadata_control();self.process.guard();self.physical_control()
 
     def held(self):
         held=ExitStack()
@@ -273,13 +280,15 @@ class ChatRemotePublication:
 
     def original(self,index):
         """Historical original bytes only, including after actual Actor return."""
-        need(not self.failed and self.previous is not None and self.previous['phase']=='ready'
-            and integer(index,0,len(self.rows)-1) and same(self.store.read(),self.previous)
-            and stamp(self.store.path.lstat())==self.root_stamp)
-        value=original_record(self.history,self.previous,index)
-        need(same(value,self.rows[index]) and same(self.store.read(),self.previous)
-            and stamp(self.store.path.lstat())==self.root_stamp)
-        self.history.verify();return value
+        try:
+            self.metadata_control();self.physical_control()
+            need(self.previous is not None and self.previous['phase']=='ready' and integer(index,0,len(self.rows)-1))
+            value=original_record(self.history,self.previous,index)
+            need(same(value,self.rows[index]))
+            self.metadata_control();self.physical_control();return value
+        except BaseException:
+            self.failed=True
+            raise NativeUIError('Original historical Chat record is unresolved; originals remain') from None
 
     def fresh_current(self):
         """The same consumed originals, under Parent locks; never a new sample."""
