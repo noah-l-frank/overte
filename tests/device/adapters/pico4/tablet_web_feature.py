@@ -82,6 +82,7 @@ class PicoTabletWebFeature:
         self.vm_cache=None;self.vm_cache_scope=None
         self.quiet_cache=None;self.quiet_cache_scope=None
         self.history_cache=None;self.history_scope=None
+        self.actor_retirement=None
         self.completed_store=PrivateFeatureState(self.artifact_root/(self.area+'-'+self.run+'-retirement.json'))
 
     def manager_store(self):
@@ -707,14 +708,22 @@ class PicoTabletWebFeature:
 
     def publish(self):
         need(self.role=='actor')
+        try:return self.publish_active()
+        except PhaseRetired as retired:
+            from adapters.pico4.browser_actor_retirement import PicoBrowserActorRetirement
+            with self.lock.held():
+                need(self.actor_retirement is None)
+                owner=self.owner();state=self.role_state()
+                self.actor_retirement=PicoBrowserActorRetirement(self,owner,state,retired.status)
+            self.actor_retirement.run()
+            raise
+
+    def publish_active(self):
+        need(self.role=='actor')
         with self.serialized(),self.adapter.existing_input_session(self.selector):
             owner=self.owner();need(owner is not None);state=self.role_state()
             need(state['publication'] is None or state['publication']['phase']=='accepted')
-            try:phase=self.phase(owner)
-            except PhaseRetired as retired:
-                need(owner['phase']=='cleaned' and state['quiet'] is not None and state['quiet']['complete'] and state['native']['source']['retired'])
-                native=self.sample_native(owner,state['native']);need(native['source']['retired'])
-                state.update(native=native,retired=retired.status);self.write(self.role_store,self.role,state);raise
+            phase=self.phase(owner)
             value=self.acquire(owner,phase,state)
             payload=dict(ticket=phase['ticket'],actor='owned-observer',actorSequence=value['sequence'],capturedEpochMs=value['capturedEpochMs'],facts=projection(self.area,value['state']))
             history=self.source_history(owner);history.begin('publication-intent',value['sequence'])

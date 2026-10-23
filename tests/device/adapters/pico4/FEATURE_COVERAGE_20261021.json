@@ -718,7 +718,10 @@
         "tests/device/self_tests/test_pico_browser_quiet_journal.py",
         "tests/device/adapters/pico4/browser_history.py",
         "tests/device/self_tests/test_pico_browser_history.py",
-        "android/vr/pico/tests/pico-tablet-web-journey-test.py"
+        "android/vr/pico/tests/pico-tablet-web-journey-test.py",
+        "tests/device/adapters/pico4/browser_actor_retirement.py",
+        "tests/device/adapters/pico4/BROWSER_ACTOR_RETIREMENT.md",
+        "tests/device/self_tests/test_pico_browser_actor_retirement.py"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -772,7 +775,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Join inactive-phase actor retirement and fresh historical capture absence while profiling the remaining whole Journey cost. Immutable image projections retain full original physical reads/hash checks and cold source validation (46cases11.926s). The latest isolated full unchanged Journey still timed out120.037s at cleanup with126samples per role; no whole-run qualification. Archive, host closure and public binding remain missing; complete source areas3/14.",
+      "nextExecutableStep": "Freshly inspect every historical primary/Actor capture and join immutable source archival and own-host closure. The new inactive-phase Actor transaction preserves active histories and collects fresh native/Java/VM/lifecycle originals; six focused host cases pass64.037s. The full unchanged26-action history-enabled Journey still times out120.037s at cleanup, so whole-run verification and public capability admission remain outstanding; complete source areas3/14.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },
