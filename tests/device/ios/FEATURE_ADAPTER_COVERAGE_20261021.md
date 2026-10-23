@@ -135,9 +135,12 @@ Historical restoration now reconstructs the original role/process graph without
 SDK, native or fixture queries and retains a separate original cleanup authority.
 The actual retired fixture authority has its own bounded decoder. The active
 whole-owner host seam passed the eleven shared pre-restart steps with independent
-source acquisitions and canonical actor receipts. Full restart/restoration/seal,
-partial-setup failure cleanup, process/SDK end and public dispatch remain pending;
-the long combined rerun ended with external SIGTERM and supplies no test result.
+source acquisitions and canonical actor receipts. The connected compact
+[whole-owner case](NAVIGATION_WHOLE_OWNER.md) additionally passed eight steps
+including restart, ordinary restoration, both role publications and the live
+terminal seal, with pure historical replay afterward. Initial-process and
+partial-setup failure cleanup, final process/SDK end, full fifteen-step final
+qualification and public dispatch remain pending.
 Two narrow producer-model regressions additionally bind a new marker URL to the
 actual imported HTTP body and preserve error history after callback completion.
 
