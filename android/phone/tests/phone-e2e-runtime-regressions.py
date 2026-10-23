@@ -81,6 +81,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshots_passive_constructor_history.py",
     "android/phone/tests/device/test_snapshots_read_ready_slot.py",
     "android/phone/tests/device/test_snapshots_closing_cancel_history.py",
+    "android/phone/tests/device/test_snapshots_active_cancel_history.py",
     "android/phone/tests/device/test_snapshots_actor_maintenance.py",
     "android/phone/tests/device/test_snapshots_historical_png.py",
     "android/phone/tests/device/test_snapshots_original_clone.py",
