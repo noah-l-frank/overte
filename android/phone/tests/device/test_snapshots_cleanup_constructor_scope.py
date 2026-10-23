@@ -160,7 +160,19 @@ class SnapshotCleanupConstructorScopeTests(unittest.TestCase):
                     with patch.object(SnapshotConstructorHistoryPass,'read',actual_replay),patch.object(SnapshotsOriginals,'file',actual_file),\
                             patch.object(SnapshotConstructorHistoryPass,'prepare',classmethod(actual_prepare)),\
                             patch.object(PhoneSnapshotsRole,'read',invalid_current),patch.object(PhoneSnapshotsRole,'batch',invalid_current):
-                        with self.assertRaises((NativeUIError,FileNotFoundError)):self.observe(fixture,sequence)
+                        expected=(NativeUIError,FileNotFoundError)
+                        identity_code=None
+                        if kind in ('installed','session'):
+                            # Session exit can expose the original identity
+                            # guard, rather than its lock-wrapped UI error.
+                            from artifact_identity import IdentityError
+                            expected += (IdentityError,)
+                            identity_code=('PHONE_INSTALLED_BYTES_MISMATCH' if kind=='installed'
+                                else 'PHONE_EXISTING_INPUT_SESSION_CHANGED')
+                        with self.assertRaises(expected) as rejected:self.observe(fixture,sequence)
+                        if identity_code is not None and isinstance(rejected.exception,IdentityError):
+                            self.assertIs(type(rejected.exception),IdentityError)
+                            self.assertEqual(identity_code,str(rejected.exception))
                     self.assertEqual([True],changed);self.assertEqual([],forbidden)
                     self.assertEqual(1,len(loads)) # A reload cannot repair the invalid context.
                     self.assertIsNone(fixture.adapter._existing_input_scope)
