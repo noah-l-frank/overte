@@ -11,6 +11,7 @@ sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'android/vr/pico/tests/device')]
 
 
 def selected(part):
+    if part=='cleanup-consumption':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_cleanup_consumption')
     if part=='cleanup-baseline':return unittest.defaultTestLoader.loadTestsFromNames([
         'self_tests.test_chat_cleanup_baseline','self_tests.test_feature_cleanup_consumption'])
     if part=='baseline-composition':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_baseline_composition')
@@ -33,6 +34,6 @@ def selected(part):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('part',choices=('journey','recovery','admission','delivery','post-ipc','archive','cleanup-witness','cleanup-factory','cleanup-baseline','baseline-composition','seal-positive','seal-admission','seal-freshness'))
+    parser.add_argument('part',choices=('journey','recovery','admission','delivery','post-ipc','archive','cleanup-witness','cleanup-factory','cleanup-baseline','baseline-composition','cleanup-consumption','seal-positive','seal-admission','seal-freshness'))
     result=unittest.TextTestRunner(verbosity=2).run(selected(parser.parse_args().part))
     raise SystemExit(not result.wasSuccessful())

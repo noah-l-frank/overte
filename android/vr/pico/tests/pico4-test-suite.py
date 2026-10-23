@@ -54,6 +54,7 @@ TESTS = (
     test('chat-cleanup-witness', "interaction", PYTHON, "pico-chat-application-close-test.py", 'cleanup-witness'),
     test('chat-cleanup-baseline', "interaction", PYTHON, "pico-chat-application-close-test.py", 'cleanup-baseline'),
     test('chat-baseline-composition', "interaction", PYTHON, "pico-chat-application-close-test.py", 'baseline-composition'),
+    test('chat-cleanup-consumption', "interaction", PYTHON, "pico-chat-application-close-test.py", 'cleanup-consumption'),
     test('chat-application-archive', "interaction", PYTHON, "pico-chat-application-close-test.py", 'archive'),
     test("chat-composition", "interaction", PYTHON, "device/test_chat_composition.py"),
     test("chat-cache-release-positive", "interaction", PYTHON, "pico-chat-cache-release-test.py", "positive"),
