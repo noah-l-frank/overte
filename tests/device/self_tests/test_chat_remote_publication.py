@@ -128,6 +128,7 @@ class ChatRemotePublicationTests(unittest.TestCase):
         self.assertEqual(['initial','active','cleanup'],[row['stage'] for row in owner.roots['cursor']['stages']])
         self.assertEqual(4,len(owner.previous['chunks']));self.assertIsNone(self.stores['actor'].read().get('stopCommand'))
         self.assertTrue(self.process.guard() is True);self.assertEqual(4,last['entries'][-1]['actorSequence'])
+        self.assertEqual(4,len(owner.grammar.previous['frames']['publisher']));self.assertIsNone(owner.grammar.pending)
 
     def test_final_cas_native_jump_with_frozen_host_keeps_originals_unqualified(self):
         owner=self.owner;write=owner.store.write
@@ -137,6 +138,7 @@ class ChatRemotePublicationTests(unittest.TestCase):
         owner.store.write=late
         with self.assertRaises(NativeUIError):owner.acquire(0)
         self.assertTrue(owner.failed);self.assertEqual('ready',owner.store.read()['phase'])
+        self.assertIsNone(owner.grammar.previous)
         with self.assertRaises(NativeUIError):owner.acquire(0)
         self.assertTrue(owner.store.path.exists())
 
@@ -164,6 +166,15 @@ class ChatRemotePublicationTests(unittest.TestCase):
             with held():yield
             raise OSError('Actual outer lock exit failed')
         owner.held=lost
+        with self.assertRaises(NativeUIError):owner.acquire(0)
+        self.assertTrue(owner.failed);self.assertEqual('ready',owner.store.read()['phase'])
+        self.assertIsNone(owner.grammar.previous)
+        with self.assertRaises(NativeUIError):owner.acquire(0)
+
+    def test_late_pure_prefix_commit_is_still_inside_original_native_freshness(self):
+        owner=self.owner;commit=owner.grammar.commit
+        def late(value):commit(value);self.command('late')
+        owner.grammar.commit=late
         with self.assertRaises(NativeUIError):owner.acquire(0)
         self.assertTrue(owner.failed);self.assertEqual('ready',owner.store.read()['phase'])
         with self.assertRaises(NativeUIError):owner.acquire(0)

@@ -104,3 +104,46 @@ cases, both unchanged terminal graph cases and the actual Pico unknown-process
 refusal/rootless-retention checks. The complete stage-prefix positive uses
 real separate host lifetimes and physical files with the explicit seams above;
 it does not qualify a product HTTP or whole Chat execution.
+
+## Pure warm prefix admission
+
+The full common-executor diagnostic in
+[the remote archive notes](../pico4/CHAT_REMOTE_ARCHIVE.md) reached its unchanged
+120-second cap. At 60 publications the original complete historical grammar
+cost 0.251174 seconds on one retained literal graph. The reader now uses
+`ChatSourceGraphPrefix` only for pure grammar: old admitted frame hashes,
+original expected context and fixed paths, completed flow-row hashes, cleanup
+identity and stage prefix must match exactly. Strict JSON checks reject tuple,
+dict-subclass, Boolean/number aliases and mutated cache values before hashing.
+The current local reviewed Script pins and original file bytes are qualified
+again on each call; a changed pin cannot reuse an old compilation admission.
+
+Every new code/sample/observation/cursor/publication row still runs the original
+full row grammar, including its full prior continuity. Complete Script native
+history is replayed on every call. All root schema, revision, scope and
+cardinality checks run on every call. The default terminal/historical graph
+validator always performs the complete grammar and has no prefix by default.
+
+The pending candidate is only a pure validation result. No caller-supplied or
+copied candidate can commit, and an uncommitted candidate supplies no skipped
+prefix. The live reader commits that exact candidate only after its original
+outer lock exits and its original final cache/physical/native clock checks
+pass. It then repeats the final checks, so a slow cache commit cannot move the
+original deadline. A failure still latches the complete reader and retains its
+originals; there is no source replay or cold cache restoration.
+
+Physical behavior is unchanged: every acquisition still reads every complete
+root and every child byte, validates the original chunk manifests and physical
+signatures, compares every previously admitted child identity, performs full
+directory inventories and final root-byte/stamp checks. The pure prefix is
+never a file, source, process, release or freshness receipt. No wire, source
+version, observation cadence, resource limit or 1.5-second bound changes.
+
+Six pure admission/counter tests passed in 5.938 seconds. The real two-process
+stage-prefix positive, final-CAS native jump and outer-lock failure passed
+3/3 in 8.917 seconds. Four original physical/type/late-cache-commit counters
+passed in 3.439 seconds, and retirement/unreturned-post/original-clock/freeze
+checks passed 4/4 in 3.219 seconds. A pure historical repeat of the same
+60-publication graph took 0.028861 seconds with the strict prefix, about 8.7
+times faster for grammar only. No live owner or fresh sample was constructed
+by that diagnostic; no new full execution or closure result follows from it.
