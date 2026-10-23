@@ -23,6 +23,7 @@ sys.path.insert(0,str(ROOT/'tests/device'))
 from adapters.pico4.snapshot_exports import FILE as EXPORT_FILE
 from adapters.pico4.snapshot_export_originals import IDENTITY
 from adapters.script_journey.history import pack,unpack
+from self_tests.test_pico_snapshot_system_source import SnapshotSystemSourceTests
 from self_tests.test_pico_snapshot_save_owner import SnapshotSaveAdmissionTests,SnapshotSaveEnvelopeTests,SnapshotSaveFenceTests,SnapshotSaveOriginalsTests,SnapshotSavePreparationRecoveryTests,SnapshotSaveAcquisitionTests,SnapshotOriginalFrameMemoTests,SnapshotSavePublicationTests
 
 
@@ -156,6 +157,22 @@ class SnapshotSaveFactoryTests(unittest.TestCase):
             fixture.adapter._snapshot_save_owner(fixture.adb.target,prefix.RUN,fixture.phase,parent=fixture.owner)
         self.assertEqual(before,len(fixture.adb.inputs));self.assertIsNone(fixture.owner.save_owner)
         self.assertFalse(fixture.lock.path.with_name('snapshot-save-owner.json').exists())
+    def test_actual_factory_retains_original_os_lock_and_kernel_session_while_normal_qt_stays_foreground_only(self):
+        from self_tests.test_pico_snapshot_system_source import CHOOSER,APP,RESOLVE
+        fixture=self.fixture();binding=fixture.owner.binding;shell=fixture.adb.shell;active=[APP]
+        def actual_shell(target,*args,**options):
+            if args==RESOLVE:return CHOOSER+'\n'
+            if args==('dumpsys','activity','activities'):return 'topResumedActivity: ActivityRecord{a u0 '+active[0]+' t4}\n'
+            if args[:4]==('cmd','package','list','packages'):return 'package:'+args[-1]+' uid:1001\n'
+            return shell(target,*args,**options)
+        foreground=lambda target:active[0].split('/')[0]
+        with patch.object(fixture.adb,'shell',side_effect=actual_shell),patch.object(fixture.adb,'foreground_package',side_effect=foreground),fixture.lock.held():
+            source=fixture.adapter._snapshot_system_source(fixture.adb.target,binding,lambda:True,source_lock=fixture.lock)
+            self.assertIs(source.lock,fixture.lock);source.prepare();active[0]=CHOOSER
+            self.assertFalse(source.capture()['foreground'])
+            with self.assertRaises((ValueError,RuntimeError)):fixture.owner.snapshot.ui.io.guard()
+            active[0]=APP;self.assertTrue(source.capture()['foreground'])
+        self.assertEqual([],fixture.adb.inputs)
     def test_original_save_manifest_or_chunk_alone_blocks_public_input_and_base_cleanup(self):
         fixture=self.fixture()
         for name in ('snapshot-save-originals.json','snapshot-save-originals.json.frame-000.json'):

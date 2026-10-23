@@ -81,3 +81,10 @@ requested upload result, hidden endpoint rewrite or Phone mono/touch evidence
 is admitted. Any later Upload component remains partial until the real preceding
 Share steps, original authorized domain/login, independently received TLS
 bytes, failure/recovery, restored state and complete resource obligations join.
+
+The additive [Pico OS source](SNAPSHOT_SYSTEM_SOURCE.md) now preserves the same
+actual source-lock acquisition across a read-only original chooser observation
+and checks original candidate/kernel/session/Activity/UID after the last guard.
+It changes no foreground-only input rule and deliberately rejects the existing
+Phone-only receiver. Normal VR chooser input and qualified recipient acquisition
+remain missing; passive OS identity is not a completed Share operation.

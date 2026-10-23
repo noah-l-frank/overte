@@ -286,6 +286,7 @@ REQUIRED = {
     "native-snapshot-export-lease": 1,
     "pico-snapshot-export-controls": 1,
     "pico-snapshot-saved-originals": 1,
+    "pico-snapshot-os-source": 1,
     "pico-snapshot-save-owner": 1,
     "pico-snapshot-save-originals": 1,
     "pico-snapshot-cancel-owner": 2,
