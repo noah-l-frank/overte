@@ -274,12 +274,22 @@ latch the reader and cannot be retried after restoring a mutated cache.
 
 Two actual counters first demonstrated the gap (both red, 1.646 seconds): a
 same-canonical list→tuple alias or a source path change injected during the
-literal read passed the old post-copy comparison. Both now refuse without
-invoking a deliberately forbidden process guard. Those counters, repeated-read
+literal read passed the old post-copy comparison. At that mutable-cache stage
+both refused after the fix without invoking a deliberately forbidden process
+guard. Those counters, repeated-read
 refusal and the original cold-storage compatibility case passed 3/3 in 3.255
-seconds. The short Reader selector now contains all 16 component cases exactly
+seconds. The short Reader selector then contained all 16 component cases exactly
 once; the one actual oversize-storage diagnostic remains separate. No second
 long oversize run was repeated to test these local fences.
+
+With immutable-original-memory v1, the former external row-alias counter now
+proves that changing an inspection copy cannot alter the admitted original.
+The corresponding internal byte-change-during-literal-read counter still
+latches failure, as does the unchanged fixed-path counter. All 17 current
+short Reader cases passed in disjoint focused selections; seven separate pure
+memory cases cover byte/hash/scope/type pins, inspection isolation and indexed
+decoding. This changes the in-memory inspection API, not the v3 wire format or
+any source/freshness admission rule.
 
 The exactly one existing actual return/catalog case was then run on the fixed
 v3/fence sources and passed in 40.928 seconds (41.400 outer elapsed). It joined
