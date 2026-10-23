@@ -55,3 +55,9 @@ failure context and report failure preserving the original exception. These
 plus the two existing original prepared-journey cases passed 10/10 in 4.131
 seconds. This packet does not yet migrate the live remote reader/returned graph
 to segmented records, and it provides no new whole-journey qualification.
+
+The subsequent [remote-publication v3 packet](REMOTE_PUBLICATION.md) now uses
+this codec for the complete actual remote records and preserves historical
+v1/v2 decoding. Its independently recorded actual oversize case and return
+integration have separate results; the original packet results above alone do
+not qualify those later consumers.

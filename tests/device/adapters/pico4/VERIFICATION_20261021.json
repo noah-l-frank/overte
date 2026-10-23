@@ -3505,5 +3505,96 @@
       "actorReturnAndCoverageTotal": 76.08
     },
     "qualification": "Same original retirement source acquisition shared by actual Actor and warm primary. New family1 requires completed original common/VM/Java/capture owners and typed real process return, journals exact aggregate command before transport, reads new original VM/browser/lifecycle/diagnostic/all-capture packets and retains original1.5s clocks through actual exits. Lost reply cannot replay; landed ready CAS/native+2s with frozen host is unqualified. No source unlink, archive completion, full final host release, public feature, whole execute, APK or device claim."
+  },
+  "chatBoundedOriginalBundles20261023": {
+    "sourceSelections": {
+      "6aedeb03": "07ddb60e9f",
+      "6f4a52153d": "d81497476a",
+      "2281cb2d1c": "78e9942035"
+    },
+    "rootOwningStatus": "passed-selected-groups-only",
+    "agentActualOversizeCase": {
+      "status": "passed",
+      "durationSeconds": 74.341,
+      "logicalRecords": 56,
+      "physicalParts": 111,
+      "lastOriginalBytes": 93305,
+      "originalEncodedBytes": 49224,
+      "unchangedPackedLimit": 49152,
+      "logicalBytes": 3964722,
+      "physicalRawBytes": 2160188
+    },
+    "originalLiteralGuard": "Both alias/path mutation counters first failed, then passed with pre/post pure metadata and complete physical fences. No live process/native query in historical reads.",
+    "fullCommonJourney": "not-passed",
+    "deviceAcceptance": false,
+    "rootOwningSelection": [
+      {
+        "group": "coverage-matrix",
+        "durationSeconds": 0.094,
+        "cases": 10,
+        "status": "passed"
+      },
+      {
+        "group": "chat-remote-publication",
+        "durationSeconds": 25.448,
+        "cases": 24,
+        "status": "passed"
+      },
+      {
+        "group": "chat-remote-journey-components",
+        "durationSeconds": 4.362,
+        "cases": 11,
+        "status": "passed"
+      },
+      {
+        "group": "snapshot-settings-baseline",
+        "durationSeconds": 25.539,
+        "cases": 6,
+        "status": "passed"
+      },
+      {
+        "group": "snapshot-return-image",
+        "durationSeconds": 27.092,
+        "cases": 3,
+        "status": "passed"
+      },
+      {
+        "group": "snapshot-return-fences",
+        "durationSeconds": 33.509,
+        "cases": 3,
+        "status": "passed"
+      }
+    ],
+    "agentOriginalReturnCatalog": {
+      "status": "passed",
+      "durationSeconds": 40.928,
+      "sourceCommit": "2281cb2d1c",
+      "commonSequenceSucceeded": false,
+      "archiveRetired": false,
+      "fullFeatureRecipe": false
+    }
+  },
+  "snapshotNormalCloseDiagnostic20261023": {
+    "source": "0297b52f2c293e2d0e8a3ff11ee35d22c7a3f281",
+    "selectedAs": "8f82548475",
+    "status": "failed-unchanged-120s",
+    "durationSeconds": 120.118,
+    "sourceManifestSha256": "f8f55448fd299b24554528ecd6db16cc92756d12b918019fc00d6eb4cf88f070",
+    "checkpointsSeconds": {
+      "cancelStill": 47.434,
+      "save": 76.416,
+      "offlineFailure": 89.585,
+      "upload": 106.49
+    },
+    "finalJournal": {
+      "stage": "quiet-issued",
+      "backgroundFrames": 12,
+      "returnImage": false,
+      "close": false
+    },
+    "originalsRetained": true,
+    "settingsRestored": false,
+    "fullFeatureRecipe": false,
+    "deviceAcceptance": false
   }
 }

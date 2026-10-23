@@ -2539,3 +2539,29 @@ eight cases32.924s. Snapshot dfcbef13 is selected asf8ebb85276; the original
 header inode/full metadata/raw SHA remain pinned through actual lock exit and
 memo commit. Its owning selector passes12.589s, coverage0.094s. No new full
 Browser or Snapshot success is claimed.
+
+## Reader3 originals and retained Snapshot whole boundary
+
+Reader3 sources6f4a52153d/2281cb2d1c are selected asd81497476a/78e9942035,
+after original bundle source6aedeb03→07ddb60e9f. The short Reader selector is
+explicitly disjoint from the new actual oversize-record diagnostic; every old
+case remains. Agent actual oversize case passes74.341s:56 logical originals,111
+physical parts, last original93305bytes and original pack49224>49152 refuses.
+Every part consumes the existing512/16MiB budgets; all bytes/order/SHA reconstruct
+exactly. Historical reads retain pure metadata/path and full physical fences
+without a post-return live process query. Root v3 owning regressions and actual
+Return/Archive integration remain pending; there is no successful whole Chat.
+
+Snapshot diagnostic0297b52f2c is selected as8f82548475 with no new green catalog
+entry. Its whole corrected source run remains red120.118s, ending at BG
+quiet-issued12frames after upload106.490s; no Return or normal-Close result.
+All originals and exact source manifest remain; no input is replayed and no
+settings restoration is fabricated. Navigation is the next active agent area
+while that specific whole boundary remains. Complete source areas stay3/14.
+
+The integrated v3/guard selection now passes6/219groups in116.04s total:
+coverage0.094s, Chat Reader25.448s and bundle/components4.362s, Snapshot
+pre-input baseline25.539s, default return-image27.092s and return fences33.509s.
+Each selector retains its unchanged120s bound. Agent's existing full
+false-common/Stop2/kernel-return/seal/catalog case passes40.928s with v3/guard;
+false remainsfalse and no enclosing archive or whole result is inferred.
