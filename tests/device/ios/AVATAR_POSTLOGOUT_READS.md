@@ -128,3 +128,14 @@ postlogout source. Both full typed decodes, every declared nested original,
 exact owner context and CAS bytes remain bound. A changed actual candidate
 still refuses the next query. Focused tests cover both same-candidate journal
 advancement and changed-candidate rejection without another transport.
+
+The same separation applies to the original frame reader's nested continuity
+guard. It still runs before and after every original byte read, in its own
+actual-read scope. The enclosing full decoder collects the unchanged typed
+frame, parts and nested account originals rather than treating the guard's
+mutable candidate journal as an immutable original. A focused regression
+executes that real nested guard while its same-candidate journal advances; all
+original rewrite, context, planned-path and changed-candidate negatives remain.
+A separate negative keeps the outer owner guard stable and changes a candidate
+visible only to the nested original reader. The original guard still refuses
+the second full entry decode before any later query.

@@ -83,7 +83,16 @@ class AvatarPendingRound:
 
     def entry(self):
         o=self.owner;need(self.owner_context()==self.context and canonical(o.previous)==self.metadata)
-        decoded=dict(rows=[],pending=None,nextSegment=1) if o.previous is None else o.parse(o.previous)
+        original_guard=o.originals.guard
+        def continuity():
+            # OriginalFrameStore checks its genuine live continuity before
+            # and after each immutable byte read. Its operational metadata
+            # does not become immutable source ownership merely because the
+            # complete row decoder is collecting actual original membership.
+            with scope(fresh=True):return original_guard()
+        o.originals.guard=continuity
+        try:decoded=dict(rows=[],pending=None,nextSegment=1) if o.previous is None else o.parse(o.previous)
+        finally:o.originals.guard=original_guard
         decoded.setdefault('nextSegment',1)
         need(same(decoded,o.state) and decoded['pending'] is None and canonical(decoded['rows'])==self.rows
             and decoded['nextSegment']==self.first)
