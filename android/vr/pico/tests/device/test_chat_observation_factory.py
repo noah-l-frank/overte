@@ -69,6 +69,9 @@ class PicoChatObservationFactoryTests(unittest.TestCase):
         with self.assertRaises((ValueError,NativeUIError)):self.adapter._chat_observation_cursor(self.target,initial,witness=True)
         with self.assertRaises((ValueError,NativeUIError)):self.adapter._chat_cursor_source_seal(self.target,cursor,witness=False)
         self.assertIsNone(self.adapter._chat_cursor_source_seal_store(self.target,witness=False).read())
+        with self.assertRaises((ValueError,NativeUIError)):
+            self.adapter._chat_cursor_cleanup_consumption(self.target,parent,cursor,object())
+        self.assertIsNone(self.adapter._chat_cursor_cleanup_consumption_store(self.target).read())
         self.assertEqual([],self.h.native.inputs)
 
     def test_original_actor_publisher_factory_requires_fixed_independent_cursor_and_keeps_exact_guard_owner(self):
@@ -92,7 +95,8 @@ class PicoChatObservationFactoryTests(unittest.TestCase):
             self.adapter._chat_observation_cursor_store(self.target,'actor',witness=True),
             self.adapter._chat_observation_publisher_store(self.target),
             self.adapter._chat_cursor_source_seal_store(self.target,witness=False),
-            self.adapter._chat_cursor_source_seal_store(self.target,witness=True))
+            self.adapter._chat_cursor_source_seal_store(self.target,witness=True),
+            self.adapter._chat_cursor_cleanup_consumption_store(self.target))
         for store in stores:
             child=PrivateFeatureState(store.path.with_name(store.path.name+'.frame-000.json'))
             child.write(dict(explicitOriginalOrphan=True),None)
