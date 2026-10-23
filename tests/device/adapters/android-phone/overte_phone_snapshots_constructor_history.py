@@ -102,6 +102,7 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         if passive:
             system=passive_scope(f);system_pin=cls._system_snapshot(system)
             factory=_callable_identity(f.adapter._snapshot_system_context)
+        if passive or cleanup:
             feature_store=f.store;feature_header=deepcopy(f.previous);feature_signature=signature(feature_store.path)
             feature_state=_digest(f.state);configuration=deepcopy(f.config);binding=deepcopy(f.binding)
             sdk_scope=getattr(f.adapter,'_existing_input_scope',None);need(type(sdk_scope) is dict)
@@ -124,6 +125,7 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         if passive:
             need(passive_scope(f) is system and _same_callable(f.adapter._snapshot_system_context,factory))
             cls._system_matches(system,system_pin)
+        if passive or cleanup:
             need(f.store is feature_store and same(f.previous,feature_header) and _digest(f.state)==feature_state
                 and same(f.config,configuration) and same(f.binding,binding)
                 and getattr(f.adapter,'_existing_input_scope',None) is sdk_scope and same(sdk_scope,sdk_value)
