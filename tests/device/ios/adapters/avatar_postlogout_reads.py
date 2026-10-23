@@ -52,7 +52,13 @@ class IOSAvatarPostLogoutReads(AvatarPostLogoutParts):
     def accounts(self):
         owner=self.accounts_factory();need(isinstance(owner,IOSAvatarAccountReads) and same(owner.binding,self.binding)
             and owner.run==self.run and owner.role==self.role and owner.subject==self.subject and owner.lock is self.lock
-            and owner.store.path.parent==self.store.path.parent and str(owner.root)==str(self.root));return owner
+            and owner.store.path.parent==self.store.path.parent and str(owner.root)==str(self.root))
+        pending_round=getattr(self,'_pending_round',None)
+        if pending_round is not None:
+            original=owner.guard
+            def guard():pending_round.transport_guard();return original()
+            owner.guard=guard
+        return owner
 
     def account(self,value):
         from ios.adapters.avatar_record_cache import AvatarRecordCache
@@ -146,8 +152,14 @@ class IOSAvatarPostLogoutReads(AvatarPostLogoutParts):
         return deepcopy(state)
 
     def save(self):
-        self.bound();value=self.envelope(self.state);self.parse(value);self.store.write(value,self.previous)
+        pending_round=getattr(self,'_pending_round',None)
+        if pending_round is not None:pending_round.guard()
+        self.bound();value=self.envelope(self.state)
+        if pending_round is None:self.parse(value)
+        else:pending_round.validate(value)
+        self.store.write(value,self.previous)
         need(same(self.store.read(),value));self.previous=deepcopy(value)
+        if pending_round is not None:pending_round.accepted()
 
     def storage(self,kind,value):
         self.bound();p=self.state['pending'];need(kind=='original' and p is not None);self.originals.original(value);old=p['original']
@@ -188,6 +200,11 @@ class IOSAvatarPostLogoutReads(AvatarPostLogoutParts):
         return a
 
     def proof(self,row):
+        need(getattr(self,'_pending_round',None) is None and self.previous is not None)
+        self.lock.assert_held();need(same(self.store.read(),self.previous))
+        decoded=self.parse(self.previous)
+        decoded.setdefault('nextSegment',1)
+        current=deepcopy(self.state);current.setdefault('nextSegment',1);need(same(decoded,current))
         need(row in self.state['rows'] and row['status']=='observed')
         p=self.record(row)
         return avatar_postlogout.restored(p['model'],self.inputs['baseline'],self.account(p['before']),self.account(p['after']),self.inputs['logoutBefore'],
@@ -213,7 +230,14 @@ class IOSAvatarPostLogoutReads(AvatarPostLogoutParts):
         self.state['rows'].append(row);self.state['pending']=None;self.save();return deepcopy(row)
 
     def capture(self):
+        need(getattr(self,'_pending_round',None) is None)
         self.bound();self.recover();self.state.setdefault('nextSegment',1);need(len(self.state['rows'])<64 and self.state['nextSegment']+72<=1024)
+        from ios.adapters.avatar_postlogout_incremental import AvatarPendingRound
+        self._pending_round=AvatarPendingRound(self)
+        try:return self._capture_pending()
+        finally:self._pending_round=None
+
+    def _capture_pending(self):
         p=dict(index=len(self.state['rows'])+1,parts={},original=None,acquisition=None,partsStorageVersion=1,partialOriginal=None,orphanPartials=[]);self.state['pending']=p;self.save()
         started,mono=self.epoch_ms(),self.monotonic();accounts=self.accounts()
         before=accounts.read();self.remember_part('before',dict(owner=deepcopy(accounts.previous),row=before));self.part(self.row_parts(p))
@@ -223,17 +247,19 @@ class IOSAvatarPostLogoutReads(AvatarPostLogoutParts):
         model._validate=lambda value,query,pid,epoch=None,previous=None:avatar_state._validate(value,query,pid,epoch,previous,postlogout=True)
         send,original,clock_send,clock_original=model.send,model.original,clock.send,clock.original;p['parts']['clocks']=[];self.save()
         def owned_send(query):
-            need(self.state['nextSegment']+8<=1024 and 'modelQuery' not in p['parts']);p['parts']['modelQuery']=deepcopy(avatar_state.command(query));self.save();return send(query)
+            need(self.state['nextSegment']+8<=1024 and 'modelQuery' not in p['parts']);p['parts']['modelQuery']=deepcopy(avatar_state.command(query));self.save()
+            self._pending_round.transport_guard();return send(query)
         def owned_original():
-            need(self.state['nextSegment']+8<=1024);raw=original();value=decode(raw) if raw else None
+            need(self.state['nextSegment']+8<=1024);self._pending_round.transport_guard();raw=original();value=decode(raw) if raw else None
             if type(value) is dict and 'modelQuery' in p['parts'] and value.get('requestId')==p['parts']['modelQuery']['commandId']:
                 need('model' not in p['parts']);self.remember_part('model',value)
             return raw
         def owned_clock_send(query):
             need(len(p['parts']['clocks'])<64 and self.state['nextSegment']+8<=1024)
-            p['parts']['clocks'].append(dict(query=deepcopy(IOSAvatarAccountReads.command(query)),packet=None));self.save();return clock_send(query)
+            p['parts']['clocks'].append(dict(query=deepcopy(IOSAvatarAccountReads.command(query)),packet=None));self.save()
+            self._pending_round.transport_guard();return clock_send(query)
         def owned_clock_original():
-            need(self.state['nextSegment']+8<=1024);raw=clock_original();value=decode(raw) if raw else None;row=p['parts']['clocks'][-1]
+            need(self.state['nextSegment']+8<=1024);self._pending_round.transport_guard();raw=clock_original();value=decode(raw) if raw else None;row=p['parts']['clocks'][-1]
             if type(value) is dict and value.get('requestId')==row['query']['commandId']:
                 if row['packet'] is None:self.remember_part('clock',value,len(p['parts']['clocks'])-1)
                 else:need(same(self.part_value(row['packet'],p['index'],'clock-'+str(len(p['parts']['clocks'])-1),required=True),value))
@@ -245,6 +271,9 @@ class IOSAvatarPostLogoutReads(AvatarPostLogoutParts):
         accounts=self.accounts();after=accounts.read();self.remember_part('after',dict(owner=deepcopy(accounts.previous),row=after))
         p['acquisition']=dict(hostBeforeEpochMs=started,hostAfterEpochMs=self.epoch_ms(),hostBeforeMonotonic=mono,hostAfterMonotonic=self.monotonic());self.save()
         self.originals.write(p['index'],dict(iosAvatarPostLogoutRecordVersion=VERSION,index=p['index'],parts=deepcopy(p['parts']),acquisition=deepcopy(p['acquisition'])))
+        # Recover/partial-carrier/completed-row qualification always uses the
+        # complete decoder again, followed by the unchanged fresh-return guard.
+        self._pending_round.guard();self._pending_round=None;self.parse(self.previous)
         row=self.recover();self.proof(row);epoch,last=self.epoch_ms(),self.monotonic()
         need(number(epoch,started,started+1500) and epoch-started<1500 and number(last,mono,mono+1.5) and last-mono<1.5
             and abs(epoch-started-(last-mono)*1000)<=250)

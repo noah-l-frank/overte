@@ -82,3 +82,40 @@ deadline. An existing owner can retain its own guarded cache reference, as it
 could without the optional shared scope; it gains no new input authority.
 Fresh-owner measurements with the actual optional hooks were approximately
 0.71, 1.06, 1.42 and 1.96 seconds; the budget remains unqualified.
+
+One live capture can now admit its own pending transitions between complete
+decoder boundaries. `AvatarPendingRound` enters only with no pending record,
+decodes the complete metadata twice, and binds the exact prior row bytes and
+complete owner context. It inventories every actually read immutable file,
+including nested account originals and planned paths. Every metadata write
+checks that inventory, exact old rows, pending transition grammar, original
+CAS metadata and current actual model/native prefixes. Each transport checks
+the last durably admitted pending value again. No published facts or derived
+model/account verdicts are cached. Reconstruction, recovery, external proof and
+the final capture return use the full decoder. Reentry is rejected.
+
+Within one synchronous immutable-file inventory, identical actual parent
+directories share ancestry validation before and after checking every file's
+full signature. That qualification does not survive a write or another
+inventory. Parent mode changes, replacement by a symlink, identical-byte
+rewrites, changed old rows/inputs, unsaved pending mutations and newly dangling
+planned paths all prevent the next transport. The final 1.5-second check still
+includes complete decoding, original writes and journal completion.
+
+The local parts writer no longer writes an empty parent as a separate durable
+transition. That parent has no child file or transport. The first planned child
+atomically retains the entire parent context, tag, hash, size and segment index
+before its exclusive file creation. Planned, opened, saved and parent-complete
+transitions are still individually durable. Completion is never deferred or
+used before its save. Actual interruption tests cover both sides of admission,
+zero-byte opened files, complete saved bytes and a lost completion return.
+Reconstruction preserves every retained inode/byte prefix and never repeats an
+old native query. The source version-2 grammar and all original DTOs are
+unchanged; old empty-parent records remain readable.
+
+Diagnostic profiling reduced complete metadata parses from 164 to 41 over four
+captures, but real reconstructed captures still exceeded 1.5 seconds. One host
+profile measured 304 actual fsync calls taking 7.736 seconds in total, showing
+that durable writes materially contribute to the remaining cost. This does not
+authorize skipping owned transitions, changing the deadline or filesystem
+maintenance. Whole-feature timing and completion remain unqualified.

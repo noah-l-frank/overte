@@ -28,6 +28,15 @@ class AvatarPostLogoutParts:
     def part_transition(self,parent):
         self.bound();p=self.state['pending'];need(p is not None and self.part_slot is not None)
         self.segments.parent(parent);kind,index=self.part_slot
+        need(kind in ('partial','clock','before','after','model'))
+        if not parent['chunks']:
+            # A parent without a child describes no file or transport. The
+            # first planned child carries this entire parent in the same
+            # durable metadata write, before OriginalFrameStore can open it.
+            current=(p['partialOriginal'] if kind=='partial' else p['parts']['clocks'][index]['packet']
+                if kind=='clock' else p['parts'].get(kind))
+            need(current is None and not parent['complete'] and parent['first']==self.state['nextSegment'])
+            return
         if kind=='partial':p['partialOriginal']=deepcopy(parent)
         elif kind=='clock':p['parts']['clocks'][index]['packet']=deepcopy(parent)
         else:need(kind in ('before','after','model'));p['parts'][kind]=deepcopy(parent)
