@@ -48,6 +48,11 @@ int main(int argc,char** argv){
  assert(source.featurePicoAssetsRead(command()).isEmpty()); // No dependency creation.
  if(!app.arguments().contains("--testScript"))return 0;
  auto nodes=QSharedPointer<NodeList>::create();DependencyManager::slot<NodeList>()=nodes;
+ if(app.arguments().contains("--independent-host-actor")) {
+  // Actual new host actor/process births; NodeList/network remain declared
+  // endpoints. Never adopt an input-requested source generation or identity.
+  source._featureObservationInstance=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');nodes->session=QUuid::createUuid();
+ }
  auto client=QSharedPointer<AssetClient>(new AssetClient,[](AssetClient* original){original->deleteLater();});DependencyManager::slot<AssetClient>()=client;
  client->content="original independent asset bytes";const auto hash=QCryptographicHash::hash(client->content,QCryptographicHash::Sha256);
  primitive<quint32>(client->allReply,3);string(client->allReply,"/.baked/real/mesh");client->allReply+=hash;primitive<AssetUtils::BakingStatus>(client->allReply,AssetUtils::Baked);
