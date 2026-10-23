@@ -36,6 +36,24 @@ STAGES=('prepare-issued','prepared','input-issued','observed','read-issued','acq
 def sha(value):return hashlib.sha256(canonical(value)).hexdigest()
 
 
+def provider_phase(provider,phase):
+    """Bind the independently observed backend to the original phase history."""
+    need(provider['active'] and provider['ticket']==phase['activations'][-1]['ticket']
+        and [dict(ticket=row['ticket'],verb=row['verb']) for row in provider['activations']]==
+            [dict(ticket=row['ticket'],verb=row['stimulus']['verb']) for row in phase['activations']])
+
+
+def quiet_indices(indices,count):
+    need(type(indices) is list and len(indices)>=2 and all(integer(index,0,count-1) for index in indices)
+        and indices==list(range(indices[0],indices[-1]+1)))
+
+
+def mutation_scope(provider,baseline,requests):
+    before={row['requestId'] for row in baseline['requests']}
+    actual={row['requestId'] for row in provider['requests'] if row['requestId'] not in before and row['method']!='GET'}
+    need(actual=={row['requestId'] for row in requests})
+
+
 class PicoSnapshotUploadOwner:
     host_path=PicoSnapshotCaptureFiles.host_path
     artifact_root=PicoSnapshotCaptureFiles.artifact_root
@@ -140,9 +158,12 @@ class PicoSnapshotUploadOwner:
             and type(state['deliveries']) is list and len(state['deliveries'])<=1 and type(state['artifacts']) is dict and len(state['artifacts'])<=1
             and type(state['quiet']) is list and len(state['quiet'])<=1 and (state['job']=='' or native_source.nonce(state['job']))
             and (state['readId']=='' or native_source.nonce(state['readId'])))
+        if state['stage']=='input-issued':need(not state['job'] and state['proof'] is None)
+        if self.verb=='upload-fail':need(state['stage'] not in ('read-issued','acquired'))
         self.phase(state['source']);exact(state['artifactRoot'],{'device','inode'});need(integer(state['artifactRoot']['device']) and integer(state['artifactRoot']['inode'],1) and state['artifactRoot']==self.artifact_root());previous_upload=previous_provider=previous_account=None;previous_native=previous_script=previous_files=None;clock=0
         for row in state['frames']:
             native,script,files,upload,account=self.frame(row)
+            provider_phase(row['provider'],state['source'])
             if previous_upload is None and self.failure_state is not None:
                 old=self.failure_state['frames'][-1];upload_continuity(decode(old['upload']['raw']),upload)
                 provider_packet(row['provider'],self.run,row['provider']['requestId'],row['provider']['capturedEpochMs'],previous=old['provider'])
@@ -156,7 +177,8 @@ class PicoSnapshotUploadOwner:
             exact(delivery,{'command','frame'});need(integer(delivery['frame'],0,len(state['frames'])-1));self.qml(delivery['command'],state['frames'][delivery['frame']]);self.before_input(state['frames'][delivery['frame']],state)
         if state['stage'] in ('prepare-issued','prepared'):need(not state['deliveries'] and not state['job'] and state['proof'] is None)
         if state['stage'] in ('observed','read-issued','acquired','quiet-issued','partial-ready'):
-            need(len(state['deliveries'])==1 and state['proof'] is not None and native_source.nonce(state['job']));self.proof(state)
+            need(len(state['deliveries'])==1 and state['proof'] is not None and native_source.nonce(state['job']));proof=self.proof(state)
+            for row in state['frames'][state['proof']['frame']:]:mutation_scope(row['provider'],state['frames'][0]['provider'],proof['requests'])
         if self.verb=='upload-fail':need(not state['readId'] and state['received'] is None and not state['artifacts'])
         elif state['stage'] in ('read-issued','acquired','quiet-issued','partial-ready'):need(native_source.nonce(state['readId']))
         if state['stage'] in ('prepare-issued','prepared','input-issued','observed'):need(not state['readId'] and state['received'] is None and not state['artifacts'])
@@ -170,7 +192,7 @@ class PicoSnapshotUploadOwner:
         if self.verb=='upload' and state['stage'] in ('acquired','quiet-issued','partial-ready'):need(state['received'] is not None)
         if state['stage']!='partial-ready':need(not state['quiet'])
         for window in state['quiet']:
-            exact(window,{'indices'});indices=window['indices'];need(type(indices) is list and len(indices)>=2 and indices==sorted(set(indices)) and all(integer(index,0,len(state['frames'])-1) for index in indices))
+            exact(window,{'indices'});indices=window['indices'];quiet_indices(indices,len(state['frames']))
             first=previous=None;fingerprint=None
             for index in indices:
                 row=state['frames'][index];self.idle(row,state);current=self.clocks(row)
@@ -346,5 +368,5 @@ class PicoSnapshotUploadOwner:
     def report(self):
         return dict(qualification='PICO_NORMAL_UPLOAD_COMPONENT_ONLY',stage=self.state['stage'],verb=self.verb,
             fullSnapshotRecipe=False,deviceAcceptance=False,journalRetained=True,ordinaryUploadResendAllowed=False,
-            precedingShareQualified=False,backendStoryRetained=self.verb=='upload' and self.state['proof'] is not None,
+            precedingShareQualified=False,backendStoryRetained=self.verb=='upload' and self.state['proof'] is not None and self.state['frames'][-1]['provider']['stories']==1,
             productExportExecutorRetired=False)

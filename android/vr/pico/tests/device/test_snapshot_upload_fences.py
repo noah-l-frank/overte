@@ -13,7 +13,7 @@ from adapters.native_feature_observation import validate
 from adapters.normal_ui import NativeUIError
 from self_tests.test_pico_snapshot_upload_owner import (
     SnapshotUploadAdmissionTests,SnapshotUploadContextTests,
-    SnapshotUploadOriginalsTests,SnapshotUploadFenceTests,
+    SnapshotUploadOriginalsTests,SnapshotUploadFenceTests,SnapshotUploadArchiveTests,
 )
 
 

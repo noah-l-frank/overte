@@ -42,6 +42,12 @@ quiet requires all observed native upload QObjects/replies retired and no active
 Script upload. It does not destroy the global product Export executor, delete
 the story, close Review or retire Capture/Save/source journals.
 
+Cold validation binds every backend frame to the exact complete phase history,
+rejects an effect attached to unresolved input and rejects skipped intermediate
+quiet frames. Post-proof mutations must be exactly the original native job's
+joined requests, so a deleted/replaced story cannot hide behind an unchanged
+aggregate count. No current source or ordinary input is replaced by an archive.
+
 `snapshot-upload-owner` is a normal factory/transport composition with actual
 private host PNGs, actual loopback TLS, independent physical wire files, a genuine
 connection-close failure, real image/story API recovery, original quiet and cold
@@ -58,3 +64,13 @@ Actual Share/receiver, Resume/Close, complete settings/baseline restoration,
 global executor/host retirement and Stereo/Panorama/scene fidelity remain open.
 No restart, product button, backend product function, contract migration or
 cleanup exception is introduced.
+
+The single corrected warm host case passed on
+`0166738f3191da44dac21ceb4865375651c690e3` in 115.601 s under the unchanged
+120 s outer deadline (unittest 114.780 s). Its 17 failure frames/13 quiet samples
+and 21 success frames/14 quiet samples remain immutable private originals. The
+later cold phase/window/mutation guards are checked against those originals
+without another input or source query. The first attempt was red before any
+Upload input because its explicit Account fixture retained an old query clock;
+the unchanged native parser correctly rejected it. The fixture fix and its narrow
+negative case do not change production verification or any freshness bound.
