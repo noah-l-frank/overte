@@ -45,15 +45,16 @@ class DispatcherTests(unittest.TestCase):
             initial_roles=initial,initial_witness_store=self.w.initial_witness_store,monotonic=lambda:self.h.native.host)
         self.native_mixer='d'*64
         for boundary in (self.h.h.primary,self.h.h.peer):
-            boundary.open_id='';previous=boundary.mutate
+            boundary.open_id='';boundary.retire_id='';previous=boundary.mutate
             def mutate(value,previous=previous,boundary=boundary):
-                previous(value);value['source']['openedCommandId']=boundary.open_id
+                previous(value);value['source'].update(openedCommandId=boundary.open_id,retiredCommandId=boundary.retire_id)
                 value['source']['mixerSha256']=self.native_mixer if value['source']['mixerPresent'] else ''
                 value['source']['session']['domainSha256']=identity(RUN,mixer_seams.DOMAIN)
             boundary.mutate=mutate;send=boundary.send
             def send_owned(request,send=send,boundary=boundary):
                 if request['operation']=='observe' and not boundary.open_id:
                     boundary.open_id=request['commandId'];boundary.opened=self.h.native.epoch
+                if request['operation']=='retire' and not boundary.retire_id:boundary.retire_id=request['commandId']
                 return send(request)
             boundary.send=send_owned
         ordinary=self.widgets.input
@@ -96,10 +97,10 @@ class DispatcherTests(unittest.TestCase):
             monotonic=lambda:self.h.native.host,sleep=self.sleep),self.normal_store,
             monotonic=lambda:self.h.native.host,sleep=self.sleep)
     def peer(self):
-        self.factory_calls.append('peer');root=self.root/'peer';sha='f'*64
+        self.factory_calls.append('peer');root=self.peer_directory();sha='f'*64
         source=root/SOURCE;source.write_bytes(encode(dict(actorVersion=1,instance='e'*32,processId=456,
             configuredEpochMs=self.h.native.epoch,scriptSha256=sha)));source.chmod(0o600)
-        actor=actor_seams.FileActor(root);self.addCleanup(actor.close_all);self.peer_fd=-1;self.peer_sequence=0
+        actor=self.make_peer_actor(root);self.actor=actor;self.addCleanup(actor.close_all);self.peer_fd=-1;self.peer_sequence=0
         self.peer_commands=[];self.peer_operations=[];self.point=dict(x=2.,y=0.,z=2.)
         self.peer_original=None;self.peer_mode='normal';self.release_time=None;self.polls=0
         def close():
@@ -135,11 +136,15 @@ class DispatcherTests(unittest.TestCase):
                     self.sync()
                 self.h.h.primary.events[-1]['capturedEpochMs']=self.h.native.epoch
         files=ChatActorFiles(root,PrivateFeatureState(self.root/'dispatch-peer-files.json'),self.roles[0].peer_binding,sha,
-            lambda:True,released,clock_ms=lambda:self.h.native.epoch,monotonic=lambda:self.h.native.host,sleep=tick)
+            lambda:True,released,clock_ms=lambda:self.h.native.epoch,monotonic=lambda:self.h.native.host,sleep=tick,
+            require_original_fd=getattr(self,'strict_peer_files',False))
+        self.files=files
         self.addCleanup(files.detach)
         owner=ChatPeerInput(files,PrivateFeatureState(self.root/'dispatch-peer-input.json'),RUN)
         return ChatPeerSend(owner,*self.roles,PrivateFeatureState(self.root/'dispatch-peer-send.json'),
             monotonic=lambda:self.h.native.host,sleep=self.sleep)
+    def peer_directory(self):return self.root/'peer'
+    def make_peer_actor(self,root):return actor_seams.FileActor(root)
     def actual(self):
         if self.peer_mode=='moving':return dict(x=2+.75*math.sin(self.h.native.host-self.release_time),y=0.,z=2.)
         return deepcopy(self.point)
@@ -229,6 +234,9 @@ class DispatcherTests(unittest.TestCase):
         self.assertEqual(['received']*3,[row['phase'] for row in self.owner.children['peer'].store.read()['attempts']])
 
     def test_all_25_real_child_steps_share_original_native_ui_storage_and_peer_histories(self):
+        self.complete_positive()
+
+    def complete_positive(self,*,check_exhausted=True):
         from adapters.chat_journey.witness import ChatWitness
         from feature_journeys.scenarios import SCENARIOS,expand
         witness_samples=self.h.samples('actor',self.w.witness_store)
@@ -259,9 +267,10 @@ class DispatcherTests(unittest.TestCase):
         self.assertTrue(self.h.native.released);self.assertFalse(self.h.native.active)
         self.assertEqual(26,len(self.w.posted));self.assertEqual(1,len(witness_initial.frames))
         self.assertEqual('complete',self.owner.children['no-replay'].previous['phase'])
-        before=len(self.widgets.calls)
-        with self.assertRaises(NativeUIError):self.owner.step()
-        self.assertEqual(before,len(self.widgets.calls));self.assertIsNotNone(self.store.read())
+        if check_exhausted:
+            before=len(self.widgets.calls)
+            with self.assertRaises(NativeUIError):self.owner.step()
+            self.assertEqual(before,len(self.widgets.calls));self.assertIsNotNone(self.store.read())
 
     def test_late_final_native_clock_and_changed_fixture_ticket_cannot_seal_or_repeat_input(self):
         self.next(0);write=self.store.write

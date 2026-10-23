@@ -42,12 +42,12 @@ class CompiledDispatcherTests(unittest.TestCase):
             with lock.held():self.sources[key]=ChatScriptSource(RUN,role,self.h.h.binding,roots,scripts,code_store,lock,monotonic=lambda:native.host)
         return self.sources[key]
 
-    def samples(self,role,store,*,kind=None):
+    def samples(self,role,store,*,kind=None,script_source=None):
         original=self.h.h;native=original.native;peer=original.h.peer.reader();peer.pid=456
         selected=CompiledChatCacheAbsence if kind is ChatCacheAbsence else CompiledChatSamples
         result=selected(RUN,role,original.binding,original.peer_binding,original.h.primary.reader(),peer,
             original.h.view.reader(vr=True),original.h.native.reader(),store,original.h.primary_lock,original.h.peer_lock,
-            vr=True,script_source=self.code(role,store),monotonic=lambda:native.host)
+            vr=True,script_source=script_source or self.code(role,store),monotonic=lambda:native.host)
         for reader in (result.primary,result.peer,result.view,result.lifecycle):
             reader.clock_ms=lambda:native.epoch;reader.monotonic=lambda:native.host;reader.sleep=self.h.sleep
         return result
