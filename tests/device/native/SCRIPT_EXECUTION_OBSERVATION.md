@@ -136,3 +136,16 @@ source. A full Script observer must map only genuinely loaded dependencies of
 the current owned engine to the public `companions` names and independently
 measure advancing effects. The module event's URL cannot come from the test's
 requested filename. See `../feature_journeys/CONTRACT_MIGRATION.md`.
+
+
+## Historical continuity without a native reader
+
+`ScriptOriginalHistory` contains the existing pure engine, compiled-code, module,
+load-prefix, membership, effect and retirement transitions. `original_history`
+replays the same original PID/instance/sequence/clock checks without constructing
+a transport or native reader. `NativeScriptObservation` inherits those unchanged
+transitions; its virgin `restore_history` delegates to the same pure replay and
+retains its callback/type preconditions. Wire versions and platform-specific
+request prefixes are unchanged. A historical history never provides fresh input
+authority. The Pico browser return reader reuses this grammar, including the
+final original inactive frame, instead of reconstructing a live Actor.
