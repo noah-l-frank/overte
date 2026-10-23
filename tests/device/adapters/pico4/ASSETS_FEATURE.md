@@ -749,3 +749,42 @@ version is introduced by this host fixture. The catalog addition is local
 older worktree count. Feature 13/14 remains partial, including live independent
 backend/worker receipts, actual successful bake, model/peer/stereo and complete
 resource retirement.
+
+## Home v2: actual neutral status throughout the sampled quiet window
+
+Review identified a concrete limit in Home v1: only the neutral status before
+and after quiet was observed. Those two endpoints do not supply per-sample
+input neutrality. Home v2 therefore records one actual original Session status
+beside every subsequent page/file sample, including an active answer before
+refusing qualification. The new read-only `observe_owned_status` checks the
+same original process/envelope/cursor under the existing Session lock and reads
+exactly one transport answer. It does not poll active answers away, publish a
+grant or alter the cursor. The validated/redacted transport DTO and its original
+`updatedEpochMs` are preserved; transition timestamps are never advanced to
+pretend that they are periodic native sample timestamps.
+
+The final status fence remains and its actual answers form an append-only
+history. Every status in a qualifying three-second slice must be neutral and
+equal the original neutral transition. The original native/host publication
+fences and 500 ms maximum consecutive native gaps remain unchanged. Status
+histories participate in the shared frame/byte budgets. Actual source histories,
+all old child journals, exact input envelope and surviving context obligations
+remain retained; no new global cleanup or feature claim is made.
+
+This is an explicit separate Home journal version 2; the closed registry reads
+versions 1 and 2. Existing v1 shapes still receive full historical validation,
+then remain byte-for-byte unchanged and retained. Their endpoint-only quiet
+proof is not upgraded or used to publish the new Home qualification. Cold v1
+reconciliation performs no input, new status/source query or migration.
+
+All four targeted actual Qt cases passed together in 66.650 seconds: normal
+Home/cold reconciliation, lost-ACK/cold observation, a held-channel status
+inside quiet that is durably archived and rejected despite actual page death,
+and complete legacy-v1 retention without a new neutrality claim. A separate
+original Session host counter passed in 0.032 seconds, preserving an active
+answer and its transition epoch, rejecting a changed process before a read, and
+leaving the original cursor and sole envelope unchanged. The previously red
+unchanged file-journal counter is still the fifth method in the complete owning
+selector and was not rerun or omitted from the catalog. The targeted four-case
+result does not replace that earlier complete-selector limit. All compiler,
+selector, cadence and original quiet limits remain unchanged.

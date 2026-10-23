@@ -15,7 +15,7 @@ from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as validate_phase
 from openxr_input.adapter_session import PicoOpenXrAdapterSession
 
-VERSION=1
+VERSION=2
 
 
 class HomeFence(PhaseInputFence):
@@ -49,8 +49,10 @@ class OwnedAssetsHome:
             and json_digest(files)==json_digest(self.cancel.files.previous) and same(files,self.cancel.files.previous))
         self.cancel.files.validate_history();return [value,files]
     def validate(self,value):
-        exact(value,{'assetsHomeOwnerVersion','binding','runId','phaseOriginal','phase','originalId','children','pages','files','envelope','neutral','quiet'})
-        need(type(value['assetsHomeOwnerVersion']) is int and value['assetsHomeOwnerVersion']==VERSION
+        fields={'assetsHomeOwnerVersion','binding','runId','phaseOriginal','phase','originalId','children','pages','files','envelope','neutral','quiet'}
+        need(type(value) is dict and type(value.get('assetsHomeOwnerVersion')) is int and value['assetsHomeOwnerVersion'] in (1,VERSION))
+        legacy=value['assetsHomeOwnerVersion']==1;exact(value,fields if legacy else fields|{'neutralReads','neutralFinal'})
+        need(type(value['assetsHomeOwnerVersion']) is int
             and json_digest(value['binding'])==json_digest(self.cancel.binding) and value['runId']==self.cancel.run
             and value['phase'] in ('reserved','issued','home-retained','home-resources-retired'))
         phase=value['phaseOriginal'];validate_phase(phase,run=self.cancel.run,area='assets',request=phase['requestId'],epoch=phase['capturedEpochMs'])
@@ -69,6 +71,12 @@ class OwnedAssetsHome:
             need(call['operation']=='observe' and call['runId']==self.cancel.run and call['ownerToken']==children[1]['ownerToken']
                 and actual['retired'] and not actual['exists'])
         counts=len(pages)+len(files)+len(children[0]['unresolvedInputs']);size=value['pages']['bytes']+value['files']['bytes']
+        if not legacy:
+            reads=value['neutralReads'];need(type(reads) is list and len(reads)==len(pages) and reads[0] is None
+                and all(type(status) is dict for status in reads[1:]) and type(value['neutralFinal']) is list
+                and len(value['neutralFinal'])<=64 and all(type(status) is dict for status in value['neutralFinal'])
+                and (value['neutral'] is None or type(value['neutral']) is dict))
+            json_digest(reads);json_digest(value['neutralFinal']);counts+=len(reads)-1+len(value['neutralFinal']);size+=len(canonical([reads,value['neutralFinal'],value['neutral']]))
         for original in (children[0]['inputs'],children[0]['uiOriginals'],children[0]['originals'],children[1]['originals']):
             counts+=len(unpack(original));size+=original['bytes']
         need(counts<=MAX_FRAMES and size+len(canonical(children[0]['unresolvedInputs']))<=MAX_RAW)
@@ -82,10 +90,15 @@ class OwnedAssetsHome:
             need(len(samples)>=2 and samples[-1]['elapsedMs']-samples[0]['elapsedMs']>=3000
                 and samples[-1]['capturedEpochMs']-samples[0]['capturedEpochMs']>=3000)
             for packet in samples:self.home(packet,value)
+            if not legacy:
+                need(value['neutralFinal'])
+                for status in [*reads[quiet['first']:quiet['last']+1],value['neutralFinal'][-1]]:
+                    PicoLifecycleBack.neutral(status,value['envelope'],base['capturedEpochMs'])
+                    need(json_digest(status)==json_digest(value['neutral']) and same(status,value['neutral']))
             for before,after in zip(samples,samples[1:]):
                 need(all(0<after[key]-before[key]<=500 for key in ('elapsedMs','capturedEpochMs')))
             row=self.row(samples[-1],value);need((value['phase']=='home-resources-retired')==(not row['contextAlive']))
-        else:need(value['neutral'] is None and value['quiet'] is None)
+        else:need(value['quiet'] is None and (not legacy or value['neutral'] is None))
     def state(self):
         self.lock.assert_held();value=self.store.read()
         need(value is not None and json_digest(value)==json_digest(self.previous) and same(value,self.previous))
@@ -114,7 +127,10 @@ class OwnedAssetsHome:
         for reader,key in ((self.pages,'pages'),(self.files,'files')):
             history=unpack(original[key]);need(json_digest(reader.history)==json_digest(history) and same(reader.history,history)
                 and same(reader.last,decode(history[-1]['raw'])) and json_digest(reader.last)==json_digest(decode(history[-1]['raw'])))
-        page=self.capture();state=self.state();state['pages']=pack(self.pages.history);state['files']=pack(self.files.history);self.save(state)
+        page=self.capture();state=self.state()
+        status=self.session.observe_owned_status(self.identity,state['envelope'])
+        state.update(phase='issued',quiet=None)
+        state['pages']=pack(self.pages.history);state['files']=pack(self.files.history);state['neutralReads'].append(deepcopy(status));self.save(state)
         self.freshness();return page
     @staticmethod
     def row(packet,state):
@@ -141,24 +157,34 @@ class OwnedAssetsHome:
             need(len(rows)==1)
             self.save(dict(assetsHomeOwnerVersion=VERSION,binding=deepcopy(self.cancel.binding),runId=self.cancel.run,
                 phaseOriginal=phase['status'],phase='reserved',originalId=rows[0]['id'],children=pack(self.children()),
-                pages=pack(self.pages.history),files=pack(self.files.history),envelope=None,neutral=None,quiet=None))
+                pages=pack(self.pages.history),files=pack(self.files.history),envelope=None,neutral=None,quiet=None,neutralReads=[None],neutralFinal=[]))
             self.freshness();self.fence.mark();self.fence.check()
             self.session.stage(self.identity,'controller.button',deepcopy(BUTTON),intent=self.fence.stage_intent,before_publish=self.before_publish)
             return self.observe()
     def observe(self):
         state=self.state()
+        if state['assetsHomeOwnerVersion']==1:
+            # The old shape is still fully validated. Its endpoint-only status
+            # evidence cannot qualify the new continuous window or be rewritten.
+            return dict(homeObserved=False,retained=True,legacyVersion=1)
         if state['envelope'] is None:return dict(homeObserved=False,retained=True)
         owned=state['envelope'];first_packet=decode(unpack(state['pages'])[0]['raw'])
-        neutral=self.session.require_owned_neutral(self.identity,owned);PicoLifecycleBack.neutral(neutral,owned,first_packet['capturedEpochMs'])
+        if state['neutral'] is None:
+            state['neutral']=deepcopy(self.session.observe_owned_status(self.identity,owned));self.save(state)
+        neutral=state['neutral'];PicoLifecycleBack.neutral(neutral,owned,first_packet['capturedEpochMs'])
         started=self.now();first=None;previous=None
         for attempt in range(41):
             page=self.record();state=self.state();need(self.now()-started<=10)
+            sampled=state['neutralReads'][-1];PicoLifecycleBack.neutral(sampled,owned,first_packet['capturedEpochMs'])
+            need(json_digest(neutral)==json_digest(sampled) and same(neutral,sampled))
             need(neutral['updatedEpochMs']<=page['capturedEpochMs']+250)
             self.home(page,state)
             if previous is not None:need(all(0<page[key]-previous[key]<=500 for key in ('elapsedMs','capturedEpochMs')))
             if first is None:first=(len(self.pages.history)-1,page,self.now())
             if self.now()-first[2]>=3 and all(page[key]-first[1][key]>=3000 for key in ('elapsedMs','capturedEpochMs')):
-                final=self.session.require_owned_neutral(self.identity,owned);need(json_digest(neutral)==json_digest(final) and same(neutral,final))
+                final=self.session.observe_owned_status(self.identity,owned)
+                state['neutralFinal'].append(deepcopy(final));self.save(state)
+                PicoLifecycleBack.neutral(final,owned,first_packet['capturedEpochMs']);need(json_digest(neutral)==json_digest(final) and same(neutral,final))
                 phase=self.fence.source.read(state['phaseOriginal']);need(same(phase['status']['activations'],state['phaseOriginal']['activations']))
                 row=self.home(page,state);state.update(phase='home-retained' if row['contextAlive'] else 'home-resources-retired',neutral=deepcopy(neutral),
                     quiet=dict(first=first[0],last=len(self.pages.history)-1));self.save(state)
