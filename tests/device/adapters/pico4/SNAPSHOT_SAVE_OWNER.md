@@ -225,3 +225,16 @@ as a ledger missing the original capture. Failed loads retain the exact on-disk
 bytes. Parent native/UI/phase effect proofs and their unrelated continuity are
 explicit narrow seams in these cases; they do not claim a full target factory
 run or repeat the long normal prefix.
+
+## Passing normal Save host composition after the cold correction
+
+Exactly one authorized unchanged 120-second warm case on
+`0be54e4f3d46d8f721bf9afa3db780577aba449d` passed in 79.336 seconds
+(the original unittest took 78.704 seconds). It exercised normal Cancel/Still/Save,
+independent real host provider/copy/PNG files, thirteen fresh inspections and
+three-second quiet across fifteen clocks, then the actual cold bound factory
+reopen without another input/read/inspection. Original fixture journals and
+files were retained. The source/JNI/Android provider UID/renderer boundaries
+remain the explicit host model seams described above; this is no real device,
+OS chooser, recipient, Upload, SDK26, stereo/fidelity, global executor retirement
+or complete Snapshot acceptance.

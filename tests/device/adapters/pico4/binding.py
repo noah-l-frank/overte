@@ -891,6 +891,19 @@ def create_adapter(args, base_class):
                 return owner
 
         @_private
+        def _snapshot_system_source(self,target,binding,authority,*,source_lock):
+            from adapters.pico4.snapshot_system_source import PicoSnapshotSystemSource
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding
+            lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            # Existing OS/kernel/candidate/session source, never NativeNavigationIO
+            # or a foreground-only Qt command with an exception bolted onto it.
+            facade=PicoGraphicsBinding(self)
+            return PicoSnapshotSystemSource(binding,lock,
+                lambda:facade._graphics_lifecycle_status(target,binding),
+                lambda *args:self.adb.shell(target,*args),
+                lambda:self.adb.epoch_milliseconds(target),authority)
+
+        @_private
         def _snapshot_exports(self,target,*,read_only=True,before_send=None,source_lock=None):
             from adapters.pico4.snapshot_exports import PicoSnapshotExports,PicoSnapshotExportIO
             _need(type(read_only) is bool and (read_only or callable(before_send)))
