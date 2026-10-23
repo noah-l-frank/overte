@@ -694,6 +694,14 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                     and integer(sample['capturedEpochMs'],slot['phaseAfter']['capturedEpochMs'])
                     and same({key:receipt[key] for key in sample},sample)
                     and integer(receipt['sequence'],1) and number(receipt['receivedEpochMs'],sample['capturedEpochMs']-250,1e15))
+                quiet=actor['quiet'];exact(quiet,{'started','last','sequences','complete','final'})
+                need(quiet['complete'] is True and number(quiet['started'],0,1e15) and number(quiet['last'],quiet['started'],1e15)
+                    and quiet['last']-quiet['started']>=3 and type(quiet['sequences']) is list and 3<=len(quiet['sequences'])<=256
+                    and type(quiet['final']) is dict and actor['closure'] is None and actor['partialClosure'] is None)
+                previous_sequence=0
+                for sequence in quiet['sequences']:
+                    need(integer(sequence,previous_sequence+1,256));previous_sequence=sequence
+                need(previous_sequence==sample['actorSequence'])
                 # Adapter credentials expose only the original phase clock.
                 # The opaque issued-sample/receipt join stays in the actual
                 # independent actor journal; no peer fact is requested here.

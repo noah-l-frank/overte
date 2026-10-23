@@ -144,7 +144,7 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         self.files={};self.file_seal=self.file_seal_sha256=None
         self.system_scope=self.system_pin=self.system_factory=None
         self.rebind_open=self.rebound=False
-        self.own_slot=False
+        self.own_slot=False;self.slot_intent=None
         if passive:
             self.system_factory=_callable_identity(f.adapter._snapshot_system_context)
             self._pin_system(passive_scope(f))
@@ -324,7 +324,8 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
                 and self.attached is role and same(old_header,self.role_header))
             slot=validate_read_ready_slot(frame,f.run,phase=self.phase)
             need(same(slot['preparedRoleHeader'],old_header)
-                and slot['preparedRoleSequence']==self.state['sequence'])
+                and slot['preparedRoleSequence']==self.state['sequence']
+                and same(self.slot_intent,dict(frameSha256=_digest(frame),slotId=slot['slotId'],oldHeader=old_header)))
             header=deepcopy(role.previous);state=role_state(header,self.binding,self.run,'primary')
             owner=(header,signature(self.role_store.path));count=self.state['sequence']
             need(state['phase']=='ready' and state['pending'] is None and state['sequence']==count+1)
@@ -359,19 +360,22 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
             self.prepared_sha256=_digest(self.prepared)
             self.frames=role.frames;self.digest=graph_digest(self.frames)
             self.files.update(new_files);self.file_seal=tuple(self.files.items());self.file_seal_sha256=self._files_digest(self.file_seal)
-            self.own_slot=True;self._headers();self._memory();self._verify_files();return True
+            self.own_slot=True;self.slot_intent=None;self._headers();self._memory();self._verify_files();return True
         except BaseException:self.close();raise
 
     def before_slot_cas(self,role,frame):
         """Keep the prior owner metadata through the first actual slot save."""
         self.feature.lock.assert_held()
-        need(self.cleanup and self.finished and not self.read_claimed and not self.own_slot and self.attached is role
+        need(self.cleanup and self.finished and not self.read_claimed and not self.own_slot and self.slot_intent is None and self.attached is role
             and same(role.previous,self.role_header) and role.state['sequence']==self.state['sequence']
             and role.state['phase']=='reading' and same(role.state['manifests'],self.state['manifests'])
             and same(role.state['pending'],dict(original=None,manifest=None,image=None,binaries=[],retirement=None,frame=None,work=frame)))
         self._headers();self._verify_files()
         need(_digest(self.feature.state)==self.feature_state_sha256 and graph_digest(role.frames)==self.digest
             and graph_digest(self.baseline)==self.baseline_digest)
+        slot=validate_read_ready_slot(frame,self.run,phase=self.phase)
+        need(same(slot['preparedRoleHeader'],self.role_header))
+        self.slot_intent=dict(frameSha256=_digest(frame),slotId=slot['slotId'],oldHeader=deepcopy(self.role_header))
         return True
 
     def before_read(self,role):
@@ -384,4 +388,4 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         # A shared actual graph belongs to the finished role until its own
         # facade disposal. Drop references only; never clear nested DTOs.
         self.closed=True;self.replaying=False;self.frames=None;self.attached=None;self.baseline=None
-        self.system_scope=self.system_pin=self.system_factory=None;self.rebind_open=False
+        self.system_scope=self.system_pin=self.system_factory=None;self.rebind_open=False;self.slot_intent=None
