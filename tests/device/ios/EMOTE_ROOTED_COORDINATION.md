@@ -42,3 +42,11 @@ integration remain required. Rooted finalization explicitly retains pending
 responsibility instead of entering the version-one native-drain finalizer.
 Complete Emote capability admission remains closed; builds and devices remain
 untested.
+
+The [rooted live journal](EMOTE_ROOTED_LIVE.md) now records actual cleanup cuts
+from both roles before returning their public observations. A pending private
+save is resolved before another cleanup acquisition. The connected paired
+playback/scene3 case passes in 277.076 seconds with the actual stored cleanup
+references and typed resource aliases rechecked for both targets. This does
+not yet qualify the common three-pair quiet window, real CPU deadlines or
+terminal process retirement.

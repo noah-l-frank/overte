@@ -16,6 +16,7 @@ from ios.adapters.emote_rooted_observation import IOSEmoteRootedObserver
 from ios.adapters.emote_rooted_retirement import (IOSEmoteRootedNativeRetirement,
     IOSEmoteRootedRenderedRetirement,IOSEmoteRootedKeyedRetirement)
 from ios.adapters.emote_rooted_scene_retirement import IOSEmoteRootedSceneRetirement
+from ios.adapters.emote_rooted_live import IOSEmoteRootedLive
 from ios.adapters.emote_rooted_quiet import refresh,extend
 from ios.adapters.emote_scene_proof import rooted
 
@@ -39,8 +40,14 @@ class IOSEmoteRootedFeature(IOSEmoteFeature):
     def quiet_extend(scope,pointers,*,keys):return extend(scope,pointers,keys)
 
     def retirement_public(self,owner,reference,public):
-        value=IOSEmoteRootedSceneRetirement(owner).read(reference)
+        value=IOSEmoteRootedLive(owner).append(reference)['measurement']
         need(same(value['sourcePublic'],public));return value['public']
+
+    def retirement_sample(self,parts,after_sequence=0,*,fresh_end=False):
+        if self.state['cleanup']:
+            live=IOSEmoteRootedLive(self.retirement_owner(parts))
+            if live.state['pending'] is not None:live.recover()
+        return super().retirement_sample(parts,after_sequence,fresh_end=fresh_end)
 
     def retirement_decoder(self,owner):return IOSEmoteRootedSceneRetirement(owner).actor_original
 

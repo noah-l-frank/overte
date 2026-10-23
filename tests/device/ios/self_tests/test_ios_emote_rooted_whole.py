@@ -56,6 +56,15 @@ class RootedWholeTests(unittest.TestCase):
         self.assertEqual('actor-published',actor.state['retirement']['kind'])
         self.assertFalse(f.actor.target.domain.running);self.assertFalse(f.actor.target.domain.files.root.exists())
         self.assertTrue(f.actor.target.packet_bytes)
+        from ios.adapters.emote_rooted_live import IOSEmoteRootedLive
+        for flow in (primary,actor):
+            with flow.held(30):
+                flow.load();parts=flow.components();live=IOSEmoteRootedLive(flow.retirement_owner(parts))
+                self.assertIsNone(live.state['pending']);self.assertTrue(live.state['records'])
+                reference=live.state['records'][-1];row=live.record(reference)
+                frame=live.originals.read(live.originals.expand(reference))
+                self.assertEqual(flow.state['cleanup'][-1],frame['snapshot']['reference'])
+                self.assertEqual([r['resource'] for r in row['measurement']['held']],row['measurement']['public']['resources'])
 
 
 if __name__=='__main__':unittest.main()
