@@ -806,7 +806,7 @@
     },
     "shared-script-behavior": {
       "kind": "reviewed-product-inventory",
-      "definition_digest": "sha256:4f911f34b2075de56cfc02bf4cda2b7a30b8ec690960fe1cb888827d3ad3cff7",
+      "definition_digest": "sha256:c094282fd3fedadcb0cc7fa1cb2b0241fd1e72a6765ae954662d08cd2d5382e4",
       "setup": [
         "host-full"
       ]
@@ -875,7 +875,7 @@
       ]
     }
   },
-  "registry_digest": "sha256:39e1166eb3d3fb637072cfe4172d750f24460878834b128a861d91e64f375e4b",
+  "registry_digest": "sha256:1b9ac825f6887c35b3c06b676a42c9e8fde6089209a87c307eb8feea738f71f5",
   "lookup_digest": "sha256:03ae433044c9e3f28611f14c5ad3f87f8f368a77ca45316134be7ef0186a0557",
   "targets": {
     "main": {

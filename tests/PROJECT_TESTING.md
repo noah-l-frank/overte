@@ -213,6 +213,14 @@ for that bounded encoder check without the render/capture fixture. An explicit
 this bounded check only; it cannot qualify the current source.
 The same extracted-SDK variables documented for voice tests apply. GLM uses
 the existing `OVERTE_TEST_GLM_INCLUDE` override when it is not installed globally.
+
+The shared JavaScript owner also runs the complete shipped Avatar app,
+reciprocal People connection, and request serializer contracts. Its existing
+`default-scripts.production.test.js` entry point imports those cases from
+`tests/javascript/production/`. Their `.cases.js` names keep a general Node
+test scan from discovering them again as independent test entry points. Both
+the current selective registry and the retained project runner use the same
+product command, including these cases.
 These checks do not prove Photos/system chooser behavior, GPU capture or image
 upload against a real metaverse. Native device acceptance remains separate.
 
