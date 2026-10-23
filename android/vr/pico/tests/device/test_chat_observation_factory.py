@@ -111,7 +111,8 @@ class PicoChatObservationFactoryTests(unittest.TestCase):
             self.adapter._chat_cursor_source_seal_store(self.target,witness=False),
             self.adapter._chat_cursor_source_seal_store(self.target,witness=True),
             self.adapter._chat_cursor_cleanup_consumption_store(self.target),
-            self.adapter._chat_cursor_actor_store(self.target),self.adapter._chat_cursor_actor_stop_store(self.target))
+            self.adapter._chat_cursor_actor_store(self.target),self.adapter._chat_cursor_actor_stop_store(self.target),
+            self.adapter._chat_cursor_actor_return_store(self.target),self.adapter._chat_cursor_actor_consumption_store(self.target))
         for store in stores:
             child=PrivateFeatureState(store.path.with_name(store.path.name+'.frame-000.json'))
             child.write(dict(explicitOriginalOrphan=True),None)

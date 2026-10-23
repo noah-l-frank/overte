@@ -8,6 +8,10 @@ to this test process. Separate factory tests cover passive Pico acquisition.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import os
+from pathlib import Path
+import select
+import subprocess
+import sys
 from types import SimpleNamespace
 import unittest
 import uuid
@@ -33,8 +37,11 @@ class PicoChatCursorActorTests(unittest.TestCase):
         h=self.h;self.actor=PicoChatCursorActor.__new__(PicoChatCursorActor);a=self.actor
         a.target='producer-seam';a.source=h.initial.source;a.store=PrivateFeatureState(h.root/'actual-actor-owner.json')
         a.stop_store=PrivateFeatureState(h.root/'actual-actor-stop.json');a.previous=None;a.previous_sha=digest(None);a.root_stamp=None
+        a.return_store=PrivateFeatureState(h.root/'actual-actor-return.json')
+        a.consumption_store=PrivateFeatureState(h.root/'actual-actor-consumption.json')
+        a.return_sender=None;a.return_started=a.parent_consumed=False
         a.failed=a.started=a.closed=False;a.publisher=h.owner;a.seal=None;a.seal_receipt=None;a.stop_value=a.stop_stamp=a.stop_raw=None
-        a.scope=dict(picoChatCursorActorVersion=1,instance=uuid.uuid4().hex,runId=a.source.run,fixtureUrl=a.source.fixture_url,
+        a.scope=dict(picoChatCursorActorVersion=2,instance=uuid.uuid4().hex,runId=a.source.run,fixtureUrl=a.source.fixture_url,
             binding=deepcopy(h.cursor.scope['binding']),peerBinding=deepcopy(h.cursor.scope['peerBinding']),hostProcessIdentity=host_identity())
         a.scope_sha=digest(a.scope)
         original=a.original=PicoChatWitness.__new__(PicoChatWitness);original.binding=deepcopy(a.scope['binding'])
@@ -71,6 +78,49 @@ class PicoChatCursorActorTests(unittest.TestCase):
             runId=a.source.run,afterSequence=len(a.publisher.rows),ticket=a.publisher.rows[-1]['payload']['ticket'])
         a.stop_store.write(self.command,None)
 
+    def independent_parent_consumption(self):
+        # Actual second host process and independent original-byte/nonce read.
+        # Its graph admission is an explicit seam; the generic Receiver tests
+        # separately qualify original process ownership and kernel return.
+        entry=self.h.root/'return-parent.py'
+        entry.write_text("""import sys
+sys.path.insert(0,DEVICE_PATH)
+import hashlib
+import uuid
+from pathlib import Path
+from adapters.normal_feature_state import PrivateFeatureState
+from adapters.observer_return import state,scope,SCOPE
+from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
+from adapters.native_feature_observation import need
+from adapters.host_process_identity import host_identity
+from adapters.script_journey.history import canonical
+import base64,json
+config=PrivateFeatureState(sys.argv[2]).read()
+store=PrivateFeatureState(config['root']);value,raw,physical=state(store)
+original={key:value[key] for key in SCOPE};scope(original);need(value['phase']=='ready')
+frames=ChatSourceChunks(store,original).load(value['chunks'])
+payload=b''.join(base64.b64decode(row['rawBase64'],validate=True) for row in frames)
+need(hashlib.sha256(payload).hexdigest()==original['payloadSha256'])
+root=json.loads(payload);need(root['picoChatCursorActorVersion']==2 and root['phase']=='host-closed')
+need(payload==canonical(root)+b'\\n')
+ack=dict(observerReturnConsumptionVersion=1,scopeSha256=digest(original),returnId=original['returnId'],
+    originalRequestId=original['originalRequestId'],producerHostProcessIdentity=original['producerHostProcessIdentity'],
+    consumerHostProcessIdentity=host_identity(),nonce=uuid.uuid4().hex,readyRootSha256=hashlib.sha256(raw).hexdigest(),
+    readyRootStamp=physical,payloadSha256=original['payloadSha256'])
+PrivateFeatureState(config['ack']).write(ack,None)
+print('consumed',flush=True)
+sys.stdin.readline()
+""".replace('DEVICE_PATH',repr(str(Path(__file__).resolve().parents[1]))));entry.chmod(0o600)
+        config=PrivateFeatureState(self.h.root/'return-parent-config.json')
+        config.write(dict(root=str(self.actor.return_store.path),ack=str(self.actor.consumption_store.path)),None)
+        worker=subprocess.Popen([sys.executable,str(entry),'--config',str(config.path)],stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,stderr=subprocess.PIPE,env={'PYTHONDONTWRITEBYTECODE':'1'})
+        def finish():
+            worker.stdin.close();worker.wait(timeout=5);worker.stdout.close();worker.stderr.close()
+        self.addCleanup(finish)
+        self.assertTrue(select.select([worker.stdout],[],[],5)[0]);self.assertEqual(b'consumed\n',worker.stdout.readline())
+        return worker
+
     def test_original_stop_seals_full_graph_then_really_closes_both_captured_kernel_pairs(self):
         a=self.actor;before=self.h.queries();posts=len(self.h.posts);value=a.stop_once()
         self.assertEqual('host-closed',value['phase']);self.assertEqual('original-independent-chat-host-handles',value['sourceScope'])
@@ -82,6 +132,21 @@ class PicoChatCursorActorTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):a.stop_once()
         self.assertFalse(a.failed);self.assertEqual(a.seal_receipt,a.seal.receipt(a.seal_receipt))
         self.assertEqual(before,self.h.queries());self.assertEqual(posts,len(self.h.posts))
+        # The actual return producer preserves the literal successful host-close
+        # root. Native guards must never run after that boundary.
+        def forbidden():raise AssertionError('No native query/guard during historical return')
+        a.original.native.guard=forbidden
+        raw=a.store.path.read_bytes();ready=a.publish_return()
+        self.assertEqual('ready',ready['phase']);self.assertEqual(raw,a.return_sender.raw)
+        self.assertFalse(a.parent_consumed);worker=self.independent_parent_consumption()
+        returned=a.consume_return();self.assertTrue(a.parent_consumed)
+        self.assertEqual('parent-consumed',returned['phase']);self.assertEqual(returned,a.store.read())
+        self.assertEqual(str(worker.pid),returned['parentHostProcessIdentity'].split(':')[0])
+        self.assertEqual('consumed',a.return_store.read()['phase'])
+        self.assertEqual(before,self.h.queries());self.assertEqual(posts,len(self.h.posts))
+        with self.assertRaises(NativeUIError):a.publish_return()
+        with self.assertRaises(NativeUIError):a.consume_return()
+        self.assertFalse(a.failed)
 
     def test_foreign_stop_cursor_quarantines_without_sealing_republishing_or_closing_originals(self):
         a=self.actor;value={**self.command,'afterSequence':self.command['afterSequence']-1}
@@ -104,6 +169,8 @@ class PicoChatCursorActorTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):a.stop_once()
         self.assertTrue(a.failed);self.assertFalse(a.closed);self.assertEqual('host-closed',a.store.read()['phase'])
         self.assertTrue(all(owner.closed and not owner.lost for owner,_row in a.pairs))
+        with self.assertRaises(NativeUIError):a.publish_return()
+        self.assertIsNone(a.return_store.read())
         with self.assertRaises(NativeUIError):a.stop_once()
         with self.assertRaises(NativeUIError):a.publish()
         self.assertEqual(before,self.h.queries());self.assertEqual(posts,len(self.h.posts))

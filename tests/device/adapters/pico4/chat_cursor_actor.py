@@ -9,20 +9,23 @@ import os
 import hashlib
 
 from adapters.chat_journey.evidence_archive import stamp,private
-from adapters.chat_journey.source_chunks import digest
+from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
 from adapters.chat_journey.owned_peer import OwnedChatPeer
 from adapters.chat_journey.observation_cursor import plain
 from adapters.native_fd_owner import OriginalDescriptor
 from adapters.native_feature_observation import exact,integer,need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
+from adapters.observer_return import ObserverReturnSender,state as return_state
 from adapters.pico4.chat_composition import PicoChatWitness,record
 from adapters.pico4.chat_host_close import host_identity
 from adapters.script_journey.history import same,canonical
 from feature_journeys.phase_fixture import PhasePending,PhaseFixtureReader
 from feature_journeys.witness import Client
 
-VERSION=1
+VERSION=2
+STOP_VERSION=1
+RETURN_FAMILY='pico-chat-cursor-actor'
 
 
 class PicoChatCursorActor:
@@ -36,9 +39,17 @@ class PicoChatCursorActor:
         self.adapter,self.target,self.source=adapter,target,source
         self.store=adapter._chat_cursor_actor_store(target)
         self.stop_store=adapter._chat_cursor_actor_stop_store(target)
+        self.return_store=adapter._chat_cursor_actor_return_store(target)
+        self.consumption_store=adapter._chat_cursor_actor_consumption_store(target)
         need(type(self.store) is PrivateFeatureState and type(self.stop_store) is PrivateFeatureState
             and self.store.path!=self.stop_store.path and self.store.path.parent==self.stop_store.path.parent
-            and self.store.read() is None and self.stop_store.read() is None)
+            and self.store.read() is None and self.stop_store.read() is None
+            and all(type(store) is PrivateFeatureState and store.path.parent==self.store.path.parent
+                and store.read() is None for store in (self.return_store,self.consumption_store))
+            and len({store.path for store in (self.store,self.stop_store,self.return_store,self.consumption_store)})==4)
+        for store in (self.store,self.stop_store,self.return_store,self.consumption_store):
+            ChatSourceChunks(store,{}).inventory(0)
+        self.return_sender=None;self.return_started=self.parent_consumed=False
         self.failed=self.started=self.closed=False;self.previous=None;self.previous_sha=digest(None);self.root_stamp=None
         self.original=self.publisher=self.seal=None
         self.pairs=();self.pairs_sha=digest([]);self.stop_value=self.stop_stamp=self.stop_raw=self.seal_receipt=None
@@ -180,7 +191,7 @@ class PicoChatCursorActor:
         raw,original_stamp=self.stop_bytes();value=self.stop_store.read()
         need(stamp(self.stop_store.path.lstat())==original_stamp and raw==canonical(value)+b'\n')
         exact(value,{'picoChatCursorActorStopVersion','commandId','instance','runId','afterSequence','ticket'})
-        need(type(value['picoChatCursorActorStopVersion']) is int and value['picoChatCursorActorStopVersion']==VERSION
+        need(type(value['picoChatCursorActorStopVersion']) is int and value['picoChatCursorActorStopVersion']==STOP_VERSION
             and type(value['commandId']) is str and len(value['commandId'])==32
             and all(c in '0123456789abcdef' for c in value['commandId'])
             and value['instance']==self.scope['instance'] and value['runId']==self.source.run
@@ -212,6 +223,47 @@ class PicoChatCursorActor:
             self.quarantine()
             raise NativeUIError('Original independent Chat stop/seal/host closure is unresolved; originals remain') from None
 
+    def return_control(self):
+        """Historical original ownership only: no native guard or new query."""
+        plain(self.previous);need(digest(self.previous)==self.previous_sha)
+        need(self.closed and not self.failed and digest(self.scope)==self.scope_sha
+            and self.scope['picoChatCursorActorVersion']==VERSION
+            and host_identity()==self.scope['hostProcessIdentity']
+            and self.previous['phase'] in ('host-closed','parent-consumed')
+            and same(self.store.read(),self.previous) and stamp(self.store.path.lstat())==self.root_stamp
+            and digest([row for _owner,row in self.pairs])==self.pairs_sha
+            and all(owner.closed and not owner.lost and owner.fd==owner.anchor==-1 for owner,_row in self.pairs))
+        self.stop_original();self.seal.receipt(self.seal_receipt)
+        for store in (self.store,self.stop_store):ChatSourceChunks(store,{}).inventory(0)
+        need(same(self.store.read(),self.previous) and stamp(self.store.path.lstat())==self.root_stamp)
+        return True
+
+    def publish_return(self):
+        """Publish only a successfully received warm host-close result."""
+        need(not self.return_started and not self.failed);self.return_started=True
+        try:
+            self.return_control();value,raw,physical=return_state(self.store)
+            need(value['phase']=='host-closed' and same(value,self.previous) and physical==self.root_stamp)
+            identity=dict(runId=self.source.run,family=RETURN_FAMILY,producerHostProcessIdentity=self.scope['hostProcessIdentity'],
+                originalRequestId=self.stop_value['commandId'])
+            self.return_sender=ObserverReturnSender(self.return_store,self.consumption_store,identity,raw,physical,
+                guard=self.return_control)
+            result=self.return_sender.publish();self.return_control();return result
+        except BaseException:
+            self.quarantine();raise NativeUIError('Original Chat host return publication is unresolved; originals remain') from None
+
+    def consume_return(self):
+        """One independent read of the Parent nonce, then normal return only."""
+        need(self.return_started and self.return_sender is not None and not self.parent_consumed and not self.failed)
+        try:
+            self.return_control();value=self.return_sender.consume()
+            self.save('parent-consumed',returnId=value['returnId'],returnSha256=digest(value),
+                consumptionSha256=value['consumptionSha256'],parentHostProcessIdentity=value['consumption']['consumerHostProcessIdentity'])
+            result=deepcopy(self.previous);self.return_sender.control();self.return_control();self.parent_consumed=True
+            return result
+        except BaseException:
+            self.quarantine();raise NativeUIError('Original Chat Parent consumption is unresolved; originals remain') from None
+
     def detach(self):
         """Best-effort original handles only; no durable Actor/process claim."""
         return self.original is None or PicoChatWitness.detach(self.original) is True
@@ -241,9 +293,16 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
                 else:need(parent['phase'] in ('admitted','bound','profile-acquire-issued','profile-acquired'))
         if actor is not None:
             bound()
-            if actor.stop_store.read() is not None:
-                actor.stop_once();bound();need(actor.closed and not actor.failed);return 0
-            try:actor.publish()
-            except PhasePending:pass
+            if not actor.closed:
+                if actor.stop_store.read() is not None:
+                    actor.stop_once();bound();need(actor.closed and not actor.failed)
+                    actor.publish_return();bound()
+                else:
+                    try:actor.publish()
+                    except PhasePending:pass
+            if actor.closed:
+                actor.return_control();actor.return_sender.control()
+                if actor.consumption_store.read() is not None:
+                    actor.consume_return();bound();need(actor.parent_consumed and not actor.failed);return 0
             bound()
         sleep(.25)

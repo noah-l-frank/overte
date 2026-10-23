@@ -99,7 +99,7 @@ class PicoFeatureObserverTests(unittest.TestCase):
             self.assertEqual(7,run(adapter,self.config,monotonic=lambda:self.clock,sleep=self.sleep))
         self.assertIs(adapter,calls[0][0]);self.assertIs(self.config,calls[0][1]);self.assertEqual(1,len(calls))
 
-    def chat_loop(self,*,late=False,closed=True):
+    def chat_loop(self,*,late=False,closed=True,consumed=True):
         from adapters.pico4.chat_cursor_actor import run as run_chat
         from feature_journeys.phase_fixture import PhasePending
         binding=dict(sourceRevision='a'*40,artifactSha256='b'*64,processIdentity='123:456',
@@ -115,7 +115,16 @@ class PicoFeatureObserverTests(unittest.TestCase):
             if calls.count('publish')==1:raise PhasePending('Original input pending')
             stop.append(True)
         def finish():calls.append('stop');actor.closed=closed;return dict(performed=True)
-        actor.publish=publish;actor.stop_once=finish
+        acknowledgment=[]
+        def returned():calls.append('return');return dict(ready=True)
+        def received():
+            acknowledgment.append(True)
+            return dict(originalNonce=True) if consumed and len(acknowledgment)>=2 else None
+        def consume():calls.append('consume');actor.parent_consumed=consumed
+        actor.publish=publish;actor.stop_once=finish;actor.parent_consumed=False
+        actor.publish_return=returned;actor.consume_return=consume
+        actor.return_control=lambda:True;actor.return_sender=SimpleNamespace(control=lambda:True)
+        actor.consumption_store=SimpleNamespace(read=received)
         def acquire(target,source,peer_config):
             calls.append('acquire');self.assertEqual(config['actorToken'],source.client.token)
             self.assertEqual(Path(config['peerConfig']),peer_config.path)
@@ -128,7 +137,23 @@ class PicoFeatureObserverTests(unittest.TestCase):
 
     def test_chat_loop_keeps_one_actual_factory_owner_and_stops_without_another_publication(self):
         execute,calls,actor=self.chat_loop();self.assertEqual(0,execute())
-        self.assertEqual(['acquire','publish','publish','stop'],calls);self.assertTrue(actor.closed)
+        self.assertEqual(['acquire','publish','publish','stop','return','consume'],calls);self.assertTrue(actor.closed)
+        self.assertTrue(actor.parent_consumed)
+
+    def test_legacy_actor_v1_does_not_gain_return_qualification_from_closed_looking_metadata(self):
+        from adapters.pico4.chat_cursor_actor import PicoChatCursorActor
+        from adapters.chat_journey.source_chunks import digest
+        actor=PicoChatCursorActor.__new__(PicoChatCursorActor)
+        actor.closed=True;actor.failed=False;actor.previous=dict(phase='host-closed')
+        actor.previous_sha=digest(actor.previous);actor.scope=dict(picoChatCursorActorVersion=1)
+        actor.scope_sha=digest(actor.scope)
+        with self.assertRaises(NativeUIError):actor.return_control()
+
+    def test_chat_loop_waits_for_original_parent_consumption_without_more_queries_or_stop_replay(self):
+        execute,calls,actor=self.chat_loop(consumed=False)
+        with self.assertRaises(NativeUIError):execute()
+        self.assertEqual(['acquire','publish','publish','stop','return'],calls)
+        self.assertTrue(actor.closed);self.assertFalse(actor.parent_consumed)
 
     def test_chat_loop_refuses_late_acquisition_and_close_ack_without_actual_owner_closed_state(self):
         execute,calls,_actor=self.chat_loop(late=True)
