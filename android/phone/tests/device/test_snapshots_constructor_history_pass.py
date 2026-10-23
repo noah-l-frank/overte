@@ -57,13 +57,13 @@ class SnapshotConstructorHistoryPassTests(unittest.TestCase):
         self.assertEqual(1,self.observed['state']['files'])
 
     @contextmanager
-    def prepared(self):
+    def prepared(self,*,cleanup=False):
         f=self.fixture.adapter._snapshots_feature('test-only-appium',harness.RUN)
         # Disposal is outermost, just as in the real observation operation.
         with ExitStack() as disposals,ExitStack() as session:
             with f.lock.held():
                 session.enter_context(f.adapter.existing_input_session(f.selector))
-                f.load();token=SnapshotConstructorHistoryPass.prepare(f,'primary')
+                f.load();token=SnapshotConstructorHistoryPass.prepare(f,'primary',cleanup=cleanup)
                 self.assertIsNotNone(token)
             try:yield f,token,disposals
             finally:token.close()
@@ -85,6 +85,82 @@ class SnapshotConstructorHistoryPassTests(unittest.TestCase):
         with patch.object(PhoneSnapshotsRole,'read',current),patch.object(PhoneSnapshotsRole,'batch',current):
             with self.assertRaises(NativeUIError):self.reconstruct(f,token,disposals)
         self.assertEqual([],forbidden)
+
+    def cleanup_fixture(self):
+        f=self.fixture
+        f.client.activate('f'*32,'cleanup')
+        f.invoke('feature.snapshots.cleanup',dict(contractVersion=harness.VERSION,runId=harness.RUN))
+
+    def test_cleaned_mode_requires_explicit_opt_in_and_actual_active_cleanup_phase(self):
+        self.cleanup_fixture()
+        with self.prepared(cleanup=True) as (f,token,disposals):
+            self.assertTrue(token.cleanup)
+            with f.lock.held():
+                self.assertEqual('cleaned',f.state['phase'])
+                self.assertIsNone(SnapshotConstructorHistoryPass.prepare(f,'primary'))
+                self.assertIsNone(SnapshotConstructorHistoryPass.prepare(f,'actor',cleanup=True))
+                with self.assertRaises(NativeUIError):SnapshotConstructorHistoryPass.prepare(f,'primary',cleanup=1)
+            token.read();role=self.reconstruct(f,token,disposals,current=False)
+            self.assertTrue(token.finished);self.assertTrue(role.frames)
+        # A real ordinary activation cannot authorize a cleaned token.
+        self.fixture.client.activate('d'*32)
+        f=self.fixture.adapter._snapshots_feature('test-only-appium',harness.RUN)
+        with ExitStack() as session,f.lock.held():
+            session.enter_context(f.adapter.existing_input_session(f.selector));f.load()
+            with self.assertRaises(NativeUIError):SnapshotConstructorHistoryPass.prepare(f,'primary',cleanup=True)
+
+    def test_cleaned_pass_keeps_empty_retired_and_actual_interrupted_read_on_fallback(self):
+        self.cleanup_fixture()
+        with self.prepared(cleanup=True) as (f,token,disposals):
+            header=deepcopy(token.role_header);state=unpack(header['payload'])[0]
+            with f.lock.held():
+                for sequence in (0,state['sequence']):
+                    changed=deepcopy(state)
+                    if sequence==0:
+                        changed.update(sequence=0,manifests=[])
+                    else:changed['phase']='retired'
+                    value=dict(header,payload=pack([changed]));token.role_store.write(value,header)
+                    try:self.assertIsNone(SnapshotConstructorHistoryPass.prepare(f,'primary',cleanup=True))
+                    finally:token.role_store.write(header,value)
+
+        # Interrupt an actual acquisition after the durable reading intent.
+        # This is not a hand-written pending DTO or an inferred success.
+        with self.prepared(cleanup=True) as (f,token,disposals),f.lock.held():
+            role=PhoneSnapshotsRole(f,'primary',_observe_disposals=disposals)
+            with patch.object(role.avatar,'read',side_effect=RuntimeError('Controlled acquisition interruption')):
+                with self.assertRaises(RuntimeError):role.read(role.state['sequence'])
+            self.assertEqual('reading',role.state['phase']);self.assertIsNotNone(role.state['pending'])
+            self.assertIsNone(SnapshotConstructorHistoryPass.prepare(f,'primary',cleanup=True))
+            self.assertEqual(role.previous,role.store.read())
+
+    def test_cleaned_pass_rejects_actual_phase_close_or_new_cleanup_before_current(self):
+        self.cleanup_fixture()
+        for kind in ('new-cleanup','closed'):
+            with self.subTest(kind=kind),self.prepared(cleanup=True) as (f,token,disposals):
+                token.read()
+                if kind=='new-cleanup':self.fixture.client.activate('e'*32,'cleanup')
+                else:self.fixture.client.close()
+                self.reject_before_current(f,token,disposals)
+            if kind=='new-cleanup':
+                # The next subcase obtains its own real current cleanup scope.
+                continue
+
+    def test_cleaned_final_native_callback_cannot_change_original_input_or_memory(self):
+        self.cleanup_fixture()
+        with self.prepared(cleanup=True) as (f,token,disposals):
+            token.read()
+            path=next(p for p in token.files if p.name.startswith('emote-frame-snapshots-input-'))
+            raw=path.read_bytes();changed=[];before_read=token.before_read
+            def last_callback(role):
+                bound=f.bound
+                def mutate_after_native():
+                    value=bound()
+                    if not changed:path.write_bytes(raw+b' ');changed.append(True)
+                    return value
+                with patch.object(f,'bound',side_effect=mutate_after_native):return before_read(role)
+            token.before_read=last_callback
+            self.reject_before_current(f,token,disposals)
+            self.assertEqual([True],changed);self.assertEqual(raw+b' ',path.read_bytes())
 
     def test_ctor_baseline_reuse_returns_defensive_actual_floors_without_replaying_input_json(self):
         with self.prepared() as (f,token,disposals):

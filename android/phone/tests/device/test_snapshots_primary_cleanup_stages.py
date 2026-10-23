@@ -18,7 +18,7 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from overte_phone_script_history import pack,unpack
 from overte_phone_snapshots_measurements import SnapshotPending
-from overte_phone_snapshots_history_pass import SnapshotHistoryReadPass
+from overte_phone_snapshots_constructor_history import SnapshotConstructorHistoryPass
 from overte_phone_snapshots_role import PhoneSnapshotsRole
 
 
@@ -50,93 +50,96 @@ class SnapshotPrimaryCleanupStagesTests(unittest.TestCase):
             # Observe the actual reader after all source/session guards, just
             # before its operation-owned references are intentionally released.
             # Files and headers are still re-read independently below.
-            disposed[id(role)]=dict(state=deepcopy(role.state),frames=deepcopy(role.frames))
+            disposed[id(role)]=dict(state=deepcopy(getattr(role,'state',None)),
+                framesPresent=hasattr(role,'frames'),frames=deepcopy(getattr(role,'frames',None)))
             return release(role)
         def create(*args,**kwargs):
-            feature=factory(*args,**kwargs);sleep=feature.sleep;pin=feature.cleanup_observe_pin
-            def pinned(role,previous=None):
-                result=pin(role,previous);roles.append(role);return result
-            feature.cleanup_observe_pin=pinned
-            def between(seconds):
-                if feature.lock._owner is None and not yielded:
-                    yielded.append(True);self.assertIsNotNone(f.adapter._existing_input_scope)
-                    if mutation.startswith('after-'):pass
-                    elif mutation=='continue':
-                        child=subprocess.run([sys.executable,'-c',LOCK_READER,json.dumps(sys.path),str(feature.lock.path)],
-                            capture_output=True,text=True,timeout=3,check=True)
-                        self.assertNotEqual(os.getpid(),int(child.stdout))
-                    elif mutation in ('feature','feature-load'):
-                        previous=deepcopy(feature.previous);state=unpack(previous['payload'])[0]
-                        state['cleanupStages']['foreign-primary-stage']='e'*32;value=dict(previous,payload=pack([state]))
-                        if mutation=='feature':PrivateFeatureState(feature.store.path).write(value,previous)
-                        else:
-                            read=feature.store.read;switched=[False]
-                            def late_read():
-                                actual=read()
-                                if not switched[0]:switched[0]=True;PrivateFeatureState(feature.store.path).write(value,previous)
-                                return actual
-                            feature.store.read=late_read
-                        foreign.append((feature.store.path,value))
-                    elif mutation=='role':
-                        role=roles[-1];previous=deepcopy(role.previous);state=unpack(previous['payload'])[0];state['phase']='retired'
-                        value=dict(previous,payload=pack([state]));PrivateFeatureState(role.store.path).write(value,previous);foreign.append((role.store.path,value))
-                    elif mutation=='memory':
-                        roles[-1].state.update(sequence=0,manifests=[]);roles[-1].frames=[]
-                    elif mutation=='closed':f.client.close()
-                    elif mutation=='ticket':f.client.activate('e'*32,'cleanup',{})
-                    elif mutation=='pid':f.setup.f.native.identity='32:foreign-start'
-                    elif mutation=='late-file':(f.model.producer.directory/('e2e-'+h.RUN+'-late-primary.png')).write_bytes(f.model.raw_png)
-                    elif mutation=='old-file':next(f.root.glob('emote-frame-snapshots-'+h.RUN+'-primary-*.json')).unlink()
-                    elif mutation=='pending':
-                        role=roles[-1];read=role.avatar.read;once=[False]
-                        def missing():
-                            if not once[0]:once[0]=True;raise SnapshotPending('Controlled original avatar read pending')
-                            return read()
-                        role.avatar.read=missing
-                    else:raise RuntimeError('Unknown controlled stage mutation')
-                return sleep(seconds)
-            feature.sleep=between;observed.append(feature);return feature
-        read_history=SnapshotHistoryReadPass.read;passes=[];invalid_current_reads=[];graph_checks=[]
+            feature=factory(*args,**kwargs);observed.append(feature);return feature
+        read_history=SnapshotConstructorHistoryPass.read
+        construct=PhoneSnapshotsRole.__init__;current=PhoneSnapshotsRole.read
+        passes=[];invalid_current_reads=[];graph_checks=[];reached=[];pending_once=[]
+        def constructor(role,*args,**kwargs):
+            construct(role,*args,**kwargs);roles.append(role)
+        def acquire(role,*args,**kwargs):
+            reached.append(True)
+            self.assertIsNotNone(role.feature.lock._owner)
+            if mutation not in ('continue','pending','late-file'):
+                invalid_current_reads.append(True)
+                raise AssertionError('Current facts acquired after invalid historical pass')
+            if mutation=='pending' and not pending_once:
+                pending_once.append(True);read=role.avatar.read
+                def missing():
+                    role.avatar.read=read
+                    raise SnapshotPending('Controlled original avatar read pending')
+                role.avatar.read=missing
+            return current(role,*args,**kwargs)
         def historical(token):
             result=read_history(token);passes.append(token)
-            if mutation.startswith('after-'):
-                self.assertIsNone(token.feature.lock._owner)
-                def forbidden(_after):
-                    invalid_current_reads.append(True)
-                    raise AssertionError('Current facts acquired after invalid historical pass')
-                token.role.read=forbidden
+            self.assertTrue(token.cleanup)
+            self.assertIsNone(token.feature.lock._owner)
+            self.assertIsNone(token.attached)
+            self.assertTrue(any(p.name.startswith('emote-frame-snapshots-input-') for p in token.files))
+            if yielded:return result
+            yielded.append(True);feature=token.feature
+            self.assertIsNotNone(f.adapter._existing_input_scope)
+            if mutation=='continue':
+                child=subprocess.run([sys.executable,'-c',LOCK_READER,json.dumps(sys.path),str(feature.lock.path)],
+                    capture_output=True,text=True,timeout=3,check=True)
+                self.assertNotEqual(os.getpid(),int(child.stdout))
+            elif mutation in ('feature','feature-load'):
+                previous=deepcopy(feature.previous);state=unpack(previous['payload'])[0]
+                state['cleanupStages']['foreign-primary-stage']='e'*32;value=dict(previous,payload=pack([state]))
+                if mutation=='feature':PrivateFeatureState(feature.store.path).write(value,previous)
+                else:
+                    # Return the pinned owner once, but replace it before the
+                    # next parsed load. Every later owner check stays actual.
+                    read=feature.store.read;switched=[False]
+                    def late_read():
+                        actual=read()
+                        if not switched[0]:switched[0]=True;PrivateFeatureState(feature.store.path).write(value,previous)
+                        return actual
+                    feature.store.read=late_read
+                foreign.append((feature.store.path,value))
+            elif mutation=='role':
+                previous=deepcopy(token.role_header);state=unpack(previous['payload'])[0];state['phase']='retired'
+                value=dict(previous,payload=pack([state]));token.role_store.write(value,previous);foreign.append((token.role_store.path,value))
+            elif mutation=='memory':
+                token.state.update(sequence=0,manifests=[]);token.frames=[]
+            elif mutation=='closed':f.client.close()
+            elif mutation=='ticket':f.client.activate('e'*32,'cleanup',{})
+            elif mutation=='pid':f.setup.f.native.identity='32:foreign-start'
+            elif mutation=='late-file':(f.model.producer.directory/('e2e-'+h.RUN+'-late-primary.png')).write_bytes(f.model.raw_png)
+            elif mutation=='old-file':next(f.root.glob('emote-frame-snapshots-'+h.RUN+'-primary-*.json')).unlink()
+            elif mutation=='pending':pass
+            elif mutation.startswith('after-'):
                 kind=mutation.removeprefix('after-')
                 if kind in ('memory-graph','final-guard-memory-graph'):
-                    # Preserve the actual owner/state/file identities. Only
-                    # the reader's independently held graph is corrupted.
-                    state=deepcopy(token.role.state)
-                    headers=(deepcopy(token.feature.store.read()),deepcopy(token.role.store.read()))
+                    headers=(deepcopy(feature.store.read()),deepcopy(token.role_store.read()))
                     bodies={path:None if signature is None else hashlib.sha256(path.read_bytes()).hexdigest()
                         for path,signature in token.files.items()}
                     changed=[]
                     def change_graph():
                         self.assertFalse(changed)
-                        frames=deepcopy(token.role.frames);self.assertTrue(frames)
+                        frames=deepcopy(token.frames);self.assertTrue(frames)
                         frames[-1]['unqualifiedMemoryGraphMutation']=True
-                        token.role.frames=frames;changed.append(True)
+                        token.frames=frames;changed.append(True)
                     if kind=='memory-graph':change_graph()
                     else:
-                        finish=token.finish
-                        def finish_with_original_guard():
-                            bound=token.feature.bound
+                        before_read=token.before_read
+                        def final_guard(role):
+                            bound=feature.bound
                             def actual_then_changed():
                                 value=bound()
-                                if not changed:change_graph()
+                                if not changed:
+                                    frames=deepcopy(role.frames);self.assertTrue(frames)
+                                    frames[-1]['unqualifiedAttachedRoleMutation']=True
+                                    role.frames=frames;changed.append(True)
                                 return value
-                            with patch.object(token.feature,'bound',side_effect=actual_then_changed):
-                                return finish()
-                        # The first finish memory check runs unchanged. Only
-                        # its subsequent real native guard causes corruption;
-                        # the final memory check must prevent current IO.
-                        token.finish=finish_with_original_guard
-                    graph_checks.append((token,state,headers,bodies,changed,token.role.store.path))
+                            with patch.object(feature,'bound',side_effect=actual_then_changed):return before_read(role)
+                        token.before_read=final_guard
+                    graph_checks.append((token,headers,bodies,changed,token.role_store.path))
                 elif kind in ('feature-aba','role-aba'):
-                    store=token.feature.store if kind=='feature-aba' else token.role.store
+                    store=feature.store if kind=='feature-aba' else token.role_store
                     value=deepcopy(store.read());store.write(value,value);foreign.append((store.path,value))
                 else:
                     suffix='.png' if kind=='png-mode' else '.bin' if kind=='binary-link' else '.json'
@@ -146,25 +149,28 @@ class SnapshotPrimaryCleanupStagesTests(unittest.TestCase):
                     elif kind=='binary-link':os.link(path,path.with_name(path.name+'.controlled'))
                     elif kind=='missing':path.unlink()
                     else:path.write_bytes(path.read_bytes()+b' ')
+            else:raise RuntimeError('Unknown controlled stage mutation')
             return result
-        with patch.object(f.adapter,'_snapshots_feature',side_effect=create),patch.object(SnapshotHistoryReadPass,'read',historical),\
+        with patch.object(f.adapter,'_snapshots_feature',side_effect=create),patch.object(SnapshotConstructorHistoryPass,'read',historical),\
+                patch.object(PhoneSnapshotsRole,'__init__',constructor),patch.object(PhoneSnapshotsRole,'read',acquire),\
                 patch.object(PhoneSnapshotsRole,'_dispose_observation_graph',snapshot_and_release):
             if mutation in ('continue','pending'):
                 value=f.invoke('feature.snapshots.observe',dict(contractVersion=h.VERSION,runId=h.RUN,afterSequence=sequence))
                 self.assertEqual([],value['resources']);self.assertEqual(0,value['state']['files']);self.assertGreater(value['sequence'],sequence)
+                self.assertTrue(reached)
                 if mutation=='pending':
-                    self.assertGreaterEqual(len(roles),3);self.assertTrue(any(row.get('diagnostic') for row in disposed[id(roles[-1])]['frames']))
+                    self.assertTrue(pending_once);self.assertGreaterEqual(len(passes),2)
+                    self.assertTrue(any(row.get('diagnostic') for row in disposed[id(roles[-1])]['frames']))
             else:
                 with self.assertRaises((NativeUIError,FileNotFoundError)):
                     f.invoke('feature.snapshots.observe',dict(contractVersion=h.VERSION,runId=h.RUN,afterSequence=sequence))
-        self.assertTrue(passes or not mutation.startswith('after-'))
-        # The source lock translates exceptions. Its generic rejection alone
-        # cannot prove that an invalid pass never reached a current reader.
+        self.assertTrue(passes)
         self.assertEqual([],invalid_current_reads)
         self.assertTrue(all(token.closed for token in passes))
-        for token,state,headers,bodies,changed,role_path in graph_checks:
+        if mutation=='after-memory-graph':
+            self.assertTrue(any(not row['framesPresent'] and row['frames'] is None for row in disposed.values()))
+        for token,headers,bodies,changed,role_path in graph_checks:
             self.assertEqual([True],changed)
-            self.assertEqual(state,disposed[id(token.role)]['state'])
             self.assertEqual(headers,(token.feature.store.read(),PrivateFeatureState(role_path).read()))
             for path,digest in bodies.items():
                 if digest is None:self.assertFalse(path.exists())
