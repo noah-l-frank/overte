@@ -199,6 +199,26 @@ class AssetsCancelOwnerTests(unittest.TestCase):
         self.assertEqual(attempts,releases);self.assertEqual(0,self.owner.uploads.last['source']['totalCalls'])
     def test_lost_file_release_reply_after_normal_cancel_reconciles_without_resend(self):self.release_reply_boundary(True)
     def test_undelivered_file_release_after_normal_cancel_keeps_exact_files_without_resend(self):self.release_reply_boundary(False)
+    def test_original_unavailable_primary_error_then_normal_cancel_retires_companions(self):
+        self.owner.open();before=deepcopy(self.owner.files.read()['source']['files'])
+        retired=self.owner.files.retire_primary();self.assertTrue(retired['primaryRetired'])
+        main=next(row for row in retired['files'] if row['name']=='gltf-bundle/main.gltf');self.assertFalse(main['exists'])
+        self.assertEqual([row for row in before if row['name']!='gltf-bundle/main.gltf'],
+            [row for row in retired['files'] if row['name']!='gltf-bundle/main.gltf'])
+        self.owner.ui().input('assets-file.accept');sample=self.owner.sample();self.owner.unchanged(sample)
+        original=unpack(self.store.read()['uiOriginals'])[-1]
+        picker=next(row['picker'] for row in original['controls'] if row['id']=='assets-file.cancel')
+        self.assertEqual('A selected file is no longer available.',picker['error']);self.assertFalse(picker['review'])
+        self.assertEqual([self.store.read()['directory']+'/gltf-bundle/main.gltf'],picker['selectedUrls'])
+        self.assertTrue(sample['ui']['browsers'][0]['rootAlive'] and sample['ui']['browsers'][0]['modelAlive'])
+        self.assertEqual(0,sample['uploads']['source']['totalCalls']);self.assertEqual('primary-retired',self.file_store.read()['phase'])
+        originals=unpack(self.file_store.read()['originals']);self.make();self.cancel_phase();result=self.owner.cancel()
+        self.assertTrue(result['cancelObserved'] and result['filesRetired']);self.assertEqual('retired',self.file_store.read()['phase'])
+        self.assertFalse(result['browser']['rootAlive'] or result['browser']['modelAlive'])
+        self.assertEqual(originals,unpack(self.file_store.read()['originals'])[:len(originals)])
+        self.assertEqual(1,sum(command['controlId']=='assets-file.accept' for command in self.host.inputs))
+        self.assertEqual(1,sum(command['controlId']=='assets-file.cancel' for command in self.host.inputs))
+        self.assertEqual(0,self.owner.uploads.last['source']['totalCalls'])
     def test_final_owner_cas_age_refuses_open_result_and_keeps_exact_inputs(self):
         self.synthetic=0;self.owner.monotonic=lambda:self.synthetic;write=self.store.write;aged=False
         def delayed(value,previous):

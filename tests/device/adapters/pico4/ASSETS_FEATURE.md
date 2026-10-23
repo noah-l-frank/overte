@@ -518,3 +518,17 @@ the 120-second outer and 90-second compiler bounds. They add two cases to the
 same selector (11 cases), with no new production method or instrumentation.
 The earlier whole-selector admission failure remains a separate recorded
 limitation; these two-case results do not qualify the complete feature.
+
+The existing unavailable-primary path is now composed with the durable owners
+too. After real normal selection, the private-file owner's existing
+`retire-primary` operation removes only the actual original main file; all six
+companion identities, lengths and hashes remain identical. Normal Select then
+produces the actual original `A selected file is no longer available.` picker
+error, with no review and no upload call. The source still observes the actual
+original live browser/model. Cold owner reconstruction and one normal Cancel
+then qualify their actual death and the known remaining companion release;
+original file-history prefixes remain unchanged. This single original Qt/native
+case passed in 23.593 seconds with unchanged 120-second outer/90-second compiler
+bounds. The existing selector now has 12 cases, with no new capability or
+production behavior change. Whole-feature and whole-selector limits above
+still apply separately.
