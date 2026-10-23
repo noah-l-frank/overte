@@ -71,7 +71,19 @@ class FullRetirementAuditTests(unittest.TestCase):
         self.assertFalse(unpack(owner['payload'])[0]['partial'])
         self.assertEqual('cleaned', unpack(owner['payload'])[0]['phase'])
 
+    def observe_cleaned_primary(self):
+        primary=PrivateFeatureState(self.root/'phone-snapshots-primary-originals.json').read()
+        sequence=0 if primary is None else unpack(primary['payload'])[0]['sequence']
+        observed=self.invoke('feature.snapshots.observe',dict(contractVersion=journey.VERSION,
+            runId=journey.RUN,afterSequence=sequence))
+        self.assertGreater(observed['sequence'],sequence);self.assertEqual([],observed['resources'])
+        for key in ('files','saved','uploads','shares'):self.assertEqual(0,observed['state'][key])
+        for key in ('open','pending','saveSheet','shareSheet'):self.assertIs(observed['state'][key],False)
+        owner=PrivateFeatureState(self.root/'phone-snapshots-feature.json').read()
+        self.assertEqual('cleaned',unpack(owner['payload'])[0]['phase'])
+
     def close_with_original_actor(self):
+        FullRetirementAuditTests.observe_cleaned_primary(self)
         self.start_actor()
         deadline = time.monotonic() + 30
         while not self.client.request('/runs/' + journey.RUN)['entries']:
@@ -127,6 +139,7 @@ class FullRetirementAuditTests(unittest.TestCase):
 
     def test_actual_retired_actor_process_must_exit_before_any_archive_or_unlink(self):
         self.normal_cleanup()
+        self.observe_cleaned_primary()
         configuration = self.root / 'held-actor-configuration.json'
         PrivateFeatureState(configuration).write(dict(targetUrl=self.proxy.url, root=str(self.root),
             fixtureUrl=self.base, actorToken='a' * 64), None)

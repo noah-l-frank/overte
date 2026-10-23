@@ -135,9 +135,20 @@ class SnapshotRetirementActorVersionsTests(unittest.TestCase):
         full.FullRetirementAuditTests.close_with_original_actor(r)
         store=PrivateFeatureState(r.root/'phone-snapshots-actor-lifecycle.json');header=store.read();state=unpack(header['payload'])[0]
         self.assertEqual([],state['transitions'])
-        self.assertIsNone(state.pop('primaryCue'))
+        from overte_phone_snapshots_actor import validate_primary_cue
+        cue=state['primaryCue'];self.assertIsNotNone(cue)
+        feature=r.adapter._snapshots_feature('test-only-appium',transitions.harness.RUN)
+        primary=PrivateFeatureState(r.root/'phone-snapshots-primary-originals.json')
+        with feature.lock.held(),feature.adapter.existing_input_session(feature.selector):
+            feature.load();primary_header=primary.read()
+            def actual_owners():
+                feature.header_authority()
+                self.assertEqual(header,store.read());self.assertEqual(primary_header,primary.read());return True
+            validate_primary_cue(feature,cue,primary_header,history_guard=actual_owners)
+        state.pop('primaryCue')
         if version==1:state.pop('transitions')
-        # Faithful legacy encoding of the same real quiet/exit/closure evidence;
+        # Format conversion only: the verified current scheduling cue has no
+        # field in v1/v2. Preserve the same real quiet/exit/closure evidence;
         # no target observation or result is added by this schema fixture.
         legacy=dict(header,snapshotsActorVersion=version,payload=pack([state]));store.write(legacy,header)
         self.assertEqual({'performed':True},self.cleanup());archive=self.archive()

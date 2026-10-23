@@ -38,11 +38,13 @@ from overte_phone_snapshots_role import PhoneSnapshotsRole
 race_counts=dict(reads=0,sources=0,posts=0)
 race_paused=False
 race_reported=False
+race_frontier_requested=False
 race_before=None
 race_active_role=None
 race_init=PhoneSnapshotsActor.__init__
 race_quiet=PhoneSnapshotsActor.quiet_batch
 race_read=PhoneSnapshotsRole.read
+race_step=PhoneSnapshotsActor.step
 race_request=client.request
 race_call=adapter.call
 def race_source(kind,value):
@@ -105,6 +107,22 @@ def race_inner(self,role,prepared,started):
             rolePhase=role.state['phase'])),flush=True)
     return result
 PhoneSnapshotsActor.quiet_batch=race_inner
+def advance_before_mid_read(self):
+    global race_frontier_requested
+    result=race_step(self)
+    if (RACE_DURING and not race_frontier_requested and not race_paused
+            and self.state['quiet'] is not None and self.state['quiet']['complete']):
+        race_frontier_requested=True
+        assert self.feature.lock._owner is None
+        assert self.state['last'] is not None and self.state['pending'] is None
+        cue=self.state['primaryCue'];assert cue is not None
+        from overte_phone_script_history import unpack
+        floor=unpack(cue['header']['payload'])[0]['sequence']
+        print(json.dumps(dict(event='frontier-needed',primarySequence=floor,lockReleased=True)),flush=True)
+        if not select.select([sys.stdin],[],[],20)[0]:raise RuntimeError('Actual Primary frontier IPC timed out')
+        if sys.stdin.readline().strip()!='frontier-ready':raise RuntimeError('Unexpected Primary frontier instruction')
+    return result
+PhoneSnapshotsActor.step=advance_before_mid_read
 '''
 
 
@@ -178,6 +196,13 @@ class SnapshotCleanupCloseRaceTests(unittest.TestCase):
 
     def completed_close(self,*,during=False):
         self.setup_cleanup();self.start_race(True,during=during);paused=self.event()
+        if during:
+            self.assertEqual('frontier-needed',paused['event']);self.assertTrue(paused['lockReleased'])
+            observed=self.invoke('feature.snapshots.observe',dict(contractVersion=journey.VERSION,runId=journey.RUN,
+                afterSequence=paused['primarySequence']))
+            self.assertGreater(observed['sequence'],paused['primarySequence'])
+            self.assertEqual([],observed['resources']);self.assertEqual(0,observed['state']['files'])
+            self.actor.stdin.write('frontier-ready\n');self.actor.stdin.flush();paused=self.event()
         self.assertEqual('paused',paused['event']);self.assertTrue(paused['complete']);self.assertTrue(paused['outerActive'])
         self.assertTrue(paused['hadReceipt']);self.assertNotEqual(os.getpid(),paused['pid'])
         self.assertGreaterEqual(paused['quiet']['last']-paused['quiet']['started'],3)
