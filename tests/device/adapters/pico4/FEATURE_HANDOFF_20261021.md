@@ -2366,3 +2366,22 @@ to old runs or retire Qt objects, stories, global Executor, markers or journals.
 Full Snapshot and device qualification remain false. The next passive settings
 lease is limited to genuinely new runs before first input, with no getter
 initialization, setters or retrospective baseline.
+
+## Independent browser source process and remote capture continuation
+
+The [remote capture packet](BROWSER_REMOTE_CAPTURE_RETIREMENT.md) now drives the
+actual binding return/factory body with the warm original Parent and a real
+separate Actor process. Its original source bridge, separate HTTP publication,
+nonce consumption, normal reaped ESRCH and complete capture absence are verified
+on the short normal Open/Close/cleanup prefix. Three cases pass66.335s plus
+coverage0.111s, including original same-byte PNG replacement and uncertain first
+capture response. Original sources, images and catalog owners remain retained.
+The catalog now has202 groups; source-complete areas remain3/14.
+
+The complete26-action process Journey is retained red at120.110s. Correcting an
+extra test baseline preserves the original Journey's28 activations. Stage
+measurements finish common cleanup only at117.571/119.892s; they do not qualify
+return/capture completion. No source/cadence/quiet/cap reduction or unchanged
+qualification retry is applied. Archive/host closure and the complete production
+observer entrypoint remain executable source work, with product/Qt/native/GPU/
+OS seams and unqualified whole application/device scope explicitly preserved.

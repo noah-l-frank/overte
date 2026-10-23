@@ -84,6 +84,7 @@ class PicoTabletWebFeature:
         self.history_cache=None;self.history_scope=None
         self.actor_retirement=None
         self.capture_retirement=None
+        self.remote_capture_retirement=None
         self.completed_store=PrivateFeatureState(self.artifact_root/(self.area+'-'+self.run+'-retirement.json'))
 
     def manager_store(self):
@@ -744,6 +745,12 @@ class PicoTabletWebFeature:
         from adapters.pico4.browser_actor_graph import PicoBrowserActorExport
         need(self.role=='actor' and self.actor_retirement is not None and self.actor_retirement.flow is self)
         return PicoBrowserActorExport(self.actor_retirement,original_request)
+
+    def retire_returned_actor_captures(self,returned):
+        from adapters.pico4.browser_remote_capture_retirement import PicoBrowserRemoteCaptureRetirement
+        need(self.role=='primary' and self.capture_retirement is None and self.remote_capture_retirement is None)
+        self.remote_capture_retirement=PicoBrowserRemoteCaptureRetirement(self,returned)
+        return self.remote_capture_retirement.run()
 
 
 def re_script(value):

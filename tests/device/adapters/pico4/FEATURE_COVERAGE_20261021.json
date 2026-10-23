@@ -732,7 +732,11 @@
         "tests/device/adapters/pico4/browser_sample_grammar.py",
         "tests/device/adapters/pico4/browser_vm_grammar.py",
         "tests/device/adapters/pico4/BROWSER_ACTOR_RETURN.md",
-        "tests/device/self_tests/test_pico_browser_actor_return.py"
+        "tests/device/self_tests/test_pico_browser_actor_return.py",
+        "tests/device/adapters/pico4/browser_remote_capture_retirement.py",
+        "tests/device/adapters/pico4/BROWSER_REMOTE_CAPTURE_RETIREMENT.md",
+        "tests/device/self_tests/pico_browser_process_fixture.py",
+        "tests/device/self_tests/test_pico_browser_independent_process.py"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -771,9 +775,9 @@
         "open"
       ],
       "missingOperationsOrEvidence": [
-        "Original product/HMD qualification: the isolated unchanged full26-action host Journey passes103.801s within120s before the final pure Script-history relocation; current targeted Script/VM/Actor/process checks cover that relocation. GPU/Qt/DOM/Java/OS producers remain explicit host seams; prior timing failures remain recorded.",
-        "Typed original six-root Actor graph and actual independent process/nonce return now pass. Compose that remote return with complete-history capture retirement, then immutable VM/stereo/quiet/source archive and all host closure; current capture owner still requires warm Actor.",
-        "Whole final Script/native/Java/renderer/capture quiet retirement and immutable archive: the fresh read-only capture-absence source is present, but complete historical capture traversal, original final source ownership, host closure and public capability admission remain outstanding"
+        "The current complete26-action Journey plus original separate-process return and complete capture retirement exceeds the unchanged120s selector limit. Corrected original baseline preserves28 phases; stage diagnostics finish common cleanup only at117.571/119.892s. No whole pass or source-area completion is claimed.",
+        "Actual independent Parent/Actor source/process factory return and complete-history remote capture retirement pass the short original Open/Close/quiet prefix. Product observer entrypoint, immutable source archive and complete host-resource closure remain outstanding.",
+        "Product/GPU/Qt/DOM/Java/OS/native clock endpoints remain explicit analytical host seams. Whole APK/HMD qualification remains unavailable."
       ],
       "requiredOriginalEvidence": [
         "Original VR tablet Web view and current document admission",
@@ -786,7 +790,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Adapt the existing complete-history capture owner to the actual typed remote Actor-return receipt without reconstructing live owners, then complete immutable archive and host-resource closure. Five actual two-process return cases pass38.823s; six Actor cases35.309s; native Script/VM/direct return40tests10.279s. The isolated whole Journey passes103.801s before final pure Script-history extraction, which the targeted checks cover. Public capability/full APK/device qualification remain unavailable.",
+      "nextExecutableStep": "Complete immutable original source archive and all final host closure through the warm original Parent and typed separate-process return. Resolve measured whole-path physical verification/durable journal costs within unchanged120s without removing original reads, checks, cadence or quiet windows. Short separate-process/remote-capture positive and two failure cases pass66.335s; whole combined selector remains red.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },

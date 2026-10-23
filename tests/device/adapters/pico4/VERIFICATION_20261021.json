@@ -3292,5 +3292,21 @@
       "fences": 71.288
     },
     "qualification": "Actual normal original control/controller paths and private files with explicit producer/Parent seams. One-read actual controller answers preserved before later failures; original transition epoch constant, original frame/host3s and500ms unchanged.96-slot pre-read guard; legacy1 readonly. No retrospective13-key baseline, complete Qt/story/Executor/marker/journal retirement, whole feature or device qualification."
+  },
+  "browserIndependentRemoteCapture20261023": {
+    "status": "targeted-passed-whole-timeout-retained",
+    "catalog": 202,
+    "shortCases": 3,
+    "shortSeconds": 66.335,
+    "coverageSeconds": 0.111,
+    "wholeCorrectedBaselineSeconds": 120.11,
+    "wholePassed": false,
+    "diagnosticCommonCleanupEndSeconds": [
+      119.892,
+      117.571
+    ],
+    "profiledOriginalActorSampleSeconds": 0.365,
+    "unchangedGroupLimitSeconds": 120,
+    "qualification": "Actual warm Parent and separate reviewed Linux Actor process, original analytical source bridge, existing stereo/VM/HTTP readers, full production binding factory method, consumed nonce and normal reaped ESRCH. Full physical source/PNG admission and fresh all-capture3s retirement on the short prefix; same-byte original replacement and uncertain batch delivery retain ownership. Product/native/Qt/GPU/OS clocks remain explicit seams. Whole combined run, archive/host closure, public capability, APK and device qualification remain open."
   }
 }

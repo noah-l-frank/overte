@@ -31,8 +31,11 @@ class PicoBrowserCaptureRetirement:
             and primary.run==actor.run and primary.fixture_url==actor.fixture_url
             and primary.artifact_root==actor.artifact_root and primary.lock.path==actor.lock.path
             and primary.source.client is not actor.source.client)
+        self.initialize(primary,actor,'pico-tablet-web-capture-retirement.json')
+
+    def initialize(self,primary,actor,filename):
         self.primary,self.actor=primary,actor
-        self.store=PrivateFeatureState(primary.store.path.with_name('pico-tablet-web-capture-retirement.json'))
+        self.store=PrivateFeatureState(primary.store.path.with_name(filename))
         self.catalog=ChatArchiveCatalog(hold_files=False)
         self.previous=None;self.started=self.failed=self.completed=False
         self.proofs=[];self.pngs=[];self.frames=();self.reader=self.chunks=None
@@ -158,6 +161,9 @@ class PicoBrowserCaptureRetirement:
             actor.originals();need(same(actor.store.read(),actor_receipt));self.graph(actor,'actor')
         need(self.proofs)
         self.scope.update(capturesSha256=digest(self.proofs),actorRetirementSha256=digest(actor_receipt))
+        self.begin_original_queries()
+
+    def begin_original_queries(self):
         self.admitted=canonical(self.admission());self._sealed_admitted=self.admitted
         with self.primary.lock.held():
             self.originals();self.chunks=ChatSourceChunks(self.store,self.scope);self.chunks.inventory(0)

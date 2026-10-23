@@ -15,6 +15,7 @@ REQUIRED = {
     "pico-browser-actor-graph": 1,
     "pico-browser-actor-return": 1,
     "pico-browser-actor-retirement": 1,
+    "pico-browser-remote-capture-retirement": 1,
     "pico-browser-capture-retirement": 1,
     "pico-world-render-retirements": 1,
     "native-script-object-lifetimes": 1,

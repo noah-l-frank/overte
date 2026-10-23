@@ -7,6 +7,7 @@
     "pico-browser-actor-graph": {"current": 1, "reads": [1]},
     "pico-browser-actor-return": {"current": 1, "reads": [1]},
     "pico-browser-actor-retirement": {"current": 1, "reads": [1]},
+    "pico-browser-remote-capture-retirement": {"current": 1, "reads": [1]},
     "pico-browser-capture-retirement": {"current": 1, "reads": [1]},
     "pico-world-render-retirements": {"current": 1, "reads": [1]},
     "native-script-object-lifetimes": {"current": 1, "reads": [1]},
