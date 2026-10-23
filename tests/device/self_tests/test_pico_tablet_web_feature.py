@@ -119,6 +119,41 @@ class PicoTabletWebFeatureTests(unittest.TestCase):
         self.assertEqual(1,len(self.publications));self.assertNotEqual(primary.role_store.path,actor.role_store.path)
         self.assertEqual(1,len([row for row in self.original.commands if row['operation']=='reserve']))
         self.assertIs(primary.lock,self.original.lock);self.assertEqual('tablet-web',primary.adapter.state_area)
+    def test_cached_owner_inspection_cannot_change_originals_and_changed_disk_is_revalidated(self):
+        flow=self.flow();flow.prepare();commands=len(self.original.commands)
+        with flow.lock.held():
+            original=flow.owner();copy=flow.owner();copy['inputs'][0]['anchor']['packet']['active']=False
+            self.assertEqual(original,flow.owner());self.assertEqual(original,flow.owner())
+            flow.write(flow.store,'owner',copy)
+            with self.assertRaises((ValueError,RuntimeError)):flow.owner()
+            with self.assertRaises((ValueError,RuntimeError)):self.flow().owner()
+        self.assertEqual(commands,len(self.original.commands))
+
+    def test_cached_owner_foreign_json_types_or_replaced_immutable_cache_refuse_without_query(self):
+        flow=self.flow();flow.prepare();commands=len(self.original.commands)
+        with flow.lock.held():
+            flow.owner();packet=flow.store.read()
+            class ForeignPayload(dict):pass
+            changed=deepcopy(packet);changed['payload']=ForeignPayload(changed['payload'])
+            with patch.object(flow.store,'read',return_value=changed),self.assertRaises((ValueError,RuntimeError)):flow.owner()
+            cached=flow._owner_cache;flow._owner_cache=(cached[0],b'{}')
+            with self.assertRaises((ValueError,RuntimeError)):flow.owner()
+        self.assertEqual(commands,len(self.original.commands))
+
+    def test_unchanged_cached_parent_still_refuses_replaced_original_quiet_chunk(self):
+        from adapters.pico4.browser_quiet_journal import PicoBrowserQuietJournal
+        window=self.window();flow=self.flow()
+        with flow.lock.held():
+            owner=flow.owner();journal=PicoBrowserQuietJournal(
+                PrivateFeatureState(flow.store.path.with_name('pico-tablet-web-cleanup-quiet.json')),
+                flow.lock,RUN,URL,owner['ownerToken'],owner['binding'],window)
+            journal.migrate();owner['cleanupProof']=journal.reference();flow.save(owner)
+            flow.owner();flow.owner();commands=len(self.original.commands)
+            child=journal.chunks.store(0).path;raw=child.read_bytes()
+            replacement=child.with_name('replaced-quiet');replacement.write_bytes(raw);replacement.chmod(0o600);replacement.replace(child)
+            with self.assertRaises((ValueError,RuntimeError)):flow.owner()
+            self.assertEqual(raw,child.read_bytes());self.assertEqual(commands,len(self.original.commands))
+
     def test_lost_original_reservation_is_retained_across_cold_reconstruction_without_resend(self):
         self.original.fail_reserve=True
         with self.assertRaises((ValueError,RuntimeError)):self.flow().prepare()

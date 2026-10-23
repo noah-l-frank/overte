@@ -84,6 +84,18 @@ measured0.147s before and0.050s after; this microbenchmark does not qualify a
 Journey. Sixty-two phase/history/Chat-fence/Save cases pass4.881s, including all14
 area inventories, exact stimulus prefixes, nonce/clock and retired-phase cases.
 
+A retained later source profile covers18.084s after sample90. Repeated owner
+validation takes1.857s/150 calls, including complete historical input anchors.
+An unchanged private owner now reuses only fully validated immutable canonical
+bytes under an exact JSON root/context digest. The actual private root is still
+read on every call; changed data/context and foreign JSON types require full
+validation or fail. Inspection copies cannot mutate the admitted bytes.
+Independent referenced quiet journals and their complete original physical
+chunk inventory remain checked on every owner read, even on a memo hit.
+Sixty-two owner/history/image/VM/input cases pass28.192s, including replaced
+quiet chunks behind an unchanged parent and changed disk/cache/foreign types.
+No current complete Journey or final cleanup qualification follows yet.
+
 The original DOM view has ten fields; the original measure protocol returns the
 five-field document identity. Matching those exact five fields preserves URL,
 handle, creation, grant and page equality while allowing the unchanged original

@@ -77,6 +77,7 @@ class PicoTabletWebFeature:
         self.retirement_store=PrivateFeatureState(path.with_name('pico-'+self.area+'-retirement.json'))
         self.lock=adapter._lock(selector)
         self.originals={};self.live_owner=None;self.fence=None
+        self._owner_cache=None;self._sealed_owner_cache=None
         self._image_cache={};self.image_cache_digests={}
         self.vm_cache=None;self.vm_cache_scope=None
         self.quiet_cache=None;self.quiet_cache_scope=None
@@ -111,6 +112,9 @@ class PicoTabletWebFeature:
 
     def read(self,store,kind):
         value=store.read();self.originals[store.path]=deepcopy(value)
+        return self.decode_record(value,kind)
+
+    def decode_record(self,value,kind):
         if value is None:return None
         exact(value,{self.version_field,'kind','runId','fixtureUrl','artifactRoot','foreignFixtureUrl','payload'})
         need(type(value[self.version_field]) is int and value[self.version_field] in READS and value['kind']==kind
@@ -133,8 +137,30 @@ class PicoTabletWebFeature:
         store.write(record,self.originals[store.path]);need(same(store.read(),record));self.originals[store.path]=deepcopy(record)
 
     def owner(self):
-        value=self.read(self.store,'owner')
-        if value is None:return None
+        # Always read the actual private root. Only pure validation/decompression
+        # of this exact unchanged record and context can reuse immutable bytes.
+        from adapters.chat_journey.source_chunks import json_digest
+        from adapters.script_journey.history import canonical
+        record=self.store.read();self.originals[self.store.path]=deepcopy(record)
+        need(self._owner_cache is self._sealed_owner_cache)
+        if record is None:return None
+        key=json_digest(dict(record=record,area=self.area,runId=self.run,fixtureUrl=self.fixture_url,
+            foreignFixtureUrl=self.foreign_url,artifactRoot=str(self.artifact_root),store=str(self.store.path),
+            lock=str(self.lock.path),versionField=self.version_field,reads=list(READS)))
+        if self._owner_cache is not None and self._owner_cache[0]==key:
+            value=json.loads(self._owner_cache[1])
+        else:
+            value=self.decode_record(record,'owner');self.validate_owner(value)
+            # Strict JSON admission precedes freezing; caller inspection/input
+            # copies never become a trusted mutable validation cache.
+            json_digest(value);self._owner_cache=(key,canonical(value));self._sealed_owner_cache=self._owner_cache
+        # A referenced independent journal remains a physical source, even
+        # when this parent record is unchanged. Never cache its verification.
+        if value['cleanupProof'] is not None and 'browserQuietReferenceVersion' in value['cleanupProof']:
+            self.cleanup_window(value)
+        self.live_owner=value;return value
+
+    def validate_owner(self,value):
         exact(value,{'binding','ownerToken','phase','reserved','scriptUrl','call','tickets','phaseSource','cleanupProof','lifecycle','inputs','tabletOwned'})
         context(value['binding']);identifier(value['ownerToken'])
         need(value['phase'] in ('preparing','baseline','acting','active','cleaning','cleaned') and type(value['reserved']) is bool
@@ -160,14 +186,10 @@ class PicoTabletWebFeature:
             need(anchor['before']['activations']==anchor['packet']['activations'])
             need(row['envelope'] is None or type(row['envelope']) is dict)
             if index:need(anchor['hostMonotonic']>=value['inputs'][index-1]['anchor']['hostMonotonic'])
-        if value['cleanupProof'] is not None:
-            if 'browserQuietReferenceVersion' in value['cleanupProof']:self.cleanup_window(value)
-            else:
-                from adapters.pico4.browser_quiet import validate as quiet_packet
-                quiet_packet(value['cleanupProof'],self.run,self.fixture_url,value['ownerToken'],
-                    int(value['binding']['processIdentity'].split(':',1)[0]),retired=False)
-        self.live_owner=value
-        return value
+        if value['cleanupProof'] is not None and 'browserQuietReferenceVersion' not in value['cleanupProof']:
+            from adapters.pico4.browser_quiet import validate as quiet_packet
+            quiet_packet(value['cleanupProof'],self.run,self.fixture_url,value['ownerToken'],
+                int(value['binding']['processIdentity'].split(':',1)[0]),retired=False)
 
     def save(self,value):
         self.live_owner=value;self.write(self.store,'owner',value)
