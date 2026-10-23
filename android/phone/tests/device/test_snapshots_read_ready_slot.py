@@ -324,7 +324,17 @@ class SnapshotReadReadySlotTests(unittest.TestCase):
                         restore.append(lambda:setattr(rig.model,'now',now))
                 try:
                     seen=self.launch(rig,after_wait=mutate)
-                    self.assertIsInstance(seen['error'],NativeUIError);self.assertEqual([],seen['current'])
+                    self.assertIsInstance(seen['error'],NativeUIError)
+                    if kind=='clock':
+                        # The FG owner guard has no clock fact. The actual
+                        # current reader must reject rollback without sealing
+                        # a new measured frame or borrowing the Actor's fact.
+                        self.assertIsNone(seen['result']);self.assertLessEqual(len(seen['current']),1)
+                        actual=unpack(rig.slot_primary_store.read()['payload'])[0]
+                        prepared=unpack(seen['header']['payload'])[0]
+                        self.assertEqual(prepared['sequence'],actual['sequence'])
+                        self.assertEqual(2,len(rig.client.observe()['entries']))
+                    else:self.assertEqual([],seen['current'])
                 finally:
                     for callback in reversed(restore):callback()
 
