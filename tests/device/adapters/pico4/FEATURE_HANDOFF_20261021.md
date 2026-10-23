@@ -2230,3 +2230,17 @@ cleanup consumption63.902s, Actor/process/return/remote graph33.520s, Snapshot
 return/factory29.389s, return fences41.715s, coverage0.091s. All120s group
 limits remain unchanged. Source-complete areas stay3/14; no full application,
 physical device or complete whole-resource retirement is claimed.
+
+
+## Browser original inactive-frame grammar
+
+The warm Actor retirement now applies the same pure historical grammar intended
+for independently returned original bytes. All original source acquisitions,
+final ownership guards and clocks remain. The existing positive case rejects
+eight changed identity/phase/request/anchor/time frames without extra commands.
+The corrected focused expectation passes5.281s; integrated coverage0.093s, full
+unchanged26-action Journey108.206s, Actor32.846s and capture108.288s pass
+249.43s total, each within120s. Earlier timing failures remain historical facts,
+not the current full-Journey result. Actual independent observer return and
+whole physical graph/PNG/archive/host closure are still required; no capability
+or complete-feature claim is added.

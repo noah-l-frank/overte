@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import json
 from contextlib import contextmanager
 import unittest
 from unittest.mock import patch
@@ -39,6 +40,26 @@ class PicoBrowserActorRetirementTests(unittest.TestCase):
         self.assertNotIn(f.run,f.server.browser_resources.runs);self.assertTrue(owner.store.path.exists())
         self.assertTrue(all(row['operation']=='observe' for row in f.target.command_log[self.count:]))
         with self.assertRaises((ValueError,RuntimeError)):f.primary.finalize()
+        from adapters.pico4.browser_actor_retirement import validate_original_frame
+        frame=json.loads(owner.raw);queries=len(f.target.command_log);active=owner.history.last
+        def check(value):return validate_original_frame(value,owner.owner,owner.state,owner.anchor,owner.vm.origin,active,
+            run=f.run,fixture_url=f.actor.fixture_url)
+        self.assertIs(frame,check(frame))
+        mutations=(
+            ('lifecycle',lambda row:row['nativeBefore']['lifecycle'].__setitem__('activations',row['nativeBefore']['lifecycle']['activations']+1)),
+            ('old-native-request',lambda row:row['nativeBefore'].__setitem__('requestId',active['nativeAfter']['requestId'])),
+            ('foreign-pid',lambda row:row['nativeAfter'].__setitem__('processId',row['nativeAfter']['processId']+1)),
+            ('active-phase',lambda row:row['phaseAfter'].__setitem__('active',True)),
+            ('old-script-request',lambda row:row['scripts'].__setitem__('requestId',owner.anchor['scripts']['requestId'])),
+            ('replaced-http-anchor',lambda row:row.__setitem__('compiledHttpAnchor',{})),
+            ('late-originals',lambda row:row.__setitem__('finishedEpoch',row['finishedEpoch']+2000)),
+            ('backwards-host',lambda row:row.__setitem__('startedHost',row['finishedHost']+1)),
+        )
+        for name,mutate in mutations:
+            with self.subTest(original=name):
+                counter=deepcopy(frame);mutate(counter)
+                with self.assertRaises((NativeUIError,ValueError)):check(counter)
+        self.assertEqual(queries,len(f.target.command_log))
         owner.state['sequence']+=1
         with self.assertRaises((ValueError,RuntimeError)):owner.receipt()
 

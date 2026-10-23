@@ -49,3 +49,26 @@ The complete history-enabled Journey still times out120s. Fresh absence of all
 historical captures, immutable archival, own-host closure and public capability
 admission remain outstanding. `finalize()` still refuses and retains ownership.
 This packet qualifies no application/APK, physical device or complete feature.
+
+## Original historical frame grammar
+
+The warm owner and future returned-byte readers share `validate_original_frame`.
+It verifies the original inactive phase, native instance/PID/sequence/request and
+lifecycle, complete browser/Java absence, historical HTTP compile anchor, VM
+object/script retirement and load prefix, diagnostic identity and original
+acquisition clocks. It performs no target query and grants no fresh authority.
+Callers must independently bind returned bytes and the complete physical graph;
+this grammar alone does not qualify Parent consumption or process absence.
+
+The existing actual positive Actor case also checks eight mutations without
+additional target commands: lifecycle, reused native request, foreign PID, active
+phase, reused script request, changed HTTP anchor, late epoch and backward host
+time. The first focused test used an overly narrow expected exception type for
+the active-phase refusal; its expectation was corrected to include the existing
+phase validator's ValueError. The corrected focused case passes5.281s.
+
+Integrated coverage0.093s, unchanged full26-action Journey108.206s, Actor
+retirement32.846s and capture retirement108.288s all pass (4/189 selected
+groups,249.43s total). Each original120s group limit remains unchanged.
+Independent process return, immutable whole archive and public capability remain
+open; source-complete areas remain3/14.

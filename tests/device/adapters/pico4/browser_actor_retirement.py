@@ -23,6 +23,65 @@ from feature_journeys.phase_fixture import validate as phase_packet
 VERSION=1
 
 
+def validate_original_frame(value,owner,state,anchor,origin,active,*,run,fixture_url):
+    """Historical original grammar only; no query or current release authority.
+
+    Callers separately bind the originally returned bytes and physical graph.
+    An accepted historical frame cannot substitute for the original warm
+    completion, fresh Parent consumption or actual observer process absence.
+    """
+    from adapters.native_feature_observation import exact,integer,validate as native_packet
+    from adapters.native_web_runtime import continuity as runtime_advance
+    from adapters.pico4.browser_source import continuity as browser_advance
+    from adapters.normal_feature_state import context
+    json_digest(value);context(owner['binding']);pid=int(owner['binding']['processIdentity'].split(':',1)[0])
+    exact(value,{'phaseBefore','phaseAfter','nativeBefore','nativeAfter','browser','runtime','objectsBefore','scripts',
+        'objectsAfter','diagnostic','compiledHttpAnchor','startedHost','startedEpoch','finishedHost','finishedEpoch'})
+    need(owner['phase']=='cleaned' and owner['scriptUrl'] is not None and state['quiet'] is not None and state['quiet']['complete']
+        and state['native']['source']['retired'] and state['publication'] is not None and state['publication']['phase']=='accepted')
+    previous=state['phase'];need(previous['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+    for name in ('phaseBefore','phaseAfter'):
+        packet=value[name]
+        phase_packet(packet,run=run,area='tablet-web',request=packet['requestId'],epoch=packet['capturedEpochMs'],previous=previous)
+        need(packet['active'] is False and same(packet['activations'],state['phase']['activations']));previous=packet
+    need(number(value['startedHost'],0,1e15) and number(value['finishedHost'],value['startedHost'],value['startedHost']+10)
+        and integer(value['startedEpoch'],1) and integer(value['finishedEpoch'],value['startedEpoch']))
+    before,after=value['nativeBefore'],value['nativeAfter']
+    for packet in (before,after):native_packet(packet,packet['requestId'],pid,value['finishedEpoch'])
+    need(before['instance']==after['instance']==active['nativeAfter']['instance']
+        and after['sequence']>before['sequence']>active['nativeAfter']['sequence']
+        and before['lifecycle']==after['lifecycle']==state['lifecycle']
+        and len({before['requestId'],after['requestId'],active['nativeAfter']['requestId']})==3)
+    browser_advance(state['native'],value['browser']);runtime_advance(state['runtime'],value['runtime'],pid,fixture_url)
+    need(value['browser']['commandId']!=state['native']['commandId'] and value['runtime']['commandId']!=state['runtime']['commandId'])
+    quiet_frame(dict(host=value['finishedHost'],browser=value['browser'],runtime=value['runtime']),run,fixture_url,
+        owner['ownerToken'],pid,retired=True)
+    need(same(value['compiledHttpAnchor'],anchor['http']))
+    vm_frame=dict(objectsBefore=value['objectsBefore'],scripts=value['scripts'],objectsAfter=value['objectsAfter'],
+        http=value['compiledHttpAnchor'],hostMonotonic=value['finishedHost'])
+    original,facts=join(vm_frame,owner['scriptUrl'],pid,origin=origin)
+    need(same(original,origin) and facts==dict(retired=True,running=False))
+    object_packet(value['objectsBefore'],dict(schemaVersion=1,commandId=value['objectsBefore']['commandId'],action=ACTION),
+        pid,value['objectsAfter']['capturedEpochMs'],previous=anchor['objectsAfter'])
+    scripts=value['scripts'];old_loads=anchor['scripts']['source']['loads'];loads=scripts['source']['loads']
+    need(scripts['instance']==anchor['scripts']['instance'] and scripts['sequence']>anchor['scripts']['sequence']
+        and scripts['requestId']!=anchor['scripts']['requestId']
+        and loads['sequence']>=old_loads['sequence'] and same(loads['events'][:len(old_loads['events'])],old_loads['events'])
+        and not any(row['url']==owner['scriptUrl'] for row in loads['events'][len(old_loads['events']):]))
+    diagnostic=value['diagnostic'];service_packet(diagnostic,value['finishedEpoch'])
+    need(diagnostic['instance']==active['diagnostic']['instance'] and diagnostic['sampleSequence']>active['diagnostic']['sampleSequence']
+        and not any(row['url']==owner['scriptUrl'] for row in diagnostic['scripts']))
+    epochs=[value[key]['capturedEpochMs'] for key in ('phaseBefore','phaseAfter','nativeBefore','nativeAfter','browser','runtime')]
+    epochs.extend(value[key][clock] for key in ('objectsBefore','scripts','objectsAfter') for clock in ('requestedEpochMs','capturedEpochMs'))
+    epochs.append(diagnostic['sampleEpochMs'])
+    epochs.extend(value['runtime']['source'][key]['capturedEpochMs'] for key in ('nativeBefore','java','nativeAfter'))
+    for captured in epochs:
+        fresh(captured,value['finishedEpoch'])
+        need(max(value['finishedEpoch']-captured,
+            value['startedEpoch']-captured+math.ceil((value['finishedHost']-value['startedHost'])*1000))<=1500)
+    return value
+
+
 class PicoBrowserActorRetirement:
     """One warm, durable transaction; uncertain/cold completion is retained."""
     def __init__(self,flow,owner,state,inactive):
@@ -149,7 +208,9 @@ class PicoBrowserActorRetirement:
                     diagnostic=diagnostic,compiledHttpAnchor=deepcopy(self.anchor['http']),
                     startedHost=started,startedEpoch=epoch_started)
                 flow.runtime(self.owner);guard();self.originals();ended,epoch=self.clocks(started,epoch_started,epochs)
-                row.update(finishedHost=ended,finishedEpoch=epoch);json_digest(row);self.raw=canonical(row);self._sealed_raw=self.raw
+                row.update(finishedHost=ended,finishedEpoch=epoch)
+                validate_original_frame(row,self.owner,self.state,self.anchor,self.vm.origin,active,run=flow.run,fixture_url=flow.fixture_url)
+                json_digest(row);self.raw=canonical(row);self._sealed_raw=self.raw
                 chunks=self.chunks.append(row,[]);self.write('ready',chunks)
                 self._completed_root=canonical(self.previous)
                 self.stamp=signature(self.store.path.lstat());flow.runtime(self.owner);self.originals()
