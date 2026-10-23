@@ -23,7 +23,9 @@ AVATAR_LABELS=frozenset({'scripts','http','people','uikit','geometry','partial',
 TABLET_COMPONENTS=frozenset({'native','sources','trace','dom','emissions','buttons','state','uikit','keys','pointer','closures','deferred',
     'scripts','work','terminal','dialogs','widgets','geometry','http','phase','record','partial'})
 POSTLOGOUT_LABELS=frozenset({'parts','record','partial'})
-PROFILES={'snapshot-native-sources':dict(parent='snapshotSourcePartsVersion',body='snapshotSourcePartBodyVersion',schema='snapshotSourcePart',
+PROFILES={'tabletweb-screen':dict(parent='tabletWebScreenSegmentsVersion',body='tabletWebScreenSegmentBodyVersion',schema='tabletWebScreenSegment',
+        labels=frozenset({'png'}),subjects=frozenset({'primary','actor'})),
+    'snapshot-native-sources':dict(parent='snapshotSourcePartsVersion',body='snapshotSourcePartBodyVersion',schema='snapshotSourcePart',
         labels=frozenset({'raw'}),subjects=frozenset({'work','captures','exports','inputs'})),
     'snapshot-file-work':dict(parent='snapshotFileWorkPartsVersion',body='snapshotFileWorkPartBodyVersion',schema='snapshotFileWorkPart',
         labels=frozenset({'raw'}),subjects=frozenset({'primary','actor'})),
@@ -47,7 +49,8 @@ class OriginalPacketSegments:
         namespace=('snapshot-'+subject+'-source-parts' if type(self).PROFILE=='snapshot-native-sources' else
             'snapshot-'+subject+'-file-work-parts' if type(self).PROFILE=='snapshot-file-work' else
             'avatar-'+subject+'-tail-parts' if type(self).PROFILE=='avatar-tail' else
-            'avatar-'+subject+'-postlogout-parts' if type(self).PROFILE=='avatar-postlogout' else 'tabletweb-'+subject+'-source-parts')
+            'avatar-'+subject+'-postlogout-parts' if type(self).PROFILE=='avatar-postlogout' else
+            'tabletweb-'+subject+'-screen-parts' if type(self).PROFILE=='tabletweb-screen' else 'tabletweb-'+subject+'-source-parts')
         self.store=OriginalFrameStore(root,binding,run,role,guard,self.transition,
             namespace=namespace,schema_prefix=profile['schema'],monotonic=monotonic)
         self.writing=None
