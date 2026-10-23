@@ -344,9 +344,12 @@ class IOSNavigationFeature:
         """
         need(self.role=='primary');self.prepare()
         with self.held():
-            self.load();self.current();need(self.state['phase']=='ready' and self.state['stage']==1
+            self.load();self.current();need(self.state['phase']=='ready'
                 and (self.state['lastCall'] is None or self.state['lastCall']['phase']=='acknowledged'))
             scope=self.admission()
+            if self.state['stage']==0:
+                child=self.runtime._navigation_scene_inputs(self.selector,scope)
+                with self.runtime.existing_input_session(self.selector):return child.return_to_original()
             child=self.runtime._navigation_process_return(self.selector,scope)
             with self.runtime.existing_input_session(self.selector):
                 if child.state is not None and child.state['phase']=='issued':return child.recover_return()

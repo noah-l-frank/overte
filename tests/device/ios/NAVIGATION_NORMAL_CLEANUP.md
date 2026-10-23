@@ -46,3 +46,10 @@ only a fresh original dialog/listener drainage observation may resolve its
 outcome. Four cleanup cases and twelve legacy cases pass on actual private
 journals and loopback/native models. This provides no scene restoration or
 whole-feature completion by itself.
+
+The initial-process final Go To now routes through its existing
+`NavigationSceneInputs` owner; a proven restarted process keeps the separate
+typed `NavigationProcessReturn` path. Two focused host cases exercise the actual
+initial input journal and adoption of a completely retained lost child return
+without a second Go To. Both paths retain hidden Qt roots. This delivery does
+not yet admit initial-process restored images, paired cleanup or final end.
