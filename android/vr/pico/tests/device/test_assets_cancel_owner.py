@@ -75,6 +75,50 @@ class AssetsCancelOwnerTests(unittest.TestCase):
         result=self.owner.reconcile();self.assertFalse(result['cancelObserved']);self.assertEqual(count,len(self.host.inputs))
         self.assertEqual('ready',self.file_store.read()['phase']);self.assertEqual(original,self.store.read()['pendingInput'])
         self.assertTrue(all(row['exists'] for row in self.owner.files.read()['source']['files']))
+    def test_lost_navigation_reply_uses_admitted_originals_and_distinct_cancel(self):
+        send=self.host.write_debug_app_file;admitted=None
+        def lose_navigation(target,package,path,raw):
+            nonlocal admitted
+            import json
+            command=json.loads(raw)
+            if command['controlId']=='assets-file.folder' and command['action']=='replace':
+                admitted=deepcopy(self.store.read())
+                self.assertIsNotNone(admitted['browserId']);self.assertIsNotNone(admitted['modelId'])
+                original=unpack(admitted['uiOriginals'])[-1]['assetsUiInventory']['browsers'][0]
+                self.assertEqual((original['id'],original['modelId']),(admitted['browserId'],admitted['modelId']))
+                self.assertTrue(original['rootAlive'] and original['modelAlive'])
+                self.host.lose=True
+            return send(target,package,path,raw)
+        with patch.object(self.host,'write_debug_app_file',side_effect=lose_navigation),self.assertRaises((NativeUIError,NavigationError)):
+            self.owner.open()
+        self.assertIsNotNone(admitted);self.host.lose=False
+        pending=deepcopy(self.store.read()['pendingInput']);prefix=deepcopy(self.host.inputs)
+        self.assertEqual('replace',pending['native']['action']);self.assertEqual('assets-file.folder',pending['native']['controlId'])
+        originals=unpack(self.store.read()['inputs']);self.make();self.cancel_phase();result=self.owner.cancel()
+        self.assertTrue(result['cancelObserved'] and result['filesRetired']);state=self.store.read()
+        self.assertEqual([pending],state['unresolvedInputs']);self.assertEqual(originals,unpack(state['inputs'])[:len(originals)])
+        self.assertEqual(prefix,self.host.inputs[:-1]);self.assertEqual('assets-file.cancel',self.host.inputs[-1]['controlId'])
+        self.assertNotEqual(pending['native']['commandId'],self.host.inputs[-1]['commandId'])
+        self.assertEqual((admitted['browserId'],admitted['modelId']),(result['browser']['id'],result['browser']['modelId']))
+        self.assertFalse(result['browser']['rootAlive'] or result['browser']['modelAlive']);self.assertEqual('retired',self.file_store.read()['phase'])
+        self.assertEqual(0,self.owner.uploads.last['source']['totalCalls']);self.assertIsNotNone(state)
+    def test_lost_first_open_reply_cancel_retains_files_without_adoption(self):
+        self.host.lose=True
+        with self.assertRaises((NativeUIError,NavigationError)):self.owner.open()
+        self.host.lose=False;state=self.store.read();pending=deepcopy(state['pendingInput']);prefix=deepcopy(self.host.inputs)
+        self.assertEqual('assets.upload',pending['native']['controlId']);self.assertIsNone(state['browserId']);self.assertIsNone(state['modelId'])
+        files=deepcopy(self.owner.files.read()['source']['files']);originals=unpack(state['inputs'])
+        self.make();self.cancel_phase();result=self.owner.cancel()
+        self.assertFalse(result['cancelObserved']);self.assertTrue(result['retained']);state=self.store.read()
+        self.assertIsNone(state['browserId']);self.assertIsNone(state['modelId']);self.assertEqual([pending],state['unresolvedInputs'])
+        self.assertEqual(originals,unpack(state['inputs'])[:len(originals)]);self.assertEqual(prefix,self.host.inputs[:-1])
+        self.assertEqual('assets-file.cancel',self.host.inputs[-1]['controlId']);self.assertNotEqual(pending['native']['commandId'],self.host.inputs[-1]['commandId'])
+        actual=unpack(state['uiOriginals'])[-1]['assetsUiInventory']['browsers'][0]
+        self.assertFalse(actual['rootAlive'] or actual['modelAlive']);self.assertEqual('ready',self.file_store.read()['phase'])
+        self.assertEqual(files,self.owner.files.read()['source']['files']);count=len(self.host.inputs);self.make()
+        self.assertFalse(self.owner.reconcile()['cancelObserved']);self.assertEqual(count,len(self.host.inputs))
+        self.assertEqual(files,self.owner.files.read()['source']['files']);self.assertEqual([pending],self.store.read()['unresolvedInputs'])
+        self.assertEqual(0,self.owner.uploads.last['source']['totalCalls'])
     def test_final_owner_cas_age_refuses_open_result_and_keeps_exact_inputs(self):
         self.synthetic=0;self.owner.monotonic=lambda:self.synthetic;write=self.store.write;aged=False
         def delayed(value,previous):

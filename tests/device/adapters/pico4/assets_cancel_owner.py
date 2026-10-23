@@ -64,6 +64,7 @@ class OwnedAssetsCancel:
         need(len(rows)==1 and rows[0]['stimulus']=={'verb':'upload-picker-open','inputs':{'resource':'gltf-bundle/main.gltf'}}
             and all(type(item) is dict and set(item)=={'input','value','native'} for item in value['unresolvedInputs']))
         for key in ('browserId','modelId'):need(value[key] is None or assets_source.nonce(value[key]))
+        need((value['browserId'] is None)==(value['modelId'] is None))
         need(value['directory'] is None or type(value['directory']) is str and value['directory'].endswith('/feature-assets-'+self.run+('' if value['stage'] is None else '-stage'+str(value['stage']))))
         frames=unpack(value['originals']);need(type(frames) is list and len(frames)<=128)
         for frame in frames:
@@ -176,11 +177,19 @@ class OwnedAssetsCancel:
         state=self.state();state['baselineMappings']=deepcopy(self.mappings.history[-1]);state['baselineUploads']=deepcopy(self.uploads.history[-1]);self.write(state)
         directory=self.files.prepare();state=self.state();state['directory']=directory;state['attempted']=['open'];state['phase']='opening';self.write(state)
         try:
-            ui=self.ui();ui.open_picker();ui.navigate_files(unquote(urlsplit(directory).path)+'/gltf-bundle');ui.select_file(directory+'/gltf-bundle/main.gltf')
+            ui=self.ui();ui.open_picker()
+            # Admit the original consumers only after acknowledged Open and a
+            # fresh independent inventory, before any later navigation input.
+            opened=self.sample();self.unchanged(opened);need(len(opened['ui']['browsers'])==1)
+            browser=opened['ui']['browsers'][0]
+            need(browser['rootAlive'] and browser['modelAlive'] and browser['inCurrentTree'] and not browser['pendingDocuments'])
+            state=self.state();state.update(browserId=browser['id'],modelId=browser['modelId']);self.write(state);self.check_sample(opened)
+            ui.navigate_files(unquote(urlsplit(directory).path)+'/gltf-bundle');ui.select_file(directory+'/gltf-bundle/main.gltf')
         except Exception:raise NativeUIError('Original Assets picker delivery remains unresolved') from None
         current=self.sample();self.unchanged(current);need(len(current['ui']['browsers'])==1);browser=current['ui']['browsers'][0]
         need(browser['rootAlive'] and browser['modelAlive'] and browser['inCurrentTree'] and not browser['pendingDocuments'])
-        state=self.state();state.update(browserId=browser['id'],modelId=browser['modelId'],phase='open');self.write(state);self.check_sample(current)
+        state=self.state();need(browser['id']==state['browserId'] and browser['modelId']==state['modelId'])
+        state['phase']='open';self.write(state);self.check_sample(current)
         return dict(pickerObserved=True,retained=True)
     def unchanged(self,sample):
         state=self.state();before=decode(state['baselineMappings']['raw']);uploads=decode(state['baselineUploads']['raw'])
@@ -197,7 +206,10 @@ class OwnedAssetsCancel:
         return self.reconcile()
     def retired_consumers(self,sample):
         state=self.state();self.unchanged(sample);need(sample['ui']['complete'])
-        rows=sample['ui']['browsers'];need(state['browserId'] is not None and len(rows)==1)
+        # A lost first Open receipt admits no consumer identity. Later Cancel
+        # may close that UI, but cannot adopt it or authorize file retirement.
+        if state['browserId'] is None:return False
+        rows=sample['ui']['browsers'];need(len(rows)==1)
         row=rows[0];need(row['id']==state['browserId'] and row['modelId']==state['modelId'])
         return not row['rootAlive'] and not row['modelAlive'] and not row['inCurrentTree'] and not row['pendingDocuments']
     def reconcile(self):

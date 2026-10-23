@@ -47,7 +47,14 @@ class AssetsLiveHost:
             self.navigation=PicoNavigation(self.native,self.directory/'navigation.json',identity,self.identity,'https://127.0.0.1/owned/scene.json')
             self.io=PicoAssetsIO(PicoScriptIO(self.navigation))
             self.factory=OriginalAssetsControlsFactory()
-            self.factory._script_runtime=lambda target:(SimpleNamespace(io=self.io.original,monotonic=time.monotonic,sleep=time.sleep),None,None)
+            # Production _script_runtime constructs a fresh guarded transport
+            # per factory call. Keep its one-owner callback binding intact on
+            # cold recovery instead of rebinding a prior runtime's transport.
+            def runtime(target):
+                native=NativeNavigationIO(self,self.target,self.identity,lambda operation:(_ for _ in ()).throw(AssertionError('No host controller effect')))
+                navigation=PicoNavigation(native,self.directory/'navigation.json',identity,self.identity,'https://127.0.0.1/owned/scene.json')
+                return SimpleNamespace(io=PicoScriptIO(navigation),monotonic=time.monotonic,sleep=time.sleep),None,None
+            self.factory._script_runtime=runtime
         except Exception:
             self.close();raise
     def request(self,command):
