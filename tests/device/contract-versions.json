@@ -191,6 +191,7 @@
     "chat-remote-actor-return": {"current": 1, "reads": [1]},
     "chat-remote-publication": {"current": 2, "reads": [1, 2]},
     "chat-remote-cleanup-prefix": {"current": 1, "reads": [1]},
+    "chat-remote-consumed-sources": {"current": 1, "reads": [1]},
     "pico-chat-host-close": {"current": 1, "reads": [1]},
     "pico-chat-restart-io": {"current": 1, "reads": [1]},
     "pico-openxr-binding-transfer": {"current": 1, "reads": [1]},

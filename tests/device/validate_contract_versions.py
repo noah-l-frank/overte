@@ -99,6 +99,7 @@ REQUIRED = {
     "chat-remote-actor-return": 1,
     "chat-remote-publication": 2,
     "chat-remote-cleanup-prefix": 1,
+    "chat-remote-consumed-sources": 1,
     "pico-chat-host-close": 1,
     "pico-chat-restart-io": 1,
     "pico-openxr-binding-transfer": 1,

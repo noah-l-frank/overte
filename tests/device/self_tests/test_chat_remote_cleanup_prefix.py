@@ -8,6 +8,8 @@ from adapters.chat_journey.observation import ChatObservationOwner
 from adapters.chat_journey.observation_cursor import ChatObservationCursor
 from adapters.chat_journey.remote_cleanup_prefix import ChatRemoteCleanupPrefix,ChatRemoteCleanupSlot
 from adapters.chat_journey.remote_actor_return import ChatRemoteActorReturn,ChatRemoteActorPending
+from adapters.chat_journey.remote_consumed_sources import ChatRemoteConsumedSources
+from adapters.chat_journey.cursor_source_seal import ChatCursorSourceSeal
 from adapters.chat_journey.source_chunks import digest
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
@@ -101,6 +103,13 @@ class ChatRemoteCleanupPrefixTests(RemoteActorFixture,unittest.TestCase):
         self.worker.stdin.write(b'{"action":"exit"}\n');self.worker.stdin.flush();self.worker.wait(timeout=5)
         result=returned.finish();self.assertTrue(returned.complete);self.assertEqual('ESRCH',result['result']['processReturn']['processAbsence']['errorSymbol'])
         self.assertEqual(original,self.stop_store.read());self.assertTrue(self.consumer.completed)
+        seal=ChatCursorSourceSeal(self.primary,PrivateFeatureState(self.directory/'actual-remote-primary-seal.json'))
+        joined=ChatRemoteConsumedSources(self.consumer,returned,seal,PrivateFeatureState(self.directory/'actual-consumed-sources.json'))
+        receipt=joined.run();self.assertTrue(joined.completed);self.assertTrue(seal.completed)
+        self.assertFalse(receipt['original']['sequenceSucceeded']);self.assertEqual(consumed,receipt['original']['consumedActorSequence'])
+        self.assertEqual(consumed+2,receipt['original']['finalActorSequence'])
+        self.assertEqual(digest(seal.previous),receipt['primarySealSha256'])
+        self.assertEqual(receipt,joined.receipt())
 
     def test_last_stop_intent_cas_native_jump_with_frozen_host_prevents_actual_stop_write(self):
         self.wait();write=self.consumer.store.write;writes=[];stop_write=self.stop_store.write
@@ -139,5 +148,11 @@ class ChatRemoteCleanupPrefixTests(RemoteActorFixture,unittest.TestCase):
         self.assertIsNone(self.stop_store.read())
         with self.assertRaises(NativeUIError):self.slot.consume(b'{"sequenceSucceeded":true}')
         self.assertTrue(self.slot.failed);self.assertFalse(self.slot.completed);self.assertIsNone(self.stop_store.read())
+
+    def test_unconsumed_real_prefix_cannot_construct_source_return_join(self):
+        store=PrivateFeatureState(self.directory/'premature-consumed-sources.json')
+        before=len(self.primary.rows),len(self.owner.rows)
+        with self.assertRaises(NativeUIError):ChatRemoteConsumedSources(self.consumer,object(),object(),store)
+        self.assertIsNone(store.read());self.assertEqual(before,(len(self.primary.rows),len(self.owner.rows)))
 
 if __name__=='__main__':unittest.main()
