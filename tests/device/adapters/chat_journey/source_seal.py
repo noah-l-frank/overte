@@ -2,7 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from contextlib import ExitStack
-from copy import deepcopy
+from copy import deepcopy,copy
 import math
 
 from adapters.chat_journey.cleanup_witness import ChatCleanupWitness
@@ -53,7 +53,15 @@ class ChatSourceSeal:
             info=owner.store.path.lstat();private(info);original_stamp=stamp(info)
             root=owner.store.read();need(root is not None and same(root,owner.previous) and root['phase']=='ready'
                 and stamp(owner.store.path.lstat())==original_stamp)
-            owner.history.verify();frames=owner.history.load(root['chunks'])
+            history=owner.history;need(type(history) is ChatSourceChunks)
+            admitted=tuple(history.identities);admitted_bytes=history.raw_bytes
+            history.verify()
+            # load() restores reader identities. It must never replace this
+            # live owner's already-admitted originals, including on failure.
+            reader=copy(history);frames=reader.load(root['chunks'])
+            need(tuple(reader.identities)==admitted and reader.raw_bytes==admitted_bytes
+                and tuple(history.identities)==admitted and history.raw_bytes==admitted_bytes)
+            history.verify()
             cached=owner.rows if hasattr(owner,'rows') else owner.frames
             need(same(frames,cached) and frames)
             if hasattr(owner,'transactions'):need(same(owner.transactions,{frame['ticket']:frame for frame in frames}))

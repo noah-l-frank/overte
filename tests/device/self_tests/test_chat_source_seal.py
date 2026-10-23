@@ -43,6 +43,22 @@ class ChatSourceSealTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.seal.receipt(receipt)
         self.assertEqual(before,self.h.queries());self.assertTrue(self.seal.completed)
 
+    def test_same_bytes_child_replaced_between_verify_and_load_never_changes_admitted_history(self):
+        from unittest.mock import patch
+        from adapters.chat_journey.source_chunks import ChatSourceChunks
+        history=self.h.observers['actor'].samples.history;load=ChatSourceChunks.load
+        identities=tuple(history.identities);raw_bytes=history.raw_bytes;fired=[]
+        def replaced(reader,manifest):
+            if reader.root.path==history.root.path and not fired:
+                fired.append(True);path=history.store(0).path;raw=path.read_bytes()
+                path.rename(self.h.root/'retained-explicit-pre-seal-original.json')
+                path.write_bytes(raw);path.chmod(0o600)
+            return load(reader,manifest)
+        with patch.object(ChatSourceChunks,'load',new=replaced):
+            with self.assertRaises(NativeUIError):self.seal.run()
+        self.assertEqual([True],fired);self.assertEqual(identities,tuple(history.identities));self.assertEqual(raw_bytes,history.raw_bytes)
+        self.assertIsNone(self.store.read());self.assertFalse(self.seal.completed);self.refused()
+
     def test_final_result_copy_is_inside_frozen_host_native_freshness(self):
         from unittest.mock import patch
         def late(value):
@@ -143,6 +159,7 @@ def source_seal_admission_tests():
             'test_lost_final_seal_receipt_is_not_cold_adopted_or_replayed',
             'test_mutable_historical_rows_cannot_be_sealed_as_original_physical_payloads',
             'test_identical_replaced_root_is_not_an_original_returned_receipt',
+            'test_same_bytes_child_replaced_between_verify_and_load_never_changes_admitted_history',
             'test_failed_source_lock_exit_cannot_complete_a_physical_seal'})
 
 
