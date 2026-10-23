@@ -165,6 +165,19 @@ class OwnedAssetsCancel:
     def ui(self):
         if self.active_ui is None:self.active_ui=self.controls(self.intent,before_send=self.final_input,audit=self.audit)
         return self.active_ui
+    @staticmethod
+    def dead_file_consumers(row):
+        return not row['rootAlive'] and not row['modelAlive'] and not row['inCurrentTree'] and not row['pendingDocuments']
+    def browser(self,sample,state=None):
+        # Dead originals remain in the native inventory. A later isolated
+        # stage owns only its one new browser/model, never those older rows.
+        frames=unpack((self.state() if state is None else state)['uiOriginals']);need(frames and sample['ui']['complete'])
+        before=ui_inventory(frames[0])['browsers'];need(all(self.dead_file_consumers(row) for row in before))
+        baseline={row['id']:row for row in before};current={row['id']:row for row in sample['ui']['browsers']}
+        need(set(baseline)<=set(current))
+        for key,original in baseline.items():
+            row=current[key];need(self.dead_file_consumers(row) and same(row,original))
+        opened=[row for key,row in current.items() if key not in baseline];need(len(opened)==1);return opened[0]
     def open(self):
         if self.previous is not None:
             need(self.state()['phase']=='open');return self.reconcile()
@@ -172,7 +185,7 @@ class OwnedAssetsCancel:
         value=dict(assetsCancelOwnerVersion=VERSION,binding=self.binding,runId=self.run,fixtureUrl=self.url,openTicket=phase['ticket'],
             stage=self.files.native.stage,phase='reserved',phaseOriginal=phase['status'],attempted=[],pendingInput=None,unresolvedInputs=[],pendingSource=None,
             inputs=pack([]),uiOriginals=pack([]),inputCount=0,lastInput=None,directory=None,browserId=None,modelId=None,baselineMappings=None,baselineUploads=None,originals=pack([]))
-        self.write(value);before=self.sample();need(not before['ui']['browsers'] and before['uploads']['source']['originalActiveBundles']==0
+        self.write(value);before=self.sample();need(all(self.dead_file_consumers(row) for row in before['ui']['browsers']) and before['uploads']['source']['originalActiveBundles']==0
             and before['uploads']['source']['activeBundles']==before['uploads']['source']['liveRequests']==0)
         state=self.state();state['baselineMappings']=deepcopy(self.mappings.history[-1]);state['baselineUploads']=deepcopy(self.uploads.history[-1]);self.write(state)
         directory=self.files.prepare();state=self.state();state['directory']=directory;state['attempted']=['open'];state['phase']='opening';self.write(state)
@@ -180,13 +193,12 @@ class OwnedAssetsCancel:
             ui=self.ui();ui.open_picker()
             # Admit the original consumers only after acknowledged Open and a
             # fresh independent inventory, before any later navigation input.
-            opened=self.sample();self.unchanged(opened);need(len(opened['ui']['browsers'])==1)
-            browser=opened['ui']['browsers'][0]
+            opened=self.sample();self.unchanged(opened);browser=self.browser(opened)
             need(browser['rootAlive'] and browser['modelAlive'] and browser['inCurrentTree'] and not browser['pendingDocuments'])
             state=self.state();state.update(browserId=browser['id'],modelId=browser['modelId']);self.write(state);self.check_sample(opened)
             ui.navigate_files(unquote(urlsplit(directory).path)+'/gltf-bundle');ui.select_file(directory+'/gltf-bundle/main.gltf')
         except Exception:raise NativeUIError('Original Assets picker delivery remains unresolved') from None
-        current=self.sample();self.unchanged(current);need(len(current['ui']['browsers'])==1);browser=current['ui']['browsers'][0]
+        current=self.sample();self.unchanged(current);browser=self.browser(current)
         need(browser['rootAlive'] and browser['modelAlive'] and browser['inCurrentTree'] and not browser['pendingDocuments'])
         state=self.state();need(browser['id']==state['browserId'] and browser['modelId']==state['modelId'])
         state['phase']='open';self.write(state);self.check_sample(current)
@@ -209,14 +221,15 @@ class OwnedAssetsCancel:
         # A lost first Open receipt admits no consumer identity. Later Cancel
         # may close that UI, but cannot adopt it or authorize file retirement.
         if state['browserId'] is None:return False
-        rows=sample['ui']['browsers'];need(len(rows)==1)
-        row=rows[0];need(row['id']==state['browserId'] and row['modelId']==state['modelId'])
-        return not row['rootAlive'] and not row['modelAlive'] and not row['inCurrentTree'] and not row['pendingDocuments']
+        row=self.browser(sample,state);need(row['id']==state['browserId'] and row['modelId']==state['modelId'])
+        return self.dead_file_consumers(row)
     def reconcile(self):
         state=self.state();sample=self.sample();self.unchanged(sample)
         if state['phase'] in ('reserved','opening','open'):
             # No uncertain input or partially issued recipe is repeated.
-            return dict(pickerObserved=bool(sample['ui']['browsers']),retained=True)
+            if state['browserId'] is None:return dict(pickerObserved=False,retained=True)
+            row=self.browser(sample,state);need(row['id']==state['browserId'] and row['modelId']==state['modelId'])
+            return dict(pickerObserved=bool(row['rootAlive'] and row['modelAlive'] and row['inCurrentTree']),retained=True)
         if not self.retired_consumers(sample):return dict(cancelObserved=False,retained=True)
         first=sample;previous=sample;started=self.now()
         for attempt in range(41):
@@ -233,6 +246,6 @@ class OwnedAssetsCancel:
             actual=self.sample();need(self.retired_consumers(actual));return True
         self.files.release(consumers);final=self.sample();need(self.retired_consumers(final) and final['files'] is not None
             and final['files']['source']['retired'] is True and final['files']['source']['exists'] is False)
-        state=self.state();state['phase']='cancel-observed-files-retired';self.write(state);self.check_sample(final)
+        state=self.state();browser=self.browser(final,state);state['phase']='cancel-observed-files-retired';self.write(state);self.check_sample(final)
         # Context/window survivors are retained original obligations, never GC'd here.
-        return dict(cancelObserved=True,filesRetired=True,retained=True,browser=final['ui']['browsers'][0])
+        return dict(cancelObserved=True,filesRetired=True,retained=True,browser=browser)

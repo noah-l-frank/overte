@@ -532,3 +532,44 @@ case passed in 23.593 seconds with unchanged 120-second outer/90-second compiler
 bounds. The existing selector now has 12 cases, with no new capability or
 production behavior change. Whole-feature and whole-selector limits above
 still apply separately.
+
+## Reopening with retained original browser history
+
+The native inventory intentionally retains dead browser/model rows. A later
+isolated stage now derives its baseline from the already recorded original
+`uiOriginals[0]` inventory. The v1 journal shape and every existing field remain
+unchanged; old v1 owners with an empty initial inventory continue to use that
+same original baseline. No new mandatory field or migration is introduced.
+
+Every baseline browser/model must already be dead, outside the current tree and
+free of pending document work before new files or pointer input. Its complete
+original row must remain canonically identical in later inventories, including
+context/window facts. Exactly one new original browser/model may be admitted
+after acknowledged normal Open and before navigation. Later Cancel observes
+that same new pair's death while preserving the complete older baseline; its
+file release has only the new stage's original lease authority. Unadmitted IDs
+after a lost first Open remain unknown, even when old dead rows are present.
+All complete journal validation, original source checks and final clock fences
+remain; no late baseline decoding is added after the final publication fence.
+
+Two actual Qt/native cases passed together in 33.624 seconds: reopening stage 2
+after an original stage-1 Cancel with new consumer identities and unchanged old
+journals, and refusal before stage-2 staging/pointer input while stage-1 consumers
+are still alive. A separate normal third case ended after 23.608 seconds at the
+unchanged stage-1 consecutive-sample admission predicate, before stage 2 was
+reached. That original test and failed transcript are retained; it does not
+qualify the intended lost-first-stage-2-Open path.
+
+An additional, separately named case passed in 21.833 seconds. Stage 1's real
+normal Cancel is delivered but its reply is lost, leaving that owner and all
+seven files retained. Stage 2 independently observes the dead old consumers,
+then loses its own first Open reply. Its distinct normal Cancel and cold
+reconciliation adopt neither old nor new IDs, retire no file lease and preserve
+both original stage-1 journals exactly. A separate fresh complete native getter
+observes all seven stage-1 files still present with identical identities, byte
+lengths and hashes. Stage-2 files also remain unchanged. This result is a
+retention/no-adoption check, not successful qualification of stage 1's complete
+Cancel/file-release path. All runs retain the 120-second outer and 90-second
+compiler bounds. Four additive cases bring the class to 16 cases; Root must
+include all original methods exactly once when extending its disjoint groups.
+Feature 13/14 remains partial and device/backend qualification remains open.
