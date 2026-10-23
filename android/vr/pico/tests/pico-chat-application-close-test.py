@@ -11,7 +11,8 @@ sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'android/vr/pico/tests/device')]
 
 
 def selected(part):
-    if part=='cleanup-baseline':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_cleanup_baseline')
+    if part=='cleanup-baseline':return unittest.defaultTestLoader.loadTestsFromNames([
+        'self_tests.test_chat_cleanup_baseline','self_tests.test_feature_cleanup_consumption'])
     if part=='baseline-composition':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_baseline_composition')
     seals={name:'self_tests.test_chat_source_seal.source_seal_'+name+'_tests' for name in ('positive','admission','freshness')}
     if part.startswith('seal-') and part[5:] in seals:return unittest.defaultTestLoader.loadTestsFromName(seals[part[5:]])
