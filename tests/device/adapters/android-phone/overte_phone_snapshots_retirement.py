@@ -105,6 +105,7 @@ class PhoneSnapshotsRetirement:
             f.check_handoff({key:value for key,value in handoff.items() if key!='retirementIndex'},inputs)
             last=inputs[handoff['retirementIndex']-1]['handoffEnd']
             need(last['handoffId']==handoff['id'] and last['source']['retired'] and not last['source']['timerActive'])
+        role_frames={}
         for role in ('primary','actor'):
             header=archive['controls']['phone-snapshots-'+role+'-originals.json']
             if partial:need(header is None);continue
@@ -116,6 +117,7 @@ class PhoneSnapshotsRetirement:
             need(state['phase']=='retired' and state['pending'] is None and integer(state['sequence'],1,256))
             originals=SnapshotsOriginals(f.root,f.binding,f.run,role,history_guard,lambda *_:need(False),kind='snapshots')
             frames=originals.restore(state['manifests'],state['sequence']);need(frames)
+            role_frames[role]=frames
             for frame in frames:
                 image=frame.get('image')
                 if image is not None:history_guard();SnapshotsImages.archive(f.root,image);history_guard()
@@ -156,9 +158,54 @@ class PhoneSnapshotsRetirement:
             role_header=archive['controls']['phone-snapshots-actor-originals.json'],current_guard=self.bound)
         validate_primary_cue(f,actor['primaryCue'],archive['controls']['phone-snapshots-primary-originals.json'],
             history_guard=history_guard,current_guard=self.bound)
+        self.validate_read_ready_archive(archive,owner,actor,version,role_frames,history_guard)
         history_guard();need(hashlib.sha256(canonical(archive)).hexdigest()==archive_sha);self.bound()
 
         return archive
+
+    def validate_read_ready_archive(self,archive,owner,actor,version,role_frames,guard):
+        """Validate archived scheduling originals without a live ready owner.
+
+        Current controls may already be absent. The final retired Primary
+        history supplies actual manifest entries; no intermediate ready header
+        is reconstructed or repacked, and no scheduling field supplies a fact.
+        """
+        from overte_phone_snapshots_role import role_state,validate_read_ready_mode,validate_read_ready_slot
+        from overte_phone_snapshots_actor import cue_state,primary_manifests
+        f=self.feature;f.lock.assert_held();need(guard() is True and type(owner['cleanupStages']) is dict)
+        slots=[(role,index,frame) for role,frames in role_frames.items()
+            for index,frame in enumerate(frames,1) if 'readReadySlot' in frame]
+        if 'readReadyMode' not in owner['cleanupStages']:
+            need(not slots);return
+        validate_read_ready_mode(owner['cleanupStages']['readReadyMode'],actor_process=actor['process'])
+        need(not owner['partial'] and version==3 and actor['primaryCue'] is not None
+            and slots and all(role=='primary' for role,_index,_frame in slots))
+        header=archive['controls']['phone-snapshots-primary-originals.json']
+        state=role_state(header,f.binding,f.run,'primary')
+        need(state['phase']=='retired' and state['pending'] is None)
+        host=SnapshotsOriginals(f.root,f.binding,f.run,'primary',guard,lambda *_:need(False),kind='snapshots')
+        current=primary_manifests(host,state)
+        feature_sha=hashlib.sha256(canonical(archive['owner'])).hexdigest()
+        indices=[]
+        for _role,index,frame in slots:
+            slot=validate_read_ready_slot(frame,f.run,actor_process=actor['process'])
+            before=role_state(slot['preparedRoleHeader'],f.binding,f.run,'primary')
+            need(before['phase']=='ready' and before['pending'] is None and before['sequence']==slot['preparedRoleSequence']==index-1
+                and slot['featureOwnerSha256']==feature_sha and index<=len(current))
+            original_prefix=primary_manifests(host,before)
+            need(same(current[:index-1],original_prefix)
+                and same(host.read(host.expand(current[index-1])),frame))
+            for key in ('fixturePhaseVersion','instance','runId','area','createdEpochMs','activations'):
+                need(same(frame['phaseAfter'][key],archive['closure'][key]))
+            indices.append(index)
+        # The actual latest consumed cue is a saved ready header. Its prefix
+        # was already joined above to the final retired header, not replaced
+        # with that differently phased final control.
+        cue=cue_state(f,actor['primaryCue']);need(cue['sequence']==max(indices))
+        entries=primary_manifests(host,cue);need(entries)
+        final_slot=host.read(host.expand(entries[-1]))
+        validate_read_ready_slot(final_slot,f.run,actor_process=actor['process'])
+        need(same(final_slot,role_frames['primary'][cue['sequence']-1]) and guard() is True)
 
     def finalize(self):
         f=self.feature;started=previous=f.monotonic()
