@@ -88,12 +88,12 @@ def race_current(self,*args,**kwargs):
     try:return race_read(self,*args,**kwargs)
     finally:race_active_role=None
 PhoneSnapshotsRole.read=race_current
-def race_inner(self,role,prepared,started):
+def race_inner(self,role,prepared,started,**kwargs):
     global race_reported
     complete=self.state['quiet'] is not None and self.state['quiet']['complete']
     if not RACE_DURING and not race_paused and (complete if RACE_COMPLETE else not complete):
         race_pause(self,role,self._race_last_status,'before-inner-read')
-    try:result=race_quiet(self,role,prepared,started)
+    try:result=race_quiet(self,role,prepared,started,**kwargs)
     except Exception as error:
         if race_paused and not race_reported:
             race_reported=True
