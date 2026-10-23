@@ -106,7 +106,7 @@ class NavigationSceneInputsTests(unittest.TestCase):
             with self.assertRaises((NativeUIError,ValueError)):owner.return_to_original()
             self.assertEqual(1,self.b.inputs.count('PhoneAddressGoButton'))
 
-    def test_lost_entry_result_keeps_issued_intent_and_never_resends_any_normal_input(self):
+    def test_lost_entry_parent_result_adopts_complete_child_without_any_new_input(self):
         with self.h.lock.held():
             owner=self.owner();write=owner.store.write
             def lose(value,previous):
@@ -114,12 +114,13 @@ class NavigationSceneInputsTests(unittest.TestCase):
                 write(value,previous)
             owner.store.write=lose
             with self.assertRaises(OSError):owner.enter()
-            before=list(self.b.inputs);again=self.owner();self.assertEqual('enter-issued',again.state['phase'])
-            with self.assertRaises(NativeUIError):again.enter()
-            with self.assertRaises(NativeUIError):again.return_to_original()
-            self.assertEqual(before,self.b.inputs);self.assertEqual(1,before.count('PhoneAddressGoButton'))
+            before=list(self.b.inputs);requests=deepcopy(self.b.native_boundary.requests)
+            again=self.owner();self.assertEqual('enter-issued',again.state['phase'])
+            self.assertEqual({'performed':True},again.enter());self.assertEqual('entered',again.state['phase'])
+            self.assertEqual(before,self.b.inputs);self.assertEqual(requests,self.b.native_boundary.requests)
+            self.assertEqual(1,before.count('PhoneAddressGoButton'))
 
-    def test_lost_return_result_keeps_return_issued_without_replaying_go_to(self):
+    def test_lost_return_parent_result_adopts_complete_child_without_replaying_go_to(self):
         with self.h.lock.held():
             owner=self.owner();owner.enter();self.owned_scene();write=owner.store.write
             def lose(value,previous):
@@ -127,9 +128,20 @@ class NavigationSceneInputsTests(unittest.TestCase):
                 write(value,previous)
             owner.store.write=lose
             with self.assertRaises(OSError):owner.return_to_original()
-            before=list(self.b.inputs);again=self.owner();self.assertEqual('return-issued',again.state['phase'])
-            with self.assertRaises(NativeUIError):again.return_to_original()
-            self.assertEqual(before,self.b.inputs)
+            before=list(self.b.inputs);requests=deepcopy(self.b.native_boundary.requests);reads=list(self.h.reads)
+            again=self.owner();self.assertEqual('return-issued',again.state['phase'])
+            self.assertEqual({'performed':True},again.return_to_original());self.assertEqual('return-delivered',again.state['phase'])
+            self.assertEqual(before,self.b.inputs);self.assertEqual(requests,self.b.native_boundary.requests);self.assertEqual(reads,self.h.reads)
+
+    def test_unknown_child_without_a_complete_retained_return_stays_owned_without_new_query(self):
+        from ios.adapters.navigation_address_inputs import NavigationAddressInputs
+        with self.h.lock.held():
+            owner=self.owner()
+            with patch.object(NavigationAddressInputs,'goto',side_effect=OSError('Unknown child delivery')),self.assertRaises(OSError):owner.enter()
+            before=list(self.b.inputs);requests=deepcopy(self.b.native_boundary.requests)
+            with self.assertRaises(NativeUIError):self.owner().enter()
+            self.assertEqual(before,self.b.inputs);self.assertEqual(requests,self.b.native_boundary.requests)
+            self.assertEqual('enter-issued',self.owner().state['phase'])
 
     def test_unsaved_edit_or_additional_entity_refuses_return_before_any_input(self):
         for fault in ('edit','extra'):

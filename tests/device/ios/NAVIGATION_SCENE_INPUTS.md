@@ -33,16 +33,23 @@ families; arbitrary URLs and native entity/pose/camera setters are unavailable.
 `return-delivered`, separately from an actual restored-world measurement.
 
 A lost result leaves issued responsibility durable. Reopening cannot resend an
-entry/return or restart a partial return gate. A repeated acknowledged call can
-return its delivery acknowledgment without another input. Records remain present;
-neither acknowledgment proves arrival, rendering, resource absence or cleanup.
+entry/return or restart a partial return gate. A completely retained matching
+Address child can resolve a lost parent result: the full closed child decoder,
+actual selected QML root, original destination, input counters and original UI
+receipt must agree. Return additionally revalidates its original ownership gate.
+Candidate continuity and parent/child CAS bytes remain checked; no new normal
+input or UI/source acquisition is performed. Unknown or incomplete children stay
+unresolved. A repeated acknowledged call returns only its delivery acknowledgment.
+All records remain present; neither acknowledgment proves arrival, rendering,
+resource absence or cleanup. The private format remains version 1.
 
 This component currently supports the admitted original process only. The whole
 Worlds coordinator still needs independently observed entry/return effects,
 normal Places/bookmark/error recipes, process-death-qualified restart transfer,
 independent publication, Web/GPU/HTTP callback drainage, repeated quiet cleanup
 and final journal retirement. No complete feature operation triple is enabled.
-Host tests reject ignored input as scene ownership, lost entry/return results,
+Eleven host tests cover complete-child lost-return adoption without another
+query and reject unknown children, ignored input as scene ownership,
 partial source reads, changed input histories, unknown body/map contents and a
 late return preflight despite complete retained originals. They model native/SDK
 state, execute the actual Python normal input code

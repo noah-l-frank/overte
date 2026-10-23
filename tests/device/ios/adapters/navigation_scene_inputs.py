@@ -102,6 +102,7 @@ class NavigationSceneInputs:
     def enter(self):
         self.bound();proof=self.admission.archive()
         if self.state is not None:
+            if self.state['phase']=='enter-issued':return self.recover_delivery('enter')
             need(self.state['phase']=='entered');return {'performed':True}
         self.admission.for_input()
         self.state=dict(admissionSha256=digest(self.admission.store.read()),phase='enter-issued',component={},
@@ -129,6 +130,7 @@ class NavigationSceneInputs:
     def return_to_original(self):
         self.bound();need(self.state is not None)
         if self.state['phase']=='return-delivered':return {'performed':True}
+        if self.state['phase']=='return-issued':return self.recover_delivery('return')
         need(self.state['phase']=='entered')
         self.state.update(phase='return-checking',gate=dict(provider=None,providerRead=None,nativeStart=None,
             nativeEnd=None,originals={},clockJoin=None,result=None));self.save();gate=self.state['gate']
@@ -153,3 +155,25 @@ class NavigationSceneInputs:
         need(self.epoch_ms()-read['epoch']<1500 and self.monotonic()-read['monotonic']<1.5)
         self.state['returnedUi']=self.normal(viewpoint_urls(self.admission.archive()['base']['url'])['A'])
         self.state['phase']='return-delivered';self.save();return {'performed':True}
+
+    def recover_delivery(self,key):
+        """Adopt a complete child without another Go To or UI/source capture."""
+        from ios.adapters.navigation_address_inputs import transfer_original
+        self.bound();need(key in ('enter','return') and self.state is not None
+            and self.state['phase']==('enter-issued' if key=='enter' else 'return-issued'))
+        store=PrivateFeatureState(self.store.path.with_name('ios-navigation-address-'+self.binding['processIdentity']+'-inputs.json'))
+        original=store.read();need(original is not None)
+        checker=object.__new__(NavigationAddressInputs);checker.binding=self.binding;checker.run=self.run
+        child=checker.decode(original);need(child['rows'] and child['rows'][-1]['key']==key
+            and child['rows'][-1]['phase']=='acknowledged')
+        row=child['rows'][-1];after=row['closed']['original'];transfer_original(original,self.binding,self.run,after)
+        proof=self.admission.archive();wanted=proof['providerInputs']['sceneUrl'] if key=='enter' else proof['base']['url']
+        need(row['url']==viewpoint_urls(wanted)['A'])
+        if key=='enter':
+            before=self.state['enterUi'];need(before is not None and after['instance']==before['instance']
+                and after['lastSequence']==before['lastSequence']+1 and after['sampleEpochMs']>=before['sampleEpochMs'])
+            self.state.update(phase='entered',enteredUi=deepcopy(after))
+        else:
+            need(same(self.validate_gate(),self.state['gate']['result']))
+            self.state.update(phase='return-delivered',returnedUi=deepcopy(after))
+        need(same(store.read(),original));self.save();return {'performed':True}
