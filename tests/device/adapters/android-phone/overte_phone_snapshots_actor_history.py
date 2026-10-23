@@ -112,9 +112,14 @@ class SnapshotActorHistoryPass(SnapshotHistoryReadPass):
         self.feature.lock.assert_held();need(self.started and self.digest==self.graphs[3])
         self._headers();self._memory();self._verify_files()
 
+    def _verify_files(self):
+        if self.locked_replay:self._replay_owner()
+        return super()._verify_files()
+
     def actor_unchanged(self):
         """Current Role work cannot alter the previous quiet/lifecycle graph."""
-        self.feature.lock.assert_held()
+        if self.locked_replay:self._replay_owner()
+        else:self.feature.lock.assert_held()
         need(graph_digest(self.actor.state)==self.graphs[1]
             and same(self.actor.previous,self.headers[1])
             and signature(self.actor.store.path)==self.signatures[1]
