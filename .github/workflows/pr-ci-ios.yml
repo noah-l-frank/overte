@@ -62,6 +62,16 @@ jobs:
           fi
           "$RUNNER_TEMP/pr-ci-venv/bin/python" -m pip install \
             --disable-pip-version-check --requirement "$requirements"
+      - name: Select the official Ubuntu archive for host prerequisites
+        run: |
+          for apt_source_file in /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
+            if test -f "$apt_source_file"; then
+              sudo sed -i \
+                -e 's|http://azure[.]archive[.]ubuntu[.]com/ubuntu|https://archive.ubuntu.com/ubuntu|g' \
+                -e 's|https://azure[.]archive[.]ubuntu[.]com/ubuntu|https://archive.ubuntu.com/ubuntu|g' \
+                "$apt_source_file"
+            fi
+          done
       - name: Install complete host prerequisites
         run: |
           sudo apt-get update
@@ -70,13 +80,16 @@ jobs:
             qt6-base-dev qt6-base-dev-tools libglm-dev qtdeclarative5-dev \
             qml-module-qtquick2 qml-module-qtquick-controls2 qml-module-qtquick-layouts \
             qml-module-qtquick-window2 qt6-declarative-dev qt6-declarative-dev-tools \
-            qt6-webchannel-dev libqt5webchannel5-dev qml-module-qt-labs-folderlistmodel \
+            qt6-webchannel-dev libqt5webchannel5-dev libqt5svg5 libqt6svg6 \
+            qml-module-qt-labs-folderlistmodel \
             qml6-module-qt-labs-folderlistmodel qml6-module-qtqml qml6-module-qtqml-models \
             qml6-module-qtqml-workerscript qml6-module-qtquick qml6-module-qtquick-controls \
             qml6-module-qtquick-layouts qml6-module-qtquick-templates qml6-module-qtquick-window \
             qml6-module-qt-labs-settings qml6-module-qtquick-dialogs qml6-module-qttest
           pkg-config --exists Qt5Quick Qt5WebChannel Qt5Network Qt6Quick Qt6WebChannel Qt6Network
           test -x /usr/lib/qt6/bin/qmltestrunner
+          test -f /usr/lib/x86_64-linux-gnu/qt5/plugins/imageformats/libqsvg.so
+          test -f /usr/lib/x86_64-linux-gnu/qt6/plugins/imageformats/libqsvg.so
       - name: Prepare tokenless namespace execution
         run: |
           set -euo pipefail
