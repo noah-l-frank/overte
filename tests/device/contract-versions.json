@@ -120,7 +120,7 @@
     "ios-script-dialogs": {"current": 1, "reads": [1]},
     "ios-script-dialog-ledger": {"current": 1, "reads": [1]},
     "ios-script-dialog-acquisition": {"current": 1, "reads": [1]},
-    "ios-emote-marker-scope": {"current": 2, "reads": [1, 2]},
+    "ios-emote-marker-scope": {"current": 3, "reads": [1, 2, 3]},
     "ios-emote-marker-disposition": {"current": 1, "reads": [1]},
     "ios-emote-marker-holder": {"current": 1, "reads": [1]},
     "ios-emote-marker-partial": {"current": 1, "reads": [1]},

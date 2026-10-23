@@ -68,3 +68,39 @@ marker version must additionally require complete ScriptUiInventory2 and its
 original RootOwnership1, retain observed detached live manager/picker roots,
 and join them to terminal/process end. Current scope two is an explicit Web
 holder prototype; it cannot by itself advertise the complete Emote adapter.
+
+
+## Explicit whole-tree marker scope three
+
+`IOSEmoteRootedMarkerScope` supplies that next version. It inherits the existing
+normal input/file owner, scope-two Web quiet policy and four-clock quiet bounds.
+Every actual input frame must additionally contain complete ScriptUiInventory2
+and RootOwnership1 with whole-tree readiness, the same PID, advancing source
+history and an original capture inside its native acquisition bracket. Current
+manager/picker/tablet absence remains separate from retained weak-alive roots.
+A new root, weak expiry or resource event restarts the selected quiet candidate;
+historical reconstruction checks the same ordered root/resource window.
+
+After ordinary file/input cleanup, `held_originals()` derives grouped actual
+cache allocations, detached live UI roots and outstanding process ownership
+through the shared closed-profile holder policy. The process anchor is not UI
+identity, callback quiescence or a process-death fact. Complete contributing
+originals stay private and unchanged. Independent OS/SDK end must still retire
+these held resources. Scope one, Web-only scope two and rooted scope three have
+distinct literal readers; none relabels or rewrites an older carrier.
+
+`IOSEmoteRootedObserver` selects scope three before reading any saved observation
+through the existing source/image pipeline. The scope-two observer keeps its
+original reader. Four connected host cases pass in 16.590 seconds: actual normal
+Script/Node cleanup with cached allocations and detached live roots; a real new
+host weak root restarting quiet; legacy, missing-ready, foreign-PID and
+outside-acquisition originals refused even with a rehashed original bracket;
+and actual idle/Open/Waving source/Rig/PNG evidence with transport-free observer
+reconstruction. Reconstruction preserves actual files, bytes and inodes. Native,
+Qt/GPU and clocks are explicit models; JavaScript, HTTP and private files run.
+Whole Emote terminal/publication/process finalization remains unimplemented;
+complete capability admission remains closed and physical timing is unqualified.
+
+The combined rooted/legacy observer, normal-marker and holder-policy regression
+selection passes fifteen host cases in 31.215 seconds. Contract-version and all
+five selected project checks pass; no blocked operation was attempted.

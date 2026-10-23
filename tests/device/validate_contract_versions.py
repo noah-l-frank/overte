@@ -128,7 +128,7 @@ REQUIRED = {
     "ios-script-dialogs": 1,
     "ios-script-dialog-ledger": 1,
     "ios-script-dialog-acquisition": 1,
-    "ios-emote-marker-scope": 2,
+    "ios-emote-marker-scope": 3,
     "ios-emote-marker-disposition": 1,
     "ios-emote-marker-holder": 1,
     "ios-emote-marker-partial": 1,

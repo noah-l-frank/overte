@@ -15,9 +15,11 @@ from ios.adapters.emote_samples import archived_sample
 
 
 class IOSEmoteHeldObservationDecoder(IOSEmoteObservationDecoder):
+    Marker=IOSEmoteHeldMarkerScope
+
     def image(self,value,marker):
         exact(marker,{'nonce','url','scope'});identifier(marker['nonce'])
-        scope=IOSEmoteHeldMarkerScope.archive(marker['scope'],root=self.root,binding=self.binding,run=self.run,role=self.role,
+        scope=self.Marker.archive(marker['scope'],root=self.root,binding=self.binding,run=self.run,role=self.role,
             lock=self.lock,require_ready=True)
         frame,raw,image,name=archived_sample(value,root=self.root,binding=self.binding,run=self.run,role=self.role,
             lock=self.lock,policy=self.policy,marker_nonce=marker['nonce'],marker_url=marker['url'])
@@ -27,8 +29,10 @@ class IOSEmoteHeldObservationDecoder(IOSEmoteObservationDecoder):
 
 
 class IOSEmoteHeldObserver(IOSEmoteObserver):
+    Decoder=IOSEmoteHeldObservationDecoder
+
     def select_decoder(self):
-        self.decoder=IOSEmoteHeldObservationDecoder(self.sources,self.binding,self.role,self.root,self.policy,self.lock,
+        self.decoder=self.Decoder(self.sources,self.binding,self.role,self.root,self.policy,self.lock,
             phase_instance=self.phase.previous['instance'],peers=self.peers)
 
     def __init__(self,*args,**kwargs):
