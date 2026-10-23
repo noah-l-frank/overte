@@ -151,15 +151,9 @@ class PicoBrowserVm:
             and same(self.store.read(),self.previous) and self.cache_digest()==self.cached_digest);self.chunks.verify()
 
     def validate(self,frame,previous):
-        origin,facts=join(frame,self.scope['scriptUrl'],self.scripts.pid,origin=self.origin)
-        if previous:
-            old=previous[-1]
-            object_packet(frame['objectsBefore'],dict(schemaVersion=1,commandId=frame['objectsBefore']['commandId'],action=ACTION),
-                self.scripts.pid,frame['objectsAfter']['capturedEpochMs'],previous=old['objectsAfter'])
-            browser_status(frame['http'],old['http'])
-            events=frame['scripts']['source']['loads'];old_events=old['scripts']['source']['loads']
-            need(not any(row['url']==self.scope['scriptUrl'] for row in events['events'][old_events['sequence']:]))
-        self.origin=origin;return facts
+        from adapters.pico4.browser_vm_grammar import validate_frame
+        self.origin,facts=validate_frame(frame,previous,self.origin,self.scope['scriptUrl'],self.scripts.pid)
+        return facts
 
     def write(self,phase,chunks,*,windows=None):
         self.lock.assert_held();need(same(self.store.read(),self.previous))
@@ -190,19 +184,8 @@ class PicoBrowserVm:
             self.failed=True;raise NativeUIError('Original browser VM ownership is retained; source transaction did not complete') from None
 
     def window(self,first,last,after_epoch):
-        need(integer(first,0,self.frame_count-1) and integer(last,first,self.frame_count-1) and last-first<64 and integer(after_epoch,1))
-        rows=[self.frame(index) for index in range(first,last+1)]
-        for frame in rows:
-            _origin,facts=join(frame,self.scope['scriptUrl'],self.scripts.pid,origin=self.origin)
-            need(facts['retired'] and min(frame['objectsBefore']['requestedEpochMs'],frame['scripts']['requestedEpochMs'],
-                frame['objectsAfter']['requestedEpochMs'])>=after_epoch)
-        def clocks(frame):return [frame['objectsBefore']['source']['capturedEpochMs'],frame['scripts']['capturedEpochMs'],
-            frame['objectsAfter']['source']['capturedEpochMs']]
-        for before,after in zip(rows,rows[1:]):
-            need(0<after['hostMonotonic']-before['hostMonotonic']<=.5
-                and all(0<b-a<=500 for a,b in zip(clocks(before),clocks(after))))
-        return len(rows)>=3 and rows[-1]['hostMonotonic']-rows[0]['hostMonotonic']>=3 \
-            and all(b-a>=3000 for a,b in zip(clocks(rows[0]),clocks(rows[-1])))
+        from adapters.pico4.browser_vm_grammar import window
+        return window(self.frame_count,self.frame,first,last,after_epoch,self.origin,self.scope['scriptUrl'],self.scripts.pid)
 
     def quiet(self,after_epoch):
         """Record an exact complete suffix once; later reads retain its originals."""

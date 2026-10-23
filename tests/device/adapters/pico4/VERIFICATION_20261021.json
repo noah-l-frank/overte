@@ -3182,5 +3182,38 @@
       "assetsPageHome": 29.955
     },
     "qualification": "Real retained Qt page/context/component and actual compiled original loader/Home/Pico X bodies with explicit controller/SDK/unrelated content seams; context survives invalid. Real two-process typed Chat graph/successor/nonce/kernel boundary with native/Parent/unexecuted inputs explicit seams. Full production constructor positive, whole feature/resource archive, full application and device qualification remain open."
+  },
+  "browserOriginalGraphAndProcessReturn20261023": {
+    "status": "targeted-passed-whole-run-scope-separated",
+    "catalogAtFinalRun": 191,
+    "groups": 3,
+    "seconds": 69.92,
+    "checks": {
+      "coverage": 0.106,
+      "actorSixCases": 35.309,
+      "returnFiveCases": 34.509,
+      "finalPathBoundReturnFiveCases": 38.823,
+      "nativeScriptVmAndDirectReturn40Cases": 10.279
+    },
+    "earlierCombined": {
+      "catalog": 190,
+      "groups": 4,
+      "passed": 3,
+      "failed": 1,
+      "seconds": 328.13,
+      "coverage": 0.107,
+      "wholeJourneyTimeout": 120.106,
+      "actorAndReturnCombined": 95.814,
+      "captureRetirement": 112.103
+    },
+    "isolatedUnchangedWholeJourney": {
+      "passed": true,
+      "seconds": 103.801,
+      "limitSeconds": 120,
+      "sourceScope": "After browser owner/sample/VM grammar extraction and original graph; before final pure shared ScriptOriginalHistory relocation. Later targeted checks include that relocation."
+    },
+    "unchangedGroupLimitSeconds": 120,
+    "unchangedNativeCompileLimitSeconds": 90,
+    "qualification": "Actual original private journal/PNG/OFD/process sources and existing HTTP/VM/stereo readers with explicit product/GPU/native/Parent seams. Initial export-cache tuple-key refusal corrected through explicit strict JSON representation. No live Actor/native reader reconstruction; no complete production factory positive, product observer entrypoint, remote capture composition, whole archive/host retirement, public capability, full application or device qualification."
   }
 }

@@ -10,6 +10,7 @@ from unittest.mock import patch
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.script_journey.lock import ScriptSourceLock
+from adapters.script_journey.history import canonical
 from feature_journeys.phase_fixture import PhaseRetired
 from feature_journeys.scenarios import VERSION
 from self_tests import test_pico_tablet_web_stereo_flow as seams
@@ -60,6 +61,27 @@ class PicoBrowserActorRetirementTests(unittest.TestCase):
                 counter=deepcopy(frame);mutate(counter)
                 with self.assertRaises((NativeUIError,ValueError)):check(counter)
         self.assertEqual(queries,len(f.target.command_log))
+        from adapters.pico4.browser_actor_graph import PicoBrowserActorExport,PicoBrowserActorGraph
+        from adapters.native_script_observation import original_history
+        scripts=[frame['scripts'] for frame in owner.vm.frames]+[frame['scripts']]
+        pure=original_history(scripts,owner.vm.scripts.pid)
+        self.assertFalse(hasattr(pure,'send') or hasattr(pure,'guard'))
+        for name in ('instance','sequence'):
+            counter=deepcopy(scripts)
+            counter[-1][name]='f'*32 if name=='instance' else counter[-2]['sequence']
+            with self.assertRaises(NativeUIError):original_history(counter,owner.vm.scripts.pid)
+        exported=PicoBrowserActorExport(owner,'d'*32)
+        self.assertTrue(exported.verify());self.assertEqual(queries,len(f.target.command_log))
+        with f.actor.lock.held():
+            cold=PicoBrowserActorGraph(exported.raw,exported.source_stamp,exported.store,exported.stores,f.actor.lock,exported.expected)
+            cold.verify();self.assertEqual(owner.raw,canonical(cold.inactive))
+        self.assertIsNone(getattr(cold,'adapter',None));self.assertIsNone(getattr(cold,'source',None))
+        with self.assertRaises(NativeUIError):PicoBrowserActorExport(owner,'e'*32)
+        # A byte-identical replacement is a different original physical file.
+        child=owner.history.chunks.store(0).path;replacement=child.with_name('changed-export-original.json')
+        replacement.write_bytes(child.read_bytes());replacement.chmod(0o600);replacement.replace(child)
+        with self.assertRaises(NativeUIError):exported.verify()
+        self.assertTrue(child.exists());self.assertEqual(queries,len(f.target.command_log))
         owner.state['sequence']+=1
         with self.assertRaises((ValueError,RuntimeError)):owner.receipt()
 

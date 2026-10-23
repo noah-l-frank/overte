@@ -101,6 +101,8 @@ class PicoBrowserActorRetirement:
         self.roots=[(store,deepcopy(value)) for store,value in (
             (flow.store,flow.originals[flow.store.path]),(flow.role_store,flow.originals[flow.role_store.path]),
             (self.history.store,self.history.disk),(self.vm.store,self.vm.previous))]
+        self.quiet=flow.cleanup_window(owner);self.quiet.verify()
+        self.roots.append((self.quiet.store,deepcopy(self.quiet.disk)))
         self.root_stamps=self.original_roots()
         self.scope=dict(picoBrowserActorRetirementVersion=VERSION,runId=flow.run,role='actor',
             fixtureUrl=flow.fixture_url,binding=deepcopy(owner['binding']),ownerToken=owner['ownerToken'],
@@ -137,7 +139,7 @@ class PicoBrowserActorRetirement:
             and (self.raw is None or self.raw is self._sealed_raw)
             and (self._completed_root is None or canonical(self.previous)==self._completed_root))
         need(self.original_roots()==self.root_stamps)
-        self.history.matches(self.state);self.vm.verify();flow.verify_images(self.state,'actor')
+        self.history.matches(self.state);self.vm.verify();self.quiet.verify();flow.verify_images(self.state,'actor')
         need(self.original_roots()==self.root_stamps)
         self.chunks.verify();need(same(self.store.read(),self.previous))
 

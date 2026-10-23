@@ -11,6 +11,9 @@ from pathlib import Path
 REQUIRED = {
     "pico-browser-vm": 1,
     "pico-browser-history": 1,
+    "pico-browser-actor-export": 1,
+    "pico-browser-actor-graph": 1,
+    "pico-browser-actor-return": 1,
     "pico-browser-actor-retirement": 1,
     "pico-browser-capture-retirement": 1,
     "pico-world-render-retirements": 1,

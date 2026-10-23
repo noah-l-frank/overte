@@ -51,6 +51,30 @@ class PicoTabletWebBinding(PicoScriptJourney):
         if input:need(flow.role=='primary' and flow.live_owner is not None)
         return flow
 
+    def _tablet_web_actor_return(self,target,parent,process,expected):
+        from adapters.normal_feature_state import PrivateFeatureState
+        from adapters.pico4.browser_actor_graph import EXPECTED
+        from adapters.pico4.browser_actor_return import PicoBrowserActorReturn
+        from adapters.native_feature_observation import exact
+        from adapters.script_journey.history import same
+        from fixture.chat_observer_process import LinuxChatObserverProcess
+        exact(expected,EXPECTED)
+        need(type(process) is LinuxChatObserverProcess and parent.role=='primary'
+            and expected['producerHostProcessIdentity']==process.process_identity)
+        with parent.lock.held():
+            self.check_flow(target,parent);owner=parent.owner()
+            need(owner is not None and owner['phase']=='cleaned' and same(owner['binding'],expected['binding'])
+                and owner['ownerToken']==expected['ownerToken'] and expected['runId']==parent.run
+                and expected['fixtureUrl']==parent.fixture_url and expected['foreignFixtureUrl']==parent.foreign_url
+                and expected['artifactRoot']==str(parent.artifact_root) and expected['sceneUrl']==self.scene_url)
+        process.guard()
+        def store(name):return PrivateFeatureState(parent.store.path.with_name(name))
+        stores=dict(owner=parent.store,role=store('pico-tablet-web-actor.json'),
+            history=store('pico-tablet-web-actor-sources.json'),vm=store('pico-tablet-web-actor-vm.json'),
+            quiet=store('pico-tablet-web-cleanup-quiet.json'),retirement=store('pico-tablet-web-actor-retirement.json'))
+        return PicoBrowserActorReturn(process,store('pico-tablet-web-actor-export.json'),stores,parent.lock,expected,
+            store('pico-tablet-web-actor-remote-receipt.json'))
+
     def tablet_web_manager_store(self,target):return self._store(target,'pico-tablet-web-manager.json')
 
     def _normal(self,target,flow):

@@ -2268,3 +2268,30 @@ Root4/190groups pass130.43s: coverage0.096s, original Chat factory42.123s,
 Actor/process/transport/pending graph/typed return58.251s, Assets page/Home
 29.955s. All120s selector/90s compile bounds remain. Source-complete3/14 and
 device-qualified0/14 remain unchanged.
+
+
+## Original browser graph and independent process return
+
+The new private Browser Actor export binds all six original roots, immutable
+children, stereo metadata and full PNG bytes. Parent admission replays the
+existing pure owner/sample/VM/quiet/publication grammars and the same shared
+Script history through the final inactive frame. No live Actor or native reader
+is reconstructed. One independently consumed Parent nonce and actual original
+process return are joined under the fixed Parent/source/result paths; unknown
+roots, identical-byte replacements and failed/late final publication remain
+retained. The actual direct constructor/two-process boundary is tested; full
+production constructor/product observer routing remains unexecuted.
+
+Current targeted native Script/VM/process40tests pass10.279s. Final three
+selected groups pass69.92s (coverage0.106s, Actor35.309s, return34.509s),
+and the final path-bound return group passes38.823s. Catalog191 preserves
+all previous groups and splits only disjoint complete Actor test classes.
+A combined whole-Journey120.106s timeout is retained; the isolated unchanged
+whole Journey passes103.801s before the final pure Script-history relocation.
+The current targeted checks include that relocation. Capture112.103s remains
+green on the earlier combined source. See [the exact boundaries](BROWSER_ACTOR_RETURN.md).
+
+Actual remote-return/capture composition, full archive/host closure and public
+capability remain open. Source-complete3/14 and device-qualified0/14 stay
+unchanged. Shared Script history has unchanged wire/platform behavior and can
+be reconciled independently with Phone after fixed-commit review.
