@@ -75,12 +75,16 @@ public:
  template<class... Args> MessageID renameAssetMapping(Args&&...){assert(false);return 0;}
  template<class... Args> MessageID setBakingEnabled(Args&&...){assert(false);return 0;}
  QByteArray allReply,mappingReply,content;std::atomic<bool> hold{false},fail{false};std::atomic<int> reads{0},downloads{0},canceled{0};
+ // Optional original server-body fixture. The ordinary request thread still
+ // decodes its exact wire bytes; no requested/expected status is projected.
+ std::function<QByteArray()> originalServerAll;
  QSemaphore callbackReturned,allowDestroy;
 private:
  MessageID mapping(const MappingOperationCallback& callback,bool resolve,const QString& path=QString()){
   assert(QThread::currentThread()==thread());const auto id=++next;pending.insert(id,true);++reads;
   QTimer::singleShot(10,this,[this,id,callback,resolve,path]{if(!pending.remove(id))return;
    auto reply=resolve?mappingReply:allReply;
+   if(!resolve && originalServerAll)reply=originalServerAll();
 #if defined(ASSETS_ORIGINAL_BUNDLE_UPLOADS)
    if(resolve) {
     if(!mappings.contains(path)){callback(true,AssetUtils::AssetNotFound,QSharedPointer<ReceivedMessage>::create(QByteArray()));return;}
