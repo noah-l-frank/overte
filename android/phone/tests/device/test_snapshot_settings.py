@@ -13,9 +13,10 @@ ROOT=Path(__file__).resolve().parents[4]
 sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'tests/device/adapters/android-phone')]
 from adapters.normal_ui import NativeUIError
 from appium_adapter import readonly_feature_command
-from overte_phone_snapshot_settings import PhoneSnapshotSettings,KEYS,command,validate
+from overte_phone_snapshot_settings import PhoneSnapshotSettings,KEYS,VERSION,command,validate
 
 RUN='a'*32
+ANIMATED_URL='previousAnimatedSnapUrl'
 
 
 class Boundary:
@@ -34,14 +35,24 @@ class Boundary:
         if op=='capture':self.opened=self.epoch
         if op=='restore':
             self.restoring=True;self.restore_id=request['restoreId'];self.expected=request['expectedSha256']
-            if self.fault!='unrestored':self.current=deepcopy(self.original);self.handback=self.handback or self.epoch
+            unreturned=deepcopy(self.current['entries'][ANIMATED_URL])
+            if self.fault!='unrestored':
+                self.current=deepcopy(self.original);self.handback=self.handback or self.epoch
+                if self.fault=='animated-url-unrestored':self.current['entries'][ANIMATED_URL]=unreturned
         if op=='retire':self.retired=True
         source=dict(scopePresent=not self.retired,closed=True,restoring=self.restoring,restored=bool(self.handback),retired=self.retired,
             openedEpochMs=self.opened,handbackEpochMs=self.handback,originalSha256=self.digest(self.original),currentSha256=self.digest(self.current),
             restoreId=self.restore_id,expectedSha256=self.expected,current=deepcopy(self.current),
             currentSerializedBase64=base64.b64encode(self.serialized(self.current)).decode())
-        value=dict(snapshotSettingsLeaseVersion=1,instance='b'*32,runId=request['runId'],commandId=request['commandId'],sequence=self.sequence,
+        value=dict(snapshotSettingsLeaseVersion=VERSION,instance='b'*32,runId=request['runId'],commandId=request['commandId'],sequence=self.sequence,
             processId=123,capturedEpochMs=self.epoch,operation=op,source=source)
+        if self.fault=='legacy-version':value['snapshotSettingsLeaseVersion']=1
+        if self.fault=='omit-animated-url':
+            source['current']['entries'].pop(ANIMATED_URL)
+            # Keep actual serialized bytes and their hash consistent: missing
+            # fixed scope must fail independently of a corrupt-byte counter.
+            source['currentSerializedBase64']=base64.b64encode(self.serialized(source['current'])).decode()
+            source['currentSha256']=self.digest(source['current'])
         if self.fault=='stale':value['capturedEpochMs']-=2000
         if self.fault=='foreign-pid':value['processId']=124
         if self.fault=='foreign-run':value['runId']='c'*32
@@ -59,6 +70,49 @@ class Boundary:
 
 
 class SnapshotSettingsTests(unittest.TestCase):
+    def test_animated_upload_url_restores_original_presence_and_value(self):
+        self.assertEqual(14,len(KEYS));self.assertIn(ANIMATED_URL,KEYS)
+        for present in (False,True):
+            with self.subTest(originallyPresent=present):
+                boundary=Boundary()
+                boundary.original['entries'][ANIMATED_URL]=dict(present=present,value='https://snapshot.invalid/original.gif' if present else None)
+                boundary.current=deepcopy(boundary.original);reader=boundary.reader();first=reader.request(RUN,'capture')
+                self.assertEqual(2,first['snapshotSettingsLeaseVersion'])
+                boundary.current['entries'][ANIMATED_URL]=dict(present=True,value='https://snapshot.invalid/new.gif')
+                changed=reader.request(RUN,'observe');self.assertNotEqual(first['source']['currentSha256'],changed['source']['currentSha256'])
+                restored=reader.request(RUN,'restore',restore_id='d'*32,expected_sha256=changed['source']['currentSha256'])
+                self.assertEqual(first['source']['current']['entries'][ANIMATED_URL],restored['source']['current']['entries'][ANIMATED_URL])
+                self.assertEqual(first['source']['currentSerializedBase64'],restored['source']['currentSerializedBase64'])
+                self.assertTrue(reader.request(RUN,'retire')['source']['retired'])
+
+    def test_restoring_other_settings_but_leaving_new_animated_url_is_red(self):
+        boundary=Boundary();reader=boundary.reader();reader.request(RUN,'capture')
+        wrong=dict(present=True,value='https://snapshot.invalid/still-new.gif')
+        boundary.current['entries'][ANIMATED_URL]=deepcopy(wrong)
+        boundary.current['format'].update(set=True,value='png')
+        expected=boundary.digest(boundary.current);boundary.fault='animated-url-unrestored'
+        with self.assertRaises(NativeUIError):reader.request(RUN,'restore',restore_id='d'*32,expected_sha256=expected)
+        self.assertEqual(boundary.original['format'],boundary.current['format'])
+        self.assertEqual(wrong,boundary.current['entries'][ANIMATED_URL])
+        self.assertNotEqual(boundary.original['entries'][ANIMATED_URL],boundary.current['entries'][ANIMATED_URL])
+
+    def test_omitted_animated_url_and_legacy_lease_even_with_all_new_keys_are_red(self):
+        for fault in ('omit-animated-url','legacy-version'):
+            with self.subTest(fault=fault):
+                boundary=Boundary();boundary.fault=fault
+                with self.assertRaises(NativeUIError):boundary.reader().request(RUN,'capture')
+                self.assertEqual(1,len(boundary.calls))
+                actual=json.loads(boundary.raw)
+                if fault=='legacy-version':self.assertEqual(set(KEYS),set(actual['source']['current']['entries']))
+                else:self.assertNotIn(ANIMATED_URL,actual['source']['current']['entries'])
+
+    def test_v1_durable_source_cannot_be_resumed_as_v2(self):
+        boundary=Boundary();saved=boundary.reader().request(RUN,'capture')
+        saved['snapshotSettingsLeaseVersion']=1;before=deepcopy(saved)
+        with self.assertRaises(NativeUIError):boundary.reader().restore_source(saved)
+        self.assertEqual(before,saved)
+        self.assertEqual(1,len(boundary.calls))
+
     def test_real_lifecycle_preserves_original_typed_digest_and_handback(self):
         boundary=Boundary();reader=boundary.reader();first=reader.request(RUN,'capture')
         boundary.current['format'].update(set=True,value='png')

@@ -17,9 +17,10 @@ from feature_journeys.contract import typed_equal
 from overte_phone_snapshot_source import nonce
 
 FILE='phone-snapshot-settings.json'
+VERSION=2
 KEYS=sorted(('alsoTakeAnimatedSnapshot','snapshotFormat','previousSnapshotHref','previousSnapshotDomainID',
     'previousStillSnapPath','previousStillSnapStoryID','previousStillSnapBlastingDisabled','previousStillSnapHifiSharingDisabled','previousStillSnapUrl',
-    'previousAnimatedSnapPath','previousAnimatedSnapStoryID','previousAnimatedSnapBlastingDisabled','previousAnimatedSnapHifiSharingDisabled'))
+    'previousAnimatedSnapPath','previousAnimatedSnapStoryID','previousAnimatedSnapUrl','previousAnimatedSnapBlastingDisabled','previousAnimatedSnapHifiSharingDisabled'))
 
 
 def sha(value):
@@ -39,7 +40,7 @@ def command(value):
 def validate(value,request,pid,epoch):
     command(request)
     exact(value,{'snapshotSettingsLeaseVersion','instance','runId','commandId','sequence','processId','capturedEpochMs','operation','source'})
-    need(type(value['snapshotSettingsLeaseVersion']) is int and value['snapshotSettingsLeaseVersion']==1
+    need(type(value['snapshotSettingsLeaseVersion']) is int and value['snapshotSettingsLeaseVersion']==VERSION
         and nonce(value['instance']) and integer(value['sequence'],1) and integer(value['processId'],1) and value['processId']==pid
         and all(value[k]==request[k] for k in ('runId','commandId','operation')))
     fresh(value['capturedEpochMs'],epoch);source=value['source']

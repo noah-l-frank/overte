@@ -7,7 +7,7 @@ namespace overte::e2e {
 inline QStringList snapshotSettingsKeys() {
     QStringList keys{"alsoTakeAnimatedSnapshot","snapshotFormat","previousSnapshotHref","previousSnapshotDomainID",
         "previousStillSnapPath","previousStillSnapStoryID","previousStillSnapBlastingDisabled","previousStillSnapHifiSharingDisabled","previousStillSnapUrl",
-        "previousAnimatedSnapPath","previousAnimatedSnapStoryID","previousAnimatedSnapBlastingDisabled","previousAnimatedSnapHifiSharingDisabled"};
+        "previousAnimatedSnapPath","previousAnimatedSnapStoryID","previousAnimatedSnapUrl","previousAnimatedSnapBlastingDisabled","previousAnimatedSnapHifiSharingDisabled"};
     keys.sort();return keys;
 }
 }

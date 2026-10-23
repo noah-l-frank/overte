@@ -84,7 +84,7 @@ public:
         if (_restoreStarted && !_retired && !partial(actual,_basis,_original)) { _available=false;return {}; }
         const auto captured=QDateTime::currentMSecsSinceEpoch();
         if (captured<now || captured-now>=1500) { _available=false;return {}; }_epoch=captured;
-        return {{"snapshotSettingsLeaseVersion",1},{"instance",_instance},{"runId",run},{"commandId",id},
+        return {{"snapshotSettingsLeaseVersion",2},{"instance",_instance},{"runId",run},{"commandId",id},
             {"sequence",static_cast<qulonglong>(++_sequence)},{"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",captured},{"operation",operation},
             {"source",QVariantMap{{"scopePresent",!_run.isEmpty() && !_retired},{"closed",closed},{"restoring",_restoreStarted},
                 {"restored",_restored},{"retired",_retired},{"openedEpochMs",_opened},{"handbackEpochMs",_handback},

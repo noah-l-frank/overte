@@ -506,8 +506,20 @@ The reducer never converts an acknowledged input or an empty result into a
 file, cancellation or completed capture verdict.
 
 
-The separate native Snapshot settings lease v1 captures only the original fixed
-13 Snapshot keys plus the actual native `Setting::Handle<QString>` format cache.
+The separate native Snapshot settings lease v2 captures the original fixed
+14 Snapshot keys plus the actual native `Setting::Handle<QString>` format cache.
+The scope includes `previousAnimatedSnapUrl`, which the product's normal GIF
+upload/reopen/Copy-URL path now writes. Cleanup restores its actual original
+value or original absence; restoring the other settings while leaving a new GIF
+URL is incomplete cleanup. Native and Python readers enforce the same exact
+scope. The command grammar and common feature v18 are unchanged.
+
+Historical v1 captures covered thirteen keys. They and their durable journals
+cannot be resumed or relabeled as v2, even by appending the new key. Preserve
+their ownership and finish them with matching old instrumentation before using
+a new v2 scope; no automatic migration, journal deletion or adoption of user
+artifacts is authorized. An absent/legacy producer stays fail-closed. Prior
+source/host whole-run results remain bound to their original lease/source bytes.
 Capture, restore and retirement require actual review absence, no native capture
 or upload and no pending/processing original script context. Commands cannot
 provide settings, desired values, paths, or a claimed UI-closed state. A restore
@@ -1378,7 +1390,7 @@ provider's retained multipart body remains an unchanged private provenance
 original until Client.close. Normal cleanup then deletes the original OS
 destinations, revokes and checks URI grants, retires actual readback and consumer/
 document workers, seals/deletes owned native/host capture files, restores the
-original thirteen typed raw settings and native cache handle, logs out the owned
+original fourteen typed raw settings and native cache handle, logs out the owned
 account and restores owned camera/input state. Unknown files, missing source
 observations, pending work, failed deletes or foreign identities retain journals
 and remain red. Empty public live capture history is allowed only after this

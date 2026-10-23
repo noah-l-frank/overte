@@ -57,8 +57,14 @@ int main(int argc,char** argv) {
     QCoreApplication::setOrganizationName("Overte-E2E-Host");QCoreApplication::setApplicationName("Snapshot-settings");
     QSettings::setPath(QSettings::NativeFormat,QSettings::UserScope,directory.path());
     originalManager.reset(new HostSettings());auto manager=originalManager;int status=0;
+    const QString animatedUrlKey="previousAnimatedSnapUrl";
+    const QString originalAnimatedUrl="https://snapshot.invalid/original.gif";
+    const QString changedAnimatedUrl="https://snapshot.invalid/new.gif";
     manager->setValue("unrelated",QVariantList{1,QString("preserve")});
     for (int type=0;type<4;++type) {
+        // Exercise both genuine original key absence and a populated URL.
+        if (type%2) { manager->setValue(animatedUrlKey,originalAnimatedUrl); }
+        else { manager->remove(animatedUrlKey); }
         manager->remove("snapshotFormat");
         if (type==1) { manager->setValue("snapshotFormat",QVariant()); }
         if (type==2) { manager->setValue("snapshotFormat",QString("")); }
@@ -68,16 +74,22 @@ int main(int argc,char** argv) {
         CHECK(snapshot.featureSnapshotSettings(malformed,true).isEmpty() && snapshot._featureSnapshotSettingsScopes.isEmpty());
         CHECK(snapshot.featureSnapshotSettings(capture,false).isEmpty() && snapshot._featureSnapshotSettingsScopes.isEmpty());
         const auto initial=snapshot.featureSnapshotSettings(capture,true);CHECK(!initial.isEmpty());
+        CHECK(initial.value("snapshotSettingsLeaseVersion").userType()==QMetaType::Int
+            && initial.value("snapshotSettingsLeaseVersion").toInt()==2);
         const auto original=initial.value("source").toMap().value("current").toMap();CHECK(Lease::valid(original));
+        CHECK(original.value("entries").toMap().size()==14 && original.value("entries").toMap().contains(animatedUrlKey));
         // Actual typed native cache and independent raw settings now change.
         snapshot._snapshotFormat.set("png");manager->setValue("alsoTakeAnimatedSnapshot",true);
         manager->setValue("previousStillSnapPath",QString("controlled-original"));
+        manager->setValue(animatedUrlKey,changedAnimatedUrl);
         const auto changed=snapshot.featureSnapshotSettings(query(run,"observe"),false);
         auto restore=query(run,"restore");restore.insert("restoreId",QString(32,'c'));
         restore.insert("expectedSha256",changed.value("source").toMap().value("currentSha256"));
         CHECK(snapshot.featureSnapshotSettings(restore,false).isEmpty());
         auto wrong=restore;wrong.insert("expectedSha256",QString(64,'0'));CHECK(snapshot.featureSnapshotSettings(wrong,true).isEmpty());
         auto expected=manager->featureSnapshotEntries();auto desired=original.value("entries").toMap();
+        auto omitted=original;auto omittedEntries=desired;omittedEntries.remove(animatedUrlKey);omitted.insert("entries",omittedEntries);
+        CHECK(!Lease::valid(omitted) && !manager->featureRestoreSnapshotEntries(expected,omittedEntries));
         auto foreign=desired;foreign.insert("unrelated",QVariantMap{{"present",false},{"value",QVariant()}});
         CHECK(!manager->featureRestoreSnapshotEntries(expected,foreign));
         // Counterexample: a raw-only implementation leaves the original native
@@ -88,6 +100,8 @@ int main(int argc,char** argv) {
         QSignalSpy removed(manager.data(),SIGNAL(keyRemoved(QString)));
         const auto restored=snapshot.featureSnapshotSettings(restore,true);CHECK(!restored.isEmpty());
         CHECK(Lease::same(restored.value("source").toMap().value("current"),original));
+        CHECK(manager->contains(animatedUrlKey)==bool(type%2));
+        if (type%2) { CHECK(manager->value(animatedUrlKey).toString()==originalAnimatedUrl); }
         const auto handback=restored.value("source").toMap().value("handbackEpochMs");
         CHECK(snapshot.featureSnapshotSettings(restore,true).value("source").toMap().value("handbackEpochMs")==handback);
         wrong=restore;wrong.insert("restoreId",QString(32,'d'));CHECK(snapshot.featureSnapshotSettings(wrong,true).isEmpty());
@@ -95,6 +109,36 @@ int main(int argc,char** argv) {
         CHECK(snapshot.featureSnapshotSettings(capture,true).isEmpty());
         CHECK(manager->value("unrelated")==QVariant(QVariantList{1,QString("preserve")}));
         CHECK(manager->featureSnapshotEntries().keys()==overte::e2e::snapshotSettingsKeys());
+    }
+    {
+        // A callback that restores every other raw setting and the native
+        // cache but leaves the NEW animated URL cannot claim handback.
+        manager->setValue(animatedUrlKey,originalAnimatedUrl);
+        Snapshot snapshot;const QString run(32,'a');
+        const auto first=snapshot.featureSnapshotSettings(query(run,"capture"),true);CHECK(!first.isEmpty());
+        const auto original=first.value("source").toMap().value("current").toMap();
+        snapshot._snapshotFormat.set("png");manager->setValue(animatedUrlKey,changedAnimatedUrl);
+        auto read=[&] { return QVariantMap{{"format",QVariantMap{{"set",snapshot._snapshotFormat.isSet()},{"value",snapshot._snapshotFormat.get()}}},
+            {"entries",manager->featureSnapshotEntries()}}; };
+        auto restore=query(run,"restore");restore.insert("restoreId",QString(32,'a'));
+        restore.insert("expectedSha256",Lease::Values::digest(read()));
+        const auto owner=snapshot._featureSnapshotSettingsScopes.value(run);
+        CHECK(owner->request(restore,true,read,[&](const QVariantMap& expected,const QVariantMap& prior) {
+            auto incomplete=prior.value("entries").toMap();incomplete.insert(animatedUrlKey,expected.value("entries").toMap().value(animatedUrlKey));
+            if (!manager->featureRestoreSnapshotEntries(expected.value("entries").toMap(),incomplete)) { return false; }
+            const auto format=prior.value("format").toMap();
+            if (format.value("set").toBool()) { snapshot._snapshotFormat.set(format.value("value").toString()); }
+            else { snapshot._snapshotFormat.remove(); }
+            return manager->featureRestoreSnapshotEntries(manager->featureSnapshotEntries(),incomplete);
+        }).isEmpty());
+        auto actualOthers=manager->featureSnapshotEntries(),originalOthers=original.value("entries").toMap();
+        actualOthers.remove(animatedUrlKey);originalOthers.remove(animatedUrlKey);
+        CHECK(Lease::same(actualOthers,originalOthers));
+        CHECK(Lease::same(read().value("format"),original.value("format")));
+        CHECK(manager->value(animatedUrlKey).toString()==changedAnimatedUrl);
+        CHECK(!snapshot.featureSnapshotSettings(restore,true).isEmpty());
+        CHECK(manager->value(animatedUrlKey).toString()==originalAnimatedUrl);
+        CHECK(!snapshot.featureSnapshotSettings(query(run,"retire"),true).isEmpty());
     }
     {
         // Lost partial response: first callback really restores raw keys then
@@ -116,6 +160,6 @@ int main(int argc,char** argv) {
 finished:
     manager->terminateThread();
     if (status) { return 1; }
-    std::cout<<"PASS: actual typed raw/cache restoration, ignored cache counterexample, original presence/type, partial CAS resume and closed UI/foreign key refusal\n";
+    std::cout<<"PASS: lease v2 fourteen-key typed restoration, populated/absent animated URL, omitted key/partial URL refusal, native cache, partial CAS resume and closed UI/foreign key refusal\n";
     return 0;
 }
