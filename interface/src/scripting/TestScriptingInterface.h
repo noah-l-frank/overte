@@ -23,7 +23,7 @@
 #include <memory>
 namespace overte::e2e { class ChatViewObservation; class ChatProfileOwner; class CreateEntityLifetimes; class CreateModelResources; class AudioSettingsObservation; class AudioSettingsQueue; }
 namespace overte::e2e { class ChatPeerPosition; }
-namespace overte::e2e { class PicoEmoteSceneFixture; class AvatarPreferenceSnapshot; }
+namespace overte::e2e { class PicoEmoteSceneFixture; class AvatarPreferenceSnapshot; class PrivateAssetsFiles; }
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; }
 #endif
@@ -211,6 +211,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureSceneLoadObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAvatarRenderObservation(const QVariantMap& command);
 #if defined(ANDROID_APP_PICO_INTERFACE)
+    Q_INVOKABLE QVariantMap featurePicoAssetsFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAvatarState(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAvatarBookmarks(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAvatarBookmarkLoads(const QVariantMap& command);
@@ -310,6 +311,10 @@ private:
 #if defined(ANDROID_APP_PICO_INTERFACE)
     std::shared_ptr<overte::e2e::PicoEmoteSceneFixture> _featureEmoteScene;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureEmoteSceneQueue;
+    std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAssetsFilesQueue;
+    std::shared_ptr<overte::e2e::PrivateAssetsFiles> _featureAssetsFiles;
+    quint64 _featureAssetsFilesSequence {0};
+    QHash<QString,QVariantMap> _featureAssetsFilesCommands,_featureAssetsFilesResults;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAvatarStateQueue;
     quint64 _featureAvatarStateSequence {0};
     QSet<QString> _featureAvatarStateRequests;

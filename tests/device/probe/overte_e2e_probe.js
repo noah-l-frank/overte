@@ -156,6 +156,7 @@
     var lastPicoEmoteSceneRequest = "";
     var lastPicoAvatarStateRequest = "";
     var lastPicoAvatarPreferencesRequest = "";
+    var lastPicoAssetsFilesRequest = "";
     var lastPicoAvatarBookmarkLoadsRequest = "";
     var lastPicoAvatarBookmarksRequest = "";
     var lastGraphicsSubjectRequest = "";
@@ -1110,6 +1111,25 @@
             } catch (_picoEmoteSceneError) { /* Original ownership and missing scene facts remain unresolved. */ }
             Test.saveObject(picoEmoteScene, "feature-pico-emote-scene.json");
             return;
+        }
+
+        if (command && command.schemaVersion === 1 && command.action === "feature-pico-assets-files"
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && typeof command.ownerToken === "string" && /^[0-9a-f]{64}$/.test(command.ownerToken)
+                && /^(stage|observe|retire-primary|release)$/.test(command.operation)
+                && objectKeysMatch(command,["schemaVersion","commandId","action","operation","runId","ownerToken"].concat(
+                    Object.prototype.hasOwnProperty.call(command,"stage") ? ["stage"] : [], command.operation === "stage" ? ["files"] : []))) {
+            if (command.commandId === lastPicoAssetsFilesRequest) {return;}
+            lastPicoAssetsFilesRequest = command.commandId;
+            var picoAssetsFiles = {schemaVersion:1,requestId:command.commandId,available:false};
+            try {
+                if (typeof Test.featurePicoAssetsFiles === "function") {
+                    var originalPicoAssetsFiles = Test.featurePicoAssetsFiles(command);
+                    if (originalPicoAssetsFiles && originalPicoAssetsFiles.requestId === command.commandId) {picoAssetsFiles = originalPicoAssetsFiles;}
+                }
+            } catch (_picoAssetsFilesError) { /* Actual private file ownership remains unresolved. */ }
+            Test.saveObject(picoAssetsFiles,"feature-pico-assets-files.json");return;
         }
 
         if (command && command.schemaVersion === 1
@@ -2290,6 +2310,7 @@
                 || command.action === "feature-create-models-observe"
                 || command.action === "feature-create-browse-setting"
                 || command.action === "feature-world-render-observe"
+                || command.action === "feature-pico-assets-files"
                 || command.action === "feature-pico-avatar-state-observe"
                 || command.action === "feature-pico-avatar-bookmarks-observe"
                 || command.action === "feature-pico-avatar-bookmark-loads-observe"

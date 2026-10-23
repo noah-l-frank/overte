@@ -95,3 +95,51 @@ The final unchanged owning selection passed both new selectors in 21.96 seconds
 cases total. Documentation668, closed version registry, common/product13,
 coverage7 with all14 risk rows and whitespace checks passed. The whole native
 application and every physical device remain unqualified.
+
+## Private bundle input ownership
+
+The next additive private component stages the seven fixed glTF/OBJ/FBX bundle
+inputs through `featurePicoAssetsFiles` and the closed
+`feature-pico-assets-files` probe action. `_assets_file_owner` binds the actual
+candidate/process observer, private journal, original run/ticket/fixture URL and
+optional fixed generation 1–6. Every retained file journal, including native-file-retired journals, blocks base cleanup until the whole consumer/backend retirement join.
+This remains a component route; no public Assets capability is enabled.
+
+`PrivateAssetsFiles` reuses Root's exact private descriptor primitives through
+one friend and a separate input-only nanosecond identity reader. Existing
+Create and Script file role behavior is unchanged. It admits no arbitrary file
+path, AssetClient call, upload, mapping mutation or model construction. Files
+and directories have exclusive original inode ownership, private modes and
+fixed names; changed bytes, inode replacement, links, unknown children and
+foreign native lifetimes refuse observation/deletion. Actual parent identity
+and ENOENT are checked again for reported absence. Primary retirement unlinks
+only the owned glTF main file; companions remain independently observed.
+
+The native getter uses the existing weak bounded queue, including original GUI
+marshaling and cancellation of a blocked dispatch. Its 512-command history
+never evicts originals or resets counters. Exact repeats return the old packet
+without changing its original time; a changed command with the same ID refuses.
+The durable owner records intent before mutation, stores original raw bytes and
+hashes in its bounded private transcript, and cold reconstruction validates
+those originals at historical times. Lost stage/primary replies reconcile by
+fresh observation without repeating either mutation. Native and elapsed host
+clocks jointly enforce freshness even if the native clock freezes.
+
+File release requires the caller's fresh consumer-retirement witness; this
+packet's positive witness is an explicit host boundary. Hidden UI, input ACKs,
+requested paths and original fixture bytes do not supply that proof. A false
+witness leaves the complete lease retained. The journal remains after native
+file absence with its exact originals. Actual picker/model/context/callback
+retirement and independent backend/upload absence must still be joined before
+whole Assets cleanup can qualify. No actual server upload/download or physical
+Pico run occurred in these tests.
+
+`assets-native-files` compiles the complete production getter, actual storage
+and real queue. `assets-file-owner` composes the same compiled getter/storage
+process with the durable Python owner; only lifecycle presence and command
+delivery/loss are declared boundaries. On 2026-10-23 the unchanged selected
+seven cases passed in 8.29 seconds (native 3.617 s, owner 4.676 s), including
+real inode replacement, cold native lifetime refusal, lost replies, retained
+consumer refusal, foreign binding/raw-byte tampering and frozen native clock.
+The local catalog gains exactly two selectors (146→148); registry additions
+are `native-pico-assets-files:1` and `pico-assets-file-owner:1`.

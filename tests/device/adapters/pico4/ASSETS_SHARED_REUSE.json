@@ -14,6 +14,34 @@
       "originalSha256": "56fe8a05cebf6ab2b9b3f9190d3b6a6a98150d39d4e6928d7cc8bc22fd655e13",
       "selectedSha256": "196fabb3c902984ebe9bd4671f6a5d7d44b3a0d6079195268467baada03c9c0f",
       "adaptation": "Preserve original controls; bind resolved original URLs/base types/finite geometry/window and resolve Qt5 standard-button roles through the original importing context."
+    },
+    {
+      "path": "tests/device/adapters/assets_input.py",
+      "sourcePath": "tests/device/adapters/android-phone/overte_phone_assets_fixture.py",
+      "originalSha256": "0a4c3059065cd4e1f20eb3036f005cb73f2de0e6f78ad1155823a9ffce6df62d",
+      "selectedSha256": "0a4c3059065cd4e1f20eb3036f005cb73f2de0e6f78ad1155823a9ffce6df62d",
+      "adaptation": "Keep only pinned INPUT bundle bytes/manifest; no observed state."
+    },
+    {
+      "path": "tests/device/adapters/pico4/assets_files.py",
+      "sourcePath": "tests/device/adapters/android-phone/overte_phone_assets_files.py",
+      "originalSha256": "3cd089f4fd4fcd0af59716421464d30642db41ac8a747820f5a29661b9d6f5a2",
+      "selectedSha256": "fa9436f48649b7301b81ba6ff622a568581a532aae892b669708c1eea3656ebe",
+      "adaptation": "Pico closed source/action; original raw transcripts, bounded cold continuity and combined host/native freshness."
+    },
+    {
+      "path": "tests/device/native/PrivateAssetsFiles.h",
+      "sourcePath": "tests/device/native/PrivateAssetsFiles.h",
+      "originalSha256": "f546d4ebbe24ac7aaf41dd139160a349e47569da23b25716f8c233848756ee75",
+      "selectedSha256": "8723940b3923e24277085fdd0c856193525e00b6e0d1ebbcd1662b739f7bbfdc",
+      "adaptation": "Pico test gate, Root descriptor primitives, final original-parent/ENOENT rechecks; no product operation."
+    },
+    {
+      "path": "tests/device/native/AssetsFilePrimitives.h",
+      "sourcePath": "tests/device/native/PrivateCreateFiles.h",
+      "originalSha256": "736fa7e7048cdcc1edd62a0c5d98659a4854b14ae32b337512be09a6e369c248",
+      "selectedSha256": "a9f42fd50063237028595c3e5dae02e40134f3d86b0578701e68f14fc780230e",
+      "adaptation": "Select only nanosecond identity/bounded private input read and reuse Root descriptor safety through a friend; preserve existing Create implementation."
     }
   ],
   "unchangedProductSources": [
