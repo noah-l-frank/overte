@@ -411,8 +411,17 @@ class PicoTabletWebFeature:
                     ownerToken=owner['ownerToken'],scriptUrl=owner['scriptUrl']))
             if not legacy:
                 need(len(self._image_cache)<512)
-                cached=dict(image=deepcopy(image),scope=deepcopy(scope),png=deepcopy(rows[0]['image']),stamp=stamp,capture=list(key),
-                    facts=deepcopy(_facts),lifecycle=deepcopy(rows[0]['frame']['nativeBefore']['lifecycle']))
+                # Retain only the admitted semantics used by physical rechecks
+                # and sample joins. Full capture matrices and source packets
+                # remain in the original metadata, read and hashed on every
+                # verification; cold admission above validates all of them.
+                original_png=rows[0]['image']
+                png_reference={field:deepcopy(original_png[field]) for field in ('name','bytes','sha256','file')}
+                png_reference['capture']={field:original_png['capture'][field]
+                    for field in ('instance','requestId','capturedEpochMs')}
+                cached=dict(image=deepcopy(image),scope=deepcopy(scope),png=png_reference,stamp=stamp,capture=list(key),
+                    facts={field:deepcopy(_facts[field]) for field in ('state','earliestEpochMs')},
+                    lifecycle=deepcopy(rows[0]['frame']['nativeBefore']['lifecycle']))
                 self.image_cache_digests[cache_key]=self.image_digest(cached)
                 from adapters.script_journey.history import canonical
                 self._image_cache[cache_key]=canonical(cached)

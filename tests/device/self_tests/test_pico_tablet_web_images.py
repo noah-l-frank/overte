@@ -98,11 +98,19 @@ class PicoTabletWebImageTests(unittest.TestCase):
     def test_warm_validation_reuses_only_original_semantics_and_cold_reads_revalidate_every_source(self):
         self.capture()
         from feature_journeys.stereo_browser_evidence import archive_sources
-        with self.flow.lock.held(),patch('feature_journeys.stereo_browser_evidence.archive_sources',wraps=archive_sources) as validate:
+        with self.flow.lock.held(),patch('feature_journeys.stereo_browser_evidence.archive_sources',wraps=archive_sources) as validate, \
+                patch.object(self.flow,'_original_image_bytes',wraps=self.flow._original_image_bytes) as physical:
             self.flow.role_state();self.assertEqual(1,validate.call_count)
             self.flow.role_state();self.assertEqual(1,validate.call_count)
+            self.assertEqual(2,physical.call_count)
+            # Warm memoization retains only the joins it uses. The complete
+            # metadata/PNG still reach the independent full cold validator.
+            original=json.loads(validate.call_args.args[0]);rows=unpack(original['payload'])
+            self.assertIn('source',rows[0]['image']['capture'])
+            self.assertNotIn('source',next(iter(self.flow.image_cache.values()))['png']['capture'])
             cold=self.fixture.binding.feature('owned',self.fixture.flow().source,self.model.artifacts,feature_seams.FOREIGN)
             cold.role_state();self.assertEqual(2,validate.call_count)
+            self.assertEqual(validate.call_args_list[0].args,validate.call_args_list[1].args)
         self.assertEqual(1,len(self.model.gpu.commands))
 
     def test_warm_png_replacement_cached_value_or_missing_reference_cannot_renew_original_semantics(self):

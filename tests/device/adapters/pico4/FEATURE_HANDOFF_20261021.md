@@ -69,6 +69,16 @@ Assets normal Cancel/picker/model/original-file joins subsequently pass all
 three owning groups33.34s; contexts remain separately reported and unretired.
 Snapshot OS-source/final-authority fences pass2.261s with unchanged coverage.
 
+Tablet Web's immutable image memo now retains only the physical file reference,
+capture identity/time and sample-join facts. Complete source/camera matrices
+remain in original metadata: every warm verification reads and hashes that
+whole metadata and PNG again, while every cold admission runs the full shared
+source validator. Forty-six affected image/history/coordinator cases pass11.926s;
+the strengthened six-case image group passes6.828s, including identical complete
+cold inputs and physical reads on each warm hit. The preceding isolated whole
+Journey still timed out120.110s after126 samples per role at cleanup; this
+optimization alone does not qualify its complete journey or final retirement.
+
 | Area | Current Pico implementation | Concrete next boundary |
 | --- | --- | --- |
 | Worlds/navigation | Partial normal Places/bookmark/origin/directory/error and measured B/A transit with original stereo-source retirement | Fresh v2 image/actor publication, normal tablet and Go To closure, maturity composition, restart and independent final retirement |
