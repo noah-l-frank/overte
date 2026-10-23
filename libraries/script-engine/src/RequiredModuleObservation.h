@@ -23,8 +23,10 @@ public:
             _instance = QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
         }
     }
-    // Capture exactly the UTF-16 code units passed to the real top-level
-    // engine evaluation. No disk reread or requested URL stands in for code.
+    // Capture exactly the UTF-16 code units submitted to the real top-level
+    // engine compilation/evaluation path, before syntax checking can compile.
+    // Submission is not syntax validity or initialization success. No disk
+    // reread or requested URL stands in for code.
     void submitted(const QString& code) {
         std::lock_guard<std::mutex> lock(_mutex);
         if (_instance.isEmpty() || !_valid) { return; }

@@ -167,4 +167,138 @@ class SnapshotScriptNativeTests(unittest.TestCase):
     def test_actual_qt_timer_inventory_observes_registration_and_cancellation_without_touching_foreign_timers(self):self.run_case('timer-work')
 
 
+class ScriptSubmissionNativeTests(unittest.TestCase):
+    """Actual submission block/recorder; engine syntax/evaluation is a seam, not V8."""
+    @classmethod
+    def setUpClass(cls):
+        parent=ROOT/'build/script-submission-native-contract';parent.mkdir(parents=True,exist_ok=True)
+        temporary=tempfile.TemporaryDirectory(prefix='original-',dir=parent);cls.addClassCleanup(temporary.cleanup)
+        stage=Path(temporary.name)
+        manager=(ROOT/'libraries/script-engine/src/ScriptManager.cpp').read_text()
+        start=manager.index('    {\n        PROFILE_RANGE(script, _fileNameString);')
+        original=manager[start:manager.index('\n#ifdef _WIN32',start)]
+        prefix=r'''
+#include <QCoreApplication>
+#include <QDateTime>
+#include <QDebug>
+#include <QJsonDocument>
+#include <QThread>
+#include <memory>
+#include <cstdio>
+#include "libraries/script-engine/src/RequiredModuleObservation.h"
+#define PROFILE_RANGE(category,name) ((void)0)
+#define qCWarning(category) qWarning()
+enum class ScriptSyntaxCheckResult { Valid, Error };
+struct Syntax {
+    bool valid; ScriptSyntaxCheckResult state() const {
+        return valid ? ScriptSyntaxCheckResult::Valid : ScriptSyntaxCheckResult::Error;
+    }
+};
+struct Engine;
+struct Program { Engine* engine; std::shared_ptr<Syntax> checkSyntax(); };
+struct Engine {
+    overte::e2e::RequiredModuleObservation* records;
+    QString source,mode; int checks{0},evaluations{0};
+    std::shared_ptr<Program> newProgram(const QString& code,const QString&) {
+        source=code; return std::make_shared<Program>(Program{this});
+    }
+    int evaluate(const std::shared_ptr<Program>&) { return ++evaluations; }
+    int evaluate(const QString& code,const QString&) {
+        source=code;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        records->compiled(17,QStringLiteral("owned.js"),source);
+#endif
+        return ++evaluations;
+    }
+    bool hasUncaughtException() const { return mode=="exception"; }
+};
+std::shared_ptr<Syntax> Program::checkSyntax() {
+    ++engine->checks; const bool valid=engine->mode!="invalid";
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if(valid) engine->records->compiled(17,QStringLiteral("owned.js"),engine->source);
+#endif
+    // Make an erroneous later submission observably later than compilation.
+    QThread::msleep(4); return std::make_shared<Syntax>(Syntax{valid});
+}
+struct Manager {
+    overte::e2e::RequiredModuleObservation _e2eRequiredModules;
+    QString _scriptContents=QString::fromUtf8("var actual = 'Ω 東京';\n");
+    QString _fileNameString=QStringLiteral("owned.js"),mode;
+    std::unique_ptr<Engine> _engine;
+    int _returnValue{0},errors{0},stops{0}; bool _abortOnUncaughtException{false};
+    Manager(const QString& value):mode(value),_engine(new Engine{&_e2eRequiredModules,{},value}) {}
+    bool isUserLoaded() const { return mode!="builtin"; }
+    QString getFilename() const { return _fileNameString; }
+    void errorLoadingScript(const QString&) { ++errors; }
+    void stop() { ++stops; }
+    void runInitial() {
+'''
+        suffix=r'''
+    }
+};
+int main(int argc,char** argv) {
+    QCoreApplication app(argc,argv); Manager manager(QString::fromLocal8Bit(argv[1]));
+    manager.runInitial();
+    QVariantMap result{{"code",manager._e2eRequiredModules.sourceIdentity()},
+        {"compiled",manager._e2eRequiredModules.compiledSources()},
+        {"checks",manager._engine->checks},{"evaluations",manager._engine->evaluations},
+        {"errors",manager.errors},{"stops",manager.stops}};
+    std::puts(QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).constData());
+}
+'''
+        source=stage/'original.cpp';source.write_text(prefix+original+suffix)
+        flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt6Core'],text=True))
+        cls.executables={}
+        for enabled in (True,False):
+            executable=stage/('enabled' if enabled else 'disabled')
+            subprocess.run(['c++','-std=c++17','-fPIC',*(['-DOVERTE_E2E_FEATURE_TESTS'] if enabled else []),
+                '-I'+str(ROOT),str(source),'-o',str(executable),*flags],check=True,timeout=60)
+            cls.executables[enabled]=executable
+        # Reproduce the former integration error using the same source block,
+        # recorder, compiler boundary and real clocks; no timestamp is rewritten.
+        submission='        _e2eRequiredModules.submitted(_scriptContents);\n'
+        if original.count(submission)!=1:
+            raise AssertionError('Expected one original source submission')
+        late=original.replace(submission,'').replace(
+            '                _returnValue = _engine->evaluate(program);',
+            submission+'                _returnValue = _engine->evaluate(program);',1)
+        source.write_text(prefix+late+suffix)
+        cls.late_executable=stage/'late-submission'
+        subprocess.run(['c++','-std=c++17','-fPIC','-DOVERTE_E2E_FEATURE_TESTS',
+            '-I'+str(ROOT),str(source),'-o',str(cls.late_executable),*flags],check=True,timeout=60)
+
+    def assert_submission_order(self,value):
+        self.assertGreaterEqual(value['compiled']['compilations'][0]['compiledEpochMs'],
+            value['code']['submittedEpochMs'])
+
+    def test_actual_submission_precedes_user_syntax_compilation_and_builtin_evaluation(self):
+        for enabled in (True,False):
+            for mode in ('user','invalid','exception','builtin'):
+                with self.subTest(enabled=enabled,mode=mode):
+                    value=json.loads(subprocess.check_output([str(self.executables[enabled]),mode,'--testScript'],
+                        text=True,timeout=5))
+                    self.assertEqual(int(mode!='builtin'),value['checks'])
+                    self.assertEqual(int(mode!='invalid'),value['evaluations'])
+                    self.assertEqual(int(mode in ('invalid','exception')),value['errors'])
+                    self.assertEqual(value['errors'],value['stops'])
+                    code=value['code'];rows=value['compiled']['compilations']
+                    self.assertEqual(enabled,code['submitted'])
+                    if not enabled:
+                        self.assertEqual(0,code['submittedEpochMs']);self.assertEqual([],rows)
+                        continue
+                    raw="var actual = 'Ω 東京';\n".encode('utf-16-le')
+                    self.assertEqual(len(raw)//2,code['codeUnits'])
+                    import hashlib
+                    self.assertEqual(hashlib.sha256(raw).hexdigest(),code['sha256'])
+                    self.assertGreater(code['submittedEpochMs'],0)
+                    self.assertEqual(int(mode!='invalid'),len(rows))
+                    if rows:
+                        self.assert_submission_order(value)
+                        self.assertEqual(code['sha256'],rows[0]['sha256'])
+        late=json.loads(subprocess.check_output([str(self.late_executable),'user','--testScript'],
+            text=True,timeout=5))
+        self.assertEqual(1,late['checks']);self.assertEqual(1,late['evaluations'])
+        with self.assertRaises(AssertionError):self.assert_submission_order(late)
+
+
 if __name__=='__main__':unittest.main()

@@ -10,9 +10,15 @@ records actual compiled source bytes and Script IDs, including files evaluated
 through `Script.include` within one shared manager. Top-level submission alone
 does not identify included Emote code or its caller/timer origin.
 
-Immediately before the real `_engine->evaluate(_scriptContents, _fileNameString)`
-call, ScriptManager records exactly that QString's UTF-16 code units in little
-endian order, including unpaired units and BOM/newlines. It hashes those original
+Immediately before choosing the actual top-level compilation/evaluation path,
+ScriptManager records exactly `_scriptContents`' QString UTF-16 code units in
+little endian order, including unpaired units and BOM/newlines. For user scripts,
+this precedes `newProgram` and `checkSyntax`, because checking syntax already
+compiles and records an original V8 compilation. For other scripts, it precedes
+the direct `evaluate` call. Invalid syntax still has an actual source submission;
+that event proves neither valid syntax nor successful initialization. Original
+compilation times must remain at or after submission, without retiming either
+observation or weakening reader ordering. It hashes those original
 units with SHA-256. No file reread, fetch receipt, desired script or source URL
 is used as the measured text. No input accepts a digest or code. The private
 record retains original `submittedEpochMs`; later reads never retime it.

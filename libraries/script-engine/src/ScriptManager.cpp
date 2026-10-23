@@ -1097,6 +1097,11 @@ void ScriptManager::run() {
 
     {
         PROFILE_RANGE(script, _fileNameString);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        // Record actual source submission before newProgram/checkSyntax can
+        // compile it. Submission proves neither valid syntax nor initialization.
+        _e2eRequiredModules.submitted(_scriptContents);
+#endif
         if (isUserLoaded()) {
             auto program = _engine->newProgram(_scriptContents, _fileNameString);
             auto syntax = program ? program->checkSyntax() : nullptr;
@@ -1104,15 +1109,9 @@ void ScriptManager::run() {
                 emit errorLoadingScript(getFilename());
                 stop();
             } else {
-#if defined(OVERTE_E2E_FEATURE_TESTS)
-                _e2eRequiredModules.submitted(_scriptContents);
-#endif
                 _returnValue = _engine->evaluate(program);
             }
         } else {
-#if defined(OVERTE_E2E_FEATURE_TESTS)
-            _e2eRequiredModules.submitted(_scriptContents);
-#endif
             _returnValue = _engine->evaluate(_scriptContents, _fileNameString);
         }
 
