@@ -184,15 +184,28 @@ class ChatRemotePublicationTests(unittest.TestCase):
         self.assertLessEqual(owner.history.raw_bytes,MAX_RAW);self.assertIsNone(owner.stop_intent)
         print(json.dumps(summary,sort_keys=True),flush=True)
 
-    def test_historical_original_rejects_alias_injected_during_literal_read_without_process_guard(self):
+    def test_historical_inspection_alias_cannot_mutate_admitted_original_or_require_process_guard(self):
         owner=self.owner;owner.acquire(0);original=source_bundles.original
+        with patch('adapters.chat_journey.original_memory.json.loads',side_effect=AssertionError('Metadata must not decode old JSON')):
+            owner.cache_digest();self.assertEqual(1,owner.row_count())
         def forbidden():raise AssertionError('Historical original must not probe a returned process')
         owner.process.guard=forbidden;self.assertEqual(owner.rows[0],owner.original(0))
         def alias(*args):
             result=original(*args)
             facts=owner.rows[0]['received']['entries'][0]['facts'];facts['messages']=tuple(facts['messages'])
             return result
-        with patch.object(source_bundles,'original',side_effect=alias),self.assertRaises(NativeUIError):owner.original(0)
+        with patch.object(source_bundles,'original',side_effect=alias):self.assertEqual(owner.row(0),owner.original(0))
+        self.assertFalse(owner.failed);owner.originals.control(owner.scope)
+
+    def test_historical_original_rejects_internal_bytes_changed_during_literal_read_without_process_guard(self):
+        owner=self.owner;owner.acquire(0);original=source_bundles.original
+        def forbidden():raise AssertionError('Historical original must not probe a returned process')
+        owner.process.guard=forbidden
+        def changed(*args):
+            result=original(*args);cache=owner.originals
+            cache.raws=cache._raws=(cache.raws[0]+b' ',)
+            return result
+        with patch.object(source_bundles,'original',side_effect=changed),self.assertRaises(NativeUIError):owner.original(0)
         self.assertTrue(owner.failed)
         with self.assertRaises(NativeUIError):owner.original(0)
 

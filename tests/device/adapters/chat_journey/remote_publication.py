@@ -13,6 +13,7 @@ from adapters.chat_journey.evidence_archive import LIMIT_BYTES,LIMIT_FILES,stamp
 from adapters.chat_journey.flow_inputs import validate_flow
 from adapters.chat_journey.observation import STAGES
 from adapters.chat_journey.observation_cursor import plain
+from adapters.chat_journey.original_memory import ChatOriginalMemory
 from adapters.chat_journey.remote_actor_graph import GRAPH,ChatSourceGraphPrefix,validate_actor_pairs
 from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
 from adapters.chat_journey import source_bundles
@@ -89,18 +90,34 @@ class ChatRemotePublication:
         self.peer_epoch_ms,self.guard,self.monotonic=peer_epoch_ms,guard,monotonic
         self.scope=dict(chatRemotePublicationVersion=VERSION,**deepcopy(expected),journal=store.path.name)
         self.history=ChatSourceChunks(store,self.scope);self.history.inventory(0)
-        self.previous=None;self.root_stamp=None;self.rows=[];self.admitted={};self.roots={}
+        self.previous=None;self.root_stamp=None;self.originals=self._originals=ChatOriginalMemory(self.scope);self.admitted={};self.roots={}
         self.stop_intent=None;self.failed=False;self.grammar=self._grammar=ChatSourceGraphPrefix()
         self.cache_sha=self.cache_digest();self.control()
 
     def cache_digest(self):
         need(type(self.history) is ChatSourceChunks and self.history.root is self.store and self.history.scope==digest(self.scope)
+            and type(self.originals) is ChatOriginalMemory and self.originals is self._originals
             and type(self.history.raw_bytes) is int and type(self.history.identities) is list
             and all(type(row) is tuple and len(row)==8 and all(type(field) is int for field in row) for row in self.history.identities))
-        for value in (self.expected,self.scope,self.previous,self.rows,self.admitted,self.roots,self.root_stamp,self.paths,self.lock_paths,self.stop_intent):plain(value)
-        return digest(dict(expected=self.expected,scope=self.scope,previous=self.previous,rows=self.rows,
+        for value in (self.expected,self.scope,self.previous,self.admitted,self.roots,self.root_stamp,self.paths,self.lock_paths,self.stop_intent):plain(value)
+        originals=self.originals.control(self.scope)
+        return digest(dict(expected=self.expected,scope=self.scope,previous=self.previous,rows=originals,
             admitted=self.admitted,roots=self.roots,stamp=self.root_stamp,paths=self.paths,locks=self.lock_paths,
             history=dict(rawBytes=self.history.raw_bytes,identities=[list(row) for row in self.history.identities]),stop=self.stop_intent))
+
+    @property
+    def rows(self):
+        """Complete inspection copies; admitted originals cannot change in place."""
+        need(type(self.originals) is ChatOriginalMemory and self.originals is self._originals)
+        self.originals.control(self.scope);return self.originals.inspect()
+
+    def row_count(self):
+        need(type(self.originals) is ChatOriginalMemory and self.originals is self._originals)
+        return self.originals.count()
+
+    def row(self,index):
+        need(type(self.originals) is ChatOriginalMemory and self.originals is self._originals)
+        self.originals.control(self.scope);return self.originals.row(index)
 
     def metadata_control(self):
         """Original warm JSON/path identity only; no live process observation."""
@@ -122,16 +139,16 @@ class ChatRemotePublication:
             need(type(self.previous['logicalBytes']) is int)
             if self.previous['phase']=='ready':
                 need(self.previous['pendingBundle'] is None and self.previous['logicalBytes']==logical
-                    and base==count==len(self.history.identities) and len(references)==len(self.rows))
+                    and base==count==len(self.history.identities) and len(references)==self.row_count())
             else:
                 need(self.previous['phase']=='reading');pending=source_bundles.reference(self.previous['pendingBundle'])
                 need(self.previous['logicalBytes']==source_bundles.logical_bytes([*references,pending])
                     and base<=count<=base+pending['parts']
                     and count<=len(self.history.identities)<=min(count+1,base+pending['parts'])
-                    and len(references)<=len(self.rows)<=len(references)+1)
-                if len(self.rows)>len(references):
+                    and len(references)<=self.row_count()<=len(references)+1)
+                if self.row_count()>len(references):
                     need(count==len(self.history.identities)==base+pending['parts']
-                        and hashlib.sha256(canonical(self.rows[-1])).hexdigest()==pending['sha256'])
+                        and hashlib.sha256(canonical(self.row(self.row_count()-1))).hexdigest()==pending['sha256'])
         if self.root_stamp is not None:need(stamp(self.store.path.lstat())==self.root_stamp)
         for path,signature in self.admitted.items():
             info=PrivateFeatureState(path).path.lstat()
@@ -250,16 +267,16 @@ class ChatRemotePublication:
                         roots={key:dict(rawBase64=base64.b64encode(raw).decode('ascii'),sha256=hashlib.sha256(raw).hexdigest(),stamp=physical)
                             for key,(raw,physical) in snapshot['files'].items()})
                     references=[] if self.previous is None else self.previous['bundles']
-                    reference,parts=source_bundles.prepare(record,len(self.rows),references)
+                    reference,parts=source_bundles.prepare(record,self.row_count(),references)
                     self.save('reading',bundles=references,pendingBundle=reference,
                         logicalBytes=source_bundles.logical_bytes([*references,reference]))
                     chunks=self.previous['chunks']
                     for part in parts:
                         chunks=self.history.append(part,chunks);self.cache_sha=self.cache_digest()
                         self.save('reading',chunks=chunks)
-                    decoded,_raw=source_bundles.original(self.history,chunks,[*references,reference],len(self.rows))
+                    decoded,_raw=source_bundles.original(self.history,chunks,[*references,reference],self.row_count())
                     need(same(decoded,record))
-                    self.rows.append(record);self.admitted=snapshot['signatures'];self.roots=snapshot['roots'];self.cache_sha=self.cache_digest()
+                    self.originals.append(record,self.scope);self.admitted=snapshot['signatures'];self.roots=snapshot['roots'];self.cache_sha=self.cache_digest()
                     self.save('ready',chunks=chunks,bundles=[*references,reference],pendingBundle=None,
                         logicalBytes=source_bundles.logical_bytes([*references,reference]));result=deepcopy(received)
                     self.control();need(self.guard() is not False)
@@ -282,9 +299,9 @@ class ChatRemotePublication:
         """Historical original bytes only, including after actual Actor return."""
         try:
             self.metadata_control();self.physical_control()
-            need(self.previous is not None and self.previous['phase']=='ready' and integer(index,0,len(self.rows)-1))
+            need(self.previous is not None and self.previous['phase']=='ready' and integer(index,0,self.row_count()-1))
             value=original_record(self.history,self.previous,index)
-            need(same(value,self.rows[index]))
+            need(same(value,self.row(index)))
             self.metadata_control();self.physical_control();return value
         except BaseException:
             self.failed=True
@@ -292,11 +309,11 @@ class ChatRemotePublication:
 
     def fresh_current(self):
         """The same consumed originals, under Parent locks; never a new sample."""
-        need(not self.failed and self.rows and self.previous['phase']=='ready')
+        need(not self.failed and self.row_count() and self.previous['phase']=='ready')
         try:
             for lock in self.locks:lock.assert_held()
             self.control();need(self.guard() is not False)
-            record=self.rows[-1];need(same(self.original(len(self.rows)-1),record))
+            record=self.row(self.row_count()-1);need(same(self.original(self.row_count()-1),record))
             active=self.source.read(record['phase'])
             need(same(active['status']['activations'],record['phase']['activations']))
             need(self.guard() is not False);self.released_fresh_current()
@@ -307,7 +324,7 @@ class ChatRemotePublication:
     def released_fresh_current(self):
         """Final same-original clocks after actual lock exit, without UI guard."""
         try:
-            self.control();need(self.rows and self.previous['phase']=='ready');original=self.rows[-1]['freshness']
+            self.control();need(self.row_count() and self.previous['phase']=='ready');original=self.row(self.row_count()-1)['freshness']
             self.fresh(((self.source.epoch_ms,original['primaryEpochMs']),(self.peer_epoch_ms,original['peerEpochMs']),
                 (self.source.epoch_ms,original['phaseEpochMs']),(self.source.epoch_ms,original['journalEpochMs'])),original['startedMonotonic'])
         except BaseException:
@@ -316,9 +333,10 @@ class ChatRemotePublication:
     def freeze(self,command):
         """Freeze after the distinct durable Parent intent, not a Stop success."""
         from adapters.chat_journey.actor_stop import shape
-        self.control();need(self.stop_intent is None and shape(command)==2 and self.rows
-            and command['instance']==self.expected['instance'] and command['runId']==self.expected['runId']
-            and command['ticket']==self.rows[-1]['publication']['payload']['ticket']
-            and command['consumedSequence']==self.rows[-1]['publication']['sequence']
-            and command['consumedPayloadSha256']==digest(self.rows[-1]['publication']['payload']))
+        self.control();need(self.stop_intent is None and shape(command)==2 and self.row_count())
+        published=self.row(self.row_count()-1)['publication']
+        need(command['instance']==self.expected['instance'] and command['runId']==self.expected['runId']
+            and command['ticket']==published['payload']['ticket']
+            and command['consumedSequence']==published['sequence']
+            and command['consumedPayloadSha256']==digest(published['payload']))
         self.stop_intent=deepcopy(command);self.cache_sha=self.cache_digest();self.control()
