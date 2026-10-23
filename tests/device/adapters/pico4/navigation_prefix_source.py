@@ -1,8 +1,9 @@
 """Original eight-field Navigation observations for the normal opening prefix.
 
 This reader performs no ordinary input and receives no desired state. The
-initial prefix deliberately refuses a modal, non-directory tab or changed
-acquisition bracket; later lookup/transit/restart joins remain separate.
+directory and owned named-failure facts come from current original sources.
+A foreign/hidden modal, unrelated reply or changed acquisition bracket refuses;
+original input barriers are correlation, never desired feature state.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
@@ -14,6 +15,8 @@ from adapters.native_navigation_directory import validate as directory_packet, j
 from adapters.native_navigation_directory import continuation as directory_advance, profile as script_profile
 from adapters.native_navigation_environment import validate as environment_packet, logged_out
 from adapters.native_navigation_environment import continuation as environment_advance, endpoint
+from adapters.native_navigation_replies import validate as replies_packet,continuation as replies_advance,join_missing
+from adapters.native_navigation_modals import presented
 from adapters.native_navigation_modals import validate as modals_packet
 from adapters.native_navigation_modals import validate_continuation as modals_advance
 from adapters.native_navigation_panels import validate as panels_packet
@@ -28,7 +31,7 @@ from feature_journeys.navigation_fixture import validate_status, configuration
 from feature_journeys.phase_fixture import validate as phase_packet
 from navigation_observation import viewpoint_urls
 
-VERSION=1
+VERSION=2
 
 
 def request(value,action):
@@ -44,6 +47,8 @@ def advance(before,after):
     for key,validator in (('panels',panels_advance),('environment',environment_advance),
                           ('modals',modals_advance),('directory',directory_advance)):
         validator(before[key],after[key])
+    need(('replies' in before)==('replies' in after))
+    if 'replies' in before:replies_advance(before['replies'],after['replies'])
     old,new=before['bookmarks'],after['bookmarks']
     need(old['instance']==new['instance'] and new['sequence']>old['sequence']
         and new['requestedEpochMs']>=old['capturedEpochMs'] and new['commandId']!=old['commandId'])
@@ -55,8 +60,9 @@ def advance(before,after):
 
 def projection(frame,run,binding,inputs,provider_instance,origin,profile,receipt,epoch):
     """Validate retained originals at their actual timestamp before projection."""
-    exact(frame,{'navigationPrefixSourceVersion','runId','binding','phase','before','after','provider','receipt'})
-    need(type(frame['navigationPrefixSourceVersion']) is int and frame['navigationPrefixSourceVersion']==VERSION
+    exact(frame,{'navigationPrefixSourceVersion','runId','binding','phase','before','after','provider','receipt'}
+        |({'lookupReceipt'} if frame.get('navigationPrefixSourceVersion')==2 else set()))
+    need(type(frame['navigationPrefixSourceVersion']) is int and frame['navigationPrefixSourceVersion'] in (1,VERSION)
         and frame['runId']==run and same(frame['binding'],binding) and same(frame['receipt'],receipt))
     binding_context(binding);pid=int(binding['processIdentity'].split(':',1)[0]);ctx=context(run)
     validate_status(frame['provider'],instance=provider_instance,run=run,inputs=inputs)
@@ -69,10 +75,17 @@ def projection(frame,run,binding,inputs,provider_instance,origin,profile,receipt
             for row in phase['activations']))
     fresh(frame['provider']['capturedEpochMs'],epoch)
     need(frame['provider']['active'])
-    labels=[];pages=[];bookmarks=[]
+    lookup_receipt=frame.get('lookupReceipt')
+    if lookup_receipt is not None:
+        exact(lookup_receipt,{'ticket','afterEpochMs'})
+        need(integer(lookup_receipt['afterEpochMs'],1,epoch) and any(row['ticket']==lookup_receipt['ticket']
+            and row['stimulus']==dict(verb='navigate-missing',inputs={}) and row['activatedEpochMs']<=lookup_receipt['afterEpochMs']
+            for row in phase['activations']))
+    labels=[];pages=[];bookmarks=[];errors=[];addresses=[]
     for bracket in ('before','after'):
         value=frame[bracket]
-        exact(value,{'ui','panels','bookmarks','environment','modals','pose','directory'})
+        exact(value,{'ui','panels','bookmarks','environment','modals','pose','directory'}
+            |({'replies'} if frame['navigationPrefixSourceVersion']==2 else set()))
         snapshot(value['ui']);ui=value['ui'];scope=ui['scope']
         need(scope['processId']==pid and scope['instance']==binding['sessionId'])
         fresh(ui['observedEpochMs'],epoch)
@@ -84,15 +97,22 @@ def projection(frame,run,binding,inputs,provider_instance,origin,profile,receipt
             ('directory','feature-navigation-directory',directory_packet)):
             packet=value[key];validator(packet,request(packet,action),pid,epoch)
             need(packet['runId']==run)
+        if frame['navigationPrefixSourceVersion']==2:
+            packet=value['replies'];replies_packet(packet,request(packet,'feature-navigation-replies'),pid,epoch)
+            need(packet['runId']==run and packet['navigationReplyVersion']==2)
         panels=value['panels'];pui=panels['ui'];modals=value['modals'];env=value['environment']
         need(all(pui[key]==scope[target] for key,target in (
             ('bridgeId','instance'),('generation','generation'),('sequence','sequence')))
             and pui['open']==ui['open'] and pui['ready']==ui['ready']
             and modals['uiBridgeId']==scope['instance'] and modals['uiGeneration']==scope['generation']
             and modals['uiInputSequence']==scope['sequence'] and modals['tabletOpen']==ui['open'])
-        # A later named-error component must join its actual callback and HTTP
-        # receipt. This prefix never turns an unrelated/hidden modal into none.
-        need(not any(row['rootAlive'] or row['listenerAlive'] for row in modals['records']))
+        live=[row for row in modals['records'] if row['rootAlive'] or row['listenerAlive']]
+        if live:
+            need(lookup_receipt is not None and frame['navigationPrefixSourceVersion']==2)
+            reply=value['replies'];joined=join_missing(reply,frame['provider'],lookup_receipt['ticket'],lookup_receipt['afterEpochMs'],origin)
+            need(reply['currentLookupActive'] and joined['event']['lookupGeneration']==reply['currentLookupGeneration'])
+            presented(modals,joined['event']);errors.append('not-found')
+        else:errors.append('none')
         logged_out(env)
         if env['navigationEnvironmentVersion']==2:need(env['ui']['open']==ui['open'] and env['ui']['ready']==ui['ready'])
         need(env['selectedSettingPresent'] and env['selectedServer']==env['effectiveServer']==origin
@@ -105,7 +125,12 @@ def projection(frame,run,binding,inputs,provider_instance,origin,profile,receipt
         bookmarks.append(owned)
         page_rows=[row for row in ui['controls'] if row['id']=='places.page']
         roots=current_roots(panels)
-        need(not any(row['profile']=='pico-address-v1' for row in roots))
+        address_roots=[row for row in roots if row['profile']=='pico-address-v1']
+        if address_roots:
+            need(lookup_receipt is not None and len(address_roots)==1 and panels['navigationPanelsVersion']==2
+                and panels['lookup']['complete'] and panels['lookup']['address'] is not None
+                and panels['lookup']['address']['rootId']==address_roots[0]['rootId'])
+        addresses.append(bool(address_roots and panels['lookup']['address']['visible']))
         if page_rows:
             need(len(page_rows)==1 and ui['open'] and ui['ready'] and receipt is not None)
             page=page_rows[0]
@@ -129,35 +154,39 @@ def projection(frame,run,binding,inputs,provider_instance,origin,profile,receipt
             need(ui_owned==[dict(bookmarkNameSha256=sha(row['name']),bookmarkAddressSha256=row['addressSha256']) for row in owned])
             pages.append(dict(panel=True,searchQuery=query[0],searchResults=results))
         else:
-            need(not roots and not any(row['current'] for row in value['directory']['roots']))
+            need(all(row['profile']=='pico-address-v1' for row in roots)
+                and not any(row['current'] for row in value['directory']['roots']))
             pages.append(dict(panel=False,searchQuery='',searchResults=[]))
     before,after=frame['before'],frame['after']
     need(labels[0]==labels[1] and labels[1] in ('A','B') and same(bookmarks[0],bookmarks[1]) and same(pages[0],pages[1])
+        and errors[0]==errors[1] and addresses[0]==addresses[1]
         and same(before['ui']['controls'],after['ui']['controls'])
         and all(before['ui']['scope'][k]==after['ui']['scope'][k] for k in ('instance','generation','sequence','processId'))
         and same(before['bookmarks']['storage'],after['bookmarks']['storage'])
         and before['environment']['otherSettingsSha256']==after['environment']['otherSettingsSha256'])
     advance(before,after)
     # Both independently acquired sides agree on current source ownership.
-    for key in ('panels','bookmarks','environment','modals','directory'):
+    for key in ('panels','bookmarks','environment','modals','directory')+ (('replies',) if frame['navigationPrefixSourceVersion']==2 else ()):
         need(before[key]['instance']==after[key]['instance'] and after[key]['sequence']>before[key]['sequence']
             and after[key]['commandId']!=before[key]['commandId']
             and after[key]['capturedEpochMs']>=before[key]['capturedEpochMs'])
     selected=bookmarks[1]
     actual=dict(location=labels[1],bookmark=bool(selected),bookmarkName=selected[0]['name'] if selected else '',
-        **pages[1],error='none',addressDialog=False)
+        **pages[1],error=errors[1],addressDialog=addresses[1])
     return deepcopy(public_state('world-navigation',actual,run))
 
 
 class NavigationPrefixSource:
     def __init__(self,normal,arrival,bookmarks,panels,environment,modals,directory,status,
-                 run,binding,inputs,provider_instance,origin,profile,clock_ms,guard):
+                 run,binding,inputs,provider_instance,origin,profile,clock_ms,guard,*,replies=None):
         need(isinstance(normal,TokenPlacesUI) and normal.run==run and all(callable(f) for f in (status,clock_ms,guard)))
         binding_context(binding);configuration(inputs);script_profile(profile);endpoint(origin)
         need(binding['sourceRevision']==inputs['sourceRevision']==profile['sourceRevision']
             and same(arrival.binding,binding) and arrival.run==run and arrival.scene_url==inputs['sceneUrl'])
         self.normal,self.arrival=normal,arrival
         self.readers=dict(bookmarks=bookmarks,panels=panels,environment=environment,modals=modals,directory=directory)
+        self.version=1 if replies is None else 2
+        if replies is not None:self.readers['replies']=replies
         self.status,self.run,self.binding,self.inputs=status,run,deepcopy(binding),deepcopy(inputs)
         self.provider_instance,self.origin,self.profile=provider_instance,origin,deepcopy(profile)
         self.clock_ms,self.guard=clock_ms,guard
@@ -170,17 +199,20 @@ class NavigationPrefixSource:
         result.update({key:reader.read(self.run) for key,reader in self.readers.items()})
         return result
 
-    def capture(self,receipt,phase):
+    def capture(self,receipt,phase,*,lookup_receipt=None):
         need(self.guard() is not False)
-        value=dict(navigationPrefixSourceVersion=VERSION,runId=self.run,binding=deepcopy(self.binding),phase=deepcopy(phase),
+        value=dict(navigationPrefixSourceVersion=self.version,runId=self.run,binding=deepcopy(self.binding),phase=deepcopy(phase),
             before=self.side(),provider=self.status(),after=self.side(),receipt=deepcopy(receipt))
+        if self.version==2:value['lookupReceipt']=deepcopy(lookup_receipt)
+        else:need(lookup_receipt is None)
         return value
 
     def project(self,value):
         return projection(value,self.run,self.binding,self.inputs,self.provider_instance,self.origin,self.profile,
-            value['receipt'],value['after']['directory']['capturedEpochMs'])
+            value['receipt'],value['after']['replies' if value['navigationPrefixSourceVersion']==2 else 'directory']['capturedEpochMs'])
 
     def advance_frames(self,before,after):
+        need(before['navigationPrefixSourceVersion']==after['navigationPrefixSourceVersion'])
         advance(before['after'],after['before'])
         validate_status(after['provider'],instance=self.provider_instance,run=self.run,inputs=self.inputs,previous=before['provider'])
         phase=after['phase'];phase_packet(phase,run=self.run,area='world-navigation',request=phase['requestId'],

@@ -245,7 +245,7 @@ class NavigationPrefixTests(unittest.TestCase):
         for verb in VERBS[:5]:self.flow.act(self.activate(verb))
         # Version-envelope compatibility seam only. All five actual normal
         # inputs/effects above are retained, never invented closed originals.
-        original=self.flow.store.read();legacy=deepcopy(original);legacy['navigationPrefixVersion']=1
+        original=self.flow.store.read();legacy=deepcopy(original);legacy['navigationPrefixVersion']=1;legacy.pop('lookupReceipt',None)
         self.flow.store.write(legacy,original);self.flow=self.make('primary')
         self.assertEqual(context(RUN)['renamed'],self.flow.observe()['state']['bookmarkName'])
         before=deepcopy(self.model.calls)

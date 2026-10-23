@@ -165,7 +165,7 @@ class NavigationTransitPrefixTests(unittest.TestCase):
 
     def test_actual_continuous_eight_steps_home_close_original_stereo_retirement_and_actor_sources(self):
         self.flow.prepare();self.flow.observe();actor=self.make('actor');actor.observe()
-        for index,verb in enumerate(prefix.VERBS):
+        for index,verb in enumerate(prefix.VERBS[:8]):
             self.flow.act(self.activate(verb));actual=self.flow.observe();peer=actor.observe()
             self.assertEqual(expand(SCENARIOS['world-navigation']['steps'][index]['state'],context(prefix.RUN)),actual['state'])
             self.assertEqual(actual['state'],peer['state'])

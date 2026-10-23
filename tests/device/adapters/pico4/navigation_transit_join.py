@@ -36,7 +36,6 @@ class NavigationTransitJoin:
         self.anchor=self.anchor_sha=None
         self.home_callback=self.stage_home;transit.home.stage=self.home_callback
         self.admission_callback=self.before_controller;self.intent_callback=self.intent;self.publish_callback=self.before_publish
-        parent.transport.bind_controller_admission(self.admission_callback,intent=self.intent_callback,before_publish=self.publish_callback)
         if self.disk is not None:self.load()
 
     def context(self,*,memory_only=False):

@@ -1134,7 +1134,7 @@ def create_adapter(args, base_class):
                 monotonic=native.monotonic,sleep=native.sleep)
             source=NavigationPrefixSource(ui(lambda _value:need(False)),self._navigation_arrival(target,run,inputs['sceneUrl']),
                 storage,self._navigation_panels(target),environment,self._navigation_modals(target),directory_source,status,
-                run,manager.binding,inputs,provider_instance,owned_origin,source_profile,native.clock_ms,guard)
+                run,manager.binding,inputs,provider_instance,owned_origin,source_profile,native.clock_ms,guard,replies=self._navigation_replies(target))
             def transit_factory(parent):
                 from adapters.navigation_transit import NavigationTransit
                 from adapters.navigation_stereo import NavigationStereo
@@ -1153,8 +1153,17 @@ def create_adapter(args, base_class):
                     manager.binding,inputs['sceneUrl'],guard,directory=directory,home=bind_home(self,target,native),panels=source.readers['panels'],defer_stereo_until_close=True,
                     monotonic=native.monotonic,sleep=native.sleep)
                 return NavigationTransitJoin(parent,transit,manager.ui,self._graphics_ui_observer(target),root/'navigation-prefix-transit-join.json')
+            def missing_factory(parent):
+                from adapters.navigation_missing import NavigationMissing
+                from adapters.pico4.navigation_lookup import PicoNavigationLookup
+                from adapters.pico4.navigation_missing_join import NavigationMissingJoin
+                lookup=NavigationMissing(lambda intent:PicoNavigationLookup(manager.ui,source.readers['panels'],intent,run),
+                    source.arrival,bind_home(self,target,native),storage,source.readers['replies'],source.readers['modals'],status,
+                    root/'navigation-prefix-missing.json',run,manager.binding,provider_instance,inputs,owned_origin,guard,
+                    monotonic=native.monotonic,sleep=native.sleep)
+                return NavigationMissingJoin(parent,lookup,root/'navigation-prefix-missing-join.json')
             return NavigationPrefix(root/'navigation-prefix-owner.json',source,phase_source,lock,origin,directory,bookmarks,
-                self.pico_input_session(target),role=role,monotonic=native.monotonic,transit_factory=transit_factory)
+                self.pico_input_session(target),role=role,monotonic=native.monotonic,transit_factory=transit_factory,missing_factory=missing_factory)
 
         def _navigation_world_render_store(self,target,role):
             _need(role in ('primary','actor'))
