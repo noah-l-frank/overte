@@ -75,6 +75,12 @@ job is not selected. The package jobs must still succeed; any uncovered host
 suite continues to require the host job.
 
 CodeQL selects the actual Python or JavaScript/TypeScript extractor footprint.
+For the exact reviewed CodeQL job, existing managed npm lockfiles and changes
+limited to numeric registry dependency versions do not select an analysis.
+The manifest comparison preserves dependency names, scripts, entry points and
+all other fields. URL, alias, local-path, tag and unknown version specifications,
+new or removed manifests, source changes and analysis-control changes retain
+their ordinary analysis. Package audit and function tests remain required.
 The trusted central analysis recipe and configuration govern the selection;
 changing those controls requires both analyses. Reviewed npm-lock exclusions
 leave dependency security to npm audit. An unknown analysis configuration fails
