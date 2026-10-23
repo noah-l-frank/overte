@@ -15,20 +15,50 @@ from adapters.chat_journey.observation import STAGES
 from adapters.chat_journey.observation_cursor import plain
 from adapters.chat_journey.remote_actor_graph import GRAPH,ChatSourceGraphPrefix,validate_actor_pairs
 from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
+from adapters.chat_journey import source_bundles
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
 from adapters.observer_return import state,parent_node,raw_file
-from adapters.script_journey.history import same
+from adapters.script_journey.history import same,canonical
 from adapters.script_journey.lock import ScriptSourceLock,ScriptSourceBusy
 from feature_journeys.contract import identifier
 from feature_journeys.phase_fixture import PhaseFixtureReader,PhasePending,PhaseRetired
 from fixture.chat_observer_process import LinuxChatObserverProcess
 
-VERSION=2
+VERSION=3
 EXPECTED={'runId','fixtureUrl','binding','peerBinding','hostProcessIdentity','instance'}
 STORES={'actor','flow','cleanup',*GRAPH}
 ACTOR=EXPECTED|{'picoChatCursorActorVersion','phase','pairs','returnedPublication'}
+
+
+def original_record(history,root,index):
+    """Historical storage grammar only; never construct a live source owner."""
+    need(type(history) is ChatSourceChunks);plain(root)
+    version=root.get('chatRemotePublicationVersion')
+    need(type(version) is int and version in (1,2,3))
+    scope_keys=EXPECTED|{'chatRemotePublicationVersion','journal'}
+    exact(root,scope_keys|{'phase','chunks'}|({'bundles','pendingBundle','logicalBytes'} if version==3 else set()))
+    scope={key:root[key] for key in scope_keys}
+    context(scope['binding']);context(scope['peerBinding']);identifier(scope['runId']);identifier(scope['instance'])
+    need(root['phase']=='ready' and root['journal']==history.root.path.name and digest(scope)==history.scope
+        and type(scope['hostProcessIdentity']) is str and type(scope['fixtureUrl']) is str
+        and type(root['chunks']) is list and same(history.root.read(),root))
+    history.verify()
+    if version==3:
+        need(root['pendingBundle'] is None and type(root['logicalBytes']) is int
+            and root['logicalBytes']==source_bundles.logical_bytes(root['bundles']))
+        value,_raw=source_bundles.original(history,root['chunks'],root['bundles'],index)
+    else:
+        # These bytes gain no missing v2 clocks, v3 fragments or fresh status.
+        from adapters.script_journey.history import unpack
+        need(integer(index,0,len(root['chunks'])-1) and len(root['chunks'])==len(history.identities))
+        chunk=history.store(index).read();need(digest(chunk)==root['chunks'][index])
+        exact(chunk,{'chatSampleChunkVersion','scopeSha256','index','transcript'})
+        need(type(chunk['chatSampleChunkVersion']) is int and chunk['chatSampleChunkVersion']==1
+            and type(chunk['index']) is int and chunk['index']==index and chunk['scopeSha256']==history.scope)
+        values=unpack(chunk['transcript']);need(len(values)==1);value=values[0]
+    need(same(history.root.read(),root));history.verify();return value
 
 
 class ChatRemotePublication:
@@ -83,6 +113,23 @@ class ChatRemotePublication:
             and self.store.path.name==self.scope['journal'])
         self.process.guard();self.history.verify()
         need(same(self.store.read(),self.previous))
+        if self.previous is not None and self.scope['chatRemotePublicationVersion']==3:
+            exact(self.previous,set(self.scope)|{'phase','chunks','bundles','pendingBundle','logicalBytes'})
+            references=self.previous['bundles'];logical=source_bundles.logical_bytes(references)
+            base=sum(ref['parts'] for ref in references);count=len(self.previous['chunks'])
+            need(type(self.previous['logicalBytes']) is int)
+            if self.previous['phase']=='ready':
+                need(self.previous['pendingBundle'] is None and self.previous['logicalBytes']==logical
+                    and base==count==len(self.history.identities) and len(references)==len(self.rows))
+            else:
+                need(self.previous['phase']=='reading');pending=source_bundles.reference(self.previous['pendingBundle'])
+                need(self.previous['logicalBytes']==source_bundles.logical_bytes([*references,pending])
+                    and base<=count<=base+pending['parts']
+                    and count<=len(self.history.identities)<=min(count+1,base+pending['parts'])
+                    and len(references)<=len(self.rows)<=len(references)+1)
+                if len(self.rows)>len(references):
+                    need(count==len(self.history.identities)==base+pending['parts']
+                        and hashlib.sha256(canonical(self.rows[-1])).hexdigest()==pending['sha256'])
         if self.root_stamp is not None:need(stamp(self.store.path.lstat())==self.root_stamp)
         for path,signature in self.admitted.items():
             info=PrivateFeatureState(path).path.lstat()
@@ -195,9 +242,19 @@ class ChatRemotePublication:
                             journalEpochMs=received['sampleEpochMs']),
                         roots={key:dict(rawBase64=base64.b64encode(raw).decode('ascii'),sha256=hashlib.sha256(raw).hexdigest(),stamp=physical)
                             for key,(raw,physical) in snapshot['files'].items()})
-                    self.save('reading');chunks=self.history.append(record,[] if self.previous is None else self.previous['chunks'])
+                    references=[] if self.previous is None else self.previous['bundles']
+                    reference,parts=source_bundles.prepare(record,len(self.rows),references)
+                    self.save('reading',bundles=references,pendingBundle=reference,
+                        logicalBytes=source_bundles.logical_bytes([*references,reference]))
+                    chunks=self.previous['chunks']
+                    for part in parts:
+                        chunks=self.history.append(part,chunks);self.cache_sha=self.cache_digest()
+                        self.save('reading',chunks=chunks)
+                    decoded,_raw=source_bundles.original(self.history,chunks,[*references,reference],len(self.rows))
+                    need(same(decoded,record))
                     self.rows.append(record);self.admitted=snapshot['signatures'];self.roots=snapshot['roots'];self.cache_sha=self.cache_digest()
-                    self.save('ready',chunks=chunks);result=deepcopy(received)
+                    self.save('ready',chunks=chunks,bundles=[*references,reference],pendingBundle=None,
+                        logicalBytes=source_bundles.logical_bytes([*references,reference]));result=deepcopy(received)
                     self.control();need(self.guard() is not False)
                     for key,(raw,physical) in snapshot['files'].items():need(raw_file(self.stores[key])==(raw,physical))
                     self.fresh(clocks,started)
@@ -214,15 +271,23 @@ class ChatRemotePublication:
         except BaseException:
             self.failed=True;raise NativeUIError('Original remote Chat publication is unresolved; originals remain') from None
 
+    def original(self,index):
+        """Historical original bytes only, including after actual Actor return."""
+        need(not self.failed and self.previous is not None and self.previous['phase']=='ready'
+            and integer(index,0,len(self.rows)-1) and same(self.store.read(),self.previous)
+            and stamp(self.store.path.lstat())==self.root_stamp)
+        value=original_record(self.history,self.previous,index)
+        need(same(value,self.rows[index]) and same(self.store.read(),self.previous)
+            and stamp(self.store.path.lstat())==self.root_stamp)
+        self.history.verify();return value
+
     def fresh_current(self):
         """The same consumed originals, under Parent locks; never a new sample."""
         need(not self.failed and self.rows and self.previous['phase']=='ready')
         try:
             for lock in self.locks:lock.assert_held()
             self.control();need(self.guard() is not False)
-            record=self.rows[-1];value=self.history.store(len(self.rows)-1).read()
-            from adapters.script_journey.history import unpack
-            need(same(unpack(value['transcript']),[record]) and digest(value)==self.previous['chunks'][-1])
+            record=self.rows[-1];need(same(self.original(len(self.rows)-1),record))
             active=self.source.read(record['phase'])
             need(same(active['status']['activations'],record['phase']['activations']))
             need(self.guard() is not False);self.released_fresh_current()

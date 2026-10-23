@@ -105,7 +105,7 @@ REQUIRED = {
     "observer-return-transport": 1,
     "chat-remote-actor-graph": 2,
     "chat-remote-actor-return": 1,
-    "chat-remote-publication": 2,
+    "chat-remote-publication": 3,
     "chat-remote-cleanup-prefix": 1,
     "chat-remote-consumed-sources": 1,
     "pico-chat-host-close": 1,

@@ -61,7 +61,7 @@ class ChatRemoteCleanupPrefix:
         need(type(primary) is ChatObservationCursor and primary.scope['role']=='primary' and primary.current.stage=='cleanup'
             and primary.rows and not primary.current.rows and not primary.failed
             and type(actor) is ChatRemotePublication and actor.rows and not actor.failed and actor.stop_intent is None
-            and actor.scope['chatRemotePublicationVersion']==2
+            and actor.scope['chatRemotePublicationVersion'] in (2,3)
             and all(same(primary.scope[key],actor.expected[key]) for key in ('runId','fixtureUrl','binding','peerBinding'))
             and all(first is second for first,second in zip(primary.current.samples.locks,actor.locks))
             and len(primary.current.samples.locks)==len(actor.locks)==2
