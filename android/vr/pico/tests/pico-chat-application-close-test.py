@@ -11,6 +11,7 @@ sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'android/vr/pico/tests/device')]
 
 
 def selected(part):
+    if part=='cleanup-witness':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_cleanup_witness')
     if part=='archive':
         return unittest.defaultTestLoader.loadTestsFromNames([
             'self_tests.test_chat_evidence_archive','self_tests.test_chat_archive_files',
@@ -26,6 +27,6 @@ def selected(part):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('part',choices=('journey','recovery','admission','delivery','post-ipc','archive'))
+    parser.add_argument('part',choices=('journey','recovery','admission','delivery','post-ipc','archive','cleanup-witness'))
     result=unittest.TextTestRunner(verbosity=2).run(selected(parser.parse_args().part))
     raise SystemExit(not result.wasSuccessful())
