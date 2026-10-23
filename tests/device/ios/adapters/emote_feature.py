@@ -48,6 +48,17 @@ VERSION=1
 
 
 class IOSEmoteFeature:
+    FORMAT_VERSION=1
+    Marker=IOSEmoteMarkerScope
+    Observer=IOSEmoteObserver
+    NativeRetirement=IOSEmoteRetirement
+    RenderedRetirement=IOSEmoteRenderedRetirement
+    KeyedRetirement=IOSEmoteKeyedRetirement
+    scene_proof_version=1
+    retirement_stage=None
+    quiet_refresh=staticmethod(refresh_quiet)
+    quiet_extend=staticmethod(extend_quiet)
+
     def __init__(self,runtime,selector,client,run,role,root,policy,*,primary_selector=None,actor_selector=None,
                  monotonic=time.monotonic,epoch_ms=lambda:time.time()*1000,sleep=time.sleep):
         need(isinstance(runtime,IOSEmoteRuntime) and isinstance(client,Client) and role in ('primary','actor')
@@ -84,7 +95,7 @@ class IOSEmoteFeature:
         finally:self.deadline=old
 
     def envelope(self,state):
-        return dict(iosEmoteFeatureVersion=VERSION,runId=self.run,role=self.role,artifactRoot=str(self.root),
+        return dict(iosEmoteFeatureVersion=self.FORMAT_VERSION,runId=self.run,role=self.role,artifactRoot=str(self.root),
             fixtureUrl=self.phase.fixture_url,imagePolicy=self.policy,payload=pack([state]))
 
     def load(self):
@@ -125,7 +136,7 @@ class IOSEmoteFeature:
             if not source_root.exists():source_root.mkdir(mode=0o700)
             PrivateFeatureState(source_root/'emote-primary-original-root-check')._parent()
         sources=self.runtime._emote_sources(self.primary_selector,self.client,self.run,self.role,source_root,self.primary_lock)
-        scope=IOSEmoteMarkerScope(self.runtime,self.selector,self.root,self.run,self.role,self.phase.fixture_url,
+        scope=self.Marker(self.runtime,self.selector,self.root,self.run,self.role,self.phase.fixture_url,
             self.state['initialTicket'],self.lock,monotonic=self.monotonic,epoch_ms=self.epoch_ms,sleep=self.sleep)
         peers=None
         if self.role=='actor':
@@ -134,7 +145,7 @@ class IOSEmoteFeature:
                 monotonic=self.monotonic,epoch_ms=self.epoch_ms)
         samples=IOSEmoteSamples(self.runtime,self.selector,scope,self.root,self.policy,self.phase,self.lock,
             monotonic=self.monotonic,epoch_ms=self.epoch_ms,sleep=self.sleep)
-        observer=IOSEmoteObserver(PrivateFeatureState(self.runtime.state_path(self.selector).with_name('ios-emote-'+self.role+'-observer.json')),
+        observer=self.Observer(PrivateFeatureState(self.runtime.state_path(self.selector).with_name('ios-emote-'+self.role+'-observer.json')),
             sources,own['binding'],self.role,self.root,self.policy,self.phase,self.lock,own['check'],peers=peers,samples=samples,
             monotonic=self.monotonic,epoch_ms=self.epoch_ms)
         restoration=IOSEmoteRestorationFrames(self.runtime,self.selector,scope,self.root,self.lock,
@@ -310,7 +321,7 @@ class IOSEmoteFeature:
             sources,normal,validate_owned=owned,validate_restored=restored)
 
     def native_retirement_owner(self,parts):
-        return IOSEmoteRetirement(PrivateFeatureState(self.runtime.state_path(self.selector).with_name('ios-emote-'+self.role+'-retirement-originals.json')),
+        return self.NativeRetirement(PrivateFeatureState(self.runtime.state_path(self.selector).with_name('ios-emote-'+self.role+'-retirement-originals.json')),
             self.root,self.state['binding'],self.state['primaryBinding'],self.run,self.role,self.phase.fixture_url,self.state['phaseInstance'],
             self.lock,self.primary_lock,self.policy,dict(sources=parts['sources'].store.path,
                 peers=None if parts['peers'] is None else parts['peers'].store.path,
@@ -319,11 +330,11 @@ class IOSEmoteFeature:
                 pointers=self.runtime.state_path(self.selector).with_name('ios-emote-'+self.role+'-pointers.json')),parts['own']['check'])
 
     def rendered_retirement_owner(self,parts):
-        return IOSEmoteRenderedRetirement(PrivateFeatureState(self.runtime.state_path(self.selector).with_name(
+        return self.RenderedRetirement(PrivateFeatureState(self.runtime.state_path(self.selector).with_name(
             'ios-emote-'+self.role+'-rendered-retirement-originals.json')),self.native_retirement_owner(parts),parts['restoration'])
 
     def retirement_owner(self,parts):
-        return IOSEmoteKeyedRetirement(PrivateFeatureState(self.runtime.state_path(self.selector).with_name(
+        return self.KeyedRetirement(PrivateFeatureState(self.runtime.state_path(self.selector).with_name(
             'ios-emote-'+self.role+'-keyed-retirement-originals.json')),self.rendered_retirement_owner(parts),self.keys(parts))
 
     def clean_local(self,parts):
@@ -350,8 +361,8 @@ class IOSEmoteFeature:
         parts['observer'].abandon_read();parts['samples'].drain()
         pointers=self.pointers(parts);pointers.abandon();keys=self.keys(parts);keys.abandon()
         waiting=('scene-retired',self.phase.previous['activations'][-1]['ticket']) in (getattr(self,'_scene_proofs',None) or {})
-        if fresh_end or waiting:extend_quiet(parts['scope'],pointers,keys=keys)
-        else:refresh_quiet(parts['scope'],clock=self.monotonic,sleep=self.sleep,pointers=pointers,keys=keys)
+        if fresh_end or waiting:self.quiet_extend(parts['scope'],pointers,keys=keys)
+        else:self.quiet_refresh(parts['scope'],clock=self.monotonic,sleep=self.sleep,pointers=pointers,keys=keys)
         entities=self.marker_entities(parts);entities.abandon();entities.capture();entities.closed(parts['scope'])
         files=None
         if parts['scope'].state['fileOwnership'] is not None:
@@ -388,12 +399,17 @@ class IOSEmoteFeature:
         self.state['cleanup'].append(reference);need(len(self.state['cleanup'])<=128);self.save()
         # The separate original decoder, rather than expected cleanup flags,
         # must accept the entire local native/input/GPU/Script/file closure.
-        need(same(complete.derive(reference)['public'],public));return public
+        return self.retirement_public(complete,reference,public)
+
+    def retirement_public(self,owner,reference,public):
+        need(same(owner.derive(reference)['public'],public));return public
+
+    def retirement_decoder(self,owner):return owner.derive
 
     def retirement_publisher(self,parts):
         need(self.role=='actor');owner=self.retirement_owner(parts)
         return PhaseRetirementPublisher(PrivateFeatureState(self.runtime.state_path(self.selector).with_name('phase-retirement-emotes-'+self.run+'-actor.json')),
-            self.state['binding'],self.phase,self.lock,parts['own']['check'],owner.derive,epoch_ms=self.epoch_ms,monotonic=self.monotonic)
+            self.state['binding'],self.phase,self.lock,parts['own']['check'],self.retirement_decoder(owner),epoch_ms=self.epoch_ms,monotonic=self.monotonic,stage=self.retirement_stage)
 
     def publish_retirement(self,parts):
         need(self.role=='actor' and self.state['cleanup'])
@@ -428,7 +444,7 @@ class IOSEmoteFeature:
         # acquire its own original Primary SDK evidence.
         def admitted(original):return dict(runId=self.run,phaseInstance=instance,binding=peer_admission(original,own_binding))
         reader=PhaseRetirementReader(PrivateFeatureState(self.runtime.state_path(self.selector).with_name('ios-emote-primary-peer-retirement.json')),
-            own_binding,self.phase,guard,admission,admitted,epoch_ms=self.epoch_ms,monotonic=self.monotonic)
+            own_binding,self.phase,guard,admission,admitted,epoch_ms=self.epoch_ms,monotonic=self.monotonic,stage=self.retirement_stage)
         waiting=self.monotonic();last=waiting
         while True:
             now=self.monotonic();need(number(now,last,waiting+20));last=now
@@ -443,10 +459,11 @@ class IOSEmoteFeature:
             parts=self.components();self.retirement_sample(parts,fresh_end=True)
             # Preserve the Actor's original receipt timestamp. Waiting and
             # reacquiring our own current proof cannot make that receipt fresh.
-            now=self.epoch_ms();mono=self.monotonic();received=receipt['acquisition']
+            from feature_journeys.retirement_receipts import summary
+            now=self.epoch_ms();mono=self.monotonic();received=receipt['acquisition'];original_summary=summary(receipt['entry'])
             need(number(now,received['hostAfterEpochMs'],1e15) and number(mono,received['hostAfterMonotonic'],1e15)
-                and max(now-receipt['entry']['cleanup']['capturedEpochMs'],
-                    received['hostAfterEpochMs']-receipt['entry']['cleanup']['capturedEpochMs']+(mono-received['hostAfterMonotonic'])*1000)<=1500)
+                and max(now-original_summary['capturedEpochMs'],
+                    received['hostAfterEpochMs']-original_summary['capturedEpochMs']+(mono-received['hostAfterMonotonic'])*1000)<=1500)
             reference=self.state['cleanup'][-1]
             self.state['retirement']=dict(kind='primary-paired',original=reference,peerReceipt=deepcopy(receipt));self.save()
             return {'performed':True}

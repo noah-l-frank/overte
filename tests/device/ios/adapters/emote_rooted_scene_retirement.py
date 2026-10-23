@@ -43,7 +43,7 @@ class IOSEmoteRootedSceneRetirement:
             capturedEpochMs=public['capturedEpochMs'],quiet=list(WEB_SCENE_CLASSES),
             remaining=['native-process-resources'],lifecycle=deepcopy(public['lifecycle']))
         web_scene(scene,owner.run,public['sequence'])
-        return dict(ticket=measured['ticket'],public=public,scene=scene,held=deepcopy(rows),
+        return dict(ticket=measured['ticket'],public=public,sourcePublic=deepcopy(measured['public']),scene=scene,held=deepcopy(rows),
             acquisition=acquisition,retirement=deepcopy(measured['retirement']))
 
     def actor_original(self,reference):

@@ -10,6 +10,9 @@ class RootedMarkerDomain(CachedMarkerDomain):
         super().__init__(scope);outer=self
         class OriginalClockCensus(RootCensus):
             def tick(_self):_self.elapsed+=1;return outer.epoch()
+            def source(_self,**kwargs):
+                # Model the selected role before producing its raw original.
+                value=super().source(**kwargs);value['processId']=scope.pid;return value
         self.roots=OriginalClockCensus();self.actual_roots={};self.root_ids={}
 
     def widgets(self):

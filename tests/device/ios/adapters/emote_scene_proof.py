@@ -32,17 +32,22 @@ def phase(value,run,instance,ticket,stage):
     return value
 
 
-def validate(value,*,stage,root,binding,run,role,instance,ticket,state_root,lock):
+def _validate(value,*,stage,root,binding,run,role,instance,ticket,state_root,lock,Marker,version):
     """Replay actual immutable owners under the caller's existing source lease.
 
     The lease serializes this reader. It supplies no authority over the other
     target; every remote original keeps its own actual binding and inode.
     """
+    need(type(version) is int and version in (1,2))
+    if version==1:need(Marker is IOSEmoteMarkerScope)
+    else:
+        from ios.adapters.emote_rooted_marker_scope import IOSEmoteRootedMarkerScope
+        need(Marker is IOSEmoteRootedMarkerScope)
     need(stage in ('initial','scene-retired') and role in ('primary','actor'));context(binding)
     root=Path(root);identifier(run);identifier(instance);identifier(ticket);lock.assert_held()
     common={'iosEmoteSceneProofVersion','stage','phase'}
     exact(value,common|({'restoration','reference','ownerPath'} if stage=='initial' else {'scope','entities','ownerPath'}))
-    need(type(value['iosEmoteSceneProofVersion']) is int and value['iosEmoteSceneProofVersion']==VERSION and value['stage']==stage)
+    need(type(value['iosEmoteSceneProofVersion']) is int and value['iosEmoteSceneProofVersion']==version and value['stage']==stage)
     phase(value['phase'],run,instance,ticket,stage)
     path=Path(value['ownerPath']);need(path.is_absolute() and path.resolve()==path and path.parent==Path(state_root))
     if stage=='initial':
@@ -57,7 +62,7 @@ def validate(value,*,stage,root,binding,run,role,instance,ticket,state_root,lock
         need(not frame['worldBefore']['source']['markers'] and not frame['worldAfter']['source']['markers'])
         original_sha=digest(original)
     else:
-        scope=IOSEmoteMarkerScope.archive(value['scope'],root=root,binding=binding,run=run,role=role,lock=lock)
+        scope=Marker.archive(value['scope'],root=root,binding=binding,run=run,role=role,lock=lock)
         need(scope.state['phase']=='released' and scope.state['pending'] is None and scope.state['quiet'][-1]==len(scope.frames))
         first,last=scope.frames[scope.state['baseline']-1],scope.frames[-1]
         scope.components.body_preserved(first['world'],last['world']);scope.components.view_preserved(first['world'],last['world'])
@@ -69,6 +74,17 @@ def validate(value,*,stage,root,binding,run,role,instance,ticket,state_root,lock
     need(packet['processId']==int(binding['processIdentity']))
     return dict(stage=stage,binding=deepcopy(binding),runId=run,role=role,phaseInstance=instance,ticket=ticket,
         artifactRoot=str(root),originalSha256=original_sha,nativeEndpoint=deepcopy(packet))
+
+
+def validate(value,*,stage,root,binding,run,role,instance,ticket,state_root,lock):
+    return _validate(value,stage=stage,root=root,binding=binding,run=run,role=role,instance=instance,
+        ticket=ticket,state_root=state_root,lock=lock,Marker=IOSEmoteMarkerScope,version=1)
+
+
+def rooted(value,*,stage,root,binding,run,role,instance,ticket,state_root,lock):
+    from ios.adapters.emote_rooted_marker_scope import IOSEmoteRootedMarkerScope
+    return _validate(value,stage=stage,root=root,binding=binding,run=run,role=role,instance=instance,
+        ticket=ticket,state_root=state_root,lock=lock,Marker=IOSEmoteRootedMarkerScope,version=2)
 
 
 def ack(value,*,root,binding,run,role,state_root,lock):

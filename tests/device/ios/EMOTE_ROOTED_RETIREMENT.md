@@ -53,3 +53,8 @@ execute on the host. No native build, physical timing or device result follows.
 The whole Rooted Emote coordinator, actual independent Actor publication, live
 terminal seal, once-only OS/SDK end, failure recovery and canonical/generic
 integration remain required. Complete Emote capability admission stays closed.
+
+The [explicit rooted coordinator2](EMOTE_ROOTED_COORDINATION.md) now selects
+these owners for both roles and qualifies real paired scene3 publication.
+Terminal/process, runtime transport and complete canonical integration remain
+open as recorded there.

@@ -17,7 +17,7 @@ from self_tests.test_native_script_files import Boundary as FileBoundary
 
 
 class WholeActorFixture:
-    def __init__(self,test,primary):
+    def __init__(self,test,primary,*,feature_type=IOSEmoteFeature):
         a=self.target=ActiveActorFixture(test,primary.target,defer_setup=True);d,s=a.domain,a.scope
         self.primary=primary;self.entities=EntityDomain(test,s,d);self.pointer=NativePointerBoundary()
         self.keys=KeyDomain(s,d,binding=ACTOR,role='actor')
@@ -53,7 +53,7 @@ class WholeActorFixture:
         self.restoration=IOSEmoteRestorationFrames(self.runtime,'actor',s,a.root,a.lock,epoch_ms=s.epoch_ms,monotonic=s.monotonic,sleep=s.sleep)
         self.parts=dict(own=self.runtime._sources('actor'),primary=self.runtime._sources('primary'),sources=a.sources,scope=s,
             peers=a.peers,samples=a.samples,observer=a.observer,restoration=self.restoration)
-        class Flow(IOSEmoteFeature):
+        class Flow(feature_type):
             def components(_self):
                 need(_self.state is not None and _self.state['binding']==ACTOR and _self.state['primaryBinding']==BINDING
                     and _self.state['phaseInstance']==a.phase.previous['instance'])

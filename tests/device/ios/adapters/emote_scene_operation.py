@@ -64,8 +64,10 @@ def owner(flow,parts):
             admit_existing_peer(flow.runtime,other,own['binding'],epoch_ms=flow.epoch_ms,monotonic=flow.monotonic))
     else:admission=deepcopy(previous['peerAdmission'])
     peer_store=PrivateFeatureState(flow.runtime.state_path(other).with_name('ios-emote-'+('actor' if flow.role=='primary' else 'primary')+'-scene-gate.json'))
+    options={}
+    if hasattr(flow,'scene_validator'):options['validate_original']=flow.scene_validator
     return IOSEmoteSceneGate(store,flow.root,flow.state['binding'],flow.run,flow.role,flow.state['phaseInstance'],admission,peer_store,
-        flow.lock,flow.primary_lock,own['check'],check=flow.clock,monotonic=flow.monotonic)
+        flow.lock,flow.primary_lock,own['check'],check=flow.clock,monotonic=flow.monotonic,**options)
 
 
 def require(flow,parts,stage,proof):
@@ -83,7 +85,7 @@ def require(flow,parts,stage,proof):
 def initial(flow,parts):
     frames=parts['restoration'];refs=[ref for ref in frames.state['records']
         if frames.original(ref)['kind']=='initial' and frames.original(ref)['phase']=='captured'];need(refs)
-    return require(flow,parts,'initial',dict(iosEmoteSceneProofVersion=1,stage='initial',phase=deepcopy(flow.phase.previous),
+    return require(flow,parts,'initial',dict(iosEmoteSceneProofVersion=getattr(flow,'scene_proof_version',1),stage='initial',phase=deepcopy(flow.phase.previous),
         restoration=frames.store.read(),reference=refs[0],ownerPath=str(frames.store.path)))
 
 
@@ -92,6 +94,6 @@ def retired(flow,parts):
     need(type(cache) is dict);key=('scene-retired',ticket)
     if key not in cache:
         scope=parts['scope'];entities=flow.marker_entities(parts);entities.abandon();entities.capture();entities.closed(scope)
-        cache[key]=dict(iosEmoteSceneProofVersion=1,stage='scene-retired',phase=deepcopy(flow.phase.previous),
+        cache[key]=dict(iosEmoteSceneProofVersion=getattr(flow,'scene_proof_version',1),stage='scene-retired',phase=deepcopy(flow.phase.previous),
             scope=scope.store.read(),entities=entities.store.read(),ownerPath=str(entities.store.path))
     return require(flow,parts,'scene-retired',cache[key])
