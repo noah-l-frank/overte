@@ -1072,8 +1072,12 @@ and [`test_snapshots_actor.py`](../../../../android/phone/tests/device/test_snap
 The subsequent cleanup-only source adjustment retains the same ordinary cue
 methods; these results are not relabelled as a run of its new close-race cases.
 
-Ordinary acquisitions now separate immutable preparation from current effects
-using the existing two-stage source-lock discipline. After constructing and
+Foreground ordinary acquisitions separate immutable preparation from current
+effects using the existing two-stage source-lock discipline. The split requires
+actual baseline/active state, explicit absence of a current operation and OS
+handoff, and the original foreground scope. OS and pending scopes retain the
+first source lock through the same original requalification, current read and
+publication; they add no release or scheduling sleep. After constructing and
 validating its original Role, the Actor pins the actual Feature, Actor and Role
 headers, history graph, configuration and exact native/SDK scope. It releases
 the lock before reacquiring it for complete original-file and owner checks and
@@ -1097,6 +1101,16 @@ original Feature save path. The earlier combined regression run remains
 28 cases cover cue, migration and phase behavior on the same Actor bytes.
 These are host test-logic results with synthetic native/SDK boundaries. They
 do not establish either complete backend's timing or product/device acceptance.
+
+The foreground-only scope correction subsequently passed the expanded ten-case
+stage module in 44.168 seconds on Actor SHA-256
+`c477e879b21b7df3ae30bf7ac88bd612522bc04d1e2332e9eeb3775322072ad2`.
+Its two additional cases use the actual normal Share-open flow, retain the real
+OS lock without a scheduling sleep, and check both independent publication and
+the late-save mutation rejection. The two original one-shot Actor/credential
+cases passed separately in 3.753 seconds. Every Actor method except the split
+admission in `step_owned` is AST-identical to the preceding source. Full backend
+qualification remains separate.
 
 An ordinary actor acquisition admits its actual phase before reading native,
 avatar or measurement sources. One proven owned activation advance can defer
