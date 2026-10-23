@@ -149,6 +149,7 @@ TESTS = (
     test('assets-cancel-owner', "interaction", PYTHON, "device/test_assets_cancel_owner.py", requires=("c++", "pkg-config", "unshare")),
     test('assets-page-home', "interaction", PYTHON, "device/test_assets_page_home.py", requires=("c++", "pkg-config", "unshare")),
     test('assets-home-owner', "interaction", PYTHON, "device/test_assets_home_owner.py", requires=("c++", "pkg-config", "unshare")),
+    test('assets-server-state', "interaction", PYTHON, "device/test_assets_server_state.py", requires=("c++", "pkg-config")),
     test('assets-read-native', "interaction", PYTHON, "device/test_assets_read_native.py", requires=("c++", "pkg-config")),
     test('assets-read-job', "interaction", PYTHON, "device/test_assets_read_job_native.py", requires=("c++", "pkg-config")),
     test('assets-backend-source', "interaction", PYTHON, "device/test_assets_source.py", requires=("c++", "pkg-config")),

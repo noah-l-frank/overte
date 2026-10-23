@@ -680,3 +680,42 @@ passed. The context binding in original `OffscreenSurface::contextForUrl` assign
 the newly created context to its engine; normal Home does not destroy that shared
 engine. This original survivor remains an explicit obligation, without a product
 fix or a claim of complete backend, window, device or feature retirement.
+
+## Original server status, meta and private disk boundary
+
+The next host join compiles complete original `AssetServer` GetAll mapping,
+status, meta-reader and hash-path method bodies, together with the original
+server type declarations/constants/helpers. The existing actual
+`GetAllMappingsRequest` and Pico source getter decode that original GetAll wire
+response on their original separate Qt request thread. The fixture dispatches
+server reads back to the actual owner thread. Assignment/network transport,
+wire serialization and unavailable workers remain explicit host endpoints. No
+server process, oven, worker or upload is started; this is not an actual backend
+or successful-bake receipt.
+
+Private real files supply the original repository FBX bytes and controlled
+protocol bytes. Fresh reads retain actual inode/device, byte length, mtime,
+ctime and SHA-256 with unchanged before/after fstat. Hidden mappings remain in
+the complete original inventory. Original glTF `Irrelevant` and FBX original
+redirect `NotBaked` statuses are separate from actual blob presence. Removing a
+blob leaves the original mapping status unchanged. Likewise an existing baked
+mapping can yield original `Baked` even with missing output and no meta, or with
+a stale meta version and a stored original failure. Removing the fixture baked
+redirect exposes the actual meta error through the original status function.
+These observations identify the missing positive proof: an original fresh
+oven worker/completion barrier, current successful meta and readable output
+must still be joined before readiness. Neither status nor this fixture replaces
+those facts. No product status/permission/mapping logic is changed.
+
+The owning `assets-server-state` selector passed in 5.993 seconds with unchanged
+90-second compiler/120-second outer bounds. Five original client/server-file
+pairs, actual repository FBX hash, the native stdout bytes/SHA, native artifact
+hash and six original body/type/helper provenance hashes are retained privately.
+The Python consumer validates every actual client packet with the existing
+closed Pico source validator at its historical epoch and checks stable PID,
+instance and advancing original source sequence. No new production contract or
+version is introduced by this host fixture. The catalog addition is local
+156→157; Root must add the selector to its current catalog rather than copy this
+older worktree count. Feature 13/14 remains partial, including live independent
+backend/worker receipts, actual successful bake, model/peer/stereo and complete
+resource retirement.
