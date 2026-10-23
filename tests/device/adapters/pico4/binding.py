@@ -2163,6 +2163,24 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-cleanup-baseline-')))
 
+        def _chat_observation_cursor_store(self,target,role,*,witness=False):
+            _need(role in ('primary','actor') and type(witness) is bool and (not witness or role=='actor'))
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-',
+                'chat-'+('witness' if witness else role)+'-observation-cursor-')))
+
+        @_private
+        def _chat_observation_cursor(self,target,initial,*,witness=False):
+            from adapters.chat_journey.observation import ChatObservationOwner
+            from adapters.chat_journey.observation_cursor import ChatObservationCursor
+            from adapters.feature_fixture_access import AdapterFixtureClient
+            _need(type(initial) is ChatObservationOwner and initial.stage=='initial' and type(witness) is bool
+                and witness is (not isinstance(initial.source.client,AdapterFixtureClient))
+                and initial.store.path==self._chat_observation_store(target,initial.samples.role,stage='initial',witness=witness).path)
+            native=self._native_feature_observer(target);native.guard()
+            _need(initial.samples.binding==self._scripts(target).binding)
+            return ChatObservationCursor(initial,self._chat_observation_cursor_store(target,initial.samples.role,witness=witness))
+
         def _chat_cleanup_source_seal_store(self,target,*,witness):
             _need(type(witness) is bool);state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-',
@@ -2229,6 +2247,8 @@ def create_adapter(args, base_class):
             stores=[self._chat_application_store(target),self._chat_restart_inputs_store(target),self._chat_archive_retirement_store(target),self._chat_host_close_store(target)]
             stores.append(self._chat_cleanup_witness_store(target))
             stores.append(self._chat_cleanup_baseline_store(target))
+            stores.extend(self._chat_observation_cursor_store(target,role,witness=witness)
+                for role,witness in (('primary',False),('actor',False),('actor',True)))
             stores.extend(self._chat_cleanup_source_seal_store(target,witness=witness) for witness in (False,True))
             stores.extend(self._chat_observation_store(target,role,stage=stage,witness=witness)
                 for role,witness in (('primary',False),('actor',False),('actor',True))

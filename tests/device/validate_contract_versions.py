@@ -40,6 +40,7 @@ REQUIRED = {
     "pico-browser-app-controls": 1,
     "feature-cleanup-consumption": 1,
     "chat-cleanup-consumption": 1,
+    "chat-observation-cursor": 1,
     "chat-compiled-script-source": 2,
     "pico-emote-scene-source": 1,
     "pico-emote-scene-input": 1,
