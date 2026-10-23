@@ -1054,3 +1054,83 @@ A read-only review of the retained raw archives additionally confirms the same
 server instance, producer PID and complete physical-file tuples across all
 22 independent original GetAll replies. The native owning positive was not
 repeated for this artifact review.
+
+## Passive original request-child lifetime continuation
+
+The additive request observer uses a Pico test-gated friend declaration in
+`AssetResourceRequest.h`; no product method body, request timing, callback or
+lifetime changes. `AssetsRequestLifetimes` keeps bounded weak QPointers only.
+After a required empty baseline, the independent reader observes its actual
+outer request, the original private mapping pointer after original send, and
+the original private asset pointer on original progress/completion callbacks.
+The observer generates stable append-only identities and preserves their
+actual URL/path/hash relationships. Cleared current fields never clear a
+historical weak pointer or imply its death. First observed absence is recorded
+once when the original QObject guard actually becomes null. The collector has
+no strong resource reference and no signal connection or cleanup operation.
+
+The collector is confined to its actual original QThread, retained weakly.
+This matters for later integration: product ResourceManager moves both ATP
+requests and AssetClient into its ResourceManager thread. The existing
+independent host reader uses the previously declared GUI-request/client-worker
+boundary. Its measured relative thread flags cannot be relabeled as product
+thread routing. Product capture must marshal onto the real request owner with
+the existing bounded weak native queue; that integration remains unavailable.
+
+The new historical consumer requires exact JSON types, source/process/run and
+sequence continuity, a genuinely empty initial inventory and initially live
+original identities. Every prior complete row remains invariant except its
+irreversible alive-to-absent transition. Retirement requires exactly the three
+outer/mapping/asset families tied to the actually measured resource URLs and
+content hashes. A late first-seen dead child, unknown missing child or mutable
+boolean/integer alias cannot replace that original evidence.
+
+The owning continuation adds passive observations to the existing normal
+Cancel and Home samples. It preserves their original clocks, three-second
+windows, 500-ms gaps, child file/neutral histories and final freshness fences.
+The complete original byte packet is archived before interpreting its nested
+request-birth samples; standalone quiet samples retain raw original JSON.
+All histories and dependent copies remain within the existing combined
+512-frame/16-MiB limit. Three counterexamples mutate copies only after durable
+originals exist: boolean schema version, removed known child and asserted child
+death without an admitted live original. The first owning continuation reached
+all nine actual QObject absences and its original Cancel/Home quiet predicates,
+but failed the unchanged combined frame cap: 550 exceeds 512 (38.636 seconds).
+The complete raw failed evidence remains preserved; this is not a green whole
+result. Earlier fixed byte and entity packets remain their own separate
+evidence and make no new child-lifetime claim.
+
+The source follow-up removes only a redundant derived DTO archive. All 45
+original observations remain: 30 exact standalone raw JSON replies and 15 exact
+SHA-256/field/index references into the unchanged original byte packet. Every
+validation reads the current store and reconstructs the complete typed, hashed,
+scoped historical sequence from those actual originals. No sample, original
+byte, native measurement, timestamp, old file/child archive or quiet window is
+removed or changed. Transient decoded DTOs are no longer persisted as a second
+full archive. The preserved first dataset would therefore occupy 505 physical
+frame copies rather than 550. The concretely changed owning run now passes in
+40.899 seconds, including the three original-copy counterexamples. Its actual
+unchanged loops produced 43 new measurements: 28 raw standalone replies and
+15 embedded byte-packet references, occupying 484 of 512 combined physical
+frame copies. The earlier 45-observation failed archive remains separate and
+unchanged. Measured Cancel/Home request-absence intervals are 3991/3003 ms,
+with maximum actual sample gaps 308/342 ms. All nine initially live QObjects
+(three outer, three mapping, three asset) are actually absent; the original
+native byte phase takes 77 ms. These are new measured values, not retimed old
+samples or a total-speedup claim. Local raw-byte admission remains the existing
+16 MiB; no frame/raw-byte limit changes.
+
+The stored resourceId relation comes from the original private request member,
+not an invented QObject parent relation. This qualifies the nine known reader
+QObject lifetimes only. ResourceManager/ModelCache integration, retained
+callbacks/cache capacity, automatic renderer/model/texture effects, independent
+actor/stereo, known entity/invalid-context/borrowed-window retirement and whole
+Assets cleanup remain open. No complete feature capability changes.
+
+Final registry, seven Pico coverage checks (all 14 risk groups), six common
+Assets source checks, four focused repository groups and all 668 Markdown
+checks pass. Cold reconstruction validates every original observation in both
+the preserved failed 45-measurement archive and the new 43-measurement archive.
+Removing the two test-gated friend blocks leaves the product header exactly
+byte-equivalent to the fixed parent. No additional unchanged native group was
+repeated for this packet.
