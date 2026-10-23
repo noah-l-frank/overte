@@ -585,3 +585,44 @@ retained; the case does not qualify complete Cancel or file release. No clock,
 quiet predicate, cadence, limits or production behavior changed, and no
 unchanged retry was run. Further work prioritizes the complete remaining owner
 and backend joins rather than additional isolated delivery variations.
+
+## Persistent tablet Home and original page lifetime
+
+The private, test-gated `assets-pages` source observes the original Assets page,
+its actual QQmlContext, and the borrowed persistent tablet loader/window. It
+reuses the existing actual `FeatureQmlLoads` inventory. It neither drives Home
+nor deletes resources. Its closed v1 packets retain immutable original IDs and
+monotonic weak lifetimes; the guarded Python binding preserves bounded raw JSON,
+hashes and cold history with native and host clock fences. The two new registry
+entries are additive; existing Cancel v1 journals remain unchanged.
+
+The owning host fixture loads the complete original TabletRoot and Assets QML
+at their canonical URLs. It compiles complete original OffscreenSurface loader
+and TabletProxy Home method bodies, preserving their provenance hashes. The
+original Pico X callback from tabletUI.js receives normal press/release edges
+through an explicit standard-controller host endpoint. The fixture substitutes
+unrelated Home content and unavailable sound/SDK/network/keyboard services; it
+does not qualify those services, physical input, or the complete application.
+The shared observation header is compiled here; the entire application bridge
+is not built by this selector.
+
+All three owning cases passed together in 24.531 seconds, with the original
+90-second compiler and 120-second selector bounds. Actual normal Cancel and
+original private-file release precede normal Home. The original page and QML
+components retire, while independent weak pointers show the original context
+still alive but invalid and the borrowed loader/window alive. These facts are
+retained explicitly: an invalid context is not claimed dead, and shared window
+death is not a cleanup gate. Original Cancel/File journals remain byte-equivalent
+as canonical JSON. Cold source reconstruction preserves exact raw history and
+original identities. A second case confirms an ignored input ACK leaves the
+actual original page alive; a final-copy delay with a frozen native clock refuses
+publication before any history or input. Private durable evidence includes raw
+frames/hashes, independent pointers, original body hashes, artifact identity,
+and the separate original Cancel/File journals.
+
+The additive `assets-page-home` selector brings this worktree catalog to 155;
+integration must add it to the current catalog rather than replace newer groups
+or counts. This packet supplies the actual page/source boundary. A durable normal
+Home owner still needs to join it vertically with the existing Cancel/File owner;
+surviving context retention and the other whole-feature/backend/device gaps
+remain open. Feature 13/14 remains partial.

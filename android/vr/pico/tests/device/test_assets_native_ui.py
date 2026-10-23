@@ -6,6 +6,7 @@ This compiles selected original bodies, not Interface or an actual oven/server.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import json
+import importlib.util
 import os
 from pathlib import Path
 import shlex
@@ -20,7 +21,7 @@ from test_assets_read_native import prepare_source
 
 
 
-def compile_ui(stage,*,original_uploads=False,sanitize=False):
+def compile_ui(stage,*,original_uploads=False,sanitize=False,persistent_tablet=False):
     environment=dict(os.environ);prefix=Path(environment['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
     environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),
         LD_LIBRARY_PATH=str(prefix/'usr/lib64'),QT_PLUGIN_PATH=str(prefix/'usr/lib64/qt5/plugins'),
@@ -52,6 +53,10 @@ def compile_ui(stage,*,original_uploads=False,sanitize=False):
     bundle+='\n'+original(header,'QVariantMap featurePicoBundleOriginals(').replace('QVariantMap featurePicoBundleOriginals(',
         'QVariantMap AssetMappingsScriptingInterface::featurePicoBundleOriginals(').replace(') const {',') {')
     upload_arguments=['-fsanitize=address','-fno-omit-frame-pointer','-g1'] if sanitize else []
+    if persistent_tablet:
+        spec=importlib.util.spec_from_file_location('assets_tablet_prepare',HERE/'assets-tablet-prepare.py')
+        prepare=importlib.util.module_from_spec(spec);spec.loader.exec_module(prepare)
+        upload_arguments+=prepare.prepare(stage,environment,prefix)
     if original_uploads:
         bundle+='\n'+original(mappings,'void AssetMappingsScriptingInterface::advanceBundle(')
         network=ROOT/'libraries/networking/src'
@@ -75,6 +80,7 @@ def compile_ui(stage,*,original_uploads=False,sanitize=False):
         str(ROOT/'libraries/ui/src/ui/NativeFieldInput.cpp'),str(stage/'helper-moc.cpp'),str(stage/'upload-moc.cpp'),str(stage/'MappingRequest.cpp'),str(stage/'AssetRequest.cpp'),str(stage/'MappingRequest-moc.cpp'),str(stage/'AssetRequest-moc.cpp'),*upload_arguments,'-o',str(binary),
         '-L'+str(prefix/'usr/lib64'),*flags],check=True,timeout=90,env=environment)
     args=[str(stage/'imports'),str(ROOT/'interface/resources/qml/hifi/dialogs/TabletAssetServer.qml'),str(bundle),str(stage/'originals.json'),str(ROOT)]
+    if persistent_tablet:args.append('--persistent-tablet')
     environment.update(QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',QT_LOGGING_RULES='*.warning=true',QT_FORCE_STDERR_LOGGING='1')
     return binary,environment,args
 

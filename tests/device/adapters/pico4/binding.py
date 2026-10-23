@@ -556,6 +556,11 @@ def create_adapter(args, base_class):
             return ui
 
         @_private
+        def _assets_pages(self,target,*,source_lock):
+            from adapters.pico4.assets_pages import bind_source
+            return bind_source(self,target,self._native_feature_observer(target),source_lock=source_lock)
+
+        @_private
         def _assets_uploads(self,target,*,source_lock,intent=None):
             from adapters.pico4.assets_uploads import PicoAssetsUploads,FILE
             lock=self._script_journey()._lock(target,source_lock);lock.assert_held()

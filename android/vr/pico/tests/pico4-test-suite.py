@@ -147,6 +147,7 @@ TESTS = (
         'AvatarUrlsTests.test_ack_without_load_stays_pending_and_cleanup_retains_uncertain_ticket'),
     test('assets-upload-native', "interaction", PYTHON, "device/test_assets_upload_originals_native.py", requires=("c++", "pkg-config")),
     test('assets-cancel-owner', "interaction", PYTHON, "device/test_assets_cancel_owner.py", requires=("c++", "pkg-config", "unshare")),
+    test('assets-page-home', "interaction", PYTHON, "device/test_assets_page_home.py", requires=("c++", "pkg-config", "unshare")),
     test('assets-read-native', "interaction", PYTHON, "device/test_assets_read_native.py", requires=("c++", "pkg-config")),
     test('assets-read-job', "interaction", PYTHON, "device/test_assets_read_job_native.py", requires=("c++", "pkg-config")),
     test('assets-backend-source', "interaction", PYTHON, "device/test_assets_source.py", requires=("c++", "pkg-config")),

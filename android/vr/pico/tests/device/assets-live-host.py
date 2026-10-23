@@ -17,6 +17,7 @@ from adapters.pico4 import binding as original_binding
 from adapters.pico4.assets_source import PicoAssetsSource
 from adapters.pico4.assets_uploads import PicoAssetsUploads
 from adapters.pico4.assets_files import NativeAssetsFiles
+from adapters.pico4.assets_pages import PicoAssetsPages
 
 # Execute the exact production factories, including the original two-argument
 # final callback bridge; only their runtime/installation endpoints are supplied
@@ -84,6 +85,11 @@ class AssetsLiveHost:
     def uploads(self,*,intent=None):return PicoAssetsUploads(self.source_send,lambda:self.raw,self.epoch_milliseconds,self.guard,self.process.pid,intent=intent)
     def controls(self,intent,*,before_send=None,audit=None):
         return self.factory._assets_controls(self.target,intent,before_send=before_send,audit=audit)
+    def pages(self):
+        def send(command):
+            self.operations.append(command)
+            self.raw=self.request(dict(action='host-observe-assets-pages',commandId=command['commandId']))
+        return PicoAssetsPages(send,lambda:self.raw,self.epoch_milliseconds,self.guard,self.process.pid)
     def close(self):
         if self.process.poll() is None:
             self.process.stdin.close()
