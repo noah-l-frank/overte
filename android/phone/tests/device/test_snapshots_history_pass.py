@@ -7,13 +7,17 @@ from copy import deepcopy
 import os
 from pathlib import Path
 import sys
+import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import test_snapshots_quiet_role_reuse as probe
 from adapters.normal_ui import NativeUIError
+from adapters.normal_feature_state import PrivateFeatureState
+import overte_phone_snapshots_history_pass as history_module
 from overte_phone_snapshots_history_pass import SnapshotHistoryReadPass
 from overte_phone_snapshots_role import PhoneSnapshotsRole
 from overte_phone_snapshots_measurements import SnapshotPending
@@ -162,6 +166,67 @@ class SnapshotHistoryReadPassTests(unittest.TestCase):
             thread=threading.Thread(target=foreign);thread.start();thread.join(timeout=2)
             self.assertFalse(thread.is_alive());self.assertEqual([True],errors)
             with f.lock.held():self.assertTrue(token.finish())
+
+
+class SnapshotHistoryRootBoundaryTests(unittest.TestCase):
+    """Actual private metadata scans; no target, timing or journey fixture."""
+    @contextmanager
+    def private_files(self):
+        with tempfile.TemporaryDirectory(prefix='snapshot-history-root-') as temporary:
+            root=Path(temporary);root.chmod(0o700);files={}
+            for index in range(3):
+                path=root/('original-'+str(index));path.write_bytes(bytes([index])*17);path.chmod(0o600)
+                files[path]=history_module.signature(path)
+            files[root/'planned-absent']=None
+            token=object.__new__(SnapshotHistoryReadPass);token.root=root;token.files=files
+            self.seal(token)
+            yield root,token
+
+    def seal(self,token):
+        token.file_seal=tuple(token.files.items())
+        token.file_seal_sha256=token._files_digest(token.file_seal)
+
+    def test_actual_root_checks_bracket_every_individual_file_signature(self):
+        with self.private_files() as (root,token):
+            actual=history_module.signature;parent=PrivateFeatureState._parent;seen=[];parents=[]
+            def measured(path):seen.append(path);return actual(path)
+            def checked(store):parents.append(store.path.parent);return parent(store)
+            with patch.object(history_module,'signature',measured),patch.object(PrivateFeatureState,'_parent',checked):
+                token._verify_files()
+            self.assertEqual([root,root],parents)
+            self.assertEqual([root,*token.files,root],seen)
+
+    def test_actual_root_permission_aba_during_scan_is_rejected(self):
+        with self.private_files() as (root,token):
+            actual=history_module.signature;before=actual(root);changed=[]
+            def measured(path):
+                result=actual(path)
+                if path!=root and not changed:
+                    root.chmod(0o750);time.sleep(.002);root.chmod(0o700)
+                    changed.append(actual(root))
+                return result
+            with patch.object(history_module,'signature',measured),self.assertRaises(NativeUIError):
+                token._verify_files()
+            self.assertEqual(1,len(changed));self.assertEqual(before[:-1],changed[0][:-1])
+            self.assertNotEqual(before[-1],changed[0][-1])
+
+    def test_actual_missing_replaced_created_and_foreign_parent_files_still_reject(self):
+        for kind in ('missing','same-byte-replacement','planned-created','foreign-parent'):
+            with self.subTest(kind=kind),self.private_files() as (root,token),\
+                    tempfile.TemporaryDirectory(prefix='snapshot-foreign-root-') as foreign:
+                path=next(iter(token.files))
+                if kind=='missing':path.unlink()
+                elif kind=='same-byte-replacement':
+                    other=root/'replacement';other.write_bytes(path.read_bytes());other.chmod(0o600)
+                    os.replace(other,path)
+                    self.assertNotEqual(token.files[path][:2],history_module.signature(path)[:2])
+                elif kind=='planned-created':
+                    path=root/'planned-absent';path.write_bytes(b'late body');path.chmod(0o600)
+                else:
+                    other=Path(foreign);other.chmod(0o700);path=other/'original'
+                    path.write_bytes(b'foreign body');path.chmod(0o600)
+                    token.files[path]=history_module.signature(path);self.seal(token)
+                with self.assertRaises(NativeUIError):token._verify_files()
 
 
 if __name__=='__main__':unittest.main()

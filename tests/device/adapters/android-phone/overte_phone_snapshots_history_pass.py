@@ -81,11 +81,14 @@ class SnapshotHistoryReadPass:
     def _verify_files(self):
         need(type(self.file_seal) is tuple and tuple(self.files.items())==self.file_seal
             and self._files_digest(self.file_seal)==self.file_seal_sha256)
+        boundary=PrivateFeatureState(self.root/'snapshots-history-boundary.json')
+        boundary._parent();root_before=signature(self.root)
         for path,pinned in self.file_seal:
-            PrivateFeatureState(path)._parent()
+            need(path.parent==self.root)
             try:actual=signature(path)
             except FileNotFoundError:need(pinned is None)
             else:need(pinned is not None and actual==pinned)
+        boundary._parent();need(signature(self.root)==root_before)
 
     @staticmethod
     def _files_digest(files):
