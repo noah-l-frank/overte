@@ -95,3 +95,35 @@ source is selected. This second local dependency is not an integration packet:
 the root already owns all of these original transport hunks. It enables the
 fixed FastCancel closed-history/work-floor retirement check without querying
 or evaluating a foreign VM from the GUI thread.
+
+## Additional fixed review, 2026-10-23
+
+Read-only Git-object inspection of
+`97219dbebc90ee95db943e5bf82a577b75a04e8e` and its named predecessors adds
+future actor/retirement candidates, not a Pico implementation or migration:
+
+- `59b1392c7ddc2822c1fba0542864686b98bb8ebb` and
+  `63d149e5e9db12d0090d0ae394a12daf19f22e27` bind an actor's new independent
+  acquisition to one actual greater completed Primary journal sequence. The
+  Primary cue schedules acquisition; it supplies no actor observation/effect.
+  Pending delivery resolves before a new cue. Exact role history prefixes and
+  post-guard/post-CAS owner pins remain mandatory.
+- `5f36f156c8edd95f3c45d625c8965f35928d6472` adds actual TLS closure races
+  between outer and inner cleanup reads. Deferral needs the actor's own already
+  completed quiet, exact issued-sample receipt, unchanged owner/phase, retained
+  partial history and a fresh subsequent closed-phase retirement read.
+  Incomplete quiet keeps original controls and supplies no retirement archive.
+- `c4e381fc7205622a621da8a1856ad6aadf2bb740` preserves real fractional
+  fixture/receipt timestamps with the existing finite numeric validator; target
+  acquisition epochs remain separately typed. No timestamp is rounded into an
+  invented generation or closure.
+- `97219dbebc90ee95db943e5bf82a577b75a04e8e` validates original actor archive
+  versions 1/2/3 through their exact grammar. Older archives contribute neither
+  invented phase history nor an invented consumed Primary cue and remain
+  unchanged. Version-3 cue/prefix proof stays mandatory where actually present.
+
+These changes do not fill Pico's still-open Share/Upload/Resume, independent
+actor, stereo/render, restore or final resource ownership. No Phone actor,
+touch route, native mono proof, v18 facade or retirement archive is selected by
+the current normal Pico Save component. Reuse those precise guards only when
+the corresponding actual Pico originals and explicit cleanup authority exist.

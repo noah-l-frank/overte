@@ -81,6 +81,17 @@ public final class SnapshotDestinationOwnerHostTest {
             check(!owner.retired());access.release.countDown();worker.join(2000);check(!worker.isAlive());
         } else if("close-failure".equals(mode)) { access.closeFails=true;fails(() -> owner.published(REQUEST));check(!owner.retired());return; }
         else owner.published(REQUEST);
+        if("inspect-changed-bytes".equals(mode) || "inspect-changed-inode".equals(mode)) {
+            if("inspect-changed-inode".equals(mode)) { Files.move(path,root.resolve("old-inspected.bin"));Files.write(path,new byte[]{1,2,3,4,5}); }
+            else Files.write(path,new byte[]{9,9,9,9,9});
+            fails(owner::inspect);check(!owner.retired() && access.deletions==0);return;
+        }
+        if("verify-current".equals(mode)) {
+            long acquired=((Number)owner.snapshot().get(0).get("verifiedEpochMs")).longValue();owner.inspect();
+            Map<String,Object> current=owner.snapshot().get(0);
+            check(acquired>0 && ((Number)current.get("verifiedEpochMs")).longValue()>=acquired
+                && current.get("verifiedEpochMs").equals(current.get("checkedEpochMs")) && access.deletions==0);return;
+        }
         if("foreign".equals(mode)) { fails(() -> owner.remove(REQUEST,DELETE));check(access.deletions==0 && Files.exists(path));return; }
         if("changed-bytes".equals(mode)) { Files.write(path,new byte[]{9,9,9,9,9});fails(() -> owner.remove(REQUEST,DELETE));check(access.deletions==0);return; }
         if("changed-inode".equals(mode)) { Files.move(path,root.resolve("old.bin"));Files.write(path,new byte[]{1,2,3,4,5});fails(() -> owner.remove(REQUEST,DELETE));check(access.deletions==0);return; }
