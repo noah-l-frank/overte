@@ -9,7 +9,7 @@ from copy import deepcopy
 import uuid
 
 from adapters.native_clock_join import digest
-from adapters.native_feature_observation import exact,need
+from adapters.native_feature_observation import exact,need,number
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_feature.history import pack,unpack,same
 from feature_journeys.contract import result as public_result
@@ -25,6 +25,13 @@ VERSION=2
 INITIAL_VERSION=3
 READS=(1,2,3)
 REFERENCE_VERSION=1
+
+
+def authority_precedes_image(phase,base_read):
+    """Order original adapter-host clocks; provider UTC is a separate clock."""
+    need(type(phase) is dict and type(base_read) is dict and type(base_read.get('before')) is dict)
+    ended=phase.get('hostAfterMonotonic');before=base_read['before'].get('monotonic')
+    need(number(ended,0,1e15) and number(before,0,1e15) and ended<=before)
 
 
 class NavigationRestoration:
@@ -260,7 +267,12 @@ class NavigationRestoration:
         place=places.compose(f.run,self.binding,subset,view,baseline=initial['bookmarkBaseline'],
             provider_inputs=initial['providerInputs'],directory=self.directory)
         subset,view=product.validation_view(clock,originals,errors.ORIGINALS)
-        error=errors.compose(f.run,self.binding,subset,view)
+        missing=None
+        if self.transfer is None and 'missingOwner' in parts:
+            from ios.adapters.navigation_initial_missing import original as missing_original
+            history=missing_original(parts['missingOwner'],initial,f.fixture.fixture_url)
+            if history is not None:missing=history['proof']
+        error=errors.compose(f.run,self.binding,subset,view,missing=missing)
         fields=dict(place['fields'],location=measured['rendered']['location'],error=error['fields']['error'])
         need(fields['addressDialog']==error['fields']['addressDialog'])
         need(type(index) is int and 1<=index<=len(self.state['rows']))
@@ -293,7 +305,7 @@ class NavigationRestoration:
         need(digest(owner.previous)==row['ownerSha256']
             and digest(self.comparison(owner))==row['comparisonSha256'])
         parts=owner.originals();clock=owner.join(parts,{key:parts[key] for key in SOURCES})
-        phase=self.phase_original();need(phase['providerReadEpochMs']<=parts['baseRead']['before']['epochMs'])
+        phase=self.phase_original();authority_precedes_image(phase,parts['baseRead'])
         return dict(ticket=self.context['cleanupTicket'],public=self.derived(owner,row['index']),
             acquisition={key:clock[key] for key in ('hostBeforeEpochMs','hostAfterEpochMs','hostBeforeMonotonic','hostAfterMonotonic')})
 

@@ -57,4 +57,21 @@ not itself admit paired cleanup or final end. The separate
 qualifies fresh restored source, input and full-target baseline image cuts plus
 each role's original three-second quiet. The original-process open/close whole
 case now passes paired quiet, actual worker publications and the complete
-process/SDK end. Error-interrupted and partial-setup cleanup remain open.
+process/SDK end. Partial-setup cleanup remains open.
+
+The whole cleanup now rejoins an actual retained missing-place owner before
+ordinary form/return input. A previously issued OK is resolved only by passive
+original dialog/listener drainage; it is never resent. Its original active
+ticket remains unchanged when the current cleanup ticket authorizes a separate
+address dismissal. An unowned or incomplete error remains unresolved.
+
+The final transport guard checks the actual local SDK/candidate/installed
+carrier and phase without recursively calling the live SDK admission guard.
+Ordinary admission still performs its original live checks before input. Two
+actual loopback/SDK cases and four cleanup cases pass; three local-scope cases
+check forward original metadata, foreign/retiring sources and unchanged source
+bytes/inodes. The connected open/close/missing-name error case now passes
+ordinary restoration, paired source/PNG quiet, once-only process/SDK end,
+transport-free canonical post-end verification and actual historical worker
+exit. All 392 frozen sources remained unchanged. This is host-model logic
+qualification; partial preparation and complete public admission remain open.

@@ -14,7 +14,7 @@ from ios.adapters.navigation_input_cut import NavigationInputCut
 from ios.adapters.navigation_initial_restored_state import compose
 from ios.adapters import world_web_keys as keys
 
-VERSION=1
+VERSION=2
 
 
 class NavigationInitialRestoredImage(NavigationBaselineImage):
@@ -22,7 +22,12 @@ class NavigationInitialRestoredImage(NavigationBaselineImage):
     ENVELOPE='iosNavigationInitialRestoredImageVersion'
     ORIGINAL='iosNavigationInitialRestoredOriginalVersion'
     STAGE=0
-    KEYS=KEYS+('addressOwner','surfaceOwner','inputOwner')
+    KEYS_V1=KEYS+('addressOwner','surfaceOwner','inputOwner')
+    KEYS=KEYS_V1+('missingOwner',)
+    WRITER_VERSION=VERSION
+    READS=(1,2)
+
+    def component_keys(self):return self.KEYS_V1 if self.version==1 else type(self).KEYS
 
     def __init__(self,*args,admission,directory,previous,fixture_url,input_readers=None,**kwargs):
         need(type(admission) is NavigationAdmissionOwner and type(previous) is NavigationObservationOwner)
@@ -63,10 +68,13 @@ class NavigationInitialRestoredImage(NavigationBaselineImage):
         def actual():
             owner=self.input_owner();owner.acquire();return owner.store.read()
         self.take('inputOwner',actual)
+        if self.version>=2:
+            self.take('missingOwner',PrivateFeatureState(self.store.path.with_name('ios-navigation-missing-actions.json')).read)
 
     def static_state(self,original,clock,parts):
         proof=compose(self.initial,original,clock,parts['base'],address_owner=parts['addressOwner'],
-            surface_owner=parts['surfaceOwner'],directory=self.directory,prior=self.prior,fixture_url=self.fixture_url)
+            surface_owner=parts['surfaceOwner'],directory=self.directory,prior=self.prior,fixture_url=self.fixture_url,
+            missing_owner=parts.get('missingOwner'),version=self.version)
         owner=self.input_owner();need(same(owner.store.read(),parts['inputOwner']));inputs=owner.archive()
         before,after=clock['nativeBefore']['capturedEpochMs'],clock['nativeAfter']['capturedEpochMs']
         for kind in ('keys','pointer'):

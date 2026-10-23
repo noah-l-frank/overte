@@ -123,6 +123,8 @@ class NavigationWholeFeature:
             if self.state['phase']=='cleaning':
                 row=self.state['cleanup'];admission=f.admission();runtime=f.runtime
                 with runtime.existing_input_session(f.selector):
+                    from ios.adapters.navigation_error_cleanup import cleanup as cleanup_error
+                    cleanup_error(f,admission,row['call'])
                     surface=runtime._navigation_surface_actions(f.selector,admission)
                     if row['formsSha256'] is None:
                         original=surface.capture()

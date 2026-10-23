@@ -45,7 +45,31 @@ initial scene-input gate and original child before the first restored image.
 All 381 frozen source hashes remained unchanged throughout the 1037.725-second
 case. No replacement-process receipt was created.
 
-Error-interrupted and partially completed preparation cleanup, canonical
-dispatch and full fifteen-step final qualification remain open. Worlds remains
+The initial restored-state/image writers now use version 2 and retain literal
+version-1 readers. Version 2 includes the actual original missing-place owner;
+an error history cannot be erased by omitting that owner. The original owned
+OK response, dialog/listener destruction and their native order must precede
+the restored image. Historical version-1 envelopes and original files remain
+unchanged. Five image/state cases, two original baseline regressions and two
+owned-error restoration cases pass. Actual retained listeners, missing cleanup
+proof and foreign bindings are rejected.
+
+Restoration authority is ordered using its original adapter-host monotonic
+completion against the image's original host start. Provider UTC belongs to a
+different clock and supplies no cross-clock ordering. Two counterexamples
+cover provider clock offset and genuinely reversed host acquisition order.
+
+The connected open/close/missing-name error case now passes ordinary owned OK
+and address dismissal, source/full-PNG restoration, actual Actor worker
+publications, paired quiet/seal, one Stop, separate original OS windows, one
+SDK DELETE/404/CAS, the pure canonical post-end guard and actual historical
+worker exit. Both role fixture clients, native sources and WebDriver transport
+are forbidden after end. All 392 frozen sources remained unchanged throughout
+the 1543.350-second host case; no blocked operation was attempted. The separate
+restarted source/image/quiet/publication/history regression also passes after
+the host-clock ordering correction.
+
+Partially completed preparation cleanup, canonical dispatch and full fifteen-step final
+qualification remain open. Worlds remains
 partial; no complete
 capability, compilation or device qualification is claimed.

@@ -34,6 +34,8 @@ class NavigationBaselineImage:
     ORIGINAL='iosNavigationBaselineOriginalVersion'
     STAGE=0
     KEYS=KEYS
+    WRITER_VERSION=VERSION
+    READS=(1,)
 
     def __init__(self,store,root,binding,run,role,request,lock,guard,*,native=None,sources=None,
                  fixture=None,frame_factory=None,historical=False,epoch_ms=lambda:time.time()*1000,
@@ -59,12 +61,17 @@ class NavigationBaselineImage:
             for name,kind in SOURCES.items():
                 need(isinstance(sources[name],kind))
                 if name!='ui':need(sources[name].pid==self.pid)
-        lock.assert_held();self.previous=store.read();self.state=None if self.previous is None else self.decode(self.previous)
+        lock.assert_held();self.previous=store.read()
+        self.version=self.WRITER_VERSION if self.previous is None else self.previous.get(self.ENVELOPE)
+        need(type(self.version) is int and self.version in self.READS)
+        self.KEYS=self.component_keys();self.state=None if self.previous is None else self.decode(self.previous)
         self.bound()
+
+    def component_keys(self):return self.KEYS
 
     def envelope(self,state):
         return dict(binding=self.binding,runId=self.run,role=self.role,
-            requestId=self.request,artifactRoot=str(self.root),payload=pack([state]),**{self.ENVELOPE:VERSION})
+            requestId=self.request,artifactRoot=str(self.root),payload=pack([state]),**{self.ENVELOPE:self.version})
 
     def component(self,key):
         need(key in self.KEYS)
@@ -72,11 +79,11 @@ class NavigationBaselineImage:
 
     def wrap(self,key,value):
         return dict(binding=self.binding,runId=self.run,role=self.role,
-            requestId=self.request,kind=key,original=value,**{self.ORIGINAL:VERSION})
+            requestId=self.request,kind=key,original=value,**{self.ORIGINAL:self.version})
 
     def decode(self,value):
         exact(value,set(self.envelope({})));rows=unpack(value['payload'])
-        need(type(value[self.ENVELOPE]) is int and value[self.ENVELOPE]==VERSION
+        need(type(value[self.ENVELOPE]) is int and value[self.ENVELOPE]==self.version and self.version in self.READS
             and len(rows)==1 and same(value,self.envelope(rows[0])))
         state=rows[0];exact(state,{'phase','hostBarrier','providerInstance','providerInputs','issued','records','resultSha256','drains'})
         need(state['phase'] in ('reading','observed') and number(state['hostBarrier'],1,1e15))

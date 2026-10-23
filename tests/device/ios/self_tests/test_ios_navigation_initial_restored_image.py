@@ -4,6 +4,7 @@
 from copy import deepcopy
 import unittest
 import uuid
+from unittest.mock import patch
 
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
@@ -68,6 +69,20 @@ class NavigationInitialRestoredImageTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):owner.acquire(h.now())
             self.assertEqual('reading',owner.state['phase']);self.assertIsNotNone(owner.store.read())
             self.assertIsNotNone(owner.input_owner().store.read());self.assertNotIn('retired',owner.state)
+
+    def test_literal_version_one_originals_keep_bytes_clocks_and_grammar_under_the_new_reader(self):
+        call=self.acquire();self.inputs();h=self.h;request='ios-'+uuid.uuid4().hex
+        with h.flow.held():
+            with patch.object(NavigationInitialRestoredImage,'WRITER_VERSION',1):
+                old=self.owner(call,request);expected=old.acquire(h.now())
+            originals={path:(path.stat().st_ino,path.read_bytes()) for path in h.root.iterdir() if request[4:] in path.name}
+            self.assertTrue(originals);self.assertEqual(1,expected[1]['iosNavigationInitialRestoredStateVersion'])
+            frozen=self.owner(call,request,historical=True)
+            self.assertEqual(1,frozen.version);self.assertNotIn('missingOwner',frozen.KEYS);self.assertEqual(expected,frozen.archive())
+            current=self.owner(call,'ios-'+uuid.uuid4().hex);new=current.acquire(h.now())
+            self.assertEqual(2,current.version);self.assertEqual(2,new[1]['iosNavigationInitialRestoredStateVersion'])
+            self.assertIsNone(current.originals()['missingOwner'])
+            self.assertEqual(originals,{path:(path.stat().st_ino,path.read_bytes()) for path in originals})
 
 
 if __name__=='__main__':unittest.main()

@@ -202,12 +202,13 @@ class IOSNavigationRuntime(IOSScriptRuntime):
             surfaces,places,navigation)
 
     def _navigation_missing_actions(self,selector,admission):
+        from ios.adapters.navigation_local_scope import guard as local_scope_guard
         need(isinstance(admission,(NavigationAdmissionOwner,NavigationProcessScope)));admission.bound()
         source=self._sources(selector);need(same(source['binding'],admission.binding)
             and admission.store.path.parent==self.state_path(selector).parent)
         ui=NativeUI(source['client'],source['session'],source['check'])
         return NavigationMissingActions(PrivateFeatureState(owner_path(admission,'ios-navigation-missing-actions.json')),
-            admission,ui,source['native'])
+            admission,ui,source['native'],local_guard=local_scope_guard(self.adapter,selector,source))
 
     def _navigation_address_dismiss(self,selector,admission):
         from ios.adapters.navigation_address_inputs import NavigationAddressInputs

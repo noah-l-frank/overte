@@ -22,11 +22,13 @@ from ios.adapters.navigation_address_inputs import transfer_original
 from ios.adapters.navigation_static_comparison import recorded_view_equal
 from ios.adapters.navigation_surface_actions import NavigationSurfaceActions
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 
 
-def compose(initial,originals,clock_join,base,*,address_owner,surface_owner,directory,prior,fixture_url):
+def compose(initial,originals,clock_join,base,*,address_owner,surface_owner,directory,prior,fixture_url,missing_owner=None,version=VERSION):
     """Derive restoration from unchanged histories and new measured sources."""
+    need(type(version) is int and version in READS and (version>=2 or missing_owner is None))
     initial=admission.validate(initial);binding=initial['binding'];run=initial['runId'];pid=int(binding['processIdentity'])
     exact(originals,admission.ORIGINALS);clock=validate_join(clock_join,originals)
     first,last=clock['nativeBefore'],clock['nativeAfter'];follow_native(initial['clockJoin']['nativeAfter'],first)
@@ -68,12 +70,18 @@ def compose(initial,originals,clock_join,base,*,address_owner,surface_owner,dire
     roots=NavigationSurfaceActions.retained_roots(surface_owner,initial,model,originals['ui'],fixture_url)
     address=transfer_original(address_owner,binding,run,originals['ui'])
     subset,view=product.validation_view(clock,originals,errors.ORIGINALS)
-    error=errors.compose(run,binding,subset,view)
+    from ios.adapters.navigation_initial_missing import original as missing_original
+    error_owner=missing_original(missing_owner,initial,fixture_url)
+    missing=None if error_owner is None else error_owner['proof']
+    if error_owner is not None:follow_native(error_owner['frames'][-1]['clockJoin']['nativeAfter'],clock['nativeBefore'])
+    error=errors.compose(run,binding,subset,view,missing=missing)
     need(error['fields']==dict(error='none',addressDialog=False) and not originals['replies']['currentLookupActive'])
     places_http_events=places_http.events(originals['http'])
     need(places_http.drained(originals['http'],sorted(places_http_events)))
     need(directory is not None);places.validate_directory_proof(directory,binding,run)
-    return dict(iosNavigationInitialRestoredStateVersion=VERSION,runId=run,binding=deepcopy(binding),
+    result=dict(iosNavigationInitialRestoredStateVersion=version,runId=run,binding=deepcopy(binding),
         initialAdmissionSha256=digest(initial),originalsSha256=digest(originals),clockJoinSha256=digest(clock),
         priorSha256=digest(prior),base=deepcopy(base),commit=anchor,placesRoots=roots,addressRoot=address,
         lifetimeEndRequired=True)
+    if version>=2:result['missingOwnerSha256']=None if missing_owner is None else digest(missing_owner)
+    return result

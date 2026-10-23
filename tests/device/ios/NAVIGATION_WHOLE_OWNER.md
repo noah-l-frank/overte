@@ -65,8 +65,18 @@ restoration explicitly owns no transfer; the original scene-input journal and
 its original return gate remain independently decoded. A restarted restoration
 regression and the format/process-mechanics cases still pass.
 
-Worlds remains partial. The full fifteen-step final integration, error-interrupted
-and partial-setup restoration and whole configuration/dispatch integration still
+The original-process open/close/missing-name error whole case additionally
+passes actual owned error cleanup and the complete same source-to-end protocol,
+including pure canonical post-end verification and historical Actor exit with
+both fixture clients, native sources and WebDriver transport forbidden. The
+1543.350-second case retained all 392 frozen source hashes unchanged and made
+no blocked operation. The canonical reader requires the actual complete typed
+terminal/process/SDK graph; valid public End DTOs and forged archive markers
+cannot create or complete missing private owners. Separate negative cases
+exercise those refusals without transport.
+
+Worlds remains partial. The full fifteen-step final integration,
+partial-setup restoration and whole configuration/dispatch integration still
 require qualification. The
 [final-end mechanics](NAVIGATION_PROCESS_END.md) have separate component coverage
 with an explicitly modeled live seal; the separate connected case supplies the

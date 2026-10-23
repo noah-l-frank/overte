@@ -38,12 +38,22 @@ class NavigationWholeInitialCleanupTests(unittest.TestCase):
         h.runtime._navigation_initial_restored_image=image
 
     def test_normal_original_process_cleanup_seals_and_ends_without_a_fabricated_restart(self):
+        self.journey(('open','close'))
+
+    def test_owned_missing_error_cleanup_joins_original_image_history_and_canonical_end(self):
+        self.journey(('open','close','navigate-missing'),canonical=True)
+
+    def journey(self,verbs,*,canonical=False):
         from ios import navigation_observer as worker
         from ios.adapters import appium_adapter as backend
         from ios.self_tests.navigation_end_fixture import EndBoundary
-        h=self.h;whole=self.whole;whole.prepare();actor=self.actor();config=dict(target=h.flow.selector)
+        h=self.h;whole=self.whole
+        if 'navigate-missing' in verbs:
+            from ios.self_tests.navigation_feature_missing_fixture import MissingWidget
+            self.missing_widget=MissingWidget(h,self);self.sources['dialogs']=h.sources['dialogs']
+        whole.prepare();actor=self.actor();config=dict(target=h.flow.selector)
         current=whole.observe(dict(contractVersion=16,runId=h.run,afterSequence=0));self.assertIsNone(worker.step(actor,config))
-        for verb in ('open','close'):
+        for verb in verbs:
             ticket=uuid.uuid4().hex;h.harness.client.activate(ticket,verb,{});h.gpu.marker=ticket
             whole.act(dict(contractVersion=16,runId=h.run,ticket=ticket,verb=verb,inputs={},fixtureUrl=h.fixture.fixture_url))
             current=whole.observe(dict(contractVersion=16,runId=h.run,afterSequence=current['sequence']))
@@ -72,8 +82,17 @@ class NavigationWholeInitialCleanupTests(unittest.TestCase):
         self.assertIsNone(bridge.sdk.read());self.assertIsNone(bridge.installed.store.read());requests=deepcopy(bridge.requests)
         print('NAVIGATION initial process and SDK end complete',flush=True)
         def forbidden(*_args,**_kwargs):self.fail('Historical initial-process replay attempted transport')
-        with patch.object(h.runtime,'_sources',side_effect=forbidden),patch.object(h.flow.client,'request',side_effect=forbidden),patch.object(backend.WebDriver,'call',side_effect=forbidden):
-            self.assertEqual(ended,owner.finish(seal));self.assertEqual(0,worker.step(actor,config))
+        with (patch.object(h.runtime,'_sources',side_effect=forbidden),
+              patch.object(h.flow.client,'request',side_effect=forbidden),
+              patch.object(actor.flow.client,'request',side_effect=forbidden),
+              patch.object(backend.WebDriver,'call',side_effect=forbidden)):
+            if canonical:
+                from feature_journeys import terminal
+                from ios.adapters.navigation_canonical_end import verify
+                call=dict(contractVersion=terminal.VERSION,runId=h.run,stage='finish',seal=seal)
+                result=dict(stage='finish',end=ended);self.assertEqual(result,verify(whole,call,result))
+            else:self.assertEqual(ended,owner.finish(seal))
+            self.assertEqual(0,worker.step(actor,config))
         self.assertEqual(requests,bridge.requests);self.assertEqual(1,sum(method=='DELETE' for method,_ in bridge.requests))
 
 

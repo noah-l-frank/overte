@@ -42,15 +42,16 @@ class _LookupNative:
 
 class NavigationMissingActions:
     def __init__(self, store, admission, ui, native, *, epoch_ms=lambda:time.time()*1000,
-                 monotonic=time.monotonic):
+                 monotonic=time.monotonic,local_guard=lambda:True):
         need(isinstance(store, PrivateFeatureState) and isinstance(admission, (NavigationAdmissionOwner,NavigationProcessScope))
              and not admission.historical and isinstance(ui, NativeUI) and isinstance(native, NativeInput)
-             and callable(epoch_ms) and callable(monotonic)
+             and callable(epoch_ms) and callable(monotonic) and callable(local_guard)
              and store.path == owner_path(admission,'ios-navigation-missing-actions.json'))
         self.store, self.admission, self.ui, self.native = store, admission, ui, native
         self.binding, self.run, self.lock = admission.binding, admission.run, admission.lock
         need(native.session == self.binding['sessionId'])
         self.epoch_ms, self.monotonic = epoch_ms, monotonic
+        self.local_guard=local_guard;self._transport_checking=False
         self.started = self.last_clock = self.active = None
         self.lock.assert_held(); self.previous = store.read()
         self.version=2 if self.previous is None else self.previous.get('iosNavigationMissingActionsVersion')
@@ -157,6 +158,7 @@ class NavigationMissingActions:
              and before['navigationDialogSourceSequence'] < after['navigationDialogSourceSequence'])
 
     def bound(self):
+        need(self.local_guard() is not False)
         self.admission.bound(); need(same(self.store.read(),self.previous))
         if self.state is not None and self.state['dismiss'] is not None:
             call=self.state['dismiss']['call']
@@ -173,6 +175,33 @@ class NavigationMissingActions:
         self.last_clock = now
         if self.started is not None: need(now-self.started < 30)
         return now
+
+    def transport_guard(self,*,authority=None):
+        """Local ownership/time and actual phase; no recursive SDK queries.
+
+        Existing explicit bound/native-input checks still acquire genuine
+        live continuity. Their final transport callback must not acquire that
+        same SDK again. Only its own phase request skips phase reacquisition.
+        """
+        self.lock.assert_held();need(self.local_guard() is not False and same(self.store.read(),self.previous))
+        if isinstance(self.admission,NavigationAdmissionOwner):carrier=self.admission.previous
+        else:carrier=self.admission._carrier
+        need(same(self.admission.store.read(),carrier))
+        now=self.monotonic();need(number(now,0,1e15) and (self.last_clock is None or now>=self.last_clock))
+        self.last_clock=now
+        if self.started is not None:need(now-self.started<30)
+        if authority is not None:
+            checker=object.__new__(NavigationSurfaceActions);checker.run=self.run;checker.admission=self.admission
+            checker.call(authority);need(authority['verb']=='cleanup' and 'iosNavigationCleanupCallVersion' in authority)
+            call=authority
+        else:call=None if self.state is None or self.state['dismiss'] is None else self.state['dismiss']['call']
+        if self._transport_checking or call is None:return True
+        self._transport_checking=True
+        try:
+            phase=self.admission.fixture.read()
+            need(phase['ticket']==call['ticket'] and phase['verb']==call['verb'] and same(phase['inputs'],call['inputs']))
+            return True
+        finally:self._transport_checking=False
 
     def save(self):
         self.bound(); value = self.envelope(self.state); self.decode(value)
@@ -298,7 +327,7 @@ class NavigationMissingActions:
             # Retain the exact source reference before normal pointer delivery.
             row['intents'].append(dict(method='ERROR-OK',path='navigation.error.ok',body=deepcopy(reference),original=deepcopy(originals['ui']))); self.save()
             from adapters.operation_transport_guard import scope
-            with scope(self.bound):
+            with scope(self.transport_guard):
                 self.bound();self.native.navigation_error_input(reference=reference)
             row.update(phase='delivered',returnedUi=self.capture()); self.save(); return {'performed':True}
         finally: self.active = self.started = None
