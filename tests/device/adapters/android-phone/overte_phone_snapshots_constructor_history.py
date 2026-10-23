@@ -7,6 +7,7 @@ factories, all continuity-floor replay and both final qualifications stay locked
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import hashlib
+import marshal
 import os
 import threading
 
@@ -18,6 +19,16 @@ from overte_phone_snapshots_role import _UNPINNED,role_state,_restore_history_fi
 
 
 def _digest(value):return hashlib.sha256(canonical(value)).hexdigest()
+
+
+def graph_digest(value):
+    """Seal a same-call private graph; never encode a persistent original.
+
+    Version two preserves scalar/container types without reference-count or
+    alias encodings. A dictionary-order change is conservatively rejected.
+    No marshal reader or custom-object callback is part of this authority.
+    """
+    return hashlib.sha256(marshal.dumps(value,2)).hexdigest()
 
 
 def _same_phase(status,previous):
@@ -94,7 +105,7 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         need(_digest(self.feature.state)==self.feature_state_sha256
             and same(role_state(self.role_header,self.binding,self.run,self.role_name),self.state))
         if self.digest is not None and verify_graph:
-            need(type(self.frames) is list and _digest(self.frames)==self.digest)
+            need(type(self.frames) is list and graph_digest(self.frames)==self.digest)
         if self.attached is not None:self._reader(self.attached,verify_graph=verify_graph)
         return True
 
@@ -102,7 +113,7 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         need(role.feature is self.feature and role.role==self.role_name and role.store.path==self.role_store.path
             and same(role.previous,self.role_header) and same(role.state,self.state)
             and not role._host_publication)
-        if verify_graph and role.frames is not self.frames:need(_digest(role.frames)==self.digest)
+        if verify_graph and role.frames is not self.frames:need(graph_digest(role.frames)==self.digest)
 
     def guard(self):
         need(self.feature.lock._owner is None and self.started)
@@ -115,7 +126,7 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
             try:frames=_restore_history_files(self.feature,self.role_name,self.state,self.guard,receipts=self)
             finally:self.replaying=False
             self.guard();self._memory()
-            self.frames=frames;self.digest=_digest(frames)
+            self.frames=frames;self.digest=graph_digest(frames)
             self.file_seal=tuple(self.files.items());self.file_seal_sha256=self._files_digest(self.file_seal)
             self.guard();self._memory(verify_graph=False);return self.digest
         except BaseException:self.close();raise

@@ -19,6 +19,7 @@ from overte_phone_create_actor import quiet_window
 from overte_phone_script_history import pack,unpack,same,canonical
 from overte_phone_script_lock import PhoneScriptSourceBusy
 from overte_phone_snapshots_role import PhoneSnapshotsRole,SnapshotPhaseDeferred,role_state
+from overte_phone_snapshots_constructor_history import graph_digest
 from overte_phone_snapshots_measurements import SnapshotPending
 from overte_phone_snapshots_evidence import SnapshotsOriginals
 from overte_phone_emote_originals import BLOCK
@@ -306,7 +307,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         self.ordinary_owners(role,pin)
         need(role.state['phase']=='ready' and role.state['pending'] is None and not role._host_publication)
         prepared=dict(pin=pin,phase=deepcopy(status),cue=deepcopy(cue),role=deepcopy(role.previous),
-            roleState=digest(role.state),frames=digest(role.frames),count=len(role.frames),
+            roleState=digest(role.state),frames=graph_digest(role.frames),count=len(role.frames),
             featureState=digest(self.feature.state),actorState=digest(self.state),configuration=deepcopy(self.feature.config))
         self.ordinary_prepared_owners(role,prepared);return prepared
 
@@ -323,7 +324,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             and same(self._ordinary_primary,pin['primary']) and digest(f.state)==prepared['featureState']
             and digest(self.state)==prepared['actorState'] and digest(role.state)==prepared['roleState']
             and len(role.frames)==prepared['count'] and not role._host_publication)
-        if verify_graph:need(digest(role.frames)==prepared['frames'])
+        if verify_graph:need(graph_digest(role.frames)==prepared['frames'])
         actual=f.store.read()
         if feature_header:need(same(actual,pin['feature']))
         else:
@@ -392,7 +393,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             self.ordinary_owners(role,prepared['pin'])
             # A late current-reader callback must not mutate any old original
             # graph before the new own sample and scheduling cue are committed.
-            need(len(role.frames)==prepared['count']+1 and digest(role.frames[:prepared['count']])==prepared['frames']
+            need(len(role.frames)==prepared['count']+1 and graph_digest(role.frames[:prepared['count']])==prepared['frames']
                 and digest(f.state)==prepared['featureState'] and digest(self.state)==prepared['actorState']
                 and same(f.config,prepared['configuration'])
                 and same(role.state,role_state(role.previous,f.binding,f.run,'actor')))
@@ -416,7 +417,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             and getattr(f,'guard',None) is pin['guard'] and getattr(f,'_system_scope',None) is pin['system']
             and getattr(f.adapter,'_existing_input_scope',None) is pin['sdk']
             and same(getattr(f.adapter,'_existing_input_scope',None),pin['sdkValue'])
-            and len(role.frames)==prepared['count']+1 and digest(role.frames[:prepared['count']])==prepared['frames'])
+            and len(role.frames)==prepared['count']+1 and graph_digest(role.frames[:prepared['count']])==prepared['frames'])
 
     def ordinary_admission(self,role,status,pin,phase_before):
         if same(status['activations'],phase_before['activations']) and status['active']==phase_before['active']:return
