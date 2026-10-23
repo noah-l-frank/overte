@@ -41,13 +41,15 @@ class AssetsNativeUITests(unittest.TestCase):
             bodies+='\nNavigationUi::NavigationUi() : _bridgeId(token()), _generation(token()) { _clock.start(); }\n'
             bodies+='\n'+original(native,'QJsonObject NavigationUi::observe(')+'\n'+original(native,'QJsonObject NavigationUi::apply(')
             (stage/'actual-assets-navigation.inc').write_text('namespace overte::pico::e2e {\n'+bodies+'\n}\n')
+            files=(ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text()
+            (stage/'AssetsFilesMethod.inc').write_text(original(files,'QVariantMap TestScriptingInterface::featurePicoAssetsFiles('))
             bundle=stage/('feature-assets-'+'a'*32)/'gltf-bundle';(bundle/'mesh').mkdir(parents=True);(bundle/'textures').mkdir()
             for name,data in (('main.gltf',b'actual main bytes'),('mesh/triangle.bin',b'actual mesh bytes'),('textures/checker.png',b'actual texture bytes')):(bundle/name).write_bytes(data)
             subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),str(ROOT/'libraries/ui/src/FileDialogHelper.h'),'-o',str(stage/'helper-moc.cpp')],check=True,timeout=20,env=environment)
             binary=stage/'test'
             subprocess.run(['c++','-std=c++17','-fPIC','-UNDEBUG','-fmax-errors=3','-DOVERTE_E2E_FEATURE_TESTS',
                 '-I'+str(stage),'-I'+str(HERE),'-I'+str(ROOT),'-I'+str(ROOT/'libraries/shared/src'),'-I'+str(ROOT/'libraries/ui/src'),
-                '-I'+str(ROOT/'libraries/script-engine/src'),'-isystem',str(Path(environment['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),
+                '-I'+str(ROOT/'libraries/script-engine/src'),'-I'+str(ROOT/'tests/device/native'),'-isystem',str(Path(environment['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),
                 str(HERE/'assets-controls-native.cpp'),str(ROOT/'libraries/ui/src/FileDialogHelper.cpp'),
                 str(ROOT/'libraries/ui/src/ui/NativeFieldInput.cpp'),str(stage/'helper-moc.cpp'),'-o',str(binary),
                 '-L'+str(prefix/'usr/lib64'),*flags],check=True,timeout=90,env=environment)

@@ -20,6 +20,7 @@
 #include "../../../../../../tests/device/native/NormalEmoteControls.h"
 #include "../../../../../../tests/device/native/NormalAvatarPeopleControls.h"
 #include "../../../../../../tests/device/native/NormalAssetsControls.h"
+#include "../../../../../../tests/device/native/AssetsUiInventory.h"
 #include "../../../../../../tests/device/native/NormalLifecycleControls.h"
 #include "../../../../../../tests/device/native/AudioPageObservation.h"
 #include "../../../../../../tests/device/native/ViewMenuLifetimes.h"
@@ -200,6 +201,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     overte::e2e::graphicsUiInventory().observe(root,window);
     overte::e2e::ensureTabletHttpProvider(root);
     const auto createInventory=overte::e2e::createUiInventory().observe(root,window);
+    const auto assetsInventory=overte::e2e::assetsUiInventory().observe(root,window);
     std::function<QVariantMap(QQuickItem*)> createDialogIdentity;
 #if defined(ANDROID_APP_PICO_INTERFACE)
     if (DependencyManager::isSet<OffscreenUi>()) {
@@ -471,6 +473,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     result["emoteSourceSequence"] = static_cast<double>(++_emoteSourceSequence);
     result["avatarPeopleControlsVersion"]=1;
     result["assetsControlsVersion"]=1;
+    result["assetsUiInventoryVersion"]=1;result["assetsUiInventory"]=assetsInventory;
     result["lifecycleControlsVersion"] = 1;
     result["createExtraControlsVersion"]=1;
     result["createVoxelControlsVersion"]=1;

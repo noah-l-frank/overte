@@ -17,8 +17,10 @@
 #include <QTouchEvent>
 #include <QWheelEvent>
 #include <map>
+#include <QTemporaryDir>
 #include "actual-pointer-route.inc"
 #include "tests/device/native/NormalControlUi.h"
+#include "tests/device/native/AssetsUiInventory.h"
 #include "avatar-navigation-observation-seams.h"
 namespace overte::e2e {
 inline bool placesField(const QString&){return false;}
@@ -26,6 +28,7 @@ inline bool placesText(const QString&){return false;}
 inline bool placesScrollPoint(QQuickItem*,const QString&,QPointF&){return false;}
 }
 #define ANDROID_APP_PICO_INTERFACE
+#include "assets-files-getter-host.h"
 #include "actual-assets-navigation.inc"
 #undef ANDROID_APP_PICO_INTERFACE
 #include "libraries/ui/src/FileDialogHelper.h"
@@ -144,6 +147,37 @@ QtObject {
   for(int wait=0;wait<20;++wait){for(const auto&value:capture().value("controls").toArray()){auto r=value.toObject();if(r.value("sourceUrl")==QUrl::fromLocalFile(path).toString())return input(r.value("id").toString(),"activate");}QTest::qWait(30);}
   std::cerr<<"missing actual file "<<path.toStdString()<<'\n';return false;
  };
+ // Stage actual owned private files through the complete original getter.
+ QTemporaryDir privateInputs;TestScriptingInterface inputOwner;inputOwner._testResultsLocation=privateInputs.path();
+ inputOwner._featureLifecycle=std::make_shared<AssetsHostLifecycle>();
+ QVariantMap fixedFiles;for(const auto& name:PrivateAssetsFiles::inputs()){fixedFiles[name]=QString::fromLatin1((name+"-actual-input").toUtf8().toBase64());}
+ QVariantMap fileCommand{{"schemaVersion",1},{"commandId",QString(32,'c')},{"action","feature-pico-assets-files"},
+  {"operation","stage"},{"runId",QString(32,'a')},{"ownerToken",QString(64,'b')},{"files",fixedFiles}};
+ const auto stagedFiles=inputOwner.featurePicoAssetsFiles(fileCommand).value("source").toMap();if(stagedFiles.value("exists")!=true)return 56;
+ const auto privateRoot=QUrl(stagedFiles.value("directory").toString()).toLocalFile();
+ if(!navigate(privateRoot+"/gltf-bundle")||!pick(privateRoot+"/gltf-bundle/main.gltf"))return 57;
+ // Original Cancel destroys actual picker/model; hidden objects stay live.
+ auto browser=find(root,"nativeFileBrowser");if(!browser)return 49;
+ QPointer<QQuickItem> originalBrowser(browser);QPointer<QObject> originalModel(createVariant(browser->property("model")).value<QObject*>());
+ auto browserInventory=capture().value("assetsUiInventory").toObject();
+ if(!browserInventory.value("complete").toBool()||browserInventory.value("browsers").toArray().size()!=1)return 50;
+ const auto browserId=browserInventory.value("browsers").toArray()[0].toObject().value("id");
+ browser->setVisible(false);auto hidden=capture().value("assetsUiInventory").toObject().value("browsers").toArray()[0].toObject();
+ if(hidden.value("id")!=browserId||hidden.value("visible")!=false||hidden.value("rootAlive")!=true||hidden.value("modelAlive")!=true||!originalModel)return 51;
+ browser->setVisible(true);if(!input("assets-file.cancel","activate"))return 52;
+ auto canceled=capture().value("assetsUiInventory").toObject();
+ if(!canceled.value("complete").toBool()||!originalBrowser.isNull()||!originalModel.isNull())return 53;
+ auto retired=canceled.value("browsers").toArray()[0].toObject();
+ if(retired.value("id")!=browserId||retired.value("rootAlive")!=false||retired.value("modelAlive")!=false
+   ||retired.value("inCurrentTree")!=false||service->property("uploads").toInt()!=0)return 54;
+ fileCommand.remove("files");fileCommand["operation"]="observe";fileCommand["commandId"]=QString(32,'d');
+ const auto filesAfterCancel=inputOwner.featurePicoAssetsFiles(fileCommand).value("source").toMap();
+ if(filesAfterCancel.value("files")!=stagedFiles.value("files")||!QFileInfo::exists(privateRoot+"/gltf-bundle/main.gltf"))return 58;
+ // Exact QObject/model death authorizes only staged-file release, not full
+ // context/backend retirement. No upload endpoint was invoked by Cancel.
+ fileCommand["operation"]="release";fileCommand["commandId"]=QString(32,'e');
+ if(inputOwner.featurePicoAssetsFiles(fileCommand).value("source").toMap().value("retired")!=true||QFileInfo::exists(privateRoot))return 59;
+ if(!input("assets.upload","activate"))return 55;
  if(!navigate(directory)||!pick(directory+"/main.gltf")||!navigate(directory+"/mesh")||!pick(directory+"/mesh/triangle.bin")
     ||!navigate(directory+"/textures")||!pick(directory+"/textures/checker.png")||!input("assets-file.accept","activate"))return 14;
  if(row("assets-file.primary").value("count")!=3||!input("assets-file.primary","activate")||!input("assets-file.primary","select-index",0)
@@ -160,6 +194,12 @@ QtObject {
  // A similarly named foreign object/context is never an Assets page/control.
  QQmlComponent foreign(&engine);foreign.setData("import QtQuick 2.7; Item { objectName: \"assetUpload\"; signal clicked() }",QUrl("file:///foreign.qml"));QScopedPointer<QObject> bad(foreign.create());
  if(!assetsControlId(qobject_cast<QQuickItem*>(bad.data())).isEmpty())return 22;
+ // A foreign same-name browser cannot enter the authoritative inventory.
+ {QQuickItem foreignBrowser(root);foreignBrowser.setParentItem(root);foreignBrowser.setObjectName("nativeFileBrowser");
+  foreignBrowser.setProperty("caption","Select an asset and its companion files");
+  auto incomplete=capture().value("assetsUiInventory").toObject();
+  if(incomplete.value("complete")!=false||!incomplete.value("browsers").toArray().isEmpty())return 60;}
+ if(!capture().value("assetsUiInventory").toObject().value("complete").toBool())return 61;
  QFile originals(argv[4]);if(!originals.open(QIODevice::WriteOnly)||originals.write(QJsonDocument(observations).toJson(QJsonDocument::Compact))<0)return 24;originals.close();
  if(pointers<20)return 45;
  std::cout<<"Original Pico Assets observer, pointer route, actual QML/files and counterexamples passed\n";return 0;

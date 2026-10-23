@@ -19,6 +19,9 @@ def project(value):
 class PicoAssetsIO:
     def __init__(self,original):self.original=original
     def capture(self):return project(self.original.capture())
+    def inventory(self):
+        from adapters.pico4.assets_inventory import original
+        return original(self.original.capture())
     def activate(self,identifier,*,reference):self.original.navigation.input(identifier,reference=reference)
     def probe_disabled(self,identifier,*,reference):self.original.navigation.input(identifier,'probe-disabled',reference=reference)
     def replace(self,identifier,value,*,reference):self.original.navigation.input(identifier,'replace',value,reference=reference)

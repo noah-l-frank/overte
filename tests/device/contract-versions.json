@@ -94,6 +94,7 @@
     "capability-registry": {"current": 1, "reads": [1]},
     "feature-journey": {"current": 16, "reads": [16]},
     "feature-navigation-provider": {"current": 2, "reads": [1, 2]},
+    "pico-assets-ui-inventory": {"current": 1, "reads": [1]},
     "native-pico-assets-files": {"current": 1, "reads": [1]},
     "pico-assets-file-owner": {"current": 1, "reads": [1]},
     "native-assets-controls": {"current": 1, "reads": [1]},
