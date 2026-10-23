@@ -220,6 +220,8 @@
     "native-chat-view": {"current": 2, "reads": [1, 2]},
     "chat-journey-samples": {"current": 4, "reads": [4]},
     "chat-journey-source-chunks": {"current": 1, "reads": [1]},
+    "chat-source-bundles": {"current": 1, "reads": [1]},
+    "chat-host-diagnostic": {"current": 1, "reads": [1]},
     "chat-cache-absence-samples": {"current": 1, "reads": [1]},
     "chat-mixer-owner": {"current": 1, "reads": [1]},
     "chat-normal-input": {"current": 2, "reads": [2]},
