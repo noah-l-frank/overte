@@ -647,12 +647,12 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         settings=None if self.system else self.settings.request(f.run,'observe')
         cancels=[]
         if f.state['cancelJobs']:
-            # Closing foreground readers need only the original index bound;
+            # Foreground readers need only the loaded original index bound;
             # their cancel packets still come from new native reads below.
             # The later account validation retains its full original replay,
             # including detection of an input changed during those reads.
-            if closing and not self.system:
-                originals=None;input_count=self.closing_input_count()
+            if not self.system:
+                originals=None;input_count=(self.closing_input_count() if closing else self.foreground_input_count())
             else:
                 originals=f.input_originals();input_count=len(originals)
             reader=None if self.system else f.adapter._snapshot_cancel(f.selector,read_only=True)
@@ -745,9 +745,14 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         return result('feature.snapshots.observe',dict(schemaVersion=1,contractVersion=VERSION,runId=f.run,sequence=self.state['sequence'],capturedEpochMs=captured_epoch,state=measured,artifacts=artifacts,resources=sorted(resources),lifecycle=lifecycle))
 
     def closing_input_count(self):
+        """Retain the strict closing boundary for callers and counterprobes."""
+        need(self.feature.state['phase'] in ('cleaned','retiring'))
+        return self.foreground_input_count()
+
+    def foreground_input_count(self):
         """Read an actual loaded owner count; never supply a measured fact."""
         f=self.feature;f.lock.assert_held()
-        need(not self.system and f.state['phase'] in ('cleaned','retiring')
+        need(not self.system and f.state['phase'] in ('baseline','active','cleaned','retiring')
             and f.state['current'] is None and f.state['handoff'] is None
             and f.header_authority() is True)
         header=f.store.read();need(same(header,f.previous))
@@ -759,7 +764,7 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         owner=rows[0];count=owner['inputSequence']
         need(set(owner)==set(f.state) and integer(count,0,1024) and integer(f.state['inputSequence'],0,1024)
             and count==f.state['inputSequence'] and owner['phase']==f.state['phase']
-            and owner['phase'] in ('cleaned','retiring') and owner['current'] is None and owner['handoff'] is None
+            and owner['phase'] in ('baseline','active','cleaned','retiring') and owner['current'] is None and owner['handoff'] is None
             and type(owner['inputs']) is list and type(owner['cancelJobs']) is list
             and same(owner['inputs'],f.state['inputs']) and same(owner['cancelJobs'],f.state['cancelJobs']))
         return count
