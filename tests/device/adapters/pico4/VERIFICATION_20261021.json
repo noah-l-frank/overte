@@ -2943,5 +2943,48 @@
     "wholeFeatureCapability": false,
     "journalsRetired": false,
     "remaining": "Immutable archival, actual independent Actor-process completion and all final host closure; complete public/RPC composition."
+  },
+  "chatGlobalConsumptionArchiveActor20261023": {
+    "status": "passed-selected-owning-groups",
+    "sourceCommits": [
+      "1bb183e0651229e2700b02fc1aef2cc9ccd3ef32",
+      "43f23767164e1027c4411c44d99a01f03a393045",
+      "2dc71e44f946c0bfa1cba3bc4b9636a1fae7d199"
+    ],
+    "integrationCommits": [
+      "c9cb8c01fd",
+      "bebf81eace",
+      "bff038b32a"
+    ],
+    "catalogAtRun": 174,
+    "checks": {
+      "factory": 42.649,
+      "cleanupConsumption": 65.882,
+      "archive": 24.364,
+      "actor": 25.908
+    },
+    "qualification": "Actual warm original source graphs, global cleanup joins, immutable archive catalog and passive independent publication owner. Native/product/clock producers remain explicit host seams; direct cleanup positives do not claim a successful whole sequence. Actual observer process handshake, whole archive/host/RPC and stereo/public composition remain open.",
+    "wholeFeatureCapability": false,
+    "priorGraphicsAggregateTimeoutSeconds": 120.017
+  },
+  "graphicsDisjointOwners20261023": {
+    "status": "passed",
+    "catalogAtRun": 177,
+    "cases": 276,
+    "groups": 4,
+    "unchangedPerGroupLimitSeconds": 120,
+    "checks": {
+      "nativeOriginalSources": 1.095,
+      "sceneOwners": 36.343,
+      "lifecycleOwners": 81.05,
+      "wholeFeatureFlow": 16.72,
+      "coverage": 0.085
+    },
+    "totalSelectionSeconds": 135.29,
+    "partition": "Every original imported class is selected exactly once; all cases and complete per-case Journeys remain unchanged. AST inventory guards coverage.",
+    "priorAggregateTimeoutRetained": true,
+    "repositorySuites": 4,
+    "repositorySeconds": 3.85,
+    "qualification": "Existing device-free adapter/model and source tests; no new application/APK/device qualification."
   }
 }

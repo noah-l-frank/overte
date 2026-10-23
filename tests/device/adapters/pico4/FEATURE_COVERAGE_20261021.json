@@ -1138,7 +1138,9 @@
         "tests/device/adapters/chat_journey/OBSERVATION_CURSOR.md",
         "tests/device/adapters/chat_journey/observation_publisher.py",
         "tests/device/adapters/chat_journey/cursor_source_seal.py",
-        "tests/device/adapters/chat_journey/CURSOR_SOURCE_SEAL.md"
+        "tests/device/adapters/chat_journey/CURSOR_SOURCE_SEAL.md",
+        "tests/device/adapters/chat_journey/cursor_cleanup_consumption.py",
+        "tests/device/adapters/pico4/chat_cursor_actor.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1182,7 +1184,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Join actual common global cleanup consumption to the new complete original cursor/publisher graph seals, include every new root/chunk in the immutable archive, then actual actor-process/IPC/host closure. Fixed c8c60efa01 seals all three original stages and compiled-script predecessors; integrated seal15.659s, cursor/publisher9.466s, actual Pico factory30.065s and coverage0.079s pass. The differing times versus prior runs are measurements, not changed clocks or selectors. Whole external effects, cold RPC/PID and Chat-specific stereo/public operations remain missing.",
+      "nextExecutableStep": "Compose the actual original live observer-process return handshake with the global consumed cleanup, complete immutable source archive and final host/RPC closure. Preserve direct-cleanup sequenceSucceeded=false and independent actor source ownership.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

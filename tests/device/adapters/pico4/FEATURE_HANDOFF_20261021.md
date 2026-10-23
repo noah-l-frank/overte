@@ -2071,3 +2071,32 @@ focused model proof, with explicit native/render/clock seams. No journals are
 unlinked and no independent Actor-process or complete host closure is claimed.
 Immutable archival and final process/host/RPC composition remain executable
 work; complete source areas stay3/14 and public Browser capability stays closed.
+
+
+## Global Chat consumption, archive graph and passive Actor ownership
+
+Fixed1bb183e065/43f2376716/2dc71e44f9 are selected as
+c9cb8c01fd/bebf81eace/bff038b32a. The actual optional common cleanup hook
+consumes the exact original global source rows, independent Actor journal and
+complete graph seals. Direct wait positives remain sequenceSucceeded=false.
+Whole composition requires the actual successful common hook before restart
+or archive; a cleanup-only receipt cannot authorize it. The archive extension
+retains every original cursor/publisher/predecessor root and immutable chunk.
+The passive Actor owns its independent initial/active/cleanup publisher,
+private stop identity and actual source/program descriptors. Initial readiness
+must be consumed before the first effect; missing initial rows fail closed.
+
+The selected owning factory42.649s, consumption65.882s, archive24.364s and
+Actor25.908s groups pass. The combined selection also hit the existing Graphics
+aggregate120s limit; that retained result is not reported as all-green. All276
+unchanged Graphics cases now run in four disjoint class groups: original
+sources1.095s, scene owners36.343s, lifecycle owners81.050s, complete feature
+flow16.720s. Coverage0.085s passes (5/177 selected groups,135.29s total). An
+AST inventory proves every original class is owned exactly once. Each group
+retains120s, and no Journey, clock, cadence, evidence or sample is shortened.
+The four repository suites pass3.85s; registry/probe/whitespace checks pass.
+
+Native/product/clock producers remain explicit host seams. Actual observer
+process return delivery, whole immutable archival/host closure, cold RPC and
+Chat-specific stereo/public composition remain open. Source-complete areas
+remain3/14; no application/APK/device qualification is claimed.

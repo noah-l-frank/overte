@@ -10,7 +10,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 171
+EXPECTED_CATALOG_CASES = 177
 
 
 def catalog_entries() -> list[str]:
@@ -49,6 +49,18 @@ class CoverageMatrixTests(unittest.TestCase):
         for node in ast.walk(RUNNER_TREE):
             if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='test' and isinstance(node.args[0],ast.Constant) and node.args[0].value.startswith('avatar-favorites-'):
                 selected.extend(arg.value for arg in node.args[4:] if isinstance(arg,ast.Constant))
+        self.assertEqual(len(expected),len(selected));self.assertEqual(expected,set(selected))
+
+    def test_graphics_partitions_retain_every_original_class_once(self):
+        tree=ast.parse((TEST_DIR/'device/test_graphics_sources.py').read_text())
+        expected={alias.name for node in tree.body if isinstance(node,ast.ImportFrom)
+            for alias in node.names if alias.name.endswith('Tests')}
+        groups={'graphics-sources','graphics-scene-owners','graphics-lifecycle-owners','graphics-feature-flow'}
+        selected=[]
+        for node in ast.walk(RUNNER_TREE):
+            if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='test' and isinstance(node.args[0],ast.Constant) and node.args[0].value in groups:
+                self.assertEqual(node.args[3].value,'device/test_graphics_sources.py')
+                selected.extend(arg.value for arg in node.args[4:])
         self.assertEqual(len(expected),len(selected));self.assertEqual(expected,set(selected))
 
     def test_process_exit_code_reflects_test_result(self):
