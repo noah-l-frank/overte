@@ -503,3 +503,18 @@ validation has been changed to make that selection pass. The next vertical
 join is lost or undelivered private-file release after the actual normal Cancel
 in this same original Qt process; the separate file-owner cases already cover
 that boundary without the composed UI/consumer owner.
+
+That next join is now checked in the same original Qt process: both a delivered
+private-file release with a lost reply and an undelivered release follow actual
+normal Cancel, original browser/model death and the unchanged quiet window.
+The delivered case reconstructs both durable owners and observes actual retired
+file absence without repeating release or any UI input. The undelivered case
+reconstructs twice, retains `retiring`, and independently observes all seven
+original file identities, byte lengths and hashes unchanged. Its sole release
+attempt is never delivered or replayed. Original input archives are unchanged;
+all retained file originals remain an exact prefix and upload calls remain zero.
+These two actual Qt/native cases passed together in 51.280 seconds, retaining
+the 120-second outer and 90-second compiler bounds. They add two cases to the
+same selector (11 cases), with no new production method or instrumentation.
+The earlier whole-selector admission failure remains a separate recorded
+limitation; these two-case results do not qualify the complete feature.
