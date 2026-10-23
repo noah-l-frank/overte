@@ -14,6 +14,7 @@ import threading
 import time
 from .contract import exact, identifier
 from .fixtures import pinned_resource
+from .browser_retirement import BrowserRetirements
 
 ROOT = Path(__file__).resolve().parents[1] / 'fixture/parity'
 ASSETS = {'reference.js', 'client.js', 'injected.js', 'feature-marker.js'}
@@ -53,11 +54,12 @@ class BrowserResources:
     def __init__(self, *, clock_ms=lambda: int(time.time() * 1000)):
         if not callable(clock_ms): raise ValueError('Browser fixture clock is required')
         self.clock_ms, self.lock, self.runs = clock_ms, threading.RLock(), {}
+        self.retirements=BrowserRetirements(lambda:self.clock_ms())
 
     def open(self, run):
         identifier(run)
         with self.lock:
-            if run in self.runs or len(self.runs) >= 32: raise ValueError('Browser fixture ownership already exists or is full')
+            if run in self.runs or self.retirements.contains(run) or len(self.runs) >= 32: raise ValueError('Browser fixture ownership already exists or is full')
             self.runs[run] = dict(instance=secrets.token_hex(16), ready=False, sequence=0, epoch=0, responses=[])
 
     def control(self, run, value):
@@ -129,6 +131,12 @@ class BrowserResources:
             return dict(browserFixtureVersion=1, instance=row['instance'], ready=row['ready'],
                 sequence=row['sequence'], responses=deepcopy(row['responses']))
 
+    def retired_snapshot(self,run):
+        return self.retirements.snapshot(identifier(run))
+
     def close(self, run):
         with self.lock:
-            self.runs.pop(identifier(run), None)
+            run=identifier(run)
+            if run in self.runs:
+                self.retirements.close(run,self.snapshot(run))
+                self.runs.pop(run)

@@ -381,6 +381,8 @@
     "ios-web-closures": {"current": 5, "reads": [1, 2, 3, 4, 5]},
     "native-web-dom-observation": {"current": 1, "reads": [1]},
     "web-dom-observation": {"current": 1, "reads": [1]},
+    "feature-browser-retired-responses": {"current": 2, "reads": [2]},
+    "feature-browser-retirement-audit": {"current": 1, "reads": [1]},
     "feature-browser-resources": {"current": 1, "reads": [1]},
     "native-feature-observation": {"current": 1, "reads": [1]},
     "ios-native-feature-clock-binding": {"current": 1, "reads": [1]},

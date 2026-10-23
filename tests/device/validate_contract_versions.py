@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "feature-browser-retired-responses": 2,
+    "feature-browser-retirement-audit": 1,
     "ios-create-feature": 1,
     "ios-create-observer": 1,
     "ios-create-final-archive": 1,

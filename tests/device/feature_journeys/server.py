@@ -25,6 +25,7 @@ from feature_journeys.witness import Journal
 from feature_journeys.retirement_receipts import PhaseRetirementJournal
 from feature_journeys.account_provider import AccountProvider,form,TOKEN_PATH,PROFILE_PATH,REQUEST_HEADER,RUN_HEADER,TICKET_HEADER
 from feature_journeys.browser_fixture import BrowserResources
+from feature_journeys import browser_retirement
 from feature_journeys.navigation_fixture import NavigationResources,DIRECTORY
 from feature_journeys.script_fixture import ScriptResources
 from feature_journeys.graphics_resources import GraphicsResources, RESOURCE as GRAPHICS_SCENE,viewpoint_query
@@ -81,8 +82,10 @@ class Handler(BaseHTTPRequestHandler):
             if len(status_fields)!=3 or not status_fields[1].isdigit() or len(identities)!=1:
                 raise ValueError('Original Script response headers are unavailable')
             actual_status,actual_id=int(status_fields[1]),identifier(identities[0])
+        browser_retirement.headers(self,body)
         self.end_headers()
         written=self.wfile.write(body)
+        browser_retirement.written(self,written)
         if observe_write is not None:
             if type(written) is not int or written!=len(body):raise ValueError('Original Script response write is incomplete')
             observe_write(dict(status=actual_status,responseId=actual_id,bytes=written,sha256=hashlib.sha256(body).hexdigest()))
@@ -202,8 +205,10 @@ class Handler(BaseHTTPRequestHandler):
         return True
 
     def handle_request(self):
+        self.browser_retired_attempt=None
         try:
             parsed = urlsplit(self.path)
+            browser_retirement.begin(self)
             if self.server.browser_peer:
                 # The second actual listener is resource-only, even with an
                 # accidental reader/publisher token. It cannot mutate runs or
@@ -387,6 +392,14 @@ class Handler(BaseHTTPRequestHandler):
                 if self.command=='GET' and self.server.navigation_resources is not None:
                     return self.send(200,self.server.navigation_resources.snapshot(run))
                 return self.send(503,{'error':'navigation-provider-unavailable'})
+            if parts[2:]==['browser-retired']:
+                if self.command!='GET':return self.send(403,{'error':'forbidden'})
+                with self.server.journal.lock:
+                    source=self.server.journal.retired_phases.get(run)
+                    if source is None or source['area'] not in ('world-web','tablet-web'):
+                        return self.send(400,{'error':'invalid-owned-fixture-request'})
+                    value=self.server.browser_resources.retired_snapshot(run)
+                return self.send(200,value)
             if parts[2:]==['browser']:
 
                 if self.command=='GET':return self.send(200,self.server.browser_resources.snapshot(run))
@@ -494,6 +507,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send(400, {'error': 'invalid-owned-fixture-request'})
         except (BrokenPipeError,ConnectionResetError,ssl.SSLEOFError,TimeoutError):
             self.close_connection=True # A real cancelled client connection is not an internal fixture error.
+        finally:
+            browser_retirement.finally_observed(self)
 
     do_GET = handle_request
     do_POST = handle_request

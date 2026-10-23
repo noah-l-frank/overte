@@ -10,8 +10,10 @@ from ios.adapters import world_web_source as native,world_web_dom as dom
 
 
 def browser_original(value,previous=None):
-    exact(value,{'browserFixtureVersion','instance','ready','sequence','responses'})
-    need(type(value['browserFixtureVersion']) is int and value['browserFixtureVersion']==1
+    need(type(value) is dict and type(value.get('browserFixtureVersion')) is int and value['browserFixtureVersion'] in (1,2))
+    retired=value['browserFixtureVersion']==2
+    exact(value,{'browserFixtureVersion','instance','ready','sequence','responses'}|({'retirement'} if retired else set()))
+    need(type(value['browserFixtureVersion']) is int
         and re.fullmatch(native.HEX,text(value['instance'],32)) and type(value['ready']) is bool
         and integer(value['sequence'],0,256) and type(value['responses']) is list and len(value['responses'])==value['sequence'])
     ids=set();last=0
@@ -24,8 +26,15 @@ def browser_original(value,previous=None):
             and type(row['status']) is int and row['status'] in (200,404) and integer(row['bytes'],1,1048576)
             and re.fullmatch('[0-9a-f]{64}',text(row['sha256'],64)))
         ids.add(row['responseId']);last=row['capturedEpochMs']
+    if retired:
+        from ios.adapters.world_web_browser_retired import original
+        original(value['retirement'],after_epoch=last)
     if previous is not None:
         browser_original(previous)
+        if previous['browserFixtureVersion']==2:
+            from ios.adapters.world_web_browser_retired import original
+            need(retired and value['sequence']==previous['sequence'] and value['responses']==previous['responses'] and value['ready']==previous['ready'])
+            original(value['retirement'],previous['retirement'],after_epoch=last)
         need(value['instance']==previous['instance'] and value['sequence']>=previous['sequence']
             and value['responses'][:len(previous['responses'])]==previous['responses'] and (not previous['ready'] or value['ready']))
     return value
