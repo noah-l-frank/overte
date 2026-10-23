@@ -2859,5 +2859,44 @@
     "qualification": "Actual Pico host ownership and validation with explicit synthetic OS/Qt/OpenXR/VM/Rig boundaries; independent publisher/GPU/app/device qualification remains absent.",
     "wholeFeatureCapability": false,
     "journalsRetired": false
+  },
+  "chatCursorPublisher20261023": {
+    "status": "passed",
+    "sourceCommits": [
+      "ee48d4864466bf7a194d24b77c820acd01b43280",
+      "6f3096ee3927f30324bbab2843e6b766addfe6d6"
+    ],
+    "picoGroups": 3,
+    "catalogAtRun": 168,
+    "seconds": 73.48,
+    "checks": {
+      "cursorAndPublisher": 22.334,
+      "factory": 51.045,
+      "coverage": 0.104
+    },
+    "repositorySuites": 4,
+    "repositorySeconds": 4.59,
+    "qualification": "Actual warm host source/publication ownership with explicit native/product/clock seams. Actual context-manager exit failure is latched; no whole external Journey, source sealing/archive or actor-process/stereo/cold RPC qualification."
+  },
+  "worldRenderRetirements20261023": {
+    "status": "passed",
+    "protocol": 1,
+    "picoGroups": 2,
+    "catalogAtRun": 169,
+    "seconds": 6.33,
+    "checks": {
+      "nativeReaderFactoryProbe": 6.247,
+      "coverage": 0.08,
+      "browserStereoRegression": {
+        "cases": 9,
+        "seconds": 16.99
+      }
+    },
+    "repositorySuites": 4,
+    "repositorySeconds": 2.86,
+    "qualification": "Selected exact original GPU inventory/getter and complete new TSI method/header compile and run on Qt5 Core with actual private files/mutexes/queued QObject dispatch. GPU capture/application/HMD/native transport/render clocks are explicit host seams. No full application/APK/device qualification.",
+    "wholeFeatureCapability": false,
+    "journalsRetired": false,
+    "remaining": "Durable complete-history manifest owner, immutable archive/host closure, and unchanged120-second full browser Journey."
   }
 }

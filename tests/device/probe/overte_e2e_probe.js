@@ -126,6 +126,22 @@
     var lastWorldRenderStorageCommand = "";
     var lastWorldRenderReceiptCommand = "";
     var lastWorldRenderReceiptsCommand = "";
+    var lastPicoWorldRetirementsCommand = "";
+    function picoWorldRetirementsSelectors(captures) {
+        if (!Array.isArray(captures) || captures.length === 0 || captures.length > 256) { return false; }
+        var requests = {}, receipts = {}, total = 0;
+        return captures.every(function (capture) {
+            if (!capture || !objectKeysMatch(capture, ["requestId", "receiptIds"])
+                    || typeof capture.requestId !== "string" || !/^[0-9a-f]{32}$/.test(capture.requestId)
+                    || requests[capture.requestId] || !Array.isArray(capture.receiptIds)
+                    || capture.receiptIds.length === 0 || capture.receiptIds.length > 1024) { return false; }
+            requests[capture.requestId] = true;
+            return capture.receiptIds.every(function (id) {
+                if (typeof id !== "string" || !/^[0-9a-f]{32}$/.test(id) || receipts[id] || ++total > 1024) { return false; }
+                receipts[id] = true; return true;
+            });
+        });
+    }
     var worldRenderTimer = null;
     function saveWorldRenderObservation(requestId, remaining) {
         if (requestId !== lastWorldRenderRequest) { return; }
@@ -1673,6 +1689,24 @@
             return;
         }
         if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && command.action === "feature-pico-world-render-retirements"
+                && picoWorldRetirementsSelectors(command.captures)
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId", "captures"])) {
+            if (command.commandId === lastPicoWorldRetirementsCommand) { return; }
+            lastPicoWorldRetirementsCommand = command.commandId;
+            var retirements = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featurePicoWorldRenderRetirements === "function") {
+                    var originalRetirements = Test.featurePicoWorldRenderRetirements(command);
+                    if (originalRetirements && originalRetirements.requestId === command.commandId) { retirements = originalRetirements; }
+                }
+            } catch (_picoWorldRetirementsError) { /* Unknown originals never prove retirement. */ }
+            Test.saveObject(retirements, "feature-pico-world-render-retirements.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.requestId))
                 && command.action === "feature-world-render-receipts"
@@ -2397,6 +2431,7 @@
                 || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-world-render-receipts"
+                || command.action === "feature-pico-world-render-retirements"
                 || command.action === "feature-script-files")) {
             // Android's existing private channel is separate from the HTTP
             // fixture command endpoint. Reuse the closed native feature path.

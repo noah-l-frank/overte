@@ -16,9 +16,12 @@ def observer(proof,lock,binding,native,guard,stores,read,*,previous=None):
     need(isinstance(lock,ScriptSourceLock) and callable(guard) and callable(read)
         and type(stores) is list and bool(stores))
     proof,binding,stores=deepcopy(proof),deepcopy(binding),list(stores)
-    lock.assert_held();packet=native.read(0)
+    lock.assert_held();native.read(0)
     role=proof['owner']['role'];retirement(proof,proof['owner'],native.pid,binding,role)
-    need(packet['instance']==proof['memory']['instance'])
+    # The GPU context and TestScriptingInterface have independent native births.
+    # The original GPU getter, not the unrelated generic observer UUID, must
+    # agree with the retained original memory/file proof.
+    instance=proof['memory']['instance']
     def quiet_guard():
         lock.assert_held();need(guard() is not False and native.guard() is not False
             and all(store.read() is None for store in stores));return True
@@ -36,7 +39,7 @@ def observer(proof,lock,binding,native,guard,stores,read,*,previous=None):
             retirement(current,proof['owner'],native.pid,binding,role)
             return packet
     reader=AbsentInventory(inspect,read,native.clock_ms,quiet_guard,native.pid,
-        lambda:deepcopy(proof['owner']),lambda:packet['instance'],monotonic=native.monotonic,sleep=native.sleep)
+        lambda:deepcopy(proof['owner']),lambda:instance,monotonic=native.monotonic,sleep=native.sleep)
     reader.sequence,reader.captured=floor['sequence'],floor['capturedEpochMs']
     reader.histories={floor['requestId']:{row['receiptId']:row['issued'] for row in floor['source']['receipts']}}
     return reader

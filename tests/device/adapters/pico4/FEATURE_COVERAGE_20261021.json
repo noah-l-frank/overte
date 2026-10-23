@@ -721,7 +721,10 @@
         "android/vr/pico/tests/pico-tablet-web-journey-test.py",
         "tests/device/adapters/pico4/browser_actor_retirement.py",
         "tests/device/adapters/pico4/BROWSER_ACTOR_RETIREMENT.md",
-        "tests/device/self_tests/test_pico_browser_actor_retirement.py"
+        "tests/device/self_tests/test_pico_browser_actor_retirement.py",
+        "tests/device/adapters/pico4/world_render_retirements.py",
+        "tests/device/native/PicoWorldRenderRetirements.h",
+        "tests/device/adapters/pico4/WORLD_RENDER_RETIREMENTS.md"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -775,7 +778,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Freshly inspect every historical primary/Actor capture and join immutable source archival and own-host closure. The new inactive-phase Actor transaction preserves active histories and collects fresh native/Java/VM/lifecycle originals; six focused host cases pass64.037s. The full unchanged26-action history-enabled Journey still times out120.037s at cleanup, so whole-run verification and public capability admission remain outstanding; complete source areas3/14.",
+      "nextExecutableStep": "Join the new complete original capture-inventory window to a durable browser finalization owner derived from both original source histories and the returned inactive Actor receipt; then immutable archive and actual host closure. Selected exact native GPU/getter/new TSI bodies, real queued/cancelled QObject dispatch and Python/Node/private-factory checks pass6.247s; existing nine browser stereo cases pass16.990s. The new reader is not a durable owner or complete-manifest authority. Full26-action Journey remains red at the unchanged120s limit; complete capability and app/APK/device qualification remain unavailable.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },
@@ -1130,7 +1133,8 @@
         "tests/device/adapters/chat_journey/cleanup_consumption.py",
         "tests/device/adapters/chat_journey/CLEANUP_CONSUMPTION.md",
         "tests/device/adapters/chat_journey/observation_cursor.py",
-        "tests/device/adapters/chat_journey/OBSERVATION_CURSOR.md"
+        "tests/device/adapters/chat_journey/OBSERVATION_CURSOR.md",
+        "tests/device/adapters/chat_journey/observation_publisher.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1174,7 +1178,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Join repeated independent original publication to the new warm global query cursor, then exact external consumption/source seals and complete archive catalog. Cursor17.704s and updated actual Pico factory48.998s pass integrated Root checks. Every global sequence names a durable original local source row across initial/active/cleanup; no caller offsets or private26phase cursor are admitted. Shared cleanup-only positives remain sequenceSucceeded=false; cold RPC/PID, stereo and public operations remain missing.",
+      "nextExecutableStep": "Join exact global external cleanup consumption and complete original source seals/archive catalog to the current warm cursor and repeated independent publisher. Integrated original cursor/publisher22.334s, actual Pico factory51.045s and coverage0.104s pass; actual lock-exit failure latches uncertainty. Cleanup-only positives remain sequenceSucceeded=false; whole external journey, actor-process closure, cold RPC/PID and stereo/public operations remain missing.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

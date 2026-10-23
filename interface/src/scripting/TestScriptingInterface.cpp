@@ -62,6 +62,7 @@
 #if defined(ANDROID_APP_PICO_INTERFACE)
 #include "../../../tests/device/native/PrivateAssetsFiles.h"
 #include "../../../tests/device/native/PicoAssetsReadJob.h"
+#include "../../../tests/device/native/PicoWorldRenderRetirements.h"
 #include <AssetClient.h>
 #include <AssetRequest.h>
 #include <MappingRequest.h>
@@ -144,6 +145,7 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
 #if defined(ANDROID_APP_PICO_INTERFACE)
         _featureEmoteSceneQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAssetsReadQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
+        _featureWorldRetirementsQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAssetsRead=std::make_shared<overte::e2e::PicoAssetsReadJob>();
         _featureAssetsFilesQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAssetsFiles=std::make_shared<overte::e2e::PrivateAssetsFiles>();
@@ -855,6 +857,24 @@ QVariantMap TestScriptingInterface::featureWorldRenderReceipt(const QVariantMap&
 }
 
 #if defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap TestScriptingInterface::featurePicoWorldRenderRetirements(const QVariantMap& command) {
+    const auto queue=_featureWorldRetirementsQueue;if(!queue) { return {}; }
+    if(QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoWorldRenderRetirements(command),{}};
+        }).values;
+    }
+    const auto id=command.value("commandId").toString();
+    if(_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !qApp || thread()!=qApp->thread() || !qApp->isHMDMode() || QGuiApplication::applicationState()!=Qt::ApplicationActive
+            || !overte::e2e::previewDirectory(_testResultsLocation) || !overte::e2e::picoWorldRetirementsCommand(command)
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())
+            || _featureWorldRetirementsRequests.size()>=4096 || _featureWorldRetirementsRequests.contains(id)) { return {}; }
+    _featureWorldRetirementsRequests.insert(id); // An unavailable/partial original query is never replayed.
+    return overte::e2e::picoWorldRetirementsObservation(command,_featureWorldRetirementsSequence,
+        [this](const QVariantMap& inspect) { return featureWorldRenderReceipts(inspect); });
+}
+
 QVariantMap TestScriptingInterface::featureWorldRenderReceipts(const QVariantMap& command) {
     if (QThread::currentThread() != thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }
@@ -2520,6 +2540,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-script-files.json" || filename == "feature-create-files.json" || filename == "feature-create-callbacks.json"
             || filename == "feature-create-entities.json" || filename == "feature-create-browse-setting.json" || filename == "feature-create-dialogs.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json" || filename == "world-render-receipts-result.json"
+            || filename == "feature-pico-world-render-retirements.json"
             || QRegularExpression("\\Aworld-render-storage-[0-9a-f]{32}\\.json\\z").match(filename).hasMatch()) {
         if (!QCoreApplication::arguments().contains("--testScript") || QFileInfo(filepath).isSymLink()) { return; }
         if (filename.startsWith("world-render-storage-")) {

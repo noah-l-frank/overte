@@ -206,6 +206,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureNavigationEnvironment(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureNavigationModals(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWorldRenderReceipts(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featurePicoWorldRenderRetirements(const QVariantMap& command);
     Q_INVOKABLE void featureBindTabletHttpRequest(const QString& lease, QObject* request);
     Q_INVOKABLE QVariantMap featureTabletHttpObservation(const QVariantMap& command);
 #endif
@@ -352,6 +353,9 @@ private:
     quint64 _featureLocationBookmarksSequence {0};
     QSet<QString> _featureLocationBookmarksRequests;
     QSet<QString> _featureWorldReceiptsRequests;
+    std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureWorldRetirementsQueue;
+    QSet<QString> _featureWorldRetirementsRequests;
+    quint64 _featureWorldRetirementsSequence {0};
     quint64 _featureCreateBrowseSettingSequence {0};
     QHash<QString,QVariantMap> _featureCreateBrowseSettingCommands, _featureCreateBrowseSettingResults;
     quint64 _featureCreateFilesSequence {0};

@@ -152,3 +152,19 @@ class PicoTabletWebBinding(PicoScriptJourney):
         return observer(proof,lock,binding,native,guard,stores,
             lambda:self.original.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+INVENTORY_FILE,attempts=1),
             previous=previous)
+
+    def _tablet_web_retired_captures_observer(self,target,proofs,lock,run):
+        from adapters.pico4.world_render_retirements import PicoWorldRenderRetirements,FILE
+        self._lock(target,lock).assert_held()
+        _ui,_source,binding,guard,_installed=self.normal_feature_runtime(target,read_only=True)
+        native=self._native_feature_observer(target,read_only=True);native.read(0)
+        need(type(proofs) is list and bool(proofs))
+        stores=self._tablet_web_capture_stores(target,lock)
+        def quiet_guard():
+            lock.assert_held();need(guard() is not False and native.guard() is not False
+                and all(store.read() is None for store in stores));return True
+        quiet_guard()
+        return PicoWorldRenderRetirements(native.send,
+            lambda:self.original.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+            native.clock_ms,quiet_guard,native.pid,binding,lock,run,proofs,
+            monotonic=native.monotonic,sleep=native.sleep)

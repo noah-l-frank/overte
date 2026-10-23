@@ -36,7 +36,7 @@ After equivalent synthetic-tool optimization and original-ledger cold reopening
 fixes, the same warm flow passes78.704s within120s: normal Cancel/Still/Save,
 independent actual host PNG,13 fresh Provider inspections, all15 quiet clocks
 and cold factory reopening without a repeated input. JNI/Android provider/UID
-and rendering boundaries remain explicit host seams. The catalog now contains168 groups; complete source areas stay3/14.
+and rendering boundaries remain explicit host seams. The catalog now contains169 groups; complete source areas stay3/14.
 
 The fixed Assets normal-input packet95aa81c067 is selected as25d8dcff66.
 The actual original QML and whole Pico observer/apply host case passes20.433s,
@@ -1987,3 +1987,36 @@ transitions. No source sequence is rewritten and no caller offset is accepted.
 Repeated independent publication, exact external consumption/sealing and the
 complete new-source catalog join remain next; old archives do not gain those
 missing proofs.
+
+
+## Original global publications and historical capture inventories
+
+Chat publisher ee48d48644 and actual-lock-exit fix6f3096ee39 are integrated.
+The original cursor/publisher owning group passes22.334s, actual Pico factory
+51.045s and coverage0.104s (3/168 groups,73.48s). The four repository suites
+pass4.59s. Global repeated queries retain explicit local original source rows;
+lost publication freezes ownership without resend or ACK-as-observation.
+External whole consumption/sealing/archive and actor-process closure remain
+separate missing work. Cleanup-only positives remain sequenceSucceeded=false.
+
+[Historical capture inventory](WORLD_RENDER_RETIREMENTS.md) version1 acquires
+every selected original GPU/file inventory in one bounded native dispatch. It
+preserves complete original DTOs, issuer sets, backend identities and clocks;
+strict aggregate limits and the original4096 native-query cap are unchanged.
+The private Python reader retains the actual raw bytes, failed query intent
+and source-lock exit checks. Both single and aggregate readers now correctly
+bind GPU inventories to the original GPU memory proof: generic observer and
+GPU context UUIDs are independently generated and must not be equated. The
+new distinct-birth counterexample covers this adapter correction; Phone can
+reuse the shared helper correction after reconciling its own sources.
+
+Selected exact original GPU inventory/getter plus complete new TSI method and
+header compile and pass on actual Qt5 Core, including real queued/cancelled
+QObject dispatch. The native/Python/Node/factory owning group passes6.247s;
+coverage0.080s (2/169 groups,6.33s), existing nine browser stereo cases16.990s
+and four repository suites2.86s pass. GPU production, application/HMD state,
+transport/render/clock producers remain explicit host seams. The supplied
+manifest still needs a durable enclosing owner derived from all original
+histories, followed by immutable archive and host closure. Full browser
+Journey remains red at its unchanged120s limit; no new feature, APK or device
+qualification is claimed.

@@ -132,7 +132,7 @@ class PicoBrowserStereoTests(unittest.TestCase):
                 if fault=='file':model.inventory.issue(proof['owner']['receipts'][0])
                 elif fault=='callbacks':model.inventory.callbacks=1
                 elif fault=='issued':model.inventory.issued.pop(proof['owner']['receipts'][0])
-                elif fault=='birth':model.features.mutate=lambda packet:packet.update(processId=31,instance='f'*32)
+                elif fault=='birth':model.inventory.mutate=lambda packet:packet.update(instance='f'*32)
                 elif fault=='scope':proof=deepcopy(proof);proof['owner']['binding']['sessionId']='foreign'
                 elif fault in ('browser','emote'):stores.setdefault((fault,'actor'),PrivateFeatureState(model.root/(fault+'-actor-owner.json'))).write({'foreign':True},None)
                 elif fault=='graphics':
