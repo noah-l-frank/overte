@@ -15,28 +15,57 @@ from adapters.script_feature.history import same
 from ios.adapters.installed_code import InstalledCodeBinding
 from ios.adapters.script_runtime import IOSScriptRuntime
 
-VERSION=1
+VERSION=2
+READS=(1,2)
+
+
+def installed_forward(before,after):
+    """Same actual installation/process; only verified observation advances."""
+    need(type(before) is dict and type(after) is dict and set(before)==set(after)
+        and all(same(before[key],after[key]) for key in before if key!='observation'))
+    from ios.adapters.bundle_observation import validate as bundle_original
+    for record in (before,after):
+        packet=record['observation'];bundle_original(packet,dict(schemaVersion=1,action='ios-bundle-observe',commandId=packet['commandId']),record['process']['pid'])
+        need(packet['status']=='ready')
+    a,b=before['observation'],after['observation']
+    need(all(same(a[key],b[key]) for key in ('instance','processId','preparedEpochMs','bundle','status','bundleObservationVersion')))
+    if a['sequence']==b['sequence']:need(same(a,b))
+    else:need(b['sequence']>a['sequence'] and b['capturedEpochMs']>=a['capturedEpochMs'] and b['commandId']!=a['commandId'])
+    return deepcopy(after)
+
+
+def follows(previous,current,binding):
+    """Original bootstrap and new CLI admission share one native lifetime."""
+    validate(previous,binding);validate(current,binding)
+    need(all(same(previous[key],current[key]) for key in ('binding','scope','expectedBundle','processBefore','processAfter')))
+    installed_forward(previous['installedAfter'],current['installedBefore'])
+    return deepcopy(current)
 
 
 def validate(value,physical_binding):
     exact(value,{'tabletWebObserverAdmissionVersion','binding','scope','expectedBundle','installedBefore','installedAfter',
         'processBefore','processAfter','hostProcessId','acquisition'})
-    need(type(value['tabletWebObserverAdmissionVersion']) is int and value['tabletWebObserverAdmissionVersion']==VERSION
+    need(type(value['tabletWebObserverAdmissionVersion']) is int and value['tabletWebObserverAdmissionVersion'] in READS
         and integer(value['hostProcessId'],1))
     context(physical_binding);observed=context(value['binding']);need(same(observed,physical_binding))
     clock=value['acquisition'];exact(clock,{'hostBeforeEpochMs','hostAfterEpochMs','hostBeforeMonotonic','hostAfterMonotonic'})
     a,b,c,d=[clock[key] for key in ('hostBeforeEpochMs','hostAfterEpochMs','hostBeforeMonotonic','hostAfterMonotonic')]
     need(number(a,1,1e15) and number(b,a,a+1500) and number(c,0,1e15) and number(d,c,c+1.5)
         and b-a<1500 and d-c<1.5 and abs(b-a-(d-c)*1000)<=250)
-    need(same(value['installedBefore'],value['installedAfter']) and same(value['processBefore'],value['processAfter']))
+    need(same(value['processBefore'],value['processAfter']))
+    if value['tabletWebObserverAdmissionVersion']==1:need(same(value['installedBefore'],value['installedAfter']))
     class Frozen(PrivateFeatureState):
         def read(self):return deepcopy(value['installedBefore'])
         def write(self,*_args,**_kwargs):need(False)
     forbidden=lambda *_args,**_kwargs:need(False)
-    gate=InstalledCodeBinding(Frozen('/unused-tablet-observer-admission'),value['scope'],value['expectedBundle'],forbidden,forbidden,forbidden)
-    record=gate.record();need(record is not None and record['phase']=='bound' and record['process']==value['processBefore']
-        and record['process']['foreground'] is True and str(record['process']['pid'])==observed['processIdentity']
-        and same(dict(value['scope'],processIdentity=observed['processIdentity']),observed))
+    for field in ('installedBefore','installedAfter'):
+        class Actual(Frozen):
+            def read(self):return deepcopy(value[field])
+        gate=InstalledCodeBinding(Actual('/unused-tablet-observer-admission'),value['scope'],value['expectedBundle'],forbidden,forbidden,forbidden)
+        record=gate.record();need(record is not None and record['phase']=='bound' and record['process']==value['processBefore']
+            and record['process']['foreground'] is True and str(record['process']['pid'])==observed['processIdentity']
+            and same(dict(value['scope'],processIdentity=observed['processIdentity']),observed))
+    if value['tabletWebObserverAdmissionVersion']>=2:installed_forward(value['installedBefore'],value['installedAfter'])
     return deepcopy(observed)
 
 

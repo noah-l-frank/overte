@@ -23,7 +23,10 @@ from ios.adapters.graphics_history import follow_native,restore_native
 from ios.adapters.tablet_web_packets import TabletWebPackets,COMPONENTS
 from ios.adapters.tablet_web_history import derive
 
-VERSION=1
+VERSION=2
+READS=(1,2)
+ACQUISITION_VERSION=2
+ACQUISITION_READS=(1,2)
 ORDER=('sources','trace','dom','buttons','uikit','state','closures','emissions','deferred')
 FRAME_KEYS={'trace':'ledger','dom':'document','uikit':'touches','emissions':'emitter'}
 
@@ -32,12 +35,17 @@ class TabletSourcePhaseChanged(ValueError):pass
 
 
 class TabletWebSourceOwner:
-    def __init__(self,root,binding,run,role,fixture_url,pid,lock,guard,*,epoch_ms=lambda:int(time.time()*1000),monotonic=time.monotonic,historical=False):
+    def __init__(self,root,binding,run,role,fixture_url,pid,lock,guard,*,epoch_ms=lambda:int(time.time()*1000),monotonic=time.monotonic,historical=False,admission=None):
         self.root=Path(root);self.binding=deepcopy(context(binding));self.run,self.role,self.fixture,self.pid=run,role,fixture_url,pid
         need(isinstance(lock,ScriptSourceLock) and lock.path==self.root/'script-feature-sources.lock' and type(historical) is bool
             and self.binding['processIdentity']==str(pid) and role in ('primary','actor') and set(ORDER)==set(COMPONENTS))
         COMPONENTS['sources'].command(dict(schemaVersion=1,action=COMPONENTS['sources'].ACTION,commandId='ios-'+'0'*32,runId=run,fixtureUrl=fixture_url))
         self.lock,self.guard,self.epoch_ms,self.monotonic,self.historical=lock,guard,epoch_ms,monotonic,historical
+        self.admission=deepcopy(admission)
+        if admission is not None:
+            from ios.adapters.tablet_web_admission import validate as admission_original
+            admission_original(admission,self.binding)
+            if not historical:need(admission['hostProcessId']==os.getpid())
         need(all(callable(fn) for fn in (guard,epoch_ms,monotonic)))
         if not historical:self.bound()
         self.store=PrivateFeatureState(self.root/('tabletweb-source-owner-'+run+'-'+role+'.json'))
@@ -45,7 +53,7 @@ class TabletWebSourceOwner:
         if self.state is None:
             need(not historical)
             self.state=dict(tabletWebSourceOwnerVersion=VERSION,binding=self.binding,runId=run,role=role,fixtureUrl=fixture_url,processId=pid,
-                apps=[],records=[],pending=None,intent=None,inspection=None,appIntent=None,appPending=None,appInspection=None)
+                apps=[],records=[],pending=None,intent=None,inspection=None,appIntent=None,appPending=None,appInspection=None,reconciled=[])
             self.store.write(self.state,None)
         self.saved=deepcopy(self.state)
         self.originals=OriginalFrameStore(root,binding,run,role,self.original_guard,self.frame_intent,namespace='tabletweb-acquisitions',schema_prefix='tabletWebAcquisition',monotonic=monotonic)
@@ -61,7 +69,9 @@ class TabletWebSourceOwner:
         return True
 
     def save(self):
-        self.bound();self.store.write(self.state,self.saved);self.saved=deepcopy(self.state)
+        self.bound()
+        if self.state['tabletWebSourceOwnerVersion']==1:self.state['tabletWebSourceOwnerVersion']=VERSION;self.state['reconciled']=[]
+        self.store.write(self.state,self.saved);self.saved=deepcopy(self.state)
 
     def frame_intent(self,kind,value):
         need(kind=='original' and self.state['pending'] is not None);self.state['intent']=deepcopy(value);self.state['inspection']=None;self.save()
@@ -116,12 +126,22 @@ class TabletWebSourceOwner:
         return value
 
     def _record(self,value,index,previous):
-        exact(value,{'tabletWebAcquisitionVersion','index','status','hostProcessId','apps','before','after','phaseBefore','phaseAfter','nativeBefore','nativeAfter','components','browser','clockJoin'})
-        need(type(value['tabletWebAcquisitionVersion']) is int and value['tabletWebAcquisitionVersion']==VERSION and type(value['index']) is int and value['index']==index
+        version=value.get('tabletWebAcquisitionVersion') if type(value) is dict else None
+        need(type(version) is int and version in ACQUISITION_READS)
+        fields={'tabletWebAcquisitionVersion','index','status','hostProcessId','apps','before','after','phaseBefore','phaseAfter','nativeBefore','nativeAfter','components','browser','clockJoin'}
+        exact(value,fields|({'admission'} if version>=2 else set()))
+        if version>=2:
+            from ios.adapters.tablet_web_admission import validate as admission_original
+            admission_original(value['admission'],self.binding)
+            need(value['admission']['hostProcessId']==value['hostProcessId'])
+        need(type(value['tabletWebAcquisitionVersion']) is int and value['tabletWebAcquisitionVersion'] in ACQUISITION_READS and type(value['index']) is int and value['index']==index
             and value['status'] in ('acquiring','returned','failed') and integer(value['hostProcessId'],1)
             and type(value['apps']) is list and self.state['apps'][:len(value['apps'])]==value['apps']
             and type(value['components']) is list and len(value['components'])<=len(ORDER))
         before=value['before'];exact(before,{'epochMs','monotonic'});need(integer(before['epochMs'],1) and number(before['monotonic'],0,1e15))
+        if version>=2:
+            acquired=value['admission']['acquisition']
+            need(before['epochMs']>=acquired['hostAfterEpochMs'] and before['monotonic']>=acquired['hostAfterMonotonic'])
         if value['after'] is not None:
             exact(value['after'],{'epochMs','monotonic'});need(integer(value['after']['epochMs'],before['epochMs']) and number(value['after']['monotonic'],before['monotonic'],1e15))
         for name in ('nativeBefore','nativeAfter'):
@@ -157,27 +177,41 @@ class TabletWebSourceOwner:
 
     def history(self):
         value=self.state
-        exact(value,{'tabletWebSourceOwnerVersion','binding','runId','role','fixtureUrl','processId','apps','records','pending','intent','inspection','appIntent','appPending','appInspection'})
-        need(type(value['tabletWebSourceOwnerVersion']) is int and value['tabletWebSourceOwnerVersion']==VERSION
+        version=value.get('tabletWebSourceOwnerVersion');need(type(version) is int and version in READS)
+        exact(value,({'reconciled'} if version>=2 else set())|{'tabletWebSourceOwnerVersion','binding','runId','role','fixtureUrl','processId','apps','records','pending','intent','inspection','appIntent','appPending','appInspection'})
+        need(type(value['tabletWebSourceOwnerVersion']) is int and value['tabletWebSourceOwnerVersion'] in READS
             and same(value['binding'],self.binding) and value['runId']==self.run and value['role']==self.role and value['fixtureUrl']==self.fixture
             and type(value['processId']) is int and value['processId']==self.pid and type(value['apps']) is list and len(value['apps'])<=32
             and type(value['records']) is list and len(value['records'])<=128)
         for child in self.children.values():child.history()
-        self.app_sources();frames=[];native=None;phase_floor=None
+        self.app_sources();frames=[];native=None;phase_floor=None;admission_floor=None
         self.blocked=(value['appPending'] is not None or value['appIntent'] is not None
             or any(child.blocked or child.state['pending'] is not None or child.state['recordIntent'] is not None for child in self.children.values()))
         def phase_follow(row):
-            nonlocal phase_floor
+            nonlocal phase_floor,admission_floor
+            if row['tabletWebAcquisitionVersion']>=2:
+                from ios.adapters.tablet_web_admission import follows
+                if admission_floor is not None:follows(admission_floor,row['admission'],self.binding)
+                admission_floor=deepcopy(row['admission'])
             for key in ('phaseBefore','phaseAfter'):
                 phase=row[key]
                 if phase is not None:
                     phase_original(phase,run=self.run,area='tablet-web',request=phase['requestId'],epoch=phase['capturedEpochMs'],previous=phase_floor);phase_floor=phase
+        reconciled=value.get('reconciled',[]);need(type(reconciled) is list and len(reconciled)<=128)
+        recovered={}
+        for entry in reconciled:
+            exact(entry,{'acquisition','component','leaf'})
+            full=self.originals.expand(entry['acquisition']);index=full['index']
+            need(index not in recovered and 1<=index<=len(value['records']) and same(value['records'][index-1],entry['acquisition']))
+            self._reconciled(self.originals.read(full),entry['component'],entry['leaf']);recovered[index]=entry
         for index,ref in enumerate(value['records'],1):
             original=self.originals.expand(ref);need(original['index']==index);row=self.originals.read(original)
             native,frame=self._record(row,index,native)
             phase_follow(row)
             if row['status']=='returned':frames.append(frame)
-            else:self.blocked=True
+            else:
+                need(row['status']=='failed')
+                if index not in recovered:self.blocked=True
         if value['pending'] is not None:
             native,_=self._record(value['pending'],len(value['records'])+1,native);self.blocked=True
             phase_follow(value['pending'])
@@ -200,13 +234,72 @@ class TabletWebSourceOwner:
         originals.append(store.compact(dict(ref,phase='saved')));self.state[key]=self.state[pending_key]=self.state[inspection_key]=None;self.save()
         return deepcopy(originals[-1])
 
+    def _reconciled(self,row,name,reference):
+        """A failed frame stays failed; the old nonce contributes raw floors only."""
+        need(row['status']=='failed' and row['nativeBefore'] is not None and row['nativeAfter'] is None
+            and row['after'] is not None and row['components'] and row['components'][-1]['reference'] is None
+            and row['components'][-1]['component']==name and name in ORDER)
+        child=self.children[name];full=child.originals.expand(reference);index=full['index']
+        need(index==row['components'][-1]['index'] and 1<=index<=len(child.state['records'])
+            and same(reference,child.state['records'][index-1]))
+        leaf=child.originals.read(full)
+        need(leaf['status']=='failed' and leaf['tabletWebSourcePacketVersion']>=2 and leaf['query'] is not None
+            and not leaf['unsafe'] and leaf['resultSha256'] is None and leaf['after'] is not None
+            and leaf['raws'] and all(raw['outcome']=='accepted' for raw in leaf['raws'])
+            and leaf['readbacks'] and leaf['readbacks'][0]['startRaw']==0
+            and leaf['readbacks'][-1]['after'] is not None
+            and row['before']['epochMs']<=leaf['before']['epochMs']<=leaf['after']['epochMs']<=row['after']['epochMs']
+            and row['before']['monotonic']<=leaf['before']['monotonic']<=leaf['after']['monotonic']<=row['after']['monotonic']
+            and leaf['readbacks'][0]['before']['epochMs']>=row['after']['epochMs']
+            and leaf['readbacks'][0]['before']['monotonic']>=row['after']['monotonic'])
+        _floor,packets=child.record(leaf,index,None);need(packets);return leaf
+
+    def reconcile_unanswered(self,reader):
+        """Read an already-issued passive nonce; never send it or resume a frame.
+
+        Freeze the actual failed parent before reading the old AFC response.
+        Both failed endpoints remain immutable. A typed, accepted old response
+        contributes continuity floors only; a later acquisition is separate.
+        Missing, unsafe, rejected and partial originals remain blocking.
+        """
+        self.bound();self.history();row=self.state['pending']
+        need(row is not None and row['status']=='failed' and self.state['appIntent'] is self.state['appPending'] is None
+            and row['nativeBefore'] is not None and row['nativeAfter'] is None and row['components']
+            and row['components'][-1]['reference'] is None)
+        name=row['components'][-1]['component'];child=self.children[name];leaf=child.state['pending']
+        need(not any(other.blocked or other.state['pending'] is not None or other.state['recordIntent'] is not None
+            for key,other in self.children.items() if key!=name))
+        if self.state['intent'] is None:reference=self.originals.write(row['index'],deepcopy(row))
+        else:
+            full=self.state['intent'];need(full['phase'] in ('opened','saved') and full['index']==row['index'])
+            need(same(self.originals.read(full),row));reference=self.originals.compact(dict(full,phase='saved'))
+        if leaf is not None:
+            need(leaf['status']=='failed' and leaf['query'] is not None and leaf['after'] is not None
+                and leaf['index']==row['components'][-1]['index'] and not leaf['unsafe']
+                and row['before']['epochMs']<=leaf['before']['epochMs']<=leaf['after']['epochMs']<=row['after']['epochMs']
+                and row['before']['monotonic']<=leaf['before']['monotonic']<=leaf['after']['monotonic']<=row['after']['monotonic'])
+            if child.state['recordIntent'] is not None:leaf_reference=child.recover_record()
+            else:
+                child.reconcile(reader);leaf_reference=child.archive_pending()
+        else:
+            index=row['components'][-1]['index'];need(1<=index<=len(child.state['records']))
+            leaf_reference=deepcopy(child.state['records'][index-1])
+        self._reconciled(row,name,leaf_reference)
+        self.state['records'].append(reference)
+        if self.state['tabletWebSourceOwnerVersion']==1:self.state['tabletWebSourceOwnerVersion']=VERSION;self.state['reconciled']=[]
+        self.state['reconciled'].append(dict(acquisition=deepcopy(reference),component=name,leaf=deepcopy(leaf_reference)))
+        self.state['pending']=self.state['intent']=self.state['inspection']=None;self.save();self.history()
+        return deepcopy(reference)
+
     def capture(self,readers,native,phase,browser):
         self.bound();frames=self.history();need(not self.blocked and len(self.state['records'])<128 and set(readers)==set(ORDER)
             and isinstance(phase,PhaseFixtureReader) and phase.area=='tablet-web' and phase.run==self.run and phase.fixture_url==self.fixture and callable(browser))
         if phase.previous is None and self.phase_floor is not None:phase.previous=deepcopy(self.phase_floor)
         first=phase.read(self.phase_floor);before=self.stamp()
-        self.state['pending']=dict(tabletWebAcquisitionVersion=VERSION,index=len(self.state['records'])+1,status='acquiring',hostProcessId=os.getpid(),apps=deepcopy(self.state['apps']),before=before,after=None,
-            phaseBefore=first['status'],phaseAfter=None,nativeBefore=None,nativeAfter=None,components=[],browser=None,clockJoin=None);self.save();pending=self.state['pending']
+        self.state['pending']=dict(tabletWebAcquisitionVersion=ACQUISITION_VERSION if self.admission is not None else 1,index=len(self.state['records'])+1,status='acquiring',hostProcessId=os.getpid(),apps=deepcopy(self.state['apps']),before=before,after=None,
+            phaseBefore=first['status'],phaseAfter=None,nativeBefore=None,nativeAfter=None,components=[],browser=None,clockJoin=None)
+        if self.admission is not None:self.state['pending']['admission']=deepcopy(self.admission)
+        self.save();pending=self.state['pending']
         try:
             if native.instance is None and self.native_floor is not None:restore_native(native,self.native_floor)
             window=NativeClockAcquisition(native,epoch_ms=self.epoch_ms,monotonic=self.monotonic);window.begin(first['afterEpochMs'])
@@ -243,7 +336,10 @@ class TabletWebSourceOwner:
         need(self.historical);frames=self.history();full=self.originals.expand(reference);index=full['index']
         need(1<=index<=len(self.state['records']) and same(reference,self.state['records'][index-1]))
         rows=[self.originals.read(self.originals.expand(ref)) for ref in self.state['records'][:index]]
-        need(all(row['status']=='returned' for row in rows));current=rows[-1]
+        current=rows[-1];need(current['status']=='returned')
+        recovered={self.originals.expand(entry['acquisition'])['index'] for entry in self.state.get('reconciled',[])}
+        need(all(row['status']=='returned' or ordinal in recovered for ordinal,row in enumerate(rows,1)))
+        count=sum(row['status']=='returned' for row in rows);need(count>=1)
         need(current['phaseBefore']['active'] and current['phaseAfter']['active'] and current['phaseBefore']['activations'] and current['phaseAfter']['activations']
             and current['phaseBefore']['activations'][-1]['ticket']==current['phaseAfter']['activations'][-1]['ticket'])
-        return derive(frames[:index],self.app_sources(current['apps']),self.binding,origins),deepcopy(current),deepcopy(frames[index-1])
+        return derive(frames[:count],self.app_sources(current['apps']),self.binding,origins),deepcopy(current),deepcopy(frames[count-1])

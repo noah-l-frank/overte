@@ -7,6 +7,14 @@ own action, command nonce, PID, source birth, original clock, cumulative history
 raw byte segments and query/record ownership. Source acquisition requires the
 actual held `script-feature-sources.lock` in that same private root.
 
+Acquisition writer 2 reads literal acquisition versions 1 and 2. Version 2
+also embeds the actual current CLI admission before the first native query,
+binding its host PID and host-before endpoint. Later acquisition admissions
+must retain the immutable native process/installation and monotone original
+bundle-observation prefix; a new CLI PID does not rewrite the bootstrap.
+Legacy source-only callers may retain the literal acquisition-1 grammar; that
+legacy record does not supply a new current-CLI admission.
+
 The parent journals acquisition intent before native reads and each child
 association before that child's send. Its immutable acquisition file binds the
 exact original child record references, browser snapshot, app-admission prefix,
@@ -22,6 +30,19 @@ unreturned child responsibility owned. The parent cannot resume or resend that
 acquisition. Accepted native clock boundaries remain unchanged; an exception
 before a boundary returns leaves a failed acquisition, not a fresh snapshot.
 A failed or unresolved parent/child/app owner blocks another live acquisition.
+Source-owner writer 2 reads literal owner versions 1 and 2. A narrow
+`reconcile_unanswered(reader)` freezes the unchanged failed parent in its
+immutable acquisition file before reading the old child's issued nonce. It
+accepts only a typed, privacy-safe, semantically valid actual old response;
+missing, rejected, unsafe, partial and unresolved native-clock originals stay
+owned and blocking. The child keeps its failed status and original failure
+endpoint, plus separately timed original readback spans. The explicit parent
+association binds that exact failed child/query/index and actual raw floor.
+Neither failed original is a successful frame or page fact. Only a separate
+later complete acquisition can produce current facts; historical frame indexing
+counts successful frames without discarding the intervening failed originals.
+Native callback/product retirement still needs independently acquired quiet
+and final OS originals; passive response recovery does not retire those holds.
 
 Parent/app files use the existing immutable `OriginalFrameStore`. Actual
 planned/opened/saved descriptors and partial prefix hashes are retained. A

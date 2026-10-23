@@ -21,7 +21,8 @@ from adapters.original_file_reads import record as original_read
 from ios.adapters import tablet_web_source,tablet_web_sources,tablet_web_dom,tablet_web_buttons,tablet_web_state,tablet_web_closures,uikit_input,web_script_emissions,tablet_web_deferred
 from ios.adapters.tablet_web_segments import TabletWebSourceSegments,CHUNK_BYTES,sha
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 COMPONENTS={'trace':tablet_web_source,'sources':tablet_web_sources,'dom':tablet_web_dom,
     'buttons':tablet_web_buttons,'state':tablet_web_state,'closures':tablet_web_closures,'uikit':uikit_input,'emissions':web_script_emissions,'deferred':tablet_web_deferred}
 CAPTURES=128
@@ -51,6 +52,7 @@ class TabletWebPackets:
 
     def save(self):
         need(not self.historical)
+        self.state['tabletWebPacketsVersion']=VERSION
         self.store.write(self.state,self.saved);self.saved=deepcopy(self.state)
 
     def stamp(self):
@@ -90,13 +92,14 @@ class TabletWebPackets:
         return value
 
     def record(self,value,index,previous):
-        exact(value,{'tabletWebSourcePacketVersion','index','before','after','query','sendReturned','status','raws','unsafe','resultSha256'})
-        need(type(value['tabletWebSourcePacketVersion']) is int and value['tabletWebSourcePacketVersion']==VERSION
+        version=value.get('tabletWebSourcePacketVersion');need(type(version) is int and version in READS)
+        exact(value,({'readbacks'} if version>=2 else set())|{'tabletWebSourcePacketVersion','index','before','after','query','sendReturned','status','raws','unsafe','resultSha256'})
+        need(type(value['tabletWebSourcePacketVersion']) is int and value['tabletWebSourcePacketVersion'] in READS
             and type(value['index']) is int and value['index']==index and type(value['sendReturned']) is bool
             and value['status'] in ('preparing','issued','returned','failed','abandoned')
             and type(value['raws']) is list and len(value['raws'])<=16 and type(value['unsafe']) is list and len(value['unsafe'])<=16)
         for rejected in value['unsafe']:
-            exact(rejected,{'bytes','sha256'});need(integer(rejected['bytes'],1,self.module.LIMIT)
+            exact(rejected,{'bytes','sha256'});need(integer(rejected['bytes'],1,self.module.LIMIT if version==1 else 2147483647)
                 and type(rejected['sha256']) is str and len(rejected['sha256'])==64
                 and all(char in '0123456789abcdef' for char in rejected['sha256']))
         if value['unsafe']:self.blocked=True
@@ -108,20 +111,43 @@ class TabletWebPackets:
         if value['query'] is None:need(value['status'] in ('preparing','failed','abandoned') and not value['sendReturned'] and not value['raws'] and not value['unsafe'])
         else:
             query=self.module.command(value['query']);need(query['runId']==self.run and query['fixtureUrl']==self.fixture)
+        readbacks=value.get('readbacks',[]);need(type(readbacks) is list and len(readbacks)<=16)
+        capture_count=readbacks[0]['startRaw'] if readbacks else len(value['raws']);need(integer(capture_count,0,len(value['raws'])))
+        raw_spans={};issued_raws=set();last_recovery=value['after']
+        for at,recovery in enumerate(readbacks):
+            exact(recovery,{'before','after','startRaw','endRaw','status'})
+            need(value['status'] in ('failed','abandoned') and value['after'] is not None
+                and recovery['status'] in ('issued','returned','failed') and integer(recovery['startRaw'],capture_count,len(value['raws']))
+                and integer(recovery['endRaw'],recovery['startRaw'],len(value['raws']))
+                and (at==0 or recovery['startRaw']==readbacks[at-1]['endRaw']))
+            clock(recovery['before']);need(recovery['before']['epochMs']>=last_recovery['epochMs']
+                and recovery['before']['monotonic']>=last_recovery['monotonic'])
+            if recovery['after'] is None:need(at==len(readbacks)-1 and recovery['status']=='issued');end=None
+            else:
+                end=recovery['after'];clock(end);need(end['epochMs']>=recovery['before']['epochMs'] and end['monotonic']>=recovery['before']['monotonic']
+                    and recovery['status']!='issued');last_recovery=end
+            if recovery['status']=='returned':need(recovery['endRaw']>recovery['startRaw'])
+            for ordinal in range(recovery['startRaw'],recovery['endRaw']):
+                need(ordinal not in raw_spans);raw_spans[ordinal]=(recovery['before'],end)
+                if recovery['status']=='issued':issued_raws.add(ordinal)
+        if readbacks:need(readbacks[-1]['endRaw']==len(value['raws']))
         values=[]
         last_clock=value['before']
-        for row in value['raws']:
+        for ordinal,row in enumerate(value['raws']):
             exact(row,{'before','after','segments','inspection','outcome'});clock(row['before']);clock(row['after'])
             need(row['outcome'] in ('unchecked','accepted','rejected'))
             need(last_clock['epochMs']<=row['before']['epochMs']<=row['after']['epochMs']
                 and last_clock['monotonic']<=row['before']['monotonic']<=row['after']['monotonic'])
-            if value['after'] is not None:need(row['after']['epochMs']<=value['after']['epochMs'] and row['after']['monotonic']<=value['after']['monotonic'])
+            if ordinal in raw_spans:
+                start,end=raw_spans[ordinal];need(row['before']['epochMs']>=start['epochMs'] and row['before']['monotonic']>=start['monotonic'])
+                if end is not None:need(row['after']['epochMs']<=end['epochMs'] and row['after']['monotonic']<=end['monotonic'])
+            elif value['after'] is not None:need(ordinal<capture_count and row['after']['epochMs']<=value['after']['epochMs'] and row['after']['monotonic']<=value['after']['monotonic'])
             last_clock=row['after']
             self.segments.parent(row['segments']);need(row['segments']['label']==self.component
                 and row['segments']['tag']==sha(canonical(value['query'])))
             inspection=self.segments.inspect(row['segments'])
             if row['inspection'] is not None:need(same(self.segments.retained(row['segments'],row['inspection']),inspection))
-            if value['status'] in ('returned','failed','abandoned'):need(row['inspection'] is not None)
+            if value['status'] in ('returned','failed','abandoned'):need(row['inspection'] is not None or ordinal in issued_raws)
             if len(inspection)!=max(1,(row['segments']['bytes']+CHUNK_BYTES-1)//CHUNK_BYTES) or not all(part is not None and part['complete'] for part in inspection):
                 need(value['status']!='returned' and row['outcome']=='unchecked');continue
             raw=self.segments.read(row['segments']);need(len(raw)<=self.module.LIMIT)
@@ -142,7 +168,7 @@ class TabletWebPackets:
     def history(self):
         value=self.state
         exact(value,{'tabletWebPacketsVersion','binding','runId','role','fixtureUrl','processId','component','nextRaw','records','pending','recordIntent','recordInspection'})
-        need(type(value['tabletWebPacketsVersion']) is int and value['tabletWebPacketsVersion']==VERSION and same(value['binding'],self.binding)
+        need(type(value['tabletWebPacketsVersion']) is int and value['tabletWebPacketsVersion'] in READS and same(value['binding'],self.binding)
             and value['runId']==self.run and value['role']==self.role and value['fixtureUrl']==self.fixture and type(value['processId']) is int
             and value['processId']==self.pid and value['component']==self.component and integer(value['nextRaw'],1,MAX_FRAMES+1)
             and type(value['records']) is list and len(value['records'])<=CAPTURES)
@@ -150,7 +176,7 @@ class TabletWebPackets:
         def floor(row):
             nonlocal raw_floor,capture_clock
             if capture_clock is not None:need(row['before']['epochMs']>=capture_clock['epochMs'] and row['before']['monotonic']>=capture_clock['monotonic'])
-            capture_clock=row['after'] or (row['raws'][-1]['after'] if row['raws'] else row['before'])
+            capture_clock=row.get('readbacks',[])[-1]['after'] if row.get('readbacks') and row['readbacks'][-1]['after'] is not None else row['after'] or (row['raws'][-1]['after'] if row['raws'] else row['before'])
             if row['query'] is not None:
                 query=row['query']['commandId'];need(query not in queries);queries.add(query)
             for part in row['raws']:
@@ -193,6 +219,62 @@ class TabletWebPackets:
         committed=dict(ref,phase='saved');self.state['records'].append(self.originals.compact(committed))
         self.state['pending']=self.state['recordIntent']=self.state['recordInspection']=None;self.save();return deepcopy(self.state['records'][-1])
 
+    def reconcile(self,reader):
+        """Read only the exact issued nonce, with separately retained clocks.
+
+        The original failure endpoint and status never move. A readback may
+        establish an actual raw source floor, including pending DOM, but is
+        never a fresh acquisition or a successful feature observation.
+        """
+        need(not self.historical);previous=self.history();pending=self.state['pending']
+        need(not self.blocked and pending is not None and pending['status']=='failed' and pending['query'] is not None
+            and pending['after'] is not None and self.state['recordIntent'] is None and not pending['unsafe']
+            and reader.pid==self.pid and reader._action==self.module.ACTION and self.guard() is not False)
+        if pending['tabletWebSourcePacketVersion']==1:
+            need(not pending['raws']);pending['tabletWebSourcePacketVersion']=VERSION;pending['readbacks']=[]
+        need(not pending['raws'] or pending['readbacks'] and pending['readbacks'][0]['startRaw']==0
+            and all(row['outcome'] in ('accepted','unchecked') for row in pending['raws']))
+        if pending['raws']:
+            # A complete original survived a lost host flush/interpretation
+            # return. Revalidate exactly those bytes; retain the failed span
+            # and its original clocks, without any new SDK/native request.
+            for row in pending['raws']:
+                raw=self.segments.read(row['segments']);packet=decode(raw.decode('utf-8'),limit=self.module.LIMIT)
+                self.module.original(packet);self.check_value(packet,pending['query'],previous[-1] if previous else None)
+                row['outcome']='accepted'
+                if row['inspection'] is None:row['inspection']=self.segments.inspect(row['segments'])
+            if pending['readbacks'][-1]['status']=='issued':pending['readbacks'][-1].update(status='failed',after=self.stamp())
+            self.save();self.history();return deepcopy(packet)
+        need(len(pending['readbacks'])<16 and all(row['status']!='issued' for row in pending['readbacks']))
+        span=dict(before=self.stamp(),after=None,startRaw=len(pending['raws']),endRaw=len(pending['raws']),status='issued')
+        pending['readbacks'].append(span);self.save()
+        try:
+            need(reader.guard() is not False);raw=reader.original();received=self.stamp();need(reader.guard() is not False and type(raw) is str)
+            encoded=raw.encode('utf-8')
+            if not 0<len(encoded)<=self.module.LIMIT:
+                if encoded:pending['unsafe'].append(dict(bytes=len(encoded),sha256=sha(encoded)));self.save()
+                need(False)
+            packet=decode(raw,limit=self.module.LIMIT);need(type(packet) is dict and packet.get('commandId')==pending['query']['commandId'])
+            try:
+                self.module.original(packet)
+                if self.component=='uikit':need(packet['iosUIKitInputVersion']==uikit_input.VERSION)
+            except Exception:
+                pending['unsafe'].append(dict(bytes=len(encoded),sha256=sha(encoded)));self.save();raise
+            first=self.state['nextRaw'];count=max(1,(len(encoded)+CHUNK_BYTES-1)//CHUNK_BYTES)
+            need(first+count-1<=MAX_FRAMES and len(pending['raws'])<16);self.state['nextRaw']+=count
+            pending['raws'].append(dict(before=deepcopy(span['before']),after=received,segments=None,inspection=None,outcome='unchecked'))
+            span['endRaw']=len(pending['raws'])
+            self.segments.write(self.component,sha(canonical(pending['query'])),encoded,first)
+            pending['raws'][-1]['inspection']=self.segments.inspect(pending['raws'][-1]['segments']);self.save()
+            try:self.check_value(packet,pending['query'],previous[-1] if previous else None)
+            except NativeUIError:pending['raws'][-1]['outcome']='rejected';self.save();raise
+            pending['raws'][-1]['outcome']='accepted';span.update(status='returned',after=self.stamp());self.save();self.history()
+            return deepcopy(packet)
+        except Exception:
+            if pending['raws'] and pending['raws'][-1]['inspection'] is None:
+                pending['raws'][-1]['inspection']=self.segments.inspect(pending['raws'][-1]['segments'])
+            span.update(status='failed',after=self.stamp());self.save();raise
+
     def capture(self,reader):
         need(not self.historical)
         previous=self.history();need(not self.blocked and self.state['pending'] is self.state['recordIntent'] is None and len(self.state['records'])<CAPTURES
@@ -205,7 +287,7 @@ class TabletWebPackets:
                 need(reader.accepted is None or same(reader.accepted,previous[-1]));reader.accepted=deepcopy(previous[-1])
         else:need(reader.last is None and getattr(reader,'accepted',None) is None)
         pending=dict(tabletWebSourcePacketVersion=VERSION,index=len(self.state['records'])+1,before=self.stamp(),after=None,
-            query=None,sendReturned=False,status='preparing',raws=[],unsafe=[],resultSha256=None)
+            query=None,sendReturned=False,status='preparing',raws=[],unsafe=[],resultSha256=None,readbacks=[])
         self.state['pending']=pending;self.save();send,original=reader.send,reader.original
         last=deepcopy(previous[-1]) if previous else None
         def issued(query):

@@ -75,3 +75,16 @@ other profiles, native sources, packet versions or size bounds. A callback
 still held by that source remains owned; storing or replaying its readback
 does not deliver/discard it or prove its destruction. Historical file reads
 use the same original-read membership hooks as the other components.
+
+
+Packet owner/record writer 2 reads literal versions 1 and 2. Its explicit
+`reconcile(reader)` performs only an AFC read of the already issued nonce;
+it never calls `send` or `read`. The original failed status, endpoint, send
+return and absent result digest stay unchanged. Separately journalled readback
+spans retain the actual later raw acquisition clocks. Matching privacy-safe
+bytes are stored before PID/source/prefix interpretation. Rejected raw stays
+owned; private or unknown grammar has only a digest cue. A complete raw file
+surviving lost flush return is reread from its unchanged inode without another
+AFC read. A partial raw remains blocking. An issued interrupted readback may
+only retain responsibility; it does not acquire a fresh observation deadline.
+These accepted old originals contribute continuity floors, never current facts.
