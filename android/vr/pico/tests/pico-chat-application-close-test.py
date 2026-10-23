@@ -17,7 +17,8 @@ def selected(part):
         names=unittest.defaultTestLoader.getTestCaseNames(ChatRemoteCleanupPrefixTests)
         names=[name for name in names if (name==positive)==(part=='remote-cleanup-positive')]
         return unittest.defaultTestLoader.loadTestsFromNames(['self_tests.test_chat_remote_cleanup_prefix.ChatRemoteCleanupPrefixTests.'+name for name in names])
-    if part=='remote-journey-components':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_remote_journey.remote_journey_component_tests')
+    if part=='remote-journey-components':return unittest.defaultTestLoader.loadTestsFromNames([
+        'self_tests.test_chat_remote_journey.remote_journey_component_tests','self_tests.test_chat_source_bundles'])
     if part=='remote-publication':return unittest.defaultTestLoader.loadTestsFromNames(['self_tests.test_chat_remote_publication','self_tests.test_chat_remote_consumed_sources','self_tests.test_chat_source_graph_prefix'])
     if part=='cursor-stop':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_actor_stop')
     if part=='cursor-cleanup-consumption':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_cursor_cleanup_consumption')

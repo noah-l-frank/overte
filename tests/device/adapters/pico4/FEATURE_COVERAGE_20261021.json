@@ -1176,7 +1176,10 @@
         "tests/device/adapters/chat_journey/REMOTE_CONSUMED_SOURCES.md",
         "tests/device/self_tests/test_chat_remote_cleanup_prefix.py",
         "tests/device/self_tests/test_chat_remote_consumed_sources.py",
-        "tests/device/adapters/pico4/CHAT_REMOTE_ARCHIVE.md"
+        "tests/device/adapters/pico4/CHAT_REMOTE_ARCHIVE.md",
+        "tests/device/adapters/chat_journey/source_bundles.py",
+        "tests/device/adapters/chat_journey/SOURCE_BUNDLES.md",
+        "tests/device/self_tests/test_chat_source_bundles.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1291,7 +1294,10 @@
         "tests/device/adapters/pico4/SNAPSHOT_SETTINGS_BASELINE.md",
         "tests/device/native/SnapshotSettingsOriginals.h",
         "tests/device/contracts/snapshot/test_snapshot_settings_native.py",
-        "android/vr/pico/tests/device/test_snapshot_settings_baseline.py"
+        "android/vr/pico/tests/device/test_snapshot_settings_baseline.py",
+        "tests/device/adapters/pico4/snapshot_reply_grammar.py",
+        "tests/device/adapters/pico4/SNAPSHOT_REPLY_GRAMMAR.md",
+        "android/vr/pico/tests/device/test_snapshot_reply_grammar_owner.py"
       ],
       "declaredCheckpoints": 18,
       "inputVerbs": [
@@ -1447,7 +1453,11 @@
         "android/vr/pico/tests/device/test_assets_mapping_model.py",
         "android/vr/pico/tests/device/test_assets_entity_effect.py",
         "android/vr/pico/tests/device/assets-entity-host.h",
-        "android/vr/pico/tests/device/assets-entity-prepare.py"
+        "android/vr/pico/tests/device/assets-entity-prepare.py",
+        "libraries/networking/src/FeatureAssetRequestBirth.h",
+        "tests/device/native/AssetsRequestBirthBinding.h",
+        "android/vr/pico/tests/device/test_assets_resource_data.py",
+        "android/vr/pico/tests/device/assets-resource-data-prepare.py"
       ],
       "declaredCheckpoints": 29,
       "inputVerbs": [

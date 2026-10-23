@@ -2510,3 +2510,18 @@ Direct cleanup keeps sequenceSucceeded=false and cannot finalize. The single
 full case retains all26 actions,28 phases, source/host closure and120s limit; its
 prior failure is still unresolved. No public capability or complete area is
 added:3/14 source-complete, no application/APK/device qualification.
+
+## Integrated Resource data, Snapshot grammar and Chat diagnostics
+
+Fixed Assetsbe8732dd is selected as78fe59c004; Snapshot1965f334 as14951e011a;
+Chat6aedeb03 as07ddb60e9f. Root4/219groups pass55.35s: coverage0.094s, ten
+Chat component/bundle cases4.236s, nine Snapshot grammar/actual-owner cases9.204s
+and the actual original Resource-data ownership/lifetime case41.815s including
+compilation. All original frame/raw/freshness/quiet limits remain unchanged.
+Three actual Resource data/selfguard/death paths and nine request lifetimes
+do not prove Geometry/Model/Renderer readiness. Snapshot commits pure reply
+grammar only after actual final fences/lock exit; full NormalClose stays open.
+Chat diagnostics preserve oversize unpublished originals in lossless bounded
+parts; the live Reader remainsv2 in this packet and the whole failure remains.
+Four repository groups pass2.76s; registry/probe syntax/diff checks pass.
+Only3/14 complete source areas remain qualified, with no application/device run.
