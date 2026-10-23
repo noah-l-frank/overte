@@ -36,7 +36,7 @@ from feature_journeys.contract import typed_equal
 from openxr_input.adapter_session import PicoOpenXrAdapterSession
 from openxr_input.controller_protocol import validate_envelope
 from snapshot_observation import inspect_snapshot
-from adapters.pico4.snapshot_reply_grammar import SnapshotReplyGrammar,read_pins,scope as reply_scope,validate_reply
+from adapters.pico4.snapshot_reply_grammar import SnapshotReplyGrammar,read_pins,scope as reply_scope,validate_reply,header_original
 from adapters.chat_journey.source_chunks import json_digest
 
 VERSION=3
@@ -351,18 +351,19 @@ class PicoSnapshotCancelOwner:
         need(self.native.guard() is not False);native_epoch=self.native.clock_ms()
         phase_started=self.now();phase_epoch=self.source.epoch_ms();value=self.source.status(self.state['source'])
         need(value['active'] and all(typed_equal(value[key],self.state['source'][key]) for key in ('instance','createdEpochMs','activations')))
-        memo=getattr(self,'reply_grammar',None);candidate=disk_sha=None
+        memo=getattr(self,'reply_grammar',None);candidate=disk_sha=header_pin=header_sha=None
         if memo is not None:need(type(memo) is SnapshotReplyGrammar)
         if memo is not None and memo.pending is not None:
             current=reply_scope(self.run,self.binding,self.native.pid,self.reviewed,self._reply_scope['scriptPinsSha256'])
             candidate=memo.pending;memo.matches(candidate,current,self.state['replies']);disk_sha=json_digest(self.disk)
+            header_pin=header_original(self.store,self.disk);header_sha=json_digest(header_pin)
         final_native=self.native.clock_ms();final_epoch=self.source.epoch_ms();completed=self.now()
         need(number(final_native,native_epoch,1e15) and number(final_epoch,phase_epoch,1e15))
         age=max(final_native-captured,requested-captured+(completed-started)*1000,
             final_epoch-value['capturedEpochMs'],phase_epoch-value['capturedEpochMs']+(completed-phase_started)*1000)
         need(-250<=final_native-captured and -250<=final_epoch-value['capturedEpochMs'] and age<=1500)
         if candidate is not None:
-            self._reply_fence=(candidate,completed,age,disk_sha,value['capturedEpochMs'],phase_started,phase_epoch)
+            self._reply_fence=(candidate,completed,age,disk_sha,value['capturedEpochMs'],phase_started,phase_epoch,header_pin,header_sha)
         return completed,age
 
     def finish_reply_grammar(self):
@@ -370,7 +371,7 @@ class PicoSnapshotCancelOwner:
         need(type(memo) is SnapshotReplyGrammar)
         if self.lock._owner is not None or fence is None:
             memo.discard();self._reply_fence=None;return
-        candidate,completed,age,disk_sha,phase_captured,phase_started,phase_epoch=fence
+        candidate,completed,age,disk_sha,phase_captured,phase_started,phase_epoch,header_pin,header_sha=fence
         try:
             # Current pins/complete physical originals are qualified again
             # after the actual outer lock exit. This acquires no new native
@@ -378,8 +379,10 @@ class PicoSnapshotCancelOwner:
             pins,pin_sha=read_pins();need(typed_equal(pins,self.reviewed))
             current=reply_scope(self.run,self.binding,self.native.pid,pins,pin_sha)
             memo.matches(candidate,current,self.state['replies'])
+            need(json_digest(header_pin)==header_sha and typed_equal(header_original(self.store,self.disk),header_pin))
             need(json_digest(self.disk)==disk_sha and typed_equal(self.store.read(),self.disk));self.originals.verify()
             memo.commit(candidate)
+            need(json_digest(header_pin)==header_sha and typed_equal(header_original(self.store,self.disk),header_pin))
             need(typed_equal(self.store.read(),self.disk));self.originals.verify()
             pins,pin_sha=read_pins();need(typed_equal(pins,self.reviewed))
             current=reply_scope(self.run,self.binding,self.native.pid,pins,pin_sha);memo.admitted(current,self.state['replies'])

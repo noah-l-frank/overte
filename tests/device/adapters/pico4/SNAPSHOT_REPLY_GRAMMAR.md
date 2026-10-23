@@ -95,6 +95,38 @@ The strict JSON helper is selected unchanged from fixed Root `e70601ba93`
 earlier unchanged path reuse comes from Root `677abaa2a3c9bd920e46ebad7349f9d1eaecb472`.
 Both local dependency commits must not be selected back into Root.
 
+## Original header identity across the final transition
+
+Frozen Phone `92f1a78c5f1aad22973ac7c8825f27fb6e5ae475` includes the concrete
+Feature-inode guard in `97a4ca7a014967a897d02aeba07867748284f13e`. Review exposed
+the same gap at this memo boundary: separate correct `PrivateFeatureState`
+reads compared the parsed header but did not bind its identity across the last
+fence, real lock exit and commit. The Snapshot-specific follow-up does not
+change the shared state writer or import a Phone facade.
+
+The last actual fence now captures one complete original header through a
+bounded descriptor. Device/inode, size, full mode, UID, GID, link count and
+nanosecond mtime/ctime must agree across the original path/FD before and after
+reading. The complete raw SHA and exact parsed owner body are retained in a
+sealed in-memory pin. Its acquisition and hash work precede the original
+final native/fixture/monotonic clock reads. Before and after memo commit, a
+new complete descriptor read must match that same full pin. Existing header
+reads and complete original-child inventories are also preserved. All this
+work precedes the final post-commit clocks; the age bounds remain unchanged.
+
+Nine pure cases passed in 0.309 s, including a real same-byte atomic replacement
+on a different inode both immediately after the actual lock exit and during
+commit, plus changed time metadata on the same unchanged-byte inode. An actual
+normal Cancel-owner replacement counter passed in 10.069 s: exactly one normal
+cancellation was consumed, the byte-identical new inode was measured, memo
+admission was refused and cleared, and the consumed-input journals remained.
+No additional tablet input, quiet reduction, cache commit before real exit,
+native compiler or whole Snapshot run was used.
+
+The frozen Phone held-turn/history and cleanup-slot optimizations are not
+selected here. This memo still waits for a real exit, and this new-run normal
+prefix has no owned waiting Actor cleanup slot whose quiet could be rebuilt.
+
 ```bash
 PYTHONDONTWRITEBYTECODE=1 TMPDIR=<owned-private-tmp> python3 \
   android/vr/pico/tests/pico4-test-suite.py \
