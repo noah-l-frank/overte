@@ -10,7 +10,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 181
+EXPECTED_CATALOG_CASES = 183
 
 
 def catalog_entries() -> list[str]:
@@ -60,6 +60,16 @@ class CoverageMatrixTests(unittest.TestCase):
         for node in ast.walk(RUNNER_TREE):
             if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='test' and isinstance(node.args[0],ast.Constant) and node.args[0].value in groups:
                 self.assertEqual(node.args[3].value,'device/test_graphics_sources.py')
+                selected.extend(arg.value for arg in node.args[4:])
+        self.assertEqual(len(expected),len(selected));self.assertEqual(expected,set(selected))
+
+    def test_assets_cancel_partitions_retain_every_original_case_once(self):
+        tree=ast.parse((TEST_DIR/'device/test_assets_cancel_owner.py').read_text())
+        expected={'AssetsCancelOwnerTests.'+node.name for owner in tree.body if isinstance(owner,ast.ClassDef) and owner.name=='AssetsCancelOwnerTests'
+            for node in owner.body if isinstance(node,ast.FunctionDef) and node.name.startswith('test_')}
+        selected=[]
+        for node in ast.walk(RUNNER_TREE):
+            if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='test' and isinstance(node.args[0],ast.Constant) and node.args[0].value.startswith('assets-cancel-'):
                 selected.extend(arg.value for arg in node.args[4:])
         self.assertEqual(len(expected),len(selected));self.assertEqual(expected,set(selected))
 

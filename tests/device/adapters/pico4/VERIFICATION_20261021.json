@@ -2996,5 +2996,32 @@
     "seconds": 41.276,
     "catalogAtRun": 177,
     "qualification": "Seven real owned stdin-worker process/kernel/OFD cases plus five passive Actor model cases. Acquisition requires original live process, exact program/entry/configuration and original PID/start/boot. Two actual ESRCH probes preserve original physical identities and final1.5-second clocks. No product observer launch, whole handshake, device or application qualification."
+  },
+  "assetsCancelRecoveryAndSnapshotContext20261023": {
+    "status": "passed",
+    "catalogAtRun": 183,
+    "groups": 12,
+    "seconds": 178.22,
+    "artifact": "/home/user/Documents/github/overte-pico-adapter-private-20261021/assets-snapshot-integrated-20261023.xml",
+    "checks": {
+      "coverage": 0.092,
+      "snapshotUploadFences": 0.559,
+      "snapshotScriptOriginals": 3.857,
+      "assetsUploadNative": 1.623,
+      "assetsCancelCore": 43.621,
+      "assetsCancelNavigationRecovery": 28.582,
+      "assetsCancelFileRecovery": 57.888,
+      "assetsReadNative": 5.876,
+      "assetsReadJob": 1.496,
+      "assetsBackendSource": 5.827,
+      "assetsProbe": 0.055,
+      "assetsNativeUi": 28.746
+    },
+    "assetsCancelCases": 12,
+    "unchangedPerGroupLimitSeconds": 120,
+    "unchangedNativeCompileLimitSeconds": 90,
+    "partition": "All original Cancel cases are selected exactly once in three disjoint groups; no per-case flow or observation window is shortened.",
+    "priorQuietFailuresRetained": true,
+    "qualification": "Actual selected Qt5 original navigation/UI/file/collector/TSI/backend bodies plus device-free owner composition. Installation/SDK/server protocol/oven/device keyboard and product rendering remain explicit seams. No complete Assets or Snapshot feature, server or device qualification."
   }
 }

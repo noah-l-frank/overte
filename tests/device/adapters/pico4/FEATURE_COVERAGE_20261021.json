@@ -1236,7 +1236,11 @@
         "tests/device/feature_journeys/snapshot_upload_service.py",
         "tests/device/adapters/pico4/snapshot_upload_fixture.py",
         "tests/device/adapters/pico4/snapshot_upload_bytes.py",
-        "tests/device/adapters/pico4/SNAPSHOT_UPLOAD_TLS.md"
+        "tests/device/adapters/pico4/SNAPSHOT_UPLOAD_TLS.md",
+        "tests/device/adapters/pico4/snapshot_context.py",
+        "tests/device/adapters/pico4/snapshot_upload_owner.py",
+        "tests/device/adapters/pico4/snapshot_upload_originals.py",
+        "tests/device/adapters/pico4/SNAPSHOT_UPLOAD_OWNER.md"
       ],
       "declaredCheckpoints": 18,
       "inputVerbs": [
@@ -1286,7 +1290,7 @@
         "Delete only actual owned private/saved/received/uploaded originals",
         "Restore permissions/preferences and observe quiet absent leases"
       ],
-      "nextExecutableStep": "Join the ordinary Pico Upload input and durable parent intent to original native upload provenance and the now host-verified independent TLS bytes/service V2. Integrated TLS21.836s, affected Create permissions11.523s and30 Account cases16.467s pass. Native HTTP/DTO producers remain seams; normal Pico client TLS/whole upload, actual chooser VR input/recipient, independent actor/stereo and final resource/archive retirement remain missing.",
+      "nextExecutableStep": "Integrate the fixed OS background/return owner and obtain a new independent original backend PNG after return; then compose normal Close, retained story/Executor/marker cleanup and original restoration. The warm offline+successful Upload prefix passes115.6006s at fixed0166738; strict930 cold guards pass against its unchanged original journals. Share metadata does not prove Share.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1376,7 +1380,11 @@
         "tests/device/native/PicoAssetsReadJob.h",
         "tests/device/adapters/pico4/assets_source.py",
         "tests/device/adapters/pico4/assets_read_retirement.py",
-        "android/vr/pico/tests/device/test_assets_source.py"
+        "android/vr/pico/tests/device/test_assets_source.py",
+        "tests/device/native/PicoAssetsUploadOriginals.h",
+        "tests/device/adapters/pico4/assets_uploads.py",
+        "tests/device/adapters/pico4/assets_cancel_owner.py",
+        "android/vr/pico/tests/device/test_assets_cancel_owner.py"
       ],
       "declaredCheckpoints": 29,
       "inputVerbs": [
@@ -1430,7 +1438,7 @@
         "Drain oven/upload/picker workers and release actual staged originals",
         "Restore original server permission and prove complete namespace/resource absence"
       ],
-      "nextExecutableStep": "Join normal staged-file picker Cancel and original upload-call evidence to durable ownership, then original server mapping/oven, actor and final cleanup. Original AssetClient mapping/resolution/download and exact request/callback retirement pass four owning Root groups plus coverage13.21s. Final-copy/history clock counters fail before the selected fix and pass afterward. No live server/oven/upload or whole capability is qualified.",
+      "nextExecutableStep": "Compose distinct successive original picker stages while preserving the already retired baseline, then original server mapping/oven, independent Actor/stereo and final cleanup. All12 normal Cancel/recovery cases pass on the integrated host stand; full Upload and whole capability remain unqualified.",
       "nativeCompilation": "Selected whole Pico NavigationUi, original QML/pointer/FileDialogHelper/NativeFieldInput and production Assets-file getter/private descriptor storage host-compiled; complete application/APK unverified",
       "deviceQualification": "untested"
     },

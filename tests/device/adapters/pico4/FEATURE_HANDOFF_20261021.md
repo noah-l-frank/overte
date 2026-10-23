@@ -2109,3 +2109,38 @@ acquire the exact originally LIVE process before accepting a result; a late
 acquisition, PID reuse, replaced source/configuration or stale final clocks
 cannot qualify absence. It launches no product observer and sends no nonzero
 signals. Full Parent/Actor fresh return consumption remains the next step.
+
+
+## Integrated normal Assets recovery and Snapshot capture/Upload context
+
+Assets fixed a8fc4d334d/1b6840f92d/8187ef467f and the tested followups through
+fe235d9545 are selected locally. The original passive collector joins actual
+upload entry/callback/resource lifetimes to the original Qt picker and fixed
+private files. Acknowledged Open admits exact original browser/model identities
+before later navigation. Lost first Open admits no unknown consumer. Normal
+Cancel and lost/undelivered navigation, Cancel and file-release responses retain
+exact original commands and never resend uncertain effects. The ordinary
+unavailable-primary error keeps the six original companions until observed
+consumer retirement. No functional product changes were made.
+
+The integrated12-group selection passes178.22s (catalog183), including all12
+Cancel cases: core43.621s, navigation recovery28.582s, file recovery57.888s;
+original UI28.746s; upload collector1.623s; read native5.876s, job1.496s, source
+5.827s, probe0.055s. Coverage0.092s passes. Three disjoint Cancel groups retain
+every case exactly once and the unchanged120s group/90s compile limits. The
+previous complete-selector failures at the original500ms observation predicate
+remain retained; the integrated cases now pass that same predicate. Existing
+positive Upload worker diagnosis is retained outside the green catalog; it was
+not rerun and Upload/server/oven/Actor/stereo/whole finalization remain open.
+
+Snapshot fixed bdad6e5d64/dde21654ef/0166738f31/93018dee5c are selected as
+04306acfa9/2a911d055e/4e4ed4f54c/1e502af49a. The bounded original setting/VM
+context owning group passes3.857s and Upload fences0.559s in the same selection.
+The agent's unchanged normal Cancel→Still→Save→offline Upload→successful Upload
+prefix passes115.6006s at0166738. The strict930 provider phase, contiguous quiet
+indices and exact mutation-scope guards were checked read-only against those
+unchanged complete originals; no new whole warm run at930 is claimed. Actual
+loopback TLS/PNG/story originals are used, while native/JS/authentication/Android
+and rendering producers remain explicit seams. Share input metadata remains
+unqualified. Story/Executor/marker/restore and whole final cleanup remain open.
+Source-complete areas stay3/14, with no full app/APK/device qualification.
