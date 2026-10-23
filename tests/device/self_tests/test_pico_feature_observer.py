@@ -10,6 +10,8 @@ from adapters.pico4.feature_observer import configuration,run
 from adapters.authentication_journey.feature import AuthenticationPhasePending
 from adapters.normal_ui import NativeUIError
 from adapters.graphics_journey.fixture import GraphicsPhasePending,GraphicsRunRetired
+from adapters.normal_feature_state import PrivateFeatureState
+from unittest.mock import patch
 
 
 class PicoFeatureObserverTests(unittest.TestCase):
@@ -73,6 +75,68 @@ class PicoFeatureObserverTests(unittest.TestCase):
             graphics_retirement_store=lambda target:SimpleNamespace(read=lambda:plan),_graphics_feature=self.actor)
         self.assertEqual(0,run(self.journey,self.config,monotonic=lambda:self.clock,sleep=self.sleep))
         self.assertEqual(2,self.count)
+
+    def test_chat_v3_requires_original_private_peer_configuration_and_preserves_legacy_shapes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);root.chmod(0o700);path=root/'actor.json'
+            peer=PrivateFeatureState(root/'original-peer.json');peer.write(dict(explicitProducerSeam=True),None)
+            value=self.config|dict(picoFeatureObserverVersion=3,area='chat',peerConfig=str(peer.path))
+            path.write_text(json.dumps(value));path.chmod(0o600);self.assertEqual(value,configuration(path))
+            for change in (dict(picoFeatureObserverVersion=2),dict(peerConfig='relative'),dict(peerConfig=True),dict(readerToken='x'*64)):
+                path.write_text(json.dumps(value|change))
+                with self.assertRaises((NativeUIError,OSError)):configuration(path)
+            alias=root/'alias.json';alias.symlink_to(peer.path);path.write_text(json.dumps(value|dict(peerConfig=str(alias))))
+            with self.assertRaises(NativeUIError):configuration(path)
+            peer.path.chmod(0o644);path.write_text(json.dumps(value))
+            with self.assertRaises(NativeUIError):configuration(path)
+
+    def test_chat_route_passes_only_exact_existing_adapter_and_config_to_original_publisher_loop(self):
+        self.config.update(picoFeatureObserverVersion=3,area='chat',peerConfig='/private/original-peer.json')
+        adapter=object();calls=[]
+        def owned(original,config,**clocks):
+            calls.append((original,config,clocks));return 7
+        with patch('adapters.pico4.chat_cursor_actor.run',side_effect=owned):
+            self.assertEqual(7,run(adapter,self.config,monotonic=lambda:self.clock,sleep=self.sleep))
+        self.assertIs(adapter,calls[0][0]);self.assertIs(self.config,calls[0][1]);self.assertEqual(1,len(calls))
+
+    def chat_loop(self,*,late=False,closed=True):
+        from adapters.pico4.chat_cursor_actor import run as run_chat
+        from feature_journeys.phase_fixture import PhasePending
+        binding=dict(sourceRevision='a'*40,artifactSha256='b'*64,processIdentity='123:456',
+            sessionId='c'*32,generation=0,targetFingerprint='d'*64)
+        peer={**binding,'processIdentity':'456:789','sessionId':'e'*32}
+        config=self.config|dict(picoFeatureObserverVersion=3,area='chat',peerConfig='/private/original-peer.json')
+        parent=dict(picoChatCompositionVersion=6,runId='a'*32,fixtureUrl=self.owner['fixtureUrl'],binding=binding,
+            peerBinding=peer,peerOriginBasis='native-configured-metadata-only',phase='prepared',completedSteps=0)
+        calls=[];stop=[]
+        actor=SimpleNamespace(closed=False,failed=False,stop_store=SimpleNamespace(read=lambda:dict(originalStop=True) if stop else None))
+        def publish():
+            calls.append('publish')
+            if calls.count('publish')==1:raise PhasePending('Original input pending')
+            stop.append(True)
+        def finish():calls.append('stop');actor.closed=closed;return dict(performed=True)
+        actor.publish=publish;actor.stop_once=finish
+        def acquire(target,source,peer_config):
+            calls.append('acquire');self.assertEqual(config['actorToken'],source.client.token)
+            self.assertEqual(Path(config['peerConfig']),peer_config.path)
+            if late:self.clock=31.
+            return actor
+        adapter=SimpleNamespace(_chat_composition_store=lambda _target:SimpleNamespace(read=lambda:parent),
+            _native_feature_observer=lambda _target:SimpleNamespace(guard=lambda:True,clock_ms=lambda:self.clock*1000),
+            _chat_cursor_actor=acquire)
+        return lambda:run_chat(adapter,config,monotonic=lambda:self.clock,sleep=self.sleep),calls,actor
+
+    def test_chat_loop_keeps_one_actual_factory_owner_and_stops_without_another_publication(self):
+        execute,calls,actor=self.chat_loop();self.assertEqual(0,execute())
+        self.assertEqual(['acquire','publish','publish','stop'],calls);self.assertTrue(actor.closed)
+
+    def test_chat_loop_refuses_late_acquisition_and_close_ack_without_actual_owner_closed_state(self):
+        execute,calls,_actor=self.chat_loop(late=True)
+        with self.assertRaises(NativeUIError):execute()
+        self.assertEqual(['acquire'],calls)
+        self.clock=0.;execute,calls,actor=self.chat_loop(closed=False)
+        with self.assertRaises(NativeUIError):execute()
+        self.assertEqual(['acquire','publish','publish','stop'],calls);self.assertFalse(actor.closed)
 
 
 if __name__=='__main__':unittest.main()

@@ -27,17 +27,19 @@ from adapters.pico4.script_journey import PicoScriptJourney
 from adapters.pico4.script_observer import run as publish_scripts
 from feature_journeys.witness import Client
 
-VERSION=2
+VERSION=3
 
 
 def configuration(path):
     value=PrivateFeatureState(path).read()
     graphics=type(value) is dict and value.get('area')=='graphics'
+    chat=type(value) is dict and value.get('area')=='chat'
     exact(value,{'picoFeatureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'}
-        |({'artifactRoot'} if graphics else set()))
-    need(type(value['picoFeatureObserverVersion']) is int and value['picoFeatureObserverVersion'] in (1,2)
+        |({'artifactRoot'} if graphics else set())|({'peerConfig'} if chat else set()))
+    need(type(value['picoFeatureObserverVersion']) is int and value['picoFeatureObserverVersion'] in (1,2,3)
          and (not graphics or value['picoFeatureObserverVersion']==2)
-         and value['area'] in ('authentication','scripts','graphics') and type(value['target']) is str and 1<=len(value['target'])<=256
+         and (not chat or value['picoFeatureObserverVersion']==3)
+         and value['area'] in ('authentication','scripts','graphics','chat') and type(value['target']) is str and 1<=len(value['target'])<=256
          and all(33<=ord(c)<127 for c in value['target'])
          and type(value['candidateArguments']) is list and 1<=len(value['candidateArguments'])<=80
          and all(type(item) is str and bool(item) for item in value['candidateArguments'])
@@ -45,10 +47,17 @@ def configuration(path):
     Client(value['fixtureUrl'],value['actorToken']) # Parse only; no transport.
     if value['area']=='authentication':origin(value['fixtureUrl'])
     if graphics:artifact_directory(value['artifactRoot'])
+    if chat:
+        need(type(value['peerConfig']) is str)
+        peer=Path(value['peerConfig']);need(peer.is_absolute() and peer.resolve(strict=True)==peer)
+        need(PrivateFeatureState(peer).read() is not None)
     return value
 
 
 def run(journey,config,*,monotonic=time.monotonic,sleep=time.sleep):
+    if config['area']=='chat':
+        from adapters.pico4.chat_cursor_actor import run as publish_chat
+        return publish_chat(journey,config,monotonic=monotonic,sleep=sleep)
     if config['area']=='scripts':return publish_scripts(journey,config,monotonic=monotonic,sleep=sleep)
     if config['area']=='graphics':
         return publish_owned(config,owner=lambda:journey.graphics_feature_store(config['target']).read(),
@@ -78,7 +87,7 @@ def main(argv=None):
         os.environ['OVERTE_PICO_FEATURE_SCRIPTS']=os.environ['OVERTE_PICO_FEATURE_AUTHENTICATION']='0'
         os.environ['OVERTE_PICO_FEATURE_GRAPHICS']='0'
         original=binding.create_adapter(candidate,adapter.AndroidAdapter)
-        journey=(PicoAuthenticationJourney(original) if config['area']=='authentication' else
+        journey=(original if config['area']=='chat' else PicoAuthenticationJourney(original) if config['area']=='authentication' else
             PicoGraphicsJourney(original,artifact_root=config['artifactRoot']) if config['area']=='graphics' else PicoScriptJourney(original))
         return run(journey,config)
     except (OSError,RuntimeError,ValueError,TypeError,KeyError,RecursionError):

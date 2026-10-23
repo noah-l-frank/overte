@@ -2167,6 +2167,19 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-global-cleanup-consumption-')))
 
+        def _chat_cursor_actor_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-cursor-actor-owner-')))
+
+        def _chat_cursor_actor_stop_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-cursor-actor-stop-')))
+
+        @_private
+        def _chat_cursor_actor(self,target,source,peer_config):
+            from adapters.pico4.chat_cursor_actor import PicoChatCursorActor
+            return PicoChatCursorActor(self,target,source,peer_config)
+
         @_private
         def _chat_cursor_cleanup_consumption(self,target,parent,primary,actor):
             from adapters.chat_journey.cursor_cleanup_consumption import ChatCursorCleanupConsumption
@@ -2320,6 +2333,7 @@ def create_adapter(args, base_class):
             stores=[self._chat_application_store(target),self._chat_restart_inputs_store(target),self._chat_archive_retirement_store(target),self._chat_host_close_store(target)]
             stores.append(self._chat_cleanup_witness_store(target))
             stores.append(self._chat_cleanup_baseline_store(target))
+            stores.extend((self._chat_cursor_actor_store(target),self._chat_cursor_actor_stop_store(target)))
             stores.append(self._chat_cursor_cleanup_consumption_store(target))
             stores.append(self._chat_observation_publisher_store(target))
             stores.extend(self._chat_observation_cursor_store(target,role,witness=witness)
