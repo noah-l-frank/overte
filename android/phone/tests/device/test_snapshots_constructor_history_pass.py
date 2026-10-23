@@ -86,6 +86,132 @@ class SnapshotConstructorHistoryPassTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):self.reconstruct(f,token,disposals)
         self.assertEqual([],forbidden)
 
+    def test_ctor_baseline_reuse_returns_defensive_actual_floors_without_replaying_input_json(self):
+        with self.prepared() as (f,token,disposals):
+            token.read();expected=deepcopy(token.baseline)
+            self.assertTrue(any(p.name.startswith('emote-frame-snapshots-input-') for p in token.files))
+            self.assertTrue(any(p.name.startswith('emote-index-snapshots-input-') for p in token.files))
+            finish=token.finish_constructor;original=token.original;retrieved=[];reads=[];ctor_reads=[]
+            file=SnapshotsOriginals.file
+            def actual_file(engine,*args):
+                if engine.kind=='snapshots-input':
+                    reads.append(True)
+                    if token.attached is not None and not token.finished:ctor_reads.append(True)
+                return file(engine,*args)
+            def finish_after_three_actual_lookups(role):
+                for _ in range(3):retrieved.append(f.original(_history_pass=token))
+                self.assertEqual([expected]*3,retrieved)
+                retrieved[0]['controlled-defensive-copy']=True
+                self.assertEqual(expected,retrieved[1]);self.assertEqual(expected,retrieved[2])
+                self.assertEqual(expected,token.baseline);self.assertEqual(expected,role.baseline)
+                return finish(role)
+            with patch.object(token,'original',wraps=original) as calls,\
+                    patch.object(token,'finish_constructor',side_effect=finish_after_three_actual_lookups),\
+                    patch.object(f,'input_originals',side_effect=AssertionError('Constructor repeated the full input pass')),\
+                    patch.object(SnapshotsOriginals,'file',actual_file):
+                role=self.reconstruct(f,token,disposals,current=False)
+            # SDK29 has two automatic baseline/settings calls; the three extra
+            # actual lookups above exercise its attached constructor scope.
+            self.assertEqual(5,calls.call_count);self.assertEqual([],ctor_reads)
+            self.assertTrue(reads) # The unchanged preceding load still reopens its originals.
+            self.assertTrue(token.finished);self.assertEqual(expected,role.baseline)
+            with f.lock.held(),self.assertRaises(NativeUIError):f.original(_history_pass=token)
+            self.assertTrue(token.closed)
+            # Default originals and actual current-account validation must
+            # still reopen the complete original input engine after this scope.
+            with f.lock.held(),patch.object(f,'input_originals',wraps=f.input_originals) as full,\
+                    patch.object(SnapshotsOriginals,'file',actual_file),\
+                    patch.object(token,'original',side_effect=AssertionError('Expired constructor baseline reused')):
+                self.assertEqual(expected,f.original());account=f.account(logged_in=True)
+                self.assertTrue(account['account']['loggedIn'])
+                ordinary=PhoneSnapshotsRole(f,'primary',_observe_disposals=disposals)
+                self.assertEqual(expected,ordinary.baseline)
+                self.assertEqual(4,full.call_count)
+            self.assertTrue(reads)
+
+    def test_input_receipts_reject_file_manifest_mode_and_inode_changes_at_baseline_lookup(self):
+        for kind,timing in [('content','before'),('manifest','last-native'),('mode','last-native'),('inode','last-native')]:
+            with self.subTest(kind=kind,timing=timing),self.prepared() as (f,token,disposals):
+                token.read();prefix='emote-index-' if kind=='manifest' else 'emote-frame-'
+                path=next(p for p in token.files if p.name.startswith(prefix+'snapshots-input-'))
+                raw=path.read_bytes();mode=path.stat().st_mode&0o777;inode=path.stat().st_ino
+                backup=path.with_name(path.name+'.controlled-baseline');changed=[];callbacks=[]
+                def mutate():
+                    changed.append(True)
+                    if kind in ('content','manifest'):path.write_bytes(raw+b' ')
+                    elif kind=='mode':path.chmod(0o640)
+                    else:path.rename(backup);path.write_bytes(raw);path.chmod(mode)
+                original=token.original;bound=f.bound
+                def lookup():
+                    if timing=='before':mutate()
+                    def after_actual_native():
+                        value=bound();callbacks.append(True)
+                        if timing=='last-native' and len(callbacks)==2:mutate()
+                        return value
+                    with patch.object(f,'bound',side_effect=after_actual_native):return original()
+                try:
+                    with patch.object(token,'original',side_effect=lookup):self.reject_before_current(f,token,disposals)
+                    self.assertEqual([True],changed);self.assertTrue(token.closed)
+                    if timing=='last-native':self.assertEqual(2,len(callbacks))
+                    if kind in ('content','manifest'):self.assertEqual(raw+b' ',path.read_bytes())
+                    elif kind=='mode':self.assertEqual(0o640,path.stat().st_mode&0o777)
+                    else:self.assertNotEqual(inode,path.stat().st_ino)
+                finally:
+                    if kind in ('content','manifest'):path.write_bytes(raw)
+                    elif kind=='mode':path.chmod(mode)
+                    else:
+                        if path.exists():path.unlink()
+                        if backup.exists():backup.rename(path)
+
+    def test_final_baseline_native_guard_cannot_change_owner_refs_indices_or_private_graph(self):
+        for kind in ('owner','input-reference','settings-index','baseline-graph'):
+            with self.subTest(kind=kind),self.prepared() as (f,token,disposals):
+                token.read();state=deepcopy(f.state);header=deepcopy(f.store.read());baseline=deepcopy(token.baseline)
+                callbacks=[];changed=[];foreign=[];original=token.original;bound=f.bound
+                def lookup():
+                    def after_actual_native():
+                        value=bound();callbacks.append(True)
+                        if len(callbacks)==2:
+                            changed.append(True)
+                            if kind=='owner':
+                                altered=unpack(header['payload'])[0];altered['cleanupStages']['controlled-foreign-baseline']='f'*32
+                                value_header=dict(header,payload=pack([altered]));f.store.write(value_header,header);foreign.append(value_header)
+                            elif kind=='input-reference':f.state['inputs']=[]
+                            elif kind=='settings-index':
+                                self.assertIsNotNone(f.state['settingsIndex']);self.assertIsNotNone(f.state['filesIndex'])
+                                self.assertNotEqual(f.state['settingsIndex'],f.state['filesIndex'])
+                                f.state['settingsIndex']=f.state['filesIndex']
+                            else:token.baseline['controlled-foreign-baseline']=True
+                        return value
+                    with patch.object(f,'bound',side_effect=after_actual_native):return original()
+                try:
+                    with patch.object(token,'original',side_effect=lookup):self.reject_before_current(f,token,disposals)
+                    self.assertEqual([True],changed);self.assertEqual(2,len(callbacks));self.assertTrue(token.closed)
+                    if foreign:self.assertEqual(foreign[0],f.store.read())
+                finally:
+                    f.state=state
+                    if foreign:f.store.write(header,foreign[0])
+                self.assertIsNone(token.baseline)
+
+    def test_constructor_baseline_is_unavailable_before_attach_after_close_and_after_guard_exception(self):
+        with self.prepared() as (f,token,_disposals):
+            token.read()
+            with f.lock.held(),self.assertRaises(NativeUIError):token.original()
+            self.assertTrue(token.closed);self.assertIsNone(token.baseline)
+        with self.prepared() as (f,token,disposals):
+            token.read();original=token.original;bound=f.bound;callbacks=[]
+            def lookup():
+                def actual_then_fail():
+                    value=bound();callbacks.append(True)
+                    if len(callbacks)==2:raise NativeUIError('Controlled failure after the last actual baseline guard')
+                    return value
+                with patch.object(f,'bound',side_effect=actual_then_fail):return original()
+            with patch.object(token,'original',side_effect=lookup):self.reject_before_current(f,token,disposals)
+            self.assertEqual(2,len(callbacks));self.assertTrue(token.closed)
+            self.assertIsNone(token.baseline);self.assertIsNone(token.attached)
+            with f.lock.held(),patch.object(f,'bound',side_effect=AssertionError('Closed scope reached native authority')):
+                with self.assertRaises(NativeUIError):token.original()
+
     def test_actual_full_files_are_unlocked_while_separate_process_acquires_source_lock(self):
         with self.prepared() as (f,token,disposals):
             original=SnapshotsOriginals.file;entered=[];child=[]
