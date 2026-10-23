@@ -195,8 +195,10 @@ def validate_sources(actual_tree, trusted_tree, *, protected_base=None):
         # Product workflows already installed on the protected target retain
         # their reviewed branch implementation. A PR cannot change, delete or
         # add one through this exception. Central/reusable execution recipes
-        # must always equal the current protected default-branch controller.
+        # and central maintenance recipes must always equal the current
+        # protected default-branch controller, including downstream activation.
         central = {WORKFLOW, ".github/workflows/native-tests.yml",
+                   ".github/workflows/branch-cleanup.yml",
                    ".github/workflows/pr-ci-ios.yml", ".github/workflows/ios-integrated.yml",
                    ".github/workflows/ios-qt-source.yml"}
         for path, entry in base.items():
