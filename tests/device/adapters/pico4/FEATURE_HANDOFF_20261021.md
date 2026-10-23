@@ -2497,3 +2497,16 @@ replay. Unchanged Actor/return groups also pass39.550/36.433s, total76.08s with
 coverage. Shared16-unlinks/250ms mechanics e70601ba93 retain every original guard;
 18 existing fence/index cases pass3.372s. The next transaction still must make
 the immutable archive and close actual host owners. Complete areas stay3/14.
+
+## Browser immutable archive and actual host transaction
+
+The [warm enclosing Browser archive/host transaction](BROWSER_EVIDENCE_ARCHIVE.md)
+now copies the complete explicit original catalog with the existing v4 archive
+and original16-unlinks/250ms fence, retains every PNG and final source tail, and
+closes actual original host pairs. A state sentry prevents an incomplete final
+transaction from appearing retired. The two positive prefix cases pass76.242s
+and lost-intent/late-final-unlink counters75.589s, with coverage0.092/0.093s.
+Direct cleanup keeps sequenceSucceeded=false and cannot finalize. The single
+full case retains all26 actions,28 phases, source/host closure and120s limit; its
+prior failure is still unresolved. No public capability or complete area is
+added:3/14 source-complete, no application/APK/device qualification.

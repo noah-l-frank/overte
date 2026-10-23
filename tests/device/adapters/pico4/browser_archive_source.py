@@ -34,10 +34,10 @@ class PicoBrowserArchiveReleaseSource:
         self.flow,self.captures=primary,captures
         # Both historical receipts precede our distinct mutable source marker.
         self.capture_receipt=captures.receipt();self.return_receipt=captures.returned.receipt()
-        self.store=PrivateFeatureState(primary.store.path.with_name('pico-tablet-web-archive-release.json'))
+        self.store=PrivateFeatureState(primary.artifact_root/('tablet-web-'+primary.run+'-archive-release.json'))
         need(self.store.read() is None);ChatSourceChunks(self.store,{}).inventory(0)
         self.parent=parent_node(self.store);self.previous=None;self.root_stamp=None;self.previous_sha=json_digest(None)
-        self.failed=False;self.last=None;self.started=self.epoch=None;self.last_sha=None
+        self.failed=False;self.frozen=False;self.last=None;self.started=self.epoch=None;self.last_sha=None
         with primary.lock.held():
             self.owner=deepcopy(primary.owner());self.state=primary.role_state()
             self.history=primary.history_cache;self.history.matches(self.state)
@@ -117,6 +117,7 @@ class PicoBrowserArchiveReleaseSource:
         if original is not None:self.current_phase(original);return original
         f=self.flow
         try:
+            need(not self.frozen)
             with f.lock.held(),f.adapter.existing_input_session(f.selector):
                 self.control();need(self.previous is None or self.previous['phase']=='ready')
                 self.started=f.monotonic();self.epoch=f.source.epoch_ms();f.runtime(self.owner)

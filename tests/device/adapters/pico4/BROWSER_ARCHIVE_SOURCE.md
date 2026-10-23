@@ -22,8 +22,9 @@ or late complete-looking root latches failure and retains ownership.
 [shared unlink mechanics](../ORIGINAL_SOURCE_UNLINK_FENCE.md): at most16 unlinks
 per250ms original window, original1.5s acquisition/final freshness and a new
 phase authority query before each actual unlink. That fence does not itself
-admit an archive or delete any source. The enclosing Browser archive/host
-transaction remains the next step; public `finalize()` remains unavailable.
+admit an archive or delete any source. The enclosing [Browser archive/host
+transaction](BROWSER_EVIDENCE_ARCHIVE.md) now uses this exact warm owner; the
+public capability remains unavailable pending whole-Journey qualification.
 
 Three source cases pass65.987s and coverage0.093s. The actual separate-process
 short common cleanup/return/capture prefix precedes each case. The positive
@@ -35,5 +36,6 @@ unchanged six Actor cases pass39.550s and five typed-return cases36.433s.
 Eighteen existing shared unlink/index cases separately pass3.372s.
 
 Native/SDK/Qt/GPU/OS producers remain the declared analytical host seams.
-Complete source archival, journal unlink, all host closure, full common execute,
-application/APK and device qualification are not provided by these checks.
+The three source cases alone do not qualify source archival, journal unlink,
+host closure, full common execute, application/APK or device behavior. The
+separate enclosing transaction records its own narrower host results.

@@ -743,7 +743,10 @@
         "tests/device/adapters/pico4/browser_cleanup_consumption.py",
         "tests/device/adapters/pico4/browser_archive_source.py",
         "tests/device/adapters/pico4/BROWSER_ARCHIVE_SOURCE.md",
-        "tests/device/adapters/original_source_unlink_fence.py"
+        "tests/device/adapters/original_source_unlink_fence.py",
+        "tests/device/adapters/pico4/browser_evidence_archive.py",
+        "tests/device/adapters/pico4/browser_host_close.py",
+        "tests/device/adapters/pico4/BROWSER_EVIDENCE_ARCHIVE.md"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -783,7 +786,7 @@
       ],
       "missingOperationsOrEvidence": [
         "The last complete26-action process Journey attempt exceeds unchanged120s at120.110s. Its newer production observer/common-cleanup hook path has not been rerun as a full case. Original28-phase validation remains; no successful whole execution is claimed.",
-        "The existing feature observer now has closed Browser-v4 configuration and one warm original Actor lifetime through terminal export and actual Parent nonce. Its real separate-process source return and all-capture short prefix pass45.540s with three admission/configuration cases. Native/SDK producers remain seams; immutable archive and all final host closure remain open.",
+        "The actual short common-cleanup/typed independent-process return/capture prefix now completes original immutable archive and actual host-pair closure (two cases76.242s); lost initial intent and late final sentry-unlink counters pass75.589s. These prefixes preserve sequenceSucceeded=false and cannot qualify finalization. Complete successful common execution and the public coordinator remain unverified.",
         "Product/GPU/Qt/DOM/Java/OS/native clock endpoints remain explicit analytical host seams. Whole APK/HMD qualification remains unavailable."
       ],
       "requiredOriginalEvidence": [
@@ -797,7 +800,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Compose the warm primary/actual common/typed process-return/full capture owners with existing immutable ChatEvidenceArchive and shared original16-unlinks/250ms fence, then close actual catalog/program descriptors. New original primary VM/browser/lifecycle/diagnostic/all-capture release source3cases pass65.987s; legacy Actor6cases39.550s and typed return5cases36.433s pass after shared acquisition extraction. No archive/unlink/full host or whole-execute qualification yet.",
+      "nextExecutableStep": "Verify the single complete26-action/28-phase process Journey followed by original return, all-capture retirement, immutable source archive and actual host closure within unchanged120s; then connect the public coordinator only after true original common success. Short-prefix archive/host and failure cases are green, but the prior whole120.110s failure remains and no whole success is claimed.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },

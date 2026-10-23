@@ -88,6 +88,8 @@ class PicoTabletWebFeature:
         self.remote_capture_retirement=None
         self.cleanup_consumption=None
         self.archive_release=None
+        self.evidence_archive=None
+        self.browser_host_close=None
         self.require_new_actor=require_new_actor;self._actor_started=False
         self.completed_store=PrivateFeatureState(self.artifact_root/(self.area+'-'+self.run+'-retirement.json'))
 
@@ -742,12 +744,20 @@ class PicoTabletWebFeature:
         raise NativeUIError('Original Tablet Web retirement did not remain empty')
 
     def finalize(self):
-        # This private composition is deliberately unavailable as a complete
-        # feature. Complete VM/capture owners still need immutable source
-        # archival and actual final host closure. Keep their original
-        # role/owner/metadata journals until that enclosing transaction.
         need(self.role=='primary')
-        raise NativeUIError('Original browser archive and host finalization are not integrated; ownership is retained')
+        from adapters.pico4.browser_evidence_archive import PicoBrowserEvidenceArchive
+        from adapters.pico4.browser_host_close import PicoBrowserHostClose
+        archive=self.evidence_archive;host=self.browser_host_close
+        if not (type(archive) is PicoBrowserEvidenceArchive and archive.primary is self
+                and archive.completed and not archive.failed and type(host) is PicoBrowserHostClose
+                and host.plan is archive and host.completed and not host.failed):
+            raise NativeUIError('Original browser source archive or host closure is incomplete; ownership is retained')
+        source=archive.receipt();closed=host.receipt()
+        need(source['commonSequenceSucceeded'] is True and closed['commonSequenceSucceeded'] is True
+            and closed['hostReleased'] is True and archive.host_closed)
+        return dict(picoTabletWebFeatureVersion=VERSION,runId=self.run,sequenceCompleted=True,
+            sourceArchiveSha256=closed['sourceArchiveSha256'],archiveSha256=closed['archiveSha256'],
+            finalSha256=closed['finalSha256'],hostReleased=True,deviceAcceptance=False)
 
     def retire_original_captures(self,actor):
         from adapters.pico4.browser_capture_retirement import PicoBrowserCaptureRetirement
@@ -778,6 +788,19 @@ class PicoTabletWebFeature:
         need(self.role=='primary' and self.archive_release is None and self.remote_capture_retirement is not None)
         self.archive_release=PicoBrowserArchiveReleaseSource(self,self.remote_capture_retirement)
         return self.archive_release
+
+    def archive_retired_sources(self):
+        from adapters.pico4.browser_evidence_archive import PicoBrowserEvidenceArchive
+        need(self.role=='primary' and self.evidence_archive is None and self.remote_capture_retirement is not None)
+        # Cache the warm owner before admission opens catalog descriptors.
+        self.evidence_archive=PicoBrowserEvidenceArchive(self,self.remote_capture_retirement)
+        return self.evidence_archive.run()
+
+    def close_archived_host(self):
+        from adapters.pico4.browser_host_close import PicoBrowserHostClose
+        need(self.role=='primary' and self.browser_host_close is None and self.evidence_archive is not None)
+        self.browser_host_close=PicoBrowserHostClose(self.evidence_archive)
+        return self.browser_host_close.run()
 
 
 def re_script(value):

@@ -98,6 +98,10 @@ class PicoBrowserIndependentProcessTests(unittest.TestCase):
     def close_capture(self):
         owner=self.f.primary.remote_capture_retirement
         if owner is not None:self.assertTrue(owner.catalog.close_host())
+        plan=self.f.primary.evidence_archive
+        if plan is not None:
+            if plan.archive is not None:self.assertTrue(plan.archive.close_host())
+            else:self.assertTrue(plan.catalog.close_host())
 
     def close_worker(self):
         if not self.worker.stdin.closed:self.worker.stdin.close()
@@ -197,10 +201,12 @@ class PicoBrowserIndependentProcessTests(unittest.TestCase):
         if f.run in f.server.browser_resources.runs:f.client.close()
         owner=self.consume_original_return();captures=f.primary.retire_returned_actor_captures(owner)
         self.assertTrue(captures['complete']);capture=f.primary.remote_capture_retirement
-        self.assertTrue(capture.completed);self.assertEqual(captures,capture.receipt());self.assertTrue(owner.close_host())
+        self.assertTrue(capture.completed);self.assertEqual(captures,capture.receipt())
         self.assertGreater(len(capture.proofs),2);self.assertEqual({'primary','actor'},{row['owner']['role'] for row in capture.proofs})
         self.assertTrue(all(row['store'].path.exists() for row in capture.catalog.rows.values()))
-        with self.assertRaises((ValueError,RuntimeError)):f.primary.finalize()
+        f.primary.archive_retired_sources();closed=f.primary.close_archived_host();final=f.primary.finalize()
+        self.assertTrue(closed['commonSequenceSucceeded']);self.assertTrue(final['sequenceCompleted'])
+        self.assertTrue(final['hostReleased']);self.assertFalse(final['deviceAcceptance'])
 
     def test_changed_original_actor_png_refuses_remote_capture_before_any_native_query(self):
         owner=self.original_return();image=next(iter(owner.graph.images.values()))['png']
@@ -288,6 +294,82 @@ class PicoBrowserIndependentProcessTests(unittest.TestCase):
         self.assertEqual([True],changed);self.assertTrue(source.failed);self.assertEqual('ready',source.store.read()['phase'])
         with self.assertRaises(NativeUIError):source()
         self.assertTrue(owner.close_host())
+
+    def test_evidence_archive_copies_all_original_sources_before_retirement_and_retains_pngs(self):
+        owner=self.original_return();f=self.f;f.primary.retire_returned_actor_captures(owner)
+        capture=f.primary.remote_capture_retirement;paths=[row['store'].path for row in capture.catalog.rows.values()]
+        pngs={row['value']['name']:(f.artifacts/row['value']['name']).read_bytes() for row in capture.pngs}
+        result=f.primary.archive_retired_sources();plan=f.primary.evidence_archive
+        self.assertTrue(plan.completed);self.assertEqual(result,plan.receipt())
+        self.assertFalse(result['commonSequenceSucceeded']);self.assertFalse(result['hostReleased'])
+        self.assertTrue(all(not path.exists() for path in paths));self.assertTrue(plan.directory.exists())
+        self.assertEqual('archived-awaiting-host',plan.sentry.read()['phase'])
+        for name,raw in pngs.items():self.assertEqual(raw,(f.artifacts/name).read_bytes())
+        self.assertTrue(plan.source.frozen);self.assertTrue(owner.close_host())
+        with self.assertRaises(NativeUIError):f.primary.finalize()
+
+    def test_evidence_archive_then_actual_original_host_pairs_close_without_a_whole_recipe_claim(self):
+        owner=self.original_return();f=self.f;f.primary.retire_returned_actor_captures(owner)
+        f.primary.archive_retired_sources();result=f.primary.close_archived_host();host=f.primary.browser_host_close
+        self.assertTrue(host.completed);self.assertEqual(result,host.receipt());self.assertTrue(result['hostReleased'])
+        self.assertFalse(result['commonSequenceSucceeded']);self.assertFalse(result['fullFeatureRecipe'])
+        self.assertIsNone(host.store.read());self.assertTrue(host.receipt_store.path.exists())
+        self.assertIsNone(host.plan.sentry.read());self.assertIsNone(host.plan.sentry_value)
+        self.assertTrue(owner.process.fd_owner.closed and owner.process.entry_owner.closed);self.assertEqual(-1,owner.process.fd)
+        self.assertTrue(all(pair.closed and pair.fd==pair.anchor==-1 for pair,_row in host.pairs))
+        self.assertEqual(f.primary.evidence_archive.result,f.primary.evidence_archive.receipt())
+        with self.assertRaises(NativeUIError):f.primary.finalize()
+
+    def test_host_close_fence_lost_landed_intent_keeps_all_original_pairs_and_cannot_retry(self):
+        from unittest.mock import patch
+        owner=self.original_return();f=self.f;f.primary.retire_returned_actor_captures(owner)
+        f.primary.archive_retired_sources();plan=f.primary.evidence_archive
+        write=PrivateFeatureState.write;landed=[]
+        def lose(store,value,previous):
+            result=write(store,value,previous)
+            if store.path.name.endswith('-host-close.json') and value['phase']=='close-issued':
+                landed.append(store.path);raise NativeUIError('Explicit lost response after durable original host intent')
+            return result
+        with patch.object(PrivateFeatureState,'write',lose):
+            with self.assertRaises(NativeUIError):f.primary.close_archived_host()
+        host=f.primary.browser_host_close
+        self.assertEqual([host.store.path],landed);self.assertTrue(host.failed);self.assertFalse(host.completed)
+        self.assertEqual('close-issued',host.store.read()['phase']);self.assertIsNone(host.receipt_store.read())
+        self.assertEqual('archived-awaiting-host',plan.sentry.read()['phase'])
+        self.assertTrue(host.pairs)
+        for descriptor,_row in host.pairs:
+            self.assertFalse(descriptor.closed or descriptor.lost);descriptor.require(descriptor.fd)
+        queries=len(self.batches)
+        with self.assertRaises(NativeUIError):f.primary.close_archived_host()
+        with self.assertRaises(NativeUIError):host.receipt()
+        with self.assertRaises(NativeUIError):f.primary.finalize()
+        self.assertEqual(queries,len(self.batches));self.assertFalse(plan.host_closed)
+
+    def test_host_close_fence_late_sentry_unlink_keeps_unavailable_ownership_despite_closed_pairs(self):
+        from unittest.mock import patch
+        owner=self.original_return();f=self.f;f.primary.retire_returned_actor_captures(owner)
+        f.primary.archive_retired_sources();plan=f.primary.evidence_archive
+        discard=PrivateFeatureState.discard;landed=[]
+        def late(store,previous):
+            result=discard(store,previous)
+            if store.path==plan.sentry.path:
+                landed.append(True);f.clock.base+=2000
+            return result
+        with patch.object(PrivateFeatureState,'discard',late):
+            with self.assertRaises(NativeUIError):f.primary.close_archived_host()
+        host=f.primary.browser_host_close
+        self.assertEqual([True],landed);self.assertTrue(host.failed);self.assertFalse(host.completed or plan.host_closed)
+        self.assertEqual('final-unavailable',host.store.read()['phase'])
+        self.assertEqual('final-unavailable',plan.sentry.read()['phase'])
+        self.assertTrue(host.receipt_store.path.exists());self.assertTrue(plan.directory.exists())
+        self.assertTrue(all(descriptor.closed and not descriptor.lost for descriptor,_row in host.pairs))
+        self.assertTrue(all(descriptor.closed and not descriptor.lost for descriptor in host.journal_pairs))
+        self.assertFalse(any(row['store'].path.exists() for row in plan.captures.catalog.rows.values()))
+        queries=len(self.batches)
+        with self.assertRaises(NativeUIError):f.primary.close_archived_host()
+        with self.assertRaises(NativeUIError):host.receipt()
+        with self.assertRaises(NativeUIError):f.primary.finalize()
+        self.assertEqual(queries,len(self.batches))
 
 
 if __name__=='__main__':unittest.main()

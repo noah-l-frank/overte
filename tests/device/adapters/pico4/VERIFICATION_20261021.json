@@ -92,6 +92,29 @@
     {
       "command": "Original WIP patch reconstruction against de758709 and preservation commit 131cec6e14; all seven original file SHA-256 values and read-only reference readback",
       "status": "passed"
+    },
+    {
+      "command": "Pico tablet-web-evidence-archive and tablet-web-host-close-fences selectors; each includes its complete original process/cleanup/return/capture prefix",
+      "tests": 4,
+      "durationsSeconds": [
+        76.242,
+        75.589
+      ],
+      "coverageSeconds": [
+        0.092,
+        0.093
+      ],
+      "qualification": "Short original source/archive/host prefixes and failure boundaries only; common sequence false, no whole feature or device verdict"
+    },
+    {
+      "command": "Integrated chat-remote-publication, chat-remote-journey-components and chat-remote-cleanup-positive selectors",
+      "groups": 3,
+      "durationsSeconds": [
+        18.001,
+        4.186,
+        37.604
+      ],
+      "qualification": "Complete selected original prefix/grammar/receipt groups only; no successful whole common Journey"
     }
   ],
   "picoCommands": [

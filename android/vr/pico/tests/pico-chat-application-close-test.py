@@ -17,7 +17,8 @@ def selected(part):
         names=unittest.defaultTestLoader.getTestCaseNames(ChatRemoteCleanupPrefixTests)
         names=[name for name in names if (name==positive)==(part=='remote-cleanup-positive')]
         return unittest.defaultTestLoader.loadTestsFromNames(['self_tests.test_chat_remote_cleanup_prefix.ChatRemoteCleanupPrefixTests.'+name for name in names])
-    if part=='remote-publication':return unittest.defaultTestLoader.loadTestsFromNames(['self_tests.test_chat_remote_publication','self_tests.test_chat_remote_consumed_sources'])
+    if part=='remote-journey-components':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_remote_journey.remote_journey_component_tests')
+    if part=='remote-publication':return unittest.defaultTestLoader.loadTestsFromNames(['self_tests.test_chat_remote_publication','self_tests.test_chat_remote_consumed_sources','self_tests.test_chat_source_graph_prefix'])
     if part=='cursor-stop':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_actor_stop')
     if part=='cursor-cleanup-consumption':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_cursor_cleanup_consumption')
     if part=='cursor-archive':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_cursor_archive')
@@ -49,6 +50,6 @@ def selected(part):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('part',choices=('journey','recovery','admission','delivery','post-ipc','archive','cleanup-witness','cleanup-factory','cleanup-baseline','baseline-composition','cleanup-consumption','observation-cursor','cursor-source-seal','cursor-cleanup-consumption','cursor-archive','cursor-actor','cursor-stop','remote-publication','remote-cleanup-positive','remote-cleanup-failures','seal-positive','seal-admission','seal-freshness'))
+    parser.add_argument('part',choices=('journey','recovery','admission','delivery','post-ipc','archive','cleanup-witness','cleanup-factory','cleanup-baseline','baseline-composition','cleanup-consumption','observation-cursor','cursor-source-seal','cursor-cleanup-consumption','cursor-archive','cursor-actor','cursor-stop','remote-publication','remote-journey-components','remote-cleanup-positive','remote-cleanup-failures','seal-positive','seal-admission','seal-freshness'))
     result=unittest.TextTestRunner(verbosity=2).run(selected(parser.parse_args().part))
     raise SystemExit(not result.wasSuccessful())

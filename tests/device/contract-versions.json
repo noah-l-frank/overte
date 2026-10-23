@@ -1,6 +1,9 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "pico-browser-evidence-archive": {"current": 1, "reads": [1]},
+    "pico-browser-archive-ownership": {"current": 1, "reads": [1]},
+    "pico-browser-host-close": {"current": 1, "reads": [1]},
     "pico-browser-archive-release": {"current": 1, "reads": [1]},
     "original-source-unlink-fence": {"current": 1, "reads": [1]},
     "pico-browser-vm": {"current": 1, "reads": [1]},

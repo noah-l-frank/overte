@@ -96,7 +96,9 @@ def acquire_original_retirement_frame(producer,started,epoch_started,*,include_i
     browser=flow.sample_native(self.owner,self.state['native'])
     reader=flow.adapter._web_runtime_observer(flow.selector,read_only=True);reader.last=deepcopy(self.state['runtime'])
     runtime=reader.read(flow.run,flow.fixture_url)
-    objects_before=self.vm.objects.read(self.anchor['objectsAfter']['sequence'])
+    # The anchor remains original compilation/lifetime provenance. Repeated
+    # archive windows continue the actual warm reader's newest cursor.
+    objects_before=self.vm.objects.read(self.vm.objects.last['sequence'])
     scripts=self.vm.scripts.read(self.vm.scripts.sequence,require_effects=True,require_code_identity=True,
         require_load_history=True,require_membership=True)
     objects_after=self.vm.objects.read(objects_before['sequence'])
