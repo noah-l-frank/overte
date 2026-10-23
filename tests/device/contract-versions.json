@@ -108,6 +108,7 @@
     "pico-assets-resource-manager-host": {"current": 1, "reads": [1]},
     "pico-assets-resource-data-host": {"current": 1, "reads": [1]},
     "pico-assets-geometry-parser-host": {"current": 1, "reads": [1]},
+    "pico-assets-geometry-resource-host": {"current": 1, "reads": [1]},
     "pico-assets-ui-inventory": {"current": 1, "reads": [1]},
     "native-pico-assets-files": {"current": 1, "reads": [1]},
     "pico-assets-file-owner": {"current": 1, "reads": [1]},
