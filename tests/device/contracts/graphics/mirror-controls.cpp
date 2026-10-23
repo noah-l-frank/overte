@@ -67,18 +67,19 @@ App* qApp;
 class RenderScriptingInterface : public QObject {
     Q_OBJECT
 @PROPERTY@
-    // Remaining properties are explicit UI boundary services for this fixture.
-    Q_PROPERTY(bool localLightingEnabled MEMBER _localLightingEnabled)
-    Q_PROPERTY(bool proceduralMaterialsEnabled MEMBER _proceduralMaterialsEnabled)
-    Q_PROPERTY(bool bloomEnabled MEMBER _bloomEnabled)
-    Q_PROPERTY(bool shadowsEnabled MEMBER _shadowsEnabled)
-    Q_PROPERTY(bool ambientOcclusionEnabled MEMBER _ambientOcclusionEnabled)
-    Q_PROPERTY(bool hazeEnabled MEMBER _hazeEnabled)
-    Q_PROPERTY(int renderMethod MEMBER _renderMethod)
-    Q_PROPERTY(int antialiasingMode MEMBER _antialiasingMode)
-    Q_PROPERTY(float viewportResolutionScale MEMBER _viewportResolutionScale)
-    Q_PROPERTY(float verticalFieldOfView MEMBER fieldOfView)
-    Q_PROPERTY(bool cameraClippingEnabled MEMBER cameraClipping)
+    // Remaining behaviors are explicit UI boundaries. Their shared notification
+    // signal matches the production properties so live QML bindings stay valid.
+    Q_PROPERTY(bool localLightingEnabled MEMBER _localLightingEnabled NOTIFY settingsChanged)
+    Q_PROPERTY(bool proceduralMaterialsEnabled MEMBER _proceduralMaterialsEnabled NOTIFY settingsChanged)
+    Q_PROPERTY(bool bloomEnabled MEMBER _bloomEnabled NOTIFY settingsChanged)
+    Q_PROPERTY(bool shadowsEnabled MEMBER _shadowsEnabled NOTIFY settingsChanged)
+    Q_PROPERTY(bool ambientOcclusionEnabled MEMBER _ambientOcclusionEnabled NOTIFY settingsChanged)
+    Q_PROPERTY(bool hazeEnabled MEMBER _hazeEnabled NOTIFY settingsChanged)
+    Q_PROPERTY(int renderMethod MEMBER _renderMethod NOTIFY settingsChanged)
+    Q_PROPERTY(int antialiasingMode MEMBER _antialiasingMode NOTIFY settingsChanged)
+    Q_PROPERTY(float viewportResolutionScale MEMBER _viewportResolutionScale NOTIFY settingsChanged)
+    Q_PROPERTY(float verticalFieldOfView MEMBER fieldOfView NOTIFY settingsChanged)
+    Q_PROPERTY(bool cameraClippingEnabled MEMBER cameraClipping NOTIFY settingsChanged)
 public:
     Lock _renderSettingLock;
     int _renderMethod{0};bool _localLightingEnabled{true},_proceduralMaterialsEnabled{true};
