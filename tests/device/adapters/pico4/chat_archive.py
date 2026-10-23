@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import hashlib
+import json
 import math
 import re
 import uuid
@@ -21,6 +22,7 @@ from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_
 
 VERSION=4
 CURSOR_EXTENSION_VERSION=1
+REMOTE_EXTENSION_VERSION=1
 
 
 class PicoChatArchivePlan:
@@ -65,7 +67,13 @@ class PicoChatArchivePlan:
             # global consumed graph is bound. Historical reconstruction never
             # publishes, delivers target input or acquires new target effects.
             consumed=getattr(parent,'cursor_cleanup_consumption',None)
-            if consumed is None:
+            remote=getattr(parent,'remote_consumed_sources',None)
+            need(consumed is None or remote is None)
+            if remote is not None:
+                parent.require_remote_consumed_sources(remote)
+                need(getattr(parent,'cleanup_baseline',None) is None)
+                self.witness=None;self.cleanup_metadata=self.add_remote_consumed_sources(remote)
+            elif consumed is None:
                 self.witness=self.historical_witness()
                 for role in (self.witness.initial_samples,self.witness.samples):self.add_role(role)
                 self.add_owner(self.witness)
@@ -201,6 +209,59 @@ class PicoChatArchivePlan:
         header=receipt['externalConsumption']['header']
         return dict(chatCursorCleanupConsumptionVersion=CURSOR_EXTENSION_VERSION,chatCursorCleanupConsumptionSha256=digest(receipt),
             chatCursorSourceSeals=list(receipt['sealSha256']),chatCursorSequenceSucceeded=header['sequenceSucceeded'])
+
+    def add_remote_consumed_sources(self,sources):
+        """Original full remote graph/transport, never live actors from files.
+
+        A direct diagnostic may catalog a false sequence flag. Only the
+        constructor's real successful Parent hook authorizes app retirement.
+        """
+        from adapters.chat_journey.remote_consumed_sources import ChatRemoteConsumedSources
+        from adapters.chat_journey.cursor_source_seal import ChatCursorSourceSeal
+        from adapters.observer_return import state
+        need(type(sources) is ChatRemoteConsumedSources and sources.completed and not sources.failed)
+        p=self.parent;prefix=sources.prefix;returned=sources.returned;graph=returned.graph
+        need(prefix.primary.current.samples is p.cache_release.roles[0]
+            and sources.store.path==self.adapter._chat_remote_consumed_sources_store(self.target).path
+            and prefix.store.path==self.adapter._chat_remote_cleanup_prefix_store(self.target).path
+            and prefix.actor.store.path==self.adapter._chat_remote_publication_store(self.target).path
+            and returned.store.path==self.adapter._chat_remote_actor_return_store(self.target).path
+            and prefix.scope['runId']==p.source.run and prefix.scope['fixtureUrl']==p.source.fixture_url
+            and same(prefix.scope['binding'],p.binding) and same(prefix.scope['peerBinding'],p.peer.binding))
+        receipt=sources.receipt()
+        for owner in (sources,prefix,prefix.actor,returned):self.add_owner(owner)
+        seal=sources.primary_seal;need(type(seal) is ChatCursorSourceSeal
+            and seal.store.path==self.adapter._chat_cursor_source_seal_store(self.target,witness=False).path)
+        original=seal.receipt(sources.seal);self.add_owner(seal)
+        for owner,expected in zip(seal.owners,original['originals']):
+            self.add_owner(owner);row=self.catalog.rows['primary/'+owner.store.path.name]
+            need(row['stamp']==expected['stamp'] and digest(row['expected'])==expected['sha256'])
+        # The literal old host-closed payload lives in the original transport
+        # children. The actual Actor root is now its independently qualified
+        # parent-consumed successor; never assign it the old physical stamp.
+        for key,store in graph.stores.items():
+            raw=graph.successor[0] if key=='actor' else graph.files[key][0]
+            expected=json.loads(raw);self.add(store,expected)
+            need(self.catalog.rows['primary/'+store.path.name]['stamp']==
+                (graph.successor[1] if key=='actor' else graph.files[key][1]))
+        for history in graph.histories.values():
+            history.verify()
+            for index,signature in enumerate(history.identities):
+                store=history.store(index);self.add(store,store.read())
+                actual=self.catalog.rows['primary/'+store.path.name]['stamp']
+                need([actual[position] for position in (0,1,5,3,2,4,6,7)]==list(signature))
+        receiver=returned.receiver;value,raw,physical=receiver.consumed(historical=True)
+        self.add(receiver.store,value);need(self.catalog.rows['primary/'+receiver.store.path.name]['stamp']==physical)
+        self.add(receiver.ack_store,receiver.intent)
+        need(self.catalog.rows['primary/'+receiver.ack_store.path.name]['stamp']==value['consumptionStamp'])
+        receiver.history.verify()
+        for index in range(len(receiver.history.identities)):
+            store=receiver.history.store(index);self.add(store,store.read())
+        need(state(receiver.store)[1:]==(raw,physical));sources.receipt()
+        return dict(chatRemoteConsumedSourcesVersion=REMOTE_EXTENSION_VERSION,
+            chatRemoteConsumedSourcesSha256=digest(receipt),chatRemoteActorReturnSha256=digest(returned.previous),
+            chatRemoteSourceSeals=[digest(sources.seal),graph.root['sealSha256']],
+            chatRemoteSequenceSucceeded=receipt['original']['sequenceSucceeded'])
 
     def pre_stop_inventory(self):
         # This exact known reader root must remain mutable for the new

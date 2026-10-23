@@ -1354,6 +1354,18 @@ def create_adapter(args, base_class):
                 evidence=completed_archive(path);metadata=evidence['metadata']
                 cursor_fields={'chatCursorCleanupConsumptionVersion','chatCursorCleanupConsumptionSha256',
                     'chatCursorSourceSeals','chatCursorSequenceSucceeded'}
+                remote_fields={'chatRemoteConsumedSourcesVersion','chatRemoteConsumedSourcesSha256',
+                    'chatRemoteActorReturnSha256','chatRemoteSourceSeals','chatRemoteSequenceSucceeded'}
+                if remote_fields&set(metadata):
+                    _need(remote_fields<=set(metadata) and metadata.get('picoChatArchivePlanVersion')==4
+                        and not (cursor_fields|{'chatCleanupBaselineSha256','chatCleanupSourceSeals'})&set(metadata)
+                        and type(metadata['chatRemoteConsumedSourcesVersion']) is int and metadata['chatRemoteConsumedSourcesVersion']==1
+                        and metadata['chatRemoteSequenceSucceeded'] is True
+                        and all(type(metadata[key]) is str and re.fullmatch('[0-9a-f]{64}',metadata[key])
+                            for key in ('chatRemoteConsumedSourcesSha256','chatRemoteActorReturnSha256'))
+                        and type(metadata['chatRemoteSourceSeals']) is list and len(metadata['chatRemoteSourceSeals'])==2
+                        and all(type(value) is str and re.fullmatch('[0-9a-f]{64}',value) for value in metadata['chatRemoteSourceSeals'])
+                        and len(set(metadata['chatRemoteSourceSeals']))==2)
                 if cursor_fields&set(metadata):
                     _need(cursor_fields<=set(metadata) and metadata.get('picoChatArchivePlanVersion')==4
                         and not {'chatCleanupBaselineSha256','chatCleanupSourceSeals'}&set(metadata)
