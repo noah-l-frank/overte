@@ -182,6 +182,7 @@ REQUIRED = {
     "pico-assets-cancel-owner": 1,
     "native-pico-assets-pages": 1,
     "pico-assets-pages-source": 1,
+    "pico-assets-home-owner": 1,
     "pico-assets-ui-inventory": 1,
     "native-pico-assets-files": 1,
     "pico-assets-file-owner": 1,

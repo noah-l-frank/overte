@@ -656,3 +656,57 @@ or counts. This packet supplies the actual page/source boundary. A durable norma
 Home owner still needs to join it vertically with the existing Cancel/File owner;
 surviving context retention and the other whole-feature/backend/device gaps
 remain open. Feature 13/14 remains partial.
+
+## Durable normal Home joined to Cancel and private files
+
+The separate `OwnedAssetsHome` journal now binds the actual original page to a
+completed normal Cancel/File pair. Both complete original child journals remain
+unchanged. Its independent observe-only file transcript physically checks the
+same original retired lease on every page sample, without repeating release or
+adopting a different owner token. The shared original transcript count/byte
+budgets include both child journals and every additional page/file frame.
+
+The existing `PicoOpenXrAdapterSession` stages exactly the normal left-primary
+120 ms X/Back button. Its full validated envelope is durably saved before the
+original transport writer. The final publication callback checks that same
+envelope and original phase/packet age using host data only, without reentering
+native/session APIs while their lock is held. The separate original Qt source
+must observe Home, original page death, component retirement and three seconds
+of unchanged quiet with consecutive native gaps at most 500 ms. A surviving
+original context yields `home-retained`; the borrowed loader/window may survive.
+No owner journal is removed and this is not whole-feature completion.
+
+The first three-case owning selection took 46.140 seconds. The complete normal
+Cancel/File-to-Home path, including cold observation without another X, passed.
+The changed-original-file counter stopped earlier at the existing Cancel 500 ms
+admission predicate, before the new Home owner. That original failed transcript
+is retained and the unchanged counter was not rerun. The lost-Home-ACK test
+initially expected the transport exception directly, while the existing source
+lock translated it to `NativeUIError`; its expectation was corrected before a
+separate targeted run. The host transport/controller/status endpoints remain
+explicit seams; actual Qt objects, original normal callback and original
+application loader bodies are retained as in the preceding packet.
+
+The corrected lost-ACK case passed separately in 26.962 seconds under the
+unchanged 90/120-second bounds. It executes the complete original production
+Home-owner factory with declared child/source/session endpoints. Its actual
+durable archive contains 12 paired page/file frames, the exact original
+controller envelope, the original neutral status, and the original quiet slice
+(frames 1 through 11). Separate saved Cancel/File journals equal their complete
+bound original snapshots. Actual independent weak pointers again show page dead,
+context alive but invalid, and shared loader/window alive. Cold reconstruction
+observes Home without replaying X or any file mutation. The source histories and
+last packets must still equal their exact durable JSON prefixes before any
+additional query. This targeted result does not qualify the still-red complete
+three-case selector; the counter's earlier Cancel failure remains recorded.
+
+The additive `assets-home-owner` selector brings this worktree catalog to 156;
+integration must extend its current catalog additively. `pico-assets-home-owner`
+is a separate v1 journal with a new registry entry. Existing Cancel/File journal
+versions, original quiet schedule, clocks, limits and capabilities are unchanged.
+Registry, common/product contracts (13 cases), coverage (seven cases/all 14 risk
+rows), documentation (668 Markdown files), Python parsing and whitespace checks
+passed. The context binding in original `OffscreenSurface::contextForUrl` assigns
+the newly created context to its engine; normal Home does not destroy that shared
+engine. This original survivor remains an explicit obligation, without a product
+fix or a claim of complete backend, window, device or feature retirement.

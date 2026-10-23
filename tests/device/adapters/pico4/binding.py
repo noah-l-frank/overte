@@ -597,6 +597,16 @@ def create_adapter(args, base_class):
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','normal-assets-cancel-stage'+str(stage)+'-')))
 
         @_private
+        def _assets_home_owner(self,target,run,fixture_url,phase,*,source_lock,stage=1):
+            from adapters.pico4.assets_home_owner import OwnedAssetsHome
+            lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            cancel=self._assets_cancel_owner(target,run,fixture_url,phase,source_lock=lock,stage=stage)
+            path=self._assets_cancel_store(target,stage).path
+            store=PrivateFeatureState(path.with_name(path.name.replace('normal-assets-cancel-','normal-assets-home-')))
+            return OwnedAssetsHome(store,cancel,self._assets_pages(target,source_lock=lock),
+                self.pico_input_session(target),phase,lock)
+
+        @_private
         def _assets_cancel_owner(self,target,run,fixture_url,phase,*,source_lock,stage=1):
             from adapters.pico4.assets_cancel_owner import OwnedAssetsCancel
             lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
