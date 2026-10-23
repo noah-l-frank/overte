@@ -130,3 +130,7 @@ class NavigationTerminal:
         self.lock.assert_held();need(self.state is not None and self.state['seal'] is not None and same(self.store.read(),self.previous))
         actual=self.live_original(self.state['description'],self.state['samples']);need(same(actual,self.state['live']))
         terminal.sealed(self.state['seal'],self.state['description'],self.state['samples']);return deepcopy(self.state['seal'])
+
+    def finish(self,seal):
+        from ios.adapters.navigation_finalization import NavigationFinalization
+        return NavigationFinalization(self).finish(seal)

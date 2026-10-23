@@ -141,6 +141,10 @@ including restart, ordinary restoration, both role publications and the live
 terminal seal, with pure historical replay afterward. Initial-process and
 partial-setup failure cleanup, final process/SDK end, full fifteen-step final
 qualification and public dispatch remain pending.
+The separate [process/SDK end mechanics](NAVIGATION_PROCESS_END.md) pass nine
+focused host cases with real loopback SDK/fixture HTTP and installed-code
+ownership, while their live seal and OS producers remain explicitly modeled.
+That component coverage does not qualify the connected full Navigation end.
 Two narrow producer-model regressions additionally bind a new marker URL to the
 actual imported HTTP body and preserve error history after callback completion.
 

@@ -34,6 +34,8 @@ results establish no physical iOS behavior or CPU timing qualification.
 
 Worlds remains partial. The full fifteen-step final integration, initial-process
 and partial-setup restoration, independent worker/configuration/dispatch and the
-once-only final process/SDK end still require qualification. New final-end source
-files are work in progress and are not admitted by this live seal or a complete
-feature capability. Native compilation and devices remain untested.
+connected final process/SDK end still require qualification. The
+[final-end mechanics](NAVIGATION_PROCESS_END.md) have separate component coverage
+with an explicitly modeled live seal; that does not admit the whole connected
+graph or a complete feature capability. Native compilation and devices remain
+untested.
