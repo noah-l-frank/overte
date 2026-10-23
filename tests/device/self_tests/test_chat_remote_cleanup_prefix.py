@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from types import SimpleNamespace
 import unittest
 
 from adapters.chat_journey.observation import ChatObservationOwner
@@ -10,6 +11,8 @@ from adapters.chat_journey.remote_cleanup_prefix import ChatRemoteCleanupPrefix,
 from adapters.chat_journey.remote_actor_return import ChatRemoteActorReturn,ChatRemoteActorPending
 from adapters.chat_journey.remote_consumed_sources import ChatRemoteConsumedSources
 from adapters.chat_journey.cursor_source_seal import ChatCursorSourceSeal
+from adapters.chat_journey.evidence_archive import ChatArchiveCatalog
+from adapters.pico4.chat_archive import PicoChatArchivePlan
 from adapters.chat_journey.source_chunks import digest
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
@@ -110,6 +113,23 @@ class ChatRemoteCleanupPrefixTests(RemoteActorFixture,unittest.TestCase):
         self.assertEqual(consumed+2,receipt['original']['finalActorSequence'])
         self.assertEqual(digest(seal.previous),receipt['primarySealSha256'])
         self.assertEqual(receipt,joined.receipt())
+        # Actual immutable catalog acquisition only. Parent path admission is
+        # an explicit seam; false direct-wait evidence cannot restart an app.
+        plan=PicoChatArchivePlan.__new__(PicoChatArchivePlan);plan.catalog=ChatArchiveCatalog(hold_files=False);plan.archive=None
+        self.addCleanup(plan.close_host);plan.target='original-source-catalog'
+        plan.state=self.directory/'normal-script-state.json';plan.peer_directory=self.directory/'peer-catalog';plan.peer_directory.mkdir(mode=0o700)
+        plan.parent=SimpleNamespace(cache_release=SimpleNamespace(roles=(self.primary.current.samples,)),source=self.source,
+            binding=self.expected['binding'],peer=SimpleNamespace(binding=self.expected['peerBinding']))
+        plan.adapter=SimpleNamespace(_chat_remote_consumed_sources_store=lambda _target:joined.store,
+            _chat_remote_cleanup_prefix_store=lambda _target:self.consumer.store,_chat_remote_publication_store=lambda _target:self.owner.store,
+            _chat_remote_actor_return_store=lambda _target:returned.store,_chat_cursor_source_seal_store=lambda _target,**_kw:seal.store)
+        metadata=plan.add_remote_consumed_sources(joined);plan.catalog.verify_all()
+        self.assertFalse(metadata['chatRemoteSequenceSucceeded'])
+        paths={row['store'].path for row in plan.catalog.rows.values()}
+        self.assertTrue({store.path for store in {**self.stores,**self.return_stores}.values()}<=paths)
+        self.assertTrue({self.owner.store.path,self.consumer.store.path,returned.store.path,joined.store.path,seal.store.path}<=paths)
+        self.assertEqual('parent-consumed',plan.catalog.rows['primary/'+self.stores['actor'].path.name]['expected']['phase'])
+        self.assertEqual('host-closed',returned.graph.root['phase']);self.assertTrue(all(path.exists() for path in paths))
 
     def test_last_stop_intent_cas_native_jump_with_frozen_host_prevents_actual_stop_write(self):
         self.wait();write=self.consumer.store.write;writes=[];stop_write=self.stop_store.write

@@ -323,7 +323,8 @@ class PicoChatComposition:
         self.guard();return value
 
     def bind_consumed_cleanup(self,consumed):
-        need(getattr(self,'cursor_cleanup_consumption',None) is None and getattr(self,'cleanup_baseline',None) is None)
+        need(getattr(self,'cursor_cleanup_consumption',None) is None and getattr(self,'cleanup_baseline',None) is None
+            and getattr(self,'remote_consumed_sources',None) is None)
         try:
             value=self.require_consumed_cleanup(consumed)
             self.cursor_cleanup_consumption=consumed;return value
@@ -331,11 +332,46 @@ class PicoChatComposition:
             self.failed=True
             raise NativeUIError('Original shared Chat cleanup consumption did not authorize finalization; all originals remain') from None
 
-    def restart_and_close_application(self,after_epoch,*,cleanup_consumption=None):
+    def require_remote_consumed_sources(self,sources):
+        """Actual successful shared execution, full Actor return and both seals."""
+        from adapters.chat_journey.remote_consumed_sources import ChatRemoteConsumedSources
+        from adapters.chat_journey.remote_cleanup_prefix import ChatRemoteCleanupSlot
+        need(type(sources) is ChatRemoteConsumedSources and not self.failed
+            and self.previous['phase']=='caches-retired' and self.previous['completedSteps']==26
+            and self.cache_release.defer_ipc and sources.prefix.primary.current.samples is self.cache_release.roles[0])
+        prefix=sources.prefix
+        need(type(prefix.slot) is ChatRemoteCleanupSlot and prefix.slot.consumer is prefix
+            and prefix.slot.completed and not prefix.slot.failed and prefix.slot.journey is prefix.journey
+            and prefix.journey.cleanup_hook_started and prefix.journey.after_cleanup_baseline is prefix.slot.callback
+            and prefix.journey._cleanup_sequence_succeeded is True
+            and prefix.scope['runId']==self.source.run and prefix.scope['fixtureUrl']==self.source.fixture_url
+            and same(prefix.scope['binding'],self.binding) and same(prefix.scope['peerBinding'],self.peer.binding)
+            and prefix.actor.source is self.source and prefix.actor.locks[0] is self.lock and prefix.actor.locks[1] is self.peer.lock
+            and prefix.store.path==self.adapter._chat_remote_cleanup_prefix_store(self.target).path
+            and sources.store.path==self.adapter._chat_remote_consumed_sources_store(self.target).path
+            and sources.returned.store.path==self.adapter._chat_remote_actor_return_store(self.target).path)
+        value=sources.receipt()
+        need(value['original']['sequenceSucceeded'] is True
+            and prefix.previous['header']['sequenceSucceeded'] is True
+            and prefix.previous['header']['ticket']==self.cleanup_fence.original()['activations'][-1]['ticket'])
+        self.guard();return value
+
+    def bind_remote_consumed_sources(self,sources):
+        need(getattr(self,'remote_consumed_sources',None) is None and getattr(self,'cursor_cleanup_consumption',None) is None
+            and getattr(self,'cleanup_baseline',None) is None)
+        try:
+            value=self.require_remote_consumed_sources(sources);self.remote_consumed_sources=sources;return value
+        except BaseException:
+            self.failed=True
+            raise NativeUIError('Original remote Chat sources did not authorize full finalization; all originals remain') from None
+
+    def restart_and_close_application(self,after_epoch,*,cleanup_consumption=None,remote_sources=None):
         """Actual once-only restart, independent new originals and final IPC."""
         from adapters.pico4.chat_application_close import PicoChatApplicationClose
         try:
+            need(cleanup_consumption is None or remote_sources is None)
             if cleanup_consumption is not None:self.bind_consumed_cleanup(cleanup_consumption)
+            if remote_sources is not None:self.bind_remote_consumed_sources(remote_sources)
             need(not self.failed and integer(after_epoch,1) and self.previous['phase']=='caches-retired'
                 and self.cache_release is not None and self.cache_release.defer_ipc
                 and getattr(self,'application_close',None) is None)
@@ -384,6 +420,10 @@ class PicoChatComposition:
             if owner is not None:
                 try:okay=owner.close_host() is True and okay
                 except Exception:okay=False
+        remote=getattr(self,'remote_consumed_sources',None)
+        if remote is not None:
+            try:okay=remote.returned.close_host() is True and okay
+            except Exception:okay=False
         finalizer=getattr(self,'host_close',None)
         if finalizer is not None:okay=all(owner.closed and not owner.lost for owner in finalizer.journal_pairs) and okay
         return okay

@@ -56,6 +56,18 @@ class PicoChatHostClose:
         for name in ('old','new','lock_owner','root'):
             owner=getattr(io.transfer,name)
             if owner is not None:self.add('session/'+name,owner)
+        remote=getattr(parent,'remote_consumed_sources',None)
+        if remote is not None:
+            from adapters.chat_journey.remote_consumed_sources import ChatRemoteConsumedSources
+            from adapters.chat_journey.remote_actor_return import ChatRemoteActorReturn
+            need(type(remote) is ChatRemoteConsumedSources and remote.completed and not remote.failed
+                and type(remote.returned) is ChatRemoteActorReturn and remote.returned.complete and not remote.returned.failed
+                and self.archive.metadata.get('chatRemoteConsumedSourcesSha256')==digest(remote.previous)
+                and self.archive.metadata.get('chatRemoteActorReturnSha256')==digest(remote.returned.previous)
+                and self.archive.metadata.get('chatRemoteSequenceSucceeded') is True
+                and getattr(remote.returned.close_host,'__func__',None) is ChatRemoteActorReturn.close_host)
+            self.add('independent-observer/executable',remote.returned.process.fd_owner)
+            self.add('independent-observer/entry',remote.returned.process.entry_owner)
         need(self.pairs and self.windows)
         self.host=host_identity()
         self.scope=dict(picoChatHostCloseVersion=VERSION,sourceScope='original-host-chat-handles',

@@ -189,5 +189,36 @@ class PicoChatObservationFactoryTests(unittest.TestCase):
                 with self.assertRaises((ValueError,NativeUIError)):self.adapter._chat_application_retained(self.target)
                 metadata.clear();metadata.update(original)
 
+    def test_remote_archive_metadata_is_complete_true_and_exclusive_without_legacy_adoption(self):
+        state,_ui=self.adapter._script_paths(self.target);key=state.stem.removeprefix('normal-script-state-')
+        directory=state.parent/('chat-evidence-'+key+'-'+seams.RUN);directory.mkdir(mode=0o700)
+        metadata=dict(picoChatArchivePlanVersion=4,runId=seams.RUN,
+            oldBinding=deepcopy(self.parent.binding),newBinding=deepcopy(self.parent.binding))
+        evidence=dict(metadata=metadata,chatEvidenceArchiveVersion=4,fileOwnership='closed-immutable-originals',
+            unlinkPolicy='original-source-16-unlinks-250ms',copyVerification='full-current-copy-and-original-physical-inventory')
+        extension=dict(chatRemoteConsumedSourcesVersion=1,chatRemoteConsumedSourcesSha256='a'*64,
+            chatRemoteActorReturnSha256='b'*64,chatRemoteSourceSeals=['c'*64,'d'*64],chatRemoteSequenceSucceeded=True)
+        # This is only the real optional-metadata parser; sealed original
+        # archive bytes are a deliberate seam, not an empty-dir completion.
+        with patch('adapters.chat_journey.evidence_archive.completed_archive',return_value=evidence):
+            for field,value in extension.items():
+                metadata[field]=value
+                with self.assertRaises((ValueError,NativeUIError)):self.adapter._chat_application_retained(self.target)
+                del metadata[field]
+            metadata.update(extension);self.assertFalse(self.adapter._chat_application_retained(self.target))
+            for changes in (dict(chatRemoteSequenceSucceeded=False),dict(chatRemoteConsumedSourcesVersion=True),
+                dict(chatRemoteActorReturnSha256='b'*63),dict(chatRemoteSourceSeals=['c'*64,'c'*64]),
+                dict(chatRemoteSourceSeals=('c'*64,'d'*64)),dict(chatCleanupBaselineSha256='e'*64),
+                dict(chatCursorCleanupConsumptionVersion=1)):
+                original=deepcopy(metadata);metadata.update(changes)
+                with self.assertRaises((ValueError,NativeUIError)):self.adapter._chat_application_retained(self.target)
+                metadata.clear();metadata.update(original)
+
+    def test_remote_parent_finalization_cannot_start_from_unqualified_source_object(self):
+        self.assertIsNone(getattr(self.parent,'remote_consumed_sources',None))
+        with self.assertRaises(NativeUIError):self.parent.bind_remote_consumed_sources(object())
+        self.assertTrue(self.parent.failed);self.assertIsNone(getattr(self.parent,'remote_consumed_sources',None))
+        self.assertIsNone(self.adapter._chat_application_store(self.target).read());self.assertEqual([],self.h.native.inputs)
+
 
 if __name__=='__main__':unittest.main()
