@@ -79,6 +79,9 @@
 #include "../../../tests/device/native/PicoSnapshotCancelBridge.h"
 #include "../../../tests/device/native/PicoSnapshotCaptureFiles.h"
 #include "../../../tests/device/native/PicoSnapshotExportCommand.h"
+#if defined(ANDROID_APP_PICO_INTERFACE)
+#include <PicoSnapshotUploadEvidence.h>
+#endif
 #include "../../../tests/device/native/PicoSnapshotExportLease.h"
 #include "../../../tests/device/native/ProcessPresence.h"
 #include <ui/TabletScriptingInterface.h>
@@ -1026,6 +1029,28 @@ QVariantMap TestScriptingInterface::featureSnapshotScriptOriginals(const QVarian
     });
     if(!queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
     return result.values;
+#else
+    Q_UNUSED(command) return {};
+#endif
+}
+
+QVariantMap TestScriptingInterface::featurePicoSnapshotUpload(const QVariantMap& command) {
+#if defined(ANDROID_APP_PICO_INTERFACE) && (defined(Q_OS_ANDROID) || defined(OVERTE_PICO_SETUP))
+    const auto queue=_featureSnapshotQueue;if(!queue) {return {};}
+    if(QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoSnapshotUpload(command),{}};
+        }).values;
+    }
+    if(_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp || QThread::currentThread()!=qApp->thread()
+            || !qApp->isHMDMode() || QGuiApplication::applicationState()!=Qt::ApplicationActive
+            || !overte::e2e::previewDirectory(_testResultsLocation) || !overte::e2e::picoSnapshotUploadCommand(command)
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())
+            || _featureSnapshotUploadQueries.size()>=4096 || _featureSnapshotUploadQueries.contains(command.value("commandId").toString())) {return {};}
+    _featureSnapshotUploadQueries.insert(command.value("commandId").toString()); // Consume before any uncertain original acquisition.
+    const auto result=overte::e2e::picoSnapshotUploadObservation(command,_featureObservationInstance,_featureSnapshotUploadSequence);
+    return result;
 #else
     Q_UNUSED(command) return {};
 #endif
@@ -2360,7 +2385,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-navigation-modals.json" || filename == "feature-navigation-environment.json" || filename == "feature-navigation-directory.json"
             || filename == "feature-process-presence.json"
             || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
-            || filename == "feature-lifecycle-drive.json" || filename == "feature-lifecycle-gesture.json" || filename == "feature-audio-settings.json" || filename == "feature-snapshot-capture-originals.json" || filename == "feature-snapshot-script-originals.json" || filename == "feature-pico-snapshot-files.json" || filename == "feature-pico-snapshot-exports.json" || filename == "feature-script-work.json"
+            || filename == "feature-lifecycle-drive.json" || filename == "feature-lifecycle-gesture.json" || filename == "feature-audio-settings.json" || filename == "feature-snapshot-capture-originals.json" || filename == "feature-snapshot-script-originals.json" || filename == "feature-pico-snapshot-files.json" || filename == "feature-pico-snapshot-exports.json" || filename == "feature-pico-snapshot-upload.json" || filename == "feature-script-work.json"
             || filename == "feature-web-runtime.json" || filename == "feature-tablet-http.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-roots.json"

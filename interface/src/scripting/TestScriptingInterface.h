@@ -175,6 +175,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureSnapshotCaptureOriginals(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureSnapshotScriptOriginals(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoSnapshotExports(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featurePicoSnapshotUpload(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoSnapshotCaptureFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoSnapshotCancel(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureLifecycleGestureObservation(const QVariantMap& command);
@@ -274,6 +275,8 @@ private:
     std::shared_ptr<overte::e2e::AudioSettingsObservation> _featureAudioSettings;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAudioSettingsQueue;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureSnapshotQueue;
+    QSet<QString> _featureSnapshotUploadQueries;
+    quint64 _featureSnapshotUploadSequence{0};
     QSet<QString> _featureSnapshotExportQueries;
     quint64 _featureSnapshotExportSequence{0};
     QSet<QString> _featureSnapshotFileQueries;

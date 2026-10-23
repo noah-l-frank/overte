@@ -11,6 +11,9 @@
 //
 
 #include "AccountManager.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "PicoSnapshotUploadEvidence.h"
+#endif
 #include "OAuthTokenValidation.h"
 #include "CredentialTransportPolicy.h"
 
@@ -533,6 +536,11 @@ void AccountManager::sendRequest(const QString& path,
     }
 
     if (networkReply) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        overte::e2e::PicoSnapshotUploadEvidence::get().request(callbackParams.picoSnapshotUploadJob,
+            callbackParams.picoSnapshotUploadStage,networkReply,networkRequest,authType==AccountManagerAuth::Required,
+            dataByteArray,dataMultiPart,callbackParams.requestTicket.current());
+#endif
         if (!propertyMap.isEmpty()) {
             // we have properties to set on the reply so the user can check them after
             foreach(const QString& propertyKey, propertyMap.keys()) {

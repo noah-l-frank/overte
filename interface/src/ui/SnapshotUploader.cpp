@@ -10,6 +10,9 @@
 //
 
 #include "SnapshotUploader.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include <PicoSnapshotUploadEvidence.h>
+#endif
 
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonArray>
@@ -21,12 +24,19 @@
 SnapshotUploader::SnapshotUploader(QUrl inWorldLocation, QString pathname) :
     _inWorldLocation(inWorldLocation),
     _pathname(pathname) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    _featurePicoUploadJob=overte::e2e::PicoSnapshotUploadEvidence::get().begin(this,pathname,inWorldLocation);
+#endif
 }
 
 void SnapshotUploader::cancel() {
     if (_finished) { return; }
     _finished = true;
     _requests.setActive(false);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    overte::e2e::PicoSnapshotUploadEvidence::get().change(_featurePicoUploadJob,"cancelRequested",true,"cancel-requested");
+    overte::e2e::PicoSnapshotUploadEvidence::get().change(_featurePicoUploadJob,"terminal","cancelled","terminal");
+#endif
     emit finished(_pathname, "cancelled", "upload-cancelled");
     deleteLater();
 }
@@ -35,6 +45,9 @@ void SnapshotUploader::complete(bool error, const QString& reply) {
     if (_finished || !_requests.snapshot().current()) { return; }
     _finished = true;
     emit DependencyManager::get<WindowScriptingInterface>()->snapshotShared(error, reply);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    overte::e2e::PicoSnapshotUploadEvidence::get().change(_featurePicoUploadJob,"terminal",error ? "error" : "success","terminal");
+#endif
     emit finished(_pathname, error ? "error" : "success", error ? "upload-failed" : QString());
     deleteLater();
 }
@@ -79,6 +92,9 @@ void SnapshotUploader::uploadSuccess(QNetworkReply* reply) {
         auto accountManager = DependencyManager::get<AccountManager>();
         JSONCallbackParameters callbackParams(this, "createStorySuccess", "createStoryFailure");
         callbackParams.requestTicket = nextTicket();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        callbackParams.picoSnapshotUploadJob=_featurePicoUploadJob;callbackParams.picoSnapshotUploadStage="story";
+#endif
 
         accountManager->sendRequest(STORY_UPLOAD_URL,
             AccountManagerAuth::Required,
