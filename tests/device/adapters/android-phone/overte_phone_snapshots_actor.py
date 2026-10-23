@@ -18,7 +18,7 @@ from overte_phone_assets_actor import PhoneAssetsActor
 from overte_phone_create_actor import quiet_window
 from overte_phone_script_history import pack,unpack,same,canonical
 from overte_phone_script_lock import PhoneScriptSourceBusy
-from overte_phone_snapshots_role import PhoneSnapshotsRole,SnapshotPhaseDeferred,role_state
+from overte_phone_snapshots_role import PhoneSnapshotsRole,SnapshotPhaseDeferred,role_state,validate_read_ready_mode,validate_read_ready_slot,validate_read_ready_slot_owner
 from overte_phone_snapshots_constructor_history import graph_digest,passive_scope,SnapshotConstructorHistoryPass
 from overte_phone_snapshots_measurements import SnapshotPending
 from overte_phone_snapshots_evidence import SnapshotsOriginals
@@ -190,7 +190,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             need(same(store.read(),self._ordinary_primary))
 
     def save(self):
-        self.feature.bound();self.primary_owner();self.ordinary_publication();self.cleanup_publication();need(same(self.store.read(),self.previous))
+        self.feature.bound();self.primary_owner();self.ordinary_publication();self.cleanup_publication();self.read_ready_mode();need(same(self.store.read(),self.previous))
         value=dict(snapshotsActorVersion=ACTOR_VERSION,runId=self.feature.run,binding=self.feature.binding,payload=pack([self.state]))
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.primary_owner();self.previous=deepcopy(value)
 
@@ -233,7 +233,25 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             return .05
         return .25
 
-    def primary_continuity(self):
+    def read_ready_mode(self):
+        """A versioned owner marker enrolls cleanup, never a target fact."""
+        f=self.feature;stages=f.state.get('cleanupStages',{});need(type(stages) is dict)
+        if f.previous is not None:
+            original=unpack(f.previous['payload']);need(len(original)==1)
+            owned=original[0].get('cleanupStages',{});need(type(owned) is dict)
+            need(('readReadyMode' in stages)==('readReadyMode' in owned))
+            if 'readReadyMode' in stages:need(same(stages['readReadyMode'],owned['readReadyMode']))
+        if 'readReadyMode' not in stages:return None
+        return validate_read_ready_mode(stages['readReadyMode'],actor_process=self.state['process'])
+
+    def read_ready_cue(self,header,frame,historical,*,status=None):
+        f=self.feature;mode=self.read_ready_mode();need(mode is not None)
+        validate_read_ready_slot(frame,f.run,phase=status,actor_process=self.state['process'])
+        validate_read_ready_slot_owner(f,header,frame,historical)
+        need(frame['readReadySlot']['featureOwnerSha256']==digest(f.previous))
+        return frame['readReadySlot']
+
+    def primary_continuity(self,status=None):
         """A saved publication may resume, but cannot forget its known owner."""
         f=self.feature;cue=self.state['primaryCue']
         if cue is None:return
@@ -243,6 +261,16 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             f.lock.assert_held();f.header_authority()
             need(same(self.store.read(),actor_header) and same(store.read(),header));return True
         validate_primary_cue(f,cue,header,history_guard=historical)
+        mode=self.read_ready_mode()
+        if mode is not None and self.state['pending'] is not None:
+            current=f.phase.status() if status is None else status
+            # An earlier ordinary pending sample may only be dropped by the
+            # existing stale-ticket path. Current cleanup delivery needs the
+            # original read-ready slot, including after an accepted lost POST.
+            if self.state['pending']['sample']['ticket']==current['activations'][-1]['ticket']:
+                host=SnapshotsOriginals(f.root,f.binding,f.run,'primary',historical,lambda *_:need(False),kind='snapshots')
+                entries=primary_manifests(host,cue_state(f,cue));need(entries)
+                self.read_ready_cue(cue['header'],host.read(host.expand(entries[-1])),historical,status=current)
         self._ordinary_primary=deepcopy(header);self.primary_owner()
 
     def primary_cue(self,status):
@@ -251,6 +279,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         store=PrivateFeatureState(f.store.path.with_name('phone-snapshots-primary-originals.json'))
         header=store.read();previous=self.state['primaryCue']
         if header is None:
+            need(self.read_ready_mode() is None)
             need(previous is None
                 and not any(f.root.glob('emote-frame-snapshots-'+f.run+'-primary-*.json'))
                 and not any(f.root.glob('emote-index-snapshots-'+f.run+'-primary-*.json'))
@@ -271,6 +300,21 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
         host=SnapshotsOriginals(f.root,f.binding,f.run,'primary',historical,lambda *_:need(False),kind='snapshots')
         entries=primary_manifests(host,state);need(entries)
         frame=host.read(host.expand(entries[-1]))
+        mode=self.read_ready_mode()
+        if mode is not None:
+            need(status['active'] and status['activations'][-1]['stimulus']['verb']=='cleanup')
+            # Once enrolled, a normal cleanup measurement or unrelated partial
+            # frame can never publish before the Primary's completed slot.
+            if 'readReadySlot' not in frame:return None
+            slot=self.read_ready_cue(header,frame,historical,status=status)
+            if previous is not None:
+                old_entries=primary_manifests(host,cue_state(f,previous));need(old_entries)
+                old=host.read(host.expand(old_entries[-1]))
+                if 'readReadySlot' in old:
+                    validate_read_ready_slot(old,f.run,actor_process=self.state['process'])
+                    need(old['readReadySlot']['slotId']!=slot['slotId'])
+            need(f.bound() is True and historical() is True)
+            return dict(snapshotPrimaryCueVersion=1,header=deepcopy(header))
         if frame.get('diagnostic') is True:return None
         need(type(frame.get('measurement')) is dict)
         before,after=frame['phaseBefore'],frame['phaseAfter']
@@ -504,7 +548,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             if retained is not None:
                 self.cleanup_owners(*retained,loaded=True)
                 f.bound();retained[0].bound();retained[0].history_authority()
-            status=f.phase.status(self.state['closure'])
+            status=f.phase.status(self.state['closure']);self.read_ready_mode()
             if f.state['phase']=='partial-cleaned':
                 need(f.state['partial'] is True and self.state['pending'] is self.state['last'] is self.state['quiet'] is None)
                 if status['active']:return False
@@ -544,7 +588,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
                 warm=None
                 need(self.state['phase']=='watching')
                 if self.state['pending'] is not None:
-                    self.primary_continuity();self.deliver();return False
+                    self.primary_continuity(status);self.deliver();return False
                 if f.state['phase'] not in ('baseline','active','cleaned'):return False
                 current=status['activations'][-1];verb=current['stimulus']['verb']
                 if verb=='baseline' and f.state['phase']!='baseline':return False

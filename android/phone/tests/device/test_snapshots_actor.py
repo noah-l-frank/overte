@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import multiprocessing
+import hashlib
+import uuid
 import os
 from pathlib import Path
 import sys
@@ -19,7 +21,7 @@ from feature_journeys.server import make_server
 from feature_journeys.witness import Client
 from feature_journeys.phase_fixture import PhaseFixtureReader
 from fixture.messages_mixer import start_identity
-from overte_phone_script_history import unpack,pack
+from overte_phone_script_history import unpack,pack,canonical
 from overte_phone_snapshots_actor import PhoneSnapshotsActor
 from overte_phone_snapshots_role import PhoneSnapshotsRole
 from test_snapshots_role import SnapshotRolesBoundary,RUN,TICKET
@@ -93,7 +95,11 @@ def cleanup_frontier_actor(boundary,url,queue,command):
     execute unchanged. Wrappers only count calls or lose an actual POST reply.
     """
     import overte_phone_snapshots_actor as module
-    f=boundary.feature;f.role='actor';f.load=lambda:setattr(f,'previous',f.store.read())
+    f=boundary.feature;f.role='actor'
+    def load():
+        f.previous=f.store.read()
+        if f.previous is not None:f.state=unpack(f.previous['payload'])[0]
+    f.load=load
     phase=PhaseFixtureReader(Client(url,'a'*64),RUN,'snapshots',epoch_ms=lambda:boundary.epoch)
     f.phase.client=phase.client;f.phase.status=phase.status
     f.phase.provider=lambda:dict(boundary.provider,active=phase.status()['active'])
@@ -194,7 +200,7 @@ class SnapshotsActorTests(unittest.TestCase):
             self.assertEqual(primary.previous,primary.store.read())
             return deepcopy(primary.previous)
 
-    def cleanup_frontier(self,*,ready=True):
+    def cleanup_frontier(self,*,ready=True,slot_mode=False):
         b=self.boundary;b.clean();self.reader.activate('d'*32,'cleanup',{})
         b.feature.state['actions']=[dict(ticket='d'*32,phase='acknowledged')]
         b.provider.update(ticket='d'*32,activations=[dict(ticket=TICKET,verb='capture',capturedEpochMs=19000),
@@ -207,6 +213,10 @@ class SnapshotsActorTests(unittest.TestCase):
         self.server.shutdown();self.thread.join(3);self.assertFalse(self.thread.is_alive())
         ctx=multiprocessing.get_context('fork');queue=ctx.Queue();parent,child=ctx.Pipe()
         process=ctx.Process(target=cleanup_frontier_actor,args=(b,self.url,queue,child));process.start();child.close()
+        if slot_mode:
+            self.slot_process=dict(pid=process.pid,start=start_identity(process.pid))
+            b.feature.state.setdefault('cleanupStages',{})['readReadyMode']=dict(snapshotCleanupReadReadyVersion=1,actorProcess=deepcopy(self.slot_process))
+            with b.feature.lock.held():PhoneSnapshotsFeature.save(b.feature)
         self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start()
         def stop():
             if process.is_alive():
@@ -228,6 +238,36 @@ class SnapshotsActorTests(unittest.TestCase):
             self.assertNotEqual(os.getpid(),value['pid']);return value
         return step
 
+    def append_cleanup_slot(self,*,mutate=None,diagnostic_only=False):
+        """Produce pure metadata through the actual Role archive pipeline.
+
+        Native/SDK signals remain the explicit component producers. The public
+        ConstructorPass authorization and wait are covered by the separate
+        public-slot composition tests; this producer never supplies effect facts.
+        """
+        f=self.boundary.feature
+        with f.lock.held():
+            role=PhoneSnapshotsRole(f,'primary');old=deepcopy(role.previous)
+            before=f.phase.status();after=f.phase.status(before)
+            frame=dict(ticket=before['activations'][-1]['ticket'],phaseBefore=before,phaseAfter=after,
+                diagnostic=True,image=None,binaries=[],retirement=None)
+            if not diagnostic_only:
+                frame['readReadySlot']=dict(snapshotCleanupReadReadyVersion=1,slotId=uuid.uuid4().hex,
+                    preparedRoleSequence=role.state['sequence'],preparedRoleHeader=old,
+                    preparedRoleOwnerSha256=hashlib.sha256(canonical(old)).hexdigest(),
+                    featureOwnerSha256=hashlib.sha256(canonical(f.previous)).hexdigest(),actorProcess=deepcopy(self.slot_process))
+            if mutate is not None:mutate(frame)
+            role.state.update(phase='reading',pending=dict(original=None,manifest=None,image=None,binaries=[],retirement=None,frame=None,work=deepcopy(frame)))
+            role.save();role.finish_archive(frame)
+            self.assertEqual(role.previous,role.store.read())
+            return deepcopy(role.previous),deepcopy(frame)
+
+    def enroll_complete_without_post(self,step):
+        value=step();self.assertIsNone(value['error'],value)
+        self.assertTrue(value['state']['quiet']['complete']);self.assertGreaterEqual(value['counts']['reads'],3)
+        self.assertEqual(0,value['counts']['posts']);self.assertIsNone(value['state']['primaryCue'])
+        return value
+
     def completed_frontier(self,step,**instruction):
         value=step(**instruction);self.assertIsNone(value['error'],value)
         quiet=value['state']['quiet'];self.assertIsNotNone(quiet)
@@ -240,6 +280,82 @@ class SnapshotsActorTests(unittest.TestCase):
     def assert_no_further_acquisition(self,before,after):
         self.assertEqual(before['counts'],after['counts'])
         self.assertEqual(before['roleHeader'],after['roleHeader'])
+
+    def test_enrolled_cleanup_ignores_normal_and_unrelated_diagnostic_then_reads_for_slot(self):
+        step=self.cleanup_frontier(slot_mode=True);first=self.enroll_complete_without_post(step)
+        self.advance_cleanup_primary();normal=step();self.assertIsNone(normal['error'],normal)
+        self.assert_no_further_acquisition(first,normal)
+        self.append_cleanup_slot(diagnostic_only=True);unrelated=step();self.assertIsNone(unrelated['error'],unrelated)
+        self.assert_no_further_acquisition(normal,unrelated)
+        header,frame=self.append_cleanup_slot();fresh=step();self.assertIsNone(fresh['error'],fresh)
+        self.assertGreater(fresh['counts']['reads'],first['counts']['reads']);self.assertEqual(1,fresh['counts']['posts'])
+        self.assertEqual(header,fresh['state']['primaryCue']['header'])
+        self.assertEqual(self.slot_process,frame['readReadySlot']['actorProcess'])
+        self.assertEqual(fresh['state']['quiet']['sequences'][-1],fresh['state']['last']['original']['sample']['actorSequence'])
+        again=step();self.assertIsNone(again['error'],again);self.assert_no_further_acquisition(fresh,again)
+        self.assertEqual(1,len(self.reader.request('/runs/'+RUN)['entries']))
+
+    def slot_rejection(self,mutation):
+        step=self.cleanup_frontier(slot_mode=True);before=self.enroll_complete_without_post(step)
+        header,frame=self.append_cleanup_slot(mutate=mutation)
+        original_paths=list(self.root.glob('emote-*-snapshots-'+RUN+'-primary-*.json'))
+        original_bytes={str(path):path.read_bytes() for path in original_paths}
+        rejected=step();self.assertEqual('NativeUIError',rejected['error']['error'],rejected)
+        self.assert_no_further_acquisition(before,rejected)
+        self.assertEqual(header,PrivateFeatureState(self.root/'phone-snapshots-primary-originals.json').read())
+        self.assertEqual(original_bytes,{str(path):path.read_bytes() for path in original_paths})
+        self.assertFalse(self.reader.request('/runs/'+RUN)['entries'])
+
+    def test_enrolled_cleanup_rejects_unknown_slot_version(self):
+        self.slot_rejection(lambda frame:frame['readReadySlot'].update(snapshotCleanupReadReadyVersion=2))
+
+    def test_enrolled_cleanup_rejects_foreign_slot_process(self):
+        self.slot_rejection(lambda frame:frame['readReadySlot']['actorProcess'].update(start='999999999'))
+
+    def test_enrolled_cleanup_rejects_unjoined_prepared_header(self):
+        self.slot_rejection(lambda frame:frame['readReadySlot']['preparedRoleHeader'].update(role='actor'))
+
+    def test_enrolled_cleanup_rejects_foreign_feature_digest(self):
+        self.slot_rejection(lambda frame:frame['readReadySlot'].update(featureOwnerSha256='0'*64))
+
+    def mode_rejection(self,mutation):
+        step=self.cleanup_frontier(slot_mode=True);f=self.boundary.feature
+        mutation(f.state['cleanupStages']['readReadyMode'])
+        from overte_phone_snapshots_feature import PhoneSnapshotsFeature
+        with f.lock.held():PhoneSnapshotsFeature.save(f)
+        rejected=step();self.assertEqual('NativeUIError',rejected['error']['error'],rejected)
+        self.assertEqual(dict(reads=0,posts=0),rejected['counts'])
+        self.assertFalse(self.reader.request('/runs/'+RUN)['entries'])
+
+    def test_enrolled_cleanup_rejects_unknown_mode_version_before_read(self):
+        self.mode_rejection(lambda mode:mode.update(snapshotCleanupReadReadyVersion=2))
+
+    def test_enrolled_cleanup_rejects_present_null_mode_before_read(self):
+        step=self.cleanup_frontier(slot_mode=True);f=self.boundary.feature
+        f.state['cleanupStages']['readReadyMode']=None
+        from overte_phone_snapshots_feature import PhoneSnapshotsFeature
+        with f.lock.held():PhoneSnapshotsFeature.save(f)
+        rejected=step();self.assertEqual('NativeUIError',rejected['error']['error'],rejected)
+        self.assertEqual(dict(reads=0,posts=0),rejected['counts'])
+        self.assertFalse(self.reader.request('/runs/'+RUN)['entries'])
+
+    def test_enrolled_cleanup_rejects_foreign_enrolled_process_before_read(self):
+        self.mode_rejection(lambda mode:mode['actorProcess'].update(start='999999999'))
+
+    def test_enrolled_cleanup_lost_post_recovers_exact_original_slot_once(self):
+        step=self.cleanup_frontier(slot_mode=True);before=self.enroll_complete_without_post(step)
+        header,_frame=self.append_cleanup_slot();uncertain=step(loseReply=True)
+        self.assertEqual('NativeUIError',uncertain['error']['error'],uncertain)
+        self.assertEqual(1,uncertain['counts']['posts']);self.assertEqual(1,uncertain['lostReplies'])
+        self.assertGreater(uncertain['counts']['reads'],before['counts']['reads'])
+        self.assertEqual(header,uncertain['state']['primaryCue']['header'])
+        sample=deepcopy(uncertain['state']['pending']['sample']);accepted=self.reader.request('/runs/'+RUN)['entries']
+        self.assertEqual(1,len(accepted));self.assertEqual(sample,{key:accepted[0][key] for key in sample})
+        recovered=step(cold=True);self.assertIsNone(recovered['error'],recovered)
+        self.assert_no_further_acquisition(uncertain,recovered)
+        self.assertIsNone(recovered['state']['pending']);self.assertEqual(sample,recovered['state']['last']['original']['sample'])
+        self.assertEqual(header,recovered['state']['primaryCue']['header'])
+        self.assertEqual(1,len(self.reader.request('/runs/'+RUN)['entries']))
 
     def test_cleanup_frontier_publishes_once_then_requires_new_own_read(self):
         step=self.cleanup_frontier();first=self.completed_frontier(step)
@@ -503,7 +619,7 @@ class SnapshotsActorTests(unittest.TestCase):
     def test_actor_load_cannot_adopt_valid_changed_journal_after_first_comparison(self):self.between_lock_counter('actor-load')
 
     def test_partial_cleanup_records_only_the_owner_proof_after_actual_close(self):
-        b=self.boundary;f=b.feature;f.role='actor';f.load=lambda:None;f.state.update(phase='partial-cleaned',partial=True)
+        b=self.boundary;f=b.feature;f.role='actor';f.load=lambda:None;f.previous=f.store.read();f.state.update(phase='partial-cleaned',partial=True)
         f.state['hostProcess']=dict(pid=os.getpid()+100,start='explicit-host-identity-seam')
         phase=PhaseFixtureReader(Client(self.url,'a'*64),RUN,'snapshots',epoch_ms=lambda:b.epoch);f.phase.client=phase.client;f.phase.status=phase.status
         proof=dict(originalScope='zero-issued',kernelBinding=deepcopy(f.binding));calls=[]
