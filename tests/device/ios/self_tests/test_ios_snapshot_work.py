@@ -162,9 +162,15 @@ if(calls!==2||saved.at(-1).v.status!=='unavailable')throw Error('uncertain read 
         self.assertIn('observer->destroyed(snapshotTimer)',manager)
         self.assertIn('defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)',native)
         self.assertNotIn('Snapshot::',native);self.assertNotIn('setTimeout',native)
-        start=save.index('if (filename=="feature-ios-snapshot-work.json"')
-        self.assertIn('QJsonDocument::Compact',save[start:save.index('#endif',start)])
-        allow=save[save.index('if (filename == "feature-chat-observation.json"'):save.index('QSaveFile output(filepath)')]
+        compact=save.split('#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)',1)[1].split('#endif',1)[0]
+        condition,body=compact.split('{',1)
+        # The bounded source family shares one closed compact writer. Its
+        # first filename is not an ordering or ownership requirement.
+        for name in ('work','exports','captures'):
+            self.assertIn('filename=="feature-ios-snapshot-'+name+'.json"',condition)
+        self.assertIn('jsonData=jsonDocument.toJson(QJsonDocument::Compact)',body)
+        allow=save[save.index('QString filepath = QDir::cleanPath'):save.index('QSaveFile output(filepath)')]
+        self.assertIn('#if defined(OVERTE_E2E_FEATURE_TESTS)',allow)
         self.assertIn('filename == "feature-ios-snapshot-work.json"',allow)
         self.assertIn('filename == "feature-ios-snapshot-exports.json"',allow)
         self.assertIn('QFileInfo(filepath).isSymLink()',allow)
