@@ -85,6 +85,12 @@ is not a complete restore/cleanup or whole Snapshot result. Existing Close
 records and their explicitly partial settings boundary are not retroactively
 requalified.
 
+For a new run with this lease, the existing normal Close owner can call
+`observe_settings()` after normal checked-control restoration and Close. Its
+[closed raw-settings checkpoint](SNAPSHOT_SETTINGS_CLOSE.md) links the original
+lease to actual fresh closed/neutral bookends and a subsequent immutable raw
+read. This is observation of the restoration boundary, not a raw restore API.
+
 ## Host proof and limits
 
 The Qt harness compiles the complete actual Handle header, original protected

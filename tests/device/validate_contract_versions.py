@@ -349,6 +349,7 @@ REQUIRED = {
     "pico-snapshot-settings-originals": 1,
     "pico-snapshot-settings-baseline": 1,
     "pico-snapshot-settings-baseline-originals": 1,
+    "pico-snapshot-settings-close": 1,
     "pico-snapshot-cancel-originals": 1,
     "snapshot-android-platform": 1,
     "pico-snapshot-file-owner": 1,

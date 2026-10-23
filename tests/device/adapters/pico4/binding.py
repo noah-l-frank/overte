@@ -1639,7 +1639,7 @@ def create_adapter(args, base_class):
                 'snapshot-save-owner.json','snapshot-save-originals.json','snapshot-upload-fail-owner.json','snapshot-upload-owner.json',
                 'snapshot-upload-fail-originals.json','snapshot-upload-originals.json','snapshot-background-owner.json','snapshot-background-originals.json',
                 'snapshot-close-owner.json','snapshot-close-originals.json','snapshot-close-statuses.json',
-                'snapshot-settings-baseline.json','snapshot-settings-baseline-originals.json')
+                'snapshot-settings-baseline.json','snapshot-settings-baseline-originals.json','snapshot-settings-close.json')
             paths=[store.path]+[store.path.with_name(name) for name in names]
             paths.extend(store.path.with_name('snapshot-return-image-'+role+suffix) for role in ('primary','actor') for suffix in ('.json','-originals.json'))
             prefixes=('snapshot-cancel-originals.json.frame-','snapshot-save-originals.json.frame-','snapshot-upload-fail-originals.json.frame-',

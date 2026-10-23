@@ -59,6 +59,13 @@ supply that missing baseline. `completeSettingsBaseline`, `qtObjectsRetired`,
 false. No old run is retroactively assigned a settings baseline. Future runs
 may add a separately reviewed passive original lease before their first input.
 
+New Cancel v3 runs may now opt into the
+[passive pre-input lease](SNAPSHOT_SETTINGS_BASELINE.md) and call
+`observe_settings()` after normal restoration/Close to record the
+[raw thirteen-key result](SNAPSHOT_SETTINGS_CLOSE.md). The checkpoint compares
+actual typed originals, never supplies restore values, and does not replace
+the later original three-second Close quiet window or change these flags.
+
 The earlier isolated Still harness kept one UI generation through closure; that
 was not the production refresh behavior. This composition instead tests the
 actual generation transition and retains both existing journals. Neither the
