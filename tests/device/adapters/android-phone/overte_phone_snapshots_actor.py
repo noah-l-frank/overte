@@ -892,6 +892,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             f.sleep(.05)
             prepared=self.cleanup_anchor(role,status)
             history=SnapshotActorHistoryPass(self,role,prepared,locked=True)
+            prepared=history.prepared
             passes.callback(history.close)
             history.read();qualified_status=history.finish()
             if not qualified_status['active']:return self.defer_cleanup_close(role,qualified_status,prepared['phase'])
