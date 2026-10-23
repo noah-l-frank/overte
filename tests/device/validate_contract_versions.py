@@ -29,7 +29,7 @@ REQUIRED = {
     "chat-evidence-archive": 4,
     "pico-chat-archive-plan": 4,
     "pico-chat-cursor-archive-extension": 1,
-    "pico-chat-cursor-actor": 1,
+    "pico-chat-cursor-actor": 2,
     "chat-observer-process-presence": 1,
     "observer-return-transport": 1,
     "pico-chat-host-close": 1,

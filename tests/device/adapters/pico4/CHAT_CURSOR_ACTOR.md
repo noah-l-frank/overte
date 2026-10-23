@@ -1,6 +1,6 @@
 # Original independent Chat observer producer
 
-`PicoChatCursorActor` version 1 runs only through the existing independently
+`PicoChatCursorActor` version 2 runs only through the existing independently
 provisioned Pico `feature_observer.py` entrypoint. Observer configuration version
 3 adds `area=chat` and the exact private `peerConfig` file. Existing version 1
 and 2 configurations keep their existing routes. No target discovery, product
@@ -52,15 +52,46 @@ retains the command, original source roots/chunks, seal and owner result for
 the Parent's later complete archival. Best-effort `detach()` alone cannot
 produce this result.
 
-This is the producer side of the process boundary. Its host result does not
-prove that the observer process has exited. The Parent still needs passive
-acquisition of this exact originally live host PID/start/executable, the
-original returned command/result, independent physical graph validation and
-actual kernel absence after termination. The local v1 cleanup consumer still
-requires live Actor objects in its own host process; it cannot adopt these
-files as those objects. A separate explicit remote consumption join is needed.
-The existing full archive diagnostic and in-process Actor scheduling seam do
-not qualify this boundary. Public Chat capability remains disabled.
+Version 2 adds fixed private `chat-cursor-actor-return-*` and
+`chat-cursor-actor-consumption-*` stores. All four fixed stores must be empty,
+with no rootless chunks, before acquisition. Ordinary generic application
+cleanup retains both new stores and their orphan chunks. The Stop command
+remains explicitly version 1; its version does not follow the producer version.
+Legacy producer version 1 roots remain historical/retained only and never gain
+return qualification. The public observer configuration remains version 3.
+
+After actual successful warm `host-closed` receipt, `publish_return()` passes
+its unchanged literal original root bytes and physical stamp to the neutral
+[observer return transport](../OBSERVER_RETURN.md). Its typed family is
+`pico-chat-cursor-actor`; its original request is exactly the one original Stop
+command ID. No expected feature state or caller completion flag is passed.
+A lost host-close CAS cannot publish a return, even if its disk root looks
+closed. The producer's historical return guard verifies original roots,
+command, source seal and already closed original descriptor pairs, without
+native guard reentry or new source queries.
+
+The real loop keeps this same Actor alive after return publication, under its
+unchanged original duration bound. It cannot publish or stop again. Only after
+independently reading the Parent's fresh actual host identity/nonce and echoing
+the original consumption bytes through the neutral sender does it write
+`parent-consumed`, recheck original historical ownership and return normally.
+Missing consumption reaches the original deadline; it cannot become a normal
+exit or trigger another publication. Lost consumption or owner CAS remains
+uncertain, retains originals and has no replay path. The returned historical
+host-close payload stays unchanged while the separate current Actor owner root
+advances to `parent-consumed`; its old stamp is not represented as a new physical
+current root. The immutable transport chunks preserve those original bytes.
+
+This is the producer side of the process boundary. The Parent still needs
+originally live acquisition of this exact reviewed host PID/start/executable,
+typed admission of all original Chat graph bytes and seals, fresh consumption
+through the neutral receiver, and actual kernel absence after termination.
+The neutral transport supplies no graph or whole-feature verdict. The local
+v1 cleanup consumer still requires live Actor objects in its own host process;
+it cannot adopt these files as those objects. A separate explicit remote
+consumption join is needed. The existing full archive diagnostic and in-process
+Actor scheduling seam do not qualify this boundary. Public Chat capability
+remains disabled.
 
 The five `self_tests.test_pico_chat_cursor_actor` cases execute the actual stage
 selection, repeated publisher, full source seal and original Linux descriptor
@@ -80,3 +111,19 @@ Only that test expectation was corrected. The two actual factory/retention
 cases and ten observer cases then passed together, 12/12 in 5.435 seconds.
 Those timings describe host checks, not native/device performance or a whole
 feature result.
+
+For version 2, the existing actual seal/descriptor positive case additionally
+publishes the literal original host-close root and starts a second owned Python
+stdin Parent. That process independently reads the real immutable return chunks,
+checks the typed terminal root and writes a fresh actual host identity/nonce.
+The original Actor consumes it through the actual neutral sender, reaches
+`parent-consumed`, and performs no native guard/query. Native/Parent graph
+provenance and that small Parent's full graph admission remain explicit seams;
+the neutral receiver's separate two-process tests qualify original host/kernel
+return. This positive passed 1/1 in 13.818 seconds and, after adding the final
+rootless owner/Stop chunk checks, 1/1 in 13.574 seconds. The lost host-CAS refusal and
+two actual fixed-factory/rootless-chunk cases passed 3/3 in 20.000 seconds.
+The small routing tests additionally cover passive nonce waiting until the
+original deadline and strict refusal to qualify legacy version 1 metadata;
+all 12 small routing cases passed in 0.272 seconds.
+No complete observer entrypoint, product process or device was run.
