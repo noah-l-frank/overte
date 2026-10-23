@@ -76,3 +76,17 @@ frozen native clock. Returned/archive DTO copies are built before final OS and
 clock requalification. Coverage selection also passed (two groups, 3.59 seconds
 total); private version-registry validation passed. No device or OS chooser
 selection was run.
+
+## Admission integrity and final parent requalification
+
+A follow-up pins the original prepared chooser as canonical strict JSON bytes
+and SHA-256. Every later scope guard checks both its exact typed JSON value and
+digest before an SDK read; in-memory component, UID, nested raw provenance and
+container/string-subclass replacement cannot become new admission authority.
+After the last actual Activity/resolution/UID reads and their original copies,
+the scope again checks the same lock acquisition and parent authority, then
+seals both clocks. This final authority check performs no SDK/native refresh.
+No observation is published when a final UID read changes parent authority or
+actually releases and reacquires the host lock. Return/pin-copy work is covered
+by the final clock seal. Three persistent tests add those counterexamples to the
+existing owning selection; no contract version, selector or capability changes.
