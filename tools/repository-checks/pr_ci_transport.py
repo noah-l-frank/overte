@@ -35,6 +35,10 @@ OWNERS = frozenset(("policy", "host", "npm", "native", "codeql", "security", "an
 LABELS = {"policy": "Authenticate candidate policy", "host": "Host contracts",
           "native": "Native C++ owner / build", "security": "Workflow security",
           "android": "Android product owner", "ios": "iOS product owner"}
+SKIPPED_SOURCE_POLICY_NAMES = frozenset({
+    "Source policy not applicable",
+    "github.event_name == 'pull_request_target' && 'source-policy' || 'Source policy not applicable'",
+})
 STEPS = {
     "plan": ("Authenticate immutable PR inputs", "Select owners from complete immutable trees"),
     "policy": ("Verify exact policy and source identities",),
@@ -275,7 +279,13 @@ def validate_jobs(jobs, expected_owners, *, plan=None, context=None):
                         if name.startswith(placeholder + " / "):
                             expected.pop(name)
                     expected[placeholder] = (role, False)
-    expected["Source policy not applicable"] = ("source-policy", False)
+    # GitHub can retain the unevaluated display-name expression when a job is
+    # skipped. Both exact names describe one nonexecuting placeholder, never
+    # the protected source-policy check or an additional execution owner.
+    require(len(set(named) & SKIPPED_SOURCE_POLICY_NAMES) <= 1,
+            "native skipped source-policy inventory is ambiguous")
+    for name in SKIPPED_SOURCE_POLICY_NAMES:
+        expected[name] = ("source-policy", False)
     observers = {"required-ci", "Execution observer has no acceptance authority"}
     require(len(set(named) & observers) <= 1, "native observer inventory is ambiguous")
     allowed = {*expected, *observers}

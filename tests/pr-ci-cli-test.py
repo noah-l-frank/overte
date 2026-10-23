@@ -324,6 +324,15 @@ class GateTests(unittest.TestCase):
         self.assertEqual("success", self.run_gate("pull_request")["result"])
         self.assertFalse(any("/runs?event=" in call[1] for call in self.api.calls))
 
+    def test_native_final_accepts_the_exact_unresolved_skipped_source_policy_name(self):
+        self.native_final()
+        skipped = next(row for row in self.job_rows if row['name'] == 'Source policy not applicable')
+        skipped['name'] = "github.event_name == 'pull_request_target' && 'source-policy' || 'Source policy not applicable'"
+        self.assertEqual('success', self.run_gate('pull_request')['result'])
+        skipped['conclusion'] = 'success'
+        with self.assertRaises(TRANSPORT.TransportError):
+            self.run_gate('pull_request')
+
     def test_native_final_rejects_a_different_caller(self):
         self.native_final()
         self.environment["GITHUB_WORKFLOW_SHA"] = self.base
