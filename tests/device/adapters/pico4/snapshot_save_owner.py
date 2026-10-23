@@ -125,6 +125,11 @@ class PicoSnapshotSaveOwner:
             and type(state['artifacts']) is dict and len(state['artifacts'])<=1 and type(state['quiet']) is list and len(state['quiet'])<=1)
         self.phase(state['source']);exact(state['artifactRoot'],{'device','inode'});need(integer(state['artifactRoot']['device']) and integer(state['artifactRoot']['inode'],1) and state['artifactRoot']==self.artifact_root())
         previous_native,previous_script,previous_files=self.parent.frame(self.parent.state['frames'][-1]);previous_exports=None;clock=0
+        # The immutable parent's native file ledger is the original identity
+        # authority. A fresh file-owner object's optional warm cache is None;
+        # that is never an empty ownership inventory or a collision exemption.
+        parent_file_ids={row['id'] for row in previous_files['source']['rows']}
+        need(self.parent.state['capture']['file']['fileId'] in parent_file_ids)
         for row in state['frames']:
             native,script,files,value=self.frame(row);self.stable_capture(row)
             previous_native=native_source.accept(previous_native,native);previous_script=script_accept(previous_script,script)
@@ -170,7 +175,7 @@ class PicoSnapshotSaveOwner:
         if state['stage'] in ('exported','read-issued','acquired','quiet-issued','partial-ready'):need(state['export'] is not None)
         need(state['readId']=='' or native_source.nonce(state['readId']))
         for id,row in state['artifacts'].items():
-            need(id not in self.parent.files.state['artifacts'] and native_source.nonce(id) and (state['saved'] is None or id==state['saved']['file']['copy']))
+            need(id not in parent_file_ids and native_source.nonce(id) and (state['saved'] is None or id==state['saved']['file']['copy']))
             exact(row,{'name','bytes','sha256','phase','file','removeIntent'})
             need(row['name']=='snapshot-owned-'+self.run+'-'+id+'.bin' and integer(row['bytes'],1,MAX_BYTES)
                 and type(row['sha256']) is str and re.fullmatch('[0-9a-f]{64}',row['sha256']) and row['phase'] in ('planned','opened','saved') and row['removeIntent'] is False)
