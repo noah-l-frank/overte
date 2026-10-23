@@ -101,6 +101,7 @@
     "chat-observation-cursor": {"current": 1, "reads": [1]},
     "chat-observation-publisher": {"current": 1, "reads": [1]},
     "chat-cursor-source-seal": {"current": 1, "reads": [1]},
+    "chat-cursor-cleanup-consumption": {"current": 1, "reads": [1]},
     "feature-navigation-provider": {"current": 2, "reads": [1, 2]},
     "native-pico-assets-read": {"current": 1, "reads": [1]},
     "pico-assets-source": {"current": 1, "reads": [1]},

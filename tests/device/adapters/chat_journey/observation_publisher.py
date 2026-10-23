@@ -39,6 +39,10 @@ class ChatObservationPublisher:
     def alive(self):
         return not self.failed and same(self.store.read(),self.previous)
 
+    @property
+    def observation(self):
+        return self.cursor.current
+
     def bind_freeze(self,guard):
         need(callable(guard) and (self._freeze_guard is None or self._freeze_guard is guard))
         self._freeze_guard=guard

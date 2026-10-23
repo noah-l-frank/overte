@@ -2163,6 +2163,46 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-cleanup-baseline-')))
 
+        def _chat_cursor_cleanup_consumption_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-global-cleanup-consumption-')))
+
+        @_private
+        def _chat_cursor_cleanup_consumption(self,target,parent,primary,actor):
+            from adapters.chat_journey.cursor_cleanup_consumption import ChatCursorCleanupConsumption
+            from adapters.chat_journey.observation_cursor import ChatObservationCursor
+            from adapters.chat_journey.observation_publisher import ChatObservationPublisher
+            from adapters.pico4.chat_composition import PicoChatComposition
+            _need(type(parent) is PicoChatComposition and parent.adapter is self and parent.target==target
+                and not parent.failed and parent.previous['phase']=='caches-retired' and parent.cache_release.defer_ipc
+                and type(primary) is ChatObservationCursor and type(actor) is ChatObservationPublisher
+                and primary.current.samples is parent.cache_release.roles[0]
+                and primary.scope['runId']==parent.source.run and primary.scope['fixtureUrl']==parent.source.fixture_url
+                and primary.scope['binding']==parent.binding and actor.scope['peerBinding']==parent.peer.binding)
+            # These exact stage paths are supplied by Pico's original factories,
+            # not an arbitrary generic source graph with the same final fields.
+            for cursor,witness in ((primary,False),(actor.cursor,True)):
+                for observation in cursor.owners:
+                    role=observation.samples.role;stage=observation.stage
+                    _need(observation.store.path==self._chat_observation_store(target,role,stage=stage,witness=witness).path)
+                    expected=(self._chat_samples_store(target,role,witness=witness) if stage=='active' else
+                        self._chat_cache_absence_store(target,role,stage='initial' if stage=='initial' else 'final',witness=witness))
+                    _need(observation.samples.store.path==expected.path)
+            admitted=deepcopy(parent.previous)
+            def guard():
+                _need(not parent.failed and parent.previous==admitted and parent.store.read()==admitted)
+                parent.guard();return True
+            guard()
+            seals=[]
+            try:
+                seals.append(self._chat_cursor_source_seal(target,primary,witness=False))
+                seals.append(self._chat_cursor_source_seal(target,actor,witness=True))
+                return ChatCursorCleanupConsumption(primary,actor,tuple(seals),self._chat_cursor_cleanup_consumption_store(target),guard=guard)
+            except Exception:
+                parent.failed=True
+                for seal in seals:seal.failed=True
+                raise
+
         def _chat_observation_cursor_store(self,target,role,*,witness=False):
             _need(role in ('primary','actor') and type(witness) is bool and (not witness or role=='actor'))
             state,_ui=self._script_paths(target)
@@ -2280,6 +2320,7 @@ def create_adapter(args, base_class):
             stores=[self._chat_application_store(target),self._chat_restart_inputs_store(target),self._chat_archive_retirement_store(target),self._chat_host_close_store(target)]
             stores.append(self._chat_cleanup_witness_store(target))
             stores.append(self._chat_cleanup_baseline_store(target))
+            stores.append(self._chat_cursor_cleanup_consumption_store(target))
             stores.append(self._chat_observation_publisher_store(target))
             stores.extend(self._chat_observation_cursor_store(target,role,witness=witness)
                 for role,witness in (('primary',False),('actor',False),('actor',True)))
