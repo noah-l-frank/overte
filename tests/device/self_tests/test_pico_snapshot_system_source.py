@@ -92,6 +92,50 @@ class SnapshotSystemSourceTests(unittest.TestCase):
                 b.late=late
                 with self.subTest(fault=fault),self.assertRaises(NativeUIError):source.capture()
                 self.assertIsNone(source.last)
+    def test_mutated_chooser_component_uid_raw_or_json_type_is_refused_before_sdk_reads(self):
+        class DictSubclass(dict):pass
+        class StringSubclass(str):pass
+        for fault in ('component','uid','raw','nested-raw','dict-subclass','string-subclass','none'):
+            with self.scope() as (source,b):
+                source.prepare();before=len(b.calls)
+                if fault=='component':source.chooser['component']=CHOOSER+'Other'
+                elif fault=='uid':source.chooser['uid']+=1
+                elif fault=='raw':source.chooser['resolutionRaw']+=' '
+                elif fault=='nested-raw':source.chooser['finalSource']['chooserUidRaw']+=' '
+                elif fault=='dict-subclass':source.chooser=DictSubclass(source.chooser)
+                elif fault=='string-subclass':source.chooser['component']=StringSubclass(source.chooser['component'])
+                else:source.chooser=None
+                with self.subTest(fault=fault),self.assertRaises(NativeUIError):source.capture()
+                self.assertEqual(before,len(b.calls));self.assertIsNone(source.last)
+    def test_late_final_uid_parent_authority_loss_is_rejected_without_another_sdk_refresh(self):
+        with self.scope() as (source,b):
+            source.prepare();b.foreground=False;b.active=CHOOSER;shell=b.shell
+            def late(*args):
+                raw=shell(*args)
+                if b.calls.count('status')==4 and args[:4]==('cmd','package','list','packages'):b.authorized=False
+                return raw
+            source.shell=late
+            with self.assertRaises(NativeUIError):source.capture()
+            self.assertEqual(4,b.calls.count('status'));self.assertIsNone(source.last)
+    def test_actual_final_uid_unlock_reacquire_cannot_adopt_a_second_lock_acquisition(self):
+        with tempfile.TemporaryDirectory(prefix='pico-snapshot-os-final-relock-') as directory:
+            root=Path(directory);root.chmod(0o700);lock=ScriptSourceLock(root/'script-sources.lock');b=Boundary()
+            first=lock.held();first.__enter__();replacement=None
+            try:
+                source=PicoSnapshotSystemSource(BINDING,lock,b.status,b.shell,lambda:b.epoch,lambda:True,monotonic=lambda:b.host);source.prepare()
+                b.foreground=False;b.active=CHOOSER;shell=b.shell
+                def late(*args):
+                    nonlocal replacement
+                    raw=shell(*args)
+                    if replacement is None and b.calls.count('status')==4 and args[:4]==('cmd','package','list','packages'):
+                        first.__exit__(None,None,None);replacement=lock.held();replacement.__enter__()
+                    return raw
+                source.shell=late
+                with self.assertRaises(NativeUIError):source.capture()
+                self.assertIsNotNone(replacement);self.assertEqual(4,b.calls.count('status'));self.assertIsNone(source.last)
+            finally:
+                if replacement is not None:replacement.__exit__(None,None,None)
+                else:first.__exit__(None,None,None)
     def test_late_copy_work_with_frozen_native_clock_is_covered_before_source_publication(self):
         from unittest.mock import patch
         import adapters.pico4.snapshot_system_source as module

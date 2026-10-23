@@ -11,9 +11,10 @@ from copy import deepcopy
 import hashlib
 import re
 import time
-from adapters.native_feature_observation import exact,integer,need,number
+from adapters.native_feature_observation import decode,exact,integer,need,number
 from adapters.normal_feature_state import context
 from adapters.script_journey.lock import ScriptSourceLock
+from adapters.script_journey.history import canonical
 from feature_journeys.contract import typed_equal
 
 PRIMARY='org.overte.pico'
@@ -64,14 +65,20 @@ class PicoSnapshotSystemSource:
         lock.assert_held();self.acquisition=lock._owner
         self.binding,self.lock=deepcopy(binding),lock
         self.status,self.shell,self.clock_ms,self.authority,self.monotonic=status,shell,clock_ms,authority,monotonic
-        self.chooser=self.last=None;self.last_host=None
+        self.chooser=self.last=None;self.last_host=None;self._chooser_admission=None;self._chooser_sha=None
+
+    def authority_only(self):
+        self.lock.assert_held();need(self.lock._owner is self.acquisition and self.authority() is True)
+        if self._chooser_admission is None:need(self.chooser is None and self._chooser_sha is None)
+        else:
+            need(self.chooser is not None and hashlib.sha256(canonical(self.chooser)).hexdigest()==self._chooser_sha
+                and typed_equal(self.chooser,decode(self._chooser_admission.decode('utf-8'))))
 
     def guard(self):
-        self.lock.assert_held();need(self.lock._owner is self.acquisition and self.authority() is True)
+        self.authority_only()
         value=self.status();exact(value,{'binding','foreground','running'})
         need(typed_equal(value['binding'],self.binding) and value['running'] is True and type(value['foreground']) is bool)
-        self.lock.assert_held();need(self.lock._owner is self.acquisition and self.authority() is True)
-        return value
+        self.authority_only();return value
 
     def begin(self):
         start=self.monotonic();need(number(start,0,1e15) and (self.last_host is None or start>=self.last_host))
@@ -92,9 +99,15 @@ class PicoSnapshotSystemSource:
             final_source['activeUidRaw']=self.shell('cmd','package','list','packages','-U','--user','0',active.split('/')[0])
             need(uid(final_source['activeUidRaw'],active.split('/')[0])==owner)
         final_copy=deepcopy(final_source)
-        completed=self.clock_ms();now=self.monotonic()
+        completed=self.seal(start,requested)
+        return completed,final_source,final_copy
+
+    def seal(self,start,requested):
+        # Parent graph/phase and lock only: never refresh a native/SDK source in
+        # this last authority check or turn it into an unbounded refresh loop.
+        self.authority_only();completed=self.clock_ms();now=self.monotonic()
         need(integer(completed,requested) and completed-requested<=1500 and number(now,start,1e15) and now-start<=1.5)
-        self.last_host=now;return completed,final_source,final_copy
+        self.last_host=now;return completed
 
     def prepare(self):
         need(self.chooser is None);start,requested,before=self.begin();need(before['foreground'])
@@ -106,8 +119,10 @@ class PicoSnapshotSystemSource:
         saved=deepcopy(value);result=deepcopy(value)
         captured,final,final_copy=self.finish(start,requested,before,active,chooser=(actual,owner))
         saved['finalSource']=final;result['finalSource']=final_copy
-        saved['capturedEpochMs']=result['capturedEpochMs']=captured;self.chooser=saved
-        return result
+        saved['capturedEpochMs']=result['capturedEpochMs']=captured
+        admission=canonical(saved);need(typed_equal(saved,decode(admission.decode('utf-8'))))
+        digest=hashlib.sha256(admission).hexdigest();self.seal(start,requested)
+        self.chooser=saved;self._chooser_admission=admission;self._chooser_sha=digest;return result
 
     def capture(self):
         need(self.chooser is not None);start,requested,before=self.begin()
@@ -126,5 +141,5 @@ class PicoSnapshotSystemSource:
         captured,final,final_copy=self.finish(start,requested,before,active,owner,chooser=(self.chooser['component'],self.chooser['uid']))
         for row in (saved,result):row.update(capturedEpochMs=captured,activityFinalRaw=final['activityRaw'])
         saved['finalSource']=final;result['finalSource']=final_copy
-        self.last=saved;return result
+        self.seal(start,requested);self.last=saved;return result
 
