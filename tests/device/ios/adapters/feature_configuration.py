@@ -8,14 +8,20 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.feature_fixture_access import client as fixture_client
 from ios.adapters.normal_scripts import configuration as scripts_configuration
 
-VERSION=4
-READS=(1,2,3,4)
-AREAS=frozenset(('scripts','authentication','graphics','create','emotes'))
+VERSION=5
+READS=(1,2,3,4,5)
+WHOLE_SETTINGS={'world-navigation':('worldNavigation','navigation_configuration'),
+    'avatar-people':('avatarPeople','avatar_configuration'),
+    'world-web':('worldWeb','world_web_configuration'),
+    'tablet-web':('tabletWeb','tablet_web_configuration')}
+LEGACY_AREAS=frozenset(('scripts','authentication','graphics','create','emotes'))
+AREAS=LEGACY_AREAS|frozenset(WHOLE_SETTINGS)
 # Emotes retains its readable v4 configuration and operation implementation.
 # Real cached marker resources still need the two-stage native/process finalizer
 # before this area can again advertise a complete operation triple.
 COMPLETE_AREAS=frozenset(('scripts','authentication','graphics','create'))
-OPERATIONS=frozenset('feature.'+area+'.'+kind for area in AREAS for kind in ('act','observe','cleanup'))
+OPERATIONS=frozenset('feature.'+area+'.'+kind for area in AREAS for kind in ('act','observe','cleanup'))|frozenset(
+    'feature.'+area+'.terminal' for area in WHOLE_SETTINGS)
 
 
 def configuration(path=None):
@@ -30,8 +36,9 @@ def configuration(path=None):
 def validate(value):
     need(type(value) is dict and type(value.get('iosFeatureAdapterVersion')) is int and value['iosFeatureAdapterVersion'] in READS)
     version=value['iosFeatureAdapterVersion']
-    exact(value,{'iosFeatureAdapterVersion','areas','fixtureConfig'}|({'graphics'} if version>=2 else set())|({'create'} if version>=3 else set())|({'emotes'} if version>=4 else set()))
-    allowed=AREAS if version>=4 else AREAS-{'emotes'} if version==3 else AREAS-{'create','emotes'} if version==2 else AREAS-{'graphics','create','emotes'}
+    exact(value,{'iosFeatureAdapterVersion','areas','fixtureConfig'}|({'graphics'} if version>=2 else set())|({'create'} if version>=3 else set())|({'emotes'} if version>=4 else set())
+        |({field for field,_module in WHOLE_SETTINGS.values()} if version>=5 else set()))
+    allowed=AREAS if version>=5 else LEGACY_AREAS if version==4 else LEGACY_AREAS-{'emotes'} if version==3 else LEGACY_AREAS-{'create','emotes'} if version==2 else LEGACY_AREAS-{'graphics','create','emotes'}
     need(type(value['iosFeatureAdapterVersion']) is int
          and type(value['areas']) is list and 1<=len(value['areas'])<=len(AREAS)
          and all(type(area) is str and area in allowed for area in value['areas'])
@@ -52,6 +59,14 @@ def validate(value):
             from ios.adapters.emote_configuration import settings
             settings(value['emotes'])
         else:need(value['emotes'] is None)
+    if version>=5:
+        from importlib import import_module
+        for area,(field,module) in WHOLE_SETTINGS.items():
+            if area in value['areas']:
+                validate_settings=import_module('ios.adapters.'+module).settings
+                if area=='avatar-people':validate_settings(value[field],role='primary')
+                else:validate_settings(value[field])
+            else:need(value[field] is None)
     return value
 
 

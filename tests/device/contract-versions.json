@@ -278,6 +278,7 @@
     "ios-avatar-postlogout-record": {"current": 2, "reads": [1, 2]},
     "ios-avatar-tail-storage": {"current": 1, "reads": [1]},
     "ios-avatar-postlogout-tail": {"current": 3, "reads": [1, 2, 3]},
+    "ios-feature-adapter-configuration": {"current": 5, "reads": [1, 2, 3, 4, 5]},
     "ios-tablet-web-inputs": {"current": 1, "reads": [1]},
     "ios-tablet-web-input": {"current": 1, "reads": [1]},
     "ios-tablet-web-input-frame": {"current": 1, "reads": [1]},

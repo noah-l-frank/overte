@@ -284,6 +284,7 @@ REQUIRED = {
     "ios-avatar-postlogout-record": 2,
     "ios-avatar-tail-storage": 1,
     "ios-avatar-postlogout-tail": 3,
+    "ios-feature-adapter-configuration": 5,
     "ios-tablet-web-inputs": 1,
     "ios-tablet-web-input": 1,
     "ios-tablet-web-input-frame": 1,

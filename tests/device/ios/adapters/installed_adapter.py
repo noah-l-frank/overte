@@ -10,6 +10,7 @@ import stat
 from contracts import validate_operation_arguments
 from ios.adapters.create_api_clock import installed_entry as create_api_entry
 from ios.adapters.emote_api_entry import installed_entry as emote_api_entry
+from ios.adapters.navigation_api_entry import installed_entry as navigation_api_entry
 from ios.adapters.emote_session_cleanup import session_entry as emote_session_entry,ensure_finalized as finalize_emotes
 from adapters.normal_feature_state import PrivateFeatureState
 from ios.adapters.adapter import IOSNativeMixin
@@ -309,6 +310,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
 
         @create_api_entry
         @emote_api_entry
+        @navigation_api_entry
         def invoke(self, selector, operation, values):
             validate_operation_arguments(operation,values)
             need(operation not in ('app.install','app.upgrade'))
@@ -332,6 +334,10 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                         from ios.adapters.emote_runtime import IOSEmoteRuntime
                         config=configuration();runtime=IOSEmoteRuntime(self)
                         flow=runtime._emote_feature(selector,values['runId'],role='primary',client=reader(config),settings=config['emotes'])
+                    elif operation.split('.')[1]=='world-navigation':
+                        from ios.adapters.navigation_runtime import IOSNavigationRuntime
+                        config=configuration();runtime=IOSNavigationRuntime(self)
+                        flow=runtime._navigation_feature(selector,values['runId'],role='primary',client=reader(config),settings=config['worldNavigation'])
                     elif operation.split('.')[1]=='authentication':
                         from ios.adapters.authentication_runtime import IOSAuthenticationRuntime
                         runtime=IOSAuthenticationRuntime(self,reader(configuration()),values['runId'])
@@ -340,8 +346,12 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                         runtime=IOSScriptRuntime(self)
                         flow=runtime._script_feature(selector,values['runId'])
                     result=getattr(flow,operation.rsplit('.',1)[1])(values)
-                    client,session,state,target,_scope=runtime._existing(selector)
-                    self._binding(selector,client,session,state,target).verify()
+                    if operation=='feature.world-navigation.terminal' and values['stage']=='finish':
+                        from ios.adapters.navigation_canonical_end import verify
+                        verify(flow,values,result)
+                    else:
+                        client,session,state,target,_scope=runtime._existing(selector)
+                        self._binding(selector,client,session,state,target).verify()
                     self._candidate_guard(complete=True)
                     return result
                 finally:self._operation=None
@@ -381,6 +391,10 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             from ios.adapters.create_runtime import IOSCreateRuntime
             from ios.adapters.create_finalization import finalize_existing
             config=configuration()
+            from ios.adapters.navigation_runtime import IOSNavigationRuntime
+            from ios.adapters.navigation_session_cleanup import retire_existing as retire_navigation
+            navigation=retire_navigation(IOSNavigationRuntime(self),selector,config)
+            if navigation is not None:return navigation
             finalize_existing(IOSCreateRuntime(self),selector,config,None if config is None else reader(config))
             graphics=state('ios-graphics-feature.json')
             graphics_retirement=state('ios-graphics-retirement.json')
@@ -398,7 +412,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                     need(self.component_owners_absent(selector))
                     transaction=IOSGraphicsSessionRetirement.from_receipt(IOSGraphicsRuntime(self),selector,graphics_receipt)
                     return transaction.historical(graphics_receipt)
-                config=configuration();need(config is not None and config['iosFeatureAdapterVersion'] in (2,3,4) and 'graphics' in config['areas'])
+                config=configuration();need(config is not None and config['iosFeatureAdapterVersion'] in (2,3,4,5) and 'graphics' in config['areas'])
                 transaction=IOSGraphicsSessionRetirement(IOSGraphicsRuntime(self),selector,reader(config),config['graphics'],original)
                 need(self.cleanup_components(selector) and self.component_owners_absent(selector))
                 return transaction.finalize()

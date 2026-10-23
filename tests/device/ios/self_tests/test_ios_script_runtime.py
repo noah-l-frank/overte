@@ -114,7 +114,7 @@ class IOSScriptRuntimeTests(unittest.TestCase):
         from ios.adapters import graphics_session_retirement,feature_configuration
         original={'runId':'a'*32};path=self.f.adapter.state_path('test-only').with_name('ios-graphics-feature.json')
         PrivateFeatureState(path).write(original,None)
-        config=dict(iosFeatureAdapterVersion=2,areas=['graphics'],graphics={'private-policy':'fixed'})
+        config=dict(iosFeatureAdapterVersion=5,areas=['graphics'],graphics={'private-policy':'fixed'})
         transaction=SimpleNamespace(finalize=lambda:(_ for _ in ()).throw(RuntimeError('Pending paired ownership')))
         current=deepcopy(self.f.adapter._state);process=deepcopy(self.f.process)
         with patch.object(feature_configuration,'configuration',return_value=config), \

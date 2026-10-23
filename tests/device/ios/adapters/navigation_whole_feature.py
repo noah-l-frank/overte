@@ -149,3 +149,16 @@ class NavigationWholeFeature:
         with f.held():
             owner.load();owner.quiet();self.load();self.state['phase']='cleaned';self.save()
         return {'performed':True}
+
+    def terminal(self,call):
+        from feature_journeys import terminal as protocol
+        from ios.adapters.navigation_terminal import NavigationTerminal
+        f=self.flow;call=deepcopy(protocol.arguments('world-navigation',call))
+        need(call['runId']==f.run and f.role=='primary')
+        with f.held():
+            f.load();self.load();need(self.state is not None and self.state['phase']=='cleaned')
+            owner=NavigationTerminal(f)
+            if call['stage']=='inspect':value=dict(stage='inspect',description=owner.inspect())
+            elif call['stage']=='seal':value=dict(stage='seal',seal=owner.seal(call['description'],call['samples']))
+            else:value=dict(stage='finish',end=owner.finish(call['seal']))
+            protocol.result('world-navigation',value);return value
