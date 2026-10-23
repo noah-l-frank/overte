@@ -16,7 +16,7 @@ from unittest.mock import patch
 from adapters.normal_ui import NativeUIError
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_journey.lock import ScriptSourceLock
-from adapters.pico4.snapshot_upload_owner import PicoSnapshotUploadOwner
+from adapters.pico4.snapshot_upload_owner import PicoSnapshotUploadOwner,provider_phase,quiet_indices,mutation_scope
 from adapters.pico4.snapshot_upload_originals import SnapshotUploadOriginals
 from adapters.pico4.snapshot_save_owner import PicoSnapshotSaveOwner
 from adapters.pico4.snapshot_cancel_owner import PicoSnapshotCancelOwner
@@ -149,6 +149,48 @@ class SnapshotUploadFenceTests(unittest.TestCase):
         for phase in ('input-issued','observed','read-issued','acquired','quiet-issued','partial-ready'):
             owner.state['stage']=phase
             with self.subTest(phase=phase),self.assertRaises(NativeUIError):owner.send()
+
+
+class SnapshotUploadArchiveTests(unittest.TestCase):
+    def test_extra_mutation_cannot_hide_a_deleted_or_replaced_original_story_behind_the_same_count(self):
+        baseline=dict(requests=[dict(requestId='a',method='POST')]);original=dict(requestId='b',method='POST')
+        provider=dict(requests=baseline['requests']+[original,dict(requestId='c',method='GET')])
+        mutation_scope(provider,baseline,[original])
+        for method in ('DELETE','POST'):
+            changed=deepcopy(provider);changed['requests'].append(dict(requestId='d',method=method))
+            with self.subTest(method=method),self.assertRaises(NativeUIError):mutation_scope(changed,baseline,[original])
+
+    def test_backend_retirement_or_phase_history_change_cannot_admit_ordinary_upload(self):
+        phase=dict(activations=[dict(ticket='a'*32,stimulus=dict(verb='save')),dict(ticket='b'*32,stimulus=dict(verb='upload-fail'))])
+        original=dict(active=True,ticket='b'*32,activations=[dict(ticket='a'*32,verb='save'),dict(ticket='b'*32,verb='upload-fail')])
+        provider_phase(original,phase)
+        for fault in ('retired','ticket','missing','rewritten','extra'):
+            value=deepcopy(original)
+            if fault=='retired':value['active']=False
+            elif fault=='ticket':value['ticket']='c'*32
+            elif fault=='missing':value['activations'].pop(0)
+            elif fault=='rewritten':value['activations'][0]['verb']='share-open'
+            else:value['activations'].append(dict(ticket='c'*32,verb='upload'))
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):provider_phase(value,phase)
+
+    def test_archived_quiet_cannot_omit_an_original_intermediate_observation(self):
+        quiet_indices([2,3,4],5)
+        for rows in ([2,4],[4,3,2],[2,2,3],[2],[2,3,5],[True,2,3]):
+            with self.subTest(rows=rows),self.assertRaises(NativeUIError):quiet_indices(rows,5)
+
+    def test_unresolved_input_cannot_carry_an_archived_effect_or_claim_a_read_phase(self):
+        owner=object.__new__(PicoSnapshotUploadOwner);owner.run=RUN;owner.parent_sha='1'*64;owner.failure_disk=None;owner.verb='upload-fail'
+        owner.phase=lambda value:None;owner.artifact_root=lambda:dict(device=1,inode=2)
+        owner.frame=lambda row:(_ for _ in ()).throw(AssertionError('Original frame verification reached'))
+        value=dict(stage='input-issued',source={},parentSha256=owner.parent_sha,failureSha256=None,frames=[{}],deliveries=[],
+            artifacts={},quiet=[],job='',proof=None,readId='',scope=RUN,received=None,artifactRoot=owner.artifact_root())
+        with self.assertRaisesRegex(AssertionError,'Original frame verification reached'):owner.validate(value)
+        for fault in ('job','proof','read-issued','acquired'):
+            changed=deepcopy(value)
+            if fault=='job':changed['job']='a'*32
+            elif fault=='proof':changed['proof']=dict(frame=0)
+            else:changed['stage']=fault
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):owner.validate(changed)
 
 
 if __name__=='__main__':unittest.main()
