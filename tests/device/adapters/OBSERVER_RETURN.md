@@ -64,3 +64,14 @@ App, AssignmentClient, observer entrypoint, device or service was started.
 The typed Pico Chat producer and Parent composition must explicitly use this
 transport before it can close their process boundary. Existing v1 host-close
 files gain no new return, native or whole-feature qualification from this API.
+
+The literal-byte reader also owns an actual paired open-file description. It
+checks the original kernel alias before returning bytes and before closing.
+A recycled FD number pointing at the very same file is refused; neither
+uncertain half is closed by the reader. They remain for actual host process
+finalization. The adversarial fixture atomically replaces the worker's known
+original read FD with a separate open description using `dup2`, verifies that
+the foreign handle survives, then reaps that actual worker and obtains ESRCH.
+The original reader failed this case (`accepted:closed`, 0.206 seconds).
+After the narrow OFD fix, all 12 return cases plus the seven original process
+cases passed, 19/19 in 2.474 seconds. No wire format or feature admission changed.
