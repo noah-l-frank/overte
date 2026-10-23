@@ -127,18 +127,19 @@ class PhoneSnapshotsRetirement:
             header=archive['controls']['phone-snapshots-'+name+'.json']
             if header is None:need(partial);continue
             need(header['scope']==f.run and header['retired'])
-        from overte_phone_snapshots_actor import ACTOR_VERSION,STATE_FIELDS,validate_transition_history
+        from overte_phone_snapshots_actor import ACTOR_VERSION,actor_fields,validate_transition_history,validate_primary_cue
         actor_header=archive['controls']['phone-snapshots-actor-lifecycle.json'];need(actor_header is not None)
         exact(actor_header,{'snapshotsActorVersion','runId','binding','payload'})
         version=actor_header['snapshotsActorVersion']
-        need(type(version) is int and version in (1,ACTOR_VERSION) and actor_header['runId']==f.run
+        need(type(version) is int and version in (1,2,ACTOR_VERSION) and actor_header['runId']==f.run
             and same(actor_header['binding'],f.binding))
         states=unpack(actor_header['payload']);need(len(states)==1);actor=states[0]
-        exact(actor,STATE_FIELDS if version==1 else STATE_FIELDS|{'transitions'})
+        exact(actor,actor_fields(version))
         # A completed legacy archive is immutable. Its local validation graph
         # has no transition events; no archive or active journal is rewritten.
         actor=deepcopy(actor)
         if version==1:actor['transitions']=[]
+        if version<3:actor['primaryCue']=None
         need(actor['phase']=='retired' and actor['pending'] is None and actor['process']!=owner['hostProcess'] and terminated(actor['process'])
             and type(actor['dropped']) is list and len(actor['dropped'])<=256)
         phase_packet(actor['closure'],run=f.run,area='snapshots',request=actor['closure']['requestId'],epoch=actor['closure']['capturedEpochMs'])
@@ -149,10 +150,12 @@ class PhoneSnapshotsRetirement:
         if partial:
             need(actor['partialClosure'] is not None and actor['partialClosure']['snapshotPartialRetirementVersion']==1
                 and same(actor['partialClosure']['owner'],archive['owner']) and actor['last'] is actor['quiet'] is None
-                and actor['transitions']==[])
+                and actor['transitions']==[] and actor['primaryCue'] is None)
         else:need(actor['last'] is not None and actor['quiet']['complete'] and actor['partialClosure'] is None)
         validate_transition_history(f,actor,history_guard=history_guard,
             role_header=archive['controls']['phone-snapshots-actor-originals.json'],current_guard=self.bound)
+        validate_primary_cue(f,actor['primaryCue'],archive['controls']['phone-snapshots-primary-originals.json'],
+            history_guard=history_guard,current_guard=self.bound)
         history_guard();need(hashlib.sha256(canonical(archive)).hexdigest()==archive_sha);self.bound()
 
         return archive

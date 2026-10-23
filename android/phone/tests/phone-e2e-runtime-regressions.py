@@ -83,6 +83,9 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshot_catalog_pass.py",
     "android/phone/tests/device/test_snapshots_full_retirement_audit.py",
     "android/phone/tests/device/test_snapshots_actor.py",
+    "android/phone/tests/device/test_snapshots_actor_schedule_migration.py",
+    "android/phone/tests/device/test_snapshots_actor_primary_cue.py",
+    "android/phone/tests/device/test_snapshots_cleanup_close_race.py",
     "android/phone/tests/device/test_snapshots_actor_schedule.py",
     "android/phone/tests/device/test_snapshots_polling.py",
     "android/phone/tests/device/test_snapshots_feature_journey.py",
@@ -284,6 +287,9 @@ for name in selected + COMMON_HOST_CHECKS + (EXTENDED_HOST_CHECKS if args.extend
     # Per-source freshness and common checkpoint deadlines remain unchanged.
     # Five complete Snapshot retirement/recovery cases measured 90.218s;
     # use the existing complete-composition aggregate, not a component budget.
+    # Seven actual legacy/v2/v3 closed-archive cases measured86.738s after
+    # the deterministic close-race correction. Use the same240s composition
+    # aggregate; no individual quiet, source or freshness bound changes.
     # Six actual quiet-role preparation/reuse cases measured 88.346s. Their
     # complete normal prefixes and long original histories use that same
     # aggregate budget; source, lock, checkpoint and quiet bounds are unchanged.
@@ -302,4 +308,4 @@ for name in selected + COMMON_HOST_CHECKS + (EXTENDED_HOST_CHECKS if args.extend
     # checks (the earlier seven alone measured78.826s). Use240s per module;
     # current source, lock, freshness and checkpoint deadlines do not change.
     subprocess.run(arguments, cwd=ROOT, check=True,
-                   timeout=10800 if name in EXTENDED_HOST_CHECKS else 600 if name.endswith("test_assets_feature.py") else 180 if name.endswith(("phone-chat-native-test.py","phone-chat-peer-native-test.py","phone-chat-history-native-test.py","phone-snapshot-settings-native-test.py")) else 240 if name.endswith(("test_graphics_feature.py","test_create_feature.py","test_avatar_people_feature.py","test_chat_feature.py","test_snapshots_full_retirement_audit.py","test_snapshots_quiet_role_reuse.py","test_snapshots_primary_cleanup_stages.py","test_snapshots_primary_history_pass.py","test_snapshots_history_pass.py","test_snapshots_phase_transition.py","test_snapshots_feature_journey.py","test_snapshot_documents_journey_boundary.py")) else 90)
+                   timeout=10800 if name in EXTENDED_HOST_CHECKS else 600 if name.endswith("test_assets_feature.py") else 180 if name.endswith(("phone-chat-native-test.py","phone-chat-peer-native-test.py","phone-chat-history-native-test.py","phone-snapshot-settings-native-test.py")) else 240 if name.endswith(("test_graphics_feature.py","test_create_feature.py","test_avatar_people_feature.py","test_chat_feature.py","test_snapshots_full_retirement_audit.py","test_snapshots_retirement_actor_versions.py","test_snapshots_quiet_role_reuse.py","test_snapshots_primary_cleanup_stages.py","test_snapshots_primary_history_pass.py","test_snapshots_history_pass.py","test_snapshots_phase_transition.py","test_snapshots_feature_journey.py","test_snapshot_documents_journey_boundary.py")) else 90)

@@ -1,4 +1,4 @@
-"""Actual closed archives retain exact legacy/v2 actor ownership and originals.
+"""Actual closed archives retain exact legacy/v2/v3 actor ownership and originals.
 
 Native/SDK sources are explicit producers. TLS inputs, files, process exit,
 quiet windows and public repeated finalization execute the production paths.
@@ -44,8 +44,15 @@ class SnapshotRetirementActorVersionsTests(unittest.TestCase):
 
     def finish_transition(self):
         r=self.rig;r.act('open');r.act('capture',dict(mode='still',format='png'));r.act('save');r.act('upload')
+        r.invoke('feature.snapshots.observe',dict(contractVersion=transitions.harness.VERSION,
+            runId=transitions.harness.RUN,afterSequence=0))
         self.start(baseline=True);self.assert_transition(self.activate('cleanup'))
         self.assertEqual({'performed':True},self.cleanup())
+        # The scheduling prerequisite now records actual nonempty Primary
+        # observations. Retirement must see a new real cleaned observation,
+        # rather than accidentally reusing the earlier empty baseline frame.
+        self.rig.invoke('feature.snapshots.observe',dict(contractVersion=transitions.harness.VERSION,
+            runId=transitions.harness.RUN,afterSequence=0))
         self.send('acknowledged');self.assertEqual('fresh',self.receive()['stage'])
         r.client.close();self.send('close');self.assertEqual('retired',self.receive()['stage'])
         self.child.wait(timeout=5);self.assertEqual(0,self.child.returncode)
@@ -59,25 +66,32 @@ class SnapshotRetirementActorVersionsTests(unittest.TestCase):
         with feature.lock.held(),r.adapter.existing_input_session('test-only-appium'):
             feature.load();return PhoneSnapshotsRetirement(feature).validate_archive(candidate)
 
-    def test_v2_actual_transition_survives_closed_exit_and_double_finalize_with_no_active_controls(self):
+    def test_v3_actual_transition_survives_closed_exit_and_double_finalize_with_no_active_controls(self):
         path=self.finish_transition();before=(path.stat().st_ino,path.read_bytes());archive=self.archive()
         header=archive['controls']['phone-snapshots-actor-lifecycle.json'];state=unpack(header['payload'])[0]
-        self.assertEqual(2,header['snapshotsActorVersion']);self.assertEqual(1,len(state['transitions']))
+        self.assertEqual(3,header['snapshotsActorVersion']);self.assertEqual(1,len(state['transitions']))
+        self.assertIn('primaryCue',state)
         self.assertEqual('before-sources',state['transitions'][0]['kind'])
         self.assertTrue(all(PrivateFeatureState(self.rig.root/name).read() is None for name in NAMES))
         self.assertEqual({'performed':True},self.cleanup());self.assertEqual({'performed':True},self.cleanup())
         self.assertEqual(before,(path.stat().st_ino,path.read_bytes()))
         self.assertEqual(archive,self.validate_candidate(archive))
 
-    def test_actual_completed_v2_archive_rejects_versions_shape_scope_floor_and_missing_original(self):
+    def test_actual_completed_v3_archive_rejects_versions_shape_scope_floor_and_missing_original(self):
         path=self.finish_transition();archive=self.archive();unchanged=(path.stat().st_ino,path.read_bytes())
         name='phone-snapshots-actor-lifecycle.json'
-        for fault in ('bool-version','unknown-version','legacy-with-transitions','unknown-state','scope','role-floor'):
+        for fault in ('bool-version','unknown-version','legacy-with-transitions','v2-with-primary-cue',
+                'missing-primary-cue','bool-cue-version','unknown-state','scope','role-floor'):
             with self.subTest(fault=fault):
                 candidate=deepcopy(archive);header=candidate['controls'][name];state=unpack(header['payload'])[0]
                 if fault=='bool-version':header['snapshotsActorVersion']=True
-                elif fault=='unknown-version':header['snapshotsActorVersion']=3
+                elif fault=='unknown-version':header['snapshotsActorVersion']=4
                 elif fault=='legacy-with-transitions':header['snapshotsActorVersion']=1
+                elif fault=='v2-with-primary-cue':header['snapshotsActorVersion']=2
+                elif fault=='missing-primary-cue':state.pop('primaryCue');header['payload']=pack([state])
+                elif fault=='bool-cue-version':
+                    state['primaryCue']=dict(snapshotPrimaryCueVersion=True,header=candidate['controls']['phone-snapshots-primary-originals.json'])
+                    header['payload']=pack([state])
                 elif fault=='unknown-state':state['unowned']=True;header['payload']=pack([state])
                 elif fault=='scope':state['transitions'][0]['scope']=dict(kind='foreground',handoffId=None);header['payload']=pack([state])
                 else:
@@ -114,21 +128,29 @@ class SnapshotRetirementActorVersionsTests(unittest.TestCase):
         # red and this fixture is retired by its own ordinary teardown.
         self.assertTrue(saved)
 
-    def test_legacy_encoding_of_actual_full_closed_actor_is_not_rewritten_in_completed_archive(self):
+    def legacy_full_archive(self,version):
         r=self.rig;r.cleanup_public=self.cleanup
         r.act('open');r.act('capture',dict(mode='still',format='png'));r.act('save');r.act('upload')
         r.client.activate('d'*32,'cleanup',{});self.assertEqual({'performed':True},self.cleanup())
         full.FullRetirementAuditTests.close_with_original_actor(r)
         store=PrivateFeatureState(r.root/'phone-snapshots-actor-lifecycle.json');header=store.read();state=unpack(header['payload'])[0]
-        self.assertEqual([],state.pop('transitions'))
+        self.assertEqual([],state['transitions'])
+        self.assertIsNone(state.pop('primaryCue'))
+        if version==1:state.pop('transitions')
         # Faithful legacy encoding of the same real quiet/exit/closure evidence;
         # no target observation or result is added by this schema fixture.
-        legacy=dict(header,snapshotsActorVersion=1,payload=pack([state]));store.write(legacy,header)
+        legacy=dict(header,snapshotsActorVersion=version,payload=pack([state]));store.write(legacy,header)
         self.assertEqual({'performed':True},self.cleanup());archive=self.archive()
         self.assertEqual(legacy,archive['controls']['phone-snapshots-actor-lifecycle.json'])
         path=next(r.root.glob('emote-frame-snapshots-retirement-*.json'));before=(path.stat().st_ino,path.read_bytes())
         self.assertEqual({'performed':True},self.cleanup());self.assertEqual(before,(path.stat().st_ino,path.read_bytes()))
-        self.assertNotIn('transitions',unpack(self.archive()['controls']['phone-snapshots-actor-lifecycle.json']['payload'])[0])
+        body=unpack(self.archive()['controls']['phone-snapshots-actor-lifecycle.json']['payload'])[0]
+        self.assertNotIn('primaryCue',body)
+        if version==1:self.assertNotIn('transitions',body)
+        else:self.assertEqual([],body['transitions'])
+
+    def test_legacy_encoding_of_actual_full_closed_actor_is_not_rewritten_in_completed_archive(self):self.legacy_full_archive(1)
+    def test_v2_encoding_of_actual_full_closed_actor_is_not_rewritten_in_completed_archive(self):self.legacy_full_archive(2)
 
     def partial_archive(self,version):
         rig=partial.SnapshotsFeatureTests('test_partial_finalize_requires_real_actor_exit_and_retires_exact_journals_idempotently')
@@ -136,8 +158,10 @@ class SnapshotRetirementActorVersionsTests(unittest.TestCase):
         try:
             write=PrivateFeatureState.write
             def encoded(store,value,previous):
-                if version==2 and store.path.name=='phone-snapshots-actor-lifecycle.json':
-                    body=unpack(value['payload'])[0];body['transitions']=[];value=dict(value,snapshotsActorVersion=2,payload=pack([body]))
+                if version in (2,3) and store.path.name=='phone-snapshots-actor-lifecycle.json':
+                    body=unpack(value['payload'])[0];body['transitions']=[]
+                    if version==3:body['primaryCue']=None
+                    value=dict(value,snapshotsActorVersion=version,payload=pack([body]))
                 return write(store,value,previous)
             with patch.object(PrivateFeatureState,'write',encoded):
                 rig.test_partial_finalize_requires_real_actor_exit_and_retires_exact_journals_idempotently()
@@ -147,6 +171,7 @@ class SnapshotRetirementActorVersionsTests(unittest.TestCase):
 
     def test_actual_partial_legacy_closed_archive_repeats_without_rewriting(self):self.partial_archive(1)
     def test_actual_partial_v2_closed_archive_repeats_without_creating_role_controls(self):self.partial_archive(2)
+    def test_actual_partial_v3_closed_archive_repeats_without_creating_role_controls(self):self.partial_archive(3)
 
 
 if __name__=='__main__':unittest.main()
