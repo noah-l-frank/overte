@@ -75,8 +75,9 @@ def timer_states(source, after_epoch):
                     if caller.endswith('/system/libraries/peopleConnection.js'):installed(caller,'/system/libraries/peopleConnection.js')
             else:
                 identity(detail['callerStackId']);need(detail['callerStackId'] in caller_table);actual=caller_table[detail['callerStackId']]
-                avatar_call_stack.evaluated(actual['callerStack'],actual['callerModules'],event['capturedEpochMs'],source['code'],
-                    required={'/system/libraries/peopleConnection.js'});stack_history.accept(actual['callerStack']);used_callers.add(actual['id'])
+                need(actual['callerModules'])
+                avatar_call_stack.evaluated(actual['callerStack'],actual['callerModules'],event['capturedEpochMs'],source['code'])
+                stack_history.accept(actual['callerStack']);used_callers.add(actual['id'])
             need(type(detail['active']) is bool and type(detail['singleShot']) is bool
                  and integer(detail['intervalMs'],-2**31,2**31-1) and integer(detail['remainingMs'],-1,2**31-1)
                  and (detail['remainingMs']>=0 if detail['active'] else detail['remainingMs']==-1))
