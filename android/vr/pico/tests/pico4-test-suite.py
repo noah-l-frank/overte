@@ -145,6 +145,8 @@ TESTS = (
     test('avatar-urls-cleanup', "interaction", PYTHON, "device/test_avatar_urls_owner.py",
         'AvatarUrlsTests.test_owned_uri_is_normally_restored_after_uncertain_input_but_foreign_uri_is_preserved',
         'AvatarUrlsTests.test_ack_without_load_stays_pending_and_cleanup_retains_uncertain_ticket'),
+    test('assets-native-ui', "interaction", PYTHON, "device/test_assets_native_ui.py", requires=("c++", "pkg-config")),
+    test('assets-controls', "interaction", PYTHON, "device/test_assets_controls.py"),
     test("normal-create", "interaction", PYTHON, "device/test_normal_create.py"),
     test("create-file-ui", "interaction", PYTHON, "device/test_create_file_ui.py"),
     test("create-file-native-ui", "interaction", PYTHON, "device/test_create_file_ui_native.py", requires=("c++", "pkg-config")),

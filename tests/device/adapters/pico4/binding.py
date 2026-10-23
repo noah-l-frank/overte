@@ -555,6 +555,13 @@ def create_adapter(args, base_class):
                 navigation.io.bind_before_send(lambda command:before_send(command,navigation))
             return ui
 
+        def _assets_controls(self,target,intent,*,before_send=None,audit=None):
+            from adapters.token_assets_ui import TokenAssetsUI
+            from adapters.pico4.assets_ui import PicoAssetsIO
+            ui,_observe,_binding=self._script_runtime(target)
+            self._bind_create_transport(ui,before_send)
+            return TokenAssetsUI(PicoAssetsIO(ui.io),intent,monotonic=ui.monotonic,sleep=ui.sleep,audit=audit)
+
         def _avatar_people_controls(self,target,intent,*,before_send=None):
             from adapters.pico4.avatar_people_ui import TokenAvatarPeopleUI,PicoAvatarPeopleIO
             ui,_observe,_binding=self._script_runtime(target)

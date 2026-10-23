@@ -148,6 +148,8 @@ REQUIRED = {
     'feature-script-resources': 1,
     "native-pending-commit-owner": 1,
     "native-pending-field-commit": 1,
+    "native-assets-controls": 1,
+    "pico-assets-controls": 1,
     "asset-input-bundle": 1,
     "native-feature-observation": 1,
     "native-location-bookmarks": 1,

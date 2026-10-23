@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "5527d540e99cc6dba4204a5e904a854e6e1cd2b4",
+  "picoBase": "f8cd43a02da492fc326f3f86ccebcfd223d3bacf",
+  "selection": [
+    {
+      "path": "tests/device/adapters/token_assets_ui.py",
+      "originalSha256": "c05b69f1628619a12bb18dc4f5fce7b3e6d3312b71be9fa5f2b8815ab92c5fa1",
+      "selectedSha256": "73a71c62950a7bdd4e68166c4c0866e92a6778c0ede0dcb1fbc40ed39a76ee69",
+      "adaptation": "Preserve the closed shared recipes; initialize its optional audit locally without changing older TokenCreateUI."
+    },
+    {
+      "path": "tests/device/native/NormalAssetsControls.h",
+      "originalSha256": "56fe8a05cebf6ab2b9b3f9190d3b6a6a98150d39d4e6928d7cc8bc22fd655e13",
+      "selectedSha256": "196fabb3c902984ebe9bd4671f6a5d7d44b3a0d6079195268467baada03c9c0f",
+      "adaptation": "Preserve original controls; bind resolved original URLs/base types/finite geometry/window and resolve Qt5 standard-button roles through the original importing context."
+    }
+  ],
+  "unchangedProductSources": [
+    {
+      "path": "interface/resources/qml/hifi/dialogs/TabletAssetServer.qml",
+      "sha256": "6398ffb9eefc2a44a95167ebf2e4be4cc625259511a2a731f30081f8dfa0290c"
+    },
+    {
+      "path": "interface/resources/qml/hifi/dialogs/NativeModelTree.qml",
+      "sha256": "0d7aa1bb29652854f3a0aeae07177840de03d5c185dab62020ba694c4a20db4f"
+    },
+    {
+      "path": "interface/resources/qml/dialogs/NativeFileBrowser.qml",
+      "sha256": "be796a231378fd6ac179c6ea4531ef46d6ebadca6a9f40888b383d59db0d47b7"
+    },
+    {
+      "path": "interface/src/Application_Assets.cpp",
+      "sha256": "137c2fe9f1ee2020cc6896f8e01edc0ba5ef25a3c3e05b8ad9c45e38e8328830"
+    }
+  ],
+  "phoneFacadeCopied": false,
+  "phoneTouchCopied": false,
+  "monoEvidenceCopied": false,
+  "physicalRuns": 0
+}

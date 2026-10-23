@@ -127,6 +127,8 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'chatControlsVersion' in value:
         fields.add('chatControlsVersion')
         need(type(value['chatControlsVersion']) is int and value['chatControlsVersion'] in (1,2))
+    if type(value) is dict and 'assetsControlsVersion' in value:
+        fields.add('assetsControlsVersion');need(type(value['assetsControlsVersion']) is int and value['assetsControlsVersion']==1)
     if type(value) is dict and 'avatarPeopleControlsVersion' in value:
         fields.add('avatarPeopleControlsVersion');need(type(value['avatarPeopleControlsVersion']) is int and value['avatarPeopleControlsVersion']==1)
     if type(value) is dict and 'lifecycleControlsVersion' in value:
@@ -193,12 +195,16 @@ def validate_snapshot(value, process_id, epoch_ms):
         is_create_voxel=control['id'] in CREATE_VOXEL_IDS
         is_create_file=control['id'] in CREATE_FILE_IDS
         is_browser_app=control['id'] in BROWSER_APP_IDS
+        is_assets=control['id'].startswith(('assets.','assets-file.'))
         is_avatar_people=control['id'].startswith(('avatar.','people.'))
         is_chat=control['id'].startswith('chat.')
         is_emote=control['id'].startswith('emote.')
         is_places=control['id'].startswith('places.')
         is_error=control['id'].startswith('navigation.error.ok.')
-        if is_browser_app:
+        if is_assets:
+            from adapters.token_assets_ui import metadata as assets_metadata
+            need(value.get('assetsControlsVersion')==1);assets_metadata(control);fields=set(control)
+        elif is_browser_app:
             need(value.get('picoBrowserAppControlsVersion')==1);browser_app_metadata(control);fields=set(control)
         elif is_avatar_people:
             need(value.get('avatarPeopleControlsVersion')==1);avatar_people_metadata(control);fields=set(control)
@@ -248,7 +254,7 @@ def validate_snapshot(value, process_id, epoch_ms):
              and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS
                  or script_control(control['id']) or file_control(control['id']) or audio_control(control['id'])
                  or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_MENU_IDS or control['id'] in VIEW_MENU_IDS
-                 or is_browser_app or is_avatar_people or is_create_voxel or is_create_extra or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
+                 or is_assets or is_browser_app or is_avatar_people or is_create_voxel or is_create_extra or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
                  or is_emote and emote_control(control['id'])
                  or snapshot_export_control(control['id']) or is_places and places_control(control['id']) or is_error and error_control(control['id']) or is_create_file or control['id']==LIFECYCLE_ID)
              and identifier(control['token']) and control['id'] not in ids
@@ -385,7 +391,8 @@ class PicoNavigation:
         # freshness window. Bind bytes first, then capture the current UI.
         self.io.bind_input()
         snapshot = self.snapshot()
-        control = self.control(snapshot, control_id)
+        disabled_probe=action=='probe-disabled' and control_id=='assets.delete' and snapshot.get('assetsControlsVersion')==1
+        control = self.control(snapshot, control_id,enabled=not disabled_probe)
         need(snapshot['ready'] and control is not None and snapshot['lastCommandSequence'] < MAX_INTEGER)
         if token is not None: need(control['token'] == token)
         if expected_scope is not None:
@@ -410,6 +417,7 @@ class PicoNavigation:
         is_create_voxel=control_id in CREATE_VOXEL_IDS
         is_create_file=control_id in CREATE_FILE_IDS
         is_browser_app=control_id in BROWSER_APP_IDS
+        is_assets=control_id.startswith(('assets.','assets-file.'))
         is_avatar_people=control_id.startswith(('avatar.','people.'))
         is_chat=control_id.startswith('chat.')
         is_emote=control_id.startswith('emote.')
@@ -417,7 +425,11 @@ class PicoNavigation:
         is_error=control_id.startswith('navigation.error.ok.')
         if reference is not None:
             need(type(reference) is dict)
-            if 'picoBrowserAppControlsVersion' in reference:
+            if 'assetsControlsVersion' in reference:
+                from adapters.token_assets_ui import same_reference as assets_same_reference
+                from adapters.pico4.assets_ui import project as assets_project
+                original=assets_same_reference(reference,assets_project(snapshot),control_id)
+            elif 'picoBrowserAppControlsVersion' in reference:
                 from adapters.pico4.browser_apps import same_reference as browser_same_reference,project as browser_project
                 original=browser_same_reference(reference,browser_project(snapshot),control_id)
             elif 'avatarPeopleControlsVersion' in reference:
@@ -451,7 +463,18 @@ class PicoNavigation:
                 from adapters.pico4.normal_create import project
                 original=same_reference(reference,project(snapshot),control_id)
             need(original['token']==control['token'])
-        if is_browser_app:
+        if is_assets:
+            from adapters.token_assets_ui import FIELDS as assets_fields,ascii_text as assets_text
+            need(reference is not None and snapshot.get('assetsControlsVersion')==1 and control_id!='assets.page'
+                and action in ('activate','probe-disabled','replace','submit','select-index','scroll') and value is None and source is None)
+            if disabled_probe:need(not control['enabled'] and not control['inputReady'] and text is None and index is None and direction is None)
+            else:need(action!='probe-disabled' and control['enabled'] and control['inputReady'])
+            if action=='replace':need(control_id in assets_fields and control['focused'] and index is None and direction is None);assets_text(text)
+            elif action=='submit':need(control_id=='assets-file.folder' and control['focused'] and text is None and index is None and direction is None)
+            elif action=='select-index':need(control_id=='assets-file.primary' and type(index) is int and 0<=index<control['count'] and text is None and direction is None)
+            elif action=='scroll':need(control_id in ('assets.tree','assets-file.list') and direction in ('up','down') and text is None and index is None)
+            else:need(text is None and index is None and direction is None)
+        elif is_browser_app:
             need(reference is not None and snapshot.get('picoBrowserAppControlsVersion')==1 and control['inputReady']
                 and action=='activate' and all(v is None for v in (text,source,index,direction,value)))
         elif is_avatar_people:
@@ -585,6 +608,8 @@ class PicoNavigation:
                 create_file_path(text,control_id,control['role'])
             elif is_places:
                 need(control_id in ('places.search','places.bookmark.name','places.server.url'));ascii_text(text)
+            elif is_assets:
+                need(control_id in assets_fields);assets_text(text)
             elif is_avatar_people:
                 need(control_id=='avatar.dialog.input');avatar_people_text(text)
             elif control_id==LIFECYCLE_ID:
@@ -601,7 +626,7 @@ class PicoNavigation:
                 raise NavigationError()
             command['text'] = text
         if action == 'select-index':
-            need((control_id == 'script-file.primary' or is_create and create_choice(control_id)) and type(index) is int and 0 <= index < 32)
+            need((control_id == 'script-file.primary' or is_create and create_choice(control_id) or is_assets and control_id=='assets-file.primary') and type(index) is int and 0 <= index < 32)
             command['index'] = index
         if action == 'scroll': command['direction'] = direction
         if action == 'set-value':command['value']=value
