@@ -15,7 +15,7 @@ from adapters.chat_journey.cursor_source_seal import ChatCursorSourceSeal
 from adapters.chat_journey.flow_inputs import validate_flow
 from adapters.chat_journey.observation import STAGES
 from adapters.chat_journey.observation_cursor import plain
-from adapters.chat_journey.remote_actor_graph import validate_source_graph,validate_actor_pairs
+from adapters.chat_journey.remote_actor_graph import ChatSourceGraphPrefix,validate_actor_pairs
 from adapters.chat_journey.remote_actor_return import ChatRemoteActorReturn
 from adapters.chat_journey.remote_cleanup_prefix import ChatRemoteCleanupPrefix
 from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
@@ -61,6 +61,10 @@ def returned_prefix(prefix,returned):
     for index,row in enumerate(prefix.rows):
         chunk=prefix.history.store(index).read()
         need(digest(chunk)==prefix.previous['chunks'][index] and same(unpack(chunk['transcript']),[row]))
+    # One EMPTY pure memo per complete historical pass. Every record/literal
+    # is still read, hashed and joined to the actual final graph below; only
+    # grammar already accepted in this same pass can supply a prefix.
+    grammar=ChatSourceGraphPrefix()
     for index,record in enumerate(reader.rows):
         chunk=reader.history.store(index).read()
         need(digest(chunk)==reader.previous['chunks'][index] and same(unpack(chunk['transcript']),[record]))
@@ -92,12 +96,13 @@ def returned_prefix(prefix,returned):
         if cleanup is not None:
             need(same(cleanup,graph.cleanup) and record['roots']['cleanup']['stamp']==graph.files['cleanup'][1]
                 and literal(record['roots']['cleanup'])[1]==graph.files['cleanup'][0])
-        validate_source_graph(roots,frames,graph.stores,reader.expected,flow,flow_rows,cleanup,stages)
+        candidate=grammar.validate(roots,frames,graph.stores,reader.expected,flow,flow_rows,cleanup,stages)
         validate_publication_return(actor['returnedPublication'],publisher=roots['publisher'],cursor=roots['cursor'],
             rows=frames['publisher'],publisher_stamp=record['roots']['publisher']['stamp'],cursor_stamp=record['roots']['cursor']['stamp'])
         need(same(record['publication'],frames['publisher'][-1]) and len(record['received']['entries'])==len(frames['publisher']))
         for actual,published in zip(record['received']['entries'],frames['publisher']):
             need(all(same(actual[key],value) for key,value in published['payload'].items()))
+        grammar.commit(candidate)
     consumed=prefix.command['consumedSequence']
     need(consumed<=len(graph.frames['publisher']) and prefix.command['consumedPayloadSha256']==digest(graph.frames['publisher'][consumed-1]['payload']))
     prefix.control();reader.history.verify();returned.receipt()

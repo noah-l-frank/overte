@@ -61,3 +61,28 @@ duplicate/escaped keys, tuple/bool physical stamps and changed digests; an
 actual unconsumed Parent prefix cannot create a source-return join; the real
 Pico factory refuses an unqualified prefix/return; rootless new result chunks
 keep ordinary cleanup closed. No extra unchanged full positive was repeated.
+
+The real warm-source profiling and retained-literal diagnostics later exposed
+repeated full grammar in this historical receipt path. For all 61 original
+record prefixes, full grammar per prefix took 6.130575 seconds versus 1.002624
+seconds using one fresh strict `ChatSourceGraphPrefix` for the complete pass.
+No live owner was constructed by that historical measurement.
+
+`returned_prefix()` now creates exactly such an empty, local pure memo on each
+invocation. It admits only previously validated identical JSON frame hashes,
+original contexts, paths, flow prefixes, stages and current reviewed Script
+pins. Each new row and complete Script native history still uses the original
+grammar. The candidate commits only after that record's publication certificate
+and every original received payload also match. Nothing survives between
+receipt calls: cold/retry/receipt passes still reread and hash every original
+literal, manifest, byte payload and physical stamp, with the existing complete
+returned-graph and reader-history checks. No current sample or freshness is
+derived from the memo, and no wire or source version changes.
+
+Eight literal/memo cases passed in 4.631 seconds. The same existing actual
+Parent/Actor/common-three-second/Stop2/extra-tail/nonce/kernel-return/seals/
+remote-catalog case then passed in 36.427 seconds. Its source flag remained
+false and every original was retained through catalog admission; no application,
+archive retirement, host finalization or whole execution is claimed. This run
+also includes the independently verified complete-directory name-scan change,
+so its elapsed time is not attributed solely to the local grammar memo.
