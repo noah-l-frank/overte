@@ -70,5 +70,24 @@ class FeatureCleanupConsumptionTests(unittest.TestCase):
         self.assertIsNone(journey.cleanup_consumption);self.assertFalse(journey.cleanup_hook_started)
         self.assertTrue(boundary.reports[0]['sequenceCompleted'])
 
+    def test_caller_created_window_cannot_invoke_callback_without_original_common_wait(self):
+        boundary=Boundary('chat');calls=[];journey=self.journey(boundary,calls.append)
+        journey.phases=[dict(phase='cleanup-restored-baseline',stableSeconds=3)]
+        journey.samples=[dict(phase='cleanup-restored-baseline',ticket='aa'*16,actionBarrierEpochMs=1)]
+        with self.assertRaisesRegex(ValueError,'changed after its original common check'):
+            journey.consumed_cleanup('aa'*16,1,0)
+        self.assertEqual([],calls);self.assertIsNone(journey.cleanup_consumption)
+
+    def test_changed_consumed_window_is_refused_before_callback(self):
+        boundary=Boundary('chat');calls=[];journey=self.journey(boundary,calls.append)
+        original=journey.consumed_cleanup
+        def changed(*args):
+            journey.samples[-1]['resources'].append('late unowned resource')
+            return original(*args)
+        journey.consumed_cleanup=changed
+        with self.assertRaisesRegex(ValueError,'changed after its original common check'):journey.execute()
+        self.assertEqual([],calls);self.assertFalse(boundary.reports[0]['cleanupSucceeded'])
+        self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
 
 if __name__=='__main__':unittest.main()

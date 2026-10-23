@@ -70,7 +70,8 @@ class Journey:
         if after_cleanup_baseline is not None and not callable(after_cleanup_baseline):
             raise ValueError('Post-baseline finalization requires a callable owner')
         self.after_cleanup_baseline=after_cleanup_baseline
-        self.cleanup_consumption=None;self.cleanup_hook_started=False
+        self.cleanup_consumption=None;self.cleanup_hook_started=False;self.cleanup_wait_consumption=None
+        self._cleanup_sequence_succeeded=False
 
     def now(self):
         value = number(self.monotonic())
@@ -310,6 +311,7 @@ class Journey:
         for query in queries:self.navigation_stereo_queries[query]=pin
 
     def wait(self, label, ticket, barrier, expected, kinds, *, duration=0.5):
+        consumption_start=len(self.samples)
         deadline = self.now() + 20
         stable_since = None
         stable_count = 0
@@ -404,6 +406,10 @@ class Journey:
                     self.lifecycle = value['lifecycle'].copy()
                     self.phases.append(dict(phase=label, advancingSamples=stable_count,
                         stableSeconds=current - stable_since, lastSequence=value['sequence'], evidence=details))
+                    if self.after_cleanup_baseline is not None and label=='cleanup-restored-baseline' and duration>=3.0:
+                        self.cleanup_wait_consumption=json.dumps(dict(ticket=ticket,barrier=barrier,
+                            start=consumption_start,phase=self.phases[-1],samples=self.samples[consumption_start:]),
+                            sort_keys=True,separators=(',',':'),allow_nan=False).encode('utf-8')
                     return value
             else:
                 stable_since, stable_count, initial_effects = None, 0, None
@@ -412,9 +418,34 @@ class Journey:
             self.sleep(0.25)
         raise AssertionError('Common ' + self.area + ' ' + label + ': ' + last_problem)
 
+    def consumed_cleanup(self,ticket,barrier,samples_start):
+        """Emit only a just-consumed window; this does not execute a journey."""
+        if self.after_cleanup_baseline is None:return
+        if self.cleanup_hook_started:raise ValueError('Consumed cleanup finalization cannot be replayed')
+        if (type(samples_start) is not int or not 0<=samples_start<len(self.samples)
+                or not self.phases
+                or self.phases[-1]['phase']!='cleanup-restored-baseline'
+                or self.phases[-1]['stableSeconds']<3.0
+                or any(row['phase']!='cleanup-restored-baseline' or row['ticket']!=ticket
+                    or row['actionBarrierEpochMs']!=barrier for row in self.samples[samples_start:])):
+            raise ValueError('Actual consumed cleanup window is missing')
+        original=json.dumps(dict(ticket=ticket,barrier=barrier,start=samples_start,phase=self.phases[-1],
+            samples=self.samples[samples_start:]),sort_keys=True,separators=(',',':'),allow_nan=False).encode('utf-8')
+        if original!=self.cleanup_wait_consumption:
+            raise ValueError('Consumed cleanup window changed after its original common check')
+        # Historical originals only: no expected recipe or fresh acquisition.
+        self.cleanup_consumption=json.dumps(dict(cleanupConsumptionVersion=1,
+            contractVersion=VERSION,area=self.area,runId=self.run,fixtureUrl=self.url,
+            ticket=ticket,actionBarrierEpochMs=barrier,sequenceSucceeded=self._cleanup_sequence_succeeded,
+            phase=self.phases[-1],samples=self.samples[samples_start:],finalSequence=self.sequence),
+            sort_keys=True,separators=(',',':'),allow_nan=False).encode('utf-8')
+        self.cleanup_hook_started=True
+        self.after_cleanup_baseline(self.cleanup_consumption)
+
     def execute(self):
         if self.cleanup_hook_started:
             raise ValueError('Consumed cleanup finalization cannot be replayed')
+        self._cleanup_sequence_succeeded=False
         scenario = SCENARIOS[self.area]
         expected_baseline = expand(scenario['baseline'], context(self.run))
         measured = scenario.get('measuredBaselineFields', [])
@@ -537,17 +568,8 @@ class Journey:
                     cleanup_start=len(self.samples)
                     self.wait('cleanup-restored-baseline', ticket, barrier, cleanup_baseline, ['peer'], duration=3.0)
                     if self.after_cleanup_baseline is not None:
-                        # These are historical observations actually consumed
-                        # above, never requested baseline facts or a fresh read.
-                        # Immutable bytes prevent the callback from changing
-                        # this checker's original phase/sample history.
-                        self.cleanup_consumption=json.dumps(dict(cleanupConsumptionVersion=1,
-                            contractVersion=VERSION,area=self.area,runId=self.run,fixtureUrl=self.url,
-                            ticket=ticket,actionBarrierEpochMs=barrier,sequenceSucceeded=primary is None,
-                            phase=self.phases[-1],samples=self.samples[cleanup_start:],finalSequence=self.sequence),
-                            sort_keys=True,separators=(',',':'),allow_nan=False).encode('utf-8')
-                        self.cleanup_hook_started=True
-                        self.after_cleanup_baseline(self.cleanup_consumption)
+                        self._cleanup_sequence_succeeded=primary is None
+                        self.consumed_cleanup(ticket,barrier,cleanup_start)
                     cleanup_okay = True
                 except BaseException as error:
                     cleanup_errors.append(error)

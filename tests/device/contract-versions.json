@@ -95,6 +95,7 @@
     "capability-registry": {"current": 1, "reads": [1]},
     "feature-journey": {"current": 16, "reads": [16]},
     "feature-cleanup-consumption": {"current": 1, "reads": [1]},
+    "chat-cleanup-consumption": {"current": 1, "reads": [1]},
     "feature-navigation-provider": {"current": 2, "reads": [1, 2]},
     "native-pico-assets-read": {"current": 1, "reads": [1]},
     "pico-assets-source": {"current": 1, "reads": [1]},
