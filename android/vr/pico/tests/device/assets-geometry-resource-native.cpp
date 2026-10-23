@@ -13,7 +13,11 @@ Q_LOGGING_CATEGORY(networking,"networking")
 #include "GeometryResourceRequestOriginals.inc"
 #include "AssetsResourceObserverOriginal.inc"
 #include "GeometryResourceConstantsOriginals.inc"
+#if defined(ASSETS_ORIGINAL_MODEL_CACHE)
+#include "GeometryModelCacheOriginals.inc"
+#else
 #include "GeometryResourceExtrasOriginals.inc"
+#endif
 
 class ResourceOwnedGeometryReader final:public GeometryReader {
  inline static QPointer<Resource> _boundOwner;
@@ -67,9 +71,31 @@ int main(int argc,char** argv){
  QJsonArray observerOriginals;
  QObject::connect(observer.data(),&ResourceRequestObserver::resourceRequestEvent,&app,[&](const QVariantMap& value){observerOriginals.append(QJsonObject::fromVariantMap(value));});
  const QUrl url(resources.first().toObject().value("url").toString());ModelLoader loader;
+ QElapsedTimer budget;budget.start();
+#if defined(ASSETS_ORIGINAL_MODEL_CACHE)
+ ModelCache cache;
+ const GeometryMappingPair mapping{QUrl("atp:/original-model/mapping.fst"),QVariantHash{{"picoOriginalMarker",true}}};
+ const QUrl textureBase("atp:/original-model/textures/");
+ GeometryResource::Pointer owner=cache.getGeometryResource(url,mapping,textureBase);
+ QJsonArray cacheOriginals;
+ const auto cacheState=[&](const QString& phase){QReadLocker lock(&cache._resourcesLock);int alive=0,entries=0;
+  for(const auto& byUrl:cache._resources){for(const auto& weak:byUrl){++entries;if(!weak.isNull()){++alive;}}}
+  return QJsonObject{{"phase",phase},{"entries",entries},{"alive",alive},{"totalBytes",double(cache._totalResourcesSize)},
+   {"resourceId",owner ? QString::number(reinterpret_cast<quintptr>(owner.data()),16) : QString()},
+   {"extraHash",owner ? QString::number(owner->getExtraHash()) : QString()},
+   {"actualQtClass",QString::fromLatin1(cache.metaObject()->className())},
+   {"observedEpochMs",QDateTime::currentMSecsSinceEpoch()}};};
+ cacheOriginals.append(cacheState("acquired"));
+ auto same=cache.getGeometryResource(url,mapping,textureBase);
+ const bool sameOriginal=owner.data()==same.data();same.clear();cacheOriginals.append(cacheState("same-extra-acquired"));
+ if(!sameOriginal || manager->requests.size()!=1){qFatal("Same original cache acquisition duplicated an owner or request");}
+ const QPointer<GeometryResource> original=owner.data();
+#else
  QSharedPointer<HostGeometryResource> owner(new HostGeometryResource(url,loader),&GeometryResource::deleter);
  owner->setSelf(owner);owner->setExtra(nullptr);
- const QPointer<HostGeometryResource> original=owner.data();const QString originalId=QString::number(reinterpret_cast<quintptr>(owner.data()),16);
+ const QPointer<HostGeometryResource> original=owner.data();
+#endif
+ const QString originalId=QString::number(reinterpret_cast<quintptr>(owner.data()),16);
  auto evidence=std::make_shared<WorkerEvidence>();ResourceOwnedGeometryReader::bind(owner.data(),evidence);
  QJsonArray ownerOriginals;QByteArray loadedOriginal;QPointer<ResourceRequest> mainRequest;
  const auto state=[&](const QString& phase){const auto object=original.data();return QJsonObject{
@@ -81,14 +107,29 @@ int main(int argc,char** argv){
   {"hfmPresent",object ? QJsonValue(object->isHFMModelLoaded()) : QJsonValue()},
   {"bytes",object ? QJsonValue(double(object->getBytes())) : QJsonValue()},
   {"requestAlive",!mainRequest.isNull()},{"observedEpochMs",QDateTime::currentMSecsSinceEpoch()}};};
+#if defined(ASSETS_ORIGINAL_MODEL_CACHE)
+ mainRequest=manager->requests.first();
+#endif
  ownerOriginals.append(state("constructed"));bool completed=false,success=true;
- QObject::connect(owner.data(),&Resource::loaded,owner.data(),[&](const QByteArray& data){mainRequest=owner->originalRequest();loadedOriginal=data;ownerOriginals.append(state("loaded-signal"));});
+ QObject::connect(owner.data(),&Resource::loaded,owner.data(),[&](const QByteArray& data){
+#if defined(ASSETS_ORIGINAL_MODEL_CACHE)
+ mainRequest=manager->requests.first();
+#else
+ mainRequest=owner->originalRequest();
+#endif
+ loadedOriginal=data;ownerOriginals.append(state("loaded-signal"));});
  QObject::connect(owner.data(),&Resource::finished,owner.data(),[&](bool value){success=value;completed=true;owner.clear();ownerOriginals.append(state("finished-external-reference-released"));});
- QElapsedTimer budget;budget.start();owner->ensureLoading();
+#if defined(ASSETS_ORIGINAL_MODEL_CACHE)
+ mainRequest=manager->requests.first();
+#endif
+ owner->ensureLoading();
  while((!completed || original) && budget.elapsed()<1500){QTest::qWait(1);}
  const bool withinBudget=budget.elapsed()<1500;
  const bool workerRetired=withinBudget && QThreadPool::globalInstance()->waitForDone(1500-int(budget.elapsed()));
  ownerOriginals.append(state("retired"));
+#if defined(ASSETS_ORIGINAL_MODEL_CACHE)
+ cacheOriginals.append(cacheState("retired"));
+#endif
  if(!workerRetired){
   // Retain known owner/worker originals before refusal without racing any
   // still-running parser/transport arrays or inventing successful retirement.
@@ -112,5 +153,10 @@ int main(int argc,char** argv){
   {"pending",stats->stats.value("PendingProcessing")},{"processing",stats->stats.value("Processing")},
   {"bakerProcessingQualified",false},{"rendererReadinessQualified",false},{"durationMs",double(budget.elapsed())}};
  QFile output(QString::fromLocal8Bit(argv[2]));if(!output.open(QIODevice::WriteOnly|QIODevice::NewOnly)){return 9;}
+#if defined(ASSETS_ORIGINAL_MODEL_CACHE)
+ result.insert("modelCacheHostEvidenceVersion",1);result.insert("cacheOriginals",cacheOriginals);
+ result.insert("sameOriginal",sameOriginal);result.insert("mapping",QJsonObject::fromVariantHash(mapping.second));
+ result.insert("mappingUrl",mapping.first.toString());result.insert("textureBaseUrl",textureBase.toString());
+#endif
  const auto encoded=QJsonDocument(result).toJson(QJsonDocument::Compact);if(output.write(encoded)!=encoded.size()){return 10;}return protocolValid ? 0 : 7;
 }

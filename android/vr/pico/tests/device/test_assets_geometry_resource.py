@@ -25,6 +25,8 @@ HERE=Path(__file__).resolve().parent
 
 
 class AssetsGeometryResourceTests(unittest.TestCase):
+    prepare_name="assets-geometry-resource-prepare.py"
+    model_cache=False
     make=resources_module.AssetsEntityResourcesTests.make
     cancel_phase=resources_module.AssetsEntityResourcesTests.cancel_phase
     home_owner=resources_module.AssetsEntityResourcesTests.home_owner
@@ -44,7 +46,7 @@ class AssetsGeometryResourceTests(unittest.TestCase):
             if not name.startswith('gltf-bundle/'):continue
             target=cls.indexed_fixture/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
         cls.parser_stage=Path(cls.build.name)/'geometry-resource'
-        spec=importlib.util.spec_from_file_location('assets_geometry_resource_prepare',HERE/'assets-geometry-resource-prepare.py')
+        spec=importlib.util.spec_from_file_location('assets_geometry_resource_prepare',HERE/cls.prepare_name)
         prepare=importlib.util.module_from_spec(spec);spec.loader.exec_module(prepare)
         command=prepare.prepare(cls.parser_stage,cls.environment,Path(cls.environment['OVERTE_QT5_HOST_ROOT']))
         subprocess.run(command,check=True,timeout=90,env=cls.environment)
@@ -63,7 +65,8 @@ class AssetsGeometryResourceTests(unittest.TestCase):
                 inputSha256=hashlib.sha256(raw.encode()).hexdigest(),inputOriginal=raw,
                 parserArtifactSha256=hashlib.sha256(self.parser.read_bytes()).hexdigest(),
                 originalCppSources={name:json.loads((self.parser_stage/name).read_text()) for name in
-                    ('geometry-resource-original-provenance.json','geometry-parser-original-provenance.json','resource-data-original-provenance.json')},
+                    (('geometry-resource-original-provenance.json','geometry-parser-original-provenance.json','resource-data-original-provenance.json')+
+                     (('model-cache-original-provenance.json',) if self.model_cache else ())) },
                 pending=True,raw=None,processReturncode=None,stderr=None)
             self.parser_store.write(pending,None);previous=deepcopy(pending);started=time.monotonic()
             completed=subprocess.run([str(self.parser),str(packet),str(output)],env=self.environment,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=1.5)
@@ -82,7 +85,7 @@ class AssetsGeometryResourceTests(unittest.TestCase):
             owner=native['ownerOriginals'];self.assertEqual(['constructed','loaded-signal','finished-external-reference-released','retired'],[row['phase'] for row in owner])
             self.assertEqual(1,len({row['id'] for row in owner}));self.assertTrue(all(row['alive'] and row['ownerThread'] for row in owner[:3]))
             self.assertTrue(all(row['actualQtClass']=='GeometryResource' for row in owner[:3]))
-            self.assertEqual(0,owner[0]['bytes']);self.assertFalse(owner[0]['requestAlive'])
+            self.assertEqual(0,owner[0]['bytes']);self.assertEqual(self.model_cache,owner[0]['requestAlive'])
             self.assertTrue(owner[1]['requestAlive']);self.assertFalse(owner[1]['resourceFailed'])
             self.assertTrue(owner[2]['resourceFailed']);self.assertEqual(main['bytes'],owner[1]['bytes']);self.assertEqual(main['bytes'],owner[2]['bytes'])
             self.assertFalse(any(row['resourceLoaded'] or row['hfmPresent'] for row in owner[:3]))
@@ -94,15 +97,15 @@ class AssetsGeometryResourceTests(unittest.TestCase):
             self.assertNotEqual(worker[0]['thread'],worker[1]['thread']);self.assertEqual(1,len({row['thread'] for row in worker[1:]}))
             self.assertEqual(1,len(native['loaderOriginals']));loader=native['loaderOriginals'][0]
             self.assertEqual(main['url'],loader['url']);self.assertEqual(main['sha256'],loader['sha256']);self.assertEqual(main['bytes'],loader['bytes'])
-            self.assertEqual(dict(combineParts=True,deduplicateIndices=True),loader['mapping']);self.assertEqual(worker[1]['thread'],loader['thread'])
-            self.assertEqual(2,len(native['resourceObserverOriginals']));self.assertEqual({row['url'] for row in self.resource_original['resources'][:2]},
+            self.assertEqual(dict(combineParts=True,deduplicateIndices=True,**({'picoOriginalMarker':True} if self.model_cache else {})),loader['mapping']);self.assertEqual(worker[1]['thread'],loader['thread'])
+            self.assertEqual(4 if self.model_cache else 2,len(native['resourceObserverOriginals']));self.assertEqual({row['url'] for row in self.resource_original['resources'][:2]},
                 {row['url'] for row in native['resourceObserverOriginals']})
             self.assertEqual([False,True],native['transportPresenceBeforeProcessExit'])
         return result
     def exercise_cancel_home(self,baseline):
         counts,raw=resources_module.AssetsEntityResourcesTests.exercise_cancel_home(self,baseline)
         self.assertEqual(self.parser_disk,self.parser_store.read());native=self.parser_original
-        for key in ('workerOriginals','loaderOriginals','transportOriginals','ownerOriginals','resourceObserverOriginals'):counts+=len(native[key])
+        for key in ('workerOriginals','loaderOriginals','transportOriginals','ownerOriginals','resourceObserverOriginals','cacheOriginals'):counts+=len(native.get(key,[]))
         counts+=2;raw+=len(canonical(native))+len(self.parser_disk['inputOriginal'].encode())
         return counts,raw
     def test_original_geometry_nonindexed_parser_refusal_and_original_owner_retirement(self):
