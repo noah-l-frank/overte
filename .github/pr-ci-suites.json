@@ -1420,6 +1420,8 @@
       "closure": {
         "kind": "patterns",
         "inputs": [
+          "tools/dependency-releases/check.py",
+          ".github/dependency-releases.json",
           "tools/repository-checks/pr_ci_android.py",
           "tools/repository-checks/pr_ci_android_preflight.py",
           "tools/repository-checks/pr_ci_platform.py",
@@ -1432,6 +1434,8 @@
           ".github/pr-ci-dependencies.json"
         ],
         "required": [
+          "tools/dependency-releases/check.py",
+          ".github/dependency-releases.json",
           "tests/pr-ci-android-test.py"
         ]
       }
