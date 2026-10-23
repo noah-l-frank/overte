@@ -84,6 +84,20 @@ class PicoChatObservationFactoryTests(unittest.TestCase):
         self.assertEqual(self.adapter._chat_observation_publisher_store(self.target).path,publisher.store.path)
         self.assertIsNone(publisher.store.read());self.assertEqual([],self.h.native.inputs)
 
+    def test_actual_global_actor_constructor_owns_original_peer_pairs_and_retains_intent_on_host_only_detach(self):
+        actor=self.adapter._chat_cursor_actor(self.target,self.original.publisher.source,self.h.peer.config)
+        self.addCleanup(actor.detach);self.assertEqual('publishing',actor.store.read()['phase'])
+        self.assertEqual(2,len(actor.pairs));self.assertFalse(actor.closed);self.assertFalse(actor.failed)
+        self.assertIs(actor.source,actor.publisher.observation.source)
+        self.assertIsNot(self.original.peer,actor.original.peer)
+        self.assertIs(actor.original.lock,actor.publisher.observation.samples.locks[0])
+        self.assertIs(actor.original.peer.lock,actor.publisher.observation.samples.locks[1])
+        before=actor.store.path.read_bytes()
+        with self.assertRaises((ValueError,NativeUIError)):self.adapter._chat_cursor_actor(self.target,actor.source,self.h.peer.config)
+        self.assertEqual(before,actor.store.path.read_bytes());self.assertTrue(self.adapter._chat_application_retained(self.target))
+        self.assertTrue(actor.detach());self.assertTrue(all(owner.closed and not owner.lost for owner,_row in actor.pairs))
+        self.assertFalse(actor.closed);self.assertEqual(before,actor.store.path.read_bytes());self.assertEqual([],self.h.native.inputs)
+
     def test_rootless_original_observation_and_cleanup_publisher_chunks_keep_generic_cleanup_closed(self):
         self.assertFalse(self.adapter._chat_application_retained(self.target))
         stores=(self.adapter._chat_observation_store(self.target,'actor',stage='cleanup',witness=True),
@@ -96,7 +110,8 @@ class PicoChatObservationFactoryTests(unittest.TestCase):
             self.adapter._chat_observation_publisher_store(self.target),
             self.adapter._chat_cursor_source_seal_store(self.target,witness=False),
             self.adapter._chat_cursor_source_seal_store(self.target,witness=True),
-            self.adapter._chat_cursor_cleanup_consumption_store(self.target))
+            self.adapter._chat_cursor_cleanup_consumption_store(self.target),
+            self.adapter._chat_cursor_actor_store(self.target),self.adapter._chat_cursor_actor_stop_store(self.target))
         for store in stores:
             child=PrivateFeatureState(store.path.with_name(store.path.name+'.frame-000.json'))
             child.write(dict(explicitOriginalOrphan=True),None)

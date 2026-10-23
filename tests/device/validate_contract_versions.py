@@ -29,6 +29,7 @@ REQUIRED = {
     "chat-evidence-archive": 4,
     "pico-chat-archive-plan": 4,
     "pico-chat-cursor-archive-extension": 1,
+    "pico-chat-cursor-actor": 1,
     "pico-chat-host-close": 1,
     "pico-chat-restart-io": 1,
     "pico-openxr-binding-transfer": 1,
@@ -83,7 +84,7 @@ REQUIRED = {
     'native-account-menu-controls': 1,
     'pico-authentication-feature-binding': 1,
     'pico-tablet-home-observation': 1,
-    'pico-feature-observer': 2,
+    'pico-feature-observer': 3,
     'owned-feature-observer': 1,
 
     'script-journey-actions': 1,

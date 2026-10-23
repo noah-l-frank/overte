@@ -104,6 +104,7 @@
     "chat-evidence-archive": {"current": 4, "reads": [1, 2, 3, 4]},
     "pico-chat-archive-plan": {"current": 4, "reads": [1, 2, 3, 4]},
     "pico-chat-cursor-archive-extension": {"current": 1, "reads": [1]},
+    "pico-chat-cursor-actor": {"current": 1, "reads": [1]},
     "pico-chat-host-close": {"current": 1, "reads": [1]},
     "pico-chat-restart-io": {"current": 1, "reads": [1]},
     "pico-openxr-binding-transfer": {"current": 1, "reads": [1]},
@@ -216,7 +217,7 @@
     "native-account-menu-controls": {"current": 1, "reads": [1]},
     "pico-authentication-feature-binding": {"current": 1, "reads": [1]},
     "pico-tablet-home-observation": {"current": 1, "reads": [1]},
-    "pico-feature-observer": {"current": 2, "reads": [1, 2]},
+    "pico-feature-observer": {"current": 3, "reads": [1, 2, 3]},
     "native-qml-load-inventory": {"current": 1, "reads": [1]},
     "owned-feature-observer": {"current": 1, "reads": [1]}
   },
