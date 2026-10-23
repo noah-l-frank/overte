@@ -132,6 +132,7 @@ namespace Setting {
         void customDeleter() override;
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
         QVariantMap featureSnapshotCaptureContext() const;
+        QVariantMap featureSnapshotSettingsEntries() const;
 #endif
 
         /**

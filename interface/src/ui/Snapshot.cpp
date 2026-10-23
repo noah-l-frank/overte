@@ -58,6 +58,7 @@
 #if defined(ANDROID_APP_PICO_INTERFACE)
 #include <SettingManager.h>
 #include "../../../tests/device/native/PicoSnapshotCaptureFiles.h"
+#include "../../../tests/device/native/SnapshotSettingsOriginals.h"
 #endif
 #endif
 
@@ -189,6 +190,26 @@ void Snapshot::featureCaptureEvent(const QString& kind,const QString& id,const Q
     _featureCaptureScriptHistory.record(kind,id,mode,revision,caller,context);
 #else
     _featureCaptureScriptHistory.record(kind,id,mode,revision,caller);
+#endif
+}
+
+QVariantMap Snapshot::featureSnapshotSettingsOriginals(const QVariantMap& command) {
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")
+            || QThread::currentThread()!=thread() || thread()!=QCoreApplication::instance()->thread()
+            || !nativeReviewEnabled() || !overte::e2e::snapshotSettingsCommand(command)
+            || _featureSettingsQueries.size()>=4096 || _featureSettingsQueries.contains(command.value("commandId").toString())
+            || (!_featureSettingsRun.isEmpty() && _featureSettingsRun!=command.value("runId").toString())
+            || _featureSettingsSequence>=9007199254740991ULL) { return {}; }
+    _featureSettingsQueries.insert(command.value("commandId").toString());_featureSettingsRun=command.value("runId").toString();
+    if (!DependencyManager::isSet<Setting::Manager>()) { return {}; }
+    const auto manager=DependencyManager::get<Setting::Manager>();if (!manager) { return {}; }
+    // Read both existing sources without maybeInit/isSet/get. No settings
+    // writer, cache initialization, replacement values or dependency creation.
+    const auto cache=_snapshotFormat.featureSnapshotFormatState();const auto entries=manager->featureSnapshotSettingsEntries();
+    return overte::e2e::snapshotSettingsOriginals(command,_featureSettingsInstance,entries,cache,++_featureSettingsSequence);
+#else
+    Q_UNUSED(command) return {};
 #endif
 }
 

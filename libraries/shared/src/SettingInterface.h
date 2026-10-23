@@ -35,6 +35,11 @@ namespace Setting {
         virtual QVariant getVariant() = 0;
 
     protected:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        // Read the existing flag only. A passive Snapshot source must not call
+        // maybeInit(), which can register a handle and insert an absent key.
+        bool featureSnapshotCacheInitialized() const { return _isInitialized; }
+#endif
         Interface(const QString& key) : _key(key) {}
         virtual ~Interface() = default;
 

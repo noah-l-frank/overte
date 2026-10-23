@@ -57,7 +57,7 @@ class PicoSnapshotSaveOwner:
             and saved.context=={key:self.binding[key] for key in ('sourceRevision','artifactSha256','processIdentity')})
         self.disk=self.state=self.anchor=None;self.current=False;self.decoded={};self.upload_owner=None
         with self.lock.held():
-            parent.load();need(parent.encoding_version==2 and parent.state['stage']=='still-ready')
+            parent.load();need(parent.encoding_version in (2,3) and parent.state['stage']=='still-ready')
             self.parent_disk=deepcopy(parent.disk);self.parent_digest=sha(self.parent_disk)
             self.originals=SnapshotSaveOriginals(self.store.path.with_name('snapshot-save-originals.json'),self.run,self.binding)
             self.load()

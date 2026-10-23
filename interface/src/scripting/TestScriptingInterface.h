@@ -166,6 +166,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureAudioSettingsObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureSnapshotCaptureOriginals(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureSnapshotScriptOriginals(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureSnapshotSettingsOriginals(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoSnapshotExports(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoSnapshotUpload(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoSnapshotCaptureFiles(const QVariantMap& command);

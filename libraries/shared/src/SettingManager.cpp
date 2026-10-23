@@ -233,6 +233,27 @@ namespace Setting {
 // The presence/value pattern and three keys follow the fixed Phone b62 source.
 // This Pico observer adds a bounded original read lock and manager birth.
 // No writer, cache initialization, endpoint setter or replacement value exists.
+// Closed key names follow fixed Phone 3fa8031a. Unlike its lease, this
+// observer never initializes a Handle and never restores/replaces a value.
+QVariantMap Setting::Manager::featureSnapshotSettingsEntries() const {
+    if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    const QStringList keys{"alsoTakeAnimatedSnapshot","snapshotFormat","previousSnapshotHref","previousSnapshotDomainID",
+        "previousStillSnapPath","previousStillSnapStoryID","previousStillSnapBlastingDisabled","previousStillSnapHifiSharingDisabled","previousStillSnapUrl",
+        "previousAnimatedSnapPath","previousAnimatedSnapStoryID","previousAnimatedSnapBlastingDisabled","previousAnimatedSnapHifiSharingDisabled"};
+    QVariantMap entries;bool valid=true;
+    const bool acquired=withTryReadLock([&] {
+        for (const auto& key:keys) {
+            const bool present=_settings.contains(key);const auto value=_settings.value(key);
+            if (present && value.isValid() && value.userType()!=QMetaType::Bool && value.userType()!=QMetaType::QString) { valid=false;return; }
+            if (value.userType()==QMetaType::QString && (value.toString().size()>4096 || value.toString().contains(QChar::Null))) { valid=false;return; }
+            entries.insert(key,QVariantMap{{"present",present},{"value",present?value:QVariant{}}});
+        }
+    },25);
+    if (!acquired || !valid) { return {}; }
+    const auto captured=QDateTime::currentMSecsSinceEpoch();if (captured<=0) { return {}; }
+    return {{"snapshotSettingsEntriesVersion",1},{"instance",_featureSnapshotContextInstance},{"capturedEpochMs",captured},{"entries",entries}};
+}
+
 QVariantMap Setting::Manager::featureSnapshotCaptureContext() const {
     if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
     QVariantMap entries;bool valid=true;
