@@ -13,7 +13,6 @@ from adapters.script_feature.history import pack,unpack,same
 from feature_journeys import terminal
 from ios.adapters.navigation_feature import IOSNavigationFeature
 from ios.adapters.navigation_restoration import NavigationRestoration
-from ios.adapters.navigation_publications import NavigationPublications
 from ios.adapters.navigation_terminal_resources import held
 from ios.adapters.navigation_cleanup_archive import archive as cleanup_archive
 
@@ -87,8 +86,7 @@ class NavigationTerminal:
                     and [item['resource'] for item in current['heldResources']]==[item['resource'] for item in original['heldResources']])
                 refs[role][measured['public']['sequence']]=ref;actual[role][measured['public']['sequence']]=measured
             if role=='actor':
-                old=owner.flow.prior_observers()['actor']
-                publications=NavigationPublications(owner.admission,{0:old,1:owner.observer},transfer=owner.transfer,restoration=owner)
+                publications=owner.publications()
         journal=publications.state();need(journal is not None and journal['pending'] is None)
         # The unchanged actor publisher decoder already reopens each original
         # receipt and its actual source reference. Match the exact server row.

@@ -55,5 +55,6 @@ without a second Go To. Both paths retain hidden Qt roots. This delivery does
 not itself admit paired cleanup or final end. The separate
 [initial-process source/image owner](NAVIGATION_INITIAL_RESTORATION.md) now
 qualifies fresh restored source, input and full-target baseline image cuts plus
-each role's original three-second quiet. Paired quiet and whole cleanup
-integration remain open.
+each role's original three-second quiet. The original-process open/close whole
+case now passes paired quiet, actual worker publications and the complete
+process/SDK end. Error-interrupted and partial-setup cleanup remain open.

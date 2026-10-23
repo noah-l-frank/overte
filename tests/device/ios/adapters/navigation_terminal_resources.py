@@ -7,6 +7,7 @@ from adapters.native_clock_join import digest
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import context
 from ios.adapters.navigation_quiet_image import NavigationQuietImage
+from ios.adapters.navigation_initial_restored_image import NavigationInitialRestoredImage
 from ios.adapters.navigation_restoration import NavigationRestoration
 
 
@@ -18,7 +19,7 @@ def binding(value):
 
 
 def held(owner):
-    need(type(owner) is NavigationQuietImage)
+    need(type(owner) in (NavigationQuietImage,NavigationInitialRestoredImage))
     _rendered,proof,_raw=owner.archive();parts=owner.originals();rows=[]
     for root in proof['placesRoots']['roots']:
         need(root['status']=='retained' and root['drained'] is False)

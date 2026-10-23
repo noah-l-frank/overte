@@ -508,7 +508,7 @@ REQUIRED = {
     "ios-navigation-quiet-original": 1,
     "ios-navigation-quiet-period": 1,
     "ios-navigation-whole-preparation": 1,
-    "ios-navigation-restoration": 2,
+    "ios-navigation-restoration": 3,
     "ios-navigation-restoration-reference": 1,
     "ios-navigation-restoration-phase": 1,
     "ios-navigation-whole-feature": 1,

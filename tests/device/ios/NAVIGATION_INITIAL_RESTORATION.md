@@ -37,7 +37,15 @@ first modeled producer lacked ordinary static return; it was extended before
 future responses, without rewriting retained packets. A subsequent check also
 caught and corrected the initial-process surface-journal namespace.
 
-This component does not yet provide paired role quiet, whole cleanup/Actor
-publication/terminal integration or partially completed preparation retirement.
-Worlds remains partial; no complete
+The connected original-process open/close case now also passes actual ordinary
+cleanup, both independent role acquisitions/publications and paired quiet/seal,
+one Stop, actual original OS windows, SDK DELETE/404/CAS and transport-free
+repeated finish/worker exit. The actual input archive reopens and validates the
+initial scene-input gate and original child before the first restored image.
+All 381 frozen source hashes remained unchanged throughout the 1037.725-second
+case. No replacement-process receipt was created.
+
+Error-interrupted and partially completed preparation cleanup, canonical
+dispatch and full fifteen-step final qualification remain open. Worlds remains
+partial; no complete
 capability, compilation or device qualification is claimed.

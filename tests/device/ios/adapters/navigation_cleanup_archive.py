@@ -11,21 +11,23 @@ from ios.adapters.navigation_whole_feature import NavigationWholeFeature
 from ios.adapters.navigation_places_cleanup import NavigationPlacesCleanup
 from ios.adapters.navigation_surface_actions import NavigationSurfaceActions
 from ios.adapters.navigation_process_return import NavigationProcessReturn
+from ios.adapters.navigation_scene_inputs import NavigationSceneInputs
 from ios.adapters.navigation_process_context import source_basis
 from ios.adapters.normal_input import observation
 
 
 def archive(owner):
     """Decode typed originals only; no bound/live factory or transport."""
-    f=owner.flow;f.lock.assert_held();need(owner.historical and f.state['stage']==1)
+    f=owner.flow;f.lock.assert_held();need(owner.historical and f.state['stage'] in (0,1))
     whole=NavigationWholeFeature(f);whole.load();need(whole.state is not None and whole.state['phase']=='cleaned'
         and f.state['phase']=='ready' and (f.state['lastCall'] is None or f.state['lastCall']['phase']=='acknowledged'))
-    context=owner.process_context;basis=source_basis(context,owner.owner_files);row=whole.state['cleanup'];call=row['call']
+    context=owner.process_context;initial=owner.admission.archive()
+    basis=initial if owner.transfer is None else source_basis(context,owner.owner_files)
+    row=whole.state['cleanup'];call=row['call']
     need(call['ticket']==owner.context['cleanupTicket'])
-    fixture=SimpleNamespace(fixture_url=f.fixture.fixture_url,inputs=context['initialAdmission']['providerInputs'],
-        instance=context['initialAdmission']['providerInstance'])
+    fixture=SimpleNamespace(fixture_url=f.fixture.fixture_url,inputs=initial['providerInputs'],instance=initial['providerInstance'])
     scope=SimpleNamespace(binding=owner.binding,run=f.run,fixture=fixture,owner=owner.transfer,
-        archive=lambda:deepcopy(basis),original_admission=lambda:deepcopy(context['initialAdmission']))
+        store=owner.admission.store,archive=lambda:deepcopy(basis),original_admission=lambda:deepcopy(initial))
     def ui(value):
         observation(value,int(owner.binding['processIdentity']),value.get('sampleEpochMs'));floor=basis['originals']['ui']
         need(value['instance']==floor['instance'] and value['lastSequence']>=floor['lastSequence']
@@ -36,19 +38,27 @@ def archive(owner):
     scope.ui_original=ui
     surface=object.__new__(NavigationSurfaceActions);surface.binding=owner.binding;surface.run=f.run;surface.admission=scope
     def read(stem,key):
-        store=PrivateFeatureState(f.store.path.with_name(stem+'-'+owner.binding['processIdentity']+'.json'))
+        name=stem+('-'+owner.binding['processIdentity'] if owner.transfer is not None else '')+'.json'
+        store=PrivateFeatureState(f.store.path.with_name(name))
         value=store.read();need(value is not None and digest(value)==row[key]);return value
     surfaces=read('ios-navigation-surface-actions','surfaceSha256');surface_state=surface.decode(surfaces)
     final=surface_state['actions'][-1];need(final['phase']=='acknowledged' and final['surface']=='close' and same(final['call'],call))
     forms=object.__new__(NavigationPlacesCleanup);forms.binding=owner.binding;forms.run=f.run;forms.admission=scope;forms.surface=surface
     normal=read('ios-navigation-places-cleanup','formsSha256');form_state=forms.decode(normal)
     need(form_state['phase']=='delivered' and same(form_state['call'],call))
-    returned=object.__new__(NavigationProcessReturn);returned.scope=scope;returned.binding=owner.binding;returned.run=f.run
-    original=read('ios-navigation-process-return','returnSha256');return_state=returned.decode(original)
-    need(return_state['phase']=='delivered')
+    if owner.transfer is None:
+        returned=object.__new__(NavigationSceneInputs);returned.admission=scope;returned.binding=owner.binding;returned.run=f.run
+        original=read('ios-navigation-scene-inputs','returnSha256');return_state=returned.decode(original)
+        need(return_state['phase']=='return-delivered');returned.state=return_state
+        need(same(returned.validate_gate(),return_state['gate']['result']))
+        before_return=return_state['gate']['originals']['ui']
+    else:
+        returned=object.__new__(NavigationProcessReturn);returned.scope=scope;returned.binding=owner.binding;returned.run=f.run
+        original=read('ios-navigation-process-return','returnSha256');return_state=returned.decode(original)
+        need(return_state['phase']=='delivered');before_return=return_state['beforeUi']
     images=owner.images();need(images)
     start=images[0].originals()['baseRead']['before']['epochMs']
-    need(final['after']['sampleEpochMs']<=return_state['beforeUi']['sampleEpochMs']
+    need(final['after']['sampleEpochMs']<=before_return['sampleEpochMs']
         and return_state['returnedUi']['sampleEpochMs']<=start
         and form_state['after']['controls']['scope']['sampleEpochMs']<=final['after']['sampleEpochMs'])
     return dict(iosNavigationCleanupArchiveVersion=1,runId=f.run,ticket=call['ticket'],wholeSha256=digest(whole.previous),

@@ -15,7 +15,6 @@ from feature_journeys.contract import arguments
 from ios.adapters.navigation_feature import IOSNavigationFeature,NavigationFeaturePending
 from ios.adapters.navigation_whole_preparation import NavigationWholePreparation
 from ios.adapters.navigation_restoration import NavigationRestoration
-from ios.adapters.navigation_publications import NavigationPublications
 from ios.adapters.navigation_surface_actions import NavigationSurfaceActions
 
 VERSION=1
@@ -93,13 +92,11 @@ class NavigationWholeFeature:
             if self.state['phase'] in ('cleaning','restored','cleaned') or phase['verb']=='cleanup':
                 if self.state['phase'] not in ('restored','cleaned'):raise NavigationFeaturePending('Ordinary Worlds restoration is pending')
                 owner=self.restoration();owner.load()
-                publications=NavigationPublications(owner.admission,{0:f.prior_observers()['actor'],1:owner.observer},
-                    transfer=owner.transfer,restoration=owner,guard=f.clock,epoch_ms=f.epoch_ms,monotonic=f.monotonic)
+                publications=owner.publications()
                 original=publications.state()
                 if original is not None and original['pending'] is not None:return publications.resolve(f.client)
                 owner.advance()
-                publications=NavigationPublications(owner.admission,{0:f.prior_observers()['actor'],1:owner.observer},
-                    transfer=owner.transfer,restoration=owner,guard=f.clock,epoch_ms=f.epoch_ms,monotonic=f.monotonic)
+                publications=owner.publications()
                 return publications.publish(f.client,restored=True)
             observer=f.observer();publications=f.publications(observer);state=publications.state()
             if state is not None and state['pending'] is not None:return publications.resolve(f.client)
@@ -123,7 +120,6 @@ class NavigationWholeFeature:
             need(self.state['phase'] in ('cleaning','restored','cleaned') and self.state['cleanup']['call']['ticket']==phase['ticket'])
             if self.state['phase']!='cleaned':f.operation_clock=deepcopy(self.state['cleanup']['started']);f.clock()
             need(f.state['phase']=='ready' and (f.state['lastCall'] is None or f.state['lastCall']['phase']=='acknowledged'))
-            if f.state['stage']!=1:raise NavigationFeaturePending('Pre-restart Worlds restoration remains required')
             if self.state['phase']=='cleaning':
                 row=self.state['cleanup'];admission=f.admission();runtime=f.runtime
                 with runtime.existing_input_session(f.selector):
@@ -137,8 +133,9 @@ class NavigationWholeFeature:
                     if original['tabletShown']:surface.act(row['call'],surface='close')
                     row['surfaceSha256']=digest(surface.store.read());self.save()
                     f.return_to_original()
-                    returned=runtime._navigation_process_return(f.selector,admission)
-                    need(returned.state is not None and returned.state['phase']=='delivered')
+                    returned=(runtime._navigation_scene_inputs(f.selector,admission) if f.state['stage']==0
+                        else runtime._navigation_process_return(f.selector,admission))
+                    need(returned.state is not None and returned.state['phase']==('return-delivered' if f.state['stage']==0 else 'delivered'))
                     row['returnSha256']=digest(returned.store.read());self.state['phase']='restored';self.save()
         # Separate acquisitions release the source lock so Actor can retain its
         # own source/PNG cuts and actual witness deliveries between them.

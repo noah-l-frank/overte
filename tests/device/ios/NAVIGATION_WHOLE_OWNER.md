@@ -59,7 +59,13 @@ baselines, normal entry and source observation through that factory and reject
 foreign configuration fields. The worker uses this factory without creating a
 new SDK. Public complete capability admission remains closed.
 
-Worlds remains partial. The full fifteen-step final integration, initial-process
+The connected original-process open/close case additionally passes ordinary
+cleanup and the same paired source-to-end protocol without a restart. Writer-3
+restoration explicitly owns no transfer; the original scene-input journal and
+its original return gate remain independently decoded. A restarted restoration
+regression and the format/process-mechanics cases still pass.
+
+Worlds remains partial. The full fifteen-step final integration, error-interrupted
 and partial-setup restoration and whole configuration/dispatch integration still
 require qualification. The
 [final-end mechanics](NAVIGATION_PROCESS_END.md) have separate component coverage

@@ -22,7 +22,8 @@ from ios.adapters.navigation_admission_owner import SOURCES
 from ios.adapters import navigation_product_state as product,navigation_places_state as places,navigation_error_state as errors
 
 VERSION=2
-READS=(1,2)
+INITIAL_VERSION=3
+READS=(1,2,3)
 REFERENCE_VERSION=1
 
 
@@ -35,16 +36,17 @@ class NavigationRestoration:
         self.previous=self.state=None;self.historical=False;self.version=VERSION
 
     def scope(self):
-        f=self.flow;self.lock.assert_held();f.load();need(f.state is not None and f.state['stage']==1)
+        f=self.flow;self.lock.assert_held();f.load();need(f.state is not None and f.state['stage'] in (0,1))
         phase=f.fixture.read();need(phase['verb']=='cleanup' and phase['inputs']=={})
-        source=f.current();admission=f.initial_owner();transfer=f.transferred_owner();self.baseline.archive()
+        source=f.current();admission=f.initial_owner();transfer=None if f.state['stage']==0 else f.transferred_owner();self.baseline.archive()
         need(same(admission.binding,self.baseline.binding))
         observer=f.observer();owners=observer.owners();need(owners and observer.state['rows'][-1]['status']=='observed')
         prior=owners[-1];prior.archive();current=f.admission();directory=f.directory(observer,current)
         self.binding=deepcopy(source['binding']);self.admission,self.transfer,self.observer,self.prior=admission,transfer,observer,prior
-        self.process_context=transfer.archive();self.owner_files=transfer.owner_files;self.directory=directory
+        self.process_context=None if transfer is None else transfer.archive()
+        self.owner_files=None if transfer is None else transfer.owner_files;self.directory=directory
         self.context=dict(binding=self.binding,cleanupTicket=phase['ticket'],baselineSha256=digest(self.baseline.previous),
-            admissionSha256=digest(admission.previous),transferSha256=digest(transfer.previous),
+            admissionSha256=digest(admission.previous),transferSha256=None if transfer is None else digest(transfer.previous),
             previousOwnerSha256=digest(prior.previous),directorySha256=digest(directory))
 
     def phase_store(self):
@@ -70,7 +72,7 @@ class NavigationRestoration:
         from ios.adapters.navigation_samples import NavigationSamples
         from ios.adapters.navigation_observer import NavigationObserver
         from ios.adapters.navigation_restart_proof import OWNERS
-        flow.lock.assert_held();flow.load();need(flow.state is not None and flow.state['stage']==1)
+        flow.lock.assert_held();flow.load();need(flow.state is not None and flow.state['stage'] in (0,1))
         if baseline is None:
             preparation=NavigationWholePreparation(flow);preparation.load();images,initial=preparation.originals()
             baseline=images[flow.role]
@@ -83,26 +85,31 @@ class NavigationRestoration:
             and flow.state['admissionSha256']==digest(initial.previous))
         # These are validated authority metadata, not new provider observations.
         flow.fixture.instance=actual['providerInstance'];flow.fixture.inputs=deepcopy(actual['providerInputs'])
-        previous=flow.prior_observers()
-        restart=NavigationRestart(flow.runtime,flow.selector,actual,{role:owner.images for role,owner in previous.items()},flow.lock,flow.fixture)
-        need(restart.state is not None and restart.state['status']=='observed')
-        before=NavigationBeforeRestart.archive(restart.state['before'],actual)
-        transfer=NavigationProcessOwner(PrivateFeatureState(flow.store.path.with_name('ios-navigation-process-context.json')),
-            actual,before,restart.state['receipt'],[str(flow.store.path.with_name(name)) for name in OWNERS],flow.lock,lambda:True,historical=True)
-        process=transfer.archive();need(digest(transfer.previous)==flow.state['transferSha256'] and same(transfer.binding,flow.state['binding']))
-        samples=NavigationSamples(PrivateFeatureState(flow.store.path.with_name('ios-navigation-'+flow.role+'-1-samples.json')),
-            flow.root,flow.state['binding'],flow.run,flow.role,1,flow.lock,lambda:True,historical=True)
-        observer=NavigationObserver(PrivateFeatureState(flow.store.path.with_name('ios-navigation-'+flow.role+'-1-observer.json')),samples,historical=True)
+        stage=flow.state['stage'];transfer=process=None
+        if stage==1:
+            previous=flow.prior_observers()
+            restart=NavigationRestart(flow.runtime,flow.selector,actual,{role:owner.images for role,owner in previous.items()},flow.lock,flow.fixture)
+            need(restart.state is not None and restart.state['status']=='observed')
+            before=NavigationBeforeRestart.archive(restart.state['before'],actual)
+            transfer=NavigationProcessOwner(PrivateFeatureState(flow.store.path.with_name('ios-navigation-process-context.json')),
+                actual,before,restart.state['receipt'],[str(flow.store.path.with_name(name)) for name in OWNERS],flow.lock,lambda:True,historical=True)
+            process=transfer.archive();need(digest(transfer.previous)==flow.state['transferSha256'] and same(transfer.binding,flow.state['binding']))
+        else:need(flow.state['transferSha256'] is None and same(flow.state['binding'],actual['binding']))
+        stem='ios-navigation-'+flow.role+'-'+str(stage)
+        samples=NavigationSamples(PrivateFeatureState(flow.store.path.with_name(stem+'-samples.json')),
+            flow.root,flow.state['binding'],flow.run,flow.role,stage,flow.lock,lambda:True,historical=True)
+        observer=NavigationObserver(PrivateFeatureState(flow.store.path.with_name(stem+'-observer.json')),samples,historical=True)
         owners=observer.owners();need(owners and observer.state['rows'][-1]['status']=='observed');prior=owners[-1]
         directories=[owner.state['options']['directory'] for owner in owners if owner.state['options']['directory'] is not None]
         need(directories and all(same(row,directories[0]) for row in directories));directory=directories[0]
         result=cls(flow,baseline);result.historical=True
         result.binding=deepcopy(flow.state['binding']);result.admission,result.transfer,result.observer,result.prior=initial,transfer,observer,prior
-        result.process_context=process;result.owner_files=transfer.owner_files;result.directory=deepcopy(directory)
+        result.process_context=process;result.owner_files=None if transfer is None else transfer.owner_files;result.directory=deepcopy(directory)
         result.previous=result.store.read();need(result.previous is not None)
         result.version=result.previous['iosNavigationRestorationVersion']
         context=result.previous['context'];result.context=dict(binding=result.binding,cleanupTicket=context['cleanupTicket'],
-            baselineSha256=digest(result.baseline.previous),admissionSha256=digest(initial.previous),transferSha256=digest(transfer.previous),
+            baselineSha256=digest(result.baseline.previous),admissionSha256=digest(initial.previous),
+            transferSha256=None if transfer is None else digest(transfer.previous),
             previousOwnerSha256=digest(prior.previous),directorySha256=digest(directory))
         result.state=result.decode(result.previous);result.phase_original();result.bound();return result
 
@@ -115,6 +122,7 @@ class NavigationRestoration:
         rows=unpack(value['payload']);need(len(rows)==1 and type(value['iosNavigationRestorationVersion']) is int
             and value['iosNavigationRestorationVersion'] in READS
             and same(value,self.envelope(rows[0])))
+        need((value['iosNavigationRestorationVersion']==INITIAL_VERSION)==(self.flow.state['stage']==0))
         state=rows[0];exact(state,{'rows','pending'});need(type(state['rows']) is list and len(state['rows'])<=32)
         requests=set()
         for index,row in enumerate(state['rows'],1):
@@ -134,7 +142,7 @@ class NavigationRestoration:
 
     def load(self):
         need(not self.historical);self.scope();self.previous=self.store.read()
-        self.version=VERSION if self.previous is None else self.previous['iosNavigationRestorationVersion']
+        self.version=(INITIAL_VERSION if self.flow.state['stage']==0 else VERSION) if self.previous is None else self.previous['iosNavigationRestorationVersion']
         self.state=dict(rows=[],pending=None) if self.previous is None else self.decode(self.previous)
         store=self.phase_store()
         if store.read() is None:
@@ -152,7 +160,8 @@ class NavigationRestoration:
             self.flow.current()
         need(same(self.prior.store.read(),self.prior.previous)
             and same(self.baseline.store.read(),self.baseline.previous)
-            and same(self.admission.store.read(),self.admission.previous) and same(self.transfer.store.read(),self.transfer.previous))
+            and same(self.admission.store.read(),self.admission.previous)
+            and (self.transfer is None or same(self.transfer.store.read(),self.transfer.previous)))
 
     def save(self):
         need(not self.historical);self.bound();value=self.envelope(self.state);self.decode(value);self.store.write(value,self.previous)
@@ -161,6 +170,18 @@ class NavigationRestoration:
     def image(self,request,*,historical):
         f=self.flow;self.request(request)
         path=self.store.path.with_name('ios-navigation-quiet-'+f.role+'-'+request[4:]+'.json')
+        if self.transfer is None:
+            from ios.adapters.navigation_initial_restored_image import NavigationInitialRestoredImage
+            path=self.store.path.with_name('ios-navigation-initial-restored-'+f.role+'-'+request[4:]+'.json')
+            if historical:
+                return NavigationInitialRestoredImage(PrivateFeatureState(path),f.root,self.binding,f.run,f.role,request,self.lock,lambda:True,
+                    historical=True,admission=self.admission,directory=self.directory,previous=self.prior,
+                    fixture_url=f.fixture.fixture_url,epoch_ms=f.epoch_ms,monotonic=f.monotonic)
+            owner=f.runtime._navigation_initial_restored_image(f.selector,f.client,f.run,f.role,request,f.root,self.lock,
+                admission=self.admission,directory_proof=self.directory,previous=self.prior)
+            need(type(owner) is NavigationInitialRestoredImage and owner.store.path==path and owner.lock is self.lock
+                and same(owner.binding,self.binding) and owner.role==f.role and owner.run==f.run)
+            return owner
         if historical:
             return NavigationQuietImage(PrivateFeatureState(path),f.root,self.binding,f.run,f.role,request,self.lock,lambda:True,
                 historical=True,process_context=self.process_context,owner_files=self.owner_files,directory=self.directory,previous=self.prior,
@@ -171,8 +192,21 @@ class NavigationRestoration:
             and same(owner.binding,self.binding) and owner.role==f.role and owner.run==f.run)
         return owner
 
+    def comparison(self,owner):
+        if self.transfer is None:
+            from ios.adapters.navigation_initial_comparison import compare as initial_comparison
+            return initial_comparison(self.baseline,owner,self.admission)
+        return compare(self.baseline,owner,self.admission,self.transfer)
+
+    def publications(self):
+        from ios.adapters.navigation_publications import NavigationPublications
+        f=self.flow
+        observers={0:self.observer} if self.transfer is None else {0:f.prior_observers()[f.role],1:self.observer}
+        return NavigationPublications(self.admission,observers,transfer=self.transfer,restoration=self,
+            guard=(lambda:True) if self.historical else f.clock,epoch_ms=f.epoch_ms,monotonic=f.monotonic)
+
     def adopt(self,owner):
-        owner.archive();comparison=compare(self.baseline,owner,self.admission,self.transfer)
+        owner.archive();comparison=self.comparison(owner)
         row=self.state['pending'];need(row is not None and row['requestId']==owner.request)
         self.state['rows'].append(dict(**row,ownerSha256=digest(owner.store.read()),comparisonSha256=digest(comparison)))
         self.state['pending']=None;self.save()
@@ -181,7 +215,7 @@ class NavigationRestoration:
         """One new original image or one retained lost return; never a resend."""
         f=self.flow;need(not self.historical)
         with f.held():
-            self.load();need(self.version==VERSION and len(self.state['rows'])<32)
+            self.load();need(self.version==(INITIAL_VERSION if f.state['stage']==0 else VERSION) and len(self.state['rows'])<32)
             if self.state['pending'] is not None:
                 owner=self.image(self.state['pending']['requestId'],historical=False)
                 if owner.state is None:raise NavigationFeaturePending('Restored Worlds image delivery remains unresolved')
@@ -197,7 +231,7 @@ class NavigationRestoration:
         for row in self.state['rows']:
             owner=self.image(row['requestId'],historical=True);owner.archive()
             need(digest(owner.previous)==row['ownerSha256']
-                and digest(compare(self.baseline,owner,self.admission,self.transfer))==row['comparisonSha256'])
+                and digest(self.comparison(owner))==row['comparisonSha256'])
             result.append(owner)
         return result
 
@@ -222,8 +256,9 @@ class NavigationRestoration:
         # The initial static viewpoint's actual pose has the public A label.
         originals={key:parts[key] for key in SOURCES};clock=owner.join(parts,originals)
         subset,view=product.validation_view(clock,originals,places.ORIGINALS)
-        place=places.compose(f.run,self.binding,subset,view,baseline=self.process_context['initialAdmission']['bookmarkBaseline'],
-            provider_inputs=self.process_context['initialAdmission']['providerInputs'],directory=self.directory)
+        initial=self.admission.archive()
+        place=places.compose(f.run,self.binding,subset,view,baseline=initial['bookmarkBaseline'],
+            provider_inputs=initial['providerInputs'],directory=self.directory)
         subset,view=product.validation_view(clock,originals,errors.ORIGINALS)
         error=errors.compose(f.run,self.binding,subset,view)
         fields=dict(place['fields'],location=measured['rendered']['location'],error=error['fields']['error'])
@@ -256,7 +291,7 @@ class NavigationRestoration:
         need(same({key:reference[key] for key in row},row))
         owner=self.image(row['requestId'],historical=True);owner.archive()
         need(digest(owner.previous)==row['ownerSha256']
-            and digest(compare(self.baseline,owner,self.admission,self.transfer))==row['comparisonSha256'])
+            and digest(self.comparison(owner))==row['comparisonSha256'])
         parts=owner.originals();clock=owner.join(parts,{key:parts[key] for key in SOURCES})
         phase=self.phase_original();need(phase['providerReadEpochMs']<=parts['baseRead']['before']['epochMs'])
         return dict(ticket=self.context['cleanupTicket'],public=self.derived(owner,row['index']),
@@ -265,4 +300,7 @@ class NavigationRestoration:
     def quiet(self):
         """Historical native/input/pixel quiet; root lifetime still needs OS end."""
         images=self.images();need(len(images)>=3)
+        if self.transfer is None:
+            from ios.adapters.navigation_initial_quiet import compose as initial_quiet
+            return initial_quiet(images,self.baseline,self.admission)
         return quiet_period(images,self.baseline,self.admission,self.transfer)

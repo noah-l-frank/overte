@@ -40,9 +40,9 @@ class NavigationPublications:
         self.restoration=restoration
         if restoration is not None:
             from ios.adapters.navigation_restoration import NavigationRestoration
-            need(type(restoration) is NavigationRestoration and transfer is not None
+            need(type(restoration) is NavigationRestoration and transfer is restoration.transfer
                 and restoration.lock is self.lock and restoration.flow.role==self.role
-                and restoration.flow.run==self.run and same(restoration.binding,observers[1].binding))
+                and restoration.flow.run==self.run and same(restoration.binding,observers[self.stage].binding))
         self.store=PrivateFeatureState(initial.store.path.with_name('phase-publication-world-navigation-'+self.run+'-actor.json'))
         self.bound();self.validate_sources()
 

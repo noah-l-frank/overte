@@ -1,8 +1,8 @@
 # Worlds current-process restoration owner
 
-`NavigationRestoration` connects the existing post-restart Worlds owner to
+`NavigationRestoration` connects the existing current-process Worlds owner to
 fresh independent restored source/image acquisitions. It pins the actual
-cleanup ticket, current candidate/process, original admission, transferred
+cleanup ticket, current candidate/process, original admission, any actual transferred
 process, untouched baseline PNG, prior role image and directory original.
 Both entry and every before/after guard reject a changed cleanup phase.
 
@@ -58,7 +58,20 @@ phase clocks within one millisecond. Three loopback host tests cover exact
 replay, live/wrong-ticket refusal and changed provider/phase/clock context.
 This is fixture authority only; it supplies no product facts or process end.
 
-This component currently supports the already-proven restarted process only.
-Partial setup, pre-restart failure restoration, paired worker/dispatcher and
-source-to-terminal process/SDK retirement remain required before the complete
-Worlds capability can be admitted.
+Writer 3 is confined to original-process restoration. Its transfer hash is
+explicitly absent, and it uses the real initial scene-input child and original
+process source/image/input cuts. It never invents a restart receipt. The
+restarted path continues writing 2 and reading literal 1/2; writer 3 cannot be
+decoded as that path. Both paths share the actual publication reference grammar,
+paired terminal decoder and once-only end. Their OS journal names retain their
+actual process stage.
+
+The connected original-process open/close case passed ordinary cleanup, both
+roles' actual quiet and worker publications, paired seal, once-only Stop/OS
+quiet/SDK deletion and transport-free repeat/worker completion (1037.725 seconds;
+381 unchanged frozen sources, zero blocked operations). A separate restarted
+source/image/quiet/publication/history regression passed in 51.748 seconds;
+eleven format/process-mechanics cases also passed.
+
+Partial setup, error-interrupted cleanup, canonical dispatch and the full final
+fifteen-step qualification remain required before complete Worlds admission.

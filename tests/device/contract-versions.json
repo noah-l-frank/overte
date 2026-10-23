@@ -520,7 +520,7 @@
     "ios-navigation-quiet-original": {"current": 1, "reads": [1]},
     "ios-navigation-quiet-period": {"current": 1, "reads": [1]},
     "ios-navigation-whole-preparation": {"current": 1, "reads": [1]},
-    "ios-navigation-restoration": {"current": 2, "reads": [1, 2]},
+    "ios-navigation-restoration": {"current": 3, "reads": [1, 2, 3]},
     "ios-navigation-restoration-reference": {"current": 1, "reads": [1]},
     "ios-navigation-restoration-phase": {"current": 1, "reads": [1]},
     "ios-navigation-whole-feature": {"current": 1, "reads": [1]},

@@ -47,7 +47,7 @@ class NavigationRestorationClockTests(unittest.TestCase):
 class NavigationRestorationClockFormatTests(unittest.TestCase):
     def test_literal_v1_envelope_keeps_its_version_and_new_envelopes_write_two(self):
         owner=object.__new__(NavigationRestoration)
-        owner.flow=SimpleNamespace(run='owned-run',role='actor',root=Path('/owned'))
+        owner.flow=SimpleNamespace(run='owned-run',role='actor',root=Path('/owned'),state=dict(stage=1))
         owner.context={};state=dict(rows=[],pending=None)
         owner.version=1;legacy=owner.envelope(state)
         self.assertEqual(1,legacy['iosNavigationRestorationVersion']);self.assertEqual(state,owner.decode(legacy))

@@ -65,6 +65,29 @@ class IOSNavigationRuntime(IOSScriptRuntime):
             frame_factory=lambda intent,receipt:observer.vulkan_world_frame(intent,receipt),process_context=process_context,
             owner_files=owner_files,directory=directory_proof,previous=previous,**additional)
 
+    def _navigation_initial_restored_image(self,selector,client,run,role,request,root,lock,*,admission,directory_proof,previous):
+        """Restore within the actual original process, without a restart DTO."""
+        from ios.adapters.navigation_initial_restored_image import NavigationInitialRestoredImage
+        from ios.adapters.graphics_history import restore_native
+        identifier(run);need(role in ('primary','actor') and isinstance(lock,ScriptSourceLock));lock.assert_held()
+        need(type(admission) is NavigationAdmissionOwner and type(previous) is NavigationObservationOwner
+            and admission.lock is previous.lock is lock and previous.stage==0)
+        original=admission.archive();previous.archive();source=self._sources(selector);directory=self.state_path(selector).parent
+        need(lock.path==directory/'script-feature-sources.lock' and same(source['binding'],previous.binding)
+            and same(source['binding'],original['binding']) and original['runId']==run)
+        fixture=NavigationFixtureReader(client,run);fixture.attach()
+        need(fixture.instance==original['providerInstance'] and same(fixture.inputs,original['providerInputs']))
+        observer,clock=source['observer'],source['clock_source']
+        readers=dict(inventory=observer.scene_inventory(clock),navigation=observer.navigation_state(clock),
+            bookmarks=observer.location_bookmarks(clock),model=observer.places_model(clock),http=observer.places_http(clock),
+            dialogs=observer.navigation_dialogs(clock),replies=observer.navigation_replies(),ui=source['native'])
+        native=observer.bound_native_observer(clock);restore_native(native,previous.state['clockJoin']['nativeAfter']);source['check']()
+        return NavigationInitialRestoredImage(PrivateFeatureState(directory/('ios-navigation-initial-restored-'+role+'-'+request[4:]+'.json')),
+            root,source['binding'],run,role,request,lock,source['check'],native=native,sources=readers,fixture=fixture,
+            frame_factory=lambda intent,receipt:observer.vulkan_world_frame(intent,receipt),admission=admission,
+            directory=directory_proof,previous=previous,fixture_url=fixture.fixture_url,
+            input_readers=dict(keys=observer.world_web_keys(clock),pointer=observer.pointer_state(clock),geometry=observer.geometry()))
+
     def _navigation_baseline_image(self,selector,client,run,role,request,root,lock):
         """Untouched static pixels on this existing installed candidate only."""
         from ios.adapters.navigation_baseline_image import NavigationBaselineImage

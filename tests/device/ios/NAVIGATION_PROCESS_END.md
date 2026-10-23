@@ -14,6 +14,9 @@ A lost result permits only passive OS observations. Each logical role retains
 its own genuinely issued DVT numeric-PID/bundle-state originals. At least three
 samples must span three seconds in both controller and both original OS clocks.
 The roles share one SDK and one Stop, with distinct OS original histories.
+The owner now derives the original stage directly from the validated feature
+journal. Original-process and post-restart end use their own exact OS namespaces;
+neither path manufactures a transfer or reuses another stage's receipt.
 
 SDK retirement preserves the actual session, retired installed-code record and
 fresh OS absence original. GETs have durable pending/abandoned records. One
@@ -46,7 +49,7 @@ one DELETE/404/CAS and transport-free repeated finish/worker completion. Its
 still explicit models; the qualified Python/HTTP/file/PNG joins are actual.
 These tests qualify neither physical iOS behavior nor CPU/transport performance.
 
-Worlds is still partial: initial-process/partial-setup restoration, canonical
+Worlds is still partial: error-interrupted/partial-setup restoration, canonical
 configuration/dispatch and the full final fifteen-step run
 remain open. No complete capability is advertised. Native compilation and all
 devices remain untested.

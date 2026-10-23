@@ -33,7 +33,9 @@ class NavigationProcessEnd:
         need(type(terminal) is NavigationTerminal)
         self.terminal,self.flow,self.lock=terminal,terminal.flow,terminal.lock
         need(type(self.flow) is IOSNavigationFeature)
-        self.lock.assert_held();self.flow.load();need(self.flow.state is not None and self.flow.state['stage']==STAGE)
+        self.lock.assert_held();self.flow.load();need(self.flow.state is not None
+            and type(self.flow.state['stage']) is int and self.flow.state['stage'] in (0,1))
+        self.stage=self.flow.state['stage']
         self.binding=deepcopy(context(self.flow.state['binding']));self.run=self.flow.run
         self.store=PrivateFeatureState(self.flow.store.path.with_name('ios-navigation-process-end.json'))
         self.previous=self.store.read();self.state=None if self.previous is None else self.decode(self.previous)
@@ -42,7 +44,7 @@ class NavigationProcessEnd:
         return dict(iosNavigationProcessEndVersion=VERSION,runId=self.run,binding=self.binding,payload=pack([state]))
 
     def os_store(self,role):
-        return PrivateFeatureState(self.store.path.with_name(filename('navigation',role,STAGE)))
+        return PrivateFeatureState(self.store.path.with_name(filename('navigation',role,self.stage)))
 
     def mutable(self):
         f=self.flow;base=f.runtime.adapter
@@ -70,14 +72,14 @@ class NavigationProcessEnd:
     def os_archive(self,role,sha,*,complete=False):
         store=self.os_store(role);value=store.read();need(value is not None and digest(value)==sha)
         decoded=IOSProcessRetirement.archive(value,path=store.path,binding=self.binding,source=self.state['source'],
-            bundle=self.state['bundleId'],run=self.run,role=role,stage=STAGE,profile='navigation')
+            bundle=self.state['bundleId'],run=self.run,role=role,stage=self.stage,profile='navigation')
         if complete:need(decoded['pending'] is None and decoded['windows'] and decoded['windows'][-1]['complete'])
         return decoded
 
     def os_rows(self,role,state):
         reader=object.__new__(IOSProcessRetirement);reader.store=self.os_store(role);reader.binding=self.binding
         reader.source=self.state['source'];reader.bundle=self.state['bundleId'];reader.run=self.run
-        reader.role=role;reader.stage=STAGE;reader.pid=int(self.binding['processIdentity'])
+        reader.role=role;reader.stage=self.stage;reader.pid=int(self.binding['processIdentity'])
         return [reader.load(reference) for reference in state['records']]
 
     def decode(self,value):
@@ -117,6 +119,7 @@ class NavigationProcessEnd:
     def bound(self):
         f=self.flow;self.lock.assert_held();f.clock()
         need(same(self.store.read(),self.previous) and same(f.store.read(),f.previous) and same(f.state['binding'],self.binding)
+            and f.state['stage']==self.stage
             and same(self.terminal.store.read(),self.terminal.previous))
         base=f.runtime.adapter;base._candidate_guard(complete=True)
         session=base.read_session(f.selector);target=base._target(f.selector)
@@ -174,7 +177,7 @@ class NavigationProcessEnd:
         f=self.flow;done=True;all_absent=True
         for role in protocol.ROLES:
             reader=IOSGraphicsRuntime._retired_process_observer(f.runtime,f.selector,self.binding,self.state['source'])
-            owner=IOSProcessRetirement(self.os_store(role),reader,self.binding,self.run,role,STAGE,self.lock,profile='navigation')
+            owner=IOSProcessRetirement(self.os_store(role),reader,self.binding,self.run,role,self.stage,self.lock,profile='navigation')
             complete=owner.advance();actual=owner.current()
             need(actual['acquisition']['hostBeforeEpochMs']>=self.state['retirement']['acquisition']['hostAfterEpochMs'])
             all_absent=all_absent and absent(actual['original']);done=done and complete
@@ -193,7 +196,7 @@ class NavigationProcessEnd:
         self.verify();need(role in protocol.ROLES)
         state=self.os_archive(role,self.state['os'][role],complete=True);store=self.os_store(role)
         reader=object.__new__(IOSProcessRetirement);reader.store=store;reader.binding=self.binding;reader.source=self.state['source']
-        reader.bundle=self.state['bundleId'];reader.run=self.run;reader.role=role;reader.stage=STAGE;reader.pid=int(self.binding['processIdentity'])
+        reader.bundle=self.state['bundleId'];reader.run=self.run;reader.role=role;reader.stage=self.stage;reader.pid=int(self.binding['processIdentity'])
         window=state['windows'][-1];rows=[reader.load(state['records'][n-1]) for n in window['samples'][window['start']:]]
         need(len(rows)>=3 and all(row['mode']=='observed' for row in rows));a,b=rows[0],rows[-1]
         value=dict(source='dvt-owned-pid-and-bundle-state',clockDomain='appium-node-host',instance=self.state['source']['instance'],
