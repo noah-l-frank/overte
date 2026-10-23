@@ -66,8 +66,7 @@ def returned_prefix(prefix,returned):
     # grammar already accepted in this same pass can supply a prefix.
     grammar=ChatSourceGraphPrefix()
     for index,record in enumerate(reader.rows):
-        chunk=reader.history.store(index).read()
-        need(digest(chunk)==reader.previous['chunks'][index] and same(unpack(chunk['transcript']),[record]))
+        need(same(reader.original(index),record))
         roots={key:literal(value)[0] for key,value in record['roots'].items()}
         stages=tuple(row['stage'] for row in roots['cursor']['stages'])
         need(1<=len(stages)<=3 and stages==STAGES[:len(stages)]

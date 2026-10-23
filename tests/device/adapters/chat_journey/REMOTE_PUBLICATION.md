@@ -181,3 +181,51 @@ minimal same-recursion/single-type-lookup variant measured 0.075832 seconds
 against 0.083174 seconds for the original. These small historical measurements
 do not justify a new cache/type mechanism; the original strict type walker is
 unchanged. Profiler call costs alone are not treated as uninstrumented speed.
+
+## Version 3 complete original bundles
+
+New live writers use `chatRemotePublicationVersion=3` with the same complete
+original record fields. [Source bundle parts](SOURCE_BUNDLES.md) change storage
+only. The root adds ordered `bundles`, exact `logicalBytes` and `pendingBundle`.
+Every actual physical part remains in the original `chunks` manifest and
+counts against the existing 512-frame/16-MiB budgets. Uncompressed logical
+original values additionally retain the original aggregate 16-MiB limit.
+
+Before the first part, a durable `reading` root records the complete original
+reference (part count/raw byte count/SHA). Each actual part commit advances
+the same unresolved root. Only after every part has been reread under its
+original scope/identity/index/manifest and the complete original reconstructed
+byte-for-byte may the root become `ready`. A lost middle-part or ready-root
+reply latches the original reader; complete-looking files are not adopted and
+no publication/query/write is repeated. Native/phase/journal epochs, final
+copies, source locks and final native/host age checks remain unchanged.
+
+`original(index)` and pure `original_record(...)` reconstruct complete historical
+logical values under the actual original part identities. They perform no
+native query and grant no current/fresh observation or live owner. Explicit
+v1/v2 historical roots retain their original single-chunk interpretation;
+missing clock anchors or fragments are never manufactured. New constructors
+still reject every existing root. The cleanup prefix accepts only actual warm
+v2/v3 clock-bearing sources. The return join rereads every complete original
+record through the same typed decoder, and the existing archive catalog
+captures every root/part from its actual history; a logical record count cannot
+omit physical fragments.
+
+The real two-process four-record stage-prefix test now verifies six original
+parts and exact reconstruction of every record (1/1, 6.106 seconds). Cold v3
+storage reconstruction, historical v2 retention and original native-jump/
+outer-exit refusal passed 3/3 in 3.314 seconds. Actual lost-middle-part and
+lost-ready-root counters passed 2/2 in 5.860 seconds. The eight remaining
+original phase/extra-post/physical-replacement/type/old-clock/freeze counters
+passed in 6.439 seconds. A separate pure v1-storage test passed in 0.063
+seconds; it restores no missing clocks or live source.
+
+The existing passing Reader component entrypoint is now
+`remote_publication_component_tests()`, retaining all 14 cases. A new separately
+named actual oversize-publication diagnostic is intentionally excluded until
+its dedicated measured run. It uses only genuine new Actor queries and stops
+at an observed original packed-leaf overrun; no requested checkpoint/state is
+injected. Full return/archive integration and that storage diagnostic must be
+checked before another full common-executor attempt. Public Chat remains
+disabled, and neither the 94-second refused run nor fragment tests imply a
+successful whole journey.

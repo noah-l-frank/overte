@@ -107,5 +107,18 @@ class SourceBundleTests(unittest.TestCase):
         history.load(root['chunks']);child=history.store(0);value=child.read();child.write(value,value)
         with self.assertRaises(NativeUIError):bundles.original(history,root['chunks'],root['bundles'],0)
 
+    def test_historical_v1_record_keeps_missing_clocks_and_fragments_missing(self):
+        from adapters.chat_journey.remote_publication import original_record
+        from self_tests.test_chat_script_source import BINDING
+        store=PrivateFeatureState(self.root/'legacy-v1.json')
+        scope=dict(chatRemotePublicationVersion=1,runId='a'*32,fixtureUrl='http://controlled.test/runs/'+'a'*32+'/',
+            binding=BINDING,peerBinding=BINDING,hostProcessIdentity='31:original-host',instance='b'*32,journal=store.path.name)
+        history=ChatSourceChunks(store,scope);reading={**scope,'phase':'reading','chunks':[]};store.write(reading,None)
+        value=dict(legacyOriginal='retained historical JSON only')
+        manifest=history.append(value,[]);ready={**scope,'phase':'ready','chunks':manifest};store.write(ready,reading)
+        cold=ChatSourceChunks(store,scope);cold.load(manifest)
+        self.assertEqual(value,original_record(cold,ready,0));self.assertNotIn('freshness',value)
+        self.assertNotIn('bundles',store.read());self.assertEqual(1,store.read()['chatRemotePublicationVersion'])
+
 
 if __name__=='__main__':unittest.main()

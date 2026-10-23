@@ -2,6 +2,8 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import hashlib
+import base64
+from copy import deepcopy
 import json
 import os
 from pathlib import Path
@@ -11,12 +13,14 @@ import sys
 import tempfile
 import unittest
 import uuid
+import zlib
 from adapters.chat_journey.source_chunks import digest
 from contextlib import contextmanager
 from unittest.mock import patch
 
-from adapters.chat_journey.remote_publication import ChatRemotePublication
+from adapters.chat_journey.remote_publication import ChatRemotePublication,original_record
 from adapters.chat_journey.source_chunks import ChatSourceChunks
+from adapters.script_journey.history import canonical,pack,MAX_PACKED,MAX_RAW
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.script_journey.lock import ScriptSourceLock
@@ -71,7 +75,9 @@ for line in sys.stdin:
 
 class ChatRemotePublicationTests(unittest.TestCase):
     def setUp(self):
-        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
+        temporary=tempfile.TemporaryDirectory()
+        if self._testMethodName=='test_actual_oversize_original_publication_roundtrips_across_all_parts':temporary._finalizer.detach()
+        else:self.addCleanup(temporary.cleanup)
         self.root=Path(temporary.name);self.root.chmod(0o700);(self.root/'tmp').mkdir(mode=0o700)
         self.entry=self.root/'original-publication-source.py'
         self.entry.write_text(WORKER.replace('DEVICE_PATH',repr(str(Path(__file__).resolve().parents[1]))));self.entry.chmod(0o600)
@@ -126,9 +132,56 @@ class ChatRemotePublicationTests(unittest.TestCase):
         self.assertEqual(3,len(clean['entries']));self.command('publish');last=owner.acquire(3)
         self.assertEqual(4,len(last['entries']));self.assertEqual(4,len(owner.rows));owner.control()
         self.assertEqual(['initial','active','cleanup'],[row['stage'] for row in owner.roots['cursor']['stages']])
-        self.assertEqual(4,len(owner.previous['chunks']));self.assertIsNone(self.stores['actor'].read().get('stopCommand'))
+        self.assertEqual(4,len(owner.previous['bundles']))
+        self.assertEqual(sum(ref['parts'] for ref in owner.previous['bundles']),len(owner.previous['chunks']))
+        self.assertEqual(len(owner.history.identities),len(owner.previous['chunks']))
+        self.assertTrue(any(ref['parts']>1 for ref in owner.previous['bundles']))
+        self.assertTrue(all(owner.original(index)==row for index,row in enumerate(owner.rows)))
+        self.assertIsNone(self.stores['actor'].read().get('stopCommand'))
         self.assertTrue(self.process.guard() is True);self.assertEqual(4,last['entries'][-1]['actorSequence'])
         self.assertEqual(4,len(owner.grammar.previous['frames']['publisher']));self.assertIsNone(owner.grammar.pending)
+
+    def test_cold_storage_decodes_original_v3_parts_and_retains_v2_without_constructing_live_owner(self):
+        owner=self.owner;owner.acquire(0);self.command('advance');owner.acquire(1)
+        root=owner.store.read();history=ChatSourceChunks(owner.store,owner.scope);history.load(root['chunks'])
+        self.assertEqual(owner.rows,[original_record(history,root,index) for index in range(len(owner.rows))])
+        # A historical format fixture reuses exact original logical values;
+        # no Actor, native reader, process or current observation is restored.
+        legacy=PrivateFeatureState(owner.store.path.with_name('legacy-remote-source.json'))
+        scope={**owner.scope,'chatRemotePublicationVersion':2,'journal':legacy.path.name}
+        old=ChatSourceChunks(legacy,scope);manifest=[];previous=None
+        for row in owner.rows:
+            reading={**scope,'phase':'reading','chunks':manifest};legacy.write(reading,previous);previous=reading
+            manifest=old.append(row,manifest)
+            reading={**scope,'phase':'reading','chunks':manifest};legacy.write(reading,previous);previous=reading
+        ready={**scope,'phase':'ready','chunks':manifest};legacy.write(ready,previous)
+        cold=ChatSourceChunks(legacy,scope);cold.load(manifest)
+        self.assertEqual(owner.rows,[original_record(cold,ready,index) for index in range(len(owner.rows))])
+        self.assertEqual(2,legacy.read()['chatRemotePublicationVersion']);self.assertNotIn('bundles',legacy.read())
+        self.assertEqual(2,len(self.command('snapshot')['entries']))
+
+    def test_actual_oversize_original_publication_roundtrips_across_all_parts(self):
+        print('Original oversize source fixture retained in '+str(self.root),flush=True)
+        owner=self.owner;owner.acquire(0);self.command('advance');owner.acquire(1);self.command('cleanup');owner.acquire(2)
+        for _attempt in range(80):
+            row=owner.rows[-1];raw=canonical([row]);encoded=base64.b64encode(zlib.compress(raw,level=9))
+            self.assertLessEqual(len(raw),MAX_RAW)
+            if len(encoded)>MAX_PACKED:break
+            after=row['publication']['sequence'];self.command('publish');owner.acquire(after)
+        else:self.fail('Original source did not reach the unchanged packed-leaf boundary within the fixture bound')
+        with self.assertRaises(NativeUIError):pack([row])
+        self.assertEqual(row,owner.original(len(owner.rows)-1))
+        root=owner.store.read();self.assertEqual('ready',root['phase']);self.assertIsNone(root['pendingBundle'])
+        self.assertEqual(len(owner.rows),len(root['bundles']));self.assertEqual(len(owner.history.identities),len(root['chunks']))
+        self.assertGreater(root['bundles'][-1]['parts'],1)
+        self.assertEqual(row,original_record(owner.history,root,len(owner.rows)-1))
+        summary=dict(scope='actual-source-storage-only',logicalRecords=len(owner.rows),physicalParts=len(root['chunks']),
+            originalPackedBytes=len(encoded),logicalOriginalBytes=root['logicalBytes'],physicalRawBytes=owner.history.raw_bytes,
+            originalLastBytes=root['bundles'][-1]['bytes'],originalLastSha256=root['bundles'][-1]['sha256'],deviceQualified=False)
+        PrivateFeatureState(self.root/'oversize-source-summary.json').write(summary,None)
+        self.assertLessEqual(len(root['chunks']),512);self.assertLessEqual(root['logicalBytes'],MAX_RAW)
+        self.assertLessEqual(owner.history.raw_bytes,MAX_RAW);self.assertIsNone(owner.stop_intent)
+        print(json.dumps(summary,sort_keys=True),flush=True)
 
     def test_final_cas_native_jump_with_frozen_host_keeps_originals_unqualified(self):
         owner=self.owner;write=owner.store.write
@@ -141,6 +194,33 @@ class ChatRemotePublicationTests(unittest.TestCase):
         self.assertIsNone(owner.grammar.previous)
         with self.assertRaises(NativeUIError):owner.acquire(0)
         self.assertTrue(owner.store.path.exists())
+
+    def test_lost_actual_middle_part_keeps_original_pending_intent_and_never_requeries(self):
+        owner=self.owner;owner.acquire(0);self.command('advance');owner.acquire(1);self.command('cleanup')
+        original=deepcopy(owner.rows);first_new=len(owner.history.identities)
+        target=owner.history.store(first_new+1).path;write=PrivateFeatureState.write;attempts=[]
+        def lost(store,value,previous):
+            result=write(store,value,previous)
+            if store.path==target:attempts.append(store.path);raise OSError('Actual middle part reply lost')
+            return result
+        with patch.object(PrivateFeatureState,'write',lost),self.assertRaises(NativeUIError):owner.acquire(2)
+        root=owner.store.read();self.assertEqual('reading',root['phase']);self.assertGreater(root['pendingBundle']['parts'],1)
+        self.assertEqual(2,len(root['bundles']));self.assertEqual(original,owner.rows)
+        self.assertEqual([target],attempts);self.assertTrue(target.exists());self.assertTrue(owner.failed)
+        with self.assertRaises(NativeUIError):owner.acquire(2)
+        self.assertEqual([target],attempts);self.assertEqual(3,len(self.command('snapshot')['entries']))
+
+    def test_lost_actual_ready_root_cannot_adopt_complete_fragments_or_retry(self):
+        owner=self.owner;write=owner.store.write;attempts=[]
+        def lost(value,previous):
+            write(value,previous)
+            if value['phase']=='ready':attempts.append(deepcopy(value));raise OSError('Actual ready-root reply lost')
+        owner.store.write=lost
+        with self.assertRaises(NativeUIError):owner.acquire(0)
+        self.assertTrue(owner.failed);self.assertEqual('ready',owner.store.read()['phase'])
+        self.assertEqual(1,len(attempts));self.assertIsNone(owner.grammar.previous)
+        with self.assertRaises(NativeUIError):owner.acquire(0)
+        self.assertEqual(1,len(attempts));self.assertEqual(1,len(self.command('snapshot')['entries']))
 
     def test_original_retired_phase_is_terminal_without_a_false_pending_retry(self):
         self.command('retire')
@@ -210,6 +290,12 @@ class ChatRemotePublicationTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):owner.acquire(row['sequence'])
         self.assertFalse(owner.failed);self.assertEqual(1,len(owner.rows))
         self.assertNotIn('stopCommand',self.stores['actor'].read())
+
+
+def remote_publication_component_tests():
+    return unittest.TestSuite(ChatRemotePublicationTests(name) for name in
+        unittest.defaultTestLoader.getTestCaseNames(ChatRemotePublicationTests)
+        if name!='test_actual_oversize_original_publication_roundtrips_across_all_parts')
 
 
 if __name__=='__main__':unittest.main()
