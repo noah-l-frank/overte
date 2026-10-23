@@ -19,6 +19,10 @@
 #include "AssetRequest.h"
 #include "ResourceRequest.h"
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+namespace overte::e2e { class AssetsRequestLifetimes; }
+#endif
+
 class AssetResourceRequest : public ResourceRequest {
     Q_OBJECT
 public:
@@ -36,6 +40,10 @@ private slots:
     void onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    // Passive weak observation of actual child requests; no lifetime mutation.
+    friend class overte::e2e::AssetsRequestLifetimes;
+#endif
     static bool urlIsAssetHash(const QUrl& url);
 
     void requestMappingForPath(const AssetUtils::AssetPath& path);

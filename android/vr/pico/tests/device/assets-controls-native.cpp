@@ -57,6 +57,9 @@ Q_LOGGING_CATEGORY(entities,"assets-original-entity-host")
 #if defined(ASSETS_ORIGINAL_RESOURCE_READ)
 #include "assets-resource-host.h"
 Q_LOGGING_CATEGORY(networking,"assets-original-resource-host")
+#if defined(ASSETS_OBSERVE_REQUEST_LIFETIMES)
+#include "tests/device/native/AssetsRequestLifetimes.h"
+#endif
 #endif
 #undef ANDROID_APP_PICO_INTERFACE
 #include "libraries/ui/src/FileDialogHelper.h"
@@ -151,6 +154,12 @@ int main(int argc,char**argv){
 #endif
 #if defined(ASSETS_ORIGINAL_RESOURCE_READ)
  const auto resourceStats=QSharedPointer<StatTracker>::create();DependencyManager::slot<StatTracker>()=resourceStats;
+#if defined(ASSETS_OBSERVE_REQUEST_LIFETIMES)
+ overte::e2e::AssetsRequestLifetimes requestLifetimes;QJsonArray requestLifetimeOriginals;
+ const auto observeRequest=[&](AssetResourceRequest* source,const QString& run) {
+  assert(requestLifetimes.observe(source,run));const auto frame=requestLifetimes.snapshot(run);assert(!frame.isEmpty());requestLifetimeOriginals.append(frame);
+ };
+#endif
  QJsonArray resourceWireOriginals;bool resourceAttempted=false;quint64 resourceSequence=0;const auto resourceInstance=QUuid::createUuid().toString(QUuid::WithoutBraces);
  originalReadClient.client->originalServerMapping=[&](const QString& path) {
   std::pair<AssetUtils::AssetServerError,QByteArray> result;
@@ -314,6 +323,9 @@ QtObject {
    else if(action=="host-original-entity-effect") {packet=entityBridge.snapshot(request.value("runId").toString());}
 #endif
 #if defined(ASSETS_ORIGINAL_RESOURCE_READ)
+#if defined(ASSETS_OBSERVE_REQUEST_LIFETIMES)
+   else if(action=="host-original-resource-lifetimes") {packet=requestLifetimes.snapshot(request.value("runId").toString());assert(!packet.isEmpty());}
+#endif
    else if(action=="host-original-entity-resources") {
     assert(!resourceAttempted);resourceAttempted=true; // An uncertain original read never silently reacquires.
     const auto id=QUuid(request.value("entityId").toString());assert(entityBridge.api._entityTree && entityBridge.api._entityTree->objects.contains(id));
@@ -321,13 +333,26 @@ QtObject {
     QElapsedTimer budget;budget.start();QJsonArray packets;QByteArray mainBytes;const auto firstWire=resourceWireOriginals.size();
     auto readResource=[&](const QUrl& url,const QString& role) {
      AssetsResourceRead read(url);auto resource=new AssetResourceRequest(url,false);read.request=resource;
+#if defined(ASSETS_OBSERVE_REQUEST_LIFETIMES)
+     observeRequest(resource,request.value("runId").toString());
+     QObject::connect(resource,&ResourceRequest::progress,resource,[&](qint64,qint64){observeRequest(resource,request.value("runId").toString());});
+#endif
      QObject::connect(resource,&ResourceRequest::finished,resource,[&]{
+#if defined(ASSETS_OBSERVE_REQUEST_LIFETIMES)
+      observeRequest(resource,request.value("runId").toString());
+#endif
       read.raw=resource->getData();read.result=resource->getResult();read.state=resource->getState();read.relative=resource->getRelativePathUrl();read.cache=resource->loadedFromCache();read.completed=true;
       resource->deleteLater();
      });
      resource->send();
+#if defined(ASSETS_OBSERVE_REQUEST_LIFETIMES)
+     observeRequest(resource,request.value("runId").toString());
+#endif
      while(!read.completed && budget.elapsed()<1500){QTest::qWait(1);}
      assert(read.completed);QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);assert(read.request.isNull());
+#if defined(ASSETS_OBSERVE_REQUEST_LIFETIMES)
+     const auto retired=requestLifetimes.snapshot(request.value("runId").toString());assert(!retired.isEmpty());requestLifetimeOriginals.append(retired);
+#endif
      auto captured=read.capture();captured["role"]=role;packets.append(captured);return read.raw;
     };
     mainBytes=readResource(originalUrl,"main");const auto doc=QJsonDocument::fromJson(mainBytes).object();
@@ -339,6 +364,9 @@ QtObject {
      {"instance",resourceInstance},{"sequence",static_cast<double>(++resourceSequence)},{"entityId",id.toString(QUuid::WithoutBraces)},{"entityUrl",originalUrl.toString()},
      {"resources",packets},{"serverOriginals",wires},{"serverInstance",server.instance},{"processId",static_cast<double>(QCoreApplication::applicationPid())},
      {"capturedEpochMs",static_cast<double>(QDateTime::currentMSecsSinceEpoch())},{"elapsedMs",budget.elapsed()}};
+#if defined(ASSETS_OBSERVE_REQUEST_LIFETIMES)
+    packet["requestLifetimeOriginals"]=requestLifetimeOriginals;
+#endif
    }
 #endif
 #if defined(ASSETS_ORIGINAL_SERVER_QUERY)

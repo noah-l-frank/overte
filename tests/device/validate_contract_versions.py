@@ -197,6 +197,7 @@ REQUIRED = {
     "pico-assets-mapping-pair": 1,
     "pico-assets-entity-effect-host": 1,
     "pico-assets-entity-resources-host": 1,
+    "native-assets-request-lifetimes": 1,
     "pico-assets-ui-inventory": 1,
     "native-pico-assets-files": 1,
     "pico-assets-file-owner": 1,
