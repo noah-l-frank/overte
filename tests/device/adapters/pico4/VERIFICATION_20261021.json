@@ -2986,5 +2986,15 @@
     "repositorySuites": 4,
     "repositorySeconds": 3.85,
     "qualification": "Existing device-free adapter/model and source tests; no new application/APK/device qualification."
+  },
+  "chatObserverProcess20261023": {
+    "status": "passed",
+    "sourceCommit": "c96c018c13c319114001049a3474aa4672e29d68",
+    "integrationCommit": "02e0396221",
+    "selector": "chat-cursor-actor",
+    "cases": 12,
+    "seconds": 41.276,
+    "catalogAtRun": 177,
+    "qualification": "Seven real owned stdin-worker process/kernel/OFD cases plus five passive Actor model cases. Acquisition requires original live process, exact program/entry/configuration and original PID/start/boot. Two actual ESRCH probes preserve original physical identities and final1.5-second clocks. No product observer launch, whole handshake, device or application qualification."
   }
 }

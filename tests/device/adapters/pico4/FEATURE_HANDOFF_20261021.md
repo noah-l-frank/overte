@@ -2100,3 +2100,12 @@ Native/product/clock producers remain explicit host seams. Actual observer
 process return delivery, whole immutable archival/host closure, cold RPC and
 Chat-specific stereo/public composition remain open. Source-complete areas
 remain3/14; no application/APK/device qualification is claimed.
+
+
+The fixed Chat observer-process packet c96c018c13 is selected as02e0396221.
+Its seven actual owned stdin-worker/kernel/OFD cases join the existing five
+passive Actor cases in chat-cursor-actor:12cases41.276s pass. The reader must
+acquire the exact originally LIVE process before accepting a result; a late
+acquisition, PID reuse, replaced source/configuration or stale final clocks
+cannot qualify absence. It launches no product observer and sends no nonzero
+signals. Full Parent/Actor fresh return consumption remains the next step.
