@@ -142,6 +142,11 @@ post-merge push producers are retired so an integrated PR does not repeat its
 host, package or CodeQL work. Explicit diagnostics, release jobs and maintenance
 schedules remain separate from PR acceptance.
 
+For the skipped source-policy placeholder, the observer accepts its evaluated
+name or the exact unevaluated display expression returned by GitHub. It must
+remain skipped with no executed steps; it cannot replace the protected
+`source-policy` check or authorize any execution.
+
 The Android owner executes the branch's complete reviewed platform inventory
 from [pr-ci-platforms.json](../.github/pr-ci-platforms.json). A candidate cannot
 remove a mandatory suite by editing its own profile. Commands run inside the
