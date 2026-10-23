@@ -59,6 +59,19 @@ int main(int argc,char** argv){
  string(client->allReply,"/e2e-"+run+"/main.gltf");client->allReply+=hash;primitive<AssetUtils::BakingStatus>(client->allReply,AssetUtils::Irrelevant);
  string(client->allReply,"/other/bake-error");client->allReply+=hash;primitive<AssetUtils::BakingStatus>(client->allReply,AssetUtils::Error);string(client->allReply,"actual first diagnostic\nactual second diagnostic");
  client->mappingReply=hash;primitive<quint8>(client->mappingReply,1);string(client->mappingReply,"/.baked/real/mesh");
+ if(app.arguments().contains("--host-shared-server-wire")) {
+  assert(app.arguments().contains("--serve") && app.arguments().contains("--independent-host-actor"));
+  client->originalServerAll=[] {
+   const auto id=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
+   const QJsonObject request{{"action","host-original-server-wire"},{"requestId",id}};
+   std::cout<<QJsonDocument(request).toJson(QJsonDocument::Compact).constData()<<std::endl;
+   std::string line;assert(std::getline(std::cin,line));assert(line.size()<=1024*1024);
+   const auto reply=QJsonDocument::fromJson(QByteArray::fromStdString(line)).object();
+   assert(reply.value("requestId")==id && reply.size()==2 && reply.value("wireBase64").isString());
+   const auto encoded=reply.value("wireBase64").toString().toLatin1(),wire=QByteArray::fromBase64(encoded);
+   assert(wire.toBase64()==encoded && wire.size()<=1024*1024);return wire;
+  };
+ }
  QThread network;client->moveToThread(&network);network.start();
  auto complete=[&](const QVariantMap& request){QElapsedTimer elapsed;elapsed.start();QVariantMap value;
   do{QCoreApplication::processEvents();value=source.featurePicoAssetsRead(request);if(!value.value("pending").toBool())return value;QThread::msleep(1);}while(elapsed.elapsed()<1000);

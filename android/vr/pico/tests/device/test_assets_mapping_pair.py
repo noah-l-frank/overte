@@ -35,15 +35,25 @@ class PhaseClient(Client):
 
 
 class Actor:
-    def __init__(self,binary,environment,path):
+    def __init__(self,binary,environment,path,*,shared_server=None):
         self.lock=ScriptSourceLock(path/'script-sources.lock');self.raw='';self.commands=[];self.received=[]
-        self.process=subprocess.Popen([str(binary),'--testScript','--serve','--independent-host-actor'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,
+        self.shared_server=shared_server;self.server_originals=[]
+        options=['--host-shared-server-wire'] if shared_server is not None else []
+        self.process=subprocess.Popen([str(binary),'--testScript','--serve','--independent-host-actor',*options],stdin=subprocess.PIPE,stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,text=True,env=environment)
         self.source=PicoAssetsSource(self.send,lambda:self.raw,lambda:int(time.time()*1000),self.guard,self.process.pid)
     def guard(self):self.lock.assert_held();assert self.process.poll() is None
     def send(self,request):
         self.guard();self.commands.append(deepcopy(request));self.process.stdin.write(json.dumps(request)+'\n');self.process.stdin.flush()
-        assert select.select([self.process.stdout],[],[],5)[0];self.raw=self.process.stdout.readline();assert self.raw
+        for attempt in range(2):
+            assert select.select([self.process.stdout],[],[],5)[0];self.raw=self.process.stdout.readline();assert self.raw
+            request_wire=json.loads(self.raw)
+            if request_wire.get('action')!='host-original-server-wire':break
+            assert attempt==0 and self.shared_server is not None and set(request_wire)=={'action','requestId'}
+            raw=self.shared_server(request_wire);reply=json.loads(raw);assert reply['requestId']==request_wire['requestId']
+            self.server_originals.append(dict(request=deepcopy(request_wire),raw=raw,sha256=hashlib.sha256(raw.encode()).hexdigest()))
+            self.process.stdin.write(json.dumps({key:reply[key] for key in ('requestId','wireBase64')})+'\n');self.process.stdin.flush()
+        else:raise AssertionError('Unexpected repeated original server wire query')
         self.received.append(dict(command=deepcopy(request),raw=self.raw,sha256=hashlib.sha256(self.raw.encode()).hexdigest()))
     def close(self):
         self.process.stdin.close();self.process.wait(timeout=3);self.process.stdout.close();assert self.process.returncode==0

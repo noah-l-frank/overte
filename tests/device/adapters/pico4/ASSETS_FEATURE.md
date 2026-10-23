@@ -851,3 +851,54 @@ another acquisition, and preserves the raw pipe responses. The earlier
 5.824-second host-delay/close-failure-only result remains separately recorded;
 it did not establish the native-jump direction. No packet/journal shape, version,
 budget, limit or cadence changed. These remain partial host/source results.
+
+## Cancel, file retirement, Home and one independent server inventory
+
+The normal owning Qt path now joins the actual Cancel/File/Home owners to the
+independent mapping readers. Both actual client processes query the same fresh
+original server GetAll/status body on its original QObject owner thread. A
+closed stdio fixture broker carries original wire bytes for the second client;
+it does not copy the first client's observation DTO or return an expected row
+list. The existing server read/meta fixture and provenance preparation are
+shared with the earlier server-state check. Assignment/network/controller
+endpoints remain explicit host boundaries; this does not start an Asset Server
+service, oven, device or successful-upload path.
+
+Every existing Cancel sample is followed by the actual independent GetAll
+observation with the original phase barrier. The original three-second quiet
+window, 500 ms consecutive-sample bound and all native/host fences remain in
+place. The complete server inventory, including its original foreign mapping,
+stays unchanged. Fresh server replies carry the actual original server object's
+birth, advancing query sequence, PID, request nonce and private blob inventory.
+Actual file SHA-256/device/inode/mtime/ctime are unchanged and every blob hash
+matches the mapping independently decoded by both clients. Unknown foreign data
+is observed only; no namespace is adopted or deleted.
+
+Actual normal Cancel retires its admitted browser/model and releases only its
+known seven-file input lease. Normal X then reaches Home through the existing
+durable v2 owner, with real page/component retirement and the still-live invalid
+context explicitly retained. The complete original Cancel/File journals remain
+unchanged by Home and the independent reads. A separate fresh final original
+upload ledger reports zero calls after Home; its exact raw bytes/hash/history
+are retained rather than inferred from absent mapping changes or an ACK.
+
+The final owning case passed in 34.121 seconds. Its archive contains 21 paired
+observations from two actual PIDs and 21 fresh replies from one original server
+object. The 18 independent Cancel samples span 3727 ms with maximum consecutive
+delta 247 ms. Original server blobs remain identical; Cancel is
+`cancel-observed-files-retired`, files are `retired`, and Home is
+`home-retained`. Exact original owner journals, raw primary/independent/source
+and wire replies, final upload ledger, both native artifact hashes, server body
+provenance and independent weak pointers are preserved privately. The combined
+512-frame/16-MiB admission includes the separately retained Home child snapshots,
+server replies, pipe transcripts and final upload original. No cap is widened.
+
+The same final selection passed the five-method mapping-pair regression in
+5.641 seconds (39.76 seconds together). The factored complete server-state
+regression passed in 6.034 seconds; the earlier owning case passed in 33.591
+seconds before final archive/hash/budget bindings were added. Those original
+transcripts remain separate. `assets-cancel-effects` adds one selector locally
+(158 to 159); Root must add it to its current catalog. There is no new product
+contract/version/capability or behavioral change. Whole actual server/oven,
+original loaded model/texture, independent rendered peer/stereo, complete
+application retirement and the retained context obligations remain open.
