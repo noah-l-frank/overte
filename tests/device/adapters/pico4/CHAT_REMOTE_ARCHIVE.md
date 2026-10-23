@@ -373,3 +373,28 @@ with 93 completed rows; its incomplete transaction is not adopted. These
 facts show matching progress without a completed quiet window. They do not
 permit shortening the cadence/window, relabeling a sample or retrying an
 uncertain input. Another unchanged whole retry is not scheduled.
+
+The unchanged actual 61-query source diagnostic subsequently passed once on
+clean fixed `f9df6183a4bb7ccf37f602757a57442a1da14a02`, with the optional
+admitted-prefix decoder and the same 120-second limit: 29.821 s (30.331 outer
+elapsed). All 170 source bytes and HEAD matched before and after; manifest
+SHA-256 is
+`64eb8b561ed11e9f9e559a18a2a40da00a4bd30f5c7eaac583e3f21bbe62d6e1`.
+Original Parent and independent Actor files remain retained. The report still
+contains only baseline/Open, two completed steps and 61 original queries;
+native/widget producers remain explicit model seams, with device freshness
+unqualified. No common true hook or finalization was invoked.
+
+The single profiled transaction measured seven complete original loads at
+0.08955 s versus 0.12172 s in the previous e8 measurement; the complete Parent
+snapshot took 0.25183 s versus 0.28525 s. Primary read, Actor publication and
+Parent acquisition measured 0.19771, 0.43348 and 0.54609 s respectively.
+Complete primary/Actor source-history checks remained 54/143; Parent still
+performed 10,412 `lstat` calls. Parent recursive JSON-type validation measured
+0.16894 s versus 0.17137 s, and its 19 cache-digest calls 0.10879 s versus
+0.11213 s. Nested times are not additive. Physical and fsync timings also
+changed, so the 29.821-s total does not establish that the decoder caused the
+entire reduction from 31.771 s. The measured decoder benefit remains limited
+to already admitted transcript processing after every original physical read.
+No I/O, native, clock, quiet, cadence, source budget or timeout check was
+removed; no new whole-run result or public Chat qualification follows.

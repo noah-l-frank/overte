@@ -51,3 +51,16 @@ cold v2/v3 compatibility and lost-part/ready-write cases. Twelve unchanged
 default SourceChunk cases passed in 0.431 s. The first new warm-reader test
 failed at a missing test-only `unpack` import; that import was corrected before
 the complete green selection. No source guard or budget was relaxed.
+
+The existing actual Parent/independent-Actor diagnostic then passed once on
+fixed f9 in 29.821 s (30.331 outer elapsed), retaining 61 original queries
+after only baseline/Open. Seven complete original history loads measured
+0.08955 s versus the earlier 0.12172 s; the Parent snapshot measured 0.25183 s
+versus 0.28525 s. Complete source-history check counts remained 54/143 for
+primary/Actor, and Parent still performed 10,412 `lstat` calls. Other physical
+and fsync costs varied too: the total is not a controlled attribution of the
+entire elapsed reduction to this cache. All 170 source bytes and HEAD matched
+the pre-run manifest. These are source-only Python component measurements
+with explicit native/widget seams, no true common cleanup hook and no new
+whole-run or device qualification. See the Pico Chat remote archive handoff
+for the exact revision, manifest digest and remaining whole-run boundary.
