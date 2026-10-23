@@ -11,7 +11,7 @@ from adapters.chat_journey.flow_inputs import validate_flow
 from adapters.chat_journey.observation import (STAGES,observation_sample,original_authority,validate_original_row)
 from adapters.chat_journey.observation_cursor import stage_transition,plain
 from adapters.chat_journey.samples import compose,continuity
-from adapters.chat_journey.script_source import validate_transaction
+from adapters.chat_journey.script_source import validate_transaction,pins
 from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
 from adapters.independent_chat_receiver import binding_pid
 from adapters.native_feature_observation import exact,integer,need
@@ -47,6 +47,58 @@ def validate_actor_pairs(rows):
 
 def validate_source_graph(roots,frames_by_key,stores,expected,flow,flow_rows,cleanup,stages=STAGES):
     """Original complete stage-prefix grammar; no acquisition or freshness."""
+    return _validate_source_graph(roots,frames_by_key,stores,expected,flow,flow_rows,cleanup,stages,{})
+
+
+class ChatSourceGraphPrefix:
+    """Pure JSON admission of an already validated immutable graph prefix.
+
+    Physical acquisition, old child identities/bytes and final clocks remain
+    the caller's independent obligations. Cold readers start with no prefix.
+    A candidate is committed only after the actual caller's final guards.
+    """
+    def __init__(self):
+        self.previous=None;self.sha=digest(None);self.failed=False
+        self.pending=None;self.pending_sha=digest(None)
+
+    def control(self):
+        plain(self.previous);plain(self.pending)
+        need(not self.failed and digest(self.previous)==self.sha and digest(self.pending)==self.pending_sha)
+
+    def validate(self,roots,frames,stores,expected,flow,flow_rows,cleanup,stages):
+        self.control()
+        try:
+            for value in (roots,frames,expected,flow,flow_rows,cleanup):plain(value)
+            need(type(stores) is dict and all(type(value) is PrivateFeatureState for value in stores.values())
+                and type(stages) is tuple and stages==STAGES[:len(stages)] and stages)
+            candidate=dict(expected=deepcopy(expected),paths={key:str(value.path) for key,value in stores.items()},pins=pins(),
+                flow={key:deepcopy(value) for key,value in flow.items() if key!='payload'},
+                flowRows=[digest(row) for row in flow_rows if row['phase']=='completed'],
+                cleanup=None if cleanup is None else digest(cleanup),stages=list(stages),
+                frames={key:[digest(row) for row in value] for key,value in frames.items()})
+            counts={}
+            if self.previous is not None:
+                old=self.previous
+                need(all(same(candidate[key],old[key]) for key in ('expected','paths','flow','pins'))
+                    and candidate['stages'][:len(old['stages'])]==old['stages']
+                    and candidate['flowRows'][:len(old['flowRows'])]==old['flowRows']
+                    and (old['cleanup'] is None or candidate['cleanup']==old['cleanup'])
+                    and set(old['frames'])<=set(candidate['frames']))
+                for key,hashes in old['frames'].items():
+                    need(candidate['frames'][key][:len(hashes)]==hashes);counts[key]=len(hashes)
+            _validate_source_graph(roots,frames,stores,expected,flow,flow_rows,cleanup,stages,counts)
+            self.control();self.pending=dict(previousSha256=self.sha,value=candidate,sha256=digest(candidate))
+            self.pending_sha=digest(self.pending);self.control();return self.pending
+        except BaseException:self.failed=True;raise
+
+    def commit(self,candidate):
+        self.control();plain(candidate);exact(candidate,{'previousSha256','value','sha256'})
+        need(candidate is self.pending and candidate['previousSha256']==self.sha and digest(candidate['value'])==candidate['sha256'])
+        self.previous=deepcopy(candidate['value']);self.sha=candidate['sha256']
+        self.pending=None;self.pending_sha=digest(None);self.control()
+
+
+def _validate_source_graph(roots,frames_by_key,stores,expected,flow,flow_rows,cleanup,stages,counts):
     need(type(stages) is tuple and 1<=len(stages)<=len(STAGES) and stages==STAGES[:len(stages)])
     run,binding,peer=expected['runId'],expected['binding'],expected['peerBinding']
     pid,peer_pid=binding_pid(binding),binding_pid(peer)
@@ -54,7 +106,8 @@ def validate_source_graph(roots,frames_by_key,stores,expected,flow,flow_rows,cle
     need(type(code['chatScriptObservationVersion']) is int and code['chatScriptObservationVersion']==1
         and code['runId']==run and code['role']=='actor' and same(code['binding'],binding)
         and type(code['revision']) is int and code['revision']==2*len(frames_by_key['code']))
-    for index,frame in enumerate(frames_by_key['code']):validate_transaction(frame,frames_by_key['code'][:index],pid=pid)
+    for index,frame in enumerate(frames_by_key['code']):
+        if index>=counts.get('code',0):validate_transaction(frame,frames_by_key['code'][:index],pid=pid)
     original_history([frame['scripts'] for frame in frames_by_key['code']],pid)
     code_frames={frame['ticket']:frame for frame in frames_by_key['code']};need(len(code_frames)==len(frames_by_key['code']))
     observed=[];selected=[]
@@ -66,6 +119,7 @@ def validate_source_graph(roots,frames_by_key,stores,expected,flow,flow_rows,cle
             and same(root['binding'],binding) and same(root['peerBinding'],peer) and root['vr'] is True
             and type(root['revision']) is int and root['revision']==2*len(frames))
         for index,frame in enumerate(frames):
+            if index<counts.get(key,0):continue
             compose(run,frame,pid,peer_pid,vr=True,cache_absent=stage!='active');continuity(frames[:index],frame)
             need(same(frame['compiledChat'],code_frames[frame['compiledChat']['ticket']]))
         key=stage+'-observation';root=roots[key];rows=frames_by_key[key]
@@ -84,8 +138,10 @@ def validate_source_graph(roots,frames_by_key,stores,expected,flow,flow_rows,cle
             need(not frame.get('settings') and not frame.get('transition'))
             return observation_sample(run,sequence,compose(run,frame,pid,peer_pid,vr=True,cache_absent=stage!='active'))
         for index,row in enumerate(rows):
-            frame=validate_original_row(row,index+1,rows[index-1]['after'] if index else None,run=run,authority=authority,
-                source_frame=lambda position:frames[position],source_count=len(frames),sample=sample)
+            if index<counts.get(key,0):frame=frames[row['reference']['index']]
+            else:
+                frame=validate_original_row(row,index+1,rows[index-1]['after'] if index else None,run=run,authority=authority,
+                    source_frame=lambda position:frames[position],source_count=len(frames),sample=sample)
             selected.append((stage,index+1,row,frame))
         observed.append(dict(stage=stage,observation=stores[key].path.name,
             scopeSha256=digest({name:value for name,value in root.items() if name not in ('phase','revision','chunks')})))
@@ -98,11 +154,12 @@ def validate_source_graph(roots,frames_by_key,stores,expected,flow,flow_rows,cle
         and cursor.get('nextStage') is None and same(cursor['stages'],observed) and len(frames_by_key['cursor'])==len(selected))
     prior=None
     for index,(row,(stage,sequence,original,frame)) in enumerate(zip(frames_by_key['cursor'],selected)):
-        exact(row,{'sequence','stageIndex','sourceSequence','observationSha256','sample'})
-        need(type(row['sequence']) is int and row['sequence']==index+1 and type(row['stageIndex']) is int
-            and row['stageIndex']==STAGES.index(stage) and type(row['sourceSequence']) is int and row['sourceSequence']==sequence
-            and row['observationSha256']==digest(original) and same(row['sample'],{**original['sample'],'sequence':index+1}))
-        if prior is not None and stage!=prior[0]:stage_transition(prior[1],frame,stage)
+        if index>=counts.get('cursor',0):
+            exact(row,{'sequence','stageIndex','sourceSequence','observationSha256','sample'})
+            need(type(row['sequence']) is int and row['sequence']==index+1 and type(row['stageIndex']) is int
+                and row['stageIndex']==STAGES.index(stage) and type(row['sourceSequence']) is int and row['sourceSequence']==sequence
+                and row['observationSha256']==digest(original) and same(row['sample'],{**original['sample'],'sequence':index+1}))
+            if prior is not None and stage!=prior[0]:stage_transition(prior[1],frame,stage)
         prior=(stage,frame)
     publisher=roots['publisher'];exact(publisher,{'chatObservationPublisherVersion','runId','fixtureUrl','binding','peerBinding','cursor','phase','delivery','chunks','pending'})
     need(type(publisher['chatObservationPublisherVersion']) is int and publisher['chatObservationPublisherVersion']==1
@@ -110,6 +167,7 @@ def validate_source_graph(roots,frames_by_key,stores,expected,flow,flow_rows,cle
         and publisher['cursor']==stores['cursor'].path.name and publisher['delivery']=='ready' and publisher['pending'] is None
         and len(frames_by_key['publisher'])==len(frames_by_key['cursor']))
     for index,(row,cursor,selected_row) in enumerate(zip(frames_by_key['publisher'],frames_by_key['cursor'],selected)):
+        if index<counts.get('publisher',0):continue
         exact(row,{'sequence','cursorSha256','payload'});local=selected_row[2]
         payload=dict(ticket=local['before']['activations'][-1]['ticket'],actor='owned-observer',actorSequence=index+1,
             capturedEpochMs=cursor['sample']['capturedEpochMs'],facts=projection('chat',cursor['sample']['state']))

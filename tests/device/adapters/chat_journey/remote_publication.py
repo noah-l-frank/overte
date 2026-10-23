@@ -13,7 +13,7 @@ from adapters.chat_journey.evidence_archive import LIMIT_BYTES,LIMIT_FILES,stamp
 from adapters.chat_journey.flow_inputs import validate_flow
 from adapters.chat_journey.observation import STAGES
 from adapters.chat_journey.observation_cursor import plain
-from adapters.chat_journey.remote_actor_graph import GRAPH,validate_source_graph,validate_actor_pairs
+from adapters.chat_journey.remote_actor_graph import GRAPH,ChatSourceGraphPrefix,validate_actor_pairs
 from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.normal_feature_state import PrivateFeatureState,context
@@ -60,7 +60,8 @@ class ChatRemotePublication:
         self.scope=dict(chatRemotePublicationVersion=VERSION,**deepcopy(expected),journal=store.path.name)
         self.history=ChatSourceChunks(store,self.scope);self.history.inventory(0)
         self.previous=None;self.root_stamp=None;self.rows=[];self.admitted={};self.roots={}
-        self.stop_intent=None;self.failed=False;self.cache_sha=self.cache_digest();self.control()
+        self.stop_intent=None;self.failed=False;self.grammar=self._grammar=ChatSourceGraphPrefix()
+        self.cache_sha=self.cache_digest();self.control()
 
     def cache_digest(self):
         need(type(self.history) is ChatSourceChunks and self.history.root is self.store and self.history.scope==digest(self.scope)
@@ -72,6 +73,7 @@ class ChatRemotePublication:
             history=dict(rawBytes=self.history.raw_bytes,identities=[list(row) for row in self.history.identities]),stop=self.stop_intent))
 
     def control(self):
+        need(type(self.grammar) is ChatSourceGraphPrefix and self.grammar is self._grammar);self.grammar.control()
         need(not self.failed and self.cache_digest()==self.cache_sha and digest(self.expected)==self.expected_sha
             and parent_node(self.store)==self.parent and self.process.process_identity==self.expected['hostProcessIdentity']
             and {key:str(value.path) for key,value in self.stores.items()}==self.paths
@@ -138,10 +140,10 @@ class ChatRemotePublication:
         need(all(same(flow[key],self.expected[key]) for key in ('runId','fixtureUrl','binding','peerBinding')))
         cleanup=read('cleanup') if stages[-1]=='cleanup' else None
         for key in ('actor','flow',*(['cleanup'] if cleanup is not None else [])):ChatSourceChunks(self.stores[key],{}).inventory(0)
-        validate_source_graph(roots,frames,self.stores,self.expected,flow,flow_rows,cleanup,stages)
+        grammar=self.grammar.validate(roots,frames,self.stores,self.expected,flow,flow_rows,cleanup,stages)
         validate_publication_return(actor['returnedPublication'],publisher=roots['publisher'],cursor=roots['cursor'],rows=frames['publisher'],
             publisher_stamp=files['publisher'][1],cursor_stamp=files['cursor'][1])
-        return dict(actor=actor,files=files,roots=roots,frames=frames,signatures=signatures,stages=stages)
+        return dict(actor=actor,files=files,roots=roots,frames=frames,signatures=signatures,stages=stages,grammar=grammar)
 
     def fresh(self,clocks,started):
         measured=[]
@@ -200,6 +202,8 @@ class ChatRemotePublication:
                     for key,(raw,physical) in snapshot['files'].items():need(raw_file(self.stores[key])==(raw,physical))
                     self.fresh(clocks,started)
             if pending is not None:raise pending
+            self.control();self.fresh(clocks,started)
+            self.grammar.commit(snapshot['grammar'])
             self.control();self.fresh(clocks,started);return result
         except ScriptSourceBusy:
             if not entered:raise PhasePending('Original Actor/Parent holds the source locks') from None
