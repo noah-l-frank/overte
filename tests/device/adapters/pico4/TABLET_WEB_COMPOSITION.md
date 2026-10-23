@@ -74,6 +74,15 @@ The unchanged full Journey subsequently reaches27 phases and116 primary/actor
 samples with40 captures each, then times out120.106s during cleanup. All original
 files remain retained; no complete Journey or finalization result follows.
 
+The prior retained late profile also identified repeated reconstruction of the
+closed action inventory in original phase validation. Each complete packet now
+builds that inventory/context once within its validation call, then still checks
+every original row and recursively validates its complete predecessor. Nothing
+is cached across packets. Five hundred identical27-activation packet validations
+measured0.147s before and0.050s after; this microbenchmark does not qualify a
+Journey. Sixty-two phase/history/Chat-fence/Save cases pass4.881s, including all14
+area inventories, exact stimulus prefixes, nonce/clock and retired-phase cases.
+
 The original DOM view has ten fields; the original measure protocol returns the
 five-field document identity. Matching those exact five fields preserves URL,
 handle, creation, grant and page equality while allowing the unchanged original

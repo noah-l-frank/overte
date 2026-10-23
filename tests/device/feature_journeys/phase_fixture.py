@@ -43,6 +43,10 @@ def validate(value, *, run, area, request, epoch, previous=None):
         check(created <= number(value['retiredEpochMs'], 1) <= captured)
     rows = value['activations']
     check(type(rows) is list and len(rows) <= 256)
+    # One closed inventory per validation, still checking EVERY original row.
+    # No cache survives this call or replaces the retained predecessor packet.
+    inventory = actions(area)
+    inputs_context = context(run)
     tickets = set()
     last = created
     for index, row in enumerate(rows):
@@ -62,8 +66,8 @@ def validate(value, *, run, area, request, epoch, previous=None):
         if stimulus['verb'] in ('baseline', 'cleanup'):
             check(type(stimulus['inputs']) is dict and stimulus['inputs'] == {})
         else:
-            check(stimulus['verb'] in actions(area) and any(typed_equal(stimulus['inputs'], expand(candidate, context(run)))
-                for candidate in actions(area)[stimulus['verb']]))
+            check(stimulus['verb'] in inventory and any(typed_equal(stimulus['inputs'], expand(candidate, inputs_context))
+                for candidate in inventory[stimulus['verb']]))
     if previous is not None:
         # Validate the complete retained original, not just its cursor or prefix.
         validate(previous, run=run, area=area, request=previous['requestId'], epoch=previous['capturedEpochMs'])
