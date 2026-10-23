@@ -10,6 +10,7 @@ from contextlib import ExitStack
 import hashlib
 import os
 from pathlib import Path
+import threading
 import time
 import uuid
 
@@ -26,6 +27,7 @@ from overte_phone_graphics_surface import MODES
 from overte_phone_script_history import pack,unpack,same
 from overte_phone_script_lock import PhoneScriptSourceLock
 from overte_phone_snapshots_evidence import SnapshotsOriginals
+from overte_phone_snapshots_history_pass import SnapshotHistoryReadPass,signature
 from overte_phone_snapshot_handoff import bound as handoff_binding,control as handoff_control
 from overte_phone_snapshot_upload_fixture import SnapshotUploadFixtureReader
 from overte_phone_snapshot_foundation import PhoneSnapshotFoundation
@@ -58,6 +60,54 @@ def configuration(value):
         and type(value['receiverApkSha256']) is str and len(value['receiverApkSha256'])==64
         and all(char in '0123456789abcdef' for char in value['receiverApkSha256']))
     return deepcopy(value)
+
+
+class _SnapshotInputReplay(SnapshotHistoryReadPass):
+    """One locked full-body replay, with a pinned historical owner guard."""
+    def __init__(self,feature):
+        f=feature;f.lock.assert_held();self.feature=f
+        self.store,self.path,self.previous,self.state=f.store,f.store.path,f.previous,f.state
+        self.root,self.run,self.fixture_url,self.role=f.root,f.run,f.fixture_url,f.role
+        self.binding,self.configuration=deepcopy(f.binding),deepcopy(f.config)
+        self.guard_callback=f.guard;self.system=getattr(f,'_system_scope',None)
+        self.scope=getattr(f.adapter,'_existing_input_scope',None);self.scope_value=deepcopy(self.scope)
+        self.inputs,self.count=f.state['inputs'],f.state['inputSequence']
+        self.process,self.thread=os.getpid(),threading.get_ident()
+        self.owner_signature=self.owner_stat();self.root_identity=signature(self.root)[:5]
+        self.memory=self.graph((f.state,f.previous,f.binding,f.config))
+        self.closed=False;self.replaying=True;self.files={};self.file_seal=self.file_seal_sha256=None
+        f.header_authority();self.guard()
+
+    @staticmethod
+    def graph(value):
+        from overte_phone_snapshots_constructor_history import graph_digest
+        return graph_digest(value)
+
+    def owner_stat(self):
+        try:return signature(self.path)
+        except FileNotFoundError:return None
+
+    def guard(self):
+        f=self.feature;f.lock.assert_held()
+        need(not self.closed and os.getpid()==self.process and threading.get_ident()==self.thread
+            and f.store is self.store and f.store.path==self.path and f.previous is self.previous and f.state is self.state
+            and f.root==self.root and f.run==self.run and f.fixture_url==self.fixture_url and f.role==self.role
+            and signature(self.root)[:5]==self.root_identity and self.owner_stat()==self.owner_signature
+            and same(f.binding,self.binding) and same(f.config,self.configuration) and f.guard is self.guard_callback
+            and getattr(f,'_system_scope',None) is self.system
+            and getattr(f.adapter,'_existing_input_scope',None) is self.scope and same(self.scope,self.scope_value)
+            and f.state['inputs'] is self.inputs and f.state['inputSequence']==self.count)
+        return True
+
+    def seal(self,frames):
+        self.replaying=False;self.frame_digest=self.graph(frames)
+        self.file_seal=tuple(self.files.items());self.file_seal_sha256=self._files_digest(self.file_seal)
+
+    def finish(self,frames):
+        f=self.feature;self.guard();f.header_authority();self.guard()
+        need(self.graph((f.state,f.previous,f.binding,f.config))==self.memory
+            and self.graph(frames)==self.frame_digest)
+        self._verify_files()
 
 
 class PhoneSnapshotsFeature(PhoneCreateFeature):
@@ -211,9 +261,15 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         # Keep every file check and bracket the complete pass with current
         # target continuity rather than issuing a target RPC per old reference.
         self.bound()
-        host=SnapshotsOriginals(self.root,self.binding,self.run,'primary',self.header_authority,lambda *_:need(False),kind='snapshots-input')
-        frames=host.restore(self.state['inputs'],self.state['inputSequence'])
-        self.bound();return frames
+        replay=_SnapshotInputReplay(self)
+        try:
+            host=SnapshotsOriginals(self.root,self.binding,self.run,'primary',replay.guard,lambda *_:need(False),kind='snapshots-input')
+            read,manifest=host.read,host.manifest
+            host.read=lambda value:replay.read_original(read,host.path,value)
+            host.manifest=lambda value:replay.read_original(manifest,host.manifest_path,value)
+            frames=host.restore(self.state['inputs'],self.state['inputSequence']);replay.seal(frames)
+            self.bound();replay.finish(frames);return frames
+        finally:replay.close()
 
     def original(self,*,_history_pass=None):
         if _history_pass is not None:
