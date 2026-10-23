@@ -30,6 +30,8 @@ class SnapshotRetirementActorVersionsTests(unittest.TestCase):
     activate=transitions.SnapshotPhaseTransitionTests.activate
     receive=transitions.SnapshotPhaseTransitionTests.receive
     send=transitions.SnapshotPhaseTransitionTests.send
+    observe_primary=transitions.SnapshotPhaseTransitionTests.observe_primary
+    observe_primary_with_actor=transitions.SnapshotPhaseTransitionTests.observe_primary_with_actor
     assert_transition=transitions.SnapshotPhaseTransitionTests.assert_transition
 
     def cleanup(self):
@@ -51,9 +53,8 @@ class SnapshotRetirementActorVersionsTests(unittest.TestCase):
         # The scheduling prerequisite now records actual nonempty Primary
         # observations. Retirement must see a new real cleaned observation,
         # rather than accidentally reusing the earlier empty baseline frame.
-        self.rig.invoke('feature.snapshots.observe',dict(contractVersion=transitions.harness.VERSION,
-            runId=transitions.harness.RUN,afterSequence=0))
-        self.send('acknowledged');self.assertEqual('fresh',self.receive()['stage'])
+        self.observe_primary_with_actor('acknowledged')
+        self.assertEqual('fresh',self.receive()['stage'])
         r.client.close();self.send('close');self.assertEqual('retired',self.receive()['stage'])
         self.child.wait(timeout=5);self.assertEqual(0,self.child.returncode)
         self.assertEqual({'performed':True},self.cleanup())
@@ -81,7 +82,9 @@ class SnapshotRetirementActorVersionsTests(unittest.TestCase):
         path=self.finish_transition();archive=self.archive();unchanged=(path.stat().st_ino,path.read_bytes())
         name='phone-snapshots-actor-lifecycle.json'
         for fault in ('bool-version','unknown-version','legacy-with-transitions','v2-with-primary-cue',
-                'missing-primary-cue','bool-cue-version','unknown-state','scope','role-floor'):
+                'missing-primary-cue','bool-cue-version','unknown-state','scope','role-floor',
+                'mode-null','mode-version','mode-bool-version','mode-process','mode-missing','mode-extra',
+                'actor-process-vs-mode','actor-cue-missing-for-mode'):
             with self.subTest(fault=fault):
                 candidate=deepcopy(archive);header=candidate['controls'][name];state=unpack(header['payload'])[0]
                 if fault=='bool-version':header['snapshotsActorVersion']=True
@@ -94,6 +97,24 @@ class SnapshotRetirementActorVersionsTests(unittest.TestCase):
                     header['payload']=pack([state])
                 elif fault=='unknown-state':state['unowned']=True;header['payload']=pack([state])
                 elif fault=='scope':state['transitions'][0]['scope']=dict(kind='foreground',handoffId=None);header['payload']=pack([state])
+                elif fault.startswith('mode-'):
+                    owner=candidate['owner'];owned=unpack(owner['payload'])[0]
+                    mode=owned['cleanupStages']['readReadyMode'];self.assertEqual(1,mode['snapshotCleanupReadReadyVersion'])
+                    if fault=='mode-null':owned['cleanupStages']['readReadyMode']=None
+                    elif fault=='mode-version':mode['snapshotCleanupReadReadyVersion']=2
+                    elif fault=='mode-bool-version':mode['snapshotCleanupReadReadyVersion']=True
+                    elif fault=='mode-process':mode['actorProcess']['start']='0'
+                    elif fault=='mode-missing':owned['cleanupStages'].pop('readReadyMode')
+                    else:mode['unknownSchedulingField']=True
+                    owner['payload']=pack([owned])
+                    # Keep both archived Feature copies mutually consistent.
+                    # Rejection must inspect their mode against real originals,
+                    # not merely notice unequal duplicate owner envelopes.
+                    candidate['controls']['phone-snapshots-feature.json']=deepcopy(owner)
+                elif fault=='actor-process-vs-mode':
+                    state['process']['start']='0';header['payload']=pack([state])
+                elif fault=='actor-cue-missing-for-mode':
+                    state['primaryCue']=None;header['payload']=pack([state])
                 else:
                     role=candidate['controls']['phone-snapshots-actor-originals.json'];body=unpack(role['payload'])[0]
                     body.update(sequence=0,manifests=[]);role['payload']=pack([body])

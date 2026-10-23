@@ -8,6 +8,7 @@ from pathlib import Path
 import select
 import subprocess
 import sys
+import threading
 import time
 import unittest
 from unittest.mock import patch
@@ -158,6 +159,44 @@ class SnapshotPhaseTransitionTests(unittest.TestCase):
         ready=self.receive();self.assertTrue(ready.get('ready'),ready);return ready
     def observe_primary(self):
         return self.rig.invoke('feature.snapshots.observe',dict(contractVersion=harness.VERSION,runId=harness.RUN,afterSequence=0))
+    def observe_primary_with_actor(self,instruction):
+        """Release the controlled child only after a real durable ready slot.
+
+        Public observe still owns its full history/slot/receipt/current-read
+        pipeline. This IPC fixture must let the independent child run while the
+        real Primary await waits for that child's original receipt.
+        """
+        from overte_phone_snapshots_feature import PhoneSnapshotsFeature
+        prepared=PhoneSnapshotsFeature.prepare_read_ready
+        slot_ready=threading.Event();done=threading.Event();results=[];errors=[]
+        def after_prepare(feature,history,role):
+            waiting=prepared(feature,history,role)
+            if waiting is not None:
+                self.assertEqual(waiting[0],role.previous)
+                self.assertEqual(role.previous,role.store.read())
+                self.assertIn('readReadySlot',role.frames[-1])
+                slot_ready.set()
+            return waiting
+        def observe():
+            try:results.append(self.observe_primary())
+            except BaseException as error:errors.append(error)
+            finally:done.set()
+        with patch.object(PhoneSnapshotsFeature,'prepare_read_ready',after_prepare):
+            worker=threading.Thread(target=observe,name='actual-primary-cleanup-observe',daemon=True);worker.start()
+            try:
+                deadline=time.monotonic()+20
+                while not slot_ready.wait(.05):
+                    if done.is_set():
+                        if errors:raise errors[0]
+                        self.fail('Actual public cleanup observation did not produce a read-ready slot')
+                    self.assertLess(time.monotonic(),deadline,'Actual durable read-ready slot timed out')
+                self.send(instruction)
+            finally:
+                worker.join(timeout=25)
+                self.assertFalse(worker.is_alive(),'Actual public cleanup observation did not finish')
+            if errors:raise errors[0]
+        self.assertEqual(1,len(results));return results[0]
+
     def receive(self):
         self.assertTrue(select.select([self.child.stdout],[],[],25)[0],'Actual independent actor response timed out')
         raw=self.child.stdout.readline()
@@ -191,8 +230,8 @@ class SnapshotPhaseTransitionTests(unittest.TestCase):
         self.assertEqual(2,fresh['reads'])
         self.rig.client.activate('d'*32,'cleanup',{})
         self.rig.invoke('feature.snapshots.cleanup',dict(contractVersion=harness.VERSION,runId=harness.RUN))
-        self.observe_primary()
-        self.send('cleanup');cleaned=self.receive();self.assertEqual('cleanup',cleaned.get('stage'),cleaned)
+        self.observe_primary_with_actor('cleanup')
+        cleaned=self.receive();self.assertEqual('cleanup',cleaned.get('stage'),cleaned)
         self.rig.client.close();self.send('close');self.assertEqual('retired',self.receive()['stage'])
         self.child.wait(timeout=5);self.assertEqual(0,self.child.returncode)
         for _ in range(2):self.assertEqual({'performed':True},self.rig.invoke('feature.snapshots.cleanup',dict(contractVersion=harness.VERSION,runId=harness.RUN)))
@@ -203,9 +242,9 @@ class SnapshotPhaseTransitionTests(unittest.TestCase):
         self.assert_transition(self.activate('cleanup'))
         self.assertTrue(self.rig.model.account['loggedIn'])
         self.rig.invoke('feature.snapshots.cleanup',dict(contractVersion=harness.VERSION,runId=harness.RUN))
-        self.observe_primary()
+        self.observe_primary_with_actor('acknowledged')
         self.assertFalse(self.rig.model.account['loggedIn'])
-        self.send('acknowledged');fresh=self.receive();self.assertEqual('fresh',fresh.get('stage'),fresh)
+        fresh=self.receive();self.assertEqual('fresh',fresh.get('stage'),fresh)
         self.assertEqual(NEW,fresh['last']['receipt']['ticket'])
         self.rig.client.close();self.send('close');self.assertEqual('retired',self.receive()['stage'])
         self.child.wait(timeout=5);self.assertEqual(0,self.child.returncode)
@@ -214,8 +253,8 @@ class SnapshotPhaseTransitionTests(unittest.TestCase):
     def test_actual_baseline_to_cleanup_activation_defers_without_cleanup_authority(self):
         self.start(baseline=True);self.assert_transition(self.activate('cleanup'))
         self.rig.invoke('feature.snapshots.cleanup',dict(contractVersion=harness.VERSION,runId=harness.RUN))
-        self.observe_primary()
-        self.send('acknowledged');fresh=self.receive();self.assertEqual('fresh',fresh.get('stage'),fresh)
+        self.observe_primary_with_actor('acknowledged')
+        fresh=self.receive();self.assertEqual('fresh',fresh.get('stage'),fresh)
         self.assertGreater(fresh['last']['original']['sample']['actorSequence'],fresh['transitionSequence'])
         self.assertEqual(NEW,fresh['last']['receipt']['ticket'])
         self.rig.client.close();self.send('close');retired=self.receive();self.assertEqual(dict(stage='retired',phase='retired'),retired)
