@@ -121,3 +121,26 @@ that grammar alone is not identified as the remaining dominant cost. Further
 profiling must use actual warm Parent/Actor calls; the failed files cannot
 reconstruct live owners. All original limits, cadence and complete physical
 byte/stamp/inventory passes remain in force.
+
+An additional, explicitly separate source diagnostic then ran the actual warm
+Parent and independent Actor from fresh baseline/Open. It performed 60 new
+same-phase native queries/publications (47.900 seconds), followed by one
+profiled call on each side. The case passed in 51.448 seconds and retained the
+actual originals and JSON profiler output. Parent completion stayed at two
+steps and no cleanup hook or Stop was issued. It is not an abbreviated common
+journey or an application/archive result. The passing catalog component
+selector still excludes both manual diagnostics.
+
+Under profiling, the primary read cost 0.609 seconds; 54 complete history
+verifications cost 0.436 seconds, including 0.365 seconds in complete directory
+inventories. Actor publication cost 1.508 seconds; its 143 verifications cost
+1.119 seconds, including 0.949 seconds in inventories and roughly 95,000
+pathlib directory-entry/path constructions. The Parent remote reader cost
+1.304 seconds; 11 complete mutable-cache checks cost 0.743 seconds, dominated
+by recursive strict-JSON type walks (0.686 seconds). Seven complete source
+root/child loads cost 0.221 seconds. These are inclusive profiler costs with
+instrumentation overhead; they are not summed or claimed as device timing.
+The next concrete optimization target is avoidable path construction during
+the same full directory scan, followed by the measured strict type walk.
+Complete source bytes, inventory membership, original stamps, hashes and
+final freshness remain independent mandatory checks.
