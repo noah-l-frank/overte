@@ -34,7 +34,7 @@ class ChatCleanupWitness:
             and store.path not in (original.store.path,observation.store.path,observation.samples.store.path)
             and store.read() is None)
         self.original,self.observation,self.store=original,observation,store
-        self.previous=None;self.rows=[];self.failed=False
+        self.previous=None;self.rows=[];self.failed=False;self._freeze_guard=None
         self.scope=dict(chatCleanupWitnessVersion=VERSION,runId=observation.source.run,fixtureUrl=observation.source.fixture_url,
             binding=deepcopy(observation.samples.binding),peerBinding=deepcopy(observation.samples.peer_binding),
             originalWitness=original.store.path.name,originalWitnessSha256=digest(original.previous),
@@ -88,10 +88,16 @@ class ChatCleanupWitness:
         need(same(self.store.read(),self.previous));self.store.write(value,self.previous)
         need(same(self.store.read(),value));self.previous=self.base=deepcopy(value)
 
+    def bind_freeze(self,guard):
+        need(callable(guard) and (self._freeze_guard is None or self._freeze_guard is guard))
+        self._freeze_guard=guard
+
     def publish(self):
         need(not self.failed and self.base['phase']=='ready' and len(self.rows)<MAX_FRAMES-26)
+        if self._freeze_guard is not None:need(self._freeze_guard() is True)
         with ExitStack() as held:
             for lock in sorted(self.observation.samples.locks,key=lambda value:str(value.path)):held.enter_context(lock.held())
+            if self._freeze_guard is not None:need(self._freeze_guard() is True)
             try:
                 self.control();started=self.observation.now();self.history.verify()
                 self.write({**self.base,'phase':'reading','delivery':'acquiring','revision':self.base['revision']+1})
@@ -103,6 +109,7 @@ class ChatCleanupWitness:
                     observationSha256=digest(observed),payload=deepcopy(payload))
                 self.write({**self.base,'delivery':'publishing','pending':row,'revision':self.base['revision']+1})
                 wire=deepcopy(payload);self.control();self.observation.final(observed,started)
+                if self._freeze_guard is not None:need(self._freeze_guard() is True)
                 # The common independent journal reader still has to observe
                 # these original facts. A transport ACK is no cleanup proof.
                 self.observation.source.client.request('/runs/'+self.scope['runId']+'/samples',wire)

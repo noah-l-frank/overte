@@ -1021,6 +1021,29 @@ def create_adapter(args, base_class):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-cleanup-witness-')))
 
+        def _chat_cleanup_source_seal_store(self,target,*,witness):
+            _need(type(witness) is bool);state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-',
+                'chat-cleanup-'+('witness' if witness else 'primary')+'-source-seal-')))
+
+        @_private
+        def _chat_source_seal(self,target,owner,*,witness):
+            from adapters.chat_journey.source_seal import ChatSourceSeal
+            from adapters.chat_journey.cleanup_witness import ChatCleanupWitness
+            from adapters.chat_journey.observation import ChatObservationOwner
+            from contextlib import ExitStack
+            _need(type(witness) is bool and type(owner) is (ChatCleanupWitness if witness else ChatObservationOwner))
+            observation=owner.observation if witness else owner
+            _need(observation.stage=='cleanup' and observation.samples.role==('actor' if witness else 'primary')
+                and observation.store.path==self._chat_observation_store(target,observation.samples.role,
+                    stage='cleanup',witness=witness).path
+                and (not witness or owner.store.path==self._chat_cleanup_witness_store(target).path))
+            with ExitStack() as held:
+                for lock in sorted(observation.samples.locks,key=lambda value:str(value.path)):held.enter_context(lock.held())
+                native=self._native_feature_observer(target);native.guard()
+                _need(observation.samples.binding==self._scripts(target).binding)
+                return ChatSourceSeal(owner,self._chat_cleanup_source_seal_store(target,witness=witness))
+
         @_private
         def _chat_observation(self,target,source,samples,*,stage,witness=False):
             from adapters.chat_journey.observation import ChatObservationOwner
@@ -1063,6 +1086,7 @@ def create_adapter(args, base_class):
             # a missing parent root or ordinary application force-stop.
             stores=[self._chat_application_store(target),self._chat_restart_inputs_store(target),self._chat_archive_retirement_store(target),self._chat_host_close_store(target)]
             stores.append(self._chat_cleanup_witness_store(target))
+            stores.extend(self._chat_cleanup_source_seal_store(target,witness=witness) for witness in (False,True))
             stores.extend(self._chat_observation_store(target,role,stage=stage,witness=witness)
                 for role,witness in (('primary',False),('actor',False),('actor',True))
                 for stage in ('initial','active','cleanup'))
