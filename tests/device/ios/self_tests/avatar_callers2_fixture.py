@@ -54,11 +54,12 @@ def wire(raw):
     return dict(bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),contentBase64=base64.b64encode(raw).decode())
 
 
-def http2(*,epoch=EPOCH,raw=b'{}',response_id='4'*32,run='2'*32,origin='https://owned.invalid'):
+def http2(*,epoch=EPOCH,raw=b'{}',response_id='4'*32,run='2'*32,origin='https://owned.invalid',
+          request_path='/api/v1/users?filter=connections',caller_suffix='/system/pal.js'):
     scripts=scripts2(epoch);worker=scripts['source']['workers'][0]
-    stack,modules,_code=original(('/modules/request.js','/system/pal.js'),epoch)
+    stack,modules,_code=original(('/modules/request.js',caller_suffix),epoch)
     source=dict(callerStackId='a3'*16,engine=deepcopy(worker['membership']),submitted=deepcopy(worker['code']),
-        requestUrl=origin+'/api/v1/users?filter=connections',method='GET',protocolSignature=base64.b64encode(b'p'*16).decode())
+        requestUrl=origin+request_path,method='GET',protocolSignature=base64.b64encode(b'p'*16).decode())
     value=dict(iosAvatarSocialHttpVersion=2,requestId='ios-'+'5'*32,runId=run,instance='6'*32,sequence=1,processId=42,
         clockDomain='native-process-avatar-social-http',clockBefore=dict(epochMs=epoch+100,monotonicMs=100),
         clockAfter=dict(epochMs=epoch+110,monotonicMs=110),events=[],

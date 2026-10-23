@@ -76,6 +76,12 @@ derived from observed frames. Explicit wrappers qualify owned new timer births,
 actual consumed XHR Open/read pairs and the new Entity component; public legacy
 component APIs retain their weaker historical interpretation.
 
+The relationship parser likewise branches on the actual HTTP generation: old
+1 selects its original legacy chain; current 2 selects URL rows from the actual
+referenced indexed stack. It does not reconstruct or insert a legacy chain.
+The required People protocol or QML request-service module, submitted bytes,
+provider receipt and actual response consumption remain independent checks.
+
 Host Node checks execute the complete unchanged request/request-service modules
 and AvatarApp. They independently observe the Open/read sites, actual wearable
 add/delete calls, callback-created timers and bookmark callback location at the

@@ -82,7 +82,13 @@ def consumed(row,status,*,role,provider_instance,owned_origin,run,ticket,barrier
         sent=receipt['nativeSent']['details'];path=urlsplit(sent['url']).path
         if path not in (REQUEST,CONNECTIONS) and sent['method']!='DELETE':continue
         suffix='/system/libraries/peopleConnection.js' if path==REQUEST else '/system/request-service.js' if path==CONNECTIONS else '/system/pal.js'
-        source=receipt['nativeCreated']['details'];need(any(caller.endswith(suffix) for caller in source['callerChain']))
+        source=receipt['nativeCreated']['details']
+        if originals['http']['iosAvatarSocialHttpVersion']==1:callers=source['callerChain']
+        else:
+            from ios.adapters.avatar_call_stack import table
+            actual=table(originals['http']['callerStacks'],originals['http']['clockBefore']['epochMs'])[source['callerStackId']]
+            callers=[module['url'] for module in actual['callerModules']]
+        need(any(caller.endswith(suffix) for caller in callers))
         selected=for_worker(originals['scripts'],source['engine']['instance'],expected_code,required={'/modules/request.js',suffix})
         code=avatar_scripts.join_http_code(originals['scripts'],originals['http'],receipt,selected)
         response=decode(http.body(receipt['nativeReply']['details']['body']).decode('utf-8'))
