@@ -2674,3 +2674,22 @@ three actual factory cases pass22/22 in5.627s. The earlier49-case command remain
 recorded red for its one factory error (other48passed); no combined or whole
 success is invented. VM producer DTOs are explicit SDK/V8/QObject seams. Normal
 script/phase and world-stereo/actor/final-retirement composition remains open.
+
+
+Navigation action nine from source `4a271fd55b` is selected as `a64f71937f`,
+preserving existing Close v2, world VM and every prior catalog group. Private
+Parent v4 retains nine-action authority; old v1/v2/v3 remain limited to five,
+seven and eight actions. Source v2 joins current Reply v2, HTTP 404 and
+modal/listener originals from separately acquired role brackets. The parent
+binds one original controller callback tuple and delegates to the current child,
+allowing normal Open after the prior Close. Root's four selected groups pass in
+65.647 s: Missing (5 cases), Transit (4), Prefix (14) and coverage (10), with
+228 additive catalog groups. Eleven existing NativeReply cases pass in 0.544 s;
+four repository suites pass in 2.601 s; registry, probe syntax and whitespace
+checks pass. Lost applied Submit cold-reconciles without another input or fetch;
+a foreign native response remains pending; v3 cannot acquire ninth-action
+authority; an actual last phase transition blocks the Submit writer after its
+durable intent. Original source files and journals remain. The modal
+intentionally remains live for action ten. Qt, VM, native Reply and OS remain
+explicit host seams. Whole Navigation, final retirement, the application/APK
+and devices remain unqualified. Completed source areas remain 3/14.

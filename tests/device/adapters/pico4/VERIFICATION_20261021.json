@@ -3844,5 +3844,46 @@
     "completeWorldFeature": false,
     "fullApplicationCompiled": false,
     "deviceAcceptance": false
+  },
+  "navigationFirstNineRoot20261024": {
+    "source": "4a271fd55b41ab0b994f291fbe59060dfeec3509",
+    "selectedAs": "a64f71937f",
+    "status": "passed-selected-components",
+    "selection": {
+      "groups": 4,
+      "catalogGroups": 228,
+      "durationSeconds": 65.647,
+      "coverageCases": 10,
+      "missingCases": 5,
+      "missingSelectorSeconds": 29.089,
+      "transitCases": 4,
+      "transitSelectorSeconds": 17.104,
+      "prefixCases": 14,
+      "prefixSelectorSeconds": 19.366
+    },
+    "nativeReplyCompatibility": {
+      "cases": 11,
+      "durationSeconds": 0.544,
+      "status": "passed"
+    },
+    "repository": {
+      "suites": 4,
+      "durationSeconds": 2.601,
+      "status": "passed"
+    },
+    "registryProbeSyntaxWhitespace": "passed",
+    "existingCloseV2AndWorldVmPreserved": true,
+    "normalNinthAction": "existing normal Open / Home / Go To / focus / replace / Submit / reopen",
+    "effectEvidence": "one original owned TLS404 body/response ID, native Reply-v2 and modal/listener host producer seams, independent role reads",
+    "lostAppliedSubmit": "cold reconciliation without another Submit or HTTP fetch",
+    "foreignResponseId": "retains unresolved original Submit without replay",
+    "oldVersionAuthority": "v3 remains eight actions; cannot acquire ninth input authority",
+    "finalPhaseFence": "phase transition after durable Submit intent blocks ordinary writer and HTTP request",
+    "originalsRetained": true,
+    "modalIntentionallyLiveForNextAction": true,
+    "qtVmAccountNativeReplyAndOs": "explicit-host-producer-seams",
+    "fullFeatureRecipe": false,
+    "fullApplicationCompiled": false,
+    "deviceAcceptance": false
   }
 }

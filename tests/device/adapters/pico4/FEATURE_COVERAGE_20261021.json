@@ -121,7 +121,10 @@
         "tests/device/adapters/pico4/navigation_transit_join.py",
         "tests/device/contracts/navigation/test_navigation_environment_native.py",
         "tests/device/self_tests/test_native_navigation_environment.py",
-        "tests/device/self_tests/test_pico_navigation_transit_prefix.py"
+        "tests/device/self_tests/test_pico_navigation_transit_prefix.py",
+        "tests/device/adapters/pico4/navigation_missing_join.py",
+        "tests/device/self_tests/test_pico_navigation_missing_prefix.py",
+        "android/vr/pico/tests/device/test_navigation_missing_prefix.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -166,7 +169,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Continue the original v16 ninth navigate-missing action after the root-verified continuous first eight steps. Reuse NavigationMissing and original native Reply-v2/404/modal/listener sources plus existing Close v2; no new parallel recipe. Environment v2 observes actual Manager values without initializing/saving a Handle. Independent actor/public stereo, later restart/restoration and full final retirement remain incomplete.",
+      "nextExecutableStep": "Continue the unchanged v16 tenth dismiss-error action after the root-verified continuous first nine normal actions. Private Parent4/Source2 now joins one original owned TLS404, current Reply-v2 capture identity, actual modal/listener and separately read role frames. Reuse existing NavigationErrorDismissal, NavigationDismissedLookup and Close v2. The first agent-only ten-step positive is not yet a root-integrated recovery qualification. Independent actor/public stereo, later restart/restoration and whole final retirement remain incomplete.",
       "nativeCompilation": "Selected full NativeEnvironment header, original passive Settings::Manager getter and Qt thread/lock modes compile and pass host checks. Complete native application/APK, VM/OS/GPU/device boundaries remain unqualified.",
       "deviceQualification": "untested"
     },
