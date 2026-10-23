@@ -2605,3 +2605,15 @@ privately. Entity/HMD/Android/transport seams remain explicit. Complete trusted
 DOM effects, IME/recovery, actor/world stereo and whole retirement are still
 missing. The additive catalog now contains223groups; complete source areas
 remain3/14 and devices remain untested.
+
+
+Assets original ModelCache/GeometryExtra/ResourceCache caller2f28014e9d is
+selected as9f7a252a0c. Root's unchanged owning selector passes71.129s (two
+normal Entity/download/worker/Cancel/file/Home cases, freshly compiled), with
+coverage0.097s and224additive catalog groups. Actual same-extra reacquisition
+uses one owner/request, and original failed-resource release removes its weak
+cache entry (1->1->0). The external glTF buffer request remains alive: original
+requestData creates it without a parent or original deletion. This is a concrete
+unqualified retirement boundary; neither test deletion nor process exit supplies
+a cleanup proof. Baker, textures/renderer and whole Assets remain open; complete
+feature count remains3/14.

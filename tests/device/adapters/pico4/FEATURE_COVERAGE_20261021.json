@@ -1476,7 +1476,9 @@
         "android/vr/pico/tests/device/test_assets_geometry_parser.py",
         "android/vr/pico/tests/device/assets-geometry-parser-native.cpp",
         "android/vr/pico/tests/device/test_assets_geometry_resource.py",
-        "android/vr/pico/tests/device/assets-geometry-resource-native.cpp"
+        "android/vr/pico/tests/device/assets-geometry-resource-native.cpp",
+        "android/vr/pico/tests/device/assets-model-cache-prepare.py",
+        "android/vr/pico/tests/device/test_assets_model_cache.py"
       ],
       "declaredCheckpoints": 29,
       "inputVerbs": [
@@ -1530,7 +1532,7 @@
         "Drain oven/upload/picker workers and release actual staged originals",
         "Restore original server permission and prove complete namespace/resource absence"
       ],
-      "nextExecutableStep": "Join the original ModelCache/GeometryExtra/ResourceCache caller to the existing actual GeometryResource download/worker/parser before original Baker/renderer/effect retirement. Root parser selector passes 60.178 s; selected GeometryResource agent packet retains a 579-ms Cancel failure over its unchanged 500-ms guard. Parentless parser replay-request lifetime remains unqualified; no forced deletion or product fix may substitute for original release.",
+      "nextExecutableStep": "Continue the actual original Baker CPU path after the now root-verified ModelCache/GeometryExtra/ResourceCache->GeometryResource->download/worker/parser join (two cases 71.129 s). External GLTF buffer requests remain alive because original requestData creates parentless requests without an original release; keep this explicit cleanup boundary, with no product repair or forced test deletion. Successful textures/geometry definition, renderer/independent stereo and whole feature retirement remain open.",
       "nativeCompilation": "Selected whole Pico NavigationUi, original QML/pointer/FileDialogHelper/NativeFieldInput and production Assets-file getter/private descriptor storage host-compiled; complete application/APK unverified",
       "deviceQualification": "untested"
     },

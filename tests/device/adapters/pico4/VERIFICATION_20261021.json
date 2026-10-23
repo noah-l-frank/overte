@@ -3692,5 +3692,29 @@
       "probeSyntax": "passed",
       "whitespace": "passed"
     }
+  },
+  "assetsModelCacheRoot20261024": {
+    "source": "2f28014e9d75a7483592e6c6a6bb318d5bb576ad",
+    "selectedAs": "9f7a252a0c",
+    "status": "passed",
+    "owningCases": 2,
+    "selectorSeconds": 71.129,
+    "coverageSeconds": 0.097,
+    "selectionSeconds": 71.23,
+    "catalogGroups": 224,
+    "agentSeconds": 70.527,
+    "originalsRetained": true,
+    "sourceHashManifestRetained": true,
+    "nativeBodiesFreshlyCompiled": true,
+    "originalWeakCacheEntries": [
+      1,
+      1,
+      0
+    ],
+    "externalMeshRequestStillAlive": true,
+    "bakerProcessingQualified": false,
+    "rendererReadinessQualified": false,
+    "fullFeatureRecipe": false,
+    "deviceAcceptance": false
   }
 }
