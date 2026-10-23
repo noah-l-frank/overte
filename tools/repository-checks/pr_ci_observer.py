@@ -75,7 +75,14 @@ def expected_owners(plan):
     languages = _languages(plan.get("codeql_languages"))
     for key in ("workflow_security", "android_required", "ios_required"):
         require(type(plan.get(key)) is bool, "missing trusted selection " + key)
-    return {"policy": True, "host": bool(plan["host_suites"]),
+    covered = plan.get("covered_tasks", {})
+    suites = {"suite:" + name for name in plan["host_suites"]}
+    packages = {"npm:" + project for project in plan["npm_projects"]}
+    require(type(covered) is dict and all(type(suite) is str and suite in suites
+            and type(owner) is str and owner in packages for suite, owner in covered.items()),
+            "invalid trusted task coverage")
+    host = any(suite not in covered for suite in suites)
+    return {"policy": True, "host": host,
             "npm": bool(plan["npm_projects"]), "native": native["mode"] != "skip",
             "codeql": bool(languages), "security": plan["workflow_security"],
             "android": plan["android_required"], "ios": plan["ios_required"]}
