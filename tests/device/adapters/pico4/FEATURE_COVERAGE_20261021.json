@@ -1113,7 +1113,11 @@
         "tests/device/self_tests/test_chat_compiled_samples.py",
         "tests/device/self_tests/test_chat_warm_archive.py",
         "tests/device/adapters/pico4/CHAT_APPLICATION_CLOSE.md",
-        "tests/device/adapters/pico4/chat_host_close.py"
+        "tests/device/adapters/pico4/chat_host_close.py",
+        "tests/device/adapters/chat_journey/observation.py",
+        "tests/device/adapters/chat_journey/cleanup_witness.py",
+        "tests/device/adapters/pico4/chat_cleanup_witness.py",
+        "tests/device/adapters/pico4/CHAT_CLEANUP_WITNESS.md"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1157,7 +1161,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Compose repeated fresh same-phase observations and Phase27 cleanup witness against the actual common3s baseline before final IPC/archive closure; then bind explicit cold-RPC/PID continuity, stereo and public operations. The private full warm archive/own-host case passes860.797s with2623 original retirements and absent host marker, using explicit producer/clock seams; no public complete capability follows.",
+      "nextExecutableStep": "Seal the independently consumed fresh Phase27/common3s cleanup baseline and include every new observation/publisher original in the complete archive before restart/IPC closure. Fresh private observations and independent cleanup witness/factory now pass owning checks. Explicit cold RPC/PID continuity, stereo and public operations remain missing; full warm archive/own-host860.797s applies to its older fixed source set.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1198,7 +1202,10 @@
         "tests/device/adapters/pico4/snapshot_save_originals.py",
         "tests/device/adapters/pico4/SNAPSHOT_SAVE_OWNER.md",
         "tests/device/adapters/pico4/SNAPSHOT_SHARE_UPLOAD_BOUNDARY.md",
-        "android/vr/pico/tests/device/test_snapshot_save_owner.py"
+        "android/vr/pico/tests/device/test_snapshot_save_owner.py",
+        "tests/device/adapters/pico4/snapshot_system_source.py",
+        "tests/device/adapters/pico4/SNAPSHOT_SYSTEM_SOURCE.md",
+        "tests/device/self_tests/test_pico_snapshot_system_source.py"
       ],
       "declaredCheckpoints": 18,
       "inputVerbs": [
@@ -1248,7 +1255,7 @@
         "Delete only actual owned private/saved/received/uploaded originals",
         "Restore permissions/preferences and observe quiet absent leases"
       ],
-      "nextExecutableStep": "Profile the complete retained Cancel/Still-to-Save prefix and unchanged candidate/transport guards after two120s warm timeouts; preserve every original source and quiet clock. Normal Save/provider3/readback/PNG and strict typed source memo are present. Actual Pico OS chooser input, independent recipient/upload/actor/stereo and whole restoration/archive/resource retirement remain missing.",
+      "nextExecutableStep": "Compose actual normal Pico upload and original native request/file/callback observations. The unchanged warm Cancel/Still/Save, independent actual host PNG,13 fresh Provider inspections,15-clock quiet and cold factory reopening pass78.704s within120s on fixed0be54e4f3d. Passive original OS observation now retains one exact source-lock acquisition and rejects foreign chooser/Phone receiver; actual chooser VR input, Pico-qualified recipient, independent upload/actor/stereo and whole restoration/resource/archive retirement remain missing.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1325,7 +1332,14 @@
         "tests/device/adapters/pico4/ASSETS_FEATURE.md",
         "tests/device/adapters/pico4/ASSETS_SHARED_REUSE.json",
         "android/vr/pico/tests/device/test_assets_native_ui.py",
-        "android/vr/pico/tests/device/test_assets_controls.py"
+        "android/vr/pico/tests/device/test_assets_controls.py",
+        "tests/device/native/PrivateAssetsFiles.h",
+        "tests/device/native/AssetsFilePrimitives.h",
+        "tests/device/adapters/assets_input.py",
+        "tests/device/adapters/pico4/assets_files.py",
+        "tests/device/adapters/pico4/assets_file_owner.py",
+        "android/vr/pico/tests/device/test_assets_files_native.py",
+        "android/vr/pico/tests/device/test_assets_file_owner.py"
       ],
       "declaredCheckpoints": 29,
       "inputVerbs": [
@@ -1365,7 +1379,7 @@
       ],
       "missingOperationsOrEvidence": [
         "Whole original backend/effect ownership around the now host-verified original Assets VR browser, bundle/destination/rename/import/delete controls; baking and permission composition still missing",
-        "Owned original staging/selected-missing-file picker and server mapping/oven actor",
+        "Fresh original picker/FolderListModel consumer retirement joined to the host-verified immutable fixed-bundle file owner, plus original server mapping/oven and independent actor",
         "Whole original mapping/hash/worker/model/stereo evidence and independent publisher"
       ],
       "requiredOriginalEvidence": [
@@ -1379,8 +1393,8 @@
         "Drain oven/upload/picker workers and release actual staged originals",
         "Restore original server permission and prove complete namespace/resource absence"
       ],
-      "nextExecutableStep": "Join the original Assets UI and bundle controls to original staged-file/upload/AssetClient mapping ownership, then independent server/oven/model evidence and exact cleanup; existing normal UI and ACKs alone do not qualify effects.",
-      "nativeCompilation": "Selected whole Pico NavigationUi observe/apply and original pointer/FileDialogHelper/NativeFieldInput bodies host-compiled with actual original QML; complete application/APK unverified",
+      "nextExecutableStep": "Join actual native picker consumers to the now host-verified fixed-bundle native file owner and normal Cancel/upload UI, then original AssetClient mapping/upload effects. Lost release is observe-only; full context/backend/worker/actor retirement remains missing.",
+      "nativeCompilation": "Selected whole Pico NavigationUi, original QML/pointer/FileDialogHelper/NativeFieldInput and production Assets-file getter/private descriptor storage host-compiled; complete application/APK unverified",
       "deviceQualification": "untested"
     },
     {

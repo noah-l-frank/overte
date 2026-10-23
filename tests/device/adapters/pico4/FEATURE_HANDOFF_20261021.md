@@ -36,7 +36,7 @@ After equivalent synthetic-tool optimization and original-ledger cold reopening
 fixes, the same warm flow passes78.704s within120s: normal Cancel/Still/Save,
 independent actual host PNG,13 fresh Provider inspections, all15 quiet clocks
 and cold factory reopening without a repeated input. JNI/Android provider/UID
-and rendering boundaries remain explicit host seams. The catalog now contains152 groups; complete source areas stay3/14.
+and rendering boundaries remain explicit host seams. The catalog now contains154 groups; complete source areas stay3/14.
 
 The fixed Assets normal-input packet95aa81c067 is selected as25d8dcff66.
 The actual original QML and whole Pico observer/apply host case passes20.433s,
@@ -50,8 +50,10 @@ archive/APK/Save-fence groups; the positive Favorite flow passes53.373s.
 The new independent cleanup-witness selector passes91.557s and original Save
 fences pass1.829s. Adding the six factory/wrapper cases to the existing archive
 selection exceeded its unchanged120s limit. They now have a disjoint
-`chat-cleanup-factory` selector; no case or limit is removed. That selector and
-the restored archive group still require their own integrated verification.
+`chat-cleanup-factory` selector; no case or limit is removed. The disjoint factory and restored archive selectors subsequently pass49.208s
+and72.498s. The same five-group selection passes actual Assets native files
+3.669s, file owner7.096s and coverage0.080s. All154 groups remain present;
+only these selected groups are qualified by that run.
 
 | Area | Current Pico implementation | Concrete next boundary |
 | --- | --- | --- |

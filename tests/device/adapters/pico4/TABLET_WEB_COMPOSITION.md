@@ -60,7 +60,7 @@ Forty-three history/image/feature counterexamples pass11.643s, including changed
 immutable bytes, foreign JSON aliases, replaced originals and lost transactions.
 The next unchanged full Journey still times out120.117s; its originals remain
 retained. No current full Journey or whole-feature success is claimed. Growing
-VM-prefix serialization is the next measured reuse boundary to address.
+VM-prefix serialization is the next reuse boundary to address.
 
 The same immutable-prefix rule now covers every original VM transaction.
 New/cold frames still undergo exact-type, compilation, HTTP, lifecycle and
@@ -71,7 +71,8 @@ access returns only a decoded inspection copy. Cleanup still checks every exact
 VM quiet frame and all three clocks; no window, cadence or source is omitted.
 The changed VM/history/image/coordinator/input lane passes59 cases in26.635s.
 The unchanged full Journey subsequently reaches27 phases and116 primary/actor
-samples with40 captures each, then times out120.106s during cleanup. All original
+samples with40 captures each, then times out120.106s during the final ordinary Close window. Phase27
+is baseline plus26 actions; actual cleanup would be phase28. All original
 files remain retained; no complete Journey or finalization result follows.
 
 The prior retained late profile also identified repeated reconstruction of the
