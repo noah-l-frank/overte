@@ -3215,5 +3215,60 @@
     "unchangedGroupLimitSeconds": 120,
     "unchangedNativeCompileLimitSeconds": 90,
     "qualification": "Actual original private journal/PNG/OFD/process sources and existing HTTP/VM/stereo readers with explicit product/GPU/native/Parent seams. Initial export-cache tuple-key refusal corrected through explicit strict JSON representation. No live Actor/native reader reconstruction; no complete production factory positive, product observer entrypoint, remote capture composition, whole archive/host retirement, public capability, full application or device qualification."
+  },
+  "assetsHome2ServerIntegration20261023": {
+    "status": "mixed-before-home-failures-retained",
+    "catalog": 197,
+    "groups": 3,
+    "passed": 2,
+    "failed": 1,
+    "seconds": 66.79,
+    "checks": {
+      "coverage": 0.096,
+      "serverState": 5.695,
+      "homeFiveCases": 60.995
+    },
+    "homeCases": {
+      "passed": 3,
+      "failed": 2,
+      "failures": [
+        "legacy case before Home: original Cancel quiet gap500ms",
+        "lost Home response case before Home: original Cancel sample1.5s"
+      ]
+    },
+    "qualification": "Normal Home, held-channel original preservation and changed-file refusal passed. Full five-case group remains red; no unchanged retry, budget/cadence relaxation or complete context release is claimed."
+  },
+  "chatStop2Actor3Integration20261023": {
+    "status": "passed",
+    "catalog": 197,
+    "groups": 4,
+    "seconds": 213.09,
+    "checks": {
+      "coverage": 0.091,
+      "factory": 66.713,
+      "actorProcessGraphReturn": 107.368,
+      "stop": 38.917
+    },
+    "qualification": "Original prefix and extra same-phase rows preserved; Stop1 unchanged. Cleanup SHA remains request metadata, actual external consumer/Stop2/archive join still open."
+  },
+  "assetsPairChatPublicationIntegration20261023": {
+    "status": "passed",
+    "catalog": 199,
+    "groups": 3,
+    "seconds": 18.83,
+    "checks": {
+      "coverage": 0.114,
+      "chatPublicationEightCases": 12.435,
+      "assetsMappingPairFiveCases": 6.278,
+      "typedReturnTerminalGraphAndSession22Cases": 55.24
+    },
+    "commits": {
+      "assetsPair": [
+        "c06b2a7cb6",
+        "107ec21bd4"
+      ],
+      "chatPublication": "2a01c99a70"
+    },
+    "qualification": "Actual independent source/process/OFD/files with explicit native/HTTP/Parent seams. Both original source-lock exits and original native/host clocks bound to paired capture. No live Actor reconstruction. Full production factory/product HTTP, whole cleanup/Stop/archive and device qualification remain open."
   }
 }

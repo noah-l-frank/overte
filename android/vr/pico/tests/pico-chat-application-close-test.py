@@ -11,6 +11,7 @@ sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'android/vr/pico/tests/device')]
 
 
 def selected(part):
+    if part=='remote-publication':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_remote_publication')
     if part=='cursor-stop':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_actor_stop')
     if part=='cursor-cleanup-consumption':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_cursor_cleanup_consumption')
     if part=='cursor-archive':return unittest.defaultTestLoader.loadTestsFromName('self_tests.test_chat_cursor_archive')
@@ -42,6 +43,6 @@ def selected(part):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('part',choices=('journey','recovery','admission','delivery','post-ipc','archive','cleanup-witness','cleanup-factory','cleanup-baseline','baseline-composition','cleanup-consumption','observation-cursor','cursor-source-seal','cursor-cleanup-consumption','cursor-archive','cursor-actor','cursor-stop','seal-positive','seal-admission','seal-freshness'))
+    parser.add_argument('part',choices=('journey','recovery','admission','delivery','post-ipc','archive','cleanup-witness','cleanup-factory','cleanup-baseline','baseline-composition','cleanup-consumption','observation-cursor','cursor-source-seal','cursor-cleanup-consumption','cursor-archive','cursor-actor','cursor-stop','remote-publication','seal-positive','seal-admission','seal-freshness'))
     result=unittest.TextTestRunner(verbosity=2).run(selected(parser.parse_args().part))
     raise SystemExit(not result.wasSuccessful())

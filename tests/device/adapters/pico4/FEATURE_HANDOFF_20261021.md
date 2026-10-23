@@ -2295,3 +2295,48 @@ Actual remote-return/capture composition, full archive/host closure and public
 capability remain open. Source-complete3/14 and device-qualified0/14 stay
 unchanged. Shared Script history has unchanged wire/platform behavior and can
 be reconciled independently with Phone after fixed-commit review.
+
+
+## Integrated Assets Home2, independent mappings and Chat publication
+
+Fixed Assets dcdf0915ad/dcd49cd654/d01c48041b select as
+78c7d5b7ab/c657bd24f9/0d106bd70f. Home2 preserves each actual unfiltered
+owned-stream status, including active/unknown before refusal; original transition
+epochs are never advanced. Legacy Home1 stays read-only and gains no new quiet
+claim. The actual retained invalid context and borrowed live tablet window remain
+explicit. Server status/meta/GetAll original bodies and real disk bytes remain
+separate facts; a baked mapping without a readable current output is no Ready
+proof. Root selection2/3groups passes coverage0.096s and server5.695s; Home
+contains3green cases and2failures before Home, in existing Cancel500ms and
+original sample1.5s guards. The five-case group is not claimed green. No unchanged
+retry or budget relaxation was used.
+
+Fixed ae84b9c997/0998a1a3d7 select as c06b2a7cb6/107ec21bd4. Two actual
+independent source processes retain full raw GetAll inventories. Publication is
+qualified after both actual source-lock exits, with the original host anchors
+and current original native epoch endpoints. Delay, native-clock jump with a
+frozen host clock, and actual close failure retain both histories and latch
+further acquisition. Five integrated owning cases pass6.278s. No server/oven
+service, successful upload or model rendering is qualified.
+
+Fixed Chat02d2a04374/0d35dbb8a7 select as581e1f94e8/2a01c99a70. Stop2
+binds the actual requested publication prefix while preserving every extra
+same-phase source row; Stop1 remains exact. Its cleanup SHA is request metadata,
+not proof of external consumption. Actor3 waits on actual Parent phases/locks
+before foreground queries, and original publication return markers cover the
+actual final CAS and outer lock exit. Remote publication admission uses the same
+pure complete stage-prefix/terminal graph and shared Script histories, the
+original reviewed live process, actual independent journal GET and original
+clocks through final copying. No live Actor is reconstructed. Full production
+factory positive/product HTTP and actual external cleanup/Stop2/archive joining
+remain open. Four Root groups pass213.09s: coverage0.091s, factory66.713s,
+Actor/process/return107.368s and Stop38.917s. After the prefix extraction,
+22 actual typed return/terminal graph/shared Session cases pass55.240s.
+
+The next additive3/199-group selection passes18.83s: coverage0.114s, eight
+remote publication cases12.435s, independent mappings6.278s. All complete
+individual cases stay in disjoint selectors with120s bounds; native compilation
+stays90s. The integrated Snapshot Close base52dc0101c7 awaits its corrected
+original transition-clock/status-history successor before Root qualification.
+No complete-feature or application/device claim is added; source-complete3/14
+and device-qualified0/14 remain unchanged.

@@ -1151,7 +1151,11 @@
         "tests/device/adapters/observer_return.py",
         "tests/device/adapters/chat_journey/REMOTE_ACTOR_GRAPH.md",
         "tests/device/adapters/chat_journey/remote_actor_return.py",
-        "tests/device/self_tests/test_chat_remote_actor_return.py"
+        "tests/device/self_tests/test_chat_remote_actor_return.py",
+        "tests/device/adapters/chat_journey/actor_stop.py",
+        "tests/device/adapters/chat_journey/remote_publication.py",
+        "tests/device/self_tests/test_chat_actor_stop.py",
+        "tests/device/self_tests/test_chat_remote_publication.py"
       ],
       "declaredCheckpoints": 25,
       "inputVerbs": [
@@ -1195,7 +1199,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Bind the actual common-Journey consumed prefix through explicit Stop2 without relaxing Stop1, then complete independent consumer/stereo/quiet/archive and host closure. Actual original nine-root graph plus controlled nonce successor and kernel return now pass integrated Actor/process/return58.251s; direct typed constructor/two-process boundary is tested, full production constructor positive remains unexecuted. No public capability or whole cleanup.",
+      "nextExecutableStep": "Join actual Journey cleanup-baseline/consumed-prefix bytes to the passively received original remote publications and write Stop2 once, then typed final return/stereo/archive/host closure. Stop/Actor/factory Root groups pass; eight remote-publication cases12.435s and22 typed-return/terminal/Session cases55.240s pass after shared prefix extraction. Requested cleanup SHA alone is not external consumption proof. Full production constructor/product HTTP and public feature remain unqualified.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1256,7 +1260,9 @@
         "tests/device/adapters/pico4/snapshot_base_frame.py",
         "tests/device/adapters/pico4/SNAPSHOT_BACKGROUND_OWNER.md",
         "tests/device/adapters/pico4/snapshot_return_image.py",
-        "tests/device/adapters/pico4/SNAPSHOT_RETURN_IMAGE.md"
+        "tests/device/adapters/pico4/SNAPSHOT_RETURN_IMAGE.md",
+        "tests/device/adapters/pico4/snapshot_close_owner.py",
+        "tests/device/adapters/pico4/SNAPSHOT_CLOSE_OWNER.md"
       ],
       "declaredCheckpoints": 18,
       "inputVerbs": [
@@ -1306,7 +1312,7 @@
         "Delete only actual owned private/saved/received/uploaded originals",
         "Restore permissions/preferences and observe quiet absent leases"
       ],
-      "nextExecutableStep": "Compose normal Close and original checked mode/format restoration after the now integrated fresh two-eye used-camera return capture and original memory/receipt retirement. Qualify scene challenge/marker, independent Actor, Panorama/Cubemap, retained story/Executor/marker cleanup and complete original restoration; old runs have no invented13-key pre-input lease.",
+      "nextExecutableStep": "Select and qualify corrected Close2 status-history/actual transition-clock successor to integrated Close base52dc0101c7; do not require transition timestamps to advance or infer13-key baseline from old runs. Then new-run passive original13-key lease, independent scene/Actor/panorama/cubemap and full story/Qt/Executor/marker/archive cleanup. All originals remain retained.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1403,7 +1409,11 @@
         "android/vr/pico/tests/device/test_assets_cancel_owner.py",
         "tests/device/native/AssetsPageObservation.h",
         "tests/device/adapters/pico4/assets_pages.py",
-        "android/vr/pico/tests/device/test_assets_page_home.py"
+        "android/vr/pico/tests/device/test_assets_page_home.py",
+        "tests/device/adapters/pico4/assets_home_owner.py",
+        "tests/device/adapters/pico4/assets_mapping_pair.py",
+        "android/vr/pico/tests/device/test_assets_server_state.py",
+        "android/vr/pico/tests/device/test_assets_mapping_pair.py"
       ],
       "declaredCheckpoints": 29,
       "inputVerbs": [
@@ -1457,7 +1467,7 @@
         "Drain oven/upload/picker workers and release actual staged originals",
         "Restore original server permission and prove complete namespace/resource absence"
       ],
-      "nextExecutableStep": "Compose the durable normal persistent TabletRoot Home owner with separate retained Cancel/File originals. Actual compiled loader/Home/X page observation passes29.955s on Root: page/components retire, original context remains alive invalid, borrowed loader/window remain live. Whole mapping/oven/Actor/stereo/Upload and complete cleanup remain unqualified.",
+      "nextExecutableStep": "Compose normal Cancel/File/Home2 with the actual independent GetAll pair and preserved before/after inventory. Root normal/held/file Home cases pass, but Legacy/lostHome cases fail before Home at existing Cancel500ms/1.5s bounds; no full Home group green. Actual server/meta/disk status passes5.695s; five independent mapping/real-lock-exit/both-clock cases pass6.278s. Retained invalid context, successful upload/oven/Actor stereo and whole cleanup remain open.",
       "nativeCompilation": "Selected whole Pico NavigationUi, original QML/pointer/FileDialogHelper/NativeFieldInput and production Assets-file getter/private descriptor storage host-compiled; complete application/APK unverified",
       "deviceQualification": "untested"
     },
