@@ -1,8 +1,9 @@
-"""Unpublished cleanup observations keep genuine quiet progress between slots.
+"""Consumed cleanup slots hold without unsolicited Actor acquisitions.
 
 SDK/native/render signals are explicit host producers. HTTP journals, private
 originals, separate processes, quiet timing and public finalization are actual;
-these counters do not establish physical-device or APK acceptance.
+new typed slots require fresh reads and real gap resets. These counters do not
+establish physical-device or APK acceptance.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
@@ -67,55 +68,52 @@ class SnapshotActorMaintenanceTests(unittest.TestCase):
         self.assertEqual(header,value['state']['primaryCue']['header'])
         return value
 
-    def unpublished(self,fixture,before,after):
+    def waiting(self,fixture,before,after):
         self.assertIsNone(after['error'],after)
-        self.assertEqual(before['counts']['reads']+1,after['counts']['reads'])
-        self.assertEqual(before['counts']['posts'],after['counts']['posts'])
-        self.assertEqual(before['state']['last'],after['state']['last'])
-        self.assertEqual(before['state']['primaryCue'],after['state']['primaryCue'])
+        fixture.assert_no_further_acquisition(before,after)
+        self.assertEqual(before['actorHeader'],after['actorHeader'])
+        self.assertEqual(before['state'],after['state'])
         self.assertIsNone(after['state']['pending'])
-        self.assertEqual(1,len(after['points']))
-        previous=unpack(before['roleHeader']['payload'])[0]
-        current=unpack(after['roleHeader']['payload'])[0]
-        self.assertEqual(previous['sequence']+1,current['sequence'])
-        self.assertEqual(current['sequence'],after['state']['quiet']['sequences'][-1])
+        self.assertEqual([],after['points'])
         self.assertEqual(1,len(fixture.reader.request('/runs/'+component.RUN)['entries']))
 
-    def test_consumed_slot_waits_then_actual_primary_advance_maintains_without_post_and_new_slot_reads_again(self):
+    def test_consumed_slot_and_normal_successor_wait_until_new_typed_slot(self):
         with self.controlled() as (fixture,step,_shared):
             first=self.published(fixture,step)
             held=step();self.assertIsNone(held['error'],held)
-            fixture.assert_no_further_acquisition(first,held)
+            self.waiting(fixture,first,held)
             fixture.advance_cleanup_primary()
-            maintained=step();self.unpublished(fixture,held,maintained)
+            normal=step();self.waiting(fixture,held,normal)
             header,_frame=fixture.append_cleanup_slot()
             posted=step();self.assertIsNone(posted['error'],posted)
-            self.assertGreater(posted['counts']['reads'],maintained['counts']['reads'])
-            self.assertEqual(maintained['counts']['posts']+1,posted['counts']['posts'])
+            self.assertGreater(posted['counts']['reads'],normal['counts']['reads'])
+            self.assertEqual(normal['counts']['posts']+1,posted['counts']['posts'])
             self.assertEqual(header,posted['state']['primaryCue']['header'])
             self.assertEqual(posted['state']['quiet']['sequences'][-1],posted['state']['last']['original']['sample']['actorSequence'])
             self.assertEqual(2,len(fixture.reader.request('/runs/'+component.RUN)['entries']))
 
-    def test_real_gap_resets_maintenance_and_each_unpublished_sample_yields_until_real_quiet_rebuilds(self):
+    def test_real_gap_has_no_uncued_quiet_points_then_new_slot_rebuilds_real_quiet(self):
         with self.controlled() as (fixture,step,_shared):
             first=self.published(fixture,step);fixture.advance_cleanup_primary()
             time.sleep(1.6)
-            previous=step();self.unpublished(fixture,first,previous)
-            point=previous['points'][0]
+            waiting=step();self.waiting(fixture,first,waiting)
+            header,_slot=fixture.append_cleanup_slot()
+            posted=step();self.assertIsNone(posted['error'],posted)
+            self.assertGreaterEqual(len(posted['points']),3)
+            point=posted['points'][0]
             self.assertGreater(point['last']-point['previousLast'],1.5)
             self.assertEqual(point['last'],point['started']);self.assertFalse(point['complete'])
-            self.assertFalse(previous['state']['quiet']['complete'])
-            started=time.monotonic()
-            while not previous['state']['quiet']['complete']:
-                self.assertLess(time.monotonic()-started,15,'Real unpublished quiet interval failed to complete')
-                time.sleep(.15)
-                current=step();self.unpublished(fixture,previous,current);previous=current
-            quiet=previous['state']['quiet']
+            quiet=posted['state']['quiet'];self.assertTrue(quiet['complete'])
             self.assertGreaterEqual(quiet['last']-quiet['started'],3)
             self.assertGreaterEqual(len(quiet['sequences']),3)
             self.assertGreater(quiet['started'],first['state']['quiet']['last'])
+            self.assertEqual(waiting['counts']['reads']+len(posted['points']),posted['counts']['reads'])
+            self.assertEqual(waiting['counts']['posts']+1,posted['counts']['posts'])
+            self.assertEqual(header,posted['state']['primaryCue']['header'])
+            self.assertEqual(quiet['sequences'][-1],posted['state']['last']['original']['sample']['actorSequence'])
+            self.assertEqual(2,len(fixture.reader.request('/runs/'+component.RUN)['entries']))
 
-    def test_changed_owner_late_original_and_actual_native_failure_never_publish_maintenance(self):
+    def test_wait_still_rejects_owner_or_file_changes_and_new_slot_rejects_native_failure(self):
         for kind in ('owner','old-original','native-source'):
             with self.subTest(kind=kind),self.controlled(source_failure=kind=='native-source') as (fixture,step,shared):
                 first=self.published(fixture,step);fixture.advance_cleanup_primary()
@@ -135,6 +133,9 @@ class SnapshotActorMaintenanceTests(unittest.TestCase):
                         path=host.path(reference);raw=path.read_bytes()+b' '
                         path.write_bytes(raw);modified=(path,raw)
                 else:
+                    # A normal successor grants no acquisition. Place a real
+                    # new slot before exposing the failing current source.
+                    fixture.append_cleanup_slot()
                     with shared.get_lock():shared[0]=1
                 refused=step();self.assertEqual('NativeUIError',refused['error']['error'],refused)
                 self.assertEqual(first['counts']['posts'],refused['counts']['posts'])
@@ -145,12 +146,18 @@ class SnapshotActorMaintenanceTests(unittest.TestCase):
                 if kind=='native-source':
                     with shared.get_lock():self.assertGreater(shared[1],0)
                     self.assertGreater(refused['counts']['reads'],first['counts']['reads'])
+                else:
+                    self.assertEqual(first['counts']['reads'],refused['counts']['reads'])
+                    self.assertEqual(first['roleHeader'],refused['roleHeader'])
+                    self.assertEqual(first['actorHeader'],refused['actorHeader'])
+                    self.assertEqual([],refused['points'])
 
-    def test_reading_or_diagnostic_primary_successor_does_not_authorize_maintenance(self):
-        for kind in ('reading','diagnostic'):
+    def test_reading_diagnostic_and_normal_primary_successors_authorize_no_acquisition(self):
+        for kind in ('reading','diagnostic','normal'):
             with self.subTest(kind=kind),self.controlled() as (fixture,step,_shared):
                 first=self.published(fixture,step)
                 if kind=='diagnostic':fixture.append_cleanup_slot(diagnostic_only=True)
+                elif kind=='normal':fixture.advance_cleanup_primary()
                 else:
                     f=fixture.boundary.feature
                     with f.lock.held():
@@ -158,36 +165,32 @@ class SnapshotActorMaintenanceTests(unittest.TestCase):
                         role.state.update(phase='reading',pending=dict(original=None,manifest=None,image=None,binaries=[],retirement=None,frame=None,work={}))
                         role.save()
                 held=step();self.assertIsNone(held['error'],held)
-                fixture.assert_no_further_acquisition(first,held)
-                self.assertEqual(first['state']['last'],held['state']['last'])
-                self.assertEqual(1,len(fixture.reader.request('/runs/'+component.RUN)['entries']))
+                self.waiting(fixture,first,held)
 
-    def test_public_maintenance_keeps_original_receipt_and_real_close_exit_and_double_finalization(self):
+    def test_public_wait_preserves_receipt_then_fresh_close_exit_and_double_finalization(self):
         with self.cleaned() as rig:
             first=self.launch(rig);self.good(rig,first)
             accepted=deepcopy(rig.client.request('/runs/'+slot.harness.RUN)['entries'])
-            original=deepcopy(unpack(rig.slot_actor_store.read()['payload'])[0]['last'])
-            maintained=self.step(rig);self.assertEqual(original,maintained['state']['last'])
-            self.assertGreater(maintained['counts']['reads'],first['child']['counts']['reads'])
-            self.assertEqual(first['child']['counts']['posts'],maintained['counts']['posts'])
-            started=time.monotonic()
-            while not maintained['state']['quiet']['complete']:
-                self.assertLess(time.monotonic()-started,20,'Public maintenance did not rebuild actual quiet')
-                time.sleep(.05);maintained=self.step(rig)
+            original_header=deepcopy(rig.slot_actor_store.read())
+            original=deepcopy(unpack(original_header['payload'])[0])
+            waiting=self.step(rig);self.assertEqual(original,waiting['state'])
+            self.assertEqual(first['child']['counts'],waiting['counts'])
+            self.assertEqual(original_header,rig.slot_actor_store.read())
             self.assertEqual(accepted,rig.client.request('/runs/'+slot.harness.RUN)['entries'])
             rig.client.close();closed=self.step(rig)
             if closed['state']['phase']=='watching':
                 # A retained history turn may observe actual closure and
                 # defer to the next cold, fresh closed-phase acquisition.
-                self.assertEqual(maintained['counts'],closed['counts'])
-                self.assertEqual(maintained['state']['last'],closed['state']['last'])
+                self.assertEqual(waiting['counts'],closed['counts'])
+                self.assertEqual(waiting['state']['last'],closed['state']['last'])
                 self.assertTrue(closed['state']['quiet']['complete'])
                 self.assertIsNone(closed['state']['closure'])
                 self.assertIsNone(closed['state']['pending'])
                 closed=self.step(rig)
             self.assertEqual('retired',closed['state']['phase'])
             self.assertFalse(closed['state']['closure']['active'])
-            self.assertEqual(maintained['counts']['posts'],closed['counts']['posts'])
+            self.assertEqual(waiting['counts']['posts'],closed['counts']['posts'])
+            self.assertEqual(waiting['counts']['reads']+1,closed['counts']['reads'])
             self.assertFalse(terminated(closed['state']['process']))
             rig.slot_child.stdin.write(json.dumps(dict(mode='exit'))+'\n');rig.slot_child.stdin.flush()
             rig.slot_child.wait(timeout=5);self.assertEqual(0,rig.slot_child.returncode)

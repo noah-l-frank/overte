@@ -30,7 +30,7 @@ from overte_phone_snapshots_role import PhoneSnapshotsRole
 class SnapshotLockedSlotRebuildTests(unittest.TestCase):
     controlled=maintenance.SnapshotActorMaintenanceTests.controlled
     published=maintenance.SnapshotActorMaintenanceTests.published
-    unpublished=maintenance.SnapshotActorMaintenanceTests.unpublished
+    waiting=maintenance.SnapshotActorMaintenanceTests.waiting
 
     @contextmanager
     def rebuilding(self,kind='positive'):
@@ -187,10 +187,10 @@ class SnapshotLockedSlotRebuildTests(unittest.TestCase):
             self.assertEqual(sample['actorSequence'],entries[-1]['actorSequence'])
             self.assertIsNone(value['state']['pending'])
 
-    def test_no_slot_reading_and_normal_maintenance_keep_original_one_sample_rules(self):
+    def test_no_slot_reading_diagnostic_and_normal_successors_wait_without_acquisition(self):
         # Delegate the original real-fixture cases rather than clone them.
-        maintenance.SnapshotActorMaintenanceTests.test_consumed_slot_waits_then_actual_primary_advance_maintains_without_post_and_new_slot_reads_again(self)
-        maintenance.SnapshotActorMaintenanceTests.test_reading_or_diagnostic_primary_successor_does_not_authorize_maintenance(self)
+        maintenance.SnapshotActorMaintenanceTests.test_consumed_slot_and_normal_successor_wait_until_new_typed_slot(self)
+        maintenance.SnapshotActorMaintenanceTests.test_reading_diagnostic_and_normal_primary_successors_authorize_no_acquisition(self)
 
     def test_second_locked_replay_rejects_actual_owner_file_graph_and_guard_mutations(self):
         for kind in ('owner','file','graph','native-guard','late-feature-aba'):
