@@ -24,7 +24,7 @@ class ChatObservationPublisher:
     def __init__(self,cursor,store):
         need(type(cursor) is ChatObservationCursor and cursor.current.stage=='initial'
             and cursor.scope['role']=='actor' and type(cursor.current.source.client) is Client
-            and not cursor.rows and not cursor.failed and cursor._freeze_guard is None
+            and not cursor.row_count() and not cursor.failed and cursor._freeze_guard is None
             and type(store) is PrivateFeatureState and store.path.parent==cursor.store.path.parent
             and store.path not in (cursor.store.path,cursor.current.store.path) and store.read() is None)
         self.cursor,self.store,self.client=cursor,store,cursor.current.source.client
@@ -53,13 +53,13 @@ class ChatObservationPublisher:
     def control(self):
         need(self.alive() and self.cursor.current.source.client is self.client
             and len(self.rows)==len(self.hashes)==len(self.base['chunks'])
-            and len(self.cursor.rows)==len(self.rows)+(1 if self.query_pending else 0)
+            and self.cursor.row_count()==len(self.rows)+(1 if self.query_pending else 0)
             and all(same(self.base[key],value) for key,value in self.scope.items())
             and all(same(self.scope[key],self.cursor.scope[key]) for key in ('runId','fixtureUrl','binding','peerBinding')))
         if self.root_stamp is not None:need(stamp(self.store.path.lstat())==self.root_stamp)
         plain(self.rows);need([digest(row) for row in self.rows]==self.hashes)
         self.history.verify();self.cursor.control()
-        need(all(row['sequence']==index+1 and row['cursorSha256']==digest(self.cursor.rows[index])
+        need(all(row['sequence']==index+1 and row['cursorSha256']==self.cursor.row_digest(index)
             and row['payload']['actorSequence']==index+1 for index,row in enumerate(self.rows)))
 
     def write(self,phase,**changes):
@@ -91,8 +91,8 @@ class ChatObservationPublisher:
                 except PhasePending as error:pending=error
                 if pending is None:
                     started=self.cursor.current.now();self.write('reading',delivery='acquiring')
-                    sample=self.cursor.read(len(self.cursor.rows));self.query_pending=True
-                    observed=self.cursor.rows[-1];original=self.cursor.current.rows[-1]
+                    sample=self.cursor.read(self.cursor.row_count());self.query_pending=True
+                    observed=self.cursor.row(self.cursor.row_count()-1);original=self.cursor.current.row(self.cursor.current.row_count()-1)
                     payload=dict(ticket=original['before']['activations'][-1]['ticket'],actor='owned-observer',
                         actorSequence=sample['sequence'],capturedEpochMs=sample['capturedEpochMs'],facts=projection('chat',sample['state']))
                     row=dict(sequence=sample['sequence'],cursorSha256=digest(observed),payload=deepcopy(payload))

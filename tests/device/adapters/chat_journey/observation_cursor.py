@@ -6,6 +6,7 @@ from copy import deepcopy
 import math
 
 from adapters.chat_journey.observation import ChatObservationOwner
+from adapters.chat_journey.original_memory import ChatOriginalMemory,plain
 from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
 from adapters.chat_journey.stage_join import opened
 from adapters.chat_journey.evidence_archive import stamp,private
@@ -15,16 +16,6 @@ from adapters.script_journey.history import same,unpack,MAX_FRAMES
 from feature_journeys.contract import result
 
 VERSION=1
-
-
-def plain(value):
-    """JSON type identity matters as well as canonical bytes."""
-    if type(value) is dict:
-        need(all(type(key) is str for key in value))
-        for field in value.values():plain(field)
-    elif type(value) is list:
-        for field in value:plain(field)
-    else:need(value is None or type(value) in (str,bool,int,float))
 
 
 def stage_transition(before,frame,stage):
@@ -60,13 +51,33 @@ class ChatObservationCursor:
             and store.path.parent==initial.store.path.parent and store.path not in
                 (initial.store.path,initial.samples.store.path,initial.samples.script_source.store.path,initial.flow_store.path)
             and store.read() is None)
-        self.current=initial;self.owners=[initial];self.store=store;self.previous=None;self.rows=[];self.hashes=[]
+        self.current=initial;self.owners=[initial];self.store=store;self.previous=None;self.hashes=[]
         self.failed=False;self.root_stamp=None;self.transition_anchor=None;self.started=None;self.query_pending=False
         self._freeze_guard=None
         self.scope=dict(chatObservationCursorVersion=VERSION,runId=initial.source.run,fixtureUrl=initial.source.fixture_url,
             binding=deepcopy(initial.samples.binding),peerBinding=deepcopy(initial.samples.peer_binding),role=initial.samples.role)
+        self.originals=self._originals=ChatOriginalMemory(self.scope)
         self.history=ChatSourceChunks(store,self.scope);self.history.inventory(0)
         self.base={**self.scope,'phase':'ready','chunks':[],'stages':[self.stage(initial)]}
+
+    def control_rows(self):
+        need(type(self.originals) is ChatOriginalMemory and self.originals is self._originals)
+        return self.originals.control(self.scope)
+
+    @property
+    def rows(self):
+        self.control_rows();return self.originals.inspect()
+
+    def row_count(self):
+        need(type(self.originals) is ChatOriginalMemory and self.originals is self._originals)
+        return self.originals.count()
+
+    def row(self,index):
+        self.control_rows();return self.originals.row(index)
+
+    def row_digest(self,index):
+        need(type(self.originals) is ChatOriginalMemory and self.originals is self._originals)
+        return self.originals.row_digest(index)
 
     def stage(self,owner):
         return dict(stage=owner.stage,observation=owner.store.path.name,scopeSha256=digest(owner.scope))
@@ -80,21 +91,22 @@ class ChatObservationCursor:
 
     def control(self):
         need(not self.failed and not self.current.failed and same(self.store.read(),self.previous)
-            and len(self.rows)==len(self.hashes)==len(self.base['chunks'])
+            and self.row_count()==len(self.hashes)==len(self.base['chunks'])
             and all(same(self.base[key],value) for key,value in self.scope.items())
             and self.scope['runId']==self.current.source.run and self.scope['fixtureUrl']==self.current.source.fixture_url
             and self.scope['role']==self.current.samples.role and same(self.scope['binding'],self.current.samples.binding)
             and same(self.scope['peerBinding'],self.current.samples.peer_binding))
         if self.root_stamp is not None:need(stamp(self.store.path.lstat())==self.root_stamp)
-        plain(self.rows);need([digest(row) for row in self.rows]==self.hashes)
+        signature=self.control_rows();plain(self.hashes);need(signature['rows']==self.hashes)
+        rows=self.originals.inspect()
         self.history.verify()
         need(same(self.base['stages'],[self.stage(owner) for owner in self.owners]))
         for owner in self.owners:
             need(not owner.failed and same(owner.store.read(),owner.previous))
-            plain(owner.rows);owner.history.verify();owner.samples.history.verify();owner.samples.script_source.history.verify()
-            admitted=[row for row in self.rows if self.owners[row['stageIndex']] is owner]
-            need(len(owner.rows)==len(admitted)+(1 if self.query_pending and owner is self.current else 0))
-            need(all(row['sourceSequence']==index+1 and digest(owner.rows[index])==row['observationSha256']
+            owner.control_rows();owner.history.verify();owner.samples.history.verify();owner.samples.script_source.history.verify()
+            admitted=[row for row in rows if self.owners[row['stageIndex']] is owner]
+            need(owner.row_count()==len(admitted)+(1 if self.query_pending and owner is self.current else 0))
+            need(all(row['sourceSequence']==index+1 and owner.row_digest(index)==row['observationSha256']
                 for index,row in enumerate(admitted)))
 
     def bind_freeze(self,guard):
@@ -107,8 +119,8 @@ class ChatObservationCursor:
 
     def final(self,started):
         """Read-only final authority for the current original query."""
-        self.control();need(self.rows and self.base['phase']=='ready')
-        self.original(self.rows[-1]);self.current.final(self.current.rows[-1],started)
+        self.control();need(self.row_count() and self.base['phase']=='ready')
+        self.original(self.row(self.row_count()-1));self.current.final(self.current.row(self.current.row_count()-1),started)
 
     def write(self,phase,**changes):
         self.control();value={**self.base,**deepcopy(changes),'phase':phase};self.store.write(value,self.previous)
@@ -117,19 +129,19 @@ class ChatObservationCursor:
 
     def original(self,row):
         owner=self.owners[row['stageIndex']];index=row['sourceSequence']-1
-        need(integer(index,0,len(owner.rows)-1))
+        need(integer(index,0,owner.row_count()-1))
         root=owner.store.read();owner.history.verify();stored=owner.history.store(index).read()
         need(same(root,owner.previous) and root['phase']=='ready' and digest(stored)==root['chunks'][index])
-        local=unpack(stored['transcript']);need(len(local)==1 and same(local[0],owner.rows[index])
+        local=unpack(stored['transcript']);need(len(local)==1 and same(local[0],owner.row(index))
             and digest(local[0])==row['observationSha256'])
-        frame=owner.validate_row(local[0],index+1,owner.rows[index-1]['after'] if index else None)
+        frame=owner.validate_row(local[0],index+1,owner.row(index-1)['after'] if index else None)
         need(same(row['sample'],{**local[0]['sample'],'sequence':row['sequence']}))
         return frame
 
     def select(self,owner):
         """Bind a new stage before querying it; no caller sequence is admitted."""
         self.query_allowed()
-        need(type(owner) is ChatObservationOwner and not self.failed and self.rows and not owner.rows
+        need(type(owner) is ChatObservationOwner and not self.failed and self.row_count() and not owner.row_count()
             and not owner.failed and owner.previous is None and owner._freeze_guard is None
             and (self.current.stage,owner.stage) in (('initial','active'),('active','cleanup'))
             and owner.source is self.current.source and owner.flow_store.path==self.current.flow_store.path
@@ -147,7 +159,7 @@ class ChatObservationCursor:
             with self.held():
                 self.query_allowed()
                 self.control();need(self.base['phase']=='ready')
-                anchor=deepcopy(self.original(self.rows[-1]));self.write('selecting',nextStage=self.stage(owner))
+                anchor=deepcopy(self.original(self.row(self.row_count()-1)));self.write('selecting',nextStage=self.stage(owner))
                 owner.current() # Original flow/admission authority only, no native query.
                 stages=[*self.base['stages'],self.stage(owner)]
                 self.write('ready',stages=stages,nextStage=None)
@@ -175,18 +187,18 @@ class ChatObservationCursor:
 
     def read(self,after_sequence=0):
         self.query_allowed()
-        need(not self.failed and integer(after_sequence,0,len(self.rows)) and len(self.rows)<MAX_FRAMES)
+        need(not self.failed and integer(after_sequence,0,self.row_count()) and self.row_count()<MAX_FRAMES)
         try:
             with self.held():
                 self.query_allowed()
                 self.control();need(self.base['phase']=='ready');started=self.current.now()
-                self.write('reading');local=self.current.read(len(self.current.rows));self.query_pending=True
-                source=self.current.rows[-1];frame=self.current.original_source(source['reference']['index'])
+                self.write('reading');local=self.current.read(self.current.row_count());self.query_pending=True
+                source=self.current.row(self.current.row_count()-1);frame=self.current.original_source(source['reference']['index'])
                 self.transition(frame)
-                row=dict(sequence=len(self.rows)+1,stageIndex=len(self.owners)-1,sourceSequence=source['sequence'],
-                    observationSha256=digest(source),sample={**deepcopy(local),'sequence':len(self.rows)+1})
+                row=dict(sequence=self.row_count()+1,stageIndex=len(self.owners)-1,sourceSequence=source['sequence'],
+                    observationSha256=digest(source),sample={**deepcopy(local),'sequence':self.row_count()+1})
                 chunks=self.history.append(row,self.base['chunks']);self.write('ready',chunks=chunks)
-                self.rows.append(row);self.hashes.append(digest(row));self.transition_anchor=None;self.query_pending=False
+                self.originals.append(row,self.scope);self.hashes.append(digest(row));self.transition_anchor=None;self.query_pending=False
                 self.original(row);value=result('feature.chat.observe',deepcopy(row['sample']));self.control()
                 self.current.final(source,started);clocks=self.clocks()
             self.released_fresh(clocks,started);self.started=started

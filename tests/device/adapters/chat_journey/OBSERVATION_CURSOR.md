@@ -45,3 +45,29 @@ source continuation test uses actual native-cache retirement owners and new
 cleanup sources after explicitly simulated metadata for the remaining 24 input
 rows. It checks the global/local cursor boundary across all three stages,
 without qualifying those 24 target effects, full restoration or a whole feature.
+
+## Immutable in-memory originals
+
+The internal `chat-observation-original-memory` v1 extension reuses
+`ChatOriginalMemory` for both stage observations and the global cursor. New
+rows still pass the entire original native/phase/source grammar before being
+frozen as strictly typed canonical JSON bytes. Every control rehashes all
+original bytes and checks their exact scope, tuple/type pins and accounting.
+Persisted observation/cursor v1 rows, source references, hashes and journals
+are unchanged. The original cold-owner refusal remains.
+
+External `rows` is an inspection copy. Internal counts and last-row accesses
+use `row_count()`/`row(index)`; stage membership compares the same original
+row SHA through `row_digest(index)`, without decoding every prior observation
+for each link. All original source-history inventories, physical signatures,
+root reads and native/phase/clock checks remain at their existing boundaries.
+`plain` remains re-exported at its original module path, with its unchanged
+strict JSON grammar; its implementation lives beside the immutable container
+to avoid a circular import. Neither a memory container nor an inspection copy
+qualifies a current observation or constructs a live owner from files.
+
+The focused counters retain internal-byte mutation, tuple/hash alias and a
+post-CAS mutation as failures before further source queries. Changing an
+external inspection copy cannot mutate an admitted original. Original
+late-copy, final-validator, native-clock-jump and lock-exit counters remain;
+the extension cannot retime a source, drop a quiet sample or replay input.

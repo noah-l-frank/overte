@@ -130,15 +130,38 @@ class ChatObservationCursorTests(unittest.TestCase):
                     with self.assertRaises(NativeUIError):self.owner.read()
                 self.assertTrue(self.owner.failed);self.assertIsNotNone(self.store.read())
 
-    def test_old_in_memory_source_mutation_and_tuple_alias_cannot_keep_cursor_green(self):
+    def test_inspection_copies_cannot_mutate_original_source_or_global_rows(self):
+        self.owner.read();before=self.h.queries()
+        self.initial.rows[0]['sample']['state']['draft']='invented'
+        copied=self.owner.rows;copied[0]['sample']['resources']=tuple(copied[0]['sample']['resources'])
+        self.owner.control();value=self.owner.read(1)
+        self.assertEqual(2,value['sequence']);self.assertNotEqual(before,self.h.queries())
+        self.assertNotEqual('invented',self.initial.row(0)['sample']['state']['draft'])
+        self.assertEqual(self.initial.row_digest(0),self.owner.row(0)['observationSha256'])
+        self.assertEqual(self.owner.row_digest(0),self.owner.hashes[0])
+
+    def test_old_internal_source_bytes_and_tuple_hash_alias_cannot_keep_cursor_green(self):
         for fault in ('source','tuple'):
             with self.subTest(fault=fault):
                 if fault=='tuple':self.setUp()
                 self.owner.read();before=self.h.queries()
-                if fault=='source':self.initial.rows[0]['sample']['state']['draft']='invented'
-                else:self.owner.rows[0]['sample']['resources']=tuple(self.owner.rows[0]['sample']['resources'])
+                if fault=='source':
+                    memory=self.initial.originals;memory.raws=memory._raws=(memory.raws[0]+b' ',)
+                else:self.owner.hashes=tuple(self.owner.hashes)
                 with self.assertRaises(NativeUIError):self.owner.read(1)
                 self.assertEqual(before,self.h.queries());self.assertTrue(self.owner.failed)
+
+    def test_internal_original_change_after_final_cas_keeps_new_row_unqualified(self):
+        self.owner.read();write=self.store.write
+        def changed(value,previous):
+            write(value,previous)
+            if value['phase']=='ready':
+                memory=self.owner.originals;memory.raws=memory._raws=(memory.raws[0]+b' ',)
+        self.store.write=changed
+        with self.assertRaises(NativeUIError):self.owner.read(1)
+        self.assertTrue(self.owner.failed);before=self.h.queries()
+        with self.assertRaises(NativeUIError):self.owner.read(1)
+        self.assertEqual(before,self.h.queries());self.assertIsNotNone(self.store.read())
 
 
 if __name__=='__main__':unittest.main()
