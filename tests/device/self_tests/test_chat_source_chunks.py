@@ -117,5 +117,15 @@ class SourceChunkTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.h.sampler()
         self.assertEqual(old,self.h.store.read());self.assertEqual(before,self.queries())
 
+    def test_complete_inventory_and_root_namespace_still_refuse_foreign_files(self):
+        self.read(1);history=self.h.samples.history
+        extra=history.root.path.with_name(history.prefix+'foreign.json');extra.write_text('{}');extra.chmod(0o600)
+        with self.assertRaises(NativeUIError):history.verify()
+        extra.unlink();history.verify();original=history.root.path
+        history.root.path=original.with_name('different-root.json')
+        with self.assertRaises(NativeUIError):history.inventory(1)
+        with self.assertRaises(NativeUIError):history.store(0)
+        history.root.path=original;history.verify()
+
 
 if __name__=='__main__':unittest.main()
