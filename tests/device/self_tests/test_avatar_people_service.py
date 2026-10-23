@@ -59,9 +59,9 @@ class AvatarPeopleServiceTests(unittest.TestCase):
         return self.request(REQUEST+('?' + urlencode(values) if method=='GET' else ''),method=method,
             body=dict(user_connection_request=values) if method=='POST' else None,headers={'Authorization':'Bearer '+self.tokens[role]})
     def connect(self):
-        self.assertEqual('pending',self.submit('primary')[1]['connection'])
+        self.assertEqual({'status':'success','data':{'connection':'pending'}},self.submit('primary')[1])
         self.assertEqual('success',self.submit('peer')[1]['status'])
-        self.assertIsInstance(self.submit('primary',method='GET')[1]['connection'],dict)
+        self.assertIsInstance(self.submit('primary')[1]['data']['connection'],dict)
     def test_actual_model_texture_and_missing_resource_responses_have_completed_wire_identity(self):
         from feature_journeys.fixtures import pinned_resource
         from urllib.request import Request
@@ -93,7 +93,7 @@ class AvatarPeopleServiceTests(unittest.TestCase):
         self.connect();status=self.client.avatar_people_status()
         self.assertEqual(dict(domainId=DOMAIN,primarySession=PRIMARY,peerSession=PEER),status['binding'])
         self.assertEqual(['primary','peer','primary'],[row['role'] for row in status['responses']])
-        self.assertEqual(['POST','POST','GET'],[row['method'] for row in status['responses']])
+        self.assertEqual(['POST','POST','POST'],[row['method'] for row in status['responses']])
         self.assertNotEqual(self.tokens['primary'],self.tokens['peer'])
         for role in ('primary','peer'):
             code,result=self.request(USERS[0]+'?filter=connections&per_page=400',headers={'Authorization':'Bearer '+self.tokens[role]})
@@ -103,16 +103,45 @@ class AvatarPeopleServiceTests(unittest.TestCase):
         self.assertEqual(old,self.client.avatar_people_status()['responses'][:len(old)])
     def test_one_principal_polls_cannot_create_mutual_relationship_or_impersonate_peer(self):
         self.submit('primary')
-        for _ in range(3):self.assertEqual('pending',self.submit('primary',method='GET')[1]['connection'])
+        for _ in range(3):self.assertEqual('pending',self.submit('primary')[1]['data']['connection'])
         self.assertEqual(403,self.submit('primary',pair=dict(node_id=PEER,proposed_node_id=PRIMARY))[0])
         status=self.client.avatar_people_status();self.assertEqual({'primary':[],'peer':[]},status['relationships'])
         self.assertEqual({'primary'},set(status['pending']))
     def test_delayed_reciprocal_from_a_new_challenge_cannot_complete_old_request(self):
         self.submit('primary');self.client.activate('b'*32,'connection-request',{'peer':'owned-peer'})
-        self.assertEqual('pending',self.submit('peer')[1]['connection'])
-        self.assertEqual('pending',self.submit('primary',method='GET')[1]['connection'])
+        self.assertEqual('pending',self.submit('peer')[1]['data']['connection'])
+        self.assertEqual(405,self.submit('primary',method='GET')[0])
         self.assertFalse(any(self.client.avatar_people_status()['relationships'].values()))
         self.epoch+=12001;self.assertEqual({},self.client.avatar_people_status()['pending'])
+
+    def test_get_query_poll_cannot_bind_submit_or_complete_a_relationship(self):
+        self.assertEqual(405,self.submit('primary',method='GET')[0])
+        before=self.client.avatar_people_status();self.assertIsNone(before['binding']);self.assertEqual({},before['pending'])
+        self.submit('primary');self.submit('peer')
+        established=self.client.avatar_people_status()
+        self.assertEqual(405,self.submit('primary',method='GET')[0])
+        after=self.client.avatar_people_status()
+        for key in ('binding','pending','relationships'):self.assertEqual(established[key],after[key])
+        self.assertEqual('GET',after['responses'][-1]['method']);self.assertEqual(405,after['responses'][-1]['status'])
+        validate_status(after,run=self.run,request=after['requestId'],instance=self.social.instance)
+
+    def test_post_requires_original_json_envelope_and_no_query(self):
+        token=self.grant('primary');pair=dict(node_id=PRIMARY,proposed_node_id=PEER)
+        for target,body in ((REQUEST,pair),(REQUEST,dict(user_connection_request=pair,expected='connected')),
+                (REQUEST+'?'+urlencode(pair),dict(user_connection_request=pair))):
+            with self.subTest(target=target,body=body):
+                code,_=self.request(target,method='POST',body=body,headers={'Authorization':'Bearer '+token})
+                self.assertEqual(400,code)
+                original=self.client.avatar_people_status();self.assertIsNone(original['binding']);self.assertEqual({},original['pending'])
+                self.assertFalse(any(original['relationships'].values()))
+
+    def test_successful_get_receipt_cannot_validate_as_an_original_connection_request(self):
+        self.connect();actual=self.client.avatar_people_status();changed=deepcopy(actual)
+        forged=changed['responses'][-1];forged.update(method='GET',requestTarget=REQUEST+'?'+urlencode(dict(node_id=PRIMARY,proposed_node_id=PEER)),
+            requestBodySha256=hashlib.sha256(b'').hexdigest())
+        with self.assertRaisesRegex(ValueError,'original JSON POST'):
+            validate_status(changed,run=self.run,request=changed['requestId'],instance=self.social.instance)
+        self.assertEqual(actual['responses'],self.client.avatar_people_status()['responses'])
     def test_real_delete_refreshes_both_principals_and_authority_cleanup_is_verified(self):
         self.connect();status=self.client.avatar_people_status();peer_name=status['relationships']['primary'][0]
         with self.assertRaises(ValueError):self.social.cleanup_accounts(self.run)

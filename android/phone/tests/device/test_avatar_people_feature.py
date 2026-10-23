@@ -2,6 +2,8 @@
 
 OAuth, social writes, resource responses, PNG decoding, journals and the common
 Journey are real host operations. No device, product rendering or APK is used.
+The social host producer models the actual REST contract; it does not execute
+or qualify the product People JavaScript or its pinned source version.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
@@ -426,9 +428,19 @@ class Composite:
             peer_policy=POLICY if role=='actor' else None,monotonic=lambda:self.clock,sleep=self.sleep)
     def connect(self):
         primary,peer=self.phones.values()
+        def confirmed(reply):
+            if type(reply) is not dict or reply.get('status')!='success':raise NativeUIError('The actual connection response did not report success')
+            data=reply.get('data')
+            connection=data['connection'] if type(data) is dict and 'connection' in data else reply.get('connection')
+            if connection=='pending':return False
+            if type(connection) is not dict or type(connection.get('username')) is not str or not connection['username']:
+                raise NativeUIError('The actual connection response has no confirmed principal')
+            return True
+        replies=[]
         for phone,other in ((primary,peer),(peer,primary)):
-            phone.social(REQUEST,dict(user_connection_request=dict(node_id=phone.state['avatar']['sessionId'],proposed_node_id=other.state['avatar']['sessionId'])))
-        primary.social(REQUEST+'?'+urlencode(dict(node_id=SESSION,proposed_node_id=PEER)))
+            replies.append(confirmed(phone.social(REQUEST,dict(user_connection_request=dict(node_id=phone.state['avatar']['sessionId'],proposed_node_id=other.state['avatar']['sessionId'])),method='POST')))
+        ready=confirmed(primary.social(REQUEST,dict(user_connection_request=dict(node_id=SESSION,proposed_node_id=PEER)),method='POST'))
+        if not replies[1] or not ready:raise NativeUIError('The two actual reciprocal responses did not confirm a connection')
         for phone in self.phones.values():phone.consent['phase']='success'
     def add_wearable(self,phone,url):
         id=str(uuid.uuid4());now=self.epoch();self.worn=True
@@ -597,6 +609,58 @@ class AvatarPeopleFeatureTests(unittest.TestCase):
             for packet in (bad_before,bad_after):
                 packet['source']['peopleReplies']['events']=[row for row in packet['source']['peopleReplies']['events'] if row['method']!='POST']
             with self.assertRaises(NativeUIError):observe(bad_before,bad_after)
+
+    def contact_accounts(self):
+        for phone,role in zip(self.model.phones.values(),('primary','peer')):
+            owned=self.social.credentials(self.run,role)
+            phone.login({'login.username':owned['username'],'login.password':owned['password']})
+
+    def test_contact_host_producer_posts_initial_and_poll_and_observes_iamus_or_legacy_success(self):
+        self.contact_accounts();original=self.social._apply
+        for envelope in ('iamus','legacy-flat'):
+            with self.subTest(envelope=envelope):
+                def apply(*args):
+                    status,value=original(*args)
+                    if envelope=='legacy-flat' and args[3]==REQUEST and status==200:
+                        value=dict(status=value['status'],connection=value['data']['connection'])
+                    return status,value
+                before=len(self.client.avatar_people_status()['responses'])
+                with patch.object(self.social,'_apply',side_effect=apply):self.model.connect()
+                backend=self.client.avatar_people_status();rows=backend['responses'][before:]
+                self.assertEqual(['POST']*3,[row['method'] for row in rows]);self.assertEqual([REQUEST]*3,[row['requestTarget'] for row in rows])
+                self.assertEqual(['primary','peer','primary'],[row['role'] for row in rows])
+                self.assertTrue(all(backend['relationships'].values()))
+                for phone in self.model.phones.values():
+                    self.assertEqual('success',phone.consent['phase'])
+                    completed=[row for row in rows if row['role']==('primary' if phone.role=='primary' else 'peer')]
+                    native={row['responseId']:row for row in phone.state['peopleReplies']['events']}
+                    pair=dict(node_id=phone.state['avatar']['sessionId'],proposed_node_id=self.model.other(phone).state['avatar']['sessionId'])
+                    body=hashlib.sha256(json.dumps(dict(user_connection_request=pair)).encode()).hexdigest()
+                    for row in completed:
+                        self.assertEqual(body,row['requestBodySha256']);self.assertEqual(row['sha256'],native[row['responseId']]['sha256'])
+                self.model.phones['primary'].social(DELETE+backend['principals']['peer'],method='DELETE')
+                for phone in self.model.phones.values():phone.consent=dict(phase='idle')
+
+    def test_contact_host_producer_rejects_failed_pending_missing_results_and_ignored_peer_post(self):
+        self.contact_accounts();original=self.social._apply
+        for fault in ('failure-pending','failure-pending-flat','missing-result','nested-pending-flat-success','ignored-peer'):
+            with self.subTest(fault=fault):
+                def apply(row,role,method,path,parameters,body):
+                    if path==REQUEST:
+                        if fault=='failure-pending':return 200,dict(status='failure',data=dict(connection='pending'))
+                        if fault=='failure-pending-flat':return 200,dict(status='failure',connection='pending')
+                        if fault=='missing-result':return 200,dict(status='success',data={})
+                        if fault=='nested-pending-flat-success':return 200,dict(status='success',data=dict(connection='pending'),connection=dict(username='must-not-win'))
+                        if role=='peer':return 200,dict(status='success',data=dict(connection='pending'))
+                    return original(row,role,method,path,parameters,body)
+                before=len(self.client.avatar_people_status()['responses'])
+                with patch.object(self.social,'_apply',side_effect=apply),self.assertRaises(NativeUIError):self.model.connect()
+                backend=self.client.avatar_people_status();self.assertFalse(any(backend['relationships'].values()))
+                self.assertTrue(all(phone.consent['phase']!='success' for phone in self.model.phones.values()))
+                replies=backend['responses'][before:];self.assertTrue(replies)
+                self.assertTrue(all(row['method']=='POST' and row['status']==200 for row in replies))
+                if fault=='ignored-peer':
+                    self.assertEqual(3,len(replies));self.assertEqual({'primary'},set(backend['pending']))
 
     def test_probe_ordinary_wearable_remove_grammar_is_closed(self):
         import subprocess

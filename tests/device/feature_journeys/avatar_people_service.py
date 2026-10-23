@@ -102,24 +102,24 @@ class AvatarPeopleService:
         if row['ticket'] is None:return 409,dict(status='fail',error='scope-unbound')
         self._expire(row);other='peer' if role=='primary' else 'primary'
         if path==REQUEST:
-            if method=='POST':
-                exact(body,{'user_connection_request'},'social POST');values=body['user_connection_request']
-            elif method=='GET':values=parameters
-            else:return 405,dict(status='fail',error='method-not-allowed')
+            # Iamus uses this same authenticated JSON POST for submission and
+            # polling. Accepting a query GET hides a broken product serializer.
+            if method!='POST':return 405,dict(status='fail',error='method-not-allowed')
+            if parameters:raise ValueError('Connection requests require a JSON body without query parameters')
+            exact(body,{'user_connection_request'},'social POST');values=body['user_connection_request']
             exact(values,{'node_id','proposed_node_id'},'social session pair')
             for value in values.values():session(value)
             if values['node_id']==values['proposed_node_id']:return 403,dict(status='fail',error='self-request')
-            if row['binding'] is None and method=='POST':
+            if row['binding'] is None:
                 row['binding']=dict(domainId=self.domain_id,**{role+'Session':values['node_id'],other+'Session':values['proposed_node_id']})
-            if row['binding'] is None:return 409,dict(status='fail',error='session-unbound')
             if values['node_id']!=row['binding'][role+'Session'] or values['proposed_node_id']!=row['binding'][other+'Session']:
                 return 403,dict(status='fail',error='foreign-session')
-            if method=='POST' and not row['relationship']:
+            if not row['relationship']:
                 row['pending'][role]=dict(ticket=row['ticket'],createdEpochMs=self.accounts.now(),expiresEpochMs=self.accounts.now()+12000)
                 if other in row['pending'] and row['pending'][other]['ticket']==row['ticket']:
                     row['relationship']=True;row['pending']={}
-            if row['relationship']:return 200,dict(status='success',connection=dict(username=self._user(row,other)['username']))
-            return 200,dict(status='success',connection='pending')
+            connection=dict(username=self._user(row,other)['username']) if row['relationship'] else 'pending'
+            return 200,dict(status='success',data=dict(connection=connection))
         if path in USERS and method=='GET':
             if set(parameters)-{'filter','status','per_page','page','search','sort'}:raise ValueError('Unsupported bounded relationship query')
             if 'filter' in parameters and parameters['filter']!='connections':raise ValueError('Unsupported relationship filter')
@@ -276,6 +276,8 @@ def validate_status(value,*,run,request,instance,previous=None):
                 or row['method']!='POST' and row['requestBodySha256']!=hashlib.sha256(b'').hexdigest()):
             raise ValueError('Missing original request target/body provenance')
         if parsed.query:query(parsed.query)
+        if row['path']==REQUEST and row['status']==200 and (row['method']!='POST' or parsed.query or row['requestBodySha256']==hashlib.sha256(b'').hexdigest()):
+            raise ValueError('A successful connection request requires its original JSON POST')
         if not integer(row['sequence'],sequence+1) or row['responseId'] in seen or row['role'] not in (*ROLES,'resource') or row['method'] not in ('GET','POST','DELETE') or row['path'] not in (REQUEST,*USERS) and not row['path'].startswith(DELETE) and not (row['role']=='resource' and row['method']=='GET' and re.fullmatch('/feature-fixture/v1/runs/'+run+r'/tickets/[0-9a-f]{32}/(?:avatar-a\.fst|missing\.fst|mannequin/[A-Za-z0-9_.-]+|gltf-bundle/(?:main\.gltf|mesh/triangle\.bin|textures/checker\.png))',row['path'])) or not integer(row['status'],100,599) or not integer(row['bytes'],1,16*1024*1024 if row['role']=='resource' else 65536) or not re.fullmatch('[0-9a-f]{64}',row['sha256']) or not integer(row['startedEpochMs'],1,row['completedEpochMs']) or not integer(row['completedEpochMs'],1,value['capturedEpochMs']):raise ValueError('Invalid completed social wire source')
         sequence=row['sequence'];seen.add(row['responseId'])
     if not value['active'] and (value['pending'] or value['inflightResponses'] or any(value['relationships'].values())):raise ValueError('Retired social scope remains live')
