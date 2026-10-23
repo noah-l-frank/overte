@@ -3421,10 +3421,7 @@ def create_adapter(args, base_class):
                         discard_stopped_state(path)
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
-                _need(not snapshot_error and not audio_error and not create_error and not self._assets_files_owned(target) and not self._create_management(target).owned() and not self._create_picker_owned(target) and not self._create_models_owned(target) and not self._create_feature_owned(target) and not self._avatar_urls_owned(target) and not self._avatar_favorites_owned(target)
-
-        @_private
-                _need(not self._navigation_prefix_owned(target) and not snapshot_error and not audio_error and not create_error and not self._create_management(target).owned()
+                _need(not self._navigation_prefix_owned(target) and not snapshot_error and not audio_error and not create_error and not self._assets_files_owned(target) and not self._create_management(target).owned() and not self._create_picker_owned(target) and not self._create_models_owned(target) and not self._create_feature_owned(target) and not self._avatar_urls_owned(target) and not self._avatar_favorites_owned(target)
                       and not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._lifecycle_back_store(target).read() is None
                       and (self._lifecycle_world_store(target,create=False) is None or self._lifecycle_world_store(target,create=False).read() is None)
