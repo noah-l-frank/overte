@@ -124,6 +124,13 @@ class SnapshotCleanupConstructorScopeTests(unittest.TestCase):
         with self.cleanup_fixture() as (fixture,sequence):
             for stage,kind in cases:
                 with self.subTest(stage=stage,kind=kind),ExitStack() as restores,self.monitored_feature(fixture) as (_features,loads,_native):
+                    if kind=='installed':
+                        # The host packet proxy uses a synthetic native guard.
+                        # Exercise the original production factory's actual
+                        # installed-byte qualification before current entry.
+                        from appium_adapter import PhoneAppiumAdapter
+                        factory=PhoneAppiumAdapter._native_feature_observer.__get__(fixture.adapter,type(fixture.adapter))
+                        restores.enter_context(patch.object(fixture.adapter,'_native_feature_observer',factory))
                     read=SnapshotConstructorHistoryPass.read;file=SnapshotsOriginals.file;prepare=SnapshotConstructorHistoryPass.prepare
                     seen=[];changed=[];active=[];forbidden=[]
                     def invalid_current(*_args,**_kwargs):
@@ -162,13 +169,14 @@ class SnapshotCleanupConstructorScopeTests(unittest.TestCase):
                             patch.object(PhoneSnapshotsRole,'read',invalid_current),patch.object(PhoneSnapshotsRole,'batch',invalid_current):
                         expected=(NativeUIError,FileNotFoundError)
                         identity_code=None
-                        if kind in ('installed','session'):
+                        if kind in ('installed','session','sdk-scope'):
                             # Session exit can expose the original identity
                             # guard, rather than its lock-wrapped UI error.
                             from artifact_identity import IdentityError
                             expected += (IdentityError,)
-                            identity_code=('PHONE_INSTALLED_BYTES_MISMATCH' if kind=='installed'
-                                else 'PHONE_EXISTING_INPUT_SESSION_CHANGED')
+                            identity_code=dict(installed='PHONE_INSTALLED_BYTES_MISMATCH',
+                                session='PHONE_EXISTING_INPUT_SESSION_CHANGED',
+                                **{'sdk-scope':'PHONE_EXISTING_INPUT_SCOPE_CHANGED'})[kind]
                         with self.assertRaises(expected) as rejected:self.observe(fixture,sequence)
                         if identity_code is not None and isinstance(rejected.exception,IdentityError):
                             self.assertIs(type(rejected.exception),IdentityError)
