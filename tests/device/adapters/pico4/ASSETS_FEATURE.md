@@ -422,3 +422,48 @@ Cancel/unavailable-backend route remains green; this result does not qualify
 the red positive-upload path above. The same original evidence files and native
 stacks were preserved. No additional positive diagnostic or product behavior
 change was included in that final regression.
+
+## Normal cancellation after an interrupted picker recipe
+
+The retained Cancel owner now binds the original browser and FolderListModel
+identities immediately after acknowledged normal Open and a fresh independent
+native inventory. That complete original inventory is durable before any folder
+or file-selection input. The later successful selection must retain those same
+identities; it cannot replace them with another picker. No new native source or
+product change is introduced.
+
+An actual delivered folder-field replacement with a lost reply now permits a
+distinct normal Cancel after cold owner reconstruction. Original browser/model
+death, the unchanged mapping/upload sources and the existing three-second quiet
+interval authorize only the already-owned file release. The uncertain original
+navigation command remains byte-identical in `unresolvedInputs`; neither that
+command nor Open is sent again. Context/window and whole-owner obligations stay
+retained.
+
+If the first Open reply is lost, no consumer IDs have been admitted. A later
+distinct normal Cancel may destroy the actual original picker/model, but the
+owner adopts no IDs and retains all seven original files and journals. Repeated
+cold reconciliation remains read-only and cannot turn that unadmitted inventory
+into file-retirement authority. The actual host factory now constructs a fresh
+guarded transport per runtime, matching production `_script_runtime`, while
+retaining the existing one-owner `bind_before_send` guard.
+
+Validation on 2026-10-23 used fixed parent
+`1b6840f92db06a45054e5eb0f7537de98839592b`. Both new original-Qt cases passed
+together in 26.987 seconds, using the complete existing production binder,
+normal events, native inventory and private-file storage. The seven-case owning
+selector also preserved a failing existing lost-Cancel quiet-interval result:
+its consecutive native source samples exceeded the unchanged 500 ms gap limit
+(42.213 seconds for all seven cases). Both new cases passed in that selection.
+Thus this packet does **not** claim a green whole owning selector. A temporary
+redundant-validation experiment produced no verified timing benefit and was
+discarded; complete validation on every store access remains in place.
+
+Every compile retained its 90-second limit and the owning selector retained
+120 seconds. Private JUnit transcripts preserve the failed attempts separately
+from the final two-case output. Closed contract versions, common/product
+contracts (13 cases), coverage (seven cases/all 14 risk rows) and documentation
+checks passed. The catalog remains 154 selectors, with no version/capability
+change. Feature 13/14 remains partial: all results here are host qualification,
+and the original upload failure and missing server/oven/device evidence above
+remain unchanged.
