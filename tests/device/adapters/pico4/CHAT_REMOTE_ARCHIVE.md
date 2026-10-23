@@ -323,3 +323,15 @@ times are not additive, controlled performance benchmarks or device results.
 They identify mutable cursor/observation JSON processing as the next pure
 candidate to measure and harden. Complete physical I/O, native guards, query
 provenance, original clocks and all quiet windows remain required.
+
+The same original 61-query diagnostic passed once on the subsequent cursor
+memory code `e8ecd859eb71b08c6734a7c892a1ea00a01fb18a`: 31.771 s (32.279 outer
+elapsed), with all 169 fixed source bytes unchanged. This does not establish
+an overall speedup over the prior 31.363-s run. The profiled pure target did
+shrink: Actor cursor controls took 0.149 s for the same 13 calls, compared with
+0.262 s previously; primary controls took 0.043 s versus 0.079 s. Actor total
+publication measured 0.479 s versus 0.535 s, while Parent acquisition measured
+0.577 s versus 0.538 s. Full original history-check counts remained 54 for
+primary and 143 for Actor. The different fsync/physical timings and unchanged
+end-to-end time remain explicit. No deadline, cadence, physical verification
+or source observation was removed, and no new whole result follows.
