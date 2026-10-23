@@ -1,5 +1,17 @@
 # Android Phone source coverage
 
+## Subsequent manual-parity review, 2026-10-23
+
+The [manual-parity findings review](PARITY_FINDINGS_REVIEW.md) corrects the
+People REST fixture and domain readiness checks and adds a genuine account-label
+QML regression. The unchanged product dependency still fails six account cases;
+the pinned People product script also retains an incompatible REST contract.
+Visible account-header and Web Undo/Redo/IME observations remain explicit gaps.
+The fourteen-area matrix below describes the earlier exact source/scoped-host
+baseline. It does not qualify this later branch, the other session's product
+fixes, or any physical client. No product fix or source-pin update is included
+in this review.
+
 ## Current Android Phone closure, 2026-10-23
 
 All **14/14** common v18 areas have Phone source composition and scoped host

@@ -20,13 +20,18 @@ receipt mechanism. Their immutable body digests and response IDs are original
 service facts; the adapter must separately join actual native consumption.
 A DELETE before any original session POST returns a bounded 409 response.
 
-The normal original People protocol sends authenticated POSTs to
-`/api/v1/user/connection_request`, then bounded GET polls. The first actual POST
+The normal original People protocol sends authenticated JSON POSTs to
+`/api/v1/user/connection_request` for both submission and bounded polling, with
+`{"user_connection_request":{"node_id":"<own session>","proposed_node_id":"<peer session>"}}`
+and no query parameters. The standard response is
+`{"status":"success","data":{"connection":"pending"}}` or a confirmed
+connection object in the same nested field. A failed status, absent result or
+an input acknowledgement cannot establish consent. The first actual POST
 binds its declared session pair to the two owned principals; the native adapter
 must separately compare both sessions and the controlled domain to independently
 observed actual participants. Two distinct principals must submit reciprocal
 session IDs within the same active ticket and real twelve-second pending
-lifetime. One sender, a GET poll, mismatched sessions, a stale phase or fixture
+lifetime. One sender, a rejected GET poll, mismatched sessions, a stale phase or fixture
 control cannot create a relationship. Ordinary cancel/reject before both consent
 produces no server relationship. Pending expiration follows the provider clock.
 

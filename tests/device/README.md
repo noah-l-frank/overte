@@ -1,5 +1,10 @@
 # Overte physical-device E2E harness
 
+The subsequent [Android Phone manual-parity review](adapters/android-phone/PARITY_FINDINGS_REVIEW.md)
+adds stricter fixture/readiness checks and exposes an unfixed account-label
+product regression. Historical source/host closure below is not a green result
+for that later review branch or for the other session's product source.
+
 The [Phone World Navigation adapter](adapters/android-phone/WORLD_NAVIGATION_FEATURE.md)
 now connects the complete public triple and common v18 Journey. Host composition
 and a partial native Qt6 check are verified; Android product compilation and

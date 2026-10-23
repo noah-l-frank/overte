@@ -431,7 +431,7 @@ class Composite:
         def confirmed(reply):
             if type(reply) is not dict or reply.get('status')!='success':raise NativeUIError('The actual connection response did not report success')
             data=reply.get('data')
-            connection=data['connection'] if type(data) is dict and 'connection' in data else reply.get('connection')
+            connection=data.get('connection') if type(data) is dict else reply.get('connection')
             if connection=='pending':return False
             if type(connection) is not dict or type(connection.get('username')) is not str or not connection['username']:
                 raise NativeUIError('The actual connection response has no confirmed principal')
@@ -643,13 +643,14 @@ class AvatarPeopleFeatureTests(unittest.TestCase):
 
     def test_contact_host_producer_rejects_failed_pending_missing_results_and_ignored_peer_post(self):
         self.contact_accounts();original=self.social._apply
-        for fault in ('failure-pending','failure-pending-flat','missing-result','nested-pending-flat-success','ignored-peer'):
+        for fault in ('failure-pending','failure-pending-flat','missing-result','nested-missing-flat-success','nested-pending-flat-success','ignored-peer'):
             with self.subTest(fault=fault):
                 def apply(row,role,method,path,parameters,body):
                     if path==REQUEST:
                         if fault=='failure-pending':return 200,dict(status='failure',data=dict(connection='pending'))
                         if fault=='failure-pending-flat':return 200,dict(status='failure',connection='pending')
                         if fault=='missing-result':return 200,dict(status='success',data={})
+                        if fault=='nested-missing-flat-success':return 200,dict(status='success',data={},connection=dict(username='must-not-win'))
                         if fault=='nested-pending-flat-success':return 200,dict(status='success',data=dict(connection='pending'),connection=dict(username='must-not-win'))
                         if role=='peer':return 200,dict(status='success',data=dict(connection='pending'))
                     return original(row,role,method,path,parameters,body)
