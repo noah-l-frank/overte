@@ -109,10 +109,18 @@ class PicoTabletWebImageTests(unittest.TestCase):
         artifacts,_facts=self.capture()
         with self.flow.lock.held():self.flow.role_state()
         key=next(iter(self.flow.image_cache));cached=deepcopy(self.flow.image_cache[key])
-        for fault in ('cached-scope','cached-png','reference'):
+        for fault in ('cached-scope','cached-png','cached-tuple','cached-subclass','cached-key-subclass','reference'):
             with self.subTest(fault=fault),self.flow.lock.held():
                 if fault=='cached-scope':self.flow.image_cache[key]['scope']['ownerToken']='f'*32
                 elif fault=='cached-png':self.flow.image_cache[key]['png']['capture']['instance']='f'*32
+                elif fault=='cached-tuple':self.flow.image_cache[key]['stamp']=tuple(self.flow.image_cache[key]['stamp'])
+                elif fault=='cached-subclass':
+                    class ForeignScope(dict):pass
+                    self.flow.image_cache[key]['scope']=ForeignScope(self.flow.image_cache[key]['scope'])
+                elif fault=='cached-key-subclass':
+                    class ForeignKey(str):pass
+                    value=self.flow.image_cache[key]['scope'].pop('ownerToken')
+                    self.flow.image_cache[key]['scope'][ForeignKey('ownerToken')]=value
                 else:
                     empty=deepcopy(self.state);empty['images']=[];self.flow.write(self.flow.role_store,'primary',empty)
                 with self.assertRaises((ValueError,RuntimeError)):self.flow.role_state()

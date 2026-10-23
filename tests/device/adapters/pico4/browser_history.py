@@ -8,7 +8,7 @@ Interrupted reads/publications retain their original ownership and cannot replay
 from copy import deepcopy
 import json
 
-from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
+from adapters.chat_journey.source_chunks import ChatSourceChunks,digest,json_digest
 from adapters.native_feature_observation import exact,integer,need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_journey.history import MAX_FRAMES,canonical,same
@@ -37,7 +37,7 @@ class PicoBrowserHistory:
         self.cached=self.cache_digest()
 
     def cache_digest(self):
-        return digest(dict(scope=self.scope,rows=self._row_hashes,last=self.last,publication=self.publication,
+        return json_digest(dict(scope=self.scope,rows=list(self._row_hashes),last=self.last,publication=self.publication,
             nonces={key:sorted(value) for key,value in self.nonces.items()}))
 
     @property

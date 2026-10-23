@@ -19,7 +19,7 @@ from adapters.graphics_journey.originals import GraphicsOriginals,record as imag
 from adapters.graphics_journey.samples import retirement
 from adapters.owned_world_render import OwnedWorldRenderCapture
 from adapters.script_journey.history import pack,unpack
-from adapters.chat_journey.source_chunks import digest
+from adapters.chat_journey.source_chunks import json_digest
 from adapters.chat_journey.archive_file import signature
 from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
@@ -112,7 +112,7 @@ class PicoBrowserStereo(OriginalStereoRetirement):
         # product observation. Recheck every original PNG byte and physical
         # stamp; decode its unchanged complete source semantics once per owner.
         image_record(image);path=self.images.root/image['name'];before=signature(path.lstat())
-        key=digest(dict(frame=frame,image=image,runId=self.run,binding=self.binding,role=self.role,
+        key=json_digest(dict(frame=frame,image=image,runId=self.run,binding=self.binding,role=self.role,
             scope=self.scope,sceneUrl=self.arrival.scene_url,artifactRoot=str(self.images.root)))
         expected=(key,tuple(before))
         need(self.validated_image is None or self.validated_image==expected)

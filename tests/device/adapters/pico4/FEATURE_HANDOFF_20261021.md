@@ -21,19 +21,32 @@ counterexamples run through the existing Chat archive selector. The four
 repository checks, contract registry, probe syntax and whitespace checks pass.
 These host/source results add no complete feature or device qualification.
 
+Further fixed selections integrate Avatar Favorite/Scale8b05d1fa2c,
+Snapshot Save9913cfa347+b4b76ba4a3, and Chat witness/retained warm archive
+b1b38d866b+82b3affbd4+ba858657bb. The actual warm Chat archive/own-host
+test passes860.797s, including2623 retired originals and absent host marker;
+its explicit native/widget/network/clock/PID seams remain unqualified. Current
+public RPC/cleanup-witness/stereo admission is still missing. Root verifies
+the archive, witness, Snapshot export/Save fences and Avatar URL/Favorite
+fences through their owning selectors. Chat's new same-file recycled-FD test
+now atomically replaces its known owned descriptor instead of assuming the
+next OS allocation number; the integrated composition group passes25.501s.
+Save's two complete warm attempts remain red at120s, with original evidence
+retained. The catalog now contains148 groups; complete source areas stay3/14.
+
 | Area | Current Pico implementation | Concrete next boundary |
 | --- | --- | --- |
 | Worlds/navigation | Partial normal Places/bookmark/origin/directory/error and measured B/A transit with original stereo-source retirement | Fresh v2 image/actor publication, normal tablet and Go To closure, maturity composition, restart and independent final retirement |
 | Authentication | Complete source; 17-step shared flow and counterexamples host verified | Compile and qualify actual VR Home ray, IME, HTTPS provider and account lifetime on Proxmox |
-| Avatar/contacts | Partial private normal URL/failure/recovery owner and independent model/raw entity originals | Normal initial Home entry, physical Prefs/HTTP, bookmark/scale/wearables, People/peer/stereo and complete final retirement |
+| Avatar/contacts | Partial normal URL/failure/recovery plus durable Favorite/Scale owner and original physical/cache/callback effect authority | Exact settings/bookmark restoration, cached Favorite preference receipt join, Wearables, People/peer/stereo and final retirement |
 | Create | Partial normal management and domain Import/Save/export/Delete with original callbacks, files and fixed raw/physical Browse setting ownership | Full Model/texture/PolyVox/permission actor, stereo and final cleanup composition |
 | Emotes | Partial actual normal inputs, compiled caller/consumed FBX/Rig effects, work/quiet/background and loaded-avatar originals | Executed avatar draw/two-eye camera/PNG joins, independent actor and whole resource retirement |
 | Web in world | Partial native DOM source | Actual controller-ray hit/DOM input, original document/echo journals, response receipt and stereo image join |
 | Web in tablet | Partial private26-action owner, independent actor/stereo and original per-role source/publication histories; current history-enabled complete run times out at120s | Complete current Journey verification, inactive-phase retirement, historical capture absence, immutable archive, host finalization and public binding |
 | Graphics | Complete source; actual public/session/common-engine route, original stereo/effects and independent final retirement host verified | Later compile and qualify the exact E2E candidate on Proxmox; no device work in this session |
 | Audio | Partial normal controls/cycle/history/PCM sources | Whole cycle owner, microphone stimulus, independent acoustic capture/publisher and lifecycle/cleanup join |
-| Chat | Partial ordinary Send/Return/Retry, original JSON/INI profile/Erase, peer/distance/no-replay and mixer recovery owners | Complete bounded source histories, 25-step coordinator, stereo/publisher and original final retirement |
-| Snapshots | Partial private original-output foundation | Actual OS Save backend/authorization, independently acquired receiver/save/upload originals and callback cleanup |
+| Chat | Partial private compiled/Witness journey, Erase/Profile/caches/restart/IPC, complete original archive and own-host close verified | Repeated fresh public observations, Phase27 cleanup witness, cold RPC/PID continuity, stereo and public capability admission |
+| Snapshots | Partial Cancel/Still→normal Save owner with original Java provider/readback/PNG and strict typed source memo | Complete warm verification under120s, actual Pico OS chooser route, independent receiver/upload/actor/stereo and final callback/resource retirement |
 | Scripts | Complete source; host verified | Review/compile test-gated native source and later qualify the exact installed candidate through Proxmox |
 | Assets | Complete adapter missing | Actual Assets UI/bundle picker, original server mapping/oven/permission/model sources and independent actor |
 | Lifecycle/input | Partial normal Create/Unicode/world/X and subsequent new Chat draft, original VR keyboard/context and process retirement components | Native background history, second world/Scripts/pending/stale flow, independent peer and full restoration/retirement |

@@ -2,7 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
-from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
+from adapters.chat_journey.source_chunks import ChatSourceChunks,digest,json_digest
 from adapters.native_feature_observation import exact,integer,need
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.script_journey.history import same
@@ -42,7 +42,7 @@ class PicoBrowserQuietJournal:
             self.value['complete']=len(rows)>=3 and last['host']-first['host']>=3 and all(y-x>=3000 for x,y in zip(a,b))
             validate(self.value,run,url,token,self.pid,retired=False)
         self.value_digest=self.cache_digest()
-    def cache_digest(self):return digest(dict(scope=self.scope,value=self.value))
+    def cache_digest(self):return json_digest(dict(scope=self.scope,value=self.value))
     def migrate(self):
         """Explicitly copy validated legacy originals; never a device query/input."""
         self.lock.assert_held()

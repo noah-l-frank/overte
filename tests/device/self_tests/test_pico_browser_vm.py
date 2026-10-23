@@ -74,6 +74,17 @@ class PicoBrowserVmTests(unittest.TestCase):
         actor=self.b.owner('actor');self.capture(actor)
         self.assertNotEqual(actor.store.path,primary.store.path);self.assertEqual(1,len(actor.frames));self.assertEqual(1,len(primary.frames))
         self.assertNotEqual(actor.frames[0]['scripts']['requestId'],primary.frames[0]['scripts']['requestId'])
+
+    def test_same_json_tuple_or_subclass_cannot_change_cached_original_before_query(self):
+        owner=self.b.owner();self.capture(owner);original=deepcopy(owner.frames[0]);count=self.b.count()
+        with self.b.lock.held():
+            owner.frames[0]['scripts']['source']['engines']=tuple(owner.frames[0]['scripts']['source']['engines'])
+            with self.assertRaises((ValueError,RuntimeError)):owner.verify()
+            owner.frames[0]=deepcopy(original)
+            class ForeignScope(dict):pass
+            owner.scope=ForeignScope(owner.scope)
+            with self.assertRaises((ValueError,RuntimeError)):owner.verify()
+        self.assertEqual(count,self.b.count())
     def test_compilation_http_or_actual_lifetime_identity_cannot_be_substituted(self):
         for fault in ('code','http','lifetime'):
             with tempfile.TemporaryDirectory() as directory:

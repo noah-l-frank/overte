@@ -193,5 +193,17 @@ class PicoBrowserHistoryTests(unittest.TestCase):
             self.flow.act(call)
         self.assertEqual([],delivered);self.assertEqual(1,len(self.fixture.publications))
 
+    def test_json_equivalent_tuple_or_subclass_cache_mutation_is_not_original_source(self):
+        self.flow.observe(self.call);commands=len(self.fixture.original.commands)
+        with self.flow.lock.held():
+            history=self.history(self.flow);original=deepcopy(history.last)
+            history.last['sample']['artifacts']=tuple(history.last['sample']['artifacts'])
+            with self.assertRaises((ValueError,RuntimeError)):history.verify()
+            history.last=deepcopy(original)
+            class ForeignState(dict):pass
+            history.last['sample']['state']=ForeignState(history.last['sample']['state'])
+            with self.assertRaises((ValueError,RuntimeError)):history.verify()
+        self.assertEqual(commands,len(self.fixture.original.commands))
+
 
 if __name__=='__main__':unittest.main()

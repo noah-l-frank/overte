@@ -36,10 +36,19 @@ inventory/tampering/final-guard checks pass0.902s. The earlier complete Journey
 passed82.390s before adding these histories. Its new owning run still times out
 at120s (all originals retained); a separate unchanged120s Journey selector
 keeps that failure visible. Neither support-case splitting nor historical
-success qualifies the current full Journey. The catalog has144 groups, with
+success qualifies the current full Journey. That selection had144 groups, with
 three complete source feature areas. Complete inactive-phase retirement,
 historical capture traversal, immutable archive, host closure and public
 capability admission remain open; `finalize()` still refuses.
+
+The subsequent integrated owning group passes33.031s, and69 focused source,
+VM, quiet, stereo and prefix cases pass48.305s. Cache digests now require exact
+JSON container/scalar/key types, refusing JSON-equivalent tuples, subclasses
+and key-type substitutions before reused semantics can qualify. File bytes,
+physical identity and actual source guards remain separate checks. The current
+complete history-enabled Journey still times out120.116s after action25,
+even without concurrent long Chat/Snapshot tests. All originals are retained;
+no new full Journey or finalization claim follows from the owning-group pass.
 
 The original DOM view has ten fields; the original measure protocol returns the
 five-field document identity. Matching those exact five fields preserves URL,

@@ -9,7 +9,7 @@ from copy import deepcopy
 import hashlib
 import math
 import re
-from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
+from adapters.chat_journey.source_chunks import ChatSourceChunks,digest,json_digest
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.native_script_observation import NativeScriptObservation,validate as script_packet
 from adapters.native_script_object_lifetimes import NativeScriptObjectLifetimes,validate as object_packet,selected,ACTION
@@ -117,7 +117,7 @@ class PicoBrowserVm:
             if self.frames:objects.restore(self.frames[-1]['objectsAfter'])
         self.cached_digest=self.cache_digest()
 
-    def cache_digest(self):return digest(dict(scope=self.scope,frames=self.frames,origin=self.origin,quiet=self.windows))
+    def cache_digest(self):return json_digest(dict(scope=self.scope,frames=self.frames,origin=self.origin,quiet=self.windows))
 
     def verify(self):
         self.lock.assert_held();need(not self.failed and same(self.store.read(),self.previous)

@@ -397,7 +397,8 @@ class PicoTabletWebFeature:
 
     @staticmethod
     def image_digest(value):
-        return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+        from adapters.chat_journey.source_chunks import json_digest
+        return json_digest(value)
 
     def original_image(self,value,*,expected=None):
         """Read all original PNG bytes; reuse only validated immutable semantics.
