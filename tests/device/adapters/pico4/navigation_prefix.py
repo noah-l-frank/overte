@@ -1,7 +1,7 @@
 """Normal Origin/Places/bookmark opening prefix of unchanged Navigation v16.
 
 The common Journey remains the sole recipe. This private parent composes its
-first five actions; no feature capability, final cleanup or image verdict is
+first seven actions; no feature capability, final cleanup or image verdict is
 published. Primary input and independently queried actor frames stay separate.
 """
 # Copyright 2026 Overte contributors.
@@ -23,16 +23,26 @@ from adapters.pico4.navigation import NativeNavigationIO, identifier as ui_ident
 from adapters.pico4.navigation_prefix_source import NavigationPrefixSource
 from adapters.script_journey.history import same
 from adapters.script_journey.lock import ScriptSourceLock
-from adapters.token_places_ui import TokenPlacesUI
+from adapters.token_places_ui import TokenPlacesUI,control_id as places_control
 from adapters.token_create_ui import scope as input_scope, nonce
 from feature_journeys.contract import arguments, identifier
+from feature_journeys.fixtures import context
+from feature_journeys.scenarios import SCENARIOS,expand
 from feature_journeys.phase_fixture import PhaseFixtureReader, PhasePending, validate as phase_packet
 from openxr_input.adapter_session import PicoOpenXrAdapterSession
 from openxr_input.controller_protocol import validate_envelope
 
-VERSION=1
+VERSION=2
 AREA='world-navigation'
-VERBS=('open','bookmark-add-cancel','bookmark-add','bookmark-rename-cancel','bookmark-rename')
+VERBS=tuple(row['verb'] for row in SCENARIOS[AREA]['steps'][:7])
+
+
+def plan(run,index):
+    row=SCENARIOS[AREA]['steps'][index]
+    return dict(verb=row['verb'],inputs=expand(row['inputs'],context(run)))
+
+
+def limit(value):return 5 if value['navigationPrefixVersion']==1 else 7
 
 
 class NavigationPrefix:
@@ -81,11 +91,11 @@ class NavigationPrefix:
     def validate(self,value):
         self.control()
         exact(value,{'navigationPrefixVersion','scopeSha256','runId','binding','phase','fixture','completed','active','deliveries','receipt','home','preflight'})
-        need(type(value['navigationPrefixVersion']) is int and value['navigationPrefixVersion']==VERSION
+        need(type(value['navigationPrefixVersion']) is int and value['navigationPrefixVersion'] in (1,VERSION)
             and value['runId']==self.run and same(value['binding'],self.binding)
             and value['scopeSha256']==self.scope_sha
             and value['phase'] in ('preparing','ready','acting') and type(value['completed']) is list
-            and len(value['completed'])<=len(VERBS) and type(value['deliveries']) is list and len(value['deliveries'])<=128)
+            and len(value['completed'])<=limit(value) and type(value['deliveries']) is list and len(value['deliveries'])<=128)
         for index,row in enumerate(value['completed']):
             exact(row,{'ticket','verb'});identifier(row['ticket']);need(row['verb']==VERBS[index])
         tickets=[row['ticket'] for row in value['completed']];need(len(set(tickets))==len(tickets))
@@ -95,17 +105,25 @@ class NavigationPrefix:
             need(type(command['schemaVersion']) is int and command['schemaVersion']==1 and ui_identifier(command['commandId'])
                 and ui_identifier(command['bridgeId']) and ui_identifier(command['generation']) and nonce(command['controlToken'])
                 and integer(command['sequence'],1) and integer(command['observedElapsedMs'])
-                and command['action'] in ('activate','replace','submit') and type(command['controlId']) is str)
+                and command['action'] in ('activate','replace','submit')
+                and (command['controlId']=='login.server' or places_control(command['controlId'])))
+            if command['action']=='replace':
+                need(type(command['text']) is str and len(command['text'])<=4096 and all(32<=ord(c)<=126 for c in command['text']))
         need(len({row['commandId'] for row in value['deliveries']})==len(value['deliveries']))
         fixture=value['fixture'];phase_packet(fixture,run=self.run,area=AREA,request=fixture['requestId'],epoch=fixture['capturedEpochMs'])
         need(fixture['active'] and fixture['activations'])
+        for index,row in enumerate(value['completed']):
+            original=[entry for entry in fixture['activations'] if entry['ticket']==row['ticket']]
+            need(len(original)==1 and same(original[0]['stimulus'],plan(self.run,index)))
         active=value['active']
         if active is None:need(value['phase']!='acting')
         else:
             exact(active,{'ticket','verb','stage','pending','history'})
-            need(value['phase']=='acting' and len(value['completed'])<len(VERBS)
+            need(value['phase']=='acting' and len(value['completed'])<limit(value)
                 and active['verb']==VERBS[len(value['completed'])] and active['ticket']==fixture['activations'][-1]['ticket']
-                and active['stage'] in (('open','directory','sample') if active['verb']=='open' else ('bookmark','tab','sample'))
+                and same(fixture['activations'][-1]['stimulus'],plan(self.run,len(value['completed'])))
+                and active['stage'] in (('open','directory','sample') if active['verb']=='open' else
+                    ('directory','sample') if active['verb']=='directory-search' else ('bookmark','tab','sample'))
                 and type(active['history']) is list and len(active['history'])<=32)
             for pending in active['history']+([] if active['pending'] is None else [active['pending']]):
                 exact(pending,{'placesInputVersion','action','controlId','controlToken','scope'});input_scope(pending['scope'])
@@ -198,6 +216,8 @@ class NavigationPrefix:
         if self.state['phase']=='preparing':
             need(command['controlId']=='login.server' and command['action'] in ('activate','replace','submit'))
             pending=self.origin.state['operation']['pending'];scope=pending['scope'];token=pending['token']
+            need(command['controlId']==pending['control'] and command['action']==pending['action'])
+            if command['action']=='replace':need(command['text']==self.origin.desired())
         else:
             stage=active['stage']
             pending=(self.directory.state['active']['pending'] if stage=='directory' else
@@ -205,7 +225,8 @@ class NavigationPrefix:
             need(pending is not None and command['controlId']==pending['controlId'] and command['action']==pending['action'])
             scope=pending['scope'];token=pending['controlToken']
         need(command['controlToken']==token and command['bridgeId']==scope['instance']
-            and command['generation']==scope['generation'] and command['sequence']==scope['sequence']+1)
+            and command['generation']==scope['generation'] and command['sequence']==scope['sequence']+1
+            and command['observedElapsedMs']==scope['elapsedMs'])
         state=deepcopy(self.state);state['deliveries'].append(deepcopy(command));need(len(state['deliveries'])<=128);self.save(state)
         # The durable parent command is an input intent, never an effect fact.
         # Nothing with source/SDK/native/HTTP side effects follows this fence.
@@ -255,13 +276,17 @@ class NavigationPrefix:
         with self.lock.held():
             self.load();need(self.state is not None and self.state['phase']!='preparing')
             if any(row['ticket']==call['ticket'] for row in self.state['completed']):
-                need(self.state['completed'][-1]==dict(ticket=call['ticket'],verb=call['verb']));self.fence();return dict(performed=True)
+                need(self.state['completed'][-1]==dict(ticket=call['ticket'],verb=call['verb'])
+                    and same(dict(verb=call['verb'],inputs=call['inputs']),plan(self.run,len(self.state['completed'])-1)))
+                self.fence();return dict(performed=True)
             active=self.state['active']
             if active is None:
-                index=len(self.state['completed']);need(index<len(VERBS) and call['verb']==VERBS[index])
+                index=len(self.state['completed']);need(index<limit(self.state)
+                    and same(dict(verb=call['verb'],inputs=call['inputs']),plan(self.run,index)))
                 current=self.phase.read();need(current['ticket']==call['ticket'] and current['verb']==call['verb'] and same(current['inputs'],call['inputs']))
                 state=deepcopy(self.state);state.update(phase='acting',fixture=deepcopy(current['status']),
-                    active=dict(ticket=call['ticket'],verb=call['verb'],stage='open' if index==0 else 'bookmark',pending=None,history=[]));self.save(state)
+                    active=dict(ticket=call['ticket'],verb=call['verb'],stage='open' if index==0 else
+                        'directory' if call['verb']=='directory-search' else 'bookmark',pending=None,history=[]));self.save(state)
             need(self.state['active']['ticket']==call['ticket'] and self.state['active']['verb']==call['verb']);self.fence()
             if call['verb']=='open':
                 if self.state['active']['stage']=='open':
@@ -269,6 +294,9 @@ class NavigationPrefix:
                 if self.state['active']['stage']=='directory':
                     self.directory.act(call['ticket'],'refresh');state=deepcopy(self.state)
                     state['receipt']=dict(ticket=call['ticket'],afterEpochMs=self.directory.state['afterEpochMs']);self.save(state);self.stage('sample')
+            elif call['verb']=='directory-search':
+                self.directory.act(call['ticket'],'hidden' if call['inputs']['query']==context(self.run)['hidden'] else 'owned')
+                self.stage('sample')
             else:
                 if self.state['active']['stage']=='bookmark':
                     self.bookmarks.act(call['ticket'],call['verb']);self.stage('tab')

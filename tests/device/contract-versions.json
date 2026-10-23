@@ -31,7 +31,7 @@
     "world-render-receipt-inventory": {"current": 1, "reads": [1]},
     "pico-graphics-capture-binding": {"current": 1, "reads": [1]},
     "pico-navigation-address-observation": {"current": 1, "reads": [1]},
-    "pico-navigation-prefix": {"current": 1, "reads": [1]},
+    "pico-navigation-prefix": {"current": 2, "reads": [1, 2]},
     "pico-navigation-prefix-source": {"current": 1, "reads": [1]},
     "pico-navigation-prefix-samples": {"current": 1, "reads": [1]},
     "pico-graphics-input-surface": {"current": 1, "reads": [1]},
