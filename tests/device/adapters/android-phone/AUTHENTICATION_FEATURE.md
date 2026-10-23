@@ -1,5 +1,43 @@
 # Android Phone Authentication feature v1, shared contract v17
 
+## Tablet account-header coverage boundary
+
+The existing Authentication verdict proves native account authority, protected
+HTTP access, the Login dialog and passive tablet presence. It does not prove the
+visible account name in the TabletHome header. Login UI v2 has seven closed
+control IDs and no account-label observation; `login.entry` is deliberately
+absent while its existing MouseArea is accessibility-ignored after login.
+Script inventory v1 reports tablet visibility and manager/picker state only.
+A successful account probe therefore cannot stand in for a displayed username.
+
+The existing [WindowRoot host contract](../../qml/tst_tablet_window.qml) now
+checks the real Phone/toolbar presenter against a controlled native Account
+singleton: an initial signed-in profile, subsequent profile changes/logout,
+and the retained setter with empty, short, 14-character and 15-character names.
+It intentionally fails on the product source that lacks `usernameShort` and
+keeps `username` at `Unknown user`. Resolving those two product bindings belongs
+to the separate product fix; this test-only packet changes no product QML.
+The contract substitutes the home page with an Item, so its property checks do
+not establish TabletHome pixels or device acceptance. Its existing QML runner
+registration remains in use, without a new test system or public DTO version.
+
+The remaining device E2E gap needs a separate, reviewed passive observation.
+One minimal instrumentation option is to read the existing TabletHome login
+MouseArea's `Accessible.name`, already bound to the actual `loginText.text`,
+on the GUI thread, including the logged-in state. Bind the reading to the real
+home component, visible rectangle, current root/token, nonce, PID, generation,
+source sequence and account instance/generation. Export a bounded actual label
+digest/UTF-16 length rather than a raw user identity. A controlled expected
+short username is an assertion input, never a measured getter result. Missing,
+hidden, foreign, duplicate or stale labels must fail the required check; a
+native-account success with blank or `Unknown user` header must fail too.
+Actual rendered-frame/device acceptance remains a separate obligation.
+
+This is an instrumentation proposal only. No bridge, new control ID, packet
+field or common Authentication version is implemented here. A future private
+versioned observation must preserve the closed Login UI v2 and script-inventory
+v1 readers; unknown fields must not be silently accepted as existing coverage.
+
 The existing Phone Appium entrypoint implements
 `feature.authentication.act/observe/cleanup`. Normal inputs, causal native
 readiness, separate primary/actor sources, three explicit restarts, fixture

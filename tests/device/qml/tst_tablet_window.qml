@@ -1,5 +1,6 @@
 import QtQuick 2.12
 import QtTest 1.2
+import Hifi 1.0
 import "../../../interface/resources/qml/hifi/tablet" as TabletUi
 import "../../../scripts/system/places" as Places
 
@@ -61,7 +62,10 @@ TestCase {
         }
     }
 
-    function init() { proxy.homes = 0; proxy.closes = 0; proxy.tabletShown = false }
+    function init() {
+        proxy.homes = 0; proxy.closes = 0; proxy.tabletShown = false
+        Account.username = "Unknown user"; Account.loggedIn = false
+    }
     function cleanup() { currentWindow = null }
 
     function openTablet() {
@@ -74,6 +78,47 @@ TestCase {
         proxy.tabletShown = true
         tryCompare(window, "opacity", 1)
         return window
+    }
+
+    // WindowRoot is the production Phone/toolbar presenter. The native
+    // Account service is the controlled host boundary; its value must flow
+    // through the actual QML binding, not a test-side setUsername call.
+    // The substituted homeFactory does not prove TabletHome pixels.
+    function test_initialNativeAccountLabel() {
+        Account.username = "fixture-user"
+        Account.loggedIn = true
+        var window = openTablet()
+        compare(window.username, "fixture-user")
+        compare(window.usernameShort, "fixture-user")
+    }
+
+    function test_nativeProfileChangeAndLogoutLabel() {
+        var window = openTablet()
+        Account.username = "abcdefghijklmnop"
+        Account.loggedIn = true
+        tryCompare(window, "username", "abcdefghijklmnop")
+        tryCompare(window, "usernameShort", "abcdefghijklmn...")
+        Account.username = "Unknown user"
+        Account.loggedIn = false
+        tryCompare(window, "username", "Unknown user")
+        tryCompare(window, "usernameShort", "Unknown user")
+    }
+
+    function test_accountLabelFormatting_data() {
+        return [
+            {tag: "empty", value: "", expected: ""},
+            {tag: "short", value: "abc", expected: "abc"},
+            {tag: "fourteen", value: "abcdefghijklmn", expected: "abcdefghijklmn"},
+            {tag: "fifteen", value: "abcdefghijklmno", expected: "abcdefghijklmn..."}
+        ]
+    }
+
+    function test_accountLabelFormatting(data) {
+        var window = openTablet()
+        window.setUsername(data.value)
+        compare(window.username, data.value)
+        compare(window.usernameShort, data.expected)
+        verify(typeof window.playButtonClickSound === "function")
     }
 
     function test_windowHideReleasesTabletState() {
