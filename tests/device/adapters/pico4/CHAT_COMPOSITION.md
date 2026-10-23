@@ -180,3 +180,12 @@ cannot reset a cursor or admit a different configured root, native birth, manage
 or compilation. The independent witness remains separate. Older composition
 records are retained; they cannot acquire this v6 continuation guarantee. See
 [the closed source continuation contract](../chat_journey/COMPILED_CHAT_SOURCE.md#bounded-warm-continuation-v2).
+
+
+The independent `PicoChatWitness.detach()` returns the result of its own
+`OwnedChatPeer.close_host()`. Successful parent detachment does not close the
+witness's separately opened original pairs. A recycled witness descriptor is
+retained by its exact owner, remains false on repeated detachment, and never
+closes the same-file foreign replacement or retires a source journal. This
+host-only result neither supplies a witness finalization intent nor extends the
+parent's durable `original-host-chat-handles` scope to the witness.

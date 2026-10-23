@@ -204,6 +204,28 @@ class PicoChatCompositionTests(unittest.TestCase):
         self.assertIsNot(code.scripts,owner.code_sources[1].scripts)
         self.assertNotEqual(code.store.path,owner.code_sources[1].store.path)
         self.assertEqual([],witness.publisher.samples.frames);self.assertEqual([],self.native.inputs)
+        files,process=witness.peer.files.fd_owner,witness.peer.process.fd_owner
+        self.assertTrue(owner.detach());self.assertFalse(files.closed);self.assertFalse(process.closed)
+        self.assertTrue(witness.detach());self.assertTrue(files.closed);self.assertTrue(process.closed)
+        self.assertTrue(witness.detach());self.assertIsNotNone(owner.store.read())
+
+    def test_independent_witness_detach_keeps_same_file_recycled_fd_and_reports_unresolved(self):
+        from feature_journeys.witness import Client
+        owner=self.compose();self.prepare_sources(owner);owner.prepare()
+        source=PhaseFixtureReader(Client(self.source.client.url,'w'*48),RUN,'chat')
+        witness=self.instance._chat_witness_composition(self.native.target,source,self.peer.config)
+        self.addCleanup(witness.detach)
+        process=witness.peer.process;pair=process.fd_owner;descriptor,anchor=pair.fd,pair.anchor
+        original=owner.store.path.read_bytes();os.close(descriptor)
+        foreign=os.open(f'/proc/{process.pid}/exe',os.O_RDONLY|os.O_CLOEXEC)
+        try:
+            self.assertEqual(descriptor,foreign)
+            self.assertFalse(witness.detach());self.assertFalse(witness.detach())
+            self.assertIs(process,witness.peer.process);self.assertFalse(pair.closed);self.assertTrue(pair.lost)
+            self.assertEqual(descriptor,pair.fd);self.assertEqual(pair.node,(os.fstat(foreign).st_dev,os.fstat(foreign).st_ino))
+            self.assertIsNone(witness.peer.files);self.assertEqual(original,owner.store.path.read_bytes())
+            self.assertIsNone(self.peer.worker.poll());self.assertEqual([],self.native.inputs)
+        finally:os.close(foreign);os.close(anchor)
 
     def test_legacy_parent_manifest_is_retained_but_cannot_qualify_compiled_source_witness(self):
         from feature_journeys.witness import Client
