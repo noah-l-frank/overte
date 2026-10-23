@@ -328,6 +328,8 @@ REQUIRED = {
     "ios-avatar-final-archive": 1,
     "ios-avatar-final-copy": 1,
     "ios-avatar-final-copy-storage": 1,
+    "ios-avatar-abort": 1,
+    "ios-avatar-abort-result": 1,
     "ios-avatar-file-receipts": 1,
     "ios-avatar-native-file-receipt": 1,
     "ios-avatar-abandoned-file-read": 1,

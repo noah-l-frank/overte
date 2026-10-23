@@ -322,6 +322,8 @@
     "ios-avatar-final-archive": {"current": 1, "reads": [1]},
     "ios-avatar-final-copy": {"current": 1, "reads": [1]},
     "ios-avatar-final-copy-storage": {"current": 1, "reads": [1]},
+    "ios-avatar-abort": {"current": 1, "reads": [1]},
+    "ios-avatar-abort-result": {"current": 1, "reads": [1]},
     "ios-avatar-file-receipts": {"current": 1, "reads": [1]},
     "ios-avatar-native-file-receipt": {"current": 1, "reads": [1]},
     "ios-avatar-abandoned-file-read": {"current": 1, "reads": [1]},
