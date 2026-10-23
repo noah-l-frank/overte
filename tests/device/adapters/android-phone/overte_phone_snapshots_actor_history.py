@@ -76,7 +76,10 @@ class SnapshotActorHistoryPass(SnapshotHistoryReadPass):
             self.started=True;self.guard();self._memory();self.replaying=True
             try:frames=self.role._restore_historical_originals(self.guard,receipts=self)
             finally:self.replaying=False
-            self.guard();self._memory();need(graph_digest(frames)==self.graphs[3])
+            self.guard();self._memory()
+            # Serialized originals reorder JSON object keys. Compare their
+            # meaning, keeping the separate same-call memory graph seal.
+            need(same(frames,self.role.frames))
             self.file_seal=tuple(self.files.items());self.file_seal_sha256=self._files_digest(self.file_seal)
             self.digest=self.graphs[3]
             return self.digest
@@ -86,6 +89,15 @@ class SnapshotActorHistoryPass(SnapshotHistoryReadPass):
     def check(self):
         self.feature.lock.assert_held();need(self.started and self.digest==self.graphs[3])
         self._headers();self._memory();self._verify_files()
+
+    def actor_unchanged(self):
+        """Current Role work cannot alter the previous quiet/lifecycle graph."""
+        self.feature.lock.assert_held()
+        need(graph_digest(self.actor.state)==self.graphs[1]
+            and same(self.actor.previous,self.headers[1])
+            and signature(self.actor.store.path)==self.signatures[1]
+            and same(self.actor.store.read(),self.headers[1])
+            and signature(self.actor.store.path)==self.signatures[1])
 
     def finish(self):
         """Requalify after fresh native/phase callbacks; consume no current fact."""

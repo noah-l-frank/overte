@@ -191,7 +191,12 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             need(same(store.read(),self._ordinary_primary))
 
     def save(self):
+        # Enrolled cleanup must not adopt lifecycle/quiet edits made by a
+        # current guard callback. Pin the intended DTO before that callback.
+        stages=self.feature.state.get('cleanupStages',{})
+        desired=graph_digest(self.state) if type(stages) is dict and 'readReadyMode' in stages else None
         self.feature.bound();self.primary_owner();self.ordinary_publication();self.cleanup_publication();self.read_ready_mode();need(same(self.store.read(),self.previous))
+        if desired is not None:need(graph_digest(self.state)==desired)
         value=dict(snapshotsActorVersion=ACTOR_VERSION,runId=self.feature.run,binding=self.feature.binding,payload=pack([self.state]))
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.primary_owner();self.previous=deepcopy(value)
 
@@ -846,7 +851,7 @@ class PhoneSnapshotsActor(PhoneAssetsActor):
             after=role.frames[-1]['phaseAfter']
             if not after['active']:return self.defer_cleanup_close(role,after,prepared['phase'])
             proof=f.restored(snapshot=role.frames[-1]);now=f.monotonic()
-            if history is not None:history._verify_files()
+            if history is not None:history.actor_unchanged();history._verify_files()
             quiet=quiet_window(self.state['quiet'],now,measured['sequence']);quiet['final']=proof;self.state['quiet']=quiet
             self.save()
             if maintenance is not None:
