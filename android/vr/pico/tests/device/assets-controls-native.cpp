@@ -72,6 +72,9 @@ Q_LOGGING_CATEGORY(qmlLogging,"qml-original-loader-host")
 #include "AssetsTabletOriginals.inc"
 #endif
 #include "AssetsReadOriginals.inc"
+#if defined(ASSETS_ORIGINAL_RESOURCE_MANAGER_FACTORY)
+#include "assets-resource-manager-host.h"
+#endif
 #if defined(ASSETS_ORIGINAL_MAPPING_MODEL)
 #include "AssetsMappingOriginals.inc"
 #endif
@@ -155,9 +158,25 @@ int main(int argc,char**argv){
 #if defined(ASSETS_ORIGINAL_RESOURCE_READ)
  const auto resourceStats=QSharedPointer<StatTracker>::create();DependencyManager::slot<StatTracker>()=resourceStats;
 #if defined(ASSETS_OBSERVE_REQUEST_LIFETIMES)
- overte::e2e::AssetsRequestLifetimes requestLifetimes;QJsonArray requestLifetimeOriginals;
+#if defined(ASSETS_ORIGINAL_RESOURCE_MANAGER_FACTORY)
+ overte::e2e::AudioSettingsQueue ownerQueue;std::shared_ptr<overte::e2e::AssetsRequestLifetimes> requestLifetimes;
+ assert(QMetaObject::invokeMethod(originalReadClient.client.data(),[&]{requestLifetimes=std::make_shared<overte::e2e::AssetsRequestLifetimes>();},Qt::BlockingQueuedConnection));
+ ResourceManager resourceManager(originalReadClient.worker);QObject resourceParent;
+ const auto lifetimeSnapshot=[&](const QString& run) {
+  return assetsOwnerSnapshot(ownerQueue,originalReadClient.client,[requestLifetimes,run](QObject*){return requestLifetimes->snapshot(run);});
+ };
+#else
+ overte::e2e::AssetsRequestLifetimes requestLifetimes;
+ const auto lifetimeSnapshot=[&](const QString& run){return requestLifetimes.snapshot(run);};
+#endif
+ QJsonArray requestLifetimeOriginals;
  const auto observeRequest=[&](AssetResourceRequest* source,const QString& run) {
-  assert(requestLifetimes.observe(source,run));const auto frame=requestLifetimes.snapshot(run);assert(!frame.isEmpty());requestLifetimeOriginals.append(frame);
+#if defined(ASSETS_ORIGINAL_RESOURCE_MANAGER_FACTORY)
+  assert(requestLifetimes->observe(source,run));const auto frame=requestLifetimes->snapshot(run);
+#else
+  assert(requestLifetimes.observe(source,run));const auto frame=requestLifetimes.snapshot(run);
+#endif
+  assert(!frame.isEmpty());requestLifetimeOriginals.append(frame);
  };
 #endif
  QJsonArray resourceWireOriginals;bool resourceAttempted=false;quint64 resourceSequence=0;const auto resourceInstance=QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -324,7 +343,7 @@ QtObject {
 #endif
 #if defined(ASSETS_ORIGINAL_RESOURCE_READ)
 #if defined(ASSETS_OBSERVE_REQUEST_LIFETIMES)
-   else if(action=="host-original-resource-lifetimes") {packet=requestLifetimes.snapshot(request.value("runId").toString());assert(!packet.isEmpty());}
+   else if(action=="host-original-resource-lifetimes") {packet=lifetimeSnapshot(request.value("runId").toString());assert(!packet.isEmpty());}
 #endif
    else if(action=="host-original-entity-resources") {
     assert(!resourceAttempted);resourceAttempted=true; // An uncertain original read never silently reacquires.
@@ -332,9 +351,21 @@ QtObject {
     const auto entity=entityBridge.api._entityTree->objects.value(id);const auto originalUrl=QUrl(entity->properties.url);assert(originalUrl.scheme()=="atp");
     QElapsedTimer budget;budget.start();QJsonArray packets;QByteArray mainBytes;const auto firstWire=resourceWireOriginals.size();
     auto readResource=[&](const QUrl& url,const QString& role) {
-     AssetsResourceRead read(url);auto resource=new AssetResourceRequest(url,false);read.request=resource;
+     AssetsResourceRead read(url);
+#if defined(ASSETS_ORIGINAL_RESOURCE_MANAGER_FACTORY)
+     auto base=resourceManager.createResourceRequest(&resourceParent,url,false);auto resource=qobject_cast<AssetResourceRequest*>(base);
+     assert(resource && resource->thread()==originalReadClient.client->thread() && resource->thread()!=QThread::currentThread());
+#else
+     auto resource=new AssetResourceRequest(url,false);
+#endif
+     read.request=resource;
+#if defined(ASSETS_ORIGINAL_RESOURCE_MANAGER_FACTORY)
+     const auto actualClass=QString::fromLatin1(resource->metaObject()->className());const bool ownerMatchesClient=resource->thread()==originalReadClient.client->thread();
+#endif
 #if defined(ASSETS_OBSERVE_REQUEST_LIFETIMES)
+#if !defined(ASSETS_ORIGINAL_RESOURCE_MANAGER_FACTORY)
      observeRequest(resource,request.value("runId").toString());
+#endif
      QObject::connect(resource,&ResourceRequest::progress,resource,[&](qint64,qint64){observeRequest(resource,request.value("runId").toString());});
 #endif
      QObject::connect(resource,&ResourceRequest::finished,resource,[&]{
@@ -343,17 +374,42 @@ QtObject {
 #endif
       read.raw=resource->getData();read.result=resource->getResult();read.state=resource->getState();read.relative=resource->getRelativePathUrl();read.cache=resource->loadedFromCache();read.completed=true;
       resource->deleteLater();
+#if defined(ASSETS_ORIGINAL_RESOURCE_MANAGER_FACTORY)
+      read.delivered.store(true,std::memory_order_release);
+#endif
      });
+#if defined(ASSETS_ORIGINAL_RESOURCE_MANAGER_FACTORY)
+     const QPointer<AssetResourceRequest> weak(resource);const auto run=request.value("runId").toString();
+     assert(QMetaObject::invokeMethod(resource,[&,weak,run] {
+      assert(weak && weak->thread()==QThread::currentThread());observeRequest(weak,run);weak->send();observeRequest(weak,run);
+     },Qt::QueuedConnection));
+     while(!read.delivered.load(std::memory_order_acquire) && budget.elapsed()<1500){QTest::qWait(1);}
+     assert(read.delivered.load(std::memory_order_acquire));
+     while(!read.request.isNull() && budget.elapsed()<1500){QTest::qWait(1);}
+     assert(read.completed && read.request.isNull());
+#else
      resource->send();
 #if defined(ASSETS_OBSERVE_REQUEST_LIFETIMES)
      observeRequest(resource,request.value("runId").toString());
 #endif
      while(!read.completed && budget.elapsed()<1500){QTest::qWait(1);}
      assert(read.completed);QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);assert(read.request.isNull());
+#endif
 #if defined(ASSETS_OBSERVE_REQUEST_LIFETIMES)
+#if defined(ASSETS_ORIGINAL_RESOURCE_MANAGER_FACTORY)
+     const auto retireRun=request.value("runId").toString();
+     const auto retired=assetsOwnerSnapshot(ownerQueue,originalReadClient.client,[&,retireRun](QObject*) {
+      const auto frame=requestLifetimes->snapshot(retireRun);requestLifetimeOriginals.append(frame);return frame;
+     });assert(!retired.isEmpty());
+#else
      const auto retired=requestLifetimes.snapshot(request.value("runId").toString());assert(!retired.isEmpty());requestLifetimeOriginals.append(retired);
 #endif
-     auto captured=read.capture();captured["role"]=role;packets.append(captured);return read.raw;
+#endif
+     auto captured=read.capture();captured["role"]=role;
+#if defined(ASSETS_ORIGINAL_RESOURCE_MANAGER_FACTORY)
+     captured["actualClass"]=actualClass;captured["ownerMatchesClient"]=ownerMatchesClient;captured["ownerQueueRetired"]=ownerQueue.settled();
+#endif
+     packets.append(captured);return read.raw;
     };
     mainBytes=readResource(originalUrl,"main");const auto doc=QJsonDocument::fromJson(mainBytes).object();
     const auto mesh=doc.value("buffers").toArray().at(0).toObject().value("uri").toString();const auto texture=doc.value("images").toArray().at(0).toObject().value("uri").toString();
