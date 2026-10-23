@@ -157,6 +157,8 @@
     var lastPicoAvatarStateRequest = "";
     var lastPicoAvatarPreferencesRequest = "";
     var lastPicoAssetsFilesRequest = "";
+    var lastPicoAssetsReadRequest = "";
+    var lastPicoAssetsReadRetirementRequest = "";
     var lastPicoAvatarBookmarkLoadsRequest = "";
     var lastPicoAvatarBookmarksRequest = "";
     var lastGraphicsSubjectRequest = "";
@@ -1111,6 +1113,53 @@
             } catch (_picoEmoteSceneError) { /* Original ownership and missing scene facts remain unresolved. */ }
             Test.saveObject(picoEmoteScene, "feature-pico-emote-scene.json");
             return;
+        }
+
+        if (command && command.schemaVersion === 1 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && /^(feature-pico-assets-observe|feature-pico-assets-download|feature-pico-assets-resolve)$/.test(command.action)
+                && objectKeysMatch(command,["schemaVersion","commandId","action","runId"].concat(
+                    command.action === "feature-pico-assets-download" ? ["hash"] : command.action === "feature-pico-assets-resolve" ? ["path"] : []))
+                && (command.action !== "feature-pico-assets-download" || typeof command.hash === "string" && /^[0-9a-f]{64}$/.test(command.hash))
+                && (command.action !== "feature-pico-assets-resolve" || typeof command.path === "string" && new RegExp("^/(?:e2e-|renamed-)"+command.runId+"/(?:main\\.gltf|main\\.obj|stand\\.fbx|mesh/triangle\\.bin|textures/checker\\.png|materials/palette\\.mtl)$").test(command.path))) {
+            if (command.commandId === lastPicoAssetsReadRequest) {return;}
+            lastPicoAssetsReadRequest=command.commandId;var picoAssetsReadStarted=Date.now(),picoAssetsReadAttempts=0;
+            function pollPicoAssetsRead() {
+                var packet={schemaVersion:1,requestId:command.commandId,available:false};picoAssetsReadAttempts+=1;
+                try {
+                    if (typeof Test.featurePicoAssetsRead === "function") {
+                        var actual=Test.featurePicoAssetsRead(command,Date.now()-picoAssetsReadStarted>=4500 || picoAssetsReadAttempts>=225);
+                        if (actual && actual.requestId===command.commandId) {
+                            if (actual.pending===true && picoAssetsReadAttempts<230) {Script.setTimeout(pollPicoAssetsRead,20);return;}
+                            if (actual.pending!==true) {packet=actual;}
+                        }
+                    }
+                } catch (_picoAssetsReadError) { /* Pending original requests remain owned. */ }
+                Test.saveObject(packet,command.action==="feature-pico-assets-download" ? "feature-pico-assets-download.json"
+                    : command.action==="feature-pico-assets-resolve" ? "feature-pico-assets-resolve.json" : "feature-pico-assets-observation.json");
+            }
+            pollPicoAssetsRead();return;
+        }
+        if (command && command.schemaVersion === 1 && command.action === "feature-pico-assets-read-retire"
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && command.original && typeof command.original === "object" && !Array.isArray(command.original)
+                && objectKeysMatch(command,["schemaVersion","commandId","action","original"])) {
+            if (command.commandId===lastPicoAssetsReadRetirementRequest) {return;}
+            lastPicoAssetsReadRetirementRequest=command.commandId;var picoAssetsRetireAttempts=0;
+            function pollPicoAssetsReadRetirement() {
+                var packet={schemaVersion:1,requestId:command.commandId,available:false};picoAssetsRetireAttempts+=1;
+                try {
+                    if (typeof Test.featurePicoAssetsReadRetire === "function") {
+                        var actual=Test.featurePicoAssetsReadRetire(command);
+                        if (actual && actual.requestId===command.commandId) {
+                            if (actual.pending===true && picoAssetsRetireAttempts<230) {Script.setTimeout(pollPicoAssetsReadRetirement,20);return;}
+                            if (actual.pending!==true) {packet=actual;}
+                        }
+                    }
+                } catch (_picoAssetsRetireError) { /* Unknown or live resources cannot be retired. */ }
+                Test.saveObject(packet,"feature-pico-assets-read-retirement.json");
+            }
+            pollPicoAssetsReadRetirement();return;
         }
 
         if (command && command.schemaVersion === 1 && command.action === "feature-pico-assets-files"
@@ -2310,7 +2359,9 @@
                 || command.action === "feature-create-models-observe"
                 || command.action === "feature-create-browse-setting"
                 || command.action === "feature-world-render-observe"
-                || command.action === "feature-pico-assets-files"
+                || command.action === "feature-pico-assets-files" || command.action === "feature-pico-assets-observe"
+                || command.action === "feature-pico-assets-download" || command.action === "feature-pico-assets-resolve"
+                || command.action === "feature-pico-assets-read-retire"
                 || command.action === "feature-pico-avatar-state-observe"
                 || command.action === "feature-pico-avatar-bookmarks-observe"
                 || command.action === "feature-pico-avatar-bookmark-loads-observe"

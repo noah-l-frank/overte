@@ -23,7 +23,7 @@
 #include <memory>
 namespace overte::e2e { class ChatViewObservation; class ChatProfileOwner; class CreateEntityLifetimes; class CreateModelResources; class AudioSettingsObservation; class AudioSettingsQueue; }
 namespace overte::e2e { class ChatPeerPosition; }
-namespace overte::e2e { class PicoEmoteSceneFixture; class AvatarPreferenceSnapshot; class PrivateAssetsFiles; }
+namespace overte::e2e { class PicoEmoteSceneFixture; class AvatarPreferenceSnapshot; class PrivateAssetsFiles; class PicoAssetsReadJob; }
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; }
 #endif
@@ -212,6 +212,8 @@ public slots:
     Q_INVOKABLE QVariantMap featureAvatarRenderObservation(const QVariantMap& command);
 #if defined(ANDROID_APP_PICO_INTERFACE)
     Q_INVOKABLE QVariantMap featurePicoAssetsFiles(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featurePicoAssetsRead(const QVariantMap& command, bool abort = false);
+    Q_INVOKABLE QVariantMap featurePicoAssetsReadRetire(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAvatarState(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAvatarBookmarks(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAvatarBookmarkLoads(const QVariantMap& command);
@@ -311,6 +313,13 @@ private:
 #if defined(ANDROID_APP_PICO_INTERFACE)
     std::shared_ptr<overte::e2e::PicoEmoteSceneFixture> _featureEmoteScene;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureEmoteSceneQueue;
+    std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAssetsReadQueue;
+    std::shared_ptr<overte::e2e::PicoAssetsReadJob> _featureAssetsRead;
+    quint64 _featureAssetsReadSequence {0},_featureAssetsReadRetireSequence {0};
+    QHash<QString,QVariantMap> _featureAssetsReadRetireCommands,_featureAssetsReadRetireResults;
+    QHash<QString,qint64> _featureAssetsReadRetireRequested;
+    QPointer<QObject> _featureAssetsClientObject,_featureAssetsNodesObject,_featureAssetsServerObject;
+    QString _featureAssetsClientBirth,_featureAssetsNodesBirth,_featureAssetsServerBirth;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAssetsFilesQueue;
     std::shared_ptr<overte::e2e::PrivateAssetsFiles> _featureAssetsFiles;
     quint64 _featureAssetsFilesSequence {0};

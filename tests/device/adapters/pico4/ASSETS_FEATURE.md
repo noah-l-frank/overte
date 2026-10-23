@@ -184,3 +184,58 @@ original Pico observe/apply bodies. The getter fixture declaration is shared
 by these native checks; both compile the same entire production method. No new
 selector is added (local count remains148), and no whole Assets capability or
 backend success is claimed.
+
+## Original read requests and retained read cleanup
+
+The Pico-only `featurePicoAssetsRead` getter uses the original AssetClient
+factories, complete MappingRequest and AssetRequest implementations, original
+mapping protocol decoding and content hash checks. It reads all mappings,
+including hidden bake rows, original status/errors, the actual resolver path
+and redirect, and original downloaded bytes/cache provenance. Requested paths
+and hashes are lookup inputs, never observed output. Actual dependency births,
+server/domain/session identities and the existing original DomainHandler
+connection-generation source bind each completed read. A same-UUID reconnect
+or changed rights cannot silently continue an old request.
+
+Completion copies only actual request-thread getters into a mutex-protected
+lane; it retains no GUI/TSI pointer. Observation waits for real weak QObject
+death, both observed Qt connections to disappear and both observer capture
+markers to expire. Merely receiving QObject::destroyed or a finished signal
+cannot qualify. `featurePicoAssetsReadRetire` cancels only an exact previously
+known readonly command and independently reports those original resources and
+times. Unknown, undelivered or still-live requests stay unresolved. This is
+readonly request cleanup, not retirement of the complete QML/V8/application
+owner. Native and host consumers retain the unchanged 512-command and finite
+raw-history limits. Cold original bytes are parsed at their original time;
+they never become a fresh observation or an input replay.
+
+The private `_assets_source` and `_assets_read_retirement` factories require
+the existing common source lock. The probe forwards the exact closed command
+and polls with bounded attempts even under a frozen clock. Missing native
+results, exceptions or exhausted pending polls remain unavailable. These APIs
+add no public Assets capability. Registry additions are
+`native-pico-assets-read:1`, `pico-assets-source:1` and
+`pico-assets-read-retirement:1`; four disjoint selectors are added to the local
+catalog (148→152): `assets-read-native`, `assets-read-job`,
+`assets-backend-source`, and `assets-read-probe`.
+
+The native tests compile complete production getters and original request
+implementations; protocol/cache, NodeList/domain, lifecycle and pipe delivery
+are explicit host endpoints. They exercise actual request threads, delayed
+QObject destruction, callback retention, content mismatch, cache provenance,
+connection changes, readonly retirement and finite native history. The Python
+consumer joins packets from that real native producer, including lost replies,
+raw cold continuity, frozen-clock host aging and forged live-resource refusal.
+The Node test executes the whole original command dispatcher, including finite
+pending/abort and readonly cleanup branches. No actual Asset Server, upload,
+oven, fixture permission mutation or physical Pico run is qualified. In
+particular a cache-hit download cannot prove that the server still owns a blob.
+Durable normal Cancel composition, original upload-call absence and independent
+server mapping/blob/bake cleanup remain required next work.
+
+On 2026-10-23 the exact selected five groups passed in 12.84 seconds:
+native read 5.716 s, native job 1.412 s, Python source 5.484 s, original probe
+0.142 s and coverage 0.086 s. This represents two native tests, five Python
+source cases, eight probe cases and seven coverage checks. Documentation668,
+closed versions, common/product13, AST6, fixed-source provenance12 and whitespace
+checks passed. Limits and assertions were unchanged; no physical runs occurred.

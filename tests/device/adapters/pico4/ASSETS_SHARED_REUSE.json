@@ -42,6 +42,20 @@
       "originalSha256": "736fa7e7048cdcc1edd62a0c5d98659a4854b14ae32b337512be09a6e369c248",
       "selectedSha256": "a9f42fd50063237028595c3e5dae02e40134f3d86b0578701e68f14fc780230e",
       "adaptation": "Select only nanosecond identity/bounded private input read and reuse Root descriptor safety through a friend; preserve existing Create implementation."
+    },
+    {
+      "path": "tests/device/native/PicoAssetsReadJob.h",
+      "sourcePath": "tests/device/native/PhoneAssetsReadJob.h",
+      "originalSha256": "beac2fdd11e839b23e53fc4e766a8f09705cb8b382f56814a9cd3a4f26804e67",
+      "selectedSha256": "f0e87f9a33fe27b792fa7680fc48845e1bca27cff9f9756540380c66998a99aa",
+      "adaptation": "Select original reducers/read ownership; Pico-only gates, 512-command bound, actual connection generation, immutable request-thread copies, real weak QObject/QtConnection/capture retirement and known-only readonly cleanup."
+    },
+    {
+      "path": "tests/device/adapters/pico4/assets_source.py",
+      "sourcePath": "tests/device/adapters/android-phone/overte_phone_assets_source.py",
+      "originalSha256": "212dd4ebd10dddb2932420b3bb1de54a7d915bdcfee2790f2a4c53eb6069f9eb",
+      "selectedSha256": "add41ec5a152cacb7159d3f9947aeb9e89d5e1c60a8eaf37e04914d0cd195e63",
+      "adaptation": "Select strict original read parser/transport only; Pico source/action names, actual connection/dependency births, raw cold continuity, pending intent and combined native/host freshness; no Phone facade."
     }
   ],
   "unchangedProductSources": [

@@ -53,6 +53,10 @@ public:
     GetMappingRequest(const AssetUtils::AssetPath& path);
 
     AssetUtils::AssetHash getHash() const { return _hash;  }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    // Passive original normalized path of this actual request; no resolver.
+    AssetUtils::AssetPath featurePicoRequestedPath() const { return _path; }
+#endif
     AssetUtils::AssetPath getRedirectedPath() const { return _redirectedPath; }
     bool wasRedirected() const { return _wasRedirected; }
 
