@@ -101,6 +101,11 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         if passive:
             system=passive_scope(f);system_pin=cls._system_snapshot(system)
             factory=_callable_identity(f.adapter._snapshot_system_context)
+            feature_store=f.store;feature_header=deepcopy(f.previous);feature_signature=signature(feature_store.path)
+            feature_state=_digest(f.state);configuration=deepcopy(f.config);binding=deepcopy(f.binding)
+            sdk_scope=getattr(f.adapter,'_existing_input_scope',None);need(type(sdk_scope) is dict)
+            sdk_value=deepcopy(sdk_scope)
+            need(same(feature_store.read(),feature_header) and signature(feature_store.path)==feature_signature)
         f.bound();phase=f.phase.status(previous_phase)
         if previous_phase is not None:_same_phase(phase,previous_phase)
         need(phase['active'] and phase['activations'])
@@ -109,6 +114,11 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         if passive:
             need(passive_scope(f) is system and _same_callable(f.adapter._snapshot_system_context,factory))
             cls._system_matches(system,system_pin)
+            need(f.store is feature_store and same(f.previous,feature_header) and _digest(f.state)==feature_state
+                and same(f.config,configuration) and same(f.binding,binding)
+                and getattr(f.adapter,'_existing_input_scope',None) is sdk_scope and same(sdk_scope,sdk_value)
+                and signature(feature_store.path)==feature_signature and same(feature_store.read(),feature_header)
+                and signature(feature_store.path)==feature_signature)
         return cls(f,role,store,header,state,phase,before,cleanup=cleanup,passive=passive)
 
     def __init__(self,feature,role,store,header,state,phase,role_signature,*,cleanup=False,passive=False):
@@ -250,6 +260,7 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
                 need(new is not old and same(new.binding,self.system_pin['binding']) and same(new.chooser,self.system_pin['chooser']))
                 new_pin=self._system_snapshot(new)
                 need(old.guard() is True and new.guard() is True)
+                need(number(new.last_clock,old.last_clock,1e15))
                 # The recreated scope has fresh factory callbacks. The factory
                 # and original SDK session, descriptors and old callbacks must
                 # still match after the last actual SDK query.
