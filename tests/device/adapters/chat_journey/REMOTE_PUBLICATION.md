@@ -166,3 +166,18 @@ entries, 61 original publisher children, 100 complete scans) took 0.239872
 seconds with the fixed old implementation and 0.042356 seconds with the new
 complete name scan. This comparison qualifies only inventory overhead; it is
 not a fresh target sample or another successful whole journey.
+
+The existing 355-frame/256-joint scaling case subsequently passed unchanged
+in 10.646 seconds with the new complete name scan. It preserved all 355
+originals across reconstruction without queries, retained the original flat
+limit refusal and then acquired one genuinely new source frame. Together with
+the disjoint checks above, all 12 chunk cases passed. The complete common
+executor/application/archive/host diagnostic has not been rerun after this fix.
+
+Two pure strict-type-walk prototypes were measured and not adopted. Over ten
+passes through the same 61 retained records, unchanged recursive checking took
+0.083093 seconds versus 0.108231 seconds for an iterative cycle-safe walk. A
+minimal same-recursion/single-type-lookup variant measured 0.075832 seconds
+against 0.083174 seconds for the original. These small historical measurements
+do not justify a new cache/type mechanism; the original strict type walker is
+unchanged. Profiler call costs alone are not treated as uninstrumented speed.
