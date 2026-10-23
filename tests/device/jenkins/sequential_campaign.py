@@ -10,6 +10,7 @@ outputs stay private; only fixed IDs/statuses/digests enter staged JSON/JUnit.
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 from copy import deepcopy
 import errno
 import hashlib
@@ -29,6 +30,10 @@ import xml.etree.ElementTree as ET
 
 HEX = re.compile(r'[0-9a-f]{64}')
 IDENTIFIER = re.compile(r'[a-z0-9][a-z0-9-]{0,79}')
+OBSERVER_FORBIDDEN_ENV = {'OVERTE_E2E_FEATURE_READER_TOKEN', 'OVERTE_E2E_FEATURE_IMAGE_POLICY',
+    'OVERTE_E2E_CREATE_CONTROL_TOKEN', 'OVERTE_E2E_SCRIPTS_CONTROL_TOKEN', 'OVERTE_PHONE_ASSETS_CONFIGURATION'}
+OBSERVER_HOST_ENV = {'PATH', 'HOME', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR', 'TMP', 'TEMP',
+    'ANDROID_HOME', 'ANDROID_SDK_ROOT', 'XDG_RUNTIME_DIR'}
 
 
 class CampaignError(ValueError):
@@ -180,20 +185,33 @@ def stop_owned(owned):
     require(not live_owned(owned), 'owned-process-survived')
 
 
-def execute(argv, cwd, env, timeout, log):
+def execute(argv, cwd, env, timeout, log, *, observer=None):
     """One runner at a time; retain/terminate only actually owned host children."""
     owned = {}
     require(sys.platform.startswith('linux'), 'linux-command-ownership-required')
-    with owner_module(cwd).command_owner() as reap, os.fdopen(
-            os.open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600), 'wb') as output:
-        process = subprocess.Popen(argv, cwd=cwd, env=env, stdout=output, stderr=subprocess.STDOUT,
-                                   start_new_session=True)
-        collect_children(process.pid, owned, parent=os.getpid())
+    process = actor = None
+    observer_timed_out = False
+    observer_abandoned = observer_forced = False
+    with owner_module(cwd).command_owner() as reap, ExitStack() as files:
+        def open_log(path):
+            return files.enter_context(os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600), 'wb'))
+        output = open_log(log)
         deadline = time.monotonic() + timeout
         timed_out = False
         try:
+            if observer is not None:
+                actor = subprocess.Popen(observer['argv'], cwd=cwd, env=observer['environment'],
+                    stdout=open_log(log.with_name('observer.log')), stderr=subprocess.STDOUT, start_new_session=True)
+                collect_children(actor.pid, owned, parent=os.getpid())
+                atomic_json(log.with_name('observer-process.json'), dict(pid=actor.pid,
+                    birth=owned.get(actor.pid), argv=observer['argv']))
+            process = subprocess.Popen(argv, cwd=cwd, env=env, stdout=output, stderr=subprocess.STDOUT,
+                                       start_new_session=True)
+            collect_children(process.pid, owned, parent=os.getpid())
             while process.poll() is None:
                 collect_children(process.pid, owned)
+                if actor is not None:
+                    collect_children(actor.pid, owned)
                 adopted_children(owned)
                 if time.monotonic() >= deadline:
                     timed_out = True
@@ -202,18 +220,45 @@ def execute(argv, cwd, env, timeout, log):
                     process.wait(timeout=0.25)
                 except subprocess.TimeoutExpired:
                     pass
+            # Retirement is the original observer's work. Never replace its
+            # successful normal exit with a supervisor signal acknowledgment.
+            while actor is not None and actor.poll() is None and not timed_out:
+                if process.returncode != 0:
+                    observer_abandoned = True
+                    break  # A failed prefix may never have registered a run.
+                collect_children(actor.pid, owned)
+                adopted_children(owned)
+                if time.monotonic() >= deadline:
+                    observer_timed_out = True
+                    break
+                try:
+                    actor.wait(timeout=min(.1, max(.001, deadline - time.monotonic())))
+                except subprocess.TimeoutExpired:
+                    pass
         finally:
-            collect_children(process.pid, owned)
+            for child in (process, actor):
+                if child is not None:
+                    collect_children(child.pid, owned)
             adopted_children(owned)
+            observer_forced = actor is not None and actor.poll() is None
             leaked = bool(live_owned(owned))
             stop_owned(owned)
-            process.wait(timeout=5)
+            for child in (process, actor):
+                if child is not None:
+                    child.wait(timeout=5)
             # Fast double forks may escape before the first poll. The existing
             # subreaper adopts them; never mistake reparenting for termination.
             adopted_children(owned)
             leaked = leaked or bool(live_owned(owned))
             reap()
-    return {'returncode': process.returncode, 'timedOut': timed_out, 'ownedChildrenLeaked': leaked and not timed_out}
+            if actor is not None:
+                atomic_json(log.with_name('observer-exit.json'), dict(pid=actor.pid, birth=owned.get(actor.pid),
+                    returncode=actor.returncode, timedOut=observer_timed_out or timed_out,
+                    forcedCleanup=observer_forced, runnerFailedBeforeRetirement=observer_abandoned,
+                    ownedChildrenLeaked=leaked))
+    return dict(returncode=process.returncode, timedOut=timed_out, ownedChildrenLeaked=leaked and not timed_out,
+        **(dict(observerReturncode=actor.returncode, observerTimedOut=observer_timed_out or timed_out,
+                observerForcedCleanup=observer_forced, observerAbandoned=observer_abandoned) if actor is not None else {}))
 
 
 class Campaign:
@@ -242,7 +287,8 @@ class Campaign:
         self.results = []
         seen = set()
         for row in runs:
-            require(type(row) is dict and set(row) == {'id', 'setup', 'adapter', 'environment'}
+            require(type(row) is dict and set(row) in ({'id', 'setup', 'adapter', 'environment'},
+                    {'id', 'setup', 'adapter', 'environment', 'observer'})
                     and type(row['id']) is str and IDENTIFIER.fullmatch(row['id'])
                     and row['id'] not in seen, 'invalid-or-duplicate-target')
             seen.add(row['id'])
@@ -310,8 +356,68 @@ class Campaign:
             argv += ['--required-setup', identifier]
         return argv, env, sum(m['timeoutSeconds'] for m in modules) + 120 * len(modules) + 300
 
+    def observer(self, row, primary_environment, folder):
+        if 'observer' not in row:
+            return None
+        reference = row['observer']
+        require(type(reference) is dict and set(reference) == {'config', 'environment'}, 'invalid-observer-reference')
+        paths = [checked_file(self.root, reference[name]) for name in ('config', 'environment')]
+        primary_path = checked_file(self.root, row['environment'])
+        require(len({(p.stat().st_dev, p.stat().st_ino) for p in [*paths, primary_path]}) == 3,
+                'observer-role-inputs-not-independent')
+        for path in paths:
+            metadata = path.stat()
+            require(metadata.st_uid == os.geteuid() and stat.S_IMODE(metadata.st_mode) == 0o600
+                    and metadata.st_nlink == 1, 'observer-private-input-ownership')
+        config = read_json(paths[0], reference['config']['sha256'])
+        role = read_json(paths[1], reference['environment']['sha256'])
+        module = self.lookup[row['id']]
+        require(module['command'][:2] == ['modules/feature_journey.py', '--area']
+                and len(module['command']) == 3 and row['id'] == 'feature-' + module['command'][2], 'observer-target-is-not-feature-journey')
+        area = module['command'][2]
+        fields = {'featureObserverVersion', 'area', 'target', 'candidateArguments', 'fixtureUrl', 'actorToken', 'durationSeconds'}
+        fields |= {'imagePolicy'} if area == 'emotes' else {'peerTarget', 'peerImagePolicy'} if area == 'avatar-people' else set()
+        require(type(config) is dict and set(config) == fields and config.get('area') == area, 'observer-area-or-role-mismatch')
+        require(type(role) is dict and set(role) == {'schemaVersion', 'environment'}
+                and type(role['schemaVersion']) is int and role['schemaVersion'] == 1
+                and type(role['environment']) is dict and all(type(k) is str and type(v) is str
+                    and '\x00' not in k + v for k, v in role['environment'].items()), 'invalid-observer-environment')
+        require(not OBSERVER_FORBIDDEN_ENV.intersection(role['environment']), 'observer-primary-credential-forbidden')
+        require(type(config['actorToken']) is str and config['actorToken']
+                and config['actorToken'] not in {primary_environment.get(key) for key in OBSERVER_FORBIDDEN_ENV},
+                'observer-token-not-independent')
+        for role_environment in (primary_environment, role['environment']):
+            configured = role_environment.get('OVERTE_PHONE_FEATURE_FIXTURE_CONFIG')
+            if configured:
+                path = Path(configured)
+                access = read_json(path if path.is_absolute() else self.source / path)
+                # The original adapter-only access file is read-only. A service
+                # owner/runner-writer config is never an actor substitute.
+                require(type(access) is dict and set(access) == {'fixtureAdapterAccessVersion', 'fixtureUrl', 'adapterToken'}
+                        and access['fixtureUrl'] == config['fixtureUrl']
+                        and access['adapterToken'] != config['actorToken'], 'observer-adapter-role-not-independent')
+        if 'OVERTE_DEVICE_TARGET_SELECTOR' in primary_environment:
+            require(config['target'] == primary_environment['OVERTE_DEVICE_TARGET_SELECTOR'], 'observer-target-mismatch')
+        if 'OVERTE_E2E_FEATURE_FIXTURE_URL' in primary_environment:
+            require(config['fixtureUrl'] == primary_environment['OVERTE_E2E_FEATURE_FIXTURE_URL'], 'observer-fixture-mismatch')
+        environment = {key: value for key, value in os.environ.items() if key in OBSERVER_HOST_ENV}
+        environment.update(role['environment'])
+        artifact_root = str(folder / 'actual/modules' / row['id'])
+        require('OVERTE_DEVICE_ARTIFACT_DIR' not in environment or environment['OVERTE_DEVICE_ARTIFACT_DIR'] == artifact_root,
+                'observer-artifact-root-mismatch')
+        environment.update(PYTHONDONTWRITEBYTECODE='1', PYTHONNOUSERSITE='1',
+            PYTHONPATH=str(self.source / 'tests/device'), OVERTE_DEVICE_ARTIFACT_DIR=artifact_root)
+        # Config/candidate semantics remain the original observer's verifier.
+        return dict(argv=[sys.executable, str(self.source / 'tests/device/adapters/android-phone/script_observer.py'),
+                          '--config', str(paths[0])], environment=environment)
+
     def collect(self, row, folder, outcome):
         require(type(outcome) is dict and type(outcome.get('returncode')) is int, 'invalid-runner-exit')
+        if 'observer' in row:
+            require(not outcome.get('observerForcedCleanup') and not outcome.get('observerAbandoned'), 'observer-required-forced-cleanup')
+            require(not outcome.get('observerTimedOut'), 'observer-retirement-timeout')
+            require(type(outcome.get('observerReturncode')) is int and outcome['observerReturncode'] == 0,
+                    'observer-did-not-exit-successfully')
         if outcome.get('timedOut'):
             raise CampaignError('runner-timeout')
         require(not outcome.get('ownedChildrenLeaked'), 'runner-left-owned-children')
@@ -408,12 +514,15 @@ class Campaign:
                 # Do not let one module's exception abort attempts of later IDs.
                 self.verify_inputs()
                 argv, env, timeout = self.command(row, folder)
+                observer = self.observer(row, env, folder)
                 atomic_json(folder / 'argv.json', argv)  # Private: may contain target identity.
                 result['attempted'] = True
-                outcome = self.executor(argv, self.source, env, timeout, folder / 'runner.log')
+                outcome = self.executor(argv, self.source, env, timeout, folder / 'runner.log',
+                                        **({'observer': observer} if observer is not None else {}))
                 result['returncode'] = outcome.get('returncode')
                 result.update(self.collect(row, folder, outcome))
                 self.verify_inputs()  # Late source/APK/receipt changes cannot leave a green verdict.
+                self.observer(row, env, folder)  # Recheck exact private role inputs after actual retirement.
             except Exception as error:
                 # Even a broken per-target directory must not abort later IDs.
                 try:

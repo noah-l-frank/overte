@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
 HERE = Path(__file__).resolve().parent
@@ -271,6 +272,185 @@ class SequentialCampaignTests(unittest.TestCase):
                     junit = ET.parse(self.stage / 'junit.xml').getroot()
                     self.assertEqual(junit.get('errors'), '1')
                     self.assertIsNotNone(junit.find("testcase[@name='campaign-public-staging']/error"))
+
+    def observer_fixture(self, mode='success'):
+        observer = self.source / 'tests/device/adapters/android-phone/script_observer.py'
+        observer.parent.mkdir(parents=True)
+        observer.write_text("""import json, os, pathlib, signal, sys, time
+config = json.loads(pathlib.Path(sys.argv[2]).read_text())
+assert sys.argv[1] == '--config'
+assert 'OVERTE_E2E_FEATURE_READER_TOKEN' not in os.environ
+assert 'OVERTE_E2E_CREATE_CONTROL_TOKEN' not in os.environ
+marker = pathlib.Path(os.environ['HOST_OBSERVER_MARKER'])
+marker.write_text(json.dumps({'environmentKeys': sorted(os.environ), 'area': config['area'],
+    'artifactRoot': os.environ['OVERTE_DEVICE_ARTIFACT_DIR']}))
+mode = os.environ['HOST_OBSERVER_MODE']
+if mode == 'orphan':
+    if os.fork() == 0:
+        os.setsid()
+        pathlib.Path(os.environ['HOST_ORPHAN_PID']).write_text(str(os.getpid()))
+        time.sleep(60)
+        os._exit(0)
+    end = time.monotonic() + 2
+    while not pathlib.Path(os.environ['HOST_ORPHAN_PID']).exists():
+        assert time.monotonic() < end
+        time.sleep(.01)
+if mode == 'leftover':
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+while mode == 'leftover' or not pathlib.Path(os.environ['HOST_OBSERVER_RETIRED']).exists():
+    time.sleep(.01)
+sys.exit(7 if mode == 'nonzero' else 0)
+""")
+        (self.source / 'tests/device/modules').mkdir(exist_ok=True)
+        (self.source / 'tests/device/modules/feature_journey.py').write_text('# Host-only declaration; not a device journey\n')
+        catalog = json.loads(self.catalog.read_text())
+        catalog['modules'][0].update(id='feature-scripts', command=['modules/feature_journey.py', '--area', 'scripts'])
+        self.catalog.write_text(json.dumps(catalog))
+        self.manifest['runs'][0]['id'] = 'feature-scripts'
+        primary = json.loads((self.root / 'environment.json').read_text())
+        access = self.root / 'adapter-reader.json'
+        access.write_text(json.dumps(dict(fixtureAdapterAccessVersion=1,
+            fixtureUrl='https://fixture.invalid:4443', adapterToken='adapter-' + 'd' * 40)))
+        access.chmod(0o600)
+        primary['environment'].update(OVERTE_E2E_FEATURE_READER_TOKEN='primary-reader-' + 'r' * 32,
+            OVERTE_E2E_CREATE_CONTROL_TOKEN='primary-writer-' + 'w' * 32,
+            OVERTE_PHONE_FEATURE_FIXTURE_CONFIG=str(access),
+            OVERTE_E2E_FEATURE_FIXTURE_URL='https://fixture.invalid:4443')
+        (self.root / 'environment.json').write_text(json.dumps(primary))
+        for row in self.manifest['runs']:
+            row['environment'] = self.reference('environment.json')
+        self.actor_config = self.root / 'actor.json'
+        self.actor_config.write_text(json.dumps(dict(featureObserverVersion=8, area='scripts',
+            target='private-selector-never-publish', candidateArguments=['--record', 'host-model-only'],
+            fixtureUrl='https://fixture.invalid:4443', actorToken='actor-' + 'a' * 40, durationSeconds=30)))
+        self.actor_environment = self.root / 'actor-environment.json'
+        self.actor_environment.write_text(json.dumps(dict(schemaVersion=1, environment={
+            'HOST_OBSERVER_MARKER':str(self.root / 'observer-start.json'), 'HOST_OBSERVER_MODE':mode,
+            'OVERTE_PHONE_FEATURE_FIXTURE_CONFIG':str(access),
+            'HOST_OBSERVER_RETIRED':str(self.root / 'observer-retired'),
+            'HOST_ORPHAN_PID':str(self.root / 'observer-orphan.pid')})))
+        self.actor_config.chmod(0o600)
+        self.actor_environment.chmod(0o600)
+        self.manifest['runs'][0]['observer'] = dict(config=self.reference('actor.json'),
+            environment=self.reference('actor-environment.json'))
+        self.manifest['catalog'] = self.reference('tests/device/catalog.json', self.source)
+        self.manifest['sourceFiles'] = {str(p.relative_to(self.source)):campaign.digest(p)
+                                        for p in self.source.rglob('*') if p.is_file()}
+        helper = self.root / 'host-runner.py'
+        helper.write_text("""import hashlib, json, pathlib, sys, time
+output, name, revision, artifact, root, mode = sys.argv[1:]
+root = pathlib.Path(root)
+(root / ('runner-' + name)).write_text('actual host subprocess started')
+if name == 'feature-scripts':
+    if mode == 'before-register':
+        sys.exit(9)
+    end = time.monotonic() + 2
+    while not (root / 'observer-start.json').exists():
+        assert time.monotonic() < end
+        time.sleep(.01)
+    (root / 'observer-retired').touch()
+output = pathlib.Path(output); output.mkdir()
+(output / 'summary.json').write_text(json.dumps({'schemaVersion':1, 'results':[{'id':name,'status':'passed'}]}))
+(output / 'junit.xml').write_text('<testsuite/>')
+(output / 'run-manifest.json').write_text(json.dumps({'actualHostSubprocess':name}))
+identity = dict(contract='overte-sh004-result-v1',sourceRevision=revision,artifactSha256=artifact)
+for key, filename in [('summarySha256','summary.json'),('runSha256','run-manifest.json'),('junitSha256','junit.xml')]:
+    identity[key] = hashlib.sha256((output / filename).read_bytes()).hexdigest()
+(output / 'result-identity.json').write_text(json.dumps(identity))
+""")
+        def execute(argv, cwd, env, timeout, log, *, observer=None):
+            output = argv[argv.index('--output-dir') + 1]
+            name = json.loads(Path(argv[argv.index('--catalog') + 1]).read_text())['modules'][-1]['id']
+            self.calls.append(name)
+            return campaign.execute([sys.executable, str(helper), output, name, REVISION,
+                self.manifest['apk']['sha256'], str(self.root), mode], cwd, env,
+                1.2 if mode == 'leftover' else 4, log, observer=observer)
+        return execute
+
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Owned Linux observer process contract')
+    def test_real_observer_has_isolated_role_fixed_source_argv_and_natural_exit_zero(self):
+        instance = self.make(self.observer_fixture())
+        with patch.dict(os.environ, {'OVERTE_E2E_FEATURE_READER_TOKEN':'must-not-be-inherited',
+                                    'OVERTE_E2E_CREATE_CONTROL_TOKEN':'must-not-be-inherited'}):
+            self.assertEqual(instance.run(), 0)
+        self.assertEqual(self.calls, ['feature-scripts', 'second'])
+        actual = json.loads((self.root / 'observer-start.json').read_text())
+        self.assertNotIn('OVERTE_E2E_FEATURE_READER_TOKEN', actual['environmentKeys'])
+        self.assertNotIn('OVERTE_E2E_CREATE_CONTROL_TOKEN', actual['environmentKeys'])
+        self.assertEqual(actual['area'], 'scripts')
+        self.assertEqual(actual['artifactRoot'], str(instance.private / 'feature-scripts/actual/modules/feature-scripts'))
+        private = instance.private / 'feature-scripts'
+        process = json.loads((private / 'observer-process.json').read_text())
+        self.assertEqual(process['argv'], [sys.executable,
+            str(self.source / 'tests/device/adapters/android-phone/script_observer.py'), '--config', str(self.actor_config)])
+        self.assertIsInstance(process['pid'], int)
+        self.assertIsInstance(process['birth'], str)
+        result = json.loads((private / 'observer-exit.json').read_text())
+        self.assertEqual(result['returncode'], 0)
+        self.assertFalse(result['forcedCleanup'])
+        self.assertIsNone(campaign.process_identity(process['pid']))
+
+    def test_observer_role_leak_foreign_area_and_borrowed_files_reject_before_dispatch(self):
+        for corruption in ('reader', 'writer', 'shared-token', 'adapter-token', 'writer-file', 'area', 'borrowed-file'):
+            with self.subTest(corruption=corruption):
+                if corruption != 'reader':
+                    self.tearDownFixture()
+                    self.setUp()
+                self.observer_fixture()
+                if corruption in ('reader', 'writer'):
+                    value = json.loads(self.actor_environment.read_text())
+                    key = 'OVERTE_E2E_FEATURE_READER_TOKEN' if corruption == 'reader' else 'OVERTE_E2E_CREATE_CONTROL_TOKEN'
+                    value['environment'][key] = 'forbidden-primary-secret'
+                    self.actor_environment.write_text(json.dumps(value))
+                elif corruption in ('shared-token', 'adapter-token', 'area'):
+                    value = json.loads(self.actor_config.read_text())
+                    key = 'area' if corruption == 'area' else 'actorToken'
+                    value[key] = 'primary-reader-' + 'r' * 32 if corruption == 'shared-token' else 'adapter-' + 'd' * 40 if corruption == 'adapter-token' else 'snapshots'
+                    self.actor_config.write_text(json.dumps(value))
+                elif corruption == 'writer-file':
+                    writer = self.root / 'service-writer.json'
+                    writer.write_text(json.dumps(dict(readerToken='secret-runner-writer', actorToken='publisher-token')))
+                    value = json.loads(self.actor_environment.read_text())
+                    value['environment']['OVERTE_PHONE_FEATURE_FIXTURE_CONFIG'] = str(writer)
+                    self.actor_environment.write_text(json.dumps(value))
+                row = self.manifest['runs'][0]
+                row['observer'] = dict(config=self.reference('actor.json'), environment=self.reference('actor-environment.json'))
+                if corruption == 'borrowed-file':
+                    row['observer']['environment'] = row['environment']
+                instance = self.make()
+                self.assertEqual(instance.run(), 1)
+                self.assertEqual(self.calls, ['second'])
+                self.assertFalse(self.read_summary()['results'][0]['attempted'])
+                self.assertEqual(self.read_summary()['results'][1]['status'], 'passed')
+                self.assertFalse((self.root / 'observer-start.json').exists())
+
+    @unittest.skipUnless(sys.platform.startswith('linux') and hasattr(os, 'fork'), 'Owned Linux observer cleanup contract')
+    def test_real_observer_failure_orphan_unregistered_runner_and_signal_ack_are_errors_then_next_target(self):
+        for mode in ('nonzero', 'orphan', 'before-register', 'leftover'):
+            with self.subTest(mode=mode):
+                if mode != 'nonzero':
+                    self.tearDownFixture()
+                    self.setUp()
+                instance = self.make(self.observer_fixture(mode))
+                self.assertEqual(instance.run(), 1)
+                self.assertEqual(self.calls, ['feature-scripts', 'second'])
+                self.assertTrue((self.root / 'runner-second').is_file())
+                self.assertEqual([row['status'] for row in self.read_summary()['results']], ['error', 'passed'])
+                private = instance.private / 'feature-scripts'
+                result = json.loads((private / 'observer-exit.json').read_text())
+                self.assertIsNone(campaign.process_identity(result['pid']))
+                if mode == 'before-register':
+                    self.assertTrue(result['runnerFailedBeforeRetirement'])
+                    self.assertTrue(result['forcedCleanup'])
+                    self.assertFalse((self.root / 'observer-retired').exists())
+                elif mode == 'leftover':
+                    self.assertEqual(result['returncode'], 0) # SIGTERM handler acknowledgment is insufficient.
+                    self.assertTrue(result['forcedCleanup'])
+                elif mode == 'nonzero':
+                    self.assertEqual(result['returncode'], 7)
+                else:
+                    self.assertIsNone(campaign.process_identity(int((self.root / 'observer-orphan.pid').read_text())))
+                    self.assertTrue(result['ownedChildrenLeaked'])
 
     @unittest.skipUnless(sys.platform.startswith('linux') and hasattr(os, 'fork'), 'Linux subreaper contract')
     def test_real_escaped_orphan_missing_summary_is_cleaned_and_next_target_runs(self):
