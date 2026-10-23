@@ -36,7 +36,7 @@ class SnapshotExportJavaTests(unittest.TestCase):
             'foreign-cleanup','recreated','rejected-stream'))
     def test_actual_original_destination_one_send_delete_and_readonly_recovery(self):
         self.execute('SnapshotDestinationOwner',('original','pending-close','close-failure','foreign','changed-bytes','changed-inode','early-missing',
-            'ignored-delete','lost-return','permission-denied','late-file','pending-origin','pending-origin-denied','pending-origin-failed'))
+            'ignored-delete','lost-return','permission-denied','late-file','pending-origin','pending-origin-denied','pending-origin-failed','inspect-changed-bytes','inspect-changed-inode','verify-current'))
 
 
 if __name__=='__main__':unittest.main()

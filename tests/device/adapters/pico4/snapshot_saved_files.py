@@ -62,6 +62,14 @@ printf '\nOVT_SNAPSHOT_SAVED_BYTES_END_V1\n'
 '''.strip()
 
 
+def original_stat(value,size,device,inode):
+    if (type(value) is not str or type(size) is not int or type(device) is not int or type(inode) is not int
+            or size<1 or device<0 or inode<1 or re.fullmatch(r'[0-9]+ [0-9]+ [0-9a-fA-F]+ [0-9]+ [0-9]+ 1 '+str(size)
+                +r' \d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{9} [+-]\d{4} \d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{9} [+-]\d{4}',value) is None):return False
+    fields=value.split();mode=int(fields[2],16)
+    return int(fields[0])==device and int(fields[1])==inode and stat.S_ISREG(mode) and stat.S_IMODE(mode)==0o600
+
+
 class PicoSnapshotSavedFiles(AndroidSnapshotFiles):
     """Same original-file transport/privacy as the existing Snapshot foundation."""
     def __init__(self,adb,selector,package,context,check_continuity,artifact_directory,readbacks,run,publish):

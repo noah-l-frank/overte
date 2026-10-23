@@ -26,7 +26,7 @@ from adapters.pico4.snapshot_cancel_originals import SnapshotCancelOriginals
 from adapters.pico4.snapshot_platform import PicoSnapshotPlatform,profile as platform_profile
 from adapters.pico4 import snapshot_originals as native_source
 from adapters.pico4.navigation import NativeNavigationIO,validate_snapshot,identifier
-from adapters.script_journey.history import pack,unpack
+from adapters.script_journey.history import pack,unpack,canonical
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
 from feature_journeys.contract import typed_equal
 from openxr_input.adapter_session import PicoOpenXrAdapterSession
@@ -72,7 +72,7 @@ class PicoSnapshotCancelOwner:
         self.prefix='parity-'+run[:16]+'-animated'
         self.still_prefix='parity-'+run[:16]+'-still-png';self.encoding_version=VERSION;self.decoded_cache={}
         self.disk=self.state=self.anchor=self.controller_anchor=self.controller_envelope=None
-        self.current=False;self.last_clock=None
+        self.current=False;self.last_clock=None;self.save_owner=None
         with session._lock():self.session_origin=deepcopy(session._load())
         self.reviewed=json.loads(Path(__file__).with_name('snapshot-script-pin.v1.json').read_text())
         self.qml_callback=self.before_qml;self.cancel_callback=self.before_cancel;self.file_callback=self.before_file
@@ -93,7 +93,23 @@ class PicoSnapshotCancelOwner:
         phase_packet(value,run=self.run,area='snapshots',request=value['requestId'],epoch=value['capturedEpochMs'])
         need(value['active'] and value['activations']);return value
 
+    def frame_context(self):
+        return dict(run=self.run,pid=self.native.pid,bridge=self.binding['sessionId'])
+
     def frame(self,row):
+        # These are pure DTO validators. A previously accepted exact original
+        # may be decoded again by many journal/history joins in one warm owner.
+        # Fresh source reads, filesystem signatures and cross-frame continuity
+        # are outside this cache and still run at every original boundary.
+        key=hashlib.sha256(canonical(dict(context=self.frame_context(),original=row))).digest()
+        cache=getattr(self,'_original_frame_cache',None)
+        if cache is None:self._original_frame_cache=cache={}
+        if key in cache:return deepcopy(cache[key])
+        result=self.original_frame(row)
+        if len(cache)>=128:cache.pop(next(iter(cache)))
+        cache[key]=deepcopy(result);return result
+
+    def original_frame(self,row):
         exact(row,{'native','script','ui','files','inventory','work','hostMonotonic'})
         native=original(row['native'],native_source.LIMIT);script=original(row['script'],65536)
         native_source.validate(native,self.run,native['commandId'],self.native.pid,native['capturedEpochMs'])
@@ -356,8 +372,17 @@ class PicoSnapshotCancelOwner:
     def delivery(self,kind,command,*,host_only=False):
         state=deepcopy(self.state);state['deliveries'].append(dict(kind=kind,command=deepcopy(command),stage=state['stage'],frame=len(state['frames'])-1));self.save(state,host_only=host_only)
 
+    def bind_save_owner(self,owner):
+        from adapters.pico4.snapshot_save_owner import PicoSnapshotSaveOwner
+        need(isinstance(owner,PicoSnapshotSaveOwner) and owner.parent is self and owner.lock is self.lock
+            and (self.save_owner is None or self.save_owner is owner))
+        self.save_owner=owner
+
     def before_qml(self,command):
-        self.lock.assert_held();need(self.current);self.allowed(command,self.state['stage']);self.append_frame()
+        self.lock.assert_held()
+        if self.state['stage']=='still-ready' and self.save_owner is not None:
+            self.save_owner.before_qml(command);return
+        need(self.current);self.allowed(command,self.state['stage']);self.append_frame()
         if command['controlId']=='snapshot.capture':self.capture_admission(self.state['frames'][-1],self.state)
         self.delivery('qml',command);self.fence()
 

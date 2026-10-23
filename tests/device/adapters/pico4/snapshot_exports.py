@@ -75,7 +75,7 @@ class PicoSnapshotExports:
             and type(read_only) is bool and (read_only or callable(io._before_send)) and all(callable(fn) for fn in (clock_ms,monotonic,sleep)))
         self.io,self.clock_ms,self.pid,self.lock=io,clock_ms,pid,source_lock
         self.read_only,self.monotonic,self.sleep=read_only,monotonic,sleep
-        self.last=self.raw=self.last_request=self.publication=None
+        self.last=self.raw=self.last_request=self.publication=None;self.issued=set()
     @staticmethod
     def envelope(run,operation='observe',*,export_request='',resource_id=''):
         return command(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='feature-pico-snapshot-exports',runId=run,
@@ -85,14 +85,18 @@ class PicoSnapshotExports:
         need(self.publication is not None and self.publication['request']==request and self.publication['published'] is False)
         elapsed=self.monotonic()-self.publication['started'];need(number(elapsed,0,1.5));self.publication['published']=True
     def restore(self,value,request):
-        need(self.last is None);validate(value,request,self.pid,value['capturedEpochMs']);self.last=deepcopy(value)
+        need(self.last is None);validate(value,request,self.pid,value['capturedEpochMs']);self.last=deepcopy(value);self.issued.add(request['commandId'])
     def request(self,run,operation='observe',*,export_request='',resource_id=''):
-        request=self.envelope(run,operation,export_request=export_request,resource_id=resource_id)
-        need(not self.read_only or operation=='observe')
+        return self.request_original(self.envelope(run,operation,export_request=export_request,resource_id=resource_id))
+    def request_original(self,request):
+        # A durable owner supplies this exact closed envelope. This method does
+        # not retry publication or allocate a replacement command nonce.
+        request=deepcopy(command(request))
+        need((not self.read_only or request['operation']=='observe') and request['commandId'] not in self.issued and len(self.issued)<4096)
         with self.lock.held():
             started=self.monotonic();requested=self.clock_ms();need(number(started,0,1e15) and integer(requested,1))
             self.publication=dict(request=deepcopy(request),started=started,published=False)
-            self.io.bind_input();self.io.send(deepcopy(request));previous=started
+            self.io.bind_input();self.issued.add(request['commandId']);self.io.send(deepcopy(request));previous=started
             for attempt in range(31):
                 self.io.guard();raw=self.io.raw();need(raw is None or type(raw) is str and len(raw.encode())<=LIMIT)
                 if raw:

@@ -93,7 +93,7 @@ final class SnapshotOsDestinations {
         } catch(RuntimeException failure) { --pending;complete=false;if(afterRetirement)timer.shutdown();throw new IOException("OS destination work rejected"); }
     }
     synchronized Map<String,Object> observation() {
-        Map<String,Object> result=new LinkedHashMap<>();result.put("snapshotOsDestinationsVersion",access.values().stream().anyMatch(Access::documents) ? 2 : 1);result.put("complete",complete);
+        Map<String,Object> result=new LinkedHashMap<>();result.put("snapshotOsDestinationsVersion",3);result.put("complete",complete);
         result.put("pending",pending);result.put("checkId",checkId);result.put("checkedEpochMs",checked);result.put("rows",owner.snapshot());return result;
     }
     synchronized boolean retired() { return complete && pending==0 && owner.retired(); }

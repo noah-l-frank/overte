@@ -26,13 +26,14 @@ final class SnapshotDestinationOwner {
     private static final class Entry {
         final String request;final Access access;final boolean inserted;
         Map<String,Object> identity,original;String phase="planned",deleteId="";int deleteCount=-1;
-        long acquired,checked;boolean absent,deleteIssued;
+        long acquired,checked,verified;boolean absent,deleteIssued;
         Entry(String request,Access access,boolean inserted) { this.request=request;this.access=access;this.inserted=inserted; }
         Map<String,Object> view() {
             Map<String,Object> row=new LinkedHashMap<>();row.put("request",request);row.put("inserted",inserted);
             row.put("phase",phase);row.put("identity",identity==null ? null : new LinkedHashMap<>(identity));
             row.put("original",original==null ? null : new LinkedHashMap<>(original));row.put("acquiredEpochMs",acquired);
             row.put("deleteId",deleteId);row.put("deleteIssued",deleteIssued);row.put("deleteCount",deleteCount);
+            row.put("verifiedEpochMs",verified);
             row.put("checkedEpochMs",checked);row.put("absent",absent);return row;
         }
     }
@@ -51,7 +52,7 @@ final class SnapshotDestinationOwner {
         Entry entry;synchronized(this) { entry=owned(request);if(!"created".equals(entry.phase))throw new IOException("Destination creation is unproved"); }
         Map<String,Object> current=entry.access.identity();same(entry.identity,current);
         Map<String,Object> original=read(entry.access);same(current,entry.access.identity());
-        synchronized(this) { entry.original=original;entry.acquired=System.currentTimeMillis();entry.phase="qualified"; }
+        synchronized(this) { entry.original=original;entry.acquired=System.currentTimeMillis();entry.verified=entry.acquired;entry.phase="qualified"; }
     }
     private Entry owned(String request) throws IOException { nonce(request);Entry entry=entries.get(request);if(entry==null)throw new IOException("Foreign OS destination");return entry; }
     private static void same(Map<String,Object> one,Map<String,Object> two) throws IOException {
@@ -83,12 +84,19 @@ final class SnapshotDestinationOwner {
         return entry!=null && entry.deleteIssued && entry.deleteId.equals(id) && "delete-uncertain".equals(entry.phase);
     }
     private void inspect(Entry entry) throws IOException {
-        boolean absent=entry.access.absent();long now=System.currentTimeMillis();
+        boolean absent=entry.access.absent();
+        // A current provider view reopens the actual original stream. Cached
+        // publish metadata or an existence response cannot prove file quiet.
+        if(!absent) {
+            synchronized(this) { if(entry.absent)throw new IOException("Retired OS destination reappeared"); }
+            same(entry.identity,entry.access.identity());same(entry.original,read(entry.access));same(entry.identity,entry.access.identity());
+        }
+        long now=System.currentTimeMillis();
         synchronized(this) {
             if(now<=0 || now<entry.checked)throw new IOException("OS destination clock regressed");
             if(absent && !entry.deleteIssued)throw new IOException("OS destination disappeared before owned cleanup");
             if(!absent && entry.absent)throw new IOException("Retired OS destination reappeared");
-            entry.checked=now;entry.absent=absent;
+            entry.checked=now;entry.absent=absent;if(!absent)entry.verified=now;
             if(absent)entry.phase="retired";
         }
     }

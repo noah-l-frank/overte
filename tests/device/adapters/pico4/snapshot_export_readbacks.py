@@ -95,24 +95,27 @@ def source(value):
 
 def os_destinations(value,destinations,epoch):
     exact(value,{'snapshotOsDestinationsVersion','complete','pending','checkId','checkedEpochMs','rows'})
-    need(type(value['snapshotOsDestinationsVersion']) is int and value['snapshotOsDestinationsVersion'] in (1,2) and value['complete'] is True
+    need(type(value['snapshotOsDestinationsVersion']) is int and value['snapshotOsDestinationsVersion'] in (1,2,3) and value['complete'] is True
         and integer(value['pending'],0,64) and (value['checkId']=='' or nonce(value['checkId'])) and integer(value['checkedEpochMs'],0,epoch)
         and type(value['rows']) is list and len(value['rows'])<=64)
     seen=set()
     for row in value['rows']:
-        exact(row,{'request','inserted','phase','identity','original','acquiredEpochMs','deleteId','deleteIssued','deleteCount','checkedEpochMs','absent'})
+        exact(row,{'request','inserted','phase','identity','original','acquiredEpochMs','deleteId','deleteIssued','deleteCount','checkedEpochMs','absent'}|({'verifiedEpochMs'} if value['snapshotOsDestinationsVersion']==3 else set()))
         request=row['request'];need(nonce(request) and request in destinations and request not in seen and type(row['inserted']) is bool
             and row['inserted']==destinations[request]['inserted'] and row['phase'] in ('planned','created','qualified','checking-delete','deleting','delete-uncertain','retired')
             and type(row['deleteIssued']) is bool and type(row['absent']) is bool and integer(row['deleteCount'],-1,2**31-1)
             and integer(row['acquiredEpochMs'],0,epoch) and integer(row['checkedEpochMs'],0,epoch) and (row['deleteId']=='' or nonce(row['deleteId'])))
         seen.add(request)
+        if value['snapshotOsDestinationsVersion']==3:
+            need(integer(row['verifiedEpochMs'],0,epoch) and (row['original'] is None and row['verifiedEpochMs']==0
+                or row['original'] is not None and row['verifiedEpochMs']>=row['acquiredEpochMs']>0))
         if row['identity'] is not None:
             identity=row['identity'];need(type(identity) is dict);documents=identity.get('storage')=='documents'
             exact(identity,{'uri','providerUid','ownerPackage','displayName','device','inode'} | ({'providerPackage','storage','runId','armId','providerInstance','documentId','createUid','createdEpochMs'} if documents else set()))
             parsed=uri(identity['uri']);need(identity['uri']==destinations[request]['uri'] and integer(identity['providerUid'],1)
                 and type(identity['displayName']) is str and 0<len(identity['displayName'])<=255 and '/' not in identity['displayName'] and integer(identity['device']) and integer(identity['inode'],1))
             if documents:
-                need(value['snapshotOsDestinationsVersion']==2 and not row['inserted'] and parsed.netloc=='org.overte.e2e.snapshotreceiver.documents'
+                need(value['snapshotOsDestinationsVersion']>=2 and not row['inserted'] and parsed.netloc=='org.overte.e2e.snapshotreceiver.documents'
                     and identity['ownerPackage']==identity['providerPackage']=='org.overte.e2e.snapshotreceiver'
                     and all(nonce(identity[key]) for key in ('runId','armId','providerInstance')) and type(identity['documentId']) is str
                     and re.fullmatch('doc-'+identity['runId']+'-'+identity['armId']+'-[0-9a-f]{32}',identity['documentId'])
@@ -124,7 +127,7 @@ def os_destinations(value,destinations,epoch):
         if row['phase']=='planned':need(row['identity'] is row['original'] is None and row['acquiredEpochMs']==0)
         elif row['phase']=='created':need(row['identity'] is not None and row['original'] is None)
         else:need(row['identity'] is not None and row['original'] is not None)
-        if row['deleteIssued']:need((row['inserted'] or value['snapshotOsDestinationsVersion']==2 and row['identity'] is not None and row['identity'].get('storage')=='documents') and nonce(row['deleteId']))
+        if row['deleteIssued']:need((row['inserted'] or value['snapshotOsDestinationsVersion']>=2 and row['identity'] is not None and row['identity'].get('storage')=='documents') and nonce(row['deleteId']))
         else:need(row['deleteId']=='' and row['deleteCount']==-1 and not row['absent'])
         if row['phase']=='retired':need(row['deleteIssued'] and row['absent'] and row['checkedEpochMs']>0)
     need(seen==set(destinations))
@@ -162,9 +165,11 @@ def continuity(before,after):
             and all(current[key]==row[key] for key in ('request','uri','inserted')) and (not row['published'] or current['published']))
     need(b['snapshotExportReadbacksVersion']>=a['snapshotExportReadbacksVersion'])
     if 'osDestinations' in a:
+        need(b['osDestinations']['snapshotOsDestinationsVersion']>=a['osDestinations']['snapshotOsDestinationsVersion'])
         old={row['request']:row for row in a['osDestinations']['rows']};new={row['request']:row for row in b['osDestinations']['rows']}
         for request,row in old.items():
             current=new.get(request);need(type(current) is dict)
+            if 'verifiedEpochMs' in row:need(current['verifiedEpochMs']>=row['verifiedEpochMs'])
             for key in ('identity','original'):
                 if row[key] is not None:need(current[key]==row[key])
             if row['deleteIssued']:need(current['deleteIssued'] and current['deleteId']==row['deleteId'])

@@ -951,8 +951,9 @@ def create_adapter(args, base_class):
             if store is None:return False
             return (any(path.exists() or path.is_symlink() for path in (store.path,
                 store.path.with_name('snapshot-cancel-owner.json'),store.path.with_name('snapshot-cancel-files-owner.json'),
-                store.path.with_name('snapshot-cancel-originals.json')))
-                or any(path.name.startswith('snapshot-cancel-originals.json.frame-') for path in store.path.parent.iterdir()))
+                store.path.with_name('snapshot-cancel-originals.json'),store.path.with_name('snapshot-save-owner.json'),
+                store.path.with_name('snapshot-save-originals.json')))
+                or any(path.name.startswith(('snapshot-cancel-originals.json.frame-','snapshot-save-originals.json.frame-')) for path in store.path.parent.iterdir()))
 
         @_private
         def _snapshot_cancel_owner(self,target,run,phase_source,*,source_lock=None):
@@ -973,6 +974,29 @@ def create_adapter(args, base_class):
                 self._snapshot_native_originals(target,source_lock=lock),self._snapshot_script_originals(target,source_lock=lock),
                 self._snapshot_cancel(target,before_send=before_cancel,source_lock=lock),files,
                 self._script_roots_observer(target),self._script_execution_observer(target),self._script_work(target),self._snapshot_platform(target),self.pico_input_session(target),phase_source)
+            return owner
+
+        @_private
+        def _snapshot_save_owner(self,target,run,phase_source,*,parent=None,source_lock=None):
+            from adapters.pico4.snapshot_save_owner import PicoSnapshotSaveOwner
+            from adapters.pico4.snapshot_cancel_owner import PicoSnapshotCancelOwner
+            from adapters.pico4.snapshot_saved_files import PicoSnapshotSavedFiles
+            if parent is not None:
+                _need(isinstance(parent,PicoSnapshotCancelOwner))
+                if source_lock is None:source_lock=parent.lock
+            lock=self._script_journey()._lock(target,source_lock)
+            if parent is None:parent=self._snapshot_cancel_owner(target,run,phase_source,source_lock=lock)
+            _need(isinstance(parent,PicoSnapshotCancelOwner) and parent.run==run and parent.lock is lock and parent.source is phase_source)
+            native=self._native_feature_observer(target);owner=None
+            def admission(command):
+                _need(owner is not None);owner.before_source_send(command)
+            def publish(id,content):
+                _need(owner is not None);return owner.publish(id,content)
+            exports=self._snapshot_exports(target,read_only=False,before_send=admission,source_lock=lock)
+            saved=PicoSnapshotSavedFiles(self.adb,target,'org.overte.pico',
+                {key:parent.binding[key] for key in ('sourceRevision','artifactSha256','processIdentity')},native.guard,
+                parent.files.transport.artifacts,exports,run,publish)
+            owner=PicoSnapshotSaveOwner(lock.path.with_name('snapshot-save-owner.json'),parent,exports,saved)
             return owner
 
         @_private

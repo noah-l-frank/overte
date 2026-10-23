@@ -2,8 +2,9 @@
 
 This private component observes existing Save, System share and Upload controls.
 It does not qualify the whole Snapshot journey, SDK26, stereo or any device.
-The next owner must compose these originals with the retained normal Cancel/
-Still journals, exact phase admission, an independent PNG and real cleanup.
+The normal Save component composes these originals with the retained normal
+Cancel/Still journals, exact phase admission and an independent PNG. Share,
+Upload, Resume and real whole cleanup remain outstanding.
 
 ## Existing product path
 
@@ -29,8 +30,9 @@ create a proxy when absent and cannot be used as an independent observation.
 The Java export recorder, private readback files/worker, original destination
 owner, MediaStore/Documents inventory and share-grant inventory are selected
 from fixed Phone commit `5527d540e99cc6dba4204a5e904a854e6e1cd2b4`.
-The three portable original Java host contracts are selected byte for byte from
-that same object into `tests/device/contracts/snapshot/java/`. Android resolver,
+The three portable original Java host contracts were selected byte for byte from
+that same object; the subsequent V3 provider-inspection cases extend the original
+destination contract into `tests/device/contracts/snapshot/java/`. Android resolver,
 chooser and UID access are explicitly fixtures in those host tests. The actual
 production Java classes also compile against the prepared Android34/AndroidX
 Core artifacts; that is an API compiler check, not an Android OS run.
@@ -102,3 +104,13 @@ Qt6 keeps the unchanged Qt5 UTF16 overload's deprecation warning and preincludes
 QChar/QBitArray for GCC16/Qt6 header completeness; no product code is changed for that
 host compatibility. Native JNI is deliberately unavailable in the pointer test,
 so it proves the actual normal error path, never a saved image.
+
+
+The subsequent OS-destinations V3 source adds `verifiedEpochMs` to each row.
+Publish records it only after original stream/descriptor close. Every existing
+private inspect command now rechecks original provider identity and bytes
+before advancing that epoch. V1/V2 remain readable historical sources and
+cannot qualify the Save owner's current content/identity quiet. Private copy
+quiet separately checks full original stat/hash provenance on every sample.
+Provider fstat ownership exposes device/inode; the source does not assert
+unexported provider mtime/ctime or product executor death.
