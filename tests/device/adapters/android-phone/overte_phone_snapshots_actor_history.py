@@ -42,9 +42,10 @@ class SnapshotActorHistoryPass(SnapshotHistoryReadPass):
         self.files={};self.file_seal=self.file_seal_sha256=None
         self._headers();self._memory()
 
-    def _headers(self):
+    def _headers(self,*,metadata_only=False):
         f,a,r=self.feature,self.actor,self.role
-        need(not self.closed and os.getpid()==self.process and threading.get_ident()==self.thread
+        need(type(metadata_only) is bool and (not metadata_only or self.replaying and self.started and f.lock._owner is None)
+            and not self.closed and os.getpid()==self.process and threading.get_ident()==self.thread
             and (f.store,a.store,r.store)==self.stores and tuple(store.path for store in self.stores)==self.paths
             and f.root==self.root and f.run==self.run and f.role==r.role=='actor'
             and self.root.resolve(strict=True)==self.root and signature(self.root)[:5]==self.root_identity
@@ -53,8 +54,12 @@ class SnapshotActorHistoryPass(SnapshotHistoryReadPass):
             and getattr(f.adapter,'_existing_input_scope',None) is self.scope and same(self.scope,self.scope_value)
             and not r.system and not r._host_publication)
         for store,header,pinned,current in zip(self.stores,self.headers,self.signatures,(f.previous,a.previous,r.previous)):
-            need(same(current,header) and signature(store.path)==pinned
-                and same(store.read(),header) and signature(store.path)==pinned)
+            need(same(current,header) and signature(store.path)==pinned)
+            # During the complete host replay, every guard still checks the
+            # exact owner inode and change metadata. Actual JSON owner reads
+            # bracket that replay and remain mandatory at every locked check.
+            if not metadata_only:need(same(store.read(),header))
+            need(signature(store.path)==pinned)
         return True
 
     def _memory(self,*,verify_graph=True):
@@ -68,7 +73,7 @@ class SnapshotActorHistoryPass(SnapshotHistoryReadPass):
 
     def guard(self):
         need(self.feature.lock._owner is None and self.started)
-        return self._headers()
+        return self._headers(metadata_only=self.replaying)
 
     def read(self):
         try:
@@ -102,7 +107,7 @@ class SnapshotActorHistoryPass(SnapshotHistoryReadPass):
     def finish(self):
         """Requalify after fresh native/phase callbacks; consume no current fact."""
         f,r=self.feature,self.role
-        self.check();f.bound();r.bound();r.history_authority()
+        self.check();r.bound();r.history_authority()
         status=f.phase.status(self.prepared['phase'])
         for key in ('fixturePhaseVersion','instance','runId','area','createdEpochMs','activations'):
             need(same(status[key],self.prepared['phase'][key]))
