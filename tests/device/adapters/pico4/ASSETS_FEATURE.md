@@ -573,3 +573,15 @@ Cancel/file-release path. All runs retain the 120-second outer and 90-second
 compiler bounds. Four additive cases bring the class to 16 cases; Root must
 include all original methods exactly once when extending its disjoint groups.
 Feature 13/14 remains partial and device/backend qualification remains open.
+
+The next original-file recovery case retains a lost reply to the existing
+`retire-primary` operation. Cold reconstruction observes actual primary absence
+without repeating that operation; all six companion identities/lengths/hashes
+and original archive prefixes remain unchanged. Normal Select then yields the
+original unavailable-file error with zero upload calls. The final normal Cancel
+reached the unchanged consecutive-sample admission predicate and failed there
+after 29.452 seconds. That 17th original method and its failed transcript are
+retained; the case does not qualify complete Cancel or file release. No clock,
+quiet predicate, cadence, limits or production behavior changed, and no
+unchanged retry was run. Further work prioritizes the complete remaining owner
+and backend joins rather than additional isolated delivery variations.
