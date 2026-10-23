@@ -259,8 +259,8 @@ The v4 manifest declares
 `copyVerification: full-current-copy-and-original-physical-inventory` alongside
 the v3 source fence and v2 immutable-file ownership declarations. Legacy v1–v3
 paths remain supported with their existing verification policy. No bounds or
-source ages are widened. Host-handle finalization and the complete warm v4
-measurement remain explicit outstanding closure work; public Chat stays partial.
+source ages are widened. The subsequent host-finalization and complete warm v4
+measurements are recorded below; public Chat stays partial.
 
 The v4 physical-index/byte-window, retained v3 source-fence, existing archive,
 typed plan and actual Pico cold-scope factory selection passed 41 host cases in
@@ -272,8 +272,8 @@ RestartInputs CAS corruption, late final physical inventory and lost or
 identical-byte replaced copies during the final receipt. The actual smaller
 application-owner v4 composition subsequently passed its single restart/birth/
 profile/two-quiet-window/IPC/archive/RestartInputs/cold-byte positive in 73.717
-seconds. Its native/V8/SDK production remains an explicit seam. The full
-2623-original warm v4 measurement is still outstanding.
+seconds. Its native/V8/SDK production remains an explicit seam. The separate
+2623-original warm v4 measurement is recorded below.
 
 Host descriptor detachment now returns an explicit result at each original
 owner. A lost/recycled transport or executable FD retains its exact original
@@ -307,8 +307,8 @@ replaces the independent process/peer/Qt release evidence, the absent hermetic
 actor receipt or the absent device run. Nine host-owner cases plus the actual
 Pico root/orphan guard passed 10 cases in 1.689 seconds. They include real kernel
 FD reuse, fake close ACK, replaced wrapper callback/parent, unknown marker and
-lost initial/closed/final-unlink receipts. The full warm v4 composition through
-this final host owner remains to be measured; public Chat stays partial.
+lost initial/closed/final-unlink receipts. The later complete warm v4 measurement
+reaches this final host owner; public Chat stays partial.
 
 Host intent, closed record and final marker unlink additionally fsync the actual
 original parent directory. The initial fsync uses its still-held original FD
@@ -353,7 +353,30 @@ The two disjoint short prefixes are exposed through
 `self_tests.test_chat_warm_archive.warm_archive_component_tests`. They and the
 two independent witness host cases passed four tests in 12.919 seconds. Three
 existing original restart-retirement/last-CAS cases passed in 0.068 seconds,
-including the correct absent-store query. The corrected full v4-plus-host case
-still needs one new, independently acquired measurement. It remains a manual
-selection outside the catalog's unchanged 120-second budget; registering this
+including the correct absent-store query. The full v4-plus-host case remains a
+manual selection outside the catalog's unchanged 120-second budget; registering this
 whole module would silently add a long duplicate journey and is not allowed.
+
+
+The corrected full warm case on fixed source `82b3affbd4` subsequently passed
+**one test in 860.797 seconds**, using a newly acquired private fixture. It
+completed all 26 original dispatcher and separately published witness stages,
+ordinary Erase and exact original profile restoration, both cache retirements,
+once-only restart/new birth, both quiet intervals, peer IPC/FD absence, all
+2623 original journal retirements and the separate parent host finalizer.
+Copies and manifests were archived in 29.637 seconds; the archive reached
+complete after 577.300 seconds. Concurrent Root browser work was permitted, so
+these times retain the diagnostic-only boundary described above.
+
+After that test process exited, a separate cold byte pass verified the retained
+v4 archive's 2666 physical files, original manifest/final hashes and mode 0500.
+The original parent, profile, application, restart, archive-retirement and
+host-close roots were absent. No old live descriptor was reconstructed, no
+uncertain input was replayed and the earlier aborted/red fixtures remain intact.
+This verifies the Python host composition with its declared producer/clock
+seams; it does not establish current target facts from archived bytes. The
+host finalizer covers only its selected parent pairs/windows, not the separately
+owned `PicoChatWitness` host lifetime. Public operation/RPC reconstruction,
+independent cleanup-witness Phase27, common-engine finalization/PID continuity,
+original Chat stereo evidence, hermetic actor provenance and device acceptance
+remain separate unqualified boundaries. No `feature.chat.*` capability is added.
