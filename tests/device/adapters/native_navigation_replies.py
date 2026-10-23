@@ -96,6 +96,16 @@ def join_missing(reply,provider,ticket,after_epoch,owned_origin):
     return dict(event=deepcopy(event),response=deepcopy(response))
 
 
+def continuation(previous,current):
+    """Pure cursor/history comparison; never query or rewrite an original."""
+    need(current['navigationReplyVersion']==previous['navigationReplyVersion']
+        and current['instance']==previous['instance'] and current['processId']==previous['processId']
+        and current['sequence']>previous['sequence'] and current['capturedEpochMs']>=previous['capturedEpochMs']
+        and current['commandId']!=previous['commandId'] and current['currentLookupGeneration']>=previous['currentLookupGeneration'])
+    if current['runId']==previous['runId']:
+        need(current['events'][:len(previous['events'])]==previous['events'] and len(current['events'])>=len(previous['events']))
+
+
 class NativeNavigationReplies:
     def __init__(self,send,original,clock_ms,guard,pid,*,ios=False,monotonic=time.monotonic,sleep=time.sleep):
         need(all(callable(f) for f in (send,original,clock_ms,guard,monotonic,sleep)) and integer(pid,1) and type(ios) is bool)
@@ -121,10 +131,7 @@ class NativeNavigationReplies:
                 if type(value) is dict and value.get('commandId')==request['commandId']:
                     validate(value,request,self.pid,self.clock_ms())
                     if self.last is not None:
-                        need(value['navigationReplyVersion']==self.last['navigationReplyVersion']
-                             and value['instance']==self.last['instance'] and value['sequence']>self.last['sequence']
-                             and value['capturedEpochMs']>=self.last['capturedEpochMs']
-                             and value['currentLookupGeneration']>=self.last['currentLookupGeneration'])
+                        continuation(self.last,value)
                     if run in self.histories:
                         old=self.histories[run]
                         need(len(value['events'])>=len(old) and value['events'][:len(old)]==old)

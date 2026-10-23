@@ -2,7 +2,8 @@
 
 This private work composes the unchanged shared v16 recipe's first five
 actions (v1), both directory searches (v2), and the normal transit/Home/Close
-continuation (v3), with existing Pico input and original-source owners. It is not a
+continuation (v3), then the normal named failure (v4), with existing Pico input
+and original-source owners. It is not a
 public Navigation adapter, complete Source/Actor/Public triple or cleanup
 qualification. No product function or shared recipe is changed.
 
@@ -325,3 +326,97 @@ positive cases then passed in **3.106 s**, preserving the non-deferred path.
 Four repository checks passed in **2.78 s**; registry and whitespace checks passed.
 Two new disjoint owning selectors are added and mapped; the local catalog delta
 is +2, never a replacement for the newer integrated Root catalog.
+
+
+## Continuous normal named failure, action nine (private v4, Source v2)
+
+The next ordinary action is `navigate-missing`, not bookmark recovery. The
+existing `NavigationMissing` owner now follows the same actually executed first
+eight actions. It normally opens the previously hidden tablet, uses the actual
+Home/Go To paging and original address-field input, submits the owned hidden
+name and normally reopens if the product hides its tablet while creating the
+original critical modal. It uses the same retained IO, Session, parent and
+ScriptSourceLock. No named-lookup handler, replacement popup, copied bookmark
+baseline or fabricated completed Transit is supplied.
+
+The parent owns one exact controller callback tuple and delegates to its current
+original child. This allows the normal later Open to follow the preceding
+Close without replacing NativeNavigationIO's one-owner callbacks. The original
+Transit Home ray still stages its actual geometry independently. The new
+`pico-navigation-missing-join` v1 writes parent authority before the old lookup
+child executes, retains actual QML commands after the parent CAS, and retains
+each actual Open/Reopen envelope. Their nonce and sequence must continue the
+original preceding Close. Final candidate/source checks precede the exact
+fixture-phase read; Session intent and publication callbacks use retained
+original DTOs, private host CAS and monotonic age only. A lost applied Submit
+or Open has an original pending state and is observed rather than resent.
+
+Private parent v4 alone has nine-action authority and an original lookup receipt
+link. The link is the unchanged child's actual Submit lower bound and original
+ticket, pinned to its complete original journal digest. It is not a requested
+error or a replacement response. V1/v2/v3 keep their five/seven/eight-action
+limits. No old journal receives a retrospective ninth action. Private Source
+v2 reads the actual native Reply-v2 packet in each side of every bracket and
+joins its current callback/capture identity and generation to the actual same
+owned HTTP404 response and current visible original modal/listener. The public
+error is derived only from those originals. Empty modal inventories derive
+`none`; a hidden, foreign or mismatched live modal remains unavailable. The
+actual address-root/source/visibility determines `addressDialog`; Places
+query/results remain empty when its page is absent. Both roles independently
+acquire every public field. Full immutable reply history/cursors and HTTP/phase
+prefixes advance across actual new frames. No original read, freshness fence,
+window, cadence or cap is removed.
+
+The Source decoder retains exact v1 field admission, and Source v1 cannot
+supply a v2 lookup join. A retained role history cannot silently switch Source
+versions. The new Source requires fresh runs for its additional original
+queries; it does not retrofit old frames or relabel their absence as provenance.
+`navigation-prefix-samples` v1 and shared recipe v16 remain unchanged.
+
+The existing Close-v2 implementation and `NavigationDismissedLookup` were
+reviewed from fixed Root `9dba88cd4e`, originating in
+`8625c1348783cdd3a6abd76948f6d434ca9a6b8d`. Exact source-only dependency
+`42514b6a31` is local and must not be selected back into Root. It preserves
+Close v1/v2 reads. Missing/dismissal source bodies were byte-identical to the
+fixed Root. A later original Dismiss/Close uses that existing type, rather than
+inventing another Transit or another close system.
+
+The first continuous nine-action host proof passed in **6.609 s**. It used one
+real owned TLS404 body/header, normal IME/Submit and two actual normal Open
+Session envelopes, and separately queried both roles after each action. The
+original modal/listener deliberately remain live for the next common action;
+no cleanup is claimed. A ResourceWarning identified missing explicit closure
+of the host HTTPError wrapper after reading its original body. Only the owned
+fixture's context-manager closure was corrected; production transport and
+network guards are unchanged. Follow-up/counter results are recorded below
+only after execution.
+
+Qt/VM/Account/OS and native reply/modal construction remain explicit host
+producers. The TLS body/receipt, Python routes, original Session callbacks,
+private journals and frame files run for real. No device, actual native lookup,
+physical independent actor, scene/challenge image, full public adapter or final
+resource/host closure follows from this host proof. Navigation remains partial.
+
+
+The corrected positive FD follow-up and four material counterexamples passed
+**5/5 in 30.036 s**, without ResourceWarnings. A lost applied normal Submit
+reopens the same original pending owner and observes its one actual TLS404;
+there is no second Submit or fetch. A foreign native response ID keeps the
+original pending Submit and never replays it after cold reconstruction. A v3
+version-envelope seam after eight actually executed actions cannot acquire ninth
+input authority. An actual phase transition in the last parent source guard,
+after the original Submit intent, prevents its ordinary writer and HTTP request.
+All failed-path journals and original source files remain. This is the owning
+host result only, not a complete public Navigation/actor/resource result.
+
+
+The final affected-path compatibility selection passed **3/3 groups in
+35.68 s**: existing normal Prefix13 in **19.534 s**, continuous Transit4 in
+**16.087 s**, and coverage in **0.054 s**. All eleven existing NativeReply
+protocol/original-probe cases passed in **0.547 s**. Four targeted repository
+checks passed in **2.73 s**, and registry/whitespace checks passed. These were
+disjoint checks after the five-case Missing result, not another whole run or
+native build. No code source changed between those executions. This packet
+adds exactly one mapped owning selector; preserve the newer Root catalog when
+integrating the local delta. Existing selectors and all prior source limits
+remain.
