@@ -26,6 +26,8 @@ p.add_argument("--arguments")
 a = p.parse_args()
 selector = os.environ.get("MOCK_SELECTOR", "private-device-123")
 if a.action == "discover":
+    if os.environ.get("MOCK_DISCOVERY_MARKER"):
+        pathlib.Path(os.environ["MOCK_DISCOVERY_MARKER"]).touch()
     if os.environ.get("MOCK_EMPTY_DISCOVERY") == "1":
         print("[]")
     else:
@@ -150,6 +152,87 @@ class HarnessTest(unittest.TestCase):
         self.assertTrue(self.cleanup_marker.exists())
         self.assertTrue((self.output / "modules/health/INVALID").exists())
         self.assertEqual("failed", json.loads((self.output / "summary.json").read_text())["status"])
+
+    def prepare_required_setup_target(self, *, second_setup=False):
+        sentinel = self.root / "target-sentinel"
+        state = self.root / "state"
+        state.write_text("untouched")
+        target = self.root / "target.py"
+        target.write_text(
+            "import pathlib, subprocess, sys\n"
+            f"subprocess.run([sys.executable, {str(self.adapter)!r}, 'invoke', "
+            "'--operation', 'app.launch', '--arguments', '{}'], check=True)\n"
+            f"pathlib.Path({str(sentinel)!r}).write_text('target executed')\n")
+        catalog = json.loads(self.catalog.read_text())
+        if second_setup:
+            catalog['modules'].append(catalog['modules'][0] | {'id': 'second-setup'})
+        catalog['modules'].append(catalog['modules'][0] | {
+            'id': 'target', 'command': ['target.py']})
+        self.catalog.write_text(json.dumps(catalog))
+        return sentinel, state
+
+    def test_required_setup_failure_or_skip_blocks_actual_target_input(self):
+        sentinel, state = self.prepare_required_setup_target()
+        for code in (1, 75, 77):
+            with self.subTest(code=code):
+                self.output = self.root / ('results-' + str(code))
+                result = self.run_harness('--required-setup', 'health', environment={
+                    'MOCK_MODULE_EXIT': str(code),
+                    'OVERTE_DEVICE_CONTINUE_AFTER_MODULE_ERROR': '1'})
+                self.assertEqual(1, result.returncode, result.stdout)
+                rows = json.loads((self.output / 'summary.json').read_text())['results']
+                self.assertEqual([{1: 'failed', 75: 'error', 77: 'skipped'}[code], 'skipped'],
+                                 [row['status'] for row in rows])
+                self.assertFalse(sentinel.exists())
+                self.assertEqual('untouched', state.read_text())
+                self.assertFalse((self.output / 'modules/target').exists())
+                self.assertTrue(self.cleanup_marker.exists())
+
+    def test_required_setup_missing_capability_blocks_target_with_both_raw_policies(self):
+        sentinel, state = self.prepare_required_setup_target()
+        catalog = json.loads(self.catalog.read_text())
+        catalog['modules'][0]['requires'] = ['app.launch']
+        self.catalog.write_text(json.dumps(catalog))
+        for complete in (False, True):
+            with self.subTest(require_complete=complete):
+                self.output = self.root / ('missing-' + str(complete))
+                result = self.run_harness('--required-setup', 'health',
+                    *(['--require-complete'] if complete else []))
+                self.assertEqual(1, result.returncode, result.stdout)
+                rows = json.loads((self.output / 'summary.json').read_text())['results']
+                self.assertEqual(['error' if complete else 'skipped', 'skipped'],
+                                 [row['status'] for row in rows])
+                self.assertFalse(sentinel.exists())
+                self.assertEqual('untouched', state.read_text())
+                self.assertFalse((self.output / 'modules/health').exists())
+                self.assertFalse((self.output / 'modules/target').exists())
+
+    def test_successful_required_prefix_allows_actual_target_and_default_still_continues(self):
+        sentinel, state = self.prepare_required_setup_target(second_setup=True)
+        result = self.run_harness('--required-setup', 'health', '--required-setup', 'second-setup')
+        self.assertEqual(0, result.returncode, result.stdout)
+        self.assertEqual('target executed', sentinel.read_text())
+        self.assertEqual('foreground', state.read_text())
+        rows = json.loads((self.output / 'summary.json').read_text())['results']
+        self.assertEqual(['passed'] * 3, [row['status'] for row in rows])
+        sentinel.unlink(); state.write_text('untouched'); self.output = self.root / 'default-results'
+        result = self.run_harness(environment={'MOCK_MODULE_EXIT': '1'})
+        self.assertEqual(1, result.returncode, result.stdout)
+        self.assertEqual('target executed', sentinel.read_text())
+        self.assertEqual('foreground', state.read_text())
+
+    def test_malformed_required_setup_fails_before_actual_discovery(self):
+        self.prepare_required_setup_target(second_setup=True)
+        marker = self.root / 'discovery-called'
+        for identifiers in (['missing'], ['health', 'health'], ['target'],
+                            ['second-setup', 'health'], ['health', 'target'], ['bad/id']):
+            with self.subTest(identifiers=identifiers):
+                flags = [part for identifier in identifiers for part in ('--required-setup', identifier)]
+                result = self.run_harness(*flags, environment={'MOCK_DISCOVERY_MARKER': str(marker)})
+                self.assertEqual(2, result.returncode, result.stdout)
+                self.assertFalse(marker.exists())
+                self.assertFalse(self.cleanup_marker.exists())
+                self.assertFalse(self.output.exists())
 
     def test_infrastructure_failure_blocks_later_device_commands_and_cleans_up(self):
         catalog = json.loads(self.catalog.read_text(encoding="utf-8"))

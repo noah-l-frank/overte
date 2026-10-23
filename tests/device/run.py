@@ -104,6 +104,16 @@ def load_modules(path: Path, suite: str) -> list[dict]:
     return selected
 
 
+def validate_required_setup(modules: list[dict], identifiers: list[str]) -> set[str]:
+    for identifier in identifiers:
+        validate_identifier(identifier, "required setup id")
+    if len(set(identifiers)) != len(identifiers):
+        fail("required setup ids must be unique")
+    if identifiers != [module["id"] for module in modules[:len(identifiers)]]:
+        fail("required setup ids must form the selected catalog prefix in order")
+    return set(identifiers)
+
+
 def adapter_call(command: list[str], action: str, target: str | None = None,
                  timeout: int = 30, *, operation: str | None = None,
                  environment: dict[str, str] | None = None) -> object:
@@ -434,6 +444,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--keep-running", action="store_true")
     parser.add_argument("--require-complete", action="store_true",
                         help="treat missing module capabilities as infrastructure errors")
+    parser.add_argument("--required-setup", action="append", default=[], metavar="ID",
+                        help="ordered selected catalog prefix; stop remaining rows unless every setup passes")
     parser.add_argument("--list", action="store_true")
     parser.add_argument("--candidate-artifact", type=Path,
                         help="exact candidate bytes; requires both expected identity flags")
@@ -448,6 +460,7 @@ def main() -> int:
     catalog_path = args.catalog.resolve()
     manifest = validate_manifest(manifest_path)
     modules = load_modules(catalog_path, args.suite)
+    required_setup = validate_required_setup(modules, args.required_setup)
     if args.list:
         for module in modules:
             print(f"{module['id']}: {module['description']}")
@@ -537,6 +550,8 @@ def main() -> int:
                         if (module["id"] == "scene"
                                 and environment.get("OVERTE_E2E_REQUIRE_FIXTURE_SCREENSHOT") == "1"):
                             blocked_reason = "Blocked because controlled test world verification is unavailable"
+                        if module["id"] in required_setup:
+                            blocked_reason = "Blocked because required setup did not pass"
                         continue
                     artifact = output / "modules" / module["id"]
                     module_env = environment | {"OVERTE_DEVICE_ARTIFACT_DIR": str(artifact)}
@@ -551,7 +566,9 @@ def main() -> int:
                     result = run_module(module, catalog_path, module_env, artifact, selector,
                                         private_values, command, capabilities)
                     results.append(result)
-                    if (module["id"] == "scene" and result["status"] != "passed"
+                    if module["id"] in required_setup and result["status"] != "passed":
+                        blocked_reason = "Blocked because required setup did not pass"
+                    elif (module["id"] == "scene" and result["status"] != "passed"
                             and environment.get("OVERTE_E2E_REQUIRE_FIXTURE_SCREENSHOT") == "1"):
                         blocked_reason = "Blocked because the controlled test world failed its prerequisites"
                     elif result["status"] == "error":
@@ -597,7 +614,8 @@ def main() -> int:
                         "status": "error", "returncode": 75,
                         "durationSeconds": 0.0, "output": str(error) + "\n"})
     summary = {"schemaVersion": 1, "adapter": manifest["id"], "suite": args.suite,
-               "status": "failed" if any(r["status"] in {"failed", "error"} for r in results) else "passed",
+               "status": "failed" if any(r["status"] in {"failed", "error"}
+                   or (r["id"] in required_setup and r["status"] != "passed") for r in results) else "passed",
                "results": [{key: value for key, value in result.items() if key != "output"}
                            for result in results]}
     (output / "summary.json").write_text(
