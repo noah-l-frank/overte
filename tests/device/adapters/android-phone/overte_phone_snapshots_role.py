@@ -11,12 +11,14 @@ import hashlib
 from pathlib import Path
 import os
 import stat
+import uuid
 
 from adapters.native_feature_observation import exact,fresh,integer,need,validate as native_packet
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.native_phone_touch_state import released as touch_released
 from adapters.world_render_evidence import original_pixels
-from feature_journeys.contract import result
+from feature_journeys.contract import result,identifier
+from feature_journeys.phase_fixture import validate as phase_packet
 from feature_journeys.evidence import image_observation
 from feature_journeys.scenarios import VERSION
 from overte_phone_create_role import PhoneCreateRole
@@ -35,6 +37,7 @@ from adapters.native_account_observation import accept as account_accept
 from adapters.native_script_work import scope as script_scope
 from overte_phone_snapshots_evidence import SnapshotsOriginals,SnapshotsImages,SnapshotsBinary,HistoricalSnapshotsBinary
 from overte_phone_snapshots_measurements import state as measured_state,SnapshotPending,export_requests
+from overte_phone_emote_originals import BLOCK
 
 
 def distinct(rows):
@@ -78,6 +81,73 @@ def role_state(previous,binding,run,role):
     need((state['phase']=='reading' and type(state['pending']) is dict)
         or (state['phase'] in ('ready','retired') and state['pending'] is None))
     return state
+
+
+def _owner_digest(value):return hashlib.sha256(canonical(value)).hexdigest()
+
+
+def _actor_process(value):
+    exact(value,{'pid','start'})
+    need(integer(value['pid'],1) and type(value['start']) is str and value['start'].isdecimal())
+    return value
+
+
+def validate_read_ready_mode(value,*,actor_process=None):
+    exact(value,{'snapshotCleanupReadReadyVersion','actorProcess'})
+    need(type(value['snapshotCleanupReadReadyVersion']) is int and value['snapshotCleanupReadReadyVersion']==1)
+    _actor_process(value['actorProcess'])
+    if actor_process is not None:need(same(value['actorProcess'],_actor_process(actor_process)))
+    return value
+
+
+def validate_read_ready_slot(frame,run,*,phase=None,actor_process=None):
+    """Validate scheduling metadata only; this diagnostic has no effect facts."""
+    exact(frame,{'ticket','phaseBefore','phaseAfter','diagnostic','image','binaries','retirement','readReadySlot'})
+    need(frame['diagnostic'] is True and frame['image'] is None and frame['binaries']==[] and frame['retirement'] is None)
+    slot=frame['readReadySlot']
+    exact(slot,{'snapshotCleanupReadReadyVersion','slotId','preparedRoleSequence','preparedRoleOwnerSha256',
+        'preparedRoleHeader','featureOwnerSha256','actorProcess'})
+    need(type(slot['snapshotCleanupReadReadyVersion']) is int and slot['snapshotCleanupReadReadyVersion']==1
+        and identifier(slot['slotId']) and integer(slot['preparedRoleSequence'],1,254))
+    _actor_process(slot['actorProcess'])
+    if actor_process is not None:need(same(slot['actorProcess'],_actor_process(actor_process)))
+    for key in ('preparedRoleOwnerSha256','featureOwnerSha256'):
+        need(type(slot[key]) is str and len(slot[key])==64 and all(value in '0123456789abcdef' for value in slot[key]))
+    need(_owner_digest(slot['preparedRoleHeader'])==slot['preparedRoleOwnerSha256'])
+    previous=None
+    for packet in (frame['phaseBefore'],frame['phaseAfter']):
+        phase_packet(packet,run=run,area='snapshots',request=packet['requestId'],epoch=packet['capturedEpochMs'],previous=previous)
+        need(packet['active'] and packet['activations'] and packet['activations'][-1]['stimulus']['verb']=='cleanup'
+            and packet['activations'][-1]['ticket']==frame['ticket'])
+        if previous is not None:
+            for key in ('fixturePhaseVersion','instance','runId','area','createdEpochMs','retiredEpochMs','activations','active'):
+                need(same(packet[key],previous[key]))
+        previous=packet
+    if phase is not None:
+        for key in ('fixturePhaseVersion','instance','runId','area','createdEpochMs','retiredEpochMs','activations','active'):
+            need(same(frame['phaseAfter'][key],phase[key]))
+    return slot
+
+
+def validate_read_ready_slot_owner(feature,slot_header,frame,guard):
+    """Join the exact prior ready owner and its actual immutable prefix."""
+    f=feature;f.lock.assert_held();need(callable(guard) and guard() is True)
+    slot=validate_read_ready_slot(frame,f.run)
+    before=role_state(slot['preparedRoleHeader'],f.binding,f.run,'primary')
+    after=role_state(slot_header,f.binding,f.run,'primary')
+    need(before['phase']==after['phase']=='ready' and before['pending'] is after['pending'] is None
+        and before['sequence']==slot['preparedRoleSequence'] and after['sequence']==before['sequence']+1
+        and _owner_digest(f.previous)==slot['featureOwnerSha256'])
+    host=SnapshotsOriginals(f.root,f.binding,f.run,'primary',guard,lambda *_:need(False),kind='snapshots')
+    def entries(state):
+        rows=[]
+        for index,reference in enumerate(state['manifests'],1):
+            need(reference['block']==index and (index==len(state['manifests']) or reference['count']==BLOCK))
+            rows.extend(host.manifest(reference))
+        need(len(rows)==state['sequence']);return rows
+    old,new=entries(before),entries(after)
+    need(same(new[:-1],old) and same(host.read(host.expand(new[-1])),frame) and guard() is True)
+    return True
 
 
 def _validate_body_files(frames,image_engine,binary_engine,receipts):
@@ -271,7 +341,10 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         return True
 
     def save(self):
-        self.publication_bound();value=dict(snapshotsRoleVersion=1,runId=self.feature.run,binding=self.feature.binding,role=self.role,payload=pack([self.state]))
+        self.publication_bound()
+        first_slot_guard=getattr(self,'_read_ready_first_cas',None)
+        if first_slot_guard is not None:first_slot_guard()
+        value=dict(snapshotsRoleVersion=1,runId=self.feature.run,binding=self.feature.binding,role=self.role,payload=pack([self.state]))
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     def storage_intent(self,kind,value):
@@ -479,6 +552,33 @@ class PhoneSnapshotsRole(PhoneCreateRole):
         elif pending['original'] is not None and pending['original']['phase']=='saved':frame=self.originals.read(pending['original'])
         else:frame=dict(pending['work'],diagnostic=True,image=pending['image'],binaries=pending['binaries'],retirement=pending['retirement'])
         self.finish_archive(frame)
+
+    def append_read_ready_slot(self,actor_process,*,_history_pass):
+        """Archive one pure cleanup readiness slot through the normal journal."""
+        f=self.feature;self.bound()
+        need(self.role=='primary' and not self.system and f.state['phase']=='cleaned'
+            and f.state['current'] is None and f.state['handoff'] is None
+            and self.state['phase']=='ready' and self.state['pending'] is None and 0<self.state['sequence']<255)
+        validate_read_ready_mode(f.state['cleanupStages']['readReadyMode'],actor_process=actor_process)
+        need(not self.frames or 'readReadySlot' not in self.frames[-1])
+        from overte_phone_snapshots_constructor_history import SnapshotConstructorHistoryPass
+        need(type(_history_pass) is SnapshotConstructorHistoryPass and _history_pass.attached is self
+            and _history_pass.finished and not _history_pass.read_claimed)
+        _history_pass._qualification(self)
+        old=deepcopy(self.previous);before=f.phase.status();f.cleanup_observe_phase(before)
+        after=f.phase.status(before);f.cleanup_observe_phase(after,before)
+        frame=dict(ticket=before['activations'][-1]['ticket'],phaseBefore=before,phaseAfter=after,
+            diagnostic=True,image=None,binaries=[],retirement=None,
+            readReadySlot=dict(snapshotCleanupReadReadyVersion=1,slotId=uuid.uuid4().hex,preparedRoleSequence=self.state['sequence'],
+                preparedRoleOwnerSha256=_owner_digest(old),preparedRoleHeader=old,featureOwnerSha256=_owner_digest(f.previous),actorProcess=deepcopy(actor_process)))
+        validate_read_ready_slot(frame,f.run,phase=after,actor_process=actor_process)
+        self.state.update(phase='reading',pending=dict(original=None,manifest=None,image=None,binaries=[],retirement=None,frame=None,work=deepcopy(frame)))
+        self._read_ready_first_cas=lambda:_history_pass.before_slot_cas(self,frame)
+        try:self.save()
+        finally:self._read_ready_first_cas=None
+        self.finish_archive(frame)
+        _history_pass.acknowledge_own_slot(self,old,frame)
+        return deepcopy(frame)
 
     def read(self,after_sequence,*,phase_admission=None):
         need(not self._host_publication)

@@ -16,7 +16,8 @@ from adapters.native_feature_observation import need,number
 from adapters.normal_feature_state import PrivateFeatureState
 from overte_phone_script_history import canonical,same
 from overte_phone_snapshots_history_pass import SnapshotHistoryReadPass,signature
-from overte_phone_snapshots_role import _UNPINNED,role_state,_restore_history_files
+from overte_phone_snapshots_role import (_UNPINNED,role_state,_restore_history_files,
+    validate_read_ready_slot,validate_read_ready_slot_owner)
 from overte_phone_snapshots_evidence import SnapshotsOriginals
 from overte_phone_snapshot_system_context import SnapshotSystemContext
 from overte_phone_snapshot_documents_ui import SnapshotDocumentContext
@@ -143,6 +144,7 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         self.files={};self.file_seal=self.file_seal_sha256=None
         self.system_scope=self.system_pin=self.system_factory=None
         self.rebind_open=self.rebound=False
+        self.own_slot=False
         if passive:
             self.system_factory=_callable_identity(f.adapter._snapshot_system_context)
             self._pin_system(passive_scope(f))
@@ -172,7 +174,7 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
         if current:need(passive_scope(f) is scope)
         pin['clock']=scope.last_clock
 
-    def _headers(self,*,check_system=True):
+    def _headers(self,*,check_system=True,_slot_owner=None):
         f=self.feature
         need(not self.closed and os.getpid()==self.process and threading.get_ident()==self.thread
             and f.store is self.feature_store and (f.store.path,self.role_store.path)==self.paths
@@ -183,7 +185,8 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
             and same(f.previous,self.feature_header)
             and getattr(f.adapter,'_existing_input_scope',None) is self.scope and same(self.scope,self.scope_value)
             and _digest(self.prepared)==self.prepared_sha256)
-        for store,expected,pinned in zip((self.feature_store,self.role_store),(self.feature_header,self.role_header),self.signatures):
+        role_header,role_signature=(self.role_header,self.signatures[1]) if _slot_owner is None else _slot_owner
+        for store,expected,pinned in zip((self.feature_store,self.role_store),(self.feature_header,role_header),(self.signatures[0],role_signature)):
             need(signature(store.path)==pinned and same(store.read(),expected) and signature(store.path)==pinned)
         self._system_headers(current=check_system)
         return True
@@ -312,6 +315,64 @@ class SnapshotConstructorHistoryPass(SnapshotHistoryReadPass):
             need(self.claimed and not self.finished and self.attached is role)
             self._qualification(role);self.finished=True;return True
         except BaseException:self.close();raise
+
+    def acknowledge_own_slot(self,role,old_header,frame):
+        """Extend this token only for its one normally archived ready slot."""
+        try:
+            f=self.feature;f.lock.assert_held()
+            need(self.cleanup and not self.passive and self.finished and not self.read_claimed and not self.own_slot
+                and self.attached is role and same(old_header,self.role_header))
+            slot=validate_read_ready_slot(frame,f.run,phase=self.phase)
+            need(same(slot['preparedRoleHeader'],old_header)
+                and slot['preparedRoleSequence']==self.state['sequence'])
+            header=deepcopy(role.previous);state=role_state(header,self.binding,self.run,'primary')
+            owner=(header,signature(self.role_store.path));count=self.state['sequence']
+            need(state['phase']=='ready' and state['pending'] is None and state['sequence']==count+1)
+            def pure(*,graph=False):
+                self._headers(_slot_owner=owner);self._verify_files()
+                need(_digest(f.state)==self.feature_state_sha256 and role.feature is f and role.role=='primary'
+                    and role.store.path==self.role_store.path and same(role.previous,header) and same(role.state,state)
+                    and not role._host_publication and len(role.frames)==count+1 and same(role.frames[-1],frame))
+                if self.baseline_digest is not None:need(graph_digest(self.baseline)==self.baseline_digest)
+                if graph:need(graph_digest(role.frames[:count])==self.digest)
+                return True
+            pure(graph=True)
+            validate_read_ready_slot_owner(f,header,frame,pure)
+            host=SnapshotsOriginals(f.root,f.binding,f.run,'primary',pure,lambda *_:need(False),kind='snapshots')
+            new_files={}
+            def receipt(read,path,value):
+                actual=path(value);before=signature(actual);result=read(value)
+                need(signature(actual)==before)
+                if actual in self.files:need(self.files[actual]==before)
+                new_files[actual]=before;return result
+            reference=state['manifests'][-1]
+            entries=receipt(host.manifest,host.manifest_path,reference)
+            need(same(receipt(host.read,host.path,host.expand(entries[-1])),frame))
+            f.bound();role.bound();status=f.phase.status(self.phase);_same_phase(status,self.phase)
+            f.cleanup_observe_phase(status,self.phase)
+            pure(graph=True)
+            for path,value in new_files.items():need(signature(path)==value)
+            # Only the verified own CAS append advances the sealed authority.
+            self.role_header,self.state=header,deepcopy(state)
+            self.signatures=(self.signatures[0],owner[1])
+            self.prepared.update(role=self.role_header,state=self.state)
+            self.prepared_sha256=_digest(self.prepared)
+            self.frames=role.frames;self.digest=graph_digest(self.frames)
+            self.files.update(new_files);self.file_seal=tuple(self.files.items());self.file_seal_sha256=self._files_digest(self.file_seal)
+            self.own_slot=True;self._headers();self._memory();self._verify_files();return True
+        except BaseException:self.close();raise
+
+    def before_slot_cas(self,role,frame):
+        """Keep the prior owner metadata through the first actual slot save."""
+        self.feature.lock.assert_held()
+        need(self.cleanup and self.finished and not self.read_claimed and not self.own_slot and self.attached is role
+            and same(role.previous,self.role_header) and role.state['sequence']==self.state['sequence']
+            and role.state['phase']=='reading' and same(role.state['manifests'],self.state['manifests'])
+            and same(role.state['pending'],dict(original=None,manifest=None,image=None,binaries=[],retirement=None,frame=None,work=frame)))
+        self._headers();self._verify_files()
+        need(_digest(self.feature.state)==self.feature_state_sha256 and graph_digest(role.frames)==self.digest
+            and graph_digest(self.baseline)==self.baseline_digest)
+        return True
 
     def before_read(self,role):
         try:

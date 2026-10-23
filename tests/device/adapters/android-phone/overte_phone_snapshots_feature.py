@@ -117,6 +117,10 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
             'marker','markerSource','inputs','inputSequence','inputStorage','retained','settingsIndex','filesBinding','docArm','docBinding',
             'consumerArm','consumerBinding','cancelJobs','handoff','handoffs','captureTicket','restoreId','restoreSha256','quiet','cleanupStages','capturePath','settingsIntent','filesIndex','partial'})
         need(type(self.state['partial']) is bool and self.state['domainId']==self.config['domainId'])
+        need(type(self.state['cleanupStages']) is dict)
+        if 'readReadyMode' in self.state['cleanupStages']:
+            from overte_phone_snapshots_role import validate_read_ready_mode
+            validate_read_ready_mode(self.state['cleanupStages']['readReadyMode']);need(not self.state['partial'])
         need(self.state['phase'] in ('preparing','baseline','acting','active','cleaning','cleaned','partial-cleaned','retiring')
             and self.state['objects']==[] and integer(self.state['inputSequence'],0,1024)
             and type(self.state['actions']) is list and len(self.state['actions'])<=32
@@ -559,9 +563,13 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                         else:
                             role=PhoneSnapshotsRole(self,self.role,_observe_disposals=observations)
                             if role.state['phase']=='reading':role.recover()
-                            prepared=self.cleanup_observe_pin(role)
-                            history=SnapshotHistoryReadPass(role,prepared)
-                            session.callback(history.close)
+                            if 'readReadyMode' in self.state['cleanupStages'] and role.state['sequence']>0:
+                                constructor_history=SnapshotConstructorHistoryPass.prepare(self,self.role,cleanup=True,expected_role=role.previous)
+                                need(constructor_history is not None);session.callback(constructor_history.close)
+                            else:
+                                prepared=self.cleanup_observe_pin(role)
+                                history=SnapshotHistoryReadPass(role,prepared)
+                                session.callback(history.close)
                     else:
                         constructor_history=SnapshotConstructorHistoryPass.prepare(self,self.role,passive=self.state['handoff'] is not None)
                         if constructor_history is not None:session.callback(constructor_history.close)
@@ -590,34 +598,119 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                 # This token permits complete immutable host IO only. It cannot
                 # construct target readers, recover, publish or acquire facts.
                 history.read()
-                with self.lock.held():
-                    try:
+                try:
+                    with self.lock.held():
                         history.before_load()
                         self.load();history.after_load()
                         role=PhoneSnapshotsRole(self,self.role,expected_previous=history.role_header,
                             _observe_disposals=observations,_history_pass=history)
-                        history.before_read(role)
-                        try:
-                            value=role.read(call['afterSequence'])
-                            if history.cleanup:
-                                self.cleanup_observe_phase(role.frames[-1]['phaseBefore'],history.phase)
-                                self.cleanup_observe_phase(role.frames[-1]['phaseAfter'],history.phase)
-                            return value
-                        except SnapshotPending:
-                            need(attempt<50)
-                            previous_phase=deepcopy(history.phase)
-                            history.close()
-                            next_history=SnapshotConstructorHistoryPass.prepare(self,self.role,
-                                expected_role=role.previous,previous_phase=previous_phase,cleanup=history.cleanup,passive=history.passive)
-                            # Once admitted, a lost owner or changed context
-                            # never authorizes a fallback to a fresh bootstrap.
-                            need(next_history is not None)
-                            history=next_history;session.callback(history.close)
-                    except BaseException:
-                        session.close();raise
+                        waiting=self.prepare_read_ready(history,role) if history.cleanup else None
+                        if waiting is None:return self.constructor_current_read(call,history,role)
+                    self.await_read_ready(history,role,*waiting)
+                    with self.lock.held():return self.constructor_current_read(call,history,role)
+                except SnapshotPending:
+                    with self.lock.held():
+                        need(attempt<50)
+                        previous_phase=deepcopy(history.phase)
+                        history.close()
+                        next_history=SnapshotConstructorHistoryPass.prepare(self,self.role,
+                            expected_role=role.previous,previous_phase=previous_phase,cleanup=history.cleanup,passive=history.passive)
+                        # Once admitted, a lost owner or changed context
+                        # never authorizes a fallback to a fresh bootstrap.
+                        need(next_history is not None)
+                        history=next_history;session.callback(history.close)
+                except BaseException:
+                    session.close();raise
                 self.sleep(.1)
             need(False)
         finally:history.close()
+
+    def constructor_current_read(self,call,history,role):
+        history.before_read(role)
+        value=role.read(call['afterSequence'])
+        if history.cleanup:
+            self.cleanup_observe_phase(role.frames[-1]['phaseBefore'],history.phase)
+            self.cleanup_observe_phase(role.frames[-1]['phaseAfter'],history.phase)
+        return value
+
+    def read_ready_actor(self,*,allow_absent=False):
+        """Read only the original independently owned actor's lifecycle."""
+        from overte_phone_snapshots_actor import actor_fields
+        from overte_phone_snapshots_retirement import terminated
+        path=self.store.path.with_name('phone-snapshots-actor-lifecycle.json');header=PrivateFeatureState(path).read()
+        if header is None:
+            need(allow_absent and 'readReadyMode' not in self.state['cleanupStages']
+                and not any(self.root.glob('emote-frame-snapshots-'+self.run+'-actor-*.json'))
+                and not any(self.root.glob('emote-index-snapshots-'+self.run+'-actor-*.json'))
+                and not any(self.root.glob('snapshots-'+self.run+'-actor-*.png'))
+                and not any(self.root.glob('snapshots-file-'+self.run+'-actor-*.bin'))
+                and not any(self.root.glob('snapshots-actor-transfer-*'))
+                and not os.path.lexists(self.store.path.with_name('phone-snapshots-actor-originals.json'))
+                and not os.path.lexists(self.store.path.with_name('phone-snapshots-actor-files-observer.json')))
+            return None
+        exact(header,{'snapshotsActorVersion','runId','binding','payload'})
+        need(header['runId']==self.run and same(header['binding'],self.binding))
+        states=unpack(header['payload']);need(len(states)==1);state=states[0]
+        exact(state,actor_fields(header['snapshotsActorVersion']))
+        need(state['phase']=='watching' and state['process']!=self.state['hostProcess']
+            and not terminated(state['process']))
+        return header,state
+
+    def prepare_read_ready(self,history,role):
+        from overte_phone_snapshots_role import validate_read_ready_mode,validate_read_ready_slot,validate_read_ready_slot_owner
+        if 'readReadyMode' not in self.state['cleanupStages']:return None
+        need(history.cleanup and not history.passive and self.state['phase']=='cleaned')
+        mode=validate_read_ready_mode(self.state['cleanupStages']['readReadyMode'])
+        _header,actor=self.read_ready_actor();need(same(actor['process'],mode['actorProcess']))
+        if role.frames and 'readReadySlot' in role.frames[-1]:
+            frame=role.frames[-1]
+            validate_read_ready_slot(frame,self.run,phase=history.phase,actor_process=mode['actorProcess'])
+            history._qualification(role)
+            validate_read_ready_slot_owner(self,role.previous,frame,role.history_authority)
+        else:role.append_read_ready_slot(mode['actorProcess'],_history_pass=history)
+        return deepcopy(role.previous),deepcopy(mode['actorProcess'])
+
+    def await_read_ready(self,history,role,slot_header,actor_process):
+        """Wait for this slot's real separate receipt, without target authority."""
+        need(self.lock._owner is None)
+        started=previous=self.monotonic();need(number(started,0,1e15))
+        slot=role.frames[-1];ticket=slot['ticket']
+        def owners():
+            need(self.lock._owner is None and same(role.previous,slot_header)
+                and same(role.store.read(),slot_header))
+            history._headers();return True
+        while True:
+            now=self.monotonic();need(number(now,previous,1e15) and now-started<20);previous=now
+            owners();header,actor=self.read_ready_actor()
+            need(same(actor['process'],actor_process))
+            cue=actor.get('primaryCue');last=actor['last']
+            if cue is not None and same(cue,dict(snapshotPrimaryCueVersion=1,header=slot_header)) and actor['pending'] is None and last is not None:
+                exact(last,{'original','receipt'});exact(last['original'],{'sample','issued'})
+                need(last['original']['issued'] is True)
+                sample=last['original']['sample'];receipt=last['receipt']
+                exact(sample,{'ticket','actor','actorSequence','capturedEpochMs','facts'})
+                exact(receipt,{'ticket','actor','actorSequence','capturedEpochMs','facts','sequence','receivedEpochMs'})
+                need(sample['ticket']==ticket and sample['actor']=='owned-observer' and integer(sample['actorSequence'],1)
+                    and integer(sample['capturedEpochMs'],slot['phaseAfter']['capturedEpochMs'])
+                    and same({key:receipt[key] for key in sample},sample)
+                    and integer(receipt['sequence'],1) and number(receipt['receivedEpochMs'],sample['capturedEpochMs']-250,1e15))
+                # Adapter credentials expose only the original phase clock.
+                # The opaque issued-sample/receipt join stays in the actual
+                # independent actor journal; no peer fact is requested here.
+                actual=self.phase.client.observe()
+                exact(actual,{'schemaVersion','runId','area','ticket','sampleEpochMs','entries'})
+                need(type(actual['schemaVersion']) is int and actual['schemaVersion']==1 and actual['runId']==self.run
+                    and actual['area']=='snapshots' and actual['ticket']==ticket and type(actual['entries']) is list)
+                epoch=actual['sampleEpochMs'];need(number(epoch,1,1e15))
+                # The fixture's default clock and receipt time are finite
+                # fractional milliseconds. Preserve them without retiming.
+                for stamp in (sample['capturedEpochMs'],receipt['receivedEpochMs']):
+                    need(number(stamp,1,1e15) and -250<=epoch-stamp<=1500)
+                owners();after,again=self.read_ready_actor()
+                need(same(after,header) and same(again['process'],actor_process))
+                now=self.monotonic();need(number(now,previous,1e15) and now-started<20);return
+            now=self.monotonic();need(number(now,previous,1e15) and now-started<20);previous=now
+            self.sleep(.05)
 
     @staticmethod
     def cleanup_observe_phase(status,previous=None):
@@ -917,6 +1010,15 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
             if self.state['actions']:self.surface().select_camera(self.state['original']['avatar']['source']['cameraMode'])
             if len(self.state['quiet'])<2:
                 self.state['quiet'].append(self.quiet('after-restoration'));self.save()
+            if not self.state['partial']:
+                from overte_phone_snapshots_role import validate_read_ready_mode
+                known=self.read_ready_actor(allow_absent=True)
+                if known is not None:
+                    mode=dict(snapshotCleanupReadReadyVersion=1,actorProcess=deepcopy(known[1]['process']))
+                    if 'readReadyMode' in stages:need(same(validate_read_ready_mode(stages['readReadyMode']),mode))
+                    else:stages['readReadyMode']=mode
+                # Enrollment and cleaned visibility share this exact CAS. An
+                # actor can never publish a cleanup measurement cue first.
             self.state.update(phase='partial-cleaned' if self.state['partial'] else 'cleaned',current=None);self.save()
             self.partial_restored() if self.state['partial'] else self.restored();return {'performed':True}
 
