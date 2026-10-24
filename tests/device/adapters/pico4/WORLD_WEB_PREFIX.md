@@ -1,12 +1,13 @@
 # Normal World Web source prefix
 
-Feature 6 remains partial. `PicoWorldWebPrefix` composes the first six unchanged
-common v16 steps: normal Script load/open, calibrated ray/IME Unicode input,
-ordinary page Send, clear through the same ordinary IME, same-origin page B and
-normal History Back. It does not implement a second Journey or expose public
-feature operations. Foreign-origin, 404/reload, background/return, close,
-independent actor publication, original stereo/scene joining and whole
-resource/archive retirement remain unfinished.
+Feature 6 remains partial. `PicoWorldWebPrefix` composes the first thirteen
+unchanged common v16 steps: normal Script load/open, ray/IME Unicode input,
+Send, Clear, B/Back, foreign-origin navigation/message/Back and actual
+404/reload/server-restoration/reload. It does not implement a second Journey
+or expose public feature operations. The final reference navigation,
+background/return, final text/message/Clear, normal Close, independent actor
+publication, stereo/scene joining and whole resource/archive retirement remain
+unfinished.
 
 The private `_world_web_prefix` factory uses the original Script source lock
 and target-specific `world-web` namespace. It reuses `NormalScriptManager`,
@@ -47,7 +48,7 @@ profile with a distinct `picoWorldBrowserHistoryVersion: 1` discriminator.
 The default tablet profile keeps `picoBrowserHistoryVersion: 1` and its old
 wire shape. The prefix now writes `picoWorldWebPrefixVersion: 2`; its v1 reader retains
 the previous exact three-step limit. The v2 parser admits only the original
-closed nineteen-step v16 recipe, while actual input dispatch stops at six.
+closed nineteen-step v16 recipe, while actual input dispatch stops at thirteen.
 Opening an existing v1 ready owner preserves its bytes until the next explicitly
 authorized ordinary action; the normal mutable owner CAS then writes v2.
 Historical immutable source chunks are never migrated or rewritten. Both
@@ -57,7 +58,7 @@ its existing world-specific VM scope; it never queries the target as history.
 
 Observation/source files are pinned with the existing `ClosedOriginalFile`
 reader: exact original bytes, full dev/inode/mode/UID/link/size/mtime/ctime stamp,
-and actual descriptor closure. Final publication occurs after the actual outer
+and actual descriptor closure. Action and observation publication occur after the actual outer
 source-lock exit, revalidating current owner, physical files, process/candidate,
 exact independent phase and actual native/host clocks. An unresolved applied
 input retains `acting`; cold reads cannot replay it. `PhasePending` is published
@@ -79,9 +80,9 @@ seams. No device, HMD, GPU pixel, complete client or whole feature claim follows
 Initial rejected runs and first exception chains are retained separately from
 successful sources; no original packet was retimed or overwritten to pass.
 
-The next executable extension is foreign-origin navigation/message rejection
-and 404/reload on this same phase/owner chain, then background/return, close,
-actual stereo and independent actor publication.
+The next executable extension is final reference navigation and actual
+background/return on this same phase/owner chain, then normal Close, stereo
+and independent actor publication.
 Complete parent/actor, scene/pixel and Script/Web/entity/callback/resource
 retirement must precede public capability qualification.
 
@@ -170,4 +171,47 @@ Script manager and World-VM compatibility passes46 cases/3.867s, again with
 all source hashes unchanged. Four repository suites pass2.69s; registry and
 whitespace checks pass. These establish source/host behavior only; actual
 Controller/Qt/IME/V8/OS/GPU seams and full19-step/Actor/image/retirement remain
-unqualified. The separate Foreign/404 packet is the next integration step.
+unqualified. The separate Foreign/404 packet is described below.
+
+
+## Continuous foreign origin and real HTTP recovery
+
+This packet depends exactly on `c11e7ee2d11416b12bafc043679a75e279fda4fe`.
+It preserves the same prefix-v2 DTO, original parent, Script/Entity identity,
+lock, phase/input intents, limits and immutable role histories. The normal
+foreign URL field uses the configured independent listener and the actual
+original Script's ticket directory plus the common `reference.html` resource.
+The existing calibrated ray/focus/IME owner supplies that ordinary URL input;
+the existing Navigate control consumes it. No direct Web navigation API or
+arbitrary URL setter is introduced. The normal Send on the foreign document
+produces an observed attempt without a new granted native request or page echo.
+Back returns through actual history to the primary document.
+
+The recovery link and Reload control produce distinct real HTTP404 receipts.
+The reader-owned `restore-resource` phase changes only the test fixture; the
+adapter only reads its original ready status. That fixture acknowledgement
+never changes the retained document's HTTP status. A further normal Reload
+obtains the actual HTTP200 body before any source reports recovery. Every
+historical DOM response ID joins its original independent HTTP receipt, exact
+origin, ticket, resource, status, byte count and hash. Eight loaded documents
+remain in both roles' original inventories, with fourteen independent original
+transactions per role. This is source provenance, not image/scene proof.
+
+The initial continuous thirteen-step case passes in 6.092 s; two disjoint cases
+pass in 8.594 s. Lost applied foreign navigation stays owned and is never
+resent by a cold constructor. A cold observation after fixture restoration
+continues to report the actual old404 until normal Reload. Sources, old
+journals, consumed commands and old clocks remain unchanged during these runs.
+The `world-web-recovery-prefix` selector adds those three cases without copying
+the earlier selectors. No private/public contract or product source changes.
+The agent packet preserves its initial/existing-ready `prepare()` method.
+Root selection retains the already verified publication corrections described
+above; the agent selection does not qualify those later Root corrections.
+
+Final owning verification passes all three recovery cases in 14.773 s, the
+five navigation-prefix cases in 9.395 s, the five first-prefix cases in 3.090 s
+and coverage in 0.091 s (4/244 local catalog groups, 27.35 s total). The complete
+13,511-file source manifest remains unchanged during this selection. Four
+repository suites pass in 2.62 s; contract registry and whitespace pass. These
+sources acquire no HMD image, independent actor process or native resource
+retirement proof. No compiler, device or whole Journey is run by this packet.
