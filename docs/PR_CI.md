@@ -98,6 +98,22 @@ runtime inputs. Content-scoped host tasks omit an unrelated target branch;
 candidate-scoped tasks retain it. A fingerprint is a comparison key, not a test
 result, reusable evidence, or permission to skip a required owner.
 
+Complete GUI host prerequisites include both Qt5 and Qt6 SVG image decoders
+(`libqt5svg5` and `libqt6svg6` on Ubuntu24.04). Real Settings views load their
+shipped SVG icons, so Quick/QML packages alone are insufficient. Setup verifies
+the actual decoder plugins before candidate execution. The general, Android
+and iOS host roles use the official Ubuntu archive instead of the Azure mirror,
+which produced measured multi-minute pauses while downloading individual Qt
+packages. Package signature verification and isolated candidate execution are
+unchanged.
+
+The iOS host role prepares Chromium Headless Shell with the reviewed
+`playwright@1.63.0` installer before candidate execution and verifies its shared
+libraries. A dedicated runtime leaf contains the browser and its discovery
+alias; the existing launcher mounts only that leaf read-only for the unchanged
+offline DOM contracts. Tests never download a browser or mount host profiles.
+See the [Playwright headless-shell installation guide](https://playwright.dev/docs/browsers#chromium-headless-shell).
+
 Host and npm execution now publish separate task receipts. For a direct
 parent-to-child propagation, the controller can reuse the original successful
 command only after authenticating its repository, owning ancestor, merged PR,
