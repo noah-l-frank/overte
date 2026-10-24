@@ -1,109 +1,89 @@
-# Original iOS world Web sources
+# World Web original acquisition and single-parent source profile
 
-`world_web_source` reads the actual iOS Web module's cumulative document,
-main-frame response, normal native input and Qt bridge transcript. The provider
-is installed by the real `registerIOSWebView` startup hook. The Test router must
-invoke that registered provider, not a second header-local registry. Metadata
-never retains a view, Qt bridge, native callback or GPU resource.
+The private Sources and SourceRecord writers use version 5 with the actual
+native WholeSnapshot2 reader. Historical source/record versions 3 and 4 remain
+exactly readable with their original per-module or Snapshot1 acquisition
+profiles. The private whole-feature API requires version 5 before active input. The normal runtime
+constructs the new reader before the first acquisition. Old original packets
+are never rewritten, retimed or relabelled to qualify a new run.
 
-The closed read command is exactly `{schemaVersion:1,commandId:"ios-<32hex>",
-action:"feature-ios-world-web",runId:"<32hex>",fixtureUrl:"<actual-run-root>"}`.
-The fixed private result file is `feature-ios-world-web.json`, limit 2097152 for writer 3.
-The provider uses `IOSWorldWebTrace.h`, `world_web_trace::command`,
-`world_web_trace::providerProperty` and its distinct `Provider` metatype.
-The result writer is `iosWorldWebVersion=3`, with historical readers 1, 2 and 3.
-Version 3 retains the same event/identity grammar and actual callback chronology,
-with capacity for 4096 cumulative events and a 2 MiB compact native result.
-Historical versions 1/2 retain their original 2048-event/1 MiB bounds. Active
-whole input requires version 3 before normal setup. A measured full-callback
-host journey reached 1,049,451 compact bytes at step 17, before its next native
-read, and failed closed at the old bound. No events are dropped or counters reset.
-Version 2 records `owner-destroyed` from the actual `QObject::destroyed` signal
-after the derived destructor and its members finish. Version 1 recorded derived
-destructor entry, so it remains historical input and cannot qualify whole
-retirement or authorize new world input. The gated connection captures only
-the original identity value, retains no QObject and changes no product action.
-Python preserves native instance,
-process, sequence, clock domain, event IDs and complete event prefixes.
+Source4 and Source5 frames retain the original Snapshot parent reference in
+`nativeSnapshot` and the exact pre-send `snapshotQueries` intention. Every
+outer Snapshot query is durably recorded before HTTP delivery. Unknown delivery
+remains owned; recovery starts a distinct observation and never resends the
+uncertain query. Native callback ownership remains independently observable in
+the original WK, Script and weak lifetime sources.
 
-`world_web_dom` uses the equally closed `feature-ios-world-web-dom` action and
-file `feature-ios-world-web-dom.json`, limit 262144. It invokes the registered
-`world_web_trace::domProviderProperty` provider and validates with
-`world_web_trace::domCommand`. The native result is
-`iosWorldWebDOMNativeVersion=1`, containing the actual WK view, native document,
-successful or failed HTTP status, consumed response header ID, original native
-finish time, observer source digest and current original DOM acquisition.
-The current DOM body is `iosWorldWebDOMVersion=2`, with original DOM1 history
-still readable against its actual frozen source pin. Native envelope remains
-`iosWorldWebDOMNativeVersion=1`. Each actual element now also reports its own
-`focused` bool and original `value` string/null. In particular the ordinary
-foreign-URL input can be qualified before the normal Navigate button; the
-requested URL never becomes an observed value by implication.
+`WorldWebSnapshotParts` writes the actual bounded Snapshot JSON bytes once in
+512 KiB chunks through the existing private OriginalFrameStore. Actual carriers
+retain their unchanged 1 MiB limit. The new parent contract is
+`worldWebSnapshotPartsVersion:1`. Each of nine Snapshot1 or twelve WholeSnapshot2 native originals has a closed
+`worldWebSnapshotProjectionVersion:1` or `:2` reference respectively containing its original name,
+source index/acquisition, exact parent reference and actual selected call
+ordinal. A projection can only decode the corresponding original resultJSON
+from those retained bytes. It cannot supply a replacement DTO. Old Parts1 and
+its names and original storage contracts remain unchanged.
 
-The separately packaged `ios_world_web_dom.js` source is pinned by actual bytes.
-It only reads the original DOM, geometry, focus, original input events and actual
-reference-handler echo display. Its readonly API has no input or retirement
-setter. The existing shared trusted-input DOM1 source and reader remain unchanged.
-The real world product route intentionally uses `dispatchEvent`/`el.click()`.
-Therefore an untrusted DOM click is retained as an original, never promoted to
-trusted input. Qualification requires the preceding original mouseup on the
-same actual element birth, its coordinates, the original native dispatch and
-its actual completion entry and return in the same original document. Missing,
-ambiguous, reused, pending or foreign dispatches fail. Click coordinates alone
-cannot qualify this route: the product's HTMLElement.click has zero coordinates.
+The new actual acquisition order is LedgerBefore, DOM pending/ready, World,
+Work, Geometry, Keys, Pointer, Entities, LedgerAfter, then the actual cache, closure and Script-emitter getters in version 5,
+followed by independent Qt widget and UIKit originals and controlled browser
+response history. All original
+per-source clocks, native PID/birth/counters, inner nonces and individual byte
+bounds remain mandatory. `point_snapshot` joins actual DOM, World and Geometry
+JSON to this exact native Snapshot before using its new observed order; the
+existing point calculation retains its strict old order by default.
 
-Main-frame `NSHTTPURLResponse` status/header, current native URL, actual body
-response metadata and the separately read original BrowserResources receipt
-must all join. A host fetch, resource name, requested ready flag or ACK cannot
-provide a consumed response or document completion. Actual verified native
-document identities count once across view reconstruction; polls and duplicate
-callbacks do not increment document loads.
+The Source clock journal retains every independent native clock request before
+send and every unchanged raw response after receipt. `clockFloors` selects one
+actual before floor for the native Snapshot, with its retained original nonce,
+PID, instance, sequence and new terminal queries. This floor is never treated as
+a new current clock. Source acquisition remains bounded to 1.5 seconds and the
+whole API to 25 seconds through the last actual native/W3C transport send.
 
-Actual callback entry/return is recorded inside the original completion body,
-including early returns after owner death. Block destruction cannot record a
-return. Qt bridge Signal RAII wraps the real original signal emission, preserving
-return/exception semantics and nested callbacks. Unreturned evaluations and
-signals remain pending after Qt owner death. Complete, bounded metadata fails
-closed on clock regression, 4096 events, 32768 detail bytes or a 2 MiB result (writer 3).
-The source has no reset or expected-value command.
+Source5 journals the exact native UIKit command before sending it. Its explicit
+UIKit floor selects the current accepted raw NativeDiag packet in the same
+acquisition, including actual PID/birth/nonce/sequence/lifecycle. The epoch must
+still equal that reader's last accepted native epoch. Both UIKit terminal clock
+queries remain new. This reduces twelve Source4 clock queries to seven without
+changing any current clock or the enclosing source deadline.
 
-The source is gated by `OVERTE_E2E_FEATURE_TESTS`, iOS, and the original explicit
-test-script/results launch. Native sources are uncompiled. Eight Python cases
-exercise original HTTP bytes/receipts with modeled native/DOM envelopes; Node
-executes the actual product pointer/key and original reference/observer sources
-against a modeled DOM. They establish adapter/source logic only. A complete
-19-step normal-input owner, independent actor, image acquisition and actual
-Web/native/GPU/VM/pointer quiet finalization remain separate composition work.
-No whole Web capability is supplied by this prerequisite.
+Source5 also journals each actual widget receipt, UIKit receipt and browser
+packet durably before another query. A bounded single immutable auxiliary
+carrier then retains those three exact packets; closed
+`worldWebAuxProjectionVersion:1` references select the actual widget observation,
+full receipt, UIKit receipt and browser original. The parent uses
+`worldWebAuxOriginalVersion:1`; its source index and original acquisition nonce
+must match every projection. No raw return is replaced with a digest. Old raw
+replacement/deletion and a failed bounded journal write prevent the next send.
+The actual carrier's planned/opened/saved interruptions preserve all returned
+raws; historical reconstruction sends or replays no query. Unsafe partial
+carriers remain owned. Equal bytes in a different inode never qualify.
 
-The source prerequisite is connected to the existing Test provider properties,
-nonce-closed probe/fixture command routes and `FeatureObservation.world_web` /
-`world_web_dom` AFC factories. Ledger commands are consumed once per nonce; DOM
-polling revisits the same native asynchronous request without evaluating it
-again. Real codec tests retain the exact returned originals and fixed remote
-paths, and reject added expected-state fields before HTTP delivery. The original
-probe itself runs in Node to check nonce ownership and pending-to-ready routing.
+A validation/input round first reads and hashes the full old actual byte graph.
+Pure typed Snapshot-body validation can then reuse only an equal full packet
+hash in that synchronous bounded round. No decoded objects escape through
+aliases. Snapshot-parent reuse additionally checks the actual retained
+file's device/inode, mode, owner/group, nlink, size, mtime and ctime before every
+use and on round exit. Newly appended originals require explicit durable
+pre-write reservations and full actual-byte admission. Undeclared files,
+missing carriers, rewritten prefixes or replaced inodes block the next send.
+The pure memo and parent lease expire at round end; neither replaces freshness
+or actual original file reads in the next round. A fresh original-file
+membership scope reopens and hashes a warm parent once before any reuse in that
+set; a warm memo never silently adds a path to archive membership.
 
-The controlled BrowserResources pages retain their original DOM and handlers.
-A compact fixture stylesheet exposes the actual journey controls within the
-world view; ordinary recovery and reference anchors supply real navigations.
-The foreign listener adds an actual visible foreign heading. Response metadata
-records the actual modified bytes and opaque response ID. Independent video
-parity resources remain unchanged. Real socket/receipt regressions and the
-original product pointer/key/reference JavaScript pass host checks; actual
-WKWebView compilation, layout, input timing and devices remain unverified.
+Host verification uses explicit native/WK/Qt models and actual Node scripts,
+private file writes, hashes, inodes and elapsed CPU. It covers fresh historical
+and live rebuilds, lost queries, wrong projections, outward mutation, warm
+stale/foreign packets, and a real post-preparation parent replacement that
+blocks W3C delivery and subsequent replay. Native sources remain uncompiled
+and unexecuted in this source-only session. A successful input subset does not
+qualify renderer evidence, independent actor observations or paired final
+retirement; those whole-feature checks remain separately required.
 
-Large original packets are retained in at most four 512 KiB chunks. Each actual
-OFS carrier includes its canonical JSON envelope and base64 payload and must
-still fit the unchanged 1 MiB OFS bound. Warm pure read rounds reopen and hash
-every actual carrier/inode; they may borrow private validated decoded frames
-only within the round. Public decode/frame/browser histories are independent
-copies. A cached public return cannot mutate the next derived original.
-
-The part reference and its independent Original1/Frame1 envelopes are registered
-as `ios-world-web-source-part`, `ios-world-web-source-part-original` and
-`ios-world-web-source-part-frame`. The shared original-frame-store wire and
-1 MiB per-file limit remain unchanged. Current capacity tests retain a complete
-2,406-event modeled native callback original (1,565,701 compact bytes); the four
-actual private carrier envelopes remain below 700 KiB each, including base64 and
-JSON framing. These are host storage/codec checks, not native or device runs.
+The same fresh no-VM host baseline performed 67 fsyncs/59 journal saves/12 clock
+queries with Source4 and 34 fsyncs/31 saves/7 queries with Source5. Measured wall
+times were 0.672 and 0.293 seconds. Actual dual-SDK SceneQuiet acquisitions later
+ranged from 0.895 to 1.071 seconds, but final publication freshness still needs
+complete positive CPU qualification. Concurrent host durability suites can add
+substantial I/O delay; failed deadlines remain failures, without retry or retime.

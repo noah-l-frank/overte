@@ -11,6 +11,7 @@ from contracts import validate_operation_arguments
 from ios.adapters.create_api_clock import installed_entry as create_api_entry
 from ios.adapters.emote_api_entry import installed_entry as emote_api_entry
 from ios.adapters.navigation_api_entry import installed_entry as navigation_api_entry
+from ios.adapters.world_web_api_clock import installed_entry as world_web_api_entry
 from ios.adapters.emote_session_cleanup import session_entry as emote_session_entry,ensure_finalized as finalize_emotes
 from adapters.normal_feature_state import PrivateFeatureState
 from ios.adapters.adapter import IOSNativeMixin
@@ -311,6 +312,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
         @create_api_entry
         @emote_api_entry
         @navigation_api_entry
+        @world_web_api_entry
         def invoke(self, selector, operation, values):
             validate_operation_arguments(operation,values)
             need(operation not in ('app.install','app.upgrade'))
@@ -338,6 +340,10 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                         from ios.adapters.navigation_runtime import IOSNavigationRuntime
                         config=configuration();runtime=IOSNavigationRuntime(self)
                         flow=runtime._navigation_feature(selector,values['runId'],role='primary',client=reader(config),settings=config['worldNavigation'])
+                    elif operation.split('.')[1]=='world-web':
+                        from ios.adapters.world_web_runtime import IOSWorldWebRuntime
+                        config=configuration();runtime=IOSWorldWebRuntime(self)
+                        flow=runtime._world_web_feature(selector,values['runId'],role='primary',client=reader(config),settings=config['worldWeb'])
                     elif operation.split('.')[1]=='authentication':
                         from ios.adapters.authentication_runtime import IOSAuthenticationRuntime
                         runtime=IOSAuthenticationRuntime(self,reader(configuration()),values['runId'])
@@ -348,6 +354,9 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                     result=getattr(flow,operation.rsplit('.',1)[1])(values)
                     if operation=='feature.world-navigation.terminal' and values['stage']=='finish':
                         from ios.adapters.navigation_canonical_end import verify
+                        verify(flow,values,result)
+                    elif operation=='feature.world-web.terminal' and values['stage']=='finish':
+                        from ios.adapters.world_web_canonical_end import verify
                         verify(flow,values,result)
                     elif operation=='feature.world-navigation.cleanup':
                         from ios.adapters.navigation_failed_preparation_cleanup import verify
@@ -393,6 +402,10 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             from ios.adapters.navigation_session_cleanup import retire_existing
             navigation=retire_existing(IOSNavigationRuntime(self),selector,configuration())
             if navigation is not None:return navigation
+            from ios.adapters.world_web_runtime import IOSWorldWebRuntime
+            from ios.adapters.world_web_finalization import retire_existing as retire_world_web
+            world_web=retire_world_web(IOSWorldWebRuntime(self),selector,configuration(),None)
+            if world_web is not None:return world_web
             return self._cleanup_other_features(selector)
 
         @emote_session_entry

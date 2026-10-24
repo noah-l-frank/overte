@@ -65,18 +65,41 @@ def original(value):
 
 
 def rotate(vector,quaternion):
-    x,y,z,w=quaternion;vx,vy,vz=vector
+    length=math.sqrt(sum(value*value for value in quaternion));need(length>0)
+    x,y,z,w=[value/length for value in quaternion];vx,vy,vz=vector
     tx,ty,tz=2*(y*vz-z*vy),2*(z*vx-x*vz),2*(x*vy-y*vx)
     return [vx+w*tx+y*tz-z*ty,vy+w*ty+z*tx-x*tz,vz+w*tz+x*ty-y*tx]
 
 
 def point(value,document,world,uikit,entity,control):
+    return _point(value,document,world,uikit,entity,control)
+
+
+def point_snapshot(value,document,world,uikit,entity,control,native_snapshot):
+    """The new actual DOM-before-World acquisition, joined to its byte source."""
+    from ios.adapters import world_web_snapshot as legacy,world_web_whole_snapshot as whole
+    from adapters.script_feature.history import same
+    version=native_snapshot.get('iosWorldWebSnapshotVersion');need(type(version) is int and version in (1,2))
+    snapshot=legacy if version==1 else whole
+    query=dict(schemaVersion=1,commandId=native_snapshot['commandId'],action=snapshot.ACTION,
+        runId=native_snapshot['runId'],fixtureUrl=native_snapshot['fixtureUrl'])
+    snapshot.validate(native_snapshot,query,value['processId']);need(native_snapshot['status']=='ready')
+    originals=snapshot.selected(native_snapshot,('geometry','document','world'))
+    need(same(originals['geometry'],value) and same(originals['document'],document) and same(originals['world'],world))
+    return _point(value,document,world,uikit,entity,control,native_snapshot=native_snapshot)
+
+
+def _point(value,document,world,uikit,entity,control,*,native_snapshot=None):
     """Original DOM rectangle on the actual unparented Web Entity plane."""
     original(value);dom.original(document);emote_world.original(world)
     need(value['runId']==document['runId']==world['runId'] and value['processId']==document['processId']==world['processId'])
-    need(0<=value['clockAfter']['epochMs']-world['clockBefore']['epochMs']<1500
-        and world['clockBefore']['epochMs']<=document['source']['dom']['capturedEpochMs']
-            <=document['capturedEpochMs']<=value['clockAfter']['epochMs'])
+    if native_snapshot is None:
+        need(0<=value['clockAfter']['epochMs']-world['clockBefore']['epochMs']<1500
+            and world['clockBefore']['epochMs']<=document['source']['dom']['capturedEpochMs']
+                <=document['capturedEpochMs']<=value['clockAfter']['epochMs'])
+    else:
+        need(native_snapshot['clockBefore']['epochMs']<=document['source']['dom']['capturedEpochMs']<=document['capturedEpochMs']
+            <=world['clockBefore']['epochMs']<=value['clockAfter']['epochMs']<=native_snapshot['clockAfter']['epochMs'])
     source=value['source'];need(source['tree']==world['source']['tree'])
     rows=[row for row in source['entities'] if row['id']==entity];need(len(rows)==1);row=rows[0]
     markers=[marker for marker in world['source']['markers'] if marker['id']==entity];need(len(markers)==1);marker=markers[0]

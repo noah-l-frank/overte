@@ -10,6 +10,7 @@ from copy import deepcopy
 import hashlib
 from adapters.original_frame_store import OriginalFrameStore
 from adapters.native_feature_observation import exact,integer,need,decode
+from adapters.native_clock_join import digest
 from adapters.script_feature.history import canonical
 
 CHUNK=512*1024
@@ -18,11 +19,22 @@ NAMES={'ledgerBefore','world','geometry','uikit','widgets','widgetReceipt','work
 
 
 class WorldWebParts:
-    def __init__(self,owner):self.owner=owner
+    def __init__(self,owner):self.owner=owner;self._stores={}
     def store(self,name):
         need(name in NAMES);owner=self.owner;role='primary' if owner.role=='primary' else 'actor';code={'primary':'p','actor':'a','actor-primary':'ap'}[owner.role]
-        return OriginalFrameStore(owner.store.path.parent,owner.binding,owner.run,role,owner.guard,
-            lambda kind,value:owner.storage_intent(name,kind,value),namespace='world-web-'+code+'-'+name.lower(),schema_prefix='worldWebSourcePart',monotonic=owner.monotonic)
+        # Reuse only the configured transport object. Every path/read/write
+        # still checks the real private directory and original inode/bytes.
+        # In particular this is never an OriginalFrameStore.read() cache.
+        key=(name,str(owner.store.path.parent),digest(owner.binding),owner.run,owner.role,id(owner.guard),id(owner.monotonic))
+        if key not in self._stores:
+            need(len(self._stores)<len(NAMES)*2)
+            self._stores[key]=OriginalFrameStore(owner.store.path.parent,owner.binding,owner.run,role,owner.guard,
+                lambda kind,value:owner.storage_intent(name,kind,value),namespace='world-web-'+code+'-'+name.lower(),schema_prefix='worldWebSourcePart',monotonic=owner.monotonic)
+        store=self._stores[key]
+        need(store.root==owner.store.path.parent and store.binding==owner.binding and store.run==owner.run and store.role==role
+            and store.guard is owner.guard and store.monotonic is owner.monotonic and store.namespace=='world-web-'+code+'-'+name.lower()
+            and store.schema_prefix=='worldWebSourcePart' and store.kind=='sources')
+        return store
     def validate(self,value):
         exact(value,{'worldWebSourcePartVersion','name','index','acquisitionId','bytes','sha256','chunks'})
         need(type(value['worldWebSourcePartVersion']) is int and value['worldWebSourcePartVersion']==1 and value['name'] in NAMES
