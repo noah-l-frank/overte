@@ -1,11 +1,39 @@
 """Explicit debug-only execute delta: preserve the active stack on first failure."""
 import os,signal,subprocess,time
 from pathlib import Path
-from debug_failure_hold import Policy,DebugCleanupRequested,identity,private_read,sha,need
+from debug_failure_hold import Policy,DebugCleanupRequested,identity,private_read,sha,need,atomic
 
 def from_environment(environment):
  path=environment.get('OVERTE_DEVICE_DEBUG_HOLD_CONFIG');digest=environment.get('OVERTE_DEVICE_DEBUG_HOLD_CONFIG_SHA256')
  need(type(path)is str and type(digest)is str,'DEBUG_EXPLICIT_ENVIRONMENT_REQUIRED');return Policy(path,digest)
+
+def freeze_owned(policy,births,refresh):
+ """Stop only pinned descendants, including their separately owned sessions."""
+ frozen={}
+ for _ in range(3):
+  refresh()
+  for pid,birth in list(births.items()):
+   current=identity(pid)
+   if current is None or current['state']in('Z','X'):continue
+   need(current['birth']==birth and current['uid']==os.geteuid(),'DEBUG_FREEZE_OWNER_CHANGED')
+   fd=os.pidfd_open(pid)
+   try:
+    pinned=identity(pid);need(pinned is not None and pinned['birth']==birth and pinned['uid']==os.geteuid(),'DEBUG_FREEZE_OWNER_CHANGED')
+    signal.pidfd_send_signal(fd,signal.SIGSTOP)
+   finally:os.close(fd)
+   frozen[pid]=pinned
+  refresh()
+  running=[p for p,b in births.items()if (v:=identity(p))and v['birth']==b and v['state']not in('T','t','Z','X')]
+  if not running:
+   atomic(policy.root/'FROZEN_OWNED.private.json',{'scope':'ACTUAL_PINNED_DESCENDANTS_ONLY','processes':list(frozen.values()),'stopObserved':True});return
+  time.sleep(.02)
+ need(False,'DEBUG_FREEZE_INCOMPLETE')
+
+def hold_exception(policy,error,reason,births,refresh):
+ policy.record_exception(error,reason)
+ try:freeze_owned(policy,births,refresh)
+ except BaseException as freeze_error:policy.record_exception(freeze_error,'DEBUG_FREEZE_INCOMPLETE')
+ policy.hold(reason)
 
 def preserving_execute(original,policy):
  g=original.__globals__
@@ -29,6 +57,12 @@ def preserving_execute(original,policy):
      if process.returncode!=0:policy.hold('SUPERVISED_COMMAND_NONPASS')
      g['adopted_children'](owned)
      if g['live_owned'](owned):policy.hold('OWNED_CHILDREN_REMAIN')
+    except DebugCleanupRequested:raise
+    except BaseException as error:
+     def refresh():
+      if process is not None:g['collect_children'](process.pid,owned)
+      g['adopted_children'](owned)
+     hold_exception(policy,error,'SUPERVISOR_OBSERVER_EXCEPTION',owned,refresh)
     finally:
      # This block is unreachable while debug-held. It runs on ordinary PASS or
      # the exact explicit cleanup disposition, never a timer/signal ACK.

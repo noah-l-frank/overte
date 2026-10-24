@@ -78,16 +78,21 @@ class IsolatedExecutor:
  def __call__(self,argv,cwd,env,timeout,log,*,observer=None):
   need(observer is None and Path(cwd)==self.source,'OVT_ISOLATED_ORIGINAL_SCOPE');need(type(timeout)in(int,float)and 0<timeout<=7200,'OVT_ISOLATED_TIMEOUT')
   source_guard(self.source,self.pins);need(sha(self.script)==self.script_sha256,'OVT_ISOLATED_SCRIPT_CHANGED')
-  from debug_execute import from_environment
+  from debug_execute import from_environment,hold_exception
+  from debug_failure_hold import DebugCleanupRequested
   debug=from_environment(env)
+  try:debug.source_guard()
+  except DebugCleanupRequested:raise
+  except BaseException as error:hold_exception(debug,error,'ISOLATED_SOURCE_ADMISSION_FAILED',{},lambda:None)
   self.index+=1;call=self.root/('call-'+str(self.index));call.mkdir(mode=0o700)
   request={'schemaVersion':1,'argv':argv,'cwd':str(cwd),'environment':env,'timeout':timeout,'log':str(log),'sourcePins':self.pins,'supervisorSha256':self.script_sha256}
   request_path=call/'request.private.json';write(request_path,request);request_sha=sha(request_path);result_path=call/'result.private.json'
   with os.fdopen(os.open(call/'supervisor.private.log',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb')as output:
    child=subprocess.Popen([sys.executable,'-B',str(self.script),'--request',str(request_path),'--request-sha256',request_sha,'--result',str(result_path),'--self-sha256',self.script_sha256],stdin=subprocess.DEVNULL,stdout=output,stderr=subprocess.STDOUT,start_new_session=True,env=supervisor_environment())
-  owner=exact_identity(child.pid);need(owner is not None and owner['pgid']==child.pid,'OVT_ISOLATED_SUPERVISOR_OWNER');known={child.pid:process(child.pid)};write(call/'parent-owner.private.json',owner)
+  owner=None;known={}
   deadline=time.monotonic()+timeout+30;outer_timed_out=False;forced=False
   try:
+   owner=exact_identity(child.pid);need(owner is not None and owner['pgid']==child.pid,'OVT_ISOLATED_SUPERVISOR_OWNER');known={child.pid:process(child.pid)};write(call/'parent-owner.private.json',owner)
    while child.poll()is None:
     descendant_snapshot(child.pid,known)
     debug.pump_console()
@@ -96,6 +101,13 @@ class IsolatedExecutor:
     try:child.wait(timeout=.05)
     except subprocess.TimeoutExpired:pass
    if child.returncode!=0:debug.hold('ISOLATED_SUPERVISOR_NONPASS')
+  except DebugCleanupRequested:raise
+  except BaseException as error:
+   births={pid:pin['birth']for pid,pin in known.items()}
+   def refresh():
+    descendant_snapshot(child.pid,known)
+    births.update({pid:pin['birth']for pid,pin in known.items()})
+   hold_exception(debug,error,'ISOLATED_PARENT_OBSERVER_EXCEPTION',births,refresh)
   finally:
    if child.poll()is None:
     descendant_snapshot(child.pid,known);need(exact_identity(child.pid)==owner,'OVT_ISOLATED_OWNER_CHANGED_BEFORE_TERM');os.kill(child.pid,signal.SIGTERM)
