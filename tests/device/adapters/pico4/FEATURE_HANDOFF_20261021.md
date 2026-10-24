@@ -3101,3 +3101,31 @@ whole common16-action waits, public dispatch or final host/file closure. No
 archive is returned as a fresh sample, no World cap is reset, and completed
 source areas remain3/14. Separate Root restore/process checks remain as recorded
 above; the agent's subsequent baseline-v2 WIP is not part of this selection.
+
+
+## Root-verified original Navigation restart lineage and delivery bounds
+
+Fixed09a5fabd1b/cf66570bf7/281b036d3d/de76c79e2d are selected locally as
+2426420990/a1275e45c1/38d790bcee/70ba876f4e. Root retains all existing selectors
+and adds exactly two, 243 in total. The unchanged three-group selection passes
+in92.82 s: eight restart-prefix cases62.893 s, four delivery/exit cases29.834 s,
+coverage10/0.092 s. All13,512 tracked/new source hashes match before/after.
+
+Actual first-eleven normal host actions and immutable G0 owner/source/UI
+presence-or-absence survive the once-only Stop/Launch. New original modeled
+Native birth, old-PID ESRCH, bridge, Session nonce/cursor1 and separate G1 role
+source brackets establish the explicit lineage. Cold applied-Stop/Launch loss
+never repeats SDK input. The final checks occur after true outer source-lock
+release and use the actual new Native clock, including its250ms future bound.
+The original G1 acquisition Host/Native anchor remains unchanged across the
+later parent-ready CAS; a slow landed save cannot reset its age. A cold completed
+act without that original transient Host anchor remains unavailable; fresh
+observe reads new original sources without repeating old inputs or retiming.
+
+The separately fixed fifteen-action packet640af90e1c is not yet part of this
+Root selection. Current G0 global Script UI/capture files remain historical
+originals; future G1 stereo acquisition must use its admitted new runtime and
+generation namespace. Genuine scene/changed-eye evidence, original maturity/
+origin restoration, independent publisher, public whole coordinator and final
+resource/Host/journal closure remain required. Source-complete features3/14;
+all devices and the full product remain unqualified.

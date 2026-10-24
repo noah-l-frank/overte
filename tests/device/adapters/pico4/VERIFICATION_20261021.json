@@ -4884,5 +4884,44 @@
     "actorImagesPublicAndFinalResourceFileClosureComplete": false,
     "completeFeature": false,
     "deviceAcceptance": false
+  },
+  "navigationRestartRoot20261024": {
+    "status": "passed-selected-host-components",
+    "sourceHead": "70ba876f4e9818ea60fca8d659197b6307333dc2",
+    "selectedSources": [
+      "09a5fabd1bf2a4c083fd4d67e5e9278bb157f169",
+      "cf66570bf7486d274fd71780a21564cc7d6cf63d",
+      "281b036d3dcbbfe74cddea85e1c968a6c9e45871",
+      "de76c79e2d6b670017cd26c6333ef026115759c6"
+    ],
+    "selectors": {
+      "coverage-matrix": {
+        "cases": 10,
+        "selectorSeconds": 0.092
+      },
+      "navigation-restart-prefix": {
+        "cases": 8,
+        "selectorSeconds": 62.893
+      },
+      "navigation-restart-exit": {
+        "cases": 4,
+        "selectorSeconds": 29.834
+      }
+    },
+    "catalogGroups": 243,
+    "selectedDurationSeconds": 92.82,
+    "sourceFiles": 13512,
+    "sourcesUnchanged": true,
+    "g0OriginalFilesPresenceAbsenceAndBytesKept": true,
+    "oneStopAndOneLaunchWithFreshG1NativeAndPidAbsence": true,
+    "newSessionNonceAndInitialCursorObserved": true,
+    "independentRoleG1SourceBrackets": true,
+    "actualOuterLockExitCheckedBeforeReturn": true,
+    "actualNewNativeClockAndFuture250msGuard": true,
+    "originalCaptureHostEpochAnchorPreservedAcrossReadyCas": true,
+    "coldCompletedActWithoutOriginalHostAnchor": "unavailable-no-replay",
+    "g1Steps13To15AndOriginalScenePixelsAndPublicClosureComplete": false,
+    "completeFeature": false,
+    "deviceAcceptance": false
   }
 }

@@ -130,7 +130,16 @@
         "android/vr/pico/tests/device/test_navigation_dismissal_prefix.py",
         "tests/device/adapters/pico4/navigation_bookmark_join.py",
         "tests/device/self_tests/test_pico_navigation_bookmark_prefix.py",
-        "android/vr/pico/tests/device/test_navigation_bookmark_prefix.py"
+        "android/vr/pico/tests/device/test_navigation_bookmark_prefix.py",
+        "tests/device/adapters/pico4/navigation_continuation.py",
+        "tests/device/adapters/pico4/navigation_generation.py",
+        "tests/device/adapters/pico4/navigation_history.py",
+        "tests/device/adapters/pico4/navigation_originals.py",
+        "tests/device/adapters/pico4/navigation_restart.py",
+        "tests/device/adapters/pico4/navigation_restart_input.py",
+        "tests/device/adapters/pico4/NAVIGATION_RESTART_JOIN.md",
+        "tests/device/self_tests/test_pico_navigation_restart_prefix.py",
+        "tests/device/self_tests/test_pico_navigation_restart_exit.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -175,7 +184,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Continue unchanged v16 action twelve restart-app after root-verified first eleven normal actions. Parent v6 and BookmarkJoin v1 reopen with the same original controller stream, retain current original status and newly consumed Places response, visit actual persisted A, then independently observe Home/root retirement, existing Close v2 quiet and fresh stereo capture retirement. Older v5 retains only ten-action authority. Restart must preserve immutable old-generation originals and establish separately proved new-process ownership without rebinding old children. Independent scene pixels/actor/public operations, restoration and whole final retirement remain incomplete.",
+      "nextExecutableStep": "Review and integrate the fixed separate G1 normal Open/Delete/Home/Close packet640af90e1c after the root-verified original twelve-action lineage. Root passes all8 restart cases and4 true exit/native-clock/slow-ready-CAS counters while preserving every G0 original, actual modeled G1 birth/old-PID ESRCH, new Session nonce/cursor and two role brackets. Cold completed act without its original host anchor is unavailable; observe obtains new real originals without SDK replay. Shared G1 scene/stereo capture must use a new namespace/runtime instead of old global G0 UI/capture files. Original maturity/origin restoration, independent publisher, actual changed eye/scene evidence, full public and final resource/journal closure remain open.",
       "nativeCompilation": "Selected full NativeEnvironment header, original passive Settings::Manager getter and Qt thread/lock modes compile and pass host checks. Complete native application/APK, VM/OS/GPU/device boundaries remain unqualified.",
       "deviceQualification": "untested"
     },
