@@ -276,3 +276,57 @@ suites passed in **2.38 s**; compatibility registry and six coverage cases also
 passed. No compiler, whole Journey, entire quick/Pico catalog, device or
 external system ran. All new flow originals remain retained; this packet
 does not retire their journals or advertise a full feature capability.
+
+## V1 publication after actual outer lock release
+
+Review found that fixed initial packet
+`09a5fabd1bf2a4c083fd4d67e5e9278bb157f169` returned `act`/`observe`
+inside the source-lock context. Its last source/clock check therefore preceded
+the actual outer contextmanager's checks and descriptor release. Two new
+continuous counterexamples against that unchanged implementation failed
+exactly as expected: **2/2 red in 21.122 s**, because neither refused its false
+successful return. The counters use the genuine `ScriptSourceLock.held` exit,
+prove the actual outer owner is released, and only then advance the native
+clock by 2000 ms while the host clock stays frozen (`observe`) or destroy the
+actual modeled new-process guard (`act`). No packet timestamp is modified.
+Their 12826-file source freeze
+`5b41e734e663fff90f1f18566a233900af89d6553994168cd63a0970d298c625` remained
+unchanged. Those initial red results remain retained separately.
+
+The narrow follow-up preserves all V1 journals and source formats. Results are
+built inside the original lock and published only after its actual release.
+The post-release finalizer checks the original new native PID/foreground/
+installation guard, exact managed Session, retained binding/profile/scope and
+original archive/chunk identities, then the exact independent active phase
+and final native clock. It combines the actual original native/host acquisition
+anchor with monotonic elapsed time; it neither retimes old data nor captures a
+new target frame to replace an aged result. The existing live-channel source
+guard still requires the lock and is not weakened or called outside its
+contract. Immutable already-proved G0 archive verification is physical read
+only and uses no live source channel. A caller holding an additional external
+outer lock is refused before restart input rather than publishing before that
+caller's later release; callers construct under the factory lock and invoke
+these publishing methods after leaving that construction context.
+
+The same two counterexamples and the full actual first-eleven/restart/G1/
+independent-role/cold-reconstruction positive passed **3/3 in 30.392 s** on the
+follow-up. Counters also assert unchanged target producer cursors after the
+exit event, and record the actual released owner, native clock, frozen host
+clock and guard state immediately. The complete 12826-file source manifest
+`3ca5047e50fe776abb14250e597ef9651269ee5563b5a159ef42541377518ae4` was
+unchanged after the run. Two only prepared cross-permutations were removed;
+the additive `navigation-restart-exit` selector contains exactly the two proven
+cases. Its local catalog delta is 104→105; integration must preserve all newer
+Root selectors. No 13–15 implementation, compiler, native source, new wire
+version or whole-feature qualification is included in this finalization fix.
+
+The follow-up's repository suites passed **4/4 in 2.41 s**, registry and six
+coverage cases passed. Final source review additionally mirrors the packed
+original owner state after exit and type-checks the transient age anchors.
+On those exact final guards the single continuous twelve-action positive
+passed **1/1 in 11.357 s**, with the complete **12827-file** manifest
+`85c5a9accb6953a100fa86f4c837fb24eec0027396b7be4bc8066f829aef6b62`
+verified unchanged. The two exit-counter results remain explicitly assigned
+to the preceding `3ca5047…` source and the 30.392-second three-case run; no
+single final all-counter selection is claimed. No new wire format or original
+sample/time change is involved in these last two additional guards.

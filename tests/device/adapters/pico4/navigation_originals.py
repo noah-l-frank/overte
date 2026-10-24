@@ -70,7 +70,18 @@ def capture(root,run,normal_ui_path,source_lock):
 
 
 def verify(rows,root,run,normal_ui_path,source_lock):
-    source_lock.assert_held();need(source_lock.path==Path(root)/'script-sources.lock' and type(rows) is list and rows)
+    source_lock.assert_held();need(source_lock.path==Path(root)/'script-sources.lock')
+    return verify_archive(rows,root,run,normal_ui_path)
+
+
+def verify_archive(rows,root,run,normal_ui_path):
+    """Physical validation only for the already closed immutable G0 archive.
+
+    This never reads/publishes a live native channel or changes an owner. The
+    G12 finalizer uses it after the actual outer lock release and only with its
+    previously validated original process-absence/restart proof.
+    """
+    need(type(rows) is list and rows)
     paths=inventory(root,run,normal_ui_path);need([str(path) for path in paths]==[row['path'] for row in rows])
     for row in rows:
         exact(row,{'path','present'}|({'signature','sha256'} if row.get('present') is True else set()))
