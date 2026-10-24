@@ -332,7 +332,7 @@
         "Delete only owned wearable/bookmark/connection",
         "Confirm both participants have no pending request and observe quiet restoration"
       ],
-      "nextExecutableStep": "Implement original native Mementos and typed Handle/Manager/worker/file CAS for observed raw differences, with durable own intent/result and no unnecessary writes; then final owned retirement. Actual original Settings/Bookmark no-op data and more than 3 seconds of independent native/host end observation now pass through existing Favorite predicates. Whole Model/EntityTree/Qt/V8, Wearables and People/peer/stereo remain open.",
+      "nextExecutableStep": "Join actual complete model setter/saveAvatarUrl persistence, then implement typed worker/file and Bookmark-byte CAS only for real observed written differences, followed by owned retirement. Original warm typed Handle mementos and unwritten-lazy CAS are integrated; Root native original1/13.145s passes actual thread,1501ms intent, audit-only, foreign-registration, lost-result and destroyed-owner counters with all13,574 source hashes unchanged. Existing cached Favorite remains an independently observed no-op with no unnecessary restore write. Whole Model/EntityTree/Qt/V8, Wearables and People/peer/stereo remain open.",
       "nativeCompilation": "Complete original NavigationUi observe/apply, cached Favorite callback and MyAvatar scale/empty-clear, Bookmarks and full Setting Manager/WriteWorker/JSON sources host-compiled; shared v16 raw admission and actual >=3s Settings/Bookmark no-op source/host end observation pass. Complete application/MyAvatar/V8/Android, raw mutation CAS and final retirement unverified",
       "deviceQualification": "untested"
     },
@@ -1759,7 +1759,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Extend the same integrated Source3/OverteSession/common-wait dispatcher from actual actions1\u20137 through8\u201316. Root baseline12/44.501s and operations14/33.568s pass with all13,557 sources unchanged; actual same-graph World48+readonly34=82 triples and real parent/phase-reader outer-exit guards are verified. Preserve Pending own callbacks, original10000ms maximum hold age and one20s segment deadline, independent per-owner limits and all originals; no replay or reset. Then actual newPID cleanup-source handoff, independentActor/images and full public/resource/journal/Host retirement.",
+      "nextExecutableStep": "Extend the same integrated Source3/OverteSession/common-wait dispatcher from actual actions1\u201312 through13\u201316, resolving actual historical Close-reader and Pending quiet-frame joins without making historical originals current. Root new operations1/33.010s,publication3/50.838s,deadlines2/31.992s,versions6/15.413s pass with all13,574 source hashes unchanged; separate exact four-group coverage correction passes11/.062s and preserves259 selectors. Pending own callbacks, original10000ms maximum hold age, fixed20s segment and full landed raw replies remain required. Then actual newPID cleanup-source handoff, independentActor/images and full public/resource/journal/Host retirement; no replay or reset.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

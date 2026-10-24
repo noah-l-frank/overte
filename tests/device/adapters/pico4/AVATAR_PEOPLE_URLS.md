@@ -835,3 +835,15 @@ again after the durable callback. Original destructor Settings effects remain
 actual observations, never a successful CAS or final retirement claim.
 No clock value is forged and the main no-op case is not repeated. The earlier
 12.952-second thread/age selection is preserved separately.
+
+Root selected the typed memento packet as `4b35ab2c5a` and its native GUI/age
+followup as `626e5f5e78`. The fresh integrated original native preference case
+passes in13.145s (14.974s including source hashing and the outer invocation),
+with all13,574 source files unchanged. Compilation retains the original
+20-second moc/60-second compiler limits and actual native execution its
+12-second limit; the outer selection remains120seconds. All nine exclusive
+fsync'd intent/result files are cold-read and fully reread. The original
+destroyed-owner intent remains owned without a fabricated result. The native
+stages, binaries and stdout/stderr remain in the private
+`avatar-lazy-cas-root-native-20261024-*` artifact directory. This does not qualify
+written Settings/Bookmark restoration, real model loading or full retirement.

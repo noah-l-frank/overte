@@ -172,3 +172,25 @@ surface provenance and resource/file/archive/host finalization remain open.
 No full budget fit or public Lifecycle capability is claimed. The next step
 is the same class's normal Close/World/Restore connection using this retained
 graph and its actual remaining per-producer budgets.
+
+## Root integration
+
+Root selected this packet as `f8c9184ad9`, preserving all259 selectors and all14
+risk rows on its independently advanced branch. The four new owning selections
+pass: continuous operations1/33.010s, publication3/50.838s,
+deadlines2/31.992s and versions/final-sender6/15.413s. Every one of the13,574
+source files remained byte-identical throughout this run.
+
+That combined invocation remains recorded as failed because its coverage
+partition test matched Root's older `lifecycle-pending-progress`, `-failure`
+and `-originals` groups by prefix and expected the new wrapper for them. Root
+`9d4f2bf43d` restricts this partition to its exact four new group IDs, retaining
+all old groups and all twelve new cases. Coverage then passes11/0.062s. Only
+that catalog assertion changed; the successful functional selections were not
+repeated. The complete invocation, original failure and separate correction
+remain retained under `lifecycle-pending-root-integration-*20261024`.
+
+Actions13–16 still require actual same-graph continuation. Subsequent agent
+experiments expose historical Close-reader and Pending quiet-frame joins;
+those sources and failures are separate from this integrated twelve-action
+proof. No peer, image, new-PID or final public cleanup is inferred.
