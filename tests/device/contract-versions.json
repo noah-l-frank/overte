@@ -11,7 +11,7 @@
     "pico-world-browser-vm": {"current": 1, "reads": [1]},
     "pico-browser-history": {"current": 1, "reads": [1]},
     "pico-world-browser-history": {"current": 1, "reads": [1]},
-    "pico-world-web-prefix": {"current": 2, "reads": [1, 2]},
+    "pico-world-web-prefix": {"current": 3, "reads": [1, 2, 3]},
     "pico-browser-actor-export": {"current": 1, "reads": [1]},
     "pico-browser-actor-graph": {"current": 1, "reads": [1]},
     "pico-browser-actor-return": {"current": 1, "reads": [1]},

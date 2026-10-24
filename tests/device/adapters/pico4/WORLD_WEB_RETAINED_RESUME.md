@@ -106,3 +106,32 @@ retirement remain executable separately from this unresolved phase.
 Registration-only coverage passes in 0.094 s (1/245 local catalog groups).
 Four repository suites pass in 2.66 s; registry and whitespace checks pass.
 The native case is not repeated merely for registration/documentation changes.
+
+## Normal Pico lifecycle source audit
+
+The ordinary once-only route in `pico4/lifecycle_input.py` admits the original
+process/candidate and sends exactly `KEYCODE_HOME` or the controlled Activity
+start. It does not restart the process or force-stop it. `PicoInterfaceActivity`
+`onPause`/`onResume` call `PicoEmbeddedWebHost.foreground`, which calls the actual
+shared `EmbeddedWebView.setForeground` and native grant path tested above.
+The Activity's separate legacy OffscreenWebView path is not the selected common
+NativeWebViewItem backend. The manifest keeps PicoInterfaceActivity singleTask;
+Qt delegates a new intent and activity lifecycle, rather than a source URL
+change in the World QML loader. The default debug launcher prepares its owned
+assets and starts that Activity; this is not a proved new World document.
+
+The Qt application state path in `Application_Events.cpp` publishes visibility
+and network/auth gates; its active-state branches do not reload World URLs.
+The Pico World QML loader reloads on URL/source changes. OffscreenSurface's
+pause/resume toggles rendering without replacing its root. WebEntityRenderer
+has a 30 s nonrender timeout method, but the inspected implementation only
+configures/connects its private timer and does not start it. No additional
+wait is inserted to force that unrelated timeout, and no normal lifecycle
+recreation guarantee is inferred from it.
+
+This audit finds no guaranteed immediate lifecycle-driven new World document
+in the reviewed normal source path. It is not a device execution or universal
+negative proof about every Qt/provider/context-loss path. Without actual
+original lifecycle-driven replacement, step 15 remains unavailable under the
+unchanged v16 requirement. The separately executable normal Script Stop does
+not convert this unresolved background result into a completed recipe.

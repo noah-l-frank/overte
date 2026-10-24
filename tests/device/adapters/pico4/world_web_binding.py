@@ -31,7 +31,7 @@ class PicoWorldWebBinding(PicoScriptJourney):
         from adapters.pico4.world_web_prefix import PicoWorldWebPrefix
         need(type(parent) is PicoWorldWebPrefix and parent.adapter is self and parent.target==target)
         self._lock(target,parent.lock).assert_held();parent.control()
-        if input:need(parent.role=='primary' and parent.state is not None and parent.state['phase'] in ('preparing','acting'))
+        if input:need(parent.role=='primary' and parent.state is not None and parent.state['phase'] in ('preparing','acting','closing'))
 
     def world_prefix_capture_guard(self,target,lock):
         # Reuse all existing shared capture stores/guards. No capture is

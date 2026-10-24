@@ -30,10 +30,10 @@ from feature_journeys.fixtures import context as fixture_context
 from feature_journeys.phase_fixture import PhaseFixtureReader,PhasePending,validate as phase_packet
 from feature_journeys.scenarios import SCENARIOS,VERSION as CONTRACT_VERSION,expand
 
-VERSION=2
-READS=(1,2)
+VERSION=3
+READS=(1,2,3)
 LIMIT=len(SCENARIOS['world-web']['steps'])
-INPUT_LIMIT=13  # Closed v16 grammar; only this original prefix is executable.
+INPUT_LIMIT=14  # Closed v16 grammar; only this original prefix is executable.
 
 
 class PicoWorldWebPrefix:
@@ -67,20 +67,31 @@ class PicoWorldWebPrefix:
         need(type(version) is int and version in READS);limit=3 if version==1 else LIMIT
         exact(value,{'binding','ownerToken','phase','fixture','completed','active','reserved','scriptUrl','inputs'})
         context(value['binding']);identifier(value['ownerToken'])
-        need(value['phase'] in ('preparing','ready','acting') and type(value['reserved']) is bool
+        closing=version>=3 and value['phase'] in ('closing','source-stopped')
+        need(value['phase'] in (('preparing','ready','acting','closing','source-stopped') if version>=3 else ('preparing','ready','acting')) and type(value['reserved']) is bool
             and type(value['completed']) is list and len(value['completed'])<=limit and type(value['inputs']) is list and len(value['inputs'])<=256
-            and (value['active'] is not None)==(value['phase']=='acting'))
+            and (value['active'] is not None)==(value['phase'] in ('acting','closing')))
         phase=value['fixture'];phase_packet(phase,run=self.run,area=self.area,request=phase['requestId'],epoch=phase['capturedEpochMs'])
         need(phase['active'] and phase['activations'][0]['stimulus']==dict(verb='baseline',inputs={}))
         tickets=[]
-        for index,call in enumerate(value['completed']+([] if value['active'] is None else [value['active']])):
+        for index,call in enumerate(value['completed']+([value['active']] if value['phase']=='acting' else [])):
             parsed=arguments('feature.world-web.act',call);step=SCENARIOS[self.area]['steps'][index]
             need(index<limit and parsed['runId']==self.run and parsed['fixtureUrl']==self.url
                 and same(dict(verb=parsed['verb'],inputs=parsed['inputs']),dict(verb=step['verb'],inputs=expand(step['inputs'],fixture_context(self.run)))))
             original=phase['activations'][index+1]
             need(original['ticket']==parsed['ticket'] and same(original['stimulus'],dict(verb=parsed['verb'],inputs=parsed['inputs'])))
             tickets.append(parsed['ticket'])
-        need(len(tickets)==len(set(tickets)) and len(phase['activations'])==len(tickets)+1)
+        need(len(tickets)==len(set(tickets)) and len(phase['activations'])==len(tickets)+(2 if closing else 1))
+        if closing:
+            need(bool(value['completed']) and phase['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+            if value['phase']=='source-stopped':
+                need(value['inputs'] and value['inputs'][-1]['complete'])
+                from adapters.normal_script_manager import diagnostic as stop_diagnostic
+                original=value['inputs'][-1]['original'].get('closureDiagnostic');need(type(original) is dict)
+                stop_diagnostic(original,original['sampleEpochMs'])
+                need(not any(row.get('url')==value['scriptUrl'] for row in original['scripts']))
+            if value['phase']=='closing':
+                cleanup=arguments('feature.world-web.cleanup',value['active']);need(cleanup['runId']==self.run)
         if value['scriptUrl'] is not None:
             need(tickets and value['scriptUrl']==self.url+'tickets/'+tickets[0]+'/client.js')
         if value['completed']:need(value['scriptUrl'] is not None and value['reserved'])
@@ -117,7 +128,7 @@ class PicoWorldWebPrefix:
             parent=self
             class Fence(PhaseInputFence):
                 def original(inner):
-                    parent.control();need(parent.state is not None and parent.state['phase'] in ('preparing','acting'))
+                    parent.control();need(parent.state is not None and parent.state['phase'] in ('preparing','acting','closing'))
                     return parent.state['fixture']
                 def _before_send(inner,command):
                     parent.input_command(command)
@@ -126,7 +137,7 @@ class PicoWorldWebPrefix:
         return self.fence
 
     def input_begin(self,original):
-        self.control();need(self.role=='primary' and self.state['phase'] in ('preparing','acting')
+        self.control();need(self.role=='primary' and self.state['phase'] in ('preparing','acting','closing')
             and (not self.state['inputs'] or self.state['inputs'][-1]['complete']))
         fence=self.input_fence();anchor=fence.mark();value=deepcopy(self.state)
         value['inputs'].append(dict(ticket=anchor['ticket'],original=deepcopy(original),anchor=deepcopy(anchor),complete=False,envelope=None))
@@ -251,6 +262,39 @@ class PicoWorldWebPrefix:
         self.finalize(seal)
         return dict(performed=True)
 
+    def normal_close(self,call):
+        """Normal owned Script stop under a real cleanup phase, not retirement.
+
+        This does not fill the missing scenario steps or replay an uncertain
+        stop. Original histories, weak VM lifetimes and journals remain owned.
+        """
+        call=deepcopy(arguments('feature.world-web.cleanup',call))
+        need(self.role=='primary' and call['runId']==self.run and self.lock._owner is None)
+        with self.lock.held(),self.adapter.existing_input_session(self.target):
+            self.read();self.control();need(self.state is not None and self.state['phase'] in ('ready','source-stopped'))
+            if self.state['phase']=='ready':
+                self.observation_admission();phase=self.source.read(self.state['fixture'])
+                need(phase['verb']=='cleanup' and phase['inputs']=={} and len(phase['status']['activations'])==len(self.state['completed'])+2
+                    and self.state['scriptUrl'] is not None)
+                value=deepcopy(self.state);value.update(phase='closing',active=call,fixture=deepcopy(phase['status']));self.save(value)
+                self.exact_phase();self.vm_reader().capture()
+                manager=self.adapter.world_prefix_manager(self.target,self)
+                manager.open();manager.stop_source(self.state['scriptUrl']);manager.close()
+            # Preserve the actual capture anchor across the final durable CAS.
+            # A frozen native clock cannot hide slow landed source-stopped work.
+            started=self.source.monotonic();native=self.adapter._native_feature_observer(self.target,read_only=True);requested=native.clock_ms()
+            _ui,observe,_binding,_guard,_installed=self.runtime();diagnostic,_epoch=observe(0)
+            from adapters.normal_script_manager import diagnostic as original_diagnostic
+            original_diagnostic(diagnostic,native.clock_ms())
+            need(not any(row.get('url')==self.state['scriptUrl'] for row in diagnostic['scripts']))
+            if self.state['phase']=='closing':
+                value=deepcopy(self.state);need(value['inputs'] and value['inputs'][-1]['complete'])
+                value['inputs'][-1]['original']['closureDiagnostic']=deepcopy(diagnostic)
+                value.update(phase='source-stopped',active=None);self.save(value)
+            self.exact_phase();seal=self.seal(started,requested,[diagnostic['sampleEpochMs']],native)
+        self.finalize(seal)
+        return dict(performed=True)
+
     def pins(self):
         names=sorted(self.root.iterdir());need(len(names)<=512)
         rows=[]
@@ -287,7 +331,7 @@ class PicoWorldWebPrefix:
         need(self.lock._owner is None);pending=False
         with self.lock.held():
             self.read();self.control();need(self.state is not None)
-            if self.state['phase']!='ready':
+            if self.state['phase'] not in ('ready','source-stopped'):
                 pending=True;started=self.source.monotonic()
                 native_reader=self.adapter._native_feature_observer(self.target,read_only=True)
                 requested=native_reader.clock_ms();seal=self.seal(started,requested,[],native_reader)
@@ -295,14 +339,16 @@ class PicoWorldWebPrefix:
                 phase=self.exact_phase();history=self.history_reader();sequence=1 if history.last is None else history.last['sample']['sequence']+1
                 history.begin('sample',sequence);started=self.source.monotonic()
                 native_reader=self.adapter._native_feature_observer(self.target,read_only=True);requested=native_reader.clock_ms();before=native_reader.read(0)
-                vm=None
+                vm=None;vm_facts=None
                 if self.state['scriptUrl'] is not None:
-                    reader=self.vm_reader();reader.capture();vm=dict(scopeSha256=digest(reader.scope),index=reader.frame_count-1,sha256=reader.frame_hash(-1))
+                    reader=self.vm_reader();vm_facts=reader.capture();vm=dict(scopeSha256=digest(reader.scope),index=reader.frame_count-1,sha256=reader.frame_hash(-1))
                 browser=self.io().request(self.run,self.url,self.state['ownerToken'],'observe')
                 runtime=self.adapter.world_prefix_runtime(self.target,self).read(self.run,self.url)
                 status=browser_status(self.source.client.request('/runs/'+self.run+'/browser'))
                 _ui,observe,_binding,_guard,_installed=self.runtime();diagnostic,_epoch=observe(0)
                 measured,resources=measurement(self.run,self.url,self.foreign,browser,status,runtime,diagnostic['scripts'],self.state['scriptUrl'],area=self.area)
+                if vm_facts is not None and not vm_facts['retired'] and 'script:world-web-client' not in resources:
+                    resources.append('script:world-web-client')
                 after=native_reader.read(before['sequence']);end=self.exact_phase()
                 sample=result('feature.world-web.observe',dict(schemaVersion=1,contractVersion=CONTRACT_VERSION,runId=self.run,
                     sequence=sequence,capturedEpochMs=after['capturedEpochMs'],state=measured,artifacts=[],resources=resources,lifecycle=after['lifecycle']))
