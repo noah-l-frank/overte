@@ -21,7 +21,15 @@ def select(snapshot,value,*,store,entries,lock,primary_lock,record_store_for=Pri
         return select_originals(snapshot,value,store=store,entries=entries,lock=lock,primary_lock=primary_lock,record_store_for=record_store_for)
 
 
-def select_originals(snapshot,value,*,store,entries,lock,primary_lock,record_store_for=PrivateFeatureState):
+def select_with_retirement_clocks(snapshot,value,*,store,entries,lock,primary_lock,record_store_for=PrivateFeatureState):
+    """Selected originals plus ALL retained published receipt acquisitions."""
+    with original_round(snapshot,lock=lock,primary_lock=primary_lock):
+        return select_originals(snapshot,value,store=store,entries=entries,lock=lock,primary_lock=primary_lock,
+            record_store_for=record_store_for,_receipt_acquisitions=True)
+
+
+def select_originals(snapshot,value,*,store,entries,lock,primary_lock,record_store_for=PrivateFeatureState,_receipt_acquisitions=False):
+    need(type(_receipt_acquisitions) is bool)
     need(isinstance(store,PrivateFeatureState) and type(entries) is list and 1<=len(entries)<=81
         and type(snapshot) is dict and snapshot.get('role')=='actor' and same(store.read(),value) and callable(record_store_for))
     keyed=reopen(snapshot,lock=lock,primary_lock=primary_lock)
@@ -41,7 +49,11 @@ def select_originals(snapshot,value,*,store,entries,lock,primary_lock,record_sto
     publisher=object.__new__(RetainedPublisher)
     publisher.store,publisher.binding,publisher.run,publisher.area=store,keyed.binding,keyed.run,'emotes'
     publisher.url,publisher.instance,publisher.validate_original,publisher.live=url,keyed.phase_instance,observer.validate_original,False
-    records=[(reference,publisher.load(reference)) for reference in state['records']]
+    records=[];receipts=[]
+    for reference in state['records']:
+        row=publisher.load(reference);records.append((reference,row))
+        if _receipt_acquisitions and row['mode']=='published':
+            receipts.append(deepcopy(PhaseWitnessPublisher.acquisition(row['acquisition'])))
     selected=[];seen=set()
     for entry in entries:
         matches=[(reference,row) for reference,row in records if row['mode']=='published' and same(row['entry'],entry)]
@@ -49,4 +61,4 @@ def select_originals(snapshot,value,*,store,entries,lock,primary_lock,record_sto
         selected.append(dict(reference=deepcopy(reference),original=deepcopy(row['intent']['original']),
             acquisition=deepcopy(row['intent']['derived']['acquisition']),entry=deepcopy(row['entry']),
             observation=observer.original({key:row['intent']['original'][key] for key in ('index','sha256')})))
-    need(same(store.read(),value));return selected
+    need(same(store.read(),value));return (selected,receipts) if _receipt_acquisitions else selected

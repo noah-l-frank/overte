@@ -27,6 +27,13 @@ class IOSEmoteRootedOwnership:
             run=run,lock=lock,actor_lock=actor_lock)
 
     def read(self):
+        return self._read(retirement_floor=False)
+
+    def read_with_retirement_floor(self):
+        """Same original proof and original host completion, in one pure round."""
+        return self._read(retirement_floor=True)
+
+    def _read(self,*,retirement_floor):
         roles=self.roles;roots={lock.path.parent for lock in roles.locks.values()}
         for role,lock in roles.locks.items():
             value=roles.copies.get(str(lock.path.with_name('ios-emote-'+role+'-feature.json')))
@@ -44,7 +51,9 @@ class IOSEmoteRootedOwnership:
             need(same(original['journals'],{role:live.previous for role,live in window.roles.items()}))
             publisher=roles.store(roles.locks['actor'].path.with_name('phase-publication-emotes-'+roles.run+'-actor.json'))
             need(same(original['publisher'],publisher.read()))
-            actual=window.qualify(journal.state['description'],original['samples'],journal.state['references'],
+            qualify=window.qualify_with_retirement_floor if retirement_floor else window.qualify
+            result=qualify(journal.state['description'],original['samples'],journal.state['references'],
                 publisher_store=publisher,record_store_for=roles.store)
+            actual,floor=result if retirement_floor else (result,None)
             need(same(actual,proof));journal.bound()
-        return deepcopy(actual)
+        return (deepcopy(actual),floor) if retirement_floor else deepcopy(actual)

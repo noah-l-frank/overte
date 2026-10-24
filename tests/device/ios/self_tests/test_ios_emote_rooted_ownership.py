@@ -48,6 +48,18 @@ class RootedOwnershipTests(unittest.TestCase):
         with patch.object(PrivateFeatureState,'read',no_current):self.assertEqual(self.f.proof,owner.read())
         self.assertEqual('sealed',self.journal.state['phase'])
 
+    def test_optional_completion_projection_keeps_default_proof_and_one_guarded_role_read(self):
+        owner=self.owner();role_read=owner.roles.read
+        # Paired measurements stay explicitly modeled here; the real persisted
+        # terminal proof and file guards remain the existing journal fixture.
+        with (patch.object(owner.roles,'read',wraps=role_read) as reads,
+                patch.object(self.f.window,'qualify_with_retirement_floor',return_value=(self.f.proof,104000)) as projected):
+            proof,floor=owner.read_with_retirement_floor()
+            self.assertEqual(self.f.proof,proof);self.assertEqual(104000,floor)
+            reads.assert_called_once();projected.assert_called_once()
+            self.assertEqual(self.f.proof,owner.read())
+            self.assertEqual(1,projected.call_count)
+
     def test_later_live_journal_cannot_borrow_an_older_terminal_seal(self):
         owner=self.owner();self.f.roles['actor'].previous=dict(laterJournal=True)
         with self.assertRaises(NativeUIError):owner.read()

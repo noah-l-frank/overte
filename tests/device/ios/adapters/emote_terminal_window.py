@@ -9,14 +9,30 @@ from copy import deepcopy
 from adapters.native_clock_join import digest
 from adapters.native_feature_observation import exact,need
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.phase_witness_publisher import PhaseWitnessPublisher
 from adapters.script_feature.history import same
 from feature_journeys import terminal
 from feature_journeys.retirement_receipts import binding_from_context
 from ios.adapters.emote_rooted_archive import grouped,reopen
 from ios.adapters.emote_rooted_live import IOSEmoteRootedLive
-from ios.adapters.emote_rooted_publications import select
+from ios.adapters.emote_rooted_publications import select,select_with_retirement_clocks
 
 VERSION=1
+
+
+def _retirement_floor(rows,publications,receipt_acquisitions):
+    """Completion of actual role acquisitions and canonical HTTP receipts.
+
+    Operands are projected only after their typed decoders succeed in the
+    same guarded round. Public sample starts and native epochs are not ends.
+    """
+    need(type(rows) is list and rows and type(publications) is list and publications
+        and type(receipt_acquisitions) is list and receipt_acquisitions)
+    clocks=[PhaseWitnessPublisher.acquisition(row['measurement']['acquisition']) for row in rows]
+    for publication in publications:
+        clocks.append(PhaseWitnessPublisher.acquisition(publication['acquisition']))
+    clocks.extend(PhaseWitnessPublisher.acquisition(clock) for clock in receipt_acquisitions)
+    return max(clock['hostAfterEpochMs'] for clock in clocks)
 
 
 class IOSEmoteTerminalWindow:
@@ -51,6 +67,13 @@ class IOSEmoteTerminalWindow:
         terminal.description(value);self.guard();return value
 
     def qualify(self,description,samples,references,*,publisher_store,record_store_for=PrivateFeatureState):
+        return self._qualify(description,samples,references,publisher_store=publisher_store,record_store_for=record_store_for,retirement_floor=False)
+
+    def qualify_with_retirement_floor(self,description,samples,references,*,publisher_store,record_store_for=PrivateFeatureState):
+        """Return the same proof plus original completion floor, without replay."""
+        return self._qualify(description,samples,references,publisher_store=publisher_store,record_store_for=record_store_for,retirement_floor=True)
+
+    def _qualify(self,description,samples,references,*,publisher_store,record_store_for,retirement_floor):
         self.guard();need(isinstance(publisher_store,PrivateFeatureState) and same(description,self.describe(references)))
         terminal.window(samples,description);primary,actor=self.roles['primary'],self.roles['actor']
         selected=primary.selected_many([pair['primary'] for pair in samples])
@@ -70,8 +93,10 @@ class IOSEmoteTerminalWindow:
         # The supplied entries select exact existing server receipts. They do
         # not provide feature facts or authorize an Actor publication.
         value=publisher_store.read();need(value is not None)
-        publications=select(snapshots[-1],value,store=publisher_store,entries=[pair['actor'] for pair in samples],
+        selector=select_with_retirement_clocks if retirement_floor else select
+        selection=selector(snapshots[-1],value,store=publisher_store,entries=[pair['actor'] for pair in samples],
             lock=actor.lock,primary_lock=actor.primary_lock,record_store_for=record_store_for)
+        publications,receipt_acquisitions=selection if retirement_floor else (selection,None)
         joined=[]
         with grouped(snapshots,lock=actor.lock,primary_lock=actor.primary_lock):
             for snapshot,row,publication in zip(snapshots,actor_rows,publications):
@@ -88,4 +113,17 @@ class IOSEmoteTerminalWindow:
             primary=[deepcopy(row['reference']) for row in selected],actor=joined,publisher=deepcopy(value))
         seal=dict(featureTerminalSealVersion=1,description=deepcopy(description),windowSha256=digest(samples),liveOriginalSha256=digest(proof))
         terminal.sealed(seal,description,samples);need(same(publisher_store.read(),value));self.guard()
-        return dict(seal=seal,original=proof)
+        actual=dict(seal=seal,original=proof)
+        if not retirement_floor:return actual
+        current=[]
+        for role,owner in self.roles.items():
+            candidates=selected if role=='primary' else list(available.values())
+            latest=owner.state['records'][-1]
+            matches=[row for row in candidates if same(row['reference'],latest)]
+            need(len(matches)<=1)
+            row=matches[0] if matches else owner.record(latest)
+            need(row['measurement']['ticket']==description['ticket']
+                and same(self.held(row['measurement']),description['roles'][role]['heldResources']))
+            current.append(row)
+        floor=_retirement_floor(selected+actor_rows+current,publications,receipt_acquisitions)
+        self.guard();return actual,floor
