@@ -7,11 +7,16 @@ iOS reads retain their ios- prefix; neither original identity is rewritten.
 # SPDX-License-Identifier: Apache-2.0
 import re
 from adapters.native_feature_observation import need,validate
+from adapters.pure_original_validation import without_result
 
 VERSION=1
 
 
 def follow(before,after):
+    return without_result(_follow,before,after)
+
+
+def _follow(before,after):
     for value in (before,after):
         need(type(value) is dict and type(value.get('requestId')) is str
             and re.fullmatch('(?:ios-)?[0-9a-f]{32}',value['requestId']))

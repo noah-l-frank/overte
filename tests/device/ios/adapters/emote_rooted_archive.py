@@ -18,6 +18,7 @@ from ios.adapters.emote_retirement import Frozen
 from ios.adapters.emote_rooted_retirement import (IOSEmoteRootedNativeRetirement,
     IOSEmoteRootedRenderedRetirement,IOSEmoteRootedKeyedRetirement)
 from ios.adapters.emote_rooted_scene_retirement import IOSEmoteRootedSceneRetirement
+from ios.adapters.emote_archive_round import scope as original_round
 
 VERSION=1
 PARTS={'native','frames','rendered','keys','keyed'}
@@ -43,7 +44,7 @@ def capture(owner,reference):
     return value
 
 
-def read(value,*,lock,primary_lock):
+def reopen(value,*,lock,primary_lock):
     exact(value,{'iosEmoteRootedArchiveVersion','runId','role','binding','primaryBinding','artifactRoot','stateRoot',
         'fixtureUrl','phaseInstance','imagePolicy','sourceLock','primaryLock','reference','paths','owners'})
     need(type(value['iosEmoteRootedArchiveVersion']) is int and value['iosEmoteRootedArchiveVersion']==VERSION
@@ -70,4 +71,9 @@ def read(value,*,lock,primary_lock):
     keys=IOSEmoteKeys.archive(originals['keys'],store=Frozen(paths['keys'],originals['keys']),**settings)
     keyed=IOSEmoteRootedKeyedRetirement(Frozen(paths['keyed'],originals['keyed']),rendered,keys,historical=True)
     need(keyed.state['pending'] is None and keyed.state['records'] and same(value['reference'],keyed.state['records'][-1]))
-    return IOSEmoteRootedSceneRetirement(keyed).read(value['reference'])
+    return keyed
+
+
+def read(value,*,lock,primary_lock):
+    with original_round(value,lock=lock,primary_lock=primary_lock):
+        return IOSEmoteRootedSceneRetirement(reopen(value,lock=lock,primary_lock=primary_lock)).read(value['reference'])

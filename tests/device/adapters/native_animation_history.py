@@ -5,6 +5,7 @@ from copy import deepcopy
 import re
 from adapters.native_feature_observation import exact,integer,number,need
 from adapters.native_animation_caller import validate as caller_packet
+from adapters.pure_original_validation import returning_input
 
 
 def clip(value):
@@ -17,6 +18,10 @@ def clip(value):
 
 
 def validate(value,animation,epoch):
+    return returning_input(_validate,value,animation,epoch)
+
+
+def _validate(value,animation,epoch):
     exact(value,{'historyVersion','instance','available','callSequence','overrideSequence','frameSequence',
         'droppedEvents','droppedFrames','events','frames'})
     need(type(value['historyVersion']) is int and value['historyVersion'] in (1,2) and value['available'] is True

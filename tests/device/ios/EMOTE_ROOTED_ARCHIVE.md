@@ -28,3 +28,9 @@ capability remains closed and native compilation/devices remain untested.
 Six existing native/rendered cleanup and lost-return regressions pass in
 52.523 seconds. The five no-build project suites pass in 6.98 seconds; contract
 versions and whitespace checks pass.
+
+[Scoped historical validation](EMOTE_ARCHIVE_ROUND.md) additionally prevents
+repeated full derivation of the same original within one unchanged complete
+file inventory. Both current writer checks and literal archive grammar remain
+unchanged. The explicit `reopen` factory returns read-only typed owners for
+independent original publication joins; it cannot save or acquire an SDK.

@@ -63,3 +63,9 @@ Native compilation and device tests remain unexecuted.
 The five no-build project suites pass in 6.92 seconds. Contract-version and
 whitespace checks pass; none of the eight guarded packet runs attempted a
 blocked operation. No build, compiler, device, simulator or laboratory ran.
+
+The first three-pair host attempt was interrupted for measured repeated archive
+work, with no pass claimed and all 855 original files retained unchanged.
+[Scoped historical validation](EMOTE_ARCHIVE_ROUND.md) now replays its actual
+Primary two-cut graph in 29.046 real seconds, within the unchanged thirty-second
+bound. This is narrower than full terminal qualification, which remains open.

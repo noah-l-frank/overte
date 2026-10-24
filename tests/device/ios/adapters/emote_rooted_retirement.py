@@ -12,6 +12,7 @@ from ios.adapters.emote_rendered_retirement import IOSEmoteRenderedRetirement
 from ios.adapters.emote_keyed_retirement import IOSEmoteKeyedRetirement
 from ios.adapters.emote_rooted_marker_scope import IOSEmoteRootedMarkerScope
 from ios.adapters.emote_rooted_observation import IOSEmoteRootedObservationDecoder
+from ios.adapters.emote_archive_round import derived
 
 
 class IOSEmoteRootedNativeRetirement(IOSEmoteRetirement):
@@ -29,6 +30,9 @@ class IOSEmoteRootedNativeRetirement(IOSEmoteRetirement):
         return holders.web('emote',current['web'],admitted['web'],partial=scope.state['cleanupMode']!='full')
 
     def derive(self,reference):
+        return derived(self,reference,lambda:self.derive_original(reference))
+
+    def derive_original(self,reference):
         derived=super().derive(reference);original=self.original(reference)
         scope=self.Marker.archive(original['scope'],root=self.root,binding=self.binding,
             run=self.run,role=self.role,lock=self.lock)
@@ -45,6 +49,9 @@ class IOSEmoteRootedRenderedRetirement(IOSEmoteRenderedRetirement):
         need(type(native) is IOSEmoteRootedNativeRetirement)
         super().__init__(store,native,frames,historical=historical)
 
+    def derive(self,reference):
+        return derived(self,reference,lambda:super(IOSEmoteRootedRenderedRetirement,self).derive(reference))
+
 
 class IOSEmoteRootedKeyedRetirement(IOSEmoteKeyedRetirement):
     FORMAT_VERSION=2
@@ -53,3 +60,6 @@ class IOSEmoteRootedKeyedRetirement(IOSEmoteKeyedRetirement):
     def __init__(self,store,rendered,keys,*,historical=False):
         need(type(rendered) is IOSEmoteRootedRenderedRetirement)
         super().__init__(store,rendered,keys,historical=historical)
+
+    def derive(self,reference):
+        return derived(self,reference,lambda:super(IOSEmoteRootedKeyedRetirement,self).derive(reference))
