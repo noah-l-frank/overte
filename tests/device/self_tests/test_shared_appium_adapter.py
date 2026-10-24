@@ -6,6 +6,7 @@ from __future__ import annotations
 import base64
 import copy
 import hashlib
+import importlib.util
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -16,6 +17,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -176,6 +178,93 @@ class AppiumHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format_string: str, *arguments: object) -> None:
         pass
+
+
+class AndroidProbeReadTests(unittest.TestCase):
+    """Actual parser/private-file reads; synthetic transport, no device verdict."""
+
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location('shared_probe_reader', ADAPTER)
+        self.shared = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.shared)
+        self.adapter = object.__new__(self.shared.AppiumAdapter)
+        self.adapter.platform = 'android'
+        self.target = dict(appId='io.github.noah_be.overte.phone', capabilities={},
+            process=dict(kind='adb', selector='host-only-not-a-device'),
+            probe=dict(kind='android-run-as', relativePath=self.adapter.ANDROID_DEBUG_PROBE))
+        self.temporary = tempfile.TemporaryDirectory(prefix='probe-read-host-')
+        self.addCleanup(self.temporary.cleanup)
+        self.path = Path(self.temporary.name) / 'actual-private-body'
+        self.client = mock.Mock()
+
+    def fresh(self):
+        return json.dumps(dict(schemaVersion=1, sampleEpochMs=int(time.time() * 1000),
+                               sampleSequence=23, originalBody='new actual file bytes')).encode()
+
+    def read(self, bodies):
+        from adb_transport import AdbTransport
+        transport = mock.Mock(spec=AdbTransport)
+        sequence = iter(bodies)
+        def pull(device, package, path, *, attempts):
+            self.assertEqual((device, package, path, attempts),
+                ('host-only-not-a-device', self.target['appId'], self.adapter.ANDROID_DEBUG_PROBE, 1))
+            actual = next(sequence)
+            if isinstance(actual, BaseException):
+                raise actual
+            self.path.write_bytes(actual)
+            return self.path.read_bytes()
+        transport.read_debug_app_file.side_effect = pull
+        self.transport = transport
+        with mock.patch('adb_transport.AdbTransport', return_value=transport):
+            return self.adapter.probe_snapshot(self.client, 'host-session', self.target)
+
+    def test_empty_or_partial_then_new_fresh_body_is_actually_read(self):
+        for first in (b'', b'{"sampleEpochMs":'):
+            with self.subTest(first=first):
+                original = self.fresh()
+                measured = self.read([first, original])
+                self.assertEqual(measured, json.loads(self.path.read_bytes()))
+                self.assertEqual(self.path.read_bytes(), original)
+                self.assertEqual(self.transport.read_debug_app_file.call_count, 2)
+                self.transport.write_debug_app_file.assert_not_called()
+                self.client.execute.assert_not_called()
+
+    def test_permanent_empty_or_invalid_is_bounded_to_three_actual_reads(self):
+        for raw in (b'', b'{"sampleEpochMs":'):
+            with self.subTest(raw=raw), mock.patch.object(self.shared.time, 'sleep') as sleep:
+                with self.assertRaisesRegex(RuntimeError, 'unavailable or incomplete'):
+                    self.read([raw, raw, raw, self.fresh()])
+                self.assertEqual(self.transport.read_debug_app_file.call_count, 3)
+                self.assertEqual(sleep.call_args_list, [mock.call(.1), mock.call(.1)])
+                self.transport.write_debug_app_file.assert_not_called()
+                self.client.execute.assert_not_called()
+
+    def test_valid_stale_schema_unicode_type_and_transport_errors_are_immediate(self):
+        stale = json.dumps(dict(sampleEpochMs=int(time.time() * 1000) - 60000)).encode()
+        for raw, error in ((stale, RuntimeError), (b'[]', RuntimeError),
+                           (b'\xff', UnicodeDecodeError), (None, TypeError),
+                           (RuntimeError('actual transport failure'), RuntimeError)):
+            with self.subTest(kind=error.__name__, raw=type(raw).__name__), \
+                    mock.patch.object(self.shared.time, 'sleep') as sleep:
+                with self.assertRaises(error):
+                    self.read([raw, self.fresh()])
+                self.assertEqual(self.transport.read_debug_app_file.call_count, 1)
+                sleep.assert_not_called()
+                self.transport.write_debug_app_file.assert_not_called()
+                self.client.execute.assert_not_called()
+
+    def test_other_pull_codecs_and_valid_stale_bodies_still_fail_on_first_pull(self):
+        self.target['probe'] = dict(kind='appium-pull-file', remotePath='controlled/probe.json')
+        stale = json.dumps(dict(sampleEpochMs=int(time.time() * 1000) - 60000)).encode()
+        for encoded in ('invalid base64!', base64.b64encode(b'\xff').decode(),
+                        base64.b64encode(b'{').decode(), base64.b64encode(stale).decode()):
+            with self.subTest(encoded=encoded[:8]), mock.patch.object(self.shared.time, 'sleep') as sleep:
+                self.client.reset_mock()
+                self.client.execute.return_value = encoded
+                with self.assertRaises(RuntimeError):
+                    self.adapter.probe_snapshot(self.client, 'host-session', self.target)
+                self.client.execute.assert_called_once()
+                sleep.assert_not_called()
 
 
 class AppiumAdapterTest(unittest.TestCase):

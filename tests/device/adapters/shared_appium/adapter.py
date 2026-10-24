@@ -1068,13 +1068,21 @@ class AppiumAdapter:
             from adb_transport import AdbTransport
             adb = AdbTransport()
             adb.require_connected(device)
-            raw = adb.read_debug_app_file(
-                device, target["appId"], self.ANDROID_DEBUG_PROBE)
-            try:
-                snapshot = json.loads(raw)
-            except json.JSONDecodeError:
-                fail("Android run-as probe snapshot is unavailable or incomplete")
-            return require_fresh_snapshot(snapshot)
+            # An in-flight legacy QFile publication may be empty or partial.
+            # Retry only its JSON decode with a new single pull, never an input
+            # or a cached body. All valid-body/transport errors remain immediate.
+            for attempt in range(3):
+                raw = adb.read_debug_app_file(
+                    device, target["appId"], self.ANDROID_DEBUG_PROBE, attempts=1)
+                try:
+                    snapshot = json.loads(raw)
+                except json.JSONDecodeError:
+                    if attempt == 2:
+                        fail("Android run-as probe snapshot is unavailable or incomplete")
+                    time.sleep(TRANSITION_RETRY_SECONDS)
+                    continue
+                return require_fresh_snapshot(snapshot)
+            raise AssertionError("unreachable Android probe decode loop")
         if kind == "ios-documents" and self.platform == "ios":
             contract = target.get("testBuild", {})
             remote = (f"@{target['appId']}:documents/"
