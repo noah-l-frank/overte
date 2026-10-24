@@ -297,7 +297,11 @@
         "tests/device/adapters/pico4/AVATAR_PARENT_SOURCE.md",
         "android/vr/pico/tests/device/avatar-parent-service.inc",
         "android/vr/pico/tests/device/test_avatar_parent_native.py",
-        "android/vr/pico/tests/device/test_avatar_parent_owner.py"
+        "android/vr/pico/tests/device/test_avatar_parent_owner.py",
+        "tests/device/adapters/pico4/AVATAR_ORIGINAL_MODEL_SOURCE.md",
+        "android/vr/pico/tests/device/avatar-original-model-prepare.py",
+        "android/vr/pico/tests/device/avatar-original-model-inputs.h",
+        "android/vr/pico/tests/device/avatar-original-model-receiver.h"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -341,8 +345,8 @@
         "Delete only owned wearable/bookmark/connection",
         "Confirm both participants have no pending request and observe quiet restoration"
       ],
-      "nextExecutableStep": "Extend the actual common-v16/OverteSession parent source join beyond normal A/Save/cached callback/original-data return: bind actual complete Model/HFM/EntityTree/Wearables/People/peer/stereo sources and independent actor before exposing nine-field observation or a capability triple. Preserve existing URL/Favorite control domains, exact raw-data restoration and retained final owner/actor obligations; noncanonical Bookmark CAS restoration remains required where observed.",
-      "nativeCompilation": "Complete original NavigationUi/QML/script, MyAvatar setSkeletonModelURL/saveAvatarUrl and Scale/cached Favorite callbacks, Bookmarks, Setting Handle/Manager/WriteWorker/JSON sources host-compiled. Fresh live original Preference/model-callback source joined through common16/OverteSession/canonical parent to normal URL3/Favorites1 and exact original data return. Native service38.551s under new-integration60s/whole120s, old no-op/persistence30s unchanged. Base Avatar/Model/geometry/scene/Android SDK remain explicit actors; full startup/Model/renderer/EntityTree/peer/stereo and final parent/actor retirement remain unverified.",
+      "nextExecutableStep": "Continue the actual common16 Parent with full original constructors/Rig/Scene/Renderer/EntityTree/Wearables/People/peer/stereo sources and independent actor. Selected original Model/Watcher/FST/FBX/Baker/HFM CPU loading and normal return are now joined; preserve explicit declared remaining fields, exact raw-data restoration, retained final ownership and open whole-storage/cache admission (disjoint21,634,937bytes exceeds16MiB). No complete nine-field observation or capability triple before actual sources.",
+      "nativeCompilation": "Complete original NavigationUi/QML/script, MyAvatar setSkeletonModelURL/saveAvatarUrl and Scale/cached Favorite callbacks, Bookmarks, Setting Handle/Manager/WriteWorker/JSON sources host-compiled. Fresh live original Preference/model-callback source joined through common16/OverteSession/canonical parent to normal URL3/Favorites1 and exact original data return. Native service38.551s under new-integration60s/whole120s, old no-op/persistence30s unchanged. Base Avatar/Model/geometry/scene/Android SDK remain explicit actors; full startup/Model/renderer/EntityTree/peer/stereo and final parent/actor retirement remain unverified. A disjoint fresh original-model Parent method now compiles82TUs+link81.449s, passes106.341s external with actual native23.916s/remaining37.671s under Parent60/outer120; genuine2meshes/69joints and clone weak retirement observed. Resource QObjects/LRU remain alive; old historical weak controls may expire. Constructor/Rig/Scene/Renderer/EntityTree/peer/stereo and whole-storage/cache admission remain open.",
       "deviceQualification": "untested"
     },
     {

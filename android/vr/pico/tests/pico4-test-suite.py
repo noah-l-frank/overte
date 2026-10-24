@@ -230,6 +230,8 @@ TESTS = (
         "AvatarPeopleControlsNativeTests.test_original_avatar_model_setter_settings_write_and_normal_data_restore", requires=("c++", "pkg-config", "node")),
     test("avatar-parent-native-ui", "interaction", PYTHON, "device/test_avatar_parent_native.py",
         "AvatarParentNativeTests.test_common_v16_parent_cached_favorite_live_preferences_and_retained_normal_return", requires=("c++", "pkg-config", "node")),
+    test("avatar-parent-model-native-ui", "interaction", PYTHON, "device/test_avatar_parent_native.py",
+        "AvatarParentNativeTests.test_common_v16_parent_real_fst_fbx_loader_and_original_geometry_return", requires=("c++", "pkg-config", "node")),
     test("avatar-parent-fences", "interaction", PYTHON, "device/test_avatar_parent_owner.py", "AvatarParentOwnerTests"),
     test("avatar-state-native", "interaction", PYTHON, "device/test_avatar_state_native.py", requires=("c++", "pkg-config")),
     test('avatar-urls-owner', "interaction", PYTHON, "device/test_avatar_urls_owner.py",

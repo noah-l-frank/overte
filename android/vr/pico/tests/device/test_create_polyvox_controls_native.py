@@ -99,7 +99,7 @@ def native_trace_process(command,environment,trace):
     return dict(raw=output,hostReceipts=receipts,traceLines=lines)
 
 
-def compile_original_native(stage,command,environment):
+def compile_original_native(stage,command,environment,*,deadline=None):
     """One fresh ordinary -j2 object build, one shared 90-second deadline.
 
     The selected original TUs, compiler/semantic flags and linker inputs are
@@ -132,10 +132,12 @@ def compile_original_native(stage,command,environment):
         'compilerFlags':common,'linkInputs':link,'workers':2,'compileAndLinkDeadlineSeconds':90,
         'tools':{tool:digest(Path(tool).resolve(strict=True)) for tool in (compiler,ninja)},'buildSha256':digest(build)}
     (stage/'original-create-build-inputs.json').write_text(json.dumps(provenance,sort_keys=True))
-    started=time.monotonic();process=subprocess.Popen([ninja,'-f',str(build),'-j','2'],cwd=stage,env=environment,start_new_session=True)
+    started=time.monotonic();remaining=90 if deadline is None else min(90,deadline-started)
+    if remaining<=0:raise TimeoutError('Original shared compile deadline expired before Ninja')
+    process=subprocess.Popen([ninja,'-f',str(build),'-j','2'],cwd=stage,env=environment,start_new_session=True)
     timed_out=False
     try:
-        result=process.wait(timeout=90)
+        result=process.wait(timeout=remaining)
         if result:raise subprocess.CalledProcessError(result,process.args)
     except subprocess.TimeoutExpired:
         timed_out=True

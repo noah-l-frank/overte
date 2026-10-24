@@ -43,7 +43,7 @@ def prepare(stage, root):
         'QVariantMap TestScriptingInterface::featurePicoAvatarPreferences('))
 
 
-def prepare_ui_host(stage, root):
+def prepare_ui_host(stage, root, *, original_model=False):
     """Reuse the existing native preference actor declarations and getter.
 
     Avatar/model values remain declared host boundaries; original lazy Handles,
@@ -52,17 +52,26 @@ def prepare_ui_host(stage, root):
     prepare(stage, root)
     native = Path(__file__).with_name('avatar-preferences-native.cpp').read_text()
     prefix = native[:native.index('struct Camera{')]
+    if original_model:
+        prefix=native[:native.index('// Explicit application/dependency-registry')]
+        prefix+='#include <SharedUtil.h>\n#include "avatar-original-model-receiver.h"\n'
     constants = native[native.index('const QString SETTINGS_FULL_PRIVATE_GROUP_NAME='):
                        native.index('class MyAvatar:public QObject')]
     # Actual scale clamp/body and clock; preserve the existing explicit model
     # actor without replacing the Favorite callback's scale or empty-clear call.
     constants = constants.replace('struct AvatarData{', 'struct AvatarData{void setTargetScale(float);float _targetScale{1};quint64 _scaleChanged{0},_avatarScaleChanged{0};')
+    if original_model:
+        constants=constants.replace('const QString SETTINGS_FULL_PRIVATE_GROUP_NAME="fullPrivate";','')
+        a=constants.index('struct Model:QObject');b=constants.index(';',constants.index('}};',a))+1
+        constants=constants[:a]+constants[b:]
+        constants=constants.replace('struct AvatarData{','struct AvatarData{QUrl _skeletonModelURL;void setSkeletonModelURL(const QUrl& value){_skeletonModelURL=value;}')
     shared = (root / 'libraries/shared/src/SharedUtil.cpp').read_text()
     bounds = (root / 'libraries/shared/src/AvatarConstants.h').read_text()
     scale = '\n'.join(line for line in bounds.splitlines()
                       if line.startswith(('static const float MIN_AVATAR_SCALE =', 'static const float MAX_AVATAR_SCALE =')))
-    scale += '\nstatic qint64 usecTimestampNowAdjust = 0;\nquint64 usecTimestampNow(bool wantDebug=false);\n'
-    scale += function(shared, 'quint64 usecTimestampNow(')
+    if not original_model:
+        scale += '\nstatic qint64 usecTimestampNowAdjust = 0;\nquint64 usecTimestampNow(bool wantDebug=false);\n'
+        scale += function(shared, 'quint64 usecTimestampNow(')
     scale += '\n' + function((root / 'libraries/avatars/src/AvatarData.cpp').read_text(), 'void AvatarData::setTargetScale(')
     (stage / 'actual-avatar-preference-host.inc').write_text(prefix + '#include <chrono>\n' + constants + scale)
     avatar = (root / 'interface/src/avatar/MyAvatar.cpp').read_text()

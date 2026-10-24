@@ -151,3 +151,9 @@ The final complete six-counter owning selection passes in 18.247 seconds;
 all full source hashes/physical stamps remain fixed. The final risk/case
 partition checks retain all 14 risks and select 269 catalog entries, adding
 only the parent native case and its disjoint six-counter group.
+
+
+The disjoint [original Model loader continuation](AVATAR_ORIGINAL_MODEL_SOURCE.md)
+now adds actual selected Model/Watcher/FST/FBX/Baker/HFM sources to normal A/return.
+The previous default Parent profile remains as recorded above; full Rig/scene/
+renderer/EntityTree/actor and whole-storage/cache admission remain open.

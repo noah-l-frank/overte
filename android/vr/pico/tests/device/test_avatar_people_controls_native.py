@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import json
+import importlib.util
 from contextlib import contextmanager
 import time
 import base64
@@ -30,7 +31,7 @@ def original_chronology(rows,key,maximum_gap):
 
 
 @contextmanager
-def native_ui_binary(persistence,*,parent=False):
+def native_ui_binary(persistence,*,parent=False,original_model=False):
     environment=dict(os.environ)
     prefix=Path(environment['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
     environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),
@@ -39,11 +40,17 @@ def native_ui_binary(persistence,*,parent=False):
     flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs',
         *('Qt5'+module for module in ('Core','Gui','Qml','Quick','Test'))],text=True,env=environment))
     with native_stage('pico-original-avatar-') as directory:
-        stage=Path(directory);pointer_source(stage);prepare_ui_host(stage,ROOT);binary=stage/'test'
+        stage=Path(directory);preparation_started=time.monotonic();pointer_source(stage);prepare_ui_host(stage,ROOT,original_model=original_model);binary=stage/'test'
+        model_command=None
+        if original_model:
+            spec=importlib.util.spec_from_file_location('avatar_original_model_prepare',HERE/'avatar-original-model-prepare.py')
+            prepare=importlib.util.module_from_spec(spec);spec.loader.exec_module(prepare)
+            model_command=prepare.prepare(stage,environment,prefix)
         includes=['-I'+directory,'-I'+str(ROOT),'-I'+str(ROOT/'libraries/shared/src')]
         definitions=['-DOVERTE_E2E_FEATURE_TESTS','-DANDROID_APP_PICO_INTERFACE']
         if persistence:definitions.append('-DAVATAR_ORIGINAL_MODEL_PERSISTENCE')
         if parent:definitions.append('-DAVATAR_ORIGINAL_PARENT_SERVICE')
+        if original_model:definitions.append('-DAVATAR_ORIGINAL_MODEL_LOADER')
         imports=stage/'imports/TabletScriptingInterface';imports.mkdir(parents=True)
         (imports/'qmldir').write_text('module TabletScriptingInterface\nsingleton Tablet 1.0 Tablet.qml\nsingleton TabletEnums 1.0 TabletEnums.qml\n')
         (imports/'Tablet.qml').write_text('pragma Singleton\nimport QtQuick 2.7\nQtObject { function playSound(value) {} }\n')
@@ -61,19 +68,46 @@ def native_ui_binary(persistence,*,parent=False):
         store+='\n'+'\n'.join(function(avatar_bookmarks,s) for s in ('AvatarBookmarks::AvatarBookmarks()', 'QVariantMap AvatarBookmarks::e2eBookmarkStorage(', 'QVariantMap AvatarBookmarks::e2eBookmarkLoads(', 'QVariantMap AvatarBookmarks::getBookmarks(', 'QVariantMap AvatarBookmarks::getBookmarkInternal(', 'void AvatarBookmarks::addBookmarkInternal(', 'void AvatarBookmarks::removeBookmarkInternal(', 'void AvatarBookmarks::loadBookmark(', 'void AvatarBookmarks::loadBookmarkInternal('))
         store+='\n'+'\n'.join(function((ROOT/'interface/src/avatar/MyAvatar.cpp').read_text(),signature) for signature in ('void MyAvatar::useFullAvatarURL(', 'void MyAvatar::clearWornAvatarEntities(', 'void MyAvatar::setAvatarScale('))
         (stage/'actual-avatar-bookmark-store.inc').write_text(store)
-        compile_started=time.monotonic()
+        compile_started=preparation_started if original_model else time.monotonic()
         subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),*definitions,*includes,'-i',str(HERE/'avatar-bookmark-store-actor.h'),'-o',str(stage/'avatar-bookmark-store-actor.moc')],check=True,timeout=min(20,max(.001,90-(time.monotonic()-compile_started))),env=environment)
-        (stage/'PathUtils.h').write_text('#pragma once\n#include <QUrl>\nclass PathUtils {public:\n'
-            'inline static QUrl scripts,qml; static QUrl defaultScriptsLocation(){return scripts;}\n'
-            'static QUrl qmlUrl(const QString& value){return qml.resolved(QUrl(value));}};\n')
-        subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),*definitions,*includes,str(ROOT/'libraries/shared/src/SettingManager.h'),'-o',str(stage/'manager.moc.cpp')],check=True,timeout=min(20,max(.001,90-(time.monotonic()-compile_started))),env=environment)
-        subprocess.run(['c++','-std=c++17','-fPIC','-pthread','-UNDEBUG','-include','QIODevice',*definitions,*includes,
-            '-I'+str(ROOT/'libraries/ui/src'),'-I'+str(ROOT/'libraries/script-engine/src'),
-            '-isystem',str(Path(environment['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),str(HERE/'avatar-people-controls.cpp'),
-            str(ROOT/'libraries/ui/src/ui/NativeFieldInput.cpp'),
-            str(ROOT/'libraries/shared/src/SettingManager.cpp'),str(ROOT/'libraries/shared/src/SettingHelpers.cpp'),
-            str(ROOT/'libraries/shared/src/SharedLogging.cpp'),str(stage/'manager.moc.cpp'),'-o',str(binary),'-L'+str(prefix/'usr/lib64'),*flags],
-            check=True,timeout=max(.001,90-(time.monotonic()-compile_started)),env=environment)
+        if not original_model:
+            (stage/'PathUtils.h').write_text('#pragma once\n#include <QUrl>\nclass PathUtils {public:\n'
+                'inline static QUrl scripts,qml; static QUrl defaultScriptsLocation(){return scripts;}\n'
+                'static QUrl qmlUrl(const QString& value){return qml.resolved(QUrl(value));}};\n')
+        if not original_model:
+            subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),*definitions,*includes,str(ROOT/'libraries/shared/src/SettingManager.h'),'-o',str(stage/'manager.moc.cpp')],check=True,timeout=min(20,max(.001,90-(time.monotonic()-compile_started))),env=environment)
+            subprocess.run(['c++','-std=c++17','-fPIC','-pthread','-UNDEBUG','-include','QIODevice',*definitions,*includes,
+                '-I'+str(ROOT/'libraries/ui/src'),'-I'+str(ROOT/'libraries/script-engine/src'),
+                '-isystem',str(Path(environment['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),str(HERE/'avatar-people-controls.cpp'),
+                str(ROOT/'libraries/ui/src/ui/NativeFieldInput.cpp'),
+                str(ROOT/'libraries/shared/src/SettingManager.cpp'),str(ROOT/'libraries/shared/src/SettingHelpers.cpp'),
+                str(ROOT/'libraries/shared/src/SharedLogging.cpp'),str(stage/'manager.moc.cpp'),'-o',str(binary),'-L'+str(prefix/'usr/lib64'),*flags],
+                check=True,timeout=max(.001,90-(time.monotonic()-compile_started)),env=environment)
+        else:
+            # One existing -j2 build with all fresh original dependencies and
+            # UI TUs; the shared90 clock starts before original preparation/moc.
+            from test_create_polyvox_controls_native import compile_original_native
+            common=[];skip=False
+            for value in model_command[1:]:
+                if skip:skip=False;continue
+                if value=='-o':skip=True;continue
+                common.append(value)
+            receiver_moc=stage/'AvatarOriginalModelReceiver-moc.cpp'
+            subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),*definitions,*includes,
+                str(HERE/'avatar-original-model-receiver.h'),'-o',str(receiver_moc)],check=True,
+                timeout=min(20,max(.001,90-(time.monotonic()-compile_started))),env=environment)
+            ui_flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt5Qml','Qt5Quick'],text=True,env=environment))
+            command=[model_command[0],*common,*definitions,'-I'+str(ROOT/'libraries/ui/src'),'-I'+str(ROOT/'libraries/script-engine/src'),
+                str(HERE/'avatar-people-controls.cpp'),str(ROOT/'libraries/ui/src/ui/NativeFieldInput.cpp'),str(receiver_moc),
+                '-o',str(binary),*ui_flags]
+            # New composition TUs are scheduled first in this same fresh
+            # build, so an owning include error refuses before legacy work.
+            early_names={'avatar-people-controls.cpp','AvatarOriginalModelCore.cpp','AvatarOriginalModelReceiver-moc.cpp',
+                'AvatarOriginalModelResource-moc.cpp','FSTReader.cpp','FBXSerializer.cpp','FBXSerializer_Node.cpp',
+                'FBXSerializer_Mesh.cpp','FBXSerializer_Material.cpp','OBJSerializer.cpp'}
+            early=[value for value in command[1:] if Path(value).name in early_names]
+            command=[command[0],*early,*[value for value in command[1:] if Path(value).name not in early_names]]
+            compile_original_native(stage,command,environment,deadline=compile_started+90)
         environment.update(QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',QT_FORCE_STDERR_LOGGING='1')
         yield stage,environment,binary
 
