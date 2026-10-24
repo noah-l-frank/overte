@@ -95,3 +95,12 @@ its pre-optimization measured graph digest; its 53.791-second profiler timing
 does not qualify the unchanged thirty-second terminal budget. Multi-cut window,
 whole terminal, current acquisition budgets and full feature qualification
 remain open.
+
+After the current-read change, reopening the actual current four-cut Primary
+native/rendered/keyed metadata and deriving its scene projection preserves the
+same pre-optimization measured graph digest. The unprofiled combined read takes
+58.778 seconds and **fails the unchanged thirty-second budget**. Candidate,
+native, SDK, Qt, GPU and acquisition-clock producers remain declared models;
+the retained files and current metadata parsers execute. All 1,437 files remain
+unchanged after both the profiled historical read and this current-component
+read. These results do not justify a complete capability or a new full-run pass.
