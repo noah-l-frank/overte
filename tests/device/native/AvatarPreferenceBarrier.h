@@ -90,6 +90,19 @@ public:
         if(!_mutex.tryLock()) {return false;}
         const bool result=_reader==QThread::currentThread();_mutex.unlock();return result;
     }
+    // The test-gated typed owner must compare the actual audit sequence and
+    // mutate under this same original Manager barrier. No queued work enters
+    // this GUI-only callback and no lock spans the independent writer read.
+    bool compareAndMutate(qint64 expected,const QString& key,const std::function<bool()>& change) {
+        if(!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")
+                || QThread::currentThread()!=QCoreApplication::instance()->thread() || !avatarPreferenceKey(key)
+                || !change || !_mutex.tryLock()) {return false;}
+        bool changed=false;
+        if(_valid && !_pending && _attempts.load()==0 && _sequence==expected && _sequence<9007199254740991LL) {
+            Mutation mutation(*this,key);changed=change();
+        }
+        _mutex.unlock();return changed;
+    }
     QVariantMap read(const std::function<QVariantMap()>& cache,const std::function<QVariantMap()>& writer) {
         if(!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript") || !cache || !writer || !_mutex.tryLock()) {return {};}
         if(!_valid || _pending || _attempts.load()!=0) {_mutex.unlock();return {};}

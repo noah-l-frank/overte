@@ -24,6 +24,9 @@
 #endif
 
 Q_DECLARE_LOGGING_CATEGORY(settings_interface)
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+namespace overte::e2e { class AvatarPreferenceSnapshot; }
+#endif
 
 namespace Setting {
     class Manager;
@@ -67,6 +70,7 @@ namespace Setting {
         friend class Manager;
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
         friend class AvatarPreferenceMutation;
+        friend class overte::e2e::AvatarPreferenceSnapshot;
 #endif
         mutable QWeakPointer<Manager> _manager;
     };
