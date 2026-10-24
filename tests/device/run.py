@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -257,12 +258,108 @@ def redact(text: str, private_values: set[str]) -> str:
     return text
 
 
+class PreparedModuleArtifacts:
+    """Current-invocation ownership of empty artifact directories for discovery.
+
+    Adapter configuration may inspect its eventual private output boundary before
+    a module starts. Only this owner can claim those exact fresh directories;
+    their existence is never module execution or result evidence.
+    """
+    def __init__(self, output: Path, modules: list[dict]):
+        self.output = output
+        self.pid = os.getpid()
+        self.output_pin = self._pin(output)
+        if (output == ROOT or ROOT in output.parents or any(output.iterdir())
+                or self._pin(output) != self.output_pin):
+            fail("prepared module output must be a fresh empty owned boundary outside source")
+        identifiers = [module["id"] for module in modules]
+        for identifier in identifiers:
+            validate_identifier(identifier, "module id")
+        if len(set(identifiers)) != len(identifiers):
+            fail("prepared module ids must be unique")
+        self.root = output / "modules"
+        self.root.mkdir(mode=0o700)
+        self.root_pin = self._pin(self.root)
+        self.directories = {}
+        self.claimed = set()
+        try:
+            for module in modules:
+                path = self.root / module["id"]
+                path.mkdir(mode=0o700)
+                self.directories[module["id"]] = (path, self._pin(path))
+        except BaseException:
+            self.close()
+            raise
+
+    @staticmethod
+    def _pin(path: Path) -> tuple:
+        info = path.lstat()
+        if (path.resolve(strict=True) != path or not stat.S_ISDIR(info.st_mode)
+                or path.is_symlink() or os.name != "nt" and
+                (info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) != 0o700)):
+            fail("module artifact boundary is not an owned private directory")
+        return info.st_dev, info.st_ino, info.st_uid, stat.S_IMODE(info.st_mode)
+
+    def _roots(self) -> None:
+        if (os.getpid() != self.pid or self._pin(self.output) != self.output_pin
+                or self._pin(self.root) != self.root_pin):
+            fail("prepared module artifact owner changed")
+
+    def verify_unclaimed(self) -> None:
+        self._roots()
+        for identifier, (path, pin) in self.directories.items():
+            if self._pin(path) != pin or identifier not in self.claimed and any(path.iterdir()):
+                fail("prepared module artifact directory changed or is not empty")
+
+    def claim(self, identifier: str, path: Path) -> None:
+        self._roots()
+        expected = self.directories.get(identifier)
+        if (identifier in self.claimed or expected is None or expected[0] != path
+                or self._pin(path) != expected[1] or any(path.iterdir())):
+            fail("module artifact directory does not match its fresh prepared owner")
+        self.claimed.add(identifier)
+
+    def close(self) -> None:
+        # Keep used module evidence. Remove only our still-empty, unchanged
+        # preparation directories, never foreign/injected contents or paths.
+        self.verify_unclaimed()
+        for identifier, (path, _pin) in self.directories.items():
+            if identifier not in self.claimed:
+                path.rmdir()
+        if not any(self.root.iterdir()):
+            self.root.rmdir()
+
+    def __enter__(self):
+        self.verify_unclaimed()
+        return self
+
+    def __exit__(self, *_exc):
+        self.close()
+
+
 def run_module(module: dict, catalog: Path, environment: dict[str, str],
                artifact_dir: Path, selector: str, private_values: set[str],
                adapter_command: list[str],
-               capabilities: set[str]) -> dict:
-    artifact_dir.mkdir(parents=True, mode=0o700)
+               capabilities: set[str], *, prepared: PreparedModuleArtifacts | None = None) -> dict:
+    if prepared is None:
+        if artifact_dir.resolve(strict=False) != artifact_dir.absolute():
+            fail("module artifact path must not contain a symlink")
+        artifact_dir.mkdir(parents=True, mode=0o700)
+        PreparedModuleArtifacts._pin(artifact_dir)
+    else:
+        if type(prepared) is not PreparedModuleArtifacts:
+            fail("module artifact preparation owner is invalid")
+        prepared.claim(module["id"], artifact_dir)
+    artifact_pin = PreparedModuleArtifacts._pin(artifact_dir)
+
+    def artifact_guard():
+        if prepared is not None:
+            prepared.verify_unclaimed()
+        if PreparedModuleArtifacts._pin(artifact_dir) != artifact_pin:
+            fail("module artifact directory changed during execution")
+
     invalid = artifact_dir / "INVALID"
+    artifact_guard()
     invalid.write_text("Module did not complete successfully.\n", encoding="utf-8")
     command = resolve_module_command(catalog, module["command"])
     started = time.monotonic()
@@ -281,6 +378,7 @@ def run_module(module: dict, catalog: Path, environment: dict[str, str],
         stop_process(process)
         output, _ = process.communicate()
     output = bounded(redact(output, private_values))
+    artifact_guard()
     (artifact_dir / "module.log").write_text(output, encoding="utf-8")
     status = ("skipped" if process.returncode == 77 else
               "error" if process.returncode == 75 else
@@ -307,6 +405,7 @@ def run_module(module: dict, catalog: Path, environment: dict[str, str],
         except (OSError, subprocess.TimeoutExpired):
             detail = "Failure screenshot capture was unavailable."
         output += "\n" + bounded(redact(detail, private_values)) + "\n"
+    artifact_guard()
     (artifact_dir / "module.log").write_text(output, encoding="utf-8")
     if status == "passed":
         invalid.unlink()
@@ -479,19 +578,34 @@ def main() -> int:
         tablet_policy_path = args.tablet_policy.resolve()
         load_tablet_product_policy(tablet_policy_path)
     command = load_command(manifest_path)
+    if args.output_dir:
+        output = Path(os.path.abspath(args.output_dir))
+        if output.resolve(strict=False) != output:
+            fail("output directory must not contain a symlink")
+        if output.exists() and (not output.is_dir() or any(output.iterdir())):
+            fail("output directory must be absent or empty")
+    else:
+        output = Path(tempfile.mkdtemp(prefix="overte-device-run-")).resolve()
+    if output == ROOT or ROOT in output.parents:
+        fail("device artifacts must be stored outside the source worktree")
+    output.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with PreparedModuleArtifacts(output, modules) as prepared:
+        return execute_prepared(args, manifest, manifest_path, catalog_path, modules,
+                                command, output, identity, tablet_policy_path,
+                                required_setup, prepared)
+
+
+def execute_prepared(args, manifest: dict, manifest_path: Path, catalog_path: Path,
+                     modules: list[dict], command: list[str], output: Path, identity,
+                     tablet_policy_path, required_setup: set[str],
+                     prepared: PreparedModuleArtifacts) -> int:
+    prepared.verify_unclaimed()
     target = discover(command, args.target, args.allow_virtual)
+    prepared.verify_unclaimed()
     selector = target["selector"]
     validate_capabilities(target["capabilities"])
     capabilities = set(target["capabilities"])
-    if args.output_dir:
-        output = args.output_dir.resolve()
-        if output.exists() and (not output.is_dir() or any(output.iterdir())):
-            fail("output directory must be absent or empty")
-        output.mkdir(parents=True, exist_ok=True, mode=0o700)
-    else:
-        output = Path(tempfile.mkdtemp(prefix="overte-device-run-"))
-    if output == ROOT or ROOT in output.parents:
-        fail("device artifacts must be stored outside the source worktree")
+    identity_bound = False
     run_started_epoch_ms = int(time.time() * 1000)
     run_started_monotonic = time.monotonic()
 
@@ -564,7 +678,7 @@ def main() -> int:
                             command, capabilities)
                     print(f"[{module['id']}] {module['description']}", flush=True)
                     result = run_module(module, catalog_path, module_env, artifact, selector,
-                                        private_values, command, capabilities)
+                                        private_values, command, capabilities, prepared=prepared)
                     results.append(result)
                     if module["id"] in required_setup and result["status"] != "passed":
                         blocked_reason = "Blocked because required setup did not pass"

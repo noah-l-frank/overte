@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
 from pathlib import Path
 import subprocess
@@ -26,6 +27,27 @@ p.add_argument("--arguments")
 a = p.parse_args()
 selector = os.environ.get("MOCK_SELECTOR", "private-device-123")
 if a.action == "discover":
+    if os.environ.get("MOCK_DISCOVERY_WEB_CONFIG"):
+        source = pathlib.Path(os.environ["MOCK_DEVICE_SOURCE"])
+        sys.path[:0] = [str(source / "adapters/android-phone"), str(source)]
+        sys.dont_write_bytecode = True
+        from appium_adapter import PhoneAppiumAdapter
+        method = (PhoneAppiumAdapter._world_web_configuration
+                  if os.environ["MOCK_DISCOVERY_WEB_CONFIG"] == "world"
+                  else PhoneAppiumAdapter._tablet_web_configuration)
+        method(object())  # Original config, including real PrivateFeatureState._parent.
+        pathlib.Path(os.environ["MOCK_CONFIG_VALIDATED_MARKER"]).write_text("validated")
+    attack = os.environ.get("MOCK_PREPARED_ARTIFACT_ATTACK")
+    if attack:
+        root = pathlib.Path(os.environ["MOCK_PREPARED_ARTIFACT_ROOT"])
+        if attack == "file":
+            (root / "injected").write_text("foreign input")
+        else:
+            root.rename(root.with_name(root.name + "-original"))
+            if attack == "inode":
+                root.mkdir(mode=0o700)
+            elif attack == "symlink":
+                root.symlink_to(os.environ["MOCK_FOREIGN_ARTIFACT_ROOT"], target_is_directory=True)
     if os.environ.get("MOCK_DISCOVERY_MARKER"):
         pathlib.Path(os.environ["MOCK_DISCOVERY_MARKER"]).touch()
     if os.environ.get("MOCK_EMPTY_DISCOVERY") == "1":
@@ -89,6 +111,10 @@ MODULE = r'''#!/usr/bin/env python3
 import json, os, pathlib
 artifact = pathlib.Path(os.environ["OVERTE_DEVICE_ARTIFACT_DIR"])
 selector = os.environ["OVERTE_DEVICE_TARGET_SELECTOR"]
+if os.environ.get("MOCK_MODULE_ARTIFACT_REPLACE"):
+    artifact.rename(artifact.with_name(artifact.name + "-original"))
+    artifact.symlink_to(os.environ["MOCK_MODULE_ARTIFACT_REPLACE"], target_is_directory=True)
+    raise SystemExit(0)
 (artifact / "metric.json").write_text(json.dumps({"stable": True}) + "\n")
 print("module target=" + selector)
 raise SystemExit(int(os.environ.get("MOCK_MODULE_EXIT", "0")))
@@ -130,6 +156,164 @@ class HarnessTest(unittest.TestCase):
             sys.executable, str(HARNESS), "--adapter-manifest", str(self.manifest),
             "--catalog", str(self.catalog), "--output-dir", str(self.output), *extra,
         ], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env, check=False)
+
+    def discovery_web_configuration(self, kind, *, artifact_root=None):
+        artifact = artifact_root or self.output / "modules/health"
+        key = "worldWebConfigurationVersion" if kind == "world" else "tabletWebConfigurationVersion"
+        config = self.root / (kind + "-configuration.json")
+        config.write_text(json.dumps({key: 1, "artifactRoot": str(artifact),
+            "foreignFixtureUrl": "http://controlled.invalid/feature-fixture/v1"}))
+        config.chmod(0o600)
+        env = {"MOCK_DEVICE_SOURCE": str(HARNESS.parent), "MOCK_DISCOVERY_WEB_CONFIG": kind,
+               "MOCK_CONFIG_VALIDATED_MARKER": str(self.root / "validated"),
+               "OVERTE_DEVICE_ARTIFACT_DIR": str(self.output / "modules/health")}
+        env["OVERTE_PHONE_" + ("WORLD_WEB" if kind == "world" else "TABLET_WEB") + "_CONFIGURATION"] = str(config)
+        return env
+
+    def test_original_world_and_tablet_config_validate_before_discovery_and_module_runs(self):
+        for kind in ("world", "tablet"):
+            with self.subTest(kind=kind):
+                self.output = self.root / ("prepared-" + kind)
+                result = self.run_harness(environment=self.discovery_web_configuration(kind))
+                self.assertEqual(0, result.returncode, result.stdout)
+                self.assertEqual("validated", (self.root / "validated").read_text())
+                self.assertTrue((self.output / "modules/health/module.log").is_file())
+                self.assertTrue((self.output / "modules/health/metric.json").is_file())
+                self.assertEqual("passed", json.loads((self.output / "summary.json").read_text())["status"])
+
+    def test_prepared_web_config_still_emits_real_missing_capability_error_without_module(self):
+        value = json.loads(self.catalog.read_text())
+        value["modules"][0]["requires"] = ["app.launch"]
+        self.catalog.write_text(json.dumps(value))
+        for kind in ("world", "tablet"):
+            with self.subTest(kind=kind):
+                self.output = self.root / ("missing-prepared-" + kind)
+                result = self.run_harness("--require-complete", environment=self.discovery_web_configuration(kind))
+                self.assertEqual(1, result.returncode, result.stdout)
+                row = json.loads((self.output / "summary.json").read_text())["results"][0]
+                self.assertEqual(("error", 75), (row["status"], row["returncode"]))
+                self.assertFalse((self.output / "modules/health").exists())
+                self.assertTrue(self.cleanup_marker.exists())
+
+    def test_original_web_config_rejects_foreign_or_symlink_root_without_module_input(self):
+        for kind in ("world", "tablet"):
+            for symlink in (False, True):
+                if symlink and os.name == "nt":
+                    continue
+                with self.subTest(kind=kind, symlink=symlink):
+                    self.output = self.root / ("wrong-root-" + kind + str(symlink))
+                    foreign = self.root / ("foreign-" + kind + str(symlink))
+                    foreign.mkdir(mode=0o700)
+                    sentinel = foreign / "sentinel"
+                    sentinel.write_text("untouched")
+                    root = foreign
+                    if symlink:
+                        root = self.root / ("link-" + kind)
+                        root.symlink_to(foreign, target_is_directory=True)
+                    result = self.run_harness(environment=self.discovery_web_configuration(kind, artifact_root=root))
+                    self.assertEqual(2, result.returncode, result.stdout)
+                    self.assertEqual("untouched", sentinel.read_text())
+                    self.assertFalse((self.output / "modules/health").exists())
+                    self.assertFalse(self.cleanup_marker.exists())
+
+    def test_discovery_cannot_inject_replace_or_symlink_prepared_module_directory(self):
+        foreign = self.root / "foreign-owned"
+        foreign.mkdir(mode=0o700)
+        sentinel = foreign / "sentinel"
+        sentinel.write_text("untouched")
+        for attack in ("file", "inode", "symlink"):
+            if attack == "symlink" and os.name == "nt":
+                continue
+            with self.subTest(attack=attack):
+                self.output = self.root / ("attack-" + attack)
+                artifact = self.output / "modules/health"
+                result = self.run_harness(environment={"MOCK_PREPARED_ARTIFACT_ATTACK": attack,
+                    "MOCK_PREPARED_ARTIFACT_ROOT": str(artifact),
+                    "MOCK_FOREIGN_ARTIFACT_ROOT": str(foreign)})
+                self.assertEqual(2, result.returncode, result.stdout)
+                self.assertFalse((artifact / "metric.json").exists())
+                self.assertFalse(self.cleanup_marker.exists())
+                self.assertEqual("untouched", sentinel.read_text())
+                if attack == "file":
+                    self.assertEqual("foreign input", (artifact / "injected").read_text())
+
+    @unittest.skipIf(os.name == "nt", "requires unprivileged POSIX symlinks")
+    def test_module_cannot_redirect_framework_log_to_a_foreign_directory(self):
+        foreign = self.root / "foreign-during-module"
+        foreign.mkdir(mode=0o700)
+        sentinel = foreign / "sentinel"
+        sentinel.write_text("untouched")
+        result = self.run_harness(environment={"MOCK_MODULE_ARTIFACT_REPLACE": str(foreign)})
+        self.assertNotEqual(0, result.returncode, result.stdout)
+        self.assertEqual("untouched", sentinel.read_text())
+        self.assertFalse((foreign / "module.log").exists())
+        self.assertFalse((foreign / "INVALID").exists())
+
+    def test_preexisting_nonempty_or_symlink_output_rejects_before_discovery(self):
+        marker = self.root / "discovered"
+        foreign = self.root / "foreign-output"
+        foreign.mkdir(mode=0o700)
+        sentinel = foreign / "sentinel"
+        sentinel.write_text("untouched")
+        if os.name != "nt":
+            self.output.symlink_to(foreign, target_is_directory=True)
+            result = self.run_harness(environment={"MOCK_DISCOVERY_MARKER": str(marker)})
+            self.assertEqual(2, result.returncode, result.stdout)
+            self.assertFalse(marker.exists())
+            self.assertEqual("untouched", sentinel.read_text())
+            self.output.unlink()
+        self.output.mkdir(mode=0o700)
+        (self.output / "foreign").write_text("untouched")
+        result = self.run_harness(environment={"MOCK_DISCOVERY_MARKER": str(marker)})
+        self.assertEqual(2, result.returncode, result.stdout)
+        self.assertFalse(marker.exists())
+        self.assertEqual("untouched", (self.output / "foreign").read_text())
+
+    @unittest.skipIf(os.name == "nt", "models a POSIX temporary-directory alias")
+    def test_generated_temporary_output_uses_its_canonical_owned_path(self):
+        actual = self.root / "private-temporary"
+        actual.mkdir(mode=0o700)
+        alias = self.root / "temporary-alias"
+        alias.symlink_to(actual, target_is_directory=True)
+        environment = os.environ | {"TMPDIR": str(alias), "TMP": str(alias), "TEMP": str(alias),
+            "MOCK_CLEANUP_MARKER": str(self.cleanup_marker),
+            "OVERTE_DEVICE_LOCK_ROOT": str(self.root / "locks")}
+        result = subprocess.run([sys.executable, str(HARNESS),
+            "--adapter-manifest", str(self.manifest), "--catalog", str(self.catalog)],
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            env=environment, check=False)
+        self.assertEqual(0, result.returncode, result.stdout)
+        outputs = list(actual.glob("overte-device-run-*"))
+        self.assertEqual(1, len(outputs))
+        self.assertEqual("passed", json.loads((outputs[0] / "summary.json").read_text())["status"])
+        self.assertTrue((outputs[0] / "modules/health/module.log").is_file())
+
+    def test_prepared_owner_rejects_wrong_path_double_claim_and_inherited_pid(self):
+        spec = importlib.util.spec_from_file_location("prepared_harness", HARNESS)
+        runner = importlib.util.module_from_spec(spec)
+        original = list(sys.path)
+        sys.path.insert(0, str(HARNESS.parent))
+        try:
+            spec.loader.exec_module(runner)
+        finally:
+            sys.path[:] = original
+        self.output.mkdir(mode=0o700)
+        modules = json.loads(self.catalog.read_text())["modules"]
+        owner = runner.PreparedModuleArtifacts(self.output, modules)
+        artifact = self.output / "modules/health"
+        foreign = self.root / "wrong-claim"
+        foreign.mkdir(mode=0o700)
+        with self.assertRaisesRegex(ValueError, "fresh prepared owner"):
+            owner.claim("health", foreign)
+        owner.pid += 1
+        with self.assertRaisesRegex(ValueError, "owner changed"):
+            owner.claim("health", artifact)
+        owner.pid = os.getpid()
+        owner.claim("health", artifact)
+        with self.assertRaisesRegex(ValueError, "fresh prepared owner"):
+            owner.claim("health", artifact)
+        owner.close()
+        self.assertTrue(foreign.is_dir())
 
     def test_success_writes_private_safe_json_junit_and_artifacts(self):
         result = self.run_harness("--suite", "smoke")
