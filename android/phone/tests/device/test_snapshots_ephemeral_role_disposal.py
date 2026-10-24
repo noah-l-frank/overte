@@ -29,8 +29,17 @@ from overte_phone_snapshots_measurements import SnapshotPending
 from overte_phone_snapshots_role import PhoneSnapshotsRole
 
 
-class TrackedFrames(list):
-    """Weak-referenceable wrapper over the unchanged actual original graph."""
+class GraphOwner:
+    """A host-only lifetime witness outside the sealed builtin JSON graph."""
+    def __init__(self,frames):self.frames=frames
+
+
+def watch_graph(role):
+    # A reader may survive in unrelated host cycles after its dictionary is
+    # cleared. This witness checks its actual graph reference without adding a
+    # custom object to the graph which the production seal correctly rejects.
+    owner=GraphOwner(role.frames);role._test_graph_owner=owner
+    return weakref.ref(owner)
 
 
 @contextmanager
@@ -73,8 +82,10 @@ class SnapshotEphemeralRoleDisposalTests(unittest.TestCase):
         init=PhoneSnapshotsRole.__init__;dispose=PhoneSnapshotsRole._dispose_observation_graph;read=PhoneSnapshotsRole.read
         def tracking(role,*args,**kwargs):
             init(role,*args,**kwargs)
-            role.frames=TrackedFrames(role.frames)
-            constructed.append(dict(role=weakref.ref(role),frames=weakref.ref(role.frames),
+            # Keep the actual builtin graph accepted by the constructor seal.
+            # The reader owns it until disposal; no custom object enters originals.
+            self.assertIs(type(role.frames),list)
+            constructed.append(dict(role=weakref.ref(role),graphOwner=watch_graph(role),
                 bytes=len(json.dumps(role.frames)),sequence=role.state['sequence']))
         def reading(role,*args,**kwargs):
             value=read(role,*args,**kwargs);returned.append((value,deepcopy(value)));return value
@@ -103,7 +114,7 @@ class SnapshotEphemeralRoleDisposalTests(unittest.TestCase):
             value=self.observe(measured['sequence'])
             self.assertGreater(value['sequence'],measured['sequence'])
             self.assertTrue(returned);self.assertTrue(released)
-            self.assertTrue(all(row['frames']() is None for row in made))
+            self.assertTrue(all(row['graphOwner']() is None for row in made))
             self.assertGreater(max(row['bytes'] for row in made),65536)
             self.assertEqual('ready',released[-1]['state']['phase'])
         self.assertEqual(1,released[-1]['frames'][-1]['state']['files'])
@@ -112,7 +123,7 @@ class SnapshotEphemeralRoleDisposalTests(unittest.TestCase):
         measured=self.baseline();f=self.fixture;before=originals(f.root);finish=SnapshotConstructorHistoryPass.finish_constructor;refs=[]
         def failed(token,role):
             finish(token,role)
-            role.frames=TrackedFrames(role.frames);refs.append(weakref.ref(role.frames))
+            self.assertIs(type(role.frames),list);refs.append(watch_graph(role))
             raise RuntimeError('Controlled failure after actual constructor qualification')
         with reference_count_only(),self.record() as (_made,released,_returned):
             with patch.object(SnapshotConstructorHistoryPass,'finish_constructor',failed):
@@ -125,7 +136,7 @@ class SnapshotEphemeralRoleDisposalTests(unittest.TestCase):
         self.baseline();f=self.fixture;before=originals(f.root);restore=PhoneSnapshotsRole.restore_originals;refs=[]
         feature=f.adapter._snapshots_feature('test-only-appium',harness.RUN)
         def failed(role):
-            role.frames=TrackedFrames(restore(role));refs.append(weakref.ref(role.frames))
+            role.frames=restore(role);self.assertIs(type(role.frames),list);refs.append(watch_graph(role))
             raise RuntimeError('Controlled failure in unchanged default constructor')
         with reference_count_only(),self.record() as (_made,released,_returned):
             with self.assertRaises(NativeUIError),ExitStack() as disposals,ExitStack() as session:
@@ -140,12 +151,14 @@ class SnapshotEphemeralRoleDisposalTests(unittest.TestCase):
         measured=self.baseline();batch=PhoneSnapshotsRole.batch;once=[]
         def failed(role):
             value=batch(role)
-            if not once:once.append(True);raise NativeUIError('Controlled failure after original VM batch')
+            if role._host_publication and role.state['phase']=='reading' and not once:
+                once.append(True);raise NativeUIError('Controlled failure after original VM batch')
             return value
         with reference_count_only(),self.record() as (made,released,_returned):
             with patch.object(PhoneSnapshotsRole,'batch',failed):
                 with self.assertRaises(NativeUIError):self.observe(measured['sequence'])
-            self.assertTrue(all(row['frames']() is None for row in made));self.assertEqual(1,len(released))
+            self.assertEqual([True],once)
+            self.assertTrue(all(row['graphOwner']() is None for row in made));self.assertEqual(1,len(released))
         pending=unpack(PrivateFeatureState(released[0]['path']).read()['payload'])[0]
         self.assertEqual('reading',pending['phase']);self.assertTrue(pending['pending']['work']['groups'])
         with self.record() as (_made,resumed,_returned):value=self.observe(measured['sequence'])
@@ -156,27 +169,34 @@ class SnapshotEphemeralRoleDisposalTests(unittest.TestCase):
         measured=self.baseline();batch=PhoneSnapshotsRole.batch;once=[]
         def pending(role):
             value=batch(role)
-            if not once:once.append(True);raise SnapshotPending('Controlled pending after original VM batch')
+            if role._host_publication and role.state['phase']=='reading' and not once:
+                once.append(True);raise SnapshotPending('Controlled pending after original VM batch')
             return value
         with reference_count_only(),self.record() as (made,released,_returned):
             with patch.object(PhoneSnapshotsRole,'batch',pending):value=self.observe(measured['sequence'])
+            self.assertEqual([True],once)
             self.assertGreater(value['sequence'],measured['sequence']);self.assertGreaterEqual(len(released),2)
-            self.assertTrue(all(row['frames']() is None for row in made))
+            self.assertTrue(all(row['graphOwner']() is None for row in made))
         self.assertTrue(any(frame.get('diagnostic') for frame in released[-1]['frames']))
         self.assertTrue(all(row['state']['pending'] is None for row in released))
 
     def test_cleaned_reader_lives_through_phase_history_session_and_lock_checks(self):
         prepared=quiet.prepared_role(self.fixture);sequence=prepared['role'].state['sequence'];closed=[]
-        close=SnapshotHistoryReadPass.close
+        close=SnapshotHistoryReadPass.close;constructor_close=SnapshotConstructorHistoryPass.close
         def closing(token):close(token);closed.append(token.closed)
+        def constructor_closing(token):
+            constructor_close(token);closed.append(token.closed)
+            self.assertIsNone(token.frames);self.assertIsNone(token.attached)
         with reference_count_only(),self.record() as (made,released,_returned):
             # Wrap the recorder's actual release, retaining all of its checks.
             release=PhoneSnapshotsRole._dispose_observation_graph
             def after_history(role):
                 self.assertTrue(closed);self.assertTrue(all(closed));return release(role)
-            with patch.object(SnapshotHistoryReadPass,'close',closing),patch.object(PhoneSnapshotsRole,'_dispose_observation_graph',after_history):
+            with patch.object(SnapshotHistoryReadPass,'close',closing),\
+                    patch.object(SnapshotConstructorHistoryPass,'close',constructor_closing),\
+                    patch.object(PhoneSnapshotsRole,'_dispose_observation_graph',after_history):
                 value=self.observe(sequence)
-            self.assertEqual([],value['resources']);self.assertTrue(all(row['frames']() is None for row in made))
+            self.assertEqual([],value['resources']);self.assertTrue(all(row['graphOwner']() is None for row in made))
             self.assertTrue(released[-1]['frames'][-1]['phaseAfter']['active'])
         # The manually retained generic reader is outside facade ownership.
         self.assertTrue(prepared['role'].frames);self.assertIsNotNone(prepared['role'].feature)
@@ -185,22 +205,23 @@ class SnapshotEphemeralRoleDisposalTests(unittest.TestCase):
         prepared=quiet.prepared_role(self.fixture);sequence=prepared['role'].state['sequence'];batch=PhoneSnapshotsRole.batch;once=[]
         def pending(role):
             value=batch(role)
-            if role.feature.state['phase']=='cleaned' and not once:
+            if role.feature.state['phase']=='cleaned' and role._host_publication and role.state['phase']=='reading' and not once:
                 once.append(True);raise SnapshotPending('Controlled cleaned original batch pending')
             return value
         with reference_count_only(),self.record() as (made,released,_returned):
             with patch.object(PhoneSnapshotsRole,'batch',pending):value=self.observe(sequence)
+            self.assertEqual([True],once)
             self.assertEqual([],value['resources']);self.assertGreaterEqual(len(released),2)
-            self.assertTrue(all(row['frames']() is None for row in made))
+            self.assertTrue(all(row['graphOwner']() is None for row in made))
         self.assertTrue(any(frame.get('diagnostic') for frame in released[-1]['frames']))
 
     def test_generic_and_actor_readers_remain_live_and_actor_cannot_opt_in(self):
         measured=self.baseline();f=self.fixture.adapter._snapshots_feature('test-only-appium',harness.RUN)
         with reference_count_only(),f.lock.held():
-            f.load();primary=PhoneSnapshotsRole(f,'primary');primary.frames=TrackedFrames(primary.frames);p=weakref.ref(primary.frames)
+            f.load();primary=PhoneSnapshotsRole(f,'primary');p=weakref.ref(primary)
             with self.assertRaises(NativeUIError):primary._dispose_observation_graph()
             self.assertIsNotNone(p());self.assertTrue(primary.frames)
-            f.role='actor';actor=PhoneSnapshotsRole(f,'actor');actor.frames=TrackedFrames(actor.frames);a=weakref.ref(actor.frames)
+            f.role='actor';actor=PhoneSnapshotsRole(f,'actor');a=weakref.ref(actor)
             value=actor.read(actor.state['sequence']);self.assertGreater(value['sequence'],0)
             with ExitStack() as forbidden:
                 with self.assertRaises(NativeUIError):PhoneSnapshotsRole(f,'actor',_observe_disposals=forbidden)

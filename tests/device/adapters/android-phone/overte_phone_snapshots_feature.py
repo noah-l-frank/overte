@@ -658,6 +658,15 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
         """Replay original files unlocked, then qualify a normal current reader."""
         from overte_phone_snapshots_role import PhoneSnapshotsRole
         from overte_phone_snapshots_constructor_history import SnapshotConstructorHistoryPass
+        def retry_history(previous,role,attempt):
+            self.lock.assert_held();need(attempt<50)
+            previous_phase=deepcopy(previous.phase)
+            previous.close()
+            current=SnapshotConstructorHistoryPass.prepare(self,self.role,
+                expected_role=role.previous,previous_phase=previous_phase,cleanup=previous.cleanup,passive=previous.passive)
+            # Once admitted, a lost owner or changed context never permits
+            # fallback to a fresh bootstrap, even after actual recovery.
+            need(current is not None);session.callback(current.close);return current
         try:
             for attempt in range(51):
                 # This token permits complete immutable host IO only. It cannot
@@ -671,20 +680,17 @@ class PhoneSnapshotsFeature(PhoneCreateFeature):
                         role=PhoneSnapshotsRole(self,self.role,expected_previous=history.role_header,
                             _observe_disposals=observations,_history_pass=history)
                         waiting=self.prepare_read_ready(history,role) if history.cleanup else None
-                        if waiting is None:return self.constructor_current_read(call,history,role)
-                    self.await_read_ready(history,role,*waiting)
-                    with self.lock.held():return self.constructor_current_read(call,history,role)
-                except SnapshotPending:
-                    with self.lock.held():
-                        need(attempt<50)
-                        previous_phase=deepcopy(history.phase)
-                        history.close()
-                        next_history=SnapshotConstructorHistoryPass.prepare(self,self.role,
-                            expected_role=role.previous,previous_phase=previous_phase,cleanup=history.cleanup,passive=history.passive)
-                        # Once admitted, a lost owner or changed context
-                        # never authorizes a fallback to a fresh bootstrap.
-                        need(next_history is not None)
-                        history=next_history;session.callback(history.close)
+                        if waiting is None:
+                            try:return self.constructor_current_read(call,history,role)
+                            except SnapshotPending:history=retry_history(history,role,attempt)
+                    if waiting is not None:
+                        try:self.await_read_ready(history,role,*waiting)
+                        except SnapshotPending:
+                            with self.lock.held():history=retry_history(history,role,attempt)
+                        else:
+                            with self.lock.held():
+                                try:return self.constructor_current_read(call,history,role)
+                                except SnapshotPending:history=retry_history(history,role,attempt)
                 except BaseException:
                     session.close();raise
                 self.sleep(.1)
