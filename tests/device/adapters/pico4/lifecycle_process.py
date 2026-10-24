@@ -16,6 +16,7 @@ from adapters.native_chat_view import measured_keyboard
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.lifecycle_world import PicoLifecycleWorld,LifecycleWorldHistory,neutral
+from adapters.pico4 import lifecycle_world_codec as world_codec
 from adapters.pico4.lifecycle_join import PicoLifecycleXJoin,LifecycleXHistory
 from adapters.pico4.lifecycle_back import frame
 from adapters.pico4 import lifecycle_source as ui,lifecycle_gesture as gesture,lifecycle_drive as drive
@@ -29,11 +30,16 @@ FILES=('lifecycle-world-owner.json','lifecycle-x-back-owner.json','lifecycle-x-j
 
 def archived(disk):
     """Keep embedded raw transcripts under one bounded compression layer."""
-    value=deepcopy(disk);value['payload']=unpack(value['payload']);return value
+    value=deepcopy(disk)
+    value['payload']=world_codec.owner_payload(disk) if 'lifecycleWorldOwnerVersion' in disk else unpack(value['payload'])
+    return value
 
 
 def original_snapshot(value):
-    disk=deepcopy(value);disk['payload']=pack(disk['payload']);return disk
+    disk=deepcopy(value)
+    disk['payload']=(world_codec.pack(disk['payload'],disk['lifecycleWorldOwnerVersion'])
+        if 'lifecycleWorldOwnerVersion' in disk else pack(disk['payload']))
+    return disk
 
 
 def owner_snapshots(shutdown):return [original_snapshot(shutdown[key]) for key in ('world','back','join')]

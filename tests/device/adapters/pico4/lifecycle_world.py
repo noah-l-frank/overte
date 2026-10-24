@@ -13,12 +13,11 @@ from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
 from adapters.pico4 import lifecycle_drive as drive,lifecycle_gesture as gesture,lifecycle_source as ui
 from adapters.pico4.lifecycle_back import frame
-from adapters.script_journey.history import pack,unpack
+from adapters.pico4.lifecycle_world_codec import pack,owner_payload,VERSION,READS
 from adapters.script_journey.lock import ScriptSourceLock
 from openxr_input.adapter_session import PicoOpenXrAdapterSession
 from openxr_input.controller_protocol import validate_envelope
 
-VERSION=1
 MOVE=dict(direction='forward',durationSeconds=2.0,strength=.2)
 PHASES=('reserved','enveloped','consumed','release-issued','quiet')
 MAX_FRAMES=128
@@ -89,7 +88,10 @@ class PicoLifecycleWorld:
     def save(self,state):
         # Host-only intent callbacks run under the exact native session cursor.
         self.lock.assert_held();need(self.store.read()==self.disk)
-        disk=dict(lifecycleWorldOwnerVersion=VERSION,runId=self.run,binding=self.binding,payload=pack([state]))
+        # Only a newly created owner selects v2. An admitted v1 owner keeps
+        # its exact original codec and all existing operations/limits.
+        version=VERSION if self.disk is None else self.disk['lifecycleWorldOwnerVersion']
+        disk=dict(lifecycleWorldOwnerVersion=version,runId=self.run,binding=self.binding,payload=pack([state],version))
         self.store.write(disk,self.disk);need(self.store.read()==disk);self.disk,self.state=deepcopy(disk),deepcopy(state)
 
     def load(self):
@@ -220,9 +222,9 @@ class LifecycleWorldHistory:
 
     def validate(self,disk):
         exact(disk,{'lifecycleWorldOwnerVersion','runId','binding','payload'})
-        need(type(disk['lifecycleWorldOwnerVersion']) is int and disk['lifecycleWorldOwnerVersion']==VERSION
+        need(type(disk['lifecycleWorldOwnerVersion']) is int and disk['lifecycleWorldOwnerVersion'] in READS
             and disk['runId']==self.run and disk['binding']==self.binding)
-        payload=unpack(disk['payload']);need(len(payload)==1);state=payload[0]
+        payload=owner_payload(disk);need(len(payload)==1);state=payload[0]
         exact(state,{'frames','attempts'});need(type(state['frames']) is list and 1<=len(state['frames'])<=MAX_FRAMES
             and type(state['attempts']) is list and len(state['attempts'])<=2)
         previous=None;seen={name:set() for name in ('ui','gesture','drive')}
