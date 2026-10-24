@@ -153,4 +153,38 @@ class PicoBrowserCaptureRetirementTests(unittest.TestCase):
             f.primary.retire_original_captures(f.actor)
         owner=f.primary.capture_retirement;self.assertEqual([True],fired)
         self.assertFalse(owner.completed);self.assertTrue(owner.failed);self.assertTrue(owner.store.read()['complete'])
+
+    def test_original_replacement_during_catalogue_copy_refuses_before_any_capture_query(self):
+        self.baseline();f=self.f;write=PrivateFeatureState.write;changed=[]
+        def replace(store,value,previous):
+            write(store,value,previous);owner=f.primary.capture_retirement
+            if owner is not None and store.path==owner.store.path and value['phase']=='admitting' and value['chunks'] and not changed:
+                path=next(iter(owner.catalog.rows.values()))['store'].path
+                temporary=path.with_name('replaced-original-during-copy')
+                temporary.write_bytes(path.read_bytes());temporary.chmod(0o600);temporary.replace(path);changed.append(True)
+        with patch.object(PrivateFeatureState,'write',replace),self.assertRaises(NativeUIError):
+            f.primary.retire_original_captures(f.actor)
+        owner=f.primary.capture_retirement
+        self.assertEqual([True],changed);self.assertTrue(owner.failed);self.assertFalse(owner.completed)
+        self.assertEqual([],self.batches);self.assertIsNone(owner.reader)
+        self.assertFalse(owner.copying_catalog);self.assertEqual('admitting',owner.store.read()['phase'])
+        self.assertTrue(all(row['store'].path.exists() for row in owner.catalog.rows.values()))
+
+    def test_validly_repacked_copied_catalogue_with_changed_original_hash_never_becomes_ready(self):
+        from adapters.script_journey.history import pack,unpack
+        self.baseline();f=self.f;write=PrivateFeatureState.write;changed=[]
+        def replace(store,value,previous):
+            owner=f.primary.capture_retirement
+            if owner is not None and store.path.name.startswith(owner.store.path.name+'.frame-') and not changed:
+                rows=unpack(value['transcript']);self.assertEqual('source-catalog',rows[0]['kind'])
+                original=value['transcript']['bytes'];rows[0]['sources'][0]['sha256']='0'*64
+                value['transcript']=pack(rows);self.assertEqual(original,value['transcript']['bytes']);changed.append(True)
+            write(store,value,previous)
+        with patch.object(PrivateFeatureState,'write',replace),self.assertRaises(NativeUIError):
+            f.primary.retire_original_captures(f.actor)
+        owner=f.primary.capture_retirement
+        self.assertEqual([True],changed);self.assertTrue(owner.failed);self.assertFalse(owner.completed)
+        self.assertEqual([],self.batches);self.assertIsNone(owner.reader);self.assertFalse(owner.copying_catalog)
+        self.assertEqual('admitting',owner.store.read()['phase'])
+        self.assertTrue(all(row['store'].path.exists() for row in owner.catalog.rows.values()))
         with self.assertRaises(NativeUIError):owner.receipt()

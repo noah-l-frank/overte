@@ -4367,7 +4367,70 @@
       }
     },
     "nativeSourcesAndEvidenceAndTimeoutsChanged": false,
-    "nextWholeRunNotYetExecuted": true,
+    "nextWholeRunNotYetExecuted": false,
+    "deviceAcceptance": false,
+    "wholeResult": "browserWholeTmpfsRoot20261024"
+  },
+  "browserWholeTmpfsRoot20261024": {
+    "sourceHead": "6b5df5b0d25ca61dad20c0a17ebf2c592506ae58",
+    "exitCode": 124,
+    "timeoutSeconds": 120,
+    "sourcesUnchanged": true,
+    "sourceFiles": 2238,
+    "temporaryRoot": "/tmp/overte-pico-browser-whole-20261024-oeadxxco",
+    "normalCloseSeconds": 64.088,
+    "cleanupWaitSeconds": 82.452,
+    "phases": 28,
+    "stages": {
+      "pico-tablet-web-actor-export.json": {
+        "phase": "ready",
+        "chunks": 21
+      },
+      "pico-tablet-web-actor-remote-receipt.json": {
+        "phase": "complete",
+        "chunks": 0
+      },
+      "pico-tablet-web-remote-capture-retirement.json": {
+        "phase": "admitting",
+        "complete": false,
+        "commonSequenceSucceeded": true,
+        "chunks": 29
+      }
+    },
+    "originalFiles": 1127,
+    "backupSha256": "748e7ff0fcafe7928e0a7164ffacf6021f48486bff615d6ae51c9cc2e0658fee",
+    "backupQualification": "historical-byte-backup-only-no-live-owner-adoption",
+    "completeFeature": false,
     "deviceAcceptance": false
+  },
+  "browserCaptureCatalogueCopyRoot20261024": {
+    "status": "passed-selected-host-components",
+    "selection": {
+      "groups": 2,
+      "catalogGroups": 237,
+      "durationSeconds": 53.391,
+      "coverageCases": 10,
+      "coverageSeconds": 0.088,
+      "captureCases": 8,
+      "captureSelectorSeconds": 53.303
+    },
+    "sourceCopyPhaseOnly": true,
+    "nativeObserversExistDuringCopy": false,
+    "fullOriginalByteChecksBeforeAndAfterCopy": true,
+    "everyHostCasChecksAllPhysicalStampsParentsAndNamespace": true,
+    "allCopiedChildBytesComparedWithFrozenOriginalRowsBeforeReady": true,
+    "replacedOriginalBeforeQueryRefused": true,
+    "validlyRepackedForgedSourceHashRefused": true,
+    "noNativeQueryOrBudgetOrWireChange": true,
+    "frameChildAndRawLimitsPreserved": true,
+    "nextWholeWithCopyChangeNotYetExecuted": true,
+    "completeFeature": false,
+    "deviceAcceptance": false,
+    "repository": {
+      "suites": 4,
+      "durationSeconds": 2.503,
+      "status": "passed"
+    },
+    "registryWhitespace": "passed"
   }
 }

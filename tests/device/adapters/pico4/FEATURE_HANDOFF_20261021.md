@@ -2889,3 +2889,35 @@ The next complete host case can use a fresh private directory on the ordinary
 temporary filesystem, retaining all source queries, raw bytes, physical
 metadata, fsync calls and original outer/inner time limits. Its result remains
 unproven until that complete case actually finishes.
+
+## Whole Tablet Web return reached on ordinary temporary storage
+
+One complete owning case at 6b5df5b0d2 uses a fresh private directory on the
+currently available standard `/tmp` tmpfs. All 2,238 tracked source files match
+their before/after manifest. The unchanged 120-second limit still ends red,
+but normal Close finishes in 64.088 s and all 28 common phases finish in
+82.452 s. The original independent Actor export, Parent nonce consumption
+and real producer kernel-exit receipt now complete. Capture retirement remains
+`admitting` with 29 original catalogue chunks and commonSequenceSucceeded true;
+no capture quiet, source archive or final host completion is claimed.
+All 1,127 original files retain their full physical stamps and bytes. A private
+historical byte backup is retained separately; it cannot reconstruct a live
+owner or adopt new physical identities.
+
+That actual boundary exposes repeated complete source rereads between private
+immutable catalogue-child copies. During this host-only interval no capture
+reader exists. Admission now freezes the complete originally observed catalogue
+and proofs, keeps the existing bounded child format/order and reading intents,
+and checks every original stamp/path/parent/namespace at every host CAS. Both
+ends retain complete source/PNG byte checks. Complete reads of all copied child
+files must equal the frozen original rows before ready or a capture query.
+Native queries, their original intents, freshness/quiet windows, all source
+limits and all later full-byte fences remain unchanged. An interrupted copy
+still retains its unresolved owner and every original.
+
+Eight owning capture cases pass in 53.303 s, including same-byte replacement
+during copying and a validly repacked child with a forged original hash. Both
+refuse before a capture reader/query. Ten coverage cases pass in 0.088 s
+(two selectors, 53.391 s total, 237 catalogue entries). This proves the changed
+admission boundary only. A complete run with this last change remains pending;
+source/host complete areas remain three of fourteen and devices unqualified.

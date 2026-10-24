@@ -9,7 +9,7 @@ from copy import copy,deepcopy
 import json
 import math
 
-from adapters.chat_journey.archive_file import signature
+from adapters.chat_journey.archive_file import signature,ClosedOriginalFile
 from adapters.chat_journey.evidence_archive import ChatArchiveCatalog
 from adapters.chat_journey.source_chunks import ChatSourceChunks,digest,json_digest
 from adapters.graphics_journey.samples import retirement
@@ -40,6 +40,7 @@ class PicoBrowserCaptureRetirement:
         self.previous=None;self.started=self.failed=self.completed=False
         self.proofs=[];self.pngs=[];self.frames=();self.reader=self.chunks=None
         self.scope=self.admitted=self._sealed_admitted=self.completed_root=self.stamp=None
+        self.copying_catalog=False;self.catalog_rows=self._sealed_catalog_rows=None
 
     def add(self,store,value,role):
         need(value is not None)
@@ -129,7 +130,12 @@ class PicoBrowserCaptureRetirement:
         if self.completed_root is not None:need(canonical(self.previous)==self.completed_root)
 
     def write(self,phase,chunks,*,pending=None,complete=False):
-        self.originals();value={**self.scope,'phase':phase,'chunks':deepcopy(chunks),
+        need(type(self.copying_catalog) is bool)
+        if self.copying_catalog:
+            need(phase in ('reading','admitting') and pending is None and complete is False)
+            self.catalog_copy_fence()
+        else:self.originals()
+        value={**self.scope,'phase':phase,'chunks':deepcopy(chunks),
             'pending':deepcopy(pending),'complete':complete}
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
 
@@ -137,6 +143,30 @@ class PicoBrowserCaptureRetirement:
         if self.previous['phase']!='reading':self.write('reading',self.previous['chunks'])
         json_digest(row);chunks=self.chunks.append(row,self.previous['chunks'])
         self.write(phase,chunks,complete=complete)
+
+    def catalog_copy_fence(self):
+        """Only immutable host copies, between two complete byte passes.
+
+        No capture reader exists in this interval. Every original physical
+        stamp, path, directory and namespace remains checked at each CAS;
+        full source/PNG bytes are checked again before publishing ready.
+        """
+        self.primary.lock.assert_held()
+        need(self.copying_catalog is True and self.reader is None and not self.frames
+            and self.catalog_rows is self._sealed_catalog_rows and type(self.catalog_rows) is tuple
+            and self.admitted is self._sealed_admitted and canonical(self.admission())==self.admitted
+            and self.previous is not None and self.previous['phase'] in ('admitting','reading')
+            and self.previous['pending'] is None and self.previous['complete'] is False)
+        for parent in self.catalog.parents:self.catalog.verify_parent(parent)
+        for row in self.catalog.rows.values():
+            owner=row['owner']
+            need(type(owner) is ClosedOriginalFile and not owner.failed and owner.active is None
+                and owner.path==row['store'].path and type(row['raw']) is bytes and owner.raw is row['raw']
+                and owner.stamp==row['stamp']==signature(row['store'].path.lstat()))
+        for row in self.pngs:
+            need(signature((self.primary.artifact_root/row['value']['name']).lstat())==list(row['stamp']))
+        self.inventory();self.chunks.verify();need(same(self.store.read(),self.previous))
+        for parent in self.catalog.parents:self.catalog.verify_parent(parent)
 
     def clocks(self,started,epoch_started,epochs):
         flow=self.primary;measured=flow.monotonic();epoch=flow.source.epoch_ms();ended=flow.monotonic()
@@ -168,10 +198,28 @@ class PicoBrowserCaptureRetirement:
         with self.primary.lock.held():
             self.originals();self.chunks=ChatSourceChunks(self.store,self.scope);self.chunks.inventory(0)
             self.write('admitting',[])
-            sources=self.admission()['catalog']
-            for index in range(0,len(sources),32):self.append(dict(kind='source-catalog',sources=sources[index:index+32]),'admitting')
-            for index in range(0,len(self.proofs),8):self.append(dict(kind='capture-proofs',proofs=self.proofs[index:index+8]),'admitting')
+            # These copies describe already admitted originals, not new target
+            # observations. Freeze their exact bytes before the first child.
+            original=self.admission();json_digest(dict(catalog=original['catalog'],proofs=original['proofs']))
+            need(canonical(original)==self.admitted)
+            admitted=json.loads(self.admitted);sources=admitted['catalog'];proofs=admitted['proofs']
+            rows=[dict(kind='source-catalog',sources=sources[index:index+32]) for index in range(0,len(sources),32)]
+            rows.extend(dict(kind='capture-proofs',proofs=proofs[index:index+8]) for index in range(0,len(proofs),8))
+            json_digest(rows)
+            self.catalog_rows=self._sealed_catalog_rows=tuple(canonical(row) for row in rows)
+            self.copying_catalog=True
+            try:
+                for raw in self.catalog_rows:self.append(json.loads(raw),'admitting')
+                self.catalog_copy_fence()
+                # Complete bounded child reads must match the frozen original
+                # catalogue before any ready state or native query can exist.
+                reader=copy(self.chunks);loaded=reader.load(self.previous['chunks'])
+                need(tuple(canonical(row) for row in loaded)==self.catalog_rows
+                    and reader.identities==self.chunks.identities and reader.raw_bytes==self.chunks.raw_bytes)
+                self.catalog_copy_fence()
+            finally:self.copying_catalog=False
             self.write('ready',self.previous['chunks'])
+            self.originals()
             self.reader=self.primary.adapter._tablet_web_retired_captures_observer(
                 self.primary.selector,self.proofs,self.primary.lock,self.primary.run)
             send=self.reader.send
