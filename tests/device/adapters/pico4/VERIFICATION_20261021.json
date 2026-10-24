@@ -4923,5 +4923,50 @@
     "g1Steps13To15AndOriginalScenePixelsAndPublicClosureComplete": false,
     "completeFeature": false,
     "deviceAcceptance": false
+  },
+  "navigationGenerationRoot20261024": {
+    "status": "passed-selected-host-components",
+    "sourceHead": "434d23c5d3c65b4efafcd817a1c8c1384c0b1b3c",
+    "selectedSource": "640af90e1c297a897fa755ff1afd8835d8670a16",
+    "catalogGroups": 244,
+    "selectors": {
+      "navigation-generation-prefix": {
+        "cases": 7,
+        "selectorSeconds": 68.929
+      },
+      "coverage-matrix": {
+        "cases": 10,
+        "selectorSeconds": 0.095
+      }
+    },
+    "selectedDurationSeconds": 69.02,
+    "sourceFiles": 13519,
+    "sourcesUnchanged": true,
+    "normalStepsThrough15AndBothG1Roles": true,
+    "coldAppliedEntryAndDeleteNotReplayed": true,
+    "missingOriginalOpenBlocksColdDeleteBeforeSourceQueries": true,
+    "parentQmlCasPhaseAndActualOuterReleaseNativeClockFaultsRefused": true,
+    "legacyCloseCompatibility": {
+      "firstCommand": {
+        "passed": 2,
+        "loaderErrors": 1,
+        "seconds": 4.662,
+        "reason": "One requested method name did not exist; no such case executed."
+      },
+      "correctedMissingCase": {
+        "passed": 1,
+        "seconds": 2.413,
+        "method": "test_normal_controller_close_has_original_intent_effect_and_three_seconds_independent_quiet"
+      },
+      "allSourcesUnchangedAfterCompatibility": true
+    },
+    "repository": {
+      "suites": 4,
+      "status": "passed",
+      "durationSeconds": 2.69
+    },
+    "genuineNewProcessSceneStereoAndPublicWholeCleanupComplete": false,
+    "completeFeature": false,
+    "deviceAcceptance": false
   }
 }

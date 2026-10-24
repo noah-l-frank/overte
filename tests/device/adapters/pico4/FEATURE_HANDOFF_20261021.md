@@ -3122,10 +3122,35 @@ later parent-ready CAS; a slow landed save cannot reset its age. A cold complete
 act without that original transient Host anchor remains unavailable; fresh
 observe reads new original sources without repeating old inputs or retiming.
 
-The separately fixed fifteen-action packet640af90e1c is not yet part of this
-Root selection. Current G0 global Script UI/capture files remain historical
+At that checkpoint, the separately fixed fifteen-action packet640af90e1c
+was not yet part of the Root selection. Current G0 global Script UI/capture files remain historical
 originals; future G1 stereo acquisition must use its admitted new runtime and
 generation namespace. Genuine scene/changed-eye evidence, original maturity/
 origin restoration, independent publisher, public whole coordinator and final
 resource/Host/journal closure remain required. Source-complete features3/14;
 all devices and the full product remain unqualified.
+
+
+## Root-verified post-restart normal Navigation through action15
+
+Source640af90e1c is now selected as434d23c5d3. The final seven-case owning
+selector passes68.929s, including the later actual parent/child original guard;
+coverage10/0.095s gives69.02s for both groups. All13,519 source hashes match
+before/after, also after the separate legacy Close compatibility checks. The
+catalog adds exactly one selector,244 total, retaining all14 risk rows.
+
+The continuous unchanged recipe reaches G1 Open/Entry/adoption/Delete/Tab0/
+Home/Close with both independent source roles. Applied Entry/Delete loss does
+not resend input; a retained real page refuses closure. Actual parent-QML CAS
+phase change and actual new-native clock regression after real outer lock exit
+refuse delivery. Missing original Open refuses cold Delete before source/input.
+Legacy normal v2 Close, applied-loss recovery and v1 reader compatibility pass.
+One initial compatibility command named a nonexistent method and had a loader
+error alongside two passes; the correctly named missing case then passes2.413s.
+No failed discovery is represented as a successful case. Four repository suites
+pass2.69s; registry and whitespace checks pass.
+
+Qt/VM/OS/GPU remain explicit host seams. Fresh genuine G1 scene/stereo, original
+maturity/origin restoration, independent publication, public whole flow and
+final resource/Host/journal closure remain required. Source-complete3/14 and
+physical qualification0 remain unchanged.

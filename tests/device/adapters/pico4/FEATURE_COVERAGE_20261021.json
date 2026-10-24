@@ -139,7 +139,14 @@
         "tests/device/adapters/pico4/navigation_restart_input.py",
         "tests/device/adapters/pico4/NAVIGATION_RESTART_JOIN.md",
         "tests/device/self_tests/test_pico_navigation_restart_prefix.py",
-        "tests/device/self_tests/test_pico_navigation_restart_exit.py"
+        "tests/device/self_tests/test_pico_navigation_restart_exit.py",
+        "tests/device/adapters/pico4/navigation_generation_flow.py",
+        "tests/device/adapters/pico4/navigation_generation_open.py",
+        "tests/device/adapters/pico4/navigation_generation_page.py",
+        "tests/device/adapters/pico4/navigation_generation_close.py",
+        "tests/device/adapters/pico4/NAVIGATION_GENERATION_JOIN.md",
+        "tests/device/self_tests/test_pico_navigation_generation_prefix.py",
+        "android/vr/pico/tests/device/test_navigation_generation_prefix.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -184,7 +191,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Review and integrate the fixed separate G1 normal Open/Delete/Home/Close packet640af90e1c after the root-verified original twelve-action lineage. Root passes all8 restart cases and4 true exit/native-clock/slow-ready-CAS counters while preserving every G0 original, actual modeled G1 birth/old-PID ESRCH, new Session nonce/cursor and two role brackets. Cold completed act without its original host anchor is unavailable; observe obtains new real originals without SDK replay. Shared G1 scene/stereo capture must use a new namespace/runtime instead of old global G0 UI/capture files. Original maturity/origin restoration, independent publisher, actual changed eye/scene evidence, full public and final resource/journal closure remain open.",
+      "nextExecutableStep": "Normal unchanged v16 actions through15 now compose on the actual original restart lineage: G1 Open/Entry/bookmark adoption/Delete/Tab0/Home/Close and both independent role source brackets. Root passes all7 generation cases in68.929s plus legacy Close compatibility, preserving all13,519 source hashes. Next join actual fresh G1 scene/stereo capture through the admitted new runtime and a new generation namespace; old global G0 UI/capture files remain immutable. Original maturity/origin restoration, independent publisher, actual changed eye/scene evidence, public whole coordinator and final resource/Host/journal closure remain open.",
       "nativeCompilation": "Selected full NativeEnvironment header, original passive Settings::Manager getter and Qt thread/lock modes compile and pass host checks. Complete native application/APK, VM/OS/GPU/device boundaries remain unqualified.",
       "deviceQualification": "untested"
     },
