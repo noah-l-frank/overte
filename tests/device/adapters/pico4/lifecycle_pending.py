@@ -23,7 +23,7 @@ from adapters.pico4.lifecycle_world import PicoLifecycleWorld,neutral
 from adapters.script_journey.history import canonical,pack,unpack
 from adapters.token_script_ui import TokenScriptUI
 
-VERSION=1
+VERSION=2
 PHASES=('prepared','chat-x-issued','home','opening','opened','focus-issued','focused',
     'type-issued','typed','hold-issued','held','replace-x-issued','replacement-home',
     'reopening','reopened','attempt-issued','attempted','release-issued','released','quiet')
@@ -91,6 +91,48 @@ class PicoLifecyclePending:
         if self.state is not None:
             need(hashlib.sha256(canonical(self.background.store.read())).hexdigest()==self.state['backgroundSha256'])
 
+    def bind_phase_fence(self,fence):
+        from adapters.pico4.lifecycle_operations import phase as input_phase
+        need(getattr(self,'phase_fence',None) is None)
+        self.phase_fence=fence;input_phase(self)
+        # Keep the exact constructor-owned native and normal callbacks. Their
+        # final publication bodies below add the optional original phase join.
+        need(self.pending._before_send is self.pending_callback)
+
+    @property
+    def version(self):return VERSION if self.disk is None else self.disk['lifecyclePendingOwnerVersion']
+
+    def reply_packet(self,row,request):
+        exact(row,{'request','original','exchangeTiming'});need(row['request']==request)
+        value=self.pending_packet(dict(request=row['request'],original=row['original']))
+        need(value['instance']==request['ownerInstance'] and value['lastIntentSequence']==request['intentSequence'])
+        timing=row['exchangeTiming'];exact(timing,{'startedHost','requestedEpochMs','completedHost','completedEpochMs'})
+        need(number(timing['startedHost'],0,1e15) and number(timing['completedHost'],timing['startedHost'],timing['startedHost']+5)
+            and integer(timing['requestedEpochMs'],1) and integer(timing['completedEpochMs'],1))
+        need(timing['completedHost']-timing['startedHost']<5)
+        oldest=value['capturedEpochMs'];elapsed=(timing['completedHost']-timing['startedHost'])*1000
+        need(-250<=timing['completedEpochMs']-oldest
+            and max(timing['completedEpochMs']-oldest,timing['requestedEpochMs']-oldest+elapsed)<=1500)
+        return value
+
+    def retain_reply(self,value):
+        if self.version<2:return
+        self.lock.assert_held()
+        request=deepcopy(self.pending.last_request)
+        need(type(self.pending.last_received) is tuple and len(self.pending.last_received)==4
+            and decode(self.pending.last_raw)==value==self.pending.last)
+        started,requested,completed,epoch=self.pending.last_received
+        row=dict(request=request,original=frame(self.pending.last_raw),exchangeTiming=dict(
+            startedHost=started,requestedEpochMs=requested,completedHost=completed,completedEpochMs=epoch))
+        self.reply_packet(row,request);state=deepcopy(self.state)
+        if state['cleanup'] is not None:
+            need(state['cleanup']['request']==request and state['cleanup']['reply'] is None);state['cleanup']['reply']=row
+        else:
+            need(state['mutations'][-1]==request and state['replies'][-1] is None);state['replies'][-1]=row
+        # The reply is archived before another target query or live guard can
+        # lose it. This host-only write grants no input or successful delivery.
+        self.save(state,host_only=True,archive_reply=True);self.fresh()
+
     def fresh(self,*,host_only=False,already_guarded=False):
         now=self.bound(host_only=host_only or already_guarded);need(self.anchor is not None)
         start,requested,oldest=self.anchor
@@ -125,8 +167,9 @@ class PicoLifecyclePending:
         exact(row,{'world','pending','hostMonotonic'})
         need(number(row['hostMonotonic'],0,1e15));return self.world.originals(row['world']),self.pending_packet(row['pending'])
 
-    def validate(self,state):
-        exact(state,{'phase','backgroundSha256','frames','normal','mutations','backs','scriptId','replacementId','eventId','holdHost','quiet','cleanup'})
+    def validate(self,state,*,version=None):
+        version=self.version if version is None else version;need(type(version) is int and version in (1,2))
+        exact(state,{'phase','backgroundSha256','frames','normal','mutations','backs','scriptId','replacementId','eventId','holdHost','quiet','cleanup'}|({'replies'} if version>=2 else set()))
         need(state['phase'] in PHASES and type(state['backgroundSha256']) is str and re.fullmatch('[0-9a-f]{64}',state['backgroundSha256'])
             and type(state['frames']) is list and 1<=len(state['frames'])<=96
             and type(state['normal']) is list and len(state['normal'])<=48
@@ -148,6 +191,10 @@ class PicoLifecyclePending:
         for index,row in enumerate(state['mutations']):
             command(row);need(row['runId']==self.run and row['operation']==('focus','type','hold','attempt','release')[index]
                 and row['ownerInstance']==initial_pending['instance'] and row['intentSequence']==initial_pending['lastIntentSequence']+index+1)
+        if version>=2:
+            need(type(state['replies']) is list and len(state['replies'])==len(state['mutations']))
+            for request,reply in zip(state['mutations'],state['replies']):
+                if reply is not None:self.reply_packet(reply,request)
         for index,row in enumerate(state['backs']):
             exact(row,{'phase','originalId','envelope','neutral'})
             need(row['phase']==('chat-x-issued','replace-x-issued')[index] and ui.nonce(row['originalId']))
@@ -208,7 +255,9 @@ class PicoLifecyclePending:
                 and self.packet(b)[0]['ui']['capturedEpochMs']-self.packet(a)[0]['ui']['capturedEpochMs']>=3000)
         cleanup=state['cleanup']
         if cleanup is not None:
-            exact(cleanup,{'phase','eventId','request','frames'})
+            exact(cleanup,{'phase','eventId','request','frames'}|({'reply'} if version>=2 else set()))
+            if version>=2 and cleanup['reply'] is not None:
+                need(cleanup['request'] is not None);self.reply_packet(cleanup['reply'],cleanup['request'])
             need(cleanup['phase'] in ('issued','observed') and ui.nonce(cleanup['eventId'])
                 and type(cleanup['frames']) is list and 1<=len(cleanup['frames'])<=8 and len(state['mutations'])>=3)
             previous=prior_pending
@@ -228,21 +277,25 @@ class PicoLifecyclePending:
         if disk is None:need(self.state is None);return
         exact(disk,{'lifecyclePendingOwnerVersion','runId','binding','originalChunks','originalStamp','payload'})
         context(disk['binding'])
-        need(type(disk['lifecyclePendingOwnerVersion']) is int and disk['lifecyclePendingOwnerVersion']==VERSION
+        need(type(disk['lifecyclePendingOwnerVersion']) is int and disk['lifecyclePendingOwnerVersion'] in (1,2)
             and disk['runId']==self.run and disk['binding']==self.binding and disk['originalChunks']==self.originals.manifest)
-        values=self.originals.decode(unpack(disk['payload']));need(len(values)==1);self.validate(values[0])
+        values=self.originals.decode(unpack(disk['payload']));need(len(values)==1);self.validate(values[0],version=disk['lifecyclePendingOwnerVersion'])
         self.disk,self.state=deepcopy(disk),deepcopy(values[0]);last=self.packet(self.state['frames'][-1])[1]
         if self.state['cleanup'] is not None:last=self.pending_packet(self.state['cleanup']['frames'][-1])
         if self.pending.last is None:self.pending.last=deepcopy(last)
         else:pending_accept(last,self.pending.last) if self.pending.last['sequence']!=last['sequence'] else need(last==self.pending.last)
         self.bound()
 
-    def save(self,state,*,host_only=False):
-        self.bound(host_only=host_only);self.validate(state)
-        encoded=self.originals.encode([state]);disk=dict(lifecyclePendingOwnerVersion=VERSION,runId=self.run,
+    def save(self,state,*,host_only=False,archive_reply=False):
+        if archive_reply:self.original_state()
+        else:self.bound(host_only=host_only)
+        version=self.version;self.validate(state,version=version)
+        encoded=self.originals.encode([state]);disk=dict(lifecyclePendingOwnerVersion=version,runId=self.run,
             binding=deepcopy(self.binding),originalChunks=self.originals.manifest,originalStamp=list(self.originals.root_stamp),payload=pack(encoded))
         self.store.write(disk,self.disk);need(self.store.read()==disk)
-        self.disk,self.state=deepcopy(disk),deepcopy(state);self.bound(host_only=host_only)
+        self.disk,self.state=deepcopy(disk),deepcopy(state)
+        if archive_reply:self.original_state()
+        else:self.bound(host_only=host_only)
 
     def capture(self):
         start=self.bound();requested=self.pending.clock_ms();packets=self.world.current()
@@ -263,8 +316,10 @@ class PicoLifecyclePending:
             need(editor is not None and editor['id']==old['id'] and editor['kind']=='chat' and not editor['focused']
                 and editor['text']==old['text']
                 and measured_keyboard(packets['ui']['source']['keyboard']) is False and not pending['commit'] and not pending['resources']['pendingRuns'])
-            self.save(dict(phase='prepared',backgroundSha256=hashlib.sha256(canonical(self.background.disk)).hexdigest(),frames=[row],
-                normal=[],mutations=[],backs=[],scriptId=None,replacementId=None,eventId=None,holdHost=None,quiet=[],cleanup=None));self.fresh()
+            initial=dict(phase='prepared',backgroundSha256=hashlib.sha256(canonical(self.background.disk)).hexdigest(),frames=[row],
+                normal=[],mutations=[],backs=[],scriptId=None,replacementId=None,eventId=None,holdHost=None,quiet=[],cleanup=None)
+            if self.version>=2:initial['replies']=[]
+            self.save(initial);self.fresh()
 
     def append(self,row,**changes):
         state=deepcopy(self.state);state['frames'].append(row);state.update(changes);self.save(state);self.fresh()
@@ -279,11 +334,16 @@ class PicoLifecyclePending:
 
     def normal_intent(self,request):
         self.bound();need(self.state['phase'] in ('opening','reopening'));self.normal_command(request)
+        from adapters.pico4.lifecycle_operations import phase as input_phase
+        if input_phase(self) is not None:input_phase(self).mark()
         row=self.capture();state=deepcopy(self.state);state['frames'].append(row);state['normal'].append(deepcopy(request))
         self.save(state);self.fresh()
+        if input_phase(self) is not None:input_phase(self).check();self.fresh(already_guarded=True)
 
     def pending_intent(self,request):
         self.bound();command(request)
+        from adapters.pico4.lifecycle_operations import phase as input_phase
+        if input_phase(self) is not None:input_phase(self).mark()
         if self.state['cleanup'] is not None:
             cleanup=self.state['cleanup'];need(cleanup['phase']=='issued' and cleanup['request'] is None
                 and request['operation']=='release' and request['eventId']==cleanup['eventId'] and request['runId']==self.run)
@@ -293,7 +353,9 @@ class PicoLifecyclePending:
         # requery current actual Qt/world ownership, then persist the envelope.
         packets=self.world.current();current=ui.current_editor(packets['ui'])
         need(current is not None and current['id']==(self.state['replacementId'] or self.state['scriptId']) and current['kind']=='scripts')
-        state=deepcopy(self.state);state['mutations'].append(deepcopy(request));self.save(state);self.fresh()
+        state=deepcopy(self.state);state['mutations'].append(deepcopy(request))
+        if self.version>=2:state['replies'].append(None)
+        self.save(state);self.fresh()
 
     def pending_before_send(self,request):
         # The original native transport has just performed its final candidate
@@ -304,6 +366,8 @@ class PicoLifecyclePending:
         need(request==expected)
         if request['operation']=='attempt':self.held_deadline()
         self.fresh(already_guarded=True)
+        from adapters.pico4.lifecycle_operations import phase as input_phase
+        if input_phase(self) is not None:input_phase(self).check();self.fresh(already_guarded=True)
 
     def held_deadline(self):
         need(self.state['holdHost'] is not None and self.bound()-self.state['holdHost']<10)
@@ -324,7 +388,8 @@ class PicoLifecyclePending:
             if cleanup is None:
                 need(value['lastIntentSequence']==self.state['mutations'][-1]['intentSequence'])
                 state=deepcopy(self.state);state['cleanup']=dict(phase='issued',eventId=commit['observation']['eventId'],request=None,frames=[raw])
-                self.save(state);self.fresh();self.pending.operate(self.run,'release',event_id=self.state['cleanup']['eventId'])
+                if self.version>=2:state['cleanup']['reply']=None
+                self.save(state);self.fresh();reply=self.pending.operate(self.run,'release',event_id=self.state['cleanup']['eventId']);self.retain_reply(reply)
                 raw=self.pending_only(self.state['cleanup']['eventId']);value=self.pending_packet(raw)
             state=deepcopy(self.state);cleanup=state['cleanup'];request=cleanup['request']
             need(request is not None and value['lastIntentSequence']==request['intentSequence']
@@ -342,13 +407,18 @@ class PicoLifecyclePending:
             row=self.capture();packets,pending=self.packet(row);current=ui.current_editor(packets['ui']);need(current is not None)
             if replacement:self.held_deadline();need(current['id']==self.state['scriptId'] and pending['commit']['observation']['pending'])
             else:need(current['kind']=='chat')
+            from adapters.pico4.lifecycle_operations import phase as input_phase
+            if input_phase(self) is not None:input_phase(self).mark()
             state=deepcopy(self.state);phase='replace-x-issued' if replacement else 'chat-x-issued'
             state['frames'].append(row);state['phase']=phase;state['backs'].append(dict(phase=phase,originalId=current['id'],envelope=None,neutral=None));self.save(state);self.fresh()
             def intent(value):
                 envelope(value,self.world.session.profile);state=deepcopy(self.state);need(state['backs'][-1]['envelope'] is None)
                 state['backs'][-1]['envelope']=deepcopy(value);self.save(state,host_only=True);self.fresh(host_only=True)
+                if input_phase(self) is not None:input_phase(self).host_fresh()
             def before_publish(value):
                 need(value==self.state['backs'][-1]['envelope']);self.fresh(host_only=True)
+                if input_phase(self) is not None:input_phase(self).host_fresh()
+            if input_phase(self) is not None:input_phase(self).check()
             self.world.session.stage(self.binding['processIdentity'],'controller.button',deepcopy(BUTTON),intent=intent,before_publish=before_publish)
             return self.reconcile()
 
@@ -368,7 +438,7 @@ class PicoLifecyclePending:
             if operation=='attempt':self.held_deadline()
             if operation=='hold':need(not before['commit'])
             state=deepcopy(self.state);state['frames'].append(row);state['phase']=phase;self.save(state);self.fresh()
-            self.pending.operate(self.run,operation,event_id=self.state['eventId'] or '')
+            reply=self.pending.operate(self.run,operation,event_id=self.state['eventId'] or '');self.retain_reply(reply)
             return self.reconcile()
 
     @current_return
