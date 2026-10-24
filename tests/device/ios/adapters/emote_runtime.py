@@ -20,6 +20,35 @@ from ios.adapters import emote_operation
 
 
 class IOSEmoteRuntime(IOSScriptRuntime):
+    def _emote_rooted_stop(self,owner,cut):
+        """Own exact Emote Stop authority; no Graphics retirement authorization."""
+        from ios.adapters.emote_rooted_process_end import IOSEmoteRootedProcessEnd
+        from ios.adapters.emote_rooted_fence_cut import IOSEmoteRootedFenceCut
+        from ios.adapters.emote_rooted_fence import current
+        from ios.adapters.installed_process_runtime import admitted_source
+        from adapters.script_feature.history import same
+        from adapters.operation_transport_guard import scope as transport_scope
+        need(type(owner) is IOSEmoteRootedProcessEnd and owner.runtime is self
+            and type(cut) is IOSEmoteRootedFenceCut and getattr(cut,'end',None) is owner
+            and getattr(cut,'expected_issued',None) is not None and type(getattr(cut,'value',None)) is dict
+            and type(getattr(cut,'proof',None)) is dict)
+        owner.bound();need(owner.state is not None and owner.state['phase']=='stop-issued'
+            and owner.state['fence'] is not None and owner.state['pending'] is None)
+        need(owner.store.path==self.state_path(owner.flow.selector).with_name(
+            'ios-emote-'+owner.role+'-'+owner.run+'-rooted-process-end.json'))
+        def guard():
+            owner.bound();cut.guard();value=owner.fence_original()
+            current(value['acquisitions'],value['nativeClock'],epoch_ms=owner.flow.epoch_ms,monotonic=owner.monotonic)
+        guard()
+        with transport_scope(guard):
+            need(same(admitted_source(self,owner.flow.selector,owner.binding),owner.state['source']))
+        base=self.adapter;outer=base._operation
+        need(outer in (None,'feature.emotes.terminal'));base._operation=None
+        try:
+            with transport_scope(guard):
+                guard();return base.invoke(owner.flow.selector,'app.stop',{})
+        finally:base._operation=outer
+
     def _emote_rooted_feature(self,selector,run,*,role,client,settings):
         """Explicit internal v2 owner; legacy configuration keeps its reader."""
         from ios.adapters.emote_configuration import settings as validate_settings

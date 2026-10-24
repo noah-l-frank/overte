@@ -29,16 +29,8 @@ class IOSGraphicsRuntime(IOSScriptRuntime):
             selected['artifactRoot'],selected['imagePolicy'],role=role)
 
     def _graphics_final_source(self,selector,binding):
-        """Actual admitted installed-code/process source before final stop."""
-        from copy import deepcopy
-        from ios.adapters.installed_code import source as validate_source
-        expected=context(binding);client,session,state,target,scope=self._existing(selector)
-        need(same(scope,{k:v for k,v in expected.items() if k!='processIdentity'}))
-        gate=self.adapter._binding(selector,client,session,state,target);gate.verify();actual=gate.continuity()
-        record=gate.record();original=validate_source(gate.process_source())
-        need(record is not None and record['phase']=='bound' and same(record['scope'],scope)
-            and actual['pid']==record['process']['pid']==int(expected['processIdentity']) and same(record['source'],original))
-        return deepcopy(original)
+        from ios.adapters.installed_process_runtime import admitted_source
+        return admitted_source(self,selector,binding)
 
     def _graphics_final_stop(self,selector,*,source_lock):
         from ios.adapters.graphics_finalization import IOSGraphicsFinalization
@@ -52,33 +44,12 @@ class IOSGraphicsRuntime(IOSScriptRuntime):
         return base.invoke(selector,'app.stop',{})
 
     def _graphics_final_stopped(self,selector,binding,source):
-        from ios.adapters.installed_code import source as validate_source
-        expected=context(binding);client,session,state,target,scope=self._existing(selector)
-        need(same(scope,{k:v for k,v in expected.items() if k!='processIdentity'}))
-        gate=self.adapter._binding(selector,client,session,state,target);record=gate.record()
-        need(record is not None and record['phase'] in ('retiring','retired') and record['process']['pid']==int(expected['processIdentity'])
-            and same(record['scope'],scope) and same(record['source'],validate_source(source)) and same(gate.process_source(),source))
-        if record['phase']=='retiring':gate.finish_retirement()
-        gate.retired_absence();self.adapter.reset_launch_state(selector,state)
+        from ios.adapters.installed_process_runtime import mark_stopped
+        return mark_stopped(self,selector,binding,source)
 
     def _retired_process_observer(self,selector,binding,source):
-        """Existing SDK only; no foreground UI/native-byte read after app stop."""
-        from copy import deepcopy
-        from ios.adapters.installed_code import source as validate_source
-        from ios.adapters.retired_process import IOSRetiredProcess
-        expected=deepcopy(context(binding));validate_source(source)
-        client,session,state,target,scope=self._existing(selector)
-        need(same(scope,{k:v for k,v in expected.items() if k!='processIdentity'}))
-        gate=self.adapter._binding(selector,client,session,state,target)
-        def guard():
-            self.adapter._candidate_guard(complete=True)
-            need(same(self.adapter.read_session(selector),state) and self.adapter._scope(selector,session,state,target)==scope)
-            record=gate.record();need(record is not None and record['phase'] in ('retiring','retired')
-                 and record['process']['pid']==int(expected['processIdentity']) and same(record['scope'],scope)
-                 and same(validate_source(gate.process_source()),source) and same(record['source'],source))
-        guard()
-        return IOSRetiredProcess(lambda query:client.execute(session,'mobile: overteRetiredProcessInfo',query),
-                                 guard,target['appId'],int(expected['processIdentity']),source)
+        from ios.adapters.installed_process_runtime import retired_process_observer
+        return retired_process_observer(self,selector,binding,source)
 
     def _graphics_process_retirement(self,selector,binding,source,run,role,stage,lock):
         from ios.adapters.process_retirement import IOSProcessRetirement

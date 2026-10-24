@@ -73,8 +73,8 @@ def inactive(value,*,run,instance,ticket,after):
     return value
 
 
-def current(acquisitions,native_clock,*,epoch_ms,monotonic):
-    """Check four original clock spans and current host freshness, no retiming."""
+def clock_shape(acquisitions,native_clock):
+    """Pure original four-clock spans; supplies no current acquisition lease."""
     need(type(acquisitions) is list and len(acquisitions)==5)
     exact(native_clock,{'instance','before','after'})
     identifier(native_clock['instance'])
@@ -92,6 +92,12 @@ def current(acquisitions,native_clock,*,epoch_ms,monotonic):
         native_clock['after']['epochMs']-native_clock['before']['epochMs'],
         native_clock['after']['monotonicMs']-native_clock['before']['monotonicMs']]
     need(all(number(span,0,1500) and span<1500 for span in spans) and max(spans)-min(spans)<=250)
+    return True
+
+
+def current(acquisitions,native_clock,*,epoch_ms,monotonic):
+    """Check four original clock spans and current host freshness, no retiming."""
+    clock_shape(acquisitions,native_clock);first,last=acquisitions[0],acquisitions[-1]
     epoch,mono=epoch_ms(),monotonic()
     need(number(epoch,last['hostAfterEpochMs'],first['hostBeforeEpochMs']+1500)
         and epoch-first['hostBeforeEpochMs']<1500
@@ -138,7 +144,7 @@ def _local(scope,pointers,keys,phase,*,instance,ticket,after):
         held=deepcopy(held),acquisitions=deepcopy(acquisitions),nativeClock=native_clock)
 
 
-def acquire(ownership,archive,seal,scope,pointers,keys,phase):
+def acquire(ownership,archive,seal,scope,pointers,keys,phase,*,end=None,cut=None):
     """Join the actual frozen paired proof before acquiring any new original.
 
     The caller holds the actual Actor -> Primary locks. Every old immutable
@@ -147,6 +153,14 @@ def acquire(ownership,archive,seal,scope,pointers,keys,phase):
     """
     need(type(ownership) is IOSEmoteRootedOwnership and type(archive) is IOSEmoteRootedFinalArchive
         and type(scope) is IOSEmoteRootedMarkerScope)
+    if end is None:need(cut is None)
+    else:
+        from ios.adapters.emote_rooted_process_end import IOSEmoteRootedProcessEnd
+        from ios.adapters.emote_rooted_fence_cut import IOSEmoteRootedFenceCut
+        need(type(end) is IOSEmoteRootedProcessEnd and type(cut) is IOSEmoteRootedFenceCut and cut.end is end
+            and end.ownership is ownership and end.archive is archive and same(end.seal,seal)
+            and end.role==scope.role and end.state['phase']=='prepared' and end.state['fence'] is None and end.state['pending'] is None)
+        cut.unchanged()
     roles=ownership.roles;need(scope.run==roles.run and scope.role in roles.locks
         and scope.lock is roles.locks[scope.role] and archive.lock is roles.locks['primary']
         and archive.primary_lock is archive.lock and archive.role=='primary')
@@ -157,8 +171,9 @@ def acquire(ownership,archive,seal,scope,pointers,keys,phase):
     copies=deepcopy(roles.copies);copies[str(ownership.path)]=deepcopy(ownership.terminal)
     need(same(archive.copies(),copies))
     mutable={scope.store.path,pointers.store.path,keys.store.path}
-    metadata_signatures=_current_metadata(archive.paths,copies)
+    metadata_signatures=_current_metadata(archive.paths,copies) if cut is None else cut.metadata_before()
     with read_scope(fresh=True) as reads:
+        if cut is not None:cut.read_peer()
         proof,after=ownership.read_with_retirement_floor();_seal(proof,seal,run=scope.run,role=scope.role,binding=scope.binding)
         for owner in (scope,pointers,keys):
             need(str(owner.store.path) in copies and same(owner.store.read(),copies[str(owner.store.path)])
@@ -172,6 +187,7 @@ def acquire(ownership,archive,seal,scope,pointers,keys,phase):
         for role,lock in roles.locks.items():roots.add(Path(copies[str(lock.path.with_name('ios-emote-'+role+'-feature.json'))]['artifactRoot']))
         found=inventory(roots)
         outputs={archive.store.path}|{archive.record_store(index).path for index in range(1,len(archive.paths)+1)}
+        if end is not None:outputs|=end.outputs()
         need(found<=reads|set(path.path for path in archive.paths)|outputs)
     _metadata_unchanged(metadata_signatures)
     pins={path:EmoteOriginalLease.signature(path.lstat()) for path in found-mutable}
@@ -187,5 +203,6 @@ def acquire(ownership,archive,seal,scope,pointers,keys,phase):
             epoch=value['phaseBefore']['capturedEpochMs'],previous=retired)
         unchanged();need(inventory(roots)<=found|new_reads|mutable)
     value.update(archiveSha256=digest(archive.previous),sealSha256=digest(seal))
+    if cut is not None:cut.acquired(value,new_reads)
     current(value['acquisitions'],value['nativeClock'],epoch_ms=scope.epoch_ms,monotonic=scope.monotonic)
     return value
