@@ -516,3 +516,62 @@ passing run. The unchanged version-2 strict-scale countercase passed in
 6.146 seconds, and all three warm immutable-leaf mutation counterexamples
 passed in 4.810 seconds. The local catalog gains exactly two selectors; its
 local count is 114. Integration must preserve newer additive Root entries.
+
+
+## Normal cached Favorite and original preference receipts (2026-10-24)
+
+The existing `avatar-people-native-ui` owning case now joins the same normal
+AvatarApp.qml/Pico pointer/whole avatarapp.js route to the original Bookmarks
+load and cached `MyAvatar::useFullAvatarURL` branch, actual Qt connection and
+whole callback. Its Scale call executes the complete original
+`MyAvatar::setAvatarScale` and `AvatarData::setTargetScale` clamp with the
+original timestamp body. Its empty clear executes complete original
+`MyAvatar::clearWornAvatarEntities` over the real ReadWriteLockable and packed
+map. A nonempty wearable removal is unavailable, not silently cleared.
+
+The same existing Avatar instance also supplies the full original
+`featurePicoAvatarPreferences` getter, original Handle declarations/initializer
+keys and passive `e2ePreferenceHandles` body. The original Manager, WriteWorker,
+JSON encoder, barrier and independent physical reader run in that process.
+`native_preferences_support.py` shares the identical source preparation with
+the existing `AvatarPreferencesNativeTests`; it does not add another preference
+getter or a parallel journey. Unrelated NavigationUi services retain their
+separate unavailable registry. The owning observer now includes the actual
+AssetsUiInventory header used by the complete original NavigationUi source.
+
+Every Favorite callback pair retains the actual normal input command, original
+control token/inventory/reply, QML-to-JS message batch, native PID, unique
+preference request/sequence, Avatar/session and callback row. Before and after
+snapshots independently preserve all typed Handle/default/presence values,
+cache and writer rows/encoded rows, barrier mutation sequence, physical file
+identity/hash and the complete original Settings bytes. The native getter's
+nonce-replay refusal and the callback's one dispatch, completed disconnect,
+zero active entries and dead weak functor capture are checked separately.
+
+The final narrow native case passed in 15.283 seconds under the unchanged
+90-second combined moc/compile/link and 120-second outer bounds. It observed
+four callback pairs: three cached originals and one explicitly declared model
+completion. All 23 observed Handles remained uninitialized, cache and writer
+Avatar rows remained absent, and all paired Settings bytes and mutation
+sequences were unchanged. No Handle read/write is inserted to manufacture a
+lazy effect. The noncached model setter remains an actor and does not qualify
+original URL persistence. The shared preparer's existing native preference
+case also passed in 7.964 seconds, including its actual lazy get/set, dirty
+writer, foreign physical bytes, normalization, late-result and replacement
+counterexamples. Full inputs, raw streams and generated stages were retained;
+no source changed during either run. An initial missing original inventory
+header compile failure remains retained rather than counted as a pass.
+
+These are native source witnesses in the existing UI case. They do not adopt
+new evidence into the shared v16 Favorite owner or qualify its retained cleanup.
+Actual loaded Model/renderer/EntityTree/V8/Android ownership, the whole live
+scale renderer, 3-second final owner quiet, raw Handle/cache/writer/physical
+Settings and bookmark byte CAS restoration/retirement, Wearables, contacts,
+peer/stereo and device evidence remain open. No cache clearing, process exit
+or no-change snapshot supplies their missing release. There is no new selector
+or persistent owner/source format, and no compatibility version changed.
+
+The committed Phone Avatar reference inspected read-only was
+`7db55e538899bfbc2d73a7741e49ec31ebb9c004`. Its control/runtime actors and native
+DTO validation do not provide this original Handle/Manager/WriteWorker/JSON
+join. No Phone UI assumption, moving WIP import or Phone modification is used.
