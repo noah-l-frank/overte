@@ -5640,5 +5640,52 @@
     ],
     "relevantReuse": "Complete facades/independent original actor/cleanup/finalization architecture under review by World/Lifecycle/Avatar owners.",
     "originalBoundary": "Phone host World launch explicitly creates/loads; native finished-current-grant gate still exists. No retained-document qualification transfers."
+  },
+  "avatarOriginalDataNoopRoot20261024": {
+    "sourceCommits": [
+      "d193d3a6e594e6925251e75ac50cb1cebe2512d6",
+      "60c5d7857ad36d9bc93aa85863c17d3d7831d96f"
+    ],
+    "integrationCommits": [
+      "4e8b1b59cf",
+      "64eb6f9a35"
+    ],
+    "rootFix": "b1142820eaa78cc03fdbc3353b68ddc7e572eec9",
+    "qualification": "Exact original typed Handle/cache/writer/whole Settings and Bookmark bytes plus all original live fields; actual >=3s native/host no-op quiet. No mutating restore or ownership retirement.",
+    "sourceFiles": 13558,
+    "sourceFilesUnchangedDuringEachSelection": true,
+    "liveOnlyCounter": {
+      "redSeconds": 9.348,
+      "fixedSeconds": 10.083,
+      "actualOriginalGetter": true,
+      "rawHandlesAndFileUnchanged": true,
+      "difference": "Declared native live collision-sound value only; valid source must fail original-data equality."
+    },
+    "hostFavoriteOwnerSeconds": 63.823,
+    "nativeBookmarkSeconds": 3.028,
+    "nativeNormalUiSeconds": 32.398,
+    "coverageSeconds": 0.117,
+    "catalogSelectors": 252,
+    "newSelectors": 0,
+    "newFormat": "pico-avatar-original-data-quiet-host:1",
+    "historicalClockCounter": "Four genuine native/host clock sequences accepted in original order and refused reversed without changing any original byte/hash; codec-only, not freshness.",
+    "actualNative": {
+      "frames": 21,
+      "nativeSpanNs": 5159517830,
+      "hostSpanNs": 5156667188,
+      "normalNativeInputs": 9,
+      "cachedCallbacks": 3,
+      "declaredModelCompletions": 1,
+      "nativeOriginal": "/home/user/Documents/github/overte-pico-adapter-private-20261021/avatar-normal-native-restore-native-20261024/pico-original-avatar-njlxabf2/enabled.stdout.json",
+      "qualification": "Actual scoped native original data and host quiet; explicit model/startup actors, no resource retirement or device claim."
+    },
+    "privateEvidence": "/home/user/Documents/github/overte-pico-adapter-private-20261021/avatar-original-data-noop-",
+    "remaining": [
+      "Native typed memento and own GUI/Manager/worker/file CAS for observed changes",
+      "Noncached real model/persistence join",
+      "Retained Favorite/URL owner retirement",
+      "Whole MyAvatar/renderer/V8/Qt/EntityTree ownership",
+      "Wearables/People/peer/stereo/device qualification"
+    ]
   }
 }

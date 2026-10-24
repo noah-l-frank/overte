@@ -716,3 +716,38 @@ typed Handle/Manager and real worker/file CAS with durable intent/result
 receipts, then actual quiet and owned retirement. No mutation sequence may be
 rolled back, no unowned row may be overwritten, and no cache deletion or process
 exit replaces restoration. Full Feature 3 remains unavailable.
+
+
+## Root original-data and native restore-join verification
+
+Root selected the no-op packet as `4e8b1b59cf` and the normal native URL/Scale
+IPC join as `64eb6f9a35`. Root review additionally found that original-data
+equality omitted the full native live object. A new genuine original-getter
+counter changes its declared live collision-sound value while every real
+Handle, Manager/worker row and whole file stays unchanged. It was red in9.348 s
+and green in10.083 s after `b1142820ea` requires every original live field.
+The normal Scale no-change predicate retains its own intended semantics.
+
+The stronger rule also exposed an old declared native/JS live-owner mismatch.
+Normal original avatarapp.js URL/Scale calls now reach the same native Avatar
+through the existing IPC and whole original methods. Initial loaded-avatar
+context is explicitly admitted through that original URL method before the
+first baseline; full MyAvatar startup/model setting remains a declared actor.
+Bookmark callbacks no longer inject a native URL/scale before load or send a
+second native input while updating the JS mirror. Independent before/after
+preference originals accompany each normal native call.
+
+The final integrated NativeUI case passes in32.398 s with full original live
+data equality and21 actual native/host end frames (5.160s native,5.157s host). Genuine native/host
+monotonic and epoch sequences must have nonnegative gaps at most500ms; reversed
+actual original records are refused without inventing a timestamp. Native
+preference cursors also remain strictly continuous. The existing Favorite
+owner passes in63.823 s and the native Bookmark byte-difference case in3.028 s.
+All13,558 tracked/new source hashes remain unchanged during each selection.
+Full native stages, raw streams, host receipts and exact clocks remain private
+under Root's `avatar-normal-native-restore-*20261024` records.
+
+These are scoped data/no-op and normal native input results. No Settings write
+was inserted to manufacture a restore. Native model completion/initialization,
+whole resource release, raw mutation CAS and final ownership retirement remain
+open. The complete feature is still partial.
