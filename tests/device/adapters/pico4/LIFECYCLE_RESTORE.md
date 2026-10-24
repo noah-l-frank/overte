@@ -117,8 +117,8 @@ Prepare remains preset 6. Its changed flow is not yet tested.
 Final delivery also needs a separate freshness proof after result construction,
 encoding and actual source-lock exit. The older routine's Host/installation
 check alone does not reread Native time after final persistence. This known
-v1 behavior is retained for compatibility, not declared safe or qualified under
-the current final-freshness requirement. Four prepared v2 counterexamples cover
+v1 behavior was retained in the initial v2 packet, not declared safe or qualified
+under the current final-freshness requirement. Four v2 counterexamples cover
 a landed save, report construction, new-process guard loss and actual outer
 lock exit. No historical packet may be retimed to pass those checks, and a
 landed final journal alone must never serve as fresh successful output.
@@ -147,15 +147,26 @@ in 81.695 s and separately with an actual v1 producer in 18.935 s. Four focused
 codec/domain/cold-snapshot checks passed in 1.272 s. V1 was also actually tested
 against the new late-save age requirement and remained red in 1.338 s: its
 older routine did not reject that clock jump. That specific compatibility gap
-is retained and documented for a separate fix; no expected-failure/skip turns
+was documented for the separate fix below; no expected-failure/skip turned
 it into safety qualification.
 
 Three disjoint normal Pico selectors expose this packet: `lifecycle-restore-owner`
 has the one through-owner case; `lifecycle-process-v2` has the fourteen original
 requirements under the new contract; `lifecycle-process-finalization` has four
-delivery fences and three codec/domain compatibility checks. The pre-existing
+delivery fences per version and three codec/domain compatibility checks
+(eleven cases after the separate v1 follow-up). The pre-existing
 process cases in `lifecycle-input-owner` explicitly keep their v1 contract.
 All selectors keep 120 seconds. The actual local catalog grows from 228 to 231;
 integration must add three to its current catalog rather than copying this
 older branch total. Two registry entries change: process current 2/reads 1,2,
 and new restore owner 1. No public capability is enabled.
+
+The separate v1 follow-up now enforces the same final-delivery requirement
+without changing v1 layout, zlib encoding, domain admission or snapshot bytes.
+The actual previously red late-save requirement and three disjoint report,
+PID-guard and outer-lock-exit edges passed in 5.366 s with a v1 producer.
+Existing positive retirement, lost-stop, lost-launch and byte-exact cold/
+further-operation checks passed in 7.331 s. The first late-save failure remains
+historical evidence; no skip or expectedFailure masks it. No extra source
+sample or retiming repairs an old output. A failed delivery retains its landed
+journal and requires a genuinely fresh observation before another result.

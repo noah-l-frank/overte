@@ -73,8 +73,9 @@ Private evidence root:
   Their complete later failed states and offline comparisons remain private.
 
 Three new selectors, each120s: `lifecycle-restore-owner`1,
-`lifecycle-process-v2`14, `lifecycle-process-finalization`7 (four fences plus
-three compatibility cases). Existing `lifecycle-input-owner` retains its14
+`lifecycle-process-v2`14, `lifecycle-process-finalization`11 after the separate
+v1 follow-up (four fences per version plus three compatibility cases).
+Existing `lifecycle-input-owner` retains its14
 explicit v1 cases. Discovery was checked without running cases: 1/14/7 and14,
 no imported fixture duplication. Local catalog228→231; Root must add three to
 its own current total. Control-plane patterns add the three new shared modules.
@@ -83,3 +84,15 @@ No whole execution is split to evade a timeout.
 Final lightweight validation: registry coherent; Pico coverage10/0.041s maps
 14/14 risks; four repository suites passed in 2.83s (`documentation-contracts`,
 `project-coverage`, `documentation`, `source-layout`). No build/device run.
+
+## Separate v1 delivery-freshness follow-up
+
+Depends on `84d122721b2c8380017ed2bf12a8ac1ba5490264`; no new selector or registry
+entry. The shared final-delivery guard now also checks v1 after report build and
+actual observer/restart lock exits. V1 writer/layout/domain/snapshot bytes stay
+unchanged. The same previously red requirement plus report, new-PID guard and
+actual outer-lock edges passed4/5.366s (`process-v1-finalization-green.log`);
+positive retirement/lost-stop/lost-launch/cold byte compatibility passed4/7.331s
+(`process-v1-positive-compatibility.log`). Four v1 cases join the existing final
+selector; earlier1/14/7 discovery remains historical and becomes1/14/11.
+No new source sample, replay, schema migration or public capability is added.

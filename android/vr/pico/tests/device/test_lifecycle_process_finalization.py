@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
-from self_tests.test_lifecycle_process_finalization import LifecycleProcessFinalizationTests
+from self_tests.test_lifecycle_process_finalization import LifecycleProcessFinalizationTests,LifecycleProcessV1FinalizationTests
 from self_tests.test_lifecycle_process_compatibility import LifecycleProcessCompatibilityTests
 
 if __name__=='__main__':unittest.main()

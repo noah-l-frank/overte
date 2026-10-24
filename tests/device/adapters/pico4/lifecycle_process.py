@@ -448,29 +448,24 @@ class PicoLifecycleProcessRetirement:
                     if quiet.observe(current['drive'],now):
                         need([owner.read() for owner in self.owners]==owner_snapshots(self.state['shutdown']))
                         state=deepcopy(self.state);state.update(phase='process-retired',next=dict(binding=deepcopy(binding),frames=rows));self.save(state)
-                        if self.version()>=2:
-                            # All output allocation/copying and the actual lock
-                            # exit precede the new final guards and clocks.
-                            delivered=deepcopy(dict(processOwnedScopesRetired=True,originalProcessId=identity(state['binding'])[0],
-                                currentProcessId=pid,worldAttempts=2,originalWeakFlagsPreserved=True,journalsRetained=True))
-                            stamps=[row[key]['capturedEpochMs'] for key in ('native','presence','domain')]
-                            stamps.extend(value['capturedEpochMs'] for value in current.values())
-                            stamps.append(current['gesture']['source']['frameEpochMs'])
-                            self._final_delivery=dict(resultSha256=hashlib.sha256(canonical(delivered)).hexdigest(),
-                                diskSha256=hashlib.sha256(canonical(self.disk)).hexdigest(),before=before,started=started,
-                                requested=row['requestedEpochMs'],oldest=min(stamps),
-                                source=source,readers=(source,presence,domain_source,ui_source,axes,avatar))
-                            break
-                        final=self.now();stamps=[row[key]['capturedEpochMs'] for key in ('native','presence','domain')]
-                        stamps.extend(value['capturedEpochMs'] for value in current.values());stamps.append(current['gesture']['source']['frameEpochMs'])
-                        need(final-before<=1.5 and row['requestedEpochMs']-min(stamps)+(final-before)*1000<=1500)
-                        return dict(processOwnedScopesRetired=True,originalProcessId=identity(state['binding'])[0],
-                            currentProcessId=pid,worldAttempts=2,originalWeakFlagsPreserved=True,journalsRetained=True)
+                        # Shared delivery requirements apply to both existing
+                        # wire versions, without changing either writer/layout.
+                        # No original source is resampled or retimed here.
+                        delivered=deepcopy(dict(processOwnedScopesRetired=True,originalProcessId=identity(state['binding'])[0],
+                            currentProcessId=pid,worldAttempts=2,originalWeakFlagsPreserved=True,journalsRetained=True))
+                        stamps=[row[key]['capturedEpochMs'] for key in ('native','presence','domain')]
+                        stamps.extend(value['capturedEpochMs'] for value in current.values())
+                        stamps.append(current['gesture']['source']['frameEpochMs'])
+                        self._final_delivery=dict(resultSha256=hashlib.sha256(canonical(delivered)).hexdigest(),
+                            diskSha256=hashlib.sha256(canonical(self.disk)).hexdigest(),before=before,started=started,
+                            requested=row['requestedEpochMs'],oldest=min(stamps),
+                            source=source,readers=(source,presence,domain_source,ui_source,axes,avatar))
+                        break
                     need(index<40);self.sleep(.25)
-            need(delivered is not None);return self.final_v2(delivered)
+            need(delivered is not None);return self.final_delivery(delivered)
         except Exception:raise NativeUIError('Lifecycle process retirement unresolved; original scopes retained') from None
 
-    def final_v2(self,result):
+    def final_delivery(self,result):
         """Recheck the same live observation after its real delivery boundary.
 
         No source packet is refreshed, no historical owner is reconstructed,
@@ -478,7 +473,7 @@ class PicoLifecycleProcessRetirement:
         """
         try:
             memo=self._final_delivery
-            need(self.version()==2 and memo is not None
+            need(self.version() in READS and memo is not None
                 and hashlib.sha256(canonical(result)).hexdigest()==memo['resultSha256']
                 and self.store.read()==self.disk
                 and hashlib.sha256(canonical(self.disk)).hexdigest()==memo['diskSha256'])
@@ -493,6 +488,10 @@ class PicoLifecycleProcessRetirement:
         except Exception:
             self._final_delivery=None
             raise NativeUIError('Lifecycle final delivery unresolved; landed originals retained') from None
+
+    # Preserve the private name introduced with v2; wire versions share the
+    # same final-delivery requirement now, not an encoder or format migration.
+    final_v2=final_delivery
 
 
 def run_lifecycle_restart(owner,prepare,source,stop,stopped,launch,recover,observe):
@@ -517,7 +516,6 @@ def run_lifecycle_restart(owner,prepare,source,stop,stopped,launch,recover,obser
         if owner.inputs.read()['phase']=='launch-issued':
             recover()  # Read-only recovery after an uncertain launch, never resend.
         result=observe()
-        if owner.version()==1:return result
     # Observe may itself be nested under this restart lock. Its live original
     # anchors must also cover this final actual outer context-manager exit.
-    return owner.final_v2(result)
+    return owner.final_delivery(result)
