@@ -42,9 +42,10 @@ from ios.adapters.navigation_dialog_controls import IDS as ERROR_IDS,metadata as
 from ios.adapters.tablet_web_buttons import IDS as TABLET_APP_IDS,metadata as tablet_app_metadata
 from ios.adapters.assets_controls import control_id as asset_control,metadata as asset_metadata,inventory as asset_inventory
 from ios.adapters.tablet_launcher_controls import FIELDS as LAUNCHER_FIELDS,metadata as launcher_metadata
+from ios.adapters.tablet_back_controls import FIELDS as BACK_FIELDS,metadata as back_metadata
 
 CONTROLS = frozenset({'hud.goto', 'hud.tablet', 'address.field', 'address.go',
-    'address.cancel', 'address.back', 'tablet.home', 'tablet.close', 'tablet.places',
+    'address.cancel', 'address.back', 'tablet.home', 'tablet.back', 'tablet.close', 'tablet.places',
     'places.back', 'places.forward', 'snapshot.entry', 'snapshot.name', 'snapshot.mode',
     'snapshot.format', 'snapshot.capture', 'snapshot.cancel'} | {'tablet.page.' + str(page) for page in range(1, 33)}
     | {'snapshot.mode.' + value for value in ('still', 'animated', 'panorama', 'cubemap')}
@@ -73,6 +74,10 @@ def observation(value, pid, now_ms=None):
     now_ms = time.time() * 1000 if now_ms is None else now_ms
     fields = {'schemaVersion', 'instance', 'frameSpace', 'processId', 'sampleEpochMs',
               'elapsedMs', 'lastSequence', 'tabletShown', 'ready', 'controls'}
+    if type(value) is dict and 'tabletBackControlsVersion' in value:
+        if type(value['tabletBackControlsVersion']) is not int or value['tabletBackControlsVersion']!=1:
+            raise NativeUIError('Native iOS Back source version is invalid')
+        fields.add('tabletBackControlsVersion')
     if type(value) is dict and 'tabletLauncherControlsVersion' in value:
         if type(value['tabletLauncherControlsVersion']) is not int or value['tabletLauncherControlsVersion']!=1:
             raise NativeUIError('Native iOS launcher source version is invalid')
@@ -189,6 +194,9 @@ def observation(value, pid, now_ms=None):
     seen, tokens = set(), set()
     for control in value['controls']:
         fields = {'id', 'token', 'enabled', 'focused', 'frame'}
+        if type(control) is dict and control.get('id')=='tablet.back':
+            if value.get('tabletBackControlsVersion')!=1:raise NativeUIError('Native iOS Back source is missing')
+            back_metadata(control);fields |= BACK_FIELDS
         if type(control) is dict and 'tabletLauncherControlVersion' in control:
             if value.get('tabletLauncherControlsVersion')!=1:raise NativeUIError('Native iOS launcher source is missing')
             launcher_metadata(control);fields |= LAUNCHER_FIELDS
@@ -518,6 +526,15 @@ class NativeInput:
             sequence=original['sequence']+1,observedElapsedMs=original['elapsedMs'],fieldToken=row['token'],operation=action)
         if action=='replace':command['text']=value
         return self.deliver(command)
+
+    def tablet_back_input(self,*,reference,before_send):
+        """One ordinary Back press after durable intent; return delivery only."""
+        from ios.adapters.tablet_back_controls import current
+        if not callable(before_send):raise NativeUIError('Native iOS Back input requires durable ownership')
+        actual=current(reference,self.capture());scope=actual['scope']
+        command=dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=scope['instance'],
+            sequence=scope['lastSequence']+1,observedElapsedMs=scope['elapsedMs'],fieldToken=actual['control']['token'],operation='activate')
+        return self.deliver(command,before_send=lambda:before_send(deepcopy(command)))
 
     def chat_input(self,identifier,action,*,reference,value=None):
         from ios.adapters.chat_controls import project

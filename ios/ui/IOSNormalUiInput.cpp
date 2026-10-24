@@ -39,6 +39,7 @@
 #include "../../tests/device/native/IOSTabletAppButtonsObservation.h"
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
 #include "../../tests/device/native/IOSAssetUiInventory.h"
+#include "../../tests/device/native/IOSTabletBackControls.h"
 #endif
 #endif
 #include "../../tests/device/native/NormalNavigationErrorControls.h"
@@ -73,6 +74,7 @@ QRectF visibleBounds(QQuickItem* item) {
 QString identify(QQuickItem* item, bool hud, bool fileAllowed) {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (!hud && !overte::e2e::tabletBackControlObservation(item).isEmpty()) {return QStringLiteral("tablet.back");}
     if (fileAllowed) {
         const auto asset=overte::e2e::asset_ui::control(item);if (!asset.isEmpty()) {return asset;}
     }
@@ -310,6 +312,10 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                 if (source.isEmpty()) { source = overte::e2e::scriptRowSource(node); }
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
+                if (id=="tablet.back") {
+                    source=overte::e2e::tabletBackControlSource(node);
+                    if (source.isEmpty()) {ambiguous=true;return;}
+                }
                 if (id.startsWith("assets.") || id.startsWith("asset-file.")) {
                     source=overte::e2e::asset_ui::source(node);
                     if (source.isEmpty()) {ambiguous=true;return;}
@@ -445,6 +451,10 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         overte::e2e::appendScriptFileObservation(row, control.item, id);
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
+        if (id=="tablet.back") {
+            const auto metadata=overte::e2e::tabletBackControlObservation(control.item);
+            for (auto it=metadata.begin();it!=metadata.end();++it) {row[it.key()]=it.value();}
+        }
         if (id.startsWith("assets.") || id.startsWith("asset-file.")) {
             row["assetControl"]=overte::e2e::asset_ui::metadata(control.item);
         }
@@ -508,6 +518,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     result["featureControlsVersion"] = 1;
 #if defined(Q_OS_IOS)
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    result["tabletBackControlsVersion"]=1;
     result["assetControlsVersion"]=1;
     result["assetInventory"]=overte::e2e::IOSAssetUiInventory::shared().read({hud,tablet});
 #endif
@@ -575,6 +586,11 @@ bool NormalUiInput::press(const QString& controlId, const QString& token) {
     if (!control || !enabled(control)) { return false; }
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (controlId=="tablet.back") {
+        const auto metadata=overte::e2e::tabletBackControlObservation(control);
+        if (metadata.value("inputReady")!=QJsonValue(true)
+                || overte::e2e::tabletBackControlSource(control)!=_controls.value(controlId).source) {return false;}
+    }
     if (controlId.startsWith("assets.") || controlId.startsWith("asset-file.")) {
         if (overte::e2e::asset_ui::control(control)!=controlId || overte::e2e::asset_ui::source(control)!=_controls.value(controlId).source
                 || !overte::e2e::NormalControlUi::ownsPoint(control,control->window(),control->mapToScene(QPointF(control->width()/2,control->height()/2)))) {return false;}
@@ -793,6 +809,13 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
     }
     // Ordinary tablet navigation uses the same consumed source-token sequence.
     if (action=="activate") {
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+        for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
+            if (it.value().token==fieldToken && it.key()=="tablet.back") {
+                result["performed"]=press(it.key(),fieldToken);return result;
+            }
+        }
+#endif
         for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
             if (it.value().token==fieldToken && (it.key()=="tablet.home" || it.key().startsWith("tablet.page."))) {
                 result["performed"]=press(it.key(),fieldToken);return result;
