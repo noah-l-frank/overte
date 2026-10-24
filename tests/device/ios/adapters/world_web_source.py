@@ -12,7 +12,9 @@ from urllib.parse import urlsplit,urlunsplit
 import uuid
 from adapters.native_feature_observation import decode,exact,fresh,integer,need,number
 from adapters.normal_ui import NativeUIError
+from adapters.script_feature.history import same
 from ios.adapters.places_model import text,tree as json_tree
+from ios.adapters import world_web_event_prefix as event_prefix
 
 VERSION=3
 READS=(1,2,3)
@@ -107,7 +109,8 @@ def validation_round():
     if _VALIDATION.get() is not None:
         yield;return
     token=_VALIDATION.set(set())
-    try:yield
+    try:
+        with event_prefix.scope():yield
     finally:_VALIDATION.reset(token)
 
 
@@ -137,8 +140,12 @@ def validate(value,query,pid,epoch=None,previous=None):
     a,b=value['clockBefore'],value['clockAfter'];utc=b['epochMs']-a['epochMs'];mono=b['monotonicMs']-a['monotonicMs']
     need(0<=utc<1500 and 0<=mono<1500 and abs(utc-mono)<=250)
     if epoch is not None:fresh(b['epochMs'],epoch)
-    earlier={};ids=set();last_epoch=last_mono=last_sequence=0;callback_enter=set();callback_return=set();signal_return=set()
-    for event in value['events']:
+    earlier={};ids=set();last_epoch=last_mono=last_sequence=0;callback_enter=set();callback_return=set();signal_return=set();offset=0
+    prefix=event_prefix.start(value)
+    if prefix is not None:
+        offset,earlier,ids,last,callback_enter,callback_return,signal_return=prefix
+        last_epoch,last_mono,last_sequence=last
+    for event in value['events'][offset:]:
         exact(event,{'sequence','eventId','kind','clock','identity','detail'})
         need(integer(event['sequence'],last_sequence+1,value['eventSequence']) and type(event['eventId']) is str
             and re.fullmatch(HEX,event['eventId']) and event['eventId'] not in ids and event['kind'] in KINDS)
@@ -158,7 +165,8 @@ def validate(value,query,pid,epoch=None,previous=None):
             and value['commandId']!=previous['commandId'] and value['eventSequence']>=previous['eventSequence']
             and a['epochMs']>=previous['clockAfter']['epochMs'] and a['monotonicMs']>=previous['clockAfter']['monotonicMs']
             and (previous['complete'] or not value['complete'])
-            and value['events'][:len(previous['events'])]==previous['events'])
+            and same(value['events'][:len(previous['events'])],previous['events']))
+    event_prefix.remember(value,earlier,ids,(last_epoch,last_mono,last_sequence),callback_enter,callback_return,signal_return)
     if proof is not None and len(proofs)<256:proofs.add(proof)
     return value
 

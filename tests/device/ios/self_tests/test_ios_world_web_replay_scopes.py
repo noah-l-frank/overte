@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 from adapters.normal_ui import NativeUIError
+from adapters.original_file_reads import scope as read_scope
 from ios.adapters import world_web_whole_snapshot as whole
 from ios.adapters.world_web_scope_archive import original_round
 from ios.adapters.world_web_api_clock import scope as api_scope
@@ -52,6 +53,20 @@ class WorldWebReplayScopeTests(unittest.TestCase):
                     with self.assertRaises(NativeUIError):whole.validate(changed,dict(query,commandId=changed['commandId']),source.pid)
                 with api_scope(lambda:f.sdk.time):whole.validate(actual,query,source.pid)
                 self.assertEqual(3,decoded.call_count) # original, refused foreign nonce, next round
+
+    def test_observer_reuses_in_same_actual_census_and_redecodes_in_a_new_census(self):
+        f=self.fixture
+        with f.held():
+            source,owner,reference,expected=self.owners()
+            with patch.object(owner,'_derive',wraps=owner._derive) as decoded:
+                with whole.validation_round(),original_round(),owner.validation_round():
+                    for count in (1,2):
+                        with read_scope(fresh=True) as reads:
+                            self.assertEqual(expected,owner.validate_original(reference));self.assertTrue(reads)
+                            retained=set(reads);self.assertEqual(count,decoded.call_count)
+                            returned=owner.validate_original(reference);returned['public']['state']['open']=True
+                            self.assertEqual(expected,owner.validate_original(reference));self.assertEqual(count,decoded.call_count)
+                            self.assertEqual(retained,reads)
 
     def test_same_inode_changed_actual_bytes_fail_before_reusing_warm_measurement(self):
         f=self.fixture

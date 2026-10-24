@@ -4,7 +4,7 @@
 from copy import deepcopy
 from contextlib import contextmanager,ExitStack
 from adapters.native_clock_join import digest
-from adapters.original_file_reads import active as recording_original_reads
+from ios.adapters.world_web_original_membership import OriginalMembership
 from adapters.native_feature_observation import exact,integer,need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_feature.history import pack,unpack,same
@@ -90,12 +90,12 @@ class WorldWebObserver:
             original=deepcopy(entry);self.round_guard()
             lease=None if self.lease is None else self.lease.packet()
             key=digest([original,self.state,lease,self._round['header']])
-            # A fresh file-read membership scope must actually replay its
-            # readers. Metadata continuity alone cannot add a file to a seal.
-            cache=self._round['derived'];memo=not recording_original_reads()
-            if memo and key in cache:self.round_guard();return deepcopy(cache[key])
+            # Reuse only where the same census already read the full graph.
+            # A new membership scope must execute its actual readers again.
+            cache=self._round['derived']
+            if key in cache and cache[key][1].matches():self.round_guard();return deepcopy(cache[key][0])
             value=self._derive(original);self.round_guard()
-            if memo and len(cache)<256:cache[key]=deepcopy(value)
+            if key in cache or len(cache)<256:cache[key]=(deepcopy(value),OriginalMembership())
             return deepcopy(value)
     def _derive(self,entry):
         exact(entry,{'sequence','ticket','source','peer','lease','scope','sample'});need(integer(entry['sequence'],1,256))
@@ -109,12 +109,12 @@ class WorldWebObserver:
             scope=self.lease.scope if self.lease is not None else self.setup_scope
             need(scope is not None)
             key=digest([entry['scope'],self.source.binding,self.run,str(scope.root)])
-            cache=self._round['scopes'];memo=not recording_original_reads()
-            if memo and key in cache:scope_state=deepcopy(cache[key])
+            cache=self._round['scopes']
+            if key in cache and cache[key][1].matches():scope_state=deepcopy(cache[key][0])
             else:
                 archived=IOSWorldWebScope.archive(entry['scope'],root=scope.root,binding=self.source.binding,run=self.run,role='primary',lock=self.source.lock)
                 scope_state=deepcopy(archived.state)
-                if memo and len(cache)<256:cache[key]=deepcopy(scope_state)
+                if key in cache or len(cache)<256:cache[key]=(deepcopy(scope_state),OriginalMembership())
             need(scope_state is not None)
             if entry['lease'] is not None:need(same(scope_state['fileOwnership'],entry['lease']['files']))
             else:need(self.version==2 and self.setup_scope is scope and scope_state['phase']=='released'

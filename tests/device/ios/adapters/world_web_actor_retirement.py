@@ -22,6 +22,7 @@ from ios.adapters.emote_marker_measurements import body_preserved,view_preserved
 from ios.adapters import create_entities,world_web_keys,world_web_source,pointer_state,world_web_surface_lease
 from ios.adapters.world_web_resource_disposition import disposition
 from ios.adapters.world_web_scene import scene
+from ios.adapters.world_web_original_membership import OriginalMembership
 
 _ORIGINALS=ContextVar('world_web_actor_retirement_originals',default=None)
 
@@ -49,14 +50,14 @@ class WorldWebActorRetirement:
         enclosing complete decoder checks the actual inventories on entry and
         exit. Native quiet, current candidate and final freshness are not memoized.
         """
-        from adapters.original_file_reads import active
         need(self.observer._round is not None)
         cache=self.observer._round.setdefault('actorRetirement',{})
         key=digest([original,self.state,self.previous,self.observer.round_header(),
             self.source._round[0],self.peer._round[0],None if self.observer.lease is None else self.observer.lease.packet()])
-        if not active() and key in cache:return cache[key]
+        if key in cache and cache[key][1].matches():return cache[key][0]
         result=self._measure(original)
-        if not active() and len(cache)<256:cache[key]=deepcopy(result);return cache[key]
+        if key in cache or len(cache)<256:
+            cache[key]=(deepcopy(result),OriginalMembership());return cache[key][0]
         return result
     @contextmanager
     def original_round(self):
@@ -170,7 +171,7 @@ class WorldWebActorRetirement:
         from ios.adapters.emote_original_lease import EmoteOriginalLease
         with self.observer.validation_round():
             self.current_originals()
-            cache=_ORIGINALS.get();memo=cache is not None and not active()
+            cache=_ORIGINALS.get();memo=cache is not None
             # The complete actual original graph and mutable owner context are
             # part of this API-local key. New source acquisition, owner state,
             # lease or header cannot inherit an earlier deterministic result.
@@ -181,13 +182,13 @@ class WorldWebActorRetirement:
             def guarded(pins):
                 for path,signature in pins.items():need(EmoteOriginalLease.signature(path.lstat())==signature)
                 self.current_originals()
-            if memo and key in cache:
-                result,pins=cache[key];guarded(pins);result=deepcopy(result);guarded(pins);return result
+            if memo and key in cache and cache[key][2].matches():
+                result,pins,_membership=cache[key];guarded(pins);result=deepcopy(result);guarded(pins);return result
             if memo:
-                with read_scope(fresh=True) as reads:result=self._validate_original(value)
+                with read_scope(fresh=not active()) as reads:result=self._validate_original(value)
                 paths=reads|{self.store.path,self.observer.store.path,self.source.store.path,self.peer.store.path}
                 pins={path:EmoteOriginalLease.signature(path.lstat()) for path in paths}
-                guarded(pins);need(len(cache)<64);cache[key]=(deepcopy(result),pins)
+                guarded(pins);need(key in cache or len(cache)<64);cache[key]=(deepcopy(result),pins,OriginalMembership())
             else:result=self._validate_original(value)
             self.current_originals();return deepcopy(result)
 

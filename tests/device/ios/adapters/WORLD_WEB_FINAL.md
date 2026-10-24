@@ -3,6 +3,36 @@
 The World Web whole owner is not advertised as complete. Its final composition
 is under host verification; native sources remain uncompiled.
 
+The newer paired census/end replay reached its 600-second diagnostic limit;
+it has no passing result. All 1,919 original paths retained their recorded
+device/inode/size identities. A separate 90-second readonly profile also timed
+out, preserving every original byte and identity. It identifies repeated
+cumulative transcript validation and deep copying in Source reconstruction;
+whole-call performance and the current terminal composition remain unqualified.
+
+Pure Scope/Observer/Actor decoder results can now be reused within the exact
+same actual-read membership scope, under their existing file/inventory/context
+guards. This adds no path to the census. Fresh scopes and removed membership
+must execute the actual readers again. Twenty-two focused tests pass in
+56.186 seconds, including changed bytes/inodes, changed candidate context,
+expired publication, separate scopes and outward-copy mutations. This focused
+result does not transfer the older full nineteen-step pass to changed sources.
+
+Cumulative transcript validation also reuses only an exactly equal validated
+event prefix within the same API scope. The bounded pure cache holds at most
+16 source identities and 8 MiB of serialized event data. Every packet header,
+clock, explicit previous-packet relation, callback suffix and original file
+read remains checked. Old-prefix native clock bounds are rechecked, boolean
+scalar substitutions cannot compare equal, returned values cannot mutate the
+private cache, and overflow falls back to full validation. Thirty-three focused
+prefix/source/snapshot/clock/replay cases pass in 5.695 seconds.
+
+A separate readonly benchmark constructs the actual retained 126-frame Primary
+Source in 57.842 seconds. All 1,919 originals and 5,880 source files remain
+unchanged; no live request occurs. This establishes only complete historical
+Source decoding. It exceeds the real API budget and does not qualify the
+current whole terminal, native freshness or a device.
+
 The latest retained full nineteen-step composition passed one test in
 21,143.183 seconds with all 441 frozen source paths unchanged. It reached paired
 scene cleanup, the three paired quiet observations and seal, each role's

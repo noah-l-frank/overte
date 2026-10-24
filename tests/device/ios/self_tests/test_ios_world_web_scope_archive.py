@@ -26,8 +26,18 @@ class WorldWebScopeArchiveTests(unittest.TestCase):
                     with read_scope(fresh=True) as reads:
                         self.assertEqual(before,lease.packet());self.assertTrue(reads)
                         self.assertEqual(expected,actual.call_count)
+                        retained=set(reads)
+                        self.assertEqual(before,lease.packet());self.assertEqual(expected,actual.call_count)
+                        self.assertEqual(retained,reads)
             with original_round():lease.packet()
             self.assertEqual(4,actual.call_count)
+
+    def test_clearing_same_census_membership_reopens_originals_instead_of_inventing_reads(self):
+        whole,lease=self.prepared();read=IOSWorldWebScope.archive
+        with patch.object(IOSWorldWebScope,'archive',wraps=read) as actual,original_round(),read_scope(fresh=True) as reads:
+            before=lease.packet();self.assertTrue(reads);self.assertEqual(1,actual.call_count)
+            reads.clear();self.assertEqual(before,lease.packet());self.assertTrue(reads)
+            self.assertEqual(2,actual.call_count)
     def test_warm_scope_CAS_context_and_same_bytes_different_inode_cannot_qualify(self):
         whole,lease=self.prepared()
         with original_round():

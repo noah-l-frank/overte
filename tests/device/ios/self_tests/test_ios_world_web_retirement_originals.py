@@ -19,7 +19,11 @@ class WorldWebRetirementOriginalsTests(unittest.TestCase):
                     b=retirement.validate_original(original)
                     self.assertEqual(['native-process-resources'],b['scene']['remaining']);self.assertTrue(b['retirement']['quiet'])
                     self.assertEqual(0,actual.call_count) # warmed by the real cleanup original
-                    with read_scope(fresh=True) as paths:retirement.validate_original(original)
+                    with read_scope(fresh=True) as paths:
+                        retirement.validate_original(original)
+                        retained=set(paths);self.assertEqual(1,actual.call_count)
+                        retirement.validate_original(original)
+                        self.assertEqual(1,actual.call_count);self.assertEqual(retained,paths)
                     self.assertEqual(1,actual.call_count);self.assertTrue(paths)
             with retirement.original_round():
                 # The enclosing original round is still the same API here.
