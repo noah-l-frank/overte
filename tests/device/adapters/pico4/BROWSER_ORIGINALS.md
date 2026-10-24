@@ -213,3 +213,33 @@ passive `measure-ray` v3 response. Existing ordinary/tablet responses remain v2;
 legacy v1/v2 retain their exact forms. The tablet actuator remains Tablet-only.
 This component adds normal calibrated OpenXR trigger input without declaring the
 complete world-Web feature or qualifying trusted DOM effects.
+
+## Immutable admitted quiet originals
+
+The private quiet journal now stores its already validated complete value as
+immutable canonical bytes. Inspection returns independent ordinary JSON data.
+Each new/cold frame still receives the complete original grammar, continuity,
+cadence and three-second checks. Changed original chunks, unknown children,
+missing parents, replaced byte ownership and changed scope still refuse.
+The actor graph's warm validation seal uses the admitted quiet digest; its
+original v1 wire digest still includes every literal frame. Original parent,
+child, PNG, native/phase and clock checks, file formats and budgets remain.
+
+On the intact historical failed whole run, complete graph verification of
+666 originals/40 images measured0.133–0.136s before and0.085–0.086s after this
+change. Cold admission measured3.322s and3.254s respectively; these measurements
+do not prove a material cold-admission improvement. All1153 original file
+stamps/hashes and the previously recorded original v1 graph digest remain
+unchanged. A separate historical capture-index profile of1014 originals,
+80 proofs and80 PNGs costs0.050–0.052s until its actual foreign-namespace
+refusal: the later archive ownership sentry remains present and is never
+hidden to manufacture a successful inventory.
+
+The five owning quiet cases pass2.930s, including exact legacy migration,
+unchanged cold originals, inspection isolation, tuple-alias refusal, replaced
+inode, pending/missing-parent and changed-scope counters. Integrated actual
+independent Actor return8 passes18.118s; evidence archive10 passes25.199s;
+coverage11 passes. All13,574 source hashes remain unchanged during these
+selections. Private `browser-quiet-immutable-*20261024` and historical cost
+records retain exact source assignments. The full whole-run deadline and
+complete public feature remain unproven by these scoped results.

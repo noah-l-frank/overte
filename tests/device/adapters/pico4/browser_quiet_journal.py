@@ -2,10 +2,11 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import json
 from adapters.chat_journey.source_chunks import ChatSourceChunks,digest,json_digest
 from adapters.native_feature_observation import exact,integer,need
 from adapters.normal_feature_state import PrivateFeatureState,context
-from adapters.script_journey.history import same
+from adapters.script_journey.history import canonical,same
 from adapters.script_journey.lock import ScriptSourceLock
 from adapters.pico4.browser_quiet import frame,validate
 from adapters.native_web_runtime import continuity as runtime_advance
@@ -22,10 +23,10 @@ class PicoBrowserQuietJournal:
         self.store,self.lock=store,lock
         self.scope=dict(picoBrowserQuietJournalVersion=VERSION,runId=run,fixtureUrl=url,ownerToken=token,binding=deepcopy(binding))
         self.run,self.url,self.token,self.pid=run,url,token,int(binding['processIdentity'].split(':',1)[0])
-        self.chunks=ChatSourceChunks(store,self.scope);self.disk=store.read();self.value=None;self.failed=False
+        self.chunks=ChatSourceChunks(store,self.scope);self.disk=store.read();self.remember_value(None);self.failed=False
         self.legacy=reference is not None and 'browserQuietVersion' in reference
         if self.legacy:
-            validate(reference,run,url,token,self.pid,retired=False);self.value=deepcopy(reference)
+            validate(reference,run,url,token,self.pid,retired=False);self.remember_value(reference)
         if self.disk is None:
             need(reference is None or self.legacy);self.chunks.inventory(0)
         else:
@@ -36,18 +37,34 @@ class PicoBrowserQuietJournal:
                 and reference['sha256']==digest(self.disk))
             rows=self.chunks.load(self.disk['chunks'])
             need(1<=len(rows)<=64 and integer(self.disk['revision']) and self.disk['revision']==2*len(rows))
-            self.value=dict(browserQuietVersion=1,frames=rows,complete=False)
+            value=dict(browserQuietVersion=1,frames=rows,complete=False)
             first,last=rows[0],rows[-1]
             a=frame(first,run,url,token,self.pid,retired=False);b=frame(last,run,url,token,self.pid,retired=False)
-            self.value['complete']=len(rows)>=3 and last['host']-first['host']>=3 and all(y-x>=3000 for x,y in zip(a,b))
-            validate(self.value,run,url,token,self.pid,retired=False)
+            value['complete']=len(rows)>=3 and last['host']-first['host']>=3 and all(y-x>=3000 for x,y in zip(a,b))
+            validate(value,run,url,token,self.pid,retired=False);self.remember_value(value)
         self.value_digest=self.cache_digest()
-    def cache_digest(self):return json_digest(dict(scope=self.scope,value=self.value))
+    def remember_value(self,value):
+        # Only a new, fully admitted original is frozen here. No mutable DTO
+        # or caller inspection copy can become a cached validation authority.
+        self._value_sha=self._sealed_value_sha=json_digest(value)
+        self._value_bytes=self._sealed_value_bytes=None if value is None else canonical(value)
+
+    def immutable_value(self):
+        need(self._value_bytes is self._sealed_value_bytes and self._value_sha is self._sealed_value_sha
+            and type(self._value_sha) is str and (self._value_bytes is None or type(self._value_bytes) is bytes))
+
+    @property
+    def value(self):
+        self.immutable_value()
+        return None if self._value_bytes is None else json.loads(self._value_bytes)
+
+    def cache_digest(self):
+        self.immutable_value();return json_digest(dict(scope=self.scope,valueSha256=self._value_sha))
     def migrate(self):
         """Explicitly copy validated legacy originals; never a device query/input."""
         self.lock.assert_held()
         if not self.legacy:return
-        need(self.disk is None);original=deepcopy(self.value);self.value=None;self.value_digest=self.cache_digest();self.legacy=False
+        need(self.disk is None);original=self.value;self.remember_value(None);self.value_digest=self.cache_digest();self.legacy=False
         for row in original['frames']:
             self.begin();self.finish(row['browser'],row['runtime'],row['host'])
         need(same(self.value,original))
@@ -84,5 +101,5 @@ class PicoBrowserQuietJournal:
             value=dict(browserQuietVersion=1,frames=rows,complete=len(rows)>=3 and host-first['host']>=3
                 and all(b-x>=3000 for x,b in zip(a,clocks)))
             manifest=self.chunks.append(row,self.disk['chunks']);self.write('ready',manifest)
-            self.value=deepcopy(value);self.value_digest=self.cache_digest();return self.reference()
+            self.remember_value(value);self.value_digest=self.cache_digest();return self.reference()
         except Exception:self.failed=True;raise

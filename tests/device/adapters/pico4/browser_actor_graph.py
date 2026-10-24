@@ -223,7 +223,7 @@ class PicoBrowserActorGraph:
     def validation_digest(self):
         return json_digest(dict(expected=self.expected,root=self.root,manifest=self.manifest,owner=self.owner,role=self.role,
             images=self.images,inactive=self.inactive,retirement=self.retirement,files=[dict(key=list(key),value=value) for key,value in self.files.items()],
-            vm=self.vm.cache_digest(),history=self.source_history.cache_digest(),quiet=self.quiet.value,
+            vm=self.vm.cache_digest(),history=self.source_history.cache_digest(),quiet=self.quiet.cache_digest(),
             paths={key:str(store.path) for key,store in self.stores.items()},export=str(self.export.path),
             artifacts=str(self.artifacts),lock=str(self.lock.path)))
 

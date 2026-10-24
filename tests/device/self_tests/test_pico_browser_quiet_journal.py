@@ -5,6 +5,7 @@ import unittest
 from copy import deepcopy
 from adapters.chat_journey.source_chunks import digest
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.script_journey.history import canonical
 from adapters.pico4.browser_quiet_journal import PicoBrowserQuietJournal
 from self_tests import test_pico_tablet_web_feature as seams
 
@@ -40,8 +41,21 @@ class PicoBrowserQuietJournalTests(unittest.TestCase):
             # A cold reader may inspect the originally admitted manifest; a
             # live reader cannot replace its actual original inode silently.
             cold=self.journal(dict(browserQuietReferenceVersion=1,sha256=digest(self.store.read())))
-            cold.value['frames'][0]['host']+=.001
+            inspection=cold.value;inspection['frames'][0]['host']+=.001
+            self.assertEqual(self.original,cold.value);cold.reference()
+            cold._value_bytes=canonical(inspection)
             with self.assertRaises((ValueError,RuntimeError)):cold.reference()
+
+    def test_mutable_inspection_never_replaces_original_and_new_non_json_admission_refuses(self):
+        with self.lock.held():
+            journal=self.journal(self.original);journal.migrate();reference=journal.reference()
+            raw=self.store.path.read_bytes();original=deepcopy(journal.value)
+            inspection=journal.value;inspection['frames']=tuple(inspection['frames'])
+            self.assertEqual(original,journal.value);self.assertEqual(reference,journal.reference())
+            self.assertEqual(raw,self.store.path.read_bytes())
+            changed=deepcopy(original);changed['frames'][0]['browser']['source']['documents']=tuple(changed['frames'][0]['browser']['source']['documents'])
+            with self.assertRaises((ValueError,RuntimeError)):journal.remember_value(changed)
+            self.assertEqual(original,journal.value);self.assertEqual(reference,journal.reference())
 
     def test_parent_reuses_only_matching_original_reference_and_rejects_changed_cached_scope(self):
         with self.lock.held():
