@@ -138,3 +138,10 @@ success and leaves the original navigation ownership available for cleanup.
 The existing fresh process/session/candidate guards, stable address-dialog
 absence and independent connection/scene observations remain mandatory. A
 touch request acknowledgment does not establish button activation.
+
+Before that Go touch, a focused address editor receives one normal Tab key
+through the same owned SDK session. Fresh reads of the same field must confirm
+focus loss and unchanged address text; the native IME must remain hidden. This
+removes the insertion/selection handle observed over Go in build 21. An ignored
+key, missing/malformed focus observation or changed application context prevents
+Go input. There is no Enter submission or repeated focus key.
