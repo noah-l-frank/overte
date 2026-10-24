@@ -3233,3 +3233,13 @@ original triples and both owner/observer cursor floors. Such new evidence must
 retain the actual distinct finite histories and all original physical bytes;
 a second same-generation mutating World or a reset cannot evade the old cap.
 Source-complete3/14 and physical qualification0 remain unchanged.
+
+
+Root reproduces all four standalone World ray/text/VM/stereo import failures
+with the exact existing control-plane `run-unittest-suite.py --pattern`
+commands and PYTHONPATH unset. Each now adds its existing device-helper root
+explicitly, as the other owning modules do. The unchanged commands pass
+8/0.124s,7/0.159s,7/1.994s and6/5.873s:28 actual tests, all13,529 source
+hashes unchanged. This fixes the four proven import defects without changing
+runner/capability/check selection or timeouts. The larger quick suite's outer
+aggregate-timeout failures remain unresolved; no full quick pass is inferred.

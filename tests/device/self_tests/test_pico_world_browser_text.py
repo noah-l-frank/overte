@@ -3,7 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import json
+from pathlib import Path
+import sys
 import unittest
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from adapters.native_feature_observation import need
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.browser_source import validate

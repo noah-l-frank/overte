@@ -5145,5 +5145,57 @@
     "completeFeature": false,
     "deviceAcceptance": false,
     "independentProducerCapsNotAnInventedUniversal128": true
+  },
+  "worldStandaloneEntrypointsRoot20261024": {
+    "status": "passed-exact-control-plane-module-entrypoints",
+    "before": "four-reproduced-ModuleNotFoundError-adapters",
+    "pythonPathEnvironment": "unset",
+    "patterns": [
+      {
+        "pattern": "test_pico_world_browser_ray.py",
+        "exitCode": 0,
+        "seconds": 0.2836166770430282,
+        "summary": [
+          "Ran 8 tests in 0.124s",
+          "OK"
+        ]
+      },
+      {
+        "pattern": "test_pico_world_browser_text.py",
+        "exitCode": 0,
+        "seconds": 0.3059756669681519,
+        "summary": [
+          "Ran 7 tests in 0.159s",
+          "OK"
+        ]
+      },
+      {
+        "pattern": "test_pico_world_browser_vm.py",
+        "exitCode": 0,
+        "seconds": 2.1599438639823347,
+        "summary": [
+          "Ran 7 tests in 1.994s",
+          "OK"
+        ]
+      },
+      {
+        "pattern": "test_pico_world_browser_stereo.py",
+        "exitCode": 0,
+        "seconds": 6.20079068094492,
+        "summary": [
+          "Ran 6 tests in 5.873s",
+          "OK"
+        ]
+      }
+    ],
+    "sourceFiles": 13529,
+    "sourcesUnchanged": true,
+    "importRoot": "explicit-existing-tests-device-root-per-owning-module",
+    "totalCases": 28,
+    "noCompilerOrDevice": true,
+    "fullQuickRerunClaimed": false,
+    "outerAggregateTimeoutStillOpen": true,
+    "completeFeature": false,
+    "deviceAcceptance": false
   }
 }

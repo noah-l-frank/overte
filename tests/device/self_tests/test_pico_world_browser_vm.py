@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from adapters.pico4.browser_vm import PicoBrowserVm,reviewed
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError

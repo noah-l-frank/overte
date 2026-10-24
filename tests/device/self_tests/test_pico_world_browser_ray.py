@@ -9,9 +9,11 @@ from copy import deepcopy
 import json
 import math
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from adapters.normal_ui import NativeUIError
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_journey.lock import ScriptSourceLock

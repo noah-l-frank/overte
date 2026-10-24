@@ -11,10 +11,12 @@ import json
 import os
 from pathlib import Path
 import shutil
+import sys
 import unittest
 import uuid
 from unittest.mock import patch
 
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.world_browser_ray import PicoWorldBrowserIO
 from adapters.pico4.browser_stereo import PicoBrowserStereo,original_name
