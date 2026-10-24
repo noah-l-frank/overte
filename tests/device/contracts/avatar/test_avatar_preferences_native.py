@@ -46,7 +46,7 @@ class AvatarPreferencesNativeTests(unittest.TestCase):
                 (stage/('enabled' if runtime else 'disabled')).with_suffix('.stderr.txt').write_text(result.stderr)
                 self.assertEqual(0,result.returncode,result.stdout[-1000:]+result.stderr)
         rows=[json.loads(line) for line in result.stdout.splitlines()]
-        self.assertEqual(['lazy-original','initialized-absent','saved-scale','writer-only-conflict','physical-conflict','head-pitch-original-key','late-result-discarded','avatar-replacement'],[row['kind'] for row in rows])
+        self.assertEqual(['lazy-original','live-only-conflict','initialized-absent','saved-scale','writer-only-conflict','physical-conflict','head-pitch-original-key','late-result-discarded','avatar-replacement'],[row['kind'] for row in rows])
         previous=None
         for row in rows:
             packet=row['packet'];validate(packet,row['request'],packet['processId'],packet['capturedEpochMs'])
@@ -62,13 +62,21 @@ class AvatarPreferencesNativeTests(unittest.TestCase):
         # raw changes too; no forged packet or inconsistent writer supplies it.
         from adapters.pico4.avatar_favorite_effect import unchanged_preferences,original_preferences
         from adapters.normal_ui import NativeUIError
-        for first,last in ((0,1),(1,2)):
-            before,after=rows[first]['packet'],rows[last]['packet'];baseline(before);baseline(after)
+        named={row['kind']:row for row in rows}
+        for first,last in (('lazy-original','initialized-absent'),('initialized-absent','saved-scale')):
+            before,after=named[first]['packet'],named[last]['packet'];baseline(before);baseline(after)
             self.assertNotEqual(before['source']['snapshot']['cache']['native']['handles'],after['source']['snapshot']['cache']['native']['handles'])
-            with self.subTest(original_cached_admission=(rows[first]['kind'],rows[last]['kind'])),self.assertRaises(NativeUIError):
+            with self.subTest(original_cached_admission=(first,last)),self.assertRaises(NativeUIError):
                 unchanged_preferences(before,after)
-            with self.subTest(original_noop_admission=(rows[first]['kind'],rows[last]['kind'])),self.assertRaises(NativeUIError):
+            with self.subTest(original_noop_admission=(first,last)),self.assertRaises(NativeUIError):
                 original_preferences(before,after)
+        before,after=(named[key]['packet'] for key in ('lazy-original','live-only-conflict'))
+        a,b=baseline(before),baseline(after)
+        self.assertEqual(a['cache']['native']['handles'],b['cache']['native']['handles'])
+        self.assertEqual(a['cache']['rows'],b['cache']['rows'])
+        self.assertEqual(a['writer']['physical']['fileSha256'],b['writer']['physical']['fileSha256'])
+        self.assertNotEqual(a['cache']['native']['live'],b['cache']['native']['live'])
+        with self.assertRaises(NativeUIError):original_preferences(before,after)
         original=rows[0]
         for path,bad in ((('picoAvatarPreferencesVersion',),True),(('snapshot','writer','matchesPhysical'),False),
                 (('snapshot','cacheMatchesWriter'),False),(('snapshot','writer','physical','capturedEpochMs'),original['packet']['requestedEpochMs']-1),

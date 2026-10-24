@@ -102,6 +102,11 @@ int main(int argc,char**argv){
     const auto initial=publish("lazy-original");assert(!manager->contains("Avatar/scale"));
     auto handles=initial.value("cache").toMap().value("native").toMap().value("handles").toMap().value("handles").toMap();
     assert(handles.size()==23 && !handles.value("scale").toMap().value("initialized").toBool());assert(handles.value("headPitch").toMap().value("key")==QVariant("Avatar/"));
+    // Declared live Avatar actor changes independently of all real lazy
+    // Handles, Manager/worker rows and file bytes. The complete original
+    // passive getter must retain this difference in its own fresh result.
+    avatar->_collisionSoundURL="https://controlled.invalid/foreign-live.wav";
+    publish("live-only-conflict");avatar->_collisionSoundURL.clear();
     // A real get() mutates lazy initialization and inserts an invalid cache row.
     assert(avatar->_scaleSetting.get()==1);assert(manager->contains("Avatar/scale"));const auto initialized=publish("initialized-absent");
     assert(initialized.value("mutationSequence").toLongLong()>initial.value("mutationSequence").toLongLong());assert(initialized.value("cacheMatchesWriter")==QVariant(true));

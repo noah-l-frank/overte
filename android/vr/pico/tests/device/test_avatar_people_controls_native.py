@@ -21,6 +21,13 @@ from test_assets_native_ui import navigation_source
 sys.path.insert(0,str(ROOT/'tests/device/contracts/avatar'))
 from native_preferences_support import prepare_ui_host,native_stage
 
+def original_chronology(rows,key,maximum_gap):
+    """An actual source/receipt clock may not move backward within quiet."""
+    for first,last in zip(rows,rows[1:]):
+        if type(first[key]) is not int or type(last[key]) is not int or not 0<=last[key]-first[key]<=maximum_gap:
+            raise AssertionError('Original quiet clock moved backward or exceeded its gap')
+
+
 class AvatarPeopleControlsNativeTests(unittest.TestCase):
     def test_original_avatar_loader_url_restore_and_actual_hit_ownership(self):
         environment=dict(os.environ)
@@ -97,9 +104,15 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
             self.assertEqual(value['originalDataQuietSamples'],len(trace_rows));self.assertEqual(len(trace_rows),len(receipts));self.assertGreaterEqual(len(trace_rows),2)
             self.assertGreaterEqual(receipts[-1]['capturedHostMonotonicNs']-receipts[0]['capturedHostMonotonicNs'],3000000000)
             self.assertGreaterEqual(trace_rows[-1]['nativeMonotonicNs']-trace_rows[0]['nativeMonotonicNs'],3000000000)
-            for first,last in zip(trace_rows,trace_rows[1:]):
-                self.assertLessEqual(last['nativeMonotonicNs']-first['nativeMonotonicNs'],500000000)
-            for first,last in zip(receipts,receipts[1:]):self.assertLessEqual(last['capturedHostMonotonicNs']-first['capturedHostMonotonicNs'],500000000)
+            clocks=[(trace_rows,'nativeMonotonicNs',500000000),(trace_rows,'capturedNativeEpochMs',500),
+                (receipts,'capturedHostMonotonicNs',500000000),(receipts,'capturedHostEpochMs',500)]
+            for rows,key,maximum in clocks:
+                original_chronology(rows,key,maximum)
+                # Reorder the genuine original records; no timestamp or data
+                # byte is manufactured to supply this negative timeline.
+                with self.subTest(original_reverse_clock=key),self.assertRaises(AssertionError):
+                    original_chronology(list(reversed(rows)),key,maximum)
+            previous_preference=None
             for index,(line,row,receipt) in enumerate(zip(observed['traceLines'],trace_rows,receipts),1):
                 self.assertEqual({'avatarOriginalDataQuietVersion','sequence','nativeMonotonicNs','capturedNativeEpochMs','data'},set(row))
                 self.assertIs(type(row['avatarOriginalDataQuietVersion']),int);self.assertEqual(1,row['avatarOriginalDataQuietVersion'])
@@ -109,6 +122,7 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
                 self.assertEqual(hashlib.sha256(line).hexdigest(),receipt['sourceSha256'])
                 data=row['data'];packet=data['preferences']['packet'];current_data(data,row['capturedNativeEpochMs'])
                 preference_validate(packet,data['preferences']['request'],value['nativeProcessId'],packet['capturedEpochMs'])
+                preference_continuity(previous_preference,packet);previous_preference=packet
                 original_preferences(before_data['preferences']['packet'],packet);original_bookmarks(before_data['bookmarks'],data['bookmarks'])
                 self.assertEqual(before_data['settingsRawBase64'],data['settingsRawBase64'])
                 self.assertEqual(after_data['loads']['rows'],data['loads']['rows'])
@@ -119,6 +133,7 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
             # measured native clock; never retime them into a fresh result.
             with self.assertRaises(AssertionError):current_data(trace_rows[0]['data'],trace_rows[-1]['capturedNativeEpochMs'])
             for key in ('bookmarks','loads'):
+                original_chronology([row['data'][key] for row in trace_rows],'capturedEpochMs',500)
                 self.assertGreaterEqual(trace_rows[-1]['data'][key]['capturedEpochMs']-trace_rows[0]['data'][key]['capturedEpochMs'],3000)
             self.assertGreaterEqual(trace_rows[-1]['data']['preferences']['packet']['capturedEpochMs']-trace_rows[0]['data']['preferences']['packet']['capturedEpochMs'],3000)
             effects=value['originalFavoritePreferences'];self.assertEqual(len(value['originalBookmarkLoads']),len(effects))
