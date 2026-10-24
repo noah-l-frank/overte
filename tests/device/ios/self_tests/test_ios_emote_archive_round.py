@@ -27,12 +27,12 @@ class ArchiveRoundTests(unittest.TestCase):
     def test_same_actual_historical_record_reuses_only_inside_one_unchanged_round(self):
         with self.lock.held():
             with scope(self.value,lock=self.lock,primary_lock=self.lock):
-                first=derived(self.owner,dict(index=1),self.decode);first['actual']=99
-                self.assertEqual(dict(actual=7),derived(self.owner,dict(index=1),self.decode));self.assertEqual(1,self.calls)
+                first=derived(self.owner,dict(index=1,sha256='a'*64),self.decode);first['actual']=99
+                self.assertEqual(dict(actual=7),derived(self.owner,dict(index=1,sha256='a'*64),self.decode));self.assertEqual(1,self.calls)
             with scope(self.value,lock=self.lock,primary_lock=self.lock):
-                self.assertEqual(dict(actual=7),derived(self.owner,dict(index=1),self.decode));self.assertEqual(2,self.calls)
+                self.assertEqual(dict(actual=7),derived(self.owner,dict(index=1,sha256='a'*64),self.decode));self.assertEqual(2,self.calls)
                 self.owner.historical=False
-                derived(self.owner,dict(index=1),self.decode);derived(self.owner,dict(index=1),self.decode)
+                derived(self.owner,dict(index=1,sha256='a'*64),self.decode);derived(self.owner,dict(index=1,sha256='a'*64),self.decode)
                 self.assertEqual(4,self.calls)
 
     def test_changed_original_and_new_unaccounted_file_cannot_borrow_prior_decode(self):
@@ -40,23 +40,23 @@ class ArchiveRoundTests(unittest.TestCase):
             for fault in ('changed','new-file'):
                 with self.subTest(fault=fault),self.assertRaises(NativeUIError):
                     with scope(self.value,lock=self.lock,primary_lock=self.lock):
-                        derived(self.owner,dict(index=1),self.decode)
+                        derived(self.owner,dict(index=1,sha256='a'*64),self.decode)
                         if fault=='changed':self.file.write(dict(actual=8),self.file.read())
                         else:PrivateFeatureState(self.root/'unexpected.json').write(dict(actual=9),None)
-                        derived(self.owner,dict(index=1),self.decode)
+                        derived(self.owner,dict(index=1,sha256='a'*64),self.decode)
 
     def test_current_component_decoder_runs_each_time_but_identical_pure_validation_is_scoped(self):
         self.owner.historical=False;self.owner.root=self.root;calls=[]
         def validate(value):calls.append(value);return value
         def current():
             for _ in range(2):
-                derived(self.owner,dict(index=1),self.decode)
+                derived(self.owner,dict(index=1,sha256='a'*64),self.decode)
                 returning_input(validate,dict(original='same'))
             return dict(actual='current decoder returned')
         with self.lock.held():
-            self.assertEqual(dict(actual='current decoder returned'),component_read(self.owner,dict(index=1),current))
+            self.assertEqual(dict(actual='current decoder returned'),component_read(self.owner,dict(index=1,sha256='a'*64),current))
             self.assertEqual(2,self.calls);self.assertEqual(1,len(calls))
-            component_read(self.owner,dict(index=1),current)
+            component_read(self.owner,dict(index=1,sha256='a'*64),current)
             self.assertEqual(4,self.calls);self.assertEqual(2,len(calls))
             returning_input(validate,dict(original='same'));self.assertEqual(3,len(calls))
 
@@ -65,7 +65,7 @@ class ArchiveRoundTests(unittest.TestCase):
         def changed():
             self.file.write(dict(actual=8),self.file.read());return dict(performed=True)
         with self.lock.held(),self.assertRaises(NativeUIError):
-            component_read(self.owner,dict(index=1),changed)
+            component_read(self.owner,dict(index=1,sha256='a'*64),changed)
 
     def test_batch_reopens_each_snapshot_and_shares_only_pure_validation(self):
         validations=[]
@@ -73,7 +73,7 @@ class ArchiveRoundTests(unittest.TestCase):
         with self.lock.held(),validation_batch(self.value,lock=self.lock,primary_lock=self.lock):
             for label in ('first-snapshot','second-snapshot'):
                 with scope(dict(self.value,snapshot=label),lock=self.lock,primary_lock=self.lock):
-                    self.assertEqual(dict(actual=7),derived(self.owner,dict(index=1),self.decode))
+                    self.assertEqual(dict(actual=7),derived(self.owner,dict(index=1,sha256='a'*64),self.decode))
                     returning_input(validate,dict(original=7))
             self.assertEqual(2,self.calls);self.assertEqual(1,len(validations))
 
@@ -81,10 +81,20 @@ class ArchiveRoundTests(unittest.TestCase):
         with self.lock.held(),self.assertRaises(NativeUIError):
             with validation_batch(self.value,lock=self.lock,primary_lock=self.lock):
                 with scope(dict(self.value,snapshot='first'),lock=self.lock,primary_lock=self.lock):
-                    derived(self.owner,dict(index=1),self.decode)
+                    derived(self.owner,dict(index=1,sha256='a'*64),self.decode)
                 self.file.write(dict(actual=8),self.file.read())
                 with scope(dict(self.value,snapshot='second'),lock=self.lock,primary_lock=self.lock):
-                    derived(self.owner,dict(index=1),self.decode)
+                    derived(self.owner,dict(index=1,sha256='a'*64),self.decode)
+
+    def test_cached_reference_keeps_its_closed_literal_grammar(self):
+        class ForeignMapping(dict):pass
+        reference=dict(index=1,sha256='a'*64)
+        with self.lock.held(),scope(self.value,lock=self.lock,primary_lock=self.lock):
+            self.assertEqual(dict(actual=7),derived(self.owner,reference,self.decode))
+            for wrong in (ForeignMapping(reference),dict(reference,index=True),dict(reference,index=1.),
+                          dict(reference,sha256='A'*64),dict(reference,extra=1)):
+                with self.subTest(reference=wrong),self.assertRaises(NativeUIError):derived(self.owner,wrong,self.decode)
+            self.assertEqual(1,self.calls)
 
 
 if __name__=='__main__':unittest.main()

@@ -9,9 +9,10 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from copy import deepcopy
 from pathlib import Path
+import re
 
 from adapters.native_clock_join import digest
-from adapters.native_feature_observation import need
+from adapters.native_feature_observation import exact,integer,need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.original_file_reads import record,scope as file_reads
 from adapters.script_feature.history import canonical
@@ -71,7 +72,7 @@ def derived(owner,reference,decode):
     current=_ACTIVE.get()
     if current is None or not owner.historical:return decode()
     need(owner.lock is current.lock and owner.primary_lock is current.primary_lock)
-    current.guard()
+    reference_packet(reference);current.guard()
     key=canonical(dict(owner=type(owner).__module__+'.'+type(owner).__qualname__,path=str(owner.store.path),
         envelope=owner.envelope(dict(records=[],abandoned=[],pending=None)),reference=reference))
     if key in current.rows:
@@ -89,6 +90,11 @@ def derived(owner,reference,decode):
         current.rows[key]=(deepcopy(value),set(reads),size);current.bytes+=size
     for path in reads:record(path)
     return value
+
+
+def reference_packet(value):
+    exact(value,{'index','sha256'})
+    need(integer(value['index'],1,128) and type(value['sha256']) is str and re.fullmatch('[0-9a-f]{64}',value['sha256']))
 
 
 def component_read(owner,value,decode):

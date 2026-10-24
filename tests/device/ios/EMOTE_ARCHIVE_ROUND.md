@@ -69,6 +69,23 @@ decodes, lost metadata returns and preserved uncertain file birth. Builds and
 devices remain untested; no full-window or deadline claim follows from these
 component checks.
 
+The unchanged retained four-cut Primary journal reopens all originals and
+preserves all four pre-optimization measured-graph hashes in 110.116 seconds.
+This still **fails the unchanged thirty-second budget**. A trial adding a full
+inventory-guarded memo for each historical Key original preserved every hash
+and passed eighteen targeted checks, but increased that same read to 164.710
+seconds. Its activation and helper were removed; no inactive Key memo remains.
+The final Key parser is unchanged.
+
+The trial also exposed a separate strictness issue in the existing derivation
+memo key: a mapping subclass could serialize identically to a valid reference
+and skip the literal dictionary check on reuse. Historical memo references now
+require the actual closed index/SHA grammar before key lookup. Mapping subclasses,
+boolean/floating indices, uppercase SHA strings and additional fields are
+refused. Twelve final pure/scope/reference regressions pass in 0.061 seconds.
+The trial's two actual rooted archive regressions passed in 48.054 seconds;
+the trial timing is not a deadline pass or a full feature result.
+
 Two inventory/memo counterexamples pass in 0.036 seconds. Fourteen initial
 history/type/inventory regressions pass in 0.050 seconds; twenty-six native
 transport/history/type/inventory checks pass in 0.186 seconds, followed by
