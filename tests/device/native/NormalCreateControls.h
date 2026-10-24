@@ -18,6 +18,13 @@ inline QVariant createVariant(QVariant value) {
     return value;
 }
 
+// Original PathUtils canonicalizes directories without a trailing slash.
+// Resolve a child against that directory while preserving its URL identity.
+inline QUrl createScriptDirectoryUrl(QUrl directory) {
+    if (!directory.path().endsWith('/')) { directory.setPath(directory.path()+'/'); }
+    return directory;
+}
+
 inline QString createComponentSource(QQuickItem* item) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (!audioGuiItem(item) || !loginQmlId(item,"root")) { return {}; }

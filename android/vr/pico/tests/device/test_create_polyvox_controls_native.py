@@ -9,6 +9,8 @@ import json
 import sys
 from pathlib import Path
 import shlex
+import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -97,6 +99,54 @@ def native_trace_process(command,environment,trace):
     return dict(raw=output,hostReceipts=receipts,traceLines=lines)
 
 
+def compile_original_native(stage,command,environment):
+    """One fresh ordinary -j2 object build, one shared 90-second deadline.
+
+    The selected original TUs, compiler/semantic flags and linker inputs are
+    unchanged. Objects live only in this attempt's new private stage; there is
+    no prebuild, cross-attempt cache, alternate selector or reused binary.
+    """
+    compiler=shutil.which(command[0]);ninja=shutil.which('ninja')
+    if not compiler or not ninja:raise RuntimeError('Existing C++/Ninja host tools are required')
+    sources=[];common=[];link=[];binary=None;index=1
+    while index<len(command):
+        value=command[index]
+        if value=='-o':binary=command[index+1];index+=2;continue
+        if Path(value).suffix in ('.cpp','.cxx','.cc') and Path(value).is_file():sources.append(value)
+        elif value.startswith(('-l','-L','-Wl,')) or Path(value).suffix=='.a' or '.so' in Path(value).suffixes:link.append(value)
+        else:
+            common.append(value)
+            if value=='-pthread':link.append(value)
+        index+=1
+    if not sources or len(sources)!=len(set(sources)) or not binary:raise ValueError('Ambiguous original native build inputs')
+    objects=[str(stage/('original-'+str(index)+'.o')) for index in range(len(sources))]
+    def escape(value):return value.replace('$','$$').replace(' ','$ ').replace(':','$:')
+    def shell(values):return shlex.join(values).replace('$','$$')
+    lines=['rule original_cxx','  command = '+shell([compiler,*common])+' -c $in -o $out',
+        'rule original_link','  command = '+shell([compiler,*common])+' $in '+shell(link)+' -o $out']
+    lines += ['build '+escape(obj)+': original_cxx '+escape(source) for obj,source in zip(objects,sources)]
+    lines += ['build '+escape(binary)+': original_link '+' '.join(map(escape,objects)),'default '+escape(binary)]
+    build=stage/'original-create-build.ninja';build.write_text('\n'.join(lines)+'\n')
+    def digest(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    provenance={'originalCommand':command,'sources':{source:digest(source) for source in sources},
+        'compilerFlags':common,'linkInputs':link,'workers':2,'compileAndLinkDeadlineSeconds':90,
+        'tools':{tool:digest(Path(tool).resolve(strict=True)) for tool in (compiler,ninja)},'buildSha256':digest(build)}
+    (stage/'original-create-build-inputs.json').write_text(json.dumps(provenance,sort_keys=True))
+    started=time.monotonic();process=subprocess.Popen([ninja,'-f',str(build),'-j','2'],cwd=stage,env=environment,start_new_session=True)
+    timed_out=False
+    try:
+        result=process.wait(timeout=90)
+        if result:raise subprocess.CalledProcessError(result,process.args)
+    except subprocess.TimeoutExpired:
+        timed_out=True
+        # Only this owning compiler process group is stopped at its existing
+        # budget. No application/resource owner has been started or retired.
+        os.killpg(process.pid,signal.SIGKILL);process.wait();raise
+    finally:
+        (stage/'original-create-build-result.json').write_text(json.dumps({'returncode':process.returncode,
+            'timedOut':timed_out,'elapsedSeconds':time.monotonic()-started},sort_keys=True))
+
+
 class CreatePolyvoxControlsNativeTests(unittest.TestCase):
     def run_original(self, cpp, modes=None):
         environment=dict(os.environ);major=environment.get('OVERTE_NATIVE_QT_MAJOR','5');self.assertEqual('5',major)
@@ -105,7 +155,7 @@ class CreatePolyvoxControlsNativeTests(unittest.TestCase):
             LD_LIBRARY_PATH=str(prefix/'usr/lib64'),QT_PLUGIN_PATH=str(prefix/'usr/lib64/qt5/plugins'),
             QML2_IMPORT_PATH=str(prefix/'usr/lib64/qt5/qml'),QML_IMPORT_PATH=str(prefix/'usr/lib64/qt5/qml'))
         flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs',
-            *('Qt5'+module for module in (('Core','Gui','Qml','Quick','Test','Concurrent') if modes else ('Core','Gui','Qml','Quick','Test')))],text=True,env=environment))
+            *('Qt5'+module for module in (('Core','Gui','Qml','Quick','Test','Concurrent','Network') if modes else ('Core','Gui','Qml','Quick','Test')))],text=True,env=environment))
         evidence=environment.get('OVERTE_CREATE_VOXEL_NATIVE_EVIDENCE_DIR') if modes else None
         destination=None
         if evidence:
@@ -160,15 +210,20 @@ class CreatePolyvoxControlsNativeTests(unittest.TestCase):
                 native_flags=['-DANDROID_APP_PICO_INTERFACE','-DGLM_FORCE_RADIANS','-DGLM_ENABLE_EXPERIMENTAL','-DGLM_FORCE_CTOR_INIT','-fmax-errors=4','-ffunction-sections','-fdata-sections','-Wl,--gc-sections','-pthread',
                     '-I'+str(HERE),
                     *('-I'+str(ROOT/path) for path in ('libraries/shared/src','libraries/gpu/src','libraries/graphics/src'))]
-            subprocess.run(['c++','-std=c++20' if modes else '-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-I'+directory,'-I'+str(ROOT),
+            command=['c++','-std=c++20' if modes else '-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-I'+directory,'-I'+str(ROOT),
                 '-I'+str(ROOT/'libraries/ui/src'),'-I'+str(ROOT/'libraries/script-engine/src'),
                 '-isystem',str(Path(environment['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),*native_flags,str(HERE/cpp),*additional,str(ROOT/'libraries/ui/src/ui/NativeFieldInput.cpp'),
-                '-o',str(binary),'-L'+str(prefix/'usr/lib64'),*flags],check=True,timeout=90,env=environment)
+                '-o',str(binary),'-L'+str(prefix/'usr/lib64'),*flags]
+            if modes:compile_original_native(stage,command,environment)
+            else:subprocess.run(command,check=True,timeout=90,env=environment)
             environment.update(QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',QT_FORCE_STDERR_LOGGING='1')
             subprocess.run(['unshare','--user','--map-root-user','--net',str(binary),str(ROOT),str(stage/'imports')],check=True,timeout=30,env=environment)
             if modes:
                 results={}
                 for mode in modes:
+                    profile=stage/('private-profile-'+mode);profile.mkdir(mode=0o700)
+                    for variable,leaf in (('XDG_CONFIG_HOME','config'),('XDG_CACHE_HOME','cache'),('XDG_DATA_HOME','data')):
+                        folder=profile/leaf;folder.mkdir(mode=0o700);environment[variable]=str(folder)
                     environment['OVERTE_CREATE_VOXEL_NATIVE_MODE']=mode
                     trace=(destination if destination else stage)/(mode+'-source.jsonl')
                     environment['OVERTE_CREATE_VOXEL_NATIVE_TRACE']=str(trace)

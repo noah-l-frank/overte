@@ -59,7 +59,7 @@ inline CreateExtraObject createPolyvoxObject(QQuickItem* item) {
     int contexts{0};
     for (auto context=qmlContext(item);context && ++contexts<=128;context=context->parentContext()) {
         const auto source=context->baseUrl();
-        if (!context->isValid() || source!=PathUtils::defaultScriptsLocation().resolved(QUrl("system/create/qml/NewPolyVoxDialog.qml"))) { continue; }
+        if (!context->isValid() || source!=createScriptDirectoryUrl(PathUtils::defaultScriptsLocation()).resolved(QUrl("system/create/qml/NewPolyVoxDialog.qml"))) { continue; }
         const auto name=context->nameForObject(item);if (name.isEmpty()) { continue; }
         int parents{0};
         for (auto parent=item;parent && ++parents<=128;parent=parent->parentItem()) {

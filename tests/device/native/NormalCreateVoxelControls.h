@@ -8,7 +8,7 @@
 namespace overte::e2e {
 inline QQuickItem* createVoxelPage(QQuickItem* item) {
     auto page=createPage(item);
-    const auto expected=PathUtils::defaultScriptsLocation().resolved(QUrl("system/create/qml/NativeCreate.qml"));
+    const auto expected=createScriptDirectoryUrl(PathUtils::defaultScriptsLocation()).resolved(QUrl("system/create/qml/NativeCreate.qml"));
     if (!page || page->property("currentTab").toInt()!=3 || QUrl(createComponentSource(page))!=expected) {return nullptr;}
     const auto receipt=page->property("e2eSettingsReceived");
     if (receipt.userType()!=QMetaType::Bool || !receipt.toBool()) {return nullptr;}
