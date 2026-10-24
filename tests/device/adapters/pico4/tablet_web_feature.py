@@ -445,20 +445,36 @@ class PicoTabletWebFeature:
         record(value);need(value['kind']=='image' and value['phase']=='saved')
         return self._original_image_bytes(value,expected=expected)
 
-    def _original_image_bytes(self,value,*,expected=None):
+    def _original_image_bytes(self,value,*,expected=None,directory=None):
         """Physical/full-byte checks after immutable original semantics validation."""
         from adapters.chat_journey.archive_file import signature
-        path=self.artifact_root/value['name'];PrivateFeatureState(path)._parent()
-        descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
+        path=self.artifact_root/value['name']
+        flags=os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)
+        if directory is None:
+            PrivateFeatureState(path)._parent()
+            descriptor=os.open(path,flags)
+            named=path.lstat
+        else:
+            # An archive already owns this exact private parent OFD. Keep all
+            # full-byte/stamp checks but avoid resolving the same ancestors
+            # again for each previously admitted PNG in the inventory.
+            from adapters.native_fd_owner import OriginalDescriptor
+            need(type(directory) is OriginalDescriptor and path.name==value['name'])
+            directory.require(directory.fd);parent=self.artifact_root.lstat()
+            need(stat.S_ISDIR(parent.st_mode) and stat.S_IMODE(parent.st_mode)==0o700
+                and parent.st_uid==os.geteuid() and (parent.st_dev,parent.st_ino)==directory.node)
+            descriptor=os.open(value['name'],flags,dir_fd=directory.fd)
+            named=lambda:os.stat(value['name'],dir_fd=directory.fd,follow_symlinks=False)
         with os.fdopen(descriptor,'rb') as stream:
             first=os.fstat(stream.fileno());original=signature(first)
             need(stat.S_ISREG(first.st_mode) and first.st_nlink==1 and first.st_uid==os.geteuid()
                 and stat.S_IMODE(first.st_mode)==0o600 and first.st_size==value['bytes']
                 and (first.st_dev,first.st_ino)==(value['file']['device'],value['file']['inode'])
-                and signature(path.lstat())==original and (expected is None or original==expected))
+                and signature(named())==original and (expected is None or original==expected))
             raw=stream.read(value['bytes']+1)
             need(len(raw)==value['bytes'] and hashlib.sha256(raw).hexdigest()==value['sha256']
-                and signature(os.fstat(stream.fileno()))==signature(path.lstat())==original)
+                and signature(os.fstat(stream.fileno()))==signature(named())==original)
+            if directory is not None:directory.require(directory.fd)
             return raw,original
 
     def metadata(self,name,expected=None):

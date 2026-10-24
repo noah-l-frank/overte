@@ -94,3 +94,59 @@ class BrowserArchiveContextTests(unittest.TestCase):
             metadata_pngs(dict(picoBrowserEvidenceArchiveVersion=2,contextSha256=digest(single),
                 pngCount=True,pngsSha256=json_digest(single['pngs'])),single)
         self.assertEqual(context,read_context(self.store,self.run))
+
+
+class BrowserArchivePngWindowTests(unittest.TestCase):
+    """Historical full-byte windows only; no live image/source is produced."""
+    def setUp(self):
+        import io
+        import os
+        from types import MethodType,SimpleNamespace
+        from PIL import Image
+        from adapters.chat_journey.archive_file import signature
+        from adapters.chat_journey.evidence_archive import ChatArchiveCatalog
+        from adapters.native_fd_owner import OriginalDescriptor
+        from adapters.pico4.browser_evidence_archive import PicoBrowserEvidenceArchive
+        from adapters.pico4.tablet_web_feature import PicoTabletWebFeature
+        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
+        self.parent=Path(temporary.name);self.root=self.parent/'originals';self.root.mkdir(mode=0o700)
+        stream=io.BytesIO();Image.new('RGBA',(2,2),(17,33,55,255)).save(stream,format='PNG');self.raw=stream.getvalue()
+        self.path=self.root/'original.png';self.path.write_bytes(self.raw);self.path.chmod(0o600)
+        info=self.path.stat();value=dict(name=self.path.name,bytes=len(self.raw),sha256=hashlib.sha256(self.raw).hexdigest(),
+            file=dict(device=info.st_dev,inode=info.st_ino))
+        rows=[dict(value=value,stamp=signature(info))]
+        primary=SimpleNamespace(artifact_root=self.root)
+        primary._original_image_bytes=MethodType(PicoTabletWebFeature._original_image_bytes,primary)
+        self.plan=PicoBrowserEvidenceArchive.__new__(PicoBrowserEvidenceArchive)
+        self.plan.root=self.root;self.plan.primary=primary;self.plan.captures=SimpleNamespace(pngs=rows)
+        self.plan.metadata=dict(pngsSha256=json_digest(rows),pngCount=len(rows))
+        self.plan.catalog=ChatArchiveCatalog(hold_files=False)
+        self.directory=OriginalDescriptor(self.root,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
+        self.addCleanup(self.directory.close);self.plan.catalog.parents[self.root]=self.directory
+
+    def test_full_original_bytes_use_actual_owned_parent_then_independent_reader_after_close(self):
+        reader=self.plan.primary._original_image_bytes
+        with patch.object(self.plan.primary,'_original_image_bytes',wraps=reader) as reads:
+            self.plan.pngs();self.assertIs(self.directory,reads.call_args.kwargs['directory'])
+            self.assertEqual(self.raw,self.path.read_bytes())
+            self.assertTrue(self.directory.close());self.plan.pngs()
+            self.assertNotIn('directory',reads.call_args.kwargs)
+        self.assertEqual(self.raw,self.path.read_bytes())
+
+    def test_same_bytes_replaced_png_is_refused_without_removing_either_original(self):
+        original=self.path.stat().st_ino;replacement=self.root/'replacement.png'
+        replacement.write_bytes(self.raw);replacement.chmod(0o600);replacement.replace(self.path)
+        self.assertNotEqual(original,self.path.stat().st_ino)
+        with self.assertRaises(NativeUIError):self.plan.pngs()
+        self.assertEqual(self.raw,self.path.read_bytes());self.assertFalse(self.directory.closed)
+
+    def test_parent_replacement_after_actual_full_read_cannot_pass_final_inventory(self):
+        reader=self.plan.primary._original_image_bytes;retained=self.parent/'retained-originals'
+        def moved(*args,**kwargs):
+            value=reader(*args,**kwargs);self.root.rename(retained);self.root.mkdir(mode=0o700)
+            replacement=self.root/self.path.name;replacement.write_bytes(self.raw);replacement.chmod(0o600)
+            return value
+        with patch.object(self.plan.primary,'_original_image_bytes',side_effect=moved),self.assertRaises(NativeUIError):
+            self.plan.pngs()
+        self.assertEqual(self.raw,(retained/self.path.name).read_bytes())
+        self.assertEqual(self.raw,self.path.read_bytes());self.assertFalse(self.directory.closed)

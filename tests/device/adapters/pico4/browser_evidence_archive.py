@@ -91,7 +91,16 @@ class PicoBrowserEvidenceArchive:
     def pngs(self):
         need(json_digest(self.captures.pngs)==self.metadata['pngsSha256']
             and len(self.captures.pngs)==self.metadata['pngCount'])
-        for row in self.captures.pngs:self.primary._original_image_bytes(row['value'],expected=row['stamp'])
+        directory=self.catalog.parents[self.root]
+        if directory.closed:
+            # Final host closure has deliberately retired this original pair.
+            # The existing independent full-byte reader remains available.
+            for row in self.captures.pngs:self.primary._original_image_bytes(row['value'],expected=row['stamp'])
+        else:
+            self.catalog.verify_parent(self.root)
+            for row in self.captures.pngs:
+                self.primary._original_image_bytes(row['value'],expected=row['stamp'],directory=directory)
+            self.catalog.verify_parent(self.root)
 
     def inventory(self,remaining):
         """Actual complete namespace scans reject extra or missing originals."""

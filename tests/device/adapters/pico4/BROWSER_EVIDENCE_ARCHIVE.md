@@ -135,3 +135,35 @@ source and host release remain incomplete. All 13,488 source hashes match;
 is not a complete pass or permission to replay/adopt the partial owner. The
 next performance measurement must preserve every per-unlink physical/source/
 phase guard, the 16/250ms policy and final original clocks.
+
+
+## Original PNG read windows through the owned directory
+
+During archival the existing catalog already holds the exact private artifact
+directory and its kernel-verified OFD alias. The PNG reader can now use that
+original directory for relative opens, avoiding repeated ancestor resolution.
+It still reads every original PNG byte, hashes the full contents and compares
+every file identity, size, permissions, owner, link count and complete
+mtime/ctime stamp before and after the read. The catalog verifies the actual
+parent path and OFD before and after the complete PNG inventory. After actual
+host closure the original independent reader remains the fallback; a closed
+directory descriptor is never reused. No physical/image check or query is
+removed, no persisted format changes and no fresh source is cached.
+
+Three additional existing-group cases cover the real owned-directory and
+post-close paths, a same-byte foreign inode, and replacement of the parent
+after an actual complete image read. Both the old and replacement image bytes
+remain when that final parent guard refuses. The full owning archive group
+passes in 29.955 s and the host-close fences in 29.553 s, with coverage in
+0.100 s. All 13,552 tracked/new sources keep their complete before/after hashes.
+The independent eight-case context/window test also passes; no whole success
+is inferred. Private outputs use `browser-owned-png-window-*20261024`.
+
+An equal-scope read-only comparison over the same retained 2,236 historical
+files measures approximately 19.6 ms for the complete original PNG method and
+17.6 ms through the owned directory. Both include strict metadata verification
+and every full original PNG byte. This is a modest measured saving, not a
+claim that the whole120s budget fits. An initial reporting-only failure after
+writing the measurements is retained; the corrected standalone comparison
+finishes with all original stamps/hashes unchanged. Its archive is historical
+only and cannot resume or retire the earlier failed owner.
