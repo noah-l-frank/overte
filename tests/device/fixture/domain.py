@@ -611,6 +611,7 @@ class DomainMemoryGuard:
         self.stopped = []
         self.timeline = None
         self.timeline_index = None
+        self.timeline_versions = {}
         self.last = None
         # This constructor seam is for host counters, never a CLI override.
         if type(timeline_part_bytes) is not int or timeline_part_bytes <= 0:
@@ -630,6 +631,7 @@ class DomainMemoryGuard:
                                       os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=hold.fd)
         os.fchmod(self.timeline_index,0o600)
         self.timeline_index_identity = self.file_identity(os.fstat(self.timeline_index))
+        self.timeline_versions[self.timeline_index] = self.file_version(os.fstat(self.timeline_index))
         # Resolution/admission failures must leave the hold with no partial guard.
         hold.memory_guard = self
         self.check("pre-launch", force=True)
@@ -637,6 +639,10 @@ class DomainMemoryGuard:
     @staticmethod
     def file_identity(info):
         return info.st_dev, info.st_ino, info.st_uid, info.st_mode, info.st_nlink
+
+    @staticmethod
+    def file_version(info):
+        return info.st_mtime_ns, info.st_ctime_ns
 
     def open_timeline_part(self):
         self.hold.check_directory()
@@ -647,6 +653,7 @@ class DomainMemoryGuard:
                                 os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=self.hold.fd)
         os.fchmod(self.timeline,0o600)
         self.timeline_identity = self.file_identity(os.fstat(self.timeline))
+        self.timeline_versions[self.timeline] = self.file_version(os.fstat(self.timeline))
         self.timeline_bytes = 0
         self.timeline_digest = hashlib.sha256()
         self.timeline_first = None
@@ -659,7 +666,9 @@ class DomainMemoryGuard:
         if (self.file_identity(before) != identity or self.file_identity(path) != identity
                 or before.st_uid != os.geteuid() or before.st_nlink != 1
                 or not stat.S_ISREG(before.st_mode) or stat.S_IMODE(before.st_mode) != 0o600
-                or before.st_size != offset or path.st_size != offset):
+                or before.st_size != offset or path.st_size != offset
+                or self.file_version(before) != self.timeline_versions[descriptor]
+                or self.file_version(path) != self.file_version(before)):
             raise RuntimeError("DOMAIN_MEMORY_TIMELINE_OWNER_CHANGED")
         space = os.fstatvfs(self.hold.fd)
         if space.f_bavail * space.f_frsize - len(raw) < 6*1024**3:
@@ -674,8 +683,9 @@ class DomainMemoryGuard:
         path = os.stat(name, dir_fd=self.hold.fd, follow_symlinks=False)
         if (actual != raw or self.file_identity(after) != identity
                 or self.file_identity(path) != identity or after.st_size != offset+len(raw)
-                or path.st_size != after.st_size):
+                or path.st_size != after.st_size or self.file_version(path) != self.file_version(after)):
             raise RuntimeError("DOMAIN_MEMORY_TIMELINE_WRITE_UNPROVEN")
+        self.timeline_versions[descriptor] = self.file_version(after)
         os.fsync(descriptor)
         return actual
 

@@ -296,6 +296,16 @@ class DomainFixtureTest(unittest.TestCase):
         self.assertEqual(before,(hold.directory/"MEMORY_TIMELINE.private.jsonl").read_bytes())
         self.assertEqual([],guard.stopped)
 
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Linux owned process context")
+    def test_memory_timeline_rejects_foreign_in_place_prefix_edit(self):
+        module,root,hold,guard,cgroup,counter,process=self.memory_counter_fixture()
+        path=hold.directory/"MEMORY_TIMELINE.private.jsonl"
+        with path.open("r+b")as stream:stream.write(b"foreign")
+        foreign=path.read_bytes()
+        with self.assertRaisesRegex(RuntimeError,"DOMAIN_MEMORY_TIMELINE_OWNER_CHANGED"):
+            guard.check(force=True)
+        self.assertEqual(foreign,path.read_bytes());self.assertEqual([],guard.stopped)
+
     @unittest.skipUnless(sys.platform.startswith("linux"), "Linux cgroup and pidfd counter")
     def test_memory_pressure_freezes_real_owned_allocation_then_exact_release_resumes_cleanup(self):
         module,root,hold,guard,cgroup,counter,process=self.memory_counter_fixture()
