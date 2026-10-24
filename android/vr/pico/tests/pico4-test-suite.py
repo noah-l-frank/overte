@@ -98,6 +98,7 @@ TESTS = (
     test("browser-entry", "interaction", PYTHON, "pico-browser-entry-test.py"),
     test("browser-originals", "webview", PYTHON, "pico-browser-originals-test.py", requires=("c++", "pkg-config", "javac", "java", "node")),
     test("world-web-ray", "webview", PYTHON, "device/test_world_web_ray.py", requires=("c++", "pkg-config")),
+    test("world-web-prefix", "webview", PYTHON, "device/test_world_web_prefix.py"),
     test("world-web-stereo", "webview", PYTHON, "device/test_world_web_stereo.py"),
     test("lifecycle-pending-progress", "interaction", PYTHON, "pico-lifecycle-pending-test.py", "progress"),
     test("lifecycle-pending-failure", "interaction", PYTHON, "pico-lifecycle-pending-test.py", "failure"),

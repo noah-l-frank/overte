@@ -318,6 +318,7 @@ class PicoNavigation:
                  *, monotonic=time.monotonic, sleep=time.sleep, address_authority=None):
         need(address_authority is None or callable(address_authority))
         self.address_authority=address_authority
+        self._feature_client_url=None;self._feature_client_sha=None
         self.io, self.path = io, Path(state_path)
         self.monotonic, self.sleep = monotonic, sleep
         self.urls = set(viewpoint_urls(scene_url).values())
@@ -342,6 +343,19 @@ class PicoNavigation:
                  and type(self.state['schemaVersion']) is int
                  and all(self.state.get(key) == value for key, value in self.context.items())
                  and identifier(self.state['bridgeId']) and type(self.state['tabletOwned']) is bool)
+
+    def bind_feature_client_url(self,url):
+        # One immutable exact URL supplied by the existing phase-owning browser
+        # manager. Generic navigation keeps rejecting all other client sources.
+        from adapters.normal_script_manager import feature_browser_script_url
+        feature_browser_script_url(url)
+        need(self._feature_client_url is None or self._feature_client_url==url)
+        self._feature_client_url=url;self._feature_client_sha=hashlib.sha256(url.encode()).hexdigest()
+
+    def require_feature_client_url(self,url):
+        need(type(url) is str and url==self._feature_client_url
+            and hashlib.sha256(url.encode()).hexdigest()==self._feature_client_sha)
+        return True
 
     def _private_parent(self):
         need(self.path.is_absolute() and self.path.parent.resolve(strict=True) == self.path.parent)
@@ -604,8 +618,10 @@ class PicoNavigation:
                 if '/script-management/' in text:
                     script_url(text, missing=text.endswith('/missing.js'))
                 elif '/feature-fixture/' in text:
-                    from adapters.normal_script_manager import missing_script_url
-                    missing_script_url(text)
+                    from adapters.normal_script_manager import missing_script_url,feature_browser_script_url
+                    if text.endswith('/client.js'):
+                        feature_browser_script_url(text);self.require_feature_client_url(text)
+                    else:missing_script_url(text)
                 else:
                     owned_url(text, {'observer.js'})
             elif is_create_file:
@@ -641,6 +657,8 @@ class PicoNavigation:
             need(self.address_authority(text) is True)
         if expected_address is not None:
             need(self.address_authority(expected_address) is True if self.address_authority is not None else expected_address in self.urls)
+        if control_id=='scripts.url.field' and action=='replace' and '/feature-fixture/' in text and text.endswith('/client.js'):
+            self.require_feature_client_url(text)
         # The owning transport writes exactly once, then only polls status.
         try:
             status, now = self.io.send(command)

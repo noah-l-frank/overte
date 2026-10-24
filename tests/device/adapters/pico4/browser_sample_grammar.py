@@ -13,8 +13,11 @@ AREA='tablet-web'
 ACTION='pico-tablet-web'
 
 
-def validate_sample(frame,previous,*,owner,run,fixture_url,foreign_url,vm,image):
+def validate_sample(frame,previous,*,owner,run,fixture_url,foreign_url,vm,image,area="tablet-web"):
     """Replay complete historical source validation without any target query."""
+    need(type(area) is str and area in ("tablet-web","world-web"))
+    surface="tablet" if area=="tablet-web" else "world"
+    action="pico-tablet-web" if surface=="tablet" else "pico-world-web"
     from adapters.native_feature_observation import validate as feature_packet
     from adapters.native_web_runtime import validate as runtime_packet,continuity as runtime_advance
     from adapters.normal_script_manager import diagnostic as service_packet
@@ -26,7 +29,7 @@ def validate_sample(frame,previous,*,owner,run,fixture_url,foreign_url,vm,image)
     epoch=frame['finishedEpoch'];need(integer(epoch,1) and integer(frame['startedEpoch'],1,epoch)
         and number(frame['startedHost'],0,1e15) and number(frame['finishedHost'],frame['startedHost'],frame['startedHost']+10))
     for field in ('phaseBefore','phaseAfter'):
-        packet=frame[field];phase_packet(packet,run=run,area=AREA,request=packet['requestId'],epoch=packet['capturedEpochMs'])
+        packet=frame[field];phase_packet(packet,run=run,area=area,request=packet['requestId'],epoch=packet['capturedEpochMs'])
         need(packet['active']);fresh(packet['capturedEpochMs'],epoch)
     need(same(frame['phaseBefore']['activations'],frame['phaseAfter']['activations']))
     need(frame['scriptUrl'] is None or frame['scriptUrl']==owner['scriptUrl'])
@@ -36,7 +39,7 @@ def validate_sample(frame,previous,*,owner,run,fixture_url,foreign_url,vm,image)
     before,after=frame['nativeBefore'],frame['nativeAfter']
     need(before['instance']==after['instance'] and before['sequence']<after['sequence']
         and before['lifecycle']==after['lifecycle'] and before['capturedEpochMs']<=after['capturedEpochMs'])
-    native=frame['native'];request=dict(schemaVersion=1,commandId=native['commandId'],action=ACTION,runId=run,
+    native=frame['native'];request=dict(schemaVersion=1,commandId=native['commandId'],action=action,runId=run,
         fixtureUrl=fixture_url,ownerToken=owner['ownerToken'],operation='observe')
     validate_source(native,request,pid,epoch)
     runtime=frame['runtime'];runtime_packet(runtime,dict(schemaVersion=1,commandId=runtime['commandId'],
@@ -50,7 +53,7 @@ def validate_sample(frame,previous,*,owner,run,fixture_url,foreign_url,vm,image)
             and frame['diagnostic']['sampleSequence']>previous['diagnostic']['sampleSequence']
             and frame['startedHost']>=previous['finishedHost'])
     measured,resources=measurement(run,fixture_url,foreign_url,native,frame['browser'],runtime,
-        frame['diagnostic']['scripts'],frame['scriptUrl'],area=AREA)
+        frame['diagnostic']['scripts'],frame['scriptUrl'],area=area)
     if frame['vm'] is not None:
         from adapters.chat_journey.source_chunks import digest
         exact(frame['vm'],{'scopeSha256','index','sha256'})
@@ -59,10 +62,10 @@ def validate_sample(frame,previous,*,owner,run,fixture_url,foreign_url,vm,image)
         need(integer(index,0,vm.frame_count-1) and reference['scopeSha256']==digest(vm.scope)
             and reference['sha256']==vm.frame_hash(index))
         from adapters.pico4.browser_vm import join
-        _origin,facts=join(vm.frame(index),frame['scriptUrl'],pid,origin=vm.origin)
-        if not facts['retired'] and 'script:tablet-web-client' not in resources:resources.append('script:tablet-web-client')
+        _origin,facts=join(vm.frame(index),frame['scriptUrl'],pid,origin=vm.origin,surface=surface)
+        if not facts['retired'] and 'script:'+area+'-client' not in resources:resources.append('script:'+area+'-client')
     else:need(frame['scriptUrl'] is None)
-    sample=result('feature.'+AREA+'.observe',frame['sample'])
+    sample=result('feature.'+area+'.observe',frame['sample'])
     need(sample['runId']==run and sample['state']==measured and sample['resources']==resources
         and sample['lifecycle']==after['lifecycle'])
     if sample['artifacts']:
