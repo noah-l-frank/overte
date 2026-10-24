@@ -5,9 +5,10 @@ failed preparation, OS death and SDK retirement need their own typed owners.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
-from adapters.native_feature_observation import need
+from adapters.native_feature_observation import exact,need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_feature.history import same
+from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys import terminal
 from ios.adapters.emote_observer import EmoteObservationPending
 from ios.adapters.emote_operation import clock,operation
@@ -20,17 +21,36 @@ from ios.adapters.emote_terminal_journal import IOSEmoteTerminalJournal
 
 
 class IOSEmoteTerminal:
+    @staticmethod
+    def existing_actor(primary):
+        """Reopen the real Actor root without preparing or querying an SDK."""
+        from ios.adapters.emote_configuration import settings
+        # Acquire Actor -> Primary outside an existing Primary lease. A newly
+        # constructed same-path lock must never reverse the worker's order.
+        need(primary.lock._owner is None)
+        path=primary.runtime.state_path(primary.actor_selector).with_name('ios-emote-actor-feature.json')
+        actor_lock=ScriptSourceLock(path.with_name('script-feature-sources.lock'))
+        with actor_lock.held(),primary.lock.held():
+            value=PrivateFeatureState(path).read()
+            exact(value,{'iosEmoteFeatureVersion','runId','role','artifactRoot','fixtureUrl','imagePolicy','payload'})
+            need(type(value['iosEmoteFeatureVersion']) is int and value['iosEmoteFeatureVersion']==2
+                and value['runId']==primary.run and value['role']=='actor' and value['fixtureUrl']==primary.phase.fixture_url)
+            selected=settings(dict(artifactRoot=value['artifactRoot'],imagePolicy=value['imagePolicy'],primaryTarget=primary.selector),
+                role='actor',target=primary.actor_selector)
+            need(selected['artifactRoot']!=str(primary.root))
+            actor=IOSEmoteRootedFeature(primary.runtime,primary.actor_selector,primary.client,primary.run,'actor',
+                selected['artifactRoot'],selected['imagePolicy'],primary_selector=primary.selector,monotonic=primary.monotonic,
+                epoch_ms=primary.epoch_ms,sleep=primary.sleep)
+            actor.lock,actor.primary_lock=actor_lock,primary.lock
+            actor.load();need(same(actor.previous,value));return actor
+
     def __init__(self,primary,actor=None):
         need(type(primary) is IOSEmoteRootedFeature and primary.role=='primary')
-        if actor is None:
-            actor=IOSEmoteRootedFeature(primary.runtime,primary.actor_selector,primary.client,primary.run,'actor',
-                primary.root,primary.policy,primary_selector=primary.selector,monotonic=primary.monotonic,
-                epoch_ms=primary.epoch_ms,sleep=primary.sleep)
-            actor.primary_lock=primary.lock
+        if actor is None:actor=self.existing_actor(primary)
         need(type(actor) is IOSEmoteRootedFeature and actor.role=='actor' and actor.runtime is primary.runtime
             and actor.run==primary.run and actor.selector==primary.actor_selector and actor.primary_selector==primary.selector
             and actor.primary_lock is primary.lock and primary.primary_lock is primary.lock
-            and actor.phase.fixture_url==primary.phase.fixture_url)
+            and actor.phase.fixture_url==primary.phase.fixture_url and actor.root!=primary.root)
         self.flow,self.actor,self.runtime=primary,actor,primary.runtime
         self.monotonic,self.deadline,self.last_clock=primary.monotonic,None,None
 

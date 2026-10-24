@@ -6,6 +6,15 @@ Actor flows to `IOSEmoteTerminal`. The existing configuration and ordinary
 `_emote_feature` factory retain their version-one behavior. Complete Emote
 capability admission remains closed; no public terminal dispatch is admitted.
 
+The default terminal factory reopens the actual version-two Actor feature
+metadata under Actor -> Primary locking. It preserves that Actor's separate
+artifact root and image policy rather than deriving either from Primary
+settings. Missing, foreign-run/role/fixture, legacy or malformed metadata and
+shared role roots prevent construction. It creates no SDK or replacement
+owner. Construction under an existing Primary lease is rejected before an
+Actor lock is acquired. Explicit paired owners retain the same distinct-root
+and actual shared-Primary-lock requirements.
+
 The internal controller accepts the shared version-one terminal arguments.
 Inspect and seal retain the unchanged thirty-second whole-call limit. It
 acquires the Actor source lock and then the same actual Primary lock object.
@@ -82,3 +91,7 @@ After integration, all fifteen targeted no-build controller/journal tests pass
 in 0.446 seconds. The five project suites pass in 6.83 seconds; contract-version
 and whitespace checks pass. No build, compiler, device, simulator, installation
 or laboratory operation ran.
+
+After correcting the default Actor-root selection, eighteen targeted host
+cases pass in 0.555 seconds, including distinct stored roots/policies,
+missing/foreign metadata and rejection before reversed lock acquisition.
