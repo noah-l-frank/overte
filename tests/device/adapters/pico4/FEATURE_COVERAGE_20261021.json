@@ -862,7 +862,7 @@
         "open"
       ],
       "missingOperationsOrEvidence": [
-        "Latest full owning case on9b72c5a18d is red at unchanged120s: all26actions/28phases, Close64.627s and common cleanup83.862s; consumed independent Actor return and ready capture-root54children are stored, but final warm completion is unproven. No archive marker/copy or unlink exists. Original1153files and full byte backup retained; no whole/host success.",
+        "Latest full owning case on9b72c5a18d is red at unchanged120s: all26actions/28phases, Close64.627s and common cleanup83.862s; consumed independent Actor return and ready capture-root54children are stored, but final warm completion is unproven. The archiving ownership sentry exists; no later archive-intent marker, copy or unlink exists. Original1153files and full byte backup retained; no whole/host success.",
         "The actual short common-cleanup/typed independent-process return/capture prefix now completes original immutable archive and actual host-pair closure (two cases76.242s); lost initial intent and late final sentry-unlink counters pass75.589s. These prefixes preserve sequenceSucceeded=false and cannot qualify finalization. Complete successful common execution and the public coordinator remain unverified.",
         "Product/GPU/Qt/DOM/Java/OS/native clock endpoints remain explicit analytical host seams. Whole APK/HMD qualification remains unavailable."
       ],
@@ -877,7 +877,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Measure the actual original pre-archive catalog/receipt verification on the newly retained intact historical originals. Latest full trial never reached the optimized immutable-admission/unlink path, so its modest PNG/source component savings do not prove whole budget fit. Preserve full current physical/source/phase/clock checks and120s; no unchanged retry or cold adoption. Final archive/host/public coordinator remain unverified.",
+      "nextExecutableStep": "Locate the actual post-common return/capture cost: durable historical file chronology places consumed Actor return near96.763s, capture-ready root116.975s and archiving ownership sentry119.129s. Plain intact1069-file catalog construction0.750s/full verification0.179\u20130.197s alone does not explain that cost. Preserve all original source/phase/physical/clock checks and120s; no unchanged retry or cold adoption. Final archive/host/public coordinator remain unverified.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },
@@ -1754,7 +1754,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Extend the same integrated Source3/OverteSession/common-wait dispatcher from actual actions1\u20137 through8\u201316. Root baseline12/44.501s and operations14/33.568s pass with all13,557 sources unchanged; actual same-graph World48+readonly34=82 triples and real parent/phase-reader outer-exit guards are verified. Preserve Pending own callbacks, original10s-Hold and one20s segment deadline, independent per-owner limits and all originals; no replay or reset. Then actual newPID cleanup-source handoff, independentActor/images and full public/resource/journal/Host retirement.",
+      "nextExecutableStep": "Extend the same integrated Source3/OverteSession/common-wait dispatcher from actual actions1\u20137 through8\u201316. Root baseline12/44.501s and operations14/33.568s pass with all13,557 sources unchanged; actual same-graph World48+readonly34=82 triples and real parent/phase-reader outer-exit guards are verified. Preserve Pending own callbacks, original10000ms maximum hold age and one20s segment deadline, independent per-owner limits and all originals; no replay or reset. Then actual newPID cleanup-source handoff, independentActor/images and full public/resource/journal/Host retirement.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

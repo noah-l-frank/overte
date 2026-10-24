@@ -5569,7 +5569,15 @@
           0.024321675999090075
         ]
       }
-    }
+    },
+    "approximateDurableFileChronologyFromRunnerConfigSeconds": {
+      "actorReturnConsumed": 96.763,
+      "remoteCaptureFirstChild": 100.382,
+      "remoteCaptureLastChild": 116.92,
+      "remoteCaptureReadyRoot": 116.975,
+      "archivingOwnershipSentry": 119.129
+    },
+    "chronologyQualification": "Historical file mtimes relative to the launch-config write; profiling only, never fresh native observation or a substituted clock."
   },
   "lifecycleOperationsSevenRoot20261024": {
     "sourceCommits": [
@@ -5614,5 +5622,23 @@
     ],
     "wholeSuccess": false,
     "physicalRuns": 0
+  },
+  "additionalFrozenPhoneReview20261024": {
+    "commit": "a7be274da152b9d0b77e2fe5bb9874c5b1e18a31",
+    "assessedRuntime": "7be78768fa023ea88eada5ddfabd1189ff9d665f",
+    "referenceWorktreeObservedClean": true,
+    "reportedPhoneSourceAreas": 14,
+    "commonContractVersion": 18,
+    "qualificationTransferredToPico": false,
+    "sourceImported": false,
+    "movingWipImported": false,
+    "review": "PHONE_REFERENCE_REVIEW_20261024.md",
+    "picoSourceCompleteAreas": [
+      "scripts",
+      "authentication",
+      "graphics"
+    ],
+    "relevantReuse": "Complete facades/independent original actor/cleanup/finalization architecture under review by World/Lifecycle/Avatar owners.",
+    "originalBoundary": "Phone host World launch explicitly creates/loads; native finished-current-grant gate still exists. No retained-document qualification transfers."
   }
 }
