@@ -65,7 +65,7 @@ class Policy:
    for node in ast.walk(ast.parse((self.source/name).read_text())):
     if isinstance(node,ast.Constant)and type(node.value)is str and re.fullmatch('(PHONE|OVT)_[A-Z0-9_]+',node.value):self.codes.add(node.value)
  def event(self,phase,event,**values):
-  self.root_guard();self.sequence+=1;row=dict(schemaVersion=1,sequence=self.sequence,epochMs=time.time_ns()//1000000,monotonicNs=time.monotonic_ns(),phase=phase,event=event)
+  self.root_guard();self.sequence+=1;row=dict(schemaVersion=1,sequence=time.monotonic_ns(),epochMs=time.time_ns()//1000000,monotonicNs=time.monotonic_ns(),phase=phase,event=event)
   allowed={'moduleId','status','returncode','checkedEpochMs','reason','durationMs','nativeRunning','nativeExitCode','nativeStatus','nativeOomKilled','nativeStartedAt','nativeFinishedAt'}
   need(set(values)<=allowed,'DEBUG_EVENT_FIELDS')
   if values.get('moduleId')is None:values.pop('moduleId',None)
