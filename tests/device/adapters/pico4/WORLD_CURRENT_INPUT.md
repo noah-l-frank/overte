@@ -196,3 +196,33 @@ private contract registry entry and three selectors
 `world-current-input-reader`, all mapped to existing Web rendering/input risk.
 Its local catalog delta is **+3**; integration must retain every newer Root
 selector/version entry. It adds no public feature/capability or Common version.
+
+
+### Review follow-up: exact field and scope at focus resolution
+
+A real two-source model transition reproduced a publisher-join defect on the
+fixed `117d6aded4818f383655e1267661e4f73e1bf1bc` publisher. A new original
+CurrentDocument response observed the text editor focused. Before creating
+the subsequent independent geometry/native-editor response, the model's
+current focused field changed to the foreign URL editor. The actual new
+request/control was `foreign`, its native kind was `url`, and every strict
+source/DOM/original-finish check passed. The old resolver incorrectly accepted
+it for the original text ray (one counter failed: expected refusal not raised,
+**.054 s**). Neither original was rewritten to manufacture the mismatch.
+
+Focus resolution now requires exactly the calibrated `control`, `runId`,
+`ownerToken` and `fixtureUrl`, and only a calibration for `text` or `foreign`
+may resolve editor focus. Ordinary publication for other closed controls is
+still allowed; its publication never becomes an editor-focus proof.
+The actual before/after source grammar, original authority/finish comparison,
+warm source fence and no-replay rules remain in place.
+
+The thirteen reader/publisher/private-factory cases passed **1.112 s**, source
+freeze `e28781649459d177c688a01aa68d0cce28298b0277a739d5e725757874caff5b`.
+That includes the new transition and unchanged ordinary Session/no-ACK,
+slow-publication, changed-grant and lost-applied-return counterexamples.
+The new case archives its full calibration/envelope/focus originals before
+refusal. The first red retained source manifest, log and actual input intent/
+envelope, but had no separate focus-original file; the fresh green run adds
+that evidence write without reconstructing the old packet. Native/Java bodies,
+contract/catalog and the separately retained Parent WIP are not in this fix.

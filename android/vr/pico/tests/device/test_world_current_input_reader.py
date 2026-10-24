@@ -32,7 +32,7 @@ from openxr_input.controller_protocol import compile_envelope,PrototypeOpenXrInp
 
 class CurrentBoundary(WorldBoundary):
     def __init__(self,lock):
-        super().__init__(lock);self.focused=False;self.pid=123;self.dom_sequence=0;self.sequence=0
+        super().__init__(lock);self.focused=False;self.focused_control='text';self.pid=123;self.dom_sequence=0;self.sequence=0
         self.doc_packets={};self.doc_raw='';self.input_raw='';self.sends=[];self.native_mono=100000;self.java_mono=200000
         self.doc_source=PicoWorldCurrentDocument(self.send,lambda:self.doc_raw,self.clock,self.guard,self.pid,lock,
             monotonic=lambda:self.elapsed,sleep=lambda delay:setattr(self,'elapsed',self.elapsed+delay))
@@ -52,21 +52,22 @@ class CurrentBoundary(WorldBoundary):
         if call['operation']=='observe-current-document':
             dom=dict(webDOMVersion=1,requestId=call['commandId'],instance='c'*32,sequence=self.dom_sequence,capturedEpochMs=self.epoch,
                 document=dict(runId=RUN,href=VIEW['url'],responseId='d'*32,readyState='complete'),
-                editor=dict(text='',focused=self.focused),attempts=[],echoes=[])
+                editor=dict(text='',focused=self.focused and self.focused_control=='text'),attempts=[],echoes=[])
             wrapper=dict(before=a['java'],domRaw=json.dumps(json.dumps(dom)),after=b['java'])
             packet=dict(head,picoWorldCurrentDocumentVersion=1,source=dict(authorityBefore=a,authorityAfter=b,originalFinish=finish,
                 documents=[deepcopy(finish)],domRaw=json.dumps(wrapper),dom=dom))
             self.doc_packets[call['commandId']]=deepcopy(packet);self.doc_raw=json.dumps(packet);return
         # Reuse the existing pure geometry fixture. No old wire is returned.
         super().send(call);old=self.packet;geometry=json.loads(json.loads(old['source']['geometryRaw']))
-        geometry['sequence']=self.dom_sequence;geometry['editor']=dict(focused=self.focused,text='',cursor=0,anchor=0)
+        focused=self.focused and self.focused_control==call['control']
+        geometry['sequence']=self.dom_sequence;geometry['editor']=dict(focused=focused,text='',cursor=0,anchor=0)
         wrapper=dict(before=a['java'],geometryRaw=json.dumps(json.dumps(geometry)),after=b['java'])
         doc=self.doc_packets[call['documentNonce']]
         source=dict(documentReference={key:doc[key] for key in ('commandId','instance','sequence')},originalFinish=finish,
             authorityBefore=a,authorityAfter=b)
         if call['operation']=='measure-current-ray':source.update(geometryRaw=json.dumps(wrapper),worldRay=old['source']['worldRay'])
         else:source.update(focusRaw=json.dumps(wrapper),nativeEditor=dict(text='',cursor=0,anchor=0,absoluteCursor=0,
-                kind='text' if self.focused else '',sensitive=False,focused=self.focused,enabled=self.focused))
+                kind=('url' if self.focused_control=='foreign' else 'text') if focused else '',sensitive=False,focused=focused,enabled=focused))
         self.input_raw=json.dumps(dict(head,picoWorldCurrentInputVersion=1,documentNonce=call['documentNonce'],source=source))
     def consume_published(self,envelope,profile):
         """Actual existing model query consumer; no focus from performed/ACK."""
@@ -219,6 +220,32 @@ class WorldCurrentInputReaderTests(unittest.TestCase):
             result=pair();result['native']['grant']+=1;result['java']['grant']+=1;return result
         self.b.pair=changed;self.read('observe-current-focus')
         with self.assertRaises(NativeUIError):owner.check_focus(receipt,self.source.original())
+        self.assertEqual(1,len(self.transport.envelopes))
+
+    def test_actual_foreign_focus_transition_cannot_resolve_original_text_ray(self):
+        self.read();owner=self.publisher();receipt=owner.publish()
+        self.b.consume_published(receipt['streamEnvelope'],self.session.profile)
+        self.assertTrue(self.b.focused and self.b.focused_control=='text')
+        send=self.source.send;transitions=[]
+        def foreign_field_before_new_geometry(call):
+            self.assertEqual('observe-current-focus',call['operation'])
+            self.assertEqual('foreign',call['control'])
+            # Actual new Doc has already observed text focus. A subsequent
+            # independently modeled field-focus callback changes the producer
+            # before its new geometry/native-editor original is captured.
+            self.assertTrue(decode(self.b.doc_raw)['source']['dom']['editor']['focused'])
+            self.b.focused_control='foreign';transitions.append(True)
+            return send(call)
+        from adapters.pico4.world_current_input import decode
+        with patch.object(self.source,'send',foreign_field_before_new_geometry):
+            packet=self.source.read(RUN,URL,OWNER,'observe-current-focus','foreign')
+        focus=self.source.original();validate(packet,focus['request'],123,self.b.epoch,focus['documentOriginal'])
+        self.assertEqual([True],transitions);self.assertEqual('url',packet['source']['nativeEditor']['kind'])
+        self.assertTrue(packet['source']['nativeEditor']['focused'])
+        self.assertTrue(decode(focus['documentOriginal']['raw'])['source']['dom']['editor']['focused'])
+        PrivateFeatureState(self.root/'foreign-focus-originals.json').write(dict(
+            calibrationOriginal=receipt['calibrationOriginal'],streamEnvelope=receipt['streamEnvelope'],focusOriginal=focus),None)
+        with self.assertRaises(NativeUIError):owner.check_focus(receipt,focus)
         self.assertEqual(1,len(self.transport.envelopes))
 
 
