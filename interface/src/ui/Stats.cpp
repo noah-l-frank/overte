@@ -580,11 +580,10 @@ void Stats::updateStats(bool force) {
         }
 
         int linesDisplayed = 0;
-        QMultiMapIterator<float, QString> j(sortedRecords);
-        j.toBack();
+        auto j = sortedRecords.constEnd();
         QString perfLines;
-        while (j.hasPrevious()) {
-            j.previous();
+        while (j != sortedRecords.constBegin()) {
+            --j;
             static const QChar noBreakingSpace = QChar::Nbsp;
             QString functionName = j.value();
             const PerformanceTimerRecord& record = allRecords.value(functionName);

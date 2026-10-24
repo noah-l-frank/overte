@@ -30,6 +30,8 @@
 #if defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
 #include "../IOSTouchUiMetrics.h"
 #include "EntityScriptConsentUiTest.h"
+#include "../../../ios/ui/IOSSnapshotFiles.h"
+#include "../ui/SnapshotStorage.h"
 #include <AddressManager.h>
 #include <cstdlib>
 #include <QDateTime>
@@ -37,6 +39,8 @@
 #include <QInputMethod>
 #include <QPointer>
 #include <QQuickItem>
+#include <QSemaphore>
+#include <QThreadPool>
 #include <QTimer>
 #include <ui/TabletScriptingInterface.h>
 #include <display-plugins/VulkanDisplayPlugin.h>
@@ -153,6 +157,54 @@ QVariantMap TestScriptingInterface::iosNativeUiSnapshot() {
     const QVariantMap result = observeIOSNativeAccessibility(&diagnostic);
     saveObject(diagnostic, "ios-native-ui-diagnostic.json");
     return result;
+}
+
+bool TestScriptingInterface::iosNormalUiRequest(const QVariantMap& command) {
+    const QString directory = _testResultsLocation;
+    if (directory.isEmpty() || !QCoreApplication::arguments().contains("--testScript")
+            || !validateIOSNormalUiRequest(command)) { return false; }
+    const QPointer<TestScriptingInterface> owner(this);
+    return QMetaObject::invokeMethod(qApp, [owner, directory, command] {
+        if (!owner) { return; }
+        // Only the GUI owner may observe/edit the actual current field. Queuing
+        // acknowledges transport; this private receipt records actual delivery.
+        const auto result = performIOSNormalUiRequest(command);
+        if (result.isEmpty()) { return; }
+        QSaveFile output(QDir(directory).absoluteFilePath("ios-normal-ui-request-result.json"));
+        output.setDirectWriteFallback(false);
+        const auto bytes = QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact);
+        if (!output.open(QIODevice::WriteOnly)
+                || !output.setPermissions(QFile::ReadOwner | QFile::WriteOwner)
+                || output.write(bytes) != bytes.size() || !output.commit()) {
+            qCWarning(trace_test) << "iOS normal input receipt publication failed";
+        }
+    }, Qt::QueuedConnection);
+}
+
+bool TestScriptingInterface::iosSnapshotFilesRequest(const QVariantMap& command) {
+    const QString directory = _testResultsLocation;
+    const auto storage = overte::snapshot::storageRoot();
+    const auto request = QJsonObject::fromVariantMap(command);
+    if (directory.isEmpty() || storage.isEmpty() || !QCoreApplication::arguments().contains("--testScript")
+            || !overte::ios::validSnapshotFileRequest(request)) { return false; }
+    // One bounded read job at a time. Hashing original captures must not block
+    // the GUI/render thread. The probe retries only unaccepted read requests.
+    static QSemaphore fileReads(1);
+    if (!fileReads.tryAcquire()) { return false; }
+    QThreadPool::globalInstance()->start([directory, storage, request] {
+        const QSemaphoreReleaser release(&fileReads);
+        const auto result = overte::ios::readSnapshotFiles(request, storage);
+        if (result.isEmpty()) { return; }
+        QSaveFile output(QDir(directory).absoluteFilePath("ios-snapshot-file-result.json"));
+        output.setDirectWriteFallback(false);
+        const auto bytes = QJsonDocument(result).toJson(QJsonDocument::Compact);
+        if (!output.open(QIODevice::WriteOnly)
+                || !output.setPermissions(QFile::ReadOwner | QFile::WriteOwner)
+                || output.write(bytes) != bytes.size() || !output.commit()) {
+            qCWarning(trace_test) << "iOS original Snapshot receipt publication failed";
+        }
+    });
+    return true;
 }
 
 bool TestScriptingInterface::iosTextTest(const QVariantMap& command) {

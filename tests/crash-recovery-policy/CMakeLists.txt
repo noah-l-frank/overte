@@ -31,7 +31,7 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
         COMMAND crash-recovery-policy-IosPlatformMappingTests)
 else ()
     macro (setup_testcase_dependencies)
-        target_include_directories(${TARGET_NAME} PRIVATE "${PROJECT_SOURCE_DIR}/interface/src")
+        target_include_directories(${TARGET_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/interface/src")
     endmacro ()
 
     setup_hifi_testcase()

@@ -28,6 +28,10 @@ def validate(document, process_id, now_ms=None):
     allowed |= {"OverteTabletScreen." + s for s in vocabulary["screenIds"]}
     allowed |= {"OverteTabletReady." + s for s in vocabulary["screenIds"]}
     allowed |= {"OverteTabletControl." + c for c in vocabulary["controlIds"]}
+    allowed |= {"OverteNavigation." + name for name in (
+        "hud.goto", "address.field", "address.go", "address.cancel", "address.back",
+        "tablet.home", "tablet.places", "places.back", "places.forward")}
+    allowed |= {"OverteNavigation.tablet.page." + str(page) for page in range(1, 33)}
     for element in elements:
         if (not isinstance(element, dict) or set(element) != {"identifier", "visible", "enabled", "frame"}
                 or type(element["visible"]) is not bool or type(element["enabled"]) is not bool):
