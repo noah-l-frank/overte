@@ -9,7 +9,7 @@
   ],
   "devDependencies": {
     "@electron/packager": "20.3.0",
-    "electron": "44.5.0"
+    "electron": "44.9.3"
   },
   "repository": {
     "type": "git",
