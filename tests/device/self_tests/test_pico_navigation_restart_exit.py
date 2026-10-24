@@ -86,4 +86,34 @@ class NavigationRestartExitTests(unittest.TestCase):
     def test_act_real_exit_loses_actual_g1_process_guard_before_publication(self):
         self.refusal('guard','act')
 
+    def test_new_native_clock_regresses_after_exit_while_phase_clock_stays_fresh(self):
+        self.first_eleven();flow,_factory=self.bind_restart();flow.act(self.twelve_call());owner=flow.restart()
+        actual_successor=owner.successor;runtime=[];calls=[];events=[]
+        def successor(inputs,state):
+            value=actual_successor(inputs,state);runtime.append(value);return value
+        owner.successor=successor;actual_held=self.lock.held;phase=self.original_parent.phase
+        phase_clock=phase.epoch_ms;host=self.original_parent.now()
+        @contextmanager
+        def held():
+            with actual_held():yield
+            samples=self.root/'navigation-prefix-generation-1-primary-sources.json'
+            if runtime and samples.is_file() and json.loads(samples.read_text())['phase']=='ready' and not events:
+                self.assertIsNone(self.lock._owner);events.append(True);self.exit_counts=self.target_counts()
+                native=runtime[-1]['native'];actual_clock=native.clock_ms
+                def regressed():calls.append(True);return actual_clock()-2000
+                native.clock_ms=regressed
+                PrivateFeatureState(self.root/'navigation-prefix-generation-1-exit-native-clock.json').write(dict(
+                    outerReleased=True,newNativeEpochMs=actual_clock()-2000,phaseEpochMs=phase_clock(),
+                    hostMonotonic=host,sourceCounts=self.exit_counts),None)
+        caught=None;result=None
+        with patch.object(self.lock,'held',held):
+            try:result=flow.observe()
+            except NativeUIError as error:caught=error
+        self.assertTrue(events);self.assertEqual(host,self.original_parent.now());self.assertEqual(self.exit_counts,self.target_counts())
+        self.assertIs(phase_clock,phase.epoch_ms)  # Independent source untouched.
+        PrivateFeatureState(self.root/'navigation-prefix-generation-1-exit-native-result.json').write(dict(
+            returned=result,nativeClockCalls=len(calls),refused=caught is not None),None)
+        self.assertIsNotNone(caught,'A new Native clock 2000ms behind its unchanged frame must refuse publication')
+        self.assertTrue(calls,'Finalization must read the actual new Native observer clock')
+
 if __name__=='__main__':unittest.main()

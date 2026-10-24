@@ -330,3 +330,37 @@ verified unchanged. The two exit-counter results remain explicitly assigned
 to the preceding `3ca5047…` source and the 30.392-second three-case run; no
 single final all-counter selection is claimed. No new wire format or original
 sample/time change is involved in these last two additional guards.
+
+## Actual new Native clock and lower freshness bound
+
+A further independent-clock review isolated fixed
+`cf66570bf7486d274fd71780a21564cc7d6cf63d`: its final age read used
+`p.phase.epoch_ms`, not the actual new Runtime Native observer. A third genuine
+exit counter leaves that PhaseFixtureReader and its own clock/HTTP source
+unchanged and fresh. Only after the real outer exit, with the G1-ready original
+already stored, it changes the actual returned Runtime
+`NativeFeatureObservation.clock_ms` to its original reading minus 2000 ms.
+Host time and every target source cursor stay frozen. The event records actual
+outer release, Native epoch **60600** and Phase epoch **62600** separately.
+
+Against unchanged `cf66570`, this single case was **red in 10.490 s**: it
+incorrectly returned the original frame at **62600**, with **zero** reads of the
+actual new Native clock. The complete 12827-file manifest
+`8b6bad0319f2592b4c09f833befcfcc7b5764f0db8e8fb035e5dcaa6985a4e97` was
+unchanged. Thus the earlier Phase-clock exit counter did not cover this separate
+actual-Native-clock boundary; both results remain assigned to their real source
+versions instead of being described as one all-current selection.
+
+The narrow follow-up reads its Native age anchors and final age from the
+actual Runtime `native.clock_ms`. It invokes the unchanged shared
+`native_feature_observation.fresh(captured, epoch)` for the full **−250…1500 ms**
+interval, then retains the existing monotonic lower age bound. The Phase source
+is independently requalified as before. No new target SourceFrame is acquired,
+no timestamp or old sample is rewritten, and no protocol or capability changes.
+The same counter (which first executes the real successful twelve-action act)
+passed **1/1 in 10.288 s**: actual Native getter reads **1**, refused **true**,
+returned result **null**, unchanged target cursors. Its complete 12827-file
+manifest `c0808c8b86607d0c7e01d14db2827c0d6dfa64a165a21b9e6da396a45d1cfb39`
+was unchanged. There was no unnecessary additional whole-prefix repeat. The
+existing `navigation-restart-exit` group now has three cases; its catalog-group
+count and V1 wire formats are unchanged. No 13–15 code is included.
