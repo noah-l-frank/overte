@@ -13,6 +13,9 @@
 //
 
 #include "MyAvatar.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../tests/device/native/AvatarBookmarkLoads.h"
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/LifecycleDriveObservation.h"
 #endif
@@ -1328,6 +1331,9 @@ void MyAvatar::restoreRoleAnimation(const QString& role) {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap MyAvatar::e2eModelConnections() const {
+    return _featureModelConnections ? _featureModelConnections->snapshot(this) : QVariantMap{};
+}
 QVariantMap MyAvatar::e2ePreferenceHandles() const {
     if(!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")
             || thread()!=QThread::currentThread() || thread()!=QCoreApplication::instance()->thread()
@@ -2602,6 +2608,9 @@ void MyAvatar::setSkeletonModelURL(const QUrl& skeletonModelURL) {
 
     std::shared_ptr<QMetaObject::Connection> skeletonConnection = std::make_shared<QMetaObject::Connection>();
     *skeletonConnection = QObject::connect(_skeletonModel.get(), &SkeletonModel::skeletonLoaded, [this, skeletonModelChangeCount, skeletonConnection]() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        auto featureDispatch=overte::e2e::AvatarModelConnections::enter(_featureModelConnections,skeletonConnection);
+#endif
         if (skeletonModelChangeCount == _skeletonModelChangeCount) {
 
             if (_fullAvatarModelName.isEmpty()) {
@@ -2618,8 +2627,18 @@ void MyAvatar::setSkeletonModelURL(const QUrl& skeletonModelURL) {
             initAnimGraph();
             initFlowFromFST();
         }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        featureDispatch.disconnected(QObject::disconnect(*skeletonConnection));featureDispatch.completed();
+#else
         QObject::disconnect(*skeletonConnection);
+#endif
     });
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    if(QCoreApplication::instance() && QCoreApplication::arguments().contains("--testScript")) {
+        if(!_featureModelConnections){_featureModelConnections=std::make_shared<overte::e2e::AvatarModelConnections>();}
+        _featureModelConnections->observe(this,_skeletonModel.get(),skeletonConnection,skeletonModelChangeCount,skeletonModelURL.toString());
+    }
+#endif
 
     saveAvatarUrl();
     emit skeletonChanged();

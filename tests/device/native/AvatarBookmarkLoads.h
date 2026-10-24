@@ -12,6 +12,7 @@
 #include <QThread>
 #include <QUuid>
 #include <QVariantMap>
+#include <QJsonDocument>
 #include <memory>
 #include <cmath>
 namespace overte::e2e {
@@ -77,6 +78,57 @@ public:
 private:
     QString _instance{QUuid::createUuid().toString(QUuid::Id128)};QPointer<QObject> _owner;
     QList<std::shared_ptr<Row>> _rows;bool _overflow{false};
+};
+// Actual original MyAvatar model-setter connections. This collector retains
+// only weak original captures/QObjects; observing cannot keep them alive.
+class AvatarModelConnections {
+    struct Row {
+        QMutex mutex;QString id,url;QPointer<QObject> owner,sender;QThread* affinity{nullptr};
+        std::weak_ptr<QMetaObject::Connection> capture;qint64 created{0},entered{0},returned{0};
+        int change{0},dispatches{0},active{0};bool connected{false},disconnected{false},completed{false},ownerThreadOnly{true};
+    };
+public:
+    class Dispatch {
+    public:
+        explicit Dispatch(std::shared_ptr<Row> value={}):row(std::move(value)) {
+            if(row){QMutexLocker lock(&row->mutex);++row->active;++row->dispatches;row->entered=QDateTime::currentMSecsSinceEpoch();row->ownerThreadOnly=row->ownerThreadOnly && row->affinity==QThread::currentThread();}
+        }
+        Dispatch(const Dispatch&)=delete;Dispatch&operator=(const Dispatch&)=delete;
+        ~Dispatch(){if(row){QMutexLocker lock(&row->mutex);--row->active;row->returned=QDateTime::currentMSecsSinceEpoch();}}
+        void disconnected(bool value){if(row){QMutexLocker lock(&row->mutex);row->disconnected=value;}}
+        void completed(){if(row){QMutexLocker lock(&row->mutex);row->completed=true;}}
+    private:std::shared_ptr<Row> row;
+    };
+    void observe(QObject* owner,QObject* sender,const std::shared_ptr<QMetaObject::Connection>& capture,int change,const QString& url) {
+        if(!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")) {return;}
+        QMutexLocker lock(&mutex);
+        if(!owner || !sender || !capture || owner->thread()!=QThread::currentThread() || sender->thread()!=QThread::currentThread()
+                || (_owner && _owner!=owner) || rows.size()>=128 || change<=0 || url.size()>8192){invalid=true;return;}
+        if(!_owner){_owner=owner;}
+        auto row=std::make_shared<Row>();row->id=QUuid::createUuid().toString(QUuid::Id128);row->owner=owner;row->sender=sender;
+        row->affinity=owner->thread();row->capture=capture;row->change=change;row->connected=bool(*capture);row->created=QDateTime::currentMSecsSinceEpoch();
+        row->url=QString::fromLatin1(QCryptographicHash::hash(url.toUtf8(),QCryptographicHash::Sha256).toHex());rows.push_back(row);
+    }
+    static Dispatch enter(const std::shared_ptr<AvatarModelConnections>& owner,const std::shared_ptr<QMetaObject::Connection>& capture) {
+        std::shared_ptr<Row> actual;
+        if(owner){QMutexLocker lock(&owner->mutex);for(const auto& row:owner->rows){if(row->capture.lock()==capture){if(actual){owner->invalid=true;return Dispatch{};}actual=row;}}}
+        return Dispatch(actual);
+    }
+    QVariantMap snapshot(const QObject* owner)const {
+        if(!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript") || !owner || owner->thread()!=QThread::currentThread()){return {};}
+        QMutexLocker lock(&mutex);if(invalid || _owner!=owner){return {};}
+        QVariantList actual;for(const auto& row:rows){QMutexLocker rowLock(&row->mutex);
+            actual.append(QVariantMap{{"id",row->id},{"urlSha256",row->url},{"change",row->change},{"createdEpochMs",row->created},
+                {"enteredEpochMs",row->entered},{"returnedEpochMs",row->returned},{"ownerAlive",!row->owner.isNull()},{"senderAlive",!row->sender.isNull()},
+                {"captureAlive",!row->capture.expired()},{"connected",row->connected},{"disconnected",row->disconnected},{"completed",row->completed},
+                {"dispatches",row->dispatches},{"active",row->active},{"ownerThreadOnly",row->ownerThreadOnly}});
+        }
+        const QVariantMap value{{"avatarModelConnectionsVersion",1},{"instance",instance},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"rows",actual}};
+        return QJsonDocument::fromVariant(value).toJson(QJsonDocument::Compact).size()<=65536 ? value : QVariantMap{};
+    }
+private:
+    mutable QMutex mutex;bool invalid{false};QPointer<QObject> _owner;QList<std::shared_ptr<Row>> rows;
+    const QString instance{QUuid::createUuid().toString(QUuid::Id128)};
 };
 }
 #endif

@@ -288,7 +288,10 @@
         "android/vr/pico/tests/device/avatar-bookmark-store-actor.h",
         "android/vr/pico/tests/device/avatar-people-controls.cpp",
         "android/vr/pico/tests/device/test_assets_native_ui.py",
-        "tests/device/contracts/avatar/test_avatar_bookmarks_native.py"
+        "tests/device/contracts/avatar/test_avatar_bookmarks_native.py",
+        "interface/src/avatar/MyAvatar.cpp",
+        "interface/src/avatar/MyAvatar.h",
+        "tests/device/native/AvatarBookmarkLoads.h"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -332,8 +335,8 @@
         "Delete only owned wearable/bookmark/connection",
         "Confirm both participants have no pending request and observe quiet restoration"
       ],
-      "nextExecutableStep": "Implement original native Mementos and typed Handle/Manager/worker/file CAS for observed raw differences, with durable own intent/result and no unnecessary writes; then final owned retirement. Actual original Settings/Bookmark no-op data and more than 3 seconds of independent native/host end observation now pass through existing Favorite predicates. Whole Model/EntityTree/Qt/V8, Wearables and People/peer/stereo remain open.",
-      "nativeCompilation": "Complete original NavigationUi observe/apply, cached Favorite callback and MyAvatar scale/empty-clear, Bookmarks and full Setting Manager/WriteWorker/JSON sources host-compiled; shared v16 raw admission and actual >=3s Settings/Bookmark no-op source/host end observation pass. Complete application/MyAvatar/V8/Android, raw mutation CAS and final retirement unverified",
+      "nextExecutableStep": "Adopt the separate real original model-setter/saveAvatarUrl preference-write and normal data-return pairs in the existing durable parent/actor/v16 source chain, retaining actual initialized baseline and new audit/file identities. Restore noncanonical Bookmark bytes where observed, then final original quiet and owned retirement. Actual Model/EntityTree/renderer, Wearables and People/peer/stereo remain open.",
+      "nativeCompilation": "Complete original NavigationUi, MyAvatar setSkeletonModelURL/saveAvatarUrl and Scale/cached Favorite callbacks, Bookmarks, Setting Handle/Manager/WriteWorker/JSON sources host-compiled. Separate strict no-op and actual written Settings normal data-return paths plus original Qt callback weak retirement pass against declared Skeleton/scene/geometry actors. Complete application/MyAvatar startup/Model/renderer/V8/Android and final parent/actor retirement remain unverified.",
       "deviceQualification": "untested"
     },
     {

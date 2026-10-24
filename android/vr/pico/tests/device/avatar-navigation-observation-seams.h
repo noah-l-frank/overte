@@ -22,6 +22,8 @@ class HostApplication:public QGuiApplication {
 public:using QGuiApplication::QGuiApplication;bool isHMDMode()const{return true;}
     struct CameraActor {float getSensitivity()const{return 1;}};CameraActor cameraActor;
     CameraActor& getCamera(){return cameraActor;}
+    bool getSaveAvatarOverrideUrl()const{return false;}QUrl getAvatarOverrideUrl()const{return {};}
+    int getMain3DScene()const{return 0;} // Declared rendering scene, not a product ScenePointer.
 };
 #undef qApp
 #define qApp static_cast<HostApplication*>(QCoreApplication::instance())

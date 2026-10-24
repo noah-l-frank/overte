@@ -10,7 +10,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 245
+EXPECTED_CATALOG_CASES = 246
 
 
 def catalog_entries() -> list[str]:
@@ -31,6 +31,18 @@ def result_exit_code(result: unittest.TestResult) -> int:
 
 
 class CoverageMatrixTests(unittest.TestCase):
+    def test_avatar_native_profiles_select_each_owning_method_once(self):
+        path='device/test_avatar_people_controls_native.py';tree=ast.parse((TEST_DIR/path).read_text())
+        expected={'AvatarPeopleControlsNativeTests.'+method.name for owner in tree.body if isinstance(owner,ast.ClassDef)
+            and owner.name=='AvatarPeopleControlsNativeTests' for method in owner.body
+            if isinstance(method,ast.FunctionDef) and method.name.startswith('test_')}
+        selected=[];groups=[]
+        for node in ast.walk(RUNNER_TREE):
+            if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='test' and len(node.args)>3 and isinstance(node.args[3],ast.Constant) and node.args[3].value==path:
+                groups.append(node.args[0].value);self.assertEqual(5,len(node.args));selected.append(node.args[4].value)
+        self.assertEqual({'avatar-people-native-ui','avatar-persistence-native-ui'},set(groups));self.assertEqual(2,len(groups))
+        self.assertEqual(len(expected),len(selected));self.assertEqual(expected,set(selected))
+
     def test_avatar_owner_partitions_retain_every_original_case_once(self):
         path=TEST_DIR/'device/test_avatar_urls_owner.py';tree=ast.parse(path.read_text())
         expected={'AvatarUrlsTests.'+node.name for owner in tree.body if isinstance(owner,ast.ClassDef) and owner.name=='AvatarUrlsTests'
