@@ -1,4 +1,4 @@
-# Current combined Android Phone coverage
+# Combined Android Phone coverage and focused repairs
 
 Combined source `0a7de4299f4bb97e99c844288e6381efd973df0f` has a matching full
 debug E2E APK, version code **15**, SHA-256
@@ -10,12 +10,16 @@ Those earlier scoped host results were not all rerun on the combined build.
 Shared journey logic and Android Phone adapter source are present for every area.
 Runtime capability availability and device acceptance remain separate observations.
 
+The table below preserves the historical build 3 campaign scope. Later focused
+repairs are recorded separately below; a resolved prerequisite does not change
+an original result.
+
 Jenkins **build 3 is RED: 7 PASS, 5 FAIL, 57 ERROR**, with no aggregate skips.
 All 14 full feature journeys returned ERROR; only the Scripts mandatory gate
 passed. No complete feature area receives device acceptance. This Phone result
 qualifies no Pico, iOS or other client.
 
-| Area | Shared logic / Phone adapter source | Mandatory gate | Full journey | Current limitation |
+| Area | Shared logic / Phone adapter source | Mandatory gate | Full journey | Build 3 limitation |
 | --- | --- | --- | --- | --- |
 | Worlds / Navigation | Present / Present | ERROR | ERROR | Owned navigation directory and source-bound image policy missing; no native domain READY. |
 | Authentication | Present / Present | ERROR | ERROR | Trusted HTTPS account owner/configuration missing. |
@@ -50,3 +54,34 @@ See the [machine-readable matrix](integrated-coverage.v1.json),
 [the exact preparation gaps](integrated-preparation-errors.v1.json),
 [the failure and cleanup handoff](INTEGRATED_FAILURES.md), and
 [the integration campaign provenance](INTEGRATED_CAMPAIGN.md).
+
+
+## Focused repair state, 2026-10-24
+
+All fourteen areas still have shared journey logic and Phone adapter source;
+complete device acceptance remains **0/14**. Later focused evidence does not
+qualify another client or replace the original campaign above.
+
+- Tablet core: build 6 PASS, 204.195 seconds under its registered 300-second
+  module budget. This is one core journey, not complete Tablet Web acceptance.
+- Controlled Scene foundation: build 9 PASS, 64.132 seconds; six entities and
+  one stable sample. Full Worlds / Navigation acceptance remains open.
+- Native backend: the argument-lifetime source fix allowed the separately
+  built, source-bound domain fixture to reach READY. Before/after ownership
+  verification also passed in build 17. This resolves the earlier native
+  preparation blocker, not the Phone connection failure.
+- Single `domain-enter`: build 17 used harness `75ee0a49ec4b` with the unchanged
+  installed client/APK above. Required launch passed (40.426 seconds); domain
+  entry returned ERROR (130.727 seconds) after its outer 90-second adapter
+  operation timed out. A normal Go HTTP click was acknowledged at 73.371 seconds
+  into that operation; this does not prove that the button was activated. The
+  address field remained present in the next actual lookup. The fresh
+  post-error probe still showed a disconnected local-file scene, with no
+  controlled-domain markers. No connection or feature PASS is claimed.
+
+Future device runs select one independent target at a time, with only its
+required setup. The current `domain-enter` failure must be fixed and confirmed
+PASS before another independent target is started. Source-only counterexamples
+and preparations do not constitute device acceptance.
+
+Build 17 public summary SHA-256: `378a0c330854670db4e0778f0ed6bf5a85ecc6afee36c24dba94bde4924be17c`.
