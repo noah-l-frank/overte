@@ -1448,6 +1448,16 @@
             }
             return true;
         }
+        if (command && command.action === "pico-world-web" && command.operation === "observe-current-document") {
+            var currentWorldOriginal={};
+            try {
+                if (typeof Test.featurePicoWorldCurrentDocument === "function") {
+                    var currentWorldPacket=Test.featurePicoWorldCurrentDocument(command);
+                    if (currentWorldPacket && currentWorldPacket.commandId === command.commandId) { currentWorldOriginal=currentWorldPacket; }
+                }
+            } catch (_currentWorldError) {}
+            Test.saveObject(currentWorldOriginal,"feature-world-current-document.json");return true;
+        }
         if (command && (command.action === "pico-world-web" || command.action === "pico-tablet-web"
                 || command.action === "pico-web-reference")) {
             var picoBrowser={picoBrowserVersion:1,commandId:command.commandId,status:"unavailable"};

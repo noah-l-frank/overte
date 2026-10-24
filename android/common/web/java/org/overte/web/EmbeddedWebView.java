@@ -106,6 +106,9 @@ public final class EmbeddedWebView {
     }
     private static native void nativeInitialize();
     private static native boolean nativeFeatureEnabled();
+    private static native boolean nativePicoCurrentDocumentEnabled();
+    private static native void nativePicoCurrentDocumentResult(long handle,long creation,long grant,long page,
+        String run,String request,String raw);
     static boolean featureObservationEnabled() { return nativeFeatureEnabled(); }
     private static native void nativeFeatureDOMResult(long handle,long grant,long page,String document,String requestId,String result);
     private static native void nativeFeatureFinished(long handle,long grant,long page,String document);
@@ -483,6 +486,67 @@ public final class EmbeddedWebView {
 
     // Closed E2E read only. No caller-controlled JavaScript, DOM selector or
     // expected result reaches the WebView through this entrypoint.
+    /** Separate Pico-only source: current authority does not rewrite original finish. */
+    public static void featurePicoCurrentDocumentRead(long handle,long creation,long grant,long page,
+            String run,String requestId,String expectedSource) {
+        if (!nativePicoCurrentDocumentEnabled() || run==null || !run.matches("[0-9a-f]{32}")
+                || requestId==null || !requestId.matches("[0-9a-f]{32}") || expectedSource==null || expectedSource.length()>131072) return;
+        final long started=SystemClock.elapsedRealtime();
+        MAIN.post(() -> {
+            final Instance instance=VIEWS.get(handle);final EmbeddedWebHost owner=host.get();
+            if (!featurePicoCurrentOwner(instance,owner,creation,grant,page,expectedSource,started)) {
+                featurePicoCurrentReply(handle,creation,grant,page,run,requestId,new JSONObject(),"",new JSONObject());return;
+            }
+            final String document=instance.view.getUrl();
+            final JSONObject before=featurePicoCurrentSnapshot(instance,owner);
+            final String script="window.__overteFeatureWebDOM?JSON.stringify(window.__overteFeatureWebDOM.read("
+                +JSONObject.quote(requestId)+")):null";
+            final WeakReference<Instance> observed=new WeakReference<>(instance);
+            final WeakReference<EmbeddedWebHost> observedOwner=new WeakReference<>(owner);
+            instance.view.evaluateJavascript(script,result -> {
+                final Instance current=observed.get();final EmbeddedWebHost currentOwner=observedOwner.get();
+                final JSONObject after=featurePicoCurrentSnapshot(current,host.get());
+                if (!nativePicoCurrentDocumentEnabled() || !featurePicoCurrentOwner(current,currentOwner,creation,grant,page,expectedSource,started)
+                        || document==null || !document.equals(current.view.getUrl()) || result==null || result.length()>8192) {
+                    featurePicoCurrentReply(handle,creation,grant,page,run,requestId,before,"",after);return;
+                }
+                featurePicoCurrentReply(handle,creation,grant,page,run,requestId,before,result,after);
+            });
+        });
+    }
+    private static boolean featurePicoCurrentOwner(Instance instance,EmbeddedWebHost owner,long creation,long grant,long page,
+            String expectedSource,long started) {
+        final long age=SystemClock.elapsedRealtime()-started;
+        return Looper.myLooper()==Looper.getMainLooper() && age>=0 && age<=1500 && instance!=null
+            && VIEWS.get(instance.handle)==instance && instance.featureInstrumentation && !instance.overlay
+            && instance.creationRevision==creation && instance.active && !instance.destroyedDocument && !instance.closing && !instance.loading
+            && owner!=null && host.get()==owner && instance.owner==owner && owner.activity()!=null && owner.activity()==instance.activity
+            && owner.isForeground() && instance.activity.hasWindowFocus() && expectedSource.equals(instance.requestedUrl)
+            && instance.document.admits(grant,page,true,1) && nativeEditorAllowed(instance.handle,grant,page,instance.view.getUrl());
+    }
+    private static JSONObject featurePicoCurrentSnapshot(Instance instance,EmbeddedWebHost owner) {
+        JSONObject value=new JSONObject();
+        if (Looper.myLooper()!=Looper.getMainLooper() || instance==null) return value;
+        try {
+            value.put("handle",Long.toString(instance.handle)).put("creation",instance.creationRevision)
+                .put("grant",instance.document.grant()).put("page",instance.document.page()).put("url",instance.view.getUrl())
+                .put("sourceUrl",instance.requestedUrl).put("ownerCurrent",host.get()==owner && owner!=null && instance.owner==owner
+                    && owner.activity()!=null && owner.activity()==instance.activity && VIEWS.get(instance.handle)==instance)
+                .put("active",instance.active).put("foreground",owner!=null && owner.isForeground())
+                .put("windowFocused",instance.activity.hasWindowFocus()).put("destroyed",instance.destroyedDocument)
+                .put("closing",instance.closing).put("loading",instance.loading)
+                .put("capturedEpochMs",System.currentTimeMillis()).put("capturedElapsedMs",SystemClock.elapsedRealtime());
+        } catch (org.json.JSONException unavailable) { return new JSONObject(); }
+        return value;
+    }
+    private static void featurePicoCurrentReply(long handle,long creation,long grant,long page,String run,String request,
+            JSONObject before,String domRaw,JSONObject after) {
+        try {
+            String raw=new JSONObject().put("before",before).put("domRaw",domRaw).put("after",after).toString();
+            if (raw.getBytes(StandardCharsets.UTF_8).length<=16384) nativePicoCurrentDocumentResult(handle,creation,grant,page,run,request,raw);
+        } catch (org.json.JSONException unavailable) { /* Native original query expires without another read. */ }
+    }
+
     public static void featureRead(long handle, long grant, long page, String requestId) {
         if (!nativeFeatureEnabled() || requestId == null || requestId.length() > 36
                 || !requestId.matches("(?:ios-)?[0-9a-f]{32}")) return;
