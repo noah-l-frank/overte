@@ -82,13 +82,19 @@ class NavigationContinuation:
                 self.validate_continuation(value);self.continuation_store.write(value,None);self.continuation_disk=deepcopy(value)
             need(same(self.continuation_store.read(),self.continuation_disk) and same(self.continuation_disk['arguments'],call))
             self.restart().act(call)
+            owner=self.restart_owner
+            # Preserve the actual original capture anchor before the parent
+            # ready CAS, its guards and the real lock exit can consume time.
+            # Cold completed receipts without that host anchor remain readable
+            # via observe(); they cannot fabricate a new acquisition baseline.
+            need(owner.runtime is not None and owner.capture_anchor is not None
+                and json_digest(owner.capture_anchor)==owner.capture_anchor_sha)
+            runtime=owner.runtime;a=owner.capture_anchor
+            seal=self.seal(owner,runtime,a['nativeEpochMs'],a['hostMonotonic'],owner.state['newFrame']['before']['ui']['observedEpochMs'])
             if self.continuation_disk['phase']=='issued':
                 value=deepcopy(self.continuation_disk);value.update(phase='ready',restartSha256=json_digest(self.restart_owner.disk))
                 self.validate_continuation(value);self.continuation_store.write(value,self.continuation_disk);self.continuation_disk=deepcopy(value)
-            self.restart_owner.fence();owner=self.restart_owner
-            runtime=owner.runtime if owner.runtime is not None else owner.successor(owner.inputs,owner.state)
-            started=p.now();requested=runtime['native'].clock_ms()
-            seal=self.seal(owner,runtime,requested,started,owner.state['newFrame']['before']['ui']['observedEpochMs'])
+            self.restart_owner.fence()
             result=dict(performed=True)
         self.finalize(seal)
         return result

@@ -364,3 +364,36 @@ manifest `c0808c8b86607d0c7e01d14db2827c0d6dfa64a165a21b9e6da396a45d1cfb39`
 was unchanged. There was no unnecessary additional whole-prefix repeat. The
 existing `navigation-restart-exit` group now has three cases; its catalog-group
 count and V1 wire formats are unchanged. No 13–15 code is included.
+
+## Original capture anchor across landed ready-CAS time
+
+A narrow review of fixed
+`281b036d3dcbbfe74cddea85e1c968a6c9e45871` identified a reset of the
+`act` host/Native age anchor after the parent ready CAS and its following fence.
+The single corresponding continuous counter was **red in 9.825 s** against
+those unchanged sources: the real `PrivateFeatureState.write` completed its
+ready CAS, host monotonic then advanced **42.6→44.6**, while both actual Native
+and Phase clocks and the original G1 frame remained at **62600**. Target cursors
+stayed unchanged, but `act` returned `performed:true`. Its complete 12829-file
+manifest `50a4953f31b1f45ed76fc0b2f97310ed684ea09f88ddfa2cfc01bb68ee28e73d`
+was unchanged. Two explicitly unconnected/untracked 13–15 source files were in
+that checkout inventory; neither is part of this fix or executed by the case.
+
+The follow-up records the actual transient host/Native anchor immediately
+before the existing original G1 SourceFrame capture in `NavigationRestart`.
+The continuation seals that exact unchanged acquisition anchor before its
+parent ready CAS, subsequent guards and actual outer release. Slow landed CAS
+time therefore remains in the final lower age bound. No new frame or current
+clock observation replaces that acquisition baseline, and no wire data changes.
+A cold already-completed `act` lacking its original transient host anchor is
+explicitly unavailable. Its immutable journals still support fresh `observe`
+through new real original acquisitions; this cannot repeat SDK input, rewrite
+an old frame or supply a retrospective capture anchor.
+
+Exactly the same single counter passed **1/1 in 9.922 s** on the fix, retaining
+the real landed CAS and unchanged target cursors/frame timestamps while refusing
+publication. The complete 12829-file manifest
+`64026198ccc5c4c7dd19e97574b6211b41083f1929eda953a058491c84f4fb78` was
+unchanged. No other entire prefix was unnecessarily repeated. The existing exit
+selector now contains four cases, without another catalog group, protocol
+version, compiler/device run or 13–15 implementation in this packet.
