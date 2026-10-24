@@ -34,7 +34,7 @@ const QString ASSIGNMENT_LOG_OPTIONS = "logOptions";
 class AssignmentClientApp : public QCoreApplication {
     Q_OBJECT
 public:
-    AssignmentClientApp(int argc, char* argv[]);
+    AssignmentClientApp(int& argc, char* argv[]);
 };
 
 #endif // hifi_AssignmentClientApp_h

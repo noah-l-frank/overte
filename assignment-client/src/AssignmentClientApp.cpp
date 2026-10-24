@@ -31,7 +31,7 @@
 #include "AssignmentClient.h"
 #include "AssignmentClientMonitor.h"
 
-AssignmentClientApp::AssignmentClientApp(int argc, char* argv[]) :
+AssignmentClientApp::AssignmentClientApp(int& argc, char* argv[]) :
     QCoreApplication(argc, argv)
 {
 #ifndef _WIN32
