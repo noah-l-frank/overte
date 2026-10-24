@@ -60,6 +60,7 @@ class Journey:
         self.terminal_profile,self.retire_fixture=terminal_profile,retire_fixture
         self.terminal_descriptor=self.terminal_seal=self.terminal_end=None
         self.terminal_samples=[]
+        self.cleanup_errors=()
 
     def terminal_call(self,stage,**fields):
         from . import terminal
@@ -457,6 +458,13 @@ class Journey:
                     cleanup_okay = True
                 except BaseException as error:
                     cleanup_errors.append(error)
+            # Keep private original exceptions (including their tracebacks)
+            # when a primary failure must remain the exception being raised.
+            # Provider text can contain URLs/account data: neither the public
+            # report nor the printable note includes those private details.
+            self.cleanup_errors=tuple(cleanup_errors)
+            if primary is not None and cleanup_errors:
+                primary.add_note('Feature cleanup also failed; original private errors and tracebacks are retained in Journey.cleanup_errors.')
             report=dict(schemaVersion=1, contractVersion=VERSION, area=self.area, runId=self.run,
                 phases=self.phases, samples=self.samples, cleanupEnabled=cleanup_enabled,
                 cleanupSucceeded=cleanup_okay, sequenceCompleted=primary is None and cleanup_okay,
