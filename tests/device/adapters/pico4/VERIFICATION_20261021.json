@@ -4252,5 +4252,42 @@
     "completeFeature": false,
     "fullApplicationCompiled": false,
     "deviceAcceptance": false
+  },
+  "browserHistoricalAdmissionAndUrlScanRoot20261024": {
+    "status": "passed-historical-admission-and-selected-host-components",
+    "historicalSourceHead": "d2095e7c96aba506c5792c4a893dcdae190ab004",
+    "integratedBase": "e981a31ed9",
+    "originalFiles": 1095,
+    "manifestEntries": 666,
+    "originalsUnchanged": true,
+    "profiledColdAdmissionSecondsBefore": 6.957315505016595,
+    "profiledColdAdmissionSecondsAfter": 6.760253633954562,
+    "singleHistoricalMeasurementOnly": true,
+    "originalGraphDigest": "90ecdf077deb25f5bcb7122f0acd6497e05e1d1895412257ab49572ce9fd1ec8",
+    "browserSourceSha256": "c1197e1d3d65bf15f5a015b7133c359c5615174be445a9c1bdfad83e1d3a70cf",
+    "parserEquivalentCases": 395,
+    "historicalUniqueUrls": 6,
+    "ioAndHistory": {
+      "cases": 23,
+      "durationSeconds": 1.051,
+      "status": "passed"
+    },
+    "worldRayAndText": {
+      "cases": 15,
+      "durationSeconds": 0.265,
+      "status": "passed"
+    },
+    "repository": {
+      "suites": 4,
+      "durationSeconds": 2.625,
+      "status": "passed"
+    },
+    "wireVersionsAndTypesAndUrlBoundsUnchanged": true,
+    "allPhysicalReadsAndQueriesPreserved": true,
+    "fullWholeJourneyRerun": false,
+    "latestWholeJourneyStillFailed120Seconds": true,
+    "completeFeature": false,
+    "fullApplicationCompiled": false,
+    "deviceAcceptance": false
   }
 }

@@ -2825,3 +2825,24 @@ This remains partial: original-position restoration, initial/final process
 composition, independent peer/stereo evidence and full v16/public operations
 are unfinished. Source/host complete areas remain three of fourteen; physical
 qualification remains zero.
+
+## Historical Tablet Web cold-admission measurement
+
+The actual retained failed whole-run graph from d2095e7c96 is admitted through
+the original independent Parent graph validator without any native query or
+owner write. Full cold admission of 666 manifest entries takes 6.957 s with
+cProfile; all 1,095 retained files have identical bytes and physical stamps.
+This locates the previously unmeasured boundary without manufacturing a live
+Actor, Parent nonce, process return, fresh observation or whole success.
+
+The profile identifies repeated Python URL character loops in original-source
+validation. A compiled scan now rejects exactly the same ASCII control range;
+all existing type checks, URL length bounds, complete physical reads and source
+queries remain. Comparison against the fixed original function agrees on 395
+cases, including actual historical URLs, control positions, Unicode and length
+boundaries. Twenty-three IO/history cases pass in 1.051 s; fifteen World
+ray/text cases pass in 0.265 s, plus four repository suites and registry/
+whitespace checks. Profiled cold admission after the change takes 6.760 s; all
+originals remain unchanged. These single historical measurements establish only
+a small local saving. No new whole retry is justified by this result; the last
+complete 120-second failure and missing final archive/host outcome remain.

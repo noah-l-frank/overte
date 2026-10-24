@@ -29,6 +29,7 @@ def wire_version(operation):
     return WORLD_TEXT_VERSION if operation=='commit-text' else WORLD_RAY_VERSION if operation=='measure-ray' else VERSION
 CONTROLS={'text','bridge','reference','second','recovery','back','reload','foreign','navigate','scroll-up','scroll-down'}
 IDENTITY={'handle','creation','grant','page','url'}
+URL_CONTROLS=re.compile('[\x00-\x1f\x7f]')
 
 
 def fixture(run,url):
@@ -65,7 +66,7 @@ def command(value):
 def identity(row):
     need(type(row['handle']) is str and re.fullmatch('[1-9][0-9]{0,18}',row['handle'])
         and all(integer(row[k],1) for k in ('creation','grant','page')) and type(row['url']) is str
-        and 0<len(row['url'])<=131072 and not any(ord(c)<32 or ord(c)==127 for c in row['url']))
+        and 0<len(row['url'])<=131072 and URL_CONTROLS.search(row['url']) is None)
     return ':'.join(str(row[k]) for k in ('handle','creation','grant','page'))
 
 
