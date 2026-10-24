@@ -380,7 +380,15 @@
         "tests/device/native/NormalCreateVoxelControls.h",
         "tests/device/adapters/pico4/CREATE_VOXEL_PARENT.md",
         "android/vr/pico/tests/device/test_create_voxel_owner.py",
-        "android/vr/pico/tests/device/create-polyvox-resources.cpp"
+        "android/vr/pico/tests/device/create-polyvox-resources.cpp",
+        "tests/device/adapters/pico4/CREATE_VOXEL_SOURCE_JOIN.md",
+        "android/vr/pico/tests/device/create-voxel-native-join.cpp",
+        "android/vr/pico/tests/device/create-voxel-native-join.h",
+        "android/vr/pico/tests/device/create-voxel-native-prepare.py",
+        "android/vr/pico/tests/device/create-voxel-native-bindings.js",
+        "android/vr/pico/tests/device/create-voxel-source-controls.cpp",
+        "android/vr/pico/tests/device/test_create_voxel_source_native.py",
+        "android/vr/pico/tests/device/native_cpu_mesh_originals.py"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [
@@ -425,11 +433,11 @@
         "Drain original model/texture/picker/export callbacks and files",
         "Restore rez permission, view and actual unowned scene inventory"
       ],
-      "nextExecutableStep": "Current v4 parent/EntitySource6 and existing Source5 weak collector need one actual normal TOOLS/JavaScript EditVoxels -> original C++ voxel volume/getter -> asynchronous renderer/weak ownership -> normal Restore/Delete join. Existing Python owning facts and separate QML/JS/native source fixtures do not yet establish that continuous flow. Original rez denial/restoration, independent actor/stereo and complete final retirement remain required.",
+      "nextExecutableStep": "Join the existing normal TOOLS/original EditVoxels/native VoxelVolume-Mesh-compression-Shape source flow through original local creation/Tree/event ownership into full EntitySource6 and the unchanged Parent/Session/TokenTransport. The narrow native selector now verifies original ctor/init/destructor/factory-deleter bodies, 64-to-16 actual voxels, asynchronous old/new renderer identities, actual timers, settings restoration, normal Delete and full native/host quiet with retained-renderer and ignored-controller counterexamples. Its minimal retirement slice is not a full EntitySource6 response. Rez authority, independent actor/stereo and complete scene/material/texture/heap retirement remain open.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
       "nativeDialogIntegrationStatus": "Focused original Qt5 dialog pipeline passed after restoring actual GUI Window receiver affinity and original worker DirectConnection call. Full application/V8 TUs and devices unqualified; earlier unsupported moved-receiver diagnostic crash documented.",
-      "nativeComponentCompilation": "Selected unchanged real Qt5 PolyVox UI/Offscreen/Pico pointer and native entity/volume getter fragments pass; full application/TUs, renderer, network and devices remain unqualified."
+      "nativeComponentCompilation": "Selected unchanged original VoxelVolume/Marching Cubes/Cubic extractor, update/mesh/compression/shape, ctor/init/destructor/factory-deleter, QML/JS/normal input and atomic getter/weak source bodies freshly host-compiled and verified. Tree/domain/SDK/scene-release endpoints remain explicit seams; full application/TUs, physics, GPU and devices remain unqualified."
     },
     {
       "area": "emotes",

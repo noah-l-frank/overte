@@ -2724,3 +2724,22 @@ Close remain observable without replay; retained listeners and independently
 raised keyboard block Close; a last actual phase transition blocks the OK
 writer. Complete Navigation and final scene/Script/resource/actor retirement
 remain unfinished. Completed source areas remain 3/14.
+
+
+Create source `9ac3842a96` is selected as `25f7156cb9`. The existing normal
+TOOLS/whole EditVoxels path now joins unchanged original native volume, CPU
+mesh, compression and shape bodies, original ctor/init/destructor/factory
+deleter, actual timers and weak observers, then normal settings restoration
+and Delete. Root's fresh native selector passes in 25.987 s; legacy TOOLS
+passes in 11.225 s; coverage completes the three-group selection in 37.303 s
+with 231 groups. All 13,465 input sources remain unchanged. Each of the normal,
+retained-renderer and ignored-controller cases meets the full native/host
+3000 ms quiet bound; a retained renderer refuses retirement and ignored input
+leaves all 512 values unchanged. Two default shared Mesh/Buffer fragments and
+29 file/body hashes match fixed Baker source `744a51ee2b` byte for byte.
+Repository, registry, JavaScript syntax and whitespace checks pass. The new
+selector explicitly declares its existing unshare dependency. Initial creation,
+Tree/SDK/domain/scene release remain host endpoints; the narrow retirement
+slice does not qualify full EntitySource6 or heap/physics/GPU retirement.
+Original local creation/event/full-source and parent integration are next.
+Completed source areas remain 3/14; no full APK or device result is claimed.

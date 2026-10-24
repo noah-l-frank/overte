@@ -3976,5 +3976,61 @@
     "fullFeatureRecipe": false,
     "fullApplicationCompiled": false,
     "deviceAcceptance": false
+  },
+  "createVoxelRoot20261024": {
+    "source": "9ac3842a96532863885fcebf4fa0b49b15c0526b",
+    "selectedAs": "25f7156cb9",
+    "status": "passed-selected-native-host-components",
+    "selection": {
+      "groups": 3,
+      "catalogGroups": 231,
+      "durationSeconds": 37.303,
+      "nativeSelectorSeconds": 25.987,
+      "legacySelectorSeconds": 11.225,
+      "coverageSeconds": 0.091
+    },
+    "repository": {
+      "suites": 4,
+      "durationSeconds": 2.638,
+      "status": "passed"
+    },
+    "registryJsSyntaxWhitespace": "passed",
+    "sourceFiles": 13465,
+    "sourcesUnchanged": true,
+    "nativeModes": [
+      "normal",
+      "retained-renderer",
+      "ignored-controller"
+    ],
+    "nativeQuietMilliseconds": [
+      3127,
+      3135,
+      3126
+    ],
+    "hostQuietMilliseconds": [
+      3124.518789,
+      3133.932922,
+      3133.628029
+    ],
+    "originalCtorInitDestructorFactoryDeleterExecuted": true,
+    "normalVoxelCounts": [
+      64,
+      16
+    ],
+    "retainedRendererBlocksRetirement": true,
+    "ignoredControllerAll512ValuesUnchanged": true,
+    "bakerDefaultFragments": {
+      "fixedReference": "744a51ee2b",
+      "fragments": 2,
+      "fileAndBodyHashes": 29,
+      "byteIdentical": true
+    },
+    "originalsAndPrivateHostReceiptsRetained": true,
+    "fullEntitySource6Qualified": false,
+    "treeDomainSdkSceneRelease": "explicit-host-endpoints",
+    "fullHeapPhysicsGpuQualified": false,
+    "completeFeature": false,
+    "fullApplicationCompiled": false,
+    "deviceAcceptance": false
   }
 }

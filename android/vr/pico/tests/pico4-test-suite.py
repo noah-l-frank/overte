@@ -275,7 +275,7 @@ TESTS = (
     test("create-voxel-guards", "interaction", PYTHON, "device/test_create_voxel_owner_guards.py"),
     test("create-primitives-owner", "interaction", PYTHON, "device/test_create_primitives_owner.py"),
     test("create-polyvox-native-ui", "interaction", PYTHON, "device/test_create_polyvox_controls_native.py", requires=("c++", "pkg-config", "node")),
-    test("create-voxel-source-native", "interaction", PYTHON, "device/test_create_voxel_source_native.py", requires=("c++", "pkg-config")),
+    test("create-voxel-source-native", "interaction", PYTHON, "device/test_create_voxel_source_native.py", requires=("c++", "pkg-config", "unshare")),
     test("create-feature-owner", "interaction", PYTHON, "device/test_create_feature_owner.py"),
     test("create-model-resource-join", "interaction", PYTHON, "device/test_create_model_resource_join.py"),
     test("create-model-resources-native", "interaction", PYTHON, "device/test_create_model_resources_native.py", requires=("c++", "pkg-config")),
