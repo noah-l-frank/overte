@@ -5045,5 +5045,25 @@
     },
     "completeFeature": false,
     "deviceAcceptance": false
+  },
+  "browserWholeIndexRoot20261024": {
+    "sourceHead": "245b79442a70cdf329b3f640d2bd45fdceae8e45",
+    "exitCode": 124,
+    "timeoutSeconds": 120,
+    "sourcesUnchanged": true,
+    "sourceFiles": 13523,
+    "temporaryRoot": "/tmp/overte-pico-browser-index-whole-20261024-pzk1aff4",
+    "phases": 28,
+    "archivePhase": "unlink-issued",
+    "confirmedSourceUnlinks": 8,
+    "pendingUnlinkIntent": true,
+    "archiveFiles": 1087,
+    "hostReleased": false,
+    "completeFeature": false,
+    "deviceAcceptance": false,
+    "retainedFiles": 2241,
+    "terminalSnapshotUnchangedDuringCapture": true,
+    "backupSha256": "9a9d41a4e6afb7e237b43e80507c21756cbf3df822f0649ca86150dff4854dfa",
+    "backupQualification": "historical-byte-backup-only-no-live-owner-adoption"
   }
 }

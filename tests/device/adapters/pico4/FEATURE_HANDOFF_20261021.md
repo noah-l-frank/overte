@@ -3188,3 +3188,16 @@ copy checks75–79ms to21ms. All2,236 historical files remain unchanged.
 Four owning groups pass81.47s (73 Chat archive,7 Browser archive,2 host-close,
 10 coverage cases), all13,522 source hashes unchanged. Full120s Browser
 execution and final release remain a separate verification obligation.
+
+
+The separate full Browser run on245b79442a still times out at120s. All26
+actions/28phases complete, including original independent return and capture
+quiet. Its1,087-file manifest finishes at116.986s, followed by8 confirmed
+source unlinks and another unresolved unlink intent. The archive index now
+costs about11ms/current-copy check in the actual warm run; original release
+control still costs about15ms each and runs12times per ordinary unlink.
+Neither this timing nor the new partial archive supplies successful closure.
+All13,523 source hashes and2,241 retained terminal originals are unchanged;
+a full historical backup is retained without live owner adoption. Next measure
+and reduce immutable-original guard computation while retaining every source
+query, per-unlink phase fence and original clock/file/quiet/window bound.
