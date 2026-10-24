@@ -1736,7 +1736,8 @@
         "tests/device/adapters/pico4/LIFECYCLE_PROCESS_COORDINATOR.md",
         "tests/device/self_tests/test_lifecycle_operations_process.py",
         "android/vr/pico/tests/device/test_lifecycle_primary_process.py",
-        "tests/device/adapters/pico4/LIFECYCLE_PROCESS_QUIET.md"
+        "tests/device/adapters/pico4/LIFECYCLE_PROCESS_QUIET.md",
+        "tests/device/adapters/pico4/LIFECYCLE_QUIET_CAPTURE_AXES.md"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1781,7 +1782,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Add explicit full3000-ms and cadence proof for every original UI/Pending/Native/Presence/Domain time axis alongside Drive/host; then join independently owned Actor/pose and original stereo/surface plus final resource/file/archive/IPC/Host retirement. Same16\u2192restart\u2192twiceCleanup\u2192fresh sequences72\u201384 is integrated as8368ca1736; Root4 positive/refusal cases pass with all13,601 source hashes/signatures unchanged. Current private quiet measures Drive3000ms/host3.0s and per-row observed UI/Pending absence; cross-source offset counter remains under review. G0 World126/readonly71, Process13 and newSource4rows13 are measured separately with unchanged caps. Full execute/public capability remains unavailable.",
+      "nextExecutableStep": "Join independently owned Actor/pose observations and original stereo/surface, then final resource/file/archive/IPC/Host retirement and full execute/public dispatch. Same16\u2192restart\u2192twiceCleanup\u2192fresh sequences72\u201384 now independently proves all7 native capture axes\u22653000ms and advancing\u2264500ms plus Drive/host:1cd4262f0a; Root positive/UI2999/Pending2999 cases pass with all13,602 source hashes/signatures unchanged. Old method really accepted UI2999ms; new proof refuses each short axis without timestamp rewrite or extra query. G0 World126/readonly71, Process13 and newSource4rows13 remain separate under unchanged caps. Full feature capability remains unavailable.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

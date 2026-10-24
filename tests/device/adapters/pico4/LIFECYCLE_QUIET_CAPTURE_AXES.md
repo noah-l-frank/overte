@@ -106,3 +106,37 @@ Independent Actor/pose and original stereo/surface implementation remains the
 next source task after this proof correction. Public/whole and resource/file/
 IPC/archive/host closure remain unavailable; a retained earlier quiet boolean
 cannot replace verification of all seven original axes.
+
+
+## Independent Root integration proof
+
+Root reviewed the six-file correction and selected `178c9e4ee0` as
+`1cd4262f0a`. The two complete-case selectors are additive: 279 to281, with
+all14 risk rows and all previous partitions retained. Private result additions
+change no persisted Source4/native/public protocol or registry version.
+
+Fresh independent Root selections pass the materially changed full positive
+(**65.779 s** external), the actual UI2999ms counter (**66.130 s**), and the
+actual Pending2999ms counter (**65.579 s**). Each runs the original complete
+sixteen-action/restart prefix and retains its120-second limit. The three
+selections use distinct actual `/tmp` tmpfs roots. All **13,602** complete
+source hashes and physical signatures match before/after terminal completion
+(**66.913 s** external total). The transparent private driver changes only
+constructor temporary-directory final disposal so originals remain retained.
+
+The normal proof returns all seven `nativeCaptureSpans` values exactly3000ms
+and Host3.0s over sequences72–84/13 original rows. G0 World126, G0 readonly71,
+Process13 and SDK count2 remain unchanged. The UI counter retains UI2999ms
+against six3000ms axes/Host3.0002s. The Pending counter retains its own2999ms
+and Native/Presence/Domain2999ms against UI/Gesture/Drive3000ms/Host3.0001s.
+Both refuse without another sample, timestamp rewrite or clock renewal.
+
+Exact commands, source/result manifests and all three original log/case
+summaries are retained as `lifecycle-quiet-axes-root-20261024-*` under
+`/home/user/Documents/github/overte-pico-adapter-private-20261021`.
+The narrower offline original-file bill is
+`lifecycle-quiet-axes-root-historical-bill-20261024.json`; it gives no live
+source authority. Normal stored source files total96999 bytes/66 files,
+with container raw56950 and logical originals109646 bytes recorded separately.
+The remaining independent Actor/stereo/surface and whole finalization
+obligations above still prevent complete feature admission.

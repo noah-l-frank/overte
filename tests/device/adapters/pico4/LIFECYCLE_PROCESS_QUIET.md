@@ -166,7 +166,9 @@ historical-only file bill and full recorded proof; it creates no new authority.
 Root review identified a further proof boundary: the current private window
 checks Drive/host elapsed spans and observes UI/Pending absence in each row,
 but does not explicitly check each independent source's own full3000-ms span.
-A targeted valid cross-source offset/cadence counter and full per-source span
-validation are being developed separately. The four checks above do not prove
-that additional boundary, independent Actor/images, global callback absence,
-full Common execution or final cleanup. Whole capability remains unavailable.
+The [capture-axis correction](LIFECYCLE_QUIET_CAPTURE_AXES.md) now records the
+actual UI2999ms counter against the old method, the explicit seven-axis fix,
+and independent Root positive/UI/Pending verification. The four earlier
+checks above did not prove that boundary. Independent Actor/images, global
+callback absence, full Common execution and final cleanup remain open. Whole
+capability remains unavailable.
