@@ -5332,5 +5332,57 @@
     "fullCoordinatorActorImageCleanupNotQualified": true,
     "completeFeature": false,
     "deviceAcceptance": false
+  },
+  "avatarCachedRawRoot20261024": {
+    "sourceCommits": [
+      "5c3f48a22e3425226679c0cec040134e3aa63292",
+      "ced41477a23ae6f838d8dbda12579ba06001dc76"
+    ],
+    "integrationCommits": [
+      "73cb3556e1",
+      "e6cc3fbfc5"
+    ],
+    "qualification": "Existing cached Favorite/Scale raw admission and original native UI/Settings source integration only; full Feature 3 remains partial.",
+    "privateEvidence": "/home/user/Documents/github/overte-pico-adapter-private-20261021/avatar-cached-raw-integration-",
+    "sourceFiles": 13546,
+    "sourceFilesUnchangedDuringTests": true,
+    "picoCatalog": 249,
+    "newSelectors": 0,
+    "newExistingFenceCases": 1,
+    "selectedPicoGroups": {
+      "coverage-matrix": 0.09,
+      "avatar-people-native-ui": 23.305,
+      "avatar-favorites-owner": 53.062,
+      "avatar-favorites-fences": 38.576
+    },
+    "nativePreferences": {
+      "cases": 1,
+      "seconds": 7.919,
+      "actualOriginalChangesRejectedBySharedUnchangedGate": true
+    },
+    "nativeOriginals": {
+      "normalInputs": 45,
+      "callbackPairs": 4,
+      "cachedOriginals": 3,
+      "declaredModelCompletions": 1
+    },
+    "repositorySuites": {
+      "passed": 4,
+      "seconds": 2.6
+    },
+    "contractRegistry": "passed",
+    "whitespace": "passed",
+    "remaining": [
+      "Exact owned native Settings/bookmark byte CAS restore and final quiet/retirement",
+      "Noncached original model persistence",
+      "Whole MyAvatar/Model/renderer/EntityTree/V8/Android ownership",
+      "Wearables, contacts, independent peer and stereo/device qualification"
+    ],
+    "boundaries": [
+      "Native noncached model completion remains explicit actor",
+      "Host owner fixtures retain declared SDK/Qt/model DTO boundaries",
+      "Historical fixture copies are not live source identity or retirement",
+      "No device, APK or whole native application qualification"
+    ]
   }
 }

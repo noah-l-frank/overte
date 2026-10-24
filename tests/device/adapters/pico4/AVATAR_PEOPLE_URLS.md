@@ -634,3 +634,25 @@ EntityTree/V8/Android ownership, Wearables, contacts, peer/stereo and devices
 remain unqualified. The shared owner tests retain their declared SDK/Qt/model
 DTO boundaries; retained fixture copies are historical originals, not live
 source identities or retirement proof. Full Feature 3 remains unavailable.
+
+
+## Integrated Root verification
+
+Root selected the two fixed cached-preference packets as `73cb3556e1` and
+`e6cc3fbfc5`, preserving all fourteen coverage rows and the 249-selector catalog.
+Fresh tests on that integrated tree passed the original native UI in 23.305 s,
+the complete existing Favorite owner in 53.062 s, all six Favorite fences in
+38.576 s, and coverage in 0.090 s. The original preference-native case passed
+separately in 7.919 s, including actual baseline-valid Handle changes refused
+by the same no-change rule. All 13,546 tracked/new source files retained their
+complete before/after hashes throughout these tests. Original native stages,
+raw streams and owner fixture originals remain in the private Root archive
+under `avatar-cached-raw-*20261024`.
+
+The actual native result retains 45 normal inputs and four original callback
+pairs: three cached callbacks and one explicitly declared Model completion.
+Four repository suites passed in 2.60 s; contract-version and whitespace checks
+also passed. Existing 90-second native compile/link and 120-second owning
+selection bounds were retained. These results verify the shared cached/Scale
+admission, not the open native restoration, whole ownership or device scope.
+Feature 3 remains partial.
