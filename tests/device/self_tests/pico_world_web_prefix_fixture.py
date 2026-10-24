@@ -43,6 +43,7 @@ class WorldTarget(OriginalBrowserTarget):
         self.feature_root=self.path/('feature-world-web-'+hashlib.sha256(('org.overte.pico\0'+self.selector).encode()).hexdigest()[:32]);self.feature_root.mkdir(mode=0o700)
         self.lock=ScriptSourceLock(self.path/'script-sources.lock');self.qt=NativeBoundary(menu=True)
         self.ui_generation=str(uuid.uuid4());self.qt_sequence=0;self.qt_status=None
+        self.vm_script_url=None;self.ignore_script_ending=False;self.fail_stop_reply=False
         self.qt_command=None;self.normal_inputs=[];self.fail_script_reply=False;self.ignore_ray=False;self.ignore_ime=False
         self.lost_controls=set();self.ignored_controls=set()
         self.geometry_sequence=0;self.pending_ray=None;self.entity_id=None;self.script_bytes=None;self.vm_epoch=None
@@ -127,11 +128,17 @@ class WorldTarget(OriginalBrowserTarget):
         if call['action']=='replace':self.qt.replace(call['controlId'],call['text'])
         else:self.qt.activate(call['controlId'],source=row.get('sourceUrl'))
         if call['controlId']=='scripts.url.submit':
-            self.script=self.qt.rows[-1]['url'];status,body,_receipt=self.fetch(self.script)
+            self.script=self.qt.rows[-1]['url'];self.vm_script_url=self.script;status,body,_receipt=self.fetch(self.script)
             need(status==200);self.script_bytes=body;self.vm_epoch=self.clock.epoch()
             self.vm_boundary.objects.row.update(registeredEpochMs=self.vm_epoch,workerCreatedEpochMs=self.vm_epoch+1)
             self.clock.sleep(.004);self.entity_id=str(uuid.uuid4());self.source=self.script.rsplit('/',1)[0]+'/index.html';self.load(self.source)
             if self.fail_script_reply:raise RuntimeError('Synthetic applied normal Script submit reply lost')
+        if call['controlId']=='scripts.stop.0' and not self.qt.rows:
+            # Explicit model of the original Script.scriptEnding consumer, not
+            # the UI receipt. Ignoring it independently keeps the actual view.
+            self.script=None
+            if not self.ignore_script_ending:self.current=None
+            if self.fail_stop_reply:raise RuntimeError('Applied normal Script stop reply lost')
         self.qt_status=dict(schemaVersion=1,bridgeId=self.binding['sessionId'],commandId=call['commandId'],sequence=self.qt_sequence,
             performed=True,error='',processId=31,updatedEpochMs=self.clock.tick())
 
@@ -203,13 +210,16 @@ class WorldTarget(OriginalBrowserTarget):
         return NativeFeatureObservation(self.native.send,self.native.original,self.clock.epoch,self.guard,31,monotonic=self.clock.now,sleep=self.clock.sleep)
 
     def _world_browser_vm(self,target,run,url,script_url,*,role,source_lock,http):
-        need(target==self.selector and source_lock is self.lock and script_url==self.script)
+        need(target==self.selector and source_lock is self.lock and script_url==self.vm_script_url)
         b=self.vm_boundary;pins=reviewed('world')[0]
         def compiled(value):
             epoch=self.clock.tick();value.update(instance=self.instance,processId=31,requestedEpochMs=epoch,capturedEpochMs=epoch)
-            code_source(value,self.script_bytes.decode(),submitted=self.vm_epoch+2)
-            membership_source(value,[manager(url=self.script,epoch=self.vm_epoch+1)],1)
-            value['source'].update(effectSourceVersion=1,effects=dict(complete=True,scanRadiusMeters=64,scannedEntities=0,entities=[],absentIds=[]),
+            if self.script is None:
+                value['source']['engines']=[];membership_source(value,[],2)
+            else:
+                code_source(value,self.script_bytes.decode(),submitted=self.vm_epoch+2)
+                membership_source(value,[manager(url=self.script,epoch=self.vm_epoch+1)],1)
+            value['source'].update(sourceIdentityVersion=1,effectSourceVersion=1,effects=dict(complete=True,scanRadiusMeters=64,scannedEntities=0,entities=[],absentIds=[]),
                 loadSourceVersion=1,loads=dict(complete=True,instance='d'*32,sequence=0,events=[]),compiledSourceVersion=1)
             for engine in value['source']['engines']:
                 engine.update(url=self.script);engine['required'].update(sequence=0,modules=[])

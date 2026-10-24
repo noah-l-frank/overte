@@ -1,11 +1,10 @@
 # Normal World Web source prefix
 
-Feature 6 remains partial. `PicoWorldWebPrefix` composes the first thirteen
+Feature 6 remains partial. `PicoWorldWebPrefix` composes the first fourteen
 unchanged common v16 steps: normal Script load/open, ray/IME Unicode input,
 Send, Clear, B/Back, foreign-origin navigation/message/Back and actual
-404/reload/server-restoration/reload. It does not implement a second Journey
-or expose public feature operations. The final reference navigation,
-background/return, final text/message/Clear, normal Close, independent actor
+404/reload/server-restoration/reload and final normal reference link. It does not implement a second Journey
+or expose public feature operations. Background/return, final text/message/Clear, normal Close, independent actor
 publication, stereo/scene joining and whole resource/archive retirement remain
 unfinished.
 
@@ -46,11 +45,11 @@ stereo ownership and the common image policy are not bypassed or relabeled.
 The unchanged shared history/chunk mechanism has an explicit `world-web`
 profile with a distinct `picoWorldBrowserHistoryVersion: 1` discriminator.
 The default tablet profile keeps `picoBrowserHistoryVersion: 1` and its old
-wire shape. The prefix now writes `picoWorldWebPrefixVersion: 2`; its v1 reader retains
+wire shape. The prefix now writes `picoWorldWebPrefixVersion: 3`; its v1 reader retains
 the previous exact three-step limit. The v2 parser admits only the original
-closed nineteen-step v16 recipe, while actual input dispatch stops at thirteen.
+closed nineteen-step v16 recipe, while actual input dispatch stops at fourteen.
 Opening an existing v1 ready owner preserves its bytes until the next explicitly
-authorized ordinary action; the normal mutable owner CAS then writes v2.
+authorized ordinary action; the normal mutable owner CAS then writes v3.
 Historical immutable source chunks are never migrated or rewritten. Both
 private DTOs are registered separately. The common v16 contract is unchanged.
 Historical sample validation joins the selected surface's actual sources and
@@ -80,7 +79,7 @@ seams. No device, HMD, GPU pixel, complete client or whole feature claim follows
 Initial rejected runs and first exception chains are retained separately from
 successful sources; no original packet was retimed or overwritten to pass.
 
-The next executable extension is final reference navigation and actual
+The next executable extension is actual
 background/return on this same phase/owner chain, then normal Close, stereo
 and independent actor publication.
 Complete parent/actor, scene/pixel and Script/Web/entity/callback/resource
@@ -228,3 +227,7 @@ Reload inside background-resume.
 
 The retained-page resume boundary and unimplemented observation proposal are
 documented in [WORLD_WEB_RETAINED_RESUME.md](WORLD_WEB_RETAINED_RESUME.md).
+
+[WORLD_WEB_NORMAL_CLOSE.md](WORLD_WEB_NORMAL_CLOSE.md) documents the separate
+normal owned Script Stop under an actual Cleanup ticket, without inventing the
+missing background/resume or remaining scenario steps.
