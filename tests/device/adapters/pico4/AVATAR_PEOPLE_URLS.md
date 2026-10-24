@@ -757,3 +757,24 @@ People/peer/stereo and device qualification remain open. Phone fixed source
 durable intent, participant restore and final journal-CAS ordering; its Pal UI
 preferences do not provide this raw lazy Handle memento. No Common18, Phone
 input/mono, graphics or moving work-in-progress sources are imported.
+
+The subsequent native affinity/age review is closed in a separate narrow
+followup. Both remembering and restoring reject a foreign caller before any
+saved Handle-key or Avatar dereference, and require the actual Avatar/Manager
+GUI affinities. Each current memento starts its own real `QElapsedTimer` before
+capture. Expected and actual timers must still be within 1500 ms after the
+durable intent, immediately before and inside the atomic GUI CAS; no timer is
+reset by journaling. Wall-clock freshness remains an additional requirement.
+Historical original data comparisons do not gain an artificial age restriction.
+The same native preference case passes in 13.193 seconds with the existing
+20/60/12/120-second moc/build/runtime/outer limits. A real foreign `std::thread`
+reaches neither getter nor journal. A real 1501-ms durable-intent delay is
+refused without a field mutation or CAS audit increment. Eight actual journal
+originals retain both refusal pairs, the genuine restore and lost-result proof.
+An additional actual owner-destruction-during-intent counter retains its ninth
+original intent without manufacturing a result; it refuses the saved Handle
+before dereferencing it and cannot replay. Owner/Manager GUI affinity is checked
+again after the durable callback. Original destructor Settings effects remain
+actual observations, never a successful CAS or final retirement claim.
+No clock value is forged and the main no-op case is not repeated. The earlier
+12.952-second thread/age selection is preserved separately.

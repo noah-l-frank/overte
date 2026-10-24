@@ -107,6 +107,7 @@ int main(int argc,char**argv){
     auto lazy=typedOwner.remember(avatar.get(),avatar->_scaleSetting,typedHandles);assert(lazy.valid());
     auto lazyFailedIntent=typedOwner.remember(avatar.get(),avatar->_scaleSetting,typedHandles);assert(lazyFailedIntent.valid());
     auto lazyAuditConflict=typedOwner.remember(avatar.get(),avatar->_scaleSetting,typedHandles);assert(lazyAuditConflict.valid());
+    auto lazySlowIntent=typedOwner.remember(avatar.get(),avatar->_scaleSetting,typedHandles);assert(lazySlowIntent.valid());
     auto handles=initial.value("cache").toMap().value("native").toMap().value("handles").toMap().value("handles").toMap();
     assert(handles.size()==23 && !handles.value("scale").toMap().value("initialized").toBool());assert(handles.value("headPitch").toMap().value("key")==QVariant("Avatar/"));
     // Declared live Avatar actor changes independently of all real lazy
@@ -139,6 +140,12 @@ int main(int argc,char**argv){
     assert(journalSequence==0 && avatar->_scaleSetting.e2ePreferenceSnapshot().isEmpty());
     SettingsTests::registerActual(manager.data(),&avatar->_scaleSetting);
     const auto afterForeign=typedOwner.remember(avatar.get(),avatar->_scaleSetting,typedHandles);assert(afterForeign.valid());
+    auto lazyWrongThread=lazy;auto* actualScaleHandle=&avatar->_scaleSetting;std::atomic<bool> foreignGetter{false},foreignRefused{false};
+    std::thread foreignCaller([&]{
+        const auto observed=typedOwner.remember(avatar.get(),*actualScaleHandle,[&]{foreignGetter.store(true);return typedHandles();});
+        foreignRefused.store(!observed.valid() && typedOwner.restoreUnwrittenLazy(lazyWrongThread,afterForeign,typedHandles,durable).isEmpty());
+    });foreignCaller.join();assert(foreignRefused.load() && !foreignGetter.load() && journalSequence==0);
+    assert(typedOwner.unchanged(afterForeign,typedOwner.remember(avatar.get(),avatar->_scaleSetting,typedHandles)));
     auto failedIntent=lazyFailedIntent;assert(typedOwner.restoreUnwrittenLazy(failedIntent,afterForeign,typedHandles,[](const QVariantMap&){return false;}).isEmpty());
     assert(typedOwner.restoreUnwrittenLazy(failedIntent,afterForeign,typedHandles,durable).isEmpty());assert(journalSequence==0);
     assert(typedOwner.restoreUnwrittenLazy(lazyFailedIntent,afterForeign,typedHandles,durable).isEmpty());
@@ -146,24 +153,30 @@ int main(int argc,char**argv){
         durable(event);if(event.value("phase")==QVariant("intent")){avatar->_scaleSetting.remove();}return true;
     }).isEmpty());assert(journalSequence==2 && manager->contains("Avatar/scale"));
     const auto afterAudit=typedOwner.remember(avatar.get(),avatar->_scaleSetting,typedHandles);assert(afterAudit.valid());
-    const auto lazyResult=typedOwner.restoreUnwrittenLazy(lazy,afterAudit,typedHandles,durable);
-    assert(lazyResult.value("verified")==QVariant(true) && journalSequence==4);
+    QElapsedTimer slowIntent;slowIntent.start();
+    assert(typedOwner.restoreUnwrittenLazy(lazySlowIntent,afterAudit,typedHandles,[&](const QVariantMap& event){
+        durable(event);if(event.value("phase")==QVariant("intent")){QThread::msleep(1501);}return true;
+    }).isEmpty());assert(slowIntent.elapsed()>=1501 && journalSequence==4 && manager->contains("Avatar/scale"));
+    const auto afterSlow=typedOwner.remember(avatar.get(),avatar->_scaleSetting,typedHandles);assert(afterSlow.valid());
+    assert(afterSlow.original().value("mutationSequence")==afterAudit.original().value("mutationSequence"));
+    const auto lazyResult=typedOwner.restoreUnwrittenLazy(lazy,afterSlow,typedHandles,durable);
+    assert(lazyResult.value("verified")==QVariant(true) && journalSequence==6);
     assert(!manager->contains("Avatar/scale"));
     const auto restored=publish("lazy-cas-restored");
     assert(restored.value("mutationSequence").toLongLong()>initialized.value("mutationSequence").toLongLong());
-    assert(typedOwner.restoreUnwrittenLazy(lazy,afterAudit,typedHandles,durable).isEmpty());assert(journalSequence==4);
+    assert(typedOwner.restoreUnwrittenLazy(lazy,afterSlow,typedHandles,durable).isEmpty());assert(journalSequence==6);
     auto lostResultOriginal=typedOwner.remember(avatar.get(),avatar->_scaleSetting,typedHandles);assert(lostResultOriginal.valid());
     assert(avatar->_scaleSetting.get()==1);
     const auto lostExpected=typedOwner.remember(avatar.get(),avatar->_scaleSetting,typedHandles);assert(lostExpected.valid());
     assert(typedOwner.restoreUnwrittenLazy(lostResultOriginal,lostExpected,typedHandles,[&](const QVariantMap& event){
         durable(event);return event.value("phase")!=QVariant("result");
-    }).isEmpty());assert(journalSequence==6 && !manager->contains("Avatar/scale"));
-    assert(typedOwner.restoreUnwrittenLazy(lostResultOriginal,lostExpected,typedHandles,durable).isEmpty());assert(journalSequence==6);
+    }).isEmpty());assert(journalSequence==8 && !manager->contains("Avatar/scale"));
+    assert(typedOwner.restoreUnwrittenLazy(lostResultOriginal,lostExpected,typedHandles,durable).isEmpty());assert(journalSequence==8);
     const auto resultLost=publish("lazy-cas-result-lost-restored");assert(resultLost.value("mutationSequence").toLongLong()>restored.value("mutationSequence").toLongLong());
     auto beforeSave=typedOwner.remember(avatar.get(),avatar->_scaleSetting,typedHandles);assert(beforeSave.valid());
     avatar->_scaleSetting.set(1.5f);SettingsTests::flush(manager.data());const auto changed=publish("saved-scale");assert(changed.value("writer").toMap().value("matchesPhysical")==QVariant(true) && changed.value("cacheMatchesWriter")==QVariant(true));
     const auto written=typedOwner.remember(avatar.get(),avatar->_scaleSetting,typedHandles);assert(written.valid());
-    assert(typedOwner.restoreUnwrittenLazy(beforeSave,written,typedHandles,durable).isEmpty());assert(journalSequence==6);
+    assert(typedOwner.restoreUnwrittenLazy(beforeSave,written,typedHandles,durable).isEmpty());assert(journalSequence==8);
     // A dirty original writer can be ahead of real bytes; observing never syncs.
     SettingsTests::writerCache(manager.data(),[](QSettings*s){
         s->setValue("Avatar/scale",2.5f);
@@ -199,7 +212,14 @@ int main(int argc,char**argv){
     assert(tsi.featurePicoAvatarPreferences(request()).isEmpty());released.release();SettingsTests::flush(manager.data());publish("late-result-discarded");
     // The observer never changes unowned rows or retires the original collector.
     assert(manager->value("unrelated")==QVariant(QByteArray("untouched")));
-    const auto oldBirth=tsi._featureAvatarPreferenceBirth;avatarManager->avatar.reset(new MyAvatar);avatar.reset();SettingsTests::flush(manager.data());publish("avatar-replacement");assert(oldBirth!=tsi._featureAvatarPreferenceBirth);
+    auto disappearing=typedOwner.remember(avatar.get(),avatar->_pitchSpeedSetting,typedHandles);assert(disappearing.valid());
+    avatar->_pitchSpeedSetting.get();const auto beforeDisappear=typedOwner.remember(avatar.get(),avatar->_pitchSpeedSetting,typedHandles);assert(beforeDisappear.valid());
+    const auto oldBirth=tsi._featureAvatarPreferenceBirth;
+    assert(typedOwner.restoreUnwrittenLazy(disappearing,beforeDisappear,typedHandles,[&](const QVariantMap& event){
+        assert(event.value("phase")==QVariant("intent"));durable(event);avatarManager->avatar.reset();avatar.reset();return true;
+    }).isEmpty());assert(!disappearing.valid() && journalSequence==9);
+    assert(typedOwner.restoreUnwrittenLazy(disappearing,beforeDisappear,typedHandles,durable).isEmpty());assert(journalSequence==9);
+    avatarManager->avatar.reset(new MyAvatar);SettingsTests::flush(manager.data());publish("avatar-replacement");assert(oldBirth!=tsi._featureAvatarPreferenceBirth);
     while(tsi._featureAvatarPreferencesRequests.size()<512){assert(!tsi.featurePicoAvatarPreferences(request()).isEmpty());}assert(tsi.featurePicoAvatarPreferences(request()).isEmpty());
     avatarManager->avatar.reset();SettingsTests::stop(manager.data());assert(tsi.featurePicoAvatarPreferences(request()).isEmpty());return 0;
 }

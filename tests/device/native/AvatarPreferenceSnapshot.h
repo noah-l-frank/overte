@@ -23,6 +23,7 @@ public:
         QPointer<QObject> owner;Setting::Handle<T>* handle{nullptr};QSharedPointer<Setting::Manager> manager;
         T value{},fallback{};bool initialized{false},isSet{false},deprecated{false};
         std::shared_ptr<std::atomic<bool>> attempted{std::make_shared<std::atomic<bool>>(false)};
+        QElapsedTimer started;
         QWeakPointer<Setting::Manager> binding;QHash<QString,Setting::Interface*> registrations;
         QHash<QString,QVariant> settings;QVariantMap typedSettings,proof;
     };
@@ -31,11 +32,17 @@ public:
     template<class T> HandleMemento<T> remember(QObject* owner,Setting::Handle<T>& handle,
             const std::function<QVariantMap()>& handles) {
         HandleMemento<T> result;bool first=true,consistent=true;
-        if(!owner || owner->thread()!=QThread::currentThread() || !avatarPreferenceKey(handle._key)) {return result;}
+        if(!gui()) {return result;}
+        if(!owner || owner->thread()!=QThread::currentThread() || !DependencyManager::isSet<Setting::Manager>()) {return result;}
+        const auto originalManager=DependencyManager::get<Setting::Manager>();
+        if(!originalManager || originalManager->thread()!=QThread::currentThread() || !avatarPreferenceKey(handle._key)) {return result;}
+        QElapsedTimer started;started.start(); // Before either original capture half.
         const auto proof=capture([&] {
             auto native=handles();if(native.isEmpty()) {return QVariantMap{};}
             const auto manager=DependencyManager::get<Setting::Manager>();HandleMemento<T> observed;
+            if(manager!=originalManager) {return QVariantMap{};}
             observed.owner=owner;observed.handle=&handle;observed.manager=manager;
+            observed.started=started;
             const bool locked=manager->withTryReadLock([&] {
                 observed.value=handle._value;observed.fallback=handle._defaultValue;
                 observed.initialized=handle._isInitialized;observed.isSet=handle._isSet;observed.deprecated=handle._isDeprecated;
@@ -59,20 +66,26 @@ public:
     // The supplied durable journal must commit each event before returning true.
     template<class T> QVariantMap restoreUnwrittenLazy(HandleMemento<T>& original,const HandleMemento<T>& expected,
             const std::function<QVariantMap()>& handles,const std::function<bool(const QVariantMap&)>& journal) {
-        if(!original.valid() || !expected.valid() || original.attempted->load() || !journal
+        // Reject a foreign caller before dereferencing even the saved Handle
+        // key or QObject owner. Historical originals need no fresh clock.
+        if(!gui()) {return {};}
+        if(!original.valid() || !expected.valid() || original.owner->thread()!=QThread::currentThread()
+                || expected.owner->thread()!=QThread::currentThread() || original.manager->thread()!=QThread::currentThread()
+                || expected.manager->thread()!=QThread::currentThread()) {return {};}
+        if(original.attempted->load() || !journal
                 || original.owner!=expected.owner || original.handle!=expected.handle || original.manager!=expected.manager
                 || original.initialized || original.isSet || original.binding.lock() || original.registrations.contains(original.handle->_key)
                 || original.settings.contains(original.handle->_key) || !expected.initialized || expected.isSet
                 || expected.binding.lock()!=original.manager || expected.registrations.value(original.handle->_key)!=original.handle
                 || !expected.settings.contains(original.handle->_key) || expected.settings.value(original.handle->_key).isValid()
                 || raw(original.value)!=raw(expected.value) || raw(original.fallback)!=raw(expected.fallback)
-                || original.deprecated!=expected.deprecated || !fresh(expected.proof)) {return {};}
+                || original.deprecated!=expected.deprecated || !fresh(expected)) {return {};}
         auto settings=expected.settings;settings.remove(original.handle->_key);
         auto registrations=expected.registrations;registrations.remove(original.handle->_key);
         if(typedSettings(settings)!=original.typedSettings || registrations!=original.registrations
                 || stableWriter(original.proof)!=stableWriter(expected.proof)) {return {};}
         const auto actual=remember(original.owner, *original.handle,handles);
-        if(!unchanged(expected,actual)) {return {};}
+        if(!unchanged(expected,actual) || !fresh(expected) || !fresh(actual)) {return {};}
         // Copies of a native memento share the one attempt. A lost/failed
         // intent/result never authorizes a replay through an old copy.
         if(original.attempted->exchange(true)) {return {};}
@@ -81,13 +94,19 @@ public:
             {"key",original.handle->_key},{"original",original.proof},{"expected",expected.proof}};
         if(QJsonDocument::fromVariant(intent).toJson(QJsonDocument::Compact).size()>65536) {return {};}
         if(!journal(intent)) {return {};}
+        // The durable callback can outlive or move its actual QObject owner.
+        // Keep the intent owned; never read the saved key after that change.
+        if(!original.owner || !expected.owner || original.owner->thread()!=QThread::currentThread()
+                || expected.owner->thread()!=QThread::currentThread() || original.manager->thread()!=QThread::currentThread()
+                || expected.manager->thread()!=QThread::currentThread()) {return {};}
         bool restored=false;
         {
             const auto manager=original.manager;
-            manager->_featureAvatarPreferencesBarrier.compareAndMutate(expected.proof.value("mutationSequence").toLongLong(),original.handle->_key,[&] {
+            if(fresh(expected) && fresh(actual)) {
+              manager->_featureAvatarPreferencesBarrier.compareAndMutate(expected.proof.value("mutationSequence").toLongLong(),original.handle->_key,[&] {
               manager->withTryWriteLock([&] {
                 auto& handle=*original.handle;
-                if(!original.owner || !fresh(expected.proof) || manager!=DependencyManager::get<Setting::Manager>() || manager->thread()!=QThread::currentThread()
+                if(!original.owner || !fresh(expected) || !fresh(actual) || manager!=DependencyManager::get<Setting::Manager>() || manager->thread()!=QThread::currentThread()
                         || manager->_handles!=expected.registrations || typedSettings(manager->_settings)!=expected.typedSettings
                         || handle._isInitialized!=expected.initialized || handle._isSet!=expected.isSet || handle._manager.lock()!=expected.binding.lock()
                         || handle._isDeprecated!=expected.deprecated || raw(handle._value)!=raw(expected.value)
@@ -99,6 +118,7 @@ public:
                 handle._manager=original.binding;handle._isDeprecated=original.deprecated;restored=true;
               },0);return restored;
             });
+            }
         }
         const auto after=remember(original.owner,*original.handle,handles);
         const bool verified=restored && after.valid() && sameHandle(original,after)
@@ -175,6 +195,10 @@ public:
         return QJsonDocument(QJsonObject::fromVariantMap(complete)).toJson(QJsonDocument::Compact).size()<=245760 ? complete : QVariantMap{};
     }
 private:
+    static bool gui() {
+        return QCoreApplication::instance() && QCoreApplication::arguments().contains("--testScript")
+            && QThread::currentThread()==QCoreApplication::instance()->thread();
+    }
     template<class T> static QVariantMap raw(const T& value) {return avatarPreferenceRaw(true,QVariant::fromValue(value));}
     static QVariantMap typedSettings(const QHash<QString,QVariant>& settings) {
         if(settings.size()>512) {return {};}
@@ -196,6 +220,10 @@ private:
     static bool fresh(const QVariantMap& proof) {
         const auto now=QDateTime::currentMSecsSinceEpoch(),then=proof.value("capturedEpochMs").toLongLong();
         return then>0 && then<=now && now-then<=1500;
+    }
+    template<class T> static bool fresh(const HandleMemento<T>& value) {
+        const auto elapsed=value.started.isValid() ? value.started.elapsed() : -1;
+        return elapsed>=0 && elapsed<=1500 && fresh(value.proof);
     }
     AudioSettingsQueue _writer;
 };
