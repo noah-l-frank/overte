@@ -110,3 +110,9 @@ ignored Go or foreign process red. Job15 did not retain element response values,
 so this calibration does not establish its device root cause or a successful
 navigation. Original outer-operation and module bounds remain independently
 enforced; a fresh device retest must establish the actual effect.
+
+`probe.snapshot` requires the SDK session already owned by an explicit launch.
+Every Phone observation retains that session, generation, target, installed
+candidate and native PID/start identity across the original fresh probe reader.
+It cannot bootstrap, rebind, repair or replace a missing/dead SDK session; that
+condition is an error. The common operation and result schemas are unchanged.

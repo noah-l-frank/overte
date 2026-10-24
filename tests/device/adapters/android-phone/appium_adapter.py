@@ -2539,6 +2539,41 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_READ_ONLY_SESSION_OR_CANDIDATE_CHANGED')
         return client, before['sessionId'], before
 
+    def existing_probe_snapshot(self, selector, values):
+        """Observe only the already-owned SDK/native process; never repair it."""
+        validate_operation_arguments('probe.snapshot', values)
+        target = deepcopy(self.target(selector))
+        require('probe.snapshot' in self.advertised_capabilities(target),
+                'PHONE_READ_ONLY_PROBE_NOT_ENABLED')
+        state = deepcopy(self.read_session(selector))
+        fingerprint = self.snapshot_fingerprint(target)
+        require(type(state) is dict and type(state.get('generation')) is int and state['generation'] >= 0
+                and state.get('targetFingerprint') == fingerprint,
+                'PHONE_READ_ONLY_PROBE_CONTEXT_REQUIRED')
+        client, session, current = self.existing_session(selector)
+        require(current == state and session == state.get('sessionId'),
+                'PHONE_READ_ONLY_PROBE_CONTEXT_CHANGED')
+        process = self.process_state(selector, client, session, state, target)
+        require(process.get('running') is True and type(process.get('identity')) is str
+                and re.fullmatch(r'[1-9][0-9]{0,9}:[0-9]{1,20}', process['identity']) is not None,
+                'PHONE_READ_ONLY_PROBE_PROCESS_REQUIRED')
+        process = deepcopy(process)
+        observed = AppiumAdapter.probe_snapshot(self, client, session, target)
+        # Reject local endpoint/state replacement before contacting an SDK again.
+        current = self.read_session(selector)
+        require(self.snapshot_fingerprint(self.target(selector)) == fingerprint
+                and type(current) is dict and type(current.get('generation')) is int and current == state,
+                'PHONE_READ_ONLY_PROBE_CONTEXT_CHANGED')
+        current_client, current_session, current = self.existing_session(selector)
+        require(current_session == session and type(current.get('generation')) is int and current == state
+                and self.process_state(selector, current_client, current_session, current, target) == process,
+                'PHONE_READ_ONLY_PROBE_PROCESS_OR_SESSION_CHANGED')
+        current = self.read_session(selector)
+        require(self.snapshot_fingerprint(self.target(selector)) == fingerprint
+                and type(current) is dict and type(current.get('generation')) is int and current == state,
+                'PHONE_READ_ONLY_PROBE_CONTEXT_CHANGED')
+        return observed
+
     def normal_feature_runtime(self, selector, *, include_entities=False, read_only=False):
         require(type(read_only) is bool, 'PHONE_READ_ONLY_MODE_INVALID')
         target = self.target(selector)
@@ -3025,6 +3060,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
 
     def invoke(self, selector, operation, values):
         PhoneAdapter.require_bound_operation(self, operation, values)
+        if operation=='probe.snapshot':
+            return self.existing_probe_snapshot(selector, values)
         if operation=='navigation.enter-domain':
             return self.normal_navigation(selector,operation,values)
         if operation in COLLABORATION_OPERATIONS:

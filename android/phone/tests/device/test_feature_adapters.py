@@ -2093,6 +2093,93 @@ class FeatureAdapterTests(unittest.TestCase):
             self.adapter.ensure_session(SELECTOR)
         ordinary.assert_called_once_with(SELECTOR)
 
+    def read_only_probe_boundaries(self, mutate=None, bodies=None):
+        import time
+        from types import SimpleNamespace
+        calls = self.read_only_boundaries()
+        actual = self.fixture.root / 'actual-probe-body.json'
+        raw = json.dumps(dict(schemaVersion=1, sampleEpochMs=int(time.time()*1000),
+                              sampleSequence=23, actualPrivateBody='fresh original transport')).encode()
+        pending = iter(bodies if bodies is not None else [raw])
+        pulls = []
+        def read(device, package, path, *, attempts):
+            self.assertEqual((device, package, path, attempts),
+                (self.target['capabilities']['appium:udid'], PACKAGE, self.adapter.ANDROID_DEBUG_PROBE, 1))
+            actual.write_bytes(next(pending));pulls.append(actual.read_bytes())
+            if mutate is not None: mutate()
+            return actual.read_bytes()
+        transport = SimpleNamespace(require_connected=lambda _device: None, read_debug_app_file=read)
+        for boundary in (patch('adb_transport.AdbTransport', return_value=transport),
+                         patch.object(self.adapter, 'save_session', side_effect=AssertionError('Observation wrote SDK state')),
+                         patch.object(self.adapter, 'write_android_client_command', side_effect=AssertionError('Observation sent input'))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return calls, pulls, raw
+
+    def test_phone_probe_uses_existing_sdk_and_original_fresh_bounded_transport_without_repair(self):
+        import time
+        fresh=json.dumps(dict(schemaVersion=1,sampleEpochMs=int(time.time()*1000),
+                              sampleSequence=23,actualPrivateBody='actual third file body')).encode()
+        calls,pulls,_raw=self.read_only_probe_boundaries(bodies=[b'',b'{',fresh])
+        before=deepcopy(self.adapter.read_session(SELECTOR))
+        observed=self.invoke('probe.snapshot')
+        self.assertEqual(json.loads(fresh),observed)
+        self.assertEqual([b'',b'{',fresh],pulls)
+        self.assertEqual([('GET','/session/native-session',None)]*2,calls)
+        self.assertEqual(before,self.adapter.read_session(SELECTOR))
+        self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.lifecycle_inputs)
+
+    def test_phone_probe_missing_state_invalid_generation_or_input_never_contacts_sdk(self):
+        calls,pulls,_raw=self.read_only_probe_boundaries()
+        original=deepcopy(self.adapter.read_session(SELECTOR))
+        for state in (None,original|{'generation':True},original|{'generation':-1},
+                      original|{'targetFingerprint':'f'*64},original|{'sessionId':'foreign/../sdk'}):
+            with self.subTest(state=state),patch.object(self.adapter,'read_session',return_value=state):
+                with self.assertRaises((RuntimeError,ValueError)):self.invoke('probe.snapshot')
+        with self.assertRaises(ValueError):self.adapter.invoke(SELECTOR,'probe.snapshot',{'foreign':True})
+        with patch.object(self.adapter,'advertised_capabilities',return_value=[]):
+            with self.assertRaises((RuntimeError,ValueError)):self.invoke('probe.snapshot')
+        self.assertEqual([],calls);self.assertEqual([],pulls)
+        self.assertEqual(original,self.adapter.read_session(SELECTOR));self.assertEqual([],self.native.inputs)
+
+    def test_phone_probe_dead_existing_sdk_never_reads_repairs_deletes_or_sends_input(self):
+        _calls,pulls,_raw=self.read_only_probe_boundaries()
+        before=deepcopy(self.adapter.read_session(SELECTOR))
+        with patch.object(self.native,'call',side_effect=RuntimeError('private endpoint'))as sdk:
+            with self.assertRaisesRegex(RuntimeError,'^PHONE_READ_ONLY_SESSION_UNAVAILABLE$'):self.invoke('probe.snapshot')
+        self.assertEqual([(('GET','/session/native-session'),)],[(call.args,)for call in sdk.call_args_list])
+        self.assertEqual([],pulls);self.assertEqual(before,self.adapter.read_session(SELECTOR))
+        self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.lifecycle_inputs)
+
+    def test_phone_probe_late_context_process_or_installed_source_change_rejects_actual_body(self):
+        state=self.adapter.read_session(SELECTOR);original=deepcopy(state);target=deepcopy(self.target)
+        original_identity=self.native.identity;original_digest=self.fixture.adb.digest
+        mutations={'session':lambda:state.update(sessionId='foreign-session'),
+            'generation':lambda:state.update(generation=2),'boolean-generation':lambda:state.update(generation=True),
+            'target':lambda:self.target.update(serverUrl='http://127.0.0.1:4999'),
+            'pid':lambda:setattr(self.native,'identity','32:14'),
+            'birth':lambda:setattr(self.native,'identity','31:15'),
+            'stopped':lambda:setattr(self.native,'running',False),
+            'installed':lambda:setattr(self.fixture.adb,'digest','f'*64)}
+        for label,mutation in mutations.items():
+            with self.subTest(label=label):
+                calls,pulls,_raw=self.read_only_probe_boundaries(mutate=mutation)
+                with self.assertRaises((RuntimeError,ValueError)):self.invoke('probe.snapshot')
+                self.assertEqual(1,len(pulls));self.assertTrue(all(method=='GET'for method,_path,_body in calls))
+                self.assertEqual(1 if label in {'session','generation','boolean-generation','target','installed'} else 2,len(calls))
+                self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.lifecycle_inputs)
+                state.clear();state.update(deepcopy(original));self.target.clear();self.target.update(deepcopy(target))
+                self.native.identity=original_identity;self.native.running=True;self.fixture.adb.digest=original_digest
+        calls,pulls,_raw=self.read_only_probe_boundaries()
+        queried=[]
+        def native_process(*_args):
+            queried.append(True)
+            if len(queried)==2:state['generation']=2
+            return {'running':True,'identity':original_identity}
+        with patch.object(self.adapter,'process_state',side_effect=native_process):
+            with self.assertRaisesRegex(ValueError,'PHONE_READ_ONLY_PROBE_CONTEXT_CHANGED'):self.invoke('probe.snapshot')
+        self.assertEqual(2,len(queried));self.assertEqual(1,len(pulls));self.assertEqual(2,len(calls))
+        self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.lifecycle_inputs)
+
     def test_phone_read_only_script_source_reads_existing_session_without_repair_or_input(self):
         source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
         calls = self.read_only_boundaries()
