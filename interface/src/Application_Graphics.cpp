@@ -27,6 +27,9 @@
 #if !defined(Q_OS_IOS)
 #include <gl/GLHelpers.h>
 #endif
+#if !defined(Q_OS_IOS)
+#include <gl/OffscreenGLCanvas.h>
+#endif
 #include <input-plugins/KeyboardMouseDevice.h>
 #include <input-plugins/TouchscreenDevice.h>
 #include <input-plugins/TouchscreenVirtualPadDevice.h>

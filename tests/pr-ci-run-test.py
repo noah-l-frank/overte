@@ -138,6 +138,21 @@ class DockerCommandTests(unittest.TestCase):
         self.assertEqual(R.PRLIMIT, call.call_args.args[0][0])
         self.assertEqual({"PATH", "LANG", "LC_ALL"}, set(call.call_args.kwargs["env"]))
 
+    def test_public_compiler_and_linker_alternatives_preserve_only_usr_targets(self):
+        aliases = {"/usr/bin/" + name: "/etc/alternatives/" + name
+                   for name in ("ld", "cc", "c++")}
+        targets = {name: Path("/usr/bin/prepared-" + name.rsplit("/", 1)[1]) for name in aliases}
+        with patch.object(Path, "is_symlink", lambda path: str(path) in aliases), \
+                patch.object(R.os, "readlink", lambda path: aliases[str(path)]), \
+                patch.object(Path, "resolve", lambda path, **kwargs: targets[str(path)]), \
+                patch.object(Path, "is_file", return_value=True):
+            actual = R._public_tool_aliases()
+            self.assertEqual([part for tool, alias in aliases.items()
+                              for part in ("--symlink", str(targets[tool]), alias)], actual)
+            targets["/usr/bin/c++"] = Path("/home/private/compiler")
+            with self.assertRaises(R.RunError):
+                R._public_tool_aliases()
+
     def test_private_tmp_cannot_hide_an_explicit_prepared_runtime(self):
         with tempfile.TemporaryDirectory(prefix="pr-ci-prepared-", dir="/tmp") as temporary:
             prepared = Path(temporary) / "runtime"

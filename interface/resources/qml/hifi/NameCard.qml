@@ -23,7 +23,7 @@ Item {
     id: thisNameCard
     // Size
     width: isMyCard ? pal.myCardWidth - anchors.leftMargin : pal.nearbyNameCardWidth;
-    height: isMyCard ? pal.myCardHeight : pal.rowHeight;
+    height: isMyCard ? pal.myCardHeight : pal.rowHeight + (selected && pal.activeTab === "nearbyTab" ? 112 : 0);
     anchors.left: parent.left
     anchors.leftMargin: 5
     anchors.top: parent.top;
@@ -305,6 +305,20 @@ Item {
         }
     }
 
+    Button {
+        objectName: "peopleRequestConnection"
+        text: qsTr("Connect")
+        visible: selected && !isMyCard && pal.activeTab === "nearbyTab"
+            && connectionStatus !== "connection" && connectionStatus !== "friend"
+        enabled: isPresent && !isReplicated && uuid.length > 0
+        width: Math.min(160, parent.width)
+        height: 48
+        anchors.left: parent.left
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 8
+        onClicked: pal.sendToScript({ method: "connectionRequest", params: thisNameCard.uuid })
+    }
+
     // UserName Text
     FiraSansRegular {
         id: userNameText
@@ -443,7 +457,9 @@ Item {
         height: 8
         // Anchors
         anchors.bottom: isMyCard ? avatarImage.bottom : parent.bottom;
-        anchors.bottomMargin: isMyCard ? 0 : height;
+        // A selected row reserves separate name, gain and Connect bands.
+        // Keep the full touch gain target above the 48-pixel Connect button.
+        anchors.bottomMargin: isMyCard ? 0 : selected && pal.activeTab === "nearbyTab" ? 84 : height;
         anchors.left: isMyCard ? userNameText.left : parent.left;
         // Style
         radius: 4
@@ -503,10 +519,11 @@ Item {
     // Per-Avatar Gain Slider
     Slider {
         id: gainSlider
+        objectName: "peopleAvatarGain"
         // Size
         width: isMyCard ? thisNameCard.width - 20 : thisNameCard.width;
         height: Math.max(14, gainMetrics.adaptiveMinimumControlHeight)
-        HifiControls.TouchUiMetrics { id: gainMetrics }
+        HifiControls.TouchUiMetrics { id: gainMetrics; objectName: "peopleGainMetrics" }
         // Anchors
         anchors.verticalCenter: nameCardVUMeter.verticalCenter;
         anchors.left: nameCardVUMeter.left;

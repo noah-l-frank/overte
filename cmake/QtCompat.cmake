@@ -42,21 +42,20 @@ function(overte_filter_qt_components output_variable)
     set(${output_variable} "${_overte_qt_components}" PARENT_SCOPE)
 endfunction()
 
-function(overte_find_qt)
+macro(overte_find_qt)
     cmake_parse_arguments(_overte_qt_request
         "QUIET;REQUIRED;EXACT;CONFIG;NO_MODULE;MODULE;GLOBAL"
         "" "COMPONENTS;OPTIONAL_COMPONENTS" ${ARGN})
     set(_overte_requested_components
         ${_overte_qt_request_COMPONENTS} ${_overte_qt_request_OPTIONAL_COMPONENTS})
     overte_filter_qt_components(_overte_available_components ${_overte_requested_components})
-    if(_overte_requested_components AND NOT _overte_available_components)
-        # Core5Compat-only migration opt-ins need no separate package in Qt 5.
-        # Qt 5 rejects a find_package call with an empty component list.
-        return()
+    # Keep discovery in the caller's scope for Qt's component variables. A
+    # return() in this macro would also stop the caller's CMake configuration.
+    if(NOT _overte_requested_components OR _overte_available_components)
+        overte_filter_qt_components(_overte_find_arguments ${ARGN})
+        find_package(${OVERTE_QT_PACKAGE} ${_overte_find_arguments})
     endif()
-    overte_filter_qt_components(_overte_find_arguments ${ARGN})
-    find_package(${OVERTE_QT_PACKAGE} ${_overte_find_arguments})
-endfunction()
+endmacro()
 
 function(overte_link_qt_modules target)
     overte_filter_qt_components(_overte_link_modules ${ARGN})
@@ -75,7 +74,7 @@ endfunction()
 
 function(overte_qt_add_binary_resources target input_file)
     if(OVERTE_QT_MAJOR EQUAL 6)
-        qt_add_binary_resources(${target} "${input_file}" ${ARGN})
+        qt6_add_binary_resources(${target} "${input_file}" ${ARGN})
     else()
         qt5_add_binary_resources(${target} "${input_file}" ${ARGN})
     endif()

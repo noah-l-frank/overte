@@ -392,11 +392,7 @@ function fromQml(message) { // messages are {method, params}, like json-rpc. See
         if(message.url.indexOf('hifi://') === 0) {
             AddressManager.handleLookupString(message.url, false);
         } else if(message.url.indexOf('https://') === 0 || message.url.indexOf('http://') === 0) {
-            if (isAndroidPhone) {
-                Window.displayAnnouncement("External avatar marketplace pages are not supported on Android yet.");
-            } else {
-                tablet.gotoWebScreen(message.url, MARKETPLACES_INJECT_SCRIPT_URL);
-            }
+            tablet.gotoWebScreen(message.url, MARKETPLACES_INJECT_SCRIPT_URL);
         }
 
         break;
