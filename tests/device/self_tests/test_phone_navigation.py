@@ -9,7 +9,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 DEVICE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(DEVICE))
@@ -92,8 +92,11 @@ class NativePhone:
                 self.field = ''
                 return None
             if path.endswith('/value'):
-                self.field = body['text']
+                if self.mutation != 'text-ignored':
+                    self.field = body['text']
                 return None
+            if path.endswith('/text'):
+                return self.field
             if path.endswith('/click'):
                 self.inputs.append(name)
                 if name == 'Go to destination':
@@ -156,6 +159,50 @@ class NativePhone:
 
 
 class PhoneNavigationTests(unittest.TestCase):
+    def test_scene_input_accepts_the_exact_approved_controlled_spawn_query(self):
+        from navigation_observation import arrived, VIEWPOINTS
+        for label, location in VIEWPOINTS.items():
+            with self.subTest(label=label):
+                native = NativePhone()
+                approved = native.scene + '?' + urlencode({'location': location})
+                native.profile['sceneUrl'] = approved
+                native.arrive(native.scene + '?location=/0,0,4/0,0,0,1'
+                              if label != 'A' else native.scene + '?location=/2,0,4/0,0,0,1')
+                self.assertFalse(arrived(native.observe(), approved, label))
+                self.assertEqual({'requested': True}, native.flow().load_scene(approved))
+                self.assertEqual(approved, native.field)
+                self.assertEqual(['Go to destination', 'PhoneAddressGoButton'], native.inputs)
+                self.assertTrue(arrived(native.observe(), approved, label))
+                self.assertFalse(native.address_open)
+                self.assertFalse(native.state['normalNavigation']['addressOwned'])
+
+    def test_scene_input_keeps_foreign_query_and_ignored_input_counterexamples_red(self):
+        from navigation_observation import arrived
+        native = NativePhone()
+        approved = native.scene + '?' + urlencode({'location': '/0,0,4/0,0,0,1'})
+        native.profile['sceneUrl'] = approved
+        for url in (native.scene, native.scene + '?location=/2,0,4/0,0,0,1',
+                    approved + '&foreign=1', approved + '&location=/0,0,4/0,0,0,1',
+                    approved + '#foreign', approved.replace('controlled.test', 'foreign.test'),
+                    native.scene + '?' + urlencode({'location': '/0,0,99/0,0,0,1'})):
+            with self.subTest(url=url):
+                with self.assertRaises((NativeUIError, ValueError)):
+                    native.flow().load_scene(url)
+                self.assertEqual([], native.inputs)
+        ignored = NativePhone('goto-ignored')
+        ignored.profile['sceneUrl'] = approved
+        ignored.arrive(ignored.scene + '?location=/2,0,4/0,0,0,1')
+        self.assertEqual({'requested': True}, ignored.flow().load_scene(approved))
+        self.assertFalse(arrived(ignored.observe(), approved, 'A'))
+        ignored_text = NativePhone('text-ignored')
+        ignored_text.profile['sceneUrl'] = approved
+        with self.assertRaises(NativeUIError):
+            ignored_text.flow().load_scene(approved)
+        self.assertNotIn('PhoneAddressGoButton', ignored_text.inputs)
+        self.assertTrue(ignored_text.state['normalNavigation']['addressOwned'])
+        ignored_text.invoke('places.close', {})
+        self.assertFalse(ignored_text.address_open)
+
     def test_real_w3c_normal_flow_drives_the_actual_journey_oracle_and_persists_ownership(self):
         native = NativePhone()
         result = native.run()

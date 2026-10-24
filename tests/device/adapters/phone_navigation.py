@@ -124,15 +124,15 @@ class PhoneNavigation:
         # Back/Forward click below resolves one visible enabled control itself.
 
     def load_scene(self, url):
-        """Submit precisely the approved base scene through the ordinary dialog.
+        """Submit precisely the approved controlled scene through the ordinary dialog.
 
         This internal foundation path supplies an input receipt only. Existing
         session/modules must independently observe actual departure/arrival.
         """
         from navigation_observation import owned_scene
-        parsed=owned_scene(url)
-        if parsed.query or url!=self.profile['sceneUrl']:
-            raise NativeUIError('Normal Phone scene input differs from its approved base scene')
+        owned_scene(url)
+        if url!=self.profile['sceneUrl']:
+            raise NativeUIError('Normal Phone scene input differs from its approved scene')
         self.open_address()
         self.ui.replace_text(self.address,url)
         if self.ui.text(self.address)!=url:
