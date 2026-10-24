@@ -28,6 +28,10 @@ function run(options = {}) {
     Object.defineProperty(Render, "localLightingEnabled", {
         get() { return lights; }, set(value) { operations.push(["lights", value]); lights = value; }
     });
+    let mirrors = false;
+    Object.defineProperty(Render, "mirrorsEnabled", {
+        get() { return mirrors; }, set(value) { operations.push(["mirrors", value]); mirrors = value; }
+    });
     const tablet = { fromQml: new FakeSignal(), screenChanged: new FakeSignal(),
         sendToQml(message) { frames.push(JSON.parse(JSON.stringify(message))); } };
     const execution = runProductionScript(source, { Script, Render,
@@ -62,11 +66,14 @@ for (const view of ["RenderMainView", "RenderSecondView"]) {
 assert.equal(operations.at(-1)[0], "lights", "grid restored before lights are enabled");
 assert.equal(Render.localLightingEnabled, true);
 update("mirrors", true);
-for (const view of ["RenderMainView", "RenderSecondView"]) {
-    for (let index = 0; index < 3; ++index) {
-        assert.equal(grids[view + ".RenderMirrorView" + index + "Depth0"].enabled, true);
-    }
-}
+// Native task traversal/persistence is exercised by test_mirror_controls.py.
+// This script contract verifies the actual UI caller reaches that setter.
+assert.equal(Render.mirrorsEnabled, true);
+assert.deepEqual(operations.at(-1), ["mirrors", true]);
+assert.equal(fixture.store.get("phone/graphics/mirrors"), true);
+update("mirrors", false);
+assert.equal(Render.mirrorsEnabled, false);
+update("mirrors", true);
 update("haze", true);
 update("proceduralMaterials", true);
 update("resolutionScale", 0.7);
@@ -76,6 +83,7 @@ assert.equal(Render.viewportResolutionScale, 0.7);
 const beforeInvalid = writes.length;
 for (const value of [0.49, 0.71, NaN, Infinity, "0.6", null, true]) { update("resolutionScale", value); }
 for (const value of ["true", 1, null, {}]) { update("haze", value); }
+for (const value of ["true", 1, null, {}]) { update("mirrors", value); }
 for (const key of ["__proto__", "constructor", "renderMethod", "targetFps"]) { update(key, true); }
 assert.equal(writes.length, beforeInvalid, "invalid keys/types/budgets never persist");
 assert.equal(Render.viewportResolutionScale, 0.7);
@@ -87,7 +95,10 @@ const reopened = run({ store: Object.fromEntries(fixture.store) });
 assert.equal(reopened.Render.hazeEnabled, true, "user choices restore after native startup resets baseline");
 assert.equal(reopened.Render.proceduralMaterialsEnabled, true);
 assert.equal(reopened.Render.viewportResolutionScale, 0.7);
-assert.equal(reopened.grids["RenderMainView.RenderMirrorView0Depth0"].enabled, true);
+assert.equal(reopened.Render.mirrorsEnabled, true);
+assert.equal(reopened.frames.length, 0);
+const safe = run();
+assert.equal(safe.Render.mirrorsEnabled, false, "fresh Phone retains its native safe mirror default");
 const malformed = run({ store: { "phone/graphics/haze": "yes", "phone/graphics/resolutionScale": 2 } });
 assert.equal(malformed.operations.length, 0, "malformed saved values leave safe defaults unchanged");
 fixture.Script.end();
