@@ -2061,6 +2061,15 @@ def create_adapter(args, base_class):
                 if path.name=='lifecycle-restore-owner.json':return True
             return False
 
+        def _lifecycle_observation_owned(self,target):
+            store=self._lifecycle_world_store(target,create=False)
+            if store is None:return False
+            store._parent()
+            for index,path in enumerate(store.path.parent.iterdir()):
+                _need(index<4096)
+                if path.name=='lifecycle-primary-observation.json' or path.name.startswith('lifecycle-primary-observation.json.frame-'):return True
+            return False
+
         @_private
         def _lifecycle_world(self,target,run,*,source_lock=None):
             from adapters.pico4.lifecycle_world import PicoLifecycleWorld
@@ -2288,6 +2297,16 @@ def create_adapter(args, base_class):
                     bind_home(self,target,self._native_feature_observer(target)),run,intent,owns,lease,allow)
             return PicoLifecycleRestore(process,joined,native,domain,
                 store.path.with_name('lifecycle-restore-owner.json'),surface)
+
+        @_private
+        def _lifecycle_observation_owner(self,target,run,*,restore,editor,chat,pending):
+            from adapters.pico4.lifecycle_observation import PicoLifecycleObservation
+            from adapters.pico4.lifecycle_restore import PicoLifecycleRestore
+            _need(type(restore) is PicoLifecycleRestore and restore.run==run
+                and restore.world.store.path==self._lifecycle_world_store(target).path)
+            world=restore.world;self._script_journey()._lock(target,world.lock)
+            _need(self.require_pico_session_identity(target)==world.identity and restore.native.pid==world.pid)
+            return PicoLifecycleObservation(restore,editor,chat,pending,world.store.path.with_name('lifecycle-primary-observation.json'))
 
         @_private
         def _lifecycle_restore_restart(self,target,run,*,restore):
@@ -3645,6 +3664,7 @@ def create_adapter(args, base_class):
                       and not self._lifecycle_pending_owned(target)
                       and not self._lifecycle_close_owned(target)
                       and not self._lifecycle_restore_owned(target)
+                      and not self._lifecycle_observation_owned(target)
                       and (self._audio_page_store(target,create=False) is None or self._audio_page_store(target,create=False).read() is None)
                       and not self._audio_capture_owned(target)
                       and self._script_restart_inputs_store(target).read() is None

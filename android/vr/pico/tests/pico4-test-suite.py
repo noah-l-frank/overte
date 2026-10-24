@@ -185,6 +185,7 @@ TESTS = (
     test("lifecycle-world-codec", "interaction", PYTHON, "device/test_lifecycle_world_codec.py"),
     test("lifecycle-close-owner", "interaction", PYTHON, "device/test_lifecycle_close_owner.py"),
     test("lifecycle-restore-owner", "interaction", PYTHON, "device/test_lifecycle_restore_owner.py"),
+    test("lifecycle-primary-observation", "interaction", PYTHON, "device/test_lifecycle_observation.py"),
     test("lifecycle-process-v2", "interaction", PYTHON, "device/test_lifecycle_process_v2.py"),
     test("lifecycle-process-finalization", "interaction", PYTHON, "device/test_lifecycle_process_finalization.py"),
     test("avatar-people-native-ui", "interaction", PYTHON, "device/test_avatar_people_controls_native.py", requires=("c++", "pkg-config", "node")),
