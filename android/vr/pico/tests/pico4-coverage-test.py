@@ -10,7 +10,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 242
+EXPECTED_CATALOG_CASES = 250
 
 
 def catalog_entries() -> list[str]:
@@ -31,6 +31,20 @@ def result_exit_code(result: unittest.TestResult) -> int:
 
 
 class CoverageMatrixTests(unittest.TestCase):
+    def test_process_handoff_partitions_keep_each_complete_case_once(self):
+        root=TEST_DIR.parents[3]
+        tree=ast.parse((root/'tests/device/self_tests/test_lifecycle_operations_process.py').read_text())
+        expected={'LifecycleOperationsProcessTests.'+method.name for owner in tree.body
+            if isinstance(owner,ast.ClassDef) and owner.name=='LifecycleOperationsProcessTests' for method in owner.body
+            if isinstance(method,ast.FunctionDef) and method.name.startswith('test_')}
+        names={'lifecycle-primary-process-memo', 'lifecycle-primary-launch-lost', 'lifecycle-primary-stop-lost', 'lifecycle-primary-process-clock', 'lifecycle-primary-stop-phase', 'lifecycle-primary-launch-phase', 'lifecycle-primary-process-exit', 'lifecycle-primary-process'}
+        selected=[]
+        for node in ast.walk(RUNNER_TREE):
+            if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='test' and node.args[0].value in names:
+                self.assertEqual('device/test_lifecycle_primary_process.py',node.args[3].value)
+                selected.extend(item.value for item in node.args[4:])
+        self.assertEqual(expected,set(selected));self.assertEqual(len(expected),len(selected))
+
     def test_primary_restore_partitions_retain_every_new_case_once(self):
         root=TEST_DIR.parents[3]
         sources=((root/'tests/device/self_tests/test_pico_lifecycle_operations.py','LifecycleOperationsRestoreTests'),

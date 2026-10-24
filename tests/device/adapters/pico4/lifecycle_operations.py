@@ -18,7 +18,7 @@ from feature_journeys.fixtures import context
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate
 from feature_journeys.scenarios import SCENARIOS,expand
 
-VERSION=2
+VERSION=3
 
 
 def phase(owner):
@@ -41,6 +41,9 @@ class LifecycleInputFence(PhaseInputFence):
 
     def original(self):
         self.owner.bound(saved=True);need(not self.owner.failed and self.owner.state['steps'])
+        cleanup=self.owner.state['cleanup']
+        if cleanup is not None:
+            need(cleanup['phase']=='issued');return self.owner.original(cleanup['before'])
         row=self.owner.state['steps'][-1];need(row['phase']=='issued')
         return self.owner.original(row['before'])
 
@@ -55,9 +58,9 @@ class LifecycleInputFence(PhaseInputFence):
 
 
 class PicoLifecycleOperations:
-    """One live primary graph; ordinary recipe actions through old-PID prepare.
+    """One live primary graph; normal actions and actual warm Process handoff.
 
-    This deliberately has no execute/witness or cleanup substitute. Retained
+    This deliberately has no execute/witness or whole-cleanup substitute. Retained
     parent intent makes a failed call terminal; it never resends that input.
     """
     def __init__(self,source,phases,path,*,factories=None):
@@ -66,9 +69,9 @@ class PicoLifecycleOperations:
             and type(phases) is PhaseFixtureReader and phases.area=='lifecycle-input' and phases.run==source.run)
         self.source,self.phases,self.lock=source,phases,source.lock
         self.factories={} if factories is None else factories
-        need(type(self.factories) is dict and set(self.factories)<=set(('chat','background','pending','close'))
+        need(type(self.factories) is dict and set(self.factories)<=set(('chat','background','pending','close','restart','cleanup_source'))
             and all(callable(value) for value in self.factories.values()))
-        self.children={}
+        self.children={};self.runtime=self.cleanup_source=None
         self.original_phases=phases
         self.original_client=phases.client
         self.store=PrivateFeatureState(path)
@@ -76,7 +79,7 @@ class PicoLifecycleOperations:
         self.scope=dict(lifecyclePrimaryOperationsVersion=VERSION,contractVersion=CONTRACT,runId=source.run,
             binding=deepcopy(source.binding),fixtureUrl=phases.fixture_url)
         self.disk=None;self.failed=False;self.stamp=None;self.parent=parent_node(self.store)
-        self.state=dict(**self.scope,phase='reading',chunks=[],bundles=[],baseline=None,steps=[],pendingSegment=None)
+        self.state=dict(**self.scope,phase='reading',chunks=[],bundles=[],baseline=None,steps=[],pendingSegment=None,cleanup=None)
         self.history=ChatSourceChunks(self.store,self.scope)
         self.chunk_identities=();self.chunk_raw_bytes=2
         with self.lock.held():
@@ -149,11 +152,20 @@ class PicoLifecycleOperations:
 
     def invoke(self,operation,fields):
         arguments(operation,fields);need(fields['runId']==self.scope['runId'])
-        need(operation in ('feature.lifecycle-input.act','feature.lifecycle-input.observe'))
+        need(operation in ('feature.lifecycle-input.act','feature.lifecycle-input.observe','feature.lifecycle-input.cleanup'))
         try:
             with self.lock.held():
                 self.bound(saved=True)
-                if operation.endswith('.observe'):
+                if operation.endswith('.cleanup'):observed=self.cleanup()
+                elif operation.endswith('.observe') and self.state['cleanup'] is not None:
+                    need(self.state['cleanup']['phase']=='returned' and self.cleanup_source is not None)
+                    previous=self.original(self.state['cleanup']['after'])
+                    current=self.phases.read(previous)
+                    need(typed_equal(current['status']['activations'],previous['activations']));self.archive(current['status'])
+                    observed=self.cleanup_source.read(after_sequence=fields['afterSequence'])
+                    confirmed=self.phases.read(previous)
+                    need(typed_equal(confirmed['status']['activations'],previous['activations']));self.archive(confirmed['status'])
+                elif operation.endswith('.observe'):
                     if not self.state['steps']:
                         self.baseline();previous=self.original(self.state['baseline'])
                     else:
@@ -170,9 +182,12 @@ class PicoLifecycleOperations:
                     # and real lock-exit check; no old packet becomes current.
                 else:observed=self.act(fields)
             self.final_identity()
-            if operation.endswith('.observe'):self.source.fresh(after_guard=self.final_identity)
+            if operation.endswith('.observe'):
+                if self.state['cleanup'] is None:self.source.fresh(after_guard=self.final_identity)
+                else:self.cleanup_source.fresh(after_guard=self.final_identity)
             else:
-                self.source.bound()
+                if self.state['cleanup'] is None:self.source.bound()
+                else:self.runtime.final()
                 self.final_identity()
                 packet,started,epoch=self.delivery
                 completed=self.phases.monotonic();final=self.phases.epoch_ms()
@@ -185,7 +200,7 @@ class PicoLifecycleOperations:
 
     def act(self,fields):
         self.bound();index=len(self.state['steps'])
-        need(index<16 and (index<4 or ('close' if index>=12 else 'pending' if index>=7 else 'background' if index==6 else 'chat') in self.factories)
+        need(self.state['cleanup'] is None and index<16 and (index<4 or ('close' if index>=12 else 'pending' if index>=7 else 'background' if index==6 else 'chat') in self.factories)
             and self.state['baseline'] is not None and self.source.disk is not None
             and (index==0 or self.state['steps'][-1]['phase']=='returned'))
         expected=SCENARIOS['lifecycle-input']['steps'][index]
@@ -208,6 +223,49 @@ class PicoLifecycleOperations:
         original=self.archive(after['status'])
         self.state['steps'][-1].update(phase='returned',after=original);self.save()
         return result('feature.lifecycle-input.act',dict(performed=True))
+
+    def restart_record(self,kind,value):
+        need(self.state['cleanup'] is not None and self.state['cleanup']['phase']=='issued'
+            and kind in ('old-native-birth','os-process-list','launch-delivery','new-native-before',
+                'old-pid-absence','new-native-after','cursor-transferred'))
+        index=self.archive(dict(kind=kind,original=deepcopy(value)))
+        self.state['cleanup']['records'].append(index);self.save()
+
+    def restart_transfer_intent(self,value):
+        self.bound(saved=True);cleanup=self.state['cleanup']
+        need(cleanup is not None and cleanup['phase']=='issued' and cleanup['transferIntent'] is None)
+        cleanup['transferIntent']=deepcopy(value);self.save()
+
+    def cleanup(self):
+        from adapters.pico4.lifecycle_restart_runtime import PicoLifecycleRestartRuntime
+        self.bound(saved=True)
+        need(len(self.state['steps'])==16 and all(row['phase']=='returned' for row in self.state['steps'])
+            and self.source.restore.state['phase']=='prepared' and self.source.disk['records'])
+        if self.state['cleanup'] is None:
+            previous=self.original(self.state['steps'][-1]['after']);current=self.phases.read(previous);packet=current['status']
+            need(current['verb']=='cleanup' and current['inputs']=={} and len(packet['activations'])==18
+                and 'restart' in self.factories and 'cleanup_source' in self.factories)
+            last,_=source_bundles.original(self.source.history,self.source.disk['chunks'],self.source.disk['bundles'],self.source.disk['records'][-1])
+            boundary=deepcopy(last['result']);need(boundary['sequence']==len(self.source.disk['records']))
+            before=self.archive(packet)
+            self.state['cleanup']=dict(phase='issued',before=before,after=None,records=[],transferIntent=None,
+                sourceBoundary=boundary,handoff=None);self.save()
+            self.runtime=self.factories['restart'](self)
+            need(type(self.runtime) is PicoLifecycleRestartRuntime and self.runtime.operations is self)
+            handoff=self.runtime.run()
+            self.cleanup_source=self.factories['cleanup_source'](self,handoff)
+            self.state['cleanup']['handoff']=deepcopy(handoff)
+            after=self.phases.read(packet);need(typed_equal(after['status']['activations'],packet['activations']))
+            self.delivery=deepcopy(after['status']),self.phases.monotonic(),self.phases.epoch_ms()
+            after_index=self.archive(after['status'])
+            self.state['cleanup'].update(phase='returned',after=after_index);self.save()
+        else:
+            need(self.state['cleanup']['phase']=='returned' and self.runtime is not None and self.cleanup_source is not None)
+            previous=self.original(self.state['cleanup']['after']);current=self.phases.read(previous)
+            need(typed_equal(current['status']['activations'],previous['activations']))
+            self.delivery=deepcopy(current['status']),self.phases.monotonic(),self.phases.epoch_ms()
+            self.archive(current['status'])
+        return result('feature.lifecycle-input.cleanup',dict(performed=True))
 
     def dispatch(self,index):
         editor,world,joined=self.source.editor,self.source.world,self.source.restore.joined

@@ -478,6 +478,7 @@ class LifecycleOperationsBackgroundTests(unittest.TestCase):
                 self.assertEqual(16,len(self.operations.state['steps']))
                 self.assertLessEqual(len(self.source.world.state['frames']),128)
                 self.assertLessEqual(len(self.source.disk['records']),128)
+            if hasattr(self,'after_actions'):self.after_actions(case,waiter,children)
         self.at_prefix(probe)
 
     def test_same_live_graph_normal_seven_actions_and_common_waits_keep_original_background_sources(self):self.run_seven()

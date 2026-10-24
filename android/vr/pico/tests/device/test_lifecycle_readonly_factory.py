@@ -123,5 +123,21 @@ class LifecycleReadOnlyFactoryTests(unittest.TestCase):
             self.assertEqual([],self.commands);self.assertIsNone(owner.store.read())
         self.at_original_begin(probe)
 
+    def process_original_keeps_cleanup_owned(self,name):
+        root=self.adapter._lifecycle_world_store(self.transport.target).path.parent
+        original=PrivateFeatureState(root/name)
+        original.write(dict(unresolved='original process observation ownership'),None)
+        raw=original.path.read_bytes()
+        self.assertTrue(self.adapter._lifecycle_observation_owned(self.transport.target))
+        with self.assertRaises(ValueError):self.adapter.cleanup(self.transport.target)
+        self.assertEqual(raw,original.path.read_bytes())
+        self.assertEqual([],self.transport.inputs);self.assertEqual([],self.transport.controllers)
+
+    def test_new_process_observation_root_retains_original_cleanup_responsibility(self):
+        self.process_original_keeps_cleanup_owned('lifecycle-primary-process-observation.json')
+
+    def test_new_process_observation_orphan_retains_original_cleanup_responsibility(self):
+        self.process_original_keeps_cleanup_owned('lifecycle-primary-process-observation.json.frame-000.json')
+
 
 if __name__=='__main__':unittest.main()
