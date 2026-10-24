@@ -166,3 +166,17 @@ Common cleanup also preserves measured World/stale history, requires two
 idempotent cleanup calls and a new three-second primary/independent-Actor
 baseline. These are open, as are image/surface provenance, True-hook and
 resource/file/archive/host finalization. Public capability stays disabled.
+
+## Root integration verification
+
+Root selected this packet as `3d7b37fb7f` and its actual retained-reader
+documentation correction as `b823793dbb`. All263 selectors and14 risk rows
+remain, including the exact four-ID Pending partition guard. Four independent
+owning selections pass concurrently with separate temporary roots and the
+unchanged120s limit each: primary-restore1/49.597s, close-phase1/28.163s,
+restore-phase1/36.374s and closure-history2/36.881s. All13,577 source files
+remain byte-identical across the complete50.378s invocation. The actual Root
+positive independently records126 World and71 readonly triples at action16.
+No new-PID, independent Actor, image or whole-cleanup result is inferred.
+Private `lifecycle-sixteen-root-integration-*20261024` and per-group logs/XML
+retain the exact source assignment and complete counters.
