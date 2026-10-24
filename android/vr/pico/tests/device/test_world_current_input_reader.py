@@ -33,7 +33,7 @@ from openxr_input.controller_protocol import compile_envelope,PrototypeOpenXrInp
 class CurrentBoundary(WorldBoundary):
     def __init__(self,lock):
         super().__init__(lock);self.focused=False;self.focused_control='text';self.pid=123;self.dom_sequence=0;self.sequence=0
-        self.doc_packets={};self.doc_raw='';self.input_raw='';self.sends=[];self.native_mono=100000;self.java_mono=200000
+        self.doc_packets={};self.doc_raw='';self.input_raw='';self.sends=[];self.native_mono=100000;self.java_mono=200000;self.dom_instance='c'*32
         self.doc_source=PicoWorldCurrentDocument(self.send,lambda:self.doc_raw,self.clock,self.guard,self.pid,lock,
             monotonic=lambda:self.elapsed,sleep=lambda delay:setattr(self,'elapsed',self.elapsed+delay))
         self.current=PicoWorldCurrentInput(self.doc_source,self.send,lambda:self.input_raw)
@@ -50,7 +50,7 @@ class CurrentBoundary(WorldBoundary):
             requestedEpochMs=self.epoch,requestedMonotonicMs=self.native_mono,capturedEpochMs=self.epoch,capturedMonotonicMs=self.native_mono,status='ready')
         a=self.pair();b=self.pair();finish={key:VIEW[key] for key in ('handle','creation','page','url')};finish.update(grant=1,finishedEpochMs=19000)
         if call['operation']=='observe-current-document':
-            dom=dict(webDOMVersion=1,requestId=call['commandId'],instance='c'*32,sequence=self.dom_sequence,capturedEpochMs=self.epoch,
+            dom=dict(webDOMVersion=1,requestId=call['commandId'],instance=self.dom_instance,sequence=self.dom_sequence,capturedEpochMs=self.epoch,
                 document=dict(runId=RUN,href=VIEW['url'],responseId='d'*32,readyState='complete'),
                 editor=dict(text='',focused=self.focused and self.focused_control=='text'),attempts=[],echoes=[])
             wrapper=dict(before=a['java'],domRaw=json.dumps(json.dumps(dom)),after=b['java'])
@@ -60,6 +60,7 @@ class CurrentBoundary(WorldBoundary):
         # Reuse the existing pure geometry fixture. No old wire is returned.
         super().send(call);old=self.packet;geometry=json.loads(json.loads(old['source']['geometryRaw']))
         focused=self.focused and self.focused_control==call['control']
+        geometry['instance']=self.dom_instance
         geometry['sequence']=self.dom_sequence;geometry['editor']=dict(focused=focused,text='',cursor=0,anchor=0)
         wrapper=dict(before=a['java'],geometryRaw=json.dumps(json.dumps(geometry)),after=b['java'])
         doc=self.doc_packets[call['documentNonce']]
@@ -283,6 +284,24 @@ class WorldCurrentInputReaderTests(unittest.TestCase):
             actualStream=PrivateFeatureState(self.root/'stream.json').read()),None)
         self.assertEqual(clock,self.b.epoch);self.assertGreaterEqual(self.b.elapsed,1.4)
         self.assertEqual([],self.transport.envelopes);self.assertTrue(owner.issued and owner.failed)
+
+    def test_new_original_dom_source_generation_cannot_resolve_prior_ray(self):
+        self.read();owner=self.publisher();receipt=owner.publish()
+        self.b.consume_published(receipt['streamEnvelope'],self.session.profile)
+        # Change the actual producer generation before both fresh raw sources
+        # are generated. The Native authority/finish and HTTP document remain.
+        self.b.dom_instance='e'*32;self.b.dom_sequence=0
+        packet=self.read('observe-current-focus');focus=self.source.original()
+        validate(packet,focus['request'],123,self.b.epoch,focus['documentOriginal'])
+        from adapters.pico4.world_current_input import decode
+        old=decode(receipt['calibrationOriginal']['documentOriginal']['raw']);new=decode(focus['documentOriginal']['raw'])
+        self.assertNotEqual(old['source']['dom']['instance'],new['source']['dom']['instance'])
+        self.assertEqual(old['source']['dom']['document'],new['source']['dom']['document'])
+        self.assertEqual(old['source']['originalFinish'],new['source']['originalFinish'])
+        PrivateFeatureState(self.root/'changed-dom-generation-originals.json').write(dict(
+            calibrationOriginal=receipt['calibrationOriginal'],streamEnvelope=receipt['streamEnvelope'],focusOriginal=focus),None)
+        with self.assertRaises(NativeUIError):owner.check_focus(receipt,focus)
+        self.assertEqual(1,len(self.transport.envelopes))
 
 
 class WorldCurrentInputFactoryTests(unittest.TestCase):
