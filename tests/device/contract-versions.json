@@ -672,6 +672,7 @@
     "ios-snapshot-inputs": {"current": 1, "reads": [1]},
     "ios-snapshot-input-delivery": {"current": 1, "reads": [1]},
     "ios-snapshot-input-owner": {"current": 1, "reads": [1]},
+    "ios-snapshot-capture-owner": {"current": 1, "reads": [1]},
     "ios-snapshot-manifest-owner": {"current": 1, "reads": [1]},
     "ios-snapshot-manifest": {"current": 1, "reads": [1]},
     "ios-snapshot-manifest-original": {"current": 1, "reads": [1]},

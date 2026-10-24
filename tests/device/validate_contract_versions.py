@@ -660,6 +660,7 @@ REQUIRED = {
     "ios-snapshot-inputs": 1,
     "ios-snapshot-input-delivery": 1,
     "ios-snapshot-input-owner": 1,
+    "ios-snapshot-capture-owner": 1,
     "ios-snapshot-manifest-owner": 1,
     "ios-snapshot-manifest": 1,
     "ios-snapshot-manifest-original": 1,
