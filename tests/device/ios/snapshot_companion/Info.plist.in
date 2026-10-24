@@ -5,6 +5,8 @@
 <key>CFBundleExecutable</key><string>overte-snapshot-companion</string>
 <key>CFBundleName</key><string>Overte Snapshot Test Companion</string>
 <key>CFBundlePackageType</key><string>APPL</string>
+<key>OVTSnapshotCompanionContractVersion</key><integer>1</integer>
+<key>OVTSnapshotCompanionRole</key><string>photos</string>
 <key>CFBundleShortVersionString</key><string>1.0</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>LSRequiresIPhoneOS</key><true/>

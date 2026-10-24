@@ -4,6 +4,7 @@
 #error The Snapshot companion is a separate, explicitly selected test target.
 #endif
 #import "PhotosOriginal.h"
+#import "CompanionIdentity.h"
 #import <Photos/Photos.h>
 #import <CommonCrypto/CommonDigest.h>
 #include <fcntl.h>
@@ -128,6 +129,7 @@ static NSString* OVTIdentifier(void) {return [[NSUUID.UUID.UUIDString lowercaseS
         [stack.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor constant:20],
         [stack.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor constant:-20],
         [stack.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:20]]];
+    [stack addArrangedSubview:[OVTSnapshotCompanionIdentityPanel new]];
     self.runField=[self field:@"snapshot.destination.run" placeholder:@"Run identifier" stack:stack];
     self.assetField=[self field:@"snapshot.destination.asset" placeholder:@"Observed Photos placeholder identifier" stack:stack];
     self.nameField=[self field:@"snapshot.destination.basename" placeholder:@"Observed original capture filename" stack:stack];

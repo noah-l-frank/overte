@@ -7,7 +7,7 @@ if(NOT OVT_SNAPSHOT_COMPANION_BUNDLE_ID MATCHES "^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+
     message(FATAL_ERROR "Select the separate test companion bundle identifier")
 endif()
 project(overte-snapshot-companion LANGUAGES C OBJC)
-add_executable(overte-snapshot-companion MACOSX_BUNDLE main.m PhotosOriginal.m)
+add_executable(overte-snapshot-companion MACOSX_BUNDLE main.m PhotosOriginal.m CompanionIdentity.m)
 target_compile_definitions(overte-snapshot-companion PRIVATE OVERTE_E2E_FEATURE_TESTS=1)
 target_compile_options(overte-snapshot-companion PRIVATE -fobjc-arc)
 target_link_libraries(overte-snapshot-companion PRIVATE "-framework UIKit" "-framework Photos")
