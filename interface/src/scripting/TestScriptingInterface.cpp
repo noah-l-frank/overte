@@ -40,6 +40,7 @@
 #include "../../../tests/device/native/WebDOMObservationBridge.h"
 #include "../../../tests/device/native/WebRuntimeBridge.h"
 #include "../../../tests/device/native/PicoBrowserFeatureBridge.h"
+#include "../../../tests/device/native/PicoWorldCurrentDocumentBridge.h"
 #if defined(ANDROID_APP_PICO_INTERFACE)
 #include <ScriptManager.h>
 #include "../../../tests/device/native/PicoEmoteSceneFixture.h"
@@ -144,6 +145,7 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
         _featureSnapshotQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureLifecycle->start(path); // Failure leaves an unavailable observer.
 #if defined(ANDROID_APP_PICO_INTERFACE)
+        _featurePicoCurrentQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureEmoteSceneQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAssetsReadQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureWorldRetirementsQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
@@ -1523,6 +1525,30 @@ QVariantMap TestScriptingInterface::featureWebDOMObservation(const QVariantMap& 
     if (original.userType()!=qMetaTypeId<overte::e2e::WebDOMProvider>()) { return {}; }
     const auto provider=original.value<overte::e2e::WebDOMProvider>();
     return provider ? provider(command) : QVariantMap();
+}
+
+QVariantMap TestScriptingInterface::featurePicoWorldCurrentDocument(const QVariantMap& command) {
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    const auto anchor=overte::e2e::picoCurrentAnchor(command);
+    if(!anchor || !anchor->fresh() || !_featurePicoCurrentQueue)return {};
+    const auto queue=_featurePicoCurrentQueue;
+    if(QThread::currentThread()!=thread()) {
+        auto value=queue->read("dispatch",this,[command](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoWorldCurrentDocument(command),{}};
+        }).values;
+        return anchor->fresh() ? value : QVariantMap();
+    }
+    if(_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+        || !QCoreApplication::arguments().contains("--testScript") || !overte::e2e::previewDirectory(_testResultsLocation)
+        || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString()))return {};
+    const auto value=QCoreApplication::instance()->property(overte::e2e::picoCurrentDocumentProperty());
+    if(value.userType()!=qMetaTypeId<overte::e2e::PicoCurrentProvider>())return {};
+    const auto provider=value.value<overte::e2e::PicoCurrentProvider>();
+    auto result=provider ? provider(command,anchor) : QVariantMap();
+    return anchor->fresh() ? result : QVariantMap();
+#else
+    Q_UNUSED(command);return {};
+#endif
 }
 
 QVariantMap TestScriptingInterface::featurePicoBrowser(const QVariantMap& command) {

@@ -166,6 +166,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureChatProfileCurrent(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWebRuntimeObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWebDOMObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featurePicoWorldCurrentDocument(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoBrowser(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureNavigationReplies(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureProcessPresence(const QVariantMap& command);
@@ -318,6 +319,7 @@ private:
     quint64 _featureWorldReceiptSequence {0};
 #if defined(ANDROID_APP_PICO_INTERFACE)
     std::shared_ptr<overte::e2e::PicoEmoteSceneFixture> _featureEmoteScene;
+    std::shared_ptr<overte::e2e::AudioSettingsQueue> _featurePicoCurrentQueue;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureEmoteSceneQueue;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAssetsReadQueue;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAssetsUploadsQueue;

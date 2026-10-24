@@ -49,6 +49,9 @@ private:
     QObject* _bridge;
 };
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+namespace overte { namespace e2e { class PicoCurrentClock; } }
+#endif
 class NativeWebViewItem : public QQuickItem {
     Q_OBJECT
     Q_PROPERTY(QString currentUrl READ currentUrl NOTIFY stateChanged)
@@ -125,6 +128,10 @@ public:
     void acceptInputFocus(quint64 revision, quint64 birth, bool focused);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     static QVariantMap featureWebDOMObservation(const QVariantMap& command);
+    static QVariantMap featurePicoWorldCurrentDocument(const QVariantMap& command,
+        std::shared_ptr<const overte::e2e::PicoCurrentClock> anchor={});
+    static void acceptFeaturePicoWorldCurrentDocument(qint64 handle,quint64 creation,quint64 grant,quint64 page,
+        const QString& run,const QString& request,const QByteArray& raw);
     static QVariantMap featurePicoBrowser(const QVariantMap& command);
     static void acceptFeaturePicoBrowserGeometry(qint64 handle,quint64 grant,quint64 page,const QString& document,
         const QString& request,const QByteArray& result,bool focused=false);
@@ -211,6 +218,7 @@ private:
     QHash<quint64, QJSValue> _callbacks;
     QVector<QMetaObject::Connection> _geometryConnections;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap featurePicoCurrentSnapshot(const QVariantList& documents) const;
     QVariantMap featureWebDOMRequest(const QVariantMap& command);
     QVariantMap featureWebPacket(const QVariantMap& command, const QString& status, const QVariantMap& source = {});
     const QString _featureWebInstance { QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-') };
