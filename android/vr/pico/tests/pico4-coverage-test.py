@@ -41,8 +41,10 @@ class CoverageMatrixTests(unittest.TestCase):
             if isinstance(owner,ast.ClassDef) and owner.name==name for method in owner.body
             if isinstance(method,ast.FunctionDef) and method.name.startswith('test_')} for path,name in sources}
         selected=[]
+        groups={'lifecycle-pending-operations','lifecycle-pending-publication',
+            'lifecycle-pending-deadlines','lifecycle-pending-versions'}
         for node in ast.walk(RUNNER_TREE):
-            if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='test' and node.args[0].value.startswith('lifecycle-pending-'):
+            if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='test' and node.args[0].value in groups:
                 self.assertEqual('device/test_lifecycle_pending_operations.py',node.args[3].value)
                 for item in node.args[4:]:selected.extend(methods[item.value] if item.value in methods else (item.value,))
         expected=set().union(*methods.values())
