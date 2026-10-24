@@ -3,6 +3,8 @@
 This documents the original v1 packet and its measured evidence. The staged
 pre-input v2 entry and subsequent continuity fix are described in
 [Lifecycle baseline](LIFECYCLE_BASELINE.md).
+The following distinct-reader v3 path and current measured ownership/caps are
+documented in [readonly Lifecycle observations](LIFECYCLE_READONLY_V3.md).
 
 `PicoLifecycleObservation` connects fresh observations to the existing
 Create/Chat/background/Pending/Close/Restore process chain. It has no input
@@ -55,7 +57,11 @@ The new positive passed1/25.341s in `observation-positive.log`:
 two fresh Scripts-generation4 samples followed by the unchanged existing normal
 Close, second World action/release, Location-only Restore, Prepare and
 Process-v2 Restart positive. The same authoritative World finishes at **127/128
-frames**; no frame was omitted or put in a second counter. The old-PID reader
+frames**; no old-PID frame was omitted or put in a second counter.
+This is the old-PID component count; Process.next.frames additionally retains
+13 new-PID triples under its existing separate2…64 cap (140 combined). This is
+neither a universal128-cap claim nor an aggregate-cap overflow; see
+[the query budget audit](LIFECYCLE_QUERY_BUDGET.md). The old-PID reader
 then refuses another acquisition. Originals are retained from construction at
 `lifecycle-editor-8pq8jexx`. Full checkout13469-file manifests before/after are
 identical, SHA

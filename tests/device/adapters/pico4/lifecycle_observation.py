@@ -1,7 +1,8 @@
 """Private fresh Lifecycle primary observations from the existing live owners.
 
-No action, peer, image or finalization authority lives here. Every acquisition
-still appends to the same capped World journal; archives never become samples.
+No action, peer, image or finalization authority lives here. V1/2 append to the
+original World journal; v3 retains genuine readonly triples in its own bounded
+originals. Archives never become current samples.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
@@ -26,12 +27,13 @@ from adapters.pico4.lifecycle_pending import PicoLifecyclePending
 from adapters.pico4.lifecycle_process import native as validate_native
 from adapters.pico4.lifecycle_restore import PicoLifecycleRestore
 from adapters.pico4.lifecycle_world import MAX_FRAMES
+from adapters.pico4.lifecycle_readonly import LifecycleReadOnlyAcquisition
 from adapters.pico4 import lifecycle_source as ui
 from adapters.script_journey.history import canonical
 from feature_journeys.contract import VERSION as CONTRACT_VERSION,result as feature_result
 from feature_journeys.contract import arguments as feature_arguments
 
-VERSION=2
+VERSION=3
 FAMILIES={
     'chat':('lifecycle-chat-owner.json',),
     'background':('lifecycle-background-owner.json','lifecycle-background-originals.json'),
@@ -55,18 +57,30 @@ class PicoLifecycleObservation:
 
     @classmethod
     def before_inputs(cls,restore,editor,reader,path):
+        cls.require_before_inputs(restore,editor,reader)
+        owner=cls.__new__(cls)
+        owner._initialize(restore,editor,None,None,path,version=2,reader=reader)
+        return owner
+
+    @classmethod
+    def readonly_before_inputs(cls,restore,editor,reader,source,axes,avatar,path):
+        cls.require_before_inputs(restore,editor,reader)
+        acquisition=LifecycleReadOnlyAcquisition(restore.world,source,axes,avatar)
+        owner=cls.__new__(cls)
+        owner._initialize(restore,editor,None,None,path,version=3,reader=reader,acquisition=acquisition)
+        return owner
+
+    @classmethod
+    def require_before_inputs(cls,restore,editor,reader):
         need(cls is PicoLifecycleObservation and type(restore) is PicoLifecycleRestore and type(editor) is PicoLifecycleEditor
             and type(reader) is NativePendingCommitOwner and reader.intent is None and reader._before_send is None
             and reader.last is None and reader.last_raw is None and reader.last_request is None)
         need(restore.state is not None and restore.state['phase']=='begun' and not restore.world.state['attempts']
             and (editor.state is None or editor.state['phase']=='prepared' and editor.state['tablet'] is None
                 and not editor.state['inputs'] and editor.state['originalId'] is None))
-        owner=cls.__new__(cls)
-        owner._initialize(restore,editor,None,None,path,version=2,reader=reader)
-        return owner
-
-    def _initialize(self,restore,editor,chat,pending,path,*,version,reader):
+    def _initialize(self,restore,editor,chat,pending,path,*,version,reader,acquisition=None):
         self.version=version
+        self.acquisition=acquisition
         self.restore,self.editor,self.chat,self.pending=restore,editor,chat,pending
         self.background=self.close=None
         self.world,self.native,self.reader=restore.world,restore.native,reader
@@ -83,7 +97,7 @@ class PicoLifecycleObservation:
         self.scope=dict(lifecyclePrimaryObservationVersion=version,runId=self.run,binding=self.binding,role='primary')
         self.scope_sha=json_digest(self.scope)
         self.owners=tuple(owner for owner in (restore,editor,chat,pending) if owner is not None)
-        self.missing=set(FAMILIES) if version==2 else set()
+        self.missing=set(FAMILIES) if version>=2 else set()
         self.attached={}
         self.history=ChatSourceChunks(self.store,self.scope);self.parent=parent_node(self.store)
         self.chunk_identities=();self.chunk_raw_bytes=2
@@ -111,7 +125,10 @@ class PicoLifecycleObservation:
             and json_digest(self.scope)==self.scope_sha==self.history.scope)
         if self.version==1:need(self.pending.world is self.world and self.pending.pending is self.reader and self.chat.joined is self.restore.joined)
         else:
-            need(self.version==2 and self.reader.intent is None and self.reader._before_send is None)
+            need(self.version in (2,3) and self.reader.intent is None and self.reader._before_send is None)
+            if self.version==3:
+                need(type(self.acquisition) is LifecycleReadOnlyAcquisition and self.acquisition.owner is self.world)
+                self.acquisition.control()
             self.absent(except_role=except_role)
             for role,owner in self.attached.items():
                 need(getattr(self,role) is owner)
@@ -148,7 +165,7 @@ class PicoLifecycleObservation:
         self.lock.assert_held()
         try:
             with self.lock.held():
-                need(self.version==2 and role in self.missing and self.disk is not None and self.disk['records']
+                need(self.version in (2,3) and role in self.missing and self.disk is not None and self.disk['records']
                     and self.disk['pending'] is None)
                 self.bound(except_role=role)
                 need(type(owner) is dict(chat=PicoLifecycleChatDraft,background=PicoLifecycleBackground,
@@ -185,6 +202,13 @@ class PicoLifecycleObservation:
         row,_=source_bundles.original(self.history,self.disk['chunks'],self.disk['bundles'],self.disk['records'][-1])
         pending,_=source_bundles.original(self.history,self.disk['chunks'],self.disk['bundles'],row['pendingBundle'])
         return dict(original=pending['pending'],request=pending['request'])
+
+    def previous_world(self):
+        need(self.version==3)
+        if self.disk is None or not self.disk['records']:return None
+        row,_=source_bundles.original(self.history,self.disk['chunks'],self.disk['bundles'],self.disk['records'][-1])
+        original,_=source_bundles.original(self.history,self.disk['chunks'],self.disk['bundles'],row['worldBundle'])
+        exact(original,{'world'});return original['world']
 
     def owner_pending(self,owner):
         need(owner.state is not None)
@@ -238,7 +262,7 @@ class PicoLifecycleObservation:
                 for event in commit['observation']['events'])
             need(stale<=1)
         else:need(self.pending is None or self.pending.state is None or self.pending.state['eventId'] is None)
-        if self.version==2 and self.pending is None:
+        if self.version>=2 and self.pending is None:
             need(not commit and not pending['resources']['pendingRuns'] and pending['resources']['archivedEvents']==0
                 and pending['lastIntentSequence']==0 and pending['current']['status']=='none')
         actual=self.world.anchor.measure(packets['drive'])
@@ -260,7 +284,8 @@ class PicoLifecycleObservation:
     def fresh(self):
         self.bound();need(self.anchor is not None)
         started,requested,oldest=self.anchor
-        epochs=(self.world.axes.clock_ms(),self.reader.clock_ms(),self.native.clock_ms())
+        axes=self.acquisition.axes if self.version==3 else self.world.axes
+        epochs=(axes.clock_ms(),self.reader.clock_ms(),self.native.clock_ms())
         completed=self.world.monotonic()
         need(number(completed,0,1e15) and (self.last_clock is None or completed>=self.last_clock)
             and completed-started<20 and all(integer(epoch,1) and -250<=epoch-oldest
@@ -283,7 +308,7 @@ class PicoLifecycleObservation:
         try:
             with self.lock.held():
                 self.bound();self.world.load()
-                need(self.world.state is not None and len(self.world.state['frames'])<MAX_FRAMES)
+                need(self.world.state is not None and (self.version==3 or len(self.world.state['frames'])<MAX_FRAMES))
                 need(self.restore.state is not None and self.restore.state['phase'] in ('begun','navigating','prepared'))
                 # Revalidate physical owner grammars before using their actual
                 # object IDs. Mutable in-memory states are not identity proof.
@@ -291,24 +316,41 @@ class PicoLifecycleObservation:
                     if owner is not None:owner.load()
                 references=[] if self.disk is None else self.disk['records']
                 need(after_sequence==len(references) and (self.disk is None or self.disk['pending'] is None))
+                if self.version==3:need(len(references)<MAX_FRAMES)
+                owner_world=deepcopy(self.world.state['frames'][-1])
+                previous_world=self.previous_world() if self.version==3 else None
+                if self.version==3:self.acquisition.previous(previous_world)
                 previous=self.previous_pending()
                 owner_floor=None
                 if self.pending is not None:
                     saved=self.owner_pending(self.pending)
                     owner_floor=deepcopy(self.live_pending(self.pending.pending,[saved,previous]))
                 readonly_floor=None
-                if self.version==2:
+                if self.version>=2:
                     if previous is None:need(self.reader.last is None and self.reader.last_raw is None and self.reader.last_request is None)
                     else:readonly_floor=deepcopy(self.live_pending(self.reader,[previous]))
                 requested=self.world.axes.clock_ms();need(integer(requested,1))
                 value=dict(self.scope,phase='reading',chunks=[] if self.disk is None else self.disk['chunks'],
                     records=deepcopy(references),bundles=[] if self.disk is None else deepcopy(self.disk['bundles']),
                     pending=dict(sequence=after_sequence+1,worldFrameIndex=len(self.world.state['frames']),pendingBundle=None,nativeBundle=None))
-                if self.version==2:
+                if self.version>=2:
                     value.update(attached={} if self.disk is None else deepcopy(self.disk['attached']),absentRoles=sorted(self.missing),
                         absenceParent=list(self.parent))
+                continuity=dict(ownerFrameIndex=len(self.world.state['frames'])-1,
+                    ownerFrameSha256=hashlib.sha256(canonical(owner_world)).hexdigest(),ownerJournalSha256=json_digest(self.world.disk))
+                if self.version==3:
+                    value['pending'].pop('worldFrameIndex')
+                    value['pending'].update(worldBundle=None,worldOwnerContinuity=deepcopy(continuity))
                 self.save(value) # Durable read intent precedes any source query.
-                packets=self.world.current();index=len(self.world.state['frames'])-1
+                world_index=None
+                if self.version==3:
+                    rows,packets,_capture_start=self.acquisition.acquire()
+                    world_index=self.append_original(dict(world=rows))
+                    updated=deepcopy(self.disk);updated['pending']['worldBundle']=world_index;self.save(updated)
+                    self.acquisition.advance(self.world.originals(owner_world),packets)
+                    if previous_world is not None:self.acquisition.advance(self.acquisition.originals(previous_world),packets)
+                else:packets=self.world.current()
+                index=len(self.world.state['frames'])-1
                 event=self.pending.state['eventId'] if self.pending is not None and self.pending.state is not None else ''
                 pending=self.reader.read(self.run,event or '')
                 pending_raw=self.reader.last_raw
@@ -320,7 +362,7 @@ class PicoLifecycleObservation:
                 # comparing its new .last with itself would reject every read.
                 if readonly_floor is not None:pending_accept(readonly_floor,pending)
                 if owner_floor is not None:pending_accept(owner_floor,pending)
-                if self.version==2 and self.pending is None:
+                if self.version>=2 and self.pending is None:
                     need(not pending['commit'] and not pending['resources']['pendingRuns']
                         and pending['resources']['archivedEvents']==0 and pending['lastIntentSequence']==0
                         and pending['current']['status']=='none')
@@ -338,7 +380,10 @@ class PicoLifecycleObservation:
                     nativeBundle=native_index,pendingBundle=pending_index,
                     owners={owner.store.path.name:json_digest(owner.disk) for owner in self.owners},
                     result=deepcopy(result))
-                if self.version==2:row.update(absentRoles=sorted(self.missing),absenceParent=list(self.parent))
+                if self.version>=2:row.update(absentRoles=sorted(self.missing),absenceParent=list(self.parent))
+                if self.version==3:
+                    row.pop('worldFrameIndex');row.pop('worldSha256')
+                    row.update(worldBundle=world_index,worldOwnerContinuity=deepcopy(continuity))
                 row_index=self.append_original(row)
                 completed=deepcopy(self.disk);completed['records'].append(row_index);completed['pending']=None;self.save(completed)
                 delivered=deepcopy(result);self.fresh()

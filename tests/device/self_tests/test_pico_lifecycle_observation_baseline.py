@@ -58,7 +58,7 @@ class LifecycleObservationBaselineTests(unittest.TestCase):
             self.assertEqual([],self.editor.transport.envelopes)
             self.assertEqual(['observe']*3,[row['operation'] for row in self.boundary.commands])
             self.assertIsNone(self.reader.intent);self.assertIsNone(self.reader._before_send)
-            self.assertEqual(self.before+3,len(world.state['frames']))
+            self.assertEqual(self.before+(0 if self.observer.version==3 else 3),len(world.state['frames']))
             return result
         def pending_boundary():
             if getattr(self,'handoff_fault',None)=='sequence':
