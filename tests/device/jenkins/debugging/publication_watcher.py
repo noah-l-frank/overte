@@ -191,7 +191,7 @@ def inspect_publication(stage, run_id, context_sha256, policy):
         need(type(marker["schemaVersion"]) is int and marker["schemaVersion"] == 1
              and marker["state"] in {"DEBUG_HOLD", "TERMINAL"}
              and marker["runId"] == run_id and marker["contextSha256"] == context_sha256
-             and type(marker["generation"]) is int and marker["generation"] >= 1
+             and type(marker["generation"]) is str and re.fullmatch(r"[0-9a-f]{32}", marker["generation"])
              and type(marker["checkedEpochMs"]) is int and marker["checkedEpochMs"] > 0
              and type(marker["artifacts"]) is dict and set(marker["artifacts"]) == CORE | {INDEX})
         for name, row in marker["artifacts"].items():
@@ -204,7 +204,7 @@ def inspect_publication(stage, run_id, context_sha256, policy):
             "schemaVersion", "runId", "contextSha256", "generation", "files"}
              and type(index["schemaVersion"]) is int and index["schemaVersion"] == 1
              and index["runId"] == run_id and index["contextSha256"] == context_sha256
-             and type(index["generation"]) is int and index["generation"] == marker["generation"]
+             and type(index["generation"]) is str and index["generation"] == marker["generation"]
              and type(index["files"]) is list and 3 <= len(index["files"]) <= policy["maxFiles"] - 2)
         refs = {}
         for row in index["files"]:
@@ -359,7 +359,7 @@ def core_only_snapshot(stage, run_id, context_sha256):
         need(type(marker["schemaVersion"]) is int and marker["schemaVersion"] == 1
              and marker["state"] == "DEBUG_HOLD" and marker["runId"] == run_id
              and marker["contextSha256"] == context_sha256
-             and type(marker["generation"]) is int and marker["generation"] >= 1
+             and type(marker["generation"]) is str and re.fullmatch(r"[0-9a-f]{32}", marker["generation"])
              and type(marker["checkedEpochMs"]) is int and marker["checkedEpochMs"] > 0
              and type(marker["artifacts"]) is dict and set(marker["artifacts"]) == CORE | {INDEX})
         files = {}
@@ -451,7 +451,7 @@ def progress_projection(private_root, module_ids, after_sequence):
     for line in lines:
         row = json.loads(line.decode("utf-8"), object_pairs_hook=unique)
         need(type(row) is dict and type(row.get("schemaVersion")) is int and row["schemaVersion"] == 1
-             and type(row.get("sequence")) is int and row["sequence"] == sequence + 1
+             and type(row.get("sequence")) is int and row["sequence"] > sequence
              and type(row.get("epochMs")) is int and row["epochMs"] > 0
              and row.get("phase") in {"nativePrerequisite", "module", "adapter", "debugHold", "terminal"}
              and row.get("event") in {"begin", "end", "error", "observation", "hold", "terminal"})

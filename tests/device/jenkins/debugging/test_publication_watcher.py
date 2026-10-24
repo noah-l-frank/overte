@@ -45,14 +45,14 @@ class IndexedPublicationTests(unittest.TestCase):
                 files.append({"path": file.relative_to(self.stage).as_posix(),
                               "sha256": hashlib.sha256(body).hexdigest(), "bytes": len(body)})
         value = {"schemaVersion": 1, "runId": self.run_id, "contextSha256": self.context,
-                 "generation": 1, "files": files}
+                 "generation": "a"*32, "files": files}
         self.write(self.stage/w.INDEX, self.encoded(value))
         refs = {}
         for name in [*w.CORE, w.INDEX]:
             body = (self.stage/name).read_bytes()
             refs[name] = {"sha256": hashlib.sha256(body).hexdigest(), "bytes": len(body)}
         self.write(self.stage/w.MARKER, self.encoded({"schemaVersion": 1, "state": "DEBUG_HOLD",
-            "runId": self.run_id, "contextSha256": self.context, "generation": 1,
+            "runId": self.run_id, "contextSha256": self.context, "generation": "a"*32,
             "checkedEpochMs": 1, "artifacts": refs}))
 
     def ready(self, text=None):
@@ -148,6 +148,21 @@ class IndexedPublicationTests(unittest.TestCase):
         self.assertEqual(self.original_result["parts"], [])
         self.assertIn("logs/runner/index.json", self.inspect()["archiveFiles"])
         self.assertFalse(any("part-" in p for p in self.inspect()["archiveFiles"]))
+
+    def test_sparse_positive_cursors_and_opaque_generation_are_actual_protocol(self):
+        self.ready()
+        self.assertEqual(self.inspect()["generation"], "a"*32)
+        private = self.root/"private-safe"
+        private.mkdir(mode=0o700);private.chmod(0o700)
+        rows = [{"schemaVersion":1,"sequence":1041242101238079,"epochMs":123,
+                 "phase":"module","event":"begin","moduleId":"domain-enter"},
+                {"schemaVersion":1,"sequence":1041245935561306,"epochMs":124,
+                 "phase":"module","event":"end","moduleId":"domain-enter"}]
+        self.write(private/"events.private.jsonl", b"".join(self.encoded(row) for row in rows))
+        result = w.progress_projection(private, ["domain-enter"], 0)
+        self.assertEqual([row["sequence"] for row in result["progress"]], [row["sequence"] for row in rows])
+        result = w.progress_projection(private, ["domain-enter"], rows[0]["sequence"])
+        self.assertEqual([row["sequence"] for row in result["progress"]], [rows[1]["sequence"]])
 
     def test_missing_publication_waits_and_wrong_mode_is_never_normalized(self):
         self.assertEqual(self.inspect(), {"state": "WAIT"})
@@ -270,8 +285,8 @@ class FailureAndProgressTests(unittest.TestCase):
                "event":"error","moduleId":"foreign-module"}
         self.write(private/"events.private.jsonl", self.encoded(row))
         with self.assertRaises(w.PublicationError): w.progress_projection(private, ["domain-enter"], 0)
-        row["moduleId"] = "domain-enter";row["sequence"] = 2
-        self.write(private/"events.private.jsonl", self.encoded(row))
+        row["moduleId"] = "domain-enter";row["sequence"] = 20
+        self.write(private/"events.private.jsonl", self.encoded(row)+self.encoded(dict(row,sequence=19)))
         with self.assertRaises(w.PublicationError): w.progress_projection(private, ["domain-enter"], 0)
 
 if __name__ == "__main__":
