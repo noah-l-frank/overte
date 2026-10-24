@@ -231,6 +231,7 @@ REQUIRED = {
     "pico-assets-model-baker-host": 1,
     "pico-assets-model-material-host": 2,
     "pico-assets-model-material-journal-reference": 1,
+    "pico-assets-model-material-source-provenance": 1,
     "pico-assets-ui-inventory": 1,
     "native-pico-assets-files": 1,
     "pico-assets-file-owner": 1,

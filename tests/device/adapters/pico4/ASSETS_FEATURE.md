@@ -1894,3 +1894,9 @@ added, followed by focused coverage/registry/documentation/diff validation. The
 complete quick/Pico selection is not repeated. These inherited integration and
 aggregate-timeout failures remain open for Root's current-tree comparison; they
 are not product failures or whole-feature/device qualification.
+
+Root review also registers `pico-assets-model-material-source-provenance:1`
+(reads1). The source root and its original parent/root/chunk reference envelope
+have their own durable discriminator; existing chunks only supply transport.
+This fills a registry omission without changing any reader/writer/runtime or
+requiring another native acquisition.
