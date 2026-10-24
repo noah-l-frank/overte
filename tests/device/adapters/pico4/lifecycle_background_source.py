@@ -170,6 +170,12 @@ class NativeLifecycleBackground:
 def bind_source(adapter,target,native,*,source_lock=None,intent=None):
     source_lock=adapter._script_journey()._lock(target,source_lock)
     def send(request):
-        native.guard();adapter.adb.write_debug_app_file(target,'org.overte.pico',COMMAND,json.dumps(request,separators=(',',':'))+'\n');native.guard()
-    return NativeLifecycleBackground(send,lambda:adapter.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+        native.guard()
+        fence=getattr(observer,'phase_fence',None)
+        if request['operation']!='observe' and fence is not None:
+            from adapters.pico4.lifecycle_operations import LifecycleInputFence
+            if type(fence) is LifecycleInputFence:fence.check()
+        adapter.adb.write_debug_app_file(target,'org.overte.pico',COMMAND,json.dumps(request,separators=(',',':'))+'\n');native.guard()
+    observer=NativeLifecycleBackground(send,lambda:adapter.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
         native.clock_ms,native.guard,native.pid,source_lock,intent=intent,monotonic=native.monotonic,sleep=native.sleep)
+    return observer

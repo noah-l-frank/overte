@@ -20,6 +20,7 @@ from feature_journeys.phase_fixture import PhaseFixtureReader
 from feature_journeys.scenarios import SCENARIOS,expand
 from feature_journeys.witness import Client,Journal
 from self_tests import test_pico_lifecycle_chat as chat_fixture
+from self_tests import test_pico_lifecycle_background_owner as background_fixture
 from self_tests import test_pico_lifecycle_observation_baseline as baseline_fixture
 from self_tests import test_pico_lifecycle_primary_wait as wait_fixture
 from self_tests.test_pico_lifecycle_readonly import readonly_entry
@@ -28,6 +29,7 @@ from self_tests.test_pico_lifecycle_readonly import readonly_entry
 class LifecycleOperationsTests(unittest.TestCase):
     def at_prefix(self,probe):
         case=baseline_fixture.LifecycleObservationBaselineTests();self.addCleanup(case.doCleanups)
+        case.coordinator_attach_roles=getattr(self,'coordinator_attach_roles',set())
         waiter=wait_fixture.LifecyclePrimaryWaitTests();self.addCleanup(waiter.doCleanups)
         waiter.fixture=case;waiter.frames=[];waiter.calls=[];waiter.forbidden_calls=[]
         self.in_session=False;self.inputs=[];self.finished=[]
@@ -215,6 +217,123 @@ class LifecycleOperationsTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):waiter.journey.call('act',fields)
             self.assertEqual(counts[0],world.session.transport.cleanup_count)
         self.at_prefix(probe)
+
+    def outer_fault(self,*,observe=False,replace_phase=False):
+        def probe(case,waiter):
+            held=self.source.lock.held;depth=0;changed=[]
+            @contextmanager
+            def changed_after_exit():
+                nonlocal depth
+                outer=depth==0;depth+=1
+                try:
+                    with held():yield
+                finally:depth-=1
+                if outer:
+                    changed.append(True)
+                    if replace_phase:
+                        original=self.operations.phases
+                        self.operations.phases=PhaseFixtureReader(original.client,original.run,original.area,
+                            epoch_ms=original.epoch_ms,monotonic=original.monotonic)
+                    else:
+                        path=self.operations.store.path
+                        backup=path.with_name('counter-parent-original-before-exit.json')
+                        backup.write_bytes(path.read_bytes());backup.chmod(0o600);path.unlink()
+            fields=dict(afterSequence=waiter.journey.sequence) if observe else self.fields(0)
+            with patch.object(self.source.lock,'held',changed_after_exit):
+                with self.assertRaises(NativeUIError):waiter.journey.call('observe' if observe else 'act',fields)
+            self.assertEqual([True],changed);self.assertTrue(self.operations.failed)
+            before=len(self.inputs)
+            with self.assertRaises(NativeUIError):waiter.journey.call('observe' if observe else 'act',fields)
+            self.assertEqual(before,len(self.inputs))
+            self.assertEqual(0 if observe else 1,len(case.editor.transport.envelopes))
+        self.at_prefix(probe)
+
+    def test_actual_outer_exit_parent_removal_cannot_deliver_applied_action_ack(self):self.outer_fault()
+    def test_actual_outer_exit_parent_removal_cannot_deliver_fresh_observation(self):self.outer_fault(observe=True)
+    def test_actual_outer_exit_phase_reader_replacement_cannot_deliver_action_ack(self):self.outer_fault(replace_phase=True)
+
+
+class LifecycleOperationsBackgroundTests(unittest.TestCase):
+    at_prefix=LifecycleOperationsTests.at_prefix
+    fields=LifecycleOperationsTests.fields
+    coordinator_attach_roles={'chat','background'}
+
+    def run_seven(self):
+        def probe(case,waiter):
+            children={};counts=[]
+            def chat(_fence):
+                helper=chat_fixture.LifecycleChatTests();helper.initialize_from_editor(case.editor,self.source.restore.joined)
+                self.addCleanup(helper.doCleanups);children['chat']=helper
+                io=helper.owner.route.io
+                def bind(callback):
+                    self.assertFalse(hasattr(io,'phase_callback'));io.phase_callback=callback
+                io.bind_before_send=bind
+                for name in ('activate','replace'):
+                    original=getattr(io,name)
+                    def input(*args,_original=original,**kwargs):
+                        io.phase_callback({});self.inputs.append((args,deepcopy(kwargs)))
+                        return _original(*args,**kwargs)
+                    setattr(io,name,input)
+                return helper.owner
+            def background(_fence):
+                helper=background_fixture.LifecycleBackgroundOwnerTests();helper.initialize_from_chat(children['chat'])
+                self.addCleanup(helper.doCleanups);children['background']=helper
+                fault=getattr(self,'background_fault',None)
+                if fault in ('home','resume'):
+                    save=helper.owner.save
+                    def changing(state):
+                        save(state)
+                        if state['phase']==dict(home='home-issued',resume='resume-issued')[fault]:
+                            self.journal.activate(self.source.run,uuid.uuid4().hex,'cleanup')
+                    helper.owner.save=changing
+                elif fault=='arm':
+                    runtime=helper.owner.runtime_factory
+                    def changed(intent):
+                        world,reader,native=runtime(intent);guard=reader.guard
+                        def final_guard():
+                            result=guard()
+                            if helper.owner.state is not None and helper.owner.state['phase']=='arm-issued' and helper.owner.state['inputs']:
+                                self.journal.activate(self.source.run,uuid.uuid4().hex,'cleanup')
+                            return result
+                        reader.guard=final_guard;return world,reader,native
+                    helper.owner.runtime_factory=changed
+                return helper.owner
+            self.operations.factories=dict(chat=chat,background=background)
+            for index in range(7):
+                fields=self.fields(index);barrier=self.native.epoch()
+                required=deepcopy(waiter.journey.lifecycle)
+                if fields['verb']=='background-resume':required['backgrounds']+=1;required['activations']+=1
+                waiter.journey.required_lifecycle=required
+                if index==6 and getattr(self,'background_fault',None) is not None:
+                    with self.assertRaises(NativeUIError):waiter.journey.call('act',fields)
+                    helper=children['background'];fault=self.background_fault
+                    self.assertEqual(['lifecycle.background'] if fault=='resume' else [],helper.inputs)
+                    self.assertEqual(0 if fault=='arm' else 1,len([row for row in helper.history.commands if row['operation']=='arm']))
+                    self.assertEqual(dict(arm='arm-issued',home='home-issued',resume='resume-issued')[fault],helper.owner.state['phase'])
+                    self.assertTrue(self.operations.failed)
+                    before=len(helper.inputs)
+                    with self.assertRaises(NativeUIError):waiter.journey.call('act',fields)
+                    self.assertEqual(before,len(helper.inputs));return
+                waiter.journey.call('act',fields)
+                expected=expand(SCENARIOS['lifecycle-input']['steps'][index]['state'],context(self.source.run))
+                waiter.journey.wait('private-seven-'+str(index+1)+'-'+fields['verb'],fields['ticket'],barrier,expected,[],duration=3 if index==3 else .5)
+                counts.append(dict(action=index+1,world=len(self.source.world.state['frames']),readonly=len(self.source.disk['records'])))
+            self.assertEqual([],waiter.forbidden_calls);self.assertEqual(7,len(self.operations.state['steps']))
+            self.assertIs(self.source.chat,children['chat'].owner);self.assertIs(self.source.background,children['background'].owner)
+            self.assertIs(children['background'].world,self.source.world)
+            self.assertEqual(['lifecycle.background','app.launch'],children['background'].inputs)
+            self.assertEqual([],children['chat'].widgets.sent)
+            self.assertEqual(['arm','release'],[row['operation'] for row in children['background'].history.commands if row['operation']!='observe'])
+            report=dict(scope='private-normal-primary-only-seven',counts=counts,worldTriples=len(self.source.world.state['frames']),
+                readonlyTriples=len(self.source.disk['records']),totalPhysicalTriples=len(self.source.world.state['frames'])+len(self.source.disk['records']))
+            PrivateFeatureState(self.source.store.path.with_name('lifecycle-operations-seven-diagnostics.json')).write(report,None)
+            print('Actual same-graph seven-action bill: '+str(report),flush=True)
+        self.at_prefix(probe)
+
+    def test_same_live_graph_normal_seven_actions_and_common_waits_keep_original_background_sources(self):self.run_seven()
+    def test_phase_change_after_background_home_cas_prevents_home(self):self.background_fault='home';self.run_seven()
+    def test_phase_change_after_background_resume_cas_prevents_launch_without_qt(self):self.background_fault='resume';self.run_seven()
+    def test_phase_change_in_background_arm_final_guard_prevents_native_mutation(self):self.background_fault='arm';self.run_seven()
 
 
 if __name__=='__main__':unittest.main()

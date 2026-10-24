@@ -16,6 +16,7 @@ def project(original):
 
 class PicoChatIO:
     def __init__(self,original):self.original=original
+    def bind_before_send(self,callback):self.original.navigation.io.bind_before_send(callback)
     def bind_input_fence(self,fence):
         native=self.original.navigation.io
         native.bind_before_send(fence.before_send)

@@ -9,6 +9,5 @@ from self_tests.test_pico_lifecycle_observation_baseline import LifecycleObserva
 from self_tests.test_pico_lifecycle_primary_wait import LifecyclePrimaryWaitTests
 from self_tests.test_pico_lifecycle_readonly import LifecycleReadOnlyPrimaryTests,LifecycleReadOnlyRefusalTests
 from test_lifecycle_readonly_factory import LifecycleReadOnlyFactoryTests
-from self_tests.test_pico_lifecycle_operations import LifecycleOperationsTests
 
 if __name__=='__main__':unittest.main()

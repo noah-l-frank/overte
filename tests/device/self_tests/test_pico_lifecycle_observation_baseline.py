@@ -92,7 +92,8 @@ class LifecycleObservationBaselineTests(unittest.TestCase):
                         # Do not execute another owner/source query after this
                         # actual boundary, even if the expected refusal failed.
                         raise NativeUIError('Explicit test stop after actual Pending reader handoff')
-                    getattr(self.observer,'attach_'+_role)(actual)
+                    if _role not in getattr(self,'coordinator_attach_roles',set()):
+                        getattr(self.observer,'attach_'+_role)(actual)
                     return result
             patches.append(patch.object(owner,'prepare',attached))
         for active in patches:active.start();self.addCleanup(active.stop)

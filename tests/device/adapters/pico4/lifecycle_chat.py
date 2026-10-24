@@ -7,7 +7,7 @@ No message is sent. Background, later editors and full cleanup stay separate.
 from copy import deepcopy
 import hashlib
 import re
-from adapters.native_feature_observation import exact,integer,need
+from adapters.native_feature_observation import exact,integer,need,number
 from adapters.native_chat_view import measured_keyboard
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
@@ -45,6 +45,16 @@ class PicoLifecycleChatDraft:
     def join_hash(self):
         self.joined.load();need(self.joined.state is not None and self.joined.state['phase']=='observed')
         return hashlib.sha256(canonical(self.joined.disk)).hexdigest()
+
+    def bind_phase_fence(self,fence):
+        from adapters.pico4.lifecycle_operations import phase
+        need(getattr(self,'phase_fence',None) is None)
+        self.phase_fence=fence;phase(self)
+        def before_send(_command):
+            self.fresh();phase(self).check()
+            started,requested,captured=self.acquisition;now=self.source.monotonic()
+            need(number(now,0,1e15) and now>=self.last_clock and requested-captured+(now-started)*1000<=1500)
+        self.phase_callback=before_send;self.route.io.bind_before_send(before_send)
 
     def reference(self,value,phase):
         exact(value,{'phase','intent','reference','consumed'});need(value['phase']==phase)
@@ -123,6 +133,8 @@ class PicoLifecycleChatDraft:
 
     def intent(self,request):
         self.lock.assert_held();need(self.state is not None and self.state['phase'] in ('opening','focusing','typing'))
+        from adapters.pico4.lifecycle_operations import phase
+        if phase(self) is not None:phase(self).mark()
         state=deepcopy(self.state);reference=self.route.capture();self.bound_scope(reference['scope'])
         if state['inputs'] and state['inputs'][-1]['consumed'] is None:
             self.consumed(state['inputs'][-1]['reference']['scope'],reference['scope']);state['inputs'][-1]['consumed']=deepcopy(reference['scope'])

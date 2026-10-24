@@ -7,8 +7,8 @@ Source3 has actual canonical-factory coverage, fresh readonly observations and
 the existing baseline/Back wait consumer. It has no action, independent Actor,
 artifact, cleanup or public-capability authority.
 
-The subsequent [private operations prefix](LIFECYCLE_OPERATIONS_PREFIX.md)
-executes the first four normal actions through the existing owners, common
+The subsequent [private operations continuation](LIFECYCLE_OPERATIONS_BACKGROUND.md)
+executes the first seven normal actions through the existing owners, common
 waits and optional exact transport fences. The rest of this document describes
 the full route; it is not a sixteen-action result.
 
@@ -150,7 +150,8 @@ Browser DOM evidence or expected images cannot be renamed as Lifecycle proof.
 
 There is no public `feature.lifecycle-input.act/cleanup` route or advertised
 capability. The private phase-fenced dispatcher now executes actions 1 to 4
-with actual Source3/common wait checkpoints and the same World/Restore graph. Extend that
+with actual Source3/common wait checkpoints and the same World/Restore graph;
+its same-class continuation now reaches action 7. Extend that
 dispatcher through 16 with the table above after its real owner/fence counters
 pass. A whole run must wait for the concrete complete operation/source graph;
 public qualification additionally needs independent Actor, image provenance,

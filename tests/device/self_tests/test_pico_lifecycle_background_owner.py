@@ -21,6 +21,9 @@ class LifecycleBackgroundOwnerTests(unittest.TestCase):
     def setUp(self):
         self.fixture=chat_seams.LifecycleChatTests();self.fixture.setUp();self.addCleanup(self.fixture.doCleanups)
         self.chat=self.fixture.owner;self.chat.open_chat();self.chat.focus_chat();self.chat.type_chat()
+        self.initialize_from_chat(self.fixture);self.owner.prepare(self.chat)
+    def initialize_from_chat(self,fixture):
+        self.fixture,self.chat=fixture,fixture.owner
         self.native,self.world,self.lock,self.root=self.fixture.native,self.fixture.joined.world,self.fixture.lock,self.fixture.root
         self.foreground=True;self.inputs=[];self.lost=None;self.ignore=None;self.backgrounds=0;self.activations=1;self.runtime_calls=[]
         self.history=Native();self.history.host=self.native.clock;self.history.epoch=self.native.epoch()
@@ -49,7 +52,7 @@ class LifecycleBackgroundOwnerTests(unittest.TestCase):
         self.feature.mutate=feature
         self.world.guard=lambda:self.foreground
         for reader in (self.world.source,self.world.axes,self.world.avatar):reader.guard=lambda:self.foreground
-        self.owner=self.make();self.owner.prepare(self.chat)
+        self.owner=self.make()
 
     def sleep(self,seconds):
         self.native.sleep(seconds);self.history.host=self.native.clock;self.history.epoch=self.native.epoch()

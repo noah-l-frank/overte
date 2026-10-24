@@ -1,13 +1,19 @@
 # Private normal Lifecycle operations 1 to 4
 
+This records the original prefix packet. The subsequent
+[same-graph Chat/background and final-identity packet](LIFECYCLE_OPERATIONS_BACKGROUND.md)
+extends the same class through 7, corrects actual outer-exit ownership and moves
+the operations cases intact into their own bounded selector.
+
 `PicoLifecycleOperations` connects the existing first four v16 actions through
 the actual `OverteSession` contract, existing normal owners and unchanged
 `Journey.wait`. It never calls `execute`, supplies a witness, reads an image or
 advertises a capability. Native Qt/physics/OS/controller and final app-file I/O
 retain explicit models; these are host adapter results. The same class is the
 continuation point for actions 5 to 16 in the
-[complete source plan](LIFECYCLE_COORDINATOR_PLAN.md). It currently refuses a
-fifth action before another phase acquisition or child input.
+[complete source plan](LIFECYCLE_COORDINATOR_PLAN.md). That prefix packet refused
+a fifth action before another phase acquisition or child input; the subsequent
+continuation now wires actions 5 to 7 through actual lazy owners.
 
 ## Intent and final publication
 

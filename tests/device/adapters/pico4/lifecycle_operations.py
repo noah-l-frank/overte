@@ -11,6 +11,7 @@ from adapters.chat_journey.source_chunks import ChatSourceChunks,json_digest
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
+from adapters.observer_return import parent_node,state as file_state
 from adapters.phase_input_fence import PhaseInputFence
 from feature_journeys.contract import arguments,result,typed_equal,VERSION as CONTRACT
 from feature_journeys.fixtures import context
@@ -34,7 +35,8 @@ class LifecycleInputFence(PhaseInputFence):
         super().__init__(owner.phases)
 
     def owns(self,owner):
-        return owner is self.owner.source.editor or owner is self.owner.source.world or owner is self.owner.source.restore.joined.back
+        return (owner is self.owner.source.editor or owner is self.owner.source.world
+            or owner is self.owner.source.restore.joined.back or any(owner is child for child in self.owner.children.values()))
 
     def original(self):
         self.owner.bound(saved=True);need(not self.owner.failed and self.owner.state['steps'])
@@ -52,24 +54,30 @@ class LifecycleInputFence(PhaseInputFence):
 
 
 class PicoLifecycleOperations:
-    """One live primary graph; first four ordinary recipe actions only.
+    """One live primary graph; ordinary recipe actions through background.
 
     This deliberately has no execute/witness or cleanup substitute. Retained
     parent intent makes a failed call terminal; it never resends that input.
     """
-    def __init__(self,source,phases,path):
+    def __init__(self,source,phases,path,*,factories=None):
         from adapters.pico4.lifecycle_observation import PicoLifecycleObservation
         need(type(source) is PicoLifecycleObservation and source.version==3
             and type(phases) is PhaseFixtureReader and phases.area=='lifecycle-input' and phases.run==source.run)
         self.source,self.phases,self.lock=source,phases,source.lock
+        self.factories={} if factories is None else factories
+        need(type(self.factories) is dict and set(self.factories)<=set(('chat','background'))
+            and all(callable(value) for value in self.factories.values()))
+        self.children={}
         self.original_phases=phases
+        self.original_client=phases.client
         self.store=PrivateFeatureState(path)
         need(self.store.path==source.world.store.path.with_name('lifecycle-primary-operations.json'))
         self.scope=dict(lifecyclePrimaryOperationsVersion=VERSION,contractVersion=CONTRACT,runId=source.run,
             binding=deepcopy(source.binding),fixtureUrl=phases.fixture_url)
-        self.disk=None;self.failed=False
+        self.disk=None;self.failed=False;self.stamp=None;self.parent=parent_node(self.store)
         self.state=dict(**self.scope,phase='reading',chunks=[],bundles=[],baseline=None,steps=[])
         self.history=ChatSourceChunks(self.store,self.scope)
+        self.chunk_identities=();self.chunk_raw_bytes=2
         with self.lock.held():
             need(self.store.read() is None)
             # Missing parent plus retained children is unresolved ownership.
@@ -80,25 +88,42 @@ class PicoLifecycleOperations:
                 need(getattr(owner,'phase_fence',None) is None)
 
     def bound(self,*,saved=False):
-        self.lock.assert_held();need(not self.failed and not self.source.failed
+        self.lock.assert_held();self.identity(saved=saved)
+
+    def final_identity(self):self.identity(saved=True)
+
+    def identity(self,*,saved=False):
+        # Pure original host ownership; also required after the actual outer
+        # lock exit. This cannot acquire input, HTTP or a replacement source.
+        need(not self.failed and not self.source.failed
             and self.source.run==self.scope['runId'] and typed_equal(self.source.binding,self.scope['binding'])
             and self.source.lock is self.lock and typed_equal(self.store.read(),self.disk)
             and json_digest(self.scope)==self.history.scope and self.phases is self.original_phases
+            and self.phases.client is self.original_client
             and self.phases.run==self.source.run and self.phases.area=='lifecycle-input'
             and self.phases.fixture_url==self.scope['fixtureUrl']
-            and self.phases.client.url+'/runs/'+self.source.run+'/'==self.scope['fixtureUrl'])
+            and self.phases.client.url+'/runs/'+self.source.run+'/'==self.scope['fixtureUrl']
+            and parent_node(self.store)==self.parent and self.history.root is self.store)
+        if self.disk is not None:
+            value,_raw,physical=file_state(self.store)
+            need(typed_equal(value,self.disk) and tuple(physical)==self.stamp)
+        else:need(self.stamp is None)
         if saved:need(typed_equal(self.state,self.disk))
         self.history.verify()
+        need(tuple(self.history.identities)==self.chunk_identities and type(self.history.raw_bytes) is int
+            and self.history.raw_bytes==self.chunk_raw_bytes)
 
     def save(self):
         self.bound();value=deepcopy(self.state)
-        self.store.write(value,self.disk);need(typed_equal(self.store.read(),value));self.disk=value
+        self.store.write(value,self.disk);observed,_raw,physical=file_state(self.store)
+        need(typed_equal(observed,value));self.disk=value;self.stamp=tuple(physical)
 
     def archive(self,packet):
         self.bound()
         index,parts=source_bundles.prepare(packet,len(self.state['bundles']),self.state['bundles'])
         for part in parts:
-            self.state['chunks']=self.history.append(part,self.state['chunks']);self.save()
+            self.state['chunks']=self.history.append(part,self.state['chunks'])
+            self.chunk_identities=tuple(self.history.identities);self.chunk_raw_bytes=self.history.raw_bytes;self.save()
         self.state['bundles'].append(index);self.save()
         return len(self.state['bundles'])-1
 
@@ -136,9 +161,11 @@ class PicoLifecycleOperations:
                     # All physical parent writes precede Source3's final clock
                     # and real lock-exit check; no old packet becomes current.
                 else:observed=self.act(fields)
-            if operation.endswith('.observe'):self.source.fresh()
+            self.final_identity()
+            if operation.endswith('.observe'):self.source.fresh(after_guard=self.final_identity)
             else:
                 self.source.bound()
+                self.final_identity()
                 packet,started,epoch=self.delivery
                 completed=self.phases.monotonic();final=self.phases.epoch_ms()
                 need(0<=completed-started<=1.5 and 0<=final-epoch<=1500)
@@ -150,7 +177,8 @@ class PicoLifecycleOperations:
 
     def act(self,fields):
         self.bound();index=len(self.state['steps'])
-        need(index<4 and self.state['baseline'] is not None and self.source.disk is not None
+        need(index<7 and (index<4 or ('background' if index==6 else 'chat') in self.factories)
+            and self.state['baseline'] is not None and self.source.disk is not None
             and (index==0 or self.state['steps'][-1]['phase']=='returned'))
         expected=SCENARIOS['lifecycle-input']['steps'][index]
         need(fields['verb']==expected['verb'] and typed_equal(fields['inputs'],expand(expected['inputs'],context(self.source.run))))
@@ -180,4 +208,24 @@ class PicoLifecycleOperations:
         elif index==1:editor.type_create()
         elif index==2:world.world_input(editor_id=editor.state['originalId']);world.release()
         elif index==3:joined.back_once()
+        elif index==4:
+            chat=self.child('chat');chat.open_chat();chat.focus_chat()
+        elif index==5:self.child('chat').type_chat()
+        elif index==6:self.child('background').run_owned()
         else:need(False)
+
+    def child(self,role):
+        from adapters.pico4.lifecycle_chat import PicoLifecycleChatDraft
+        from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
+        self.bound(saved=True)
+        if role not in self.children:
+            need(role in self.factories)
+            child=self.factories[role](self.fence)
+            need(type(child) is dict(chat=PicoLifecycleChatDraft,background=PicoLifecycleBackground)[role]
+                and child.run==self.source.run and typed_equal(child.binding,self.source.binding) and child.lock is self.lock
+                and child.store.path==self.store.path.with_name('lifecycle-'+role+'-owner.json') and child.state is None)
+            self.children[role]=child;child.bind_phase_fence(self.fence)
+            if role=='chat':child.prepare()
+            else:child.prepare(self.children['chat'])
+            getattr(self.source,'attach_'+role)(child)
+        return self.children[role]

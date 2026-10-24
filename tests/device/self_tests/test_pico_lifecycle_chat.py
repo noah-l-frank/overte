@@ -24,6 +24,10 @@ class LifecycleChatTests(unittest.TestCase):
         self.fixture=original_editor.LifecycleEditorTests();self.fixture.setUp();self.addCleanup(self.fixture.doCleanups)
         self.root,self.native,self.lock=self.fixture.root,self.fixture.native,self.fixture.lock
         self.joined=self.fixture.joined();run_create_world_back(self.fixture.owner,self.joined)
+        self.initialize_from_editor(self.fixture,self.joined);self.owner.prepare()
+    def initialize_from_editor(self,fixture,joined):
+        self.fixture,self.joined=fixture,joined
+        self.root,self.native,self.lock=fixture.root,fixture.native,fixture.lock
         self.path=self.root/'lifecycle-chat-owner.json';self.widgets=Widgets()
         self.widgets.instance=self.fixture.binding['sessionId'];self.widgets.generation='2'*32;self.widgets.sequence=self.fixture.field.sequence
         original=self.widgets.input
@@ -37,7 +41,7 @@ class LifecycleChatTests(unittest.TestCase):
                     if not any(row['kind']=='chat' for row in self.native.ui.rows):self.native.ui.rows.append(editor(2,'chat'))
                     self.native.ui.rows[-1].update(focused=self.widgets.focus,text=self.widgets.draft)
                     self.native.ui.home=False;self.native.ui.raised=self.widgets.focus
-        self.widgets.input=native_input;self.owner=self.make();self.owner.prepare()
+        self.widgets.input=native_input;self.owner=self.make()
     def make(self):
         source=self.native.sources()[0];source.source_lock=self.lock
         route=TokenChatUI(self.widgets,lambda _v:None,RUN,monotonic=lambda:self.native.clock,sleep=self.native.sleep)
