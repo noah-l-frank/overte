@@ -56,6 +56,10 @@ class PicoLifecycleRestore:
         self.disk=self.state=self.deadline=None
         with self.lock.held():self.load()
 
+    def bind_phase_fence(self,fence):
+        from adapters.pico4.lifecycle_operations import phase
+        need(getattr(self,'phase_fence',None) is None);self.phase_fence=fence;phase(self)
+
     def bound(self,*,host_only=False):
         self.lock.assert_held();need(self.store.read()==self.disk and self.world.store.read()==self.world.disk
             and self.process.store.read()==self.process.disk)
@@ -168,6 +172,8 @@ class PicoLifecycleRestore:
 
     def intent(self,stage,subject,source,control):
         self.bound();need(self.state['phase']=='navigating' and source['kind']=='navigation')
+        from adapters.pico4.lifecycle_operations import phase
+        if phase(self) is not None:phase(self).mark()
         # Close leaves owned Home hidden. A surprising Home-ray need is not a
         # license for an unjournaled alternate trigger transport.
         # Every authoritative observation still appends to the SAME World128
@@ -190,18 +196,26 @@ class PicoLifecycleRestore:
         state=deepcopy(self.state);row=state['inputs'][-1]
         need(row['command'] is None and row['envelope'] is None and command['controlId']==row['control'])
         row['command']=deepcopy(command);self.save(state);self.world.final_result(None)
+        from adapters.pico4.lifecycle_operations import phase
+        if phase(self) is not None:phase(self).check();self.world.final_result(None)
 
     def controller(self,operation):
         need(self.state['inputs'][-1]['control']==operation);self.world.final_result(None)
+        from adapters.pico4.lifecycle_operations import phase
+        if phase(self) is not None:phase(self).check();self.world.final_result(None)
 
     def envelope(self,original):
         state=deepcopy(self.state);row=state['inputs'][-1]
         validate_envelope(original,self.world.session.profile)
         need(row['command'] is None and row['envelope'] is None and original['commands'][0]['operation']==row['control'])
         row['envelope']=deepcopy(original);self.save(state,host_only=True);self.world.fresh_current()
+        from adapters.pico4.lifecycle_operations import phase
+        if phase(self) is not None:phase(self).host_fresh()
 
     def before_publish(self,original):
         self.bound(host_only=True);need(original==self.state['inputs'][-1]['envelope']);self.world.fresh_current()
+        from adapters.pico4.lifecycle_operations import phase
+        if phase(self) is not None:phase(self).host_fresh()
 
     @current_return
     def restore(self,close):

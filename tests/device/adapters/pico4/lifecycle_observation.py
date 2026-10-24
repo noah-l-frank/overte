@@ -326,7 +326,16 @@ class PicoLifecycleObservation:
                 owner_floor=None
                 if self.pending is not None:
                     saved=self.owner_pending(self.pending)
-                    owner_floor=deepcopy(self.live_pending(self.pending.pending,[saved,previous]))
+                    known=[saved,previous]
+                    if self.version==3 and self.close is not None:
+                        # Close uses this same live Pending reader and retains
+                        # each complete reply under its own original World
+                        # index. It is a historical floor only, never a fresh
+                        # primary observation or a renewed timestamp.
+                        closed=self.close.state['frames'][-1]
+                        self.close.packet(closed)
+                        known.append(closed['original']['pending'])
+                    owner_floor=deepcopy(self.live_pending(self.pending.pending,known))
                 readonly_floor=None
                 if self.version>=2:
                     if previous is None:need(self.reader.last is None and self.reader.last_raw is None and self.reader.last_request is None)

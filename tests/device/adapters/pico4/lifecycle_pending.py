@@ -240,7 +240,7 @@ class PicoLifecyclePending:
         prior=None;window=None;complete=False
         for index in state['quiet']:
             need(integer(index,0,len(state['frames'])-1));row=state['frames'][index]
-            packets=self.quiet_packet(state,row)
+            packets=self.quiet_packet(state,row,historical=version>=2)
             if window is None:window=drive.AvatarReleaseWindow(drive.AvatarDisplacement(packets['drive']))
             complete=window.observe(packets['drive'],row['hostMonotonic'])
             if prior is not None:
@@ -487,7 +487,8 @@ class PicoLifecyclePending:
                 else:need(False)
             self.save(state);result=self.report();self.fresh();return result
 
-    def quiet_packet(self,state,row):
+    def quiet_packet(self,state,row,*,historical=False):
+        need(type(historical) is bool)
         packets,pending=self.packet(row);current=ui.current_editor(packets['ui']);neutral(packets['gesture'])
         actual=self.world.anchor.measure(packets['drive']);event=pending['commit']['observation']['events'][-1]
         need(current is not None and current['id']==state['replacementId'] and current['text']=='' and not current['focused']
@@ -495,7 +496,7 @@ class PicoLifecyclePending:
             and not pending['resources']['pendingRuns'] and not pending['commit']['observation']['pending']
             and event['kind']=='rejected' and event['reason']=='context-retired'
             and not actual['heldInputs'] and actual['worldDisplacement']<=.025
-            and len(self.world.attempts(self.world.state,packets['gesture']))==1)
+            and len(self.world.attempts(self.world.state,packets['gesture'],through=1 if historical else None))==1)
         return packets
 
     @current_return
