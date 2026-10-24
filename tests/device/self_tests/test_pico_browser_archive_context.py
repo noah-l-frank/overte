@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import hashlib
+import json
 from copy import deepcopy
 from pathlib import Path
 import tempfile
@@ -136,6 +137,28 @@ class BrowserArchivePngWindowTests(unittest.TestCase):
             self.assertTrue(self.directory.close());self.plan.pngs()
             self.assertNotIn('directory',reads.call_args.kwargs)
         self.assertEqual(self.raw,self.path.read_bytes())
+
+    def test_complete_admission_bytes_preserve_original_wire_and_every_live_metadata_field(self):
+        captures=self.plan.captures;rows=captures.pngs
+        rows[0]['value'].update(capture={'binding':{'run':'a'*32},'label':'original ä\"\\\n'},
+            role='primary',runId='a'*32,ticket='b'*32,journalId='c'*32)
+        captures.initialize_pngs();captures.append_png(rows[0]);captures.catalog=self.plan.catalog
+        self.addCleanup(captures.catalog.close_host)
+        store=PrivateFeatureState(self.root/'admission-original.json');store.write({'original':'owned'},None)
+        captures.catalog.add('primary/'+store.path.name,store,store.read())
+        captures.scope={'runId':'a'*32};captures.owner={'ownerToken':'b'*32}
+        captures.proofs=[{'original':['full',{'source':'unchanged'}]}]
+        original=canonical(captures.admission());self.assertEqual(original,captures.admission_bytes())
+        self.assertEqual(hashlib.sha256(original).hexdigest(),hashlib.sha256(captures.admission_bytes()).hexdigest())
+        self.assertEqual(rows[0],json.loads(captures.admission_bytes())['pngs'][0])
+        inspection=captures.pngs;inspection[0]['value']['capture'].clear()
+        self.assertEqual(original,captures.admission_bytes())
+        row=next(iter(captures.catalog.rows.values()))
+        for target,key,value in ((captures.scope,'runId','d'*32),(captures.owner,'ownerToken','e'*32),
+                (captures.proofs[0],'original',['different']),(row,'sha256','f'*64)):
+            previous=target[key];target[key]=value
+            self.assertNotEqual(original,captures.admission_bytes());target[key]=previous
+        self.assertEqual(original,captures.admission_bytes())
 
     def test_same_bytes_replaced_png_is_refused_without_removing_either_original(self):
         original=self.path.stat().st_ino;replacement=self.root/'replacement.png'

@@ -92,3 +92,44 @@ original files preserve bytes/stamps. Its unresolved owner includes an orphan
 child and is deliberately not loaded or adopted: only independently hash-bound
 historical catalogue rows supply this cost measurement. No native query, quiet
 qualification or whole-path success follows from these measurements.
+
+
+## Complete admission bytes without decoding immutable PNG metadata
+
+`admission_bytes()` produces exactly the previous canonical admission JSON,
+including every catalog, owner, PNG, proof and scope field. It embeds the
+already strict-validated, sealed canonical PNG array directly. Mutable live
+scope/owner/proofs/catalog metadata still receive complete serialization on
+every comparison. The original PNG byte-object, hash and projected-window
+identity fences still run. `admission()` keeps its lossless inspection DTO;
+changing an inspection cannot change the immutable original metadata.
+
+This removes only decode/re-encode work on historical metadata. The complete
+strict expected-DTO checks for every source row, all full file/PNG byte windows,
+physical signatures, namespace scans, retained descriptors, pending intents,
+native observations, clocks and real lock exits remain unchanged. There is no
+new wire version, dropped original, cached current file observation or changed
+query/retirement policy. The existing once-per-admission full DTO comparison
+also confirms the complete byte equality before ready publication.
+
+A focused metadata counter checks exact old canonical bytes/SHA, original
+nested/escaped Unicode metadata, independent inspection, and mutations in each
+live scope/owner/proof/catalog field. Its first narrow attempt only lacked a
+Python `json` import; that test-only import was fixed before owning checks.
+Fresh owning selections then pass **11 capture cases/90.790 s**, **15 archive
+cases/50.011 s**, and **2 host-close fences/49.348 s**, each unchanged120s.
+All **13,600** complete source hashes and physical signatures match before/after
+terminal completion (91.613 s external elapsed). Private
+`browser-admission-bytes-root-20261024-source.json`/`-result.json` and the three
+`*-admission-bytes-20261024` log/JUnit pairs retain the exact evidence under
+`/home/user/Documents/github/overte-pico-adapter-private-20261021`.
+
+The same-session historical comparison over 1014 original source files and
+80 full PNG originals preserves all **1168818 admission bytes** exactly.
+Original canonical admission costs10.94–11.78 ms; direct complete original
+bytes cost6.52–7.01 ms. All 1153 retained file stamps/hashes match. The actual
+historical physical-index call still refuses the later foreign archive sentry;
+no failed owner is adopted and no source is queried or unlinked. Its profile
+continues to identify full strict expected-DTO checking as a separate cost.
+Evidence: `browser-capture-admission-byte-cost-20261024.json`/`.pstats`.
+This is component CPU evidence, not whole-run performance or completion.

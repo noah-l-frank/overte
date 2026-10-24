@@ -155,6 +155,18 @@ class PicoBrowserCaptureRetirement:
             catalog=[dict(label=label,path=str(row['store'].path),stamp=row['stamp'],sha256=row['sha256'])
                 for label,row in self.catalog.rows.items()])
 
+    def admission_bytes(self):
+        # Exactly canonical(admission()), retaining every original image
+        # field. Only PNG metadata is already immutable canonical JSON. Live
+        # scope/owner/proofs/catalogue fields still receive their full current
+        # serialization; no physical or target observation is cached here.
+        self.immutable_pngs()
+        catalog=[dict(label=label,path=str(row['store'].path),stamp=row['stamp'],sha256=row['sha256'])
+            for label,row in self.catalog.rows.items()]
+        return (b'{"catalog":'+canonical(catalog)+b',"owner":'+canonical(self.owner)
+            +b',"pngs":'+self._png_bytes+b',"proofs":'+canonical(self.proofs)
+            +b',"scope":'+canonical(self.scope)+b'}')
+
     def originals(self):
         self.primary.lock.assert_held();self.physical()
 
@@ -166,7 +178,7 @@ class PicoBrowserCaptureRetirement:
         the real outer lock exit. Host-only CAS operations check every original
         identity/stamp, held directory, namespace and sealed in-memory DTO.
         """
-        need(self.admitted is self._sealed_admitted and canonical(self.admission())==self.admitted
+        need(self.admitted is self._sealed_admitted and self.admission_bytes()==self.admitted
             and self.indexed_rows is self._sealed_indexed_rows and type(self.indexed_rows) is tuple
             and len(self.indexed_rows)==len(self.catalog.rows) and not self.catalog.failed)
         for parent in self.catalog.parents:self.catalog.verify_parent(parent)
@@ -186,7 +198,7 @@ class PicoBrowserCaptureRetirement:
         for parent in self.catalog.parents:self.catalog.verify_parent(parent)
 
     def physical(self):
-        need(self.admitted is self._sealed_admitted and canonical(self.admission())==self.admitted)
+        need(self.admitted is self._sealed_admitted and self.admission_bytes()==self.admitted)
         # One full byte pass lies between complete physical inventories. A
         # second immediate reread of every historical JSON adds no new native
         # observation; changed paths/stamps/DTOs still refuse at either end.
@@ -220,7 +232,7 @@ class PicoBrowserCaptureRetirement:
         self.primary.lock.assert_held()
         need(self.copying_catalog is True and self.reader is None and not self.frames
             and self.catalog_rows is self._sealed_catalog_rows and type(self.catalog_rows) is tuple
-            and self.admitted is self._sealed_admitted and canonical(self.admission())==self.admitted
+            and self.admitted is self._sealed_admitted and self.admission_bytes()==self.admitted
             and self.previous is not None and self.previous['phase'] in ('admitting','reading')
             and self.previous['pending'] is None and self.previous['complete'] is False)
         for parent in self.catalog.parents:self.catalog.verify_parent(parent)
@@ -260,7 +272,7 @@ class PicoBrowserCaptureRetirement:
         self.begin_original_queries()
 
     def begin_original_queries(self):
-        self.admitted=canonical(self.admission());self._sealed_admitted=self.admitted
+        self.admitted=self.admission_bytes();self._sealed_admitted=self.admitted
         self.indexed_rows=self._sealed_indexed_rows=tuple(
             (label,row['store'].path,row['owner'],row['raw'],tuple(row['stamp']),json_digest(row['expected']))
             for label,row in self.catalog.rows.items())
