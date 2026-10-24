@@ -76,6 +76,26 @@ class ChatArchiveIndexTests(unittest.TestCase):
         self.assertTrue(moved);self.assertEqual([],archive.deleted)
         self.assertTrue(all(row['store'].path.exists() for row in self.h.catalog.rows.values()))
 
+    def test_replaced_original_serialization_index_after_unlink_intent_keeps_all_sources(self):
+        for fault in ('admission-tuple','index-tuple','canonical-body'):
+            with self.subTest(fault=fault):
+                self.setUp();archive=self.h.make(indexed=True);write=self.h.ledger.write
+                def change(value,previous):
+                    write(value,previous)
+                    if value['phase']!='unlink-issued':return
+                    if fault=='admission-tuple':
+                        name='original-0001.json'
+                        archive.admitted[name]=tuple(list(archive.admitted[name]))
+                    elif fault=='index-tuple':archive.index_rows=tuple(list(archive.index_rows))
+                    else:
+                        rows=list(archive.index_rows);name,(admitted,path,_raw)=rows[1]
+                        rows[1]=(name,(admitted,path,b'[]'));archive.index_rows=tuple(rows)
+                self.h.ledger.write=change
+                with self.assertRaises(NativeUIError):archive.retire()
+                self.assertEqual([],archive.deleted)
+                self.assertEqual('unlink-issued',self.h.ledger.read()['phase'])
+                self.assertTrue(all(row['store'].path.exists() for row in self.h.catalog.rows.values()))
+
     def test_final_physical_index_delay_keeps_original_final_deadline_and_retirement_marker(self):
         archive=self.h.make(indexed=True);verify=archive.verify_index
         def late():

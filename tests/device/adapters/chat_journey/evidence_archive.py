@@ -16,7 +16,7 @@ from adapters.chat_journey.archive_file import ClosedOriginalFile
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
-from adapters.script_journey.history import same,pack
+from adapters.script_journey.history import same,pack,canonical
 from adapters.chat_journey.source_chunks import digest
 
 VERSION=4
@@ -146,6 +146,7 @@ class ChatEvidenceArchive:
         self.guard,self.inventory=guard,inventory;self.previous=None;self.started=False;self.archived={};self.deleted=[]
         self.root=None;self.manifest=None;self.receipt=None;self.complete=False
         self.admitted={};self.cache_digest='';self.labels=tuple(catalog.rows)
+        self.index_rows=self._sealed_index_rows=()
         self.positions={label:index for index,label in enumerate(self.labels)}
         catalog.verify_all();inventory(set(row['store'].path for row in catalog.rows.values()))
 
@@ -176,6 +177,11 @@ class ChatEvidenceArchive:
                 # Immutable bytes plus an independently pinned digest chain;
                 # caller mutations cannot update this original admission.
                 self.admitted[name]=(snapshot,raw,owner,owner.raw)
+                # The exact original tuple and its immutable canonical bytes
+                # are pinned together. Reuse serialization, never a physical
+                # stamp, current-copy read, or an observed source verdict.
+                entry=(self.admitted[name],path,canonical(snapshot))
+                self.index_rows=self._sealed_index_rows=self.index_rows+((name,entry),)
                 self.cache_digest=digest((self.cache_digest,snapshot))
                 self.verify_root()
             else:self.verify_archive()
@@ -212,20 +218,27 @@ class ChatEvidenceArchive:
         directory; the current copy/manifest gets another FULL byte window.
         Immutable byte objects and a pinned digest chain guard the cache too.
         """
-        need(self.indexed_verify and tuple(self.catalog.rows)==self.labels)
+        need(self.indexed_verify and tuple(self.catalog.rows)==self.labels
+            and self.index_rows is self._sealed_index_rows and type(self.index_rows) is tuple
+            and len(self.index_rows)==len(self.archived))
         self.verify_root()
         # Enumeration can leave the owned directory OFD at end-of-directory;
         # reset only this still kernel-verified original before every pass.
         os.lseek(self.root.fd,0,os.SEEK_SET)
         need(set(os.listdir(self.root.fd))==set(self.archived)==set(self.admitted))
         chain=''
-        for name,row in self.archived.items():
-            snapshot,raw,owner,owner_raw=self.admitted[name]
+        for (name,row),(original_name,entry) in zip(self.archived.items(),self.index_rows):
+            admitted,path,encoded=entry
+            need(name==original_name and self.admitted[name] is admitted)
+            snapshot,raw,owner,owner_raw=admitted
             current=(name,tuple(row['stamp']),row['sha256'],len(row['raw']))
             need(current==snapshot and type(raw) is bytes and row['raw'] is raw and row['owner'] is owner
-                and type(owner) is ClosedOriginalFile and owner.path==row['path']==self.directory/name
+                and type(owner) is ClosedOriginalFile and owner.path is row['path'] is path
                 and type(owner_raw) is bytes and owner.raw is owner_raw and owner.stamp==row['stamp'] and not owner.failed and owner.active is None)
-            chain=digest((chain,current))
+            # This is exactly canonical((chain, snapshot)): the chain is
+            # empty or lowercase SHA256 hex, and encoded is the pinned original
+            # canonical snapshot. Keep the original chain value/verification.
+            chain=hashlib.sha256(b'["'+chain.encode('ascii')+b'",'+encoded+b']').hexdigest()
             info=os.stat(name,dir_fd=self.root.fd,follow_symlinks=False);private(info,0o400)
             need(stamp(info)==row['stamp'])
         need(chain==self.cache_digest);self.verify_root()

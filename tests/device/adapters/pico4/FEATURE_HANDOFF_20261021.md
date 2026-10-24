@@ -3176,3 +3176,15 @@ owners and Restore/Restart must fit the same128-frame journal. Prior separate
 89-frame prefix and127-frame Restore evidence cannot be combined into a Whole
 claim. Actor/images, public operation and final closure remain open; source
 complete3/14 and physical qualification0 remain unchanged.
+
+
+## Root archive-index physical verification cost
+
+[The read-only original archive profile](BROWSER_ARCHIVE_INDEX.md) identifies
+repeated snapshot JSON and Path computations during every original unlink.
+The pinned exact original serialization now preserves the same hash chain and
+all full physical/current-copy/manifest checks while reducing measured current
+copy checks75–79ms to21ms. All2,236 historical files remain unchanged.
+Four owning groups pass81.47s (73 Chat archive,7 Browser archive,2 host-close,
+10 coverage cases), all13,522 source hashes unchanged. Full120s Browser
+execution and final release remain a separate verification obligation.

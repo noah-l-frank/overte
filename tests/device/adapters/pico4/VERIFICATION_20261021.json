@@ -5006,5 +5006,44 @@
       "status": "passed",
       "durationSeconds": 2.66
     }
+  },
+  "browserArchiveIndexRoot20261024": {
+    "status": "passed-selected-host-components",
+    "catalogGroups": 245,
+    "selectors": {
+      "chat-application-archive": {
+        "cases": 73,
+        "selectorSeconds": 7.658
+      },
+      "tablet-web-evidence-archive": {
+        "cases": 7,
+        "selectorSeconds": 36.923
+      },
+      "tablet-web-host-close-fences": {
+        "cases": 2,
+        "selectorSeconds": 36.79
+      },
+      "coverage-matrix": {
+        "cases": 10,
+        "selectorSeconds": 0.094
+      }
+    },
+    "selectedDurationSeconds": 81.47,
+    "sourceFiles": 13522,
+    "sourcesUnchanged": true,
+    "retainedHistoricalFiles": 2236,
+    "historicalFilesUnchanged": true,
+    "archiveFiles": 1087,
+    "pngs": 80,
+    "originalCanonicalHashChainUnchanged": true,
+    "allPhysicalStampsAndCurrentCopyManifestFullBytesPreserved": true,
+    "noQueryQuietFrameClockWindowOrTimeoutChange": true,
+    "repository": {
+      "suites": 4,
+      "status": "passed",
+      "durationSeconds": 2.63
+    },
+    "completeFeature": false,
+    "deviceAcceptance": false
   }
 }
