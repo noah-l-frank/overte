@@ -3243,3 +3243,17 @@ explicitly, as the other owning modules do. The unchanged commands pass
 hashes unchanged. This fixes the four proven import defects without changing
 runner/capability/check selection or timeouts. The larger quick suite's outer
 aggregate-timeout failures remain unresolved; no full quick pass is inferred.
+
+
+## Root World Web normal six-step integration
+
+Sources7a2b39a62f/c11e7ee2d1 are selected as5f14b487e2/7db0d87b46. The
+same normal Script/Home/URL/Submit/Close→World-VM→calibrated ray/IME/Send→
+Clear→pageB→Back flow retains separate actual role/HTTP/DOM/Native sources.
+Root review reproduces and fixes four stale preparation publications after
+real outer release (new/cold Native age, phase and role). Original input and
+reservation are never replayed. Current9+5 cases plus coverage pass8.22s;
+46 existing compatibility cases pass3.867s. All13,537 source hashes match.
+Catalog248 retains all14 risk rows; no full World capability or device claim.
+See [the exact source/host boundary](WORLD_WEB_PREFIX.md). Foreign/404 packet
+2e8d1ee359 is a separate next selection; Actor/stereo/retirement remain open.

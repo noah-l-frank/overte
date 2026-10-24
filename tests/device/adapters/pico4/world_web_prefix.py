@@ -58,9 +58,12 @@ class PicoWorldWebPrefix:
         rows=unpack(body['payload']);need(len(rows)==1);value=rows[0]
         self.validate(value,version=body['picoWorldWebPrefixVersion']);self.disk=deepcopy(body);self.state=deepcopy(value);return self.state
 
-    def control(self):
-        self.lock.assert_held();need(not self.failed and self.scope_sha==json_digest(self.scope) and self.role_sha==json_digest(self.role)
+    def identity_control(self):
+        need(not self.failed and self.scope_sha==json_digest(self.scope) and self.role_sha==json_digest(self.role)
             and self.source.run==self.run and self.source.area==self.area and self.source.fixture_url==self.url)
+
+    def control(self):
+        self.lock.assert_held();self.identity_control()
         if self.state is not None:need(same(self.store.read(),self.disk) and same(unpack(self.disk['payload']),[self.state]))
 
     def validate(self,value,*,version=VERSION):
@@ -157,20 +160,24 @@ class PicoWorldWebPrefix:
     def prepare(self):
         need(self.role=='primary' and self.lock._owner is None)
         with self.lock.held(),self.adapter.existing_input_session(self.target):
-            value=self.read()
+            value=self.read();started=self.source.monotonic()
+            native=self.adapter._native_feature_observer(self.target,read_only=True);requested=native.clock_ms();epochs=[]
             if value is not None:
-                need(value['phase']=='ready' and value['reserved']);self.exact_phase();return deepcopy(value)
-            need(not any(self.root.iterdir()))
-            self.adapter.world_prefix_capture_guard(self.target,self.lock)
-            phase=self.source.read();need(phase['verb']=='baseline' and len(phase['status']['activations'])==1)
-            _ui,_observe,binding,guard,_installed=self.adapter.normal_feature_runtime(self.target,read_only=True);need(guard() is not False)
-            self.save(dict(binding=deepcopy(binding),ownerToken=uuid.uuid4().hex,phase='preparing',fixture=deepcopy(phase['status']),
-                completed=[],active=None,reserved=False,scriptUrl=None,inputs=[]))
-            self.input_begin(dict(kind='source-control',operation='reserve'))
-            packet=self.io(read_only=False).request(self.run,self.url,self.state['ownerToken'],'reserve')
-            need(packet['source']=={'reserved':True});self.input_done()
-            value=deepcopy(self.state);value.update(phase='ready',reserved=True);self.save(value);self.exact_phase()
-            return deepcopy(value)
+                need(value['phase']=='ready' and value['reserved']);self.exact_phase()
+            else:
+                need(not any(self.root.iterdir()))
+                self.adapter.world_prefix_capture_guard(self.target,self.lock)
+                phase=self.source.read();need(phase['verb']=='baseline' and len(phase['status']['activations'])==1)
+                _ui,_observe,binding,guard,_installed=self.adapter.normal_feature_runtime(self.target,read_only=True);need(guard() is not False)
+                self.save(dict(binding=deepcopy(binding),ownerToken=uuid.uuid4().hex,phase='preparing',fixture=deepcopy(phase['status']),
+                    completed=[],active=None,reserved=False,scriptUrl=None,inputs=[]))
+                self.input_begin(dict(kind='source-control',operation='reserve'))
+                packet=self.io(read_only=False).request(self.run,self.url,self.state['ownerToken'],'reserve')
+                need(packet['source']=={'reserved':True});epochs.append(packet['capturedEpochMs']);self.input_done()
+                value=deepcopy(self.state);value.update(phase='ready',reserved=True);self.save(value);self.exact_phase()
+            returned=deepcopy(value);seal=self.seal(started,requested,epochs,native)
+        self.finalize(seal)
+        return returned
 
     def history_reader(self):
         self.control();need(self.state is not None)
@@ -254,14 +261,17 @@ class PicoWorldWebPrefix:
     def finalize(self,seal):
         need(self.lock._owner is None and not self.failed)
         try:
+            self.identity_control()
             need(self.scope_sha==json_digest(self.scope) and same(self.store.read(),seal['body']) and same(self.pins(),seal['pins']))
             need(seal['guard']() is not False and seal['native'].guard() is not False)
             phase=self.source.read(seal['phase']);need(same(phase['status']['activations'],seal['phase']['activations']))
+            self.identity_control()
             need(same(self.store.read(),seal['body']) and same(self.pins(),seal['pins']))
             epoch=seal['native'].clock_ms();now=self.source.monotonic()
             need(number(now,seal['started'],seal['started']+1.5))
             for captured in seal['epochs']:
                 fresh(captured,epoch);need(max(epoch-captured,seal['requested']-captured+math.ceil((now-seal['started'])*1000))<=1500)
+            self.identity_control()
         except BaseException:
             self.failed=True
             raise NativeUIError('Original World Web prefix publication is unavailable; journals remain owned') from None

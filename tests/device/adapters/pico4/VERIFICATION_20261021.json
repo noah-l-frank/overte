@@ -5197,5 +5197,53 @@
     "outerAggregateTimeoutStillOpen": true,
     "completeFeature": false,
     "deviceAcceptance": false
+  },
+  "worldWebPrefixRoot20261024": {
+    "status": "passed-selected-private-normal-world-flow",
+    "sourceHead": "7db0d87b463e468a9fdd85bbade34099bade66ca",
+    "selectedSources": [
+      "7a2b39a62fe66e4a099dccba80baa65f1b5bf1f3",
+      "c11e7ee2d11416b12bafc043679a75e279fda4fe"
+    ],
+    "catalogGroups": 248,
+    "selectors": {
+      "world-web-prefix": {
+        "cases": 9,
+        "selectorSeconds": 1.927
+      },
+      "world-web-navigation-prefix": {
+        "cases": 5,
+        "selectorSeconds": 6.204
+      },
+      "coverage-matrix": {
+        "cases": 10,
+        "selectorSeconds": 0.089
+      }
+    },
+    "selectedDurationSeconds": 8.22,
+    "sourceFiles": 13537,
+    "sourcesUnchanged": true,
+    "postReviewPreparationCounters": {
+      "reproducedBeforeFix": 4,
+      "allRefusedAfterFix": true,
+      "originalNativeHostAgeAndScopeAfterActualOuterExit": true,
+      "coldReservationNotReplayed": true
+    },
+    "legacyCompatibility": {
+      "cases": 46,
+      "unittestSeconds": 3.867,
+      "sourcesUnchanged": true
+    },
+    "normalRecipeSteps": 6,
+    "totalRecipeSteps": 19,
+    "independentOriginalRoles": true,
+    "actorProcessPublisherStereoAndWholeRetirement": false,
+    "repository": {
+      "suites": 4,
+      "status": "passed",
+      "durationSeconds": 2.69
+    },
+    "completeFeature": false,
+    "deviceAcceptance": false
   }
 }

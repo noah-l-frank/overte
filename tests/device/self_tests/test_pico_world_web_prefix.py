@@ -143,6 +143,36 @@ class WorldWebPrefixTests(unittest.TestCase):
         self.assertEqual(commands,self.target.transport.envelopes)
         self.assertEqual('acting',unpack(self.primary.store.read()['payload'])[0]['phase'])
 
+    def prepare_after_outer_change(self,owner,change):
+        original=self.target.lock.held;exits=[]
+        @contextmanager
+        def held():
+            with original():yield
+            self.assertIsNone(self.target.lock._owner);exits.append(True);change()
+        with patch.object(self.target.lock,'held',side_effect=held):
+            with self.assertRaises(NativeUIError):owner.prepare()
+        self.assertEqual([True],exits)
+        self.assertEqual([],self.target.normal_inputs)
+        self.assertEqual([],self.target.transport.envelopes)
+        self.assertIsNone(self.target.script)
+        self.assertTrue(self.primary.store.path.is_file())
+
+    def test_new_prepare_cannot_publish_after_actual_outer_exit_native_clock_jump(self):
+        self.prepare_after_outer_change(self.primary,lambda:setattr(self.clock,'base',self.clock.base+2000))
+
+    def test_cold_ready_prepare_cannot_publish_after_actual_outer_exit_native_clock_jump(self):
+        self.primary.prepare();raw=self.primary.store.path.read_bytes();sequence=self.target.sequence
+        cold=self.facade.prefix(self.target.selector,self.primary.source,self.foreign)
+        self.prepare_after_outer_change(cold,lambda:setattr(self.clock,'base',self.clock.base+2000))
+        self.assertEqual(raw,self.primary.store.path.read_bytes())
+        self.assertEqual(sequence,self.target.sequence)
+
+    def test_new_prepare_cannot_publish_after_actual_outer_exit_phase_advance(self):
+        self.prepare_after_outer_change(self.primary,lambda:self.call(0))
+
+    def test_prepare_cannot_publish_after_actual_outer_exit_role_replacement(self):
+        self.prepare_after_outer_change(self.primary,lambda:setattr(self.primary,'role','actor'))
+
     def test_normal_script_url_rejects_foreign_authority_run_ticket_before_writer_and_preserves_missing(self):
         normal,_observe,_binding=self.target._script_runtime(self.target.selector);navigation=normal.io.navigation
         url=self.fixture_url+'tickets/'+'a'*32+'/client.js'

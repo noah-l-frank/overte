@@ -669,7 +669,12 @@
         "tests/device/self_tests/test_pico_world_browser_vm.py",
         "tests/device/adapters/pico4/WORLD_BROWSER_STEREO.md",
         "tests/device/self_tests/test_pico_world_browser_stereo.py",
-        "android/vr/pico/tests/device/test_world_web_stereo.py"
+        "android/vr/pico/tests/device/test_world_web_stereo.py",
+        "tests/device/adapters/pico4/world_web_prefix.py",
+        "tests/device/adapters/pico4/world_web_binding.py",
+        "tests/device/adapters/pico4/WORLD_WEB_PREFIX.md",
+        "tests/device/self_tests/test_pico_world_web_prefix.py",
+        "tests/device/self_tests/test_pico_world_web_navigation_prefix.py"
       ],
       "declaredCheckpoints": 19,
       "inputVerbs": [
@@ -719,7 +724,7 @@
         "Revoke actual view/grant/nonce authority",
         "Drain original retained callbacks and prove absent owned entities/view resources"
       ],
-      "nextExecutableStep": "Compose normal world Script load and unchanged v16 phase ownership with the existing original world VM profile, calibrated controller ray/IME and independent HTTP/DOM/native effects. The shared stereo owner now has explicit world source/owner v1 scopes, current entity/document brackets, common per-eye verifier/replay guards and actual private factory; six new and fourteen legacy cases pass. Trusted ROI image consumers do not qualify arbitrary renderer draw/material/billboard behavior. Independent actor/publisher and whole resource/scene/host retirement remain required.",
+      "nextExecutableStep": "Normal first6/19 v16 World actions now compose through existing ScriptManager/Home/URL/Submit/Close, calibrated ray/IME/Send/Clear/pageB/Back and separate actual role/HTTP/DOM/Native/VM originals. Root final9+5 owning cases and46 Tablet-history/normal-manager/World-VM compatibility pass; four post-outer-release prepare clock/phase/role counters actually reproduced then refused without input/reservation replay. Next review/select fixed2e8d1ee359 for Foreign/404/restore/reload to13 on the same owner. Background/retained-document grant observations require actual original-body verification; do not inherit a synthetic resume reload. NormalClose/Stop, real independent Actor process/publication, original stereo/scene evidence and full original resource/Host/archive retirement remain required.",
       "nativeCompilation": "Selected complete NativeWebViewItem TU plus unchanged world-provider, RayPick and renderer projection bodies compile and pass Qt5 host checks; entity/avatar/HMD and Android DOM/transport are explicit seams. Complete application/APK and device behavior unverified.",
       "deviceQualification": "untested"
     },

@@ -142,3 +142,32 @@ selector. The original exception-retention runner calls `unittest.TestCase`
 directly to support the same fixture on the independent test class. No
 additional input operation or original producer changes after the five narrow
 functional cases were introduced. No native compiler or whole Journey runs.
+
+
+## Root integration and preparation publication fences
+
+Root selects7a2b39a62f as5f14b487e2 and c11e7ee2d1 as7db0d87b46, adding
+exactly two selectors to its previous catalog (248 total, all14 risk rows).
+Review reproduces three actual failures: initial reservation, cold ready
+preparation and changed phase can return after the real outer lock release
+despite a Native+2000ms jump or phase advance. A further role-replacement
+counter also reproduces an incorrect successful return. The original failure
+records are retained; no actual input is sent by these preparation counters.
+
+Preparation now retains its original Host/Native start and actual reserve
+response epoch, constructs its complete result/seal under the original lock,
+and finalizes only after the actual outer release. Both fresh and cold ready
+paths use that same finalizer. Exact role/scope/source identity is checked
+before and after external final guards, phase and clocks. The current owner,
+all physical originals, process/candidate, exact independent phase and
+original Host/Native age are revalidated without replaying reservation or input.
+The existing lock and persisted DTO versions are unchanged.
+
+The final integrated owning run passes9 prefix cases/1.927s,5 continuous
+navigation cases/6.204s and coverage10/0.089s (8.22s total). All13,537
+tracked/new source hashes are unchanged. Existing Tablet-history, normal
+Script manager and World-VM compatibility passes46 cases/3.867s, again with
+all source hashes unchanged. Four repository suites pass2.69s; registry and
+whitespace checks pass. These establish source/host behavior only; actual
+Controller/Qt/IME/V8/OS/GPU seams and full19-step/Actor/image/retirement remain
+unqualified. The separate Foreign/404 packet is the next integration step.
