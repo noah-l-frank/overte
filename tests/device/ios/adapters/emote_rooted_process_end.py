@@ -166,6 +166,10 @@ class IOSEmoteRootedProcessEnd:
         # Only this original fence plus the independent OS source are used.
         self.fence_validate()
         reader=retired_process_observer(self.runtime,self.flow.selector,self.binding,self.state['source'])
+        # The role's existing controller clocks also own its native fence and
+        # API deadline. Configure them before any OS acquisition; retained
+        # originals and the independent Node clocks are never rewritten.
+        reader.epoch_ms,reader.monotonic=self.flow.epoch_ms,self.monotonic
         owner=IOSProcessRetirement(self.os_store(),reader,self.binding,self.run,self.role,0,self.lock,profile='emote')
         complete=owner.advance();current=owner.current();fence=self.fence_original()
         need(current['acquisition']['hostBeforeEpochMs']>=fence['phaseAfter']['capturedEpochMs'])

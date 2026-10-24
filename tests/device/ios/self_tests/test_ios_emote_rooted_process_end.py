@@ -79,6 +79,15 @@ class RootedProcessEndStorageTests(unittest.TestCase):
         replacement.write_bytes(path.read_bytes());replacement.chmod(0o600);replacement.replace(path)
         with self.assertRaises(NativeUIError):owner.advance()
         self.assertEqual([],self.os.queries);self.assertEqual([],self.stops)
+    def test_new_os_reader_uses_existing_role_host_callbacks_before_its_first_acquisition(self):
+        readers=[]
+        def fresh_reader(*args):
+            reader=self.os.reader();reader.epoch_ms=lambda:1;reader.monotonic=lambda:0;readers.append(reader);return reader
+        with patch('ios.adapters.emote_rooted_process_end.retired_process_observer',side_effect=fresh_reader):
+            self.assertFalse(self.owner.advance())
+        self.assertIs(self.owner.flow.epoch_ms,readers[0].epoch_ms);self.assertIs(self.owner.monotonic,readers[0].monotonic)
+        self.assertEqual(1,len(self.os.queries));self.assertGreater(readers[0].acquisition['hostBeforeEpochMs'],1700000000000)
+        self.assertEqual('stopped',self.owner.state['phase']);self.assertEqual([],self.stops)
 
 
 if __name__=='__main__':unittest.main()

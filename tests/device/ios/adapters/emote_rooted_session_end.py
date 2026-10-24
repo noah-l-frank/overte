@@ -132,6 +132,7 @@ class IOSEmoteRootedSessionEnd:
         self.after_stage_zero(observed[0])
     def stage_one(self):
         reader=retired_process_observer(self.runtime,self.flow.selector,self.binding,self.process.state['source'])
+        reader.epoch_ms,reader.monotonic=self.flow.epoch_ms,self.monotonic
         owner=IOSProcessRetirement(self.os_store(),reader,self.binding,self.run,self.role,1,self.lock,profile='emote')
         complete=owner.advance();actual=owner.current();need(absent(actual['original']))
         # Both stages retain separate actual OS originals. Their source and

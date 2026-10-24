@@ -42,6 +42,21 @@ age limits and 30-second operation budgets are unchanged. Full source-corpus
 timing and device behavior remain unqualified. Historical corpus 175 lacks the
 inactive original and cannot be retroactively completed by this packet.
 
+The next whole-run producer bridge now has three passing bounded dependency
+cases. It uses the real physical adapter's canonical Stop and installed-source
+retirement gates, independently reads a structural host ZIP and two synthetic
+installed trees, rejects changed candidate/installed bytes, and reads only the
+independent OS endpoint after Stop. Candidate preflight remains an explicit host
+seam; release/SBOM verification is not executed by this suite. Native/WDA/OS
+producers are declared models, and the whole normal-input/end flow is still
+unqualified. New stage-zero and stage-one regressions establish that each fresh
+OS reader receives its role's existing controller clock callbacks before the
+first acquisition; original Node clocks and stored stage-zero packets remain
+unchanged. The coordinated 81-case selection passed in 12.021 seconds, including
+these three bridge cases, five process-storage cases, nine SDK-storage cases and
+shared-lock/Graphics/Script/Navigation/publication regressions. This result is
+host logic evidence and does not enable a capability or claim device acceptance.
+
 The final explicit host selection passes 56 cases in 18.954 seconds. It joins
 the connected paired process/OS/SDK/archive model, issued/lost/reconstructed
 transactions, exact two-role phase histories, foreign or unowned missing

@@ -114,6 +114,15 @@ class RootedSessionEndStorageTests(unittest.TestCase):
         owner=self.until_ready()
         with self.assertRaises(NativeUIError):owner.finish()
         self.assertEqual([],self.calls);self.assertIsNotNone(self.sdk.read())
+    def test_stage_one_reader_uses_role_host_callbacks_without_retiming_stage_zero(self):
+        owner=self.owner();original=deepcopy(self.process.os_store().read());readers=[]
+        def fresh_reader(*args):
+            reader=self.os.reader();reader.epoch_ms=lambda:1;reader.monotonic=lambda:0;readers.append(reader);return reader
+        with patch('ios.adapters.emote_rooted_session_end.retired_process_observer',side_effect=fresh_reader):
+            self.assertFalse(owner.finish())
+        self.assertIs(owner.flow.epoch_ms,readers[0].epoch_ms);self.assertIs(owner.monotonic,readers[0].monotonic)
+        self.assertEqual(original,self.process.os_store().read());self.assertEqual([],self.calls)
+        self.assertGreater(readers[0].acquisition['hostBeforeEpochMs'],1700000000000)
 
 
 if __name__=='__main__':unittest.main()
