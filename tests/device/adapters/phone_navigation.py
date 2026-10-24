@@ -2,9 +2,9 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import re
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
-from adapters.normal_ui import Locator, NativeUIError
+from adapters.normal_ui import Locator, NativeUIError, W3C_ELEMENT
 from navigation_observation import OPERATIONS, viewpoint_urls
 
 PACKAGE = 'io.github.noah_be.overte.phone'
@@ -180,6 +180,36 @@ class PhoneNavigation:
             raise NativeUIError('Normal Phone keyboard did not disappear')
         return {'before': before, 'after': after}
 
+    def press_go(self):
+        """Press the same resolved Phone Go once through normal W3C touch."""
+        element = self.ui._resolve(self.go)
+        if type(element) is not str or not element.startswith('/element/'):
+            raise NativeUIError('Normal Phone Go element is malformed')
+        origin = {W3C_ELEMENT: unquote(element[len('/element/'):])}
+        if self.ui._element(origin) != element:
+            raise NativeUIError('Normal Phone Go element is malformed')
+        self.ui._check()
+        primary = None
+        try:
+            self.ui._request('POST', '/actions', {'actions': [{
+                'type': 'pointer', 'id': 'overte-phone-go-touch',
+                'parameters': {'pointerType': 'touch'}, 'actions': [
+                    {'type': 'pointerMove', 'duration': 0, 'origin': origin, 'x': 0, 'y': 0},
+                    {'type': 'pointerDown', 'button': 0},
+                    {'type': 'pause', 'duration': 150},
+                    {'type': 'pointerUp', 'button': 0}]}]})
+            self.ui._check()
+        except BaseException as error:
+            primary = error
+            raise
+        finally:
+            try:
+                self.ui.release_actions()
+            except Exception as cleanup:
+                if primary is not None:
+                    raise primary from cleanup
+                raise
+
     def load_scene(self, url):
         """Submit precisely the approved controlled scene through the ordinary dialog.
 
@@ -195,7 +225,7 @@ class PhoneNavigation:
         if self.ui.text(self.address)!=url:
             raise NativeUIError('Normal Phone scene address did not retain the original input')
         self.prepare_go(url)
-        self.ui.click(self.go)
+        self.press_go()
         self.ui.wait_absent(self.address)
         self.mark('addressOwned',False)
         return {'requested':True}
@@ -208,7 +238,7 @@ class PhoneNavigation:
         if self.ui.text(self.address) != url:
             raise NativeUIError('Normal Phone domain address did not retain the original input')
         self.prepare_go(url)
-        self.ui.click(self.go)
+        self.press_go()
         self.ui.wait_absent(self.address)
         self.mark('addressOwned', False)
         return {'requested': True}
@@ -226,7 +256,7 @@ class PhoneNavigation:
             self.open_address()
             self.ui.replace_text(self.address, arguments['url'])
             self.prepare_go(arguments['url'])
-            self.ui.click(self.go)
+            self.press_go()
             self.ui.wait_absent(self.address)
             self.mark('addressOwned', False)
         elif operation in {'places.back', 'places.forward'}:

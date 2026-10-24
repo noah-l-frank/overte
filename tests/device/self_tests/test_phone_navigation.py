@@ -82,6 +82,23 @@ class NativePhone:
             if self.mutation != 'ime-ignored': self.keyboard_visible = False
             if self.mutation == 'ime-text-changed': self.field = 'changed while hiding'
             return None  # The original API receipt is never a visibility proof.
+        if method == 'POST' and path.endswith('/actions'):
+            pointer, = body['actions']
+            assert pointer['id'] == 'overte-phone-go-touch'
+            assert pointer['type'] == 'pointer' and pointer['parameters'] == {'pointerType':'touch'}
+            move, down, pause, up = pointer['actions']
+            assert move == {'type':'pointerMove','duration':0,
+                'origin':{W3C_ELEMENT:self.references['PhoneAddressGoButton']},'x':0,'y':0}
+            assert down == {'type':'pointerDown','button':0} and pause == {'type':'pause','duration':150}
+            assert up == {'type':'pointerUp','button':0}
+            self.inputs.append('PhoneAddressGoButton')
+            if self.mutation != 'go-press-ignored':
+                self.address_open = False
+                if self.mutation != 'goto-ignored':
+                    self.history = self.history[:self.cursor + 1] + [self.field]
+                    self.cursor += 1
+                    self.arrive(self.field)
+            return None
         if path.endswith('/elements'):
             if self.fail_next_read:
                 self.fail_next_read = False
@@ -325,6 +342,58 @@ class PhoneNavigationTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):flow.enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
         self.assertNotIn('PhoneAddressGoButton',missing.inputs);self.assertNotIn('hide-keyboard',missing.inputs)
 
+    def test_phone_go_uses_one_same_element_touch_with_150ms_hold_and_owned_release(self):
+        native=NativePhone('goto-ignored')
+        self.assertEqual({'requested':True},native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test'))
+        actions=[call for call in native.calls if call[0]=='POST' and call[1].endswith('/actions')]
+        self.assertEqual(1,len(actions))
+        pointer=actions[0][2]['actions'][0]
+        self.assertEqual('overte-phone-go-touch',pointer['id'])
+        self.assertEqual({W3C_ELEMENT:native.references['PhoneAddressGoButton']},pointer['actions'][0]['origin'])
+        self.assertEqual(['pointerMove','pointerDown','pause','pointerUp'],[row['type']for row in pointer['actions']])
+        self.assertEqual(150,pointer['actions'][2]['duration'])
+        self.assertEqual(1,sum(method=='DELETE'and path.endswith('/actions')for method,path,_ in native.calls))
+        self.assertFalse(any(path.endswith('/element/'+native.references['PhoneAddressGoButton']+'/click')for _,path,_ in native.calls))
+        self.assertEqual(1,sum(path.endswith('/elements')and body.get('value')==PACKAGE+':id/PhoneAddressGoButton'
+            for _,path,body in native.calls if isinstance(body,dict)))
+
+    def test_phone_go_ignored_touch_does_not_turn_visible_field_into_success(self):
+        native=NativePhone('go-press-ignored')
+        with self.assertRaisesRegex(NativeUIError,'did not disappear'):
+            native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
+        self.assertTrue(native.address_open);self.assertTrue(native.state['normalNavigation']['addressOwned'])
+        self.assertEqual(1,native.inputs.count('PhoneAddressGoButton'))
+        self.assertEqual(1,sum(method=='DELETE'and path.endswith('/actions')for method,path,_ in native.calls))
+
+    def test_phone_go_foreign_continuity_or_malformed_origin_never_sends_touch(self):
+        for reference in (None,{},'/foreign/n3','/element/foreign/path','/element/%6e3'):
+            native=NativePhone();flow=native.flow();native.ui._resolve=lambda _locator:reference
+            with self.subTest(referenceType=type(reference).__name__),self.assertRaises(NativeUIError):flow.press_go()
+            self.assertEqual([],native.calls)
+        native=NativePhone();native.address_open=True;flow=native.flow()
+        native.ui.check_continuity=lambda:False
+        with self.assertRaisesRegex(NativeUIError,'lost its bound'):flow.press_go()
+        self.assertEqual([],native.calls)
+
+    def test_phone_go_release_failure_is_red_and_preserves_primary_error_and_owner(self):
+        native=NativePhone('goto-ignored');cleanup=NativeUIError('owned touch release failed')
+        def fail_release():raise cleanup
+        native.ui.release_actions=fail_release
+        with self.assertRaises(NativeUIError)as caught:
+            native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
+        self.assertIs(cleanup,caught.exception)
+        self.assertTrue(native.state['normalNavigation']['addressOwned'])
+        self.assertEqual(1,native.inputs.count('PhoneAddressGoButton'))
+        native=NativePhone();native.address_open=True;flow=native.flow();flow.mark('addressOwned',True)
+        primary=NativeUIError('primary touch failed');releases=[]
+        def fail_request(*_args):raise primary
+        def fail_both_release():releases.append(1);raise cleanup
+        native.ui._resolve=lambda _: '/element/n3'
+        native.ui._request=fail_request;native.ui.release_actions=fail_both_release
+        with self.assertRaises(NativeUIError)as caught:flow.press_go()
+        self.assertIs(primary,caught.exception);self.assertIs(cleanup,caught.exception.__cause__)
+        self.assertEqual([1],releases);self.assertTrue(native.state['normalNavigation']['addressOwned'])
+
     def test_phone_ime_callback_rejects_malformed_or_changed_continuity_before_hide_or_go(self):
         for changed in ('malformed','generation','session','target','process','installed'):
             with self.subTest(changed=changed):
@@ -409,12 +478,13 @@ class PhoneNavigationTests(unittest.TestCase):
             def call(self, method, path, body=None):
                 if self.close_at is not None and self.clock >= self.close_at:
                     self.address_open = False
-                if path.endswith('/click') and '/element/' in path:
-                    name = self.by_reference[path.split('/element/', 1)[1].split('/')[0]]
-                    if name == 'PhoneAddressGoButton':
-                        self.inputs.append(name)
-                        if not self.ignored: self.close_at = self.clock + 10.0
-                        return None
+                if method == 'POST' and path.endswith('/actions'):
+                    pointer, = body['actions']
+                    assert pointer['id'] == 'overte-phone-go-touch'
+                    assert pointer['actions'][0]['origin'] == {W3C_ELEMENT:self.references['PhoneAddressGoButton']}
+                    self.inputs.append('PhoneAddressGoButton')
+                    if not self.ignored: self.close_at = self.clock + 10.0
+                    return None
                 value = super().call(method, path, body)
                 if path.endswith('/elements') and body['value'].endswith('PhoneAddressField') and 'PhoneAddressGoButton' in self.inputs:
                     self.lookups.append((self.clock, bool(value)))
