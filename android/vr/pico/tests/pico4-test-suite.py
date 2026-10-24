@@ -256,6 +256,7 @@ TESTS = (
         "LifecycleOperationsProcessTests.test_pending_capture_span_below_three_seconds_cannot_use_drive_and_host_span"),
     test("lifecycle-process-v2", "interaction", PYTHON, "device/test_lifecycle_process_v2.py"),
     test("lifecycle-process-finalization", "interaction", PYTHON, "device/test_lifecycle_process_finalization.py"),
+    test("lifecycle-independent-actor", "interaction", PYTHON, "device/test_lifecycle_independent_actor.py"),
     test("avatar-people-native-ui", "interaction", PYTHON, "device/test_avatar_people_controls_native.py",
         "AvatarPeopleControlsNativeTests.test_original_avatar_loader_url_restore_and_actual_hit_ownership", requires=("c++", "pkg-config", "node")),
     test("avatar-persistence-native-ui", "interaction", PYTHON, "device/test_avatar_people_controls_native.py",

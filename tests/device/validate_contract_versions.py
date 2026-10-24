@@ -444,6 +444,7 @@ REQUIRED = {
     "pico-lifecycle-restore-owner": 1,
     "pico-lifecycle-primary-observation": 4,
     "pico-lifecycle-primary-operations": 3,
+    "pico-lifecycle-actor-source": 1,
     "native-navigation-replies": 2,
     "native-navigation-modals": 1,
     "native-navigation-error-controls": 1,
