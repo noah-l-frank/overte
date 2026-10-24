@@ -57,6 +57,8 @@ class RootedFenceCutLinkTests(unittest.TestCase):
         end=SimpleNamespace(run=run,role='primary',binding=binding,seal=deepcopy(self.proof['seal']),archive=archive)
         self.cut=object.__new__(IOSEmoteRootedFenceCut);self.cut.end=end;self.cut.proof=deepcopy(self.proof)
         self.cut.floor=99000;self.cut.instance=retired['instance']
+        predecessor=dict(deepcopy(retired),active=True,retiredEpochMs=None,sequence=9,requestId='7'*32,capturedEpochMs=99800)
+        self.cut.phase_prefixes=dict(primary=[deepcopy(predecessor)],actor=[deepcopy(predecessor)])
         # This value models only phase/header operands. The actual Scope/key/
         # pointer/four-clock originals are required by the separate local decoder.
         self.value=dict(runId=run,role='primary',binding=deepcopy(binding),phaseBefore=before,phaseAfter=after,held=[],
@@ -90,6 +92,11 @@ class RootedFenceCutLinkTests(unittest.TestCase):
         archive=self.cut.end.archive;old=archive.store.read()
         changed=deepcopy(old);changed['runId']='f'*32;archive.store.write(changed,old)
         with self.assertRaises(NativeUIError):self.cut.check_authority(self.value)
+    def test_retired_phase_must_extend_both_actual_role_predecessor_histories(self):
+        for role in ('primary','actor'):
+            previous=deepcopy(self.cut.phase_prefixes[role]);self.cut.phase_prefixes[role][0]['activations'][0]['activatedEpochMs']+=1
+            with self.subTest(role=role),self.assertRaises((NativeUIError,ValueError)):self.cut.check_authority(self.value)
+            self.cut.phase_prefixes[role]=previous
 
 
 if __name__=='__main__':unittest.main()

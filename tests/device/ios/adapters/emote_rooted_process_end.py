@@ -24,15 +24,29 @@ from ios.adapters.retired_process import absent
 
 
 class IOSEmoteRootedProcessEnd:
-    def __init__(self,flow,ownership,archive,seal,*,peer=None):
+    def __init__(self,flow,ownership,archive,seal,*,peer=None,retirement=None):
         need(type(flow) is IOSEmoteRootedFeature and type(ownership) is IOSEmoteRootedOwnership
             and type(archive) is IOSEmoteRootedFinalArchive and flow.run==ownership.roles.run)
         self.flow,self.ownership,self.archive,self.seal,self.peer=flow,ownership,archive,deepcopy(seal),peer
+        self.retirement=retirement
+        if retirement is not None:
+            from ios.adapters.emote_rooted_end_archive import IOSEmoteRootedEndArchive
+            need(type(retirement) is IOSEmoteRootedEndArchive and retirement.archive is archive
+                and retirement.ownership is ownership and same(retirement.seal,seal) and retirement.state is not None)
+            retirement.bound()
         self.runtime,self.run,self.role,self.root,self.lock=flow.runtime,flow.run,flow.role,flow.root,flow.lock
         self.primary_lock=flow.primary_lock
         for lock in ownership.roles.locks.values():lock.assert_held()
         need(flow.lock is ownership.roles.locks[flow.role] and flow.primary_lock is ownership.roles.locks['primary'])
-        flow.load();need(flow.state is not None and flow.state['phase']=='cleaned')
+        flow.load()
+        if flow.state is None and retirement is not None:
+            # Actual typed end intent, rather than a missing file, authorizes
+            # interpreting this retained feature copy during pure replay.
+            original_store=flow.store
+            flow.store=retirement.store_for(original_store.path,archive.copies()[str(original_store.path)])
+            try:flow.load()
+            finally:flow.store=original_store
+        need(flow.state is not None and flow.state['phase']=='cleaned')
         self.binding=deepcopy(flow.state['binding']);self.monotonic=flow.monotonic
         self.deadline=self.last_clock=None;self.phase=flow.phase
         self.store=PrivateFeatureState(flow.store.path.with_name('ios-emote-'+self.role+'-'+self.run+'-rooted-process-end.json'))
@@ -97,7 +111,7 @@ class IOSEmoteRootedProcessEnd:
         return self.frames.read(self.frames.expand(self.state['fence']))
     def fence_validate(self):
         from ios.adapters.emote_rooted_fence_original import validate
-        return validate(self.fence_original(),self.ownership,self.archive,self.seal)
+        return validate(self.fence_original(),self.ownership,self.archive,self.seal,retirement=getattr(self,'retirement',None))
     def completed(self):
         self.bound();need(self.state is not None and self.state['phase']=='complete')
         self.fence_validate();state=self.os_state()

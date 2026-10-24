@@ -60,6 +60,19 @@ class RootedOwnershipTests(unittest.TestCase):
             self.assertEqual(self.f.proof,owner.read())
             self.assertEqual(1,projected.call_count)
 
+    def test_retirement_context_projects_both_guarded_role_prefixes_without_aliasing_or_another_role_read(self):
+        owner=self.owner();role_read=owner.roles.read
+        # Source-prefix values are explicit models at this role parser seam.
+        # Production fills them only after its full typed role original read.
+        expected={role:[dict(explicitRolePhaseModel=role)] for role in ('primary','actor')}
+        for role,live in self.f.roles.items():live.retirement_phase_prefixes=deepcopy(expected[role])
+        with (patch.object(owner.roles,'read',wraps=role_read) as reads,
+                patch.object(self.f.window,'qualify_with_retirement_floor',return_value=(self.f.proof,104000))):
+            proof,floor,prefixes=owner.read_with_retirement_context()
+        self.assertEqual(self.f.proof,proof);self.assertEqual(104000,floor);self.assertEqual(expected,prefixes);reads.assert_called_once()
+        prefixes['actor'][0]['explicitRolePhaseModel']='changed'
+        self.assertEqual(expected['actor'],self.f.roles['actor'].retirement_phase_prefixes)
+
     def test_later_live_journal_cannot_borrow_an_older_terminal_seal(self):
         owner=self.owner();self.f.roles['actor'].previous=dict(laterJournal=True)
         with self.assertRaises(NativeUIError):owner.read()

@@ -33,7 +33,11 @@ class IOSEmoteRootedOwnership:
         """Same original proof and original host completion, in one pure round."""
         return self._read(retirement_floor=True)
 
-    def _read(self,*,retirement_floor):
+    def read_with_retirement_context(self):
+        """Original completion floor and actual retained role phase prefixes."""
+        return self._read(retirement_floor=True,retirement_context=True)
+
+    def _read(self,*,retirement_floor,retirement_context=False):
         roles=self.roles;roots={lock.path.parent for lock in roles.locks.values()}
         for role,lock in roles.locks.items():
             value=roles.copies.get(str(lock.path.with_name('ios-emote-'+role+'-feature.json')))
@@ -44,7 +48,11 @@ class IOSEmoteRootedOwnership:
             for lease in leases:lease.guard()
             return True
         with pure_scope(PROFILE,unchanged):
-            window=roles.read();journal=IOSEmoteTerminalJournal.archive(window,self.terminal,check=unchanged)
+            window=roles.read();prefixes={}
+            if retirement_context:
+                for role,live in window.roles.items():
+                    prefixes[role]=deepcopy(live.retirement_phase_prefixes)
+            journal=IOSEmoteTerminalJournal.archive(window,self.terminal,check=unchanged)
             need(journal.state is not None and journal.state['phase']=='sealed')
             proof=journal.originals.read(journal.originals.expand(journal.state['record']));journal.proof(proof,journal.state)
             original=proof['original']
@@ -56,4 +64,5 @@ class IOSEmoteRootedOwnership:
                 publisher_store=publisher,record_store_for=roles.store)
             actual,floor=result if retirement_floor else (result,None)
             need(same(actual,proof));journal.bound()
+        if retirement_context:return deepcopy(actual),floor,deepcopy(prefixes)
         return (deepcopy(actual),floor) if retirement_floor else deepcopy(actual)

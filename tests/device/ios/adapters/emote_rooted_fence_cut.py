@@ -13,7 +13,7 @@ from adapters.native_feature_observation import need
 from adapters.original_file_reads import scope as read_scope
 from adapters.script_feature.history import same,unpack
 from ios.adapters.emote_original_lease import EmoteOriginalLease
-from ios.adapters.emote_rooted_fence import _current_metadata,_metadata_unchanged,_seal,inactive
+from ios.adapters.emote_rooted_fence import _current_metadata,_metadata_unchanged,_seal,inactive,inactive_prefixes
 from ios.adapters.emote_rooted_fence_original import local,validate,phase_link
 from ios.adapters.emote_session_carriers import inventory
 
@@ -33,12 +33,13 @@ class IOSEmoteRootedFenceCut:
         leases=[EmoteOriginalLease(root,[]) for root in self.roots]
         with read_scope(fresh=True) as reads:
             need(same(end.archive.copies(),self.copies))
-            self.proof,self.floor=end.ownership.read_with_retirement_floor()
+            self.proof,self.floor,self.phase_prefixes=end.ownership.read_with_retirement_context()
             _seal(self.proof,end.seal,run=end.run,role=end.role,binding=end.binding)
             feature=self.copies[str(end.lock.path.with_name('ios-emote-'+end.role+'-feature.json'))]
             state=unpack(feature['payload'])[0];need(same(state['binding'],end.binding))
             self.instance=state['phaseInstance']
             inactive(end.archive.state['phaseOriginal'],run=end.run,instance=self.instance,ticket=end.seal['description']['ticket'],after=self.floor)
+            inactive_prefixes(end.archive.state['phaseOriginal'],self.phase_prefixes,run=end.run)
             self.read_peer()
             original=None
             if end.state['fence'] is not None:original=end.fence_original()
@@ -67,6 +68,7 @@ class IOSEmoteRootedFenceCut:
         # protected by its actual immutable file pins. Recheck its exact seal
         # and every original retired-phase/held operand on later admission.
         _seal(self.proof,end.seal,run=end.run,role=end.role,binding=end.binding)
+        inactive_prefixes(end.archive.state['phaseOriginal'],self.phase_prefixes,run=end.run)
         phase_link(value,end.seal,run=end.run,role=end.role,binding=end.binding,instance=self.instance,floor=self.floor,
             retired=end.archive.state['phaseOriginal'],archive_sha=digest(end.archive.previous))
 

@@ -43,11 +43,12 @@ its original age still qualifies; stale prepared responsibility remains pending.
 If no canonical retirement was entered, the unchanged neutral OS guard can also
 refuse recovery; no second Stop is attempted to conceal that uncertainty.
 
-This packet does not delete an SDK, retire copied metadata or zero held counters.
-`IOSEmoteTerminal.finish` remains pending, whole Emotes stays partial, and no
-configuration or capability changes are made. Native compilation and devices
-remain unverified. The retained normal paired corpus without an inactive phase
-cannot qualify process end; missing phase originals are not reconstructed.
+This process owner does not delete an SDK, retire copied metadata or zero held
+counters. The separate [internal end integration](EMOTE_ROOTED_END_INTEGRATION.md)
+connects typed SDK and metadata owners to terminal finish. Whole Emotes stays
+partial, and no configuration or capability changes are made. Native compilation
+and devices remain unverified. The retained normal paired corpus without an
+inactive phase cannot qualify process end; missing originals are not reconstructed.
 
 Focused tests exercise real local Scope/key/pointer decoding, actual private
 fence/WAL storage, independent original OS clocks and no-resend behavior. Process

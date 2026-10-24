@@ -135,6 +135,11 @@ class IOSEmoteRootedState:
             for tail in ('cleanup-inputs','inputs','background'):self.store(lock.path.with_name('ios-emote-'+tail+'.json'))
         parts=dict(sources=sources,peers=peers,scope=scope,samples=samples,observer=observer,restoration=rendered.frames_owner)
         values=responsibility.metadata();responsibility.validate(values,parts,owner,live);gpu(flow,parts,store_for=self.store)
+        # Retain only operands already decoded in this same guarded original
+        # round. The end coordinator must compare the later inactive history
+        # against both roles without reopening or retiming their source facts.
+        need(sources.frames and (peers is None or peers.frames))
+        live.retirement_phase_prefixes=[deepcopy(part.frames[-1]['phaseAfter']) for part in (sources,peers) if part is not None]
         return flow,live
 
     def read(self):

@@ -49,13 +49,34 @@ class TerminalControllerTests(unittest.TestCase):
         journal=IOSEmoteTerminalJournal(self.f.window);self.assertEqual('sealed',journal.state['phase'])
         self.assertEqual(self.f.proof,journal.originals.read(journal.originals.expand(journal.state['record'])))
 
-    def test_unimplemented_finish_and_foreign_request_never_open_a_live_component(self):
+    def test_finish_without_original_seal_and_foreign_request_never_open_a_live_component(self):
         with patch.object(self.controller,'window',side_effect=AssertionError('Live component opened after Stop')):
             for _ in range(2):
                 with self.assertRaises(EmoteObservationPending):self.controller.invoke(self.call('finish',seal=self.f.proof['seal']))
             wrong=self.call('inspect');wrong['runId']='f'*32
             with self.assertRaises(NativeUIError):self.controller.invoke(wrong)
         self.assertIsNone(IOSEmoteTerminalJournal(self.f.window).state)
+
+    def test_finish_preserves_pending_identity_with_both_exact_locks_already_held(self):
+        sentinel=EmoteObservationPending('Explicit original pending end result')
+        actor,primary=self.flows['actor'],self.flows['primary'];actor.deadline=20
+        owners=(actor.lock._owner,primary.lock._owner)
+        with actor.lock.held(),primary.lock.held():
+            with (patch.object(self.controller,'window',side_effect=AssertionError('Live factory opened')) as live,
+                    patch('ios.adapters.emote_rooted_finish.IOSEmoteRootedFinish.invoke',side_effect=sentinel),
+                    self.assertRaises(EmoteObservationPending) as caught):
+                self.controller.invoke(self.call('finish',seal=self.f.proof['seal']))
+            self.assertIs(sentinel,caught.exception);live.assert_not_called()
+            self.assertIs(owners[0],actor.lock._owner);self.assertIs(owners[1],primary.lock._owner)
+            actor.lock.assert_held();primary.lock.assert_held()
+        self.assertEqual(20,actor.deadline);self.assertIsNone(self.controller.deadline);self.assertEqual([],self.sdk_calls)
+
+    def test_pending_finish_cannot_hide_an_exhausted_operation_deadline(self):
+        sentinel=EmoteObservationPending('Explicit result after excessive host work')
+        def expired():self.now+=31;raise sentinel
+        with patch('ios.adapters.emote_rooted_finish.IOSEmoteRootedFinish.invoke',side_effect=expired):
+            with self.assertRaises(NativeUIError):self.controller.invoke(self.call('finish',seal=self.f.proof['seal']))
+        self.assertIsNone(self.flows['actor'].deadline);self.assertIsNone(self.controller.deadline);self.assertEqual([],self.sdk_calls)
 
     def test_missing_current_feature_cannot_borrow_a_historical_window(self):
         with self.assertRaises(NativeUIError):self.controller.invoke(self.call('inspect'))
@@ -112,7 +133,7 @@ class TerminalControllerTests(unittest.TestCase):
         actor=self.runtime._emote_rooted_feature('factory-actor',primary.run,role='actor',client=primary.client,settings=actor_fields)
         actor.state=dict(phase='preparing',binding=deepcopy(self.f.roles['actor'].binding),primaryBinding=deepcopy(self.f.roles['primary'].binding),
             actorAdmission=None,phaseInstance='5'*32,initialTicket='6'*32,lastCall=None,inputBarrier=None,cleanup=[],retirement=None)
-        actor.store.write(actor.envelope(actor.state),None)
+        with actor.held():actor.store.write(actor.envelope(actor.state),None)
         return primary,actor,fields
 
     def test_explicit_runtime_factories_preserve_actual_actor_root_policy_and_legacy_selection(self):

@@ -14,7 +14,7 @@ from adapters.script_feature.history import same
 from feature_journeys.phase_fixture import validate as phase_packet
 from ios.adapters.emote_keys import IOSEmoteKeys
 from ios.adapters.emote_pointers import IOSEmotePointers
-from ios.adapters.emote_rooted_fence import _seal,inactive,clock_shape
+from ios.adapters.emote_rooted_fence import _seal,inactive,inactive_prefixes,clock_shape
 from ios.adapters.emote_rooted_final_archive import IOSEmoteRootedFinalArchive
 from ios.adapters.emote_rooted_marker_scope import IOSEmoteRootedMarkerScope
 from ios.adapters.emote_rooted_ownership import IOSEmoteRootedOwnership
@@ -35,7 +35,7 @@ def phase_link(value,seal,*,run,role,binding,instance,floor,retired,archive_sha)
         and value['acquisitions'][-1]['hostAfterEpochMs']<=value['phaseAfter']['capturedEpochMs'])
 
 
-def local(value,copies,*,root,binding,run,role,lock):
+def local(value,copies,*,root,binding,run,role,lock,retirement=None):
     """Decode exact local appends only; caller separately qualifies paired seal."""
     exact(value,{'iosEmoteRootedFenceVersion','runId','role','binding','phaseBefore','phaseAfter','scope','keys','pointers','held',
         'acquisitions','nativeClock','archiveSha256','sealSha256'})
@@ -44,7 +44,12 @@ def local(value,copies,*,root,binding,run,role,lock):
     lock.assert_held();root=Path(root);objects={};metadata={}
     for name,cls in (('scope',IOSEmoteRootedMarkerScope),('keys',IOSEmoteKeys),('pointers',IOSEmotePointers)):
         path=lock.path.with_name('ios-emote-'+role+'-'+('marker' if name=='scope' else name)+'.json')
-        need(str(path) in copies and type(copies[str(path)]) is dict and same(PrivateFeatureState(path).read(),value[name]))
+        need(str(path) in copies and type(copies[str(path)]) is dict)
+        if retirement is None:need(same(PrivateFeatureState(path).read(),value[name]))
+        else:
+            from ios.adapters.emote_rooted_end_archive import IOSEmoteRootedEndArchive
+            need(type(retirement) is IOSEmoteRootedEndArchive)
+            need(same(retirement.store_for(path,value[name]).read(),value[name]))
         if name=='scope':
             old=cls.archive(copies[str(path)],root=root,binding=binding,run=run,role=role,lock=lock)
             new=cls.archive(value[name],root=root,binding=binding,run=run,role=role,lock=lock)
@@ -81,19 +86,26 @@ def local(value,copies,*,root,binding,run,role,lock):
     return dict(metadata=metadata,scope=scope,keys=keys,pointers=pointers)
 
 
-def validate(value,ownership,archive,seal):
+def validate(value,ownership,archive,seal,*,retirement=None):
     need(type(ownership) is IOSEmoteRootedOwnership and type(archive) is IOSEmoteRootedFinalArchive)
     roles=ownership.roles
     for lock in roles.locks.values():lock.assert_held()
-    need(archive.state is not None and archive.state['phase']=='validated' and same(archive.store.read(),archive.previous))
+    need(archive.state is not None and archive.state['phase']=='validated' and same(archive.store.read(),archive.previous)
+        and same(archive.envelope(archive.state),archive.previous))
     archive.decode(archive.previous);copies=deepcopy(roles.copies);copies[str(ownership.path)]=deepcopy(ownership.terminal)
     need(same(archive.copies(),copies) and value['archiveSha256']==digest(archive.previous) and value['sealSha256']==digest(seal))
-    proof,floor=ownership.read_with_retirement_floor();role=value['role'];lock=roles.locks[role]
+    if retirement is not None:
+        from ios.adapters.emote_rooted_end_archive import IOSEmoteRootedEndArchive
+        need(type(retirement) is IOSEmoteRootedEndArchive and retirement.archive is archive
+            and retirement.ownership is ownership and same(retirement.seal,seal))
+        retirement.bound()
+    proof,floor,prefixes=ownership.read_with_retirement_context();role=value['role'];lock=roles.locks[role]
+    inactive_prefixes(archive.state['phaseOriginal'],prefixes,run=roles.run)
     feature=copies[str(lock.path.with_name('ios-emote-'+role+'-feature.json'))]
     from adapters.script_feature.history import unpack
     state=unpack(feature['payload'])[0];binding=state['binding'];instance=state['phaseInstance'];ticket=seal['description']['ticket']
     _seal(proof,seal,run=roles.run,role=role,binding=binding)
     phase_link(value,seal,run=roles.run,role=role,binding=binding,instance=instance,floor=floor,
         retired=archive.state['phaseOriginal'],archive_sha=digest(archive.previous))
-    result=local(value,copies,root=feature['artifactRoot'],binding=binding,run=roles.run,role=role,lock=lock)
+    result=local(value,copies,root=feature['artifactRoot'],binding=binding,run=roles.run,role=role,lock=lock,retirement=retirement)
     return result

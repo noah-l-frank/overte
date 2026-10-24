@@ -1,10 +1,10 @@
-"""Internal rooted Emote inspect/seal operation on the existing role owners.
+"""Internal rooted Emote live seal and separately owned paired end operations.
 
-The whole process-end operation is not admitted here. Pending current-WAL,
-failed preparation, OS death and SDK retirement need their own typed owners.
+Whole-area admission remains separate from these internal durable owners.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
 from adapters.native_feature_observation import exact,need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.original_file_reads import scope as read_scope,record as original_read
@@ -21,6 +21,7 @@ from ios.adapters.emote_terminal_window import IOSEmoteTerminalWindow
 from ios.adapters.peer_admission import validate as admitted
 from ios.adapters.emote_terminal_journal import IOSEmoteTerminalJournal
 from ios.adapters.emote_rooted_inventory import IOSEmoteRootedInventory
+from ios.adapters.emote_rooted_end_lock import held_existing
 
 
 class IOSEmoteTerminal:
@@ -33,8 +34,13 @@ class IOSEmoteTerminal:
         need(primary.lock._owner is None)
         path=primary.runtime.state_path(primary.actor_selector).with_name('ios-emote-actor-feature.json')
         actor_lock=ScriptSourceLock(path.with_name('script-feature-sources.lock'))
-        with actor_lock.held(),primary.lock.held():
-            value=PrivateFeatureState(path).read()
+        with held_existing(actor_lock),held_existing(primary.lock):
+            value=PrivateFeatureState(path).read();actual=deepcopy(value)
+            if value is None:
+                from ios.adapters.emote_rooted_finish import existing_archive
+                archive,ownership=existing_archive(primary,actor_lock)
+                need(archive is not None);ownership.read()
+                value=archive.copies().get(str(path));need(type(value) is dict)
             exact(value,{'iosEmoteFeatureVersion','runId','role','artifactRoot','fixtureUrl','imagePolicy','payload'})
             need(type(value['iosEmoteFeatureVersion']) is int and value['iosEmoteFeatureVersion']==2
                 and value['runId']==primary.run and value['role']=='actor' and value['fixtureUrl']==primary.phase.fixture_url)
@@ -45,7 +51,7 @@ class IOSEmoteTerminal:
                 selected['artifactRoot'],selected['imagePolicy'],primary_selector=primary.selector,monotonic=primary.monotonic,
                 epoch_ms=primary.epoch_ms,sleep=primary.sleep)
             actor.lock,actor.primary_lock=actor_lock,primary.lock
-            actor.load();need(same(actor.previous,value));return actor
+            actor.load();need(same(actor.previous,actual));return actor
 
     def __init__(self,primary,actor=None):
         need(type(primary) is IOSEmoteRootedFeature and primary.role=='primary')
@@ -96,12 +102,16 @@ class IOSEmoteTerminal:
         for path in responsibility.signatures:original_read(path)
         return live
 
-    def window(self):
+    def window(self,*,retired=False):
         roles={};self.responsibilities=[]
         for flow in (self.flow,self.actor):
             flow.load();need(flow.state is not None and flow.state['phase']=='cleaned' and flow.state['cleanup'])
-            phase=flow.phase.read();retirement=flow.state['retirement']
-            need(phase['verb']=='cleanup' and phase['inputs']=={} and flow.phase.previous['active']
+            if retired:
+                status=flow.phase.status();need(status['active'] is False and status['activations'])
+                stimulus=status['activations'][-1]['stimulus'];phase=dict(stimulus,status=status)
+            else:phase=flow.phase.read()
+            retirement=flow.state['retirement']
+            need(phase['verb']=='cleanup' and phase['inputs']=={} and flow.phase.previous['active'] is (not retired)
                 and phase['status']['instance']==flow.state['phaseInstance'] and retirement is not None
                 and retirement['kind']==('primary-scene-ordered' if flow.role=='primary' else 'actor-published')
                 and retirement['original'] in flow.state['cleanup'])
@@ -114,9 +124,17 @@ class IOSEmoteTerminal:
         call=terminal.arguments('emotes',call);need(call['runId']==self.flow.run)
         self.inventory=None
         if call['stage']=='finish':
-            # Never open an SDK/native component while answering an unfinished
-            # process-end retry. Historical proof replay is a separate reader.
-            raise EmoteObservationPending('Rooted Emote process and SDK end are not implemented')
+            from ios.adapters.emote_rooted_finish import IOSEmoteRootedFinish
+            failure=None
+            with held_existing(self.actor.lock),held_existing(self.flow.lock),self.actor.held(30):
+                # Shared ordinary lock contexts normalize body errors. Keep
+                # the original pending/uncertain result inside every lease
+                # until all inode, owner and deadline exit checks succeed.
+                try:result=IOSEmoteRootedFinish(self,call['seal']).invoke()
+                except BaseException as error:failure=(error,error.__traceback__)
+            if failure is not None:
+                self.clock();raise failure[0].with_traceback(failure[1])
+            terminal.result('emotes',result);self.clock();return result
         with self.actor.held(30):
             with read_scope(fresh=True) as reads:
                 window=self.window();self.guard();journal=IOSEmoteTerminalJournal(window,check=self.guard)

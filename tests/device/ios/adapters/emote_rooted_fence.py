@@ -73,6 +73,16 @@ def inactive(value,*,run,instance,ticket,after):
     return value
 
 
+def inactive_prefixes(value,prefixes,*,run):
+    """A retired journal extends each actual decoded role source history."""
+    exact(prefixes,{'primary','actor'})
+    for rows in prefixes.values():
+        need(type(rows) is list and 1<=len(rows)<=2)
+        for previous in rows:
+            phase_packet(value,run=run,area='emotes',request=value['requestId'],epoch=value['capturedEpochMs'],previous=previous)
+    return True
+
+
 def clock_shape(acquisitions,native_clock):
     """Pure original four-clock spans; supplies no current acquisition lease."""
     need(type(acquisitions) is list and len(acquisitions)==5)
