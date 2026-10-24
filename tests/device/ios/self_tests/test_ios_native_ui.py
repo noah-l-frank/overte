@@ -38,6 +38,17 @@ class NativeUiEvidence(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(ValueError):
                 native_ui.validate(document, 42, 10000)
 
+    def test_native_navigation_widget_allow_list_never_invents_widgets(self):
+        self.document['elements'][0]['identifier'] = 'OverteNavigation.address.field'
+        observed = native_ui.validate(self.document, 42, 10000)
+        self.assertIn('OverteNavigation.address.field', native_ui.source(observed))
+        self.assertNotIn('OverteNavigation.address.go', native_ui.source(observed))
+        for identifier in ('OverteNavigation.tablet.page.0', 'OverteNavigation.tablet.page.33',
+                           'OverteNavigation.address.userText', 'OverteNavigation.setDestination'):
+            self.document['elements'][0]['identifier'] = identifier
+            with self.subTest(identifier=identifier), self.assertRaises(ValueError):
+                native_ui.validate(self.document, 42, 10000)
+
     def test_unknown_duplicate_and_malformed_widget_facts_are_rejected(self):
         for kind in ("unknown", "duplicate", "frame", "boolean", "foreign-field"):
             document = copy.deepcopy(self.document)

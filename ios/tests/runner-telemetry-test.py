@@ -410,12 +410,11 @@ class RunnerTelemetryTest(unittest.TestCase):
             live_log.chmod(0o666)
             marker = "compiler-live-bypass-marker"
             code = (
-                "import os,pathlib,time; "
+                "import os,pathlib; "
                 "live=pathlib.Path(os.environ['OVERTE_COMPILER_WATCHDOG_LOG']); "
                 "diag=pathlib.Path(os.environ['OVERTE_COMPILER_WATCHDOG_DIAGNOSTICS']); "
                 "assert diag.exists(); "
                 f"open(live,'a',buffering=1).write('{marker}\\n'); "
-                "time.sleep(.2)"
             )
             result, records = self.invoke_phase(
                 root,
@@ -425,7 +424,8 @@ class RunnerTelemetryTest(unittest.TestCase):
                        "--compiler-diagnostics-dir", str(diagnostics)],
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn(marker, result.stdout)
+            self.assertEqual(result.stdout.count(marker), 1)
+            self.assertNotIn("existing-checkpoint", result.stdout)
             self.assertEqual(live_log.read_text().splitlines(),
                              ["existing-checkpoint", marker])
             self.assertEqual(live_log.stat().st_mode & 0o777, 0o600)
@@ -443,8 +443,8 @@ class RunnerTelemetryTest(unittest.TestCase):
 
         records = []
         with tempfile.TemporaryDirectory() as directory, mock.patch.object(
-            module.subprocess, "Popen", side_effect=OSError
-        ) as popen:
+            module.threading.Thread, "start", side_effect=RuntimeError
+        ), mock.patch.object(module.subprocess, "Popen") as popen:
             result = module.supervise(
                 [sys.executable, "-c", "raise SystemExit(99)"], StaticCollector(),
                 lambda event, **fields: records.append((event, fields)),
@@ -452,7 +452,7 @@ class RunnerTelemetryTest(unittest.TestCase):
                 None, Path(directory) / "compiler.jsonl", None,
             )
         self.assertEqual(result, 125)
-        self.assertEqual(popen.call_count, 1)
+        popen.assert_not_called()
         self.assertEqual(records[-1][1]["reason"], "live_tail_failure")
 
     @unittest.skipUnless(hasattr(os, "killpg"), "requires POSIX process groups")

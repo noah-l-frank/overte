@@ -224,6 +224,59 @@ def validate_operation_arguments(operation: str, value: object) -> dict:
     if operation == "voice.exchange":
         from voice_contract import command
         return command(value)
+    if operation.startswith('scripts.'):
+        from scripts_observation import OPERATIONS, action_arguments
+        if operation not in OPERATIONS:
+            raise ValueError('Unknown script manager operation')
+        return action_arguments(operation, value)
+    if operation.startswith('create.'):
+        from create_observation import OPERATIONS, action_arguments
+        if operation not in OPERATIONS:
+            raise ValueError('Unknown normal Create operation')
+        return action_arguments(operation, value)
+    if operation.startswith('places.'):
+        from navigation_observation import OPERATIONS, action_arguments
+        if operation not in OPERATIONS:
+            raise ValueError('Unknown normal Go To operation')
+        return action_arguments(operation, value)
+    if operation in {'snapshot.open', 'snapshot.close', 'snapshot.capture', 'snapshot.files'}:
+        fields = ({'mode', 'format', 'name'} if operation == 'snapshot.capture'
+                  else {'prefix'} if operation == 'snapshot.files' else set())
+        if set(value) != fields:
+            raise ValueError('Snapshot operation contains unsupported or missing fields')
+        if operation in {'snapshot.capture', 'snapshot.files'}:
+            name = value['name' if operation == 'snapshot.capture' else 'prefix']
+            if not isinstance(name, str) or re.fullmatch(
+                    r'parity-[0-9a-f]{16}-(still-png|still-jpg|animated|panorama|cubemap)', name) is None:
+                raise ValueError('Snapshot name requires the controlled bounded run prefix')
+        if operation == 'snapshot.capture':
+            mode, file_format = value['mode'], value['format']
+            expected = (f'still-{file_format}' if mode == 'still' else mode)
+            if (not isinstance(mode, str) or not isinstance(file_format, str)
+                    or mode not in {'still', 'animated', 'panorama', 'cubemap'}
+                    or file_format not in {'png', 'jpg'}
+                    or mode != 'still' and file_format != 'png'
+                    or not name.endswith('-' + expected)):
+                raise ValueError('Snapshot mode, selected format and owned name disagree')
+        return value
+    if operation in {"web.reference.open", "web.reference.pause", "web.reference.play",
+                     "web.reference.seek", "web.reference.close"}:
+        fields = ({"surface", "scriptUrl"} if operation.endswith(".open") else
+                  {"surface", "seconds"} if operation.endswith(".seek") else {"surface"})
+        if (set(value) != fields or not isinstance(value.get("surface"), str)
+                or value['surface'] not in {"world", "tablet"}):
+            raise ValueError("web reference requires a known surface and only its declared fields")
+        if operation.endswith(".open"):
+            url = value['scriptUrl']
+            parsed = urlsplit(url) if isinstance(url, str) else None
+            if (parsed is None or len(url) > 2048 or parsed.scheme not in {'http', 'https'}
+                    or not parsed.hostname or parsed.username is not None or parsed.password is not None
+                    or parsed.path != '/parity/client.js' or parsed.query or parsed.fragment
+                    or any(ord(c) < 33 for c in url)):
+                raise ValueError("web reference requires the credential-free owned fixture script URL")
+        if operation.endswith('.seek') and (type(value['seconds']) is not int or value['seconds'] not in (0, 4)):
+            raise ValueError('web reference seek requires its fixed red 0s or blue 4s control')
+        return value
     if operation in {"app.version", "collaboration.snapshot", "render.snapshot", "entity-script.review",
                      "tablet.snapshot", "text.snapshot"}:
         if value:
@@ -407,6 +460,51 @@ def validate_operation_result(operation: str, value: object) -> dict:
     if operation == "voice.exchange":
         from voice_contract import result
         return result(value)
+    if operation.startswith('scripts.'):
+        from scripts_observation import OPERATIONS
+        if (operation not in OPERATIONS or not isinstance(value, dict)
+                or set(value) != {'performed'} or value['performed'] is not True):
+            raise ValueError('Script manager actions confirm input delivery only')
+        return value
+    if operation.startswith('create.'):
+        from create_observation import OPERATIONS
+        if (operation not in OPERATIONS or not isinstance(value, dict)
+                or set(value) != {'performed'} or value['performed'] is not True):
+            raise ValueError('Create actions confirm normal input delivery only')
+        return value
+    if operation.startswith('places.'):
+        from navigation_observation import OPERATIONS
+        if (operation not in OPERATIONS or not isinstance(value, dict)
+                or set(value) != {'performed'} or value['performed'] is not True):
+            raise ValueError('Go To actions confirm ordinary input delivery only')
+        return value
+    if operation in {'snapshot.open', 'snapshot.close', 'snapshot.capture'}:
+        if not isinstance(value, dict) or set(value) != {'performed'} or value['performed'] is not True:
+            raise ValueError('Snapshot UI actions confirm delivery only, never output validity')
+        return value
+    if operation == 'snapshot.files':
+        if not isinstance(value, dict) or set(value) != {'files'}:
+            raise ValueError('Snapshot files result requires only the original-file observations')
+        files = value['files']
+        if not isinstance(files, list) or len(files) > 8:
+            raise ValueError('Snapshot file observations exceed the bounded file count')
+        names, artifacts = set(), set()
+        for item in files:
+            if not isinstance(item, dict) or set(item) != {'basename', 'artifact'}:
+                raise ValueError('Snapshot file observation fields are invalid')
+            for field in ('basename', 'artifact'):
+                if not isinstance(item[field], str) or re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,159}', item[field]) is None:
+                    raise ValueError('Snapshot files require bounded direct names without private paths')
+            if item['basename'] in names or item['artifact'] in artifacts:
+                raise ValueError('Snapshot file observations are duplicated')
+            names.add(item['basename'])
+            artifacts.add(item['artifact'])
+        return value
+    if operation in {"web.reference.open", "web.reference.pause", "web.reference.play",
+                     "web.reference.seek", "web.reference.close"}:
+        if not isinstance(value, dict) or set(value) != {'performed'} or value['performed'] is not True:
+            raise ValueError('web reference actions confirm delivery only, never a playback verdict')
+        return value
     if not isinstance(value, dict):
         raise ValueError(f"{operation} result must be an object")
     if operation == "permission.set":

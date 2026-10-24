@@ -15,6 +15,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import yaml
+
 
 IOS_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_ROOT = IOS_ROOT.parent
@@ -1122,8 +1124,8 @@ def test_scope_contract() -> None:
     stats_source = SOURCE_ROOT / "interface" / "src" / "ui" / "Stats.cpp"
     require_text(
         stats_source,
-        r"QMultiMap<float, QString> sortedRecords;[\s\S]*QMultiMapIterator<float, QString> j\(sortedRecords\);[\s\S]*j\.toBack\(\);[\s\S]*j\.hasPrevious\(\)",
-        "Qt 6 timing statistics must iterate the multi-map with its matching reverse iterator",
+        r"QMultiMap<float, QString> sortedRecords;[\s\S]*auto j = sortedRecords\.constEnd\(\);[\s\S]*while \(j != sortedRecords\.constBegin\(\)\)\s*\{\s*--j;",
+        "timing statistics must traverse the multi-map in reverse on both Qt majors",
     )
     assert "QMapIterator<float, QString> j(sortedRecords)" not in stats_source.read_text(encoding="utf-8"), \
         "Qt 6 no longer implicitly exposes QMultiMap through QMapIterator"
@@ -1856,14 +1858,27 @@ def test_ci_contract() -> None:
     workflow = SOURCE_ROOT / ".github" / "workflows" / "ios-bootstrap.yml"
     workflow_text = workflow.read_text(encoding="utf-8")
     require_text(workflow, r"runs-on: macos-26", "CI must use an Xcode 26 capable host")
-    require_text(workflow, r"push:\s+branches:\s+- apple-ios", "normal integration pushes must run iOS host contracts")
-    require_text(workflow, r"pull_request:\s+paths:", "pull requests must run iOS host contracts")
+    # PR qualification moved to the protected selective controller. Bootstrap
+    # remains an explicit manual entry point; it must not duplicate PR builds.
+    assert not re.search(r"^  (?:push|pull_request|pull_request_target|schedule):", workflow_text, re.MULTILINE)
+    controller = SOURCE_ROOT / ".github" / "workflows" / "repository-checks.yml"
+    require_text(controller, r"pull_request:\s+branches: \[[^\n]*apple-ios", "iOS PRs must enter the central controller")
+    central = yaml.safe_load(controller.read_text())
+    owner = central["jobs"]["ios"]
+    assert set(owner["needs"]) == {"plan", "policy"}, "iOS qualification must depend on authenticated policy and planning"
+    assert owner["uses"] == "./.github/workflows/pr-ci-ios.yml"
+    assert owner["with"]["source"] == "${{ needs.plan.outputs.source }}"
+    assert "ios" in central["jobs"]["ci-execution"]["needs"], "the authenticated receipt must require the iOS owner"
+    product = SOURCE_ROOT / ".github" / "workflows" / "pr-ci-ios.yml"
+    require_text(product, r"--lane ios --context-json", "the host owner must execute the authenticated iOS platform contract")
+    require_text(product, r"validated_host_contracts_sha: \$\{\{ inputs[.]source \}\}", "the client must reuse only the exact host-qualified source")
+    require_text(product, r"verify-ios", "qualification must verify the selected application artifact")
+    platform = json.loads((SOURCE_ROOT / ".github" / "pr-ci-platforms.json").read_text())["ios"]
+    assert platform["target"] == "apple-ios" and platform["commands"] == [["bash", "ios/tests/run-tests.sh"]]
     require_text(workflow, r"runs-on: ubuntu-24\.04", "host contracts need an independent Linux gate")
     require_text(workflow, r"needs: host-contracts", "macOS CI must wait for host contracts")
     require_text(workflow, r"persist-credentials: false", "checkout credentials must not persist")
     require_text(workflow, r"families=iphone ipad", "manual simulator runs must cover iPhone and iPad")
-    require_text(workflow, r"- 'interface/resources/qml/\*\*'", "shared touch QML changes must trigger iOS CI")
-    require_text(workflow, r"interface/src/IOSTouchUiMetrics[.]\*", "native touch metrics changes must trigger iOS CI")
     require_text(workflow, r"simulator-smoke\.sh", "CI must launch the selected form factors")
     require_text(workflow, r"verify-app\.sh", "CI must inspect the produced bundle")
     require_text(workflow, r"unsigned-device-sdk:", "CI must compile against the physical-device SDK")
@@ -1914,7 +1929,7 @@ def test_ci_contract() -> None:
     assert "e2e_test_build: true" not in release_workflow
     assert release_workflow.count("e2e_test_build: false") == 2
     assert re.search(r"(?m)^    if:", job_bodies["host-contracts"]) is None, (
-        "device-free host contracts must run for pull requests and normal pushes"
+        "manually dispatched bootstrap modes must always run device-free host contracts"
     )
     for forbidden in ("github.event.head_commit.message", "[qt-source]", "[ios-integrated]", "[ios-worlds]"):
         assert forbidden not in workflow_text, f"automatic long-job opt-in remains: {forbidden}"

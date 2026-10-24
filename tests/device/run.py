@@ -113,7 +113,9 @@ def adapter_call(command: list[str], action: str, target: str | None = None,
     if operation is not None:
         argv += ["--operation", operation, "--arguments", "{}"]
     adapter_environment = os.environ.copy() if environment is None else environment.copy()
-    adapter_environment.pop("OVERTE_E2E_TABLET_POLICY", None)
+    for name in ('OVERTE_E2E_TABLET_POLICY', 'OVERTE_E2E_WEB_VIDEO_ROIS',
+                 'OVERTE_E2E_SCRIPTS_CONTROL_TOKEN', 'OVERTE_E2E_CREATE_CONTROL_TOKEN'):
+        adapter_environment.pop(name, None)
     try:
         # Adapter stderr is arbitrary device/native data, not a reviewed error
         # vocabulary. Do not capture it or retain it in exception/JUnit/CLI sinks.
@@ -279,7 +281,9 @@ def run_module(module: dict, catalog: Path, environment: dict[str, str],
             and environment.get("OVERTE_E2E_CAPTURE_ARTIFACTS") == "1"):
         try:
             capture_environment = environment.copy()
-            capture_environment.pop("OVERTE_E2E_TABLET_POLICY", None)
+            for name in ('OVERTE_E2E_TABLET_POLICY', 'OVERTE_E2E_WEB_VIDEO_ROIS',
+                         'OVERTE_E2E_SCRIPTS_CONTROL_TOKEN', 'OVERTE_E2E_CREATE_CONTROL_TOKEN'):
+                capture_environment.pop(name, None)
             capture = subprocess.run(
                 [*adapter_command, "invoke", "--target", selector,
                  "--operation", "artifact.screenshot", "--arguments", "{}"],

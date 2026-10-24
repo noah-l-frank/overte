@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Static contract for the shared QML controls used by physical iOS E2E."""
+"""Host contracts for iOS control identity and native factory signatures.
+
+The signature check catches C++ redefinitions without pretending to compile
+UIKit implementations or execute a device journey.
+"""
 
 # Copyright 2026 Overte e.V.
 # SPDX-License-Identifier: Apache-2.0
@@ -25,6 +29,37 @@ def preprocess_native_bridge(source: str, test_build: bool, ios: bool = False) -
         command.append('-DQ_OS_IOS=1')
     return subprocess.run(command, input=source, capture_output=True,
                           text=True, check=True, timeout=10).stdout
+
+
+def compile_factory_signatures(source: str) -> tuple[subprocess.CompletedProcess, list[str]]:
+    # Preserve every actual definition's name and argument types. Replace only
+    # its UIKit body; the host compiler must still reject duplicate definitions.
+    pattern = re.compile(
+        r'^OverteIOSE2EAccessibilityButton\s*\*\s*(tabletE2E\w+)\s*\('
+        r'\s*UIWindow\s*\*\s*\w+\s*,\s*NSString\s*\*\s*\w+\s*\)\s*\{',
+        re.MULTILINE,
+    )
+    definitions = list(pattern.finditer(source))
+    code = 'struct UIWindow; struct NSString; struct OverteIOSE2EAccessibilityButton;\n'
+    code += '\n'.join(match[0][:-1] + '{ return nullptr; }' for match in definitions)
+    result = subprocess.run(['c++', '-std=c++17', '-fsyntax-only', '-x', 'c++', '-'],
+                            input=code, text=True, capture_output=True, timeout=10)
+    return result, [match[1] for match in definitions]
+
+
+def verify_native_factory_definitions(production: str, test_build: str) -> None:
+    shipping, shipping_names = compile_factory_signatures(production)
+    assert not shipping_names and shipping.returncode == 0, shipping.stderr
+    enabled, names = compile_factory_signatures(test_build)
+    assert len(names) >= 2, 'Keep both the primary control and pooled factory in the check'
+    assert enabled.returncode == 0, enabled.stderr
+    # A name collision must fail even though both factory signatures separately
+    # type-check. This restores the observed merge defect in the real headers.
+    assert names[0] != names[1]
+    collision = re.sub(r'\b' + re.escape(names[0]) + r'\b', names[1], test_build)
+    rejected, _ = compile_factory_signatures(collision)
+    assert rejected.returncode != 0 and 'redefinition' in rejected.stderr, rejected.stderr
+    print('PASS shipping/E2E factory signatures; restored native redefinition rejected')
 
 
 def main() -> None:
@@ -82,15 +117,17 @@ def main() -> None:
     assert "return NO;" in native_bridge
     production_bridge = preprocess_native_bridge(native_bridge, False)
     test_bridge = preprocess_native_bridge(native_bridge, True)
+    verify_native_factory_definitions(production_bridge, test_bridge)
     for test_only_symbol in ('OverteIOSE2EAccessibilityButton',
                              'tabletE2EAccessibilityButton',
-                             'observeIOSNativeAccessibility'):
+                             'observeIOSNativeAccessibility',
+                             'normalUiInput', 'performIOSNormalUiRequest'):
         assert test_only_symbol not in production_bridge, test_only_symbol
         assert test_only_symbol in test_bridge, test_only_symbol
     test_interface = (ROOT / "interface/src/scripting/TestScriptingInterface.cpp").read_text()
     ordinary_interface = preprocess_native_bridge(test_interface, False, True)
     enabled_interface = preprocess_native_bridge(test_interface, True, True)
-    for symbol in ("iosNativeUiSnapshot", "iosTextTest", "iosRenderObservation", "iosEntityScriptConsentTest", "iosCrashTest"):
+    for symbol in ("iosNativeUiSnapshot", "iosNormalUiRequest", "iosTextTest", "iosRenderObservation", "iosEntityScriptConsentTest", "iosCrashTest"):
         assert "TestScriptingInterface::" + symbol not in ordinary_interface
         assert "TestScriptingInterface::" + symbol in enabled_interface
     assert 'OverteIOSAccessibilityElement' in production_bridge
@@ -100,9 +137,26 @@ def main() -> None:
     assert "overlay.accessibilityElements = @[];" in native_bridge
     assert "button.frame = controlFrame;" in native_bridge
     assert "button.activationHandler = activationHandler;" in native_bridge
-    assert "tabletCloseControl(tablet->getIOSTabletRoot())" in native_bridge
-    assert "button.hidden = CGRectIsNull(controlFrame) || CGRectIsEmpty(controlFrame);" in native_bridge
-    assert "button.enabled = !button.hidden;" in native_bridge
+    assert "tabletCloseControl(tablet->getIOSTabletRoot())" in production_bridge
+    assert "button.hidden = normalModal || CGRectIsNull(controlFrame) || CGRectIsEmpty(controlFrame);" in native_bridge
+    assert "tabletShown && !normalModal && loadedItem != nullptr" in native_bridge
+    for control in ('hud.tablet', 'tablet.close'):
+        assert f'normalUiInput().press(QStringLiteral("{control}"), nativeTabletControlToken)' in test_bridge
+    assert 'normalUiInput' not in production_bridge
+    assert 'guardedTablet->showAndroidTablet(width, height)' in production_bridge
+    assert 'OverteNavigation.%s' in test_bridge
+    assert 'sourceControlToken' in test_bridge
+    # The GUI core is compiled only in the explicit iOS E2E configuration.
+    assert 'ios/ui/IOSNormalUiInput.cpp' in interface_cmake
+    source = (ROOT / 'ios/ui/IOSNormalUiInput.cpp').read_text()
+    address = (ROOT / 'interface/resources/qml/+android_phoneInterface/AddressBarDialog.qml').read_text()
+    for control in ('PhoneAddressField', 'PhoneAddressGoButton', 'PhoneAddressCancelButton', 'PhoneAddressBackButton'):
+        assert control in address and control in source
+    assert 'text: "GO TO"' in action_bar
+    assert 'DialogsManager.showAddressBar()' in action_bar
+    assert 'normalModal' not in production_bridge
+    assert "button.enabled = !button.hidden && nativeTabletControlEnabled;" in native_bridge
+    assert 'nativeTabletControlEnabled = row.value("enabled").toBool();' in test_bridge
     assert "OverteTabletScreen.%s" in native_bridge
     assert "OverteTabletReady.%s" in native_bridge
     assert "OverteTabletControl.%s" in native_bridge

@@ -7,6 +7,7 @@ import QtQuick.Layouts 1.3
 
 Rectangle {
     id: root
+    objectName: "snapshotReview"
     color: "#17212a"
     signal sendToScript(var message)
     property var images: []
@@ -24,6 +25,8 @@ Rectangle {
     property bool keyboardEnabled: true
     property bool keyboardRaised: false
     property bool punctuationMode: false
+    property bool captureSettingsLoaded: false
+    property bool captureModeEdited: false
     property var keyboardItem: null
     onKeyboardRaisedChanged: {
         if (typeof KeyboardScriptingInterface !== "undefined" && KeyboardScriptingInterface.use3DKeyboard) {
@@ -36,7 +39,9 @@ Rectangle {
                 + ' anchors.bottom: parent.bottom; raised: parent.keyboardEnabled && parent.keyboardRaised;'
                 + ' numeric: parent.punctuationMode }', root, "SnapshotKeyboard")
         }
-        send("ready")
+        // The native loader connects the new root after constructing it.
+        // Keep the initialization request until its signal bridge can listen.
+        Qt.callLater(function() { if (root) { root.send("ready") } })
     }
     Component.onDestruction: {
         cancelExport()
@@ -127,7 +132,9 @@ Rectangle {
             statusError = true; statusText = message.error || qsTr("Snapshot operation failed.")
             uploadPath = ""
         } else if (message.action === "captureSettings") {
-            captureMode.currentIndex = message.setting ? 1 : 0
+            // A delayed or repeated initialization is not a new user choice.
+            if (!captureModeEdited) { captureMode.currentIndex = message.setting ? 1 : 0 }
+            captureSettingsLoaded = true
         } else if (message.action === "setPrintButtonEnabled") {
             printEnabled = true; printProcessing = false
         } else if (message.action === "setPrintButtonLoading") {
@@ -158,14 +165,35 @@ Rectangle {
             Controls.ComboBox {
                 id: captureMode
                 objectName: "snapshotMode"
+                Accessible.onPressAction: if (enabled) { popup.open() }
                 Layout.fillWidth: true
+                enabled: root.captureSettingsLoaded && !root.capturing
                 model: [qsTr("Still"), qsTr("Still + animated GIF"), qsTr("360° panorama"), qsTr("360° cubemap")]
+                delegate: Controls.RadioDelegate {
+                    objectName: "snapshotMode.option." + ["still", "animated", "panorama", "cubemap"][index]
+                    width: captureMode.width
+                    text: modelData
+                    checked: captureMode.currentIndex === index
+                    highlighted: captureMode.highlightedIndex === index
+                }
+                onActivated: function(index) {
+                    root.captureModeEdited = true
+                    root.send(index === 1 ? "captureStillAndGif" : "captureStillOnly")
+                }
             }
             Controls.ComboBox {
                 id: captureFormat
                 objectName: "snapshotFormat"
+                Accessible.onPressAction: if (enabled) { popup.open() }
                 Layout.fillWidth: true
                 model: typeof Snapshot !== "undefined" ? Snapshot.getAvailableSnapshotFormats() : ["png"]
+                delegate: Controls.RadioDelegate {
+                    objectName: "snapshotFormat.option." + modelData
+                    width: captureFormat.width
+                    text: modelData
+                    checked: captureFormat.currentIndex === index
+                    highlighted: captureFormat.highlightedIndex === index
+                }
                 Component.onCompleted: {
                     if (typeof Snapshot !== "undefined") { currentIndex = Math.max(0, model.indexOf(Snapshot.getSnapshotFormat() || "png")) }
                 }
@@ -176,7 +204,7 @@ Rectangle {
                     objectName: "snapshotCapture"
                     Layout.minimumHeight: 44
                     text: qsTr("Take snapshot")
-                    enabled: !root.capturing && !platform.busy && !root.uploadPath
+                    enabled: root.captureSettingsLoaded && !root.capturing && !platform.busy && !root.uploadPath
                     onClicked: {
                         captureName.focus = false
                         root.send("takeSnapshot", { mode: ["still", "animated", "panorama", "cubemap"][captureMode.currentIndex], filename: captureName.text })
