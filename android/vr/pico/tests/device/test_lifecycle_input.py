@@ -20,13 +20,21 @@ from self_tests.test_pico_lifecycle_drive import LifecycleDriveTests,LifecycleDr
 from self_tests.test_pico_lifecycle_gesture import LifecycleGestureTests,LifecycleGestureProbeTests
 from self_tests.test_pico_lifecycle_world import LifecycleWorldTests
 from self_tests.test_pico_lifecycle_join import LifecycleJoinTests
-from self_tests.test_pico_lifecycle_process import LifecycleProcessTests
+from self_tests import test_pico_lifecycle_process as process_cases
+from adapters.pico4 import lifecycle_process as process_contract
 from self_tests.test_token_lifecycle_ui import LifecycleControlTests
 from self_tests.test_pico_lifecycle_editor import LifecycleEditorTests
 from self_tests.test_pico_lifecycle_chat import LifecycleChatTests
 from self_tests.test_pico_lifecycle_background_source import LifecycleBackgroundSourceTests
 from self_tests.test_pico_lifecycle_background import LifecycleBackgroundEvidenceTests
 from self_tests.test_pico_openxr_adapter_session import FakeTransport
+
+
+class LifecycleProcessTests(process_cases.LifecycleProcessTests):
+    """The existing selector retains its original explicit v1 contract."""
+    def setUp(self):
+        version=patch.object(process_contract,'VERSION',1);version.start();self.addCleanup(version.stop)
+        super().setUp()
 
 
 class PicoLifecycleBindingTests(unittest.TestCase):

@@ -16,10 +16,10 @@ RUN='a'*32
 class Boundary:
     def __init__(self):
         self.clock=0.;self.sequence=0;self.focused=False;self.text='';self.field='1'*32;self.before=None;self.ignore=set();self.calls=[]
-        self.lost=False;self.component='e'*64;self.generation='2'*32
+        self.lost=False;self.component='e'*64;self.generation='2'*32;self.instance='3'*32
     def capture(self):
         return dict(lifecycleControlsVersion=1,open=True,ready=True,
-            scope=dict(instance='3'*32,generation=self.generation,sequence=self.sequence,elapsedMs=round(self.clock*1000),processId=123),
+            scope=dict(instance=self.instance,generation=self.generation,sequence=self.sequence,elapsedMs=round(self.clock*1000),processId=123),
             controls=[dict(id=ID,token='4'*32,enabled=True,focused=self.focused,inputReady=True,text=self.text,
                 fieldId=self.field,pageId='5'*32,contextId='6'*32,windowId='7'*32,componentSourceSha256=self.component)])
     def input(self,identifier,action,value=None,*,reference):

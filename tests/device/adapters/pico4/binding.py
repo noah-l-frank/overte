@@ -2028,6 +2028,15 @@ def create_adapter(args, base_class):
                 if path.name in ('lifecycle-close-owner.json','lifecycle-close-originals.json') or path.name.startswith('lifecycle-close-originals.json.frame-'):return True
             return False
 
+        def _lifecycle_restore_owned(self,target):
+            store=self._lifecycle_world_store(target,create=False)
+            if store is None:return False
+            store._parent()
+            for index,path in enumerate(store.path.parent.iterdir()):
+                _need(index<4096)
+                if path.name=='lifecycle-restore-owner.json':return True
+            return False
+
         @_private
         def _lifecycle_world(self,target,run,*,source_lock=None):
             from adapters.pico4.lifecycle_world import PicoLifecycleWorld
@@ -2236,6 +2245,51 @@ def create_adapter(args, base_class):
             native=self._native_feature_observer(target);native.guard()
             _need(native.pid==pending.pid and self.require_pico_session_identity(target)==pending.binding['processIdentity'])
             return PicoLifecycleClose(pending,world.path.with_name('lifecycle-close-owner.json'))
+
+        @_private
+        def _lifecycle_restore_owner(self,target,run,*,joined):
+            from adapters.pico4.lifecycle_join import PicoLifecycleXJoin
+            from adapters.pico4.lifecycle_restore import PicoLifecycleRestore,PicoLifecycleRestoreSurface
+            from adapters.pico4.tablet_home import bind_home
+            _need(type(joined) is PicoLifecycleXJoin and joined.world.run==run)
+            world=joined.world;store=self._lifecycle_world_store(target)
+            _need(world.store.path==store.path);self._script_journey()._lock(target,world.lock)
+            native=self._native_feature_observer(target);native.guard()
+            _need(native.pid==world.pid and self.require_pico_session_identity(target)==world.binding['processIdentity'])
+            process=self._lifecycle_process_retirement(target,run,source_lock=world.lock)
+            domain=self._lifecycle_domain_source(target,source_lock=world.lock)
+            def surface(intent,owns,lease,allow):
+                route,_observe,binding=self._script_runtime(target);_need(binding==world.binding)
+                return PicoLifecycleRestoreSurface(route,self._graphics_subject_observer(target),
+                    bind_home(self,target,self._native_feature_observer(target)),run,intent,owns,lease,allow)
+            return PicoLifecycleRestore(process,joined,native,domain,
+                store.path.with_name('lifecycle-restore-owner.json'),surface)
+
+        @_private
+        def _lifecycle_restore_restart(self,target,run,*,restore):
+            from adapters.pico4.lifecycle_restore import PicoLifecycleRestore
+            from adapters.pico4.lifecycle_process import run_lifecycle_restart
+            _need(type(restore) is PicoLifecycleRestore and restore.run==run
+                and restore.world.store.path==self._lifecycle_world_store(target).path)
+            self._script_journey()._lock(target,restore.lock)
+            owner=restore.process
+            def source():return self._native_feature_observer(target)
+            def prepare():
+                # The just-completed real restore/Prepare quiet window stays
+                # current only through its existing complete final guard. A
+                # stale original is refused; no second sampler/budget exists.
+                restore.bound();_need(restore.state['phase']=='prepared'
+                    and restore.state['preparedSha256']==hashlib.sha256(
+                        json.dumps(owner.disk,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest())
+                owner.require_stop_ready(source())
+            def stopped():
+                origin=owner.inputs.read()['oldBinding'];owner.guard()
+                receipt=AndroidProcessQuery(self.adb,'org.overte.pico',owner.guard).read(target,int(origin['processIdentity'].split(':')[0]))
+                return dict(running=bool(receipt['processIds']),identity=origin['processIdentity'] if receipt['processIds'] else None)
+            return run_lifecycle_restart(owner,prepare,source,lambda:self.invoke(target,'app.stop',{}),stopped,
+                lambda:self.invoke(target,'app.launch',{}),
+                lambda:self._script_restart_recover_binding(target,restart_inputs=owner.inputs,owner_check=lambda:owner.store.read()),
+                lambda:self._lifecycle_process_observe(target,run,owner=owner))
 
         def _lifecycle_back_store(self,target):
             state,_ui=self._script_paths(target)
@@ -3545,6 +3599,7 @@ def create_adapter(args, base_class):
                       and not self._lifecycle_background_owned(target)
                       and not self._lifecycle_pending_owned(target)
                       and not self._lifecycle_close_owned(target)
+                      and not self._lifecycle_restore_owned(target)
                       and (self._audio_page_store(target,create=False) is None or self._audio_page_store(target,create=False).read() is None)
                       and not self._audio_capture_owned(target)
                       and self._script_restart_inputs_store(target).read() is None
