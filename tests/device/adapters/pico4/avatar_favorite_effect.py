@@ -14,6 +14,37 @@ from adapters.token_create_ui import navigation,nonce,scope
 from feature_journeys.fixtures import context as fixture_context
 
 
+def original_preferences(before,after):
+    """Exact original data, keeping current post-write identity independent."""
+    a=avatar_preferences.baseline(before);b=avatar_preferences.baseline(after)
+    avatar_preferences.continuity(before,after)
+    need(before['processId']==after['processId'] and before['instance']==after['instance']
+        and before['source']['instance']==after['source']['instance'] and a['instance']==b['instance'])
+    need(same(a['cache']['rows'],b['cache']['rows']) and same(a['cache']['encodedRows'],b['cache']['encodedRows']))
+    x,y=a['cache']['native'],b['cache']['native']
+    need(all(same(x[key],y[key]) for key in ('handles','modelInstance','sessionId')))
+    x,y=a['writer'],b['writer']
+    need(all(same(x[key],y[key]) for key in ('instance','rows','encodedRows')))
+    x,y=x['physical'],y['physical']
+    need(all(same(x[key],y[key]) for key in ('format','pathSha256','fileSha256','rows')))
+    # Native QSettings commits can replace the inode and timestamps. They are
+    # real current identities, never an assertion that the old inode returned.
+    need(x['file']['exists']==y['file']['exists'])
+    if x['file']['exists']:need(all(x['file'][key]==y['file'][key] for key in ('mode','bytes')))
+    return after
+
+
+def original_bookmarks(before,after):
+    from adapters.pico4.avatar_bookmarks import storage
+    storage(before,before['capturedEpochMs']);storage(after,after['capturedEpochMs'])
+    need(after['capturedEpochMs']>=before['capturedEpochMs']
+        and all(same(before[key],after[key]) for key in
+                ('pathSha256','present','rawBase64','rawSha256','cacheBase64','mapSha256','bookmarks')))
+    # The normal original writer's revision is separately retained and checked
+    # by the native source. Never invent restoration of its former timestamps.
+    return after
+
+
 def unchanged_preferences(before,after):
     """Admit the actual cached/Scale path without inventing a lazy write.
 
