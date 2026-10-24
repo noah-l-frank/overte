@@ -1,6 +1,11 @@
 # Modified in 2026 for the optional direct browser transport.
 set(TARGET_NAME networking)
 setup_hifi_library(Network WebSockets)
+if (IOS AND OVERTE_E2E_FEATURE_TESTS AND OVERTE_IOS_E2E_TEST_BUILD)
+    # Match interface's existing dedicated test configuration for passive
+    # client reply observations. No global or production definition changes.
+    target_compile_definitions(${TARGET_NAME} PRIVATE OVERTE_IOS_E2E_TEST_BUILD=1)
+endif()
 link_hifi_libraries(shared platform)
 
 target_openssl()

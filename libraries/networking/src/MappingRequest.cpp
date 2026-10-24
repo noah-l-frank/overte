@@ -15,6 +15,9 @@
 #include <QtCore/QThread>
 
 #include <DependencyManager.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include "IOSAssetReplyTrace.h"
+#endif
 
 MappingRequest::~MappingRequest() {
     auto assetClient = DependencyManager::get<AssetClient>();
@@ -28,6 +31,9 @@ void MappingRequest::start() {
         QMetaObject::invokeMethod(this, "start", Qt::AutoConnection);
         return;
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    const overte::e2e::IOSAssetReplyTrace::Scope originalStart(this);
+#endif
     doStart();
 };
 
@@ -68,6 +74,9 @@ void GetMappingRequest::doStart() {
 
     _mappingRequestID = assetClient->getAssetMapping(_path,
             [this, assetClient](bool responseReceived, AssetUtils::AssetServerError error, QSharedPointer<ReceivedMessage> message) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        const overte::e2e::IOSAssetReplyTrace::Body originalCallback(this,"network",{{"responseReceived",responseReceived},{"serverError",error}});
+#endif
 
         _mappingRequestID = INVALID_MESSAGE_ID;
         if (!responseReceived) {
@@ -108,6 +117,9 @@ void GetAllMappingsRequest::doStart() {
     auto assetClient = DependencyManager::get<AssetClient>();
     _mappingRequestID = assetClient->getAllAssetMappings(
             [this, assetClient](bool responseReceived, AssetUtils::AssetServerError error, QSharedPointer<ReceivedMessage> message) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        const overte::e2e::IOSAssetReplyTrace::Body originalCallback(this,"network",{{"responseReceived",responseReceived},{"serverError",error}});
+#endif
 
         _mappingRequestID = INVALID_MESSAGE_ID;
 

@@ -34,6 +34,7 @@ namespace overte::e2e { class IOSCreateStateObservation; class IOSCreateEntities
 namespace overte::e2e { class IOSPointerStateObservation; class IOSWorldWebGeometryObservation; class IOSWorldWebSurfacesObservation; class IOSWorldWebSnapshotObservation; class IOSWorldWebWholeSnapshotObservation; }
 namespace overte::e2e { class IOSAvatarStateObservation; }
 namespace overte::e2e { class NativeReadBracket; }
+namespace overte::e2e { class IOSAssetReplyReads; }
 #endif
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class PrivateLoginInput; }
@@ -200,6 +201,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSCreateFiles(const QVariantMap& command);
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
     Q_INVOKABLE QVariantMap featureIOSAssetsFiles(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSAssetsReplies(const QVariantMap& command);
 #endif
     Q_INVOKABLE QVariantMap featureIOSAvatarState(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSSnapshotExports(const QVariantMap& command);
@@ -343,6 +345,7 @@ private:
     QMap<QString,QVariantMap> _featureIOSCreateFileCommands, _featureIOSCreateFileResults;
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
     std::shared_ptr<overte::e2e::NativeReadBracket> _featureIOSAssetsFiles;
+    std::shared_ptr<overte::e2e::IOSAssetReplyReads> _featureIOSAssetsReplies;
     QMap<QString,QVariantMap> _featureIOSAssetsFileCommands, _featureIOSAssetsFileResults;
 #endif
 #endif

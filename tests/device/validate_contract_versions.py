@@ -9,6 +9,10 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-assets-replies": 1,
+    "ios-asset-reply-trace": 1,
+    "ios-assets-reply-owner": 1,
+    "ios-assets-source-bundle": 1,
     "feature-browser-retired-responses": 2,
     "feature-browser-retirement-audit": 1,
     "ios-create-feature": 1,

@@ -22,6 +22,9 @@
 #include "NetworkLogging.h"
 #include "NodeList.h"
 #include "ResourceCache.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include "IOSAssetReplyTrace.h"
+#endif
 
 static int requestID = 0;
 
@@ -52,6 +55,9 @@ void AssetRequest::start() {
     }
 
     // in case we haven't parsed a valid hash, return an error now
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    const overte::e2e::IOSAssetReplyTrace::Scope originalStart(this);
+#endif
     if (!AssetUtils::isValidHash(_hash)) {
         _error = InvalidHash;
         _state = Finished;
@@ -88,6 +94,9 @@ void AssetRequest::start() {
             return;
         }
         _assetRequestID = INVALID_MESSAGE_ID;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        const overte::e2e::IOSAssetReplyTrace::Body originalCallback(this,"network",{{"responseReceived",responseReceived},{"serverError",serverError}});
+#endif
 
         if (!responseReceived) {
             _error = NetworkError;

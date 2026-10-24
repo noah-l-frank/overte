@@ -32,6 +32,9 @@
 #include "NodeList.h"
 #include "PacketReceiver.h"
 #include "ResourceCache.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include "IOSAssetReplyTrace.h"
+#endif
 
 MessageID AssetClient::_currentID = 0;
 
@@ -341,6 +344,13 @@ void AssetClient::handleAssetMappingOperationReply(QSharedPointer<ReceivedMessag
         // Check if we have this pending request
         auto requestIt = messageCallbackMap.find(messageID);
         if (requestIt != messageCallbackMap.end()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+            if (overte::e2e::IOSAssetReplyTrace::instance().tracks(senderNode,messageID)) {
+                overte::e2e::IOSAssetReplyTrace::instance().observedMessage(senderNode,messageID,"mapping",message);
+                overte::e2e::IOSAssetReplyTrace::instance().mappingReply(senderNode,messageID,error,
+                    message->peek(message->getBytesLeftToRead()),message->isComplete(),message->failed());
+            }
+#endif
             auto callback = requestIt->second;
             callback(true, error, message);
             messageCallbackMap.erase(requestIt);
@@ -466,6 +476,10 @@ MessageID AssetClient::getAsset(const QString& hash, AssetUtils::DataOffset star
         packet->writePrimitive(end);
 
         if (nodeList->sendPacket(std::move(packet), *assetServer) != -1) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+            overte::e2e::IOSAssetReplyTrace::instance().sent("raw",assetServer,messageID,nodeList->getDomainUUID(),
+                {{"hash",hash},{"from",QString::number(start)},{"to",QString::number(end)}});
+#endif
             _pendingRequests[assetServer][messageID] = { QSharedPointer<ReceivedMessage>(), callback, progressCallback };
 
             return messageID;
@@ -492,6 +506,9 @@ MessageID AssetClient::getAssetInfo(const QString& hash, GetInfoCallback callbac
         packet->write(QByteArray::fromHex(hash.toLatin1()));
 
         if (nodeList->sendPacket(std::move(packet), *assetServer) != -1) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+            overte::e2e::IOSAssetReplyTrace::instance().sent("info",assetServer,messageID,nodeList->getDomainUUID(),{{"hash",hash}});
+#endif
             _pendingInfoRequests[assetServer][messageID] = callback;
 
             return messageID;
@@ -528,6 +545,11 @@ void AssetClient::handleAssetGetInfoReply(QSharedPointer<ReceivedMessage> messag
         // Check if we have this pending request
         auto requestIt = messageCallbackMap.find(messageID);
         if (requestIt != messageCallbackMap.end()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+            overte::e2e::IOSAssetReplyTrace::instance().observedMessage(senderNode,messageID,"info",message);
+            overte::e2e::IOSAssetReplyTrace::instance().infoReply(senderNode,messageID,error,info.hash,info.size,
+                message->getSize(),message->isComplete(),message->failed());
+#endif
             auto callback = requestIt->second;
             callback(true, error, info);
             messageCallbackMap.erase(requestIt);
@@ -577,6 +599,10 @@ void AssetClient::handleAssetGetReply(QSharedPointer<ReceivedMessage> message, S
     auto& callbacks = requestIt->second;
 
     // Store message in case we need to disconnect from it later.
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    overte::e2e::IOSAssetReplyTrace::instance().observedMessage(senderNode,messageID,"raw",message);
+    overte::e2e::IOSAssetReplyTrace::instance().rawHeader(senderNode,messageID,error,QString::fromLatin1(assetHash.toHex()),length);
+#endif
     callbacks.message = message;
 
 
@@ -592,8 +618,16 @@ void AssetClient::handleAssetGetReply(QSharedPointer<ReceivedMessage> message, S
         disconnect(message.data(), nullptr, this, nullptr);
 
         if (length != message->getBytesLeftToRead()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+            overte::e2e::IOSAssetReplyTrace::instance().rawBody(senderNode,messageID,false,error,{});
+#endif
             callbacks.completeCallback(false, error, QByteArray());
         } else {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+            if (overte::e2e::IOSAssetReplyTrace::instance().tracks(senderNode,messageID)) {
+                overte::e2e::IOSAssetReplyTrace::instance().rawBody(senderNode,messageID,true,error,message->peek(message->getBytesLeftToRead()));
+            }
+#endif
             callbacks.completeCallback(true, error, message->readAll());
         }
 
@@ -663,8 +697,16 @@ void AssetClient::handleCompleteCallback(const QWeakPointer<Node>& node, Message
     }
 
     if (message->failed() || length != message->getBytesLeftToRead()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        overte::e2e::IOSAssetReplyTrace::instance().rawBody(senderNode,messageID,false,AssetUtils::AssetServerError::NoError,{});
+#endif
         callbacks.completeCallback(false, AssetUtils::AssetServerError::NoError, QByteArray());
     } else {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        if (overte::e2e::IOSAssetReplyTrace::instance().tracks(senderNode,messageID)) {
+            overte::e2e::IOSAssetReplyTrace::instance().rawBody(senderNode,messageID,true,AssetUtils::AssetServerError::NoError,message->peek(message->getBytesLeftToRead()));
+        }
+#endif
         callbacks.completeCallback(true, AssetUtils::AssetServerError::NoError, message->readAll());
     }
 
@@ -693,6 +735,9 @@ MessageID AssetClient::getAssetMapping(const AssetUtils::AssetPath& path, Mappin
         packetList->writeString(path);
 
         if (nodeList->sendPacketList(std::move(packetList), *assetServer) != -1) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+            overte::e2e::IOSAssetReplyTrace::instance().sent("mapping",assetServer,messageID,nodeList->getDomainUUID(),{{"path",path}});
+#endif
             _pendingMappingRequests[assetServer][messageID] = callback;
 
             return messageID;
@@ -718,6 +763,9 @@ MessageID AssetClient::getAllAssetMappings(MappingOperationCallback callback) {
         packetList->writePrimitive(AssetUtils::AssetMappingOperationType::GetAll);
 
         if (nodeList->sendPacketList(std::move(packetList), *assetServer) != -1) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+            overte::e2e::IOSAssetReplyTrace::instance().sent("inventory",assetServer,messageID,nodeList->getDomainUUID(),{});
+#endif
             _pendingMappingRequests[assetServer][messageID] = callback;
 
             return messageID;

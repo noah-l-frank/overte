@@ -37,6 +37,9 @@ class RenameMappingRequest;
 class SetBakingEnabledRequest;
 class AssetRequest;
 class AssetUpload;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+namespace overte::e2e {class IOSAssetReplyReads;}
+#endif
 
 struct AssetInfo {
     QString hash;
@@ -121,6 +124,9 @@ private:
     QString _cacheDir;
 
     friend class AssetRequest;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    friend class overte::e2e::IOSAssetReplyReads;
+#endif
     friend class AssetUpload;
     friend class MappingRequest;
     friend class GetMappingRequest;

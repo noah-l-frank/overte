@@ -1454,6 +1454,34 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-assets-replies") {
+            var assetsReplyChild=["mapping","info","raw-server"].indexOf(command.operation)!==-1;
+            var assetsReplyExisting=["observe","retire"].indexOf(command.operation)!==-1;
+            if (command.schemaVersion===1 && typeof command.commandId==="string" && /^ios-[a-f0-9]{32}$/.test(command.commandId) && command.commandId.length===36
+                    && typeof command.runId==="string" && /^[a-f0-9]{32}$/.test(command.runId) && command.runId.length===32
+                    && typeof command.ticket==="string" && /^[a-f0-9]{32}$/.test(command.ticket) && command.ticket.length===32
+                    && typeof command.ownerToken==="string" && /^[a-f0-9]{64}$/.test(command.ownerToken) && command.ownerToken.length===64
+                    && ["gltf-bundle/main.gltf","obj-bundle/main.obj","asset-stand.fbx"].indexOf(command.resource)!==-1
+                    && ["original","renamed"].indexOf(command.namespace)!==-1
+                    && ["inventory","mapping","info","raw-server","observe","retire"].indexOf(command.operation)!==-1
+                    && (!assetsReplyChild || typeof command.sourceJob==="string" && /^ios-[a-f0-9]{32}$/.test(command.sourceJob)
+                        && command.sourceJob.length===36 && typeof command.relativePath==="string" && command.relativePath.length<=128)
+                    && (!assetsReplyExisting || typeof command.jobId==="string" && /^ios-[a-f0-9]{32}$/.test(command.jobId) && command.jobId.length===36)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId","ticket","ownerToken","resource","namespace","operation"].concat(
+                        assetsReplyChild?["sourceJob","relativePath"]:assetsReplyExisting?["jobId"]:[]))) {
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount>=4096) {return;}
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourceAssetsReplies={iosAssetsRepliesVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSAssetsReplies==="function") {
+                        var originalAssetsReplies=Test.featureIOSAssetsReplies(command);
+                        if (originalAssetsReplies && originalAssetsReplies.requestId===command.commandId) {sourceAssetsReplies=originalAssetsReplies;}
+                    }
+                } catch (_AssetsRepliesError) { /* Original unavailable remains consumed, including uncertain reads/retirement. */ }
+                Test.saveObject(sourceAssetsReplies,"feature-ios-assets-replies.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-assets-files") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
