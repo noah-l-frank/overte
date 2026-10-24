@@ -71,4 +71,11 @@ class LifecycleProcessFinalizationTests(unittest.TestCase):
         self.assertEqual([True],fired)
 
 
+class LifecycleProcessV1FinalizationTests(LifecycleProcessFinalizationTests):
+    """The same actual requirements apply without changing original v1 bytes."""
+    def setUp(self):
+        version=patch.object(process_module,'VERSION',1);version.start();self.addCleanup(version.stop)
+        super().setUp()
+
+
 if __name__=='__main__':unittest.main()
