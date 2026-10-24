@@ -52,7 +52,8 @@ class AvatarPreferencesNativeTests(unittest.TestCase):
             # through the existing bounded descriptor owner, then fully reread.
             # No journal Boolean supplies the independently observed restoration.
             journal=[]
-            for index in range(1,7):
+            self.assertEqual(9,len(list((stage/'enabled').glob('lazy-cas-*.json'))))
+            for index in range(1,10):
                 path=stage/'enabled'/('lazy-cas-'+str(index)+'.json')
                 original=ClosedOriginalFile(path,0o600,PrivateFeatureState(path)._parent)
                 data,stamp=original.read();event=decode(data.decode('utf-8'))
@@ -61,12 +62,12 @@ class AvatarPreferencesNativeTests(unittest.TestCase):
                     {'avatarLazyHandleCasVersion','transaction','phase','restored','verified','after'}))
                 self.assertIs(type(event['avatarLazyHandleCasVersion']),int);self.assertEqual(1,event['avatarLazyHandleCasVersion'])
                 self.assertEqual(phase,event['phase']);self.assertRegex(event['transaction'],'^[0-9a-f]{32}$')
-                if phase=='intent':self.assertEqual('Avatar/scale',event['key'])
+                if phase=='intent':self.assertEqual('Avatar/pitchSpeed' if index==9 else 'Avatar/scale',event['key'])
                 else:
-                    self.assertIs(event['restored'],index!=2);self.assertIs(event['verified'],index!=2)
+                    self.assertIs(event['restored'],index not in (2,4));self.assertIs(event['verified'],index not in (2,4))
                     self.assertEqual(journal[-1]['transaction'],event['transaction'])
                 self.assertEqual((data,stamp),original.read());self.assertTrue(original.close());journal.append(event)
-            self.assertEqual(3,len({event['transaction'] for event in journal}))
+            self.assertEqual(5,len({event['transaction'] for event in journal}))
         rows=[json.loads(line) for line in result.stdout.splitlines()]
         self.assertEqual(['lazy-original','live-only-conflict','initialized-absent','lazy-cas-restored','lazy-cas-result-lost-restored','saved-scale','writer-only-conflict','physical-conflict','head-pitch-original-key','late-result-discarded','avatar-replacement'],[row['kind'] for row in rows])
         previous=None
