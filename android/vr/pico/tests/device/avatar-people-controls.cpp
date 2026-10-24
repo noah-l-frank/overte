@@ -38,6 +38,12 @@
 #undef DependencyManager
 #include "avatar-bookmark-store-actor.h"
 #include "actual-avatar-preference-observer.inc"
+#if defined(AVATAR_ORIGINAL_MODEL_LOADER)
+#include "avatar-original-model-inputs.h"
+Q_LOGGING_CATEGORY(renderutils,"avatar.original.model")
+Q_LOGGING_CATEGORY(avatars_renderer,"avatar.original.base")
+#include "AvatarOriginalModelBodies.inc"
+#endif
 int main(int argc,char**argv) {
     HostApplication app(argc,argv);::umask(0077);using namespace overte::e2e;
     overte::pico::e2e::NavigationUi ui;
@@ -50,7 +56,11 @@ int main(int argc,char**argv) {
         const auto ordinary=ui.observe(nullptr,nullptr,false);assert(!ordinary.value("ready").toBool() && ordinary.value("controls").toArray().isEmpty());
         assert(!ui.apply(nullptr,nullptr,false,{}, {}, {}, {}).value("performed").toBool());return 0;}
     const auto path=app.arguments().at(app.arguments().size()-2),imports=app.arguments().last();
+#if defined(AVATAR_ORIGINAL_MODEL_LOADER)
+    assert(PathUtils::qmlUrl("hifi/AvatarApp.qml")==QUrl::fromLocalFile(path+"/interface/resources/qml/hifi/AvatarApp.qml"));
+#else
     PathUtils::scripts=QUrl::fromLocalFile(path+"/scripts/");PathUtils::qml=QUrl::fromLocalFile(path+"/interface/resources/qml/");
+#endif
     qmlRegisterModule("Hifi",1,0);qmlRegisterModule("TabletScriptingInterface",1,0);
     QQmlEngine engine;engine.addImportPath(path+"/interface/resources/qml");engine.addImportPath(imports);
     engine.rootContext()->setContextProperty("HMD",QVariantMap{{"active",true},{"mounted",true}});
@@ -82,9 +92,20 @@ int main(int argc,char**argv) {
     // Complete original MyAvatar URL/model-setter/save callers establish the
     // actual initial Handle/cache/writer state before the original baseline.
     // Base Avatar, Skeleton/scene inputs and completion remain declared actors.
+#if defined(AVATAR_ORIGINAL_MODEL_LOADER)
+    initializeAvatarOriginalInputs();
+#endif
     nativeAvatar->useFullAvatarURL(QUrl("qrc:/meshes/defaultAvatar_full.fst"));
 #if defined(AVATAR_ORIGINAL_MODEL_PERSISTENCE)
     nativeAvatar->completeDeclaredModel();
+#endif
+#if defined(AVATAR_ORIGINAL_MODEL_LOADER)
+    // Let original textures/cache read their normal startup preferences before
+    // capturing the actual initial data. This is not a renderer qualification.
+    QElapsedTimer originalTextures;originalTextures.start();
+    while(!nativeAvatar->getSkeletonModel()->getGeometry()->areTexturesLoaded() && originalTextures.elapsed()<20000){QTest::qWait(1);}
+    assert(nativeAvatar->getSkeletonModel()->getGeometry()->areTexturesLoaded());
+    nativeAvatar->avatarBirthActor=nativeAvatar->e2eAvatarLoads().value("instance").toString();
 #endif
     TestScriptingInterface preferenceObserver;quint64 preferenceNonce=0;QJsonArray originalFavoritePreferences;
     auto physicalPreferences=[&]{QFile file(preferenceManager->fileName());assert(file.open(QIODevice::ReadOnly));
@@ -152,6 +173,9 @@ int main(int argc,char**argv) {
         lastOwnedHandle=current;
     };
     const auto originalDataBookmarks=QJsonObject::fromVariantMap(nativeBookmarks.e2eBookmarkStorage());assert(!originalDataBookmarks.isEmpty());
+#if defined(AVATAR_ORIGINAL_MODEL_LOADER)
+#define modelRequestsActor observedModelRequests()
+#endif
     int originalLoaded=0,cachedOriginalLoads=0,declaredModelCompletions=0;
     QObject::connect(&nativeBookmarks,&avatar_bookmark_host::AvatarBookmarks::bookmarkLoaded,[&](const QString&){++originalLoaded;});
     overte::pico::e2e::NavigationUi actualObserver;

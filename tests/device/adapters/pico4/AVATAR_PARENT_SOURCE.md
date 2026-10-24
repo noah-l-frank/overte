@@ -180,3 +180,7 @@ The private `avatar-parent-root-owning-20261024-source.json` and
 original paths and source verification alongside uniquely named log/JUnit
 pairs. No old no-op/persistence case was repeated solely to reconstruct its
 unretained earlier stage. The larger whole-Avatar boundaries remain open.
+The disjoint [original Model loader continuation](AVATAR_ORIGINAL_MODEL_SOURCE.md)
+now adds actual selected Model/Watcher/FST/FBX/Baker/HFM sources to normal A/return.
+The previous default Parent profile remains as recorded above; full Rig/scene/
+renderer/EntityTree/actor and whole-storage/cache admission remain open.

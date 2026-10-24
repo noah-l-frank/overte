@@ -27,6 +27,7 @@ class Bookmarks:public QObject {public:
 // Only the raw preference caller/persistence is original in this slice.
 // These scene/base-Avatar/Skeleton inputs are declared actors, not HFM/Model
 // getters offered as evidence of a loaded resource or rendering effect.
+#if !defined(AVATAR_ORIGINAL_MODEL_LOADER)
 struct GeometryInputActor {
     QVariantMap mapping;const QVariantMap& getMapping()const{return mapping;}
     QUrl getAnimGraphOverrideUrl()const{return {};}
@@ -40,23 +41,64 @@ public:
     std::shared_ptr<GeometryInputActor> geometry{new GeometryInputActor};
 signals:void skeletonLoaded();
 };
+#else
+class SkeletonModel:public ::Model {Q_OBJECT
+public:
+    void setTagMask(uint8_t){}void setGroupCulled(bool){}void setVisibleInScene(bool,int){}
+    void setCauterizeBoneSet(const QSet<int>&){}
+    int actualConnections()const{return receivers(SIGNAL(skeletonLoaded()));}
+signals:void skeletonLoaded();
+};
+#endif
+enum class LoadingStatus{LoadModel,LoadFailure,LoadSuccess};
 class Avatar:public QObject,public ::AvatarData {
 public:
+#if defined(AVATAR_ORIGINAL_MODEL_LOADER)
+    Avatar(){connect(_skeletonModel.get(),&Model::setURLFinished,this,&Avatar::setModelURLFinished);}
+    void setSkeletonModelURL(const QUrl&);void setModelURLFinished(bool);
+    bool isMyAvatar()const{return true;}
+    QUuid getSessionUUID()const{return QUuid("77777777-7777-4777-8777-777777777777");}
+    QUrl getSkeletonModelURL()const{return _skeletonModelURL;}
+    void createOrb(){qFatal("Other Avatar scene objects are outside this primary loader join");}
+    void indicateLoadingStatus(LoadingStatus){}void invalidateJointIndicesCache(){}
+    bool _isAnimatingScale{false},_reconstructSoftEntitiesJointMap{false};
+    overte::e2e::FeatureModelLoads _e2eAvatarLoads;
+#else
     // The original base Avatar and Model::setURL are still an explicit seam.
     void setSkeletonModelURL(const QUrl& value){_skeletonModelURL=value;++modelRequestsActor;}
     QUrl _skeletonModelURL;int modelRequestsActor{0};
+#endif
     std::shared_ptr<SkeletonModel> _skeletonModel{new SkeletonModel};
 };
+#if defined(AVATAR_ORIGINAL_MODEL_LOADER)
+#include "AvatarOriginalBaseBodies.inc"
+#endif
 class MyAvatar:public Avatar {Q_OBJECT
 public:
     MyAvatar();QVariantMap e2ePreferenceHandles()const;
     void useFullAvatarURL(const QUrl&,const QString& name=QString());
-    QVariantMap e2eAvatarLoads(){return {{"instance",avatarBirthActor}};}
+    QVariantMap e2eAvatarLoads(){
+#if defined(AVATAR_ORIGINAL_MODEL_LOADER)
+        return _e2eAvatarLoads.snapshot();
+#else
+        return {{"instance",avatarBirthActor}};
+#endif
+    }
     QUuid getSessionUUID()const{return QUuid("77777777-7777-4777-8777-777777777777");}
     QUrl getSkeletonModelURL()const{return _skeletonModelURL;}
     void setSkeletonModelURL(const QUrl&);void saveAvatarUrl();QVariantMap e2eModelConnections()const;
     std::shared_ptr<overte::e2e::AvatarModelConnections> _featureModelConnections;
-    void completeDeclaredModel(){assert(_skeletonModel->actualConnections()==1);emit _skeletonModel->skeletonLoaded();assert(_skeletonModel->actualConnections()==0);emit onLoadComplete();}
+    void completeDeclaredModel(){
+#if defined(AVATAR_ORIGINAL_MODEL_LOADER)
+        // Original loader readiness is required BEFORE the declared Rig
+        // completion. This signal is not evidence of actual Rig simulation.
+        QElapsedTimer ready;ready.start();while(!_skeletonModel->isLoaded() && ready.elapsed()<20000){QTest::qWait(1);}
+        assert(_skeletonModel->isLoaded());
+#endif
+        assert(_skeletonModel->actualConnections()==1);emit _skeletonModel->skeletonLoaded();assert(_skeletonModel->actualConnections()==0);emit onLoadComplete();}
+#if defined(AVATAR_ORIGINAL_MODEL_LOADER)
+    int observedModelRequests(){return _e2eAvatarLoads.snapshot().value("currentGeneration").toInt();}
+#endif
     void clearWornAvatarEntities();void setAvatarScale(float);
     void removeWornAvatarEntity(const QUuid&){qFatal("Nonempty wearable removal crosses the declared EntityTree boundary");}
     mutable ReadWriteLockable _avatarEntitiesLock;QMap<QUuid,QByteArray> _packedAvatarEntityData;
