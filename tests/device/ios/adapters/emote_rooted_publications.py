@@ -45,5 +45,6 @@ def select_originals(snapshot,value,*,store,entries,lock,primary_lock):
         matches=[(reference,row) for reference,row in records if row['mode']=='published' and same(row['entry'],entry)]
         need(len(matches)==1);reference,row=matches[0];need(reference['ordinal'] not in seen);seen.add(reference['ordinal'])
         selected.append(dict(reference=deepcopy(reference),original=deepcopy(row['intent']['original']),
-            acquisition=deepcopy(row['intent']['derived']['acquisition']),entry=deepcopy(row['entry'])))
+            acquisition=deepcopy(row['intent']['derived']['acquisition']),entry=deepcopy(row['entry']),
+            observation=observer.original({key:row['intent']['original'][key] for key in ('index','sha256')})))
     need(same(store.read(),value));return selected

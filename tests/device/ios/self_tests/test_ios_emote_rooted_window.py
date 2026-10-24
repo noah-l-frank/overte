@@ -6,16 +6,42 @@ import unittest
 from adapters.native_clock_join import digest
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
-from feature_journeys import terminal
-from feature_journeys.retirement_receipts import binding_from_context
 from feature_journeys.witness import Client
-from ios.adapters.emote_rooted_archive import capture
 from ios.adapters.emote_rooted_live import IOSEmoteRootedLive
-from ios.adapters.emote_rooted_publications import select
+from ios.adapters.emote_terminal_window import IOSEmoteTerminalWindow
 from ios.self_tests.emote_rooted_whole_fixture import paired
 
 
 class RootedWindowTests(unittest.TestCase):
+    def assert_original_window(self,lives,references,samples,store):
+        """Shared assertions also support file-only retained-original replay."""
+        window=IOSEmoteTerminalWindow(lives['primary'],lives['actor'])
+        description=window.describe(references)
+        proof=window.qualify(description,samples,references,publisher_store=store)
+        self.assertEqual(digest(proof['original']),proof['seal']['liveOriginalSha256'])
+        self.assertEqual(3,len(proof['original']['primary']))
+        self.assertEqual([pair['actor'] for pair in samples],[row['entry'] for row in proof['original']['actor']])
+        for fault in ('descriptor-process','missing-primary-original','changed-HTTP-receipt'):
+            with self.subTest(fault=fault):
+                desc,changed=deepcopy(description),deepcopy(samples)
+                if fault=='descriptor-process':desc['roles']['actor']['binding']['processIdentity']='99'
+                elif fault=='missing-primary-original':changed[-1]['primary']['sequence']+=100
+                else:changed[0]['actor']['receivedEpochMs']+=1
+                with self.assertRaises((NativeUIError,ValueError)):
+                    window.qualify(desc,changed,references,publisher_store=store)
+        actor=lives['actor'];original_lock=actor.primary_lock
+        try:
+            actor.primary_lock=actor.lock
+            with self.assertRaises(NativeUIError):window.guard()
+        finally:actor.primary_lock=original_lock
+        original_phase=actor.phase_instance
+        try:
+            actor.phase_instance='1'*32
+            with self.assertRaises(NativeUIError):window.guard()
+        finally:actor.phase_instance=original_phase
+        window.guard()
+        return proof
+
     def test_three_genuine_paired_cuts_reopen_earlier_graphs_and_exact_actor_http_originals(self):
         f=paired(self,retain_originals=True);primary,actor=f.flow,f.actor.flow
         witness=Client(f.target.client.url,'r'*64)
@@ -39,28 +65,20 @@ class RootedWindowTests(unittest.TestCase):
                 for flow in (primary,actor):
                     with flow.held(30):
                         flow.load();parts=flow.components();owner=flow.retirement_owner(parts);live=IOSEmoteRootedLive(owner)
-                        first[flow.role]=live.record(live.state['records'][-1])['measurement']
+                        first[flow.role]=deepcopy(live.state['records'][-1])
             if index<2:f.target.domain.sleep(1.6)
-        descriptor=dict(featureTerminalVersion=1,profile=terminal.PROFILE,area='emotes',runId=primary.run,ticket=first['primary']['ticket'],
-            roles={role:dict(binding=binding_from_context(flow.state['binding']),heldResources=[{k:r[k] for k in
-                ('resource','kind','originalSha256')} for r in first[role]['held']],originalSha256=digest(first[role]))
-                for role,flow in (('primary',primary),('actor',actor))})
-        terminal.description(descriptor);terminal.window(samples,descriptor)
-        print('Three genuine pairs satisfy the common terminal window codec',flush=True)
-        for flow in (primary,actor):
-            with flow.held(30):
+        # Actor.held acquires its actual lock and then the shared Primary lock.
+        # Keep both live owners inside that same real ownership interval.
+        with actor.held(30):
+            lives={}
+            for flow in (primary,actor):
                 flow.load();parts=flow.components();owner=flow.retirement_owner(parts);live=IOSEmoteRootedLive(owner)
-                values=[pair['primary'] for pair in samples] if flow.role=='primary' else []
-                if values:self.assertEqual(3,len(live.selected_many(values)))
-                else:
-                    snapshot=capture(owner,flow.state['cleanup'][-1])
-                    store=PrivateFeatureState(flow.store.path.with_name('phase-publication-emotes-'+flow.run+'-actor.json'))
-                    value=store.read();entries=[pair['actor'] for pair in samples]
-                    history=len(f.actor.target.domain.history)
-                    selected=select(snapshot,value,store=store,entries=entries,lock=flow.lock,primary_lock=flow.primary_lock)
-                    self.assertEqual(entries,[row['entry'] for row in selected]);self.assertEqual(history,len(f.actor.target.domain.history))
-                    wrong=deepcopy(entries);wrong[0]['receivedEpochMs']+=1
-                    with self.assertRaises(NativeUIError):select(snapshot,value,store=store,entries=wrong,lock=flow.lock,primary_lock=flow.primary_lock)
+                lives[flow.role]=live
+            store=PrivateFeatureState(actor.store.path.with_name('phase-publication-emotes-'+primary.run+'-actor.json'))
+            history=len(f.actor.target.domain.history)
+            self.assert_original_window(lives,first,samples,store)
+            self.assertEqual(history,len(f.actor.target.domain.history))
+        print('Three genuine pairs satisfy the original terminal live seal and counterexamples',flush=True)
 
 
 if __name__=='__main__':unittest.main()

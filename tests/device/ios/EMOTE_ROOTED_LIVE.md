@@ -51,11 +51,12 @@ in 73.510 seconds. The connected existing whole-coordinator case passes in
 Actor scene3 publication. It independently reopens both latest typed graphs
 and matches their actual cleanup references and resource aliases.
 
-This is a local cleanup-cut integration, not a complete three-pair terminal
-window qualification. Multi-cut original/publication joins, terminal seal,
-whole remaining-owner archival, once-only per-role Stop/OS/SDK end and canonical
-and worker replay still require implementation and verification. In particular,
-these declared model clocks do not qualify real operation budgets.
+The subsequent [terminal-window packet](EMOTE_TERMINAL_WINDOW.md) verifies
+three original pairs and their independent Actor publications, and adds a pure
+description/seal join. Whole terminal-controller persistence, remaining-owner
+archival, once-only per-role Stop/OS/SDK end and canonical and worker replay
+still require implementation and verification. These declared model clocks
+do not qualify real operation budgets.
 The native/Qt/GPU/SDK/clocks are declared models. The journal alone does not
 establish paired quiet, process death, SDK deletion or complete Emote capability.
 Native compilation and device tests remain unexecuted.

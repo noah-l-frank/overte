@@ -9,7 +9,10 @@ HTTP journals and committed publication receipts.
 
 Each requested Actor entry must match exactly one actual published receipt.
 The result retains the immutable publisher reference, original observation
-reference, original acquisition and exact received server entry. It cannot
+reference, original acquisition and exact received server entry. It also opens
+the actual private observation payload for the
+[terminal-window join](EMOTE_TERMINAL_WINDOW.md), which compares it to the
+Actor retirement original. This private payload is never a public result. It cannot
 infer publication from an ACK, copy Primary state into the Actor, renew an
 epoch or accept a projection-only match. Duplicate selections and unresolved
 publisher responsibility fail closed. The existing run/role/process/candidate,
