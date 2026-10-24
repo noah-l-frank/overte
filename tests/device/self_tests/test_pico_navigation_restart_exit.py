@@ -116,4 +116,28 @@ class NavigationRestartExitTests(unittest.TestCase):
         self.assertIsNotNone(caught,'A new Native clock 2000ms behind its unchanged frame must refuse publication')
         self.assertTrue(calls,'Finalization must read the actual new Native observer clock')
 
+    def test_landed_ready_cas_cannot_reset_original_host_age_with_frozen_native_clock(self):
+        self.first_eleven();flow,_factory=self.bind_restart();call=self.twelve_call()
+        parent=self.original_parent;actual_write=flow.continuation_store.write;clock=parent.monotonic
+        phase_clock=parent.phase.monotonic;offset=[0.];events=[]
+        def write(value,previous):
+            actual_write(value,previous)
+            if value['phase']=='ready' and not events:
+                self.assertEqual(value,flow.continuation_store.read())  # Real landed CAS.
+                before=clock()+offset[0];offset[0]+=2;events.append(True)
+                owner=flow.restart();native=owner.runtime['native'];self.exit_counts=self.target_counts()
+                PrivateFeatureState(self.root/'navigation-prefix-generation-1-ready-cas-delay.json').write(dict(
+                    readyLanded=True,hostBefore=before,hostAfter=clock()+offset[0],
+                    nativeEpochMs=native.clock_ms(),phaseEpochMs=parent.phase.epoch_ms(),
+                    capturedEpochMs=owner.state['newFrame']['before']['ui']['observedEpochMs'],sourceCounts=self.exit_counts),None)
+        caught=None;result=None
+        with patch.object(flow.continuation_store,'write',write),patch.object(parent,'monotonic',lambda:clock()+offset[0]),\
+             patch.object(parent.phase,'monotonic',lambda:phase_clock()+offset[0]):
+            try:result=flow.act(call)
+            except NativeUIError as error:caught=error
+        self.assertTrue(events);self.assertEqual(self.exit_counts,self.target_counts())
+        PrivateFeatureState(self.root/'navigation-prefix-generation-1-ready-cas-result.json').write(dict(
+            refused=caught is not None,returned=result),None)
+        self.assertIsNotNone(caught,'Landed parent CAS time must remain in the original capture age')
+
 if __name__=='__main__':unittest.main()

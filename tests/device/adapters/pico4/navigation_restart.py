@@ -49,6 +49,7 @@ class NavigationRestart:
         self.inputs=RestartInputs(PrivateFeatureState(store.path.with_name('navigation-prefix-restart-inputs.json')),
             [parent.bookmarks.store,PrivateFeatureState(store.path.with_name('navigation-prefix-generation-1-bookmarks.json')),parent.store],monotonic=parent.monotonic)
         self.disk=self.store.read();self.state=None;self.anchor=None;self.runtime=None
+        self.capture_anchor=self.capture_anchor_sha=None
         if self.disk is not None:self.load()
 
     def scope(self):
@@ -197,7 +198,10 @@ class NavigationRestart:
             proof=dict(navigationBookmarkRestartProofVersion=1,input=self.inputs.read(),oldNative=deepcopy(self.state['oldNative']),
                 native=packet,exit=exited,oldBookmark=deepcopy(self.state['oldBookmark']),bookmark=book)
             restart_proof(proof,self.run);self.fence()
-            phase=self.fence();started=self.parent.now();frame=source.capture(self.parent.state['receipt'],phase['status'],lookup_receipt=self.parent.state['lookupReceipt'])
+            phase=self.fence();started=self.parent.now()
+            self.capture_anchor=dict(hostMonotonic=started,nativeEpochMs=native.clock_ms())
+            self.capture_anchor_sha=json_digest(self.capture_anchor)
+            frame=source.capture(self.parent.state['receipt'],phase['status'],lookup_receipt=self.parent.state['lookupReceipt'])
             need(same(source.project(frame),self.parent.source.project(self.state['oldFrame'])))
             with session._lock():new_session=deepcopy(session._load())
             current=deepcopy(self.state);current.update(phase='observed',proof=proof,newSession=new_session,newFrame=frame)
