@@ -121,3 +121,20 @@ Native/Qt/OS/physics and final I/O seams remain explicit models. There is no
 the same class's normal Scripts/held/stale/Close/release/Restore actions8…16,
 then the actual new-process cleanup-source handoff and full Actor/image/
 resource/file/archive/host closure. These results do not qualify a whole feature.
+
+
+## Root integration verification
+
+Root selected both operation packets as `0bbdeafa88` and `e8efa28b30`, keeping
+all newer Root registry entries and WorldPrefix3. The existing baseline's12
+cases pass in44.501 s, the14 operation cases in33.568 s, and coverage in0.113 s.
+All13,557 tracked/new sources retain identical full before/after hashes. The
+actual integrated seven-action bill is World48 plus readonly34,82 physical
+triples, with no additional mutating World or erased observation.
+
+The catalog now has252 selectors and retains all14 capability rows. Complete
+Root output and originals remain private under
+`lifecycle-operations-seven-integration-*20261024`. This includes the actual
+outer-exit fault counters and preserves uncertain returned intents. Public
+Lifecycle, missing actions8–16, independent Actor/images and full cleanup
+remain unqualified.

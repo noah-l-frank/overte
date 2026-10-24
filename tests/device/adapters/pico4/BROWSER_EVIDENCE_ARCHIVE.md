@@ -187,3 +187,15 @@ the complete stdout, source/original manifests and backup hash. The next useful
 measurement is pre-archive original catalog/receipt verification. This failed
 owner is retained; no cold continuation, replay, timeout increase or cleanup
 success is inferred from it. Full Feature7 remains partial.
+
+
+The intact terminal snapshot also contains the typed state-side ownership
+sentry in `archiving`; the absent marker above specifically means the later
+artifact-side `archive-intent.json`. Thus pre-archive admission was entered.
+A read-only method-only cost measurement constructs all1,069 original catalog
+windows over6,656,901 bytes in0.750 s; full verification takes0.179–0.197 s.
+All1,153 original files retain their full stamps/hashes. Plain catalog I/O
+alone therefore does not explain the unresolved overall time. The first
+measurement's count assertion correctly exposed the additional sentry; the
+corrected cost view excludes that separately owned sentry and grants no native
+query, live owner, unlink or completion authority.

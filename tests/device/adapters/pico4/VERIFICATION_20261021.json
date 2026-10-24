@@ -5541,8 +5541,78 @@
     "privateEvidence": "/home/user/Documents/github/overte-pico-adapter-private-20261021/browser-whole-immutable-",
     "normalCloseSeconds": 64.627,
     "commonCleanupBaselineSeconds": 83.862,
-    "observedAfterCommon": "Stored independent Actor return is consumed; remote capture root is ready with54children. Its final warm admission/completion is not proven by that marker. No archive marker or copy exists at timeout.",
+    "observedAfterCommon": "Typed archiving ownership sentry exists; initial archive-intent marker/copies do not. Source data constructor/admission was entered, but immutable archive and final host closure were not reached.",
     "qualification": "Latest unchanged complete owning case is red; component cost improvements do not prove whole budget or final source/host release.",
-    "nextExecutableStep": "Profile the original immutable pre-archive catalog/receipt verification, because this run never reached the optimized unlink path. Do not repeat the unchanged whole or adopt the partial owner."
+    "nextExecutableStep": "Locate the remaining transaction cost with actual stage evidence. A pure full1069-file/6.66MB catalog construction takes0.750s and full verification0.179\u20130.197s, so plain catalog I/O alone does not explain the remaining whole budget. Preserve all checks; no unchanged whole retry or partial-owner adoption.",
+    "archiveOwnershipSentryPhase": "archiving",
+    "archiveIntentMarkerPresent": false,
+    "readOnlyIntactCatalogCost": {
+      "qualification": "Historical intact file-read cost only; no native/phase query, no live owner adoption, no deletion or completion authority.",
+      "originalFiles": 1153,
+      "catalogFiles": 1069,
+      "catalogBytes": 6656901,
+      "allOriginalStampsAndHashesUnchanged": true,
+      "timings": {
+        "constructHistoricalReadWindows": 0.7497216159244999,
+        "completeOriginalCatalogVerification": [
+          0.17921040393412113,
+          0.19693433493375778,
+          0.18267433892469853,
+          0.1847363980486989,
+          0.18309894704725593
+        ],
+        "strictExpectedJsonOnly": [
+          0.02446040906943381,
+          0.026886228937655687,
+          0.02490791503805667,
+          0.0244275510776788,
+          0.024321675999090075
+        ]
+      }
+    }
+  },
+  "lifecycleOperationsSevenRoot20261024": {
+    "sourceCommits": [
+      "96230383238748547826434dd9c0a5c9fdbc0317",
+      "c74609b3e86a08b50dc5038b821875248d39b229"
+    ],
+    "integrationCommits": [
+      "0bbdeafa88",
+      "e8efa28b30"
+    ],
+    "qualification": "Same private Source3/normal primary operation graph through unchanged recipe actions1\u20137 and original common waits; native/Qt/OS/physics/final I/O retain declared host seams.",
+    "privateEvidence": "/home/user/Documents/github/overte-pico-adapter-private-20261021/lifecycle-operations-seven-integration-",
+    "sourceFiles": 13557,
+    "sourceFilesUnchangedDuringTests": true,
+    "baselineCases": 12,
+    "baselineSeconds": 44.501,
+    "operationsCases": 14,
+    "operationsSeconds": 33.568,
+    "coverageSeconds": 0.113,
+    "catalogSelectors": 252,
+    "newSelectors": 1,
+    "capabilityRows": 14,
+    "actualTriples": {
+      "mutatingWorld": 48,
+      "separateReadonly": 34,
+      "totalPhysical": 82
+    },
+    "originalOuterExitIssue": "Three genuine parent/phase-reader exit counters were red against exact962 source, green in fixed source and now passed in Root owning selection.",
+    "preserved": [
+      "Typed exact phase/owner fences after child CAS before final normal Qt/controller/OS/app-file publication",
+      "Pure host-only callbacks inside actual Session lock",
+      "Own immutable phase packets and actual parent/chunk identities",
+      "Original pending callback ownership",
+      "World128 and readonly128 independent; newPID rows2..64 separate",
+      "WorldPrefix3 reads1,2,3 and all newer Root selectors"
+    ],
+    "remaining": [
+      "Same normal dispatcher actions8\u201316 with original Pending hold/deadline",
+      "New-PID cleanup-source handoff",
+      "Independent Actor and original stereo/images",
+      "Public coordinator and resource/file/archive/host finalization"
+    ],
+    "wholeSuccess": false,
+    "physicalRuns": 0
   }
 }
