@@ -681,7 +681,11 @@
         "tests/device/self_tests/test_pico_world_web_prefix.py",
         "tests/device/self_tests/test_pico_world_web_navigation_prefix.py",
         "tests/device/self_tests/test_pico_world_web_recovery_prefix.py",
-        "android/vr/pico/tests/device/test_world_web_recovery_prefix.py"
+        "android/vr/pico/tests/device/test_world_web_recovery_prefix.py",
+        "tests/device/adapters/pico4/world_web_source_pass.py",
+        "tests/device/adapters/pico4/WORLD_WEB_ACTOR_SOURCE_PASS.md",
+        "tests/device/self_tests/pico_world_web_process_fixture.py",
+        "tests/device/self_tests/test_pico_world_web_source_process.py"
       ],
       "declaredCheckpoints": 19,
       "inputVerbs": [
@@ -731,7 +735,7 @@
         "Revoke actual view/grant/nonce authority",
         "Drain original retained callbacks and prove absent owned entities/view resources"
       ],
-      "nextExecutableStep": "Normal first13/19 v16 World actions now compose through ScriptManager/Home/URL/Submit/Close, calibrated ray/IME/Send/Clear/pageB/Back, foreign URL/blocked echo and actual404/restore/reload200. Root9+5+3 owning cases pass19.46s including all4 preparation publication counters; eight real HTTP-document originals and14 separate transactions per role. Next review retained-resume native-source counter23e8183d5f; inspect full normalPico HOME/Activity/Qt/native chain. Unchanged v16 step15 requires lifecycle-driven replacement; never add an extra manualReload or invent documentLoads/finish events to force it. Continue normalClose/ScriptStop and original resource retirement independently. Real independent Actor process/publication, original stereo/scene evidence, full public flow and resource/Host/archive closure remain open.",
+      "nextExecutableStep": "Join the existing World stereo/Scene/PNG owners to this same normal14-step primary/independent-source process and typed Parent-consumed Return. Root six actual-process cases52.472s plus six publication cases10.269s and nine original-prefix cases2.296s pass with all13,565 sources unchanged. Retained VM stays a resource after normal ScriptStop and observerESRCH. Review the new stereo packet and a versioned truthful retained-document BG contract preserving old16 semantics; do not invent steps15\u201319, new loads or resource release. Full public/resource/journal/archive/host finalization remains open.",
       "nativeCompilation": "Selected complete NativeWebViewItem TU plus unchanged world-provider, RayPick and renderer projection bodies compile and pass Qt5 host checks; entity/avatar/HMD and Android DOM/transport are explicit seams. Complete application/APK and device behavior unverified.",
       "deviceQualification": "untested"
     },

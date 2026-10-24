@@ -132,3 +132,24 @@ foreign-return refusal. Two existing lost-input/v1-v2 grammar cases pass in
 2.088 s, coverage (10 cases) in 0.043 s, registry and four selected repository
 suites in 1.58 s. All 13,524 source files remain unchanged throughout those
 functional selections. This paragraph records results after that freeze only.
+
+
+## Root integration verification
+
+Root selected publication and original-process packets as `80c707a1ec` and
+`e41b2b0d99`. All six actual-process cases pass in52.472 s, all six publication
+cases in10.269 s, nine original-prefix cases in2.296 s, and coverage in0.110 s.
+All13,565 tracked/new source hashes remain unchanged throughout the integrated
+selection. The catalog has254 selectors and retains all14 capability rows.
+Complete original output remains private under
+`world-web-source-process-integration-*20261024`.
+
+The merge preserves the reviewed Root prepare and identity-control bodies
+exactly by AST comparison. The extracted clock-seal also retains the original
+final identity guard after its actual native/host clocks. Registry entries keep
+newer Root Avatar/Lifecycle versions and original WorldPrefix3 read1/2/3.
+
+This proves the separate observer's original source/publication/consumption/
+ESRCH path with the declared native/Qt/V8/OS producers. It explicitly retains
+`script:world-web-client` and every original file. It does not qualify missing
+background steps, stereo originals, Overte VM release or full Feature6.

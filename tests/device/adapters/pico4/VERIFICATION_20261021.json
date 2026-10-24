@@ -5687,5 +5687,49 @@
       "Whole MyAvatar/renderer/V8/Qt/EntityTree ownership",
       "Wearables/People/peer/stereo/device qualification"
     ]
+  },
+  "worldIndependentSourceProcessRoot20261024": {
+    "sourceCommits": [
+      "04a9bfe7d927c25a33c860d52cacc2fc6153a70f",
+      "cf55debd37fe408f39652a0110aedaf9074a5ed6"
+    ],
+    "integrationCommits": [
+      "80c707a1ec",
+      "e41b2b0d99"
+    ],
+    "qualification": "Actual separate host observer, own original read transactions, normal14-step prefix/Stop, literal Parent consumption and kernel ESRCH. Retained Overte VM remains explicit; no stereo, full19-step or resource/archive retirement claim.",
+    "privateEvidence": "/home/user/Documents/github/overte-pico-adapter-private-20261021/world-web-source-process-integration-",
+    "sourceFiles": 13565,
+    "sourceFilesUnchangedDuringTests": true,
+    "catalogSelectors": 254,
+    "capabilityRows": 14,
+    "newSelectors": 2,
+    "owningSelectionsSeconds": {
+      "sourceProcessSixCases": 52.472,
+      "actorPublicationSixCases": 10.269,
+      "initialPrefixNineCases": 2.296,
+      "coverageTenCases": 0.11
+    },
+    "formats": [
+      "pico-world-web-source-pass:1",
+      "pico-world-web-source-return:1"
+    ],
+    "preserved": [
+      "Root prepare body byte-for-byte AST equality",
+      "Root identity-control body AST equality",
+      "Original post-clock final identity check after clock-seal refactor",
+      "Strict v1/v2/v3 Parent readers",
+      "Actual pre-Parent-CAS pending window before target/history intent",
+      "Lost HTTP/no cold resend and original capture anchor",
+      "Foreign Parent nonce and same-byte/new-inode refusal",
+      "All original source files and retained VM resource"
+    ],
+    "remaining": [
+      "Existing World stereo/scene/original PNG join",
+      "Versioned truthful retained-document lifecycle observation and old-contract compatibility",
+      "Full original19step/Actor/resource/journal/archive/host/public finalization"
+    ],
+    "physicalRuns": 0,
+    "fullFeatureComplete": false
   }
 }
