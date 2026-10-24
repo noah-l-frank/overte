@@ -31,13 +31,33 @@ class CreateVoxelSourceNativeTests(unittest.TestCase):
             self.assertEqual(packet['before'],packet['restored'])
             self.assertEqual(1,len(packet['deleteCommands']));self.assertEqual(1,len(packet['deleteLists']))
             self.assertEqual(list(range(1,len(history)+1)),[row['sequence'] for row in history])
-            previous=None
+            previous=None;previous_entity=None
             for row in history:
+                frame=row['entityFrame']
+                create_entities.validate(frame,frame['requestId'],frame['processId'],row['capturedEpochMs'],'a'*32)
+                create_entities.continuity(previous_entity,frame);previous_entity=frame
+                self.assertEqual(6,frame['source']['createEntitySourceVersion'])
+                self.assertEqual(frame['sequence'],row['sequence'])
+                self.assertEqual(frame['source'],row['retirementSource'])
+                self.assertEqual(frame['source']['polyvoxResources'],row['polyvoxResources'])
                 create_polyvox_resources.validate(row['polyvoxResources'],row['capturedEpochMs'])
                 if previous:create_polyvox_resources.continuity(previous,row['polyvoxResources'])
                 previous=row['polyvoxResources']
                 if row['volume'] is not None:create_entities.voxel_source(row['volume'])
+            initial=next(row for row in history if row['phase']=='before-local-insert')
+            self.assertEqual([],initial['entityFrame']['source']['entities'])
+            self.assertEqual([],initial['entityFrame']['source']['localCreations']['events'])
+            self.assertTrue(create_entities.retired(initial['entityFrame']['source']))
             before=next(row for row in history if row['phase']=='baseline')
+            source=before['entityFrame']['source'];self.assertEqual(1,len(source['entities']))
+            self.assertEqual(1,len(source['localCreations']['events']))
+            event=source['localCreations']['events'][0];entity=source['entities'][0]
+            self.assertEqual(before['entityId'],event['id']);self.assertEqual(event['id'],entity['id'])
+            self.assertEqual('PolyVox',event['type']);self.assertEqual('domain',event['hostType'])
+            self.assertEqual(source['sessionId'],event['sessionId']);self.assertEqual(source['sessionId'],entity['lastEditedBy'])
+            self.assertEqual(event['createdEpochUs'],entity['createdEpochUs'])
+            self.assertGreaterEqual(event['observedEpochMs'],initial['entityFrame']['capturedEpochMs'])
+            self.assertGreaterEqual(entity['createdEpochUs'],initial['entityFrame']['capturedEpochMs']*1000)
             self.assertEqual(64,before['volume']['nonzero']);self.assertTrue(before['volume']['ready'])
             self.assertGreater(before['volume']['vertices'],0);self.assertGreater(before['volume']['indices'],0)
             self.assertTrue(create_polyvox_resources.joined(before['polyvoxResources'],before['entityId']))

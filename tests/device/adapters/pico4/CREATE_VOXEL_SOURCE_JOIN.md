@@ -3,13 +3,17 @@
 Feature 4 remains partial. This owning host selector joins the existing normal
 Create TOOLS fixture to current original CPU volume and geometry sources. It
 reuses `CreateEntityLifetimes`, `CreatePolyvoxResources`, the atomic
-`featureCreateVoxels` getter and the existing Python volume/resource/retirement
-predicates. It does not add a product getter or enable a device capability.
+`featureCreateVoxels` getter, full original `featureCreateEntities` body and
+existing Python entity/volume/resource/retirement predicates. It does not add a product getter or enable a device capability.
 
 `create-voxel-source-native` starts from one explicitly owned, isolated 8³ edged
-Marching Cubes fixture containing a 4³ filled block. Initial insertion, the
-controller SDK/pose, entity-list transport, tree/simulation and scene removal
-are named host endpoints. The actual original QML, Pico/offscreen pointer
+Marching Cubes fixture containing a 4³ filled block. The original local-copy,
+EntityTree add, full factory, constructor/initialize and creation-time bodies
+construct this actual object and emit its original local-insertion event.
+Initial properties and volume contents remain an explicit fixture. Octree
+placement, property application, node/domain/avatar/lifecycle, controller
+SDK/pose, entity-list transport, simulation and scene removal are named host
+endpoints. The actual original QML, Pico/offscreen pointer
 bodies, field input, NativeCreate bridge, EditModes and whole EditVoxels module
 handle the normal TOOLS configuration, controller mapping callback, remove
 stroke and restoration of all seven settings. Controller delivery itself is
@@ -41,8 +45,20 @@ functions. The host tree removes only the owned UUID. A declared host scene
 endpoint releases its actual renderer owner after that Delete. This endpoint
 is not the product render scene or a cache-release proof. At least three seconds
 of bounded observations then use the existing retirement predicate on an
-explicit minimal retirement slice. This slice does not claim validation as a
-complete feature-create-entities response.
+complete original EntitySource6 response. Its original getter obtains the
+actual entity, atomic voxel view, local-insertion history and weak resource
+observers. The existing production validator and continuity checks validate
+every frame, including the initially empty scene, one matching local creation
+event and final absent entity. No manually supplied insertion event, prefixed
+name alone or replayed source row substitutes for that original insert.
+
+The explicit property facade copies mutable metadata from the actual entity;
+unexecuted GPU render statistics remain zero and texture names are empty in
+this empty-texture fixture. The unchanged original isLoaded body reads the
+original native base flag (including its original true initializer); it is
+not a submitted-draw or pixel observation. The domain and lifecycle endpoints
+remain declared host actors. The live production Parent/controller/normal Add
+transport has not yet been joined to this native process.
 
 Three fresh-process modes share one fresh compilation: normal, retained renderer
 and ignored controller. Retained renderer must keep the original entity,
@@ -58,7 +74,7 @@ QElapsedTimer/epoch and independent host monotonic/epoch spans must each reach
 The 512-observation and 16 MiB limits remain.
 The compiler limit is 90 seconds and the registered selector limit is 120 seconds.
 
-The final Native6 selector passed in 25.949 seconds: one fresh compilation,
+Native6 passed in 25.949 seconds: one fresh compilation,
 all three modes and 13,455 repository input files unchanged. It executes the
 complete original constructor, initializePolyVox and destructor and the actual
 typed deleteLater lambda selected from the original factory. The original
@@ -84,6 +100,28 @@ Native and host epoch spans also passed the strict 3000 ms checks. All actual
 native/host gaps and receipt ages remained below 500 ms. Raw frames, independent
 host receipts, original fragments, provenance and all attempts remain in
 private local evidence.
+
+Source7 then joined the full original local-copy/Tree/factory/creation-time and
+EntitySource6 bodies in the same selector. It passed in 26.694 seconds
+(27.441 seconds including the external source receipt), with one fresh
+compilation, all three modes and 13,455 unchanged repository input files. Each
+baseline contained one original local-insertion event matching both the actual
+entity UUID and its original creation timestamp. Every recorded source was a
+validated original version 6 frame. Normal and ignored-controller Delete left
+that actual entity absent and dead with zero CPU buffers; the retained-renderer
+counter left it absent but alive with four CPU buffers and retirement false.
+
+| Source7 mode | Full original frames | Native monotonic quiet (ms) | Host monotonic quiet (ms) | Original trace bytes |
+| --- | ---: | ---: | ---: | ---: |
+| Normal | 43 | 3138 | 3133.858 | 254420 |
+| Retained renderer | 43 | 3139 | 3144.309 | 254100 |
+| Ignored controller | 40 | 3138 | 3136.894 | 218364 |
+
+Native and host epoch clocks also passed the full 3000 ms windows. Maximum
+native gap was 102 ms, host gap 110.978 ms and receipt age 10 ms. No source
+window, compiler/selector bound or frame/byte inventory was relaxed. This
+extends the original successful local insertion and read source; it does not
+qualify actual domain authority or the normal Add/Parent/SDK route.
 
 Four earlier attempts remain preserved. The first refused three host compile
 bindings. The second freshly compiled the original path and restored settings,
