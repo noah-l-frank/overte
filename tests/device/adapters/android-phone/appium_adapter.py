@@ -2981,7 +2981,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
             require(self.installed_identity(selector) == installed, 'PHONE_NORMAL_NAVIGATION_INSTALL_CHANGED')
 
         check()
-        ui = NativeUI(client, session, check)
+        ui = NativeUI(client, session, check,
+            timeout=20 if operation in {'scene.load','navigation.enter-domain'} else 10)
         flow = PhoneNavigation(ui, target['controls']['normalNavigation'], state,
             installed, process['identity'], lambda: self.save_session(selector, state))
         if operation=='scene.load':

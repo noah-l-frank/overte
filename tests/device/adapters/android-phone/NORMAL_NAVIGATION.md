@@ -97,3 +97,16 @@ fresh domain-probe checks. A missing/foreign normal profile or unbound domain
 input fails before input, and changed process ownership prevents further clicks.
 This is host adapter/test logic; real Phone behavior requires a separate device
 run on the explicitly bound client APK and host source revision.
+
+The `scene.load` and `navigation.enter-domain` normal editor flows use the
+existing supported 20-second native UI bound. Other normal navigation operations
+retain 10 seconds. Every actual lookup still runs its complete fresh continuity
+checks; stable disappearance still requires two fresh absent observations at
+least 0.3 seconds apart. Inputs are sent once, with no retry or cached fact.
+This bound accounts for elapsed process/installed-candidate checks: a first
+absence near a 10-second deadline otherwise leaves no time for its independent
+confirmation. A host latency counter proves that scheduling case and keeps an
+ignored Go or foreign process red. Job15 did not retain element response values,
+so this calibration does not establish its device root cause or a successful
+navigation. Original outer-operation and module bounds remain independently
+enforced; a fresh device retest must establish the actual effect.

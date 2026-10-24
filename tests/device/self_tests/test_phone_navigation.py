@@ -280,6 +280,56 @@ class PhoneNavigationTests(unittest.TestCase):
         self.assertGreaterEqual(len(samples), 3)
         self.assertTrue(all(not value['domain']['connected'] for value in samples))
 
+    def test_two_fresh_absence_reads_survive_slow_guards_only_with_supported_bound(self):
+        class SlowClosePhone(NativePhone):
+            # Explicit latency/visibility seam only, not a claim about Job15's
+            # unretained response values. Each complete guard costs 1.5s;
+            # the dialog closes within 8.5s of wait_absent starting.
+            def __init__(self, timeout, ignored=False, foreign=False):
+                super().__init__()
+                self.close_at = None; self.lookups = []; self.ignored = ignored
+                def guard():
+                    self.clock += 1.5
+                    if foreign and self.field: raise RuntimeError('Host process boundary changed')
+                self.ui = NativeUI(self, 'owned-session', guard, timeout=timeout,
+                    monotonic=lambda: self.clock, sleep=self.sleep)
+
+            def call(self, method, path, body=None):
+                if self.close_at is not None and self.clock >= self.close_at:
+                    self.address_open = False
+                if path.endswith('/click') and '/element/' in path:
+                    name = self.by_reference[path.split('/element/', 1)[1].split('/')[0]]
+                    if name == 'PhoneAddressGoButton':
+                        self.inputs.append(name)
+                        if not self.ignored: self.close_at = self.clock + 10.0
+                        return None
+                value = super().call(method, path, body)
+                if path.endswith('/elements') and body['value'].endswith('PhoneAddressField') and 'PhoneAddressGoButton' in self.inputs:
+                    self.lookups.append((self.clock, bool(value)))
+                return value
+
+        short = SlowClosePhone(10)
+        with self.assertRaisesRegex(NativeUIError, 'control did not disappear'):
+            short.flow().enter_domain(self.DOMAIN, self.DOMAIN, 'controlled.test')
+        self.assertEqual(1, short.inputs.count('PhoneAddressGoButton'))
+        self.assertFalse(short.address_open)
+        self.assertEqual(1, len([clock for clock, present in short.lookups if not present]))
+        self.assertTrue(short.state['normalNavigation']['addressOwned'])
+        bounded = SlowClosePhone(20)
+        self.assertEqual({'requested': True}, bounded.flow().enter_domain(self.DOMAIN, self.DOMAIN, 'controlled.test'))
+        absent = [clock for clock, present in bounded.lookups if not present]
+        self.assertEqual(2, len(absent)); self.assertGreaterEqual(absent[1] - absent[0], .3)
+        self.assertEqual(1, bounded.inputs.count('PhoneAddressGoButton'))
+        self.assertFalse(bounded.state['normalNavigation']['addressOwned'])
+        self.assertNotEqual(self.DOMAIN, bounded.current)  # No world arrival was synthesized.
+        ignored = SlowClosePhone(20, ignored=True)
+        with self.assertRaises(NativeUIError): ignored.flow().enter_domain(self.DOMAIN, self.DOMAIN, 'controlled.test')
+        self.assertTrue(ignored.address_open); self.assertTrue(ignored.state['normalNavigation']['addressOwned'])
+        self.assertEqual(1, ignored.inputs.count('PhoneAddressGoButton'))
+        changed = SlowClosePhone(20, foreign=True)
+        with self.assertRaises(NativeUIError): changed.flow().enter_domain(self.DOMAIN, self.DOMAIN, 'controlled.test')
+        self.assertNotIn('PhoneAddressGoButton', changed.inputs)
+
     def test_scene_input_accepts_the_exact_approved_controlled_spawn_query(self):
         from navigation_observation import arrived, VIEWPOINTS
         for label, location in VIEWPOINTS.items():
