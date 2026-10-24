@@ -30,6 +30,12 @@ def original_chronology(rows,key,maximum_gap):
 
 class AvatarPeopleControlsNativeTests(unittest.TestCase):
     def test_original_avatar_loader_url_restore_and_actual_hit_ownership(self):
+        self._run_original_native(False)
+
+    def test_original_avatar_model_setter_settings_write_and_normal_data_restore(self):
+        self._run_original_native(True)
+
+    def _run_original_native(self,persistence):
         environment=dict(os.environ)
         prefix=Path(environment['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
         environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),
@@ -41,6 +47,7 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
             stage=Path(directory);pointer_source(stage);prepare_ui_host(stage,ROOT);binary=stage/'test'
             includes=['-I'+directory,'-I'+str(ROOT),'-I'+str(ROOT/'libraries/shared/src')]
             definitions=['-DOVERTE_E2E_FEATURE_TESTS','-DANDROID_APP_PICO_INTERFACE']
+            if persistence:definitions.append('-DAVATAR_ORIGINAL_MODEL_PERSISTENCE')
             imports=stage/'imports/TabletScriptingInterface';imports.mkdir(parents=True)
             (imports/'qmldir').write_text('module TabletScriptingInterface\nsingleton Tablet 1.0 Tablet.qml\nsingleton TabletEnums 1.0 TabletEnums.qml\n')
             (imports/'Tablet.qml').write_text('pragma Singleton\nimport QtQuick 2.7\nQtObject { function playSound(value) {} }\n')
@@ -84,8 +91,65 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
                 self.assertEqual(0,completed.returncode,completed.stderr[-12000:])
                 result=completed.stdout
             value=json.loads(result)
+            self.assertEqual('original-model-persistence' if persistence else 'preference-noop',value['nativeCallerProfile'])
+            from adapters.native_fd_owner import OriginalDescriptor
+            from adapters.chat_journey.archive_file import signature
+            from adapters.normal_feature_state import PrivateFeatureState
+            import stat
+            journal_path=Path(str(trace)+'.originals.jsonl');PrivateFeatureState(journal_path)._parent()
+            journal_owner=OriginalDescriptor(journal_path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
+            try:
+                info=os.fstat(journal_owner.fd);self.assertTrue(stat.S_ISREG(info.st_mode));self.assertEqual(1,info.st_nlink)
+                self.assertEqual(os.geteuid(),info.st_uid);self.assertEqual(0o600,stat.S_IMODE(info.st_mode));self.assertLessEqual(info.st_size,16*1024*1024)
+                journal_raw=os.pread(journal_owner.fd,16*1024*1024+1,0);self.assertEqual(info.st_size,len(journal_raw))
+                self.assertEqual(signature(info),signature(os.fstat(journal_owner.fd)));self.assertEqual(signature(info),signature(journal_path.lstat()))
+                journal_owner.require(journal_owner.fd)
+            finally:self.assertTrue(journal_owner.close())
+            journal=[json.loads(line) for line in journal_raw.splitlines()];self.assertEqual(value['originalObservationCount'],len(journal));self.assertLessEqual(len(journal),512)
+            for sequence,event in enumerate(journal,1):
+                self.assertEqual({'avatarObservationJournalVersion','sequence','kind','source','nativeMonotonicNs','capturedEpochMs','processId'},set(event))
+                self.assertIs(type(event['avatarObservationJournalVersion']),int);self.assertEqual(1,event['avatarObservationJournalVersion'])
+                self.assertEqual(sequence,event['sequence']);self.assertEqual(value['nativeProcessId'],event['processId']);self.assertGreater(event['nativeMonotonicNs'],0)
+                self.assertIn(event['kind'],('preferences','model-connections'))
+                if event['kind']=='model-connections':self.assertTrue(persistence);self.assertEqual(1,event['source']['avatarModelConnectionsVersion'])
             from adapters.pico4.avatar_preferences import validate as preference_validate,baseline as preference_baseline,continuity as preference_continuity
             from adapters.pico4.avatar_favorite_effect import unchanged_preferences,original_preferences,original_bookmarks
+            for event in journal:
+                if event['kind']=='preferences':
+                    source=event['source'];packet=source['packet'];preference_validate(packet,source['request'],value['nativeProcessId'],event['capturedEpochMs'])
+            unsettled_path=Path(str(trace)+'.unsettled.jsonl')
+            if unsettled_path.exists():self.assertEqual(value['preferenceSettleOriginals'],[json.loads(line) for line in unsettled_path.read_bytes().splitlines()])
+            else:self.assertEqual([],value['preferenceSettleOriginals'])
+            def url_data(effect,uri,callback_scale=False):
+                before=effect['before']['packet'];after=effect['after']['packet']
+                a=preference_baseline(before);b=preference_baseline(after);preference_continuity(before,after)
+                self.assertEqual(a['instance'],b['instance']);self.assertGreaterEqual(b['mutationSequence'],a['mutationSequence'])
+                x=a['cache']['native'];y=b['cache']['native'];self.assertEqual(uri,y['live']['preferenceUrl'])
+                allowed={'preferenceUrl','scale','targetScale'} if callback_scale else {'preferenceUrl'}
+                self.assertEqual({k:v for k,v in x['live'].items() if k not in allowed},{k:v for k,v in y['live'].items() if k not in allowed})
+                if x['live']['preferenceUrl']!=uri:self.assertGreater(b['mutationSequence'],a['mutationSequence'])
+                old=x['handles']['handles'];new=y['handles']['handles'];handle=new['fullAvatarURL'];key=handle['key']
+                self.assertEqual({k:v for k,v in old.items() if k!='fullAvatarURL'},{k:v for k,v in new.items() if k!='fullAvatarURL'})
+                for field in ('key','default','deprecated'):self.assertEqual(old['fullAvatarURL'][field],handle[field])
+                self.assertTrue(all(handle[field] for field in ('initialized','managerBound','isSet')))
+                self.assertEqual(handle['value'],b['cache']['rows'][key])
+                self.assertEqual({k:v for k,v in a['cache']['rows'].items() if k!=key},{k:v for k,v in b['cache']['rows'].items() if k!=key})
+                for where in ('cache','writer'):
+                    self.assertEqual({k:v for k,v in a[where]['encodedRows']['values'].items() if k!=key},
+                        {k:v for k,v in b[where]['encodedRows']['values'].items() if k!=key})
+                self.assertEqual({k:v for k,v in a['writer']['rows'].items() if k!=key},{k:v for k,v in b['writer']['rows'].items() if k!=key})
+                disk=[]
+                for side,source in (('before',a),('after',b)):
+                    data=base64.b64decode(effect[side+'PhysicalBase64'],validate=True)
+                    self.assertEqual(hashlib.sha256(data).hexdigest(),source['writer']['physical']['fileSha256']);disk.append(json.loads(data))
+                self.assertEqual({k:v for k,v in disk[0].items() if k!=key},{k:v for k,v in disk[1].items() if k!=key})
+                persisted='' if uri=='qrc:/meshes/defaultAvatar_full.fst' else uri
+                self.assertEqual(persisted,disk[1][key])
+                token=b['writer']['physical']['rows']['values'][key]
+                self.assertEqual(persisted,json.loads(base64.b64decode(token['base64'],validate=True)))
+            for original in value['preferenceSettleOriginals']:
+                packet=original['packet'];preference_validate(packet,original['request'],value['nativeProcessId'],packet['capturedEpochMs'])
+                with self.assertRaises(RuntimeError):preference_baseline(packet)
             native_inputs=value['originalAvatarInputs'];self.assertTrue(native_inputs)
             for effect in native_inputs:
                 before=effect['before']['packet'];after=effect['after']['packet']
@@ -96,14 +160,16 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
                 self.assertGreaterEqual(effect['normalMessages'],1);self.assertLessEqual(effect['normalMessages'],len(value['normalMessageJournal']))
                 self.assertTrue(value['normalInputJournal'][effect['normalInput']-1]['reply']['performed'])
                 a=preference_baseline(before);b=preference_baseline(after)
-                self.assertEqual(a['mutationSequence'],b['mutationSequence'])
-                self.assertEqual(a['cache']['native']['handles'],b['cache']['native']['handles'])
-                for field in ('rows','encodedRows'):
-                    self.assertEqual(a['cache'][field],b['cache'][field]);self.assertEqual(a['writer'][field],b['writer'][field])
-                for field in ('file','fileSha256','rows','pathSha256'):
-                    self.assertEqual(a['writer']['physical'][field],b['writer']['physical'][field])
+                if not persistence:
+                    self.assertEqual(a['mutationSequence'],b['mutationSequence'])
+                    self.assertEqual(a['cache']['native']['handles'],b['cache']['native']['handles'])
+                    for field in ('rows','encodedRows'):
+                        self.assertEqual(a['cache'][field],b['cache'][field]);self.assertEqual(a['writer'][field],b['writer'][field])
+                    for field in ('file','fileSha256','rows','pathSha256'):
+                        self.assertEqual(a['writer']['physical'][field],b['writer']['physical'][field])
                 if effect['call']['method']=='useFullAvatarURL':
-                    self.assertEqual(effect['call']['value'],b['cache']['native']['live']['preferenceUrl'])
+                    if persistence:url_data(effect,effect['call']['value'])
+                    else:self.assertEqual(effect['call']['value'],b['cache']['native']['live']['preferenceUrl'])
                 else:
                     self.assertEqual('setAvatarScale',effect['call']['method']);unchanged_preferences(before,after)
                     self.assertAlmostEqual(effect['call']['value'],b['cache']['native']['live']['targetScale'],places=5)
@@ -134,10 +200,13 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
                 with self.subTest(original_reverse_clock=key),self.assertRaises(AssertionError):
                     original_chronology(list(reversed(rows)),key,maximum)
             previous_preference=None
+            previous_model=None
             for index,(line,row,receipt) in enumerate(zip(observed['traceLines'],trace_rows,receipts),1):
                 self.assertEqual({'avatarOriginalDataQuietVersion','sequence','nativeMonotonicNs','capturedNativeEpochMs','data'},set(row))
-                self.assertIs(type(row['avatarOriginalDataQuietVersion']),int);self.assertEqual(1,row['avatarOriginalDataQuietVersion'])
-                self.assertEqual({'preferences','bookmarks','loads','settingsRawBase64'},set(row['data']))
+                self.assertIs(type(row['avatarOriginalDataQuietVersion']),int);self.assertEqual(2 if persistence else 1,row['avatarOriginalDataQuietVersion'])
+                fields={'preferences','bookmarks','loads','settingsRawBase64'}
+                if persistence:fields.add('modelConnections')
+                self.assertEqual(fields,set(row['data']))
                 for field in ('sequence','nativeMonotonicNs','capturedNativeEpochMs'):self.assertIs(type(row[field]),int);self.assertGreater(row[field],0)
                 self.assertEqual(index,row['sequence']);self.assertEqual(index,receipt['sequence'])
                 self.assertEqual(hashlib.sha256(line).hexdigest(),receipt['sourceSha256'])
@@ -150,6 +219,20 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
                 self.assertTrue(all(event['completed'] and event['disconnected'] and not event['captureAlive'] and event['active']==0 for event in data['loads']['rows']))
                 self.assertGreaterEqual(receipt['capturedHostEpochMs'],row['capturedNativeEpochMs'])
                 self.assertLessEqual(receipt['capturedHostEpochMs']-row['capturedNativeEpochMs'],1500)
+                if persistence:
+                    model=data['modelConnections'];self.assertEqual({'avatarModelConnectionsVersion','instance','capturedEpochMs','rows'},set(model))
+                    self.assertIs(type(model['avatarModelConnectionsVersion']),int);self.assertEqual(1,model['avatarModelConnectionsVersion'])
+                    self.assertRegex(model['instance'],'^[0-9a-f]{32}$');self.assertTrue(0<=row['capturedNativeEpochMs']-model['capturedEpochMs']<=1500)
+                    self.assertTrue(1<=len(model['rows'])<=128)
+                    if previous_model is not None:self.assertEqual(previous_model['instance'],model['instance']);self.assertEqual(previous_model['rows'],model['rows'])
+                    previous_model=model;last_change=0
+                    for connection in model['rows']:
+                        self.assertEqual({'id','urlSha256','change','createdEpochMs','enteredEpochMs','returnedEpochMs','ownerAlive','senderAlive','captureAlive','connected','disconnected','completed','dispatches','active','ownerThreadOnly'},set(connection))
+                        self.assertRegex(connection['id'],'^[0-9a-f]{32}$');self.assertRegex(connection['urlSha256'],'^[0-9a-f]{64}$')
+                        self.assertGreater(connection['change'],last_change);last_change=connection['change']
+                        self.assertTrue(0<connection['createdEpochMs']<=connection['enteredEpochMs']<=connection['returnedEpochMs']<=model['capturedEpochMs'])
+                        for field in ('ownerAlive','senderAlive','connected','disconnected','completed','ownerThreadOnly'):self.assertIs(connection[field],True)
+                        self.assertIs(connection['captureAlive'],False);self.assertEqual(0,connection['active']);self.assertEqual(1,connection['dispatches'])
             # Actual earlier native originals remain historical at the later
             # measured native clock; never retime them into a fresh result.
             with self.assertRaises(AssertionError):current_data(trace_rows[0]['data'],trace_rows[-1]['capturedNativeEpochMs'])
@@ -157,6 +240,9 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
                 original_chronology([row['data'][key] for row in trace_rows],'capturedEpochMs',500)
                 self.assertGreaterEqual(trace_rows[-1]['data'][key]['capturedEpochMs']-trace_rows[0]['data'][key]['capturedEpochMs'],3000)
             self.assertGreaterEqual(trace_rows[-1]['data']['preferences']['packet']['capturedEpochMs']-trace_rows[0]['data']['preferences']['packet']['capturedEpochMs'],3000)
+            if persistence:
+                models=[row['data']['modelConnections'] for row in trace_rows];original_chronology(models,'capturedEpochMs',500)
+                self.assertGreaterEqual(models[-1]['capturedEpochMs']-models[0]['capturedEpochMs'],3000)
             effects=value['originalFavoritePreferences'];self.assertEqual(len(value['originalBookmarkLoads']),len(effects))
             previous=None
             for effect in effects:
@@ -183,14 +269,15 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
                 if effect['cached']:unchanged_preferences(effect['before']['packet'],effect['after']['packet'])
                 before=effect['before']['packet']['source']['snapshot'];after=effect['after']['packet']['source']['snapshot']
                 self.assertEqual(before['instance'],after['instance'])
-                self.assertEqual(before['mutationSequence'],after['mutationSequence'])
-                for field in ('rows','encodedRows'):
-                    self.assertEqual(before['cache'][field],after['cache'][field])
-                    self.assertEqual(before['writer'][field],after['writer'][field])
-                self.assertEqual(before['cache']['native']['handles'],after['cache']['native']['handles'])
-                self.assertEqual(effect['beforePhysicalBase64'],effect['afterPhysicalBase64'])
-                for field in ('fileSha256','file','rows','pathSha256'):
-                    self.assertEqual(before['writer']['physical'][field],after['writer']['physical'][field])
+                if effect['cached'] or not persistence:
+                    self.assertEqual(before['mutationSequence'],after['mutationSequence'])
+                    self.assertEqual(effect['beforePhysicalBase64'],effect['afterPhysicalBase64'])
+                    for field in ('rows','encodedRows'):
+                        self.assertEqual(before['cache'][field],after['cache'][field]);self.assertEqual(before['writer'][field],after['writer'][field])
+                    self.assertEqual(before['cache']['native']['handles'],after['cache']['native']['handles'])
+                    for field in ('fileSha256','file','rows','pathSha256'):
+                        self.assertEqual(before['writer']['physical'][field],after['writer']['physical'][field])
+                else:url_data(effect,'https://controlled.invalid/owned/avatar-a.fst',callback_scale=True)
                 old=effect['beforeLoads']['rows'];new=effect['afterLoads']['rows']
                 self.assertEqual(old,new[:len(old)]);self.assertEqual(len(old)+1,len(new))
                 callback=new[-1]

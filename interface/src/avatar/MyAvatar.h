@@ -43,6 +43,9 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 namespace overte::e2e { class LifecycleDriveObservation; }
 #endif
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+namespace overte::e2e { class AvatarModelConnections; }
+#endif
 
 class AvatarActionHold;
 class ModelItemID;
@@ -1073,6 +1076,7 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
     // Native-only passive lazy Handle fields, read under the actual Manager barrier.
     QVariantMap e2ePreferenceHandles() const;
+    QVariantMap e2eModelConnections() const;
 #endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     // Passive native-only actual frame; never a script-visible input setter.
@@ -2604,6 +2608,9 @@ private:
     std::bitset<MAX_DRIVE_KEYS> _disabledDriveKeys;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     mutable std::shared_ptr<overte::e2e::LifecycleDriveObservation> _featureLifecycleDrive;
+#endif
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    std::shared_ptr<overte::e2e::AvatarModelConnections> _featureModelConnections;
 #endif
 
     bool _enableFlying { false };

@@ -847,3 +847,68 @@ destroyed-owner intent remains owned without a fabricated result. The native
 stages, binaries and stdout/stderr remain in the private
 `avatar-lazy-cas-root-native-20261024-*` artifact directory. This does not qualify
 written Settings/Bookmark restoration, real model loading or full retirement.
+
+## Actual model-setter preference writes and normal data return
+
+The two native UI selectors are now disjoint. `avatar-people-native-ui` names
+only the existing no-op method. `avatar-persistence-native-ui` names only
+`test_original_avatar_model_setter_settings_write_and_normal_data_restore`.
+Each keeps its own 90-second combined moc/build/link, 30-second native and
+120-second outer limits. Running the file without a method would discover both;
+the catalog does not do that or run either method twice.
+
+The new profile executes complete original `MyAvatar::setSkeletonModelURL`
+and `saveAvatarUrl` callers rather than injecting a save into a model stub.
+Initial normal URL admission runs before baseline capture: the actual URL
+Handle is initialized/set/Manager-bound, the other 22 remain as observed,
+and whole real Settings bytes contain the original empty persisted URL.
+Base Avatar, Skeleton/geometry inputs, scene and animation initialization are
+declared host actors. Their getters never qualify loaded HFM, actual rendering
+or the complete MyAvatar startup. The original preference getter's complete
+native-data lambda is reused verbatim for private mementos and input guards.
+
+Every normal input and native callback entry fences the last actual owned
+memento. Actual unrelated typed cache/registrations, handles, live values and
+whole JSON rows remain guarded before adoption of an ordinary setter effect.
+Source queries wait only for actual cache/writer/physical agreement, retaining
+unready originals with existing bounds. No observer calls sync, reload or
+forceSave after normal input. A private fsync'd observation journal immediately
+preserves every public preference original and actual model-connection sample,
+including before a later failure. Its closed private format is registered as
+`pico-avatar-observation-journal-native` v1 and is cold-read through the existing
+native descriptor owner; it is historical audit, not a fresh source substitute.
+
+Pico E2E-only passive hooks observe the original setter's actual
+`skeletonConnection` shared capture. They retain weak captures and QPointers,
+record actual dispatch/return/disconnect and owner-thread facts, and never keep
+a callback or QObject alive. The native-only original getter reports registered
+`pico-avatar-model-connections-native` v1. The persistence quiet trace writes
+private original-data v2 with that additional source; the existing no-op keeps
+v1 unchanged. The reader and registry retain v1/v2 explicitly.
+
+The first fresh run is preserved red after 23.043 seconds: the JS native-result
+mirror emitted the URL signal before installing the already received new Scale,
+so a synchronous original script read observed a hybrid tuple. Only this test
+proxy was corrected to commit both actual native reply values before signals;
+the product script and strict native guard remain unchanged. The changed
+persistence case passes in 37.771 seconds. Its original audit sequence advances
+4 to 20, while normal return restores the exact original typed URL Handle,
+registration/cache/writer data and whole 89-byte Settings file. Its actual new
+inode and timestamps remain recorded. No extra CAS write or sequence rollback
+is performed. All nine actual setter Qt callbacks dispatch once, complete and
+disconnect; their original shared captures are weak-dead while their actual
+caller/sender QObjects remain alive.
+
+Nineteen actual quiet frames span 4828.723 ms native and 4822.916 ms host;
+all original 1500-ms freshness and 500-ms cadence bounds remain. The run retains
+92 immediate observation records (773060 bytes), a 1272999-byte native report
+and 401684-byte quiet trace; no unready sample occurred in this run. Four actual
+Bookmark callbacks, nine native calls and 45 normal input guards are retained.
+The specifically affected old no-op method also passes in 30.664 seconds:
+all 23 Handles remain lazy, audit remains 0 to 0, physical identity remains
+unchanged and its 14-frame trace remains v1. No full suite or duplicate selector
+is used. These source/host partials still require actual parent/actor/v16
+adoption, noncanonical Bookmark-byte restoration where needed, final owned
+retirement, complete Model/Renderer/EntityTree, Wearables, People/peer/stereo
+and device qualification. Neither callback markers nor fixture shutdown supply
+those missing qualifications.

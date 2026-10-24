@@ -65,6 +65,19 @@ def prepare_ui_host(stage, root):
     scale += function(shared, 'quint64 usecTimestampNow(')
     scale += '\n' + function((root / 'libraries/avatars/src/AvatarData.cpp').read_text(), 'void AvatarData::setTargetScale(')
     (stage / 'actual-avatar-preference-host.inc').write_text(prefix + '#include <chrono>\n' + constants + scale)
+    avatar = (root / 'interface/src/avatar/MyAvatar.cpp').read_text()
+    (stage / 'actual-avatar-persistence.inc').write_text('\n'.join(function(avatar, signature) for signature in (
+        'void MyAvatar::setSkeletonModelURL(', 'void MyAvatar::saveAvatarUrl(', 'QVariantMap MyAvatar::e2eModelConnections(')))
+    getter = function((root / 'interface/src/scripting/TestScriptingInterface.cpp').read_text(),
+        'QVariantMap TestScriptingInterface::featurePicoAvatarPreferences(')
+    (stage / 'actual-avatar-native-data.inc').write_text('auto typedHandles=' + function(getter,'[avatar,model]') + ';\n')
+    # Preserve the complete original tag enums without pulling the uncompiled
+    # rendering stack into the declared scene/Model actor boundary.
+    item_tags = function((root / 'libraries/render/src/render/Item.h').read_text(), '    enum Tag : uint8_t')
+    hifi_tags = function((root / 'libraries/render-utils/src/RenderHifi.h').read_text(), '        enum Tag : uint8_t')
+    (stage / 'actual-avatar-render-tags.inc').write_text(
+        '#include <cstdint>\nnamespace render {class ItemKey {public:\n' + item_tags +
+        ';};namespace hifi {\n' + hifi_tags + ';}}\n')
     observer = native[native.index('class AvatarManager:public Dependency'):
                       native.index('void output(')]
     # The existing UI Bookmarks endpoint already owns the one live Avatar.

@@ -34,6 +34,13 @@ function originalAvatar(method,value){
 }
 function mirrorUrl(value){calls.push(value);const changed=avatar.skeletonModelURL!==value;avatar.skeletonModelURL=value;if(changed)avatar.skeletonModelURLChanged.emit();}
 function mirrorScale(value){const changed=scale!==value;scale=value;scaleCalls.push(value);if(changed)avatar.targetScaleChanged.emit();}
+function mirrorNativeResult(value){
+    const urlChanged=avatar.skeletonModelURL!==value.avatarUrl,scaleChanged=scale!==value.scale;
+    // Both values are already actual native state. Commit that one received
+    // tuple before either real JS signal can synchronously query the mirror.
+    avatar.skeletonModelURL=value.avatarUrl;scale=value.scale;calls.push(value.avatarUrl);scaleCalls.push(value.scale);
+    if(urlChanged)avatar.skeletonModelURLChanged.emit();if(scaleChanged)avatar.targetScaleChanged.emit();
+}
 const tablet={fromQml:signal(),screenChanged:signal(),
     addButton(value){assert.equal(value.text,'AVATAR');return button;},removeButton(value){assert.equal(value,button);},
     loadQMLSource(value){assert.equal(value,'hifi/AvatarApp.qml');source=value;this.screenChanged.emit('QML',value);},
@@ -56,7 +63,7 @@ const bookmarks={getBookmarks(){if(nativeBookmarks)nativeBookmark('all');return 
         if(nativeBookmarks){const actual=nativeBookmark('load',name).nativeLoad;assert.equal(actual.bookmarkLoaded,true);
             // The original native load callback already made both calls.
             // Update this explicit JS live actor without a second native input.
-            mirrorUrl(actual.avatarUrl);mirrorScale(actual.scale);}
+            mirrorNativeResult(actual);}
         else{avatar.useFullAvatarURL(row.avatarUrl);avatar.setAvatarScale(row.avatarScale);}this.bookmarkLoaded.emit(name);},
     removeBookmark(name){assert(bookmarkRows[name]);bookmarkCalls.push(['delete',name]);if(nativeBookmarks)nativeBookmark('delete',name);else delete bookmarkRows[name];this.bookmarkDeleted.emit(name);}};
 for(const name of ['bookmarkLoaded','bookmarkDeleted','bookmarkAdded'])bookmarks[name]=signal();

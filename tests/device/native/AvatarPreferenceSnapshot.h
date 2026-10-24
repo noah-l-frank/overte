@@ -60,6 +60,31 @@ public:
         return original.valid() && current.valid() && sameHandle(original,current)
             && stableProof(original.proof)==stableProof(current.proof);
     }
+    // Exact historical data may return through real ordinary setters. Retain
+    // their advanced audit sequence and actual new physical identity instead
+    // of asserting that an old inode/clock or sequence returned.
+    template<class T> bool originalData(const HandleMemento<T>& original,const HandleMemento<T>& current)const {
+        if(!original.valid() || !current.valid() || !sameHandle(original,current)
+                || current.proof.value("mutationSequence").toLongLong()<original.proof.value("mutationSequence").toLongLong()) {return false;}
+        auto before=stableProof(original.proof),after=stableProof(current.proof);
+        before.remove("mutationSequence");after.remove("mutationSequence");
+        for(auto* proof:{&before,&after}) {
+            auto writer=proof->value("writer").toMap(),physical=writer.value("physical").toMap(),file=physical.value("file").toMap();
+            QVariantMap data{{"exists",file.value("exists")}};
+            if(file.value("exists")==QVariant(true)) {data["mode"]=file.value("mode");data["bytes"]=file.value("bytes");}
+            physical["file"]=data;writer["physical"]=physical;(*proof)["writer"]=writer;
+        }
+        return before==after;
+    }
+    template<class T> bool otherSettings(const HandleMemento<T>& before,const HandleMemento<T>& after)const {
+        if(!gui() || !before.valid() || !after.valid() || before.owner!=after.owner || before.manager!=after.manager
+                || before.handle!=after.handle || before.owner->thread()!=QThread::currentThread()
+                || before.manager->thread()!=QThread::currentThread() || before.registrations!=after.registrations
+                || raw(before.fallback)!=raw(after.fallback) || before.initialized!=after.initialized
+                || before.isSet!=after.isSet || before.deprecated!=after.deprecated || before.binding.lock()!=after.binding.lock()) {return false;}
+        auto a=before.settings,b=after.settings;const auto key=before.handle->_key;a.remove(key);b.remove(key);
+        return typedSettings(a)==typedSettings(b);
+    }
     // Only undo the original get()/maybeInit() transition when it did not
     // write the worker or physical file. A set()/save(), changed registration,
     // foreign cache row, stale source, or already attempted transaction refuses.
