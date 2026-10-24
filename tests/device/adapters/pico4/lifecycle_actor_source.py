@@ -214,7 +214,12 @@ class PicoLifecycleActorSource:
                 facts=self.measurement(packets,pending,subject)
                 after=self.phases.read(before['status']);need(typed_equal(after['status']['activations'],before['status']['activations']))
                 phase=self.archive(after['status'])
-                oldest=min(*(packet['capturedEpochMs'] for packet in packets.values()),pending['capturedEpochMs'],native['capturedEpochMs'],subject['capturedEpochMs'])
+                epochs=[packet['capturedEpochMs'] for packet in packets.values()]
+                if packets['gesture']['source']['known']:epochs.append(packets['gesture']['source']['frameEpochMs'])
+                for packet in (pending,native,subject):
+                    epochs.append(packet['capturedEpochMs'])
+                    if 'requestedEpochMs' in packet:epochs.append(packet['requestedEpochMs'])
+                oldest=min(epochs)
                 self.anchor=started,requested,oldest
                 value=dict(ticket=before['ticket'],actor='owned-observer',actorSequence=len(self.disk['records'])+1,
                     capturedEpochMs=oldest,facts=projection('lifecycle-input',facts))

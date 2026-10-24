@@ -28,6 +28,7 @@ from self_tests.test_native_graphics_subject import Boundary as SubjectBoundary
 class LifecycleProducts(ProductSources):
     def __init__(self,case):
         self.case=case;self.native=case.editor.native;self.subject=SubjectBoundary();self.move_before_subject=False;self.fail_ui=False
+        self.hold_gesture_publication=False;self.publication_host_work=0.
         # One original target physics object, read by independent native getter
         # endpoints. There is no second Actor-side pose or expected-state model.
         super().__init__(case,None)
@@ -38,12 +39,15 @@ class LifecycleProducts(ProductSources):
 
     def dispatch(self,action,value):
         self.calls.append(action);native=self.native
-        if action=='host':need(value is None);return native.clock
+        if action=='host':need(value is None);return native.clock+self.publication_host_work
         if action=='epoch':need(value is None);return native.epoch()
         if action=='sleep':
             need(type(value) in (float,int) and 0<=value<=.25);native.sleep(value);return None
         if action=='candidate':
             need(value is None);return dict(binding=deepcopy(self.case.editor.binding),alive=native.alive)
+        if action=='publication-host-work':
+            need(value==1.4 and self.publication_host_work==0.)
+            self.publication_host_work+=value;return None
         need(type(value) is dict)
         if action in ('ui','gesture','drive','subject'):
             need(set(value)=={'schemaVersion','commandId','action','runId'} and type(value['schemaVersion']) is int
@@ -52,7 +56,13 @@ class LifecycleProducts(ProductSources):
             if self.fail_ui:raise RuntimeError('Original UI producer unavailable after actual Gesture and Drive')
             need(value['action']=='observe');native.ui.send(value);return native.ui.read()
         if action=='gesture':
-            need(value['action']==gesture.ACTION);native.axes.send(value);return native.axes.read()
+            need(value['action']==gesture.ACTION)
+            if self.hold_gesture_publication:
+                # Actual earlier native OpenXR publication, sampled by the
+                # original getter without publishing a new input/frame.
+                native.axes.clock=native.clock;native.original_send(value)
+            else:native.axes.send(value)
+            return native.axes.read()
         if action=='drive':
             need(value['action']==drive.ACTION);native.drive.send(value);return native.drive.read()
         if action=='pending':
@@ -121,7 +131,7 @@ try:
  for line in sys.stdin:
   command=json.loads(line)
   if command=={'operation':'exit'}:break
-  if command not in ({'operation':'sample'},{'operation':'sample-regress-ui'},{'operation':'sample-lost-reply'},{'operation':'sample-replace-root-exit'}):raise ValueError('Source-only worker command')
+  if command not in ({'operation':'sample'},{'operation':'sample-regress-ui'},{'operation':'sample-lost-reply'},{'operation':'sample-replace-root-exit'},{'operation':'sample-late-publication'}):raise ValueError('Source-only worker command')
   if source is None:source=transport.source(client)
   if command['operation']=='sample-replace-root-exit':
    from contextlib import contextmanager
@@ -140,6 +150,15 @@ try:
      with os.fdopen(fd,'wb') as stream:stream.write(source.store.path.read_bytes());stream.flush();os.fsync(stream.fileno())
      os.replace(path,source.store.path)
    source.lock.held=replaced_exit
+  if command['operation']=='sample-late-publication':
+   write=source.store.write;spent=[False]
+   def slow_publication(value,expected):
+    result=write(value,expected)
+    publication=value['publication']
+    if not spent[0] and publication and publication['phase']=='issued' and publication['fixture'] is not None:
+     spent[0]=True;transport.rpc.call('publication-host-work',1.4)
+    return result
+   source.store.write=slow_publication
   if command['operation']=='sample-regress-ui':
    source.readers[0].previous=dict(source.readers[0].previous)
    source.readers[0].previous['sequence']-=1
@@ -153,5 +172,6 @@ try:
    raise OSError('Original publication reply lost after actual fixture acceptance')
   source.delivered(reply)
   print(json.dumps({'event':'published','sequence':value['actorSequence']}),flush=True)
+  if command['operation']=='sample-late-publication':break
 finally:transport.close()
 '''

@@ -190,5 +190,13 @@ class LifecycleIndependentActorTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256(raw.encode()).hexdigest(),bundle['original']['sha256'])
         self.assertEqual([],self.client.observe()['entries']);self.assertEqual([],self.editor.transport.envelopes)
 
+    def test_original_known_gesture_frame_cannot_borrow_new_capture_after_late_publication_cas(self):
+        self.native.sleep(.2);self.products.hold_gesture_publication=True
+        self.start();original=self.failed_worker('sample-late-publication')
+        self.assertEqual(1.4,self.products.publication_host_work)
+        self.assertEqual(6,len(self.native_calls()));self.assertEqual(1,len(original['records']))
+        self.assertEqual('issued',original['publication']['phase']);self.assertIsNotNone(original['publication']['fixture'])
+        self.assertEqual([],self.client.observe()['entries']);self.assertEqual([],self.editor.transport.envelopes)
+
 
 if __name__=='__main__':unittest.main()
