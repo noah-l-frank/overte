@@ -263,6 +263,27 @@ class WorldCurrentInputReaderTests(unittest.TestCase):
             calibrationOriginal=receipt['calibrationOriginal'],streamEnvelope=receipt['streamEnvelope'],focusOriginal=focus),None)
         self.assertEqual(focus,owner.check_focus(receipt,focus));self.assertEqual(1,len(self.transport.envelopes))
 
+    def test_original_java_clock_skew_plus_slow_stream_cas_prevents_publication(self):
+        pair=self.b.pair
+        def original_earlier_java_capture():
+            value=pair()
+            # Java's actual producer wall clock is within the allowed native
+            # skew. Both new raw transactions keep these original captures.
+            value['java']['capturedEpochMs']=self.b.epoch-200
+            return value
+        self.b.pair=original_earlier_java_capture
+        packet=self.read();original=self.source.original()
+        validate(packet,original['request'],123,self.b.epoch,original['documentOriginal'])
+        self.assertEqual(self.b.epoch-200,packet['source']['authorityBefore']['java']['capturedEpochMs'])
+        clock=self.b.epoch
+        owner=self.publisher(stream=lambda _command:setattr(self.b,'elapsed',self.b.elapsed+1.4))
+        with self.assertRaises(NativeUIError):owner.publish()
+        PrivateFeatureState(self.root/'java-clock-skew-stream-originals.json').write(dict(
+            calibrationOriginal=original,actualEnvelopes=deepcopy(self.transport.envelopes),
+            actualStream=PrivateFeatureState(self.root/'stream.json').read()),None)
+        self.assertEqual(clock,self.b.epoch);self.assertGreaterEqual(self.b.elapsed,1.4)
+        self.assertEqual([],self.transport.envelopes);self.assertTrue(owner.issued and owner.failed)
+
 
 class WorldCurrentInputFactoryTests(unittest.TestCase):
     def setUp(self):

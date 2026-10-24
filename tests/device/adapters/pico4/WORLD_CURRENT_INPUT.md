@@ -246,3 +246,28 @@ Fourteen reader/publisher/factory cases passed **1.210 s** on source freeze
 `c5b27811bc515416b31880861abe0eb52eb718bc907b016a1e99479501472f53`.
 The prior mismatched text-to-foreign counter still refuses. No Native, Java,
 Parent, public surface, shared version, catalog or Keyboard hook changes here.
+
+
+### Review follow-up: every original clock before publication
+
+A separate actual producer case generated Java before/after wall-clock
+captures 200 ms before the native clock, within the existing 250-ms allowance.
+The new original Doc DOM/geometry clocks remained within their allowed
+bookends; no accepted packet was modified. A landed stream-intent CAS then
+advanced only the host clock by 1.4 seconds. On fixed `a624e803c7` the locked
+callback incorrectly used only requested header clocks: it sent one actual
+model envelope, then refused at the later full-source fence (**1/.049 s**).
+The complete calibration/raw transactions, stream intent and actual emitted
+envelope remain archived. A post-publication failure is not prevention.
+
+The pure locked callback now starts from the sealed earliest original among
+both Doc/Input requested/captured headers, every native/Java bookend, Doc DOM,
+geometry and ray captures. That immutable bound is computed and validated
+before any input intent or SDK lock. Both existing host-only callback checks
+cover elapsed CAS/SDK/publication work against the same 1500-ms limit; they
+perform no SDK, source or native clock read and never renew an anchor.
+The unchanged real Session rejects the skew-plus-slow-CAS case before any
+envelope is emitted. All fifteen reader/publisher/private-factory cases passed
+**1.243 s**, source freeze
+`7836a6bbe7789732b69438130af2c2db7b1523a3b72b48a295b99927d05fe9a1`.
+No Native/Java/Parent/schema/catalog/shared-contract change is included.

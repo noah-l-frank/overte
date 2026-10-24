@@ -28,7 +28,15 @@ class PicoWorldCurrentRay:
             packet=decode(original['raw']);validate(packet,original['request'],source.pid,source.clock_ms(),original['documentOriginal'])
             doc=decode(original['documentOriginal']['raw']);ray=packet['source']['worldRay']
             pose=observed_grip_pose(ray['sensorToWorld'],ray['headPosition'],ray['worldPoint'])
-            earliest=min(doc['requestedEpochMs'],packet['requestedEpochMs'])
+            from adapters.pico4.browser_source import geometry_original
+            geometry=geometry_original(decode(packet['source']['geometryRaw'])['geometryRaw'],original['request'],
+                packet['source']['authorityBefore']['native']['url'],packet['capturedEpochMs'])
+            clocks=[doc['source']['dom']['capturedEpochMs'],geometry['capturedEpochMs'],ray['capturedEpochMs']]
+            for current in (doc,packet):
+                clocks.extend((current['requestedEpochMs'],current['capturedEpochMs']))
+                clocks.extend(current['source'][side][kind]['capturedEpochMs']
+                    for side in ('authorityBefore','authorityAfter') for kind in ('native','java'))
+            earliest=min(clocks) # Immutable original lower bound before any CAS/SDK lock.
             def original_fresh():
                 source.require_warm(original)
             original_fresh();self.issued=True
