@@ -22,6 +22,7 @@ def prepare(stage,environment,prefix):
     signatures=('RenderablePolyVoxEntityItem::RenderablePolyVoxEntityItem(',
         'RenderablePolyVoxEntityItem::~RenderablePolyVoxEntityItem(',
         'void RenderablePolyVoxEntityItem::initializePolyVox(',
+        'EntityItemPointer RenderablePolyVoxEntityItem::factory(',
         'void RenderablePolyVoxEntityItem::changeUpdates(',
         'void RenderablePolyVoxEntityItem::startUpdates(', 'void RenderablePolyVoxEntityItem::stopUpdates(',
         'void RenderablePolyVoxEntityItem::update(', 'void RenderablePolyVoxEntityItem::setVoxelVolumeSize(',
@@ -43,12 +44,29 @@ def prepare(stage,environment,prefix):
             'glm::vec3 PolyVoxEntityItem::getSurfacePositionAdjustment(', 'glm::mat4 PolyVoxEntityItem::voxelToLocalMatrix(',
             'glm::mat4 PolyVoxEntityItem::voxelToWorldMatrix(', 'glm::mat4 PolyVoxEntityItem::worldToVoxelMatrix(',
             'glm::vec3 PolyVoxEntityItem::worldCoordsToVoxelCoords('):blocks[signature]=original(base,signature)
+    item=read('libraries/entities/src/EntityItem.cpp.in')
+    blocks['void EntityItem::recordCreationTime(']=original(item,'void EntityItem::recordCreationTime(')
+    header=read('libraries/entities/src/EntityItem.h.in')
+    write('OriginalCreateEntityInline.inc',original(header,'bool isVisuallyReady() const')+'\n'+
+        next(line for line in header.splitlines() if 'bool _visuallyReady { true };' in line)+'\n')
+    polyvox_header=read('libraries/entities/src/PolyVoxEntityItem.h.in')
+    write('OriginalCreatePolyvoxBaseInline.inc',original(polyvox_header,'virtual QVariantMap featureCreateVoxels(')+'\n'+
+        original(polyvox_header,'virtual bool isVoxelDataReady() const')+'\n')
+    constants=read('libraries/entities/src/EntityItemPropertiesMacros.h')
+    read('libraries/shared/src/SimulationFlags.h')
+    write('OriginalCreateInsertionConstants.inc','#include <SimulationFlags.h>\n'+
+        next(line for line in constants.splitlines() if line.startswith('const quint64 UNKNOWN_CREATED_TIME ='))+'\n')
+    tree=read('libraries/entities/src/EntityTree.cpp')
+    blocks['EntityItemPointer EntityTree::addEntity(']=original(tree,'EntityItemPointer EntityTree::addEntity(')
+    getter=read('interface/src/scripting/TestScriptingInterface.cpp')
+    write('OriginalCreateEntities.inc',original(getter,'QVariantMap TestScriptingInterface::featureCreateEntities(')+'\n')
     api=read('libraries/entities/src/EntityScriptingInterface.cpp')
-    for signature in ('bool EntityScriptingInterface::polyVoxWorker(', 'bool EntityScriptingInterface::setVoxelsInCuboid('):
+    for signature in ('bool EntityScriptingInterface::polyVoxWorker(', 'bool EntityScriptingInterface::setVoxelsInCuboid(',
+            'bool EntityScriptingInterface::isLoaded(', 'bool EntityScriptingInterface::isVoxelDataReady(',
+            'bool EntityScriptingInterface::addLocalEntityCopy('):
         blocks[signature]=original(api,signature)
     constant=next(line for line in renderer.splitlines() if line.startswith('const float MARCHING_CUBE_COLLISION_HULL_OFFSET ='))
     write('OriginalCreateVoxelMethods.inc',constant+'\n'+'\n'.join(blocks.values()))
-    write('OriginalCreateVoxelDeleter.inc','const auto originalCreateVoxelDeleter = '+original(renderer,'[](RenderablePolyVoxEntityItem* ptr)')+';\n')
     write('OriginalPolyvoxRenderUpdate.inc',original(renderer,'void PolyVoxEntityRenderer::doRenderUpdateAsynchronousTyped('))
     write('EntityItem.h','#pragma once\n#include "create-voxel-native-join.h"\n')
     cpu=[]
@@ -75,7 +93,8 @@ def prepare(stage,environment,prefix):
     subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),'-I'+str(stage),'-I'+str(ROOT),
         str(HERE/'create-voxel-native-join.h'),'-o',str(moc)],check=True,timeout=20,env=environment)
     for name,body in blocks.items():provenance[name]=hashlib.sha256(body.encode()).hexdigest()
-    for name in ('OriginalCreateVoxelStorage.inc','OriginalCreateVoxelMethods.inc','OriginalCreateVoxelDeleter.inc','OriginalPolyvoxRenderUpdate.inc',
+    for name in ('OriginalCreateVoxelStorage.inc','OriginalCreateVoxelMethods.inc','OriginalPolyvoxRenderUpdate.inc',
+            'OriginalCreateEntityInline.inc','OriginalCreatePolyvoxBaseInline.inc','OriginalCreateInsertionConstants.inc','OriginalCreateEntities.inc',
             'AssetsOriginalBakerMesh.inc','AssetsOriginalBuffer.inc','OriginalCreateVoxelShape.inc',
             'OriginalCreateVoxelVectors.inc','CreateVoxelOriginalCpu.cpp','original-voxel-delete.js'):
         provenance['compiled-'+name]=hashlib.sha256((stage/name).read_bytes()).hexdigest()

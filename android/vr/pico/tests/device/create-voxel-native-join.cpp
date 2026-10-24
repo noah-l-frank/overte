@@ -13,7 +13,7 @@ Q_LOGGING_CATEGORY(entities,"overte.e2e.create.voxel.entities")
 quint64 usecTimestampNow(bool){return quint64(QDateTime::currentMSecsSinceEpoch())*1000;}
 #define PROFILE_RANGE(...)
 #include "OriginalCreateVoxelMethods.inc"
-#include "OriginalCreateVoxelDeleter.inc"
+#include "OriginalCreateEntities.inc"
 namespace render::entities {
 #include "OriginalPolyvoxRenderUpdate.inc"
 }
@@ -25,21 +25,57 @@ glm::vec3 point(const QVariantMap& value){
 }
 QVariantMap point(const glm::vec3& value){return {{"x",value.x},{"y",value.y},{"z",value.z}};}
 }
+// Explicit octree/property endpoints around unchanged insertion/getter bodies.
+EntityItemPointer EntityTypes::constructEntityItem(EntityType type,const EntityItemID& id,const EntityItemProperties& properties){
+ if(type!=PolyVox){qFatal("Only one owned PolyVox factory was admitted");}
+ return RenderablePolyVoxEntityItem::factory(id,properties);
+}
+void EntityTree::recurseTreeWithOperator(AddEntityOperator* operation){
+ if(!operation || operation->tree.get()!=this || !operation->entity || objects.contains(operation->entity->getID())){
+  qFatal("Foreign or repeated host Octree insertion");}
+ objects.insert(operation->entity->getID(),operation->entity);
+}
+void EntityTree::postAddEntity(const EntityItemPointer& value){value->tree=shared_from_this();}
+void RenderablePolyVoxEntityItem::setProperties(const EntityItemProperties& value){
+ if(value.type!=EntityTypes::PolyVox || value.host!=entity::HostType::DOMAIN || value.created!=UNKNOWN_CREATED_TIME){
+  qFatal("Only the explicitly owned initial property fixture was admitted");}
+ name=value.name;host=value.host;editedBy=value.lastEditedBy;position=value.position;dimensions=value.dimensions;orientation=value.rotation;
+ _locked=value.locked;visible=value.visible;
+}
+EntityItemProperties EntityScriptingInterface::getEntityProperties(const QUuid& id){
+ EntityItemProperties value;auto object=_entityTree->findEntityByEntityItemID(id);if(!object){return value;}
+ const auto subject=std::dynamic_pointer_cast<RenderablePolyVoxEntityItem>(object);
+ if(!subject){qFatal("Foreign property source");}
+ subject->withReadLock([&]{
+  value.type=subject->getType();value.host=subject->getEntityHostType();value.name=subject->getName();
+  value.position=subject->position;value.dimensions=subject->dimensions;value.rotation=subject->orientation;
+  value.locked=subject->_locked;value.visible=subject->visible;value.created=subject->getCreated();value.edited=subject->getLastEdited();value.lastEditedBy=subject->editedBy;
+ });return value;
+}
+QVector<QUuid> EntityScriptingInterface::findEntities(const glm::vec3& center,float radius,int mask){
+ if(center!=glm::vec3(0,1,0) || radius!=128 || mask!=3){qFatal("Foreign host entity scan");}
+ QVector<QUuid> ids;_entityTree->withReadLock([&]{for(auto it=_entityTree->objects.cbegin();it!=_entityTree->objects.cend();++it){ids.append(it.key());}});
+ return ids;
+}
 NativeCreateVoxelJoin::NativeCreateVoxelJoin(QObject* parent):QObject(parent){
  sourceClock.start();
  const auto mode=QString::fromUtf8(qgetenv("OVERTE_CREATE_VOXEL_NATIVE_MODE"));
  if(!QStringList{"","normal","retained-renderer","ignored-controller"}.contains(mode)){qFatal("Unknown private native counterexample");}
  keepRenderer=mode=="retained-renderer";ignoreInput=mode=="ignored-controller";
  if(!QCoreApplication::arguments().contains("--testScript")){qFatal("Original voxel join requires the test gate");}
- auto& originalsSource=overte::e2e::CreatePolyvoxResources::get();if(!originalsSource.arm(run)){qFatal("Original resource scope refused");}
- identifier=QUuid::createUuid();auto subject=std::shared_ptr<RenderablePolyVoxEntityItem>(new RenderablePolyVoxEntityItem(identifier),originalCreateVoxelDeleter);subject->tree=tree;
- original=subject;tree->objects.insert(identifier,subject);entitiesApi._entityTree=tree;
+ if(DependencyManager::activeEntities){qFatal("A prior host entity source is still installed");}
+ entitiesApi._entityTree=tree;DependencyManager::activeEntities=&entitiesApi;
+ snapshot("before-local-insert");
+ EntityItemProperties properties;properties.type=EntityTypes::PolyVox;properties.name="e2e-"+run+"-voxel";
+ properties.lastEditedBy=DependencyManager::get<NodeList>()->getSessionUUID();
+ if(!entitiesApi.addLocalEntityCopy(properties,identifier,false)){qFatal("Original local insertion failed");}
+ auto subject=std::dynamic_pointer_cast<RenderablePolyVoxEntityItem>(tree->findEntityByEntityItemID(identifier));
+ if(!subject){qFatal("Original local insertion did not return its actual entity");}original=subject;
  renderer=std::shared_ptr<render::entities::PolyVoxEntityRenderer>(new render::entities::PolyVoxEntityRenderer(),[](auto* object){object->deleteLater();});
  renderer->entityOwner=subject;
  connect(&scheduler,&QTimer::timeout,this,[this]{drive();});scheduler.setInterval(1);scheduler.start();
- // Explicit initial owned-volume fixture; the following normal controller
- // mutation is delivered only through original EditVoxels/API/setCuboid bodies.
- subject->initializePolyVox();
+ // Initial volume contents remain an explicitly owned fixture. Both the
+ // insertion/creation record and subsequent normal stroke use original bodies.
  if(!subject->setCuboid(glm::vec3(2),glm::vec3(4),255) || !settle(1500)){qFatal("Original initial volume did not settle");}
  snapshot("baseline");
 }
@@ -95,7 +131,7 @@ bool NativeCreateVoxelJoin::setCuboid(const QString& id,const QVariantMap& low,c
  snapshot("actual-cuboid-return");return changed;
 }
 bool NativeCreateVoxelJoin::ready(const QString& id){
- auto subject=original.lock();return id==entityId() && subject && subject->isVoxelDataReady();
+ return id==entityId() && entitiesApi.isVoxelDataReady(QUuid(id));
 }
 QVariantList NativeCreateVoxelJoin::values(){
  auto subject=original.lock();if(!subject){return {};}
@@ -133,20 +169,25 @@ bool NativeCreateVoxelJoin::remove(const QString& id){
 }
 QVariantMap NativeCreateVoxelJoin::snapshot(const QString& phase){
  if(++sequence>512){qFatal("Original Create snapshot inventory exhausted");}
- auto subject=original.lock();QVariant volume;
- if(subject){volume=subject->featureCreateVoxels([&](const std::shared_ptr<void>& mesh){
-  if(!overte::e2e::CreatePolyvoxResources::get().entity(run,identifier,mesh)){qFatal("Original mesh observation refused");}
- });}
- const auto life=entityLifetimes.observe(run,identifier,tree->findEntityByEntityItemID(identifier));
- if(life.isEmpty()){qFatal("Original entity lifetime refused");}
- const auto resources=overte::e2e::CreatePolyvoxResources::get().snapshot(run);
- if(resources.isEmpty()){qFatal("Original PolyVox resource history refused");}
+ const auto command=QVariantMap{{"schemaVersion",1},{"commandId",QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')},
+  {"action","feature-create-entities-observe"},{"runId",run}};
+ const auto frame=entitySource.featureCreateEntities(command);
+ if(frame.isEmpty()){qFatal("Original EntitySource6 refused its actual fixture");}
+ const auto source=frame.value("source").toMap();QVariant volume,life;
+ for(const auto& item:source.value("entities").toList()){
+  const auto row=item.toMap();if(row.value("id")==entityId()){volume=row.value("voxels");}
+ }
+ for(const auto& item:source.value("entityLifetimes").toList()){
+  const auto row=item.toMap();if(row.value("id")==entityId()){life=row;}
+ }
+ if(!identifier.isNull() && !life.isValid()){qFatal("The actual inserted entity has no original lifetime record");}
+ const auto resources=source.value("polyvoxResources").toMap();
  QVariantList actualTimers;for(auto it=timers.cbegin();it!=timers.cend();++it){actualTimers.append(QVariantMap{
   {"id",it.key()},{"alive",!it->timer.isNull()},{"invocations",it->invocations}});}
  QVariantMap result{{"createVoxelNativeJoinVersion",1},{"sequence",sequence},{"phase",phase},
   {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"capturedElapsedMs",sourceClock.elapsed()},{"entityId",entityId()},
-  {"entityAlive",life.value("alive")},{"inTree",tree->objects.contains(identifier)},{"volume",volume},
-  {"polyvoxResources",resources},{"entityLifetime",life},{"retirementSource",QVariantMap{{"createEntitySourceVersion",5},{"entities",tree->objects.contains(identifier) ? QVariantList{QVariantMap{{"id",entityId()}}} : QVariantList{}},{"entityLifetimes",QVariantList{life}},{"polyvoxResources",resources}}},{"timers",actualTimers},{"mutationCalls",mutationCalls},{"deleteCalls",deleteCalls},
+  {"entityAlive",life.toMap().value("alive",false)},{"inTree",tree->objects.contains(identifier)},{"volume",volume},
+  {"polyvoxResources",resources},{"entityLifetime",life},{"entityFrame",frame},{"retirementSource",source},{"timers",actualTimers},{"mutationCalls",mutationCalls},{"deleteCalls",deleteCalls},
   {"cpuBuffers",int(gpu::Buffer::getBufferCPUCount())}};
  originals.append(result);
  const auto trace=qgetenv("OVERTE_CREATE_VOXEL_NATIVE_TRACE");
