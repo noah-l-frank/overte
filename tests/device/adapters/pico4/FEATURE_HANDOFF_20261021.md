@@ -3020,3 +3020,20 @@ fences and coverage pass in 75.42 s, all 13,488 source hashes unchanged. A final
 narrow unit check covers integer-count typing. All source/quiet and existing
 frame/raw/packed/file limits remain. The full next whole/public outcome is
 unproven; completed areas remain three of fourteen.
+
+
+## Full Browser archive enters original source retirement
+
+The unchanged whole case at d430227d07a0184ded3b4a7a6ea2a81fd219b77d
+ends at its original 120 s timeout. All 26 actions/28 phases, original Actor
+return, capture quiet, complete lossless context and 1,087 immutable originals/
+manifest files now execute. The archive reaches unlink-issued with 14 durably
+confirmed source removals and one pending unlink intent. No outcome is inferred
+for that pending intent. Original PNGs, complete archive copies, remaining
+sources and ownership sentry stay retained; final source/host release is open.
+All 13,488 source hashes match. All 2,236 retained files/copies preserve their
+terminal bytes/stamps during private snapshot/backup; this does not claim the
+14 normally retired sources still exist. No owner is reconstructed or retried.
+The next measured boundary is per-unlink historical inventory/copy checking
+through the unchanged 16-unlink/250 ms source policy and final native clocks.
+No complete Browser/public/device capability is enabled.

@@ -4772,14 +4772,38 @@
     "metadataReferencesValidatedAgainstFullContextAndPngInventory": true,
     "integerCountFinalGuardCoveredByUnitChecksAfterPrefixRun": true,
     "noRawPackedFileFrameQuietOrSourceLimitChange": true,
-    "wholeWithMetadataV2NotYetExecuted": true,
+    "wholeWithMetadataV2NotYetExecuted": false,
     "completeFeature": false,
     "deviceAcceptance": false,
     "repository": {
       "suites": 4,
       "status": "passed",
-      "durationSeconds": 2.63
+      "durationSeconds": 2.58
     },
-    "registryWhitespace": "passed"
+    "registryWhitespace": "passed",
+    "wholeResult": "browserWholeMetadataRoot20261024"
+  },
+  "browserWholeMetadataRoot20261024": {
+    "sourceHead": "d430227d07a0184ded3b4a7a6ea2a81fd219b77d",
+    "exitCode": 124,
+    "timeoutSeconds": 120,
+    "sourcesUnchanged": true,
+    "sourceFiles": 13488,
+    "temporaryRoot": "/tmp/overte-pico-browser-metadata-whole-20261024-wmf25qml",
+    "normalCloseSeconds": 61.216,
+    "cleanupWaitSeconds": 79.655,
+    "phases": 28,
+    "archivePhase": "unlink-issued",
+    "confirmedSourceUnlinks": 14,
+    "pendingUnlinkIntent": true,
+    "archiveFiles": 1087,
+    "manifestReady": true,
+    "hostReleased": false,
+    "completeFeature": false,
+    "deviceAcceptance": false,
+    "retainedFiles": 2236,
+    "terminalSnapshotUnchangedDuringCapture": true,
+    "backupSha256": "bd8d073e346a91d928864e79e9ea1c0aeb80c0bf6c81b4a3de86c6bed6551827",
+    "backupQualification": "historical-byte-backup-only-no-live-owner-adoption"
   }
 }

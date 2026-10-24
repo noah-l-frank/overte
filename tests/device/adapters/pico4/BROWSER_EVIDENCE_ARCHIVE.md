@@ -125,3 +125,13 @@ Seven archive/context cases pass in 37.701 s and two host-close fence cases in
 37.629 s; coverage passes 0.087 s (75.42 s, 237 existing selectors). All 13,488
 source hashes match. A subsequent narrow unit pass additionally rejects a bool
 count alias. Full v2 whole execution and public coordinator remain unverified.
+
+
+The full v2 owning case at d430227d07 passes the manifest limit, then reaches
+its unchanged 120 s timeout during original source retirement: 1,087 immutable
+copy/manifest files, 14 confirmed removals and one pending unlink intent. Final
+source and host release remain incomplete. All 13,488 source hashes match;
+2,236 retained files/copies are snapshotted unchanged after terminal stop. This
+is not a complete pass or permission to replay/adopt the partial owner. The
+next performance measurement must preserve every per-unlink physical/source/
+phase guard, the 16/250ms policy and final original clocks.
