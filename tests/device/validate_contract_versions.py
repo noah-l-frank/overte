@@ -422,7 +422,7 @@ REQUIRED = {
     "pico-lifecycle-close-owner": 1,
     "pico-lifecycle-close-originals": 1,
     "pico-lifecycle-restore-owner": 1,
-    "pico-lifecycle-primary-observation": 1,
+    "pico-lifecycle-primary-observation": 2,
     "native-navigation-replies": 2,
     "native-navigation-modals": 1,
     "native-navigation-error-controls": 1,

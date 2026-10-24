@@ -1,5 +1,9 @@
 # Lifecycle primary observations (private, partial)
 
+This documents the original v1 packet and its measured evidence. The staged
+pre-input v2 entry and subsequent continuity fix are described in
+[Lifecycle baseline](LIFECYCLE_BASELINE.md).
+
 `PicoLifecycleObservation` connects fresh observations to the existing
 Create/Chat/background/Pending/Close/Restore process chain. It has no input
 authority. `_lifecycle_observation_owner` accepts those actual live owners in
@@ -81,9 +85,9 @@ not devices, a common `Journey.execute`, an independent Actor, images or public
 Lifecycle acceptance. Public capability remains disabled. Retained source roots,
 chunks, journals and Host handles still require independent finalization.
 
-The current constructor accepts the already-created complete owner graph; its
+The original v1 constructor accepts the already-created complete owner graph; its
 positive proves fresh observations after Pending, not a pre-input baseline.
-The next executable connection is a staged live constructor/attachment that can
+The following v2 packet supplies a staged live constructor/attachment that can
 observe the original baseline before Create without installing the later
 Scripts input callback prematurely. Common v16 still requires all16 actions,
 at least three advancing samples per checkpoint and actual3s negative/cleanup
@@ -98,8 +102,9 @@ Dependency: `9cb02f4b189117f965a1fbf2092a17cb62ab9c24`, following
 `84d122721b2c8380017ed2bf12a8ac1ba5490264`. Do not reselect dependency-only
 `1c85b265eb1a6a37c14afb0fce0ca5178bab7d1b` into Root.
 
-One registry entry: `pico-lifecycle-primary-observation`, current1/reads1.
-One selector: `lifecycle-primary-observation`, unchanged120s budget; six distinct
+The initial packet added `pico-lifecycle-primary-observation`, current1/reads1;
+the later baseline packet versions that entry to2/reads1,2.
+Initial selector: `lifecycle-primary-observation`, unchanged120s budget; six distinct
 cases (one new path positive, three faults, two pure resource projections).
 One shared control-plane module pattern. The existing Pico risk rows gain this
 selector additively. Local catalog231→232; integration must add one to Root's
