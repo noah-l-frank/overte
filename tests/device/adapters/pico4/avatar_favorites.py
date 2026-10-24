@@ -215,6 +215,9 @@ class PicoAvatarFavorites:
         if not(frame['widgets']['open'] and frame['widgets']['ready'] and any(row['id']=='avatar.page' for row in frame['widgets']['controls'])):return False
         if any(row['id'] in ('avatar.dialog.input','avatar.dialog.confirm','avatar.scale','avatar.settings.confirm') for row in frame['widgets']['controls']):return False
         verb=call['verb'];before=self.decode_frame(state['frames'][call['before']-1]);expected=call['expected']
+        if verb!='avatar-bookmark-choose' or before['native']['source']['requestedUrl']==expected['record']['avatarUrl']:
+            from adapters.pico4.avatar_favorite_effect import unchanged_preferences
+            unchanged_preferences(before['preferences'],values['preferences'])
         if verb not in ('avatar-bookmark-delete','cleanup'):wanted[self.name]=self.bookmark_record(state) if verb!='avatar-bookmark-save' else expected['record']
         if bookmarks['bookmarks']!=wanted or bookmarks['pathSha256']!=original['bookmarks']['source']['storage']['pathSha256']:return False
         if native['modelInstance']!=original['native']['source']['modelInstance'] or native['sessionId']!=original['native']['source']['sessionId']:return False

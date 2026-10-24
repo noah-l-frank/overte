@@ -58,6 +58,15 @@ class AvatarPreferencesNativeTests(unittest.TestCase):
             else:
                 with self.subTest(original_baseline=row['kind']):baseline(packet)
             previous=packet
+        # The shared existing Favorite rule must refuse independently valid
+        # raw changes too; no forged packet or inconsistent writer supplies it.
+        from adapters.pico4.avatar_favorite_effect import unchanged_preferences
+        from adapters.normal_ui import NativeUIError
+        for first,last in ((0,1),(1,2)):
+            before,after=rows[first]['packet'],rows[last]['packet'];baseline(before);baseline(after)
+            self.assertNotEqual(before['source']['snapshot']['cache']['native']['handles'],after['source']['snapshot']['cache']['native']['handles'])
+            with self.subTest(original_cached_admission=(rows[first]['kind'],rows[last]['kind'])),self.assertRaises(NativeUIError):
+                unchanged_preferences(before,after)
         original=rows[0]
         for path,bad in ((('picoAvatarPreferencesVersion',),True),(('snapshot','writer','matchesPhysical'),False),
                 (('snapshot','cacheMatchesWriter'),False),(('snapshot','writer','physical','capturedEpochMs'),original['packet']['requestedEpochMs']-1),

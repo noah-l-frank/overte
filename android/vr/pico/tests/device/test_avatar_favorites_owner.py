@@ -9,6 +9,9 @@ from copy import deepcopy
 import hashlib
 import json
 import inspect
+import os
+import shutil
+import tempfile
 from pathlib import Path
 import sys
 import unittest
@@ -71,6 +74,18 @@ class AvatarFavoritesTests(unittest.TestCase):
         for boundary in (patch.object(f.native,'read_debug_app_file',side_effect=read),patch.object(f.native,'write_debug_app_file',side_effect=write),patch.object(f.native,'snapshot',side_effect=self.widgets)):
             boundary.start();self.addCleanup(boundary.stop)
         self.store=PrivateFeatureState(f.store.path.with_name(f.store.path.name.replace('avatar-urls-owner-','avatar-favorites-owner-')))
+        if os.environ.get('OVERTE_AVATAR_NATIVE_ARTIFACTS'):
+            destination=Path(tempfile.mkdtemp(prefix=self._testMethodName+'-',dir=os.environ['OVERTE_AVATAR_NATIVE_ARTIFACTS']))
+            def retain_originals():
+                identities={}
+                for path in f.root.rglob('*'):
+                    if path.is_file() and not path.is_symlink():
+                        info=path.lstat();identities[str(path.relative_to(f.root))]=dict(device=info.st_dev,inode=info.st_ino,mode=info.st_mode,
+                            bytes=info.st_size,modifiedNs=info.st_mtime_ns,changedNs=info.st_ctime_ns,sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+                shutil.copytree(f.root,destination/'original-state',symlinks=True)
+                (destination/'original-identities.json').write_text(json.dumps(dict(kind='historical-fixture-originals-not-live-source',
+                    sourceRoot=str(f.root),files=identities),sort_keys=True)+'\n')
+            self.addCleanup(retain_originals)
     def apply_bookmark(self):
         f=self.fixture;record=self.bookmarks['e2e-'+RUN]
         if f.source['requestedUrl']!=record['avatarUrl']:f.effect(record['avatarUrl'])
@@ -127,6 +142,29 @@ class AvatarFavoritesTests(unittest.TestCase):
         self.assertTrue(f.instance._avatar_favorites_owned(f.target));self.assertIsNotNone(self.store.read())
     def save_owned(self):
         self.prepare();f=self.fixture;f.activate('avatar-bookmark-save',dict(name='e2e-'+RUN));self.invoke('act')
+    def test_cached_callback_foreign_raw_preference_change_is_not_adopted(self):
+        from adapters.pico4.avatar_preferences import baseline
+        f=self.fixture;self.prepare();f.activate('avatar-bookmark-save',dict(name='e2e-'+RUN));self.invoke('act')
+        original=self.apply_bookmark
+        def foreign_during_callback():
+            original();f.persisted_scale=2.5
+        self.apply_bookmark=foreign_during_callback
+        ticket=f.activate('avatar-bookmark-choose',dict(name='e2e-'+RUN))
+        with f.lock.held():
+            owner=f.instance._avatar_favorites(f.target,RUN,source_lock=f.lock)
+            from adapters.normal_ui import NativeUIError
+            with self.assertRaises(NativeUIError):owner.invoke('act')
+            call=owner.state['calls'][-1];self.assertEqual(ticket,owner.state['pending']);self.assertFalse(call['settled'])
+            before=owner.decode_frame(owner.state['frames'][call['before']-1])
+            after=owner.decode_frame(owner.state['frames'][-1]);baseline(after['preferences'])
+            self.assertEqual(before['native']['source']['requestedUrl'],after['native']['source']['requestedUrl'])
+            self.assertEqual(1,after['native']['source']['scale'])
+            key='Avatar/scale';a=before['preferences']['source']['snapshot'];b=after['preferences']['source']['snapshot']
+            self.assertNotEqual(a['cache']['rows'][key],b['cache']['rows'][key])
+            self.assertNotEqual(a['writer']['physical']['rows'],b['writer']['physical']['rows'])
+            self.assertEqual(1,len(self.events));self.assertTrue(self.events[-1]['completed']);self.assertFalse(self.events[-1]['captureAlive'])
+        self.assertTrue(f.instance._avatar_favorites_owned(f.target));self.assertEqual(2.5,f.persisted_scale)
+
     def test_lost_original_scale_confirm_reconciles_without_resend(self):
         f=self.fixture;self.save_owned();f.activate('avatar-scale',dict(value=1.5));self.lose='avatar.settings.confirm'
         with self.assertRaises(RuntimeError):self.invoke('act')

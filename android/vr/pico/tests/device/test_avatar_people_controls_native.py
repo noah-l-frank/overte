@@ -17,6 +17,7 @@ sys.path.insert(0,str(HERE))
 sys.path.insert(0,str(ROOT/'tests/device'))
 from test_create_polyvox_controls_native import pointer_source,original
 from test_emote_ui_native import function
+from test_assets_native_ui import navigation_source
 sys.path.insert(0,str(ROOT/'tests/device/contracts/avatar'))
 from native_preferences_support import prepare_ui_host,native_stage
 
@@ -43,11 +44,7 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
             # branch fragments. Unrelated platform services are explicit seams;
             # Both the E2E and Pico observer branches compile. This does not
             # compile the full Android application or qualify other services.
-            observer='\n'.join(function(native,signature) for signature in (
-                'QString token()', 'bool visible(', 'bool enabled(', 'QString controlId('))
-            observer+='\nNavigationUi::NavigationUi() : _bridgeId(token()), _generation(token()) { _clock.start(); }\n'
-            observer+='\n'+function(native,'QJsonObject NavigationUi::observe(')
-            (stage/'actual-avatar-observe.inc').write_text('namespace overte::pico::e2e {\n'+observer+'\n}\n')
+            navigation_source(stage,'actual-avatar-observe.inc')
             bookmarks=(ROOT/'interface/src/Bookmarks.cpp').read_text();avatar_bookmarks=(ROOT/'interface/src/AvatarBookmarks.cpp').read_text()
             store='\n'.join(function(bookmarks,s) for s in ('void Bookmarks::insert(', 'void Bookmarks::remove(', 'bool Bookmarks::contains(', 'void Bookmarks::readFromFile(', 'void Bookmarks::persistToFile('))
             store+='\n'+'\n'.join(function(avatar_bookmarks,s) for s in ('AvatarBookmarks::AvatarBookmarks()', 'QVariantMap AvatarBookmarks::e2eBookmarkStorage(', 'QVariantMap AvatarBookmarks::e2eBookmarkLoads(', 'QVariantMap AvatarBookmarks::getBookmarks(', 'QVariantMap AvatarBookmarks::getBookmarkInternal(', 'void AvatarBookmarks::addBookmarkInternal(', 'void AvatarBookmarks::removeBookmarkInternal(', 'void AvatarBookmarks::loadBookmark(', 'void AvatarBookmarks::loadBookmarkInternal('))
@@ -55,13 +52,6 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
             (stage/'actual-avatar-bookmark-store.inc').write_text(store)
             compile_started=time.monotonic()
             subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),*definitions,*includes,'-i',str(HERE/'avatar-bookmark-store-actor.h'),'-o',str(stage/'avatar-bookmark-store-actor.moc')],check=True,timeout=min(20,max(.001,90-(time.monotonic()-compile_started))),env=environment)
-            start=native.index('    } else if (controlId.startsWith("avatar.") || controlId.startsWith("people.")) {')
-            end=native.index('\n    } else if (',start+10)
-            branch=native[start:end].split('{',1)[1]
-            (stage/'actual-avatar-input.inc').write_text(
-                'QJsonObject originalAvatarInput(QQuickItem* item,QQuickWindow* window,const QString& controlId,const QString& action,const QJsonObject& command,const std::function<bool(QQuickItem*,const QPointF&)>& pointerAt,int version=1){\n'
-                'QJsonObject result{{"performed",false}},current{{"avatarPeopleControlsVersion",version}};bool delivered=false;struct {QQuickItem* item;} control{item};\n'
-                +branch+'\nresult["performed"]=delivered;return result;}\n')
             (stage/'PathUtils.h').write_text('#pragma once\n#include <QUrl>\nclass PathUtils {public:\n'
                 'inline static QUrl scripts,qml; static QUrl defaultScriptsLocation(){return scripts;}\n'
                 'static QUrl qmlUrl(const QString& value){return qml.resolved(QUrl(value));}};\n')
@@ -84,6 +74,7 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
                 result=completed.stdout
             value=json.loads(result)
             from adapters.pico4.avatar_preferences import validate as preference_validate,baseline as preference_baseline,continuity as preference_continuity
+            from adapters.pico4.avatar_favorite_effect import unchanged_preferences
             effects=value['originalFavoritePreferences'];self.assertEqual(len(value['originalBookmarkLoads']),len(effects))
             previous=None
             for effect in effects:
@@ -101,12 +92,13 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
                 input_row=value['normalInputJournal'][effect['normalInput']-1]
                 self.assertTrue(input_row['reply']['performed'])
                 command=input_row['command'];controls=input_row['snapshot']['controls']
-                self.assertEqual(command['instance'],input_row['snapshot']['instance'])
+                self.assertEqual(command['bridgeId'],input_row['snapshot']['bridgeId'])
                 self.assertEqual(command['generation'],input_row['snapshot']['generation'])
                 self.assertEqual(1,len([row for row in controls if row['id']==command['controlId'] and row['token']==command['controlToken']]))
                 actual_messages=value['normalMessageJournal'][effect['normalMessages']-1]
                 self.assertTrue(actual_messages)
                 self.assertTrue(all(type(message['method']) is str for message in actual_messages))
+                if effect['cached']:unchanged_preferences(effect['before']['packet'],effect['after']['packet'])
                 before=effect['before']['packet']['source']['snapshot'];after=effect['after']['packet']['source']['snapshot']
                 self.assertEqual(before['instance'],after['instance'])
                 self.assertEqual(before['mutationSequence'],after['mutationSequence'])
@@ -138,7 +130,7 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
             self.assertEqual(['uninitialized','wrong-root','moved-token','window-source','disabled','higher-overlay','outside-child','hidden-child','disabled-painted-child','clipped','negative-z'],value['counterexamples'])
             self.assertGreater(value['pointerCalls'],5)
             self.assertTrue(value['hmdActive'])
-            self.assertTrue(value['wholeOriginalObserver'])
+            self.assertTrue(value['wholeOriginalObserver']);self.assertTrue(value['wholeOriginalWriter'])
             self.assertEqual(['save','e2e-'+'a'*32],value['bookmarkCalls'][0])
             self.assertEqual(['delete','e2e-'+'a'*32],value['bookmarkCalls'][-1])
             self.assertTrue(1<=len(value['bookmarkCalls'][1:-1])<=8)

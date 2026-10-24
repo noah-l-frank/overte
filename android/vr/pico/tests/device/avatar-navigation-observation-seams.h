@@ -8,6 +8,9 @@
 #include <limits>
 #include "tests/device/native/FeatureUiInventory.h"
 #include "tests/device/native/AssetsUiInventory.h"
+#if defined(AVATAR_ORIGINAL_PLACES)
+#include "tests/device/native/NormalPlacesControls.h"
+#endif
 #include "tests/device/native/PicoCreateFileControls.h"
 #include "tests/device/native/NormalEmoteControls.h"
 #include "tests/device/native/AudioPageObservation.h"
@@ -61,9 +64,11 @@ struct ViewMenuContext {};
 inline QString viewMenuControlId(QQuickItem*,const ViewMenuContext&){return {};}
 inline QString viewMenuControlSource(QQuickItem*,const QString&,const ViewMenuContext&){return {};}
 inline void appendViewMenuObservation(QJsonObject&,QQuickItem*,const QString&,const ViewMenuContext&){}
+#if !defined(AVATAR_ORIGINAL_PLACES)
 inline QString placesControlId(QQuickItem*){return {};}
 inline QString placesControlSource(QQuickItem*,const QString&){return {};}
 inline void appendPlacesObservation(QJsonObject&,QQuickItem*,const QString&){}
+#endif
 struct UnavailableNavigationFailure {
     template<class... Args>void observeRoot(Args&&...){}
     QString controlId(QQuickItem*)const{return {};}

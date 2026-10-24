@@ -14,6 +14,30 @@ from adapters.token_create_ui import navigation,nonce,scope
 from feature_journeys.fixtures import context as fixture_context
 
 
+def unchanged_preferences(before,after):
+    """Admit the actual cached/Scale path without inventing a lazy write.
+
+    Whole original MyAvatar setAvatarScale/setTargetScale and cached Favorite
+    do not persist a Handle. Independent original sources must retain every
+    typed Handle/cache/writer/physical value; only live scale may differ.
+    """
+    a=avatar_preferences.baseline(before);b=avatar_preferences.baseline(after)
+    avatar_preferences.continuity(before,after)
+    need(before['processId']==after['processId'] and before['instance']==after['instance']
+        and before['source']['instance']==after['source']['instance']
+        and a['instance']==b['instance'] and a['mutationSequence']==b['mutationSequence'])
+    need(same(a['cache']['rows'],b['cache']['rows']) and same(a['cache']['encodedRows'],b['cache']['encodedRows']))
+    x,y=a['cache']['native'],b['cache']['native']
+    need(all(same(x[key],y[key]) for key in ('handles','modelInstance','sessionId')))
+    need(same({key:value for key,value in x['live'].items() if key not in ('scale','targetScale')},
+              {key:value for key,value in y['live'].items() if key not in ('scale','targetScale')}))
+    x,y=a['writer'],b['writer']
+    need(all(same(x[key],y[key]) for key in ('instance','rows','encodedRows')))
+    x,y=x['physical'],y['physical']
+    need(all(same(x[key],y[key]) for key in ('format','pathSha256','file','fileSha256','rows')))
+    return after
+
+
 def validate(proof,binding,run,fixture_url):
     # Imported only when an original effect proof is admitted; no factory,
     # UI, transport or native getter call during historical reconstruction.
@@ -66,6 +90,8 @@ def validate(proof,binding,run,fixture_url):
         native=current['native']['source'];widgets=frame['widgets']
         need(widgets['open'] and widgets['ready'] and any(row['id']=='avatar.page' for row in widgets['controls'])
             and not any(row['id'] in ('avatar.scale','avatar.settings.confirm','avatar.dialog.confirm','avatar.dialog.input') for row in widgets['controls']))
+        if verb=='avatar-scale' or before['requestedUrl']==record['avatarUrl']:
+            unchanged_preferences(original['preferences'],current['preferences'])
         if verb=='avatar-scale':
             need(all(native[key]==before[key] for key in ('requestedUrl','preferenceUrl','modelName','avatarEntityStorage','modelUrl','modelInstance','geometry','sessionId','hipsJoint','rigId','loaded','localRenderingEnabled'))
                 and all(native[kind]['currentGeneration']==before[kind]['currentGeneration'] for kind in ('avatarLoads','modelLoads'))

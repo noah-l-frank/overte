@@ -222,6 +222,7 @@ TESTS = (
         'AvatarFavoritesTests.test_normal_save_scale_missing_choose_restore_delete_remains_owned'),
     test('avatar-favorites-fences', "interaction", PYTHON, "device/test_avatar_favorites_owner.py",
         'AvatarFavoritesTests.test_lost_original_scale_confirm_reconciles_without_resend',
+        'AvatarFavoritesTests.test_cached_callback_foreign_raw_preference_change_is_not_adopted',
         'AvatarFavoritesTests.test_phase_advance_at_final_native_guard_prevents_favorite_input',
         'AvatarFavoritesTests.test_foreign_preferences_before_scale_cannot_be_adopted_by_url_effect_proof',
         'AvatarFavoritesTests.test_nonempty_persisted_entity_size_refuses_even_with_empty_live_handles',
