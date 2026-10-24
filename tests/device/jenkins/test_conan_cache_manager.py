@@ -165,15 +165,25 @@ class ConanCacheManagerTest(unittest.TestCase):
                 self.prepare(root, "android-phone", temporary / "writable.env", *arguments)
 
     def test_unmarked_data_and_default_conan_home_are_never_adopted(self):
-        with tempfile.TemporaryDirectory(prefix="overte-cache-adopt-test-") as name:
-            root = Path(name) / "existing"
-            root.mkdir(mode=0o755)
-            existing = root / "keep.txt"
-            existing.write_text("keep", encoding="utf-8")
-            with self.assertRaisesRegex(MANAGER.CacheError, "unmarked"):
-                self.prepare(root, "android-phone", Path(name) / "unsafe.env")
-            self.assertEqual("keep", existing.read_text(encoding="utf-8"))
-            self.assertEqual(0o755, mode(root))
+        for permissions in (0o700, 0o755):
+            with self.subTest(permissions=permissions), tempfile.TemporaryDirectory(
+                    prefix="overte-cache-adopt-test-") as name:
+                root = Path(name) / "existing"
+                root.mkdir(mode=permissions)
+                # Explicit fixture metadata must not depend on the caller's
+                # umask. Rejection must preserve either existing permission set.
+                root.chmod(permissions)
+                existing = root / "keep.txt"
+                existing.write_text("keep", encoding="utf-8")
+                inode = (root.stat().st_dev, root.stat().st_ino)
+                environment = Path(name) / "unsafe.env"
+                with self.assertRaisesRegex(MANAGER.CacheError, "unmarked"):
+                    self.prepare(root, "android-phone", environment)
+                self.assertEqual("keep", existing.read_text(encoding="utf-8"))
+                self.assertEqual(permissions, mode(root))
+                self.assertEqual(inode, (root.stat().st_dev, root.stat().st_ino))
+                self.assertEqual([existing], list(root.iterdir()))
+                self.assertFalse(environment.exists())
 
         default_child = Path.home() / ".conan2/overte-managed-test"
         with self.assertRaisesRegex(MANAGER.CacheError, "default Conan cache"):
