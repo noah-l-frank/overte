@@ -56,6 +56,7 @@ class IOSEmoteFeature:
     KeyedRetirement=IOSEmoteKeyedRetirement
     scene_proof_version=1
     retirement_stage=None
+    paired_retirement_kind='primary-paired'
     quiet_refresh=staticmethod(refresh_quiet)
     quiet_extend=staticmethod(extend_quiet)
 
@@ -423,6 +424,18 @@ class IOSEmoteFeature:
         self.state['retirement']=dict(kind='actor-published',original=self.state['cleanup'][-1],publisher=deepcopy(publisher.state['records'][-1]));self.save()
         return {'performed':True}
 
+    def peer_retirement_reader(self,binding,guard,admission,admitted):
+        return PhaseRetirementReader(PrivateFeatureState(self.runtime.state_path(self.selector).with_name('ios-emote-primary-peer-retirement.json')),
+            binding,self.phase,guard,admission,admitted,epoch_ms=self.epoch_ms,monotonic=self.monotonic,
+            stage='complete' if self.retirement_stage is None else self.retirement_stage)
+
+    def qualify_peer_retirement(self,receipt):
+        from feature_journeys.retirement_receipts import summary
+        now=self.epoch_ms();mono=self.monotonic();received=receipt['acquisition'];original_summary=summary(receipt['entry'])
+        need(number(now,received['hostAfterEpochMs'],1e15) and number(mono,received['hostAfterMonotonic'],1e15)
+            and max(now-original_summary['capturedEpochMs'],
+                received['hostAfterEpochMs']-original_summary['capturedEpochMs']+(mono-received['hostAfterMonotonic'])*1000)<=1500)
+
     @operation(60)
     @retry_scene
     def cleanup(self,call):
@@ -443,8 +456,7 @@ class IOSEmoteFeature:
         # independent Actor's committed receipt; the Actor needs that lock to
         # acquire its own original Primary SDK evidence.
         def admitted(original):return dict(runId=self.run,phaseInstance=instance,binding=peer_admission(original,own_binding))
-        reader=PhaseRetirementReader(PrivateFeatureState(self.runtime.state_path(self.selector).with_name('ios-emote-primary-peer-retirement.json')),
-            own_binding,self.phase,guard,admission,admitted,epoch_ms=self.epoch_ms,monotonic=self.monotonic,stage=self.retirement_stage)
+        reader=self.peer_retirement_reader(own_binding,guard,admission,admitted)
         waiting=self.monotonic();last=waiting
         while True:
             now=self.monotonic();need(number(now,last,waiting+20));last=now
@@ -459,13 +471,9 @@ class IOSEmoteFeature:
             parts=self.components();self.retirement_sample(parts,fresh_end=True)
             # Preserve the Actor's original receipt timestamp. Waiting and
             # reacquiring our own current proof cannot make that receipt fresh.
-            from feature_journeys.retirement_receipts import summary
-            now=self.epoch_ms();mono=self.monotonic();received=receipt['acquisition'];original_summary=summary(receipt['entry'])
-            need(number(now,received['hostAfterEpochMs'],1e15) and number(mono,received['hostAfterMonotonic'],1e15)
-                and max(now-original_summary['capturedEpochMs'],
-                    received['hostAfterEpochMs']-original_summary['capturedEpochMs']+(mono-received['hostAfterMonotonic'])*1000)<=1500)
+            self.qualify_peer_retirement(receipt)
             reference=self.state['cleanup'][-1]
-            self.state['retirement']=dict(kind='primary-paired',original=reference,peerReceipt=deepcopy(receipt));self.save()
+            self.state['retirement']=dict(kind=self.paired_retirement_kind,original=reference,peerReceipt=deepcopy(receipt));self.save()
             return {'performed':True}
 
     @operation(60)

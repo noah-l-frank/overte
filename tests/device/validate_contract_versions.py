@@ -63,6 +63,7 @@ REQUIRED = {
     "ios-emote-rooted-live-record": 1,
     "ios-emote-rooted-live-frame": 1,
     "ios-emote-rooted-live-original": 1,
+    "ios-emote-scene-order": 1,
     "ios-emote-feature": 2,
     "ios-emote-observer-worker": 1,
     "ios-emote-worker-failure": 1,

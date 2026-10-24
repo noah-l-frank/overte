@@ -19,6 +19,9 @@ from ios.adapters.emote_rooted_scene_retirement import IOSEmoteRootedSceneRetire
 from ios.adapters.emote_rooted_live import IOSEmoteRootedLive
 from ios.adapters.emote_rooted_quiet import refresh,extend
 from ios.adapters.emote_scene_proof import rooted
+from ios.adapters.emote_scene_order import IOSEmoteSceneOrder
+from adapters.normal_feature_state import PrivateFeatureState
+from feature_journeys.retirement_receipts import stage
 
 
 class IOSEmoteRootedFeature(IOSEmoteFeature):
@@ -31,6 +34,7 @@ class IOSEmoteRootedFeature(IOSEmoteFeature):
     scene_proof_version=2
     scene_validator=staticmethod(rooted)
     retirement_stage=WEB_SCENE_STAGE
+    paired_retirement_kind='primary-scene-ordered'
 
     @staticmethod
     def quiet_refresh(scope,*,clock,sleep,pointers,keys):
@@ -50,6 +54,20 @@ class IOSEmoteRootedFeature(IOSEmoteFeature):
         return super().retirement_sample(parts,after_sequence,fresh_end=fresh_end)
 
     def retirement_decoder(self,owner):return IOSEmoteRootedSceneRetirement(owner).actor_original
+
+    def peer_retirement_reader(self,binding,guard,admission,admitted):
+        return IOSEmoteSceneOrder(PrivateFeatureState(self.runtime.state_path(self.selector).with_name(
+            'ios-emote-primary-scene-order-'+self.run+'.json')),binding,self.phase,guard,admission,admitted,
+            epoch_ms=self.epoch_ms,monotonic=self.monotonic,stage=self.retirement_stage)
+
+    def qualify_peer_retirement(self,receipt):
+        # This proves historical scene ordering, never a renewed freshness
+        # lease. Present cleanup requires the separately acquired local cut
+        # and the subsequent paired terminal window before process end.
+        need(self.state['phase']=='cleaned' and self.state['cleanup'] and stage(receipt['entry'])==WEB_SCENE_STAGE
+            and receipt['entry']['area']=='emotes' and receipt['entry']['phaseRetirementVersion']==3
+            and receipt['entry']['ticket']==self.phase.previous['activations'][-1]['ticket'])
+        self.clock()
 
     def publish_retirement(self,parts):
         """One committed scene receipt per ticket; new facts for every cut.

@@ -14,8 +14,9 @@ new cross-platform scene protocol or expected-state shortcut is introduced.
 
 Rooted local cleanup returns actual held aliases alongside the measured baseline.
 The Actor publishes its actual keyed original through the existing Web scene3
-publisher. The Primary reader selects that same explicit scene stage and checks
-the receipt's original summary timestamp. A scene receipt retains
+publisher. The Primary selects the explicit [scene-order reader](EMOTE_SCENE_ORDER.md)
+for historical once-per-ticket ordering, preserving the original summary time
+and independently acquiring current local cleanup cuts. A scene receipt retains
 `native-process-resources`; it cannot become a legacy Complete. Ordinary Actor
 fact publication remains based on its own original source/peer/PNG decoder.
 
