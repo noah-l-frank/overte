@@ -172,6 +172,54 @@ class LifecycleOperationsProcessTests(unittest.TestCase):
             expected=expand(SCENARIOS['lifecycle-input']['baseline'],context(self.source.run))
             for key in ('worldAttempts','staleAttempts'):expected[key]=current.boundary['state'][key]
             activation=self.journal.runs[self.source.run]['phaseActivations'][-1]
+            span=getattr(self,'cleanup_span',None)
+            if span:
+                # Actual producer latency only: never rewrite accepted packet
+                # capture times. The .2499s schedule belongs solely to this
+                # counter, not the unchanged normal .25s Common wait.
+                sleep=self.sdk.helper.sleep;ui_calls=[];drive_calls=[]
+                if span=='ui':
+                    capture=current.acquisition.avatar.capture
+                    def slower_first_drive(*args,**kwargs):
+                        value=capture(*args,**kwargs);drive_calls.append(True)
+                        if len(drive_calls)==1:sleep(.0012)
+                        return value
+                    current.acquisition.avatar.capture=slower_first_drive
+                    capture_ui=current.acquisition.source.capture
+                    def slower_last_ui(*args,**kwargs):
+                        value=capture_ui(*args,**kwargs);ui_calls.append(True)
+                        if len(ui_calls)==13:sleep(.0014)
+                        return value
+                    current.acquisition.source.capture=slower_last_ui
+                else:
+                    send=self.g1_pending_boundary.send
+                    def slower_first_pending(request):
+                        if not self.g1_pending_boundary.commands:sleep(.0013)
+                        return send(request)
+                    current.pending.send=slower_first_pending
+                for index in range(13):
+                    waiter.journey.observe(activation['ticket'],cleanup_barrier)
+                    if index<12:sleep(.2499)
+                from adapters.chat_journey import source_bundles
+                import json
+                axes={key:[] for key in ('ui','gesture','drive','pending','native','presence','domain','host')}
+                for row in current.disk['records']:
+                    original,_=source_bundles.original(current.history,current.disk['chunks'],current.disk['bundles'],row['originals']['world'])
+                    for key in ('ui','gesture','drive'):axes[key].append(json.loads(original['world'][key]['raw'])['capturedEpochMs'])
+                    axes['host'].append(original['world']['hostMonotonic'])
+                    for key in ('pending','native','presence','domain'):
+                        original,_=source_bundles.original(current.history,current.disk['chunks'],current.disk['bundles'],row['originals'][key])
+                        axes[key].append(json.loads(original[key]['raw'])['capturedEpochMs'])
+                spans={key:values[-1]-values[0] for key,values in axes.items()}
+                PrivateFeatureState(current.store.path.with_name('lifecycle-quiet-capture-spans.json')).write(dict(
+                    kind='actual-source-counter',axes=axes,spans=spans,scheduledNativeQueries=13),None)
+                print('Actual fresh original source spans: '+str(spans),flush=True)
+                self.assertGreaterEqual(spans['drive'],3000);self.assertGreaterEqual(spans['host'],3)
+                self.assertLess(spans[span if span=='ui' else 'pending'],3000)
+                with self.assertRaises(NativeUIError):current.quiet_originals(first)
+                self.assertTrue(current.failed);self.assertEqual(original_process,process.state)
+                self.assertEqual(126,len(self.source.world.state['frames']));self.assertEqual(71,len(self.source.disk['records']))
+                return
             fault=getattr(self,'cleanup_quiet_fault',None)
             if fault=='pending':
                 born=self.sdk.helper.new_native.clock
@@ -255,6 +303,8 @@ class LifecycleOperationsProcessTests(unittest.TestCase):
     def test_late_actual_pending_archive_prevents_g1_three_second_quiet(self):self.cleanup_quiet=True;self.cleanup_quiet_fault='pending';self.run_seven(actions=16)
     def test_present_original_pid_reply_is_retained_before_domain_query_or_quiet(self):self.cleanup_quiet=True;self.cleanup_quiet_fault='presence';self.run_seven(actions=16)
     def test_real_quiet_outer_exit_native_jump_cannot_return_window_proof(self):self.cleanup_quiet=True;self.cleanup_quiet_fault='outer-exit';self.run_seven(actions=16)
+    def test_ui_capture_span_below_three_seconds_cannot_use_drive_and_host_span(self):self.cleanup_quiet=True;self.cleanup_span='ui';self.run_seven(actions=16)
+    def test_pending_capture_span_below_three_seconds_cannot_use_drive_and_host_span(self):self.cleanup_quiet=True;self.cleanup_span='pending';self.run_seven(actions=16)
 
 
 if __name__=='__main__':unittest.main()

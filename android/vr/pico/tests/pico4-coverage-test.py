@@ -10,7 +10,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 254
+EXPECTED_CATALOG_CASES = 256
 
 
 def catalog_entries() -> list[str]:
@@ -37,7 +37,7 @@ class CoverageMatrixTests(unittest.TestCase):
         expected={'LifecycleOperationsProcessTests.'+method.name for owner in tree.body
             if isinstance(owner,ast.ClassDef) and owner.name=='LifecycleOperationsProcessTests' for method in owner.body
             if isinstance(method,ast.FunctionDef) and method.name.startswith('test_')}
-        names={'lifecycle-primary-launch-phase', 'lifecycle-primary-process-quiet-exit', 'lifecycle-primary-process-memo', 'lifecycle-primary-launch-lost', 'lifecycle-primary-stop-lost', 'lifecycle-primary-process-quiet', 'lifecycle-primary-stop-phase', 'lifecycle-primary-process', 'lifecycle-primary-process-presence', 'lifecycle-primary-process-pending', 'lifecycle-primary-process-clock', 'lifecycle-primary-process-exit'}
+        names={'lifecycle-primary-launch-phase', 'lifecycle-primary-stop-lost', 'lifecycle-primary-process-memo', 'lifecycle-primary-process-presence', 'lifecycle-primary-process-pending', 'lifecycle-primary-stop-phase', 'lifecycle-primary-process-clock', 'lifecycle-primary-launch-lost', 'lifecycle-primary-process', 'lifecycle-primary-process-exit', 'lifecycle-primary-process-ui-span', 'lifecycle-primary-process-pending-span', 'lifecycle-primary-process-quiet', 'lifecycle-primary-process-quiet-exit'}
         selected=[]
         for node in ast.walk(RUNNER_TREE):
             if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='test' and node.args[0].value in names:
