@@ -410,7 +410,45 @@ class OverteSession:
                 fail("application was already connected to the controlled domain")
 
         arguments = validate_operation_arguments("navigation.enter-domain", {"url": url})
-        result = operation("navigation.enter-domain", arguments)
+        try:
+            result = operation("navigation.enter-domain", arguments)
+        except InfrastructureError:
+            # A normal input may have reached the application before its UI
+            # completion wait failed. Observe once through the still-owned
+            # original session; this unqualified evidence cannot repair or
+            # replace the failed operation or establish domain admission.
+            try:
+                diagnostic = {
+                    "domainInputFailureObservationVersion": 1,
+                    "scope": "UNQUALIFIED_POST_FAILURE_OBSERVATION_ORIGINAL_ERROR_RETAINED",
+                    "processIdentityBeforeInput": identity,
+                    "startedEpochMs": time.time() * 1000,
+                    "startedMonotonicSeconds": time.monotonic(),
+                }
+                try:
+                    observed = self.snapshot("domain-input-failure-probe.json")
+                    diagnostic["probe"] = {
+                        "status": "captured-unqualified",
+                        "artifact": "domain-input-failure-probe.json",
+                        "sampleSequence": observed["sampleSequence"],
+                    }
+                except Exception as observation_error:
+                    diagnostic["probe"] = {
+                        "status": "error",
+                        "failureClass": type(observation_error).__name__,
+                    }
+                diagnostic["finishedEpochMs"] = time.time() * 1000
+                diagnostic["finishedMonotonicSeconds"] = time.monotonic()
+                write_json("domain-input-failure-observation.json", diagnostic)
+            except Exception as diagnostic_error:
+                # Broken artifact storage must not mask the SAME original
+                # error. No exception text, target, URL or secret is printed.
+                try:
+                    print("DOMAIN_INPUT_FAILURE_DIAGNOSTIC_ERROR: "
+                          + type(diagnostic_error).__name__)
+                except Exception:
+                    pass
+            raise
         write_json("domain-navigation-result.json", result)
         if result.get("requested") is not True:
             fail("domain navigation operation was not accepted")

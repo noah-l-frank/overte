@@ -18,6 +18,169 @@ DEVICE_ROOT = Path(__file__).resolve().parents[1]
 
 
 class InteractionAndDomainRecoveryTest(unittest.TestCase):
+    def domain_input_failure_counter(self, mode):
+        """Exercise the real session/probe validator using the existing mock."""
+        temporary = tempfile.TemporaryDirectory(prefix="overte-domain-input-error-")
+        root = Path(temporary.name)
+        code = r'''
+from copy import deepcopy
+from concurrent.futures import CancelledError
+import importlib.util,json,os,sys
+from pathlib import Path
+root=Path(os.environ['OVERTE_DEVICE_ARTIFACT_DIR'])
+sys.path.insert(0,sys.argv[1])
+import module_support as support
+import overte_session as session_module
+spec=importlib.util.spec_from_file_location('existing_mock',Path(sys.argv[1])/'adapters/mock/adapter.py')
+mock=importlib.util.module_from_spec(spec);spec.loader.exec_module(mock)
+mock.invoke('app.launch',{})
+mode=sys.argv[2];calls=[];before=None;probe_count=0
+original=(KeyboardInterrupt() if mode=='cancel' else CancelledError() if mode=='cancelled-future'
+          else support.InfrastructureError('Original input completion error'))
+def invoke(_manifest,_target,name,arguments):
+    global before,probe_count
+    calls.append(name)
+    if name=='probe.snapshot':
+        probe_count+=1
+        if probe_count==2 and mode=='missing':raise OSError('Unpublished private details')
+        if probe_count==2 and mode=='stale-sequence':return deepcopy(before)
+    value=mock.invoke(name,arguments or {})
+    if name=='probe.snapshot':
+        if probe_count==1:before=deepcopy(value)
+        elif mode=='stale-time':value['sampleEpochMs']=1
+    return value
+support.invoke=invoke
+actual_operation=session_module.operation
+def operation(name,arguments=None):
+    if name=='navigation.enter-domain':
+        calls.append(name)
+        if mode in ('hifi','foreign'):
+            mock.invoke(name,arguments)
+            if mode=='foreign':
+                state=mock.load();state['domainId']='aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
+                state['domainHost']='foreign.invalid';mock.save(state)
+        raise original
+    return actual_operation(name,arguments)
+session_module.operation=operation
+actual_write=session_module.write_json
+def write(name,value):
+    if name.startswith('domain-input-failure-') and (
+            mode=='all-write-failure' or mode=='probe-write-failure' and name.endswith('-probe.json')
+            or mode=='metadata-write-failure' and name.endswith('-observation.json')):
+        raise OSError('Private path must not be logged')
+    return actual_write(name,value)
+session_module.write_json=write
+session=session_module.OverteSession();returned=False;same=False
+try:
+    session.enter_controlled_domain();returned=True
+except BaseException as caught:
+    same=caught is original
+result={'returned':returned,'sameOriginalException':same,'calls':calls,'probeCount':probe_count,
+        'domainEnterCount':mock.load()['domainEnterCount'],'originalExceptionClass':type(original).__name__}
+(root/'counter.json').write_text(json.dumps(result))
+'''
+        manifest = json.loads((DEVICE_ROOT / "fixture/domain-manifest.json").read_text())
+        environment = {key: value for key, value in os.environ.items()
+                       if not key.startswith("OVERTE_E2E_DOMAIN_")
+                       and not key.startswith("OVERTE_MOCK_E2E_")}
+        environment.update({
+            "OVERTE_DEVICE_ADAPTER_MANIFEST": str(root / "unused.json"),
+            "OVERTE_DEVICE_TARGET_SELECTOR": "host-only-no-device",
+            "OVERTE_DEVICE_ARTIFACT_DIR": str(root),
+            "OVERTE_MOCK_E2E_STATE": str(root / "state.json"),
+            "OVERTE_E2E_DOMAIN_URL": "hifi://127.0.0.1:40102" + manifest["spawnPath"],
+            "OVERTE_E2E_DOMAIN_HOST": "127.0.0.1",
+            "OVERTE_E2E_DOMAIN_ID": "11111111-2222-4333-8444-555555555555",
+            "OVERTE_MOCK_E2E_DOMAIN_ID": "11111111-2222-4333-8444-555555555555",
+            "OVERTE_E2E_DOMAIN_MARKERS_JSON": json.dumps(manifest["requiredMarkers"]),
+            "PYTHONDONTWRITEBYTECODE": "1",
+        })
+        result = subprocess.run([sys.executable, "-B", "-c", code, str(DEVICE_ROOT), mode],
+                                env=environment, text=True, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, timeout=10, check=False)
+        self.assertEqual(0, result.returncode, result.stdout)
+        counter = json.loads((root / "counter.json").read_text())
+        self.assertFalse(counter["returned"])
+        self.assertTrue(counter["sameOriginalException"])
+        self.assertEqual(1, counter["calls"].count("navigation.enter-domain"))
+        self.assertEqual(1, counter["calls"].count("app.process"))
+        self.assertEqual(1, counter["calls"].count("app.foreground"))
+        self.assertFalse((root / "domain-navigation-result.json").exists())
+        self.assertFalse((root / "domain-connected.json").exists())
+        return temporary, root, counter, result
+
+    def test_domain_input_error_records_one_fresh_probe_without_changing_error(self):
+        for mode in ("ignored", "hifi"):
+            with self.subTest(mode=mode):
+                temporary, root, counter, _result = self.domain_input_failure_counter(mode)
+                try:
+                    self.assertEqual(2, counter["probeCount"])
+                    self.assertEqual(0 if mode == "ignored" else 1, counter["domainEnterCount"])
+                    before = json.loads((root / "domain-before.json").read_text())
+                    after = json.loads((root / "domain-input-failure-probe.json").read_text())
+                    metadata = json.loads((root / "domain-input-failure-observation.json").read_text())
+                    self.assertGreater(after["sampleSequence"], before["sampleSequence"])
+                    self.assertEqual(mode == "hifi", after["domain"]["connected"])
+                    if mode == "hifi":
+                        self.assertEqual("hifi", after["domain"]["protocol"])
+                        self.assertEqual("11111111-2222-4333-8444-555555555555", after["domain"]["id"])
+                    self.assertEqual("captured-unqualified", metadata["probe"]["status"])
+                    self.assertEqual(after["sampleSequence"], metadata["probe"]["sampleSequence"])
+                    self.assertTrue(metadata["processIdentityBeforeInput"])
+                    self.assertGreaterEqual(metadata["finishedEpochMs"], metadata["startedEpochMs"])
+                    self.assertGreaterEqual(metadata["finishedMonotonicSeconds"], metadata["startedMonotonicSeconds"])
+                finally:
+                    temporary.cleanup()
+
+    def test_domain_input_error_missing_foreign_or_stale_probe_never_becomes_success(self):
+        for mode in ("missing", "foreign", "stale-sequence", "stale-time"):
+            with self.subTest(mode=mode):
+                temporary, root, counter, _result = self.domain_input_failure_counter(mode)
+                try:
+                    self.assertEqual(2, counter["probeCount"])
+                    metadata = json.loads((root / "domain-input-failure-observation.json").read_text())
+                    self.assertEqual("UNQUALIFIED_POST_FAILURE_OBSERVATION_ORIGINAL_ERROR_RETAINED", metadata["scope"])
+                    if mode in ("missing", "stale-sequence"):
+                        self.assertEqual({"status": "error", "failureClass": "InfrastructureError"}, metadata["probe"])
+                        self.assertFalse((root / "domain-input-failure-probe.json").exists())
+                    else:
+                        observed = json.loads((root / "domain-input-failure-probe.json").read_text())
+                        self.assertEqual("captured-unqualified", metadata["probe"]["status"])
+                        # Portable snapshots intentionally do not assert a new
+                        # process binding or requalify native freshness here.
+                        if mode == "foreign":
+                            self.assertEqual("foreign.invalid", observed["domain"]["hostname"])
+                        else:
+                            self.assertEqual(1, observed["sampleEpochMs"])
+                finally:
+                    temporary.cleanup()
+
+    def test_domain_input_error_diagnostic_write_failure_keeps_same_original_error(self):
+        for mode in ("probe-write-failure", "metadata-write-failure", "all-write-failure"):
+            with self.subTest(mode=mode):
+                temporary, root, counter, result = self.domain_input_failure_counter(mode)
+                try:
+                    self.assertEqual(2, counter["probeCount"])
+                    self.assertNotIn("Private path", result.stdout)
+                    if mode == "probe-write-failure":
+                        metadata = json.loads((root / "domain-input-failure-observation.json").read_text())
+                        self.assertEqual({"status": "error", "failureClass": "OSError"}, metadata["probe"])
+                    else:
+                        self.assertIn("DOMAIN_INPUT_FAILURE_DIAGNOSTIC_ERROR: OSError", result.stdout)
+                finally:
+                    temporary.cleanup()
+
+    def test_domain_input_cancel_does_not_request_post_error_probe(self):
+        for mode in ("cancel", "cancelled-future"):
+            with self.subTest(mode=mode):
+                temporary, root, counter, _result = self.domain_input_failure_counter(mode)
+                try:
+                    self.assertEqual(1, counter["probeCount"])
+                    self.assertFalse((root / "domain-input-failure-probe.json").exists())
+                    self.assertFalse((root / "domain-input-failure-observation.json").exists())
+                finally:
+                    temporary.cleanup()
+
     def test_invalid_domain_inputs_reject_before_any_module_adapter_operation(self):
         manifest = json.loads((DEVICE_ROOT / "fixture/domain-manifest.json").read_text())
         valid = {
