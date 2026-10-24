@@ -14,6 +14,7 @@
 
 #include <QtCore/QSharedPointer>
 #include <WebEntityItem.h>
+#include <InlineHtmlDocument.h>
 #include "RenderableEntityItem.h"
 
 class OffscreenQmlSurface;
@@ -78,6 +79,7 @@ private:
     void buildWebSurface(const EntityItemPointer& entity, const QString& newSourceURL);
     void destroyWebSurface();
     void synchronizeWebVisibility(bool visible);
+    void synchronizeInlineDocument(const TypedEntityPointer& entity, const QString& source);
     glm::vec2 getWindowSize(const TypedEntityPointer& entity) const;
 
     int _geometryId{ 0 };
@@ -91,6 +93,12 @@ private:
 
     QSharedPointer<OffscreenQmlSurface> _webSurface { nullptr };
     QSharedPointer<int> _webSurfaceLease;
+    overte::web::InlineHtmlDocumentOwner _inlineDocumentOwner;
+    overte::web::InlineHtmlDocument _inlineDocument;
+    QPointer<QObject> _inlineDocumentContext, _inlineDocumentRoot;
+    QMetaObject::Connection _inlineDocumentRootConnection;
+    std::vector<QMetaObject::Connection> _inlineDocumentContextConnections;
+    QString _inlineDocumentSource, _inlineDocumentIdentity, _inlineDocumentScript;
     bool _webSurfaceVisible { true };
     bool _cachedWebSurface { false };
     gpu::TexturePointer _texture;

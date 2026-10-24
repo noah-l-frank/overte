@@ -114,9 +114,10 @@ public:
     Lock _renderSettingLock;
     int _renderMethod {FORWARD};
     bool _shadowsEnabled {true},_hazeEnabled {true},_bloomEnabled {true},_ambientOcclusionEnabled {true};
-    bool _localLightingEnabled {true},_proceduralMaterialsEnabled {true};
+    bool _localLightingEnabled {true},_proceduralMaterialsEnabled {true},_mirrorsEnabled {true};
     AntialiasingSetupConfig::Mode _antialiasingMode {AntialiasingSetupConfig::NONE};
     float _viewportResolutionScale {0.8f};QString _fullScreenScreen;
+    #include "render-persistence.inc"
     #include "render-settings.inc"
     static RenderScriptingInterface* getInstance() { static RenderScriptingInterface r;return &r; }
     QStringList getScreens() const { return {"display"}; }
@@ -127,6 +128,9 @@ public:
     void forceHazeEnabled(bool);void setHazeEnabled(bool);
     void forceLocalLightingEnabled(bool value) { _localLightingEnabled=value;_localLightingSetting.set(value); }
     void forceProceduralMaterialsEnabled(bool value) { _proceduralMaterialsEnabled=value;_proceduralMaterialsEnabledSetting.set(value); }
+    // Mirror graph/property/persistence behavior executes in the shared mirror contract.
+    // This fixture retains the complete startup body to protect existing iOS choices.
+    void forceMirrorsEnabled(bool value) { _mirrorsEnabled=value;_mirrorsEnabledSetting.set(value); }
     bool getShadowsEnabled() const { return _shadowsEnabled; }
     bool getBloomEnabled() const { return _bloomEnabled; }
     bool getAmbientOcclusionEnabled() const { return _ambientOcclusionEnabled; }

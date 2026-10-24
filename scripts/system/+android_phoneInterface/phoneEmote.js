@@ -10,6 +10,7 @@
     var FPS = 60;
     var MSEC_PER_SEC = 1000;
     var RESOURCE_FINISHED = 3;
+    var RESOURCE_FAILED = 4;
     var EMOTES = [
         "Crying", "Surprised", "Dancing", "Cheering", "Waving",
         "Fall", "Pointing", "Clapping", "Sit", "Love"
@@ -82,6 +83,10 @@
         }
 
         var selected = selectAnimation(name);
+        if (selected && selected.resource && selected.resource.state === RESOURCE_FAILED) {
+            sendState("Animation failed to load");
+            return;
+        }
         var frames = selected && selected.animation && selected.animation.frames;
         if (!selected || selected.resource.state !== RESOURCE_FINISHED ||
                 !frames || !isFinite(frames.length) || frames.length <= 0) {

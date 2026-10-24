@@ -5,9 +5,9 @@ native GitHub Actions jobs. This guide describes that implementation. Installing
 the source does not establish that its bootstrap passed or that branch rules have
 been migrated. The source routing covers all seven protected branches. The same trusted
 controller owns policy, shared host tests, packages, native C++, CodeQL and
-selected Android/iOS contracts. GitHub Actions remains disabled under the
-maintainer's local-only integration instruction; installing these sources does
-not claim a hosted execution or physical-device qualification.
+selected Android/iOS contracts. The protected source and execution checks
+qualify the exact candidate; successful host checks do not establish physical-device
+qualification.
 
 ## One context, one plan
 
@@ -29,6 +29,13 @@ candidate execution from acceptance:
    after selected execution owners finish, authenticates their native jobs and
    digest-bound execution record, and rechecks the current PR. Both contexts
    are required. Metadata-only runs cannot publish a replacement `required-ci`.
+
+Installed product workflows on a protected child retain their reviewed branch
+implementation. Central execution recipes and the automatic branch-cleanup
+workflow follow the current protected default-branch controller. An older
+child's disabled cleanup must not prevent a reviewed parent synchronization
+from adopting the active central workflow. Missing, edited, or obsolete central
+workflow bytes still fail source authentication.
 
 The original execution merge remains recorded even if GitHub later regenerates
 an equivalent merge commit. Equivalence requires the same base, head, parent
@@ -90,6 +97,22 @@ Task fingerprints include input modes and blobs, commands, setup, and trusted
 runtime inputs. Content-scoped host tasks omit an unrelated target branch;
 candidate-scoped tasks retain it. A fingerprint is a comparison key, not a test
 result, reusable evidence, or permission to skip a required owner.
+
+Complete GUI host prerequisites include both Qt5 and Qt6 SVG image decoders
+(`libqt5svg5` and `libqt6svg6` on Ubuntu24.04). Real Settings views load their
+shipped SVG icons, so Quick/QML packages alone are insufficient. Setup verifies
+the actual decoder plugins before candidate execution. The general, Android
+and iOS host roles use the official Ubuntu archive instead of the Azure mirror,
+which produced measured multi-minute pauses while downloading individual Qt
+packages. Package signature verification and isolated candidate execution are
+unchanged.
+
+The iOS host role prepares Chromium Headless Shell with the reviewed
+`playwright@1.63.0` installer before candidate execution and verifies its shared
+libraries. A dedicated runtime leaf contains the browser and its discovery
+alias; the existing launcher mounts only that leaf read-only for the unchanged
+offline DOM contracts. Tests never download a browser or mount host profiles.
+See the [Playwright headless-shell installation guide](https://playwright.dev/docs/browsers#chromium-headless-shell).
 
 Host and npm execution now publish separate task receipts. For a direct
 parent-to-child propagation, the controller can reuse the original successful
@@ -200,3 +223,9 @@ dispatch Actions, compile the complete application, or establish device
 acceptance. Report local checks, prospective input selection, native execution,
 and device evidence separately. GitHub changes belong only in
 `noah-l-frank/overte`; follow the existing branch and contribution policies.
+
+The isolated host namespace recreates only the fixed `ld`, `cc` and `c++`
+alternatives whose resolved ordinary files remain inside read-only `/usr`.
+This keeps the prepared Ubuntu compiler usable without exposing the host `/etc`
+directory. Runtime-identity unit fixtures supply explicit OS/package facts while
+still measuring real prepared files and rejecting changed system facts.

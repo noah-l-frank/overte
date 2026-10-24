@@ -35,3 +35,8 @@ helpers, canonical Appium/loader and pinned external Shared contracts.
 Focused tests use only test candidate/OS boundaries; no device is contacted.
 Reviewed installed-code identity, physical iPad/iPhone evidence and original
 IO-001/002/003/004/010 acceptance remain pending.
+
+The separate [normal navigation UI component](../../ios/adapters/NORMAL_NAVIGATION.md)
+extends the existing native Wi-Fi laboratory class, not this canonical bound
+entrypoint. Its native Qt events and owned panel flow can be qualified locally
+without changing this rejection or claiming installed-code evidence.

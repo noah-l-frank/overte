@@ -162,6 +162,30 @@ class NativeTests(unittest.TestCase):
         self.owners = {name: name in {"policy", "host", "npm", "codeql"} for name in T.OWNERS}
         self.plan = {"npm_projects": ["browser-client"], "codeql_languages": ["python"]}
 
+    def test_cleanup_uses_current_controller_while_installed_product_workflows_stay_pinned(self):
+        paths = [T.WORKFLOW, ".github/pr-ci-suites.json", ".github/pr-ci-dependencies.json"]
+        paths += ["tools/repository-checks/pr_ci" + suffix + ".py"
+                  for suffix in ("", "_context", "_plan", "_run", "_observer", "_transport")]
+        cleanup = ".github/workflows/branch-cleanup.yml"
+        product = ".github/workflows/ios-bootstrap.yml"
+        trusted = {path: {"mode": "100644", "type": "blob", "sha": "a" * 40}
+                   for path in [*paths, cleanup, product]}
+        base = deepcopy(trusted)
+        base[cleanup]["sha"] = "b" * 40  # Older child still has disabled cleanup.
+        base[product]["sha"] = "c" * 40  # Existing product implementation stays.
+        candidate = deepcopy(trusted)
+        candidate[product] = deepcopy(base[product])
+        self.assertTrue(T.validate_sources(candidate, trusted, protected_base=base))
+        for path, operation in ((cleanup, "old"), (cleanup, "edited"),
+                                (cleanup, "missing"), (product, "edited")):
+            invalid = deepcopy(candidate)
+            if operation == "missing":
+                del invalid[path]
+            else:
+                invalid[path]["sha"] = "b" * 40 if operation == "old" else "d" * 40
+            with self.subTest(path=path, operation=operation), self.assertRaises(T.TransportError):
+                T.validate_sources(invalid, trusted, protected_base=base)
+
     def verify_jobs(self, values):
         return T.validate_jobs(values, self.owners, plan=self.plan, context=context())
 

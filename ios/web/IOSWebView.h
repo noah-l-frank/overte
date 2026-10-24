@@ -7,13 +7,15 @@
 #include <QUrl>
 #include <QVariant>
 #include <memory>
+#include <cstdint>
 
 namespace overte::ios {
 class IOSWebView : public QQuickPaintedItem {
     Q_OBJECT
-    Q_PROPERTY(QUrl url READ url WRITE setUrl NOTIFY urlChanged)
+    Q_PROPERTY(QString url READ url WRITE setUrl NOTIFY urlChanged)
     Q_PROPERTY(QUrl currentUrl READ currentUrl NOTIFY navigationChanged)
-    Q_PROPERTY(QUrl scriptUrl READ scriptUrl WRITE setScriptUrl NOTIFY configurationChanged)
+    Q_PROPERTY(QString scriptUrl READ scriptUrl WRITE setScriptUrl NOTIFY configurationChanged)
+    Q_PROPERTY(QVariant inlineDocument READ inlineDocument WRITE setInlineDocument NOTIFY inlineDocumentChanged)
     Q_PROPERTY(QString userAgent READ userAgent WRITE setUserAgent NOTIFY configurationChanged)
     Q_PROPERTY(bool useBackground READ useBackground WRITE setUseBackground NOTIFY configurationChanged)
     Q_PROPERTY(QString surface READ surface WRITE setSurface NOTIFY configurationChanged)
@@ -29,11 +31,13 @@ class IOSWebView : public QQuickPaintedItem {
 public:
     explicit IOSWebView(QQuickItem* parent = nullptr);
     ~IOSWebView() override;
-    QUrl url() const;
+    QString url() const;
     QUrl currentUrl() const;
-    void setUrl(const QUrl& value);
-    QUrl scriptUrl() const;
-    void setScriptUrl(const QUrl& value);
+    void setUrl(const QString& value);
+    QString scriptUrl() const;
+    void setScriptUrl(const QString& value);
+    QVariant inlineDocument() const;
+    void setInlineDocument(const QVariant& value);
     QString userAgent() const;
     void setUserAgent(const QString& value);
     bool useBackground() const;
@@ -65,6 +69,7 @@ public:
     Q_INVOKABLE void pointerEvent(const QString& type, double x, double y, int button = 0);
     Q_INVOKABLE void keyEvent(const QString& text, int key = 0, int modifiers = 0);
 signals:
+    void inlineDocumentChanged();
     void urlChanged();
     void configurationChanged();
     void loadingChanged();
@@ -89,10 +94,17 @@ private:
     void scheduleOpen();
     void open();
     void tearDown();
+    bool observeInlineDocument();
+    bool openSource();
+    void retireDocumentPresentation();
+    bool beginDocumentNavigation(const QUrl& frame);
+    void acceptDocumentImage(std::uint64_t generation, std::uint64_t epoch, const QImage& image);
+    void acceptInputResult(std::uint64_t generation, std::uint64_t epoch, bool editable);
     void fail(const QString& message);
     void setLoading(bool value);
     void updateNavigation();
     void nativeNavigationFinished();
+    void loadInlineDocument(const QUrl& url, bool bypassCache = false);
     void verifyDocument();
     void nativeMessage(const QString& envelope, const QString& documentNonce, const QUrl& frame, bool mainFrame);
     void prepareDocument(const QUrl& frame);

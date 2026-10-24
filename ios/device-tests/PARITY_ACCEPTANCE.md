@@ -212,6 +212,65 @@ evidence. A portable real bundle/server scenario still needs owning Main input.
 
 ## Snapshot native export and original bytes (#1174/#1177)
 
+The normal input component exposes only actual visible Snapshot controls from
+the current screen-space tablet. Qt popup visuals must retain QObject ownership
+under that tablet; unrelated HUD/window popups are not adopted. Radio choices
+carry their observed checked state. A focused Snapshot name accepts only the
+bounded owned journey prefix through the existing native field transport;
+submit cannot capture. Mode, format and capture still use ordinary UIKit taps.
+The host native input checks compile the actual QML and field/pointer code on
+both Qt5 and Qt6, including a nested tablet, stale tokens and a foreign popup.
+They do not compile UIKit, establish installed-code identity, or execute a
+capture on an iOS GPU.
+
+The E2E-only `Test.iosSnapshotFilesRequest` implements the common closed
+`snapshot-files` read channel. It resolves the actual `SnapshotStorage` root,
+hashes original regular files and reads at most4MiB per response. The native
+250ms command polling cadence and a25MiB host transfer regression constrain
+request volume; encoded receipts remain below the original WebDriver bound.
+Only original-file observations use a120-second outer operation deadline.
+Nonce-bound immutable file receipts allow15 seconds for byte transport; the
+focused UI observation freshness limit remains3 seconds. Final manifest and
+original-content checks still apply.
+A single
+background worker keeps file hashing off the GUI thread. Requests cannot choose
+a directory or trigger capture. Links, changed native revisions, oversized
+files and stale/foreign receipts fail. The host joins the final native manifest
+and independently hashed original bytes before publishing private artifacts.
+New E2E packages carry `OverteE2ESnapshotFilesVersion=1`; activation requires
+fresh authenticated installation inventory of that marker. This does not
+establish the still unavailable cryptographic installed-code association.
+
+The owning `IOSAdapter` enables the normal five-case capture component only
+with this explicit target configuration, in addition to its physical E2E
+client, Documents probe and native UI observation configuration:
+
+```json
+"normalSnapshot": {
+  "contractVersion": 1,
+  "profile": "ios-native-snapshot-v1",
+  "sceneUrl": "http://lab.example:49121/scene.json"
+},
+"snapshotFilesObservation": {"kind": "ios-documents", "version": 1}
+```
+
+The existing module runner supplies its private `OVERTE_DEVICE_ARTIFACT_DIR`.
+Returned artifact names are direct relative names, never private paths. The
+component retains tablet intent and original mode/format across the five cases,
+uses ordinary Home/SNAP/radio/capture inputs, cancels owned pending work and
+restores preferences before confirmed closure. A failed/covered close keeps its
+intent; generic session cleanup still requires its original independent DVT
+stop confirmation. A pre-existing panel, foreign process/input instance,
+nonempty or empty prior prefix, ignored input and missing GIF cannot pass.
+Popup observation may wait for a later frame; clicks are not replayed.
+
+Host checks execute the actual adapter and native original-file reader with
+explicit WDA/render fixtures and the independent full-image decoder. They are
+`NATIVE_UI_COMPONENT_ONLY`. The canonical installed-code binding continues to
+reject unavailable association; these operations do not bypass that gate or
+claim motion, scene fidelity, system sharing, uploads or whole-feature/device
+acceptance.
+
 Open normal SNAP and select `Still`, `Still + animated GIF`, `360° panorama` and
 `360° cubemap`. Use a known moving scene for GIF and known directional landmarks
 for 360 captures. Observe capture/processing/complete status and real previews.
