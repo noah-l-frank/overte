@@ -129,8 +129,8 @@ class NavigationPrefixTests(unittest.TestCase):
         self.clients={role:Client(self.url+'/feature-fixture/v1',token) for role,token in (('primary','r'*64),('actor','p'*64))}
         for client in self.clients.values():client.run=RUN;client.area='world-navigation'
         self.lock=ScriptSourceLock(self.root/'script-sources.lock');self.activate('baseline')
-        self.binding=dict(sourceRevision='a'*40,artifactSha256='b'*64,processIdentity=str(PID)+':synthetic-start',sessionId=self.model.bridge,
-            generation=0,targetFingerprint='c'*64)
+        self.binding=dict(sourceRevision='a'*40,artifactSha256='b'*64,processIdentity=str(PID)+':'+getattr(self,'process_start','synthetic-start'),sessionId=self.model.bridge,
+            generation=0,targetFingerprint=self.target_fingerprint() if hasattr(self,'target_fingerprint') else 'c'*64)
         self.world=arrival_fixture.Model(run=RUN);self.addCleanup(self.world.close);self.world.epoch=self.model.epoch
         self.world.guard=self.model.guard;self.world.subject.edit=lambda value:value.update(processId=PID)
         self.home_sequence=0;self.qstatus=None;self.qcommand=None;self.original_calls=0

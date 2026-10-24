@@ -67,6 +67,7 @@ TESTS = (
     test("snapshot-settings-close", "interaction", PYTHON, "device/test_snapshot_settings_close.py"),
     test("navigation-environment-originals", "interaction", PYTHON, "device/test_navigation_environment.py", requires=("c++", "pkg-config")),
     test("navigation-bookmark-prefix", "interaction", PYTHON, "device/test_navigation_bookmark_prefix.py", requires=("openssl",)),
+    test("navigation-restart-prefix", "interaction", PYTHON, "device/test_navigation_restart_prefix.py", requires=("openssl",)),
     test("navigation-dismissal-prefix", "interaction", PYTHON, "device/test_navigation_dismissal_prefix.py", requires=("openssl",)),
     test("navigation-missing-prefix", "interaction", PYTHON, "device/test_navigation_missing_prefix.py", requires=("openssl",)),
     test("navigation-transit-prefix", "interaction", PYTHON, "device/test_navigation_transit_prefix.py", requires=("openssl",)),
