@@ -116,3 +116,42 @@ The frozen Phonea7be source audit from the Parent continuation remains applicabl
 shared original ownership/credential/finalization designs can be reused; Phone
 Touch/mono and declared Phone/Qt/GPU producers are not Pico authority. No Phone,
 iOS, product-function, device or remote resource is changed.
+
+
+## Root integration verification before the requested pause
+
+Root reviewed all18 files and selected `b84d9a780d` as `ae304b035b`.
+The new selector is additive (**288 to 289**); all14 risk rows and strict
+existing Avatar/Lifecycle method partitions remain intact. A fresh owning
+selection on the integrated tree passes **1/108.417 s** in unittest
+(**109.050 s** external runner). The fresh82-TU Ninja compile/link takes
+**84.511 s**, within the existing combined preparation/build90 limit; actual
+native lifetime is **23.136 s** of the actual remaining **34.739 s**.
+All **13,635** complete checkout hashes and physical signatures remain
+unchanged through terminal completion (**110.734 s** overall).
+
+This Root run exercises the new default unique existing-package discovery
+without `OVERTE_TEST_DRACO_ROOT`. The generated provenance binds all203 Draco
+package files before compilation. Their final full hashes/physical identities
+match the preexisting same-session package manifest; Root did not capture a
+separate pre-start external physical manifest. There is no installation or
+substituted decoder. The previous default Parent49.288-s result remains agent
+evidence; Root did not repeat that unchanged legacy run.
+
+The actual Root path retains279 full fresh transport replies. Its complete
+disjoint runtime/source inventory is **136 files / 21,680,381 bytes**:
+6,608,839 original fixture bytes;11,185,628 actual data-cache bytes;739,436
+QML-cache bytes;345,836 retained owner-original bytes;91,195 immediate journal
+bytes;2,422,665 transport bytes;255,494 result-report bytes;10,487 diagnostic
+bytes;18,971 identity-inventory bytes;1,830 input-manifest bytes. All original
+file hashes/physical signatures remain unchanged during that historical bill.
+The actual Parent512/16MiB evidence-namespace budget remains distinct; full
+workload/cache admission and retirement stay open above16MiB.
+
+Private Root source/result, exact log/JUnit, external-pin comparison and
+disjoint bill use unique `avatar-original-model-root-*20261024` names under
+`/home/user/Documents/github/overte-pico-adapter-private-20261021`. Full
+generated sources, binary, native originals and owner reports are retained at
+`/tmp/overte-pico-avatar-parent-model-native-ui-root-20261024-9pqeuwne/originals/pico-original-avatar-ie97dqno`.
+The selected source/CPU Parent slice is verified; no whole-feature, Rig,
+rendering, peer, storage-release or device qualification is inferred.
