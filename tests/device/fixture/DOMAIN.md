@@ -113,8 +113,17 @@ container RAM and swap limits. Changing this argument never changes a limit.
 approximately one sample per second during startup and the active fixture:
 actual current/max/peak bytes, event counters, actual own-process RSS and
 identity, and host observation times. The rows are not atomic native frames or
-client measurements. The file is private mode0600 and bounded to8MiB. It stops
-appending when failure hold begins; the immutable failure receipt retains the
+client measurements. Files are private mode0600. At 8MiB the controller opens
+the next exclusive `MEMORY_TIMELINE.part-000002.private.jsonl` (and subsequent
+numbered parts), preserving the first file and every preceding sample. Ordinary
+rotation does not pause workers. The append-only private
+`MEMORY_TIMELINE_INDEX.private.jsonl` records actual readback hashes and sizes,
+source/context bindings, and sample sequence/epoch bounds; its latest receipt
+for each part describes the captured bytes. It never overwrites an existing
+part or follows an alias. Before each write, at least 6GiB must remain available
+on the owned filesystem. A real storage or ownership error still enters failure
+preservation; no old evidence is deleted to make space. Sampling stops
+when failure hold begins; the immutable failure receipt retains the
 triggering sample and freeze result. Full native logs are also created
 exclusively with explicit mode0600 when debug hold is enabled.
 

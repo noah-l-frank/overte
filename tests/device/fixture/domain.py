@@ -606,23 +606,107 @@ class DomainDebugHold:
 class DomainMemoryGuard:
     """Read own cgroup counters; preserve only proven owned workers on pressure."""
 
-    def __init__(self, hold, expected_limit, cgroup=None):
+    def __init__(self, hold, expected_limit, cgroup=None, *, timeline_part_bytes=8*1024**2):
         self.hold = hold
         self.stopped = []
         self.timeline = None
+        self.timeline_index = None
         self.last = None
+        # This constructor seam is for host counters, never a CLI override.
+        if type(timeline_part_bytes) is not int or timeline_part_bytes <= 0:
+            raise ValueError("DOMAIN_MEMORY_PART_SIZE_INVALID")
+        self.timeline_part_bytes = timeline_part_bytes
+        self.timeline_part = 0
+        self.timeline_sequence = 0
+        self.timeline_index_bytes = 0
         self.task_cgroup = self.resolve_cgroup() if cgroup is None else cgroup
         self.cgroup = self.resolve_budget(self.task_cgroup,expected_limit) if cgroup is None else cgroup
         self.task_identity = self.task_cgroup.stat().st_dev, self.task_cgroup.stat().st_ino
         self.identity = self.cgroup.stat().st_dev, self.cgroup.stat().st_ino
         self.expected_limit = expected_limit
         self.next_sample = 0.0
-        self.timeline = os.open("MEMORY_TIMELINE.private.jsonl", os.O_WRONLY | os.O_APPEND |
-                                os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=hold.fd)
-        os.fchmod(self.timeline,0o600)
+        self.open_timeline_part()
+        self.timeline_index = os.open("MEMORY_TIMELINE_INDEX.private.jsonl", os.O_RDWR | os.O_APPEND |
+                                      os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=hold.fd)
+        os.fchmod(self.timeline_index,0o600)
+        self.timeline_index_identity = self.file_identity(os.fstat(self.timeline_index))
         # Resolution/admission failures must leave the hold with no partial guard.
         hold.memory_guard = self
         self.check("pre-launch", force=True)
+
+    @staticmethod
+    def file_identity(info):
+        return info.st_dev, info.st_ino, info.st_uid, info.st_mode, info.st_nlink
+
+    def open_timeline_part(self):
+        self.hold.check_directory()
+        self.timeline_part += 1
+        self.timeline_name = ("MEMORY_TIMELINE.private.jsonl" if self.timeline_part == 1 else
+                              f"MEMORY_TIMELINE.part-{self.timeline_part:06d}.private.jsonl")
+        self.timeline = os.open(self.timeline_name, os.O_RDWR | os.O_APPEND | os.O_CREAT |
+                                os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=self.hold.fd)
+        os.fchmod(self.timeline,0o600)
+        self.timeline_identity = self.file_identity(os.fstat(self.timeline))
+        self.timeline_bytes = 0
+        self.timeline_digest = hashlib.sha256()
+        self.timeline_first = None
+        self.timeline_last = None
+
+    def append_owned(self, descriptor, name, identity, offset, raw):
+        self.hold.check_directory()
+        before = os.fstat(descriptor)
+        path = os.stat(name, dir_fd=self.hold.fd, follow_symlinks=False)
+        if (self.file_identity(before) != identity or self.file_identity(path) != identity
+                or before.st_uid != os.geteuid() or before.st_nlink != 1
+                or not stat.S_ISREG(before.st_mode) or stat.S_IMODE(before.st_mode) != 0o600
+                or before.st_size != offset or path.st_size != offset):
+            raise RuntimeError("DOMAIN_MEMORY_TIMELINE_OWNER_CHANGED")
+        space = os.fstatvfs(self.hold.fd)
+        if space.f_bavail * space.f_frsize - len(raw) < 6*1024**3:
+            raise RuntimeError("DOMAIN_MEMORY_FILESYSTEM_RESERVE_LOW")
+        pending = raw
+        while pending:
+            written = os.write(descriptor,pending)
+            if written <= 0:raise RuntimeError("DOMAIN_MEMORY_TIMELINE_WRITE_FAILED")
+            pending = pending[written:]
+        actual = os.pread(descriptor,len(raw),offset)
+        after = os.fstat(descriptor)
+        path = os.stat(name, dir_fd=self.hold.fd, follow_symlinks=False)
+        if (actual != raw or self.file_identity(after) != identity
+                or self.file_identity(path) != identity or after.st_size != offset+len(raw)
+                or path.st_size != after.st_size):
+            raise RuntimeError("DOMAIN_MEMORY_TIMELINE_WRITE_UNPROVEN")
+        os.fsync(descriptor)
+        return actual
+
+    def index_timeline_part(self, closed):
+        value = {"schemaVersion":1,"contextSha256":self.hold.context_sha256,
+                 "sourceSha256":self.hold.context["sourceSha256"],"part":self.timeline_part,
+                 "file":self.timeline_name,"closed":closed,"bytes":self.timeline_bytes,
+                 "sha256":self.timeline_digest.hexdigest(),"first":self.timeline_first,
+                 "last":self.timeline_last}
+        raw = (json.dumps(value,sort_keys=True)+"\n").encode()
+        self.append_owned(self.timeline_index,"MEMORY_TIMELINE_INDEX.private.jsonl",
+                          self.timeline_index_identity,self.timeline_index_bytes,raw)
+        self.timeline_index_bytes += len(raw)
+
+    def append_timeline(self):
+        raw = (json.dumps(self.last,sort_keys=True)+"\n").encode()
+        if len(raw) > self.timeline_part_bytes:
+            raise RuntimeError("DOMAIN_MEMORY_SAMPLE_TOO_LARGE")
+        if self.timeline_bytes and self.timeline_bytes+len(raw) > self.timeline_part_bytes:
+            self.index_timeline_part(closed=True)
+            os.close(self.timeline);self.timeline = None
+            self.open_timeline_part()
+        actual = self.append_owned(self.timeline,self.timeline_name,self.timeline_identity,
+                                   self.timeline_bytes,raw)
+        self.timeline_bytes += len(actual)
+        self.timeline_digest.update(actual)
+        self.timeline_sequence = self.last["sequence"]
+        self.timeline_last = {"sequence":self.timeline_sequence,"epochNs":self.last["epochNs"]}
+        if self.timeline_first is None:
+            self.timeline_first = {"sequence":self.timeline_sequence,"epochNs":self.last["epochNs"]}
+        self.index_timeline_part(closed=False)
 
     @staticmethod
     def resolve_cgroup(group_text=None, mountinfo=None, process_id=None):
@@ -802,28 +886,21 @@ class DomainMemoryGuard:
         if not force and time.monotonic() < self.next_sample:return
         self.next_sample = time.monotonic()+1
         self.last = self.sample(phase)
-        def append():
-            raw=(json.dumps(self.last,sort_keys=True)+"\n").encode()
-            if os.fstat(self.timeline).st_size+len(raw)>8*1024**2:
-                raise RuntimeError("DOMAIN_MEMORY_TIMELINE_LIMIT")
-            while raw:
-                written=os.write(self.timeline,raw)
-                if written<=0:raise RuntimeError("DOMAIN_MEMORY_TIMELINE_WRITE_FAILED")
-                raw=raw[written:]
-            os.fsync(self.timeline)
+        self.last["sequence"] = self.timeline_sequence+1
         if self.last["currentBytes"]>=self.last["thresholdBytes"]:
             error = RuntimeError("DOMAIN_MEMORY_HEADROOM_LOW")
             details = {"memory":self.last,"freezeComplete":False,"frozenProcesses":[]}
             try:
                 # Stop allocations before potentially slow evidence writes/fsync.
                 details.update(frozenProcesses=self.freeze(),freezeComplete=True)
-                append()
+                self.append_timeline()
             finally:self.hold.begin("DOMAIN_MEMORY_HEADROOM_LOW",tuple(self.hold.processes),error,details)
             raise error
-        append()
+        self.append_timeline()
 
     def close(self):
         if self.timeline is not None: os.close(self.timeline)
+        if self.timeline_index is not None: os.close(self.timeline_index)
         for descriptor,pin in self.stopped:os.close(descriptor)
 
 

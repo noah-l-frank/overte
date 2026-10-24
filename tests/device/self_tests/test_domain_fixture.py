@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import ast
 import copy
+import hashlib
 import importlib.util
 import os
 from pathlib import Path
@@ -222,7 +223,7 @@ class DomainFixtureTest(unittest.TestCase):
                 self.assertNotIn(owner["nonce"].encode(),stdout)
                 for pid in pids.values():self.assertFalse(Path(f"/proc/{pid}").exists())
 
-    def memory_counter_fixture(self):
+    def memory_counter_fixture(self, timeline_part_bytes=8*1024**2):
         temporary = tempfile.TemporaryDirectory(prefix="overte-domain-memory-test-")
         self.addCleanup(temporary.cleanup);root=Path(temporary.name)
         spec=importlib.util.spec_from_file_location("domain_memory_counter",CONTROLLER)
@@ -231,7 +232,9 @@ class DomainFixtureTest(unittest.TestCase):
         cgroup=root/"fake-cgroup";cgroup.mkdir()
         values={"cgroup.procs":str(os.getpid()),"memory.current":"0","memory.max":str(1024**3),"memory.peak":"0","memory.events":"low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\n"}
         for name,value in values.items():(cgroup/name).write_text(value)
-        guard=module.DomainMemoryGuard(hold,1024**3,cgroup);self.addCleanup(guard.close)
+        guard=module.DomainMemoryGuard(hold,1024**3,cgroup,
+                                       timeline_part_bytes=timeline_part_bytes)
+        self.addCleanup(guard.close)
         counter=root/"allocation-count"
         script="import pathlib,sys,time; p=pathlib.Path(sys.argv[1]); values=[]\nwhile True:\n values.append(bytearray(4096)); p.write_text(str(len(values))); time.sleep(.02)\n"
         process=subprocess.Popen([sys.executable,"-c",script,str(counter)],start_new_session=True,
@@ -242,6 +245,56 @@ class DomainFixtureTest(unittest.TestCase):
         while (not counter.exists() or not counter.read_text()) and time.monotonic()<deadline:time.sleep(.01)
         self.assertTrue(counter.exists())
         return module,root,hold,guard,cgroup,counter,process
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Linux owned process context")
+    def test_memory_timeline_rotates_losslessly_without_stopping_owned_child(self):
+        module,root,hold,guard,cgroup,counter,process=self.memory_counter_fixture(4096)
+        before=counter.read_bytes()
+        for index in range(20):guard.check("rotation-counter",force=True)
+        time.sleep(.1)
+        self.assertIsNone(process.poll());self.assertNotIn(
+            module.DomainDebugHold.process_birth(process.pid)["state"],("T","t"))
+        self.assertNotEqual(before,counter.read_bytes());self.assertEqual([],guard.stopped)
+        self.assertFalse(hold.active.is_set())
+        receipts=[json.loads(line)for line in
+                  (hold.directory/"MEMORY_TIMELINE_INDEX.private.jsonl").read_text().splitlines()]
+        latest={row["part"]:row for row in receipts}
+        self.assertGreater(len(latest),1);samples=[]
+        for part,row in sorted(latest.items()):
+            path=hold.directory/row["file"];data=path.read_bytes()
+            self.assertLessEqual(len(data),4096);self.assertEqual(len(data),row["bytes"])
+            self.assertEqual(hashlib.sha256(data).hexdigest(),row["sha256"])
+            self.assertEqual(hold.context_sha256,row["contextSha256"])
+            self.assertEqual(hold.context["sourceSha256"],row["sourceSha256"])
+            self.assertEqual(0o600,path.stat().st_mode&0o777);self.assertEqual(1,path.stat().st_nlink)
+            rows=[json.loads(line)for line in data.splitlines()]
+            for key in ("sequence","epochNs"):
+                self.assertEqual(rows[0][key],row["first"][key])
+                self.assertEqual(rows[-1][key],row["last"][key])
+            self.assertEqual(part!=max(latest),row["closed"]);samples.extend(rows)
+        self.assertEqual(list(range(1,22)),[row["sequence"]for row in samples])
+        self.assertEqual(0o600,(hold.directory/"MEMORY_TIMELINE_INDEX.private.jsonl").stat().st_mode&0o777)
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Linux owned process context")
+    def test_memory_timeline_does_not_replace_foreign_rotation_alias(self):
+        module,root,hold,guard,cgroup,counter,process=self.memory_counter_fixture(4096)
+        foreign=root/"foreign";foreign.write_bytes(b"foreign bytes")
+        alias=hold.directory/"MEMORY_TIMELINE.part-000002.private.jsonl";alias.symlink_to(foreign)
+        guard.timeline_part_bytes=guard.timeline_bytes+len(json.dumps(guard.sample("counter")))//2
+        with self.assertRaises(FileExistsError):guard.check("counter",force=True)
+        self.assertTrue(alias.is_symlink());self.assertEqual(b"foreign bytes",foreign.read_bytes())
+        self.assertIsNone(process.poll());self.assertEqual([],guard.stopped)
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Linux owned process context")
+    def test_memory_timeline_keeps_real_filesystem_reserve_failure_explicit(self):
+        from unittest.mock import patch
+        module,root,hold,guard,cgroup,counter,process=self.memory_counter_fixture()
+        before=(hold.directory/"MEMORY_TIMELINE.private.jsonl").read_bytes()
+        with patch.object(module.os,"fstatvfs",return_value=SimpleNamespace(f_bavail=0,f_frsize=4096)):
+            with self.assertRaisesRegex(RuntimeError,"DOMAIN_MEMORY_FILESYSTEM_RESERVE_LOW"):
+                guard.check(force=True)
+        self.assertEqual(before,(hold.directory/"MEMORY_TIMELINE.private.jsonl").read_bytes())
+        self.assertEqual([],guard.stopped)
 
     @unittest.skipUnless(sys.platform.startswith("linux"), "Linux cgroup and pidfd counter")
     def test_memory_pressure_freezes_real_owned_allocation_then_exact_release_resumes_cleanup(self):
