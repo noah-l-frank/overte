@@ -18,7 +18,7 @@ from adapters.original_frame_store import OriginalFrameStore
 from adapters.script_feature.history import pack,unpack,same
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier,result
-from ios.adapters.emote_rooted_archive import capture,read
+from ios.adapters.emote_rooted_archive import capture,read,grouped
 from ios.adapters.emote_rooted_retirement import IOSEmoteRootedKeyedRetirement
 from ios.adapters.avatar_record_cache import AvatarRecordCache
 from ios.adapters.emote_archive_round import validation_batch
@@ -58,7 +58,7 @@ class IOSEmoteRootedLive:
         self.store,self.lock,self.primary_lock,self.failed=store,lock,primary_lock,False
         need(type(fixture_url) is str and type(policy) is dict and policy.get('source')=='world-render-target')
         self.fixture_url,self.phase_instance,self.policy=fixture_url,identifier(phase_instance),deepcopy(policy)
-        self.cache=AvatarRecordCache()
+        self.cache=AvatarRecordCache();self.prepared=None
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock) and isinstance(primary_lock,ScriptSourceLock)
             and self.root.is_absolute() and self.root.resolve()==self.root and self.root.is_dir() and role in ('primary','actor')
             and store.path==lock.path.parent/('ios-emote-'+role+'-'+self.run+'-terminal-live.json'))
@@ -90,13 +90,17 @@ class IOSEmoteRootedLive:
         self.originals.original(original);need(original['index']==self.state['pending']['index'])
         self.state['pending']['original']=deepcopy(original);self.save()
 
-    def measurement(self,snapshot):
+    def snapshot_context(self,snapshot):
         need(type(snapshot) is dict and same(snapshot.get('binding'),self.binding) and same(snapshot.get('primaryBinding'),self.primary_binding)
             and snapshot.get('runId')==self.run and snapshot.get('role')==self.role and snapshot.get('artifactRoot')==str(self.root)
             and snapshot.get('fixtureUrl')==self.fixture_url and snapshot.get('phaseInstance')==self.phase_instance
             and same(snapshot.get('imagePolicy'),self.policy)
             and snapshot.get('stateRoot')==str(self.lock.path.parent) and snapshot.get('sourceLock')==str(self.lock.path)
             and snapshot.get('primaryLock')==str(self.primary_lock.path))
+
+    def measurement(self,snapshot):
+        self.snapshot_context(snapshot)
+        if self.prepared is not None:return self.prepared.read(snapshot)
         return read(snapshot,lock=self.lock,primary_lock=self.primary_lock)
 
     def record(self,reference):
@@ -108,10 +112,14 @@ class IOSEmoteRootedLive:
         return validation_batch(dict(artifactRoot=str(self.root),stateRoot=str(self.store.path.parent)),
             lock=self.lock,primary_lock=self.primary_lock)
 
-    def read_record(self,reference):
+    def read_frame(self,reference):
         frame=self.originals.read(self.originals.expand(reference))
         exact(frame,{'iosEmoteRootedLiveRecordVersion','snapshot','measurementSha256'})
         need(type(frame['iosEmoteRootedLiveRecordVersion']) is int and frame['iosEmoteRootedLiveRecordVersion']==VERSION)
+        self.snapshot_context(frame['snapshot']);sha(frame['measurementSha256']);return frame
+
+    def read_record(self,reference):
+        frame=self.read_frame(reference)
         measured=self.measurement(frame['snapshot']);need(digest(measured)==frame['measurementSha256'])
         return dict(reference=deepcopy(reference),measurement=measured)
 
@@ -126,13 +134,25 @@ class IOSEmoteRootedLive:
         return value
 
     def decode(self,value):
-        with self.read_batch():return self.decode_state(value)
+        with self.read_batch():
+            state=self.structure(value)
+            snapshots=[self.read_frame(reference)['snapshot'] for reference in state['records']]
+            if not snapshots:return self.decode_state(value)
+            need(self.prepared is None)
+            with grouped(snapshots,lock=self.lock,primary_lock=self.primary_lock) as prepared:
+                self.prepared=prepared
+                try:return self.decode_state(value)
+                finally:self.prepared=None
 
-    def decode_state(self,value):
+    def structure(self,value):
         exact(value,set(self.envelope(dict(records=[],pending=None))));rows=unpack(value['payload'])
         need(type(value['iosEmoteRootedLiveVersion']) is int and value['iosEmoteRootedLiveVersion']==VERSION
             and len(rows)==1 and same(value,self.envelope(rows[0])))
         state=rows[0];exact(state,{'records','pending'});need(type(state['records']) is list and len(state['records'])<=LIMIT)
+        return state
+
+    def decode_state(self,value):
+        state=self.structure(value)
         previous=None
         for index,reference in enumerate(state['records'],1):
             need(reference['index']==index);measured=self.record(reference)['measurement']

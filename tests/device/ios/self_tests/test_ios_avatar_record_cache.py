@@ -5,6 +5,7 @@ from pathlib import Path
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.original_file_reads import scope
@@ -53,6 +54,25 @@ class AvatarRecordCacheTests(unittest.TestCase):
         try:
             with self.assertRaises(NativeUIError):self.cache.read(dict(index=1),self.read)
         finally:self.root.chmod(0o700)
+
+    def test_canonical_parent_and_regular_leaf_are_both_mandatory(self):
+        folder=self.root/'private';folder.mkdir(mode=0o700)
+        path=folder/'original.json';path.write_bytes(b'actual original');path.chmod(0o600)
+        alias=self.root/'aliased-parent';alias.symlink_to(folder,target_is_directory=True)
+        with self.assertRaises(NativeUIError):self.cache.signatures({alias/path.name})
+        leaf=self.root/'aliased-leaf';leaf.symlink_to(path)
+        with self.assertRaises(NativeUIError):self.cache.signatures({leaf})
+
+    def test_parent_change_during_signature_collection_cannot_escape_the_exit_check(self):
+        original=Path.lstat;changed=[]
+        def racing(path,*args,**kwargs):
+            value=original(path,*args,**kwargs)
+            if path==self.file.path and not changed:
+                changed.append(True);self.root.chmod(0o755);self.root.chmod(0o700)
+            return value
+        with patch.object(Path,'lstat',new=racing),self.assertRaises(NativeUIError):
+            self.cache.signatures({self.file.path})
+        self.assertEqual([True],changed)
 
 
 if __name__=='__main__':unittest.main()

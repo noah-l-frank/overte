@@ -53,8 +53,13 @@ class IOSEmoteRootedRenderedRetirement(IOSEmoteRenderedRetirement):
         super().__init__(store,native,frames,historical=historical)
 
     def derive(self,reference):
-        return component_read(self,reference,lambda:derived(self,reference,
-            lambda:super(IOSEmoteRootedRenderedRetirement,self).derive(reference)))
+        def checked():
+            self.lock.assert_held();self.primary_lock.assert_held()
+            # Membership is current owner context, not an immutable fact of
+            # the reference. It must run even when a derivation is reused.
+            need(self.original(reference)['nativeReference'] in self.native_owner.state['records'])
+            return derived(self,reference,lambda:super(IOSEmoteRootedRenderedRetirement,self).derive(reference))
+        return component_read(self,reference,checked)
 
     def decode(self,value):
         return component_read(self,value,lambda:super(IOSEmoteRootedRenderedRetirement,self).decode(value))
@@ -69,8 +74,11 @@ class IOSEmoteRootedKeyedRetirement(IOSEmoteKeyedRetirement):
         super().__init__(store,rendered,keys,historical=historical)
 
     def derive(self,reference):
-        return component_read(self,reference,lambda:derived(self,reference,
-            lambda:super(IOSEmoteRootedKeyedRetirement,self).derive(reference)))
+        def checked():
+            self.lock.assert_held();self.primary_lock.assert_held()
+            need(self.original(reference)['renderedReference'] in self.rendered_owner.state['records'])
+            return derived(self,reference,lambda:super(IOSEmoteRootedKeyedRetirement,self).derive(reference))
+        return component_read(self,reference,checked)
 
     def decode(self,value):
         return component_read(self,value,lambda:super(IOSEmoteRootedKeyedRetirement,self).decode(value))

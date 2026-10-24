@@ -17,7 +17,8 @@ incomplete read is not counted as a successful archive verification.
 directories under the actual source locks before reading. Ancestor roots cover
 their children once. Every reused typed native/rendered/keyed derivation is
 bound to its exact class, envelope, path and immutable reference inside one
-snapshot. The memo retains actual original-file read membership. The complete
+ordinary snapshot or an explicitly grouped read. The memo retains actual
+original-file read membership. The complete
 inventory is checked before/after reuse and on scope exit; changed entries,
 new files, replaced inodes and changed metadata fail closed. The bounded
 derivation memo ends before any caller may save metadata or acquire new data.
@@ -85,6 +86,56 @@ boolean/floating indices, uppercase SHA strings and additional fields are
 refused. Twelve final pure/scope/reference regressions pass in 0.061 seconds.
 The trial's two actual rooted archive regressions passed in 48.054 seconds;
 the trial timing is not a deadline pass or a full feature result.
+
+## Grouped original traversal
+
+`emote_rooted_archive.grouped` now runs each supplied snapshot's literal
+native, frame, rendered, Key and keyed decoders inside one complete unchanged
+inventory. It shares only already decoded immutable subgraphs. Before every
+rendered/keyed derivation, including memo hits, the actual child reference must
+still occur in the supplied parent owner's records. This prevents an earlier
+or malformed metadata envelope from borrowing a later owner's membership.
+Frame cursor/GPU timelines, Key serial/pending/abandoned floors and all original
+clock/identity checks still execute for every metadata envelope.
+
+The checked traversal is limited to the actual artifact/SDK roots, both source
+lock objects, at most 96 snapshots and an eight-MiB result memo. Its identity
+hashes select the read scope; they supply no measured fact. Type-preserving
+ephemeral lookup keys select actual typed results. Unsupported or missed keys
+use the literal parser, including when in-memory dictionary order differs.
+Every return checks the complete inventory, returns a defensive copy and restores
+its actual byte-read membership. The traversal expires on scope exit.
+
+Live-journal decoding first reads the original inode-bound frames, validates
+their role/candidate/context and opens this traversal. Both existing cold record
+callbacks still read their actual frame bytes and check stored measurement
+hashes, signatures, chronology, pending responsibility and namespace inventory.
+Only those callbacks may consume the same operation's already typed measurement;
+the temporary traversal is cleared in `finally` before a write or acquisition.
+No response projection, saved public answer or measurement hash becomes proof.
+Serialized contracts, limits and deadlines are unchanged.
+
+Immutable-record fingerprints now validate each common canonical private parent
+before and after the census, including directory identity and timestamps. Every
+leaf still receives its own non-following stat and exact regular-file, UID,
+mode, link-count and identity checks. This removes repeated path-prefix walks
+while additionally rejecting a privacy change restored during the census.
+Symlink parents/leaves and changed byte/read membership remain rejected.
+
+Five grouped/original/live recovery checks pass in 98.913 seconds, followed by
+nineteen fingerprint/scope/membership checks in 0.126 seconds and four final
+grouped/live checks in 83.708 seconds. Actual dependency omissions, invalid old
+cursor/serial metadata, mapping subclasses, changed files, escaped traversal
+use, returned-value mutation and lost private write responses are covered.
+
+The same retained four-cut Primary journal preserves all four original measured
+graph hashes. The initial grouped read takes 30.584 seconds and fails the
+unchanged thirty-second budget. After the parent census change it takes
+29.306 seconds and fits that budget. This covers that complete historical
+Primary journal only. Current component construction, Actor/three-pair and
+whole terminal/common-journey budgets remain separately unqualified. Native,
+SDK, Qt, GPU and acquisition clocks are declared models; builds and devices
+remain untested. Complete Emote capability admission remains closed.
 
 Two inventory/memo counterexamples pass in 0.036 seconds. Fourteen initial
 history/type/inventory regressions pass in 0.050 seconds; twenty-six native

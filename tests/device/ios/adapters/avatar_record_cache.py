@@ -22,11 +22,20 @@ class AvatarRecordCache:
     def __init__(self):self.rows={}
     @staticmethod
     def signatures(paths):
-        need(type(paths) is set and 1<=len(paths)<=2048);result={}
+        need(type(paths) is set and 1<=len(paths)<=2048);result={};parents={}
         for path in paths:
-            need(isinstance(path,Path) and path.is_absolute() and path.resolve(strict=True)==path);PrivateFeatureState(path)._parent()
+            need(isinstance(path,Path) and path.is_absolute())
+            if path.parent not in parents:
+                PrivateFeatureState(path)._parent()
+                parents[path.parent]=EmoteOriginalLease.signature(path.parent.lstat())
             value=path.lstat();need(stat.S_ISREG(value.st_mode) and value.st_uid==os.geteuid() and value.st_nlink==1 and stat.S_IMODE(value.st_mode)==0o600)
             result[path]=EmoteOriginalLease.signature(value)
+        # Canonical private parents are checked as a group; each leaf still
+        # receives its own non-following stat. Recheck directory identity and
+        # timestamps so a change during the census cannot qualify a result.
+        for parent,signature in parents.items():
+            PrivateFeatureState(parent/'original-cache-parent-boundary')._parent()
+            need(EmoteOriginalLease.signature(parent.lstat())==signature)
         return result
     @staticmethod
     def absent(paths):

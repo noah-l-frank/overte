@@ -48,10 +48,10 @@ def scope(value,*,lock,primary_lock):
     current=_ACTIVE.get()
     if current is not None:
         need(current.identity==digest(value) and current.lock is lock and current.primary_lock is primary_lock)
-        current.guard();yield;current.guard();return
+        current.guard();yield current;current.guard();return
     current=Round(value,lock,primary_lock);token=_ACTIVE.set(current)
     try:
-        with pure_round(PURE_PROFILE,current.guard):yield
+        with pure_round(PURE_PROFILE,current.guard):yield current
     finally:
         try:current.guard()
         finally:_ACTIVE.reset(token)

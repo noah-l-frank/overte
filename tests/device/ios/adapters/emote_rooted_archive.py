@@ -6,10 +6,15 @@ Every contributing native/input/file/pixel original is still fully decoded.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from contextlib import contextmanager
+import hashlib
+import marshal
 from pathlib import Path
+from adapters.native_clock_join import digest
 from adapters.native_feature_observation import exact,need
 from adapters.normal_feature_state import context
-from adapters.script_feature.history import same
+from adapters.original_file_reads import record as file_read,scope as file_reads
+from adapters.script_feature.history import same,canonical
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
 from ios.adapters.emote_keys import IOSEmoteKeys
@@ -18,7 +23,7 @@ from ios.adapters.emote_retirement import Frozen
 from ios.adapters.emote_rooted_retirement import (IOSEmoteRootedNativeRetirement,
     IOSEmoteRootedRenderedRetirement,IOSEmoteRootedKeyedRetirement)
 from ios.adapters.emote_rooted_scene_retirement import IOSEmoteRootedSceneRetirement
-from ios.adapters.emote_archive_round import scope as original_round
+from ios.adapters.emote_archive_round import scope as original_round,LIMIT as ROUND_LIMIT
 
 VERSION=1
 PARTS={'native','frames','rendered','keys','keyed'}
@@ -77,3 +82,62 @@ def reopen(value,*,lock,primary_lock):
 def read(value,*,lock,primary_lock):
     with original_round(value,lock=lock,primary_lock=primary_lock):
         return IOSEmoteRootedSceneRetirement(reopen(value,lock=lock,primary_lock=primary_lock)).read(value['reference'])
+
+
+class CheckedGraphs:
+    """Same-read actual typed results; never saved or used as fresh data."""
+    def __init__(self,round_,boundary,lock,primary_lock):
+        self.round,self.boundary,self.lock,self.primary_lock=round_,boundary,lock,primary_lock
+        self.active,self.rows,self.bytes=True,{},0
+
+    def guard(self):need(self.active);self.round.guard()
+
+    @staticmethod
+    def key(value):
+        # Unlike JSON, this cannot alias tuples or mapping/list subclasses.
+        # Unsupported inputs take the literal parser instead of a cache hit.
+        try:return hashlib.sha256(marshal.dumps(value,4)).digest()
+        except (ValueError,TypeError,OverflowError,RecursionError):return None
+
+    def read(self,value):
+        self.guard();need(type(value) is dict and all(value.get(key)==self.boundary[key]
+            for key in ('artifactRoot','stateRoot','sourceLock','primaryLock')))
+        key=self.key(value)
+        if key is not None and key in self.rows:
+            actual,reads,_size=self.rows[key]
+            for path in reads:file_read(path)
+            result=deepcopy(actual);self.guard();return result
+        with file_reads(fresh=True) as reads:
+            actual=IOSEmoteRootedSceneRetirement(reopen(value,lock=self.lock,primary_lock=self.primary_lock)).read(value['reference'])
+        self.guard();size=len(canonical(actual))
+        if key is not None and size<=ROUND_LIMIT:
+            while self.rows and self.bytes+size>ROUND_LIMIT:
+                _removed,(_value,_reads,count)=self.rows.popitem();self.bytes-=count
+            self.rows[key]=(deepcopy(actual),set(reads),size);self.bytes+=size
+        for path in reads:file_read(path)
+        return actual
+
+
+@contextmanager
+def grouped(values,*,lock,primary_lock):
+    """Run every literal snapshot decoder under one unchanged inventory.
+
+    Only identical typed original subgraphs are reused. Old metadata cursors,
+    pending journals and dependency membership remain independently checked.
+    """
+    need(type(values) is list and 1<=len(values)<=96 and all(type(value) is dict for value in values))
+    fields=('artifactRoot','stateRoot','sourceLock','primaryLock')
+    boundary={key:values[0].get(key) for key in fields}
+    need(all(type(item) is str for item in boundary.values())
+        and all(all(value.get(key)==boundary[key] for key in fields) for value in values))
+    # These hashes identify this operation's scope; all facts below still come
+    # from actual typed original reads, not the hashes or caller projections.
+    boundary['snapshots']=[digest(value) for value in values]
+    with original_round(boundary,lock=lock,primary_lock=primary_lock) as round_:
+        reader=CheckedGraphs(round_,boundary,lock,primary_lock)
+        try:
+            for value in values:reader.read(value)
+            yield reader
+        finally:
+            try:reader.guard()
+            finally:reader.active=False

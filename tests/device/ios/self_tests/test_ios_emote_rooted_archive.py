@@ -4,7 +4,9 @@
 from copy import deepcopy
 import unittest
 from adapters.normal_ui import NativeUIError
-from ios.adapters.emote_rooted_archive import capture,read
+from adapters.script_feature.history import pack,unpack
+from adapters.original_file_reads import scope as original_reads
+from ios.adapters.emote_rooted_archive import capture,read,grouped
 from ios.adapters.emote_rooted_scene_retirement import IOSEmoteRootedSceneRetirement
 from ios.self_tests.test_ios_emote_rooted_retirement import RootedRetirementCompositionTests
 
@@ -52,6 +54,45 @@ class RootedArchiveTests(unittest.TestCase):
         # An archive is read-only even with a deliberately writable store.
         historical=type(owner)(owner.store,rendered,owner.keys_owner,historical=True)
         with self.assertRaises(NativeUIError):historical.retain(ko)
+
+    def test_grouped_read_keeps_dependency_cursors_serial_types_and_read_membership(self):
+        f=self.f;owner=f.keyed;snapshot=capture(owner,f.keyed_ref)
+        expected=read(snapshot,lock=owner.lock,primary_lock=owner.primary_lock)
+        class ForeignMapping(dict):pass
+        with grouped([snapshot],lock=owner.lock,primary_lock=owner.primary_lock) as checked:
+            with original_reads(fresh=True) as reads:actual=checked.read(deepcopy(snapshot))
+            self.assertEqual(expected,actual);actual['public']['sequence']=999
+            self.assertEqual(expected,checked.read(snapshot))
+            # A different in-memory serialization order may miss the memo;
+            # the actual literal parser must still accept the same DTO.
+            self.assertEqual(expected,checked.read(dict(reversed(list(snapshot.items())))))
+            self.assertIn(owner.rendered_owner.native_owner.record_store(f.f.native_reference['index']).path,reads)
+            self.assertTrue(any(path.suffix=='.png' for path in reads))
+            # Every old metadata envelope still passes its literal decoder.
+            # The already cached derivation cannot hide missing dependencies.
+            for fault in ('native-parent','rendered-parent','frame-cursor','key-serial','nested-mapping','outer-mapping'):
+                value=deepcopy(snapshot)
+                if fault in ('native-parent','rendered-parent'):
+                    name='native' if fault=='native-parent' else 'rendered'
+                    state=unpack(value['owners'][name]['payload'])[0];state['records']=[]
+                    value['owners'][name]['payload']=pack([state])
+                elif fault=='frame-cursor':
+                    state=unpack(value['owners']['frames']['payload'])[0];state['cursors']['native']=None
+                    value['owners']['frames']['payload']=pack([state])
+                elif fault=='key-serial':
+                    state=unpack(value['owners']['keys']['payload'])[0];state['serial']=0
+                    value['owners']['keys']['payload']=pack([state])
+                elif fault=='nested-mapping':value['owners']=ForeignMapping(value['owners'])
+                else:value=ForeignMapping(value)
+                with self.subTest(fault=fault),self.assertRaises(NativeUIError):checked.read(value)
+        with self.assertRaises(NativeUIError):checked.read(snapshot)
+
+    def test_grouped_typed_read_cannot_survive_an_original_file_change(self):
+        f=self.f;owner=f.keyed;snapshot=capture(owner,f.keyed_ref)
+        with self.assertRaises(NativeUIError):
+            with grouped([snapshot],lock=owner.lock,primary_lock=owner.primary_lock) as checked:
+                path=owner.rendered_owner.native_owner.record_store(f.f.native_reference['index']).path
+                path.write_bytes(path.read_bytes()+b' ');checked.read(snapshot)
 
 
 if __name__=='__main__':unittest.main()
