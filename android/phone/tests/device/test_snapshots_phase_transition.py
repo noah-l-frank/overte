@@ -20,6 +20,7 @@ from overte_phone_script_history import pack,unpack
 
 NEW='e'*32
 SCRIPT=r'''
+from copy import deepcopy
 import overte_phone_snapshots_actor as module
 from overte_phone_script_history import pack,unpack
 mode=sys.argv[3]
@@ -90,7 +91,21 @@ try:
             time.sleep(.25)
         report(dict(stage='cleanup',last=flow.state['last']));instruction=command()
     if instruction=='close':
-        assert flow.step();report(dict(stage='retired',phase=flow.state['phase']));sys.exit(0)
+        before_close=deepcopy(flow.state);before_owner=deepcopy(flow.previous)
+        before_reads=len(reads);before_acquisitions=len(acquisitions)
+        closed=flow.step()
+        if not closed:
+            # A retained history turn may encounter closure and yield once.
+            # That turn must not publish, measure, alter quiet evidence or
+            # claim closure. The next cold step still proves fresh retirement.
+            assert flow.state==before_close and flow.previous==before_owner
+            assert flow.state['phase']=='watching' and flow.state['quiet']['complete'] is True
+            assert flow.state['pending'] is flow.state['closure'] is None
+            assert len(reads)==before_reads and len(acquisitions)==before_acquisitions
+            closed=flow.step()
+        assert closed and len(reads)==before_reads+1
+        assert flow.state['phase']=='retired' and flow.state['closure']['active'] is False
+        report(dict(stage='retired',phase=flow.state['phase']));sys.exit(0)
     assert instruction=='exit'
 except Exception as error:
     report(dict(rejected=True,error=type(error).__name__,message=str(error),constructors=len(constructors),reads=len(reads)))
