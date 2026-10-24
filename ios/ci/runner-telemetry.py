@@ -514,6 +514,51 @@ def _forward_output(stream: BinaryIO, activity: OutputActivity,
             continue
 
 
+class CompilerLiveLog:
+    """Forward new compiler records independently of buffered build stdout."""
+
+    def __init__(self, path: Path):
+        self.stream = path.open("rb")
+        self.stopped = threading.Event()
+        try:
+            # Capture EOF before launching the command. An external tail can
+            # start after a short compiler has already appended its last line.
+            self.stream.seek(0, os.SEEK_END)
+            self.thread = threading.Thread(target=self.forward,
+                                           name="compiler-live-output", daemon=True)
+            self.thread.start()
+        except (OSError, RuntimeError):
+            self.stream.close()
+            raise
+
+    def forward(self) -> None:
+        destination = getattr(sys.stdout, "buffer", sys.stdout)
+        while True:
+            # Observe stop before reading, so a stop racing with EOF always
+            # causes one more read of the command's final append.
+            finishing = self.stopped.is_set()
+            try:
+                chunk = self.stream.read(65536)
+            except (OSError, ValueError):
+                return
+            if chunk:
+                try:
+                    destination.write(chunk)
+                    destination.flush()
+                except (BrokenPipeError, OSError):
+                    pass
+            elif finishing:
+                return
+            else:
+                self.stopped.wait(0.02)
+
+    def close(self) -> None:
+        self.stopped.set()
+        self.thread.join(timeout=1.0)
+        if not self.thread.is_alive():
+            self.stream.close()
+
+
 def supervise(command: list[str], collector: Collector, emit: Callable[..., None],
               phase: str, sample_seconds: float, report_seconds: float,
               directory_seconds: float, inactivity_timeout: float,
@@ -528,7 +573,7 @@ def supervise(command: list[str], collector: Collector, emit: Callable[..., None
     started = time.monotonic()
     invocation = secrets.token_hex(6)
     child_env = os.environ.copy()
-    tail: subprocess.Popen[bytes] | None = None
+    tail: CompilerLiveLog | None = None
     if compiler_live_log is not None:
         try:
             compiler_live_log.parent.mkdir(parents=True, exist_ok=True)
@@ -557,8 +602,8 @@ def supervise(command: list[str], collector: Collector, emit: Callable[..., None
         try:
             # This channel bypasses CMake/Ninja/Conan stdout buffering. Starting
             # at EOF preserves append-only history without replaying old runs.
-            tail = subprocess.Popen(["tail", "-n", "0", "-F", str(compiler_live_log)])
-        except OSError as error:
+            tail = CompilerLiveLog(compiler_live_log)
+        except (OSError, RuntimeError) as error:
             emit(
                 "start", phase=phase, id=invocation, pid=0,
                 sample_seconds=sample_seconds, report_seconds=report_seconds,
@@ -588,7 +633,7 @@ def supervise(command: list[str], collector: Collector, emit: Callable[..., None
                 error=type(error).__name__,
             )
             if tail is not None:
-                _terminate_process(tail, 1.0)
+                tail.close()
             return 125
         child_env["OVERTE_COMPILER_WATCHDOG_DIAGNOSTICS"] = str(
             compiler_diagnostics_dir
@@ -607,7 +652,7 @@ def supervise(command: list[str], collector: Collector, emit: Callable[..., None
                  exit_code=125, reason="output_log_failure",
                  error=type(error).__name__)
             if tail is not None:
-                _terminate_process(tail, 1.0)
+                tail.close()
             return 125
     try:
         process: subprocess.Popen[bytes] = subprocess.Popen(
@@ -629,7 +674,7 @@ def supervise(command: list[str], collector: Collector, emit: Callable[..., None
             exit_code=127, reason="launch_failure", error=type(error).__name__,
         )
         if tail is not None:
-            _terminate_process(tail, 1.0)
+            tail.close()
         if raw_output is not None:
             raw_output.close()
         return 127
@@ -898,9 +943,8 @@ def supervise(command: list[str], collector: Collector, emit: Callable[..., None
         reason=reason,
     )
     if tail is not None:
-        # Give tail one scheduling quantum to forward the watchdog's final line.
-        time.sleep(0.05)
-        _terminate_process(tail, 1.0)
+        # Drain the final append before closing this independent live channel.
+        tail.close()
     return result_code
 
 

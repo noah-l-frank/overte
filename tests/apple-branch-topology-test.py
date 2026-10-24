@@ -38,7 +38,10 @@ POLICY = {
                 "tests/device/ios/",
                 "tests/device/jenkins/",
             ],
-            "ownedFiles": ["tests/device/TOOLCHAIN.md"],
+            "ownedFiles": [
+                "tests/device/TOOLCHAIN.md",
+                "tests/device/adapters/ios/README.md",
+            ],
         },
     },
 }
@@ -117,6 +120,32 @@ class AppleBranchTopologyTest(unittest.TestCase):
     def test_exact_ios_owned_file_is_allowed(self):
         head = self.commit("tests/device/TOOLCHAIN.md", "ios pins\n")
         self.assertEqual([], self.validate(head))
+
+    def test_repository_policy_delegates_only_the_ios_adapter_readme(self):
+        policy = json.loads(CHECK.with_name("apple-branch-path-ownership.json").read_text())
+        rules = policy["targets"]["apple-ios"]
+        self.assertIn("tests/device/adapters/ios/README.md", rules["ownedFiles"])
+        self.assertNotIn("tests/device/adapters/ios/", rules["ownedPrefixes"])
+
+    def test_ios_adapter_documentation_change_is_allowed(self):
+        head = self.commit("tests/device/adapters/ios/README.md", "iOS navigation documentation\n")
+        self.assertEqual([], self.validate(head))
+
+    def test_ios_adapter_documentation_near_miss_is_rejected(self):
+        head = self.commit("tests/device/adapters/ios/README.md.bak", "not delegated\n")
+        self.assertTrue(any("apple-main-owned path" in error for error in self.validate(head)))
+
+    def test_ios_adapter_code_beside_readme_stays_parent_owned(self):
+        head = self.commit("tests/device/adapters/ios/backend.py", "not delegated\n")
+        self.assertTrue(any("apple-main-owned path" in error for error in self.validate(head)))
+
+    def test_ios_adapter_readme_symlink_is_rejected(self):
+        destination = self.repo / "tests/device/adapters/ios/README.md"
+        destination.parent.mkdir(parents=True)
+        os.symlink("../../outside", destination)
+        run(self.repo, "add", "-A")
+        run(self.repo, "commit", "-qm", "unsafe documentation link")
+        self.assertTrue(any("unsafe Git object type" in error for error in self.validate(revision(self.repo))))
 
     def test_owned_file_near_miss_is_rejected(self):
         head = self.commit("tests/device/TOOLCHAIN.md.bak", "not owned\n")

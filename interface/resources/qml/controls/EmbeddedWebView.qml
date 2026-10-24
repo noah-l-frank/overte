@@ -10,7 +10,9 @@ FocusScope {
     property string userAgent: ""
     property bool useBackground: true
     property string surface: "world-entity"
-    property string sourceIdentity: "web-surface-" + Date.now() + "-" + Math.random()
+    property string sourceIdentity: typeof nativeWebSourceIdentity !== "undefined"
+                                    ? nativeWebSourceIdentity : "web-surface-" + Date.now() + "-" + Math.random()
+    property var inlineDocument: typeof nativeInlineHtmlDocument !== "undefined" ? nativeInlineHtmlDocument : null
     property string eventBridgeJavaScript: typeof eventBridgeJavaScriptToInject !== "undefined"
                                           ? eventBridgeJavaScriptToInject : ""
     readonly property var backend: loader.item
@@ -30,12 +32,15 @@ FocusScope {
     function _set(name, value) {
         if (backend && backend[name] !== value) { backend[name] = value; }
     }
+    function _setInlineDocument() {
+        if (backend) { backend.inlineDocument = inlineDocument; }
+    }
     function _load() {
         if (!_ready || !url.length) { return; }
-        if (backend) { _set("url", url); return; }
+        if (backend) { _setInlineDocument(); _set("url", url); return; }
         // Configure the native source grant before the first navigation.
         loader.setSource("EmbeddedWebBackend.qml", {
-            sourceIdentity: sourceIdentity, surface: surface,
+            inlineDocument: inlineDocument, sourceIdentity: sourceIdentity, surface: surface,
             eventBridgeJavaScript: eventBridgeJavaScript,
             scriptUrl: scriptUrl, userAgent: userAgent,
             useBackground: useBackground, url: url, focus: true
@@ -68,6 +73,7 @@ FocusScope {
     onUseBackgroundChanged: _set("useBackground", useBackground)
     onSurfaceChanged: _set("surface", surface)
     onSourceIdentityChanged: _set("sourceIdentity", sourceIdentity)
+    onInlineDocumentChanged: _setInlineDocument()
     onEventBridgeJavaScriptChanged: _set("eventBridgeJavaScript", eventBridgeJavaScript)
     onLoadingChanged: _reportLoading()
     onErrorChanged: { if (!loading) { _reportLoading(); } }

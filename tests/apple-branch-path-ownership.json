@@ -19,6 +19,7 @@
       ],
       "ownedFiles": [
         "tests/device/TOOLCHAIN.md",
+        "tests/device/adapters/ios/README.md",
         "tests/device/schemas/ios-fedora-artifact-manifest.schema.json",
         "tests/device/schemas/jenkins-plugin-artifacts-lock.schema.json",
         "tests/device/schemas/toolchain-lock.schema.json",

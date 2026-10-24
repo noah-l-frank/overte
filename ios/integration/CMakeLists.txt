@@ -47,6 +47,7 @@ target_sources(Overte PRIVATE
     "${CMAKE_CURRENT_LIST_DIR}/../web/ContainedWebView.mm"
     "${CMAKE_CURRENT_LIST_DIR}/../web/WKWebSnapshot.h"
     "${CMAKE_CURRENT_LIST_DIR}/../web/WKWebSnapshot.mm"
+    "${CMAKE_CURRENT_LIST_DIR}/../web/IOSInlineDocument.h"
     "${CMAKE_CURRENT_LIST_DIR}/../web/IOSWebChannel.h"
     "${CMAKE_CURRENT_LIST_DIR}/../web/IOSWebChannel.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../web/IOSWebView.h"

@@ -82,6 +82,59 @@ class Pending(TransportError):
     """Authenticated execution metadata has not yet reached a terminal state."""
 
 
+def read_eventual(factory, read, *, deadline, pause=time.sleep, clock=time.monotonic):
+    """Retry transient metadata GET failures within the caller's existing budget.
+
+    Each try uses a fresh bounded read-only client. No observation is returned
+    until the real response arrives; source and execution bookends stay with
+    the caller. Authentication, schema and identity errors are never retried.
+    """
+    reported = False
+    while True:
+        require(clock() < deadline, "native metadata observation budget exhausted")
+        try:
+            value = read(factory())
+        except urllib.error.HTTPError as error:
+            if error.code not in {502, 503, 504}:
+                raise
+            error.close()
+            if not reported:
+                print("Waiting for GitHub execution metadata after a transient HTTP error", flush=True)
+                reported = True
+        else:
+            require(clock() <= deadline, "native metadata response exceeded observation budget")
+            return value
+        remaining = deadline - clock()
+        require(remaining > 0, "native metadata observation budget exhausted")
+        pause(min(15, remaining))
+
+
+def require_commands(steps, required):
+    """Wait for absent step facts; reject actual skipped/failed commands."""
+    require(type(steps) is list and len(steps) <= 100
+            and all(type(step) is dict and type(step.get('name')) is str for step in steps),
+            'native job steps are malformed')
+    named = {}
+    waiting = False
+    for step in steps:
+        require(step['name'] not in named, 'duplicate native execution step')
+        named[step['name']] = step
+        require(step.get('status') in {'queued', 'in_progress', 'completed'}, 'unknown native step status')
+        if step['status'] != 'completed':
+            require(step.get('conclusion') is None, 'nonterminal native step has a conclusion')
+        else:
+            require(step.get('conclusion') in {'success', 'skipped'}, 'native execution step failed')
+    for name in required:
+        step = named.get(name)
+        if step is None or step['status'] != 'completed':
+            waiting = True
+        else:
+            require(step.get('conclusion') == 'success', 'native owner did not complete its required commands')
+    if waiting:
+        raise Pending('required commands have not yet been indexed')
+    return True
+
+
 def require(condition, message):
     if not condition:
         raise TransportError(message)
@@ -195,8 +248,10 @@ def validate_sources(actual_tree, trusted_tree, *, protected_base=None):
         # Product workflows already installed on the protected target retain
         # their reviewed branch implementation. A PR cannot change, delete or
         # add one through this exception. Central/reusable execution recipes
-        # must always equal the current protected default-branch controller.
+        # and central maintenance recipes must always equal the current
+        # protected default-branch controller, including downstream activation.
         central = {WORKFLOW, ".github/workflows/native-tests.yml",
+                   ".github/workflows/branch-cleanup.yml",
                    ".github/workflows/pr-ci-ios.yml", ".github/workflows/ios-integrated.yml",
                    ".github/workflows/ios-qt-source.yml"}
         for path, entry in base.items():
@@ -327,11 +382,12 @@ def validate_jobs(jobs, expected_owners, *, plan=None, context=None):
                 require(step.get("conclusion") is None, "nonterminal native step has a conclusion")
                 waiting = True
         if status == "completed":
-            require(all(step_map.get(name, {}).get("status") == "completed"
-                        and step_map[name].get("conclusion") == "success" for name in STEPS[owner]),
-                    "native owner did not complete its required commands")
+            try:
+                require_commands(steps, STEPS[owner])
+            except Pending:
+                waiting = True
     if waiting:
-        raise Pending("selected native jobs have not yet completed")
+        raise Pending("selected native jobs have not yet completed or indexed their required commands")
     return True
 
 

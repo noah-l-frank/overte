@@ -503,6 +503,26 @@ class WorkflowContracts(unittest.TestCase):
             self.assertNotIn("continue-on-error", self.jobs[name])
             self.assertNotIn("|| true", command)
 
+    def test_ios_browser_runtime_reaches_the_offline_product_boundary(self):
+        host = load("pr-ci-ios.yml")["jobs"]["host"]
+        prepare = next(step for step in host["steps"]
+                       if step["name"] == "Prepare pinned Chromium for offline iOS DOM contracts")
+        command = prepare["run"]
+        self.assertEqual("${{ runner.temp }}/pr-ci-ios-browser/runtime",
+                         prepare["env"]["PLAYWRIGHT_BROWSERS_PATH"])
+        self.assertIn("--ignore-scripts --package=playwright@1.63.0", command)
+        self.assertIn("playwright install --with-deps --only-shell chromium", command)
+        self.assertIn('test "${#browsers[@]}" = 1', command)
+        self.assertIn('test -x "${browsers[0]}"', command)
+        self.assertIn('ldd "${browsers[0]}"', command)
+        self.assertIn("not found", command)
+        self.assertIn('ln -s "${browsers[0]}" "$RUNNER_TEMP/pr-ci-ios-browser/bin/chrome-headless-shell"', command)
+        execute = next(step["run"] for step in host["steps"]
+                       if "pr_ci.py platform" in step.get("run", ""))
+        self.assertIn('--prepared-root "$RUNNER_TEMP/pr-ci-ios-browser"', execute)
+        self.assertNotIn("--network", execute)
+        self.assertNotIn("continue-on-error", host)
+
     def test_static_scanners_read_candidate_data_with_trusted_configuration(self):
         command = scripts(self.jobs["security"])
         self.assertIn("trusted/tools/workflow-security/check-action-pins.py --root candidate", command)

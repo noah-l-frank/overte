@@ -314,18 +314,20 @@ Rectangle {
     }
     Dialog {
         id: bookmarkDialog
+        objectName: "bookmarkDialog"
         property string originalName: ""
         property string address: ""
         x: (root.width - width) / 2; y: Math.max(0, (root.height - (root.keyboardItem ? root.keyboardItem.height : 0) - height) / 2)
         width: Math.min(root.width - 24, 500)
         modal: true
         title: originalName ? qsTr("Rename bookmark") : qsTr("Add bookmark")
-        contentItem: ColumnLayout {
+        contentItem: Column {
+            spacing: 6
             TextField { font.pixelSize: Math.round(16 * touchMetrics.textScale); id: bookmarkName; objectName: "bookmarkName"; placeholderText: qsTr("Bookmark name")
-                Layout.fillWidth: true; implicitHeight: root.controlHeight; selectByMouse: true }
-            Text { text: bookmarkDialog.address; color: "#555555"; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true }
+                width: parent.width; implicitHeight: root.controlHeight; selectByMouse: true }
+            Text { text: bookmarkDialog.address; color: "#555555"; wrapMode: Text.WrapAnywhere; width: parent.width }
             Text { text: qsTr("Choose a new, nonempty name."); visible: !root.validBookmarkName()
-                color: "#9d241a"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                color: "#9d241a"; wrapMode: Text.WordWrap; width: parent.width }
         }
         footer: DialogButtonBox {
             Button { font.pixelSize: Math.round(16 * touchMetrics.textScale); objectName: "saveBookmark"; text: qsTr("Save"); implicitHeight: root.controlHeight

@@ -1,16 +1,25 @@
 """Run the native close-frame calculation against the real shared QML footer.
 
 UIKit rectangle operations are mapped to Qt rectangles on the host. This checks
-the production selection/geometry, not UIKit event delivery or device acceptance.
+both shipping selection/geometry and the actual E2E input core against the real
+shared QML footer, not UIKit event delivery or device acceptance.
 """
 from pathlib import Path
 import os
+import re
 import shlex
 import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 source = (ROOT / "ios/ui/IOSTouchUiMetrics.mm").read_text()
+# Select the actual shipping branch before extracting its frame expression.
+# Cutting the unpreprocessed first activation block can strand an E2E #if.
+# Includes alone are omitted for preprocessing; all extracted native logic is
+# kept, and the E2E core is compiled/exercised separately below on the same QML.
+source = subprocess.run(['c++', '-E', '-P', '-x', 'c++', '-', '-DQ_OS_IOS=1'],
+    input=re.sub(r'^\s*#(?:include|import)\s+.*$', '', source, flags=re.MULTILINE),
+    capture_output=True, text=True, check=True, timeout=10).stdout
 
 
 def function(signature):
@@ -63,6 +72,9 @@ Item {
 }''')
     binary = scratch / "test"
     subprocess.run(["c++", "-std=c++17", "-fPIC", "-I", str(scratch),
+                    '-I' + str(ROOT / 'ios/ui'), '-I' + str(ROOT / 'libraries/ui/src'),
+                    str(ROOT / 'ios/ui/IOSNormalUiInput.cpp'),
+                    str(ROOT / 'libraries/ui/src/ui/NativeFieldInput.cpp'),
                     str(Path(__file__).with_suffix(".cpp")), "-o", str(binary),
                     *flags], check=True, timeout=60)
     subprocess.run([str(binary), str(ROOT), str(fixture)], check=True, timeout=30,

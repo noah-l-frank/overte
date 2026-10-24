@@ -7,6 +7,7 @@ from pathlib import Path
 import json
 import os
 import hashlib
+import re
 from datetime import datetime, timezone
 import shlex
 import subprocess
@@ -89,11 +90,16 @@ class GraphicsPreferences(unittest.TestCase):
             flags.append("-I" + glm_include)
         render = (ROOT / "interface/src/scripting/RenderScriptingInterface.cpp").read_text()
         header = (ROOT / "interface/src/scripting/RenderScriptingInterface.h").read_text()
+        persistence_member = re.search(
+            r"^[ \t]*bool _settingsPersistenceEnabled[ \t]*\{[^\n;]+\};", header, re.M)
+        if not persistence_member:
+            raise AssertionError("Production settings persistence member declaration/default is missing")
         performance = (ROOT / "interface/src/PerformanceManager.cpp").read_text()
         refresh = (ROOT / "interface/src/RefreshRateManager.cpp").read_text()
         lod = (ROOT / "interface/src/LODManager.cpp").read_text()
         settings = (ROOT / "libraries/shared/src/SettingHandle.cpp").read_text()
         for name, text in {
+            "render-persistence.inc": persistence_member.group(),
             "render-settings.inc": header[header.index("    Setting::Handle<int> _renderMethodSetting"):
                 header.index("    // Force assign both setting")],
             "settings-value.inc": block(settings, "QVariant Settings::value("),

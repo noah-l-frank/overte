@@ -54,6 +54,18 @@ RenderScriptingInterface::RenderScriptingInterface() {
     });
 }
 
+RenderScriptingInterface::ScopedSettingsOverride::ScopedSettingsOverride(RenderScriptingInterface& render) :
+    _render(render) {
+    _render._renderSettingLock.getLock().lockForWrite();
+    _previousPersistenceEnabled = _render._settingsPersistenceEnabled;
+    _render._settingsPersistenceEnabled = false;
+}
+
+RenderScriptingInterface::ScopedSettingsOverride::~ScopedSettingsOverride() {
+    _render._settingsPersistenceEnabled = _previousPersistenceEnabled;
+    _render._renderSettingLock.getLock().unlock();
+}
+
 void RenderScriptingInterface::loadSettings() {
     _renderSettingLock.withReadLock([&] {
         _renderMethod = _renderMethodSetting.get();
@@ -63,6 +75,7 @@ void RenderScriptingInterface::loadSettings() {
         _ambientOcclusionEnabled = _ambientOcclusionEnabledSetting.get();
         _localLightingEnabled = _localLightingSetting.get();
         _proceduralMaterialsEnabled = _proceduralMaterialsEnabledSetting.get();
+        _mirrorsEnabled = _mirrorsEnabledSetting.get();
         _antialiasingMode = static_cast<AntialiasingSetupConfig::Mode>(_antialiasingModeSetting.get());
         _viewportResolutionScale = _viewportResolutionScaleSetting.get();
 #if defined(Q_OS_IOS)
@@ -96,12 +109,73 @@ void RenderScriptingInterface::loadSettings() {
     forceAmbientOcclusionEnabled(_ambientOcclusionEnabled);
     forceLocalLightingEnabled(_localLightingEnabled);
     forceProceduralMaterialsEnabled(_proceduralMaterialsEnabled);
+    forceMirrorsEnabled(_mirrorsEnabled);
     forceAntialiasingMode(_antialiasingMode);
     forceViewportResolutionScale(_viewportResolutionScale);
 }
 
 RenderScriptingInterface::RenderMethod RenderScriptingInterface::getRenderMethod() const {
     return (RenderMethod) _renderMethod;
+}
+
+bool RenderScriptingInterface::isDeferredRenderingAvailable() const {
+#ifdef Q_OS_ANDROID
+    return false;
+#else
+    return true;
+#endif
+}
+
+bool RenderScriptingInterface::getMirrorsEnabled() const {
+    return _mirrorsEnabled;
+}
+
+void RenderScriptingInterface::setMirrorsEnabled(bool enabled) {
+    const bool changed = _mirrorsEnabled != enabled;
+    // Reapply even an unchanged preference: startup profiles and developer
+    // render configurations can have changed the effective job state.
+    forceMirrorsEnabled(enabled);
+    if (changed) {
+        emit settingsChanged();
+    }
+}
+
+void RenderScriptingInterface::forceMirrorsEnabled(bool enabled) {
+    _renderSettingLock.withWriteLock([&] {
+        _mirrorsEnabled = enabled;
+        if (_settingsPersistenceEnabled) {
+            _mirrorsEnabledSetting.set(enabled);
+        }
+
+        auto renderConfig = qApp->getRenderEngine()->getConfiguration();
+        if (!renderConfig) { return; }
+        const QStringList views { "RenderMainView", "RenderSecondView" };
+        // Both branches exist on desktop/iOS, even when only one is selected.
+        // Android uses a direct forward task. Missing branches are harmless.
+        const QStringList paths {
+            ".DeferredForwardSwitch.RenderShadowsAndDeferredTask.RenderDeferredTask",
+            ".DeferredForwardSwitch.RenderForwardTask",
+            ".RenderForwardTask"
+        };
+        for (const auto& view : views) {
+            for (const auto& path : paths) {
+                for (size_t index = 0; index < RenderMirrorTask::MAX_MIRRORS_PER_LEVEL; ++index) {
+                    const auto name = view + path + ".RenderMirrorTask" + QString::number(index) + "Depth0";
+                    if (auto mirror = qobject_cast<task::JobConfig*>(renderConfig->getConfig(name))) {
+                        // Disable setup, recursive view and draw together, so an
+                        // old reflection cannot be drawn after capture stops.
+                        mirror->setEnabled(enabled);
+                        // Retain compatibility with native startup profiles
+                        // which disable the inner view before scripts start.
+                        const auto viewName = name + ".RenderMirrorView" + QString::number(index) + "Depth0";
+                        if (auto mirrorView = qobject_cast<task::JobConfig*>(renderConfig->getConfig(viewName))) {
+                            mirrorView->setEnabled(enabled);
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 
 void RenderScriptingInterface::setRenderMethod(RenderMethod renderMethod) {
@@ -111,42 +185,53 @@ void RenderScriptingInterface::setRenderMethod(RenderMethod renderMethod) {
     }
 }
 
-void recursivelyUpdateMirrorRenderMethods(const QString& parentTaskName, int renderMethod, int depth) {
-    if (depth == RenderMirrorTask::MAX_MIRROR_DEPTH) {
+// A RenderViewTask contains its lighting model directly, then either an
+// Android forward task or both desktop/iOS switch branches. Each mirror adds
+// its own task before the nested RenderViewTask. Traverse the registered graph
+// rather than treating mirror views as direct children of the camera view.
+void forEachRenderViewConfiguration(const QString& view, int depth,
+        const std::function<void(const QString&)>& visit) {
+    visit(view);
+    if (depth >= static_cast<int>(RenderMirrorTask::MAX_MIRROR_DEPTH)) {
         return;
     }
-
     auto renderConfig = qApp->getRenderEngine()->getConfiguration();
-    for (size_t mirrorIndex = 0; mirrorIndex < RenderMirrorTask::MAX_MIRRORS_PER_LEVEL; mirrorIndex++) {
-        std::string mirrorTaskString = parentTaskName.toStdString() + ".RenderMirrorView" + std::to_string(mirrorIndex) + "Depth" + std::to_string(depth) + ".DeferredForwardSwitch";
-        auto mirrorConfig = dynamic_cast<render::SwitchConfig*>(renderConfig->getConfig(QString::fromStdString(mirrorTaskString)));
-        if (mirrorConfig) {
-            mirrorConfig->setBranch((int)renderMethod);
-            recursivelyUpdateMirrorRenderMethods(QString::fromStdString(mirrorTaskString) + (renderMethod == 1 ? ".RenderForwardTask" : ".RenderShadowsAndDeferredTask.RenderDeferredTask"),
-                renderMethod, depth + 1);
+    if (!renderConfig) { return; }
+    const QStringList paths {
+        ".DeferredForwardSwitch.RenderShadowsAndDeferredTask.RenderDeferredTask",
+        ".DeferredForwardSwitch.RenderForwardTask",
+        ".RenderForwardTask"
+    };
+    for (const auto& path : paths) {
+        for (size_t index = 0; index < RenderMirrorTask::MAX_MIRRORS_PER_LEVEL; ++index) {
+            const auto suffix = QString::number(index) + "Depth" + QString::number(depth);
+            const auto mirrorView = view + path + ".RenderMirrorTask" + suffix + ".RenderMirrorView" + suffix;
+            if (renderConfig->getConfig(mirrorView)) {
+                forEachRenderViewConfiguration(mirrorView, depth + 1, visit);
+            }
         }
     }
+}
+
+void recursivelyUpdateMirrorRenderMethods(const QString& view, int renderMethod, int depth) {
+    auto renderConfig = qApp->getRenderEngine()->getConfiguration();
+    if (!renderConfig) { return; }
+    forEachRenderViewConfiguration(view, depth, [renderConfig, renderMethod] (const QString& currentView) {
+        auto config = dynamic_cast<render::SwitchConfig*>(renderConfig->getConfig(currentView + ".DeferredForwardSwitch"));
+        if (config) {
+            config->setBranch(renderMethod);
+        }
+    });
 }
 
 void RenderScriptingInterface::forceRenderMethod(RenderMethod renderMethod) {
     _renderSettingLock.withWriteLock([&] {
         _renderMethod = (int)renderMethod;
-        _renderMethodSetting.set((int)renderMethod);
-
-        auto renderConfig = qApp->getRenderEngine()->getConfiguration();
-        QString configName = "RenderMainView.DeferredForwardSwitch";
-        auto config = dynamic_cast<render::SwitchConfig*>(renderConfig->getConfig(configName));
-        if (config) {
-            config->setBranch((int)renderMethod);
-
-            recursivelyUpdateMirrorRenderMethods(configName + (renderMethod == RenderMethod::FORWARD ? ".RenderForwardTask" : ".RenderShadowsAndDeferredTask.RenderDeferredTask"),
-                (int)renderMethod, 0);
+        if (_settingsPersistenceEnabled) {
+            _renderMethodSetting.set((int)renderMethod);
         }
-
-        auto secondaryConfig = dynamic_cast<render::SwitchConfig*>(renderConfig->getConfig("RenderSecondView.DeferredForwardSwitch"));
-        if (secondaryConfig) {
-            secondaryConfig->setBranch((int)renderMethod);
-        }
+        recursivelyUpdateMirrorRenderMethods("RenderMainView", (int)renderMethod, 0);
+        recursivelyUpdateMirrorRenderMethods("RenderSecondView", (int)renderMethod, 0);
     });
 }
 
@@ -157,29 +242,16 @@ QStringList RenderScriptingInterface::getRenderMethodNames() const {
 
 void recursivelyUpdateLightingModel(const QString& parentTaskName, std::function<void(MakeLightingModelConfig *)> updateLambda, int depth = -1) {
     auto renderConfig = qApp->getRenderEngine()->getConfiguration();
+    if (!renderConfig) { return; }
+    const auto updateView = [renderConfig, &updateLambda] (const QString& view) {
+        auto config = renderConfig->getConfig<MakeLightingModel>((view + ".LightingModel").toStdString());
+        if (config) { updateLambda(config); }
+    };
     if (depth == -1) {
-        auto secondaryLightingModelConfig = renderConfig->getConfig<MakeLightingModel>("RenderSecondView.LightingModel");
-        if (secondaryLightingModelConfig) {
-            updateLambda(secondaryLightingModelConfig);
-        }
-
-        auto mainLightingModelConfig = renderConfig->getConfig<MakeLightingModel>("RenderMainView.LightingModel");
-        if (mainLightingModelConfig) {
-            updateLambda(mainLightingModelConfig);
-        }
-
-        recursivelyUpdateLightingModel("RenderMainView", updateLambda, depth + 1);
-    } else if (depth == RenderMirrorTask::MAX_MIRROR_DEPTH) {
-        return;
-    }
-
-    for (size_t mirrorIndex = 0; mirrorIndex < RenderMirrorTask::MAX_MIRRORS_PER_LEVEL; mirrorIndex++) {
-        std::string mirrorTaskString = parentTaskName.toStdString() + ".RenderMirrorView" + std::to_string(mirrorIndex) + "Depth" + std::to_string(depth);
-        auto lightingModelConfig = renderConfig->getConfig<MakeLightingModel>(mirrorTaskString + ".LightingModel");
-        if (lightingModelConfig) {
-            updateLambda(lightingModelConfig);
-            recursivelyUpdateLightingModel(QString::fromStdString(mirrorTaskString), updateLambda, depth + 1);
-        }
+        forEachRenderViewConfiguration("RenderMainView", 0, updateView);
+        forEachRenderViewConfiguration("RenderSecondView", 0, updateView);
+    } else {
+        forEachRenderViewConfiguration(parentTaskName, depth, updateView);
     }
 }
 
@@ -197,8 +269,13 @@ void RenderScriptingInterface::setShadowsEnabled(bool enabled) {
 void RenderScriptingInterface::forceShadowsEnabled(bool enabled) {
     _renderSettingLock.withWriteLock([&] {
         _shadowsEnabled = (enabled);
-        _shadowsEnabledSetting.set(enabled);
-        Menu::getInstance()->setIsOptionChecked(MenuOption::Shadows, enabled);
+        if (_settingsPersistenceEnabled) {
+            _shadowsEnabledSetting.set(enabled);
+        }
+        // Keep legacy menu persistence at the saved user choice during an override.
+        if (_settingsPersistenceEnabled) {
+            Menu::getInstance()->setIsOptionChecked(MenuOption::Shadows, enabled);
+        }
 
         recursivelyUpdateLightingModel("", [enabled] (MakeLightingModelConfig *config) { config->setShadow(enabled); });
     });
@@ -218,7 +295,9 @@ void RenderScriptingInterface::setHazeEnabled(bool enabled) {
 void RenderScriptingInterface::forceHazeEnabled(bool enabled) {
     _renderSettingLock.withWriteLock([&] {
         _hazeEnabled = (enabled);
-        _hazeEnabledSetting.set(enabled);
+        if (_settingsPersistenceEnabled) {
+            _hazeEnabledSetting.set(enabled);
+        }
 
         recursivelyUpdateLightingModel("", [enabled] (MakeLightingModelConfig *config) { config->setHaze(enabled); });
     });
@@ -238,7 +317,9 @@ void RenderScriptingInterface::setBloomEnabled(bool enabled) {
 void RenderScriptingInterface::forceBloomEnabled(bool enabled) {
     _renderSettingLock.withWriteLock([&] {
         _bloomEnabled = (enabled);
-        _bloomEnabledSetting.set(enabled);
+        if (_settingsPersistenceEnabled) {
+            _bloomEnabledSetting.set(enabled);
+        }
 
         recursivelyUpdateLightingModel("", [enabled] (MakeLightingModelConfig *config) { config->setBloom(enabled); });
     });
@@ -258,8 +339,13 @@ void RenderScriptingInterface::setAmbientOcclusionEnabled(bool enabled) {
 void RenderScriptingInterface::forceAmbientOcclusionEnabled(bool enabled) {
     _renderSettingLock.withWriteLock([&] {
         _ambientOcclusionEnabled = (enabled);
-        _ambientOcclusionEnabledSetting.set(enabled);
-        Menu::getInstance()->setIsOptionChecked(MenuOption::AmbientOcclusion, enabled);
+        if (_settingsPersistenceEnabled) {
+            _ambientOcclusionEnabledSetting.set(enabled);
+        }
+        // Keep legacy menu persistence at the saved user choice during an override.
+        if (_settingsPersistenceEnabled) {
+            Menu::getInstance()->setIsOptionChecked(MenuOption::AmbientOcclusion, enabled);
+        }
 
         recursivelyUpdateLightingModel("", [enabled] (MakeLightingModelConfig *config) { config->setAmbientOcclusion(enabled); });
     });
@@ -279,8 +365,13 @@ void RenderScriptingInterface::setLocalLightingEnabled(bool enabled) {
 void RenderScriptingInterface::forceLocalLightingEnabled(bool enabled) {
     _renderSettingLock.withWriteLock([&] {
         _localLightingEnabled = (enabled);
-        _localLightingSetting.set(enabled);
-        Menu::getInstance()->setIsOptionChecked(MenuOption::LocalLights, enabled);
+        if (_settingsPersistenceEnabled) {
+            _localLightingSetting.set(enabled);
+        }
+        // Keep legacy menu persistence at the saved user choice during an override.
+        if (_settingsPersistenceEnabled) {
+            Menu::getInstance()->setIsOptionChecked(MenuOption::LocalLights, enabled);
+        }
 
         recursivelyUpdateLightingModel("", [enabled] (MakeLightingModelConfig *config) { config->setLocalLighting(enabled); });
     });
@@ -300,9 +391,14 @@ void RenderScriptingInterface::setProceduralMaterialsEnabled(bool enabled) {
 void RenderScriptingInterface::forceProceduralMaterialsEnabled(bool enabled) {
     _renderSettingLock.withWriteLock([&] {
         _proceduralMaterialsEnabled = (enabled);
-        _proceduralMaterialsEnabledSetting.set(enabled);
+        if (_settingsPersistenceEnabled) {
+            _proceduralMaterialsEnabledSetting.set(enabled);
+        }
 
-        Menu::getInstance()->setIsOptionChecked(MenuOption::MaterialProceduralShaders, enabled);
+        // Keep legacy menu persistence at the saved user choice during an override.
+        if (_settingsPersistenceEnabled) {
+            Menu::getInstance()->setIsOptionChecked(MenuOption::MaterialProceduralShaders, enabled);
+        }
         Procedural::enableProceduralShaders = enabled;
     });
 }
@@ -345,32 +441,22 @@ void setAntialiasingModeForView(AntialiasingSetupConfig::Mode mode, Antialiasing
 
 void recursivelyUpdateAntialiasingMode(const QString& parentTaskName, AntialiasingSetupConfig::Mode mode, int depth = -1) {
     auto renderConfig = qApp->getRenderEngine()->getConfiguration();
+    if (!renderConfig) { return; }
+    const auto updateView = [renderConfig, mode] (const QString& view) {
+        // AA belongs to the deferred task, not to the enclosing RenderViewTask.
+        // Direct Android forward views intentionally have no such jobs.
+        const auto deferred = view + ".DeferredForwardSwitch.RenderShadowsAndDeferredTask.RenderDeferredTask";
+        auto setup = renderConfig->getConfig<AntialiasingSetup>((deferred + ".AntialiasingSetup").toStdString());
+        auto antialiasing = renderConfig->getConfig<Antialiasing>((deferred + ".Antialiasing").toStdString());
+        if (setup && antialiasing) {
+            setAntialiasingModeForView(mode, setup, antialiasing);
+        }
+    };
     if (depth == -1) {
-        auto secondViewJitterCamConfig = renderConfig->getConfig<AntialiasingSetup>("RenderSecondView.AntialiasingSetup");
-        auto secondViewAntialiasingConfig = renderConfig->getConfig<Antialiasing>("RenderSecondView.Antialiasing");
-        if (secondViewJitterCamConfig && secondViewAntialiasingConfig) {
-            setAntialiasingModeForView(mode, secondViewJitterCamConfig, secondViewAntialiasingConfig);
-        }
-
-        auto mainViewJitterCamConfig = renderConfig->getConfig<AntialiasingSetup>("RenderMainView.AntialiasingSetup");
-        auto mainViewAntialiasingConfig = renderConfig->getConfig<Antialiasing>("RenderMainView.Antialiasing");
-        if (mainViewJitterCamConfig && mainViewAntialiasingConfig) {
-            setAntialiasingModeForView( mode, mainViewJitterCamConfig, mainViewAntialiasingConfig);
-        }
-
-        recursivelyUpdateAntialiasingMode("RenderMainView", mode, depth + 1);
-    } else if (depth == RenderMirrorTask::MAX_MIRROR_DEPTH) {
-        return;
-    }
-
-    for (size_t mirrorIndex = 0; mirrorIndex < RenderMirrorTask::MAX_MIRRORS_PER_LEVEL; mirrorIndex++) {
-        std::string mirrorTaskString = parentTaskName.toStdString() + ".RenderMirrorView" + std::to_string(mirrorIndex) + "Depth" + std::to_string(depth);
-        auto jitterCamConfig = renderConfig->getConfig<AntialiasingSetup>(mirrorTaskString + ".AntialiasingSetup");
-        auto antialiasingConfig = renderConfig->getConfig<Antialiasing>(mirrorTaskString + ".Antialiasing");
-        if (jitterCamConfig && antialiasingConfig) {
-            setAntialiasingModeForView(mode, jitterCamConfig, antialiasingConfig);
-            recursivelyUpdateAntialiasingMode(QString::fromStdString(mirrorTaskString), mode, depth + 1);
-        }
+        forEachRenderViewConfiguration("RenderMainView", 0, updateView);
+        forEachRenderViewConfiguration("RenderSecondView", 0, updateView);
+    } else {
+        forEachRenderViewConfiguration(parentTaskName, depth, updateView);
     }
 }
 
@@ -381,7 +467,9 @@ void RenderScriptingInterface::forceAntialiasingMode(AntialiasingSetupConfig::Mo
 
     _renderSettingLock.withWriteLock([&] {
         _antialiasingMode = mode;
-        _antialiasingModeSetting.set((int)_antialiasingMode);
+        if (_settingsPersistenceEnabled) {
+            _antialiasingModeSetting.set((int)_antialiasingMode);
+        }
 
         recursivelyUpdateAntialiasingMode("", _antialiasingMode);
     });
@@ -453,7 +541,9 @@ void RenderScriptingInterface::forceViewportResolutionScale(float scale) {
     }
     _renderSettingLock.withWriteLock([&] {
         _viewportResolutionScale = scale;
-        _viewportResolutionScaleSetting.set(scale);
+        if (_settingsPersistenceEnabled) {
+            _viewportResolutionScaleSetting.set(scale);
+        }
 #if defined(Q_OS_IOS)
         logIOSRuntimeMarker(
             "OVERTE_IOS_RENDER_PROFILE stage=resolution-scale-applied",
