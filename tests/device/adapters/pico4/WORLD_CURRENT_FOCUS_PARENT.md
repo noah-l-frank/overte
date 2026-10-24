@@ -153,3 +153,37 @@ registry delta and retained Prefix 1/2/3 grammar are unchanged.
 The final packet additionally depends on fixed `d8cb69402f`; the next executable
 boundary is actual normal VRKeyboard consumption on the selected shared Qt/
 JNI/Java backend. There is no trace hook or text continuation in this packet.
+
+
+## Root integration verification and normal keyboard boundary
+
+Root reviewed all ten files and selected `16e0356b03` as `f9a6d25578`,
+preserving the existing prepare/outer-exit fixes, historical Prefix1/2/3
+readers and every newer registry/selector. The catalog advances additively
+**286 to 287**. The single owning selection passes all **eight cases**
+(**12.745 s** unittest, **13.133 s** external runner). All **13,625** tracked/
+new source hashes and physical signatures remain unchanged through terminal
+completion (**13.910 s** overall). Literal raw query, controller compilation,
+consumption and Parent/role originals remain in each test's retained root.
+Private `world-current-focus-parent-root-owning-20261024-source.json` and
+`-result.json`, the uniquely named owning log/JUnit, and the recorded temporary
+root identify this actual integrated run. The unrelated earlier 125-case source
+run is separate evidence and was not repeated for this additive Parent join.
+
+Independent Root source inspection confirms the current keyboard limitation:
+`interface/resources/config/keyboard.json` has three layers; every decoded
+`key` string is ASCII. `Keyboard::loadKeyboardFile` passes each configured
+string to `Key::setKeyString`; `Key::getKeyString` applies case conversion.
+`Keyboard::handleTriggerBegin` dispatches that actual string, while its
+`_typedCharacters` member feeds the display. Therefore the unchanged common
+Unicode text has no established normal 3D-key source in this configuration.
+The private `world-keyboard-original-key-inventory-root-20261024.json` retains
+the exact source hash and complete decoded inventory. This is a concrete
+source boundary, not an observed headset failure.
+
+The next trace may prove actual existing ASCII VR-key consumption. A separate
+Qt-IME/JNI UTF-16/UTF-8 encoding check must retain its own provenance and cannot
+qualify normal VR Unicode production. Adding keyboard keys, clipboard content
+or text setters is outside this adapter packet. Actual normal text, fresh
+independent DOM/HTTP, Actor/stereo and complete source/VM retirement remain
+required before the whole action or public feature can complete.

@@ -714,7 +714,10 @@
         "android/common/web/src/PicoWorldCurrentInputE2E.inc",
         "android/vr/pico/tests/device/test_world_current_input_native.py",
         "android/vr/pico/tests/device/test_world_current_input_java.py",
-        "android/vr/pico/tests/device/test_world_current_input_reader.py"
+        "android/vr/pico/tests/device/test_world_current_input_reader.py",
+        "tests/device/adapters/pico4/world_current_focus_parent.py",
+        "tests/device/adapters/pico4/WORLD_CURRENT_FOCUS_PARENT.md",
+        "android/vr/pico/tests/device/test_world_current_focus_parent.py"
       ],
       "declaredCheckpoints": 19,
       "inputVerbs": [
@@ -764,7 +767,7 @@
         "Revoke actual view/grant/nonce authority",
         "Drain original retained callbacks and prove absent owned entities/view resources"
       ],
-      "nextExecutableStep": "Join the existing Parent acting phase to current-authority normal Pico ray publication and fresh exact-field focus, preserving durable intent and full originals. Focus alone cannot complete focus-type; actual normal Qt-key/Qt-IME/JNI/Java consumption, fresh text/HTTP and independent Actor/stereo remain open. Root current-input integration passes125 owning and legacy cases with all13,615 source hashes/physical signatures unchanged;19 legacy files/bodies are byte-identical. Preserve historical Parent readers and exact Common16 before explicit shared-version dispatch. Retained VM remains a resource after ScriptStop/observerESRCH; whole public/resource/journal/archive/host finalization remains open.",
+      "nextExecutableStep": "Extend the integrated existing Parent acting/current-ray/fresh-focus join with actual normal Qt-key/Qt-IME/JNI/Java consumption, independent text/HTTP, Actor/stereo and full source/VM retirement. Root f9a6d25578 passes8 owning cases with all13,625 source hashes/physical signatures unchanged; the text action stays acting. Original three-layer keyboard.json has ASCII-only decoded keys, so normal VR Unicode production remains a concrete source gap, distinct from Qt-IME encoding. Preserve exact Common16 and historical Prefix readers before explicit shared-version dispatch. Full public/resource/journal/archive/host finalization remains open.",
       "nativeCompilation": "Selected complete NativeWebViewItem/JNI, both conditional sides of whole current-document/current-input TSI getters, actual exported single-owner factories/two hidden DSOs, original Java methods and WorldRayProvider/RayPick/renderer bodies compile and pass host checks. Entity/avatar/HMD and Android looper/WebView/DOM/editor are explicit seams. Whole APK/application and devices unverified.",
       "deviceQualification": "untested"
     },
@@ -911,7 +914,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Profile remaining real pre-archive, per-unlink phase/index/filesystem costs before another whole run. Direct complete PNG admission bytes preserve old1168818-byte admission exactly and pass capture11/archive15/host-fence2, all13,600 source hashes/signatures unchanged; historical comparison10.94\u201311.78ms becomes6.52\u20137.01ms. Earlier sealed full-proof and complete namespace improvements remain separate evidence. Whole326c73 still ends at120s after1069 copies+18 manifests and198 confirmed unlinks; originals retained. Preserve every strict source DTO/full file/PNG read, fresh phase per intent,16-use/250ms and1.5s guard. No cold adoption, cap raise or whole throughput claim; full archive/host/public coordinator remains unverified.",
+      "nextExecutableStep": "Address measured complete capture-history validation and per-unlink full copy inventory/namespace/PNG/independent phase costs. The new unchanged120s whole diagnostic at6a06bce8f5 completes26 normal actions/common cleanup but remains red at120.024s during archive retirement:1087 complete copies/manifests,143 confirmed unlinks, no pending unlink and no final host release. All13,621 source hashes/physical signatures remain unchanged;2115 terminal files are stable historical originals, never cold-adopted. Earlier isolated exact-byte CPU improvements and owning green cases remain component evidence, with full guards/budgets retained. No unchanged whole retry or whole completion claim.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },
