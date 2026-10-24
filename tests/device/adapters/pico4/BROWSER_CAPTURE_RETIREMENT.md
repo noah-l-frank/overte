@@ -58,3 +58,37 @@ host owners for the next enclosing archive/host-close transaction. Browser
 browser Journey separately passed101.013s within120s at commit028f3b3170 under
 recovered host load; this does not imply full finalization, APK or device
 qualification.
+
+
+## Full query boundaries and immutable host-only fences
+
+The actual retained 1,014-source/80-PNG graph exposes repeated full historical
+rereads between host CAS operations. No new native observation exists inside
+those operations. The warm owner now freezes the exact original row order,
+paths, ClosedOriginalFile owners, immutable raw byte objects, complete stamps
+and strict JSON DTO digests. Each intermediate host CAS checks all those
+originals, held directories, PNG stamps, namespaces and current child/root
+identities. JSON list/tuple aliases cannot change an admitted DTO. No persisted
+format, native query, source cursor, timeout, quiet sample or limit changes.
+
+Each native query still has full source/PNG byte verification after its durable
+intent and before send, after the original answer and before publication, and
+after the actual outer source/session lock exit. Each complete byte pass is
+bracketed by full physical inventories; the immediate second JSON reread is
+removed. These historical fences never cache or renew a native answer. Final
+original clocks and full receipt-child loads retain their previous ordering.
+
+All eleven owning cases pass (58.378 s unittest, 58.730 s selector), including
+original replacement after a landed query intent before transport, PNG damage
+during the native answer before ready publication, and a JSON list/tuple alias
+after the ready CAS. The original late native-clock/real-lock-exit, lost-result,
+retained-source and foreign-child cases remain. Ten coverage cases pass in
+0.090 s. All 13,486 Git-tracked/new source files match before and after.
+
+Read-only profiling of the retained failed whole graph measures the historical
+physical guard at 0.663/0.654/0.656 s before and 0.484/0.486/0.485 s after, with
+profiling enabled; indexed inventories take 0.099/0.093/0.092 s. All 1,149
+original files preserve bytes/stamps. Its unresolved owner includes an orphan
+child and is deliberately not loaded or adopted: only independently hash-bound
+historical catalogue rows supply this cost measurement. No native query, quiet
+qualification or whole-path success follows from these measurements.

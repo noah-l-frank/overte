@@ -4521,5 +4521,33 @@
       "durationSeconds": 2.64
     },
     "registryJavaScriptWhitespace": "passed"
+  },
+  "browserQueryBoundaryRoot20261024": {
+    "status": "passed-selected-host-components",
+    "selection": {
+      "groups": 2,
+      "catalogGroups": 237,
+      "durationSeconds": 58.82,
+      "captureCases": 11,
+      "captureUnittestSeconds": 58.378,
+      "captureSelectorSeconds": 58.73,
+      "coverageCases": 10,
+      "coverageSelectorSeconds": 0.09
+    },
+    "sourceFiles": 13486,
+    "sourcesUnchanged": true,
+    "fullSourceAndPngBytesBeforeSendAfterAnswerAndAfterActualOuterLockExit": true,
+    "hostOnlyFencesCheckSealedStrictDtosAndAllOriginalPhysicalIdentities": true,
+    "counterexamples": [
+      "landed-query-intent-original-replacement",
+      "native-answer-png-damage",
+      "landed-ready-original-dto-list-tuple-alias"
+    ],
+    "historicalOriginalFilesPreserved": 1149,
+    "historicalUnresolvedOwnerNotAdopted": true,
+    "noWireQueryQuietFreshnessOrBudgetChange": true,
+    "wholeNotYetExecuted": true,
+    "completeFeature": false,
+    "deviceAcceptance": false
   }
 }

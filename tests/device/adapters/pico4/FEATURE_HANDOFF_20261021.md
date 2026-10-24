@@ -2959,3 +2959,20 @@ failure/recovery, independent actor/stereo, material/GPU work and full heap/
 process retirement remain open. Completed source features remain 3/14.
 Four targeted repository suites pass in 2.64 s and final record checks in
 2.65 s; registry, JavaScript syntax and whitespace checks also pass.
+
+
+## Browser query-boundary historical validation
+
+The retained complete Browser graph contains 1,014 admitted JSON sources and
+80 original PNGs. Full original byte checks remain before native send after
+landed intent, after the actual answer before publication and after true outer
+lock exit. Pure host CAS steps now check a sealed row/owner/raw-byte/strict-DTO
+index, every physical stamp, parent directory, namespace and current root/
+children. Every complete read is bracketed by those physical inventories.
+No query, original packet, freshness, quiet window, format or limit changes.
+All eleven owning cases pass in 58.730 s plus coverage 0.090 s; all 13,486
+tracked/new source-file hashes remain unchanged. New meaningful countercases
+refuse query-intent source replacement, post-answer PNG damage and DTO aliasing
+after a landed ready CAS. Historical profiling preserves all 1,149 originals;
+it neither adopts the unresolved owner nor supplies live evidence. Full whole
+execution with this change remains pending; three source features are complete.

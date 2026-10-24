@@ -188,3 +188,50 @@ class PicoBrowserCaptureRetirementTests(unittest.TestCase):
         self.assertEqual('admitting',owner.store.read()['phase'])
         self.assertTrue(all(row['store'].path.exists() for row in owner.catalog.rows.values()))
         with self.assertRaises(NativeUIError):owner.receipt()
+
+    def test_landed_query_intent_original_replacement_refuses_before_native_send(self):
+        self.baseline();f=self.f;write=PrivateFeatureState.write;changed=[]
+        def replace(store,value,previous):
+            write(store,value,previous);owner=f.primary.capture_retirement
+            if owner is not None and store.path==owner.store.path and value.get('pending') is not None and not changed:
+                path=next(iter(owner.catalog.rows.values()))['store'].path
+                temporary=path.with_name('query-intent-replacement')
+                temporary.write_bytes(path.read_bytes());temporary.chmod(0o600);temporary.replace(path);changed.append(True)
+        with patch.object(PrivateFeatureState,'write',replace),self.assertRaises(NativeUIError):
+            f.primary.retire_original_captures(f.actor)
+        owner=f.primary.capture_retirement
+        self.assertEqual([True],changed);self.assertEqual([],self.batches)
+        self.assertTrue(owner.failed);self.assertFalse(owner.completed)
+        self.assertIsNotNone(owner.store.read()['pending'])
+        self.assertTrue(all(row['store'].path.exists() for row in owner.catalog.rows.values()))
+
+    def test_native_answer_with_changed_original_png_cannot_publish_ready(self):
+        self.baseline();f=self.f;changed=[]
+        def corrupt(_packet):
+            if changed:return
+            owner=f.primary.capture_retirement;path=f.artifacts/owner.pngs[0]['value']['name']
+            raw=path.read_bytes();path.write_bytes(raw[:-1]+bytes([raw[-1]^1]));changed.append(True)
+        self.mutate=corrupt
+        with self.assertRaises(NativeUIError):f.primary.retire_original_captures(f.actor)
+        owner=f.primary.capture_retirement
+        self.assertEqual([True],changed);self.assertEqual(1,len(self.batches))
+        self.assertEqual((),owner.frames);self.assertTrue(owner.failed);self.assertFalse(owner.completed)
+        self.assertEqual('reading',owner.store.read()['phase']);self.assertIsNotNone(owner.store.read()['pending'])
+
+    def test_landed_ready_cas_cannot_alias_original_json_list_with_tuple(self):
+        self.baseline();f=self.f;write=PrivateFeatureState.write;changed=[]
+        def alias(store,value,previous):
+            write(store,value,previous);owner=f.primary.capture_retirement
+            if owner is None or owner.reader is None or store.path!=owner.store.path or value['phase']!='ready' or changed:return
+            for row in owner.catalog.rows.values():
+                expected=row['expected']
+                for name,item in expected.items():
+                    if type(item) is list:
+                        expected[name]=tuple(item);changed.append(True);return
+            self.fail('The original consumed source graph has no JSON list')
+        with patch.object(PrivateFeatureState,'write',alias),self.assertRaises(NativeUIError):
+            f.primary.retire_original_captures(f.actor)
+        owner=f.primary.capture_retirement
+        self.assertEqual([True],changed);self.assertEqual(1,len(self.batches))
+        self.assertTrue(owner.failed);self.assertFalse(owner.completed)
+        self.assertTrue(all(row['store'].path.exists() for row in owner.catalog.rows.values()))

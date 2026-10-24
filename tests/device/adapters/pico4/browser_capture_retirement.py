@@ -41,6 +41,7 @@ class PicoBrowserCaptureRetirement:
         self.proofs=[];self.pngs=[];self.frames=();self.reader=self.chunks=None
         self.scope=self.admitted=self._sealed_admitted=self.completed_root=self.stamp=None
         self.copying_catalog=False;self.catalog_rows=self._sealed_catalog_rows=None
+        self.indexed_rows=self._sealed_indexed_rows=None
 
     def add(self,store,value,role):
         need(value is not None)
@@ -120,21 +121,49 @@ class PicoBrowserCaptureRetirement:
     def originals(self):
         self.primary.lock.assert_held();self.physical()
 
-    def physical(self):
-        need(self.admitted is self._sealed_admitted and canonical(self.admission())==self.admitted)
-        self.catalog.verify_all();self.inventory()
-        for row in self.pngs:self.primary._original_image_bytes(row['value'],expected=row['stamp'])
-        self.catalog.verify_all();self.inventory()
+    def physical_index(self):
+        """Immutable historical inventory between complete query-boundary reads.
+
+        This does not validate or cache a native answer. Each query still has
+        complete original byte windows before send, after its answer and after
+        the real outer lock exit. Host-only CAS operations check every original
+        identity/stamp, held directory, namespace and sealed in-memory DTO.
+        """
+        need(self.admitted is self._sealed_admitted and canonical(self.admission())==self.admitted
+            and self.indexed_rows is self._sealed_indexed_rows and type(self.indexed_rows) is tuple
+            and len(self.indexed_rows)==len(self.catalog.rows) and not self.catalog.failed)
+        for parent in self.catalog.parents:self.catalog.verify_parent(parent)
+        for (label,row),frozen in zip(self.catalog.rows.items(),self.indexed_rows):
+            name,path,owner,raw,stamp,expected_sha=frozen
+            need(label==name and row['store'].path==path and row['owner'] is owner
+                and type(owner) is ClosedOriginalFile and not owner.failed and owner.active is None
+                and owner.path==path and row['raw'] is raw and owner.raw is raw
+                and row['stamp']==owner.stamp==list(stamp)==signature(path.lstat())
+                and json_digest(row['expected'])==expected_sha)
+        for row in self.pngs:
+            need(signature((self.primary.artifact_root/row['value']['name']).lstat())==list(row['stamp']))
+        self.inventory()
         if self.chunks is not None:
             self.chunks.verify();need(same(self.store.read(),self.previous))
         if self.completed_root is not None:need(canonical(self.previous)==self.completed_root)
+        for parent in self.catalog.parents:self.catalog.verify_parent(parent)
+
+    def physical(self):
+        need(self.admitted is self._sealed_admitted and canonical(self.admission())==self.admitted)
+        # One full byte pass lies between complete physical inventories. A
+        # second immediate reread of every historical JSON adds no new native
+        # observation; changed paths/stamps/DTOs still refuse at either end.
+        self.physical_index();self.catalog.verify_all()
+        for row in self.pngs:self.primary._original_image_bytes(row['value'],expected=row['stamp'])
+        self.physical_index()
 
     def write(self,phase,chunks,*,pending=None,complete=False):
         need(type(self.copying_catalog) is bool)
         if self.copying_catalog:
             need(phase in ('reading','admitting') and pending is None and complete is False)
             self.catalog_copy_fence()
-        else:self.originals()
+        else:
+            self.primary.lock.assert_held();self.physical_index()
         value={**self.scope,'phase':phase,'chunks':deepcopy(chunks),
             'pending':deepcopy(pending),'complete':complete}
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
@@ -195,6 +224,9 @@ class PicoBrowserCaptureRetirement:
 
     def begin_original_queries(self):
         self.admitted=canonical(self.admission());self._sealed_admitted=self.admitted
+        self.indexed_rows=self._sealed_indexed_rows=tuple(
+            (label,row['store'].path,row['owner'],row['raw'],tuple(row['stamp']),json_digest(row['expected']))
+            for label,row in self.catalog.rows.items())
         with self.primary.lock.held():
             self.originals();self.chunks=ChatSourceChunks(self.store,self.scope);self.chunks.inventory(0)
             self.write('admitting',[])
@@ -236,7 +268,7 @@ class PicoBrowserCaptureRetirement:
             for attempt in range(64):
                 with flow.lock.held(),flow.adapter.existing_input_session(flow.selector):
                     self.round_started=flow.monotonic();self.round_epoch=flow.source.epoch_ms()
-                    need(number(self.round_started,start,start+20));self.originals();flow.runtime(self.owner)
+                    need(number(self.round_started,start,start+20));self.physical_index();flow.runtime(self.owner)
                     packet=self.reader.read();host=flow.monotonic()
                     clocks=[packet['requestedEpochMs'],packet['capturedEpochMs']]+[row['capturedEpochMs'] for row in packet['captures']]
                     if self.frames:
@@ -249,8 +281,9 @@ class PicoBrowserCaptureRetirement:
                     complete=len(self.frames)>=2 and host-first['host']>=3 and all(y-x>=3000 for x,y in zip(first_clocks,clocks))
                     row=dict(kind='absence-window',host=host,packet=packet,raw=self.reader.last_raw.decode('utf-8'),
                         rawSha256=self.reader.last_sha256,startedHost=self.round_started,startedEpoch=self.round_epoch)
-                    frozen=canonical(row);self.append(row,'ready',complete=complete);self.frames=self.frames+(frozen,)
-                    flow.runtime(self.owner);self.originals();result=deepcopy(self.previous)
+                    frozen=canonical(row);self.originals()
+                    self.append(row,'ready',complete=complete);self.frames=self.frames+(frozen,)
+                    flow.runtime(self.owner);self.physical_index();result=deepcopy(self.previous)
                     completed_root=canonical(self.previous) if complete else None
                     stamp=signature(self.store.path.lstat()) if complete else None
                     self.clocks(self.round_started,self.round_epoch,clocks)
