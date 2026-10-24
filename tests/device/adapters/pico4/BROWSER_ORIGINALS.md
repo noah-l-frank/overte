@@ -243,3 +243,30 @@ coverage11 passes. All13,574 source hashes remain unchanged during these
 selections. Private `browser-quiet-immutable-*20261024` and historical cost
 records retain exact source assignments. The full whole-run deadline and
 complete public feature remain unproven by these scoped results.
+
+The one new complete owning invocation on `326c73ac26` retains the original
+120-second outer limit and ends at120.022s. All26 actions/28 phases execute;
+normal Close completes63.927s and the shared restored-baseline wait71.729s
+(the preceding fixed invocation reached those checkpoints64.627s/83.862s).
+Original independent Actor return and complete capture quiet precede actual
+archival. All1069 source originals have full immutable copies plus18 manifest
+files. Retirement confirms198 original unlinks before timeout; its durable
+marker is `retiring`, with no pending unlink and no final receipt. Neither the
+whole feature nor host closure succeeds.
+
+Every remaining file and archive copy is retained:2064 files/13,223,866bytes,
+with a stable full stamp/hash manifest and private compressed byte backup.
+All13,574 source hashes remain unchanged; the unique temporary root and its
+descendants have no remaining same-user argv/TMPDIR process matches. These
+are historical partial-retirement originals, never a cold continuation or
+permission to repeat an uncertain input/unlink.
+
+The measured run exposes the next cost:421 quiet-cache digest calls take
+0.009s and379 quiet verifications0.252s, while complete capture retirement
+takes18.087s. At the last logged192-unlink checkpoint, the complete Browser
+namespace/PNG inventory has194 calls/6.019s including194 full PNG passes/3.652s;
+385 archive index checks take2.185s. These are inclusive timings and must not
+be summed as independent costs. The next step is to inspect that actual
+retirement path while preserving every original-byte, physical namespace,
+per-unlink phase, 16-use/250ms and1.5s check. This is a new measured boundary,
+not grounds for an unchanged whole-run retry or a larger timeout.
