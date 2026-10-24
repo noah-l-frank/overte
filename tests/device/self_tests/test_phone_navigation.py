@@ -5,6 +5,7 @@ import copy
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -359,7 +360,37 @@ class PhoneNavigationTests(unittest.TestCase):
                 actual.write_text('mInputShown=true\n');self.assertIs(adapter.phone_ime_state('owned'),True)
                 actual.write_text('native field missing')
                 with self.assertRaises(NativeUIError):adapter.phone_ime_state('owned')
-            self.assertEqual([(['shell','dumpsys input_method | head -c 131073'],'explicit-host-seam')]*3,calls)
+            self.assertEqual([(['shell','dumpsys input_method | grep -a -F mInputShown= | head -c 131073'],'explicit-host-seam')]*3,calls)
+
+    def test_phone_ime_actual_fixed_pipeline_projects_all_fields_before_size_bound(self):
+        from types import SimpleNamespace
+        import appium_adapter as phone
+        adapter=phone.PhoneAppiumAdapter.__new__(phone.PhoneAppiumAdapter);adapter.candidate=object()
+        adapter.target=lambda _selector:{'capabilities':{'appium:udid':'explicit-host-seam','appium:adbPort':5273}}
+        with tempfile.TemporaryDirectory()as temporary:
+            directory=Path(temporary);dump=directory/'actual-dump'
+            executable=directory/'dumpsys'
+            executable.write_text('#!/bin/sh\n[ "$1" = input_method ] || exit 3\nexec cat "$PHONE_TEST_IME_DUMP"\n')
+            executable.chmod(0o700);calls=[]
+            def execute(arguments,*,target):
+                self.assertEqual(['shell','dumpsys input_method | grep -a -F mInputShown= | head -c 131073'],arguments)
+                self.assertEqual('explicit-host-seam',target);calls.append(1)
+                return subprocess.run(['sh','-c',arguments[1]],capture_output=True,text=True,
+                    check=True,timeout=5).stdout
+            environment={'ANDROID_ADB_SERVER_PORT':'5273','ADB_SERVER_SOCKET':'',
+                'PATH':str(directory)+os.pathsep+os.environ.get('PATH',''), 'PHONE_TEST_IME_DUMP':str(dump)}
+            unrelated=('unrelated-private-context\n'*6000)
+            self.assertGreater(len(unrelated.encode()),131072)
+            with patch.object(phone,'PhoneAdapter',return_value=SimpleNamespace(adb=SimpleNamespace(execute=execute))),patch.dict(os.environ,environment):
+                for shown in (False,True):
+                    dump.write_text(unrelated+'mInputShown='+str(shown).lower()+'\n')
+                    self.assertIs(adapter.phone_ime_state('owned'),shown)
+                for fields in ('mInputShown=false\nmInputShown=true\n','mInputShown=invalid\n',
+                        'no visibility field\n','mInputShown=false\0\n','mInputShown=false '+('x'*131073)+'\n'):
+                    dump.write_text(unrelated+fields)
+                    with self.subTest(fieldCaseLength=len(fields)),self.assertRaises(NativeUIError):
+                        adapter.phone_ime_state('owned')
+            self.assertEqual(7,len(calls))
 
     def test_two_fresh_absence_reads_survive_slow_guards_only_with_supported_bound(self):
         class SlowClosePhone(NativePhone):

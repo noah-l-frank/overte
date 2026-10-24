@@ -118,7 +118,9 @@ It cannot bootstrap, rebind, repair or replace a missing/dead SDK session; that
 condition is an error. The common operation and result schemas are unchanged.
 
 Before a normal Go submission, Phone reads a fresh bounded Android
-`dumpsys input_method` observation through its mapped transport. Exactly one
+`dumpsys input_method` observation through its mapped transport. All literal
+`mInputShown=` lines are selected before the output bound, preserving duplicate
+and malformed fields while excluding unrelated dump content. Exactly one
 explicit valid `mInputShown` header is required; missing, malformed, ambiguous or
 oversized output is an error. A shown keyboard permits one `hide_keyboard` SDK
 request, followed by fresh exact address text and native hidden-state checks

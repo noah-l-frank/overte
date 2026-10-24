@@ -2985,7 +2985,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
                     and not os.environ.get('ADB_SERVER_SOCKET'), 'PHONE_NORMAL_IME_NAMESPACE_CHANGED')
         namespace()
         raw = PhoneAdapter(self.candidate).adb.execute(
-            ['shell', 'dumpsys input_method | head -c 131073'], target=device)
+            ['shell', 'dumpsys input_method | grep -a -F mInputShown= | head -c 131073'], target=device)
         namespace()
         return phone_ime_visible(raw)
 
