@@ -2301,6 +2301,22 @@ def create_adapter(args, base_class):
                 world.store.path.with_name('lifecycle-primary-observation.json'))
 
         @_private
+        def _lifecycle_observation_readonly_begin(self,target,run,*,restore,editor):
+            from adapters.pico4.lifecycle_observation import PicoLifecycleObservation
+            from adapters.pico4.lifecycle_restore import PicoLifecycleRestore
+            from adapters.pico4.lifecycle_editor import PicoLifecycleEditor
+            _need(type(restore) is PicoLifecycleRestore and type(editor) is PicoLifecycleEditor
+                and restore.run==editor.run==run and editor.binding==restore.binding and editor.lock is restore.lock
+                and restore.world.store.path==self._lifecycle_world_store(target).path)
+            world=restore.world;self._script_journey()._lock(target,world.lock)
+            _need(self.require_pico_session_identity(target)==world.identity and restore.native.pid==world.pid)
+            return PicoLifecycleObservation.readonly_before_inputs(restore,editor,self._pending_owner(target,binding=world.binding),
+                self._lifecycle_ui_source(target,source_lock=world.lock),
+                self._lifecycle_gesture_source(target,source_lock=world.lock),
+                self._lifecycle_drive_source(target,source_lock=world.lock),
+                world.store.path.with_name('lifecycle-primary-observation.json'))
+
+        @_private
         def _lifecycle_restore_restart(self,target,run,*,restore):
             from adapters.pico4.lifecycle_restore import PicoLifecycleRestore
             from adapters.pico4.lifecycle_process import run_lifecycle_restart

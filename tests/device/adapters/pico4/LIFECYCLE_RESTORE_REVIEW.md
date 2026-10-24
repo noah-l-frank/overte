@@ -33,7 +33,11 @@ Only new process-v2 uses XZ6 during preparation and XZ6EXTREME for the once-fina
 `process-retired` state. World-v2 stays preset3; historical World snapshot bytes
 and v1 zlib bytes are unchanged. Raw16MiB/Base6448KiB/private-file64KiB and
 decoder16MiB/original-size-plus-one/EOF/hash/canonical limits remain unchanged.
-The same World128 journal counts every authoritative restore/Prepare sample.
+The same old-PID World128 journal counts every authoritative restore/Prepare sample.
+Its bound is specific to that journal: the retained125-frame positive also
+contains13 new-PID triples in Process.next.frames (138 combined), whose
+existing independent2…64 cap remains unchanged. No universal128 cap is implied. See
+[the query budget audit](LIFECYCLE_QUERY_BUDGET.md).
 
 Process.begin precedes the first existing editor input. A private normal-address
 surface admits only the path from the original feet/quaternion. AddressManager's
