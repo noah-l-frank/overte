@@ -162,6 +162,11 @@ change by weakening its own copy of the rule. Changes to parent-owned harness
 paths must go through `apple-main`; explicitly listed product-owned paths may
 differ only on their matching target branch.
 
+The exact file `tests/device/adapters/ios/README.md` is owned by `apple-ios`
+so its adapter entrypoint can link to product-owned navigation documentation.
+Neighboring adapter implementation files and README filename variants remain
+parent-owned; this does not delegate the containing directory.
+
 Desktop adapter implementations, the portable adapter protocol, behavior
 modules, fixtures, and in-client probe belong on `main`. Fedora, Ubuntu,
 openSUSE, display-server, desktop-environment, and Windows-version differences
