@@ -7,6 +7,7 @@ OS/process sources retain the existing explicit model seams; no device claim.
 # SPDX-License-Identifier: Apache-2.0
 from contextlib import contextmanager
 from copy import deepcopy
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -25,7 +26,7 @@ class LifecycleObservationTests(unittest.TestCase):
         temporary=tempfile.TemporaryDirectory
         def retain(*args,**kwargs):
             result=temporary(*args,**kwargs)
-            if kwargs.get('prefix')=='lifecycle-editor-' and Path(result.name).parent==Path(os.environ['TMPDIR']):
+            if kwargs.get('prefix')=='lifecycle-editor-' and Path(result.name).parent==Path(tempfile.gettempdir()):
                 # Retain this test's own originals from their construction,
                 # including any setup failure before addCleanup is reached.
                 result._finalizer.detach();result.cleanup=lambda:None
@@ -102,6 +103,15 @@ class LifecycleObservationTests(unittest.TestCase):
         self.world.source.capture=self.world.axes.capture=self.world.avatar.capture=self.owner.reader.read=self.owner.native.read=forbidden
         with self.assertRaises(NativeUIError):self.owner.read(after_sequence=0)
         self.assertEqual([],calls);self.assertEqual(128,len(self.world.state['frames']));self.assertIsNone(self.owner.store.read())
+
+    def test_legacy_same_reader_compares_saved_floor_before_advancing_it(self):
+        before=deepcopy(self.pending.pending.last);raw=self.pending.pending.last_raw
+        self.assertIs(self.owner.reader,self.pending.pending)
+        result=self.owner.read(after_sequence=0)
+        self.assertEqual(1,result['sequence']);self.assertEqual(1,self.owner.disk['lifecyclePrimaryObservationVersion'])
+        self.assertGreater(self.pending.pending.last['sequence'],before['sequence'])
+        self.assertEqual(before['lastIntentSequence'],self.pending.pending.last['lastIntentSequence'])
+        self.assertEqual(before,json.loads(raw))
 
 
 class LifecycleObservationResourceTests(unittest.TestCase):
