@@ -51,7 +51,7 @@ class WorldWebPrefixTests(unittest.TestCase):
             return forward(test,info)
         with patch.object(result,'addError',side_effect=lambda test,info:retain(test,info,error)), \
              patch.object(result,'addFailure',side_effect=lambda test,info:retain(test,info,failure)):
-            return super().run(result)
+            return unittest.TestCase.run(self,result)
 
     def setUp(self):
         self.temporary=tempfile.TemporaryDirectory();self.temporary._finalizer.detach()

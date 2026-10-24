@@ -44,6 +44,7 @@ class WorldTarget(OriginalBrowserTarget):
         self.lock=ScriptSourceLock(self.path/'script-sources.lock');self.qt=NativeBoundary(menu=True)
         self.ui_generation=str(uuid.uuid4());self.qt_sequence=0;self.qt_status=None
         self.qt_command=None;self.normal_inputs=[];self.fail_script_reply=False;self.ignore_ray=False;self.ignore_ime=False
+        self.lost_controls=set();self.ignored_controls=set()
         self.geometry_sequence=0;self.pending_ray=None;self.entity_id=None;self.script_bytes=None;self.vm_epoch=None
         self.native=FeatureBoundary();self.native.mutate=self.native_packet
         self.runtime_sequence=0;self.runtime_raw=None;self.renderer_rows={};self.capture_stores=[]
@@ -140,13 +141,16 @@ class WorldTarget(OriginalBrowserTarget):
             self.qt.tablet(op=='tablet.open');self.ui_generation=str(uuid.uuid4());return
         need(op=='input.primary' and self.pending_ray is not None)
         control=self.pending_ray['control']
-        if not self.ignore_ray:
+        if not self.ignore_ray and control not in self.ignored_controls:
             if control in ('text','foreign'):self.current['focused']=True
             elif control=='bridge':
                 # The modeled ordinary button hit transfers DOM focus away
                 # from the editor before its real page event handler runs.
                 self.current['focused']=False;self.input(dict(control='bridge'))
+            elif control in ('second','back'):
+                self.input(dict(control=control))
             else:raise AssertionError(control)
+        if control in self.lost_controls:raise RuntimeError('Applied original ray status lost: '+control)
 
     def _browser_originals(self,target,*,source_lock,tablet=False,read_only=True):
         need(target==self.selector and source_lock is self.lock and tablet is False)
