@@ -141,5 +141,14 @@ class NavigationDismissalPrefixTests(unittest.TestCase):
         self.assertTrue(changed);self.assertEqual([],self.model.ok_inputs);self.assertEqual(5,len(self.model.controller_calls))
         self.assertTrue(self.model.modal.records[0]['rootAlive']);self.assertEqual(1,len(self.model.http_originals))
 
+    def test_original_nine_action_v4_owner_cannot_acquire_tenth_ok_or_close_authority(self):
+        self.first_nine();original=self.flow.store.read();legacy=deepcopy(original)
+        legacy['navigationPrefixVersion']=4
+        self.flow.store.write(legacy,original);self.flow=self.make('primary')
+        before=deepcopy(self.model.controller_calls)
+        with self.assertRaises(NativeUIError):self.flow.act(self.activate('dismiss-error'))
+        self.assertEqual([],self.model.ok_inputs);self.assertEqual(before,self.model.controller_calls)
+        self.assertEqual(1,len(self.model.http_originals));self.assertIsNone(self.flow.dismissal_join)
+
 
 if __name__=='__main__':unittest.main()

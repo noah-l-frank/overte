@@ -3941,5 +3941,40 @@
     "completeFeature": false,
     "fullApplicationCompiled": false,
     "deviceAcceptance": false
+  },
+  "navigationFirstTenRoot20261024": {
+    "source": "6b80020aa88e83f9b0d100be90b0e9ffe8724933",
+    "selectedAs": "2047d99cd3",
+    "status": "passed-selected-host-components",
+    "selection": {
+      "groups": 4,
+      "catalogGroups": 230,
+      "durationSeconds": 87.116,
+      "coverageCases": 10,
+      "coverageSeconds": 0.093,
+      "dismissalCases": 7,
+      "dismissalSelectorSeconds": 37.723,
+      "missingCases": 5,
+      "missingSelectorSeconds": 29.771,
+      "prefixCases": 14,
+      "prefixSelectorSeconds": 19.528
+    },
+    "repository": {
+      "suites": 4,
+      "durationSeconds": 2.788,
+      "status": "passed"
+    },
+    "registryProbeSyntaxWhitespace": "passed",
+    "oldV4NineActualActionsCannotAcquireTenthOkOrClose": true,
+    "existingCloseV2Unchanged": true,
+    "normalOkAndTwoIndependentThreeSecondQuietWindows": true,
+    "lostOkAndCloseColdReconcileWithoutReplay": true,
+    "retainedListenerAndRaisedKeyboardBlockClose": true,
+    "actualLastPhaseChangeBlocksOkWriter": true,
+    "originalsRetained": true,
+    "qtVmOsNativeLifetimes": "explicit-host-producer-seams",
+    "fullFeatureRecipe": false,
+    "fullApplicationCompiled": false,
+    "deviceAcceptance": false
   }
 }

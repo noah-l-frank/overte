@@ -2709,3 +2709,18 @@ materials, billboard or draw projection. Normal world phase/Script/input
 composition, independent actor and whole retirement remain open. See
 [the exact stereo handoff](WORLD_BROWSER_STEREO.md). Completed source areas
 remain 3/14, with no full application/APK or device qualification.
+
+
+Navigation action ten from fixed source `6b80020aa8` is selected as
+`2047d99cd3`. Parent v5 composes the original matching OK, complete original
+modal/listener retirement and three-second quiet, then existing dismissed-lookup
+Close v2 and its independent three-second quiet. The integrated seven-case
+dismissal selection passes in 37.723 s, including the new actual-nine-actions
+v4 authority counter: it cannot issue the tenth OK or Close. Five previous
+Missing cases and fourteen normal Prefix/factory cases also pass; the four
+selected groups complete in 87.116 s with 230 catalog groups. Four repository
+suites pass in 2.788 s; registry, probe syntax and whitespace pass. Lost OK or
+Close remain observable without replay; retained listeners and independently
+raised keyboard block Close; a last actual phase transition blocks the OK
+writer. Complete Navigation and final scene/Script/resource/actor retirement
+remain unfinished. Completed source areas remain 3/14.

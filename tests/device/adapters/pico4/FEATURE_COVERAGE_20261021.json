@@ -124,7 +124,10 @@
         "tests/device/self_tests/test_pico_navigation_transit_prefix.py",
         "tests/device/adapters/pico4/navigation_missing_join.py",
         "tests/device/self_tests/test_pico_navigation_missing_prefix.py",
-        "android/vr/pico/tests/device/test_navigation_missing_prefix.py"
+        "android/vr/pico/tests/device/test_navigation_missing_prefix.py",
+        "tests/device/adapters/pico4/navigation_dismissal_join.py",
+        "tests/device/self_tests/test_pico_navigation_dismissal_prefix.py",
+        "android/vr/pico/tests/device/test_navigation_dismissal_prefix.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -169,7 +172,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Continue the unchanged v16 tenth dismiss-error action after the root-verified continuous first nine normal actions. Private Parent4/Source2 now joins one original owned TLS404, current Reply-v2 capture identity, actual modal/listener and separately read role frames. Reuse existing NavigationErrorDismissal, NavigationDismissedLookup and Close v2. The first agent-only ten-step positive is not yet a root-integrated recovery qualification. Independent actor/public stereo, later restart/restoration and whole final retirement remain incomplete.",
+      "nextExecutableStep": "Continue unchanged v16 action eleven bookmark-visit after root-verified first ten normal actions. Parent v5 and original DismissalJoin v1 now join one normal OK, current original modal/listener retirement with full three-second quiet, then existing Close v2 and its independent quiet. Older v4 retains only nine-action authority. Reuse the existing bookmark and normal transit/Home/Close/stereo owners with a fresh actual Places instance; no fake Transit or renamed old directory root. Independent actor/public stereo, later restart/restoration and whole final retirement remain incomplete.",
       "nativeCompilation": "Selected full NativeEnvironment header, original passive Settings::Manager getter and Qt thread/lock modes compile and pass host checks. Complete native application/APK, VM/OS/GPU/device boundaries remain unqualified.",
       "deviceQualification": "untested"
     },
