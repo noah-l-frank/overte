@@ -15,6 +15,7 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.observer_return import state,parent_node
 from adapters.pico4.browser_archive_source import PicoBrowserArchiveReleaseSource,PicoBrowserArchiveUnlinkFence
+from adapters.pico4.browser_archive_context import BrowserArchiveContext
 from adapters.script_journey.history import same,pack
 
 VERSION=1
@@ -57,8 +58,8 @@ class PicoBrowserEvidenceArchive:
         for index in range(len(captures.chunks.identities)):
             store=captures.chunks.store(index);self.catalog.add('primary/'+store.path.name,store,store.read())
         data=self.source.admission();json_digest(data)
-        self.context_value=dict(picoBrowserArchiveContextVersion=VERSION,runId=primary.run,payload=pack([data]))
-        self.context.write(self.context_value,None);self.context_stamp=state(self.context)[2]
+        self.context_owner=BrowserArchiveContext(self.context,primary.run,data)
+        self.context_value=deepcopy(self.context_owner.previous);self.context_stamp=self.context_owner.stamp
         common=primary.cleanup_consumption.receipt()
         self.metadata=dict(picoBrowserEvidenceArchiveVersion=VERSION,runId=primary.run,fixtureUrl=primary.fixture_url,
             binding=deepcopy(self.source.owner['binding']),ownerToken=self.source.owner['ownerToken'],
@@ -83,6 +84,7 @@ class PicoBrowserEvidenceArchive:
             and parent_node(self.sentry)==self.sentry_parent)
         expected={path for path in remaining if path.parent==self.root}
         expected.update({self.context.path,self.source.store.path})
+        expected.update(store.path for store in self.context_owner.stores())
         expected.update(self.source.chunks.store(index).path for index in range(len(self.source.chunks.identities)))
         if not self.source.store.path.exists():expected.remove(self.source.store.path)
         if self.marker.path.exists():expected.add(self.marker.path)
@@ -102,7 +104,7 @@ class PicoBrowserEvidenceArchive:
         """Only exact already issued source files; never directory adoption."""
         self.source.control();self.source.chunks.verify()
         rows=[]
-        for store in (self.context,self.source.store,*[self.source.chunks.store(index)
+        for store in (*self.context_owner.stores(),self.source.store,*[self.source.chunks.store(index)
                 for index in range(len(self.source.chunks.identities))]):
             value,raw,physical=state(store)
             rows.append(dict(name=store.path.name,sha256=hashlib.sha256(raw).hexdigest(),stamp=physical))

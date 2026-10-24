@@ -2976,3 +2976,30 @@ refuse query-intent source replacement, post-answer PNG damage and DTO aliasing
 after a landed ready CAS. Historical profiling preserves all 1,149 originals;
 it neither adopts the unresolved owner nor supplies live evidence. Full whole
 execution with this change remains pending; three source features are complete.
+
+
+## Complete Browser capture quiet and lossless archive-context boundary
+
+The unchanged whole owning case at 7eabf4c247de6f330aa5e12727766f7a832d6218
+ends red by actual exception after 114.237 s, within its unchanged 120 s cap.
+All 26 actions/28 phases, independent Actor return, catalogue admission and
+complete native capture retirement now finish. Twelve actual absence frames
+span 3080 ms in modeled host and native wrapper clocks. The next original
+archive-context pack refuses 50,252 Base64 bytes against 49,152; its 480,864
+raw bytes remain losslessly retained in private diagnostics. The archive sentry
+remains archiving, with no source unlink or host closure. All 13,486 source
+hashes and 1,153 original-file bytes/stamps remain unchanged. Historical backups
+do not admit new physical identities or reconstruct a warm owner.
+
+Context v2 uses existing source_bundles/ChatSourceChunks with the same frame,
+raw, packed and file bounds, reading intent before every immutable child and
+full exact reconstruction before ready. V1 remains a historical-only reader
+without migration. Every context child is inventoried and retained in the
+full-byte original source tail. The actual unpublished context round-trips
+byte-exactly through three parts (447/24997/25157/1512-byte files), without any
+source query or live admission. Six archive/context cases pass in 37.591 s,
+two original host-close fence cases in 37.335 s, coverage in 0.089 s (75.02 s,
+three existing selectors, 237 catalogue entries). All 13,488 tracked/new source
+hashes match before/after. Lost landed child and same-byte replacement preserve
+unresolved ownership. The whole v2-context execution remains the next check;
+completed feature areas remain 3/14 and device qualification remains absent.

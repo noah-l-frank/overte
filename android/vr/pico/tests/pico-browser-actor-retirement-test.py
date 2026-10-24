@@ -21,5 +21,7 @@ if __name__=='__main__':
                 else name.startswith('test_host_close_fence_') if part=='host-close-fences'
                 else name!=whole and not name.startswith(('test_archive_source_','test_evidence_archive_','test_host_close_fence_')))]
         suite=unittest.defaultTestLoader.loadTestsFromNames([prefix+name for name in names]+(['self_tests.test_pico_browser_actor'] if part=='independent' else []))
+        if part=='evidence-archive':
+            suite.addTests(unittest.defaultTestLoader.loadTestsFromName('self_tests.test_pico_browser_archive_context'))
     else:suite=unittest.defaultTestLoader.loadTestsFromName('self_tests.test_pico_browser_actor_'+part)
     raise SystemExit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

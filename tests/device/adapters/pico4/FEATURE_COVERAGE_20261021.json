@@ -794,7 +794,9 @@
         "tests/device/adapters/original_source_unlink_fence.py",
         "tests/device/adapters/pico4/browser_evidence_archive.py",
         "tests/device/adapters/pico4/browser_host_close.py",
-        "tests/device/adapters/pico4/BROWSER_EVIDENCE_ARCHIVE.md"
+        "tests/device/adapters/pico4/BROWSER_EVIDENCE_ARCHIVE.md",
+        "tests/device/adapters/pico4/browser_archive_context.py",
+        "tests/device/self_tests/test_pico_browser_archive_context.py"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -848,7 +850,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Run the unchanged complete26-action/28-phase owning case after the newly verified host-only capture-catalogue copy improvement. The fresh standard-tmpfs run at6b5df5b0d2 reaches normalClose64.088s, cleanup82.452s and the first complete independent Actor return/Parent nonce/kernel exit, then ends at the unchanged120s limit in capture-catalogue admitting29chunks. All2238 sourcefiles and1127 originals remain pinned; private historical backup retained. New capture admission now checks full source bytes at both boundaries, every physical stamp/parent/namespace at each host CAS, and full copied-child bytes against frozen originals before ready/any query; eight owning cases including replacement and validly repacked forged-hash counters pass. Capture quiet, archive/host completion and public operations remain unfinished; no whole success is claimed.",
+      "nextExecutableStep": "Run the unchanged complete 26-action owning case with the host-verified v2 lossless context and retain all final archive/host-release requirements. The latest whole run finishes all 28 common phases, original independent Actor return and capture quiet, then refuses the old context packed-size bound. V2 exact-byte capacity and archive/host prefixes/counters now pass through existing bounded source bundles; the full v2 whole and public coordinator remain unverified.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },

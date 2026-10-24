@@ -61,3 +61,38 @@ the sentry. Those earlier results do not qualify the later ownership behavior.
 The complete process Journey's previous 120.110 s failure is not superseded by
 prefix tests. Native/SDK/Qt/GPU/OS and product-clock producers remain explicit
 host seams. No full application, APK, device or whole Browser claim is added.
+
+
+## Versioned lossless archive context
+
+The complete 26-action owning case at 7eabf4c247 reaches all 28 common phases,
+original independent Actor return and the complete capture quiet window. It
+ends red in archive admission after 114.237 s: the original context is 480,864
+raw bytes and its old single zlib payload is 50,252 Base64 bytes, above the
+unchanged 49,152-byte bound. No source unlink or host closure follows this
+failure. The original capture root is complete with 54 immutable children;
+all 13,486 source hashes and 1,153 retained original-file bytes/stamps remain
+unchanged. The diagnostic context is unpublished and never live authority.
+
+`pico-browser-archive-context` v2 now stores that historical context through
+existing ChatSourceChunks/source_bundles, with their unchanged 512-frame,
+16-MiB logical/physical raw, 48-KiB payload and 64-KiB file limits. A reading
+intent precedes every child; exact full decoding and physical validation
+precede ready. A lost child/ready response leaves unresolved ownership. The
+warm owner seals every actual child identity; a replacement inode is refused.
+The original v1 zlib reader remains available for historical bytes without
+rewrite, migration or cold live-owner admission.
+
+Every context child joins the complete namespace inventory and final full-byte/
+physical source tail. These retained metadata files grant no native source or
+resource-release fact. The existing archive, per-unlink source/phase fences,
+final clocks, sentry and host descriptor closure are unchanged. The exact
+unpublished context losslessly round-trips in three parts, with files of
+447/24997/25157/1512 bytes. This offline capacity check is not a whole-path pass.
+
+
+The integrated existing evidence-archive selector passes six cases in 37.591 s
+(two actual archive/host prefixes and four context/compatibility counters).
+Both original host-close fence cases pass in 37.335 s; ten coverage cases pass
+in 0.089 s. All 13,488 tracked/new source hashes remain unchanged. This is
+selected host logic, not the next full 26-action v2-context execution.
