@@ -6,6 +6,7 @@ This observer neither unlinks a source nor grants complete feature cleanup.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import hashlib
 import json
 import math
 import uuid
@@ -38,7 +39,8 @@ class PicoBrowserArchiveReleaseSource:
         self.store=PrivateFeatureState(primary.artifact_root/('tablet-web-'+primary.run+'-archive-release.json'))
         need(self.store.read() is None);ChatSourceChunks(self.store,{}).inventory(0)
         self.parent=parent_node(self.store);self.previous=None;self.root_stamp=None;self.previous_sha=json_digest(None)
-        self.failed=False;self.frozen=False;self.last=None;self.started=self.epoch=None;self.last_sha=None
+        self.failed=False;self.frozen=False;self.started=self.epoch=None;self.last_sha=None
+        self._proof_bytes=self._sealed_proof_bytes=None
         with primary.lock.held():
             owner=deepcopy(primary.owner());role=primary.role_state()
             self.history=primary.history_cache;self.history.matches(role)
@@ -81,6 +83,12 @@ class PicoBrowserArchiveReleaseSource:
     def inactive(self):return json.loads(self.facts[4])
     @property
     def proofs(self):return json.loads(self.facts[6])
+
+    @property
+    def last(self):
+        # Lossless inspection of the complete last original. The authority is
+        # immutable canonical bytes, never a mutable returned dictionary.
+        return None if self._proof_bytes is None else json.loads(self._proof_bytes)
 
     def admission(self):
         return json.loads(self.admitted)
@@ -125,7 +133,8 @@ class PicoBrowserArchiveReleaseSource:
 
     def final(self,proof,*,expected_cursors=None):
         try:
-            self.control();need(self.last is not None and json_digest(self.last)==self.last_sha and same(proof,self.last)
+            self.control();need(type(self._proof_bytes) is bytes and self._proof_bytes is self._sealed_proof_bytes
+                and hashlib.sha256(self._proof_bytes).hexdigest()==self.last_sha and canonical(proof)==self._proof_bytes
                 and proof['frame']['startedHost']==self.started and proof['frame']['startedEpoch']==self.epoch
                 and self.epochs is self._sealed_epochs)
             if expected_cursors is not None:need(same(expected_cursors,self.cursors()))
@@ -158,7 +167,8 @@ class PicoBrowserArchiveReleaseSource:
                     run=f.run,fixture_url=f.fixture_url,role='primary')
                 proof=dict(frame=frame,captures=packet,raw=self.reader.last_raw.decode('utf-8'),rawSha256=self.reader.last_sha256)
                 json_digest(proof);chunks=self.chunks.append(proof,self.previous['chunks']);self.save('ready',chunks)
-                self.last=deepcopy(proof);self.last_sha=json_digest(proof);self.epochs=tuple(epochs);self._sealed_epochs=self.epochs
+                self.last_sha=json_digest(proof);self._proof_bytes=self._sealed_proof_bytes=canonical(proof)
+                self.epochs=tuple(epochs);self._sealed_epochs=self.epochs
                 result=deepcopy(proof);self.final(result)
             self.control();self.clocks(self.epochs);return result
         except BaseException:

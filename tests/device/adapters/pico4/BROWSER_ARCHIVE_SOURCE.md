@@ -77,3 +77,46 @@ Evidence uses private `browser-frozen-admission-*20261024` records. No whole
 Journey is repeated or declared complete by these component checks. The last
 whole case still times out during source retirement; remaining physical
 inventory cost, complete host closure and public coordination remain open.
+
+
+## Immutable complete last-source proof
+
+The last fully validated acquisition now retains its complete canonical JSON
+bytes and separately pinned byte-object identity. The `last` inspection
+property returns a fresh lossless dictionary/list copy. Every final fence
+checks the exact original byte object and full SHA-256, and compares the
+complete supplied proof's canonical bytes. This replaces repeated strict
+validation/serialization of the same mutable historical copy. Full strict
+JSON validation still runs when sealing each newly acquired proof; no raw,
+frame, capture inventory, field or source chunk is omitted.
+
+A changed argument or equal replacement byte object fails before a phase
+query. Changing an inspection copy cannot modify authority. The original
+control checks, physical root/chunk signatures, exact cursors, runtime guard,
+phase query per unlink, both original clocks, actual outer lock exit and
+16-use/250-ms window remain active. No fresh native result is cached or
+retimed. Source version1 and every persisted archive/manifest stay unchanged.
+
+Historical comparison of the same complete 135972-byte proof falls from
+3.03–4.37 ms to 0.74–1.14 ms. All 2064 retained historical file stamps and
+hashes match before/after; a changed proof refuses in both implementations.
+This measures only the CPU comparison expression, with no live source,
+clock, owner adoption, phase query or unlink. It supplies no whole-run speed
+or success claim. The private measurement is
+`browser-partial-retirement-proof-immutable-cost-20261024.json`.
+
+Fresh owning selections pass **6 source cases/90.300 s**, **12 archive
+cases/55.573 s** and **2 host-close fences/55.113 s**, each retaining its
+original 120-second limit and using separate temporary roots. All **13,595**
+complete source hashes and physical signatures match before/after terminal
+completion (94.701 s external elapsed). The two new actual-source cases
+check independent full-proof inspection, changed caller data, and equal
+replaced original bytes with no extra source/phase acquisition or unlink.
+Private `browser-proof-immutable-root-20261024-source.json` and `-result.json`
+and the three `*-proof-immutable-20261024` log/JUnit pairs retain those results
+under `/home/user/Documents/github/overte-pico-adapter-private-20261021`.
+
+No whole case is repeated merely for this comparison optimization. The prior
+whole timeout, its 1069 complete source copies/18 manifests and 198 confirmed
+unlinks remain retained. Further actual retirement cost, final archive,
+host closure and complete public coordinator remain open.

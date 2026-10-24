@@ -5,6 +5,7 @@ product, GPU, Qt, OS and native clock producers are explicit fixture seams.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
 import hashlib
 import json
 import os
@@ -292,6 +293,29 @@ class PicoBrowserIndependentProcessTests(unittest.TestCase):
         self.assertTrue(all(row['store'].path.exists() for row in f.primary.remote_capture_retirement.catalog.rows.values()))
         with self.assertRaises(NativeUIError):source()
         self.assertEqual(before,len(self.batches));self.assertTrue(owner.close_host())
+
+    def test_archive_source_full_proof_inspection_cannot_change_original_and_changed_argument_refuses(self):
+        owner=self.original_return();f=self.f;f.primary.retire_returned_actor_captures(owner)
+        source=f.primary.archive_release_source();proof=source();original=deepcopy(proof)
+        inputs=sum(row['operation']=='input' for row in f.target.command_log);batches=len(self.batches)
+        inspection=source.last;inspection['frame']['startedEpoch']+=1;inspection['captures'].clear()
+        self.assertEqual(original,source.last);source.final(original)
+        self.assertEqual(batches,len(self.batches));self.assertEqual(inputs,sum(row['operation']=='input' for row in f.target.command_log))
+        changed=deepcopy(original);changed['frame']['startedEpoch']+=1
+        with self.assertRaises(NativeUIError):source.final(changed)
+        self.assertTrue(source.failed);self.assertEqual(batches,len(self.batches))
+        self.assertTrue(all(row['store'].path.exists() for row in f.primary.remote_capture_retirement.catalog.rows.values()))
+        self.assertTrue(owner.close_host())
+
+    def test_archive_source_equal_replaced_proof_bytes_cannot_reacquire_authority(self):
+        owner=self.original_return();f=self.f;f.primary.retire_returned_actor_captures(owner)
+        source=f.primary.archive_release_source();proof=source();batches=len(self.batches)
+        old=source._proof_bytes;source._proof_bytes=bytes(bytearray(old))
+        self.assertEqual(old,source._proof_bytes);self.assertIsNot(old,source._proof_bytes)
+        with self.assertRaises(NativeUIError):source.current_phase(proof)
+        self.assertTrue(source.failed);self.assertEqual(batches,len(self.batches))
+        self.assertTrue(all(row['store'].path.exists() for row in f.primary.remote_capture_retirement.catalog.rows.values()))
+        self.assertTrue(owner.close_host())
 
     def test_archive_source_uncertain_capture_reply_keeps_exact_intent_and_cannot_resend(self):
         owner=self.original_return();f=self.f;f.primary.retire_returned_actor_captures(owner)
