@@ -1,7 +1,8 @@
 // Copyright 2026 Overte contributors.
 // SPDX-License-Identifier: Apache-2.0
 // Whole original avatarapp.js, Pico path (no Phone global). Tablet/context,
-// MyAvatar/native calls and timers are explicit host actors, never loaded models.
+// Normal URL/Scale may join the existing original native host; remaining
+// application/model/JS values and timers are explicit actors, never loaded models.
 'use strict';
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const {StringDecoder}=require('node:string_decoder');
@@ -25,6 +26,14 @@ function nativeBookmark(method,name=''){
     for(const key of Object.keys(bookmarkRows))delete bookmarkRows[key];Object.assign(bookmarkRows,result.bookmarks);return result;
 }
 const nativeBookmarks=process.argv.includes('--native-bookmarks');
+const nativeAvatarCalls=process.argv.includes('--native-avatar');
+function originalAvatar(method,value){
+    process.stdout.write(JSON.stringify({nativeAvatarCall:{method,value}})+'\n');
+    const raw=readLine();assert.notEqual(raw,null);const response=JSON.parse(raw);assert.deepEqual(Object.keys(response),['nativeAvatarReply']);
+    const result=response.nativeAvatarReply;assert.equal(typeof result.avatarUrl,'string');assert(Number.isFinite(result.scale));return result;
+}
+function mirrorUrl(value){calls.push(value);const changed=avatar.skeletonModelURL!==value;avatar.skeletonModelURL=value;if(changed)avatar.skeletonModelURLChanged.emit();}
+function mirrorScale(value){const changed=scale!==value;scale=value;scaleCalls.push(value);if(changed)avatar.targetScaleChanged.emit();}
 const tablet={fromQml:signal(),screenChanged:signal(),
     addButton(value){assert.equal(value.text,'AVATAR');return button;},removeButton(value){assert.equal(value,button);},
     loadQMLSource(value){assert.equal(value,'hifi/AvatarApp.qml');source=value;this.screenChanged.emit('QML',value);},
@@ -33,8 +42,8 @@ const avatar={displayName:'owned host',sessionUUID:'77777777-7777-4777-8777-7777
     collisionSoundURL:'',getAvatarEntitiesVariant(){return [];},getJointNames(){return ['Hips'];},getAvatarScale(){return scale;},
     getDominantHand(){return 'right';},getHmdAvatarAlignmentType(){return 'head';},getCollisionsEnabled(){return true;},getOtherAvatarsCollisionsEnabled(){return true;},
     getAnimGraphUrl(){return '';},getAnimGraphOverrideUrl(){return '';},getFullAvatarURLFromPreferences(){return this.skeletonModelURL;},
-    useFullAvatarURL(value){calls.push(value);const changed=this.skeletonModelURL!==value;this.skeletonModelURL=value;if(changed)this.skeletonModelURLChanged.emit();}};
-avatar.setAvatarScale=function(value){assert(Number.isFinite(value)&&value>=.1&&value<=4);const changed=scale!==value;scale=value;scaleCalls.push(value);if(changed)this.targetScaleChanged.emit();};
+    useFullAvatarURL(value){if(nativeAvatarCalls){const actual=originalAvatar('useFullAvatarURL',value);assert.equal(actual.avatarUrl,value);}mirrorUrl(value);}};
+avatar.setAvatarScale=function(value){assert(Number.isFinite(value)&&value>=.1&&value<=4);if(nativeAvatarCalls){const actual=originalAvatar('setAvatarScale',value);assert(Math.abs(actual.scale-value)<.00001);}mirrorScale(value);};
 for(const [setter,value] of Object.entries({setDominantHand:'right',setHmdAvatarAlignmentType:'head',setCollisionsEnabled:true,setOtherAvatarsCollisionsEnabled:true,setAnimGraphOverrideUrl:''})){
     avatar[setter]=function(actual){assert.equal(actual,value);};
 }
@@ -45,7 +54,9 @@ const bookmarks={getBookmarks(){if(nativeBookmarks)nativeBookmark('all');return 
         if(nativeBookmarks)nativeBookmark('save',name);else bookmarkRows[name]={version:3,avatarUrl:avatar.skeletonModelURL,avatarScale:scale,avatarEntites:[],avatarIcon:''};this.bookmarkAdded.emit(name);},
     loadBookmark(name){assert(bookmarkRows[name]);bookmarkCalls.push(['load',name]);const row=bookmarkRows[name];
         if(nativeBookmarks){const actual=nativeBookmark('load',name).nativeLoad;assert.equal(actual.bookmarkLoaded,true);
-            avatar.useFullAvatarURL(actual.avatarUrl);avatar.setAvatarScale(actual.scale);}
+            // The original native load callback already made both calls.
+            // Update this explicit JS live actor without a second native input.
+            mirrorUrl(actual.avatarUrl);mirrorScale(actual.scale);}
         else{avatar.useFullAvatarURL(row.avatarUrl);avatar.setAvatarScale(row.avatarScale);}this.bookmarkLoaded.emit(name);},
     removeBookmark(name){assert(bookmarkRows[name]);bookmarkCalls.push(['delete',name]);if(nativeBookmarks)nativeBookmark('delete',name);else delete bookmarkRows[name];this.bookmarkDeleted.emit(name);}};
 for(const name of ['bookmarkLoaded','bookmarkDeleted','bookmarkAdded'])bookmarks[name]=signal();
