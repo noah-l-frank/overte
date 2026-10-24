@@ -20,6 +20,7 @@ from adapters.token_lifecycle_ui import TokenLifecycleUI,ID,OBJECTS
 from openxr_input.adapter_session import PicoOpenXrAdapterSession
 from openxr_input.controller_protocol import validate_envelope
 from feature_journeys.fixtures import context as fixture
+from adapters.pico4.lifecycle_operations import phase
 
 VERSION=1
 PHASES=('prepared','tablet-issued','tablet-open','opening','opened','focusing','focused','typing','typed')
@@ -37,6 +38,15 @@ class PicoLifecycleEditor:
         self.disk=self.state=None;self.last_clock=None;self.acquisition=None
         self.route.intent=self.intent;self.field.intent=self.intent
         with self.lock.held():self.load()
+    def bind_phase_fence(self,fence):
+        need(getattr(self,'phase_fence',None) is None)
+        self.phase_fence=fence;phase(self)
+        def before_send(_command):
+            self.fresh();phase(self).check()
+            started,requested,captured=self.acquisition;now=self.source.monotonic()
+            need(number(now,0,1e15) and now>=self.last_clock and requested-captured+(now-started)*1000<=1500)
+        self.phase_callback=before_send
+        self.route.io.bind_before_send(before_send);self.field.io.bind_before_send(before_send)
     def now(self):
         need(self.source.guard() is not False);now=self.source.monotonic()
         need(number(now,0,1e15) and (self.last_clock is None or now>=self.last_clock));self.last_clock=now;return now
@@ -139,6 +149,7 @@ class PicoLifecycleEditor:
     def intent(self,value):
         # Called before the existing normal bridge's first possible mutation.
         self.lock.assert_held();need(self.state is not None and self.state['phase'] in ('opening','focusing','typing'))
+        if phase(self) is not None:phase(self).mark()
         self.input_meta(value);state=deepcopy(self.state)
         if state['inputs'] and state['inputs'][-1]['consumed'] is None:
             self.consumed(state['inputs'][-1]['intent']['scope'],value['scope']);state['inputs'][-1]['consumed']=deepcopy(value['scope'])
@@ -155,13 +166,22 @@ class PicoLifecycleEditor:
         with self.lock.held():
             self.load();need(self.state is not None and self.state['phase']=='prepared');row,value=self.capture()
             need(not value['source']['tabletShown'] and ui.current_editor(value) is None and measured_keyboard(value['source']['keyboard']) is False)
+            if phase(self) is not None:phase(self).mark()
             state=deepcopy(self.state);state['frames'].append(row);state.update(phase='tablet-issued',tablet=dict(envelope=None,neutral=None));self.save(state);self.fresh()
+            if phase(self) is not None:phase(self).check()
             def intent(envelope):
                 state=deepcopy(self.state);state['tablet']['envelope']=deepcopy(envelope);self.save(state)
                 # Pure host freshness only: this callback holds the session lock.
                 started,requested,captured=self.acquisition;now=self.source.monotonic()
                 need(number(now,0,1e15) and now>=self.last_clock and requested-captured+(now-started)*1000<=1500)
-            self.session.stage(self.binding['processIdentity'],'tablet.open',dict(holdMilliseconds=1000),intent=intent)
+                if phase(self) is not None:phase(self).host_fresh()
+            def before_publish(envelope):
+                need(envelope==self.state['tablet']['envelope'])
+                started,requested,captured=self.acquisition;now=self.source.monotonic()
+                need(number(now,0,1e15) and now>=self.last_clock and requested-captured+(now-started)*1000<=1500)
+                if phase(self) is not None:phase(self).host_fresh()
+            self.session.stage(self.binding['processIdentity'],'tablet.open',dict(holdMilliseconds=1000),intent=intent,
+                **({} if phase(self) is None else dict(before_publish=before_publish)))
             return self.reconcile()
     def reconcile(self):
         try:

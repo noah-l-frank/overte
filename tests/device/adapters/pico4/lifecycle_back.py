@@ -174,6 +174,8 @@ class PicoLifecycleBack:
                 need((original_id is None or nonce(original_id)) and editor is not None
                     and (original_id is None or editor['id']==original_id) and editor['kind']=='create' and editor['visible']
                     and before['source']['tabletShown'] and not before['source']['onHomeScreen'])
+                from adapters.pico4.lifecycle_operations import phase
+                if phase(self) is not None:phase(self).mark()
                 self.save(dict(phase='reserved',originalId=editor['id'],envelope=None,
                     frames=[frame(self.source.last_raw)],neutral=None,quiet=None))
                 def intent(original):
@@ -181,11 +183,16 @@ class PicoLifecycleBack:
                     envelope(original,self.session.profile)
                     value=deepcopy(self.state);value.update(phase='enveloped',envelope=deepcopy(original));self.save(value)
                     self.fresh_packet()
+                    if phase(self) is not None:phase(self).host_fresh()
                 self.now()
+                if phase(self) is not None:phase(self).check()
+                def before_publish(original):
+                    need(original==self.state['envelope']);self.fresh_packet();phase(self).host_fresh()
                 # The original product mapping receives physical left/X. Its
                 # acknowledgement is ignored: only separate Qt/VR sources can
                 # prove Home, editor death and released keys.
-                self.session.stage(self.identity,'controller.button',deepcopy(BUTTON),intent=intent)
+                self.session.stage(self.identity,'controller.button',deepcopy(BUTTON),intent=intent,
+                    **({} if phase(self) is None else dict(before_publish=before_publish)))
                 return self.observe()
         except Exception:raise NativeUIError('Pico normal Back unresolved; original ownership retained') from None
         finally:self.deadline=None

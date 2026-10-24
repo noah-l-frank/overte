@@ -7,6 +7,11 @@ Source3 has actual canonical-factory coverage, fresh readonly observations and
 the existing baseline/Back wait consumer. It has no action, independent Actor,
 artifact, cleanup or public-capability authority.
 
+The subsequent [private operations prefix](LIFECYCLE_OPERATIONS_PREFIX.md)
+executes the first four normal actions through the existing owners, common
+waits and optional exact transport fences. The rest of this document describes
+the full route; it is not a sixteen-action result.
+
 ## One original graph and exact action boundaries
 
 Construct the existing Editor, XJoin/World and Restore/Process graph in one
@@ -93,7 +98,7 @@ No universal aggregate 128 limit is invented. Preserve and report separately:
   UI/gesture/drive/native/presence/domain rows;
 - Source3: at most 128 completed readonly samples, with complete new triple,
   Pending and NativeFeature originals; no fictional World frame index;
-- each original physical container's 512-part/16 MiB limits, its logical raw
+- each original container's 512-child/16 MiB unpacked-container limits, its logical raw
   budget, and each private file's 64 KiB limit; World/Process codecs retain
   their separate 48 KiB packed and 16 MiB raw/decoder bounds;
 - unchanged per-call freshness, negative/quiet cadence and 120 s runner limit.
@@ -101,7 +106,7 @@ No universal aggregate 128 limit is invented. Preserve and report separately:
 The measured Source3 prefix is World 2 before/after baseline, 19 after actual
 Create/type/World/Back and its readonly negative wait, and 85 after the existing
 remaining Pending prefix. It also owns 17 new readonly triples, 68 parts,
-84,019 physical raw bytes and 185,042 logical original bytes: 102 actual triples
+84,019 unpacked container bytes and 185,042 logical original bytes: 102 actual triples
 in total. The older complete component run used 84 through Pending, plus Close
 6, second World/release 15, normal Restore 7, Prepare 13 = 125 old-process
 World triples, followed by 13 actual new-process triples. These are different
@@ -144,9 +149,8 @@ capture owners can be reused only with actual Lifecycle surface/source joins;
 Browser DOM evidence or expected images cannot be renamed as Lifecycle proof.
 
 There is no public `feature.lifecycle-input.act/cleanup` route or advertised
-capability. The next executable implementation is the private phase-fenced
-normal dispatcher through actions 1 to 4 and their actual Source3/common wait
-checkpoints, preserving the same original World/Restore graph. Extend that
+capability. The private phase-fenced dispatcher now executes actions 1 to 4
+with actual Source3/common wait checkpoints and the same World/Restore graph. Extend that
 dispatcher through 16 with the table above after its real owner/fence counters
 pass. A whole run must wait for the concrete complete operation/source graph;
 public qualification additionally needs independent Actor, image provenance,

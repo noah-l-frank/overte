@@ -21,11 +21,11 @@ from self_tests.test_pico_lifecycle_world import Transport,FakeTransport,BINDING
 
 class XTransport(Transport):
     def __init__(self,*args):super().__init__(*args);self.back_path=None;self.back_count=0;self.neutral_epoch=None
-    def stage(self,envelope,profile):
-        if envelope['commands'][0]['operation']!='controller.button':return super().stage(envelope,profile)
+    def stage(self,envelope,profile,*,before_publish=None):
+        if envelope['commands'][0]['operation']!='controller.button':return super().stage(envelope,profile,before_publish=before_publish)
         state=unpack(json.loads(self.back_path.read_text())['payload'])[0]
         assert state['phase']=='enveloped' and state['envelope']==envelope
-        self.back_count+=1;self.neutral_epoch=self.native.epoch();result=FakeTransport.stage(self,envelope,profile);self.native.retire()
+        self.back_count+=1;self.neutral_epoch=self.native.epoch();result=FakeTransport.stage(self,envelope,profile,before_publish=before_publish);self.native.retire()
         if self.fail=='back-grant':raise AdapterSessionError('Explicit uncertain X grant')
         return result
 

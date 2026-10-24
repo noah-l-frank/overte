@@ -38,9 +38,9 @@ class LifecycleEditorTests(unittest.TestCase):
         self.controls=Controls(self.model);self.controls.instance='3'*32;self.controls.generation='2'*32;self.controls.pid=123
         self.field=FieldBoundary();self.lock=ScriptSourceLock(self.root/'script-sources.lock')
         self.transport=FakeTransport();original_stage=self.transport.stage;self.lost_tablet=False;self.ignore_tablet=False
-        def stage(envelope,profile):
+        def stage(envelope,profile,*,before_publish=None):
             disk=unpack(json.loads(self.path.read_text())['payload'])[0]
-            self.assertEqual(envelope,disk['tablet']['envelope']);result=original_stage(envelope,profile)
+            self.assertEqual(envelope,disk['tablet']['envelope']);result=original_stage(envelope,profile,before_publish=before_publish)
             if not self.ignore_tablet:self.native.ui.shown=self.native.ui.home=self.model.tablet=True
             return result
         self.transport.stage=stage;original_status=self.transport.read_status
@@ -79,9 +79,9 @@ class LifecycleEditorTests(unittest.TestCase):
     def joined(self):
         tablet=self.transport
         class Transport(XTransport):
-            def stage(self,envelope,profile):
-                if envelope['commands'][0]['operation']=='tablet.open':return tablet.stage(envelope,profile)
-                return super().stage(envelope,profile)
+            def stage(self,envelope,profile,*,before_publish=None):
+                if envelope['commands'][0]['operation']=='tablet.open':return tablet.stage(envelope,profile,before_publish=before_publish)
+                return super().stage(envelope,profile,before_publish=before_publish)
         transport=Transport(self.native,self.root/'lifecycle-world-owner.json')
         transport.back_path=self.root/'lifecycle-x-back-owner.json';tablet.envelopes=transport.envelopes
         self.session.transport=transport;self.composed_transport=transport
