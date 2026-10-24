@@ -2368,7 +2368,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
+    if (filename == "overte-probe.json" || filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "feature-account-origin-result.json" || filename == "feature-account-probe.json"
             || filename == "feature-animation-inventory.json" || filename == "feature-avatar-render.json"
             || filename == "feature-private-login-input.json" || filename == "feature-script-roots.json"

@@ -16,7 +16,7 @@ import unittest
 
 ROOT=Path(__file__).resolve().parents[4]
 PROBE=(ROOT/'tests/device/probe/overte_e2e_probe.js').read_text()
-PRIVATE_NAMES=sorted(set(re.findall(r'Test\.saveObject\s*\([^;]*?,\s*"((?:phone-|feature-)[^"\n]+\.json)"\s*\)',PROBE)))
+PRIVATE_NAMES=sorted(set(re.findall(r'Test\.saveObject\s*\([^;]*?,\s*"((?:phone-|feature-)[^"\n]+\.json)"\s*\)',PROBE)) | {'overte-probe.json'})
 PREFIX=r'''
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -53,7 +53,7 @@ int main(int argc,char** argv) {
     const QString selected=QString::fromLocal8Bit(argv[1]);
     const QStringList names=selected=="ordinary" ? QStringList{
         "ios-primary-observation.json","pico-collaboration-observation.json","client-command-result.json",
-        "overte-probe.json","voice-result.json","e2e-collaboration-observation.json","unrelated-ordinary.json"
+        "voice-result.json","e2e-collaboration-observation.json","unrelated-ordinary.json"
     } : QStringList{PRIVATE_PRODUCER_NAMES};
     const QVariantMap packet{{"actualPrivateOriginal","private-path/uri"},{"sequence",1}};
     const auto raw=QJsonDocument::fromVariant(packet).toJson();
