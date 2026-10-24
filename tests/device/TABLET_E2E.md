@@ -147,9 +147,12 @@ provides room for the measured full traversal and its repeated independent
 observations. No host admission result or device fact is cached to achieve it.
 See the [calibration evidence](adapters/android-phone/tablet-budget-calibration.v1.json).
 
-This calibration was observed with the Android Phone policy. A subsequent run
-must verify the regular 300-second catalog entry. iOS and Pico policy execution
-and timing still require their own device evidence.
+The subsequent source-bound Proxmox Jenkins build 6 verified the regular
+300-second catalog entry in 204.195 seconds, with the same validating module
+and Android Phone policy. Its recorded catalog commit is separate from the
+harness-code and installed-client commits. This qualifies that registered
+Tablet module; iOS and Pico policy execution and complete feature journeys
+still require their own device evidence.
 
 ## Product-adapter handoff
 

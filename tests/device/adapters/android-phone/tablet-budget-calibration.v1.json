@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "TIMING_DIAGNOSTIC_VERIFIED_REGULAR_CATALOG_RETEST_PENDING",
+  "status": "TIMING_AND_REGISTERED_CATALOG_TARGETED_DEVICE_VERIFIED",
   "platform": "android-phone",
   "job": "overte-phone-failure-repair-20261024",
   "build": 4,
@@ -48,7 +48,47 @@
     "previousSeconds": 180,
     "newSeconds": 300,
     "basis": "The complete unchanged validating module took 202.540 seconds; the previous cumulative cap censored the final Home transition and confirmed close. Individual screen/call/freshness checks are unchanged.",
-    "retestStatus": "PENDING"
+    "retestStatus": "TARGETED_REGISTERED_CATALOG_DEVICE_VERIFIED",
+    "retest": {
+      "job": "overte-phone-failure-repair-20261024",
+      "build": 6,
+      "runId": "tablet-registered-300-001",
+      "qualificationScope": "FOCUSED_REGISTERED_TABLET_CATALOG_ONLY",
+      "historical180BudgetQualification": "NOT_RETESTED",
+      "executionCatalogRevision": "f7139affc5a2e9cff0d40a2038f90c5a062469ab",
+      "executionCatalogSha256": "845a08771533f7e8f33aa3c0052655a562a4411bb632ca5330d1fdfc0345f62d",
+      "executionCatalogGitBlobOid": "d8fcb3652bc4efdca44d348b2f068f2ad3cc46a0",
+      "registeredModuleTimeoutSeconds": 300,
+      "clientSourceRevision": "0a7de4299f4bb97e99c844288e6381efd973df0f",
+      "clientApkSha256": "43ed8f0ad7e9e5fe4beaa7c39833441f42979ff209181eaf00e4ec933df41248",
+      "codeHarnessRevision": "c4ab97be4427f2b134a37b061bcaeb3605ca84dd",
+      "actualResults": [
+        {
+          "durationSeconds": 26.711,
+          "id": "launch-smoke",
+          "returncode": 0,
+          "status": "passed"
+        },
+        {
+          "durationSeconds": 204.195,
+          "id": "tablet-e2e",
+          "returncode": 0,
+          "status": "passed"
+        }
+      ],
+      "actualInstalledIdentityVerified": true,
+      "actualFullInventoriesBeforeAfterExact": true,
+      "actualRunnerTimedOut": false,
+      "actualOwnedChildrenLeaked": false,
+      "evidenceSha256": {
+        "publicSummary": "feaa5c6d880d37bb3235de4fd1a728acbd2ffaf8fbae87f898962a88afa99ee0",
+        "publicJunit": "7358fb9f40d342f5f692f41f33cc93b3d1d7b8b2c90c7f597880e435aeeb454c",
+        "originalSummary": "f715f77f11ff47a9a800f39bcc806c073100c4bfefc4d6e6a1f0f19ca8012ad6",
+        "originalJunit": "90c6221972a74aa5b046fcd25dd7d405c463b858ebd78c4f4df7504cf8140d80",
+        "privateResult": "377d79512ce93f821b06e3ff2eada18dab674c8961bfb7607af7f7323ee55b15",
+        "rootCollectionReview": "bbce2254262752cf69d87860061a8788776d62582a0a63553245649b86374c0a"
+      }
+    }
   },
   "evidenceSha256": {
     "publicSummary": "b0dd4371f509a5e2224f1e76360e485aad1f0419034d068ac42db9e1f487f019",
