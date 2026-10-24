@@ -33,10 +33,11 @@ may precede its latest local cleanup cut; latest facts must still match the
 actual latest observation. Both artifact and SDK roots retain unchanged
 inventory leases during decoding.
 
-This role graph is separate from the terminal three-pair seal. The existing
-[terminal original replay](EMOTE_TERMINAL_JOURNAL.md) supplies that proof.
-Combining both into the complete final owner, acquiring a genuine inactive
-phase, fresh stop fencing, one normal Stop per role, independent OS quiet,
+The [joined frozen ownership reader](EMOTE_ROOTED_OWNERSHIP.md) now binds this
+role graph to the actual terminal three-pair original. Its retained-file join
+passes with all 1465 originals unchanged; the complete changed connected
+checkpoint scenario remains pending. Complete final-owner integration, a genuine
+inactive phase, fresh stop fencing, one normal Stop per role, independent OS quiet,
 SDK deletion/404, canonical/generic cleanup and worker recovery remain open.
 Rooted native holders never become a legacy empty-resource Complete.
 

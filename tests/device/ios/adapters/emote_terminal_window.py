@@ -50,7 +50,7 @@ class IOSEmoteTerminalWindow:
         value=dict(featureTerminalVersion=1,profile=terminal.PROFILE,area='emotes',runId=self.roles['primary'].run,ticket=ticket,roles=roles)
         terminal.description(value);self.guard();return value
 
-    def qualify(self,description,samples,references,*,publisher_store):
+    def qualify(self,description,samples,references,*,publisher_store,record_store_for=PrivateFeatureState):
         self.guard();need(isinstance(publisher_store,PrivateFeatureState) and same(description,self.describe(references)))
         terminal.window(samples,description);primary,actor=self.roles['primary'],self.roles['actor']
         selected=primary.selected_many([pair['primary'] for pair in samples])
@@ -71,7 +71,7 @@ class IOSEmoteTerminalWindow:
         # not provide feature facts or authorize an Actor publication.
         value=publisher_store.read();need(value is not None)
         publications=select(snapshots[-1],value,store=publisher_store,entries=[pair['actor'] for pair in samples],
-            lock=actor.lock,primary_lock=actor.primary_lock)
+            lock=actor.lock,primary_lock=actor.primary_lock,record_store_for=record_store_for)
         joined=[]
         with grouped(snapshots,lock=actor.lock,primary_lock=actor.primary_lock):
             for snapshot,row,publication in zip(snapshots,actor_rows,publications):

@@ -16,14 +16,14 @@ from ios.adapters.emote_rooted_observation import IOSEmoteRootedObserver
 from ios.adapters.emote_archive_round import scope as original_round
 
 
-def select(snapshot,value,*,store,entries,lock,primary_lock):
+def select(snapshot,value,*,store,entries,lock,primary_lock,record_store_for=PrivateFeatureState):
     with original_round(snapshot,lock=lock,primary_lock=primary_lock):
-        return select_originals(snapshot,value,store=store,entries=entries,lock=lock,primary_lock=primary_lock)
+        return select_originals(snapshot,value,store=store,entries=entries,lock=lock,primary_lock=primary_lock,record_store_for=record_store_for)
 
 
-def select_originals(snapshot,value,*,store,entries,lock,primary_lock):
+def select_originals(snapshot,value,*,store,entries,lock,primary_lock,record_store_for=PrivateFeatureState):
     need(isinstance(store,PrivateFeatureState) and type(entries) is list and 1<=len(entries)<=81
-        and type(snapshot) is dict and snapshot.get('role')=='actor' and same(store.read(),value))
+        and type(snapshot) is dict and snapshot.get('role')=='actor' and same(store.read(),value) and callable(record_store_for))
     keyed=reopen(snapshot,lock=lock,primary_lock=primary_lock)
     rendered=keyed.rendered_owner;rendered_ref=keyed.original(snapshot['reference'])['renderedReference']
     native=rendered.native_owner;original=native.original(rendered.original(rendered_ref)['nativeReference'])
@@ -33,10 +33,12 @@ def select_originals(snapshot,value,*,store,entries,lock,primary_lock):
     observer.root,observer.phase=keyed.root,SimpleNamespace(fixture_url=keyed.fixture_url)
     suffix='/runs/'+keyed.run+'/'
     need(keyed.fixture_url.endswith(suffix));url=keyed.fixture_url[:-len(suffix)]
-    state=PhaseWitnessPublisher.archive(value,store=store,binding=keyed.binding,run=keyed.run,area='emotes',fixture_url=url,
+    class RetainedPublisher(PhaseWitnessPublisher):
+        def record_store(self,ordinal):return record_store_for(super().record_store(ordinal).path)
+    state=RetainedPublisher.archive(value,store=store,binding=keyed.binding,run=keyed.run,area='emotes',fixture_url=url,
         phase_instance=keyed.phase_instance,validate_original=observer.validate_original)
     need(state['pending'] is None)
-    publisher=object.__new__(PhaseWitnessPublisher)
+    publisher=object.__new__(RetainedPublisher)
     publisher.store,publisher.binding,publisher.run,publisher.area=store,keyed.binding,keyed.run,'emotes'
     publisher.url,publisher.instance,publisher.validate_original,publisher.live=url,keyed.phase_instance,observer.validate_original,False
     records=[(reference,publisher.load(reference)) for reference in state['records']]

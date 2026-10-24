@@ -2,13 +2,23 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from unittest.mock import patch
 import unittest
 from adapters.native_clock_join import digest
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
+from adapters.original_file_reads import scope as read_scope
 from feature_journeys.witness import Client
 from ios.adapters.emote_rooted_live import IOSEmoteRootedLive
 from ios.adapters.emote_terminal_window import IOSEmoteTerminalWindow
+from ios.adapters.emote_terminal_journal import IOSEmoteTerminalJournal
+from ios.adapters.emote_terminal import IOSEmoteTerminal
+from ios.adapters.emote_rooted_inventory import IOSEmoteRootedInventory
+from ios.adapters.emote_rooted_state import metadata_paths
+from ios.adapters.emote_rooted_ownership import IOSEmoteRootedOwnership
+from ios.adapters.emote_rooted_final_archive import IOSEmoteRootedFinalArchive
+from ios.adapters.emote_original_lease import EmoteOriginalLease
+from ios.adapters.emote_observer import EmoteObservationPending
 from ios.self_tests.emote_rooted_whole_fixture import paired
 
 
@@ -48,10 +58,15 @@ class RootedWindowTests(unittest.TestCase):
         call=dict(contractVersion=16,runId=primary.run,afterSequence=0)
         primary.observe(call);actor.observe(call);primary.act(f.call('play',name='Waving'));f.target.native.sleep(.25)
         primary.observe(call);actor.observe(call);f.call('cleanup')
-        with primary.held(30):
-            primary.load();primary.phase.read();primary.clean_local(primary.components())
-        actor.cleanup(dict(contractVersion=16,runId=primary.run))
-        print('Initial Actor scene3 publication committed',flush=True)
+        cleanup=dict(contractVersion=16,runId=primary.run)
+        def waiting(seconds):
+            if primary.lock._owner is None and primary.primary_lock._owner is None:
+                self.assertIsNone(actor.lock._owner);actor.cleanup(cleanup)
+            f.target.domain.sleep(seconds)
+        primary.sleep=waiting
+        self.assertEqual(dict(performed=True),primary.cleanup(cleanup))
+        self.assertEqual('primary-scene-ordered',primary.state['retirement']['kind'])
+        print('Normal Primary cleanup joined the once-only Actor scene3 publication',flush=True)
         samples=[];first={}
         for index in range(3):
             print('Acquiring original window pair '+str(index+1)+'/3',flush=True)
@@ -69,16 +84,58 @@ class RootedWindowTests(unittest.TestCase):
             if index<2:f.target.domain.sleep(1.6)
         # Actor.held acquires its actual lock and then the shared Primary lock.
         # Keep both live owners inside that same real ownership interval.
-        with actor.held(30):
-            lives={}
+        with actor.held(30),read_scope(fresh=True) as reads:
+            lives={};current=object.__new__(IOSEmoteTerminal);current.responsibilities=[]
             for flow in (primary,actor):
-                flow.load();parts=flow.components();owner=flow.retirement_owner(parts);live=IOSEmoteRootedLive(owner)
-                lives[flow.role]=live
+                flow.load();lives[flow.role]=current.local_window(flow)
             store=PrivateFeatureState(actor.store.path.with_name('phase-publication-emotes-'+primary.run+'-actor.json'))
             history=len(f.actor.target.domain.history)
-            self.assert_original_window(lives,first,samples,store)
+            proof=self.assert_original_window(lives,first,samples,store)
             self.assertEqual(history,len(f.actor.target.domain.history))
+            window=IOSEmoteTerminalWindow(lives['primary'],lives['actor']);journal=IOSEmoteTerminalJournal(window)
+            journal.inspect(first)
+            self.assertEqual(proof['seal'],journal.seal(proof['original']['description'],samples,publisher_store=store)['seal'])
+            saved=journal.originals.read(journal.originals.expand(journal.state['record']));journal.proof(saved,journal.state)
+            self.assertEqual(proof,saved)
+            IOSEmoteRootedInventory(journal,reads).guard()
+            paths=metadata_paths(window,current.responsibilities)+[journal.store]
+            copies={str(path.path):path.read() for path in paths}
+            print('Normal cleanup, all three pairs, persisted live seal and current paired inventory joined',flush=True)
+
+            # This is the actual local fixture's DELETE and independent phase
+            # response. Shutdown/finally is never substituted for retirement.
+            witness.request('/runs/'+primary.run,method='DELETE')
+            phase=primary.phase.status();actor_phase=actor.phase.status()
+            self.assertFalse(phase['active']);self.assertFalse(actor_phase['active'])
+            self.assertEqual(phase['instance'],actor_phase['instance'])
+            self.assertEqual(proof['original']['description']['ticket'],phase['activations'][-1]['ticket'])
+            archive_store=PrivateFeatureState(primary.store.path.with_name('ios-emote-primary-'+primary.run+'-rooted-finalization.json'))
+            archive=None;leases=[]
+            def unchanged():
+                primary.lock.assert_held();actor.lock.assert_held()
+                for lease in leases:lease.guard()
+                self.assertEqual(copies,{str(path.path):path.read() for path in paths});return True
+            actual_read=PrivateFeatureState.read
+            def original_only(path):
+                if str(path.path) in copies:raise AssertionError('Current metadata read during frozen ownership replay')
+                return actual_read(path)
+            def validate(actual):
+                self.assertEqual(copies,actual)
+                with patch.object(PrivateFeatureState,'read',original_only):
+                    measured=IOSEmoteRootedOwnership(actual,run=primary.run,lock=primary.lock,actor_lock=actor.lock).read()
+                self.assertEqual(proof,measured)
+            archive=IOSEmoteRootedFinalArchive(archive_store,primary.root,primary.state['binding'],primary.run,'primary',
+                primary.lock,primary.lock,paths,unchanged,validate)
+            self.assertIsNone(archive.state)
+            mutable=[archive_store.path]+[archive.record_store(index).path for index in range(1,len(paths)+1)]
+            leases=[EmoteOriginalLease(root,mutable) for root in {primary.root,actor.root,primary.store.path.parent,actor.store.path.parent}]
+            archive.begin(phase);archive.freeze();self.assertEqual('validated',archive.state['phase'])
+            with self.assertRaises(EmoteObservationPending):archive.retire()
+            self.assertTrue(all(path.read() is not None or copies[str(path.path)] is None for path in paths))
+            self.retained_ownership_checkpoint=dict(archive=str(archive_store.path),metadataPaths=len(paths),
+                seal=deepcopy(proof['seal']),phaseOriginal=deepcopy(phase),actorPhaseOriginal=deepcopy(actor_phase))
         print('Three genuine pairs satisfy the original terminal live seal and counterexamples',flush=True)
+        print('Actual retired phase and frozen whole-role/seal checkpoint retained; process/SDK end remains separate',flush=True)
 
 
 if __name__=='__main__':unittest.main()

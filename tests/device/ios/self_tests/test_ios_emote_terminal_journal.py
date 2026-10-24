@@ -68,7 +68,7 @@ class TerminalJournalTests(unittest.TestCase):
             windowSha256=digest(self.samples),liveOriginalSha256=digest(original)))
         terminal.sealed(self.proof['seal'],self.description,self.samples)
         def describe(refs):need(same(refs,self.refs));return deepcopy(self.description)
-        def qualify(description,samples,references,*,publisher_store):
+        def qualify(description,samples,references,*,publisher_store,record_store_for=None):
             need(same(description,self.description) and same(samples,self.samples) and same(references,self.refs))
             self.qualifications+=1;return deepcopy(self.proof)
         self.window.describe,self.window.qualify=describe,qualify
@@ -89,6 +89,21 @@ class TerminalJournalTests(unittest.TestCase):
         wrong=deepcopy(self.samples);wrong[0]['actor']['receivedEpochMs']+=1
         with self.assertRaises(NativeUIError):resumed.seal(self.description,wrong,publisher_store=self.publisher)
         self.assertEqual(identity,self.identity(resumed))
+
+    def test_frozen_journal_reopens_original_without_current_metadata_and_refuses_all_writes(self):
+        owner=self.owner();self.inspect(owner);self.seal(owner);value=owner.store.read();identity=self.identity(owner)
+        actual=PrivateFeatureState.read
+        def original_only(store):
+            if store.path==owner.store.path:raise AssertionError('Current terminal metadata forbidden')
+            return actual(store)
+        with patch.object(PrivateFeatureState,'read',original_only):
+            archived=IOSEmoteTerminalJournal.archive(self.window,value)
+            proof=archived.originals.read(archived.originals.expand(archived.state['record']))
+            self.assertEqual(self.proof,archived.proof(proof,archived.state));archived.bound()
+            for mutate in (archived.save,archived.recover,lambda:archived.inspect(self.refs),
+                lambda:archived.intent('original',{}),lambda:archived.seal(self.description,self.samples,publisher_store=self.publisher)):
+                with self.assertRaises(NativeUIError):mutate()
+        self.assertEqual(value,owner.store.read());self.assertEqual(identity,self.identity(owner))
 
     def test_saved_file_return_loss_recovers_same_inode_without_new_qualification(self):
         owner=self.owner();self.inspect(owner);intent=owner.intent

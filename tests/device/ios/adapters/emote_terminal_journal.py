@@ -15,17 +15,27 @@ from adapters.original_frame_store import OriginalFrameStore
 from adapters.script_feature.history import pack,unpack,same
 from feature_journeys import terminal
 from ios.adapters.emote_terminal_window import IOSEmoteTerminalWindow
+from ios.adapters.emote_retirement import Frozen
 
 VERSION=1
 
 
 class IOSEmoteTerminalJournal:
     def __init__(self,window,*,check=lambda:True):
+        self.initialize(window,check,historical=False,value=None)
+
+    @classmethod
+    def archive(cls,window,value,*,check=lambda:True):
+        need(type(value) is dict)
+        result=object.__new__(cls);result.initialize(window,check,historical=True,value=value);return result
+
+    def initialize(self,window,check,*,historical,value):
         need(type(window) is IOSEmoteTerminalWindow and callable(check));need(check() is not False);window.guard()
-        self.check=check
+        self.check,self.historical=check,historical
         self.window=window;primary=window.roles['primary']
         self.root,self.binding,self.run=primary.root,deepcopy(primary.binding),primary.run
-        self.store=PrivateFeatureState(primary.store.path.with_name('ios-emote-primary-'+self.run+'-terminal.json'))
+        path=primary.store.path.with_name('ios-emote-primary-'+self.run+'-terminal.json')
+        self.store=Frozen(path,value) if historical else PrivateFeatureState(path)
         self.failed=False;self.previous=self.store.read();self.state=None
         self.originals=OriginalFrameStore(self.root,self.binding,self.run,'primary',self.bound,self.intent,
             namespace='emote-terminal',schema_prefix='iosEmoteTerminalProof',kind='inputs')
@@ -80,13 +90,13 @@ class IOSEmoteTerminalJournal:
         return True
 
     def save(self):
-        self.bound();value=self.envelope(self.state);self.decode(value)
+        need(not self.historical);self.bound();value=self.envelope(self.state);self.decode(value)
         try:
             self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
         except BaseException:self.failed=True;raise
 
     def inspect(self,references):
-        self.bound();description=self.window.describe(references)
+        need(not self.historical);self.bound();description=self.window.describe(references)
         if self.state is None:
             self.state=dict(phase='inspected',description=deepcopy(description),references=deepcopy(references),
                 seal=None,staged=None,record=None,pending=None);self.save()
@@ -94,7 +104,7 @@ class IOSEmoteTerminalJournal:
         return dict(stage='inspect',description=deepcopy(description))
 
     def intent(self,kind,value):
-        self.bound();need(kind=='original' and self.state is not None and self.state['phase']=='sealing')
+        need(not self.historical);self.bound();need(kind=='original' and self.state is not None and self.state['phase']=='sealing')
         self.originals.original(value);need(value['index']==1)
         pending=self.state['pending']
         if pending is None:need(value['phase']=='planned')
@@ -106,7 +116,7 @@ class IOSEmoteTerminalJournal:
 
     def recover(self):
         """File-only adoption; a public seal still requires full qualification."""
-        self.bound();need(self.state is not None)
+        need(not self.historical);self.bound();need(self.state is not None)
         if self.state['phase']!='sealing':return
         pending=self.state['pending']
         if pending is None:
@@ -121,7 +131,7 @@ class IOSEmoteTerminalJournal:
         self.state.update(phase='sealed',record=reference,staged=None,pending=None);self.save()
 
     def seal(self,description,samples,*,publisher_store):
-        self.bound();need(self.state is not None and same(description,self.state['description']))
+        need(not self.historical);self.bound();need(self.state is not None and same(description,self.state['description']))
         terminal.window(samples,description)
         actual=self.window.qualify(description,samples,self.state['references'],publisher_store=publisher_store)
         if self.state['phase']=='inspected':

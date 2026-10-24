@@ -87,3 +87,10 @@ both complete role metadata sets without any current SDK-metadata fallback.
 It preserves all original source/peer/image/publication files and native clocks.
 Its actual retained-file check passes; the complete terminal archive, real
 operation deadlines and process/SDK end remain required.
+
+The [joined frozen role/terminal reader](EMOTE_ROOTED_OWNERSHIP.md) now also
+passes over actual normal-cleanup three-pair originals and their persisted seal,
+with all 1465 files unchanged and no current SDK-metadata fallback. The connected
+scenario failed its initial inventory integration before phase retirement;
+its live-reader correction still needs a complete rerun. No inactive phase or
+process/SDK end is inferred from fixture shutdown.
