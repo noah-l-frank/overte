@@ -198,5 +198,31 @@ class LifecycleIndependentActorTests(unittest.TestCase):
         self.assertEqual('issued',original['publication']['phase']);self.assertIsNotNone(original['publication']['fixture'])
         self.assertEqual([],self.client.observe()['entries']);self.assertEqual([],self.editor.transport.envelopes)
 
+    def unavailable_original(self,channel,key):
+        self.products.unavailable=channel;self.start();original=self.failed_worker()
+        ordered=['gesture','drive','ui','pending','feature','subject']
+        self.assertEqual(ordered[:ordered.index(channel)+1],self.native_calls())
+        self.assertEqual(1,len(self.products.unavailable_producer.commands))
+        self.assertEqual([],original['records']);self.assertIsNotNone(original['pending'][key])
+        from adapters.chat_journey import source_bundles
+        from adapters.chat_journey.source_chunks import ChatSourceChunks
+        scope=('picoLifecycleActorSourceVersion','runId','binding','role','stage','producerHostProcessIdentity',
+            'parentHostProcessIdentity','fixtureUrl')
+        history=ChatSourceChunks(PrivateFeatureState(self.root/'lifecycle-actor-originals.json'),{name:original[name] for name in scope})
+        history.load(original['chunks'])
+        bundle,_=source_bundles.original(history,original['chunks'],original['bundles'],original['pending'][key])
+        self.assertEqual('{}',bundle[key]['raw']);self.assertEqual(hashlib.sha256(b'{}').hexdigest(),bundle[key]['sha256'])
+        self.assertEqual(self.products.unavailable_producer.commands[0],bundle['request'])
+        self.assertEqual([],self.client.observe()['entries']);self.assertEqual([],self.editor.transport.envelopes)
+
+    def test_actual_unavailable_pending_response_is_retained_before_reader_refusal(self):
+        self.unavailable_original('pending','pending')
+
+    def test_actual_unavailable_native_response_is_retained_before_reader_refusal(self):
+        self.unavailable_original('feature','native')
+
+    def test_actual_unavailable_subject_response_is_retained_before_reader_refusal(self):
+        self.unavailable_original('subject','subject')
+
 
 if __name__=='__main__':unittest.main()

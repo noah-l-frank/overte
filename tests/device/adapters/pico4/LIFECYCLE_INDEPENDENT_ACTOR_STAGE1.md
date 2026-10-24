@@ -188,3 +188,56 @@ is unchanged, root `lifecycle-editor-b4gtmrxm`. Logs are
 to the existing selector (eleven including ownership); catalog and registry
 counts do not change. The earlier green9 selection remains attributed to05c;
 it is not relabeled as a rerun of these materially changed source paths.
+
+## Follow-up: rejected original Pending/Native/Subject responses
+
+These three readers previously archived their originals only after read()
+returned. The three actual separate-worker counters are RED3/2.093s: each
+delivers the native missing-gate/provider empty-map response through the real
+raw RPC while the original candidate stays valid; then the unchanged reader
+rejects it after its normal polling bound. No accepted packet is edited.
+The declared unavailable model follows the original TestScriptingInterface
+empty-QVariantMap getter boundary, rather than inventing measured facts. This
+is an explicit native model seam, not a compiled/native-device proof.
+
+Each case makes exactly one native query for the failing channel, no later
+channel query, no publication and no normal input. Source
+`9cd1209dff202a9fce8458562576d7403aa36725a7693183a15615a789f28595`
+is unchanged; roots begin with `lifecycle-editor-7cs6lx_1` and are all logged
+in `lifecycle-actor-unavailable-raw-red.log`. All three roots originally lack
+the actual received raw response in their pending slot.
+
+The Actor now durably archives the exact readonly request before its existing
+single send, then archives every actual original-read literal before reader
+validation. The actual request and its raw/hash remain together; successful
+Pending's intent/_before_send are still None. All three send/original callbacks
+are restored in finally. Repeated poll reads consume the same existing part/
+raw/file budgets. The original Native/Subject post-read physical rechecks are
+retained: identical bytes are compared to the response actually consumed by
+the reader; a different recheck is retained before refusal. No native query,
+cadence or guard is removed, and invalid raw data never becomes an observation.
+
+The same disjoint counters pass3/6.145s. Their complete original requests and
+literal `{}` bytes/SHA reconstruct through full physical chunk checks. Source
+`023eb16f86af846d4d26c39b469f1b8fb963c834d337e87d596fa3110228c857`
+is unchanged; roots are `lifecycle-editor-zor44ezs`, `lifecycle-editor-mli5t5yw`
+and `lifecycle-editor-u87u_imb`. Log:
+`lifecycle-actor-unavailable-raw-fixed.log`. This adds three cases to the same
+selector, now12 source plus2 ownership cases. No new profile, selector, native
+wire, registry version or public capability is added. Factory work is still
+separate, after these reviewed original-response and clock obligations.
+
+The materially changed successful six-sample/Create/kernel-return path passes
+1/3.109s, with the same36 native queries. Its new actual bill is84 children,
+53,931 container raw bytes,94,533 logical original bytes and99,302 actual
+stored bytes over85 files including root. The earlier48-child bill is not
+reused for this new request/per-response retention policy. Root
+`lifecycle-editor-l1bpuogm` and all original physical signatures/hashes remain
+unchanged in the separate read-only historical byte accounting report
+`lifecycle-actor-reviewed-raw-original-byte-bill.json`; no source is reacquired
+or made current by that report. The full checkout SHA
+`9f9d5e439c16ab025a931a66faec67824ee4293d2c0feae574fb46151a8d9ce8`
+is unchanged. Coverage13/.069s, registry, exact discovery14/12, diff and all
+four repository suites passed (2.65s), recorded in
+`lifecycle-actor-reviewed-raw-final-checks.log`. Only the changed positive and
+necessary checks run here; Root's full owning selector is a separate check.
