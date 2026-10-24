@@ -194,8 +194,8 @@ def install_run_hooks(module,policy):
 def install_admission_hooks(module,policy):
  """Retain original admission checks; pause before their cleanup can dispatch."""
  original=module.adapter_call;execution=module.execute_prepared.__code__
- def call(command,operation,*args,**kwargs):
-  if operation=='cleanup'and not policy.cleanup_authorized:
+ def call(command,action,*args,**kwargs):
+  if action=='cleanup'and not policy.cleanup_authorized:
    frame=sys._getframe(1)
    if frame.f_code is execution:
     results=frame.f_locals.get('results',[])
@@ -204,7 +204,7 @@ def install_admission_hooks(module,policy):
      atomic(policy.root/'caught-runner-results.private.json',{'results':results})
      identifier=failed.get('id');identifier=identifier if identifier in policy.config['moduleIds']else None
      policy.hold('RUNNER_FAILURE_BEFORE_CLEANUP',module_id=identifier)
-  try:return original(command,operation,*args,**kwargs)
+  try:return original(command,action,*args,**kwargs)
   except DebugCleanupRequested:raise
   except BaseException as error:
    policy.record_exception(error,'ADAPTER_CALL_FAILED');policy.hold('ADAPTER_CALL_FAILED',module_id=policy.active)

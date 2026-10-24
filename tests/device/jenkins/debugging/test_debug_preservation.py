@@ -9,6 +9,39 @@ if SOURCE is None:
  SOURCE=Path(os.environ['OVERTE_DEBUG_TEST_SOURCE_ROOT']).resolve()
 PUBLISHER=SOURCE/'tests/device/jenkins/diagnostic_logs.py'
 class HoldTests(unittest.TestCase):
+ def admission_runner(self):
+  import importlib.util
+  from unittest.mock import patch
+  from debug_failure_hold import install_admission_hooks
+  from types import SimpleNamespace
+  with patch.object(sys,'path',[str(SOURCE/'tests/device'),*sys.path]):
+   spec=importlib.util.spec_from_file_location('admission_original_runner',SOURCE/'tests/device/run.py')
+   module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+  policy=SimpleNamespace(cleanup_authorized=False,active='domain-enter')
+  return install_admission_hooks(module,policy),policy
+ def test_admission_hook_forwards_invoke_operation_to_original_adapter_call(self):
+  from unittest.mock import Mock,patch
+  module,policy=self.admission_runner();policy.hold=Mock();policy.record_exception=Mock()
+  response={'sampleSequence':17,'fresh':True}
+  with patch.object(module.subprocess,'run',return_value=subprocess.CompletedProcess([],0,json.dumps(response)))as dispatch:
+   actual=module.adapter_call(['synthetic-adapter'],'invoke','synthetic-selector',timeout=9,
+       operation='probe.snapshot',environment={'KEEP':'value','OVERTE_E2E_FEATURE_READER_TOKEN':'synthetic-secret'})
+  self.assertEqual(response,actual)
+  self.assertEqual(['synthetic-adapter','invoke','--target','synthetic-selector',
+                    '--operation','probe.snapshot','--arguments','{}'],dispatch.call_args.args[0])
+  self.assertEqual(9,dispatch.call_args.kwargs['timeout'])
+  self.assertEqual({'KEEP':'value'},dispatch.call_args.kwargs['env'])
+  policy.hold.assert_not_called();policy.record_exception.assert_not_called()
+ def test_admission_hook_preserves_original_adapter_failure_hold_with_operation_keyword(self):
+  from unittest.mock import Mock,patch
+  module,policy=self.admission_runner();policy.hold=Mock(side_effect=RuntimeError('synthetic hold'));policy.record_exception=Mock()
+  with patch.object(module.subprocess,'run',return_value=subprocess.CompletedProcess([],75,''))as dispatch:
+   with self.assertRaisesRegex(RuntimeError,'synthetic hold'):
+    module.adapter_call(['synthetic-adapter'],'invoke',operation='probe.snapshot')
+  dispatch.assert_called_once()
+  error,reason=policy.record_exception.call_args.args
+  self.assertEqual('OVT_TEST_INFRASTRUCTURE_ERROR',str(error));self.assertEqual('ADAPTER_CALL_FAILED',reason)
+  policy.hold.assert_called_once_with('ADAPTER_CALL_FAILED',module_id='domain-enter')
  def scenario(self,kind):
   temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup);base=Path(temporary.name);base.chmod(0o700);source=base/'source';source.mkdir(mode=0o700);private=base/'private';public=base/'public'
   input_marker=base/'INPUT';secret='synthetic-secret-host-token'
