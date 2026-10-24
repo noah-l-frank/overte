@@ -175,13 +175,30 @@ class WorldWebFinalArchive:
 
     def recover(self):
         self.lock.assert_held();need(self.state is not None and self.state['phase']=='writing')
+        need(same(self.state,self.decode(self.previous)))
         pending=self.state['pending'];need(pending is not None and pending['phase'] in ('opened','saved'))
-        frame=self.frames.read(pending);need(digest(frame)==self.state['frameSha256'])
+        self.pending_original()
         complete=dict(pending,phase='saved');self.state.update(record=self.frames.compact(complete),pending=None,phase='complete');self.save()
+
+    def pending_original(self):
+        """Qualify an observed proof carrier without advancing its journal.
+
+        This permits the typed pre-end census to retain interrupted archive
+        ownership before the ordinary finalizer performs its metadata CAS.
+        Unknown birth and missing originals still cannot be reconstructed.
+        """
+        self.lock.assert_held();need(same(self.store.read(),self.previous))
+        state=self.decode(self.previous);pending=state['pending']
+        need(state['phase']=='writing' and state['record'] is None and pending is not None
+            and pending['phase'] in ('opened','saved'))
+        return self.verified_frame(state,self.frames.read(pending))
 
     def verify(self):
         self.lock.assert_held();need(same(self.store.read(),self.previous));state=self.decode(self.previous);need(state['phase']=='complete')
-        frame=self.frames.read(self.frames.expand(state['record']));need(digest(frame)==state['frameSha256'])
+        return self.verified_frame(state,self.frames.read(self.frames.expand(state['record'])))
+
+    def verified_frame(self,state,frame):
+        need(digest(frame)==state['frameSha256'])
         exact(frame,{'iosWorldWebFinalProofVersion','binding','runId','role','phaseOriginal','feature','coordinatorHeader','original','measured','paired','files'})
         need(type(frame['iosWorldWebFinalProofVersion']) is int and frame['iosWorldWebFinalProofVersion']==VERSION
             and frame['binding']==self.binding and frame['runId']==self.run and frame['role']==self.role
@@ -196,4 +213,4 @@ class WorldWebFinalArchive:
         for row in frame['files']:
             exact(row,{'path','device','inode','bytes','sha256'});need(integer(row['bytes'],0,MAX_BYTES))
             need(same(file_original(row['path']),row));paths.append(row['path'])
-        need(paths==sorted(set(paths)));return deepcopy(frame)
+        need(paths==sorted(set(paths)) and same(self.store.read(),self.previous));return deepcopy(frame)

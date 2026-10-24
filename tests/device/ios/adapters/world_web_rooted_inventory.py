@@ -93,7 +93,8 @@ class WorldWebRootedInventory:
 def read_current_end(terminal,parts):
     """Decode retained partial end ownership without acquiring a current fact.
 
-    A half-written scene archive is still responsibility and fails closed. OS
+    A scene archive needs a fully readable observed original, even when its
+    final metadata CAS is pending. Unknown or partial birth fails closed. OS
     pending records are accepted only by their existing pure original decoder;
     unknown file birth or an unowned OS/SDK file is never admitted by a name.
     """
@@ -124,12 +125,14 @@ def read_current_end(terminal,parts):
         if process.state['fence'] is not None:fence.validate(process.state['fence'],flow,component)
         if scene.previous is not None:
             need(process.state['phase']=='complete')
-            frame=scene.verify();header={key:value for key,value in flow.previous.items() if key!='payload'}
+            frame=scene.verify() if scene.state['phase']=='complete' else scene.pending_original()
+            header={key:value for key,value in flow.previous.items() if key!='payload'}
             need(same(frame['feature'],dict(flow.state,phase=frame['feature']['phase']))
                 and same(frame['coordinatorHeader'],header) and digest(frame['original'])==process.state['sceneSha256']
                 and same(component['retirement'].validate_original(frame['original']),frame['measured']))
         if sdk_raw is not None:
-            need(flow.state['phase']=='retired' and process.state['phase']=='complete' and scene.previous is not None)
+            need(flow.state['phase']=='retired' and process.state['phase']=='complete'
+                and scene.previous is not None and scene.state['phase']=='complete')
             sdk=WorldWebSessionEnd.archive(sdk_raw,root=flow.root,binding=flow.state['binding'],run=flow.run,role=flow.role)
             need(sdk['processSha256']==digest(process.previous) and sdk['sceneSha256']==digest(scene.previous))
         for stage in (0,1):

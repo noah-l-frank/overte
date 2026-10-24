@@ -30,8 +30,8 @@ artifact and SDK roots, includes abandoned read carriers and ambiguous GPU
 outputs, and accepts only successful actual read membership or the terminal's
 exact typed outputs. Current process/fence/scene/SDK/OS owners are decoded before
 the initial finish transition, and all end originals are replayed again before
-the final completion commit. A writing scene archive or unqualified OS/SDK
-chain remains owned and fails closed. The complete changed composition remains
+the final completion commit. An archive with unknown or incomplete file birth,
+or an unqualified OS/SDK chain, remains owned and fails closed. The complete changed composition remains
 unqualified. No time limit or original epoch is enlarged or retimed.
 
 The next Stop bridge retains both exact role locks and the closed paired
@@ -52,6 +52,15 @@ ctime, headers and all current clock/deadline checks remain required. Five new
 cache cases plus seven existing real clock-carrier and five API deadline cases
 pass in the 25-test clock/fence run. This removes duplicate pure decoding;
 it does not qualify full-run CPU bounds.
+
+An interrupted scene archive with an actually observed, fully readable opened
+or saved original can now pass the pure pre-end ownership census. Its original
+phase, complete proof digest, child file bytes and original inodes are checked
+before the ordinary finalizer commits completion metadata. Pure inspection
+does not write or retry an app/SDK operation. Unknown planned birth, incomplete,
+missing or replaced originals stay unresolved. Six actual carrier/CAS recovery
+cases pass in the later 41-test archive/Chat regression run (15.414 seconds);
+their scene/native values are grammar models. Schema 2 stays unchanged.
 
 The separate current-source Open/Focus/Unicode/Submit CPU-accounted case also
 passes (one test, 6.111 seconds). This is a short input subset, not a whole-run
