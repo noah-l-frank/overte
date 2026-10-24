@@ -58,7 +58,7 @@ class NavigationSceneTests(unittest.TestCase):
         b=Boundary()
         with b.patch():result=b.invoke('scene.load',dict(url=b.sdk.scene))
         self.assertEqual({'requested':True},result);self.assertEqual(b.sdk.scene,b.sdk.current);self.assertFalse(b.sdk.connected)
-        self.assertEqual(['Go to destination','editor-enter'],b.sdk.inputs)
+        self.assertEqual(['Go to destination','PhoneAddressField','editor-enter'],b.sdk.inputs)
         self.assertNotIn('verification',result);self.assertFalse(b.sdk.state['normalNavigation']['addressOwned'])
     def test_foreign_profile_env_or_viewpoint_is_rejected_before_any_ui_input(self):
         for target in ('foreign','environment','viewpoint','unbound'):

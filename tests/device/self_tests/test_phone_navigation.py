@@ -122,6 +122,8 @@ class NativePhone:
                     self.address_open = self.mutation != 'entry-ignored'
                     self.field_focused = self.address_open
                     if self.mutation == 'partial-entry-read-error': self.fail_next_read = True
+                elif name == 'PhoneAddressField':
+                    self.field_focused = True
                 elif name == 'PhoneAddressCancelButton':
                     self.address_open = False
                 elif name == 'PhoneAddressGoButton':
@@ -216,7 +218,7 @@ class PhoneNavigationTests(unittest.TestCase):
             result = adapter.invoke('owned-target', 'navigation.enter-domain', {'url': self.DOMAIN})
         self.assertEqual({'requested': True}, result)
         self.assertEqual(self.DOMAIN, native.field)
-        self.assertEqual(['Go to destination', 'editor-enter'], native.inputs)
+        self.assertEqual(['Go to destination', 'PhoneAddressField', 'editor-enter'], native.inputs)
         self.assertFalse(native.address_open)
         self.assertFalse(native.state['normalNavigation']['addressOwned'])
         self.assertNotIn('connected', result)  # Input receipt is no connection measurement.
@@ -318,13 +320,50 @@ class PhoneNavigationTests(unittest.TestCase):
         field='/session/owned-session/element/'+native.references['PhoneAddressField']
         self.assertEqual([(field+'/text'),(field+'/attribute/focused')],
             [path for method,path,_ in native.calls if method=='GET'and (path.endswith('/text')or path.endswith('/attribute/focused'))])
-        self.assertEqual(['Go to destination','editor-enter'],native.inputs)
+        self.assertEqual(['Go to destination','PhoneAddressField','editor-enter'],native.inputs)
         self.assertEqual([],native.ime_reads);self.assertFalse(native.address_open)
         self.assertEqual(self.DOMAIN,native.field);self.assertNotEqual(self.DOMAIN,native.current)
         self.assertFalse(any(path.endswith(('/hide_keyboard','/actions'))or 'PhoneAddressGoButton'in str(body)
             for _,path,body in native.calls))
         values=[body for method,path,body in native.calls if method=='POST'and path.endswith('/value')]
         self.assertEqual([{'text':self.DOMAIN,'value':list(self.DOMAIN)}],values)
+
+    def test_existing_unfocused_editor_is_clicked_before_nonfocusing_settext_and_one_enter(self):
+        from navigation_observation import viewpoint_urls
+        for operation in ('scene','domain','places'):
+            native=NativePhone();native.address_open=True;native.field_focused=False
+            flow=native.flow();flow.mark('addressOwned',True)
+            if operation=='scene':
+                native.profile['sceneUrl']=native.current;flow=native.flow();flow.load_scene(native.current)
+            elif operation=='domain':
+                native.arrive=lambda url:setattr(native,'current',url)
+                flow.enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
+            else:flow.invoke('places.goto',{'url':viewpoint_urls(native.scene)['B']})
+            with self.subTest(operation=operation):
+                self.assertEqual(['PhoneAddressField','editor-enter'],native.inputs)
+                field='/element/'+native.references['PhoneAddressField']
+                steps=[path for method,path,_ in native.calls if method=='POST'and
+                    (path.endswith((field+'/click',field+'/clear',field+'/value','/press_keycode')))]
+                self.assertEqual(['/session/owned-session'+field+suffix for suffix in ('/click','/clear','/value')]
+                    +['/session/owned-session/appium/device/press_keycode'],steps)
+
+    def test_focus_or_text_loss_after_focus_click_still_blocks_enter(self):
+        for fault in ('click-ignored','focus-lost-on-edit','text-mutated-on-edit'):
+            native=NativePhone('goto-ignored');native.address_open=True;native.field_focused=False
+            flow=native.flow();flow.mark('addressOwned',True);original=native.call
+            def input(method,path,body=None):
+                value=original(method,path,body)
+                if method=='POST'and path.endswith('/click')and 'PhoneAddressField'==native.by_reference[path.split('/element/',1)[1].split('/')[0]]and fault=='click-ignored':
+                    native.field_focused=False
+                if method=='POST'and path.endswith('/value'):
+                    if fault=='focus-lost-on-edit':native.field_focused=False
+                    if fault=='text-mutated-on-edit':native.field='changed after focus click'
+                return value
+            native.call=input
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):
+                flow.enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
+            self.assertEqual(['PhoneAddressField'],native.inputs)
+            self.assertTrue(native.state['normalNavigation']['addressOwned'])
 
     def test_phone_enter_rejects_lost_or_malformed_focus_and_changed_text_without_input(self):
         for observed in (False,'false',None,0,1,{},'TRUE',' true','false\n'):
@@ -528,7 +567,7 @@ class PhoneNavigationTests(unittest.TestCase):
                 self.assertFalse(arrived(native.observe(), approved, label))
                 self.assertEqual({'requested': True}, native.flow().load_scene(approved))
                 self.assertEqual(approved, native.field)
-                self.assertEqual(['Go to destination', 'editor-enter'], native.inputs)
+                self.assertEqual(['Go to destination', 'PhoneAddressField', 'editor-enter'], native.inputs)
                 self.assertTrue(arrived(native.observe(), approved, label))
                 self.assertFalse(native.address_open)
                 self.assertFalse(native.state['normalNavigation']['addressOwned'])

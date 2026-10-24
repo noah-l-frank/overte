@@ -197,6 +197,7 @@ class PhoneNavigation:
         if url!=self.profile['sceneUrl']:
             raise NativeUIError('Normal Phone scene input differs from its approved scene')
         self.open_address()
+        self.ui.click(self.address)
         self.ui.replace_text(self.address,url)
         self.submit_address(url)
         self.ui.wait_absent(self.address)
@@ -207,6 +208,7 @@ class PhoneNavigation:
         """Submit the exact controlled hifi input through the ordinary editor."""
         controlled_domain_url(url, expected_url, expected_host)
         self.open_address()
+        self.ui.click(self.address)
         self.ui.replace_text(self.address, url)
         self.submit_address(url)
         self.ui.wait_absent(self.address)
@@ -224,6 +226,7 @@ class PhoneNavigation:
             if arguments['url'] not in self.urls:
                 raise NativeUIError('Normal Phone navigation URL differs from its configured owned scene')
             self.open_address()
+            self.ui.click(self.address)
             self.ui.replace_text(self.address, arguments['url'])
             self.submit_address(arguments['url'])
             self.ui.wait_absent(self.address)
