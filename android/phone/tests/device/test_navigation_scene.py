@@ -58,7 +58,7 @@ class NavigationSceneTests(unittest.TestCase):
         b=Boundary()
         with b.patch():result=b.invoke('scene.load',dict(url=b.sdk.scene))
         self.assertEqual({'requested':True},result);self.assertEqual(b.sdk.scene,b.sdk.current);self.assertFalse(b.sdk.connected)
-        self.assertEqual(['Go to destination','PhoneAddressGoButton'],b.sdk.inputs)
+        self.assertEqual(['Go to destination','editor-enter'],b.sdk.inputs)
         self.assertNotIn('verification',result);self.assertFalse(b.sdk.state['normalNavigation']['addressOwned'])
     def test_foreign_profile_env_or_viewpoint_is_rejected_before_any_ui_input(self):
         for target in ('foreign','environment','viewpoint','unbound'):
@@ -75,7 +75,7 @@ class NavigationSceneTests(unittest.TestCase):
     def test_ignored_input_remains_an_ack_and_does_not_create_an_arrival(self):
         b=Boundary();b.sdk.mutation='goto-ignored';before=b.sdk.current
         with b.patch():self.assertEqual({'requested':True},b.invoke('scene.load',dict(url=b.sdk.scene)))
-        self.assertEqual(before,b.sdk.current);self.assertTrue(b.sdk.connected);self.assertEqual(1,b.sdk.inputs.count('PhoneAddressGoButton'))
+        self.assertEqual(before,b.sdk.current);self.assertTrue(b.sdk.connected);self.assertEqual(1,b.sdk.inputs.count('editor-enter'))
     def test_preexisting_foreign_panel_cannot_be_taken_over(self):
         for kind in ('address','tablet'):
             b=Boundary()

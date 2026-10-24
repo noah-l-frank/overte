@@ -45,6 +45,19 @@ class Foundations(SceneBoundary):
         self.target['controls'].update(look=dict(start=[.7,.5],end=[.8,.5]),move=dict(forward=dict(start=[.1,.7],end=[.1,.4],mode='hold')),jump=[.9,.8])
         del self.adapter.advertised_capabilities;del self.adapter.controlled_android_client
         self.adapter.platform='android';self.adapter.probe_snapshot=lambda *_:self.probe()
+        self.target['serverUrl']='http://explicit-synthetic.invalid:4723'
+        self.sdk.process='31415:271828';self.process['identity']=self.sdk.process
+        original_call=self.sdk.call
+        def sdk_call(method,path,body=None):
+            if method=='GET'and path=='/session/owned-session':return {}
+            return original_call(method,path,body)
+        self.sdk.call=sdk_call
+        original_arrive=self.sdk.arrive
+        def arrive(url):
+            if url==DOMAIN:
+                if self.fault!='ignored-domain':self.sdk.current=url;self.sdk.connected=True
+            else:original_arrive(url)
+        self.sdk.arrive=arrive
         self.sdk.state['targetFingerprint']=self.adapter.snapshot_fingerprint(self.target)
         self.adapter.read_session=lambda _:self.sdk.state
         self.adapter.write_android_client_command=self.consume;self.adapter._navigation_view=self.native_view
@@ -106,7 +119,12 @@ class Foundations(SceneBoundary):
         with ExitStack() as stack:
             stack.enter_context(patch.dict(os.environ,self.environment()))
             import module_support,overte_session
-            stack.enter_context(patch.object(appium,'NativeUI',lambda client,session,guard:NativeUI(client,session,guard,timeout=.8,monotonic=lambda:self.sdk.clock,sleep=self.sdk.sleep)))
+            stack.enter_context(patch.object(appium,'NativeUI',lambda client,session,guard,**_options:NativeUI(client,session,guard,timeout=.8,monotonic=lambda:self.sdk.clock,sleep=self.sdk.sleep)))
+            def sdk_client(endpoint):
+                assert endpoint==self.target['serverUrl'],'Foreign synthetic SDK endpoint'
+                return self.sdk
+            stack.enter_context(patch.object(appium,'WebDriver',sdk_client))
+            stack.enter_context(patch.object(appium.AppiumAdapter,'probe_snapshot',lambda _adapter,_client,_session,_target:self.probe()))
             stack.enter_context(patch.object(module_support,'ARTIFACT_DIR',self.root));stack.enter_context(patch.object(overte_session,'ARTIFACT_DIR',self.root))
             stack.enter_context(patch.object(module_support,'invoke',lambda _manifest,_target,operation,arguments:self.invoke(operation,arguments or {})))
             stack.enter_context(patch('time.time',lambda:self.epoch()/1000));stack.enter_context(patch('time.monotonic',lambda:self.sdk.clock));stack.enter_context(patch('time.sleep',self.sdk.sleep))
@@ -138,9 +156,9 @@ class NavigationFoundationsTests(unittest.TestCase):
         scene=[fields['url'] for operation,fields in b.operations if operation=='scene.load']
         self.assertEqual([b.sdk.scene]*3,scene);self.assertEqual(b.sdk.scene,b.target['controls']['normalNavigation']['sceneUrl']);self.assertEqual(b.sdk.scene,b.provider['inputs']['sceneUrl'])
         self.assertGreaterEqual(b.provider_reads,3);self.assertGreaterEqual(len(b.views),6)
-        self.assertIn('Go to destination',b.sdk.inputs);self.assertIn('PhoneAddressGoButton',b.sdk.inputs);self.assertEqual(2,b.sdk.inputs.count('goBack'));self.assertEqual(2,b.sdk.inputs.count('goForward'))
+        self.assertIn('Go to destination',b.sdk.inputs);self.assertIn('editor-enter',b.sdk.inputs);self.assertEqual(2,b.sdk.inputs.count('goBack'));self.assertEqual(2,b.sdk.inputs.count('goForward'))
         self.assertIsNone(b.sdk.screen);self.assertFalse(b.sdk.address_open);self.assertNotIn('normalNavigation',b.sdk.state)
-        self.assertEqual(1,len(b.commands));self.assertEqual('enter-domain',b.commands[0]['action'])
+        self.assertEqual([],b.commands);self.assertIn(('navigation.enter-domain',{'url':DOMAIN}),b.operations)
         self.assertTrue((b.root/'domain-roundtrip.json').is_file());self.assertTrue((b.root/'places-navigation-observation.json').is_file())
     def test_full_flag_requires_real_provider_and_both_original_native_brackets_before_any_scene_input(self):
         for fault in ('stale-provider','foreign-provider-url','foreign-source','failed-provider','foreign-native-endpoint','foreign-native-protocol','stale-native','native-birth','native-pid'):
@@ -189,25 +207,25 @@ class NavigationFoundationsTests(unittest.TestCase):
                     else:b.installed['artifactSha256']='f'*64
                 b.sdk.arrive=arrive
                 with b.scope(),self.assertRaises((RuntimeError,ValueError)):b.invoke('scene.load',dict(url=b.sdk.scene))
-                self.assertEqual(1,b.sdk.inputs.count('PhoneAddressGoButton'))
+                self.assertEqual(1,b.sdk.inputs.count('editor-enter'))
                 self.assertTrue(b.sdk.state['normalNavigation']['addressOwned'])
                 self.assertNotIn('PhoneAddressCancelButton',b.sdk.inputs)
     def test_inconsistent_original_session_is_refused_before_provider_or_native_input(self):
         b=self.boundary;b.sdk.state['targetFingerprint']='f'*64
         with b.scope(),self.assertRaises(ValueError):b.invoke('scene.load',dict(url=b.sdk.scene))
         self.assertFalse(b.sdk.inputs);self.assertFalse(b.views);self.assertEqual(0,b.provider_reads)
-    def test_lost_real_go_reply_is_never_replayed_and_original_close_can_retire_partial_intent(self):
+    def test_lost_real_enter_reply_is_never_replayed_and_original_close_can_retire_partial_intent(self):
         b=self.boundary;original=b.sdk.call
         def lost(method,path,body=None):
             value=original(method,path,body)
-            if path.endswith('/click') and b.sdk.by_reference[path.split('/element/',1)[1].split('/')[0]]=='PhoneAddressGoButton':raise OSError('lost synthetic SDK response after actual click')
+            if path.endswith('/appium/device/press_keycode'):raise OSError('lost synthetic SDK response after actual Enter')
             return value
         b.sdk.call=lost
         with b.scope(),self.assertRaises(NativeUIError):b.invoke('scene.load',dict(url=b.sdk.scene))
-        self.assertEqual(1,b.sdk.inputs.count('PhoneAddressGoButton'));self.assertTrue(b.sdk.state['normalNavigation']['addressOwned'])
+        self.assertEqual(1,b.sdk.inputs.count('editor-enter'));self.assertTrue(b.sdk.state['normalNavigation']['addressOwned'])
         b.sdk.call=original
         with b.scope():b.close_controls();b.close_controls()
-        self.assertEqual(1,b.sdk.inputs.count('PhoneAddressGoButton'));self.assertNotIn('normalNavigation',b.sdk.state)
+        self.assertEqual(1,b.sdk.inputs.count('editor-enter'));self.assertNotIn('normalNavigation',b.sdk.state)
     def test_default_off_has_no_public_feature_triple_and_keeps_ordinary_foundation_input(self):
         b=self.boundary
         with b.scope(),patch.dict(os.environ,OVERTE_PHONE_FEATURE_WORLD_NAVIGATION='0'):
@@ -217,7 +235,7 @@ class NavigationFoundationsTests(unittest.TestCase):
     def test_ignored_original_domain_reentry_cannot_complete_unchanged_roundtrip(self):
         b=self.boundary;b.fault='ignored-domain'
         with b.scope(),self.assertRaises(RuntimeError):b.module('domain_roundtrip.py')
-        self.assertTrue(b.commands);self.assertFalse((b.root/'domain-roundtrip.json').exists())
+        self.assertIn(('navigation.enter-domain',{'url':DOMAIN}),b.operations);self.assertFalse(b.commands);self.assertFalse((b.root/'domain-roundtrip.json').exists())
         with b.scope():b.close_controls()
         self.assertNotIn('normalNavigation',b.sdk.state)
     def test_ignored_actual_places_transition_fails_and_ordinary_finally_retires_only_its_controls(self):

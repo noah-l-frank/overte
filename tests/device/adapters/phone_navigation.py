@@ -90,7 +90,6 @@ class PhoneNavigation:
                 raise NativeUIError('Normal Phone navigation ownership belongs to a different application')
         self.goto_entry = Locator('accessibility id', 'Go to destination')
         self.address = self.resource('PhoneAddressField')
-        self.go = self.resource('PhoneAddressGoButton')
         self.cancel = self.resource('PhoneAddressCancelButton')
         self.tablet_entry = self.resource('tablet.open')
         self.close_tablet = self.resource('nav.close')
@@ -157,75 +156,35 @@ class PhoneNavigation:
         # A history endpoint disables its unavailable direction. The selected
         # Back/Forward click below resolves one visible enabled control itself.
 
-    def prepare_go(self, url):
-        """Observe/dismiss the actual IME once; never use a hide acknowledgment."""
-        def visible():
-            self.ui._check()
-            try:
-                value = self.read_ime() if callable(self.read_ime) else None
-            except Exception:
-                raise NativeUIError('Normal Phone keyboard observation is unavailable') from None
-            self.ui._check()
-            if type(value) is not bool:
-                raise NativeUIError('Normal Phone keyboard observation is invalid')
-            return value
-        before = visible()
-        if before:
-            self.ui._request('POST', '/appium/device/hide_keyboard', {})
-            self.ui._check()
-        field = self.ui._resolve(self.address)
-        def editor():
-            self.ui._check()
-            text = self.ui._request('GET', field + '/text')
-            focused = self.ui._request('GET', field + '/attribute/focused')
-            self.ui._check()
-            if type(text) is not str or text != url:
-                raise NativeUIError('Normal Phone destination changed while preparing Go')
-            if type(focused) is str and focused in ('true', 'false'):
-                focused = focused == 'true'
-            if type(focused) is not bool:
-                raise NativeUIError('Normal Phone editor focus observation is invalid')
-            return focused
-        if editor():
-            # Ordinary Android focus traversal clears the editor's selection
-            # handle. This never submits the address or substitutes for Go.
-            self.ui._request('POST', '/appium/device/press_keycode', {'keycode': 61})
-            if editor():
-                raise NativeUIError('Normal Phone editor focus did not clear')
-        after = visible()
-        if after:
-            raise NativeUIError('Normal Phone keyboard did not disappear')
-        return {'before': before, 'after': after}
+    def submit_address(self, url):
+        """Send one Android Enter to the same observed focused address field.
 
-    def press_go(self):
-        """Press the same resolved Phone Go once through normal W3C touch."""
-        element = self.ui._resolve(self.go)
-        if type(element) is not str or not element.startswith('/element/'):
-            raise NativeUIError('Normal Phone Go element is malformed')
-        origin = {W3C_ELEMENT: unquote(element[len('/element/'):])}
-        if self.ui._element(origin) != element:
-            raise NativeUIError('Normal Phone Go element is malformed')
+        The installed Phone AddressBarDialog binds Keys.onReturnPressed to
+        its ordinary goToAddress(). An SDK key event preserves that path;
+        a text/value call containing a WebDriver key is not a key-event proof.
+        """
+        field = self.ui._resolve(self.address)
+        if type(field) is not str or not field.startswith('/element/'):
+            raise NativeUIError('Normal Phone address element is malformed')
+        origin = {W3C_ELEMENT: unquote(field[len('/element/'):])}
+        if self.ui._element(origin) != field:
+            raise NativeUIError('Normal Phone address element is malformed')
         self.ui._check()
-        primary = None
-        try:
-            self.ui._request('POST', '/actions', {'actions': [{
-                'type': 'pointer', 'id': 'overte-phone-go-touch',
-                'parameters': {'pointerType': 'touch'}, 'actions': [
-                    {'type': 'pointerMove', 'duration': 0, 'origin': origin, 'x': 0, 'y': 0},
-                    {'type': 'pointerDown', 'button': 0},
-                    {'type': 'pause', 'duration': 150},
-                    {'type': 'pointerUp', 'button': 0}]}]})
-            self.ui._check()
-        except BaseException as error:
-            primary = error
-            raise
-        finally:
-            try:
-                self.ui.release_actions()
-            except Exception as cleanup:
-                if primary is not None:
-                    raise primary from cleanup
-                raise
+        text = self.ui._request('GET', field + '/text')
+        focused = self.ui._request('GET', field + '/attribute/focused')
+        self.ui._check()
+        if type(text) is not str or text != url:
+            raise NativeUIError('Normal Phone destination changed before Enter')
+        if type(focused) is str and focused in ('true', 'false'):
+            focused = focused == 'true'
+        if type(focused) is not bool:
+            raise NativeUIError('Normal Phone editor focus observation is invalid')
+        if not focused:
+            raise NativeUIError('Normal Phone address editor lost focus before Enter')
+        # KEYCODE_ENTER (66), once. Never retry an uncertain SDK reply or fall
+        # back to another submission mechanism. Fresh world probes prove arrival.
+        self.ui._request('POST', '/appium/device/press_keycode', {'keycode': 66})
+        self.ui._check()
 
     def load_scene(self, url):
         """Submit precisely the approved controlled scene through the ordinary dialog.
@@ -239,10 +198,7 @@ class PhoneNavigation:
             raise NativeUIError('Normal Phone scene input differs from its approved scene')
         self.open_address()
         self.ui.replace_text(self.address,url)
-        if self.ui.text(self.address)!=url:
-            raise NativeUIError('Normal Phone scene address did not retain the original input')
-        self.prepare_go(url)
-        self.press_go()
+        self.submit_address(url)
         self.ui.wait_absent(self.address)
         self.mark('addressOwned',False)
         return {'requested':True}
@@ -252,10 +208,7 @@ class PhoneNavigation:
         controlled_domain_url(url, expected_url, expected_host)
         self.open_address()
         self.ui.replace_text(self.address, url)
-        if self.ui.text(self.address) != url:
-            raise NativeUIError('Normal Phone domain address did not retain the original input')
-        self.prepare_go(url)
-        self.press_go()
+        self.submit_address(url)
         self.ui.wait_absent(self.address)
         self.mark('addressOwned', False)
         return {'requested': True}
@@ -272,8 +225,7 @@ class PhoneNavigation:
                 raise NativeUIError('Normal Phone navigation URL differs from its configured owned scene')
             self.open_address()
             self.ui.replace_text(self.address, arguments['url'])
-            self.prepare_go(arguments['url'])
-            self.press_go()
+            self.submit_address(arguments['url'])
             self.ui.wait_absent(self.address)
             self.mark('addressOwned', False)
         elif operation in {'places.back', 'places.forward'}:

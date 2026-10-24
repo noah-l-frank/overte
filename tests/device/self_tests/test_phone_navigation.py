@@ -78,31 +78,11 @@ class NativePhone:
 
     def call(self, method, path, body=None):
         self.calls.append((method, path, copy.deepcopy(body)))
-        if method == 'POST' and path.endswith('/appium/device/hide_keyboard'):
-            self.inputs.append('hide-keyboard')
-            if self.mutation != 'ime-ignored': self.keyboard_visible = False
-            if self.mutation == 'ime-text-changed': self.field = 'changed while hiding'
-            return None  # The original API receipt is never a visibility proof.
         if method == 'POST' and path.endswith('/appium/device/press_keycode'):
-            assert body == {'keycode':61}
-            self.inputs.append('editor-tab')
-            if self.mutation != 'tab-ignored': self.field_focused = False
-            if self.mutation == 'tab-text-changed': self.field = 'changed while clearing focus'
-            if self.mutation == 'tab-ime-shown': self.keyboard_visible = True
-            return None
-        if method == 'POST' and path.endswith('/actions'):
-            pointer, = body['actions']
-            assert pointer['id'] == 'overte-phone-go-touch'
-            assert pointer['type'] == 'pointer' and pointer['parameters'] == {'pointerType':'touch'}
-            move, down, pause, up = pointer['actions']
-            assert move == {'type':'pointerMove','duration':0,
-                'origin':{W3C_ELEMENT:self.references['PhoneAddressGoButton']},'x':0,'y':0}
-            assert down == {'type':'pointerDown','button':0} and pause == {'type':'pause','duration':150}
-            assert up == {'type':'pointerUp','button':0}
-            self.inputs.append('PhoneAddressGoButton')
-            # Explicit host model of the actual21 image: a focused editor's
-            # insertion handle intercepts the Go center. No device assertion.
-            if self.mutation != 'go-press-ignored' and not self.field_focused:
+            assert body == {'keycode': 66}
+            assert self.field_focused is True
+            self.inputs.append('editor-enter')
+            if self.mutation != 'enter-ignored':
                 self.address_open = False
                 if self.mutation != 'goto-ignored':
                     self.history = self.history[:self.cursor + 1] + [self.field]
@@ -140,6 +120,7 @@ class NativePhone:
                 self.inputs.append(name)
                 if name == 'Go to destination':
                     self.address_open = self.mutation != 'entry-ignored'
+                    self.field_focused = self.address_open
                     if self.mutation == 'partial-entry-read-error': self.fail_next_read = True
                 elif name == 'PhoneAddressCancelButton':
                     self.address_open = False
@@ -235,7 +216,7 @@ class PhoneNavigationTests(unittest.TestCase):
             result = adapter.invoke('owned-target', 'navigation.enter-domain', {'url': self.DOMAIN})
         self.assertEqual({'requested': True}, result)
         self.assertEqual(self.DOMAIN, native.field)
-        self.assertEqual(['Go to destination', 'PhoneAddressGoButton'], native.inputs)
+        self.assertEqual(['Go to destination', 'editor-enter'], native.inputs)
         self.assertFalse(native.address_open)
         self.assertFalse(native.state['normalNavigation']['addressOwned'])
         self.assertNotIn('connected', result)  # Input receipt is no connection measurement.
@@ -245,7 +226,7 @@ class PhoneNavigationTests(unittest.TestCase):
             self.DOMAIN + '#foreign', self.DOMAIN.replace('://', '://user@'),
             self.DOMAIN.replace(':40102', ''), self.DOMAIN.replace('hifi:', 'https:'),
             self.DOMAIN.replace(':40102', ':0'),
-            self.DOMAIN + '\n', 'hifi://controlled.test:40102/' + 'a' * 2048]
+            self.DOMAIN + '\n', self.DOMAIN + '\ue007', 'hifi://controlled.test:40102/' + 'a' * 2048]
         for url in bad:
             with self.subTest(url=url):
                 native = NativePhone(); adapter = self.domain_adapter(native)
@@ -270,7 +251,7 @@ class PhoneNavigationTests(unittest.TestCase):
         with patch.dict(os.environ, self.domain_environment(), clear=True), self.assertRaises(ValueError):
             adapter.invoke('owned-target', 'navigation.enter-domain', {'url': self.DOMAIN})
 
-    def test_domain_ignored_text_foreign_editor_and_changed_process_never_press_go(self):
+    def test_domain_ignored_text_foreign_editor_and_changed_process_never_press_enter(self):
         for kind in ('text-ignored', 'foreign-editor', 'changed-process'):
             with self.subTest(kind=kind):
                 native = NativePhone('text-ignored' if kind == 'text-ignored' else '')
@@ -278,7 +259,7 @@ class PhoneNavigationTests(unittest.TestCase):
                 adapter = self.domain_adapter(native, changed_process=kind == 'changed-process')
                 with patch.dict(os.environ, self.domain_environment(), clear=True), self.assertRaises(NativeUIError):
                     adapter.invoke('owned-target', 'navigation.enter-domain', {'url': self.DOMAIN})
-                self.assertNotIn('PhoneAddressGoButton', native.inputs)
+                self.assertNotIn('editor-enter', native.inputs)
                 if kind == 'foreign-editor': self.assertEqual([], native.inputs)
                 else: self.assertTrue(native.state['normalNavigation']['addressOwned'])
 
@@ -329,163 +310,109 @@ class PhoneNavigationTests(unittest.TestCase):
                     'mInputShown = false', 'mInputShown=false' + 'x'*131072):
             with self.subTest(kind=type(raw).__name__), self.assertRaises(NativeUIError):phone_ime_visible(raw)
 
-    def test_phone_go_hides_shown_ime_once_and_freshly_verifies_hidden_text_before_one_click(self):
+    def test_phone_enter_sends_one_sdk_key_to_the_same_focused_exact_editor(self):
         native=NativePhone('goto-ignored');native.keyboard_visible=True
-        adapter=self.domain_adapter(native)
-        with patch.dict(os.environ,self.domain_environment(),clear=True):
-            self.assertEqual({'requested':True},adapter.invoke('owned-target','navigation.enter-domain',{'url':self.DOMAIN}))
-        self.assertEqual([True,False],native.ime_reads)
-        self.assertEqual(1,native.inputs.count('hide-keyboard'));self.assertEqual(1,native.inputs.count('PhoneAddressGoButton'))
-        self.assertLess(native.inputs.index('hide-keyboard'),native.inputs.index('PhoneAddressGoButton'))
+        self.assertEqual({'requested':True},native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test'))
+        keys=[call for call in native.calls if call[0]=='POST'and call[1].endswith('/press_keycode')]
+        self.assertEqual([('POST','/session/owned-session/appium/device/press_keycode',{'keycode':66})],keys)
+        field='/session/owned-session/element/'+native.references['PhoneAddressField']
+        self.assertEqual([(field+'/text'),(field+'/attribute/focused')],
+            [path for method,path,_ in native.calls if method=='GET'and (path.endswith('/text')or path.endswith('/attribute/focused'))])
+        self.assertEqual(['Go to destination','editor-enter'],native.inputs)
+        self.assertEqual([],native.ime_reads);self.assertFalse(native.address_open)
         self.assertEqual(self.DOMAIN,native.field);self.assertNotEqual(self.DOMAIN,native.current)
+        self.assertFalse(any(path.endswith(('/hide_keyboard','/actions'))or 'PhoneAddressGoButton'in str(body)
+            for _,path,body in native.calls))
+        values=[body for method,path,body in native.calls if method=='POST'and path.endswith('/value')]
+        self.assertEqual([{'text':self.DOMAIN,'value':list(self.DOMAIN)}],values)
 
-    def test_phone_go_hidden_keyboard_needs_no_hide_and_ignored_or_mutating_dismissal_never_clicks(self):
-        hidden=NativePhone('goto-ignored')
-        hidden.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
-        self.assertEqual([False,False],hidden.ime_reads);self.assertNotIn('hide-keyboard',hidden.inputs)
-        self.assertEqual(1,hidden.inputs.count('PhoneAddressGoButton'))
-        for mutation in ('ime-ignored','ime-text-changed'):
-            with self.subTest(mutation=mutation):
-                native=NativePhone(mutation);native.keyboard_visible=True
-                with self.assertRaises(NativeUIError):native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
-                self.assertEqual(1,native.inputs.count('hide-keyboard'));self.assertNotIn('PhoneAddressGoButton',native.inputs)
-                self.assertTrue(native.state['normalNavigation']['addressOwned'])
-        missing=NativePhone();flow=missing.flow();flow.read_ime=None
-        with self.assertRaises(NativeUIError):flow.enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
-        self.assertNotIn('PhoneAddressGoButton',missing.inputs);self.assertNotIn('hide-keyboard',missing.inputs)
-
-    def test_phone_go_uses_one_same_element_touch_with_150ms_hold_and_owned_release(self):
-        native=NativePhone('goto-ignored')
-        self.assertEqual({'requested':True},native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test'))
-        actions=[call for call in native.calls if call[0]=='POST' and call[1].endswith('/actions')]
-        self.assertEqual(1,len(actions))
-        pointer=actions[0][2]['actions'][0]
-        self.assertEqual('overte-phone-go-touch',pointer['id'])
-        self.assertEqual({W3C_ELEMENT:native.references['PhoneAddressGoButton']},pointer['actions'][0]['origin'])
-        self.assertEqual(['pointerMove','pointerDown','pause','pointerUp'],[row['type']for row in pointer['actions']])
-        self.assertEqual(150,pointer['actions'][2]['duration'])
-        self.assertEqual(1,sum(method=='DELETE'and path.endswith('/actions')for method,path,_ in native.calls))
-        self.assertFalse(any(path.endswith('/element/'+native.references['PhoneAddressGoButton']+'/click')for _,path,_ in native.calls))
-        self.assertEqual(1,sum(path.endswith('/elements')and body.get('value')==PACKAGE+':id/PhoneAddressGoButton'
-            for _,path,body in native.calls if isinstance(body,dict)))
-
-    def test_phone_editor_tab_clears_modeled_blue_handle_before_one_go_press(self):
-        blocked=NativePhone('goto-ignored');blocked.address_open=True;blocked.field_focused=True
-        blocked.flow().press_go();self.assertTrue(blocked.address_open)
-        native=NativePhone('goto-ignored');native.field_focused=True
-        self.assertEqual({'requested':True},native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test'))
-        self.assertFalse(native.field_focused);self.assertFalse(native.address_open)
-        self.assertEqual(self.DOMAIN,native.field)
-        self.assertEqual(1,native.inputs.count('editor-tab'));self.assertEqual(1,native.inputs.count('PhoneAddressGoButton'))
-        self.assertLess(native.inputs.index('editor-tab'),native.inputs.index('PhoneAddressGoButton'))
-        focused=[path for method,path,_ in native.calls if method=='GET'and path.endswith('/attribute/focused')]
-        self.assertEqual(2,len(focused));self.assertEqual(focused[0],focused[1])
-        keys=[body for method,path,body in native.calls if method=='POST'and path.endswith('/press_keycode')]
-        self.assertEqual([{'keycode':61}],keys)
-
-    def test_phone_editor_focus_requires_exact_native_bool_and_skips_tab_when_already_clear(self):
-        native=NativePhone('goto-ignored')
-        native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
-        self.assertNotIn('editor-tab',native.inputs);self.assertEqual(1,native.inputs.count('PhoneAddressGoButton'))
-        for invalid in (None,0,1,{},'FALSE',' true','false\n'):
+    def test_phone_enter_rejects_lost_or_malformed_focus_and_changed_text_without_input(self):
+        for observed in (False,'false',None,0,1,{},'TRUE',' true','false\n'):
             native=NativePhone('goto-ignored');original=native.call
             def read(method,path,body=None):
-                if method=='GET'and path.endswith('/attribute/focused'):return invalid
+                if method=='GET'and path.endswith('/attribute/focused'):return observed
                 return original(method,path,body)
             native.call=read
-            with self.subTest(typeName=type(invalid).__name__),self.assertRaisesRegex(NativeUIError,'focus observation is invalid'):
+            with self.subTest(focus=observed),self.assertRaises(NativeUIError):
                 native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
-            self.assertNotIn('editor-tab',native.inputs);self.assertNotIn('PhoneAddressGoButton',native.inputs)
-        native=NativePhone('goto-ignored');native.field_focused=True;original=native.call
-        def strings(method,path,body=None):
-            value=original(method,path,body)
-            return str(value).lower()if method=='GET'and path.endswith('/attribute/focused')else value
-        native.call=strings;native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
-        self.assertEqual(1,native.inputs.count('editor-tab'));self.assertFalse(native.field_focused)
+            self.assertNotIn('editor-enter',native.inputs);self.assertTrue(native.state['normalNavigation']['addressOwned'])
+        native=NativePhone('goto-ignored');original=native.call
+        def wrong(method,path,body=None):
+            if method=='GET'and path.endswith('/text'):return self.DOMAIN+'-changed'
+            return original(method,path,body)
+        native.call=wrong
+        with self.assertRaisesRegex(NativeUIError,'destination changed before Enter'):
+            native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
+        self.assertNotIn('editor-enter',native.inputs)
+        native=NativePhone('goto-ignored');original=native.call
+        def string_focus(method,path,body=None):
+            return 'true'if method=='GET'and path.endswith('/attribute/focused')else original(method,path,body)
+        native.call=string_focus;native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
+        self.assertEqual(1,native.inputs.count('editor-enter'))
 
-    def test_phone_editor_ignored_tab_changed_text_or_new_ime_blocks_go_without_replay(self):
-        for mutation in ('tab-ignored','tab-text-changed','tab-ime-shown','unsupported-tab'):
-            native=NativePhone(mutation);native.field_focused=True;original=native.call
-            def dispatch(method,path,body=None):
-                if mutation=='unsupported-tab'and path.endswith('/press_keycode'):raise RuntimeError('unsupported host seam')
-                return original(method,path,body)
-            native.call=dispatch
-            with self.subTest(mutation=mutation),self.assertRaises(NativeUIError):
-                native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
-            self.assertLessEqual(native.inputs.count('editor-tab'),1)
-            self.assertNotIn('PhoneAddressGoButton',native.inputs)
-            self.assertTrue(native.state['normalNavigation']['addressOwned'])
-
-    def test_phone_editor_tab_rechecks_full_bound_context_before_any_go_press(self):
+    def test_phone_enter_rechecks_full_bound_context_after_focus_read_before_key(self):
         for changed in ('generation','session','target','process','installed'):
-            native=NativePhone('goto-ignored');native.field_focused=True;adapter=self.domain_adapter(native);original=native.call
-            def dispatch(method,path,body=None):
+            native=NativePhone('goto-ignored');adapter=self.domain_adapter(native);original=native.call
+            def read(method,path,body=None):
                 value=original(method,path,body)
-                if method=='POST'and path.endswith('/press_keycode'):
+                if method=='GET'and path.endswith('/attribute/focused'):
                     if changed=='generation':native.state['generation']+=1
                     elif changed=='session':native.state['sessionId']='foreign-session'
                     elif changed=='target':adapter.target('owned-target')['scene']['kind']='foreign'
                     elif changed=='process':native.process='31416:foreign-start'
                     else:native.identity['sourceRevision']='f'*40
                 return value
-            native.call=dispatch
+            native.call=read
             with patch.dict(os.environ,self.domain_environment(),clear=True),self.subTest(changed=changed),self.assertRaises((ValueError,NativeUIError)):
                 adapter.invoke('owned-target','navigation.enter-domain',{'url':self.DOMAIN})
-            self.assertEqual(1,native.inputs.count('editor-tab'));self.assertNotIn('PhoneAddressGoButton',native.inputs)
-            self.assertTrue(native.state['normalNavigation']['addressOwned'])
+            self.assertNotIn('editor-enter',native.inputs);self.assertTrue(native.state['normalNavigation']['addressOwned'])
 
-    def test_phone_go_ignored_touch_does_not_turn_visible_field_into_success(self):
-        native=NativePhone('go-press-ignored')
+    def test_phone_enter_ignored_key_keeps_visible_field_red_without_resubmit(self):
+        native=NativePhone('enter-ignored')
         with self.assertRaisesRegex(NativeUIError,'did not disappear'):
             native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
         self.assertTrue(native.address_open);self.assertTrue(native.state['normalNavigation']['addressOwned'])
-        self.assertEqual(1,native.inputs.count('PhoneAddressGoButton'))
-        self.assertEqual(1,sum(method=='DELETE'and path.endswith('/actions')for method,path,_ in native.calls))
+        self.assertEqual(1,native.inputs.count('editor-enter'))
+        self.assertEqual(1,sum(path.endswith('/press_keycode')for _,path,_ in native.calls))
 
-    def test_phone_go_foreign_continuity_or_malformed_origin_never_sends_touch(self):
+    def test_phone_enter_malformed_address_reference_or_foreign_continuity_never_sends_key(self):
         for reference in (None,{},'/foreign/n3','/element/foreign/path','/element/%6e3'):
             native=NativePhone();flow=native.flow();native.ui._resolve=lambda _locator:reference
-            with self.subTest(referenceType=type(reference).__name__),self.assertRaises(NativeUIError):flow.press_go()
+            with self.subTest(referenceType=type(reference).__name__),self.assertRaises(NativeUIError):flow.submit_address(self.DOMAIN)
             self.assertEqual([],native.calls)
-        native=NativePhone();native.address_open=True;flow=native.flow()
-        native.ui.check_continuity=lambda:False
-        with self.assertRaisesRegex(NativeUIError,'lost its bound'):flow.press_go()
+        native=NativePhone();native.address_open=True;flow=native.flow();native.ui.check_continuity=lambda:False
+        with self.assertRaisesRegex(NativeUIError,'lost its bound'):flow.submit_address(self.DOMAIN)
         self.assertEqual([],native.calls)
 
-    def test_phone_go_release_failure_is_red_and_preserves_primary_error_and_owner(self):
-        native=NativePhone('goto-ignored');cleanup=NativeUIError('owned touch release failed')
-        def fail_release():raise cleanup
-        native.ui.release_actions=fail_release
-        with self.assertRaises(NativeUIError)as caught:
-            native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
-        self.assertIs(cleanup,caught.exception)
-        self.assertTrue(native.state['normalNavigation']['addressOwned'])
-        self.assertEqual(1,native.inputs.count('PhoneAddressGoButton'))
-        native=NativePhone();native.address_open=True;flow=native.flow();flow.mark('addressOwned',True)
-        primary=NativeUIError('primary touch failed');releases=[]
-        def fail_request(*_args):raise primary
-        def fail_both_release():releases.append(1);raise cleanup
-        native.ui._resolve=lambda _: '/element/n3'
-        native.ui._request=fail_request;native.ui.release_actions=fail_both_release
-        with self.assertRaises(NativeUIError)as caught:flow.press_go()
-        self.assertIs(primary,caught.exception);self.assertIs(cleanup,caught.exception.__cause__)
-        self.assertEqual([1],releases);self.assertTrue(native.state['normalNavigation']['addressOwned'])
+    def test_phone_enter_lost_reply_or_unsupported_sdk_never_falls_back_or_replays(self):
+        for delivered in (False,True):
+            native=NativePhone('goto-ignored');original=native.call;keys=[]
+            def lost(method,path,body=None):
+                if method=='POST'and path.endswith('/press_keycode'):
+                    keys.append(body)
+                    if delivered:original(method,path,body)
+                    raise RuntimeError('synthetic SDK key response unavailable')
+                return original(method,path,body)
+            native.call=lost
+            with self.subTest(delivered=delivered),self.assertRaises(NativeUIError):
+                native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
+            self.assertEqual([{'keycode':66}],keys);self.assertTrue(native.state['normalNavigation']['addressOwned'])
+            native.call=original;native.invoke('places.close',{})
+            self.assertEqual(int(delivered),native.inputs.count('editor-enter'))
 
-    def test_phone_ime_callback_rejects_malformed_or_changed_continuity_before_hide_or_go(self):
-        for changed in ('malformed','generation','session','target','process','installed'):
-            with self.subTest(changed=changed):
-                native=NativePhone();adapter=self.domain_adapter(native)
-                def read(_selector):
-                    if changed=='generation':native.state['generation']+=1
-                    if changed=='session':native.state['sessionId']='foreign-sdk'
-                    if changed=='target':adapter.target('owned-target')['scene']['kind']='foreign'
+    def test_phone_enter_keeps_post_input_candidate_and_process_checks(self):
+        for changed in ('process','installed'):
+            native=NativePhone('goto-ignored');adapter=self.domain_adapter(native);original=native.call
+            def dispatch(method,path,body=None):
+                value=original(method,path,body)
+                if method=='POST'and path.endswith('/press_keycode'):
                     if changed=='process':native.process='31416:foreign-start'
-                    if changed=='installed':native.identity['sourceRevision']='f'*40
-                    return None if changed=='malformed'else True
-                adapter.phone_ime_state=read
-                with patch.dict(os.environ,self.domain_environment(),clear=True),self.assertRaises((ValueError,NativeUIError)):
-                    adapter.invoke('owned-target','navigation.enter-domain',{'url':self.DOMAIN})
-                self.assertNotIn('hide-keyboard',native.inputs);self.assertNotIn('PhoneAddressGoButton',native.inputs)
+                    else:native.identity['sourceRevision']='f'*40
+                return value
+            native.call=dispatch
+            with patch.dict(os.environ,self.domain_environment(),clear=True),self.subTest(changed=changed),self.assertRaises((ValueError,NativeUIError)):
+                adapter.invoke('owned-target','navigation.enter-domain',{'url':self.DOMAIN})
+            self.assertEqual(1,native.inputs.count('editor-enter'));self.assertTrue(native.state['normalNavigation']['addressOwned'])
 
     def test_phone_ime_reader_uses_only_the_mapped_bounded_native_read_and_strict_parser(self):
         from types import SimpleNamespace
@@ -555,22 +482,21 @@ class PhoneNavigationTests(unittest.TestCase):
             def call(self, method, path, body=None):
                 if self.close_at is not None and self.clock >= self.close_at:
                     self.address_open = False
-                if method == 'POST' and path.endswith('/actions'):
-                    pointer, = body['actions']
-                    assert pointer['id'] == 'overte-phone-go-touch'
-                    assert pointer['actions'][0]['origin'] == {W3C_ELEMENT:self.references['PhoneAddressGoButton']}
-                    self.inputs.append('PhoneAddressGoButton')
+                if method == 'POST' and path.endswith('/appium/device/press_keycode'):
+                    assert body == {'keycode':66}
+                    assert self.field_focused is True
+                    self.inputs.append('editor-enter')
                     if not self.ignored: self.close_at = self.clock + 10.0
                     return None
                 value = super().call(method, path, body)
-                if path.endswith('/elements') and body['value'].endswith('PhoneAddressField') and 'PhoneAddressGoButton' in self.inputs:
+                if path.endswith('/elements') and body['value'].endswith('PhoneAddressField') and 'editor-enter' in self.inputs:
                     self.lookups.append((self.clock, bool(value)))
                 return value
 
         short = SlowClosePhone(10)
         with self.assertRaisesRegex(NativeUIError, 'control did not disappear'):
             short.flow().enter_domain(self.DOMAIN, self.DOMAIN, 'controlled.test')
-        self.assertEqual(1, short.inputs.count('PhoneAddressGoButton'))
+        self.assertEqual(1, short.inputs.count('editor-enter'))
         self.assertFalse(short.address_open)
         self.assertEqual(1, len([clock for clock, present in short.lookups if not present]))
         self.assertTrue(short.state['normalNavigation']['addressOwned'])
@@ -578,16 +504,16 @@ class PhoneNavigationTests(unittest.TestCase):
         self.assertEqual({'requested': True}, bounded.flow().enter_domain(self.DOMAIN, self.DOMAIN, 'controlled.test'))
         absent = [clock for clock, present in bounded.lookups if not present]
         self.assertEqual(2, len(absent)); self.assertGreaterEqual(absent[1] - absent[0], .3)
-        self.assertEqual(1, bounded.inputs.count('PhoneAddressGoButton'))
+        self.assertEqual(1, bounded.inputs.count('editor-enter'))
         self.assertFalse(bounded.state['normalNavigation']['addressOwned'])
         self.assertNotEqual(self.DOMAIN, bounded.current)  # No world arrival was synthesized.
         ignored = SlowClosePhone(20, ignored=True)
         with self.assertRaises(NativeUIError): ignored.flow().enter_domain(self.DOMAIN, self.DOMAIN, 'controlled.test')
         self.assertTrue(ignored.address_open); self.assertTrue(ignored.state['normalNavigation']['addressOwned'])
-        self.assertEqual(1, ignored.inputs.count('PhoneAddressGoButton'))
+        self.assertEqual(1, ignored.inputs.count('editor-enter'))
         changed = SlowClosePhone(20, foreign=True)
         with self.assertRaises(NativeUIError): changed.flow().enter_domain(self.DOMAIN, self.DOMAIN, 'controlled.test')
-        self.assertNotIn('PhoneAddressGoButton', changed.inputs)
+        self.assertNotIn('editor-enter', changed.inputs)
 
     def test_scene_input_accepts_the_exact_approved_controlled_spawn_query(self):
         from navigation_observation import arrived, VIEWPOINTS
@@ -602,7 +528,7 @@ class PhoneNavigationTests(unittest.TestCase):
                 self.assertFalse(arrived(native.observe(), approved, label))
                 self.assertEqual({'requested': True}, native.flow().load_scene(approved))
                 self.assertEqual(approved, native.field)
-                self.assertEqual(['Go to destination', 'PhoneAddressGoButton'], native.inputs)
+                self.assertEqual(['Go to destination', 'editor-enter'], native.inputs)
                 self.assertTrue(arrived(native.observe(), approved, label))
                 self.assertFalse(native.address_open)
                 self.assertFalse(native.state['normalNavigation']['addressOwned'])
@@ -631,7 +557,7 @@ class PhoneNavigationTests(unittest.TestCase):
         ignored_text.profile['sceneUrl'] = approved
         with self.assertRaises(NativeUIError):
             ignored_text.flow().load_scene(approved)
-        self.assertNotIn('PhoneAddressGoButton', ignored_text.inputs)
+        self.assertNotIn('editor-enter', ignored_text.inputs)
         self.assertTrue(ignored_text.state['normalNavigation']['addressOwned'])
         ignored_text.invoke('places.close', {})
         self.assertFalse(ignored_text.address_open)
@@ -657,7 +583,7 @@ class PhoneNavigationTests(unittest.TestCase):
         self.assertTrue(native.reports[0]['sequenceCompleted'])
         self.assertFalse(native.reports[0]['deviceAcceptance'])
         self.assertIn('Go to destination', native.inputs)
-        self.assertIn('PhoneAddressGoButton', native.inputs)
+        self.assertIn('editor-enter', native.inputs)
         self.assertIn('PLACES', native.inputs)
         self.assertEqual(2, native.inputs.count('goBack'))
         self.assertEqual(2, native.inputs.count('goForward'))
