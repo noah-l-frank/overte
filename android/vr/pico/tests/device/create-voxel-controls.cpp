@@ -11,6 +11,8 @@
 #include <QTextStream>
 #include <QJsonDocument>
 #include <QFile>
+#include <QFileInfo>
+#include <QDir>
 #include <cassert>
 #include <PointerEvent.h>
 #include <QMouseEvent>
@@ -32,7 +34,11 @@ int main(int argc,char**argv){
     NormalControlUi tools(NormalControlUi::Surface::CreateVoxel),normal(NormalControlUi::Surface::Create);
     if(!app.arguments().contains("--testScript")){assert(tools.observe(nullptr,nullptr).isEmpty());return 0;}
     const auto path=app.arguments().at(app.arguments().size()-2),imports=app.arguments().last();
+#ifdef OVERTE_CREATE_ORIGINAL_TEXTURES
+    PathUtils::defaultScriptsLocation(path+"/scripts/");
+#else
     PathUtils::scripts=QUrl::fromLocalFile(path+"/scripts/");PathUtils::qml=QUrl::fromLocalFile(path+"/interface/resources/qml/");
+#endif
     QQmlEngine engine;engine.addImportPath(path+"/interface/resources/qml");engine.addImportPath(imports);
     QQmlComponent hmd(&engine);hmd.setData("import QtQuick 2.7;QtObject {property bool active:false}",{});
     QScopedPointer<QObject> hmdActor(hmd.create());engine.rootContext()->setContextProperty("HMD",hmdActor.data());
@@ -45,6 +51,12 @@ int main(int argc,char**argv){
     assert(createVariant(calls.first().first()).toMap().value("method").toString()=="nativeCreate.ready");
     assert(page->property("e2eSettingsReceived").userType()==QMetaType::Bool && !page->property("e2eSettingsReceived").toBool());
     QJsonObject settingsReceipt;
+#ifdef OVERTE_CREATE_VOXEL_NATIVE_JOIN
+    // Capture the real empty pre-reply state before Add needs an earlier
+    // nativeCreate.ready roundtrip. Never reset the QML receipt afterwards.
+    settingsReceipt={{"beforeReply",page->property("e2eSettingsReceived").toBool()},
+        {"beforeControls",tools.observe(&root,&window).value("controls").toArray().size()}};
+#endif
     auto evaluate=[&](const QString& code,const QString& file=QString()){
         auto result=engine.evaluate(code,file);if(result.isError()){qFatal("%s",qPrintable(result.toString()+"\n"+result.property("stack").toString()));}return result;};
     auto source=[&](const QString& file){QFile input(path+'/'+file);assert(input.open(QIODevice::ReadOnly));return QString::fromUtf8(input.readAll());};
@@ -58,11 +70,28 @@ int main(int argc,char**argv){
     QFile originalDelete(app.arguments().at(app.arguments().size()-3));assert(originalDelete.open(QIODevice::ReadOnly));
     evaluate(QString::fromUtf8(originalDelete.readAll()),"original-voxel-delete.js");
 #endif
+#ifdef OVERTE_CREATE_VOXEL_NATIVE_JOIN
+    engine.globalObject().setProperty("originalCreateScriptDirectory",path+"/scripts/system/create");
+    evaluate(source("android/vr/pico/tests/device/create-voxel-add-bindings.js"));
+    for(const auto& name:{"original-voxel-validation.js","original-voxel-add.js"}){
+        QFile input(QFileInfo(originalDelete).dir().filePath(name));assert(input.open(QIODevice::ReadOnly));
+        evaluate(QString::fromUtf8(input.readAll()),name);
+    }
+#endif
     auto backend=evaluate("initializeOriginalTools()");int delivered=0;
+#ifdef OVERTE_CREATE_VOXEL_NATIVE_JOIN
+    engine.globalObject().setProperty("nativeCreate",backend);
+#endif
     auto drain=[&]{
         while(delivered<calls.size()){
             const auto original=createVariant(calls.at(delivered++).first());const auto raw=QJsonDocument::fromVariant(original).toJson(QJsonDocument::Compact);
-            auto value=evaluate('('+QString::fromUtf8(raw)+')');auto result=backend.property("handle").call({value});assert(!result.isError());
+            auto value=evaluate('('+QString::fromUtf8(raw)+')');
+#ifdef OVERTE_CREATE_VOXEL_NATIVE_JOIN
+            auto result=engine.globalObject().property("fromQml").call({value});
+#else
+            auto result=backend.property("handle").call({value});
+#endif
+            if(result.isError()){qFatal("%s",qPrintable(result.toString()+"\n"+result.property("stack").toString()));}
             const auto outputs=evaluate("outputs.splice(0,outputs.length)").toVariant().toList();
             for(const auto& message:outputs){assert(QMetaObject::invokeMethod(page,"fromScript",Q_ARG(QVariant,message)));}
         }
@@ -93,8 +122,81 @@ int main(int argc,char**argv){
         }
         drain();QCoreApplication::processEvents();renderControl.polishItems();QCoreApplication::processEvents();return result;
     };
+#ifdef OVERTE_CREATE_VOXEL_NATIVE_JOIN
+    // The complete original PathUtils supplies the canonical file directory.
+    // Exercise both spellings and preserve exact scheme/authority identity.
+    const auto actualScripts=PathUtils::defaultScriptsLocation();
+    assert(actualScripts.scheme()=="file" && !actualScripts.path().endsWith('/'));
+    const auto actualDialog=QUrl::fromLocalFile(QFileInfo(path+"/scripts/system/create/qml/NewPolyVoxDialog.qml").canonicalFilePath());
+    const auto relativeDialog=QUrl("system/create/qml/NewPolyVoxDialog.qml");
+    assert(createScriptDirectoryUrl(actualScripts).resolved(relativeDialog)==actualDialog);
+    auto slashScripts=actualScripts;slashScripts.setPath(slashScripts.path()+'/');
+    assert(createScriptDirectoryUrl(slashScripts).resolved(relativeDialog)==actualDialog);
+    const QUrl qrcScripts("qrc:///scripts"),qrcSlash("qrc:///scripts/");
+    assert(createScriptDirectoryUrl(qrcScripts).resolved(relativeDialog)==createScriptDirectoryUrl(qrcSlash).resolved(relativeDialog));
+    assert(createScriptDirectoryUrl(qrcScripts).resolved(relativeDialog)!=actualDialog);
+    // Same complete original QML bytes under actual foreign Qt contexts must
+    // remain inadmissible, even with identical IDs and parent structure.
+    for(const auto& foreignUrl:{QUrl::fromLocalFile(path+"/foreign/system/create/qml/NewPolyVoxDialog.qml"),
+            QUrl("qrc:///scripts/system/create/qml/NewPolyVoxDialog.qml")}){
+        QQmlComponent foreignComponent(&engine);
+        foreignComponent.setData(source("scripts/system/create/qml/NewPolyVoxDialog.qml").toUtf8(),foreignUrl);
+        auto foreign=qobject_cast<QQuickItem*>(foreignComponent.create());
+        if(!foreign){qFatal("%s",qPrintable(foreignComponent.errorString()));}foreign->setParentItem(&root);foreign->setSize(root.size());
+        std::function<void(QQuickItem*)> rejectForeign=[&](QQuickItem* item){assert(!createPolyvoxObject(item) && createExtraControlId(item).isEmpty());
+            for(auto child:item->childItems()){rejectForeign(child);}};
+        rejectForeign(foreign);delete foreign;
+    }
+    // Normal detail selector -> original fromQml -> original Tablet push.
+    NormalControlUi extra(NormalControlUi::Surface::CreateExtra);
+    apply(extra,"create-extra.detail-kind","activate");apply(extra,"create-extra.detail-kind","select-index",3);
+    apply(extra,"create-extra.detail-open","activate");
+    const auto pushed=evaluate("dialogStack").toVariant().toList();assert(pushed.size()==1);
+    assert(pushed.first().toString().endsWith("/qml/NewPolyVoxDialog.qml"));page->setVisible(false);
+    QQmlComponent dialogComponent(&engine,QUrl(pushed.first().toString()));
+    auto dialog=qobject_cast<QQuickItem*>(dialogComponent.create());
+    if(!dialog){qFatal("%s",qPrintable(dialogComponent.errorString()));}dialog->setParentItem(&root);dialog->setSize(root.size());
+    QSignalSpy dialogCalls(dialog,SIGNAL(sendToScript(QVariant)));QTest::qWait(50);
+    assert(createPolyvoxObject(dialog));
+    for(const auto& axis:{"x","y","z"}){const auto id=QString("create-extra.polyvox.")+axis;apply(extra,id,"activate");apply(extra,id,"replace","8");}
+    apply(extra,"create-extra.polyvox.preset","activate");apply(extra,"create-extra.polyvox.preset","select-index",1);
+    assert(row(extra,"create-extra.polyvox.shape").value("currentIndex").toInt()==0);
+    apply(extra,"create-extra.polyvox.add","activate");assert(dialogCalls.size()==1);
+    const auto addMessage=createVariant(dialogCalls.first().first()).toMap();
+    auto addResult=engine.globalObject().property("fromQml").call({engine.toScriptValue(addMessage)});
+    if(addResult.isError()){qFatal("%s",qPrintable(addResult.toString()+"\n"+addResult.property("stack").toString()));}
+    assert(evaluate("dialogStack.length").toInt()==0);delete dialog;page->setVisible(true);
+    // This transform remains an explicit properties-application endpoint. The
+    // dialog-created entity/initial cuboid and texture URLs remain original.
+    assert(nativeVoxel.edit(nativeVoxel.entityId(),{{"name",QString(32,'a').prepend("e2e-")+"-voxel"},
+        {"position",QVariantMap{{"x",0},{"y",1},{"z",-2}}},{"dimensions",QVariantMap{{"x",1},{"y",1},{"z",1}}}}));
+    assert(nativeVoxel.finishAdd());settingsReceipt["receivedBeforeTools"]=page->property("e2eSettingsReceived").toBool();
+    const auto addCommands=evaluate("deletedCommands.splice(0,deletedCommands.length)").toVariant().toList();
+    auto listUpdate=backend.property("handle").call({evaluate("({method:'nativeCreate.refresh',params:{}})")});
+    if(listUpdate.isError()){qFatal("%s",qPrintable(listUpdate.toString()));}
+#endif
     apply(normal,"create.tab.3","activate");assert(page->property("currentTab").toInt()==3);
     assert(page->property("e2eSettingsReceived").toBool());settingsReceipt["afterReply"]=true;
+#ifdef OVERTE_CREATE_VOXEL_NATIVE_JOIN
+    assert(createVoxelPage(page)==page);
+    // The same full original NativeCreate page with valid settings/tab/shape
+    // still cannot qualify through either foreign file or qrc provenance.
+    const auto actualToolSettings=createVariant(page->property("voxelSettings"));
+    for(const auto& foreignUrl:{QUrl::fromLocalFile(path+"/foreign/system/create/qml/NativeCreate.qml"),
+            QUrl("qrc:///scripts/system/create/qml/NativeCreate.qml")}){
+        QQmlComponent foreignComponent(&engine);
+        foreignComponent.setData(source("scripts/system/create/qml/NativeCreate.qml").toUtf8(),foreignUrl);
+        auto foreign=qobject_cast<QQuickItem*>(foreignComponent.create());
+        if(!foreign){qFatal("%s",qPrintable(foreignComponent.errorString()));}foreign->setParentItem(&root);foreign->setSize(root.size());
+        foreign->setProperty("currentTab",3);
+        const QVariant reply=QVariantMap{{"method","nativeCreate.settings"},{"params",actualToolSettings}};
+        assert(QMetaObject::invokeMethod(foreign,"fromScript",Q_ARG(QVariant,reply)));
+        assert(createPage(foreign)==foreign && foreign->property("e2eSettingsReceived").toBool());
+        std::function<void(QQuickItem*)> rejectForeign=[&](QQuickItem* item){assert(!createVoxelPage(item) && createVoxelControlId(item).isEmpty());
+            for(auto child:item->childItems()){rejectForeign(child);}};
+        rejectForeign(foreign);delete foreign;
+    }
+#endif
     const auto baseline=row(tools,"create-voxel.mode").value("settings").toObject();assert(baseline.value("createAppMode")==QJsonValue("object"));
     auto choose=[&](const QString& id,int index){apply(tools,id,"activate");apply(tools,id,"select-index",index);assert(row(tools,id).value("currentIndex").toInt()==index);};
     choose("create-voxel.mode",1);choose("create-voxel.shape",2);choose("create-voxel.dynamics",0);choose("create-voxel.pointer",0);
@@ -148,6 +250,10 @@ int main(int argc,char**argv){
     QJsonArray counterexamples{"moved-token","disabled","higher-overlay","clipped"};
     QJsonObject output{{"settingsReceipt",settingsReceipt},{"before",baseline},{"configured",measured},{"restored",restored},{"stroke",changed},{"pointerCalls",pointers},{"counterexamples",counterexamples}};
 #ifdef OVERTE_CREATE_VOXEL_NATIVE_JOIN
+    output["sourceUrlCounterexamples"]=QJsonArray{"canonical-file-directory","file-directory-with-slash","qrc-directory-spellings","foreign-file-context","foreign-qrc-context","foreign-voxel-file-context","foreign-voxel-qrc-context"};
+    output["addCommands"]=QJsonArray::fromVariantList(addCommands);
+    output["addCuboids"]=QJsonArray::fromVariantList(evaluate("addCuboids").toVariant().toList());
+    output["dialogEvents"]=QJsonArray::fromVariantList(evaluate("dialogEvents").toVariant().toList());
     nativeVoxel.observe("settings-restored");
     apply(normal,"create.tab.2","activate");
     apply(normal,"create.delete","activate");

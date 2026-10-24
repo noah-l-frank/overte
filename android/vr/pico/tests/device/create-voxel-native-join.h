@@ -4,6 +4,7 @@
 // Current original volume/mesh/state-machine/collector sources are included by
 // the CPP. Entity/domain/scene and SDK delivery stay named host boundaries.
 #include <QObject>
+#include <DependencyManager.h>
 #include <QPointer>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -66,7 +67,8 @@ constexpr int PROP_VOXEL_DATA=1;
 // remain unobserved zeroes; no expected Mesh/voxel result is supplied here.
 struct EntityItemProperties {
  EntityTypes::EntityType type{EntityTypes::Unknown};entity::HostType host{entity::HostType::DOMAIN};
- QString name;glm::vec3 position{0,1,-2},dimensions{1},natural{0};glm::quat rotation{1,0,0,0};
+ QString name;std::array<QString,3> textureUrls;glm::vec3 voxelVolume{8};int surfaceStyle{3};
+ glm::vec3 position{0,1,-2},dimensions{1},natural{0};glm::quat rotation{1,0,0,0};
  bool locked{false},visible{true};quint64 created{UNKNOWN_CREATED_TIME},edited{0};
  QUuid lastEditedBy{QStringLiteral("22222222-2222-2222-2222-222222222222")};
  auto getType()const{return type;}auto getEntityHostType()const{return host;}
@@ -143,12 +145,16 @@ public:
 #include "OriginalCreatePolyvoxBaseInline.inc"
  enum PolyVoxSurfaceStyle{SURFACE_MARCHING_CUBES,SURFACE_CUBIC,SURFACE_EDGED_CUBIC,SURFACE_EDGED_MARCHING_CUBES};
  static constexpr float MAX_VOXEL_DIMENSION=128;
+ bool _needsRenderUpdate{false};
  glm::vec3 _voxelVolumeSize{8.0f},_registrationPoint{.5f};int _voxelSurfaceStyle{3};
  glm::vec3 position{0,1,-2},dimensions{1};glm::quat orientation{1,0,0,0};
  bool _locked{false},_collisionless{false};int _flags{0};QByteArray _voxelData;
  mutable std::recursive_mutex volumeMutex;
  template<class F>void withReadLock(F&& f)const{std::lock_guard<std::recursive_mutex> guard(volumeMutex);f();}
  template<class F>void withWriteLock(F&& f){std::lock_guard<std::recursive_mutex> guard(volumeMutex);f();}
+ template<class T,class F>T resultWithReadLock(F&& callback)const{std::lock_guard<std::recursive_mutex> guard(volumeMutex);return callback();}
+#include "OriginalCreateTextureProperties.inc"
+public:
  static bool isEdged(PolyVoxSurfaceStyle);bool isEdged()const;
  glm::vec3 getSurfacePositionAdjustment()const;glm::mat4 voxelToLocalMatrix()const;
  glm::mat4 voxelToWorldMatrix(bool=false)const;glm::mat4 worldToVoxelMatrix(bool=false)const;
@@ -160,7 +166,6 @@ public:
  glm::quat getWorldOrientation()const{return orientation;}glm::quat getLocalOrientation()const{return orientation;}
  BillboardMode getBillboardMode()const{return BillboardMode::NONE;}
  glm::vec3 getVoxelVolumeSize()const{return _voxelVolumeSize;}
- QString getXTextureURL()const{return {};};QString getYTextureURL()const{return {};};QString getZTextureURL()const{return {};};
  virtual bool setCuboid(const glm::vec3&,const glm::vec3&,int)=0;
 };
 enum class PolyVoxState{Ready,Uncompressing,UncompressingFinished,BakingMesh,BakingMeshFinished,BakingMeshNoCompress,BakingMeshNoCompressFinished,Compressing,CompressingFinished,BakingShape,BakingShapeFinished};
@@ -191,7 +196,7 @@ public:
  void cacheNeighbors(){}void tellNeighborsToRecopyEdges(bool force){if(force || _neighborXNeedsUpdate || _neighborYNeedsUpdate || _neighborZNeedsUpdate){_neighborXNeedsUpdate=_neighborYNeedsUpdate=_neighborZNeedsUpdate=false;}}
  void copyUpperEdgesFromNeighbors(){if(_voxelSurfaceStyle!=SURFACE_EDGED_MARCHING_CUBES){qFatal("Only the original isolated edged fixture is admitted");}}
 };
-class EntityScriptingInterface {
+class EntityScriptingInterface:public Dependency {
 public:
  EntityTreePointer _entityTree;overte::e2e::CreateLocalCreations _featureCreateLocalCreations;
  QVariantMap featureCreateLocalCreations(const QString& run){return _featureCreateLocalCreations.snapshot(run);}
@@ -201,30 +206,36 @@ public:
  bool polyVoxWorker(QUuid,std::function<bool(PolyVoxEntityItem&)>);
  bool setVoxelsInCuboid(const QUuid&,const glm::vec3&,const glm::vec3&,int);
 };
-// Texture lookup must stay unused for this actual empty-texture fixture.
-struct HostVoxelTexture:QObject {QUrl getURL()const{qFatal("No texture was admitted");return {};}};
-using NetworkTexturePointer=QSharedPointer<HostVoxelTexture>;
-struct TextureCache {NetworkTexturePointer getTexture(const QString&){qFatal("Texture acquisition is outside the owned empty-texture fixture");return {};}};
+// The normal preset carries real qrc URLs. Cache/Resource/NetworkTexture and
+// image decoding use their original declarations and selected source units.
+#include <material-networking/TextureCache.h>
+#include <StatTracker.h>
+#include <ResourceRequestObserver.h>
+#include <SettingManager.h>
+#include <ResourceManager.h>
+#include <ResourceRequest.h>
+#include <SettingHelpers.h>
+
 struct Avatar {glm::vec3 getWorldPosition()const{return {0,1,0};}glm::quat getWorldOrientation()const{return {1,0,0,0};}};
-struct AvatarManager {Avatar* getMyAvatar(){return &avatar;}Avatar avatar;};
-struct DomainHandler {
+struct AvatarManager:public Dependency {Avatar* getMyAvatar(){return &avatar;}Avatar avatar;};
+class DomainHandler:public QObject {
+ Q_OBJECT
+public:
  QUuid id{QStringLiteral("11111111-1111-1111-1111-111111111111")};bool connected{true};overte::e2e::ChatDomainSession observer;
  DomainHandler(){observer.changed(id,connected,true);}
  QVariantMap featureChatSession(const QString& run){return observer.snapshot(run);}QUuid getUUID()const{return id;}
  bool isConnected()const{return connected;}
+signals:
+ void disconnectedFromDomain();
 };
-struct NodeList {
+struct NodeList:public Dependency {
  DomainHandler domain;bool canRez{true},canRezTmp{false};
  DomainHandler& getDomainHandler(){return domain;}
  QUuid getSessionUUID()const{return QUuid(QStringLiteral("22222222-2222-2222-2222-222222222222"));}
  bool getThisNodeCanRez()const{return canRez;}bool getThisNodeCanRezTmp()const{return canRezTmp;}
 };
 struct PickFilter {enum class FlagBit{DOMAIN_ENTITIES,COARSE};static int getBitMask(FlagBit bit){return bit==FlagBit::DOMAIN_ENTITIES?1:2;}};
-struct DependencyManager {
- inline static EntityScriptingInterface* activeEntities{nullptr};
- template<class T>static bool isSet(){if constexpr(std::is_same_v<T,EntityScriptingInterface>){return activeEntities!=nullptr;}return true;}
- template<class T>static T* get(){if constexpr(std::is_same_v<T,EntityScriptingInterface>){return activeEntities;}else{static T value;return &value;}}
-};
+
 namespace render::entities {
 class PolyVoxEntityRenderer:public QObject,public std::enable_shared_from_this<PolyVoxEntityRenderer> {
 public:
@@ -253,18 +264,26 @@ public:
 };
 class NativeCreateVoxelJoin:public QObject {
  Q_OBJECT
- EntityTreePointer tree{std::make_shared<EntityTree>()};EntityScriptingInterface entitiesApi;
+ EntityTreePointer tree{std::make_shared<EntityTree>()};QSharedPointer<EntityScriptingInterface> entitiesApi;
  TestScriptingInterface entitySource;
  std::weak_ptr<RenderablePolyVoxEntityItem> original;std::shared_ptr<render::entities::PolyVoxEntityRenderer> renderer;
  std::weak_ptr<graphics::Mesh> lastRendered;
  QTimer scheduler;QElapsedTimer sourceClock;QString run{QString(32,'a')};QUuid identifier;int sequence{0},mutationCalls{0},deleteCalls{0};
- bool keepRenderer{false},ignoreInput{false};QVariantList originals;quint64 traceBytes{0};
+ bool keepRenderer{false},ignoreInput{false};QVariantList originals;
+ struct TextureOriginal {QWeakPointer<NetworkTexture> object;QPointer<QObject> guard;QString url;std::weak_ptr<gpu::Texture> pixels;bool pixelsObserved{false};};
+ struct RequestOriginal {QPointer<ResourceRequest> object;QPointer<QObject> factoryOwner,objectParent;QString url;QVariantMap provenance,finished;};
+ QList<TextureOriginal> textureOriginals;QList<RequestOriginal> requestOriginals;QMutex requestMutex;
+ QVariantMap addProperties;QVariantList propertyEdits;QVariantList textureSnapshot();quint64 traceBytes{0};
  struct TimerOriginal {QPointer<QTimer> timer;int invocations{0};};QMap<int,TimerOriginal> timers;int timerSequence{0};
  void drive();void render();bool settle(int milliseconds);QVariantMap snapshot(const QString&);
 public:
  explicit NativeCreateVoxelJoin(QObject* parent=nullptr);
- ~NativeCreateVoxelJoin()override{if(DependencyManager::activeEntities==&entitiesApi){DependencyManager::activeEntities=nullptr;}}
+ ~NativeCreateVoxelJoin()override=default;
  Q_INVOKABLE QString entityId()const{return identifier.toString(QUuid::WithoutBraces);}
+ Q_INVOKABLE QString add(const QVariantMap&,const QString& host);
+ Q_INVOKABLE bool edit(const QString&,const QVariantMap&);
+ Q_INVOKABLE bool finishAdd();
+ void observeRequest(ResourceRequest*,QObject*,const QUrl&);
  Q_INVOKABLE QVariantMap properties(const QString&);
  Q_INVOKABLE QVariantMap voxelCoords(const QString&,const QVariantMap&);
  Q_INVOKABLE QVariantMap ray(const QVariantMap&,const QVariantMap&);
@@ -279,3 +298,5 @@ public:
  Q_INVOKABLE QVariantList history()const{return originals;}
  Q_INVOKABLE bool ignored()const{return ignoreInput;}
 };
+
+void observeCreateTextureRequest(ResourceRequest*,QObject*,const QUrl&);
