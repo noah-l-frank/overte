@@ -2043,6 +2043,15 @@ def create_adapter(args, base_class):
                 if path.name in names or path.name.startswith('lifecycle-pending-originals.json.frame-'):return True
             return False
 
+        def _lifecycle_close_owned(self,target):
+            store=self._lifecycle_world_store(target,create=False)
+            if store is None:return False
+            parent=store.path.parent;store._parent()
+            for index,path in enumerate(parent.iterdir()):
+                _need(index<4096)
+                if path.name in ('lifecycle-close-owner.json','lifecycle-close-originals.json') or path.name.startswith('lifecycle-close-originals.json.frame-'):return True
+            return False
+
         @_private
         def _lifecycle_world(self,target,run,*,source_lock=None):
             from adapters.pico4.lifecycle_world import PicoLifecycleWorld
@@ -2239,6 +2248,18 @@ def create_adapter(args, base_class):
             pending=self._pending_owner(target,binding=binding)
             return PicoLifecyclePending(background,world,route,pending,
                 self._lifecycle_world_store(target).path.with_name('lifecycle-pending-owner.json'))
+
+        @_private
+        def _lifecycle_close_owner(self,target,run,*,pending):
+            from adapters.pico4.lifecycle_pending import PicoLifecyclePending
+            from adapters.pico4.lifecycle_close import PicoLifecycleClose
+            _need(type(pending) is PicoLifecyclePending and pending.run==run)
+            world=self._lifecycle_world_store(target)
+            _need(pending.world.store.path==world.path and pending.store.path==world.path.with_name('lifecycle-pending-owner.json'))
+            self._script_journey()._lock(target,pending.lock)
+            native=self._native_feature_observer(target);native.guard()
+            _need(native.pid==pending.pid and self.require_pico_session_identity(target)==pending.binding['processIdentity'])
+            return PicoLifecycleClose(pending,world.path.with_name('lifecycle-close-owner.json'))
 
         def _lifecycle_back_store(self,target):
             state,_ui=self._script_paths(target)
@@ -3568,6 +3589,7 @@ def create_adapter(args, base_class):
                       and (self._lifecycle_world_store(target,create=False) is None or self._lifecycle_world_store(target,create=False).read() is None)
                       and not self._lifecycle_background_owned(target)
                       and not self._lifecycle_pending_owned(target)
+                      and not self._lifecycle_close_owned(target)
                       and (self._audio_page_store(target,create=False) is None or self._audio_page_store(target,create=False).read() is None)
                       and not self._audio_capture_owned(target)
                       and self._script_restart_inputs_store(target).read() is None

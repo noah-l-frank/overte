@@ -182,6 +182,8 @@ TESTS = (
     test("tablet-home-ray", "interaction", PYTHON, "device/test_tablet_home.py"),
     test("lifecycle-input-owner", "interaction", PYTHON, "device/test_lifecycle_input.py", requires=("node",)),
     test("lifecycle-background-owner", "interaction", PYTHON, "device/test_lifecycle_background_owner.py", requires=("node",)),
+    test("lifecycle-world-codec", "interaction", PYTHON, "device/test_lifecycle_world_codec.py"),
+    test("lifecycle-close-owner", "interaction", PYTHON, "device/test_lifecycle_close_owner.py"),
     test("avatar-people-native-ui", "interaction", PYTHON, "device/test_avatar_people_controls_native.py", requires=("c++", "pkg-config", "node")),
     test("avatar-state-native", "interaction", PYTHON, "device/test_avatar_state_native.py", requires=("c++", "pkg-config")),
     test('avatar-urls-owner', "interaction", PYTHON, "device/test_avatar_urls_owner.py",

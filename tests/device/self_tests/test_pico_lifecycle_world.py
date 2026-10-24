@@ -13,7 +13,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from adapters.native_feature_observation import need
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.lifecycle_world import PicoLifecycleWorld,MOVE
-from adapters.script_journey.history import unpack
+from adapters.pico4.lifecycle_world_codec import owner_payload
 from adapters.script_journey.lock import ScriptSourceLock
 from openxr_input.adapter_session import PicoOpenXrAdapterSession,AdapterSessionError
 from self_tests.test_pico_lifecycle_back import BINDING
@@ -62,7 +62,7 @@ class Native:
 class Transport(FakeTransport):
     def __init__(self,native,path):super().__init__();self.native,self.path=native,path;self.fail=None;self.before=None;self.consume=True
     def stage(self,envelope,profile):
-        state=unpack(json.loads(self.path.read_text())['payload'])[0];attempt=state['attempts'][-1]
+        state=owner_payload(json.loads(self.path.read_text()))[0];attempt=state['attempts'][-1]
         assert attempt['phase']=='enveloped' and attempt['envelope']==envelope
         if self.before:self.before(state,envelope)
         result=super().stage(envelope,profile)
@@ -114,7 +114,7 @@ class LifecycleWorldTests(unittest.TestCase):
         self.assertEqual(2,self.owner().reconcile()['worldAttempts'])
     def _release(self,owner):
         result=owner.release();self.assertEqual([],result['heldInputs'])
-        return unpack(json.loads(self.path.read_text())['payload'])[0]['attempts'][-1]['phase']
+        return owner_payload(json.loads(self.path.read_text()))[0]['attempts'][-1]['phase']
     def test_ack_without_original_client_consumption_never_counts_and_cannot_be_repeated(self):
         owner=self.started();self.transport.consume=False
         with self.assertRaises(NativeUIError):owner.world_input()
@@ -178,7 +178,7 @@ class LifecycleWorldTests(unittest.TestCase):
         owner=self.started();write=owner.store.write
         def slow(value,previous):
             write(value,previous)
-            attempts=unpack(value['payload'])[0]['attempts']
+            attempts=owner_payload(value)[0]['attempts']
             if attempts and attempts[-1]['phase']=='enveloped':self.native.clock+=2
         with patch.object(owner.store,'write',side_effect=slow),self.assertRaises(NativeUIError):owner.world_input()
         self.assertEqual([],self.transport.envelopes);self.assertEqual('enveloped',owner.state['attempts'][-1]['phase'])
