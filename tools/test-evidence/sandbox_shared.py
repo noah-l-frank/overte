@@ -663,7 +663,9 @@ def run_host(*, profile=FULL_ENVIRONMENT):
             base.chmod(0o755)
             candidate, policy = base / 'candidate', base / 'policy'
             candidate.mkdir(mode=0o755)
+            candidate.chmod(0o755)
             policy.mkdir(mode=0o755)
+            policy.chmod(0o755)
             snapshot = materialize_source(os.environ['GITHUB_SHA'], candidate)
             projection = project_policy(policy, names, trusted_source=os.environ['GITHUB_SHA'])
             binding = {'source': os.environ['GITHUB_SHA'], 'run_id': int(os.environ['GITHUB_RUN_ID']),

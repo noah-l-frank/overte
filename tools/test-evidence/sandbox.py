@@ -316,9 +316,42 @@ def _files(root, *, streamed=False, deadline=None):
     return result
 
 
+def _source_directories(root, path, *, require_new=False):
+    """Set declared modes only on new source directories, never adopt inputs."""
+    root = _directory(root)
+    _require(path.is_relative_to(root) and ".." not in path.relative_to(root).parts,
+             "source directory escaped its construction root")
+    current = root
+    for part in (None, *path.relative_to(root).parts):
+        if part is not None:
+            current /= part
+            try:
+                current.mkdir(mode=0o755)
+            except FileExistsError:
+                _require(not (require_new and current == path),
+                         "source construction directory already exists")
+            else:
+                created = current.lstat()
+                descriptor = os.open(current, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                try:
+                    opened = os.fstat(descriptor)
+                    _require((created.st_dev, created.st_ino) == (opened.st_dev, opened.st_ino)
+                             and opened.st_uid == os.geteuid() and stat.S_ISDIR(opened.st_mode),
+                             "new source directory changed before mode assignment")
+                    os.fchmod(descriptor, 0o755)
+                    _require((current.lstat().st_dev, current.lstat().st_ino) == (opened.st_dev, opened.st_ino),
+                             "new source directory changed after mode assignment")
+                finally:
+                    os.close(descriptor)
+        info = current.lstat()
+        _require(stat.S_ISDIR(info.st_mode) and info.st_uid == os.geteuid()
+                 and stat.S_IMODE(info.st_mode) == 0o755,
+                 "existing source directory is not the declared ordinary source")
+
+
 def _write_source(root, name, data, executable=False):
     path = root / name
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
+    _source_directories(root, path.parent)
     with path.open("xb") as target:
         target.write(data)
     path.chmod(0o555 if executable else 0o444)
@@ -418,7 +451,7 @@ class _StreamedObjects:
                  "streamed snapshot object byte budget exceeded")
         raw = self.spool / (kind + "-" + oid)
         target = self.destination / ".git/objects" / oid[:2] / oid[2:]
-        target.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
+        _source_directories(self.destination, target.parent)
         compressor = zlib.compressobj(1)
         body_hash, stored_hash, stored_size = hashlib.sha256(), hashlib.sha256(), 0
         with raw.open("xb") as output, target.open("xb") as packed:
@@ -520,7 +553,7 @@ def materialize_candidate_snapshot(candidate, revision, destination, *, context_
                     relative = _snapshot_path(prefix + name)
                     if mode == b"40000":
                         if write:
-                            (destination / relative).mkdir(mode=0o755)
+                            _source_directories(destination, destination / relative, require_new=True)
                             source_files[relative] = {"directory": True}
                         tree(child, relative + "/", write)
                     else:
@@ -552,7 +585,7 @@ def materialize_candidate_snapshot(candidate, revision, destination, *, context_
         finally:
             reader.close()
     _require(not (destination / "build").exists(), "private build mount would hide tracked source inputs")
-    (destination / "build").mkdir(mode=0o755)
+    _source_directories(destination, destination / "build", require_new=True)
     source_files["build"] = {"directory": True}
     expected_files = dict(source_files)
     expected_files.update(stored)
@@ -561,7 +594,7 @@ def materialize_candidate_snapshot(candidate, revision, destination, *, context_
     expected_files[".git"] = {"directory": True}
     expected_files[".git/objects"] = {"directory": True}
     for name in (".git/objects/pack", ".git/objects/info", ".git/refs"):
-        (destination / name).mkdir(parents=True, exist_ok=True, mode=0o755)
+        _source_directories(destination, destination / name)
         expected_files[name] = {"directory": True}
     def metadata_file(name, body):
         _write_source(destination, name, body)
@@ -637,7 +670,7 @@ def materialize_snapshot(candidate, revision, destination):
             child, data = rest[:20].hex(), rest[20:]
             if mode == b"40000":
                 if materialize:
-                    (destination / relative).mkdir(mode=0o755)
+                    _source_directories(destination, destination / relative, require_new=True)
                 tree(child, relative + "/", materialize)
             else:
                 _require(mode in {b"100644", b"100755"}, "snapshot contains a symlink, gitlink or unsupported mode")
@@ -660,9 +693,9 @@ def materialize_snapshot(candidate, revision, destination):
                 pending.append(line[7:].decode("ascii"))
     tree(identity["tree"], materialize=True)
     _require(not (destination / "build").exists(), "private build mount would hide tracked source inputs")
-    (destination / "build").mkdir(mode=0o755)
+    _source_directories(destination, destination / "build", require_new=True)
     for name in (".git/objects/pack", ".git/objects/info", ".git/refs"):
-        (destination / name).mkdir(parents=True, exist_ok=True, mode=0o755)
+        _source_directories(destination, destination / name)
     _write_source(destination, ".git/HEAD", (revision + "\n").encode("ascii"))
     _write_source(destination, ".git/config", b"[core]\nrepositoryformatversion = 0\nbare = false\nfilemode = true\n")
     for oid, (kind, body) in objects.items():

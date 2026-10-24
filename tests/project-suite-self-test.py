@@ -524,6 +524,11 @@ class ArtifactIdentityConfinementTests(unittest.TestCase):
             secret.write_text("private-cache-byte-canary\n")
             (root / ".git/objects/source-canary").write_text("private-cache-byte-canary\n")
             (directory / "test_boundary.py").write_text(textwrap.dedent(body))
+            for relative in ("tests/run-unittest-suite.py", "tests/device/run_artifact_identity.py",
+                             "tests/device/schema/artifact-identity/test_boundary.py"):
+                source = root / relative
+                if source.exists():
+                    source.chmod(0o644)
             yield parent, root
 
     def execute(self, root, command=None, environment=None):
@@ -575,6 +580,7 @@ class ArtifactIdentityConfinementTests(unittest.TestCase):
         with self.fixture('') as (_, root):
             target = root / 'provenance/actual_reader.py'
             target.write_bytes(b'ordinary private source\n')
+            target.chmod(0o644)
             before = target.stat()
             reads = []
 
@@ -686,6 +692,7 @@ class ArtifactIdentityConfinementTests(unittest.TestCase):
                 "except OSError: pass\n"
                 "else: raise AssertionError('prepared resource escaped to candidate source')\n"
                 "print(files('artifact_fixture_resource').joinpath('payload.txt').read_text())\n")
+            (root / "tools/sbom/verify-artifact-identity.py").chmod(0o644)
             command = self.command()
             command[0] = str(interpreter)
             result = self.execute(root, command=command)
@@ -720,6 +727,7 @@ class ArtifactIdentityConfinementTests(unittest.TestCase):
         """
         with self.fixture(body) as (_, root):
             (root / "tools/sbom/unlisted.py").write_text("print('unlisted-body-executed')\n")
+            (root / "tools/sbom/unlisted.py").chmod(0o644)
             result = self.execute(root)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("Ran 1 test", result.stderr)

@@ -700,7 +700,7 @@ class ControllerGenerationTests(unittest.TestCase):
 
     def test_projection_requires_native_expectedD_then_authenticates_actual_readonly_controller_copy(self):
         import sandbox_shared as S
-        projection=Path(self.temp.name)/'projection';projection.mkdir()
+        projection=Path(self.temp.name)/'projection';projection.mkdir();projection.chmod(0o755)
         names=C.controller_paths()
         with patch.object(S,'ROOT',self.root):
             with self.assertRaises(S.host.Unavailable):S.project_policy(projection,names)
@@ -806,7 +806,7 @@ class RetainedOriginalDefaultTests(unittest.TestCase):
             'selection':self.selection,'profile_binding':None,'registry':C._digest(self.registry),
             'prepared':self.environment['prepared']['roots'],
             'outside_namespaces':{name:index+100 for index,name in enumerate(('user','mnt','pid','net','ipc','uts'))}}
-        self.projection=self.root.parent/'projection';self.projection.mkdir(mode=0o755)
+        self.projection=self.root.parent/'projection';self.projection.mkdir(mode=0o755);self.projection.chmod(0o755)
         for name in C.controller_paths():
             sandbox._write_source(self.projection,name,(self.root/name).read_bytes(),executable=name=='tests/run-project-tests.py')
         sandbox._write_source(self.projection,C.CONTROLLER_MANIFEST,inputs._canonical(self.manifest))
@@ -1138,7 +1138,7 @@ class SevenTargetProfileTests(unittest.TestCase):
         import sandbox
         import sandbox_shared as shared
         names=C.controller_paths()
-        destination=self.root.parent/'full-policy';destination.mkdir()
+        destination=self.root.parent/'full-policy';destination.mkdir();destination.chmod(0o755)
         with patch.object(shared,'ROOT',self.root):
             projected=shared.project_policy(destination,names,trusted_source=self.source)
         self.assertIn(C.CONTROLLER_MANIFEST,projected)
@@ -1164,7 +1164,7 @@ class SevenTargetProfileTests(unittest.TestCase):
                 '/opt/hostedtoolcache/Python/3.12.15/x64','/opt/hostedtoolcache/node/22.23.3/x64')},
             'outside_namespaces':{name:index+100 for index,name in enumerate(('user','mnt','pid','net','ipc','uts'))},
             'selection_target':'apple-ios','selection_base':self.source}
-        projection=self.root.parent/'retained-seven';projection.mkdir()
+        projection=self.root.parent/'retained-seven';projection.mkdir();projection.chmod(0o755)
         for name in C.controller_paths():sandbox._write_source(projection,name,(self.root/name).read_bytes(),
             executable=name=='tests/run-project-tests.py')
         sandbox._write_source(projection,C.CONTROLLER_MANIFEST,inputs._canonical(self.manifest))

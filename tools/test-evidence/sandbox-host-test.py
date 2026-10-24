@@ -834,7 +834,9 @@ class ImmutableQualificationSourceTests(unittest.TestCase):
     def test_fixed_hosted_snapshot_and_isolated_probe_import_are_real_source_operations(self):
         candidate, projection = self.root / "candidate", self.root / "projection"
         candidate.mkdir(mode=0o755)
+        candidate.chmod(0o755)
         projection.mkdir(mode=0o755)
+        projection.chmod(0o755)
         snapshot, inventory = H.diagnostic_snapshot(sandbox, self.root / "original", candidate, projection)
         sandbox.verify_snapshot(candidate, snapshot)
         sandbox.verify_projection(projection, inventory)
@@ -1487,6 +1489,7 @@ class SharedHostSourceTests(unittest.TestCase):
         (self.root / "json.py").write_text("raise RuntimeError('candidate shadow must never execute')\n")
         projection = self.root / "projected"
         projection.mkdir()
+        projection.chmod(0o755)
         with patch.object(SHARED, "ROOT", self.root):
             self.assertEqual(SHARED.verify_source(self.revision), self.names)
             expected = SHARED.project_policy(projection, self.names, trusted_source=self.revision)
@@ -1510,6 +1513,7 @@ class SharedHostSourceTests(unittest.TestCase):
         (self.root / ".git/shallow").write_text(first + "\n" + other + "\n")
         destination = self.root.parent / (self.root.name + "-snapshot")
         destination.mkdir()
+        destination.chmod(0o755)
         self.addCleanup(shutil.rmtree, destination)
         with patch.object(SHARED, "ROOT", self.root):
             SHARED.verify_source(merged)
@@ -1888,6 +1892,7 @@ class SharedHostPreparedExternalInputsTests(unittest.TestCase):
         self.alias.parent.mkdir(parents=True)
         self.target.parent.mkdir(parents=True)
         self.target.write_bytes(b'fixed fake certificate-store bytes')
+        self.target.chmod(0o644)
         self.alias.symlink_to(self.target)
         self.prepared = ((), self.base / 'python', self.base / 'node', self.java)
         self.foreign = set()

@@ -309,9 +309,36 @@ class SnapshotTests(GitFixture):
         self.revision = self.git("rev-parse", "HEAD")
         self.snapshot = self.root / "materialized"
         self.snapshot.mkdir(mode=0o755)
+        self.snapshot.chmod(0o755)
 
     def make_snapshot(self):
         return S.materialize_snapshot(self.repository, self.revision, self.snapshot)
+
+    def test_owned_new_source_directories_have_declared_modes_under_private_umask(self):
+        S._write_source(self.snapshot, "nested/child/source.py", b"sealed source\n")
+        for relative in ("nested", "nested/child"):
+            self.assertEqual((self.snapshot / relative).stat().st_mode & 0o777, 0o755)
+        self.assertEqual((self.snapshot / "nested/child/source.py").stat().st_mode & 0o777, 0o444)
+        self.assertEqual(S._files(self.snapshot)["nested/child/source.py"]["mode"], 0o444)
+
+    def test_source_construction_never_normalizes_preexisting_mode_or_alias(self):
+        foreign = self.snapshot / "foreign"
+        foreign.mkdir(mode=0o700)
+        foreign.chmod(0o700)
+        sentinel = foreign / "sentinel"
+        sentinel.write_bytes(b"untouched private source")
+        before = foreign.stat(), sentinel.stat()
+        with self.assertRaisesRegex(S.SandboxUnavailable, "existing source directory"):
+            S._write_source(self.snapshot, "foreign/new.py", b"not admitted")
+        self.assertEqual((foreign.stat(), sentinel.stat()), before)
+        self.assertEqual(sentinel.read_bytes(), b"untouched private source")
+        self.assertFalse((foreign / "new.py").exists())
+        (self.snapshot / "alias").symlink_to(foreign, target_is_directory=True)
+        before = foreign.stat()
+        with self.assertRaisesRegex(S.SandboxUnavailable, "existing source directory"):
+            S._write_source(self.snapshot, "alias/new.py", b"not admitted")
+        self.assertEqual(foreign.stat(), before)
+
 
     def test_raw_snapshot_preserves_pristine_history_and_ignores_dirty_source(self):
         previous = self.git("rev-parse", "HEAD^")
@@ -349,6 +376,7 @@ class SnapshotTests(GitFixture):
             path = self.snapshot / name
             if directory:
                 path.mkdir(mode=0o755)
+                path.chmod(0o755)
             else:
                 path.write_text("shadow")
                 path.chmod(0o444)
@@ -394,12 +422,14 @@ class SnapshotTests(GitFixture):
                 self.make_snapshot()
             shutil.rmtree(self.snapshot)
             self.snapshot.mkdir(mode=0o755)
+            self.snapshot.chmod(0o755)
             self.git("update-index", "--force-remove", "unsupported")
 
     def test_private_projection_has_no_git_or_unrelated_sources_and_is_sealed(self):
         identity = self.make_snapshot()
         destination = self.root / "projection"
         destination.mkdir(mode=0o755)
+        destination.chmod(0o755)
         projection = S.project_policy(self.snapshot, destination, identity)
         self.assertEqual(set(projection), S._PROJECTION_INVENTORY)
         self.assertFalse((destination / ".git").exists())
@@ -409,6 +439,7 @@ class SnapshotTests(GitFixture):
         with self.assertRaises(S.SandboxUnavailable):
             S.bind_projection(destination, sealed, {})
         (destination / "unexpected").mkdir(mode=0o755)
+        (destination / "unexpected").chmod(0o755)
         with self.assertRaises(S.SandboxUnavailable):
             S.verify_projection(destination, sealed)
 
@@ -421,6 +452,7 @@ class SnapshotTests(GitFixture):
         identity = self.make_snapshot()
         destination = self.root / "projection"
         destination.mkdir(mode=0o755)
+        destination.chmod(0o755)
         with self.assertRaisesRegex(S.SandboxUnavailable, "candidate cannot supply"):
             S.project_policy(self.snapshot, destination, identity)
 
@@ -461,6 +493,7 @@ class StreamedCandidateTests(GitFixture):
     def snapshot(self, name="candidate", context=()):
         destination = self.root / name
         destination.mkdir(mode=0o755)
+        destination.chmod(0o755)
         value = S.materialize_candidate_snapshot(self.repository, self.revision, destination, context_revisions=context)
         S.verify_snapshot(destination, value)
         return destination, value
@@ -670,6 +703,7 @@ class StreamedCandidateTests(GitFixture):
                 path.chmod(0o444)
             elif kind == "directory":
                 path.mkdir(mode=0o755)
+                path.chmod(0o755)
             else:
                 path.symlink_to("test.py")
             with self.subTest(name=name), self.assertRaises(S.SandboxUnavailable):
@@ -697,6 +731,7 @@ class StreamedCandidateTests(GitFixture):
         destination, value = self.snapshot()
         projection = self.root / "projection"
         projection.mkdir(mode=0o755)
+        projection.chmod(0o755)
         inventory = S.project_policy(destination, projection, value)
         S.verify_projection(projection, inventory)
         self.assertEqual((projection / "tools/test-evidence/runtime.py").read_bytes(), (S.ROOT / "tools/test-evidence/runtime.py").read_bytes())
