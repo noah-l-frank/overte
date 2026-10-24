@@ -1626,7 +1626,15 @@
         "tests/device/adapters/pico4/lifecycle_background_originals.py",
         "tests/device/adapters/pico4/LIFECYCLE_BACKGROUND_OWNER.md",
         "tests/device/self_tests/test_pico_lifecycle_background_owner.py",
-        "tests/device/self_tests/test_pico_lifecycle_background_originals.py"
+        "tests/device/self_tests/test_pico_lifecycle_background_originals.py",
+        "tests/device/adapters/pico4/lifecycle_pending.py",
+        "tests/device/adapters/pico4/lifecycle_pending_originals.py",
+        "tests/device/adapters/pico4/LIFECYCLE_PENDING.md",
+        "tests/device/self_tests/test_pico_lifecycle_pending.py",
+        "tests/device/self_tests/test_lifecycle_pending_freshness.py",
+        "tests/device/self_tests/test_lifecycle_pending_originals.py",
+        "android/vr/pico/tests/device/test_lifecycle_pending_factory.py",
+        "android/vr/pico/tests/pico-lifecycle-pending-test.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1671,7 +1679,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Continue Scripts/pending/stale input interruption, later movement, independent peer/image and complete process restore/retirement around the existing Create/X/Chat and HOME/return owners. Derive generation only from actual prior originals; retain background owners, manifests and orphan children until independently qualified whole cleanup.",
+      "nextExecutableStep": "Continue normal close-editor and second world movement/release through the same original World owner and its unchanged 128-frame budget. The existing Create/X/Chat/HOME prefix now joins actual normal Scripts entries, original held event/context replacement/rejected stale attempt/release and complete independent quiet. The host hold barrier is conservatively pinned before transport and unsafe v1 birth values are refused cold. Bound pending construction avoids default Script inventory; typed cold binding aliases are rejected. Root verifies 27 new owning cases plus 22 existing readers. Normal position restoration, independent peer/image evidence and full process/context/file retirement remain required; duplicate archival cannot reduce the actual physical observation count.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

@@ -12,7 +12,7 @@ import re
 import uuid
 from adapters.native_feature_observation import decode,exact,integer,need,number
 from adapters.native_chat_view import measured_keyboard
-from adapters.normal_feature_state import PrivateFeatureState
+from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
 from adapters.pending_commit_owner import NativePendingCommitOwner,command,validate as pending_validate,accept as pending_accept
 from adapters.pico4 import lifecycle_source as ui,lifecycle_drive as drive
@@ -78,6 +78,7 @@ class PicoLifecyclePending:
     def original_state(self):
         # Pure physical/metadata verification, also valid after actual lock
         # release. It cannot create a reader, refresh a source or acquire input.
+        for binding in (self.binding,self.world.binding,self.background.binding):context(binding)
         need(self.store.read()==self.disk and self.run==self.world.run==self.background.run
             and self.binding==self.world.binding==self.background.binding and self.pid==self.world.pid==self.pending.pid
             and self.lock is self.world.lock is self.background.lock
@@ -226,6 +227,7 @@ class PicoLifecyclePending:
         self.bound();disk=self.store.read()
         if disk is None:need(self.state is None);return
         exact(disk,{'lifecyclePendingOwnerVersion','runId','binding','originalChunks','originalStamp','payload'})
+        context(disk['binding'])
         need(type(disk['lifecyclePendingOwnerVersion']) is int and disk['lifecyclePendingOwnerVersion']==VERSION
             and disk['runId']==self.run and disk['binding']==self.binding and disk['originalChunks']==self.originals.manifest)
         values=self.originals.decode(unpack(disk['payload']));need(len(values)==1);self.validate(values[0])

@@ -130,3 +130,21 @@ actual cold refusal without native queries, and the existing 9.5-second first
 observation/deadline case passed together in 14.384 s. Neither original inputs
 nor budgets changed. The disjoint selector inventory is now progress 7 and
 failure 10; the complete Lifecycle capability remains absent.
+
+
+The integrated Pico factory passes the already acquired World binding to the
+existing pending reader. Its default legacy entry remains unchanged, while
+this bound entry does not query or adopt the general Script inventory. An
+actual factory regression exercises valid reconstruction without input and
+persists a boolean-generation alias before a second cold construction. Strict
+context validation refuses that alias without querying native sources or
+rewriting the journal. The original alias counter failed before this check.
+
+The Pico catalog has three disjoint selectors: `lifecycle-pending-progress`
+(7 cases), `lifecycle-pending-failure` (10), and `lifecycle-pending-originals`
+(7 original/freshness cases plus 3 actual binding cases). Root verifies all
+27 cases, 22 existing native-reader/UI cases, coverage and four repository
+suites. The four selected catalog groups pass in 135.003 s in total; their
+individual deadlines remain 120 s. Generic unittest discovery sees exactly
+17 pending and 3 factory cases, without re-exporting fixture TestCase classes.
+These results do not qualify the native producers or complete Lifecycle.

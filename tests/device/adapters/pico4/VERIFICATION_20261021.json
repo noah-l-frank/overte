@@ -4032,5 +4032,75 @@
     "completeFeature": false,
     "fullApplicationCompiled": false,
     "deviceAcceptance": false
+  },
+  "lifecyclePendingRoot20261024": {
+    "sources": [
+      "ef610c052fbf3f782e688d87da3f15e3a70d7a1c",
+      "a0e134dcefabb0239f8c395cb789351698203782"
+    ],
+    "selectedAs": [
+      "ff0a0fc5a9",
+      "3b8e52ddfa"
+    ],
+    "status": "passed-selected-host-components",
+    "selection": {
+      "groups": 4,
+      "catalogGroups": 234,
+      "durationSeconds": 135.003,
+      "progressCases": 7,
+      "progressSelectorSeconds": 59.519,
+      "failureCases": 10,
+      "failureSelectorSeconds": 68.091,
+      "originalAndFactoryCases": 10,
+      "originalSelectorSeconds": 7.287,
+      "coverageCases": 10,
+      "coverageSeconds": 0.105
+    },
+    "legacy": {
+      "cases": 22,
+      "durationSeconds": 0.07,
+      "status": "passed"
+    },
+    "repository": {
+      "suites": 4,
+      "durationSeconds": 2.724,
+      "status": "passed"
+    },
+    "registryProbeSyntaxWhitespace": "passed",
+    "actualFactoryInitialRed": {
+      "cases": 1,
+      "durationSeconds": 6.722,
+      "cause": "unnecessary default Script inventory query from unbound pending factory"
+    },
+    "actualFactoryDiagnosticSeconds": 14.742,
+    "boundFactoryColdAliasRed": {
+      "cases": 1,
+      "durationSeconds": 6.606,
+      "cause": "boolean binding generation was accepted as an equal integer"
+    },
+    "correctedFactoryColdAlias": {
+      "cases": 1,
+      "durationSeconds": 6.696,
+      "status": "passed"
+    },
+    "holdBirthTransportCounterAgent": {
+      "initialRedSeconds": 7.107,
+      "actualUnsafeShiftMilliseconds": 600,
+      "correctedCases": 2,
+      "correctedSeconds": 14.384
+    },
+    "bindingExplicitContextAndColdValidation": true,
+    "unsafeLegacyHoldBirthRetimed": false,
+    "lostInputNeverReplayed": true,
+    "originalFilesAndPrivateJournalsRetained": true,
+    "worldFrameBudgetUnchanged": 128,
+    "pendingOriginalContainerChildren": 512,
+    "pendingOriginalContainerBytes": 16777216,
+    "owningCallSeconds": 20,
+    "nativeHoldSeconds": 10,
+    "completeFeature": false,
+    "nativeUiImeSdkPhysicsProducers": "explicit-host-seams",
+    "fullApplicationCompiled": false,
+    "deviceAcceptance": false
   }
 }

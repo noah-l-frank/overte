@@ -2743,3 +2743,25 @@ Tree/SDK/domain/scene release remain host endpoints; the narrow retirement
 slice does not qualify full EntitySource6 or heap/physics/GPU retirement.
 Original local creation/event/full-source and parent integration are next.
 Completed source areas remain 3/14; no full APK or device result is claimed.
+
+
+Lifecycle pending source `ef610c052f` is selected as `ff0a0fc5a9`; its measured
+600 ms hold-birth transport correction `a0e134dcef` is selected as `3b8e52ddfa`.
+Root additionally binds pending construction to the existing World context,
+avoiding an unrelated default Script inventory query exposed by the actual
+factory case. Strict context validation rejects a persisted boolean generation
+that previously compared equal to the original integer. Both actual red paths
+and their corrected positive/cold-refusal proofs are retained. Three disjoint
+Pico selectors wire every new case: progress 7, failure 10 and originals/factory
+10. Imported fixture classes are referenced as modules to prevent duplicate
+discovery; the original fixture test modules remain wired. The integrated
+four-group selection passes in 135.003 s, within each unchanged 120 s selector
+bound, with 234 catalog groups. Twenty-two existing readers pass in 0.070 s;
+four repository suites pass in 2.724 s; registry, probe syntax and whitespace
+pass. The unchanged 20 s owning call, 10 s native hold, 128 World frames and
+512-child/16 MiB original container remain enforced. Next normal Close and
+second world attempt must keep that same physical inventory; removing duplicate
+archive copies cannot reduce the actual query count. Final restoration, peer,
+images and complete process/context/file retirement remain unfinished. Native
+UI/IME/SDK/physics producers remain host seams; completed source areas remain
+3/14 and all devices remain unqualified.

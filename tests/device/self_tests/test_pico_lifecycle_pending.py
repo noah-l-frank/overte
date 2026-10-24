@@ -22,7 +22,7 @@ from adapters.pico4.lifecycle_source import current_editor
 from adapters.script_journey.history import pack,unpack
 from adapters.token_script_ui import TokenScriptUI
 from self_tests.test_pending_commit_owner import Boundary as PendingBoundary
-from self_tests.test_pico_lifecycle_background_owner import LifecycleBackgroundOwnerTests
+from self_tests import test_pico_lifecycle_background_owner as background_fixture
 from self_tests.test_pico_lifecycle_source import RUN,editor
 from self_tests.test_pico_openxr_adapter_session import FakeTransport
 from self_tests.test_token_script_ui import NativeBoundary
@@ -30,7 +30,7 @@ from self_tests.test_token_script_ui import NativeBoundary
 
 class LifecyclePendingTests(unittest.TestCase):
     def setUp(self):
-        self.fixture=LifecycleBackgroundOwnerTests();self.fixture.setUp();self.addCleanup(self.fixture.doCleanups)
+        self.fixture=background_fixture.LifecycleBackgroundOwnerTests();self.fixture.setUp();self.addCleanup(self.fixture.doCleanups)
         self.fixture.owner.run_owned();self.background=self.fixture.owner
         self.world,self.native,self.root,self.lock=self.fixture.world,self.fixture.native,self.fixture.root,self.fixture.lock
         self.path=self.root/'lifecycle-pending-owner.json';self.boundary=PendingBoundary();self.boundary.epoch=self.native.epoch
