@@ -161,6 +161,29 @@ class GateTests(unittest.TestCase):
                      timeout=10, pause=no_wait if pause is None else pause)
         return json.loads(output.getvalue().splitlines()[-1])
 
+    def test_completed_owner_is_not_accepted_until_its_steps_are_indexed(self):
+        owner = next(row for row in self.job_rows if row['name'] == 'Authenticate candidate policy')
+        ready = deepcopy(owner['steps'])
+        owner['steps'] = []
+        pauses = []
+        def indexed(seconds):
+            pauses.append(seconds)
+            self.assertEqual(len(pauses), 1)
+            owner['steps'] = ready
+        result = self.run_gate(pause=indexed)
+        self.assertEqual(result['result'], 'success')
+        self.assertEqual(pauses, [15])
+
+    def test_source_change_while_waiting_for_steps_remains_fatal(self):
+        owner = next(row for row in self.job_rows if row['name'] == 'Authenticate candidate policy')
+        ready = deepcopy(owner['steps'])
+        owner['steps'] = []
+        def moved(_):
+            owner['steps'] = ready
+            self.api.objects['pulls/42']['head']['sha'] = 'f' * 40
+        with self.assertRaises(ValueError):
+            self.run_gate(pause=moved)
+
     def test_manual_bootstrap_accepts_successful_owners_while_enclosing_run_is_in_progress(self):
         result = self.run_gate()
         self.assertEqual(result["result"], "success")
