@@ -153,6 +153,50 @@ class PicoLifecycleProcessObservation:
         need(integer(epoch,1) and number(completed,started,started+1.5) and -250<=epoch-oldest
             and max(epoch-oldest,requested-oldest+(completed-started)*1000)<=1500)
 
+    def quiet_originals(self,first):
+        """Validate the fresh readonly window already consumed by this owner.
+
+        No sample, input, timer or Process-window mutation occurs. This is a
+        primary original-window proof, not independent Actor/Common execution.
+        """
+        try:
+            with self.lock.held():
+                self.control();self.fresh()
+                need(type(first) is int and 0<=first<len(self.disk['records']))
+                rows=deepcopy(self.disk['records'][first:]);need(len(rows)>=3)
+                window=drive.AvatarReleaseWindow(self.drive_anchor)
+                start=end=None;prior=None
+                from adapters.pending_commit_owner import validate as pending_validate
+                from adapters.pico4.lifecycle_process import closed
+                for index,row in enumerate(rows,first):
+                    need(row['result']['sequence']==self.initial+index+1 and row['result']['resources']==[])
+                    original,_=source_bundles.original(self.history,self.disk['chunks'],self.disk['bundles'],row['originals']['world'])
+                    current=self.acquisition.originals(original['world']);closed(current['ui'])
+                    need(not any(item['alive'] for item in current['ui']['source']['editors']))
+                    pending,_=source_bundles.original(self.history,self.disk['chunks'],self.disk['bundles'],row['originals']['pending'])
+                    need(frame(pending['pending']['raw'])==pending['pending'])
+                    packet=decode(pending['pending']['raw'])
+                    pending_validate(packet,pending['request'],self.pid,packet['capturedEpochMs'])
+                    from adapters.pending_commit_owner import accept
+                    accept(prior,packet);prior=packet
+                    need(not packet['commit'] and packet['current']['status']=='none' and packet['lastIntentSequence']==0
+                        and not packet['resources']['pendingRuns'] and packet['resources']['archivedEvents']==0)
+                    measured=self.drive_anchor.measure(current['drive']);need(not measured['heldInputs'])
+                    point=current['drive']['source']['feetPosition'];old=self.original_drive['source']['feetPosition']
+                    need(math.sqrt(sum((value-origin)**2 for value,origin in zip(point,old)))<=.025)
+                    observed=window.observe(current['drive'],original['world']['hostMonotonic'])
+                    if start is None:start=(current['drive']['capturedEpochMs'],original['world']['hostMonotonic'])
+                    end=(current['drive']['capturedEpochMs'],original['world']['hostMonotonic'])
+                need(observed and end[0]-start[0]>=3000 and end[1]-start[1]>=3)
+                result=dict(firstSequence=rows[0]['result']['sequence'],lastSequence=rows[-1]['result']['sequence'],
+                    advancingSamples=len(rows),nativeMilliseconds=end[0]-start[0],hostSeconds=end[1]-start[1],
+                    recordsSha256=json_digest(rows),callbackScope='native-pending-owner-and-observed-Qt-contexts')
+                returned=deepcopy(result);self.fresh()
+            self.fresh();return returned
+        except Exception:
+            self.failed=True
+            raise NativeUIError('Lifecycle fresh primary quiet window unresolved; originals retained') from None
+
     def read(self,*,after_sequence):
         need(type(after_sequence) is int and not self.failed)
         try:
@@ -175,8 +219,9 @@ class PicoLifecycleProcessObservation:
                 native,presence,domain=self.readers[:3]
                 receipt=native.read(native.sequence);raw=native.original();need(decode(raw)==receipt)
                 native_index=self.archive(dict(native=frame(raw)));updated=deepcopy(self.disk);updated['pending']['native']=native_index;self.save(updated)
-                absent=presence.require_absent(self.old_source.pid);raw=presence.original();need(decode(raw)==absent)
+                absent=presence.read(self.old_source.pid);raw=presence.original();need(decode(raw)==absent)
                 absence_index=self.archive(dict(presence=frame(raw)));updated=deepcopy(self.disk);updated['pending']['presence']=absence_index;self.save(updated)
+                need(absent['presence']=='absent')
                 connected=domain.read(self.run)
                 raw=domain.native.original();need(decode(raw)==connected)
                 domain_index=self.archive(dict(domain=frame(raw)));updated=deepcopy(self.disk);updated['pending']['domain']=domain_index;self.save(updated)

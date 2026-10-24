@@ -95,6 +95,7 @@ class LifecycleOperationsProcessTests(unittest.TestCase):
             return PicoLifecycleRestartRuntime(operations,io,self.source.native,lambda:self.sdk.helper.observe(binding))
         def successor(operations,handoff):
             boundary=PendingBoundary();boundary.epoch=self.sdk.helper.new_native.epoch
+            self.g1_pending_boundary=boundary
             original=boundary.original
             def raw():
                 import json
@@ -108,6 +109,7 @@ class LifecycleOperationsProcessTests(unittest.TestCase):
         world_before=len(self.source.world.state['frames']);old_sequence=waiter.journey.sequence
         self.assertEqual((126,71),(world_before,old_sequence))
         self.journal.activate(self.source.run,__import__('uuid').uuid4().hex,'cleanup')
+        cleanup_barrier=self.sdk.epoch
         waiter.journey.required_lifecycle=None
         fault=getattr(self,'process_fault',None);triggered=[]
         if fault in ('lost-stop','lost-launch'):self.sdk.lost=fault.removeprefix('lost-')
@@ -152,6 +154,87 @@ class LifecycleOperationsProcessTests(unittest.TestCase):
         self.assertEqual(126,len(self.source.world.state['frames']))
         self.assertTrue(2<=len(process.state['next']['frames'])<=64)
         self.assertEqual(71,waiter.journey.sequence)
+        if getattr(self,'cleanup_quiet',False):
+            from adapters.normal_feature_state import PrivateFeatureState
+            current=self.operations.cleanup_source
+            original_process=deepcopy(process.state);original_cursor=self.source.world.session.state_path.read_bytes()
+            waiter.journey.call('cleanup',{})
+            self.assertEqual(original_process,process.state)
+            self.assertEqual(original_cursor,self.source.world.session.state_path.read_bytes())
+            self.assertEqual(2,len([item for item in self.sdk.trace if type(item) is tuple and item[0]=='shell']))
+            first=len(current.disk['records']);self.assertEqual(0,first)
+            def continuity(*_args):
+                actual=self.sdk.require_controlled_debug_identity(self.sdk.target)
+                self.assertEqual(current.binding['processIdentity'],actual)
+            waiter.journey.continuity=continuity
+            waiter.journey.sleep=self.sdk.helper.sleep
+            waiter.journey.epoch_ms=lambda:self.sdk.epoch
+            expected=expand(SCENARIOS['lifecycle-input']['baseline'],context(self.source.run))
+            for key in ('worldAttempts','staleAttempts'):expected[key]=current.boundary['state'][key]
+            activation=self.journal.runs[self.source.run]['phaseActivations'][-1]
+            fault=getattr(self,'cleanup_quiet_fault',None)
+            if fault=='pending':
+                born=self.sdk.helper.new_native.clock
+                def late_callback(value):
+                    if self.sdk.helper.new_native.clock-born>=2.75:value['resources']['archivedEvents']=1
+                self.g1_pending_boundary.edit=late_callback
+            elif fault=='presence':self.sdk.helper.presence_boundary.presence='present'
+            # The standard wait executes unchanged, without peer/artifact
+            # authority. Its real returned results advance the real cursor.
+            if fault in ('pending','presence'):
+                with self.assertRaises(NativeUIError):
+                    waiter.journey.wait('cleanup-restored-baseline',activation['ticket'],cleanup_barrier,expected,[],duration=3.)
+                from adapters.chat_journey import source_bundles
+                import json
+                slot='pending' if fault=='pending' else 'presence'
+                packet,_=source_bundles.original(current.history,current.disk['chunks'],current.disk['bundles'],current.disk['pending'][slot])
+                self.assertIsNotNone(current.disk['pending'][slot]);self.assertTrue(current.failed)
+                if fault=='pending':
+                    self.assertEqual(1,json.loads(packet['pending']['raw'])['resources']['archivedEvents'])
+                    self.assertIsNone(current.disk['pending']['native']);self.assertGreater(len(current.disk['records']),3)
+                else:
+                    self.assertEqual('present',json.loads(packet['presence']['raw'])['presence'])
+                    self.assertIsNone(current.disk['pending']['domain']);self.assertEqual([],current.disk['records'])
+                before=(len(self.sdk.helper.new_native.ui.commands),len(self.g1_pending_boundary.commands),len(self.sdk.helper.new_feature.commands))
+                with self.assertRaises(NativeUIError):waiter.journey.call('observe',dict(afterSequence=71+len(current.disk['records'])))
+                self.assertEqual(before,(len(self.sdk.helper.new_native.ui.commands),len(self.g1_pending_boundary.commands),len(self.sdk.helper.new_feature.commands)))
+                self.assertEqual(original_process,process.state);self.assertEqual(126,len(self.source.world.state['frames']))
+                self.assertEqual(2,len([item for item in self.sdk.trace if type(item) is tuple and item[0]=='shell']))
+                return
+            actual=waiter.journey.wait('cleanup-restored-baseline',activation['ticket'],cleanup_barrier,expected,[],duration=3.)
+            if fault=='outer-exit':
+                held=current.lock.held;depth=[0];triggered=[];clock=current.readers[0].clock_ms
+                @contextmanager
+                def native_jump_after_exit():
+                    with held():
+                        depth[0]+=1
+                        try:yield
+                        finally:depth[0]-=1
+                    if depth[0]==0 and not triggered:
+                        triggered.append(True);current.readers[0].clock_ms=lambda:clock()+2000
+                with patch.object(current.lock,'held',native_jump_after_exit):
+                    with self.assertRaises(NativeUIError):current.quiet_originals(first)
+                self.assertEqual([True],triggered);self.assertTrue(current.failed)
+                self.assertEqual(original_process,process.state);self.assertEqual(126,len(self.source.world.state['frames']))
+                self.assertEqual(2,len([item for item in self.sdk.trace if type(item) is tuple and item[0]=='shell']))
+                return
+            proof=current.quiet_originals(first)
+            self.assertEqual(71+proof['advancingSamples'],waiter.journey.sequence)
+            self.assertEqual(waiter.journey.sequence,actual['sequence'])
+            self.assertEqual(proof['advancingSamples'],len(current.disk['records']))
+            self.assertGreaterEqual(proof['nativeMilliseconds'],3000);self.assertGreaterEqual(proof['hostSeconds'],3)
+            self.assertEqual(original_process,process.state);self.assertEqual(126,len(self.source.world.state['frames']))
+            self.assertEqual(71,len(self.source.disk['records']))
+            files=[current.store.path,*sorted(current.store.path.parent.glob(current.store.path.name+'.frame-*.json'))]
+            diagnostic=dict(scope='private-primary-only-new-process-quiet',proof=proof,processRows=len(process.state['next']['frames']),
+                oldWorldRows=126,oldReadonlyRows=71,newReadonlyRows=len(current.disk['records']),
+                childParts=len(current.history.identities),containerRawBytes=current.history.raw_bytes,
+                logicalOriginalBytes=sum(row['bytes'] for row in current.disk['bundles']),
+                actualStoredFileBytes=sum(path.stat().st_size for path in files),fileCount=len(files),
+                samples=deepcopy(waiter.journey.samples[-proof['advancingSamples']:]),phase=deepcopy(waiter.journey.phases[-1]))
+            PrivateFeatureState(current.store.path.with_name('lifecycle-primary-process-quiet-diagnostics.json')).write(diagnostic,None)
+            print('Actual same-graph new-process quiet bill: '+str({key:value for key,value in diagnostic.items() if key not in ('samples','phase')}),flush=True)
+            return
         value=waiter.journey.call('observe',dict(afterSequence=71))
         self.assertEqual(72,value['sequence'])
         self.assertEqual((0,2,1),(value['state']['generation'],value['state']['worldAttempts'],value['state']['staleAttempts']))
@@ -168,6 +251,10 @@ class LifecycleOperationsProcessTests(unittest.TestCase):
     def test_actual_outer_exit_foreign_process_memo_cannot_return_cleanup_ack(self):self.process_fault='memo';self.run_seven(actions=16)
     def test_actual_outer_exit_native_jump_with_frozen_host_cannot_return_cleanup_ack(self):self.process_fault='clock';self.run_seven(actions=16)
     def test_actual_outer_exit_same_bytes_replaced_operations_root_cannot_return_cleanup_ack(self):self.process_fault='outer-exit';self.run_seven(actions=16)
+    def test_same_normal_graph_twice_cleanup_and_fresh_g1_primary_quiet_window(self):self.cleanup_quiet=True;self.run_seven(actions=16)
+    def test_late_actual_pending_archive_prevents_g1_three_second_quiet(self):self.cleanup_quiet=True;self.cleanup_quiet_fault='pending';self.run_seven(actions=16)
+    def test_present_original_pid_reply_is_retained_before_domain_query_or_quiet(self):self.cleanup_quiet=True;self.cleanup_quiet_fault='presence';self.run_seven(actions=16)
+    def test_real_quiet_outer_exit_native_jump_cannot_return_window_proof(self):self.cleanup_quiet=True;self.cleanup_quiet_fault='outer-exit';self.run_seven(actions=16)
 
 
 if __name__=='__main__':unittest.main()

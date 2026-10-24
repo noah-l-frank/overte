@@ -1,6 +1,6 @@
 """Private Lifecycle normal-operation prefix over the unchanged v16 recipe.
 
-No peer, artifact, cleanup, public capability or cold input replay is granted.
+No peer, artifact, complete cleanup, public capability or cold input replay is granted.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
