@@ -155,9 +155,13 @@ completed Prepare can qualify Stop only through its unchanged original
 bytes/guards/age and `require_stop_ready`; it is not a license to omit a
 required physical query. Three additional G0 World reads would exceed128.
 Current sources are still bound to oldPID and must not be sampled after death.
-The existing new-process factory currently returns the Process result while
-its actual reader instances are local; a genuine live-source handoff must
-retain those originals/instances, never reconstruct them from `next.frames`.
+The existing new-process factory returns the Process result; the actual warm
+Process owner already retains those reader instances and source in
+`_final_delivery['readers']`/`['source']`. That memo is established by the
+original successful observation and checked again after the actual outer
+restart lock exit. A genuine handoff must admit that same memo, result/disk
+hashes, owner/binding and live reader identities with the original clocks and
+candidate guards; it must never reconstruct readers from `next.frames`.
 Common cleanup also preserves measured World/stale history, requires two
 idempotent cleanup calls and a new three-second primary/independent-Actor
 baseline. These are open, as are image/surface provenance, True-hook and
