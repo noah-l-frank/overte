@@ -4154,5 +4154,49 @@
     "completeFeature": false,
     "fullApplicationCompiled": false,
     "deviceAcceptance": false
+  },
+  "navigationFirstElevenRoot20261024": {
+    "source": "f3bc64ec94538619e00cd72c924e74e45876a2a0",
+    "selectedAs": "7ebb57438a",
+    "status": "passed-selected-host-components",
+    "selection": {
+      "groups": 4,
+      "catalogGroups": 235,
+      "durationSeconds": 103.555,
+      "coverageCases": 10,
+      "coverageSeconds": 0.09,
+      "bookmarkCases": 8,
+      "bookmarkSelectorSeconds": 50.245,
+      "dismissalCases": 7,
+      "dismissalSelectorSeconds": 37.046,
+      "transitCases": 4,
+      "transitSelectorSeconds": 16.174
+    },
+    "actualFactory": {
+      "cases": 4,
+      "durationSeconds": 0.684,
+      "status": "passed"
+    },
+    "repository": {
+      "suites": 4,
+      "durationSeconds": 2.585,
+      "status": "passed"
+    },
+    "registryProbeSyntaxWhitespace": "passed",
+    "oldV5TenActualActionsCannotAcquireBookmarkOpenOrVisit": true,
+    "sameOriginalControllerStreamAndOwnedStatus": true,
+    "newPlacesRootAndConsumedDirectoryResponse": true,
+    "normalBookmarkVisitAndIndependentArrival": true,
+    "independentThreeSecondQuietWindows": true,
+    "originalCaptureAndNativeReceiptRetirement": true,
+    "lostOpenBeforeHostSaveCannotAcquireAuthority": true,
+    "lostOpenAfterHostSaveColdReconcilesWithoutReplay": true,
+    "originalsRetained": true,
+    "genericTwoEyePngBytesEqual": true,
+    "changedScenePixelsQualified": false,
+    "qtNativeOsHmdGpu": "explicit-host-producer-seams",
+    "completeFeature": false,
+    "fullApplicationCompiled": false,
+    "deviceAcceptance": false
   }
 }

@@ -242,5 +242,15 @@ class NavigationBookmarkPrefixTests(unittest.TestCase):
         self.assertEqual('opening',self.flow.bookmark_join.state['phase']);self.assertIsNone(self.flow.bookmark_join.state['controller'])
         self.assertEqual('closed',self.flow.dismiss().close_original().state['phase'])
 
+    def test_original_ten_action_v5_owner_cannot_acquire_bookmark_open_or_visit_authority(self):
+        self.first_ten();original=self.flow.store.read();legacy=deepcopy(original)
+        legacy['navigationPrefixVersion']=5
+        self.flow.store.write(legacy,original);self.flow=self.make('primary')
+        controllers=deepcopy(self.model.controller_calls);qml=deepcopy(self.model.calls)
+        with self.assertRaises(NativeUIError):self.flow.act(self.activate('bookmark-visit'))
+        self.assertEqual(controllers,self.model.controller_calls);self.assertEqual(qml,self.model.calls)
+        self.assertEqual([],self.model.bookmark_visits);self.assertEqual(1,len(self.world.gpu.commands))
+        self.assertIsNone(self.flow.bookmark_join)
+
 
 if __name__=='__main__':unittest.main()

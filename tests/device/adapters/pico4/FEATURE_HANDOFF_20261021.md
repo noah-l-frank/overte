@@ -2783,3 +2783,24 @@ release remain declared host endpoints. Normal Add/Parent transport, real
 preset-1 texture ownership, actor/stereo/draw and full heap/process retirement
 remain open. Completed source areas remain 3/14; no full APK/device result is
 claimed.
+
+## Root-verified eleventh normal Navigation action
+
+Fixed source f3bc64ec94538619e00cd72c924e74e45876a2a0 is selected as
+7ebb57438a. Parent v6 and BookmarkJoin v1 continue the original controller
+stream through normal reopening, a fresh Places root and consumed directory
+response, persisted bookmark A selection, independently observed arrival,
+Home/root retirement, existing Close v2 and fresh stereo capture retirement.
+The two quiet windows retain their full three seconds. Original status and
+all native/image receipts remain retained; uncertain input is never replayed.
+An actual ten-action v5 owner cannot acquire bookmark Open or visit authority.
+
+Root verification passes eight bookmark, seven dismissal and four transit
+cases plus ten coverage cases: four selectors in 103.555 s, 235 catalog groups.
+Four actual-factory cases pass in 0.684 s; four repository suites in 2.585 s.
+Registry, probe syntax and whitespace checks pass. The two new generic stereo
+PNGs have identical bytes, so this proves fresh capture ownership and release,
+not changed scene pixels or physical rendering. Restart generation transfer is
+the next normal action. Complete Navigation, final restoration and retirement
+remain open; three of fourteen areas are source/host complete, zero device
+qualified.

@@ -127,7 +127,10 @@
         "android/vr/pico/tests/device/test_navigation_missing_prefix.py",
         "tests/device/adapters/pico4/navigation_dismissal_join.py",
         "tests/device/self_tests/test_pico_navigation_dismissal_prefix.py",
-        "android/vr/pico/tests/device/test_navigation_dismissal_prefix.py"
+        "android/vr/pico/tests/device/test_navigation_dismissal_prefix.py",
+        "tests/device/adapters/pico4/navigation_bookmark_join.py",
+        "tests/device/self_tests/test_pico_navigation_bookmark_prefix.py",
+        "android/vr/pico/tests/device/test_navigation_bookmark_prefix.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -172,7 +175,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Continue unchanged v16 action eleven bookmark-visit after root-verified first ten normal actions. Parent v5 and original DismissalJoin v1 now join one normal OK, current original modal/listener retirement with full three-second quiet, then existing Close v2 and its independent quiet. Older v4 retains only nine-action authority. Reuse the existing bookmark and normal transit/Home/Close/stereo owners with a fresh actual Places instance; no fake Transit or renamed old directory root. Independent actor/public stereo, later restart/restoration and whole final retirement remain incomplete.",
+      "nextExecutableStep": "Continue unchanged v16 action twelve restart-app after root-verified first eleven normal actions. Parent v6 and BookmarkJoin v1 reopen with the same original controller stream, retain current original status and newly consumed Places response, visit actual persisted A, then independently observe Home/root retirement, existing Close v2 quiet and fresh stereo capture retirement. Older v5 retains only ten-action authority. Restart must preserve immutable old-generation originals and establish separately proved new-process ownership without rebinding old children. Independent scene pixels/actor/public operations, restoration and whole final retirement remain incomplete.",
       "nativeCompilation": "Selected full NativeEnvironment header, original passive Settings::Manager getter and Qt thread/lock modes compile and pass host checks. Complete native application/APK, VM/OS/GPU/device boundaries remain unqualified.",
       "deviceQualification": "untested"
     },
