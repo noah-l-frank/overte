@@ -126,5 +126,15 @@ oversized output is an error. A shown keyboard permits one `hide_keyboard` SDK
 request, followed by fresh exact address text and native hidden-state checks
 under the same session/process/candidate guards. No acknowledgment proves
 visibility or navigation. This guards possible keyboard occlusion; actual17 did
-not establish that cause. No input replay, coordinate tap or timeout extension
+not establish that cause. No input replay, fixed-coordinate fallback or timeout extension
 is added. Other clients and common operation/result schemas are unchanged.
+
+
+Go activation uses one W3C touch on the same freshly resolved, visible and
+enabled Go element: element-origin move, pointer down, 150 ms hold and pointer
+up. No second default click or submission path follows an uncertain response.
+The owned SDK inputs are released even after failure; a failed release prevents
+success and leaves the original navigation ownership available for cleanup.
+The existing fresh process/session/candidate guards, stable address-dialog
+absence and independent connection/scene observations remain mandatory. A
+touch request acknowledgment does not establish button activation.
