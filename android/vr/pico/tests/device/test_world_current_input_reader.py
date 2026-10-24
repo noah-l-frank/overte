@@ -248,6 +248,21 @@ class WorldCurrentInputReaderTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):owner.check_focus(receipt,focus)
         self.assertEqual(1,len(self.transport.envelopes))
 
+    def test_actual_foreign_ray_and_foreign_focus_do_not_require_text_field_focus(self):
+        self.b.focused_control='foreign'
+        self.source.read(RUN,URL,OWNER,'measure-current-ray','foreign');owner=self.publisher();receipt=owner.publish()
+        self.assertFalse(self.b.focused)
+        self.b.consume_published(receipt['streamEnvelope'],self.session.profile)
+        packet=self.source.read(RUN,URL,OWNER,'observe-current-focus','foreign');focus=self.source.original()
+        from adapters.pico4.world_current_input import decode
+        doc=decode(focus['documentOriginal']['raw'])
+        self.assertFalse(doc['source']['dom']['editor']['focused'])
+        self.assertTrue(packet['source']['nativeEditor']['focused']);self.assertEqual('url',packet['source']['nativeEditor']['kind'])
+        validate(packet,focus['request'],123,self.b.epoch,focus['documentOriginal'])
+        PrivateFeatureState(self.root/'matching-foreign-focus-originals.json').write(dict(
+            calibrationOriginal=receipt['calibrationOriginal'],streamEnvelope=receipt['streamEnvelope'],focusOriginal=focus),None)
+        self.assertEqual(focus,owner.check_focus(receipt,focus));self.assertEqual(1,len(self.transport.envelopes))
+
 
 class WorldCurrentInputFactoryTests(unittest.TestCase):
     def setUp(self):
