@@ -165,6 +165,7 @@ class PicoLifecycleProcessObservation:
                 need(type(first) is int and 0<=first<len(self.disk['records']))
                 rows=deepcopy(self.disk['records'][first:]);need(len(rows)>=3)
                 window=drive.AvatarReleaseWindow(self.drive_anchor)
+                axes={key:[] for key in ('ui','gesture','drive','pending','native','presence','domain')}
                 start=end=None;prior=None
                 from adapters.pending_commit_owner import validate as pending_validate
                 from adapters.pico4.lifecycle_process import closed
@@ -172,15 +173,21 @@ class PicoLifecycleProcessObservation:
                     need(row['result']['sequence']==self.initial+index+1 and row['result']['resources']==[])
                     original,_=source_bundles.original(self.history,self.disk['chunks'],self.disk['bundles'],row['originals']['world'])
                     current=self.acquisition.originals(original['world']);closed(current['ui'])
+                    for key in ('ui','gesture','drive'):axes[key].append(current[key]['capturedEpochMs'])
                     need(not any(item['alive'] for item in current['ui']['source']['editors']))
                     pending,_=source_bundles.original(self.history,self.disk['chunks'],self.disk['bundles'],row['originals']['pending'])
                     need(frame(pending['pending']['raw'])==pending['pending'])
                     packet=decode(pending['pending']['raw'])
+                    axes['pending'].append(packet['capturedEpochMs'])
                     pending_validate(packet,pending['request'],self.pid,packet['capturedEpochMs'])
                     from adapters.pending_commit_owner import accept
                     accept(prior,packet);prior=packet
                     need(not packet['commit'] and packet['current']['status']=='none' and packet['lastIntentSequence']==0
                         and not packet['resources']['pendingRuns'] and packet['resources']['archivedEvents']==0)
+                    for key in ('native','presence','domain'):
+                        original_packet,_=source_bundles.original(self.history,self.disk['chunks'],self.disk['bundles'],row['originals'][key])
+                        literal=original_packet[key];need(frame(literal['raw'])==literal)
+                        axes[key].append(decode(literal['raw'])['capturedEpochMs'])
                     measured=self.drive_anchor.measure(current['drive']);need(not measured['heldInputs'])
                     point=current['drive']['source']['feetPosition'];old=self.original_drive['source']['feetPosition']
                     need(math.sqrt(sum((value-origin)**2 for value,origin in zip(point,old)))<=.025)
@@ -188,8 +195,15 @@ class PicoLifecycleProcessObservation:
                     if start is None:start=(current['drive']['capturedEpochMs'],original['world']['hostMonotonic'])
                     end=(current['drive']['capturedEpochMs'],original['world']['hostMonotonic'])
                 need(observed and end[0]-start[0]>=3000 and end[1]-start[1]>=3)
+                # A fresh short offset in one producer cannot borrow the
+                # Drive/Host duration. Every actual original capture axis
+                # independently owes the full window and advancing cadence.
+                for stamps in axes.values():
+                    need(all(integer(value,1) for value in stamps) and stamps[-1]-stamps[0]>=3000
+                        and all(0<after-before<=500 for before,after in zip(stamps,stamps[1:])))
                 result=dict(firstSequence=rows[0]['result']['sequence'],lastSequence=rows[-1]['result']['sequence'],
                     advancingSamples=len(rows),nativeMilliseconds=end[0]-start[0],hostSeconds=end[1]-start[1],
+                    nativeCaptureSpans={key:stamps[-1]-stamps[0] for key,stamps in axes.items()},
                     recordsSha256=json_digest(rows),callbackScope='native-pending-owner-and-observed-Qt-contexts')
                 returned=deepcopy(result);self.fresh()
             self.fresh();return returned
