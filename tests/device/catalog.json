@@ -367,7 +367,7 @@
       "command": ["modules/tablet_e2e.py"],
       "suites": ["tablet-e2e"],
       "requires": ["app.process", "probe.snapshot", "tablet.activate", "tablet.close", "tablet.open", "tablet.snapshot"],
-      "timeoutSeconds": 180
+      "timeoutSeconds": 300
     },
     {
       "id": "world-web-video",

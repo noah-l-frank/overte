@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "status": "TIMING_DIAGNOSTIC_VERIFIED_REGULAR_CATALOG_RETEST_PENDING",
+  "platform": "android-phone",
+  "job": "overte-phone-failure-repair-20261024",
+  "build": 4,
+  "runId": "tablet-budget-diagnostic-001",
+  "clientSourceRevision": "0a7de4299f4bb97e99c844288e6381efd973df0f",
+  "clientApkSha256": "43ed8f0ad7e9e5fe4beaa7c39833441f42979ff209181eaf00e4ec933df41248",
+  "harnessRevision": "c4ab97be4427f2b134a37b061bcaeb3605ca84dd",
+  "harnessInventorySha256": "b2f8d075e8d7b06ea6634b662f4a4fc2dc50af8c34da273c7c8327f3d457485f",
+  "original180BudgetQualification": "NOT_EVALUATED_BY_THIS_DIAGNOSTIC",
+  "diagnosticModuleTimeoutSeconds": 450,
+  "actualResults": [
+    {
+      "durationSeconds": 25.309,
+      "id": "launch-smoke",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "durationSeconds": 202.54,
+      "id": "tablet-e2e",
+      "returncode": 0,
+      "status": "passed"
+    }
+  ],
+  "unchangedSourceChecks": {
+    "screenWaitDefaultSeconds": 45,
+    "adapterCallDefaultSeconds": 60,
+    "stableSamples": 2,
+    "mandatoryCapabilitiesAndPolicy": true,
+    "freshProcessAndIndependentUiObservations": true,
+    "installedApkAndPhysicalProfileChecks": true,
+    "cleanupAndCompletenessChecks": true,
+    "factCacheAdded": false
+  },
+  "actualIntegrity": {
+    "installedIdentityVerified": true,
+    "bothFullInventoriesBeforeAfterExact": true,
+    "publicJsonJunitAndPrivateEvidenceJoined": true,
+    "runnerTimedOut": false,
+    "ownedChildrenLeaked": false,
+    "artifactMetadataComplete": true
+  },
+  "regularCatalogCalibration": {
+    "moduleId": "tablet-e2e",
+    "previousSeconds": 180,
+    "newSeconds": 300,
+    "basis": "The complete unchanged validating module took 202.540 seconds; the previous cumulative cap censored the final Home transition and confirmed close. Individual screen/call/freshness checks are unchanged.",
+    "retestStatus": "PENDING"
+  },
+  "evidenceSha256": {
+    "publicSummary": "b0dd4371f509a5e2224f1e76360e485aad1f0419034d068ac42db9e1f487f019",
+    "publicJunit": "570686c05624e8e8ce4ab77e82539526b2814979cc7f59efc5415ccc1c2b1492",
+    "originalSummary": "797f91b906dd0d62c9a47787fb631c73b99da4602c6e3c08b3a7e467ea94c27d",
+    "originalJunit": "c7de70e63c267a949c00a73fb3fc5f22d42ece258b39e350c4b2d42ccd668797",
+    "privateResult": "4ab8ea1d670456a7a032a8c025cc0f5b260c8d84f10448370a85f16b81d6b902",
+    "rootCollectionReview": "2cdf1b74873c18abc35a927def0259dd219e326721695603c4fa203dc3eb8001",
+    "currentModuleBody": "9500256d63c11705d6a65a7ee84898c8e7967770c57fc29e6ab789e45c4efd58"
+  },
+  "notQualified": [
+    "historical 180-second runs",
+    "original 69-target campaign rerun",
+    "complete 14-feature acceptance",
+    "iOS or Pico device acceptance"
+  ]
+}

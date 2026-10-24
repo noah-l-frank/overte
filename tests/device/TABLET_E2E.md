@@ -131,6 +131,26 @@ independent positive proof. JSON diagnostics contain only validated semantic
 state and policy evaluation. Screenshots remain opt-in failure diagnostics and
 are never truth evidence.
 
+## Execution budgets
+
+The catalog allows 300 seconds for the complete `tablet-e2e` module. This
+cumulative traversal budget is separate from the default 45-second screen
+wait, 60-second adapter call, and requirement for two fresh stable UI samples.
+Process, installed-code, capability, policy and cleanup checks remain required.
+
+The first complete source-bound Android Phone timing diagnostic finished the
+unchanged validating module in 202.540 seconds. Its original 180-second catalog
+budget had expired before the final Home transition and confirmed close. The
+diagnostic used a separately labelled 450-second envelope; it does not turn
+either historical 180-second failure into a pass. The regular 300-second budget
+provides room for the measured full traversal and its repeated independent
+observations. No host admission result or device fact is cached to achieve it.
+See the [calibration evidence](adapters/android-phone/tablet-budget-calibration.v1.json).
+
+This calibration was observed with the Android Phone policy. A subsequent run
+must verify the regular 300-second catalog entry. iOS and Pico policy execution
+and timing still require their own device evidence.
+
 ## Product-adapter handoff
 
 After this shared contract is reviewed on `main`, each product branch owns its
