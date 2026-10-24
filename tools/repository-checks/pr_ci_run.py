@@ -296,15 +296,15 @@ def _public_network_bindings():
 
 
 def _public_tool_aliases():
-    """Recreate only fixed public compiler/linker alternatives inside RO /usr."""
+    """Recreate fixed public compiler/linker and awk aliases inside RO /usr."""
     result = []
-    for name in ("ld", "cc", "c++"):
+    for name in ("ld", "cc", "c++", "awk"):
         tool = Path("/usr/bin") / name
         alias = "/etc/alternatives/" + name
         if tool.is_symlink() and os.readlink(tool) == alias:
             target = tool.resolve(strict=True)
             require(_inside(target, Path("/usr")) and target.is_file(),
-                    "system compiler or linker alias escapes prepared /usr")
+                    "system tool alias escapes prepared /usr")
             result += ["--symlink", str(target), alias]
     return result
 
