@@ -2442,9 +2442,15 @@ def create_adapter(args, base_class):
             return bind_world_click(self,target,io,intent,stream_intent,before_publish)
 
         @_private
-        def _world_web_prefix(self,target,source,foreign_fixture_url,*,role='primary'):
+        def _world_web_prefix(self,target,source,foreign_fixture_url,*,role='primary',require_new_actor=False):
             from adapters.pico4.world_web_binding import PicoWorldWebBinding
-            return PicoWorldWebBinding(self).prefix(target,source,foreign_fixture_url,role=role)
+            return PicoWorldWebBinding(self).prefix(target,source,foreign_fixture_url,role=role,require_new_actor=require_new_actor)
+
+        @_private
+        def _world_web_source_return(self,target,parent,process,expected):
+            from adapters.pico4.world_web_binding import PicoWorldWebBinding
+            _need(type(parent.adapter) is PicoWorldWebBinding and parent.adapter.original is self)
+            return parent.adapter.source_return(target,parent,process,expected)
 
         @_private
         def _world_web_retained(self,target):

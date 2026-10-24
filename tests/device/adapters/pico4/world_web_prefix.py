@@ -83,8 +83,10 @@ def validate_owner(value,run,url,*,version=VERSION):
 
 class PicoWorldWebPrefix:
     area='world-web'
-    def __init__(self,adapter,target,source,foreign_fixture_url,*,role='primary'):
+    def __init__(self,adapter,target,source,foreign_fixture_url,*,role='primary',require_new_actor=False):
         need(isinstance(source,PhaseFixtureReader) and source.area==self.area and role in ('primary','actor'))
+        need(type(require_new_actor) is bool and (not require_new_actor or role=='actor'))
+        self.require_new_actor=require_new_actor;self._actor_started=False;self._source_pass_export=None
         self.adapter,self.target,self.source,self.role=adapter,target,source,role
         self.run,self.url=source.run,source.fixture_url;fixture(self.run,self.url)
         self.foreign=foreign_fixture_url.rstrip('/')+'/runs/'+self.run+'/';fixture(self.run,self.foreign)
@@ -357,10 +359,16 @@ class PicoWorldWebPrefix:
             self.failed=True
             raise NativeUIError('Original World Web prefix publication is unavailable; journals remain owned') from None
 
+    def new_actor_sources(self):
+        self.lock.assert_held();need(self.role=='actor' and self.require_new_actor and not self._actor_started)
+        names=('pico-world-web-prefix-actor-sources.json','pico-world-web-actor-vm.json','pico-world-web-actor-source-pass')
+        need(not any(any(path.name.startswith(name) for name in names) for path in self.root.iterdir()))
+
     def observe(self):
-        need(self.lock._owner is None);pending=False
+        need(self.lock._owner is None and self._source_pass_export is None);pending=False
         with self.lock.held():
             self.read();self.control();need(self.state is not None)
+            if self.require_new_actor and not self._actor_started:self.new_actor_sources()
             phase,ahead=self.observation_phase()
             if ahead or self.state['phase'] not in ('ready','source-stopped'):
                 pending=True;started=self.source.monotonic()
@@ -395,6 +403,7 @@ class PicoWorldWebPrefix:
                 returned=deepcopy(sample);seal=self.seal(started,requested,epochs,native_reader)
         self.finalize(seal)
         if pending:raise PhasePending('Original World Web input remains unresolved')
+        if self.role=='actor':self._actor_started=True
         return returned
 
     def publish(self):

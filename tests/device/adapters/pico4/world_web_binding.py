@@ -23,9 +23,24 @@ class PicoWorldWebBinding(PicoScriptJourney):
 
     def _lock(self,target,source_lock=None):return self.original._script_journey()._lock(target,source_lock)
 
-    def prefix(self,target,source,foreign_fixture_url,*,role='primary'):
+    def prefix(self,target,source,foreign_fixture_url,*,role='primary',require_new_actor=False):
         from adapters.pico4.world_web_prefix import PicoWorldWebPrefix
-        return PicoWorldWebPrefix(self,target,source,foreign_fixture_url,role=role)
+        return PicoWorldWebPrefix(self,target,source,foreign_fixture_url,role=role,require_new_actor=require_new_actor)
+
+    def source_return(self,target,parent,process,expected):
+        from adapters.pico4.world_web_source_pass import WorldSourceReturn
+        self.check_identity(target,parent)
+        with parent.lock.held():
+            parent.read();parent.control()
+            need(parent.role=='primary' and parent.state['phase']=='source-stopped'
+                and expected['prefixScope']==parent.scope and expected['binding']==parent.state['binding']
+                and expected['ownerToken']==parent.state['ownerToken'] and expected['runId']==parent.run
+                and expected['fixtureUrl']==parent.url and expected['foreignFixtureUrl']==parent.foreign)
+        return WorldSourceReturn(process,parent.root,parent.lock,expected)
+
+    def check_identity(self,target,parent):
+        from adapters.pico4.world_web_prefix import PicoWorldWebPrefix
+        need(type(parent) is PicoWorldWebPrefix and parent.adapter is self and parent.target==target)
 
     def check(self,target,parent,*,input=False):
         from adapters.pico4.world_web_prefix import PicoWorldWebPrefix
