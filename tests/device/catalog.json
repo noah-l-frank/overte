@@ -5,7 +5,7 @@
       "id": "launch-smoke",
       "description": "Launch the application and verify a stable foreground process.",
       "command": ["modules/launch_smoke.py"],
-      "suites": ["asset-smoke", "audio-controls", "crash-recovery-under-load", "domain-recovery", "domain-smoke", "e2e-core", "e2e-recovery", "entity-sync-smoke", "interaction-smoke", "lifecycle-under-load", "multi-user-smoke", "network-fault-recovery", "permission-recovery", "portable-smoke", "render-health", "scripted-entity-smoke", "settings-persistence", "smoke", "sound-smoke", "stability", "tablet-e2e", "text-input-smoke", "vertical-locomotion", "voice-roundtrip"],
+      "suites": ["asset-smoke", "audio-controls", "crash-recovery-under-load", "create-management-parity", "domain-recovery", "domain-smoke", "e2e-core", "e2e-recovery", "entity-sync-smoke", "interaction-smoke", "lifecycle-under-load", "multi-user-smoke", "network-fault-recovery", "permission-recovery", "places-navigation-parity", "portable-smoke", "render-health", "scripted-entity-smoke", "scripts-management-parity", "settings-persistence", "smoke", "snapshot-output-parity", "sound-smoke", "stability", "tablet-e2e", "text-input-smoke", "vertical-locomotion", "voice-roundtrip", "web-video-parity"],
       "requires": ["app.foreground", "app.launch", "app.process"],
       "timeoutSeconds": 120
     },
@@ -267,12 +267,60 @@
       "timeoutSeconds": 180
     },
     {
+      "id": "world-web-video",
+      "description": "Use normal world Web controls and prove native video playback, pause, seek and resumed motion from encoded pixels.",
+      "command": ["modules/web_video_parity.py", "--surface", "world"],
+      "suites": ["web-video-parity"],
+      "requires": ["app.foreground", "app.process", "artifact.screenshot", "web.reference.close", "web.reference.open", "web.reference.pause", "web.reference.play", "web.reference.seek"],
+      "timeoutSeconds": 300
+    },
+    {
+      "id": "tablet-web-video",
+      "description": "Use normal tablet Web controls and prove native video playback, pause, seek and resumed motion from encoded pixels.",
+      "command": ["modules/web_video_parity.py", "--surface", "tablet"],
+      "suites": ["web-video-parity"],
+      "requires": ["app.foreground", "app.process", "artifact.screenshot", "web.reference.close", "web.reference.open", "web.reference.pause", "web.reference.play", "web.reference.seek"],
+      "timeoutSeconds": 300
+    },
+    {
+      "id": "snapshot-output-parity",
+      "description": "Use normal SNAP controls and decode complete fresh PNG, JPEG, GIF, panorama and cubemap output files.",
+      "command": ["modules/snapshot_capture.py"],
+      "suites": ["snapshot-output-parity"],
+      "requires": ["app.foreground", "app.process", "probe.snapshot", "scene.load", "snapshot.capture", "snapshot.close", "snapshot.files", "snapshot.open"],
+      "timeoutSeconds": 600
+    },
+    {
+      "id": "scripts-management",
+      "description": "Use normal Running Scripts URL load, restart and stop controls; independently observe execution, companion loading, silence and failed-load requests.",
+      "command": ["modules/scripts_management.py"],
+      "suites": ["scripts-management-parity"],
+      "requires": ["app.foreground", "app.process", "scripts.load-url", "scripts.manager.close", "scripts.manager.open", "scripts.restart", "scripts.stop"],
+      "timeoutSeconds": 360
+    },
+    {
+      "id": "create-management",
+      "description": "Use normal owned Cube create/edit/history/delete and parent-child JSON import controls, with fresh read-only actual entity observations.",
+      "command": ["modules/create_management.py"],
+      "suites": ["create-management-parity"],
+      "requires": ["app.foreground", "app.process", "create.cube", "create.delete", "create.import", "create.redo", "create.reference.close", "create.reference.open", "create.undo", "create.update", "probe.snapshot", "scene.load"],
+      "timeoutSeconds": 600
+    },
+    {
       "id": "accessibility",
       "description": "Audit stable tablet controls while reusing one controlled app session.",
       "command": ["modules/accessibility.py"],
       "suites": ["accessibility"],
       "requires": ["accessibility.snapshot", "app.launch", "app.process", "probe.snapshot", "scene.load", "tablet.close", "tablet.open"],
       "timeoutSeconds": 120
+    },
+    {
+      "id": "places-navigation",
+      "description": "Use normal Go To and Back/Forward controls; observe actual controlled scene URLs, grounded avatar viewpoints and fresh presentation.",
+      "command": ["modules/places_navigation.py"],
+      "suites": ["places-navigation-parity"],
+      "requires": ["app.foreground", "app.process", "places.back", "places.close", "places.forward", "places.goto", "places.open", "probe.snapshot", "scene.load"],
+      "timeoutSeconds": 600
     },
     {
       "id": "lifecycle-soak",
