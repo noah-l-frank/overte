@@ -157,3 +157,34 @@ is unchanged; originals `lifecycle-editor-cblwnsko` are retained. Logs are
 eighth source case additively (ten including ownership); no new selector or
 registry is added. The original nine-case baseline is not repeated for this
 counter. The separate original-clock review remains unresolved at this point.
+
+## Follow-up: original frame age through the last publication CAS
+
+The separate actual clock counter is RED1/0.789s on c965. The original native
+OpenXR publication remains at20000ms while the actual original getter captures
+all six new responses at20200ms. This is a valid200ms-old known input frame,
+not an edited response: the original getter reads the existing target frame
+without publishing a new input or frame. After the actual last issued-root CAS
+has landed, the model host spends1.4s while the native epoch remains20200ms.
+The previous code omitted frameEpochMs and accepted/published/returned exit0;
+the actual original frame is then1600ms old under the host lower bound.
+Source `f39aa40a0456a0ce22c17837727a3e0d2b18ae44dc1296ca348998d9fd989c7f`
+and `lifecycle-editor-__focgy7` remain retained.
+
+The corrected same freshness obligation includes the original known Gesture
+frame and all original captures plus existing native requestedEpochMs fields.
+It retains the same group start/request clock and the same1.5s native/host
+limit throughout read, publication intent, delivered reply and actual outer
+exit. Neither a new capture timestamp nor later CAS renews an older source.
+No wire field, owner version, input, sample, clock or original file changes.
+
+The same actual counter passes1/0.755s. The issued-root CAS and complete
+originals stay retained, but no HTTP sample is published and no normal input
+is sent. Source
+`13eb5aaaf1317f94570d80fdfa8b520f06b7658d1ffd0c65e8c2e8db63b4245b`
+is unchanged, root `lifecycle-editor-b4gtmrxm`. Logs are
+`lifecycle-actor-known-frame-clock-red.log` and
+`lifecycle-actor-known-frame-clock-fixed.log`. This adds the ninth source case
+to the existing selector (eleven including ownership); catalog and registry
+counts do not change. The earlier green9 selection remains attributed to05c;
+it is not relabeled as a rerun of these materially changed source paths.
