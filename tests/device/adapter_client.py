@@ -36,6 +36,10 @@ def invoke(manifest: Path, target: str, operation: str,
     # work; the portable module retains its own total deadline and assertions.
     if operation in {"app.install", "app.upgrade"}:
         timeout = 240
+    elif operation in {"scene.load", "navigation.enter-domain"}:
+        # Measured normal UI flows include repeated fresh installed/process
+        # guards. The portable module still owns its unchanged total budget.
+        timeout = 90
     elif operation in {"permission.snapshot", "permission.set", "snapshot.files"}:
         timeout = 120
     else:

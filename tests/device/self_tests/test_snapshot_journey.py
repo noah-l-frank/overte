@@ -182,7 +182,7 @@ class SnapshotJourneyTests(unittest.TestCase):
             for name in ('../outside.png', 'alias.png', 'missing.png'):
                 with self.subTest(name=name), self.assertRaises(RuntimeError): read(name)
 
-    def test_original_file_transfer_has_its_own_bounded_deadline_without_extending_inputs(self):
+    def test_file_and_navigation_deadlines_keep_other_inputs_bounded(self):
         import adapter_client
         duration = [90]  # The original Android file read may already take90s.
         deadlines = []
@@ -204,7 +204,14 @@ class SnapshotJourneyTests(unittest.TestCase):
                 duration[0] = 90
                 with self.assertRaisesRegex(RuntimeError, 'timed out'):
                     adapter_client.invoke(manifest, 'synthetic', 'snapshot.capture', {})
-        self.assertEqual(deadlines, [120, 120, 60])
+                for operation in ('scene.load', 'navigation.enter-domain'):
+                    with self.subTest(operation=operation):
+                        duration[0] = 90
+                        self.assertEqual(adapter_client.invoke(manifest, 'synthetic', operation, {}), {'files': []})
+                        duration[0] = 91
+                        with self.assertRaisesRegex(RuntimeError, 'timed out'):
+                            adapter_client.invoke(manifest, 'synthetic', operation, {})
+        self.assertEqual(deadlines, [120, 120, 60, 90, 90, 90, 90])
 
     def test_restart_and_clock_failures_keep_cleanup(self):
         for mutation, expected in (('restart', AssertionError), ('clock-backwards', ValueError)):

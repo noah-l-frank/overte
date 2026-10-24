@@ -177,3 +177,26 @@ The separately retained Companion V3 host-package SHA-256 is
 Its 11 host methods passed in 19.578 s; they are not product or device proof.
 These hashes identify retained evidence without publishing private logs, target
 configuration or runtime credentials.
+
+
+## Measured navigation transport calibration
+
+Later Asset foundation build 14 recorded launch PASS (29.272 s), Scene ERROR
+(69.723 s) and asset-load SKIP because its required Scene setup did not pass.
+The Scene module duration is not the duration of one adapter operation. Actual
+spans show normal navigation still progressing through 58.787 s before its
+60-second outer transport deadline; the final native-process span has no end,
+so neither its duration nor an ADB hang is established. The earlier Scene build
+9 completed the same normal input in 53.729 s.
+
+The named `scene.load` and `navigation.enter-domain` transport limits are now
+90 seconds. All other operation limits and the original 120/180-second module
+budgets remain unchanged, as do fresh candidate/process/UI observations,
+capabilities, source guards and cleanup. No cache, observation substitution or
+new APK is introduced. This is a measured harness calibration awaiting its own
+fresh device run; it does not convert build 14, the skipped Asset target or the
+original campaign to PASS.
+
+Build 14 public summary SHA-256: `b54486d8a19bfe1a76e5cbb74f0159e415e091390fdfbe0dbe403ece5301751c`.
+The censored original adapter span SHA-256 is
+`609fac1a5911ba51fe4edee147b151d7b659756400abe5bb63b54c029f59ff3e`.
