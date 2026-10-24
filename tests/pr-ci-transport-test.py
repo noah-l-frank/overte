@@ -64,6 +64,72 @@ def jobs(owners):
 
 
 class NativeTests(unittest.TestCase):
+    def test_completed_owner_without_indexed_steps_supplies_no_authority(self):
+        owners = {name: False for name in (*T.LABELS, 'npm', 'codeql')}
+        owners['policy'] = True
+        rows = jobs(owners)
+        producer = next(row for row in rows if row['name'] == T.LABELS['policy'])
+        saved = producer['steps']
+        producer['steps'] = []
+        with self.assertRaises(T.Pending):
+            T.validate_jobs(rows, owners, context=context())
+        producer['steps'] = saved
+        self.assertTrue(T.validate_jobs(rows, owners, context=context()))
+
+    def test_present_skipped_or_failed_required_step_is_never_pending(self):
+        owners = {name: False for name in (*T.LABELS, 'npm', 'codeql')}
+        owners['policy'] = True
+        for conclusion in ('skipped', 'failure', 'cancelled'):
+            rows = jobs(owners)
+            producer = next(row for row in rows if row['name'] == T.LABELS['policy'])
+            producer['steps'][0]['conclusion'] = conclusion
+            with self.subTest(conclusion=conclusion):
+                try:
+                    T.validate_jobs(rows, owners, context=context())
+                except T.Pending:
+                    self.fail('An explicit unsuccessful command was treated as indexing delay')
+                except T.TransportError:
+                    pass
+                else:
+                    self.fail('An unsuccessful required command was accepted')
+
+    def test_transient_metadata_reads_require_a_real_response_before_deadline(self):
+        elapsed = [0]
+        observations = iter([urllib.error.HTTPError('https://api.github.com', 502, 'temporary', {}, None), {'jobs': ['real']}])
+        clients = []
+        def factory():
+            client = object(); clients.append(client); return client
+        def read(client):
+            value = next(observations)
+            if isinstance(value, Exception):
+                raise value
+            return value
+        result = T.read_eventual(factory, read, deadline=30,
+            pause=lambda seconds: elapsed.__setitem__(0, elapsed[0] + seconds), clock=lambda: elapsed[0])
+        self.assertEqual(result, {'jobs': ['real']})
+        self.assertEqual(elapsed[0], 15)
+        self.assertEqual(len(clients), 2)
+        self.assertIsNot(clients[0], clients[1])
+
+    def test_metadata_retry_never_accepts_an_exhausted_or_invalid_read(self):
+        elapsed = [0]
+        def unavailable(_):
+            raise urllib.error.HTTPError('https://api.github.com', 503, 'temporary', {}, io.BytesIO())
+        with self.assertRaises(T.TransportError):
+            T.read_eventual(object, unavailable, deadline=30,
+                pause=lambda seconds: elapsed.__setitem__(0, elapsed[0] + seconds), clock=lambda: elapsed[0])
+        self.assertEqual(elapsed[0], 30)
+        for code in (401, 403, 404):
+            def denied(_, code=code):
+                raise urllib.error.HTTPError('https://api.github.com', code, 'denied', {}, io.BytesIO())
+            with self.subTest(code=code), self.assertRaises(urllib.error.HTTPError) as caught:
+                T.read_eventual(object, denied, deadline=60, pause=lambda _: self.fail('Retried a nontransient error'), clock=lambda: 0)
+            caught.exception.close()
+        def rebound(_):
+            raise T.TransportError('wrong repository')
+        with self.assertRaisesRegex(T.TransportError, 'wrong repository'):
+            T.read_eventual(object, rebound, deadline=60, pause=lambda _: self.fail('Retried invalid evidence'), clock=lambda: 0)
+
     def verify_run(self, value=None, c=None):
         c = context() if c is None else c
         return T.validate_run(run() if value is None else value, c, workflow_id=456,

@@ -170,6 +170,15 @@ name or the exact unevaluated display expression returned by GitHub. It must
 remain skipped with no executed steps; it cannot replace the protected
 `source-policy` check or authorize any execution.
 
+GitHub may report a completed successful job before its required command steps
+are indexed. The observer waits within its existing overall deadline for those
+actual step observations. The iOS artifact verifier allows at most fifteen
+minutes for this metadata and refreshes its source bookend afterward. Transient
+502, 503 and 504 responses from job listings use fresh bounded read-only clients
+within the same deadline. Missing observations never authorize a pass; explicit
+skips, failures, invalid identities and malformed metadata remain errors. No
+build is restarted and no earlier attempt or source replaces the current one.
+
 The Android owner executes the branch's complete reviewed platform inventory
 from [pr-ci-platforms.json](../.github/pr-ci-platforms.json). A candidate cannot
 remove a mandatory suite by editing its own profile. Commands run inside the
