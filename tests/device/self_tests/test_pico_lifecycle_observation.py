@@ -7,7 +7,6 @@ OS/process sources retain the existing explicit model seams; no device claim.
 # SPDX-License-Identifier: Apache-2.0
 from contextlib import contextmanager
 from copy import deepcopy
-import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -25,7 +24,7 @@ class LifecycleObservationTests(unittest.TestCase):
         temporary=tempfile.TemporaryDirectory
         def retain(*args,**kwargs):
             result=temporary(*args,**kwargs)
-            if kwargs.get('prefix')=='lifecycle-editor-' and Path(result.name).parent==Path(os.environ['TMPDIR']):
+            if kwargs.get('prefix')=='lifecycle-editor-' and Path(result.name).parent==Path(tempfile.gettempdir()):
                 # Retain this test's own originals from their construction,
                 # including any setup failure before addCleanup is reached.
                 result._finalizer.detach();result.cleanup=lambda:None

@@ -3073,3 +3073,31 @@ clock jumps with a frozen host, report allocation, lost new process guard and
 actual restart-lock exit without another sample/input. Journals stay retained;
 this does not complete the common v16 Primary/Actor/image/public coordinator
 or final process/context/file retirement. Source-complete areas remain3/14.
+
+
+## Root-verified fresh Lifecycle observation attachment
+
+Fixed ea5b59ead019bf85c98789eddd3ea4508c01d603 is selected as e2bf1e5496;
+Root preserves its existing coverage and adds exactly one selector (241 total).
+The new six-case private primary-observation group passes in43.510 s and
+coverage10 in0.093 s (43.60 s, two groups). All13,501 tracked/new source hashes
+match. Before those checks, an ordinary TMPDIR-unset unittest invocation
+actually failed at setup with KeyError before source acquisition. Root changes
+only diagnostic retention to use tempfile.gettempdir(), preserving original
+ownership independently of that optional environment variable. The complete
+six-case selection now passes with TMPDIR deliberately unset.
+
+Two newly acquired Scripts4 samples remain durable as full Pending/Native
+originals and advance the exact same World journal. The original normal Close,
+second world action/release, path-only Restore, Prepare and process Restart
+continue at127/128 frames. Failed actual lock exit, a landed-record Native-clock
+jump and the explicit zero-query128-frame cap are independently rejected.
+Actual retained Qt contexts and native pending runs remain product resources;
+private evidence journals stay separately owned for later archival/closure.
+
+This constructor still requires the already-created complete owner graph. It
+does not yet provide the before-input baseline, independent Actor, images,
+whole common16-action waits, public dispatch or final host/file closure. No
+archive is returned as a fresh sample, no World cap is reset, and completed
+source areas remain3/14. Separate Root restore/process checks remain as recorded
+above; the agent's subsequent baseline-v2 WIP is not part of this selection.

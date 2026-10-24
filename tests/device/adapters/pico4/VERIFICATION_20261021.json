@@ -4852,5 +4852,37 @@
     "wholeFeaturePublicActorImagesAndFinalSourceRetirementComplete": false,
     "completeFeature": false,
     "deviceAcceptance": false
+  },
+  "lifecyclePrimaryObservationRoot20261024": {
+    "status": "passed-selected-host-components",
+    "selectedSource": "ea5b59ead019bf85c98789eddd3ea4508c01d603",
+    "sourceHead": "e2bf1e549674c9d3115a492688a46c0a3b987866",
+    "catalogGroups": 241,
+    "selectors": {
+      "coverage-matrix": {
+        "cases": 10,
+        "selectorSeconds": 0.093
+      },
+      "lifecycle-primary-observation": {
+        "cases": 6,
+        "selectorSeconds": 43.51
+      }
+    },
+    "selectedDurationSeconds": 43.6,
+    "sourceFiles": 13501,
+    "sourcesUnchanged": true,
+    "environment": "TMPDIR-unset-standard-tempfile",
+    "defaultTempStartupBeforeFix": "actual-unittest-KeyError-TMPDIR-before-source-acquisition",
+    "defaultTempStartupFixedWithActualTempfileParent": true,
+    "sameWorldFrameCap": 128,
+    "positiveContinuesRestoreRestartAtFrames": 127,
+    "nativePendingAndNativeFeatureOriginalsDurableBeforeProjection": true,
+    "actualOuterLockExitAndLandedCasNativeClockFaultsRefused": true,
+    "capCounterExplicitAllSourceCallsZero": true,
+    "productResourcesSeparateFromRetainedHostEvidence": true,
+    "baselineBeforeInputsSupported": false,
+    "actorImagesPublicAndFinalResourceFileClosureComplete": false,
+    "completeFeature": false,
+    "deviceAcceptance": false
   }
 }

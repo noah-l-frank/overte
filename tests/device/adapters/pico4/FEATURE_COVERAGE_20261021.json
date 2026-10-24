@@ -1660,7 +1660,11 @@
         "tests/device/adapters/pico4/LIFECYCLE_RESTORE_REVIEW.md",
         "tests/device/self_tests/test_pico_lifecycle_restore.py",
         "tests/device/self_tests/test_lifecycle_process_compatibility.py",
-        "tests/device/self_tests/test_lifecycle_process_finalization.py"
+        "tests/device/self_tests/test_lifecycle_process_finalization.py",
+        "tests/device/adapters/pico4/lifecycle_observation.py",
+        "tests/device/adapters/pico4/LIFECYCLE_OBSERVATION.md",
+        "tests/device/self_tests/test_pico_lifecycle_observation.py",
+        "android/vr/pico/tests/device/test_lifecycle_observation.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1705,7 +1709,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Connect the root-verified original pre-input Process.begin, existing editor/X/Chat/background/Scripts/pending/stale/close/two-world prefix, normal location-only restoration and once-only restart to fresh common v16 Primary/Actor observations. Root verifies both process wire versions, real final-save/report/guard/outer-lock-age counterexamples and unchanged v1 cold bytes/operations across195 cases in5 selectors. Same128-World-frame and all existing byte/quiet/source limits remain. Whole common waits, independent peer/images, public coordinator and final process/context/file retirement remain incomplete.",
+      "nextExecutableStep": "Connect fresh common v16 baseline observations before first Create input without prematurely binding later Pending input callbacks, then attach the same actual owner graph and preserve source continuity. Root verifies fresh Scripts4 observations through the existing normal Restore/Restart at127/128 World frames, both process versions and final-age/lock/cap faults. Baseline/full16-action waits must still fit the same128; no old frame may be replayed as fresh. Independent Actor/images, public coordinator and final process/context/file retirement remain incomplete.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }
