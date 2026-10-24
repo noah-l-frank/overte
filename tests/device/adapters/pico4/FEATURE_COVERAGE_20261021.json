@@ -1641,7 +1641,15 @@
         "tests/device/self_tests/test_lifecycle_pending_freshness.py",
         "tests/device/self_tests/test_lifecycle_pending_originals.py",
         "android/vr/pico/tests/device/test_lifecycle_pending_factory.py",
-        "android/vr/pico/tests/pico-lifecycle-pending-test.py"
+        "android/vr/pico/tests/pico-lifecycle-pending-test.py",
+        "tests/device/adapters/pico4/lifecycle_close.py",
+        "tests/device/adapters/pico4/lifecycle_world_codec.py",
+        "tests/device/adapters/pico4/LIFECYCLE_CLOSE.md",
+        "tests/device/self_tests/test_pico_lifecycle_close.py",
+        "tests/device/self_tests/test_lifecycle_world_codec.py",
+        "android/vr/pico/tests/device/test_lifecycle_close_factory.py",
+        "android/vr/pico/tests/device/test_lifecycle_close_owner.py",
+        "android/vr/pico/tests/device/test_lifecycle_world_codec.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1686,7 +1694,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Continue normal close-editor and second world movement/release through the same original World owner and its unchanged 128-frame budget. The existing Create/X/Chat/HOME prefix now joins actual normal Scripts entries, original held event/context replacement/rejected stale attempt/release and complete independent quiet. The host hold barrier is conservatively pinned before transport and unsafe v1 birth values are refused cold. Bound pending construction avoids default Script inventory; typed cold binding aliases are rejected. Root verifies 27 new owning cases plus 22 existing readers. Normal position restoration, independent peer/image evidence and full process/context/file retirement remain required; duplicate archival cannot reduce the actual physical observation count.",
+      "nextExecutableStep": "Compose actual initial Process.begin before first normal input with original-position restoration after the now root-verified normal two-X close and second world movement/release. Fresh World v2 retains all actual source frames within unchanged 128-frame/16-MiB/48-KiB limits; existing v1 continues its original codec and operations without migration. Root verifies ten codec/owner and eight close/factory cases, plus 27 existing World/process cases. Normal Address/viewpoint restoration must independently match original pose; serverless versus connected status must use genuine versioned native observations. Independent peer/image evidence, whole v16/public coordinator and final process/context/file retirement remain incomplete.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

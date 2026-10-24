@@ -86,12 +86,12 @@ strict bounded decoding and original-history validation. A new owner must
 retain all authoritative frames under the same 128/16-MiB/48-KiB limits; old
 v1 originals must remain unchanged. The source proposal now uses a separate
 World-v2 codec only for new owners; existing v1 owners keep their original
-codec and operations. Its codec, legacy operation and cap checks remain
-pending. The offline size result does not authorize
+codec and operations. Its codec, legacy operation and cap checks subsequently passed, as recorded
+below. The offline size result does not authorize
 adopting an old file as a live owner or silently migrating an existing owner.
 
 The prototype is not registered or bound to a public operation, and its
-factory admission remains unqualified. The later v2 cap counter passed once
+physical device admission remains unqualified. The later v2 cap counter passed once
 in 12.058 s: all 128 authoritative World frames have different original UI,
 gesture and drive query IDs; the file contains 46,912 Base64 bytes, within the
 same 49,152-byte limit. A subsequent close request acquired no additional
@@ -102,3 +102,20 @@ Qt/controller/physics test producers are explicit seams. Original-position
 restoration, independent peer/image evidence, the actual common sixteen-step
 engine join, process restoration and final file/Qt/lease retirement remain
 unfinished. No new capability or successful whole run is claimed.
+
+## Integrated root verification
+
+Source 5cd9415e093c27d64ea6ba6ded0ffe0dbdb0b702 is selected as 5953ba3ebb.
+Root verifies the ten codec/actual-owner cases in 0.677 s and eight close/factory
+cases in 67.283 s through the normal Pico runner. The coverage selector passes
+ten cases in 0.091 s; total 68.051 s, 237 catalog entries. The factory tests
+construct the existing prefix in the actual canonical namespace and preserve
+the real path/source-lock checks. Construction performs no further native
+query or input; a foreign process/caller is refused. A separate strengthened
+orphan test passes in 0.995 s: actual generic teardown stops the simulated app,
+refuses successful retirement and preserves the original orphan bytes.
+
+The existing thirteen World and fourteen process cases pass in 20.963 s. Four
+repository suites, registry, probe syntax and whitespace checks pass. These
+results retain explicit native/Qt/IME/OpenXR/physics producer seams and do not
+qualify physical rendering, independent peers or the complete Lifecycle area.

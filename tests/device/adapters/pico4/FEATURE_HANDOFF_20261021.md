@@ -2804,3 +2804,24 @@ not changed scene pixels or physical rendering. Restart generation transfer is
 the next normal action. Complete Navigation, final restoration and retirement
 remain open; three of fourteen areas are source/host complete, zero device
 qualified.
+
+## Integrated normal Lifecycle close and complete World-v2 history
+
+Fixed source 5cd9415e093c27d64ea6ba6ded0ffe0dbdb0b702 is selected as 5953ba3ebb.
+The same original Create/X/Chat/background/Scripts/pending/stale prefix now
+continues through two normal X closures and the original second World movement
+and neutral quiet. Every composite observation remains in the original World
+journal; copied close originals carry their exact original World index. New
+owners use the bounded version-two codec. Existing v1 owners retain their
+original codec, bytes on read and permitted input/release/reconciliation.
+Neither observation counts nor storage/freshness/time limits increase.
+
+Root verifies ten codec/actual-owner and eight close/factory cases plus ten
+coverage cases in 68.051 s. Twenty-seven existing World/process cases pass in
+20.963 s. A strengthened actual generic-teardown counter preserves orphan
+originals and refuses successful retirement (0.995 s). All 237 catalog entries
+remain covered, and repository/registry/probe syntax/whitespace checks pass.
+This remains partial: original-position restoration, initial/final process
+composition, independent peer/stereo evidence and full v16/public operations
+are unfinished. Source/host complete areas remain three of fourteen; physical
+qualification remains zero.

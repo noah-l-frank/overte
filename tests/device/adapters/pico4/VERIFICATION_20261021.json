@@ -4198,5 +4198,59 @@
     "completeFeature": false,
     "fullApplicationCompiled": false,
     "deviceAcceptance": false
+  },
+  "lifecycleCloseAndWorldV2Root20261024": {
+    "source": "5cd9415e093c27d64ea6ba6ded0ffe0dbdb0b702",
+    "selectedAs": "5953ba3ebb",
+    "status": "passed-selected-host-components",
+    "selection": {
+      "groups": 3,
+      "catalogGroups": 237,
+      "durationSeconds": 68.051,
+      "coverageCases": 10,
+      "coverageSeconds": 0.091,
+      "codecAndActualOwnerCases": 10,
+      "codecSelectorSeconds": 0.677,
+      "closeAndActualFactoryCases": 8,
+      "closeSelectorSeconds": 67.283
+    },
+    "existingWorldAndProcess": {
+      "cases": 27,
+      "durationSeconds": 20.963,
+      "status": "passed"
+    },
+    "genericTeardownOriginalOrphanRetained": {
+      "cases": 1,
+      "durationSeconds": 0.995,
+      "status": "passed"
+    },
+    "repository": {
+      "suites": 4,
+      "durationSeconds": 2.552,
+      "status": "passed"
+    },
+    "registryProbeSyntaxWhitespace": "passed",
+    "actualCanonicalFactoryWithoutAdditionalQueryOrInput": true,
+    "normalCloseSeparateOriginalXStreams": 2,
+    "sameAuthoritativeWorldOwnerAndOriginalIndices": true,
+    "freshWorldOwnerVersion": 2,
+    "existingWorldVersionsRead": [
+      1,
+      2
+    ],
+    "legacyV1ContinuesOriginalOperationsWithoutMigration": true,
+    "processSnapshotsPreserveOriginalWorldVersion": true,
+    "worldFrameCapUnchanged": 128,
+    "rawBytesCapUnchanged": 16777216,
+    "packedBytesCapUnchanged": 49152,
+    "privateFileBytesCapUnchanged": 65536,
+    "newDecoderMemoryBytes": 16777216,
+    "actualCapObservedDistinctUiGestureDriveIds": 128,
+    "capBlocksFurtherQueryAndX": true,
+    "fullOriginalsRetained": true,
+    "nativeQtOpenXrImePhysics": "explicit-host-producer-seams",
+    "completeFeature": false,
+    "fullApplicationCompiled": false,
+    "deviceAcceptance": false
   }
 }
