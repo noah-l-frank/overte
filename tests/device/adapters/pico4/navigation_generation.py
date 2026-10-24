@@ -26,7 +26,7 @@ from adapters.script_journey.history import same,unpack
 from adapters.token_places_ui import TokenPlacesUI
 
 
-def runtime(adapter,target,parent,inputs,state):
+def runtime(adapter,target,parent,inputs,state,*,input_owner=None):
     """New actual process, ordinary bridge, native/pose/UI/provider originals."""
     parent.lock.assert_held();plan=inputs.read();need(plan['phase'] in ('launch-issued','observed'))
     old=plan['oldBinding'];installed=adapter._installation(target)
@@ -38,10 +38,20 @@ def runtime(adapter,target,parent,inputs,state):
     path=parent.lock.path.with_name('navigation-prefix-generation-1-'+parent.role+'-ui.json')
     def no_input(*_args,**_kwargs):need(False)
     normal,_observe,binding=normal_scripts.runtime(adapter,target,scene,installed,identity,path,no_input)
-    # Action 12 observes startup only. Ordinary Places open/adoption belongs to
-    # the following recipe step; accidental QML/controller input refuses here.
-    normal.io.navigation.io.bind_before_send(no_input)
-    normal.io.navigation.io.bind_controller_admission(no_input,intent=no_input,before_publish=no_input)
+    if input_owner is None:
+        # Action 12 observes startup only. Later ordinary inputs require their
+        # explicit G1 owner; none can be delivered by this read-only runtime.
+        normal.io.navigation.io.bind_before_send(no_input)
+        normal.io.navigation.io.bind_controller_admission(no_input,intent=no_input,before_publish=no_input)
+    else:
+        from adapters.pico4.navigation_generation_flow import NavigationGenerationFlow
+        need(isinstance(input_owner,NavigationGenerationFlow) and input_owner.parent is parent
+            and input_owner.restart.inputs is inputs and parent.role=='primary'
+            and same(input_owner.binding,binding))
+        input_owner.memory_control()
+        normal.io.navigation.io.bind_before_send(input_owner.qml_callback)
+        normal.io.navigation.io.bind_controller_admission(input_owner.controller_callback,
+            intent=input_owner.intent_callback,before_publish=input_owner.publish_callback)
     need(all(binding[key]==old[key] for key in ('sourceRevision','artifactSha256','targetFingerprint'))
         and binding['sessionId']!=old['sessionId'])
     if plan['phase']=='observed':need(same(binding,plan['newBinding']))
@@ -87,7 +97,45 @@ def compose(adapter,target,parent):
             rebind=lambda inputs,authority:adapter._script_restart_recover_binding(target,restart_inputs=inputs,owner_check=authority),
             successor=lambda inputs,state:runtime(adapter,target,original,inputs,state))
         holder['owner']=owner;return owner
-    return NavigationContinuation(parent,factory)
+    def generation_factory(continuation):
+        from adapters.navigation_bookmarks import NavigationBookmarks
+        from adapters.navigation_bookmark_restart import adopt_restart
+        from adapters.navigation_directory import NavigationDirectory
+        from adapters.pico4.navigation_generation_flow import NavigationGenerationFlow
+        from adapters.pico4.navigation_generation_open import NavigationGenerationOpen
+        from adapters.pico4.navigation_generation_close import NavigationGenerationClose
+        from adapters.pico4.tablet_home import bind_home
+        def current(flow):
+            return runtime(adapter,target,parent,flow.restart.inputs,flow.restart.state,
+                input_owner=flow if parent.role=='primary' else None)
+        def bookmark_factory(flow,adopt):
+            source=flow.source();native=flow.runtime['native']
+            def ui(intent):return TokenPlacesUI(source.normal.io,intent,flow.run,monotonic=native.monotonic,sleep=native.sleep)
+            path=flow.lock.path.with_name('navigation-prefix-generation-1-bookmarks.json')
+            if not adopt:
+                need(PrivateFeatureState(path).read() is not None)
+                return NavigationBookmarks(ui,source.readers['bookmarks'],path,flow.run,flow.binding,
+                    monotonic=native.monotonic,sleep=native.sleep)
+            # Reuse the actual shared proof transfer, with this already owned
+            # new-process IO. The global G0 Script manager is never rebound.
+            flow.fence()
+            owner=adopt_restart(flow.restart.inputs,parent.bookmarks.store,PrivateFeatureState(path),
+                flow.restart.state['oldNative'],flow.restart.state['oldBookmark'],ui,native,flow.runtime['presence'],
+                source.readers['bookmarks'],flow.binding,flow.run,parent.phase,flow.lock)
+            flow.adopted=owner;flow.fence();return owner
+        def open_factory(flow):
+            source=flow.source();native=flow.runtime['native']
+            directory=NavigationDirectory(lambda intent:TokenPlacesUI(source.normal.io,intent,flow.run,
+                monotonic=native.monotonic,sleep=native.sleep),source.readers['directory'],source.status,
+                flow.lock.path.with_name('navigation-prefix-generation-1-directory.json'),flow.run,flow.binding,
+                source.provider_instance,source.inputs,source.origin,source.profile,flow.fence,
+                monotonic=native.monotonic,sleep=native.sleep)
+            return NavigationGenerationOpen(flow,directory,bind_home(adapter,target,native),adapter._graphics_ui_observer(target),
+                lambda:bookmark_factory(flow,True))
+        def close_factory(flow):
+            return NavigationGenerationClose(flow,bind_home(adapter,target,flow.runtime['native']),adapter._graphics_ui_observer(target))
+        return NavigationGenerationFlow(continuation,current,open_factory,close_factory,bookmark_factory)
+    return NavigationContinuation(parent,factory,generation_factory=generation_factory)
 
 
 def history(root,run,phase,lock,*,role,status,provider_instance,inputs,origin,profile):
