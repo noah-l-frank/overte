@@ -86,6 +86,27 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
             value=json.loads(result)
             from adapters.pico4.avatar_preferences import validate as preference_validate,baseline as preference_baseline,continuity as preference_continuity
             from adapters.pico4.avatar_favorite_effect import unchanged_preferences,original_preferences,original_bookmarks
+            native_inputs=value['originalAvatarInputs'];self.assertTrue(native_inputs)
+            for effect in native_inputs:
+                before=effect['before']['packet'];after=effect['after']['packet']
+                preference_validate(before,effect['before']['request'],value['nativeProcessId'],before['capturedEpochMs'])
+                preference_validate(after,effect['after']['request'],value['nativeProcessId'],after['capturedEpochMs'])
+                preference_continuity(before,after)
+                self.assertGreaterEqual(effect['normalInput'],1);self.assertLessEqual(effect['normalInput'],len(value['normalInputJournal']))
+                self.assertGreaterEqual(effect['normalMessages'],1);self.assertLessEqual(effect['normalMessages'],len(value['normalMessageJournal']))
+                self.assertTrue(value['normalInputJournal'][effect['normalInput']-1]['reply']['performed'])
+                a=preference_baseline(before);b=preference_baseline(after)
+                self.assertEqual(a['mutationSequence'],b['mutationSequence'])
+                self.assertEqual(a['cache']['native']['handles'],b['cache']['native']['handles'])
+                for field in ('rows','encodedRows'):
+                    self.assertEqual(a['cache'][field],b['cache'][field]);self.assertEqual(a['writer'][field],b['writer'][field])
+                for field in ('file','fileSha256','rows','pathSha256'):
+                    self.assertEqual(a['writer']['physical'][field],b['writer']['physical'][field])
+                if effect['call']['method']=='useFullAvatarURL':
+                    self.assertEqual(effect['call']['value'],b['cache']['native']['live']['preferenceUrl'])
+                else:
+                    self.assertEqual('setAvatarScale',effect['call']['method']);unchanged_preferences(before,after)
+                    self.assertAlmostEqual(effect['call']['value'],b['cache']['native']['live']['targetScale'],places=5)
             before_data=value['originalDataBefore'];after_data=value['originalDataAfter']
             original_preferences(before_data['preferences']['packet'],after_data['preferences']['packet'])
             original_bookmarks(before_data['bookmarks'],after_data['bookmarks'])

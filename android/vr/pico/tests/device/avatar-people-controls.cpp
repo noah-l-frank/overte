@@ -70,6 +70,10 @@ int main(int argc,char**argv) {
     auto preferenceManager=::DependencyManager::set<Setting::Manager>();
     preferenceManager->setValue("unrelated",QByteArray("untouched"));SettingsTests::flush(preferenceManager.data());
     ::DependencyManager::set<::AvatarManager>(nativeAvatar);
+    // Declared loaded-avatar admission uses the real original URL method.
+    // The full MyAvatar startup/model setter remains an explicit host boundary;
+    // no Handle is initialized or written to construct this live context.
+    nativeAvatar->useFullAvatarURL(QUrl("qrc:/meshes/defaultAvatar_full.fst"));
     TestScriptingInterface preferenceObserver;quint64 preferenceNonce=0;QJsonArray originalFavoritePreferences;
     auto physicalPreferences=[&]{QFile file(preferenceManager->fileName());assert(file.open(QIODevice::ReadOnly));
         const auto bytes=file.read(65537);assert(bytes.size()<=65536 && file.atEnd());return QString::fromLatin1(bytes.toBase64());};
@@ -87,9 +91,20 @@ int main(int argc,char**argv) {
     auto originalCapture=[&]{return actualObserver.observe(root,&window,true);};
     const auto before=capture();for(const auto& raw:before.value("controls").toArray()){assert(!raw.toObject().value("inputReady").toBool());}
     QProcess backend;backend.setProcessChannelMode(QProcess::ForwardedErrorChannel);
-    backend.start("node",QStringList{path+"/android/vr/pico/tests/device/avatar-original-backend.js",path,"--native-bookmarks"});assert(backend.waitForStarted(2000));const auto backendProcessId=backend.processId();
-    QJsonArray normalInputJournal,normalMessageJournal;
+    backend.start("node",QStringList{path+"/android/vr/pico/tests/device/avatar-original-backend.js",path,"--native-bookmarks","--native-avatar"});assert(backend.waitForStarted(2000));const auto backendProcessId=backend.processId();
+    QJsonArray normalInputJournal,normalMessageJournal,originalAvatarInputs;
     auto response=[&]{for(int calls=0;calls<32;++calls){if(!backend.canReadLine()){assert(backend.waitForReadyRead(2000));}const auto raw=backend.readLine();auto value=QJsonDocument::fromJson(raw).object();assert(!value.isEmpty());
+        if(value.contains("nativeAvatarCall")){
+            const auto call=value.value("nativeAvatarCall").toObject();assert(call.size()==2);
+            const auto before=preferences();const auto method=call.value("method").toString();
+            if(method=="useFullAvatarURL"){assert(call.value("value").isString());nativeAvatar->useFullAvatarURL(QUrl(call.value("value").toString()));}
+            else {assert(method=="setAvatarScale" && call.value("value").isDouble());nativeAvatar->setAvatarScale(call.value("value").toDouble());}
+            originalAvatarInputs.append(QJsonObject{{"call",call},{"before",before},{"after",preferences()},
+                {"normalInput",normalInputJournal.size()},{"normalMessages",normalMessageJournal.size()}});
+            const auto raw=QJsonDocument(QJsonObject{{"nativeAvatarReply",QJsonObject{{"avatarUrl",nativeAvatar->getFullAvatarURLFromPreferences().toString()},
+                {"scale",nativeAvatar->getTargetScale()}}}}).toJson(QJsonDocument::Compact)+'\n';
+            assert(backend.write(raw)==raw.size());assert(backend.waitForBytesWritten(2000));continue;
+        }
         if(!value.contains("nativeBookmarkCall")){return value;}
         const auto call=value.value("nativeBookmarkCall").toObject();const auto method=call.value("method").toString(),name=call.value("name").toString();
         nativeBookmarks.currentAvatarActor={{"version",3},{"avatarUrl",call.value("avatarUrl").toString()},{"avatarScale",call.value("scale").toDouble()},{"avatarEntites",QVariantList{}},{"avatarIcon",""}};
@@ -97,11 +112,12 @@ int main(int argc,char**argv) {
         if(method=="save"){assert(name=="e2e-"+QString(32,'a'));nativeBookmarks.addBookmarkInternal(name);}
         else if(method=="delete"){assert(name=="e2e-"+QString(32,'a'));nativeBookmarks.removeBookmarkInternal(name);}
         else if(method=="load"){
-            // Live URL/scale and actual asynchronous model completion are
-            // declared native actors. The entire original Qt connection,
-            // cached-sameURL signal branch and callback body execute unchanged.
-            nativeAvatar->skeletonActor=QUrl(call.value("avatarUrl").toString());nativeAvatar->_fullAvatarURLFromPreferences=nativeAvatar->skeletonActor;
-            nativeAvatar->_targetScale=call.value("scale").toDouble();assert(nativeAvatar->_packedAvatarEntityData.isEmpty());const int requested=nativeAvatar->modelRequestsActor,loadedBefore=originalLoaded;
+            // Normal URL/scale already reached the original native methods.
+            // Full model setter/completion remains a declared actor; the
+            // whole Qt connection, cached signal and callback are original.
+            assert(nativeAvatar->getFullAvatarURLFromPreferences()==QUrl(call.value("avatarUrl").toString()));
+            assert(qAbs(nativeAvatar->getTargetScale()-call.value("scale").toDouble())<.00001);
+            assert(nativeAvatar->_packedAvatarEntityData.isEmpty());const int requested=nativeAvatar->modelRequestsActor,loadedBefore=originalLoaded;
             const auto beforePhysical=physicalPreferences();const auto beforePreferences=preferences();const auto beforeLoads=QJsonObject::fromVariantMap(nativeBookmarks.e2eBookmarkLoads());
             nativeBookmarks.loadBookmark(name);
             if(nativeAvatar->modelRequestsActor!=requested){++declaredModelCompletions;emit nativeAvatar->onLoadComplete();}
@@ -267,6 +283,6 @@ int main(int argc,char**argv) {
     }
     assert(quietComplete);quietTrace.close();
     SettingsTests::stop(preferenceManager.data());
-    QTextStream(stdout)<<QJsonDocument(QJsonObject{{"originalDataBefore",QJsonObject{{"preferences",originalDataPreferences},{"bookmarks",originalDataBookmarks},{"settingsRawBase64",originalDataPhysical}}},{"originalDataAfter",originalDataAfter},{"originalDataQuietSamples",quietSamples},{"normalInputJournal",normalInputJournal},{"normalMessageJournal",normalMessageJournal},{"nativeProcessId",QCoreApplication::applicationPid()},{"originalBackendProcessId",backendProcessId},{"originalFavoritePreferences",originalFavoritePreferences},{"normalUrlMessages",urls},{"originalScriptAvatarCalls",urlCalls},{"bookmarkCalls",backendResult.value("bookmarkCalls")},{"scaleCalls",backendResult.value("scaleCalls")},{"snapshots",snapshots},{"originalSnapshots",originalSnapshots},{"originalBookmarkStorage",originalBookmarkStorage},{"originalBookmarkLoads",originalBookmarkLoads},{"cachedOriginalLoads",cachedOriginalLoads},{"declaredModelCompletions",declaredModelCompletions},{"counterexamples",QJsonArray{"uninitialized","wrong-root","moved-token","window-source","disabled","higher-overlay","outside-child","hidden-child","disabled-painted-child","clipped","negative-z"}},{"pointerCalls",pointers},{"hmdActive",true},{"wholeOriginalObserver",true},{"wholeOriginalWriter",true}}).toJson(QJsonDocument::Compact)<<'\n';
+    QTextStream(stdout)<<QJsonDocument(QJsonObject{{"originalDataBefore",QJsonObject{{"preferences",originalDataPreferences},{"bookmarks",originalDataBookmarks},{"settingsRawBase64",originalDataPhysical}}},{"originalDataAfter",originalDataAfter},{"originalDataQuietSamples",quietSamples},{"originalAvatarInputs",originalAvatarInputs},{"normalInputJournal",normalInputJournal},{"normalMessageJournal",normalMessageJournal},{"nativeProcessId",QCoreApplication::applicationPid()},{"originalBackendProcessId",backendProcessId},{"originalFavoritePreferences",originalFavoritePreferences},{"normalUrlMessages",urls},{"originalScriptAvatarCalls",urlCalls},{"bookmarkCalls",backendResult.value("bookmarkCalls")},{"scaleCalls",backendResult.value("scaleCalls")},{"snapshots",snapshots},{"originalSnapshots",originalSnapshots},{"originalBookmarkStorage",originalBookmarkStorage},{"originalBookmarkLoads",originalBookmarkLoads},{"cachedOriginalLoads",cachedOriginalLoads},{"declaredModelCompletions",declaredModelCompletions},{"counterexamples",QJsonArray{"uninitialized","wrong-root","moved-token","window-source","disabled","higher-overlay","outside-child","hidden-child","disabled-painted-child","clipped","negative-z"}},{"pointerCalls",pointers},{"hmdActive",true},{"wholeOriginalObserver",true},{"wholeOriginalWriter",true}}).toJson(QJsonDocument::Compact)<<'\n';
 }
 #include "avatar-bookmark-store-actor.moc"
