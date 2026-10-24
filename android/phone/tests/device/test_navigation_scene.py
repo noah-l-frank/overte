@@ -43,11 +43,12 @@ class Boundary:
         self.adapter.save_session=lambda *_:self.sdk.save()
         self.sdk.state['targetFingerprint']=self.adapter.snapshot_fingerprint(self.target)
         self.adapter.read_session=lambda _:self.sdk.state
+        self.adapter.phone_ime_state=lambda _:self.sdk.read_ime()
     def patch(self):
         from contextlib import ExitStack
         scope=ExitStack();scope.enter_context(patch.dict('os.environ',{'OVERTE_E2E_SCENE_URL':self.sdk.scene,'OVERTE_PHONE_FEATURE_WORLD_NAVIGATION':'0'}))
         scope.enter_context(patch.object(appium.PhoneAdapter,'require_bound_operation',lambda *_:None))
-        scope.enter_context(patch.object(appium,'NativeUI',lambda client,session,guard:NativeUI(client,session,guard,timeout=.8,monotonic=lambda:self.sdk.clock,sleep=self.sdk.sleep)))
+        scope.enter_context(patch.object(appium,'NativeUI',lambda client,session,guard,**_options:NativeUI(client,session,guard,timeout=.8,monotonic=lambda:self.sdk.clock,sleep=self.sdk.sleep)))
         return scope
     def invoke(self,operation,values):return self.adapter.invoke('explicit-synthetic',operation,values)
 

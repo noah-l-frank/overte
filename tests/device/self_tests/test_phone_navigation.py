@@ -16,7 +16,7 @@ sys.path.insert(0, str(DEVICE))
 sys.path.insert(0, str(DEVICE / 'adapters/android-phone'))
 from overte_phone_navigation_scene import configuration as scene_configuration
 from adapters.normal_ui import NativeUI, NativeUIError, W3C_ELEMENT
-from adapters.phone_navigation import PhoneNavigation, PROFILE, PACKAGE, validate_profile, validate_state, controlled_domain_url
+from adapters.phone_navigation import PhoneNavigation, PROFILE, PACKAGE, validate_profile, validate_state, controlled_domain_url, phone_ime_visible
 from adapters.shared_appium.adapter import AppiumAdapter
 from navigation_journey import navigation_journey
 from navigation_observation import project_probe
@@ -26,6 +26,8 @@ class NativePhone:
     """Only native W3C UI, world/probe reads, clock and guard are substituted."""
     def __init__(self, mutation=''):
         self.clock = 0.0
+        self.keyboard_visible = False
+        self.ime_reads = []
         self.mutation = mutation
         self.address_open = False
         self.address_enabled = True
@@ -74,6 +76,11 @@ class NativePhone:
 
     def call(self, method, path, body=None):
         self.calls.append((method, path, copy.deepcopy(body)))
+        if method == 'POST' and path.endswith('/appium/device/hide_keyboard'):
+            self.inputs.append('hide-keyboard')
+            if self.mutation != 'ime-ignored': self.keyboard_visible = False
+            if self.mutation == 'ime-text-changed': self.field = 'changed while hiding'
+            return None  # The original API receipt is never a visibility proof.
         if path.endswith('/elements'):
             if self.fail_next_read:
                 self.fail_next_read = False
@@ -133,9 +140,13 @@ class NativePhone:
         # Model the real CLI's atomic JSON state handoff to its next process.
         self.saved.append(json.loads(json.dumps(self.state)))
 
+    def read_ime(self):
+        self.ime_reads.append(self.keyboard_visible)
+        return phone_ime_visible('mInputShown=' + ('true' if self.keyboard_visible else 'false') + '\n')
+
     def flow(self):
         return PhoneNavigation(self.ui, self.profile, self.state,
-                               self.identity, self.process, self.save)
+                               self.identity, self.process, self.save, read_ime=self.read_ime)
 
     def invoke(self, operation, arguments):
         result = self.flow().invoke(operation, arguments)
@@ -168,7 +179,7 @@ class PhoneNavigationTests(unittest.TestCase):
         adapter = object.__new__(PhoneAppiumAdapter)
         adapter.candidate = object()  # Actual installed identity is an explicit host seam below.
         target = {'controls': {'normalNavigation': native.profile}, 'scene': {'kind': 'android-debug-e2e'}}
-        native.state['targetFingerprint'] = 'actual-host-bound-fingerprint'
+        native.state['targetFingerprint'] = PhoneAppiumAdapter.snapshot_fingerprint(target)
         adapter.target = lambda _selector: target
         adapter.advertised_capabilities = lambda _target: {'navigation.enter-domain'}
         adapter.controlled_android_client = lambda _target: True
@@ -177,7 +188,7 @@ class PhoneNavigationTests(unittest.TestCase):
         adapter.process_state = lambda *_args: {'running': True, 'identity':
             'changed-process' if changed_process and native.field else native.process}
         adapter.read_session = lambda _selector: native.state
-        adapter.snapshot_fingerprint = lambda _target: 'actual-host-bound-fingerprint'
+        adapter.phone_ime_state = lambda _selector: native.read_ime()
         adapter.query_app_state = lambda *_args: 4
         adapter.save_session = lambda _selector, _state: native.save()
         adapter.write_android_client_command = lambda *_args: self.fail('Private command channel must not receive domain input')
@@ -279,6 +290,76 @@ class PhoneNavigationTests(unittest.TestCase):
         self.assertEqual(original_url, native.current)
         self.assertGreaterEqual(len(samples), 3)
         self.assertTrue(all(not value['domain']['connected'] for value in samples))
+
+    def test_phone_ime_parser_requires_one_explicit_bounded_native_field(self):
+        self.assertTrue(phone_ime_visible('mInputShown=true\n'))
+        self.assertFalse(phone_ime_visible(' mShowRequested=false mShowExplicitlyRequested=false mShowForced=false mInputShown=false\n'))
+        for raw in (None, {}, '', 'private editor', 'mInputShown=UNKNOWN', 'mInputShown=true\nmInputShown=false',
+                    'mInputShown=true mInputShown=true', 'privateHint=mInputShown=false',
+                    'mInputShown = false', 'mInputShown=false' + 'x'*131072):
+            with self.subTest(kind=type(raw).__name__), self.assertRaises(NativeUIError):phone_ime_visible(raw)
+
+    def test_phone_go_hides_shown_ime_once_and_freshly_verifies_hidden_text_before_one_click(self):
+        native=NativePhone('goto-ignored');native.keyboard_visible=True
+        adapter=self.domain_adapter(native)
+        with patch.dict(os.environ,self.domain_environment(),clear=True):
+            self.assertEqual({'requested':True},adapter.invoke('owned-target','navigation.enter-domain',{'url':self.DOMAIN}))
+        self.assertEqual([True,False],native.ime_reads)
+        self.assertEqual(1,native.inputs.count('hide-keyboard'));self.assertEqual(1,native.inputs.count('PhoneAddressGoButton'))
+        self.assertLess(native.inputs.index('hide-keyboard'),native.inputs.index('PhoneAddressGoButton'))
+        self.assertEqual(self.DOMAIN,native.field);self.assertNotEqual(self.DOMAIN,native.current)
+
+    def test_phone_go_hidden_keyboard_needs_no_hide_and_ignored_or_mutating_dismissal_never_clicks(self):
+        hidden=NativePhone('goto-ignored')
+        hidden.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
+        self.assertEqual([False,False],hidden.ime_reads);self.assertNotIn('hide-keyboard',hidden.inputs)
+        self.assertEqual(1,hidden.inputs.count('PhoneAddressGoButton'))
+        for mutation in ('ime-ignored','ime-text-changed'):
+            with self.subTest(mutation=mutation):
+                native=NativePhone(mutation);native.keyboard_visible=True
+                with self.assertRaises(NativeUIError):native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
+                self.assertEqual(1,native.inputs.count('hide-keyboard'));self.assertNotIn('PhoneAddressGoButton',native.inputs)
+                self.assertTrue(native.state['normalNavigation']['addressOwned'])
+        missing=NativePhone();flow=missing.flow();flow.read_ime=None
+        with self.assertRaises(NativeUIError):flow.enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
+        self.assertNotIn('PhoneAddressGoButton',missing.inputs);self.assertNotIn('hide-keyboard',missing.inputs)
+
+    def test_phone_ime_callback_rejects_malformed_or_changed_continuity_before_hide_or_go(self):
+        for changed in ('malformed','generation','session','target','process','installed'):
+            with self.subTest(changed=changed):
+                native=NativePhone();adapter=self.domain_adapter(native)
+                def read(_selector):
+                    if changed=='generation':native.state['generation']+=1
+                    if changed=='session':native.state['sessionId']='foreign-sdk'
+                    if changed=='target':adapter.target('owned-target')['scene']['kind']='foreign'
+                    if changed=='process':native.process='31416:foreign-start'
+                    if changed=='installed':native.identity['sourceRevision']='f'*40
+                    return None if changed=='malformed'else True
+                adapter.phone_ime_state=read
+                with patch.dict(os.environ,self.domain_environment(),clear=True),self.assertRaises((ValueError,NativeUIError)):
+                    adapter.invoke('owned-target','navigation.enter-domain',{'url':self.DOMAIN})
+                self.assertNotIn('hide-keyboard',native.inputs);self.assertNotIn('PhoneAddressGoButton',native.inputs)
+
+    def test_phone_ime_reader_uses_only_the_mapped_bounded_native_read_and_strict_parser(self):
+        from types import SimpleNamespace
+        import appium_adapter as phone
+        adapter=phone.PhoneAppiumAdapter.__new__(phone.PhoneAppiumAdapter);adapter.candidate=object()
+        adapter.target=lambda _selector:{'capabilities':{'appium:udid':'explicit-host-seam','appium:adbPort':5273}}
+        with tempfile.TemporaryDirectory()as temporary:
+            actual=Path(temporary)/'native-ime';actual.write_text('mInputShown=false\n')
+            calls=[]
+            def execute(arguments,*,target):
+                calls.append((arguments,target));return actual.read_text()
+            with patch.object(phone,'PhoneAdapter',return_value=SimpleNamespace(adb=SimpleNamespace(execute=execute))),patch.dict(os.environ,{'ANDROID_ADB_SERVER_PORT':'5273','ADB_SERVER_SOCKET':''}):
+                for bad in ('','5037'):
+                    with patch.dict(os.environ,{'ANDROID_ADB_SERVER_PORT':bad}),self.assertRaisesRegex(ValueError,'PHONE_NORMAL_IME_NAMESPACE_CHANGED'):adapter.phone_ime_state('owned')
+                with patch.dict(os.environ,{'ADB_SERVER_SOCKET':'foreign'}),self.assertRaisesRegex(ValueError,'PHONE_NORMAL_IME_NAMESPACE_CHANGED'):adapter.phone_ime_state('owned')
+                self.assertEqual([],calls)
+                self.assertIs(adapter.phone_ime_state('owned'),False)
+                actual.write_text('mInputShown=true\n');self.assertIs(adapter.phone_ime_state('owned'),True)
+                actual.write_text('native field missing')
+                with self.assertRaises(NativeUIError):adapter.phone_ime_state('owned')
+            self.assertEqual([(['shell','dumpsys input_method | head -c 131073'],'explicit-host-seam')]*3,calls)
 
     def test_two_fresh_absence_reads_survive_slow_guards_only_with_supported_bound(self):
         class SlowClosePhone(NativePhone):

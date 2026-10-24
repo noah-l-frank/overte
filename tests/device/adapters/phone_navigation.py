@@ -27,6 +27,23 @@ def controlled_domain_url(url, expected_url, expected_host):
     return url
 
 
+def phone_ime_visible(raw):
+    """Read one explicit Android IME header; missing fields never mean hidden."""
+    try:
+        bounded = type(raw) is str and '\0' not in raw and len(raw.encode('utf-8')) <= 131072
+    except UnicodeError:
+        bounded = False
+    if not bounded:
+        raise NativeUIError('Normal Phone keyboard observation is invalid')
+    fields = re.findall(r'(?<![A-Za-z0-9_])mInputShown=([^\s]*)', raw)
+    headers = re.findall(r'(?m)^[ \t]*(?:mShowRequested=(?:true|false)[ \t]+'
+        r'mShowExplicitlyRequested=(?:true|false)[ \t]+mShowForced=(?:true|false)[ \t]+)?'
+        r'mInputShown=(true|false)(?:[ \t][^\r\n]*)?$', raw)
+    if len(fields) != 1 or len(headers) != 1 or fields[0] != headers[0]:
+        raise NativeUIError('Normal Phone keyboard observation is missing or ambiguous')
+    return headers[0] == 'true'
+
+
 def validate_profile(value):
     if (not isinstance(value, dict) or set(value) != {'contractVersion', 'profile', 'sceneUrl'}
             or type(value['contractVersion']) is not int or value['contractVersion'] != 1
@@ -52,11 +69,11 @@ def validate_state(value):
 
 
 class PhoneNavigation:
-    def __init__(self, ui, profile, state, identity, process_identity, save):
+    def __init__(self, ui, profile, state, identity, process_identity, save, *, read_ime=None):
         self.ui = ui
         self.profile = validate_profile(profile)
         self.urls = set(viewpoint_urls(self.profile['sceneUrl']).values())
-        self.state, self.save = state, save
+        self.state, self.save, self.read_ime = state, save, read_ime
         # A native installed-code binding must already be independently verified.
         if (not isinstance(identity, dict)
                 or set(identity) != {'schemaVersion', 'sourceRevision', 'artifactSha256', 'installedCandidateVerified'}
@@ -140,6 +157,29 @@ class PhoneNavigation:
         # A history endpoint disables its unavailable direction. The selected
         # Back/Forward click below resolves one visible enabled control itself.
 
+    def prepare_go(self, url):
+        """Observe/dismiss the actual IME once; never use a hide acknowledgment."""
+        def visible():
+            self.ui._check()
+            try:
+                value = self.read_ime() if callable(self.read_ime) else None
+            except Exception:
+                raise NativeUIError('Normal Phone keyboard observation is unavailable') from None
+            self.ui._check()
+            if type(value) is not bool:
+                raise NativeUIError('Normal Phone keyboard observation is invalid')
+            return value
+        before = visible()
+        if before:
+            self.ui._request('POST', '/appium/device/hide_keyboard', {})
+            self.ui._check()
+        if self.ui.text(self.address) != url:
+            raise NativeUIError('Normal Phone destination changed while preparing Go')
+        after = visible()
+        if after:
+            raise NativeUIError('Normal Phone keyboard did not disappear')
+        return {'before': before, 'after': after}
+
     def load_scene(self, url):
         """Submit precisely the approved controlled scene through the ordinary dialog.
 
@@ -154,6 +194,7 @@ class PhoneNavigation:
         self.ui.replace_text(self.address,url)
         if self.ui.text(self.address)!=url:
             raise NativeUIError('Normal Phone scene address did not retain the original input')
+        self.prepare_go(url)
         self.ui.click(self.go)
         self.ui.wait_absent(self.address)
         self.mark('addressOwned',False)
@@ -166,6 +207,7 @@ class PhoneNavigation:
         self.ui.replace_text(self.address, url)
         if self.ui.text(self.address) != url:
             raise NativeUIError('Normal Phone domain address did not retain the original input')
+        self.prepare_go(url)
         self.ui.click(self.go)
         self.ui.wait_absent(self.address)
         self.mark('addressOwned', False)
@@ -183,6 +225,7 @@ class PhoneNavigation:
                 raise NativeUIError('Normal Phone navigation URL differs from its configured owned scene')
             self.open_address()
             self.ui.replace_text(self.address, arguments['url'])
+            self.prepare_go(arguments['url'])
             self.ui.click(self.go)
             self.ui.wait_absent(self.address)
             self.mark('addressOwned', False)

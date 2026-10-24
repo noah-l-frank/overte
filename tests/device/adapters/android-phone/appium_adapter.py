@@ -18,7 +18,7 @@ from adapter import PhoneAdapter, main, require
 from adapters.appium.adapter import AppiumAdapter, WebDriver
 from contracts import validate_operation_arguments
 from adapters.normal_ui import NativeUI
-from adapters.phone_navigation import PhoneNavigation, controlled_domain_url, validate_profile as validate_navigation_profile
+from adapters.phone_navigation import PhoneNavigation, controlled_domain_url, phone_ime_visible, validate_profile as validate_navigation_profile
 from navigation_observation import OPERATIONS as NAVIGATION_OPERATIONS
 from adapters.android_snapshot_files import AndroidSnapshotFiles
 from overte_phone_snapshot import (PhoneSnapshot, PhoneSnapshotUI, PrivateSnapshotState,
@@ -2974,6 +2974,21 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(not emote_error,'PHONE_EMOTE_FEATURE_CLEANUP_INCOMPLETE')
         return result
 
+    def phone_ime_state(self, selector):
+        """Fresh bounded native measurement; the caller bookends SDK/process scope."""
+        target = self.target(selector)
+        device = target['capabilities']['appium:udid']
+        port = target['capabilities'].get('appium:adbPort')
+        def namespace():
+            require(type(port) is int and 1 <= port <= 65535
+                    and os.environ.get('ANDROID_ADB_SERVER_PORT') == str(port)
+                    and not os.environ.get('ADB_SERVER_SOCKET'), 'PHONE_NORMAL_IME_NAMESPACE_CHANGED')
+        namespace()
+        raw = PhoneAdapter(self.candidate).adb.execute(
+            ['shell', 'dumpsys input_method | head -c 131073'], target=device)
+        namespace()
+        return phone_ime_visible(raw)
+
     def normal_navigation(self, selector, operation, values):
         arguments = validate_operation_arguments(operation, values)
         target = self.target(selector)
@@ -3019,7 +3034,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
         ui = NativeUI(client, session, check,
             timeout=20 if operation in {'scene.load','navigation.enter-domain'} else 10)
         flow = PhoneNavigation(ui, target['controls']['normalNavigation'], state,
-            installed, process['identity'], lambda: self.save_session(selector, state))
+            installed, process['identity'], lambda: self.save_session(selector, state),
+            read_ime=lambda: self.phone_ime_state(selector))
         if operation=='scene.load':
             if os.environ.get('OVERTE_PHONE_FEATURE_WORLD_NAVIGATION','0')=='1':
                 import time

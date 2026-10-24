@@ -116,3 +116,13 @@ Every Phone observation retains that session, generation, target, installed
 candidate and native PID/start identity across the original fresh probe reader.
 It cannot bootstrap, rebind, repair or replace a missing/dead SDK session; that
 condition is an error. The common operation and result schemas are unchanged.
+
+Before a normal Go submission, Phone reads a fresh bounded Android
+`dumpsys input_method` observation through its mapped transport. Exactly one
+explicit valid `mInputShown` header is required; missing, malformed, ambiguous or
+oversized output is an error. A shown keyboard permits one `hide_keyboard` SDK
+request, followed by fresh exact address text and native hidden-state checks
+under the same session/process/candidate guards. No acknowledgment proves
+visibility or navigation. This guards possible keyboard occlusion; actual17 did
+not establish that cause. No input replay, coordinate tap or timeout extension
+is added. Other clients and common operation/result schemas are unchanged.
