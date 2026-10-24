@@ -21,6 +21,7 @@ from feature_journeys.contract import identifier,result
 from ios.adapters.emote_rooted_archive import capture,read
 from ios.adapters.emote_rooted_retirement import IOSEmoteRootedKeyedRetirement
 from ios.adapters.avatar_record_cache import AvatarRecordCache
+from ios.adapters.emote_archive_round import validation_batch
 
 VERSION=1
 LIMIT=96
@@ -100,7 +101,12 @@ class IOSEmoteRootedLive:
 
     def record(self,reference):
         self.bound()
-        return self.cache.read(dict(namespace='emote-rooted-live-record',reference=reference),lambda:self.read_record(reference))
+        with self.read_batch():
+            return self.cache.read(dict(namespace='emote-rooted-live-record',reference=reference),lambda:self.read_record(reference))
+
+    def read_batch(self):
+        return validation_batch(dict(artifactRoot=str(self.root),stateRoot=str(self.store.path.parent)),
+            lock=self.lock,primary_lock=self.primary_lock)
 
     def read_record(self,reference):
         frame=self.originals.read(self.originals.expand(reference))
@@ -120,6 +126,9 @@ class IOSEmoteRootedLive:
         return value
 
     def decode(self,value):
+        with self.read_batch():return self.decode_state(value)
+
+    def decode_state(self,value):
         exact(value,set(self.envelope(dict(records=[],pending=None))));rows=unpack(value['payload'])
         need(type(value['iosEmoteRootedLiveVersion']) is int and value['iosEmoteRootedLiveVersion']==VERSION
             and len(rows)==1 and same(value,self.envelope(rows[0])))

@@ -13,7 +13,7 @@ import hashlib
 import marshal
 from adapters.normal_ui import NativeUIError
 
-VERSION=1
+VERSION=2
 PROFILE='ios-emote-rooted-archive-v1'
 LIMIT=4096
 _ACTIVE=ContextVar('original_pure_validation_round',default=None)
@@ -29,6 +29,24 @@ def scope(profile,guard):
         try:
             if guard() is False:raise NativeUIError('Historical validation inventory changed')
         finally:_ACTIVE.reset(token)
+
+
+@contextmanager
+def inherited_scope(profile,guard):
+    """Explicitly share pure successes with an unchanged enclosing read.
+
+    Both owners still check their own inventories. Ordinary scope() retains
+    its isolated-cache behavior; live guards and parser results never enter
+    this cache. No cache survives the outer operation's read boundary.
+    """
+    if _ACTIVE.get() is None:
+        with scope(profile,guard):yield
+        return
+    if profile!=PROFILE or not callable(guard):raise NativeUIError('Historical validation scope is unavailable')
+    if guard() is False:raise NativeUIError('Historical validation inventory changed')
+    try:yield
+    finally:
+        if guard() is False:raise NativeUIError('Historical validation inventory changed')
 
 
 def returning_input(function,value,*context):

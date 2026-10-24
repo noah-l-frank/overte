@@ -24,7 +24,9 @@ derivation memo ends before any caller may save metadata or acquire new data.
 Current guards and mutable responsibility are not memoized.
 
 The shared source helper `pure_original_validation` has internal API version
-one and is inactive by default. Only the explicit
+two and is inactive by default. Version two adds `inherited_scope`; the original
+version-one `scope` interface and its isolated-cache behavior remain compatible.
+Only the explicit
 `ios-emote-rooted-archive-v1` scope activates it with the complete inventory
 guard. Native animation validation keeps its public signature, literal history
 versions one/two and full original checks. Emote native-prefix validation keeps
@@ -43,6 +45,29 @@ seconds (pure animation validation reuse) and 29.046 seconds (also pure native
 prefix reuse). The first two exceed the unchanged thirty-second budget. The
 last fits it; this result covers that two-cut graph only. Whole terminal,
 three-pair, both-role and full journey budget qualification remain open.
+
+## Reading a complete live journal
+
+The live journal now encloses a read-only record decode in a complete inventory
+batch. Separately reopened component snapshots keep their own typed derivation
+memos and full original decoders. Their explicit inherited pure-validation scopes
+may share identical successful validator arguments within that batch; no typed
+derivation result is shared between different snapshots. Both the batch and
+each nested owner still check their own complete original inventories. The
+ordinary shared `scope` continues to start an isolated cache, and no cache
+survives the outer read or enters a metadata write, acquisition or live guard.
+
+The existing immutable-record cache still parses every cold record twice,
+checks its actual byte-read membership and file signatures, and rederives each
+stored measured-graph digest. Journal/WAL, orphan, clock, binding and recovery
+checks are unchanged. Both actual source-lock objects stay held through these reads.
+Fourteen no-build pure-validation, original-inventory batch and real private
+live-journal regressions pass in 69.692 seconds. They include default scope
+isolation, explicit nested reuse, wrong profiles, failed nested guards, changed
+epoch/type/history inputs, changed originals between snapshots, separate snapshot
+decodes, lost metadata returns and preserved uncertain file birth. Builds and
+devices remain untested; no full-window or deadline claim follows from these
+component checks.
 
 Two inventory/memo counterexamples pass in 0.036 seconds. Fourteen initial
 history/type/inventory regressions pass in 0.050 seconds; twenty-six native

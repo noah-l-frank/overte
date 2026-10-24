@@ -8,7 +8,7 @@ import unittest
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.script_feature.lock import ScriptSourceLock
-from ios.adapters.emote_archive_round import scope,derived,component_read
+from ios.adapters.emote_archive_round import scope,derived,component_read,validation_batch
 from adapters.pure_original_validation import returning_input
 
 
@@ -66,6 +66,25 @@ class ArchiveRoundTests(unittest.TestCase):
             self.file.write(dict(actual=8),self.file.read());return dict(performed=True)
         with self.lock.held(),self.assertRaises(NativeUIError):
             component_read(self.owner,dict(index=1),changed)
+
+    def test_batch_reopens_each_snapshot_and_shares_only_pure_validation(self):
+        validations=[]
+        def validate(value):validations.append(value);return value
+        with self.lock.held(),validation_batch(self.value,lock=self.lock,primary_lock=self.lock):
+            for label in ('first-snapshot','second-snapshot'):
+                with scope(dict(self.value,snapshot=label),lock=self.lock,primary_lock=self.lock):
+                    self.assertEqual(dict(actual=7),derived(self.owner,dict(index=1),self.decode))
+                    returning_input(validate,dict(original=7))
+            self.assertEqual(2,self.calls);self.assertEqual(1,len(validations))
+
+    def test_batch_cannot_hide_a_change_between_separately_valid_snapshot_reads(self):
+        with self.lock.held(),self.assertRaises(NativeUIError):
+            with validation_batch(self.value,lock=self.lock,primary_lock=self.lock):
+                with scope(dict(self.value,snapshot='first'),lock=self.lock,primary_lock=self.lock):
+                    derived(self.owner,dict(index=1),self.decode)
+                self.file.write(dict(actual=8),self.file.read())
+                with scope(dict(self.value,snapshot='second'),lock=self.lock,primary_lock=self.lock):
+                    derived(self.owner,dict(index=1),self.decode)
 
 
 if __name__=='__main__':unittest.main()

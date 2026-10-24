@@ -16,7 +16,7 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.original_file_reads import record,scope as file_reads
 from adapters.script_feature.history import canonical
 from adapters.script_feature.lock import ScriptSourceLock
-from adapters.pure_original_validation import scope as pure_round,PROFILE as PURE_PROFILE
+from adapters.pure_original_validation import inherited_scope as pure_round,PROFILE as PURE_PROFILE
 from ios.adapters.emote_original_lease import EmoteOriginalLease
 
 _ACTIVE=ContextVar('ios_emote_historical_archive_round',default=None)
@@ -54,6 +54,17 @@ def scope(value,*,lock,primary_lock):
     finally:
         try:current.guard()
         finally:_ACTIVE.reset(token)
+
+
+@contextmanager
+def validation_batch(value,*,lock,primary_lock):
+    """Share only pure validation across separately reopened snapshots.
+
+    Typed derivation memos keep their individual snapshot boundaries. The
+    enclosing complete original inventory forbids all writes until return.
+    """
+    current=Round(value,lock,primary_lock)
+    with pure_round(PURE_PROFILE,current.guard):yield
 
 
 def derived(owner,reference,decode):
