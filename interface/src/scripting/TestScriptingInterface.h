@@ -223,6 +223,7 @@ public slots:
     Q_INVOKABLE QVariantMap featurePicoAvatarBookmarks(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAvatarBookmarkLoads(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAvatarPreferences(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featurePicoAvatarModelConnections(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoEmoteScene(const QVariantMap& command);
 #endif
     Q_INVOKABLE QVariantMap featureGraphicsSubjectObservation(const QVariantMap& command);
@@ -355,6 +356,11 @@ private:
     QSet<QString> _featureAvatarPreferencesRequests;
     QPointer<QObject> _featureAvatarPreferenceObject;
     QString _featureAvatarPreferenceBirth;
+    std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAvatarModelConnectionsQueue;
+    quint64 _featureAvatarModelConnectionsSequence {0};
+    QSet<QString> _featureAvatarModelConnectionsRequests;
+    QPointer<QObject> _featureAvatarModelConnectionObject;
+    QString _featureAvatarModelConnectionBirth;
     quint64 _featureEmoteSceneSequence {0};
     QHash<QString,QVariantMap> _featureEmoteSceneCommands,_featureEmoteSceneResults;
     quint64 _featureWorldReceiptsSequence {0};

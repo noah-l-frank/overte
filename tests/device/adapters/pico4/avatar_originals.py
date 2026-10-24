@@ -14,7 +14,8 @@ from adapters.native_feature_observation import exact,need
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.script_journey.history import pack,unpack,same,canonical
 
-KINDS={'urls':('avatar-urls','avatarUrlFrameVersion'),'favorites':('avatar-favorites','avatarFavoriteFrameVersion')}
+KINDS={'urls':('avatar-urls','avatarUrlFrameVersion'),'favorites':('avatar-favorites','avatarFavoriteFrameVersion'),
+    'parent':('avatar-parent','avatarParentFrameVersion')}
 
 class AvatarOriginalFrames:
     def __init__(self,store,binding,run,fixture_url,kind):

@@ -912,3 +912,17 @@ adoption, noncanonical Bookmark-byte restoration where needed, final owned
 retirement, complete Model/Renderer/EntityTree, Wearables, People/peer/stereo
 and device qualification. Neither callback markers nor fixture shutdown supply
 those missing qualifications.
+
+
+## Common-v16 parent with fresh original native sources
+
+The [source parent continuation](AVATAR_PARENT_SOURCE.md) now joins existing
+URL3/Favorites1 through actual `Journey.call`/`OverteSession`/canonical routing.
+Fresh native Preference and model-connection sources accompany normal A, Save's
+actual original cached callback, normal original URL return and Favorite cleanup.
+Exact original data returns; the parent and children remain retained. Complete
+observation/actor/capability, genuine Model/renderer/EntityTree/Wearables/People/
+peer/stereo and final release remain open. The larger new native integration's
+explicit service60/total120 bounds do not alter the existing no-op/persistence30
+or any source/operation/quiet deadline. See that continuation for actual red and
+green evidence, source seams and frozen Phone reconciliation.

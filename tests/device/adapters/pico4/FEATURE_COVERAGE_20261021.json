@@ -291,7 +291,13 @@
         "tests/device/contracts/avatar/test_avatar_bookmarks_native.py",
         "interface/src/avatar/MyAvatar.cpp",
         "interface/src/avatar/MyAvatar.h",
-        "tests/device/native/AvatarBookmarkLoads.h"
+        "tests/device/native/AvatarBookmarkLoads.h",
+        "tests/device/adapters/pico4/avatar_parent.py",
+        "tests/device/adapters/pico4/avatar_model_connections.py",
+        "tests/device/adapters/pico4/AVATAR_PARENT_SOURCE.md",
+        "android/vr/pico/tests/device/avatar-parent-service.inc",
+        "android/vr/pico/tests/device/test_avatar_parent_native.py",
+        "android/vr/pico/tests/device/test_avatar_parent_owner.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -335,8 +341,8 @@
         "Delete only owned wearable/bookmark/connection",
         "Confirm both participants have no pending request and observe quiet restoration"
       ],
-      "nextExecutableStep": "Adopt the separate real original model-setter/saveAvatarUrl preference-write and normal data-return pairs in the existing durable parent/actor/v16 source chain, retaining actual initialized baseline and new audit/file identities. Restore noncanonical Bookmark bytes where observed, then final original quiet and owned retirement. Actual Model/EntityTree/renderer, Wearables and People/peer/stereo remain open.",
-      "nativeCompilation": "Complete original NavigationUi, MyAvatar setSkeletonModelURL/saveAvatarUrl and Scale/cached Favorite callbacks, Bookmarks, Setting Handle/Manager/WriteWorker/JSON sources host-compiled. Separate strict no-op and actual written Settings normal data-return paths plus original Qt callback weak retirement pass against declared Skeleton/scene/geometry actors. Complete application/MyAvatar startup/Model/renderer/V8/Android and final parent/actor retirement remain unverified.",
+      "nextExecutableStep": "Extend the actual common-v16/OverteSession parent source join beyond normal A/Save/cached callback/original-data return: bind actual complete Model/HFM/EntityTree/Wearables/People/peer/stereo sources and independent actor before exposing nine-field observation or a capability triple. Preserve existing URL/Favorite control domains, exact raw-data restoration and retained final owner/actor obligations; noncanonical Bookmark CAS restoration remains required where observed.",
+      "nativeCompilation": "Complete original NavigationUi/QML/script, MyAvatar setSkeletonModelURL/saveAvatarUrl and Scale/cached Favorite callbacks, Bookmarks, Setting Handle/Manager/WriteWorker/JSON sources host-compiled. Fresh live original Preference/model-callback source joined through common16/OverteSession/canonical parent to normal URL3/Favorites1 and exact original data return. Native service38.551s under new-integration60s/whole120s, old no-op/persistence30s unchanged. Base Avatar/Model/geometry/scene/Android SDK remain explicit actors; full startup/Model/renderer/EntityTree/peer/stereo and final parent/actor retirement remain unverified.",
       "deviceQualification": "untested"
     },
     {

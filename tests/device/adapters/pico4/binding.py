@@ -726,6 +726,32 @@ def create_adapter(args, base_class):
                 favorites=lambda:self._avatar_favorites(target,run,source_lock=lock),
                 monotonic=native.monotonic,sleep=native.sleep)
 
+        @_private
+        def _avatar_parent(self,target,run,*,source_lock=None):
+            from adapters.pico4.avatar_parent import PicoAvatarParent
+            from adapters.feature_fixture_access import client
+            from feature_journeys.phase_fixture import PhaseFixtureReader
+            _need(bool(os.environ.get("OVERTE_PICO_FEATURE_FIXTURE_CONFIG")) and self.pico_configuration is not None)
+            lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            _ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
+            phase=PhaseFixtureReader(client(Path(os.environ["OVERTE_PICO_FEATURE_FIXTURE_CONFIG"]),
+                configured_url=os.environ.get("OVERTE_E2E_FEATURE_FIXTURE_URL")),run,"avatar-people")
+            key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32]
+            store=PrivateFeatureState(self.pico_configuration[1]/('avatar-parent-owner-'+key+'-'+run+'.json'))
+            return PicoAvatarParent(store,binding,phase,lock,
+                lambda:self._avatar_urls(target,run,source_lock=lock),lambda:self._avatar_favorites(target,run,source_lock=lock),
+                dict(preferences=lambda:self._avatar_preferences_observer(target),callbacks=lambda:self._avatar_model_connections_observer(target)),
+                native.guard,monotonic=native.monotonic)
+
+        def _avatar_parent_owned(self,target):
+            if self.pico_configuration is None:return False
+            key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32]
+            for prefix,suffix in (('avatar-parent-owner-',r'[0-9a-f]{32}'),('avatar-parent-frame-',r'[0-9a-f]{32}-[0-9a-f]{32}')):
+                for path in self.pico_configuration[1].glob(prefix+key+'-*.json'):
+                    _need(re.fullmatch(prefix+key+'-'+suffix+r'\.json',path.name))
+                    if PrivateFeatureState(path).read() is not None:return True
+            return False
+
         def _avatar_urls_owned(self,target):
             if self.pico_configuration is None:return False
             key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32];parent=self.pico_configuration[1]
@@ -779,6 +805,14 @@ def create_adapter(args, base_class):
             from adapters.pico4.avatar_preferences import NativePicoAvatarPreferences,FILE
             native=self._native_feature_observer(target)
             return NativePicoAvatarPreferences(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+        @_private
+        def _avatar_model_connections_observer(self,target):
+            from adapters.pico4.avatar_model_connections import NativePicoAvatarModelConnections,FILE
+            native=self._native_feature_observer(target)
+            return NativePicoAvatarModelConnections(native.send,
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
                 native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
@@ -3518,7 +3552,18 @@ def create_adapter(args, base_class):
             # turn a foreign installation into an accepted initial describe.
             self._installation(target)
             try:
-                if operation in graphics_journey.OPERATIONS:
+                if operation.startswith('feature.avatar-people.'):
+                    # This explicitly enabled source parent does not advertise
+                    # a complete feature triple, actor, model or image verdict.
+                    _need(os.environ.get('OVERTE_PICO_AVATAR_PARENT_SOURCE','0')=='1')
+                    from feature_journeys.contract import arguments
+                    from adapters.pico4.avatar_parent import OPERATIONS
+                    _need(operation in OPERATIONS);arguments(operation,values)
+                    lock=self._script_journey()._lock(target)
+                    with lock.held():
+                        flow=self._avatar_parent(target,values['runId'],source_lock=lock)
+                        result=getattr(flow,operation.rsplit('.',1)[1])(values)
+                elif operation in graphics_journey.OPERATIONS:
                     _need(graphics_journey.configured(os.environ))
                     from feature_journeys.contract import arguments
                     arguments(operation,values)
@@ -3734,7 +3779,7 @@ def create_adapter(args, base_class):
                         discard_stopped_state(path)
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
-                _need(not self._world_web_retained(target) and not self._navigation_prefix_owned(target) and not snapshot_error and not audio_error and not create_error and not self._assets_files_owned(target) and not self._create_management(target).owned() and not self._create_picker_owned(target) and not self._create_models_owned(target) and not self._create_feature_owned(target) and not self._avatar_urls_owned(target) and not self._avatar_favorites_owned(target)
+                _need(not self._world_web_retained(target) and not self._navigation_prefix_owned(target) and not snapshot_error and not audio_error and not create_error and not self._assets_files_owned(target) and not self._create_management(target).owned() and not self._create_picker_owned(target) and not self._create_models_owned(target) and not self._create_feature_owned(target) and not self._avatar_urls_owned(target) and not self._avatar_favorites_owned(target) and not self._avatar_parent_owned(target)
                       and not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._lifecycle_back_store(target).read() is None
                       and (self._lifecycle_world_store(target,create=False) is None or self._lifecycle_world_store(target,create=False).read() is None)

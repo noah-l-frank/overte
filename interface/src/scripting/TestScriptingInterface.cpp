@@ -158,6 +158,7 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
         _featureAvatarBookmarkLoadsQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAvatarPreferencesQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAvatarPreferences=std::make_shared<overte::e2e::AvatarPreferenceSnapshot>();
+        _featureAvatarModelConnectionsQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         overte::e2e::ensureNavigationDirectoryProvider(this);
 #endif
     }
@@ -256,6 +257,41 @@ QVariantMap TestScriptingInterface::featureAvatarRenderObservation(const QVarian
 }
 
 #if defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap TestScriptingInterface::featurePicoAvatarModelConnections(const QVariantMap& command) {
+    const auto queue=_featureAvatarModelConnectionsQueue;if(!queue) {return {};}
+    if(QThread::currentThread()!=thread()) {
+        return queue->read("dispatch",this,[command](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoAvatarModelConnections(command),{}};
+        }).values;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);const auto request=command.value("commandId").toString();
+    if(_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !qApp || thread()!=qApp->thread()
+            || command.keys()!=QStringList{"action","commandId","schemaVersion"} || !json.value("schemaVersion").isDouble()
+            || json.value("schemaVersion").toDouble()!=1 || !json.value("commandId").isString()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(request).hasMatch()
+            || command.value("action").toString()!="feature-pico-avatar-model-connections-observe"
+            || _featureAvatarModelConnectionsRequests.contains(request) || _featureAvatarModelConnectionsRequests.size()>=512
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())
+            || !DependencyManager::isSet<AvatarManager>()) {return {};}
+    const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();
+    if(!avatar || avatar->thread()!=QThread::currentThread() || avatar->getSessionUUID().isNull()) {return {};}
+    if(_featureAvatarModelConnectionObject!=avatar.get()) {
+        _featureAvatarModelConnectionObject=avatar.get();_featureAvatarModelConnectionBirth=QUuid::createUuid().toString(QUuid::Id128);
+    }
+    _featureAvatarModelConnectionsRequests.insert(request);const auto requested=QDateTime::currentMSecsSinceEpoch();
+    const auto source=avatar->e2eModelConnections();const auto original=avatar->e2eAvatarLoads();
+    if(source.isEmpty() || original.value("instance").toString().isEmpty() || _featureAvatarModelConnectionObject.isNull()
+            || _featureAvatarModelConnectionObject!=avatar.get() || !DependencyManager::isSet<AvatarManager>()
+            || DependencyManager::get<AvatarManager>()->getMyAvatar()!=avatar) {return {};}
+    const QVariantMap result{{"schemaVersion",1},{"requestId",request},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureAvatarModelConnectionsSequence)},{"processId",QCoreApplication::applicationPid()},
+        {"requestedEpochMs",requested},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+        {"source",QVariantMap{{"picoAvatarModelConnectionsVersion",1},{"instance",_featureAvatarModelConnectionBirth},
+            {"avatarInstance",original.value("instance")},{"sessionId",avatar->getSessionUUID().toString(QUuid::WithoutBraces)},
+            {"connections",source}}}};
+    return QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size()<=65536 ? result : QVariantMap{};
+}
 QVariantMap TestScriptingInterface::featurePicoAvatarPreferences(const QVariantMap& command) {
     const auto queue=_featureAvatarPreferencesQueue;if(!queue || !_featureAvatarPreferences) {return {};}
     if(QThread::currentThread()!=thread()) {
