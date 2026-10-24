@@ -101,6 +101,7 @@ TESTS = (
     test("world-current-input-native", "webview", PYTHON, "device/test_world_current_input_native.py", requires=("c++", "pkg-config", "javac", "java", "unshare")),
     test("world-current-input-java", "webview", PYTHON, "device/test_world_current_input_java.py", requires=("javac", "java")),
     test("world-current-input-reader", "webview", PYTHON, "device/test_world_current_input_reader.py"),
+    test("world-current-focus-parent", "webview", PYTHON, "device/test_world_current_focus_parent.py"),
     test("world-current-document-native", "webview", PYTHON, "device/test_world_current_document_native.py", requires=("c++", "pkg-config", "javac", "java", "unshare")),
     test("world-current-document-java", "webview", PYTHON, "device/test_world_current_document_java.py", requires=("javac", "java")),
     test("world-current-document-reader", "webview", PYTHON, "device/test_world_current_document_reader.py"),

@@ -78,6 +78,8 @@ def validate_owner(value,run,url,*,version=VERSION):
             packet=anchor[field];phase_packet(packet,run=run,area='world-web',request=packet['requestId'],epoch=packet['capturedEpochMs'])
             need(packet['activations'][-1]['ticket']==row['ticket'])
         need(same(anchor['before']['activations'],anchor['packet']['activations']))
+        from adapters.pico4.world_current_focus_parent import FIELD,validate_carrier
+        if FIELD in row['original']:validate_carrier(row['original'],row,value,run,url)
 
 
 
@@ -192,6 +194,11 @@ class PicoWorldWebPrefix:
         value=deepcopy(self.state);value['inputs'][-1]['complete']=True;self.save(value);self.exact_phase()
 
     def io(self,*,read_only=True):return self.adapter.world_prefix_io(self.target,self,read_only=read_only)
+
+    def focus_current(self,call):
+        """Normal next focus/type substage; text/Keyboard and the step stay open."""
+        from adapters.pico4.world_current_focus_parent import begin
+        return begin(self,call)
 
     def prepare(self):
         need(self.role=='primary' and self.lock._owner is None)
