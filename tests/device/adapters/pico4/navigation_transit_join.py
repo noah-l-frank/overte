@@ -21,16 +21,20 @@ from adapters.token_script_ui import TokenScriptUI
 from openxr_input.controller_protocol import validate_envelope
 from feature_journeys.contract import identifier
 
-VERSION=1
+VERSION=2
 
 
 class NavigationTransitJoin:
-    def __init__(self,parent,transit,normal,graphics,path):
+    def __init__(self,parent,transit,normal,graphics,path,*,kind='directory',prior=None):
         need(isinstance(transit,NavigationTransit) and isinstance(normal,TokenScriptUI)
             and isinstance(normal.io,PicoScriptIO) and isinstance(graphics,PicoGraphicsSource)
             and transit.defer_stereo and transit.home is not None and transit.directory is parent.directory
             and transit.ui.io.original is normal.io is parent.source.normal.io.original
             and same(transit.binding,parent.binding) and transit.run==parent.run)
+        need(kind in ('directory','bookmark') and ((prior is None)==(kind=='directory')))
+        self.kind=kind;self.verb='directory-select' if kind=='directory' else 'bookmark-visit'
+        self.prior=deepcopy(parent.state['home']['envelope'] if prior is None else prior)
+        validate_envelope(self.prior,parent.session.profile)
         self.parent,self.transit,self.normal,self.graphics=parent,transit,normal,graphics
         self.store=PrivateFeatureState(path);self.disk=self.store.read();self.state=None;self.close_owner=None
         self.anchor=self.anchor_sha=None
@@ -41,20 +45,23 @@ class NavigationTransitJoin:
     def context(self,*,memory_only=False):
         p=self.parent;p.lock.assert_held();p.control()
         need(p.role=='primary' and same(p.state,p.disk) and p.state['phase']=='acting'
-            and p.state['active']['verb']=='directory-select' and p.state['active']['stage']=='transit')
+            and p.state['active']['verb']==self.verb and p.state['active']['stage']==('transit' if self.kind=='directory' else 'return'))
         if not memory_only:need(same(p.store.read(),p.disk))
 
     def validate(self,value):
         exact(value,{'navigationTransitJoinVersion','runId','binding','parentScopeSha256','parentPath','ticket','phase',
-            'qml','controllers','transitSha256','closeSha256','stereoSha256'})
+            'qml','controllers','transitSha256','closeSha256','stereoSha256'}
+            |({'kind','prior'} if value.get('navigationTransitJoinVersion')==2 else set()))
         p=self.parent
-        need(type(value['navigationTransitJoinVersion']) is int and value['navigationTransitJoinVersion']==VERSION
+        need(type(value['navigationTransitJoinVersion']) is int and value['navigationTransitJoinVersion'] in (1,VERSION)
+            and (value['navigationTransitJoinVersion']==1 and self.kind=='directory'
+                or value['navigationTransitJoinVersion']==2 and value['kind']==self.kind and same(value['prior'],self.prior))
             and value['runId']==p.run and same(value['binding'],p.binding) and value['parentScopeSha256']==p.scope_sha
             and value['parentPath']==str(p.store.path) and value['phase'] in ('transit-issued','transited','close-issued','image-issued','closed')
             and type(value['qml']) is list and len(value['qml'])<=70)
         identifier(value['ticket'])
-        need(any(row['ticket']==value['ticket'] and row['verb']=='directory-select' for row in p.state['completed'])
-            or p.state['active'] is not None and p.state['active']['ticket']==value['ticket'] and p.state['active']['verb']=='directory-select')
+        need(any(row['ticket']==value['ticket'] and row['verb']==self.verb for row in p.state['completed'])
+            or p.state['active'] is not None and p.state['active']['ticket']==value['ticket'] and p.state['active']['verb']==self.verb)
         need((value['transitSha256'] is not None)==(value['phase']!='transit-issued')
             and (value['closeSha256'] is not None)==(value['phase'] in ('image-issued','closed'))
             and (value['stereoSha256'] is not None)==(value['phase']=='closed'))
@@ -78,7 +85,7 @@ class NavigationTransitJoin:
             else:need(anchor['arguments']==dict(holdMilliseconds=1000))
         a,b=value['controllers']['home'],value['controllers']['close']
         if a is not None:
-            original=p.state['home']['envelope']
+            original=self.prior
             need(a['envelope']['sessionNonce']==original['sessionNonce'] and a['envelope']['sequence']==original['sequence']+1)
         if value['phase']!='transit-issued':need(a is not None)
         if value['phase'] in ('image-issued','closed'):need(b is not None)
@@ -93,7 +100,7 @@ class NavigationTransitJoin:
             need(stereo.state is not None and stereo.state['phase']=='complete' and value['stereoSha256']==json_digest(stereo.disk))
             facts=stereo_frame(stereo.state['frame'],stereo.image_bytes(),p.run,p.binding,self.transit.scene_url)
             frame=stereo.state['frame'];closed=self.close_original().state
-            need(facts['location']=='B' and frame['navigationStereoSourceVersion']==2
+            need(facts['location']==self.transit.target(self.kind) and frame['navigationStereoSourceVersion']==2
                 and frame['before']['subject']['capturedEpochMs']>=closed['last']['graphics']['capturedEpochMs']
                 and frame['before']['subject']['sequence']>closed['last']['transit']['pose']['subject']['sequence']
                 and not set(self.transit.stereo_queries(stereo)).intersection(set(self.transit.state['queries'])|set(closed['queries'])))
@@ -159,7 +166,7 @@ class NavigationTransitJoin:
         if self.close_owner is None:
             p=self.parent
             self.close_owner=NavigationTabletClose(self.transit,self.normal,self.graphics,
-                self.store.path.with_name('navigation-prefix-tablet-close.json'),p.source.guard,
+                self.store.path.with_name('navigation-prefix-tablet-close.json' if self.kind=='directory' else 'navigation-prefix-bookmark-close.json'),p.source.guard,
                 monotonic=p.monotonic,sleep=self.source_sleep())
         return self.close_owner
 
@@ -174,12 +181,13 @@ class NavigationTransitJoin:
     def act(self,ticket):
         self.context()
         if self.state is None:
-            self.save(dict(navigationTransitJoinVersion=VERSION,runId=self.parent.run,binding=deepcopy(self.parent.binding),
+            self.save(dict(navigationTransitJoinVersion=1 if self.kind=='directory' else VERSION,runId=self.parent.run,binding=deepcopy(self.parent.binding),
                 parentScopeSha256=self.parent.scope_sha,parentPath=str(self.parent.store.path),ticket=ticket,
-                phase='transit-issued',qml=[],controllers=dict(home=None,close=None),transitSha256=None,closeSha256=None,stereoSha256=None))
+                phase='transit-issued',qml=[],controllers=dict(home=None,close=None),transitSha256=None,closeSha256=None,stereoSha256=None,
+                **(dict(kind=self.kind,prior=deepcopy(self.prior)) if self.kind=='bookmark' else {})))
         need(self.state['ticket']==ticket)
         if self.state['phase']=='transit-issued':
-            self.parent.fence();self.transit.act(ticket,'directory')
+            self.parent.fence();self.transit.act(ticket,self.kind)
             current=deepcopy(self.state);current.update(phase='transited',transitSha256=self.transit_proof());self.save(current);self.parent.fence()
         if self.state['phase']=='transited':
             current=deepcopy(self.state);current['phase']='close-issued';self.save(current);self.parent.fence()
