@@ -117,3 +117,14 @@ selector therefore contains **nine**, not eight, cases. The earlier eight-case
 assignments; they are not represented as one run of the final nine-case source.
 No native/product behavior, measurement cadence, source read, budget or old
 v1/v2 reader was removed. This final documentation follows the functional freeze.
+
+Root integration at `9935e9629c6a62cfeda11bccd7c2b6427a65d412` passed the
+complete final nine-case selector (54.918 s including its runner) and coverage
+selector (0.116 s). All 13,570 source files remained byte-identical throughout.
+The additional direct v1 compatibility invocation initially failed at import
+because its PYTHONPATH omitted the repository root; no compatibility case ran
+in that invocation. Correcting only the invocation path passed both original
+separate-process/consumed-Return/ESRCH and applied-lost-publication/no-cold-resend
+cases (2/14.210 s), again with every source unchanged. The earlier evidence and
+its import failure remain retained separately. This does not qualify lifecycle
+steps 15–19, physical pixels or complete resource retirement.
