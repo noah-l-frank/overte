@@ -166,6 +166,16 @@ class PicoLifecyclePending:
             need(number(state['holdHost'],0,1e15) and prior_pending['commit']
                 and prior_pending['commit']['observation']['eventId']==state['eventId'] and len(state['mutations'])>=3
                 and prior_pending['commit']['captureCommandId']==state['mutations'][2]['commandId'])
+            # Each original World timestamp precedes that row's pending read.
+            # A post-transport host timestamp must not move native hold birth
+            # forward, including when an older unsafe journal is read cold.
+            ceiling=None
+            for row in state['frames']:
+                observed=self.packet(row)[1]
+                if observed['commit'] and observed['commit']['observation']['eventId']==state['eventId']:
+                    ceiling=row['world']['hostMonotonic']-observed['commit']['observation']['elapsedMs']/1000
+                    break # Later query latency cannot move this original barrier.
+            need(ceiling is not None and state['holdHost']<=ceiling)
         else:need(state['holdHost'] is None)
         rank=PHASES.index(state['phase'])
         need(rank<2 or state['backs'] and state['backs'][0]['neutral'] is not None)
@@ -392,9 +402,10 @@ class PicoLifecyclePending:
                 elif phase=='hold-issued':
                     commit=pending['commit'];need(commit and commit['captureCommandId']==request['commandId'] and commit['observation']['pending'])
                     # Preserve the original elapsed hold age after a lost
-                    # capture answer; first successful observation is not birth.
+                    # capture answer. Acquisition START, not response receipt,
+                    # precedes the original pending query's native sample.
                     state.update(phase='held',eventId=commit['observation']['eventId'],
-                        holdHost=row['hostMonotonic']-commit['observation']['elapsedMs']/1000)
+                        holdHost=self.anchor[0]-commit['observation']['elapsedMs']/1000)
                 elif phase in ('attempt-issued','release-issued'):
                     event=pending['commit']['observation']['events'][-1]
                     need(event['kind']=='rejected' and event['reason']=='context-retired' and not pending['commit']['observation']['pending']
