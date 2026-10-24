@@ -337,3 +337,10 @@ freeze `0b67fd6d71b9fe7f9e0df1f648e58972e572553294304dab3944d5a3f5e7b623`.
 Matching foreign focus, changed-control refusal, no-ACK, old-clock publication,
 actual Session and no-replay cases remain in the same focused selection.
 The separately preserved Parent work is not part of this correction.
+
+
+Root selected the later cross-query DOM correction as `18e9dfe3f4`. Its focused
+reader/publisher/factory selection passes all **16 cases** (1.333 s external
+runner) on the integrated branch. The distinct private JUnit file is
+`world-current-input-cross-dom-root-20261024.xml`; the prior 125-case result
+belongs to the preceding tree and is not relabelled as a run of this fix.

@@ -151,3 +151,32 @@ The final complete six-counter owning selection passes in 18.247 seconds;
 all full source hashes/physical stamps remain fixed. The final risk/case
 partition checks retain all 14 risks and select 269 catalog entries, adding
 only the parent native case and its disjoint six-counter group.
+
+
+## Root integration verification
+
+Root reviewed the complete 22-file packet and selected `7afdcfc7a0` as
+`5449aa90c9`. Catalog reconciliation is additive: **284 to 286**, all 14
+risk rows and existing Lifecycle/native-Avatar owning partitions retained.
+The final agent run above measured 43.235 seconds of native lifetime; the
+earlier 38.551-second result is the pre-receipt-fix run, not that final run.
+
+A fresh independent Root selection passed the new original native Parent
+case (**50.477 s** unittest, **51.148 s** external) and all six Parent fences
+(**18.506 s**, **19.145 s** external) with distinct temporary roots. Complete
+SHA-256 hashes and physical signatures of all **13,621** tracked/new source
+files remained unchanged through terminal completion (**52.527 s** overall).
+The actual native service took **37.679 s** under its original new-test 60 s
+bound and retained **425** complete fresh transport replies. Source/frame
+counts can differ with real quiet-window cadence; no source was dropped to
+match the agent's earlier counts. All seven cases use the same strict source,
+receipt, full original-byte, no-resend and retained-owner requirements.
+
+Root's full generated compiler inputs, binary, raw native originals, original
+Settings/Bookmark reports, transport journal and copied owner state remain in
+`/tmp/overte-pico-avatar-parent-native-ui-root-20261024-ljd0k5wo/originals/pico-original-avatar-v1hdjkqq`.
+The private `avatar-parent-root-owning-20261024-source.json` and
+`avatar-parent-root-owning-20261024-result.json` record actual commands,
+original paths and source verification alongside uniquely named log/JUnit
+pairs. No old no-op/persistence case was repeated solely to reconstruct its
+unretained earlier stage. The larger whole-Avatar boundaries remain open.
