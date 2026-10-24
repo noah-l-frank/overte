@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import secrets
 import signal
+import stat
 import subprocess
 import sys
 import threading
@@ -95,6 +96,8 @@ def validate_domain_fixture() -> dict:
 
 
 class DomainControlHandler(BaseHTTPRequestHandler):
+    debug_hold = None
+
     token = ""
     transition = None
     collaboration = None
@@ -105,6 +108,15 @@ class DomainControlHandler(BaseHTTPRequestHandler):
     assets_original_tokens = ()
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        if self.debug_hold is None:
+            return self._get()
+        with self.debug_hold.lock:
+            if self.debug_hold.active.is_set():
+                self.send_error(503, "failed domain is held for diagnostics")
+                return
+            return self._get()
+
+    def _get(self) -> None:
         if self.path not in {"/v1/collaboration-state", "/v1/messages-mixer-state"} or self.headers.get("X-Overte-E2E-Token") != self.token:
             self.send_error(404)
             return
@@ -120,6 +132,15 @@ class DomainControlHandler(BaseHTTPRequestHandler):
             self.send_error(503, "independent actor is not ready")
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        if self.debug_hold is None:
+            return self._post()
+        with self.debug_hold.lock:
+            if self.debug_hold.active.is_set():
+                self.send_error(503, "failed domain is held for diagnostics")
+                return
+            return self._post()
+
+    def _post(self) -> None:
         if self.path == "/v1/assets-originals":
             if self.assets_originals is None or self.headers.get("X-Overte-E2E-Token") not in self.assets_original_tokens:
                 self.send_error(404)
@@ -373,6 +394,170 @@ def wait_for_assignment_content(processes: tuple[subprocess.Popen, ...],
     raise RuntimeError("assignment-owned domain content did not become ready")
 
 
+class DomainDebugHold:
+    """Opt-in failed-state preservation; the sole release authorizes cleanup only."""
+
+    def __init__(self, output: Path):
+        self.lock = threading.RLock()
+        self.active = threading.Event()
+        self.processes = {}
+        self.directory = output / "debug-hold"
+        self.directory.mkdir(mode=0o700)
+        self.fd = os.open(self.directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        info = os.fstat(self.fd)
+        self.directory_identity = (info.st_dev, info.st_ino)
+        self.nonce = secrets.token_hex(16)
+        self.context = {"schemaVersion": 1, "controller": self.process_birth(os.getpid()),
+                        "sourceSha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                        "outputPathSha256": hashlib.sha256(str(output).encode()).hexdigest()}
+        self.context_sha256 = hashlib.sha256(json.dumps(self.context, sort_keys=True,
+            separators=(",", ":")).encode()).hexdigest()
+        self.ready = None
+        self.released = False
+        self.original_error = None
+        self.write("OWNER.private.json", {"schemaVersion": 1, "context": self.context,
+            "contextSha256": self.context_sha256, "nonce": self.nonce})
+
+    @staticmethod
+    def process_birth(pid):
+        descriptor = os.open(f"/proc/{pid}", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            def fields():
+                with os.fdopen(os.open("stat", os.O_RDONLY | os.O_NOFOLLOW,
+                                       dir_fd=descriptor)) as stream:
+                    return stream.read().rsplit(")", 1)[1].split()
+            before = fields()
+            uid = os.fstat(descriptor).st_uid
+            after = fields()
+            if before[19] != after[19] or uid != os.geteuid():
+                raise RuntimeError("DOMAIN_DEBUG_PROCESS_IDENTITY_CHANGED")
+            return {"pid": pid, "birth": before[19], "uid": uid,
+                    "pgid": int(before[2]), "parentPid": int(before[1])}
+        finally:
+            os.close(descriptor)
+
+    def register(self, process, role):
+        identity = self.process_birth(process.pid)
+        if identity["parentPid"] != os.getpid() or identity["pgid"] != process.pid:
+            raise RuntimeError("DOMAIN_DEBUG_CHILD_NOT_OWNED")
+        self.processes[process] = {"role": role, **identity}
+
+    def check_directory(self):
+        actual = self.directory.lstat()
+        if (self.directory.resolve() != self.directory or
+                (actual.st_dev, actual.st_ino) != self.directory_identity or
+                actual.st_uid != os.geteuid() or stat.S_IMODE(actual.st_mode) != 0o700):
+            raise RuntimeError("DOMAIN_DEBUG_DIRECTORY_CHANGED")
+
+    def write(self, name, value):
+        self.check_directory()
+        descriptor = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                             0o600, dir_fd=self.fd)
+        with os.fdopen(descriptor, "w") as stream:
+            json.dump(value, stream, sort_keys=True, indent=2)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.fsync(self.fd)
+
+    @staticmethod
+    def signature(info):
+        return (info.st_dev, info.st_ino, info.st_uid, info.st_mode, info.st_nlink,
+                info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+    def pin_ready(self, path):
+        if path is None:
+            return
+        path = path.resolve()
+        with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW), "rb") as stream:
+            before = os.fstat(stream.fileno())
+            body = stream.read(65537)
+            after = os.fstat(stream.fileno())
+        if (len(body) > 65536 or self.signature(before) != self.signature(after)
+                or self.signature(after) != self.signature(path.lstat())
+                or after.st_uid != os.geteuid() or not stat.S_ISREG(after.st_mode)):
+            raise RuntimeError("DOMAIN_DEBUG_READY_CHANGED")
+        self.ready = (path, self.signature(after), body)
+
+    def begin(self, code, processes, error=None):
+        # Called under the same lock as control mutations and monitoring.
+        self.active.set()
+        self.original_error = error
+        try:
+            snapshot = [{**self.processes[p], "identityObservation": "AT_OWN_POPEN_SPAWN",
+                         "returncodeObservation": "ACTUAL_POPEN_POLL_AT_FAILURE",
+                         "returncode": p.poll()} for p in processes]
+            self.write("FAILURE.private.json", {"schemaVersion": 1,
+                "status": "FAILED_DOMAIN_DEBUG_HOLD", "failureCode": code,
+                "exceptionClass": type(error).__name__ if error is not None else "RuntimeError", "observedEpochNs": time.time_ns(),
+                "contextSha256": self.context_sha256, "processes": snapshot,
+                "currentReadyHealthy": False, "cleanupAttempted": False})
+            if self.ready is not None:
+                path, signature, body = self.ready
+                self.write("READY_BEFORE_FAILURE.private.json", json.loads(body))
+                if self.signature(path.lstat()) != signature or path.read_bytes() != body:
+                    raise RuntimeError("DOMAIN_DEBUG_READY_CHANGED")
+                path.unlink()
+        except (OSError, ValueError, RuntimeError, KeyError):
+            # Recording failure cannot release resources or replace the original child-exit error.
+            print("DOMAIN_DEBUG_HOLD_RECORDING_ERROR", flush=True)
+        print("DOMAIN_DEBUG_HOLD_ACTIVE", flush=True)
+
+    def release_requested(self):
+        self.check_directory()
+        try:
+            descriptor = os.open("RELEASE_REQUEST.private.json", os.O_RDONLY | os.O_NOFOLLOW |
+                                 os.O_NONBLOCK, dir_fd=self.fd)
+        except FileNotFoundError:
+            return False
+        with os.fdopen(descriptor, "rb") as stream:
+            before = os.fstat(stream.fileno())
+            if (not stat.S_ISREG(before.st_mode) or before.st_uid != os.geteuid()
+                    or before.st_nlink != 1 or stat.S_IMODE(before.st_mode) != 0o600
+                    or before.st_size > 1024):
+                raise ValueError("DOMAIN_DEBUG_RELEASE_NOT_PRIVATE")
+            raw = stream.read(1025)
+            after = os.fstat(stream.fileno())
+        path = os.stat("RELEASE_REQUEST.private.json", dir_fd=self.fd, follow_symlinks=False)
+        if self.signature(before) != self.signature(after) or self.signature(after) != self.signature(path):
+            raise ValueError("DOMAIN_DEBUG_RELEASE_CHANGED")
+        def pairs(items):
+            value = {}
+            for key, item in items:
+                if key in value:
+                    raise ValueError("DOMAIN_DEBUG_RELEASE_DUPLICATE")
+                value[key] = item
+            return value
+        request = json.loads(raw, object_pairs_hook=pairs)
+        if (type(request) is not dict or set(request) != {"schemaVersion", "action", "contextSha256", "nonce"}
+                or type(request["schemaVersion"]) is not int or request["schemaVersion"] != 1
+                or request["action"] != "cleanup" or type(request["nonce"]) is not str
+                or type(request["contextSha256"]) is not str
+                or not secrets.compare_digest(request["nonce"], self.nonce)
+                or not secrets.compare_digest(request["contextSha256"], self.context_sha256)):
+            raise ValueError("DOMAIN_DEBUG_RELEASE_CONTEXT_REJECTED")
+        self.write("RELEASE_ACCEPTED.private.json", {"schemaVersion": 1,
+            "contextSha256": self.context_sha256, "requestSha256": hashlib.sha256(raw).hexdigest(),
+            "observedEpochNs": time.time_ns(), "action": "cleanup"})
+        self.released = True
+        return True
+
+    def wait_release(self):
+        # Signals do not authorize cleanup of an intentionally held failure.
+        # SIGKILL cannot be prevented and is never reported as successful cleanup.
+        last_error = None
+        while True:
+            try:
+                if self.release_requested():
+                    return
+            except (OSError, ValueError, RuntimeError) as error:
+                code = type(error).__name__
+                if code != last_error:
+                    print("DOMAIN_DEBUG_RELEASE_REJECTED", flush=True)
+                    last_error = code
+            time.sleep(0.1)
+
+
 def atomic_json(path: Path, value: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
@@ -402,6 +587,8 @@ def parse_args() -> argparse.Namespace:
                         help="Opt in owned ephemeral-domain rez control and exact Settings restoration for Create E2E.")
     parser.add_argument("--feature-assets-permissions", action="store_true",
                         help="Opt in owned ephemeral-domain asset-write control and exact Settings restoration for Assets E2E.")
+    parser.add_argument("--debug-hold-on-error", action="store_true",
+                        help="Linux only: preserve an unexpectedly failed active stack until a private nonce-bound cleanup request.")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     for name in ("domain_port", "http_port"):
@@ -419,10 +606,12 @@ def parse_args() -> argparse.Namespace:
         parser.error("--startup-timeout-seconds must be from 1 through 300")
     if not 0.0 <= args.assignment_warmup_seconds <= 30.0:
         parser.error("--assignment-warmup-seconds must be from 0 through 30")
+    if args.debug_hold_on_error and not sys.platform.startswith("linux"):
+        parser.error("--debug-hold-on-error requires Linux process identity")
     return args
 
 
-def main() -> int:
+def _controller_main(hold_state) -> int:
     args = parse_args()
     manifest = validate_domain_fixture()
     if args.check:
@@ -433,6 +622,8 @@ def main() -> int:
     if args.output_dir is None:
         raise ValueError("--output-dir is required")
     output = private_output(args.output_dir)
+    debug_hold = DomainDebugHold(output) if args.debug_hold_on_error else None
+    hold_state.append(debug_hold)
     public_host = args.public_host or args.bind
     if public_host in {"0.0.0.0", "::"}:
         raise ValueError("--public-host is required when binding all interfaces")
@@ -513,7 +704,7 @@ def main() -> int:
     mixer_store = PrivateFeatureState(output / "messages-mixer-intent.json")
     mixer_expected = None
     stack_state = "offline"
-    transition_lock = threading.Lock()
+    transition_lock = debug_hold.lock if debug_hold is not None else threading.Lock()
     stopping = threading.Event()
 
     def write_mixer_intent(value):
@@ -551,6 +742,8 @@ def main() -> int:
         if args.feature_assets_permissions and assignment_type == "3":
             assets_originals = AssetsOriginals(directory, process, owned_processes.matches, domain_id)
         assignment_processes.append(process)
+        if debug_hold is not None:
+            debug_hold.register(process, "assignment:" + assignment_type)
         return process
 
     def start_stack() -> None:
@@ -582,12 +775,15 @@ def main() -> int:
             [str(domain_server), "-d", expected_domain_id, "--user-config", str(config_path),
              "--logOptions", "nocolor,process_id,milliseconds"],
             **process_options(environment, domain_log))
+        if debug_hold is not None:
+            debug_hold.register(domain_process, "domain-server")
         observed_id = wait_for_domain(
             domain_process, f"http://127.0.0.1:{args.http_port}/id",
             args.startup_timeout_seconds)
         if domain_id is not None and observed_id != domain_id:
-            stop_process(domain_process)
-            domain_process = None
+            if debug_hold is None:
+                stop_process(domain_process)
+                domain_process = None
             raise RuntimeError("controlled domain identity changed during restart")
         domain_id = observed_id
         if args.feature_create_permissions:
@@ -629,12 +825,18 @@ def main() -> int:
                  "--log-directory", str(output / "assignment-logs"),
                  "--logOptions", "nocolor,process_id,milliseconds", *actor_options],
                 **process_options(environment, assignment_agent_log)))
+            if debug_hold is not None:
+                debug_hold.register(assignment_agent_processes[-1], "agent:" + pool)
         deadline = time.monotonic() + args.assignment_warmup_seconds
         while time.monotonic() < deadline:
             if (domain_process.poll() is not None
                     or any(process.poll() is not None for process in assignment_processes)
                     or any(process.poll() is not None
                            for process in assignment_agent_processes)):
+                if debug_hold is not None:
+                    debug_hold.begin("DOMAIN_CHILD_EXIT_DURING_WARMUP",
+                        (domain_process, *assignment_processes, *assignment_agent_processes))
+                    raise RuntimeError("domain fixture process exited during assignment warmup")
                 for process in reversed((*assignment_processes,
                                          *assignment_agent_processes)):
                     stop_process(process)
@@ -675,8 +877,12 @@ def main() -> int:
             if action == "online":
                 try:
                     start_stack()
-                except Exception:
-                    stop_stack()
+                except Exception as error:
+                    if debug_hold is None:
+                        stop_stack()
+                    else:
+                        debug_hold.begin("DOMAIN_START_OR_RUNTIME_ERROR",
+                            tuple(debug_hold.processes), error)
                     raise
             else:
                 stop_stack()
@@ -721,6 +927,7 @@ def main() -> int:
         signal.signal(signal.SIGTERM, request_stop)
         signal.signal(signal.SIGINT, request_stop)
     control = control_thread = None
+    DomainControlHandler.debug_hold = debug_hold
     try:
         start_stack()
         control_token = secrets.token_urlsafe(32)
@@ -760,18 +967,36 @@ def main() -> int:
             ready["assetsOriginalsPrimaryToken"], ready["assetsOriginalsActorToken"] = original_tokens
         if args.ready_file:
             atomic_json(args.ready_file.resolve(), ready)
+            if debug_hold is not None:
+                debug_hold.pin_ready(args.ready_file)
         print(json.dumps({key: value for key, value in ready.items()
                           if key not in ("controlToken", "assetsOriginalsPrimaryToken", "assetsOriginalsActorToken")}, sort_keys=True), flush=True)
         while not stopping.wait(0.25):
             # Serialize monitoring with an intentionally stopped service. Other
             # processes remain alive and are checked immediately afterwards.
             with transition_lock:
+                if debug_hold is not None and debug_hold.active.is_set():
+                    raise debug_hold.original_error or RuntimeError("DOMAIN_DEBUG_FAILED_CONTROL_OPERATION")
                 if stack_state == "online" and domain_process.poll() is not None:
+                    if debug_hold is not None:
+                        debug_hold.begin("DOMAIN_PROCESS_EXIT_WHILE_ONLINE",
+                            (domain_process, *assignment_processes, *assignment_agent_processes))
                     raise RuntimeError("domain-server exited while fixture was active")
                 if stack_state == "online" and any(
                         process.poll() is not None
                         for process in (*assignment_processes, *assignment_agent_processes)):
+                    if debug_hold is not None:
+                        debug_hold.begin("ASSIGNMENT_PROCESS_EXIT_WHILE_ONLINE",
+                            (domain_process, *assignment_processes, *assignment_agent_processes))
                     raise RuntimeError("assignment-client exited while fixture was active")
+    except Exception as error:
+        if debug_hold is not None:
+            with transition_lock:
+                if not debug_hold.active.is_set():
+                    debug_hold.begin("DOMAIN_START_OR_RUNTIME_ERROR",
+                        tuple(debug_hold.processes), error)
+            debug_hold.wait_release()
+        raise  # Preserve the original failed verdict after explicit cleanup release.
     finally:
         with transition_lock:
             stop_stack()
@@ -787,6 +1012,24 @@ def main() -> int:
         assignment_agent_log.close()
         domain_log.close()
     return 0
+
+
+def main() -> int:
+    hold_state = []
+    try:
+        return _controller_main(hold_state)
+    except Exception as error:
+        # Setup/admission can fail before stack resources or the inner finally exist.
+        debug_hold = hold_state[0] if hold_state else None
+        if debug_hold is not None and not debug_hold.released:
+            if not debug_hold.active.is_set():
+                debug_hold.begin("DOMAIN_START_OR_RUNTIME_ERROR",
+                    tuple(debug_hold.processes), error)
+            debug_hold.wait_release()
+        raise
+    finally:
+        if hold_state and hold_state[0] is not None:
+            os.close(hold_state[0].fd)
 
 
 if __name__ == "__main__":

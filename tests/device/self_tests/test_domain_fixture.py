@@ -90,6 +90,138 @@ def free_port() -> int:
 
 
 class DomainFixtureTest(unittest.TestCase):
+    def failed_worker_fixture(self, debug, phase="active"):
+        temporary = tempfile.TemporaryDirectory(prefix="overte-domain-hold-test-")
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        domain, assignment = root / "domain.py", root / "assignment.py"
+        domain.write_text(FAKE_DOMAIN)
+        trigger = root / "exit-owned-worker"
+        assignment.write_text(FAKE_ASSIGNMENT.replace("while not stopping:\n",
+            "while not stopping:\n    if '--pool' in sys.argv and sys.argv[sys.argv.index('--pool') + 1] == 'overte-e2e-domain' and pathlib.Path(" + repr(str(trigger)) + ").exists(): raise SystemExit(17)\n"))
+        if phase == "content-timeout":
+            assignment.write_text(assignment.read_text().replace(
+                "urllib.request.urlopen(request, timeout=1).close(); break", "break"))
+        if phase == "warmup": trigger.touch()
+        for p in (domain, assignment): p.chmod(0o700)
+        output, ready = root / "output", root / "ready.json"
+        argv = [sys.executable, str(CONTROLLER), "--domain-server", str(domain),
+                "--assignment-client", str(assignment), "--domain-port", str(free_port()),
+                "--http-port", str(free_port()), "--output-dir", str(output),
+                "--ready-file", str(ready), "--assignment-warmup-seconds",
+                "2" if phase == "warmup" else "0.1", "--startup-timeout-seconds", "1"]
+        if phase == "admission": argv.extend(["--bind", "0.0.0.0"])
+        if debug: argv.append("--debug-hold-on-error")
+        process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   start_new_session=True, umask=0o077)
+        def release():
+            if process.poll() is not None: return
+            owner = output / "debug-hold/OWNER.private.json"
+            failure = output / "debug-hold/FAILURE.private.json"
+            if owner.is_file() and failure.is_file():
+                data = json.loads(owner.read_text())
+                request = output / "debug-hold/RELEASE_REQUEST.private.json"
+                if request.exists() or request.is_symlink(): request.unlink()
+                request.write_text(json.dumps({"schemaVersion": 1, "action": "cleanup",
+                    "contextSha256": data["contextSha256"], "nonce": data["nonce"]}))
+                request.chmod(0o600)
+            else: process.terminate()
+            process.communicate(timeout=10)
+        self.addCleanup(release)
+        deadline = time.monotonic() + 8
+        data_root = output / "runtime/stack-1/data"
+        required = ready if phase == "active" else output / "debug-hold/FAILURE.private.json"
+        while (not required.exists() or phase != "admission" and len(list(data_root.glob("pid-*.json"))) < 8) and process.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.02)
+        self.assertIsNone(process.poll())
+        self.assertTrue(required.is_file())
+        pids = {p.stem: int(p.read_text()) for p in data_root.glob("*pid*.json")}
+        self.assertEqual(0 if phase == "admission" else 9, len(pids))
+        return root, output, ready, process, trigger, pids
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Linux owned process identity")
+    def test_default_child_exit_still_cleans_and_preserves_failed_verdict(self):
+        root, output, ready, process, trigger, pids = self.failed_worker_fixture(False)
+        trigger.touch()
+        stdout, _ = process.communicate(timeout=10)
+        self.assertEqual(2, process.returncode)
+        self.assertIn(b"assignment-client exited while fixture was active", stdout)
+        self.assertFalse((output / "debug-hold").exists())
+        self.assertTrue(ready.exists(), "default historical READY behavior is unchanged")
+        for pid in pids.values(): self.assertFalse(Path(f"/proc/{pid}").exists())
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Linux owned process identity")
+    def test_debug_hold_preserves_survivors_denies_controls_and_releases_only_exact_request(self):
+        root, output, ready, process, trigger, pids = self.failed_worker_fixture(True)
+        original_ready = ready.read_bytes();metadata = json.loads(original_ready)
+        trigger.touch();held = output / "debug-hold"
+        deadline = time.monotonic() + 5
+        while ready.exists() and process.poll() is None and time.monotonic() < deadline: time.sleep(0.02)
+        failure = json.loads((held / "FAILURE.private.json").read_text())
+        self.assertFalse(ready.exists());self.assertEqual(original_ready,(held / "READY_BEFORE_FAILURE.private.json").read_bytes())
+        self.assertIsNone(process.poll());self.assertFalse(failure["cleanupAttempted"])
+        self.assertEqual("ASSIGNMENT_PROCESS_EXIT_WHILE_ONLINE",failure["failureCode"])
+        failed = [p for p in failure["processes"] if p["returncode"] is not None]
+        self.assertEqual(1,len(failed));self.assertEqual(17,failed[0]["returncode"])
+        self.assertEqual("agent:overte-e2e-domain",failed[0]["role"]);self.assertTrue(failed[0]["birth"].isdigit())
+        survivors = [p for p in failure["processes"] if p["returncode"] is None]
+        for p in survivors:self.assertTrue(Path(f"/proc/{p['pid']}").exists())
+        for name in ("OWNER.private.json","FAILURE.private.json","READY_BEFORE_FAILURE.private.json"):
+            self.assertEqual(0o600,(held/name).stat().st_mode & 0o777)
+        self.assertEqual(0o700,held.stat().st_mode & 0o777)
+        with self.assertRaises(HTTPError) as rejected:
+            urlopen(Request(metadata["controlUrl"], method="POST",data=b'{"schemaVersion":1,"action":"online"}',headers={"X-Overte-E2E-Token":metadata["controlToken"]}),timeout=2)
+        self.assertEqual(503,rejected.exception.code);rejected.exception.close()
+        with self.assertRaises(HTTPError) as rejected_get:
+            urlopen(Request(metadata["controlUrl"].replace("domain-state","collaboration-state"), headers={"X-Overte-E2E-Token":metadata["controlToken"]}),timeout=2)
+        self.assertEqual(503,rejected_get.exception.code);rejected_get.exception.close()
+        self.assertEqual("AT_OWN_POPEN_SPAWN",failed[0]["identityObservation"])
+        self.assertEqual("ACTUAL_POPEN_POLL_AT_FAILURE",failed[0]["returncodeObservation"])
+        owner=json.loads((held/"OWNER.private.json").read_text());request=held/"RELEASE_REQUEST.private.json"
+        value={"schemaVersion":1,"action":"cleanup","contextSha256":owner["contextSha256"],"nonce":owner["nonce"]}
+        foreign=root/"foreign-release.json";foreign.write_text(json.dumps(value));foreign.chmod(0o600)
+        for kind in ("wrong-nonce","wrong-context","wrong-mode","symlink"):
+            if request.exists() or request.is_symlink():request.unlink()
+            if kind=="symlink":request.symlink_to(foreign)
+            else:
+                bad=dict(value)
+                if kind=="wrong-nonce":bad["nonce"]="0"*32
+                if kind=="wrong-context":bad["contextSha256"]="0"*64
+                request.write_text(json.dumps(bad));request.chmod(0o644 if kind=="wrong-mode"else 0o600)
+            time.sleep(0.15);self.assertIsNone(process.poll(),kind)
+            for p in survivors:self.assertTrue(Path(f"/proc/{p['pid']}").exists(),kind)
+            self.assertFalse((held/"RELEASE_ACCEPTED.private.json").exists())
+        self.assertEqual(value,json.loads(foreign.read_text()))
+        process.terminate();time.sleep(0.15);self.assertIsNone(process.poll(),"SIGTERM is not cleanup authorization while held")
+        request.unlink();request.write_text(json.dumps(value));request.chmod(0o600)
+        stdout,_=process.communicate(timeout=10)
+        self.assertEqual(2,process.returncode);self.assertIn(b"assignment-client exited while fixture was active",stdout)
+        self.assertNotIn(owner["nonce"].encode(),stdout);self.assertTrue((held/"RELEASE_ACCEPTED.private.json").exists())
+        for pid in pids.values():self.assertFalse(Path(f"/proc/{pid}").exists())
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Linux owned process identity")
+    def test_debug_hold_also_preserves_warmup_content_timeout_and_zero_child_admission_errors(self):
+        for phase in ("warmup", "content-timeout", "admission"):
+            with self.subTest(phase=phase):
+                root, output, ready, process, trigger, pids = self.failed_worker_fixture(True, phase)
+                held = output / "debug-hold";failure = json.loads((held/"FAILURE.private.json").read_text())
+                self.assertFalse(ready.exists());self.assertFalse(failure["cleanupAttempted"]);self.assertIsNone(process.poll())
+                expected = "DOMAIN_CHILD_EXIT_DURING_WARMUP" if phase == "warmup" else "DOMAIN_START_OR_RUNTIME_ERROR"
+                self.assertEqual(expected,failure["failureCode"])
+                if phase == "admission":self.assertEqual([],failure["processes"]);self.assertEqual("ValueError",failure["exceptionClass"])
+                else:
+                    self.assertEqual(9,len(failure["processes"]))
+                    for child in failure["processes"]:
+                        if child["returncode"] is None:self.assertTrue(Path(f"/proc/{child['pid']}").exists())
+                    observed = [child["returncode"] for child in failure["processes"] if child["returncode"] is not None]
+                    self.assertEqual([17] if phase == "warmup" else [], observed)
+                owner=json.loads((held/"OWNER.private.json").read_text());request=held/"RELEASE_REQUEST.private.json"
+                request.write_text(json.dumps({"schemaVersion":1,"action":"cleanup","contextSha256":owner["contextSha256"],"nonce":owner["nonce"]}));request.chmod(0o600)
+                stdout,_=process.communicate(timeout=10)
+                self.assertEqual(2,process.returncode);self.assertTrue((held/"RELEASE_ACCEPTED.private.json").exists())
+                self.assertNotIn(owner["nonce"].encode(),stdout)
+                for pid in pids.values():self.assertFalse(Path(f"/proc/{pid}").exists())
+
     def online_noop_fixture(self):
         """Use the exact nested source with real private children and HTTP /id.
 
@@ -125,7 +257,7 @@ class DomainFixtureTest(unittest.TestCase):
             domain, f"http://127.0.0.1:{port}/id", 3))
         tree = ast.parse(CONTROLLER.read_text())
         main = next(node for node in tree.body
-                    if isinstance(node, ast.FunctionDef) and node.name == "main")
+                    if isinstance(node, ast.FunctionDef) and node.name == "_controller_main")
         start = next(node for node in main.body
                      if isinstance(node, ast.FunctionDef) and node.name == "start_stack")
         names = ("domain_process", "assignment_processes", "assignment_agent_processes",
