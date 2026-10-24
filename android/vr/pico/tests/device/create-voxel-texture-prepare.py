@@ -16,8 +16,12 @@ from xml.sax.saxutils import escape
 from test_assets_read_native import ROOT,HERE,original
 
 
-def prepare(stage,environment,prefix):
+def prepare(stage,environment,prefix,*,node_list_header='create-voxel-native-join.h',
+        request_observer='observeCreateTextureRequest',recorded_atp_factory=None,include_qrc_inputs=True):
     stage=Path(stage);manifest={}
+    for name in (request_observer,recorded_atp_factory):
+        if name is not None and not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*',name):raise ValueError('Invalid original observer/broker binding')
+    if not re.fullmatch(r'[A-Za-z0-9_-]+[.]h',node_list_header):raise ValueError('Invalid existing host node boundary header')
     def read(path):
         data=(ROOT/path).read_bytes();manifest[path]=hashlib.sha256(data).hexdigest();return data
     def copy(path,target=None):
@@ -76,7 +80,7 @@ def prepare(stage,environment,prefix):
     observer=read('libraries/shared/src/ResourceRequestObserver.h')
     write('ResourceRequestObserver.h','#pragma once\n'+observer.decode())
     manifest['compiled-single-inclusion-ResourceRequestObserver.h']=hashlib.sha256((stage/'ResourceRequestObserver.h').read_bytes()).hexdigest()
-    write('NodeList.h','#pragma once\n#include <NetworkingConstants.h>\n#include "create-voxel-native-join.h"\n')
+    write('NodeList.h','#pragma once\n#include <NetworkingConstants.h>\n#include "'+node_list_header+'"\n')
     write('NetworkAccessManager.h','// Unused include in the selected complete ResourceCache source.\n')
     write('gl/GLHelpers.h','// No GL entrypoint is used by the selected original CPU TextureCache bodies.\n')
 
@@ -97,7 +101,7 @@ def prepare(stage,environment,prefix):
     source=read('libraries/networking/src/ResourceManager.cpp').decode()
     methods='\n'.join(original(source,signature) for signature in
         ('ResourceManager::ResourceManager(', 'ResourceManager::~ResourceManager('))
-    write('CreateTextureResourceManager.cpp','''#include "ResourceManager.h"
+    manager_unit='''#include "ResourceManager.h"
 #include <QCoreApplication>
 #include <QThread>
 #include <SharedUtil.h>
@@ -122,7 +126,18 @@ ResourceRequest* ResourceManager::createResourceRequest(QObject* parent,const QU
  auto request=createOriginalResourceRequest(parent,url,observable,caller,extra);
  observeCreateTextureRequest(request,parent,url);return request;
 }
-''')
+'''
+    manager_unit=manager_unit.replace('observeCreateTextureRequest',request_observer)
+    if recorded_atp_factory:
+        # The existing Assets input service delivers only sealed previously
+        # acquired ATP bytes. Local/qrc requests retain the complete original
+        # factory. The broker does not qualify a live ATP client/server.
+        declaration='ResourceRequest* '+recorded_atp_factory+'(QObject*,const QUrl&,bool,qint64,const QString&);\n'
+        manager_unit=manager_unit.replace(
+            'ResourceRequest* ResourceManager::createResourceRequest(',declaration+'ResourceRequest* ResourceManager::createResourceRequest(',1)
+        manager_unit=manager_unit.replace(' auto request=createOriginalResourceRequest(',
+            ' if(url.scheme()=="atp"){return '+recorded_atp_factory+'(parent,url,observable,caller,extra); }\n auto request=createOriginalResourceRequest(',1)
+    write('CreateTextureResourceManager.cpp',manager_unit)
 
     # These original shared implementations use only newly private data/config
     # roots. No application settings, pre-existing cache or cleanup is adopted.
@@ -164,18 +179,18 @@ ResourceRequest* ResourceManager::createResourceRequest(QObject* parent,const QU
     enums=read('libraries/shaders/ShaderEnums.h.in').decode()
     write('ShaderEnums.h','#pragma once\n'+enums.replace('@SHADER_ENUMS@',''))
 
-    # The real qrc aliases point at the repository's actual PNG/JPEG bytes.
-    files=('serverless/Textures/ground_5-2K/2K-ground_5-diffuse.jpg',
-        'serverless/Textures/ground_grass_gen_05.png')
-    entries=[]
-    for relative in files:
-        path='interface/resources/'+relative;read(path)
-        entries.append('<file alias="'+escape(relative)+'">'+escape(str(ROOT/path))+'</file>')
-    qrc=write('create-texture-originals.qrc','<RCC><qresource prefix="/">'+''.join(entries)+'</qresource></RCC>\n')
-    compiled=stage/'create-texture-originals-rcc.cpp'
-    subprocess.run([str(prefix/'usr/lib64/qt5/bin/rcc'),'-name','create_texture_originals',str(qrc),'-o',str(compiled)],
-        check=True,timeout=20,env=environment);units.append(str(compiled))
-
+    if include_qrc_inputs:
+        # The real qrc aliases point at the repository's actual PNG/JPEG bytes.
+        files=('serverless/Textures/ground_5-2K/2K-ground_5-diffuse.jpg',
+            'serverless/Textures/ground_grass_gen_05.png')
+        entries=[]
+        for relative in files:
+            path='interface/resources/'+relative;read(path)
+            entries.append('<file alias="'+escape(relative)+'">'+escape(str(ROOT/path))+'</file>')
+        qrc=write('create-texture-originals.qrc','<RCC><qresource prefix="/">'+''.join(entries)+'</qresource></RCC>\n')
+        compiled=stage/'create-texture-originals-rcc.cpp'
+        subprocess.run([str(prefix/'usr/lib64/qt5/bin/rcc'),'-name','create_texture_originals',str(qrc),'-o',str(compiled)],
+            check=True,timeout=20,env=environment);units.append(str(compiled))
     moc_paths=[stage/name for name in ('ResourceCache.h','ResourceManager.h','ResourceRequest.h','FileResourceRequest.h','ResourceRequestObserver.h')]
     moc_paths += [ROOT/path for path in ('libraries/material-networking/src/material-networking/TextureCache.h',
         'libraries/material-networking/src/material-networking/KTXCache.h','libraries/shared/src/shared/FileCache.h',

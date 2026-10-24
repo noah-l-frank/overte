@@ -58,8 +58,17 @@ class AssetsCancelEffectsTests(unittest.TestCase):
             finalUploadOriginals=pack(self.final_uploads.history if hasattr(self,'final_uploads') else []),
             serverBodyOriginals=json.loads((Path(self.build.name)/'server-original-provenance.json').read_text()),pointers=self.pointers())
         PrivateFeatureState(directory/(prefix+'-effects.json')).write(values,None)
+        # Older owning selectors reuse these methods as aliases, without
+        # inheriting this class. Keep their exact ordinary export default.
+        exporter=getattr(self,'export_effect_journals',None)
+        if exporter is None:AssetsCancelEffectsTests.export_effect_journals(self,directory,prefix)
+        else:exporter(directory,prefix)
+    def export_effect_journals(self,directory,prefix):
         for role,store in [('cancel',self.store),('files',self.file_store),*([('home',self.home_store)] if hasattr(self,'home_store') else [])]:
             if store.read() is not None:PrivateFeatureState(directory/(prefix+'-'+role+'.json')).write(store.read(),None)
+    def effect_journal_export_usage(self,cancel,files,home):
+        originals=(cancel['inputs'],cancel['uiOriginals'],cancel['originals'],files['originals'])
+        return sum(len(unpack(value)) for value in originals),sum(value['bytes'] for value in originals)
     def mappings(self):
         frame=self.pair.capture();primary=json.loads(frame['primary']['raw']);independent=json.loads(frame['independent']['raw'])
         self.assertEqual(primary['source']['mappings'],independent['source']['mappings']);return primary['source']['mappings']
@@ -99,7 +108,11 @@ class AssetsCancelEffectsTests(unittest.TestCase):
         raw=len(canonical(self.pair.history))+len(canonical(self.primary.history))+len(canonical(self.actor.source.history))
         for originals in (self.actor.server_originals,self.actor.received):counts+=len(originals);raw+=len(canonical(originals))
         home=self.home_store.read();cancel=self.store.read();files=self.file_store.read()
-        for original in (cancel['inputs'],cancel['uiOriginals'],cancel['originals'],files['originals'],home['pages'],home['files']):
+        accounting=getattr(self,'effect_journal_export_usage',None)
+        exported,exported_bytes=(AssetsCancelEffectsTests.effect_journal_export_usage(self,cancel,files,home)
+            if accounting is None else accounting(cancel,files,home))
+        counts+=exported;raw+=exported_bytes
+        for original in (home['pages'],home['files']):
             counts+=len(unpack(original));raw+=original['bytes']
         counts+=len(home['neutralReads'])+len(home['neutralFinal']);raw+=len(canonical([home['neutralReads'],home['neutralFinal']]))
         # Complete bound child snapshots in Home are retained separately too;

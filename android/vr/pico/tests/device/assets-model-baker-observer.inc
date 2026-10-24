@@ -53,7 +53,10 @@ public:
   parsedHandoff=observeBakerHfm(model);record("constructed");
  }
  void run(){record("run-enter");OriginalSourceBaker::run();bakerHandoff=observeBakerHfm(getHFMModel());record("run-exit");
-  throw QString("Host qualification stops after original Baker before GeometryResource material construction");}
+#if !defined(ASSETS_ORIGINAL_MODEL_MATERIAL)
+  throw QString("Host qualification stops after original Baker before GeometryResource material construction");
+#endif
+ }
  ~Baker(){record("destructor-enter");}
 };
 }

@@ -1,6 +1,9 @@
 // Copyright 2026 Overte contributors.
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
+#if defined(ASSETS_ORIGINAL_MODEL_MATERIAL)
+#include "assets-model-material-host.h"
+#else
 // Explicit recorded transport/cache/FST boundaries for original Resource and
 // GeometryResource methods. No endpoint constructs a successful HFM or model.
 #include <QCoreApplication>
@@ -107,3 +110,5 @@ public:
  ResourceRequest* originalRequest()const{return _request;}
  bool started()const{return _startedLoading;}
 };
+
+#endif // original material mode uses the shared original Resource classes

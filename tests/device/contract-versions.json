@@ -152,6 +152,8 @@
     "pico-assets-geometry-resource-host": {"current": 1, "reads": [1]},
     "pico-assets-model-cache-host": {"current": 1, "reads": [1]},
     "pico-assets-model-baker-host": {"current": 1, "reads": [1]},
+    "pico-assets-model-material-host": {"current": 2, "reads": [2]},
+    "pico-assets-model-material-journal-reference": {"current": 1, "reads": [1]},
     "pico-assets-ui-inventory": {"current": 1, "reads": [1]},
     "native-pico-assets-files": {"current": 1, "reads": [1]},
     "pico-assets-file-owner": {"current": 1, "reads": [1]},

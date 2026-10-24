@@ -9,9 +9,11 @@
 #include <QTest>
 #include "assets-resource-data-host.h"
 #include "GeometryResourceParserCore.inc"
+#if !defined(ASSETS_ORIGINAL_MODEL_MATERIAL)
 Q_LOGGING_CATEGORY(networking,"networking")
 #include "GeometryResourceRequestOriginals.inc"
 #include "AssetsResourceObserverOriginal.inc"
+#endif
 #include "GeometryResourceConstantsOriginals.inc"
 #if defined(ASSETS_ORIGINAL_MODEL_CACHE)
 #include "GeometryModelCacheOriginals.inc"
@@ -54,12 +56,19 @@ public:
 #include "GeometryResourceOriginals.inc"
 #undef GeometryReader
 
+#if defined(ASSETS_ORIGINAL_MODEL_MATERIAL)
+#include "assets-model-material-observer.inc"
+#endif
+
 int main(int argc,char** argv){
  QCoreApplication app(argc,argv);if(argc!=3){return 2;}
 #include "AssetsResourceDataRegistration.inc"
  QFile file(QString::fromLocal8Bit(argv[1]));if(!file.open(QIODevice::ReadOnly)){return 3;}
  const auto sourceRaw=file.readAll();const auto packet=QJsonDocument::fromJson(sourceRaw).object();const auto resources=packet.value("resources").toArray();
  if(resources.size()!=3){return 4;}
+#if defined(ASSETS_ORIGINAL_MODEL_MATERIAL)
+ return runAssetsMaterial(app,sourceRaw,resources,QString::fromLocal8Bit(argv[2]));
+#else
  auto manager=QSharedPointer<ResourceManager>::create();DependencyManager::set(manager);
  for(const auto& entry:resources){const auto row=entry.toObject();const auto bytes=QByteArray::fromBase64(row.value("base64").toString().toLatin1());
   if(bytes.size()!=row.value("bytes").toInt() || QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex()!=row.value("sha256").toString().toLatin1()){return 5;}
@@ -165,4 +174,5 @@ int main(int argc,char** argv){
  result.insert("bakerProcessingQualified",!bakerHandoff.isEmpty());
 #endif
  const auto encoded=QJsonDocument(result).toJson(QJsonDocument::Compact);if(output.write(encoded)!=encoded.size()){return 10;}return protocolValid ? 0 : 7;
+#endif // existing pre-material native modes
 }

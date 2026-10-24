@@ -1627,3 +1627,270 @@ qualifies synthetic Baker/model endpoints only; it supplies no original full
 Baker CPU proof. This review neither copies Phone WIP nor adopts its facade,
 platform identity, mono rendering or version-18 journey. The metadata code is
 not selected in this Baker packet and remains a concrete shared next step.
+
+
+The next additive `assets-model-material` selector extends the existing ordinary Assets
+Entity/model-URL/download/reader/Baker flow through the complete original
+GeometryResource::setGeometryDefinition and original NetworkMaterial PBR/MToon
+methods. It reuses the checked Create texture preparation: actual ResourceCache,
+ResourceRequest, TextureCache/NetworkTexture, image decode, KTX storage, shared
+settings and dependency services. The existing presealed three-resource ATP
+byte endpoint remains explicit; no live AssetClient/server transport is inferred.
+
+The original Geometry material accessor and NetworkMaterial texture inventory
+supply actual material/texture identities. Separate weak pointers and passive
+request-thread receipts observe original ownership, completed byte SHA/size,
+factory-owner argument, actual QObject parent, decoded CPU texture storage and
+release. Factory-owner and QObject-parent identity are reported separately.
+No Model/renderer getter is invented, and the existing CreateModelResources
+collector remains reserved for a later actual Model link. Full original source
+units and generated declarations are pinned in the fresh build manifest. The
+same existing ordinary Ninja -j2 helper enforces one 90-second compile/link
+clock; the selector remains bounded by 120 seconds, native acquisition by 1.5
+seconds, quiet/cadence by three seconds/500 ms and all combined original copies
+by 512 frames/16 MiB. Requested private evidence retains the fresh compiler
+stage on success or refusal.
+
+Successful original geometry has a different ownership result from the earlier
+pre-material refusal: the unchanged real default LRU may retain Geometry/HFM
+and packed Mesh buffers after the last external handle. The original geometry
+deleter separately resets materials. The new selector must observe both facts,
+without clearing the cache, changing its budget or treating process exit as
+release. The known parentless original GLTF mesh request must remain visible
+as unretired. Actual Model/render-factory ownership, actor/stereo/GPU output and
+whole heap/Assets qualification remain open; Feature 13/14 stays partial even
+if this new narrower material join succeeds.
+
+A read-only Phone comparison is fixed at committed
+`04f223b84f95cfe56bddd78253d0ed6e4c1011ff`. Its Assets handoff still describes
+synthetic Model/Geometry/Baker/renderer endpoints, so it contributes no original
+material or decoder implementation to this join. No Phone WIP, whole-facade
+budget or platform identity is copied. This worktree starts from reviewed Root
+`0d1a06dba28f3251ab76c6f4dddea96d4dba3495` and selects fixed Create texture packet
+`2461f0ccb99725544e6d2adb2ddee84373eee766` locally as
+`c1e5ec69e703f28f2221efd14c909d4104d8c502`.
+
+The first owning `assets-model-material` attempt is RED before all native
+acquisitions: 28.582 seconds in the selector, 30.851 seconds externally, with
+all 13,490 checkout inputs unchanged. The ordinary fresh Ninja build refuses
+after 2.718 seconds. Its newly consumed original shader declaration needs C++20;
+the inherited CPU-parser selector still requested C++17. Restoring actual full
+Profile also exposes the missing original geometry-specific logging category,
+and removing the old closed gunzip body requires the actual Gzip declaration.
+The changed preparation now follows the exact required standard from original
+cmake/compiler.cmake, copies the exact category from original ModelCache.cpp
+and includes original Gzip.h. No product methods, data, release policy or bounds
+change. The entire failed private stage, tool/build/source manifests, compiler
+result, log and JUnit are retained. This changed correction is source-only and
+not yet owning-qualified; material/texture success is not inferred.
+
+The second changed attempt is also RED before native acquisition: 30.173
+selector seconds, 32.222 seconds externally, with the same 13,490 checkout
+inputs unchanged. Its fresh build runs 4.621 seconds and resolves the earlier
+C++20/Profile/Gzip errors. The newly compiled original mapping branch requires
+the real ModelCache declaration's GeometryResource friendship, while the
+former CPU fragment's global graphics namespace import conflicts with the
+newly selected original global Geometry::areTexturesLoaded definition. The host
+now restores that exact original friend relationship and removes the obsolete
+namespace import; complete original Material/GLM implementations already replace
+the fragments that needed it. All second-attempt originals and build artifacts
+are retained. The third changed source preparation is still unverified.
+
+The third changed attempt reaches the full original GPU texture translation
+units and remains RED: 111.112 selector seconds, 113.395 seconds externally,
+with all 13,490 checkout inputs unchanged. Its 71-TU fresh build runs 85.199
+seconds without exceeding the shared 90-second deadline. The earlier original
+friend and global Geometry namespace errors are resolved. The inherited parser
+force-includes the whole host header into every translation unit, injecting the
+unrelated global network Texture class into original gpu/Texture.cpp and
+Texture_ktx.cpp; their unchanged gpu namespace import then becomes ambiguous.
+The new mode now removes only that inherited global host force-include. The
+native caller already explicitly includes its host header; original ResourceCache
+gets its NodeList boundary through its own original include; other complete
+original units keep their actual headers. The small shared standard-library
+prefix remains. No original class, namespace or method body is rewritten. All
+third-attempt originals remain preserved; the changed fourth source translation
+has not yet been executed.
+
+The fourth changed attempt remains RED before native acquisition: 35.185
+selector seconds, 37.500 seconds externally, and the same 13,490 checkout
+inputs unchanged. Removing the broad host force-include exposes an actual
+ordering requirement inside the existing CPU unity: its original GPU CPU units
+import gpu names before the later MaterialMapping header introduces the global
+Resource declarations. The 9.178-second fresh build refuses the resulting
+Resource ambiguity. Only that unity now includes its already required complete
+original ProceduralMaterialCache header before those original namespace imports.
+Unrelated original GPU texture translation units retain their normal independent
+headers. No product namespace or method is changed, and no object is prebuilt.
+Fourth-attempt originals remain retained; owning verification is pending.
+
+The fifth changed attempt resolves that Resource declaration conflict and
+remains RED at the next explicit original include: 37.292 selector seconds,
+38.346 seconds externally, 11.382 seconds in the fresh build and all 13,490
+checkout inputs unchanged. The selected complete original material-mapping task
+method uses QJsonArray, but its former host force-include had supplied that
+declaration indirectly. The new-mode stage now restores the exact QJsonArray
+include from original ParseMaterialMappingTask.cpp at that existing method
+fragment. The method remains complete and unchanged; no additional material map
+or Draco endpoint is admitted. Fifth-attempt originals remain retained, with
+no native acquisitions or material/whole-feature qualification.
+
+The sixth changed attempt compiles and links all 71 original translation units
+in 63.811 seconds. It remains RED afterward: 93.224 selector seconds, 94.870
+seconds externally, all 13,490 checkout inputs unchanged. Both original cases
+reach the ordinary Entity path but stop before native acquisition because the
+new inline source provenance correctly exceeds PrivateFeatureState's unchanged
+64-KiB limit. The complete Texture manifest alone is 99,796 bytes, and the
+original build-input manifest is 33,631 bytes. Compile success does not qualify
+native material processing. The full linked binary, all original build/source
+inputs, tool hashes, logs and refused runtime records remain preserved.
+
+Private Material format v2 replaces only this new mode's oversized inline
+provenance with the existing lossless source-bundle/chunk protocol. Original
+manifest bytes, their complete names/SHA/byte counts and the source scope remain
+inside the bundle. A reading intent precedes each append and the root seals only
+after all fixed numbered children exist. The bounded live reference binds the
+original parser artifact, application context, parent identity, sealed-root full
+stamp/SHA/bytes and every original child stamp. A cold reader reopens all root
+and chunk files, checks their actual original descriptor windows and immutable
+identities, fully decodes every original metadata byte and compares them with
+the retained build originals before native use, after native acquisition and
+after Home. The source reference never creates a current feature observation.
+
+This uses existing SourceBundles, ChatSourceChunks, ClosedOriginalFile and
+OriginalDescriptor; no archive/read limit is raised. Every added root/child
+file and its stored and fully decoded bytes consumes the existing 512-frame /
+16-MiB combined budget. The live file remains limited to 64 KiB, each packed
+part to the existing 48-KiB codec limit, and all compile/acquisition/selector and
+quiet/cadence bounds remain unchanged. Prior v1 compiler/metadata refusals remain
+historical negative evidence; v2 must not inherit success from them. The common
+Geometry/History/chunk formats and older selectors keep their default behavior.
+This changed seventh owning selection has not yet run.
+
+The seventh owning v2 attempt reaches both actual native paths. Fresh original
+compile/link is GREEN in 62.367 seconds. The indexed acquisition completes in
+16 ms: original NetworkMaterial publishes the original checker texture, actual
+NetworkTexture/image/KTX code decodes 2 x 2 pixels with 20 stored CPU mip bytes,
+and the material, NetworkTexture and pixels are weakly absent after the original
+Geometry deleter clears materials. Original default-LRU Geometry/HFM and four
+packed Mesh buffers remain alive; the parentless original GLTF mesh request also
+remains alive. All three original request byte receipts match the sealed inputs.
+The nonindexed original parser refusal completes in 2 ms with Geometry absent,
+no Material/Texture/pixel/Baker rows and zero Mesh buffers; its parentless mesh
+request still survives. No process exit is counted as resource retirement.
+
+Both paths pass the full cold source-bundle verification before native use,
+after native return and after original Home. The owning selector nevertheless
+remains RED in 111.009 seconds (111.745 externally), because its complete counted
+physical original copies are 539 indexed and 523 nonindexed, above the unchanged
+512 limit. Counted raw bytes are 1,399,177 and 1,388,549, within the unchanged
+16-MiB bound. All 13,490 checkout inputs remain byte-identical. Successful narrow
+native assertions do not erase this overall refusal or qualify the whole feature.
+
+The measured copy inventory is retained by category with exact producers. Each
+case has 192 paired/primary/independent/server/pipe copies, 242 Cancel/File/Home
+copies including 102 full repeated child originals, 50 Entity/input/fence copies,
+ten resource-byte-service copies, five full Native/provenance wrapper/part copies
+and 40 indexed / 24 refusal native rows. Exact original comparison confirms
+Home's two child snapshots duplicate complete already retained Cancel and File
+journals; independent pipe history equals independent source history; paired
+columns equal each respective source history. The newer fast temporary storage
+also yields two more actual quiet samples than the older green Baker attempt,
+which costs 32 further copies through these existing repeated views. Every
+category remains counted. Neither original frames nor files are removed, and
+no quiet/cadence/release/copy threshold changes to make this refusal pass.
+
+A separate source-only default-path correction moves the existing private
+profile setup before source-parent admission. Without an explicit evidence
+folder, profile creation would otherwise legitimately change the admitted
+parent's link count afterward. This ordering change preserves all original
+parent checks and is a no-op for older modes' default hook. The changed source
+has not yet been rerun; copy-producer analysis continues before a next selector.
+
+The next source-only change removes that actual duplicate export producer only
+for this new mode. It preserves the complete original Home-v2 state once. The
+separate Cancel/File exported files now hold explicit historical
+`assetsModelMaterialJournalReferenceVersion: 1` references to its unchanged
+children 0/1. They bind the original Home file's SHA, bytes/full physical stamp
+and parent identity, application context/run, exact child role/index and complete
+child SHA/bytes plus original browser/model or file-owner identities. Existing
+ClosedOriginalFile/OriginalDescriptor windows reread the entire Home source,
+fully decode both original journals and compare them against the unchanged
+live-owner journals before the accounting result and again during preservation.
+No reference is treated as a new current sample.
+
+The actual smaller files are written and cold-verified before the combined
+budget is computed; retaining the original full duplicate bytes while changing
+only arithmetic is forbidden. All 102 original child observations remain fully
+stored/counted in Home, and both new reference files are separately counted.
+Every other paired, primary, independent, pipe, server, Entity/input, resource,
+Native, provenance and quiet observation is unchanged. The existing Input,
+Cancel, File, Home and quiet algorithms and runtime journals remain untouched;
+old modes retain exactly their full-export/default accounting behavior through
+two small default hooks. The additive private
+`pico-assets-model-material-journal-reference` format is version 1; Native
+Material-v2, Home-v2, common History and all existing limits remain unchanged.
+The changed eighth owning selection has not yet run.
+
+The eighth owning selection is GREEN in 115.669 seconds (116.425 externally),
+including a fresh 71-TU compile/link in 65.163 seconds and both actual native
+acquisitions in 16/2 ms. Indexed accounting is 439 physical copies and 1,059,707
+raw bytes; nonindexed refusal is 423 copies and 1,048,953 bytes. Both still make
+the same 24 actual paired reads. The full Home source retains all 102 original
+Cancel/File observations, and both new historical reference files are present,
+cold-verified and counted. The removed 102 full-export duplicates are actual
+absent duplicate payloads, with two bounded references in their place. Nothing
+changes in queries, input actions, three-second quiet or 500-ms cadence checks.
+All 13,490 checkout inputs remain byte-identical throughout the owning run.
+
+Observed request affinity follows the actual source route: main-model and PBR
+texture requests are created on the GUI thread, and the GLTF mesh request on its
+actual worker. All have null QObject parents; only main-model and texture factory
+calls supply owner arguments. Finished bytes/result/SHA are copied on the actual
+request thread before immutable queued GUI archival. The sealed ATP byte service
+still does not qualify a live AssetClient/server transport. Actual geometry/HFM
+and four Mesh buffers remain in the unchanged host default 1-GiB LRU, with one
+cached entry; the original counter getter reports numTotal=0 and its URL inventory
+contains the model. No expected counter is substituted. Material/NetworkTexture/
+pixel weak owners retire; the parentless mesh request remains alive. Complete
+original KTX/cache code is linked, but no independent KTX disk-write or GPU-backend
+submission qualification is inferred from the observed CPU decoded texture.
+
+The first targeted existing legacy Baker selection exposes a harness dispatch
+regression after reaching Home: 74.176 selector seconds, 74.928 externally, and
+all checkout inputs unchanged. Some existing selectors reuse Effects methods
+as aliases rather than inheriting its test class, so the new optional export/
+accounting hooks are absent there. The source now dispatches each missing hook
+to its exact original class default explicitly; the Material mode's own bound
+overrides remain unchanged. The refused legacy log/JUnit/native responses and
+source manifest remain negative evidence. The second planned legacy selector
+was not started after this refusal. Changed legacy owning verification is pending.
+
+The corrected targeted legacy checks are GREEN: original pre-material
+`assets-model-baker` in 75.791 selector seconds (76.563 externally), and existing
+`create-voxel-source-native` in 70.783 seconds (71.561 externally), including its
+three unchanged default/qrc texture modes. Each has a fresh source freeze and
+its original 120-second selector / 90-second compiler bounds. All 13,490 checkout
+inputs remain unchanged. These demonstrate the legacy default-hook dispatch and
+shared texture preparer's default behavior; no broad Pico success is inferred.
+
+The complete dependency-light quick command required by CONTRIBUTING was also
+run once without enlarging its limits. On this fixed Android checkout it expands
+to 59 suites through the branch-owned platform profile, including a transitive
+whole Pico catalog. It finishes with 57 passed and two failed in 1,064.93 seconds.
+Both failures are real outer 240-second suite aborts: device-e2e-contracts reports
+four unchanged-base World test imports missing `adapters`, then the interrupted
+Lifecycle group; the transitive Pico selection reports the initially missing
+new coverage mapping and Chat native-profile Qt5 pkg-config probe refusals before
+interruption. Buffered completed-selector status cannot establish additional
+native passes and is not reconstructed as success. The targeted green proofs
+above use their explicitly prepared Qt5 host environment and remain distinct.
+
+The entire quick log, both original sidecars and real PID/start-time/process-group
+observations are retained. At actual terminal none of the tracked original
+process identities or launched group members remain; all checkout source bytes
+are unchanged. Only the new selector's missing risk-matrix membership is then
+added, followed by focused coverage/registry/documentation/diff validation. The
+complete quick/Pico selection is not repeated. These inherited integration and
+aggregate-timeout failures remain open for Root's current-tree comparison; they
+are not product failures or whole-feature/device qualification.

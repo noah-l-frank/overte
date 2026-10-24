@@ -1,6 +1,9 @@
 // Copyright 2026 Overte contributors.
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
+#if defined(ASSETS_ORIGINAL_MODEL_MATERIAL)
+#include <ResourceCache.h>
+#else
 // Complete generic Resource declaration/selected bodies; uncached scheduling,
 // cache index/storage and profiling remain explicit host boundaries. Generic
 // Resource finished(success) never denotes parsed geometry or renderer ready.
@@ -25,3 +28,5 @@ public:
  ResourceRequest* originalRequest()const{return _request;}
  bool started()const{return _startedLoading;}
 };
+
+#endif // original material mode uses the shared original Resource classes
