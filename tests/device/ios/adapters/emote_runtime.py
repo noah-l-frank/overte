@@ -20,6 +20,20 @@ from ios.adapters import emote_operation
 
 
 class IOSEmoteRuntime(IOSScriptRuntime):
+    def _emote_rooted_feature(self,selector,run,*,role,client,settings):
+        """Explicit internal v2 owner; legacy configuration keeps its reader."""
+        from ios.adapters.emote_configuration import settings as validate_settings
+        from ios.adapters.emote_rooted_feature import IOSEmoteRootedFeature
+        need(role in ('primary','actor') and client is not None)
+        selected=validate_settings(settings,role=role,target=selector)
+        return IOSEmoteRootedFeature(self,selector,client,run,role,selected['artifactRoot'],selected['imagePolicy'],
+            primary_selector=selected.get('primaryTarget'),actor_selector=selected.get('actorTarget'))
+
+    def _emote_rooted_terminal(self,primary,actor=None):
+        from ios.adapters.emote_terminal import IOSEmoteTerminal
+        need(primary.runtime is self)
+        return IOSEmoteTerminal(primary,actor)
+
     def _emote_feature(self,selector,run,*,role,client,settings):
         from ios.adapters.emote_configuration import settings as validate_settings
         from ios.adapters.emote_feature import IOSEmoteFeature
