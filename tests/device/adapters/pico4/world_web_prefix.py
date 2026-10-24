@@ -33,7 +33,7 @@ from feature_journeys.scenarios import SCENARIOS,VERSION as CONTRACT_VERSION,exp
 VERSION=2
 READS=(1,2)
 LIMIT=len(SCENARIOS['world-web']['steps'])
-INPUT_LIMIT=6  # Closed v16 grammar; only this original prefix is executable.
+INPUT_LIMIT=13  # Closed v16 grammar; only this original prefix is executable.
 
 
 class PicoWorldWebPrefix:
@@ -223,10 +223,27 @@ class PicoWorldWebPrefix:
                 packet=self.io().request(self.run,self.url,self.state['ownerToken'],'observe')
                 current=packet['source']['current'];need(current)
                 view=current['source']['nativeView']
-                if index in (1,3):
-                    self.adapter.world_prefix_text(self.target,self,view,call['inputs']['text'] if index==1 else '')
+                verb=call['verb']
+                if verb in ('focus-type','clear-text'):
+                    self.adapter.world_prefix_text(self.target,self,view,call['inputs'].get('text',''))
+                elif verb=='navigate-foreign':
+                    # The normal URL field receives the configured foreign
+                    # listener and this actual original Script's ticket path.
+                    original=urlsplit(view['sourceUrl']);foreign=urlsplit(self.foreign)
+                    need(view['sourceUrl']==self.state['scriptUrl'].rsplit('/',1)[0]+'/index.html')
+                    path=original.path.rsplit('/',1)[0]+'/'+call['inputs']['resource']
+                    target=foreign.scheme+'://'+foreign.netloc+path
+                    self.adapter.world_prefix_text(self.target,self,view,target,control='foreign')
+                    self.adapter.world_prefix_click(self.target,self,view,'navigate')
+                elif verb=='restore-resource':
+                    # Reader-owned original phase activation changes only the
+                    # test fixture. This adapter never restores the resource.
+                    status=browser_status(self.source.client.request('/runs/'+self.run+'/browser'))
+                    need(status['ready'] is True)
                 else:
-                    control={2:'bridge',4:'second',5:'back'}[index]
+                    if verb in ('submit','foreign-origin-message'):control='bridge'
+                    elif verb=='navigate':control={'page-b.html':'second','reference.html':'reference','recovery.html':'recovery'}[call['inputs']['resource']]
+                    else:need(verb in ('back','reload'));control=verb
                     self.adapter.world_prefix_click(self.target,self,view,control)
             self.exact_phase();started=self.source.monotonic();native=self.adapter._native_feature_observer(self.target,read_only=True);requested=native.clock_ms()
             value=deepcopy(self.state);value['completed'].append(call);value.update(phase='ready',active=None);self.save(value)

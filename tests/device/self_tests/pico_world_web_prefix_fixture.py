@@ -147,7 +147,7 @@ class WorldTarget(OriginalBrowserTarget):
                 # The modeled ordinary button hit transfers DOM focus away
                 # from the editor before its real page event handler runs.
                 self.current['focused']=False;self.input(dict(control='bridge'))
-            elif control in ('second','back'):
+            elif control in ('second','back','navigate','reference','recovery','reload'):
                 self.input(dict(control=control))
             else:raise AssertionError(control)
         if control in self.lost_controls:raise RuntimeError('Applied original ray status lost: '+control)
@@ -158,7 +158,8 @@ class WorldTarget(OriginalBrowserTarget):
             monotonic=self.clock.now,sleep=self.clock.sleep)
 
     def geometry(self,call):
-        self.geometry_sequence+=1;editing=call['control'] in ('text','foreign');text=self.current['text'];units=len(text.encode('utf-16le'))//2
+        self.geometry_sequence+=1;editing=call['control'] in ('text','foreign')
+        text=getattr(self,'foreign_editor','') if call['control']=='foreign' else self.current['text'];units=len(text.encode('utf-16le'))//2
         return dict(webGeometryVersion=1,requestId=call['commandId'],instance=self.current['instance'],sequence=self.geometry_sequence,
             capturedEpochMs=self.clock.tick(),document=dict(runId=self.run,href=self.current['url'],responseId=self.current['response'],readyState='complete'),
             control=call['control'],editor=dict(focused=self.current['focused'],text=text if editing else None,cursor=units if editing else None,anchor=units if editing else None),
@@ -180,11 +181,13 @@ class WorldTarget(OriginalBrowserTarget):
             self.pending_ray=deepcopy(call);source=dict(nativeView={key:view[key] for key in ('handle','creation','grant','page','url')},
                 geometryRaw=json.dumps(json.dumps(geometry)),worldRay=ray);version=3
         else:
-            need(self.current['focused']);text=self.current['text'];units=len(text.encode('utf-16le'))//2
+            need(self.current['focused']);text=getattr(self,'foreign_editor','') if call['control']=='foreign' else self.current['text'];units=len(text.encode('utf-16le'))//2
             source=dict(delivered=True,focusRaw=json.dumps(json.dumps(geometry)),nativeBeforeIME=dict(text=text,cursor=units,anchor=units,
-                absoluteCursor=units,kind='text',sensitive=False,focused=True,enabled=True),imeEpochMs=self.clock.epoch(),
+                absoluteCursor=units,kind='url' if call['control']=='foreign' else 'text',sensitive=False,focused=True,enabled=True),imeEpochMs=self.clock.epoch(),
                 nativeView={key:view[key] for key in ('handle','creation','grant','page','url')});version=4
-            if not self.ignore_ime:self.current['text']=call['text']
+            if not self.ignore_ime:
+                if call['control']=='foreign':self.foreign_editor=call['text']
+                else:self.current['text']=call['text']
         self.raw=json.dumps(dict(picoBrowserVersion=version,commandId=call['commandId'],runId=self.run,ownerToken=self.owner,
             instance=self.instance,sequence=self.sequence,processId=31,capturedEpochMs=self.clock.tick(),status='ready',source=source))
 

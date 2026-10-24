@@ -91,12 +91,12 @@ class PicoWorldWebBinding(PicoScriptJourney):
         value=click.click(parent.run,parent.url,parent.state['ownerToken'],view,control)
         parent.input_result(value);parent.input_done();return value
 
-    def world_prefix_text(self,target,parent,view,text):
+    def world_prefix_text(self,target,parent,view,text,*,control='text'):
         click=self.ray(target,parent)
         def commit(original):
             # The ray's ordinary delivery plus independently measured focus
             # have completed. IME gets its own original command and phase CAS.
             parent.input_done();parent.input_begin(original)
         owner=PicoWorldTextInput(click,commit)
-        value=owner.replace(parent.run,parent.url,parent.state['ownerToken'],view,text)
+        value=owner.replace(parent.run,parent.url,parent.state['ownerToken'],view,text,control=control)
         parent.input_result(value);parent.input_done();return value
