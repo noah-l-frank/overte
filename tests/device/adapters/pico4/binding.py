@@ -2212,7 +2212,7 @@ def create_adapter(args, base_class):
                 and background.run==run and background.binding==world.binding)
             route,_observe,binding=self._script_runtime(target)
             _need(binding==world.binding)
-            pending=self._pending_owner(target)
+            pending=self._pending_owner(target,binding=binding)
             return PicoLifecyclePending(background,world,route,pending,
                 self._lifecycle_world_store(target).path.with_name('lifecycle-pending-owner.json'))
 
@@ -2233,9 +2233,11 @@ def create_adapter(args, base_class):
                 monotonic=native.monotonic,sleep=native.sleep,source_lock=source_lock)
 
         @_private
-        def _pending_owner(self,target,intent=None):
-            manager=self._scripts(target);native=self._native_feature_observer(target)
-            native.guard();_need(native.pid==int(manager.binding['processIdentity'].split(':')[0]))
+        def _pending_owner(self,target,intent=None,*,binding=None):
+            from adapters.normal_feature_state import context
+            binding=context(self._scripts(target).binding if binding is None else binding)
+            native=self._native_feature_observer(target)
+            native.guard();_need(native.pid==int(binding['processIdentity'].split(':')[0]))
             return NativePendingCommitOwner(native.send,
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+PENDING_OWNER_FILE,attempts=1),
                 native.clock_ms,native.guard,native.pid,intent=intent,monotonic=native.monotonic,sleep=native.sleep)
