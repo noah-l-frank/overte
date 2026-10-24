@@ -471,11 +471,10 @@ def observe_debug_config(config_path, config_sha256, expected_run_id, archive_st
          and config["schemaVersion"] == 1 and config.get("enabled") is True
          and config.get("runId") == expected_run_id)
     private_root = Path(config["privateRoot"])
-    need(private_root.is_absolute() and private_root.name == "debug-hold"
-         and private_root.parent.name == "private"
-         and private_root.parent.parent.name == expected_run_id)
+    need(private_root.is_absolute() and private_root.name == "debug-private"
+         and private_root.parent.name == expected_run_id)
     stage = Path(config["publicStage"])
-    need(stage == private_root.parent.parent / "public-debug")
+    need(stage == private_root.parent / "public-debug")
     ref = config["publicationPolicy"]
     need(type(ref) is dict and set(ref) == {"path", "sha256"})
     policy_path = Path(ref["path"])

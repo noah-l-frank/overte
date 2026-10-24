@@ -171,7 +171,7 @@ class ConfigPublicationCopyTests(unittest.TestCase):
         policy_path = self.root/"policy.json"
         self.write(policy_path, self.encoded(self.policy))
         config = {"schemaVersion": 1, "enabled": True, "runId": self.run_id,
-                  "privateRoot": str(self.source.parent/"private/debug-hold"),
+                  "privateRoot": str(self.source.parent/"debug-private"),
                   "publicStage": str(self.source),
                   "moduleIds": ["launch-smoke", "domain-enter"],
                   "publicationPolicy": {"path": str(policy_path),
