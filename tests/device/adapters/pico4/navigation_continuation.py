@@ -8,7 +8,7 @@ boundary ledger for the same recipe, not a second Journey or a replayable plan.
 from copy import deepcopy
 
 from adapters.chat_journey.source_chunks import ChatSourceChunks,json_digest
-from adapters.native_feature_observation import need,exact,number
+from adapters.native_feature_observation import need,exact,number,fresh
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.navigation_originals import verify_archive
@@ -81,12 +81,13 @@ class NavigationContinuation:
                     arguments=call,phase='issued',restartSha256=None)
                 self.validate_continuation(value);self.continuation_store.write(value,None);self.continuation_disk=deepcopy(value)
             need(same(self.continuation_store.read(),self.continuation_disk) and same(self.continuation_disk['arguments'],call))
-            started=p.now();requested=p.phase.epoch_ms();self.restart().act(call)
+            self.restart().act(call)
             if self.continuation_disk['phase']=='issued':
                 value=deepcopy(self.continuation_disk);value.update(phase='ready',restartSha256=json_digest(self.restart_owner.disk))
                 self.validate_continuation(value);self.continuation_store.write(value,self.continuation_disk);self.continuation_disk=deepcopy(value)
             self.restart_owner.fence();owner=self.restart_owner
             runtime=owner.runtime if owner.runtime is not None else owner.successor(owner.inputs,owner.state)
+            started=p.now();requested=runtime['native'].clock_ms()
             seal=self.seal(owner,runtime,requested,started,owner.state['newFrame']['before']['ui']['observedEpochMs'])
             result=dict(performed=True)
         self.finalize(seal)
@@ -113,7 +114,7 @@ class NavigationContinuation:
             for frame in frames:
                 source.project(frame);p.original_facts(frame);source.advance_frames(previous,frame);previous=frame
             reading=dict(navigationGenerationSamplesVersion=1,scope=scope,phase='reading',chunks=manifest);store.write(reading,old)
-            phase=owner.fence();started=p.now();requested=p.phase.epoch_ms();frame=source.capture(p.state['receipt'],phase['status'],lookup_receipt=p.state['lookupReceipt'])
+            phase=owner.fence();started=p.now();requested=runtime['native'].clock_ms();frame=source.capture(p.state['receipt'],phase['status'],lookup_receipt=p.state['lookupReceipt'])
             manifest=chunks.append(frame,manifest);facts=source.project(frame);p.original_facts(frame);source.advance_frames(previous,frame)
             self.runtime_scope(owner,source);need(same(frame['binding'],binding))
             result=dict(sequence=len(manifest),capturedEpochMs=frame['before']['ui']['observedEpochMs'],state=facts,
@@ -159,7 +160,8 @@ class NavigationContinuation:
         phase=p.phase.read();need(phase['ticket']==owner.state['arguments']['ticket'] and phase['verb']=='restart-app'
             and same(phase['inputs'],{}) and phase['status']['instance']==owner.state['fixture']['instance']
             and same(phase['status']['activations'],owner.state['fixture']['activations']))
-        epoch=p.phase.epoch_ms();now=p.now();self.runtime_scope(owner,source)
+        epoch=runtime['native'].clock_ms();now=p.now();self.runtime_scope(owner,source)
+        fresh(seal['captured'],epoch)
         need(source.guard is seal['sourceGuard'] and runtime['native'].guard is seal['nativeGuard']
             and number(epoch,1,1e15) and now>=seal['started']
             and max(epoch-seal['captured'],seal['requested']-seal['captured']+(now-seal['started'])*1000)<=1500)
