@@ -1,0 +1,309 @@
+"""Owned unsent Chat draft cancellation; deliberately no whole Chat capability.
+
+Normal controls authorize input. Separate native model/settings and actual
+keyboard originals prove local effects. No Send, peer, mixer, settings mutation,
+native lifetime retirement or successful whole-area result is available here.
+"""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
+from pathlib import Path
+import time
+from adapters.native_chat_view import NativeChatView,measured_view,validate as view_packet,command as view_command
+from adapters.native_clock_join import NativeClockAcquisition,validate_join
+from adapters.native_clock_source_history import restore
+from adapters.native_feature_observation import NativeFeatureObservation,exact,integer,need
+from adapters.normal_feature_state import PrivateFeatureState,context
+from adapters.original_frame_store import OriginalFrameStore
+from adapters.script_feature.history import pack,unpack,same
+from adapters.script_feature.lock import ScriptSourceLock
+from adapters.token_chat_ui import TokenChatUI
+from feature_journeys.contract import arguments,identifier
+from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
+from ios.adapters.chat_controls import IOSChatIO,project
+from ios.adapters.chat_draft_clock import operation
+from ios.adapters.graphics_history import follow_native
+from ios.adapters.normal_input import observation as ui_packet
+
+
+class IOSChatDraftOwner:
+    def __init__(self,store,root,binding,run,lock,guard,*,native,io,view,phase,epoch_ms,monotonic,sleep):
+        need(type(store) is PrivateFeatureState and isinstance(lock,ScriptSourceLock)
+            and isinstance(native,NativeFeatureObservation) and native.ios and not native.native_clock_bound
+            and isinstance(io,IOSChatIO) and isinstance(view,NativeChatView) and view.ios
+            and isinstance(phase,PhaseFixtureReader) and phase.area=='chat' and phase.run==run
+            and all(callable(fn) for fn in (guard,epoch_ms,monotonic,sleep)))
+        self.store,self.root,self.binding,self.run,self.lock=store,Path(root),deepcopy(context(binding)),identifier(run),lock
+        need(store.path==lock.path.with_name('ios-chat-draft-owner.json') and self.root.is_absolute()
+            and self.root.resolve(strict=True)==self.root and native.pid==view.pid==int(self.binding['processIdentity']))
+        PrivateFeatureState(self.root/'boundary')._parent();lock.assert_held()
+        self.guard,self.native,self.io,self.view,self.phase=guard,native,io,view,phase
+        self.fixture_url,self.epoch_ms,self.monotonic,self.sleep=phase.fixture_url,epoch_ms,monotonic,sleep
+        self.historical=False;self.previous=store.read();self.state=self.empty()
+        self.frames=self.frame_store();self.ui=TokenChatUI(io,self.input_intent,run,monotonic=monotonic,sleep=sleep)
+        if self.previous is not None:self.state=self.decode(self.previous)
+        else:self.inventory(self.state)
+        if self.state['records']:
+            last=self.original(self.state['records'][-1]);restore(native,last['clockJoin']['nativeAfter'])
+            original=last['originals']['view'];view.run,view.instance,view.sequence,view.captured=(original[key] for key in ('runId','instance','sequence','capturedEpochMs'))
+
+    @staticmethod
+    def empty():return dict(records=[],baseline=None,operations=[],failures=[],pending=None,observation=None,interrupted=[])
+
+    @classmethod
+    def archive(cls,store,root,binding,run,lock,fixture_url):
+        owner=object.__new__(cls);owner.store,owner.root,owner.binding,owner.run,owner.lock=store,Path(root),deepcopy(context(binding)),identifier(run),lock
+        lock.assert_held();need(store.path==lock.path.with_name('ios-chat-draft-owner.json'))
+        owner.fixture_url,owner.historical,owner.guard,owner.monotonic=fixture_url,True,lambda:True,time.monotonic
+        owner.previous=store.read();need(owner.previous is not None);owner.state=owner.empty();owner.frames=owner.frame_store()
+        owner.state=owner.decode(owner.previous);return owner
+
+    def frame_store(self):
+        return OriginalFrameStore(self.root,self.binding,self.run,'primary',self.bound,self.storage_intent,
+            namespace='ios-chat-draft',schema_prefix='iosChatDraft',monotonic=self.monotonic)
+    def envelope(self,state):
+        return dict(iosChatDraftOwnerVersion=1,runId=self.run,binding=self.binding,artifactRoot=str(self.root),fixtureUrl=self.fixture_url,payload=pack([state]))
+    def bound(self):
+        self.lock.assert_held();need(same(self.store.read(),self.previous) and self.guard() is not False);return True
+    def save(self):
+        need(not self.historical);self.bound();value=self.envelope(self.state);self.store.write(value,self.previous)
+        need(same(self.store.read(),value));self.previous=deepcopy(value)
+
+    def phase_original(self,value,ticket,verb,inputs,previous=None):
+        phase_packet(value,run=self.run,area='chat',request=value['requestId'],epoch=value['capturedEpochMs'],previous=previous)
+        need(value['active'] and value['activations'] and value['activations'][-1]['ticket']==ticket
+            and same(value['activations'][-1]['stimulus'],dict(verb=verb,inputs=inputs)))
+
+    def frame(self,value,previous=None):
+        exact(value,{'iosChatDraftObservationVersion','ticket','verb','inputs','phaseBefore','phaseAfter','originals','clockJoin','queries'})
+        need(type(value['iosChatDraftObservationVersion']) is int and value['iosChatDraftObservationVersion']==1)
+        self.call(value['ticket'],value['verb'],value['inputs'])
+        self.phase_original(value['phaseBefore'],value['ticket'],value['verb'],value['inputs'])
+        self.phase_original(value['phaseAfter'],value['ticket'],value['verb'],value['inputs'],value['phaseBefore'])
+        exact(value['originals'],{'uiBefore','view','uiAfter','uiBeforeReceipt','uiAfterReceipt'});raw=value['originals'];join=validate_join(value['clockJoin'],raw)
+        need(type(value['queries']) is list and len(value['queries'])<=64);commands={}
+        for query in value['queries']:
+            self.query(query);need(query['commandId'] not in commands);commands[query['commandId']]=query
+        first,last=join['nativeBefore'],join['nativeAfter'];pid=int(self.binding['processIdentity'])
+        need(first['processId']==last['processId']==pid and same(first['lifecycle'],last['lifecycle']))
+        for packet in (first,last):need(commands.get(packet['requestId'])==dict(schemaVersion=1,commandId=packet['requestId'],action='feature-native-observe'))
+        for key in ('uiBefore','uiAfter'):
+            receipt=raw[key+'Receipt'];exact(receipt,{'schemaVersion','commandId','observation'})
+            need(type(receipt['schemaVersion']) is int and receipt['schemaVersion']==1 and same(receipt['observation'],raw[key])
+                and commands.get(receipt['commandId'])==dict(schemaVersion=1,commandId=receipt['commandId'],action='normal-ui-input',operation='observe'))
+        need(raw['uiBeforeReceipt']['commandId']!=raw['uiAfterReceipt']['commandId'])
+        a,b=[ui_packet(raw[key],pid,last['capturedEpochMs']) for key in ('uiBefore','uiAfter')]
+        need(a['instance']==b['instance'] and a['lastSequence']==b['lastSequence'] and a['elapsedMs']<=b['elapsedMs'])
+        controls,end=project(a),project(b);need(same(controls['controls'],end['controls']))
+        original=raw['view'];view_packet(original,dict(schemaVersion=1,action='feature-chat-view-observe',
+            commandId=original['commandId'],runId=self.run),pid,last['capturedEpochMs'])
+        need(commands.get(original['commandId'])==dict(schemaVersion=1,commandId=original['commandId'],action='feature-chat-view-observe',runId=self.run))
+        local=measured_view(original);source=original['source'];page=TokenChatUI.row(end,'chat.page',enabled=False)
+        need(source['storage']['count']==source['storage']['unowned']==0 and source['storage']['events']==[])
+        need(bool(page)==local['open'])
+        if page is not None:
+            editor=TokenChatUI.row(end,'chat.input',enabled=False);need(editor is not None)
+            need(page['channel']==local['channel'] and editor['text']==local['draft'] and editor['focused']==local['focused']
+                and page['keyboardRequested']==source['ui']['keyboardRequested']
+                and page['localRowCount']==source['ui']['localRowCount']==0
+                and page['domainRowCount']==source['ui']['domainRowCount']==source['ui']['visibleRowCount']==0
+                and source['ui']['localMessages']==source['ui']['domainMessages']==source['ui']['visibleMessages']==[])
+        need(source['editorHasDraft'] is bool(local['draft']) and (not local['keyboard'] or local['focused']))
+        if previous is not None:
+            old=previous['originals'];follow_native(previous['clockJoin']['nativeAfter'],first)
+            need(same(first['lifecycle'],previous['clockJoin']['nativeAfter']['lifecycle'])
+                and a['instance']==old['uiAfter']['instance'] and a['lastSequence']>=old['uiAfter']['lastSequence']
+                and a['elapsedMs']>=old['uiAfter']['elapsedMs'] and original['instance']==old['view']['instance']
+                and original['sequence']>old['view']['sequence'] and original['capturedEpochMs']>=old['view']['capturedEpochMs']
+                and join['hostBeforeMonotonic']>=previous['clockJoin']['hostAfterMonotonic']
+                and join['hostBeforeEpochMs']>=previous['clockJoin']['hostAfterEpochMs'])
+            phase_packet(value['phaseBefore'],run=self.run,area='chat',request=value['phaseBefore']['requestId'],
+                epoch=value['phaseBefore']['capturedEpochMs'],previous=previous['phaseAfter'])
+        return value
+
+    def original(self,reference):return self.frame(self.frames.read(self.frames.expand(reference)))
+    @staticmethod
+    def local(frame):return measured_view(frame['originals']['view'])
+    def storage(self,frame):
+        if self.state['baseline'] is not None:
+            need(same(frame['originals']['view']['source']['storage'],self.original(self.state['baseline'])['originals']['view']['source']['storage']))
+    def inventory(self,state):
+        expected={self.frames.path(self.frames.expand(ref)) for ref in state['records']}|{self.store.path}
+        if state['observation'] is not None and state['observation']['wire'] is not None:expected.add(self.frames.path(state['observation']['wire']))
+        for root in {self.root,self.store.path.parent}:
+            for index,path in enumerate(root.iterdir()):
+                need(index<4096)
+                if path.name.startswith('ios-chat-draft-'):need(path in expected)
+
+    def decode(self,value):
+        exact(value,{'iosChatDraftOwnerVersion','runId','binding','artifactRoot','fixtureUrl','payload'});rows=unpack(value['payload'])
+        need(type(value['iosChatDraftOwnerVersion']) is int and value['iosChatDraftOwnerVersion']==1 and len(rows)==1 and same(value,self.envelope(rows[0])))
+        state=rows[0];exact(state,set(self.empty()))
+        need(type(state['records']) is list and len(state['records'])<=128 and all(type(state[key]) is list and len(state[key])<=32 for key in ('operations','failures','interrupted')))
+        need(state['baseline'] is not None or not state['operations'] and not state['failures'] and state['pending'] is None)
+        old=self.state;self.state=state
+        try:
+            previous=None
+            for index,ref in enumerate(state['records'],1):
+                need(ref['index']==index);current=self.original(ref);self.frame(current,previous);previous=current
+            if state['baseline'] is not None:
+                need(state['baseline'] in state['records']);self.baseline(self.original(state['baseline']))
+                for ref in state['records']:self.storage(self.original(ref))
+            tickets=set()
+            for op in state['operations']+state['failures']+([] if state['pending'] is None else [state['pending']]):
+                exact(op,{'ticket','verb','inputs','before','intents','queries','after','quiet'});self.call(op['ticket'],op['verb'],op['inputs'])
+                need(op['ticket'] not in tickets and op['before'] in state['records']
+                    and op['before']['index']>=state['baseline']['index']);tickets.add(op['ticket'])
+                need(type(op['intents']) is list and len(op['intents'])<=2 and type(op['queries']) is list and len(op['queries'])<=128
+                    and type(op['quiet']) is list and len(op['quiet'])<=3)
+                for index,intent in enumerate(op['intents']):self.intent_original(op,index,intent)
+                for query in op['queries']:self.query(query)
+                if op['after'] is not None:
+                    need(op in state['operations'] and op['after'] in state['records'] and op['after']['index']>op['before']['index'])
+                    self.effect(op,self.original(op['after']));self.quiet(op)
+                else:need(op is state['pending'] or op in state['failures'])
+            for observation in state['interrupted']+([] if state['observation'] is None else [state['observation']]):
+                exact(observation,{'ticket','verb','inputs','queries','partial','wire'});self.call(observation['ticket'],observation['verb'],observation['inputs'])
+                need(type(observation['queries']) is list and len(observation['queries'])<=64 and type(observation['partial']) is dict
+                    and set(observation['partial'])<={'start','uiBefore','view','uiAfter','uiBeforeReceipt','uiAfterReceipt','join'})
+                for query in observation['queries']:self.query(query)
+                if observation['wire'] is not None:self.frames.original(observation['wire'])
+            self.inventory(state)
+        finally:self.state=old
+        return deepcopy(state)
+
+    def call(self,ticket,verb,inputs):
+        identifier(ticket);need(verb in ('open','type','close','cleanup'))
+        if verb=='cleanup':need(inputs=={} and type(inputs) is dict)
+        else:arguments('feature.chat.act',dict(contractVersion=16,runId=self.run,fixtureUrl=self.fixture_url,ticket=ticket,verb=verb,inputs=inputs))
+    @staticmethod
+    def query(command):
+        need(type(command) is dict and command.get('action') in ('feature-native-observe','normal-ui-input','feature-chat-view-observe'))
+        if command['action']=='feature-chat-view-observe':view_command(command,ios=True)
+        else:
+            exact(command,{'schemaVersion','commandId','action'}|({'operation'} if command['action']=='normal-ui-input' else set()))
+            need(type(command['schemaVersion']) is int and command['schemaVersion']==1 and type(command['commandId']) is str
+                and command['commandId'].startswith('ios-'));identifier(command['commandId'][4:])
+            if command['action']=='normal-ui-input':need(command['operation']=='observe')
+    def query_intent(self,command):
+        self.bound();need(not self.historical);self.query(command)
+        holder=self.state['observation'] or self.state['pending'];need(holder is not None and len(holder['queries'])<(64 if self.state['observation'] is not None else 128))
+        holder['queries'].append(deepcopy(command));self.save()
+    def intent_original(self,op,index,entry):
+        exact(entry,{'input','phase'});value=entry['input'];exact(value,{'controlId','action','instance','generation','sequence'})
+        sequence=[('chat.entry','activate')] if op['verb']=='open' else [('chat.input','activate'),('chat.input','replace')] if op['verb']=='type' else [('chat.close','activate')]
+        need(index<len(sequence) and (value['controlId'],value['action'])==sequence[index] and integer(value['sequence'],1))
+        before=self.original(op['before'])['originals']['uiAfter']
+        need(value['instance']==before['instance'] and value['generation']==before['chatGeneration'] and value['sequence']==before['lastSequence']+index+1)
+        self.phase_original(entry['phase'],op['ticket'],op['verb'],op['inputs'])
+    def input_intent(self,value):
+        self.bound();op=self.state['pending'];need(op is not None)
+        status=self.phase.read();entry=dict(input=deepcopy(value),phase=status['status'])
+        self.intent_original(op,len(op['intents']),entry);op['intents'].append(entry);self.save()
+    def storage_intent(self,event,wire):
+        need(not self.historical and event=='original' and self.state['observation'] is not None)
+        self.state['observation']['wire']=deepcopy(wire);self.save()
+    def recover_observation(self):
+        pending=self.state['observation']
+        if pending is None:return
+        wire=pending['wire']
+        if wire is None:
+            need(len(self.state['interrupted'])<32);self.state['interrupted'].append(deepcopy(pending));self.state['observation']=None;self.save();return
+        need(wire['phase'] in ('opened','saved') and wire['index']==len(self.state['records'])+1)
+        frame=self.frame(self.frames.read(wire),None if not self.state['records'] else self.original(self.state['records'][-1]))
+        need(frame['ticket']==pending['ticket'] and frame['verb']==pending['verb'] and same(frame['inputs'],pending['inputs']))
+        self.storage(frame);self.state['records'].append(self.frames.compact(dict(wire,phase='saved')));self.state['observation']=None;self.save()
+
+    @operation
+    def capture(self,ticket,verb,inputs):
+        self.bound();need(not self.historical);self.call(ticket,verb,inputs);self.recover_observation();need(len(self.state['records'])<128)
+        status=self.phase.read();self.phase_original(status['status'],ticket,verb,inputs)
+        self.state['observation']=dict(ticket=ticket,verb=verb,inputs=deepcopy(inputs),queries=[],partial={},wire=None);self.save()
+        partial=self.state['observation']['partial'];clock=NativeClockAcquisition(self.native,epoch_ms=self.epoch_ms,monotonic=self.monotonic)
+        clock.begin(status['status']['activations'][-1]['activatedEpochMs']);partial['start']=deepcopy(clock.started);self.save()
+        partial['uiBefore']=deepcopy(self.io.original.capture());partial['uiBeforeReceipt']=deepcopy(self.io.original.native.last_receipt);self.save()
+        partial['view']=self.view.read(self.run);self.save()
+        partial['uiAfter']=deepcopy(self.io.original.capture());partial['uiAfterReceipt']=deepcopy(self.io.original.native.last_receipt);self.save()
+        raw={key:deepcopy(partial[key]) for key in ('uiBefore','view','uiAfter','uiBeforeReceipt','uiAfterReceipt')}
+        join=clock.finish(raw,[('uiBefore','sampleEpochMs'),('view','capturedEpochMs'),('uiAfter','sampleEpochMs')]);partial['join']=deepcopy(join);self.save()
+        after=self.phase.status(status['status'])
+        value=dict(iosChatDraftObservationVersion=1,ticket=ticket,verb=verb,inputs=deepcopy(inputs),phaseBefore=status['status'],phaseAfter=after,originals=raw,clockJoin=join,
+            queries=deepcopy(self.state['observation']['queries']))
+        self.frame(value,None if not self.state['records'] else self.original(self.state['records'][-1]));self.storage(value)
+        ref=self.frames.write(len(self.state['records'])+1,value);self.state['records'].append(ref);self.state['observation']=None;self.save();return ref
+
+    def baseline(self,frame):
+        local=self.local(frame);controls=project(frame['originals']['uiAfter'])
+        need(not local['open'] and not local['draft'] and not local['focused'] and not local['keyboard']
+            and TokenChatUI.row(controls,'chat.entry') is not None)
+    def effect(self,op,frame):
+        need(frame['ticket']==op['ticket'] and frame['verb']==op['verb'] and same(frame['inputs'],op['inputs']))
+        before=self.original(op['before']);local=self.local(frame);prior=self.local(before)
+        expected=2 if op['verb']=='type' else 0 if op['verb']=='cleanup' and not prior['open'] else 1
+        need(len(op['intents'])==expected and frame['originals']['uiAfter']['lastSequence']==before['originals']['uiAfter']['lastSequence']+expected)
+        if op['verb']=='open':
+            need(not prior['open'] and local['open'] and local['channel']=='local' and local['draft']=='')
+            earlier=[item for item in self.state['operations'] if item['verb']=='open' and item['after']['index']<op['before']['index']]
+            if earlier:need(frame['originals']['view']['source']['ui']['generation']!=self.original(earlier[-1]['after'])['originals']['view']['source']['ui']['generation'])
+        elif op['verb']=='type':need(local['open'] and local['draft']==op['inputs']['text'] and local['focused'] and local['keyboard'])
+        else:need(not local['open'] and local['draft']=='' and not local['focused'] and not local['keyboard'])
+        self.storage(frame);return local
+    def quiet(self,op):
+        if op['verb'] not in ('close','cleanup'):need(op['quiet']==[]);return
+        need(len(op['quiet'])==3 and op['quiet'][-1]==op['after'] and all(ref in self.state['records'] for ref in op['quiet'])
+            and [ref['index'] for ref in op['quiet']]==sorted({ref['index'] for ref in op['quiet']}))
+        frames=[self.original(ref) for ref in op['quiet']]
+        for frame in frames:self.effect(op,frame)
+        first,last=frames[0],frames[-1];a,b=first['clockJoin'],last['clockJoin']
+        need(b['hostBeforeMonotonic']-a['hostAfterMonotonic']>=3 and b['hostBeforeEpochMs']-a['hostAfterEpochMs']>=3000
+            and b['nativeBefore']['capturedEpochMs']-a['nativeAfter']['capturedEpochMs']>=3000
+            and last['originals']['uiBefore']['elapsedMs']-first['originals']['uiAfter']['elapsedMs']>=3000)
+    @operation
+    def resolve(self):
+        self.bound();need(not self.historical);self.recover_observation();op=self.state['pending'];need(op is not None)
+        ref=self.capture(op['ticket'],op['verb'],op['inputs']);self.effect(op,self.original(ref));quiet=[]
+        if op['verb'] in ('close','cleanup'):
+            quiet.append(ref)
+            for _index in range(2):
+                self.sleep(1.6);ref=self.capture(op['ticket'],op['verb'],op['inputs']);self.effect(op,self.original(ref));quiet.append(ref)
+        completed=dict(deepcopy(op),after=ref,quiet=quiet);self.quiet(completed)
+        self.state['operations'].append(completed);self.state['pending']=None;self.save()
+        return dict(verifiedDraftAction=op['verb'],original=deepcopy(ref),local=self.local(self.original(ref)),failed=bool(self.state['failures']))
+    @operation
+    def act(self,ticket,verb,inputs):
+        self.bound();need(not self.historical);self.call(ticket,verb,inputs);self.recover_observation()
+        if self.state['pending'] is not None:
+            op=self.state['pending'];need(op['ticket']==ticket and op['verb']==verb and same(op['inputs'],inputs));return self.resolve()
+        retained=next((op for op in self.state['operations'] if op['ticket']==ticket),None)
+        if retained is not None:
+            need(retained['verb']==verb and same(retained['inputs'],inputs));ref=self.capture(ticket,verb,inputs)
+            return dict(verifiedDraftAction=verb,original=ref,local=self.effect(retained,self.original(ref)),failed=bool(self.state['failures']))
+        need(len(self.state['operations'])<32);ref=self.capture(ticket,verb,inputs);before=self.original(ref)
+        if self.state['baseline'] is None:self.baseline(before);self.state['baseline']=ref;self.save()
+        local=self.local(before)
+        if verb=='open':need(not local['open'] and TokenChatUI.row(project(before['originals']['uiAfter']),'chat.entry') is not None)
+        elif verb=='type':need(local['open'] and local['draft']=='')
+        elif verb=='close':need(local['open'])
+        elif local['open']:
+            # An actual owned entry and unchanged consumed cursor must precede
+            # closing a page during failed-action cleanup. A readable empty
+            # foreign page is not an ownership grant.
+            prior=self.state['operations']+self.state['failures']
+            entries=[item for item in prior if item['verb']=='open' and item['intents']]
+            intents=[entry['input']['sequence'] for item in prior for entry in item['intents']]
+            need(entries and intents and before['originals']['uiAfter']['lastSequence']==max(intents))
+        self.state['pending']=dict(ticket=ticket,verb=verb,inputs=deepcopy(inputs),before=ref,intents=[],queries=[],after=None,quiet=[]);self.save()
+        if verb=='open':self.ui.open()
+        elif verb=='type':self.ui.type(inputs['text'])
+        else:self.ui.close()
+        return self.resolve()
+
+    @operation
+    def cleanup(self,ticket):
+        """Explicitly cancel an owned pending action without making it passed."""
+        self.bound();need(not self.historical);self.recover_observation()
+        if self.state['pending'] is not None:
+            pending=self.state['pending']
+            if pending['verb']=='cleanup':need(pending['ticket']==ticket);return self.resolve()
+            need(len(self.state['failures'])<32);self.state['failures'].append(deepcopy(pending));self.state['pending']=None;self.save()
+        return self.act(ticket,'cleanup',{})
