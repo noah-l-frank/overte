@@ -5384,5 +5384,30 @@
       "Historical fixture copies are not live source identity or retirement",
       "No device, APK or whole native application qualification"
     ]
+  },
+  "worldWebRetainedResumeRoot20261024": {
+    "sourceCommit": "23e8183d5f6ba09c12944bca24fba719259ff46f",
+    "integrationCommit": "fc119fd454",
+    "privateEvidence": "/home/user/Documents/github/overte-pico-adapter-private-20261021/world-web-retained-resume-integration-",
+    "owningNativeCaseSeconds": 6.881,
+    "coverageSeconds": 0.093,
+    "catalogSelectors": 250,
+    "capabilityRows": 14,
+    "sourceFiles": 13549,
+    "sourceFilesUnchangedDuringTest": true,
+    "observedBoundary": "Actual original foreground changes grant while preserving old finished event; fresh World source remains pending without new Java DOM or geometry query.",
+    "qualification": "Original native/JNI host counter with explicit Java/WebView inventory recorder; not full Activity/OS execution or device proof.",
+    "unchanged": [
+      "Native producer and product foreground behavior",
+      "Existing World/Tablet versions",
+      "90-second combined build and 120-second selector bounds",
+      "Strict lifecycle replacement requirement"
+    ],
+    "remaining": [
+      "Normal Close/Stop and resource retirement",
+      "Independent Actor and stereo sources",
+      "Complete background lifecycle execution and honest retained-document observation schema",
+      "Whole World feature qualification"
+    ]
   }
 }

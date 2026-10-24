@@ -106,3 +106,15 @@ retirement remain executable separately from this unresolved phase.
 Registration-only coverage passes in 0.094 s (1/245 local catalog groups).
 Four repository suites pass in 2.66 s; registry and whitespace checks pass.
 The native case is not repeated merely for registration/documentation changes.
+
+
+## Root integration check
+
+Root selected the fixed native counter as `fc119fd454`. Its fresh native case
+passed in 6.881 s and coverage in 0.093 s on the integrated tree, preserving
+all fourteen capability rows and increasing the catalog from 249 to 250. All
+13,549 tracked/new source files retained their complete before/after hashes.
+The actual compiler stage and separate original packets remain private under
+Root's `world-web-retained-resume-integration-*20261024` evidence. This confirms
+the original source boundary with the declared Java/WebView recorder; it does
+not qualify the complete OS lifecycle or full Feature 6.
