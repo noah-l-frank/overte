@@ -84,3 +84,21 @@ packet is separate from pending Ops3/G1 implementation and depends only on
 the existing Process-v1/v2/finalization chain (current branch includes
 `571192b9a8368b5f99621c70e6f53370b4836f39`). All broader public/Actor/image/
 resource/file/archive/host-finalization boundaries remain open.
+
+## Root integration verification
+
+Root selected this physical-ownership packet as `f8245bcd01`, independently
+of the unfinished Ops3/G1 continuation. All **18** cases in the existing
+`lifecycle-process-finalization` selector passed freshly in **45.946 s**;
+coverage's 12 checks passed in 0.128 s. All **13,595** complete source-file
+hashes matched before and after terminal completion (48.497 s external
+elapsed). The actual filesystem/OFD counters execute on the host; Native,
+OS, Qt and process producers retain their declared model boundaries.
+
+Private result, source manifest and original log/JUnit are retained under
+`/home/user/Documents/github/overte-pico-adapter-private-20261021` as
+`lifecycle-process-physical-root-result-20261024.json`,
+`lifecycle-process-physical-root-source-20261024.json` and
+`lifecycle-process-physical-root-20261024.log`/`.xml`.
+No new-PID whole continuation or complete cleanup is inferred from these
+physical-file checks.

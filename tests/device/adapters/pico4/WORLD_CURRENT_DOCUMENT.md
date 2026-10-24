@@ -243,3 +243,30 @@ and output stages remain private and retained. The old retained-page and
 Browser-originals Python assemblies only gain the real factory TU link;
 their actual Native bodies/assertions are not replaced. There is no new
 selector, shared contract, runtime input or full application build claim.
+
+### Root integration verification
+
+Root selected the original source packet as `41a80a7ba4`, its UTF-8 correction
+as `652844c807`, and its single-library factory correction as `45bba2942e`.
+Fresh independent selections on that integrated tree passed **109 cases**:
+Native/JNI and the actual two-DSO factory (2 cases, 24.173 s), original Java
+methods (1, 1.724 s), strict reader/final-exit counters (9, 0.189 s), the old
+retained-page source (1, 10.492 s), and browser-original regressions (96,
+41.625 s). The five disjoint selections ran concurrently with separate
+temporary roots; complete source hashes for all **13,590** files matched
+before and after terminal completion (43.373 s external elapsed).
+
+Independent comparison against `ad03baed2bd087eb876313b0b44ac404b0552949`
+also found eight complete legacy method bodies byte-identical: the old DOM
+observation/request/packet, DOM/finish callbacks, input-method handler, TSI
+browser getter and Java `featureRead`. The entire old
+`PicoBrowserFeatureE2E.inc` was byte-identical. These checks preserve old
+behavior without claiming that the new source completes the World journey.
+
+Private evidence is retained in
+`/home/user/Documents/github/overte-pico-adapter-private-20261021`:
+`world-current-document-root-integration-result-20261024.json`, its source
+manifest and five original log/JUnit pairs, and
+`world-current-document-root-legacy-source-20261024.json`.
+The new readonly current ray/focus source, normal input consumption,
+explicit shared-version dispatch and whole retirement remain separate work.

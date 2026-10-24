@@ -685,7 +685,18 @@
         "tests/device/adapters/pico4/world_web_source_pass.py",
         "tests/device/adapters/pico4/WORLD_WEB_ACTOR_SOURCE_PASS.md",
         "tests/device/self_tests/pico_world_web_process_fixture.py",
-        "tests/device/self_tests/test_pico_world_web_source_process.py"
+        "tests/device/self_tests/test_pico_world_web_source_process.py",
+        "tests/device/adapters/pico4/WORLD_CURRENT_DOCUMENT.md",
+        "tests/device/adapters/pico4/world_current_document.py",
+        "tests/device/native/PicoWorldCurrentDocumentBridge.h",
+        "android/common/web/src/PicoWorldCurrentDocumentBridge.cpp",
+        "android/vr/pico/tests/device/test_world_current_document_java.py",
+        "android/common/web/src/PicoWorldCurrentDocumentE2E.inc",
+        "android/vr/pico/tests/device/test_world_current_document_native.py",
+        "android/vr/pico/tests/device/world-current-document-native.cpp",
+        "android/vr/pico/tests/device/world-current-document-getter.cpp",
+        "android/vr/pico/tests/device/world-current-document-java-body.java.inc",
+        "android/vr/pico/tests/device/test_world_current_document_reader.py"
       ],
       "declaredCheckpoints": 19,
       "inputVerbs": [
@@ -735,8 +746,8 @@
         "Revoke actual view/grant/nonce authority",
         "Drain original retained callbacks and prove absent owned entities/view resources"
       ],
-      "nextExecutableStep": "Implement an additive World-only current-document observation for actual retained foreground authority, then review an explicit versioned lifecycle continuation preserving exact old16 semantics. Root joined original both-role stereo/Scene/PNG files to the same normal14-step independent source process and Parent-consumed Return: final stereo9/54.918s plus v1 compatibility2/14.210s and coverage pass with all13,570 sources unchanged. Retained VM stays a resource after normal ScriptStop and observerESRCH. Do not invent steps15\u201319, new loads or resource release. Full public/resource/journal/archive/host finalization remains open.",
-      "nativeCompilation": "Selected complete NativeWebViewItem TU plus unchanged world-provider, RayPick and renderer projection bodies compile and pass Qt5 host checks; entity/avatar/HMD and Android DOM/transport are explicit seams. Complete application/APK and device behavior unverified.",
+      "nextExecutableStep": "Join the additive current-authority ray/focus source to normal Pico input and actual backend consumption, then introduce explicit shared-version dispatch preserving exact old16 semantics. Current-document originals, UTF-8 bounds and single-library clock ownership are integrated: Root independently passes109 native/Java/reader/old-retention/browser cases with all13,590 source hashes unchanged. Earlier normal14-step stereo/Scene/PNG and Parent Return evidence remains separate; retained VM stays a resource after ScriptStop and observerESRCH. Do not invent steps15\u201319, new loads or resource release. Full public/resource/journal/archive/host finalization remains open.",
+      "nativeCompilation": "Selected complete NativeWebViewItem TU, both conditional sides of the whole TSI current-document getter, original Java methods and an actual two-DSO shared factory compile and pass host checks, alongside unchanged world-provider/RayPick/renderer bodies. Entity/avatar/HMD, Android looper/WebView/DOM/transport remain explicit seams. Complete application/APK and device behavior unverified.",
       "deviceQualification": "untested"
     },
     {
@@ -1714,7 +1725,9 @@
         "tests/device/adapters/pico4/lifecycle_operations.py",
         "tests/device/adapters/pico4/LIFECYCLE_OPERATIONS_PREFIX.md",
         "tests/device/adapters/pico4/LIFECYCLE_OPERATIONS_BACKGROUND.md",
-        "android/vr/pico/tests/device/test_lifecycle_primary_operations.py"
+        "android/vr/pico/tests/device/test_lifecycle_primary_operations.py",
+        "tests/device/adapters/pico4/lifecycle_process_file.py",
+        "tests/device/adapters/pico4/LIFECYCLE_PROCESS_PHYSICAL_DELIVERY.md"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1759,7 +1772,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Join the actual oldPID-to-newPID cleanup through once-only neutral Pico restart inputs and the actual Process final-delivery memo/readers; Source3 remains strictly bound to G0 and the next external cursor derives from its original71. Root now integrates the actual normal1\u201316 OverteSession/common-wait sequence: positive1/49.597s,Close/Restore phase counters and historical admission5 cases pass with all13,577 source hashes unchanged. Actual World126/128 and readonly71/128 are independently recorded, with no cap/clock/cursor reset. Original old-PID absence, new native birth, binding-transfer FDs, fresh G1 cleanup, independentActor/images and full public/resource/journal/Host retirement remain open.",
+      "nextExecutableStep": "Join the actual oldPID-to-newPID cleanup through once-only neutral Pico restart inputs and actual Process final-delivery memo/readers; Source3 stays strictly G0 and the next external cursor derives from original71. Root normal1\u201316 common-wait evidence remains positive1/49.597s with World126/128 and readonly71/128. Original physical Process file/OFD ownership is now integrated and independently passes18 finalization cases/45.946s with all13,595 source hashes unchanged. The agent-only new G1 continuation remains under review; original old-PID absence, new native birth, binding-transfer FDs, fresh G1 cleanup, independentActor/images and full public/resource/journal/Host retirement remain open.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }
