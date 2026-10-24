@@ -37,6 +37,13 @@ config=PrivateFeatureState(sys.argv[2]).read();target=IndependentWorldSources(co
 os.environ.update(OVERTE_E2E_SCENE_URL=target.scene_url,OVERTE_PICO_NORMAL_SCRIPTS='1',OVERTE_ANDROID_E2E_DEBUG='1',OVERTE_PICO_OPENXR_INPUT='1')
 flow=PicoWorldWebBinding(target).prefix(target.selector,PhaseFixtureReader(Client(config['fixtureBase'],config['actorToken']),
     config['sources']['run'],'world-web',epoch_ms=clock.epoch,monotonic=clock.now),config['sources']['foreign'],role='actor',require_new_actor=True)
+stereo=None
+if config.get('stereo',False):
+ from adapters.pico4.world_web_stereo_join import WorldStereoJoin
+ stereo=WorldStereoJoin(flow,config['sources']['artifacts']);capture=stereo.capture
+ def captured(before=None):
+  value=capture(before);print(json.dumps(dict(kind='stereo',original=value),separators=(',',':')),flush=True);return value
+ stereo.capture=captured
 request=flow.source.client.request
 def transport(path,*args,**kwargs):
  value=request(path,*args,**kwargs)
@@ -58,7 +65,7 @@ def gate(_seconds=0):
  if sys.stdin.readline().strip() not in ('publish','consume'):raise ValueError('No ordinary target input can cross this scheduling channel')
 print(json.dumps(dict(kind='ready')),flush=True)
 try:
- gate();result=run(flow,config['request'],monotonic=clock.now,sleep=gate,duration=120)
+ gate();result=run(flow,config['request'],monotonic=clock.now,sleep=gate,duration=120,stereo=stereo)
  if result!=0:raise AssertionError('Original source pass did not consume Parent nonce')
  print(json.dumps(dict(kind='consumed')),flush=True)
  if sys.stdin.readline().strip()!='exit':raise ValueError('Original process release missing')
@@ -83,12 +90,12 @@ class WorldWebSourceProcessTests(unittest.TestCase):
         existing.WorldWebNormalCloseTests.setUp(self);self.sources=WorldProductSources(self);self.addCleanup(self.sources.close)
         self.request=uuid.uuid4().hex;self.marker=uuid.uuid4().hex;self.worker=None;self.process=None
         self.addCleanup(self.close_worker)
-    def launch(self,*,lose=False):
+    def launch(self,*,lose=False,stereo=False):
         self.entry=self.root/'world-original-source-worker.py'
         self.entry.write_text(WORKER.replace('DEVICE_PATH',repr(str(Path(__file__).resolve().parents[1]))));self.entry.chmod(0o600)
         self.config=PrivateFeatureState(self.root/'world-original-source-config.json')
         self.config.write(dict(sources=self.sources.configuration(),fixtureBase=self.url,actorToken=self.actor.source.client.token,
-            request=self.request,losePublication=lose),None)
+            request=self.request,losePublication=lose,stereo=stereo),None)
         self.worker=subprocess.Popen([sys.executable,str(self.entry),'--config',str(self.config.path)],stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,stderr=subprocess.PIPE,env={'PYTHONDONTWRITEBYTECODE':'1','OVT_WORLD_SOURCE_WORKER_OWNER':self.marker})
         self.receive('ready',timeout=10)

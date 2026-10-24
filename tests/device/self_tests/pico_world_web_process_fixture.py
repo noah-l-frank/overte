@@ -17,18 +17,26 @@ from self_tests.pico_browser_process_fixture import ProductSources,IndependentBr
 
 
 class WorldProductSources(ProductSources):
-    def __init__(self,f):super().__init__(f,SimpleNamespace(root=f.root,native_root=f.root))
+    def __init__(self,f,model=None):super().__init__(f,model or SimpleNamespace(root=f.root,native_root=f.root))
     def configuration(self):
         f=self.f
-        return dict(port=self.server.server_address[1],token=self.token,path=str(f.root),modelRoot=str(f.root),
-            artifacts=str(f.root),nativeRoot=str(f.root),binding=deepcopy(f.target.binding),run=f.run,
+        return dict(port=self.server.server_address[1],token=self.token,path=str(f.root),modelRoot=str(self.model.root),
+            artifacts=str(getattr(f,'artifacts',f.root)),nativeRoot=str(self.model.native_root),binding=deepcopy(f.target.binding),run=f.run,
             fixture=f.fixture_url,foreign=f.foreign,scene=f.target.scene_url,selector=f.target.selector)
     def dispatch(self,action,value):
+        try:return self.original_dispatch(action,value)
+        except BaseException as error:
+            import traceback
+            store=PrivateFeatureState(self.f.root/'first-world-source-server-error.json')
+            if store.read() is None:store.write(dict(action=action,original=value,traceback=''.join(traceback.format_exception(error))),None)
+            raise
+    def original_dispatch(self,action,value):
         target=self.f.target;self.calls.append(action)
         if action=='diagnostic':return target.diagnostic(value)
-        if action=='feature':target.native.send(value);return target.native.original()
+        if action=='feature':
+            reader=target._native_feature_observer(target.selector);reader.send(value);return reader.original()
         if action=='browser':
-            need(value['operation']=='observe');target.send(value);return target.raw
+            need(value['operation'] in ('observe','measure-ray'));target.send(value);return target.raw
         if action=='runtime':
             reader=target._web_runtime_observer(target.selector,read_only=True);reader.send(value);return target.runtime_raw
         if action in ('scripts','objects'):
@@ -37,7 +45,9 @@ class WorldProductSources(ProductSources):
             b.objects.send(value);return json.dumps(b.objects.packet)
         # The common source endpoint has no ordinary input action. The World
         # override above likewise permits only independent original reads.
-        self.calls.pop();return super().dispatch(action,value)
+        self.calls.pop();result=super().dispatch(action,value)
+        if action=='capture' and getattr(self.model,'capture_error',False):raise RuntimeError('lost original applied GPU capture result')
+        return result
 
 
 class IndependentWorldSources(IndependentBrowserSources):
@@ -70,3 +80,23 @@ class IndependentWorldSources(IndependentBrowserSources):
         root=PicoWorldWebBinding(self).state_path(target).parent
         return PicoBrowserVm(run,url,script_url,role,self.binding,scripts,objects,PrivateFeatureState(root/'pico-world-web-actor-vm.json'),
             self.lock,http,surface='world')
+
+    def _browser_stereo(self,target,path,artifacts,run,scene,*,role,source_lock,journal_id,fixture_url,foreign_fixture_url,owner_token,script_url,http,surface):
+        from adapters.native_graphics_subject import NativeGraphicsSubject
+        from adapters.navigation_arrival import NavigationArrival
+        from adapters.pico4.browser_stereo import PicoBrowserStereo
+        from adapters.pico4.graphics_source import PicoGraphicsSource
+        self.require(target);need(role=='actor' and surface=='world' and source_lock is self.lock);self.guard()
+        subject=NativeGraphicsSubject(*self.channel('subject'),self.clock.epoch,self.guard,self.pid,require_framework=True,
+            monotonic=self.clock.now,sleep=self.clock.sleep)
+        arrival=NavigationArrival(lambda after:self.rpc.call('probe',after),subject,self.clock.epoch,self.guard,run,self.binding,scene,monotonic=self.clock.now)
+        ui_channel=self.channel('ui')
+        def write(_target,_package,_path,raw):ui_channel[0](json.loads(raw))
+        adapter=SimpleNamespace(adb=SimpleNamespace(write_debug_app_file=write,read_debug_app_file=lambda *_args,**_kwargs:ui_channel[1]()))
+        native=SimpleNamespace(clock_ms=self.clock.epoch,guard=self.guard,pid=self.pid,monotonic=self.clock.now,sleep=self.clock.sleep)
+        ui=PicoGraphicsSource(adapter,'synthetic',native)
+        return PicoBrowserStereo(arrival,self.world_capture,path,artifacts,run,self.binding,self.lock,self.guard,
+            fixture_url=fixture_url,foreign_fixture_url=foreign_fixture_url,owner_token=owner_token,script_url=script_url,
+            browser_factory=lambda:self._browser_originals(target,source_lock=self.lock,tablet=False,read_only=True),
+            runtime_factory=lambda:self._web_runtime_observer(target),scripts=self._script_runtime(target)[1],http=http,
+            role=role,journal_id=journal_id,ui_factory=lambda:ui,native_factory=lambda:self._native_feature_observer(target),monotonic=self.clock.now,surface='world')

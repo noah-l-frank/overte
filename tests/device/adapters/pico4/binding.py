@@ -2447,10 +2447,10 @@ def create_adapter(args, base_class):
             return PicoWorldWebBinding(self).prefix(target,source,foreign_fixture_url,role=role,require_new_actor=require_new_actor)
 
         @_private
-        def _world_web_source_return(self,target,parent,process,expected):
+        def _world_web_source_return(self,target,parent,process,expected,*,stereo=None):
             from adapters.pico4.world_web_binding import PicoWorldWebBinding
             _need(type(parent.adapter) is PicoWorldWebBinding and parent.adapter.original is self)
-            return parent.adapter.source_return(target,parent,process,expected)
+            return parent.adapter.source_return(target,parent,process,expected,stereo=stereo)
 
         @_private
         def _world_web_retained(self,target):

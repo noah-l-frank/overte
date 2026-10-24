@@ -235,6 +235,8 @@ class PicoWorldWebPrefix:
         for role in ('primary','actor'):
             body=PrivateFeatureState(self.root/('pico-world-web-prefix-'+role+'-sources.json')).read()
             if body is not None:need(body['phase']=='ready' and body['intent'] is None)
+            stereo=PrivateFeatureState(self.root/('pico-world-web-'+role+'-stereo.json')).read()
+            if stereo is not None:need(stereo['payload']['phase']=='ready' and stereo['payload']['active'] is None)
 
     def act(self,call):
         call=deepcopy(arguments('feature.world-web.act',call));need(self.role=='primary' and self.lock._owner is None)
@@ -361,7 +363,7 @@ class PicoWorldWebPrefix:
 
     def new_actor_sources(self):
         self.lock.assert_held();need(self.role=='actor' and self.require_new_actor and not self._actor_started)
-        names=('pico-world-web-prefix-actor-sources.json','pico-world-web-actor-vm.json','pico-world-web-actor-source-pass')
+        names=('pico-world-web-prefix-actor-sources.json','pico-world-web-actor-vm.json','pico-world-web-actor-source-pass','pico-world-web-actor-stereo.json')
         need(not any(any(path.name.startswith(name) for name in names) for path in self.root.iterdir()))
 
     def observe(self):

@@ -30,7 +30,8 @@ from feature_journeys.contract import identifier
 from feature_journeys.phase_fixture import PhasePending
 from fixture.chat_observer_process import LinuxChatObserverProcess,ObserverProcessPresent
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 FAMILY='pico-world-web-source-pass'
 EXPECTED={'runId','fixtureUrl','foreignFixtureUrl','prefixScope','binding','ownerToken','producerHostProcessIdentity','originalRequestId'}
 STORES={'owner':'pico-world-web-prefix.json','history':'pico-world-web-prefix-actor-sources.json','vm':'pico-world-web-actor-vm.json'}
@@ -64,22 +65,27 @@ class WorldSourceGraph:
     def __init__(self,raw,physical,store,lock,expected):
         physical_stamp(physical)
         need(type(raw) is bytes and len(raw)<=65536 and type(store) is PrivateFeatureState and type(lock) is ScriptSourceLock)
-        lock.assert_held();exact(expected,EXPECTED);json_digest(expected)
+        lock.assert_held();json_digest(expected)
         self.store,self.lock=store,lock;self.expected=deepcopy(expected);self.parent=parent_node(store)
         self.raw,self.physical=raw,deepcopy(physical);self.root=json.loads(raw);json_digest(self.root)
         exact(self.root,{'picoWorldWebSourcePassVersion','scope','files','cursor','retainedResources'})
-        need(type(self.root['picoWorldWebSourcePassVersion']) is int and self.root['picoWorldWebSourcePassVersion']==VERSION
-            and same(self.root['scope'],expected) and canonical(self.root)+b'\n'==raw and raw_file(store)==(raw,physical))
+        version=self.root['picoWorldWebSourcePassVersion'];need(type(version) is int and version in READS)
+        self.version=version;exact(expected,EXPECTED|({'stereoScope'} if version==2 else set()))
+        need(same(self.root['scope'],expected) and canonical(self.root)+b'\n'==raw and raw_file(store)==(raw,physical))
         self.files={};total=0
         need(type(self.root['files']) is list)
         for row in self.root['files']:
-            exact(row,{'name','stamp','sha256'});physical_stamp(row['stamp']);name=row['name']
+            exact(row,{'name','stamp','sha256'}|({'location'} if self.version==2 else set()));physical_stamp(row['stamp']);name=row['name']
+            if self.version==2:need(row['location'] in ('state','artifact'))
             need(type(name) is str and name not in ('','.','..') and '/' not in name and '\\' not in name and name not in self.files)
             self.files[name]=deepcopy(row);total+=row['stamp'][5]
         need(1<=len(self.files)<=512 and total<=16*1024*1024);self.manifest_seal=json_digest(self.files);self.used=set();self.readers=[]
-        self.load();need(self.used==set(self.files));self.sealed=json_digest(self.root);self.verify()
+        self.load();need(self.used==set(self.files));self.sealed=json_digest(self.root);self.admitted=self.semantic_seal();self.verify()
+    def path(self,name):
+        row=self.files[name]
+        return (Path(self.expected['stereoScope']['artifactRoot']) if row.get('location')=='artifact' else self.store.path.parent)/name
     def file(self,path):
-        need(path.parent==self.store.path.parent);row=self.files[path.name];self.used.add(path.name)
+        row=self.files[path.name];need(path==self.path(path.name));self.used.add(path.name)
         raw,stamp=original(path,row['stamp']);need(hashlib.sha256(raw).hexdigest()==row['sha256']);return raw
     def root_value(self,key):
         store=PrivateFeatureState(self.store.path.with_name(STORES[key]));raw=self.file(store.path);value=store.read()
@@ -121,10 +127,25 @@ class WorldSourceGraph:
             and same(self.root['retainedResources'],last['sample']['resources']))
         need(self.root['cursor']==dict(sampleSequence=last['sample']['sequence'],phaseRequestId=last['phaseAfter']['requestId'],
             nativeCommandId=last['native']['commandId'],vm=last['vm']))
+        self.images=[]
+        if self.version==2:
+            from adapters.pico4.world_web_stereo_join import original_join
+            stereo=e['stereoScope'];exact(stereo,{'prefixScope','binding','ownerToken','role','artifactRoot','artifactParent','sceneUrl'})
+            need(type(stereo['artifactParent']) is list and len(stereo['artifactParent'])==4 and all(type(field) is int for field in stereo['artifactParent'])
+                and same(stereo['prefixScope'],scope) and same(stereo['binding'],e['binding'])
+                and stereo['ownerToken']==e['ownerToken'] and stereo['role']=='actor'
+                and list(parent_node(PrivateFeatureState(Path(stereo['artifactRoot'])/'boundary.json')))==stereo['artifactParent'])
+            path=self.store.path.with_name('pico-world-web-actor-stereo.json');raw=self.file(path);body=PrivateFeatureState(path).read()
+            need(raw==canonical(body)+b'\n')
+            self.images=original_join(body,stereo,self.history,lambda name:(self.file(self.path(name)),self.files[name]['stamp']))
+            need([row['original']['ticket'] for row in self.images]==[activations[index]['ticket'] for index in (1,14)])
+    def semantic_seal(self):return json_digest(dict(version=self.version,owner=self.owner,images=self.images,vmScope=self.vm.scope,historyScope=self.history.scope))
     def verify_files(self):
+        need(self.semantic_seal()==self.admitted and type(self.version) is int and self.version==self.root['picoWorldWebSourcePassVersion'])
         need(json_digest(self.files)==self.manifest_seal and json_digest(self.root)==self.sealed and raw_file(self.store)==(self.raw,self.physical)
             and parent_node(self.store)==self.parent and same(self.root['scope'],self.expected))
-        for name in self.files:self.file(self.store.path.with_name(name))
+        if self.version==2:need(list(parent_node(PrivateFeatureState(Path(self.expected['stereoScope']['artifactRoot'])/'boundary.json')))==self.expected['stereoScope']['artifactParent'])
+        for name in self.files:self.file(self.path(name))
         return True
     def verify(self):
         self.lock.assert_held();self.verify_files()
@@ -135,9 +156,13 @@ class WorldSourceGraph:
 
 class WorldSourcePass:
     """One warm published World source forest; no product retirement permit."""
-    def __init__(self,flow,request):
+    def __init__(self,flow,request,*,stereo=None):
         need(type(flow) is PicoWorldWebPrefix and flow.role=='actor' and flow.require_new_actor and flow._actor_started
             and flow._source_pass_export is None and flow.history is not None and flow.vm is not None)
+        if stereo is not None:
+            from adapters.pico4.world_web_stereo_join import WorldStereoJoin
+            need(type(stereo) is WorldStereoJoin and stereo.flow is flow and not stereo.failed and stereo.state['phase']=='ready')
+        self.version=1 if stereo is None else 2
         identifier(request);self.flow=flow;self.lock=flow.lock;self.sender=None;self.failed=False;self.graph=None
         self.store=PrivateFeatureState(flow.root/EXPORT)
         with self.lock.held():
@@ -145,18 +170,27 @@ class WorldSourcePass:
             need(flow.state['phase']=='source-stopped' and len(flow.state['completed'])==14
                 and flow.history.publication is not None and flow.history.publication['phase']=='accepted'
                 and self.store.read() is None)
+            if stereo is not None:stereo.control()
             flow._source_pass_export=self
             self.expected=dict(runId=flow.run,fixtureUrl=flow.url,foreignFixtureUrl=flow.foreign,prefixScope=deepcopy(flow.scope),
                 binding=deepcopy(flow.state['binding']),ownerToken=flow.state['ownerToken'],
                 producerHostProcessIdentity=host_identity(),originalRequestId=request)
+            if stereo is not None:self.expected['stereoScope']=deepcopy(stereo.scope)
             manifest=[]
+            def add(path,location='state'):
+                raw,stamp=original(path);row=dict(name=path.name,stamp=stamp,sha256=hashlib.sha256(raw).hexdigest())
+                if self.version==2:row['location']=location
+                manifest.append(row)
             for key,path in STORES.items():
                 store=PrivateFeatureState(flow.root/path);names=[store.path]
                 if key!='owner':names.extend(ChatSourceChunks(store,{}).store(index).path for index in range(len(store.read()['chunks'])))
-                for path in names:
-                    raw,stamp=original(path);manifest.append(dict(name=path.name,stamp=stamp,sha256=hashlib.sha256(raw).hexdigest()))
+                for path in names:add(path)
+            if stereo is not None:
+                add(stereo.store.path)
+                for row in stereo.state['images']:
+                    for field in ('metadata','png'):add(stereo.artifacts/row[field]['name'],'artifact')
             need(len(manifest)<=512 and sum(row['stamp'][5] for row in manifest)<=16*1024*1024)
-            last=flow.history.last;value=dict(picoWorldWebSourcePassVersion=VERSION,scope=self.expected,files=manifest,
+            last=flow.history.last;value=dict(picoWorldWebSourcePassVersion=self.version,scope=self.expected,files=manifest,
                 cursor=dict(sampleSequence=last['sample']['sequence'],phaseRequestId=last['phaseAfter']['requestId'],
                     nativeCommandId=last['native']['commandId'],vm=last['vm']),retainedResources=last['sample']['resources'])
             self.store.write(value,None);self.raw,self.physical=raw_file(self.store)
@@ -211,7 +245,7 @@ class WorldSourceReturn:
         self.lock,self.process=lock,process;self.started=self.complete=self.failed=False
         self.store=PrivateFeatureState(Path(root)/'pico-world-web-actor-source-pass-receipt.json')
         need(self.store.read() is None);self.previous=None;self.previous_stamp=None;self.result=None
-        self.scope=dict(picoWorldWebSourceReturnVersion=VERSION,scope=deepcopy(expected))
+        self.scope=dict(picoWorldWebSourceReturnVersion=self.graph.version,scope=deepcopy(expected))
         self.scope_sha=json_digest(self.scope);self.save('prepared');self.verify()
     def verify(self):
         need(not self.failed and json_digest(self.scope)==self.scope_sha and same(self.store.read(),self.previous)
@@ -248,17 +282,23 @@ class WorldSourceReturn:
     def close_host(self):return self.process.close() is True
 
 
-def run(flow,request,*,monotonic=time.monotonic,sleep=time.sleep,duration=120):
+def run(flow,request,*,monotonic=time.monotonic,sleep=time.sleep,duration=120,stereo=None):
     """Same original World observer, one source pass, Parent consumption, exit."""
     need(type(flow) is PicoWorldWebPrefix and flow.role=='actor' and flow.require_new_actor)
+    if stereo is not None:
+        from adapters.pico4.world_web_stereo_join import WorldStereoJoin
+        need(type(stereo) is WorldStereoJoin and stereo.flow is flow)
     started=previous=monotonic();need(number(duration,.25,1800));exported=None
     while True:
         now=monotonic();need(number(now,previous,started+duration) and now-started<duration);previous=now
         if exported is None:
             try:
-                flow.publish()
+                sample=flow.publish()
+                if stereo is not None and flow.state['phase']=='ready' and len(flow.state['completed']) in (1,14) and not any(
+                    row['ticket']==flow.state['fixture']['activations'][-1]['ticket'] for row in ([] if stereo.state is None else stereo.state['images'])):
+                    stereo.capture(sample)
                 if flow.state['phase']=='source-stopped':
-                    exported=WorldSourcePass(flow,request);exported.publish_return()
+                    exported=WorldSourcePass(flow,request,stereo=stereo);exported.publish_return()
             except (PhasePending,ScriptSourceBusy):
                 need(not flow.failed and (flow.history is None or not flow.history.failed)
                     and (flow.vm is None or not flow.vm.failed))

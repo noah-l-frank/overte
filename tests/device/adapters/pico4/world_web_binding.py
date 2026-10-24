@@ -27,7 +27,7 @@ class PicoWorldWebBinding(PicoScriptJourney):
         from adapters.pico4.world_web_prefix import PicoWorldWebPrefix
         return PicoWorldWebPrefix(self,target,source,foreign_fixture_url,role=role,require_new_actor=require_new_actor)
 
-    def source_return(self,target,parent,process,expected):
+    def source_return(self,target,parent,process,expected,*,stereo=None):
         from adapters.pico4.world_web_source_pass import WorldSourceReturn
         self.check_identity(target,parent)
         with parent.lock.held():
@@ -36,6 +36,13 @@ class PicoWorldWebBinding(PicoScriptJourney):
                 and expected['prefixScope']==parent.scope and expected['binding']==parent.state['binding']
                 and expected['ownerToken']==parent.state['ownerToken'] and expected['runId']==parent.run
                 and expected['fixtureUrl']==parent.url and expected['foreignFixtureUrl']==parent.foreign)
+            if 'stereoScope' in expected:
+                from adapters.pico4.world_web_stereo_join import WorldStereoJoin,original_join
+                from adapters.pico4.browser_actor_graph import original
+                need(type(stereo) is WorldStereoJoin and stereo.flow is parent and stereo.flow.role=='primary')
+                stereo.control();need(expected['stereoScope']==dict(stereo.scope,role='actor'))
+                original_join(stereo.store.read(),stereo.scope,parent.history_reader(),lambda name:original(stereo.artifacts/name))
+            else:need(stereo is None)
         return WorldSourceReturn(process,parent.root,parent.lock,expected)
 
     def check_identity(self,target,parent):
@@ -84,6 +91,14 @@ class PicoWorldWebBinding(PicoScriptJourney):
         self.check(target,parent)
         return self.original._world_browser_vm(target,parent.run,parent.url,parent.state['scriptUrl'],role=parent.role,
             source_lock=parent.lock,http=lambda:parent.source.client.request('/runs/'+parent.run+'/browser'))
+
+    def world_prefix_stereo(self,target,parent,artifacts,journal):
+        from adapters.pico4.browser_stereo import original_name
+        self.check(target,parent)
+        return self.original._browser_stereo(target,artifacts/original_name(parent.run,parent.role,journal,surface='world'),
+            artifacts,parent.run,self.scene_url,role=parent.role,source_lock=parent.lock,journal_id=journal,
+            fixture_url=parent.url,foreign_fixture_url=parent.foreign,owner_token=parent.state['ownerToken'],
+            script_url=parent.state['scriptUrl'],http=lambda:parent.source.client.request('/runs/'+parent.run+'/browser'),surface='world')
 
     def world_prefix_runtime(self,target,parent):
         self.check(target,parent);return self.original._web_runtime_observer(target)
