@@ -13,6 +13,7 @@
 #include "../../../../tests/device/native/PicoWorldWebRay.h"
 #include "../../../../tests/device/native/PicoWorldWebText.h"
 #include "../../../../tests/device/native/PicoWorldCurrentDocumentBridge.h"
+#include "../../../../tests/device/native/PicoWorldCurrentInputBridge.h"
 #endif
 #include <QFile>
 #include <QFocusEvent>
@@ -105,6 +106,10 @@ void registerType() {
             return NativeWebViewItem::featurePicoWorldCurrentDocument(command,std::move(anchor));
         };
         QCoreApplication::instance()->setProperty(overte::e2e::picoCurrentDocumentProperty(),QVariant::fromValue(current));
+        overte::e2e::PicoCurrentInputProvider currentInput{[](const QVariantMap& command,overte::e2e::PicoCurrentAnchor anchor) {
+            return NativeWebViewItem::featurePicoWorldCurrentInput(command,std::move(anchor));
+        }};
+        QCoreApplication::instance()->setProperty(overte::e2e::picoCurrentInputProperty(),QVariant::fromValue(currentInput));
         overte::e2e::WebDOMProvider browser=[](const QVariantMap& command) { return NativeWebViewItem::featurePicoBrowser(command); };
         QCoreApplication::instance()->setProperty(overte::e2e::picoBrowserProperty(),QVariant::fromValue(browser));
         overte::e2e::WebRuntimeProvider runtime{[](const QVariantMap& command) { return NativeWebViewItem::featureWebRuntimeObservation(command); }};
@@ -1151,3 +1156,5 @@ extern "C" JNIEXPORT void JNICALL Java_org_overte_web_EmbeddedWebView_nativeResu
 
 #include "PicoBrowserFeatureE2E.inc"
 #include "PicoWorldCurrentDocumentE2E.inc"
+
+#include "PicoWorldCurrentInputE2E.inc"

@@ -109,6 +109,8 @@ public final class EmbeddedWebView {
     private static native boolean nativePicoCurrentDocumentEnabled();
     private static native void nativePicoCurrentDocumentResult(long handle,long creation,long grant,long page,
         String run,String request,String raw);
+    private static native void nativePicoCurrentInputResult(long handle,long creation,long grant,long page,
+        String run,String request,String raw);
     static boolean featureObservationEnabled() { return nativeFeatureEnabled(); }
     private static native void nativeFeatureDOMResult(long handle,long grant,long page,String document,String requestId,String result);
     private static native void nativeFeatureFinished(long handle,long grant,long page,String document);
@@ -546,6 +548,43 @@ public final class EmbeddedWebView {
             String raw=new JSONObject().put("before",before).put("domRaw",domRaw).put("after",after).toString();
             if (raw.getBytes(StandardCharsets.UTF_8).length<=16384) nativePicoCurrentDocumentResult(handle,creation,grant,page,run,request,raw);
         } catch (org.json.JSONException unavailable) { /* Native original query expires without another read. */ }
+    }
+
+    /** Pico-only readonly current-authority geometry. No focus/read retry. */
+    public static void featurePicoCurrentInputRead(long handle,long creation,long grant,long page,
+            String run,String requestId,String expectedSource,String control) {
+        if (!nativePicoCurrentDocumentEnabled() || run==null || !run.matches("[0-9a-f]{32}")
+                || requestId==null || !requestId.matches("[0-9a-f]{32}") || expectedSource==null || expectedSource.length()>131072
+                || control==null || !control.matches("text|bridge|reference|second|recovery|back|reload|foreign|navigate|scroll-up|scroll-down")) return;
+        final long started=SystemClock.elapsedRealtime();
+        MAIN.post(() -> {
+            final Instance instance=VIEWS.get(handle);final EmbeddedWebHost owner=host.get();
+            if (!featurePicoCurrentOwner(instance,owner,creation,grant,page,expectedSource,started)) {
+                featurePicoCurrentInputReply(handle,creation,grant,page,run,requestId,new JSONObject(),"",new JSONObject());return;
+            }
+            final String document=instance.view.getUrl();final JSONObject before=featurePicoCurrentSnapshot(instance,owner);
+            final WeakReference<Instance> observed=new WeakReference<>(instance);
+            final WeakReference<EmbeddedWebHost> observedOwner=new WeakReference<>(owner);
+            final String script="window.__overteFeatureWebDOM?JSON.stringify(window.__overteFeatureWebDOM.readGeometry("
+                +JSONObject.quote(requestId)+","+JSONObject.quote(control)+")):null";
+            instance.view.evaluateJavascript(script,result -> {
+                final Instance current=observed.get();final EmbeddedWebHost currentOwner=observedOwner.get();
+                final JSONObject after=featurePicoCurrentSnapshot(current,host.get());
+                if (!nativePicoCurrentDocumentEnabled() || !featurePicoCurrentOwner(current,currentOwner,creation,grant,page,expectedSource,started)
+                        || document==null || !document.equals(current.view.getUrl()) || result==null || result.length()>8192
+                        || result.getBytes(StandardCharsets.UTF_8).length>8192) {
+                    featurePicoCurrentInputReply(handle,creation,grant,page,run,requestId,before,"",after);return;
+                }
+                featurePicoCurrentInputReply(handle,creation,grant,page,run,requestId,before,result,after);
+            });
+        });
+    }
+    private static void featurePicoCurrentInputReply(long handle,long creation,long grant,long page,String run,String request,
+            JSONObject before,String geometryRaw,JSONObject after) {
+        try {
+            String raw=new JSONObject().put("before",before).put("geometryRaw",geometryRaw).put("after",after).toString();
+            if (raw.getBytes(StandardCharsets.UTF_8).length<=16384) nativePicoCurrentInputResult(handle,creation,grant,page,run,request,raw);
+        } catch (org.json.JSONException unavailable) { /* Original nonce expires without another query. */ }
     }
 
     public static void featureRead(long handle, long grant, long page, String requestId) {

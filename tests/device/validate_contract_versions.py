@@ -19,6 +19,7 @@ REQUIRED = {
     "pico-world-browser-vm": 1,
     "pico-browser-history": 1,
     "pico-world-browser-history": 1,
+    "pico-world-current-input": 1,
     "pico-world-current-document": 1,
     "pico-world-web-stereo-join": 1,
     "pico-world-web-source-pass": 2,
