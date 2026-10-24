@@ -97,3 +97,36 @@ A future pinned native launcher must explicitly admit this changed controller
 source and the opt-in flag. This option does not alter an older deployed
 controller, restore already-retired processes or retroactively preserve a
 historical failure.
+
+### Optional owned-cgroup memory guard
+
+With debug hold enabled, `--debug-memory-expected-limit-bytes N` also opts in
+host-only memory sampling. `N` must equal the actual own cgroup's finite
+`memory.max`. The controller joins `/proc/self/cgroup` with the actual cgroup2
+mount root and proves its direct PID membership in `cgroup.procs`; it does not
+fall back to host-global counters. The launcher separately pins the authorized
+container RAM and swap limits. Changing this argument never changes a limit.
+
+`debug-hold/MEMORY_TIMELINE.private.jsonl` records a pre-launch sample and
+approximately one sample per second during startup and the active fixture:
+actual current/max/peak bytes, event counters, actual own-process RSS and
+identity, and host observation times. The rows are not atomic native frames or
+client measurements. The file is private mode0600 and bounded to8MiB. It stops
+appending when failure hold begins; the immutable failure receipt retains the
+triggering sample and freeze result. Full native logs are also created
+exclusively with explicit mode0600 when debug hold is enabled.
+
+The authored headroom reserve is `max(256MiB, floor(actual memory.max / 10))`.
+At or above `memory.max - reserve`, the controller first pauses only its proven
+owned native process-group members with pidfd-bound SIGSTOP, then records the
+failed infrastructure state. Birth, UID, process group and cgroup must still
+match before any signal; group membership is checked again after stopping.
+The controller remains alive for diagnosis. This is an ERROR, not a successful
+test or evidence of a particular allocation leak. Sampling cannot guarantee
+that an unbounded allocation burst will be caught before the kernel's limit.
+
+An exact cleanup release revalidates and SIGCONT-resumes only those same pinned
+members, so the original TERM-based cleanup can retire them. No worker is
+restarted. No OOM-score, global memory policy or unrelated process is changed.
+A rejected ownership check keeps the failure explicit and supplies no claim
+that every allocation source was successfully paused.

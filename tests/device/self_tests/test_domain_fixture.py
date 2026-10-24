@@ -222,6 +222,72 @@ class DomainFixtureTest(unittest.TestCase):
                 self.assertNotIn(owner["nonce"].encode(),stdout)
                 for pid in pids.values():self.assertFalse(Path(f"/proc/{pid}").exists())
 
+    def memory_counter_fixture(self):
+        temporary = tempfile.TemporaryDirectory(prefix="overte-domain-memory-test-")
+        self.addCleanup(temporary.cleanup);root=Path(temporary.name)
+        spec=importlib.util.spec_from_file_location("domain_memory_counter",CONTROLLER)
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        hold=module.DomainDebugHold(root);self.addCleanup(os.close,hold.fd)
+        cgroup=root/"fake-cgroup";cgroup.mkdir()
+        values={"cgroup.procs":str(os.getpid()),"memory.current":"0","memory.max":str(1024**3),"memory.peak":"0","memory.events":"low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\n"}
+        for name,value in values.items():(cgroup/name).write_text(value)
+        guard=module.DomainMemoryGuard(hold,1024**3,cgroup);self.addCleanup(guard.close)
+        counter=root/"allocation-count"
+        script="import pathlib,sys,time; p=pathlib.Path(sys.argv[1]); values=[]\nwhile True:\n values.append(bytearray(4096)); p.write_text(str(len(values))); time.sleep(.02)\n"
+        process=subprocess.Popen([sys.executable,"-c",script,str(counter)],start_new_session=True,
+                                 stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        self.addCleanup(module.stop_process,process)
+        hold.register(process,"assignment:0")
+        deadline=time.monotonic()+2
+        while (not counter.exists() or not counter.read_text()) and time.monotonic()<deadline:time.sleep(.01)
+        self.assertTrue(counter.exists())
+        return module,root,hold,guard,cgroup,counter,process
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Linux cgroup and pidfd counter")
+    def test_memory_pressure_freezes_real_owned_allocation_then_exact_release_resumes_cleanup(self):
+        module,root,hold,guard,cgroup,counter,process=self.memory_counter_fixture()
+        (cgroup/"memory.current").write_text(str(guard.last["thresholdBytes"]+1))
+        with self.assertRaisesRegex(RuntimeError,"DOMAIN_MEMORY_HEADROOM_LOW"):
+            guard.check(force=True)
+        self.assertIsNone(process.poll());self.assertIn(module.DomainDebugHold.process_birth(process.pid)["state"],("T","t"))
+        before=counter.read_bytes();time.sleep(.2);self.assertEqual(before,counter.read_bytes())
+        failure=json.loads((hold.directory/"FAILURE.private.json").read_text());self.assertTrue(failure["details"]["freezeComplete"])
+        self.assertEqual(process.pid,failure["details"]["frozenProcesses"][0]["pid"])
+        timeline=hold.directory/"MEMORY_TIMELINE.private.jsonl";raw=timeline.read_bytes();time.sleep(.1);self.assertEqual(raw,timeline.read_bytes());self.assertEqual(0o600,timeline.stat().st_mode&0o777)
+        (hold.directory/"RELEASE_REQUEST.private.json").write_text(json.dumps({"schemaVersion":1,"action":"cleanup","contextSha256":hold.context_sha256,"nonce":hold.nonce}));(hold.directory/"RELEASE_REQUEST.private.json").chmod(0o600)
+        self.assertTrue(hold.release_requested())
+        deadline=time.monotonic()+2
+        while counter.read_bytes()==before and time.monotonic()<deadline:time.sleep(.02)
+        self.assertNotEqual(before,counter.read_bytes());module.stop_process(process);self.assertIsNotNone(process.poll())
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Linux owned process context")
+    def test_memory_foreign_cgroup_pin_rejects_before_signal_and_limit_mismatch_rejects(self):
+        module,root,hold,guard,cgroup,counter,process=self.memory_counter_fixture()
+        hold.processes[process]["cgroup"]="foreign-cgroup"
+        before=counter.read_bytes()
+        with self.assertRaisesRegex(RuntimeError,"FREEZE_OWNER_CHANGED"):guard.freeze()
+        self.assertEqual([],guard.stopped);self.assertNotIn(module.DomainDebugHold.process_birth(process.pid)["state"],("T","t"))
+        time.sleep(.1);self.assertNotEqual(before,counter.read_bytes())
+        (cgroup/"memory.max").write_text(str(2*1024**3))
+        with self.assertRaisesRegex(RuntimeError,"LIMIT_MISMATCH"):guard.sample("periodic")
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Linux cgroup mount mapping")
+    def test_memory_cgroup_mapping_requires_actual_direct_controller_membership(self):
+        spec=importlib.util.spec_from_file_location("domain_memory_mapping",CONTROLLER)
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory()as temporary:
+            mounted=Path(temporary);(mounted/"cgroup.procs").write_text(str(os.getpid()))
+            info=f"20 19 0:1 /host/owned {mounted} rw - cgroup2 cgroup rw"
+            self.assertEqual(mounted,module.DomainMemoryGuard.resolve_cgroup("0::/\n",info))
+            self.assertEqual(mounted,module.DomainMemoryGuard.resolve_cgroup("0::/host/owned\n",info))
+            child=mounted/"owned";child.mkdir();(child/"cgroup.procs").write_text(str(os.getpid()))
+            (mounted/"cgroup.procs").write_text("999999999")
+            info=f"20 19 0:1 / {mounted} rw - cgroup2 cgroup rw"
+            self.assertEqual(child,module.DomainMemoryGuard.resolve_cgroup("0::/owned\n",info))
+            (child/"cgroup.procs").write_text("999999999")
+            with self.assertRaisesRegex(RuntimeError,"OWN_CGROUP_UNPROVEN"):
+                module.DomainMemoryGuard.resolve_cgroup("0::/owned\n",info)
+
     def online_noop_fixture(self):
         """Use the exact nested source with real private children and HTTP /id.
 
@@ -266,7 +332,7 @@ class DomainFixtureTest(unittest.TestCase):
         factory = ast.parse("def bind_online(" + ",".join(names) + "):\n    pass\n").body[0]
         factory.body = [copy.deepcopy(start), ast.parse("return start_stack").body[0]]
         namespace = dict(vars(module), args=SimpleNamespace(
-            http_port=port, startup_timeout_seconds=1))
+            http_port=port, startup_timeout_seconds=1), memory_guard=None, debug_hold=None)
         exec(compile(ast.fix_missing_locations(ast.Module(body=[factory], type_ignores=[])),
                      str(CONTROLLER), "exec"), namespace)
         invoke = namespace["bind_online"](domain, [child], [], identity, 1, "online",

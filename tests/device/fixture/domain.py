@@ -362,10 +362,11 @@ def stop_process(process: subprocess.Popen | None, grace_seconds: int = 5) -> No
         process.wait(timeout=grace_seconds)
 
 
-def wait_for_domain(process: subprocess.Popen, url: str, timeout_seconds: int) -> str:
+def wait_for_domain(process: subprocess.Popen, url: str, timeout_seconds: int, memory_check=None) -> str:
     deadline = time.monotonic() + timeout_seconds
     last_error = "domain HTTP endpoint was unavailable"
     while time.monotonic() < deadline:
+        if memory_check is not None: memory_check("startup")
         exit_code = process.poll()
         if exit_code is not None:
             raise RuntimeError(f"domain-server exited before becoming ready (exit code {exit_code})")
@@ -381,9 +382,10 @@ def wait_for_domain(process: subprocess.Popen, url: str, timeout_seconds: int) -
 
 def wait_for_assignment_content(processes: tuple[subprocess.Popen, ...],
                                 timeout_seconds: int,
-                                stopping: threading.Event) -> None:
+                                stopping: threading.Event, memory_check=None) -> None:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
+        if memory_check is not None: memory_check("startup")
         if DomainResourceHandler.content_ready.is_set():
             return
         if stopping.is_set():
@@ -415,11 +417,12 @@ class DomainDebugHold:
         self.ready = None
         self.released = False
         self.original_error = None
+        self.memory_guard = None
         self.write("OWNER.private.json", {"schemaVersion": 1, "context": self.context,
             "contextSha256": self.context_sha256, "nonce": self.nonce})
 
     @staticmethod
-    def process_birth(pid):
+    def process_birth(pid, memory=False):
         descriptor = os.open(f"/proc/{pid}", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         try:
             def fields():
@@ -428,11 +431,17 @@ class DomainDebugHold:
                     return stream.read().rsplit(")", 1)[1].split()
             before = fields()
             uid = os.fstat(descriptor).st_uid
+            def proc_text(name):
+                with os.fdopen(os.open(name,os.O_RDONLY|os.O_NOFOLLOW,dir_fd=descriptor)) as stream:
+                    return stream.read(4097)
+            cgroup = proc_text("cgroup")
+            rss = int(proc_text("statm").split()[1])*os.sysconf("SC_PAGE_SIZE") if memory else None
             after = fields()
-            if before[19] != after[19] or uid != os.geteuid():
+            if before[19] != after[19] or uid != os.geteuid() or cgroup != proc_text("cgroup"):
                 raise RuntimeError("DOMAIN_DEBUG_PROCESS_IDENTITY_CHANGED")
             return {"pid": pid, "birth": before[19], "uid": uid,
-                    "pgid": int(before[2]), "parentPid": int(before[1])}
+                    "pgid": int(before[2]), "parentPid": int(before[1]),
+                    "state": after[0], "cgroup": cgroup, **({"rssBytes":rss} if memory else {})}
         finally:
             os.close(descriptor)
 
@@ -453,6 +462,7 @@ class DomainDebugHold:
         self.check_directory()
         descriptor = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
                              0o600, dir_fd=self.fd)
+        os.fchmod(descriptor,0o600)
         with os.fdopen(descriptor, "w") as stream:
             json.dump(value, stream, sort_keys=True, indent=2)
             stream.write("\n")
@@ -479,10 +489,18 @@ class DomainDebugHold:
             raise RuntimeError("DOMAIN_DEBUG_READY_CHANGED")
         self.ready = (path, self.signature(after), body)
 
-    def begin(self, code, processes, error=None):
+    def begin(self, code, processes, error=None, details=None):
         # Called under the same lock as control mutations and monitoring.
         self.active.set()
         self.original_error = error
+        if self.memory_guard is not None and not (details or {}).get("freezeComplete"):
+            details = dict(details or {})
+            try:
+                try: details["memory"] = self.memory_guard.sample("on-hold")
+                except (OSError,ValueError,RuntimeError): details["memoryObservationRejected"] = True
+                details.update(frozenProcesses=self.memory_guard.freeze(),freezeComplete=True)
+            except (OSError,ValueError,RuntimeError):
+                details.update(freezeComplete=False,freezeRejected=True)
         try:
             snapshot = [{**self.processes[p], "identityObservation": "AT_OWN_POPEN_SPAWN",
                          "returncodeObservation": "ACTUAL_POPEN_POLL_AT_FAILURE",
@@ -491,7 +509,8 @@ class DomainDebugHold:
                 "status": "FAILED_DOMAIN_DEBUG_HOLD", "failureCode": code,
                 "exceptionClass": type(error).__name__ if error is not None else "RuntimeError", "observedEpochNs": time.time_ns(),
                 "contextSha256": self.context_sha256, "processes": snapshot,
-                "currentReadyHealthy": False, "cleanupAttempted": False})
+                "currentReadyHealthy": False, "cleanupAttempted": False,
+            **({"details":details} if details is not None else {})})
             if self.ready is not None:
                 path, signature, body = self.ready
                 self.write("READY_BEFORE_FAILURE.private.json", json.loads(body))
@@ -536,6 +555,8 @@ class DomainDebugHold:
                 or not secrets.compare_digest(request["nonce"], self.nonce)
                 or not secrets.compare_digest(request["contextSha256"], self.context_sha256)):
             raise ValueError("DOMAIN_DEBUG_RELEASE_CONTEXT_REJECTED")
+        if self.memory_guard is not None:
+            self.memory_guard.resume()
         self.write("RELEASE_ACCEPTED.private.json", {"schemaVersion": 1,
             "contextSha256": self.context_sha256, "requestSha256": hashlib.sha256(raw).hexdigest(),
             "observedEpochNs": time.time_ns(), "action": "cleanup"})
@@ -556,6 +577,184 @@ class DomainDebugHold:
                     print("DOMAIN_DEBUG_RELEASE_REJECTED", flush=True)
                     last_error = code
             time.sleep(0.1)
+
+
+class DomainMemoryGuard:
+    """Read own cgroup counters; preserve only proven owned workers on pressure."""
+
+    def __init__(self, hold, expected_limit, cgroup=None):
+        self.hold = hold
+        self.stopped = []
+        self.timeline = None
+        self.last = None
+        hold.memory_guard = self
+        self.cgroup = self.resolve_cgroup() if cgroup is None else cgroup
+        self.identity = self.cgroup.stat().st_dev, self.cgroup.stat().st_ino
+        self.expected_limit = expected_limit
+        self.next_sample = 0.0
+        self.timeline = os.open("MEMORY_TIMELINE.private.jsonl", os.O_WRONLY | os.O_APPEND |
+                                os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=hold.fd)
+        os.fchmod(self.timeline,0o600)
+        self.check("pre-launch", force=True)
+
+    @staticmethod
+    def resolve_cgroup(group_text=None, mountinfo=None):
+        # Optional text seams exist only for host counters; CLI never accepts a path override.
+        group_text = Path("/proc/self/cgroup").read_text() if group_text is None else group_text
+        mountinfo = Path("/proc/self/mountinfo").read_text() if mountinfo is None else mountinfo
+        groups = [line[3:] for line in group_text.splitlines() if line.startswith("0::")]
+        if len(groups)!=1 or not groups[0].startswith("/") or ".." in Path(groups[0]).parts:
+            raise RuntimeError("DOMAIN_MEMORY_OWN_CGROUP_UNPROVEN")
+        group = Path(groups[0]);candidates = set()
+        for line in mountinfo.splitlines():
+            left, separator, right = line.partition(" - ")
+            if not separator or right.split()[0] != "cgroup2":
+                continue
+            fields = left.split()
+            decode = lambda s: re.sub(r"\\([0-7]{3})", lambda m: chr(int(m[1], 8)), s)
+            root, mounted = Path(decode(fields[3])), Path(decode(fields[4]))
+            possible = [mounted]  # Handles a private cgroup-namespace root.
+            if group.is_relative_to(root):
+                possible.append(mounted / group.relative_to(root))
+            for path in possible:
+                if path.resolve() == path and (path / "cgroup.procs").is_file():
+                    pids = (path / "cgroup.procs").read_text().split()
+                    if str(os.getpid()) in pids: candidates.add(path)
+        if len(candidates) != 1:
+            raise RuntimeError("DOMAIN_MEMORY_OWN_CGROUP_UNPROVEN")
+        return candidates.pop()
+
+    def read_counter(self, name):
+        actual = self.cgroup.stat()
+        if self.cgroup.resolve() != self.cgroup or (actual.st_dev, actual.st_ino) != self.identity:
+            raise RuntimeError("DOMAIN_MEMORY_CGROUP_CHANGED")
+        with os.fdopen(os.open(self.cgroup / name, os.O_RDONLY | os.O_NOFOLLOW), "r") as stream:
+            before = os.fstat(stream.fileno());text = stream.read(4097);after = os.fstat(stream.fileno())
+        if len(text) > 4096 or (before.st_dev,before.st_ino) != (after.st_dev,after.st_ino):
+            raise RuntimeError("DOMAIN_MEMORY_COUNTER_CHANGED")
+        return text.strip()
+
+    def sample(self, phase):
+        if str(os.getpid()) not in self.read_counter("cgroup.procs").split():
+            raise RuntimeError("DOMAIN_MEMORY_OWN_CGROUP_UNPROVEN")
+        def number(name):
+            value = self.read_counter(name)
+            if not value.isdecimal():raise RuntimeError("DOMAIN_MEMORY_COUNTER_INVALID")
+            return int(value)
+        current, limit = number("memory.current"), number("memory.max")
+        if limit != self.expected_limit:
+            raise RuntimeError("DOMAIN_MEMORY_LIMIT_MISMATCH")
+        reserve = max(256 * 1024**2, limit // 10)
+        if reserve >= limit:raise RuntimeError("DOMAIN_MEMORY_HEADROOM_POLICY_INVALID")
+        events = {}
+        for line in self.read_counter("memory.events").splitlines():
+            key, value = line.split()
+            if re.fullmatch("[a-z_]+",key) is None or key in events or not value.isdecimal():
+                raise RuntimeError("DOMAIN_MEMORY_EVENTS_INVALID")
+            events[key] = int(value)
+        own = []
+        for process, pinned in self.hold.processes.items():
+            returned = process.poll()
+            if returned is not None:
+                own.append({**pinned, "returncode": returned, "rssBytes": None});continue
+            measured = self.hold.process_birth(process.pid, memory=True)
+            if any(measured[k] != pinned[k] for k in ("pid","birth","uid","pgid","cgroup")):
+                raise RuntimeError("DOMAIN_MEMORY_WORKER_CHANGED")
+            own.append({"role":pinned["role"],**measured,"returncode":None})
+        return {"scope":"ACTUAL_OWN_CGROUP_AND_OWN_PROCESS_RSS_NO_DEVICE_VERDICT",
+                "phase":phase,"epochNs":time.time_ns(),"monotonicNs":time.monotonic_ns(),
+                "currentBytes":current,"maxBytes":limit,"peakBytes":number("memory.peak"),
+                "events":events,"ownRssBytes":own,"controller":self.hold.process_birth(os.getpid(), memory=True),
+                "reserveBytes":reserve,"thresholdBytes":limit-reserve,
+                "headroomPolicy":"max(256MiB,10pct_actual_memory.max)","atomicSnapshotClaimed":False}
+
+    def freeze(self):
+        leaders = {}
+        for process, pin in self.hold.processes.items():
+            if process.poll() is not None:continue
+            measured = self.hold.process_birth(process.pid)
+            if any(measured[k] != pin[k] for k in ("pid","birth","uid","pgid","cgroup")):
+                raise RuntimeError("DOMAIN_MEMORY_FREEZE_OWNER_CHANGED")
+            if measured["pgid"] != process.pid or measured["cgroup"] != self.hold.context["controller"]["cgroup"]:
+                raise RuntimeError("DOMAIN_MEMORY_FREEZE_SCOPE_UNPROVEN")
+            leaders[process.pid] = measured
+        def members():
+            found = []
+            # Only public group metadata is read before selecting known owned PGs.
+            for entry in Path("/proc").iterdir():
+                if not entry.name.isdecimal():continue
+                try:
+                    if os.getpgid(int(entry.name)) not in leaders:continue
+                    measured = self.hold.process_birth(int(entry.name))
+                except (FileNotFoundError,ProcessLookupError):continue
+                leader = leaders.get(measured["pgid"])
+                if leader is None or measured["uid"] != leader["uid"] or measured["cgroup"] != leader["cgroup"]:
+                    raise RuntimeError("DOMAIN_MEMORY_FOREIGN_GROUP_MEMBER")
+                found.append(measured)
+            if not set(leaders) <= {v["pid"] for v in found} or len(found)>256:
+                raise RuntimeError("DOMAIN_MEMORY_GROUP_CHANGED")
+            return found
+        planned = members()
+        for attempt in range(4):
+            planned.sort(key=lambda pin:pin["pid"] not in leaders)
+            already = {pin["pid"] for descriptor,pin in self.stopped}
+            for pin in planned:
+                if pin["pid"] in already:continue
+                descriptor = os.pidfd_open(pin["pid"])
+                try:
+                    actual = self.hold.process_birth(pin["pid"])
+                    if any(actual[k] != pin[k] for k in ("pid","birth","uid","pgid","cgroup")):
+                        raise RuntimeError("DOMAIN_MEMORY_FREEZE_PID_CHANGED")
+                    signal.pidfd_send_signal(descriptor,signal.SIGSTOP)
+                    self.stopped.append((descriptor,pin));descriptor=None
+                finally:
+                    if descriptor is not None:os.close(descriptor)
+            deadline = time.monotonic()+1
+            while any(self.hold.process_birth(pin["pid"])["state"] not in ("T","t") for fd,pin in self.stopped):
+                if time.monotonic()>=deadline:raise RuntimeError("DOMAIN_MEMORY_STOP_NOT_OBSERVED")
+                time.sleep(.01)
+            planned = members()
+            if {v["pid"] for v in planned} <= {pin["pid"] for fd,pin in self.stopped}:
+                return [{**pin,"stopObserved":True} for fd,pin in self.stopped]
+        raise RuntimeError("DOMAIN_MEMORY_GROUP_DID_NOT_STABILIZE")
+
+    def resume(self):
+        for descriptor,pin in self.stopped:
+            try:actual = self.hold.process_birth(pin["pid"])
+            except (FileNotFoundError,ProcessLookupError):continue
+            if any(actual[k] != pin[k] for k in ("pid","birth","uid","pgid","cgroup")):
+                raise RuntimeError("DOMAIN_MEMORY_RESUME_OWNER_CHANGED")
+            signal.pidfd_send_signal(descriptor,signal.SIGCONT)
+        for descriptor,pin in self.stopped:os.close(descriptor)
+        self.stopped = []
+
+    def check(self, phase="periodic", force=False):
+        if not force and time.monotonic() < self.next_sample:return
+        self.next_sample = time.monotonic()+1
+        self.last = self.sample(phase)
+        def append():
+            raw=(json.dumps(self.last,sort_keys=True)+"\n").encode()
+            if os.fstat(self.timeline).st_size+len(raw)>8*1024**2:
+                raise RuntimeError("DOMAIN_MEMORY_TIMELINE_LIMIT")
+            while raw:
+                written=os.write(self.timeline,raw)
+                if written<=0:raise RuntimeError("DOMAIN_MEMORY_TIMELINE_WRITE_FAILED")
+                raw=raw[written:]
+            os.fsync(self.timeline)
+        if self.last["currentBytes"]>=self.last["thresholdBytes"]:
+            error = RuntimeError("DOMAIN_MEMORY_HEADROOM_LOW")
+            details = {"memory":self.last,"freezeComplete":False,"frozenProcesses":[]}
+            try:
+                # Stop allocations before potentially slow evidence writes/fsync.
+                details.update(frozenProcesses=self.freeze(),freezeComplete=True)
+                append()
+            finally:self.hold.begin("DOMAIN_MEMORY_HEADROOM_LOW",tuple(self.hold.processes),error,details)
+            raise error
+        append()
+
+    def close(self):
+        if self.timeline is not None: os.close(self.timeline)
+        for descriptor,pin in self.stopped:os.close(descriptor)
 
 
 def atomic_json(path: Path, value: dict) -> None:
@@ -589,6 +788,8 @@ def parse_args() -> argparse.Namespace:
                         help="Opt in owned ephemeral-domain asset-write control and exact Settings restoration for Assets E2E.")
     parser.add_argument("--debug-hold-on-error", action="store_true",
                         help="Linux only: preserve an unexpectedly failed active stack until a private nonce-bound cleanup request.")
+    parser.add_argument("--debug-memory-expected-limit-bytes", type=int,
+                        help="Opt in own-cgroup memory/RSS sampling and owned-worker pressure freeze; requires debug hold.")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     for name in ("domain_port", "http_port"):
@@ -608,6 +809,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("--assignment-warmup-seconds must be from 0 through 30")
     if args.debug_hold_on_error and not sys.platform.startswith("linux"):
         parser.error("--debug-hold-on-error requires Linux process identity")
+    if args.debug_memory_expected_limit_bytes is not None and (not args.debug_hold_on_error or args.debug_memory_expected_limit_bytes<=256*1024**2):
+        parser.error("memory diagnostics require debug hold and a finite reviewed limit above256MiB")
     return args
 
 
@@ -624,6 +827,7 @@ def _controller_main(hold_state) -> int:
     output = private_output(args.output_dir)
     debug_hold = DomainDebugHold(output) if args.debug_hold_on_error else None
     hold_state.append(debug_hold)
+    memory_guard = DomainMemoryGuard(debug_hold,args.debug_memory_expected_limit_bytes) if args.debug_memory_expected_limit_bytes is not None else None
     public_host = args.public_host or args.bind
     if public_host in {"0.0.0.0", "::"}:
         raise ValueError("--public-host is required when binding all interfaces")
@@ -685,9 +889,24 @@ def _controller_main(hold_state) -> int:
     })
     owned_processes = OwnedProcesses(environment)
 
-    domain_log = (output / "domain-server.log").open("w", encoding="utf-8")
-    assignment_log = (output / "assignment-client.log").open("w", encoding="utf-8")
-    assignment_agent_log = (output / "assignment-agent.log").open("w", encoding="utf-8")
+    if debug_hold is None:
+        domain_log = (output / "domain-server.log").open("w", encoding="utf-8")
+    else:
+        descriptor = os.open(output / "domain-server.log",os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        os.fchmod(descriptor,0o600)
+        domain_log = os.fdopen(descriptor,"w",encoding="utf-8")
+    if debug_hold is None:
+        assignment_log = (output / "assignment-client.log").open("w", encoding="utf-8")
+    else:
+        descriptor = os.open(output / "assignment-client.log",os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        os.fchmod(descriptor,0o600)
+        assignment_log = os.fdopen(descriptor,"w",encoding="utf-8")
+    if debug_hold is None:
+        assignment_agent_log = (output / "assignment-agent.log").open("w", encoding="utf-8")
+    else:
+        descriptor = os.open(output / "assignment-agent.log",os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        os.fchmod(descriptor,0o600)
+        assignment_agent_log = os.fdopen(descriptor,"w",encoding="utf-8")
     (output / "assignment-logs").mkdir(mode=0o700)
     domain_process = None
     assignment_processes: list[subprocess.Popen] = []
@@ -755,7 +974,7 @@ def _controller_main(hold_state) -> int:
                 raise RuntimeError("controlled domain stack is no longer running")
             observed_id = wait_for_domain(
                 domain_process, f"http://127.0.0.1:{args.http_port}/id",
-                args.startup_timeout_seconds)
+                args.startup_timeout_seconds, memory_guard.check if memory_guard is not None else None)
             if observed_id != domain_id:
                 raise RuntimeError("controlled domain readiness identity changed")
             return
@@ -779,7 +998,7 @@ def _controller_main(hold_state) -> int:
             debug_hold.register(domain_process, "domain-server")
         observed_id = wait_for_domain(
             domain_process, f"http://127.0.0.1:{args.http_port}/id",
-            args.startup_timeout_seconds)
+            args.startup_timeout_seconds, memory_guard.check if memory_guard is not None else None)
         if domain_id is not None and observed_id != domain_id:
             if debug_hold is None:
                 stop_process(domain_process)
@@ -829,6 +1048,7 @@ def _controller_main(hold_state) -> int:
                 debug_hold.register(assignment_agent_processes[-1], "agent:" + pool)
         deadline = time.monotonic() + args.assignment_warmup_seconds
         while time.monotonic() < deadline:
+            if memory_guard is not None: memory_guard.check("startup")
             if (domain_process.poll() is not None
                     or any(process.poll() is not None for process in assignment_processes)
                     or any(process.poll() is not None
@@ -848,7 +1068,7 @@ def _controller_main(hold_state) -> int:
             time.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
         wait_for_assignment_content(
             (domain_process, *assignment_processes, *assignment_agent_processes),
-            args.startup_timeout_seconds, stopping)
+            args.startup_timeout_seconds, stopping, memory_guard.check if memory_guard is not None else None)
         stack_state = "online"
         generation += 1
 
@@ -975,6 +1195,7 @@ def _controller_main(hold_state) -> int:
             # Serialize monitoring with an intentionally stopped service. Other
             # processes remain alive and are checked immediately afterwards.
             with transition_lock:
+                if memory_guard is not None: memory_guard.check()
                 if debug_hold is not None and debug_hold.active.is_set():
                     raise debug_hold.original_error or RuntimeError("DOMAIN_DEBUG_FAILED_CONTROL_OPERATION")
                 if stack_state == "online" and domain_process.poll() is not None:
@@ -1029,6 +1250,8 @@ def main() -> int:
         raise
     finally:
         if hold_state and hold_state[0] is not None:
+            if hold_state[0].memory_guard is not None:
+                hold_state[0].memory_guard.close()
             os.close(hold_state[0].fd)
 
 
