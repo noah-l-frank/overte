@@ -27,7 +27,7 @@ from self_tests.test_native_graphics_subject import Boundary as SubjectBoundary
 
 class LifecycleProducts(ProductSources):
     def __init__(self,case):
-        self.case=case;self.native=case.editor.native;self.subject=SubjectBoundary();self.move_before_subject=False
+        self.case=case;self.native=case.editor.native;self.subject=SubjectBoundary();self.move_before_subject=False;self.fail_ui=False
         # One original target physics object, read by independent native getter
         # endpoints. There is no second Actor-side pose or expected-state model.
         super().__init__(case,None)
@@ -49,6 +49,7 @@ class LifecycleProducts(ProductSources):
             need(set(value)=={'schemaVersion','commandId','action','runId'} and type(value['schemaVersion']) is int
                 and value['schemaVersion']==1 and ui.nonce(value['commandId']) and value['runId']==self.case.observer.run)
         if action=='ui':
+            if self.fail_ui:raise RuntimeError('Original UI producer unavailable after actual Gesture and Drive')
             need(value['action']=='observe');native.ui.send(value);return native.ui.read()
         if action=='gesture':
             need(value['action']==gesture.ACTION);native.axes.send(value);return native.axes.read()

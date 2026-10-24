@@ -33,7 +33,6 @@ VERSION=1
 
 
 class ActorReadOnlyTriple:
-    acquire=PicoLifecycleWorld.acquire
     originals=PicoLifecycleWorld.originals
     now=PicoLifecycleWorld.now
     fresh_current=PicoLifecycleWorld.fresh_current
@@ -44,6 +43,21 @@ class ActorReadOnlyTriple:
         self.pid,self.run,self.guard=owner.pid,owner.run,owner.guard
         self.monotonic=owner.monotonic
         self.last_clock=self.acquired_start=self.fresh_anchor=None
+
+    def acquire(self):
+        # Keep the unchanged complete World acquisition grammar, but retain
+        # each actual response before its reader validates it or the next
+        # producer is queried. No new query, reader or World journal exists.
+        callbacks=[]
+        try:
+            for key,reader in (('gesture',self.axes),('drive',self.avatar),('ui',self.source)):
+                original=reader.original;callbacks.append((reader,original))
+                def received(key=key,original=original):
+                    raw=original();self.owner.retain(key,dict(original=frame(raw)));return raw
+                reader.original=received
+            return PicoLifecycleWorld.acquire(self)
+        finally:
+            for reader,original in callbacks:reader.original=original
 
 
 class PicoLifecycleActorSource:
@@ -184,7 +198,8 @@ class PicoLifecycleActorSource:
                 before=self.phases.read();need(before['verb']=='baseline' if self.baseline is None else
                     before['verb']=='baseline' or before['verb']=='open-editor' and before['inputs']=={'editor':'create'})
                 started=self.monotonic();requested=self.readers[4].clock_ms()
-                updated=deepcopy(self.disk);updated['pending']=dict(phase=None,world=None,pending=None,native=None,subject=None);self.save(updated)
+                updated=deepcopy(self.disk);updated['pending']=dict(phase=None,gesture=None,drive=None,ui=None,
+                    world=None,pending=None,native=None,subject=None);self.save(updated)
                 self.retain('phase',before['status'])
                 world,packets,_start=self.triple.acquire();self.retain('world',dict(world=world))
                 pending_reader,native_reader,subject_reader=self.readers[3:]

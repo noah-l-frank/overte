@@ -174,5 +174,21 @@ class LifecycleIndependentActorTests(unittest.TestCase):
         self.assertIsNone(original['pending']);self.assertIsNone(original['publication'])
         self.assertEqual([],self.client.observe()['entries']);self.assertEqual([],self.editor.transport.envelopes)
 
+    def test_actual_ui_producer_failure_keeps_complete_prior_gesture_and_drive_originals(self):
+        self.products.fail_ui=True;self.start();original=self.failed_worker()
+        self.assertEqual(['gesture','drive','ui'],self.native_calls());self.assertEqual([],original['records'])
+        self.assertIn('gesture',original['pending']);self.assertIn('drive',original['pending'])
+        from adapters.chat_journey import source_bundles
+        from adapters.chat_journey.source_chunks import ChatSourceChunks
+        keys=('picoLifecycleActorSourceVersion','runId','binding','role','stage','producerHostProcessIdentity',
+            'parentHostProcessIdentity','fixtureUrl')
+        history=ChatSourceChunks(PrivateFeatureState(self.root/'lifecycle-actor-originals.json'),{key:original[key] for key in keys})
+        history.load(original['chunks'])
+        for key,raw in (('gesture',self.native.axes.read()),('drive',self.native.drive.read())):
+            bundle,_bytes=source_bundles.original(history,original['chunks'],original['bundles'],original['pending'][key])
+            self.assertEqual(raw,bundle['original']['raw'])
+            self.assertEqual(hashlib.sha256(raw.encode()).hexdigest(),bundle['original']['sha256'])
+        self.assertEqual([],self.client.observe()['entries']);self.assertEqual([],self.editor.transport.envelopes)
+
 
 if __name__=='__main__':unittest.main()

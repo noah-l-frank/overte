@@ -124,3 +124,36 @@ Dependency is the existing private Lifecycle/Process/source/readers and shared
 raw IPC/host-process owners at `de3ec76bca661cb9a4d6e3d857230a23d8cb70fc`.
 No Phone code, common-v18 recipe, moving worktree, build or product change is
 included. This packet changes no public capability admission.
+
+## Follow-up: actual partial-triple producer failure
+
+Review found that the original Stage1 delegated World.acquire in full and only
+then archived its complete triple. A real UI producer failure after the valid
+Gesture and Drive replies therefore lost those two complete prior originals.
+The dedicated counter is RED1/0.565s on05c: actual calls are exactly Gesture,
+Drive, UI; no Pending/Native/Subject query, normal input or publication occurs.
+The incomplete root has no Gesture/Drive originals. Source
+`3edf2970d81809aecac0ccbe29fce18489af1f66b1bc9058d1fd497a4dc6b324`
+and root `lifecycle-editor-vrak2mua` remain retained.
+
+Only the Actor acquisition now wraps each of its own three original-read
+callbacks during the unchanged complete World.acquire validation. It durably
+retains the literal response before that reader's validation and before the
+next query, restoring the callbacks in finally. An unavailable UI leaves the
+prior complete Gesture and Drive bundles owned. Every received poll is counted
+normally; none is discarded, queried again, or supplied to another live owner.
+The complete triple retains its original representation as well. These explicit
+additional original copies consume the same512-part/16MiB budgets; they are
+not hidden by the earlier six-record48-part bill, which belongs to05c only.
+No shared World acquisition, Source1 completed-record interpretation, native
+protocol, limit or previously stored file is changed or migrated.
+
+The same actual counter passes1/0.598s, with both original literal bytes and
+SHA values reconstructed through the existing full physical chunk grammar.
+Source `c585b78e90738dff21d5d9975bbbf71ee86f50f6d3489f505c4dcad57909d861`
+is unchanged; originals `lifecycle-editor-cblwnsko` are retained. Logs are
+`lifecycle-actor-partial-triple-red.log` and
+`lifecycle-actor-partial-triple-fixed.log`. Existing selectors discover this
+eighth source case additively (ten including ownership); no new selector or
+registry is added. The original nine-case baseline is not repeated for this
+counter. The separate original-clock review remains unresolved at this point.
