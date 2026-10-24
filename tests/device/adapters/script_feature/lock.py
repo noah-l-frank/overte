@@ -50,16 +50,15 @@ class ScriptSourceLock:
         # Only an explicitly shared instance held by this exact process/thread
         # can nest. Another instance/role/process still needs its own OS lock.
         if self._owner is not None:
+            owner = self._owner
+            self.assert_held()
             try:
-                owner = self._owner
-                self.assert_held()
                 yield
+            finally:
+                # Check the exact lock even when the protected operation
+                # raises. Its own typed failure must survive a valid exit.
                 need(self._owner is owner)
                 self.assert_held()
-            except ScriptSourceBusy:
-                raise ScriptSourceBusy('Script source is busy') from None
-            except Exception:
-                raise NativeUIError('Script source serialization is unavailable') from None
             return
         descriptor = owner = None
         path = self.path
@@ -88,12 +87,19 @@ class ScriptSourceLock:
             self._check(descriptor, path)
             owner = (path, descriptor, os.getpid(), threading.get_ident())
             self._owner = owner
-            yield
-            self.assert_held()
         except ScriptSourceBusy:
             raise ScriptSourceBusy('Script source is busy') from None
         except Exception:
             raise NativeUIError('Script source serialization is unavailable') from None
+        else:
+            try:
+                yield
+            finally:
+                # Body exceptions are not serialization errors. Preserve the
+                # original object only after proving the lock still belongs
+                # to this process/thread and the same original inode.
+                need(self._owner is owner)
+                self.assert_held()
         finally:
             if owner is not None and self._owner is owner:
                 self._owner = None

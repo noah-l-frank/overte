@@ -108,6 +108,15 @@ is used. Reconciliation must preserve the adapter-only reader authorization,
 all installed v4 legacy readers, current shared v16 inventory, and the original
 Phone/Pico journals and transport semantics. No reference worktree was edited.
 
+The shared `ScriptSourceLock.held` checks the original owner, thread and lock
+inode on every exit, including a raised operation exception. Acquisition and
+ownership failures retain their fixed serialization error. After a valid exit,
+the protected operation's original exception object survives, including typed
+pending results. Same-instance nesting preserves the outer ownership; another
+instance still needs its own exclusive OS lock. This change requires shared
+Phone/Pico reconciliation. It does not authorize input retry or alter public
+result schemas, deadline handling or evidence qualification.
+
 ## Local verification checkpoint
 
 The no-build selection passed 484 iOS and 1,037 shared cases, with no failures,
