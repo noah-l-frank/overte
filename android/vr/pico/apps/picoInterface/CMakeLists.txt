@@ -61,6 +61,11 @@ target_include_directories(gl PRIVATE
 add_subdirectory("${CMAKE_SOURCE_DIR}/interface" "libraries/interface")
 include("${CMAKE_CURRENT_SOURCE_DIR}/../../../../common/web/target.cmake")
 overte_target_embedded_web(picoOpenXR)
+if(OVERTE_E2E_FEATURE_TESTS)
+    # TSI in interface imports this sole clock/nonce registry through the
+    # existing interface -> picoOpenXR link. Never instantiate it per DSO.
+    target_sources(picoOpenXR PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../../common/web/src/PicoWorldCurrentDocumentBridge.cpp")
+endif()
 set_target_properties(picoOpenXR PROPERTIES AUTORCC ON)
 get_target_property(PICO_INTERFACE_SOURCES interface SOURCES)
 list(FILTER PICO_INTERFACE_SOURCES EXCLUDE REGEX "Application_Setup\\.cpp$")

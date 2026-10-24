@@ -209,3 +209,37 @@ No full native/old-retention/whole journey was repeated for this correction.
 There is no catalog or version delta. Cross-DSO clock-registry ownership is
 under separate review; this byte-cap correction claims no application-level
 integration proof.
+
+### Review follow-up: one exported clock-registry owner
+
+Root reproduced a real split-library failure on the exact 032 header: two
+independent hidden-visibility/hidden-inlines DSOs loaded RTLD_LOCAL each had
+stable local nonces but different anchor objects (exit 2). The original header
+SHA was `12f8a8dc40f493e333a34509ab5f370eedf80fe3c5499cfb9ab97945723d62b6`.
+The actual Pico CMake places NativeWebViewItem in picoOpenXR and TSI in
+interface. This is a host reproduction of that ownership defect, not an
+observed complete APK failure.
+
+The registry now has exactly one out-of-line exported factory definition in
+`android/common/web/src/PicoWorldCurrentDocumentBridge.cpp`. The header only
+declares that factory. Pico's E2E CMake adds its TU exclusively to picoOpenXR;
+the existing `target_link_libraries(interface picoOpenXR)` resolves TSI's
+call to the same owner before its queued dispatch. Native's exact original-
+pointer check remains; there is no re-anchoring, relaxed pointer comparison
+or renewed clock. Old providers/getters/featureRead and legacy 2/3/4 bodies
+are unchanged.
+
+The permanent Native selector now compiles the actual factory into one
+shared library, then links two independently built hidden DSOs against it
+and loads them with RTLD_LOCAL. Same-module and cross-module original
+pointers must agree, foreign data under the old nonce must refuse, and a new
+nonce must have a distinct shared original. Its other existing case compiles
+the actual factory alongside the whole TSI getter on both conditional sides
+and complete original Native/JNI backend. These two cases passed together
+**22.392 s**, source freeze
+`fbfde3a4ac2f04fd8fefc56873af047f9d7a3951f8cc0eba0d683fb91fafbb29`
+(**13,544** files). Raw compiler/loader commands, full original input hashes
+and output stages remain private and retained. The old retained-page and
+Browser-originals Python assemblies only gain the real factory TU link;
+their actual Native bodies/assertions are not replaced. There is no new
+selector, shared contract, runtime input or full application build claim.

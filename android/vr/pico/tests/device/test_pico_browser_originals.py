@@ -118,7 +118,7 @@ class PicoBrowserOriginalTests(unittest.TestCase):
                 '-I'+str(stage),'-I'+str(ROOT),'-I'+str(web/'src'),'-I'+str(ROOT/'libraries/shared/src'),
                 '-I'+str(ROOT/'libraries/ui/src'),'-I'+str(ROOT/'libraries/script-engine/src'),
                 '-isystem',str(Path(env['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),
-                '-I'+str(jdk/'include'),'-I'+str(jdk/'include/linux'),str(web/'src/NativeWebViewItem.cpp'),
+                '-I'+str(jdk/'include'),'-I'+str(jdk/'include/linux'),str(web/'src/NativeWebViewItem.cpp'),str(web/'src/PicoWorldCurrentDocumentBridge.cpp'),
                 str(HERE/'pico-browser-originals.cpp'),str(stage/'moc.cpp'),str(stage/'embedded-web.cpp'),str(stage/'feature-web.cpp'),
                 '-L'+str(prefix/'usr/lib64'),'-L'+str(jdk/'lib/server'),'-Wl,-rpath,'+str(jdk/'lib/server'),'-ljvm',
                 '-o',str(stage/'test'),*flags],env=env,check=True,timeout=90)

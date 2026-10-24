@@ -69,7 +69,7 @@ class WorldWebResumeNativeTests(unittest.TestCase):
             '-I'+str(ROOT/'libraries/ui/src'),'-I'+str(ROOT/'libraries/script-engine/src'),
             '-isystem',str(Path(env['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),
             '-I'+str(jdk/'include'),'-I'+str(jdk/'include/linux'),
-            HERE/'world-web-retained-resume-native.cpp',stage/'moc.cpp',stage/'embedded-web.cpp',stage/'feature-web.cpp',
+            HERE/'world-web-retained-resume-native.cpp',web/'src/PicoWorldCurrentDocumentBridge.cpp',stage/'moc.cpp',stage/'embedded-web.cpp',stage/'feature-web.cpp',
             '-L'+str(prefix/'usr/lib64'),'-L'+str(jdk/'lib/server'),'-Wl,-rpath,'+str(jdk/'lib/server'),'-ljvm','-o',stage/'test',*flags])
         result=run(['unshare','--user','--map-root-user','--net',stage/'test',stage,'--testScript','host-boundary','--testResultsLocation',stage],build=False)
         self.assertIn('PASS actual original World foreground grant rotation',result.stdout)

@@ -30,16 +30,8 @@ public:
     qint64 nowMonotonic()const {QElapsedTimer current;current.start();return current.msecsSinceReference();}
 };
 using PicoCurrentAnchor=std::shared_ptr<const PicoCurrentClock>;
-inline PicoCurrentAnchor picoCurrentAnchor(const QVariantMap& command) {
-    if(!picoWorldCurrentDocumentCommand(command))return {};
-    struct Record{QByteArray command;PicoCurrentAnchor anchor;};
-    static QMutex mutex;static QHash<QString,Record> records;
-    QMutexLocker guard(&mutex);const auto id=command.value("commandId").toString();
-    const auto raw=QJsonDocument::fromVariant(command).toJson(QJsonDocument::Compact);
-    if(records.contains(id))return records[id].command==raw ? records[id].anchor : PicoCurrentAnchor();
-    if(records.size()>=4096)return {};
-    const auto anchor=std::make_shared<const PicoCurrentClock>();records.insert(id,{raw,anchor});return anchor;
-}
+// One exported owner in picoOpenXR; interface calls the same pre-queue factory.
+Q_DECL_EXPORT PicoCurrentAnchor picoCurrentAnchor(const QVariantMap& command);
 using PicoCurrentProvider=std::function<QVariantMap(const QVariantMap&,PicoCurrentAnchor)>;
 inline const char* picoCurrentDocumentProperty(){return "_overteE2EPicoWorldCurrentDocumentProviderV1";}
 }

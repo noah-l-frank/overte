@@ -23,6 +23,36 @@ from test_create_polyvox_controls_native import pointer_source,original
 
 
 class WorldCurrentDocumentNativeTests(unittest.TestCase):
+    def test_actual_exported_factory_shared_across_hidden_local_dsos(self):
+        directory=tempfile.TemporaryDirectory(prefix='world-current-anchor-dso-');directory._finalizer.detach()
+        stage=Path(directory.name);stage.chmod(0o700);print('Original exported clock DSO stage:',stage,flush=True)
+        prefix=Path(os.environ['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
+        env=dict(os.environ,PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),LD_LIBRARY_PATH=str(prefix/'usr/lib64'))
+        deadline=time.monotonic()+90;commands=[]
+        def run(arguments):
+            arguments=[str(value) for value in arguments];remaining=deadline-time.monotonic();self.assertGreater(remaining,0)
+            result=subprocess.run(arguments,env=env,capture_output=True,text=True,timeout=remaining)
+            commands.append(dict(arguments=arguments,returncode=result.returncode,stdout=result.stdout,stderr=result.stderr))
+            path=stage/'commands.json';path.write_text(json.dumps(commands));path.chmod(0o600)
+            self.assertEqual(0,result.returncode,result.stdout+result.stderr);return result
+        flags=shlex.split(run(['pkg-config','--cflags','--libs','Qt5Core']).stdout)
+        factory=ROOT/'android/common/web/src/PicoWorldCurrentDocumentBridge.cpp'
+        inputs=[factory,ROOT/'tests/device/native/PicoWorldCurrentDocumentBridge.h',
+            HERE/'world-current-anchor-dso-module.cpp',HERE/'world-current-anchor-dso-main.cpp',ROOT/'android/vr/pico/apps/picoInterface/CMakeLists.txt']
+        provenance=[dict(path=str(path.relative_to(ROOT)),sha256=hashlib.sha256(path.read_bytes()).hexdigest()) for path in inputs]
+        path=stage/'original-inputs.json';path.write_text(json.dumps(provenance));path.chmod(0o600)
+        header=inputs[1].read_text();self.assertNotIn('static QHash',header);self.assertIn('Q_DECL_EXPORT PicoCurrentAnchor picoCurrentAnchor',header)
+        cmake=inputs[-1].read_text();self.assertEqual(1,cmake.count('target_sources(picoOpenXR PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../../common/web/src/PicoWorldCurrentDocumentBridge.cpp")'))
+        self.assertIn('target_link_libraries(interface picoOpenXR)',cmake)
+        common=['c++','-std=c++17','-fPIC','-UNDEBUG','-fvisibility=hidden','-fvisibility-inlines-hidden','-DOVERTE_E2E_FEATURE_TESTS','-DANDROID_APP_PICO_INTERFACE','-I'+str(ROOT)]
+        run([*common,'-shared',factory,'-L'+str(prefix/'usr/lib64'),'-Wl,-soname,liboriginal-factory.so','-o',stage/'liboriginal-factory.so',*flags])
+        for name in ('a','b'):
+            run([*common,'-shared',HERE/'world-current-anchor-dso-module.cpp','-L'+str(stage),'-loriginal-factory','-Wl,-rpath,'+str(stage),
+                '-L'+str(prefix/'usr/lib64'),'-o',stage/(name+'.so'),*flags])
+        run(['c++','-std=c++17','-fPIC','-UNDEBUG',HERE/'world-current-anchor-dso-main.cpp','-L'+str(prefix/'usr/lib64'),'-ldl','-o',stage/'test',*flags])
+        result=run([stage/'test',stage/'a.so',stage/'b.so']);self.assertIn('PASS actual exported factory',result.stdout)
+        for row in provenance:self.assertEqual(row['sha256'],hashlib.sha256((ROOT/row['path']).read_bytes()).hexdigest())
+
     def test_actual_current_document_retained_new_finish_nonce_weak_death_and_late_clock(self):
         byte_only=os.environ.get('OVERTE_CURRENT_DOCUMENT_UTF8_ONLY')=='1'
         directory=tempfile.TemporaryDirectory(prefix='world-current-document-');directory._finalizer.detach()
@@ -63,7 +93,7 @@ class WorldCurrentDocumentNativeTests(unittest.TestCase):
         for name in ('embedded-web','feature-web'):
             run([tools/'rcc','-name',name.replace('-','_'),web/(name+'.qrc'),'-o',stage/(name+'.cpp')])
         (stage/'original-current-getter.inc').write_text(original((ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text(),'QVariantMap TestScriptingInterface::featurePicoWorldCurrentDocument('))
-        sources=[ROOT/'interface/src/scripting/TestScriptingInterface.cpp',HERE/'world-current-document-getter.cpp',web/'src/NativeWebViewItem.cpp',HERE/'world-current-document-native.cpp',HERE/'pico-browser-originals.cpp',
+        sources=[web/'src/PicoWorldCurrentDocumentBridge.cpp',ROOT/'tests/device/native/PicoWorldCurrentDocumentBridge.h',ROOT/'interface/src/scripting/TestScriptingInterface.cpp',HERE/'world-current-document-getter.cpp',web/'src/NativeWebViewItem.cpp',HERE/'world-current-document-native.cpp',HERE/'pico-browser-originals.cpp',
             ROOT/'libraries/shared/src/EmbeddedWebPolicy.h',web/'src/PicoBrowserFeatureE2E.inc',
             web/'java/org/overte/web/EmbeddedWebView.java',web/'java/org/overte/web/WebAudioLifecycle.java']
         provenance=[dict(path=str(path.relative_to(ROOT)),sha256=hashlib.sha256(path.read_bytes()).hexdigest()) for path in sources]
@@ -73,13 +103,13 @@ class WorldCurrentDocumentNativeTests(unittest.TestCase):
             '-I'+str(ROOT/'libraries/ui/src'),'-I'+str(ROOT/'libraries/script-engine/src'),
             '-isystem',str(Path(env['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),
             '-I'+str(jdk/'include'),'-I'+str(jdk/'include/linux'),
-            HERE/'world-current-document-native.cpp',stage/'moc.cpp',stage/'embedded-web.cpp',stage/'feature-web.cpp',
+            HERE/'world-current-document-native.cpp',web/'src/PicoWorldCurrentDocumentBridge.cpp',stage/'moc.cpp',stage/'embedded-web.cpp',stage/'feature-web.cpp',
             '-L'+str(prefix/'usr/lib64'),'-L'+str(jdk/'lib/server'),'-Wl,-rpath,'+str(jdk/'lib/server'),'-ljvm','-o',stage/'test',*flags])
         # Compile and execute both real conditional sides of the whole getter.
         for pico in (() if byte_only else (False,True)):
             binary=stage/('getter-pico' if pico else 'getter-non-pico')
             run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS',*(['-DANDROID_APP_PICO_INTERFACE'] if pico else []),
-                '-I'+str(stage),'-I'+str(ROOT),HERE/'world-current-document-getter.cpp','-L'+str(prefix/'usr/lib64'),'-o',binary,*flags])
+                '-I'+str(stage),'-I'+str(ROOT),HERE/'world-current-document-getter.cpp',web/'src/PicoWorldCurrentDocumentBridge.cpp','-L'+str(prefix/'usr/lib64'),'-o',binary,*flags])
             run([binary,stage,'--testScript','host-boundary','--testResultsLocation',stage,*(['--current-document-byte-cap'] if byte_only else [])],build=False)
         result=run(['unshare','--user','--map-root-user','--net',stage/'test',stage,'--testScript','host-boundary','--testResultsLocation',stage,*(['--current-document-byte-cap'] if byte_only else [])],build=False)
         self.assertIn('PASS actual Pico current-document',result.stdout)
