@@ -587,7 +587,6 @@ class DomainMemoryGuard:
         self.stopped = []
         self.timeline = None
         self.last = None
-        hold.memory_guard = self
         self.cgroup = self.resolve_cgroup() if cgroup is None else cgroup
         self.identity = self.cgroup.stat().st_dev, self.cgroup.stat().st_ino
         self.expected_limit = expected_limit
@@ -595,6 +594,8 @@ class DomainMemoryGuard:
         self.timeline = os.open("MEMORY_TIMELINE.private.jsonl", os.O_WRONLY | os.O_APPEND |
                                 os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=hold.fd)
         os.fchmod(self.timeline,0o600)
+        # Resolution/admission failures must leave the hold with no partial guard.
+        hold.memory_guard = self
         self.check("pre-launch", force=True)
 
     @staticmethod

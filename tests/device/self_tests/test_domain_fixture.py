@@ -288,6 +288,29 @@ class DomainFixtureTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,"OWN_CGROUP_UNPROVEN"):
                 module.DomainMemoryGuard.resolve_cgroup("0::/owned\n",info)
 
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Linux owned debug hold")
+    def test_memory_constructor_resolution_failure_leaves_usable_zero_child_hold(self):
+        import threading
+        spec=importlib.util.spec_from_file_location("domain_partial_memory_counter",CONTROLLER)
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        class UnprovenGuard(module.DomainMemoryGuard):
+            @staticmethod
+            def resolve_cgroup():raise RuntimeError("DOMAIN_MEMORY_OWN_CGROUP_UNPROVEN")
+        with tempfile.TemporaryDirectory()as temporary:
+            hold=module.DomainDebugHold(Path(temporary));self.addCleanup(os.close,hold.fd)
+            with self.assertRaisesRegex(RuntimeError,"OWN_CGROUP_UNPROVEN")as failure:
+                UnprovenGuard(hold,6*1024**3)
+            self.assertIsNone(hold.memory_guard)
+            hold.begin("DOMAIN_START_OR_RUNTIME_ERROR",(),failure.exception)
+            record=json.loads((hold.directory/"FAILURE.private.json").read_text())
+            self.assertEqual([],record["processes"]);self.assertFalse(record["cleanupAttempted"])
+            waiter=threading.Thread(target=hold.wait_release,daemon=True);waiter.start()
+            time.sleep(.05);self.assertTrue(waiter.is_alive());self.assertFalse(hold.released)
+            request=hold.directory/"RELEASE_REQUEST.private.json"
+            request.write_text(json.dumps({"schemaVersion":1,"action":"cleanup","contextSha256":hold.context_sha256,"nonce":hold.nonce}));request.chmod(0o600)
+            waiter.join(timeout=2);self.assertFalse(waiter.is_alive());self.assertTrue(hold.released)
+            self.assertEqual("DOMAIN_MEMORY_OWN_CGROUP_UNPROVEN",str(failure.exception))
+
     def online_noop_fixture(self):
         """Use the exact nested source with real private children and HTTP /id.
 
