@@ -751,3 +751,66 @@ These are scoped data/no-op and normal native input results. No Settings write
 was inserted to manufacture a restore. Native model completion/initialization,
 whole resource release, raw mutation CAS and final ownership retirement remain
 open. The complete feature is still partial.
+
+## Original normal setter restoration and warm lazy Handle CAS
+
+The complete original-live comparison added after the checkpoint above exposed
+a real host join gap: the native preference URL began empty and ended at the
+owned avatar, while ordinary restore input reached only the JS Avatar actor.
+That preserved run is refused; its original streams are not retimed or repaired.
+The existing normal UI case now joins ordinary `avatarapp.js` URL/Scale calls
+through the same IPC to the complete original native `useFullAvatarURL` and
+`setAvatarScale` bodies. Native Bookmark load replies update only the JS mirror;
+they do not execute a second native setter. Per-load direct native URL/Scale
+assignments are removed. Initial loaded-avatar admission uses the actual URL
+method before the original baseline, without initializing a Setting Handle.
+Complete MyAvatar startup and the model setter remain declared host boundaries.
+
+This separate normal join passes in 32.901 seconds: seven actual native URL and
+two Scale inputs have independent original preference pairs. Four original
+Bookmark callbacks include three cached completions and one declared model
+completion. All 23 lazy Handles and the mutation sequence remain unchanged;
+complete original live values, Settings bytes and Bookmark/cache bytes return.
+Fourteen real end frames span 3343.299 ms native and 3342.995 ms host. The full
+live comparison includes collisions, collision sound and animation overrides;
+all native, host and source chronology gaps must be nonnegative and bounded.
+
+The same original `AvatarPreferenceSnapshot` now retains a private typed warm
+Handle memento, bound to the actual Avatar QObject, Handle, Manager, weak
+binding, all registrations and typed cache rows. It reuses the original passive
+Handle getter; no script-supplied QVariant replacement or additional getter is
+introduced. The normal cached Favorite continues to be a no-op, with its actual
+URL Handle memento compared at each native end sample. With this connection,
+the owning native UI case passes in 30.615 seconds with 14 real frames spanning
+3370.602 ms native and 3364.348 ms host. Its separate mutator is not invoked.
+
+The deliberately narrower `restoreUnwrittenLazy` operation can undo only an
+observed lazy initialization whose worker and full physical file have not
+changed. It compares the current actual registration/cache/Handle and audit
+sequence under the same original Manager barrier before restoring original
+typed fields and absence. It never calls get/remove/deinit as an undo, emits
+no Settings write, touches no unowned row, and never decrements the sequence.
+A changed or written value is refused. Copies share one attempted transaction;
+lost intent/result answers remain owned and do not authorize replay.
+
+The existing native preference selection passes in 11.038 seconds, including
+real get initialization, stale and foreign-registration refusals, lost intent,
+actual restoration with lost result, and written-state refusal. An actual
+original Handle remove no-op during the durable intent increments only the
+audit sequence; atomic sequence CAS refuses that transaction even though the
+data are unchanged. Six actual fsync'd intent/result originals use registered
+private `pico-avatar-lazy-handle-cas-host` v1, each bounded by 64 KiB. They are
+cold-read and fully reread through the existing `ClosedOriginalFile` owner;
+independent original TSI snapshots, rather than journal Booleans, qualify data.
+The earlier protected-call compiler failure and full-live URL refusal remain
+retained. No unchanged retries, budget increases or full Quick selection occur.
+
+These are connected source/host partial results. Warm lazy-only CAS does not
+restore a real set/save or normalize noncanonical Bookmark bytes. Actual
+noncached model persistence, typed worker/file and Bookmark byte CAS, final
+quiet/archive retirement, full Model/EntityTree/renderer ownership, Wearables,
+People/peer/stereo and device qualification remain open. Phone fixed source
+`a7be274da152b9d0b77e2fe5bb9874c5b1e18a31` was compared read-only for its
+durable intent, participant restore and final journal-CAS ordering; its Pal UI
+preferences do not provide this raw lazy Handle memento. No Common18, Phone
+input/mono, graphics or moving work-in-progress sources are imported.

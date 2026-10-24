@@ -83,6 +83,10 @@ int main(int argc,char**argv) {
         assert(preferenceObserver.featurePicoAvatarPreferences(request).isEmpty());
         return QJsonObject{{"request",QJsonObject::fromVariantMap(request)},{"packet",QJsonObject::fromVariantMap(packet)}};};
     const auto originalDataPreferences=preferences();const auto originalDataPhysical=physicalPreferences();
+    auto typedHandles=[&]{return QVariantMap{{"handles",nativeAvatar->e2ePreferenceHandles()}};};
+    auto& typedOwner=*preferenceObserver._featureAvatarPreferences;
+    const auto originalUrlHandle=typedOwner.remember(nativeAvatar.get(),nativeAvatar->_fullAvatarURLSetting,typedHandles);
+    assert(originalUrlHandle.valid());
     const auto originalDataBookmarks=QJsonObject::fromVariantMap(nativeBookmarks.e2eBookmarkStorage());assert(!originalDataBookmarks.isEmpty());
     int originalLoaded=0,cachedOriginalLoads=0,declaredModelCompletions=0;
     QObject::connect(&nativeBookmarks,&avatar_bookmark_host::AvatarBookmarks::bookmarkLoaded,[&](const QString&){++originalLoaded;});
@@ -261,6 +265,8 @@ int main(int argc,char**argv) {
     assert(quietTrace.setPermissions(QFile::ReadOwner|QFile::WriteOwner));
     QElapsedTimer quietClock;quietClock.start();qint64 firstNative=-1,firstEpoch=-1;bool quietComplete=false;
     for(int attempt=0;attempt<83;++attempt){
+        const auto currentUrlHandle=typedOwner.remember(nativeAvatar.get(),nativeAvatar->_fullAvatarURLSetting,typedHandles);
+        assert(typedOwner.unchanged(originalUrlHandle,currentUrlHandle));
         const auto pref=preferences(),book=QJsonObject::fromVariantMap(nativeBookmarks.e2eBookmarkStorage()),work=QJsonObject::fromVariantMap(nativeBookmarks.e2eBookmarkLoads());
         const auto physical=physicalPreferences();const qint64 nativeNs=quietClock.nsecsElapsed(),epoch=QDateTime::currentMSecsSinceEpoch();
         assert(!book.isEmpty()&&!work.isEmpty());if(firstNative<0){firstNative=nativeNs;firstEpoch=epoch;}

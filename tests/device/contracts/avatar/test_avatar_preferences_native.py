@@ -17,6 +17,9 @@ import unittest
 ROOT=Path(__file__).resolve().parents[4]
 sys.path.insert(0,str(ROOT/'tests/device'))
 from adapters.pico4.avatar_preferences import validate,baseline,continuity
+from adapters.chat_journey.archive_file import ClosedOriginalFile
+from adapters.normal_feature_state import PrivateFeatureState
+from adapters.native_feature_observation import decode,exact
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from native_preferences_support import prepare,native_stage
 
@@ -45,8 +48,27 @@ class AvatarPreferencesNativeTests(unittest.TestCase):
                 (stage/('enabled' if runtime else 'disabled')).with_suffix('.stdout.jsonl').write_text(result.stdout)
                 (stage/('enabled' if runtime else 'disabled')).with_suffix('.stderr.txt').write_text(result.stderr)
                 self.assertEqual(0,result.returncode,result.stdout[-1000:]+result.stderr)
+            # The actual native fsync'd intent/result originals are read cold
+            # through the existing bounded descriptor owner, then fully reread.
+            # No journal Boolean supplies the independently observed restoration.
+            journal=[]
+            for index in range(1,7):
+                path=stage/'enabled'/('lazy-cas-'+str(index)+'.json')
+                original=ClosedOriginalFile(path,0o600,PrivateFeatureState(path)._parent)
+                data,stamp=original.read();event=decode(data.decode('utf-8'))
+                phase='intent' if index%2 else 'result'
+                exact(event,({'avatarLazyHandleCasVersion','transaction','phase','key','original','expected'} if phase=='intent' else
+                    {'avatarLazyHandleCasVersion','transaction','phase','restored','verified','after'}))
+                self.assertIs(type(event['avatarLazyHandleCasVersion']),int);self.assertEqual(1,event['avatarLazyHandleCasVersion'])
+                self.assertEqual(phase,event['phase']);self.assertRegex(event['transaction'],'^[0-9a-f]{32}$')
+                if phase=='intent':self.assertEqual('Avatar/scale',event['key'])
+                else:
+                    self.assertIs(event['restored'],index!=2);self.assertIs(event['verified'],index!=2)
+                    self.assertEqual(journal[-1]['transaction'],event['transaction'])
+                self.assertEqual((data,stamp),original.read());self.assertTrue(original.close());journal.append(event)
+            self.assertEqual(3,len({event['transaction'] for event in journal}))
         rows=[json.loads(line) for line in result.stdout.splitlines()]
-        self.assertEqual(['lazy-original','live-only-conflict','initialized-absent','saved-scale','writer-only-conflict','physical-conflict','head-pitch-original-key','late-result-discarded','avatar-replacement'],[row['kind'] for row in rows])
+        self.assertEqual(['lazy-original','live-only-conflict','initialized-absent','lazy-cas-restored','lazy-cas-result-lost-restored','saved-scale','writer-only-conflict','physical-conflict','head-pitch-original-key','late-result-discarded','avatar-replacement'],[row['kind'] for row in rows])
         previous=None
         for row in rows:
             packet=row['packet'];validate(packet,row['request'],packet['processId'],packet['capturedEpochMs'])
@@ -77,6 +99,8 @@ class AvatarPreferencesNativeTests(unittest.TestCase):
         self.assertEqual(a['writer']['physical']['fileSha256'],b['writer']['physical']['fileSha256'])
         self.assertNotEqual(a['cache']['native']['live'],b['cache']['native']['live'])
         with self.assertRaises(NativeUIError):original_preferences(before,after)
+        for kind in ('lazy-cas-restored','lazy-cas-result-lost-restored'):
+            original_preferences(named['lazy-original']['packet'],named[kind]['packet'])
         original=rows[0]
         for path,bad in ((('picoAvatarPreferencesVersion',),True),(('snapshot','writer','matchesPhysical'),False),
                 (('snapshot','cacheMatchesWriter'),False),(('snapshot','writer','physical','capturedEpochMs'),original['packet']['requestedEpochMs']-1),
