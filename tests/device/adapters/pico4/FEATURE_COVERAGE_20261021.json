@@ -287,7 +287,8 @@
         "tests/device/contracts/avatar/native_preferences_support.py",
         "android/vr/pico/tests/device/avatar-bookmark-store-actor.h",
         "android/vr/pico/tests/device/avatar-people-controls.cpp",
-        "android/vr/pico/tests/device/test_assets_native_ui.py"
+        "android/vr/pico/tests/device/test_assets_native_ui.py",
+        "tests/device/contracts/avatar/test_avatar_bookmarks_native.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -331,8 +332,8 @@
         "Delete only owned wearable/bookmark/connection",
         "Confirm both participants have no pending request and observe quiet restoration"
       ],
-      "nextExecutableStep": "Restore exact original raw Handle/cache/writer/physical Settings and bookmark bytes through a native owned CAS, then prove final quiet and retirement. The actual Full-Navigation cached Favorite pairs and existing v16 owner now share strict original raw no-change admission; no lazy mutation is assumed. Noncached model persistence, complete Qt/V8/EntityTree ownership, Wearables and People/peer/stereo remain open.",
-      "nativeCompilation": "Complete original NavigationUi observe/apply and cached Favorite callback through MyAvatar scale/empty-clear methods, Bookmarks writer, Model/Avatar load history, raw entity storage and full Setting Manager/WriteWorker/JSON preference sources host-compiled; cached raw admission shared with v16 owner. Complete application/MyAvatar/V8/Android and exact native restoration unverified",
+      "nextExecutableStep": "Implement original native Mementos and typed Handle/Manager/worker/file CAS for observed raw differences, with durable own intent/result and no unnecessary writes; then final owned retirement. Actual original Settings/Bookmark no-op data and more than 3 seconds of independent native/host end observation now pass through existing Favorite predicates. Whole Model/EntityTree/Qt/V8, Wearables and People/peer/stereo remain open.",
+      "nativeCompilation": "Complete original NavigationUi observe/apply, cached Favorite callback and MyAvatar scale/empty-clear, Bookmarks and full Setting Manager/WriteWorker/JSON sources host-compiled; shared v16 raw admission and actual >=3s Settings/Bookmark no-op source/host end observation pass. Complete application/MyAvatar/V8/Android, raw mutation CAS and final retirement unverified",
       "deviceQualification": "untested"
     },
     {

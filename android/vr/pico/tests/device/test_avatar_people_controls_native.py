@@ -15,7 +15,7 @@ HERE=Path(__file__).resolve().parent
 ROOT=HERE.parents[4]
 sys.path.insert(0,str(HERE))
 sys.path.insert(0,str(ROOT/'tests/device'))
-from test_create_polyvox_controls_native import pointer_source,original
+from test_create_polyvox_controls_native import pointer_source,original,native_trace_process
 from test_emote_ui_native import function
 from test_assets_native_ui import navigation_source
 sys.path.insert(0,str(ROOT/'tests/device/contracts/avatar'))
@@ -65,8 +65,12 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
                 check=True,timeout=max(.001,90-(time.monotonic()-compile_started)),env=environment)
             environment.update(QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',QT_FORCE_STDERR_LOGGING='1')
             for gate in ([],['--testScript']):
-                completed=subprocess.run(['unshare','--user','--map-root-user','--net',str(binary),*gate,str(ROOT),str(stage/'imports')],
-                    text=True,capture_output=True,timeout=30,env=environment)
+                command=['unshare','--user','--map-root-user','--net',str(binary),*gate,str(ROOT),str(stage/'imports')]
+                if gate:
+                    trace=stage/'owned-data-quiet.jsonl';environment['OVERTE_AVATAR_NATIVE_TRACE']=str(trace)
+                    observed=native_trace_process(command,environment,trace)
+                    completed=subprocess.CompletedProcess(command,0,observed['raw'],'')
+                else:completed=subprocess.run(command,text=True,capture_output=True,timeout=30,env=environment)
                 label='enabled' if gate else 'disabled'
                 (stage/(label+'.stdout.json')).write_text(completed.stdout)
                 (stage/(label+'.stderr.txt')).write_text(completed.stderr)
@@ -74,7 +78,49 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
                 result=completed.stdout
             value=json.loads(result)
             from adapters.pico4.avatar_preferences import validate as preference_validate,baseline as preference_baseline,continuity as preference_continuity
-            from adapters.pico4.avatar_favorite_effect import unchanged_preferences
+            from adapters.pico4.avatar_favorite_effect import unchanged_preferences,original_preferences,original_bookmarks
+            before_data=value['originalDataBefore'];after_data=value['originalDataAfter']
+            original_preferences(before_data['preferences']['packet'],after_data['preferences']['packet'])
+            original_bookmarks(before_data['bookmarks'],after_data['bookmarks'])
+            self.assertEqual(before_data['settingsRawBase64'],after_data['settingsRawBase64'])
+            def current_data(data,epoch):
+                packet=data['preferences']['packet']
+                for stamp in (packet['requestedEpochMs'],packet['capturedEpochMs'],data['bookmarks']['capturedEpochMs'],data['loads']['capturedEpochMs']):
+                    self.assertGreaterEqual(epoch-stamp,0);self.assertLessEqual(epoch-stamp,1500)
+                physical=packet['source']['snapshot']['writer']['physical']
+                raw=base64.b64decode(data['settingsRawBase64'],validate=True)
+                self.assertEqual(hashlib.sha256(raw).hexdigest(),physical['fileSha256'])
+            for data in (before_data,after_data):
+                raw=base64.b64decode(data['settingsRawBase64'],validate=True)
+                self.assertEqual(hashlib.sha256(raw).hexdigest(),data['preferences']['packet']['source']['snapshot']['writer']['physical']['fileSha256'])
+            trace_rows=[json.loads(line) for line in observed['traceLines']];receipts=observed['hostReceipts']
+            self.assertEqual(value['originalDataQuietSamples'],len(trace_rows));self.assertEqual(len(trace_rows),len(receipts));self.assertGreaterEqual(len(trace_rows),2)
+            self.assertGreaterEqual(receipts[-1]['capturedHostMonotonicNs']-receipts[0]['capturedHostMonotonicNs'],3000000000)
+            self.assertGreaterEqual(trace_rows[-1]['nativeMonotonicNs']-trace_rows[0]['nativeMonotonicNs'],3000000000)
+            for first,last in zip(trace_rows,trace_rows[1:]):
+                self.assertLessEqual(last['nativeMonotonicNs']-first['nativeMonotonicNs'],500000000)
+            for first,last in zip(receipts,receipts[1:]):self.assertLessEqual(last['capturedHostMonotonicNs']-first['capturedHostMonotonicNs'],500000000)
+            for index,(line,row,receipt) in enumerate(zip(observed['traceLines'],trace_rows,receipts),1):
+                self.assertEqual({'avatarOriginalDataQuietVersion','sequence','nativeMonotonicNs','capturedNativeEpochMs','data'},set(row))
+                self.assertIs(type(row['avatarOriginalDataQuietVersion']),int);self.assertEqual(1,row['avatarOriginalDataQuietVersion'])
+                self.assertEqual({'preferences','bookmarks','loads','settingsRawBase64'},set(row['data']))
+                for field in ('sequence','nativeMonotonicNs','capturedNativeEpochMs'):self.assertIs(type(row[field]),int);self.assertGreater(row[field],0)
+                self.assertEqual(index,row['sequence']);self.assertEqual(index,receipt['sequence'])
+                self.assertEqual(hashlib.sha256(line).hexdigest(),receipt['sourceSha256'])
+                data=row['data'];packet=data['preferences']['packet'];current_data(data,row['capturedNativeEpochMs'])
+                preference_validate(packet,data['preferences']['request'],value['nativeProcessId'],packet['capturedEpochMs'])
+                original_preferences(before_data['preferences']['packet'],packet);original_bookmarks(before_data['bookmarks'],data['bookmarks'])
+                self.assertEqual(before_data['settingsRawBase64'],data['settingsRawBase64'])
+                self.assertEqual(after_data['loads']['rows'],data['loads']['rows'])
+                self.assertTrue(all(event['completed'] and event['disconnected'] and not event['captureAlive'] and event['active']==0 for event in data['loads']['rows']))
+                self.assertGreaterEqual(receipt['capturedHostEpochMs'],row['capturedNativeEpochMs'])
+                self.assertLessEqual(receipt['capturedHostEpochMs']-row['capturedNativeEpochMs'],1500)
+            # Actual earlier native originals remain historical at the later
+            # measured native clock; never retime them into a fresh result.
+            with self.assertRaises(AssertionError):current_data(trace_rows[0]['data'],trace_rows[-1]['capturedNativeEpochMs'])
+            for key in ('bookmarks','loads'):
+                self.assertGreaterEqual(trace_rows[-1]['data'][key]['capturedEpochMs']-trace_rows[0]['data'][key]['capturedEpochMs'],3000)
+            self.assertGreaterEqual(trace_rows[-1]['data']['preferences']['packet']['capturedEpochMs']-trace_rows[0]['data']['preferences']['packet']['capturedEpochMs'],3000)
             effects=value['originalFavoritePreferences'];self.assertEqual(len(value['originalBookmarkLoads']),len(effects))
             previous=None
             for effect in effects:

@@ -50,6 +50,7 @@ REQUIRED = {
     "pico-avatar-state": 1,
     "pico-avatar-urls-owner": 3,
     "pico-avatar-favorites-owner": 1,
+    "pico-avatar-original-data-quiet-host": 1,
     "pico-avatar-favorite-effect": 1,
     "native-model-load-history": 1,
     "pico-browser-originals": 4,

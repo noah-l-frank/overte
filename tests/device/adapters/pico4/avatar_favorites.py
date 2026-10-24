@@ -232,6 +232,14 @@ class PicoAvatarFavorites:
                 and saved['geometry'] is not None and native['geometry']['url']==saved['geometry']['url'] and native['hipsJoint']>=0 and not avatar_state.failed(native)):return False
         else:
             if any(native[k]!=before['native']['source'][k] for k in ('requestedUrl','preferenceUrl','modelName','modelUrl','modelInstance','geometry')):return False
+        if verb=='cleanup':
+            from adapters.pico4.avatar_favorite_effect import original_preferences,original_bookmarks
+            original_preferences(original['preferences'],values['preferences'])
+            original_bookmarks(original['bookmarks']['source']['storage'],bookmarks)
+            base=original['native']['source']
+            if any(native[key]!=base[key] for key in ('requestedUrl','preferenceUrl','modelName','avatarEntityStorage','modelUrl','scale','targetScale')):return False
+            if not(native['loaded'] and native['geometry'] is not None and base['geometry'] is not None
+                    and native['geometry']['url']==base['geometry']['url'] and not avatar_state.failed(native)):return False
         scale=expected.get('scale',1 if verb=='avatar-bookmark-choose' else before['native']['source']['scale'])
         return all(abs(native[k]-scale)<.0001 for k in ('scale','targetScale'))
     def quiet_original(self,state,first,last,call):

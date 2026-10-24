@@ -634,3 +634,63 @@ EntityTree/V8/Android ownership, Wearables, contacts, peer/stereo and devices
 remain unqualified. The shared owner tests retain their declared SDK/Qt/model
 DTO boundaries; retained fixture copies are historical originals, not live
 source identities or retirement proof. Full Feature 3 remains unavailable.
+
+
+## Exact original data and actual no-op end observation
+
+Cleanup in the existing Favorite owner now requires the independently acquired
+original typed Handle values/defaults/presence/bindings, raw Manager rows,
+actual writer variants/encoded rows, whole Settings file hash and exact
+Bookmark/cache bytes. The original live URL/model-name/scale and loaded
+resource URL must also match the captured baseline. Semantic map equality,
+a successful Delete or default-value reconstruction cannot stand in for bytes.
+This is a strict completion predicate, not an additional getter or write path.
+A differing original remains owned; no raw mutator or unlink is implemented in
+this checkpoint.
+
+The same data predicates qualify the existing native normal UI case. It
+captures real original preference and Bookmark data before the normal flow,
+then records independent end samples from the actual TSI/Handle/Manager/
+WriteWorker/physical reader and original Bookmark/cache/callback sources.
+The registered private `pico-avatar-original-data-quiet-host` v1 trace has a
+closed shape. The existing native trace collector immediately reads every
+original line and records its SHA-256, actual host monotonic time and epoch.
+The producer waits for those real host receipts and actual native observations
+to span at least 3000 ms; it never substitutes a time margin, expected baseline
+or a requested state. Every source and actual host receipt must remain within
+1500 ms, with native and host sampling gaps no larger than 500 ms. Complete
+Settings bytes are independently tied to the TSI's whole-file hash.
+
+Final native validation passed in 28.652 seconds. Fourteen actual end frames
+span 3346.867 ms on the native monotonic clock and 3338.978 ms on the independent
+host clock. Preference/Bookmark/callback epochs span 3346/3347/3347 ms; the
+largest native/host gaps are 263.904/262.551 ms. All 23 observed lazy Handles
+and every mutation sequence remain unchanged, complete Settings bytes remain
+original, and the normal original Delete has restored complete Bookmark and
+cache bytes. Its actual new file revision is retained separately; no old inode
+or timestamp is asserted to return. The first actual frame, unchanged, is
+explicitly refused as current evidence at the last measured native epoch.
+The original trace is 234121 bytes, within unchanged 512-frame/16-MiB bounds.
+Combined native build, per-native runtime and outer selection limits remain
+90/30/120 seconds.
+
+The affected existing full Favorite owner case passed in 54.466 seconds. Real
+preference-native get/set originals remain independently valid but fail the
+same original-data predicate (8.619 seconds). The existing real Bookmark-native
+case also demonstrates the important opposite: its normal original writer
+canonicalizes a noncanonical starting file. The map is restored but the raw
+bytes differ, so the new original-data predicate correctly refuses completion
+(2.889 seconds). No restore is manufactured for that negative case. Full
+original streams/generated stages, all source freezes and independent host
+receipts are retained. Fixture process/worker shutdown occurs after the measured
+window and supplies no retirement evidence.
+
+This native end observation qualifies the scoped Settings/Bookmark no-op data
+condition. The surrounding MyAvatar/model initialization and JS/native model
+endpoints remain declared host actors; no complete Model/renderer/V8/Qt heap,
+EntityTree, peer/stereo or device verdict follows. The Favorite and URL owners
+remain retained. Observed raw differences still need original native Mementos,
+typed Handle/Manager and real worker/file CAS with durable intent/result
+receipts, then actual quiet and owned retirement. No mutation sequence may be
+rolled back, no unowned row may be overwritten, and no cache deletion or process
+exit replaces restoration. Full Feature 3 remains unavailable.

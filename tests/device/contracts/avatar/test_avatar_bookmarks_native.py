@@ -8,7 +8,6 @@ from pathlib import Path
 import shlex
 import subprocess
 import sys
-import tempfile
 import unittest
 ROOT=Path(__file__).resolve().parents[4]
 sys.path.insert(0,str(ROOT/'tests/device'))
@@ -19,6 +18,10 @@ def function(source,signature):
     start=source.index(signature);end=source.index('{',start)+1;depth=1
     while depth:depth+=(source[end]=='{')-(source[end]=='}');end+=1
     return source[start:end]
+
+
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from native_preferences_support import native_stage
 
 
 class AvatarBookmarksNativeTests(unittest.TestCase):
@@ -34,14 +37,16 @@ class AvatarBookmarksNativeTests(unittest.TestCase):
             extra=['-L'+str(prefix/'usr/lib64')];moc=prefix/'usr/lib64/qt5/bin/moc'
         else:moc=Path(subprocess.check_output(['pkg-config','--variable=libexecdir','Qt6Core'],text=True).strip())/'moc'
         flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt'+major+'Core'],env=environment,text=True))
-        with tempfile.TemporaryDirectory(prefix='pico-avatar-bookmarks-') as directory:
+        with native_stage('pico-avatar-bookmarks-') as directory:
             stage=Path(directory);cpp=stage/'test.cpp';cpp.write_text(Path(__file__).with_name('avatar-bookmarks-native.cpp').read_text());binary=stage/'test'
             (stage/'actual-avatar-bookmarks.inc').write_text(code)
             subprocess.run([str(moc),str(cpp),'-o',str(stage/'test.moc')],check=True,timeout=20,env=environment)
             built=subprocess.run(['c++','-std=c++17','-fPIC','-pthread','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-DANDROID_APP_PICO_INTERFACE','-I'+str(ROOT),str(cpp),'-o',str(binary),*extra,*flags],capture_output=True,text=True,timeout=60,env=environment)
+            (stage/'compile.stdout.txt').write_text(built.stdout);(stage/'compile.stderr.txt').write_text(built.stderr)
             self.assertEqual(0,built.returncode,built.stderr[:6000])
             subprocess.run([str(binary)],check=True,timeout=10,env=environment)
             result=subprocess.run([str(binary),'--testScript'],capture_output=True,text=True,timeout=10,env=environment)
+            (stage/'enabled.stdout.jsonl').write_text(result.stdout);(stage/'enabled.stderr.txt').write_text(result.stderr)
             self.assertEqual(0,result.returncode,result.stdout+result.stderr)
         rows=[json.loads(line) for line in result.stdout.splitlines()];self.assertEqual(['original','read-only','saved','deleted','after-dispatch-retired','after-worker-retired','replacement','absent'],[r['kind'] for r in rows])
         previous=None
@@ -52,6 +57,12 @@ class AvatarBookmarksNativeTests(unittest.TestCase):
             else:continuity(previous,value)
             previous=value
         a,b=(rows[i]['packet']['source']['storage'] for i in (0,3));self.assertEqual(a['bookmarks'],b['bookmarks']);self.assertNotEqual(a['rawSha256'],b['rawSha256'])
+        from adapters.pico4.avatar_favorite_effect import original_bookmarks
+        from adapters.normal_ui import NativeUIError
+        # Original writer really normalized the same semantic map. Full byte
+        # restoration must refuse this independently valid physical difference.
+        with self.assertRaises(NativeUIError):original_bookmarks(a,b)
+        original_bookmarks(a,rows[1]['packet']['source']['storage'])
         self.assertTrue(rows[2]['packet']['source']['storage']['bookmarks']['e2e-'+'d'*32]['avatarScale']==1)
         first=rows[0]
         for field,bad in (('capturedEpochMs',first['packet']['requestedEpochMs']-1),('rawSha256','0'*64),
