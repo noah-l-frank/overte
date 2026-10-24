@@ -4968,5 +4968,43 @@
     "genuineNewProcessSceneStereoAndPublicWholeCleanupComplete": false,
     "completeFeature": false,
     "deviceAcceptance": false
+  },
+  "lifecycleBaselineRoot20261024": {
+    "status": "passed-selected-host-components",
+    "sourceHead": "a3cede26383d4e09fcbc4814a93d5e7f866d9732",
+    "selectedSource": "35b2d4a89595b3a9ee133607ddc58fba84f8c8e6",
+    "catalogGroups": 245,
+    "selectors": {
+      "coverage-matrix": {
+        "cases": 10,
+        "selectorSeconds": 0.092
+      },
+      "lifecycle-primary-observation": {
+        "cases": 7,
+        "selectorSeconds": 51.876
+      },
+      "lifecycle-primary-baseline": {
+        "cases": 3,
+        "selectorSeconds": 21.474
+      }
+    },
+    "selectedDurationSeconds": 73.44,
+    "sourceFiles": 13522,
+    "sourcesUnchanged": true,
+    "newReadonlyBaselineBeforeCreate": true,
+    "actualTypedParticipantGraphAttachedUnderContinuousSourceLock": true,
+    "originalReadonlyAndMutatingReaderFloorsJoined": true,
+    "refusalKeepsBadOriginalAndHasZeroNextNativeQueries": true,
+    "legacySameReaderUsesOriginalFloorBeforeQuery": true,
+    "legacyWire1RetainedNewWire2Reads1And2": true,
+    "sameWorldFrameCap": 128,
+    "fullCommonWaitBudgetMeasured": false,
+    "completeFeature": false,
+    "deviceAcceptance": false,
+    "repository": {
+      "suites": 4,
+      "status": "passed",
+      "durationSeconds": 2.66
+    }
   }
 }

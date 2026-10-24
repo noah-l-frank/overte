@@ -1680,7 +1680,10 @@
         "tests/device/adapters/pico4/lifecycle_observation.py",
         "tests/device/adapters/pico4/LIFECYCLE_OBSERVATION.md",
         "tests/device/self_tests/test_pico_lifecycle_observation.py",
-        "android/vr/pico/tests/device/test_lifecycle_observation.py"
+        "android/vr/pico/tests/device/test_lifecycle_observation.py",
+        "tests/device/adapters/pico4/LIFECYCLE_BASELINE.md",
+        "tests/device/self_tests/test_pico_lifecycle_observation_baseline.py",
+        "android/vr/pico/tests/device/test_lifecycle_observation_baseline.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1725,7 +1728,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Connect fresh common v16 baseline observations before first Create input without prematurely binding later Pending input callbacks, then attach the same actual owner graph and preserve source continuity. Root verifies fresh Scripts4 observations through the existing normal Restore/Restart at127/128 World frames, both process versions and final-age/lock/cap faults. Baseline/full16-action waits must still fit the same128; no old frame may be replayed as fresh. Independent Actor/images, public coordinator and final process/context/file retirement remain incomplete.",
+      "nextExecutableStep": "Original readonly baseline before first Create and later live Chat/background/Pending/Close attachment are integrated. Root passes7 observation cases plus3 baseline/handoff cases with all13,522 source hashes unchanged; full original reader sequence/intent floors refuse regressions before another NativeFeature query while preserving bad originals. Connect the existing OverteSession/common v16 Primary wait to the same source and measure its actual advancing baseline and3s negative wait alongside the unchanged normal owners. All16 actions and Restore/Restart must fit the same128-frame World journal; no cursor reset or replayed old frame as fresh. Prior separate127-frame Restore and89-frame new prefix are not a complete common execution. Independent Actor/images, public coordinator and final process/context/file retirement remain open.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

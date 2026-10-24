@@ -3154,3 +3154,25 @@ Qt/VM/OS/GPU remain explicit host seams. Fresh genuine G1 scene/stereo, original
 maturity/origin restoration, independent publication, public whole flow and
 final resource/Host/journal closure remain required. Source-complete3/14 and
 physical qualification0 remain unchanged.
+
+
+## Root-verified Lifecycle baseline before normal input
+
+Source35b2d4a895 is selected as a3cede2638. Integrated observation7/51.876s,
+baseline/handoff3/21.474s and coverage10/0.092s pass73.44s. All13,522 source
+hashes match before/after. Four repository suites pass2.66s. Catalog245
+retains all14 risk rows and the Root TMPDIR-independent diagnostics.
+
+The actual original pre-Create baseline uses a readonly Pending reader with no
+input callbacks. Later actual Chat/background/Pending/Close owners attach under
+one continuous source lock. Complete original sequence/intent floors join both
+readers; a bad returned original remains archived and blocks the next Native
+query. Legacy same-reader observation snapshots its original floor before the
+query advances it, preserving version1; the new baseline writes2/reads1,2.
+
+The next private connection is the existing common Primary wait through the
+actual OverteSession seam. Its advancing baseline,3s negative wait, all normal
+owners and Restore/Restart must fit the same128-frame journal. Prior separate
+89-frame prefix and127-frame Restore evidence cannot be combined into a Whole
+claim. Actor/images, public operation and final closure remain open; source
+complete3/14 and physical qualification0 remain unchanged.
