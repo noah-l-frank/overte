@@ -133,3 +133,34 @@ no failed owner is adopted and no source is queried or unlinked. Its profile
 continues to identify full strict expected-DTO checking as a separate cost.
 Evidence: `browser-capture-admission-byte-cost-20261024.json`/`.pstats`.
 This is component CPU evidence, not whole-run performance or completion.
+
+
+## Later complete-case diagnostic after admission optimizations
+
+Root reran the unchanged full owning case on integrated `6a06bce8f5`, using
+an independent actual tmpfs root and the unchanged **120-second outer bound**.
+All 26 normal actions and common cleanup completed, but the process reached
+the bound during archive retirement (**exit124**, **120.024 s**). There is
+no successful whole finalization or throughput claim: 1,087 original archive
+copies/manifests exist, 143 unlinks are confirmed, and the terminal marker
+remains `retiring` with no pending unlink. The archive sentry remains
+`archiving`; final source/archive/host release was not reached.
+
+The actual complete source hashes and physical signatures of **13,621**
+files remain unchanged. An independent terminal process audit found no worker
+using the unique root; 2,115 retained files were stable while their complete
+hash/physical inventory was captured. The new root is historical partial
+evidence only and cannot be adopted or continued by a cold owner.
+
+Private evidence uses the unique `browser-whole-admission-cost-*20261024`
+source/log/terminal/audit/original-manifest names, under
+`/home/user/Documents/github/overte-pico-adapter-private-20261021`. Original
+files remain in
+`/tmp/overte-pico-browser-admission-cost-whole-20261024-8r6yuzwj`.
+The earlier failed whole graph and its independent manifests remain separate.
+Measured remaining costs include full capture-history validation before
+archive admission and repeated complete physical copy inventory, namespace/PNG
+reads and actual independent phase queries for each unlink. Those requirements
+remain in force; faster isolated serialization has not established a faster
+whole result. No unchanged whole retry is justified without a material next
+change or a separately scoped diagnostic.
