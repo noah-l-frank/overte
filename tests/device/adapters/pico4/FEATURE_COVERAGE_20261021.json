@@ -1654,7 +1654,13 @@
         "tests/device/self_tests/test_lifecycle_world_codec.py",
         "android/vr/pico/tests/device/test_lifecycle_close_factory.py",
         "android/vr/pico/tests/device/test_lifecycle_close_owner.py",
-        "android/vr/pico/tests/device/test_lifecycle_world_codec.py"
+        "android/vr/pico/tests/device/test_lifecycle_world_codec.py",
+        "tests/device/adapters/pico4/lifecycle_restore.py",
+        "tests/device/adapters/pico4/LIFECYCLE_RESTORE.md",
+        "tests/device/adapters/pico4/LIFECYCLE_RESTORE_REVIEW.md",
+        "tests/device/self_tests/test_pico_lifecycle_restore.py",
+        "tests/device/self_tests/test_lifecycle_process_compatibility.py",
+        "tests/device/self_tests/test_lifecycle_process_finalization.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1684,7 +1690,7 @@
         "staleAttempts"
       ],
       "missingOperationsOrEvidence": [
-        "Whole normal Create/X/editor/keyboard/pending-event composition; actual ordinary X mapping and original weak source are present",
+        "Whole shared v16 observation and phase composition around the root-verified normal Create/X/editor/keyboard/pending/restore/restart owner chain",
         "Immutable actual Pico OpenXR gesture consumption, independent peer displacement, original context and controller retirement",
         "Whole interruption/stale rejection/restoration/final cleanup coordinator"
       ],
@@ -1699,7 +1705,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Compose actual initial Process.begin before first normal input with original-position restoration after the now root-verified normal two-X close and second world movement/release. Fresh World v2 retains all actual source frames within unchanged 128-frame/16-MiB/48-KiB limits; existing v1 continues its original codec and operations without migration. Root verifies ten codec/owner and eight close/factory cases, plus 27 existing World/process cases. Normal Address/viewpoint restoration must independently match original pose; serverless versus connected status must use genuine versioned native observations. Independent peer/image evidence, whole v16/public coordinator and final process/context/file retirement remain incomplete.",
+      "nextExecutableStep": "Connect the root-verified original pre-input Process.begin, existing editor/X/Chat/background/Scripts/pending/stale/close/two-world prefix, normal location-only restoration and once-only restart to fresh common v16 Primary/Actor observations. Root verifies both process wire versions, real final-save/report/guard/outer-lock-age counterexamples and unchanged v1 cold bytes/operations across195 cases in5 selectors. Same128-World-frame and all existing byte/quiet/source limits remain. Whole common waits, independent peer/images, public coordinator and final process/context/file retirement remain incomplete.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

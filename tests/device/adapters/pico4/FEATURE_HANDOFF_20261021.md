@@ -3037,3 +3037,39 @@ terminal bytes/stamps during private snapshot/backup; this does not claim the
 The next measured boundary is per-unlink historical inventory/copy checking
 through the unchanged 16-unlink/250 ms source policy and final native clocks.
 No complete Browser/public/device capability is enabled.
+
+
+## Root-verified normal Lifecycle restoration and versioned process closure
+
+Sources 84d122721b2c8380017ed2bf12a8ac1ba5490264 and
+9cb02f4b189117f965a1fbf2092a17cb62ab9c24 are selected locally. The initial
+coverage merge retained conflict markers and correctly failed JSON discovery;
+414b630e7965fa789c86ed50b1f30106b348309b restores the original 237-entry mapping
+plus exactly three new selectors before functional checks. No test ran green
+on that malformed intermediate mapping. All existing Root risks/selectors stay.
+
+The corrected Root selection passes five groups in 150.81 s, within each
+unchanged 120 s bound: original lifecycle-input159/30.961 s, through normal
+restore/process1/20.156 s, process-v2 requirements14/74.404 s, finalization and
+compatibility11/25.189 s, coverage10/0.104 s. The original legacy selector
+contains 159 cases, including its explicitly v1 process class; the agent's
+separate 14-case legacy result is not that selector's complete count. All
+13,497 tracked/new source hashes match before/after (195 selected cases).
+
+The actual initial Process baseline precedes input. The original editor/X/
+Chat/background/Scripts/pending/stale/Close and second world input/release
+continue into the normal path-only address input, preserving the original
+scene URL and independently checked original pose. The same 128-frame World
+journal counts all authoritative reads. New Process-v2 records every acquired
+Prepare Native/Domain pair and uses measured XZ6/XZ6EXTREME within existing
+16-MiB raw/48-KiB payload/64-KiB file/16-MiB decoder limits. World snapshots and
+legacy process zlib bytes remain unchanged. Actual serverless disconnected
+NativeChat2/3 packets remain observed states; v1 connected-Chat2 stays strict.
+
+Both process versions now retain their same acquired final source epochs
+through result construction, landed save, final guards and true outer lock
+exit. Separate real red-before-fix counters and Root green checks cover device
+clock jumps with a frozen host, report allocation, lost new process guard and
+actual restart-lock exit without another sample/input. Journals stay retained;
+this does not complete the common v16 Primary/Actor/image/public coordinator
+or final process/context/file retirement. Source-complete areas remain3/14.

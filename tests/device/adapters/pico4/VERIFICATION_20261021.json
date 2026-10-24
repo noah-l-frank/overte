@@ -4805,5 +4805,52 @@
     "terminalSnapshotUnchangedDuringCapture": true,
     "backupSha256": "bd8d073e346a91d928864e79e9ea1c0aeb80c0bf6c81b4a3de86c6bed6551827",
     "backupQualification": "historical-byte-backup-only-no-live-owner-adoption"
+  },
+  "lifecycleRestoreProcessRoot20261024": {
+    "status": "passed-selected-host-components",
+    "sourceHead": "414b630e7965fa789c86ed50b1f30106b348309b",
+    "selectedSourceCommits": [
+      "84d122721b2c8380017ed2bf12a8ac1ba5490264",
+      "9cb02f4b189117f965a1fbf2092a17cb62ab9c24"
+    ],
+    "coverageSelectionCorrection": "414b630e7965fa789c86ed50b1f30106b348309b",
+    "catalogGroups": 240,
+    "selectors": {
+      "coverage-matrix": {
+        "cases": 10,
+        "selectorSeconds": 0.104
+      },
+      "lifecycle-input-owner": {
+        "cases": 159,
+        "selectorSeconds": 30.961
+      },
+      "lifecycle-restore-owner": {
+        "cases": 1,
+        "selectorSeconds": 20.156
+      },
+      "lifecycle-process-v2": {
+        "cases": 14,
+        "selectorSeconds": 74.404
+      },
+      "lifecycle-process-finalization": {
+        "cases": 11,
+        "selectorSeconds": 25.189
+      }
+    },
+    "selectedDurationSeconds": 150.81,
+    "sourceFiles": 13497,
+    "sourcesUnchanged": true,
+    "newProcessWriter": 2,
+    "processReads": [
+      1,
+      2
+    ],
+    "v1FinalAgeAndTrueOuterLockExitChecked": true,
+    "v1WorldSnapshotAndProcessCodecUnchanged": true,
+    "noFrameRawPackedFileClockQuietOrDeliveryBudgetIncrease": true,
+    "normalLocationOnlyRestorePreservesOriginalSceneUrl": true,
+    "wholeFeaturePublicActorImagesAndFinalSourceRetirementComplete": false,
+    "completeFeature": false,
+    "deviceAcceptance": false
   }
 }
