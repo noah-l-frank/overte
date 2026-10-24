@@ -132,3 +132,11 @@ members, so the original TERM-based cleanup can retire them. No worker is
 restarted. No OOM-score, global memory policy or unrelated process is changed.
 A rejected ownership check keeps the failure explicit and supplies no claim
 that every allocation source was successfully paused.
+
+The actual original exception, traceback, explicit cause and suppressed context
+are saved before waiting in mode0600
+`debug-hold/ORIGINAL_EXCEPTION.private.json`. Messages and paths remain private;
+stdout contains only closed diagnostic codes. The file explicitly reports any
+exception-chain bound. Recording I/O failure never authorizes cleanup or claims
+complete error evidence. Historical held controllers lacking this file are not
+retroactively given a fabricated original traceback.

@@ -331,6 +331,28 @@ class DomainFixtureTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,"LIMIT_MISMATCH"):
                 module.DomainMemoryGuard.resolve_budget(task,6*1024**3,info)
 
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Linux private hold exception capture")
+    def test_debug_hold_retains_actual_original_trace_cause_and_suppressed_context_privately(self):
+        import io
+        from contextlib import redirect_stdout
+        spec=importlib.util.spec_from_file_location("domain_private_exception_counter",CONTROLLER)
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory()as temporary:
+            hold=module.DomainDebugHold(Path(temporary));self.addCleanup(os.close,hold.fd)
+            console=io.StringIO();marker="synthetic-private-cause-marker"
+            try:
+                try:raise ValueError(marker)
+                except ValueError:raise RuntimeError("DOMAIN_MEMORY_OWN_BUDGET_UNPROVEN")from None
+            except RuntimeError as original:
+                with redirect_stdout(console):hold.begin("DOMAIN_START_OR_RUNTIME_ERROR",(),original)
+                self.assertIs(original,hold.original_error)
+            private=hold.directory/"ORIGINAL_EXCEPTION.private.json";record=json.loads(private.read_text())
+            self.assertEqual(0o600,private.stat().st_mode&0o777);self.assertFalse(record["chainTruncated"])
+            self.assertEqual(["RuntimeError","ValueError"],[v["class"]for v in record["originalExceptionChain"]])
+            self.assertIn(marker,record["originalExceptionChain"][1]["traceback"]);self.assertTrue(record["originalExceptionChain"][0]["suppressesContext"])
+            self.assertNotIn(marker,console.getvalue());self.assertTrue(hold.exception_recorded)
+            self.assertFalse(json.loads((hold.directory/"FAILURE.private.json").read_text())["cleanupAttempted"])
+
     def online_noop_fixture(self):
         """Use the exact nested source with real private children and HTTP /id.
 

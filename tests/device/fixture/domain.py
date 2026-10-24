@@ -417,6 +417,7 @@ class DomainDebugHold:
         self.ready = None
         self.released = False
         self.original_error = None
+        self.exception_recorded = False
         self.memory_guard = None
         self.write("OWNER.private.json", {"schemaVersion": 1, "context": self.context,
             "contextSha256": self.context_sha256, "nonce": self.nonce})
@@ -489,10 +490,32 @@ class DomainDebugHold:
             raise RuntimeError("DOMAIN_DEBUG_READY_CHANGED")
         self.ready = (path, self.signature(after), body)
 
+    def record_exception(self, error):
+        if self.exception_recorded or error is None or error.__traceback__ is None:return
+        import traceback
+        pending=[(error,"original")];seen=set();chain=[]
+        while pending and len(chain)<32:
+            item,relation=pending.pop(0)
+            if id(item)in seen:continue
+            seen.add(id(item))
+            chain.append({"relation":relation,"class":type(item).__name__,"message":str(item),
+                          "traceback":"".join(traceback.format_exception(type(item),item,item.__traceback__,chain=False)),
+                          "suppressesContext":bool(item.__suppress_context__)})
+            if item.__cause__ is not None:pending.append((item.__cause__,"cause"))
+            if item.__context__ is not None:pending.append((item.__context__,"context"))
+        try:
+            self.write("ORIGINAL_EXCEPTION.private.json",{"schemaVersion":1,
+                "contextSha256":self.context_sha256,"observedEpochNs":time.time_ns(),
+                "originalExceptionChain":chain,"chainTruncated":bool(pending)})
+            self.exception_recorded=True
+        except (OSError,ValueError,RuntimeError):
+            print("DOMAIN_DEBUG_EXCEPTION_RECORDING_ERROR",flush=True)
+
     def begin(self, code, processes, error=None, details=None):
         # Called under the same lock as control mutations and monitoring.
         self.active.set()
         self.original_error = error
+        self.record_exception(error)
         if self.memory_guard is not None and not (details or {}).get("freezeComplete"):
             details = dict(details or {})
             try:
@@ -510,6 +533,7 @@ class DomainDebugHold:
                 "exceptionClass": type(error).__name__ if error is not None else "RuntimeError", "observedEpochNs": time.time_ns(),
                 "contextSha256": self.context_sha256, "processes": snapshot,
                 "currentReadyHealthy": False, "cleanupAttempted": False,
+            "originalExceptionRecorded":self.exception_recorded,
             **({"details":details} if details is not None else {})})
             if self.ready is not None:
                 path, signature, body = self.ready
@@ -1262,6 +1286,7 @@ def _controller_main(hold_state) -> int:
                 if not debug_hold.active.is_set():
                     debug_hold.begin("DOMAIN_START_OR_RUNTIME_ERROR",
                         tuple(debug_hold.processes), error)
+            debug_hold.record_exception(error)
             debug_hold.wait_release()
         raise  # Preserve the original failed verdict after explicit cleanup release.
     finally:
@@ -1292,6 +1317,7 @@ def main() -> int:
             if not debug_hold.active.is_set():
                 debug_hold.begin("DOMAIN_START_OR_RUNTIME_ERROR",
                     tuple(debug_hold.processes), error)
+            debug_hold.record_exception(error)
             debug_hold.wait_release()
         raise
     finally:
