@@ -20,6 +20,7 @@ from ios.adapters.emote_retirement import Frozen
 from ios.adapters.emote_rooted_live import IOSEmoteRootedLive
 from ios.adapters.emote_rooted_retirement import IOSEmoteRootedKeyedRetirement
 from ios.adapters.emote_rooted_scene_retirement import IOSEmoteRootedSceneRetirement
+from ios.adapters.emote_rooted_gpu import validate as current_gpu
 from ios.adapters.emote_scene_history import validate as scene_history
 from ios.adapters.emote_scene_order import IOSEmoteSceneOrder
 from ios.adapters.emote_scene_proof import rooted
@@ -38,6 +39,7 @@ class IOSEmoteRootedResponsibility:
         with read_scope(fresh=True) as reads:
             self.values=self.metadata()
             self.validate(self.values,parts,owner,live)
+            self.values.update({str(path):value for path,value in current_gpu(flow,parts).items()})
         for lease in leases:lease.guard()
         self.signatures=AvatarRecordCache.signatures(reads)
         self.carriers=self.original_carriers(parts)

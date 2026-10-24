@@ -45,6 +45,7 @@ class TerminalJournalTests(unittest.TestCase):
         for role in ('actor','primary'):
             held=self.roles[role].lock.held();held.__enter__();self.addCleanup(held.__exit__,None,None,None)
         self.window=object.__new__(IOSEmoteTerminalWindow);self.window.roles=self.roles
+        for owner in self.roles.values():owner.primary_lock=self.roles['primary'].lock
         self.window.guard=lambda:all(owner.lock.assert_held() is None for owner in self.roles.values())
         for role,owner in self.roles.items():
             owner.originals=OriginalFrameStore(self.artifacts,owner.binding,RUN,role,self.window.guard,lambda *_:None,

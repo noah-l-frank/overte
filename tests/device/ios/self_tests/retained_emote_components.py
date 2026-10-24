@@ -59,4 +59,11 @@ def load(roots,locks,role,run):
     parts=dict(sources=sources,peers=peers,scope=scope,samples=samples,observer=observer,restoration=historical.rendered_owner.frames_owner)
     need(same(sources.store.read(),raw['sources']) and same(scope_store.read(),raw['scope'])
         and same(samples.store.read(),raw['sampleOwners']))
+    for name,field in (('sources','sources'),('peers','peers'),('files','fileReceipts'),('entities','entities'),('pointers','pointers')):
+        if native.paths[name] is not None:need(same(PrivateFeatureState(native.paths[name]).read(),raw[field]))
+    for tail in ('marker-files','marker-script'):
+        need(PrivateFeatureState(root/('ios-emote-'+role+'-'+tail+'.json')).read() is None)
+    if role=='primary':
+        for key,name in (('cleanup','cleanup-inputs'),('actions','inputs'),('background','background')):
+            need(same(PrivateFeatureState(root/('ios-emote-'+name+'.json')).read(),raw['inputOwners'][key]))
     return flow,parts,owner,live

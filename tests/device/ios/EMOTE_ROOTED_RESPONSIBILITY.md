@@ -56,9 +56,10 @@ the existing terminal/journal recoveries and no persistence after a late
 responsibility change. The retained-component test helper has no runtime or
 native transport and cannot reacquire or reconstruct missing originals.
 
-This packet covers the named additional ownership families. Full unknown-
-carrier/GPU ownership coverage and the final frozen ownership archive remain
-required, as do once-only per-role Stop, independent OS absence, separate SDK
+The [paired inventory and current GPU guard](EMOTE_ROOTED_INVENTORY.md) now
+extend these named ownership families to the complete scoped read set.
+The final frozen ownership archive remains required, as do once-only per-role
+Stop, independent OS absence, separate SDK
 DELETE/GET-404 and canonical/worker recovery. Finish remains pending before any
 live query, complete capability admission stays closed, native compilation is
 unverified and devices remain untested. Emotes remains partial.

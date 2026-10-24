@@ -77,5 +77,7 @@ once-only per-role Stop, OS/SDK end and canonical/worker replay remain required.
 The [current additional responsibility guard](EMOTE_ROOTED_RESPONSIBILITY.md)
 now replays actual recovery, rooted scene-gate/order and independent publisher
 histories before terminal persistence. Its combined retained-file read passes
-with all 904 originals unchanged. This remains separate from full unknown-
-carrier coverage and final process/SDK ownership retirement.
+with all 904 originals unchanged. The
+[paired inventory and current GPU join](EMOTE_ROOTED_INVENTORY.md) additionally
+pass over all 886 scoped carriers without missing membership. Final frozen
+ownership and process/SDK retirement remain required.

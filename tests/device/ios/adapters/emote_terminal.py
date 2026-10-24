@@ -7,6 +7,7 @@ failed preparation, OS death and SDK retirement need their own typed owners.
 # SPDX-License-Identifier: Apache-2.0
 from adapters.native_feature_observation import exact,need
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.original_file_reads import scope as read_scope,record as original_read
 from adapters.script_feature.history import same
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys import terminal
@@ -19,6 +20,7 @@ from ios.adapters.emote_rooted_responsibility import IOSEmoteRootedResponsibilit
 from ios.adapters.emote_terminal_window import IOSEmoteTerminalWindow
 from ios.adapters.peer_admission import validate as admitted
 from ios.adapters.emote_terminal_journal import IOSEmoteTerminalJournal
+from ios.adapters.emote_rooted_inventory import IOSEmoteRootedInventory
 
 
 class IOSEmoteTerminal:
@@ -55,12 +57,14 @@ class IOSEmoteTerminal:
         self.flow,self.actor,self.runtime=primary,actor,primary.runtime
         self.monotonic,self.deadline,self.last_clock=primary.monotonic,None,None
         self.responsibilities=[]
+        self.inventory=None
 
     def clock(self):return clock(self)
 
     def guard(self):
         self.clock()
         for original in self.responsibilities:original.guard()
+        if self.inventory is not None:self.inventory.guard()
         self.clock();return True
 
     def local_window(self,flow):
@@ -87,7 +91,9 @@ class IOSEmoteTerminal:
         if flow.role=='primary':
             for key,name in (('cleanup','cleanup-inputs'),('actions','inputs'),('background','background')):
                 need(same(PrivateFeatureState(flow.store.path.with_name('ios-emote-'+name+'.json')).read(),raw['inputOwners'][key]))
-        self.responsibilities.append(IOSEmoteRootedResponsibility(flow,parts,owner,live))
+        responsibility=IOSEmoteRootedResponsibility(flow,parts,owner,live)
+        self.responsibilities.append(responsibility)
+        for path in responsibility.signatures:original_read(path)
         return live
 
     def window(self):
@@ -106,12 +112,15 @@ class IOSEmoteTerminal:
     @operation(30)
     def invoke(self,call):
         call=terminal.arguments('emotes',call);need(call['runId']==self.flow.run)
+        self.inventory=None
         if call['stage']=='finish':
             # Never open an SDK/native component while answering an unfinished
             # process-end retry. Historical proof replay is a separate reader.
             raise EmoteObservationPending('Rooted Emote process and SDK end are not implemented')
         with self.actor.held(30):
-            window=self.window();self.guard();journal=IOSEmoteTerminalJournal(window,check=self.guard)
+            with read_scope(fresh=True) as reads:
+                window=self.window();self.guard();journal=IOSEmoteTerminalJournal(window,check=self.guard)
+            self.inventory=IOSEmoteRootedInventory(journal,reads);self.guard()
             if call['stage']=='inspect':
                 refs=({role:live.state['records'][-1] for role,live in window.roles.items()}
                     if journal.state is None else journal.state['references'])
