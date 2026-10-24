@@ -189,14 +189,27 @@ spans show normal navigation still progressing through 58.787 s before its
 so neither its duration nor an ADB hang is established. The earlier Scene build
 9 completed the same normal input in 53.729 s.
 
-The named `scene.load` and `navigation.enter-domain` transport limits are now
-90 seconds. All other operation limits and the original 120/180-second module
+The initial named `scene.load` and `navigation.enter-domain` transport calibration
+set both limits to 90 seconds. All other operation limits and the original 120/180-second module
 budgets remain unchanged, as do fresh candidate/process/UI observations,
 capabilities, source guards and cleanup. No cache, observation substitution or
-new APK is introduced. This is a measured harness calibration awaiting its own
-fresh device run; it does not convert build 14, the skipped Asset target or the
+new APK was introduced. This initial measured harness calibration awaited a
+fresh device run; it did not convert build 14, the skipped Asset target or the
 original campaign to PASS.
 
 Build 14 public summary SHA-256: `b54486d8a19bfe1a76e5cbb74f0159e415e091390fdfbe0dbe403ece5301751c`.
 The censored original adapter span SHA-256 is
 `609fac1a5911ba51fe4edee147b151d7b659756400abe5bb63b54c029f59ff3e`.
+
+
+Focused domain-entry build 17 subsequently recorded 37 fresh installed-identity
+checks costing 57.130 s inclusively (nested candidate/ADB costs overlap). Its W3C
+POST/click response was acknowledged at 73.242–73.371 s after navigation began;
+this does **not** prove that Go activated, a user press occurred or navigation took
+effect. The address field was still observed at 82.696 s, and the configured
+20-second post-click validator was censored by the outer 90-second limit. Only
+`navigation.enter-domain` now receives 120 seconds; `scene.load` stays at 90,
+with the original 180-second module and 20-second UI bounds and all fresh guards
+unchanged. Build 17 remains ERROR; this transport calibration neither replays Go
+nor claims a product fix, device PASS or new APK. The original span SHA-256 is
+`2723528f0fbdd102ab3288bbf8f3572daf5676a9ab2b16ff5b6f1b000d787b05`.

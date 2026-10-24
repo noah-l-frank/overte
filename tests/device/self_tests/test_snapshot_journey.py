@@ -204,14 +204,14 @@ class SnapshotJourneyTests(unittest.TestCase):
                 duration[0] = 90
                 with self.assertRaisesRegex(RuntimeError, 'timed out'):
                     adapter_client.invoke(manifest, 'synthetic', 'snapshot.capture', {})
-                for operation in ('scene.load', 'navigation.enter-domain'):
+                for operation, deadline in (('scene.load', 90), ('navigation.enter-domain', 120)):
                     with self.subTest(operation=operation):
-                        duration[0] = 90
+                        duration[0] = deadline
                         self.assertEqual(adapter_client.invoke(manifest, 'synthetic', operation, {}), {'files': []})
-                        duration[0] = 91
+                        duration[0] = deadline + 1
                         with self.assertRaisesRegex(RuntimeError, 'timed out'):
                             adapter_client.invoke(manifest, 'synthetic', operation, {})
-        self.assertEqual(deadlines, [120, 120, 60, 90, 90, 90, 90])
+        self.assertEqual(deadlines, [120, 120, 60, 90, 90, 120, 120])
 
     def test_restart_and_clock_failures_keep_cleanup(self):
         for mutation, expected in (('restart', AssertionError), ('clock-backwards', ValueError)):
