@@ -32,8 +32,10 @@ and no missing carrier. All 904 original files retain their exact identities
 and bytes. SDK/candidate authority is modeled. This read does not qualify the
 unchanged thirty-second operation deadline.
 
-This is current read-set continuity, not a frozen ownership archive or process
-death proof. Whole final archival, once-only normal Stop, independent OS absence,
+The [frozen role ownership reader and copy transaction](EMOTE_ROOTED_FINAL_ARCHIVE.md)
+now separately retain role metadata without current SDK reads. This inventory
+remains current read-set continuity, not process death proof. Whole final
+archival, once-only normal Stop, independent OS absence,
 SDK DELETE/GET-404, recovery and the full runtime/common journey remain open.
 Finish remains pending; complete Emote capability admission stays closed.
 Native compilation is unverified and devices are untested.

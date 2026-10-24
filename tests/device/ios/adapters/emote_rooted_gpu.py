@@ -26,11 +26,12 @@ def parents(parts):
     return result
 
 
-def validate(flow,parts):
+def validate(flow,parts,*,store_for=PrivateFeatureState):
+    need(callable(store_for))
     flow.lock.assert_held();flow.primary_lock.assert_held();actual={}
     for request,original in parents(parts).items():
         path=flow.store.path.with_name('graphics-world-frame-'+flow.role+'-0-'+request[4:]+'.json')
-        store=PrivateFeatureState(path);value=store.read()
+        store=store_for(path);value=store.read();actual[path]=value
         if original is None:
             need(value is None);continue
         need(value is not None and original['phase']=='released' and absent(original['absence']))

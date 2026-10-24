@@ -17,6 +17,7 @@ from ios.adapters.avatar_record_cache import AvatarRecordCache
 from ios.adapters.emote_rooted_responsibility import IOSEmoteRootedResponsibility
 from ios.adapters.emote_scene_history import validate as scene_history
 from ios.adapters.emote_scene_proof import rooted
+from ios.adapters.emote_retirement import Frozen
 
 
 class RootedResponsibilityGuardTests(unittest.TestCase):
@@ -80,6 +81,16 @@ class RootedResponsibilityGuardTests(unittest.TestCase):
         for prefix in ('phase-publication','phase-retirement'):
             record=self.owner.path(prefix+'-emotes-'+self.flow.run+'-actor-1.json')
             self.assertEqual(record.read(),values[str(record.path)])
+
+    def test_frozen_actor_record_collection_never_falls_back_to_current_sdk_metadata(self):
+        self.test_actor_record_collection_uses_the_actual_area_run_and_record_namespace()
+        copies=self.owner.metadata();touched=set()
+        def frozen(path):
+            self.assertIn(str(path),copies);touched.add(str(path));return Frozen(path,copies[str(path)])
+        self.owner.store_for=frozen
+        with patch.object(PrivateFeatureState,'read',side_effect=AssertionError('Current SDK metadata forbidden')):
+            self.assertEqual(copies,self.owner.metadata())
+        self.assertEqual(set(copies),touched)
 
     def test_legacy_scene_reader_remains_default_and_rooted_reader_requires_explicit_selection(self):
         self.flow.root=self.root/'primary';self.flow.state=dict(binding={},phaseInstance='d'*32)

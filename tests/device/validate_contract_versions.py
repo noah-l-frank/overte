@@ -73,6 +73,8 @@ REQUIRED = {
     "ios-emote-worker-failure": 1,
     "ios-emote-final-archive": 2,
     "ios-emote-final-copy": 1,
+    "ios-emote-rooted-final-archive": 1,
+    "ios-emote-rooted-final-copy": 1,
     "ios-emote-scene-proof": 2,
     "ios-emote-scene-gate": 1,
     "ios-emote-scene-ready": 1,

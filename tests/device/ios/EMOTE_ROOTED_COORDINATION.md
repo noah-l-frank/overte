@@ -81,3 +81,9 @@ with all 904 originals unchanged. The
 [paired inventory and current GPU join](EMOTE_ROOTED_INVENTORY.md) additionally
 pass over all 886 scoped carriers without missing membership. Final frozen
 ownership and process/SDK retirement remain required.
+
+The [frozen role ownership reader](EMOTE_ROOTED_FINAL_ARCHIVE.md) now replays
+both complete role metadata sets without any current SDK-metadata fallback.
+It preserves all original source/peer/image/publication files and native clocks.
+Its actual retained-file check passes; the complete terminal archive, real
+operation deadlines and process/SDK end remain required.

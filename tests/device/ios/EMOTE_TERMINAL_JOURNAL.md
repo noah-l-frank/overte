@@ -57,7 +57,9 @@ runtime, SDK, native reader, clock renewal or input method. Merely matching a
 stored digest cannot establish a native fact.
 
 Finish currently raises `EmoteObservationPending` before opening a live
-component. Whole current-WAL/recovery/scene-order archival, exactly one normal
+component. The [frozen role ownership reader](EMOTE_ROOTED_FINAL_ARCHIVE.md)
+now covers current-WAL/recovery/scene-order/GPU metadata without current SDK
+fallback. Whole final archival with the terminal seal, exactly one normal
 Stop per role, independent OS absence for at least three seconds, separate
 SDK DELETE/GET-404 owners and canonical/worker end recovery remain required.
 The original terminal journal is not itself process-death authority.

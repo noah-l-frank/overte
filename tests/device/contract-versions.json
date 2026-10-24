@@ -64,6 +64,8 @@
     "ios-emote-worker-failure": {"current": 1, "reads": [1]},
     "ios-emote-final-archive": {"current": 2, "reads": [1, 2]},
     "ios-emote-final-copy": {"current": 1, "reads": [1]},
+    "ios-emote-rooted-final-archive": {"current": 1, "reads": [1]},
+    "ios-emote-rooted-final-copy": {"current": 1, "reads": [1]},
     "ios-emote-scene-proof": {"current": 2, "reads": [1, 2]},
     "ios-emote-scene-gate": {"current": 1, "reads": [1]},
     "ios-emote-scene-ready": {"current": 1, "reads": [1]},

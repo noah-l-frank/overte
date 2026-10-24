@@ -47,7 +47,7 @@ class IOSEmoteRootedResponsibility:
 
     def path(self,name,*,primary=False):
         flow=self.flow;selector=flow.primary_selector if primary else flow.selector
-        return PrivateFeatureState(flow.runtime.state_path(selector).with_name(name))
+        return getattr(self,'store_for',PrivateFeatureState)(flow.runtime.state_path(selector).with_name(name))
 
     def metadata(self):
         f=self.flow;stores=[self.path('ios-emote-'+f.role+'-'+tail+'.json',primary=primary)
@@ -64,7 +64,8 @@ class IOSEmoteRootedResponsibility:
                 rows=unpack(value['payload']);need(len(rows)==1 and rows[0]['pending'] is None)
                 reader=object.__new__(cls);reader.store,reader.run,reader.area=store,f.run,'emotes'
                 for reference in rows[0]['records']:
-                    record=reader.record_store(reference['ordinal']);need(str(record.path) not in values)
+                    record=getattr(self,'store_for',PrivateFeatureState)(reader.record_store(reference['ordinal']).path)
+                    need(str(record.path) not in values)
                     values[str(record.path)]=record.read()
         return values
 

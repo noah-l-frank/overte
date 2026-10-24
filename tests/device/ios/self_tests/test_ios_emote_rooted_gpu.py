@@ -48,5 +48,14 @@ class CurrentGPUTests(unittest.TestCase):
         commands=deepcopy(self.native.commands)
         with self.owner.lock.held(),self.assertRaises(NativeUIError):validate(self.flow,self.parts_for(None))
         self.assertEqual(commands,self.native.commands)
+    def test_absent_parent_metadata_is_retained_explicitly_and_later_presence_is_rejected(self):
+        request='ios-'+'b'*32;parts=self.parts_for(None)
+        parts['samples'].record=lambda _:dict(requestId=request,owner=pack([None]))
+        path=self.flow.store.path.with_name('graphics-world-frame-primary-0-'+request[4:]+'.json')
+        commands=deepcopy(self.native.commands)
+        with self.owner.lock.held():self.assertEqual({path:None},validate(self.flow,parts))
+        store=PrivateFeatureState(path);store.write(dict(unresolved=True),None)
+        with self.owner.lock.held(),self.assertRaises(NativeUIError):validate(self.flow,parts)
+        self.assertEqual(dict(unresolved=True),store.read());self.assertEqual(commands,self.native.commands)
 
 if __name__=='__main__':unittest.main()
