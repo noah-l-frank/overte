@@ -4289,5 +4289,85 @@
     "completeFeature": false,
     "fullApplicationCompiled": false,
     "deviceAcceptance": false
+  },
+  "browserOriginalCatalogReadWindowRoot20261024": {
+    "status": "passed-selected-host-and-historical-checks",
+    "sharedSource": "tests/device/adapters/chat_journey/evidence_archive.py",
+    "change": "Parse original JSON inside its existing full-byte owned descriptor window; preserve all physical and semantic checks and bind the store path to that original descriptor path.",
+    "historicalEntries": 626,
+    "historicalOriginalFiles": 1095,
+    "originalsUnchanged": true,
+    "profiledFullBytePassSecondsBefore": [
+      0.26803675503470004,
+      0.26836759608704597,
+      0.26826534303836524
+    ],
+    "profiledFullBytePassSecondsAfter": [
+      0.20248325890861452,
+      0.20212864701170474,
+      0.20354644197504967
+    ],
+    "initialArchiveCases": 35,
+    "initialMalformedSourceCaseErrors": 3,
+    "initialSeconds": 13.67,
+    "correction": "Import NativeUIError for the new malformed-source error path.",
+    "correctedMalformedSourceCases": 1,
+    "correctedSeconds": 0.004,
+    "archiveSource": {
+      "cases": 3,
+      "selectorSeconds": 54.095,
+      "status": "passed"
+    },
+    "evidenceArchiveAndHostClose": {
+      "cases": 2,
+      "selectorSeconds": 67.234,
+      "status": "passed"
+    },
+    "integratedSelectorSeconds": 121.329,
+    "eachSelectorTimeoutSecondsUnchanged": 120,
+    "originalByteReadsAndFullStampsAndKernelFdGuardsPreserved": true,
+    "jsonUniqueKeysUtf8DictionaryAndComparisonPreserved": true,
+    "noncanonicalOriginalBytesPreserved": true,
+    "sameInodeChangeAfterParsingRefused": true,
+    "changedExpectedDtoRefused": true,
+    "foreignStorePathRefused": true,
+    "archiveVersionsAndWireRecordsUnchanged": true,
+    "completeFeature": false,
+    "fullApplicationCompiled": false,
+    "deviceAcceptance": false,
+    "repository": {
+      "suites": 4,
+      "durationSeconds": 2.69,
+      "status": "passed"
+    },
+    "registryWhitespace": "passed"
+  },
+  "browserHostTemporaryStorage20261024": {
+    "scope": "host-storage-readiness-only",
+    "standardTmpfsAvailableAgain": true,
+    "originalPrivateFeatureStateAndFsyncPreserved": true,
+    "measurements": {
+      "retained-home-storage": {
+        "twentyDurableCasWritesSeconds": [
+          0.08598112990148365,
+          0.07247096509672701,
+          0.07430976605974138
+        ],
+        "filesystemDevice": 53,
+        "availableBytes": 148633415680
+      },
+      "standard-tmpfs": {
+        "twentyDurableCasWritesSeconds": [
+          0.004165477002970874,
+          0.004058071994222701,
+          0.004319278988987207
+        ],
+        "filesystemDevice": 54,
+        "availableBytes": 8053039104
+      }
+    },
+    "nativeSourcesAndEvidenceAndTimeoutsChanged": false,
+    "nextWholeRunNotYetExecuted": true,
+    "deviceAcceptance": false
   }
 }

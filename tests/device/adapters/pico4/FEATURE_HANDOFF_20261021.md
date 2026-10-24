@@ -2846,3 +2846,46 @@ whitespace checks. Profiled cold admission after the change takes 6.760 s; all
 originals remain unchanged. These single historical measurements establish only
 a small local saving. No new whole retry is justified by this result; the last
 complete 120-second failure and missing final archive/host outcome remain.
+
+## Shared original catalogue read-window improvement
+
+The actual retained Browser export supplies 626 original JSON catalogue
+entries. Three complete historical full-byte checks take 0.268/0.268/0.268 s
+with cProfile. The profile shows that JSON validation opens and reads each
+original path a second time inside the already owned full-file window.
+The shared ChatArchiveCatalog now parses those exact original bytes inside
+that window. Its complete raw-byte reads, full stamps, directory ownership,
+F_DUPFD_QUERY close checks and final post-parse metadata checks remain.
+The store path must match its original descriptor path throughout admission
+and verification. Existing held-file legacy behaviour and all persisted
+archive versions are unchanged. This is a shared source change for later
+Phone reconciliation; no other worktree or Phone progress record was edited.
+
+The same historical checks subsequently take 0.202/0.202/0.204 s; all 1,095
+original files retain their bytes and full physical stamps. The 35-case
+shared archive selection finds a missing NativeUIError import in the new
+malformed-source case (three decoding subcases); the import is corrected
+and that complete case passes in 0.004 s. The other 34 cases passed in the
+original 13.670 s selection. New counterexamples preserve noncanonical
+original bytes and reject duplicate/escaped/nested keys, invalid UTF-8/BOM,
+non-dictionaries, changed expected DTOs, a foreign store path and a same-inode
+change after parsing. Existing replacement/descriptor-recycling, immutable
+copy/index, unlink-fence and final-source cases remain.
+
+The normal Pico runner passes the three independent archive-source cases in
+54.095 s and both evidence-archive/actual-host-close cases in 67.234 s. Each
+selector retains its 120-second bound. These short recipes keep their original
+false commonSequenceSucceeded value. The improvement does not complete the
+whole 26-action recipe, which still needs its full independent return, archive
+and host closure under the original outer limit. No physical result or new
+complete feature capability is claimed.
+
+The previous private Home TMPDIR was retained after an earlier `/tmp` quota
+failure. Current inspection finds the standard `/tmp` tmpfs available again
+with about 7.5 GiB free. Three twenty-write measurements through unchanged
+PrivateFeatureState CAS/fsync/readback take 0.086/0.072/0.074 s on the Home
+filesystem and 0.0042/0.0041/0.0043 s on tmpfs. These measure host storage only.
+The next complete host case can use a fresh private directory on the ordinary
+temporary filesystem, retaining all source queries, raw bytes, physical
+metadata, fsync calls and original outer/inner time limits. Its result remains
+unproven until that complete case actually finishes.

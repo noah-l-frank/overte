@@ -845,7 +845,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Complete actual Parent nonce, actor consumption/kernel exit and full capture/archive/host closure under the unchanged whole 120-second limit. Actual cold admission of the retained 666-original graph now passes independently in 6.957s profiled, then 6.760s after an equivalent compiled URL-control scan; all 1095 original files are unchanged. This small historical saving does not demonstrate whole-run headroom and does not justify an unchanged retry. Full common+return+archive remains open; preserve original source/physical/clock checks while investigating the enclosing completion costs.",
+      "nextExecutableStep": "Complete actual Parent nonce, actor consumption/kernel exit and full capture/archive/host closure under the unchanged whole 120-second limit. Historical Parent cold admission of the retained 666-original graph is measured; all1095 files remain unchanged. A newly measured duplicate JSON file read is removed inside the original owned read window: full626-file catalogue verification improves from about268ms to203ms without skipping bytes, stamps or kernel FD checks. Actual ArchiveSource3 and EvidenceArchive/HostClose2 cases pass, with commonSequenceSucceeded remaining false for their short recipe. This does not establish whole-run headroom or replace the last whole120s failure. Continue full source composition and evidence for unfinished areas.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },

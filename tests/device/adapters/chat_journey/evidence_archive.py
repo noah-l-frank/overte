@@ -15,6 +15,7 @@ from adapters.native_fd_owner import OriginalDescriptor
 from adapters.chat_journey.archive_file import ClosedOriginalFile
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.normal_ui import NativeUIError
 from adapters.script_journey.history import same,pack
 from adapters.chat_journey.source_chunks import digest
 
@@ -36,6 +37,25 @@ def stamp(info):
 def private(info,mode=0o600):
     need(stat.S_ISREG(info.st_mode) and info.st_uid==os.geteuid() and stat.S_IMODE(info.st_mode)==mode
         and info.st_nlink==1 and 0<info.st_size<=65536)
+
+
+def original_json(raw,expected):
+    """Validate the bytes inside the existing owned full-file read window.
+
+    Reopening the same path for JSON validation duplicates the physical read.
+    Keep PrivateFeatureState's UTF-8, dictionary and unique-key grammar while
+    parsing the exact bytes whose descriptor and complete stamp are checked.
+    """
+    def pairs(items):
+        value={}
+        for key,item in items:
+            need(key not in value);value[key]=item
+        return value
+    try:
+        value=json.loads(raw.decode('utf-8'),object_pairs_hook=pairs)
+    except (ValueError,UnicodeError):
+        raise NativeUIError('Normal feature ownership file is invalid') from None
+    need(type(value) is dict and same(value,expected))
 
 
 class ChatArchiveCatalog:
@@ -64,8 +84,10 @@ class ChatArchiveCatalog:
                 original_stamp=stamp(info)
             else:
                 owner=ClosedOriginalFile(store.path,0o600,lambda:self.verify_parent(store.path.parent))
-                def validate(_raw):need(same(store.read(),expected))
+                def validate(raw):
+                    need(owner.path==store.path);original_json(raw,expected);need(owner.path==store.path)
                 raw,original_stamp=owner.read(validate)
+                need(owner.path==store.path)
             row=dict(label=label,store=store,expected=deepcopy(expected),owner=owner,stamp=original_stamp,raw=raw,sha256=hashlib.sha256(raw).hexdigest())
             self.rows[label]=row;self.verify(row)
             need(sum(len(value['raw']) for value in self.rows.values())<=LIMIT_BYTES)
@@ -83,9 +105,11 @@ class ChatArchiveCatalog:
         self.verify_parent(row['store'].path.parent)
         owner=row['owner']
         if type(owner) is ClosedOriginalFile:
-            def validate(_raw):need(same(row['store'].read(),row['expected']))
+            need(owner.path==row['store'].path)
+            def validate(raw):
+                need(owner.path==row['store'].path);original_json(raw,row['expected']);need(owner.path==row['store'].path)
             raw,original_stamp=owner.read(validate)
-            need(raw==row['raw'] and original_stamp==row['stamp']);return
+            need(owner.path==row['store'].path and raw==row['raw'] and original_stamp==row['stamp']);return
         owner.require(owner.fd);info=os.fstat(owner.fd);private(info)
         need(stamp(info)==row['stamp']==stamp(row['store'].path.lstat()) and os.pread(owner.fd,65537,0)==row['raw']
             and same(row['store'].read(),row['expected']))
