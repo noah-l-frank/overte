@@ -2,12 +2,29 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import re
+from urllib.parse import urlsplit
 
 from adapters.normal_ui import Locator, NativeUIError
 from navigation_observation import OPERATIONS, viewpoint_urls
 
 PACKAGE = 'io.github.noah_be.overte.phone'
 PROFILE = 'phone-native-v1'
+
+
+def controlled_domain_url(url, expected_url, expected_host):
+    """Validate input scope only; connection/arrival requires fresh probes."""
+    from contracts import validate_operation_arguments
+    for candidate in (url, expected_url):
+        if (type(candidate) is not str or not 1 <= len(candidate) <= 2048
+                or any(ord(char) < 33 or ord(char) == 127 for char in candidate)):
+            raise NativeUIError('Normal Phone domain URL is invalid')
+        validate_operation_arguments('navigation.enter-domain', {'url': candidate})
+    parsed = urlsplit(expected_url)
+    if (not 1 <= parsed.port <= 65535
+            or type(expected_host) is not str or not expected_host or len(expected_host) > 253
+            or expected_host.lower() != parsed.hostname.lower() or url != expected_url):
+        raise NativeUIError('Normal Phone domain input differs from its controlled environment')
+    return url
 
 
 def validate_profile(value):
@@ -141,6 +158,18 @@ class PhoneNavigation:
         self.ui.wait_absent(self.address)
         self.mark('addressOwned',False)
         return {'requested':True}
+
+    def enter_domain(self, url, expected_url, expected_host):
+        """Submit the exact controlled hifi input through the ordinary editor."""
+        controlled_domain_url(url, expected_url, expected_host)
+        self.open_address()
+        self.ui.replace_text(self.address, url)
+        if self.ui.text(self.address) != url:
+            raise NativeUIError('Normal Phone domain address did not retain the original input')
+        self.ui.click(self.go)
+        self.ui.wait_absent(self.address)
+        self.mark('addressOwned', False)
+        return {'requested': True}
 
     def invoke(self, operation, arguments):
         if operation not in OPERATIONS:

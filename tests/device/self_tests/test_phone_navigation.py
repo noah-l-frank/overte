@@ -16,7 +16,7 @@ sys.path.insert(0, str(DEVICE))
 sys.path.insert(0, str(DEVICE / 'adapters/android-phone'))
 from overte_phone_navigation_scene import configuration as scene_configuration
 from adapters.normal_ui import NativeUI, NativeUIError, W3C_ELEMENT
-from adapters.phone_navigation import PhoneNavigation, PROFILE, PACKAGE, validate_profile, validate_state
+from adapters.phone_navigation import PhoneNavigation, PROFILE, PACKAGE, validate_profile, validate_state, controlled_domain_url
 from adapters.shared_appium.adapter import AppiumAdapter
 from navigation_journey import navigation_journey
 from navigation_observation import project_probe
@@ -161,6 +161,125 @@ class NativePhone:
 
 
 class PhoneNavigationTests(unittest.TestCase):
+    DOMAIN = 'hifi://controlled.test:40102/0.0,0.0,4.0/0,0,0,1'
+
+    def domain_adapter(self, native, *, changed_process=False):
+        from appium_adapter import PhoneAppiumAdapter
+        adapter = object.__new__(PhoneAppiumAdapter)
+        adapter.candidate = object()  # Actual installed identity is an explicit host seam below.
+        target = {'controls': {'normalNavigation': native.profile}, 'scene': {'kind': 'android-debug-e2e'}}
+        native.state['targetFingerprint'] = 'actual-host-bound-fingerprint'
+        adapter.target = lambda _selector: target
+        adapter.advertised_capabilities = lambda _target: {'navigation.enter-domain'}
+        adapter.controlled_android_client = lambda _target: True
+        adapter.ensure_session = lambda _selector: (native, 'owned-session', native.state)
+        adapter.installed_identity = lambda _selector: copy.deepcopy(native.identity)
+        adapter.process_state = lambda *_args: {'running': True, 'identity':
+            'changed-process' if changed_process and native.field else native.process}
+        adapter.read_session = lambda _selector: native.state
+        adapter.snapshot_fingerprint = lambda _target: 'actual-host-bound-fingerprint'
+        adapter.query_app_state = lambda *_args: 4
+        adapter.save_session = lambda _selector, _state: native.save()
+        adapter.write_android_client_command = lambda *_args: self.fail('Private command channel must not receive domain input')
+        return adapter
+
+    def domain_environment(self):
+        return {'OVERTE_E2E_DOMAIN_URL': self.DOMAIN, 'OVERTE_E2E_DOMAIN_HOST': 'controlled.test'}
+
+    def test_controlled_domain_uses_actual_phone_dispatch_normal_editor_and_exact_text(self):
+        native = NativePhone()
+        native.arrive = lambda url: setattr(native, 'current', url)
+        adapter = self.domain_adapter(native)
+        with patch.dict(os.environ, self.domain_environment(), clear=True):
+            result = adapter.invoke('owned-target', 'navigation.enter-domain', {'url': self.DOMAIN})
+        self.assertEqual({'requested': True}, result)
+        self.assertEqual(self.DOMAIN, native.field)
+        self.assertEqual(['Go to destination', 'PhoneAddressGoButton'], native.inputs)
+        self.assertFalse(native.address_open)
+        self.assertFalse(native.state['normalNavigation']['addressOwned'])
+        self.assertNotIn('connected', result)  # Input receipt is no connection measurement.
+
+    def test_domain_foreign_malformed_and_unversioned_inputs_fail_before_sdk_or_input(self):
+        bad = [self.DOMAIN.replace('controlled.test', 'foreign.test'), self.DOMAIN + '?foreign=1',
+            self.DOMAIN + '#foreign', self.DOMAIN.replace('://', '://user@'),
+            self.DOMAIN.replace(':40102', ''), self.DOMAIN.replace('hifi:', 'https:'),
+            self.DOMAIN.replace(':40102', ':0'),
+            self.DOMAIN + '\n', 'hifi://controlled.test:40102/' + 'a' * 2048]
+        for url in bad:
+            with self.subTest(url=url):
+                native = NativePhone(); adapter = self.domain_adapter(native)
+                adapter.ensure_session = lambda _selector: self.fail('Invalid domain input reached SDK session')
+                with patch.dict(os.environ, self.domain_environment(), clear=True):
+                    with self.assertRaises((NativeUIError, ValueError)):
+                        adapter.invoke('owned-target', 'navigation.enter-domain', {'url': url})
+                self.assertEqual([], native.calls)
+        for changes in ({'OVERTE_E2E_DOMAIN_HOST': 'foreign.test'}, {'OVERTE_E2E_DOMAIN_URL': ''}):
+            native = NativePhone(); adapter = self.domain_adapter(native)
+            adapter.ensure_session = lambda _selector: self.fail('Unbound domain input reached SDK')
+            with patch.dict(os.environ, self.domain_environment() | changes, clear=True):
+                with self.assertRaises((NativeUIError, ValueError)):
+                    adapter.invoke('owned-target', 'navigation.enter-domain', {'url': self.DOMAIN})
+        native = NativePhone(); native.profile['contractVersion'] = 2
+        adapter = self.domain_adapter(native)
+        adapter.ensure_session = lambda _selector: self.fail('Foreign profile version reached SDK')
+        with patch.dict(os.environ, self.domain_environment(), clear=True), self.assertRaises(ValueError):
+            adapter.invoke('owned-target', 'navigation.enter-domain', {'url': self.DOMAIN})
+        native = NativePhone(); adapter = self.domain_adapter(native); adapter.candidate = None
+        adapter.ensure_session = lambda _selector: self.fail('Unbound domain input reached SDK')
+        with patch.dict(os.environ, self.domain_environment(), clear=True), self.assertRaises(ValueError):
+            adapter.invoke('owned-target', 'navigation.enter-domain', {'url': self.DOMAIN})
+
+    def test_domain_ignored_text_foreign_editor_and_changed_process_never_press_go(self):
+        for kind in ('text-ignored', 'foreign-editor', 'changed-process'):
+            with self.subTest(kind=kind):
+                native = NativePhone('text-ignored' if kind == 'text-ignored' else '')
+                if kind == 'foreign-editor': native.address_open = True
+                adapter = self.domain_adapter(native, changed_process=kind == 'changed-process')
+                with patch.dict(os.environ, self.domain_environment(), clear=True), self.assertRaises(NativeUIError):
+                    adapter.invoke('owned-target', 'navigation.enter-domain', {'url': self.DOMAIN})
+                self.assertNotIn('PhoneAddressGoButton', native.inputs)
+                if kind == 'foreign-editor': self.assertEqual([], native.inputs)
+                else: self.assertTrue(native.state['normalNavigation']['addressOwned'])
+
+    def test_ignored_domain_input_stays_red_in_original_independent_session_effect_check(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {
+                'OVERTE_DEVICE_ADAPTER_MANIFEST': str(Path(directory) / 'host-seam-manifest.json'),
+                'OVERTE_DEVICE_TARGET_SELECTOR': 'host-seam-target',
+                'OVERTE_DEVICE_ARTIFACT_DIR': directory}):
+            import overte_session
+            from module_support import AssertionFailure
+        native = NativePhone('goto-ignored'); adapter = self.domain_adapter(native)
+        original_url = native.current
+        session = overte_session.OverteSession.__new__(overte_session.OverteSession)
+        session.timeout_seconds = .3; session.poll_seconds = .1
+        samples = []
+        def snapshot(_artifact=None):
+            sample = {'sampleSequence': len(samples) + 1, 'sampleEpochMs': 100000 + len(samples) * 100,
+                      'domain': {'connected': False, 'serverless': True, 'protocol': 'http'},
+                      'scene': {'url': native.current, 'entityCount': 6, 'domainMarkers': [], 'domainMarkerCount': 0}}
+            samples.append(copy.deepcopy(sample)); return sample
+        session.snapshot = snapshot
+        receipts = []
+        def dispatch(operation, arguments):
+            receipt = adapter.invoke('owned-target', operation, arguments)
+            receipts.append(receipt); return receipt
+        environment = self.domain_environment() | {
+            'OVERTE_E2E_DOMAIN_ID': '12345678-1234-4234-9234-123456789012',
+            'OVERTE_E2E_DOMAIN_MARKERS_JSON': '["OVERTE_E2E_DOMAIN_ORIGIN"]'}
+        with patch.dict(os.environ, environment, clear=True), \
+                patch.object(overte_session, 'process_identity', return_value=native.process), \
+                patch.object(overte_session, 'assert_foreground'), \
+                patch.object(overte_session, 'operation', side_effect=dispatch), \
+                patch.object(overte_session, 'write_json'), \
+                patch.object(overte_session.time, 'monotonic', side_effect=lambda: native.clock), \
+                patch.object(overte_session.time, 'sleep', side_effect=native.sleep):
+            with self.assertRaisesRegex(AssertionFailure, 'controlled domain did not become connected'):
+                session.enter_controlled_domain()
+        self.assertEqual([{'requested': True}], receipts)
+        self.assertEqual(original_url, native.current)
+        self.assertGreaterEqual(len(samples), 3)
+        self.assertTrue(all(not value['domain']['connected'] for value in samples))
+
     def test_scene_input_accepts_the_exact_approved_controlled_spawn_query(self):
         from navigation_observation import arrived, VIEWPOINTS
         for label, location in VIEWPOINTS.items():

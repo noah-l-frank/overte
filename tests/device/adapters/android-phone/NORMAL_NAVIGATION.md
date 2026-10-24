@@ -76,3 +76,24 @@ An ignored normal Go input may return an ACK but cannot establish arrival.
 The original private panel lease supports partial cleanup after an interrupted
 input. Host SDK/kernel/provider producers are explicit seams; no Android or
 physical acceptance is implied.
+
+The bound Phone `navigation.enter-domain` foundation uses this same version 1
+normal editor profile. It never falls back to the app-private Android command
+file. Before creating an SDK session or sending input, the adapter validates a
+credential-free `hifi` URL with an explicit port from 1 through 65535, no query
+or fragment, no whitespace/control characters, and at most 2048 characters.
+The complete input must equal `OVERTE_E2E_DOMAIN_URL`; its hostname must equal
+`OVERTE_E2E_DOMAIN_HOST` case-insensitively. These are infrastructure inputs from
+the independently verified current controlled-domain fixture, not observed
+client state. The existing `OverteSession` domain configuration, current-owner
+preflight, UUID/marker checks and independent effect observations remain required.
+
+The flow types the exact URL into the ordinary address editor, reads the actual
+field text back before Go, and observes the editor disappear. Existing process,
+session, installed candidate and private panel-ownership guards surround all
+input. The only result is `requested: true`; it does not assert connection,
+arrival, markers or pose. Ignored Go input must remain a failure in the original
+fresh domain-probe checks. A missing/foreign normal profile or unbound domain
+input fails before input, and changed process ownership prevents further clicks.
+This is host adapter/test logic; real Phone behavior requires a separate device
+run on the explicitly bound client APK and host source revision.

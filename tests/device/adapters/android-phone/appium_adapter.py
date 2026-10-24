@@ -18,7 +18,7 @@ from adapter import PhoneAdapter, main, require
 from adapters.appium.adapter import AppiumAdapter, WebDriver
 from contracts import validate_operation_arguments
 from adapters.normal_ui import NativeUI
-from adapters.phone_navigation import PhoneNavigation
+from adapters.phone_navigation import PhoneNavigation, controlled_domain_url, validate_profile as validate_navigation_profile
 from navigation_observation import OPERATIONS as NAVIGATION_OPERATIONS
 from adapters.android_snapshot_files import AndroidSnapshotFiles
 from overte_phone_snapshot import (PhoneSnapshot, PhoneSnapshotUI, PrivateSnapshotState,
@@ -2948,6 +2948,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
             configuration(target.get('controls',{}).get('normalNavigation'),arguments['url'],os.environ.get('OVERTE_E2E_SCENE_URL',''))
             require(self.candidate is not None and self.controlled_android_client(target) and target.get('scene',{}).get('kind')=='android-debug-e2e',
                 'PHONE_NORMAL_SCENE_BOUND_DEBUG_TARGET_REQUIRED')
+        if operation=='navigation.enter-domain':
+            validate_navigation_profile(target.get('controls',{}).get('normalNavigation'))
+            controlled_domain_url(arguments['url'],os.environ.get('OVERTE_E2E_DOMAIN_URL',''),
+                os.environ.get('OVERTE_E2E_DOMAIN_HOST',''))
+            require(self.candidate is not None and self.controlled_android_client(target)
+                and target.get('scene',{}).get('kind')=='android-debug-e2e',
+                'PHONE_NORMAL_DOMAIN_BOUND_DEBUG_TARGET_REQUIRED')
         client, session, state = self.ensure_session(selector)
         installed = self.installed_identity(selector)
         process = self.process_state(selector, client, session, state, target)
@@ -2989,6 +2996,9 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 require(all(row['source']['endpoint'].rstrip('/')==origin and row['source']['protocolSignature']==provider['inputs']['protocolSignature']
                     for row in (before,after)),'PHONE_NORMAL_SCENE_ORIGINAL_PROVIDER_MISMATCH')
             result=flow.load_scene(arguments['url'])
+        elif operation=='navigation.enter-domain':
+            result=flow.enter_domain(arguments['url'],os.environ.get('OVERTE_E2E_DOMAIN_URL',''),
+                os.environ.get('OVERTE_E2E_DOMAIN_HOST',''))
         else:result = flow.invoke(operation, arguments)
         check()
         require(self.installed_identity(selector) == installed, 'PHONE_NORMAL_NAVIGATION_INSTALL_CHANGED')
@@ -3014,6 +3024,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
 
     def invoke(self, selector, operation, values):
         PhoneAdapter.require_bound_operation(self, operation, values)
+        if operation=='navigation.enter-domain':
+            return self.normal_navigation(selector,operation,values)
         if operation in COLLABORATION_OPERATIONS:
             validate_operation_arguments(operation,values)
             require(os.environ.get('OVERTE_ANDROID_E2E_COLLABORATION','0')=='1','PHONE_COLLABORATION_NOT_ENABLED')
