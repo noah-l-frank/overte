@@ -388,7 +388,11 @@
         "android/vr/pico/tests/device/create-voxel-native-bindings.js",
         "android/vr/pico/tests/device/create-voxel-source-controls.cpp",
         "android/vr/pico/tests/device/test_create_voxel_source_native.py",
-        "android/vr/pico/tests/device/native_cpu_mesh_originals.py"
+        "android/vr/pico/tests/device/native_cpu_mesh_originals.py",
+        "libraries/entities/src/EntityTree.cpp",
+        "libraries/entities/src/EntityScriptingInterface.cpp",
+        "libraries/entities/src/EntityItem.cpp.in",
+        "interface/src/scripting/TestScriptingInterface.cpp"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [
@@ -433,11 +437,11 @@
         "Drain original model/texture/picker/export callbacks and files",
         "Restore rez permission, view and actual unowned scene inventory"
       ],
-      "nextExecutableStep": "Join the existing normal TOOLS/original EditVoxels/native VoxelVolume-Mesh-compression-Shape source flow through original local creation/Tree/event ownership into full EntitySource6 and the unchanged Parent/Session/TokenTransport. The narrow native selector now verifies original ctor/init/destructor/factory-deleter bodies, 64-to-16 actual voxels, asynchronous old/new renderer identities, actual timers, settings restoration, normal Delete and full native/host quiet with retained-renderer and ignored-controller counterexamples. Its minimal retirement slice is not a full EntitySource6 response. Rez authority, independent actor/stereo and complete scene/material/texture/heap retirement remain open.",
+      "nextExecutableStep": "Connect the unchanged normal Add/dialog and Parent/Session/NativeNavigationIO routes to the running native source process. Full original local-copy/Tree/factory/creation-time and EntitySource6 bodies now execute with genuine matching insertion events and original weak/voxel/resource observations; the earlier minimal retirement slice is removed. Carry the actual preset-1 Ground/Grass qrc URLs through original TextureCache/NetworkTexture ownership and retirement instead of leaving an empty texture facade. Initial properties/Octree/node/domain/avatar/lifecycle and scene release remain explicit host endpoints. Rez authority, independent actor/stereo, actual draw and full heap/process retirement remain open.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
       "nativeDialogIntegrationStatus": "Focused original Qt5 dialog pipeline passed after restoring actual GUI Window receiver affinity and original worker DirectConnection call. Full application/V8 TUs and devices unqualified; earlier unsupported moved-receiver diagnostic crash documented.",
-      "nativeComponentCompilation": "Selected unchanged original VoxelVolume/Marching Cubes/Cubic extractor, update/mesh/compression/shape, ctor/init/destructor/factory-deleter, QML/JS/normal input and atomic getter/weak source bodies freshly host-compiled and verified. Tree/domain/SDK/scene-release endpoints remain explicit seams; full application/TUs, physics, GPU and devices remain unqualified."
+      "nativeComponentCompilation": "Selected original full EntitySource6/local-copy/Tree-add/factory/creation-time, VoxelVolume/Marching Cubes/Cubic/update/mesh/compression/shape, ctor/init/destructor, QML/JS/normal input and weak source bodies freshly host-compiled and verified. All original Source6 frames pass production validate/continuity/retired in three modes. Properties/Octree/node/domain/avatar/lifecycle/SDK/scene-release endpoints remain explicit; full application/TUs, normal Add/Parent transport, textures, physics, GPU and devices remain unqualified."
     },
     {
       "area": "emotes",

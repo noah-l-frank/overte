@@ -2765,3 +2765,21 @@ archive copies cannot reduce the actual query count. Final restoration, peer,
 images and complete process/context/file retirement remain unfinished. Native
 UI/IME/SDK/physics producers remain host seams; completed source areas remain
 3/14 and all devices remain unqualified.
+
+
+Create Source7 from fixed `56149d964e` is selected as `35a0510a6d`. The same
+native TOOLS/stroke/Restore/Delete selector now executes the complete original
+EntitySource6 getter and original local-copy/Tree-add/factory/creation-time
+bodies. Each mode retains exactly one genuine insertion event matching UUID,
+session and creation time. All full original frames pass production validation
+and continuity; the earlier hand-built retirement slice is removed. Root's
+fresh native selector passes in 26.717 s, plus coverage 0.088 s (26.806 s in
+total, 234 catalog groups; no new group). All 13,473 inputs remain unchanged.
+Normal/retained/ignored cases retain 43/43/40 frames and full native/host quiet;
+a retained renderer remains alive after tree removal and refuses retirement.
+Four repository suites pass in 2.578 s; registry and whitespace pass. Initial
+properties, Octree placement, Node/domain/avatar/lifecycle, SDK and scene
+release remain declared host endpoints. Normal Add/Parent transport, real
+preset-1 texture ownership, actor/stereo/draw and full heap/process retirement
+remain open. Completed source areas remain 3/14; no full APK/device result is
+claimed.

@@ -4102,5 +4102,57 @@
     "nativeUiImeSdkPhysicsProducers": "explicit-host-seams",
     "fullApplicationCompiled": false,
     "deviceAcceptance": false
+  },
+  "createEntitySource7Root20261024": {
+    "source": "56149d964e5606a5879567c325e281398444264f",
+    "selectedAs": "35a0510a6d",
+    "status": "passed-selected-original-native-components",
+    "selection": {
+      "groups": 2,
+      "catalogGroups": 234,
+      "durationSeconds": 26.806,
+      "nativeSelectorSeconds": 26.717,
+      "coverageSeconds": 0.088
+    },
+    "repository": {
+      "suites": 4,
+      "durationSeconds": 2.578,
+      "status": "passed"
+    },
+    "registryWhitespace": "passed",
+    "sourceFiles": 13473,
+    "sourcesUnchanged": true,
+    "nativeModes": [
+      "normal",
+      "retained-renderer",
+      "ignored-controller"
+    ],
+    "fullOriginalFrames": [
+      43,
+      43,
+      40
+    ],
+    "nativeQuietMilliseconds": [
+      3139,
+      3140,
+      3139
+    ],
+    "hostQuietMilliseconds": [
+      3134.624913,
+      3134.861781,
+      3144.203413
+    ],
+    "fullOriginalEntityGetterValidated": true,
+    "originalInsertEventUuidSessionCreationTimeMatches": true,
+    "minimalRetirementSliceRemoved": true,
+    "actualRetainedRendererBlocksRetirement": true,
+    "originalFramesHostReceiptsAndProvenanceRetained": true,
+    "newCatalogGroups": 0,
+    "normalAddAndLiveParentQualified": false,
+    "propertiesOctreeNodeDomainAvatarLifecycleScene": "explicit-host-endpoints",
+    "actualTextureDrawGpuPhysicsQualified": false,
+    "completeFeature": false,
+    "fullApplicationCompiled": false,
+    "deviceAcceptance": false
   }
 }
