@@ -30,8 +30,10 @@ from feature_journeys.fixtures import context as fixture_context
 from feature_journeys.phase_fixture import PhaseFixtureReader,PhasePending,validate as phase_packet
 from feature_journeys.scenarios import SCENARIOS,VERSION as CONTRACT_VERSION,expand
 
-VERSION=1
-LIMIT=3  # Open, ordinary ray/IME and Send; not a partial whole-Journey success.
+VERSION=2
+READS=(1,2)
+LIMIT=len(SCENARIOS['world-web']['steps'])
+INPUT_LIMIT=6  # Closed v16 grammar; only this original prefix is executable.
 
 
 class PicoWorldWebPrefix:
@@ -52,27 +54,28 @@ class PicoWorldWebPrefix:
         self.lock.assert_held();body=self.store.read()
         if body is None:need(self.disk is None);return None
         exact(body,{'picoWorldWebPrefixVersion','scope','payload'})
-        need(type(body['picoWorldWebPrefixVersion']) is int and body['picoWorldWebPrefixVersion']==VERSION and same(body['scope'],self.scope))
+        need(type(body['picoWorldWebPrefixVersion']) is int and body['picoWorldWebPrefixVersion'] in READS and same(body['scope'],self.scope))
         rows=unpack(body['payload']);need(len(rows)==1);value=rows[0]
-        self.validate(value);self.disk=deepcopy(body);self.state=deepcopy(value);return self.state
+        self.validate(value,version=body['picoWorldWebPrefixVersion']);self.disk=deepcopy(body);self.state=deepcopy(value);return self.state
 
     def control(self):
         self.lock.assert_held();need(not self.failed and self.scope_sha==json_digest(self.scope) and self.role_sha==json_digest(self.role)
             and self.source.run==self.run and self.source.area==self.area and self.source.fixture_url==self.url)
         if self.state is not None:need(same(self.store.read(),self.disk) and same(unpack(self.disk['payload']),[self.state]))
 
-    def validate(self,value):
+    def validate(self,value,*,version=VERSION):
+        need(type(version) is int and version in READS);limit=3 if version==1 else LIMIT
         exact(value,{'binding','ownerToken','phase','fixture','completed','active','reserved','scriptUrl','inputs'})
         context(value['binding']);identifier(value['ownerToken'])
         need(value['phase'] in ('preparing','ready','acting') and type(value['reserved']) is bool
-            and type(value['completed']) is list and len(value['completed'])<=LIMIT and type(value['inputs']) is list and len(value['inputs'])<=256
+            and type(value['completed']) is list and len(value['completed'])<=limit and type(value['inputs']) is list and len(value['inputs'])<=256
             and (value['active'] is not None)==(value['phase']=='acting'))
         phase=value['fixture'];phase_packet(phase,run=self.run,area=self.area,request=phase['requestId'],epoch=phase['capturedEpochMs'])
         need(phase['active'] and phase['activations'][0]['stimulus']==dict(verb='baseline',inputs={}))
         tickets=[]
         for index,call in enumerate(value['completed']+([] if value['active'] is None else [value['active']])):
             parsed=arguments('feature.world-web.act',call);step=SCENARIOS[self.area]['steps'][index]
-            need(index<LIMIT and parsed['runId']==self.run and parsed['fixtureUrl']==self.url
+            need(index<limit and parsed['runId']==self.run and parsed['fixtureUrl']==self.url
                 and same(dict(verb=parsed['verb'],inputs=parsed['inputs']),dict(verb=step['verb'],inputs=expand(step['inputs'],fixture_context(self.run)))))
             original=phase['activations'][index+1]
             need(original['ticket']==parsed['ticket'] and same(original['stimulus'],dict(verb=parsed['verb'],inputs=parsed['inputs'])))
@@ -201,7 +204,7 @@ class PicoWorldWebPrefix:
         call=deepcopy(arguments('feature.world-web.act',call));need(self.role=='primary' and self.lock._owner is None)
         with self.lock.held(),self.adapter.existing_input_session(self.target):
             self.read();self.control();need(self.state is not None and self.state['phase']=='ready')
-            index=len(self.state['completed']);need(index<LIMIT)
+            index=len(self.state['completed']);need(index<INPUT_LIMIT)
             step=SCENARIOS[self.area]['steps'][index]
             need(call['runId']==self.run and call['fixtureUrl']==self.url and same(dict(verb=call['verb'],inputs=call['inputs']),
                 dict(verb=step['verb'],inputs=expand(step['inputs'],fixture_context(self.run)))))
@@ -220,8 +223,11 @@ class PicoWorldWebPrefix:
                 packet=self.io().request(self.run,self.url,self.state['ownerToken'],'observe')
                 current=packet['source']['current'];need(current)
                 view=current['source']['nativeView']
-                if index==1:self.adapter.world_prefix_text(self.target,self,view,call['inputs']['text'])
-                else:self.adapter.world_prefix_click(self.target,self,view,'bridge')
+                if index in (1,3):
+                    self.adapter.world_prefix_text(self.target,self,view,call['inputs']['text'] if index==1 else '')
+                else:
+                    control={2:'bridge',4:'second',5:'back'}[index]
+                    self.adapter.world_prefix_click(self.target,self,view,control)
             self.exact_phase();started=self.source.monotonic();native=self.adapter._native_feature_observer(self.target,read_only=True);requested=native.clock_ms()
             value=deepcopy(self.state);value['completed'].append(call);value.update(phase='ready',active=None);self.save(value)
             seal=self.seal(started,requested,[],native)
