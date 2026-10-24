@@ -56,6 +56,15 @@ public class EmbeddedWebView {
     }
     static void read(){featurePicoCurrentDocumentRead(1,3,6,1,id('1'),id('3'),VIEWS.get(1L).requestedUrl);MAIN.flush();}
     public static void main(String[] arguments)throws Exception {
+        if(arguments.length>0 && arguments[0].equals("--utf8-only")){
+            Instance current=reset();read();need(current.view.reads==1 && replies.isEmpty());
+            String raw=java.nio.file.Files.readString(java.nio.file.Paths.get(arguments[1]));
+            need(raw.length()<=8192 && raw.getBytes(StandardCharsets.UTF_8).length>8192);
+            current.view.finish(raw);need(replies.size()==1 && current.view.reads==1);
+            System.out.println("ORIGINAL_UTF8_REPLY "+replies.get(0));
+            need(new JSONObject(replies.get(0)).getString("domRaw").isEmpty());
+            System.out.println("PASS original Java current-document UTF8 cap");return;
+        }
         Instance current=reset();read();need(current.view.reads==1 && replies.isEmpty());
         need(current.view.script.equals("window.__overteFeatureWebDOM?JSON.stringify(window.__overteFeatureWebDOM.read(\""+id('3')+"\")):null"));
         int weakCaptures=0;

@@ -202,6 +202,7 @@ void NativeWebViewItem::acceptFeaturePicoWorldCurrentDocument(qint64 handle,quin
             || before.value("grant").toULongLong()!=grant || before.value("page").toULongLong()!=page){picoCurrentUnavailable(query);return;}
         const auto transaction=QJsonDocument::fromJson(raw);const auto object=transaction.object();
         if(!transaction.isObject() || !picoCurrentKeys(object,{"before","domRaw","after"}) || !object.value("domRaw").isString()
+            || object.value("domRaw").toString().toUtf8().size()>8192
             || !picoCurrentJava(object.value("before").toObject()) || !picoCurrentJava(object.value("after").toObject())){picoCurrentUnavailable(query);return;}
         const auto javaBefore=object.value("before").toObject().toVariantMap(),javaAfter=object.value("after").toObject().toVariantMap();
         if(picoCurrentSemantic(javaBefore)!=picoCurrentSemantic(javaAfter) || !picoCurrentJoins(before,javaBefore)

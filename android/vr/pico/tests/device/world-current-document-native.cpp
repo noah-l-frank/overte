@@ -142,6 +142,33 @@ int main(int argc,char**argv) {
         assert(retainedSource.value("domRaw")==QString::fromUtf8(retainedRaw));
         const auto readyAgain=NativeWebViewItem::featurePicoWorldCurrentDocument(retainedCommand);events();
         assert(readyAgain==retained && count("currentReads")==currentReads && worldWebScopes.value(run).documents==documents);
+        const auto byteCommand=requestCurrent();auto byteQuery=startCurrent(byteCommand);
+        auto byteWrapper=QJsonDocument::fromJson(transaction(byteQuery)).object();
+        auto innerQuoted=QJsonDocument::fromJson('['+byteWrapper.value("domRaw").toString().toUtf8()+']');
+        auto byteDOM=QJsonDocument::fromJson(innerQuoted.array()[0].toString().toUtf8()).object();
+        auto byteEditor=byteDOM.value("editor").toObject();byteEditor.insert("text",QString(512,QChar(0x4e2d)));byteDOM.insert("editor",byteEditor);
+        QJsonArray byteEchoes;
+        for(int i=1;i<=27;++i){
+            const QVariantMap message{{"contract","overte-web-parity-v1"},{"action","echo"},{"sequence",i},{"surface","world"}};
+            byteEchoes.append(QJsonObject{{"sequence",i},{"surface","world"},
+                {"message",QString::fromUtf8(QJsonDocument::fromVariant(message).toJson(QJsonDocument::Compact))},
+                {"receivedEpochMs",double(byteQuery->clock->epoch)},{"observedEpochMs",double(byteQuery->clock->epoch)}});
+        }
+        byteDOM.insert("echoes",byteEchoes);const auto originalQuoted=QString::fromUtf8(quoted(byteDOM.toVariantMap()));
+        byteWrapper.insert("domRaw",originalQuoted);const auto byteRaw=QJsonDocument(byteWrapper).toJson(QJsonDocument::Compact);
+        record("current-utf8-input",{{"domOriginal",byteDOM.toVariantMap()},{"domRaw",originalQuoted},
+            {"innerUtf16Units",originalQuoted.size()},{"innerUtf8Bytes",originalQuoted.toUtf8().size()},{"transactionBytes",byteRaw.size()}});
+        assert(originalQuoted.size()<=8192 && originalQuoted.toUtf8().size()>8192 && byteRaw.size()<16384);
+        deliver(byteQuery,byteRaw,returnedGrant);
+        const auto bytePacket=NativeWebViewItem::featurePicoWorldCurrentDocument(byteCommand);
+        record("current-utf8-cap",{{"request",byteCommand},{"packet",bytePacket},{"domOriginal",byteDOM.toVariantMap()},
+            {"innerUtf16Units",originalQuoted.size()},{"innerUtf8Bytes",originalQuoted.toUtf8().size()},{"transactionBytes",byteRaw.size()}});
+        assert(bytePacket.value("status")=="unavailable" && byteQuery->originals.size()==1 && byteQuery->originals[0]==byteRaw);
+        assert(count("currentReads")==currentReads+1); // no resample after rejected original
+        if(QCoreApplication::arguments().contains("--current-document-byte-cap")){
+            item.reset();events();assert(machine->DestroyJavaVM()==JNI_OK);
+            puts("PASS actual Pico current-document UTF8 byte cap without another DOM read");return 0;
+        }
         auto foreign=retainedCommand;foreign.insert("ownerToken",nonce());assert(NativeWebViewItem::featurePicoWorldCurrentDocument(foreign).isEmpty());
         auto foreignNonce=nonce();NativeWebViewItem::acceptFeaturePicoWorldCurrentDocument(handle,creation,returnedGrant,1,run,foreignNonce,retainedRaw);events();
         assert(!picoCurrentLookup(run,foreignNonce) && retainedQuery->originals.size()==1);
