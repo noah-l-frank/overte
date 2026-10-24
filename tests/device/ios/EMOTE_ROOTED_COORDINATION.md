@@ -56,3 +56,20 @@ The [once-only scene publication policy](EMOTE_SCENE_PUBLICATION_ONCE.md)
 also preserves the one scene entry allowed per cleanup ticket. Later rooted
 cuts keep the committed original scene reference and independently publish
 fresh ordinary Actor facts; unknown delivery remains durable and is not resent.
+
+The normal paired Primary cleanup path and its repeat now pass in 587.698
+seconds, without the earlier direct local-cleanup shortcut. Each repeat
+acquires actual new role cleanup originals while preserving the single
+original Actor scene3 publication; the original scene remains readable after
+its ordinary freshness lease expires only through the explicit
+[scene-order owner](EMOTE_SCENE_ORDER.md). Waiting admits independent Actor
+work outside the Primary source lock. The actual normal Primary request count
+does not advance. Current role metadata also supplies the Actor's distinct
+artifact root and image policy to the production terminal constructor.
+
+The [three-pair terminal window](EMOTE_TERMINAL_WINDOW.md) and
+[durable internal inspect/seal journal](EMOTE_TERMINAL_JOURNAL.md) are separately
+host-checked. All of these fixtures retain their declared native/SDK/clock
+models; neither the repeated-cleanup case nor their wall durations qualify
+real operation bounds or the complete feature. Rooted whole ownership,
+once-only per-role Stop, OS/SDK end and canonical/worker replay remain required.

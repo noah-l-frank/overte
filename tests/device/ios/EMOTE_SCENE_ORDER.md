@@ -41,6 +41,20 @@ unknown delivery without resending, phase advance, cross-area reuse, legacy/
 boolean/future tags, strict legacy freshness and slow current HTTP acquisition.
 Eighteen earlier ordering/shared publisher checks pass in 0.905 seconds. The
 initial factory regression exposed the default-stage constructor mismatch and
-failed before the normalization fix; it is not counted as a pass. Full repeated
-Primary cleanup, terminal integration, real CPU budgets, compilation and device
-qualification are still unverified.
+failed before the normalization fix; it is not counted as a pass.
+
+The subsequent connected rooted case now passes repeated normal Primary
+cleanup in 587.698 seconds. The independent Actor acquires another cleanup cut
+after its original scene is older than the ordinary 1500-ms freshness lease.
+Both role references advance while the actual HTTP retirement journal retains
+exactly one scene entry, including its original captured and received epochs.
+The Primary's normal input request count does not advance during the repeat.
+The saved ordering owner retains both actual reads and the same original entry.
+All 2694 captured source files remain unchanged during the run, and both owned
+original roots survive fixture cleanup. The production terminal constructor
+also reopens the actual Actor root/policy from that retained role metadata.
+
+This uses the existing component-assembly fixture seam and declared native,
+SDK, Qt, GPU and acquisition-clock models. It does not qualify actual operation
+deadlines, whole current-WAL archival, process/SDK end or the full common
+journey. Compilation and device qualification remain unexecuted.
