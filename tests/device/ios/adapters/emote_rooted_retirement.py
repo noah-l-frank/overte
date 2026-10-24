@@ -12,7 +12,7 @@ from ios.adapters.emote_rendered_retirement import IOSEmoteRenderedRetirement
 from ios.adapters.emote_keyed_retirement import IOSEmoteKeyedRetirement
 from ios.adapters.emote_rooted_marker_scope import IOSEmoteRootedMarkerScope
 from ios.adapters.emote_rooted_observation import IOSEmoteRootedObservationDecoder
-from ios.adapters.emote_archive_round import derived
+from ios.adapters.emote_archive_round import derived,component_read
 
 
 class IOSEmoteRootedNativeRetirement(IOSEmoteRetirement):
@@ -29,8 +29,11 @@ class IOSEmoteRootedNativeRetirement(IOSEmoteRetirement):
         need(type(scope) is self.Marker)
         return holders.web('emote',current['web'],admitted['web'],partial=scope.state['cleanupMode']!='full')
 
+    def decode(self,value):
+        return component_read(self,value,lambda:super(IOSEmoteRootedNativeRetirement,self).decode(value))
+
     def derive(self,reference):
-        return derived(self,reference,lambda:self.derive_original(reference))
+        return component_read(self,reference,lambda:derived(self,reference,lambda:self.derive_original(reference)))
 
     def derive_original(self,reference):
         derived=super().derive(reference);original=self.original(reference)
@@ -50,7 +53,11 @@ class IOSEmoteRootedRenderedRetirement(IOSEmoteRenderedRetirement):
         super().__init__(store,native,frames,historical=historical)
 
     def derive(self,reference):
-        return derived(self,reference,lambda:super(IOSEmoteRootedRenderedRetirement,self).derive(reference))
+        return component_read(self,reference,lambda:derived(self,reference,
+            lambda:super(IOSEmoteRootedRenderedRetirement,self).derive(reference)))
+
+    def decode(self,value):
+        return component_read(self,value,lambda:super(IOSEmoteRootedRenderedRetirement,self).decode(value))
 
 
 class IOSEmoteRootedKeyedRetirement(IOSEmoteKeyedRetirement):
@@ -62,4 +69,8 @@ class IOSEmoteRootedKeyedRetirement(IOSEmoteKeyedRetirement):
         super().__init__(store,rendered,keys,historical=historical)
 
     def derive(self,reference):
-        return derived(self,reference,lambda:super(IOSEmoteRootedKeyedRetirement,self).derive(reference))
+        return component_read(self,reference,lambda:derived(self,reference,
+            lambda:super(IOSEmoteRootedKeyedRetirement,self).derive(reference)))
+
+    def decode(self,value):
+        return component_read(self,value,lambda:super(IOSEmoteRootedKeyedRetirement,self).decode(value))

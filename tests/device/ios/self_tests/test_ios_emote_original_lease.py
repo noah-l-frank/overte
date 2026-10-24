@@ -1,10 +1,11 @@
-"""Actual inode/inventory changes cannot reuse a prior byte decoder verdict."""
+"""Real filesystem mutations must not borrow an earlier original inventory."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 from adapters.normal_ui import NativeUIError
 from ios.adapters.emote_original_lease import EmoteOriginalLease
 
@@ -37,3 +38,61 @@ class OriginalLeaseTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.lease()
         alias.unlink();os.link(self.original,alias)
         with self.assertRaises(NativeUIError):self.lease()
+
+
+class OriginalLeaseMutationTests(unittest.TestCase):
+    def setUp(self):
+        temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup)
+        self.root=Path(temp.name);self.root.chmod(0o700)
+        self.folder=self.root/'nested';self.folder.mkdir(mode=0o700)
+        self.original=self.folder/'original.json';self.original.write_bytes(b'original');self.original.chmod(0o600)
+
+    def test_rewritten_bytes_with_restored_mtime_still_invalidate_the_original(self):
+        lease=EmoteOriginalLease(self.root,[]);before=self.original.stat()
+        self.original.write_bytes(b'changed!')
+        os.utime(self.original,ns=(before.st_atime_ns,before.st_mtime_ns))
+        with self.assertRaises(NativeUIError):lease.guard()
+
+    def test_namespace_changes_and_replacement_are_not_hidden_by_directory_timestamp_policy(self):
+        for fault in ('added','removed','replacement','mode'):
+            with self.subTest(fault=fault):
+                lease=EmoteOriginalLease(self.root,[])
+                if fault=='added':
+                    added=self.folder/'unaccounted';added.mkdir()
+                elif fault=='removed':self.original.rename(self.root/'moved')
+                elif fault=='replacement':
+                    replacement=self.folder/'replacement';replacement.write_bytes(self.original.read_bytes())
+                    replacement.chmod(0o600);replacement.replace(self.original)
+                else:self.original.chmod(0o400)
+                with self.assertRaises(NativeUIError):lease.guard()
+                if fault=='added':added.rmdir()
+                elif fault=='removed':(self.root/'moved').rename(self.original)
+                elif fault=='mode':self.original.chmod(0o600)
+
+    def test_symlinks_and_multiply_linked_originals_are_rejected(self):
+        alias=self.root/'alias';alias.symlink_to(self.original)
+        with self.assertRaises(NativeUIError):EmoteOriginalLease(self.root,[])
+        alias.unlink();os.link(self.original,alias)
+        with self.assertRaises(NativeUIError):EmoteOriginalLease(self.root,[])
+
+    def test_only_the_exact_declared_mutable_file_may_disappear(self):
+        metadata=self.root/'metadata.json';metadata.write_bytes(b'owned metadata')
+        lease=EmoteOriginalLease(self.root,[metadata]);metadata.unlink();lease.guard()
+        self.assertEqual({'.','nested','nested/original.json'},set(lease.rows))
+        unexpected=self.root/'other.json';unexpected.write_bytes(b'unowned')
+        with self.assertRaises(NativeUIError):lease.guard()
+
+    def test_in_census_mutation_uses_a_second_uncached_stat(self):
+        real=os.lstat;calls=[]
+        def mutate(path,*args,**kwargs):
+            value=real(path,*args,**kwargs)
+            if os.fspath(path)==os.fspath(self.original):
+                calls.append(path)
+                if len(calls)==1:self.original.write_bytes(b'mutated during actual census')
+            return value
+        with patch.object(os,'lstat',side_effect=mutate),self.assertRaises(NativeUIError):
+            EmoteOriginalLease(self.root,[])
+        self.assertEqual(2,len(calls))
+
+
+if __name__=='__main__':unittest.main()

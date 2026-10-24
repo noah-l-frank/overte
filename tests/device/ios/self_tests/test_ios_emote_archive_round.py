@@ -8,7 +8,8 @@ import unittest
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.script_feature.lock import ScriptSourceLock
-from ios.adapters.emote_archive_round import scope,derived
+from ios.adapters.emote_archive_round import scope,derived,component_read
+from adapters.pure_original_validation import returning_input
 
 
 class ArchiveRoundTests(unittest.TestCase):
@@ -43,6 +44,28 @@ class ArchiveRoundTests(unittest.TestCase):
                         if fault=='changed':self.file.write(dict(actual=8),self.file.read())
                         else:PrivateFeatureState(self.root/'unexpected.json').write(dict(actual=9),None)
                         derived(self.owner,dict(index=1),self.decode)
+
+    def test_current_component_decoder_runs_each_time_but_identical_pure_validation_is_scoped(self):
+        self.owner.historical=False;self.owner.root=self.root;calls=[]
+        def validate(value):calls.append(value);return value
+        def current():
+            for _ in range(2):
+                derived(self.owner,dict(index=1),self.decode)
+                returning_input(validate,dict(original='same'))
+            return dict(actual='current decoder returned')
+        with self.lock.held():
+            self.assertEqual(dict(actual='current decoder returned'),component_read(self.owner,dict(index=1),current))
+            self.assertEqual(2,self.calls);self.assertEqual(1,len(calls))
+            component_read(self.owner,dict(index=1),current)
+            self.assertEqual(4,self.calls);self.assertEqual(2,len(calls))
+            returning_input(validate,dict(original='same'));self.assertEqual(3,len(calls))
+
+    def test_current_component_read_cannot_publish_a_result_after_metadata_changes(self):
+        self.owner.historical=False;self.owner.root=self.root
+        def changed():
+            self.file.write(dict(actual=8),self.file.read());return dict(performed=True)
+        with self.lock.held(),self.assertRaises(NativeUIError):
+            component_read(self.owner,dict(index=1),changed)
 
 
 if __name__=='__main__':unittest.main()

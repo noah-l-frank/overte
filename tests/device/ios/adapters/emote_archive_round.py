@@ -78,3 +78,17 @@ def derived(owner,reference,decode):
         current.rows[key]=(deepcopy(value),set(reads),size);current.bytes+=size
     for path in reads:record(path)
     return value
+
+
+def component_read(owner,value,decode):
+    """Scope pure original validation during a current component's read.
+
+    The current decoder itself always runs, including pending/orphan checks.
+    No live derivation is memoized. Its original-only validators may reuse
+    identical successful arguments until the complete unchanged exit census.
+    Scope exit precedes every caller's metadata save or new acquisition.
+    """
+    if owner.historical or _ACTIVE.get() is not None:return decode()
+    boundary=dict(artifactRoot=str(owner.root),stateRoot=str(owner.store.path.parent),
+        component=type(owner).__module__+'.'+type(owner).__qualname__,path=str(owner.store.path),original=value)
+    with scope(boundary,lock=owner.lock,primary_lock=owner.primary_lock):return decode()
