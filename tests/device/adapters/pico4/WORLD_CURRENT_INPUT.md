@@ -226,3 +226,23 @@ refusal. The first red retained source manifest, log and actual input intent/
 envelope, but had no separate focus-original file; the fresh green run adds
 that evidence write without reconstructing the old packet. Native/Java bodies,
 contract/catalog and the separately retained Parent WIP are not in this fix.
+
+
+### Review follow-up: observe the calibrated field, not always `text`
+
+The actual `web_dom_observation.js` document `read()` always samples the node
+named `text`. A separate positive producer case calibrated `foreign`, consumed
+the actual compiled normal ray/trigger model, then independently generated a
+new foreign geometry/native-editor response (`kind:url`, focused true) while
+its full new document original correctly retained text focus false. The fixed
+439 publisher rejected that valid source (**1/.050 s**, complete original
+bundles retained). No old response was edited to make it pass.
+
+The resolver now reads focus from the exact requested control's original
+geometry and native editor. Full document identity, original finish, exact
+calibration control/scope, strict raw grammar and final warm fence remain
+mandatory; the document's unrelated text-field focus is not an input verdict.
+Fourteen reader/publisher/factory cases passed **1.210 s** on source freeze
+`c5b27811bc515416b31880861abe0eb52eb718bc907b016a1e99479501472f53`.
+The prior mismatched text-to-foreign counter still refuses. No Native, Java,
+Parent, public surface, shared version, catalog or Keyboard hook changes here.

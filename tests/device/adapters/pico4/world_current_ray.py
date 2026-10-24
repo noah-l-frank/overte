@@ -90,8 +90,10 @@ class PicoWorldCurrentRay:
         need(json_digest(semantic(old['authorityBefore']['native']))==json_digest(semantic(new['authorityAfter']['native']))
              and json_digest(old['originalFinish'])==json_digest(new['originalFinish'])
              and json_digest(returned['streamEnvelope'])==json_digest(self.envelope))
-        doc=decode(focus_original['documentOriginal']['raw']);need(doc['source']['dom']['editor']['focused'] is True
-             and new['nativeEditor']['focused'] is True and new['nativeEditor']['enabled'] is True)
+        from adapters.pico4.browser_source import geometry_original
+        geometry=geometry_original(decode(new['focusRaw'])['geometryRaw'],call,
+            new['authorityBefore']['native']['url'],packet['capturedEpochMs'])
+        need(geometry['editor']['focused'] is True and new['nativeEditor']['focused'] is True and new['nativeEditor']['enabled'] is True)
         result=deepcopy(focus_original)
         source.require_warm(focus_original)
         return result
