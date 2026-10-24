@@ -1,4 +1,4 @@
-"""Private normal 1–4 operations/common waits, never execute/peer/images.
+"""Private normal operations/common waits, never execute/peer/images.
 
 Native Qt/physics/OS and final app-file/controller I/O retain explicit models.
 The original owners, session locks, phase grammar and consumers execute.
@@ -7,6 +7,7 @@ The original owners, session locks, phase grammar and consumers execute.
 # SPDX-License-Identifier: Apache-2.0
 from contextlib import contextmanager
 from copy import deepcopy
+import json
 import unittest
 from unittest.mock import patch
 import uuid
@@ -21,6 +22,7 @@ from feature_journeys.scenarios import SCENARIOS,expand
 from feature_journeys.witness import Client,Journal
 from self_tests import test_pico_lifecycle_chat as chat_fixture
 from self_tests import test_pico_lifecycle_background_owner as background_fixture
+from self_tests import test_pico_lifecycle_pending as pending_fixture
 from self_tests import test_pico_lifecycle_observation_baseline as baseline_fixture
 from self_tests import test_pico_lifecycle_primary_wait as wait_fixture
 from self_tests.test_pico_lifecycle_readonly import readonly_entry
@@ -258,7 +260,7 @@ class LifecycleOperationsBackgroundTests(unittest.TestCase):
     fields=LifecycleOperationsTests.fields
     coordinator_attach_roles={'chat','background'}
 
-    def run_seven(self):
+    def run_seven(self,*,actions=7):
         def probe(case,waiter):
             children={};counts=[]
             def chat(_fence):
@@ -298,12 +300,74 @@ class LifecycleOperationsBackgroundTests(unittest.TestCase):
                         reader.guard=final_guard;return world,reader,native
                     helper.owner.runtime_factory=changed
                 return helper.owner
-            self.operations.factories=dict(chat=chat,background=background)
-            for index in range(7):
+            def pending(_fence):
+                helper=pending_fixture.LifecyclePendingTests();helper.initialize_from_background(children['background'])
+                self.addCleanup(helper.doCleanups);children['pending']=helper
+                original=helper.owner.pending.original;helper.archived_before_query=[]
+                def raw():
+                    previous=helper.owner.pending.last_request
+                    if helper.boundary.request['operation']=='observe' and previous is not None and previous['operation']!='observe':
+                        reply=helper.owner.state['replies'][-1]
+                        self.assertIsNotNone(reply);self.assertEqual(previous,reply['request'])
+                        self.assertEqual(helper.owner.pending.last_raw,reply['original']['raw'])
+                        helper.archived_before_query.append(previous['operation'])
+                    return original()
+                helper.owner.pending.original=raw
+                fault=getattr(self,'pending_fault',None)
+                if fault=='lost-final':helper.lost='hold'
+                elif fault=='reply-late':
+                    save=helper.owner.save;epoch=helper.owner.pending.clock_ms
+                    def late(state,**kwargs):
+                        save(state,**kwargs)
+                        if kwargs.get('archive_reply') and state['mutations'][-1]['operation']=='hold':
+                            helper.owner.pending.clock_ms=lambda:epoch()+2000
+                    helper.owner.save=late
+                elif fault=='phase':
+                    save=helper.owner.save
+                    def changed(state,**kwargs):
+                        save(state,**kwargs)
+                        if state['phase']=='hold-issued' and state['mutations'][-1]['operation']=='hold':
+                            self.journal.activate(self.source.run,uuid.uuid4().hex,'cleanup')
+                    helper.owner.save=changed
+                elif fault=='native-jump':
+                    guard=helper.owner.pending.guard;epoch=helper.owner.pending.clock_ms;triggered=[]
+                    def final_guard():
+                        result=guard()
+                        if helper.owner.state is not None and helper.owner.state['phase']=='hold-issued' and helper.owner.state['mutations'][-1]['operation']=='hold' and not triggered:
+                            triggered.append(True);helper.owner.pending.clock_ms=lambda:epoch()+2000
+                        return result
+                    helper.owner.pending.guard=final_guard
+                return helper.owner
+            self.operations.factories=dict(chat=chat,background=background,**(dict(pending=pending) if actions>7 else {}))
+            for index in range(actions):
                 fields=self.fields(index);barrier=self.native.epoch()
                 required=deepcopy(waiter.journey.lifecycle)
                 if fields['verb']=='background-resume':required['backgrounds']+=1;required['activations']+=1
                 waiter.journey.required_lifecycle=required
+                fault=getattr(self,'pending_fault',None)
+                if actions>7 and fault is not None and index==(8 if fault=='segment' else 9):
+                    helper=children['pending'];before_world=len(self.source.world.state['frames'])
+                    if fault=='segment':self.native.sleep(20)
+                    before_host=self.native.clock
+                    with self.assertRaises(NativeUIError):waiter.journey.call('act',fields)
+                    self.assertEqual(before_host,self.native.clock);self.assertTrue(self.operations.failed)
+                    sent=[row for row in helper.boundary.commands if row['operation']=='hold']
+                    self.assertEqual(1 if fault in ('lost-final','reply-late') else 0,len(sent))
+                    self.assertEqual('focused' if fault=='segment' else 'hold-issued',helper.owner.state['phase'])
+                    if fault=='segment':self.assertEqual(before_world,len(self.source.world.state['frames']))
+                    before=len(helper.boundary.commands)
+                    with self.assertRaises(NativeUIError):waiter.journey.call('act',fields)
+                    self.assertEqual(before,len(helper.boundary.commands))
+                    if fault=='lost-final':
+                        helper.lost=None;packet=helper.owner.pending.read(self.source.run)
+                        self.assertTrue(packet['commit']['observation']['pending'])
+                        self.assertEqual(3,packet['lastIntentSequence'])
+                        self.assertEqual(1,len([row for row in helper.boundary.commands if row['operation']=='hold']))
+                    elif fault=='reply-late':
+                        reply=helper.owner.state['replies'][-1]
+                        self.assertIsNotNone(reply);self.assertEqual('hold',reply['request']['operation'])
+                        self.assertEqual('hold',helper.boundary.commands[-1]['operation'])
+                    return
                 if index==6 and getattr(self,'background_fault',None) is not None:
                     with self.assertRaises(NativeUIError):waiter.journey.call('act',fields)
                     helper=children['background'];fault=self.background_fault
@@ -316,24 +380,62 @@ class LifecycleOperationsBackgroundTests(unittest.TestCase):
                     self.assertEqual(before,len(helper.inputs));return
                 waiter.journey.call('act',fields)
                 expected=expand(SCENARIOS['lifecycle-input']['steps'][index]['state'],context(self.source.run))
-                waiter.journey.wait('private-seven-'+str(index+1)+'-'+fields['verb'],fields['ticket'],barrier,expected,[],duration=3 if index==3 else .5)
+                waiter.journey.wait('private-prefix-'+str(index+1)+'-'+fields['verb'],fields['ticket'],barrier,expected,[],duration=3 if index in (3,11) else .5)
                 counts.append(dict(action=index+1,world=len(self.source.world.state['frames']),readonly=len(self.source.disk['records'])))
-            self.assertEqual([],waiter.forbidden_calls);self.assertEqual(7,len(self.operations.state['steps']))
+            self.assertEqual([],waiter.forbidden_calls);self.assertEqual(actions,len(self.operations.state['steps']))
             self.assertIs(self.source.chat,children['chat'].owner);self.assertIs(self.source.background,children['background'].owner)
             self.assertIs(children['background'].world,self.source.world)
             self.assertEqual(['lifecycle.background','app.launch'],children['background'].inputs)
             self.assertEqual([],children['chat'].widgets.sent)
             self.assertEqual(['arm','release'],[row['operation'] for row in children['background'].history.commands if row['operation']!='observe'])
-            report=dict(scope='private-normal-primary-only-seven',counts=counts,worldTriples=len(self.source.world.state['frames']),
+            label='twelve' if actions>7 else 'seven'
+            report=dict(scope='private-normal-primary-only-'+label,counts=counts,worldTriples=len(self.source.world.state['frames']),
                 readonlyTriples=len(self.source.disk['records']),totalPhysicalTriples=len(self.source.world.state['frames'])+len(self.source.disk['records']))
-            PrivateFeatureState(self.source.store.path.with_name('lifecycle-operations-seven-diagnostics.json')).write(report,None)
-            print('Actual same-graph seven-action bill: '+str(report),flush=True)
+            PrivateFeatureState(self.source.store.path.with_name('lifecycle-operations-'+label+'-diagnostics.json')).write(report,None)
+            print('Actual same-graph '+label+'-action bill: '+str(report),flush=True)
+            if actions>7:
+                owner=children['pending'].owner
+                self.assertIs(self.source.pending,owner)
+                self.assertIs(owner.pending._before_send,owner.pending_callback)
+                self.assertIs(owner.route.io.navigation.io.callback,owner.normal_callback)
+                self.assertIsNone(owner.deadline)
+                lease=self.operations.state['pendingSegment'];self.assertLess(lease['completedHost']-lease['startedHost'],20)
+                self.assertEqual('quiet',owner.state['phase']);self.assertTrue(owner.state['eventId'])
+                self.assertEqual(2,owner.version);self.assertEqual(5,len(owner.state['replies']))
+                self.assertEqual(['focus','type','hold','attempt','release'],children['pending'].archived_before_query)
+                for request,reply in zip(owner.state['mutations'],owner.state['replies']):
+                    self.assertIsNotNone(reply);self.assertEqual(request,reply['request']);owner.reply_packet(reply,request)
+                held=[]
+                for record in self.source.disk['records']:
+                    row,_=source_bundles.original(self.source.history,self.source.disk['chunks'],self.source.disk['bundles'],record)
+                    part,_=source_bundles.original(self.source.history,self.source.disk['chunks'],self.source.disk['bundles'],row['pendingBundle'])
+                    packet=json.loads(part['pending']['raw'])
+                    if packet['commit']:
+                        commit=packet['commit']['observation'];held.append(dict(sequence=row['result']['sequence'],
+                            originalSha256=part['pending']['sha256'],capturedEpochMs=packet['capturedEpochMs'],
+                            elapsedMs=commit['elapsedMs'],pending=commit['pending'],eventId=commit['eventId'],events=commit['events']))
+                self.assertTrue(any(row['pending'] for row in held));self.assertTrue(any(not row['pending'] for row in held))
+                PrivateFeatureState(self.source.store.path.with_name('lifecycle-pending-segment-diagnostics.json')).write(
+                    dict(segment=lease,originalHoldHost=owner.state['holdHost'],readonlyOriginals=held),None)
         self.at_prefix(probe)
 
     def test_same_live_graph_normal_seven_actions_and_common_waits_keep_original_background_sources(self):self.run_seven()
     def test_phase_change_after_background_home_cas_prevents_home(self):self.background_fault='home';self.run_seven()
     def test_phase_change_after_background_resume_cas_prevents_launch_without_qt(self):self.background_fault='resume';self.run_seven()
     def test_phase_change_in_background_arm_final_guard_prevents_native_mutation(self):self.background_fault='arm';self.run_seven()
+
+
+class LifecycleOperationsPendingTests(unittest.TestCase):
+    at_prefix=LifecycleOperationsTests.at_prefix
+    fields=LifecycleOperationsTests.fields
+    run_seven=LifecycleOperationsBackgroundTests.run_seven
+    coordinator_attach_roles={'chat','background','pending'}
+    def test_same_original_graph_twelve_actions_original_pending_floors_and_fixed_segment_deadline(self):self.run_seven(actions=12)
+    def test_lost_actual_hold_send_keeps_original_native_event_and_never_resends(self):self.pending_fault='lost-final';self.run_seven(actions=12)
+    def test_phase_change_after_native_hold_intent_cas_prevents_mutation(self):self.pending_fault='phase';self.run_seven(actions=12)
+    def test_native_jump_in_final_hold_guard_with_fixed_host_prevents_mutation(self):self.pending_fault='native-jump';self.run_seven(actions=12)
+    def test_twenty_second_segment_deadline_is_not_reset_by_next_normal_action(self):self.pending_fault='segment';self.run_seven(actions=12)
+    def test_landed_hold_reply_archive_then_native_jump_retains_bytes_without_followup_query(self):self.pending_fault='reply-late';self.run_seven(actions=12)
 
 
 if __name__=='__main__':unittest.main()

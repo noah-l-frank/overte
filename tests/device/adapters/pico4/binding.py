@@ -1467,7 +1467,11 @@ def create_adapter(args, base_class):
             def send(command):
                 guard()
                 fence=getattr(observer,'phase_fence',None)
-                if fence is not None and command.get('operation')!='inspect':fence.check()
+                if fence is not None and command.get('operation')!='inspect':
+                    from adapters.pico4.lifecycle_operations import LifecycleInputFence
+                    readonly=(type(fence) is LifecycleInputFence and command.get('action')=='feature-pending-commit-owner'
+                        and command.get('operation')=='observe')
+                    if not readonly:fence.check()
                 self.write_control_command(target, original.identity, 'native feature sources', command)
             observer=NativeFeatureObservation(send,
                 lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
@@ -2260,7 +2264,7 @@ def create_adapter(args, base_class):
                 sleep=world.sleep if world is not None else time.sleep)
 
         @_private
-        def _lifecycle_pending_owner(self,target,run,*,source_lock=None,world=None,background=None):
+        def _lifecycle_pending_owner(self,target,run,*,source_lock=None,world=None,background=None,phase_fence=None):
             from adapters.pico4.lifecycle_pending import PicoLifecyclePending
             from adapters.pico4.lifecycle_world import PicoLifecycleWorld
             from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
@@ -2273,7 +2277,7 @@ def create_adapter(args, base_class):
                 and background.run==run and background.binding==world.binding)
             route,_observe,binding=self._script_runtime(target)
             _need(binding==world.binding)
-            pending=self._pending_owner(target,binding=binding)
+            pending=self._pending_owner(target,binding=binding,phase_fence=phase_fence)
             return PicoLifecyclePending(background,world,route,pending,
                 self._lifecycle_world_store(target).path.with_name('lifecycle-pending-owner.json'))
 
@@ -2361,7 +2365,9 @@ def create_adapter(args, base_class):
             _need(native.pid==source.pid and self.require_pico_session_identity(target)==source.world.identity)
             return PicoLifecycleOperations(source,phases,source.world.store.path.with_name('lifecycle-primary-operations.json'),factories=dict(
                 chat=lambda _fence:self._lifecycle_chat_editor(target,run,source_lock=source.lock,joined=source.restore.joined),
-                background=lambda fence:self._lifecycle_background_owner(target,run,source_lock=source.lock,world=source.world,phase_fence=fence)))
+                background=lambda fence:self._lifecycle_background_owner(target,run,source_lock=source.lock,world=source.world,phase_fence=fence),
+                pending=lambda fence:self._lifecycle_pending_owner(target,run,source_lock=source.lock,world=source.world,
+                    background=source.background,phase_fence=fence)))
 
         @_private
         def _lifecycle_restore_restart(self,target,run,*,restore):
@@ -2406,11 +2412,16 @@ def create_adapter(args, base_class):
                 monotonic=native.monotonic,sleep=native.sleep,source_lock=source_lock)
 
         @_private
-        def _pending_owner(self,target,intent=None,*,binding=None):
+        def _pending_owner(self,target,intent=None,*,binding=None,phase_fence=None):
             from adapters.normal_feature_state import context
             binding=context(self._scripts(target).binding if binding is None else binding)
             native=self._native_feature_observer(target)
             native.guard();_need(native.pid==int(binding['processIdentity'].split(':')[0]))
+            if phase_fence is not None:
+                from adapters.pico4.lifecycle_operations import LifecycleInputFence
+                _need(type(phase_fence) is LifecycleInputFence and phase_fence.owner.source.binding==binding
+                    and getattr(native,'phase_fence',None) is None)
+                native.phase_fence=phase_fence
             return NativePendingCommitOwner(native.send,
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+PENDING_OWNER_FILE,attempts=1),
                 native.clock_ms,native.guard,native.pid,intent=intent,monotonic=native.monotonic,sleep=native.sleep)

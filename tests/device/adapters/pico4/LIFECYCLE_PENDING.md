@@ -1,7 +1,10 @@
 # Original Scripts and pending-input continuation
 
-This private `pico-lifecycle-pending-owner:1` component continues the existing
+This private `pico-lifecycle-pending-owner` component continues the existing
 Create/X/Chat/HOME-return owners. It advertises no complete Lifecycle operation.
+New owners write version2; admitted version1 owners retain their original
+layout, writer and operations without migration. Version2 adds the actual
+mutation replies described in the [continuous operations packet](LIFECYCLE_OPERATIONS_PENDING.md).
 The existing shared sixteen-step scenario remains unchanged. Independent peer
 and image evidence, later world movement, normal position restoration and final
 process/context/file retirement remain separate unfinished requirements.

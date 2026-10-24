@@ -32,6 +32,9 @@ class LifecyclePendingTests(unittest.TestCase):
     def setUp(self):
         self.fixture=background_fixture.LifecycleBackgroundOwnerTests();self.fixture.setUp();self.addCleanup(self.fixture.doCleanups)
         self.fixture.owner.run_owned();self.background=self.fixture.owner
+        self.initialize_from_background(self.fixture);self.owner.prepare()
+    def initialize_from_background(self,fixture):
+        self.fixture,self.background=fixture,fixture.owner
         self.world,self.native,self.root,self.lock=self.fixture.world,self.fixture.native,self.fixture.root,self.fixture.lock
         self.path=self.root/'lifecycle-pending-owner.json';self.boundary=PendingBoundary();self.boundary.epoch=self.native.epoch
         self.model=NativeBoundary();self.model.opened=True;self.model.sequence=0
@@ -59,7 +62,7 @@ class LifecyclePendingTests(unittest.TestCase):
             if self.lost=='x' and kwargs.get('expected_sequence') is not None:raise NativeUIError('Explicit uncertain original X answer')
             return original_status(**kwargs)|dict(updatedEpochMs=self.native.epoch())
         transport.read_status=status
-        self.owner=self.make();self.owner.prepare()
+        self.owner=self.make()
 
     def pending_original(self):
         raw=self.original();value=json.loads(raw)

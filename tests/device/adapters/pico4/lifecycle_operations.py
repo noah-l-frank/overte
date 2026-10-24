@@ -18,7 +18,7 @@ from feature_journeys.fixtures import context
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate
 from feature_journeys.scenarios import SCENARIOS,expand
 
-VERSION=1
+VERSION=2
 
 
 def phase(owner):
@@ -54,7 +54,7 @@ class LifecycleInputFence(PhaseInputFence):
 
 
 class PicoLifecycleOperations:
-    """One live primary graph; ordinary recipe actions through background.
+    """One live primary graph; ordinary recipe actions through Pending quiet.
 
     This deliberately has no execute/witness or cleanup substitute. Retained
     parent intent makes a failed call terminal; it never resends that input.
@@ -65,7 +65,7 @@ class PicoLifecycleOperations:
             and type(phases) is PhaseFixtureReader and phases.area=='lifecycle-input' and phases.run==source.run)
         self.source,self.phases,self.lock=source,phases,source.lock
         self.factories={} if factories is None else factories
-        need(type(self.factories) is dict and set(self.factories)<=set(('chat','background'))
+        need(type(self.factories) is dict and set(self.factories)<=set(('chat','background','pending'))
             and all(callable(value) for value in self.factories.values()))
         self.children={}
         self.original_phases=phases
@@ -75,7 +75,7 @@ class PicoLifecycleOperations:
         self.scope=dict(lifecyclePrimaryOperationsVersion=VERSION,contractVersion=CONTRACT,runId=source.run,
             binding=deepcopy(source.binding),fixtureUrl=phases.fixture_url)
         self.disk=None;self.failed=False;self.stamp=None;self.parent=parent_node(self.store)
-        self.state=dict(**self.scope,phase='reading',chunks=[],bundles=[],baseline=None,steps=[])
+        self.state=dict(**self.scope,phase='reading',chunks=[],bundles=[],baseline=None,steps=[],pendingSegment=None)
         self.history=ChatSourceChunks(self.store,self.scope)
         self.chunk_identities=();self.chunk_raw_bytes=2
         with self.lock.held():
@@ -112,6 +112,13 @@ class PicoLifecycleOperations:
         self.history.verify()
         need(tuple(self.history.identities)==self.chunk_identities and type(self.history.raw_bytes) is int
             and self.history.raw_bytes==self.chunk_raw_bytes)
+        if 'pending' in self.children:
+            segment=self.disk['pendingSegment'];need(segment is not None)
+            deadline=self.children['pending'].deadline
+            if segment['completedHost'] is None:
+                need(type(deadline) in (int,float) and deadline==segment['deadlineHost']
+                    and segment['deadlineHost']==segment['startedHost']+20)
+            else:need(deadline is None)
 
     def save(self):
         self.bound();value=deepcopy(self.state)
@@ -177,7 +184,7 @@ class PicoLifecycleOperations:
 
     def act(self,fields):
         self.bound();index=len(self.state['steps'])
-        need(index<7 and (index<4 or ('background' if index==6 else 'chat') in self.factories)
+        need(index<12 and (index<4 or ('pending' if index>=7 else 'background' if index==6 else 'chat') in self.factories)
             and self.state['baseline'] is not None and self.source.disk is not None
             and (index==0 or self.state['steps'][-1]['phase']=='returned'))
         expected=SCENARIOS['lifecycle-input']['steps'][index]
@@ -212,20 +219,38 @@ class PicoLifecycleOperations:
             chat=self.child('chat');chat.open_chat();chat.focus_chat()
         elif index==5:self.child('chat').type_chat()
         elif index==6:self.child('background').run_owned()
+        elif index==7:
+            started=self.source.world.monotonic()
+            self.state['pendingSegment']=dict(startedHost=started,deadlineHost=started+20,completedHost=None);self.save()
+            pending=self.child('pending');pending.deadline=started+20
+            pending.back();pending.open_scripts();pending.mutate('focus')
+        elif index==8:self.child('pending').mutate('type')
+        elif index==9:self.child('pending').mutate('hold')
+        elif index==10:
+            pending=self.child('pending');pending.back(True);pending.open_scripts(True)
+        elif index==11:
+            pending=self.child('pending');pending.mutate('attempt');pending.mutate('release');pending.quiet();pending.released_fresh()
+            completed=self.source.world.monotonic();segment=self.state['pendingSegment']
+            need(completed<segment['deadlineHost'] and pending.state['phase']=='quiet')
+            segment['completedHost']=completed;self.save();pending.deadline=None
         else:need(False)
 
     def child(self,role):
         from adapters.pico4.lifecycle_chat import PicoLifecycleChatDraft
         from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
+        from adapters.pico4.lifecycle_pending import PicoLifecyclePending
         self.bound(saved=True)
         if role not in self.children:
             need(role in self.factories)
             child=self.factories[role](self.fence)
-            need(type(child) is dict(chat=PicoLifecycleChatDraft,background=PicoLifecycleBackground)[role]
+            need(type(child) is dict(chat=PicoLifecycleChatDraft,background=PicoLifecycleBackground,pending=PicoLifecyclePending)[role]
                 and child.run==self.source.run and typed_equal(child.binding,self.source.binding) and child.lock is self.lock
                 and child.store.path==self.store.path.with_name('lifecycle-'+role+'-owner.json') and child.state is None)
             self.children[role]=child;child.bind_phase_fence(self.fence)
-            if role=='chat':child.prepare()
+            if role=='pending':
+                need(child.world is self.source.world and child.background is self.children['background'])
+                child.deadline=self.state['pendingSegment']['deadlineHost'];child.prepare()
+            elif role=='chat':child.prepare()
             else:child.prepare(self.children['chat'])
             getattr(self.source,'attach_'+role)(child)
         return self.children[role]

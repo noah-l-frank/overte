@@ -116,7 +116,7 @@ class NativePendingCommitOwner:
              and integer(pid,1) and type(ios) is bool and (intent is None or callable(intent)))
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,original,clock_ms,guard,pid
         self.ios,self.intent,self.monotonic,self.sleep=ios,intent,monotonic,sleep
-        self.last=self.last_raw=self.last_request=None;self._before_send=None
+        self.last=self.last_raw=self.last_request=None;self.last_received=None;self._before_send=None
 
     def bind_before_send(self,callback):
         need(callable(callback) and (self._before_send is None or self._before_send is callback))
@@ -153,6 +153,9 @@ class NativePendingCommitOwner:
                          and -250<=epoch-value['capturedEpochMs']
                          and max(epoch-value['capturedEpochMs'],requested-value['capturedEpochMs']+(now-started)*1000)<=1500)
                     self.last,self.last_raw,self.last_request=retained,raw,original_request
+                    # Preserve the already measured native exchange admission;
+                    # no new query, clock read or freshness renewal is made.
+                    self.last_received=(started,requested,now,epoch)
                     return result
                 now=self.monotonic();need(number(now,0,1e15) and previous<=now);previous=now
                 if now-started>=5 or attempt==50:break
