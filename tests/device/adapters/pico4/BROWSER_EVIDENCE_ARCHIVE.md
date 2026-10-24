@@ -167,3 +167,23 @@ claim that the whole120s budget fits. An initial reporting-only failure after
 writing the measurements is retained; the corrected standalone comparison
 finishes with all original stamps/hashes unchanged. Its archive is historical
 only and cannot resume or retire the earlier failed owner.
+
+
+## Latest full owning attempt
+
+The unchanged complete case was run once on `9b72c5a18d` after the two measured
+component changes. It remains red at 120.022 s. All26 normal actions/28 phases
+execute: Close ends at64.627 s and common restored-baseline wait at83.862 s.
+The original Actor-return marker is consumed; the remote-capture root is ready
+with54children. That stored root alone does not prove its later warm admission
+or final guard. No source-archive marker, copy or source unlink exists at the
+cap. This trial therefore does not reach the optimized unlink path or prove
+whole throughput. Additional timing wrappers measure host computation only.
+
+All13,552 source hashes remain unchanged. No matching test process remains;
+1,153 original files retain identical complete stamps/hashes throughout their
+terminal byte backup. Private `browser-whole-immutable-*20261024` records keep
+the complete stdout, source/original manifests and backup hash. The next useful
+measurement is pre-archive original catalog/receipt verification. This failed
+owner is retained; no cold continuation, replay, timeout increase or cleanup
+success is inferred from it. Full Feature7 remains partial.

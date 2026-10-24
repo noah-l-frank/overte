@@ -5516,5 +5516,33 @@
     "wholeReexecuted": false,
     "wholeSuccess": false,
     "physicalRuns": 0
+  },
+  "browserWholeImmutableRoot20261024": {
+    "sourceHead": "9b72c5a18d734928464f60605256128afcb831bd",
+    "exitCode": 124,
+    "timeoutSeconds": 120,
+    "sourcesUnchanged": true,
+    "sourceFiles": 13552,
+    "temporaryRoot": "/tmp/overte-pico-browser-immutable-whole-20261024-kq414iy3",
+    "phases": 28,
+    "archivePhase": null,
+    "confirmedSourceUnlinks": 0,
+    "pendingUnlinkIntent": false,
+    "archiveFiles": 0,
+    "archiveManifestPresent": false,
+    "hostReleased": false,
+    "completeFeature": false,
+    "deviceAcceptance": false,
+    "retainedFiles": 1153,
+    "terminalMatchingProcesses": [],
+    "terminalSnapshotUnchangedDuringCapture": true,
+    "backupSha256": "c4b213c8eb29533ca5a457755edf2e1c1adbb788473efc782ebadbb429685cba",
+    "backupQualification": "Historical original-byte backup; never a live/cold owner or retry.",
+    "privateEvidence": "/home/user/Documents/github/overte-pico-adapter-private-20261021/browser-whole-immutable-",
+    "normalCloseSeconds": 64.627,
+    "commonCleanupBaselineSeconds": 83.862,
+    "observedAfterCommon": "Stored independent Actor return is consumed; remote capture root is ready with54children. Its final warm admission/completion is not proven by that marker. No archive marker or copy exists at timeout.",
+    "qualification": "Latest unchanged complete owning case is red; component cost improvements do not prove whole budget or final source/host release.",
+    "nextExecutableStep": "Profile the original immutable pre-archive catalog/receipt verification, because this run never reached the optimized unlink path. Do not repeat the unchanged whole or adopt the partial owner."
   }
 }
