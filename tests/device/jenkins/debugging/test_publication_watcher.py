@@ -172,6 +172,28 @@ class IndexedPublicationTests(unittest.TestCase):
         with self.assertRaises(w.PublicationError): self.inspect()
         self.assertEqual(w.signature(path.stat()), before)
 
+    def test_producer_policy_envelope_accepts_complete_publication(self):
+        self.ready()
+        # The pinned producer declares this envelope even for a small generation.
+        self.policy.update(maxFiles=1024, maxTotalBytes=256*1024*1024)
+        result = self.inspect()
+        self.assertEqual(result["state"], "DEBUG_HOLD")
+        self.assertIn("logs/runner/part-00001.log", result["archiveFiles"])
+        for change in [{"maxFiles": 1025}, {"maxTotalBytes": 256*1024*1024+1},
+                       {"maxFiles": True}, {"maxTotalBytes": True}]:
+            with self.subTest(change=change), self.assertRaises(w.PublicationError):
+                w.inspect_publication(self.stage, self.run_id, self.context,
+                                      dict(self.policy, **change))
+
+    def test_declared_generation_limits_remain_enforced(self):
+        self.ready()
+        result = self.inspect()
+        for change in [{"maxFiles": len(result["archiveFiles"])-1},
+                       {"maxTotalBytes": result["totalBytes"]-1}]:
+            with self.subTest(change=change), self.assertRaises(w.PublicationError):
+                w.inspect_publication(self.stage, self.run_id, self.context,
+                                      dict(self.policy, **change))
+
 class ConfigPublicationCopyTests(unittest.TestCase):
     setUp = IndexedPublicationTests.setUp
     write = IndexedPublicationTests.write

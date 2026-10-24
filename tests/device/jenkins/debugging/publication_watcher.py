@@ -73,8 +73,8 @@ def validate_policy(policy):
     need(type(policy) is dict and set(policy) == {
         "schemaVersion", "literalFiles", "logDirectories", "maxFiles", "maxTotalBytes"})
     need(type(policy["schemaVersion"]) is int and policy["schemaVersion"] == 1
-         and type(policy["maxFiles"]) is int and 3 <= policy["maxFiles"] <= 512
-         and type(policy["maxTotalBytes"]) is int and 1 <= policy["maxTotalBytes"] <= 128 * 1024 * 1024
+         and type(policy["maxFiles"]) is int and 3 <= policy["maxFiles"] <= 1024
+         and type(policy["maxTotalBytes"]) is int and 1 <= policy["maxTotalBytes"] <= 256 * 1024 * 1024
          and type(policy["literalFiles"]) is dict and CORE <= set(policy["literalFiles"])
          and len(policy["literalFiles"]) <= policy["maxFiles"]
          and type(policy["logDirectories"]) is list and len(policy["logDirectories"]) <= 16)
