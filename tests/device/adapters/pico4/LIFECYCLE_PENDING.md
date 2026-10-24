@@ -36,8 +36,10 @@ The original held event is attempted once through its original native guard.
 Only its unchanged `rejected/context-retired` terminal history, empty actual
 replacement editor and released keyboard permit progress. Expiry, release
 without attempt, sent input, an ACK or an arbitrary rejected event cannot pass.
-The native ten-second hold ceiling is unchanged; an additional host bound is
-never refreshed by context replacement. Original release and inventory reads
+The native ten-second hold ceiling is unchanged. The additional host bound
+uses acquisition start minus original native elapsed hold time; response
+delivery cannot create a later birth. It is never refreshed by context
+replacement. Original release and inventory reads
 precede three seconds of complete current UI/keyboard/gesture/three-dimensional
 feet quiet at the existing 250-ms cadence. Gesture history cannot change inside
 that window. Original world/stale attempt counters remain measured histories.
@@ -111,3 +113,20 @@ with frozen host/advancing native time and two fresh child returns whose combine
 21 seconds must not reset the enclosing twenty-second budget. These guard cases
 do not repeat the already green composed positive. None is a complete Lifecycle,
 native application or device qualification.
+
+A later review found a real defect in the initial ef610 host bound: it used
+post-transport receipt time minus native elapsed time. The unchanged original
+owner failed the concrete delayed-packet counter in 7.107 s: actual fixture
+capture was 12.852 s, but a byte-identical still-fresh packet delivered 600 ms
+later produced `holdHost=13.452`. The failed originals remain retained. This
+was not a native TTL extension, but the added host barrier was too late.
+
+The follow-up uses the actual acquisition start. Cold validation also checks
+that the persisted birth is no later than the original pre-pending-query World
+timestamp minus that first packet's native elapsed age. Unsafe earlier v1
+journals fail closed rather than gaining a rewritten time or fresh ownership.
+The same transport counter, including a persisted unsafe legacy envelope and
+actual cold refusal without native queries, and the existing 9.5-second first
+observation/deadline case passed together in 14.384 s. Neither original inputs
+nor budgets changed. The disjoint selector inventory is now progress 7 and
+failure 10; the complete Lifecycle capability remains absent.

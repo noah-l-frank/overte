@@ -19,7 +19,7 @@ from adapters.normal_ui import NativeUIError
 from adapters.pending_commit_owner import NativePendingCommitOwner
 from adapters.pico4.lifecycle_pending import PicoLifecyclePending,run_pending
 from adapters.pico4.lifecycle_source import current_editor
-from adapters.script_journey.history import unpack
+from adapters.script_journey.history import pack,unpack
 from adapters.token_script_ui import TokenScriptUI
 from self_tests.test_pending_commit_owner import Boundary as PendingBoundary
 from self_tests.test_pico_lifecycle_background_owner import LifecycleBackgroundOwnerTests
@@ -133,6 +133,30 @@ class LifecyclePendingTests(unittest.TestCase):
         self.native.sleep(.6)
         with self.assertRaises(NativeUIError):run_pending(self.owner)
         self.assertEqual(1,sum(row['operation']=='hold' for row in self.boundary.commands));self.assertEqual(1,len(self.x_inputs))
+
+    def test_fresh_pending_packet_transport_latency_cannot_move_actual_hold_birth(self):
+        self.owner.back();self.owner.open_scripts();self.owner.mutate('focus');self.owner.mutate('type')
+        original=self.owner.pending.original;created=None;delayed=False
+        def transport():
+            nonlocal created,delayed
+            raw=original();value=json.loads(raw)
+            if value['operation']=='hold' and value['performed']:
+                created=self.native.clock # Actual fixture producer's capture, before delivery delay.
+            if value['operation']=='observe' and value['commit'] and self.owner.state['phase']=='hold-issued' and not delayed:
+                delayed=True;self.native.sleep(.6)
+            return raw # Preserve the exact original older, still-fresh native packet.
+        self.owner.pending.original=transport;self.owner.mutate('hold')
+        self.assertTrue(delayed);self.assertIsNotNone(created)
+        self.assertLessEqual(self.owner.state['holdHost'],created)
+        self.assertEqual(1,sum(row['operation']=='hold' for row in self.boundary.commands))
+        # Persist the old unsafe value without altering any source original;
+        # actual cold reconstruction must refuse it, never silently rebase it.
+        unsafe=deepcopy(self.owner.state);unsafe['holdHost']=created+.6
+        original=self.owner.store.read();changed=deepcopy(original)
+        changed['payload']=pack(self.owner.originals.encode([unsafe]));self.owner.store.write(changed,original)
+        before=len(self.boundary.commands)
+        with self.assertRaises(NativeUIError):self.make()
+        self.assertEqual(before,len(self.boundary.commands))
 
     def test_lost_normal_scripts_answer_and_x_answer_never_replay_original_input(self):
         self.lost='x'
@@ -253,6 +277,7 @@ def lifecycle_pending_progress_tests():
         'test_original_create_chat_return_to_scripts_pending_replacement_attempt_release_and_quiet',
         'test_lost_hold_answer_recovers_original_event_without_second_capture',
         'test_late_first_hold_observation_cannot_refresh_original_host_deadline',
+        'test_fresh_pending_packet_transport_latency_cannot_move_actual_hold_birth',
         'test_lost_normal_scripts_answer_and_x_answer_never_replay_original_input',
         'test_partial_failure_releases_only_original_holder_when_current_ui_is_unavailable',
         'test_lost_failure_release_reads_original_terminal_inventory_without_releasing_again'))
