@@ -616,6 +616,23 @@ def create_adapter(args, base_class):
             return root is not None and any(path.name.startswith(('navigation-prefix-','navigation-')) for path in root.iterdir())
 
         @_private
+        def _navigation_bookmark_adopt(self, target, path, previous_path, run, inputs, old_native, old_bookmark,
+                                       phase_source, *, source_lock):
+            from adapters.navigation_bookmark_restart import adopt_restart
+            from adapters.token_places_ui import TokenPlacesUI
+            from adapters.pico4.normal_places import PicoPlacesIO
+            source_lock = self._script_journey()._lock(target, source_lock)
+            source_lock.assert_held()
+            normal, _observe, binding = self._script_runtime(target)
+            native = self._native_feature_observer(target)
+            return adopt_restart(inputs, PrivateFeatureState(previous_path), PrivateFeatureState(path),
+                old_native, old_bookmark,
+                lambda intent: TokenPlacesUI(PicoPlacesIO(normal.io), intent, run,
+                    monotonic=phase_source.monotonic, sleep=native.sleep),
+                native, self._process_presence(target), self._location_bookmarks(target), binding, run,
+                phase_source, source_lock)
+
+        @_private
         def _navigation_arrival(self, target, run, scene_url):
             from adapters.navigation_arrival import NavigationArrival
             manager=self._scripts(target);native=self._native_feature_observer(target)

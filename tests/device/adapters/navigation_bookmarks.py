@@ -17,7 +17,7 @@ from adapters.token_places_ui import TokenPlacesUI, sha
 from adapters.token_create_ui import nonce, scope
 from feature_journeys.fixtures import context
 
-VERSION = 1
+VERSION = 2
 VERBS = {'bookmark-add-cancel', 'bookmark-add', 'bookmark-rename-cancel', 'bookmark-rename', 'bookmark-delete'}
 
 
@@ -26,6 +26,58 @@ def identity(value):
 
 
 class NavigationBookmarks:
+    @classmethod
+    def archive(cls, value):
+        """Validate original ownership without acquiring an old process/UI."""
+        need(type(value) is dict)
+        owner = object.__new__(cls)
+        owner.run, owner.binding = value.get('runId'), value.get('binding')
+        binding_context(owner.binding)
+        need(type(owner.run) is str and re.fullmatch('[0-9a-f]{32}', owner.run))
+        owner._validate_state(value)
+        return deepcopy(value)
+
+    @classmethod
+    def restart_record(cls, previous, proof, sample):
+        """Transfer only normal Delete authority after an observed restart.
+
+        Original packets retain their original PID, birth, clocks and roots.
+        The caller must acquire sample through the new normal Places route.
+        """
+        from adapters.navigation_restart_proof import validate
+        from adapters.script_journey.history import pack
+        old = cls.archive(previous); validate(proof, old['runId'])
+        need(old['active'] is None and old['completed'] and old['completed'][-1]['verb'] == 'bookmark-rename'
+             and old.get('handoff') is None and proof['input']['oldBinding'] == old['binding']
+             and proof['oldBookmark']['storage'] == old['lastNative']['storage'])
+        exact(sample, {'ui', 'page', 'native'})
+        from adapters.token_places_ui import snapshot
+        snapshot(sample['ui'])
+        need(sample['ui']['open'] and sample['ui']['ready']
+             and sample['page'] == TokenPlacesUI.row(sample['ui'], 'places.page', enabled=False))
+        page, native = sample['page'], sample['native']
+        need(native == proof['bookmark'] and page['currentAddressSha256'] == old['original']['addressSha256']
+             and page['rootInstance'] != old['original']['rootInstance']
+             and page['componentSourceSha256'] == old['original']['componentSourceSha256']
+             and not page['dialog']['visible'] and not page['loading'] and not page['queueCount']
+             and not page['dispatchTimerRunning']
+             and sample['ui']['scope']['instance'] == proof['input']['newBinding']['sessionId']
+             and sample['ui']['scope']['processId'] == native['processId']
+             and 0 <= native['capturedEpochMs'] - sample['ui']['observedEpochMs'] <= 1500
+             and page['bookmarks']['count'] == native['storage']['count'])
+        owner = object.__new__(cls); owner.run = old['runId']
+        need(owner._unowned_ui(page) == old['original']['unownedUiSha256'])
+        expected = [dict(bookmarkNameSha256=sha(row['name']), bookmarkAddressSha256=row['addressSha256'])
+                    for row in native['storage']['owned']]
+        owned = {sha(context(old['runId'])[key]) for key in ('name', 'renamed')}
+        need([row for row in page['bookmarks']['rows'] if row['bookmarkNameSha256'] in owned] == expected)
+        value = dict(navigationBookmarksVersion=VERSION, runId=old['runId'], binding=proof['input']['newBinding'],
+            nativeInstance=native['instance'], original=dict(native=native, storage=native['storage'],
+                unownedUiSha256=old['original']['unownedUiSha256'], addressSha256=old['original']['addressSha256'],
+                rootInstance=page['rootInstance'], componentSourceSha256=page['componentSourceSha256']),
+            lastNative=native, active=None, completed=[], handoff=pack([dict(previous=old, proof=proof)]))
+        return cls.archive(value)
+
     def __init__(self, ui_factory, native, path, run, binding, *, monotonic=time.monotonic, sleep=time.sleep):
         need(callable(ui_factory) and callable(monotonic) and callable(sleep)
              and type(run) is str and re.fullmatch('[0-9a-f]{32}', run))
@@ -60,14 +112,31 @@ class NavigationBookmarks:
         return value
 
     def _validate_state(self, value):
-        exact(value, {'navigationBookmarksVersion', 'runId', 'binding', 'nativeInstance', 'original', 'lastNative', 'active', 'completed'})
-        need(type(value['navigationBookmarksVersion']) is int and value['navigationBookmarksVersion'] == VERSION
+        version = value.get('navigationBookmarksVersion') if type(value) is dict else None
+        exact(value, {'navigationBookmarksVersion', 'runId', 'binding', 'nativeInstance', 'original', 'lastNative', 'active', 'completed'}
+              | ({'handoff'} if version == 2 else set()))
+        need(type(version) is int and version in (1, VERSION)
              and value['runId'] == self.run and value['binding'] == self.binding
              and type(value['nativeInstance']) is str and re.fullmatch('[0-9a-f]{32}', value['nativeInstance']))
         original = value['original']
         exact(original, {'native', 'storage', 'unownedUiSha256', 'addressSha256', 'rootInstance', 'componentSourceSha256'})
         self._archive(original['native']);self._archive(value['lastNative'])
-        need(original['storage'] == original['native']['storage'] and not original['storage']['owned']
+        handoff = value.get('handoff')
+        if handoff is not None:
+            from adapters.navigation_restart_proof import validate
+            from adapters.script_journey.history import unpack
+            rows = unpack(handoff); need(len(rows) == 1); exact(rows[0], {'previous', 'proof'})
+            prior = rows[0]['previous']
+            # Reject nested adoptions before recursive historical validation.
+            need(type(prior) is dict and prior.get('handoff') is None)
+            old = self.archive(prior); proof = validate(rows[0]['proof'], self.run)
+            need(old['active'] is None and old['completed'] and old['completed'][-1]['verb'] == 'bookmark-rename'
+                 and old['binding'] == proof['input']['oldBinding'] and self.binding == proof['input']['newBinding']
+                 and proof['oldBookmark']['storage'] == old['lastNative']['storage']
+                 and original['native'] == proof['bookmark']
+                 and all(original[k] == old['original'][k] for k in ('unownedUiSha256', 'addressSha256', 'componentSourceSha256'))
+                 and original['rootInstance'] != old['original']['rootInstance'])
+        need(original['storage'] == original['native']['storage'] and (bool(original['storage']['owned']) if handoff is not None else not original['storage']['owned'])
              and original['native']['instance'] == value['nativeInstance'] == value['lastNative']['instance']
              and value['lastNative']['sequence'] >= original['native']['sequence']
              and value['lastNative']['capturedEpochMs'] >= original['native']['capturedEpochMs']
@@ -78,6 +147,7 @@ class NavigationBookmarks:
         tickets = set();sequence = original['native']['sequence'];epoch = original['native']['capturedEpochMs']
         for completed in value['completed']:
             exact(completed, {'ticket', 'verb', 'storage', 'quiet', 'quietUi'})
+            need(handoff is None or completed['verb'] == 'bookmark-delete')
             need(type(completed['ticket']) is str and re.fullmatch('[0-9a-f]{32}', completed['ticket'])
                  and completed['ticket'] not in tickets and completed['verb'] in VERBS
                  and type(completed['quiet']) is list and 3 <= len(completed['quiet']) <= 8
@@ -115,6 +185,7 @@ class NavigationBookmarks:
         need(value['lastNative']['sequence'] >= sequence and value['lastNative']['capturedEpochMs'] >= epoch)
         if value['active'] is not None:
             active = value['active']
+            need(handoff is None or active['verb'] == 'bookmark-delete')
             exact(active, {'ticket', 'verb', 'beforeNative', 'stage', 'pending'})
             need(type(active['ticket']) is str and re.fullmatch('[0-9a-f]{32}', active['ticket'])
                  and active['ticket'] not in tickets and active['verb'] in VERBS)
@@ -182,7 +253,7 @@ class NavigationBookmarks:
             nativeInstance=sample['native']['instance'], lastNative=sample['native'], original=dict(native=sample['native'], storage=sample['native']['storage'],
                 unownedUiSha256=self._unowned_ui(sample['page']), addressSha256=sample['page']['currentAddressSha256'],
                 rootInstance=sample['page']['rootInstance'],
-                componentSourceSha256=sample['page']['componentSourceSha256']), active=None, completed=[]))
+                componentSourceSha256=sample['page']['componentSourceSha256']), active=None, completed=[], handoff=None))
         return sample
 
     def _plan(self, verb):
@@ -293,6 +364,7 @@ class NavigationBookmarks:
 
     def _act(self, ticket, verb):
         need(type(ticket) is str and re.fullmatch('[0-9a-f]{32}', ticket) and verb in VERBS)
+        need(self.state is None or self.state.get('handoff') is None or verb == 'bookmark-delete')
         self.prepare()
         completed = [row for row in self.state['completed'] if row['ticket'] == ticket]
         if completed:
