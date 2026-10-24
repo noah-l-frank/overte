@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import redirect_stderr
 import importlib.util
+import hashlib
 import io
 import json
 import os
@@ -281,6 +282,7 @@ config = json.loads(pathlib.Path(sys.argv[2]).read_text())
 assert sys.argv[1] == '--config'
 assert 'OVERTE_E2E_FEATURE_READER_TOKEN' not in os.environ
 assert 'OVERTE_E2E_CREATE_CONTROL_TOKEN' not in os.environ
+assert 'OVERTE_E2E_DOMAIN_CONTROL_TOKEN' not in os.environ
 marker = pathlib.Path(os.environ['HOST_OBSERVER_MARKER'])
 marker.write_text(json.dumps({'environmentKeys': sorted(os.environ), 'area': config['area'],
     'artifactRoot': os.environ['OVERTE_DEVICE_ARTIFACT_DIR']}))
@@ -314,6 +316,7 @@ sys.exit(7 if mode == 'nonzero' else 0)
         access.chmod(0o600)
         primary['environment'].update(OVERTE_E2E_FEATURE_READER_TOKEN='primary-reader-' + 'r' * 32,
             OVERTE_E2E_CREATE_CONTROL_TOKEN='primary-writer-' + 'w' * 32,
+            OVERTE_E2E_DOMAIN_CONTROL_TOKEN='primary-domain-writer-' + 'd' * 32,
             OVERTE_PHONE_FEATURE_FIXTURE_CONFIG=str(access),
             OVERTE_E2E_FEATURE_FIXTURE_URL='https://fixture.invalid:4443')
         (self.root / 'environment.json').write_text(json.dumps(primary))
@@ -337,10 +340,11 @@ sys.exit(7 if mode == 'nonzero' else 0)
         self.manifest['sourceFiles'] = {str(p.relative_to(self.source)):campaign.digest(p)
                                         for p in self.source.rglob('*') if p.is_file()}
         helper = self.root / 'host-runner.py'
-        helper.write_text("""import hashlib, json, pathlib, sys, time
+        helper.write_text("""import hashlib, json, os, pathlib, sys, time
 output, name, revision, artifact, root, mode = sys.argv[1:]
 root = pathlib.Path(root)
-(root / ('runner-' + name)).write_text('actual host subprocess started')
+(root / ('runner-' + name)).write_text(json.dumps({'actualEnvironmentKeys': sorted(os.environ),
+    'actualDomainControlTokenSha256': hashlib.sha256(os.environ.get('OVERTE_E2E_DOMAIN_CONTROL_TOKEN', '').encode()).hexdigest()}))
 if name == 'feature-scripts':
     if mode == 'before-register':
         sys.exit(9)
@@ -371,12 +375,20 @@ for key, filename in [('summarySha256','summary.json'),('runSha256','run-manifes
     def test_real_observer_has_isolated_role_fixed_source_argv_and_natural_exit_zero(self):
         instance = self.make(self.observer_fixture())
         with patch.dict(os.environ, {'OVERTE_E2E_FEATURE_READER_TOKEN':'must-not-be-inherited',
-                                    'OVERTE_E2E_CREATE_CONTROL_TOKEN':'must-not-be-inherited'}):
+                                    'OVERTE_E2E_CREATE_CONTROL_TOKEN':'must-not-be-inherited',
+                                    'OVERTE_E2E_DOMAIN_CONTROL_TOKEN':'must-not-be-inherited'}):
             self.assertEqual(instance.run(), 0)
         self.assertEqual(self.calls, ['feature-scripts', 'second'])
         actual = json.loads((self.root / 'observer-start.json').read_text())
         self.assertNotIn('OVERTE_E2E_FEATURE_READER_TOKEN', actual['environmentKeys'])
         self.assertNotIn('OVERTE_E2E_CREATE_CONTROL_TOKEN', actual['environmentKeys'])
+        self.assertNotIn('OVERTE_E2E_DOMAIN_CONTROL_TOKEN', actual['environmentKeys'])
+        primary = json.loads((self.root / 'runner-feature-scripts').read_text())
+        self.assertIn('OVERTE_E2E_DOMAIN_CONTROL_TOKEN', primary['actualEnvironmentKeys'])
+        self.assertEqual(primary['actualDomainControlTokenSha256'],
+                         hashlib.sha256(('primary-domain-writer-' + 'd' * 32).encode()).hexdigest())
+        self.assertEqual(json.loads((self.root / 'environment.json').read_text())['environment']['OVERTE_E2E_DOMAIN_CONTROL_TOKEN'],
+                         'primary-domain-writer-' + 'd' * 32)
         self.assertEqual(actual['area'], 'scripts')
         self.assertEqual(actual['artifactRoot'], str(instance.private / 'feature-scripts/actual/modules/feature-scripts'))
         private = instance.private / 'feature-scripts'
@@ -391,21 +403,21 @@ for key, filename in [('summarySha256','summary.json'),('runSha256','run-manifes
         self.assertIsNone(campaign.process_identity(process['pid']))
 
     def test_observer_role_leak_foreign_area_and_borrowed_files_reject_before_dispatch(self):
-        for corruption in ('reader', 'writer', 'shared-token', 'adapter-token', 'writer-file', 'area', 'borrowed-file'):
+        for corruption in ('reader', 'writer', 'domain-writer', 'shared-token', 'domain-shared-token', 'adapter-token', 'writer-file', 'area', 'borrowed-file'):
             with self.subTest(corruption=corruption):
                 if corruption != 'reader':
                     self.tearDownFixture()
                     self.setUp()
                 self.observer_fixture()
-                if corruption in ('reader', 'writer'):
+                if corruption in ('reader', 'writer', 'domain-writer'):
                     value = json.loads(self.actor_environment.read_text())
-                    key = 'OVERTE_E2E_FEATURE_READER_TOKEN' if corruption == 'reader' else 'OVERTE_E2E_CREATE_CONTROL_TOKEN'
+                    key = 'OVERTE_E2E_FEATURE_READER_TOKEN' if corruption == 'reader' else 'OVERTE_E2E_DOMAIN_CONTROL_TOKEN' if corruption == 'domain-writer' else 'OVERTE_E2E_CREATE_CONTROL_TOKEN'
                     value['environment'][key] = 'forbidden-primary-secret'
                     self.actor_environment.write_text(json.dumps(value))
-                elif corruption in ('shared-token', 'adapter-token', 'area'):
+                elif corruption in ('shared-token', 'domain-shared-token', 'adapter-token', 'area'):
                     value = json.loads(self.actor_config.read_text())
                     key = 'area' if corruption == 'area' else 'actorToken'
-                    value[key] = 'primary-reader-' + 'r' * 32 if corruption == 'shared-token' else 'adapter-' + 'd' * 40 if corruption == 'adapter-token' else 'snapshots'
+                    value[key] = 'primary-reader-' + 'r' * 32 if corruption == 'shared-token' else 'primary-domain-writer-' + 'd' * 32 if corruption == 'domain-shared-token' else 'adapter-' + 'd' * 40 if corruption == 'adapter-token' else 'snapshots'
                     self.actor_config.write_text(json.dumps(value))
                 elif corruption == 'writer-file':
                     writer = self.root / 'service-writer.json'
@@ -423,6 +435,7 @@ for key, filename in [('summarySha256','summary.json'),('runSha256','run-manifes
                 self.assertFalse(self.read_summary()['results'][0]['attempted'])
                 self.assertEqual(self.read_summary()['results'][1]['status'], 'passed')
                 self.assertFalse((self.root / 'observer-start.json').exists())
+                self.assertFalse((self.root / 'runner-feature-scripts').exists())
 
     @unittest.skipUnless(sys.platform.startswith('linux') and hasattr(os, 'fork'), 'Owned Linux observer cleanup contract')
     def test_real_observer_failure_orphan_unregistered_runner_and_signal_ack_are_errors_then_next_target(self):
