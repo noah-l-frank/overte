@@ -1539,7 +1539,10 @@
         "android/vr/pico/tests/device/test_assets_model_cache.py",
         "android/vr/pico/tests/device/assets-model-baker-prepare.py",
         "android/vr/pico/tests/device/assets-model-baker-observer.inc",
-        "android/vr/pico/tests/device/test_assets_model_baker.py"
+        "android/vr/pico/tests/device/test_assets_model_baker.py",
+        "android/vr/pico/tests/device/test_assets_model_material.py",
+        "android/vr/pico/tests/device/assets-model-material-prepare.py",
+        "android/vr/pico/tests/device/assets-model-material-observer.inc"
       ],
       "declaredCheckpoints": 29,
       "inputVerbs": [
@@ -1593,7 +1596,7 @@
         "Drain oven/upload/picker workers and release actual staged originals",
         "Restore original server permission and prove complete namespace/resource absence"
       ],
-      "nextExecutableStep": "Original ModelCache/GeometryResource/download/worker/Baker/CPU-Mesh path now passes both root owning cases 77.729 s with actual unchanged HFM identity and CPU Buffer/Task/HFM retirement. Next source join would be actual material/NetworkTexture/GeometryDefinition and Model/renderer/independent stereo, reusing existing passive CreateModelResources observers and fixed Phone a2bb99d9b9 metadata. Original GLTF parentless external request remains alive; no product fix, forced cache deletion or process exit may stand in for release. Whole Assets remains partial.",
+      "nextExecutableStep": "Original indexed ModelCache/getGeometryResource/GeometryExtra/GLTFReader/Baker/setGeometryDefinition/NetworkMaterial/TextureCache/ImageReader CPU processing now passes fresh integrated71-TU native compilation and complete native/material provenance plus normal Assets/Home joins. Material/NetworkTexture/pixel weak owners retire; original default-LRU Geometry/HFM/four Mesh buffers and a parentless mesh request remain alive and must not be labeled retired. Next join actual Model/renderer/independent Actor/stereo/live ATP source and genuine final original ownership retirement. Existing512-copy/16MiB bounds and cold full provenance/Home-child reference verification remain unchanged; native18/2ms and targeted legacy Baker/Create all pass. Full feature/device qualification remains open.",
       "nativeCompilation": "Selected whole Pico NavigationUi, original QML/pointer/FileDialogHelper/NativeFieldInput and production Assets-file getter/private descriptor storage host-compiled; complete application/APK unverified",
       "deviceQualification": "untested"
     },
@@ -1683,7 +1686,9 @@
         "android/vr/pico/tests/device/test_lifecycle_observation.py",
         "tests/device/adapters/pico4/LIFECYCLE_BASELINE.md",
         "tests/device/self_tests/test_pico_lifecycle_observation_baseline.py",
-        "android/vr/pico/tests/device/test_lifecycle_observation_baseline.py"
+        "android/vr/pico/tests/device/test_lifecycle_observation_baseline.py",
+        "tests/device/adapters/pico4/LIFECYCLE_PRIMARY_WAIT.md",
+        "tests/device/self_tests/test_pico_lifecycle_primary_wait.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1728,7 +1733,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Original readonly baseline before first Create and later live Chat/background/Pending/Close attachment are integrated. Root passes7 observation cases plus3 baseline/handoff cases with all13,522 source hashes unchanged; full original reader sequence/intent floors refuse regressions before another NativeFeature query while preserving bad originals. Connect the existing OverteSession/common v16 Primary wait to the same source and measure its actual advancing baseline and3s negative wait alongside the unchanged normal owners. All16 actions and Restore/Restart must fit the same128-frame World journal; no cursor reset or replayed old frame as fresh. Prior separate127-frame Restore and89-frame new prefix are not a complete common execution. Independent Actor/images, public coordinator and final process/context/file retirement remain open.",
+      "nextExecutableStep": "Original pre-Create baseline/live participant attachment and actual OverteSession/unchanged common Primary baseline plus Back negative wait are integrated and host verified. Full v16 coordinator still needs genuine independent Actor/images/remaining ordinary waits and final restoration/return/archive/Host closure. Scope limits correctly: one mutating World journal128, actual successor Process.next.frames2..64, existing physicalChunks512/16MiB; no universal128 across independent producer histories is specified. Current v1/v2 readonly Primary appends to mutating World; develop reviewed v3 separate true readonly readers using unchanged complete fresh acquire grammar and original owner/observer floors, preserving all actual triples in existing bounded Primary bundles. Never reset or duplicate a mutating World to evade128, omit fresh queries, replay old frames or count unmeasured Actor costs as zero.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

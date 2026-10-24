@@ -5065,5 +5065,85 @@
     "terminalSnapshotUnchangedDuringCapture": true,
     "backupSha256": "9a9d41a4e6afb7e237b43e80507c21756cbf3df822f0649ca86150dff4854dfa",
     "backupQualification": "historical-byte-backup-only-no-live-owner-adoption"
+  },
+  "assetsMaterialRoot20261024": {
+    "status": "passed-selected-native-and-host-components",
+    "sourceHead": "bfe59118d61f4fd41120ef246d6e5b6e28003a1f",
+    "selectedSource": "88723b9b7575271f5fa3aa44ecebbfb20eca725e",
+    "catalogGroups": 246,
+    "selectors": {
+      "assets-model-material": {
+        "cases": 2,
+        "selectorSeconds": 114.171
+      },
+      "assets-model-baker": {
+        "cases": 2,
+        "selectorSeconds": 74.208
+      },
+      "create-voxel-source-native": {
+        "cases": 1,
+        "selectorSeconds": 70.347
+      }
+    },
+    "sourceFiles": 13529,
+    "sourcesUnchanged": true,
+    "nativeBuild": {
+      "translationUnits": 71,
+      "workers": 2,
+      "compileAndLinkDeadlineSeconds": 90,
+      "elapsedSeconds": 63.718690943089314
+    },
+    "nativeAcquisitionMs": [
+      18,
+      2
+    ],
+    "materialTexturePixelWeakOwnersRetired": true,
+    "geometryHfmMeshBuffersRetainedByOriginalDefaultLru": true,
+    "parentlessMeshRequestStillAlive": true,
+    "wholeResourceRetired": false,
+    "allHistoricalCopiesAndBytesWithinExisting512And16MiBLimits": true,
+    "sourceProvenanceAndHomeChildReferencesColdFullyRead": true,
+    "recordedAtpTransportOnly": true,
+    "fullRendererActorGpuDeviceQualified": false,
+    "completeFeature": false,
+    "deviceAcceptance": false,
+    "repository": {
+      "suites": 4,
+      "status": "passed",
+      "durationSeconds": 2.64
+    },
+    "agentBroaderQuick": {
+      "passed": 57,
+      "failed": 2,
+      "total": 59,
+      "timeoutSeconds": 240,
+      "qualification": "two-unresolved-outer-suite-aborts-not-a-complete-quick-pass"
+    }
+  },
+  "lifecyclePrimaryWaitRoot20261024": {
+    "status": "passed-selected-private-session-and-host-components",
+    "sourceHead": "bfe59118d61f4fd41120ef246d6e5b6e28003a1f",
+    "selectedSource": "c824b48e3b292fa2c85727e16cd94338a96e0bde",
+    "catalogGroups": 246,
+    "selectors": {
+      "lifecycle-primary-baseline": {
+        "cases": 4,
+        "selectorSeconds": 43.065
+      },
+      "coverage-matrix": {
+        "cases": 10,
+        "selectorSeconds": 0.09
+      }
+    },
+    "sourceFiles": 13529,
+    "sourcesUnchanged": true,
+    "actualOverteSessionAndUnchangedJourneyWait": true,
+    "queryCountsDerivedFromActualConsumedOriginals": true,
+    "peerArtifactActivationReportNeverSubstituted": true,
+    "worldOwnerFrameLimit": 128,
+    "newProcessFrameLimit": 64,
+    "completeFeature": false,
+    "deviceAcceptance": false,
+    "independentProducerCapsNotAnInventedUniversal128": true
   }
 }

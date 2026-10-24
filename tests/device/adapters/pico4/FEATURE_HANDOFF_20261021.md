@@ -3201,3 +3201,35 @@ All13,523 source hashes and2,241 retained terminal originals are unchanged;
 a full historical backup is retained without live owner adoption. Next measure
 and reduce immutable-original guard computation while retaining every source
 query, per-unlink phase fence and original clock/file/quiet/window bound.
+
+
+## Integrated original Assets materials and Lifecycle primary waits
+
+Source88723b9b75 is selected as bfe59118d6; c824b48e3b as e330d2a60f.
+Root retains246 selectors/all14 risk rows. The full source freeze across
+all five integrated selections is unchanged for13,529 tracked/new files.
+Material2cases pass114.171s, legacy Baker2/74.208s, default Create voxel1/
+70.347s, Lifecycle baseline plus new actual session wait4/43.065s and coverage
+10/0.090s. Four repository suites pass2.64s. No broad quick pass is claimed.
+
+The material build compiles71 actual original TUs and links in63.719s under
+one90s deadline with two workers. Indexed/native-refusal acquisitions take
+18/2ms. Actual original materials, NetworkTexture and decoded CPU pixels retire
+weakly. Default1-GiB-LRU Geometry/HFM/four Mesh buffers and the parentless mesh
+request remain alive. Original cache getter numTotal=0 is retained alongside
+its actual one-entry cached URL inventory. Transport is sealed recorded ATP
+bytes. Model/renderer/Actor/stereo/GPU/live ATP and full release remain open.
+The complete source-provenance chunks and actual Home-child historical
+references are fully cold-read; no frame/file/raw/quiet/source bound increases.
+
+Lifecycle connects the actual unchanged OverteSession/Primary wait through the
+private observation-only handler; no peer/image/execute result is substituted.
+The newly audited limits are per producer: World128 and new-PID Process.frames
+2..64, with existing source-bundle physical limits. Earlier125/127 old-World
+results additionally own13 new-PID triples (138/140 total); no universal128
+contract is claimed. Current v1/v2 readonly polls share the mutating World
+journal; a future typed v3 must use genuine separate readonly readers/fresh
+original triples and both owner/observer cursor floors. Such new evidence must
+retain the actual distinct finite histories and all original physical bytes;
+a second same-generation mutating World or a reset cannot evade the old cap.
+Source-complete3/14 and physical qualification0 remain unchanged.
