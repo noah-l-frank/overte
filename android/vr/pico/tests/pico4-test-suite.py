@@ -99,6 +99,7 @@ TESTS = (
     test("browser-originals", "webview", PYTHON, "pico-browser-originals-test.py", requires=("c++", "pkg-config", "javac", "java", "node")),
     test("world-web-ray", "webview", PYTHON, "device/test_world_web_ray.py", requires=("c++", "pkg-config")),
     test("world-web-retained-resume-source", "webview", PYTHON, "device/test_world_web_resume_native.py", requires=("c++", "pkg-config", "javac", "java", "unshare")),
+    test("world-web-actor-publication", "webview", PYTHON, "device/test_world_web_actor_publication.py"),
     test("world-web-normal-close", "webview", PYTHON, "device/test_world_web_normal_close.py"),
     test("world-web-recovery-prefix", "webview", PYTHON, "device/test_world_web_recovery_prefix.py"),
     test("world-web-navigation-prefix", "webview", PYTHON, "device/test_world_web_navigation_prefix.py"),
