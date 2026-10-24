@@ -50,8 +50,18 @@ class AssetsGeometryResourceTests(unittest.TestCase):
         spec=importlib.util.spec_from_file_location('assets_geometry_resource_prepare',HERE/cls.prepare_name)
         prepare=importlib.util.module_from_spec(spec);spec.loader.exec_module(prepare)
         command=prepare.prepare(cls.parser_stage,cls.environment,Path(cls.environment['OVERTE_QT5_HOST_ROOT']))
-        subprocess.run(command,check=True,timeout=90,env=cls.environment)
+        cls.compile_native(command)
         cls.parser=cls.parser_stage/'geometry-parser'
+    @classmethod
+    def compile_native(cls,command):subprocess.run(command,check=True,timeout=90,env=cls.environment)
+    def prepare_native_environment(self):pass
+    def native_provenance_names(self):
+        return (('geometry-resource-original-provenance.json','geometry-parser-original-provenance.json','resource-data-original-provenance.json')+
+            (('model-cache-original-provenance.json',) if self.model_cache else ())+
+            (('model-baker-original-provenance.json',) if self.model_baker else ()))
+    def validate_native_source_provenance(self,value):pass
+    def native_source_provenance(self):
+        return {name:json.loads((self.parser_stage/name).read_text()) for name in self.native_provenance_names()}
     @classmethod
     def tearDownClass(cls):cls.build.cleanup()
     def entity_snapshot(self):
@@ -62,48 +72,58 @@ class AssetsGeometryResourceTests(unittest.TestCase):
             self.parser_store=PrivateFeatureState(journal)
             raw=self.resource_disk['raw'];packet=self.path/'geometry-input.json';output=self.path/'geometry-output.json'
             with packet.open('x') as stream:stream.write(raw)
+            self.prepare_native_environment()
             pending=dict(geometryResourceHostEvidenceVersion=1,binding=deepcopy(self.binding),
                 inputSha256=hashlib.sha256(raw.encode()).hexdigest(),inputOriginal=raw,
                 parserArtifactSha256=hashlib.sha256(self.parser.read_bytes()).hexdigest(),
-                originalCppSources={name:json.loads((self.parser_stage/name).read_text()) for name in
-                    (('geometry-resource-original-provenance.json','geometry-parser-original-provenance.json','resource-data-original-provenance.json')+
-                     (('model-cache-original-provenance.json',) if self.model_cache else ())+
-                     (('model-baker-original-provenance.json',) if self.model_baker else ())) },
+                originalCppSources=self.native_source_provenance(),
                 pending=True,raw=None,processReturncode=None,stderr=None)
             self.parser_store.write(pending,None);previous=deepcopy(pending);started=time.monotonic()
-            completed=subprocess.run([str(self.parser),str(packet),str(output)],env=self.environment,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=1.5)
+            try:
+                completed=subprocess.run([str(self.parser),str(packet),str(output)],env=self.environment,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=1.5)
+            except subprocess.TimeoutExpired as failure:
+                # Retain actual already-written output/diagnostics before the
+                # disposable runtime disappears. Timeout never proves release.
+                pending.update(raw=output.read_text() if output.exists() else None,processReturncode=None,
+                    stderr=(failure.stderr or b'').decode(errors='replace'),pending=False,timedOut=True)
+                self.parser_store.write(pending,previous);self.parser_disk=deepcopy(pending)
+                self.validate_native_source_provenance(pending['originalCppSources'])
+                raise
             elapsed=time.monotonic()-started
             pending.update(raw=output.read_text() if output.exists() else None,processReturncode=completed.returncode,
                 stderr=completed.stderr.decode(errors='replace'),pending=False)
             self.parser_store.write(pending,previous);self.parser_disk=deepcopy(pending);self.model_fence.check()
+            self.validate_native_source_provenance(pending['originalCppSources'])
             self.assertLessEqual(elapsed,1.5);self.assertEqual(0,completed.returncode,pending['stderr'])
             self.assertEqual(raw,packet.read_text());self.assertEqual(self.resource_disk,self.resources_store.read())
             native=json.loads(pending['raw']);self.parser_original=native
-            self.assertEqual(1,native['geometryResourceHostEvidenceVersion']);self.assertTrue(native['protocolValid'] and native['workerRetired'])
-            self.assertEqual(pending['inputSha256'],native['sourcePacketSha256'])
-            self.assertFalse(native['rendererReadinessQualified']);self.assertEqual(self.model_baker and self.indexed,native['bakerProcessingQualified'])
-            self.assertEqual(0,native['pending']);self.assertEqual(0,native['processing']);self.assertEqual(1,native['cacheCompletions'])
-            main=self.resource_original['resources'][0];self.assertEqual(main['sha256'],native['loadedOriginalSha256'])
-            owner=native['ownerOriginals'];self.assertEqual(['constructed','loaded-signal','finished-external-reference-released','retired'],[row['phase'] for row in owner])
-            self.assertEqual(1,len({row['id'] for row in owner}));self.assertTrue(all(row['alive'] and row['ownerThread'] for row in owner[:3]))
-            self.assertTrue(all(row['actualQtClass']=='GeometryResource' for row in owner[:3]))
-            self.assertEqual(0,owner[0]['bytes']);self.assertEqual(self.model_cache,owner[0]['requestAlive'])
-            self.assertTrue(owner[1]['requestAlive']);self.assertFalse(owner[1]['resourceFailed'])
-            self.assertTrue(owner[2]['resourceFailed']);self.assertEqual(main['bytes'],owner[1]['bytes']);self.assertEqual(main['bytes'],owner[2]['bytes'])
-            self.assertFalse(any(row['resourceLoaded'] or row['hfmPresent'] for row in owner[:3]))
-            self.assertFalse(owner[3]['alive'] or owner[3]['requestAlive']);self.assertIsNone(owner[3]['hfmPresent'])
-            self.assertTrue(all(b['observedEpochMs']>=a['observedEpochMs'] for a,b in zip(owner,owner[1:])))
-            worker=native['workerOriginals'];self.assertEqual(['constructed','run-enter','run-exit','destructor-enter'],[row['phase'] for row in worker])
-            self.assertEqual(1,len({row['id'] for row in worker}));self.assertEqual({owner[0]['id']},{row['resourceId'] for row in worker})
-            self.assertTrue(all(row['autoDelete'] for row in worker));self.assertEqual(native['callerThread'],worker[0]['thread'])
-            self.assertNotEqual(worker[0]['thread'],worker[1]['thread']);self.assertEqual(1,len({row['thread'] for row in worker[1:]}))
-            self.assertEqual(1,len(native['loaderOriginals']));loader=native['loaderOriginals'][0]
-            self.assertEqual(main['url'],loader['url']);self.assertEqual(main['sha256'],loader['sha256']);self.assertEqual(main['bytes'],loader['bytes'])
-            self.assertEqual(dict(combineParts=True,deduplicateIndices=True,**({'picoOriginalMarker':True} if self.model_cache else {})),loader['mapping']);self.assertEqual(worker[1]['thread'],loader['thread'])
-            self.assertEqual(4 if self.model_cache else 2,len(native['resourceObserverOriginals']));self.assertEqual({row['url'] for row in self.resource_original['resources'][:2]},
-                {row['url'] for row in native['resourceObserverOriginals']})
-            self.assertEqual([False,True],native['transportPresenceBeforeProcessExit'])
+            self.validate_native_result(native,pending)
         return result
+    def validate_native_result(self,native,pending):
+        self.assertEqual(1,native['geometryResourceHostEvidenceVersion']);self.assertTrue(native['protocolValid'] and native['workerRetired'])
+        self.assertEqual(pending['inputSha256'],native['sourcePacketSha256'])
+        self.assertFalse(native['rendererReadinessQualified']);self.assertEqual(self.model_baker and self.indexed,native['bakerProcessingQualified'])
+        self.assertEqual(0,native['pending']);self.assertEqual(0,native['processing']);self.assertEqual(1,native['cacheCompletions'])
+        main=self.resource_original['resources'][0];self.assertEqual(main['sha256'],native['loadedOriginalSha256'])
+        owner=native['ownerOriginals'];self.assertEqual(['constructed','loaded-signal','finished-external-reference-released','retired'],[row['phase'] for row in owner])
+        self.assertEqual(1,len({row['id'] for row in owner}));self.assertTrue(all(row['alive'] and row['ownerThread'] for row in owner[:3]))
+        self.assertTrue(all(row['actualQtClass']=='GeometryResource' for row in owner[:3]))
+        self.assertEqual(0,owner[0]['bytes']);self.assertEqual(self.model_cache,owner[0]['requestAlive'])
+        self.assertTrue(owner[1]['requestAlive']);self.assertFalse(owner[1]['resourceFailed'])
+        self.assertTrue(owner[2]['resourceFailed']);self.assertEqual(main['bytes'],owner[1]['bytes']);self.assertEqual(main['bytes'],owner[2]['bytes'])
+        self.assertFalse(any(row['resourceLoaded'] or row['hfmPresent'] for row in owner[:3]))
+        self.assertFalse(owner[3]['alive'] or owner[3]['requestAlive']);self.assertIsNone(owner[3]['hfmPresent'])
+        self.assertTrue(all(b['observedEpochMs']>=a['observedEpochMs'] for a,b in zip(owner,owner[1:])))
+        worker=native['workerOriginals'];self.assertEqual(['constructed','run-enter','run-exit','destructor-enter'],[row['phase'] for row in worker])
+        self.assertEqual(1,len({row['id'] for row in worker}));self.assertEqual({owner[0]['id']},{row['resourceId'] for row in worker})
+        self.assertTrue(all(row['autoDelete'] for row in worker));self.assertEqual(native['callerThread'],worker[0]['thread'])
+        self.assertNotEqual(worker[0]['thread'],worker[1]['thread']);self.assertEqual(1,len({row['thread'] for row in worker[1:]}))
+        self.assertEqual(1,len(native['loaderOriginals']));loader=native['loaderOriginals'][0]
+        self.assertEqual(main['url'],loader['url']);self.assertEqual(main['sha256'],loader['sha256']);self.assertEqual(main['bytes'],loader['bytes'])
+        self.assertEqual(dict(combineParts=True,deduplicateIndices=True,**({'picoOriginalMarker':True} if self.model_cache else {})),loader['mapping']);self.assertEqual(worker[1]['thread'],loader['thread'])
+        self.assertEqual(4 if self.model_cache else 2,len(native['resourceObserverOriginals']));self.assertEqual({row['url'] for row in self.resource_original['resources'][:2]},
+            {row['url'] for row in native['resourceObserverOriginals']})
+        self.assertEqual([False,True],native['transportPresenceBeforeProcessExit'])
     def exercise_cancel_home(self,baseline):
         counts,raw=resources_module.AssetsEntityResourcesTests.exercise_cancel_home(self,baseline)
         self.assertEqual(self.parser_disk,self.parser_store.read());native=self.parser_original
