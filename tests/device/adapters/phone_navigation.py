@@ -173,8 +173,25 @@ class PhoneNavigation:
         if before:
             self.ui._request('POST', '/appium/device/hide_keyboard', {})
             self.ui._check()
-        if self.ui.text(self.address) != url:
-            raise NativeUIError('Normal Phone destination changed while preparing Go')
+        field = self.ui._resolve(self.address)
+        def editor():
+            self.ui._check()
+            text = self.ui._request('GET', field + '/text')
+            focused = self.ui._request('GET', field + '/attribute/focused')
+            self.ui._check()
+            if type(text) is not str or text != url:
+                raise NativeUIError('Normal Phone destination changed while preparing Go')
+            if type(focused) is str and focused in ('true', 'false'):
+                focused = focused == 'true'
+            if type(focused) is not bool:
+                raise NativeUIError('Normal Phone editor focus observation is invalid')
+            return focused
+        if editor():
+            # Ordinary Android focus traversal clears the editor's selection
+            # handle. This never submits the address or substitutes for Go.
+            self.ui._request('POST', '/appium/device/press_keycode', {'keycode': 61})
+            if editor():
+                raise NativeUIError('Normal Phone editor focus did not clear')
         after = visible()
         if after:
             raise NativeUIError('Normal Phone keyboard did not disappear')

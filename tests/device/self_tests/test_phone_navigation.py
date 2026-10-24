@@ -28,6 +28,7 @@ class NativePhone:
     def __init__(self, mutation=''):
         self.clock = 0.0
         self.keyboard_visible = False
+        self.field_focused = False
         self.ime_reads = []
         self.mutation = mutation
         self.address_open = False
@@ -82,6 +83,13 @@ class NativePhone:
             if self.mutation != 'ime-ignored': self.keyboard_visible = False
             if self.mutation == 'ime-text-changed': self.field = 'changed while hiding'
             return None  # The original API receipt is never a visibility proof.
+        if method == 'POST' and path.endswith('/appium/device/press_keycode'):
+            assert body == {'keycode':61}
+            self.inputs.append('editor-tab')
+            if self.mutation != 'tab-ignored': self.field_focused = False
+            if self.mutation == 'tab-text-changed': self.field = 'changed while clearing focus'
+            if self.mutation == 'tab-ime-shown': self.keyboard_visible = True
+            return None
         if method == 'POST' and path.endswith('/actions'):
             pointer, = body['actions']
             assert pointer['id'] == 'overte-phone-go-touch'
@@ -92,7 +100,9 @@ class NativePhone:
             assert down == {'type':'pointerDown','button':0} and pause == {'type':'pause','duration':150}
             assert up == {'type':'pointerUp','button':0}
             self.inputs.append('PhoneAddressGoButton')
-            if self.mutation != 'go-press-ignored':
+            # Explicit host model of the actual21 image: a focused editor's
+            # insertion handle intercepts the Go center. No device assertion.
+            if self.mutation != 'go-press-ignored' and not self.field_focused:
                 self.address_open = False
                 if self.mutation != 'goto-ignored':
                     self.history = self.history[:self.cursor + 1] + [self.field]
@@ -122,6 +132,8 @@ class NativePhone:
                 if self.mutation != 'text-ignored':
                     self.field = body['text']
                 return None
+            if path.endswith('/attribute/focused'):
+                return self.field_focused
             if path.endswith('/text'):
                 return self.field
             if path.endswith('/click'):
@@ -356,6 +368,71 @@ class PhoneNavigationTests(unittest.TestCase):
         self.assertFalse(any(path.endswith('/element/'+native.references['PhoneAddressGoButton']+'/click')for _,path,_ in native.calls))
         self.assertEqual(1,sum(path.endswith('/elements')and body.get('value')==PACKAGE+':id/PhoneAddressGoButton'
             for _,path,body in native.calls if isinstance(body,dict)))
+
+    def test_phone_editor_tab_clears_modeled_blue_handle_before_one_go_press(self):
+        blocked=NativePhone('goto-ignored');blocked.address_open=True;blocked.field_focused=True
+        blocked.flow().press_go();self.assertTrue(blocked.address_open)
+        native=NativePhone('goto-ignored');native.field_focused=True
+        self.assertEqual({'requested':True},native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test'))
+        self.assertFalse(native.field_focused);self.assertFalse(native.address_open)
+        self.assertEqual(self.DOMAIN,native.field)
+        self.assertEqual(1,native.inputs.count('editor-tab'));self.assertEqual(1,native.inputs.count('PhoneAddressGoButton'))
+        self.assertLess(native.inputs.index('editor-tab'),native.inputs.index('PhoneAddressGoButton'))
+        focused=[path for method,path,_ in native.calls if method=='GET'and path.endswith('/attribute/focused')]
+        self.assertEqual(2,len(focused));self.assertEqual(focused[0],focused[1])
+        keys=[body for method,path,body in native.calls if method=='POST'and path.endswith('/press_keycode')]
+        self.assertEqual([{'keycode':61}],keys)
+
+    def test_phone_editor_focus_requires_exact_native_bool_and_skips_tab_when_already_clear(self):
+        native=NativePhone('goto-ignored')
+        native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
+        self.assertNotIn('editor-tab',native.inputs);self.assertEqual(1,native.inputs.count('PhoneAddressGoButton'))
+        for invalid in (None,0,1,{},'FALSE',' true','false\n'):
+            native=NativePhone('goto-ignored');original=native.call
+            def read(method,path,body=None):
+                if method=='GET'and path.endswith('/attribute/focused'):return invalid
+                return original(method,path,body)
+            native.call=read
+            with self.subTest(typeName=type(invalid).__name__),self.assertRaisesRegex(NativeUIError,'focus observation is invalid'):
+                native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
+            self.assertNotIn('editor-tab',native.inputs);self.assertNotIn('PhoneAddressGoButton',native.inputs)
+        native=NativePhone('goto-ignored');native.field_focused=True;original=native.call
+        def strings(method,path,body=None):
+            value=original(method,path,body)
+            return str(value).lower()if method=='GET'and path.endswith('/attribute/focused')else value
+        native.call=strings;native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
+        self.assertEqual(1,native.inputs.count('editor-tab'));self.assertFalse(native.field_focused)
+
+    def test_phone_editor_ignored_tab_changed_text_or_new_ime_blocks_go_without_replay(self):
+        for mutation in ('tab-ignored','tab-text-changed','tab-ime-shown','unsupported-tab'):
+            native=NativePhone(mutation);native.field_focused=True;original=native.call
+            def dispatch(method,path,body=None):
+                if mutation=='unsupported-tab'and path.endswith('/press_keycode'):raise RuntimeError('unsupported host seam')
+                return original(method,path,body)
+            native.call=dispatch
+            with self.subTest(mutation=mutation),self.assertRaises(NativeUIError):
+                native.flow().enter_domain(self.DOMAIN,self.DOMAIN,'controlled.test')
+            self.assertLessEqual(native.inputs.count('editor-tab'),1)
+            self.assertNotIn('PhoneAddressGoButton',native.inputs)
+            self.assertTrue(native.state['normalNavigation']['addressOwned'])
+
+    def test_phone_editor_tab_rechecks_full_bound_context_before_any_go_press(self):
+        for changed in ('generation','session','target','process','installed'):
+            native=NativePhone('goto-ignored');native.field_focused=True;adapter=self.domain_adapter(native);original=native.call
+            def dispatch(method,path,body=None):
+                value=original(method,path,body)
+                if method=='POST'and path.endswith('/press_keycode'):
+                    if changed=='generation':native.state['generation']+=1
+                    elif changed=='session':native.state['sessionId']='foreign-session'
+                    elif changed=='target':adapter.target('owned-target')['scene']['kind']='foreign'
+                    elif changed=='process':native.process='31416:foreign-start'
+                    else:native.identity['sourceRevision']='f'*40
+                return value
+            native.call=dispatch
+            with patch.dict(os.environ,self.domain_environment(),clear=True),self.subTest(changed=changed),self.assertRaises((ValueError,NativeUIError)):
+                adapter.invoke('owned-target','navigation.enter-domain',{'url':self.DOMAIN})
+            self.assertEqual(1,native.inputs.count('editor-tab'));self.assertNotIn('PhoneAddressGoButton',native.inputs)
+            self.assertTrue(native.state['normalNavigation']['addressOwned'])
 
     def test_phone_go_ignored_touch_does_not_turn_visible_field_into_success(self):
         native=NativePhone('go-press-ignored')
