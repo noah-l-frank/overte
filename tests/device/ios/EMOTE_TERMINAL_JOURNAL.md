@@ -23,7 +23,11 @@ retirement. Current Scope, Source, Peer, Sample, Observer, file, entity, pointer
 and Primary input metadata must match the selected cleanup originals. The
 latest current five-component snapshot must match the actual last live record.
 Unresolved local acquisition or changed component responsibility prevents
-inspection. These checks do not cover every recovery or scene-order carrier.
+inspection. The additional
+[current recovery/scene/publication guard](EMOTE_ROOTED_RESPONSIBILITY.md)
+now checks the named interrupted-read histories, rooted scene ordering and
+Actor publisher originals before journal persistence. Full unknown-carrier
+and GPU ownership coverage remains required.
 
 `IOSEmoteTerminalJournal` persists inspect references and the derived
 [window description](EMOTE_TERMINAL_WINDOW.md) in the Primary SDK directory:

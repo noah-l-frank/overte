@@ -73,3 +73,9 @@ host-checked. All of these fixtures retain their declared native/SDK/clock
 models; neither the repeated-cleanup case nor their wall durations qualify
 real operation bounds or the complete feature. Rooted whole ownership,
 once-only per-role Stop, OS/SDK end and canonical/worker replay remain required.
+
+The [current additional responsibility guard](EMOTE_ROOTED_RESPONSIBILITY.md)
+now replays actual recovery, rooted scene-gate/order and independent publisher
+histories before terminal persistence. Its combined retained-file read passes
+with all 904 originals unchanged. This remains separate from full unknown-
+carrier coverage and final process/SDK ownership retirement.

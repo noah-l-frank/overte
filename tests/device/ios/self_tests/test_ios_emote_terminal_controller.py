@@ -77,6 +77,20 @@ class TerminalControllerTests(unittest.TestCase):
         journal=IOSEmoteTerminalJournal(self.f.window);self.assertEqual('inspected',journal.state['phase'])
         self.assertEqual([],list(self.f.artifacts.glob('emote-terminal-frame-inputs-*')))
 
+    def test_new_responsibility_after_pure_qualification_prevents_seal_persistence(self):
+        current=dict(unchanged=True)
+        def guard():
+            if not current['unchanged']:raise NativeUIError('Actual new responsibility')
+        self.controller.responsibilities=[SimpleNamespace(guard=guard)]
+        with patch.object(self.controller,'window',return_value=self.f.window):
+            self.controller.invoke(self.call('inspect'));original=self.f.window.qualify
+            def changed(*args,**kwargs):
+                value=original(*args,**kwargs);current['unchanged']=False;return value
+            with patch.object(self.f.window,'qualify',side_effect=changed),self.assertRaises(NativeUIError):
+                self.controller.invoke(self.call('seal',description=self.f.description,samples=self.f.samples))
+        journal=IOSEmoteTerminalJournal(self.f.window);self.assertEqual('inspected',journal.state['phase'])
+        self.assertEqual([],list(self.f.artifacts.glob('emote-terminal-frame-inputs-*')))
+
     def test_foreign_or_unshared_actor_is_rejected_before_any_operation(self):
         actor=self.flows['actor'];actor.primary_lock=actor.lock
         with self.assertRaises(NativeUIError):IOSEmoteTerminal(self.flows['primary'],actor)

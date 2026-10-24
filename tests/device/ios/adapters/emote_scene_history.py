@@ -27,12 +27,13 @@ def before(gate,stage,ticket,packet):
     need(candidates);return candidates[-1]
 
 
-def validate(final,copies,scope,frames):
+def validate(final,copies,scope,frames,*,validate_original=None):
     f=final.flow;path=final.path('ios-emote-'+f.role+'-scene-gate.json');value=copies[str(path.path)];need(value is not None)
     from adapters.normal_feature_state import PrivateFeatureState
     peer_path=Path(value['peerStatePath']);need(peer_path!=path.path and peer_path.is_absolute() and peer_path.resolve()==peer_path)
+    options={} if validate_original is None else dict(validate_original=validate_original)
     gate=IOSEmoteSceneGate.archive(value,store=Frozen(path.path,value),root=f.root,binding=f.state['binding'],run=f.run,role=f.role,
-        instance=f.state['phaseInstance'],admission=value['peerAdmission'],peer_store=PrivateFeatureState(peer_path),lock=f.lock,primary_lock=f.primary_lock)
+        instance=f.state['phaseInstance'],admission=value['peerAdmission'],peer_store=PrivateFeatureState(peer_path),lock=f.lock,primary_lock=f.primary_lock,**options)
     need(gate.state['pending'] is None and gate.state['own'] and gate.state['peer'])
     if f.role=='primary':need(same(gate.admission,f.state['actorAdmission']))
     else:need(same(gate.peer_binding,f.state['primaryBinding']))

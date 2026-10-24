@@ -15,6 +15,7 @@ from ios.adapters.emote_operation import clock,operation
 from ios.adapters.emote_rooted_archive import capture
 from ios.adapters.emote_rooted_feature import IOSEmoteRootedFeature
 from ios.adapters.emote_rooted_live import IOSEmoteRootedLive
+from ios.adapters.emote_rooted_responsibility import IOSEmoteRootedResponsibility
 from ios.adapters.emote_terminal_window import IOSEmoteTerminalWindow
 from ios.adapters.peer_admission import validate as admitted
 from ios.adapters.emote_terminal_journal import IOSEmoteTerminalJournal
@@ -53,8 +54,14 @@ class IOSEmoteTerminal:
             and actor.phase.fixture_url==primary.phase.fixture_url and actor.root!=primary.root)
         self.flow,self.actor,self.runtime=primary,actor,primary.runtime
         self.monotonic,self.deadline,self.last_clock=primary.monotonic,None,None
+        self.responsibilities=[]
 
     def clock(self):return clock(self)
+
+    def guard(self):
+        self.clock()
+        for original in self.responsibilities:original.guard()
+        self.clock();return True
 
     def local_window(self,flow):
         parts=flow.components();scope,samples,observer=parts['scope'],parts['samples'],parts['observer']
@@ -68,7 +75,7 @@ class IOSEmoteTerminal:
         rendered_ref=owner.original(snapshot['reference'])['renderedReference']
         raw=native.original(rendered.original(rendered_ref)['nativeReference'])
         # Match current ordinary owners to their actual cleanup originals.
-        # This does not cover recovery/scene-order carriers or retire metadata.
+        # Separately guard recovery/scene/publication responsibility below.
         need(same(scope.snapshot(),raw['scope']) and same(parts['sources'].store.read(),raw['sources'])
             and same(None if parts['peers'] is None else parts['peers'].store.read(),raw['peers'])
             and same(samples.store.read(),raw['sampleOwners']) and observer.state['records']
@@ -80,10 +87,11 @@ class IOSEmoteTerminal:
         if flow.role=='primary':
             for key,name in (('cleanup','cleanup-inputs'),('actions','inputs'),('background','background')):
                 need(same(PrivateFeatureState(flow.store.path.with_name('ios-emote-'+name+'.json')).read(),raw['inputOwners'][key]))
+        self.responsibilities.append(IOSEmoteRootedResponsibility(flow,parts,owner,live))
         return live
 
     def window(self):
-        roles={}
+        roles={};self.responsibilities=[]
         for flow in (self.flow,self.actor):
             flow.load();need(flow.state is not None and flow.state['phase']=='cleaned' and flow.state['cleanup'])
             phase=flow.phase.read();retirement=flow.state['retirement']
@@ -103,7 +111,7 @@ class IOSEmoteTerminal:
             # process-end retry. Historical proof replay is a separate reader.
             raise EmoteObservationPending('Rooted Emote process and SDK end are not implemented')
         with self.actor.held(30):
-            window=self.window();self.clock();journal=IOSEmoteTerminalJournal(window,check=self.clock)
+            window=self.window();self.guard();journal=IOSEmoteTerminalJournal(window,check=self.guard)
             if call['stage']=='inspect':
                 refs=({role:live.state['records'][-1] for role,live in window.roles.items()}
                     if journal.state is None else journal.state['references'])
