@@ -16,6 +16,7 @@ class CreateVoxelSourceNativeTests(unittest.TestCase):
 
     def test_normal_tools_original_volume_mesh_timers_restore_delete_and_retained_owner(self):
         from adapters.pico4 import create_entities,create_polyvox_resources
+        from test_assets_read_native import ROOT
         outputs=self.run_original('create-voxel-source-controls.cpp',('normal','retained-renderer','ignored-controller'))
         for mode,capture in outputs.items():
             raw=capture['raw'];packet=json.loads(raw);history=packet['nativeJoin'];receipts=capture['hostReceipts']
@@ -30,6 +31,13 @@ class CreateVoxelSourceNativeTests(unittest.TestCase):
             self.assertLessEqual(len(raw.encode()),16*1024*1024)
             self.assertEqual(packet['before'],packet['restored'])
             self.assertEqual(1,len(packet['deleteCommands']));self.assertEqual(1,len(packet['deleteLists']))
+            self.assertEqual(['canonical-file-directory','file-directory-with-slash','qrc-directory-spellings','foreign-file-context','foreign-qrc-context','foreign-voxel-file-context','foreign-voxel-qrc-context'],packet['sourceUrlCounterexamples'])
+            self.assertEqual(1,len(packet['addCommands']));self.assertEqual(1,len(packet['addCuboids']))
+            self.assertEqual(['push','pop'],[item['event'] for item in packet['dialogEvents']])
+            self.assertTrue(all(item['url'].endswith('/qml/NewPolyVoxDialog.qml') for item in packet['dialogEvents']))
+            initial_cuboid=packet['addCuboids'][0]
+            self.assertEqual({'x':2,'y':2,'z':2},initial_cuboid['low'])
+            self.assertEqual({'x':4,'y':4,'z':4},initial_cuboid['size']);self.assertEqual(255,initial_cuboid['value'])
             self.assertEqual(list(range(1,len(history)+1)),[row['sequence'] for row in history])
             previous=None;previous_entity=None
             for row in history:
@@ -48,7 +56,31 @@ class CreateVoxelSourceNativeTests(unittest.TestCase):
             self.assertEqual([],initial['entityFrame']['source']['entities'])
             self.assertEqual([],initial['entityFrame']['source']['localCreations']['events'])
             self.assertTrue(create_entities.retired(initial['entityFrame']['source']))
+            insertion=next(row for row in history if row['phase']=='normal-add-local-insert')
+            properties=insertion['normalAddProperties'];self.assertEqual('terrain',properties['name'])
+            self.assertEqual({'x':8,'y':8,'z':8},properties['voxelVolumeSize'])
+            self.assertEqual({'x':8,'y':8,'z':8},properties['dimensions'])
+            paths=('serverless/Textures/ground_5-2K/2K-ground_5-diffuse.jpg','serverless/Textures/ground_grass_gen_05.png')
+            expected={'qrc:///'+path:hashlib.sha256((ROOT/'interface/resources'/path).read_bytes()).hexdigest() for path in paths}
+            self.assertEqual('qrc:///'+paths[0],properties['xTextureURL'])
+            self.assertEqual('qrc:///'+paths[1],properties['yTextureURL'])
+            self.assertEqual(properties['xTextureURL'],properties['zTextureURL'])
             before=next(row for row in history if row['phase']=='baseline')
+            textures=before['textureOriginals'];self.assertEqual(set(expected),{row['url'] for row in textures})
+            bindings=before['polyvoxResources']['bindings'][0]['textures']
+            self.assertEqual(3,len(bindings));self.assertTrue(all(bindings));self.assertEqual(bindings[0],bindings[2]);self.assertNotEqual(bindings[0],bindings[1])
+            self.assertEqual(2,len(before['polyvoxResources']['textures']))
+            for texture in textures:
+                self.assertTrue(texture['alive']);self.assertTrue(texture['loaded']);self.assertFalse(texture['failed'])
+                self.assertTrue(texture['pixelsObserved']);self.assertTrue(texture['pixelsAlive'])
+                self.assertGreater(texture['width'],0);self.assertGreater(texture['height'],0)
+                self.assertGreater(texture['originalWidth'],0);self.assertGreater(texture['originalHeight'],0)
+                self.assertGreater(texture['storedBytes'],0);self.assertRegex(texture['sourceHash'],r'^[0-9a-f]{32}$')
+                self.assertEqual(1,len(texture['requests']))
+                request=texture['requests'][0];self.assertTrue(request['factoryOwnerAlive']);self.assertFalse(request['qObjectParentAlive']);self.assertTrue(request['finished']['success'])
+                self.assertEqual({'factoryOnGui':False,'factoryOwnerAffinityOnGui':True,'requestAffinityOnGui':False,'originalRenderCaller':True,'hasQObjectParent':False,'qObjectParentIsFactoryOwner':False,'qObjectParentAffinityOnGui':None},request['provenance'])
+                self.assertTrue(request['finished']['onRequestThread'])
+                self.assertEqual(expected[texture['url']],request['finished']['sha256']);self.assertGreater(request['finished']['bytes'],0)
             source=before['entityFrame']['source'];self.assertEqual(1,len(source['entities']))
             self.assertEqual(1,len(source['localCreations']['events']))
             event=source['localCreations']['events'][0];entity=source['entities'][0]
@@ -91,6 +123,14 @@ class CreateVoxelSourceNativeTests(unittest.TestCase):
             self.assertLessEqual(max(b['capturedElapsedMs']-a['capturedElapsedMs'] for a,b in zip(quiet,quiet[1:])),500)
             self.assertLessEqual(max(b['capturedEpochMs']-a['capturedEpochMs'] for a,b in zip(quiet,quiet[1:])),500)
             self.assertTrue(all(not row['inTree'] and row['deleteCalls']==1 for row in quiet))
+            for frame in quiet:
+                self.assertEqual(2,len(frame['textureOriginals']))
+                for texture in frame['textureOriginals']:
+                    self.assertTrue(texture['pixelsObserved'])
+                    self.assertEqual(mode=='retained-renderer',texture['alive'])
+                    self.assertEqual(mode=='retained-renderer',texture['pixelsAlive'])
+                    self.assertTrue(all(request['factoryOwnerAlive']==(mode=='retained-renderer') and not request['qObjectParentAlive'] for request in texture['requests']))
+                    self.assertTrue(all(not request['alive'] for request in texture['requests']))
             retired=[create_entities.retired(row['retirementSource']) for row in quiet]
             if mode=='retained-renderer':
                 self.assertTrue(all(not value for value in retired));self.assertTrue(quiet[-1]['entityAlive'])

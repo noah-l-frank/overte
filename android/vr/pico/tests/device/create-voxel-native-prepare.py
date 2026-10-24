@@ -1,6 +1,7 @@
 """Original current VoxelVolume/mesh/state/compression and existing sources."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+import importlib.util
 import hashlib
 import json
 from pathlib import Path
@@ -53,6 +54,19 @@ def prepare(stage,environment,prefix):
     write('OriginalCreatePolyvoxBaseInline.inc',original(polyvox_header,'virtual QVariantMap featureCreateVoxels(')+'\n'+
         original(polyvox_header,'virtual bool isVoxelDataReady() const')+'\n')
     constants=read('libraries/entities/src/EntityItemPropertiesMacros.h')
+    property_definitions=read('libraries/entities/src/EntityItemProperties.txt')
+    read('cmake/macros/GenerateEntityProperties.cmake')
+    start_macro=constants.index('#define DEFINE_VARIABLE_RENDER_REF(')
+    end_macro=constants.index('\n#define ENTITY_PROPERTY_SUBCLASS_METHODS',start_macro)
+    texture_macro=constants[start_macro:end_macro]
+    calls=[]
+    for axis in 'XYZ':
+        name=axis.lower()+'TextureURL'
+        definition=next(line for line in property_definitions.splitlines() if 'prop:'+name+' ' in line)
+        if not ('type:QString ' in definition and 'default:"" ' in definition and 'renderProp' in definition):
+            raise ValueError('Current original texture property generation changed')
+        calls.append('DEFINE_VARIABLE_RENDER_REF('+axis+'TextureURL, '+name+', QString, "");')
+    write('OriginalCreateTextureProperties.inc',texture_macro+'\n'+'\n'.join(calls)+'\n#undef DEFINE_VARIABLE_RENDER_REF\n')
     read('libraries/shared/src/SimulationFlags.h')
     write('OriginalCreateInsertionConstants.inc','#include <SimulationFlags.h>\n'+
         next(line for line in constants.splitlines() if line.startswith('const quint64 UNKNOWN_CREATED_TIME ='))+'\n')
@@ -69,7 +83,8 @@ def prepare(stage,environment,prefix):
     write('OriginalCreateVoxelMethods.inc',constant+'\n'+'\n'.join(blocks.values()))
     write('OriginalPolyvoxRenderUpdate.inc',original(renderer,'void PolyVoxEntityRenderer::doRenderUpdateAsynchronousTyped('))
     write('EntityItem.h','#pragma once\n#include "create-voxel-native-join.h"\n')
-    cpu=[]
+    read('libraries/shared/src/DependencyManager.cpp')
+    cpu=[source_unit('libraries/shared/src/DependencyManager.cpp')]
     for path in CPU_SUPPORT_SOURCES:read(path);cpu.append(source_unit(path))
     cpu.append(mesh_fragment(read,write,provenance,('void Mesh::setVertexBuffer(', 'void Mesh::addAttribute(',
         'void Mesh::evalVertexFormat(', 'void Mesh::evalVertexStream(')))
@@ -81,22 +96,34 @@ def prepare(stage,environment,prefix):
     minimum=next(line for line in shapes.splitlines() if line.startswith('const float MIN_HALF_EXTENT ='))
     write('OriginalCreateVoxelShape.inc','#include <ShapeInfo.h>\n'+minimum+'\n'+shape_methods)
     cpu.append('#include "OriginalCreateVoxelShape.inc"')
-    glm=read('libraries/shared/src/GLMHelpers.cpp')
-    vectors='\n'.join(line for line in glm.splitlines() if line.startswith('const vec3 Vectors::'))
-    write('OriginalCreateVoxelVectors.inc',vectors+'\n');cpu.append('#include "OriginalCreateVoxelVectors.inc"')
     write('CreateVoxelOriginalCpu.cpp','#include <array>\n#include <vector>\n#include <memory>\n#include <QCoreApplication>\n#include <GLMHelpers.h>\n#include <GeometryUtil.h>\n#include <graphics/Geometry.h>\n'+ '\n'.join(cpu)+'\n')
     edit=read('scripts/system/create/edit.js')
     deletion='\n'.join(original(edit,signature) for signature in ('function sortSelectedEntities(',
         'function recursiveDelete(', 'createApp.deleteSelectedEntities = function()'))+';\n'
     write('original-voxel-delete.js',deletion)
+    # Reuse the already exercised normal Add extraction: complete defaults,
+    # original createNewEntity/fromQml/dialog handler, no alternate creation.
+    creation=edit[edit.index('    function copyProperties(a, b) {'):edit.index('    var fcreateNewEntity;')]
+    creation+='\n'+original(edit,'function createNewEntity(')
+    creation+='\nvar shouldUseEditTabletApp='+original(edit,'function() {\n        return HMD.active')+';\n'
+    creation+='\n'.join(original(edit,signature) for signature in ('function createNewEntityDialogButtonCallback(',
+        'function handleNewPolyVoxDialogResult(', 'function closeExistingDialogWindow(', 'function fromQml('))
+    creation+='\nbuttonHandlers.newPolyVoxButton=createNewEntityDialogButtonCallback("PolyVox");\n'
+    write('original-voxel-add.js',creation)
+    validation=read('scripts/system/create/modules/picoQmlMessageValidation.js')
+    write('original-voxel-validation.js','var validatePicoQmlMessage=(function(){var module={exports:{}};\n'+validation+'\nreturn module.exports;})();\n')
+    texture_spec=importlib.util.spec_from_file_location('create_voxel_texture_prepare',HERE/'create-voxel-texture-prepare.py')
+    textures=importlib.util.module_from_spec(texture_spec);texture_spec.loader.exec_module(textures)
+    texture_inputs=textures.prepare(stage,environment,prefix)
     moc=stage/'create-voxel-native-join-moc.cpp'
     subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),'-I'+str(stage),'-I'+str(ROOT),
         str(HERE/'create-voxel-native-join.h'),'-o',str(moc)],check=True,timeout=20,env=environment)
     for name,body in blocks.items():provenance[name]=hashlib.sha256(body.encode()).hexdigest()
     for name in ('OriginalCreateVoxelStorage.inc','OriginalCreateVoxelMethods.inc','OriginalPolyvoxRenderUpdate.inc',
             'OriginalCreateEntityInline.inc','OriginalCreatePolyvoxBaseInline.inc','OriginalCreateInsertionConstants.inc','OriginalCreateEntities.inc',
+            'OriginalCreateTextureProperties.inc',
             'AssetsOriginalBakerMesh.inc','AssetsOriginalBuffer.inc','OriginalCreateVoxelShape.inc',
-            'OriginalCreateVoxelVectors.inc','CreateVoxelOriginalCpu.cpp','original-voxel-delete.js'):
+            'CreateVoxelOriginalCpu.cpp','original-voxel-delete.js','original-voxel-add.js','original-voxel-validation.js'):
         provenance['compiled-'+name]=hashlib.sha256((stage/name).read_bytes()).hexdigest()
     write('create-voxel-native-original-provenance.json',json.dumps(provenance,sort_keys=True))
-    return [str(HERE/'create-voxel-native-join.cpp'),str(stage/'CreateVoxelOriginalCpu.cpp'),str(moc)]
+    return [str(HERE/'create-voxel-native-join.cpp'),str(stage/'CreateVoxelOriginalCpu.cpp'),str(moc),*texture_inputs]
