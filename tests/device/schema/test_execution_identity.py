@@ -35,7 +35,7 @@ class ExecutionIdentityTests(unittest.TestCase):
             catalog=ROOT/'catalog.json', suite='smoke', list=False, tablet_policy=None,
             target=None, allow_virtual=True, output_dir=self.root/'output', keep_running=False,
             require_complete=True, candidate_artifact=self.artifact,
-            expected_source_sha='a'*40, expected_artifact_sha256=self.sha)
+            expected_source_sha='a'*40, expected_artifact_sha256=self.sha, required_setup=[])
         self.modules = runner.load_modules(self.args.catalog, 'smoke')
         self.capabilities = sorted({cap for mod in self.modules for cap in mod['requires']})
         self.events = []
@@ -51,7 +51,9 @@ class ExecutionIdentityTests(unittest.TestCase):
             calls += 1
             claim = first if calls == 1 else last
             return copy.deepcopy({'executionIdentity': self.claim} if claim is None else claim)
-        def module(mod, *args):
+        def module(mod, catalog, environment, artifact_dir, *args, prepared):
+            self.assertIs(type(prepared), runner.PreparedModuleArtifacts)
+            prepared.claim(mod['id'], artifact_dir)
             self.events.append('module')
             if mutate: self.artifact.write_bytes(b'test-only changed candidate')
             return dict(id=mod['id'], description=mod['description'], status=module_status,
@@ -95,6 +97,26 @@ class ExecutionIdentityTests(unittest.TestCase):
     def test_test_failure_is_bound_but_never_accepted(self):
         self.assertEqual(self.execute(module_status='failed'), 1)
         self.assertTrue((self.args.output_dir/'result-identity.json').exists())
+        with self.assertRaises(EvidenceError): self.verify()
+
+    def test_failed_required_setup_blocks_later_modules_without_accepting_identity(self):
+        catalog = json.loads(self.args.catalog.read_text())
+        catalog['modules'] = [module for module in catalog['modules']
+                              if module['id'] in {'launch-smoke', 'scene'}]
+        for module in catalog['modules']:
+            module['command'] = runner.resolve_module_command(self.args.catalog, module['command'])
+        self.args.catalog = self.root/'focused-catalog.json'
+        self.args.catalog.write_text(json.dumps(catalog))
+        self.args.suite = 'all'
+        self.modules = runner.load_modules(self.args.catalog, self.args.suite)
+        self.assertEqual([module['id'] for module in self.modules], ['launch-smoke', 'scene'])
+        self.capabilities = sorted({cap for module in self.modules for cap in module['requires']})
+        self.args.required_setup = [self.modules[0]['id']]
+        self.assertEqual(self.execute(module_status='failed'), 1)
+        self.assertEqual(self.events.count('module'), 1)
+        summary = json.loads((self.args.output_dir/'summary.json').read_text())
+        self.assertEqual(summary['results'][0]['status'], 'failed')
+        self.assertTrue(all(row['status'] == 'skipped' for row in summary['results'][1:]))
         with self.assertRaises(EvidenceError): self.verify()
 
     def test_arguments_and_artifact_reject_before_discovery(self):

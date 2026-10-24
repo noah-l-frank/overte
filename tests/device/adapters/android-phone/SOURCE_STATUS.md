@@ -28,6 +28,8 @@ client. See the [integration campaign handoff](INTEGRATED_CAMPAIGN.md) and
 [historical source/host matrix](phone-source-coverage.v1.json) for their separate
 scopes.
 
+<a id="evidence-scope-and-history"></a>
+
 ## Historical integration and host evidence
 
 The following reviews, matrix and native-build limitations retain their stated
