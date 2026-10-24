@@ -18,10 +18,12 @@ VERSION=1
 
 
 class PicoBrowserHistory:
-    def __init__(self,store,lock,scope,validate):
+    def __init__(self,store,lock,scope,validate,*,area="tablet-web"):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock) and callable(validate))
+        need(type(area) is str and area in ("tablet-web","world-web"));self.area=area
         lock.assert_held();self.store,self.lock,self.validate=store,lock,validate
-        self.scope=dict(picoBrowserHistoryVersion=VERSION,**deepcopy(scope))
+        field="picoBrowserHistoryVersion" if area=="tablet-web" else "picoWorldBrowserHistoryVersion"
+        self.scope={field:VERSION,**deepcopy(scope)}
         self.disk=store.read();self.chunks=ChatSourceChunks(store,self.scope)
         self._rows=();self._row_hashes=();self._sealed_rows=self._rows;self._sealed_hashes=self._row_hashes
         self._last_raw=None;self._sealed_last=None;self._last_hash=None;self.publication=None;self.failed=False
@@ -37,7 +39,7 @@ class PicoBrowserHistory:
         self.cached=self.cache_digest()
 
     def cache_digest(self):
-        return json_digest(dict(scope=self.scope,rows=list(self._row_hashes),last=self._last_hash,publication=self.publication,
+        return json_digest(dict(scope=self.scope,area=self.area,rows=list(self._row_hashes),last=self._last_hash,publication=self.publication,
             nonces={key:sorted(value) for key,value in self.nonces.items()}))
 
     @property
@@ -112,7 +114,7 @@ class PicoBrowserHistory:
             payload=original['payload'];exact(payload,{'ticket','actor','actorSequence','capturedEpochMs','facts'})
             need(payload==dict(ticket=last['phaseBefore']['activations'][-1]['ticket'],actor='owned-observer',
                 actorSequence=sequence,capturedEpochMs=last['sample']['capturedEpochMs'],
-                facts=projection('tablet-web',last['sample']['state'])))
+                facts=projection(self.area,last['sample']['state'])))
             if event=='publication-intent':need(self.publication is None and original['ack'] is None)
             else:need(self.publication is not None and self.publication['phase']=='issued'
                 and same(self.publication['payload'],payload) and same(original['ack'],{}))

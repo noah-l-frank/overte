@@ -38,6 +38,15 @@ def missing_script_url(url):
     return url
 
 
+def feature_browser_script_url(url):
+    """Only the existing common World/Tablet ticket client, no arbitrary URL."""
+    need(type(url) is str and len(url)<=4096 and url.isascii() and not any(ord(c)<=32 for c in url))
+    parsed=urlsplit(url);parsed.port
+    need(parsed.scheme in {'http','https'} and parsed.hostname and parsed.username is None and parsed.password is None
+        and not parsed.query and not parsed.fragment and re.fullmatch(r'/feature-fixture/v1/runs/[0-9a-f]{32}/tickets/[0-9a-f]{32}/client\.js',parsed.path))
+    return url
+
+
 def read_native_diagnostic(read, clock_ms, guard, after_sequence, *,
                            expected_request=None, monotonic=time.monotonic, sleep=time.sleep):
     """Poll only original private native bytes; never relabel a cached sample."""
@@ -174,11 +183,7 @@ class NormalScriptManager:
             from contracts import validate_operation_arguments
             return validate_operation_arguments('web.reference.open',dict(surface='world',scriptUrl=url))['scriptUrl']
         if self.source_kind in ('feature-world-web','feature-tablet-web'):
-            need(type(url) is str and len(url)<=4096 and url.isascii() and not any(ord(c)<=32 for c in url))
-            parsed=urlsplit(url);parsed.port
-            need(parsed.scheme in {'http','https'} and parsed.hostname and parsed.username is None and parsed.password is None
-                and not parsed.query and not parsed.fragment and re.fullmatch(r'/feature-fixture/v1/runs/[0-9a-f]{32}/tickets/[0-9a-f]{32}/client\.js',parsed.path))
-            return url
+            return feature_browser_script_url(url)
         if self.source_kind == 'feature-script-missing': return missing_script_url(url)
         if self.source_kind == 'scripts':
             return script_url(url, missing=url.endswith('/missing.js'))

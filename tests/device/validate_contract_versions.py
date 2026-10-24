@@ -18,6 +18,8 @@ REQUIRED = {
     "pico-browser-vm": 1,
     "pico-world-browser-vm": 1,
     "pico-browser-history": 1,
+    "pico-world-browser-history": 1,
+    "pico-world-web-prefix": 1,
     "pico-browser-actor-export": 1,
     "pico-browser-actor-graph": 1,
     "pico-browser-actor-return": 1,

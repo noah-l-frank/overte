@@ -2442,6 +2442,11 @@ def create_adapter(args, base_class):
             return bind_world_click(self,target,io,intent,stream_intent,before_publish)
 
         @_private
+        def _world_web_prefix(self,target,source,foreign_fixture_url,*,role='primary'):
+            from adapters.pico4.world_web_binding import PicoWorldWebBinding
+            return PicoWorldWebBinding(self).prefix(target,source,foreign_fixture_url,role=role)
+
+        @_private
         def _world_web_retained(self,target):
             journey=script_journey.PicoScriptJourney(self);journey.state_area='world-web'
             path=journey.existing_state_path(target)

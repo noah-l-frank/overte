@@ -377,7 +377,7 @@ class PicoTarget(OriginalTabletTarget):
                 source=hashlib.sha256(native['sourceUrl'].encode()).hexdigest();document=hashlib.sha256(native['url'].encode()).hexdigest()
                 identity_row=dict(handle='42',creation=self.creation,grant=self.creation,page=self.page,sourceOwned=True,documentOwned=True,
                     sourceSha256=source,documentSha256=document)
-                views=[dict(identity_row,surface='tablet',creationOwned=True,creationSha256=source,sessionActive=True,authorized=True,created=True,
+                views=[dict(identity_row,surface=getattr(self,'surface','tablet'),creationOwned=True,creationSha256=source,sessionActive=True,authorized=True,created=True,
                     pendingCreate=False,retryPending=False,suspended=False,loading=False,callbacks=0,scriptReplies=0,domPending=False)]
                 java=[dict(identity_row,active=True,destroyed=False,closing=False,ownerCurrent=True,foreground=True,loading=False)]
                 renderer_source=hashlib.sha256(self.current['url'].encode()).hexdigest() if 'inline' in self.current else source
