@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import hashlib
+from copy import deepcopy
 from pathlib import Path
 import tempfile
 import unittest
@@ -10,7 +11,9 @@ from unittest.mock import patch
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.browser_archive_context import BrowserArchiveContext,read_context
-from adapters.script_journey.history import pack,MAX_PACKED,MAX_RAW
+from adapters.pico4.browser_evidence_archive import metadata_pngs
+from adapters.chat_journey.source_chunks import digest,json_digest
+from adapters.script_journey.history import canonical,pack,MAX_PACKED,MAX_RAW
 
 
 class BrowserArchiveContextTests(unittest.TestCase):
@@ -65,3 +68,29 @@ class BrowserArchiveContextTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):owner.verify()
         with self.assertRaises(NativeUIError):owner.stores()
         self.assertEqual('ready',self.store.read()['phase'])
+
+    def test_complete_png_inventory_reference_fits_root_without_omission_and_keeps_v1(self):
+        pngs=[dict(role='primary',value=dict(name=f'capture-{index}.png',
+            original=[hashlib.sha256(f'{index}:{part}'.encode()).hexdigest() for part in range(16)]),stamp=[index]*8)
+            for index in range(80)]
+        legacy=dict(picoBrowserEvidenceArchiveVersion=1,pngs=pngs)
+        self.assertGreater(len(canonical(legacy)),65536)
+        self.assertEqual(pngs,metadata_pngs(legacy,None))
+        context=dict(source={'originals':self.data()},pngs=pngs)
+        owner=BrowserArchiveContext(self.store,self.run,context);data=read_context(self.store,self.run)
+        metadata=dict(picoBrowserEvidenceArchiveVersion=2,contextSha256=digest(data),
+            pngCount=len(pngs),pngsSha256=json_digest(pngs))
+        self.assertLess(len(canonical(metadata)),65536)
+        self.assertEqual(pngs,metadata_pngs(metadata,data));owner.verify()
+        for field,value in (('pngCount',79),('pngsSha256','0'*64),('contextSha256','f'*64)):
+            with self.subTest(field=field),self.assertRaises(NativeUIError):
+                metadata_pngs({**metadata,field:value},data)
+        changed=deepcopy(data);changed['pngs'].pop()
+        with self.assertRaises(NativeUIError):metadata_pngs(metadata,changed)
+        changed=deepcopy(data);changed['pngs']=tuple(changed['pngs'])
+        with self.assertRaises(NativeUIError):metadata_pngs(metadata,changed)
+        single=dict(source={},pngs=pngs[:1])
+        with self.assertRaises(NativeUIError):
+            metadata_pngs(dict(picoBrowserEvidenceArchiveVersion=2,contextSha256=digest(single),
+                pngCount=True,pngsSha256=json_digest(single['pngs'])),single)
+        self.assertEqual(context,read_context(self.store,self.run))

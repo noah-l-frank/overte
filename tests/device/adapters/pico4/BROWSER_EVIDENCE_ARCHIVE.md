@@ -96,3 +96,32 @@ The integrated existing evidence-archive selector passes six cases in 37.591 s
 Both original host-close fence cases pass in 37.335 s; ten coverage cases pass
 in 0.089 s. All 13,488 tracked/new source hashes remain unchanged. This is
 selected host logic, not the next full 26-action v2-context execution.
+
+
+## Bounded v2 archive metadata
+
+The next unchanged complete case at e18f0e6c0f passes context admission and
+writes every original copy and bounded manifest part, then refuses the final
+manifest root at the existing 64-KiB bound (113.867 s, not a timeout). Its exact
+reconstructed v1 root is 397,300 bytes because all 80 full PNG rows are inline.
+The archiving marker, 1,086 copies/manifest-part files, every original source
+and PNG remain retained; zero source unlinks or host closures occur.
+
+Archive v2 retains all those exact PNG rows in the bounded context alongside
+the complete source admission. Its small manifest carries the context hash,
+complete PNG-list hash and strict integer count instead of duplicating that
+list. Full PNG byte/stamp checks and the frozen list identity remain checked;
+every receipt cross-validates the full context, list hash/count and final
+physical source tail. The historical v1 inline inventory reader is preserved.
+The ownership sentry stays v1. No source, unlink, native query, quiet window or
+frame/raw/packed/file bound changes.
+
+The real retained context plus all 80 original PNG rows is 875,184 canonical
+bytes, losslessly stored in four existing bundle parts. The files are
+514/23021/24985/25105/3176 bytes and the reconstructed v2 manifest is 3,083
+bytes. All 2,246 retained files preserve bytes/stamps; historical backup copies
+cannot adopt their live identity. This is an offline capacity proof only.
+Seven archive/context cases pass in 37.701 s and two host-close fence cases in
+37.629 s; coverage passes 0.087 s (75.42 s, 237 existing selectors). All 13,488
+source hashes match. A subsequent narrow unit pass additionally rejects a bool
+count alias. Full v2 whole execution and public coordinator remain unverified.

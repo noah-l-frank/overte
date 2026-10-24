@@ -15,10 +15,26 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.observer_return import state,parent_node
 from adapters.pico4.browser_archive_source import PicoBrowserArchiveReleaseSource,PicoBrowserArchiveUnlinkFence
-from adapters.pico4.browser_archive_context import BrowserArchiveContext
+from adapters.pico4.browser_archive_context import BrowserArchiveContext,read_context
 from adapters.script_journey.history import same,pack
 
-VERSION=1
+VERSION=2
+OWNERSHIP_VERSION=1
+
+
+def metadata_pngs(metadata,context):
+    """Read the complete historical inventory through its versioned reference."""
+    json_digest(metadata)
+    version=metadata.get('picoBrowserEvidenceArchiveVersion')
+    need(type(version) is int and version in (1,2))
+    if version==1:
+        pngs=metadata['pngs']
+    else:
+        json_digest(context);need(digest(context)==metadata['contextSha256'])
+        pngs=context['pngs']
+        need(type(pngs) is list and type(metadata['pngCount']) is int and len(pngs)==metadata['pngCount']
+            and json_digest(pngs)==metadata['pngsSha256'])
+    need(type(pngs) is list and bool(pngs));return deepcopy(pngs)
 
 
 class PicoBrowserEvidenceArchive:
@@ -47,7 +63,7 @@ class PicoBrowserEvidenceArchive:
         # Exact original receipts are admitted before any new artifact marker.
         self.source=primary.archive_release_source()
         need(type(self.source) is PicoBrowserArchiveReleaseSource)
-        self.sentry_value=dict(picoBrowserArchiveOwnershipVersion=VERSION,runId=primary.run,
+        self.sentry_value=dict(picoBrowserArchiveOwnershipVersion=OWNERSHIP_VERSION,runId=primary.run,
             binding=deepcopy(self.source.owner['binding']),ownerToken=self.source.owner['ownerToken'],
             artifactRoot=str(self.root),archiveDirectory=self.directory.name,phase='archiving')
         self.sentry.write(self.sentry_value,None)
@@ -57,7 +73,7 @@ class PicoBrowserEvidenceArchive:
         captures.chunks.verify()
         for index in range(len(captures.chunks.identities)):
             store=captures.chunks.store(index);self.catalog.add('primary/'+store.path.name,store,store.read())
-        data=self.source.admission();json_digest(data)
+        data=dict(source=self.source.admission(),pngs=deepcopy(captures.pngs));json_digest(data)
         self.context_owner=BrowserArchiveContext(self.context,primary.run,data)
         self.context_value=deepcopy(self.context_owner.previous);self.context_stamp=self.context_owner.stamp
         common=primary.cleanup_consumption.receipt()
@@ -66,12 +82,15 @@ class PicoBrowserEvidenceArchive:
             commonSequenceSucceeded=common['header']['sequenceSucceeded'],contextSha256=digest(data),
             sourceMarker=self.source.store.path.name,contextMarker=self.context.path.name,
             capturesSha256=digest(self.source.capture_receipt),actorReturnSha256=digest(self.source.return_receipt),
-            pngs=deepcopy(captures.pngs))
+            pngsSha256=json_digest(captures.pngs),pngCount=len(captures.pngs))
+        need(same(metadata_pngs(self.metadata,data),captures.pngs))
         self.fence=PicoBrowserArchiveUnlinkFence(self.source)
         self.archive=ChatEvidenceArchive(self.catalog,self.directory,self.marker,self.metadata,self.source,self.inventory,
             unlink_fence=self.fence,indexed_verify=True)
 
     def pngs(self):
+        need(json_digest(self.captures.pngs)==self.metadata['pngsSha256']
+            and len(self.captures.pngs)==self.metadata['pngCount'])
         for row in self.captures.pngs:self.primary._original_image_bytes(row['value'],expected=row['stamp'])
 
     def inventory(self,remaining):
@@ -140,5 +159,6 @@ class PicoBrowserEvidenceArchive:
             proof=completed_archive(self.directory)
             need(same(proof['metadata'],self.metadata) and proof['archiveSha256']==self.result['archive']['archiveSha256']
                 and proof['finalSha256']==self.result['archive']['finalSha256'])
+            need(same(metadata_pngs(proof['metadata'],read_context(self.context,self.primary.run)),self.captures.pngs))
             need(self.source_tail()==self.tail);self.inventory(set());return deepcopy(self.result)
         except BaseException:self.failed=True;raise

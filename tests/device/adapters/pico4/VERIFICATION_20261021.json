@@ -4699,13 +4699,86 @@
     "v1HistoricalBytesUnchanged": true,
     "lostLandedChildRetainedWithoutColdAdoption": true,
     "sameByteReplacementChildRefusedByWarmOwner": true,
-    "wholeWithContextV2NotYetExecuted": true,
+    "wholeWithContextV2NotYetExecuted": false,
     "completeFeature": false,
     "deviceAcceptance": false,
     "repository": {
       "suites": 4,
       "status": "passed",
       "durationSeconds": 2.57
+    },
+    "registryWhitespace": "passed",
+    "wholeResult": "browserWholeContextRoot20261024"
+  },
+  "browserWholeContextRoot20261024": {
+    "sourceHead": "e18f0e6c0feaa061f480e8958e799daf39f915d9",
+    "passed": false,
+    "sourcesUnchanged": true,
+    "sourceFiles": 13488,
+    "elapsedSeconds": 113.86743243900128,
+    "temporaryRoot": "/tmp/overte-pico-browser-context-whole-20261024-oc6b8bui",
+    "timeoutSeconds": 120,
+    "physicalDeviceQualification": false,
+    "exitCode": 1,
+    "archivePhase": "manifest-root-size-refused",
+    "sourceUnlinks": 0,
+    "hostReleased": false,
+    "completeFeature": false,
+    "capacity": {
+      "qualification": "historical-exact-metadata-capacity-only-no-query-or-live-adoption",
+      "oldManifestBytes": 397300,
+      "newManifestBytes": 3083,
+      "pngs": 80,
+      "preservedContextBytes": 875184,
+      "parts": 4,
+      "contextFileBytes": [
+        514,
+        23021,
+        24985,
+        25105,
+        3176
+      ],
+      "durationSeconds": 1.0045913980575278,
+      "originalFiles": 2246,
+      "originalsUnchanged": true,
+      "archiveCopies": 1086,
+      "sourceUnlinks": 0,
+      "backupSha256": "facd4a5e8446415246103954206cda192580ffd9585814356add158d6cb44b48"
+    }
+  },
+  "browserArchiveMetadataRoot20261024": {
+    "status": "passed-selected-host-components",
+    "selection": {
+      "groups": 3,
+      "catalogGroups": 237,
+      "durationSeconds": 75.42,
+      "archiveCases": 7,
+      "archiveSelectorSeconds": 37.701,
+      "hostCloseFenceCases": 2,
+      "hostCloseFenceSelectorSeconds": 37.629,
+      "coverageCases": 10,
+      "coverageSelectorSeconds": 0.087
+    },
+    "sourceFiles": 13488,
+    "sourcesUnchangedDuringPrefixChecks": true,
+    "archiveWriter": 2,
+    "archiveReads": [
+      1,
+      2
+    ],
+    "ownershipSentryVersion": 1,
+    "pngs": 80,
+    "allOriginalPngRowsRetainedInContext": true,
+    "metadataReferencesValidatedAgainstFullContextAndPngInventory": true,
+    "integerCountFinalGuardCoveredByUnitChecksAfterPrefixRun": true,
+    "noRawPackedFileFrameQuietOrSourceLimitChange": true,
+    "wholeWithMetadataV2NotYetExecuted": true,
+    "completeFeature": false,
+    "deviceAcceptance": false,
+    "repository": {
+      "suites": 4,
+      "status": "passed",
+      "durationSeconds": 2.63
     },
     "registryWhitespace": "passed"
   }

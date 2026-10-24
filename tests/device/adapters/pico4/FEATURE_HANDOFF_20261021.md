@@ -3003,3 +3003,20 @@ three existing selectors, 237 catalogue entries). All 13,488 tracked/new source
 hashes match before/after. Lost landed child and same-byte replacement preserve
 unresolved ownership. The whole v2-context execution remains the next check;
 completed feature areas remain 3/14 and device qualification remains absent.
+
+
+## Complete Browser context reaches the archive manifest
+
+The full unchanged owning case at e18f0e6c0feaa061f480e8958e799daf39f915d9
+passes its v2 context and writes all immutable original copies, then ends red
+at the unchanged 64-KiB manifest-root bound after 113.867 s. The exact old root
+is 397,300 bytes with 80 full PNG rows; no source is unlinked. All 2,246 retained
+files preserve bytes/stamps. Archive v2 keeps every PNG row in its lossless
+bounded context and references its full-context/list hashes and integer count
+from the 3,083-byte manifest. All 875,184 canonical context bytes round-trip
+through four existing bundle parts; v1 historical metadata remains readable
+and ownership sentry remains v1. Seven archive/context cases plus two real host
+fences and coverage pass in 75.42 s, all 13,488 source hashes unchanged. A final
+narrow unit check covers integer-count typing. All source/quiet and existing
+frame/raw/packed/file limits remain. The full next whole/public outcome is
+unproven; completed areas remain three of fourteen.
