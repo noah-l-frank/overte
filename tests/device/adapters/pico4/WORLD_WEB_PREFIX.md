@@ -215,3 +215,13 @@ and coverage in 0.091 s (4/244 local catalog groups, 27.35 s total). The complet
 repository suites pass in 2.62 s; contract registry and whitespace pass. These
 sources acquire no HMD image, independent actor process or native resource
 retirement proof. No compiler, device or whole Journey is run by this packet.
+
+
+Root selects the Foreign/404 continuation as1372dea703, preserving the actual
+prepare/role publication corrections. Integrated recovery3/11.261s, navigation
+5/6.161s, prefix9/1.952s and coverage10/0.090s pass19.46s. All13,539 source
+hashes are unchanged. This reaches13 normal actions with eight actual HTTP
+documents and fourteen separate original transactions per role. No independent
+actor process/image/whole retirement is inferred. The original lifecycle/new
+document requirement remains open and cannot be replaced by an extra manual
+Reload inside background-resume.

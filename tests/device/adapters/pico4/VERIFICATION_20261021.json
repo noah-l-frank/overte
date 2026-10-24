@@ -5245,5 +5245,43 @@
     },
     "completeFeature": false,
     "deviceAcceptance": false
+  },
+  "worldWebRecoveryRoot20261024": {
+    "status": "passed-selected-private-normal-world-flow",
+    "sourceHead": "1372dea703",
+    "selectedSource": "2e8d1ee359c71a5eaca96015aaef653d11a6a641",
+    "catalogGroups": 249,
+    "selectors": {
+      "world-web-recovery-prefix": {
+        "cases": 3,
+        "selectorSeconds": 11.261
+      },
+      "world-web-navigation-prefix": {
+        "cases": 5,
+        "selectorSeconds": 6.161
+      },
+      "world-web-prefix": {
+        "cases": 9,
+        "selectorSeconds": 1.952
+      },
+      "coverage-matrix": {
+        "cases": 10,
+        "selectorSeconds": 0.09
+      }
+    },
+    "selectedDurationSeconds": 19.46,
+    "sourceFiles": 13539,
+    "sourcesUnchanged": true,
+    "normalSteps": 13,
+    "totalRecipeSteps": 19,
+    "actualHttpDocuments": 8,
+    "originalRoleTransactionsEach": 14,
+    "foreignMessageRejectedWithoutNewBridgeEcho": true,
+    "fixtureRestoreAlonePreservesActual404": true,
+    "onlyNormalReloadProducesActual200": true,
+    "rootPreparePublicationFixesRetainedAndTested": true,
+    "backgroundRetainedDocumentObservationBoundaryOpen": true,
+    "completeFeature": false,
+    "deviceAcceptance": false
   }
 }

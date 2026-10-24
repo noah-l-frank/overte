@@ -3257,3 +3257,13 @@ reservation are never replayed. Current9+5 cases plus coverage pass8.22s;
 Catalog248 retains all14 risk rows; no full World capability or device claim.
 See [the exact source/host boundary](WORLD_WEB_PREFIX.md). Foreign/404 packet
 2e8d1ee359 is a separate next selection; Actor/stereo/retirement remain open.
+
+
+World recovery source2e8d1ee359 is selected as1372dea703. The same private
+owner now reaches13/19 unchanged normal steps, including foreign-origin echo
+rejection and actual404→fixtureRestore(still404)→normalReload200. All17
+owning cases plus coverage pass19.46s with13,539 source hashes unchanged.
+Eight original HTTP documents and14 separate transactions per role remain
+retained; all4 Root preparation publication counters still pass. Catalog249,
+source-complete3/14 and device0 remain explicit. Background's native retained
+page/document contract, independent Actor/images and final release remain open.
