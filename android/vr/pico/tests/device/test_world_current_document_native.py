@@ -37,7 +37,7 @@ class WorldCurrentDocumentNativeTests(unittest.TestCase):
             self.assertEqual(0,result.returncode,result.stdout+result.stderr);return result
         flags=shlex.split(run(['pkg-config','--cflags','--libs','Qt5Core']).stdout)
         factory=ROOT/'android/common/web/src/PicoWorldCurrentDocumentBridge.cpp'
-        inputs=[factory,ROOT/'tests/device/native/PicoWorldCurrentDocumentBridge.h',
+        inputs=[factory,ROOT/'tests/device/native/PicoWorldCurrentDocumentBridge.h',ROOT/'tests/device/native/PicoWorldCurrentInputBridge.h',
             HERE/'world-current-anchor-dso-module.cpp',HERE/'world-current-anchor-dso-main.cpp',ROOT/'android/vr/pico/apps/picoInterface/CMakeLists.txt']
         provenance=[dict(path=str(path.relative_to(ROOT)),sha256=hashlib.sha256(path.read_bytes()).hexdigest()) for path in inputs]
         path=stage/'original-inputs.json';path.write_text(json.dumps(provenance));path.chmod(0o600)

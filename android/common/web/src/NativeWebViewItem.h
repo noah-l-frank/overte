@@ -132,6 +132,10 @@ public:
         std::shared_ptr<const overte::e2e::PicoCurrentClock> anchor={});
     static void acceptFeaturePicoWorldCurrentDocument(qint64 handle,quint64 creation,quint64 grant,quint64 page,
         const QString& run,const QString& request,const QByteArray& raw);
+    static QVariantMap featurePicoWorldCurrentInput(const QVariantMap& command,
+        std::shared_ptr<const overte::e2e::PicoCurrentClock> anchor={});
+    static void acceptFeaturePicoWorldCurrentInput(qint64 handle,quint64 creation,quint64 grant,quint64 page,
+        const QString& run,const QString& request,const QByteArray& raw);
     static QVariantMap featurePicoBrowser(const QVariantMap& command);
     static void acceptFeaturePicoBrowserGeometry(qint64 handle,quint64 grant,quint64 page,const QString& document,
         const QString& request,const QByteArray& result,bool focused=false);

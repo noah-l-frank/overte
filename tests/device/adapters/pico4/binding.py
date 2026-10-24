@@ -2516,6 +2516,28 @@ def create_adapter(args, base_class):
                 monotonic=native.monotonic,sleep=native.sleep)
 
         @_private
+        def _world_current_input_originals(self,target,*,source_lock):
+            from adapters.pico4.world_current_document import PicoWorldCurrentDocument,FILE as DOCUMENT_FILE
+            from adapters.pico4.world_current_input import PicoWorldCurrentInput,FILE as INPUT_FILE
+            lock=self._script_journey()._lock(target,source_lock)
+            native=self._native_feature_observer(target)
+            def read(name):
+                return self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+name,attempts=1)
+            # These guards also run after the real outer lock exit; the old
+            # held-only BrowserIO guard is deliberately not borrowed here.
+            documents=PicoWorldCurrentDocument(native.send,lambda:read(DOCUMENT_FILE),native.clock_ms,native.guard,native.pid,lock,
+                monotonic=native.monotonic,sleep=native.sleep)
+            return PicoWorldCurrentInput(documents,native.send,lambda:read(INPUT_FILE))
+
+        @_private
+        def _world_current_ray(self,target,*,source,intent,stream_intent,before_publish,admission):
+            from adapters.pico4.world_current_ray import bind_current_ray
+            from adapters.pico4.world_current_input import PicoWorldCurrentInput
+            _need(type(source) is PicoWorldCurrentInput)
+            _need(source.lock is self._script_journey()._lock(target,source.lock))
+            return bind_current_ray(self,target,source,intent,stream_intent,before_publish,admission)
+
+        @_private
         def _world_browser_click(self,target,*,source_lock,intent,stream_intent,before_publish):
             from adapters.pico4.world_browser_ray import bind_world_click
             lock=self._script_journey()._lock(target,source_lock);lock.assert_held()

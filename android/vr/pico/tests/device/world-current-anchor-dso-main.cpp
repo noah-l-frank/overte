@@ -18,5 +18,14 @@ int main(int argc,char**argv){
     assert(x(command)==first && y(command)==first);
     changed=command;changed.insert("commandId",QString(32,'5'));assert(x(changed) && x(changed)!=first && x(changed)==y(changed));
     puts("PASS actual exported factory: same nonce stable/equal across independent hidden RTLD_LOCAL DSOs, foreign command refused");
+    auto inputA=reinterpret_cast<Factory>(dlsym(a,"original_input_anchor")),inputB=reinterpret_cast<Factory>(dlsym(b,"original_input_anchor"));assert(inputA && inputB);
+    command.insert("commandId",QString(32,'6'));command.insert("operation","measure-current-ray");
+    command.insert("documentNonce",QString(32,'3'));command.insert("control","text");
+    const auto input=inputA(command);assert(input && input==inputA(command) && input==inputB(command));
+    changed=command;changed.insert("control","foreign");assert(!inputA(changed) && !inputB(changed));
+    assert(inputA(command)==input && inputB(command)==input);
+    changed=command;changed.insert("commandId",QString(32,'7'));changed.insert("operation","observe-current-focus");
+    assert(inputA(changed) && inputA(changed)!=input && inputA(changed)==inputB(changed));
+    puts("PASS actual exported current-input factory: ray/focus shared across independent hidden DSOs, exact command conflict refused");
     assert(dlclose(b)==0 && dlclose(a)==0);
 }

@@ -1448,6 +1448,17 @@
             }
             return true;
         }
+        if (command && command.action === "pico-world-web"
+                && (command.operation === "measure-current-ray" || command.operation === "observe-current-focus")) {
+            var currentInputOriginal={};
+            try {
+                if (typeof Test.featurePicoWorldCurrentInput === "function") {
+                    var currentInputPacket=Test.featurePicoWorldCurrentInput(command);
+                    if (currentInputPacket && currentInputPacket.commandId === command.commandId) { currentInputOriginal=currentInputPacket; }
+                }
+            } catch (_currentInputError) {}
+            Test.saveObject(currentInputOriginal,"feature-world-current-input.json");return true;
+        }
         if (command && command.action === "pico-world-web" && command.operation === "observe-current-document") {
             var currentWorldOriginal={};
             try {
