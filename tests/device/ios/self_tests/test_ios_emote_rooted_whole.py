@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import unittest
+from copy import copy
 from unittest.mock import patch
 from adapters.normal_ui import NativeUIError
 from ios.self_tests.emote_rooted_whole_fixture import paired
@@ -20,7 +21,16 @@ class RootedWholeTests(unittest.TestCase):
         played=owner.observe(dict(call,afterSequence=first['sequence']))
         independently_played=f.actor.flow.observe(dict(call,afterSequence=peer['sequence']))
         self.assertEqual('Waving',played['state']['animation']);self.assertTrue(independently_played['state']['override'])
-        f.call('cleanup');public=local_retirement(owner,played['sequence'])
+        f.call('cleanup')
+        with (patch.object(owner,'rendered_retirement_owner',wraps=owner.rendered_retirement_owner) as rendered_factory,
+              patch.object(owner,'retirement_owner',wraps=owner.retirement_owner) as keyed_factory):
+            public=local_retirement(owner,played['sequence'])
+        native_arguments=[call.kwargs['native'] for call in rendered_factory.call_args_list if 'native' in call.kwargs]
+        keyed_arguments=[call.kwargs for call in keyed_factory.call_args_list if 'rendered' in call.kwargs]
+        self.assertTrue(native_arguments);self.assertTrue(keyed_arguments)
+        for arguments in keyed_arguments:
+            self.assertTrue(any(arguments['rendered'].native_owner is native for native in native_arguments))
+            self.assertIsNotNone(arguments['keys'])
         self.assertTrue(public['resources']);self.assertFalse(public['state']['override']);self.assertFalse(public['state']['panel'])
         self.assertEqual([],public['artifacts']);self.assertFalse(f.target.domain.running)
         self.assertFalse(f.target.domain.files.root.exists());self.assertEqual([],f.target.vm.state['timers'])
@@ -29,6 +39,15 @@ class RootedWholeTests(unittest.TestCase):
             from ios.adapters.emote_rooted_scene_retirement import IOSEmoteRootedSceneRetirement
             actual=IOSEmoteRootedSceneRetirement(keyed).read(owner.state['cleanup'][-1])
         self.assertEqual(public,actual['public']);self.assertTrue({'qt-root','qimage','qsg-root','native-holder'}<={r['kind'] for r in actual['held']})
+        # Reuse is limited to this exact live component and SDK/candidate.
+        # No copied value, historical reader or stale source guard may enter.
+        native=keyed.rendered_owner.native_owner
+        for change in (dict(historical=True),dict(binding=dict(native.binding,processIdentity='99')),
+                       dict(phase_instance='e'*32),dict(guard=lambda:False)):
+            foreign=copy(native)
+            for name,value in change.items():setattr(foreign,name,value)
+            with self.subTest(changed=list(change)),owner.held(30),self.assertRaises(NativeUIError):
+                owner.rendered_retirement_owner(parts,native=foreign)
 
     def test_lost_whole_barrier_return_uses_same_actual_preinput_original_before_one_normal_send(self):
         f=paired(self);owner=f.flow;call=f.call('play',name='Waving');save=owner.save;lost=[]

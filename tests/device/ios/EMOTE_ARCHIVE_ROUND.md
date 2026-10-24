@@ -86,6 +86,19 @@ checks. Eleven censuses of the same retained Primary/Actor roots decreased
 from 0.184/0.187 seconds to 0.064/0.067 seconds. This microbenchmark does not
 qualify a feature operation's deadline.
 
+Within one actual cleanup acquisition the coordinator now passes its already
+opened current native owner into the rendered owner, then that rendered owner
+and the actual current key owner into the keyed owner. Reuse requires exact
+component type, run, role, candidate/process bindings, root, phase, policy,
+metadata path and source-lock instances. Actual current metadata and SDK guards
+still run. Nothing is retained across operations, and no derivation result is
+substituted for current responsibility. Two normal whole-flow regressions pass
+in 238.162 seconds over declared native/SDK/Qt/GPU/clock models, covering both
+rooted and legacy cleanup. The rooted case also refuses historical, foreign-PID,
+foreign-phase and failed-current-guard components. Those flow timings are not
+operation deadline qualification, and the separate four-cut budget gap below
+remains open.
+
 Thirteen no-build filesystem, scope and actual rooted composition regressions
 pass in 71.003 seconds, including same-length rewrites with restored mtime,
 replacement, links, missing/new entries, mutation during the census, changes to

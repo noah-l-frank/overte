@@ -330,13 +330,32 @@ class IOSEmoteFeature:
                 entities=self.runtime.state_path(self.selector).with_name('ios-emote-'+self.role+'-marker-entities.json'),
                 pointers=self.runtime.state_path(self.selector).with_name('ios-emote-'+self.role+'-pointers.json')),parts['own']['check'])
 
-    def rendered_retirement_owner(self,parts):
-        return self.RenderedRetirement(PrivateFeatureState(self.runtime.state_path(self.selector).with_name(
-            'ios-emote-'+self.role+'-rendered-retirement-originals.json')),self.native_retirement_owner(parts),parts['restoration'])
+    def current_retirement_component(self,owner,kind,suffix):
+        need(type(owner) is kind and not owner.historical and owner.root==self.root
+            and owner.run==self.run and owner.role==self.role and owner.lock is self.lock and owner.primary_lock is self.primary_lock
+            and same(owner.binding,self.state['binding']) and same(owner.primary_binding,self.state['primaryBinding'])
+            and owner.fixture_url==self.phase.fixture_url and owner.phase_instance==self.state['phaseInstance']
+            and same(owner.policy,self.policy) and owner.store.path==self.runtime.state_path(self.selector).with_name(
+                'ios-emote-'+self.role+'-'+suffix+'-originals.json'))
+        owner.current();return owner
 
-    def retirement_owner(self,parts):
+    def rendered_retirement_owner(self,parts,*,native=None):
+        native=(self.native_retirement_owner(parts) if native is None else
+            self.current_retirement_component(native,self.NativeRetirement,'retirement'))
+        return self.RenderedRetirement(PrivateFeatureState(self.runtime.state_path(self.selector).with_name(
+            'ios-emote-'+self.role+'-rendered-retirement-originals.json')),native,parts['restoration'])
+
+    def retirement_owner(self,parts,*,rendered=None,keys=None):
+        rendered=(self.rendered_retirement_owner(parts) if rendered is None else
+            self.current_retirement_component(rendered,self.RenderedRetirement,'rendered-retirement'))
+        if keys is None:keys=self.keys(parts)
+        else:
+            need(type(keys) is IOSEmoteKeys and keys.root==self.root and keys.run==self.run and keys.role==self.role
+                and keys.lock is self.lock and same(keys.binding,self.state['binding'])
+                and keys.store.path==self.runtime.state_path(self.selector).with_name('ios-emote-'+self.role+'-keys.json'))
+            keys.bound()
         return self.KeyedRetirement(PrivateFeatureState(self.runtime.state_path(self.selector).with_name(
-            'ios-emote-'+self.role+'-keyed-retirement-originals.json')),self.rendered_retirement_owner(parts),self.keys(parts))
+            'ios-emote-'+self.role+'-keyed-retirement-originals.json')),rendered,keys)
 
     def clean_local(self,parts):
         need(self.phase.previous['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}) and self.state['phase']!='retired')
@@ -384,7 +403,7 @@ class IOSEmoteFeature:
             peers=None if parts['peers'] is None else parts['peers'].store.read(),scope=parts['scope'].snapshot(),
             fileReceipts=None if files is None else files.store.read(),entities=entities.store.read(),sampleOwners=parts['samples'].store.read(),inputOwners=inputs,pointers=pointers.store.read())
         native_reference=owner.retain(original)
-        rendered=self.rendered_retirement_owner(parts)
+        rendered=self.rendered_retirement_owner(parts,native=owner)
         if rendered.state['pending'] is not None:
             try:rendered.resolve()
             except NativeUIError:rendered.abandon()
@@ -392,7 +411,7 @@ class IOSEmoteFeature:
                   and restoration.original(ref)['kind']=='initial'];need(initials)
         rendered_reference=rendered.retain(dict(nativeReference=native_reference,frames=restoration.store.read(),
             initialReference=initials[0],currentReference=current))
-        complete=self.retirement_owner(parts)
+        complete=self.retirement_owner(parts,rendered=rendered,keys=keys)
         if complete.state['pending'] is not None:
             try:complete.resolve()
             except NativeUIError:complete.abandon()
