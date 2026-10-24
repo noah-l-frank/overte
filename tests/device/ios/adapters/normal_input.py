@@ -41,6 +41,7 @@ from ios.adapters.places_controls import (PROFILES as PLACES_PROFILES,metadata a
 from ios.adapters.navigation_dialog_controls import IDS as ERROR_IDS,metadata as error_metadata
 from ios.adapters.tablet_web_buttons import IDS as TABLET_APP_IDS,metadata as tablet_app_metadata
 from ios.adapters.assets_controls import control_id as asset_control,metadata as asset_metadata,inventory as asset_inventory
+from ios.adapters.tablet_launcher_controls import FIELDS as LAUNCHER_FIELDS,metadata as launcher_metadata
 
 CONTROLS = frozenset({'hud.goto', 'hud.tablet', 'address.field', 'address.go',
     'address.cancel', 'address.back', 'tablet.home', 'tablet.close', 'tablet.places',
@@ -72,6 +73,10 @@ def observation(value, pid, now_ms=None):
     now_ms = time.time() * 1000 if now_ms is None else now_ms
     fields = {'schemaVersion', 'instance', 'frameSpace', 'processId', 'sampleEpochMs',
               'elapsedMs', 'lastSequence', 'tabletShown', 'ready', 'controls'}
+    if type(value) is dict and 'tabletLauncherControlsVersion' in value:
+        if type(value['tabletLauncherControlsVersion']) is not int or value['tabletLauncherControlsVersion']!=1:
+            raise NativeUIError('Native iOS launcher source version is invalid')
+        fields.add('tabletLauncherControlsVersion')
     if type(value) is dict and 'assetControlsVersion' in value:
         if type(value['assetControlsVersion']) is not int or value['assetControlsVersion']!=1:
             raise NativeUIError('Native iOS Assets source version is invalid')
@@ -184,6 +189,9 @@ def observation(value, pid, now_ms=None):
     seen, tokens = set(), set()
     for control in value['controls']:
         fields = {'id', 'token', 'enabled', 'focused', 'frame'}
+        if type(control) is dict and 'tabletLauncherControlVersion' in control:
+            if value.get('tabletLauncherControlsVersion')!=1:raise NativeUIError('Native iOS launcher source is missing')
+            launcher_metadata(control);fields |= LAUNCHER_FIELDS
         is_graphics=type(control) is dict and graphics_control(control.get('id')) and value.get('graphicsControlsVersion')==1
         if type(control) is dict and type(control.get('id')) is str and control['id'].startswith('graphics.') and not is_graphics:
             raise NativeUIError('Native iOS Graphics controls lack their source extension')

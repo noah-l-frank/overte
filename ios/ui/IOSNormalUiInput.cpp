@@ -34,6 +34,7 @@
 #include "../../tests/device/native/IOSNormalInputObservation.h"
 #include "../../tests/device/native/IOSLoginUiRootOwnership.h"
 #include "../../tests/device/native/IOSSnapshotExportControls.h"
+#include "../../tests/device/native/IOSTabletLauncherControls.h"
 #include "../../tests/device/native/IOSSnapshotCaptureControls.h"
 #include "../../tests/device/native/IOSTabletAppButtonsObservation.h"
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
@@ -326,6 +327,8 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                     source=overte::e2e::snapshotCaptureControlSource(node);
                     if (source.isEmpty()) {ambiguous=true;return;}
                 }
+                const auto launcherSource=overte::e2e::tabletLauncherControlSource(node,id);
+                if (!launcherSource.isEmpty()) {source=launcherSource;}
 #endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
                 if (id.startsWith("navigation.error.")) {
@@ -457,6 +460,8 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
             const auto metadata=overte::e2e::snapshotCaptureControlObservation(control.item);
             for (auto it=metadata.begin();it!=metadata.end();++it) {row[it.key()]=it.value();}
         }
+        const auto launcher=overte::e2e::tabletLauncherControlObservation(control.item,id);
+        for (auto it=launcher.begin();it!=launcher.end();++it) {row[it.key()]=it.value();}
 #endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         if (id.startsWith("navigation.error.")) {
@@ -510,6 +515,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     result["tabletAppControlsVersion"]=1;
     result["snapshotExportControlsVersion"]=1;
     result["snapshotCaptureControlsVersion"]=1;
+    result["tabletLauncherControlsVersion"]=1;
 #endif
     result["placesControlsVersion"]=2;result["placesSourceSequence"]=static_cast<double>(++_placesObservationSequence);
     result["navigationDialogControlsVersion"]=1;
@@ -587,6 +593,12 @@ bool NormalUiInput::press(const QString& controlId, const QString& token) {
         const auto metadata=overte::e2e::snapshotCaptureControlObservation(control);
         if (!metadata.value("inputReady").toBool() || overte::e2e::snapshotCaptureControlSource(control)!=_controls.value(controlId).source) {return false;}
     }
+    const auto launcher=overte::e2e::tabletLauncherControlObservation(control,controlId);
+    if (!launcher.isEmpty() && (!launcher.value("inputReady").toBool()
+            || overte::e2e::tabletLauncherControlSource(control,controlId)!=_controls.value(controlId).source)) {return false;}
+    // A previously bound launcher must not fall back to unbound input if its
+    // QML root or feature gate disappeared between survey and delivery.
+    if (launcher.isEmpty() && _controls.value(controlId).source.contains("\"tabletLauncherControlVersion\"")) {return false;}
 #endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     const auto graphicsContext = _graphicsReader ? _graphicsReader() : overte::e2e::GraphicsUiContext();

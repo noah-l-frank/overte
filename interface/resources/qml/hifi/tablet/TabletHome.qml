@@ -11,6 +11,12 @@ import "../audio" as HifiAudio
 Item {
     id: tablet
     readonly property string semanticScreenId: "tablet.home"
+    // Read-only test observation of the actual launcher selection. Inert
+    // outside the dedicated feature-observation build and test-script gate.
+    readonly property bool featureLauncherObservation: typeof Snapshot !== "undefined"
+        && typeof Snapshot.featureObservationEnabled === "function" && Snapshot.featureObservationEnabled()
+    readonly property int featureLauncherCurrentIndex: featureLauncherObservation ? swipeView.currentIndex : -1
+    readonly property int featureLauncherCount: featureLauncherObservation ? swipeView.count : -1
     objectName: "tablet"
     property var tabletProxy: Tablet.getTablet("com.highfidelity.interface.tablet.system");
 
