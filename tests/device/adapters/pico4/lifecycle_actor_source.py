@@ -158,6 +158,24 @@ class PicoLifecycleActorSource:
         need(integer(epoch,1) and number(ended,started,started+1.5) and -250<=epoch-oldest
             and max(epoch-oldest,requested-oldest+(ended-started)*1000)<=1500)
 
+    def query(self,key,reader,operation):
+        # These readers belong exclusively to this readonly Actor. Preserve
+        # even an unavailable/rejected literal response before validation;
+        # Pending's input intent and before-send ownership remain untouched.
+        send,original=reader.send,reader.original;request=[None];received=[]
+        def issued(value):
+            request[0]=deepcopy(value)
+            self.retain(key,dict(request=deepcopy(value)))
+            return send(value)
+        def response():
+            raw=original();self.retain(key,{key:frame(raw),'request':deepcopy(request[0])})
+            received.append(raw);return raw
+        try:
+            reader.send,reader.original=issued,response
+            value=operation();need(received)
+            return value,received[-1]
+        finally:reader.send,reader.original=send,original
+
     def measurement(self,packets,pending,subject):
         actual=packets['ui']['source'];current=ui.current_editor(packets['ui'])
         if self.baseline is None:
@@ -203,12 +221,15 @@ class PicoLifecycleActorSource:
                 self.retain('phase',before['status'])
                 world,packets,_start=self.triple.acquire();self.retain('world',dict(world=world))
                 pending_reader,native_reader,subject_reader=self.readers[3:]
-                pending=pending_reader.read(self.run)
-                self.retain('pending',dict(pending=frame(pending_reader.last_raw),request=pending_reader.last_request))
-                native=native_reader.read(native_reader.sequence);raw=native_reader.original();need(decode(raw)==native)
-                self.retain('native',dict(native=frame(raw)))
-                subject=subject_reader.read(self.run,require_avatar=True);raw=subject_reader.original();need(decode(raw)==subject)
-                self.retain('subject',dict(subject=frame(raw)))
+                pending,_raw=self.query('pending',pending_reader,lambda:pending_reader.read(self.run))
+                native,received=self.query('native',native_reader,lambda:native_reader.read(native_reader.sequence))
+                raw=native_reader.original()
+                if raw!=received:self.retain('native',dict(native=frame(raw)))
+                need(raw==received and decode(raw)==native)
+                subject,received=self.query('subject',subject_reader,lambda:subject_reader.read(self.run,require_avatar=True))
+                raw=subject_reader.original()
+                if raw!=received:self.retain('subject',dict(subject=frame(raw)))
+                need(raw==received and decode(raw)==subject)
                 need(native['instance']==subject['instance'])
                 if self.last_world is not None:self.triple.advance(self.triple.originals(self.last_world),packets)
                 facts=self.measurement(packets,pending,subject)

@@ -25,10 +25,22 @@ from self_tests.pico_browser_process_fixture import ProductSources,Rpc,Clock
 from self_tests.test_native_graphics_subject import Boundary as SubjectBoundary
 
 
+class UnavailableLifecycleProducer:
+    """Declared native missing-gate/provider model: original getter returns {}.
+
+    TestScriptingInterface's original three getters return an empty QVariantMap
+    at this boundary. This produces no accepted native packet or requested fact.
+    """
+    def __init__(self):self.commands=[]
+    def send(self,request):self.commands.append(deepcopy(request))
+    def original(self):return '{}'
+
+
 class LifecycleProducts(ProductSources):
     def __init__(self,case):
         self.case=case;self.native=case.editor.native;self.subject=SubjectBoundary();self.move_before_subject=False;self.fail_ui=False
         self.hold_gesture_publication=False;self.publication_host_work=0.
+        self.unavailable=None;self.unavailable_producer=UnavailableLifecycleProducer()
         # One original target physics object, read by independent native getter
         # endpoints. There is no second Actor-side pose or expected-state model.
         super().__init__(case,None)
@@ -67,13 +79,19 @@ class LifecycleProducts(ProductSources):
             need(value['action']==drive.ACTION);native.drive.send(value);return native.drive.read()
         if action=='pending':
             pending_command(value);need(value['operation']=='observe')
+            if self.unavailable==action:
+                self.unavailable_producer.send(value);return self.unavailable_producer.original()
             self.case.boundary.send(value);return self.case.reader.original()
         if action=='feature':
             need(set(value)=={'schemaVersion','commandId','action'} and type(value['schemaVersion']) is int
                 and value['schemaVersion']==1 and ui.nonce(value['commandId']) and value['action']=='feature-native-observe')
+            if self.unavailable==action:
+                self.unavailable_producer.send(value);return self.unavailable_producer.original()
             self.case.native_producer.send(value);return self.case.native_producer.original()
         if action=='subject':
             subject_command(value)
+            if self.unavailable==action:
+                self.unavailable_producer.send(value);return self.unavailable_producer.original()
             if self.move_before_subject:
                 # Counter-only target physics advancement between two real
                 # getter acquisitions; no accepted reply is rewritten and
