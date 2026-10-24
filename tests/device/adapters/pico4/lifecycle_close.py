@@ -58,6 +58,10 @@ class PicoLifecycleClose:
             self.disk=self.store.read();self.originals=LifecycleCloseOriginals(self.store.path.with_name('lifecycle-close-originals.json'),self.run,self.binding)
             need(self.disk is not None or self.originals.disk is None);self.load()
 
+    def bind_phase_fence(self,fence):
+        from adapters.pico4.lifecycle_operations import phase
+        need(getattr(self,'phase_fence',None) is None);self.phase_fence=fence;phase(self)
+
     def original_state(self):
         self.pending.original_state()
         need(self.run==self.pending.run and self.binding==self.pending.binding and self.pid==self.pending.pid
@@ -168,13 +172,18 @@ class PicoLifecycleClose:
                 PicoLifecycleBack.home(packet,self.pending.state['replacementId'])
                 packets=self.packet(row)[0];neutral(packets['gesture']);actual=self.world.anchor.measure(packets['drive'])
                 need(not actual['heldInputs'] and actual['worldDisplacement']<=.025)
+            from adapters.pico4.lifecycle_operations import phase
+            if phase(self) is not None:phase(self).mark()
             value=deepcopy(self.state);value['frames'].append(row);value['phase']='page-x-issued' if first else 'tablet-x-issued'
             value['inputs'].append(dict(envelope=None,neutral=None));self.save(value);self.fresh()
             def intent(owned):
                 envelope(owned,self.world.session.profile);value=deepcopy(self.state);need(value['inputs'][-1]['envelope'] is None)
                 value['inputs'][-1]['envelope']=deepcopy(owned);self.save(value,host_only=True);self.fresh(host_only=True)
+                if phase(self) is not None:phase(self).host_fresh()
             def before_publish(owned):
                 need(owned==self.state['inputs'][-1]['envelope']);self.fresh(host_only=True)
+                if phase(self) is not None:phase(self).host_fresh()
+            if phase(self) is not None:phase(self).check()
             self.world.session.stage(self.binding['processIdentity'],'controller.button',deepcopy(BUTTON),intent=intent,before_publish=before_publish)
             return self.reconcile()
 

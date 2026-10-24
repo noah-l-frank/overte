@@ -2338,7 +2338,8 @@ def create_adapter(args, base_class):
                 chat=lambda _fence:self._lifecycle_chat_editor(target,run,source_lock=source.lock,joined=source.restore.joined),
                 background=lambda fence:self._lifecycle_background_owner(target,run,source_lock=source.lock,world=source.world,phase_fence=fence),
                 pending=lambda fence:self._lifecycle_pending_owner(target,run,source_lock=source.lock,world=source.world,
-                    background=source.background,phase_fence=fence)))
+                    background=source.background,phase_fence=fence),
+                close=lambda _fence:self._lifecycle_close_owner(target,run,pending=source.pending)))
 
         @_private
         def _lifecycle_restore_restart(self,target,run,*,restore):

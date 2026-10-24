@@ -7,10 +7,13 @@ Source3 has actual canonical-factory coverage, fresh readonly observations and
 the existing baseline/Back wait consumer. It has no action, independent Actor,
 artifact, cleanup or public-capability authority.
 
-The subsequent [private operations continuation](LIFECYCLE_OPERATIONS_BACKGROUND.md)
-executes the first seven normal actions through the existing owners, common
-waits and optional exact transport fences. The rest of this document describes
-the full route; it is not a sixteen-action result.
+The subsequent [private sixteen-action continuation](LIFECYCLE_OPERATIONS_RESTORE.md)
+now executes all normal primary actions through the existing owners and common
+waits, reaching old-process Prepare with126/128 World frames and71 separate
+readonly samples. That host result has explicit native/OS/Qt/physics seams;
+it is not `Journey.execute`, an independent Actor/image result or public
+qualification. The sections below remain the original route/remaining-scope
+plan; their earlier component counts are not new whole-run evidence.
 
 ## One original graph and exact action boundaries
 

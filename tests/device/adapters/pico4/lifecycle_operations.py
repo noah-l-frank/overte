@@ -36,7 +36,8 @@ class LifecycleInputFence(PhaseInputFence):
 
     def owns(self,owner):
         return (owner is self.owner.source.editor or owner is self.owner.source.world
-            or owner is self.owner.source.restore.joined.back or any(owner is child for child in self.owner.children.values()))
+            or owner is self.owner.source.restore or owner is self.owner.source.restore.joined.back
+            or any(owner is child for child in self.owner.children.values()))
 
     def original(self):
         self.owner.bound(saved=True);need(not self.owner.failed and self.owner.state['steps'])
@@ -54,7 +55,7 @@ class LifecycleInputFence(PhaseInputFence):
 
 
 class PicoLifecycleOperations:
-    """One live primary graph; ordinary recipe actions through Pending quiet.
+    """One live primary graph; ordinary recipe actions through old-PID prepare.
 
     This deliberately has no execute/witness or cleanup substitute. Retained
     parent intent makes a failed call terminal; it never resends that input.
@@ -65,7 +66,7 @@ class PicoLifecycleOperations:
             and type(phases) is PhaseFixtureReader and phases.area=='lifecycle-input' and phases.run==source.run)
         self.source,self.phases,self.lock=source,phases,source.lock
         self.factories={} if factories is None else factories
-        need(type(self.factories) is dict and set(self.factories)<=set(('chat','background','pending'))
+        need(type(self.factories) is dict and set(self.factories)<=set(('chat','background','pending','close'))
             and all(callable(value) for value in self.factories.values()))
         self.children={}
         self.original_phases=phases
@@ -184,7 +185,7 @@ class PicoLifecycleOperations:
 
     def act(self,fields):
         self.bound();index=len(self.state['steps'])
-        need(index<12 and (index<4 or ('pending' if index>=7 else 'background' if index==6 else 'chat') in self.factories)
+        need(index<16 and (index<4 or ('close' if index>=12 else 'pending' if index>=7 else 'background' if index==6 else 'chat') in self.factories)
             and self.state['baseline'] is not None and self.source.disk is not None
             and (index==0 or self.state['steps'][-1]['phase']=='returned'))
         expected=SCENARIOS['lifecycle-input']['steps'][index]
@@ -233,23 +234,34 @@ class PicoLifecycleOperations:
             completed=self.source.world.monotonic();segment=self.state['pendingSegment']
             need(completed<segment['deadlineHost'] and pending.state['phase']=='quiet')
             segment['completedHost']=completed;self.save();pending.deadline=None
+        elif index==12:
+            from adapters.pico4.lifecycle_close import run_close
+            run_close(self.child('close'))
+        elif index==13:world.world_input()
+        elif index==14:world.release()
+        elif index==15:
+            self.source.restore.bind_phase_fence(self.fence)
+            self.source.restore.restore(self.child('close'))
         else:need(False)
 
     def child(self,role):
         from adapters.pico4.lifecycle_chat import PicoLifecycleChatDraft
         from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
         from adapters.pico4.lifecycle_pending import PicoLifecyclePending
+        from adapters.pico4.lifecycle_close import PicoLifecycleClose
         self.bound(saved=True)
         if role not in self.children:
             need(role in self.factories)
             child=self.factories[role](self.fence)
-            need(type(child) is dict(chat=PicoLifecycleChatDraft,background=PicoLifecycleBackground,pending=PicoLifecyclePending)[role]
+            need(type(child) is dict(chat=PicoLifecycleChatDraft,background=PicoLifecycleBackground,pending=PicoLifecyclePending,close=PicoLifecycleClose)[role]
                 and child.run==self.source.run and typed_equal(child.binding,self.source.binding) and child.lock is self.lock
                 and child.store.path==self.store.path.with_name('lifecycle-'+role+'-owner.json') and child.state is None)
             self.children[role]=child;child.bind_phase_fence(self.fence)
             if role=='pending':
                 need(child.world is self.source.world and child.background is self.children['background'])
                 child.deadline=self.state['pendingSegment']['deadlineHost'];child.prepare()
+            elif role=='close':
+                need(child.pending is self.children['pending']);child.prepare()
             elif role=='chat':child.prepare()
             else:child.prepare(self.children['chat'])
             getattr(self.source,'attach_'+role)(child)

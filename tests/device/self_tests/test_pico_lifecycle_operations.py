@@ -23,6 +23,7 @@ from feature_journeys.witness import Client,Journal
 from self_tests import test_pico_lifecycle_chat as chat_fixture
 from self_tests import test_pico_lifecycle_background_owner as background_fixture
 from self_tests import test_pico_lifecycle_pending as pending_fixture
+from self_tests import test_pico_lifecycle_close as close_fixture
 from self_tests import test_pico_lifecycle_observation_baseline as baseline_fixture
 from self_tests import test_pico_lifecycle_primary_wait as wait_fixture
 from self_tests.test_pico_lifecycle_readonly import readonly_entry
@@ -338,7 +339,19 @@ class LifecycleOperationsBackgroundTests(unittest.TestCase):
                         return result
                     helper.owner.pending.guard=final_guard
                 return helper.owner
-            self.operations.factories=dict(chat=chat,background=background,**(dict(pending=pending) if actions>7 else {}))
+            def close(_fence):
+                helper=close_fixture.LifecycleCloseTests();helper.initialize_from_pending(children['pending'])
+                self.addCleanup(helper.doCleanups);children['close']=helper
+                if getattr(self,'close_phase_fault',False):
+                    save=helper.owner.save
+                    def changed(state,**kwargs):
+                        save(state,**kwargs)
+                        if state['phase']=='page-x-issued' and state['inputs'][-1]['envelope'] is None:
+                            self.journal.activate(self.source.run,uuid.uuid4().hex,'cleanup')
+                    helper.owner.save=changed
+                return helper.owner
+            self.operations.factories=dict(chat=chat,background=background,
+                **(dict(pending=pending) if actions>7 else {}),**(dict(close=close) if actions>12 else {}))
             for index in range(actions):
                 fields=self.fields(index);barrier=self.native.epoch()
                 required=deepcopy(waiter.journey.lifecycle)
@@ -378,7 +391,45 @@ class LifecycleOperationsBackgroundTests(unittest.TestCase):
                     before=len(helper.inputs)
                     with self.assertRaises(NativeUIError):waiter.journey.call('act',fields)
                     self.assertEqual(before,len(helper.inputs));return
+                if index==12 and getattr(self,'close_phase_fault',False):
+                    with self.assertRaises(NativeUIError):waiter.journey.call('act',fields)
+                    self.assertEqual([],children['close'].inputs);self.assertTrue(self.operations.failed)
+                    self.assertEqual('page-x-issued',children['close'].owner.state['phase'])
+                    with self.assertRaises(NativeUIError):waiter.journey.call('act',fields)
+                    self.assertEqual([],children['close'].inputs)
+                    return
+                if index==15 and getattr(self,'restore_phase_fault',False):
+                    restore=self.source.restore;save=restore.save;changed=[]
+                    def changing(state,**kwargs):
+                        save(state,**kwargs)
+                        if state['inputs'] and state['inputs'][-1]['command'] is not None:
+                            command=state['inputs'][-1]['command']
+                            if command['controlId']=='navigation.address' and command['action']=='replace':
+                                changed.append(True);self.journal.activate(self.source.run,uuid.uuid4().hex,'cleanup')
+                    restore.save=changing
+                    with self.assertRaises(NativeUIError):waiter.journey.call('act',fields)
+                    self.assertEqual([True],changed);self.assertTrue(self.operations.failed)
+                    self.assertFalse(any(row['controlId']=='navigation.address' and row['action'] in ('replace','submit') for row in case.fixture.inputs))
+                    before=deepcopy(case.fixture.inputs)
+                    with self.assertRaises(NativeUIError):waiter.journey.call('act',fields)
+                    self.assertEqual(before,case.fixture.inputs)
+                    return
                 waiter.journey.call('act',fields)
+                if index==12 and getattr(self,'close_floor_fault',None) is not None:
+                    owner=self.source.pending.pending;value=deepcopy(owner.last)
+                    value['instance']='c'*32;owner.last=value;owner.last_raw=json.dumps(value)
+                    calls=[];before=self.source.store.path.read_bytes()
+                    for target,name in ((self.source.acquisition,'acquire'),(self.source.reader,'send'),(self.source.native,'send')):
+                        original=getattr(target,name)
+                        def recording(*args,_original=original,_name=name,**kwargs):
+                            calls.append(_name);return _original(*args,**kwargs)
+                        setattr(target,name,recording)
+                    with self.assertRaises(NativeUIError):
+                        waiter.journey.call('observe',dict(afterSequence=len(self.source.disk['records'])))
+                    self.assertEqual([],calls);self.assertEqual(before,self.source.store.path.read_bytes())
+                    self.assertTrue(self.source.failed);self.assertTrue(self.operations.failed)
+                    self.assertEqual(91,len(self.source.world.state['frames']))
+                    return
                 expected=expand(SCENARIOS['lifecycle-input']['steps'][index]['state'],context(self.source.run))
                 waiter.journey.wait('private-prefix-'+str(index+1)+'-'+fields['verb'],fields['ticket'],barrier,expected,[],duration=3 if index in (3,11) else .5)
                 counts.append(dict(action=index+1,world=len(self.source.world.state['frames']),readonly=len(self.source.disk['records'])))
@@ -388,7 +439,7 @@ class LifecycleOperationsBackgroundTests(unittest.TestCase):
             self.assertEqual(['lifecycle.background','app.launch'],children['background'].inputs)
             self.assertEqual([],children['chat'].widgets.sent)
             self.assertEqual(['arm','release'],[row['operation'] for row in children['background'].history.commands if row['operation']!='observe'])
-            label='twelve' if actions>7 else 'seven'
+            label='sixteen' if actions>12 else 'twelve' if actions>7 else 'seven'
             report=dict(scope='private-normal-primary-only-'+label,counts=counts,worldTriples=len(self.source.world.state['frames']),
                 readonlyTriples=len(self.source.disk['records']),totalPhysicalTriples=len(self.source.world.state['frames'])+len(self.source.disk['records']))
             PrivateFeatureState(self.source.store.path.with_name('lifecycle-operations-'+label+'-diagnostics.json')).write(report,None)
@@ -417,6 +468,16 @@ class LifecycleOperationsBackgroundTests(unittest.TestCase):
                 self.assertTrue(any(row['pending'] for row in held));self.assertTrue(any(not row['pending'] for row in held))
                 PrivateFeatureState(self.source.store.path.with_name('lifecycle-pending-segment-diagnostics.json')).write(
                     dict(segment=lease,originalHoldHost=owner.state['holdHost'],readonlyOriginals=held),None)
+            if actions>12:
+                self.assertIs(self.source.close,children['close'].owner)
+                self.assertEqual('closed',self.source.close.state['phase'])
+                self.assertEqual(2,len(children['close'].inputs))
+                self.assertEqual('prepared',self.source.restore.state['phase'])
+                self.assertEqual('prepared',self.source.restore.process.state['phase'])
+                self.assertEqual(2,len(self.source.world.state['attempts']))
+                self.assertEqual(16,len(self.operations.state['steps']))
+                self.assertLessEqual(len(self.source.world.state['frames']),128)
+                self.assertLessEqual(len(self.source.disk['records']),128)
         self.at_prefix(probe)
 
     def test_same_live_graph_normal_seven_actions_and_common_waits_keep_original_background_sources(self):self.run_seven()
@@ -436,6 +497,20 @@ class LifecycleOperationsPendingTests(unittest.TestCase):
     def test_native_jump_in_final_hold_guard_with_fixed_host_prevents_mutation(self):self.pending_fault='native-jump';self.run_seven(actions=12)
     def test_twenty_second_segment_deadline_is_not_reset_by_next_normal_action(self):self.pending_fault='segment';self.run_seven(actions=12)
     def test_landed_hold_reply_archive_then_native_jump_retains_bytes_without_followup_query(self):self.pending_fault='reply-late';self.run_seven(actions=12)
+
+
+class LifecycleOperationsRestoreTests(unittest.TestCase):
+    at_prefix=LifecycleOperationsTests.at_prefix
+    fields=LifecycleOperationsTests.fields
+    run_seven=LifecycleOperationsBackgroundTests.run_seven
+    coordinator_attach_roles={'chat','background','pending','close'}
+    def test_same_original_graph_sixteen_normal_actions_and_common_waits_before_old_pid_stop(self):self.run_seven(actions=16)
+    def test_foreign_live_pending_after_original_close_refuses_before_any_new_source_query(self):
+        self.close_floor_fault='foreign-live';self.run_seven(actions=16)
+    def test_phase_change_after_actual_close_x_child_cas_prevents_publication_and_replay(self):
+        self.close_phase_fault=True;self.run_seven(actions=16)
+    def test_phase_change_after_actual_restore_field_cas_prevents_location_replace_and_replay(self):
+        self.restore_phase_fault=True;self.run_seven(actions=16)
 
 
 if __name__=='__main__':unittest.main()

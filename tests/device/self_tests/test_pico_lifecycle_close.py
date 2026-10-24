@@ -29,12 +29,16 @@ class LifecycleCloseTests(unittest.TestCase):
     def setUp(self):
         self.fixture=pending_fixture.LifecyclePendingTests();self.fixture.setUp();self.addCleanup(self.fixture.doCleanups)
         run_pending(self.fixture.owner)
+        self.initialize_from_pending(self.fixture)
+
+    def initialize_from_pending(self,fixture):
+        self.fixture=fixture
         self.pending,self.world,self.native,self.root,self.lock=self.fixture.owner,self.fixture.world,self.fixture.native,self.fixture.root,self.fixture.lock
         self.path=self.root/'lifecycle-close-owner.json';self.inputs=[];self.ignore=False;self.lost=False
         transport=self.world.session.transport;world_stage=type(transport).stage.__get__(transport,type(transport))
         original_status=transport.read_status
         def stage(envelope,profile,*,before_publish=None):
-            if envelope['commands'][0]['operation']!='controller.button':return world_stage(envelope,profile)
+            if envelope['commands'][0]['operation']!='controller.button':return world_stage(envelope,profile,before_publish=before_publish)
             disk=unpack(json.loads(self.path.read_text())['payload'])[0]
             self.assertEqual(envelope,disk['inputs'][-1]['envelope']);self.inputs.append(deepcopy(envelope))
             result=FakeTransport.stage(transport,envelope,profile,before_publish=before_publish)

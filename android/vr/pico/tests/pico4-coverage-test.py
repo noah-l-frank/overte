@@ -10,7 +10,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 238
+EXPECTED_CATALOG_CASES = 242
 
 
 def catalog_entries() -> list[str]:
@@ -31,6 +31,22 @@ def result_exit_code(result: unittest.TestResult) -> int:
 
 
 class CoverageMatrixTests(unittest.TestCase):
+    def test_primary_restore_partitions_retain_every_new_case_once(self):
+        root=TEST_DIR.parents[3]
+        sources=((root/'tests/device/self_tests/test_pico_lifecycle_operations.py','LifecycleOperationsRestoreTests'),
+            (root/'tests/device/self_tests/test_lifecycle_pending_historical_quiet.py','LifecyclePendingHistoricalQuietTests'))
+        methods={name:{name+'.'+method.name for owner in ast.parse(path.read_text()).body
+            if isinstance(owner,ast.ClassDef) and owner.name==name for method in owner.body
+            if isinstance(method,ast.FunctionDef) and method.name.startswith('test_')} for path,name in sources}
+        names={'lifecycle-primary-restore','lifecycle-primary-close-phase','lifecycle-primary-restore-phase','lifecycle-primary-closure-history'}
+        selected=[]
+        for node in ast.walk(RUNNER_TREE):
+            if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='test' and node.args[0].value in names:
+                self.assertEqual('device/test_lifecycle_primary_restore.py',node.args[3].value)
+                for item in node.args[4:]:selected.extend(methods[item.value] if item.value in methods else (item.value,))
+        expected=set().union(*methods.values())
+        self.assertEqual(expected,set(selected));self.assertEqual(len(expected),len(selected))
+
     def test_pending_operation_partitions_retain_every_new_case_once(self):
         root=TEST_DIR.parents[3]
         sources=(
