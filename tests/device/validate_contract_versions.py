@@ -20,6 +20,7 @@ REQUIRED = {
     "pico-browser-history": 1,
     "pico-world-browser-history": 1,
     "pico-world-current-input": 1,
+    "pico-world-current-focus-parent": 1,
     "pico-world-current-document": 1,
     "pico-world-web-stereo-join": 1,
     "pico-world-web-source-pass": 2,

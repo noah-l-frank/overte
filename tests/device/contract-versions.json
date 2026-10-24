@@ -12,6 +12,7 @@
     "pico-browser-history": {"current": 1, "reads": [1]},
     "pico-world-browser-history": {"current": 1, "reads": [1]},
     "pico-world-current-input": {"current": 1, "reads": [1]},
+    "pico-world-current-focus-parent": {"current": 1, "reads": [1]},
     "pico-world-current-document": {"current": 1, "reads": [1]},
     "pico-world-web-stereo-join": {"current": 1, "reads": [1]},
     "pico-world-web-source-pass": {"current": 2, "reads": [1, 2]},

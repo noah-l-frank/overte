@@ -121,6 +121,15 @@ class PicoWorldWebBinding(PicoScriptJourney):
         value=click.click(parent.run,parent.url,parent.state['ownerToken'],view,control)
         parent.input_result(value);parent.input_done();return value
 
+    def world_prefix_current_source(self,target,parent):
+        self.check_identity(target,parent);need(parent.lock._owner is None)
+        return self.original._world_current_input_originals(target,source_lock=parent.lock)
+
+    def world_prefix_current_ray(self,target,parent,source,intent,*,stream_intent,before_publish,admission):
+        self.check_identity(target,parent);need(parent.lock._owner is None)
+        return self.original._world_current_ray(target,source=source,intent=intent,
+            stream_intent=stream_intent,before_publish=before_publish,admission=admission)
+
     def world_prefix_text(self,target,parent,view,text,*,control='text'):
         click=self.ray(target,parent)
         def commit(original):
