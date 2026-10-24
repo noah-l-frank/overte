@@ -20,6 +20,16 @@ selected native translation units and original fragments pass host compiler chec
 untested. See the [Scripts contract](SCRIPT_FEATURE.md) and
 [machine matrix](FEATURE_COVERAGE_20261021.json).
 
+## Current Avatar source-parent continuation
+
+[Avatar's source parent](AVATAR_PARENT_SOURCE.md) now routes supported common-v16
+normal acts through OverteSession to the existing URL/Favorite durable owners.
+A fresh native integration verifies the actual cached Favorite callback,
+independent original preferences and normal exact Settings/Bookmark data return.
+All owners remain retained; nine-field observation, independent peer/image/model
+sources and final whole-feature release remain unavailable. Complete source/host
+areas stay 3/14.
+
 ## Current Worlds/navigation continuation
 
 The [native bookmark source](../../native/LOCATION_BOOKMARK_OBSERVATION.md)

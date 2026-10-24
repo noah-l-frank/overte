@@ -10,7 +10,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 284
+EXPECTED_CATALOG_CASES = 286
 
 
 def catalog_entries() -> list[str]:
@@ -44,6 +44,24 @@ class CoverageMatrixTests(unittest.TestCase):
                 self.assertEqual('device/test_lifecycle_primary_process.py',node.args[3].value)
                 selected.extend(item.value for item in node.args[4:])
         self.assertEqual(expected,set(selected));self.assertEqual(len(expected),len(selected))
+    def test_avatar_parent_owning_selections_are_disjoint(self):
+        expected={
+            'avatar-parent-native-ui':('device/test_avatar_parent_native.py',
+                'AvatarParentNativeTests.test_common_v16_parent_cached_favorite_live_preferences_and_retained_normal_return'),
+            'avatar-parent-fences':('device/test_avatar_parent_owner.py','AvatarParentOwnerTests')}
+        selected={}
+        for node in ast.walk(RUNNER_TREE):
+            if (isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='test'
+                    and node.args and isinstance(node.args[0],ast.Constant) and node.args[0].value in expected):
+                self.assertEqual(5,len(node.args));selected[node.args[0].value]=(node.args[3].value,node.args[4].value)
+        self.assertEqual(expected,selected)
+        for path,selection in selected.values():
+            tree=ast.parse((TEST_DIR/path).read_text());owner=selection.split('.')[0]
+            classes=[node for node in tree.body if isinstance(node,ast.ClassDef) and node.name==owner]
+            self.assertEqual(1,len(classes))
+            methods=[node.name for node in classes[0].body if isinstance(node,ast.FunctionDef) and node.name.startswith('test_')]
+            self.assertEqual(1 if '.' in selection else 6,len(methods))
+            if '.' in selection:self.assertEqual(selection.split('.')[1],methods[0])
 
     def test_avatar_native_profiles_select_each_owning_method_once(self):
         path='device/test_avatar_people_controls_native.py';tree=ast.parse((TEST_DIR/path).read_text())

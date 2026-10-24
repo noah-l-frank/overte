@@ -85,6 +85,19 @@ def prepare_ui_host(stage, root):
     observer = observer.replace(
         'std::shared_ptr<MyAvatar>avatar{new MyAvatar};',
         'std::shared_ptr<MyAvatar>avatar;explicit AvatarManager(std::shared_ptr<MyAvatar> existing):avatar(std::move(existing)){}')
+    # The live parent mode reuses the complete original readonly endpoint.
+    # Other native modes retain precisely their original declaration profile.
+    observer=observer.replace('    QVariantMap featurePicoAvatarPreferences(const QVariantMap&command);',
+        '    QVariantMap featurePicoAvatarPreferences(const QVariantMap&command);\n'
+        '#if defined(AVATAR_ORIGINAL_PARENT_SERVICE)\n'
+        '    QVariantMap featurePicoAvatarModelConnections(const QVariantMap&);\n'
+        '    std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAvatarModelConnectionsQueue{new overte::e2e::AudioSettingsQueue};\n'
+        '    quint64 _featureAvatarModelConnectionsSequence{0};QSet<QString> _featureAvatarModelConnectionsRequests;\n'
+        '    QPointer<QObject> _featureAvatarModelConnectionObject;QString _featureAvatarModelConnectionBirth;\n'
+        '#endif')
+    observer+='\n#if defined(AVATAR_ORIGINAL_PARENT_SERVICE)\n'+function(
+        (root/'interface/src/scripting/TestScriptingInterface.cpp').read_text(),
+        'QVariantMap TestScriptingInterface::featurePicoAvatarModelConnections(')+'\n#endif\n'
     (stage / 'actual-avatar-preference-observer.inc').write_text(
         'using MyAvatar=avatar_bookmark_host::MyAvatar;\n' + observer)
 

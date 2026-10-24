@@ -23,6 +23,10 @@
 #include <QWheelEvent>
 #include <map>
 #include <unistd.h>
+#if defined(AVATAR_ORIGINAL_PARENT_SERVICE)
+#include <poll.h>
+#include <cstdio>
+#endif
 #include "actual-pointer-route.inc"
 #include "tests/device/native/NormalControlUi.h"
 #include "actual-avatar-preference-host.inc"
@@ -237,6 +241,9 @@ int main(int argc,char**argv) {
         const auto nativeBeforeInput=guardData();
         const auto sent=command(id,action,arg),observed=capture();
         const auto result=ui.apply(root,&window,true,sent,click,pointerAt,{});normalInputJournal.append(QJsonObject{{"command",sent},{"snapshot",observed},{"reply",result},{"nativeBeforeInput",QJsonObject::fromVariantMap(nativeBeforeInput)}});if(!result.value("performed").toBool()){qFatal("refused %s/%s",qPrintable(id),qPrintable(action));}drain();QTest::qWait(40);renderControl.polishItems();QCoreApplication::processEvents();};
+#if defined(AVATAR_ORIGINAL_PARENT_SERVICE)
+#include "avatar-parent-service.inc"
+#endif
     assert(row("avatar.page").value("inputReady")==QJsonValue(false));
     auto actualObserved=originalCapture();assert(actualObserved.value("ready").toBool());
     assert(actualObserved.value("avatarPeopleControlsVersion")==QJsonValue(1));

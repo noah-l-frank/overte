@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import json
+from contextlib import contextmanager
 import time
 import base64
 import hashlib
@@ -28,6 +29,55 @@ def original_chronology(rows,key,maximum_gap):
             raise AssertionError('Original quiet clock moved backward or exceeded its gap')
 
 
+@contextmanager
+def native_ui_binary(persistence,*,parent=False):
+    environment=dict(os.environ)
+    prefix=Path(environment['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
+    environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),
+        LD_LIBRARY_PATH=str(prefix/'usr/lib64'),QT_PLUGIN_PATH=str(prefix/'usr/lib64/qt5/plugins'),
+        QML2_IMPORT_PATH=str(prefix/'usr/lib64/qt5/qml'),QML_IMPORT_PATH=str(prefix/'usr/lib64/qt5/qml'))
+    flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs',
+        *('Qt5'+module for module in ('Core','Gui','Qml','Quick','Test'))],text=True,env=environment))
+    with native_stage('pico-original-avatar-') as directory:
+        stage=Path(directory);pointer_source(stage);prepare_ui_host(stage,ROOT);binary=stage/'test'
+        includes=['-I'+directory,'-I'+str(ROOT),'-I'+str(ROOT/'libraries/shared/src')]
+        definitions=['-DOVERTE_E2E_FEATURE_TESTS','-DANDROID_APP_PICO_INTERFACE']
+        if persistence:definitions.append('-DAVATAR_ORIGINAL_MODEL_PERSISTENCE')
+        if parent:definitions.append('-DAVATAR_ORIGINAL_PARENT_SERVICE')
+        imports=stage/'imports/TabletScriptingInterface';imports.mkdir(parents=True)
+        (imports/'qmldir').write_text('module TabletScriptingInterface\nsingleton Tablet 1.0 Tablet.qml\nsingleton TabletEnums 1.0 TabletEnums.qml\n')
+        (imports/'Tablet.qml').write_text('pragma Singleton\nimport QtQuick 2.7\nQtObject { function playSound(value) {} }\n')
+        (imports/'TabletEnums.qml').write_text('pragma Singleton\nimport QtQuick 2.7\nQtObject { readonly property int buttonClick: 1; readonly property int buttonHover: 2 }\n')
+        native=(ROOT/'android/vr/pico/apps/picoInterface/e2e/PicoE2eNavigationUi.cpp').read_text()
+        if '#include "../../../../../../tests/device/native/NormalAvatarPeopleControls.h"' not in native:
+            raise AssertionError('Original Avatar control header is missing')
+        # Compile the entire actual observer, not just isolated Avatar
+        # branch fragments. Unrelated platform services are explicit seams;
+        # Both the E2E and Pico observer branches compile. This does not
+        # compile the full Android application or qualify other services.
+        navigation_source(stage,'actual-avatar-observe.inc')
+        bookmarks=(ROOT/'interface/src/Bookmarks.cpp').read_text();avatar_bookmarks=(ROOT/'interface/src/AvatarBookmarks.cpp').read_text()
+        store='\n'.join(function(bookmarks,s) for s in ('void Bookmarks::insert(', 'void Bookmarks::remove(', 'bool Bookmarks::contains(', 'void Bookmarks::readFromFile(', 'void Bookmarks::persistToFile('))
+        store+='\n'+'\n'.join(function(avatar_bookmarks,s) for s in ('AvatarBookmarks::AvatarBookmarks()', 'QVariantMap AvatarBookmarks::e2eBookmarkStorage(', 'QVariantMap AvatarBookmarks::e2eBookmarkLoads(', 'QVariantMap AvatarBookmarks::getBookmarks(', 'QVariantMap AvatarBookmarks::getBookmarkInternal(', 'void AvatarBookmarks::addBookmarkInternal(', 'void AvatarBookmarks::removeBookmarkInternal(', 'void AvatarBookmarks::loadBookmark(', 'void AvatarBookmarks::loadBookmarkInternal('))
+        store+='\n'+'\n'.join(function((ROOT/'interface/src/avatar/MyAvatar.cpp').read_text(),signature) for signature in ('void MyAvatar::useFullAvatarURL(', 'void MyAvatar::clearWornAvatarEntities(', 'void MyAvatar::setAvatarScale('))
+        (stage/'actual-avatar-bookmark-store.inc').write_text(store)
+        compile_started=time.monotonic()
+        subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),*definitions,*includes,'-i',str(HERE/'avatar-bookmark-store-actor.h'),'-o',str(stage/'avatar-bookmark-store-actor.moc')],check=True,timeout=min(20,max(.001,90-(time.monotonic()-compile_started))),env=environment)
+        (stage/'PathUtils.h').write_text('#pragma once\n#include <QUrl>\nclass PathUtils {public:\n'
+            'inline static QUrl scripts,qml; static QUrl defaultScriptsLocation(){return scripts;}\n'
+            'static QUrl qmlUrl(const QString& value){return qml.resolved(QUrl(value));}};\n')
+        subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),*definitions,*includes,str(ROOT/'libraries/shared/src/SettingManager.h'),'-o',str(stage/'manager.moc.cpp')],check=True,timeout=min(20,max(.001,90-(time.monotonic()-compile_started))),env=environment)
+        subprocess.run(['c++','-std=c++17','-fPIC','-pthread','-UNDEBUG','-include','QIODevice',*definitions,*includes,
+            '-I'+str(ROOT/'libraries/ui/src'),'-I'+str(ROOT/'libraries/script-engine/src'),
+            '-isystem',str(Path(environment['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),str(HERE/'avatar-people-controls.cpp'),
+            str(ROOT/'libraries/ui/src/ui/NativeFieldInput.cpp'),
+            str(ROOT/'libraries/shared/src/SettingManager.cpp'),str(ROOT/'libraries/shared/src/SettingHelpers.cpp'),
+            str(ROOT/'libraries/shared/src/SharedLogging.cpp'),str(stage/'manager.moc.cpp'),'-o',str(binary),'-L'+str(prefix/'usr/lib64'),*flags],
+            check=True,timeout=max(.001,90-(time.monotonic()-compile_started)),env=environment)
+        environment.update(QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',QT_FORCE_STDERR_LOGGING='1')
+        yield stage,environment,binary
+
+
 class AvatarPeopleControlsNativeTests(unittest.TestCase):
     def test_original_avatar_loader_url_restore_and_actual_hit_ownership(self):
         self._run_original_native(False)
@@ -36,48 +86,7 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
         self._run_original_native(True)
 
     def _run_original_native(self,persistence):
-        environment=dict(os.environ)
-        prefix=Path(environment['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
-        environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),
-            LD_LIBRARY_PATH=str(prefix/'usr/lib64'),QT_PLUGIN_PATH=str(prefix/'usr/lib64/qt5/plugins'),
-            QML2_IMPORT_PATH=str(prefix/'usr/lib64/qt5/qml'),QML_IMPORT_PATH=str(prefix/'usr/lib64/qt5/qml'))
-        flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs',
-            *('Qt5'+module for module in ('Core','Gui','Qml','Quick','Test'))],text=True,env=environment))
-        with native_stage('pico-original-avatar-') as directory:
-            stage=Path(directory);pointer_source(stage);prepare_ui_host(stage,ROOT);binary=stage/'test'
-            includes=['-I'+directory,'-I'+str(ROOT),'-I'+str(ROOT/'libraries/shared/src')]
-            definitions=['-DOVERTE_E2E_FEATURE_TESTS','-DANDROID_APP_PICO_INTERFACE']
-            if persistence:definitions.append('-DAVATAR_ORIGINAL_MODEL_PERSISTENCE')
-            imports=stage/'imports/TabletScriptingInterface';imports.mkdir(parents=True)
-            (imports/'qmldir').write_text('module TabletScriptingInterface\nsingleton Tablet 1.0 Tablet.qml\nsingleton TabletEnums 1.0 TabletEnums.qml\n')
-            (imports/'Tablet.qml').write_text('pragma Singleton\nimport QtQuick 2.7\nQtObject { function playSound(value) {} }\n')
-            (imports/'TabletEnums.qml').write_text('pragma Singleton\nimport QtQuick 2.7\nQtObject { readonly property int buttonClick: 1; readonly property int buttonHover: 2 }\n')
-            native=(ROOT/'android/vr/pico/apps/picoInterface/e2e/PicoE2eNavigationUi.cpp').read_text()
-            self.assertIn('#include "../../../../../../tests/device/native/NormalAvatarPeopleControls.h"',native)
-            # Compile the entire actual observer, not just isolated Avatar
-            # branch fragments. Unrelated platform services are explicit seams;
-            # Both the E2E and Pico observer branches compile. This does not
-            # compile the full Android application or qualify other services.
-            navigation_source(stage,'actual-avatar-observe.inc')
-            bookmarks=(ROOT/'interface/src/Bookmarks.cpp').read_text();avatar_bookmarks=(ROOT/'interface/src/AvatarBookmarks.cpp').read_text()
-            store='\n'.join(function(bookmarks,s) for s in ('void Bookmarks::insert(', 'void Bookmarks::remove(', 'bool Bookmarks::contains(', 'void Bookmarks::readFromFile(', 'void Bookmarks::persistToFile('))
-            store+='\n'+'\n'.join(function(avatar_bookmarks,s) for s in ('AvatarBookmarks::AvatarBookmarks()', 'QVariantMap AvatarBookmarks::e2eBookmarkStorage(', 'QVariantMap AvatarBookmarks::e2eBookmarkLoads(', 'QVariantMap AvatarBookmarks::getBookmarks(', 'QVariantMap AvatarBookmarks::getBookmarkInternal(', 'void AvatarBookmarks::addBookmarkInternal(', 'void AvatarBookmarks::removeBookmarkInternal(', 'void AvatarBookmarks::loadBookmark(', 'void AvatarBookmarks::loadBookmarkInternal('))
-            store+='\n'+'\n'.join(function((ROOT/'interface/src/avatar/MyAvatar.cpp').read_text(),signature) for signature in ('void MyAvatar::useFullAvatarURL(', 'void MyAvatar::clearWornAvatarEntities(', 'void MyAvatar::setAvatarScale('))
-            (stage/'actual-avatar-bookmark-store.inc').write_text(store)
-            compile_started=time.monotonic()
-            subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),*definitions,*includes,'-i',str(HERE/'avatar-bookmark-store-actor.h'),'-o',str(stage/'avatar-bookmark-store-actor.moc')],check=True,timeout=min(20,max(.001,90-(time.monotonic()-compile_started))),env=environment)
-            (stage/'PathUtils.h').write_text('#pragma once\n#include <QUrl>\nclass PathUtils {public:\n'
-                'inline static QUrl scripts,qml; static QUrl defaultScriptsLocation(){return scripts;}\n'
-                'static QUrl qmlUrl(const QString& value){return qml.resolved(QUrl(value));}};\n')
-            subprocess.run([str(prefix/'usr/lib64/qt5/bin/moc'),*definitions,*includes,str(ROOT/'libraries/shared/src/SettingManager.h'),'-o',str(stage/'manager.moc.cpp')],check=True,timeout=min(20,max(.001,90-(time.monotonic()-compile_started))),env=environment)
-            subprocess.run(['c++','-std=c++17','-fPIC','-pthread','-UNDEBUG','-include','QIODevice',*definitions,*includes,
-                '-I'+str(ROOT/'libraries/ui/src'),'-I'+str(ROOT/'libraries/script-engine/src'),
-                '-isystem',str(Path(environment['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),str(HERE/'avatar-people-controls.cpp'),
-                str(ROOT/'libraries/ui/src/ui/NativeFieldInput.cpp'),
-                str(ROOT/'libraries/shared/src/SettingManager.cpp'),str(ROOT/'libraries/shared/src/SettingHelpers.cpp'),
-                str(ROOT/'libraries/shared/src/SharedLogging.cpp'),str(stage/'manager.moc.cpp'),'-o',str(binary),'-L'+str(prefix/'usr/lib64'),*flags],
-                check=True,timeout=max(.001,90-(time.monotonic()-compile_started)),env=environment)
-            environment.update(QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',QT_FORCE_STDERR_LOGGING='1')
+        with native_ui_binary(persistence) as (stage,environment,binary):
             for gate in ([],['--testScript']):
                 command=['unshare','--user','--map-root-user','--net',str(binary),*gate,str(ROOT),str(stage/'imports')]
                 if gate:
