@@ -1193,8 +1193,8 @@ class OverteSession:
         """Observe semantic UI state; malformed adapter evidence is infrastructure."""
         return self._invoke("tablet.snapshot", {})
 
-    def wait_for_tablet_screen(self, screen_id: str, identity: str,
-                               artifact: str) -> dict:
+    @staticmethod
+    def _tablet_screen_stable_samples(screen_id: str) -> int:
         vocabulary = load_tablet_ui_contract()
         if screen_id not in vocabulary["screenIds"]:
             raise InfrastructureError(f"unknown expected tablet screen: {screen_id}")
@@ -1206,7 +1206,11 @@ class OverteSession:
         if not 2 <= stable_required <= 10:
             raise InfrastructureError(
                 "OVERTE_E2E_TABLET_STABLE_SAMPLES must be from 2 through 10")
+        return stable_required
 
+    def wait_for_tablet_screen(self, screen_id: str, identity: str,
+                               artifact: str) -> dict:
+        stable_required = self._tablet_screen_stable_samples(screen_id)
         deadline = time.monotonic() + self.timeout_seconds
         stable = 0
         previous = None
@@ -1226,6 +1230,17 @@ class OverteSession:
         if last is not None:
             write_json("tablet-ui-last.json", last)
         fail(f"timed out waiting for ready stable tablet screen {screen_id}")
+
+    def activate_tablet_control_and_wait_for_screen(
+            self, control_id: str, screen_id: str, identity: str,
+            artifact: str) -> dict:
+        """Keep one fresh process guard before the input's first UI observation."""
+        self._tablet_screen_stable_samples(screen_id)
+        self._invoke("tablet.activate", {
+            "contractVersion": TABLET_CONTRACT_VERSION,
+            "controlId": control_id,
+        })
+        return self.wait_for_tablet_screen(screen_id, identity, artifact)
 
     def activate_tablet_control(self, control_id: str, identity: str) -> dict:
         result = self._invoke("tablet.activate", {

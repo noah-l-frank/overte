@@ -58,9 +58,8 @@ def main() -> None:
         assert_policy(home, policy["expectations"]["tablet.home"],
                       "tablet.home", evaluations)
 
-        session.activate_tablet_control("app.settings", identity)
-        settings_home = session.wait_for_tablet_screen(
-            "settings.home", identity, "tablet-ui-settings-home.json")
+        settings_home = session.activate_tablet_control_and_wait_for_screen(
+            "app.settings", "settings.home", identity, "tablet-ui-settings-home.json")
         assert_policy(settings_home, policy["expectations"]["settings.home"],
                       "settings.home", evaluations)
 
@@ -71,23 +70,22 @@ def main() -> None:
             entry_control = expectation["entryControlId"]
             if entry_control not in settings_home["visibleControlIds"]:
                 fail(f"settings.home cannot enter required policy screen {screen_id}")
-            session.activate_tablet_control(entry_control, identity)
-            snapshot = session.wait_for_tablet_screen(
-                screen_id, identity, f"tablet-ui-{screen_id.replace('.', '-')}.json")
+            snapshot = session.activate_tablet_control_and_wait_for_screen(
+                entry_control, screen_id, identity,
+                f"tablet-ui-{screen_id.replace('.', '-')}.json")
             assert_policy(snapshot, expectation, screen_id, evaluations)
             if "nav.back" not in snapshot["visibleControlIds"]:
                 fail(f"{screen_id} does not expose nav.back")
-            session.activate_tablet_control("nav.back", identity)
-            settings_home = session.wait_for_tablet_screen(
-                "settings.home", identity, "tablet-ui-settings-home-returned.json")
+            settings_home = session.activate_tablet_control_and_wait_for_screen(
+                "nav.back", "settings.home", identity,
+                "tablet-ui-settings-home-returned.json")
             assert_policy(settings_home, policy["expectations"]["settings.home"],
                           "settings.home", evaluations)
 
         if "nav.home" not in settings_home["visibleControlIds"]:
             fail("settings.home does not expose nav.home")
-        session.activate_tablet_control("nav.home", identity)
-        returned_home = session.wait_for_tablet_screen(
-            "tablet.home", identity, "tablet-ui-home-returned.json")
+        returned_home = session.activate_tablet_control_and_wait_for_screen(
+            "nav.home", "tablet.home", identity, "tablet-ui-home-returned.json")
         assert_policy(returned_home, policy["expectations"]["tablet.home"],
                       "tablet.home", evaluations)
 

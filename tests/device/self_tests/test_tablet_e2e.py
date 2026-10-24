@@ -99,6 +99,83 @@ class TabletContractValidationTest(unittest.TestCase):
 
 
 class TabletE2EFlowTest(unittest.TestCase):
+    def run_composed_control(self, *, mode: str = "valid", screen: str = "settings.home",
+                             stable: str = "2"):
+        with tempfile.TemporaryDirectory(prefix="overte-tablet-composed-") as temporary:
+            root = Path(temporary)
+            code = (
+                "import json,os,pathlib,sys\n"
+                f"sys.path.insert(0,{str(DEVICE_ROOT)!r})\n"
+                "import module_support\n"
+                "events=[];reads=0;activated=False\n"
+                f"mode={mode!r}\n"
+                "def observed(_manifest,_target,operation,arguments=None):\n"
+                " global reads,activated\n"
+                " events.append(operation)\n"
+                " if operation=='tablet.activate':\n"
+                "  activated=True;return {'performed':True}\n"
+                " if operation=='app.process':\n"
+                "  return {'running':True,'identity':'foreign-process' if activated and mode=='late-pid' else 'fixture-process'}\n"
+                " if operation=='tablet.snapshot':\n"
+                "  reads+=1\n"
+                "  if mode=='malformed':return {'schemaVersion':99}\n"
+                "  screen='tablet.home' if mode=='ignored-input' else 'settings.security' if mode=='wrong-screen' else 'settings.home'\n"
+                "  return {'schemaVersion':1,'contractVersion':1,'screenId':screen,'ready':True,'visibleControlIds':['nav.home','settings.audio'],'selectedControlIds':[]}\n"
+                " raise AssertionError('Unexpected host-fixture operation')\n"
+                "module_support.invoke=observed\n"
+                "from overte_session import OverteSession\n"
+                "def check():\n"
+                f" value=OverteSession().activate_tablet_control_and_wait_for_screen('app.settings',{screen!r},'fixture-process','confirmed.json')\n"
+                f" pathlib.Path({str(root / 'result.json')!r}).write_text(json.dumps(value))\n"
+                "try:module_support.module_main(check)\n"
+                "finally:\n"
+                f" pathlib.Path({str(root / 'events.json')!r}).write_text(json.dumps({{'events':events,'reads':reads}}))\n"
+            )
+            environment = os.environ | {
+                "OVERTE_DEVICE_ADAPTER_MANIFEST": str(DEVICE_ROOT / "adapters/mock/adapter.json"),
+                "OVERTE_DEVICE_TARGET_SELECTOR": "host-tablet-fixture",
+                "OVERTE_DEVICE_ARTIFACT_DIR": str(root),
+                "OVERTE_E2E_TABLET_STABLE_SAMPLES": stable,
+                "OVERTE_E2E_POLL_SECONDS": "0.05",
+                "OVERTE_E2E_TIMEOUT_SECONDS": "1",
+                "PYTHONDONTWRITEBYTECODE": "1",
+            }
+            result = subprocess.run([sys.executable, "-B", "-c", code], env=environment,
+                                    text=True, capture_output=True, timeout=10, check=False)
+            events = json.loads((root / "events.json").read_text())
+            observed = (json.loads((root / "result.json").read_text())
+                        if (root / "result.json").exists() else None)
+            return result, events, observed
+
+    def test_composed_wait_rejects_bad_expectations_before_any_input(self):
+        for screen, stable in (("settings.unknown", "2"), ("settings.home", "1"),
+                               ("settings.home", "11"), ("settings.home", "invalid")):
+            with self.subTest(screen=screen, stable=stable):
+                result, events, observed = self.run_composed_control(screen=screen, stable=stable)
+                self.assertEqual(75, result.returncode, result.stdout + result.stderr)
+                self.assertEqual([], events["events"])
+                self.assertIsNone(observed)
+
+    def test_composed_wait_rejects_late_pid_and_invalid_or_ignored_effects(self):
+        for mode, expected in (("late-pid", 1), ("ignored-input", 1),
+                               ("wrong-screen", 1), ("malformed", 75)):
+            with self.subTest(mode=mode):
+                result, events, observed = self.run_composed_control(mode=mode)
+                self.assertEqual(expected, result.returncode, result.stdout + result.stderr)
+                self.assertEqual("tablet.activate", events["events"][0])
+                self.assertIsNone(observed)
+                if mode == "late-pid":
+                    self.assertEqual(["tablet.activate", "app.process"], events["events"])
+                    self.assertEqual(0, events["reads"])
+
+    def test_composed_wait_keeps_two_fresh_observations_after_acknowledgement(self):
+        result, events, observed = self.run_composed_control()
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual(["tablet.activate", "app.process", "tablet.snapshot",
+                          "app.process", "tablet.snapshot"], events["events"])
+        self.assertEqual(2, events["reads"])
+        self.assertEqual("settings.home", observed["screenId"])
+
     def run_tablet(self, profile: str, policy_name: str, *, mutation: str = "",
                    missing_capability: str = "", infrastructure_failure: bool = False):
         temporary = tempfile.TemporaryDirectory(prefix="overte-tablet-e2e-")
@@ -153,7 +230,14 @@ class TabletE2EFlowTest(unittest.TestCase):
             evaluation = json.loads((output / "modules/tablet-e2e/tablet-policy-evaluation.json")
                                     .read_text(encoding="utf-8"))
             self.assertEqual("mock.flat-touch", evaluation["profileId"])
-            self.assertTrue(evaluation["evaluations"])
+            expected = load_tablet_product_policy(DEVICE_ROOT / "policies/mock-flat-touch.json")
+            self.assertEqual(set(expected["expectations"]), {
+                row["screenId"] for row in evaluation["evaluations"]})
+            self.assertTrue(all(row["ready"] and not row["missingRequiredControlIds"]
+                                and not row["forbiddenVisibleControlIds"]
+                                for row in evaluation["evaluations"]))
+            state = json.loads((Path(temporary.name) / "state.json").read_text())
+            self.assertFalse(state["tablet"])
             self.assertFalse((output / "modules/tablet-e2e/INVALID").exists())
         finally:
             temporary.cleanup()
