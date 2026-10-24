@@ -6,5 +6,6 @@ import sys
 import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
 from self_tests.test_pico_lifecycle_observation_baseline import LifecycleObservationBaselineTests,LifecycleObservationHandoffTests
+from self_tests.test_pico_lifecycle_primary_wait import LifecyclePrimaryWaitTests
 
 if __name__=='__main__':unittest.main()

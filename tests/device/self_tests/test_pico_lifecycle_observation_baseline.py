@@ -54,9 +54,7 @@ class LifecycleObservationBaselineTests(unittest.TestCase):
             self.observer=PicoLifecycleObservation.before_inputs(restore,self.editor.owner,self.reader,
                 world.store.path.with_name('lifecycle-primary-observation.json'))
             self.before=len(world.state['frames'])
-            for sequence in range(3):
-                self.baseline.append(self.observer.read(after_sequence=sequence))
-                if sequence<2:native.sleep(.25)
+            self.collect_baseline()
             self.assertEqual([],self.editor.transport.envelopes)
             self.assertEqual(['observe']*3,[row['operation'] for row in self.boundary.commands])
             self.assertIsNone(self.reader.intent);self.assertIsNone(self.reader._before_send)
@@ -82,6 +80,7 @@ class LifecycleObservationBaselineTests(unittest.TestCase):
                 (PicoLifecyclePending,'pending'),(PicoLifecycleClose,'close')):
             prepare=owner.prepare
             def attached(actual,*args,_prepare=prepare,_role=role,**kwargs):
+                if hasattr(self,'before_participant'):self.before_participant(_role,actual)
                 with self.observer.lock.held():
                     self.observer.bound()
                     result=_prepare(actual,*args,**kwargs)
@@ -99,6 +98,11 @@ class LifecycleObservationBaselineTests(unittest.TestCase):
         for active in patches:active.start();self.addCleanup(active.stop)
         self.fixture.setUp();self.addCleanup(self.fixture.doCleanups)
         self.world=self.fixture.world;self.root=self.fixture.root
+
+    def collect_baseline(self):
+        for sequence in range(3):
+            self.baseline.append(self.observer.read(after_sequence=sequence))
+            if sequence<2:self.editor.native.sleep(.25)
 
     def test_original_absence_before_create_then_full_live_participants_and_scripts_four(self):
         for sequence,value in enumerate(self.baseline,1):

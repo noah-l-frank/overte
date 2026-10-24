@@ -29,6 +29,7 @@ from adapters.pico4.lifecycle_world import MAX_FRAMES
 from adapters.pico4 import lifecycle_source as ui
 from adapters.script_journey.history import canonical
 from feature_journeys.contract import VERSION as CONTRACT_VERSION,result as feature_result
+from feature_journeys.contract import arguments as feature_arguments
 
 VERSION=2
 FAMILIES={
@@ -265,6 +266,16 @@ class PicoLifecycleObservation:
             and completed-started<20 and all(integer(epoch,1) and -250<=epoch-oldest
                 and max(epoch-oldest,requested-oldest+(completed-started)*1000)<=1500 for epoch in epochs))
         self.last_clock=completed
+
+    def observe_operation(self,operation,arguments):
+        """Private observation-only OverteSession seam; no capability grant.
+
+        No action, cleanup, expected state, peer or image can be supplied here.
+        The normal session validates the same portable request/result again.
+        """
+        need(operation=='feature.lifecycle-input.observe')
+        feature_arguments(operation,arguments);need(arguments['runId']==self.run)
+        return self.read(after_sequence=arguments['afterSequence'])
 
     def read(self,*,after_sequence):
         need(integer(after_sequence) and not self.failed)
