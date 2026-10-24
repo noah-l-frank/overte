@@ -7,5 +7,8 @@ import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
 from self_tests.test_lifecycle_process_finalization import LifecycleProcessFinalizationTests,LifecycleProcessV1FinalizationTests
 from self_tests.test_lifecycle_process_compatibility import LifecycleProcessCompatibilityTests
+from self_tests.test_lifecycle_process_physical_delivery import LifecycleProcessPhysicalDeliveryTests
+from self_tests.test_lifecycle_process_file import LifecycleProcessFileTests
+from test_lifecycle_process_file_factory import LifecycleProcessFileFactoryTests
 
 if __name__=='__main__':unittest.main()

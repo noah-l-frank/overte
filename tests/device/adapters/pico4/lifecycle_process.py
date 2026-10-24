@@ -22,6 +22,7 @@ from adapters.pico4.lifecycle_world import PicoLifecycleWorld,LifecycleWorldHist
 from adapters.pico4 import lifecycle_world_codec as world_codec
 from adapters.pico4.lifecycle_join import PicoLifecycleXJoin,LifecycleXHistory
 from adapters.pico4.lifecycle_back import frame
+from adapters.pico4.lifecycle_process_file import LifecycleProcessFile
 from adapters.pico4 import lifecycle_source as ui,lifecycle_gesture as gesture,lifecycle_drive as drive
 from adapters.restart_inputs import RestartInputs,native as birth,validate_native_restart
 from adapters.script_journey.history import pack,unpack,canonical,MAX_FRAMES,MAX_RAW,MAX_PACKED
@@ -128,7 +129,9 @@ class PicoLifecycleProcessRetirement:
         self.owners=[PrivateFeatureState(self.store.path.with_name(name)) for name in FILES]
         self.inputs=RestartInputs(PrivateFeatureState(self.store.path.with_name('lifecycle-restart-inputs.json')),self.owners,monotonic=monotonic)
         self.disk=self.state=None;self.last_clock=None;self._final_delivery=None
-        with self.lock.held():self.load()
+        with self.lock.held():
+            self.physical=LifecycleProcessFile(self.store)
+            self.load()
 
     def now(self):
         need(self.guard() is not False);now=self.monotonic();need(number(now,0,1e15) and (self.last_clock is None or now>=self.last_clock))
@@ -275,7 +278,7 @@ class PicoLifecycleProcessRetirement:
         return current
 
     def load(self):
-        self.lock.assert_held();self.now();disk=self.store.read()
+        self.lock.assert_held();self.now();self.physical.guard();disk=self.store.read()
         if self.disk is not None:need(disk==self.disk)
         if disk is None:need(self.state is None);return
         exact(disk,{'lifecycleProcessOwnerVersion','runId','payload'})
@@ -284,11 +287,11 @@ class PicoLifecycleProcessRetirement:
         self.validate(payload[0],version=disk['lifecycleProcessOwnerVersion']);self.disk,self.state=deepcopy(disk),deepcopy(payload[0])
 
     def save(self,state):
-        self.lock.assert_held();need(self.store.read()==self.disk);self.validate(state)
+        self.lock.assert_held();self.physical.guard();need(self.store.read()==self.disk);self.validate(state)
         version=VERSION if self.disk is None else self.disk['lifecycleProcessOwnerVersion']
         if version>=2 and self.state is not None and self.state['shutdown'] is not None:
             prior=self.state['shutdown']['frames'];need(state['shutdown']['frames'][:len(prior)]==prior)
-        disk=dict(lifecycleProcessOwnerVersion=version,runId=self.run,payload=process_payload(state,version));self.store.write(disk,self.disk)
+        disk=dict(lifecycleProcessOwnerVersion=version,runId=self.run,payload=process_payload(state,version));self.physical.write(disk,self.disk)
         need(self.store.read()==disk);self.disk,self.state=deepcopy(disk),deepcopy(state)
 
     def begin(self,world,source,domain_source):
@@ -458,6 +461,7 @@ class PicoLifecycleProcessRetirement:
                         stamps.append(current['gesture']['source']['frameEpochMs'])
                         self._final_delivery=dict(resultSha256=hashlib.sha256(canonical(delivered)).hexdigest(),
                             diskSha256=hashlib.sha256(canonical(self.disk)).hexdigest(),before=before,started=started,
+                            physical=self.physical,file=self.physical.file,stamp=self.physical.stamp,
                             requested=row['requestedEpochMs'],oldest=min(stamps),
                             source=source,readers=(source,presence,domain_source,ui_source,axes,avatar))
                         break
@@ -477,8 +481,11 @@ class PicoLifecycleProcessRetirement:
                 and hashlib.sha256(canonical(result)).hexdigest()==memo['resultSha256']
                 and self.store.read()==self.disk
                 and hashlib.sha256(canonical(self.disk)).hexdigest()==memo['diskSha256'])
+            need(self.physical is memo['physical'] and self.physical.file is memo['file'] and self.physical.stamp==memo['stamp'])
+            self.physical.guard()
             need(self.guard() is not False)
             for reader in memo['readers']:need(reader.guard() is not False)
+            self.physical.guard()
             epoch=memo['source'].clock_ms();completed=self.monotonic()
             need(integer(epoch,1) and number(completed,self.last_clock,1e15)
                 and completed>=memo['before'] and completed-memo['before']<=1.5
@@ -492,6 +499,8 @@ class PicoLifecycleProcessRetirement:
     # Preserve the private name introduced with v2; wire versions share the
     # same final-delivery requirement now, not an encoder or format migration.
     final_v2=final_delivery
+
+    def close_host(self):return self.physical.close_host()
 
 
 def run_lifecycle_restart(owner,prepare,source,stop,stopped,launch,recover,observe):
