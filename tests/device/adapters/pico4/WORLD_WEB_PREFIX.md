@@ -225,3 +225,6 @@ documents and fourteen separate original transactions per role. No independent
 actor process/image/whole retirement is inferred. The original lifecycle/new
 document requirement remains open and cannot be replaced by an extra manual
 Reload inside background-resume.
+
+The retained-page resume boundary and unimplemented observation proposal are
+documented in [WORLD_WEB_RETAINED_RESUME.md](WORLD_WEB_RETAINED_RESUME.md).
