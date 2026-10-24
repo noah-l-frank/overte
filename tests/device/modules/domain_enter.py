@@ -9,6 +9,7 @@ from overte_session import OverteSession
 
 def main() -> None:
     session = OverteSession()
+    session.require_controlled_domain_configuration()
     # Modules may follow voice or collaboration checks which already entered
     # this domain. Observe an actual serverless departure before testing entry.
     if session.snapshot("domain-entry-initial.json")["domain"]["connected"]:

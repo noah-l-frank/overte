@@ -9,6 +9,7 @@ from overte_session import OverteSession
 
 def main() -> None:
     session = OverteSession()
+    session.require_controlled_domain_configuration()
     identity = process_identity()
     disconnected, reconnected = session.assert_network_fault_recovery()
     assert_process(identity, "network fault recovery")

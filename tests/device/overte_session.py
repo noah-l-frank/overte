@@ -342,7 +342,7 @@ class OverteSession:
     def _domain_uuid(cls, value: object, label: str) -> str:
         parsed = cls._parsed_domain_uuid(value)
         if parsed is None:
-            fail(f"{label} must be a non-null UUID")
+            raise InfrastructureError(f"{label} must be a non-null UUID")
         return parsed
 
     @staticmethod
@@ -350,38 +350,50 @@ class OverteSession:
         try:
             markers = json.loads(os.environ.get("OVERTE_E2E_DOMAIN_MARKERS_JSON", ""))
         except json.JSONDecodeError:
-            fail("OVERTE_E2E_DOMAIN_MARKERS_JSON must be valid JSON")
+            raise InfrastructureError("OVERTE_E2E_DOMAIN_MARKERS_JSON must be valid JSON") from None
         if (not isinstance(markers, list) or not markers
                 or markers != sorted(set(markers))
                 or not all(isinstance(item, str)
                            and item.startswith("OVERTE_E2E_DOMAIN_") for item in markers)):
-            fail("OVERTE_E2E_DOMAIN_MARKERS_JSON must be a sorted unique domain marker list")
+            raise InfrastructureError("OVERTE_E2E_DOMAIN_MARKERS_JSON must be a sorted unique domain marker list")
         return markers
 
-    def enter_controlled_domain(self) -> tuple[dict, list[dict]]:
+    def require_controlled_domain_configuration(self) -> tuple[str, str, str, list[str], int]:
+        """Validate lab inputs without dispatching or claiming an observation."""
         url = os.environ.get("OVERTE_E2E_DOMAIN_URL", "")
-        parsed = urlsplit(url)
+        try:
+            parsed = urlsplit(url)
+        except ValueError:
+            raise InfrastructureError("OVERTE_E2E_DOMAIN_URL must be an absolute credential-free hifi URL") from None
         if (parsed.scheme != "hifi" or not parsed.hostname or parsed.username is not None
                 or parsed.password is not None or parsed.query or parsed.fragment):
-            fail("OVERTE_E2E_DOMAIN_URL must be an absolute credential-free hifi URL")
+            raise InfrastructureError("OVERTE_E2E_DOMAIN_URL must be an absolute credential-free hifi URL")
         try:
             port = parsed.port
         except ValueError:
-            fail("OVERTE_E2E_DOMAIN_URL contains an invalid port")
+            raise InfrastructureError("OVERTE_E2E_DOMAIN_URL contains an invalid port") from None
         if port is None or not 1 <= port <= 65535:
-            fail("OVERTE_E2E_DOMAIN_URL must contain an explicit port")
+            raise InfrastructureError("OVERTE_E2E_DOMAIN_URL must contain an explicit port")
         expected_host = os.environ.get("OVERTE_E2E_DOMAIN_HOST", "").lower()
         if not expected_host or expected_host != parsed.hostname.lower():
-            fail("OVERTE_E2E_DOMAIN_HOST must match the controlled domain URL")
+            raise InfrastructureError("OVERTE_E2E_DOMAIN_HOST must match the controlled domain URL")
         expected_id = self._domain_uuid(
             os.environ.get("OVERTE_E2E_DOMAIN_ID"), "OVERTE_E2E_DOMAIN_ID")
         expected_markers = self._domain_markers()
         try:
             stable_required = int(os.environ.get("OVERTE_E2E_DOMAIN_STABLE_SAMPLES", "3"))
         except ValueError:
-            fail("OVERTE_E2E_DOMAIN_STABLE_SAMPLES must be from 2 through 20")
+            raise InfrastructureError("OVERTE_E2E_DOMAIN_STABLE_SAMPLES must be from 2 through 20") from None
         if not 2 <= stable_required <= 20:
-            fail("OVERTE_E2E_DOMAIN_STABLE_SAMPLES must be from 2 through 20")
+            raise InfrastructureError("OVERTE_E2E_DOMAIN_STABLE_SAMPLES must be from 2 through 20")
+        if (os.environ.get("OVERTE_E2E_DOMAIN_CONTROL_URL")
+                or os.environ.get("OVERTE_E2E_DOMAIN_CONTROL_TOKEN")):
+            self._domain_control_configuration()
+        return url, expected_host, expected_id, expected_markers, stable_required
+
+    def enter_controlled_domain(self) -> tuple[dict, list[dict]]:
+        url, expected_host, expected_id, expected_markers, stable_required = (
+            self.require_controlled_domain_configuration())
 
         # The ready file describes initial startup, not the current owned stack.
         # Revalidate before sending any navigation input; online is idempotent.
@@ -658,9 +670,8 @@ class OverteSession:
     def assert_controlled_peer_roundtrip(self) -> tuple[dict, dict]:
         # Other scene tests deliberately leave the client in serverless mode.
         # Establish this module's real peer prerequisite regardless of order.
+        _url, _host, expected_domain, _markers, _stable = self.require_controlled_domain_configuration()
         initial = self.snapshot("peer-entry-initial.json")
-        expected_domain = self._domain_uuid(
-            os.environ.get("OVERTE_E2E_DOMAIN_ID"), "OVERTE_E2E_DOMAIN_ID")
         if (initial["domain"]["connected"] is not True
                 or self._parsed_domain_uuid(initial["domain"].get("id")) != expected_domain):
             self.enter_controlled_domain()
@@ -705,20 +716,26 @@ class OverteSession:
         return first, reconnected
 
     @staticmethod
-    def _domain_control(action: str) -> dict:
+    def _domain_control_configuration() -> tuple[str, str]:
         url = os.environ.get("OVERTE_E2E_DOMAIN_CONTROL_URL", "")
         token = os.environ.get("OVERTE_E2E_DOMAIN_CONTROL_TOKEN", "")
-        parsed = urlsplit(url)
         try:
+            parsed = urlsplit(url)
             port = parsed.port
         except ValueError:
-            port = None
+            raise InfrastructureError(
+                "controlled domain recovery requires a private loopback control endpoint") from None
         if (parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "::1", "localhost"}
                 or port is None or parsed.path != "/v1/domain-state"
                 or parsed.username is not None or parsed.password is not None
                 or parsed.query or parsed.fragment or not token or len(token) > 256):
             raise InfrastructureError(
                 "controlled domain recovery requires a private loopback control endpoint")
+        return url, token
+
+    @staticmethod
+    def _domain_control(action: str) -> dict:
+        url, token = OverteSession._domain_control_configuration()
         payload = json.dumps({"schemaVersion": 1, "action": action}).encode("utf-8")
         request = Request(url, data=payload, method="POST", headers={
             "Content-Type": "application/json",
@@ -740,6 +757,7 @@ class OverteSession:
         return result
 
     def assert_network_fault_recovery(self) -> tuple[dict, dict]:
+        self.require_controlled_domain_configuration()
         initial = self.snapshot("network-entry-initial.json")
         if initial["domain"]["connected"] is not True:
             # Regression-first and focused runs can start in the owned HTTP

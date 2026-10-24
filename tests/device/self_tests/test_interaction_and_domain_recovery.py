@@ -18,6 +18,60 @@ DEVICE_ROOT = Path(__file__).resolve().parents[1]
 
 
 class InteractionAndDomainRecoveryTest(unittest.TestCase):
+    def test_invalid_domain_inputs_reject_before_any_module_adapter_operation(self):
+        manifest = json.loads((DEVICE_ROOT / "fixture/domain-manifest.json").read_text())
+        valid = {
+            "OVERTE_E2E_DOMAIN_URL": "hifi://127.0.0.1:40102" + manifest["spawnPath"],
+            "OVERTE_E2E_DOMAIN_HOST": "127.0.0.1",
+            "OVERTE_E2E_DOMAIN_ID": "11111111-2222-4333-8444-555555555555",
+            "OVERTE_E2E_DOMAIN_MARKERS_JSON": json.dumps(manifest["requiredMarkers"]),
+        }
+        invalid = (
+            {"OVERTE_E2E_DOMAIN_URL": ""},
+            {"OVERTE_E2E_DOMAIN_URL": "hifi://[invalid"},
+            {"OVERTE_E2E_DOMAIN_HOST": "foreign.invalid"},
+            {"OVERTE_E2E_DOMAIN_ID": ""},
+            {"OVERTE_E2E_DOMAIN_ID": "00000000-0000-0000-0000-000000000000"},
+            {"OVERTE_E2E_DOMAIN_MARKERS_JSON": "not-json"},
+            {"OVERTE_E2E_DOMAIN_MARKERS_JSON": "[]"},
+            {"OVERTE_E2E_DOMAIN_STABLE_SAMPLES": "1"},
+            {"OVERTE_E2E_DOMAIN_CONTROL_TOKEN": "host-self-test-only"},
+            {"OVERTE_E2E_DOMAIN_CONTROL_URL": "http://foreign.invalid:40100/v1/domain-state",
+             "OVERTE_E2E_DOMAIN_CONTROL_TOKEN": "host-self-test-only"},
+        )
+        for module in ("domain-enter", "domain-roundtrip", "multi-user", "network-fault-recovery"):
+            for index, changed in enumerate(invalid):
+                with self.subTest(module=module, invalid=index), tempfile.TemporaryDirectory() as temporary:
+                    root = Path(temporary)
+                    called = root / "unexpected-adapter-operation"
+                    # Use the actual module and module_main; no fake result can
+                    # satisfy the preflight. Even a read is an unwanted call.
+                    code = (
+                        "import pathlib,runpy,sys\n"
+                        f"sys.path.insert(0,{str(DEVICE_ROOT)!r})\n"
+                        "import module_support\n"
+                        "def forbidden(*args,**kwargs):\n"
+                        f" pathlib.Path({str(called)!r}).write_text('adapter called')\n"
+                        " raise AssertionError('Adapter operation preceded domain input validation')\n"
+                        "module_support.invoke=forbidden\n"
+                        f"runpy.run_path({str(DEVICE_ROOT / 'modules' / (module.replace('-', '_') + '.py'))!r},run_name='__main__')\n"
+                    )
+                    environment = {key: value for key, value in os.environ.items()
+                                   if not key.startswith("OVERTE_E2E_DOMAIN_")}
+                    environment.update(valid | changed | {
+                        "OVERTE_DEVICE_ADAPTER_MANIFEST": str(root / "unused-adapter.json"),
+                        "OVERTE_DEVICE_TARGET_SELECTOR": "host-only-no-device",
+                        "OVERTE_DEVICE_ARTIFACT_DIR": str(root),
+                        "PYTHONDONTWRITEBYTECODE": "1",
+                    })
+                    result = subprocess.run([sys.executable, "-B", "-c", code], env=environment,
+                                            text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                            timeout=10, check=False)
+                    self.assertEqual(75, result.returncode, result.stdout)
+                    self.assertIn("INFRASTRUCTURE:", result.stdout)
+                    self.assertNotIn("ASSERTION:", result.stdout)
+                    self.assertFalse(called.exists(), result.stdout)
+
     def controlled_domain_environment(self, *, unavailable=False):
         state = {"online": False, "starts": 0, "requests": []}
 

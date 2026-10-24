@@ -9,6 +9,7 @@ from overte_session import OverteSession
 
 def main() -> None:
     session = OverteSession()
+    session.require_controlled_domain_configuration()
     identity = process_identity()
     first, reconnected = session.assert_controlled_peer_roundtrip()
     assert_process(identity, "multi-user roundtrip")

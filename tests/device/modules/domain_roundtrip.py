@@ -10,6 +10,7 @@ from overte_session import OverteSession
 
 def main() -> None:
     session = OverteSession()
+    session.require_controlled_domain_configuration()
     identity = process_identity()
     connected_before = session.snapshot("roundtrip-domain-before.json")
     if connected_before["domain"]["connected"] is not True:
