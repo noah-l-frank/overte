@@ -81,6 +81,27 @@ cleanup failure remains a build failure and must not be hidden by a retry.
 Hardware runs, device jobs, and laboratory mutations are outside the scope of
 the device-free checks above.
 
+### Complete diagnostic text
+
+`diagnostic_logs.py` is an opt-in publisher for focused debugging. It keeps
+the complete original in its private, owner-only location and publishes a
+redacted representation in UTF-8 parts of at most 1 MiB. Redaction happens
+before splitting, using actual private values from the selected run as well
+as credential, URL, address, and identity patterns. Every part is checked
+against the artifact privacy categories. `index.json` records original and
+public hashes, sizes, line counts, and encoding changes; output is never
+silently truncated. A failed privacy or original-identity check blocks
+publication. A caller must verify the complete generation before archiving it.
+
+The publisher does not change test verdicts, target locks, time limits, or
+cleanup policy. Historical server logs remain historical evidence; publication
+does not establish that a server is currently running or that a device test
+passed. Validate the publisher without a device:
+
+```bash
+python3 -B tests/device/jenkins/test_diagnostic_logs.py
+```
+
 ## Android Phone target isolation
 
 The canonical `android-device-e2e` job uses the same fixed profile and device
