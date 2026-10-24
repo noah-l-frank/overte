@@ -101,10 +101,12 @@ historical failure.
 ### Optional owned-cgroup memory guard
 
 With debug hold enabled, `--debug-memory-expected-limit-bytes N` also opts in
-host-only memory sampling. `N` must equal the actual own cgroup's finite
+host-only memory sampling. `N` must equal the actual own container budget's finite
 `memory.max`. The controller joins `/proc/self/cgroup` with the actual cgroup2
-mount root and proves its direct PID membership in `cgroup.procs`; it does not
-fall back to host-global counters. The launcher separately pins the authorized
+mount root and proves its direct task-leaf PID membership in `cgroup.procs`.
+An unbounded task leaf may charge a finite parent budget; only ancestors within
+the kernel's own libpod container scope and actual mount root are considered.
+The effective finite budget must match `N`; host-global fallback is forbidden. The launcher separately pins the authorized
 container RAM and swap limits. Changing this argument never changes a limit.
 
 `debug-hold/MEMORY_TIMELINE.private.jsonl` records a pre-launch sample and

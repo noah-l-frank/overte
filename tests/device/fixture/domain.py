@@ -587,7 +587,9 @@ class DomainMemoryGuard:
         self.stopped = []
         self.timeline = None
         self.last = None
-        self.cgroup = self.resolve_cgroup() if cgroup is None else cgroup
+        self.task_cgroup = self.resolve_cgroup() if cgroup is None else cgroup
+        self.cgroup = self.resolve_budget(self.task_cgroup,expected_limit) if cgroup is None else cgroup
+        self.task_identity = self.task_cgroup.stat().st_dev, self.task_cgroup.stat().st_ino
         self.identity = self.cgroup.stat().st_dev, self.cgroup.stat().st_ino
         self.expected_limit = expected_limit
         self.next_sample = 0.0
@@ -599,7 +601,7 @@ class DomainMemoryGuard:
         self.check("pre-launch", force=True)
 
     @staticmethod
-    def resolve_cgroup(group_text=None, mountinfo=None):
+    def resolve_cgroup(group_text=None, mountinfo=None, process_id=None):
         # Optional text seams exist only for host counters; CLI never accepts a path override.
         group_text = Path("/proc/self/cgroup").read_text() if group_text is None else group_text
         mountinfo = Path("/proc/self/mountinfo").read_text() if mountinfo is None else mountinfo
@@ -607,6 +609,7 @@ class DomainMemoryGuard:
         if len(groups)!=1 or not groups[0].startswith("/") or ".." in Path(groups[0]).parts:
             raise RuntimeError("DOMAIN_MEMORY_OWN_CGROUP_UNPROVEN")
         group = Path(groups[0]);candidates = set()
+        process_id = os.getpid() if process_id is None else process_id
         for line in mountinfo.splitlines():
             left, separator, right = line.partition(" - ")
             if not separator or right.split()[0] != "cgroup2":
@@ -620,10 +623,51 @@ class DomainMemoryGuard:
             for path in possible:
                 if path.resolve() == path and (path / "cgroup.procs").is_file():
                     pids = (path / "cgroup.procs").read_text().split()
-                    if str(os.getpid()) in pids: candidates.add(path)
+                    if str(process_id) in pids: candidates.add(path)
         if len(candidates) != 1:
             raise RuntimeError("DOMAIN_MEMORY_OWN_CGROUP_UNPROVEN")
         return candidates.pop()
+
+    @staticmethod
+    def resolve_budget(task, expected_limit, mountinfo=None):
+        mountinfo = Path("/proc/self/mountinfo").read_text() if mountinfo is None else mountinfo
+        choices = []
+        for line in mountinfo.splitlines():
+            left, sep, right = line.partition(" - ")
+            if not sep or right.split()[0] != "cgroup2":continue
+            fields = left.split();decode=lambda s:re.sub(r"\\([0-7]{3})",lambda m:chr(int(m[1],8)),s)
+            mount_root,mounted=Path(decode(fields[3])),Path(decode(fields[4]))
+            if task.resolve()!=task or not task.is_relative_to(mounted):continue
+            kernel_task=mount_root/task.relative_to(mounted)
+            scope=next((p for p in (kernel_task,*kernel_task.parents)
+                        if re.fullmatch("libpod-[0-9a-f]{64}[.]scope",p.name)),None)
+            if scope is None:continue  # Never inspect an unproven host-global budget.
+            finite=[];path=task
+            while path.is_relative_to(mounted):
+                kernel_path=mount_root/path.relative_to(mounted)
+                if not kernel_path.is_relative_to(scope):break
+                with os.fdopen(os.open(path/"memory.max",os.O_RDONLY|os.O_NOFOLLOW))as stream:
+                    value=stream.read(64).strip()
+                if value!="max":
+                    if not value.isdecimal():raise RuntimeError("DOMAIN_MEMORY_COUNTER_INVALID")
+                    finite.append((int(value),path))
+                if path==mounted:break
+                path=path.parent
+            if not finite:continue
+            effective=min(n for n,path in finite)
+            if effective!=expected_limit:raise RuntimeError("DOMAIN_MEMORY_LIMIT_MISMATCH")
+            # Highest equal budget covers the actual own-container charging scope.
+            choices.append(next(path for n,path in reversed(finite)if n==effective))
+        if len(set(choices))!=1:raise RuntimeError("DOMAIN_MEMORY_OWN_BUDGET_UNPROVEN")
+        return choices[0]
+
+    def task_membership(self):
+        info=self.task_cgroup.stat()
+        if self.task_cgroup.resolve()!=self.task_cgroup or (info.st_dev,info.st_ino)!=self.task_identity:
+            raise RuntimeError("DOMAIN_MEMORY_TASK_CGROUP_CHANGED")
+        with os.fdopen(os.open(self.task_cgroup/"cgroup.procs",os.O_RDONLY|os.O_NOFOLLOW))as stream:
+            values=stream.read(4097).split()
+        if str(os.getpid())not in values:raise RuntimeError("DOMAIN_MEMORY_OWN_CGROUP_UNPROVEN")
 
     def read_counter(self, name):
         actual = self.cgroup.stat()
@@ -636,8 +680,7 @@ class DomainMemoryGuard:
         return text.strip()
 
     def sample(self, phase):
-        if str(os.getpid()) not in self.read_counter("cgroup.procs").split():
-            raise RuntimeError("DOMAIN_MEMORY_OWN_CGROUP_UNPROVEN")
+        self.task_membership()
         def number(name):
             value = self.read_counter(name)
             if not value.isdecimal():raise RuntimeError("DOMAIN_MEMORY_COUNTER_INVALID")
@@ -662,7 +705,9 @@ class DomainMemoryGuard:
             if any(measured[k] != pinned[k] for k in ("pid","birth","uid","pgid","cgroup")):
                 raise RuntimeError("DOMAIN_MEMORY_WORKER_CHANGED")
             own.append({"role":pinned["role"],**measured,"returncode":None})
+        self.task_membership()
         return {"scope":"ACTUAL_OWN_CGROUP_AND_OWN_PROCESS_RSS_NO_DEVICE_VERDICT",
+                "taskCgroupPath":str(self.task_cgroup),"budgetCgroupPath":str(self.cgroup),
                 "phase":phase,"epochNs":time.time_ns(),"monotonicNs":time.monotonic_ns(),
                 "currentBytes":current,"maxBytes":limit,"peakBytes":number("memory.peak"),
                 "events":events,"ownRssBytes":own,"controller":self.hold.process_birth(os.getpid(), memory=True),

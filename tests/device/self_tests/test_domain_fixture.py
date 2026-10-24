@@ -311,6 +311,26 @@ class DomainFixtureTest(unittest.TestCase):
             waiter.join(timeout=2);self.assertFalse(waiter.is_alive());self.assertTrue(hold.released)
             self.assertEqual("DOMAIN_MEMORY_OWN_CGROUP_UNPROVEN",str(failure.exception))
 
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Linux parent memory budget mapping")
+    def test_memory_parent_budget_with_unbounded_task_leaf_uses_owned_container_scope(self):
+        spec=importlib.util.spec_from_file_location("domain_parent_budget_counter",CONTROLLER)
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory()as temporary:
+            mounted=Path(temporary);scope=mounted/("libpod-"+"a"*64+".scope");scope.mkdir();leaf=scope/"container";leaf.mkdir()
+            (mounted/"cgroup.procs").write_text("999999999");(scope/"cgroup.procs").write_text("");(leaf/"cgroup.procs").write_text(str(os.getpid()))
+            (leaf/"memory.max").write_text("max");(scope/"memory.max").write_text(str(6*1024**3))
+            info=f"20 19 0:1 / {mounted} rw - cgroup2 cgroup rw"
+            task=module.DomainMemoryGuard.resolve_cgroup("0::/"+scope.name+"/container\n",info)
+            self.assertEqual(leaf,task);self.assertEqual(scope,module.DomainMemoryGuard.resolve_budget(task,6*1024**3,info))
+            private_info=f"20 19 0:1 /{scope.name} {scope} rw - cgroup2 cgroup rw"
+            self.assertEqual(scope,module.DomainMemoryGuard.resolve_budget(leaf,6*1024**3,private_info))
+            (scope/"memory.max").write_text("max")
+            with self.assertRaisesRegex(RuntimeError,"OWN_BUDGET_UNPROVEN"):
+                module.DomainMemoryGuard.resolve_budget(task,6*1024**3,info)
+            (scope/"memory.max").write_text(str(3*1024**3))
+            with self.assertRaisesRegex(RuntimeError,"LIMIT_MISMATCH"):
+                module.DomainMemoryGuard.resolve_budget(task,6*1024**3,info)
+
     def online_noop_fixture(self):
         """Use the exact nested source with real private children and HTTP /id.
 
