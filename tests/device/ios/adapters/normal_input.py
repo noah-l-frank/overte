@@ -40,6 +40,7 @@ from ios.adapters.places_controls import (PROFILES as PLACES_PROFILES,metadata a
     control_id as places_control,text as places_text,FIELDS as PLACES_FIELDS)
 from ios.adapters.navigation_dialog_controls import IDS as ERROR_IDS,metadata as error_metadata
 from ios.adapters.tablet_web_buttons import IDS as TABLET_APP_IDS,metadata as tablet_app_metadata
+from ios.adapters.assets_controls import control_id as asset_control,metadata as asset_metadata,inventory as asset_inventory
 
 CONTROLS = frozenset({'hud.goto', 'hud.tablet', 'address.field', 'address.go',
     'address.cancel', 'address.back', 'tablet.home', 'tablet.close', 'tablet.places',
@@ -71,6 +72,10 @@ def observation(value, pid, now_ms=None):
     now_ms = time.time() * 1000 if now_ms is None else now_ms
     fields = {'schemaVersion', 'instance', 'frameSpace', 'processId', 'sampleEpochMs',
               'elapsedMs', 'lastSequence', 'tabletShown', 'ready', 'controls'}
+    if type(value) is dict and 'assetControlsVersion' in value:
+        if type(value['assetControlsVersion']) is not int or value['assetControlsVersion']!=1:
+            raise NativeUIError('Native iOS Assets source version is invalid')
+        asset_inventory(value.get('assetInventory'),pid=pid);fields|={'assetControlsVersion','assetInventory'}
     if type(value) is dict and 'navigationInventory' in value:
         from ios.adapters.navigation_ui import validate as navigation_inventory
         navigation_inventory(value['navigationInventory']);fields.add('navigationInventory')
@@ -188,7 +193,12 @@ def observation(value, pid, now_ms=None):
         is_chat=type(control) is dict and type(control.get('id')) is str and control['id'].startswith('chat.')
         is_places=type(control) is dict and control.get('profile') in PLACES_PROFILES.values()
         is_error=type(control) is dict and control.get('id') in ERROR_IDS
-        if type(control) is dict and control.get('id') in TABLET_APP_IDS:
+        is_asset=type(control) is dict and asset_control(control.get('id'))
+        if is_asset:
+            if value.get('assetControlsVersion')!=1:raise NativeUIError('Native iOS Assets source is missing')
+            asset_metadata(control.get('assetControl'));fields.add('assetControl')
+            if control['assetControl']['controlId']!=control['id']:raise NativeUIError('Native iOS Assets control identity differs')
+        elif type(control) is dict and control.get('id') in TABLET_APP_IDS:
             if value.get('tabletAppControlsVersion')!=1:raise NativeUIError('Native iOS Tablet app source is missing')
             tablet_app_metadata(control.get('tabletAppButton'));fields.add('tabletAppButton')
             if control['id']!='tablet-web-app.'+control['tabletAppButton']['verb']:raise NativeUIError('Native iOS Tablet app control identity differs')
@@ -248,7 +258,7 @@ def observation(value, pid, now_ms=None):
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
-                or not (control['id'] in CONTROLS or control['id'] in TABLET_APP_IDS or control['id'] in SNAPSHOT_EXPORT_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id'] in VIEW_IDS or control['id']==REMEMBER_ID or is_create and create_control(control['id']) or is_chat and chat_control(control['id']) or is_places and places_control(control['id']) or is_error or is_avatar and avatar_control(control['id']) or is_emote and emote_control(control['id'])) or control['id'] in seen
+                or not (control['id'] in CONTROLS or control['id'] in TABLET_APP_IDS or control['id'] in SNAPSHOT_EXPORT_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id'] in VIEW_IDS or control['id']==REMEMBER_ID or is_asset or is_create and create_control(control['id']) or is_chat and chat_control(control['id']) or is_places and places_control(control['id']) or is_error or is_avatar and avatar_control(control['id']) or is_emote and emote_control(control['id'])) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')
@@ -441,6 +451,22 @@ class NativeInput:
         original=reference['scope']
         return self.deliver(dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=original['instance'],
             sequence=original['sequence']+1,observedElapsedMs=original['elapsedMs'],fieldToken=row['token'],operation='activate'))
+
+    def assets_input(self,identifier,action,*,reference,text=None,before_send=None):
+        from ios.adapters.assets_controls import project,same_reference,folder
+        if action not in ('activate','replace','submit') or not asset_control(identifier):
+            raise NativeUIError('Native iOS Assets input is invalid')
+        row=same_reference(reference,project(self.capture()),identifier)
+        if not row['enabled']:raise NativeUIError('Native iOS Assets control is disabled')
+        if action!='activate' and (identifier!='asset-file.folder' or not row['focused']):
+            raise NativeUIError('Native iOS Assets folder input lacks actual focus')
+        if action=='replace':folder(text)
+        elif text is not None:raise NativeUIError('Native iOS Assets input has unexpected text')
+        scope=reference['scope'];command=dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=scope['instance'],
+            sequence=scope['lastSequence']+1,observedElapsedMs=scope['elapsedMs'],fieldToken=row['token'],operation=action)
+        if action=='replace':command['text']=text
+        if before_send is not None and not callable(before_send):raise NativeUIError('Native iOS Assets intent callback is invalid')
+        return self.deliver(command,before_send=None if before_send is None else lambda:before_send(deepcopy(command)))
 
     def snapshot_export_input(self,identifier,*,reference):
         from ios.adapters.snapshot_export_controls import project,same_reference

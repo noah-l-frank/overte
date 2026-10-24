@@ -32,6 +32,9 @@
 #include <OffscreenUi.h>
 #include <UserActivityLogger.h>
 #include "WarningsSuppression.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include "../../../tests/device/native/IOSAssetUploadWork.h"
+#endif
 
 static const int AUTO_REFRESH_INTERVAL = 1000;
 
@@ -135,7 +138,13 @@ void AssetMappingsScriptingInterface::uploadFile(QString path, QString mapping, 
     });
 
     auto upload = DependencyManager::get<AssetClient>()->createUpload(path);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    overte::e2e::IOSAssetUploadWork::shared().upload(upload,{path});
+#endif
     QObject::connect(upload, &AssetUpload::finished, this, [=, this](AssetUpload* upload, const QString& hash) mutable {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        const overte::e2e::IOSAssetUploadWork::Body originalUploadBody(upload);
+#endif
         if (upload->getError() != AssetUpload::NoError) {
             if (completedCallback.isCallable()) {
                 QJSValueList args { upload->getErrorString() };
@@ -171,7 +180,13 @@ QString AssetMappingsScriptingInterface::uploadBundle(QStringList paths, QString
     if (!destination.endsWith('/')) destination.append('/');
     state->destination = destination;
     _bundleUploads.insert(state->id, state);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    overte::e2e::IOSAssetUploadWork::shared().bundle(state->id,state,state->files);
+#endif
     QTimer::singleShot(0, this, [this, state] {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        const overte::e2e::IOSAssetUploadWork::Body originalBundlePreparation(state->id);
+#endif
         QList<QUrl> files;
         for (const auto& path : state->files) files.append(QUrl::fromLocalFile(path));
         const auto safe = [](const QString& path) {
@@ -222,6 +237,10 @@ bool AssetMappingsScriptingInterface::cancelUploadBundle(const QString& requestI
 
 void AssetMappingsScriptingInterface::finishBundle(const std::shared_ptr<BundleUpload>& state, const QString& error) {
     if (!_bundleUploads.remove(state->id)) return;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    const overte::e2e::IOSAssetUploadWork::Body originalBundleCompletion(state->id);
+    overte::e2e::IOSAssetUploadWork::shared().terminal(state->id);
+#endif
     if (state->completed.isCallable()) {
         QJsonArray paths;
         for (const auto& path : state->published) paths.append(path);
@@ -231,6 +250,9 @@ void AssetMappingsScriptingInterface::finishBundle(const std::shared_ptr<BundleU
 }
 
 void AssetMappingsScriptingInterface::advanceBundle(const std::shared_ptr<BundleUpload>& state) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    const overte::e2e::IOSAssetUploadWork::Body originalBundleAdvance(state->id);
+#endif
     if (!_bundleUploads.contains(state->id)) return;
     if (state->canceled) { finishBundle(state, "Upload canceled."); return; }
     if (!DependencyManager::get<NodeList>()->getThisNodeCanWriteAssets()) { finishBundle(state, "Asset write permission was revoked."); return; }
@@ -244,8 +266,14 @@ void AssetMappingsScriptingInterface::advanceBundle(const std::shared_ptr<Bundle
     if (!DependencyManager::get<NodeList>()->getThisNodeCanWriteAssets()) { finishBundle(state, "Asset write permission was revoked."); return; }
     if (!state->publishing) {
         auto* upload = DependencyManager::get<AssetClient>()->createUpload(state->files[state->index]);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        overte::e2e::IOSAssetUploadWork::shared().upload(upload,{state->files[state->index]});
+#endif
         connect(upload, &AssetUpload::finished, upload, &QObject::deleteLater);
         connect(upload, &AssetUpload::finished, this, [this, state](AssetUpload* upload, const QString& hash) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+            const overte::e2e::IOSAssetUploadWork::Body originalUploadBody(upload);
+#endif
             const auto error = upload->getErrorString();
             if (!error.isEmpty() || !QRegularExpression("^[a-fA-F0-9]{64}$").match(hash).hasMatch()) {
                 finishBundle(state, error.isEmpty() ? "Invalid uploaded asset hash." : error); return;
@@ -260,6 +288,9 @@ void AssetMappingsScriptingInterface::advanceBundle(const std::shared_ptr<Bundle
         auto* request = DependencyManager::get<AssetClient>()->createSetMappingRequest(mapping, state->hashes[state->index]);
         connect(request, &SetMappingRequest::finished, request, &QObject::deleteLater);
         connect(request, &SetMappingRequest::finished, this, [this, state](SetMappingRequest* request) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+            const overte::e2e::IOSAssetUploadWork::Body originalMappingBody(state->id);
+#endif
             const auto error = request->getErrorString();
             if (error.isEmpty()) state->published.append(request->getPath());
             if (!error.isEmpty()) { finishBundle(state, error); return; }

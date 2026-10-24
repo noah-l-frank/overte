@@ -1454,6 +1454,32 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-assets-files") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && typeof command.ticket === "string" && /^[0-9a-f]{32}$/.test(command.ticket) && command.ticket.length === 32
+                    && typeof command.ownerToken === "string" && /^[0-9a-f]{64}$/.test(command.ownerToken) && command.ownerToken.length === 64
+                    && ["gltf-bundle/main.gltf","obj-bundle/main.obj","asset-stand.fbx"].indexOf(command.resource) !== -1
+                    && ["stage","observe","retire-primary","release"].indexOf(command.operation) !== -1
+                    && (command.operation !== "stage" || command.files && typeof command.files === "object" && !Array.isArray(command.files))
+                    && (["retire-primary","release"].indexOf(command.operation) === -1 || Array.isArray(command.originals))
+                    && JSON.stringify(command).length <= 131072
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId","ticket","ownerToken","resource","operation"].concat(
+                        command.operation === "stage" ? ["files"] : ["retire-primary","release"].indexOf(command.operation) !== -1 ? ["originals"] : []))) {
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourceAssetsFiles={iosAssetsFilesVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSAssetsFiles === "function") {
+                        var originalAssetsFiles=Test.featureIOSAssetsFiles(command);
+                        if (originalAssetsFiles && originalAssetsFiles.requestId === command.commandId) { sourceAssetsFiles=originalAssetsFiles; }
+                    }
+                } catch (_AssetsFilesError) { /* Original unavailable remains consumed, including uncertain storage input. */ }
+                Test.saveObject(sourceAssetsFiles,"feature-ios-assets-files.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-create-files") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36

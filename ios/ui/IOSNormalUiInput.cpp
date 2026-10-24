@@ -36,6 +36,9 @@
 #include "../../tests/device/native/IOSSnapshotExportControls.h"
 #include "../../tests/device/native/IOSSnapshotCaptureControls.h"
 #include "../../tests/device/native/IOSTabletAppButtonsObservation.h"
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include "../../tests/device/native/IOSAssetUiInventory.h"
+#endif
 #endif
 #include "../../tests/device/native/NormalNavigationErrorControls.h"
 #include "../../tests/device/native/AccountPreferenceObservation.h"
@@ -68,6 +71,11 @@ QRectF visibleBounds(QQuickItem* item) {
 
 QString identify(QQuickItem* item, bool hud, bool fileAllowed) {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (fileAllowed) {
+        const auto asset=overte::e2e::asset_ui::control(item);if (!asset.isEmpty()) {return asset;}
+    }
+#endif
     const auto tabletApp=overte::e2e::tablet_app_buttons::controlId(item);
     if (!hud && fileAllowed && !tabletApp.isEmpty()) {return tabletApp;}
     const auto snapshot=overte::e2e::snapshotExportControlId(item);
@@ -300,6 +308,12 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                 auto source = overte::e2e::scriptFileControlSource(node);
                 if (source.isEmpty()) { source = overte::e2e::scriptRowSource(node); }
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+                if (id.startsWith("assets.") || id.startsWith("asset-file.")) {
+                    source=overte::e2e::asset_ui::source(node);
+                    if (source.isEmpty()) {ambiguous=true;return;}
+                }
+#endif
                 if (id.startsWith("tablet-web-app.")) {
                     source=overte::e2e::tablet_app_buttons::controlSource(node);
                     if (source.isEmpty()) {ambiguous=true;return;}
@@ -381,7 +395,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         for (const auto& id : controls.keys()) {
             if (id.startsWith(QStringLiteral("tablet.")) || id.startsWith(QStringLiteral("places."))
                     || id.startsWith(QStringLiteral("snapshot.")) || id.startsWith(QStringLiteral("scripts."))
-                    || id.startsWith(QStringLiteral("script-file.")) || id.startsWith("tablet-web-app.") || id.startsWith("chat.") || id.startsWith("create.") || id.startsWith("audio.") || id.startsWith("graphics.") || id == "settings.entry") {
+                    || id.startsWith(QStringLiteral("script-file.")) || id.startsWith("assets.") || id.startsWith("asset-file.") || id.startsWith("tablet-web-app.") || id.startsWith("chat.") || id.startsWith("create.") || id.startsWith("audio.") || id.startsWith("graphics.") || id == "settings.entry") {
                 controls.remove(id);
             }
         }
@@ -400,6 +414,15 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
             if (!id.startsWith(QStringLiteral("script-file."))) { controls.remove(id); }
         }
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    bool assetFileModal=false;
+    for (const auto& id:controls.keys()) {assetFileModal=assetFileModal || id.startsWith("asset-file.");}
+    if (assetFileModal) {
+        for (const auto& id:controls.keys()) {if (!id.startsWith("asset-file.")) {controls.remove(id);}}
+    }
+#endif
+#endif
     if (controls.size() > 384) { ambiguous = true; }
     if (ambiguous) { controls.clear(); }
     _controls = controls;
@@ -418,6 +441,11 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         overte::e2e::appendScriptControlObservation(row, control.item, id);
         overte::e2e::appendScriptFileObservation(row, control.item, id);
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+        if (id.startsWith("assets.") || id.startsWith("asset-file.")) {
+            row["assetControl"]=overte::e2e::asset_ui::metadata(control.item);
+        }
+#endif
         if (id.startsWith("tablet-web-app.")) {
             row["tabletAppButton"]=QJsonObject::fromVariantMap(overte::e2e::tablet_app_buttons::control(control.item));
         }
@@ -474,6 +502,10 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
 #if defined(Q_OS_IOS)
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    result["assetControlsVersion"]=1;
+    result["assetInventory"]=overte::e2e::IOSAssetUiInventory::shared().read({hud,tablet});
+#endif
     result["loginRootOwnership"]=loginInventory.observation(inventoryComplete);
     result["tabletAppControlsVersion"]=1;
     result["snapshotExportControlsVersion"]=1;
@@ -536,6 +568,12 @@ bool NormalUiInput::press(const QString& controlId, const QString& token) {
     auto control = item(controlId, token);
     if (!control || !enabled(control)) { return false; }
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (controlId.startsWith("assets.") || controlId.startsWith("asset-file.")) {
+        if (overte::e2e::asset_ui::control(control)!=controlId || overte::e2e::asset_ui::source(control)!=_controls.value(controlId).source
+                || !overte::e2e::NormalControlUi::ownsPoint(control,control->window(),control->mapToScene(QPointF(control->width()/2,control->height()/2)))) {return false;}
+    }
+#endif
     if (controlId.startsWith("tablet-web-app.")) {
         if (overte::e2e::tablet_app_buttons::controlId(control)!=controlId
                 || overte::e2e::tablet_app_buttons::controlSource(control)!=_controls.value(controlId).source
@@ -663,6 +701,25 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
     // original token resolves the item; no desired entity state is accepted.
     observe(_hud,_tablet,_tabletShown);
 #if defined(Q_OS_IOS)
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
+        const auto identifier=it.key();auto target=it.value().item;
+        if (it.value().token!=fieldToken || (!identifier.startsWith("assets.") && !identifier.startsWith("asset-file."))) {continue;}
+        if (!target || !enabled(target) || overte::e2e::asset_ui::control(target)!=identifier
+                || overte::e2e::asset_ui::source(target)!=it.value().source) {return result;}
+        if (action=="activate") {result["performed"]=press(identifier,fieldToken);}
+        else if (identifier=="asset-file.folder" && target->hasActiveFocus()) {
+            if (action=="replace" && command.value("text").isString()) {
+                const auto text=command.value("text").toString();
+                if (text.size()<=4096 && QRegularExpression("\\A/(?:[^/\\x00-\\x1f]+/)*feature-assets-[0-9a-f]{32}-[0-9a-f]{16}\\z").match(text).hasMatch()
+                        && !text.split('/').contains("..") && !text.split('/').contains(".")) {
+                    result["performed"]=overte::ui::replaceFocusedField(target,target->window(),text);
+                }
+            } else if (action=="submit") {result["performed"]=overte::ui::submitFocusedField(target,target->window());}
+        }
+        return result;
+    }
+#endif
     for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
         auto target=it.value().item;
         const auto identifier=it.key(); // press()/item() refresh the map; retain no key reference across that call.
