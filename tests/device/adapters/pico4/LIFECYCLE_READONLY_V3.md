@@ -36,8 +36,8 @@ bytes refuse. An originally returned foreign triple is retained before refusal.
 
 The existing complete Pending readonly/owner joins, original CAS/FS guards,
 actual call exit, native clocks and Host age checks remain. The readonly source
-adds a conservative128 completed-sample bound; its512 physical parts,16MiB
-physical and logical raw budgets, original file64KiB and all existing codec
+adds a conservative128 completed-sample bound; its512 child parts,16MiB
+unpacked-container and logical raw budgets, original file64KiB and all existing codec
 limits remain unchanged. The owner World128 continues counting its actual
 action/quiet acquisitions; no second mutating same-generation World is created.
 
@@ -68,12 +68,24 @@ identical before/after:
 | After original remaining Pending prefix | 85 |
 
 There are17 distinct fresh readonly triples and results,68 physical parts,
-84019 physical raw bytes and185042 logical original bytes. **85 owner triples
+84019 unpacked container bytes and185042 logical original bytes. **85 owner triples
 +17 readonly triples =102 actual physical triples**: the earlier102 total was
 not reduced or relabeled. The new source retains honest ownership and separate
 finite histories. The original owner reload succeeds with its exact last
 cursor after all readonly queries. Diagnostic originals and counters remain
 retained from construction.
+
+Byte-accounting clarification: `ChatSourceChunks.raw_bytes` is the unpacked
+transcript-container budget, not the sum of stored JSON files. A subsequent
+read-only measurement of the unchanged `lifecycle-editor-z3l5t02u` originals
+finds **119,083 actual stored bytes in 69 files**, including the manifest root
+and all 68 children. The original 84,019 container bytes and 185,042 logical
+original bytes remain different quantities. Detailed sizes are retained in
+`lifecycle-historical-stored-file-sizes.json`; no original was rewritten or
+observed again. New diagnostics name all three byte quantities explicitly.
+The 512-child, 16 MiB container/logical-raw and 64 KiB individual-file limits
+remain unchanged; an aggregate stored-byte measurement does not create a new
+protocol budget.
 
 Relevant unchanged v1/v2 cases passed **2/25.203s**,
 `lifecycle-readonly-legacy.log`, the same full source SHA: legacy shared-reader

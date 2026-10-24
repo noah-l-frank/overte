@@ -57,10 +57,13 @@ class LifecycleReadOnlyPrimaryTests(wait_fixture.LifecyclePrimaryWaitTests):
         self.assertIsNot(self.world.source,self.source.acquisition.source)
         report=dict(scope='private-readonly-primary',stages=self.frames,mutatingWorldFrames=len(self.world.state['frames']),
             readonlyTriples=consumed,totalPhysicalTriples=len(self.world.state['frames'])+consumed,
-            parts=len(self.source.disk['chunks']),physicalRawBytes=self.source.history.raw_bytes,
+            parts=len(self.source.disk['chunks']),containerRawBytes=self.source.history.raw_bytes,
+            actualStoredFileBytes=sum(path.stat().st_size for path in
+                [self.source.store.path,*[self.source.history._path(i) for i in range(len(self.source.disk['chunks']))]]),
+            actualFileCount=1+len(self.source.disk['chunks']),
             logicalOriginalBytes=source_bundles.logical_bytes(self.source.disk['bundles']))
         PrivateFeatureState(self.source.store.path.with_name('lifecycle-readonly-diagnostics.json')).write(report,None)
-        self.assertLessEqual(report['parts'],512);self.assertLessEqual(report['physicalRawBytes'],16*1024*1024)
+        self.assertLessEqual(report['parts'],512);self.assertLessEqual(report['containerRawBytes'],16*1024*1024)
         self.assertLessEqual(report['logicalOriginalBytes'],16*1024*1024);self.assertLessEqual(consumed,128)
         print('Actual readonly/owner acquisition bill: '+str(report),flush=True)
 
