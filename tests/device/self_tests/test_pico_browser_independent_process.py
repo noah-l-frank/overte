@@ -258,6 +258,15 @@ class PicoBrowserIndependentProcessTests(unittest.TestCase):
         vm=f.primary.vm_cache;old_scripts=vm.scripts.sequence;old_frame=vm.frame(-1)
         inputs=sum(row['operation']=='input' for row in f.target.command_log)
         source=f.primary.archive_release_source()
+        # Public inspection returns independent lossless historical copies.
+        # Mutating a returned dictionary must never rewrite admitted originals.
+        original=source.admission();inspection=source.admission()
+        inspection['owner']['ownerToken']='0'*32
+        source.owner.clear();source.state.clear();source.proofs.clear()
+        self.assertEqual(original,source.admission())
+        source.control()
+        self.assertEqual(old_scripts,vm.scripts.sequence)
+        self.assertEqual(old_capture,capture.reader.sequence)
         with f.primary.lock.held():
             proof=source();source.final(proof);source.current_phase(proof)
         self.assertGreater(proof['frame']['scripts']['sequence'],old_scripts)
@@ -269,6 +278,20 @@ class PicoBrowserIndependentProcessTests(unittest.TestCase):
         self.assertTrue(all(row['store'].path.exists() for row in capture.catalog.rows.values()))
         self.assertTrue(owner.close_host())
         with self.assertRaises(NativeUIError):f.primary.finalize()
+
+    def test_archive_source_replaced_original_fact_tuple_refuses_before_any_new_query(self):
+        owner=self.original_return();f=self.f;f.primary.retire_returned_actor_captures(owner)
+        source=f.primary.archive_release_source();before=len(self.batches)
+        sequence=source.vm.scripts.sequence;original=source.facts
+        # Equal replacement cannot become a newly admitted historical graph.
+        source.facts=tuple(list(original));self.assertIsNot(source.facts,original)
+        with self.assertRaises(NativeUIError):source()
+        self.assertTrue(source.failed);self.assertEqual(before,len(self.batches))
+        self.assertEqual(sequence,source.vm.scripts.sequence)
+        self.assertIsNone(source.store.read())
+        self.assertTrue(all(row['store'].path.exists() for row in f.primary.remote_capture_retirement.catalog.rows.values()))
+        with self.assertRaises(NativeUIError):source()
+        self.assertEqual(before,len(self.batches));self.assertTrue(owner.close_host())
 
     def test_archive_source_uncertain_capture_reply_keeps_exact_intent_and_cannot_resend(self):
         owner=self.original_return();f=self.f;f.primary.retire_returned_actor_captures(owner)

@@ -39,3 +39,41 @@ Native/SDK/Qt/GPU/OS producers remain the declared analytical host seams.
 The three source cases alone do not qualify source archival, journal unlink,
 host closure, full common execute, application/APK or device behavior. The
 separate enclosing transaction records its own narrower host results.
+
+
+## Immutable historical admission
+
+The warm release source now validates the complete original admission with the
+strict JSON DTO validator once and retains its exact canonical bytes and a
+separately pinned tuple of original field bytes. All are immutable Python
+bytes; no mutable historical owner/role/proof graph remains authoritative.
+Existing inspection properties and `admission()` return independent lossless
+dictionary/list copies. Changing such a copy cannot change an admitted fact.
+Replacing the actual pinned tuple, even with equal values, refuses before any
+new source query and latches the owner. Scope and the existing mutable VM
+origin still receive complete strict comparisons on every control boundary.
+
+This replaces repeated serialization of approximately 481 kB of already
+consumed history. It never caches a new native answer, phase response, clock,
+physical file stamp or source cursor. The existing runtime guard receives the
+same original binding it actually checks; all live queries, pending intents,
+full physical journals and original deadlines remain in place. Persisted source
+version1, archive formats and the sixteen-unlinks/250ms policy are unchanged.
+
+Read-only measurement of the same retained 2,236-file historical tree reduces
+one actual release control from approximately 41 ms to 0.92–1.12 ms under the
+same profiler. All retained file stamps and hashes stay unchanged. This
+method-only measurement cannot query a target, unlink a journal or adopt the
+old failed live owner. Full profile output remains private as
+`browser-unlink-historical-profile-frozen-admission-20261024.*`.
+
+Fresh owning verification passes all four source cases in 36.536 s, including
+lossless inspection isolation, actual immutable-tuple replacement, uncertain
+capture/no-resend and landed-ready native-clock failure. The existing evidence
+archive selection passes in 27.605 s and host-close fences in 28.219 s. Each
+selection retains its complete 13,549-file source manifest unchanged, actual
+independent process and originals. Coverage stays green at 250 selectors.
+Evidence uses private `browser-frozen-admission-*20261024` records. No whole
+Journey is repeated or declared complete by these component checks. The last
+whole case still times out during source retirement; remaining physical
+inventory cost, complete host closure and public coordination remain open.

@@ -6,6 +6,7 @@ This observer neither unlinks a source nor grants complete feature cleanup.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import json
 import math
 import uuid
 
@@ -39,20 +40,27 @@ class PicoBrowserArchiveReleaseSource:
         self.parent=parent_node(self.store);self.previous=None;self.root_stamp=None;self.previous_sha=json_digest(None)
         self.failed=False;self.frozen=False;self.last=None;self.started=self.epoch=None;self.last_sha=None
         with primary.lock.held():
-            self.owner=deepcopy(primary.owner());self.state=primary.role_state()
-            self.history=primary.history_cache;self.history.matches(self.state)
-            self.vm=primary.vm_cache;self.vm.verify();self.anchor=self.vm.frame(-1)
-            self.inactive=deepcopy(captures.returned.graph.inactive['phaseAfter'])
-            self.phase(self.inactive,self.state['phase'])
-            need(self.owner['phase']=='cleaned' and self.state['publication'] is None
-                and self.state['quiet']['complete'] and self.state['native']['source']['retired'])
-            self.proofs=deepcopy(captures.proofs)
+            owner=deepcopy(primary.owner());role=primary.role_state()
+            self.history=primary.history_cache;self.history.matches(role)
+            self.vm=primary.vm_cache;self.vm.verify();anchor=self.vm.frame(-1)
+            inactive=deepcopy(captures.returned.graph.inactive['phaseAfter'])
+            need(owner['phase']=='cleaned' and role['publication'] is None
+                and role['quiet']['complete'] and role['native']['source']['retired'])
+            self.scope=dict(picoBrowserArchiveReleaseVersion=VERSION,runId=primary.run,fixtureUrl=primary.fixture_url,
+                binding=deepcopy(owner['binding']),ownerToken=owner['ownerToken'],
+                captureReceiptSha256=digest(self.capture_receipt),actorReturnSha256=digest(self.return_receipt))
+            original=dict(scope=self.scope,owner=owner,role=role,anchor=anchor,inactive=inactive,
+                origin=self.vm.origin,proofs=deepcopy(captures.proofs))
+            # These facts are historical and already consumed. Validate their
+            # complete strict JSON once, then keep only exact immutable bytes.
+            # Inspection copies can never mutate the admitted original graph.
+            json_digest(original)
+            self.admitted=canonical(original);self._sealed_admitted=self.admitted
+            self.facts=self._sealed_facts=tuple(canonical(original[key]) for key in
+                ('scope','owner','role','anchor','inactive','origin','proofs'))
+            self.phase(inactive,role['phase'])
             self.reader=primary.adapter._tablet_web_retired_captures_observer(primary.selector,self.proofs,primary.lock,primary.run)
-        self.scope=dict(picoBrowserArchiveReleaseVersion=VERSION,runId=primary.run,fixtureUrl=primary.fixture_url,
-            binding=deepcopy(self.owner['binding']),ownerToken=self.owner['ownerToken'],
-            captureReceiptSha256=digest(self.capture_receipt),actorReturnSha256=digest(self.return_receipt))
         self.chunks=ChatSourceChunks(self.store,self.scope);self.chunks.inventory(0)
-        self.admitted=canonical(self.admission());self._sealed_admitted=self.admitted
         send=self.reader.send
         def issued(command):
             need(self.previous is not None and self.previous['phase']=='reading' and self.previous['pending']['capture'] is None)
@@ -61,13 +69,30 @@ class PicoBrowserArchiveReleaseSource:
             self.clocks([self.epoch]);send(command)
         self.reader.send=issued
 
+    # Read copies preserve the existing dictionary/list grammar at semantic
+    # call boundaries. No caller receives a mutable authoritative admission.
+    @property
+    def owner(self):return json.loads(self.facts[1])
+    @property
+    def state(self):return json.loads(self.facts[2])
+    @property
+    def anchor(self):return json.loads(self.facts[3])
+    @property
+    def inactive(self):return json.loads(self.facts[4])
+    @property
+    def proofs(self):return json.loads(self.facts[6])
+
     def admission(self):
-        return dict(scope=self.scope,owner=self.owner,role=self.state,anchor=self.anchor,inactive=self.inactive,
-            origin=self.vm.origin,proofs=self.proofs)
+        return json.loads(self.admitted)
 
     def control(self):
-        json_digest(self.admission())
-        need(not self.failed and self.admitted is self._sealed_admitted and canonical(self.admission())==self.admitted
+        # Each sealed tuple member is an original immutable bytes object, not
+        # a cached validation of a live or mutable DTO. The two mutable live
+        # references in that original still get their full strict comparisons.
+        json_digest(self.scope);json_digest(self.vm.origin)
+        need(not self.failed and self.admitted is self._sealed_admitted
+            and self.facts is self._sealed_facts and type(self.facts) is tuple
+            and canonical(self.scope)==self.facts[0] and canonical(self.vm.origin)==self.facts[5]
             and json_digest(self.previous)==self.previous_sha
             and parent_node(self.store)==self.parent and same(self.store.read(),self.previous))
         if self.root_stamp is not None:need(state(self.store)[2]==self.root_stamp)
@@ -104,7 +129,7 @@ class PicoBrowserArchiveReleaseSource:
                 and proof['frame']['startedHost']==self.started and proof['frame']['startedEpoch']==self.epoch
                 and self.epochs is self._sealed_epochs)
             if expected_cursors is not None:need(same(expected_cursors,self.cursors()))
-            self.flow.runtime(self.owner);self.control();self.clocks(self.epochs)
+            self.flow.runtime(dict(binding=self.scope['binding']));self.control();self.clocks(self.epochs)
         except BaseException:self.failed=True;raise
 
     def current_phase(self,proof):

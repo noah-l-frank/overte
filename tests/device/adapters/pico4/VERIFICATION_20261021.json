@@ -5409,5 +5409,45 @@
       "Complete background lifecycle execution and honest retained-document observation schema",
       "Whole World feature qualification"
     ]
+  },
+  "browserImmutableAdmissionRoot20261024": {
+    "qualification": "Historical admission representation and existing archive-source/cleanup logic only; full Feature 7 remains partial.",
+    "sourceFiles": 13549,
+    "sourceFilesUnchangedDuringEachSelection": true,
+    "catalogSelectors": 250,
+    "newSelectors": 0,
+    "sourceSelectionSeconds": 36.536,
+    "sourceCases": 4,
+    "archiveSelectionSeconds": 27.605,
+    "hostCloseFenceSelectionSeconds": 28.219,
+    "privateEvidence": "/home/user/Documents/github/overte-pico-adapter-private-20261021/browser-frozen-admission-",
+    "historicalProfile": {
+      "files": 2236,
+      "allOriginalStampsAndHashesUnchanged": true,
+      "oldControlApproxSeconds": 0.041,
+      "newControlSeconds": [
+        0.0011204900220036507,
+        0.0009170509874820709,
+        0.0009241700172424316
+      ],
+      "qualification": "Read-only method-only historical cost; no live query or owner adoption."
+    },
+    "implementation": "Strict initial full JSON admission retained as exact immutable bytes and pinned field tuple; fresh mutable copies only at semantic/inspection boundaries. Current scope and VM origin remain strictly compared.",
+    "counterexamples": [
+      "Mutable inspection isolation without new query",
+      "Actual equal pinned-tuple replacement refuses before fresh query and cannot retry",
+      "Existing uncertain capture and final native-jump fences",
+      "Existing archive and host-close lost/late finalization fences"
+    ],
+    "unchanged": [
+      "Original source query and phase counts",
+      "Full physical file/namespace/copy checks",
+      "Final native and host clocks",
+      "16-unlinks/250ms and 120-second owning bounds",
+      "All persisted formats/versions"
+    ],
+    "wholeReexecuted": false,
+    "wholeSuccess": false,
+    "physicalRuns": 0
   }
 }
