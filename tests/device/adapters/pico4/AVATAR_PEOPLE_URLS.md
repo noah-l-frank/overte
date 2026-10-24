@@ -912,3 +912,32 @@ adoption, noncanonical Bookmark-byte restoration where needed, final owned
 retirement, complete Model/Renderer/EntityTree, Wearables, People/peer/stereo
 and device qualification. Neither callback markers nor fixture shutdown supply
 those missing qualifications.
+
+
+### Root integration verification
+
+Root reviewed all 18 changed files and selected `37889154ba` as
+`5cb418f92f`. Additive catalog reconciliation preserves all existing entries
+and all 14 risk rows: 266 to 267 selectors. The two native UI methods remain
+explicitly disjoint; the new AST partition check verifies both are selected
+once. The registry retains private quiet v1 reading alongside new v2.
+
+Fresh independent Root runs passed the written-data case in **32.699 s** and
+the affected strict no-op in **32.185 s**, concurrently with distinct temporary
+roots and the original 120-second outer limits. All **13,595** complete source
+hashes and physical signatures matched before/after terminal completion
+(**34.044 s** external elapsed). The four selected repository suites,
+13 coverage checks, explicit registry and synchronized inventory also pass.
+
+Private Root evidence lives under
+`/home/user/Documents/github/overte-pico-adapter-private-20261021`:
+`avatar-persistence-root-integration-20261024-result.json`, the matching
+source manifest, and both named selector log/JUnit pairs. Root did not set
+the optional `OVERTE_AVATAR_NATIVE_ARTIFACTS` variable: its successful native
+temporary stages were removed by the existing context manager. Their raw
+reports are therefore not claimed as retained Root originals. The agent's
+original reports, quiet journals and source freezes remain retained in
+`/home/user/Documents/github/overte-pico-avatar-original-persistence-owner-private-20261024/avatar-original-persistence-handoff.json`.
+There was no repeat solely to recreate those originals. This remains a host
+component integration, with the whole Parent/Actor/Model/retirement boundaries
+above still open.
