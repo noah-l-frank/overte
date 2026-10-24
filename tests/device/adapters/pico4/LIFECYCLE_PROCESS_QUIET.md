@@ -130,3 +130,43 @@ join needs an actual independently owned Actor pose/state source and original
 rendered image/surface evidence, original returned-window/cleanup consumption
 binding, final owned resource/file/IPC/archive/host closure and the public
 dispatcher. Until those exist together, whole capability stays unavailable.
+
+
+## Root integration verification and remaining clock proof
+
+Root reviewed all seven files and selected `f8172fda11` as `8368ca1736`.
+The four new selectors are additive: 275 to 279, retaining all 14 risk rows
+and all prior disjoint selector partitions. There is no registry/wire delta.
+
+All four actual Root cases pass with unchanged120-second per-case limits:
+normal sixteen actions/restart/twice-cleanup/new G1 window (63.067 s external),
+late Pending refusal (61.414 s), valid present old-PID refusal (54.152 s), and
+native+2000/fixed-host after real quiet outer exit (60.857 s). At most three
+cases ran concurrently in separate actual `/tmp` tmpfs roots. All **13,601**
+complete source hashes and physical signatures match before/after terminal
+completion (**115.748 s** external total). These are host logic checks with
+the declared native/kernel/Qt/physics/SDK and model clock producers, not a
+comparison of device performance.
+
+The same transparent Root driver retains constructor roots by suppressing
+only final temporary-directory disposal. Original input, journal, source,
+clock and ownership cleanup methods remain unchanged. Exact commands,
+original logs, per-case summaries and source/result manifests are retained
+as `lifecycle-process-quiet-root-20261024-*` under
+`/home/user/Documents/github/overte-pico-adapter-private-20261021`.
+
+The retained positive has13 fresh rows/sequences72–84,65 children and66 source
+files. Its actual container raw bytes56930/logical originals109646/stored
+bytes96987 remain separate quantities. Original G0 World126, G0 readonly71,
+Process13 and SDK count2 stay unchanged. The original window reports Drive
+native3000ms and modeled host3.0s.
+`lifecycle-process-quiet-root-historical-bill-20261024.json` records this
+historical-only file bill and full recorded proof; it creates no new authority.
+
+Root review identified a further proof boundary: the current private window
+checks Drive/host elapsed spans and observes UI/Pending absence in each row,
+but does not explicitly check each independent source's own full3000-ms span.
+A targeted valid cross-source offset/cadence counter and full per-source span
+validation are being developed separately. The four checks above do not prove
+that additional boundary, independent Actor/images, global callback absence,
+full Common execution or final cleanup. Whole capability remains unavailable.

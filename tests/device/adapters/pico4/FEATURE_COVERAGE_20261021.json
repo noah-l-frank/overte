@@ -1735,7 +1735,8 @@
         "tests/device/adapters/pico4/lifecycle_process_observation.py",
         "tests/device/adapters/pico4/LIFECYCLE_PROCESS_COORDINATOR.md",
         "tests/device/self_tests/test_lifecycle_operations_process.py",
-        "android/vr/pico/tests/device/test_lifecycle_primary_process.py"
+        "android/vr/pico/tests/device/test_lifecycle_primary_process.py",
+        "tests/device/adapters/pico4/LIFECYCLE_PROCESS_QUIET.md"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1780,7 +1781,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Consume genuine second idempotent cleanup and fresh G1 baseline/quiet in the same coordinator, then supply independentActor/image/surface and final resource/file/archive/IPC/Host retirement. Normal1\u201316\u2192once-only neutral SDK restart\u2192original FD transfer\u2192warm Process handoff\u2192fresh sequence72 is integrated as7856de1b0d. Root independently passes positive, real outer-exit clock/root refusal and canonical/legacy compatibility:11 cases, all13,600 source hashes/signatures unchanged. Actual G0 World126/128 and readonly71/128 remain frozen; Process13/64 and a separate new Source4 row1 are measured, without cursor/cap/clock reset. Earlier physical Process finalization18 remains separate evidence; full execute/public capability remains unavailable.",
+      "nextExecutableStep": "Add explicit full3000-ms and cadence proof for every original UI/Pending/Native/Presence/Domain time axis alongside Drive/host; then join independently owned Actor/pose and original stereo/surface plus final resource/file/archive/IPC/Host retirement. Same16\u2192restart\u2192twiceCleanup\u2192fresh sequences72\u201384 is integrated as8368ca1736; Root4 positive/refusal cases pass with all13,601 source hashes/signatures unchanged. Current private quiet measures Drive3000ms/host3.0s and per-row observed UI/Pending absence; cross-source offset counter remains under review. G0 World126/readonly71, Process13 and newSource4rows13 are measured separately with unchanged caps. Full execute/public capability remains unavailable.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }
