@@ -83,3 +83,18 @@ repository suites pass in 2.59 s; registry and whitespace pass. The complete
 during those functional selections. Documentation/audit updates follow in a
 separate final documentation check. No native compiler or whole Journey runs
 for this continuation; its declared native/Qt/V8 seams remain explicit.
+
+
+## Root integration check
+
+Root selected this packet as `e632456aef`, preserving its previously verified
+prepare final-exit and role-identity guards. All five new normal-close cases
+pass in 32.812 s; the three recovery, five navigation and nine initial-prefix
+cases pass in 11.971 s, 6.276 s and 1.961 s. Coverage passes in 0.094 s with all
+fourteen capability rows and 251 selectors. Complete tracked/new source hashes
+remain unchanged throughout the 53.11 s selection; original output is private
+under `world-web-normal-close-integration-*20261024`.
+
+The integrated sampler preserves the actual still-live weak VM resource after
+normal row disappearance. These passing tests therefore do not assert empty
+resources, full cleanup, missing steps15–19 or full Feature6 completion.

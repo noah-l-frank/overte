@@ -5449,5 +5449,43 @@
     "wholeReexecuted": false,
     "wholeSuccess": false,
     "physicalRuns": 0
+  },
+  "worldWebNormalCloseRoot20261024": {
+    "sourceCommit": "1daeb7ee0878792f5c28340dad81d069bf5948c4",
+    "integrationCommit": "e632456aef",
+    "privateEvidence": "/home/user/Documents/github/overte-pico-adapter-private-20261021/world-web-normal-close-integration-",
+    "qualification": "Normal14-step private prefix and cleanup-authorized Script Stop/TabletClose; no missing background steps or resource retirement substituted.",
+    "owningSelectionsSeconds": {
+      "normalCloseFiveCases": 32.812,
+      "recoveryThreeCases": 11.971,
+      "navigationFiveCases": 6.276,
+      "prefixNineCases": 1.961,
+      "coverageTenCases": 0.094
+    },
+    "catalogSelectors": 251,
+    "capabilityRows": 14,
+    "prefixVersion": 3,
+    "prefixReads": [
+      1,
+      2,
+      3
+    ],
+    "sourceFiles": 13552,
+    "sourceFilesUnchangedDuringTests": true,
+    "preserved": [
+      "Root true outer-exit prepare finalization and role guard",
+      "Old strict owner versions",
+      "Normal exact owned URL stop",
+      "Original stopped diagnostic persisted before final CAS",
+      "No cold replay of uncertain closing",
+      "Actual VM resource survives when weak owners remain alive"
+    ],
+    "remaining": [
+      "Background lifecycle replacement proof",
+      "Actual independent Actor/stereo binding",
+      "VM/Qt/V8/entity/render/resource quiet retirement",
+      "Original journal/archive and host closure",
+      "Whole public Feature6 capability"
+    ]
   }
 }
