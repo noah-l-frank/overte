@@ -2076,8 +2076,8 @@ def create_adapter(args, base_class):
             store._parent()
             for index,path in enumerate(store.path.parent.iterdir()):
                 _need(index<4096)
-                if path.name in ('lifecycle-primary-observation.json','lifecycle-primary-operations.json') or any(
-                        path.name.startswith(name+'.frame-') for name in ('lifecycle-primary-observation.json','lifecycle-primary-operations.json')):return True
+                if path.name in ('lifecycle-primary-observation.json','lifecycle-primary-operations.json','lifecycle-primary-process-observation.json') or any(
+                        path.name.startswith(name+'.frame-') for name in ('lifecycle-primary-observation.json','lifecycle-primary-operations.json','lifecycle-primary-process-observation.json')):return True
             return False
 
         @_private
@@ -2363,12 +2363,26 @@ def create_adapter(args, base_class):
             self._script_journey()._lock(target,source.lock)
             native=self._native_feature_observer(target);native.guard()
             _need(native.pid==source.pid and self.require_pico_session_identity(target)==source.world.identity)
+            def restart(operations):
+                from adapters.pico4.lifecycle_restart_runtime import PicoLifecycleRestartRuntime
+                from adapters.pico4.chat_restart_io import PicoChatRestartIO
+                io=PicoChatRestartIO(self,target,source.binding,monotonic=source.world.monotonic,sleep=source.world.sleep)
+                try:
+                    return PicoLifecycleRestartRuntime(operations,io,self._native_feature_observer(target),
+                        lambda:self._lifecycle_process_observe(target,run,owner=source.restore.process))
+                except BaseException:io.close_host();raise
+            def cleanup_source(operations,handoff):
+                from adapters.pico4.lifecycle_process_observation import PicoLifecycleProcessObservation
+                binding=handoff['binding'];pending=self._pending_owner(target,binding=binding)
+                return PicoLifecycleProcessObservation(operations,operations.runtime,pending,
+                    source.world.store.path.with_name('lifecycle-primary-process-observation.json'))
             return PicoLifecycleOperations(source,phases,source.world.store.path.with_name('lifecycle-primary-operations.json'),factories=dict(
                 chat=lambda _fence:self._lifecycle_chat_editor(target,run,source_lock=source.lock,joined=source.restore.joined),
                 background=lambda fence:self._lifecycle_background_owner(target,run,source_lock=source.lock,world=source.world,phase_fence=fence),
                 pending=lambda fence:self._lifecycle_pending_owner(target,run,source_lock=source.lock,world=source.world,
                     background=source.background,phase_fence=fence),
-                close=lambda _fence:self._lifecycle_close_owner(target,run,pending=source.pending)))
+                close=lambda _fence:self._lifecycle_close_owner(target,run,pending=source.pending),
+                restart=restart,cleanup_source=cleanup_source))
 
         @_private
         def _lifecycle_restore_restart(self,target,run,*,restore):
