@@ -2038,7 +2038,7 @@ def create_adapter(args, base_class):
             store._parent()
             for index,path in enumerate(store.path.parent.iterdir()):
                 _need(index<4096)
-                if path.name=='lifecycle-restore-owner.json':return True
+                if path.name in ('lifecycle-restore-owner.json','lifecycle-process-owner.json','lifecycle-restart-inputs.json') or path.name.startswith('lifecycle-process-owner.json.pending-'):return True
             return False
 
         def _lifecycle_observation_owned(self,target):
