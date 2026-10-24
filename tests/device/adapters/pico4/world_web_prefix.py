@@ -27,6 +27,7 @@ import hashlib
 from adapters.script_journey.history import same,pack,unpack
 from feature_journeys.contract import arguments,result,identifier
 from feature_journeys.fixtures import context as fixture_context
+from feature_journeys.witness import projection
 from feature_journeys.phase_fixture import PhaseFixtureReader,PhasePending,validate as phase_packet
 from feature_journeys.scenarios import SCENARIOS,VERSION as CONTRACT_VERSION,expand
 
@@ -34,6 +35,50 @@ VERSION=3
 READS=(1,2,3)
 LIMIT=len(SCENARIOS['world-web']['steps'])
 INPUT_LIMIT=14  # Closed v16 grammar; only this original prefix is executable.
+
+
+def validate_owner(value,run,url,*,version=VERSION):
+    need(type(version) is int and version in READS);limit=3 if version==1 else LIMIT
+    exact(value,{'binding','ownerToken','phase','fixture','completed','active','reserved','scriptUrl','inputs'})
+    context(value['binding']);identifier(value['ownerToken'])
+    closing=version>=3 and value['phase'] in ('closing','source-stopped')
+    need(value['phase'] in (('preparing','ready','acting','closing','source-stopped') if version>=3 else ('preparing','ready','acting')) and type(value['reserved']) is bool
+        and type(value['completed']) is list and len(value['completed'])<=limit and type(value['inputs']) is list and len(value['inputs'])<=256
+        and (value['active'] is not None)==(value['phase'] in ('acting','closing')))
+    phase=value['fixture'];phase_packet(phase,run=run,area='world-web',request=phase['requestId'],epoch=phase['capturedEpochMs'])
+    need(phase['active'] and phase['activations'][0]['stimulus']==dict(verb='baseline',inputs={}))
+    tickets=[]
+    for index,call in enumerate(value['completed']+([value['active']] if value['phase']=='acting' else [])):
+        parsed=arguments('feature.world-web.act',call);step=SCENARIOS['world-web']['steps'][index]
+        need(index<limit and parsed['runId']==run and parsed['fixtureUrl']==url
+            and same(dict(verb=parsed['verb'],inputs=parsed['inputs']),dict(verb=step['verb'],inputs=expand(step['inputs'],fixture_context(run)))))
+        original=phase['activations'][index+1]
+        need(original['ticket']==parsed['ticket'] and same(original['stimulus'],dict(verb=parsed['verb'],inputs=parsed['inputs'])))
+        tickets.append(parsed['ticket'])
+    need(len(tickets)==len(set(tickets)) and len(phase['activations'])==len(tickets)+(2 if closing else 1))
+    if closing:
+        need(bool(value['completed']) and phase['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+        if value['phase']=='source-stopped':
+            need(value['inputs'] and value['inputs'][-1]['complete'])
+            from adapters.normal_script_manager import diagnostic as stop_diagnostic
+            original=value['inputs'][-1]['original'].get('closureDiagnostic');need(type(original) is dict)
+            stop_diagnostic(original,original['sampleEpochMs'])
+            need(not any(row.get('url')==value['scriptUrl'] for row in original['scripts']))
+        if value['phase']=='closing':
+            cleanup=arguments('feature.world-web.cleanup',value['active']);need(cleanup['runId']==run)
+    if value['scriptUrl'] is not None:
+        need(tickets and value['scriptUrl']==url+'tickets/'+tickets[0]+'/client.js')
+    if value['completed']:need(value['scriptUrl'] is not None and value['reserved'])
+    for row in value['inputs']:
+        exact(row,{'ticket','original','anchor','complete','envelope'});identifier(row['ticket']);json_digest(row)
+        need(type(row['complete']) is bool and type(row['original']) is dict)
+        anchor=row['anchor'];exact(anchor,{'ticket','before','packet','hostMonotonic','epochMs'})
+        need(row['ticket']==anchor['ticket'] and number(anchor['hostMonotonic'],0,1e15) and integer(anchor['epochMs'],1))
+        for field in ('before','packet'):
+            packet=anchor[field];phase_packet(packet,run=run,area='world-web',request=packet['requestId'],epoch=packet['capturedEpochMs'])
+            need(packet['activations'][-1]['ticket']==row['ticket'])
+        need(same(anchor['before']['activations'],anchor['packet']['activations']))
+
 
 
 class PicoWorldWebPrefix:
@@ -64,46 +109,7 @@ class PicoWorldWebPrefix:
         if self.state is not None:need(same(self.store.read(),self.disk) and same(unpack(self.disk['payload']),[self.state]))
 
     def validate(self,value,*,version=VERSION):
-        need(type(version) is int and version in READS);limit=3 if version==1 else LIMIT
-        exact(value,{'binding','ownerToken','phase','fixture','completed','active','reserved','scriptUrl','inputs'})
-        context(value['binding']);identifier(value['ownerToken'])
-        closing=version>=3 and value['phase'] in ('closing','source-stopped')
-        need(value['phase'] in (('preparing','ready','acting','closing','source-stopped') if version>=3 else ('preparing','ready','acting')) and type(value['reserved']) is bool
-            and type(value['completed']) is list and len(value['completed'])<=limit and type(value['inputs']) is list and len(value['inputs'])<=256
-            and (value['active'] is not None)==(value['phase'] in ('acting','closing')))
-        phase=value['fixture'];phase_packet(phase,run=self.run,area=self.area,request=phase['requestId'],epoch=phase['capturedEpochMs'])
-        need(phase['active'] and phase['activations'][0]['stimulus']==dict(verb='baseline',inputs={}))
-        tickets=[]
-        for index,call in enumerate(value['completed']+([value['active']] if value['phase']=='acting' else [])):
-            parsed=arguments('feature.world-web.act',call);step=SCENARIOS[self.area]['steps'][index]
-            need(index<limit and parsed['runId']==self.run and parsed['fixtureUrl']==self.url
-                and same(dict(verb=parsed['verb'],inputs=parsed['inputs']),dict(verb=step['verb'],inputs=expand(step['inputs'],fixture_context(self.run)))))
-            original=phase['activations'][index+1]
-            need(original['ticket']==parsed['ticket'] and same(original['stimulus'],dict(verb=parsed['verb'],inputs=parsed['inputs'])))
-            tickets.append(parsed['ticket'])
-        need(len(tickets)==len(set(tickets)) and len(phase['activations'])==len(tickets)+(2 if closing else 1))
-        if closing:
-            need(bool(value['completed']) and phase['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
-            if value['phase']=='source-stopped':
-                need(value['inputs'] and value['inputs'][-1]['complete'])
-                from adapters.normal_script_manager import diagnostic as stop_diagnostic
-                original=value['inputs'][-1]['original'].get('closureDiagnostic');need(type(original) is dict)
-                stop_diagnostic(original,original['sampleEpochMs'])
-                need(not any(row.get('url')==value['scriptUrl'] for row in original['scripts']))
-            if value['phase']=='closing':
-                cleanup=arguments('feature.world-web.cleanup',value['active']);need(cleanup['runId']==self.run)
-        if value['scriptUrl'] is not None:
-            need(tickets and value['scriptUrl']==self.url+'tickets/'+tickets[0]+'/client.js')
-        if value['completed']:need(value['scriptUrl'] is not None and value['reserved'])
-        for row in value['inputs']:
-            exact(row,{'ticket','original','anchor','complete','envelope'});identifier(row['ticket']);json_digest(row)
-            need(type(row['complete']) is bool and type(row['original']) is dict)
-            anchor=row['anchor'];exact(anchor,{'ticket','before','packet','hostMonotonic','epochMs'})
-            need(row['ticket']==anchor['ticket'] and number(anchor['hostMonotonic'],0,1e15) and integer(anchor['epochMs'],1))
-            for field in ('before','packet'):
-                packet=anchor[field];phase_packet(packet,run=self.run,area=self.area,request=packet['requestId'],epoch=packet['capturedEpochMs'])
-                need(packet['activations'][-1]['ticket']==row['ticket'])
-            need(same(anchor['before']['activations'],anchor['packet']['activations']))
+        return validate_owner(value,self.run,self.url,version=version)
 
     def save(self,value,*,host_only=False):
         self.control();self.validate(value)
@@ -122,6 +128,23 @@ class PicoWorldWebPrefix:
         self.control();self.runtime();current=self.source.read(self.state['fixture'])
         need(same(current['status']['activations'],self.state['fixture']['activations']))
         return current
+
+    def observation_phase(self):
+        """Only the one next canonical activation may precede its Parent CAS.
+
+        This checks input metadata before issuing any target/history read. It
+        does not treat source errors, skipped inputs or a retired run as pending.
+        """
+        self.control();self.runtime();phase=self.source.read(self.state['fixture'])
+        old=self.state['fixture']['activations'];rows=phase['status']['activations']
+        if same(rows,old):return phase,False
+        need(self.state['phase']=='ready' and len(rows)==len(old)+1)
+        last=rows[-1]['stimulus'];index=len(self.state['completed'])
+        if last!=dict(verb='cleanup',inputs={}):
+            need(index<INPUT_LIMIT)
+            step=SCENARIOS[self.area]['steps'][index]
+            need(same(last,dict(verb=step['verb'],inputs=expand(step['inputs'],fixture_context(self.run)))))
+        return phase,True
 
     def input_fence(self):
         if self.fence is None:
@@ -306,11 +329,21 @@ class PicoWorldWebPrefix:
             rows.append(dict(path=str(path),signature=stamp,sha256=hashlib.sha256(raw).hexdigest()))
         return rows
 
-    def seal(self,started,requested,epochs,native):
-        _ui,_observe,binding,guard,_installed=self.runtime();phase=self.exact_phase()
+    def seal(self,started,requested,epochs,native,*,pending_phase=None):
+        _ui,_observe,binding,guard,_installed=self.runtime()
+        if pending_phase is None:phase=self.exact_phase()
+        else:
+            phase=self.source.read(pending_phase)
+            need(same(phase['status']['activations'],pending_phase['activations']))
         need(same(binding,self.state['binding']))
         return dict(started=started,requested=requested,epochs=list(epochs)+[phase['status']['capturedEpochMs']],
             phase=deepcopy(phase['status']),guard=guard,native=native,body=deepcopy(self.disk),pins=self.pins())
+
+    def clock_seal(self,seal):
+        epoch=seal['native'].clock_ms();now=self.source.monotonic()
+        need(number(now,seal['started'],seal['started']+1.5))
+        for captured in seal['epochs']:
+            fresh(captured,epoch);need(max(epoch-captured,seal['requested']-captured+math.ceil((now-seal['started'])*1000))<=1500)
 
     def finalize(self,seal):
         need(self.lock._owner is None and not self.failed)
@@ -319,10 +352,7 @@ class PicoWorldWebPrefix:
             need(seal['guard']() is not False and seal['native'].guard() is not False)
             phase=self.source.read(seal['phase']);need(same(phase['status']['activations'],seal['phase']['activations']))
             need(same(self.store.read(),seal['body']) and same(self.pins(),seal['pins']))
-            epoch=seal['native'].clock_ms();now=self.source.monotonic()
-            need(number(now,seal['started'],seal['started']+1.5))
-            for captured in seal['epochs']:
-                fresh(captured,epoch);need(max(epoch-captured,seal['requested']-captured+math.ceil((now-seal['started'])*1000))<=1500)
+            self.clock_seal(seal)
         except BaseException:
             self.failed=True
             raise NativeUIError('Original World Web prefix publication is unavailable; journals remain owned') from None
@@ -331,12 +361,13 @@ class PicoWorldWebPrefix:
         need(self.lock._owner is None);pending=False
         with self.lock.held():
             self.read();self.control();need(self.state is not None)
-            if self.state['phase'] not in ('ready','source-stopped'):
+            phase,ahead=self.observation_phase()
+            if ahead or self.state['phase'] not in ('ready','source-stopped'):
                 pending=True;started=self.source.monotonic()
                 native_reader=self.adapter._native_feature_observer(self.target,read_only=True)
-                requested=native_reader.clock_ms();seal=self.seal(started,requested,[],native_reader)
+                requested=native_reader.clock_ms();seal=self.seal(started,requested,[],native_reader,pending_phase=phase['status'])
             else:
-                phase=self.exact_phase();history=self.history_reader();sequence=1 if history.last is None else history.last['sample']['sequence']+1
+                history=self.history_reader();sequence=1 if history.last is None else history.last['sample']['sequence']+1
                 history.begin('sample',sequence);started=self.source.monotonic()
                 native_reader=self.adapter._native_feature_observer(self.target,read_only=True);requested=native_reader.clock_ms();before=native_reader.read(0)
                 vm=None;vm_facts=None
@@ -364,4 +395,36 @@ class PicoWorldWebPrefix:
                 returned=deepcopy(sample);seal=self.seal(started,requested,epochs,native_reader)
         self.finalize(seal)
         if pending:raise PhasePending('Original World Web input remains unresolved')
+        return returned
+
+    def publish(self):
+        """One fresh independent Actor sample and its actual HTTP receipt.
+
+        An uncertain issued publication remains in the original history. There
+        is no retry or cold replacement and no acknowledgement-derived fact.
+        """
+        need(self.role=='actor' and self.lock._owner is None)
+        sample=self.observe()
+        with self.lock.held():
+            self.read();self.control();history=self.history_reader();frame=history.last
+            need(frame is not None and same(sample,frame['sample'])
+                and same(self.state['fixture']['activations'],frame['phaseBefore']['activations']))
+            native=self.adapter._native_feature_observer(self.target,read_only=True)
+            # Reuse the original acquisition anchors; CAS/HTTP/copy cannot reset
+            # age when the device clock stops or a filesystem operation stalls.
+            started,requested=frame['startedHost'],frame['startedEpoch']
+            epochs=[frame[key]['capturedEpochMs'] for key in ('nativeBefore','nativeAfter','native','runtime')]
+            epochs.extend([sample['capturedEpochMs'],frame['diagnostic']['sampleEpochMs']])
+            epochs.extend(frame['runtime']['source'][key]['capturedEpochMs'] for key in ('nativeBefore','java','nativeAfter'))
+            if frame['vm'] is not None:
+                vm=self.vm_reader().frame(frame['vm']['index'])
+                epochs.extend([vm['objectsBefore']['source']['capturedEpochMs'],vm['scripts']['capturedEpochMs'],vm['objectsAfter']['source']['capturedEpochMs']])
+            payload=dict(ticket=frame['phaseBefore']['activations'][-1]['ticket'],actor='owned-observer',
+                actorSequence=sample['sequence'],capturedEpochMs=sample['capturedEpochMs'],facts=projection(self.area,sample['state']))
+            history.begin('publication-intent',sample['sequence']);history.finish(dict(payload=payload,ack=None))
+            before=self.seal(started,requested,epochs,native);self.clock_seal(before)
+            ack=self.source.client.request('/runs/'+self.run+'/samples',payload);exact(ack,set())
+            history.begin('publication-accepted',sample['sequence']);history.finish(dict(payload=payload,ack=ack))
+            returned=deepcopy(sample);seal=self.seal(started,requested,epochs,native)
+        self.finalize(seal)
         return returned
