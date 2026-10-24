@@ -87,9 +87,9 @@ these results do not qualify devices, Actor, images or a complete common flow.
 Depends on `c824b48e3b292fa2c85727e16cd94338a96e0bde`. One existing registry
 entry moves to3/reads1,2,3. Four disjoint new tests join the existing baseline
 Pico wrapper (4→8), unchanged120s; one control-plane pattern is added. No new
-selector or catalog-count change is required. A separate canonical new-factory
-test remains open; the integrated test exercises the actual source class,
-existing session contract, shared consumer and real owner/storage paths.
+selector or catalog-count change is required. The subsequent canonical factory
+test below closes the previously explicit factory-runtime gap; it does not
+close the independent Actor, image or full-operation gaps.
 
 Public capability remains disabled. The next coordinator bill must preserve
 all16 original actions, actual per-checkpoint primary/Actor advances and3s
@@ -103,3 +103,35 @@ Registry is coherent; Coverage10/0.038s maps14/14 risks. The repository suites
 `documentation-contracts`, `project-coverage`, `documentation` and
 `source-layout` passed in2.63s; `git diff --check` passed. No functional case was
 repeated for these registration checks.
+
+## Canonical factory runtime evidence
+
+`test_lifecycle_readonly_factory.LifecycleReadOnlyFactoryTests` executes the
+actual private `_lifecycle_observation_readonly_begin` in the canonical Pico
+namespace. It uses the existing Restore/BeforeInputs fixture at its original
+pre-Create boundary. The original factory, source-lock/path checks and fixed
+app-file transports execute. Native Qt/physics/process and ADB app-file I/O
+remain explicitly modeled; no device is accessed. The factory performs no
+Script inventory query, input or native observation during construction.
+
+The positive then makes one real Source3 `read`: separate gesture, drive and
+UI readers acquire new originals, followed by Pending and NativeFeature.
+The same World remains at two frames, its saved cursors and journal unchanged;
+the readonly source retains one sample and its complete originals. An actual
+World reload still succeeds. The second case supplies a foreign process
+identity to the same canonical factory and proves refusal before any source
+query or input.
+
+Both cases passed **2/0.371 s**, `lifecycle-readonly-factory.log`, under full
+13481-file source SHA
+`76f57744b67b7f788ff7610622a72b12b3d0ec792d2e3092a68d30edc3482f78`,
+identical before/after. Their retained roots are `tmpe307wtpt` and `tmpycshkbnu`
+in the evidence directory above. The initial run, recorded separately in
+`lifecycle-readonly-factory-order-red.log`, failed after 0.242 s solely because
+the test predicted UI before gesture/drive. The assertion now follows the
+unchanged actual acquisition order; no runtime method or source was changed.
+
+The two cases join the existing `lifecycle-primary-baseline` wrapper (8 to 10
+cases), keeping its existing 120 s limit and selector. There is no new registry
+contract, capability, selector or catalog-count entry. The full-operation
+composition plan is [documented separately](LIFECYCLE_COORDINATOR_PLAN.md).
