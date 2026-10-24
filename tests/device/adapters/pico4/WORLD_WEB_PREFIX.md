@@ -186,3 +186,6 @@ and coverage in 0.091 s (4/244 local catalog groups, 27.35 s total). The complet
 repository suites pass in 2.62 s; contract registry and whitespace pass. These
 sources acquire no HMD image, independent actor process or native resource
 retirement proof. No compiler, device or whole Journey is run by this packet.
+
+The retained-page resume boundary and unimplemented observation proposal are
+documented in [WORLD_WEB_RETAINED_RESUME.md](WORLD_WEB_RETAINED_RESUME.md).
