@@ -13,6 +13,8 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 
 DEVICE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(DEVICE))
+sys.path.insert(0, str(DEVICE / 'adapters/android-phone'))
+from overte_phone_navigation_scene import configuration as scene_configuration
 from adapters.normal_ui import NativeUI, NativeUIError, W3C_ELEMENT
 from adapters.phone_navigation import PhoneNavigation, PROFILE, PACKAGE, validate_profile, validate_state
 from adapters.shared_appium.adapter import AppiumAdapter
@@ -166,6 +168,7 @@ class PhoneNavigationTests(unittest.TestCase):
                 native = NativePhone()
                 approved = native.scene + '?' + urlencode({'location': location})
                 native.profile['sceneUrl'] = approved
+                self.assertIs(native.profile, scene_configuration(native.profile, approved, approved))
                 native.arrive(native.scene + '?location=/0,0,4/0,0,0,1'
                               if label != 'A' else native.scene + '?location=/2,0,4/0,0,0,1')
                 self.assertFalse(arrived(native.observe(), approved, label))
@@ -187,6 +190,8 @@ class PhoneNavigationTests(unittest.TestCase):
                     native.scene + '?' + urlencode({'location': '/0,0,99/0,0,0,1'})):
             with self.subTest(url=url):
                 with self.assertRaises((NativeUIError, ValueError)):
+                    scene_configuration(native.profile, url, approved)
+                with self.assertRaises((NativeUIError, ValueError)):
                     native.flow().load_scene(url)
                 self.assertEqual([], native.inputs)
         ignored = NativePhone('goto-ignored')
@@ -202,6 +207,20 @@ class PhoneNavigationTests(unittest.TestCase):
         self.assertTrue(ignored_text.state['normalNavigation']['addressOwned'])
         ignored_text.invoke('places.close', {})
         self.assertFalse(ignored_text.address_open)
+
+    def test_scene_admission_requires_exact_independent_environment_binding(self):
+        native = NativePhone()
+        approved = native.scene + '?' + urlencode({'location': '/0,0,4/0,0,0,1'})
+        native.profile['sceneUrl'] = approved
+        for environment in ('', None, native.scene,
+                            approved.replace('controlled.test', 'foreign.test'),
+                            native.scene + '?' + urlencode({'location': '/2,0,4/0,0,0,1'})):
+            with self.subTest(environment=environment), self.assertRaises((NativeUIError, ValueError)):
+                scene_configuration(native.profile, approved, environment)
+        self.assertEqual([], native.inputs)
+        self.assertIs(native.profile, scene_configuration(native.profile, approved, approved))
+        query_free = dict(native.profile, sceneUrl=native.scene)
+        self.assertIs(query_free, scene_configuration(query_free, native.scene, native.scene))
 
     def test_real_w3c_normal_flow_drives_the_actual_journey_oracle_and_persists_ownership(self):
         native = NativePhone()

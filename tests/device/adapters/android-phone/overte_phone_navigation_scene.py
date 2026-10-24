@@ -13,8 +13,8 @@ from navigation_observation import owned_scene
 
 
 def configuration(profile,url,environment_url):
-    validate_profile(profile);parsed=owned_scene(url)
-    need(not parsed.query and url==profile['sceneUrl']==environment_url)
+    validate_profile(profile);owned_scene(url)
+    need(url==profile['sceneUrl']==environment_url)
     return profile
 
 
