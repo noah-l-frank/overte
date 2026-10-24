@@ -275,6 +275,7 @@ def _publish_full_logs(self):
  """Root's pinned audited producer owns text redaction; never copy raw text."""
  import importlib.util
  ref=self.config.get('diagnosticPublisher');streams=self.config.get('publicLogStreams',{})
+ if self.config.get('captureNativeContainerLog')is True:self.capture_container_log()
  if ref:
   path=Path(ref['path']);need(sha(path.read_bytes())==ref['sha256'],'DEBUG_LOG_PUBLISHER_CHANGED');spec=importlib.util.spec_from_file_location('bound_diagnostic_logs',path);publisher=importlib.util.module_from_spec(spec);spec.loader.exec_module(publisher)
   secrets=set(self.config.get('privateValues',[]));secret_refs=self.config.get('privateValuesFile')
@@ -375,3 +376,12 @@ def _minimal_publication(self,reason):
  generation=uuid.uuid4().hex;files=[{'path':n,'sha256':sha((self.stage/n).read_bytes()),'bytes':(self.stage/n).stat().st_size}for n in('summary.json','junit.xml','diagnostic-events.safe.jsonl')];atomic(self.stage/'artifact-index.json',{'schemaVersion':1,'runId':self.config['runId'],'contextSha256':self.context,'generation':generation,'files':files})
  refs={n:{'sha256':sha((self.stage/n).read_bytes()),'bytes':(self.stage/n).stat().st_size}for n in('summary.json','junit.xml','diagnostic-events.safe.jsonl','artifact-index.json')};atomic(self.stage/'debug-state.json',{'schemaVersion':1,'state':'DEBUG_HOLD','runId':self.config['runId'],'contextSha256':self.context,'generation':generation,'checkedEpochMs':time.time_ns()//1000000,'artifacts':refs});self.published=True
 Policy.minimal_publication=_minimal_publication
+
+def _capture_container_log(self):
+ gate=self.config['nativeGate'];raw=private_read(Path(gate['startResult']));need(sha(raw)==gate['startResultSha256'],'DEBUG_CONTAINER_START_CHANGED');container=json.loads(raw)['containerId'];need(type(container)is str and re.fullmatch('[0-9a-f]{64}',container),'DEBUG_CONTAINER_ID_REQUIRED')
+ path=self.root/'native-container.stdout-stderr.private.log';started=time.time_ns()
+ with os.fdopen(os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb')as output:
+  result=subprocess.run(['podman','logs','--timestamps',container],stdout=output,stderr=subprocess.STDOUT,timeout=30,check=False)
+ atomic(self.root/'native-container-log-receipt.private.json',{'scope':'EXACT_PINNED_NATIVE_CONTAINER_READONLY_LOG_SNAPSHOT','containerId':container,'startedEpochNs':started,'completedEpochNs':time.time_ns(),'returncode':result.returncode,'sha256':sha(path.read_bytes()),'bytes':path.stat().st_size})
+ need(result.returncode==0,'DEBUG_CONTAINER_LOG_UNAVAILABLE');return path
+Policy.capture_container_log=_capture_container_log

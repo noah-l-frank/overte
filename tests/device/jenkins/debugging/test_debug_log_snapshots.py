@@ -16,6 +16,17 @@ class SnapshotTests(unittest.TestCase):
    raw=(json.dumps(dict(phase='on-hold',epochNs=123,monotonicNs=456,currentBytes=1024,maxBytes=6144,peakBytes=2048,reserveBytes=614,thresholdBytes=5530,events={'oom_kill':0},ownRssBytes=[dict(role='assignment-agent',pid=123,birth='4',uid=os.getuid(),pgid=123,state='T',parentPid=1,cgroup='/private/secret-cgroup',rssBytes=512,returncode=None)],controller={'argv':['private-token']},privateToken='never-public'))+'\n').encode();path.write_bytes(raw);path.chmod(0o600)
    result=policy.snapshot('memory',{'path':str(path),'scopeRoot':str(native),'kind':'memory'});public=result.read_bytes();self.assertNotIn(b'secret-cgroup',public);self.assertNotIn(b'private-token',public);self.assertNotIn(b'never-public',public);self.assertIn(b'1024',public)
    self.assertEqual(raw,path.read_bytes());self.assertEqual(raw,(policy.root/'snapshots/memory.private.log').read_bytes());receipt=json.loads((policy.root/'snapshots/memory.receipt.private.json').read_text());self.assertEqual(hashlib.sha256(raw).hexdigest(),receipt['snapshotSha256']);self.assertEqual(len(raw),receipt['sourceBeforeBytes'])
+ def test_container_log_read_uses_only_exact_pinned_id_and_retains_full_private_bytes(self):
+  from types import SimpleNamespace
+  with tempfile.TemporaryDirectory()as temporary:
+   base=Path(temporary);base.chmod(0o700);policy=self.policy(base);start=base/'start.private.json';start.write_text(json.dumps({'containerId':'a'*64}));start.chmod(0o600);policy.config['nativeGate']={'startResult':str(start),'startResultSha256':hashlib.sha256(start.read_bytes()).hexdigest()};calls=[]
+   def query(argv,**options):
+    calls.append(argv);options['stdout'].write(b'actual complete controlled native log\n');return SimpleNamespace(returncode=0)
+   with patch('debug_failure_hold.subprocess.run',side_effect=query):result=policy.capture_container_log()
+   self.assertEqual([['podman','logs','--timestamps','a'*64]],calls);self.assertEqual(b'actual complete controlled native log\n',result.read_bytes());self.assertEqual(0o600,result.stat().st_mode&0o777)
+   start.write_text(json.dumps({'containerId':'b'*64}))
+   with patch('debug_failure_hold.subprocess.run',side_effect=query),self.assertRaises(ValueError):policy.capture_container_log()
+   self.assertEqual(1,len(calls))
  def test_full_log_publication_error_still_has_failing_core_marker_without_cleanup(self):
   with tempfile.TemporaryDirectory()as temporary:
    base=Path(temporary);base.chmod(0o700);policy=self.policy(base)
