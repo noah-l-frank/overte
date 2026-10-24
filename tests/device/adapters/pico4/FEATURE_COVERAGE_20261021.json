@@ -1755,7 +1755,13 @@
         "tests/device/self_tests/test_lifecycle_operations_process.py",
         "android/vr/pico/tests/device/test_lifecycle_primary_process.py",
         "tests/device/adapters/pico4/LIFECYCLE_PROCESS_QUIET.md",
-        "tests/device/adapters/pico4/LIFECYCLE_QUIET_CAPTURE_AXES.md"
+        "tests/device/adapters/pico4/LIFECYCLE_QUIET_CAPTURE_AXES.md",
+        "tests/device/adapters/pico4/LIFECYCLE_ACTOR_STEREO_PLAN.md",
+        "tests/device/adapters/pico4/LIFECYCLE_INDEPENDENT_ACTOR_STAGE1.md",
+        "tests/device/adapters/pico4/lifecycle_actor_source.py",
+        "tests/device/self_tests/pico_lifecycle_actor_fixture.py",
+        "tests/device/self_tests/test_lifecycle_independent_actor.py",
+        "android/vr/pico/tests/device/test_lifecycle_independent_actor.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1800,7 +1806,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Join independently owned Actor/pose observations and original stereo/surface, then final resource/file/archive/IPC/Host retirement and full execute/public dispatch. Same16\u2192restart\u2192twiceCleanup\u2192fresh sequences72\u201384 now independently proves all7 native capture axes\u22653000ms and advancing\u2264500ms plus Drive/host:1cd4262f0a; Root positive/UI2999/Pending2999 cases pass with all13,602 source hashes/signatures unchanged. Old method really accepted UI2999ms; new proof refuses each short axis without timestamp rewrite or extra query. G0 World126/readonly71, Process13 and newSource4rows13 remain separate under unchanged caps. Full feature capability remains unavailable.",
+      "nextExecutableStep": "Connect the reviewed independent readonly Actor Source1 to the actual private Pico factory/runtime, then extend the same normal16-action flow through independently proven G1, original stereo/surface and typed graph/resource/file/archive/IPC/host return. Root integrates88b1a38de6/efa08bb95f/ac2859b7ad/e016e2ddbb and independently passes14 owning cases with all13,630 source hashes/physical signatures unchanged. The real separate-process baseline/Create path retains84parts/94,533logical bytes, not the earlier48-part bill. Per-response failures retain actual raws; originalKnownFrame and capture/request clocks cover publication CAS. Qt/native/SDK/physics remain declared target models. Earlier real Primary G1/twice-cleanup/seven-axis quiet evidence remains separate. No public/whole capability.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

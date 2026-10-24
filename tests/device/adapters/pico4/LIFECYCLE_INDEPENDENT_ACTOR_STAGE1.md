@@ -241,3 +241,41 @@ is unchanged. Coverage13/.069s, registry, exact discovery14/12, diff and all
 four repository suites passed (2.65s), recorded in
 `lifecycle-actor-reviewed-raw-final-checks.log`. Only the changed positive and
 necessary checks run here; Root's full owning selector is a separate check.
+
+
+## Root integration verification
+
+Root reviewed and selected the complete Stage1 packet as `88b1a38de6`,
+its per-response triple correction as `efa08bb95f`, original-frame age
+correction as `ac2859b7ad`, and remaining rejected-response correction as
+`e016e2ddbb`. Every newer Root selector/version and exact existing Lifecycle/
+Avatar partitions remain intact. Catalog arithmetic is **287 to 288**, with
+all **14 risk rows** retained; only `lifecycle-independent-actor` is new.
+
+A single fresh owning selection after all three corrections passes all
+**14 cases** (**8.798 s** unittest, **9.529 s** external runner). Complete
+SHA-256 hashes and physical signatures of all **13,630** tracked/new source
+files match through terminal completion (**10.295 s** overall). Root did not
+repeat the uncorrected nine-case baseline. The actual separate-process,
+normal Create, kernel absence and thirteen source/canonical ownership refusal
+checks run on the integrated tree. The fixtures retain their declared native/
+Qt/SDK/physics seams; this is not native or headset qualification.
+
+The successful Root's six original records have **84 child parts**,
+**53,919 container raw bytes**, **94,533 logical original bytes** and
+**99,282 actual stored bytes**, including the root across **85 files**. Full
+original chunks/bundles are independently reloaded under their actual complete
+physical signatures; all remain unchanged during that historical accounting.
+This bill includes the added per-read/per-request originals, unlike the
+earlier 48-child Stage1 bill. The original root is
+`/tmp/overte-pico-lifecycle-independent-actor-root-20261024-b21fbej3/lifecycle-editor-n9vb9sma`.
+
+Private evidence in
+`/home/user/Documents/github/overte-pico-adapter-private-20261021` uses
+`lifecycle-independent-actor-root-owning-20261024-source.json`,
+`-result.json`, the uniquely named selector log/JUnit, and
+`lifecycle-independent-actor-root-historical-bill-20261024.json`. These are
+new Root observations and do not replace earlier agent originals. Canonical
+factory/runtime sampling, remaining normal actions, independent G1 proof,
+stereo/surface and typed graph/resource/file/IPC/archive/host return remain
+separate executable work. Source/host complete feature count stays **3/14**.
