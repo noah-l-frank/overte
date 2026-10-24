@@ -199,3 +199,40 @@ alone therefore does not explain the unresolved overall time. The first
 measurement's count assertion correctly exposed the additional sentry; the
 corrected cost view excludes that separately owned sentry and grants no native
 query, live owner, unlink or completion authority.
+
+
+## Complete namespace scans without per-entry Path allocation
+
+The archive still scans both entire original namespaces on every inventory
+boundary. `os.scandir` now collects exact names, including directories and
+dangling symlinks, rather than allocating a `Path` for every entry. Each
+expected path is first restricted to the same exact original parent and only
+then compared by name. Scope prefixes, original marker/data/physical checks
+and every complete PNG byte/OFD window remain unchanged. Names from a foreign
+parent cannot replace an expected path, and unrelated feature prefixes remain
+outside this owner's namespace.
+
+Two added filesystem cases exercise all six combinations of matching unknown
+file/directory/dangling-symlink in state/artifact namespaces, plus foreign-parent
+same-name replacement and unrelated namespaces. Context/source/PNG producers in
+these narrow cases are explicit seams; files and full namespace scans are real.
+The first narrow unit attempt found three old test-tail lines misplaced while
+inserting the new class; they were restored before owning verification. The
+existing PNG ownership counter body remains byte-identical.
+
+Fresh owning verification passes **14 archive cases/47.991 s** and **2 host-close
+fences/47.721 s**, with each original 120-second limit. All **13,595** complete
+source hashes and physical signatures match before/after (49.033 s external
+elapsed). Private source/result evidence is
+`browser-namespace-names-root-20261024-source.json`/`-result.json`, with both
+`*-namespace-names-20261024` log/JUnit pairs under
+`/home/user/Documents/github/overte-pico-adapter-private-20261021`.
+
+Historical complete two-namespace comparison over the retained original tree
+(792 and 103 matching entries) falls from **4.29–5.52 ms** to **0.60–0.78 ms**.
+All 2064 retained file stamps/hashes match. This comparison includes both full
+scans and expected-set comparisons; it supplies no current source/phase,
+clock, ownership adoption or unlink authority. Measurement:
+`browser-partial-retirement-namespace-names-cost-20261024.json`.
+This is separate from whole-run throughput. The unchanged whole timeout and
+all remaining final archive/host/public obligations remain open.

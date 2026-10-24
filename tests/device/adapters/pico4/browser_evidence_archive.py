@@ -7,6 +7,7 @@ This transaction does not detach host descriptors or claim a successful recipe.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import hashlib
+import os
 
 from adapters.chat_journey.evidence_archive import ChatArchiveCatalog,ChatEvidenceArchive,completed_archive
 from adapters.chat_journey.source_chunks import digest,json_digest
@@ -20,6 +21,13 @@ from adapters.script_journey.history import same,pack
 
 VERSION=2
 OWNERSHIP_VERSION=1
+
+
+def namespace_names(parent,prefix):
+    # Scan every entry, including directories and symlinks. Within this exact
+    # parent, names preserve the same membership as constructing each Path.
+    with os.scandir(parent) as entries:
+        return {entry.name for entry in entries if entry.name.startswith(prefix)}
 
 
 def metadata_pngs(metadata,context):
@@ -105,10 +113,10 @@ class PicoBrowserEvidenceArchive:
     def inventory(self,remaining):
         """Actual complete namespace scans reject extra or missing originals."""
         p=self.primary
-        actual={path for path in p.store.path.parent.iterdir() if path.name.startswith('pico-tablet-web-')}
+        actual=namespace_names(p.store.path.parent,'pico-tablet-web-')
         expected_state={path for path in remaining if path.parent==p.store.path.parent}
         if self.sentry.path.exists():expected_state.add(self.sentry.path)
-        need(actual==expected_state and same(self.sentry.read(),self.sentry_value)
+        need(actual=={path.name for path in expected_state} and same(self.sentry.read(),self.sentry_value)
             and parent_node(self.sentry)==self.sentry_parent)
         expected={path for path in remaining if path.parent==self.root}
         expected.update({self.context.path,self.source.store.path})
@@ -123,8 +131,8 @@ class PicoBrowserEvidenceArchive:
             need(type(host) is PicoBrowserHostClose and host.plan is self)
             expected.update(store.path for store in (host.store,host.receipt_store) if store.path.exists())
         if self.directory.exists():expected.add(self.directory)
-        actual={path for path in self.root.iterdir() if path.name.startswith(self.prefix)}
-        need(actual==expected and same(self.context.read(),self.context_value)
+        actual=namespace_names(self.root,self.prefix)
+        need(actual=={path.name for path in expected} and same(self.context.read(),self.context_value)
             and state(self.context)[2]==self.context_stamp and parent_node(self.store)==self.parent)
         self.pngs()
 

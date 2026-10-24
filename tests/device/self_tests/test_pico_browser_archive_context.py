@@ -174,3 +174,57 @@ class BrowserArchivePngWindowTests(unittest.TestCase):
         captures.admitted=b'actual admitted original inventory'
         with self.assertRaises(NativeUIError):captures.append_png(original[0])
         self.assertEqual(original,captures.pngs);self.plan.pngs()
+
+
+class BrowserArchiveNamespaceTests(unittest.TestCase):
+    """Actual namespace/marker files; context/source/PNG producers are seams."""
+    def make(self):
+        from types import SimpleNamespace
+        from adapters.observer_return import parent_node,state
+        from adapters.pico4.browser_evidence_archive import PicoBrowserEvidenceArchive
+        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
+        parent=Path(temporary.name);root=parent/'artifacts';root.mkdir(mode=0o700)
+        prefix='tablet-web-'+('a'*32)+'-'
+        plan=PicoBrowserEvidenceArchive.__new__(PicoBrowserEvidenceArchive)
+        plan.primary=SimpleNamespace(store=PrivateFeatureState(parent/'pico-tablet-web-primary.json'))
+        plan.primary.store.write({'original':'primary'},None)
+        plan.root=root;plan.prefix=prefix
+        plan.sentry=PrivateFeatureState(parent/'pico-tablet-web-archive-owner.json')
+        plan.sentry_value={'original':'sentry'};plan.sentry.write(plan.sentry_value,None)
+        plan.sentry_parent=parent_node(plan.sentry)
+        plan.context=PrivateFeatureState(root/(prefix+'archive-context.json'))
+        plan.context_value={'original':'context'};plan.context.write(plan.context_value,None)
+        plan.context_stamp=state(plan.context)[2]
+        source=PrivateFeatureState(root/(prefix+'archive-release.json'));source.write({'original':'source'},None)
+        plan.source=SimpleNamespace(store=source,chunks=SimpleNamespace(identities=[]))
+        plan.context_owner=SimpleNamespace(stores=lambda:[])
+        plan.store=PrivateFeatureState(root/(prefix+'archive-complete.json'));plan.parent=parent_node(plan.store)
+        plan.marker=PrivateFeatureState(root/(prefix+'archive-intent.json'));plan.directory=root/(prefix+'source-archive')
+        observed=[];plan.pngs=lambda:observed.append('full-original-PNG-boundary')
+        artifact=PrivateFeatureState(root/(prefix+'known.json'));artifact.write({'original':'artifact'},None)
+        return plan,{plan.primary.store.path,artifact.path},observed
+
+    def test_matching_orphan_files_directories_and_symlinks_block_both_complete_namespace_scans(self):
+        for where in ('state','artifacts'):
+            for kind in ('file','directory','symlink'):
+                with self.subTest(where=where,kind=kind):
+                    plan,remaining,observed=self.make();plan.inventory(remaining)
+                    parent=plan.primary.store.path.parent if where=='state' else plan.root
+                    prefix='pico-tablet-web-' if where=='state' else plan.prefix
+                    orphan=parent/(prefix+'unknown-pending')
+                    if kind=='file':orphan.write_bytes(b'original foreign file')
+                    elif kind=='directory':orphan.mkdir()
+                    else:orphan.symlink_to('missing-foreign-target')
+                    with self.assertRaises(NativeUIError):plan.inventory(remaining)
+                    self.assertEqual(1,len(observed));self.assertTrue(all(path.exists() for path in remaining))
+                    self.assertTrue(orphan.is_symlink() if kind=='symlink' else orphan.exists())
+
+    def test_other_namespaces_remain_separate_and_same_name_in_foreign_parent_cannot_replace_original(self):
+        plan,remaining,observed=self.make()
+        (plan.root/'unrelated-other-feature').write_bytes(b'unrelated original')
+        (plan.primary.store.path.parent/'other-namespace').mkdir()
+        plan.inventory(remaining);self.assertEqual(1,len(observed))
+        original=next(path for path in remaining if path.parent==plan.root)
+        foreign=plan.primary.store.path.parent/original.name;original.rename(foreign)
+        with self.assertRaises(NativeUIError):plan.inventory(remaining)
+        self.assertEqual(1,len(observed));self.assertEqual(b'{"original":"artifact"}\n',foreign.read_bytes())
