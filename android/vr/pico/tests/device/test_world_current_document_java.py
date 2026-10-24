@@ -31,13 +31,26 @@ class WorldCurrentDocumentJavaTests(unittest.TestCase):
         document=ROOT/'android/common/web/java/org/overte/web/WebDocumentState.java'
         manifest={str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in (source,document,HERE/'world-current-document-java-body.java.inc')}
         (stage/'original-inputs.json').write_text(json.dumps(manifest));(stage/'original-inputs.json').chmod(0o600)
+        byte_only=os.environ.get('OVERTE_CURRENT_DOCUMENT_UTF8_ONLY')=='1'
+        from test_world_current_document_reader import fixture
+        from adapters.native_web_dom import dom
+        request,packet=fixture();value=packet['source']['dom'];value['editor']['text']='中'*512
+        value['echoes']=[dict(sequence=i,surface='world',message=json.dumps(dict(contract='overte-web-parity-v1',action='echo',sequence=i,surface='world'),separators=(',',':')),
+            receivedEpochMs=10000,observedEpochMs=10001) for i in range(1,28)]
+        dom(value,dict(request,surface='world'),10004)
+        raw=json.dumps(json.dumps(value,ensure_ascii=False,separators=(',',':')),ensure_ascii=False,separators=(',',':'))
+        self.assertGreater(len(raw.encode()),8192);self.assertLessEqual(len(raw),8192)
+        (stage/'quoted-dom.json').write_text(raw);(stage/'quoted-dom.json').chmod(0o600)
         commands=[['/usr/lib/jvm/temurin-21-jdk/bin/javac','-cp',str(android),'-d',str(stage),str(java),str(document)],
-                  ['/usr/lib/jvm/temurin-21-jdk/bin/java','-ea','-cp',str(stage)+os.pathsep+str(android),'org.overte.web.EmbeddedWebView']]
+                  ['/usr/lib/jvm/temurin-21-jdk/bin/java','-ea','-cp',str(stage)+os.pathsep+str(android),'org.overte.web.EmbeddedWebView','--utf8-only',str(stage/'quoted-dom.json')]]
+        if not byte_only:
+            commands.insert(1,['/usr/lib/jvm/temurin-21-jdk/bin/java','-ea','-cp',str(stage)+os.pathsep+str(android),'org.overte.web.EmbeddedWebView'])
         for ordinal,command in enumerate(commands):
             result=subprocess.run(command,capture_output=True,text=True,timeout=45)
             log=stage/(str(ordinal)+'.json');log.write_text(json.dumps(dict(command=command,returncode=result.returncode,stdout=result.stdout,stderr=result.stderr)));log.chmod(0o600)
             self.assertEqual(0,result.returncode,result.stdout+result.stderr)
-        self.assertIn('PASS unchanged Java current-document bodies',result.stdout)
+            if ordinal:
+                self.assertIn('PASS original Java current-document UTF8 cap' if '--utf8-only' in command else 'PASS unchanged Java current-document bodies',result.stdout)
         for path,digest in manifest.items():self.assertEqual(digest,hashlib.sha256((ROOT/path).read_bytes()).hexdigest())
 
 

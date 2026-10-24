@@ -507,7 +507,8 @@ public final class EmbeddedWebView {
                 final Instance current=observed.get();final EmbeddedWebHost currentOwner=observedOwner.get();
                 final JSONObject after=featurePicoCurrentSnapshot(current,host.get());
                 if (!nativePicoCurrentDocumentEnabled() || !featurePicoCurrentOwner(current,currentOwner,creation,grant,page,expectedSource,started)
-                        || document==null || !document.equals(current.view.getUrl()) || result==null || result.length()>8192) {
+                        || document==null || !document.equals(current.view.getUrl()) || result==null || result.length()>8192
+                        || result.getBytes(StandardCharsets.UTF_8).length>8192) {
                     featurePicoCurrentReply(handle,creation,grant,page,run,requestId,before,"",after);return;
                 }
                 featurePicoCurrentReply(handle,creation,grant,page,run,requestId,before,result,after);

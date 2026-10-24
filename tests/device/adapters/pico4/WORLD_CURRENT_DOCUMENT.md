@@ -182,3 +182,30 @@ newer unrelated additions must remain additive during integration.
 Only this native packet should be selected: the parent `ad03baed2bd087eb876313b0b44ac404b0552949`
 and its prior World source/Actor/stereo chain are dependencies already
 reviewed separately, not new selections from this packet.
+
+### Review follow-up: actual UTF-8 byte boundary
+
+Review reproduced a real 032 gap: Java bounded UTF-16 units and Native only
+bounded the whole transaction, so a quoted DOM over 8192 UTF-8 bytes could
+become Native ready although the strict reader correctly refused it. The
+new original-body counter uses a valid 512-unit CJK editor plus 27 complete,
+legal echo originals. Native's exact original is 7772 UTF-16 units,
+8796 UTF-8 bytes and 12196 transaction bytes. The uncorrected native source
+actually returned ready; its failure/complete raw original remains retained.
+Java's unchanged original body independently accepted the over-byte result.
+A preliminary Native fixture failed its length precondition because real
+13-digit clocks made 30 echoes exceed the character bound; only that new
+producer was corrected to 27, retaining the original failed stage.
+
+Both new source boundaries now enforce the actual 8192 UTF-8 byte limit:
+Java before forwarding its inner result, Native before parsing quoted DOM.
+Neither truncates, rereads DOM, retimes, changes any old handler, or widens a
+limit. Native retains the complete rejected transaction in its bounded raw
+query history. The tight Java+Native counter selection passed 2/8.079 s on
+freeze `6dc5bb323835ed2f8ca96ca63c2d26711eaa519f25c74b38a4c3367e005fadce`.
+The Java counter is included permanently in its existing selector, alongside
+the original body cases; that default case passed separately 1/.991 s.
+No full native/old-retention/whole journey was repeated for this correction.
+There is no catalog or version delta. Cross-DSO clock-registry ownership is
+under separate review; this byte-cap correction claims no application-level
+integration proof.

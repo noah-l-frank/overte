@@ -24,6 +24,7 @@ from test_create_polyvox_controls_native import pointer_source,original
 
 class WorldCurrentDocumentNativeTests(unittest.TestCase):
     def test_actual_current_document_retained_new_finish_nonce_weak_death_and_late_clock(self):
+        byte_only=os.environ.get('OVERTE_CURRENT_DOCUMENT_UTF8_ONLY')=='1'
         directory=tempfile.TemporaryDirectory(prefix='world-current-document-');directory._finalizer.detach()
         stage=Path(directory.name);stage.chmod(0o700)
         print('Retained original World resume/native stage:',stage,flush=True)
@@ -75,12 +76,12 @@ class WorldCurrentDocumentNativeTests(unittest.TestCase):
             HERE/'world-current-document-native.cpp',stage/'moc.cpp',stage/'embedded-web.cpp',stage/'feature-web.cpp',
             '-L'+str(prefix/'usr/lib64'),'-L'+str(jdk/'lib/server'),'-Wl,-rpath,'+str(jdk/'lib/server'),'-ljvm','-o',stage/'test',*flags])
         # Compile and execute both real conditional sides of the whole getter.
-        for pico in (False,True):
+        for pico in (() if byte_only else (False,True)):
             binary=stage/('getter-pico' if pico else 'getter-non-pico')
             run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS',*(['-DANDROID_APP_PICO_INTERFACE'] if pico else []),
                 '-I'+str(stage),'-I'+str(ROOT),HERE/'world-current-document-getter.cpp','-L'+str(prefix/'usr/lib64'),'-o',binary,*flags])
-            run([binary,stage,'--testScript','host-boundary','--testResultsLocation',stage],build=False)
-        result=run(['unshare','--user','--map-root-user','--net',stage/'test',stage,'--testScript','host-boundary','--testResultsLocation',stage],build=False)
+            run([binary,stage,'--testScript','host-boundary','--testResultsLocation',stage,*(['--current-document-byte-cap'] if byte_only else [])],build=False)
+        result=run(['unshare','--user','--map-root-user','--net',stage/'test',stage,'--testScript','host-boundary','--testResultsLocation',stage,*(['--current-document-byte-cap'] if byte_only else [])],build=False)
         self.assertIn('PASS actual Pico current-document',result.stdout)
         proof=json.loads((stage/'retained-resume-originals.json').read_bytes())
         self.assertEqual('ready',proof['before']['status']);self.assertEqual('pending',proof['after']['status'])
@@ -89,7 +90,12 @@ class WorldCurrentDocumentNativeTests(unittest.TestCase):
         self.assertEqual(1,proof['worldReads']);self.assertEqual(0,proof['geometryReads'])
         self.assertEqual(1,proof['finishedEventsDelivered']);self.assertEqual(0,proof['reloadsDelivered'])
         from adapters.pico4.world_current_document import validate
-        for name in ('current-retained','current-new-finish'):
+        if byte_only:
+            from adapters.native_web_dom import dom
+            entry=json.loads((stage/'current-utf8-cap.json').read_bytes());self.assertEqual('unavailable',entry['packet']['status'])
+            dom(entry['domOriginal'],dict(entry['request'],surface='world'),entry['domOriginal']['capturedEpochMs'])
+            self.assertGreater(entry['innerUtf8Bytes'],8192);self.assertLessEqual(entry['innerUtf16Units'],8192);self.assertLess(entry['transactionBytes'],16384)
+        for name in (('current-retained',) if byte_only else ('current-retained','current-new-finish')):
             entry=json.loads((stage/(name+'.json')).read_bytes());packet=entry['packet']
             validate(packet,entry['request'],packet['processId'],packet['capturedEpochMs'])
         for row in provenance:self.assertEqual(row['sha256'],hashlib.sha256((ROOT/row['path']).read_bytes()).hexdigest())
