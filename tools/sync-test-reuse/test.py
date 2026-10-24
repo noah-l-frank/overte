@@ -3118,7 +3118,10 @@ class NativeRetainedParentEvidenceTests(unittest.TestCase):
             context.update(runtime_profile=C.ci_profile.PROFILE,profile_binding=self.profile['binding'],
                 prepared={name:entry['digest'] for name,entry in self.environment['prepared'].items()},
                 selection_target=parent_target,selection_base=case.binding['base_sha'])
-        projection=self.root.parent/'native-sync-projection';projection.mkdir()
+        projection=self.root.parent/'native-sync-projection';projection.mkdir(mode=0o755)
+        # This new fixture root declares the sealed source directory mode;
+        # do not let a restrictive caller umask supply a different contract.
+        projection.chmod(0o755)
         for name in C.ci_profile.controller_paths():
             C.sandbox._write_source(projection,name,(self.root/name).read_bytes(),executable=name=='tests/run-project-tests.py')
         C.sandbox._write_source(projection,C.ci_profile.CONTROLLER_MANIFEST,C.inputs._canonical(self.manifest))
@@ -3145,6 +3148,19 @@ class NativeRetainedParentEvidenceTests(unittest.TestCase):
         if self.partition is not None:case.jobs[100].append(platform)
 
     def verify(self):return self.native.verify()
+
+    def test_existing_wrong_mode_projection_is_rejected_without_repair(self):
+        with tempfile.TemporaryDirectory(prefix='sync-existing-projection-') as temporary:
+            root=Path(temporary)/'existing';root.mkdir(mode=0o700);root.chmod(0o700)
+            existing=root/'keep.txt';existing.write_bytes(b'unchanged unadmitted input\n')
+            before=(root.stat().st_dev,root.stat().st_ino,root.stat().st_mode,
+                existing.read_bytes())
+            with self.assertRaisesRegex(self.controller.sandbox.SandboxUnavailable,
+                    'existing source directory'):
+                self.controller.sandbox._write_source(root,'new.py',b'not admitted\n')
+            self.assertEqual(before,(root.stat().st_dev,root.stat().st_ino,
+                root.stat().st_mode,existing.read_bytes()))
+            self.assertEqual([existing],list(root.iterdir()))
 
     def test_complete_original_D_schema4_and_native_android_job_preserve_common_only_reuse(self):
         value=self.verify()
