@@ -21,6 +21,16 @@ from test_assets_read_native import prepare_source
 
 
 
+def navigation_source(stage,filename='actual-assets-navigation.inc'):
+    """Complete original Pico observer+writer, shared by normal feature hosts."""
+    native=(ROOT/'android/vr/pico/apps/picoInterface/e2e/PicoE2eNavigationUi.cpp').read_text()
+    bodies='\n'.join(original(native,signature) for signature in ('QString token()', 'bool visible(', 'bool enabled(',
+        'QString controlId(', 'bool integer(', 'bool exactKeys('))
+    bodies+='\nNavigationUi::NavigationUi() : _bridgeId(token()), _generation(token()) { _clock.start(); }\n'
+    bodies+='\n'+original(native,'QJsonObject NavigationUi::observe(')+'\n'+original(native,'QJsonObject NavigationUi::apply(')
+    (stage/filename).write_text('namespace overte::pico::e2e {\n'+bodies+'\n}\n')
+
+
 def compile_ui(stage,*,original_uploads=False,sanitize=False,persistent_tablet=False,original_server=False,original_model=False,original_entity=False,original_resources=False,request_lifetimes=False,original_resource_manager=False,original_resource_data=False):
     environment=dict(os.environ);prefix=Path(environment['OVERTE_QT5_HOST_ROOT']).resolve(strict=True)
     environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),PKG_CONFIG_LIBDIR=str(prefix/'usr/lib64/pkgconfig'),
@@ -35,13 +45,7 @@ def compile_ui(stage,*,original_uploads=False,sanitize=False,persistent_tablet=F
     (stage/'PathUtils.h').write_text('#pragma once\n#include <QUrl>\nclass PathUtils {public:\n'
         'inline static QUrl scripts,qml; static QUrl defaultScriptsLocation(){return scripts;}\n'
         'static QUrl qmlUrl(const QString& value){return qml.resolved(QUrl(value));}};\n')
-    native=(ROOT/'android/vr/pico/apps/picoInterface/e2e/PicoE2eNavigationUi.cpp').read_text()
-    assert '#include "../../../../../../tests/device/native/NormalAssetsControls.h"' in native
-    bodies='\n'.join(original(native,signature) for signature in ('QString token()', 'bool visible(', 'bool enabled(',
-        'QString controlId(', 'bool integer(', 'bool exactKeys('))
-    bodies+='\nNavigationUi::NavigationUi() : _bridgeId(token()), _generation(token()) { _clock.start(); }\n'
-    bodies+='\n'+original(native,'QJsonObject NavigationUi::observe(')+'\n'+original(native,'QJsonObject NavigationUi::apply(')
-    (stage/'actual-assets-navigation.inc').write_text('namespace overte::pico::e2e {\n'+bodies+'\n}\n')
+    navigation_source(stage)
     files=(ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text()
     (stage/'AssetsFilesMethod.inc').write_text(original(files,'QVariantMap TestScriptingInterface::featurePicoAssetsFiles('))
     (stage/'AssetsUploadsMethod.inc').write_text(original(files,'QVariantMap TestScriptingInterface::featurePicoAssetsUploadsObservation('))

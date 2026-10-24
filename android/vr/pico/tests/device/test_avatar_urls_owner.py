@@ -48,6 +48,7 @@ class AvatarUrlsTests(unittest.TestCase):
         self.store=PrivateFeatureState(self.root/('avatar-urls-owner-'+key+'-'+RUN+'.json'))
         self.clock=0.;self.epoch=int(time.time()*1000);self.page='home1';self.dialog=False;self.focus=False;self.entered=''
         self.lost=False;self.ignore=False;self.freeze=False;self.native_queries=0;self.packet=None;self.guard_delay=None
+        self.persisted_scale=1
         self.preferences_queries=0;self.preferences_packet=None;self.preference_conflict=False;self.preference_missing=False;self.preference_reads_hook=None
         self.journal=Journal(lambda:self.epoch)
         with patch('feature_journeys.witness.secrets.token_hex',return_value=RUN):self.journal.register('avatar-people')
@@ -165,14 +166,14 @@ class AvatarUrlsTests(unittest.TestCase):
         handles={}
         for field in preferences.FIELDS:
             type_id,type_name=preferences.handle_type(field);value=0 if type_id in (1,2,38) else ''
-            if field=='scale':value=live['scale']
+            if field=='scale':value=self.persisted_scale
             if field=='fullAvatarURL':value=live['preferenceUrl']
             key='Avatar/' if field=='headPitch' else 'fullPrivate/Avatar/fullAvatarURL' if field=='fullAvatarURL' else 'Avatar/avatarEntityData/size' if field=='avatarEntityCount' else 'Avatar/'+field
             active=field in ('scale','fullAvatarURL')
             handles[field]=dict(nativePreferenceHandleVersion=1,key=key,isSet=active,initialized=active,managerBound=active,value=raw(type_id,type_name,value),default=raw(type_id,type_name,0 if type_id in (1,2,38) else ''),deprecated=False)
         rows={handles[field]['key']:deepcopy(handles[field]['value']) for field in ('scale','fullAvatarURL')}
         values={}
-        for key,value in (('Avatar/scale',live['scale']),('fullPrivate/Avatar/fullAvatarURL',live['preferenceUrl'])):
+        for key,value in (('Avatar/scale',self.persisted_scale),('fullPrivate/Avatar/fullAvatarURL',live['preferenceUrl'])):
             encoded=json.dumps(value,separators=(',',':'),ensure_ascii=False).encode();values[key]=dict(base64=base64.b64encode(encoded).decode(),sha256=hashlib.sha256(encoded).hexdigest())
         encoded=dict(count=len(values),values=values);physical_rows=deepcopy(encoded)
         if self.preference_conflict:

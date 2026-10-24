@@ -562,8 +562,9 @@ counterexamples. Full inputs, raw streams and generated stages were retained;
 no source changed during either run. An initial missing original inventory
 header compile failure remains retained rather than counted as a pass.
 
-These are native source witnesses in the existing UI case. They do not adopt
-new evidence into the shared v16 Favorite owner or qualify its retained cleanup.
+At this initial native-only checkpoint these were source witnesses in the
+existing UI case. They did not yet add the shared raw admission rule below or
+qualify retained cleanup.
 Actual loaded Model/renderer/EntityTree/V8/Android ownership, the whole live
 scale renderer, 3-second final owner quiet, raw Handle/cache/writer/physical
 Settings and bookmark byte CAS restoration/retirement, Wearables, contacts,
@@ -575,3 +576,61 @@ The committed Phone Avatar reference inspected read-only was
 `7db55e538899bfbc2d73a7741e49ec31ebb9c004`. Its control/runtime actors and native
 DTO validation do not provide this original Handle/Manager/WriteWorker/JSON
 join. No Phone UI assumption, moving WIP import or Phone modification is used.
+
+
+## Existing v16 cached preference admission
+
+The same native UI case now compiles and executes the complete unchanged
+`NavigationUi::observe` and `NavigationUi::apply`. Its normal Favorite inputs
+retain the actual bridge ID, UUID command, consumed sequence, generation and
+control token used by the existing PicoNavigation protocol. The former
+isolated Avatar-dispatch fragment is removed. The complete original source
+preparer is shared with Assets; its generated Assets bytes remain identical.
+Actual Places helpers are enabled only in this Avatar host profile, preserving
+the other host profiles' existing unavailable service seams.
+
+`avatar_favorite_effect.unchanged_preferences` now supplies one strict rule
+for the actual cached/Scale behavior. Both the native UI's real TSI pairs and
+the existing Favorite owner `matches` and historical `effect_proof` validation
+use it. Every typed Handle/default/presence/binding, Manager mutation sequence,
+cache row, writer identity/row, complete physical file identity/hash/rows and
+all live fields except the independently checked scale/targetScale must stay
+unchanged. No missing value or expected default substitutes for an original.
+The ordinary four-reader frame acquisition, immutable archives, phase fences
+and URL3 adoption remain the existing implementation; no historical host JSON
+is inserted as a fresh owner sample, and no parallel journey/getter is added.
+
+The old test DTO incorrectly made the persisted scale Handle follow each live
+scale change. It now retains its persisted value, matching the compiled
+original MyAvatar/AvatarData methods. A new existing-owner countercase changes
+coherent raw preferences during the consumed cached Favorite callback. The
+callback completes once, but the typed inner admission rejects settlement and
+keeps the pending owner and foreign value intact. Existing before-input foreign
+preference and lost-result/no-resend fences remain covered.
+
+Final native admission passed one case in 23.866 seconds; the complete existing
+Save/Scale/missing/Choose/Restore/Delete/retained-cleanup owner passed in 53.745
+seconds, the new raw-change countercase in 8.997 seconds, and the two affected
+legacy fences in 24.688 seconds. The changed existing preference-native case
+also passed in 8.100 seconds: its actual lazy get and persisted set produce
+independently valid raw changes that this same rule explicitly refuses. Each
+retained its full frozen source manifest
+and original output under the unchanged 90-second combined native build and
+120-second per-selection bounds. Separate historical compatibility validation
+accepted all 45 original Full-Navigation snapshots without changing bytes;
+this was a codec check, not a new native query or freshness proof. Initial
+missing-Places-helper and incorrect old disabled-gate harness failures remain
+retained. The catalogue gains no selector; its existing Favorite fence group
+owns the one added case. Existing closed data formats and versions are intact.
+
+The normal cached/no-change source connection is now present in the existing
+owner. Exact native Handle/cache/writer/physical Settings and bookmark byte
+restoration still needs its owned CAS and final quiet/retirement. A normal URL
+write can initialize a previously lazy Handle; ordinary `remove()` cannot undo
+that initialization or Manager binding. The Create browse-setting owner also
+explicitly refuses live cached Handles. Neither helper authorizes a simulated
+raw restore. Noncached original model persistence, whole Model/renderer/
+EntityTree/V8/Android ownership, Wearables, contacts, peer/stereo and devices
+remain unqualified. The shared owner tests retain their declared SDK/Qt/model
+DTO boundaries; retained fixture copies are historical originals, not live
+source identities or retirement proof. Full Feature 3 remains unavailable.
