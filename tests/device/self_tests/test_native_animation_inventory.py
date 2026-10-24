@@ -173,7 +173,9 @@ class AnimationInventoryTests(unittest.TestCase):
         for forbidden in ('getAnimation(','getResource(','ensureLoading(','_resources.insert','_resources['):self.assertNotIn(forbidden,body)
         for required in ('QThread::currentThread()!=app->thread()','animation->thread()!=QThread::currentThread()',
             'original=_resources','_resources!=original','slot.first.isNull()==slot.second','toStrongRef()',
-            'slots>1024','rows.size()>=256'):self.assertIn(required,body)
+            'int slotCount=0','++slotCount>1024','rows.size()>=256',
+            '{"registrySlots",slotCount}'):self.assertIn(required,body)
+        self.assertLess(body.index('++slotCount>1024'),body.index('toStrongRef()'))
         bridge=(ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text().split('QVariantMap TestScriptingInterface::featureAnimationInventory(')[1].split('QVariantMap TestScriptingInterface::featureScriptRoots(')[0]
         self.assertLess(bridge.index('DependencyManager::isSet<AnimationCache>()'),bridge.index('DependencyManager::get<AnimationCache>()'))
         self.assertIn('Qt::BlockingQueuedConnection',bridge)

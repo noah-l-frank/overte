@@ -24,12 +24,15 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const assets=fs.readFileSync(process.argv[1],'utf8'),picker=fs.readFileSync(process.argv[2],'utf8');
 function section(source,start,end){const a=source.indexOf(start),b=source.indexOf(end,a+start.length);
  assert(a>=0&&b>a,'Original QML handler boundary changed');return source.slice(a,b);}
-let status='--',bakeCalls=[],finished=[];
+let status='--',bakeCalls=[],finished=[],reloads=0;
 const scope={tree:{revision:1,selectedIndexes:[{}],currentIndex:{}},assetProxyModel:{data:()=>status},
  selectedItemCount:1,root:{assetWriteAllowed:true,busy:false,selectedItemCount:1},
- busy:false,writable:()=>scope.root.assetWriteAllowed,selectedPaths:()=>['/owned/main.gltf'],
- Assets:{setBakingEnabled:(paths,enabled,callback)=>bakeCalls.push({paths,enabled})},resultHandler:()=>()=>{}};
-vm.createContext(scope);vm.runInContext(section(assets,'    function bakingAvailable(', '    function importSucceeded('),scope);
+ busy:false,lifecycle:{active:true},writable:()=>scope.root.assetWriteAllowed,
+ selectedPaths:()=>['/owned/main.gltf'],reload:()=>reloads++,
+ Assets:{setBakingEnabled:(paths,enabled,callback)=>bakeCalls.push({paths,enabled,callback})}};
+vm.createContext(scope);
+vm.runInContext(section(assets,'    function resultHandler(', '    function doDeleteFile('),scope);
+vm.runInContext(section(assets,'    function bakingAvailable(', '    function importSucceeded('),scope);
 '''
 
 
@@ -67,6 +70,27 @@ assert.equal(vm.runInContext(binding[1],scope),true);
 scope.root.assetWriteAllowed=false;assert.equal(vm.runInContext(binding[1],scope),false);
 scope.root.assetWriteAllowed=true;scope.root.busy=true;assert.equal(vm.runInContext(binding[1],scope),false);
 scope.root.busy=false;scope.root.selectedItemCount=0;assert.equal(vm.runInContext(binding[1],scope),false);
+''')
+
+    def test_original_baking_callbacks_keep_lifetime_and_recheck_permission_before_second_disable(self):
+        self.run_case(r'''
+status='Baked';scope.setBakingEnabled(false);
+assert.equal(bakeCalls.length,1);assert.equal(scope.busy,true);
+bakeCalls[0].callback(null);assert.equal(bakeCalls.length,2);
+assert.equal(bakeCalls[1].enabled,false);assert.equal(scope.busy,true);
+bakeCalls[1].callback(null);assert.equal(scope.busy,false);assert.equal(reloads,1);
+
+scope.setBakingEnabled(false);assert.equal(bakeCalls.length,3);
+scope.root.assetWriteAllowed=false;bakeCalls[2].callback(null);
+assert.equal(bakeCalls.length,3);assert.equal(scope.busy,false);assert.equal(reloads,2);
+assert.equal(scope.status,'Baking selection failed: Asset Server permission changed.');
+
+scope.root.assetWriteAllowed=true;scope.setBakingEnabled(false);
+assert.equal(bakeCalls.length,4);
+const oldLifetime=scope.lifecycle;oldLifetime.active=false;scope.lifecycle={active:true};
+const oldStatus=scope.status;bakeCalls[3].callback(null);
+assert.equal(bakeCalls.length,4);assert.equal(scope.busy,true);
+assert.equal(reloads,2);assert.equal(scope.status,oldStatus);
 ''')
 
     def test_original_picker_rechecks_actual_file_before_finishing_selection(self):
