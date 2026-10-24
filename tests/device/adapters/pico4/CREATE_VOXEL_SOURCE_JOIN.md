@@ -8,6 +8,10 @@ edit, settings restoration and normal Delete flow. It reuses the original
 Python validation, continuity and retirement predicates. No new product getter
 or device capability is introduced.
 
+The native selector requires existing C++, pkg-config, unshare and Ninja tools,
+the prepared Qt 5 host and the already installed GLM/image dependencies named
+below. The runner declares Ninja explicitly; it installs no tools or packages.
+
 The initially empty original entity source arms the local-insertion observer.
 Actual NativeCreate detail controls, Pico/offscreen pointer bodies and field
 input open the original NewPolyVoxDialog through complete original `fromQml`

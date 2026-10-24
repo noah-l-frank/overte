@@ -4423,7 +4423,7 @@
     "validlyRepackedForgedSourceHashRefused": true,
     "noNativeQueryOrBudgetOrWireChange": true,
     "frameChildAndRawLimitsPreserved": true,
-    "nextWholeWithCopyChangeNotYetExecuted": true,
+    "nextWholeWithCopyChangeNotYetExecuted": false,
     "completeFeature": false,
     "deviceAcceptance": false,
     "repository": {
@@ -4431,6 +4431,95 @@
       "durationSeconds": 2.503,
       "status": "passed"
     },
-    "registryWhitespace": "passed"
+    "registryWhitespace": "passed",
+    "wholeResult": "browserWholeCopyRoot20261024"
+  },
+  "browserWholeCopyRoot20261024": {
+    "sourceHead": "0d1a06dba28f3251ab76c6f4dddea96d4dba3495",
+    "exitCode": 124,
+    "timeoutSeconds": 120,
+    "sourcesUnchanged": true,
+    "sourceFiles": 2238,
+    "temporaryRoot": "/tmp/overte-pico-browser-copy-20261024-mcozrhjn",
+    "normalCloseSeconds": 63.774,
+    "cleanupWaitSeconds": 81.684,
+    "phases": 28,
+    "stages": {
+      "pico-tablet-web-actor-remote-receipt.json": {
+        "phase": "complete",
+        "chunks": 0
+      },
+      "pico-tablet-web-remote-capture-retirement.json": {
+        "phase": "reading",
+        "complete": false,
+        "commonSequenceSucceeded": true,
+        "chunks": 50
+      }
+    },
+    "recordedAbsenceSamples": 9,
+    "pendingCaptureIntent": true,
+    "originalFiles": 1149,
+    "backupSha256": "098779ba31bfd10affb272ba252d3de8614c44a9bf045e46cde7a5bc98530137",
+    "backupQualification": "historical-byte-backup-only-no-live-owner-adoption",
+    "completeFeature": false,
+    "deviceAcceptance": false,
+    "sourceManifestScope": "2238 tracked files under tests/device and android/vr/pico/tests; not the entire product checkout"
+  },
+  "createSource15Root20261024": {
+    "sourceHead": "847cf11f83ddf4aea57a648fe1f2ea16f36adcc4",
+    "status": "passed-selected-native-components",
+    "selectedGroups": 3,
+    "catalogGroups": 237,
+    "durationSeconds": 81.1,
+    "selectors": {
+      "create-voxel-source-native": 69.501,
+      "create-polyvox-native-ui": 11.509,
+      "coverage-matrix": 0.09
+    },
+    "build": {
+      "elapsedSeconds": 53.796133255935274,
+      "returncode": 0,
+      "timedOut": false
+    },
+    "modes": {
+      "normal": {
+        "frames": 47,
+        "nativeQuietMs": 3148,
+        "hostQuietMs": 3146.67589,
+        "finalCpuBuffers": 0,
+        "texturesAlive": [
+          false,
+          false
+        ]
+      },
+      "retained-renderer": {
+        "frames": 47,
+        "nativeQuietMs": 3145,
+        "hostQuietMs": 3135.880639,
+        "finalCpuBuffers": 4,
+        "texturesAlive": [
+          true,
+          true
+        ]
+      },
+      "ignored-controller": {
+        "frames": 44,
+        "nativeQuietMs": 3144,
+        "hostQuietMs": 3145.262605,
+        "finalCpuBuffers": 0,
+        "texturesAlive": [
+          false,
+          false
+        ]
+      }
+    },
+    "fullFeatureComplete": false,
+    "deviceAcceptance": false,
+    "repository": {
+      "suites": 4,
+      "status": "passed",
+      "durationSeconds": 2.64
+    },
+    "registryJavaScriptWhitespace": "passed"
   }
 }

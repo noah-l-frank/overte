@@ -2919,5 +2919,43 @@ Eight owning capture cases pass in 53.303 s, including same-byte replacement
 during copying and a validly repacked child with a forged original hash. Both
 refuse before a capture reader/query. Ten coverage cases pass in 0.088 s
 (two selectors, 53.391 s total, 237 catalogue entries). This proves the changed
-admission boundary only. A complete run with this last change remains pending;
+admission boundary only. The subsequent complete run is recorded below;
 source/host complete areas remain three of fourteen and devices unqualified.
+
+
+## Whole Tablet Web capture admission now reaches original absence queries
+
+One unchanged complete case at 0d1a06dba28f3251ab76c6f4dddea96d4dba3495
+still ends red at 120 seconds. All 26 actions and 28 common phases execute;
+normal Close finishes at 63.774 s and cleanup starts at 81.684 s. Original
+independent Actor return and immutable catalogue copying complete. Capture
+retirement now reaches reading with 50 chunks, nine durably recorded absence
+samples and one pending intent. No result is inferred from that pending intent;
+the required complete three-second quiet, archive and host closure remain open.
+The manifest covers 2,238 tracked host-test/adapter files, not every product
+source in the checkout. All recorded sources remain unchanged and 1,149 retained
+original files preserve their bytes and physical stamps. The private historical
+byte backup cannot adopt a live owner. No whole Browser capability is enabled.
+
+## Root-verified normal Create Add and original CPU texture retirement
+
+Fixed Source15 2461f0ccb99725544e6d2adb2ddee84373eee766 is selected as
+847cf11f83ddf4aea57a648fe1f2ea16f36adcc4. Root freshly compiles the 62 original
+translation units and links them in 53.796 s, within the same 90 s deadline.
+The normal Add/preset-1 original QML/JS/entity/voxel/texture selector passes in
+69.501 s; both unchanged legacy UI cases pass in 11.509 s and coverage passes
+in 0.090 s (three selectors, 81.10 s, 237 catalogue groups). Ninja is now an
+explicit prerequisite, using only existing tools and prepared dependencies.
+Normal/retained-renderer/ignored-controller preserve 47/47/44 original frames,
+3148/3145/3144 ms native quiet and 3146.676/3135.881/3145.263 ms host quiet.
+Normal and ignored-input Delete release both original NetworkTextures and CPU
+pixels with zero CPU buffers; the retained renderer keeps both alive with four
+CPU buffers and correctly refuses retirement. Actual request-thread qrc byte
+hashes, native/frame continuity and the original three-second windows pass.
+The source join document records the exact original bodies and host endpoints.
+This is the CPU GL45 image path, with properties/placement, SDK/domain authority
+and scene-release seams still explicit. Full production Parent, real rez
+failure/recovery, independent actor/stereo, material/GPU work and full heap/
+process retirement remain open. Completed source features remain 3/14.
+Four targeted repository suites pass in 2.64 s and final record checks in
+2.65 s; registry, JavaScript syntax and whitespace checks also pass.

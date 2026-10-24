@@ -395,7 +395,10 @@
         "libraries/entities/src/EntityTree.cpp",
         "libraries/entities/src/EntityScriptingInterface.cpp",
         "libraries/entities/src/EntityItem.cpp.in",
-        "interface/src/scripting/TestScriptingInterface.cpp"
+        "interface/src/scripting/TestScriptingInterface.cpp",
+        "android/vr/pico/tests/device/create-voxel-add-bindings.js",
+        "tests/device/native/NormalCreateControls.h",
+        "android/vr/pico/tests/device/create-voxel-texture-prepare.py"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [
@@ -440,11 +443,11 @@
         "Drain original model/texture/picker/export callbacks and files",
         "Restore rez permission, view and actual unowned scene inventory"
       ],
-      "nextExecutableStep": "Connect the unchanged normal Add/dialog and Parent/Session/NativeNavigationIO routes to the running native source process. Full original local-copy/Tree/factory/creation-time and EntitySource6 bodies now execute with genuine matching insertion events and original weak/voxel/resource observations; the earlier minimal retirement slice is removed. Carry the actual preset-1 Ground/Grass qrc URLs through original TextureCache/NetworkTexture ownership and retirement instead of leaving an empty texture facade. Initial properties/Octree/node/domain/avatar/lifecycle and scene release remain explicit host endpoints. Rez authority, independent actor/stereo, actual draw and full heap/process retirement remain open.",
+      "nextExecutableStep": "Connect the reviewed normal Add/preset-1 original entity and real qrc texture path to the live production Parent/Session/NativeNavigationIO route with independent actor and stereo evidence. Root freshly compiles and verifies the original normal Add/Edit/Restore/Delete CPU path with actual Ground/Grass FileResourceRequest, NetworkTexture, decoded pixels and resource retirement; retained-renderer and ignored-controller counterexamples pass. Property application/Octree/node/domain/avatar/lifecycle/SDK/scene-release remain explicit host endpoints. Actual rez denial/recovery, material/GPU draw, complete heap/process retirement and full parent remain open.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
       "nativeDialogIntegrationStatus": "Focused original Qt5 dialog pipeline passed after restoring actual GUI Window receiver affinity and original worker DirectConnection call. Full application/V8 TUs and devices unqualified; earlier unsupported moved-receiver diagnostic crash documented.",
-      "nativeComponentCompilation": "Selected original full EntitySource6/local-copy/Tree-add/factory/creation-time, VoxelVolume/Marching Cubes/Cubic/update/mesh/compression/shape, ctor/init/destructor, QML/JS/normal input and weak source bodies freshly host-compiled and verified. All original Source6 frames pass production validate/continuity/retired in three modes. Properties/Octree/node/domain/avatar/lifecycle/SDK/scene-release endpoints remain explicit; full application/TUs, normal Add/Parent transport, textures, physics, GPU and devices remain unqualified."
+      "nativeComponentCompilation": "Root Source15 selected native and legacy UI selectors pass after fresh host compilation (69.501s and 11.509s). Complete original EntitySource6/local-copy/Tree/factory/creation-time, normal QML/JS Add, TextureCache/ResourceCache/NetworkTexture/FileResourceRequest, image decoder, CPU gpu::Texture/KTX and original voxel/mesh/edit/delete bodies execute. Normal and ignored-input Delete release the entity, weak renderer/mesh, both NetworkTextures and decoded CPU pixels; retained renderer refuses retirement. CPU GL45 path only; full application/APK, real SDK/domain authority, material/GPU/stereo, full heap and devices remain unqualified."
     },
     {
       "area": "emotes",
