@@ -271,3 +271,30 @@ envelope is emitted. All fifteen reader/publisher/private-factory cases passed
 **1.243 s**, source freeze
 `7836a6bbe7789732b69438130af2c2db7b1523a3b72b48a295b99927d05fe9a1`.
 No Native/Java/Parent/schema/catalog/shared-contract change is included.
+
+
+### Review follow-up: cross-query DOM source identity
+
+A subsequent original Parent audit exposed another cross-query join gap:
+old Native semantic authority and exact finish alone did not pin the DOM
+source generation. The genuine model producer changed its DOM instance before
+either new document or geometry response was created, without changing the
+Native finish or loading another HTTP document. Each new source independently
+passed strict validation, but the old ray could incorrectly resolve against
+the new DOM source. The continuous Parent counter failed in 5.734 s; its
+complete new raw/compiler/query evidence and first failure remain retained.
+
+A separate owning publisher counter on fixed `31d807f17d` reproduced the same
+acceptance (**1/.055 s**) with full calibration/envelope/focus originals
+archived before refusal. The publisher now additionally requires the actual
+original DOM instance and complete document identity (including opaque HTTP
+response ID) to equal the calibrated document original. Native/Java current
+bookends, old finish, exact control/scope, requested geometry/native focus and
+final warm clocks remain independently required. No old original, query clock,
+load count, Native source, Java or shared contract is changed.
+
+All sixteen reader/publisher/private-factory cases passed **1.248 s**, source
+freeze `0b67fd6d71b9fe7f9e0df1f648e58972e572553294304dab3944d5a3f5e7b623`.
+Matching foreign focus, changed-control refusal, no-ACK, old-clock publication,
+actual Session and no-replay cases remain in the same focused selection.
+The separately preserved Parent work is not part of this correction.

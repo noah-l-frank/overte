@@ -92,6 +92,10 @@ class PicoWorldCurrentRay:
         calibrated=self._calibration['request']
         need(calibrated['control'] in ('text','foreign')
              and all(call[key]==calibrated[key] for key in ('control','runId','ownerToken','fixtureUrl')))
+        calibrated_dom=decode(self._calibration['documentOriginal']['raw'])['source']['dom']
+        current_dom=decode(focus_original['documentOriginal']['raw'])['source']['dom']
+        need(current_dom['instance']==calibrated_dom['instance']
+             and json_digest(current_dom['document'])==json_digest(calibrated_dom['document']))
         old=decode(self._calibration['raw'])['source'];new=packet['source']
         from adapters.pico4.world_current_document import semantic
         # A new readable grant after publication cannot resolve the old input.
