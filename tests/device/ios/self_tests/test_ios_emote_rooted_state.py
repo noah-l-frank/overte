@@ -53,5 +53,22 @@ class RootedStateBoundaryTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):
             IOSEmoteRootedState({str(self.path):None},run='c'*32,lock=self.locks['primary'],actor_lock=self.locks['primary'])
 
+    def test_other_role_artifact_mutation_invalidates_the_enclosing_pure_read(self):
+        copies={};artifacts={}
+        for role,lock in self.locks.items():
+            root=artifacts[role]=self.root/(role+'-artifacts');root.mkdir(mode=0o700)
+            copies[str(lock.path.with_name('ios-emote-'+role+'-feature.json'))]=dict(artifactRoot=str(root))
+        original=PrivateFeatureState(artifacts['actor']/'emote-original-continuity-only.json')
+        original.write(dict(continuityOnly=True),None);raw=original.path.read_bytes()
+        class BoundaryReached(Exception):pass
+        def mutate(_role):
+            original.path.write_bytes(raw)
+            raise BoundaryReached('No role fact is supplied by this test')
+        # The role parser is deliberately interrupted: this tests the actual
+        # enclosing inventory guarantee, never a modeled product verdict.
+        with patch.object(IOSEmoteRootedState,'role',side_effect=mutate):
+            with self.assertRaises(NativeUIError):self.reader(copies).read()
+        self.assertEqual(raw,original.path.read_bytes())
+
 
 if __name__=='__main__':unittest.main()

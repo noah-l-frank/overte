@@ -63,3 +63,20 @@ the existing paired inventory, terminal controller and journal counterexamples.
 The actual frozen read fails the unchanged thirty-second operation budget.
 Performance, complete final integration and capability admission remain open.
 Native sources are uncompiled and devices are untested.
+
+## Bounded shared pure validation
+
+The complete frozen pair now uses the existing bounded pure-original scope
+under unchanged inventories of both artifact roots and both SDK directories.
+Every literal metadata/byte reader and role join still executes. Only identical
+successful pure validation arguments may be reused; no current query, parser
+result, native clock or ownership guard is cached. The actual shared locks and
+all inventory leases are checked at scope entry and exit. A same-inode rewrite
+in the other role's separate artifact root invalidates the enclosing read.
+
+The retained-file read passes in 123.250 seconds, compared with 159.967 seconds
+before this scope. Both independently rederived latest measurement hashes
+match their original records. All 904 originals and 1464 sources are unchanged.
+This remains above the unchanged thirty-second bound. A subsequent whole-native
+packet memo trial took 129.503 seconds and was removed; the default native
+validator and shared pure-validation API are unchanged.

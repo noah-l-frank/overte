@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 from adapters.native_feature_observation import exact,need
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.pure_original_validation import inherited_scope as pure_scope,PROFILE
 from adapters.script_feature.history import same
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
@@ -135,11 +136,19 @@ class IOSEmoteRootedState:
             need(type(feature) is dict and type(feature.get('artifactRoot')) is str)
             roots.add(Path(feature['artifactRoot']))
         leases=[EmoteOriginalLease(root,[]) for root in roots]
-        roles={role:self.role(role) for role in ('primary','actor')}
-        p,a=roles['primary'][0],roles['actor'][0]
-        need(p.root!=a.root and p.phase.fixture_url==a.phase.fixture_url and p.state['phaseInstance']==a.state['phaseInstance']
-            and same(admitted(p.state['actorAdmission'],p.state['binding']),a.state['binding'])
-            and same(a.state['primaryBinding'],p.state['binding']))
-        need(self.used==set(self.copies))
-        for lease in leases:lease.guard()
-        return IOSEmoteTerminalWindow(roles['primary'][1],roles['actor'][1])
+        def unchanged():
+            for lock in self.locks.values():lock.assert_held()
+            for lease in leases:lease.guard()
+            return True
+        # Only identical pure original validations are shared. Every literal
+        # metadata/byte reader and role join still runs, under both actual
+        # artifact/SDK inventories; no query, result or clock enters this memo.
+        with pure_scope(PROFILE,unchanged):
+            roles={role:self.role(role) for role in ('primary','actor')}
+            p,a=roles['primary'][0],roles['actor'][0]
+            need(p.root!=a.root and p.phase.fixture_url==a.phase.fixture_url and p.state['phaseInstance']==a.state['phaseInstance']
+                and same(admitted(p.state['actorAdmission'],p.state['binding']),a.state['binding'])
+                and same(a.state['primaryBinding'],p.state['binding']))
+            need(self.used==set(self.copies))
+            window=IOSEmoteTerminalWindow(roles['primary'][1],roles['actor'][1])
+        return window
