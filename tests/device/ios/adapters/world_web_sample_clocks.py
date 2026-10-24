@@ -12,7 +12,7 @@ from adapters.native_feature_observation import NativeFeatureObservation,exact,i
 from adapters.native_clock_join import digest
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.original_frame_store import OriginalFrameStore
-from adapters.original_marker_clock_queries import queries
+from ios.adapters.world_web_clock_validation import queries
 from adapters.script_feature.history import pack,unpack,same
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier

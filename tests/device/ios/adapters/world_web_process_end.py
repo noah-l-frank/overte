@@ -10,6 +10,7 @@ from copy import deepcopy
 from adapters.native_clock_join import digest
 from adapters.native_feature_observation import exact,need
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.original_file_reads import scope as original_reads
 from adapters.operation_transport_guard import scope as transport_scope
 from adapters.script_feature.history import pack,unpack,same
 from ios.adapters.installed_code import source as installed_source
@@ -62,9 +63,11 @@ class WorldWebProcessEnd:
         self.state=dict(phase='fencing',source=deepcopy(source),bundleId=self.flow.runtime.adapter.target(self.flow.selector)['appId'],
             fence=None,sceneSha256=scene_sha,processSha256=None,peer=deepcopy(peer))
         self.save()
-    def stop(self,parts):
+    def stop(self,parts,*,census):
         from contextlib import ExitStack
+        from ios.adapters.world_web_stop_inventory import WorldWebStopInventory
         self.bound();need(self.state['phase']=='fencing')
+        bridge=WorldWebStopInventory(census,self,parts)
         need(same(self.flow.runtime._graphics_final_source(self.flow.selector,self.binding),self.state['source']))
         # Full historical graphs are decoded before fresh acquisition. Only
         # declared append carriers can join this round; every later native/SDK
@@ -73,8 +76,10 @@ class WorldWebProcessEnd:
             for source in (parts['source'],parts['peer']):
                 if source is not None:
                     stack.enter_context(source.input_round(PrivateFeatureState(source.store.path.with_name('ios-world-web-inputs.json'))))
-            fresh=fence.acquire(self.flow,parts);need(fresh['sceneSha256']==self.state['sceneSha256'])
-            measured=fence.validate(fresh,self.flow,parts)
+            with original_reads(fresh=True) as reads:
+                fresh=fence.acquire(self.flow,parts);need(fresh['sceneSha256']==self.state['sceneSha256'])
+                measured=fence.validate(fresh,self.flow,parts)
+                bridge.freeze(fresh,reads)
             # The typed graph/append rounds validated the bytes before these
             # original identities were pinned; their exits guard this bridge.
             pins={}
@@ -92,6 +97,7 @@ class WorldWebProcessEnd:
         self.state.update(phase='stop-issued',fence=fresh);self.save()
         def final_guard():
             self.bound()
+            bridge.guard()
             for original_clock in measured['acquisitions']:fence.current_clocks(original_clock,self.flow)
             for path,signature in pins.items():need(parts['source'].original_signature(path)==signature)
             for lease in leases:lease.guard()
@@ -116,7 +122,7 @@ class WorldWebProcessEnd:
         need(measured['native']['processId']==int(self.binding['processIdentity']))
         return deepcopy(self.previous)
 
-    def actor_ready(self):
+    def actor_ready(self,*,actor=None):
         """Actor completion is acquired outside any polling loop/actor lock."""
         from ios.adapters.peer_admission import validate as admitted
         need(self.role=='primary')
@@ -125,8 +131,16 @@ class WorldWebProcessEnd:
         if original is None:return None
         rows=unpack(original['payload']);need(len(rows)==1)
         if rows[0]['phase']!='retired':return None
-        other=self.flow.runtime._world_web_feature(selector,self.run,role='actor',client=self.flow.client,
-            settings={key:self.flow.settings[key] for key in ('artifactRoot','imagePolicy','origins')}|dict(primaryTarget=self.flow.selector))
+        if actor is None:
+            other=self.flow.runtime._world_web_feature(selector,self.run,role='actor',client=self.flow.client,
+                settings={key:self.flow.settings[key] for key in ('artifactRoot','imagePolicy','origins')}|dict(primaryTarget=self.flow.selector))
+        else:
+            from ios.adapters.world_web_feature import IOSWorldWebFeature
+            need(type(actor) is IOSWorldWebFeature and actor.runtime is self.flow.runtime and actor.selector==selector
+                and actor.run==self.run and actor.role=='actor' and actor.primary_selector==self.flow.selector
+                and actor.root==self.flow.root and same(actor.policy,self.flow.policy) and same(actor.origins,self.flow.origins))
+            actor.lock.assert_held();need(actor.primary_lock is self.flow.lock)
+            other=actor
         other.primary_lock=self.flow.lock
         with other.held():
             other.load();need(other.state['binding']==peer and other.state['primaryBinding']==self.binding and other.state['phase']=='retired'

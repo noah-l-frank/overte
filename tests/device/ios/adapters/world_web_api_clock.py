@@ -33,9 +33,10 @@ def scope(monotonic):
     old=_CURRENT.get();budget=old if old is not None else Budget(monotonic);token=_CURRENT.set(budget)
     try:
         from ios.adapters import world_web_snapshot,world_web_whole_snapshot,world_web_source
+        from ios.adapters.world_web_clock_validation import scope as clock_validation
         # These existing memos retain immutable original decoding only. Their
         # current file/context guards and every transport deadline still run.
-        with world_web_snapshot.validation_round(),world_web_whole_snapshot.validation_round(),world_web_source.validation_round(),transport_scope(budget.check):
+        with clock_validation(),world_web_snapshot.validation_round(),world_web_whole_snapshot.validation_round(),world_web_source.validation_round(),transport_scope(budget.check):
             budget.check();yield;budget.check()
     finally:_CURRENT.reset(token)
 

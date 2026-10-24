@@ -301,11 +301,17 @@ class WorldWebTerminal:
             current=retired_phase(self.flow.phase.status(),self.flow)
             self.state['phase']='ending';self.save()
         # Actor first: its final primary-SDK fence runs while the primary lives.
-        # Separate lock scopes preserve the existing primary peer-ready join.
+        # Each Stop keeps both exact role locks and a fresh closed paired
+        # census through its ordinary final acquisition and transport send.
         from ios.adapters.world_web_session_end import WorldWebSessionEnd
         for flow in (self.actor,self.flow):
-            with flow.held():
-                flow.load();need(flow.finalize(current)==dict(performed=True));WorldWebSessionEnd(flow).finish()
+            with self.held(),original_reads(fresh=True) as role_reads:
+                roles,parts=self.roles(self.private(1)['roles'],historical=True)
+                verify_seal(retained,self.live(retained['samples'],roles,parts,historical=True),roles)
+                read_current_end(self,parts)
+                stop_census=WorldWebRootedInventory(self,role_reads)
+                need(flow.finalize(current,stop_census=stop_census)==dict(performed=True))
+                WorldWebSessionEnd(flow).finish()
         with self.held():
             roles,parts=self.roles(self.private(1)['roles'],historical=True)
             read_current_end(self,parts)

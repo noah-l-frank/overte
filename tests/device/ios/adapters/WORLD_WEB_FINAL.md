@@ -31,9 +31,27 @@ outputs, and accepts only successful actual read membership or the terminal's
 exact typed outputs. Current process/fence/scene/SDK/OS owners are decoded before
 the initial finish transition, and all end originals are replayed again before
 the final completion commit. A writing scene archive or unqualified OS/SDK
-chain remains owned and fails closed. The complete changed composition and
-membership continuity across every append during final fresh acquisition still
-need qualification. No time limit or original epoch is enlarged or retimed.
+chain remains owned and fails closed. The complete changed composition remains
+unqualified. No time limit or original epoch is enlarged or retimed.
+
+The next Stop bridge retains both exact role locks and the closed paired
+inventory through fresh final Source appends. It admits only the actual typed
+process journal and one completely decoded final-fence append per Source,
+rechecks old immutable signatures, and pins new heads and carriers before the
+last transport guard. Unknown files before/after an append, guessed read
+membership and equal-byte rewrites are refused. Native Stop requires the typed
+census; direct live finalization cannot bypass it. Six real Source4/filesystem
+bridge cases pass as part of the later 63-test run (17.697 seconds). Their
+process/scene boundary is explicitly modeled; no whole native end is inferred.
+
+Pure native-query decoding now reuses equal complete raw/query input bytes only
+inside one World API scope. The cache includes PID/strictness, returns separate
+copies, and retains at most 512 entries/8 MiB of serialized cost. Unsupported or
+over-capacity inputs run the original validator. Actual carrier reads, inode,
+ctime, headers and all current clock/deadline checks remain required. Five new
+cache cases plus seven existing real clock-carrier and five API deadline cases
+pass in the 25-test clock/fence run. This removes duplicate pure decoding;
+it does not qualify full-run CPU bounds.
 
 The separate current-source Open/Focus/Unicode/Submit CPU-accounted case also
 passes (one test, 6.111 seconds). This is a short input subset, not a whole-run

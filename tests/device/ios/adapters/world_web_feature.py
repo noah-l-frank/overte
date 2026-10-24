@@ -295,7 +295,7 @@ class IOSWorldWebFeature:
         need(self.role=='actor');return self.observe(dict(contractVersion=16,runId=self.run,afterSequence=0))
 
     @operation
-    def finalize(self,phase_original):
+    def finalize(self,phase_original,*,stop_census=None):
         """Scene originals, own normal Stop, OS quiet and immutable archives."""
         from ios.adapters.world_web_final_archive import WorldWebFinalArchive
         from ios.adapters.world_web_process_end import WorldWebProcessEnd
@@ -317,14 +317,19 @@ class IOSWorldWebFeature:
             need(same(frame['feature'],dict(self.state,phase=frame['feature']['phase'])) and same(frame['coordinatorHeader'],header)
                 and same(owner.validate_original(frame['original']),frame['measured']))
             return {'performed':True}
+        if process.state is None or process.state['phase']=='fencing':
+            from ios.adapters.world_web_rooted_inventory import WorldWebRootedInventory
+            need(type(stop_census) is WorldWebRootedInventory
+                and self is (stop_census.terminal.flow if self.role=='primary' else stop_census.terminal.actor))
+            stop_census.current_roots()
         if process.state is None:
-            peer=None if self.role=='actor' else process.actor_ready()
+            peer=None if self.role=='actor' else process.actor_ready(actor=stop_census.terminal.actor)
             if self.role=='primary' and peer is None:return {'performed':False}
             parts=self.parts();need(parts['retirement'] is not None and self.state['retirement'] is not None)
             original=scene_original(parts['retirement']);parts['retirement'].validate_original(original)
             need(digest(original)==self.state['retirement']['localSha256'])
             process.prepare(self.runtime._graphics_final_source(self.selector,self.state['binding']),digest(original),peer)
-        if process.state['phase']=='fencing':process.stop(self.parts())
+        if process.state['phase']=='fencing':process.stop(self.parts(),census=stop_census)
         started=self.monotonic()
         while process.state['phase']!='complete':
             if process.advance():break
