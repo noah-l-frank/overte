@@ -16,6 +16,7 @@ def project(original):
 
 class PicoLifecycleIO:
     def __init__(self,original):self.original=original
+    def bind_before_send(self,callback):self.original.navigation.io.bind_before_send(callback)
     def capture(self):return project(self.original.capture())
     def activate(self,identifier,*,reference):self.original.navigation.input(identifier,reference=reference)
     def replace(self,identifier,value,*,reference):self.original.navigation.input(identifier,'replace',value,reference=reference)

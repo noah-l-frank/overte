@@ -61,11 +61,11 @@ class Native:
 
 class Transport(FakeTransport):
     def __init__(self,native,path):super().__init__();self.native,self.path=native,path;self.fail=None;self.before=None;self.consume=True
-    def stage(self,envelope,profile):
+    def stage(self,envelope,profile,*,before_publish=None):
         state=owner_payload(json.loads(self.path.read_text()))[0];attempt=state['attempts'][-1]
         assert attempt['phase']=='enveloped' and attempt['envelope']==envelope
         if self.before:self.before(state,envelope)
-        result=super().stage(envelope,profile)
+        result=super().stage(envelope,profile,before_publish=before_publish)
         self.native.layer=native_status()|dict(acceptedNonce=envelope['sessionNonce'],acceptedSequence=envelope['sequence'],
             vectorAppliedSequence=envelope['sequence'],activeCommandId=envelope['commands'][0]['id'],
             updatedEpochMs=self.native.epoch(),leftThumbstickAppliedY=MOVE['strength'])

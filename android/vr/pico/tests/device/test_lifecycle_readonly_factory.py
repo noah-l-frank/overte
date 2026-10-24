@@ -16,11 +16,14 @@ from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import test_normal_scripts as normal_fixture
 from adapters.normal_ui import NativeUIError
+from adapters.normal_feature_state import PrivateFeatureState
 from adapters.pico4.lifecycle_observation import PicoLifecycleObservation
 from adapters.pico4 import lifecycle_source as ui,lifecycle_gesture as gesture,lifecycle_drive as drive
 from adapters.pending_commit_owner import FILE as PENDING_FILE
 from self_tests import test_pico_lifecycle_editor as editor_fixture
 from self_tests import test_pico_lifecycle_observation_baseline as baseline_fixture
+from feature_journeys.phase_fixture import PhaseFixtureReader
+from feature_journeys.witness import Client
 
 
 class LifecycleReadOnlyFactoryTests(unittest.TestCase):
@@ -90,7 +93,27 @@ class LifecycleReadOnlyFactoryTests(unittest.TestCase):
             self.assertEqual(1,len(owner.disk['records']));self.assertEqual(2,len(owner.world.state['frames']))
             self.assertEqual([gesture.ACTION,drive.ACTION,'observe','feature-pending-commit-owner'],[row['action'] for row in self.commands])
             with owner.lock.held():owner.world.load()
+            before_queries=len(self.commands)
+            phases=PhaseFixtureReader(Client('http://controlled.invalid/feature-fixture/v1','r'*64),owner.run,'lifecycle-input')
+            operations=self.adapter._lifecycle_primary_operations(self.transport.target,owner.run,source=owner,phases=phases)
+            self.assertIs(operations.source,owner);self.assertIs(operations.lock,owner.lock)
+            self.assertEqual(owner.store.path.with_name('lifecycle-primary-operations.json'),operations.store.path)
+            self.assertEqual(before_queries,len(self.commands));self.assertIsNone(getattr(owner.editor,'phase_fence',None))
         self.at_original_begin(probe)
+
+    def test_operations_wrong_caller_is_refused_before_native_access(self):
+        with patch.object(self.adapter,'_native_feature_observer',side_effect=AssertionError('Native access for wrong caller')):
+            with self.assertRaises(ValueError):
+                self.adapter._lifecycle_primary_operations(self.transport.target,'a'*32,source=SimpleNamespace(),phases=None)
+        self.assertEqual([],self.transport.inputs);self.assertEqual([],self.transport.controllers)
+
+    def test_operations_orphan_keeps_generic_cleanup_owned_without_source_root(self):
+        root=self.adapter._lifecycle_world_store(self.transport.target).path.parent
+        orphan=PrivateFeatureState(root/'lifecycle-primary-operations.json.frame-000.json')
+        orphan.write(dict(unresolved='actual retained parent ownership'),None);original=orphan.path.read_bytes()
+        self.assertTrue(self.adapter._lifecycle_observation_owned(self.transport.target))
+        with self.assertRaises(ValueError):self.adapter.cleanup(self.transport.target)
+        self.assertEqual(original,orphan.path.read_bytes());self.assertEqual([],self.transport.inputs)
 
     def test_foreign_process_is_refused_before_any_factory_source_query(self):
         def probe(_case,owner):

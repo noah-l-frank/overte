@@ -2072,7 +2072,8 @@ def create_adapter(args, base_class):
             store._parent()
             for index,path in enumerate(store.path.parent.iterdir()):
                 _need(index<4096)
-                if path.name=='lifecycle-primary-observation.json' or path.name.startswith('lifecycle-primary-observation.json.frame-'):return True
+                if path.name in ('lifecycle-primary-observation.json','lifecycle-primary-operations.json') or any(
+                        path.name.startswith(name+'.frame-') for name in ('lifecycle-primary-observation.json','lifecycle-primary-operations.json')):return True
             return False
 
         @_private
@@ -2344,6 +2345,17 @@ def create_adapter(args, base_class):
                 self._lifecycle_gesture_source(target,source_lock=world.lock),
                 self._lifecycle_drive_source(target,source_lock=world.lock),
                 world.store.path.with_name('lifecycle-primary-observation.json'))
+
+        @_private
+        def _lifecycle_primary_operations(self,target,run,*,source,phases):
+            from adapters.pico4.lifecycle_observation import PicoLifecycleObservation
+            from adapters.pico4.lifecycle_operations import PicoLifecycleOperations
+            _need(type(source) is PicoLifecycleObservation and source.version==3 and source.run==run
+                and source.world.store.path==self._lifecycle_world_store(target).path)
+            self._script_journey()._lock(target,source.lock)
+            native=self._native_feature_observer(target);native.guard()
+            _need(native.pid==source.pid and self.require_pico_session_identity(target)==source.world.identity)
+            return PicoLifecycleOperations(source,phases,source.world.store.path.with_name('lifecycle-primary-operations.json'))
 
         @_private
         def _lifecycle_restore_restart(self,target,run,*,restore):

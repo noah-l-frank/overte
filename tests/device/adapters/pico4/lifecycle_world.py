@@ -163,6 +163,8 @@ class PicoLifecycleWorld:
                     current=ui.current_editor(packets['ui'])
                     need(ui.nonce(editor_id) and not self.state['attempts'] and current is not None
                         and current['id']==editor_id and current['text']==fixture(self.run)['unicode'])
+                from adapters.pico4.lifecycle_operations import phase
+                if phase(self) is not None:phase(self).mark()
                 state=deepcopy(self.state);state['attempts'].append(dict(phase='reserved',before=len(state['frames'])-1,
                     envelope=None,receiptFrame=None,receiptId=None,quiet=None));self.save(state)
                 self.now()
@@ -170,7 +172,12 @@ class PicoLifecycleWorld:
                     envelope(original,self.session.profile);state=deepcopy(self.state);attempt=state['attempts'][-1]
                     need(attempt['phase']=='reserved');attempt.update(phase='enveloped',envelope=deepcopy(original));self.save(state)
                     self.fresh_current()
-                self.session.stage(self.identity,'input.move',deepcopy(MOVE),intent=intent)
+                    if phase(self) is not None:phase(self).host_fresh()
+                if phase(self) is not None:phase(self).check()
+                def before_publish(original):
+                    need(original==self.state['attempts'][-1]['envelope']);self.fresh_current();phase(self).host_fresh()
+                self.session.stage(self.identity,'input.move',deepcopy(MOVE),intent=intent,
+                    **({} if phase(self) is None else dict(before_publish=before_publish)))
                 return self.observe_locked()
         except Exception:raise NativeUIError('Pico world input unresolved; original ownership retained') from None
 
@@ -192,9 +199,13 @@ class PicoLifecycleWorld:
                 self.load();need(self.state is not None and self.state['attempts']);attempt=self.state['attempts'][-1]
                 need(attempt['phase'] in ('consumed','release-issued','quiet'))
                 if attempt['phase']=='consumed':
+                    from adapters.pico4.lifecycle_operations import phase
+                    if phase(self) is not None:
+                        phase(self).mark();self.now();self.fresh_current();phase(self).check()
                     def intent():
                         state=deepcopy(self.state);need(state['attempts'][-1]['phase']=='consumed')
                         state['attempts'][-1]['phase']='release-issued';self.save(state)
+                        if phase(self) is not None:self.fresh_current();phase(self).host_fresh()
                     self.session.neutralize_owned(self.identity,attempt['envelope'],intent=intent)
                 # A lost release response is reconciled read-only, never resent.
                 self.session.require_owned_neutral(self.identity,attempt['envelope'])
