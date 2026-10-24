@@ -20,7 +20,7 @@ class SnapshotsMarkerPhaseTests(unittest.TestCase):
         temp=tempfile.TemporaryDirectory(prefix='snapshot-marker-phase-');self.addCleanup(temp.cleanup)
         self.b=source.SnapshotRolesBoundary(temp.name)
         self.ticket='d'*32
-        self.marker=dict(source=dict(originalInput=dict(ticket=source.TICKET)))
+        self.marker=dict(source=dict(phoneCreateFixtureVersion=2,originalInput=dict(ticket=source.TICKET)))
         self.b.feature.state['marker']=dict(operation='prepare')
         self.restore=Mock()
         self.b._create_fixture_observer=lambda *_args,**_kwargs:SimpleNamespace(read=lambda *_:deepcopy(self.marker),restore=self.restore)
@@ -56,6 +56,22 @@ class SnapshotsMarkerPhaseTests(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError,'Required original image evidence is missing'):
             engine.artifacts(measured,self.ticket,['image'])
         self.render.assert_not_called();self.assertEqual(source.TICKET,self.marker['source']['originalInput']['ticket'])
+
+    def test_refreshed_marker_uses_latest_input_instead_of_immutable_creation_ticket(self):
+        self.phase('save')
+        # Version 3 preserves creation ownership while its latest refresh names
+        # the actual visible challenge. Neither an older challenge nor a matching
+        # creation ticket can authorize a new image for this Save phase.
+        self.marker['source'].update(phoneCreateFixtureVersion=3,
+            originalInput=dict(ticket=self.ticket),lastRefreshInput=dict(ticket=source.TICKET))
+        with patch('overte_phone_snapshots_role.marker_ready',side_effect=AssertionError('Creation ticket is not the latest challenge')):
+            with self.b.role() as role:
+                measured=role.read(0);frame=deepcopy(role.frames[-1])
+        self.render.assert_not_called()
+        self.assertEqual(self.marker,frame['marker'])
+        self.assertEqual(self.ticket,frame['ticket'])
+        self.assertFalse(frame['imageReady']);self.assertIsNone(frame['image'])
+        self.assertFalse(any(row['kind']=='image' for row in measured['artifacts']))
 
 
 if __name__=='__main__':unittest.main()
