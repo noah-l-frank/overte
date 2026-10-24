@@ -491,3 +491,111 @@ retention preserved originals without replacing any product/adapter method or
 actual buffer/file/input cleanup. No dependency code was selected back into Root.
 The local catalog delta is exactly +1; retain newer integrated counts and all
 other contracts. This still supplies no complete public/actor/host finalization.
+
+
+## Ordinary renamed-bookmark return (private v6)
+
+The next unchanged shared v16 action is `bookmark-visit`. Private Prefix v6
+reads v1–v6 and composes it after all ten preceding ordinary actions. The
+original named-failure, OK/dismissal and final Close-v2 archives remain unchanged;
+the return child pins their original digests and exact last Close envelope.
+No fabricated closed baseline, bookmark or Transit replaces these actions.
+
+`NavigationBookmarkJoin` v1 uses the same parent, source lock, normal IO and
+OpenXR Session. A durable parent/child intent precedes the ordinary controller
+Open. Separate original UI/native pose, storage, account/environment, root,
+reply, modal, Home entity and generic graphics observations establish that B
+and the renamed bookmark persist and that the actual tablet is open on Home.
+The Open acknowledgement supplies no observed feature state. The existing
+Session must also have durably committed this exact stream, and each original
+status answer is archived before neutral admission; active/unknown responses
+are not filtered out. Native `updatedEpochMs` remains its transition clock.
+Neither a lost response nor a failed status read resends the Open.
+
+Existing `TokenPlacesUI` performs normal Home paging and Places entry. The
+new original Places root must be absent from the earlier complete directory
+inventory. The existing original directory reader joins this new page's READY
+response/read/code/message/root to a genuinely new controlled HTTP receipt on
+the current action ticket. The original `places.js:172–177,339–348` READY path
+calls `transmitPortalList` and `fetchMetaverse`; no extra Refresh, hidden handler
+or setter is introduced. The old single-page Directory owner is not rebound to
+the new page. Its pure archival/continuation checks and `joined_directory` are
+reused. The original provider/read histories continue across this boundary.
+
+The same `NavigationTransit`, original Home-ray owner, `NavigationTabletClose`
+v2 and `NavigationStereo` v2 then perform the return. The transit's initial root,
+generation/input sequence, page metadata and independent persisted bookmark map
+are joined to the recorded new page. The renamed normal Visit uses its actual
+stored A URL. Independent probe and GUI avatar sources establish arrival at A;
+a delivery ACK cannot advance a pending Visit. Original Places death and a full
+three-second Home/pose/root quiet precede normal controller Close, its separate
+three-second graphics/Home/UI quiet, and a new capture after the tablet is
+actually hidden. A distinct immutable PNG/archive and actual shared capture
+receipt/memory release are required. All journals and original images remain.
+
+The reused TransitJoin reader is v2, reading v1/v2. Directory continues writing
+its unchanged v1 wire; bookmark v2 explicitly binds its kind and immediately
+preceding original Open envelope. Its later Home and Close continue that same
+native nonce/sequence. Source v2, Samples v1, Close v2, common v16 and all product
+functions remain unchanged. No Phone/iOS source or wire is modified.
+
+The first new continuous eleven-action run failed in **6.707 s** after all ten
+prior actions, actual Open7 and the independently observed opened Home. The
+new test-only pager forwarder omitted the existing Boundary's own input-intent
+list before its original `send`; the parent intent was already retained.
+That explicit Qt producer was corrected to match the existing Missing producer.
+The corrected positive passed **1/1 in 8.193 s**, before the additional archived
+READY-to-transit continuity and Open-neutral guards described above. It retained
+44 actual QML intents, nine controller envelopes, one normal OK, one actual TLS
+404, two actual directory reads and two separate captures. Both role readers
+independently queried all eleven resulting states.
+
+The two PNGs from that host run are genuinely distinct acquired originals but
+byte-identical: each is 7,268 bytes, SHA256
+`2630cf1ec63458d4a15ca23446c36eed8ec074ebb38184512786effbf239bda0`.
+The model's independent original pose moved B to A; its generic GPU test scene
+did not change. This is explicitly **not changed-image, Navigation-scene,
+challenge-marker or physical peer evidence**. The host Qt/VM/native/GPU/OS
+producers remain declared seams, and no device/native build follows from this
+packet. The full Source/Actor/Public triple, original image/scene attribution,
+explicit restart and remaining v16 actions, restoration and final cleanup remain
+partial and unqualified.
+
+The next five material cases ran on the stronger READY/transit archive guards:
+**4 passed, 1 refused in 38.155 s**. Cold applied Entry/Visit, accepted input
+without actual A, and a final phase advance were green. The original Open-loss
+producer threw inside transport `stage`, before `PicoOpenXrAdapterSession` saved
+its next cursor (`adapter_session.py:375–379`). That exact grant/host-save gap
+stays unresolved; no cursor adoption or stream resend is allowed. The new
+neutral admission moves this refusal before any subsequent Qt action. A
+separate late-ACK-loss case injects failure only after the real Session save.
+The earlier unsuccessful originals remain preserved, not reclassified.
+
+After the original stream-neutral admission was added, the two focused Open
+cases passed **2/2 in 12.231 s**: an ACK lost after the real Session save
+recovered from retained active→neutral answers and fresh Home originals without
+a second Open; a transport failure before the host save preserved the cursor
+bytes and refused before any later Qt/controller input. The old complete
+first-ten flow and three actual Pico-factory cases passed **4/4 in 7.036 s**.
+Coverage passed six cases in 0.005 s, the compatibility registry passed, and
+four repository suites passed in 2.63 s. No compiler or full catalog ran.
+A final local strict-schema check is recorded separately below; these timings
+are not presented as one identical-source full-selector acceptance run.
+
+The additive `navigation-bookmark-prefix` selector contains seven continuous
+owner/recovery/admission cases, maps to the existing serverless-world-loading
+risk capability, and is included in the existing control-plane selection. Only
+one catalog group is added; the local historical count moves 102→103. Integration
+must preserve newer Root additions and its genuine v4 first-nine refusal case.
+The common Navigation capability remains unavailable. All old/new parent,
+source-frame, lookup, dismissal, root/HTTP, transit, Close, status and image
+originals remain cleanup obligations; none is deleted or declared retired by
+this input composition.
+
+Final source review added an exact integer check for the new Open record's
+`schemaVersion`; the shared envelope API is unchanged. The single changed
+late-ACK/recovery case passed **1/1 in 6.724 s** on this final source. It also
+historically accepts the real valid pending Open record before rejecting its
+Boolean schema alias with a matching recomputed record hash, independently of
+later child/prior mismatches. The final seven-case selector has not been run as
+one unit locally; integration must execute that selection on its merged source.

@@ -1135,11 +1135,12 @@ def create_adapter(args, base_class):
             source=NavigationPrefixSource(ui(lambda _value:need(False)),self._navigation_arrival(target,run,inputs['sceneUrl']),
                 storage,self._navigation_panels(target),environment,self._navigation_modals(target),directory_source,status,
                 run,manager.binding,inputs,provider_instance,owned_origin,source_profile,native.clock_ms,guard,replies=self._navigation_replies(target))
-            def transit_factory(parent):
+            def transit_factory(parent,*,kind='directory',prior=None):
                 from adapters.navigation_transit import NavigationTransit
                 from adapters.navigation_stereo import NavigationStereo
                 from adapters.pico4.navigation_transit_join import NavigationTransitJoin
                 from feature_journeys.stereo_navigation_evidence import original_name
+                stem='navigation-prefix-transit' if kind=='directory' else 'navigation-prefix-bookmark-transit'
                 images=root/'navigation-prefix-images'
                 try:images.mkdir(mode=0o700)
                 except FileExistsError:pass
@@ -1149,10 +1150,10 @@ def create_adapter(args, base_class):
                         lambda:self._navigation_world_render_capture(target,role='primary',source_lock=lock),
                         images/original_name(run,'primary',ticket),images,run,manager.binding,lock,guard,role='primary',journal_id=ticket,
                         ui_factory=lambda:self._graphics_ui_observer(target),native_factory=lambda:self._native_feature_observer(target),monotonic=native.monotonic)
-                transit=NavigationTransit(ui,source.arrival,directory_source,storage,stereo,root/'navigation-prefix-transit.json',run,
+                transit=NavigationTransit(ui,source.arrival,directory_source,storage,stereo,root/(stem+'.json'),run,
                     manager.binding,inputs['sceneUrl'],guard,directory=directory,home=bind_home(self,target,native),panels=source.readers['panels'],defer_stereo_until_close=True,
                     monotonic=native.monotonic,sleep=native.sleep)
-                return NavigationTransitJoin(parent,transit,manager.ui,self._graphics_ui_observer(target),root/'navigation-prefix-transit-join.json')
+                return NavigationTransitJoin(parent,transit,manager.ui,self._graphics_ui_observer(target),root/(stem+'-join.json'),kind=kind,prior=prior)
             def missing_factory(parent):
                 from adapters.navigation_missing import NavigationMissing
                 from adapters.pico4.navigation_lookup import PicoNavigationLookup
@@ -1171,8 +1172,12 @@ def create_adapter(args, base_class):
                     source.readers['replies'],source.readers['modals'],status,root/'navigation-prefix-dismissal.json',run,manager.binding,
                     provider_instance,inputs,owned_origin,guard,monotonic=native.monotonic,sleep=native.sleep)
                 return NavigationDismissalJoin(parent,parent.missing(),child,manager.ui,self._graphics_ui_observer(target),root/'navigation-prefix-dismissal-join.json')
+            def bookmark_factory(parent):
+                from adapters.pico4.navigation_bookmark_join import NavigationBookmarkJoin
+                return NavigationBookmarkJoin(parent,lambda prior:transit_factory(parent,kind='bookmark',prior=prior),
+                    root/'navigation-prefix-bookmark-join.json')
             return NavigationPrefix(root/'navigation-prefix-owner.json',source,phase_source,lock,origin,directory,bookmarks,
-                self.pico_input_session(target),role=role,monotonic=native.monotonic,transit_factory=transit_factory,missing_factory=missing_factory,dismissal_factory=dismissal_factory)
+                self.pico_input_session(target),role=role,monotonic=native.monotonic,transit_factory=transit_factory,missing_factory=missing_factory,dismissal_factory=dismissal_factory,bookmark_factory=bookmark_factory)
 
         def _navigation_world_render_store(self,target,role):
             _need(role in ('primary','actor'))
