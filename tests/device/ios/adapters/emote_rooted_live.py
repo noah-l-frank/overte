@@ -7,6 +7,7 @@ Reads rederive that answer from original native/input/file/PNG evidence.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from contextlib import contextmanager
 import os
 from pathlib import Path
 import re
@@ -45,11 +46,23 @@ class IOSEmoteRootedLive:
 
     @classmethod
     def archive(cls,value,*,store,lock,primary_lock):
+        obj=cls._archive_header(value,store=store,lock=lock,primary_lock=primary_lock)
+        obj.state=obj.decode(value);return obj
+
+    @classmethod
+    @contextmanager
+    def archive_scope(cls,value,*,store,lock,primary_lock):
+        obj=cls._archive_header(value,store=store,lock=lock,primary_lock=primary_lock)
+        with obj.decoding(value) as state:
+            obj.state=state;yield obj
+
+    @classmethod
+    def _archive_header(cls,value,*,store,lock,primary_lock):
         need(type(value) is dict);obj=object.__new__(cls);obj.owner,obj.historical=None,True
         obj.configure(root=value.get('artifactRoot'),binding=value.get('binding'),primary_binding=value.get('primaryBinding'),
             run=value.get('runId'),role=value.get('role'),fixture_url=value.get('fixtureUrl'),phase_instance=value.get('phaseInstance'),
             policy=value.get('imagePolicy'),store=store,lock=lock,primary_lock=primary_lock)
-        obj.previous=store.read();need(same(obj.previous,value));obj.originals=obj.original_store();obj.state=obj.decode(value)
+        obj.previous=store.read();need(same(obj.previous,value));obj.originals=obj.original_store()
         return obj
 
     def configure(self,*,root,binding,primary_binding,run,role,fixture_url,phase_instance,policy,store,lock,primary_lock):
@@ -134,14 +147,19 @@ class IOSEmoteRootedLive:
         return value
 
     def decode(self,value):
+        with self.decoding(value) as state:return state
+
+    @contextmanager
+    def decoding(self,value):
         with self.read_batch():
             state=self.structure(value)
             snapshots=[self.read_frame(reference)['snapshot'] for reference in state['records']]
-            if not snapshots:return self.decode_state(value)
+            if not snapshots:
+                yield self.decode_state(value);return
             need(self.prepared is None)
             with grouped(snapshots,lock=self.lock,primary_lock=self.primary_lock) as prepared:
                 self.prepared=prepared
-                try:return self.decode_state(value)
+                try:yield self.decode_state(value)
                 finally:self.prepared=None
 
     def structure(self,value):

@@ -81,3 +81,22 @@ match their original records. All 904 originals and 1464 sources are unchanged.
 This remains above the unchanged thirty-second bound. A subsequent whole-native
 packet memo trial took 129.503 seconds and was removed; the default native
 validator and shared pure-validation API are unchanged.
+
+The frozen role reader now keeps the existing bounded grouped graph scope open
+through the rest of that same role's qualification. The copied five-component
+metadata must still exactly match the actual live snapshot. Its already
+literally reopened historical owner can then be reused, with all five pending
+states absent and the current keyed constructor's actual next-slot absence
+check retained explicitly. No live writer or legacy grammar changes.
+
+`IOSEmoteRootedLive.archive_scope` clears the prepared graph on normal return
+and exceptions; its saved reader becomes inactive at scope exit. Five real
+component/file tests pass in 121.069 seconds, including same-inode original
+rewrite and consumer interruption. Thirty-six related original-grammar,
+inventory, journal and ownership regressions pass in 0.960 seconds.
+
+The integrated original-data read passes in 37.984 seconds, preserving both
+stored measurement hashes, all 904 originals and 1466 captured sources. It
+still fails the unchanged thirty-second bound and does not qualify full
+ownership, process end or device timing. Separate frame/component JSON memo
+experiments remain private and are not part of this implementation.

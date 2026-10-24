@@ -27,7 +27,6 @@ from ios.adapters.emote_rooted_live import IOSEmoteRootedLive
 from ios.adapters.emote_rooted_marker_scope import IOSEmoteRootedMarkerScope
 from ios.adapters.emote_rooted_observation import IOSEmoteRootedObserver
 from ios.adapters.emote_rooted_responsibility import IOSEmoteRootedResponsibility
-from ios.adapters.emote_rooted_retirement import IOSEmoteRootedKeyedRetirement
 from ios.adapters.emote_samples import IOSEmoteSamples
 from ios.adapters.emote_terminal_window import IOSEmoteTerminalWindow
 from ios.adapters.graphics_configuration import settings
@@ -88,7 +87,11 @@ class IOSEmoteRootedState:
         suffix='/runs/'+self.run+'/';need(value['fixtureUrl'].endswith(suffix))
         flow.client=SimpleNamespace(url=value['fixtureUrl'][:-len(suffix)])
         live_store=self.store(lock.path.with_name('ios-emote-'+role+'-'+self.run+'-terminal-live.json'))
-        live=IOSEmoteRootedLive.archive(live_store.read(),store=live_store,lock=lock,primary_lock=primary_lock)
+        with IOSEmoteRootedLive.archive_scope(live_store.read(),store=live_store,lock=lock,primary_lock=primary_lock) as live:
+            return self.role_parts(flow,live)
+
+    def role_parts(self,flow,live):
+        role,root,lock,primary_lock=flow.role,flow.root,flow.lock,flow.primary_lock
         need(live.state['pending'] is None and live.state['records'] and live.run==self.run and live.role==role
             and live.root==root and same(live.binding,flow.state['binding'])
             and same(live.primary_binding,flow.state['primaryBinding']) and same(live.policy,flow.policy)
@@ -97,7 +100,13 @@ class IOSEmoteRootedState:
         need(same(snapshot['reference'],flow.state['cleanup'][-1]))
         for name,path in snapshot['paths'].items():need(same(self.store(path).read(),snapshot['owners'][name]))
         historical=reopen(snapshot,lock=lock,primary_lock=primary_lock)
-        owner=IOSEmoteRootedKeyedRetirement(self.store(snapshot['paths']['keyed']),historical.rendered_owner,historical.keys_owner)
+        owner=historical
+        for part in (owner,owner.rendered_owner,owner.rendered_owner.native_owner,owner.rendered_owner.frames_owner,owner.keys_owner):
+            need(part.state.get('pending') is None)
+        # Preserve the current keyed constructor's actual next-slot absence.
+        # The full identical copied metadata was already literally decoded.
+        used=len(owner.state['records'])+len(owner.state['abandoned'])
+        if used<128:need(owner.record_store(used+1).read() is None)
         rendered=owner.rendered_owner;native=rendered.native_owner
         rendered_ref=owner.original(snapshot['reference'])['renderedReference']
         raw=native.original(rendered.original(rendered_ref)['nativeReference'])

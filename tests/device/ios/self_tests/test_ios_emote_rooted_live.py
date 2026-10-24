@@ -100,5 +100,29 @@ class RootedLiveTests(unittest.TestCase):
         self.assertEqual(before,{p:(p.stat().st_dev,p.stat().st_ino,p.read_bytes()) for p in live.root.glob(pattern)})
         self.assertEqual(history,len(domain.history));self.assertEqual(actions,domain.io.actions)
 
+    def test_scoped_archive_reuses_only_its_qualified_graph_and_clears_it_on_return_or_error(self):
+        owner=self.f.keyed;live=IOSEmoteRootedLive(owner);row=live.append(self.f.keyed_ref)
+        options=dict(store=Frozen(live.store.path,live.previous),lock=owner.lock,primary_lock=owner.primary_lock)
+        with IOSEmoteRootedLive.archive_scope(live.previous,**options) as archive:
+            prepared=archive.prepared;self.assertTrue(prepared.active)
+            self.assertEqual(row,archive.record(row['reference']))
+            self.assertEqual([row],archive.selected_many([row['measurement']['public']]))
+        self.assertIsNone(archive.prepared);self.assertFalse(prepared.active)
+        with self.assertRaises(NativeUIError):prepared.guard()
+        class Interrupted(Exception):pass
+        with self.assertRaises(Interrupted):
+            with IOSEmoteRootedLive.archive_scope(live.previous,**options) as archive:
+                prepared=archive.prepared;raise Interrupted('Read-only consumer interrupted')
+        self.assertIsNone(archive.prepared);self.assertFalse(prepared.active)
+
+    def test_scoped_archive_refuses_same_inode_original_rewrite_before_return(self):
+        owner=self.f.keyed;live=IOSEmoteRootedLive(owner);row=live.append(self.f.keyed_ref)
+        path=live.originals.path(live.originals.expand(row['reference']));raw=path.read_bytes()
+        with self.assertRaises(NativeUIError):
+            with IOSEmoteRootedLive.archive_scope(live.previous,store=Frozen(live.store.path,live.previous),
+                    lock=owner.lock,primary_lock=owner.primary_lock) as archive:
+                self.assertEqual(row,archive.record(row['reference']));path.write_bytes(raw)
+        self.assertEqual(raw,path.read_bytes());self.assertIsNone(archive.prepared)
+
 
 if __name__=='__main__':unittest.main()
