@@ -60,6 +60,11 @@ class PicoLifecycleBackground:
             (('ui',ui.validate),('gesture',gesture.validate),('drive',drive.validate))}
         proof.feature_original(row['native'],self.pid);return packets
 
+    def bind_phase_fence(self,fence):
+        from adapters.pico4.lifecycle_operations import phase
+        need(getattr(self,'phase_fence',None) is None)
+        self.phase_fence=fence;phase(self)
+
     def evidence(self,row):
         return dict(beforeUi=self.state['beforeUi'],beforeNative=self.state['beforeNative'],arm=self.state['inputs'][0],
             home=self.state['sources'][self.state['home']],background=self.state['background'],foreground=self.state['foreground'],
@@ -168,6 +173,10 @@ class PicoLifecycleBackground:
                 and isinstance(native,NativeFeatureObservation) and world.run==self.run and world.binding==self.binding
                 and world.lock is self.lock and observer.source_lock is self.lock and observer.pid==native.pid==self.pid)
             observer.intent=self.intent
+            fence=getattr(self,'phase_fence',None)
+            if fence is not None:
+                need(getattr(observer,'phase_fence',None) is None or observer.phase_fence is fence)
+                observer.phase_fence=fence
             if self.state is not None:
                 observer.restore(self.state['sources'][-1]['raw'])
                 baseline=proof.feature_original((self.state['quiet'][-1]['native'] if self.state['quiet'] else self.state['beforeNative']),self.pid)
@@ -177,6 +186,8 @@ class PicoLifecycleBackground:
 
     def intent(self,request):
         self.bound();need(self.state is not None and self.state['phase']==('arm-issued' if request['operation']=='arm' else 'release-issued'))
+        from adapters.pico4.lifecycle_operations import phase
+        if phase(self) is not None:phase(self).mark()
         state=deepcopy(self.state);state['inputs'].append(deepcopy(request));self.save(state)
 
     def remember(self,observer):
@@ -240,8 +251,11 @@ class PicoLifecycleBackground:
                     need(last['available'] and last['active'] and last['originalId']==original['id'])
                     current=last['frames'][-1];proof.same_editor(original,current['editor'])
                     need(current['applicationState']=='active' and current['editor']['current'] and current['editor']['text']==original['text'])
+                    from adapters.pico4.lifecycle_operations import phase
+                    if phase(self) is not None:phase(self).mark()
                     state=deepcopy(self.state);state.update(phase='home-issued',home=len(state['sources'])-1);self.save(state)
                     self.fresh_anchor=started,requested,min(last['capturedEpochMs'],current['uiCapturedEpochMs']);self.fresh()
+                    if phase(self) is not None:phase(self).check()
                     self.os_input('lifecycle.background',deepcopy(self.binding));self.bound()
                 if self.state['phase']=='home-issued':
                     background=self.wait_status(False);proof.status(background,self.binding,False)
@@ -251,7 +265,11 @@ class PicoLifecycleBackground:
                     # Give the original autonomous 250 ms native timer an
                     # actual background checkpoint. Its eventual original
                     # frame, rather than this sleep, must prove absence.
-                    self.sleep(.35);proof.status(self.status(),self.binding,False);self.phase('resume-issued')
+                    self.sleep(.35);proof.status(self.status(),self.binding,False)
+                    from adapters.pico4.lifecycle_operations import phase
+                    if phase(self) is not None:phase(self).mark()
+                    self.phase('resume-issued')
+                    if phase(self) is not None:phase(self).check()
                     self.os_input('app.launch',deepcopy(self.binding));self.bound()
                 if self.state['phase']=='resume-issued':
                     foreground=self.wait_status(True);proof.status(foreground,self.binding,True)

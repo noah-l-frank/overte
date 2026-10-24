@@ -281,8 +281,10 @@ class PicoLifecycleObservation:
         resources.extend('input:lifecycle-'+run for run in pending['resources']['pendingRuns'])
         return resources
 
-    def fresh(self):
+    def fresh(self,*,after_guard=None):
         self.bound();need(self.anchor is not None)
+        if after_guard is not None:
+            need(callable(after_guard));after_guard()
         started,requested,oldest=self.anchor
         axes=self.acquisition.axes if self.version==3 else self.world.axes
         epochs=(axes.clock_ms(),self.reader.clock_ms(),self.native.clock_ms())

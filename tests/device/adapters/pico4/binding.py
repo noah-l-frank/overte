@@ -2200,7 +2200,7 @@ def create_adapter(args, base_class):
             return bind_source(self,target,self._native_feature_observer(target),source_lock=source_lock,intent=intent)
 
         @_private
-        def _lifecycle_background_owner(self,target,run,*,source_lock=None,world=None):
+        def _lifecycle_background_owner(self,target,run,*,source_lock=None,world=None,phase_fence=None):
             from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
             from adapters.pico4.lifecycle_world import PicoLifecycleWorld
             from adapters.pico4.graphics_binding import PicoGraphicsBinding
@@ -2215,6 +2215,10 @@ def create_adapter(args, base_class):
             if world is not None:
                 _need(isinstance(world,PicoLifecycleWorld) and world.lock is source_lock and world.run==run and world.binding==binding)
             facade=PicoGraphicsBinding(self)
+            if phase_fence is not None:
+                from adapters.pico4.lifecycle_operations import LifecycleInputFence
+                _need(type(phase_fence) is LifecycleInputFence and phase_fence.owner.source.world is world)
+                facade.phase_fence=phase_fence
             def runtime(intent):
                 actual=world or self._lifecycle_world(target,run,source_lock=source_lock)
                 _need(actual.binding==binding and self._scripts(target).binding==binding)
@@ -2326,7 +2330,9 @@ def create_adapter(args, base_class):
             self._script_journey()._lock(target,source.lock)
             native=self._native_feature_observer(target);native.guard()
             _need(native.pid==source.pid and self.require_pico_session_identity(target)==source.world.identity)
-            return PicoLifecycleOperations(source,phases,source.world.store.path.with_name('lifecycle-primary-operations.json'))
+            return PicoLifecycleOperations(source,phases,source.world.store.path.with_name('lifecycle-primary-operations.json'),factories=dict(
+                chat=lambda _fence:self._lifecycle_chat_editor(target,run,source_lock=source.lock,joined=source.restore.joined),
+                background=lambda fence:self._lifecycle_background_owner(target,run,source_lock=source.lock,world=source.world,phase_fence=fence)))
 
         @_private
         def _lifecycle_restore_restart(self,target,run,*,restore):
