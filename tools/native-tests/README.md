@@ -209,6 +209,8 @@ without activating a native lane on an unqualified platform.
 Known descendant-only executables, such as the iOS crash-recovery policy tests,
 use `optional_tests`. When their source exists, they are required in the selected
 native manifest and must be registered with CTest; an absent target is an error.
+The full configuration uses the same source-presence rule before choosing its
+CMake test groups, so optional descendant groups are configured when required.
 
 The first broad build requires prepared third-party binaries. The manual
 `Prepare native baseline` workflow runs only on the default branch and
