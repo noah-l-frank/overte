@@ -5283,5 +5283,54 @@
     "backgroundRetainedDocumentObservationBoundaryOpen": true,
     "completeFeature": false,
     "deviceAcceptance": false
+  },
+  "lifecycleReadOnlyV3Root20261024": {
+    "status": "passed-selected-private-readonly-and-legacy-components",
+    "sourceHead": "dee08ce63d",
+    "selectedSources": [
+      "9ed04d33eae02bb7d6584aaca2839959cc58b907",
+      "642be960edd9fc67d61471523b1c2d8407117117",
+      "1bf4c371a6a2e4a343c90ee6e1f0bcdb94fe2d8e"
+    ],
+    "catalogGroups": 249,
+    "selectors": {
+      "lifecycle-primary-observation": {
+        "cases": 7,
+        "selectorSeconds": 51.815
+      },
+      "lifecycle-primary-baseline": {
+        "cases": 10,
+        "selectorSeconds": 39.318
+      },
+      "coverage-matrix": {
+        "cases": 10,
+        "selectorSeconds": 0.091
+      }
+    },
+    "selectedDurationSeconds": 91.22,
+    "sourceFiles": 13545,
+    "sourcesUnchanged": true,
+    "mutatingWorldTriples": 85,
+    "readonlyTriples": 17,
+    "totalActualTriples": 102,
+    "childParts": 68,
+    "fileCountIncludingRoot": 69,
+    "containerRawBytes": 84003,
+    "logicalOriginalBytes": 185008,
+    "actualStoredFileBytes": 119101,
+    "actualCanonicalFactoryAndForeignProcessRefusal": true,
+    "oldWorldAndReadonlyHaveDistinctPinnedReaders": true,
+    "fullFreshTriplesRetainedBeforeForeignGenerationRefusal": true,
+    "originalOwnerAndReadonlyFloorsChecked": true,
+    "legacyV1V2Retained": true,
+    "worldOwnerFrameLimit": 128,
+    "newProcessFrameLimit": 64,
+    "readonlySampleLimit": 128,
+    "originalChildPartLimit": 512,
+    "originalContainerAndLogicalRawByteLimit": 16777216,
+    "originalPerFileLimit": 65536,
+    "fullCoordinatorActorImageCleanupNotQualified": true,
+    "completeFeature": false,
+    "deviceAcceptance": false
   }
 }

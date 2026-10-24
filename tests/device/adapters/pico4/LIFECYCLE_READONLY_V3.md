@@ -147,3 +147,20 @@ The two cases join the existing `lifecycle-primary-baseline` wrapper (8 to 10
 cases), keeping its existing 120 s limit and selector. There is no new registry
 contract, capability, selector or catalog-count entry. The full-operation
 composition plan is [documented separately](LIFECYCLE_COORDINATOR_PLAN.md).
+
+
+## Root integrated verification
+
+Root selects9ed04d33ea/642be960ed/1bf4c371a6 as89800250e3/ece5c43769/
+dee08ce63d. Existing baseline10 cases39.318s, legacy observation7/51.815s
+and coverage10/0.091s pass91.22s. All13,545 source hashes match before/after.
+The actual canonical factory and foreign-process refusal run in this selection.
+
+Actual integrated bill:85 owner triples+17 readonly triples=102,68 child
+parts/69 files including root,84,003 uncompressed transcript-container bytes,
+185,008 logical original bytes and119,101 actual stored JSON bytes. These
+three byte quantities are distinct and stay reported separately. Original
+World128, successorProcess2..64, readonly128 and container512child/16MiBraw/
+64KiBfile limits retain their actual individual scopes. Whole16-action, Actor,
+images, new-process cleanup source handoff and final file/resource/Host closure
+remain unqualified.

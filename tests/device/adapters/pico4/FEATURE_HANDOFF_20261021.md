@@ -3267,3 +3267,20 @@ Eight original HTTP documents and14 separate transactions per role remain
 retained; all4 Root preparation publication counters still pass. Catalog249,
 source-complete3/14 and device0 remain explicit. Background's native retained
 page/document contract, independent Actor/images and final release remain open.
+
+
+## Integrated independent Lifecycle Source3
+
+Actual readonly acquisition now retains full new UI/Gesture/Drive triples with
+separate original readers; mutating World readers/history stay unchanged.
+Both actual owner and earlier readonly cursor floors bind each returned
+original. Root passes baseline10/39.318s, old observation7/51.815s and
+coverage10/0.091s in91.22s;13,545 source hashes remain unchanged. The actual
+canonical private factory and foreign-process refusal are exercised.
+
+Measured85 owner+17 readonly=102 triples,68child/69total files: container
+raw84,003B, logical originals185,008B, actual stored JSON119,101B. Distinct
+finite World/readonly/newProcess histories retain their original caps. This
+source does not grant action/Actor/image/public/cleanup authority. The next
+private normal1–4 dispatcher and complete16-action return/retirement remain
+separate integration work; source-complete3/14 and device0 remain unchanged.

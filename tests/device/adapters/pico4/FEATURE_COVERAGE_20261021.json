@@ -1695,7 +1695,13 @@
         "tests/device/self_tests/test_pico_lifecycle_observation_baseline.py",
         "android/vr/pico/tests/device/test_lifecycle_observation_baseline.py",
         "tests/device/adapters/pico4/LIFECYCLE_PRIMARY_WAIT.md",
-        "tests/device/self_tests/test_pico_lifecycle_primary_wait.py"
+        "tests/device/self_tests/test_pico_lifecycle_primary_wait.py",
+        "tests/device/adapters/pico4/lifecycle_readonly.py",
+        "tests/device/self_tests/test_pico_lifecycle_readonly.py",
+        "android/vr/pico/tests/device/test_lifecycle_readonly_factory.py",
+        "tests/device/adapters/pico4/LIFECYCLE_READONLY_V3.md",
+        "tests/device/adapters/pico4/LIFECYCLE_COORDINATOR_PLAN.md",
+        "tests/device/adapters/pico4/LIFECYCLE_QUERY_BUDGET.md"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1740,7 +1746,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Original pre-Create baseline/live participant attachment and actual OverteSession/unchanged common Primary baseline plus Back negative wait are integrated and host verified. Full v16 coordinator still needs genuine independent Actor/images/remaining ordinary waits and final restoration/return/archive/Host closure. Scope limits correctly: one mutating World journal128, actual successor Process.next.frames2..64, existing physicalChunks512/16MiB; no universal128 across independent producer histories is specified. Current v1/v2 readonly Primary appends to mutating World; develop reviewed v3 separate true readonly readers using unchanged complete fresh acquire grammar and original owner/observer floors, preserving all actual triples in existing bounded Primary bundles. Never reset or duplicate a mutating World to evade128, omit fresh queries, replay old frames or count unmeasured Actor costs as zero.",
+      "nextExecutableStep": "Source3 true separate readonly UI/Gesture/Drive acquisition, original owner/observer cursor joins and actual canonical factory are integrated. Root baseline10 cases plus legacy observation7 and coverage pass91.22s with all13,545 source hashes unchanged; actual85 mutatingWorld+17readonly=102 triples,68childparts/69files,84,003 containerRaw/185,008 logicalOriginal/119,101 actually stored bytes. No old frame replay or mutating owner/reader reset. Next review fixed phase-fenced1\u20134 operation packet when ready, extend same common16-action/OverteSession dispatcher through16. Preserve true separate World128/readonly128/newPID2..64 and original512childparts/16MiBraw/64KiBfile bounds; no universal128. NewPIDcleanup reader handoff, independentActor/images, full public/resource/journal/Host retirement remain required.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }
