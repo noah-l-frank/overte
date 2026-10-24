@@ -271,3 +271,44 @@ envelope is emitted. All fifteen reader/publisher/private-factory cases passed
 **1.243 s**, source freeze
 `7836a6bbe7789732b69438130af2c2db7b1523a3b72b48a295b99927d05fe9a1`.
 No Native/Java/Parent/schema/catalog/shared-contract change is included.
+
+
+### Root integration and independent legacy verification
+
+Root integrated the source as `60536c3272` and the three review corrections
+as `c2b81d1b1f`, `0bca254911`, `697dc55fb6`. Fresh owning selections passed
+**125 cases**, using at most three concurrent processes and independent
+temporary roots: current-input Native (1), Java (1), reader/publisher/factories
+(15); old CurrentDocument Native/two-DSO (2), Java (1), reader (9); and
+browser-originals (96). External elapsed was **43.987 s**. All **13,615**
+tracked/new source SHA-256 values and physical signatures, including ctime,
+were unchanged through terminal completion. The Native selection includes
+ten disjoint compiled counterexamples and both conditional getter sides.
+This is selected host compilation with declared platform seams; no complete
+application/APK, OpenXR headset or device qualification follows.
+
+An additional independent comparison against fixed `0883f180f6` found
+**19 whole legacy files/function bodies byte-identical**, including old
+observe/ray/text, DOM/finish and IME handlers, featureRead, all four Java
+CurrentDocument helpers, the old TSI getter and exported factory, complete
+CurrentDocument source/bridge/reader and Common16 coverage. The additive
+current-input factory shares the original picoOpenXR-owned library.
+
+Private manifests in
+`/home/user/Documents/github/overte-pico-adapter-private-20261021` are
+`world-current-input-root-integration-20261024-source.json`,
+`world-current-input-root-integration-20261024-result.json` and
+`world-current-input-legacy-bytes-root-20261024.json`. Each result group
+records actual commands, elapsed time and the unique retained
+`{group}-current-input-root-20261024.log/.xml` paths with hashes. An accidental
+filename collision overwrote eight earlier CurrentDocument/browser log/JUnit
+files; the [CurrentDocument evidence correction](WORLD_CURRENT_DOCUMENT.md)
+and private collision audit disclose their loss. The new files are distinct
+results and do not replace unavailable earlier originals.
+
+The next executable join is the existing Parent acting phase through this
+normal ray, fresh focus and full retained child originals. Focus alone must
+leave `focus-type` acting: normal keyboard consumption, fresh text/HTTP,
+independent Actor, World stereo and all final source/VM/host retirement are
+still required. Explicit future shared-version dispatch must retain exact
+Common16 and historical Parent readers. No public capability is added here.

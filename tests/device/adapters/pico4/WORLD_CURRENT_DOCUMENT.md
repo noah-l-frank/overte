@@ -266,7 +266,16 @@ behavior without claiming that the new source completes the World journey.
 Private evidence is retained in
 `/home/user/Documents/github/overte-pico-adapter-private-20261021`:
 `world-current-document-root-integration-result-20261024.json`, its source
-manifest and five original log/JUnit pairs, and
-`world-current-document-root-legacy-source-20261024.json`.
+manifest and `world-current-document-root-legacy-source-20261024.json`.
+
+Evidence correction, 2026-10-24: a later Root CurrentInput verification
+accidentally reused eight old log/JUnit filenames: CurrentDocument Native,
+Java, reader and browser-originals. Those earlier four pairs were overwritten
+and are unavailable; they are not reconstructed or represented by the new
+logs. The earlier source/result manifests, separate retained-page pair and
+verified original Native/Java build stages remain. The new verification
+artifacts have unique `*-current-input-root-20261024` names. The private
+`world-current-input-artifact-collision-audit-20261024.json` records the loss,
+retained stages and exact new artifact hashes.
 The new readonly current ray/focus source, normal input consumption,
 explicit shared-version dispatch and whole retirement remain separate work.

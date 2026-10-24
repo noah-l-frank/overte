@@ -699,7 +699,16 @@
         "android/vr/pico/tests/device/world-current-document-native.cpp",
         "android/vr/pico/tests/device/world-current-document-getter.cpp",
         "android/vr/pico/tests/device/world-current-document-java-body.java.inc",
-        "android/vr/pico/tests/device/test_world_current_document_reader.py"
+        "android/vr/pico/tests/device/test_world_current_document_reader.py",
+        "tests/device/adapters/pico4/WORLD_CURRENT_INPUT.md",
+        "tests/device/adapters/pico4/WORLD_CURRENT_INPUT_PROPOSAL.md",
+        "tests/device/adapters/pico4/world_current_input.py",
+        "tests/device/adapters/pico4/world_current_ray.py",
+        "tests/device/native/PicoWorldCurrentInputBridge.h",
+        "android/common/web/src/PicoWorldCurrentInputE2E.inc",
+        "android/vr/pico/tests/device/test_world_current_input_native.py",
+        "android/vr/pico/tests/device/test_world_current_input_java.py",
+        "android/vr/pico/tests/device/test_world_current_input_reader.py"
       ],
       "declaredCheckpoints": 19,
       "inputVerbs": [
@@ -749,8 +758,8 @@
         "Revoke actual view/grant/nonce authority",
         "Drain original retained callbacks and prove absent owned entities/view resources"
       ],
-      "nextExecutableStep": "Join the additive current-authority ray/focus source to normal Pico input and actual backend consumption, then introduce explicit shared-version dispatch preserving exact old16 semantics. Current-document originals, UTF-8 bounds and single-library clock ownership are integrated: Root independently passes109 native/Java/reader/old-retention/browser cases with all13,590 source hashes unchanged. Earlier normal14-step stereo/Scene/PNG and Parent Return evidence remains separate; retained VM stays a resource after ScriptStop and observerESRCH. Do not invent steps15\u201319, new loads or resource release. Full public/resource/journal/archive/host finalization remains open.",
-      "nativeCompilation": "Selected complete NativeWebViewItem TU, both conditional sides of the whole TSI current-document getter, original Java methods and an actual two-DSO shared factory compile and pass host checks, alongside unchanged world-provider/RayPick/renderer bodies. Entity/avatar/HMD, Android looper/WebView/DOM/transport remain explicit seams. Complete application/APK and device behavior unverified.",
+      "nextExecutableStep": "Join the existing Parent acting phase to current-authority normal Pico ray publication and fresh exact-field focus, preserving durable intent and full originals. Focus alone cannot complete focus-type; actual normal Qt-key/Qt-IME/JNI/Java consumption, fresh text/HTTP and independent Actor/stereo remain open. Root current-input integration passes125 owning and legacy cases with all13,615 source hashes/physical signatures unchanged;19 legacy files/bodies are byte-identical. Preserve historical Parent readers and exact Common16 before explicit shared-version dispatch. Retained VM remains a resource after ScriptStop/observerESRCH; whole public/resource/journal/archive/host finalization remains open.",
+      "nativeCompilation": "Selected complete NativeWebViewItem/JNI, both conditional sides of whole current-document/current-input TSI getters, actual exported single-owner factories/two hidden DSOs, original Java methods and WorldRayProvider/RayPick/renderer bodies compile and pass host checks. Entity/avatar/HMD and Android looper/WebView/DOM/editor are explicit seams. Whole APK/application and devices unverified.",
       "deviceQualification": "untested"
     },
     {
