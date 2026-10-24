@@ -270,3 +270,32 @@ be summed as independent costs. The next step is to inspect that actual
 retirement path while preserving every original-byte, physical namespace,
 per-unlink phase, 16-use/250ms and1.5s check. This is a new measured boundary,
 not grounds for an unchanged whole-run retry or a larger timeout.
+
+The next measured bottleneck was the repeated strict JSON walk of all80 PNG
+capture descriptors. The full capture inventory is now retained as immutable
+canonical bytes, with its original complete metadata digest. Inspection
+returns a fresh JSON copy. A separately pinned tuple contains only the
+already admitted name/byte-count/hash/device/inode/full-stamp values needed
+by the existing physical reader. It contains immutable primitives; callers
+receive independent descriptor/stamp copies. No capture can append after
+admission. Every complete original descriptor, including its capture/role/
+binding/ticket, remains in the original wire and context.
+
+The archive still rereads and hashes every PNG and checks all original file
+and directory/OFD identities on each inventory. It does not cache a current
+physical observation. On the same2064 retained historical files, the exact
+80-PNG method measures0.0169–0.0171s before and0.0033–0.0036s after. Both
+profiles make80 complete original-byte calls and162 original directory
+descriptor checks; every retained stamp/hash remains unchanged. The old full
+metadata digest still matches. These method-only measurements grant no live
+source or retirement authority.
+
+Fresh integrated selections pass capture-retirement11/48.267s,
+evidence-archive12/26.066s and host-close-fences2/25.769s, with all13,577 source
+hashes unchanged across the parallel selections. The expanded archive cases
+cover inspection isolation, tuple-alias refusal, late append, replaced PNG
+inode, replaced parent after a real full read, and the independent reader
+after actual parent-FD closure. Private `browser-png-immutable-*20261024`
+records and separate before/after cost records preserve provenance. The
+previous full-run timeout and partial198-unlink state remain untouched;
+this packet does not claim a complete feature or justify an unchanged retry.

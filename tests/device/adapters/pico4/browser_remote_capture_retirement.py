@@ -75,9 +75,8 @@ class PicoBrowserRemoteCaptureRetirement(PicoBrowserCaptureRetirement):
                 name=original_name(self.primary.run,'actor',image['journalId'])
                 rows=unpack(json.loads(remote.file(remote.artifacts/name))['payload'])
                 need(len(rows)==1);original=rows[0];proof=deepcopy(original['proof']);png=deepcopy(original['image'])
-                need(all(row['value']['name']!=png['name'] for row in self.pngs))
                 self.proofs.append(proof)
-                self.pngs.append(dict(role='actor',value=png,stamp=deepcopy(remote.files[('artifact',png['name'])]['stamp'])))
+                self.append_png(dict(role='actor',value=png,stamp=deepcopy(remote.files[('artifact',png['name'])]['stamp'])))
             self.add(remote.export,remote.root,'actor')
             for index in range(len(remote.export_chunks.identities)):
                 store=remote.export_chunks.store(index);self.add(store,store.read(),'actor')

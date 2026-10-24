@@ -89,17 +89,17 @@ class PicoBrowserEvidenceArchive:
             unlink_fence=self.fence,indexed_verify=True)
 
     def pngs(self):
-        need(json_digest(self.captures.pngs)==self.metadata['pngsSha256']
-            and len(self.captures.pngs)==self.metadata['pngCount'])
+        original_sha,windows=self.captures.original_png_windows()
+        need(original_sha==self.metadata['pngsSha256'] and len(windows)==self.metadata['pngCount'])
         directory=self.catalog.parents[self.root]
         if directory.closed:
             # Final host closure has deliberately retired this original pair.
             # The existing independent full-byte reader remains available.
-            for row in self.captures.pngs:self.primary._original_image_bytes(row['value'],expected=row['stamp'])
+            for value,stamp in windows:self.primary._original_image_bytes(value,expected=stamp)
         else:
             self.catalog.verify_parent(self.root)
-            for row in self.captures.pngs:
-                self.primary._original_image_bytes(row['value'],expected=row['stamp'],directory=directory)
+            for value,stamp in windows:
+                self.primary._original_image_bytes(value,expected=stamp,directory=directory)
             self.catalog.verify_parent(self.root)
 
     def inventory(self,remaining):

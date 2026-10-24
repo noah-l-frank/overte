@@ -6,6 +6,7 @@ journals or grant a whole feature/host-close receipt.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import copy,deepcopy
+import hashlib
 import json
 import math
 
@@ -38,10 +39,47 @@ class PicoBrowserCaptureRetirement:
         self.store=PrivateFeatureState(primary.store.path.with_name(filename))
         self.catalog=ChatArchiveCatalog(hold_files=False)
         self.previous=None;self.started=self.failed=self.completed=False
-        self.proofs=[];self.pngs=[];self.frames=();self.reader=self.chunks=None
+        self.proofs=[];self.frames=();self.reader=self.chunks=None;self.initialize_pngs()
         self.scope=self.admitted=self._sealed_admitted=self.completed_root=self.stamp=None
         self.copying_catalog=False;self.catalog_rows=self._sealed_catalog_rows=None
         self.indexed_rows=self._sealed_indexed_rows=None
+
+    def initialize_pngs(self):
+        self._png_bytes=self._sealed_png_bytes=b'[]'
+        self._png_sha=self._sealed_png_sha=hashlib.sha256(self._png_bytes).hexdigest()
+        self._png_windows=self._sealed_png_windows=()
+
+    def immutable_pngs(self):
+        need(self._png_bytes is self._sealed_png_bytes and type(self._png_bytes) is bytes
+            and self._png_sha is self._sealed_png_sha and type(self._png_sha) is str
+            and self._png_windows is self._sealed_png_windows and type(self._png_windows) is tuple)
+
+    @property
+    def pngs(self):
+        self.immutable_pngs();return json.loads(self._png_bytes)
+
+    def append_png(self,row):
+        # Only actual admitted capture originals enter this warm inventory.
+        # Keep the entire original JSON, while the physical reader needs only
+        # its name, byte count, hash, inode and complete original stamp.
+        self.immutable_pngs();need(self.admitted is None and self.reader is None and self.previous is None)
+        json_digest(row);value=row['value'];stamp=tuple(row['stamp'])
+        need(len(stamp)==8 and all(type(part) is int for part in stamp)
+            and type(value['name']) is str and bool(value['name']) and '/' not in value['name'] and '\\' not in value['name']
+            and integer(value['bytes'],1) and type(value['sha256']) is str and len(value['sha256'])==64
+            and all(part in '0123456789abcdef' for part in value['sha256'])
+            and integer(value['file']['device']) and integer(value['file']['inode'],1)
+            and all(window[0]!=value['name'] for window in self._png_windows))
+        window=(value['name'],value['bytes'],value['sha256'],value['file']['device'],value['file']['inode'],stamp)
+        raw=canonical(row);prefix=b'[' if not self._png_windows else self._png_bytes[:-1]+b','
+        self._png_bytes=self._sealed_png_bytes=prefix+raw+b']'
+        self._png_sha=self._sealed_png_sha=hashlib.sha256(self._png_bytes).hexdigest()
+        self._png_windows=self._sealed_png_windows=self._png_windows+(window,)
+
+    def original_png_windows(self):
+        self.immutable_pngs()
+        return self._png_sha,tuple((dict(name=name,bytes=size,sha256=sha,file=dict(device=device,inode=inode)),list(stamp))
+            for name,size,sha,device,inode,stamp in self._png_windows)
 
     def add(self,store,value,role):
         need(value is not None)
@@ -97,8 +135,7 @@ class PicoBrowserCaptureRetirement:
                     and original['image']['name']==historical[name])
                 self.proofs.append(deepcopy(proof));self.add(PrivateFeatureState(flow.artifact_root/name),record,flow.role)
                 png=deepcopy(original['image']);_bytes,stamp=flow.original_image(png)
-                need(all(value['value']['name']!=png['name'] for value in self.pngs))
-                self.pngs.append(dict(role=flow.role,value=png,stamp=stamp))
+                self.append_png(dict(role=flow.role,value=png,stamp=stamp))
             return owner,state
 
     def inventory(self):

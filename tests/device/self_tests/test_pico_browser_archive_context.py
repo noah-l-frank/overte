@@ -118,7 +118,11 @@ class BrowserArchivePngWindowTests(unittest.TestCase):
         primary=SimpleNamespace(artifact_root=self.root)
         primary._original_image_bytes=MethodType(PicoTabletWebFeature._original_image_bytes,primary)
         self.plan=PicoBrowserEvidenceArchive.__new__(PicoBrowserEvidenceArchive)
-        self.plan.root=self.root;self.plan.primary=primary;self.plan.captures=SimpleNamespace(pngs=rows)
+        from adapters.pico4.browser_capture_retirement import PicoBrowserCaptureRetirement
+        captures=PicoBrowserCaptureRetirement.__new__(PicoBrowserCaptureRetirement)
+        captures.admitted=captures.reader=captures.previous=None;captures.initialize_pngs()
+        for row in rows:captures.append_png(row)
+        self.plan.root=self.root;self.plan.primary=primary;self.plan.captures=captures
         self.plan.metadata=dict(pngsSha256=json_digest(rows),pngCount=len(rows))
         self.plan.catalog=ChatArchiveCatalog(hold_files=False)
         self.directory=OriginalDescriptor(self.root,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
@@ -150,3 +154,23 @@ class BrowserArchivePngWindowTests(unittest.TestCase):
             self.plan.pngs()
         self.assertEqual(self.raw,(retained/self.path.name).read_bytes())
         self.assertEqual(self.raw,self.path.read_bytes());self.assertFalse(self.directory.closed)
+
+    def test_inspection_cannot_change_original_png_scope_and_projected_windows_have_no_mutable_alias(self):
+        captures=self.plan.captures;inspection=captures.pngs
+        inspection[0]['value']['sha256']='f'*64;inspection[0]['stamp'][1]+=1
+        original_sha,windows=captures.original_png_windows()
+        self.assertEqual(self.plan.metadata['pngsSha256'],original_sha)
+        windows[0][0]['sha256']='e'*64;windows[0][1][1]+=1
+        self.plan.pngs();self.assertEqual(self.raw,self.path.read_bytes())
+        self.assertNotEqual(inspection,captures.pngs)
+        captures._png_windows=tuple([*captures._png_windows, captures._png_windows[0]])
+        with self.assertRaises(NativeUIError):self.plan.pngs()
+
+    def test_new_foreign_json_alias_or_late_capture_cannot_change_the_admitted_inventory(self):
+        captures=self.plan.captures;original=captures.pngs;row=deepcopy(original[0])
+        row['stamp']=tuple(row['stamp'])
+        with self.assertRaises(NativeUIError):captures.append_png(row)
+        self.assertEqual(original,captures.pngs);self.plan.pngs()
+        captures.admitted=b'actual admitted original inventory'
+        with self.assertRaises(NativeUIError):captures.append_png(original[0])
+        self.assertEqual(original,captures.pngs);self.plan.pngs()
