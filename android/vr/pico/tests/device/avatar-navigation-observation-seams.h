@@ -7,6 +7,7 @@
 #include <QSharedPointer>
 #include <limits>
 #include "tests/device/native/FeatureUiInventory.h"
+#include "tests/device/native/AssetsUiInventory.h"
 #include "tests/device/native/PicoCreateFileControls.h"
 #include "tests/device/native/NormalEmoteControls.h"
 #include "tests/device/native/AudioPageObservation.h"
@@ -16,6 +17,8 @@
 #include "android/vr/pico/apps/picoInterface/e2e/PicoE2eNavigationUi.h"
 class HostApplication:public QGuiApplication {
 public:using QGuiApplication::QGuiApplication;bool isHMDMode()const{return true;}
+    struct CameraActor {float getSensitivity()const{return 1;}};CameraActor cameraActor;
+    CameraActor& getCamera(){return cameraActor;}
 };
 #undef qApp
 #define qApp static_cast<HostApplication*>(QCoreApplication::instance())

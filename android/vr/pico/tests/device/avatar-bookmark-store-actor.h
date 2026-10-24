@@ -4,6 +4,7 @@
 #include <QTemporaryDir>
 #include <QLoggingCategory>
 #include <QUrl>
+#include <shared/ReadWriteLockable.h>
 #include "tests/device/native/AvatarBookmarkStorage.h"
 #include "tests/device/native/AvatarBookmarkLoads.h"
 namespace avatar_bookmark_host {
@@ -19,16 +20,30 @@ class Bookmarks:public QObject {public:
     void insert(const QString&,const QVariant&);void remove(const QString&);bool contains(const QString&)const;
     void readFromFile();void persistToFile();QVariantMap _bookmarks;QString _bookmarksFilename,_bookmarkError;
 };
-class MyAvatar:public QObject {Q_OBJECT
+class MyAvatar:public QObject,public ::AvatarData {Q_OBJECT
 public:
+    MyAvatar();QVariantMap e2ePreferenceHandles()const;
     void useFullAvatarURL(const QUrl&,const QString& name=QString());
     QVariantMap e2eAvatarLoads(){return {{"instance",avatarBirthActor}};}
     QUuid getSessionUUID()const{return QUuid("77777777-7777-4777-8777-777777777777");}
     QUrl getSkeletonModelURL()const{return skeletonActor;}
     void setSkeletonModelURL(const QUrl& url){skeletonActor=url;++modelRequestsActor;}
-    void clearWornAvatarEntities(){++clearsActor;}void setAvatarScale(float value){scaleActor=value;}
+    void clearWornAvatarEntities();void setAvatarScale(float);
+    void removeWornAvatarEntity(const QUuid&){qFatal("Nonempty wearable removal crosses the declared EntityTree boundary");}
+    mutable ReadWriteLockable _avatarEntitiesLock;QMap<QUuid,QByteArray> _packedAvatarEntityData;
     QUrl _fullAvatarURLFromPreferences,skeletonActor;QString _fullAvatarModelName,avatarBirthActor{QUuid::createUuid().toString(QUuid::Id128)};
-    int modelRequestsActor{0},clearsActor{0};float scaleActor{1};
+    std::shared_ptr<::Model> getSkeletonModel(){return modelActor;}
+    QUrl getFullAvatarURLFromPreferences()const{return _fullAvatarURLFromPreferences;}
+    QString getFullAvatarModelName()const{return _fullAvatarModelName;}
+    float getModelScale()const{return _targetScale;}float getTargetScale()const{return _targetScale;}
+    QString getDominantHand()const{return "right";}QString getHmdAvatarAlignmentType()const{return "head";}
+    bool getCollisionsEnabled(){return true;}bool getOtherAvatarsCollisionsEnabled(){return true;}
+    QString getCollisionSoundURL(){return _collisionSoundURL;}QUrl getAnimGraphOverrideUrl()const{return {};}
+    std::shared_ptr<::Model> modelActor{new ::Model};
+    int modelRequestsActor{0};float _yawSpeed{1},_hmdYawSpeed{1},_pitchSpeed{1};
+    QString _collisionSoundURL;bool _useSnapTurn{true},_hoverWhenUnsupported{true},_flyingPrefHMD{false};
+    int _movementReference{0};CachedFloat _vrWalkSpeed;
+#include "actual-avatar-handles.inc"
 signals:void onLoadComplete();
 };
 class AvatarManager {public:std::shared_ptr<MyAvatar> avatar{std::make_shared<MyAvatar>()};std::shared_ptr<MyAvatar>getMyAvatar(){return avatar;}};
@@ -49,6 +64,7 @@ public:
 signals:void bookmarkAdded(const QString&);void bookmarkDeleted(const QString&);void bookmarkLoaded(const QString&);
 };
 #define BLOCKING_INVOKE_METHOD(...) qFatal("Unexpected foreign-thread mutation in GUI bookmark actor")
+#include "actual-avatar-preferences.inc"
 #include "actual-avatar-bookmark-store.inc"
 #undef BLOCKING_INVOKE_METHOD
 }

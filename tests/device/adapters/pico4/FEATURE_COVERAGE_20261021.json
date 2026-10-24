@@ -283,7 +283,10 @@
         "tests/device/adapters/pico4/avatar_favorites.py",
         "tests/device/adapters/pico4/avatar_favorite_effect.py",
         "tests/device/adapters/pico4/avatar_originals.py",
-        "android/vr/pico/tests/device/test_avatar_favorites_owner.py"
+        "android/vr/pico/tests/device/test_avatar_favorites_owner.py",
+        "tests/device/contracts/avatar/native_preferences_support.py",
+        "android/vr/pico/tests/device/avatar-bookmark-store-actor.h",
+        "android/vr/pico/tests/device/avatar-people-controls.cpp"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -327,8 +330,8 @@
         "Delete only owned wearable/bookmark/connection",
         "Confirm both participants have no pending request and observe quiet restoration"
       ],
-      "nextExecutableStep": "Join the actual normal cached Favorite lazy-preference effects into an exact receipt chain; then restore raw Handle/cache/writer/physical settings and bookmark bytes with CAS retirement. Favorite/Scale and URL3 source authority are present; Wearables, People/peer/stereo and complete Qt/V8 ownership remain open.",
-      "nativeCompilation": "Selected original NavigationUi/Avatar UI, Bookmarks writer, Model/Avatar load history, raw entity storage and Setting Manager/WriteWorker/JSON codec preference-source fragments host-compiled; complete application/MyAvatar/V8/Android unverified",
+      "nextExecutableStep": "Bind the actual normal cached Favorite/independent original preference pairs into the existing shared v16 owner, then restore raw Handle/cache/writer/physical Settings and bookmark bytes with exact CAS retirement. The native cached branch now proves unchanged lazy Handles through original Scale/empty-clear methods; no preference mutation is assumed. Wearables, People/peer/stereo and complete Qt/V8 ownership remain open.",
+      "nativeCompilation": "Selected original NavigationUi/Avatar UI and cached Favorite callback through MyAvatar scale/empty-clear methods, Bookmarks writer, Model/Avatar load history, raw entity storage and full Setting Manager/WriteWorker/JSON codec preference sources host-compiled; complete application/MyAvatar/V8/Android and exact native restoration unverified",
       "deviceQualification": "untested"
     },
     {
