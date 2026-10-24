@@ -599,3 +599,8 @@ historically accepts the real valid pending Open record before rejecting its
 Boolean schema alias with a matching recomputed record hash, independently of
 later child/prior mismatches. The final seven-case selector has not been run as
 one unit locally; integration must execute that selection on its merged source.
+
+The explicit unchanged action-12 restart/G1 continuation is documented in
+[NAVIGATION_RESTART_JOIN.md](NAVIGATION_RESTART_JOIN.md). It preserves this
+first-eleven header, binding, Session originals, source histories and owner
+forest, and does not provide the remaining whole/public Navigation contract.

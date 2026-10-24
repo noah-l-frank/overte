@@ -1120,6 +1120,10 @@ def create_adapter(args, base_class):
             from adapters.token_places_ui import TokenPlacesUI
             lock=self._script_journey()._lock(target,source_lock)
             lock.assert_held()
+            from adapters.pico4.navigation_generation import history,compose
+            historical=history(lock.path.parent,run,phase_source,lock,role=role,status=status,
+                provider_instance=provider_instance,inputs=inputs,origin=owned_origin,profile=source_profile)
+            if historical is not None:return compose(self,target,historical)
             manager=self._scripts(target);native=self._native_feature_observer(target)
             root=lock.path.parent
             def guard():lock.assert_held();return native.guard()
@@ -1176,8 +1180,9 @@ def create_adapter(args, base_class):
                 from adapters.pico4.navigation_bookmark_join import NavigationBookmarkJoin
                 return NavigationBookmarkJoin(parent,lambda prior:transit_factory(parent,kind='bookmark',prior=prior),
                     root/'navigation-prefix-bookmark-join.json')
-            return NavigationPrefix(root/'navigation-prefix-owner.json',source,phase_source,lock,origin,directory,bookmarks,
+            parent=NavigationPrefix(root/'navigation-prefix-owner.json',source,phase_source,lock,origin,directory,bookmarks,
                 self.pico_input_session(target),role=role,monotonic=native.monotonic,transit_factory=transit_factory,missing_factory=missing_factory,dismissal_factory=dismissal_factory,bookmark_factory=bookmark_factory)
+            return compose(self,target,parent)
 
         def _navigation_world_render_store(self,target,role):
             _need(role in ('primary','actor'))

@@ -12,6 +12,7 @@ from adapters.chat_journey.source_chunks import json_digest
 from adapters.native_feature_observation import exact,need,number
 from adapters.navigation_transit import NavigationTransit
 from adapters.navigation_arrival import stereo_frame
+from adapters.graphics_journey.originals import GraphicsOriginals
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.pico4.navigation_close import NavigationTabletClose
 from adapters.pico4.graphics_source import PicoGraphicsSource
@@ -98,7 +99,7 @@ class NavigationTransitJoin:
         if value['stereoSha256'] is not None:
             stereo=self.transit.stereo_factory(value['ticket'])
             need(stereo.state is not None and stereo.state['phase']=='complete' and value['stereoSha256']==json_digest(stereo.disk))
-            facts=stereo_frame(stereo.state['frame'],stereo.image_bytes(),p.run,p.binding,self.transit.scene_url)
+            facts=stereo_frame(stereo.state['frame'],GraphicsOriginals.archive(stereo.images.root,stereo.state['image']),p.run,p.binding,self.transit.scene_url)
             frame=stereo.state['frame'];closed=self.close_original().state
             need(facts['location']==self.transit.target(self.kind) and frame['navigationStereoSourceVersion']==2
                 and frame['before']['subject']['capturedEpochMs']>=closed['last']['graphics']['capturedEpochMs']
