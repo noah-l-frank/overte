@@ -50,3 +50,8 @@ playback/scene3 case passes in 277.076 seconds with the actual stored cleanup
 references and typed resource aliases rechecked for both targets. This does
 not yet qualify the common three-pair quiet window, real CPU deadlines or
 terminal process retirement.
+
+The [once-only scene publication policy](EMOTE_SCENE_PUBLICATION_ONCE.md)
+also preserves the one scene entry allowed per cleanup ticket. Later rooted
+cuts keep the committed original scene reference and independently publish
+fresh ordinary Actor facts; unknown delivery remains durable and is not resent.
