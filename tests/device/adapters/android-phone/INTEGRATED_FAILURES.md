@@ -123,3 +123,57 @@ preparation owner is separate from the 69 target status records.
 See [all actual statuses and evidence hashes](integrated-campaign-results.v1.json),
 [the current coverage matrix](INTEGRATED_COVERAGE.md) and
 [the integration campaign handoff](INTEGRATED_CAMPAIGN.md).
+
+
+## Later focused repair evidence, 2026-10-24
+
+The 69-row build 3 above remains **7 PASS, 5 FAIL, 57 ERROR**. These later
+focused runs do not rewrite its results or qualify all fourteen feature areas.
+The [campaign matrix](INTEGRATED_COVERAGE.md) retains that original campaign
+scope; shared test logic, adapter source and actual device acceptance remain
+separate.
+
+The installed client remains source `0a7de4299f4bb97e99c844288e6381efd973df0f`
+and APK `43ed8f0ad7e9e5fe4beaa7c39833441f42979ff209181eaf00e4ec933df41248`.
+No new APK was built for these focused repairs. Harness and client inventories
+were checked independently. The fixes are domain-input admission `a587adb0d7`,
+owned evidence directories before discovery `abc645bba6`, fresh Tablet action
+observations `c4ab97be44`, backend argument lifetime `cae3428bb9`, and the measured
+registered Tablet budget `f7139affc5`. Exact approved Scene-query admission was
+also corrected in `98acf88bf7` and `91d5533edd`.
+
+| Scope | Test logic | Adapter/source | Actual device evidence |
+| --- | --- | --- | --- |
+| Tablet core journey | Original complete module; registered 300-second catalog | Harness `c4ab97be44`, catalog `f7139affc5`; individual freshness, capability and cleanup checks retained | Build 6 PASS: Tablet 204.195 s; launch 26.711 s. Historical 180-second budget was not retested. |
+| Controlled Scene foundation | Original six-entity check; one stable sample | Harness `91d5533edd`; original query retained | Build 9 PASS: Scene 64.132 s; launch 25.717 s. This is not complete navigation or domain recovery acceptance. |
+| Four domain foundations | Original modules and budgets | Harness `7c3ea1189a`; actual Scene V5 and separately built backend `cae3428bb9` | Build 13: launch PASS, all four domain modules FAIL. Scene cleanup, Native before/after identity and four isolated command owners were verified clean. |
+| Create / Assets companions | Original observer/execute composition; 11 host counters PASS | External versioned Companion V3; genuine render inputs and independently credentialed roles still required | No full Create/Assets device result from these host counters. |
+| Other full feature journeys | Existing shared logic and Phone source remain present | Mandatory missing inputs remain errors | No later complete fourteen-area acceptance; no Pico/iOS qualification. |
+
+Build 13 is a real module-failure result, distinct from earlier preparation-only
+errors: domain-enter 64.394 s, domain-roundtrip 68.713 s, multi-user 70.328 s and
+network-fault-recovery 69.454 s, all return code 1. Its exact JSON/JUnit and
+source/installed/Scene/native provenance joins were verified offline. All 83
+collected adapter contexts completed their diagnostic observation; no malformed
+probe body was observed. This does not establish a failure root cause.
+
+Harness `7c3ea1189a` permits at most three fresh probe-file reads only after JSON
+decoding fails; stale, schema and transport errors still fail. Its new
+atomic C++ probe writer is future source and is **not installed** in the unchanged
+APK. Native backend compilation/loader/READY evidence is infrastructure evidence,
+not Phone feature acceptance. Independent actor-source requirements, a second
+Phone where required, genuine image/HTTPS/account inputs and a compatible PC voice
+peer or an independent Chat receiver remain mandatory; no historical or synthetic peer supplies them.
+
+The retained public-summary SHA-256 values are:
+
+- Build 6: `feaa5c6d880d37bb3235de4fd1a728acbd2ffaf8fbae87f898962a88afa99ee0`
+  (also recorded in [Tablet calibration](tablet-budget-calibration.v1.json)).
+- Build 9: `e1c3dbbb4180d8d8198d5210f36befced84fe47dfcb3f37290b479db220d27ad`.
+- Build 13: `bd6cb3a78a617ddbba3f2f3c87e4c205b1e01f2867b567e77515908669f53fb6`.
+
+The separately retained Companion V3 host-package SHA-256 is
+`24b22545f7062836f765a72ca234a57cc910e01d0f1bcddfec94e1da960a40a2`.
+Its 11 host methods passed in 19.578 s; they are not product or device proof.
+These hashes identify retained evidence without publishing private logs, target
+configuration or runtime credentials.
