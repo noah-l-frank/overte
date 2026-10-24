@@ -1730,7 +1730,12 @@
         "tests/device/adapters/pico4/LIFECYCLE_OPERATIONS_BACKGROUND.md",
         "android/vr/pico/tests/device/test_lifecycle_primary_operations.py",
         "tests/device/adapters/pico4/lifecycle_process_file.py",
-        "tests/device/adapters/pico4/LIFECYCLE_PROCESS_PHYSICAL_DELIVERY.md"
+        "tests/device/adapters/pico4/LIFECYCLE_PROCESS_PHYSICAL_DELIVERY.md",
+        "tests/device/adapters/pico4/lifecycle_restart_runtime.py",
+        "tests/device/adapters/pico4/lifecycle_process_observation.py",
+        "tests/device/adapters/pico4/LIFECYCLE_PROCESS_COORDINATOR.md",
+        "tests/device/self_tests/test_lifecycle_operations_process.py",
+        "android/vr/pico/tests/device/test_lifecycle_primary_process.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1775,7 +1780,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Join the actual oldPID-to-newPID cleanup through once-only neutral Pico restart inputs and actual Process final-delivery memo/readers; Source3 stays strictly G0 and the next external cursor derives from original71. Root normal1\u201316 common-wait evidence remains positive1/49.597s with World126/128 and readonly71/128. Original physical Process file/OFD ownership is now integrated and independently passes18 finalization cases/45.946s with all13,595 source hashes unchanged. The agent-only new G1 continuation remains under review; original old-PID absence, new native birth, binding-transfer FDs, fresh G1 cleanup, independentActor/images and full public/resource/journal/Host retirement remain open.",
+      "nextExecutableStep": "Consume genuine second idempotent cleanup and fresh G1 baseline/quiet in the same coordinator, then supply independentActor/image/surface and final resource/file/archive/IPC/Host retirement. Normal1\u201316\u2192once-only neutral SDK restart\u2192original FD transfer\u2192warm Process handoff\u2192fresh sequence72 is integrated as7856de1b0d. Root independently passes positive, real outer-exit clock/root refusal and canonical/legacy compatibility:11 cases, all13,600 source hashes/signatures unchanged. Actual G0 World126/128 and readonly71/128 remain frozen; Process13/64 and a separate new Source4 row1 are measured, without cursor/cap/clock reset. Earlier physical Process finalization18 remains separate evidence; full execute/public capability remains unavailable.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

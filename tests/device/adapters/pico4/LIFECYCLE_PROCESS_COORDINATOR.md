@@ -163,3 +163,43 @@ common baseline consumption, using actual independent Actor/pose observations
 and original image/surface provenance when connected to full execute. Parent
 resource/IPC/file/archive/host finalization and public dispatch remain open.
 No retained journal or cold reconstruction can supply a live G1 owner.
+
+
+## Root integration verification
+
+Root reviewed all 15 changed files and selected `367100ce79` as
+`7856de1b0d`. Catalog reconciliation is additive: **267 to 275** selectors,
+all 14 risk rows retained. The exact four-ID Pending partition and separate
+Avatar native profiles remain present. No older dependency-only packet was
+selected again.
+
+Fresh independent Root verification passes **11 cases** in four disjoint
+selections, with the original **120 seconds per selection**: the actual
+sixteen-action/restart/fresh72 positive (71.377 s external), actual outer-exit
+native+2000/fixed-host refusal (70.926 s), actual outer-exit same-bytes
+Operations-root refusal (70.425 s), and six canonical factory plus two legacy
+reader/common-wait cases (28.106 s). At most three selections ran concurrently,
+each in a distinct temporary root. All **13,600** complete source hashes and
+physical signatures matched before/after terminal completion (99.259 s total
+external elapsed). SDK/native/OS/Qt/physics retain their explicit model scope;
+no compiler, ADB command or device ran.
+
+The transparent private driver retains constructor temporary roots by
+suppressing only their final temporary-directory disposal. Original test,
+SDK, clock, journal and ownership cleanup methods are unchanged. Private
+source/result/commands, original logs and per-selection case summaries are
+`lifecycle-process-coordinator-root-20261024-*` under
+`/home/user/Documents/github/overte-pico-adapter-private-20261021`.
+
+Root's retained positive has 71 G0 readonly records/284 children, 263
+Operations children, 13 Process rows, and one new Source4 row with five
+children and sequence72. Its actual Process file is 48484 bytes, containing
+1459780 original container bytes/48264 Base64 bytes. The unchanged bounded
+XZ decoder reads that historical inventory; no warm memo is reconstructed.
+`lifecycle-process-coordinator-root-historical-inventory-20261024.json` records
+that narrower offline bill. Original G0 World126 remains checked by the
+actual positive case. No original cursor, clock or bound is reset.
+
+Second idempotent cleanup and sustained fresh G1 baseline/quiet consumption
+are the next vertical. The independent Actor/image/surface, full execute,
+resource/file/archive/IPC and final host obligations remain open.
