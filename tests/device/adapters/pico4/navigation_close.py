@@ -11,6 +11,7 @@ import time
 from adapters.native_feature_observation import exact,need,number
 from adapters.navigation_transit import NavigationTransit
 from adapters.pico4.navigation_lookup_close import NavigationDismissedLookup
+from adapters.pico4.navigation_generation_page import NavigationGenerationPage
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.normal_scripts import PicoScriptIO
@@ -20,14 +21,14 @@ from adapters.script_journey.history import canonical,pack,unpack
 from adapters.token_script_ui import TokenScriptUI
 from feature_journeys.contract import identifier
 
-VERSION=2
+VERSION=3
 
 
 class NavigationTabletClose:
     def __init__(self,transit,normal,graphics,path,guard,*,monotonic=time.monotonic,sleep=time.sleep):
-        need(isinstance(transit,(NavigationTransit,NavigationDismissedLookup)) and isinstance(normal,TokenScriptUI) and isinstance(normal.io,PicoScriptIO)
+        need(isinstance(transit,(NavigationTransit,NavigationDismissedLookup,NavigationGenerationPage)) and isinstance(normal,TokenScriptUI) and isinstance(normal.io,PicoScriptIO)
              and isinstance(graphics,PicoGraphicsSource) and all(callable(f) for f in (guard,monotonic,sleep)))
-        self.source_kind='dismissed-lookup' if isinstance(transit,NavigationDismissedLookup) else 'transit'
+        self.source_kind='generation-places' if isinstance(transit,NavigationGenerationPage) else 'dismissed-lookup' if isinstance(transit,NavigationDismissedLookup) else 'transit'
         if self.source_kind=='transit':
             need(transit.state is not None and transit.state['homeMode']=='ray' and transit.state['quiet']
                  and normal.io.navigation is transit.ui.io.original.navigation)
@@ -43,9 +44,10 @@ class NavigationTabletClose:
         self.origin=hashlib.sha256(canonical(self.source_original)).hexdigest()
         if self.disk is not None:
             version=self.disk.get('navigationTabletCloseVersion')
-            exact(self.disk,{'navigationTabletCloseVersion','runId','binding','transitOriginalSha256','payload'}|({'sourceKind'} if version==2 else set()))
-            need(type(version) is int and version in (1,VERSION)
-                 and (self.disk['sourceKind']==self.source_kind if version==2 else self.source_kind=='transit')
+            exact(self.disk,{'navigationTabletCloseVersion','runId','binding','transitOriginalSha256','payload'}|({'sourceKind'} if version in (2,VERSION) else set()))
+            need(type(version) is int and version in (1,2,VERSION)
+                 and (self.source_kind!='generation-places' or version==VERSION)
+                 and (self.disk['sourceKind']==self.source_kind if version in (2,VERSION) else self.source_kind=='transit')
                  and self.disk['runId']==self.run and self.disk['binding']==self.binding and self.disk['transitOriginalSha256']==self.origin)
             rows=unpack(self.disk['payload']);need(len(rows)==1);self.validate(rows[0]);self.state=rows[0]
     def now(self):
@@ -113,7 +115,8 @@ class NavigationTabletClose:
             if b!=value['last']:self.advance(b,value['last'])
     def save(self,value):
         self.now();self.validate(value)
-        disk=dict(navigationTabletCloseVersion=VERSION,runId=self.run,binding=self.binding,sourceKind=self.source_kind,transitOriginalSha256=self.origin,payload=pack([value]))
+        disk=dict(navigationTabletCloseVersion=VERSION if self.source_kind=='generation-places' else 2,
+            runId=self.run,binding=self.binding,sourceKind=self.source_kind,transitOriginalSha256=self.origin,payload=pack([value]))
         self.store.write(disk,self.disk);self.disk=deepcopy(disk);self.state=deepcopy(value)
     def queries(self,value):return self.transit.query_ids(value['transit'])+[value['home']['commandId'],value['graphics']['commandId']]
     def sample(self):

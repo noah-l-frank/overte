@@ -23,8 +23,10 @@ VERSION=1
 
 
 class NavigationContinuation:
-    def __init__(self,prefix,restart_factory):
-        need(callable(restart_factory));self.prefix=prefix;self.restart_factory=restart_factory;self.restart_owner=None
+    def __init__(self,prefix,restart_factory,*,generation_factory=None):
+        need(callable(restart_factory) and (generation_factory is None or callable(generation_factory)))
+        self.generation_factory,self.generation_owner=generation_factory,None
+        self.prefix=prefix;self.restart_factory=restart_factory;self.restart_owner=None
         self.continuation_store=PrivateFeatureState(prefix.lock.path.with_name('navigation-prefix-restart-parent.json'))
         self.continuation_disk=self.continuation_store.read()
         if self.continuation_disk is not None:self.validate_continuation(self.continuation_disk)
@@ -61,6 +63,16 @@ class NavigationContinuation:
             need(isinstance(owner,NavigationRestart) and owner.parent is self.prefix);self.restart_owner=owner
         return self.restart_owner
 
+    def generation(self):
+        self.prefix.lock.assert_held()
+        need(self.generation_factory is not None and self.continuation_disk is not None and self.continuation_disk['phase']=='ready')
+        if self.generation_owner is None:
+            from adapters.pico4.navigation_generation_flow import NavigationGenerationFlow
+            owner=self.generation_factory(self)
+            need(isinstance(owner,NavigationGenerationFlow) and owner.previous is self and owner.parent is self.prefix)
+            self.generation_owner=owner
+        return self.generation_owner
+
     def prepare(self):
         with self.prefix.lock.held():
             self.load_continuation();need(self.continuation_disk is None);return self.prefix.prepare()
@@ -69,7 +81,11 @@ class NavigationContinuation:
         call=deepcopy(arguments('feature.world-navigation.act',call));p=self.prefix;need(p.role=='primary')
         if call['verb']!='restart-app':
             with p.lock.held():
-                self.load_continuation();need(self.continuation_disk is None);return p.act(call)
+                self.load_continuation()
+                if self.continuation_disk is None:return p.act(call)
+                owner=self.generation()
+            # Each generation method verifies after its own real outer release.
+            return owner.act(call)
         # A private caller holding another outer context cannot publish a
         # result after that caller's still-future release. Refuse before input.
         need(p.lock._owner is None)
@@ -100,7 +116,13 @@ class NavigationContinuation:
         return result
 
     def observe(self):
-        p=self.prefix;outer=p.lock._owner
+        p=self.prefix
+        with p.lock.held():
+            self.load_continuation()
+            later=PrivateFeatureState(p.lock.path.with_name('navigation-prefix-generation-1-parent.json')).read()
+            owner=self.generation() if later is not None else None
+        if owner is not None:return owner.observe()
+        outer=p.lock._owner
         with p.lock.held():
             self.load_continuation()
             if self.continuation_disk is None:return p.observe()

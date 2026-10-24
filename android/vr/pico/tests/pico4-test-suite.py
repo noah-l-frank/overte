@@ -128,6 +128,7 @@ TESTS = (
     test("navigation-bookmark-prefix", "interaction", PYTHON, "device/test_navigation_bookmark_prefix.py", requires=("openssl",)),
     test("navigation-restart-prefix", "interaction", PYTHON, "device/test_navigation_restart_prefix.py", requires=("openssl",)),
     test("navigation-restart-exit", "interaction", PYTHON, "device/test_navigation_restart_exit.py", requires=("openssl",)),
+    test("navigation-generation-prefix", "interaction", PYTHON, "device/test_navigation_generation_prefix.py", requires=("openssl",)),
     test("navigation-dismissal-prefix", "interaction", PYTHON, "device/test_navigation_dismissal_prefix.py", requires=("openssl",)),
     test("navigation-missing-prefix", "interaction", PYTHON, "device/test_navigation_missing_prefix.py", requires=("openssl",)),
     test("navigation-transit-prefix", "interaction", PYTHON, "device/test_navigation_transit_prefix.py", requires=("openssl",)),

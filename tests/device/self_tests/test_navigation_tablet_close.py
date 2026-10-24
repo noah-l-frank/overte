@@ -59,6 +59,18 @@ class NavigationTabletCloseTests(unittest.TestCase):
         self.assertNotEqual(state['before']['transit']['ui']['scope']['generation'],state['last']['transit']['ui']['scope']['generation'])
         self.assertFalse(state['last']['graphics']['tabletShown']);self.assertEqual('closed',state['phase'])
         self.act();self.assertEqual(['tablet.close'],self.controllers)
+    def test_v1_reader_preserves_original_closed_payload_without_another_controller(self):
+        from adapters.normal_feature_state import PrivateFeatureState
+        self.act();raw=self.path.read_bytes();original=json.loads(raw)
+        self.assertEqual(2,original['navigationTabletCloseVersion']);self.assertEqual('transit',original['sourceKind'])
+        retained=self.path.with_name('original-transit-close-v2.json');self.path.rename(retained)
+        # Compatibility grammar only: actual earlier normal Close/quiet produced
+        # every payload byte. Preserve its v2 original; v1 omits sourceKind.
+        legacy={key:value for key,value in original.items() if key!='sourceKind'};legacy['navigationTabletCloseVersion']=1
+        PrivateFeatureState(self.path).write(legacy,None)
+        owner=self.owner();self.assertEqual('closed',owner.state['phase']);self.assertEqual(original['payload'],owner.disk['payload'])
+        self.assertEqual(raw,retained.read_bytes());self.assertEqual(['tablet.close'],self.controllers)
+
     def test_applied_lost_controller_result_resumes_original_close_without_another_toggle(self):
         self.lose=True
         with self.assertRaises(NativeUIError):self.act()

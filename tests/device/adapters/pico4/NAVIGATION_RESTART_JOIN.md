@@ -397,3 +397,7 @@ publication. The complete 12829-file manifest
 unchanged. No other entire prefix was unnecessarily repeated. The existing exit
 selector now contains four cases, without another catalog group, protocol
 version, compiler/device run or 13–15 implementation in this packet.
+
+The actual later normal G1 Places/Delete/Home/Close composition is documented
+in [the generation join](NAVIGATION_GENERATION_JOIN.md). It retains this G12
+ledger and every closed G0 file; it adds no implicit restart or rebind.
