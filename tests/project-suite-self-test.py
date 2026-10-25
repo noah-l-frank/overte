@@ -28,6 +28,116 @@ class ProjectSuiteCliTests(unittest.TestCase):
         return subprocess.run([sys.executable, str(RUNNER), *args], text=True,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
+    def test_composite_budgets_use_real_fake_commands_without_changing_child_arguments(self):
+        spec = importlib.util.spec_from_file_location("project_composite_budget", RUNNER)
+        runner = importlib.util.module_from_spec(spec)
+        with patch.dict(sys.modules, {spec.name: runner}):
+            spec.loader.exec_module(runner)
+        actual = runner.run_command
+        observed = []
+        def capture(command, timeout, cancelled):
+            observed.append((list(command), timeout))
+            return actual(command, timeout, cancelled)
+        cases = [("device-e2e-contracts", 240, None, 360),
+                 ("device-e2e-contracts", 600, None, 600),
+                 ("unrelated", 240, None, 240),
+                 ("phone-runtime-fixture", 240, 17, 17)]
+        for name, generic, dedicated, expected in cases:
+            with self.subTest(name=name, generic=generic):
+                command = (sys.executable, '-c', "import sys; assert sys.argv[1:]==['original-child-deadline','90']", 'original-child-deadline', '90')
+                suite = runner.Suite(name, "quick", command, dedicated)
+                args = SimpleNamespace(timeout=generic, host_timeout=900, native_build_dir=None,
+                                       fail_fast=False, junit=None)
+                with patch.object(runner, "run_command", capture), contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(runner.run_suites(args, [suite], []), 0)
+                self.assertEqual(observed[-1], (list(command), expected))
+
+    @contextlib.contextmanager
+    def phone_group_fixture(self):
+        """Keep real project routing; substitute only a tiny inert Phone driver."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'tests').mkdir()
+            shutil.copyfile(RUNNER, root / 'tests' / RUNNER.name)
+            phone = root / 'android/phone/tests'
+            phone.mkdir(parents=True)
+            (root / 'tests/platform-profile.json').write_text(json.dumps({
+                'schema': 1, 'platform': 'android', 'suites': [{
+                    'name': 'phone-e2e-runtime-regressions',
+                    'entrypoint': 'android/phone/tests/phone-e2e-runtime-regressions.py',
+                    'interpreter': 'python'}]}))
+            driver = phone / 'phone-e2e-runtime-regressions.py'
+            driver.write_text("import json,sys\nfrom pathlib import Path\n"
+                              "p=Path('routed.json');rows=json.loads(p.read_text())if p.exists()else[]\n"
+                              "rows.append(sys.argv[1:]);p.write_text(json.dumps(rows))\n"
+                              "assert sys.argv[1:3] in [['--group','navigation'],['--group','snapshots']]\n"
+                              "assert sys.argv[3:]==['--jobs','4']\n"
+                              "print('original-driver-group-' + sys.argv[2])\n"
+                              "raise SystemExit(1 if Path('fail-snapshots').exists() and sys.argv[2]=='snapshots'else 0)\n")
+            for name in ('navigation', 'snapshots', 'prepared'):
+                (phone / (name + '.py')).write_text("raise AssertionError('group metadata must not execute source')\n")
+            registry = {'schemaVersion': 1, 'jobs': 4, 'groups': [
+                {'id': 'navigation', 'files': ['android/phone/tests/navigation.py'], 'timeoutSeconds': 17},
+                {'id': 'snapshots', 'files': ['android/phone/tests/snapshots.py'], 'timeoutSeconds': 23},
+                {'id': 'prepared', 'files': ['android/phone/tests/prepared.py'], 'timeoutSeconds': 29}],
+                'modes': {'default': ['navigation', 'snapshots'],
+                          'execute': ['navigation', 'snapshots', 'prepared']},
+                'extendedGroups': []}
+            registry_path = phone / 'phone-runtime-groups.json'
+            registry_path.write_text(json.dumps(registry))
+            yield root, registry_path, registry
+
+    def test_phone_listing_reads_metadata_without_driver_execution_and_legacy_expands_all(self):
+        with self.phone_group_fixture() as (root, _path, _registry):
+            command = [sys.executable, str(root / 'tests' / RUNNER.name)]
+            all_groups = subprocess.run([*command, '--list', '--platform-only'], capture_output=True, text=True, timeout=5)
+            self.assertEqual(all_groups.returncode, 0, all_groups.stderr)
+            self.assertEqual([line.split()[0] for line in all_groups.stdout.splitlines()],
+                             ['phone-runtime-navigation', 'phone-runtime-snapshots'])
+            self.assertFalse((root / 'routed.json').exists(), '--list executed the Phone driver')
+            alias = subprocess.run([*command, '--list', '--suite', 'phone-e2e-runtime-regressions'],
+                                   capture_output=True, text=True, timeout=5)
+            self.assertEqual(alias.returncode, 0, alias.stderr)
+            self.assertEqual(alias.stdout, all_groups.stdout)
+            self.assertNotIn('prepared', alias.stdout)
+            self.assertFalse((root / 'routed.json').exists())
+
+    def test_actual_phone_group_routing_failure_junit_and_alias_deduplication(self):
+        with self.phone_group_fixture() as (root, _path, _registry):
+            (root / 'fail-snapshots').touch()
+            report = root / 'result.xml'
+            result = subprocess.run([sys.executable, str(root / 'tests' / RUNNER.name),
+                '--suite', 'phone-e2e-runtime-regressions', '--suite', 'phone-runtime-snapshots',
+                '--timeout', '1', '--junit', str(report)], capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertEqual(json.loads((root / 'routed.json').read_text()), [
+                ['--group', 'navigation', '--jobs', '4'], ['--group', 'snapshots', '--jobs', '4']])
+            junit = ET.parse(report).getroot()
+            self.assertEqual(junit.get('tests'), '2')
+            self.assertEqual(junit.get('failures'), '1')
+            self.assertEqual(junit.find("testcase[@name='phone-runtime-snapshots']/failure").text.strip(),
+                             'original-driver-group-snapshots')
+
+    def test_explicit_phone_group_is_independent_and_malformed_metadata_never_executes(self):
+        with self.phone_group_fixture() as (root, path, registry):
+            command = [sys.executable, str(root / 'tests' / RUNNER.name)]
+            result = subprocess.run([*command, '--suite', 'phone-runtime-navigation'],
+                                    capture_output=True, text=True, timeout=5)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads((root / 'routed.json').read_text()), [['--group', 'navigation', '--jobs', '4']])
+            (root / 'routed.json').unlink()
+            for fault in ('duplicate-file', 'escape', 'unknown-mode', 'invalid-budget', 'wrong-workers'):
+                bad = json.loads(json.dumps(registry))
+                if fault == 'duplicate-file': bad['groups'][1]['files'] = bad['groups'][0]['files']
+                elif fault == 'escape': bad['groups'][0]['files'] = ['../untrusted.py']
+                elif fault == 'unknown-mode': bad['modes']['default'] = ['missing']
+                elif fault == 'invalid-budget': bad['groups'][0]['timeoutSeconds'] = True
+                else: bad['jobs'] = 1
+                path.write_text(json.dumps(bad))
+                failed = subprocess.run([*command, '--list'], capture_output=True, text=True, timeout=5)
+                self.assertNotEqual(failed.returncode, 0, fault)
+                self.assertFalse((root / 'routed.json').exists(), fault)
+
     def test_quick_profile_excludes_native_build(self):
         result = self.run_cli("--list")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -756,6 +866,11 @@ class DevicePythonFailureDiagnosticsTests(unittest.TestCase):
                 if not report.exists():
                     report.parent.mkdir(parents=True)
                     report.write_text(json.dumps(self.aggregate(names)))
+                    # The fixture represents a report created after admission.
+                    # Pin that instant explicitly on filesystems whose automatic
+                    # mtime can lag the nanosecond wall clock within one tick.
+                    stamp = time.time_ns()
+                    os.utime(report, ns=(stamp, stamp))
                     return 1, "private traceback must stay out of final diagnostic", "exit code 1"
                 return 0, "later group output", ""
             args = SimpleNamespace(profile="full", self_test_jobs=2, timeout_seconds=900,

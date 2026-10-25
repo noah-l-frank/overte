@@ -1,0 +1,1227 @@
+{
+  "checkSets": {
+    "COMMON_HOST_CHECKS": [
+      "android/phone/tests/device/test_snapshots_registration.py",
+      "android/phone/tests/device/test_snapshots_role.py",
+      "android/phone/tests/device/test_snapshots_marker_phase.py",
+      "android/phone/tests/device/test_snapshots_retirement_audit.py",
+      "android/phone/tests/device/test_snapshots_retirement_actor_versions.py",
+      "android/phone/tests/device/test_snapshot_retired_inspections.py",
+      "android/phone/tests/device/test_snapshots_publication_guard.py",
+      "android/phone/tests/device/test_snapshots_storage_intent.py",
+      "android/phone/tests/device/test_snapshots_distinct.py",
+      "android/phone/tests/device/test_snapshots_ephemeral_role_disposal.py",
+      "android/phone/tests/device/test_snapshots_constructor_history_pass.py",
+      "android/phone/tests/device/test_snapshots_passive_constructor_history.py",
+      "android/phone/tests/device/test_snapshots_read_ready_slot.py",
+      "android/phone/tests/device/test_snapshots_closing_cancel_history.py",
+      "android/phone/tests/device/test_snapshots_active_cancel_history.py",
+      "android/phone/tests/device/test_snapshots_actor_maintenance.py",
+      "android/phone/tests/device/test_snapshots_actor_history.py",
+      "android/phone/tests/device/test_snapshots_input_replay_guard.py",
+      "android/phone/tests/device/test_snapshots_locked_slot_rebuild.py",
+      "android/phone/tests/device/test_snapshots_cleanup_constructor_scope.py",
+      "android/phone/tests/device/test_snapshots_historical_png.py",
+      "android/phone/tests/device/test_snapshots_original_clone.py",
+      "android/phone/tests/device/test_snapshot_catalog_pass.py",
+      "android/phone/tests/device/test_snapshots_full_retirement_audit.py",
+      "android/phone/tests/device/test_snapshots_actor.py",
+      "android/phone/tests/device/test_snapshots_actor_schedule_migration.py",
+      "android/phone/tests/device/test_snapshots_actor_primary_cue.py",
+      "android/phone/tests/device/test_snapshots_actor_ordinary_stages.py",
+      "android/phone/tests/device/test_snapshots_cleanup_close_race.py",
+      "android/phone/tests/device/test_snapshots_actor_schedule.py",
+      "android/phone/tests/device/test_snapshots_polling.py",
+      "android/phone/tests/device/test_snapshots_feature_journey.py",
+      "android/phone/tests/device/test_snapshots_resident_actor.py",
+      "android/phone/tests/device/test_snapshots_partial_read_resume.py",
+      "android/phone/tests/device/test_snapshots_phase_transition.py",
+      "android/phone/tests/device/test_snapshots_primary_cleanup_stages.py",
+      "android/phone/tests/device/test_snapshots_history_pass.py",
+      "android/phone/tests/device/test_snapshots_primary_history_pass.py",
+      "android/phone/tests/device/test_snapshots_quiet_role_reuse.py",
+      "android/phone/tests/device/test_snapshot_handoff_admission_audit.py",
+      "android/phone/tests/device/test_navigation_foundations.py",
+      "android/phone/tests/device/test_snapshots_observer.py",
+      "android/phone/tests/device/test_create_collaboration_foundation.py",
+      "android/phone/tests/device/test_navigation_scene.py",
+      "android/phone/tests/device/test_snapshot_handoff_audit.py",
+      "android/phone/tests/device/test_snapshot_system_files.py",
+      "android/phone/tests/device/test_snapshots_measurements.py",
+      "android/phone/tests/device/test_snapshots_feature.py",
+      "android/phone/tests/device/test_snapshots_evidence.py",
+      "android/phone/tests/device/test_snapshot_upload_bytes.py",
+      "android/phone/tests/device/test_snapshot_documents.py",
+      "android/phone/tests/device/test_snapshot_documents_ui.py",
+      "android/phone/tests/device/test_snapshot_handoff.py",
+      "android/phone/tests/device/test_snapshot_handoff_input.py",
+      "android/phone/tests/device/test_lifecycle_editor.py",
+      "android/phone/tests/device/test_lifecycle_world.py",
+      "android/phone/tests/device/test_lifecycle_measurements.py",
+      "android/phone/tests/device/test_lifecycle_feature.py",
+      "tests/device/self_tests/test_token_chat_ui.py",
+      "android/phone/tests/device/test_snapshot_capture_source.py",
+      "android/phone/tests/device/test_snapshot_capture_files.py",
+      "android/phone/tests/device/test_snapshot_foundation.py",
+      "android/phone/tests/device/test_feature_dispatch.py",
+      "android/phone/tests/device/test_chat_feature.py",
+      "android/phone/tests/device/test_chat_foundation.py",
+      "android/phone/tests/device/test_snapshot_os_retirement_source.py",
+      "android/phone/tests/device/test_snapshot_documents_native.py",
+      "android/phone/tests/device/test_snapshot_documents_access.py",
+      "android/phone/tests/device/test_snapshot_documents_os_source.py",
+      "android/phone/tests/device/test_snapshot_share_grants_source.py",
+      "android/phone/tests/device/test_snapshot_consumer_source.py",
+      "android/phone/tests/device/test_snapshot_upload_source.py",
+      "android/phone/tests/device/test_assets_backend.py",
+      "android/phone/tests/device/test_assets_evidence.py",
+      "android/phone/tests/device/test_assets_registration.py",
+      "tests/device/self_tests/test_assets_originals.py",
+      "android/phone/tests/device/test_assets_uploads.py",
+      "android/phone/tests/device/test_assets_controls.py",
+      "android/phone/tests/device/test_assets_source.py",
+      "android/phone/tests/device/test_audio_source.py",
+      "android/phone/tests/device/test_audio_mute.py",
+      "android/phone/tests/device/test_audio_feature.py",
+      "android/phone/tests/device/test_audio_registration.py",
+      "android/phone/tests/device/test_navigation_feature.py",
+      "android/phone/tests/device/test_snapshot_source.py",
+      "android/phone/tests/device/test_snapshot_controls.py",
+      "android/phone/tests/device/test_snapshot_ui.py",
+      "android/phone/tests/device/test_snapshot_cancel.py",
+      "android/phone/tests/device/test_snapshot_script_history.py",
+      "android/phone/tests/device/test_snapshot_measurements.py",
+      "android/phone/tests/device/test_snapshot_capture_facts.py",
+      "android/phone/tests/device/test_snapshot_settings.py",
+      "android/phone/tests/device/test_snapshot_platform.py",
+      "android/phone/tests/device/test_snapshot_system_ui.py",
+      "android/phone/tests/device/test_snapshot_resolution.py",
+      "android/phone/tests/device/test_snapshot_system_context.py",
+      "android/phone/tests/device/test_snapshot_scope_status_boundary.py",
+      "android/phone/tests/device/test_snapshot_script_native.py",
+      "android/phone/tests/device/test_snapshot_readback_source.py",
+      "android/phone/tests/device/test_snapshot_saved_files.py",
+      "android/phone/tests/device/test_create_source.py",
+      "android/phone/tests/device/test_create_workflows.py",
+      "android/phone/tests/device/test_create_marker.py",
+      "android/phone/tests/device/test_create_measurements.py",
+      "android/phone/tests/device/test_create_registration.py",
+      "tests/device/self_tests/test_create_permissions.py",
+      "tests/device/self_tests/test_assets_permissions.py",
+      "tests/device/self_tests/test_phone_control_poll.py",
+      "android/phone/tests/device/test_installed_identity.py",
+      "android/phone/tests/device/test_feature_adapters.py",
+      "android/phone/tests/device/test_script_measurements.py",
+      "android/phone/tests/device/test_script_scope.py",
+      "android/phone/tests/device/test_script_history.py",
+      "android/phone/tests/device/test_script_actions.py",
+      "android/phone/tests/device/test_script_causality.py",
+      "android/phone/tests/device/test_script_feature.py",
+      "android/phone/tests/device/test_script_feature_journey.py",
+      "android/phone/tests/device/test_account_fixture_launch.py",
+      "android/phone/tests/device/test_account_menu.py",
+      "android/phone/tests/device/test_authentication_samples.py",
+      "android/phone/tests/device/test_authentication_causality.py",
+      "android/phone/tests/device/test_authentication_actions.py",
+      "android/phone/tests/device/test_authentication_feature.py",
+      "android/phone/tests/device/test_web_reference.py",
+      "android/phone/tests/device/test_world_web_feature.py",
+      "android/phone/tests/device/test_world_web_registration.py",
+      "android/phone/tests/device/test_tablet_controls.py",
+      "android/phone/tests/device/test_tablet_web_feature.py",
+      "android/phone/tests/device/test_tablet_web_registration.py",
+      "android/phone/tests/device/test_graphics_measurements.py",
+      "android/phone/tests/device/test_graphics_images.py",
+      "android/phone/tests/device/test_graphics_samples.py",
+      "android/phone/tests/device/test_graphics_readiness.py",
+      "android/phone/tests/device/test_graphics_fixture_reader.py",
+      "android/phone/tests/device/test_graphics_lifetime.py",
+      "android/phone/tests/device/test_graphics_observer.py",
+      "android/phone/tests/device/test_graphics_feature.py",
+      "android/phone/tests/device/test_emote_controls.py",
+      "android/phone/tests/device/test_emote_sources.py",
+      "android/phone/tests/device/test_emote_replay.py",
+      "android/phone/tests/device/test_emote_source_failure.py",
+      "android/phone/tests/device/test_emote_failures.py",
+      "android/phone/tests/device/test_emote_namespaces.py",
+      "android/phone/tests/device/test_emote_originals.py",
+      "android/phone/tests/device/test_emote_inputs.py",
+      "android/phone/tests/device/test_emote_cleanup.py",
+      "android/phone/tests/device/test_emote_run.py",
+      "android/phone/tests/device/test_emote_feature.py",
+      "android/phone/tests/device/test_emote_journey_registration.py",
+      "android/phone/tests/device/test_emote_registration.py",
+      "android/phone/tests/device/test_emote_early_cleanup.py",
+      "android/phone/tests/device/test_emote_admission_owner.py",
+      "android/phone/tests/device/test_emote_admission_retirement.py",
+      "android/phone/tests/device/test_emote_effects.py",
+      "android/phone/tests/device/test_emote_motion_files.py",
+      "android/phone/tests/device/test_emote_role.py",
+      "android/phone/tests/device/test_emote_actor.py",
+      "android/phone/tests/device/test_emote_retirement.py",
+      "android/phone/tests/device/test_emote_unissued_retirement.py",
+      "android/phone/tests/device/test_emote_setup_retirement.py",
+      "android/phone/tests/device/test_emote_role_failure.py",
+      "android/phone/tests/device/test_emote_phase_retirement.py",
+      "android/phone/tests/device/test_emote_image_phase_retirement.py",
+      "android/phone/tests/device/test_emote_background.py",
+      "android/phone/tests/device/test_emote_background_effects.py",
+      "android/phone/tests/device/test_emote_lifetime.py",
+      "android/phone/tests/device/test_emote_lifetime_failure.py",
+      "android/phone/tests/device/test_emote_pixels.py",
+      "android/phone/tests/device/test_avatar_people_pixels.py",
+      "android/phone/tests/device/test_avatar_people_feature.py",
+      "android/phone/tests/device/test_emote_images.py",
+      "android/phone/tests/device/test_emote_capture.py",
+      "android/phone/tests/device/test_emote_observation.py",
+      "android/phone/tests/device/test_emote_incomplete.py",
+      "android/phone/tests/device/test_emote_phase_observation.py",
+      "android/phone/tests/device/test_emote_scene.py",
+      "android/phone/tests/device/test_emote_view.py",
+      "android/phone/tests/device/test_script_roots.py",
+      "android/phone/tests/device/test_animation_inventory.py",
+      "android/phone/tests/device/test_script_work.py",
+      "android/phone/tests/device/test_graphics_effects.py",
+      "android/phone/tests/device/test_graphics_surface.py",
+      "android/phone/tests/device/test_graphics_scene.py",
+      "android/phone/tests/device/test_graphics_preferences.py",
+      "android/phone/tests/device/test_graphics_background.py",
+      "android/phone/tests/device/test_graphics_restart_scope.py",
+      "android/phone/tests/device/test_graphics_restart.py"
+    ],
+    "DEPENDENCY_LIGHT_CHECKS": [
+      "android/phone/tests/phone-test-inventory-test.py",
+      "android/phone/tests/test_phone_ime.py",
+      "android/phone/tests/phone-apk-provenance-test.py"
+    ],
+    "EXTENDED_HOST_CHECKS": [
+      "android/phone/tests/device/test_emote_feature_journey.py"
+    ],
+    "PREPARED_HOST_CHECKS": [
+      "android/phone/tests/phone-feature-build-flag-test.py",
+      "android/phone/tests/device/test_snapshot_documents_journey_boundary.py",
+      "android/phone/tests/device/test_snapshot_documents_acquisition_lease.py",
+      "android/phone/tests/device/test_snapshot_cancel_followfloor_audit.py",
+      "android/phone/tests/device/test_snapshot_handoff_audit_native.py",
+      "android/phone/tests/device/test_snapshot_private_publication.py",
+      "android/phone/tests/device/test_snapshot_handoff_native.py",
+      "android/phone/tests/device/test_lifecycle_editor_native.py",
+      "android/phone/tests/device/test_lifecycle_world_native.py",
+      "android/phone/tests/phone-chat-native-test.py",
+      "android/phone/tests/phone-chat-peer-native-test.py",
+      "android/phone/tests/phone-chat-history-native-test.py",
+      "android/phone/tests/phone-snapshot-settings-native-test.py",
+      "android/phone/tests/device/test_assets_feature.py",
+      "android/phone/tests/device/test_assets_bake_originals.py",
+      "android/phone/tests/device/test_snapshot_capture_files_native.py",
+      "android/phone/tests/device/test_snapshot_capture_gif_native.py",
+      "android/phone/tests/device/test_assets_upload_originals.py",
+      "android/phone/tests/device/test_assets_geometry_input.py",
+      "android/phone/tests/device/test_assets_native_ui.py",
+      "android/phone/tests/device/test_assets_files.py",
+      "android/phone/tests/snapshot-upload-source-contract-test.py",
+      "android/phone/tests/device/test_assets_native_reads.py",
+      "android/phone/tests/audio-fixture-source-contract-test.py",
+      "android/phone/tests/phone-navigation-native-test.py",
+      "android/phone/tests/device/test_snapshot_native_history.py",
+      "android/phone/tests/device/test_snapshot_native_review.py",
+      "android/phone/tests/device/test_snapshot_native_controls.py",
+      "android/phone/tests/device/test_snapshot_export_originals.py",
+      "android/phone/tests/device/test_snapshot_readback_jobs.py",
+      "android/phone/tests/device/test_snapshot_readback_publication.py",
+      "android/phone/tests/device/test_snapshot_destination_owner.py",
+      "android/phone/tests/device/test_snapshot_consumer_owner.py",
+      "android/phone/tests/phone-snapshot-export-native-test.py",
+      "android/phone/tests/phone-snapshot-readback-contract-test.py",
+      "android/phone/tests/device/test_create_native_ui.py",
+      "android/phone/tests/device/test_create_files.py",
+      "android/phone/tests/device/test_create_native_measurements.py",
+      "android/phone/tests/device/test_create_texture_state.py",
+      "android/phone/tests/device/test_create_native_fixture.py",
+      "android/phone/tests/device/test_create_marker_refresh.py",
+      "android/phone/tests/device/test_create_feature.py",
+      "android/phone/tests/phone-snapshot-journey-test.py",
+      "android/phone/tests/phone-snapshot-ui-test.py",
+      "android/phone/tests/test_phone_voice_signal.py",
+      "tests/device/contracts/world-entry/test_phone_feet_alignment.py",
+      "tests/device/contracts/world-entry/test_phone_pad_projection.py",
+      "tests/device/contracts/tablet/test_phone_settings_click.py",
+      "tests/device/contracts/lifecycle/test_phone_native_startup.py",
+      "tests/device/contracts/test_phone_accessibility_tree.py",
+      "android/phone/tests/phone-voice-clock-test.py"
+    ]
+  },
+  "checks": {
+    "android/phone/tests/audio-fixture-source-contract-test.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_account_fixture_launch.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_account_menu.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_animation_inventory.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_assets_backend.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_assets_bake_originals.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_assets_controls.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_assets_evidence.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_assets_feature.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 600
+    },
+    "android/phone/tests/device/test_assets_files.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_assets_geometry_input.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_assets_native_reads.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_assets_native_ui.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_assets_registration.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_assets_source.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_assets_upload_originals.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_assets_uploads.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_audio_feature.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_audio_mute.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_audio_registration.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_audio_source.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_authentication_actions.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_authentication_causality.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_authentication_feature.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_authentication_samples.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_avatar_people_feature.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 240
+    },
+    "android/phone/tests/device/test_avatar_people_pixels.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_chat_feature.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 240
+    },
+    "android/phone/tests/device/test_chat_foundation.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_create_collaboration_foundation.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_create_feature.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 240
+    },
+    "android/phone/tests/device/test_create_files.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_create_marker.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_create_marker_refresh.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_create_measurements.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_create_native_fixture.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_create_native_measurements.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_create_native_ui.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_create_registration.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_create_source.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_create_texture_state.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_create_workflows.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_actor.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_admission_owner.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_admission_retirement.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_background.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_background_effects.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_capture.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_cleanup.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_controls.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_early_cleanup.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_effects.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_failures.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_feature.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_feature_journey.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 10800
+    },
+    "android/phone/tests/device/test_emote_image_phase_retirement.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_images.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_incomplete.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_inputs.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_journey_registration.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_lifetime.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_lifetime_failure.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_motion_files.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_namespaces.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_observation.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_originals.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_phase_observation.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_phase_retirement.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_pixels.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_registration.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_replay.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_retirement.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_role.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_role_failure.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_run.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_scene.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_setup_retirement.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_source_failure.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_sources.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_unissued_retirement.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_emote_view.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_feature_adapters.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_feature_dispatch.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_graphics_background.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_graphics_effects.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_graphics_feature.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 240
+    },
+    "android/phone/tests/device/test_graphics_fixture_reader.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_graphics_images.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_graphics_lifetime.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_graphics_measurements.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_graphics_observer.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_graphics_preferences.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_graphics_readiness.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_graphics_restart.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_graphics_restart_scope.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_graphics_samples.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_graphics_scene.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_graphics_surface.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_installed_identity.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_lifecycle_editor.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_lifecycle_editor_native.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_lifecycle_feature.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_lifecycle_measurements.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_lifecycle_world.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_lifecycle_world_native.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_navigation_feature.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_navigation_foundations.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_navigation_scene.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_script_actions.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_script_causality.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_script_feature.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_script_feature_journey.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_script_history.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_script_measurements.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_script_roots.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_script_scope.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_script_work.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_cancel.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_cancel_followfloor_audit.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_capture_facts.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_capture_files.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_capture_files_native.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_capture_gif_native.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_capture_source.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_catalog_pass.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_consumer_owner.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_consumer_source.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_controls.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_destination_owner.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_documents.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_documents_access.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_documents_acquisition_lease.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_documents_journey_boundary.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 240
+    },
+    "android/phone/tests/device/test_snapshot_documents_native.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_documents_os_source.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_documents_ui.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_export_originals.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_foundation.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_handoff.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_handoff_admission_audit.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_handoff_audit.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_handoff_audit_native.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_handoff_input.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_handoff_native.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_measurements.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_native_controls.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_native_history.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_native_review.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_os_retirement_source.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_platform.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_private_publication.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_readback_jobs.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_readback_publication.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_readback_source.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_resolution.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_retired_inspections.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_saved_files.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_scope_status_boundary.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_script_history.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_script_native.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_settings.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_share_grants_source.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_source.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_system_context.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_system_files.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_system_ui.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_ui.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_upload_bytes.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshot_upload_source.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_active_cancel_history.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_actor.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 240
+    },
+    "android/phone/tests/device/test_snapshots_actor_history.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_actor_maintenance.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_actor_ordinary_stages.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_actor_primary_cue.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_actor_schedule.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_actor_schedule_migration.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_cleanup_close_race.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_cleanup_constructor_scope.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_closing_cancel_history.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_constructor_history_pass.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 240
+    },
+    "android/phone/tests/device/test_snapshots_distinct.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_ephemeral_role_disposal.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_evidence.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_feature.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_feature_journey.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 240
+    },
+    "android/phone/tests/device/test_snapshots_full_retirement_audit.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 240
+    },
+    "android/phone/tests/device/test_snapshots_historical_png.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_history_pass.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 240
+    },
+    "android/phone/tests/device/test_snapshots_input_replay_guard.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_locked_slot_rebuild.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_marker_phase.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_measurements.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_observer.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_original_clone.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_partial_read_resume.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_passive_constructor_history.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 240
+    },
+    "android/phone/tests/device/test_snapshots_phase_transition.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 240
+    },
+    "android/phone/tests/device/test_snapshots_polling.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_primary_cleanup_stages.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 240
+    },
+    "android/phone/tests/device/test_snapshots_primary_history_pass.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 240
+    },
+    "android/phone/tests/device/test_snapshots_publication_guard.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_quiet_role_reuse.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 240
+    },
+    "android/phone/tests/device/test_snapshots_read_ready_slot.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 300
+    },
+    "android/phone/tests/device/test_snapshots_registration.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_resident_actor.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_retirement_actor_versions.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 240
+    },
+    "android/phone/tests/device/test_snapshots_retirement_audit.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_role.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_snapshots_storage_intent.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_tablet_controls.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_tablet_web_feature.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_tablet_web_registration.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_web_reference.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_world_web_feature.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/device/test_world_web_registration.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/phone-apk-provenance-test.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/phone-chat-history-native-test.py": {
+      "argumentStyle": "fresh-chat-build-directory",
+      "timeoutSeconds": 180
+    },
+    "android/phone/tests/phone-chat-native-test.py": {
+      "argumentStyle": "fresh-chat-build-directory",
+      "timeoutSeconds": 180
+    },
+    "android/phone/tests/phone-chat-peer-native-test.py": {
+      "argumentStyle": "fresh-chat-build-directory",
+      "timeoutSeconds": 180
+    },
+    "android/phone/tests/phone-feature-build-flag-test.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/phone-navigation-native-test.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/phone-snapshot-export-native-test.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/phone-snapshot-journey-test.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/phone-snapshot-readback-contract-test.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/phone-snapshot-settings-native-test.py": {
+      "argumentStyle": "fresh-chat-build-directory",
+      "timeoutSeconds": 180
+    },
+    "android/phone/tests/phone-snapshot-ui-test.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/phone-test-inventory-test.py": {
+      "argumentStyle": "root-argument",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/phone-voice-clock-test.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/snapshot-upload-source-contract-test.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/test_phone_ime.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "android/phone/tests/test_phone_voice_signal.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "tests/device/contracts/lifecycle/test_phone_native_startup.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "tests/device/contracts/tablet/test_phone_settings_click.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "tests/device/contracts/test_phone_accessibility_tree.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "tests/device/contracts/world-entry/test_phone_feet_alignment.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "tests/device/contracts/world-entry/test_phone_pad_projection.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "tests/device/self_tests/test_assets_originals.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "tests/device/self_tests/test_assets_permissions.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "tests/device/self_tests/test_create_permissions.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "tests/device/self_tests/test_phone_control_poll.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    },
+    "tests/device/self_tests/test_token_chat_ui.py": {
+      "argumentStyle": "plain",
+      "timeoutSeconds": 90
+    }
+  },
+  "schemaVersion": 1,
+  "sourceRevision": "7b4a33873678990b663f21bdef0c0432c522baf1",
+  "sourceSha256": "fb5633548ded183c19ee193c9c107bb30d948e8e617a666f028095a56c37440e"
+}

@@ -10,6 +10,7 @@ from contextlib import contextmanager
 import ctypes
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -25,6 +26,15 @@ class Suite:
     name: str
     layer: str
     command: tuple[str, ...]
+    timeout_seconds: int | None = None
+
+
+# The unchanged 113-group collector measured 269.360s at 7b4a338736. Give this
+# composite its own bounded budget rather than inheriting a single-test limit.
+CONTROL_PLANE_QUICK_MINIMUM_SECONDS = 360
+PHONE_RUNTIME_ALIAS = "phone-e2e-runtime-regressions"
+PHONE_RUNTIME_DRIVER = "android/phone/tests/phone-e2e-runtime-regressions.py"
+PHONE_RUNTIME_REGISTRY = "android/phone/tests/phone-runtime-groups.json"
 
 
 SUITES = (
@@ -121,6 +131,51 @@ SUITES = (
     Suite("native-ctest", "native", ("bash", "tests/project-native-test.sh")),
 )
 
+def phone_runtime_suites(entrypoint: str) -> tuple[Suite, ...]:
+    """Read committed metadata only; listing must not import or execute tests."""
+    if entrypoint != PHONE_RUNTIME_DRIVER:
+        raise ValueError("unexpected Phone runtime driver")
+    registry = json.loads((ROOT / PHONE_RUNTIME_REGISTRY).read_text(encoding="utf-8"))
+    if (type(registry) is not dict or set(registry) != {
+            "schemaVersion", "jobs", "groups", "modes", "extendedGroups"}
+            or type(registry["schemaVersion"]) is not int or registry["schemaVersion"] != 1
+            or type(registry["jobs"]) is not int or registry["jobs"] != 4
+            or type(registry["groups"]) is not list or not registry["groups"]
+            or type(registry["modes"]) is not dict
+            or set(registry["modes"]) != {"default", "execute"}):
+        raise ValueError("invalid Phone runtime group registry")
+    groups = {}
+    for row in registry["groups"]:
+        if (type(row) is not dict or set(row) != {"id", "files", "timeoutSeconds"}
+                or type(row["id"]) is not str or not re.fullmatch(r"[a-z][a-z0-9-]{0,79}", row["id"])
+                or row["id"] in groups or type(row["timeoutSeconds"]) is not int
+                or row["timeoutSeconds"] <= 0
+                or type(row["files"]) is not list or not row["files"]
+                or any(type(name) is not str for name in row["files"])
+                or len(set(row["files"])) != len(row["files"])):
+            raise ValueError("invalid Phone runtime group")
+        for name in row["files"]:
+            relative = Path(name)
+            if (relative.is_absolute() or not relative.parts or ".." in relative.parts
+                    or relative.as_posix() != name or not (ROOT / relative).is_file()
+                    or not (ROOT / relative).resolve().is_relative_to(ROOT.resolve())):
+                raise ValueError("unsafe Phone runtime group source")
+        groups[row["id"]] = row
+    for identifiers in [*registry["modes"].values(), registry["extendedGroups"]]:
+        if (type(identifiers) is not list or any(type(name) is not str or name not in groups for name in identifiers)
+                or len(set(identifiers)) != len(identifiers)):
+            raise ValueError("invalid Phone runtime group mode")
+    if not registry["modes"]["default"]:
+        raise ValueError("empty default Phone runtime group selection")
+    selected = [groups[name] for name in registry["modes"]["default"]]
+    files = [name for row in selected for name in row["files"]]
+    if len(files) != len(set(files)):
+        raise ValueError("duplicate default Phone runtime coverage")
+    return tuple(Suite("phone-runtime-" + row["id"], "quick", (
+        sys.executable, entrypoint, "--group", row["id"], "--jobs", str(registry["jobs"])),
+        row["timeoutSeconds"]) for row in selected)
+
+
 def platform_suites() -> tuple[Suite, ...]:
     """Load explicit branch-owned suites; malformed or missing entries fail closed."""
     profile = json.loads((ROOT / "tests/platform-profile.json").read_text(encoding="utf-8"))
@@ -148,6 +203,15 @@ def platform_suites() -> tuple[Suite, ...]:
         if interpreter not in {"python", "bash"}:
             raise ValueError("invalid platform suite interpreter")
         names.add(name)
+        if name == PHONE_RUNTIME_ALIAS:
+            if interpreter != "python":
+                raise ValueError("invalid Phone runtime interpreter")
+            grouped = phone_runtime_suites(path)
+            if any(suite.name in names for suite in grouped):
+                raise ValueError("duplicate Phone runtime suite name")
+            names.update(suite.name for suite in grouped)
+            suites.extend(grouped)
+            continue
         suites.append(Suite(name, "quick", (sys.executable if interpreter == "python" else "bash", path)))
     return tuple(suites)
 
@@ -155,7 +219,11 @@ def platform_suites() -> tuple[Suite, ...]:
 PLATFORM_SUITES = platform_suites()
 SUITES += PLATFORM_SUITES
 
-SUITE_ALIASES = {"device-control-plane": "device-e2e-contracts"}
+SUITE_ALIASES = {"device-control-plane": ("device-e2e-contracts",)}
+_phone_groups = tuple(suite.name for suite in PLATFORM_SUITES
+                      if suite.command[1:2] == (PHONE_RUNTIME_DRIVER,) and "--group" in suite.command)
+if _phone_groups:
+    SUITE_ALIASES[PHONE_RUNTIME_ALIAS] = _phone_groups
 
 
 def arguments() -> argparse.Namespace:
@@ -191,7 +259,7 @@ def select(args: argparse.Namespace) -> list[Suite]:
     unknown = sorted(requested - known - set(SUITE_ALIASES))
     if unknown:
         raise ValueError("unknown suites: " + ", ".join(unknown))
-    names = {SUITE_ALIASES.get(name, name) for name in requested}
+    names = {expanded for name in requested for expanded in SUITE_ALIASES.get(name, (name,))}
     if names:
         return [suite for suite in SUITES if suite.name in names]
     if args.profile == "host":
@@ -337,6 +405,10 @@ def run_suites(args: argparse.Namespace, suites: list[Suite], cancelled: list[in
     for suite in suites:
         command = list(suite.command)
         timeout = args.timeout
+        if suite.name == "device-e2e-contracts":
+            timeout = max(timeout, CONTROL_PLANE_QUICK_MINIMUM_SECONDS)
+        elif suite.timeout_seconds is not None:
+            timeout = suite.timeout_seconds
         if suite.name == "device-control-plane-full" or suite.name.startswith("device-control-plane-full-candidate-"):
             timeout = args.host_timeout
             command.extend(("--timeout-seconds", str(timeout)))

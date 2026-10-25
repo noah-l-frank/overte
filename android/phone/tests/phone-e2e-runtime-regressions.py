@@ -263,64 +263,255 @@ EXTENDED_HOST_CHECKS = (
     "android/phone/tests/device/test_emote_feature_journey.py",
 )
 CHECKS = DEPENDENCY_LIGHT_CHECKS + PREPARED_HOST_CHECKS + COMMON_HOST_CHECKS + EXTENDED_HOST_CHECKS
-parser = argparse.ArgumentParser()
-parser.add_argument("--execute", action="store_true",
-                    help="execute the Qt/GLM native contracts on the prepared host")
-parser.add_argument("--extended", action="store_true",
-                    help="also execute expensive complete original-file host compositions; no device acceptance")
-args = parser.parse_args()
-# Every declared input is required even in dependency-light platform checks.
-for name in CHECKS:
-    if not (ROOT / name).is_file():
-        raise SystemExit("Missing mandatory Phone runtime contract: " + name)
-# The installed-candidate/normal UI binding uses only Python host fixtures.
-# Keep it mandatory in both modes; prepared contracts retain their existing
-# host compiler/Qt prerequisites.
-selected = PREPARED_HOST_CHECKS if args.execute else DEPENDENCY_LIGHT_CHECKS
-for name in selected + COMMON_HOST_CHECKS + (EXTENDED_HOST_CHECKS if args.extended else ()):
-    path = ROOT / name
-    if not path.is_file():
-        raise SystemExit("Missing mandatory Phone runtime contract: " + name)
-    print("Phone runtime contract: " + name, flush=True)
-    arguments = [sys.executable, str(path)]
-    if name.endswith("phone-test-inventory-test.py"):
-        arguments.append(str(ROOT))
-    if name.endswith(("phone-chat-native-test.py","phone-chat-peer-native-test.py","phone-chat-history-native-test.py","phone-snapshot-settings-native-test.py")):
-        arguments.extend(("--build-dir",str(ROOT / "build" / ("phone-chat-runtime-"+uuid.uuid4().hex))))
-    # Assets runs its full common journey, actor and interrupted/idempotent
-    # retirement probes. Only this aggregate host budget is larger; source,
-    # checkpoint and quiet-window deadlines remain unchanged.
-    # The complete Graphics/Create/Chat compositions execute unchanged common
-    # journeys; their file/image/actor checks need a larger aggregate budget.
-    # Chat measured 139.197s for 20 source/host cases at the parent integration;
-    # its aggregate must not inherit the 90s single-component deadline.
-    # Per-source freshness and common checkpoint deadlines remain unchanged.
-    # Five complete Snapshot retirement/recovery cases measured 90.218s;
-    # use the existing complete-composition aggregate, not a component budget.
-    # Seven actual legacy/v2/v3 closed-archive cases measured86.738s after
-    # the deterministic close-race correction. Use the same240s composition
-    # aggregate; no individual quiet, source or freshness bound changes.
-    # Six actual quiet-role preparation/reuse cases measured 88.346s. Their
-    # complete normal prefixes and long original histories use that same
-    # aggregate budget; source, lock, checkpoint and quiet bounds are unchanged.
-    # Primary cleanup stage counters include ten full public prefixes and real
-    # quiet/lock intervals (98.782s before the additional memory-pin case);
-    # apply the same complete-composition budget to their file.
-    # Eight complete host history-pass methods, including actual partial-image
-    # recovery and late original/manifest/absence mutations, measured129.302s.
-    # Their aggregate uses240s; individual file/source deadlines stay unchanged.
-    # Sixteen actual TLS/Role/actor transition cases measured92.302s, including
-    # separate process exit and full cleanup; use the full-composition aggregate.
-    # The complete Snapshot public module measured183.645s for23 cases, with
-    # its remaining cleanup failure retained as red. SDK26 adds the unchanged
-    # full common replay to its actual Java/provider/transport counterexamples.
-    # Nine late-history cases include full prefixes and isolated graph mutation
-    # checks (the earlier seven alone measured78.826s). Use240s per module;
-    # current source, lock, freshness and checkpoint deadlines do not change.
-    # Six public read-ready methods measured238.808s over four separate
-    # invocations with15 fresh SDK26 fixtures, including the real20s
-    # absent-receipt counter. Give their complete module300s aggregate;
-    # this is not a whole6 result. All source/file/lock/freshness/quiet
-    # and checkpoint deadlines remain unchanged.
-    subprocess.run(arguments, cwd=ROOT, check=True,
-                   timeout=10800 if name in EXTENDED_HOST_CHECKS else 600 if name.endswith("test_assets_feature.py") else 180 if name.endswith(("phone-chat-native-test.py","phone-chat-peer-native-test.py","phone-chat-history-native-test.py","phone-snapshot-settings-native-test.py")) else 300 if name.endswith("test_snapshots_read_ready_slot.py") else 240 if name.endswith(("test_graphics_feature.py","test_create_feature.py","test_avatar_people_feature.py","test_chat_feature.py","test_snapshots_full_retirement_audit.py","test_snapshots_retirement_actor_versions.py","test_snapshots_actor.py","test_snapshots_constructor_history_pass.py","test_snapshots_passive_constructor_history.py","test_snapshots_quiet_role_reuse.py","test_snapshots_primary_cleanup_stages.py","test_snapshots_primary_history_pass.py","test_snapshots_history_pass.py","test_snapshots_phase_transition.py","test_snapshots_feature_journey.py","test_snapshot_documents_journey_boundary.py")) else 90)
+
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+import hashlib
+import importlib.util
+import json
+import os
+import re
+import signal
+import tempfile
+import time
+import xml.etree.ElementTree as ET
+
+from phone_runtime_groups import (JOBS, GroupError, file_timeout, group_timeout,
+                                 select_groups, validate_groups)
+
+REGISTRY_PATH = Path(__file__).with_name('phone-runtime-groups.json')
+
+
+def load_registry(path=REGISTRY_PATH):
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise GroupError('Duplicate Phone registry key')
+            value[key] = item
+        return value
+    registry = json.loads(Path(path).read_text(), object_pairs_hook=unique)
+    return validate_groups(registry, DEPENDENCY_LIGHT_CHECKS, PREPARED_HOST_CHECKS,
+                           COMMON_HOST_CHECKS, EXTENDED_HOST_CHECKS)
+
+
+def file_command(name, *, root=ROOT, python=sys.executable, build_id=None):
+    if name not in CHECKS:
+        raise GroupError('Unknown Phone contract command')
+    root = Path(root)
+    arguments = [python, str(root / name)]
+    if name.endswith('phone-test-inventory-test.py'):
+        arguments.append(str(root))
+    if name.endswith(('phone-chat-native-test.py', 'phone-chat-peer-native-test.py',
+                      'phone-chat-history-native-test.py', 'phone-snapshot-settings-native-test.py')):
+        build_id = uuid.uuid4().hex if build_id is None else build_id
+        if type(build_id) is not str or re.fullmatch('[0-9a-f]{32}', build_id) is None:
+            raise GroupError('Invalid Phone native build namespace')
+        arguments.extend(('--build-dir', str(root / 'build' / ('phone-chat-runtime-' + build_id))))
+    return arguments
+
+
+def supervisor():
+    # Reuse the reviewed main-thread process-group and adopted-child lifecycle.
+    path = ROOT / 'tests/run-unittest-suite.py'
+    spec = importlib.util.spec_from_file_location('_phone_host_process_supervisor', path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def atomic_json(path, value):
+    temporary = path.with_name(path.name + '.tmp')
+    raw = (json.dumps(value, sort_keys=True, indent=2) + '\n').encode()
+    with os.fdopen(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600), 'wb') as output:
+        output.write(raw)
+        output.flush()
+        os.fsync(output.fileno())
+    os.replace(temporary, path)
+
+
+def event(root, row):
+    row = dict(schemaVersion=1, monotonicNs=time.monotonic_ns(), **row)
+    raw = json.dumps(row, sort_keys=True)
+    with os.fdopen(os.open(root / 'events.jsonl', os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW, 0o600), 'a') as output:
+        output.write(raw + '\n')
+        output.flush()
+    print('PHONE_HOST_EVENT ' + raw, flush=True)
+
+
+def reports(root, groups, records, jobs, interrupted, cleanup_error):
+    public_rows = [{key: value for key, value in record.items()
+                    if key in {'file', 'groupId', 'timeoutSeconds', 'status', 'returncode',
+                               'durationSeconds', 'outputBytes', 'outputSha256'}} for record in records]
+    successful = (not interrupted and not cleanup_error and len(public_rows) == sum(len(row['files']) for row in groups)
+                  and all(row.get('status') == 'passed' for row in public_rows))
+    by_file = {row['file']: row for row in public_rows}
+    group_rows = []
+    for group in groups:
+        rows = [by_file[name] for name in group['files']]
+        group_rows.append({'id': group['id'], 'files': group['files'],
+                           'timeoutSeconds': group_timeout(group['files'], jobs),
+                           'status': 'passed' if successful or all(row['status'] == 'passed' for row in rows)
+                           and not cleanup_error and not interrupted else 'failed',
+                           'results': rows})
+    document = {'schemaVersion': 1, 'scope': 'HOST_CONTRACTS_NOT_DEVICE_ACCEPTANCE',
+                'jobs': jobs, 'status': 'passed' if successful else 'failed',
+                'interrupted': interrupted, 'cleanupError': cleanup_error,
+                'selectedFiles': len(records), 'completedFiles': sum(row['status'] in ('passed', 'failed') for row in public_rows),
+                'groups': group_rows, 'results': public_rows}
+    atomic_json(root / 'summary.json', document)
+    suite = ET.Element('testsuite', name='phone-host-runtime', tests=str(len(records) + bool(cleanup_error)),
+                       errors=str(sum(row['status'] != 'passed' for row in public_rows) + bool(cleanup_error)),
+                       failures='0', skipped='0')
+    for row in public_rows:
+        case = ET.SubElement(suite, 'testcase', classname='phone-host.' + row['groupId'],
+                             name=row['file'], time=str(row.get('durationSeconds', 0)))
+        if row['status'] != 'passed':
+            ET.SubElement(case, 'error', message='PHONE_HOST_CONTRACT_NOT_PASSED').text = row['status']
+    if cleanup_error:
+        cleanup = ET.SubElement(suite, 'testcase', classname='phone-host.supervisor', name='owned-process-cleanup')
+        ET.SubElement(cleanup, 'error', message='PHONE_HOST_OWNED_PROCESS_CLEANUP_FAILED')
+    with os.fdopen(os.open(root / 'junit.xml', os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600), 'wb') as output:
+        output.write(ET.tostring(suite, encoding='utf-8', xml_declaration=True))
+    return document
+
+
+def run_groups(groups, *, jobs=JOBS, output_dir=None, mode='default'):
+    """One main-thread owner; each original file runs in its own process group."""
+    if type(jobs) is not int or not 1 <= jobs <= JOBS:
+        raise GroupError('Phone jobs must be from1 through4')
+    if (not sys.platform.startswith('linux') or len(list(Path('/proc/self/task').iterdir())) != 1
+            or Path('/proc/self/task/' + str(os.getpid()) + '/children').read_text().strip()):
+        raise GroupError('Phone process owner requires one thread and no existing children')
+    owner = supervisor()
+    root = Path(output_dir) if output_dir else Path(tempfile.mkdtemp(prefix='overte-phone-host-'))
+    if output_dir:
+        if not root.is_absolute() or root.resolve(strict=False) != root or root.exists():
+            raise GroupError('Phone output directory must be new, absolute and free of aliases')
+        root.mkdir(mode=0o700, parents=True)
+    root.chmod(0o700)
+    records = [{'file': name, 'groupId': group['id'], 'timeoutSeconds': file_timeout(name), 'status': 'not-run'}
+               for group in groups for name in group['files']]
+    if not records or len({row['file'] for row in records}) != len(records):
+        raise GroupError('Phone execution selection must be nonempty and unique')
+    atomic_json(root / 'selection.json', {'schemaVersion': 1, 'mode': mode, 'jobs': jobs,
+                                        'scope': 'HOST_CONTRACTS_NOT_DEVICE_ACCEPTANCE', 'groups': groups})
+    active, previous_handlers = [], {}
+    previous_subreaper = owner.subreaper(1)
+    interrupted = 0
+    cleanup_error = False
+    pending = 0
+    def cancel(signum, _frame):
+        raise owner.TerminationRequested(signum)
+    try:
+        for signum in (signal.SIGINT, signal.SIGTERM):
+            previous_handlers[signum] = signal.signal(signum, cancel)
+        try:
+            while active or pending < len(records):
+                while pending < len(records) and len(active) < jobs:
+                    record = records[pending]
+                    record['log'] = root / ('file-' + str(pending + 1).zfill(4) + '.log')
+                    pending += 1
+                    mask = signal.pthread_sigmask(signal.SIG_BLOCK, previous_handlers)
+                    try:
+                        with os.fdopen(os.open(record['log'], os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600), 'wb') as output:
+                            record['process'] = subprocess.Popen(file_command(record['file']), cwd=ROOT,
+                                stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
+                        record['started'] = time.monotonic()
+                        record['status'] = 'running'
+                        active.append(record)
+                    finally:
+                        signal.pthread_sigmask(signal.SIG_SETMASK, mask)
+                    event(root, {'event': 'begin', 'groupId': record['groupId'], 'file': record['file'],
+                                 'timeoutSeconds': record['timeoutSeconds']})
+                for record in active[:]:
+                    process = record['process']
+                    timed_out = process.poll() is None and time.monotonic() - record['started'] >= record['timeoutSeconds']
+                    if process.poll() is None and not timed_out:
+                        continue
+                    owner.stop_worker(process)
+                    record['returncode'] = process.returncode
+                    record['durationSeconds'] = round(time.monotonic() - record['started'], 6)
+                    record['status'] = 'timeout' if timed_out else 'passed' if process.returncode == 0 else 'failed'
+                    raw = record['log'].read_bytes()
+                    record.update(outputBytes=len(raw), outputSha256=hashlib.sha256(raw).hexdigest())
+                    event(root, {'event': 'end', 'groupId': record['groupId'], 'file': record['file'],
+                                 'timeoutSeconds': record['timeoutSeconds'], 'durationSeconds': record['durationSeconds'],
+                                 'returncode': record['returncode'], 'status': record['status']})
+                    if record['status'] != 'passed':
+                        print(record['log'].read_text(errors='replace'), file=sys.stderr, flush=True)
+                    active.remove(record)
+                if active:
+                    time.sleep(.02)
+        except owner.TerminationRequested as error:
+            interrupted = error.signum
+        except BaseException:
+            cleanup_error = True
+            raise
+        finally:
+            # No adopted-child reap while any scheduled worker may still run.
+            for signum in previous_handlers:
+                signal.signal(signum, signal.SIG_IGN)
+            for record in active:
+                try:
+                    owner.stop_worker(record['process'])
+                except BaseException:
+                    cleanup_error = True
+                record['status'] = 'cancelled'
+                record['returncode'] = record['process'].returncode
+                record['durationSeconds'] = round(time.monotonic() - record['started'], 6)
+                event(root, {'event': 'end', 'groupId': record['groupId'], 'file': record['file'],
+                             'durationSeconds': record['durationSeconds'], 'returncode': record['returncode'],
+                             'status': 'cancelled'})
+            try:
+                owner.reap_adopted_children()
+            except BaseException:
+                cleanup_error = True
+            document = reports(root, groups, records, jobs, interrupted, cleanup_error)
+            print(json.dumps({'scope': document['scope'], 'status': document['status'],
+                              'selectedFiles': len(records), 'outputDirectory': str(root)}, sort_keys=True), flush=True)
+    finally:
+        try:
+            owner.subreaper(previous_subreaper)
+        finally:
+            for signum, handler in previous_handlers.items():
+                signal.signal(signum, handler)
+    return 128 + interrupted if interrupted else 0 if document['status'] == 'passed' else 1
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    parser.add_argument('--execute', action='store_true', help='select all original prepared and common contracts')
+    parser.add_argument('--extended', action='store_true', help='also select the original expensive Emote host composition')
+    parser.add_argument('--list-groups', action='store_true', help='emit validated metadata without executing host commands')
+    parser.add_argument('--group', action='append', dest='groups', help='select a registered group; repeat for distinct groups')
+    parser.add_argument('--jobs', type=int, default=JOBS, help='isolated contract processes, from1 through4 (default4)')
+    parser.add_argument('--output-dir', type=Path, help='new absolute private log/JSON/JUnit directory')
+    args = parser.parse_args(argv)
+    if not 1 <= args.jobs <= JOBS:
+        parser.error('--jobs must be from1 through4')
+    try:
+        registry = validate_groups(load_registry(), DEPENDENCY_LIGHT_CHECKS, PREPARED_HOST_CHECKS,
+                                   COMMON_HOST_CHECKS, EXTENDED_HOST_CHECKS)
+        # Preserve original admission: all242 declared contract files must exist,
+        # even in default dependency-light mode or a selected subgroup.
+        for name in CHECKS:
+            path = ROOT / name
+            if not path.is_file() or path.is_symlink() or path.resolve() != path:
+                raise GroupError('Missing or aliased mandatory Phone runtime contract: ' + name)
+        groups = select_groups(registry, execute=args.execute, extended=args.extended, selected_ids=args.groups)
+        if args.list_groups:
+            print(json.dumps({'schemaVersion': 1, 'mode': 'execute' if args.execute else 'default',
+                              'jobs': args.jobs, 'groups': [dict(row, timeoutSeconds=group_timeout(row['files'], args.jobs))
+                                                         for row in groups]}, sort_keys=True))
+            return 0
+        return run_groups(groups, jobs=args.jobs, output_dir=args.output_dir,
+                          mode='execute' if args.execute else 'default')
+    except (GroupError, OSError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

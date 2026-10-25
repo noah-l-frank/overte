@@ -320,8 +320,29 @@ orders and real event-loop smoke tests. Python suite discovery fails if it finds
 no tests, so moving or removing a test directory cannot silently leave a green gate.
 
 Use `--suite NAME` to focus a run and `--fail-fast` to stop after the first
-failure. `--timeout` is a limit for each suite. The default continues after
-failures so one run can report independent problems.
+failure. `--timeout` is the ordinary per-suite limit. The quick device control
+plane receives at least 360 seconds for its sequential groups; its original
+child deadlines are unchanged. The default continues after failures so one run
+can report independent problems.
+
+Phone runtime regressions are expanded into the explicit groups in
+[`phone-runtime-groups.json`](../android/phone/tests/phone-runtime-groups.json).
+`--list` shows the actual group suites. The compatibility selector
+`--suite phone-e2e-runtime-regressions` selects every default Phone group; it
+never selects a smaller representative subset. Each group has its own minimum
+aggregate budget, independent of the ordinary `--timeout`, and uses four child
+workers by default. Every original file retains its original arguments and
+hard timeout. A larger aggregate budget does not extend source freshness,
+checkpoint, lock, or quiet-window deadlines.
+
+The independently pinned
+[coverage baseline](../android/phone/tests/phone-runtime-coverage-baseline.json)
+records the original default 190 files in 17 groups, prepared-host 238 files
+in 25 groups, and one explicit extended composition in its own group. Coverage validation rejects missing, duplicate,
+unknown, foreign, or newly declared unregistered files before starting a child.
+Group membership proves source registration; a passing host group proves only
+its completed host checks. Neither establishes physical Phone acceptance. See
+[Phone testing](../docs/interfaces/android-phone/TESTING.md) for direct group use.
 
 ## Combined host profile for CI
 
@@ -338,7 +359,8 @@ Unlike the native `full` profile, `host` needs no configured Overte build.
 
 The full control-plane suite requires QML and writes its detailed report to
 `build/test-results/device-e2e-control-plane.xml`. Its total time limit is
-`--host-timeout`; other suites retain `--timeout`. On timeout the runner allows
+`--host-timeout`. Ordinary suites retain `--timeout`; the quick control-plane
+and Phone group minimum budgets described above also apply here. On timeout the runner allows
 up to five additional seconds to clean up isolated workers before forcing exit.
 On Linux, both outer runners also adopt and reap escaped descendants if a nested
 scheduler must be killed, with a separate one-second reaping deadline. Detached

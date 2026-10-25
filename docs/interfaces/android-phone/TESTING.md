@@ -21,6 +21,43 @@ Run them from the repository root:
 python3 tests/run-project-tests.py --suite phone-default-input --suite phone-editor-teardown
 ```
 
+## Phone runtime host groups
+
+The mandatory runtime contracts are declared in
+[`phone-runtime-groups.json`](../../../android/phone/tests/phone-runtime-groups.json).
+List the groups without executing a test:
+
+```bash
+python3 android/phone/tests/phone-e2e-runtime-regressions.py --list-groups
+python3 android/phone/tests/phone-e2e-runtime-regressions.py --execute --list-groups
+```
+
+The default mode has 17 groups covering exactly the original 190 dependency-light
+and common host files. `--execute` has 25 groups covering exactly the original
+238 prepared-host and common files and requires their documented compiler, Qt, GLM, and other host tools.
+`--extended` explicitly adds one group for the original expensive Emote composition; it is
+not implied by either default mode. The pinned
+[coverage baseline](../../../android/phone/tests/phone-runtime-coverage-baseline.json)
+was captured from the original runner before grouping. Validation compares the
+complete original file sets with the group union and rejects omissions,
+duplicates, unknown paths, foreign paths, and unregistered additions before
+execution.
+
+Use `--group ID` with an identifier returned by `--list-groups` to run one group.
+The default is four child workers; `--jobs 1` provides serial diagnosis. Group
+budgets include the complete composition, while every file keeps its original
+command arguments and timeout. Source freshness, checkpoint, lock, and quiet
+windows are unchanged. A partial group or successful prefix is not a complete
+runtime result. CPU time and elapsed wall time measure different things;
+waiting and concurrent host work can increase elapsed time without a hang.
+
+The project runner's compatibility selector
+`--suite phone-e2e-runtime-regressions` expands to all default groups; its
+`--list` output names the actual suites. See
+[project testing](../../../tests/PROJECT_TESTING.md#quick-profile) for aggregate
+budgets and combined host execution. These checks never constitute an APK build
+or physical-device acceptance.
+
 ## Emulator
 
 ```bash

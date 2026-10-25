@@ -68,6 +68,16 @@
       "interpreter": "python"
     },
     {
+      "name": "phone-host-group-runner",
+      "entrypoint": "android/phone/tests/test_phone_runtime_groups.py",
+      "interpreter": "python"
+    },
+    {
+      "name": "phone-host-group-coverage",
+      "entrypoint": "android/phone/tests/test_phone_runtime_group_coverage.py",
+      "interpreter": "python"
+    },
+    {
       "name": "phone-e2e-runtime-regressions",
       "entrypoint": "android/phone/tests/phone-e2e-runtime-regressions.py",
       "interpreter": "python"
