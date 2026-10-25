@@ -70,6 +70,10 @@ int main(int argc,char**argv) {
     auto preferenceManager=::DependencyManager::set<Setting::Manager>();
     preferenceManager->setValue("unrelated",QByteArray("untouched"));SettingsTests::flush(preferenceManager.data());
     ::DependencyManager::set<::AvatarManager>(nativeAvatar);
+    // Declared loaded-avatar admission uses the real original URL method.
+    // The full MyAvatar startup/model setter remains an explicit host boundary;
+    // no Handle is initialized or written to construct this live context.
+    nativeAvatar->useFullAvatarURL(QUrl("qrc:/meshes/defaultAvatar_full.fst"));
     TestScriptingInterface preferenceObserver;quint64 preferenceNonce=0;QJsonArray originalFavoritePreferences;
     auto physicalPreferences=[&]{QFile file(preferenceManager->fileName());assert(file.open(QIODevice::ReadOnly));
         const auto bytes=file.read(65537);assert(bytes.size()<=65536 && file.atEnd());return QString::fromLatin1(bytes.toBase64());};
@@ -79,6 +83,10 @@ int main(int argc,char**argv) {
         assert(preferenceObserver.featurePicoAvatarPreferences(request).isEmpty());
         return QJsonObject{{"request",QJsonObject::fromVariantMap(request)},{"packet",QJsonObject::fromVariantMap(packet)}};};
     const auto originalDataPreferences=preferences();const auto originalDataPhysical=physicalPreferences();
+    auto typedHandles=[&]{return QVariantMap{{"handles",nativeAvatar->e2ePreferenceHandles()}};};
+    auto& typedOwner=*preferenceObserver._featureAvatarPreferences;
+    const auto originalUrlHandle=typedOwner.remember(nativeAvatar.get(),nativeAvatar->_fullAvatarURLSetting,typedHandles);
+    assert(originalUrlHandle.valid());
     const auto originalDataBookmarks=QJsonObject::fromVariantMap(nativeBookmarks.e2eBookmarkStorage());assert(!originalDataBookmarks.isEmpty());
     int originalLoaded=0,cachedOriginalLoads=0,declaredModelCompletions=0;
     QObject::connect(&nativeBookmarks,&avatar_bookmark_host::AvatarBookmarks::bookmarkLoaded,[&](const QString&){++originalLoaded;});
@@ -87,9 +95,20 @@ int main(int argc,char**argv) {
     auto originalCapture=[&]{return actualObserver.observe(root,&window,true);};
     const auto before=capture();for(const auto& raw:before.value("controls").toArray()){assert(!raw.toObject().value("inputReady").toBool());}
     QProcess backend;backend.setProcessChannelMode(QProcess::ForwardedErrorChannel);
-    backend.start("node",QStringList{path+"/android/vr/pico/tests/device/avatar-original-backend.js",path,"--native-bookmarks"});assert(backend.waitForStarted(2000));const auto backendProcessId=backend.processId();
-    QJsonArray normalInputJournal,normalMessageJournal;
+    backend.start("node",QStringList{path+"/android/vr/pico/tests/device/avatar-original-backend.js",path,"--native-bookmarks","--native-avatar"});assert(backend.waitForStarted(2000));const auto backendProcessId=backend.processId();
+    QJsonArray normalInputJournal,normalMessageJournal,originalAvatarInputs;
     auto response=[&]{for(int calls=0;calls<32;++calls){if(!backend.canReadLine()){assert(backend.waitForReadyRead(2000));}const auto raw=backend.readLine();auto value=QJsonDocument::fromJson(raw).object();assert(!value.isEmpty());
+        if(value.contains("nativeAvatarCall")){
+            const auto call=value.value("nativeAvatarCall").toObject();assert(call.size()==2);
+            const auto before=preferences();const auto method=call.value("method").toString();
+            if(method=="useFullAvatarURL"){assert(call.value("value").isString());nativeAvatar->useFullAvatarURL(QUrl(call.value("value").toString()));}
+            else {assert(method=="setAvatarScale" && call.value("value").isDouble());nativeAvatar->setAvatarScale(call.value("value").toDouble());}
+            originalAvatarInputs.append(QJsonObject{{"call",call},{"before",before},{"after",preferences()},
+                {"normalInput",normalInputJournal.size()},{"normalMessages",normalMessageJournal.size()}});
+            const auto raw=QJsonDocument(QJsonObject{{"nativeAvatarReply",QJsonObject{{"avatarUrl",nativeAvatar->getFullAvatarURLFromPreferences().toString()},
+                {"scale",nativeAvatar->getTargetScale()}}}}).toJson(QJsonDocument::Compact)+'\n';
+            assert(backend.write(raw)==raw.size());assert(backend.waitForBytesWritten(2000));continue;
+        }
         if(!value.contains("nativeBookmarkCall")){return value;}
         const auto call=value.value("nativeBookmarkCall").toObject();const auto method=call.value("method").toString(),name=call.value("name").toString();
         nativeBookmarks.currentAvatarActor={{"version",3},{"avatarUrl",call.value("avatarUrl").toString()},{"avatarScale",call.value("scale").toDouble()},{"avatarEntites",QVariantList{}},{"avatarIcon",""}};
@@ -100,8 +119,9 @@ int main(int argc,char**argv) {
             // Live URL/scale and actual asynchronous model completion are
             // declared native actors. The entire original Qt connection,
             // cached-sameURL signal branch and callback body execute unchanged.
-            nativeAvatar->skeletonActor=QUrl(call.value("avatarUrl").toString());nativeAvatar->_fullAvatarURLFromPreferences=nativeAvatar->skeletonActor;
-            nativeAvatar->_targetScale=call.value("scale").toDouble();assert(nativeAvatar->_packedAvatarEntityData.isEmpty());const int requested=nativeAvatar->modelRequestsActor,loadedBefore=originalLoaded;
+            assert(nativeAvatar->getFullAvatarURLFromPreferences()==QUrl(call.value("avatarUrl").toString()));
+            assert(qAbs(nativeAvatar->getTargetScale()-call.value("scale").toDouble())<.00001);
+            assert(nativeAvatar->_packedAvatarEntityData.isEmpty());const int requested=nativeAvatar->modelRequestsActor,loadedBefore=originalLoaded;
             const auto beforePhysical=physicalPreferences();const auto beforePreferences=preferences();const auto beforeLoads=QJsonObject::fromVariantMap(nativeBookmarks.e2eBookmarkLoads());
             nativeBookmarks.loadBookmark(name);
             if(nativeAvatar->modelRequestsActor!=requested){++declaredModelCompletions;emit nativeAvatar->onLoadComplete();}
@@ -245,6 +265,8 @@ int main(int argc,char**argv) {
     assert(quietTrace.setPermissions(QFile::ReadOwner|QFile::WriteOwner));
     QElapsedTimer quietClock;quietClock.start();qint64 firstNative=-1,firstEpoch=-1;bool quietComplete=false;
     for(int attempt=0;attempt<83;++attempt){
+        const auto currentUrlHandle=typedOwner.remember(nativeAvatar.get(),nativeAvatar->_fullAvatarURLSetting,typedHandles);
+        assert(typedOwner.unchanged(originalUrlHandle,currentUrlHandle));
         const auto pref=preferences(),book=QJsonObject::fromVariantMap(nativeBookmarks.e2eBookmarkStorage()),work=QJsonObject::fromVariantMap(nativeBookmarks.e2eBookmarkLoads());
         const auto physical=physicalPreferences();const qint64 nativeNs=quietClock.nsecsElapsed(),epoch=QDateTime::currentMSecsSinceEpoch();
         assert(!book.isEmpty()&&!work.isEmpty());if(firstNative<0){firstNative=nativeNs;firstEpoch=epoch;}

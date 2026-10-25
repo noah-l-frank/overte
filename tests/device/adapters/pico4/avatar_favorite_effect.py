@@ -22,7 +22,7 @@ def original_preferences(before,after):
         and before['source']['instance']==after['source']['instance'] and a['instance']==b['instance'])
     need(same(a['cache']['rows'],b['cache']['rows']) and same(a['cache']['encodedRows'],b['cache']['encodedRows']))
     x,y=a['cache']['native'],b['cache']['native']
-    need(all(same(x[key],y[key]) for key in ('handles','modelInstance','sessionId')))
+    need(all(same(x[key],y[key]) for key in ('handles','modelInstance','sessionId','live')))
     x,y=a['writer'],b['writer']
     need(all(same(x[key],y[key]) for key in ('instance','rows','encodedRows')))
     x,y=x['physical'],y['physical']

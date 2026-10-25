@@ -46,7 +46,7 @@ class AvatarPreferencesNativeTests(unittest.TestCase):
                 (stage/('enabled' if runtime else 'disabled')).with_suffix('.stderr.txt').write_text(result.stderr)
                 self.assertEqual(0,result.returncode,result.stdout[-1000:]+result.stderr)
         rows=[json.loads(line) for line in result.stdout.splitlines()]
-        self.assertEqual(['lazy-original','initialized-absent','saved-scale','writer-only-conflict','physical-conflict','head-pitch-original-key','late-result-discarded','avatar-replacement'],[row['kind'] for row in rows])
+        self.assertEqual(['lazy-original','initialized-absent','lazy-cas-restored','lazy-cas-result-lost-restored','saved-scale','writer-only-conflict','physical-conflict','head-pitch-original-key','late-result-discarded','avatar-replacement'],[row['kind'] for row in rows])
         previous=None
         for row in rows:
             packet=row['packet'];validate(packet,row['request'],packet['processId'],packet['capturedEpochMs'])
@@ -62,13 +62,17 @@ class AvatarPreferencesNativeTests(unittest.TestCase):
         # raw changes too; no forged packet or inconsistent writer supplies it.
         from adapters.pico4.avatar_favorite_effect import unchanged_preferences,original_preferences
         from adapters.normal_ui import NativeUIError
-        for first,last in ((0,1),(1,2)):
+        for first,last in ((0,1),(1,4)):
             before,after=rows[first]['packet'],rows[last]['packet'];baseline(before);baseline(after)
             self.assertNotEqual(before['source']['snapshot']['cache']['native']['handles'],after['source']['snapshot']['cache']['native']['handles'])
             with self.subTest(original_cached_admission=(rows[first]['kind'],rows[last]['kind'])),self.assertRaises(NativeUIError):
                 unchanged_preferences(before,after)
             with self.subTest(original_noop_admission=(rows[first]['kind'],rows[last]['kind'])),self.assertRaises(NativeUIError):
                 original_preferences(before,after)
+        # A real native lazy Handle/cache/registration CAS restores the raw
+        # original without reversing its audit sequence or writing Settings.
+        original_preferences(rows[0]['packet'],rows[2]['packet'])
+        original_preferences(rows[0]['packet'],rows[3]['packet'])
         original=rows[0]
         for path,bad in ((('picoAvatarPreferencesVersion',),True),(('snapshot','writer','matchesPhysical'),False),
                 (('snapshot','cacheMatchesWriter'),False),(('snapshot','writer','physical','capturedEpochMs'),original['packet']['requestedEpochMs']-1),

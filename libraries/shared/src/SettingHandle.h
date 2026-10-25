@@ -349,6 +349,9 @@ namespace Setting {
         virtual QVariant getVariant() override { return QVariant::fromValue(get()); }
 
     private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        friend class overte::e2e::AvatarPreferenceSnapshot;
+#endif
         void deprecate() {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
             AvatarPreferenceMutation avatarMutation(this);

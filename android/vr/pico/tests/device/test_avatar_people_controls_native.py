@@ -98,8 +98,18 @@ class AvatarPeopleControlsNativeTests(unittest.TestCase):
             self.assertGreaterEqual(receipts[-1]['capturedHostMonotonicNs']-receipts[0]['capturedHostMonotonicNs'],3000000000)
             self.assertGreaterEqual(trace_rows[-1]['nativeMonotonicNs']-trace_rows[0]['nativeMonotonicNs'],3000000000)
             for first,last in zip(trace_rows,trace_rows[1:]):
+                self.assertGreaterEqual(last['nativeMonotonicNs']-first['nativeMonotonicNs'],0)
+                self.assertGreaterEqual(last['capturedNativeEpochMs']-first['capturedNativeEpochMs'],0)
+                for key in ('bookmarks','loads'):
+                    self.assertGreaterEqual(last['data'][key]['capturedEpochMs']-first['data'][key]['capturedEpochMs'],0)
+                    self.assertLessEqual(last['data'][key]['capturedEpochMs']-first['data'][key]['capturedEpochMs'],500)
+                self.assertGreaterEqual(last['data']['preferences']['packet']['capturedEpochMs']-first['data']['preferences']['packet']['capturedEpochMs'],0)
+                self.assertLessEqual(last['data']['preferences']['packet']['capturedEpochMs']-first['data']['preferences']['packet']['capturedEpochMs'],500)
                 self.assertLessEqual(last['nativeMonotonicNs']-first['nativeMonotonicNs'],500000000)
-            for first,last in zip(receipts,receipts[1:]):self.assertLessEqual(last['capturedHostMonotonicNs']-first['capturedHostMonotonicNs'],500000000)
+            for first,last in zip(receipts,receipts[1:]):
+                self.assertGreaterEqual(last['capturedHostMonotonicNs']-first['capturedHostMonotonicNs'],0)
+                self.assertGreaterEqual(last['capturedHostEpochMs']-first['capturedHostEpochMs'],0)
+                self.assertLessEqual(last['capturedHostMonotonicNs']-first['capturedHostMonotonicNs'],500000000)
             for index,(line,row,receipt) in enumerate(zip(observed['traceLines'],trace_rows,receipts),1):
                 self.assertEqual({'avatarOriginalDataQuietVersion','sequence','nativeMonotonicNs','capturedNativeEpochMs','data'},set(row))
                 self.assertIs(type(row['avatarOriginalDataQuietVersion']),int);self.assertEqual(1,row['avatarOriginalDataQuietVersion'])
