@@ -48,6 +48,7 @@ class PhoneRuntimeGroupsTests(unittest.TestCase):
             'android/phone/tests/device/test_emote_lifetime.py': (90, 240),
             'android/phone/tests/device/test_emote_observation.py': (90, 150),
             'android/phone/tests/device/test_emote_scene.py': (90, 180),
+            'android/phone/tests/device/test_snapshots_actor_ordinary_stages.py': (90, 150),
         }
         reviewed = budgets.load_calibration()
         self.assertEqual({row['file']: (row['originalSeconds'], row['calibratedSeconds'])
@@ -58,6 +59,22 @@ class PhoneRuntimeGroupsTests(unittest.TestCase):
             self.assertGreater(applied, reviewed['files'][list(expected).index(name)]['measurement']['durationSeconds'])
         with self.assertRaises(TypeError):
             budgets._CALIBRATED_TIMEOUTS['android/phone/tests/device/test_emote_inputs.py'] = 999
+
+    def test_historical_actor_calibration_does_not_claim_current_run_success(self):
+        row = next(row for row in budgets.load_calibration()['files']
+                   if row['file'] == 'android/phone/tests/device/test_snapshots_actor_ordinary_stages.py')
+        self.assertEqual(row['measurement']['scope'],
+                         'HISTORICAL_COMPLETE_NORMAL_FILE_PASS_NOT_CURRENT_RUN_QUALIFICATION')
+        self.assertEqual(row['measurement']['testsRun'], 14)
+        self.assertIn('d8e0c163c647b65099cc8be9bb4486c554307dad', row['reason'])
+        self.assertIn('timed out', row['reason'])
+        self.assertEqual(budgets.original_file_timeout(row['file']), 90)
+        self.assertEqual(budgets.file_timeout(row['file']), 150)
+        changed = budgets.load_calibration()
+        row_name = row['file']
+        historical = next(row for row in changed['files'] if row['file'] == row_name)
+        historical['measurement']['scope'] = 'COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION'
+        with self.assertRaises(ValueError): budgets.validate_calibration(changed)
 
     def test_calibration_tampering_cannot_add_or_retime_unreviewed_files(self):
         reviewed = budgets.load_calibration()

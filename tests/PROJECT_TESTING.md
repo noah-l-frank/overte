@@ -389,6 +389,13 @@ not qualify a calibration.
 | test_emote_lifetime.py | 90 | 240 | 50 | 144.805 |
 | test_emote_observation.py | 90 | 150 | 35 | 83.457 |
 | test_emote_scene.py | 90 | 180 | 28 | 97.857 |
+| test_snapshots_actor_ordinary_stages.py | 90 | 150 | 14 | 74.537 |
+
+The Ordinary Stages entry uses a historical complete 14-case normal PASS at
+`d8e0c163c647b65099cc8be9bb4486c554307dad`, whose source bytes match the current
+file exactly. Its current four-worker invocation timed out after 12 cases. The
+retained provenance binds both results; the historical PASS approves budget
+headroom and does not qualify the current failed invocation.
 
 
 The group formula is recomputed from applied file limits plus the existing

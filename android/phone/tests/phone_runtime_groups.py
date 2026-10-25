@@ -52,7 +52,7 @@ def original_file_timeout(name):
 
 
 CALIBRATION_PATH = Path(__file__).with_name('phone-runtime-timeout-calibration.json')
-_CALIBRATION_DOCUMENT_SHA256 = 'b7274b59acdf15355d3a22bcf5dab110ab50ccf6b16401395f28153addeeef3e'
+_CALIBRATION_DOCUMENT_SHA256 = '2e737d21f5ec5f3d3df78aff254dd8d2e5e03c24fe71f813b4410d46e44904d0'
 _ALLOWED_TIMEOUT_OVERRIDES = (
     ('android/phone/tests/device/test_snapshots_feature_journey.py', 240, 420),
     ('android/phone/tests/device/test_authentication_feature.py', 90, 210),
@@ -70,6 +70,7 @@ _ALLOWED_TIMEOUT_OVERRIDES = (
     ('android/phone/tests/device/test_emote_lifetime.py', 90, 240),
     ('android/phone/tests/device/test_emote_observation.py', 90, 150),
     ('android/phone/tests/device/test_emote_scene.py', 90, 180),
+    ('android/phone/tests/device/test_snapshots_actor_ordinary_stages.py', 90, 150),
 )
 
 
@@ -109,7 +110,9 @@ def validate_calibration(value):
              and '..' not in relative.parts and relative.as_posix() == evidence['report']
              and type(evidence['reportRootId']) is str
              and re.fullmatch(r'[a-z0-9-]+', evidence['reportRootId'])
-             and evidence['scope'] == 'COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION'
+             and evidence['scope'] == ('HISTORICAL_COMPLETE_NORMAL_FILE_PASS_NOT_CURRENT_RUN_QUALIFICATION'
+                 if name == 'android/phone/tests/device/test_snapshots_actor_ordinary_stages.py'
+                 else 'COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION')
              and evidence['successful'] is True and type(evidence['testsRun']) is int
              and evidence['testsRun'] > 0 and type(evidence['failures']) is int
              and evidence['failures'] == 0 and type(evidence['errors']) is int

@@ -203,7 +203,7 @@
         "android/phone/tests/device/test_snapshots_resident_actor.py",
         "android/phone/tests/device/test_snapshots_phase_transition.py"
       ],
-      "timeoutSeconds": 843
+      "timeoutSeconds": 858
     },
     {
       "id": "snapshots-workflows",

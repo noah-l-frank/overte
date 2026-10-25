@@ -287,6 +287,24 @@
       },
       "originalSeconds": 90,
       "reason": "The complete successful host file exceeds its former aggregate budget. Allow 50 percent headroom plus 15 seconds, rounded up to 30 seconds; individual RPC, IPC, freshness, checkpoint, lock and quiet-window limits are unchanged."
+    },
+    {
+      "calibratedSeconds": 150,
+      "file": "android/phone/tests/device/test_snapshots_actor_ordinary_stages.py",
+      "measurement": {
+        "durationSeconds": 74.536531,
+        "errors": 0,
+        "failures": 0,
+        "report": "calibration-validation/ACTOR_ORDINARY_HISTORICAL_PROVENANCE.private.json",
+        "reportRootId": "host-fixture-repair-20261025",
+        "scope": "HISTORICAL_COMPLETE_NORMAL_FILE_PASS_NOT_CURRENT_RUN_QUALIFICATION",
+        "sha256": "9338e61559c5d51adcc60fcd87e420ad750f5d3238ab5de232fe5e010fe25502",
+        "sourceFileSha256": "6e13e35d14a907c9fb8f937be4ed01dbd5a284830ff6c9bdba8ef4c3a2fe85de",
+        "successful": true,
+        "testsRun": 14
+      },
+      "originalSeconds": 90,
+      "reason": "Historical complete normal Quick file PASS at revision d8e0c163c647b65099cc8be9bb4486c554307dad: all 14 cases passed in 74.536531 seconds, using 82 percent of the 90-second aggregate. Current revision 9ee5e20e8068aeed31a5f0383ec756492daf5e04 retains exactly the same source bytes but its four-worker normal invocation timed out at 90.016236 seconds after 12 cases. Apply the explicitly reviewed uniform contention margin; this historical evidence does not qualify the current failed run or change any individual RPC, IPC, freshness, checkpoint, lock or quiet-window limit."
     }
   ],
   "marginPolicy": {
