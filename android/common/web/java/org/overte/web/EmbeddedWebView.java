@@ -111,6 +111,8 @@ public final class EmbeddedWebView {
         String run,String request,String raw);
     private static native void nativePicoCurrentInputResult(long handle,long creation,long grant,long page,
         String run,String request,String raw);
+    private static native String nativePicoConsumptionId(long handle,long grant,long page,String document,String command);
+    private static native void nativePicoConsumptionEvent(String event,String stage,String raw);
     static boolean featureObservationEnabled() { return nativeFeatureEnabled(); }
     private static native void nativeFeatureDOMResult(long handle,long grant,long page,String document,String requestId,String result);
     private static native void nativeFeatureFinished(long handle,long grant,long page,String document);
@@ -695,6 +697,8 @@ public final class EmbeddedWebView {
         });
     }
     public static void edit(long handle, long grant, long page, String expectedDocument, String command) {
+        final String consumptionId=featurePicoConsumptionId(handle,grant,page,expectedDocument,command);
+        if (consumptionId!=null) featurePicoConsumptionEntry(consumptionId,handle,grant,page,expectedDocument,command);
         input(handle, instance -> {
             if (command == null || command.getBytes(StandardCharsets.UTF_8).length > 65536
                     || !instance.document.admits(grant, page, true, 1)
@@ -702,9 +706,49 @@ public final class EmbeddedWebView {
                     || !nativeEditorAllowed(handle, grant, page, instance.view.getUrl())) return;
             try {
                 String encoded = new JSONObject(command).toString();
+                final JSONObject consumptionBefore=consumptionId==null ? null : featurePicoConsumptionSnapshot(instance);
                 instance.view.evaluateJavascript("window.__overteEditor&&window.__overteEditor.edit(" + encoded + ");", null);
+                if (consumptionId!=null) featurePicoConsumptionConsumed(consumptionId,handle,grant,page,expectedDocument,command,consumptionBefore,instance);
             } catch (org.json.JSONException invalid) { /* Only a bounded editor command object is accepted. */ }
         });
+    }
+    private static String featurePicoConsumptionId(long handle,long grant,long page,String document,String command) {
+        try { return nativePicoCurrentDocumentEnabled() ? nativePicoConsumptionId(handle,grant,page,document,command) : null; }
+        catch (RuntimeException | OutOfMemoryError unavailable) { return null; }
+    }
+    private static String featurePicoConsumptionUtf16(String value) {
+        StringBuilder units=new StringBuilder(value.length()*4);
+        for (int i=0;i<value.length();++i) {
+            int c=value.charAt(i);for (int shift=12;shift>=0;shift-=4) units.append("0123456789abcdef".charAt((c>>shift)&15));
+        }
+        return units.toString();
+    }
+    private static String featurePicoConsumptionUtf8(String value) {
+        byte[] bytes=value.getBytes(StandardCharsets.UTF_8);StringBuilder result=new StringBuilder(bytes.length*2);
+        for (byte b:bytes) {int v=b&255;result.append("0123456789abcdef".charAt(v>>4));result.append("0123456789abcdef".charAt(v&15));}
+        return result.toString();
+    }
+    private static JSONObject featurePicoConsumptionCommand(long handle,long grant,long page,String document,String command) throws org.json.JSONException {
+        return new JSONObject().put("handle",Long.toString(handle)).put("grant",grant).put("page",page).put("url",document)
+            .put("commandUtf16Hex",featurePicoConsumptionUtf16(command)).put("commandUtf8Hex",featurePicoConsumptionUtf8(command));
+    }
+    private static void featurePicoConsumptionEmit(String id,String kind,JSONObject value) {
+        String raw=value.toString();if (raw.getBytes(StandardCharsets.UTF_8).length<=8192) nativePicoConsumptionEvent(id,kind,raw);
+    }
+    private static void featurePicoConsumptionEntry(String id,long handle,long grant,long page,String document,String command) {
+        try { featurePicoConsumptionEmit(id,"java-entry",featurePicoConsumptionCommand(handle,grant,page,document,command)
+            .put("isMainThread",Looper.myLooper()==Looper.getMainLooper()).put("capturedEpochMs",System.currentTimeMillis())
+            .put("capturedElapsedMs",SystemClock.elapsedRealtime())); }
+        catch (org.json.JSONException | RuntimeException | OutOfMemoryError unavailable) { /* Product input is independent. */ }
+    }
+    private static JSONObject featurePicoConsumptionSnapshot(Instance instance) {
+        try { return featurePicoCurrentSnapshot(instance,host.get()); }
+        catch (RuntimeException | OutOfMemoryError unavailable) { return null; }
+    }
+    private static void featurePicoConsumptionConsumed(String id,long handle,long grant,long page,String document,String command,JSONObject before,Instance instance) {
+        try { featurePicoConsumptionEmit(id,"java-consume",featurePicoConsumptionCommand(handle,grant,page,document,command)
+            .put("before",before).put("after",featurePicoConsumptionSnapshot(instance))); }
+        catch (org.json.JSONException | RuntimeException | OutOfMemoryError unavailable) { /* No callback/effect is manufactured. */ }
     }
     public static void evaluateResult(long handle, long grant, long page, long request, String javascript) {
         post(handle, instance -> {

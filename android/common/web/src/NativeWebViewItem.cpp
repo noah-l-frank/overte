@@ -14,6 +14,7 @@
 #include "../../../../tests/device/native/PicoWorldWebText.h"
 #include "../../../../tests/device/native/PicoWorldCurrentDocumentBridge.h"
 #include "../../../../tests/device/native/PicoWorldCurrentInputBridge.h"
+#include "../../../../tests/device/native/PicoWorldCurrentConsumptionBridge.h"
 #endif
 #include <QFile>
 #include <QFocusEvent>
@@ -79,7 +80,13 @@ QString string(JNIEnv* env, jstring value) {
 bool call(const char* method, const char* signature, jvalue* args) {
     Jni jni; if (!jni.env || !backend.load()) return false;
     auto id = jni.env->GetStaticMethodID(backend.load(), method, signature);
-    if (id) jni.env->CallStaticVoidMethodA(backend.load(), id, args);
+    if (id) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        auto consumption=(QByteArray(method)=="edit" && QByteArray(signature)=="(JJJLjava/lang/String;Ljava/lang/String;)V")
+            ? overte::e2e::picoCurrentTraceJni(jni.env,args) : overte::e2e::PicoCurrentTraceScope();
+#endif
+        jni.env->CallStaticVoidMethodA(backend.load(), id, args);
+    }
     bool valid = id && !jni.env->ExceptionCheck();
     if (jni.env->ExceptionCheck()) jni.env->ExceptionClear();
     return valid;
@@ -110,6 +117,10 @@ void registerType() {
             return NativeWebViewItem::featurePicoWorldCurrentInput(command,std::move(anchor));
         }};
         QCoreApplication::instance()->setProperty(overte::e2e::picoCurrentInputProperty(),QVariant::fromValue(currentInput));
+        overte::e2e::PicoCurrentConsumptionProvider consumption{[](const QVariantMap& command,overte::e2e::PicoCurrentAnchor anchor) {
+            return NativeWebViewItem::featurePicoWorldCurrentConsumption(command,std::move(anchor));
+        }};
+        QCoreApplication::instance()->setProperty(overte::e2e::picoCurrentConsumptionProperty(),QVariant::fromValue(consumption));
         overte::e2e::WebDOMProvider browser=[](const QVariantMap& command) { return NativeWebViewItem::featurePicoBrowser(command); };
         QCoreApplication::instance()->setProperty(overte::e2e::picoBrowserProperty(),QVariant::fromValue(browser));
         overte::e2e::WebRuntimeProvider runtime{[](const QVariantMap& command) { return NativeWebViewItem::featureWebRuntimeObservation(command); }};
@@ -665,6 +676,9 @@ void NativeWebViewItem::editorCommand(const QJsonObject& command) { if (!_editor
     if (url) jni.env->DeleteLocalRef(url); if (data) jni.env->DeleteLocalRef(data);
 }
 void NativeWebViewItem::keyPressEvent(QKeyEvent* event) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    auto consumption=overte::e2e::picoCurrentTraceNative(this,event);
+#endif
     if (!_editorActive || (event->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))) { event->ignore(); return; }
     if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)
         editorCommand({{"action", "enter"}, {"shift", bool(event->modifiers() & Qt::ShiftModifier)}});
@@ -678,6 +692,9 @@ void NativeWebViewItem::keyPressEvent(QKeyEvent* event) {
     event->accept();
 }
 void NativeWebViewItem::inputMethodEvent(QInputMethodEvent* event) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    auto consumption=overte::e2e::picoCurrentTraceNative(this,event);
+#endif
     if (!_editorActive || !hasActiveFocus() || event->commitString().size() > 16384 || event->preeditString().size() > 16384) { event->ignore(); return; }
     QJsonObject command {{"action", "ime"}, {"commit", event->commitString()}, {"preedit", event->preeditString()},
         {"replaceStart", event->replacementStart()}, {"replaceLength", event->replacementLength()}, {"cursor", event->preeditString().size()}};
@@ -1158,3 +1175,4 @@ extern "C" JNIEXPORT void JNICALL Java_org_overte_web_EmbeddedWebView_nativeResu
 #include "PicoWorldCurrentDocumentE2E.inc"
 
 #include "PicoWorldCurrentInputE2E.inc"
+#include "PicoWorldCurrentConsumptionE2E.inc"

@@ -17,6 +17,9 @@
 #include "ApplicationLifecycle.h"
 #if defined(ANDROID_APP_PICO_INTERFACE)
 #include "PicoQtVisibility.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "../../tests/device/native/PicoWorldCurrentConsumptionBridge.h"
+#endif
 #endif
 #include "../../security/redaction/SafeDiagnostics.h"
 
@@ -1038,6 +1041,10 @@ bool Application::handleKeyEventForFocusedEntity(QEvent* event) {
             case QEvent::KeyRelease:
                 {
                     auto eventHandler = getEntities()->getEventHandler(_keyboardFocusedEntity.get());
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+                    auto consumption=overte::e2e::picoCurrentTraceApplication(event,_keyboardFocusedEntity.get().toString(QUuid::WithoutBraces),eventHandler,
+                        [weak=QPointer<Application>(this)]{return weak ? weak->getKeyboardFocusEntity().toString(QUuid::WithoutBraces) : QString();});
+#endif
 #if defined(Q_OS_ANDROID)
                     auto* keyEvent = static_cast<QKeyEvent*>(event);
                     qInfo() << "PICO_KEY_FOCUS_BEGIN"

@@ -136,6 +136,8 @@ public:
         std::shared_ptr<const overte::e2e::PicoCurrentClock> anchor={});
     static void acceptFeaturePicoWorldCurrentInput(qint64 handle,quint64 creation,quint64 grant,quint64 page,
         const QString& run,const QString& request,const QByteArray& raw);
+    static QVariantMap featurePicoWorldCurrentConsumption(const QVariantMap& command,
+        std::shared_ptr<const overte::e2e::PicoCurrentClock> anchor={});
     static QVariantMap featurePicoBrowser(const QVariantMap& command);
     static void acceptFeaturePicoBrowserGeometry(qint64 handle,quint64 grant,quint64 page,const QString& document,
         const QString& request,const QByteArray& result,bool focused=false);
@@ -167,6 +169,9 @@ protected:
     QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
     void focusInEvent(QFocusEvent*) override; void focusOutEvent(QFocusEvent*) override;
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    friend struct PicoCurrentConsumptionAccess;
+#endif
     bool openSourceSession(const QUrl& source, const QString& root);
     bool matchesOrigin(const QUrl& document, const QUrl& origin) const;
     void revokeInlineDocument();
