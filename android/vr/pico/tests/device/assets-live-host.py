@@ -40,16 +40,19 @@ class AssetsLiveHost:
         self.raw='';self.status='';self.inputs=[];self.operations=[];self.lose=False;self.fail_send=False;self.last_guard=None
         self.identity=str(self.process.pid)+':explicit-host-process';self.before_guard=None
         self.adb=self;self.target='owned-host-endpoint'
-        self.native=NativeNavigationIO(self,self.target,self.identity,lambda operation:(_ for _ in ()).throw(AssertionError('No host controller effect')))
-        identity=dict(schemaVersion=1,sourceRevision='f8cd43a02da492fc326f3f86ccebcfd223d3bacf',artifactSha256=hashlib.sha256(Path(binary).read_bytes()).hexdigest(),installedCandidateVerified=True)
+        self.installation_identity=dict(schemaVersion=1,sourceRevision='f8cd43a02da492fc326f3f86ccebcfd223d3bacf',artifactSha256=hashlib.sha256(Path(binary).read_bytes()).hexdigest(),installedCandidateVerified=True)
         # The installation endpoint is explicitly this host binary, never an Android qualification.
         try:
-            self.navigation=PicoNavigation(self.native,self.directory/'navigation.json',identity,self.identity,'https://127.0.0.1/owned/scene.json')
-            self.io=PicoAssetsIO(PicoScriptIO(self.navigation))
-            self.factory=OriginalAssetsControlsFactory()
-            self.factory._script_runtime=lambda target:(SimpleNamespace(io=self.io.original,monotonic=time.monotonic,sleep=time.sleep),None,None)
+            self.reconnect_inputs()
         except Exception:
             self.close();raise
+    def reconnect_inputs(self):
+        # Cold adapter input objects, same exact native process and persisted
+        # navigation context. Never clear/replace a bound transport callback.
+        self.native=NativeNavigationIO(self,self.target,self.identity,lambda operation:(_ for _ in ()).throw(AssertionError('No host controller effect')))
+        self.navigation=PicoNavigation(self.native,self.directory/'navigation.json',self.installation_identity,self.identity,'https://127.0.0.1/owned/scene.json')
+        self.io=PicoAssetsIO(PicoScriptIO(self.navigation));self.factory=OriginalAssetsControlsFactory()
+        self.factory._script_runtime=lambda target:(SimpleNamespace(io=self.io.original,monotonic=time.monotonic,sleep=time.sleep),None,None)
     def request(self,command):
         assert self.process.poll() is None
         self.process.stdin.write(json.dumps(command,separators=(',',':'))+'\n');self.process.stdin.flush()

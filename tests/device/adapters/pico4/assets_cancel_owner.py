@@ -142,7 +142,18 @@ class OwnedAssetsCancel:
         pending=state['pendingInput'];need(pending['native'] is not None and pending['native']['sequence']==value['after']['scope']['sequence'])
         history=unpack(state['inputs']);need(history and history[-1]['native']==pending['native'])
         history[-1]['after']=deepcopy(value['after']['scope']);state['inputs']=pack(history)
-        state['pendingInput']=None;self.write(state);return True
+        state['pendingInput']=None;self.write(state)
+        if pending['input']['controlId']=='assets.upload' and pending['input']['action']=='activate':
+            # The ACK supplies only the command join. Bind real weak consumers
+            # from a new independent inventory before any subsequent input.
+            # A lost first Open receipt never reaches this admission and cannot
+            # adopt IDs later merely because a picker happens to be visible.
+            actual=self.sample();self.unchanged(actual);need(len(actual['ui']['browsers'])==1)
+            browser=actual['ui']['browsers'][0];state=self.state();raw=unpack(state['uiOriginals'])[-1]
+            need(state['browserId'] is None and state['modelId'] is None and raw['lastCommandSequence']==pending['native']['sequence']
+                and browser['rootAlive'] and browser['modelAlive'] and browser['inCurrentTree'] and not browser['pendingDocuments'])
+            state['browserId'],state['modelId']=browser['id'],browser['modelId'];self.write(state);self.check_sample(actual)
+        return True
     def intent(self,original):
         state=self.state();need(state['pendingInput'] is None and state['inputCount']<128 and self.draft is not None)
         scope(original['scope']);need(original['scope']['processId']==self.mappings.pid and original['scope']['instance']==self.binding['sessionId'])
@@ -180,7 +191,8 @@ class OwnedAssetsCancel:
         except Exception:raise NativeUIError('Original Assets picker delivery remains unresolved') from None
         current=self.sample();self.unchanged(current);need(len(current['ui']['browsers'])==1);browser=current['ui']['browsers'][0]
         need(browser['rootAlive'] and browser['modelAlive'] and browser['inCurrentTree'] and not browser['pendingDocuments'])
-        state=self.state();state.update(browserId=browser['id'],modelId=browser['modelId'],phase='open');self.write(state);self.check_sample(current)
+        state=self.state();need(state['browserId']==browser['id'] and state['modelId']==browser['modelId'])
+        state['phase']='open';self.write(state);self.check_sample(current)
         return dict(pickerObserved=True,retained=True)
     def unchanged(self,sample):
         state=self.state();before=decode(state['baselineMappings']['raw']);uploads=decode(state['baselineUploads']['raw'])
@@ -197,7 +209,8 @@ class OwnedAssetsCancel:
         return self.reconcile()
     def retired_consumers(self,sample):
         state=self.state();self.unchanged(sample);need(sample['ui']['complete'])
-        rows=sample['ui']['browsers'];need(state['browserId'] is not None and len(rows)==1)
+        if state['browserId'] is None or state['modelId'] is None:return False
+        rows=sample['ui']['browsers'];need(len(rows)==1)
         row=rows[0];need(row['id']==state['browserId'] and row['modelId']==state['modelId'])
         return not row['rootAlive'] and not row['modelAlive'] and not row['inCurrentTree'] and not row['pendingDocuments']
     def reconcile(self):

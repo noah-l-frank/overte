@@ -8,6 +8,7 @@ are explicit host boundaries; no physical or server/oven qualification.
 from copy import deepcopy
 import hashlib
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import time
@@ -48,6 +49,7 @@ class AssetsCancelOwnerTests(unittest.TestCase):
         self.client=OriginalPhaseClient(self.journal,self.run);self.url=self.client.url+'/runs/'+self.run+'/'
         self.store=PrivateFeatureState(self.path/'cancel.json');self.file_store=PrivateFeatureState(self.path/'files.json');self.make()
     def make(self):
+        self.host.reconnect_inputs()
         files=OwnedAssetsFiles(self.host.files(),self.file_store,self.binding,self.run,self.openTicket,self.url)
         self.owner=OwnedAssetsCancel(self.store,self.binding,self.run,self.url,files,self.host.mappings(),self.host.uploads(),
             self.host.io.original.capture,self.host.controls,PhaseFixtureReader(self.client,self.run,'assets'),self.host.guard,self.host.epoch_milliseconds)
@@ -75,6 +77,33 @@ class AssetsCancelOwnerTests(unittest.TestCase):
         result=self.owner.reconcile();self.assertFalse(result['cancelObserved']);self.assertEqual(count,len(self.host.inputs))
         self.assertEqual('ready',self.file_store.read()['phase']);self.assertEqual(original,self.store.read()['pendingInput'])
         self.assertTrue(all(row['exists'] for row in self.owner.files.read()['source']['files']))
+    def test_lost_navigation_cold_normal_cancel_uses_prior_original_consumer_ids(self):
+        writer=self.host.write_debug_app_file;lost=False
+        def deliver(target,package,path,raw):
+            nonlocal lost
+            command=json.loads(raw);drop=command['controlId']=='assets-file.folder' and command['action']=='activate' and not lost
+            if drop:lost=True;self.host.lose=True
+            try:return writer(target,package,path,raw)
+            finally:self.host.lose=False
+        with patch.object(self.host,'write_debug_app_file',side_effect=deliver),self.assertRaises((NativeUIError,NavigationError)):self.owner.open()
+        self.assertTrue(lost);state=self.store.read();self.assertEqual('opening',state['phase'])
+        self.assertIsNotNone(state['browserId']);self.assertIsNotNone(state['modelId'])
+        original=deepcopy(state['pendingInput']);count=len(self.host.inputs);self.cancel_phase();self.make()
+        result=self.owner.cancel();self.assertTrue(result['filesRetired']);self.assertTrue(result['retained'])
+        state=self.store.read();self.assertEqual([original],state['unresolvedInputs']);self.assertEqual('retired',self.file_store.read()['phase'])
+        self.assertEqual(1,len(self.host.inputs)-count);self.assertEqual('assets-file.cancel',self.host.inputs[-1]['controlId'])
+        self.assertEqual(1,sum(row['controlId']=='assets.upload' for row in self.host.inputs))
+        self.assertEqual(self.host.inputs,[frame['native'] for frame in unpack(state['inputs'])])
+    def test_lost_first_open_never_adopts_picker_ids_or_releases_files_after_normal_cancel(self):
+        self.host.lose=True
+        with self.assertRaises((NativeUIError,NavigationError)):self.owner.open()
+        self.host.lose=False;state=self.store.read();original=deepcopy(state['pendingInput']);count=len(self.host.inputs)
+        self.assertIsNone(state['browserId']);self.assertIsNone(state['modelId']);self.cancel_phase();self.make()
+        result=self.owner.cancel();self.assertFalse(result['cancelObserved']);self.assertTrue(result['retained'])
+        self.assertEqual(1,len(self.host.inputs)-count);self.assertEqual('assets-file.cancel',self.host.inputs[-1]['controlId'])
+        self.assertEqual([original],self.store.read()['unresolvedInputs']);self.assertEqual('ready',self.file_store.read()['phase'])
+        self.assertIsNone(self.store.read()['browserId']);self.assertTrue(all(row['exists'] for row in self.owner.files.read()['source']['files']))
+        count=len(self.host.inputs);self.make();self.assertFalse(self.owner.reconcile()['cancelObserved']);self.assertEqual(count,len(self.host.inputs))
     def test_final_owner_cas_age_refuses_open_result_and_keeps_exact_inputs(self):
         self.synthetic=0;self.owner.monotonic=lambda:self.synthetic;write=self.store.write;aged=False
         def delayed(value,previous):
