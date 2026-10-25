@@ -51,6 +51,8 @@ class Widget(Boundary):
                 token=str(uuid.uuid5(uuid.NAMESPACE_URL,self.name)),enabled=True,focused=False,inputReady=True,
                 rootId=self.root(),qmlSource='file:///app.bundle/qml/hifi/AvatarApp.qml'))
         return rows
+    def create_wearable(self):return str(uuid.uuid4())
+    def delete_wearable(self):return None
     def post(self,request,timeout):
         payload=json.loads(request.data);identifier=None;before=self.avatar_url;title=self.popup_title
         if payload['operation']=='edit':
@@ -68,7 +70,7 @@ class Widget(Boundary):
         elif identifier=='avatar.wearables-open':self.dialog='wearables'
         elif identifier=='avatar.wearable-add':self.dialog='popup';self.popup_title='Specify Wearable URL';self.draft=''
         elif identifier=='avatar.popup.confirm' and title=='Specify Wearable URL':
-            self.avatar_url=before;self.dialog='wearables';self.wearable_id=str(uuid.uuid4());self.wearable_url=self.draft
+            self.avatar_url=before;self.dialog='wearables';self.wearable_id=self.create_wearable();self.wearable_url=self.draft
             self.entity_revision+=1
             source=self.fixture.prototypes['entities']['source'];event=deepcopy(source['events'][0]);last=source['events'][-1]
             event.update(sequence=len(source['events'])+1,eventId=uuid.uuid4().hex)
@@ -77,7 +79,7 @@ class Widget(Boundary):
             event['entity'].update(entityId=self.wearable_id,modelUrl=self.wearable_url,lastEditedEpochUs=str(self.fixture.now()*1000))
             source['events'].append(event)
         elif identifier=='avatar.wearables.confirm':self.dialog='none'
-        elif identifier=='avatar.wearable-remove':self.wearable_id=None;self.entity_revision+=1
+        elif identifier=='avatar.wearable-remove':self.delete_wearable();self.wearable_id=None;self.entity_revision+=1
         if self.avatar_url!=before:
             native=self.fixture.prototypes['state'];generation=native['source']['modelHistory']['currentGeneration']+1
             state_tests.requested(native,generation,self.avatar_url,generation)

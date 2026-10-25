@@ -6,7 +6,8 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),read
 const filename=path.resolve(process.argv[2]),url=require('node:url').pathToFileURL(filename).href;
 const buttons=[],connections=new Set(),endings=[],navigations=[],emissions=[],requires=[];
 let stopped=false;
-let page=null,pageClock=100000;const pageEvents=[],pageRequests=[];
+let page=null,pageClock=100000,markerRefresh=null;const pageEvents=[],pageRequests=[];
+let deferredArm=false,deferredHeld=null;const deferredEvents=[];
 function signal() {
     const callbacks=new Set();
     return {connect(f){callbacks.add(f)},disconnect(f){callbacks.delete(f)},emit(...args){for(const callback of Array.from(callbacks))callback(...args)},size(){return callbacks.size}};
@@ -42,7 +43,7 @@ vm.runInNewContext(fs.readFileSync(filename,'utf8'),{Script,Tablet:{getTablet(id
 function snapshot(){return {url,buttons:buttons.map(button=>({properties:button.properties,removed:button.removed,connections:button.clicked.size()})),
     connections:connections.size,navigations:navigations.map(row=>({...row})),emissions:emissions.map(row=>({...row})),requires:requires.map(row=>({...row})),
     focusedElement:page&&page.doc.activeElement?page.doc.activeElement.id:null,nativeEpoch:pageClock,pageEvents:pageEvents.map(row=>({...row})),
-    pageRequests:pageRequests.map(row=>({...row})),render:page?{title:page.doc.title,href:page.global.location.href,
+    pageRequests:pageRequests.map(row=>({...row})),deferredEvents:deferredEvents.map(row=>({...row})),render:page?{title:page.doc.title,href:page.global.location.href,
         markerSource:page.nodes.get('feature-marker').src||null,markerRect:page.nodes.get('feature-marker').getBoundingClientRect(),
         text:page.nodes.get('text').value,bridgeStatus:page.nodes.get('bridgeStatus').textContent}:null,stopped}}
 async function command(value){
@@ -51,7 +52,13 @@ async function command(value){
         if(actual.length!==1)throw Error('Actual app proxy unavailable');actual[0].clicked.emit();
     } else if(value.operation==='web')incoming.emit(value.message);
     else if(value.operation==='page-create'){
-        pageClock=value.epoch;page=require('./test_ios_tablet_web_dom.js').page({inline:value.inline,bridge:value.bridge,inlineToken:value.inlineToken,random:bytes=>require('node:crypto').randomFillSync(bytes)});
+        let referenceSource=null;
+        if(value.inline){
+            const scripts=Array.from(value.html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)).filter(match=>!/\bsrc\s*=/.test(match[1]));
+            if(scripts.length!==1)throw Error('Owned inline input needs exactly one actual script body');referenceSource=scripts[0][2];
+        }
+        pageClock=value.epoch;markerRefresh=null;page=require('./test_ios_tablet_web_dom.js').page({inline:value.inline,bridge:value.bridge,inlineToken:value.inlineToken,random:bytes=>require('node:crypto').randomFillSync(bytes),referenceSource});
+        page.nativeAlive=true;
         const actual=new URL(value.url);page.global.location.href=actual.href;page.global.location.pathname=actual.pathname;
         page.global.location.search=actual.search;page.global.location.origin=actual.origin;page.global.Date.now=()=>++pageClock;
         let currentHref=actual.href;
@@ -86,18 +93,66 @@ async function command(value){
             const target=id?id[1]:new URL(href[1],actual).pathname.endsWith('/page-b.html')?'same-origin':null;
             if(target&&page.nodes.has(target))page.nodes.get(target).href=new URL(href[1],actual).href;
         }
+        const marker=page.nodes.get('feature-marker'),originalAttribute=marker.getAttribute;let markerAttribute=null;
+        Object.defineProperty(marker,'src',{get(){return markerAttribute===null?'':new URL(markerAttribute,actual).href},set(source){markerAttribute=String(source)}});
+        marker.getAttribute=name=>name==='src'?markerAttribute:originalAttribute.call(marker,name);
         for(const tag of value.html.match(/<img\b[^>]*>/g)||[]){
             const id=tag.match(/\bid="([^"]+)"/),src=tag.match(/\bsrc="([^"]+)"/);
-            if(id&&src&&page.nodes.has(id[1]))page.nodes.get(id[1]).src=new URL(src[1],actual).href;
+            if(id&&src&&page.nodes.has(id[1]))page.nodes.get(id[1]).src=src[1];
         }
-        if(value.bridge)page.global.EventBridge.emitWebEvent=message=>{
+        if(value.liveMarker&&!value.inline){
+            const pending=[];
+            page.global.fetch=(input,options)=>{
+                const request=fetch(new URL(input,actual),options).then(async response=>{
+                    const body=await response.json();return {ok:response.ok,json:async()=>body};
+                });pending.push(request);return request;
+            };
+            page.global.setInterval=callback=>{if(markerRefresh)throw Error('Unexpected extra marker timer');markerRefresh=callback;return 1};
+            const scriptURL=new URL('feature-marker.js',actual),response=await fetch(scriptURL);
+            if(!response.ok)throw Error('Actual controlled marker script unavailable');
+            vm.runInContext(await response.text(),vm.createContext(page.global),{filename:scriptURL.href});
+            await Promise.all(pending);await Promise.resolve();await Promise.resolve();
+        }
+        const documentPage=page;
+        function originalNativeAdmission(message){
+            // Actual native guard is modeled by the very document object
+            // captured when this real page callback was created. Replacing or
+            // closing the page cannot retarget this old callable to a new VM.
+            if(page!==documentPage||!documentPage.nativeAlive)return false;
             pageEvents.push({kind:'native-envelope',message,epoch:++pageClock});
             if(value.authorized!==false){
                 pageEvents.push({kind:'script-delivery',message,epoch:++pageClock});incoming.emit(message);
                 pageEvents.push({kind:'script-delivery-return',message,epoch:++pageClock});
             }
             pageEvents.push({kind:'native-envelope-return',message,epoch:++pageClock});
+            return true;
+        }
+        if(value.bridge)page.global.EventBridge.emitWebEvent=message=>{
+            let parity=null;
+            try{parity=JSON.parse(message)}catch(_error){}
+            if(deferredArm&&value.inline&&value.authorized!==false&&parity&&Object.keys(parity).sort().join(',')==='action,contract,sequence'
+                    &&parity.contract==='overte-web-parity-v1'&&parity.action==='echo'&&Number.isInteger(parity.sequence)&&parity.sequence>0){
+                if(deferredHeld)throw Error('An actual inline callback is already held');
+                deferredArm=false;deferredHeld={callback:()=>originalNativeAdmission(message)};
+                deferredEvents.push({kind:'captured',message,frame:documentPage.global.location.href,epoch:++pageClock});return;
+            }
+            originalNativeAdmission(message);
         };
+    } else if(value.operation==='page-close'){
+        pageClock=Math.max(pageClock,value.epoch);if(page)page.nativeAlive=false;
+    } else if(value.operation==='defer-arm'){
+        if(!page||!page.nativeAlive||deferredArm||deferredHeld)throw Error('Actual controlled inline callback slot unavailable');
+        deferredArm=true;
+    } else if(value.operation==='defer-deliver'){
+        pageClock=Math.max(pageClock,value.epoch);if(!deferredHeld)throw Error('Actual inline callback was not captured');
+        const actual=deferredHeld;deferredHeld=null;deferredEvents.push({kind:'delivering',epoch:++pageClock});
+        try{actual.callback();deferredEvents.push({kind:'returned',epoch:++pageClock})}
+        finally{deferredEvents.push({kind:'finally',epoch:++pageClock})}
+    } else if(value.operation==='defer-discard'){
+        pageClock=Math.max(pageClock,value.epoch);deferredHeld=null;deferredArm=false;
+    } else if(value.operation==='page-render'){
+        if(!page)throw Error('No actual current page to render');
+        if(markerRefresh)await markerRefresh();
     } else if(value.operation==='page-read'){
         if(!page)throw Error('No current actual host document');pageClock=Math.max(pageClock,value.epoch);
         const dom=page.read(value.requestId);return {...snapshot(),dom,pageEvents:pageEvents.map(row=>({...row}))};

@@ -76,7 +76,7 @@ class _HistoricalGroup:
         if finished:need(hasattr(owner,'state'))
         if hasattr(owner,'state'):need(same(owner.envelope(owner.state),owner.previous))
         for subject,parts in self.parts.items():
-            for kind,version_key in (('post','iosAvatarPostLogoutReadsVersion'),('tail','iosAvatarPostLogoutTailVersion'),('pointers',None)):
+            for kind,version_key in owner.COMPONENT_VERSIONS.items():
                 child=parts[kind];child.lock.assert_held();need(child.historical and same(child.store.read(),child.previous))
                 need(child.lock is owner.locks[subject] and child.store.path==Path(owner.inputs[subject]['paths'][kind])
                     and child.root==Path(owner.inputs[subject]['root']) and child.run==owner.run and child.role==owner.role
@@ -89,7 +89,7 @@ class _HistoricalGroup:
 
     def read(self):
         self.guard()
-        result={subject:{key:(value if key in ('post','tail','pointers') else deepcopy(value)) for key,value in parts.items()}
+        result={subject:{key:(value if key in self.owner.COMPONENTS else deepcopy(value)) for key,value in parts.items()}
             for subject,parts in self.parts.items()}
         self.guard()
         if self.collector is not None:self.collector.update(self.pins)
@@ -104,6 +104,11 @@ class Frozen(PrivateFeatureState):
 
 
 class IOSAvatarFinal:
+    VERSION=VERSION
+    COMPONENTS=('post','tail','pointers')
+    COMPONENT_VERSIONS=dict(post='iosAvatarPostLogoutReadsVersion',tail='iosAvatarPostLogoutTailVersion',pointers=None)
+    TAIL_READS=(2,3)
+    Tail=IOSAvatarPostLogoutTail
     def __init__(self,store,root,bindings,run,role,locks,guard,factory,authority,inputs,*,epoch_ms,monotonic,sleep):
         need(isinstance(store,PrivateFeatureState) and isinstance(authority,AvatarAuthorityReader) and authority.run==run
             and role in ROLES and all(callable(fn) for fn in (guard,factory,epoch_ms,monotonic,sleep)))
@@ -126,7 +131,7 @@ class IOSAvatarFinal:
         need(all(Path(value['paths'][k])==base/('ios-avatar-'+v+'.json') for k,v in names.items()))
         return value
 
-    def envelope(self,state):return dict(iosAvatarFinalVersion=VERSION,runId=self.run,role=self.role,bindings=self.bindings,
+    def envelope(self,state):return dict(iosAvatarFinalVersion=self.VERSION,runId=self.run,role=self.role,bindings=self.bindings,
         artifactRoot=str(self.root),inputs=self.inputs,payload=pack([state]))
     def bound(self):
         need(not self.historical and self.guard() is not False)
@@ -140,12 +145,12 @@ class IOSAvatarFinal:
     def record(self,ref):
         exact(ref,{'index','sha256'});value=self.file(ref['index']).read();need(value is not None and digest(value)==ref['sha256'])
         exact(value,{'iosAvatarFinalOriginalVersion','runId','role','bindings','payload'})
-        need(type(value['iosAvatarFinalOriginalVersion']) is int and value['iosAvatarFinalOriginalVersion']==VERSION
+        need(type(value['iosAvatarFinalOriginalVersion']) is int and value['iosAvatarFinalOriginalVersion']==self.VERSION
             and value['runId']==self.run and value['role']==self.role and same(value['bindings'],self.bindings))
         rows=unpack(value['payload']);need(len(rows)==1);return rows[0]
 
     def component(self,index,subject,kind,reference):
-        need(integer(index,1,128) and subject in ROLES and kind in ('post','tail','pointers'))
+        need(integer(index,1,128) and subject in ROLES and kind in self.COMPONENTS)
         exact(reference,{'index','sha256'});need(reference['index']==index)
         path=self.root/('avatar-final-component-'+self.run+'-'+self.role+'-'+str(index)+'-'+subject+'-'+kind+'.json')
         value=PrivateFeatureState(path).read();need(value is not None and digest(value)==reference['sha256']);return value
@@ -168,14 +173,14 @@ class IOSAvatarFinal:
         common=dict(child_run=config['childRunId'],fixture_url=config['fixtureUrl'],ticket=config['ticket'],logout_before=config['logoutBefore'],subject=subject)
         post=IOSAvatarPostLogoutReads.archive(original['post'],store=Frozen(config['paths']['post'],original['post']),
             baseline=config['baseline']['state'],**common,**shared)
-        tail=IOSAvatarPostLogoutTail.archive(original['tail'],store=Frozen(config['paths']['tail'],original['tail']),
+        tail=self.Tail.archive(original['tail'],store=Frozen(config['paths']['tail'],original['tail']),
             baseline=config['baseline'],**common,**shared)
         pointer=IOSAvatarPointers.archive(original['pointers'],store=Frozen(config['paths']['pointers'],original['pointers']),**shared)
         need(all(owner.state['pending'] is None for owner in (post,tail,pointer)))
         need(integer(parts['rows']['post'],1,len(post.state['rows'])) and integer(parts['rows']['tail'],1,len(tail.state['rows'])))
         a,b=post.state['rows'][parts['rows']['post']-1],tail.state['rows'][parts['rows']['tail']-1];post.proof(a);proof=tail.proof(b)
         need(parts['rows']['left'] in pointer.state['records'] and parts['rows']['right'] in pointer.state['records'])
-        need(proof['iosAvatarPostLogoutTailProofVersion'] in (2,3))
+        need(proof['iosAvatarPostLogoutTailProofVersion'] in self.TAIL_READS)
         left,right=pointer.original(parts['rows']['left']),pointer.original(parts['rows']['right']);body=post.record(a);ui=tail.record(b['reference'])
         before=post.account(body['before']);after=post.account(body['after'])
         follow(left['clockJoin']['nativeAfter'],before);follow(after,ui['clockJoin']['nativeBefore']);follow(ui['clockJoin']['nativeAfter'],right['clockJoin']['nativeBefore'])
@@ -222,8 +227,13 @@ class IOSAvatarFinal:
     def parse(self,value):
         exact(value,{'iosAvatarFinalVersion','runId','role','bindings','artifactRoot','inputs','payload'})
         rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])));state=rows[0];exact(state,{'rows','pending'})
-        need(type(state['rows']) is list and len(state['rows'])<=128);last={};sequence=0;components={}
+        need(type(state['rows']) is list and len(state['rows'])<=128);last={};sequence=0;components={};skip=0
+        prefix=getattr(self,'_capture_prefix',None)
+        if prefix is not None:
+            need(not self.historical);skip,summary=prefix.resume(state)
+            last,sequence,components=summary['last'],summary['sequence'],summary['components']
         for index,row in enumerate(state['rows'],1):
+            if index<=skip:continue
             exact(row,{'index','reference','components'});need(type(row['index']) is int and row['index']==index)
             self.components(row['components'],index,complete=True)
             for key,ref in row['components'].items():
@@ -242,10 +252,14 @@ class IOSAvatarFinal:
             exact(p,{'index','value','components'});need(p['index']==len(state['rows'])+1);self.components(p['components'],p['index'],complete=False)
             if p['value'] is not None:need(type(p['value']) is dict)
         elif not self.historical and len(state['rows'])<128:need(self.file(len(state['rows'])+1).read() is None)
+        if prefix is not None:prefix.guard(state)
+        if getattr(self,'_prefix_building',False):
+            need(prefix is None and not self.historical)
+            self._prefix_summary=deepcopy(dict(last=last,sequence=sequence,components=components))
         return deepcopy(state)
 
     def components(self,values,index,*,complete):
-        need(type(values) is dict and set(values)<={s+'-'+k for s in ROLES for k in ('post','tail','pointers')})
+        need(type(values) is dict and set(values)<={s+'-'+k for s in ROLES for k in self.COMPONENTS})
         for key,ref in values.items():
             exact(ref,{'index','sha256'});need(ref['index']==index)
             if complete:self.component(index,*key.split('-',1),ref)
@@ -275,7 +289,7 @@ class IOSAvatarFinal:
         # query/partial inode; reconstruction validates its append-only history.
         for subject in ROLES:
             actual=self.factory(subject)
-            actual['post'].recover();actual['tail'].recover();actual['pointers'].abandon()
+            actual['post'].recover();actual['tail'].recover();actual['pointers'].abandon();self.recover_extra(actual)
         # Retain every actually written component, even if its return was
         # lost. Missing declared files remain owned and block abandonment.
         self.components(p['components'],p['index'],complete=True)
@@ -283,22 +297,38 @@ class IOSAvatarFinal:
         self.state['pending']=None;self.save();return None
 
     def capture(self,*,ticket,phase_instance,sequence):
-        self.bound();self.recover();need(len(self.state['rows'])<128);identifier(ticket);identifier(phase_instance);need(integer(sequence,1))
+        from ios.adapters.avatar_final_prefix import FinalCapturePrefix
+        self.bound();self.recover()
+        with FinalCapturePrefix(self):reference=self._capture(ticket=ticket,phase_instance=phase_instance,sequence=sequence)
+        self.fresh(self.record(reference));return reference
+
+    def _capture(self,*,ticket,phase_instance,sequence):
+        self.bound();need(len(self.state['rows'])<128);identifier(ticket);identifier(phase_instance);need(integer(sequence,1))
         self.state['pending']=dict(index=len(self.state['rows'])+1,value=None,components={});self.save()
         a=dict(hostBeforeEpochMs=self.epoch_ms(),hostBeforeMonotonic=self.monotonic());subjects={}
         for subject in ROLES:
-            actual=self.factory(subject);exact(actual,{'post','tail','pointers'})
+            actual=self.factory(subject);exact(actual,set(self.COMPONENTS))
             post,tail,pointer=actual['post'],actual['tail'],actual['pointers']
             need(isinstance(post,IOSAvatarPostLogoutReads) and isinstance(tail,IOSAvatarPostLogoutTail) and isinstance(pointer,IOSAvatarPointers)
-                and post.lock is tail.lock is pointer.lock is self.locks[subject]
+                and all(owner.lock is self.locks[subject] for owner in actual.values())
                 and all(same(owner.binding,self.bindings[subject]) and owner.role==self.role and owner.run==self.run for owner in actual.values()))
-            pointer.abandon();left=pointer.capture();model=post.capture();ui=tail.capture();right=pointer.capture()
-            subjects[subject]=dict(rows=dict(post=model['index'],tail=ui['index'],left=left,right=right),owners={key:self.retain_component(self.state['pending']['index'],subject,key,owner.previous) for key,owner in actual.items()})
+            pointer.abandon();left=pointer.capture();model=post.capture();ui=tail.capture();extra=self.capture_extra(actual);right=pointer.capture()
+            subjects[subject]=dict(rows=dict(post=model['index'],tail=ui['index'],left=left,right=right,**extra),owners={key:self.retain_component(self.state['pending']['index'],subject,key,owner.previous) for key,owner in actual.items()})
         p=dict(hostBeforeEpochMs=self.epoch_ms(),hostBeforeMonotonic=self.monotonic());provider=self.authority.read()
         p.update(hostAfterEpochMs=self.epoch_ms(),hostAfterMonotonic=self.monotonic());a.update(hostAfterEpochMs=self.epoch_ms(),hostAfterMonotonic=self.monotonic())
         group=dict(ticket=ticket,phaseInstance=phase_instance,sequence=sequence,subjects=subjects,provider=provider,providerClock=p,acquisition=a);self.group(group)
-        self.state['pending']['value']=dict(iosAvatarFinalOriginalVersion=VERSION,runId=self.run,role=self.role,bindings=self.bindings,payload=pack([group]));self.save()
+        self.state['pending']['value']=dict(iosAvatarFinalOriginalVersion=self.VERSION,runId=self.run,role=self.role,bindings=self.bindings,payload=pack([group]));self.save()
         ref=self.finish();self.fresh(group);return ref
+
+    @staticmethod
+    def capture_extra(actual):return {}
+
+    @staticmethod
+    def recover_extra(actual):return None
+
+    def subject_quiet(self,samples,binding):
+        from ios.adapters.avatar_final_quiet import subject_quiet
+        return subject_quiet(samples,binding,run=self.run,role=self.role)
 
     def fresh(self,record):
         self.bound();a=record['acquisition'];now,mono=self.epoch_ms(),self.monotonic()
@@ -312,11 +342,10 @@ class IOSAvatarFinal:
         groups=[self.record(ref) for ref in references];actual=[self.group(row) for row in groups];first,last=groups[0],groups[-1]
         need(all(row['ticket']==last['ticket'] and row['phaseInstance']==last['phaseInstance'] for row in groups)
             and all(b['sequence']>a['sequence'] for a,b in zip(groups,groups[1:])) and integer(sequence,last['sequence']))
-        from ios.adapters.avatar_final_quiet import subject_quiet
-        quiets={subject:subject_quiet([row[subject] for row in actual],self.bindings[subject],run=self.run,role=self.role) for subject in ROLES}
+        quiets={subject:self.subject_quiet([row[subject] for row in actual],self.bindings[subject]) for subject in ROLES}
         acquisition=deepcopy(last['acquisition']);native=actual[-1][self.role]['right']['clockJoin']['nativeAfter']
         ref=references[-1]
-        return dict(iosAvatarFinalProofVersion=VERSION,runId=self.run,ticket=last['ticket'],phaseInstance=last['phaseInstance'],sequence=sequence,
+        return dict(iosAvatarFinalProofVersion=self.VERSION,runId=self.run,ticket=last['ticket'],phaseInstance=last['phaseInstance'],sequence=sequence,
             capturedEpochMs=acquisition['hostAfterEpochMs'],lifecycle=deepcopy(native['lifecycle']),acquisition=acquisition,bilateralQuiet=quiets,
             originalSha256=ref['sha256'],provenance=dict(version=1,namespace='ios-avatar-final-original',reference=deepcopy(ref),originalSha256=ref['sha256']))
 

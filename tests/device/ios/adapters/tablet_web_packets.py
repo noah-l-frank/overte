@@ -20,6 +20,7 @@ from adapters.operation_transport_guard import scope as transport_scope
 from adapters.original_file_reads import record as original_read
 from ios.adapters import tablet_web_source,tablet_web_sources,tablet_web_dom,tablet_web_buttons,tablet_web_state,tablet_web_closures,uikit_input,web_script_emissions,tablet_web_deferred
 from ios.adapters.tablet_web_segments import TabletWebSourceSegments,CHUNK_BYTES,sha
+from ios.adapters.tablet_web_native_semantics import checked as checked_native
 
 VERSION=2
 READS=(1,2)
@@ -29,18 +30,20 @@ CAPTURES=128
 
 
 class TabletWebPackets:
-    def __init__(self,root,binding,run,role,fixture_url,pid,component,guard,*,monotonic=time.monotonic,epoch_ms=lambda:int(time.time()*1000),historical=False):
+    def __init__(self,root,binding,run,role,fixture_url,pid,component,guard,*,monotonic=time.monotonic,epoch_ms=lambda:int(time.time()*1000),historical=False,storage_guard=None):
         need(type(component) is str and component in COMPONENTS and integer(pid,1)
             and type(historical) is bool and all(callable(value) for value in (guard,monotonic,epoch_ms)))
         self.root=Path(root);self.binding=deepcopy(context(binding));self.run,self.role,self.fixture,self.pid=run,role,fixture_url,pid
         need(self.binding['processIdentity']==str(pid))
         self.component,self.module,self.guard,self.monotonic,self.epoch_ms=component,COMPONENTS[component],guard,monotonic,epoch_ms
         self.historical=historical
+        need(storage_guard is None or callable(storage_guard));self.storage_guard=guard if storage_guard is None else storage_guard
+        if not historical:need(guard() is not False)
         self.module.command(dict(schemaVersion=1,action=self.module.ACTION,commandId='ios-'+'0'*32,runId=run,fixtureUrl=fixture_url))
         need(role in ('primary','actor'));self.clock=None
         self.store=PrivateFeatureState(self.root/('tabletweb-'+component+'-queries-'+run+'-'+role+'.json'))
-        self.segments=TabletWebSourceSegments(root,binding,run,role,component,guard,self.segment_intent,monotonic=monotonic)
-        self.originals=OriginalFrameStore(root,binding,run,role,guard,self.record_intent,
+        self.segments=TabletWebSourceSegments(root,binding,run,role,component,self.original_guard,self.segment_intent,monotonic=monotonic)
+        self.originals=OriginalFrameStore(root,binding,run,role,self.original_guard,self.record_intent,
             namespace='tabletweb-'+component+'-packets',schema_prefix='tabletWebSourcePacket',monotonic=monotonic)
         self.state=self.store.read()
         if self.state is None:
@@ -50,8 +53,16 @@ class TabletWebPackets:
             self.store.write(self.state,None)
         self.saved=deepcopy(self.state);self.history()
 
+    def original_guard(self):
+        # Historical file reconstruction is deliberately SDK/query-free. All
+        # live mutations retain their explicit not-historical gate and intent
+        # callbacks; a forbidden live guard must never be called just to read
+        # an already owned original.
+        if not self.historical:need(self.storage_guard() is not False)
+        return True
+
     def save(self):
-        need(not self.historical)
+        need(not self.historical and self.guard() is not False)
         self.state['tabletWebPacketsVersion']=VERSION
         self.store.write(self.state,self.saved);self.saved=deepcopy(self.state)
 
@@ -82,16 +93,20 @@ class TabletWebPackets:
         return result
 
     def check_value(self,value,query,previous):
-        self.module.validate(value,query,self.pid)
+        checked_native(self.module,'validate',value,query,self.pid)
         if self.component=='uikit':need(value['iosUIKitInputVersion']==uikit_input.VERSION)
         if previous is not None:
             if value['commandId']==previous['commandId']:
                 if self.component=='dom':self.module.continuity(previous,value)
                 else:need(same(previous,value))
-            else:self.module.validate(value,query,self.pid,previous=previous)
+            else:checked_native(self.module,'validate',value,query,self.pid,previous)
         return value
 
     def record(self,value,index,previous):
+        from ios.adapters.tablet_web_record_cache import returned_record
+        return returned_record(self,value,index,previous,lambda:self._record(value,index,previous))
+
+    def _record(self,value,index,previous):
         version=value.get('tabletWebSourcePacketVersion');need(type(version) is int and version in READS)
         exact(value,({'readbacks'} if version>=2 else set())|{'tabletWebSourcePacketVersion','index','before','after','query','sendReturned','status','raws','unsafe','resultSha256'})
         need(type(value['tabletWebSourcePacketVersion']) is int and value['tabletWebSourcePacketVersion'] in READS
@@ -151,7 +166,7 @@ class TabletWebPackets:
             if len(inspection)!=max(1,(row['segments']['bytes']+CHUNK_BYTES-1)//CHUNK_BYTES) or not all(part is not None and part['complete'] for part in inspection):
                 need(value['status']!='returned' and row['outcome']=='unchecked');continue
             raw=self.segments.read(row['segments']);need(len(raw)<=self.module.LIMIT)
-            packet=decode(raw.decode('utf-8'),limit=self.module.LIMIT);self.module.original(packet)
+            packet=decode(raw.decode('utf-8'),limit=self.module.LIMIT);checked_native(self.module,'original',packet)
             if self.component=='uikit':need(packet['iosUIKitInputVersion']==uikit_input.VERSION)
             try:self.check_value(packet,value['query'],previous)
             except NativeUIError:
@@ -166,6 +181,7 @@ class TabletWebPackets:
         return previous,values
 
     def history(self):
+        if not self.historical:need(self.guard() is not False)
         value=self.state
         exact(value,{'tabletWebPacketsVersion','binding','runId','role','fixtureUrl','processId','component','nextRaw','records','pending','recordIntent','recordInspection'})
         need(type(value['tabletWebPacketsVersion']) is int and value['tabletWebPacketsVersion'] in READS and same(value['binding'],self.binding)
@@ -197,6 +213,7 @@ class TabletWebPackets:
         else:need(value['recordInspection'] is None)
         if capture_clock is not None:
             self.clock={key:max(capture_clock[key],self.clock[key] if self.clock is not None else capture_clock[key]) for key in capture_clock}
+        if not self.historical:need(self.guard() is not False)
         return deepcopy(result)
 
     def archive_pending(self,*,abandon=False):
@@ -331,7 +348,7 @@ class TabletWebPackets:
             with transport_scope(transport_guard):value=reader.read(self.run,self.fixture)
             need(last is not None and same(value,last))
             pending.update(after=self.stamp(),status='returned',resultSha256=sha(canonical(value)));self.save()
-            self.archive_pending();return deepcopy(value)
+            self.archive_pending();need(self.guard() is not False);return deepcopy(value)
         except Exception:
             # Do not overwrite an interrupted immutable record-write intent.
             if self.state['recordIntent'] is None:

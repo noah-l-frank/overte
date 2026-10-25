@@ -11,8 +11,9 @@ BASE={'snapshotCompanionObservationVersion','action','nonce','role','instance','
 
 
 def original(value,*,action=None,nonce=None,pid=None,bundle=None,previous=None):
-    need(type(value) is dict and value.get('action') in ('identity','clock'))
-    kind=value['action'];exact(value,BASE|({'preparedClock','bundle'} if kind=='identity' else set()))
+    need(type(value) is dict and value.get('action') in ('identity','clock','photos'))
+    kind=value['action'];exact(value,BASE|({'preparedClock','bundle'} if kind=='identity' else
+        {'readWriteAuthorizationBefore','readWriteAuthorizationAfter'} if kind=='photos' else set()))
     need(type(value['snapshotCompanionObservationVersion']) is int and value['snapshotCompanionObservationVersion']==1
         and value['role']=='photos' and (action is None or kind==action)
         and type(value['nonce']) is str and re.fullmatch('ios-[0-9a-f]{32}',value['nonce']) and (nonce is None or value['nonce']==nonce)
@@ -29,6 +30,9 @@ def original(value,*,action=None,nonce=None,pid=None,bundle=None,previous=None):
             compare(value['bundle'],value['bundle']);need(value['bundle']['bundleId']==value['bundleId'])
             stamp(value['preparedClock'],value['sourceBirthClock']);stamp(value['clockBefore'],value['preparedClock'])
         else:need(value['preparedClock'] is None and type(value['bundle']) is dict and not value['bundle'])
+    if kind=='photos':
+        need(integer(value['readWriteAuthorizationBefore'],0,4) and integer(value['readWriteAuthorizationAfter'],0,4))
+        if value['status']=='ready':need(value['readWriteAuthorizationBefore']==value['readWriteAuthorizationAfter'])
     if previous is not None:
         original(previous);need(all(same(previous[key],value[key]) for key in ('instance','processId','bundleId','sourceBirthClock','role'))
             and value['sequence']>previous['sequence'] and value['nonce']!=previous['nonce'])

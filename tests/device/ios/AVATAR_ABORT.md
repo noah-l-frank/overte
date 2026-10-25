@@ -4,7 +4,11 @@
 the actual `IOSAvatarFeature` owner to decode its current `preparing` original
 under its existing source lock. The exact failed envelope, binding, admitted
 installed-code/process source and bundle remain bound throughout the abort.
-A ready or changed feature cannot enter this path. No exception text or login
+Standalone ready and changed features cannot enter this path. An optional,
+separately versioned paired-failure admission is described in
+[failed preparation](AVATAR_FAILED_PREPARATION.md); it retains a ready role's
+actual original and requires the independently admitted failed peer.
+No exception text or login
 credentials are copied into its receipt.
 
 The owner persists its Stop intent before calling the canonical ordinary

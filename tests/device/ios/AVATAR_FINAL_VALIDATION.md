@@ -30,3 +30,29 @@ measured the same three-row archive and two quiet derivations at 3.586 seconds
 without reuse and 1.643 seconds within a checked traversal. Both use the exact
 same original graph and issue no native queries. These host measurements do not
 qualify a complete iOS journey, native compilation or real acquisition/API timing.
+
+## Immutable prefix during one live capture
+
+`FinalCapturePrefix` is confined to one actual `IOSAvatarFinal.capture` call.
+Entry fully decodes all old rows under a before/after private original inventory
+lease. It retains the exact old row bytes, full binding/role/input/path/authority
+context, original read membership and actual file signatures. Each reuse checks
+current candidate/locks/CAS, private parent ancestry and every original inode,
+mode, ownership, link count, size and change timestamps before and after use.
+The next reserved Final filename remains absent unless the actual durable
+pending value or new row owns its exact bytes. Dangling links are not absence.
+
+Only completed old rows reuse decoded components and their original prefix
+endpoints. New groups, new component prefixes, native sequence joins, current
+pending ownership and current row originals retain the full normal decoder.
+The entire graph is decoded again after the capture, before the original 1.5 s
+freshness check and return. An interrupted call drops this in-memory scope but
+keeps its exact durable pending responsibility. Reconstruction always begins
+with the complete decoder; the scope cannot supply a historical quiet or public
+cleanup verdict. No original clocks, schema fields or deadlines are changed.
+
+Focused host checks cover old-row/context mutation, same-inode old/nested
+original changes, a dangling reserved original, actual lost-return ownership
+without reissuing the query, complete entry/exit decoding and a deliberately
+slow exit decoder rejected under the unchanged original freshness bound. These
+checks do not qualify physical CPU timing or a whole feature.

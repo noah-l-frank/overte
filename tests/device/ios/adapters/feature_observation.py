@@ -72,6 +72,8 @@ from ios.adapters.avatar_inputs import IOSAvatarInputs,FILE as AVATAR_INPUTS_FIL
 from ios.adapters.script_dialogs import IOSScriptDialogs,FILE as SCRIPT_DIALOGS_FILE,LIMIT as SCRIPT_DIALOGS_LIMIT,command as script_dialogs_command
 from ios.adapters.create_state import IOSCreateState,FILE as CREATE_STATE_FILE,LIMIT as CREATE_STATE_LIMIT,command as create_state_command
 from ios.adapters.create_files import IOSCreateFiles,FILE as CREATE_FILES_FILE,LIMIT as CREATE_FILES_LIMIT,command as create_files_command
+from ios.adapters.assets_files import IOSAssetsFiles,FILE as ASSETS_FILES_FILE,LIMIT as ASSETS_FILES_LIMIT,command as assets_files_command
+from ios.adapters.assets_replies import IOSAssetsReplies,FILE as ASSETS_REPLIES_FILE,LIMIT as ASSETS_REPLIES_LIMIT,command as assets_replies_command
 from adapters.private_login_input import command as private_input_command
 from adapters.native_account_origin import (NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE,
     command as account_origin_command)
@@ -232,6 +234,10 @@ class FeatureObservation:
         elif command.get('action')=='feature-ios-create-state':create_state_command(command)
         elif command.get('action')=='feature-ios-create-files':
             create_files_command(command);limit=131072
+        elif command.get('action')=='feature-ios-assets-files':
+            assets_files_command(command);limit=131072
+        elif command.get('action')=='feature-ios-assets-replies':
+            assets_replies_command(command);limit=8192
         elif command.get('action')=='feature-web-dom-observe':web_dom_command(command,ios=True)
         elif command.get('action')=='feature-pending-commit-owner':pending_owner_command(command,ios=True)
         elif command.get('action')=='feature-navigation-replies':navigation_replies_command(command,ios=True)
@@ -498,6 +504,24 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSCreateFiles(self.send,lambda:self.original(remote=remote,limit=CREATE_FILES_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def assets_files(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+ASSETS_FILES_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        if not isinstance(clock_source,NativeFeatureObservation) or not clock_source.ios or clock_source.pid!=self.process['pid']:
+            raise NativeUIError('Original Assets clock does not match this iOS process')
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSAssetsFiles(self.send,lambda:self.original(remote=remote,limit=ASSETS_FILES_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def assets_replies(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+ASSETS_REPLIES_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        if not isinstance(clock_source,NativeFeatureObservation) or not clock_source.ios or clock_source.pid!=self.process['pid']:
+            raise NativeUIError('Original Assets clock does not match this iOS process')
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSAssetsReplies(self.send,lambda:self.original(remote=remote,limit=ASSETS_REPLIES_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def navigation_dialogs(self,clock_source=None):

@@ -7,6 +7,7 @@ an acknowledgment. An interrupted acquisition is retained and cannot resume.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from contextlib import contextmanager
 import hashlib
 import os
 import time
@@ -22,6 +23,7 @@ from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_
 from ios.adapters.graphics_history import follow_native,restore_native
 from ios.adapters.tablet_web_packets import TabletWebPackets,COMPONENTS
 from ios.adapters.tablet_web_history import derive
+from ios.adapters.tablet_web_record_cache import parent_record
 
 VERSION=2
 READS=(1,2)
@@ -49,7 +51,7 @@ class TabletWebSourceOwner:
             and self.binding['processIdentity']==str(pid) and role in ('primary','actor') and set(ORDER)==set(COMPONENTS))
         COMPONENTS['sources'].command(dict(schemaVersion=1,action=COMPONENTS['sources'].ACTION,commandId='ios-'+'0'*32,runId=run,fixtureUrl=fixture_url))
         self.lock,self.guard,self.epoch_ms,self.monotonic,self.historical=lock,guard,epoch_ms,monotonic,historical
-        self.admission=deepcopy(admission)
+        self.admission=deepcopy(admission);self._stored_read_depth=0
         if admission is not None:
             from ios.adapters.tablet_web_admission import validate as admission_original
             admission_original(admission,self.binding)
@@ -64,9 +66,10 @@ class TabletWebSourceOwner:
                 apps=[],records=[],pending=None,intent=None,inspection=None,appIntent=None,appPending=None,appInspection=None,reconciled=[])
             self.store.write(self.state,None)
         self.saved=deepcopy(self.state)
-        self.originals=OriginalFrameStore(root,binding,run,role,self.original_guard,self.frame_intent,namespace='tabletweb-acquisitions',schema_prefix='tabletWebAcquisition',monotonic=monotonic)
-        self.app_originals=OriginalFrameStore(root,binding,run,role,self.original_guard,self.app_intent,namespace='tabletweb-app-origins',schema_prefix='tabletWebAppAdmission',monotonic=monotonic)
-        self.children={name:TabletWebPackets(root,binding,run,role,fixture_url,pid,name,self.original_guard,epoch_ms=epoch_ms,monotonic=monotonic,historical=historical) for name in ORDER}
+        self.originals=OriginalFrameStore(root,binding,run,role,self.stored_original_guard,self.frame_intent,namespace='tabletweb-acquisitions',schema_prefix='tabletWebAcquisition',monotonic=monotonic)
+        self.app_originals=OriginalFrameStore(root,binding,run,role,self.stored_original_guard,self.app_intent,namespace='tabletweb-app-origins',schema_prefix='tabletWebAppAdmission',monotonic=monotonic)
+        self.children={name:TabletWebPackets(root,binding,run,role,fixture_url,pid,name,self.original_guard,
+            storage_guard=self.local_original_guard,epoch_ms=epoch_ms,monotonic=monotonic,historical=historical) for name in ORDER}
         self.history()
 
     def bound(self):
@@ -74,6 +77,36 @@ class TabletWebSourceOwner:
 
     def original_guard(self):
         if not self.historical:self.bound()
+        return True
+
+    def stored_original_guard(self):
+        # This guard belongs only to the two immutable aggregate file stores.
+        # Child capture/save/send keep original_guard, independently of depth.
+        if not self.historical:
+            self.lock.assert_held()
+            if not self._stored_read_depth:self.bound()
+        return True
+
+    @contextmanager
+    def _stored_reads(self):
+        outer=self._stored_read_depth==0
+        if not self.historical:
+            self.lock.assert_held()
+            if outer:self.bound()
+        self._stored_read_depth+=1
+        try:yield
+        finally:
+            self._stored_read_depth-=1
+            if not self.historical:
+                self.lock.assert_held()
+                if outer:self.bound()
+
+    def local_original_guard(self):
+        # Immutable private-byte replay does not acquire product data. The
+        # component retains its full original_guard at entry/exit, every WAL
+        # write and native capture. Only nested stored-file reads use this
+        # local lock guard, as the independent native auxiliary store does.
+        if not self.historical:self.lock.assert_held()
         return True
 
     def save(self):
@@ -102,6 +135,9 @@ class TabletWebSourceOwner:
         epoch,mono=self.epoch_ms(),self.monotonic();need(integer(epoch,1) and number(mono,0,1e15));return dict(epochMs=epoch,monotonic=mono)
 
     def app_sources(self,references=None):
+        with self._stored_reads():return self._app_sources(references)
+
+    def _app_sources(self,references=None):
         refs=self.state['apps'] if references is None else references
         need(type(refs) is list and self.state['apps'][:len(refs)]==refs);result=[]
         for index,ref in enumerate(refs,1):
@@ -185,6 +221,9 @@ class TabletWebSourceOwner:
         return previous,result
 
     def history(self):
+        with self._stored_reads():return self._history()
+
+    def _history(self):
         value=self.state
         version=value.get('tabletWebSourceOwnerVersion');need(type(version) is int and version in READS)
         exact(value,({'reconciled'} if version>=2 else set())|{'tabletWebSourceOwnerVersion','binding','runId','role','fixtureUrl','processId','apps','records','pending','intent','inspection','appIntent','appPending','appInspection'})
@@ -215,7 +254,8 @@ class TabletWebSourceOwner:
             self._reconciled(self.originals.read(full),entry['component'],entry['leaf']);recovered[index]=entry
         for index,ref in enumerate(value['records'],1):
             original=self.originals.expand(ref);need(original['index']==index);row=self.originals.read(original)
-            native,frame=self._record(row,index,native)
+            previous=native
+            native,frame=parent_record(self,row,index,previous,lambda:self._record(row,index,previous))
             phase_follow(row)
             if row['status']=='returned':frames.append(frame)
             else:

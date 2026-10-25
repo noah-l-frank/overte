@@ -39,6 +39,8 @@ class AvatarImagePhaseChanged(NativeUIError):pass
 
 
 class IOSAvatarSamples:
+    VERSION=VERSION
+    Marker=IOSAvatarMarkerScope
     @classmethod
     def history(cls,value,*,store,root,binding,run,role,policy,lock):
         """Decode retained source/PNG/inode originals without a live runtime."""
@@ -57,7 +59,7 @@ class IOSAvatarSamples:
 
     def __init__(self,runtime,selector,scope,root,policy,phase,lock,*,
                  monotonic=time.monotonic,epoch_ms=lambda:time.time()*1000,sleep=time.sleep):
-        need(isinstance(runtime,IOSScriptRuntime) and isinstance(scope,IOSAvatarMarkerScope)
+        need(isinstance(runtime,IOSScriptRuntime) and type(scope) is self.Marker
             and isinstance(phase,PhaseFixtureReader) and phase.area=='avatar-people' and phase.run==scope.run
             and isinstance(lock,ScriptSourceLock) and all(callable(f) for f in (monotonic,epoch_ms,sleep)))
         self.runtime,self.selector,self.scope,self.root,self.policy,self.phase,self.lock=runtime,selector,scope,Path(root),deepcopy(policy),phase,lock
@@ -74,7 +76,7 @@ class IOSAvatarSamples:
         if self.previous is not None:self.state=self.decode(self.previous)
 
     def envelope(self,state):
-        return dict(iosAvatarSamplesVersion=VERSION,binding=self.binding,runId=self.run,role=self.role,
+        return dict(iosAvatarSamplesVersion=self.VERSION,binding=self.binding,runId=self.run,role=self.role,
             artifactRoot=str(self.root),imagePolicy=self.policy,payload=pack([state]))
 
     def decode(self,value):
@@ -83,7 +85,7 @@ class IOSAvatarSamples:
         exact(state,{'rows','pending','markerOwner'});need(type(state['rows']) is list and len(state['rows'])<=128 and type(state['markerOwner']) is dict)
         # This original owner can be ready or already retired live; historical
         # image binding always uses its independently retained ready snapshot.
-        marker=IOSAvatarMarkerScope.archive(state['markerOwner'],root=self.root,binding=self.binding,run=self.run,
+        marker=self.Marker.archive(state['markerOwner'],root=self.root,binding=self.binding,run=self.run,
             role=self.role,lock=self.lock,require_ready=True)
         seen=set();frames=set()
         for index,row in enumerate(state['rows'],1):
@@ -181,7 +183,7 @@ class IOSAvatarSamples:
     def validate_record(self,value,depth=0):
         need(integer(depth,0,8))
         exact(value,{'iosAvatarSampleVersion','index','requestId','ticket','avatarId','status','basisIndex','markerSha256','partial','owner','abandonment'})
-        need(type(value['iosAvatarSampleVersion']) is int and value['iosAvatarSampleVersion']==VERSION
+        need(type(value['iosAvatarSampleVersion']) is int and value['iosAvatarSampleVersion']==self.VERSION
             and integer(value['index'],1,128) and value['status'] in ('observed','marker-pending','phase-changed','abandoned'))
         self.identity(value);self.partial(value['partial'],value['ticket'])
         need(value['basisIndex'] is None or integer(value['basisIndex'],1,value['index']-1))
@@ -244,7 +246,7 @@ class IOSAvatarSamples:
         need(record['markerSha256']==digest(self.state['markerOwner']))
         frame={key:deepcopy(record['partial'][key]) for key in images.FIELDS}
         self.follow(frame,phase_before=record['partial']['phaseBefore'],before_index=record['index'])
-        marker=IOSAvatarMarkerScope.archive(self.state['markerOwner'],root=self.root,binding=self.binding,run=self.run,
+        marker=self.Marker.archive(self.state['markerOwner'],root=self.root,binding=self.binding,run=self.run,
             role=self.role,lock=self.lock,require_ready=True)
         parts=record['partial'];frame={key:deepcopy(parts[key]) for key in images.FIELDS}
         marker.bind_image_world(frame['worldBefore']);marker.bind_image_world(frame['worldAfter'])
@@ -279,7 +281,7 @@ class IOSAvatarSamples:
         frame={key:p['partial'][key] for key in images.FIELDS-{'clockJoin'}};fields=[(name,field) for name,value in frame.items()
             for field in ('capturedEpochMs','sampleEpochMs') if field in value]
         self.remember('clockJoin',window.finish(frame,fields));self.remember('phaseAfter',self.phase.status(phase['status']))
-        record=dict(iosAvatarSampleVersion=VERSION,**{key:deepcopy(p[key]) for key in ('index','requestId','ticket','avatarId','basisIndex')},
+        record=dict(iosAvatarSampleVersion=self.VERSION,**{key:deepcopy(p[key]) for key in ('index','requestId','ticket','avatarId','basisIndex')},
             status='observed',markerSha256=digest(self.state['markerOwner']),partial=deepcopy(p['partial']),owner=owner.store.read(),abandonment=None)
         marker=self.scope.state['admission']['marker'];basis=None
         if absence_basis is not None:
@@ -386,7 +388,7 @@ class IOSAvatarSamples:
         abandonment=dict(**p['abandonedOriginal'],owner=gpu,retirement=retirement,nativeAfter=actual,
             acquisition=dict(hostBeforeEpochMs=before_epoch,hostAfterEpochMs=after_epoch,
                 hostBeforeMonotonic=before_mono,hostAfterMonotonic=after_mono))
-        record=dict(iosAvatarSampleVersion=VERSION,**{key:deepcopy(p[key]) for key in ('index','requestId','ticket','avatarId','basisIndex')},
+        record=dict(iosAvatarSampleVersion=self.VERSION,**{key:deepcopy(p[key]) for key in ('index','requestId','ticket','avatarId','basisIndex')},
             status='abandoned',markerSha256=digest(self.state['markerOwner']),partial=deepcopy(p['partial']),owner=gpu,abandonment=abandonment)
         return self.finish_record(record)
 

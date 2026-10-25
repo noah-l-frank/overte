@@ -95,14 +95,14 @@ class AvatarFinalTests(unittest.TestCase):
         return IOSAvatarAccountReads(PrivateFeatureState(f.root/('ios-avatar-primary-'+subject+'-account-reads.json')),f.artifacts,self.bindings[subject],RUN,
             'primary',subject,f.lock,lambda:True,reader,clock_source=clock,epoch_ms=self.host,monotonic=lambda:self.clock[0])
 
-    def factory(self,subject):
+    def factory(self,subject,*,Tail=IOSAvatarPostLogoutTail):
         self.active=subject;c=self.cases[subject];f=c.f;config=self.inputs[subject];binding=self.bindings[subject]
         post=IOSAvatarPostLogoutReads(PrivateFeatureState(config['paths']['post']),f.artifacts,binding,RUN,'primary',subject,f.lock,lambda:True,
             lambda:self.accounts(subject),f.model,child_run=f.child,fixture_url=config['fixtureUrl'],ticket=TICKET,baseline=config['baseline']['state'],
             logout_before=f.logout_before,epoch_ms=self.host,monotonic=lambda:self.clock[0])
         def actual():
             result=c.factory();result['binding']=binding;return result
-        tail=IOSAvatarPostLogoutTail(c.store,f.artifacts,binding,RUN,'primary',subject,f.lock,lambda:True,actual,child_run=f.child,
+        tail=Tail(c.store,f.artifacts,binding,RUN,'primary',subject,f.lock,lambda:True,actual,child_run=f.child,
             fixture_url=config['fixtureUrl'],ticket=TICKET,baseline=config['baseline'],logout_before=f.logout_before,epoch_ms=self.host,monotonic=lambda:self.clock[0])
         _,clock=f.native_parts();reader=f.pointer.reader();reader.clock_ms=lambda:clock.read(clock.sequence)['capturedEpochMs']
         reader.monotonic=lambda:self.clock[0]

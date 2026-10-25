@@ -497,6 +497,23 @@
           "token": "callback("
         }
       ]
+    },
+    "pal-remove-connection": {
+      "kind": "xhr-open",
+      "frames": [
+        {
+          "source": "/modules/request.js",
+          "line": 78,
+          "column": 21,
+          "token": "open"
+        },
+        {
+          "source": "/system/pal.js",
+          "line": 387,
+          "column": 9,
+          "token": "request"
+        }
+      ]
     }
   }
 }

@@ -418,7 +418,8 @@ class FixtureHandler(SimpleHTTPRequestHandler):
             command = json.loads(self.rfile.read(length))
             if length > 4096 and (not isinstance(command, dict) or not (
                     command.get("action") == "normal-ui-input" and length <= 32768
-                    or command.get("action") == "feature-ios-create-files" and length <= 131072)):
+                    or command.get("action") in {"feature-ios-create-files","feature-ios-assets-files"} and length <= 131072
+                    or command.get("action") == "feature-ios-assets-replies" and length <= 8192)):
                 raise ValueError("client command exceeds its bounded transport")
             command = (self.server.fixture_state.set_command(command)
                        if request_path == "/sound-command.json"
@@ -714,6 +715,18 @@ class FixtureState:
             from ios.adapters.create_files import command as validate_ios_source
             try:validate_ios_source(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS create files request") from None
+            valid=True
+        elif action == "feature-ios-assets-files":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.assets_files import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS Assets file request") from None
+            valid=True
+        elif action == "feature-ios-assets-replies":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.assets_replies import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS Assets reply request") from None
             valid=True
         elif action == "feature-ios-avatar-social-http":
             sys.path.insert(0,str(ROOT.parent))

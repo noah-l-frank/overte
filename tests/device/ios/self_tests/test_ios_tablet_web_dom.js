@@ -6,7 +6,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const root=path.resolve(__dirname,'../../../..');
 const source=require(path.join(root,'tests/device/native/ios_tablet_web_dom.js'));
 const reference=fs.readFileSync(path.join(root,'tests/device/fixture/parity/reference.js'),'utf8');
-function page({inline=false,bridge=true,inlineToken='c'.repeat(32),random=null}={}) {
+function page({inline=false,bridge=true,inlineToken='c'.repeat(32),random=null,referenceSource=null}={}) {
     let epoch=100000,reading=false;const nodes=new Map(),handlers=new Map(),callbacks=[],outbound=[];
     const doc={readyState:'complete',title:inline?'Actual owned inline':'Actual original HTTP',activeElement:null,
         addEventListener(kind,callback) { if (!handlers.has(kind)) handlers.set(kind,[]);handlers.get(kind).push(callback); },
@@ -39,7 +39,7 @@ function page({inline=false,bridge=true,inlineToken='c'.repeat(32),random=null}=
         location:{href:inline?'http://'+inlineToken+'.overte-inline.invalid/index.html':'http://fixture.invalid/reference.html',pathname:'/reference.html',search:'',origin:'http://fixture.invalid',reload() {}},
         history:{back() {}},console};global.window=global;global.top=global;
     if (bridge) global.EventBridge={emitWebEvent(message) { assert(!reading);outbound.push(message); },scriptEventReceived:{connect(callback) { callbacks.push(callback); }}};
-    const observer=source(global);vm.runInContext(reference,vm.createContext(global));
+    const observer=source(global);vm.runInContext(referenceSource===null?reference:referenceSource,vm.createContext(global));
     function event(id,kind,trusted=true,extra={}) {
         const current={type:kind,target:nodes.get(id),timeStamp:++epoch,isTrusted:trusted,clientX:120,clientY:140,pointerId:7,pointerType:'touch'};
         Object.defineProperties(current,Object.getOwnPropertyDescriptors(extra));

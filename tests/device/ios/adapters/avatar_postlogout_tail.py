@@ -36,6 +36,8 @@ ALL_SOURCES=dict(SOURCES,uikit=uikit_input)
 
 class IOSAvatarPostLogoutTail(AvatarTailJournal):
     PROFILE='avatar'
+    VERSION=VERSION
+    READS=READS
     def __init__(self,store,root,binding,run,role,subject,lock,guard,factory,*,child_run,fixture_url,ticket,baseline,logout_before,epoch_ms,monotonic):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock) and role in ('primary','actor') and subject in ('primary','actor')
             and all(callable(fn) for fn in (guard,factory,epoch_ms,monotonic)))
@@ -59,7 +61,8 @@ class IOSAvatarPostLogoutTail(AvatarTailJournal):
         result.historical=True;result.key_originals=OriginalKeyPackets(root,binding,run,role,subject,lambda:True,lambda *_:need(False),profile='avatar')
         result.journal_init();result.previous=deepcopy(value);result.state=result.parse(value);return result
 
-    def envelope(self,state,version=VERSION):
+    def envelope(self,state,version=None):
+        if version is None:version=self.VERSION
         state=deepcopy(state)
         if version>=3:state.setdefault('nextSegment',1)
         return dict(iosAvatarPostLogoutTailVersion=version,runId=self.run,role=self.role,subject=self.subject,binding=self.binding,
@@ -113,7 +116,7 @@ class IOSAvatarPostLogoutTail(AvatarTailJournal):
 
     def parse(self,value):
         exact(value,{'iosAvatarPostLogoutTailVersion','runId','role','subject','binding','artifactRoot','inputs','payload'})
-        version=value['iosAvatarPostLogoutTailVersion'];need(type(version) is int and version in READS)
+        version=value['iosAvatarPostLogoutTailVersion'];need(type(version) is int and version in self.READS)
         states=unpack(value['payload']);need(len(states)==1 and same(value,self.envelope(states[0],version)));state=states[0];exact(state,{'rows','pending'}|({'nextSegment'} if version>=3 else set()))
         need(type(state['rows']) is list and len(state['rows'])<=128);previous=None;partials=[];key_index=0
         for index,row in enumerate(state['rows'],1):
@@ -162,7 +165,7 @@ class IOSAvatarPostLogoutTail(AvatarTailJournal):
 
     def record(self,reference):
         exact(reference,{'index','sha256'});value=self.file(reference['index']).read();need(value is not None and digest(value)==reference['sha256'])
-        version=value.get('iosAvatarPostLogoutTailOriginalVersion');need(type(version) is int and version in READS)
+        version=value.get('iosAvatarPostLogoutTailOriginalVersion');need(type(version) is int and version in self.READS)
         exact(value,{'iosAvatarPostLogoutTailOriginalVersion','runId','role','subject','binding','original' if version>=3 else 'payload'})
         need(value['runId']==self.run and value['role']==self.role and value['subject']==self.subject and same(value['binding'],self.binding))
         if version>=3:
@@ -400,8 +403,7 @@ class IOSAvatarPostLogoutTail(AvatarTailJournal):
         work=drained_since(baseline['scripts'],scripts,managers,pins());need(avatar_scripts.drained(scripts,managers))
         need(all('uiWork' in worker for worker in scripts['source']['workers'] if worker['avatar']['code']))
         need(all(timer['depth']==timer['pendingDispatch']==0 for worker in scripts['source']['workers'] if 'uiWork' in worker for timer in worker['uiWork']['timers']))
-        need(people_model.drained(value['packets']['people']) and avatar_ui_inventory.absent(value['widgetsReceipt']['observation'])
-            and not value['widgetsReceipt']['observation']['tabletShown'])
+        need(people_model.drained(value['packets']['people']));panel=self.panel_quiet(value['widgetsReceipt']['observation'])
         keyboard=None
         if 'keys' in value:
             world_web_keys.privacy_qualified(self.keys(value))
@@ -418,7 +420,13 @@ class IOSAvatarPostLogoutTail(AvatarTailJournal):
         if keyboard is not None:
             proof['keys']=keyboard
             proof['endpointEpochMs']=max([proof['endpointEpochMs'],*[event['epochMs'] for event in keyboard['events']]])
-        return proof
+        return self.qualify_proof(proof,panel)
+
+    def panel_quiet(self,widgets):
+        need(avatar_ui_inventory.absent(widgets) and not widgets['tabletShown']);return None
+
+    @staticmethod
+    def qualify_proof(proof,panel):return proof
 
     def tail_record_tag(self,index):
         return hashlib.sha256(canonical(dict(runId=self.run,role=self.role,subject=self.subject,index=index))).hexdigest()
@@ -443,7 +451,7 @@ class IOSAvatarPostLogoutTail(AvatarTailJournal):
             raw=self.segments.read(p['staged']);current=json.loads(raw.decode('utf-8'));need(canonical(current)==raw)
             last=next((self.record(row['reference']) for row in reversed(self.state['rows']) if row['status']=='observed'),None)
             self.validate(current,last);need(current['index']==p['index'])
-            value=dict(iosAvatarPostLogoutTailOriginalVersion=VERSION,runId=self.run,role=self.role,subject=self.subject,
+            value=dict(iosAvatarPostLogoutTailOriginalVersion=self.VERSION,runId=self.run,role=self.role,subject=self.subject,
                 binding=self.binding,original=deepcopy(p['staged']))
             store=self.file(p['index']);old=store.read()
             if old is None:store.write(value,None)

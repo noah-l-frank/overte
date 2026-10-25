@@ -45,8 +45,11 @@ class Frozen(PrivateFeatureState):
 
 
 class IOSAvatarScene:
+    VERSION=VERSION
+    Marker=IOSAvatarMarkerScope
+    Samples=IOSAvatarSamples
     def __init__(self,runtime,selector,sources,scope,samples,baseline,clock,*,epoch_ms,monotonic,sleep):
-        need(isinstance(sources,IOSAvatarSources) and not sources.historical and isinstance(scope,IOSAvatarMarkerScope)
+        need(isinstance(sources,IOSAvatarSources) and not sources.historical and type(scope) is self.Marker
             and isinstance(samples,IOSAvatarSamples) and sources.lock is scope.lock is samples.lock
             and same(sources.binding,scope.binding) and all(callable(fn) for fn in (epoch_ms,monotonic,sleep)))
         self.runtime,self.selector,self.sources,self.scope,self.samples=runtime,selector,sources,scope,samples
@@ -77,11 +80,11 @@ class IOSAvatarScene:
         rows=unpack(value['payload']);need(len(rows)==1 and rows[0]['records']);last=result.record(rows[0]['records'][-1])
         result.sources=source_history(last['source'],last['recovery'],store=Frozen(result.paths['sources'],last['source']),root=root,
             binding=binding,run=run,role=role,lock=lock)
-        result.scope=IOSAvatarMarkerScope.archive(last['scope'],root=root,binding=binding,run=run,role=role,lock=lock)
+        result.scope=cls.Marker.archive(last['scope'],root=root,binding=binding,run=run,role=role,lock=lock)
         result.previous=deepcopy(value);result.state=result.decode(value)
         return result
 
-    def envelope(self,state):return dict(iosAvatarSceneVersion=VERSION,binding=self.binding,runId=self.run,role=self.role,
+    def envelope(self,state):return dict(iosAvatarSceneVersion=self.VERSION,binding=self.binding,runId=self.run,role=self.role,
         artifactRoot=str(self.root),baseline=self.baseline,operationClock=self.clock,paths={key:str(path) for key,path in self.paths.items()},payload=pack([state]))
 
     def decode(self,value):
@@ -165,7 +168,7 @@ class IOSAvatarScene:
         entities=self.runtime._avatar_marker_entities(self.selector,self.scope,self.root,self.lock);entities.abandon();entities.capture();entities.closed(self.scope)
         files=receipts['files'];files.abandon();files.capture('absent',self.scope.state['fileOwnership'])
         self.sources.read();history=self.historical_sources();index=len(history.frames)
-        cleanup=avatar_cleanup_sources.restored(history,self.baseline['index'],index,fixture_url=self.scope.fixture_url,expected_code=pins())
+        cleanup=self.restored_sources(history,self.baseline['index'],index,fixture_url=self.scope.fixture_url,expected_code=pins())
         weak=avatar_cleanup_sources.wearable_lifetimes(history,self.baseline['index'],index,
             entities.original(entities.state['records'][0])['packet'],entities.latest()['packet'],fixture_url=self.scope.fixture_url,expected_code=pins())
         last_file=files.original(files.state['records'][-1]);follow(entities.latest()['clockJoin']['nativeAfter'],last_file['clockJoin']['nativeBefore'])
@@ -192,19 +195,34 @@ class IOSAvatarScene:
         frame=self.scope.capture('avatar-scene-quiet');right=pointers.capture()
         return dict(source=ref,scope=len(self.scope.frames),left=left,right=right)
 
+    @staticmethod
+    def restored_sources(*args,**kwargs):return avatar_cleanup_sources.restored(*args,**kwargs)
+
+    @staticmethod
+    def resource_quiet(frame,scope):
+        return drained_owned_resources(frame['web'],scope.frames[scope.state['webAdmission']-1]['web'])
+
+    @staticmethod
+    def holders_unchanged(first,last,scope):return True
+
+    def scene_summary(self,p,acquisition,native):
+        return dict(sceneRetirementVersion=1,runId=self.run,sequence=p['sequence'],capturedEpochMs=acquisition['hostAfterEpochMs'],
+            retired=list(SCENE_CLASSES),remaining=['account-session'],lifecycle=deepcopy(native['lifecycle']))
+
     def quiet_frame(self,cut):
         frame=self.scope.frames[cut['scope']-1];self.scope.ui_absent(frame);self.scope.dialog_drained(frame)
         baseline=self.scope.frames[self.scope.state['baseline']-1];self.scope.components.body_preserved(baseline['world'],frame['world'])
         self.scope.components.view_preserved(baseline['world'],frame['world'])
         self.scope.restored_marker(baseline,frame,self.scope.state['admission'],self.scope.state['stopBarrier'])
-        drained_owned_resources(frame['web'],self.scope.frames[self.scope.state['webAdmission']-1]['web'])
-        history=self.historical_sources();avatar_cleanup_sources.restored(history,self.baseline['index'],cut['source']['index'],
+        self.resource_quiet(frame,self.scope)
+        history=self.historical_sources();self.restored_sources(history,self.baseline['index'],cut['source']['index'],
             fixture_url=self.scope.fixture_url,expected_code=pins());return frame
 
     def quiet(self,after):
         self.bound();self.state['quiet']=[];self.save()
         for _ in range(80):
             self.deadline();cut=self.cut();frame=self.quiet_frame(cut)
+            if self.state['quiet']:self.holders_unchanged(self.scope.frames[self.state['quiet'][-1]['scope']-1],frame,self.scope)
             follow(after,frame['clockJoin']['nativeBefore'])
             self.state['quiet'].append(cut);self.save();rows=self.state['quiet']
             if len(rows)>=3:
@@ -221,7 +239,7 @@ class IOSAvatarScene:
     def record(self,ref):
         exact(ref,{'index','sha256'});value=self.file(ref['index']).read();need(value is not None and digest(value)==ref['sha256'])
         exact(value,{'iosAvatarSceneOriginalVersion','runId','role','binding','payload'})
-        need(type(value['iosAvatarSceneOriginalVersion']) is int and value['iosAvatarSceneOriginalVersion']==VERSION and value['runId']==self.run
+        need(type(value['iosAvatarSceneOriginalVersion']) is int and value['iosAvatarSceneOriginalVersion']==self.VERSION and value['runId']==self.run
             and value['role']==self.role and same(value['binding'],self.binding));rows=unpack(value['payload']);need(len(rows)==1);return rows[0]
 
     def finish(self,value):
@@ -269,7 +287,7 @@ class IOSAvatarScene:
             recovery=deepcopy(IOSAvatarSourceRecovery(self.sources).previous),scope=self.scope.snapshot(),
             endpoints=deepcopy(self.state['endpoints']),image=deepcopy(self.state['image']),quiet=deepcopy(self.state['quiet']),
             pointers=deepcopy(pointers.previous),samples=deepcopy(self.samples.previous),close=deepcopy(self.state['close']),acquisition=acquisition)
-        value=dict(iosAvatarSceneOriginalVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,payload=pack([payload]))
+        value=dict(iosAvatarSceneOriginalVersion=self.VERSION,runId=self.run,role=self.role,binding=self.binding,payload=pack([payload]))
         self.state['pending']=dict(index=len(self.state['records'])+1,value=value);self.save()
         ref=self.finish(value);self.derive(ref)
         a=PhaseRetirementPublisher.acquisition(acquisition);now,mono=self.epoch_ms(),self.monotonic()
@@ -279,7 +297,10 @@ class IOSAvatarScene:
         return ref
 
     def derive(self,reference):
-        """Pure Scene-v2 callback: original files only, no runtime or guards."""
+        return self.joined(reference)[0]
+
+    def joined(self,reference):
+        """One original traversal returns its proof and already checked inputs."""
         self.lock.assert_held();need(reference in self.state['records']);p=self.record(reference)
         exact(p,{'ticket','phaseInstance','sequence','baseline','paths','imagePolicy','fixtureUrl','expectedCode','source','recovery','scope',
             'endpoints','image','quiet','pointers','samples','close','acquisition'})
@@ -287,7 +308,7 @@ class IOSAvatarScene:
             and p['paths']=={key:str(path) for key,path in self.paths.items()} and p['expectedCode']==pins())
         history=source_history(p['source'],p['recovery'],store=Frozen(self.paths['sources'],p['source']),root=self.root,
             binding=self.binding,run=self.run,role=self.role,lock=self.lock)
-        scope=IOSAvatarMarkerScope.archive(p['scope'],root=self.root,binding=self.binding,run=self.run,role=self.role,lock=self.lock)
+        scope=self.Marker.archive(p['scope'],root=self.root,binding=self.binding,run=self.run,role=self.role,lock=self.lock)
         need(scope.state['phase']=='released' and scope.state['pending'] is None and scope.state['cleanupMode']=='full'
             and scope.fixture_url==p['fixtureUrl'] and scope.state['webAdmission'] is not None)
         baseline=scope.frames[scope.state['baseline']-1];admission=scope.frames[scope.state['admissionFrame']-1]
@@ -306,7 +327,7 @@ class IOSAvatarScene:
         follow(file['clockJoin']['nativeAfter'],end_frame['clockJoin']['nativeBefore'])
         weak=avatar_cleanup_sources.wearable_lifetimes(history,self.baseline['index'],endpoint['source']['index'],
             entities.original(entities.state['records'][0])['packet'],entities.latest()['packet'],fixture_url=scope.fixture_url,expected_code=p['expectedCode'])
-        closed=avatar_cleanup_sources.restored(history,self.baseline['index'],endpoint['source']['index'],fixture_url=scope.fixture_url,expected_code=p['expectedCode'])
+        closed=self.restored_sources(history,self.baseline['index'],endpoint['source']['index'],fixture_url=scope.fixture_url,expected_code=p['expectedCode'])
         need(endpoint['native']['capturedEpochMs']>=max(weak['endpointEpochMs'],closed['endpointEpochMs']))
         image=p['image'];exact(image,{'owner','baseline','current','proof'})
         frames=IOSAvatarRestorationFrames.archive(image['owner'],store=Frozen(self.paths['restoration'],image['owner']),root=self.root,
@@ -314,7 +335,7 @@ class IOSAvatarScene:
         image_proof=avatar_restoration_image.restored(frames,image['baseline'],image['current'],admission['world'],
             scope.state['admission']['marker']['id'],after_native=endpoint['native']);need(same(image_proof,image['proof']))
         image_end=frames.frame(image['current'])[0]['clockJoin']['nativeAfter']
-        samples=IOSAvatarSamples.history(p['samples'],store=Frozen(self.paths['samples'],p['samples']),root=self.root,binding=self.binding,
+        samples=self.Samples.history(p['samples'],store=Frozen(self.paths['samples'],p['samples']),root=self.root,binding=self.binding,
             run=self.run,role=self.role,policy=p['imagePolicy'],lock=self.lock);need(samples.state['pending'] is None)
         pointers=IOSAvatarPointers.archive(p['pointers'],store=Frozen(self.paths['pointers'],p['pointers']),root=self.root,
             binding=self.binding,run=self.run,role=self.role,lock=self.lock)
@@ -324,12 +345,14 @@ class IOSAvatarScene:
             current=source(cut['source']);need(cut['source']['index']>prior_source);prior_source=cut['source']['index'];prior_scope=cut['scope']
             phase=current['phaseAfter'];need(phase['instance']==p['phaseInstance'] and phase['activations'][-1]['ticket']==p['ticket']
                 and phase['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
-            frame=scope.frames[cut['scope']-1];quiet.append(frame);scope.ui_absent(frame);scope.dialog_drained(frame)
+            frame=scope.frames[cut['scope']-1]
+            if quiet:self.holders_unchanged(quiet[-1],frame,scope)
+            quiet.append(frame);scope.ui_absent(frame);scope.dialog_drained(frame)
             scope.components.body_preserved(baseline['world'],frame['world']);scope.components.view_preserved(baseline['world'],frame['world'])
             scope.restored_marker(baseline,frame,scope.state['admission'],scope.state['stopBarrier'])
-            drained_owned_resources(frame['web'],scope.frames[scope.state['webAdmission']-1]['web'])
+            self.resource_quiet(frame,scope)
             follow(image_end,frame['clockJoin']['nativeBefore'])
-            component=avatar_cleanup_sources.restored(history,self.baseline['index'],cut['source']['index'],
+            component=self.restored_sources(history,self.baseline['index'],cut['source']['index'],
                 fixture_url=scope.fixture_url,expected_code=p['expectedCode'])
             if first_source is None:first_source=current
             need(component['endpointEpochMs']<=first_source['clockJoin']['nativeBefore']['capturedEpochMs'])
@@ -363,7 +386,7 @@ class IOSAvatarScene:
             hostBeforeLastMonotonic=last['clockJoin']['hostBeforeMonotonic'],nativeAfterFirstEpochMs=x['clockAfter']['epochMs'],
             nativeBeforeLastEpochMs=y['clockBefore']['epochMs'],nativeAfterFirstMonotonicMs=x['clockAfter']['monotonicMs'],
             nativeBeforeLastMonotonicMs=y['clockBefore']['monotonicMs'],nativeInstance=x['instance'],processId=x['processId'])
-        scene=dict(sceneRetirementVersion=1,runId=self.run,sequence=p['sequence'],capturedEpochMs=a['hostAfterEpochMs'],
-            retired=list(SCENE_CLASSES),remaining=['account-session'],lifecycle=deepcopy(native['lifecycle']))
-        return dict(ticket=p['ticket'],scene=scene,acquisition=deepcopy(a),retirement=dict(originalSha256=reference['sha256'],quiet=quiet_proof,
+        scene=self.scene_summary(p,a,native)
+        proof=dict(ticket=p['ticket'],scene=scene,acquisition=deepcopy(a),retirement=dict(originalSha256=reference['sha256'],quiet=quiet_proof,
             provenance=dict(version=1,namespace='ios-avatar-scene-original',reference=deepcopy(reference),originalSha256=reference['sha256'])))
+        return proof,dict(reference=deepcopy(reference),scope=scope,history=history,quiet=quiet,original=p)

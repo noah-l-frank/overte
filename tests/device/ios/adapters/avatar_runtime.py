@@ -50,7 +50,14 @@ class IOSAvatarLoginRuntime(IOSAuthenticationRuntime):
 
 
 class IOSAvatarRuntime(IOSScriptRuntime):
-    def _avatar_postlogout_tail(self,selector,client,run,role,subject,root,lock,*,child_run,ticket,baseline,logout_before,epoch_ms=None,monotonic=None):
+    def _avatar_feature(self,selector,run,*,role,client,settings):
+        from ios.adapters.avatar_configuration import settings as validate_settings
+        from ios.adapters.avatar_feature import IOSAvatarFeature
+        need(role in ('primary','actor') and isinstance(client,Client));identifier(run)
+        selected=validate_settings(settings,role=role,target=selector)
+        return IOSAvatarFeature(self,selector,client,run,role,selected)
+
+    def _avatar_postlogout_tail(self,selector,client,run,role,subject,root,lock,*,child_run,ticket,baseline,logout_before,epoch_ms=None,monotonic=None,held=False):
         from ios.adapters.avatar_postlogout_tail import IOSAvatarPostLogoutTail
         identifier(run);identifier(child_run);identifier(ticket);need(isinstance(client,Client) and isinstance(lock,ScriptSourceLock))
         lock.assert_held();need(lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
@@ -58,10 +65,24 @@ class IOSAvatarRuntime(IOSScriptRuntime):
         need(source['target'].get('testBuild',{}).get('launchEnvironment',{}).get('HIFI_METAVERSE_URL')==origin(client.url))
         def factory():
             current=self._sources(selector);need(current['binding']==binding);return current
-        return IOSAvatarPostLogoutTail(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-'+role+'-'+subject+'-postlogout-tail.json')),
+        need(type(held) is bool);Tail=IOSAvatarPostLogoutTail
+        if held:
+            from ios.adapters.avatar_held_tail import IOSAvatarHeldTail
+            Tail=IOSAvatarHeldTail
+        return Tail(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-'+role+'-'+subject+'-postlogout-tail.json')),
             root,binding,run,role,subject,lock,source['check'],factory,child_run=child_run,fixture_url=client.url+'/runs/'+child_run+'/',ticket=ticket,
             baseline=baseline,logout_before=logout_before,epoch_ms=(lambda:time.time()*1000) if epoch_ms is None else epoch_ms,
             monotonic=time.monotonic if monotonic is None else monotonic)
+
+    def _avatar_marker_web_receipts(self,selector,client,run,role,root,lock,*,fixture_url,epoch_ms,monotonic):
+        from ios.adapters.avatar_marker_web_receipts import IOSAvatarMarkerWebReceipts
+        need(isinstance(client,Client) and isinstance(lock,ScriptSourceLock) and role in ('primary','actor'))
+        lock.assert_held();need(lock.path==self.state_path(selector).with_name('script-feature-sources.lock')
+            and fixture_url==client.url+'/runs/'+identifier(run)+'/')
+        actual=self._sources(selector)
+        return IOSAvatarMarkerWebReceipts(PrivateFeatureState(self.state_path(selector).with_name('ios-avatar-'+role+'-marker-web.json')),
+            root,actual['binding'],run,role,lock,actual['check'],native=actual['clock_source'],reader=actual['observer'].web_closures(),
+            fixture_url=fixture_url,epoch_ms=epoch_ms,monotonic=monotonic)
 
     def _avatar_postlogout_reads(self,selector,client,run,role,subject,root,lock,*,child_run,ticket,baseline,logout_before,epoch_ms=None,monotonic=None):
         from ios.adapters.avatar_postlogout_reads import IOSAvatarPostLogoutReads
@@ -100,6 +121,15 @@ class IOSAvatarRuntime(IOSScriptRuntime):
         need(source['target'].get('testBuild',{}).get('launchEnvironment',{}).get('HIFI_METAVERSE_URL')==origin(client.url))
         return IOSAvatarMarkerScope(self,selector,root,run,role,client.url+'/runs/'+run+'/',ticket,lock)
 
+    def _avatar_held_marker_scope(self,selector,client,run,role,root,ticket,lock):
+        from ios.adapters.avatar_held_marker_scope import IOSAvatarHeldMarkerScope
+        identifier(run);identifier(ticket)
+        need(isinstance(client,Client) and role in ('primary','actor') and isinstance(lock,ScriptSourceLock))
+        lock.assert_held();need(lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
+        source=self._sources(selector)
+        need(source['target'].get('testBuild',{}).get('launchEnvironment',{}).get('HIFI_METAVERSE_URL')==origin(client.url))
+        return IOSAvatarHeldMarkerScope(self,selector,root,run,role,client.url+'/runs/'+run+'/',ticket,lock)
+
     def _avatar_marker_entities(self,selector,scope,root,lock):
         from ios.adapters.avatar_marker_scope import IOSAvatarMarkerScope
         from ios.adapters.avatar_marker_entities import IOSAvatarMarkerEntities
@@ -119,7 +149,12 @@ class IOSAvatarRuntime(IOSScriptRuntime):
         need(source['binding']==scope.binding and lock.path==self.state_path(selector).with_name('script-feature-sources.lock')
             and scope.fixture_url==client.url+'/runs/'+scope.run+'/'
             and source['target'].get('testBuild',{}).get('launchEnvironment',{}).get('HIFI_METAVERSE_URL')==origin(client.url))
-        return IOSAvatarSamples(self,selector,scope,root,policy,PhaseFixtureReader(client,scope.run,'avatar-people'),lock)
+        Samples=IOSAvatarSamples
+        from ios.adapters.avatar_held_marker_scope import IOSAvatarHeldMarkerScope
+        if type(scope) is IOSAvatarHeldMarkerScope:
+            from ios.adapters.avatar_held_samples import IOSAvatarHeldSamples
+            Samples=IOSAvatarHeldSamples
+        return Samples(self,selector,scope,root,policy,PhaseFixtureReader(client,scope.run,'avatar-people'),lock)
 
     def _avatar_consent(self,selector,sources,peer,username):
         from ios.adapters.avatar_consent import IOSAvatarConsent

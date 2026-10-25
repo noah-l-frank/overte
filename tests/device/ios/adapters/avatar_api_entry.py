@@ -18,9 +18,10 @@ _CURRENT=ContextVar('overte_avatar_api_budget',default=None)
 
 
 class Budget:
-    def __init__(self,monotonic):
+    def __init__(self,monotonic,seconds=SECONDS):
+        if type(seconds) is not int or seconds not in (25,30):raise NativeUIError('Closed Avatar API budget is unavailable')
         self.monotonic=monotonic;self.last=None;self.deadline=None;self.failed=False;self.original_caches={}
-        self.deadline=self.check()+SECONDS
+        self.deadline=self.check()+seconds
     def check(self):
         value=self.monotonic()
         if (self.failed or type(value) not in (int,float) or not math.isfinite(value) or value<0
@@ -50,8 +51,8 @@ def original_cache(kind):
 
 
 @contextmanager
-def scope(monotonic):
-    old=_CURRENT.get();budget=old if old is not None else Budget(monotonic)
+def scope(monotonic,*,seconds=SECONDS):
+    old=_CURRENT.get();budget=old if old is not None else Budget(monotonic,seconds)
     token=_CURRENT.set(budget)
     try:
         with transport_scope(budget.check):
@@ -62,7 +63,9 @@ def scope(monotonic):
 def operation(function):
     @wraps(function)
     def bounded(self,*args,**kwargs):
-        with scope(self.monotonic):return function(self,*args,**kwargs)
+        call=args[0] if args else kwargs.get('call')
+        finish=function.__name__=='terminal' and type(call) is dict and call.get('stage')=='finish'
+        with scope(self.monotonic,seconds=30 if finish else SECONDS):return function(self,*args,**kwargs)
     return bounded
 
 
@@ -78,6 +81,7 @@ def installed_entry(function,*,monotonic=time.monotonic):
     @wraps(function)
     def bounded(self,selector,operation,values):
         if type(operation) is str and operation.startswith('feature.avatar-people.'):
-            with scope(monotonic):return function(self,selector,operation,values)
+            finish=operation=='feature.avatar-people.terminal' and type(values) is dict and values.get('stage')=='finish'
+            with scope(monotonic,seconds=30 if finish else SECONDS):return function(self,selector,operation,values)
         return function(self,selector,operation,values)
     return bounded

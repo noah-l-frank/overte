@@ -5,6 +5,7 @@
 #endif
 #import "PhotosOriginal.h"
 #import "CompanionIdentity.h"
+#import "PhotosOriginalChunks.h"
 #import <Photos/Photos.h>
 #import <CommonCrypto/CommonDigest.h>
 #include <fcntl.h>
@@ -107,6 +108,8 @@ static NSString* OVTIdentifier(void) {return [[NSUUID.UUID.UUIDString lowercaseS
 @property(nonatomic,strong) UITextField* assetField;
 @property(nonatomic,strong) UITextField* nameField;
 @property(nonatomic,strong) UITextField* queryField;
+@property(nonatomic,strong) UITextField* offsetField;
+@property(nonatomic,strong) NSMutableSet<NSString*>* chunkNonces;
 @property(nonatomic,strong) UILabel* status;
 @property(nonatomic,strong) OVTPhotosJournal* journal;
 @property(nonatomic,copy) NSString* instance;
@@ -134,9 +137,12 @@ static NSString* OVTIdentifier(void) {return [[NSUUID.UUID.UUIDString lowercaseS
     self.assetField=[self field:@"snapshot.destination.asset" placeholder:@"Observed Photos placeholder identifier" stack:stack];
     self.nameField=[self field:@"snapshot.destination.basename" placeholder:@"Observed original capture filename" stack:stack];
     self.queryField=[self field:@"snapshot.destination.query" placeholder:@"Fresh read nonce" stack:stack];
+    self.offsetField=[self field:@"snapshot.destination.offset" placeholder:@"Original byte offset" stack:stack];
+    self.chunkNonces=[NSMutableSet new];
     [self button:@"Authorize Photos read" name:@"snapshot.destination.authorize" action:@selector(authorizePhotos) stack:stack];
     [self button:@"Read Photos original" name:@"snapshot.destination.read" action:@selector(readOriginal) stack:stack];
     [self button:@"Inspect original owner" name:@"snapshot.destination.inspect" action:@selector(inspectOriginal) stack:stack];
+    [self button:@"Read unchanged original chunk" name:@"snapshot.destination.chunk" action:@selector(readOriginalChunk) stack:stack];
     [self button:@"Delete this owned Photos asset" name:@"snapshot.destination.delete" action:@selector(deleteOriginal) stack:stack];
     self.status=[UILabel new];self.status.numberOfLines=0;self.status.accessibilityIdentifier=@"snapshot.destination.status";
     self.status.text=@"No original acquired";[stack addArrangedSubview:self.status];
@@ -268,5 +274,16 @@ static NSString* OVTIdentifier(void) {return [[NSUUID.UUID.UUIDString lowercaseS
                          @"deletionAlive":@(journal.deletion!=nil),@"assetPresent":present,@"authorization":@(permission)}];
     BOOL saved=[journal persist];[journal.lock unlock];
     self.status.text=saved?@"Original inspection persisted":@"Original inspection failed";
+}
+- (void)readOriginalChunk {
+    OVTPhotosJournal* journal=self.journal;NSString* nonce=self.queryField.text;
+    if (!journal || !OVTMatch(nonce,@"\\Aios-[0-9a-f]{32}\\z") || [self.chunkNonces containsObject:nonce] || self.chunkNonces.count>=1024) {[self fail];return;}
+    [journal.lock lock];BOOL expired=NO;
+    for (NSDictionary* event in journal.record[@"events"]) {if ([event[@"kind"] isEqual:@"weak-expired"]) {expired=YES;}}
+    if (!journal.valid || journal.operation || !expired || ![journal.record[@"phase"] isEqual:@"complete"]) {[journal.lock unlock];[self fail];return;}
+    [self.chunkNonces addObject:nonce];
+    NSDictionary* packet=OVTPhotosOriginalChunk(journal.root,journal.record,nonce,self.offsetField.text);
+    NSURL* documents=[NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
+    BOOL saved=OVTPhotosPersistChunk(documents,packet);[journal.lock unlock];self.status.text=saved?@"Unchanged original chunk persisted":@"Original chunk unavailable";
 }
 @end

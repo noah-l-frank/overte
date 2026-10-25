@@ -74,6 +74,15 @@ class TabletWebObserver:
 
     def validate_original(self,original):
         """Pure historical decoder: no live process guard, SDK or HTTP calls."""
+        return self._decoded_original(original)[0]
+
+    def _decoded_original(self,original):
+        """Internal successful decode, including its exact original row/frame.
+
+        The runtime continues its bootstrap/readiness joins on these same
+        just-decoded originals. This ephemeral result is never a public DTO,
+        stored authority, current source observation or cross-call cache.
+        """
         exact(original,{'tabletWebObservationOriginalVersion','binding','runId','role','fixtureUrl','hostProcessId','reference'})
         source=self.source
         need(type(original['tabletWebObservationOriginalVersion']) is int and original['tabletWebObservationOriginalVersion']==VERSION
@@ -87,8 +96,9 @@ class TabletWebObserver:
             capturedEpochMs=clock['hostBeforeEpochMs'],state=measured['public'],artifacts=[],resources=resources(frame,record),
             lifecycle=deepcopy(record['nativeAfter']['lifecycle']))
         result('feature.tablet-web.observe',public)
-        return dict(ticket=record['phaseAfter']['activations'][-1]['ticket'],public=public,
+        observed=dict(ticket=record['phaseAfter']['activations'][-1]['ticket'],public=public,
             acquisition={key:clock[key] for key in ('hostBeforeEpochMs','hostAfterEpochMs','hostBeforeMonotonic','hostAfterMonotonic')})
+        return observed,historical,record,frame
 
     def observe(self):
         _parts,record=self.source.capture(self.readers,self.native,self.phase,self.browser)

@@ -24,6 +24,7 @@ from ios.adapters.avatar_facts import IOSAvatarFacts,inside
 from ios.adapters.avatar_observation import source_history
 from ios.adapters.avatar_peer_sources import IOSAvatarPeerSources
 from ios.adapters.avatar_samples import IOSAvatarSamples
+from ios.adapters.avatar_held_samples import history as sample_history
 from ios.adapters.avatar_source_recovery import IOSAvatarSourceRecovery
 from ios.adapters.avatar_surface import IOSAvatarSurface
 from ios.adapters.avatar_sources import IOSAvatarSources
@@ -288,7 +289,7 @@ class IOSAvatarObserver:
                 for ref in recovery.state['records']:
                     if boundary is not None and recovery.attempt(recovery.record(ref))['revision']<boundary['index']:need(ref in known)
             peers[subject]=peer
-        samples=IOSAvatarSamples.history(components['samples'],store=self.samples.store,root=self.root,binding=self.binding,
+        samples=sample_history(components['samples'],store=self.samples.store,root=self.root,binding=self.binding,
             run=self.run,role=self.role,policy=self.samples.policy,lock=self.lock)
         return IOSAvatarFacts(sources,peers,samples,self.authority,role=self.role,
             phase_instance=record['facts']['phaseInstance'],expected_code=self.expected_code)
@@ -372,8 +373,13 @@ class IOSAvatarObserver:
         actor.read();aafter=self.remember('actorAfter',actor.reference())
         provider=self.remember('authorityAfter',self.provider())
         previous=None
-        for row in reversed(self.state['rows']):
-            if row['status']=='observed':previous=self.read_record(row)['facts']['image'];break
+        if phase['verb'] in ('avatar-scale','wearable-add','avatar-bookmark-choose'):
+            activations=phase['status']['activations'];need(len(activations)>=2)
+            prior_ticket=activations[-2]['ticket']
+            for row in reversed(self.state['rows']):
+                if row['status']=='observed' and row['ticket']==prior_ticket:
+                    previous=self.read_record(row)['facts']['image'];break
+            need(previous is not None)
         basis=None;loaded=self.sources['primary'].frames[-1]['originals']['state']['source']['geometryLoaded']
         if not loaded:
             for row in reversed(self.samples.state['rows']):

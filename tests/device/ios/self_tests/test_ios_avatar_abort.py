@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import hashlib
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
 import json
@@ -165,6 +166,20 @@ class AvatarAbortTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):owner.stop()
             self.assertEqual('feature.avatar-people.act',base._operation);self.assertEqual(0,self.stop_count)
             self.assertEqual('failed',self.owner().state['phase'])
+
+    def test_literal_committed_v1_admission_reads_without_rewriting_or_current_sdk_queries(self):
+        # Written independently by the exact 628f45cb9e writer, not this reader.
+        path=Path(__file__).with_name('fixtures')/'avatar-abort-v1-admission.json';raw=path.read_bytes()
+        self.assertEqual('594692c3bb9d939c1c70849e43cfaa8a62778e240c5c4c0ca8a1296c1c03072f',hashlib.sha256(raw).hexdigest())
+        value=json.loads(raw);self.assertNotIn('pairedPreparationFailure',value)
+        with self.lock.held():
+            self.feature.load();before=self.feature.store.path.read_bytes()
+            with patch.object(self.runtime.adapter,'_target',side_effect=AssertionError('Historical v1 must not query SDK')):
+                owner=IOSAvatarAbort.history(self.feature,value)
+                self.assertEqual('failed',owner.state['phase']);self.assertIsNone(owner.paired_failure)
+                self.assertEqual(value,owner.envelope(owner.state))
+            self.assertEqual(before,self.feature.store.path.read_bytes());self.assertFalse(owner.store.path.exists())
+        self.assertEqual(raw,path.read_bytes());self.assertEqual([],self.calls)
 
 
 if __name__=='__main__':unittest.main()

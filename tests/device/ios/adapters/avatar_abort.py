@@ -24,8 +24,16 @@ PHASES=('failed','stop-issued','os-quiet','delete-issued','aborted')
 
 class IOSAvatarAbort:
     """A separate failed lifecycle; no input retry or fabricated scene proof."""
+    @staticmethod
+    def admission(feature,paired_failure):
+        need(feature.state is not None)
+        if paired_failure is None:need(feature.state['phase']=='preparing')
+        else:
+            from ios.adapters.avatar_paired_failure import validate
+            validate(feature,paired_failure)
+
     @classmethod
-    def archive(cls,feature,value):
+    def history(cls,feature,value):
         """Read actual failed-process originals after SDK metadata retirement.
 
         This is only the OS/SDK part of failed preparation. Ancillary account,
@@ -34,25 +42,34 @@ class IOSAvatarAbort:
         """
         from ios.adapters.avatar_feature import IOSAvatarFeature
         need(isinstance(feature,IOSAvatarFeature));feature.lock.assert_held();feature.load()
-        need(feature.state is not None and feature.state['phase']=='preparing')
+        paired=deepcopy(value.get('pairedPreparationFailure'));cls.admission(feature,paired)
         result=object.__new__(cls);result.feature,result.runtime,result.selector,result.lock=feature,feature.runtime,feature.selector,feature.lock
         result.run,result.role=feature.run,feature.role;result.failure=deepcopy(feature.previous)
+        result.paired_failure=paired
         result.binding=context(feature.state['bindings'][feature.role])
         result.store=PrivateFeatureState(feature.store.path.with_name('ios-avatar-'+feature.role+'-'+feature.run+'-abort.json'))
-        need(same(result.store.read(),value));result.previous=deepcopy(value)
+        result.previous=deepcopy(value)
         result.source=deepcopy(process_source(value['source']));result.bundle=value['bundleId']
-        result.state=result.decode(value);need(result.state['phase']=='aborted');return result
+        result.state=result.decode(value);return result
 
-    def __init__(self,feature,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic):
+    @classmethod
+    def archive(cls,feature,value):
+        result=cls.history(feature,value)
+        need(same(result.store.read(),value) and result.state['phase']=='aborted');return result
+
+    def __init__(self,feature,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,paired_failure=None):
         from ios.adapters.avatar_feature import IOSAvatarFeature
         need(isinstance(feature,IOSAvatarFeature) and all(callable(x) for x in (epoch_ms,monotonic)))
         self.feature,self.runtime,self.selector,self.lock=feature,feature.runtime,feature.selector,feature.lock
         self.run,self.role=feature.run,feature.role
         self.epoch_ms,self.monotonic=epoch_ms,monotonic
         self.store=PrivateFeatureState(feature.store.path.with_name('ios-avatar-'+self.role+'-'+self.run+'-abort.json'))
-        self.lock.assert_held();feature.load();need(feature.state is not None and feature.state['phase']=='preparing')
+        self.lock.assert_held();feature.load();self.previous=self.store.read()
+        retained=None if self.previous is None else self.previous.get('pairedPreparationFailure')
+        if paired_failure is not None and self.previous is not None:need(same(paired_failure,retained))
+        self.paired_failure=deepcopy(retained if paired_failure is None else paired_failure)
+        self.admission(feature,self.paired_failure)
         self.failure=deepcopy(feature.previous);self.binding=context(feature.state['bindings'][self.role])
-        self.previous=self.store.read()
         if self.previous is None:
             started=operation_clock.begin(self.epoch_ms(),self.monotonic())
             source=IOSGraphicsRuntime._graphics_final_source(self.runtime,self.selector,self.binding)
@@ -66,13 +83,16 @@ class IOSAvatarAbort:
         self.bound()
 
     def envelope(self,state):
-        return dict(iosAvatarAbortVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,
-            source=self.source,bundleId=self.bundle,failure=dict(kind='preparation-incomplete',original=self.failure,
-                originalSha256=digest(self.failure)),payload=pack([state]))
+        value=dict(iosAvatarAbortVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,
+            source=self.source,bundleId=self.bundle,failure=dict(kind='preparation-incomplete' if self.paired_failure is None else 'peer-preparation-incomplete',
+                original=self.failure,originalSha256=digest(self.failure)),payload=pack([state]))
+        if self.paired_failure is not None:value['pairedPreparationFailure']=deepcopy(self.paired_failure)
+        return value
 
     def bound(self):
         self.lock.assert_held();need(same(self.store.read(),self.previous)
             and same(self.feature.store.read(),self.failure))
+        self.admission(self.feature,self.paired_failure)
         base=self.runtime.adapter;base._candidate_guard(complete=True)
         target=base._target(self.selector);session=base.read_session(self.selector)
         need(type(session) is dict and session.get('sessionId')==self.binding['sessionId']
@@ -80,7 +100,8 @@ class IOSAvatarAbort:
                 {key:item for key,item in self.binding.items() if key!='processIdentity'}))
 
     def decode(self,value):
-        exact(value,{'iosAvatarAbortVersion','runId','role','binding','source','bundleId','failure','payload'})
+        exact(value,{'iosAvatarAbortVersion','runId','role','binding','source','bundleId','failure','payload'}
+            |({'pairedPreparationFailure'} if self.paired_failure is not None else set()))
         rows=unpack(value['payload']);need(len(rows)==1 and type(value['iosAvatarAbortVersion']) is int
             and value['iosAvatarAbortVersion']==VERSION and same(value,self.envelope(rows[0])))
         state=rows[0];exact(state,{'phase','operationClock','stopReturned','process','sdkQueries','sdkPending'});operation_clock.validate(state['operationClock'])

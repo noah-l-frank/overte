@@ -39,8 +39,23 @@ from self_tests.test_native_vulkan_world_frame import World as GPU
 
 
 class SceneDomain:
-    def __init__(self,test):
-        setup=AvatarMarkerScopeTests();setup.setUp();test.addCleanup(setup.doCleanups)
+    def __init__(self,test,*,held=False):
+        self.held_marker=held
+        setup=AvatarMarkerScopeTests();setup.setUp();test.addCleanup(setup.doCleanups);self.setup=setup
+        if getattr(test,'retain_originals',False):
+            from ios.self_tests.retained_host_roots import retain_owned_root
+            retained=retain_owned_root(setup.fixture.temp,expected_root=setup.scope.root)
+            if not hasattr(test,'retained_original_roots'):test.retained_original_roots=[]
+            test.retained_original_roots.append(retained)
+        if held:
+            from ios.adapters.avatar_held_marker_scope import IOSAvatarHeldMarkerScope
+            from ios.adapters.avatar_marker_files import OwnedAvatarMarkerFiles
+            from ios.adapters.avatar_originals import IOSAvatarOriginals
+            from ios.self_tests.test_ios_avatar_held_marker_scope import HeldDomain
+            scope=object.__new__(IOSAvatarHeldMarkerScope);scope.__dict__.update(setup.scope.__dict__)
+            scope.files=OwnedAvatarMarkerFiles(None,setup.scope.files.store,scope.binding)
+            scope.originals=IOSAvatarOriginals(scope.root,scope.binding,scope.run,scope.role,scope.guard,scope.storage_intent,kind='inputs')
+            setup.scope=scope;setup.domain=HeldDomain(scope)
         self.scope,self.domain=setup.scope,setup.domain;s,d=self.scope,self.domain;self.root,self.lock=s.root,s.lock
         d.world_template['source']['view']['aspectRatio']=1.6
         self.entity=AvatarEntityDomain(test,s,d);self.file=FileBoundary(s.root);self.file.root=d.files.root
@@ -146,7 +161,7 @@ class SceneDomain:
                     def clock(_self):return d.time
                     @clock.setter
                     def clock(_self,value):d.time=value
-                now=d.time;gpu=SharedGPU();d.time=now;gpu.sequence=self.gpu_sequence;gpu.source_extent=[320,200];gpu.target_extent=[640,400];gpu.offset=20000
+                now=d.time;gpu=SharedGPU();d.time=now;gpu.sequence=self.gpu_sequence;gpu.source_extent=[320,200];gpu.target_extent=[640,400];gpu.offset=getattr(self,'native_epoch_offset',20000)
                 image=Image.new('RGBA',(640,400),(75,85,100,255))
                 if d.running or self.stale_pixels:ImageDraw.Draw(image).rectangle((200,100,300,180),fill=(240,15,180,255))
                 out=BytesIO();image.save(out,format='PNG');gpu.png=out.getvalue();gpu.raw_pixels=image.tobytes();gpu.epoch=d.epoch
@@ -170,7 +185,12 @@ class SceneDomain:
         IOSAvatarRestorationFrames(self.runtime,'target',s,s.root,s.lock,epoch_ms=s.epoch_ms,monotonic=s.monotonic,sleep=s.sleep).capture('initial')
         s.prepare();d.paint();s.admit_rendered()
         policy=dict(source='world-render-target',marker=[0,0,32,32],subject=[64,64,96,96])
-        self.samples=IOSAvatarSamples(self.runtime,'target',s,s.root,policy,self.phase,s.lock,epoch_ms=s.epoch_ms,monotonic=s.monotonic,sleep=s.sleep)
+        Samples=IOSAvatarSamples;Scene=IOSAvatarScene
+        if self.held_marker:
+            from ios.adapters.avatar_held_samples import IOSAvatarHeldSamples
+            from ios.adapters.avatar_held_scene import IOSAvatarHeldScene
+            Samples,Scene=IOSAvatarHeldSamples,IOSAvatarHeldScene
+        self.samples=Samples(self.runtime,'target',s,s.root,policy,self.phase,s.lock,epoch_ms=s.epoch_ms,monotonic=s.monotonic,sleep=s.sleep)
         self.journal.activate(s.run,'c'*32,'cleanup');self.source.read()
-        return IOSAvatarScene(self.runtime,'target',self.source,s,self.samples,baseline,avatar_operation_clock.begin(s.epoch_ms(),s.monotonic()),
+        return Scene(self.runtime,'target',self.source,s,self.samples,baseline,avatar_operation_clock.begin(s.epoch_ms(),s.monotonic()),
             epoch_ms=s.epoch_ms,monotonic=s.monotonic,sleep=s.sleep)

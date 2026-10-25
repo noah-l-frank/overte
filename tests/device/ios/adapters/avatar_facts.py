@@ -170,8 +170,7 @@ class IOSAvatarFacts:
             previous=value['imageBefore'];need(previous is not None and len(phase['activations'])>=2
                 and previous['ticket']==phase['activations'][-2]['ticket'] and previous in self.samples.state['rows'])
             old_frame,old_raw,old_image=self.samples.archive(previous);need(old_image is not None)
-            from ios.adapters.avatar_marker_scope import IOSAvatarMarkerScope
-            marker_scope=IOSAvatarMarkerScope.archive(marker,root=self.samples.root,binding=self.samples.binding,run=self.run,
+            marker_scope=self.samples.Marker.archive(marker,root=self.samples.root,binding=self.samples.binding,run=self.run,
                 role=self.role,lock=self.samples.lock,require_ready=True)
             basis=None;prior=self.samples.read_record(previous)
             if prior['basisIndex'] is not None:

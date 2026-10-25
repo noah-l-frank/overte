@@ -17,7 +17,8 @@ def account_equal(left,right):
     return same(a,b)
 
 
-def subject_quiet(samples,binding,*,run,role):
+def subject_quiet(samples,binding,*,run,role,tail_reads=(3,)):
+    need(type(tail_reads) is tuple and tail_reads in ((3,),(4,)))
     need(type(samples) is list and len(samples)>=3)
     a,b=samples[0],samples[-1]
     frames=[dict(clockJoin=row['ui']['clockJoin']) for row in samples]
@@ -35,7 +36,7 @@ def subject_quiet(samples,binding,*,run,role):
     from feature_journeys.retirement_receipts import quiet,binding_from_context
     quiet(q,binding_from_context(binding))
     if 'uikit' in a['ui']:
-        need(all('uikit' in row['ui'] and row['proof']['iosAvatarPostLogoutTailProofVersion']==3 for row in samples))
+        need(all('uikit' in row['ui'] and row['proof']['iosAvatarPostLogoutTailProofVersion'] in tail_reads for row in samples))
         first_uikit=a['tail'].uikit(a['ui']);last_uikit=b['tail'].uikit(b['ui'])
         ua,ub=first_uikit['clockAfter'],last_uikit['clockBefore']
         uq=dict(q,nativeAfterFirstEpochMs=ua['epochMs'],nativeBeforeLastEpochMs=ub['epochMs'],

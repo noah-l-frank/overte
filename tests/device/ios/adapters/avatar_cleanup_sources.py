@@ -50,6 +50,15 @@ def wearable_lifetimes(sources,baseline_index,current_index,before_entities,afte
 
 
 def restored(sources,baseline_index,current_index,*,fixture_url,expected_code):
+    return _restored(sources,baseline_index,current_index,fixture_url=fixture_url,expected_code=expected_code,held_ui=False)
+
+
+def restored_held(sources,baseline_index,current_index,*,fixture_url,expected_code):
+    """Explicit v2 leaves actual hidden Avatar/People roots process-owned."""
+    return _restored(sources,baseline_index,current_index,fixture_url=fixture_url,expected_code=expected_code,held_ui=True)
+
+
+def _restored(sources,baseline_index,current_index,*,fixture_url,expected_code,held_ui):
     """Select only new original lifetimes; this is one cleanup proof component.
 
     It needs the independent entity weak-lifetime, input dispatch, account,
@@ -64,8 +73,12 @@ def restored(sources,baseline_index,current_index,*,fixture_url,expected_code):
     appearance=avatar_observation.appearance(sources,baseline_index,current_index,fixture_url=fixture_url,expected_code=expected_code)
     state=appearance['state'];need(state['requestedAvatar']==state['avatar']=='original' and state['modelLoaded']
         and not state['loadFailed'] and not state['wearable'] and not state['bookmarked'] and abs(state['scale']-1.)<.0001)
-    need(not after['ui']['open'] and not after['ui']['controls'] and avatar_ui_inventory.absent(current['widgets'])
-        and people_model.drained(current['people']))
+    need(type(held_ui) is bool and not after['ui']['open'] and not after['ui']['controls'] and people_model.drained(current['people']))
+    panel=None
+    if held_ui:
+        from ios.adapters.avatar_held_ui import disposition
+        panel=disposition(current['widgets'],binding=sources.binding,run=sources.run)
+    else:need(avatar_ui_inventory.absent(current['widgets']))
     relevant={worker['membership']['instance'] for worker in baseline['scripts']['source']['workers'] if worker['avatar']['code']}
     timers=avatar_ui_work.drained_since(baseline['scripts'],current['scripts'],relevant,expected_code)
     need(avatar_scripts.drained(current['scripts'],relevant))
@@ -83,6 +96,8 @@ def restored(sources,baseline_index,current_index,*,fixture_url,expected_code):
     endpoints=[event['clock']['epochMs'] for event in current['http']['events'] if event['xhrId'] in owned and event['kind'] in terminal]
     endpoint=max([timers['endpointEpochMs'],*endpoints])
     need(endpoint<=after['clockJoin']['nativeAfter']['capturedEpochMs'])
-    return dict(avatarCleanupSourcesVersion=VERSION,baselineIndex=baseline_index,sourceIndex=current_index,
+    result=dict(avatarCleanupSourcesVersion=2 if held_ui else VERSION,baselineIndex=baseline_index,sourceIndex=current_index,
         baselineSha256=digest(before),sourceSha256=digest(after),appearance=deepcopy(appearance),
         ownedHttp=sorted(owned),timers=timers,endpointEpochMs=endpoint)
+    if held_ui:result['panelDisposition']=panel
+    return result
