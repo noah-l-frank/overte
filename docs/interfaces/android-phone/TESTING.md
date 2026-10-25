@@ -56,7 +56,10 @@ The project runner's compatibility selector
 `--list` output names the actual suites. See
 [project testing](../../../tests/PROJECT_TESTING.md#quick-profile) for aggregate
 budgets and combined host execution. These checks never constitute an APK build
-or physical-device acceptance.
+or physical-device acceptance. The scheduler and independent coverage tests
+remain mandatory under the existing `device-jenkins` host suite through
+[`test_phone_host_groups.py`](../../../tests/device/jenkins/test_phone_host_groups.py);
+no extra platform-profile entry is required.
 
 ## Emulator
 

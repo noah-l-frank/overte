@@ -12,6 +12,7 @@ import json
 import os
 import re
 import signal
+import stat
 import subprocess
 import sys
 import time
@@ -131,16 +132,39 @@ SUITES = (
     Suite("native-ctest", "native", ("bash", "tests/project-native-test.sh")),
 )
 
-def phone_runtime_suites(entrypoint: str) -> tuple[Suite, ...]:
+def phone_runtime_suites(entrypoint: str, root: Path = ROOT) -> tuple[Suite, ...]:
     """Read committed metadata only; listing must not import or execute tests."""
     if entrypoint != PHONE_RUNTIME_DRIVER:
         raise ValueError("unexpected Phone runtime driver")
-    registry = json.loads((ROOT / PHONE_RUNTIME_REGISTRY).read_text(encoding="utf-8"))
+    root = Path(root)
+    if not root.is_absolute() or root.resolve() != root or not root.is_dir():
+        raise ValueError("unsafe Phone runtime source root")
+    path = root / PHONE_RUNTIME_REGISTRY
+    if path.resolve() != path or path.is_symlink():
+        raise ValueError("unsafe Phone runtime group registry")
+    with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), "rb") as stream:
+        before = os.fstat(stream.fileno())
+        if not stat.S_ISREG(before.st_mode) or not 0 < before.st_size <= 1024 * 1024:
+            raise ValueError("unbounded Phone runtime group registry")
+        raw = stream.read(1024 * 1024 + 1)
+        after = os.fstat(stream.fileno())
+    signature = lambda value: (value.st_dev, value.st_ino, value.st_size,
+                               value.st_mtime_ns, value.st_ctime_ns)
+    if signature(before) != signature(after) or signature(after) != signature(path.lstat()) or len(raw) != before.st_size:
+        raise ValueError("changed Phone runtime group registry")
+    def unique(pairs):
+        value = {}
+        for name, item in pairs:
+            if name in value:
+                raise ValueError("duplicate Phone runtime registry key")
+            value[name] = item
+        return value
+    registry = json.loads(raw, object_pairs_hook=unique)
     if (type(registry) is not dict or set(registry) != {
             "schemaVersion", "jobs", "groups", "modes", "extendedGroups"}
             or type(registry["schemaVersion"]) is not int or registry["schemaVersion"] != 1
             or type(registry["jobs"]) is not int or registry["jobs"] != 4
-            or type(registry["groups"]) is not list or not registry["groups"]
+            or type(registry["groups"]) is not list or not 0 < len(registry["groups"]) <= 128
             or type(registry["modes"]) is not dict
             or set(registry["modes"]) != {"default", "execute"}):
         raise ValueError("invalid Phone runtime group registry")
@@ -150,15 +174,15 @@ def phone_runtime_suites(entrypoint: str) -> tuple[Suite, ...]:
                 or type(row["id"]) is not str or not re.fullmatch(r"[a-z][a-z0-9-]{0,79}", row["id"])
                 or row["id"] in groups or type(row["timeoutSeconds"]) is not int
                 or row["timeoutSeconds"] <= 0
-                or type(row["files"]) is not list or not row["files"]
+                or type(row["files"]) is not list or not 0 < len(row["files"]) <= 512
                 or any(type(name) is not str for name in row["files"])
                 or len(set(row["files"])) != len(row["files"])):
             raise ValueError("invalid Phone runtime group")
         for name in row["files"]:
             relative = Path(name)
             if (relative.is_absolute() or not relative.parts or ".." in relative.parts
-                    or relative.as_posix() != name or not (ROOT / relative).is_file()
-                    or not (ROOT / relative).resolve().is_relative_to(ROOT.resolve())):
+                    or relative.as_posix() != name or not (root / relative).is_file()
+                    or not (root / relative).resolve().is_relative_to(root)):
                 raise ValueError("unsafe Phone runtime group source")
         groups[row["id"]] = row
     for identifiers in [*registry["modes"].values(), registry["extendedGroups"]]:
@@ -168,6 +192,8 @@ def phone_runtime_suites(entrypoint: str) -> tuple[Suite, ...]:
     if not registry["modes"]["default"]:
         raise ValueError("empty default Phone runtime group selection")
     selected = [groups[name] for name in registry["modes"]["default"]]
+    if any(row["timeoutSeconds"] > 900 for row in selected):
+        raise ValueError("default Phone runtime group budget exceeds bound")
     files = [name for row in selected for name in row["files"]]
     if len(files) != len(set(files)):
         raise ValueError("duplicate default Phone runtime coverage")
@@ -206,7 +232,7 @@ def platform_suites() -> tuple[Suite, ...]:
         if name == PHONE_RUNTIME_ALIAS:
             if interpreter != "python":
                 raise ValueError("invalid Phone runtime interpreter")
-            grouped = phone_runtime_suites(path)
+            grouped = phone_runtime_suites(path, root=ROOT)
             if any(suite.name in names for suite in grouped):
                 raise ValueError("duplicate Phone runtime suite name")
             names.update(suite.name for suite in grouped)

@@ -12,6 +12,7 @@ import tempfile
 from unittest import mock
 import unittest
 import venv
+import xml.etree.ElementTree as ET
 
 import execution
 
@@ -268,6 +269,101 @@ Path('build/policy-observation.json').write_text(json.dumps(observed))
             "status": "passed", "command": ["python", "tests/platform.py"]}})
         self.validate(receipt)
 
+    def phone_candidate(self, *, metadata=True, pause=False, fail=False):
+        entry = 'android/phone/tests/phone-e2e-runtime-regressions.py'
+        identifiers = ['fixture-' + str(index).zfill(2) for index in range(17)]
+        groups = [{'id': name, 'files': ['android/phone/tests/fixtures/' + name + '.py'],
+                   'timeoutSeconds': 2} for name in identifiers]
+        registry = {'schemaVersion': 1, 'jobs': 4, 'groups': groups,
+                    'modes': {'default': identifiers, 'execute': identifiers}, 'extendedGroups': []}
+        self.write('tests/platform-profile.json', json.dumps({'schema': 1, 'platform': 'android', 'suites': [
+            {'name': 'phone-e2e-runtime-regressions', 'entrypoint': entry, 'interpreter': 'python'}]}))
+        for row in groups:
+            self.write(row['files'][0], "raise RuntimeError('candidate group imported for planning')\n")
+        self.write('android/phone/tests/phone_runtime_groups.py',
+                   "raise RuntimeError('candidate metadata code imported for planning')\n")
+        if metadata:
+            self.write('android/phone/tests/phone-runtime-groups.json', json.dumps(registry))
+        self.write(entry, "import json,sys,time\nfrom pathlib import Path\n"
+                   "assert sys.argv[1:]==[], 'canonical full call changed'\n"
+                   + ('time.sleep(1.2)\n' if pause else '')
+                   + "Path('build').mkdir(exist_ok=True)\n"
+                   + "Path('build/phone-full.json').write_text(json.dumps({'args':sys.argv[1:],"
+                   + "'groups':" + repr(identifiers if metadata else ['legacy']) + ", 'jobs':4}))\n"
+                   + ('raise SystemExit(17)\n' if fail else ''))
+        self.commit()
+        return entry, registry
+
+    def execute_phone(self, *, timeout=1):
+        controller = execution._runner()
+        observed = []
+        actual = controller.run_command
+        def capture(command, budget, cancelled):
+            observed.append((list(command), budget))
+            return actual(command, budget, cancelled)
+        controller.run_command = capture
+        with mock.patch.object(execution, '_runner', return_value=controller), \
+                mock.patch.object(execution.inputs, 'load_registry', return_value=self.registry), \
+                mock.patch.object(execution.runtime, 'capture_host_environment', return_value=ENVIRONMENT):
+            status, receipt = execution.execute(self.root, [], include_platform=True,
+                junit=self.junit, receipt_path=self.receipt, timeout=timeout, host_timeout=10)
+        return status, receipt, observed
+
+    def test_phone_metadata_budget_runs_actual_full_driver_and_preserves_canonical_receipt(self):
+        entry, registry = self.phone_candidate(pause=True)
+        status, receipt, observed = self.execute_phone(timeout=1)
+        self.assertEqual(status, 0)
+        self.assertEqual(observed, [([sys.executable, entry], 34)])
+        actual = json.loads((self.root / 'build/phone-full.json').read_text())
+        self.assertEqual(actual, {'args': [], 'groups': registry['modes']['default'], 'jobs': 4})
+        self.assertEqual(receipt['platform_results'], {'phone-e2e-runtime-regressions': {
+            'status': 'passed', 'command': ['python', entry]}})
+        junit = ET.parse(self.junit).getroot()
+        self.assertEqual(junit.get('tests'), '1')
+        self.assertEqual(junit.find('testcase').get('name'), 'phone-e2e-runtime-regressions')
+        self.assertEqual(receipt['conclusion'], 'success')
+        self.validate(receipt, require_all=False)
+
+    def test_phone_full_driver_failure_is_not_replaced_by_synthetic_group_success(self):
+        entry, _ = self.phone_candidate(fail=True)
+        status, receipt, observed = self.execute_phone()
+        self.assertNotEqual(status, 0)
+        self.assertEqual(observed, [([sys.executable, entry], 34)])
+        self.assertEqual(receipt['platform_results'], {'phone-e2e-runtime-regressions': {
+            'status': 'failed', 'command': ['python', entry]}})
+        self.assertEqual(receipt['conclusion'], 'failure')
+        self.assertEqual(ET.parse(self.junit).getroot().get('failures'), '1')
+
+    def test_old_phone_candidate_without_metadata_retains_literal_command_and_generic_budget(self):
+        entry, _ = self.phone_candidate(metadata=False)
+        status, receipt, observed = self.execute_phone(timeout=1)
+        self.assertEqual(status, 0)
+        self.assertEqual(observed, [([sys.executable, entry], 1)])
+        self.assertEqual(receipt['platform_results']['phone-e2e-runtime-regressions']['command'], ['python', entry])
+
+    def test_invalid_phone_metadata_is_rejected_before_shared_or_candidate_code_runs(self):
+        _, registry = self.phone_candidate()
+        path = self.root / 'android/phone/tests/phone-runtime-groups.json'
+        for fault in ('invalid-json', 'oversized-budget', 'escape', 'duplicate-key', 'symlink'):
+            with self.subTest(fault=fault):
+                if path.is_symlink(): path.unlink()
+                value = deepcopy(registry)
+                if fault == 'invalid-json': path.write_text('{')
+                elif fault == 'oversized-budget':
+                    value['groups'][0]['timeoutSeconds'] = 901
+                    path.write_text(json.dumps(value))
+                elif fault == 'escape':
+                    value['groups'][0]['files'] = ['../outside.py']
+                    path.write_text(json.dumps(value))
+                elif fault == 'duplicate-key': path.write_text(json.dumps(value).replace('"jobs": 4', '"jobs": 4, "jobs": 4'))
+                else:
+                    path.unlink(); outside = Path(self.temporary.name) / 'outside.json'
+                    outside.write_text(json.dumps(value)); path.symlink_to(outside)
+                self.commit()
+                with self.assertRaises((ValueError, OSError)):
+                    self.execute(include_platform=True)
+                self.assertFalse((self.root / 'build/first').exists())
+                self.assertFalse((self.root / 'build/phone-full.json').exists())
     def test_invalid_platform_profile_fails_before_any_shared_suite_runs(self):
         cases = [
             {"schema": 1, "platform": "android", "suites": []},

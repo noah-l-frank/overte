@@ -344,6 +344,13 @@ Group membership proves source registration; a passing host group proves only
 its completed host checks. Neither establishes physical Phone acceptance. See
 [Phone testing](../docs/interfaces/android-phone/TESTING.md) for direct group use.
 
+Scheduler and coverage regressions are mandatory through the existing
+`device-jenkins` suite and its
+[Phone test exporter](device/jenkins/test_phone_host_groups.py). It re-exports
+both original test modules while preserving individual case identities for
+isolated unittest workers. This registration leaves the protected platform
+profile unchanged.
+
 ## Combined host profile for CI
 
 ```bash

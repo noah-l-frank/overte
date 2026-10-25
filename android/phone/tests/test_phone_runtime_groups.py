@@ -16,6 +16,7 @@ import tempfile
 import threading
 import time
 import unittest
+import xml.etree.ElementTree as ET
 from unittest.mock import patch
 
 sys.dont_write_bytecode = True
@@ -149,6 +150,61 @@ class PhoneRuntimeGroupsTests(unittest.TestCase):
         finally:
             release.set()
             thread.join(timeout=5)
+
+    def test_original_file_and_actor_receive_sigterm_without_kill_fallback(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            script = Path(temporary) / 'original.py'
+            script.write_text('''import json,os,signal,subprocess,sys
+actor=subprocess.Popen([sys.executable,'-c',
+ 'import json,signal;print(json.dumps(sorted(int(s) for s in signal.pthread_sigmask(signal.SIG_BLOCK,[]))),flush=True);signal.pause()'],stdout=subprocess.PIPE,text=True)
+try:
+ actor_mask=json.loads(actor.stdout.readline())
+ actor.terminate();actor_code=actor.wait(timeout=2)
+ print(json.dumps(dict(pid=os.getpid(),argv=sys.argv,mask=sorted(int(s) for s in signal.pthread_sigmask(signal.SIG_BLOCK,[])),actorMask=actor_mask,actorReturncode=actor_code)),flush=True)
+finally:
+ if actor.poll() is None:actor.kill();actor.wait()
+ actor.stdout.close()
+signal.pause()
+''')
+            command = [sys.executable, '-B', str(script), 'literal argument with spaces']
+            # Reproduce the scheduler's real masked-spawn registration boundary.
+            mask = signal.pthread_sigmask(signal.SIG_BLOCK, (signal.SIGINT, signal.SIGTERM))
+            try:
+                process = subprocess.Popen(driver.supervised_command(command), stdout=subprocess.PIPE,
+                                           stderr=subprocess.PIPE, text=True, start_new_session=True)
+            finally:
+                signal.pthread_sigmask(signal.SIG_SETMASK, mask)
+            try:
+                packet = json.loads(process.stdout.readline())
+                self.assertEqual(packet['pid'], process.pid)
+                self.assertEqual(packet['argv'], command[2:])
+                for blocked in (packet['mask'], packet['actorMask']):
+                    self.assertNotIn(int(signal.SIGTERM), blocked)
+                    self.assertNotIn(int(signal.SIGINT), blocked)
+                self.assertEqual(packet['actorReturncode'], -signal.SIGTERM)
+                process.terminate()
+                # No stop_worker/SIGKILL escalation is involved in this proof.
+                self.assertEqual(process.wait(timeout=2), -signal.SIGTERM)
+            finally:
+                if process.poll() is None:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait()
+                process.stdout.close()
+                process.stderr.close()
+
+    def test_late_interruption_after_all_file_passes_is_red_in_json_and_junit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            group = {'id': 'late-interruption', 'files': ['finished'], 'timeoutSeconds': 125}
+            records = [{'file': 'finished', 'groupId': group['id'], 'timeoutSeconds': 90,
+                        'status': 'passed', 'returncode': 0, 'durationSeconds': .1}]
+            result = driver.reports(root, [group], records, 4, signal.SIGTERM, False)
+            self.assertEqual(result['status'], 'failed')
+            self.assertEqual(result['groups'][0]['status'], 'failed')
+            junit = ET.parse(root / 'junit.xml').getroot()
+            self.assertEqual(junit.attrib['tests'], '2')
+            self.assertEqual(junit.attrib['errors'], '1')
+            self.assertIsNotNone(junit.find("./testcase[@name='interrupted']/error"))
 
     def test_cancellation_terminates_owned_processes_and_marks_unstarted_rows_red(self):
         root = tempfile.TemporaryDirectory()

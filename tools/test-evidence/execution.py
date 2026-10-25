@@ -345,9 +345,24 @@ def execute(candidate, suite_names=None, *, include_platform=False, junit=None, 
     suites = [controller.Suite(name, registry["suites"][name]["layer"], tuple(
         sys.executable if value == "python" and index == 0 else value
         for index, value in enumerate(registry["suites"][name]["command"]))) for name in names]
-    suites += [controller.Suite(name, "quick", tuple(
-        sys.executable if value == "python" and index == 0 else value
-        for index, value in enumerate(command))) for name, command in product]
+    for name, command in product:
+        budget = None
+        # Preserve the canonical platform command and actually execute the full
+        # original driver. Its receipt must never rename individual group JUnit
+        # records into an aggregate that did not run. Old candidates retain the
+        # original generic deadline; new candidates bind the aggregate deadline
+        # to the sum of all validated default group budgets (each includes its
+        # worker/startup margin). Reading metadata never imports candidate code.
+        if name == "phone-e2e-runtime-regressions" and command == [
+                "python", "android/phone/tests/phone-e2e-runtime-regressions.py"]:
+            metadata = candidate / "android/phone/tests/phone-runtime-groups.json"
+            if metadata.exists() or metadata.is_symlink():
+                groups = controller.phone_runtime_suites(command[1], root=candidate)
+                budget = sum(group.timeout_seconds for group in groups)
+        actual = tuple(sys.executable if value == "python" and index == 0 else value
+                       for index, value in enumerate(command))
+        suites.append(controller.Suite(name, "quick", actual, budget)
+                      if budget is not None else controller.Suite(name, "quick", actual))
     observations = []
     cancelled = []
     previous = {}

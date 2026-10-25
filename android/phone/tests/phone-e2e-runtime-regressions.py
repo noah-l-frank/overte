@@ -280,6 +280,11 @@ from phone_runtime_groups import (JOBS, GroupError, file_timeout, group_timeout,
                                  select_groups, validate_groups)
 
 REGISTRY_PATH = Path(__file__).with_name('phone-runtime-groups.json')
+EXEC_TRAMPOLINE = (
+    'import os,signal,sys;'
+    'signal.pthread_sigmask(signal.SIG_UNBLOCK,(signal.SIGINT,signal.SIGTERM));'
+    'os.execv(sys.argv[1],sys.argv[1:])'
+)
 
 
 def load_registry(path=REGISTRY_PATH):
@@ -319,6 +324,17 @@ def supervisor():
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def supervised_command(command):
+    """Restore original signal delivery before exec, retaining PID and argv.
+
+    The parent must keep cancellation blocked through Popen and registration.
+    That mask survives exec. The reviewed unittest worker restores it itself;
+    original file entrypoints need this fixed trampoline to do the same. No
+    shell, preexec callback, changed original argument, or user code is added.
+    """
+    return [sys.executable, '-c', EXEC_TRAMPOLINE, *command]
 
 
 def atomic_json(path, value):
@@ -361,8 +377,10 @@ def reports(root, groups, records, jobs, interrupted, cleanup_error):
                 'selectedFiles': len(records), 'completedFiles': sum(row['status'] in ('passed', 'failed') for row in public_rows),
                 'groups': group_rows, 'results': public_rows}
     atomic_json(root / 'summary.json', document)
-    suite = ET.Element('testsuite', name='phone-host-runtime', tests=str(len(records) + bool(cleanup_error)),
-                       errors=str(sum(row['status'] != 'passed' for row in public_rows) + bool(cleanup_error)),
+    suite = ET.Element('testsuite', name='phone-host-runtime',
+                       tests=str(len(records) + bool(cleanup_error) + bool(interrupted)),
+                       errors=str(sum(row['status'] != 'passed' for row in public_rows)
+                                  + bool(cleanup_error) + bool(interrupted)),
                        failures='0', skipped='0')
     for row in public_rows:
         case = ET.SubElement(suite, 'testcase', classname='phone-host.' + row['groupId'],
@@ -372,6 +390,9 @@ def reports(root, groups, records, jobs, interrupted, cleanup_error):
     if cleanup_error:
         cleanup = ET.SubElement(suite, 'testcase', classname='phone-host.supervisor', name='owned-process-cleanup')
         ET.SubElement(cleanup, 'error', message='PHONE_HOST_OWNED_PROCESS_CLEANUP_FAILED')
+    if interrupted:
+        cancellation = ET.SubElement(suite, 'testcase', classname='phone-host.supervisor', name='interrupted')
+        ET.SubElement(cancellation, 'error', message='PHONE_HOST_EXECUTION_INTERRUPTED').text = str(interrupted)
     with os.fdopen(os.open(root / 'junit.xml', os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600), 'wb') as output:
         output.write(ET.tostring(suite, encoding='utf-8', xml_declaration=True))
     return document
@@ -416,7 +437,7 @@ def run_groups(groups, *, jobs=JOBS, output_dir=None, mode='default'):
                     mask = signal.pthread_sigmask(signal.SIG_BLOCK, previous_handlers)
                     try:
                         with os.fdopen(os.open(record['log'], os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600), 'wb') as output:
-                            record['process'] = subprocess.Popen(file_command(record['file']), cwd=ROOT,
+                            record['process'] = subprocess.Popen(supervised_command(file_command(record['file'])), cwd=ROOT,
                                 stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
                         record['started'] = time.monotonic()
                         record['status'] = 'running'
