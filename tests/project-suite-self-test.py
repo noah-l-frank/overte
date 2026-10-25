@@ -575,34 +575,46 @@ class ProjectSuiteCliTests(unittest.TestCase):
         selected = [item for item in control_plane.commands("full") if item[0] == "artifact-identity"]
         self.assertEqual(len(selected), 1)
         self.assertFalse(selected[0][2], "Artifact validation is mandatory, not an optional QML check")
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            test_directory = root / "tests/device/schema/artifact-identity"
-            test_directory.mkdir(parents=True)
-            shutil.copyfile(RUNNER.with_name("run-unittest-suite.py"), root / "tests/run-unittest-suite.py")
-            shutil.copyfile(RUNNER.parent / "device/run_artifact_identity.py",
-                            root / "tests/device/run_artifact_identity.py")
-            (root / "provenance").mkdir()
-            (root / "tools/sbom").mkdir(parents=True)
-            fixture = test_directory / "test_regression.py"
-            fixture.write_text("import unittest\nclass Regression(unittest.TestCase):\n"
-                               "    def test_behavior(self):\n        self.fail('artifact-canary')\n")
-            for failure in ("artifact-canary", "no test cases"):
-                with self.subTest(failure=failure):
-                    if failure == "no test cases":
-                        fixture.unlink()
-                    report = root / "result.xml"
-                    with patch.object(control_plane, "REPOSITORY", root), \
-                            patch.object(control_plane, "commands", return_value=selected), \
-                            patch.object(sys, "argv", ["control-plane", "--profile", "full",
-                                                      "--junit", str(report)]), \
-                            contextlib.redirect_stdout(io.StringIO()):
-                        result = control_plane.main()
-                    self.assertEqual(result, 1)
-                    xml = ET.parse(report).getroot()
-                    self.assertEqual(xml.get("failures"), "1")
-                    self.assertEqual(xml.get("skipped"), "0")
-                    self.assertIn(failure, xml.find("testcase/failure").text)
+        for mask in (0o022, 0o077):
+            with self.subTest(umask=oct(mask)):
+                previous_mask = os.umask(mask)
+                try:
+                    with tempfile.TemporaryDirectory() as directory:
+                        root = Path(directory)
+                        test_directory = root / "tests/device/schema/artifact-identity"
+                        test_directory.mkdir(parents=True)
+                        shutil.copyfile(RUNNER.with_name("run-unittest-suite.py"), root / "tests/run-unittest-suite.py")
+                        shutil.copyfile(RUNNER.parent / "device/run_artifact_identity.py",
+                                        root / "tests/device/run_artifact_identity.py")
+                        (root / "provenance").mkdir()
+                        (root / "tools/sbom").mkdir(parents=True)
+                        fixture = test_directory / "test_regression.py"
+                        fixture.write_text("import unittest\nclass Regression(unittest.TestCase):\n"
+                                           "    def test_behavior(self):\n        self.fail('artifact-canary')\n")
+                        # Model ordinary reviewed checkout inputs, independently
+                        # of the caller's private output umask. The real confiner
+                        # must retain its rejection of private/aliased sources.
+                        for source in (root / "tests/run-unittest-suite.py",
+                                       root / "tests/device/run_artifact_identity.py", fixture):
+                            source.chmod(0o644)
+                        for failure in ("artifact-canary", "no test cases"):
+                            with self.subTest(failure=failure):
+                                if failure == "no test cases":
+                                    fixture.unlink()
+                                report = root / "result.xml"
+                                with patch.object(control_plane, "REPOSITORY", root), \
+                                        patch.object(control_plane, "commands", return_value=selected), \
+                                        patch.object(sys, "argv", ["control-plane", "--profile", "full",
+                                                                  "--junit", str(report)]), \
+                                        contextlib.redirect_stdout(io.StringIO()):
+                                    result = control_plane.main()
+                                self.assertEqual(result, 1)
+                                xml = ET.parse(report).getroot()
+                                self.assertEqual(xml.get("failures"), "1")
+                                self.assertEqual(xml.get("skipped"), "0")
+                                self.assertIn(failure, xml.find("testcase/failure").text)
+                finally:
+                    os.umask(previous_mask)
 
 
 class ArtifactIdentityConfinementTests(unittest.TestCase):
