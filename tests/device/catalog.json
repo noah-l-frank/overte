@@ -5,7 +5,7 @@
       "id": "launch-smoke",
       "description": "Launch the application and verify a stable foreground process.",
       "command": ["modules/launch_smoke.py"],
-      "suites": ["asset-smoke", "audio-controls", "crash-recovery-under-load", "create-management-parity", "domain-recovery", "domain-smoke", "e2e-core", "e2e-recovery", "entity-sync-smoke", "feature-assets", "feature-audio", "feature-authentication", "feature-avatar-people", "feature-chat", "feature-create", "feature-emotes", "feature-graphics", "feature-journeys", "feature-lifecycle-input", "feature-scripts", "feature-snapshots", "feature-tablet-web", "feature-world-navigation", "feature-world-web", "interaction-smoke", "lifecycle-under-load", "multi-user-smoke", "network-fault-recovery", "permission-recovery", "places-navigation-parity", "portable-smoke", "render-health", "scripted-entity-smoke", "scripts-management-parity", "settings-persistence", "smoke", "snapshot-output-parity", "sound-smoke", "stability", "tablet-e2e", "text-input-smoke", "vertical-locomotion", "voice-roundtrip", "web-video-parity"],
+      "suites": ["asset-smoke", "audio-controls", "crash-recovery-under-load", "create-management-parity", "domain-recovery", "domain-smoke", "e2e-core", "e2e-recovery", "entity-sync-smoke", "feature-assets", "feature-audio", "feature-authentication", "feature-avatar-people", "feature-chat", "feature-create", "feature-emotes", "feature-graphics", "feature-journeys", "feature-lifecycle-input", "feature-scripts", "feature-snapshots", "feature-tablet-web", "feature-world-navigation", "feature-world-web", "interaction-smoke", "lifecycle-under-load", "multi-user-smoke", "network-fault-recovery", "permission-recovery", "phone-baseline", "places-navigation-parity", "portable-smoke", "render-health", "scripted-entity-smoke", "scripts-management-parity", "settings-persistence", "smoke", "snapshot-output-parity", "sound-smoke", "stability", "tablet-e2e", "text-input-smoke", "vertical-locomotion", "voice-roundtrip", "web-video-parity"],
       "requires": ["app.foreground", "app.launch", "app.process"],
       "timeoutSeconds": 120
     },
@@ -125,7 +125,7 @@
       "id": "voice-roundtrip",
       "description": "Verify fresh bidirectional microphone-path challenges and muted negative controls against an owned PC peer.",
       "command": ["modules/voice_roundtrip.py"],
-      "suites": ["feature-audio", "feature-journeys", "voice-roundtrip"],
+      "suites": ["feature-audio", "feature-journeys", "phone-baseline", "voice-roundtrip"],
       "requires": ["app.foreground", "app.process", "probe.snapshot", "voice.exchange"],
       "timeoutSeconds": 180
     },
@@ -133,7 +133,7 @@
       "id": "update-upgrade",
       "description": "Install a supplied source, upgrade to the candidate, and verify version plus safe-setting continuity before the common smoke route.",
       "command": ["modules/update_upgrade.py"],
-      "suites": ["update-upgrade"],
+      "suites": ["phone-baseline", "update-upgrade"],
       "requires": ["app.foreground", "app.install", "app.launch", "app.process", "app.stop", "app.upgrade", "app.version", "probe.snapshot", "setting.set"],
       "timeoutSeconds": 600
     },
@@ -141,7 +141,7 @@
       "id": "scene",
       "description": "Load the controlled E2E scene and observe every required fixture marker.",
       "command": ["modules/scene.py"],
-      "suites": ["crash-recovery-under-load", "e2e-core", "interaction-smoke", "lifecycle-under-load", "portable-smoke", "render-health", "scripted-entity-smoke", "update-upgrade"],
+      "suites": ["crash-recovery-under-load", "e2e-core", "interaction-smoke", "lifecycle-under-load", "phone-baseline", "portable-smoke", "render-health", "scripted-entity-smoke", "update-upgrade"],
       "requires": ["probe.snapshot", "scene.load"],
       "timeoutSeconds": 120
     },
@@ -149,7 +149,7 @@
       "id": "spawn-grounded",
       "description": "Verify the avatar spawns motionless, grounded, and above the fixture floor.",
       "command": ["modules/spawn_grounded.py"],
-      "suites": ["e2e-core"],
+      "suites": ["e2e-core", "phone-baseline"],
       "requires": ["probe.snapshot", "scene.load"],
       "timeoutSeconds": 90
     },
@@ -157,7 +157,7 @@
       "id": "domain-enter",
       "description": "Enter a controlled domain and observe its connection and assignment-owned scene.",
       "command": ["modules/domain_enter.py"],
-      "suites": ["domain-recovery", "domain-smoke", "entity-sync-smoke", "feature-journeys", "feature-snapshots", "feature-world-navigation", "multi-user-smoke", "network-fault-recovery"],
+      "suites": ["domain-recovery", "domain-smoke", "entity-sync-smoke", "feature-journeys", "feature-snapshots", "feature-world-navigation", "multi-user-smoke", "network-fault-recovery", "phone-baseline"],
       "requires": ["app.foreground", "app.process", "navigation.enter-domain", "probe.snapshot"],
       "timeoutSeconds": 180
     },
@@ -165,7 +165,7 @@
       "id": "domain-roundtrip",
       "description": "Leave and re-enter the controlled domain while preserving one foreground process.",
       "command": ["modules/domain_roundtrip.py"],
-      "suites": ["domain-recovery", "feature-journeys", "feature-world-navigation"],
+      "suites": ["domain-recovery", "feature-journeys", "feature-world-navigation", "phone-baseline"],
       "requires": ["app.foreground", "app.process", "navigation.enter-domain", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 240
     },
@@ -173,7 +173,7 @@
       "id": "world-interaction",
       "description": "Perform one platform-native primary action on the controlled world target and observe the entity event.",
       "command": ["modules/world_interaction.py"],
-      "suites": ["feature-create", "feature-journeys", "interaction-smoke"],
+      "suites": ["feature-create", "feature-journeys", "interaction-smoke", "phone-baseline"],
       "requires": ["app.foreground", "app.process", "input.primary", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 120
     },
@@ -181,7 +181,7 @@
       "id": "scripted-entity",
       "description": "Activate the controlled client entity script and observe its independent entity-state mutation.",
       "command": ["modules/scripted_entity.py"],
-      "suites": ["feature-journeys", "feature-scripts", "scripted-entity-smoke"],
+      "suites": ["feature-journeys", "feature-scripts", "phone-baseline", "scripted-entity-smoke"],
       "requires": ["app.foreground", "app.process", "input.primary", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 120
     },
@@ -189,7 +189,7 @@
       "id": "multi-user",
       "description": "Observe one controlled moving peer avatar across a local leave and reconnect cycle.",
       "command": ["modules/multi_user.py"],
-      "suites": ["feature-avatar-people", "feature-journeys", "multi-user-smoke"],
+      "suites": ["feature-avatar-people", "feature-journeys", "multi-user-smoke", "phone-baseline"],
       "requires": ["app.foreground", "app.process", "navigation.enter-domain", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 300
     },
@@ -197,7 +197,7 @@
       "id": "network-fault-recovery",
       "description": "Interrupt and restore the controlled domain stack and require automatic in-process reconnection.",
       "command": ["modules/network_fault_recovery.py"],
-      "suites": ["network-fault-recovery"],
+      "suites": ["network-fault-recovery", "phone-baseline"],
       "requires": ["app.foreground", "app.process", "navigation.enter-domain", "probe.snapshot"],
       "timeoutSeconds": 300
     },
@@ -205,7 +205,7 @@
       "id": "text-input",
       "description": "Enter bounded Unicode text through the native target path and verify editing, submit, dismissal, and world isolation.",
       "command": ["modules/text_input.py"],
-      "suites": ["feature-chat", "feature-journeys", "feature-lifecycle-input", "text-input-smoke"],
+      "suites": ["feature-chat", "feature-journeys", "feature-lifecycle-input", "phone-baseline", "text-input-smoke"],
       "requires": ["app.foreground", "app.process", "probe.snapshot", "text.dismiss", "text.focus", "text.snapshot", "text.type"],
       "timeoutSeconds": 150
     },
@@ -213,7 +213,7 @@
       "id": "audio-controls",
       "description": "Toggle microphone mute through the native product control and observe both exact states in Interface.",
       "command": ["modules/audio_controls.py"],
-      "suites": ["audio-controls", "feature-audio", "feature-journeys"],
+      "suites": ["audio-controls", "feature-audio", "feature-journeys", "phone-baseline"],
       "requires": ["app.foreground", "app.process", "audio.mute", "probe.snapshot"],
       "timeoutSeconds": 120
     },
@@ -221,7 +221,7 @@
       "id": "settings-persistence",
       "description": "Change one safe semantic setting, restart, verify persistence, and restore its original value.",
       "command": ["modules/settings_persistence.py"],
-      "suites": ["settings-persistence"],
+      "suites": ["phone-baseline", "settings-persistence"],
       "requires": ["app.foreground", "app.launch", "app.process", "app.stop", "probe.snapshot", "setting.set"],
       "timeoutSeconds": 240
     },
@@ -229,7 +229,7 @@
       "id": "lifecycle-under-load",
       "description": "Background and reactivate one loaded scene and open tablet without process, content, input, or render loss.",
       "command": ["modules/lifecycle_under_load.py"],
-      "suites": ["feature-journeys", "feature-lifecycle-input", "lifecycle-under-load"],
+      "suites": ["feature-journeys", "feature-lifecycle-input", "lifecycle-under-load", "phone-baseline"],
       "requires": ["app.foreground", "app.launch", "app.process", "lifecycle.background", "probe.snapshot", "scene.load", "tablet.close", "tablet.open"],
       "timeoutSeconds": 180
     },
@@ -237,7 +237,7 @@
       "id": "render-health",
       "description": "Require a visible hardware-accelerated presentation and independently advancing renderer frames.",
       "command": ["modules/render_health.py"],
-      "suites": ["feature-graphics", "feature-journeys", "render-health"],
+      "suites": ["feature-graphics", "feature-journeys", "phone-baseline", "render-health"],
       "requires": ["app.foreground", "app.process", "probe.snapshot", "render.snapshot", "scene.load"],
       "timeoutSeconds": 120
     },
@@ -245,7 +245,7 @@
       "id": "entity-sync",
       "description": "Mutate one controlled domain entity through an independent fixture actor and observe its exact revision.",
       "command": ["modules/entity_sync.py"],
-      "suites": ["entity-sync-smoke", "feature-create", "feature-journeys"],
+      "suites": ["entity-sync-smoke", "feature-create", "feature-journeys", "phone-baseline"],
       "requires": ["app.foreground", "app.process", "collaboration.edit", "collaboration.snapshot", "navigation.enter-domain", "probe.snapshot"],
       "timeoutSeconds": 180
     },
@@ -253,7 +253,7 @@
       "id": "permission-recovery",
       "description": "Deny and grant microphone permission through the native OS path, verifying continuity or an observed iOS Settings restart and recovery.",
       "command": ["modules/permission_recovery.py"],
-      "suites": ["feature-audio", "feature-journeys", "permission-recovery"],
+      "suites": ["feature-audio", "feature-journeys", "permission-recovery", "phone-baseline"],
       "requires": ["app.foreground", "app.process", "permission.set", "permission.snapshot"],
       "timeoutSeconds": 300
     },
@@ -261,7 +261,7 @@
       "id": "crash-recovery-under-load",
       "description": "Crash a loaded scene and tablet, then require a new usable application session.",
       "command": ["modules/crash_recovery_under_load.py"],
-      "suites": ["crash-recovery-under-load"],
+      "suites": ["crash-recovery-under-load", "phone-baseline"],
       "requires": ["app.crash", "app.foreground", "app.launch", "app.process", "probe.snapshot", "scene.load", "tablet.close", "tablet.open"],
       "timeoutSeconds": 240
     },
@@ -269,7 +269,7 @@
       "id": "asset-load",
       "description": "Load a controlled local texture and verify HTTP, resource, entity, and process evidence.",
       "command": ["modules/asset_load.py"],
-      "suites": ["asset-smoke", "feature-assets", "feature-journeys"],
+      "suites": ["asset-smoke", "feature-assets", "feature-journeys", "phone-baseline"],
       "requires": ["app.foreground", "app.process", "asset.load", "probe.snapshot"],
       "timeoutSeconds": 120
     },
@@ -277,7 +277,7 @@
       "id": "sound-playback",
       "description": "Load and decode the controlled WAV and observe a stable in-client injector lifecycle.",
       "command": ["modules/sound_playback.py"],
-      "suites": ["feature-audio", "feature-journeys", "sound-smoke"],
+      "suites": ["feature-audio", "feature-journeys", "phone-baseline", "sound-smoke"],
       "requires": ["app.process", "probe.snapshot", "sound.play"],
       "timeoutSeconds": 120
     },
@@ -285,7 +285,7 @@
       "id": "look",
       "description": "Apply look input and observe signed left, right, up, and down camera rotations.",
       "command": ["modules/look.py"],
-      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation", "portable-smoke", "update-upgrade"],
+      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation", "phone-baseline", "portable-smoke", "update-upgrade"],
       "requires": ["input.look", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 180
     },
@@ -293,7 +293,7 @@
       "id": "move",
       "description": "Apply forward, backward, left, and right input and verify body-relative displacement.",
       "command": ["modules/move.py"],
-      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation", "portable-smoke", "update-upgrade"],
+      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation", "phone-baseline", "portable-smoke", "update-upgrade"],
       "requires": ["input.move", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 180
     },
@@ -301,7 +301,7 @@
       "id": "input-neutral",
       "description": "Verify bounded emulated controls leave no stuck movement or view input.",
       "command": ["modules/input_neutral.py"],
-      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation"],
+      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation", "phone-baseline"],
       "requires": ["probe.snapshot", "scene.load"],
       "timeoutSeconds": 90
     },
@@ -309,7 +309,7 @@
       "id": "collision",
       "description": "Move into the deterministic wall and verify avatar collision blocks passage.",
       "command": ["modules/collision.py"],
-      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation"],
+      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation", "phone-baseline"],
       "requires": ["input.move", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 120
     },
@@ -317,7 +317,7 @@
       "id": "scene-reload",
       "description": "Reload the fixture and verify it restores a free grounded spawn before vertical locomotion.",
       "command": ["modules/scene_reload.py"],
-      "suites": ["e2e-core", "e2e-recovery", "feature-journeys", "feature-world-navigation"],
+      "suites": ["e2e-core", "e2e-recovery", "feature-journeys", "feature-world-navigation", "phone-baseline"],
       "requires": ["probe.snapshot", "scene.load", "scene.reload"],
       "timeoutSeconds": 120
     },
@@ -325,7 +325,7 @@
       "id": "jump",
       "description": "Jump once, observe a non-flying ascent, and verify landing near the baseline.",
       "command": ["modules/jump.py"],
-      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation", "vertical-locomotion"],
+      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation", "phone-baseline", "vertical-locomotion"],
       "requires": ["app.process", "input.jump", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 120
     },
@@ -333,7 +333,7 @@
       "id": "fly",
       "description": "Fly for a bounded duration and observe active flight with vertical ascent.",
       "command": ["modules/fly.py"],
-      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation", "vertical-locomotion"],
+      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation", "phone-baseline", "vertical-locomotion"],
       "requires": ["app.process", "input.fly", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 120
     },
@@ -341,7 +341,7 @@
       "id": "tablet",
       "description": "Open and close the system tablet and observe both state transitions.",
       "command": ["modules/tablet.py"],
-      "suites": ["e2e-core", "feature-journeys", "feature-tablet-web", "portable-smoke", "update-upgrade"],
+      "suites": ["e2e-core", "feature-journeys", "feature-tablet-web", "phone-baseline", "portable-smoke", "update-upgrade"],
       "requires": ["probe.snapshot", "scene.load", "tablet.close", "tablet.open"],
       "timeoutSeconds": 90
     },
@@ -349,7 +349,7 @@
       "id": "tablet-input-isolation",
       "description": "Verify tablet-focused emulated input cannot move the avatar in the world.",
       "command": ["modules/tablet_input_isolation.py"],
-      "suites": ["e2e-core", "feature-journeys", "feature-lifecycle-input"],
+      "suites": ["e2e-core", "feature-journeys", "feature-lifecycle-input", "phone-baseline"],
       "requires": ["input.move", "probe.snapshot", "scene.load", "tablet.close", "tablet.open"],
       "timeoutSeconds": 90
     },
@@ -357,7 +357,7 @@
       "id": "app-restart",
       "description": "Stop and relaunch Overte with a new stable foreground process identity.",
       "command": ["modules/app_restart.py"],
-      "suites": ["e2e-recovery"],
+      "suites": ["e2e-recovery", "phone-baseline"],
       "requires": ["app.foreground", "app.launch", "app.process", "app.stop"],
       "timeoutSeconds": 120
     },
@@ -365,7 +365,7 @@
       "id": "tablet-e2e",
       "description": "Navigate the semantic tablet UI and enforce an external product policy without restarting the application.",
       "command": ["modules/tablet_e2e.py"],
-      "suites": ["tablet-e2e"],
+      "suites": ["phone-baseline", "tablet-e2e"],
       "requires": ["app.process", "probe.snapshot", "tablet.activate", "tablet.close", "tablet.open", "tablet.snapshot"],
       "timeoutSeconds": 300
     },
@@ -413,7 +413,7 @@
       "id": "accessibility",
       "description": "Audit stable tablet controls while reusing one controlled app session.",
       "command": ["modules/accessibility.py"],
-      "suites": ["accessibility"],
+      "suites": ["accessibility", "phone-baseline"],
       "requires": ["accessibility.snapshot", "app.launch", "app.process", "probe.snapshot", "scene.load", "tablet.close", "tablet.open"],
       "timeoutSeconds": 120
     },
@@ -429,7 +429,7 @@
       "id": "lifecycle-soak",
       "description": "Repeat background and foreground transitions without a process restart.",
       "command": ["modules/lifecycle_soak.py"],
-      "suites": ["lifecycle-stability"],
+      "suites": ["lifecycle-stability", "phone-baseline"],
       "requires": ["app.foreground", "app.launch", "app.process", "lifecycle.background"],
       "timeoutSeconds": 3600
     },
@@ -437,7 +437,7 @@
       "id": "idle-soak",
       "description": "Sample process, memory, battery, and thermal health while foregrounded.",
       "command": ["modules/idle_soak.py"],
-      "suites": ["stability"],
+      "suites": ["phone-baseline", "stability"],
       "requires": ["app.foreground", "app.launch", "app.process"],
       "timeoutSeconds": 7800
     },

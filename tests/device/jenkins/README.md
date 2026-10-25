@@ -1,8 +1,16 @@
 # Shared Jenkins control plane
 
-For operation of the existing local laboratory, start with the
+For operation of the Proxmox laboratory through the official `overte-jenkins`
+CLI, start with the
 [Jenkins operator guide](../../../docs/portal/jenkins/index.md) and its dated
 job inventory. This page owns the shared pipeline implementation contracts.
+
+The parameterized Android Phone job is documented in
+[Pixel feature job](PHONE_FEATURE_JOB.md). It uses the common catalog for the
+existing 35-module baseline, fourteen feature areas, and individual tests.
+Its default plan execution uses no device. Live execution preserves the first
+failure and publishes validated diagnostic logs while the debug hold remains
+active. Source registration and host checks never imply device acceptance.
 
 This directory provides the portable Jenkins wrapper for the device-control
 plane. Jenkins supplies scheduling, an exclusive target lock, credential
