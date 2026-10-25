@@ -430,7 +430,12 @@ class InstalledIdentityTests(unittest.TestCase):
         self.assertFalse(native.reports[0]['deviceAcceptance'])
         self.assertEqual(2, native.inputs.count('goBack'))
         self.assertEqual(2, native.inputs.count('goForward'))
-        self.assertIn('PhoneAddressGoButton', native.inputs)
+        self.assertEqual(4, native.inputs.count('PhoneAddressField'))
+        self.assertEqual(4, native.inputs.count('editor-enter'))
+        self.assertNotIn('PhoneAddressGoButton', native.inputs)
+        enter_calls = [(method, body) for method, endpoint, body in native.calls
+                       if endpoint.endswith('/appium/device/press_keycode')]
+        self.assertEqual([('POST', {'keycode': 66})] * 4, enter_calls)
         self.assertNotIn('normalNavigation', instance.read_session('test-only-appium'))
         self.assertEqual(path.stat().st_mode & 0o777, 0o600)
         self.assertGreater(sum(event[0] == 'sha256sum' for event in self.adb.events), 20)

@@ -25,6 +25,7 @@ from contextlib import redirect_stdout
 import test_create_registration
 import test_feature_adapters as bound
 from adapters.normal_ui import NativeUIError
+from self_tests.test_phone_navigation import NativePhone
 from adapters.normal_feature_state import PrivateFeatureState
 from fixture.collaboration_broker import CollaborationBroker
 from feature_journeys.scenarios import FOUNDATIONS
@@ -80,7 +81,9 @@ class CreateCollaborationFoundationTests(unittest.TestCase):
     def setUp(self):
         setup=test_create_registration.CreateRegistrationTests();setup.setUp();self.addCleanup(setup.doCleanups)
         self.f,self.root,self.environment=setup.f,setup.root,deepcopy(setup.environment)
+        self.domain_ui=NativePhone()
         self.f.target.setdefault('controls',{})['primary']={'resourceId':'owned-native-primary'}
+        self.f.target['controls']['normalNavigation']=deepcopy(self.domain_ui.profile)
         self.f.adapter.read_session(bound.SELECTOR)['targetFingerprint']=self.f.adapter.snapshot_fingerprint(self.f.target)
         self.producer=Producer();self.addCleanup(self.producer.close)
         self.broker=CollaborationBroker()
@@ -113,7 +116,7 @@ class CreateCollaborationFoundationTests(unittest.TestCase):
         self.addCleanup(close)
         base='http://127.0.0.1:'+str(self.server.server_port)
         self.environment.update(OVERTE_ANDROID_E2E_COLLABORATION='1',OVERTE_E2E_DOMAIN_ID=DOMAIN,
-            OVERTE_E2E_DOMAIN_URL='hifi://owned.test:40102/0,0,0',
+            OVERTE_E2E_DOMAIN_URL='hifi://owned.test:40102/0,0,0',OVERTE_E2E_DOMAIN_HOST='owned.test',
             OVERTE_E2E_DOMAIN_CONTROL_TOKEN='z'*64,OVERTE_E2E_COLLABORATION_STATE_URL=base+'/v1/collaboration-state',
             OVERTE_E2E_COLLABORATION_EDIT_URL=base+'/v1/collaboration-edit')
         def read(target,package,path,**kwargs):
@@ -124,13 +127,23 @@ class CreateCollaborationFoundationTests(unittest.TestCase):
         def probe(*args):
             self.seq+=1
             value=dict(sampleEpochMs=self.epoch,sampleSequence=self.seq,domain=dict(id=DOMAIN if self.connected else '',connected=self.connected));self.probe_fault(value);return value
-        def command(client,session,target,value,process=None):
-            self.assertEqual('enter-domain',value['action']);self.assertEqual(self.environment['OVERTE_E2E_DOMAIN_URL'],value['url'])
-            self.navigation.append(deepcopy(value))
+        def arrived(url):
+            self.assertEqual(self.environment['OVERTE_E2E_DOMAIN_URL'],url)
+            self.domain_ui.current=url
+            self.navigation.append(dict(keycode=66,url=url))
             if not self.ignore_entry:self.connected=True
+        self.domain_ui.arrive=arrived
+        original_call=self.f.native.call
+        def native_call(method,path,body=None):
+            if path.endswith('/elements') or '/element/' in path or path.endswith('/appium/device/press_keycode'):
+                return self.domain_ui.call(method,path,body)
+            return original_call(method,path,body)
+        def command(*args,**kwargs):
+            raise AssertionError('Normal domain input must not use the private command channel')
         for boundary in (patch.dict(os.environ,self.environment),patch.object(self.f.adapter,'probe_snapshot',side_effect=probe),
                 patch.object(self.f.fixture.adb,'read_debug_app_file',side_effect=read),
                 patch.object(self.f.fixture.adb,'epoch_milliseconds',side_effect=lambda *_:self.epoch),
+                patch.object(self.f.native,'call',side_effect=native_call),
                 patch.object(self.f.adapter,'write_android_client_command',side_effect=command),
                 patch.object(source,'PhoneCollaboration',partial(source.PhoneCollaboration,monotonic=lambda:self.clock,sleep=self.sleep))):
             boundary.start();self.addCleanup(boundary.stop)
@@ -154,6 +167,7 @@ class CreateCollaborationFoundationTests(unittest.TestCase):
         self.assertEqual(result['before']['revision']+1,result['after']['revision']);self.assertEqual(1,len(self.edits))
         self.assertNotIn('actorSessionId',json.dumps(result));self.assertEqual([],self.f.native.inputs)
         self.assertEqual(1,len(self.navigation))
+        self.assertEqual(['Go to destination','PhoneAddressField','editor-enter'],self.domain_ui.inputs)
 
     def test_ignored_domain_entry_ack_cannot_admit_foundation_or_repair_sdk(self):
         self.connected=False;self.ignore_entry=True
@@ -161,6 +175,7 @@ class CreateCollaborationFoundationTests(unittest.TestCase):
         with patch.object(AppiumAdapter,'ensure_session',side_effect=AssertionError('Session repair is forbidden')),self.assertRaises(NativeUIError):
             self.invoke('collaboration.snapshot')
         self.assertEqual(1,len(self.navigation));self.assertEqual([],self.edits)
+        self.assertEqual(['Go to destination','PhoneAddressField','editor-enter'],self.domain_ui.inputs)
 
     def test_default_off_missing_foundation_and_invalid_configuration_cannot_green_gate(self):
         with patch.dict(os.environ,{'OVERTE_ANDROID_E2E_COLLABORATION':'0'}):

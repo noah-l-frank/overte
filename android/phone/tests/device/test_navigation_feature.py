@@ -33,6 +33,7 @@ from adapters.native_avatar_render import NativeAvatarRender
 from adapters.native_navigation_replies import NativeNavigationReplies
 from adapters.native_phone_web_runtime import NativePhoneWebRuntime
 from feature_journeys.contract import arguments
+from feature_journeys.phase_fixture import PhaseFixtureReader
 from feature_journeys.engine import Journey
 from feature_journeys.fixtures import context,marker_bytes
 from feature_journeys.navigation_fixture import NavigationResources,DIRECTORY,QUERY
@@ -392,7 +393,10 @@ class NavigationFeatureTests(unittest.TestCase):
     def test_complete_public_v17_journey_and_separate_original_actor(self):
         model=self.model;registered=self.registered_adapter()
         import test_feature_adapters as bound
-        with patch.dict(os.environ,self.configuration()),patch.object(registered.adapter,'_navigation_feature',side_effect=lambda *_args,**_kwargs:model.flow()):
+        with patch.dict(os.environ,self.configuration()),\
+                patch.object(registered.adapter,'_navigation_feature',side_effect=lambda *_args,**_kwargs:model.flow()),\
+                patch.object(registered.adapter,'_feature_fixture_client',return_value=model.reader),\
+                patch('overte_phone_feature_dispatch.PhaseFixtureReader',side_effect=lambda client,run,area:PhaseFixtureReader(client,run,area,epoch_ms=model.epoch,monotonic=lambda:model.sdk.clock)):
             phases,reports=model.run(lambda operation,values:registered.adapter.invoke(bound.SELECTOR,operation,values))
         self.assertEqual(17,len(phases));self.assertTrue(reports[0]['sequenceCompleted']);self.assertFalse(reports[0]['deviceAcceptance'])
         self.assertIsNone(model.actor_error);self.assertEqual({'Unowned':ORIGIN+'/personal'},model.bookmarks)

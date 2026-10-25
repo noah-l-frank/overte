@@ -46,16 +46,19 @@ execution.
 Use `--group ID` with an identifier returned by `--list-groups` to run one group.
 The default is four child workers; `--jobs 1` provides serial diagnosis. Group
 budgets include the complete composition, while every file keeps its original
-command arguments and timeout. Source freshness, checkpoint, lock, and quiet
-windows are unchanged. A partial group or successful prefix is not a complete
-runtime result. CPU time and elapsed wall time measure different things;
+command arguments. Original file limits remain frozen as independent gold;
+[`phone-runtime-timeout-calibration.json`](../../../android/phone/tests/phone-runtime-timeout-calibration.json)
+contains only explicitly reviewed whole-file exceptions supported by complete
+successful measurements and pinned provenance. All other file limits, and all
+individual RPC, IPC, source freshness, checkpoint, lock, and quiet windows, are
+unchanged. A partial group or successful prefix is not a complete runtime result. CPU time and elapsed wall time measure different things;
 waiting and concurrent host work can increase elapsed time without a hang.
 
 The project runner's compatibility selector
 `--suite phone-e2e-runtime-regressions` expands to all default groups; its
 `--list` output names the actual suites. See
-[project testing](../../../tests/PROJECT_TESTING.md#quick-profile) for aggregate
-budgets and combined host execution. These checks never constitute an APK build
+[project testing](../../../tests/PROJECT_TESTING.md#reviewed-whole-file-host-calibration)
+for measured limits, the uniform margin, and combined host execution. These checks never constitute an APK build
 or physical-device acceptance. The scheduler and independent coverage tests
 remain mandatory under the existing `device-jenkins` host suite through
 [`test_phone_host_groups.py`](../../../tests/device/jenkins/test_phone_host_groups.py);

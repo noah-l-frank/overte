@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 import threading
 import time
+import traceback
 import unittest
 from unittest.mock import patch
 
@@ -20,6 +21,7 @@ from feature_journeys.phase_fixture import PhaseFixtureReader
 from feature_journeys.witness import Client
 from overte_phone_script_history import unpack,pack
 import overte_phone_snapshots_actor as source
+from overte_phone_snapshots_feature import PhoneSnapshotsFeature
 
 
 def retained_child(boundary,url,queue,command,first_mismatch=False):
@@ -49,8 +51,16 @@ def retained_child(boundary,url,queue,command,first_mismatch=False):
                     except NativeUIError:errors.append(True)
                 queue.put(dict(firstMismatch=True,errors=len(errors),constructors=len(constructors),poisoned=actor._cleanup_failed,
                     retained=actor._cleanup_reader is not None,preserved=actor.store.read()==foreign[0]));return
-            actor.step()
-            assert actor._cleanup_reader is not None and actor.state['quiet']['complete']
+            # Warmup may yield between actual current acquisitions. Wait for
+            # the original completed interval and its own receipt, rather than
+            # treating a single scheduler turn as a completed measurement.
+            deadline=time.monotonic()+15
+            while True:
+                assert time.monotonic()<deadline,'Original resident warmup deadline exceeded'
+                actor.step()
+                if (actor._cleanup_reader is not None and actor.state['quiet'] is not None
+                        and actor.state['quiet']['complete'] and actor.state['last'] is not None):break
+                time.sleep(actor.poll_delay())
             role=actor._cleanup_reader[0];restores=[];restore=role.restore_originals
             def read_old():restores.append(True);return restore()
             role.restore_originals=read_old
@@ -81,7 +91,11 @@ def retained_child(boundary,url,queue,command,first_mismatch=False):
             started=time.monotonic()
             try:
                 result=actor.step();error=None
-            except Exception as failure:result=None;error=type(failure).__name__
+            except Exception as failure:
+                result=None;error=type(failure).__name__;current=failure
+                while current is not None:
+                    traceback.print_exception(type(current),current,current.__traceback__,chain=False)
+                    current=current.__context__
             elapsed=time.monotonic()-started
             pending_anchor=actor._cleanup_anchor is not None;resumed=False
             if instruction in ('pending-foreign','busy-foreign'):
@@ -106,7 +120,14 @@ def retained_child(boundary,url,queue,command,first_mismatch=False):
                 retained=actor._cleanup_reader is not None,poisoned=poisoned,phase=actor.state['phase'],
                 quiet=deepcopy(actor.state['quiet']),pendingAnchor=pending_anchor,resumed=resumed,
                 unchangedJournal=before==actor.store.read()))
-    except Exception as failure:queue.put(dict(error=type(failure).__name__,message=str(failure)))
+    except Exception as failure:
+        # Keep suppressed lock/guard context in this host test's private log;
+        # the queue still carries the same error verdict to the parent.
+        current=failure
+        while current is not None:
+            traceback.print_exception(type(current),current,current.__traceback__,chain=False)
+            current=current.__context__
+        queue.put(dict(error=type(failure).__name__,message=str(failure)))
 
 
 class SnapshotResidentActorTests(unittest.TestCase):
@@ -116,8 +137,16 @@ class SnapshotResidentActorTests(unittest.TestCase):
 
     def probe(self,mutation):
         r=self.rig;b=r.boundary;b.clean();r.reader.activate('d'*32,'cleanup',{})
+        b.feature.state['current']=None;b.feature.guard=b.feature.bound
         b.feature.state['actions']=[dict(ticket='d'*32,phase='acknowledged')]
         b.provider.update(ticket='d'*32,activations=[dict(ticket=base.TICKET,verb='capture',capturedEpochMs=19000),dict(ticket='d'*32,verb='cleanup',capturedEpochMs=20000)])
+        r.advance_cleanup_primary()
+        # Warm reuse pins an actual durable Feature owner as well as the Role
+        # and Actor journals. Use the same original save path as the separate
+        # cleanup-frontier fixture; an absent owner is not reusable authority.
+        with b.feature.lock.held():
+            b.feature.previous=b.feature.store.read();PhoneSnapshotsFeature.save(b.feature)
+            self.assertEqual(b.feature.previous,b.feature.store.read())
         r.server.shutdown();r.thread.join(3)
         ctx=multiprocessing.get_context('fork');queue=ctx.Queue();receive,send=ctx.Pipe(duplex=False)
         process=ctx.Process(target=retained_child,args=(b,r.url,queue,receive,mutation=='first-retain'));process.start()
@@ -131,6 +160,10 @@ class SnapshotResidentActorTests(unittest.TestCase):
                 self.assertFalse(ready['retained']);self.assertTrue(ready['preserved']);return ready
             self.assertTrue(ready.get('ready'),ready)
             entries=r.reader.request('/runs/'+base.RUN)['entries'];self.assertEqual(1,len(entries))
+            # The next Actor turn needs a genuinely newer Primary original.
+            # Produce it before the controlled mutation; neither an ACK nor a
+            # synthetic sequence can authorize the requested independent read.
+            r.advance_cleanup_primary()
             if mutation=='closed':r.reader.close()
             elif mutation=='ticket':r.reader.activate('e'*32,'cleanup',{})
             elif mutation in ('feature','actor','role'):

@@ -34,7 +34,8 @@ class SnapshotActorScheduleMigrationTests(unittest.TestCase):
         def bound():self.queries.append('binding');return True
         self.f=SimpleNamespace(root=self.root,run=RUN,role='actor',binding=deepcopy(BINDING),bound=bound,
             phase=SimpleNamespace(client=Client('https://owned.invalid:443/feature-fixture/v1','a'*64)),
-            store=PrivateFeatureState(self.root/'phone-snapshots-feature.json'),state=dict(hostProcess=dict(pid=1,start='foreign-host')),
+            store=PrivateFeatureState(self.root/'phone-snapshots-feature.json'),previous=None,
+            state=dict(hostProcess=dict(pid=1,start='foreign-host')),
             lock=PhoneScriptSourceLock(self.root/'phone-script-sources.lock'))
         self.actor=PhoneSnapshotsActor(self.f)
     def legacy(self,version):

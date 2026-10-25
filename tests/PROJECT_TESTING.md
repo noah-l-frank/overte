@@ -331,9 +331,11 @@ Phone runtime regressions are expanded into the explicit groups in
 `--suite phone-e2e-runtime-regressions` selects every default Phone group; it
 never selects a smaller representative subset. Each group has its own minimum
 aggregate budget, independent of the ordinary `--timeout`, and uses four child
-workers by default. Every original file retains its original arguments and
-hard timeout. A larger aggregate budget does not extend source freshness,
-checkpoint, lock, or quiet-window deadlines.
+workers by default. Every original file retains its original arguments. The
+original whole-file limits remain frozen as independent gold; only the explicit
+reviewed exceptions below change the applied file aggregate. No calibration
+extends an individual RPC, IPC, source freshness, checkpoint, lock, or quiet
+window, and no timeout becomes a successful result.
 
 The independently pinned
 [coverage baseline](../android/phone/tests/phone-runtime-coverage-baseline.json)
@@ -350,6 +352,52 @@ Scheduler and coverage regressions are mandatory through the existing
 both original test modules while preserving individual case identities for
 isolated unittest workers. This registration leaves the protected platform
 profile unchanged.
+
+### Reviewed whole-file host calibration
+
+[`phone-runtime-timeout-calibration.json`](../android/phone/tests/phone-runtime-timeout-calibration.json)
+is separate from the unchanged coverage baseline. It records complete
+successful file measurements, source and report hashes, and the exact allowed
+old/new limits. The reader rejects changed reasons, incomplete measurements,
+unknown additions, duplicate keys, and changed provenance before dispatch.
+These are retained external host diagnostic artifacts, identified by logical
+report roots and relative names; a checkout does not need private machine
+reports to execute the approved metadata.
+
+The uniform aggregate margin is `ceil((wholeFileSeconds * 1.5 + 15) / 30) * 30`.
+The explicitly reviewed near-cap entries also retain their complete successful
+measurements and individual contention rationale. The other entries exceeded
+their former whole-file limits. Near-cap usage or a timeout never adds an
+exception automatically. Partial prefixes and summed selected slow methods do
+not qualify a calibration.
+
+| Complete host file | Original seconds | Applied seconds | Passing cases | Measured seconds |
+| --- | ---: | ---: | ---: | ---: |
+| test_snapshots_feature_journey.py | 240 | 420 | 23 | 268.555 |
+| test_authentication_feature.py | 90 | 210 | 40 | 126.948 |
+| test_world_web_feature.py | 90 | 180 | 12 | 94.753 |
+| test_emote_inputs.py | 90 | 180 | 29 | 106.947 |
+| test_graphics_feature.py | 240 | 420 | 25 | 258.671 |
+| test_emote_run.py | 90 | 210 | 34 | 112.297 |
+| test_emote_feature.py | 90 | 270 | 15 | 165.900 |
+| test_navigation_feature.py | 90 | 150 | 16 | 85.642 |
+| test_emote_role_failure.py | 90 | 180 | 14 | 108.019 |
+| test_emote_actor.py | 90 | 450 | 34 | 276.324 |
+| test_snapshots_resident_actor.py | 90 | 180 | 17 | 109.528 |
+| test_emote_image_phase_retirement.py | 90 | 270 | 7 | 153.953 |
+| test_emote_background_effects.py | 90 | 150 | 19 | 81.089 |
+| test_emote_lifetime.py | 90 | 240 | 50 | 144.805 |
+| test_emote_observation.py | 90 | 150 | 35 | 83.457 |
+| test_emote_scene.py | 90 | 180 | 28 | 97.857 |
+
+
+The group formula is recomputed from applied file limits plus the existing
+process and startup allowances. Normal group budgets remain at most 900 seconds;
+file membership and arguments remain unchanged. `original_file_timeout` exposes
+the frozen gold while `file_timeout` applies only the approved exact mapping.
+A diagnostic PASS with a larger observation budget is evidence for this review,
+not a normal Quick-profile or physical-device PASS. Normal qualification still
+requires the registered files to finish under their newly applied limits.
 
 ## Combined host profile for CI
 

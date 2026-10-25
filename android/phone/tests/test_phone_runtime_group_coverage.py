@@ -166,9 +166,11 @@ class OriginalPhoneCoverageTests(unittest.TestCase):
 
     def test_all_original_child_timeouts_and_argument_forms_are_preserved(self):
         build_id = 'a' * 32
+        applied = {row['file']: row['calibratedSeconds'] for row in self.groups.load_calibration()['files']}
         for name, original in self.baseline['checks'].items():
             with self.subTest(file=name):
-                self.assertEqual(self.driver.file_timeout(name), original['timeoutSeconds'])
+                self.assertEqual(self.groups.original_file_timeout(name), original['timeoutSeconds'])
+                self.assertEqual(self.driver.file_timeout(name), applied.get(name, original['timeoutSeconds']))
                 command = self.driver.file_command(name, root=ROOT, python=sys.executable, build_id=build_id)
                 expected = [sys.executable, str(ROOT / name)]
                 if original['argumentStyle'] == 'root-argument':

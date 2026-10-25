@@ -7,6 +7,9 @@ the actual fixture close API. IPC controls scheduling, never source contents.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import contextlib
+import io
+from types import SimpleNamespace
 import hashlib
 import json
 import os
@@ -14,6 +17,7 @@ from pathlib import Path
 import select
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -110,7 +114,7 @@ PhoneSnapshotsActor.quiet_batch=race_inner
 def advance_before_mid_read(self):
     global race_frontier_requested
     result=race_step(self)
-    if (RACE_DURING and not race_frontier_requested and not race_paused
+    if (RACE_COMPLETE and not race_frontier_requested and not race_paused
             and self.state['quiet'] is not None and self.state['quiet']['complete']):
         race_frontier_requested=True
         assert self.feature.lock._owner is None
@@ -173,19 +177,36 @@ class SnapshotCleanupCloseRaceTests(unittest.TestCase):
         script=journey.ACTOR[:split]+'\nimport os\nRACE_COMPLETE='+repr(complete)+'\nRACE_DURING='+repr(during)+'\n'+INTERPOSE+'\n'+journey.ACTOR[split:]
         path=self.root/'actor-configuration.json'
         PrivateFeatureState(path).write(dict(targetUrl=self.proxy.url,root=str(self.root),fixtureUrl=self.base,actorToken='a'*64),None)
+        # Keep complete diagnostics outside the ownership namespace inspected
+        # by the original fixture. A pipe could fill before the first IPC event.
+        self.actor_stderr=tempfile.TemporaryFile(mode='w+b')
+        self.addCleanup(self.actor_stderr.close)
         self.actor=subprocess.Popen([sys.executable,'-c',script,json.dumps(sys.path),str(path)],
-            stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+            stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=self.actor_stderr,text=True)
         def stop():
-            if self.actor.poll() is None:self.actor.terminate()
-            self.actor.communicate(timeout=5)
+            try:
+                if self.actor.poll() is None:self.actor.terminate()
+                self.actor.communicate(timeout=5)
+            finally:
+                try:
+                    error=self.actor_error()
+                    if error:sys.stderr.write(error);sys.stderr.flush()
+                finally:self.actor_stderr.close()
         self.addCleanup(stop)
+        self.assertIsNone(self.actor.stderr)
+        self.assertEqual(0o600,os.fstat(self.actor_stderr.fileno()).st_mode&0o777)
+
+    def actor_error(self):
+        # pread does not move the shared open-file offset while the Actor writes.
+        descriptor=self.actor_stderr.fileno()
+        return os.pread(descriptor,os.fstat(descriptor).st_size,0).decode('utf-8',errors='replace')
 
     def event(self):
         self.assertTrue(select.select([self.actor.stdout],[],[],25)[0],'Original Actor IPC deadline exceeded')
         line=self.actor.stdout.readline()
         if not line:
-            _,error=self.actor.communicate(timeout=5)
-            self.fail('Original Actor exited before IPC: '+error[-3000:])
+            self.actor.communicate(timeout=5)
+            self.fail('Original Actor exited before IPC: '+self.actor_error()[-3000:])
         return json.loads(line)
 
     def setup_cleanup(self):
@@ -196,13 +217,12 @@ class SnapshotCleanupCloseRaceTests(unittest.TestCase):
 
     def completed_close(self,*,during=False):
         self.setup_cleanup();self.start_race(True,during=during);paused=self.event()
-        if during:
-            self.assertEqual('frontier-needed',paused['event']);self.assertTrue(paused['lockReleased'])
-            observed=self.invoke('feature.snapshots.observe',dict(contractVersion=journey.VERSION,runId=journey.RUN,
-                afterSequence=paused['primarySequence']))
-            self.assertGreater(observed['sequence'],paused['primarySequence'])
-            self.assertEqual([],observed['resources']);self.assertEqual(0,observed['state']['files'])
-            self.actor.stdin.write('frontier-ready\n');self.actor.stdin.flush();paused=self.event()
+        self.assertEqual('frontier-needed',paused['event']);self.assertTrue(paused['lockReleased'])
+        observed=self.invoke('feature.snapshots.observe',dict(contractVersion=journey.VERSION,runId=journey.RUN,
+            afterSequence=paused['primarySequence']))
+        self.assertGreater(observed['sequence'],paused['primarySequence'])
+        self.assertEqual([],observed['resources']);self.assertEqual(0,observed['state']['files'])
+        self.actor.stdin.write('frontier-ready\n');self.actor.stdin.flush();paused=self.event()
         self.assertEqual('paused',paused['event']);self.assertTrue(paused['complete']);self.assertTrue(paused['outerActive'])
         self.assertTrue(paused['hadReceipt']);self.assertNotEqual(os.getpid(),paused['pid'])
         self.assertGreaterEqual(paused['quiet']['last']-paused['quiet']['started'],3)
@@ -214,7 +234,7 @@ class SnapshotCleanupCloseRaceTests(unittest.TestCase):
         if during:
             self.assertGreater(returned['delta']['sources'],0);self.assertEqual('reading',returned['rolePhase'])
         else:self.assertEqual(0,returned['delta']['sources'])
-        _,error=self.actor.communicate(timeout=25);self.assertEqual(0,self.actor.returncode,error[-3000:])
+        self.actor.communicate(timeout=25);self.assertEqual(0,self.actor.returncode,self.actor_error()[-3000:])
         actor=unpack(PrivateFeatureState(self.root/'phone-snapshots-actor-lifecycle.json').read()['payload'])[0]
         self.assertEqual('retired',actor['phase']);self.assertFalse(actor['closure']['active']);self.assertTrue(terminated(actor['process']))
         self.assertIs(type(actor['last']['receipt']['receivedEpochMs']),float)
@@ -250,11 +270,74 @@ class SnapshotCleanupCloseRaceTests(unittest.TestCase):
         closed=self.close_original();self.actor.stdin.write('closed\n');self.actor.stdin.flush()
         rejected=self.event();self.assertEqual('rejected',rejected['event'])
         self.assertEqual(dict(reads=0,sources=0,posts=0),rejected['delta'])
-        _,error=self.actor.communicate(timeout=20);self.assertNotEqual(0,self.actor.returncode,error[-3000:])
+        self.actor.communicate(timeout=20);self.assertNotEqual(0,self.actor.returncode,self.actor_error()[-3000:])
         self.assertEqual(before,{name:(self.root/name).read_bytes() for name in names})
         actor=unpack(PrivateFeatureState(self.root/'phone-snapshots-actor-lifecycle.json').read()['payload'])[0]
         self.assertEqual('watching',actor['phase']);self.assertTrue(actor['quiet'] is None or not actor['quiet']['complete'])
         self.assertFalse(list(self.root.glob('emote-frame-snapshots-retirement-*.json')))
+
+
+class SnapshotActorStderrSpoolTests(unittest.TestCase):
+    def owner(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        case = SnapshotCleanupCloseRaceTests(
+            'test_completed_own_quiet_defers_close_before_inner_read_then_retires')
+        case.root = Path(temporary.name)
+        case.root.chmod(0o700)
+        case.proxy = SimpleNamespace(url='http://127.0.0.1:1')
+        case.base = 'https://localhost:1/feature-fixture/v1'
+        self.addCleanup(case.doCleanups)
+        return case
+
+    def start(self, case, program):
+        # Exercise the actual proposed Popen/resource/read/cleanup code. Only
+        # the child payload is a small host protocol producer, not an Actor
+        # verdict or fake Snapshot state.
+        with patch.object(journey, 'ACTOR', program), patch.dict(globals(), {'INTERPOSE': ''}):
+            case.start_race(True)
+
+    def test_more_than_pipe_capacity_and_append_survive_intermediate_pread(self):
+        case = self.owner()
+        self.start(case, '''import json,os,sys,time
+started=time.monotonic()
+os.write(2,b'A'*70000)
+print(json.dumps(dict(event='first')),flush=True)
+assert sys.stdin.readline().strip()=='continue'
+os.write(2,b'B'*70000)
+print(json.dumps(dict(event='second')),flush=True)
+''')
+        self.assertEqual(case.event(), {'event': 'first'})
+        self.assertIsNone(case.actor.stderr)
+        self.assertEqual(os.fstat(case.actor_stderr.fileno()).st_mode & 0o777, 0o600)
+        self.assertEqual(case.actor_error(), 'A' * 70000)
+        self.assertEqual([path.name for path in case.root.iterdir()], ['actor-configuration.json'])
+        case.actor.stdin.write('continue\n')
+        case.actor.stdin.flush()
+        self.assertEqual(case.event(), {'event': 'second'})
+        case.actor.communicate(timeout=5)
+        self.assertEqual(case.actor_error(), 'A' * 70000 + 'B' * 70000)
+        captured = io.StringIO()
+        with contextlib.redirect_stderr(captured):
+            case.doCleanups()
+        self.assertEqual(captured.getvalue(), 'A' * 70000 + 'B' * 70000)
+        self.assertTrue(case.actor_stderr.closed)
+
+    def test_original_event_eof_reports_retained_error_and_cleanup_keeps_full_stream(self):
+        case = self.owner()
+        self.start(case, '''import os,time
+started=time.monotonic()
+os.write(2,b'controlled-original-child-error\\n')
+raise SystemExit(7)
+''')
+        with self.assertRaisesRegex(AssertionError, 'controlled-original-child-error'):
+            case.event()
+        self.assertEqual(case.actor.returncode, 7)
+        captured = io.StringIO()
+        with contextlib.redirect_stderr(captured):
+            case.doCleanups()
+        self.assertEqual(captured.getvalue(), 'controlled-original-child-error\n')
+        self.assertTrue(case.actor_stderr.closed)
 
 
 if __name__=='__main__':unittest.main()

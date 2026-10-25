@@ -26,9 +26,95 @@ spec = importlib.util.spec_from_file_location('phone_groups_under_test', HERE / 
 driver = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = driver
 spec.loader.exec_module(driver)
+import phone_runtime_groups as budgets
 
 
 class PhoneRuntimeGroupsTests(unittest.TestCase):
+    def test_reviewed_whole_file_calibration_is_explicit_and_preserves_original_gold(self):
+        expected = {
+            'android/phone/tests/device/test_snapshots_feature_journey.py': (240, 420),
+            'android/phone/tests/device/test_authentication_feature.py': (90, 210),
+            'android/phone/tests/device/test_world_web_feature.py': (90, 180),
+            'android/phone/tests/device/test_emote_inputs.py': (90, 180),
+            'android/phone/tests/device/test_graphics_feature.py': (240, 420),
+            'android/phone/tests/device/test_emote_run.py': (90, 210),
+            'android/phone/tests/device/test_emote_feature.py': (90, 270),
+            'android/phone/tests/device/test_navigation_feature.py': (90, 150),
+            'android/phone/tests/device/test_emote_role_failure.py': (90, 180),
+            'android/phone/tests/device/test_emote_actor.py': (90, 450),
+            'android/phone/tests/device/test_snapshots_resident_actor.py': (90, 180),
+            'android/phone/tests/device/test_emote_image_phase_retirement.py': (90, 270),
+            'android/phone/tests/device/test_emote_background_effects.py': (90, 150),
+            'android/phone/tests/device/test_emote_lifetime.py': (90, 240),
+            'android/phone/tests/device/test_emote_observation.py': (90, 150),
+            'android/phone/tests/device/test_emote_scene.py': (90, 180),
+        }
+        reviewed = budgets.load_calibration()
+        self.assertEqual({row['file']: (row['originalSeconds'], row['calibratedSeconds'])
+                          for row in reviewed['files']}, expected)
+        for name, (original, applied) in expected.items():
+            self.assertEqual(budgets.original_file_timeout(name), original)
+            self.assertEqual(driver.file_timeout(name), applied)
+            self.assertGreater(applied, reviewed['files'][list(expected).index(name)]['measurement']['durationSeconds'])
+        with self.assertRaises(TypeError):
+            budgets._CALIBRATED_TIMEOUTS['android/phone/tests/device/test_emote_inputs.py'] = 999
+
+    def test_calibration_tampering_cannot_add_or_retime_unreviewed_files(self):
+        reviewed = budgets.load_calibration()
+        for mutation in ('missing', 'duplicate', 'unknown', 'old', 'new', 'reason',
+                         'report', 'report-hash', 'source-hash', 'duration', 'partial', 'failed', 'margin'):
+            with self.subTest(mutation=mutation):
+                document = copy.deepcopy(reviewed)
+                row = document['files'][0]
+                if mutation == 'missing': document['files'].pop()
+                elif mutation == 'duplicate': document['files'].append(copy.deepcopy(row))
+                elif mutation == 'unknown': row['file'] = 'android/phone/tests/device/test_unreviewed.py'
+                elif mutation == 'old': row['originalSeconds'] += 1
+                elif mutation == 'new': row['calibratedSeconds'] += 30
+                elif mutation == 'reason': row['reason'] += ' changed without review'
+                elif mutation == 'report': row['measurement']['report'] = '/tmp/unreviewed.json'
+                elif mutation == 'report-hash': row['measurement']['sha256'] = '0' * 64
+                elif mutation == 'source-hash': row['measurement']['sourceFileSha256'] = '0' * 64
+                elif mutation == 'duration': row['measurement']['durationSeconds'] += .001
+                elif mutation == 'partial': row['measurement']['testsRun'] -= 1
+                elif mutation == 'failed': row['measurement']['successful'] = False
+                else: document['marginPolicy']['startupAllowanceSeconds'] += 1
+                with patch.object(subprocess, 'Popen', side_effect=AssertionError('No child during calibration admission')):
+                    with self.assertRaises(ValueError):
+                        budgets.validate_calibration(document)
+
+    def test_calibration_reader_rejects_changed_duplicate_or_aliased_metadata(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'calibration.json'
+            document = budgets.load_calibration()
+            path.write_text(json.dumps(document))
+            self.assertEqual(budgets.load_calibration(path), document)
+            alias = path.with_name('alias.json')
+            alias.symlink_to(path)
+            with self.assertRaises(ValueError): budgets.load_calibration(alias)
+            path.write_text('{"schemaVersion":1,' + json.dumps(document)[1:])
+            with self.assertRaises(ValueError): budgets.load_calibration(path)
+            document['files'][0]['calibratedSeconds'] += 1
+            path.write_text(json.dumps(document))
+            with self.assertRaises(ValueError): budgets.load_calibration(path)
+
+    def test_original_runner_records_applied_whole_file_budget_without_changing_command(self):
+        name = 'android/phone/tests/device/test_snapshots_feature_journey.py'
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            script = root / 'fast.py'
+            script.write_text('print("synthetic calibration process seam")\n')
+            group = {'id': 'calibration-proof', 'files': [name],
+                     'timeoutSeconds': budgets.group_timeout([name], 1)}
+            with patch.object(driver, 'file_command', return_value=[sys.executable, '-B', str(script)]), \
+                 contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(driver.run_groups([group], jobs=1, output_dir=root / 'results'), 0)
+            report = json.loads((root / 'results/summary.json').read_text())
+            self.assertEqual(report['selectedFiles'], report['completedFiles'])
+            self.assertEqual(report['results'][0]['status'], 'passed')
+            self.assertEqual(report['results'][0]['timeoutSeconds'], 420)
+            self.assertEqual(budgets.original_file_timeout(name), 240)
+
     def test_pure_listing_covers_default_execute_extended_without_host_commands(self):
         with patch.object(subprocess, 'Popen', side_effect=AssertionError('No command during list')):
             for flags, expected in (([], 190), (['--execute'], 238), (['--extended'], 191),

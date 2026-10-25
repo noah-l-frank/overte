@@ -142,7 +142,12 @@ class AuthenticationOwnerTests(unittest.TestCase):
         # checkpoint or state is ever returned from this test transport.
         originals=self.s.request
         def request(role,path,value=None,method=None,**kwargs):
-            self.assertEqual({},kwargs);self.calls.append((role,path))
+            self.calls.append((role,path))
+            if path=='/runs/'+RUN+'/phase':
+                self.assertIsNone(value);self.assertIsNone(method)
+                self.assertEqual({'phase_nonce'},set(kwargs))
+                return self.journal.phase(RUN,kwargs['phase_nonce'])
+            self.assertEqual({},kwargs)
             if path=='/account-provider':return deepcopy(self.provider)
             if path=='/runs/'+RUN+'/account/status':
                 return dict(providerVersion=2,instance=INSTANCE,runId=RUN,capturedEpochMs=self.epoch(),eventSequence=self.s.provider_sequence,
@@ -388,6 +393,7 @@ class AuthenticationOwnerTests(unittest.TestCase):
 
     def test_entire_shared_journey_uses_both_original_readers_three_restarts_and_verified_retirement(self):
         from feature_journeys.engine import Journey
+        from feature_journeys.phase_fixture import PhaseFixtureReader
         import test_feature_adapters as bound
         reports=[];f=self.registered_adapter()
         def invoke(operation,fields):return f.adapter.invoke(bound.SELECTOR,operation,fields)
@@ -396,10 +402,19 @@ class AuthenticationOwnerTests(unittest.TestCase):
             activate=self.s.client.activate,read_artifact=lambda _name:self.fail('Authentication requires original peer facts'),
             image_policy={},continuity=lambda *_args:None,monotonic=lambda:self.s.clock,epoch_ms=self.epoch,
             sleep=lambda value:setattr(self.s,'clock',self.s.clock+value),report=reports.append)
+        # The public cleanup dispatcher reads the same nonce-bound Journal on
+        # this fixture's synthetic clock. Keep its original phase validator;
+        # no external HTTP transport belongs to this local-source composition.
         with (patch.dict(os.environ,dict(OVERTE_PHONE_FEATURE_AUTHENTICATION='1',OVERTE_PHONE_ACCOUNT_FIXTURE='1',
                     OVERTE_E2E_FEATURE_FIXTURE_URL=URL,**self.fixture_access_environment())),
-              patch.object(f.adapter,'_authentication_feature',return_value=self.primary)):
+              patch.object(f.adapter,'_authentication_feature',return_value=self.primary),
+              patch.object(f.adapter,'_feature_fixture_client',return_value=self.s.client) as fixture_client,
+              patch('overte_phone_feature_dispatch.PhaseFixtureReader',side_effect=lambda client,run,area:
+                    PhaseFixtureReader(client,run,area,epoch_ms=self.epoch,monotonic=lambda:self.s.clock)),
+              patch('feature_journeys.witness.Client.request',side_effect=AssertionError('Unexpected HTTP in synthetic Authentication fixture'))):
             journey.execute()
+        self.assertGreater(fixture_client.call_count,0)
+        self.assertIn(('primary','/runs/'+RUN+'/phase'),self.calls)
         self.assertTrue(reports[-1]['sequenceCompleted']);self.assertTrue(reports[-1]['cleanupSucceeded'])
         self.assertEqual(17,len(reports[-1]['phases'])-2)
         self.assertEqual(['app.stop','app.launch']*3,self.s.inputs)

@@ -9,7 +9,7 @@ from pathlib import Path
 import sys
 import tempfile
 import time
-from types import SimpleNamespace
+from types import MethodType,SimpleNamespace
 import unittest
 
 sys.path.insert(0,str(Path(__file__).resolve().parent))
@@ -22,7 +22,7 @@ class SnapshotActorSchedulingTests(unittest.TestCase):
     def test_fifth_actual_completed_sample_can_finish_quiet_before_yield(self):
         with tempfile.TemporaryDirectory(prefix='snapshots-scheduler-') as directory:
             lock=PhoneScriptSourceLock(Path(directory)/'sources.lock')
-            ticket='a'*32;phase=dict(activations=[dict(ticket=ticket)])
+            ticket='a'*32;phase=dict(active=True,activations=[dict(ticket=ticket)])
             points=[];delivered=[]
             def held():lock.assert_held();return True
             def restored(**kwargs):
@@ -32,15 +32,19 @@ class SnapshotActorSchedulingTests(unittest.TestCase):
             role=SimpleNamespace(history_authority=held,frames=[],state=dict(sequence=0),restore_originals=lambda:role.frames)
             def read(after):
                 held();self.assertEqual(after,role.state['sequence']);time.sleep(.75)
-                role.state['sequence']+=1;role.frames.append(dict(ticket=ticket))
+                role.state['sequence']+=1;role.frames.append(dict(ticket=ticket,phaseAfter=phase))
                 return dict(resources=[],sequence=role.state['sequence'],capturedEpochMs=1,state={key:None for key in WITNESS_KEYS['snapshots']})
             role.read=read
             def save():
                 held();quiet=actor.state['quiet']
                 if quiet is not None and (not points or points[-1]['last']!=quiet['last']):points.append(dict(quiet))
-            actor=SimpleNamespace(feature=feature,state=dict(quiet=None,pending=None),
+            actor=SimpleNamespace(feature=feature,state=dict(quiet=None,pending=None,last=None),
                 cleanup_phase=lambda actual,prepared:self.assertEqual(actual,prepared),save=save,
-                deliver=lambda:delivered.append(time.monotonic()),retain_cleanup=lambda *_:held())
+                deliver=lambda:delivered.append(time.monotonic()),retain_cleanup=lambda *_:held(),
+                read_ready_mode=lambda:None,primary_continuity=lambda *_:held(),primary_cue=lambda *_:None)
+            # This is an explicitly unenrolled scheduler unit, not a fabricated
+            # Primary slot or native observation. Run the current original batch.
+            actor._quiet_batch=MethodType(PhoneSnapshotsActor._quiet_batch,actor)
             started=time.monotonic()
             with lock.held():self.assertFalse(PhoneSnapshotsActor.quiet_batch(actor,role,dict(phase=phase),started))
             elapsed=time.monotonic()-started

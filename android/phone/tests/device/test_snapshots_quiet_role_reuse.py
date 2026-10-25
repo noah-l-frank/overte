@@ -63,7 +63,10 @@ def quiet_batch(prepared):
             measured=role.read(role.state['sequence']);need(measured['resources']==[])
             proof=feature.restored(snapshot=role.frames[-1]);quiet=quiet_window(quiet,feature.monotonic(),measured['sequence']);quiet['final']=proof
             durations.append(time.monotonic()-sample_started)
-            if quiet['complete'] or time.monotonic()-started>=3.5:break
+            # The three-second interval starts at the first completed sample,
+            # after its real acquisition cost. Keep the original five-second
+            # lock assertion; a3.5s total cap can stop before a fifth sample.
+            if quiet['complete'] or time.monotonic()-started>=5:break
             feature.sleep(.1)
         feature.bound();role.history_authority()
     return dict(quiet=quiet,lockedSeconds=time.monotonic()-started,sampleSeconds=durations)

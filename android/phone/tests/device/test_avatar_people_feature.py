@@ -544,7 +544,10 @@ class AvatarPeopleFeatureTests(unittest.TestCase):
         def leave():source['connected']=False;return snapshot()
         session=object.__new__(OverteSession);session.timeout_seconds=.5;session.poll_seconds=.05;session.snapshot=snapshot
         session.enter_controlled_domain=enter;session.load_controlled_scene=leave
-        with patch.dict(os.environ,OVERTE_E2E_DOMAIN_ID=DOMAIN),patch('overte_session.time.monotonic',lambda:self.model.clock),patch('overte_session.time.sleep',self.model.sleep),patch('overte_session.write_json',side_effect=lambda name,value:proof.append((name,deepcopy(value)))):
+        domain_environment=dict(OVERTE_E2E_DOMAIN_ID=DOMAIN,
+            OVERTE_E2E_DOMAIN_URL='hifi://controlled.test:40102/0,0,4',OVERTE_E2E_DOMAIN_HOST='controlled.test',
+            OVERTE_E2E_DOMAIN_MARKERS_JSON=json.dumps(['OVERTE_E2E_DOMAIN_FLOOR','OVERTE_E2E_DOMAIN_ORIGIN']))
+        with patch.dict(os.environ,domain_environment),patch('overte_session.time.monotonic',lambda:self.model.clock),patch('overte_session.time.sleep',self.model.sleep),patch('overte_session.write_json',side_effect=lambda name,value:proof.append((name,deepcopy(value)))):
             before,after=session.assert_controlled_peer_roundtrip()
         self.assertEqual(before['sessionId'],after['sessionId']);self.assertGreater(after['movementDistanceMeters'],before['movementDistanceMeters'])
         self.assertTrue(source['connected']);self.assertEqual(2,source['reconnects']);return proof

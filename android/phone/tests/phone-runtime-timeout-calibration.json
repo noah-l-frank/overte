@@ -1,0 +1,300 @@
+{
+  "files": [
+    {
+      "calibratedSeconds": 420,
+      "file": "android/phone/tests/device/test_snapshots_feature_journey.py",
+      "measurement": {
+        "durationSeconds": 268.55479966700295,
+        "errors": 0,
+        "failures": 0,
+        "report": "snapshot-whole-method-timing-001/methods-result.private.json",
+        "reportRootId": "host-timeout-investigation-20261025",
+        "scope": "COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION",
+        "sha256": "7a10020eb7276991334bf6326f51285e34ad272680f02e66463cdbde4b16f00a",
+        "sourceFileSha256": "e99ad31a02e90ecf08ccac1edd3fe7135bff40ed8a001294a2f7d4c389acd7fb",
+        "successful": true,
+        "testsRun": 23
+      },
+      "originalSeconds": 240,
+      "reason": "The complete successful host file exceeds its former aggregate budget. Allow 50 percent headroom plus 15 seconds, rounded up to 30 seconds; individual RPC, IPC, freshness, checkpoint, lock and quiet-window limits are unchanged."
+    },
+    {
+      "calibratedSeconds": 210,
+      "file": "android/phone/tests/device/test_authentication_feature.py",
+      "measurement": {
+        "durationSeconds": 126.94817965699986,
+        "errors": 0,
+        "failures": 0,
+        "report": "auth-web-fixture-diagnostics/auth-fixed-diagnostic-001/methods-result.private.json",
+        "reportRootId": "host-fixture-repair-20261025",
+        "scope": "COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION",
+        "sha256": "d4f84605994f4e1f52943d980e7c4a5cd7da08586996e5dec8eca9757eb8a10d",
+        "sourceFileSha256": "9196a0bfca3ced63dc7559359af6985f101d6c38317e66060002a9147872b6de",
+        "successful": true,
+        "testsRun": 40
+      },
+      "originalSeconds": 90,
+      "reason": "The complete successful host file exceeds its former aggregate budget. Allow 50 percent headroom plus 15 seconds, rounded up to 30 seconds; individual RPC, IPC, freshness, checkpoint, lock and quiet-window limits are unchanged."
+    },
+    {
+      "calibratedSeconds": 180,
+      "file": "android/phone/tests/device/test_world_web_feature.py",
+      "measurement": {
+        "durationSeconds": 94.75275616200088,
+        "errors": 0,
+        "failures": 0,
+        "report": "auth-web-fixture-diagnostics/world-original-001/methods-result.private.json",
+        "reportRootId": "host-fixture-repair-20261025",
+        "scope": "COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION",
+        "sha256": "634ef845c468ae38ca9fbecc3e0f66df9ab160024f57a2fc1b29a54cbe8dec74",
+        "sourceFileSha256": "7833363478d99602b66d72b611ce65e6eb7b1890fee93d15ff241fb82a402880",
+        "successful": true,
+        "testsRun": 12
+      },
+      "originalSeconds": 90,
+      "reason": "The complete successful host file exceeds its former aggregate budget. Allow 50 percent headroom plus 15 seconds, rounded up to 30 seconds; individual RPC, IPC, freshness, checkpoint, lock and quiet-window limits are unchanged."
+    },
+    {
+      "calibratedSeconds": 180,
+      "file": "android/phone/tests/device/test_emote_inputs.py",
+      "measurement": {
+        "durationSeconds": 106.94651685799909,
+        "errors": 0,
+        "failures": 0,
+        "report": "emote-fixture-diagnostics/inputs-original-001/methods-result.private.json",
+        "reportRootId": "host-fixture-repair-20261025",
+        "scope": "COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION",
+        "sha256": "6d6174598b7a31951d9737a2edcabf06ee42259d6fce1d1bf56a8248902a78af",
+        "sourceFileSha256": "64a042bc96de1df22d9ee809802f500d715861949702513efe9930538db80263",
+        "successful": true,
+        "testsRun": 29
+      },
+      "originalSeconds": 90,
+      "reason": "The complete successful host file exceeds its former aggregate budget. Allow 50 percent headroom plus 15 seconds, rounded up to 30 seconds; individual RPC, IPC, freshness, checkpoint, lock and quiet-window limits are unchanged."
+    },
+    {
+      "calibratedSeconds": 420,
+      "file": "android/phone/tests/device/test_graphics_feature.py",
+      "measurement": {
+        "durationSeconds": 258.671089372001,
+        "errors": 0,
+        "failures": 0,
+        "report": "graphics-diagnostic/original-001/methods-result.private.json",
+        "reportRootId": "host-fixture-repair-20261025",
+        "scope": "COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION",
+        "sha256": "18a6e92c2f7f090672926933ed03935575ff189d2e437c8df20f1b7d687d4bba",
+        "sourceFileSha256": "1793aa6434419801b84b231f6ceea1de7f4e2567234d0a88b446f3a3afad589b",
+        "successful": true,
+        "testsRun": 25
+      },
+      "originalSeconds": 240,
+      "reason": "The complete successful host file exceeds its former aggregate budget. Allow 50 percent headroom plus 15 seconds, rounded up to 30 seconds; individual RPC, IPC, freshness, checkpoint, lock and quiet-window limits are unchanged."
+    },
+    {
+      "calibratedSeconds": 210,
+      "file": "android/phone/tests/device/test_emote_run.py",
+      "measurement": {
+        "durationSeconds": 112.2974315950014,
+        "errors": 0,
+        "failures": 0,
+        "report": "emote-fixture-diagnostics/emote_run-original-001/methods-result.private.json",
+        "reportRootId": "host-fixture-repair-20261025",
+        "scope": "COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION",
+        "sha256": "9230f8d783e9c3dd0ac7508228daf8a199a3462ef3de07d7ff0604f38f7db30b",
+        "sourceFileSha256": "c0133181ded61a971a4811220bd31163e4ff901e63aede500612abc48ea733d1",
+        "successful": true,
+        "testsRun": 34
+      },
+      "originalSeconds": 90,
+      "reason": "The complete successful host file exceeds its former aggregate budget. Allow 50 percent headroom plus 15 seconds, rounded up to 30 seconds; individual RPC, IPC, freshness, checkpoint, lock and quiet-window limits are unchanged."
+    },
+    {
+      "calibratedSeconds": 270,
+      "file": "android/phone/tests/device/test_emote_feature.py",
+      "measurement": {
+        "durationSeconds": 165.89950799399958,
+        "errors": 0,
+        "failures": 0,
+        "report": "emote-fixture-diagnostics/emote_feature-original-001/methods-result.private.json",
+        "reportRootId": "host-fixture-repair-20261025",
+        "scope": "COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION",
+        "sha256": "647a13dd06095486d4eef584119a9e0e13d1bd6d0b8fa1b8584e3c4d58621f32",
+        "sourceFileSha256": "14d9283e1c60fa2f15a4d889833252f114b9d84bbc51a52bfb7f6d4068f4c3d2",
+        "successful": true,
+        "testsRun": 15
+      },
+      "originalSeconds": 90,
+      "reason": "The complete successful host file exceeds its former aggregate budget. Allow 50 percent headroom plus 15 seconds, rounded up to 30 seconds; individual RPC, IPC, freshness, checkpoint, lock and quiet-window limits are unchanged."
+    },
+    {
+      "calibratedSeconds": 150,
+      "file": "android/phone/tests/device/test_navigation_feature.py",
+      "measurement": {
+        "durationSeconds": 85.642,
+        "errors": 0,
+        "failures": 0,
+        "report": "navigation-fixture-repair/TARGETED_RESULTS.private.json",
+        "reportRootId": "host-fixture-repair-20261025",
+        "scope": "COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION",
+        "sha256": "ce18ea06161699d469bfbeff2a56e6e87a027bf49e17ce1161566dff5b0c721b",
+        "sourceFileSha256": "af1f56fcc64d295d3746874d63fa74e7efb822566dae685739515d067c1e0945",
+        "successful": true,
+        "testsRun": 16
+      },
+      "originalSeconds": 90,
+      "reason": "The complete successful host file used 95 percent of its former whole-file cap after the normal Enter fixture repair. Apply the same reviewed 50 percent headroom plus 15 seconds, rounded up to 30 seconds, for ordinary host contention; no hang, product failure or individual RPC, IPC, freshness, checkpoint, lock or quiet-window change is claimed."
+    },
+    {
+      "calibratedSeconds": 180,
+      "file": "android/phone/tests/device/test_emote_role_failure.py",
+      "measurement": {
+        "durationSeconds": 108.01920142400195,
+        "errors": 0,
+        "failures": 0,
+        "report": "emote-fixture-diagnostics/emote_role_failure-original-001/methods-result.private.json",
+        "reportRootId": "host-fixture-repair-20261025",
+        "scope": "COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION",
+        "sha256": "6a8b1f44a2df40b1336c3c272424aaca14ba1c45fc2cabcdfaf40d250b330836",
+        "sourceFileSha256": "a237070a8dad2eb74138aa9831c6c8406078c183dbf2599dc5b79c8d8aea399a",
+        "successful": true,
+        "testsRun": 14
+      },
+      "originalSeconds": 90,
+      "reason": "The complete successful host file exceeds its former aggregate budget. Allow 50 percent headroom plus 15 seconds, rounded up to 30 seconds; individual RPC, IPC, freshness, checkpoint, lock and quiet-window limits are unchanged."
+    },
+    {
+      "calibratedSeconds": 450,
+      "file": "android/phone/tests/device/test_emote_actor.py",
+      "measurement": {
+        "durationSeconds": 276.3242255469995,
+        "errors": 0,
+        "failures": 0,
+        "report": "emote-fixture-diagnostics/emote_actor-original-001/methods-result.private.json",
+        "reportRootId": "host-fixture-repair-20261025",
+        "scope": "COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION",
+        "sha256": "899ce5043b8ee7856263c863cf6b38c9959ca3c8c873eade44af48894b8197a9",
+        "sourceFileSha256": "57cc2982797e7fc7b4c0933e7ac6d1b2263eea056c4de8794eb13a0f4300060f",
+        "successful": true,
+        "testsRun": 34
+      },
+      "originalSeconds": 90,
+      "reason": "The complete successful host file exceeds its former aggregate budget. Allow 50 percent headroom plus 15 seconds, rounded up to 30 seconds; individual RPC, IPC, freshness, checkpoint, lock and quiet-window limits are unchanged."
+    },
+    {
+      "calibratedSeconds": 180,
+      "file": "android/phone/tests/device/test_snapshots_resident_actor.py",
+      "measurement": {
+        "durationSeconds": 109.52842617399801,
+        "errors": 0,
+        "failures": 0,
+        "report": "snapshot-fixture-repair/resident-whole17-diagnostic-004.json",
+        "reportRootId": "host-fixture-repair-20261025",
+        "scope": "COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION",
+        "sha256": "2e9496ff7351d05f2bc0a9243a60a74b0a6b0b86c5af9e6acca6be312843c241",
+        "sourceFileSha256": "bbb47556c39f49dec9bb7f9447b6e89572bf425ef563a0b67bfa61fa6f83b6db",
+        "successful": true,
+        "testsRun": 17
+      },
+      "originalSeconds": 90,
+      "reason": "The complete successful host file exceeds its former aggregate budget. Allow 50 percent headroom plus 15 seconds, rounded up to 30 seconds; individual RPC, IPC, freshness, checkpoint, lock and quiet-window limits are unchanged."
+    },
+    {
+      "calibratedSeconds": 270,
+      "file": "android/phone/tests/device/test_emote_image_phase_retirement.py",
+      "measurement": {
+        "durationSeconds": 153.95322326099995,
+        "errors": 0,
+        "failures": 0,
+        "report": "emote-fixture-diagnostics/emote_image_phase_retirement-original-001/methods-result.private.json",
+        "reportRootId": "host-fixture-repair-20261025",
+        "scope": "COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION",
+        "sha256": "611f903a6b2819ad8cee5562da616bd9c0896a1f652cad7b6de686ac94db3cad",
+        "sourceFileSha256": "e3a9fb880330b10ed80e430770191ec961f0be797f9113434a9f6765c26b58cb",
+        "successful": true,
+        "testsRun": 7
+      },
+      "originalSeconds": 90,
+      "reason": "The complete successful host file exceeds its former aggregate budget. Allow 50 percent headroom plus 15 seconds, rounded up to 30 seconds; individual RPC, IPC, freshness, checkpoint, lock and quiet-window limits are unchanged."
+    },
+    {
+      "calibratedSeconds": 150,
+      "file": "android/phone/tests/device/test_emote_background_effects.py",
+      "measurement": {
+        "durationSeconds": 81.08888449400183,
+        "errors": 0,
+        "failures": 0,
+        "report": "emote-fixture-diagnostics/emote_background_effects-original-001/methods-result.private.json",
+        "reportRootId": "host-fixture-repair-20261025",
+        "scope": "COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION",
+        "sha256": "396473cdff5e8bd6a5ea8adffd20474653e8dc6ad6274d2d37b5add299b544b7",
+        "sourceFileSha256": "65e72be4aa9689bb648f9647ce4a893ac2d8a4dc669c2460d39ab6c9a7467858",
+        "successful": true,
+        "testsRun": 19
+      },
+      "originalSeconds": 90,
+      "reason": "The unchanged complete host file passed at 90 percent of its former whole-file cap; the original normal four-worker Quick run timed out at 90 seconds after 14 of 19 cases. Apply the same explicitly reviewed contention margin of 50 percent plus 15 seconds rounded up to 30 seconds. No individual RPC, IPC, freshness, checkpoint, lock or quiet-window limit changes."
+    },
+    {
+      "calibratedSeconds": 240,
+      "file": "android/phone/tests/device/test_emote_lifetime.py",
+      "measurement": {
+        "durationSeconds": 144.8049465380027,
+        "errors": 0,
+        "failures": 0,
+        "report": "emote-fixture-diagnostics/emote_lifetime-original-001/methods-result.private.json",
+        "reportRootId": "host-fixture-repair-20261025",
+        "scope": "COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION",
+        "sha256": "896b5da1561b15b86f7aacc369172c0f2c1fcc24ea05c6511627b07b39569dce",
+        "sourceFileSha256": "9ce1b1a0746df0bc56b2a9d307898c068c97e2cbf53dc6cdcd7d4f8b9ff374cd",
+        "successful": true,
+        "testsRun": 50
+      },
+      "originalSeconds": 90,
+      "reason": "The complete successful host file exceeds its former aggregate budget. Allow 50 percent headroom plus 15 seconds, rounded up to 30 seconds; individual RPC, IPC, freshness, checkpoint, lock and quiet-window limits are unchanged."
+    },
+    {
+      "calibratedSeconds": 150,
+      "file": "android/phone/tests/device/test_emote_observation.py",
+      "measurement": {
+        "durationSeconds": 83.45711211800153,
+        "errors": 0,
+        "failures": 0,
+        "report": "emote-fixture-diagnostics/emote_observation-original-001/methods-result.private.json",
+        "reportRootId": "host-fixture-repair-20261025",
+        "scope": "COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION",
+        "sha256": "cc88db640c9f660278cb069bbc4e126f952e8a50d0906218d86f00d06dc2757d",
+        "sourceFileSha256": "0e64e5339f2f8151e2b053e06a3e39d58a0f5db774c7f3b11a38946a9ed56821",
+        "successful": true,
+        "testsRun": 35
+      },
+      "originalSeconds": 90,
+      "reason": "The unchanged complete host file passed at 93 percent of its former whole-file cap; its original normal four-worker Quick invocation timed out at 90 seconds. Apply the same explicitly reviewed contention margin of 50 percent plus 15 seconds rounded up to 30 seconds. No individual RPC, IPC, freshness, checkpoint, lock or quiet-window limit changes."
+    },
+    {
+      "calibratedSeconds": 180,
+      "file": "android/phone/tests/device/test_emote_scene.py",
+      "measurement": {
+        "durationSeconds": 97.857219780999,
+        "errors": 0,
+        "failures": 0,
+        "report": "emote-fixture-diagnostics/emote_scene-original-001/methods-result.private.json",
+        "reportRootId": "host-fixture-repair-20261025",
+        "scope": "COMPLETE_HOST_FILE_DIAGNOSTIC_NOT_NORMAL_QUICK_QUALIFICATION",
+        "sha256": "aa35d92c02f7ddf2c89918d27bc90bbbdadeb6636101546ba84565c48dd29cd0",
+        "sourceFileSha256": "894fc5e57d3c9625645906de6d4bcaef12e719b2b0b0c3b05a31f6c97dfe8dc4",
+        "successful": true,
+        "testsRun": 28
+      },
+      "originalSeconds": 90,
+      "reason": "The complete successful host file exceeds its former aggregate budget. Allow 50 percent headroom plus 15 seconds, rounded up to 30 seconds; individual RPC, IPC, freshness, checkpoint, lock and quiet-window limits are unchanged."
+    }
+  ],
+  "marginPolicy": {
+    "factorDenominator": 2,
+    "factorNumerator": 3,
+    "roundingSeconds": 30,
+    "startupAllowanceSeconds": 15
+  },
+  "schemaVersion": 1,
+  "scope": "WHOLE_FILE_HOST_TEST_BUDGETS_ONLY"
+}

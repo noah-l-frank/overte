@@ -203,7 +203,7 @@
         "android/phone/tests/device/test_snapshots_resident_actor.py",
         "android/phone/tests/device/test_snapshots_phase_transition.py"
       ],
-      "timeoutSeconds": 685
+      "timeoutSeconds": 843
     },
     {
       "id": "snapshots-workflows",
@@ -237,7 +237,7 @@
         "android/phone/tests/device/test_installed_identity.py",
         "android/phone/tests/device/test_feature_adapters.py"
       ],
-      "timeoutSeconds": 363
+      "timeoutSeconds": 423
     },
     {
       "id": "assets-create",
@@ -302,7 +302,7 @@
         "android/phone/tests/device/test_tablet_web_feature.py",
         "android/phone/tests/device/test_tablet_web_registration.py"
       ],
-      "timeoutSeconds": 608
+      "timeoutSeconds": 660
     },
     {
       "id": "scripts-animation",
@@ -341,7 +341,7 @@
         "android/phone/tests/device/test_graphics_restart_scope.py",
         "android/phone/tests/device/test_graphics_restart.py"
       ],
-      "timeoutSeconds": 693
+      "timeoutSeconds": 873
     },
     {
       "id": "emotes-core",
@@ -359,7 +359,7 @@
         "android/phone/tests/device/test_emote_effects.py",
         "android/phone/tests/device/test_emote_actor.py"
       ],
-      "timeoutSeconds": 387
+      "timeoutSeconds": 844
     },
     {
       "id": "emotes-ownership",
@@ -380,7 +380,7 @@
         "android/phone/tests/device/test_emote_lifetime.py",
         "android/phone/tests/device/test_emote_lifetime_failure.py"
       ],
-      "timeoutSeconds": 458
+      "timeoutSeconds": 698
     },
     {
       "id": "emotes-observation",
@@ -397,7 +397,7 @@
         "android/phone/tests/device/test_emote_scene.py",
         "android/phone/tests/device/test_emote_view.py"
       ],
-      "timeoutSeconds": 363
+      "timeoutSeconds": 483
     },
     {
       "id": "emotes-extended",
