@@ -53,6 +53,17 @@ class FakeTransport:
 
 
 class PicoOpenXrAdapterSessionTests(unittest.TestCase):
+    def test_host_binding_absence_is_read_only_and_invalid_or_dangling_state_is_not_absence(self):
+        self.assertTrue(self.session.is_unbound())
+        self.assertFalse(self.session.state_path.exists())
+        self.session.begin('42:100'); self.assertFalse(self.session.is_unbound())
+        self.assertEqual([], self.transport.envelopes)
+        self.session.state_path.unlink(); self.session.state_path.symlink_to(self.root / 'missing-owned-file')
+        with self.assertRaises(AdapterSessionError): self.session.is_unbound()
+        self.session.state_path.unlink(); self.session.state_path.write_text('invalid')
+        self.session.state_path.chmod(0o600)
+        with self.assertRaises(AdapterSessionError): self.session.is_unbound()
+
     def test_consumed_ack_is_not_lost_to_a_redundant_read_after_watchdog_expiry(self):
         cases = [('input.look', {'horizontal': 0.25, 'vertical': 0.0}),
                  ('input.move', {'direction': 'forward', 'durationSeconds': 1.5}),
