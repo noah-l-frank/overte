@@ -20,6 +20,7 @@ sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import phone_selection as selection
+from execution_plan import load_profiles, module_capabilities
 
 CATALOG = HERE.parent / 'catalog.json'
 # The historical standard Phone job contained precisely these35 source IDs.
@@ -60,6 +61,27 @@ class PhoneSelectionTests(unittest.TestCase):
             self.assertEqual(plan['moduleIds'][:len(plan['setupModuleIds'])], plan['setupModuleIds'])
             self.assertEqual(len(set(plan['moduleIds'])), len(plan['moduleIds']))
             self.assertNotIn('status', plan)
+
+    def test_phone_catalog_and_original_execution_profiles_remain_compatible(self):
+        # The Phone planner adds suite tags to the shared catalog. The original
+        # execution planner admits an exact registry match for every platform;
+        # a Phone-only planning test must detect an unregistered shared tag.
+        profiles = load_profiles(HERE.parent / 'execution-profiles.json', CATALOG)
+        identifiers, capabilities = module_capabilities(CATALOG, 'phone-baseline')
+        baseline = self.index['plans']['baseline']
+        self.assertEqual(identifiers, baseline['moduleIds'])
+        self.assertEqual(capabilities, baseline['requiredCapabilities'])
+        profile = profiles['suites']['phone-baseline']
+        self.assertEqual(profile['fixture'], 'domain')
+        self.assertTrue(profile['tabletPolicy'])
+        self.assertEqual(set(profile['artifacts']), {'candidate', 'source'})
+        with tempfile.TemporaryDirectory() as temporary:
+            missing = copy.deepcopy(profiles)
+            del missing['suites']['phone-baseline']
+            path = Path(temporary) / 'profiles.json'
+            path.write_text(json.dumps(missing))
+            with self.assertRaisesRegex(ValueError, 'missing: phone-baseline'):
+                load_profiles(path, CATALOG)
 
     def test_area_plans_keep_gate_foundations_and_original_requirements_budgets(self):
         by_id = {m['id']: m for m in self.catalog['modules']}

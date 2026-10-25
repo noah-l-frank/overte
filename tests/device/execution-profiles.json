@@ -33,6 +33,7 @@
     "multi-user-smoke": {"artifacts": [], "fixture": "domain", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
     "network-fault-recovery": {"artifacts": [], "fixture": "domain", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
     "permission-recovery": {"artifacts": [], "fixture": "none", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
+    "phone-baseline": {"artifacts": ["candidate", "source"], "fixture": "domain", "requiredEnvironment": ["OVERTE_E2E_UPGRADE_FROM_VERSION", "OVERTE_E2E_UPGRADE_TO_VERSION", "OVERTE_E2E_VOICE_PEER_CONFIG", "OVERTE_E2E_VOICE_TESTS"], "session": "fresh", "tabletPolicy": true, "tier": "soak"},
     "places-navigation-parity": {"artifacts": [], "fixture": "scene", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
     "portable-smoke": {"artifacts": [], "fixture": "scene", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "smoke"},
     "render-health": {"artifacts": [], "fixture": "scene", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "smoke"},

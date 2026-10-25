@@ -80,6 +80,25 @@ class ExecutionPlanPipelineTest(unittest.TestCase):
             "artifact:candidate", "artifact:source", "fixture:scene",
         ], plan["missingInputs"])
 
+    def test_phone_baseline_keeps_composite_domain_upgrade_voice_and_tablet_requirements(self):
+        catalog = DEVICE_ROOT / "catalog.json"
+        profiles = load_profiles(DEVICE_ROOT / "execution-profiles.json", catalog)
+        profile = profiles["suites"]["phone-baseline"]
+        modules = [row for row in json.loads(catalog.read_text())["modules"]
+                   if "phone-baseline" in row["suites"]]
+        self.assertEqual(len(modules), 35)
+        self.assertEqual(profile, {
+            "artifacts": ["candidate", "source"], "fixture": "domain",
+            "requiredEnvironment": ["OVERTE_E2E_UPGRADE_FROM_VERSION", "OVERTE_E2E_UPGRADE_TO_VERSION",
+                                    "OVERTE_E2E_VOICE_PEER_CONFIG", "OVERTE_E2E_VOICE_TESTS"],
+            "session": "fresh", "tabletPolicy": True, "tier": "soak"})
+        plan = compile_plan(load_policy(DEVICE_ROOT / "acceptance-policy.json", catalog),
+                            catalog, profiles, "mock", ["phone-baseline"], set(), False, set(), "none")
+        self.assertFalse(plan["ready"])
+        self.assertTrue(set(profile["requiredEnvironment"]) <= set(plan["missingInputs"]))
+        self.assertTrue({"artifact:candidate", "artifact:source", "fixture:domain"}
+                        <= set(plan["missingInputs"]))
+
     def test_policy_lifecycle_can_select_required_suites(self):
         catalog = DEVICE_ROOT / "catalog.json"
         profiles = load_profiles(DEVICE_ROOT / "execution-profiles.json", catalog)
