@@ -5,6 +5,7 @@
 #import "ShareJournal.h"
 #import "CompanionIdentity.h"
 #import "ShareArchiveFiles.h"
+#import "ShareSourceOutputs.h"
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -21,6 +22,21 @@
     return original.length>0 && original.length<=262144?[[NSString alloc] initWithData:original encoding:NSUTF8StringEncoding]:@"";
 }
 @end
+@interface OVTShareSourceInventoryButton : UIButton
+@property(nonatomic,strong) OVTShareSourceOutputs* source;
+@end
+@implementation OVTShareSourceInventoryButton
+- (BOOL)isEnabled {return [super isEnabled] && self.source.inventoryReady;}
+@end
+@interface OVTShareSourceInventoryOriginal : UILabel
+@property(nonatomic,strong) OVTShareSourceOutputs* source;
+@end
+@implementation OVTShareSourceInventoryOriginal
+- (NSString*)accessibilityValue {
+    NSData* original=self.source.inventoryOriginal;
+    return original.length>0 && original.length<=262144?[[NSString alloc] initWithData:original encoding:NSUTF8StringEncoding]:@"";
+}
+@end
 
 @interface OVTShareArchive : UIViewController
 @property(nonatomic,strong) UITextField* runField;
@@ -32,10 +48,12 @@
 @property(nonatomic,strong) NSURL* outputRoot;
 @property(nonatomic,strong) OVTShareArchiveRetirement* retirement;
 @property(nonatomic,strong) UILabel* admissionSealOriginal;
+@property(nonatomic,strong) OVTShareSourceOutputs* sources;
 @end
 @implementation OVTShareArchive
 - (void)viewDidLoad {
     [super viewDidLoad];self.view.backgroundColor=UIColor.systemBackgroundColor;
+    self.sources=OVTShareSourceOutputs.shared;
     UIStackView* stack=[UIStackView new];stack.axis=UILayoutConstraintAxisVertical;stack.spacing=16;stack.translatesAutoresizingMaskIntoConstraints=NO;
     [self.view addSubview:stack];[NSLayoutConstraint activateConstraints:@[
         [stack.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor constant:20],
@@ -69,13 +87,24 @@
     self.admissionSealOriginal=[OVTShareAdmissionSealOriginal new];self.admissionSealOriginal.text=@"Original admission seal";
     self.admissionSealOriginal.accessibilityIdentifier=@"snapshot.share.archive.admission-seal-original";
     [stack addArrangedSubview:self.admissionSealOriginal];
+    OVTShareSourceInventoryButton* inventory=[[OVTShareSourceInventoryButton alloc] initWithFrame:CGRectZero];inventory.source=self.sources;
+    [inventory setTitle:@"Inspect frozen source originals" forState:UIControlStateNormal];[inventory setTitleColor:UIColor.systemBlueColor forState:UIControlStateNormal];
+    inventory.accessibilityIdentifier=@"snapshot.share.archive.source-inventory";
+    [inventory addTarget:self action:@selector(inspectSourceOutputs) forControlEvents:UIControlEventTouchUpInside];[stack addArrangedSubview:inventory];
+    OVTShareSourceInventoryOriginal* original=[OVTShareSourceInventoryOriginal new];original.source=self.sources;original.text=@"Original source inventory";
+    original.accessibilityIdentifier=@"snapshot.share.archive.source-inventory-original";[stack addArrangedSubview:original];
 }
 - (void)sealAdmission {
     NSDictionary* original=[OVTSnapshotCompanionIdentity.shared sealArchiveAdmission:self.queryField.text];
     NSData* raw=original?OVTSnapshotCompanionIdentity.shared.archiveAdmissionSealBytes:nil;
+    if (original) {[self.sources freezeWithAdmissionSeal:raw];}
     self.status.text=raw?@"Original admission close result retained":@"Original admission reader remains owned or unknown";
 }
+- (void)inspectSourceOutputs {
+    self.status.text=[self.sources inventory:self.queryField.text]?@"Original frozen source inventory retained":@"Source originals remain owned or unknown";
+}
 - (void)importOriginal {
+    if (self.sources.producersFrozen) {self.status.text=@"Original source producers are sealed";return;}
     NSString* run=self.runField.text;NSURL* group=OVTShareGroup();
     if (!group || !OVTShareMatch(run,@"\\A[0-9a-f]{32}\\z")) {self.status.text=@"Invalid original identity";return;}
     NSURL* original=[group URLByAppendingPathComponent:[@"snapshot-share-" stringByAppendingString:run] isDirectory:YES];
@@ -130,26 +159,27 @@
             @"group/original.bytes":record[@"artifactRevision"],@"group/share-original.json":OVTShareFileRevision(metadataFirst),
             @"archive/original.bytes":revision,@"archive/original-extension.json":OVTShareFileRevision(extensionFirst),
             @"archive/import-intent.json":OVTShareFileRevision(intentFirst),@"archive/import-original.json":OVTShareFileRevision(importFirst)}
-            metadata:metadata intent:intentBytes importedBytes:completedBytes];
+            metadata:metadata intent:intentBytes importedBytes:completedBytes sources:self.sources];
     }
     self.status.text=saved?@"Original bytes and unchanged extension ledger exposed in Documents":@"Import result failed; responsibility retained";
 }
 - (void)retireOriginal {
+    if (self.sources.producersFrozen) {self.status.text=@"Original source producers are sealed";return;}
     self.status.text=[self.retirement retire:self.queryField.text]?@"Owned imported original retired":@"Original responsibility remains pending";
 }
 - (void)inspectRetirement {
+    if (self.sources.producersFrozen) {self.status.text=@"Original source producers are sealed";return;}
     NSDictionary* packet=[self.retirement inspect:self.queryField.text];
-    NSURL* documents=[NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
-    self.status.text=packet && OVTShareWrite(documents,@"snapshot-share-retirement-observation.json",[NSJSONSerialization dataWithJSONObject:packet options:0 error:nil])
+    self.status.text=packet && [self.sources publish:OVTShareSourceRetireObservation bytes:[NSJSONSerialization dataWithJSONObject:packet options:0 error:nil]]
         ?@"Actual retirement observation persisted":@"Retirement observation remains unavailable";
 }
 - (void)readOriginalChunk {
+    if (self.sources.producersFrozen) {self.status.text=@"Original source producers are sealed";return;}
     NSString* nonce=self.queryField.text;
     if (!self.importRecord || !OVTShareMatch(nonce,@"\\Aios-[a-f0-9]{32}\\z") || [self.chunkNonces containsObject:nonce] || self.chunkNonces.count>=512) {self.status.text=@"Original chunk remains unavailable";return;}
     [self.chunkNonces addObject:nonce];NSDictionary* packet=OVTShareArchiveChunk(self.outputRoot,self.importRecord,nonce,self.offsetField.text);
     NSData* bytes=packet?[NSJSONSerialization dataWithJSONObject:packet options:0 error:nil]:nil;
-    NSURL* documents=[NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
-    self.status.text=OVTShareWriteChunk(documents,bytes)?@"Unchanged imported original chunk persisted":@"Original chunk remains unavailable";
+    self.status.text=[self.sources publish:OVTShareSourceChunk bytes:bytes]?@"Unchanged imported original chunk persisted":@"Original chunk remains unavailable";
 }
 @end
 @interface OVTShareArchiveDelegate : UIResponder <UIApplicationDelegate>

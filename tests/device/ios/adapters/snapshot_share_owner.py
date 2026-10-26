@@ -527,6 +527,10 @@ class IOSSnapshotShareOwner:
         self.handoff('archive-source-seal','archive')
         return SnapshotShareAdmissionSealOwner(self.archive,self.archive_lock,epoch_ms=self.queries.epoch_ms,monotonic=self.queries.monotonic)
 
+    def source_inventory_owner(self):
+        from ios.adapters.snapshot_share_inventory_owner import SnapshotShareSourceInventoryOwner
+        self.live_guard();return SnapshotShareSourceInventoryOwner(self)
+
     @operation
     def cleanup(self):
         self.live_guard();need(self.state['result'] is not None)

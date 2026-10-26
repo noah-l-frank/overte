@@ -9,6 +9,13 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "snapshot-share-source-inventory": 1,
+    "snapshot-share-source-inventory-result": 1,
+    "snapshot-share-source-inventory-owner": 1,
+    "snapshot-share-source-inventory-ui-action": 1,
+    "snapshot-share-source-inventory-ui-output": 1,
+    "share-source-inventory-output-frame": 1,
+    "share-source-inventory-output-original": 1,
     "snapshot-share-admission-seal": 1,
     "snapshot-share-admission-sealed": 1,
     "snapshot-share-admission-seal-owner": 1,

@@ -1,6 +1,13 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "snapshot-share-source-inventory": {"current": 1, "reads": [1]},
+    "snapshot-share-source-inventory-result": {"current": 1, "reads": [1]},
+    "snapshot-share-source-inventory-owner": {"current": 1, "reads": [1]},
+    "snapshot-share-source-inventory-ui-action": {"current": 1, "reads": [1]},
+    "snapshot-share-source-inventory-ui-output": {"current": 1, "reads": [1]},
+    "share-source-inventory-output-frame": {"current": 1, "reads": [1]},
+    "share-source-inventory-output-original": {"current": 1, "reads": [1]},
     "snapshot-share-admission-seal": {"current": 1, "reads": [1]},
     "snapshot-share-admission-sealed": {"current": 1, "reads": [1]},
     "snapshot-share-admission-seal-owner": {"current": 1, "reads": [1]},

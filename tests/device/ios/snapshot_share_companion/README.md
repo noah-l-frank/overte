@@ -84,5 +84,11 @@ profile and existing bound SDK; source and host models are tested without
 compiling this target. Live extension/system inputs, actual original transfer,
 process absence and retirement remain separate obligations.
 
+The [frozen source inventory](../SNAPSHOT_SHARE_SOURCE_INVENTORY.md) adds first
+publication identities for all six global outputs, fences their producers
+after admission-reader closure, and retains their original byte joins through
+one readonly normal input. All six files still require conditional retirement;
+this inventory does not enable whole Snapshot acceptance.
+
 The standalone packaging uses CMake's [App Extension embed phase](https://cmake.org/cmake/help/latest/prop_tgt/XCODE_EMBED_type.html)
 and Xcode's explicit [Info.plist build setting](https://developer.apple.com/documentation/xcode/build-settings-reference).

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #import "ShareArchiveFiles.h"
 #import "ShareJournal.h"
+#import "ShareSourceOutputs.h"
 #import <CommonCrypto/CommonDigest.h>
 #include <dirent.h>
 #include <errno.h>
@@ -80,20 +81,6 @@ static NSDictionary* OVTRetireFile(int directory,NSString* name) {
     for (NSUInteger index=0;index<sizeof(raw);++index) {[digest appendFormat:@"%02x",raw[index]];}
     return @{@"name":name,@"revision":OVTShareFileRevision(before),@"sha256":digest,@"byteCount":@(total)};
 }
-static BOOL OVTRetireExclusive(NSURL* documents,NSString* identity,NSData* bytes) {
-    int parent=open(documents.fileSystemRepresentation,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);if (parent<0) {return NO;}
-    struct stat opened,named;
-    if (fstat(parent,&opened)!=0 || ![OVTRetireParent(opened) isEqual:identity]
-        || lstat(documents.fileSystemRepresentation,&named)!=0 || ![OVTRetireParent(named) isEqual:identity]) {close(parent);return NO;}
-    int file=openat(parent,"snapshot-share-retire-intent.json",O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);
-    BOOL valid=file>=0;NSUInteger offset=0;
-    while (valid && offset<bytes.length) {
-        ssize_t count=write(file,(const char*)bytes.bytes+offset,bytes.length-offset);
-        if (count<0 && errno==EINTR) {continue;}if (count<=0) {valid=NO;break;}offset+=(NSUInteger)count;
-    }
-    if (file>=0) {if (fsync(file)!=0) {valid=NO;}if (close(file)!=0) {valid=NO;}}
-    if (fsync(parent)!=0) {valid=NO;}if (close(parent)!=0) {valid=NO;}return valid;
-}
 @interface OVTShareArchiveRetirement ()
 @property(nonatomic,strong) NSURL* group;
 @property(nonatomic,strong) NSURL* archive;
@@ -102,16 +89,18 @@ static BOOL OVTRetireExclusive(NSURL* documents,NSString* identity,NSData* bytes
 @property(nonatomic,strong) NSArray* files;
 @property(nonatomic,strong) NSMutableDictionary* record;
 @property(nonatomic,strong) NSMutableSet* nonces;
+@property(nonatomic,strong) OVTShareSourceOutputs* sources;
 @property BOOL issued;
 @property BOOL valid;
 @end
 @implementation OVTShareArchiveRetirement
 + (instancetype)ownerWithGroup:(NSURL*)group archive:(NSURL*)archive imported:(NSDictionary*)imported
-    revisions:(NSDictionary*)revisions metadata:(NSData*)metadata intent:(NSData*)intent importedBytes:(NSData*)importedBytes {
+    revisions:(NSDictionary*)revisions metadata:(NSData*)metadata intent:(NSData*)intent importedBytes:(NSData*)importedBytes sources:(OVTShareSourceOutputs*)sources {
     if (![NSThread isMainThread] || ![imported[@"iosSnapshotShareImportVersion"] isEqual:@2] || ![imported[@"phase"] isEqual:@"complete"]
         || ![group.lastPathComponent isEqual:[@"snapshot-share-" stringByAppendingString:imported[@"runId"]]]
         || ![archive.lastPathComponent isEqual:group.lastPathComponent]) {return nil;}
-    OVTShareArchiveRetirement* owner=[self new];owner.group=group;owner.archive=archive;owner.imported=[imported copy];
+    if (![sources isKindOfClass:OVTShareSourceOutputs.class]) {return nil;}
+    OVTShareArchiveRetirement* owner=[self new];owner.group=group;owner.archive=archive;owner.imported=[imported copy];owner.sources=sources;
     owner.nonces=[NSMutableSet new];NSMutableArray* files=[NSMutableArray new];NSMutableDictionary* parents=[NSMutableDictionary new];
     NSDictionary* names=@{@"group":@[@"original.bytes",@"share-original.json"],@"archive":@[@"original.bytes",@"original-extension.json",@"import-intent.json",@"import-original.json"]};
     NSDictionary* hashes=@{@"group/original.bytes":imported[@"sha256"],@"archive/original.bytes":imported[@"sha256"],
@@ -152,12 +141,12 @@ static BOOL OVTRetireExclusive(NSURL* documents,NSString* identity,NSData* bytes
     return valid && *directory>=0 && fstat(*directory,&opened)==0 && [OVTShareRootIdentity(opened) isEqual:identity]
         && fstatat(*parent,root.lastPathComponent.UTF8String,&named,AT_SYMLINK_NOFOLLOW)==0 && [OVTShareRootIdentity(named) isEqual:identity];
 }
-- (BOOL)persist {return OVTShareWrite([self.archive URLByDeletingLastPathComponent],@"snapshot-share-retire.json",[NSJSONSerialization dataWithJSONObject:self.record options:0 error:nil]);}
+- (BOOL)persist {return [self.sources publish:OVTShareSourceRetireResult bytes:[NSJSONSerialization dataWithJSONObject:self.record options:0 error:nil]];}
 - (BOOL)retire:(NSString*)nonce {
     if (![NSThread isMainThread] || !self.valid || self.issued || !OVTShareMatch(nonce,@"\\Aios-[a-f0-9]{32}\\z")) {return NO;}
     self.issued=YES;self.record[@"requestId"]=nonce;self.record[@"clockBefore"]=OVTShareClock();
     NSData* intent=[NSJSONSerialization dataWithJSONObject:self.record options:0 error:nil];
-    if (!intent || !OVTRetireExclusive([self.archive URLByDeletingLastPathComponent],self.parents[@"archive"],intent)) {self.valid=NO;return NO;}
+    if (!intent || ![self.sources publish:OVTShareSourceRetireIntent bytes:intent]) {self.valid=NO;return NO;}
     int group=-1,groupParent=-1,archive=-1,archiveParent=-1;BOOL valid=[self root:@"group" directory:&group parent:&groupParent];
     valid=[self root:@"archive" directory:&archive parent:&archiveParent] && valid;
     valid=valid && OVTRetireCensus(group,@[@"original.bytes",@"share-original.json"])

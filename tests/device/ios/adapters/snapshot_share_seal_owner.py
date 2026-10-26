@@ -31,6 +31,10 @@ class ShareAdmissionSealAction(SnapshotShareUIAction):
 
 
 class SnapshotShareAdmissionSealOwner:
+    _store_name='share-admission-seal-owner.json'
+    _owner_key='snapshotShareAdmissionSealOwnerVersion'
+    _action_type=ShareAdmissionSealAction
+    _label='seal-original-admission'
     def __init__(self,ctx,lock,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic):
         need(isinstance(ctx,SnapshotShareArchiveContext) and isinstance(lock,ScriptSourceLock) and ctx.admission.lock is lock)
         self.ctx,self.lock,self.historical=ctx,lock,False
@@ -48,8 +52,8 @@ class SnapshotShareAdmissionSealOwner:
 
     def setup(self,store=None):
         self.lock.assert_held();self.admission.result();self.admission_hash=digest(self.admission.previous)
-        self.root=self.admission.store.path.parent;self.store=store or PrivateFeatureState(self.root/'share-admission-seal-owner.json')
-        need(self.store.path==self.root/'share-admission-seal-owner.json' and self.lock.path==self.root/'script-feature-sources.lock')
+        self.root=self.admission.store.path.parent;self.store=store or PrivateFeatureState(self.root/self._store_name)
+        need(self.store.path==self.root/self._store_name and self.lock.path==self.root/'script-feature-sources.lock')
         self.previous=self.store.read();self.state=dict(nonce=None,slotSha256=None,result=None)
         if self.previous is not None:self.state=self.load(self.previous)
         else:self.inventory(set())
@@ -59,24 +63,26 @@ class SnapshotShareAdmissionSealOwner:
         self.bound()
         if not self.historical:self.ctx.probe(True)
         return True
-    def envelope(self):return dict(snapshotShareAdmissionSealOwnerVersion=1,binding=self.binding,runId=self.run,fixtureUrl=self.fixture_url,
-        admissionSha256=self.admission_hash,payload=pack([self.state]))
+    def scope_fields(self):return {}
+    def envelope(self):return {self._owner_key:1,'binding':self.binding,'runId':self.run,'fixtureUrl':self.fixture_url,
+        'admissionSha256':self.admission_hash,'payload':pack([self.state]),**self.scope_fields()}
     def save(self):
         need(not self.historical);self.check();value=self.envelope();self.store.write(value,self.previous)
         need(same(value,self.store.read()));self.previous=deepcopy(value)
     def action(self,historical=False):
         need(self.state['nonce'] is not None and (historical or not self.historical))
-        plan=dict(label='seal-original-admission',control='snapshot.share.archive.admission-seal',selector=None,
+        plan=dict(label=self._label,control=self._action_type._output_control,selector=None,
             fields=[['snapshot.share.archive.query',self.state['nonce']]])
-        return ShareAdmissionSealAction(self.root,self.lock,self.binding,self.run,1,plan,self.bound if historical else self.check,
+        return self._action_type(self.root,self.lock,self.binding,self.run,1,plan,self.bound if historical else self.check,
             client=None if historical else self.ctx.client,session=None if historical else self.ctx.session,
             epoch_ms=self.epoch_ms,monotonic=self.monotonic,historical=historical)
     def inventory(self,allowed):
+        prefix=self._store_name.removesuffix('owner.json')
         for path in self.root.iterdir():
-            if path.name.startswith('share-admission-seal-'):need(path==self.store.path or path in allowed)
+            if path.name.startswith(prefix):need(path==self.store.path or path in allowed)
     def load(self,value):
-        exact(value,{'snapshotShareAdmissionSealOwnerVersion','binding','runId','fixtureUrl','admissionSha256','payload'})
-        rows=unpack(value['payload']);need(len(rows)==1 and type(value['snapshotShareAdmissionSealOwnerVersion']) is int and value['snapshotShareAdmissionSealOwnerVersion']==1)
+        exact(value,{self._owner_key,'binding','runId','fixtureUrl','admissionSha256','payload'}|set(self.scope_fields()))
+        rows=unpack(value['payload']);need(len(rows)==1 and type(value[self._owner_key]) is int and value[self._owner_key]==1)
         state=rows[0];exact(state,set(self.state));prior=self.state;self.state=state
         try:
             need(same(value,self.envelope()));allowed=set()
