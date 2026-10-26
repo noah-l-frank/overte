@@ -1,8 +1,8 @@
 # One Audio owner from ordinary opening through page restoration
 
 The existing installed `IOSAudioRuntime.recorded_owner` now constructs version
-3 of the same recording owner. It also reads literal owners/observations 1 and
-2, preserving their input boundaries and original files. No parallel recording
+4 of the same recording owner. It also reads literal owners/observations 1, 2
+and 3, preserving their input boundaries and original files. No parallel recording
 manager, new transport or native product behavior is introduced. The full Audio
 capability remains closed.
 
@@ -52,6 +52,7 @@ The [session ownership barrier](AUDIO_SESSION_OWNERSHIP.md) preserves these
 unfinished responsibilities before ordinary SDK work. Closing this page or
 retiring its PCM lease cannot bypass that barrier.
 
-The [background interruption child](AUDIO_BACKGROUND.md) now records actual
-same-process OS cancellation and native quiet independently. Its parent bridge
-is still required; ordinary recording cannot bypass the lifecycle guard.
+The [background interruption child](AUDIO_BACKGROUND.md) records actual
+same-process OS cancellation and native quiet independently. Its
+[version-four parent bridge](AUDIO_BACKGROUND_BRIDGE.md) permits normal Close
+after an exact owned interruption; ordinary recording cannot bypass that proof.

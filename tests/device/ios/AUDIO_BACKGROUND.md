@@ -40,8 +40,8 @@ exercise actual private files, CAS, locks, original codecs, installed guards and
 normal OS request paths. Audio/UIKit/SDK/native clocks are explicit host models;
 no build, device, permission or acoustic qualification follows.
 
-This is an interruption component. The recording parent's lifecycle equality
-guard remains unchanged; continuing that parent requires a separately validated
-versioned bridge to these exact originals. Full Audio also needs independent
+This is an interruption component. The [version-four parent bridge](AUDIO_BACKGROUND_BRIDGE.md)
+now joins these exact originals to a fresh foreground parent cut, preserving
+lifecycle equality everywhere else. Full Audio also needs independent
 Actor/acoustic/permission evidence and complete settings, page, callback, source
 and process/SDK retirement. Its complete capability remains closed.

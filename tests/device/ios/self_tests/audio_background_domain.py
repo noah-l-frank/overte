@@ -17,9 +17,12 @@ TICKET='7'*32
 
 
 class AudioBackgroundDomain:
-    def __init__(self,case):
+    def __init__(self,case,*,pages=False):
         self.fixture=IOSScriptRuntimeTests();self.fixture.setUp();case.addCleanup(self.fixture.doCleanups)
         self.f=self.fixture.f;self.root=self.f.root;self.m=Model();self.m.muted=False
+        if pages:
+            from ios.self_tests.audio_page_cycle_domain import AudioPageCycleDomain
+            self.m=AudioPageCycleDomain(self.root);self.m.automatic=False;self.m.add_phase('open','3'*32)
         self.runtime=IOSAudioRuntime(self.f.adapter);source=self.runtime._sources('test-only');self.binding=source['binding']
         self.lock=ScriptSourceLock(self.root/'script-feature-sources.lock');case.enterContext(self.lock.held())
         self.inputs=[];self.reads=0;self.fault=None;self.native_blocked=False
@@ -35,12 +38,29 @@ class AudioBackgroundDomain:
         parent=IOSAudioRecordedOwner(self.store,self.root,self.binding,RUN,self.lock,m.guard,native=m.reader(),io=m.io(),
             phase=PhaseFixtureReader(m.client(),RUN,'audio',epoch_ms=m.epoch,monotonic=lambda:m.clock),
             epoch_ms=m.epoch,monotonic=lambda:m.clock,sleep=m.sleep)
-        m.owner=parent;parent.act(m.ticket,'record-start');self.parent_bytes=self.store.path.read_bytes()
+        m.owner=parent
+        if pages:parent.act(m.ticket,'open');m.add_phase('record-start','4'*32)
+        parent.act(m.ticket,'record-start');self.parent_bytes=self.store.path.read_bytes()
         m.add_phase('background-resume',TICKET)
         def sources(_selector):
             case.assertTrue(self.f.process['foreground']);case.assertFalse(self.native_blocked)
             source['check']()
-            return dict(binding=self.binding,clock_source=m.reader(),native=m,
+            # Real runtime calls create separate normal/native source objects.
+            # Model those per-factory callbacks without replacing the parent's
+            # owner or forwarding child queries into a parent observation WAL.
+            class Normal:
+                observe_intent=None
+                def capture(self):
+                    previous=m.owner;m.owner=SimpleNamespace(query_intent=self.observe_intent)
+                    try:return m.capture()
+                    finally:m.owner=previous
+            normal=Normal();native=m.reader();original_send=native.send
+            def raw_send(command):
+                previous=m.owner;m.owner=SimpleNamespace(query_intent=lambda _:None)
+                try:return original_send(command)
+                finally:m.owner=previous
+            native.send=raw_send
+            return dict(binding=self.binding,clock_source=native,native=normal,
                 client=self.fixture.client,session='test-only',check=m.guard)
         self.runtime._sources=sources
         execute=self.fixture.client.execute
@@ -73,4 +93,4 @@ class AudioBackgroundDomain:
     def reopen(self):
         m=self.m
         owner=self.runtime.background_owner('test-only',RUN,self.lock,m.client(),epoch_ms=m.epoch,monotonic=lambda:m.clock,sleep=m.sleep)
-        m.owner=owner;self.owner=owner;return owner
+        self.owner=owner;return owner

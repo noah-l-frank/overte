@@ -37,20 +37,37 @@ class AudioBackground:
         self.parent=IOSAudioRecordedOwner.archive(parent_store,self.root,self.binding,self.run,lock,self.parent_original['fixtureUrl'])
         need(self.parent.state['pending'] is None and self.parent.state['observation'] is None)
         self.previous=store.read();self.state=None
+        self.historical=False
         self.frames=OriginalFrameStore(self.root,self.binding,run,'primary',self.file_guard,self.storage_intent,
             namespace='ios-audio-background',schema_prefix='iosAudioBackground',monotonic=monotonic)
         if self.previous is not None:self.state=self.decode(self.previous)
+
+    @classmethod
+    def archive(cls,store,prefix,bundle):
+        """Pure child decoder against a checked prefix of the full parent."""
+        from ios.adapters.audio_background_bridge import RecordedPrefix
+        from types import SimpleNamespace
+        need(isinstance(prefix,RecordedPrefix));owner=object.__new__(cls)
+        owner.store,owner.parent,owner.parent_store=store,prefix,prefix.store
+        owner.root,owner.binding,owner.run,owner.lock=prefix.root,deepcopy(prefix.binding),prefix.run,prefix.lock
+        owner.parent_original=deepcopy(prefix.previous);owner.previous=store.read();need(owner.previous is not None)
+        owner.monotonic=prefix.monotonic;owner.historical=True;owner.os=SimpleNamespace(gate=SimpleNamespace(bundle=deepcopy(bundle)))
+        owner.frames=OriginalFrameStore(owner.root,owner.binding,owner.run,'primary',owner.file_guard,owner.storage_intent,
+            namespace='ios-audio-background',schema_prefix='iosAudioBackground',monotonic=owner.monotonic)
+        owner.state=owner.decode(owner.previous);return owner
 
     def envelope(self,state):
         return dict(iosAudioBackgroundVersion=1,binding=self.binding,runId=self.run,artifactRoot=str(self.root),payload=pack([state]))
 
     def file_guard(self):
-        self.lock.assert_held();need(same(self.store.read(),self.previous) and same(self.parent_store.read(),self.parent_original))
+        self.lock.assert_held();need(same(self.store.read(),self.previous))
+        if self.historical:return self.parent.bound()
+        need(same(self.parent_store.read(),self.parent_original))
         self.os.runtime.adapter._candidate_guard()
         need(same(self.os.runtime.adapter.read_session(self.os.selector),self.os.session_state));return True
 
     def save(self):
-        self.file_guard();value=self.envelope(self.state);self.store.write(value,self.previous)
+        need(not self.historical);self.file_guard();value=self.envelope(self.state);self.store.write(value,self.previous)
         need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     def decode(self,value):
@@ -189,7 +206,7 @@ class AudioBackground:
 
     @operation
     def act(self,ticket):
-        self.file_guard();identifier(ticket)
+        need(not self.historical);self.file_guard();identifier(ticket)
         if self.state is None:
             need(self.parent.state['operations']);started=self.parent.state['operations'][-1]
             need(started['verb']=='record-start' and started['after']==self.parent.state['records'][-1]);self.starting(self.parent.original(started['after']))

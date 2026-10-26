@@ -116,8 +116,8 @@ class AudioMutedStartTests(unittest.TestCase):
 
     def test_literal_one_normal_cycle_remains_readable_without_rewriting_originals(self):
         f=self.f;m=f.model;m.muted=False
-        with f.owner() as owner:
-            owner.version=1;owner.act(m.ticket,'record-start');m.add_phase('record-cancel','4'*32)
+        with patch('ios.adapters.audio_recorded_owner.VERSION',1),f.owner() as owner:
+            owner.act(m.ticket,'record-start');m.add_phase('record-cancel','4'*32)
             owner.act(m.ticket,'record-cancel');self.assertEqual(1,owner.store.read()['iosAudioRecordedOwnerVersion']);url=owner.fixture_url
         files={path:(path.stat().st_ino,path.read_bytes()) for path in f.root.iterdir() if path.is_file()}
         with f.lock.held():
@@ -127,15 +127,14 @@ class AudioMutedStartTests(unittest.TestCase):
 
     def test_literal_one_retains_its_muted_input_boundary(self):
         f=self.f;m=f.model
-        with f.owner() as owner:
-            owner.version=1
+        with patch('ios.adapters.audio_recorded_owner.VERSION',1),f.owner() as owner:
             with self.assertRaises(NativeUIError):owner.act(m.ticket,'record-start')
         self.assertEqual([],m.actions)
 
     def test_literal_two_rejected_start_and_quiet_reopen_without_new_page_contract(self):
         f=self.f;m=f.model
-        with f.owner() as owner:
-            owner.version=2;owner.act(m.ticket,'record-start');url=owner.fixture_url;expected=deepcopy(owner.state)
+        with patch('ios.adapters.audio_recorded_owner.VERSION',2),f.owner() as owner:
+            owner.act(m.ticket,'record-start');url=owner.fixture_url;expected=deepcopy(owner.state)
         with f.lock.held():
             archive=IOSAudioRecordedOwner.archive(f.store,f.root,BINDING,RUN,f.lock,url)
             self.assertEqual(2,archive.version);self.assertEqual(expected,archive.state)
@@ -218,8 +217,8 @@ class AudioMuteFlowTests(unittest.TestCase):
                 if row['id']=='audio.mute':row.update(checked=True,nativeMuted=True)
             return value
         m.transform=old_ui
-        with f.owner() as owner:
-            owner.version=1;reference=owner.capture(m.ticket,'record-start');original=owner.original(reference)
+        with patch('ios.adapters.audio_recorded_owner.VERSION',1),f.owner() as owner:
+            reference=owner.capture(m.ticket,'record-start');original=owner.original(reference)
             self.assertFalse(original['originals']['native']['audio']['muted'])
             self.assertTrue(next(row for row in original['originals']['ui']['controls'] if row['id']=='audio.mute')['nativeMuted'])
             newer=deepcopy(original);newer['iosAudioRecordedObservationVersion']=2;owner.version=2

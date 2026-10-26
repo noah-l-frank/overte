@@ -23,8 +23,8 @@ from ios.adapters.graphics_history import follow_native
 from ios.adapters.normal_input import observation as ui_packet
 from ios.adapters.audio_api_clock import operation
 
-VERSION=3
-READS=(1,2,3)
+VERSION=4
+READS=(1,2,3,4)
 
 class IOSAudioRecordedOwner:
     def __init__(self,store,root,binding,run,lock,guard,*,native,io,phase,epoch_ms,monotonic,sleep):
@@ -38,6 +38,7 @@ class IOSAudioRecordedOwner:
         self.fixture_url=phase.fixture_url;self.historical=False;self.lock.assert_held()
         self.previous=store.read();self.state=dict(records=[],operations=[],pending=None,observation=None)
         self.version=VERSION if self.previous is None else self.previous.get('iosAudioRecordedOwnerVersion')
+        if self.version>=4:self.state['background']=None
         self.frames=self.frame_store();self.ui=TokenAudioUI(io,self.input_intent,monotonic=monotonic,sleep=sleep)
         if self.previous is not None:self.state=self.decode(self.previous)
         else:self.inventory(self.state)
@@ -79,13 +80,29 @@ class IOSAudioRecordedOwner:
         else:need(inputs=={})
         return inputs
 
-    def frame(self,value,previous=None):
-        exact(value,{'iosAudioRecordedObservationVersion','ticket','verb','phaseBefore','phaseAfter','originals','clockJoin'})
+    def frame(self,value,previous=None,state=None):
+        exact(value,{'iosAudioRecordedObservationVersion','ticket','verb','phaseBefore','phaseAfter','originals','clockJoin'}
+            |({'background'} if value.get('iosAudioRecordedObservationVersion',0)>=4 else set()))
         need(type(value['iosAudioRecordedObservationVersion']) is int and value['iosAudioRecordedObservationVersion'] in READS
             and value['iosAudioRecordedObservationVersion']<=self.version)
         identifier(value['ticket']);need(value['verb'] in ('record-start','record-cancel')
             or value['iosAudioRecordedObservationVersion']>=2 and value['verb'] in ('mute','await-completion')
-            or value['iosAudioRecordedObservationVersion']>=3 and value['verb'] in ('open','close'))
+            or value['iosAudioRecordedObservationVersion']>=3 and value['verb'] in ('open','close')
+            or value['iosAudioRecordedObservationVersion']>=4 and value['verb']=='background-resume')
+        bridge=value.get('background')
+        if bridge is not None:
+            from ios.adapters.audio_background_bridge import proof
+            current=self.state if state is None else state
+            need(value['verb']=='background-resume' and current['background'] is not None
+                and same(current['background']['proof'],bridge))
+            final=proof(self,bridge,current)
+            need(final['ticket']==value['ticket']);follow_native(final['clockJoin']['nativeAfter'],value['clockJoin']['nativeBefore'])
+            need(same(final['clockJoin']['nativeAfter']['lifecycle'],value['clockJoin']['nativeBefore']['lifecycle'])
+                and same(final['originals']['native']['audio'],value['originals']['native']['audio'])
+                and final['originals']['ui']['lastSequence']==value['originals']['ui']['lastSequence']
+                and value['clockJoin']['hostBeforeEpochMs']>=final['clockJoin']['hostAfterEpochMs']
+                and value['clockJoin']['hostBeforeMonotonic']>=final['clockJoin']['hostAfterMonotonic'])
+        elif value['verb']=='background-resume':need(False)
         self.phase_original(value['phaseBefore'],value['ticket'],value['verb'])
         self.phase_original(value['phaseAfter'],value['ticket'],value['verb'],value['phaseBefore'])
         need(same(value['phaseBefore']['activations'],value['phaseAfter']['activations']))
@@ -110,8 +127,9 @@ class IOSAudioRecordedOwner:
             need(mute['nativeMuted']==current['audio']['muted'])
         if previous is not None:
             follow_native(previous['clockJoin']['nativeAfter'],first)
-            need(first['lifecycle']==previous['clockJoin']['nativeAfter']['lifecycle']
-                and ui['instance']==previous['originals']['ui']['instance']
+            if bridge is None:need(first['lifecycle']==previous['clockJoin']['nativeAfter']['lifecycle'])
+            else:need(same(previous,self.original(bridge['before'],state=state)))
+            need(ui['instance']==previous['originals']['ui']['instance']
                 and ui['lastSequence']>=previous['originals']['ui']['lastSequence']
                 and ui['elapsedMs']>=previous['originals']['ui']['elapsedMs']
                 and join['hostBeforeEpochMs']>=previous['clockJoin']['hostAfterEpochMs']
@@ -119,7 +137,7 @@ class IOSAudioRecordedOwner:
             self.phase_original(value['phaseBefore'],value['ticket'],value['verb'],previous['phaseAfter'])
         return value
 
-    def original(self,reference):return self.frame(self.frames.read(self.frames.expand(reference)))
+    def original(self,reference,*,state=None):return self.frame(self.frames.read(self.frames.expand(reference)),state=state)
 
     def inventory(self,state):
         expected={self.frames.path(self.frames.expand(reference)) for reference in state['records']}
@@ -135,11 +153,25 @@ class IOSAudioRecordedOwner:
         need(type(value['iosAudioRecordedOwnerVersion']) is int and value['iosAudioRecordedOwnerVersion'] in READS
             and value['iosAudioRecordedOwnerVersion']==self.version and len(rows)==1
             and same(value,self.envelope(rows[0])));state=rows[0]
-        exact(state,{'records','operations','pending','observation'})
+        exact(state,{'records','operations','pending','observation'}|({'background'} if self.version>=4 else set()))
         need(type(state['records']) is list and len(state['records'])<=128 and type(state['operations']) is list and len(state['operations'])<=32)
         previous=None
         for index,reference in enumerate(state['records'],1):
-            need(reference['index']==index);current=self.original(reference);self.frame(current,previous);previous=current
+            need(reference['index']==index);current=self.original(reference,state=state);self.frame(current,previous,state);previous=current
+        self.operations(state)
+        if self.version>=4 and state['background'] is not None:
+            from ios.adapters.audio_background_bridge import proof
+            background=state['background'];exact(background,{'proof','after'});proof(self,background['proof'],state)
+            if background['after'] is not None:
+                need(background['after'] in state['records'] and background['after']['index']==background['proof']['before']['index']+1)
+                result=self.original(background['after'],state=state)
+                need(result['verb']=='background-resume' and same(result['background'],background['proof']))
+            else:need(len(state['records'])<=background['proof']['before']['index']+1)
+        self.inventory(state)
+        return deepcopy(state)
+
+    def operations(self,state):
+        """Pure operation grammar shared with an exact validated record prefix."""
         tickets=set();completed=[]
         for operation in state['operations']+([] if state['pending'] is None else [state['pending']]):
             keys={'ticket','verb','cycle','before','inputs','queries','after','quiet'}
@@ -183,12 +215,11 @@ class IOSAudioRecordedOwner:
         if observation is not None:
             exact(observation,{'ticket','verb','queries','wire'});identifier(observation['ticket'])
             need((observation['verb'] in ('record-start','record-cancel') or self.version>=2 and observation['verb'] in ('mute','await-completion')
-                    or self.version>=3 and observation['verb'] in ('open','close'))
+                    or self.version>=3 and observation['verb'] in ('open','close')
+                    or self.version>=4 and observation['verb']=='background-resume')
                 and type(observation['queries']) is list and len(observation['queries'])<=64)
             for query in observation['queries']:self.query(query)
             if observation['wire'] is not None:self.frames.original(observation['wire'])
-        self.inventory(state)
-        return deepcopy(state)
 
     @staticmethod
     def query(command):
@@ -237,6 +268,7 @@ class IOSAudioRecordedOwner:
         join=acquisition.finish(originals,[('native','capturedEpochMs'),('ui','sampleEpochMs')])
         after=self.phase.status(status['status'])
         value=dict(iosAudioRecordedObservationVersion=self.version,ticket=ticket,verb=verb,phaseBefore=status['status'],phaseAfter=after,originals=originals,clockJoin=join)
+        if self.version>=4:value['background']=deepcopy(self.state['background']['proof']) if verb=='background-resume' else None
         self.frame(value,None if not self.state['records'] else self.original(self.state['records'][-1]))
         reference=self.frames.write(len(self.state['records'])+1,value);self.state['records'].append(reference);self.state['observation']=None;self.save()
         return reference
@@ -317,6 +349,32 @@ class IOSAudioRecordedOwner:
         need(status['ticket']==operation['ticket'] and status['verb']==operation['verb'] and status['inputs']=={})
         operation['inputs'].append(dict(verb='page',identifier=control,ui=deepcopy(value),phase=status['status'],label=label,element=element,returned=False))
         self.save();return True
+
+    @operation
+    def adopt_background(self,child=None):
+        """Retain one exact child, then acquire a fresh parent foreground cut."""
+        from ios.adapters.audio_background import AudioBackground
+        from ios.adapters.audio_background_bridge import proof
+        self.bound();need(not self.historical and self.version>=4 and self.state['pending'] is None)
+        if self.state['background'] is None:
+            need(isinstance(child,AudioBackground) and not child.historical and type(child.state) is dict and child.state['phase']=='observed'
+                and same(child.parent_original,self.previous) and child.binding==self.binding and child.run==self.run
+                and child.lock.path==self.lock.path and child.root==self.root)
+            child.file_guard();child.decode(child.previous)
+            value=dict(iosAudioBackgroundBridgeVersion=1,before=deepcopy(self.state['records'][-1]),
+                child=deepcopy(child.previous),bundle=deepcopy(child.os.gate.bundle))
+            proof(self,value,self.state);self.state['background']=dict(proof=value,after=None);self.save()
+        background=self.state['background'];last=proof(self,background['proof'],self.state)
+        if background['after'] is None:
+            self.recover_observation()
+            candidates=[reference for reference in self.state['records'] if reference['index']>background['proof']['before']['index']]
+            if candidates:
+                need(len(candidates)==1);reference=candidates[0]
+            else:reference=self.capture(last['ticket'],'background-resume')
+            value=self.original(reference);need(value['verb']=='background-resume' and same(value['background'],background['proof']))
+            background['after']=deepcopy(reference);self.decode(self.envelope(self.state));self.save()
+        reference=background['after'];value=self.original(reference)
+        return dict(performed=True,original=deepcopy(reference),state=measured_state(value['originals']['native']),historical=True)
 
     def page_returned(self,label):
         self.bound();operation=self.state['pending'];need(operation is not None)
@@ -408,6 +466,7 @@ class IOSAudioRecordedOwner:
     @operation
     def act(self,ticket,verb,*,enabled=None):
         self.bound();need(not self.historical);identifier(ticket)
+        if self.version>=4 and self.state['background'] is not None:need(self.state['background']['after'] is not None)
         need(verb in ('record-start','record-cancel') and enabled is None
              or self.version>=2 and verb=='await-completion' and enabled is None
              or self.version>=2 and verb=='mute' and type(enabled) is bool
