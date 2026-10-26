@@ -55,4 +55,6 @@ class TerminalDomain(StrongDomain):
             test.assertEqual(('app.stop',{}),(operation,values));native=self.natives[selector];gate=self.installed[selector]
             binding=gate.make();binding.begin_retirement();result=native.lifecycle_input(operation);gate.process=None
             binding.finish_retirement();return result
-        adapter.invoke=stop;adapter.reset_launch_state=lambda *_args:None
+        adapter.invoke=stop
+        from ios.self_tests.avatar_terminal_metadata import bind
+        bind(self,test)

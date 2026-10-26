@@ -76,3 +76,35 @@ Whole-journey execution, both retained held terminal ends, production Actor
 exit, and full canonical repeated cleanup remain pending. Native/SDK/compiler
 boundaries remain modeled and native sources remain uncompiled. Overall
 complete areas remain 5/14.
+
+## Actual private metadata in the terminal fixture
+
+The existing `TerminalDomain` declared native/SDK producers previously exposed
+an in-memory SDK descriptor and kept its genuine modeled Installed record in
+an unrelated temporary fixture directory. That boundary could not exercise
+the canonical session/Installed-file CAS added above. It is now aligned before
+the first feature admission, without modifying any retained graph:
+
+- Its already created Installed original is renamed into the admitted target's
+  actual `installed-code-binding.json` slot. Device, inode and bytes remain
+  identical; no replacement Installed record or source clock is manufactured.
+- The fresh modeled SDK descriptor is written once to the actual private
+  `session.json`. Host reads always reopen that file and never fall back to the
+  modeled server's descriptor after removal. A save cannot recreate an absent
+  slot or change its session/generation/target scope.
+- The real `IOSNativeMixin.reset_launch_state` removes stopped process/launch
+  flags through the actual private file. The historical Installed decoder uses
+  the original declared candidate bundle and exact target scope, with native
+  and SDK callbacks forbidden. Existing process, DVT and SDK lifecycle models
+  retain their original packet/timestamp producers and deadlines.
+
+`avatar-terminal-private-metadata-20261026.log` records **23 passing explicit
+host tests in 2.549 seconds**: four new `AvatarTerminalMetadataTests` exercise
+actual original relocation, independent file reads, no metadata recreation,
+stopped flag reset and frozen bundle/scope refusal. The existing ten metadata
+retirement and nine canonical dispatch cases pass in the same selection. These
+fixture cases perform no feature preparation, Scene or end qualification.
+Actual loopback authority/Node startup and private codecs run; candidate,
+native/SDK and renderer boundaries remain explicit models and native sources
+remain uncompiled. A larger outer host diagnostic must separately execute the
+unchanged complete held-terminal path, including actual per-role metadata CAS.
