@@ -19,6 +19,14 @@ actual recording owner's lock and installed candidate. It uses the existing
 iOS Documents transport. The selected normal recording operation, input
 ticket, native cycle and original source reference remain unchanged.
 
+An existing version-one lease resolves its entire saved recording binding
+against exactly one actual owned Start in the current parent history. Later
+ordinary starts cannot relabel that original or prevent its pure decoding.
+A new lease still selects the latest actual Start. Ticket, native cycle,
+original reference and operation digest must all agree; malformed or detached
+bindings remain unavailable. An unretired earlier lease cannot release a
+newer current cycle: the fresh native cycle check still precedes release.
+
 Snapshot and release request IDs are durably committed before actual native
 delivery. A lost snapshot result cannot invoke another allocation. A lost
 release result permits only a new independent native files/memory query; it
@@ -54,3 +62,18 @@ whole process/SDK cleanup. This internal packet activates no capability.
 Focused host tests use explicit UIKit/audio/native transport models with real
 private journals, locks and original carriers. Native compilation and devices
 remain untested.
+
+The multi-cycle regression first reproduced the earlier/latest binding error.
+The corrected original sixteen-case PCM selection passes in 17.561 seconds.
+A connected normal page case passes in 9.770 seconds: automatic completion,
+original PCM capture/release, a later capture cancelled by ordinary mute,
+unmute, another capture, OS background/activation, original child adoption and
+ordinary page return. Pure archive keeps the first lease bytes and inode and
+does not query or release again. The declared producer explicitly allocates
+new evidence memory for later starts; that memory remains owned. The earlier
+absence original is historical and proves no absence for those newer cycles
+or whole Audio cleanup. No capability, schema, acquisition window or API
+budget changes in this correction.
+The final 41-case explicit PCM, completion, background-bridge, legacy and
+authorized-page selection passes in 53.803 seconds, including malformed saved
+bindings. Earlier failure diagnostics remain retained separately.

@@ -13,7 +13,9 @@ from ios.self_tests.test_ios_audio_recorded_owner import RUN
 
 
 class AudioBackgroundBridgeTests(unittest.TestCase):
-    def setUp(self):self.b=AudioBackgroundDomain(self,pages=self._testMethodName=='test_canonical_resume_composes_original_os_child_then_normal_page_close')
+    def setUp(self):self.b=AudioBackgroundDomain(self,pages=self._testMethodName in (
+        'test_canonical_resume_composes_original_os_child_then_normal_page_close',
+        'test_retired_pcm_keeps_original_cycle_through_later_mute_background_and_page_return'))
 
     def parent(self):
         b=self.b;m=b.m
@@ -97,6 +99,39 @@ class AudioBackgroundBridgeTests(unittest.TestCase):
         self.assertEqual('closed',m.page_model.route);self.assertEqual(2,len(b.inputs));self.assertEqual(1,m.actions.count('audio.record'))
         archived=IOSAudioRecordedOwner.archive(b.store,b.root,b.binding,RUN,b.lock,owner.fixture_url)
         self.assertEqual(owner.state,archived.state)
+
+    def test_retired_pcm_keeps_original_cycle_through_later_mute_background_and_page_return(self):
+        from adapters.normal_feature_state import PrivateFeatureState
+        from ios.adapters.audio_pcm_lease import IOSAudioPCMLease
+        from ios.self_tests.test_ios_audio_pcm_lease import PCMModel
+        b=self.b;m=b.m;owner=self.parent();m.automatic=True
+        m.add_phase('await-completion','a'*32);owner.act(m.ticket,'await-completion')
+        pcm=PCMModel(m);native,preview=pcm.reader();store=PrivateFeatureState(b.root/'ios-audio-pcm-lease.json')
+        lease=IOSAudioPCMLease(store,owner,native=native,preview=preview);lease.capture();retired=lease.retire()
+        original=(store.path.stat().st_ino,store.path.read_bytes());m.automatic=False
+        activate=m.activate
+        def active_cycle(identifier,*,token):
+            cycle=m.cycle;result=activate(identifier,token=token)
+            if m.cycle!=cycle:pcm.memory=True # Actual begin allocates evidence again.
+            return result
+        m.activate=active_cycle
+        m.add_phase('record-start','b'*32);owner.act(m.ticket,'record-start')
+        m.add_phase('mute','c'*32,enabled=True);owner.act(m.ticket,'mute',enabled=True)
+        m.add_phase('mute','d'*32,enabled=False);owner.act(m.ticket,'mute',enabled=False)
+        m.add_phase('record-start','e'*32);owner.act(m.ticket,'record-start')
+        ticket='f'*32;m.add_phase('background-resume',ticket)
+        result=b.runtime.resume_recording('test-only',owner,ticket,m.client(),epoch_ms=m.epoch,monotonic=lambda:m.clock,sleep=m.sleep)
+        self.assertEqual('backgrounded',result['state']['error'])
+        m.add_phase('close','9'*32);self.assertFalse(owner.act(m.ticket,'close')['state']['open'])
+        commands=deepcopy(pcm.commands);reads=b.reads;b.native_blocked=True
+        archive=IOSAudioRecordedOwner.archive(b.store,b.root,b.binding,RUN,b.lock,owner.fixture_url)
+        with patch.object(PrivateFeatureState,'write',side_effect=AssertionError('Pure PCM archive must not write')):
+            self.assertEqual(retired,IOSAudioPCMLease.archive(store,archive).retired())
+        self.assertEqual(original,(store.path.stat().st_ino,store.path.read_bytes()))
+        self.assertEqual(commands,pcm.commands);self.assertEqual(reads,b.reads)
+        self.assertEqual(1,retired['recording']['cycle']);self.assertEqual(3,m.cycle)
+        self.assertTrue(pcm.memory) # Old retirement is not absence for later cycles.
+        self.assertEqual(1,pcm.count('feature-recorded-audio-release'));self.assertEqual(2,len(b.inputs))
 
     def test_bridge_cannot_be_detached_from_the_parent_state_ledger(self):
         from adapters.script_feature.history import unpack,pack

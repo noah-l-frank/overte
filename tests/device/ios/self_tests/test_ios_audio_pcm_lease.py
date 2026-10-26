@@ -205,5 +205,56 @@ class AudioPCMLeaseTests(unittest.TestCase):
         with self.lease() as owner:self.assertTrue(owner.retire()['retired'])
         self.assertEqual(requests,self.model.commands)
 
+    def later_start(self):
+        self.fixture.model.add_phase('record-start','6'*32)
+        with self.fixture.owner() as owner:owner.act(self.fixture.model.ticket,'record-start')
+
+    def test_retired_original_keeps_earlier_owned_start_after_a_later_normal_cycle(self):
+        with self.lease() as owner:
+            owner.capture();retired=owner.retire()
+        saved=self.store.read();body=self.store.path.read_bytes();inode=self.store.path.stat().st_ino
+        self.later_start();self.fixture.cancel_phase()
+        with self.fixture.owner() as owner:owner.act(self.fixture.model.ticket,'record-cancel')
+        commands=deepcopy(self.model.commands);queries=self.fixture.model.counter
+        with patch.object(PrivateFeatureState,'write',side_effect=AssertionError('Historical lease must not write')):
+            self.assertEqual(retired,self.archive())
+            with self.lease() as owner:self.assertEqual(retired,owner.retire())
+        self.assertEqual(commands,self.model.commands);self.assertEqual(queries,self.fixture.model.counter)
+        self.assertEqual(saved,self.store.read());self.assertEqual(body,self.store.path.read_bytes())
+        self.assertEqual(inode,self.store.path.stat().st_ino)
+
+    def test_unretired_earlier_lease_cannot_release_a_new_current_cycle(self):
+        with self.lease() as owner:owner.capture()
+        self.later_start();files=deepcopy(self.model.files)
+        with self.lease() as owner:
+            with self.assertRaises(NativeUIError):owner.retire()
+        self.assertEqual(0,self.model.count('feature-recorded-audio-release'))
+        self.assertEqual(files,self.model.files);self.assertTrue(self.model.memory)
+
+    def test_saved_recording_must_match_an_entire_actual_owned_start(self):
+        with self.lease() as owner:owner.capture();owner.retire()
+        self.later_start();saved=self.store.read()
+        for key,value in (('ticket','7'*32),('cycle',99),('operationSha256','0'*64),('original',None)):
+            with self.subTest(key=key):
+                changed=deepcopy(saved);changed['recording'][key]=value;self.store.write(changed,saved)
+                with self.assertRaises(NativeUIError):self.archive()
+                self.store.write(saved,changed)
+
+    def test_new_lease_selects_latest_actual_owned_start(self):
+        self.later_start();self.model.complete()
+        with self.lease() as owner:
+            snapshot=owner.capture();self.assertEqual('6'*32,snapshot['recording']['ticket'])
+            self.assertEqual(self.fixture.model.cycle,snapshot['recording']['cycle']);owner.retire()
+
+    def test_malformed_saved_recording_is_unavailable_without_new_native_delivery(self):
+        with self.lease() as owner:owner.capture();owner.retire()
+        saved=self.store.read();commands=deepcopy(self.model.commands)
+        for value in (None,[],{},dict(saved['recording'],extra=True)):
+            with self.subTest(value=value):
+                changed=dict(saved,recording=value);self.store.write(changed,saved)
+                with self.assertRaises(NativeUIError):self.archive()
+                self.store.write(saved,changed)
+        self.assertEqual(commands,self.model.commands)
+
 
 if __name__=='__main__':unittest.main()

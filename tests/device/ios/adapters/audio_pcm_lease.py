@@ -63,9 +63,23 @@ class IOSAudioPCMLease:
         need(type(recorded) is IOSAudioRecordedOwner);recorded.bound()
         need(recorded.state['pending'] is recorded.state['observation'] is None and same(recorded.envelope(recorded.state),recorded.previous))
         starts=[value for value in recorded.state['operations'] if value['verb']=='record-start'];need(starts)
-        selected=starts[-1];original=recorded.original(selected['after'])
         self.store,self.recorded,self.root,self.binding,self.run,self.lock=store,recorded,recorded.root,recorded.binding,recorded.run,recorded.lock
-        self.recording=dict(ticket=selected['ticket'],cycle=original['originals']['native']['audio']['recordedVoice']['cycle'],original=selected['after'],operationSha256=digest(selected))
+        def recording(selected):
+            original=recorded.original(selected['after'])
+            return dict(ticket=selected['ticket'],cycle=original['originals']['native']['audio']['recordedVoice']['cycle'],
+                original=selected['after'],operationSha256=digest(selected))
+        saved=store.read()
+        if saved is None:self.recording=recording(starts[-1])
+        else:
+            # An existing lease owns its original Start, even when subsequent
+            # normal cycles have extended the parent history. Recompute the
+            # whole binding from actual owned operations; never adopt a saved
+            # ticket/cycle/reference independently or relabel it as latest.
+            need(type(saved) is dict);saved_recording=saved.get('recording')
+            exact(saved_recording,{'ticket','cycle','original','operationSha256'})
+            candidates=[recording(row) for row in starts if row['ticket']==saved_recording['ticket']]
+            matches=[row for row in candidates if same(row,saved['recording'])]
+            need(len(matches)==1);self.recording=matches[0]
 
     @classmethod
     def archive(cls,store,recorded):
