@@ -7,20 +7,27 @@ No page/PNG checkpoint, full Journey or retirement is qualified by this case.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import multiprocessing
+import json
 import os
+from pathlib import Path
 import tempfile
 import traceback
 import unittest
 
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_feature.history import unpack
+from adapters.script_feature.lock import ScriptSourceBusy
+from adapters.phase_witness_publisher import PublicationPending
+from feature_journeys.phase_fixture import PhasePending
 from feature_journeys.witness import Client
-from ios.adapters.tablet_web_runtime import IOSTabletWebRuntime
+from ios.adapters.tablet_web_runtime import IOSTabletWebRuntime,TabletObservationPending
+from ios.adapters.tablet_web_source_owner import TabletSourcePhaseChanged
 from ios.adapters.tablet_web_app_owner import input_scopes
 from ios.adapters.tablet_web_app_readiness import ready
 from ios.self_tests.tablet_web_host_clock import advance
 from ios.self_tests.tablet_web_paired_fixture import PairedTabletFixture,ExistingAdapter,SELECTOR,ACTOR
 from ios.self_tests.test_ios_tablet_web_sources import RUN
+from ios.self_tests.tablet_web_actor_profile import source_audit
 
 
 class AwaitingActor(InterruptedError):pass
@@ -39,8 +46,11 @@ def admission_actor(inputs,clock,channel):
         result=actor.publish();channel.send(dict(hostProcessId=os.getpid(),publication=result))
         while True:
             command=channel.recv()
-            if command=='retain-current':channel.send(dict(publication=actor.publish()))
-            elif command=='end-component':return
+            if command=='retain-current':
+                try:channel.send(dict(publication=actor.publish()))
+                except (ScriptSourceBusy,PhasePending,TabletObservationPending,TabletSourcePhaseChanged,PublicationPending) as pending:
+                    channel.send(dict(publication=None,pending=type(pending).__name__))
+            elif command=='end-component':channel.send(dict(componentEnded=True,audit=source_audit()));return
             else:raise AssertionError('Unreviewed component scheduling command')
     except BaseException as error:
         channel.send(dict(error=type(error).__name__,traceback=traceback.format_exc()));raise
@@ -49,6 +59,9 @@ def admission_actor(inputs,clock,channel):
 
 class TabletOpenAdmissionTests(unittest.TestCase):
     def test_normal_selection_waits_for_actual_independent_custody_then_resumes_same_Open_once(self):
+        self.run_open()
+
+    def run_open(self,checkpoint=None):
         f=PairedTabletFixture(self);b=f.boundary;primary=f.primary
         matches=[(index,row) for index,row in enumerate(b.context_test._cleanups)
             if isinstance(getattr(row[0],'__self__',None),tempfile.TemporaryDirectory)
@@ -56,7 +69,7 @@ class TabletOpenAdmissionTests(unittest.TestCase):
         self.assertEqual(1,len(matches));index,row=matches[0]
         row[0].__self__._finalizer.detach();b.context_test._cleanups.pop(index)
         print('Actual normal Open admission originals retained: '+str(b.root),flush=True)
-        primary.observe(dict(contractVersion=16,runId=RUN,afterSequence=0))
+        baseline=primary.observe(dict(contractVersion=16,runId=RUN,afterSequence=0))
         ticket='b'*32
         call=dict(contractVersion=16,runId=RUN,ticket=ticket,fixtureUrl=b.source.fixture,verb='open',inputs={})
         journal=PrivateFeatureState(b.root/('tabletweb-actions-'+RUN+'.json'));sleep=primary.sleep
@@ -72,7 +85,7 @@ class TabletOpenAdmissionTests(unittest.TestCase):
             self.assertTrue(parent.poll(60),'Independent original baseline did not return')
             actual=parent.recv();self.assertNotIn('error',actual,actual.get('traceback'))
             self.assertNotEqual(os.getpid(),actual['hostProcessId']);self.assertGreaterEqual(actual['publication'],1)
-            f.fixture.journal.activate(RUN,ticket,'open',{});primary.sleep=waiting
+            f.fixture.journal.activate(RUN,ticket,'open',{});barrier=b.host();primary.sleep=waiting
             with self.assertRaises(AwaitingActor):primary.act(call)
             primary.sleep=sleep
             self.assertEqual(1,b.ui.file_ui.actions.count('script-file.confirm'));self.assertEqual(1,len(b.loaded))
@@ -92,7 +105,18 @@ class TabletOpenAdmissionTests(unittest.TestCase):
             self.assertEqual(1,len(b.host_app.call('read')['navigations']))
             self.assertEqual([],b.ui.lifecycle_inputs);self.assertEqual([],f.sdk.errors)
             self.assertFalse(any(method=='DELETE' for method,_path in f.sdk.calls))
+            if checkpoint is not None:checkpoint(f,parent,ticket,barrier,baseline)
             parent.send('end-component');process.join(10);self.assertEqual(0,process.exitcode)
+            self.assertTrue(parent.poll(2));ended=parent.recv();self.assertTrue(ended.get('componentEnded'))
+            if ended['audit'] is not None:
+                self.assertEqual([],ended['audit']['drift']);self.assertEqual([],ended['audit']['added'])
+                own_audit=source_audit()
+                self.assertEqual([],own_audit['drift']);self.assertEqual([],own_audit['added'])
+                audit_path=Path(os.environ['TMPDIR'])/'checkpoint-audit.json'
+                with audit_path.open('x') as output:
+                    json.dump(dict(primary=own_audit,actor=ended['audit']),output,indent=2)
+                    output.write('\n')
+                print('Actual Primary and Actor import audits passed: '+str(audit_path),flush=True)
         finally:
             primary.sleep=sleep
             if process.is_alive():process.terminate();process.join(5)  # Failed component teardown, not retirement.

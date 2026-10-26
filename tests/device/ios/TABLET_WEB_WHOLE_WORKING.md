@@ -655,3 +655,61 @@ The first common Journey checkpoint is still open: public DOM/page facts,
 original PNG and independently published Actor facts must be joined for the
 opened page. This admission case supplies no such page/PNG checkpoint or
 retirement proof and does not change the complete capability or 5/14 count.
+
+## First common Open checkpoint audit failure
+
+One fresh component joined normal file selection, independent Home/App custody
+and once Open to the unchanged `Journey.wait('01-open', ...)`. Its actual public
+DOM/page state, original PNG evidence and three progressing independent Actor
+publications reached the existing common checkpoint without changing the
+20-second checkpoint or freshness guards. This is diagnostic progress only:
+the overall test failed after 136.294 seconds during the closing source audit.
+
+The original 811-file manifest omitted the implicitly imported parent packages
+`adapters/script_feature/__init__.py` and `voice_peer/__init__.py`. The Actor
+correctly rejected these undeclared imports. All declared hashes stayed equal;
+the two current initializer files also match their committed HEAD bytes, but
+they were not declared before this run. Their later hashes do not repair the
+original audit or turn the failed test into a qualification.
+
+All 636 original files (2,702,453 bytes), their terminal inode/hash census, the
+unchanged manifest and the failure log remain in
+`.ios-host-tmp/tablet-first-open-checkpoint-589n3hgj`; the owned host-process
+census is empty. Native/UI producers and separate clocks remain host models.
+The next permitted component uses a new manifest containing both implicit
+package initializers and checks the actual Primary and Actor import sets.
+No complete Journey, retirement, device result or capability promotion follows
+from this failed attempt.
+
+## First common Open checkpoint qualified on the host
+
+The fresh corrected component passes in 136.004 seconds under the same outer
+300-second host bound. A new 813-file Python/JS manifest explicitly includes
+both implicit package initializers. The failed attempt and its original
+manifest remain unchanged. Actual closing audits cover 316 imported Primary
+Python files and 311 Actor Python files; neither reports drift or undeclared
+imports. The full declared Python/JS set is also hash-checked at these exits.
+
+`TabletOpenCheckpointTests` composes the existing normal Open admission case
+with the original first common `Journey.wait('01-open', ...)`. Primary resumes
+the same persisted Open after the independent Actor holds actual Home/App
+originals. Normal selection loads one generated app; the repeated Open ticket
+does not select, load or navigate again. Three progressing common samples join
+the public reference-page DOM state, original WDA PNG evidence and distinct
+publications from the still-live independent Actor process. Existing source,
+PID, 20-second checkpoint and freshness guards are unchanged. Pending actor
+publication is retained for the next normal observation; it is not resent.
+
+The original 636 files (2,706,443 bytes), their terminal hash/inode census,
+source manifest, both closing import audits and the passing log remain in
+`.ios-host-tmp/tablet-first-open-checkpoint-corrected-umdq4kiz`; the retained
+original root is `tmpol08kw34` and the owned host-process census is empty.
+Actor exit here is component teardown, not production worker retirement.
+Native/UI producers and their separate boundary clocks remain explicit host
+models. Later common Journey steps, double cleanup and canonical retirement
+remain unqualified together; Feature 7 and the source-complete 5/14 count stay
+unchanged.
+
+The five approved no-build documentation, documentation-contracts,
+ios-input-selection, policy-consistency and project-coverage suites pass in
+6.82 seconds for this checkpoint packet.
