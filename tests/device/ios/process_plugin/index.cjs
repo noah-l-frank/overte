@@ -8,11 +8,14 @@ if (sdk.appium !== '3.7.0' || sdk.xcuitest !== '12.8.0' || sdk.remoteXpc !== '5.
 class OverteProcessPlugin extends BasePlugin {
   async execute(next, driver, script, args) {
     const retired = script === 'mobile: overteRetiredProcessInfo';
-    if (!retired && script !== 'mobile: overteProcessInfo' && script !== 'mobile: overteProcessSourceInfo') return await next();
+    const share = script === 'mobile: overteSnapshotShareExtensionInfo', shareRetired = script === 'mobile: overteRetiredSnapshotShareExtensionInfo';
+    if (!retired && !share && !shareRetired && script !== 'mobile: overteProcessInfo' && script !== 'mobile: overteProcessSourceInfo') return await next();
     if (!Array.isArray(args) || args.length !== 1 || !args[0] || typeof args[0] !== 'object' ||
-        Array.isArray(args[0]) || Object.keys(args[0]).sort().join(',') !== (retired ? 'bundleId,commandId' : 'bundleId'))
+        Array.isArray(args[0]) || Object.keys(args[0]).sort().join(',') !== (retired || share || shareRetired ? 'bundleId,commandId' : 'bundleId'))
       throw new Error('OVT_IOS_PROCESS_SOURCE_UNAVAILABLE');
     if (retired) return await source.observeRetired(driver, args[0].bundleId, args[0].commandId);
+    if (share) return await source.observeSnapshotShareExtension(driver,args[0].bundleId,args[0].commandId);
+    if (shareRetired) return await source.observeRetiredSnapshotShareExtension(driver,args[0].bundleId,args[0].commandId);
     return script === 'mobile: overteProcessInfo' ? await source.observe(driver, args[0].bundleId) :
       source.sourceInfo(driver, args[0].bundleId, sdk);
   }

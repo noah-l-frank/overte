@@ -49,10 +49,12 @@ class PhotosClientContext:
 
 
 class PhotosCompanionContext:
+    _admission_owner=IOSSnapshotCompanionOwner
+    _runtime=IOSSnapshotCompanionRuntime
     def __init__(self,client,session_store,target,binding,artifact_path,admission_store,lock,run,fixture_url,*,epoch_ms,monotonic,sleep):
         need(isinstance(session_store,PrivateFeatureState) and isinstance(admission_store,PrivateFeatureState));lock.assert_held()
         self.client,self.session_store,self.target,self.binding,self.artifact_path=client,session_store,deepcopy(target),deepcopy(context(binding)),Path(artifact_path)
-        self.admission=IOSSnapshotCompanionOwner.archive(admission_store,lock,binding,run,fixture_url,artifact_path)
+        self.admission=self._admission_owner.archive(admission_store,lock,binding,run,fixture_url,artifact_path)
         self.admission.result();self.artifact=self.admission.artifact;self.os_scope=deepcopy(self.admission.os_scope)
         need(target.get('platform')=='ios' and target.get('physical') is True and target.get('appId')==self.artifact['bundle']['bundleId']
             and digest(target)==binding['targetFingerprint'])
@@ -78,7 +80,7 @@ class PhotosCompanionContext:
     def foreground_runtime(self):
         self.probe(True)
         scope={key:value for key,value in self.binding.items() if key!='processIdentity'}
-        runtime=IOSSnapshotCompanionRuntime(self.client,self.session_store,self.target,scope,self.artifact_path,
+        runtime=self._runtime(self.client,self.session_store,self.target,scope,self.artifact_path,
             lambda:self.probe(True) is not None,epoch_ms=self.epoch_ms,monotonic=self.monotonic,sleep=self.sleep)
         need(same(runtime.binding,self.binding) and same(runtime.initial,self.os_scope));return runtime
 

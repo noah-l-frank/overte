@@ -7,7 +7,7 @@ const CODE = 'OVT_IOS_PROCESS_SOURCE_UNAVAILABLE';
 function need(value) { if (!value) throw new Error(CODE); }
 function state(driver) {
   if (!states.has(driver)) states.set(driver, {instance: randomUUID().replaceAll('-', ''), busy: false, poisoned: false,
-    uncertain: false, lease: null, sequence: 0, last: null, retiredRequests: new Set()});
+    uncertain: false, lease: null, sequence: 0, last: null, retiredRequests: new Set(), shareRequests: new Set(), shareAnchor: null});
   return states.get(driver);
 }
 const clock = () => ({epochMs: Date.now(), monotonicMs: performance.now()});
@@ -155,6 +155,80 @@ async function observeRetired(driver, bundle, commandId, timeoutMs = 5000) {
   } catch (_) { throw new Error(CODE); }
   finally { clearTimeout(timer);if (finished) row.busy = false; }
 }
+// This is the one fixed Share receiver belonging to the configured archive.
+// The host separately binds the qualified selected/installed embedded .appex.
+// Existing scope() and generic process readers retain exact driver bundle rules.
+async function shareExtension(driver, bundle, commandId, retired, timeoutMs) {
+  const owner = scope(driver, bundle), row = state(driver), subject = owner.bundle + '.receiver', anchor = row.shareAnchor;
+  need(subject.length <= 255 && typeof commandId === 'string' && /^ios-[0-9a-f]{32}$/.test(commandId) &&
+    !row.shareRequests.has(commandId) && row.shareRequests.size < 4096 && row.sequence < 1000000000 &&
+    !row.busy && !row.poisoned && !row.uncertain && !row.lease &&
+    Number.isInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 5000);
+  if (anchor) need(anchor.owner.udid === owner.udid && anchor.owner.bundle === owner.bundle && anchor.owner.session === owner.session);
+  if (retired) need(anchor);
+  row.shareRequests.add(commandId);row.busy = true;
+  const sequence = ++row.sequence, beforeClock = clock(), began = performance.now();let expired = false, finished = false, timer;
+  const current = () => need(!expired && performance.now() - began < timeoutMs && driver.sessionId === owner.session &&
+    driver.opts.udid === owner.udid && driver.opts.bundleId === owner.bundle && row.shareAnchor === anchor);
+  const task = (async () => {
+    try {
+      const before = await driver.mobileQueryAppState(subject);current();running(before);
+      row.uncertain = true;
+      const dvt = await driver.remoteXPCFacade.requireService('read configured iOS process',
+        Services => Services.startDVTService(owner.udid));
+      need(dvt && dvt.dvtService);
+      row.lease = {service: dvt.dvtService, socket: dvt.dvtService.socket};
+      need(typeof dvt.dvtService.close === 'function' && row.lease.socket && typeof row.lease.socket.destroy === 'function' &&
+        row.lease.socket.destroyed === false && dvt.dvtService.connection && dvt.dvtService.isHandshakeComplete === true &&
+        dvt.processControl && typeof dvt.processControl.getPidForBundleIdentifier === 'function' &&
+        dvt.deviceInfo && typeof dvt.deviceInfo.isRunningPid === 'function');current();
+      const first = await dvt.processControl.getPidForBundleIdentifier(subject);current();
+      need(Number.isInteger(first) && first >= 0 && first <= 2147483647);
+      const originalPid = anchor ? anchor.original.pid : first;
+      const firstRunning = originalPid ? await dvt.deviceInfo.isRunningPid(originalPid) : null;current();
+      const after = await driver.mobileQueryAppState(subject);current();running(after);
+      const second = await dvt.processControl.getPidForBundleIdentifier(subject);current();
+      need(Number.isInteger(second) && second >= 0 && second <= 2147483647);
+      const secondRunning = originalPid ? await dvt.deviceInfo.isRunningPid(originalPid) : null;current();
+      need(originalPid ? typeof firstRunning === 'boolean' && typeof secondRunning === 'boolean' : firstRunning === null && secondRunning === null);
+      if (!retired) {
+        need(first === second && running(before) === running(after) && (before === 4) === (after === 4) && running(after) === (first > 0));
+        if (first) need(firstRunning === true && secondRunning === true && (!anchor || first === anchor.original.pid));
+        else need(!anchor);
+      }
+      return {appStates: [before, after], bundlePids: [first, second],
+        pidChecks: originalPid ? [{pid: originalPid, running: firstRunning}, {pid: originalPid, running: secondRunning}] : []};
+    } finally {
+      try {await closeOriginal(row);}
+      catch (_) {row.poisoned = true;throw new Error(CODE);}
+      finally {finished = true;if (expired) row.busy = false;}
+    }
+  })();
+  task.catch(() => {});
+  const deadline = new Promise((_, reject) => {timer = setTimeout(() => {
+    expired = true;row.poisoned = true;
+    try {if (row.lease?.socket && !row.lease.socket.destroyed) row.lease.socket.destroy();} catch (_) { /* Keep ownership. */ }
+    reject(new Error(CODE));
+  }, timeoutMs);});
+  try {
+    const value = await Promise.race([task, deadline]);current();need(!row.lease && !row.uncertain);
+    if (!retired && !anchor && value.bundlePids[0] > 0) {
+      row.shareAnchor = {owner: {...owner}, original: {sequence, pid: value.bundlePids[0], ...copy(value),
+        clockBefore: beforeClock, clockAfter: clock()}};
+    }
+    return {iosSnapshotShareExtensionProcessVersion: 1, kind: retired ? 'retired' : 'live', commandId, instance: row.instance, sequence,
+      archiveBundleId: owner.bundle, receiverBundleId: subject, source: 'dvt-owned-share-extension-pid-and-bundle-state',
+      clockDomain: 'appium-node-host', clockBefore: beforeClock, clockAfter: clock(), connectionClosed: true,
+      anchor: row.shareAnchor ? copy(row.shareAnchor.original) : null, ...value};
+  } catch (_) {row.poisoned = true;throw new Error(CODE);}
+  finally {clearTimeout(timer);if (finished) row.busy = false;}
+}
+async function observeSnapshotShareExtension(driver, bundle, commandId, timeoutMs = 5000) {
+  return shareExtension(driver, bundle, commandId, false, timeoutMs);
+}
+async function observeRetiredSnapshotShareExtension(driver, bundle, commandId, timeoutMs = 5000) {
+  return shareExtension(driver, bundle, commandId, true, timeoutMs);
+}
 async function cleanup(next, driver) {
   const row = states.get(driver); let result, failure;
   try { result = await next(); } catch (error) { failure = error; }
@@ -164,4 +238,4 @@ async function cleanup(next, driver) {
   if (failure) throw failure;
   return result;
 }
-module.exports = {observe, observeRetired, sourceInfo, cleanup};
+module.exports = {observe, observeRetired, observeSnapshotShareExtension, observeRetiredSnapshotShareExtension, sourceInfo, cleanup};

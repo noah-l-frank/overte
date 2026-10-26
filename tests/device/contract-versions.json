@@ -666,6 +666,8 @@
     "ios-snapshot-share-original": {"current": 2, "reads": [1, 2]},
     "ios-snapshot-share-import": {"current": 2, "reads": [1, 2]},
     "snapshot-share-chunk": {"current": 1, "reads": [1]},
+    "snapshot-share-extension-process": {"current": 1, "reads": [1]},
+    "snapshot-share-extension-absence": {"current": 1, "reads": [1]},
     "ios-snapshot-shared-original": {"current": 1, "reads": [1]},
     "ios-snapshot-saved-original": {"current": 1, "reads": [1]},
     "ios-snapshot-photos-absence": {"current": 1, "reads": [1]},

@@ -699,6 +699,8 @@ REQUIRED = {
     "ios-snapshot-share-original": 2,
     "ios-snapshot-share-import": 2,
     "snapshot-share-chunk": 1,
+    "snapshot-share-extension-process": 1,
+    "snapshot-share-extension-absence": 1,
     "ios-snapshot-shared-original": 1,
     "ios-snapshot-saved-original": 1,
     "ios-snapshot-photos-absence": 1,
