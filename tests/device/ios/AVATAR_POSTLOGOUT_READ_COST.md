@@ -66,3 +66,33 @@ case also passes in 36.137 seconds. Log:
 `.ios-host-tmp/avatar-postlogout-check-final2-20261026.log`.
 This component result does not qualify the complete paired held end. No new
 whole-flow timeout was repeated or enlarged for this packet.
+
+## Rejected Account pure-scope experiment
+
+A subsequent uncommitted prototype isolated live Account parses in their own
+pure-validator scope with complete lock, owner/argument and original inventory
+guards. It passed 20 focused scope/account/pure-helper cases, but its measured
+cost exceeded the small amount of repeated pure validation. With JSON guard
+fingerprints, identical-original parsing took 0.112007 versus 0.122832 seconds
+without a collector, and 0.115980 versus 0.127057 with one.
+
+One bounded refinement used disposable type-preserving marshal/SHA256
+fingerprints, without changing any inventory, I/O or current guard. The same
+live owner's exact-original comparison measured 0.114355 versus 0.115414
+seconds without a collector, and 0.115577 versus 0.114543 with one. Every
+comparison retained exactly 224 actual file opens, 32 frame reads, matching
+output and read membership, and unchanged complete original inventories.
+The fresh sixteenth sample took 1.689791 seconds including profiling, versus
+the earlier direct-return component's 1.632543 seconds. These measurements
+do not establish a benefit.
+
+The entire uncommitted Account-scope prototype was therefore removed. The
+shared helper remains version 4 and the committed direct fresh-tree return
+remains unchanged. No registry or production deadline was changed. The
+prototype sources, fresh original producer files, reproducible comparison
+and logs remain private under
+`.ios-host-tmp/avatar-account-pure-marshal-profile-j1zy1c0d`; the earlier JSON
+comparison remains under
+`.ios-host-tmp/avatar-account-pure-live-profile-8jqouqm_`. No whole/boundary
+timeout was retried. Remaining measured work includes the repeated complete
+Scene traversals in the actual Final-round call graph.

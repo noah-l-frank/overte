@@ -99,7 +99,9 @@ class IOSAvatarSources:
                     and manifest['phase'] in ('planned','saved') and pending['original'] is not None and pending['original']['phase']=='saved')
                 self.originals.manifest_reference(manifest['reference'])
                 need(manifest['reference']['block']==state['revision']//BLOCK+1 and manifest['reference']['count']==state['revision']%BLOCK+1)
-        return deepcopy(state),deepcopy(frames)
+        # unpack() owns state, and restore() opens/parses each frame afresh.
+        # Validators retain neither tree, so no second copy is needed here.
+        return state,frames
 
     def bound(self):
         self.lock.assert_held();need(not self.failed and same(self.store.read(),self.previous)

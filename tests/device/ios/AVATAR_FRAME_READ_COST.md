@@ -161,3 +161,51 @@ single-profile variation and establishes no meaningful whole-run improvement.
 No further unchanged fresh boundary or full end run is justified by that small
 difference. Normal canonical fixture/metadata integration remains a separate
 required vertical. Avatar and overall completion status remain unchanged.
+
+## Fresh source decoder trees
+
+A subsequent files-only profile used the actual Actor publication Ref2 from
+the retained fresh Final-ready boundary. Its factory and scoped derivation
+completed in 10.426252 seconds, including 1.932965 seconds for construction,
+856 actual original-frame reads and an unchanged complete original inventory.
+The two `source_history` decoders cost 2.360 seconds. Their four final
+`deepcopy(state)`/`deepcopy(frames)` calls consumed 0.382 seconds. This is an
+archived component profile, not a newly completed end or physical deadline.
+
+`IOSAvatarSources.decode` now returns these local trees directly. `unpack`
+creates a fresh JSON state, while `OriginalFrameStore.restore` independently
+opens, checks, reads, hashes and parses each frame. The pure validators retain
+neither tree. All original validations, membership, current guard boundaries,
+prefix checks and encoded versions remain unchanged. There is no new frame,
+parser-result, current-clock or lifetime/effect cache, and no Scene derivation
+or original read was removed.
+
+Transparent spies around actual `os.open`/`io.open` compared the exact same
+retained original graph before and after:
+
+| Collector | Before | Direct fresh trees | Actual opens | Actual frame reads |
+| --- | ---: | ---: | ---: | ---: |
+| false | 10.431009 s | 9.988888 s | 2,131 | 856 |
+| true | 13.366398 s | 12.858599 s | 9,383 | 856 |
+
+Both modes retained exactly the same ordered actual-open traces and complete
+proof digests. Read membership remained zero files without a collector and
+233 with one; all complete original inventories were unchanged and no
+native/SDK/fixture query occurred. The roughly four-percent host component
+gain includes profiler overhead and does not establish a whole-flow deadline.
+Reproducible runner, original proof/open baselines and before/after logs are in
+`.ios-host-tmp/avatar-scene-factory-cost-j5rcpcbs`. The initial private runner
+selected Primary's nonexistent publication row and stopped before decoding;
+the corrected runner selects the actual publishing Actor. No retained source
+or original was changed for that correction.
+
+Seven explicit Source cases pass in 1.123 seconds, including nested mutation
+of returned state, native packet and clock trees without changing the owner,
+persisted metadata, later decode, source query counters or original inodes and
+bytes. A further explicit 18-case selection passes in 29.085 seconds: source
+recovery, original historical recovery, live candidate/file guards, planned
+symlink refusal and an actual HeldScene record with retained native holders.
+Logs are `avatar-source-fresh-trees-20261026.log` and
+`avatar-source-fresh-trees-compatibility-20261026.log` under `.ios-host-tmp`.
+No registry change or new whole/boundary timeout was needed. Avatar remains
+closed and complete areas remain 5/14.

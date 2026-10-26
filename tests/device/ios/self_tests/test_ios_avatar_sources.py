@@ -104,6 +104,22 @@ class AvatarSourcesTests(unittest.TestCase):
             self.assertGreater(second['originals']['scripts']['sequence'],first['originals']['scripts']['sequence'])
             self.assertNotEqual(first['originals']['state']['requestId'],second['originals']['state']['requestId'])
             self.assertGreater(second['ui']['scope']['sourceSequence'],first['ui']['scope']['sourceSequence'])
+    def test_decoded_state_and_frames_are_isolated_from_owner_metadata_and_later_decodes(self):
+        with self.lock.held():
+            owner=self.owner();owner.read();owner.read()
+            state,frames=deepcopy(owner.state),deepcopy(owner.frames)
+            previous=deepcopy(owner.previous);queries=dict(self.fixture.sources)
+            original_files={path:(path.stat().st_ino,path.read_bytes()) for path in self.artifacts.iterdir()}
+            decoded,originals=owner.decode(previous)
+            decoded['manifests'][0]['sha256']='caller-modified-manifest'
+            originals[0]['originals']['native']['processId']=0
+            originals[1]['clockJoin']['nativeAfter']['requestId']='caller-modified-clock'
+            originals.clear()
+            self.assertEqual(state,owner.state);self.assertEqual(frames,owner.frames)
+            self.assertEqual((state,frames),owner.decode(previous))
+            self.assertEqual(previous,owner.previous);self.assertEqual(previous,owner.store.read())
+            self.assertEqual(queries,self.fixture.sources)
+            self.assertEqual(original_files,{path:(path.stat().st_ino,path.read_bytes()) for path in self.artifacts.iterdir()})
     def test_frozen_v1_group_stays_original_and_first_v2_read_adds_new_channel_without_inventing_old_returns(self):
         from adapters.native_clock_join import digest
         with self.lock.held():frame=self.owner().read()
