@@ -67,3 +67,26 @@ Actor sending/movement and receive originals, mixer-only outage/recovery with
 no deferred replay, exact settings/history restoration and actual native/page/
 callback/source/process/SDK retirement. Native compilation and devices remain
 unverified; none of these host cases changes the completed feature count.
+
+The same normal owner now also has a connected production-script boundary.
+`chat_message_script_domain` loads the actual repository `armored_chat.js`
+once in a separate Node process with the declared iOS tablet environment.
+Normal owned entry/type/Send/close inputs reach its original handlers. Separate
+query intents are durable before new child reads of the actual Script's QML
+emission stream and saved Settings values; input-return snapshots do not
+populate those observations. Existing event timestamps remain in the declared
+native clock domain and are never refreshed on read.
+
+Three connected cases pass in 16.237 seconds with ResourceWarning treated as an
+error. The normal two-channel case joins original Script handling, local
+self-echo acceptance, saved timestamps and ordinary close/reopen. The negative
+case suppresses only the explicitly modeled native message callback: actual
+Send still clears the editor, but neither fresh observation nor recovery may
+invent history or send again. The third case closes a later failed focus-only
+draft, retaining the earlier actual saved history and failed action through the
+original three-sample quiet check. The modeled QML bridge also forwards its
+original empty-text/end-typing branch after Send. The test-owned child executes actual Script.end,
+observes subscription removal, exits and closes its real streams. QML/native
+projection, message transport and clocks are still declared models; this is
+neither compiled iOS nor real remote delivery, and it claims no installed-code
+association for the Node engine.

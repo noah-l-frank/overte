@@ -126,5 +126,38 @@ class ChatMessageOwnerTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):owner.act(self.m.ticket,'send',{})
         self.assertEqual(files,{path:(path.stat().st_ino,path.read_bytes()) for path in self.f.root.iterdir() if path.is_file()})
 
+    def test_actual_production_script_in_node_drives_normal_send_and_original_settings_history(self):
+        from ios.self_tests.chat_message_script_domain import ScriptMessageModel
+        self.m=self.f.model=ScriptMessageModel(self);self.typed();self.send()
+        self.action('select-channel',dict(channel='domain'));self.action('type',dict(text=context(RUN)['retry']));self.send()
+        self.action('close');opened=self.action('open')
+        self.assertEqual([context(RUN)['unicode']],opened['local']['messages']);self.action('close')
+        source=self.m.command('read');self.assertEqual(2,source['sent'])
+        self.assertEqual([context(RUN)['unicode'],context(RUN)['retry']],[row['message'] for row in source['history']])
+        self.assertEqual(['local','domain'],[row['channel'] for row in source['history']])
+        self.assertEqual(self.m.storage['events'],[dict(text=row['message'],channel=row['channel'],timestamp=row['timestamp']) for row in source['history']])
+        self.assertTrue(any(row['type']=='show_message' for row in source['qmlEvents']))
+
+    def test_actual_script_send_without_modeled_native_receipt_cannot_use_an_empty_editor_as_history(self):
+        from ios.self_tests.chat_message_script_domain import ScriptMessageModel
+        self.m=self.f.model=ScriptMessageModel(self);self.typed();self.m.command('echo',enabled=False)
+        with self.assertRaises(NativeUIError):self.send()
+        self.assertEqual('',self.m.widgets.draft);self.assertEqual([],self.m.storage['events'])
+        self.assertEqual(1,self.m.command('read')['sent']);calls=deepcopy(self.m.widgets.calls)
+        with self.assertRaises(NativeUIError):self.f.act()
+        self.assertEqual(calls,self.m.widgets.calls);self.assertEqual(1,self.m.command('read')['sent'])
+
+    def test_actual_script_history_survives_failed_later_draft_cleanup_without_a_success_claim(self):
+        from ios.self_tests.chat_message_script_domain import ScriptMessageModel
+        self.m=self.f.model=ScriptMessageModel(self);self.typed();self.send()
+        history=deepcopy(self.m.command('read')['history']);self.m.lose_after_focus=True
+        with self.assertRaises(NativeUIError):self.action('type',dict(text=context(RUN)['retry']))
+        self.m.lose_after_focus=False;self.f.phase('cleanup',{},'9'*32)
+        with self.f.owner() as owner:
+            result=owner.cleanup(self.m.ticket);self.assertTrue(result['failed']);self.assertFalse(result['local']['open'])
+            self.assertEqual(1,len(owner.state['failures']));self.assertEqual(1,len(owner.state['failures'][0]['intents']))
+            owner.quiet(owner.state['operations'][-1])
+        self.assertEqual(history,self.m.command('read')['history']);self.assertEqual(1,len(self.m.widgets.sent))
+
 
 if __name__=='__main__':unittest.main()

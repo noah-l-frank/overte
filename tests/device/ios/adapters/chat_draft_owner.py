@@ -1,7 +1,7 @@
 """Owned Chat drafts and local Send/history effects; no whole Chat capability.
 
 Normal controls authorize input. Separate native model/settings and actual
-keyboard originals prove local effects. No remote delivery, mixer, settings mutation,
+keyboard originals prove local effects. No remote delivery, mixer control, configuration mutation,
 native lifetime retirement or successful whole-area result is available here.
 """
 # Copyright 2026 Overte contributors.
