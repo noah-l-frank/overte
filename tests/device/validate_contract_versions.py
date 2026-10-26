@@ -9,6 +9,10 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-snapshot-uploads": 1,
+    "ios-snapshot-uploads-acquisition": 1,
+    "ios-snapshot-upload-decision": 1,
+    "ios-snapshot-upload-local-objects": 1,
     "snapshot-page-return-owner": 1,
     "snapshot-page-returned": 1,
     "snapshot-share-archive-end-owner": 1,

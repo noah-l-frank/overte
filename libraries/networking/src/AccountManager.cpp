@@ -542,6 +542,20 @@ void AccountManager::sendRequest(const QString& path,
         }
 
         overte::network::watchRequest(networkReply, callbackParams.requestTicket);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        // Observe the actual reply after ordinary creation. Diagnostic failure
+        // changes only its health bit, never request delivery/cancellation.
+        if (const auto observation = callbackParams.featureRequestObservation) {
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+            try {
+                if (observation->created) { observation->created(networkReply, dataMultiPart); }
+                else { observation->complete.store(false, std::memory_order_release); }
+            } catch (...) { observation->complete.store(false, std::memory_order_release); }
+#else
+            observation->complete.store(false, std::memory_order_release);
+#endif
+        }
+#endif
         if (callbackParams.requestTicket.scoped() && callbackParams.callbackReceiver) {
             connect(callbackParams.callbackReceiver, &QObject::destroyed, networkReply, [networkReply, callbackParams] {
                 // QObject::destroyed is emitted before all receiver connections

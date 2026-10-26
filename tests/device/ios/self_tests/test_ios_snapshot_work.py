@@ -147,7 +147,7 @@ Test.featureIOSSnapshotWork=()=>{calls++;throw Error('lost read')};
 const unknown={...c,commandId:'ios-'+'e'.repeat(32)};applyClientCommand(unknown);applyClientCommand(unknown);
 if(calls!==2||saved.at(-1).v.status!=='unavailable')throw Error('uncertain read resent or fabricated');
 '''.replace('SOURCE',probe_source()).replace('QUERY',json.dumps(query(packet())))
-        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
+        result=subprocess.run(['node'],input=program,capture_output=True,text=True,timeout=5)
         self.assertEqual(0,result.returncode,result.stderr)
 
     def test_native_observation_keeps_separate_sources_and_private_compact_original_writer(self):
@@ -162,7 +162,8 @@ if(calls!==2||saved.at(-1).v.status!=='unavailable')throw Error('uncertain read 
         self.assertIn('observer->destroyed(snapshotTimer)',manager)
         self.assertIn('defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)',native)
         self.assertNotIn('Snapshot::',native);self.assertNotIn('setTimeout',native)
-        compact=save.split('#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)',1)[1].split('#endif',1)[0]
+        source_file=save.index('filename=="feature-ios-snapshot-work.json"')
+        compact=save[save.rfind('#if ',0,source_file):].split('#endif',1)[0]
         condition,body=compact.split('{',1)
         # The bounded source family shares one closed compact writer. Its
         # first filename is not an ordering or ownership requirement.

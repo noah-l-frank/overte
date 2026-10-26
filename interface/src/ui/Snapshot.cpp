@@ -44,6 +44,9 @@
 #include "MainWindow.h"
 #include "Snapshot.h"
 #include "SnapshotUploader.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include "../../../tests/device/native/IOSSnapshotUploadObservation.h"
+#endif
 #include "SnapshotAnimated.h"
 #include "SnapshotStorage.h"
 #include <QMutexLocker>
@@ -180,6 +183,15 @@ QVariantMap Snapshot::featureCaptureActivity() {
     return {{"requests",_captures.size()},{"secondaryCapturePresent",bool(_capture360)},
         {"secondaryTimerActive",_snapshotTimer.isActive()},{"secondaryTaking",_taking360Snapshot},
         {"secondaryFramePending",_waitingOnSnapshot},{"animated",SnapshotAnimated::featureCaptureActivity()}};
+}
+QVariantMap Snapshot::featureUploadActivity() {
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (!QCoreApplication::arguments().contains("--testScript") || QThread::currentThread()!=thread()) {return {};}
+    int alive=0;for (const auto& value:_uploads) {if (value) {++alive;}}
+    return {{"slots",_uploads.size()},{"alive",alive}};
+#else
+    return {};
+#endif
 }
 #endif
 
@@ -692,7 +704,18 @@ void Snapshot::uploadSnapshot(const QString& filename, const QUrl& href) {
     SnapshotUploader* uploader = new SnapshotUploader(url, filename);
 
     QFile* file = new QFile(filename);
-    if (!file->open(QIODevice::ReadOnly) || file->size() <= 0) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    auto* uploadBook=overte::e2e::IOSSnapshotUploadObservation::get();
+    if (uploadBook) {uploadBook->resource(uploader->featureUploadId(),file,"file");}
+#endif
+    const bool fileOpened=file->open(QIODevice::ReadOnly);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (uploadBook) {uploadBook->fileOpened(uploader->featureUploadId(),file,fileOpened);}
+#endif
+    if (!fileOpened || file->size() <= 0) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        uploader->featureFileRejected();
+#endif
         delete file; delete uploader;
         emit DependencyManager::get<WindowScriptingInterface>()->snapshotShared(true, "Snapshot file is unavailable");
         emit uploadStatusChanged(filename, "error", "file-unavailable");
@@ -708,6 +731,9 @@ void Snapshot::uploadSnapshot(const QString& filename, const QUrl& href) {
     imagePart.setBodyDevice(file);
 
     QHttpMultiPart* multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (uploadBook) {uploadBook->resource(uploader->featureUploadId(),multiPart,"multipart");}
+#endif
     file->setParent(multiPart);  // we cannot delete the file now, so delete it with the multiPart
     multiPart->append(imagePart);
 
@@ -723,6 +749,9 @@ void Snapshot::uploadSnapshot(const QString& filename, const QUrl& href) {
     connect(uploader, &QObject::destroyed, this, [this, filename] { if (!_uploads.value(filename)) { _uploads.remove(filename); } });
     JSONCallbackParameters callbackParams(uploader, "uploadSuccess", "uploadFailure");
     callbackParams.requestTicket = uploader->nextTicket();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    callbackParams.featureRequestObservation=uploader->featureRequestObservation("upload",callbackParams.requestTicket);
+#endif
 
     accountManager->sendRequest(SNAPSHOT_UPLOAD_URL, AccountManagerAuth::Required, QNetworkAccessManager::PostOperation,
                                 callbackParams, nullptr, multiPart);

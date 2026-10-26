@@ -1,6 +1,10 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-snapshot-uploads": {"current": 1, "reads": [1]},
+    "ios-snapshot-uploads-acquisition": {"current": 1, "reads": [1]},
+    "ios-snapshot-upload-decision": {"current": 1, "reads": [1]},
+    "ios-snapshot-upload-local-objects": {"current": 1, "reads": [1]},
     "snapshot-page-return-owner": {"current": 1, "reads": [1]},
     "snapshot-page-returned": {"current": 1, "reads": [1]},
     "snapshot-share-archive-end-owner": {"current": 1, "reads": [1]},

@@ -195,7 +195,7 @@ applyClientCommand({...c,commandId:'ios-'+'d'.repeat(32),expected:'cancelled'});
 delete Test.featureIOSSnapshotCaptures;applyClientCommand({...c,commandId:'ios-'+'e'.repeat(32)});
 if(saved.at(-1).v.status!=='unavailable')throw Error('missing source became success');
 '''.replace('SOURCE',probe_source())
-        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
+        result=subprocess.run(['node'],input=program,capture_output=True,text=True,timeout=5)
         self.assertEqual(0,result.returncode,result.stderr)
 
     def test_native_hooks_are_passive_weak_and_observe_actual_resource_destruction(self):

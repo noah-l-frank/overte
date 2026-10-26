@@ -1746,6 +1746,24 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-snapshot-uploads") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var snapshotUploads={iosSnapshotUploadsVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSSnapshotUploads === "function") {
+                        var originalSnapshotUploads=Test.featureIOSSnapshotUploads(command);
+                        if (originalSnapshotUploads && originalSnapshotUploads.requestId === command.commandId) { snapshotUploads=originalSnapshotUploads; }
+                    }
+                } catch (_snapshotUploadsError) { /* Uncertain diagnostics never establish an empty upload scope. */ }
+                Test.saveObject(snapshotUploads,"feature-ios-snapshot-uploads.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-snapshot-captures") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36

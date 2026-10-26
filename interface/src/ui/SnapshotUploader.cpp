@@ -10,6 +10,9 @@
 //
 
 #include "SnapshotUploader.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include "../../../tests/device/native/IOSSnapshotUploadObservation.h"
+#endif
 
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonArray>
@@ -21,30 +24,67 @@
 SnapshotUploader::SnapshotUploader(QUrl inWorldLocation, QString pathname) :
     _inWorldLocation(inWorldLocation),
     _pathname(pathname) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (auto* book=overte::e2e::IOSSnapshotUploadObservation::get()) {_featureUploadId=book->begin(this,_pathname,_requests.snapshot());}
+#endif
 }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+std::shared_ptr<overte::e2e::IOSRequestObservation> SnapshotUploader::featureRequestObservation(const QString& stage,const overte::network::RequestTicket& ticket) {
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (auto* book=overte::e2e::IOSSnapshotUploadObservation::get()) {return book->observer(_featureUploadId,stage,ticket);}
+#endif
+    return {};
+}
+void SnapshotUploader::featureFileRejected() {
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (auto* book=overte::e2e::IOSSnapshotUploadObservation::get()) {book->event(_featureUploadId,"file-rejected",_requests.snapshot(),_finished,true);}
+#endif
+}
+#endif
+
 void SnapshotUploader::cancel() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    auto* book=overte::e2e::IOSSnapshotUploadObservation::get();
+    if (book) {book->event(_featureUploadId,"cancel-entry",_requests.snapshot(),_finished);}
+#endif
     if (_finished) { return; }
     _finished = true;
     _requests.setActive(false);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (book) {book->event(_featureUploadId,"cancel-invalidated",_requests.snapshot(),_finished);}
+#endif
     emit finished(_pathname, "cancelled", "upload-cancelled");
     deleteLater();
 }
 
 void SnapshotUploader::complete(bool error, const QString& reply) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    auto* book=overte::e2e::IOSSnapshotUploadObservation::get();
+    if (book) {book->event(_featureUploadId,"completion-entry",_requests.snapshot(),_finished,error);}
+#endif
     if (_finished || !_requests.snapshot().current()) { return; }
     _finished = true;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (book) {book->event(_featureUploadId,"completion-issued",_requests.snapshot(),_finished,error);}
+#endif
     emit DependencyManager::get<WindowScriptingInterface>()->snapshotShared(error, reply);
     emit finished(_pathname, error ? "error" : "success", error ? "upload-failed" : QString());
     deleteLater();
 }
 
 void SnapshotUploader::uploadSuccess(QNetworkReply* reply) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    overte::e2e::IOSSnapshotUploadCallback observed(_featureUploadId,"upload-success",reply,_finished,_requests.snapshot());
+#endif
     if (_finished || !_requests.snapshot().current()) { return; }
     const QString STORY_UPLOAD_URL = "/api/v1/user_stories";
 
     // parse the reply for the thumbnail_url
     QByteArray contents = reply->readAll();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (auto* book=overte::e2e::IOSSnapshotUploadObservation::get()) {book->response(_featureUploadId,reply,contents);}
+#endif
     QJsonParseError jsonError;
     auto doc = QJsonDocument::fromJson(contents, &jsonError);
     if (jsonError.error == QJsonParseError::NoError) {
@@ -79,6 +119,9 @@ void SnapshotUploader::uploadSuccess(QNetworkReply* reply) {
         auto accountManager = DependencyManager::get<AccountManager>();
         JSONCallbackParameters callbackParams(this, "createStorySuccess", "createStoryFailure");
         callbackParams.requestTicket = nextTicket();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        callbackParams.featureRequestObservation=featureRequestObservation("story",callbackParams.requestTicket);
+#endif
 
         accountManager->sendRequest(STORY_UPLOAD_URL,
             AccountManagerAuth::Required,
@@ -92,6 +135,9 @@ void SnapshotUploader::uploadSuccess(QNetworkReply* reply) {
 }
 
 void SnapshotUploader::uploadFailure(QNetworkReply* reply) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    overte::e2e::IOSSnapshotUploadCallback observed(_featureUploadId,"upload-failure",reply,_finished,_requests.snapshot());
+#endif
     if (_finished || !_requests.snapshot().current()) { return; }
     QString replyString = reply->readAll();
     qWarning() << "Snapshot upload failed";
@@ -103,8 +149,17 @@ void SnapshotUploader::uploadFailure(QNetworkReply* reply) {
 }
 
 void SnapshotUploader::createStorySuccess(QNetworkReply* reply) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    overte::e2e::IOSSnapshotUploadCallback observed(_featureUploadId,"story-success",reply,_finished,_requests.snapshot());
+#endif
     if (_finished || !_requests.snapshot().current()) { return; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    const auto originalReply=reply->readAll();
+    if (auto* book=overte::e2e::IOSSnapshotUploadObservation::get()) {book->response(_featureUploadId,reply,originalReply);}
+    QString replyString = originalReply;
+#else
     QString replyString = reply->readAll();
+#endif
     QJsonParseError error;
     const auto document = QJsonDocument::fromJson(replyString.toUtf8(), &error);
     const auto story = document.object().value("user_story").toObject();
@@ -116,6 +171,9 @@ void SnapshotUploader::createStorySuccess(QNetworkReply* reply) {
 }
 
 void SnapshotUploader::createStoryFailure(QNetworkReply* reply) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    overte::e2e::IOSSnapshotUploadCallback observed(_featureUploadId,"story-failure",reply,_finished,_requests.snapshot());
+#endif
     if (_finished || !_requests.snapshot().current()) { return; }
     QString replyString = reply->readAll();
     qWarning() << "Snapshot story upload failed";

@@ -33,6 +33,19 @@
 #include "../../../security/storage/ProtectedAccountStore.h"
 #include "RequestCancellation.h"
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include <functional>
+namespace overte::e2e {
+// Keep this value-type layout behind uniform global flags. The dedicated
+// iOS test-build definition is private to selected targets and must not alter
+// JSONCallbackParameters' layout in its other library callers.
+struct IOSRequestObservation {
+    std::function<void(QNetworkReply*, QHttpMultiPart*)> created;
+    std::atomic<bool> complete {true};
+};
+}
+#endif
+
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 namespace overte::e2e { class AccountProbe; }
 #endif
@@ -51,6 +64,12 @@ public:
     QString errorCallbackMethod;
     QJsonObject callbackData;
     overte::network::RequestTicket requestTicket;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    // A diagnostic holder never owns a QObject/FD or authorizes a request.
+    // Empty defaults preserve all existing callers. Copies only share this
+    // holder; they do not copy a potentially allocating observer function.
+    std::shared_ptr<overte::e2e::IOSRequestObservation> featureRequestObservation;
+#endif
 };
 
 namespace AccountManagerAuth {
