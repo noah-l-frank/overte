@@ -25,7 +25,7 @@ The private runtime methods are:
 
 - `_assets_sources(selector, lock)` obtains the guarded original transports.
 - `_assets_components(selector, run, role, fixture_url, lock)` opens the run/role
-  file, picker, upload-successor and reply stores under the same held source lock.
+  file, picker, upload-successor, mapping-tree and reply stores under the same held source lock.
 - `_assets_readback(...)` obtains actual independently read server bytes through
   the existing GetAll/GetMapping/GetInfo/GetAsset owner, then retires read leases.
   Its result establishes neither ordinary upload nor bake/import success.
@@ -33,6 +33,10 @@ The private runtime methods are:
   input, separate client lifetime observations and independent original server
   readback, then retires client inputs/read leases. Its partial source contract
   and host validation are documented in [ordinary upload](ASSETS_NORMAL_UPLOAD.md).
+- `_assets_mapping_readback(...)` additionally performs ordinary Browse, folder
+  Rename, actual primary reselection and confirmed root Delete, joined to fresh
+  independent inventories. It retires client inputs while preserving server
+  responsibility; see [mapping ownership](ASSETS_MAPPING_TREE.md).
 
 A failed or uncertain readback attempts observe/retirement through the exact
 durable read owner. It never repeats a start or cancellation. Secondary cleanup
@@ -54,8 +58,8 @@ installed-bundle/preflight boundaries and producer clocks are explicit models.
 It establishes no compiler, installed device, AssetServer, physical deadline,
 model consumer or oven qualification.
 
-Whole Assets remains partial. Ordinary mapping-tree selection, rename/delete,
-server namespace/blob/worker retirement, shared scenario dispatch, Actor
-publication, baking and world import/rendering still need their original source
-connections and cleanup qualification. Client cleanup does not remove server
-data or supply a whole-feature completion.
+Whole Assets remains partial. Original server blob/meta/worker retirement,
+permission ownership, shared scenario dispatch, Actor publication, baking and
+world import/rendering still need their source connections and cleanup
+qualification. Confirmed user-facing mapping absence and client cleanup do not
+supply backend or whole-feature completion.

@@ -41,13 +41,14 @@ class Consumer:
 
 
 class Boundary:
+    host_extra=()
     def __init__(self,directory):
         self.directory=Path(directory);self.elapsed=0;self.live=True;self.requests=[];self.packet=None;self.sequence=0;self.ui_sequence=0;self.work_sequence=0
         self.channel=uuid.uuid4().hex;self.ui_instance=uid();self.work_instance=uid();self.normal_instance=uid();self.window=uid();self.page=uid();self.picker=uid();self.model=uid();self.menu=uid()
         self.roots=[];self.tokens={};self.sequence_input=0;self.inputs=[];self.jobs=[];self.holders=[];self.mutate=None;self.lost=None;self.freeze_native_clock=False
         self.host=subprocess.Popen(['node',str(Path(__file__).with_name('assets_picker_host.js')),
             str(ROOT/'interface/resources/qml/hifi/dialogs/TabletAssetServer.qml'),str(ROOT/'interface/resources/qml/dialogs/NativeFileBrowser.qml'),
-            str(ROOT/'interface/resources/qml/hifi/tablet/TabletNavigation.qml')],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,bufsize=1)
+            str(ROOT/'interface/resources/qml/hifi/tablet/TabletNavigation.qml'),*self.host_extra],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,bufsize=1)
         try:self.host_state=self.exchange(dict(op='configure',initialDirectory=str(self.directory)))
         except BaseException:self.close();raise
 
@@ -110,7 +111,7 @@ class Boundary:
             signature=json.dumps(metadata,sort_keys=True)
             old=self.tokens.get(identifier)
             if old is None or old[0]!=signature:self.tokens[identifier]=(signature,uid())
-            controls.append(dict(id=identifier,token=self.tokens[identifier][1],enabled=True,focused=item.get('focused',False),
+            controls.append(dict(id=identifier,token=self.tokens[identifier][1],enabled=item.get('enabled',True),focused=item.get('focused',False),
                 frame=dict(x=0,y=index*48,width=100,height=48),assetControl=metadata))
         value=dict(schemaVersion=1,instance=self.normal_instance,frameSpace='qt-window-logical',processId=42,sampleEpochMs=self.clock(),
             elapsedMs=self.elapsed,lastSequence=self.sequence_input,tabletShown=self.host_state['pageAlive'],ready=True,controls=controls,

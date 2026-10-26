@@ -41,11 +41,15 @@ def source(value,role):
 
 def control_id(value):
     from ios.adapters.assets_bundle_controls import IDS as BUNDLE_IDS
-    return type(value) is str and (value in IDS or value in BUNDLE_IDS or re.fullmatch(r'asset-file\.row\.(?:0|[1-9][0-9]{0,3})',value) is not None)
+    from ios.adapters.assets_tree_controls import control_id as tree_control
+    return type(value) is str and (value in IDS or value in BUNDLE_IDS or tree_control(value) or re.fullmatch(r'asset-file\.row\.(?:0|[1-9][0-9]{0,3})',value) is not None)
 
 
 def metadata(value):
     need(type(value) is dict and control_id(value.get('controlId')))
+    if type(value.get('assetControlVersion')) is int and value['assetControlVersion']==3:
+        from ios.adapters.assets_tree_controls import metadata as tree_metadata
+        return tree_metadata(value)
     if type(value.get('assetControlVersion')) is int and value['assetControlVersion']==2:
         from ios.adapters.assets_bundle_controls import metadata as bundle_metadata
         return bundle_metadata(value)

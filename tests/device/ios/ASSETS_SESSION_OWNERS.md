@@ -15,6 +15,12 @@ original picker remains in its truthful `primary-chosen` phase; the successor
 owns the later input and actual root/client retirement proof. It is not
 rewritten as the old unavailable-file workflow's `retired` phase.
 
+The later [mapping-tree owner](ASSETS_MAPPING_TREE.md) has its own WAL referencing
+the same original upload frames. Historical inspection validates that join and
+keeps unfinished mapping actions owned. Confirmed mapping deletion plus client
+root death still retains `server-retirement`; the tree WAL cannot qualify stored
+blob, meta, worker or oven absence.
+
 A client-retired upload still has `server-retirement` responsibility because
 this partial vertical has no qualified namespace/blob/oven retirement owner.
 That responsibility blocks ordinary installed/session effects and teardown.

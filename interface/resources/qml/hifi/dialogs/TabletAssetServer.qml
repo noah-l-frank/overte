@@ -29,6 +29,17 @@ Rectangle {
     readonly property var featureAssetDestinationEditor: featureAssetBundleObservation ? bundleDestination : null
     readonly property var featureAssetDestinationAccept: featureAssetBundleObservation ? bundleDialog.standardButton(Dialog.Ok) : null
     readonly property var featureAssetDestinationCancel: featureAssetBundleObservation ? bundleDialog.standardButton(Dialog.Cancel) : null
+    readonly property var featureAssetTree: featureAssetBundleObservation ? tree : null
+    readonly property var featureAssetRefreshButton: featureAssetBundleObservation ? assetRefreshButton : null
+    readonly property var featureAssetRenameButton: featureAssetBundleObservation ? assetRenameButton : null
+    readonly property var featureAssetDeleteButton: featureAssetBundleObservation ? assetDeleteButton : null
+    readonly property var featureAssetRenameDialog: featureAssetBundleObservation ? renameDialog : null
+    readonly property var featureAssetRenameEditor: featureAssetBundleObservation ? renamePath : null
+    readonly property var featureAssetRenameAccept: featureAssetBundleObservation ? renameDialog.standardButton(Dialog.Ok) : null
+    readonly property var featureAssetRenameCancel: featureAssetBundleObservation ? renameDialog.standardButton(Dialog.Cancel) : null
+    readonly property var featureAssetDeleteDialog: featureAssetBundleObservation ? deleteDialog : null
+    readonly property var featureAssetDeleteAccept: featureAssetBundleObservation ? deleteDialog.standardButton(Dialog.Yes) : null
+    readonly property var featureAssetDeleteCancel: featureAssetBundleObservation ? deleteDialog.standardButton(Dialog.No) : null
     property bool busy: false
     property string status: ""
     property var lifecycle: ({active: true})
@@ -211,7 +222,7 @@ Rectangle {
         Label { text: root.assetWriteAllowed ? "Browse and manage domain assets" : "Browse domain assets · writing unavailable"; color: "#cccccc"; Layout.fillWidth: true; wrapMode: Text.WordWrap }
         Flow {
             Layout.fillWidth: true; spacing: 8
-            Button { objectName: "assetRefresh"; text: "Refresh"; implicitHeight: 48; onClicked: root.reload() }
+            Button { id: assetRefreshButton; objectName: "assetRefresh"; text: "Refresh"; implicitHeight: 48; onClicked: root.reload() }
             Button { objectName: "assetImport"; text: "Add to World"; implicitHeight: 48; enabled: root.importAllowed && root.canAddToWorld(root.selectedUrl); onClicked: root.addToWorld() }
             Button { objectName: "assetCopyUrl"; text: "Copy URL"; implicitHeight: 48; enabled: root.selectedUrl.length > 0; onClicked: Window.copyToClipboard(root.selectedUrl) }
         }
@@ -227,8 +238,8 @@ Rectangle {
             Button { objectName: "assetUploadedImport"; text: "Add uploaded model"; implicitHeight: 48; visible: /\.(fbx|obj|gltf|glb|vrm)$/i.test(root.uploadedPrimaryUrl); enabled: root.importAllowed && !root.busy; onClicked: root.importUploadedMain() }
             Button { objectName: "assetUpload"; text: "Upload with companions"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy; onClicked: root.uploadClicked() }
             Button { objectName: "assetSingleUpload"; text: "Upload one file"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy; onClicked: root.uploadSingleClicked() }
-            Button { objectName: "assetRename"; text: "Rename"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy && root.selectedItemCount === 1; onClicked: { renamePath.text = root.selectedPath; renameDialog.open(); } }
-            Button { objectName: "assetDelete"; text: "Delete"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy && root.selectedItemCount > 0; onClicked: deleteDialog.open() }
+            Button { id: assetRenameButton; objectName: "assetRename"; text: "Rename"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy && root.selectedItemCount === 1; onClicked: { renamePath.text = root.selectedPath; renameDialog.open(); } }
+            Button { id: assetDeleteButton; objectName: "assetDelete"; text: "Delete"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy && root.selectedItemCount > 0; onClicked: deleteDialog.open() }
             Button { objectName: "assetMapping"; text: "Set Mapping"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy; onClicked: mappingDialog.open() }
         }
         BusyIndicator { running: root.busy; visible: running; Layout.preferredHeight: 36 }

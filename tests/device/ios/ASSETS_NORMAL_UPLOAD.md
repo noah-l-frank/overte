@@ -99,6 +99,7 @@ session, HTTP/AFC and candidate checks.
 
 The private logs are under `.ios-host-tmp/`; they are not device results or
 publication artifacts. Native acquisition and physical deadline qualification
-remain outstanding. Further integration needs ordinary mapping-tree selection,
-rename/delete/import, original server/blob/worker retirement, actual permission
-ownership, independent Actor publication and loaded/rendered model sources.
+remain outstanding. The later [mapping-tree vertical](ASSETS_MAPPING_TREE.md)
+connects ordinary selection and Rename/Delete. Original server/blob/worker
+retirement, actual permission ownership, world import/loaded/rendered consumers
+and independent Actor publication still need their source connections.

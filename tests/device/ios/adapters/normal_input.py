@@ -99,6 +99,12 @@ def observation(value, pid, now_ms=None):
             raise NativeUIError('Native iOS Assets bundle source version is invalid')
         bundle_inventory(value.get('assetBundleInventory'),pid=pid,ui=value.get('assetInventory'))
         fields|={'assetBundleControlsVersion','assetBundleInventory'}
+    if type(value) is dict and 'assetTreeControlsVersion' in value:
+        from ios.adapters.assets_tree_controls import inventory as tree_inventory
+        if (type(value['assetTreeControlsVersion']) is not int or value['assetTreeControlsVersion']!=1
+                or type(value.get('assetControlsVersion')) is not int or value['assetControlsVersion']!=1):
+            raise NativeUIError('Native iOS Assets tree source version is invalid')
+        tree_inventory(value.get('assetTreeInventory'),pid=pid,ui=value['assetInventory']);fields|={'assetTreeControlsVersion','assetTreeInventory'}
     if type(value) is dict and 'navigationInventory' in value:
         from ios.adapters.navigation_ui import validate as navigation_inventory
         navigation_inventory(value['navigationInventory']);fields.add('navigationInventory')
@@ -238,6 +244,8 @@ def observation(value, pid, now_ms=None):
             asset_metadata(control.get('assetControl'));fields.add('assetControl')
             if control['assetControl']['assetControlVersion']==2 and value.get('assetBundleControlsVersion')!=1:
                 raise NativeUIError('Native iOS Assets bundle control lacks its original source')
+            if control['assetControl']['assetControlVersion']==3 and value.get('assetTreeControlsVersion')!=1:
+                raise NativeUIError('Native iOS Assets tree control lacks its original source')
             if control['assetControl']['controlId']!=control['id']:raise NativeUIError('Native iOS Assets control identity differs')
         elif type(control) is dict and control.get('id') in TABLET_APP_IDS:
             if value.get('tabletAppControlsVersion')!=1:raise NativeUIError('Native iOS Tablet app source is missing')
@@ -518,24 +526,25 @@ class NativeInput:
     def assets_input(self,identifier,action,*,reference,text=None,index=None,before_send=None):
         from ios.adapters.assets_controls import project,same_reference,folder
         from ios.adapters.assets_bundle_controls import IDS as BUNDLE_IDS,destination
+        from ios.adapters.assets_tree_controls import control_id as tree_control,owned_root
         if action not in ('activate','replace','submit','select-index') or not asset_control(identifier):
             raise NativeUIError('Native iOS Assets input is invalid')
         row=same_reference(reference,project(self.capture()),identifier)
         if not row['enabled']:raise NativeUIError('Native iOS Assets control is disabled')
-        if action in ('replace','submit') and (identifier not in ('asset-file.folder','assets.destination') or not row['focused']
+        if action in ('replace','submit') and (identifier not in ('asset-file.folder','assets.destination','assets.rename.path') or not row['focused']
                 or action=='submit' and identifier!='asset-file.folder'):
             raise NativeUIError('Native iOS Assets folder input lacks actual focus')
         if action=='select-index':
             if identifier!='asset-file.bundle-primary' or type(index) is not int or not 0<=index<row['assetControl']['choiceCount']:
                 raise NativeUIError('Native iOS Assets primary index is invalid')
         elif index is not None:raise NativeUIError('Native iOS Assets input has an unexpected index')
-        if action=='replace':(destination if identifier=='assets.destination' else folder)(text)
+        if action=='replace':(owned_root if identifier=='assets.rename.path' else destination if identifier=='assets.destination' else folder)(text)
         elif text is not None:raise NativeUIError('Native iOS Assets input has unexpected text')
         scope=reference['scope'];command=dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=scope['instance'],
             sequence=scope['lastSequence']+1,observedElapsedMs=scope['elapsedMs'],fieldToken=row['token'],operation=action)
         if action=='replace':command['text']=text
         if action=='select-index':command['index']=index
-        if identifier in BUNDLE_IDS and not callable(before_send):raise NativeUIError('Native iOS Assets bundle input requires durable ownership')
+        if (identifier in BUNDLE_IDS or tree_control(identifier)) and not callable(before_send):raise NativeUIError('Native iOS Assets input requires durable ownership')
         if before_send is not None and not callable(before_send):raise NativeUIError('Native iOS Assets intent callback is invalid')
         return self.deliver(command,before_send=None if before_send is None else lambda:before_send(deepcopy(command)))
 

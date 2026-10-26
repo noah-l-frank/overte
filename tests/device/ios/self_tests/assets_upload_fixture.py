@@ -100,8 +100,9 @@ class Boundary(picker.Boundary):
 
 
 class Fixture:
+    boundary_type=Boundary
     def __init__(self,directory):
-        self.boundary=Boundary(directory);self.lock=ScriptSourceLock(Path(directory)/'assets.lock');self.guard=self.lock.held();self.guard.__enter__()
+        self.boundary=self.boundary_type(directory);self.lock=ScriptSourceLock(Path(directory)/'assets.lock');self.guard=self.lock.held();self.guard.__enter__()
         self.file_store=PrivateFeatureState(Path(directory)/'assets-files.json');self.picker_store=PrivateFeatureState(Path(directory)/'assets-picker.json')
         self.upload_store=PrivateFeatureState(Path(directory)/'assets-upload.json');self.reply_store=PrivateFeatureState(Path(directory)/'assets-replies.json')
         self.files=OwnedAssetsFiles(self.boundary.files_native(),self.file_store,BINDING,RUN,URL,lock=self.lock)

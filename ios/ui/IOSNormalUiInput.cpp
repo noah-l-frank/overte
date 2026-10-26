@@ -40,6 +40,7 @@
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
 #include "../../tests/device/native/IOSAssetUiInventory.h"
 #include "../../tests/device/native/IOSAssetBundleControls.h"
+#include "../../tests/device/native/IOSAssetTreeControls.h"
 #include "../../tests/device/native/IOSTabletBackControls.h"
 #include "IOSLifecycleFieldControls.h"
 #endif
@@ -75,10 +76,12 @@ QRectF visibleBounds(QQuickItem* item) {
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
 QString assetControl(QQuickItem* item) {
+    const auto tree=overte::e2e::asset_tree_ui::control(item);if (!tree.isEmpty()) {return tree;}
     const auto bundle=overte::e2e::asset_bundle_ui::control(item);
     return bundle.isEmpty() ? overte::e2e::asset_ui::control(item) : bundle;
 }
 QJsonObject assetMetadata(QQuickItem* item) {
+    const auto tree=overte::e2e::asset_tree_ui::metadata(item);if (!tree.isEmpty()) {return tree;}
     const auto bundle=overte::e2e::asset_bundle_ui::metadata(item);
     return bundle.isEmpty() ? overte::e2e::asset_ui::metadata(item) : bundle;
 }
@@ -555,6 +558,8 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     result["assetInventory"]=overte::e2e::IOSAssetUiInventory::shared().read({hud,tablet});
     result["assetBundleControlsVersion"]=1;
     result["assetBundleInventory"]=overte::e2e::asset_bundle_ui::inventory(overte::e2e::IOSAssetUiInventory::shared().retained());
+    result["assetTreeControlsVersion"]=1;
+    result["assetTreeInventory"]=overte::e2e::asset_tree_ui::inventory(overte::e2e::IOSAssetUiInventory::shared().retained());
 #endif
     result["loginRootOwnership"]=loginInventory.observation(inventoryComplete);
     result["tabletAppControlsVersion"]=1;
@@ -634,7 +639,7 @@ bool NormalUiInput::press(const QString& controlId, const QString& token) {
     }
     if (controlId.startsWith("assets.") || controlId.startsWith("asset-file.")) {
         if (assetControl(control)!=controlId || assetSource(control)!=_controls.value(controlId).source
-                || !overte::e2e::NormalControlUi::ownsPoint(control,control->window(),control->mapToScene(QPointF(control->width()/2,control->height()/2)))) {return false;}
+                || !overte::e2e::NormalControlUi::ownsPoint(control,control->window(),control->mapToScene(overte::e2e::asset_tree_ui::point(control)))) {return false;}
     }
 #endif
     if (controlId.startsWith("tablet-web-app.")) {
@@ -724,7 +729,11 @@ bool NormalUiInput::press(const QString& controlId, const QString& token) {
     }
 #endif
     QPointer<QQuickWindow> window(control->window());
-    const auto position = control->mapToScene(QPointF(control->width() / 2, control->height() / 2));
+    auto localPosition=QPointF(control->width()/2,control->height()/2);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (controlId.startsWith("assets.tree.row.")) {localPosition=overte::e2e::asset_tree_ui::point(control);}
+#endif
+    const auto position=control->mapToScene(localPosition);
     QMouseEvent down(QEvent::MouseButtonPress, position, position, position,
         Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
     const bool delivered = QCoreApplication::sendEvent(window, &down);
@@ -793,10 +802,10 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
             qint64 index{0};if (integer(command.value("index"),index) && index<32) {
                 result["performed"]=overte::e2e::asset_bundle_ui::selectPrimary(target,target->window(),static_cast<int>(index));
             }
-        } else if ((identifier=="asset-file.folder" || identifier=="assets.destination") && target->hasActiveFocus()) {
+        } else if ((identifier=="asset-file.folder" || identifier=="assets.destination" || identifier=="assets.rename.path") && target->hasActiveFocus()) {
             if (action=="replace" && command.value("text").isString()) {
                 const auto text=command.value("text").toString();
-                const bool valid=identifier=="assets.destination"
+                const bool valid=identifier=="assets.destination" || identifier=="assets.rename.path"
                     ? QRegularExpression("\\A/(e2e|renamed)-[0-9a-f]{32}/\\z").match(text).hasMatch()
                     : QRegularExpression("\\A/(?:[^/\\x00-\\x1f]+/)*feature-assets-[0-9a-f]{32}-[0-9a-f]{16}\\z").match(text).hasMatch();
                 if (text.size()<=4096 && valid

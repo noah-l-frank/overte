@@ -3,6 +3,11 @@
 Work paused at the user's request after completing the current packet for a
 workstation reboot. No build/device/server/oven/laboratory work is running.
 
+The user explicitly resumed after reboot. The subsequent ordinary mapping-tree
+packet is documented in [mapping source and ownership](ASSETS_MAPPING_TREE.md).
+The pause/results below remain the original checkpoint; current source work
+still preserves all build/device/backend restrictions and closed capability.
+
 ## Preserved source
 
 The owned worktree is
@@ -62,10 +67,11 @@ candidate, server, oven, device, publisher or rendered-model result is qualified
 
 Whole Assets remains incomplete and its area/capability stays closed. Do not
 change the source-completion count on the strength of this partial vertical.
-The immediate next dependency is actual mapping-tree row/selection observation
-and ordinary Browse/Rename/Delete controls, joined to the existing independent
-network mapping inventory. This must lead to original server namespace, hidden
-baked/meta mapping, unshared blob and worker retirement evidence. An upload's
+Mapping-tree row/selection observation and ordinary Browse/Rename/Delete are now
+connected to independent mapping replies and durable recovery as documented
+above. The immediate next dependency is the original backend census and queued/
+run/return/weak-task observations, leading to hidden baked/meta mapping, unshared
+blob and worker retirement evidence. An upload's
 client-retired WAL intentionally still blocks ordinary session teardown on
 that missing `server-retirement` responsibility.
 
@@ -73,9 +79,9 @@ Also remaining: permission ownership/propagation, supported automatic and
 explicit baking, original worker/meta/output sources, Add to World and actual
 loaded geometry/texture consumers, independent peer rendering/publication,
 shared feature/scenario dispatch and complete paired fixture/process cleanup.
-The successful-upload recipe still needs actual refreshed mapping selection
-before a shared checkpoint. Ordinary review/upload success alone cannot supply
-any of those outcomes.
+The mapping vertical now refreshes/selects the actual primary and reselects it
+after Rename. Shared checkpoint publication and the remaining original backend/
+consumer outcomes still require the complete coordinator.
 
 Resume with no source builds, dependency installation, native compilation,
 real services, device/lab runs or capability promotion unless the parent/user

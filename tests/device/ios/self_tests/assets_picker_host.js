@@ -71,6 +71,7 @@ const assetScope={busy:false,status:'',pendingBundle:null,bundleRequest:'',selec
         cancelUploadBundle:id=>{serviceEvents.push({kind:'cancel-issued',id});qt.callLater(()=>finishUpload(id,'Canceled'));}
     }};
 assetScope.root=assetScope;vm.createContext(assetScope);
+const treeHarness=process.argv[5]?require('./assets_tree_host.js')({vm,fs,assets,treeSource:process.argv[5],scope:assetScope,qt,events:serviceEvents,section}):null;
 vm.runInContext(section(assets,'    function uploadClicked(', '    function uploadSingleClicked('),assetScope);
 vm.runInContext(section(assets,'    function uploadBundle(', '    function importUploadedMain('),assetScope);
 function finishUpload(id,error=uploadError){
@@ -78,6 +79,7 @@ function finishUpload(id,error=uploadError){
     const prefix=job.destination.replace(/\/+$/,'')+'/',published=error?[]:job.relative.map(name=>prefix+name);
     const actual=error?[]:job.files.map((file,index)=>{const raw=fs.readFileSync(file);return {path:published[index],base64:raw.toString('base64'),sha256:crypto.createHash('sha256').update(raw).digest('hex')};});
     serviceEvents.push({kind:'completion-entered',id,error,actual});
+    if(treeHarness)treeHarness.publish(actual);
     job.completed(error,JSON.stringify(published),prefix+job.primary);
     serviceEvents.push({kind:'completion-returned',id});serviceJobs.delete(id);
 }
@@ -95,7 +97,7 @@ function snapshot() {
             {id:'asset-file.select'},{id:'asset-file.cancel'});
     } else if(pageAlive && destinationVisible)controls.push({id:'assets.destination',focused:destinationFocused,fieldText:assetScope.bundleDestination.text},
         {id:'assets.destination.accept'},{id:'assets.destination.cancel'});
-    else if(pageAlive)controls.push({id:'assets.upload'},{id:'assets.home'});
+    else if(pageAlive)controls.push(...(treeHarness?treeHarness.controls():[{id:'assets.upload'},{id:'assets.home'}]));
     else controls.push({id:editOpen?'assets.open':'assets.menu'});
     const value={pageAlive,pickerAlive,controls,ui:pickerScope?{directory:String(pickerScope.dir),chosen:pickerScope.chosen,
         closing:pickerScope.closing,requestId:pickerScope.requestId,error:pickerScope.error,bundleReview:pickerScope.bundle!==null}:null,
@@ -105,6 +107,7 @@ function snapshot() {
         primaryPath:pickerScope.primary.currentIndex<0?'':pickerScope.bundle.relativePaths[pickerScope.primary.currentIndex]}:null,
         page:assetScope.pendingBundle?{...assetScope.pendingBundle,primaryIndex:assetScope.pendingBundle.relativePaths.indexOf(assetScope.pendingBundle.primaryPath)}:null,
         destinationVisible,destinationText:assetScope.bundleDestination.text,uploadedPrimaryUrl:assetScope.uploadedPrimaryUrl,serviceEvents};
+    if(treeHarness)value.treeInfo=treeHarness.snapshot();
     return value;
 }
 function dispatch(command) {
@@ -129,6 +132,7 @@ function dispatch(command) {
         const original=new RegExp(id.endsWith('accept')?'onAccepted: ([^\\n]+)':'onRejected: ([^\\n]+)').exec(declaration);
         if(!original)throw Error('Original destination handler changed');vm.runInContext(original[1],assetScope);return;
     }
+    if(treeHarness&&treeHarness.dispatch(command))return;
     if(!pickerAlive)throw Error('Missing actual picker');
     if(id==='asset-file.bundle-primary'){
         if(action==='activate'){primaryFocused=true;return;}
@@ -156,6 +160,7 @@ readline.createInterface({input:process.stdin,crlfDelay:Infinity}).on('line',lin
     try {
         const command=JSON.parse(line);
         if(command.op==='configure') {
+            if(treeHarness)treeHarness.configure(command);
             if('hold' in command)held=command.hold;if('ignore' in command)ignored=command.ignore;if('lost' in command)lost=command.lost;
             if('initialDirectory' in command)assetScope.currentDirectory=pathToFileURL(command.initialDirectory).href;
             if('allowBundleUploads' in command)allowBundleUploads=command.allowBundleUploads;

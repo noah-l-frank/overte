@@ -21,8 +21,9 @@ from ios.adapters.assets_files import OwnedAssetsFiles
 from ios.adapters.assets_picker import OwnedAssetsPicker
 from ios.adapters.assets_reply_owner import OwnedAssetsReplyReads
 from ios.adapters.assets_upload import OwnedAssetsUpload
+from ios.adapters.assets_tree_owner import OwnedAssetsTree
 
-OWNER=re.compile(r'ios-assets-([a-f0-9]{32})-(primary|actor)-(files|picker|replies|upload)\.json')
+OWNER=re.compile(r'ios-assets-([a-f0-9]{32})-(primary|actor)-(files|picker|replies|upload|tree)\.json')
 FRAME=re.compile(r'assets-upload-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
 
 
@@ -65,7 +66,7 @@ def inspect_directory(directory):
             need(files.state is not None);picker.state=picker.decode(values['picker'])
         replies=object.__new__(OwnedAssetsReplyReads);replies.native=SimpleNamespace(pid=pid);replies.run,replies.url,replies.binding=run,url,deepcopy(binding);replies.state=None
         if 'replies' in values:replies.state=replies.decode(values['replies'])
-        upload=None;covered=set()
+        upload=None;tree=None;covered=set()
         if 'upload' in values:
             need(files.state is not None and picker.state is not None and replies.state is not None)
             upload=object.__new__(OwnedAssetsUpload);upload.files,upload.picker,upload.replies=files,picker,replies
@@ -76,6 +77,8 @@ def inspect_directory(directory):
             need(picker.state['phase']=='primary-chosen' and state['page']==picker.state['page'] and state['picker']==picker.state['picker'])
             for ref in state['frames']:covered.add(upload.originals.path(upload.originals.expand(ref)))
             if state['pending'] is not None and state['pending']['original'] is not None:covered.add(upload.originals.path(state['pending']['original']))
+        if 'tree' in values:
+            need(upload is not None);tree=object.__new__(OwnedAssetsTree);tree.upload=upload;tree.state=None;tree.state=tree.decode(values['tree'])
         need(frame_paths.get((run,role),set())==covered)
         responsibilities=[]
         if files.state is not None and files.state['phase']!='retired':responsibilities.append('input-files')
@@ -86,6 +89,7 @@ def inspect_directory(directory):
             # No server/oven/blob retirement owner exists in this partial
             # vertical. Local staged-file absence cannot discharge that work.
             responsibilities.append('server-retirement')
+        if tree is not None and tree.state['clientClosedBy'] is None:responsibilities.append('mapping-actions')
         result.append(dict(runId=run,role=role,binding=deepcopy(binding),responsibilities=responsibilities,
             successor=upload is not None,clientRetired=upload is not None and upload.state['phase']=='retired'))
         for kind,(path,value) in records.items():need(same(PrivateFeatureState(path).read(),value))
