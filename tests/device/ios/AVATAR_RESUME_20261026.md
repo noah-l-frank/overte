@@ -1,7 +1,14 @@
-# Avatar 3/14: explicit pause checkpoint
+# Avatar 3/14: resume checkpoints
 
-Work is paused at the user's request. No further test or optimization was
-started after that request. Avatar capability remains closed; complete areas
+The user resumed work. The latest qualified boundary is recorded in
+[the paired Final-ready checkpoint](AVATAR_FINAL_READY_20261026.md).
+The full held end, canonical replay and unchanged full journey remain open.
+
+## Historical explicit pause
+
+At the checkpoint below, work was paused at the user's request. No further
+test or optimization started after that pause request and before resumption.
+Avatar capability remains closed; complete areas
 remain 5/14. Native/SDK/renderer boundaries remain explicitly modeled and native
 sources remain uncompiled. Historical profiles are not completed feature runs.
 
