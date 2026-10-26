@@ -38,6 +38,7 @@ class TabletWebInputs:
         self.root,self.binding,self.run,self.role=source.root,source.binding,source.run,source.role
         self.monotonic,self.epoch_ms,self.clock_ms=monotonic,epoch_ms,clock_ms;self.historical=historical
         self.store=PrivateFeatureState(self.root/('tabletweb-inputs-'+self.run+'-'+self.role+'.json'))
+        self._release_context=(lock,self.store,self.root,deepcopy(self.binding),self.run,self.role)
         self.originals=OriginalFrameStore(self.root,self.binding,self.run,self.role,source.guard,self.storage_intent,
             namespace='tabletweb-input',schema_prefix='tabletWebInput',kind='inputs',monotonic=monotonic)
         self.ui=None if historical else TabletWebNativeInput(client,self.binding,clock_ms,self.bound,self.input_intent)
@@ -49,7 +50,10 @@ class TabletWebInputs:
         self.saved=deepcopy(self.state);self.failed=False;self.decode()
 
     def bound(self):
-        self.lock.assert_held();need(not self.historical and not self.failed and self.source.guard() is not False and same(self.store.read(),self.saved));return True
+        lock,store,root,binding,run,role=self._release_context
+        lock.assert_held();need(self.lock is lock and self.store is store and self.root==root and same(self.binding,binding)
+            and self.run==run and self.role==role and not self.historical and not self.failed
+            and self.source.guard() is not False and same(store.read(),self.saved));return True
 
     def save(self):
         self.bound();self.store.write(self.state,self.saved);need(same(self.store.read(),self.state));self.saved=deepcopy(self.state)
@@ -170,7 +174,38 @@ class TabletWebInputs:
         self.state['records'].append(self.originals.compact(dict(reference,phase='saved')))
         self.state['pending']=self.state['original']=None;self.save();return deepcopy(self.state['records'][-1])
 
+    def release_intent(self,phase,request):
+        """Only the original touch's release WAL survives lost live continuity.
+
+        This changes no source/input authority and accepts no new touch. The
+        confirmed old intent, exact held lock and private CAS remain required.
+        """
+        need(not self.historical and phase in ('issued','returned'))
+        lock,store,root,binding,run,role=self._release_context;lock.assert_held()
+        need(lock.path==root/'script-feature-sources.lock' and same(store.read(),self.saved)
+             and same(self.state,self.saved) and same(self.saved['binding'],binding)
+             and self.saved['runId']==run and self.saved['role']==role)
+        exact(request,{'tabletWebNativeInputVersion','id','kind','path','body','ownership'})
+        need(type(request['tabletWebNativeInputVersion']) is int and request['tabletWebNativeInputVersion']==1
+             and request['kind']=='release' and request['path']=='/actions' and request['body'] is None)
+        identifier(request['id']);value=deepcopy(self.saved);pending=value['pending']
+        need(type(pending) is dict and pending['kind']=='tap' and pending['phase']=='issued')
+        events=pending['events'];need(events and events[0]['request']['kind']=='touch'
+            and events[0]['request']['path']=='/actions' and same(events[0]['request']['ownership'],request['ownership']))
+        if phase=='issued':
+            need(len(events)==1 and request['id']!=events[0]['request']['id'])
+            issued=self.stamp();self.clock(issued,events[0]['returned'] or events[0]['issued'])
+            events.append(dict(request=deepcopy(request),issued=issued,returned=None))
+        else:
+            need(len(events)==2 and same(events[-1]['request'],request) and events[-1]['returned'] is None)
+            returned=self.stamp();self.clock(returned,events[-1]['issued']);events[-1]['returned']=returned
+        store.write(value,self.saved);need(same(value,store.read()))
+        # Keep the same pending object held by perform(); only its confirmed
+        # release fields changed. No failed/unknown request is replayed.
+        self.state['pending'].clear();self.state['pending'].update(deepcopy(pending));self.saved=deepcopy(value)
+
     def input_intent(self,phase,request):
+        if type(request) is dict and request.get('kind')=='release':return self.release_intent(phase,request)
         self.bound();need(phase in ('issued','returned'));pending=self.state['pending'];need(pending is not None)
         if phase=='issued':
             need(len(pending['events'])<3 and not any(row['request']['id']==request['id'] for row in pending['events']))

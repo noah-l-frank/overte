@@ -9,6 +9,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from adapters.normal_ui import NativeUIError
+from adapters.normal_feature_state import PrivateFeatureState
 from adapters.original_frame_store import OriginalFrameStore
 from adapters.operation_transport_guard import check as final_guard
 from adapters.script_feature.lock import ScriptSourceLock
@@ -78,6 +79,64 @@ class TabletWebInputsTests(unittest.TestCase):
         self.assertEqual([],self.mutations());rebuilt=self.owner();self.assertEqual('failed',rebuilt.records[0]['phase'])
         self.assertEqual(['touch','release'],[row['request']['kind'] for row in rebuilt.records[0]['events']])
         self.assertTrue(all(row['returned'] is None for row in rebuilt.records[0]['events']))
+
+    def test_current_candidate_loss_after_attempted_touch_still_releases_same_owned_session_once(self):
+        current=[True]
+        def source(**kwargs):
+            return TabletWebPackets(self.root,BINDING,RUN,'primary',ROOT,31,'dom',lambda:current[0],
+                monotonic=lambda:self.mono,epoch_ms=lambda:self.now,**kwargs)
+        self.source=source;owner=self.owner()
+        def changed(method,path):
+            if method=='POST' and path.endswith('/actions'):current[0]=False
+        self.client.after=changed
+        with self.assertRaises(NativeUIError):owner.perform('b'*32,'candidate-lost-touch','tap','bridge')
+        self.assertEqual(['POST','DELETE'],[method for method,_path,_body in self.mutations()])
+        saved=owner.store.read();events=saved['pending']['events']
+        self.assertEqual(['touch','release'],[event['request']['kind'] for event in events])
+        self.assertIsNone(events[0]['returned']);self.assertIsNotNone(events[1]['returned'])
+        current[0]=True;rebuilt=self.owner();calls=deepcopy(self.client.calls);queries=len(self.queries)
+        with self.assertRaises(NativeUIError):rebuilt.perform('b'*32,'candidate-lost-touch','tap','bridge')
+        self.assertEqual(calls,self.client.calls);self.assertEqual(queries,len(self.queries))
+    def test_unknown_owned_release_after_candidate_loss_is_retained_and_never_resent(self):
+        current=[True]
+        def source(**kwargs):
+            return TabletWebPackets(self.root,BINDING,RUN,'primary',ROOT,31,'dom',lambda:current[0],
+                monotonic=lambda:self.mono,epoch_ms=lambda:self.now,**kwargs)
+        self.source=source;owner=self.owner()
+        def changed(method,path):
+            if method=='POST' and path.endswith('/actions'):current[0]=False
+            if method=='DELETE':raise OSError('Lost actual owned release return')
+        self.client.after=changed
+        with self.assertRaises(NativeUIError):owner.perform('b'*32,'unknown-release','tap','bridge')
+        self.assertEqual(['POST','DELETE'],[method for method,_path,_body in self.mutations()])
+        events=owner.store.read()['pending']['events'];self.assertEqual(['touch','release'],[event['request']['kind'] for event in events])
+        self.assertIsNone(events[1]['returned']);current[0]=True;self.client.after=None
+        rebuilt=self.owner();calls=deepcopy(self.client.calls)
+        for label in ('unknown-release','different'):
+            with self.subTest(label=label),self.assertRaises(NativeUIError):rebuilt.perform('b'*32,label,'tap','bridge')
+        self.assertEqual(calls,self.client.calls)
+
+    def test_foreign_private_CAS_after_touch_cannot_authorize_or_overwrite_release(self):
+        owner=self.owner();foreign={}
+        def changed(method,path):
+            if method=='POST' and path.endswith('/actions'):
+                previous=owner.store.read();foreign.update(deepcopy(previous));foreign['role']='actor'
+                owner.store.write(foreign,previous)
+        self.client.after=changed
+        with self.assertRaises(NativeUIError):owner.perform('b'*32,'foreign-release-cas','tap','bridge')
+        self.assertEqual(['POST'],[method for method,_path,_body in self.mutations()])
+        self.assertEqual(foreign,owner.store.read())
+
+    def test_release_callback_keeps_original_held_lock_and_store_after_public_alias_change(self):
+        owner=self.owner();old_store=owner.store;foreign_store=PrivateFeatureState(self.root/'foreign-inputs.json')
+        def changed(method,path):
+            if method=='POST' and path.endswith('/actions'):
+                owner.lock=ScriptSourceLock(self.root/'foreign.lock');owner.store=foreign_store
+        self.client.after=changed
+        with self.assertRaises(NativeUIError):owner.perform('b'*32,'changed-owner-alias','tap','bridge')
+        self.assertEqual(['POST','DELETE'],[method for method,_path,_body in self.mutations()])
+        events=old_store.read()['pending']['events'];self.assertEqual(['touch','release'],[event['request']['kind'] for event in events])
+        self.assertIsNotNone(events[-1]['returned']);self.assertFalse(foreign_store.path.exists())
 
     def test_lost_query_return_keeps_owned_source_intent_without_touch_or_query_resend(self):
         owner=self.owner()

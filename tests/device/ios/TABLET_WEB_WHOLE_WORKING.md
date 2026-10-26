@@ -292,3 +292,28 @@ two cases in 9.991s against the actual current Node field readback. There are
 string contract, native producer, source timestamp, schema/version or router changed.
 These ordinary-input component checks do not qualify the full Tablet journey,
 paired terminal/canonical chain, native compilation or physical device behavior.
+
+
+## Original touch release after continuity loss
+
+A focused existing-owner regression demonstrated an actual attempted WDA touch
+followed by candidate loss produced POST only: the release WAL incorrectly
+required current candidate/source admission. Release-only transitions now use
+the confirmed old touch, exact original lock/store/binding/native ownership and
+private CAS. The original SDK method/session and endpoint remain pinned; a
+changed endpoint or foreign journal cannot authorize release elsewhere.
+Ordinary input/source gates and original final transport deadlines are intact.
+Unknown DELETE remains owned and is never repeated. No new input/source fact,
+cleanup effect, schema or version is produced by this release metadata.
+
+The first source/native-input selection passed 27 cases in 1.882s. The final
+30-case selection reported 29 passing cases in 6.324s; one new alias case had a
+missing test helper import. After correcting that import, only the remaining
+alias case was rerun and passed separately in 0.152s. The final selections include old
+expired-before-send/no POST-or-DELETE behavior, candidate-loss once release,
+unknown release recovery without resend, foreign CAS preservation, original
+transport/intent/lock/store aliases and normal generated-page Unicode/Send with
+independent VM/native-route/DOM echo. No source/deadline changed for that import
+correction. Logs are `release-before.log`, `release-focused.log`,
+`release-final.log` and `release-alias-final.log` in the same private directory.
+These are bounded component results; the complete Tablet area remains partial.

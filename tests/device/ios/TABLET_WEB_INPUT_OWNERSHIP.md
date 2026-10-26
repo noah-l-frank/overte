@@ -37,6 +37,17 @@ one owned release; an expired transport budget sends neither touch nor release,
 while retaining any attempted request intents as unresolved responsibility.
 Release acknowledgement alone never qualifies actual UIKit/Qt contact death.
 
+For an already attempted touch, release intent/return transitions use the
+confirmed original pending touch, its exact native ownership and binding, the
+original still-held source lock and original private journal CAS. They do not
+require a new candidate/PID/foreground admission and do not acquire product
+facts. The original SDK method/session prefix and endpoint are pinned through
+`finally`; endpoint changes are refused rather than redirected. Ordinary input
+still requires current admission. The unchanged final transport freshness guard
+also applies to release, so expiry before the touch sends neither POST nor
+DELETE. Unknown DELETE stays journaled and cannot be resent by reconstruction;
+a returned release supplies no UIKit weak death or native quiet proof.
+
 After a returned action, a separately owned immutable input record retains its
 exact source descriptor and actual request transcript. The small parent journal
 stores descriptors instead of repeatedly embedding large DOM packets. Repeated

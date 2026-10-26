@@ -48,18 +48,20 @@ class TabletWebNativeInput:
         return dict(x=frame[0]+(left-viewport['offsetLeft'])*scale,y=frame[1]+(top-viewport['offsetTop'])*scale,
             width=(right-left)*scale,height=(bottom-top)*scale)
 
-    def _mutation(self,kind,path,body,ownership,will_send=None):
+    def _mutation(self,kind,path,body,ownership,will_send=None,*,transport=None,intent=None):
         need(kind in ('touch','release','clear','text'))
         need(path=='/actions' if kind in ('touch','release') else type(path) is str
             and re.fullmatch(r'/element/[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}/'+('clear' if kind=='clear' else 'value'),path))
-        if kind!='release':self.ui._check()
+        ui=self.ui;callback=self.intent if intent is None else intent
+        send=ui._request if transport is None else transport
+        if kind!='release':ui._check()
         record=dict(tabletWebNativeInputVersion=1,id=uuid.uuid4().hex,kind=kind,path=path,body=deepcopy(body),ownership=deepcopy(ownership))
-        need(self.intent('issued',deepcopy(record)) is not False)
-        if kind!='release':self.ui._check();fresh(ownership['nativeCapturedEpochMs'],self.clock_ms())
+        need(callback('issued',deepcopy(record)) is not False)
+        if kind!='release':ui._check();fresh(ownership['nativeCapturedEpochMs'],self.clock_ms())
         if will_send is not None:will_send()
-        result=self.ui._request('DELETE' if kind=='release' else 'POST',path,body)
-        need(self.intent('returned',deepcopy(record)) is not False)
-        if kind!='release':self.ui._check()
+        result=send('DELETE' if kind=='release' else 'POST',path,body)
+        need(callback('returned',deepcopy(record)) is not False)
+        if kind!='release':ui._check()
         return result
 
     def tap(self,document,element):
@@ -70,11 +72,16 @@ class TabletWebNativeInput:
         body={'actions':[{'type':'pointer','id':'tablet-web-'+uuid.uuid4().hex,'parameters':{'pointerType':'touch'},'actions':[
             {'type':'pointerMove','duration':0,'origin':'viewport','x':point[0],'y':point[1]},
             {'type':'pointerDown','button':0},{'type':'pause','duration':80},{'type':'pointerUp','button':0}]}]}
-        attempted=[False]
+        attempted=[False];ui=self.ui;client=ui.client;call=client.call;base=ui.base;intent=self.intent
+        server=getattr(client,'server_url',None)
+        def release_send(method,path,value):
+            need(method=='DELETE' and path=='/actions' and value is None and getattr(client,'server_url',None)==server)
+            try:return call(method,base+path,value)
+            except Exception:raise NativeUIError('Normal native UI transport failed') from None
         def sent():attempted[0]=True
-        try:self._mutation('touch','/actions',body,owner,sent)
+        try:self._mutation('touch','/actions',body,owner,sent,intent=intent)
         finally:
-            if attempted[0]:self._mutation('release','/actions',None,owner)
+            if attempted[0]:self._mutation('release','/actions',None,owner,transport=release_send,intent=intent)
         return deepcopy(owner)
 
     def active_field(self,source,row,expected_value,*,expected_element=None):

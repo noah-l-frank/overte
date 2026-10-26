@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import subprocess
 import unittest
-from adapters.normal_ui import NativeUIError,W3C_ELEMENT
+from adapters.normal_ui import NativeUI,NativeUIError,W3C_ELEMENT
 from ios.adapters.tablet_web_native_input import TabletWebNativeInput
 from ios.self_tests.tablet_web_dom_fixture import packet as envelope
 from ios.self_tests.test_ios_tablet_web_packets import BINDING
@@ -66,6 +66,25 @@ process.stdout.write(JSON.stringify(result));'''
         with self.assertRaises(NativeUIError):self.input.tap(self.document(),'bridge')
         self.assertEqual(['POST','DELETE'],[row[0] for row in self.mutations()]);self.assertEqual(3,len(self.events))
         self.assertEqual(['touch','release','release'],[value['kind'] for _,value in self.events])
+    def test_owned_release_keeps_original_transport_session_and_intent_after_alias_change(self):
+        foreign=SDK();old_base=self.input.ui.base
+        def changed(method,path):
+            if method=='POST':
+                self.current=False;self.input.ui=NativeUI(foreign,'foreign-session',lambda:True)
+                self.input.intent=lambda *_:(_ for _ in ()).throw(AssertionError('Foreign callback used'))
+        self.client.after=changed
+        with self.assertRaises(NativeUIError):self.input.tap(self.document(),'bridge')
+        self.assertEqual(['POST','DELETE'],[method for method,_path,_body in self.mutations()])
+        self.assertTrue(all(path==old_base+'/actions' for _method,path,_body in self.mutations()))
+        self.assertEqual([],foreign.calls);self.assertEqual(['touch','touch','release','release'],[value['kind'] for _,value in self.events])
+    def test_changed_original_transport_endpoint_cannot_retarget_owned_release(self):
+        def changed(method,path):
+            if method=='POST':self.client.server_url='changed-private-endpoint'
+        self.client.after=changed
+        with self.assertRaises(NativeUIError):self.input.tap(self.document(),'bridge')
+        self.assertEqual(['POST'],[method for method,_path,_body in self.mutations()])
+        self.assertEqual(['touch','touch','release'],[value['kind'] for _,value in self.events])
+
     def test_rejected_journal_or_expired_original_before_touch_never_releases_unowned_actions(self):
         self.input.intent=lambda phase,value:False
         with self.assertRaises(NativeUIError):self.input.tap(self.document(),'bridge')
