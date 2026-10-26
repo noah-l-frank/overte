@@ -65,7 +65,9 @@ CAS journals, codecs and normal input recipes execute on the host; native
 audio, UIKit, SDK, automatic timer and clock producers are declared models. No
 microphone, physical sound, native compiler, device or simulator is used.
 
-Still required are ordinary page opening/restoration, current microphone
+The [ordinary page recipe](AUDIO_PAGE_INPUTS.md) now supplies normal toolbar,
+launcher, direct/fallback entry and selection restoration inputs. Its durable
+page/recording-child and lifetime composition remains required, along with current microphone
 authorization, background/permission recovery, independent acoustic/Actor
 publication and full callback/source/page/process/SDK retirement. Accepted
 loopback sink writes are not acoustic playback. All complete capability gates
