@@ -9,6 +9,7 @@
     "share-admission-seal-output-frame": {"current": 1, "reads": [1]},
     "share-admission-seal-output-original": {"current": 1, "reads": [1]},
     "assets-usage-controls": {"current": 1, "reads": [1]},
+    "ios-assets-usage-owner": {"current": 1, "reads": [1]},
     "ios-assets-usage-ui": {"current": 1, "reads": [1]},
     "ios-snapshot-journey-files-owner": {"current": 1, "reads": [1]},
     "ios-snapshot-journey-files-result": {"current": 1, "reads": [1]},

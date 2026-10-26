@@ -25,8 +25,9 @@ from ios.adapters.assets_reply_owner import OwnedAssetsReplyReads
 from ios.adapters.assets_upload import OwnedAssetsUpload
 from ios.adapters.assets_tree_owner import OwnedAssetsTree
 from ios.adapters.assets_backend_owner import OwnedAssetsBackend,BackendSegments
+from ios.adapters.assets_usage_owner import OwnedAssetsUsage
 
-OWNER=re.compile(r'ios-assets-([a-f0-9]{32})-(primary|actor)-(files|picker|replies|upload|tree|backend)\.json')
+OWNER=re.compile(r'ios-assets-([a-f0-9]{32})-(primary|actor)-(files|picker|replies|upload|tree|backend|usage)\.json')
 FRAME=re.compile(r'assets-upload-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
 BACKEND_FRAME=re.compile(r'assets-backend-(primary|actor)-parts-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
 FILE_SOURCE=re.compile(r'assets-files-native-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
@@ -82,7 +83,7 @@ def inspect_directory(directory):
             need(files.state is not None);picker.state=picker.decode(values['picker'])
         replies=object.__new__(OwnedAssetsReplyReads);replies.native=SimpleNamespace(pid=pid);replies.run,replies.url,replies.binding=run,url,deepcopy(binding);replies.state=None
         if 'replies' in values:replies.state=replies.decode(values['replies'])
-        upload=None;tree=None;backend=None;covered=set();backend_covered=set()
+        upload=None;tree=None;backend=None;usage=None;covered=set();backend_covered=set()
         if 'upload' in values:
             need(files.state is not None and picker.state is not None and replies.state is not None)
             upload=object.__new__(OwnedAssetsUpload);upload.files,upload.picker,upload.replies=files,picker,replies
@@ -95,6 +96,8 @@ def inspect_directory(directory):
             if state['pending'] is not None and state['pending']['original'] is not None:covered.add(upload.originals.path(state['pending']['original']))
         if 'tree' in values:
             need(upload is not None);tree=object.__new__(OwnedAssetsTree);tree.upload=upload;tree.state=None;tree.state=tree.decode(values['tree'])
+        if 'usage' in values:
+            need(upload is not None);usage=object.__new__(OwnedAssetsUsage);usage.source=upload;usage.state=None;usage.state=usage.decode(values['usage'])
         need(frame_paths.get((run,role),set())==covered)
         if 'backend' in values:
             backend=object.__new__(OwnedAssetsBackend);backend.upload=upload if upload is not None else SimpleNamespace(files=files,state=None)
@@ -116,6 +119,11 @@ def inspect_directory(directory):
             if backend is None or backend.state['phase']!='restored':responsibilities.append('server-retirement')
         elif backend is not None:responsibilities.append('server-retirement')
         if tree is not None and tree.state['clientClosedBy'] is None:responsibilities.append('mapping-actions')
+        if usage is not None:
+            if usage.state['clientClosedBy'] is None:responsibilities.append('usage-client')
+            # A closed dialog/page and its ordinary input ACK never establish
+            # destruction of an entity/model/resource created by acceptance.
+            if any(entry['id']=='assets.model.accept' and entry['command'] is not None for entry in usage.state['inputs']):responsibilities.append('usage-model-retirement')
         result.append(dict(runId=run,role=role,binding=deepcopy(binding),responsibilities=responsibilities,
             successor=upload is not None,clientRetired=upload is not None and upload.state['phase']=='retired'))
         for kind,(path,value) in records.items():need(same(PrivateFeatureState(path).read(),value))

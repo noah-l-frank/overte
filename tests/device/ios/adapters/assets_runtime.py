@@ -18,6 +18,7 @@ from ios.adapters.assets_picker import OwnedAssetsPicker
 from ios.adapters.assets_reply_owner import OwnedAssetsReplyReads
 from ios.adapters.assets_upload import OwnedAssetsUpload
 from ios.adapters.assets_tree_owner import OwnedAssetsTree
+from ios.adapters.assets_usage_owner import OwnedAssetsUsage
 from ios.adapters.assets_backend_owner import OwnedAssetsBackend
 from ios.adapters.feature_observation import FeatureObservation
 from ios.adapters.normal_input import NativeInput
@@ -45,7 +46,7 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         self.cleanup_errors=[] # Private diagnostics only; never feature facts.
 
     def _assets_store(self,selector,run,role,kind):
-        identifier(run);need(role in ('primary','actor') and kind in ('files','picker','replies','upload','tree','backend'))
+        identifier(run);need(role in ('primary','actor') and kind in ('files','picker','replies','upload','tree','backend','usage'))
         return PrivateFeatureState(self.state_path(selector).with_name('ios-assets-'+run+'-'+role+'-'+kind+'.json'))
 
     @operation
@@ -78,8 +79,9 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         upload=OwnedAssetsUpload(sources['native'],sources['clock_source'],files,picker,replies,self._assets_store(selector,run,role,'upload'),
             sources['binding'],lock=lock,role=role,monotonic=self.monotonic,sleep=sources['observer'].sleep)
         tree=OwnedAssetsTree(upload,self._assets_store(selector,run,role,'tree'),lock=lock)
+        usage=OwnedAssetsUsage(upload,self._assets_store(selector,run,role,'usage'),lock=lock)
         sources['check']()
-        return dict(sources,owned_files=files,picker=picker,owned_replies=replies,upload=upload,tree=tree)
+        return dict(sources,owned_files=files,picker=picker,owned_replies=replies,upload=upload,tree=tree,usage=usage)
 
     @operation
     def _assets_mapping_readback(self,selector,run,role,fixture_url,ticket,lock,*,resource='gltf-bundle/main.gltf'):

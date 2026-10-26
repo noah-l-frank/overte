@@ -42,10 +42,12 @@ class Boundary(tree.Boundary):
 
 class Fixture(tree.Fixture):
     boundary_type=Boundary
-    def seeded_fbx_page(self):
+    def seed_fbx_server(self):
         path='/e2e-'+RUN+'/stand.fbx';raw=pinned_resource('asset-stand.fbx');self.boundary.reads.resource='asset-stand.fbx'
         self.boundary.reads.data={path:raw};self.boundary.reads.status[path]=(1,'')
         self.boundary.configure(serverRows=[dict(path=path,base64=base64.b64encode(raw).decode(),status=1)])
+    def seeded_fbx_page(self):
+        self.seed_fbx_server()
         # This isolated control source starts with an existing server asset.
         # Open the actual browser normally; no local upload is claimed here.
         store=PrivateFeatureState(self.boundary.directory/'usage-browser-open-intents.json');previous=None;commands=[]
@@ -55,3 +57,11 @@ class Fixture(tree.Fixture):
         for identifier in ('assets.menu','assets.open'):
             self.input.assets_input(identifier,'activate',reference=project(self.input.capture()),before_send=intent)
         self.replies.reserve(TICKET,'asset-stand.fbx')
+
+    def owned_existing_source(self):
+        """Declared existing-server setup, not an observed upload verdict."""
+        from ios.adapters.assets_usage_owner import OwnedAssetsUsage
+        self.seed_fbx_server();self.files.reserve(TICKET,'asset-stand.fbx');self.files.stage();self.picker.reserve();self.picker.open_page();self.picker.open_picker();self.picker.choose_primary()
+        self.replies.reserve(TICKET,'asset-stand.fbx');source=self.owner();source.reserve()
+        source.input('existing-source-close-picker','asset-file.cancel',effect=dict(kind='picker-dead'),cleanup=True)
+        store=PrivateFeatureState(self.boundary.directory/'assets-usage.json');owner=OwnedAssetsUsage(source,store,lock=self.lock);owner.reserve();return owner

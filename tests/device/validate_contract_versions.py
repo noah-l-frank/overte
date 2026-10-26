@@ -17,6 +17,7 @@ REQUIRED = {
     "share-admission-seal-output-frame": 1,
     "share-admission-seal-output-original": 1,
     "assets-usage-controls": 1,
+    "ios-assets-usage-owner": 1,
     "ios-assets-usage-ui": 1,
     "ios-snapshot-journey-files-owner": 1,
     "ios-snapshot-journey-files-result": 1,

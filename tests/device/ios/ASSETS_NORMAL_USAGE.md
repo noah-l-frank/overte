@@ -69,8 +69,9 @@ strict source/clock/types and required durable intents. Old default host paths
 remain literal when the optional Usage extension is absent.
 
 The measured FBX file-owner WAL storage fix preserves existing limits and exact
-observation bytes. Next the durable normal bake/import
-action owner must join actual worker/meta/output, model/resource consumers,
+observation bytes. The [durable normal action owner](ASSETS_USAGE_OWNER.md)
+now retains ordinary bake/import input and client recovery separately from
+actual worker/meta/output, model/resource consumers,
 independent rendering and complete paired cleanup. Full capability admission
 and ordinary successful feature publication remain unavailable until that work
 is complete.
