@@ -22,6 +22,9 @@
 
 UploadAssetTask::UploadAssetTask(QSharedPointer<ReceivedMessage> receivedMessage, SharedNodePointer senderNode,
                                  const QDir& resourcesDir, uint64_t filesizeLimit) :
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    _featureWork("upload",nullptr,{}, {},senderNode ? senderNode->getUUID().toString(QUuid::WithoutBraces) : QString()),
+#endif
     _receivedMessage(receivedMessage),
     _senderNode(senderNode),
     _resourcesDir(resourcesDir),
@@ -31,6 +34,9 @@ UploadAssetTask::UploadAssetTask(QSharedPointer<ReceivedMessage> receivedMessage
 }
 
 void UploadAssetTask::run() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    const overte::e2e::asset_backend::Body featureRun(_featureWork.id(),"run",false);
+#endif
     auto data = _receivedMessage->getMessage();
     
     QBuffer buffer { &data };
@@ -38,6 +44,10 @@ void UploadAssetTask::run() {
     
     MessageID messageID;
     buffer.read(reinterpret_cast<char*>(&messageID), sizeof(messageID));
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    if (buffer.pos()>=static_cast<qint64>(sizeof(messageID))) {_featureWork.field("messageId",QString::number(messageID));}
+    else {overte::e2e::asset_backend::Work::shared().incomplete();}
+#endif
     
     uint64_t fileSize;
     buffer.read(reinterpret_cast<char*>(&fileSize), sizeof(fileSize));
@@ -58,6 +68,9 @@ void UploadAssetTask::run() {
         
         auto hash = AssetUtils::hashData(fileData);
         auto hexHash = hash.toHex();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+        _featureWork.field("hash",QString::fromLatin1(hexHash));
+#endif
 
         if (_senderNode) {
             qDebug() << "Hash for uploaded file from" << uuidStringWithoutCurlyBraces(_senderNode->getUUID()) << "is: (" << hexHash << ")";

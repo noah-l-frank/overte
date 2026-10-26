@@ -20,6 +20,7 @@
 #include <QtCore/QSharedPointer>
 
 #include "ReceivedMessage.h"
+#include "../../../tests/device/native/AssetBackendWork.h"
 
 class NLPacketList;
 class Node;
@@ -32,6 +33,9 @@ public:
     void run() override;
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    overte::e2e::asset_backend::TaskLease _featureWork;
+#endif
     QSharedPointer<ReceivedMessage> _receivedMessage;
     QSharedPointer<Node> _senderNode;
     QDir _resourcesDir;

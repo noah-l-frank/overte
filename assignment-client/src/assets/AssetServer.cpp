@@ -118,6 +118,9 @@ void AssetServer::bakeAsset(const AssetUtils::AssetHash& assetHash, const AssetU
     auto it = _pendingBakes.find(assetHash);
     if (it == _pendingBakes.end()) {
         auto task = std::make_shared<BakeAssetTask>(assetHash, assetPath, filePath);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+        overte::e2e::asset_backend::Work::shared().owner(task->featureSourceId(),std::weak_ptr<void>(task));
+#endif
         task->setAutoDelete(false);
         _pendingBakes[assetHash] = task;
 
@@ -327,6 +330,9 @@ AssetServer::AssetServer(ReceivedMessage& message) :
 }
 
 void AssetServer::aboutToFinish() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    _featureObservationReady=false;if (_featureSource) {_featureSource->stop();}
+#endif
 
     // remove pending transfer tasks
     _transferTaskPool.clear();
@@ -352,6 +358,9 @@ void AssetServer::aboutToFinish() {
 }
 
 void AssetServer::run() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    overte::e2e::asset_backend::Work::shared().bindServer(this);
+#endif
 
     qCDebug(asset_server) << "Waiting for connection to domain to request settings from domain-server.";
 
@@ -366,6 +375,9 @@ void AssetServer::run() {
 static const QString ASSET_FILES_SUBDIR = "files";
 
 void AssetServer::completeSetup() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    _featureObservationReady=false;
+#endif
     auto nodeList = DependencyManager::get<NodeList>();
 
     auto& domainHandler = nodeList->getDomainHandler();
@@ -477,6 +489,17 @@ void AssetServer::completeSetup() {
         PacketReceiver::makeSourcedListenerReference<AssetServer>(this, &AssetServer::handleAssetMappingOperation));
 
     replayRequests();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    _featureObservationReady=true;
+    if (!_featureSource && overte::e2e::asset_backend::Work::enabled()) {
+        auto source=new overte::e2e::asset_backend::QuerySource(this,[this] {return featureBackendSnapshot();},
+            [this] {return _resourcesDirectory.absolutePath();},[] {
+                const auto nodes=DependencyManager::get<NodeList>();return qMakePair(nodes->getSessionUUID().toString(QUuid::WithoutBraces),nodes->getDomainUUID().toString(QUuid::WithoutBraces));
+            });
+        if (source->start(_resourcesDirectory.absolutePath(),nodeList->getSessionUUID().toString(QUuid::WithoutBraces),nodeList->getDomainUUID().toString(QUuid::WithoutBraces))) {_featureSource=source;}
+        else {source->deleteLater();}
+    }
+#endif
 }
 
 void AssetServer::queueRequests(QSharedPointer<ReceivedMessage> packet, SharedNodePointer senderNode) {
@@ -1303,6 +1326,11 @@ bool AssetServer::renameMapping(AssetUtils::AssetPath oldPath, AssetUtils::Asset
 }
 
 void AssetServer::handleFailedBake(QString originalAssetHash, QString assetPath, QString errors) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    const auto featureTask=qobject_cast<BakeAssetTask*>(sender());
+    if (!featureTask) {overte::e2e::asset_backend::Work::shared().incomplete();}
+    const overte::e2e::asset_backend::Body featureBody(featureTask ? featureTask->featureSourceId() : QString(),"bake-failed",true);
+#endif
     qDebug() << "Failed to bake: " << originalAssetHash << assetPath << "(" << errors << ")";
 
     bool loaded;
@@ -1324,6 +1352,11 @@ void AssetServer::handleFailedBake(QString originalAssetHash, QString assetPath,
 
 void AssetServer::handleCompletedBake(QString originalAssetHash, QString originalAssetPath,
                                       QString bakedTempOutputDir) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    const auto featureTask=qobject_cast<BakeAssetTask*>(sender());
+    if (!featureTask) {overte::e2e::asset_backend::Work::shared().incomplete();}
+    const overte::e2e::asset_backend::Body featureBody(featureTask ? featureTask->featureSourceId() : QString(),"bake-complete",true);
+#endif
     auto reportCompletion = [this, originalAssetPath, originalAssetHash](bool errorCompletingBake,
                                                                          QString errorReason,
                                                                          QString redirectTarget) {
@@ -1472,6 +1505,11 @@ void AssetServer::handleCompletedBake(QString originalAssetHash, QString origina
 }
 
 void AssetServer::handleAbortedBake(QString originalAssetHash, QString assetPath) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    const auto featureTask=qobject_cast<BakeAssetTask*>(sender());
+    if (!featureTask) {overte::e2e::asset_backend::Work::shared().incomplete();}
+    const overte::e2e::asset_backend::Body featureBody(featureTask ? featureTask->featureSourceId() : QString(),"bake-aborted",true);
+#endif
     qDebug() << "Aborted bake:" << originalAssetHash;
 
     // for an aborted bake we don't do anything but remove the BakeAssetTask from our pending bakes
@@ -1601,3 +1639,79 @@ bool AssetServer::setBakingEnabled(const AssetUtils::AssetPathList& paths, bool 
     }
     return true;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+QJsonObject AssetServer::featureBackendSnapshot() {
+    using namespace overte::e2e::asset_backend;
+    if (!Work::enabled() || !_featureObservationReady || thread()!=QThread::currentThread()
+            || !configuration().current() || !separate(configuration().root,_resourcesDirectory.absolutePath())) {return {};}
+    const auto nodes=DependencyManager::get<NodeList>();const auto server=nodes->getSessionUUID(),domain=nodes->getDomainUUID();
+    if (server.isNull() || domain.isNull()) {return {};}
+    Directory resources(_resourcesDirectory.absolutePath()),files(_filesDirectory.absolutePath());
+    bool complete=resources.valid() && files.valid();
+    const auto work=[this] {
+        QJsonArray pending;
+        for (auto it=_pendingBakes.constBegin();it!=_pendingBakes.constEnd();++it) {
+            pending.append(QJsonObject{{"id",it.value() ? it.value()->featureSourceId() : QString()},{"hash",it.key()}});
+        }
+        int queued{0};bool queueing{false};
+        {QMutexLocker guard(&_queuedRequestsMutex);queued=_queuedRequests.size();queueing=_isQueueingRequests;}
+        return Work::shared().snapshot(this,pending,_transferTaskPool.activeThreadCount(),_bakingTaskPool.activeThreadCount(),queued,queueing);
+    };
+    const auto before=work();QJsonArray mappings;QJsonObject originalMappings;
+    for (const auto& mapping:_fileMappings) {
+        if (mappings.size()>=512) {complete=false;break;}
+        if (!AssetUtils::isValidFilePath(mapping.first) || !AssetUtils::isValidHash(mapping.second)) {complete=false;}
+        mappings.append(QJsonObject{{"path",mapping.first},{"hash",mapping.second}});originalMappings[mapping.first]=mapping.second;
+    }
+    qint64 mapBudget=65536;const auto mapFile=resources.file(MAP_FILE_NAME,65536,mapBudget,complete);QJsonValue persisted(QJsonValue::Null);
+    if (mapFile.value("exists")==QJsonValue(true)) {
+        const auto body=mapFile.value("body").toObject();
+        if (body.value("retained")!=QJsonValue(true)) {complete=false;}else {
+            QJsonParseError error;const auto document=QJsonDocument::fromJson(QByteArray::fromBase64(body.value("base64").toString().toLatin1()),&error);
+            if (error.error!=QJsonParseError::NoError || !document.isObject()) {complete=false;}else {persisted=document.object();if (document.object()!=originalMappings) {complete=false;}}
+        }
+    } else if (!originalMappings.isEmpty()) {complete=false;}
+    const auto names=files.entries(complete);QJsonArray blobs,unknown;QHash<QString,QJsonObject> byHash;qint64 bodyBudget=262144;
+    for (const auto& name:names) {
+        if (!QRegularExpression("\\A[0-9a-f]{64}\\z").match(name).hasMatch()) {unknown.append(name);complete=false;continue;}
+        const auto actual=files.file(name,32768,bodyBudget,complete);if (actual.value("exists")!=QJsonValue(true)) {complete=false;}
+        const auto body=actual.value("body").toObject();if (body.value("retained")==QJsonValue(true) && body.value("sha256")!=QJsonValue(name)) {complete=false;}
+        blobs.append(actual);byHash[name]=actual;
+    }
+    QJsonArray meta;
+    for (const auto& mapping:_fileMappings) {
+        if (!mapping.first.startsWith(AssetUtils::HIDDEN_BAKED_CONTENT_FOLDER)) {continue;}
+        const auto suffix=mapping.first.mid(AssetUtils::HIDDEN_BAKED_CONTENT_FOLDER.size());
+        if (suffix.size()!=74 || suffix.mid(64)!="/meta.json" || !QRegularExpression("\\A[0-9a-f]{64}\\z").match(suffix.left(64)).hasMatch()) {continue;}
+        QJsonValue decoded(QJsonValue::Null);const auto file=byHash.value(mapping.second);const auto body=file.value("body").toObject();
+        if (body.value("retained")==QJsonValue(true)) {
+            QJsonParseError error;const auto document=QJsonDocument::fromJson(QByteArray::fromBase64(body.value("base64").toString().toLatin1()),&error);
+            const auto raw=document.object();
+            if (error.error==QJsonParseError::NoError && document.isObject() && raw.value(BAKE_VERSION_KEY).isDouble()
+                    && raw.value(FAILED_LAST_BAKE_KEY).isBool() && raw.value(LAST_BAKE_ERRORS_KEY).isString()) {
+                decoded=QJsonObject{{"bakeVersion",raw.value(BAKE_VERSION_KEY).toInt()},{"failedLastBake",raw.value(FAILED_LAST_BAKE_KEY).toBool()},
+                    {"lastBakeErrors",raw.value(LAST_BAKE_ERRORS_KEY).toString()},{"redirectTarget",raw.value(REDIRECT_TARGET_KEY).toString()}};
+            }
+        }
+        meta.append(QJsonObject{{"mappingPath",mapping.first},{"originalHash",suffix.left(64)},{"blobHash",mapping.second},{"decoded",decoded}});
+        if (meta.size()>512) {complete=false;break;}
+    }
+    QJsonArray permissions;
+    nodes->eachNode([&](const SharedNodePointer& node) {
+        if (permissions.size()>=256) {complete=false;return;}
+        if (!node || node->getUUID().isNull()) {complete=false;return;}
+        permissions.append(QJsonObject{{"nodeId",node->getUUID().toString(QUuid::WithoutBraces)},{"type",static_cast<int>(static_cast<unsigned char>(node->getType()))},
+            {"canWriteAssets",node->getCanWriteToAssetServer()}});
+    });
+    const auto after=work();if (files.entries(complete)!=names || !resources.current() || !files.current()
+            || before.value("available")!=QJsonValue(true) || before.value("complete")!=QJsonValue(true)
+            || after.value("available")!=QJsonValue(true) || after.value("complete")!=QJsonValue(true)) {complete=false;}
+    return {{"assetBackendSnapshotVersion",1},{"available",true},{"complete",complete},{"serverId",server.toString(QUuid::WithoutBraces)},
+        {"domainId",domain.toString(QUuid::WithoutBraces)},{"resourcesRoot",resources.source()},{"filesRoot",files.source()},
+        {"memoryMappings",mappings},{"mapFile",mapFile},{"persistedMappings",persisted},{"blobs",blobs},{"unknownEntries",unknown},{"meta",meta},
+        {"workBefore",before},{"workAfter",after},{"nodes",permissions},{"hiddenPrefix",AssetUtils::HIDDEN_BAKED_CONTENT_FOLDER},
+        {"modelBakeVersion",currentBakeVersionForAssetType(BakedAssetType::Model)},{"modelOutputName",bakedFilenameForAssetType(BakedAssetType::Model)},
+        {"bakeableModelExtensions",QJsonArray::fromStringList(BAKEABLE_MODEL_EXTENSIONS)}};
+}
+#endif

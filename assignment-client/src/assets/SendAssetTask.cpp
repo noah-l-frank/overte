@@ -28,6 +28,9 @@
 
 SendAssetTask::SendAssetTask(QSharedPointer<ReceivedMessage> message, const SharedNodePointer& sendToNode, const QDir& resourcesDir) :
     QRunnable(),
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    _featureWork("send",nullptr,{}, {},sendToNode ? sendToNode->getUUID().toString(QUuid::WithoutBraces) : QString()),
+#endif
     _message(message),
     _senderNode(sendToNode),
     _resourcesDir(resourcesDir)
@@ -36,6 +39,9 @@ SendAssetTask::SendAssetTask(QSharedPointer<ReceivedMessage> message, const Shar
 }
 
 void SendAssetTask::run() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    const overte::e2e::asset_backend::Body featureRun(_featureWork.id(),"run",false);
+#endif
     MessageID messageID;
     ByteRange byteRange;
 
@@ -49,6 +55,9 @@ void SendAssetTask::run() {
     _message->readPrimitive(&byteRange.toExclusive);
     
     QString hexHash = assetHash.toHex();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    _featureWork.field("hash",hexHash);_featureWork.field("messageId",QString::number(messageID));
+#endif
     
     qDebug() << "Received a request for the file (" << messageID << "): " << hexHash << " from "
         << byteRange.fromInclusive << " to " << byteRange.toExclusive;

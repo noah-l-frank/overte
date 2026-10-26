@@ -21,6 +21,7 @@
 #include <QProcess>
 
 #include <AssetUtils.h>
+#include "../../../tests/device/native/AssetBackendWork.h"
 
 class BakeAssetTask : public QObject, public QRunnable {
     Q_OBJECT
@@ -32,6 +33,9 @@ public:
     bool wasAborted() const { return _wasAborted.load(); }
 
     void run() override;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    const QString& featureSourceId() const {return _featureWork.id();}
+#endif
 
 public slots:
     void abort();
@@ -42,6 +46,10 @@ signals:
     void bakeAborted(QString assetHash, QString assetPath);
     
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    // First member: its weak token expires after the original task members.
+    overte::e2e::asset_backend::TaskLease _featureWork;
+#endif
     std::atomic<bool> _isBaking { false };
     AssetUtils::AssetHash _assetHash;
     AssetUtils::AssetPath _assetPath;

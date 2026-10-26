@@ -25,6 +25,9 @@ static const int OVEN_STATUS_CODE_ABORT { 2 };
 std::once_flag registerMetaTypesFlag;
 
 BakeAssetTask::BakeAssetTask(const AssetUtils::AssetHash& assetHash, const AssetUtils::AssetPath& assetPath, const QString& filePath) :
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    _featureWork("bake",this,assetHash,assetPath),
+#endif
     _assetHash(assetHash),
     _assetPath(assetPath),
     _filePath(filePath)
@@ -37,6 +40,9 @@ BakeAssetTask::BakeAssetTask(const AssetUtils::AssetHash& assetHash, const Asset
 }
 
 void BakeAssetTask::run() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    const overte::e2e::asset_backend::Body featureRun(_featureWork.id(),"run",false);
+#endif
     if (_isBaking.exchange(true)) {
         qWarning() << "Tried to start bake asset task while already baking";
         return;

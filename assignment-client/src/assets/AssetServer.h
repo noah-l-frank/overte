@@ -23,6 +23,7 @@
 #include "ReceivedMessage.h"
 
 #include "RegisteredMetaTypes.h"
+#include "../../../tests/device/native/AssetBackendQuery.h"
 
 using BakeVersion = int;
 static const BakeVersion INITIAL_BAKE_VERSION = 0;
@@ -93,6 +94,9 @@ private slots:
     void sendStatsPacket() override;
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    QJsonObject featureBackendSnapshot();
+#endif
     void replayRequests();
 
     void handleGetMappingOperation(ReceivedMessage& message, NLPacketList& replyPacket);
@@ -166,6 +170,10 @@ private:
     RequestQueue _queuedRequests;
 
     uint64_t _filesizeLimit;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    bool _featureObservationReady{false};
+    QPointer<overte::e2e::asset_backend::QuerySource> _featureSource;
+#endif
 };
 
 #endif

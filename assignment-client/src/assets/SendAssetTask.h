@@ -20,6 +20,7 @@
 #include "AssetUtils.h"
 #include "AssetServer.h"
 #include "Node.h"
+#include "../../../tests/device/native/AssetBackendWork.h"
 
 class NLPacket;
 
@@ -30,6 +31,9 @@ public:
     void run() override;
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    overte::e2e::asset_backend::TaskLease _featureWork;
+#endif
     QSharedPointer<ReceivedMessage> _message;
     SharedNodePointer _senderNode;
     QDir _resourcesDir;
