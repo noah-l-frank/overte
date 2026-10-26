@@ -118,7 +118,7 @@ public:
                     {"issuedEpochMs",entry.issued},{"generation",QString::number(entry.ticket.featureGeneration())},{"active",entry.ticket.featureActive()},
                     {"diagnosticsComplete",complete},{"reply",entry.reply}});}
             for (const auto& entry:_callbacks) {auto row=entry.original;row["stackAlive"]=!entry.stack.expired();callbacks.append(row);}
-            return QVariantMap{{"complete",healthy},{"uploads",uploads},{"resources",resources},{"requests",requests},{"callbacks",callbacks},
+            return QVariantMap{{"iosSnapshotUploadsSourceVersion",2},{"complete",healthy},{"uploads",uploads},{"resources",resources},{"requests",requests},{"callbacks",callbacks},
                 {"events",_events},{"activity",active},{"transportFDObservationRequired",true}};
         });});return result;
     }
@@ -141,6 +141,7 @@ private:
     qint64 epoch() {const auto now=QDateTime::currentMSecsSinceEpoch();if (now<=0 || now<_epoch) {fail();}_epoch=now;return now;}
     static QVariantMap statFact(const struct stat& value) {
         return {{"device",QString::number(qulonglong(value.st_dev))},{"inode",QString::number(qulonglong(value.st_ino))},
+            {"mode",QString::number(qulonglong(value.st_mode))},{"uid",QString::number(qulonglong(value.st_uid))},
             {"bytes",double(value.st_size)},{"links",double(value.st_nlink)},{"regular",bool(S_ISREG(value.st_mode))},
             {"mtimeSeconds",QString::number(qlonglong(value.st_mtimespec.tv_sec))},{"mtimeNanoseconds",double(value.st_mtimespec.tv_nsec)},
             {"ctimeSeconds",QString::number(qlonglong(value.st_ctimespec.tv_sec))},{"ctimeNanoseconds",double(value.st_ctimespec.tv_nsec)}};

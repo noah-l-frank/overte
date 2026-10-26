@@ -35,8 +35,8 @@ class SnapshotJourneyFilesDomain(SnapshotPendingDomain):
     def start(self):
         if self.mode_index==1:return super().start()
         need(not self.capturing and self.mode_index==0);self.capture_count+=1;self.png_count+=1;self.call_sequence+=1;call=self.call_sequence
-        self.event('entry','takeSnapshot',call);self.f.request='snap_'+str(self.epoch())+'_2';self.capturing=True
-        self.script_state.update(captureId=self.f.request,captureCounter=2,revision=self.script_state['revision']+1,mode='still',timerHandles=[3,4],overlaysHidden=True)
+        self.event('entry','takeSnapshot',call);counter=self.script_state['captureCounter']+1;self.f.request='snap_'+str(self.epoch())+'_'+str(counter);self.capturing=True
+        self.script_state.update(captureId=self.f.request,captureCounter=counter,revision=self.script_state['revision']+1,mode='still',timerHandles=[3,4],overlaysHidden=True)
         for handle,interval in ((3,350),(4,60000)):
             timer=Timer();row=dict(timerId=uuid.uuid4().hex,handle=handle,callerChain=['qrc:/scripts/system/snapshot.js'],createdEpochMs=self.epoch(),singleShot=True,
                 intervalMs=interval,activeAtBirth=True,remainingAtBirthMs=interval,fired=0,entered=0,left=0,depth=0,pendingDispatch=0,

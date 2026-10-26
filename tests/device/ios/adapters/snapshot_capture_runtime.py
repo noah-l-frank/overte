@@ -24,6 +24,17 @@ TYPES=dict(PACKETS,manifest=SnapshotManifest,chunk=SnapshotChunk,artifact=Snapsh
 
 class IOSSnapshotCaptureRuntime(IOSScriptRuntime):
     @contextmanager
+    def upload_owner(self,selector,run,client,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,sleep=time.sleep):
+        from ios.adapters.snapshot_capture_owner import IOSSnapshotCaptureOwner
+        from ios.adapters.snapshot_upload_owner import IOSSnapshotUploadOwner
+        lock=ScriptSourceLock(self.state_path(selector).with_name('script-feature-sources.lock'))
+        with lock.held():
+            sources=self._sources(selector);phase=PhaseFixtureReader(client,run,'snapshots',epoch_ms=epoch_ms,monotonic=monotonic)
+            capture=IOSSnapshotCaptureOwner.archive(PrivateFeatureState(lock.path.with_name('ios-snapshot-primary-capture-owner.json')),lock,sources['binding'],run,phase.fixture_url)
+            owner=IOSSnapshotUploadOwner(self,selector,run,lock,sources,capture,phase,epoch_ms=epoch_ms,monotonic=monotonic,sleep=sleep)
+            with self.existing_input_session(selector):yield owner
+
+    @contextmanager
     def capture_owner(self,selector,run,client):
         from ios.adapters.snapshot_capture_owner import IOSSnapshotCaptureOwner
         lock=ScriptSourceLock(self.state_path(selector).with_name('script-feature-sources.lock'));failure=None

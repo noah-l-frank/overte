@@ -19,16 +19,22 @@ RUN='d'*32
 class Lifetime:pass
 
 
-def fact(value):
-    return dict(device=str(value.st_dev),inode=str(value.st_ino),bytes=value.st_size,links=value.st_nlink,regular=stat.S_ISREG(value.st_mode),
+def fact(value,version=1):
+    result=dict(device=str(value.st_dev),inode=str(value.st_ino),bytes=value.st_size,links=value.st_nlink,regular=stat.S_ISREG(value.st_mode),
         mtimeSeconds=str(value.st_mtime_ns//10**9),mtimeNanoseconds=value.st_mtime_ns%10**9,
         ctimeSeconds=str(value.st_ctime_ns//10**9),ctimeNanoseconds=value.st_ctime_ns%10**9)
+    if version==2:result.update(mode=str(value.st_mode),uid=str(value.st_uid))
+    return result
 
 
 class UploadDomain:
-    def __init__(self,case):
-        self.tmp=tempfile.TemporaryDirectory();case.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name);self.root.chmod(0o700)
-        self.path=self.root/('parity-'+RUN[:16]+'-still-png-snap_'+str(self.now())+'_1.png');self.path.write_bytes(b'Original body read through actual private FD');self.path.chmod(0o600)
+    def __init__(self,case,*,path=None,version=1,now=None):
+        self.version=version
+        if now is not None:self.now=now
+        if path is None:
+            self.tmp=tempfile.TemporaryDirectory();case.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name);self.root.chmod(0o700)
+            self.path=self.root/('parity-'+RUN[:16]+'-still-png-snap_'+str(self.now())+'_1.png');self.path.write_bytes(b'Original body read through actual private FD');self.path.chmod(0o600)
+        else:self.path=Path(path);self.root=self.path.parent
         self.fd=os.open(self.path,os.O_RDONLY|os.O_NOFOLLOW);self.open_fds={self.fd};case.addCleanup(self.close)
         self.instance=uuid.uuid4().hex;self.sequence=0;self.mono=time.monotonic_ns()//10**6
         self.owner=uuid.uuid4().hex;self.events=[];self.resources={};self.live={};self.requests={};self.callbacks={};self.stacks={};self.weak_stacks={}
@@ -36,7 +42,7 @@ class UploadDomain:
         self.upload=dict(instance=self.owner,bornEpochMs=self.now(),privateName=True,fileName=self.path.name,fileNameSha256=hashlib.sha256(self.path.name.encode()).hexdigest(),
             requests=[],scopeGeneration='1',scopeActive=True)
         self.uploader=self.resource('uploader');self.event('begin');self.file=self.resource('file')
-        row=self.resources[self.file];row.update(openObserved=True,opened=True,descriptor=self.fd,firstFile=fact(os.fstat(self.fd)))
+        row=self.resources[self.file];row.update(openObserved=True,opened=True,descriptor=self.fd,firstFile=fact(os.fstat(self.fd),self.version))
         self.event('file-opened',resource=self.file,opened=True);self.multipart=self.resource('multipart')
     @staticmethod
     def now():return time.time_ns()//10**6
@@ -90,16 +96,26 @@ class UploadDomain:
         for descriptor in tuple(self.open_fds):self.close_fd(descriptor)
     def fd_fact(self,row):
         if row['kind']!='file':return dict(state='unobserved',file={})
-        try:value=fact(os.fstat(row['descriptor']))
+        try:value=fact(os.fstat(row['descriptor']),self.version)
         except OSError as error:return dict(state='absent' if error.errno==9 else 'unknown',file={})
         return dict(state='present' if value==row['firstFile'] else 'changed',file=value)
-    def observe(self):
-        self.sequence+=1;before=self.clock();resources=[]
+    def source_snapshot(self):
+        resources=[]
         for value in self.resources.values():
             row=deepcopy({key:item for key,item in value.items() if key!='_weak'});row.update(fdBefore=self.fd_fact(row),fdAfter=self.fd_fact(row));resources.append(row)
         callbacks=[]
         for identifier,value in self.callbacks.items():row=deepcopy(value);row['stackAlive']=self.weak_stacks[identifier]() is not None;callbacks.append(row)
-        after=self.clock();nonce='ios-'+uuid.uuid4().hex
+        result=dict(complete=self.health,uploads=[deepcopy(self.upload)],resources=resources,requests=deepcopy(list(self.requests.values())),callbacks=callbacks,
+            events=deepcopy(self.events),activity=dict(slots=int(self.uploader in self.live),alive=int(self.uploader in self.live)),transportFDObservationRequired=True)
+        if self.version==2:result['iosSnapshotUploadsSourceVersion']=2
+        return result
+    def observe(self):
+        self.sequence+=1;before=self.clock();value=self.source_snapshot();after=self.clock();nonce='ios-'+uuid.uuid4().hex
         return dict(iosSnapshotUploadsVersion=1,requestId=nonce,runId=RUN,instance=self.instance,sequence=self.sequence,processId=42,clockDomain='native-main-snapshot-uploads',clockBefore=before,clockAfter=after,
-            source=dict(complete=self.health,uploads=[deepcopy(self.upload)],resources=resources,requests=deepcopy(list(self.requests.values())),callbacks=callbacks,
-                events=deepcopy(self.events),activity=dict(slots=int(self.uploader in self.live),alive=int(self.uploader in self.live)),transportFDObservationRequired=True))
+            source=value)
+    def cancel(self,*,close_fd=True):
+        self.scope_event('cancel-entry');self.current_generation+=1;self.finished=True;self.upload.update(scopeGeneration=str(self.current_generation),scopeActive=False)
+        for row in self.requests.values():row['active']=False
+        self.scope_event('cancel-invalidated')
+        if close_fd:self.close_fd(self.fd)
+        for identifier in tuple(self.live):self.live.pop(identifier)

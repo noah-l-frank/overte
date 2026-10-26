@@ -36,18 +36,25 @@ def decimal(value,maximum=2**63-1):
 def sha(value):need(type(value) is str and re.fullmatch('[0-9a-f]{64}',value));return value
 
 
-def file_fact(value):
-    exact(value,{'device','inode','bytes','links','regular','mtimeSeconds','mtimeNanoseconds','ctimeSeconds','ctimeNanoseconds'})
+def file_fact(value,version=1):
+    exact(value,{'device','inode','bytes','links','regular','mtimeSeconds','mtimeNanoseconds','ctimeSeconds','ctimeNanoseconds'}|({'mode','uid'} if version==2 else set()))
     decimal(value['device'],2**64-1);decimal(value['inode'],2**64-1)
     need(integer(value['bytes'],0,2**53-1) and integer(value['links'],0,2**53-1) and type(value['regular']) is bool)
     for key in ('mtime','ctime'):decimal(value[key+'Seconds']);need(integer(value[key+'Nanoseconds'],0,999999999))
+    if version==2:decimal(value['uid'],2**32-1);need((decimal(value['mode'],2**32-1)&0o170000==0o100000)==value['regular'])
     return value
 
 
-def fd_fact(value,first):
+def file_revision(value):
+    file_fact(value,2)
+    order=('device','inode','bytes','mode','links','mtimeSeconds','mtimeNanoseconds','ctimeSeconds','ctimeNanoseconds','uid')
+    return hashlib.sha256(':'.join(str(value[key]) for key in order).encode('ascii')).hexdigest()
+
+
+def fd_fact(value,first,version=1):
     exact(value,{'state','file'});need(value['state'] in ('unobserved','present','changed','absent','unknown'))
     if value['state'] in ('present','changed'):
-        file_fact(value['file']);need(bool(first) and (same(value['file'],first)==(value['state']=='present')))
+        file_fact(value['file'],version);need(bool(first) and (same(value['file'],first)==(value['state']=='present')))
     else:need(value['file']=={})
     return value
 
@@ -60,7 +67,8 @@ def rows(values,maximum):
 
 
 def ledger(source,epoch):
-    exact(source,{'complete','uploads','resources','requests','callbacks','events','activity','transportFDObservationRequired'})
+    version=source.get('iosSnapshotUploadsSourceVersion',1);need(type(version) is int and version in (1,2))
+    exact(source,{'complete','uploads','resources','requests','callbacks','events','activity','transportFDObservationRequired'}|({'iosSnapshotUploadsSourceVersion'} if version==2 else set()))
     need(type(source['complete']) is bool and source['transportFDObservationRequired'] is True)
     activity=source['activity'];exact(activity,{'slots','alive'});need(integer(activity['slots'],0,64) and integer(activity['alive'],0,activity['slots']))
     uploads,resources,requests,callbacks=(rows(source[key],limit) for key,limit in (('uploads',64),('resources',256),('requests',128),('callbacks',256)))
@@ -76,11 +84,11 @@ def ledger(source,epoch):
         need(row['upload'] in uploads and row['kind'] in KINDS and integer(row['bornEpochMs'],uploads[row['upload']]['bornEpochMs'],epoch)
             and all(type(row[key]) is bool for key in ('alive','openObserved','opened')) and integer(row['descriptor'],-1,2**31-1))
         need((row['destroyedEpochMs'] is None) if row['alive'] else integer(row['destroyedEpochMs'],row['bornEpochMs'],epoch))
-        if row['firstFile']:file_fact(row['firstFile']);need(row['kind']=='file' and row['opened'] and row['descriptor']>=0 and row['firstFile']['regular'])
+        if row['firstFile']:file_fact(row['firstFile'],version);need(row['kind']=='file' and row['opened'] and row['descriptor']>=0 and row['firstFile']['regular'])
         if row['kind']!='file':need(not row['openObserved'] and not row['opened'] and row['descriptor']==-1 and row['firstFile']=={})
         if row['opened']:need(row['openObserved'] and (not source['complete'] or row['descriptor']>=0 and bool(row['firstFile'])))
         else:need(row['descriptor']==-1 and row['firstFile']=={})
-        for key in ('fdBefore','fdAfter'):fd_fact(row[key],row['firstFile'])
+        for key in ('fdBefore','fdAfter'):fd_fact(row[key],row['firstFile'],version)
     for row in requests.values():
         exact(row,{'instance','upload','stage','issuedEpochMs','generation','active','diagnosticsComplete','reply'})
         need(row['upload'] in uploads and row['stage'] in ('upload','story') and integer(row['issuedEpochMs'],uploads[row['upload']]['bornEpochMs'],epoch)
@@ -146,6 +154,7 @@ def validate(value,query,pid,epoch=None,previous=None):
     if previous is not None:
         validate(previous,dict(query,commandId=previous['requestId']),pid);old=previous['source'];before=ledger(old,previous['clockAfter']['epochMs'])
         need(value['instance']==previous['instance'] and value['requestId']!=previous['requestId'] and value['sequence']>previous['sequence']
+            and value['source'].get('iosSnapshotUploadsSourceVersion',1)==old.get('iosSnapshotUploadsSourceVersion',1)
             and all(a[key]>=previous['clockAfter'][key] for key in a) and (old['complete'] or not value['source']['complete'])
             and len(value['source']['events'])>=len(old['events']) and same(value['source']['events'][:len(old['events'])],old['events']))
         mutable=({'requests','scopeGeneration','scopeActive'},{'alive','destroyedEpochMs','openObserved','opened','descriptor','firstFile','fdBefore','fdAfter'},

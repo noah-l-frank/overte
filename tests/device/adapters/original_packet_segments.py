@@ -31,6 +31,8 @@ PROFILES={'tabletweb-screen':dict(parent='tabletWebScreenSegmentsVersion',body='
         labels=frozenset({'raw'}),subjects=frozenset({'exports','inputs'})),
     'share-native-sources':dict(parent='shareNativeSourcePartsVersion',body='shareNativeSourcePartBodyVersion',schema='shareNativeSourcePart',
         labels=frozenset({'raw'}),subjects=frozenset({'exports','inputs'})),
+    'snapshot-upload-sources':dict(parent='snapshotUploadSourcePartsVersion',body='snapshotUploadSourcePartBodyVersion',schema='snapshotUploadSourcePart',
+        labels=frozenset({'raw'}),subjects=frozenset({'uploads','inputs','work','captures','exports'})),
     'snapshot-pending-sources':dict(parent='pendingSnapshotSourcePartsVersion',body='pendingSnapshotSourcePartBodyVersion',schema='pendingSnapshotSourcePart',
         labels=frozenset({'raw'}),subjects=frozenset({'work','captures','exports','inputs','choices'})),
     'snapshot-native-sources':dict(parent='snapshotSourcePartsVersion',body='snapshotSourcePartBodyVersion',schema='snapshotSourcePart',
@@ -52,12 +54,14 @@ class OriginalPacketSegments:
     PROFILE=None
     def __init__(self,root,binding,run,role,subject,guard,intent,*,monotonic):
         need(type(self).PROFILE in PROFILES);profile=PROFILES[type(self).PROFILE]
+        need(type(self).PROFILE!='snapshot-upload-sources' or role=='primary')
         need(subject in profile['subjects'] and callable(intent));self.subject,self.intent=subject,intent
         self.parent_key,self.body_key,self.labels=profile['parent'],profile['body'],profile['labels']
         namespace=('assets-backend-'+subject+'-parts' if type(self).PROFILE=='assets-backend-sources' else
             'snapshot-'+subject+'-source-parts' if type(self).PROFILE=='snapshot-native-sources' else
             'photos-save-'+subject+'-parts' if type(self).PROFILE=='photos-save-sources' else
             'share-native-'+subject+'-parts' if type(self).PROFILE=='share-native-sources' else
+            'upload-native-'+subject+'-parts' if type(self).PROFILE=='snapshot-upload-sources' else
             'pending-snapshot-'+subject+'-parts' if type(self).PROFILE=='snapshot-pending-sources' else
             'snapshot-'+subject+'-file-work-parts' if type(self).PROFILE=='snapshot-file-work' else
             'avatar-'+subject+'-tail-parts' if type(self).PROFILE=='avatar-tail' else
