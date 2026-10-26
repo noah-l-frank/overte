@@ -61,3 +61,12 @@ The 16-case settings/typed-value/budget compatibility selection passes in
 0.103 seconds; the three existing production-Script cases pass again with the
 extended producer in 14.230 seconds. All five approved no-build project suites
 pass in 6.85 seconds. These are host logic checks, not device qualification.
+
+A separate real-host-clock case passes in 13.165 seconds. It uses actual UTC,
+continuously advancing host monotonic time and real sleeps, so validation CPU
+time counts against the same twenty-second cleanup budget. Ordinary Erase,
+page rebuild and final close pass within that budget; their two quiet windows
+actually wait at least 6.4 seconds. The synthetic native source has its own
+fixed epoch origin and continuously advancing elapsed counter; it never copies
+host UTC into retained native timestamps. Qt/transport/native production remain
+models. The case does not replace a compiled/native or device timing check.
