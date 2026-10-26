@@ -45,9 +45,8 @@ clock is chosen before its first source read, with no recorded original retimed.
 The legacy complete-probe test now sends its exact unchanged JS over stdin to
 avoid the OS per-argument size limit.
 
-Next bind the existing native transport's pre-send intent to a durable Lifecycle
-owner and immutable receipt files, then join normal context replacement and the
-actual retired-context attempt to generation four and current empty/unfocused
-field/keyboard observations. This source component does not complete that flow
-or retire any ownership. World/Actor/image/restoration and full final cleanup
+The [durable held callback owner](LIFECYCLE_PENDING_OWNER.md) now binds pre-send
+intent and immutable receipt files to normal context replacement and the actual
+retired-context attempt. This source component alone retires no ownership.
+World/Actor/image/restoration and full final cleanup
 remain open; source-complete areas remain five of fourteen.

@@ -33,10 +33,12 @@ class LifecycleEditors:
              and same(sources.binding,self.binding) and sources.run==self.run)
         for owner in self.owners.values():
             need(owner.lock is self.lock and same(owner.binding,self.binding) and owner.run==self.run and owner.role=='primary')
-        self.previous=store.read();self.state=dict(initial=None,actions=[]) if self.previous is None else self.decode(self.previous)
+        self.previous=store.read();need(self.previous is None or type(self.previous) is dict)
+        self.version=2 if self.previous is None else self.previous.get('iosLifecycleEditorsVersion')
+        self.state=dict(initial=None,actions=[]) if self.previous is None else self.decode(self.previous)
 
     def envelope(self,state=None):
-        return dict(iosLifecycleEditorsVersion=1,binding=self.binding,runId=self.run,state=deepcopy(self.state if state is None else state))
+        return dict(iosLifecycleEditorsVersion=self.version,binding=self.binding,runId=self.run,state=deepcopy(self.state if state is None else state))
 
     def bound(self):
         self.history.check();need(same(self.store.read(),self.previous))
@@ -44,7 +46,7 @@ class LifecycleEditors:
 
     def decode(self,value):
         exact(value,{'iosLifecycleEditorsVersion','binding','runId','state'});state=value['state']
-        need(type(value['iosLifecycleEditorsVersion']) is int and value['iosLifecycleEditorsVersion']==1 and same(value,self.envelope(state)))
+        need(type(value['iosLifecycleEditorsVersion']) is int and value['iosLifecycleEditorsVersion'] in (1,2) and same(value,self.envelope(state)))
         exact(state,{'initial','actions'});need(type(state['actions']) is list and len(state['actions'])<=96)
         if state['initial'] is not None:
             need(type(state['initial']) is int and state['initial']==1 and self.history.state['baseline']==1)
@@ -52,7 +54,7 @@ class LifecycleEditors:
         seen=set();slots={'navigation':0,'field':0}
         for index,action in enumerate(state['actions']):
             exact(action,{'label','kind','control','operation','text','before','reference','childBefore','childIndex','observationStart','after'})
-            need(type(action['label']) is str and re.fullmatch(r'(?:create|chat|scripts)-(?:tablet|home|page-(?:[1-9]|[12][0-9]|3[0-2])|entry|menu|menu-edit|menu-running|focus|type|back-[1-4])',action['label']) is not None
+            need(type(action['label']) is str and re.fullmatch(r'(?:create|chat|scripts)-(?:replace-)?(?:tablet|home|page-(?:[1-9]|[12][0-9]|3[0-2])|entry|menu|menu-edit|menu-running|focus|type|back-[1-4])',action['label']) is not None
                  and action['label'] not in seen and action['kind'] in self.owners);seen.add(action['label'])
             self.spec(action)
             owner=self.owners[action['kind']];owner._reference(action['reference'],action['control'])
@@ -73,6 +75,9 @@ class LifecycleEditors:
 
     def spec(self,action):
         editor,suffix=action['label'].split('-',1);kind='navigation';operation='activate'
+        if suffix.startswith('replace-'):
+            need(self.version==2 and editor=='scripts');suffix=suffix[8:]
+            need(suffix in ('home','entry','menu','menu-edit','menu-running') or re.fullmatch(r'page-(?:[1-9]|[12][0-9]|3[0-2])',suffix) is not None)
         if suffix=='tablet':allowed={'hud.tablet'}
         elif suffix=='home':allowed={'tablet.home'}
         elif suffix.startswith('page-'):allowed={'tablet.page.'+suffix[5:]}
@@ -126,7 +131,9 @@ class LifecycleEditors:
             need(ui['tabletShown'] and navigation.membership(ui)['complete'])
             if control in ENTRY.values() or control=='scripts.menu-running':
                 editor='scripts' if control=='scripts.menu-running' else next(key for key,value in ENTRY.items() if value==control)
-                fields.alias_transition(before['originals']['ui']['lifecycleFieldInventory'],ui['lifecycleFieldInventory'],editor,EDITORS.index(editor)+1)
+                replacement=action['label'].startswith('scripts-replace-')
+                fields.alias_transition(before['originals']['ui']['lifecycleFieldInventory'],ui['lifecycleFieldInventory'],editor,4 if replacement else EDITORS.index(editor)+1)
+                if replacement:need(not b['keyboard']['keyboard'])
             elif control in ('scripts.menu','scripts.menu-edit'):
                 target='scripts.menu-edit' if control=='scripts.menu' else 'scripts.menu-running'
                 need(any(row['controlId']==target and row['inputReady'] for row in ui['lifecycleNavigation']['controls']) and b['field'] is None)
@@ -227,6 +234,36 @@ class LifecycleEditors:
 
     def type(self,editor,text):
         need(editor in EDITORS);return self.drive(editor+'-type','field',FIELD[editor],operation='replace',text=text)
+
+    def replace_scripts(self):
+        self.start();need(len(self.history.state['aliases']) in (3,4))
+        if self.version==1:self.version=2;self.save() # Explicit host-only migration, original histories stay literal.
+        if self.state['actions'] and self.state['actions'][-1]['after'] is None:
+            event=self.state['actions'][-1];need(event['label'].startswith('scripts-replace-'))
+            self.drive(event['label'],event['kind'],event['control'],operation=event['operation'],text=event['text'])
+        homes=[row for row in self.state['actions'] if row['label']=='scripts-replace-home']
+        before=self.history.read(homes[0]['before'] if homes else len(self.history.state['frames']))
+        facts=originals.validate(before,self.binding,self.run);third=self.history.state['aliases'][2]['identity']
+        need(facts['holder']['commit'] and facts['holder']['commit']['observation']['pending']
+             and facts['holder']['held']==third and facts['holder']['current']==third)
+        home=self.drive('scripts-replace-home','navigation','tablet.home')
+        entries=[row for row in self.state['actions'] if row['label']=='scripts-replace-entry']
+        if entries:entry=self.drive('scripts-replace-entry','navigation',entries[0]['control'])
+        else:
+            for _ in range(33):
+                current=self.history.read(len(self.history.state['frames']))['originals']['ui'];ids={row['id'] for row in current['controls']}
+                if 'scripts.entry' in ids:entry=self.drive('scripts-replace-entry','navigation','scripts.entry');break
+                if 'scripts.menu' in ids or any(row['label']=='scripts-replace-menu' for row in self.state['actions']):
+                    self.drive('scripts-replace-menu','navigation','scripts.menu');self.drive('scripts-replace-menu-edit','navigation','scripts.menu-edit')
+                    entry=self.drive('scripts-replace-entry','navigation','scripts.menu-running');break
+                selected=launcher.selection(current);visited={selected['launcherCurrentIndex']}
+                visited|={int(row['control'].rsplit('.',1)[1])-1 for row in self.state['actions'] if row['label'].startswith('scripts-replace-page-')}
+                targets=set(range(selected['launcherPageCount']))-visited;need(targets);target=min(targets)
+                self.drive('scripts-replace-page-'+str(target+1),'navigation','tablet.page.'+str(target+1))
+            else:need(False)
+        if len(self.history.state['aliases'])==3:self.history.qualify(home['before'],entry['after'])
+        fourth=self.history.state['aliases'][3];need(fourth['before']==home['before'] and fourth['after']==entry['after'])
+        return dict(originalEditorIndex=entry['after'],generation=4,historical=True,wholeFeatureRequired=True)
 
     def back(self,editor):
         need(editor in EDITORS);generation=len(self.history.state['aliases']);need(generation in range(1,5))

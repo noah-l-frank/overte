@@ -16,6 +16,16 @@ from ios.adapters.lifecycle_editors import LifecycleEditors
 class IOSLifecycleEditorsRuntime:
     def __init__(self,adapter):self.adapter=adapter
 
+    def pending_child(self,selector,editors):
+        from adapters.script_feature.history import same
+        from ios.adapters.lifecycle_pending_owner import LifecyclePendingOwner
+        need(isinstance(editors,LifecycleEditors));editors.history.check()
+        root=self.adapter.state_path(selector).parent;need(editors.history.store.path.parent==root)
+        scope=IOSScriptRuntime(self.adapter)._existing(selector)[4]
+        need(same(scope,{key:editors.binding[key] for key in editors.binding if key!='processIdentity'}))
+        source=editors.sources.source;reader=source['observer'].lifecycle_pending_commands(source['clock_source'])
+        return LifecyclePendingOwner(PrivateFeatureState(root/'ios-lifecycle-primary-pending.json'),editors.history,editors.sources,reader)
+
     @contextmanager
     def editors(self,selector,run):
         source=IOSScriptRuntime(self.adapter)._sources(selector)

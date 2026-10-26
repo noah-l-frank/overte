@@ -1,6 +1,9 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-lifecycle-pending-owner": {"current": 1, "reads": [1]},
+    "ios-lifecycle-pending-proof-frame": {"current": 1, "reads": [1]},
+    "ios-lifecycle-pending-proof-original": {"current": 1, "reads": [1]},
     "asset-backend-bake-proof": {"current": 1, "reads": [1]},
     "asset-backend-restoration-proof": {"current": 1, "reads": [1]},
     "asset-backend-upload-proof": {"current": 1, "reads": [1]},
@@ -61,7 +64,7 @@
     "snapshot-share-retirement-observation": {"current": 1, "reads": [1]},
     "snapshot-share-files-quiet": {"current": 1, "reads": [1]},
     "ios-snapshot-share-cleanup": {"current": 1, "reads": [1]},
-    "ios-lifecycle-editors": {"current": 1, "reads": [1]},
+    "ios-lifecycle-editors": {"current": 2, "reads": [1, 2]},
     "snapshot-share-input-owner": {"current": 1, "reads": [1]},
     "share-input-proof-frame": {"current": 1, "reads": [1]},
     "share-input-proof-original": {"current": 1, "reads": [1]},

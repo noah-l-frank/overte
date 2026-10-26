@@ -50,8 +50,9 @@ These are host adapter-logic results, not product or device qualification.
 
 The [Chat background/resume component](LIFECYCLE_BACKGROUND.md) now composes
 under this same lock and continues to Scripts from the actual history CAS.
-Still integrate the retained hold/replace/stale callback sequence,
-original bounded world gesture ownership/effective input,
+The [held callback component](LIFECYCLE_PENDING_OWNER.md) now uses closed journal
+version two for normal Scripts replacement while preserving literal-one reads.
+Still integrate original bounded world gesture ownership/effective input,
 independent Actor/image and grounded 3D restoration evidence. Full restoration,
 native lifetime/quiet windows, repeated cleanup, final end and the complete
 shared journey remain open. The source-complete area count remains five of

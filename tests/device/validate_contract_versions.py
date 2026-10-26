@@ -9,6 +9,9 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-lifecycle-pending-owner": 1,
+    "ios-lifecycle-pending-proof-frame": 1,
+    "ios-lifecycle-pending-proof-original": 1,
     "asset-backend-bake-proof": 1,
     "asset-backend-restoration-proof": 1,
     "asset-backend-upload-proof": 1,
@@ -69,7 +72,7 @@ REQUIRED = {
     "snapshot-share-retirement-observation": 1,
     "snapshot-share-files-quiet": 1,
     "ios-snapshot-share-cleanup": 1,
-    "ios-lifecycle-editors": 1,
+    "ios-lifecycle-editors": 2,
     "snapshot-share-input-owner": 1,
     "share-input-proof-frame": 1,
     "share-input-proof-original": 1,

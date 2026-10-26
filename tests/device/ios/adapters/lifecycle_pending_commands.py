@@ -62,12 +62,16 @@ def original(value):
     return validate(value,dict(schemaVersion=1,commandId=value.get('requestId'),action=ACTION,runId=value.get('runId')),value.get('processId'))
 
 
-def delivered(value,request):
+def response(value,request):
     original(value);native.command(request,ios=True)
     need(value['source']['installed'] and value['source']['complete'] and value['runId']==request['runId'])
     rows=[row for row in value['source']['commands'] if row['command']['commandId']==request['commandId']]
-    need(len(rows)==1 and same(rows[0]['command'],request) and rows[0]['reply']['performed'] is True)
+    need(len(rows)==1 and same(rows[0]['command'],request))
     return deepcopy(rows[0]['reply']) # Original native return, not editor/keyboard/generation evidence.
+
+
+def delivered(value,request):
+    reply=response(value,request);need(reply['performed'] is True);return reply
 
 
 class IOSLifecyclePendingCommands(IOSPlacesModel):
