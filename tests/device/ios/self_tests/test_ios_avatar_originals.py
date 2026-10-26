@@ -8,9 +8,11 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from adapters.normal_ui import NativeUIError
 from adapters.original_frame_store import OriginalFrameStore
+from adapters.original_file_reads import scope
 from ios.adapters.avatar_originals import IOSAvatarOriginals
 from ios.adapters.emote_originals import IOSEmoteOriginals
 from ios.self_tests.test_ios_avatar_input_owner import BINDING,RUN
@@ -83,6 +85,32 @@ class AvatarOriginalTests(unittest.TestCase):
         self.store.intent=lambda *_:None
         with self.assertRaises(FileExistsError):self.store.write(1,dict(actual='owned partial'))
         self.assertTrue(path.exists())
+
+    def test_fresh_parsed_frame_is_isolated_from_other_reads_caller_input_and_store_context(self):
+        frame=dict(nested={'values':[1,{'original':'unchanged'}]},binding=deepcopy(BINDING))
+        reference=self.store.write(1,frame);value=self.store.expand(reference);path=self.store.path(value)
+        before=(path.stat().st_ino,path.read_bytes());binding=deepcopy(self.store.binding)
+        with scope(fresh=True) as first_reads:first=self.store.read(value)
+        with scope(fresh=True) as second_reads:second=self.store.read(value)
+        self.assertEqual({path},first_reads);self.assertEqual(first_reads,second_reads)
+        self.assertIsNot(first,second);self.assertIsNot(first['nested'],second['nested'])
+        self.assertIsNot(first['nested']['values'][1],second['nested']['values'][1])
+        first['nested']['values'][1]['original']='caller changed';first['binding']['generation']=99
+        self.assertEqual(frame,second);self.assertEqual(frame,self.store.read(value));self.assertEqual(binding,self.store.binding)
+        self.assertEqual(before,(path.stat().st_ino,path.read_bytes()))
+
+    def test_slow_fresh_parse_or_failed_original_guard_cannot_record_membership(self):
+        reference=self.store.write(1,dict(original='unchanged'));value=self.store.expand(reference)
+        clock=[0.];self.store.clock=None;self.store.monotonic=lambda:clock[0]
+        original=json.loads
+        def slow(*args,**kwargs):
+            result=original(*args,**kwargs);clock[0]=5.;return result
+        with scope(fresh=True) as reads,patch('adapters.original_frame_store.json.loads',side_effect=slow),self.assertRaises(NativeUIError):
+            self.store.read(value)
+        self.assertEqual(set(),reads)
+        self.store.guard=lambda:False
+        with scope(fresh=True) as failed,self.assertRaises(NativeUIError):self.store.read(value)
+        self.assertEqual(set(),failed)
 
 
 if __name__=='__main__':unittest.main()
