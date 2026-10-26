@@ -21,6 +21,8 @@ from ios.adapters.assets_tree_owner import OwnedAssetsTree
 from ios.adapters.assets_usage_owner import OwnedAssetsUsage
 from ios.adapters.assets_backend_owner import OwnedAssetsBackend
 from ios.adapters.assets_baking_owner import OwnedAssetsBaking
+from ios.adapters.assets_model_sources import AssetsModelSources
+from ios.adapters.assets_model_owner import OwnedAssetsModel
 from ios.adapters.feature_observation import FeatureObservation
 from ios.adapters.normal_input import NativeInput
 from ios.adapters.script_runtime import IOSScriptRuntime
@@ -47,7 +49,7 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         self.cleanup_errors=[] # Private diagnostics only; never feature facts.
 
     def _assets_store(self,selector,run,role,kind):
-        identifier(run);need(role in ('primary','actor') and kind in ('files','picker','replies','upload','tree','backend','usage','baking'))
+        identifier(run);need(role in ('primary','actor') and kind in ('files','picker','replies','upload','tree','backend','usage','baking','model','model-sources'))
         return PrivateFeatureState(self.state_path(selector).with_name('ios-assets-'+run+'-'+role+'-'+kind+'.json'))
 
     @operation
@@ -90,6 +92,15 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         backend=OwnedAssetsBackend(parts['upload'],AssetsBackendClient(backend_config,parts['check']),self._assets_store(selector,run,role,'backend'),lock=lock)
         baking=OwnedAssetsBaking(parts['usage'],backend,self._assets_store(selector,run,role,'baking'),lock=lock)
         parts['check']();return dict(parts,backend=backend,baking=baking)
+
+    @operation
+    def _assets_model_components(self,selector,run,role,fixture_url,lock,*,parts=None):
+        parts=self._assets_components(selector,run,role,fixture_url,lock) if parts is None else parts
+        observer=parts['observer'];clock=parts['upload'].clock
+        source=AssetsModelSources(parts['usage'],clock,observer.create_state(clock),observer.create_work(clock),self._assets_store(selector,run,role,'model-sources'),
+            lock=lock,epoch_ms=observer.epoch_ms,monotonic=self.monotonic)
+        model=OwnedAssetsModel(parts['usage'],source,self._assets_store(selector,run,role,'model'),lock=lock)
+        parts['check']();return dict(parts,model_sources=source,model=model)
 
     @operation
     def _assets_mapping_readback(self,selector,run,role,fixture_url,ticket,lock,*,resource='gltf-bundle/main.gltf'):

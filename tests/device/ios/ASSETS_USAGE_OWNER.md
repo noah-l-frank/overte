@@ -66,6 +66,10 @@ The [separate rebake owner](ASSETS_REBAKE_OWNER.md) now joins the normal checkbo
 to retained actual-source task/meta/output originals, with explicit modeled
 native/server/oven test boundaries. It establishes no model/rendering result.
 
+The [pre-accept Model owner](ASSETS_MODEL_OWNER.md) separately retains native
+baselines and adopts actual new UUIDs. Its wrapper geometry observation leaves
+resource origin, rendering and retirement explicitly unqualified.
+
 No native compiler, device, real server/oven/service, installation or remote
 write ran. Full Assets capability stays closed and source completion stays
 5/14. Next reuse the unchanged Create state/work sources for actual entity-tree

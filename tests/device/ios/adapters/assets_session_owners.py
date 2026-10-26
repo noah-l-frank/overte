@@ -28,14 +28,18 @@ from ios.adapters.assets_tree_owner import OwnedAssetsTree
 from ios.adapters.assets_backend_owner import OwnedAssetsBackend,BackendSegments
 from ios.adapters.assets_usage_owner import OwnedAssetsUsage
 from ios.adapters.assets_baking_owner import OwnedAssetsBaking
+from ios.adapters.assets_model_sources import AssetsModelSources
+from ios.adapters.assets_model_raw_sources import ModelRawSources
+from ios.adapters.assets_model_owner import OwnedAssetsModel
 
-OWNER=re.compile(r'ios-assets-([a-f0-9]{32})-(primary|actor)-(files|picker|replies|upload|tree|backend|usage|baking)\.json')
+OWNER=re.compile(r'ios-assets-([a-f0-9]{32})-(primary|actor)-(files|picker|replies|upload|tree|backend|usage|baking|model-sources|model)\.json')
 FRAME=re.compile(r'assets-upload-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
 BACKEND_FRAME=re.compile(r'assets-backend-(primary|actor)-parts-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
 FILE_SOURCE=re.compile(r'assets-files-native-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
 FILE_MIGRATION=re.compile(r'assets-files-migration-([a-f0-9]{32})-(primary|actor)\.json')
 REPLY_SOURCE=re.compile(r'assets-replies-native-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
 REPLY_MIGRATION=re.compile(r'assets-replies-migration-([a-f0-9]{32})-(primary|actor)\.json')
+MODEL_FRAME=re.compile(r'assets-model-(?:source|native)-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
 
 
 def forbidden(*_args,**_kwargs):raise RuntimeError('Historical Assets inspection cannot acquire or write sources')
@@ -50,7 +54,7 @@ def directory_entries(directory):
 
 def inspect_directory(directory):
     """Return private responsibilities, not fresh product-state observations."""
-    directory=Path(directory);entries=directory_entries(directory);groups={};frame_paths={};backend_paths={};file_paths={};reply_paths={}
+    directory=Path(directory);entries=directory_entries(directory);groups={};frame_paths={};backend_paths={};file_paths={};reply_paths={};model_paths={}
     for path in entries:
         match=OWNER.fullmatch(path.name)
         if match:
@@ -64,8 +68,10 @@ def inspect_directory(directory):
         if match:file_paths.setdefault(match.groups(),set()).add(path);continue
         match=REPLY_SOURCE.fullmatch(path.name) or REPLY_MIGRATION.fullmatch(path.name)
         if match:reply_paths.setdefault(match.groups(),set()).add(path);continue
-        need(not path.name.startswith(('ios-assets-','assets-upload-','assets-backend-','assets-files-','assets-replies-')))
-    need(len(groups)<=64 and set(frame_paths)<=set(groups) and set(backend_paths)<=set(groups) and set(file_paths)<=set(groups) and set(reply_paths)<=set(groups));result=[]
+        match=MODEL_FRAME.fullmatch(path.name)
+        if match:model_paths.setdefault(match.groups(),set()).add(path);continue
+        need(not path.name.startswith(('ios-assets-','assets-upload-','assets-backend-','assets-files-','assets-replies-','assets-model-')))
+    need(len(groups)<=64 and all(set(paths)<=set(groups) for paths in (frame_paths,backend_paths,file_paths,reply_paths,model_paths)));result=[]
     for (run,role),records in sorted(groups.items()):
         need(all(type(value) is dict for _path,value in records.values()))
         values={kind:value for kind,(_path,value) in records.items()};bindings=[context(value.get('binding')) for value in values.values()]
@@ -94,10 +100,11 @@ def inspect_directory(directory):
             if replies.storage_version==1:
                 extra=replies.sources.legacy_migration_paths();reply_covered|=extra;reply_migration_pending=bool(extra)
         need(reply_paths.get((run,role),set())==reply_covered)
-        upload=None;tree=None;backend=None;usage=None;baking=None;covered=set();backend_covered=set()
+        upload=None;tree=None;backend=None;usage=None;baking=None;model_source=None;model=None;covered=set();backend_covered=set();model_covered=set()
         if 'upload' in values:
             need(files.state is not None and picker.state is not None and replies.state is not None)
             upload=object.__new__(OwnedAssetsUpload);upload.files,upload.picker,upload.replies=files,picker,replies
+            upload.store=PrivateFeatureState(records['upload'][0]);upload.previous=deepcopy(values['upload'])
             upload.binding,upload.role,upload.clock=deepcopy(binding),role,SimpleNamespace(pid=pid)
             upload.state=None;upload._cached=[];upload._validated_refs=[];upload._projects=[]
             upload.originals=OriginalFrameStore(directory,binding,run,role,lambda:True,forbidden,namespace='assets-upload',schema_prefix='iosAssetsUpload')
@@ -108,7 +115,7 @@ def inspect_directory(directory):
         if 'tree' in values:
             need(upload is not None);tree=object.__new__(OwnedAssetsTree);tree.upload=upload;tree.state=None;tree.state=tree.decode(values['tree'])
         if 'usage' in values:
-            need(upload is not None);usage=object.__new__(OwnedAssetsUsage);usage.source=upload;usage.state=None;usage.state=usage.decode(values['usage'])
+            need(upload is not None);usage=object.__new__(OwnedAssetsUsage);usage.source=upload;usage.store=PrivateFeatureState(records['usage'][0]);usage.previous=deepcopy(values['usage']);usage.state=None;usage.state=usage.decode(values['usage'])
         need(frame_paths.get((run,role),set())==covered)
         if 'backend' in values:
             backend=object.__new__(OwnedAssetsBackend);backend.upload=upload if upload is not None else SimpleNamespace(files=files,state=None)
@@ -122,6 +129,18 @@ def inspect_directory(directory):
         need(backend_paths.get((run,role),set())==backend_covered)
         if 'baking' in values:
             need(usage is not None and backend is not None);baking=object.__new__(OwnedAssetsBaking);baking.usage,baking.backend=usage,backend;baking.state=None;baking.state=baking.decode(values['baking'])
+        if 'model-sources' in values:
+            need(usage is not None);model_source=object.__new__(AssetsModelSources);model_source.usage=usage;model_source.native=SimpleNamespace(pid=pid,monotonic=time.monotonic)
+            model_source.binding,model_source.run,model_source.role=deepcopy(binding),run,role;model_source.store=PrivateFeatureState(records['model-sources'][0]);model_source._cached=[]
+            model_source.raws=ModelRawSources(model_source,role,lambda:True,forbidden);model_source.originals=OriginalFrameStore(directory,binding,run,role,lambda:True,forbidden,namespace='assets-model-source',schema_prefix='iosAssetsModelSource')
+            model_source.state=model_source.decode(values['model-sources']);model_covered|=model_source.raws.owned_paths()
+            for reference in model_source.state['frames']:model_covered.add(model_source.originals.path(model_source.originals.expand(reference)))
+            pending=[row['pending'] for row in model_source.state['interrupted']]+([model_source.state['pending']] if model_source.state['pending'] is not None else [])
+            for row in pending:
+                if row['original'] is not None and row['original']['phase']!='planned':model_covered.add(model_source.originals.path(row['original']))
+        need(model_paths.get((run,role),set())==model_covered)
+        if 'model' in values:
+            need(usage is not None and model_source is not None);model=object.__new__(OwnedAssetsModel);model.usage,model.sources=usage,model_source;model.state=None;model.state=model.decode(values['model'])
         responsibilities=[]
         if files.state is not None and files.state['phase']!='retired':responsibilities.append('input-files')
         if files.state is not None and (migration_pending or files.sources.pending is not None):responsibilities.append('input-source-write')
@@ -139,6 +158,10 @@ def inspect_directory(directory):
             # destruction of an entity/model/resource created by acceptance.
             if any(entry['id']=='assets.model.accept' and entry['command'] is not None for entry in usage.state['inputs']):responsibilities.append('usage-model-retirement')
         if baking is not None and baking.state['phase']!='qualified' and not (usage.state['clientClosedBy'] is not None and backend.state['phase']=='restored'):responsibilities.append('baking-actions')
+        if model_source is not None and (model_source.state['pending'] is not None or model_source.raws.pending is not None):responsibilities.append('model-source-write')
+        # Geometry observation deliberately supplies no origin/resource lifetime
+        # verdict. The earlier Usage accept responsibility remains blocking.
+        if model is not None and any(entry['slot']=='usage-accept-model' and entry['command'] is not None for entry in usage.state['inputs']):responsibilities.append('model-resource-origin')
         result.append(dict(runId=run,role=role,binding=deepcopy(binding),responsibilities=responsibilities,
             successor=upload is not None,clientRetired=upload is not None and upload.state['phase']=='retired'))
         for kind,(path,value) in records.items():need(same(PrivateFeatureState(path).read(),value))
