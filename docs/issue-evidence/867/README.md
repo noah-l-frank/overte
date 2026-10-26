@@ -121,3 +121,7 @@ The original Pixel 8 Pro screenshot and candidate identity remain preserved in
 iOS/iPadOS physical-device follow-up remains unverified. The new Pixel 6a
 results do not establish behavior on the historical Pixel 8 Pro candidate or
 other screen sizes, and do not replace the recorded stability observation.
+
+The follow-up [retained-Gboard investigation](ime-window-probe/README.md) tests
+six public Android window/IME variants on the physical device and records why
+no native-keyboard fix is claimed. The owner chose to retain Gboard.
