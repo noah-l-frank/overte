@@ -20,6 +20,7 @@ from ios.adapters.assets_upload import OwnedAssetsUpload
 from ios.adapters.assets_tree_owner import OwnedAssetsTree
 from ios.adapters.assets_usage_owner import OwnedAssetsUsage
 from ios.adapters.assets_backend_owner import OwnedAssetsBackend
+from ios.adapters.assets_baking_owner import OwnedAssetsBaking
 from ios.adapters.feature_observation import FeatureObservation
 from ios.adapters.normal_input import NativeInput
 from ios.adapters.script_runtime import IOSScriptRuntime
@@ -46,7 +47,7 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         self.cleanup_errors=[] # Private diagnostics only; never feature facts.
 
     def _assets_store(self,selector,run,role,kind):
-        identifier(run);need(role in ('primary','actor') and kind in ('files','picker','replies','upload','tree','backend','usage'))
+        identifier(run);need(role in ('primary','actor') and kind in ('files','picker','replies','upload','tree','backend','usage','baking'))
         return PrivateFeatureState(self.state_path(selector).with_name('ios-assets-'+run+'-'+role+'-'+kind+'.json'))
 
     @operation
@@ -82,6 +83,13 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         usage=OwnedAssetsUsage(upload,self._assets_store(selector,run,role,'usage'),lock=lock)
         sources['check']()
         return dict(sources,owned_files=files,picker=picker,owned_replies=replies,upload=upload,tree=tree,usage=usage)
+
+    @operation
+    def _assets_baking_components(self,selector,run,role,fixture_url,lock,backend_config,*,parts=None):
+        parts=self._assets_components(selector,run,role,fixture_url,lock) if parts is None else parts
+        backend=OwnedAssetsBackend(parts['upload'],AssetsBackendClient(backend_config,parts['check']),self._assets_store(selector,run,role,'backend'),lock=lock)
+        baking=OwnedAssetsBaking(parts['usage'],backend,self._assets_store(selector,run,role,'baking'),lock=lock)
+        parts['check']();return dict(parts,backend=backend,baking=baking)
 
     @operation
     def _assets_mapping_readback(self,selector,run,role,fixture_url,ticket,lock,*,resource='gltf-bundle/main.gltf'):

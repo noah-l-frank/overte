@@ -17,6 +17,8 @@
     "ios-lifecycle-pending-proof-frame": {"current": 1, "reads": [1]},
     "ios-lifecycle-pending-proof-original": {"current": 1, "reads": [1]},
     "asset-backend-bake-proof": {"current": 1, "reads": [1]},
+    "asset-backend-rebake-proof": {"current": 1, "reads": [1]},
+    "ios-assets-baking-owner": {"current": 1, "reads": [1]},
     "asset-backend-restoration-proof": {"current": 1, "reads": [1]},
     "asset-backend-upload-proof": {"current": 1, "reads": [1]},
     "ios-assets-backend-owner": {"current": 1, "reads": [1]},

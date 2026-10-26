@@ -62,6 +62,10 @@ after aligning that distinction with the existing transport it passed in
 6.119 seconds. The subsequent eight cases passed in 32.929 seconds before the
 final client-retirement/factory composition above.
 
+The [separate rebake owner](ASSETS_REBAKE_OWNER.md) now joins the normal checkbox
+to retained actual-source task/meta/output originals, with explicit modeled
+native/server/oven test boundaries. It establishes no model/rendering result.
+
 No native compiler, device, real server/oven/service, installation or remote
 write ran. Full Assets capability stays closed and source completion stays
 5/14. Next reuse the unchanged Create state/work sources for actual entity-tree

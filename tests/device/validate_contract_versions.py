@@ -25,6 +25,8 @@ REQUIRED = {
     "ios-lifecycle-pending-proof-frame": 1,
     "ios-lifecycle-pending-proof-original": 1,
     "asset-backend-bake-proof": 1,
+    "asset-backend-rebake-proof": 1,
+    "ios-assets-baking-owner": 1,
     "asset-backend-restoration-proof": 1,
     "asset-backend-upload-proof": 1,
     "ios-assets-backend-owner": 1,

@@ -26,8 +26,9 @@ from ios.adapters.assets_upload import OwnedAssetsUpload
 from ios.adapters.assets_tree_owner import OwnedAssetsTree
 from ios.adapters.assets_backend_owner import OwnedAssetsBackend,BackendSegments
 from ios.adapters.assets_usage_owner import OwnedAssetsUsage
+from ios.adapters.assets_baking_owner import OwnedAssetsBaking
 
-OWNER=re.compile(r'ios-assets-([a-f0-9]{32})-(primary|actor)-(files|picker|replies|upload|tree|backend|usage)\.json')
+OWNER=re.compile(r'ios-assets-([a-f0-9]{32})-(primary|actor)-(files|picker|replies|upload|tree|backend|usage|baking)\.json')
 FRAME=re.compile(r'assets-upload-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
 BACKEND_FRAME=re.compile(r'assets-backend-(primary|actor)-parts-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
 FILE_SOURCE=re.compile(r'assets-files-native-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
@@ -83,7 +84,7 @@ def inspect_directory(directory):
             need(files.state is not None);picker.state=picker.decode(values['picker'])
         replies=object.__new__(OwnedAssetsReplyReads);replies.native=SimpleNamespace(pid=pid);replies.run,replies.url,replies.binding=run,url,deepcopy(binding);replies.state=None
         if 'replies' in values:replies.state=replies.decode(values['replies'])
-        upload=None;tree=None;backend=None;usage=None;covered=set();backend_covered=set()
+        upload=None;tree=None;backend=None;usage=None;baking=None;covered=set();backend_covered=set()
         if 'upload' in values:
             need(files.state is not None and picker.state is not None and replies.state is not None)
             upload=object.__new__(OwnedAssetsUpload);upload.files,upload.picker,upload.replies=files,picker,replies
@@ -109,6 +110,8 @@ def inspect_directory(directory):
                     for reference in row['parts']['chunks']:
                         if reference['phase']!='planned':backend_covered.add(backend.parts.store.path(reference))
         need(backend_paths.get((run,role),set())==backend_covered)
+        if 'baking' in values:
+            need(usage is not None and backend is not None);baking=object.__new__(OwnedAssetsBaking);baking.usage,baking.backend=usage,backend;baking.state=None;baking.state=baking.decode(values['baking'])
         responsibilities=[]
         if files.state is not None and files.state['phase']!='retired':responsibilities.append('input-files')
         if files.state is not None and (migration_pending or files.sources.pending is not None):responsibilities.append('input-source-write')
@@ -124,6 +127,7 @@ def inspect_directory(directory):
             # A closed dialog/page and its ordinary input ACK never establish
             # destruction of an entity/model/resource created by acceptance.
             if any(entry['id']=='assets.model.accept' and entry['command'] is not None for entry in usage.state['inputs']):responsibilities.append('usage-model-retirement')
+        if baking is not None and baking.state['phase']!='qualified' and not (usage.state['clientClosedBy'] is not None and backend.state['phase']=='restored'):responsibilities.append('baking-actions')
         result.append(dict(runId=run,role=role,binding=deepcopy(binding),responsibilities=responsibilities,
             successor=upload is not None,clientRetired=upload is not None and upload.state['phase']=='retired'))
         for kind,(path,value) in records.items():need(same(PrivateFeatureState(path).read(),value))
