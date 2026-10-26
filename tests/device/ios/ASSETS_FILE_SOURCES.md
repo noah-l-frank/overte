@@ -71,6 +71,8 @@ all 802 workspace Markdown files without fetching remote URLs.
 
 This resolves the measured storage prerequisite; it does not qualify an actual
 ordinary FBX upload, bake, rendering, publication or backend cleanup journey.
+The later [reply-owner packet](ASSETS_REPLY_SOURCES.md) separately qualifies the
+ordinary pinned-FBX upload/readback/client-cleanup host composition.
 Next compose the durable normal bake/import owner with actual worker/meta/output
 observations, model/resource consumers, independent rendering/publication and
 paired cleanup. Full Assets capability remains closed and source completion

@@ -76,7 +76,7 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         files=OwnedAssetsFiles(sources['files'],self._assets_store(selector,run,role,'files'),sources['binding'],run,fixture_url,lock=lock,role=role)
         picker=OwnedAssetsPicker(sources['native'],files,self._assets_store(selector,run,role,'picker'),sources['binding'],lock=lock,
             monotonic=self.monotonic,sleep=sources['observer'].sleep)
-        replies=OwnedAssetsReplyReads(sources['replies'],self._assets_store(selector,run,role,'replies'),sources['binding'],run,fixture_url,lock=lock)
+        replies=OwnedAssetsReplyReads(sources['replies'],self._assets_store(selector,run,role,'replies'),sources['binding'],run,fixture_url,lock=lock,role=role)
         upload=OwnedAssetsUpload(sources['native'],sources['clock_source'],files,picker,replies,self._assets_store(selector,run,role,'upload'),
             sources['binding'],lock=lock,role=role,monotonic=self.monotonic,sleep=sources['observer'].sleep)
         tree=OwnedAssetsTree(upload,self._assets_store(selector,run,role,'tree'),lock=lock)

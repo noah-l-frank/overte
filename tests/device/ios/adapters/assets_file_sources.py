@@ -47,16 +47,23 @@ def private_original(path,limit):
 
 
 class FileSources:
+    NAMESPACE='assets-files-native'
+    SCHEMA_PREFIX='iosAssetsFilesSource'
+    MIGRATION_PREFIX='assets-files-migration-'
+    RECORD_KEY='iosAssetsFilesSourceRecordVersion'
+    MIGRATION_KEY='iosAssetsFilesSourceMigrationVersion'
+    MAX_REFS=129
+
     def __init__(self,owner,role,guard,save):
         need(role in ('primary','actor') and callable(guard) and callable(save));self.owner,self.role,self.guard,self.save_owner=owner,role,guard,save
         self.refs=[];self.pending=None;self.migration=None;self.migrating=False;self.active=False;self.migration_value=None;self.migration_previous=None
-        self.store=OriginalFrameStore(owner.store.path.parent,owner.binding,owner.run,role,guard,self.intent,namespace='assets-files-native',schema_prefix='iosAssetsFilesSource',monotonic=owner.native.monotonic)
-        self.migration_store=PrivateFeatureState(owner.store.path.parent/('assets-files-migration-'+owner.run+'-'+role+'.json'))
+        self.store=OriginalFrameStore(owner.store.path.parent,owner.binding,owner.run,role,guard,self.intent,namespace=self.NAMESPACE,schema_prefix=self.SCHEMA_PREFIX,monotonic=owner.native.monotonic)
+        self.migration_store=PrivateFeatureState(owner.store.path.parent/(self.MIGRATION_PREFIX+owner.run+'-'+role+'.json'))
 
     def manifest(self):return dict(refs=deepcopy(self.refs),pending=deepcopy(self.pending),migration=deepcopy(self.migration))
 
     def load(self,value):
-        exact(value,{'refs','pending','migration'});need(type(value['refs']) is list and len(value['refs'])<=129)
+        exact(value,{'refs','pending','migration'});need(type(value['refs']) is list and len(value['refs'])<=self.MAX_REFS)
         for index,reference in enumerate(value['refs'],1):need(self.store.expand(reference)['index']==index)
         self.refs,self.pending,self.migration=deepcopy(value['refs']),deepcopy(value['pending']),deepcopy(value['migration'])
         if self.pending is not None:
@@ -92,12 +99,12 @@ class FileSources:
         need(self.pending is not None and reference['index']==len(self.refs)+1);self.pending['original']=deepcopy(reference);self.save_owner();return True
 
     def read_record(self,reference):
-        body=self.store.read(self.store.expand(reference));need(type(body) is dict and type(body.get('iosAssetsFilesSourceRecordVersion')) is int and body['iosAssetsFilesSourceRecordVersion']==VERSION)
+        body=self.store.read(self.store.expand(reference));need(type(body) is dict and type(body.get(self.RECORD_KEY)) is int and body[self.RECORD_KEY]==VERSION)
         kind=body.get('kind')
         if kind=='native':
-            exact(body,{'iosAssetsFilesSourceRecordVersion','kind','query','raw'});need(type(body['raw']) is str and 0<len(body['raw'].encode())<=262144)
+            exact(body,{self.RECORD_KEY,'kind','query','raw'});need(type(body['raw']) is str and 0<len(body['raw'].encode())<=262144)
         else:
-            need(kind=='legacy-owner');exact(body,{'iosAssetsFilesSourceRecordVersion','kind','rawBase64','identity'})
+            need(kind=='legacy-owner');exact(body,{self.RECORD_KEY,'kind','rawBase64','identity'})
             raw=base64.b64decode(body['rawBase64'],validate=True);need(base64.b64encode(raw).decode()==body['rawBase64'] and 0<len(raw)<=65536)
             exact(body['identity'],{'device','inode','bytes','modifiedNs','changedNs'});need(all(integer(item,0,2**64-1) for item in body['identity'].values()) and body['identity']['bytes']==len(raw))
         return body
@@ -107,7 +114,7 @@ class FileSources:
         self.pending=dict(queryId=query['commandId'],querySha256=sha(canonical(query)),rawSha256=sha(raw.encode()),rawBytes=len(raw.encode()),original=None,snapshot=None);self.save_owner()
         self.active=True
         try:
-            self.store.write(len(self.refs)+1,dict(iosAssetsFilesSourceRecordVersion=VERSION,kind='native',query=deepcopy(query),raw=raw))
+            self.store.write(len(self.refs)+1,{self.RECORD_KEY:VERSION,'kind':'native','query':deepcopy(query),'raw':raw})
         except BaseException as primary:
             self.active=False
             if self.pending is not None and self.pending['original'] is not None:
@@ -130,8 +137,8 @@ class FileSources:
         self.migration_codec(self.migration_value);self.migration_store.write(self.migration_value,self.migration_previous);sync(self.migration_store.path.parent);self.migration_previous=deepcopy(self.migration_value)
 
     def migration_codec(self,value):
-        exact(value,{'iosAssetsFilesSourceMigrationVersion','binding','runId','role','legacy','original','snapshot'})
-        need(type(value['iosAssetsFilesSourceMigrationVersion']) is int and value['iosAssetsFilesSourceMigrationVersion']==VERSION and same(value['binding'],self.owner.binding)
+        exact(value,{self.MIGRATION_KEY,'binding','runId','role','legacy','original','snapshot'})
+        need(type(value[self.MIGRATION_KEY]) is int and value[self.MIGRATION_KEY]==VERSION and same(value['binding'],self.owner.binding)
             and value['runId']==self.owner.run and value['role']==self.role)
         exact(value['legacy'],{'sha256','identity'});need(type(value['legacy']['sha256']) is str and __import__('re').fullmatch('[a-f0-9]{64}',value['legacy']['sha256']) is not None)
         exact(value['legacy']['identity'],{'device','inode','bytes','modifiedNs','changedNs'});need(all(integer(item,0,2**64-1) for item in value['legacy']['identity'].values()) and 0<value['legacy']['identity']['bytes']<=65536)
@@ -145,10 +152,10 @@ class FileSources:
         need(not self.refs and self.pending is None);raw,identity=private_original(self.owner.store.path,65536);need(same(decode(raw.decode('utf-8'),limit=65536),previous))
         prior=self.migration_store.read()
         if prior is None:
-            value=dict(iosAssetsFilesSourceMigrationVersion=VERSION,binding=self.owner.binding,runId=self.owner.run,role=self.role,
-                legacy=dict(sha256=sha(raw),identity=identity),original=None,snapshot=None)
+            value={self.MIGRATION_KEY:VERSION,'binding':self.owner.binding,'runId':self.owner.run,'role':self.role,
+                'legacy':dict(sha256=sha(raw),identity=identity),'original':None,'snapshot':None}
             self.migration_value=value;self.migration_previous=None;self.save_migration();self.migrating=True
-            try:self.store.write(1,dict(iosAssetsFilesSourceRecordVersion=VERSION,kind='legacy-owner',rawBase64=base64.b64encode(raw).decode(),identity=identity))
+            try:self.store.write(1,{self.RECORD_KEY:VERSION,'kind':'legacy-owner','rawBase64':base64.b64encode(raw).decode(),'identity':identity})
             except BaseException as primary:
                 if self.migration_value['original'] is not None:
                     try:self.migration_value['snapshot']=self.inspect(self.migration_value['original']);self.save_migration()

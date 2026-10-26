@@ -236,8 +236,8 @@ class IOSAssetsReplies:
         self.last=None;self.jobs={}
 
     @operation
-    def request(self,query,*,retain=None):
-        command(query);need(retain is None or callable(retain));transport_check();need(self.guard() is not False)
+    def request(self,query,*,retain=None,retain_raw=None):
+        command(query);need((retain is None or callable(retain)) and (retain_raw is None or callable(retain_raw)) and (retain is None or retain_raw is None));transport_check();need(self.guard() is not False)
         start=last=self.monotonic();requested=self.clock_ms();need(number(start,0,1e15) and integer(requested,1))
         self.send(deepcopy(query)) # Once only: polling uses new observe nonces.
         for attempt in range(61):
@@ -246,6 +246,7 @@ class IOSAssetsReplies:
             except json.JSONDecodeError:value=None
             now=self.monotonic();need(number(now,last,start+1.5) and now-start<1.5);last=now
             if type(value) is dict and value.get('requestId')==query['commandId']:
+                if retain_raw is not None:retain_raw(deepcopy(query),deepcopy(value),raw)
                 if retain is not None:retain(deepcopy(query),deepcopy(value))
                 job=query.get('jobId',query['commandId']);epoch=self.clock_ms();need(integer(epoch,requested))
                 validate(value,query,self.pid,epoch,self.last,self.jobs.get(job));need(value['clockBefore']['epochMs']>=requested and self.guard() is not False)

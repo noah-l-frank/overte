@@ -56,7 +56,9 @@ was changed. Isolated browsing/control tests now begin with an explicitly seeded
 existing server asset, enter the actual browser with normal menu input and make
 no upload claim. The storage prerequisite is now addressed by the
 [version-2 file owner](ASSETS_FILE_SOURCES.md), with literal version-1 reads and
-exact immutable native originals. Full ordinary FBX upload remains unqualified.
+exact immutable native originals. The later [reply-owner packet](ASSETS_REPLY_SOURCES.md)
+qualifies the unseeded ordinary-FBX upload/readback/client-cleanup host component;
+native/device and full-feature qualification remain unavailable.
 
 The corrected 43 cases passed in 2.807 seconds. Eleven final Usage cases plus
 36 existing tree/bundle/normal-input/Back/Keyboard cases then passed: 47/47 in

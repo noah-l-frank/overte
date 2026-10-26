@@ -70,5 +70,6 @@ No native compiler, device, real server/oven/service, installation or remote
 write ran. Full Assets capability stays closed and source completion stays
 5/14. Next reuse the unchanged Create state/work sources for actual entity-tree
 diff, geometry/scene/texture and weak consumer evidence, join the independent
-backend bake proof, then qualify ordinary FBX upload and paired publication/
+backend bake proof, and compose the separately qualified
+[ordinary-FBX host upload](ASSETS_REPLY_SOURCES.md) with paired publication/
 cleanup. That final journey has not passed.

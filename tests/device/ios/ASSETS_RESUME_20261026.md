@@ -10,8 +10,10 @@ still preserves all build/device/backend restrictions and closed capability.
 
 Current source dependency: the [version-2 file-owner packet](ASSETS_FILE_SOURCES.md)
 resolves the measured pinned-FBX packed-parent overflow while preserving exact
-native originals and literal v1 reads. Its final 14 focused host cases passed;
-normal FBX upload/bake/import/rendering and paired cleanup remain unqualified.
+native originals and literal v1 reads. Its final 14 focused host cases passed.
+The [reply-owner2 packet](ASSETS_REPLY_SOURCES.md) now qualifies the unseeded
+normal FBX upload/readback/client-cleanup host component. Native/device, model/
+rendering, paired publication and complete retirement remain unqualified.
 
 ## Preserved source
 

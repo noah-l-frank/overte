@@ -7,38 +7,66 @@ mutated, and no model/oven/full-feature capability is projected here.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import base64
 import re
 import secrets
 import uuid
-from adapters.native_feature_observation import exact,integer,need
+from adapters.native_feature_observation import decode,exact,integer,need
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
 from adapters.operation_transport_guard import check as transport_check
-from adapters.script_feature.history import pack,unpack,same
+from adapters.script_feature.history import MAX_RAW,canonical,pack,unpack,same
 from feature_journeys.asset_fixture import BUNDLES,bundle
 from feature_journeys.contract import identifier
 from ios.adapters.assets_budget import operation
 from ios.adapters import assets_replies as source
 from ios.adapters import assets_reply_protocol as wire
+from ios.adapters.assets_reply_sources import ReplySources
+from ios.adapters.assets_file_sources import sync
 
 VERSION=1
+OWNER_VERSION=2
 
 
 class OwnedAssetsReplyReads:
-    def __init__(self,native,store,binding,run,url,*,lock):
+    def __init__(self,native,store,binding,run,url,*,lock,role='primary'):
         need(isinstance(native,source.IOSAssetsReplies) and isinstance(store,PrivateFeatureState));context(binding);identifier(run)
         need(str(native.pid)==binding['processIdentity']);self.native,self.store,self.binding,self.run,self.url,self.lock=native,store,deepcopy(binding),run,url,lock
         lock.assert_held();self.previous=store.read();self.state=None
+        self.role=role;self.storage_version=OWNER_VERSION;self.sources=ReplySources(self,role,self.source_guard,self.save)
         if self.previous is not None:
             self.state=self.decode(self.previous)
             for record in self.state['originals']:
                 packet=record['packet'];job=packet['source']['job']['request']['commandId'];native.last=deepcopy(packet);native.jobs[job]=deepcopy(packet)
 
-    def decode(self,value):
+    def source_guard(self):self.lock.assert_held();PrivateFeatureState(self.store.path)._parent();return True
+
+    def legacy_state(self,value):
         exact(value,{'iosAssetsReplyOwnerVersion','binding','runId','fixtureUrl','payload'})
         need(type(value['iosAssetsReplyOwnerVersion']) is int and value['iosAssetsReplyOwnerVersion']==VERSION
             and same(value['binding'],self.binding) and value['runId']==self.run and value['fixtureUrl']==self.url)
-        decoded=unpack(value['payload']);need(len(decoded)==1);state=decoded[0]
+        decoded=unpack(value['payload']);need(len(decoded)==1);return self.validate_state(decoded[0])
+
+    def decode(self,value):
+        need(type(value) is dict and type(value.get('iosAssetsReplyOwnerVersion')) is int)
+        if value['iosAssetsReplyOwnerVersion']==VERSION:self.storage_version=VERSION;return self.legacy_state(value)
+        exact(value,{'iosAssetsReplyOwnerVersion','binding','runId','fixtureUrl','role','payload'})
+        need(value['iosAssetsReplyOwnerVersion']==OWNER_VERSION and same(value['binding'],self.binding) and value['runId']==self.run and value['fixtureUrl']==self.url and value['role']==self.role)
+        decoded=unpack(value['payload']);need(len(decoded)==1);stored=decoded[0]
+        exact(stored,{'phase','ticket','token','resource','namespace','commands','jobs','sources'});self.sources.load(stored['sources']);entries=[]
+        for index,reference in enumerate(self.sources.refs):
+            record=self.sources.read_record(reference)
+            if record['kind']=='legacy-owner':
+                need(index==0 and self.sources.migration is not None);legacy=self.legacy_state(decode(base64.b64decode(record['rawBase64']).decode('utf-8'),limit=65536))
+                need(all(same(legacy[key],stored[key]) for key in ('ticket','token','resource','namespace')) and stored['commands'][:len(legacy['commands'])]==legacy['commands'] and len(stored['jobs'])>=len(legacy['jobs']))
+                for old,new in zip(legacy['jobs'],stored['jobs']):need(all(same(old[key],new[key]) for key in ('slot','query','issuedEpochMs')))
+                entries.extend(deepcopy(legacy['originals']))
+            else:entries.append(dict(query=deepcopy(record['query']),packet=decode(record['raw'])))
+        state={key:deepcopy(stored[key]) for key in ('phase','ticket','token','resource','namespace','commands','jobs')};state['originals']=entries
+        need(self.sources.pending is None or state['phase']!='closed');self.storage_version=OWNER_VERSION;return self.validate_state(state)
+
+    def validate_state(self,state):
+        need(len(canonical([state]))<=MAX_RAW)
         exact(state,{'phase','ticket','token','resource','namespace','commands','jobs','originals'})
         need(state['phase'] in ('open','closed') and type(state['token']) is str and re.fullmatch('[a-f0-9]{64}',state['token'])
             and state['namespace'] in ('original','renamed') and type(state['jobs']) is list and len(state['jobs'])<=32
@@ -99,8 +127,10 @@ class OwnedAssetsReplyReads:
 
     def save(self):
         self.lock.assert_held();transport_check();need(self.native.guard() is not False and same(self.store.read(),self.previous))
-        value=dict(iosAssetsReplyOwnerVersion=VERSION,binding=self.binding,runId=self.run,fixtureUrl=self.url,payload=pack([self.state]))
-        self.decode(value);transport_check();self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
+        if self.storage_version==VERSION:self.sources.prepare_migration(self.previous);self.storage_version=OWNER_VERSION
+        state={key:deepcopy(self.state[key]) for key in ('phase','ticket','token','resource','namespace','commands','jobs')};state['sources']=self.sources.manifest()
+        value=dict(iosAssetsReplyOwnerVersion=OWNER_VERSION,binding=self.binding,runId=self.run,fixtureUrl=self.url,role=self.role,payload=pack([state]))
+        need(same(self.decode(value),self.state));transport_check();self.store.write(value,self.previous);sync(self.store.path.parent);need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     @operation
     def reserve(self,ticket,resource='gltf-bundle/main.gltf',namespace='original'):
@@ -113,11 +143,22 @@ class OwnedAssetsReplyReads:
             runId=self.run,ticket=self.state['ticket'],ownerToken=self.state['token'],resource=self.state['resource'],namespace=self.state['namespace'],operation=kind,**values))
 
     def _retain(self,query,packet):
-        need(len(self.state['originals'])<256);self.state['originals'].append(dict(query=deepcopy(query),packet=deepcopy(packet)));self.save()
+        raw=self.native.original();need(type(raw) is str and same(decode(raw),packet));return self._retain_raw(query,packet,raw)
+
+    def _retain_raw(self,query,packet,raw):
+        need(len(self.state['originals'])<256 and self.sources.pending is None and same(decode(raw),packet));self.sources.capture(query,raw);return self.recover_capture()
+
+    def recover_capture(self):
+        reference,record=self.sources.completed_capture();query=record['query'];packet=decode(record['raw']);target=query.get('jobId',query['commandId'])
+        previous=self.state['originals'][-1]['packet'] if self.state['originals'] else None
+        earlier=[entry['packet'] for entry in self.state['originals'] if entry['packet']['source']['job']['request']['commandId']==target]
+        source.validate(packet,query,self.native.pid,previous=previous,previous_job=earlier[-1] if earlier else None)
+        self.sources.accept_capture();self.state['originals'].append(dict(query=deepcopy(query),packet=packet));self.save();return packet
 
     def _exchange(self,query):
-        need(len(self.state['commands'])<512);self.state['commands'].append(deepcopy(query));self.save()
-        return self.native.request(query,retain=self._retain)
+        if self.storage_version==VERSION:self.save()
+        need(len(self.state['commands'])<512 and len(self.state['originals'])<256 and self.sources.pending is None);self.state['commands'].append(deepcopy(query));self.save()
+        return self.native.request(query,retain_raw=self._retain_raw)
 
     def _job(self,slot):
         jobs=[job for job in self.state['jobs'] if job['slot']==slot];need(len(jobs)==1);return jobs[0]

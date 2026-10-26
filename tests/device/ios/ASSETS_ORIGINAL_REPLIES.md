@@ -1,5 +1,10 @@
 # Independent Assets mapping and original-source reads
 
+The later [reply-owner version-2 packet](ASSETS_REPLY_SOURCES.md) retains exact
+raw source originals with literal v1 reads and qualifies the ordinary pinned-FBX
+upload/readback/client-cleanup host composition. Native/device and whole-feature
+qualification remain unavailable; the original packet scope below is preserved.
+
 This packet adds source/ownership plumbing only. Native code remains uncompiled
 and device-untested. It starts no server, oven, build, installation or device
 runner. Whole Assets capability, the shared dispatcher, model/texture consumer
