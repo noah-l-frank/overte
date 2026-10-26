@@ -11,8 +11,10 @@ from ios.self_tests.test_ios_lifecycle_world import Boundary,RUN
 
 
 class TouchBoundary(Boundary):
-    def __init__(self):
-        super().__init__();self.events=[];self.device=uuid.uuid4().hex;self.touch_instance=uuid.uuid4().hex
+    def __init__(self,scene_factory=None):
+        if scene_factory is None:super().__init__()
+        else:super().__init__(scene_factory)
+        self.events=[];self.device=uuid.uuid4().hex;self.touch_instance=uuid.uuid4().hex
         self.birth=self.stamp();self.active=[];self.device_alive=True;self.failure=None
         self.pad=dict(objectId=uuid.uuid4().hex,active=True,enabled=True,hidden=False,viewport=[1000,600],fixed=True,
             center=[100.,500.],radius=60.,moveValid=False,moveNativeId=-1,moveOrigin=[100.,500.],movePoint=None)

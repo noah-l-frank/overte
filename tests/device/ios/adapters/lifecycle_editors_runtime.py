@@ -16,6 +16,19 @@ from ios.adapters.lifecycle_editors import LifecycleEditors
 class IOSLifecycleEditorsRuntime:
     def __init__(self,adapter):self.adapter=adapter
 
+    def world_attempt_child(self,selector,editors):
+        from adapters.script_feature.history import same
+        from adapters.normal_ui import NativeUI
+        from ios.adapters.lifecycle_world_attempt import LifecycleWorldAttempt
+        need(isinstance(editors,LifecycleEditors));editors.history.check()
+        root=self.adapter.state_path(selector).parent;need(editors.history.store.path.parent==root)
+        scope=IOSScriptRuntime(self.adapter)._existing(selector)[4]
+        need(same(scope,{key:editors.binding[key] for key in editors.binding if key!='processIdentity'}))
+        source=editors.sources.source;reader=source['observer'].lifecycle_world(source['clock_source'])
+        return LifecycleWorldAttempt(PrivateFeatureState(root/'ios-lifecycle-world-attempt.json'),editors.history,editors.sources,
+            reader,source['observer'].geometry(),NativeUI(source['client'],source['session'],source['check']),
+            epoch_ms=editors.sources.epoch_ms,monotonic=editors.sources.monotonic)
+
     def pending_child(self,selector,editors):
         from adapters.script_feature.history import same
         from ios.adapters.lifecycle_pending_owner import LifecyclePendingOwner

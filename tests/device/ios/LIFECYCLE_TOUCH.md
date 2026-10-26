@@ -59,7 +59,9 @@ bounded grounded displacement, real terminal requirements and literal-1
 compatibility. The transport still uses the existing original HTTP/AFC source;
 native physics, Qt events and SDK boundaries in these tests are declared models.
 
-Still integrate a durable one-send ordinary world-input owner, bounded held
+The [ordinary intercepted attempt](LIFECYCLE_WORLD_ATTEMPT.md) now joins the
+first complete normal touch to original Create editor isolation and world
+neutrality, with one-send recovery and unchanged original files. Still integrate bounded held
 contact execution with explicit release and uncertain-delivery recovery,
 independent host/native release quiet, editor history joins, Actor/image
 publication, restoration and whole process/source/SDK retirement. The existing

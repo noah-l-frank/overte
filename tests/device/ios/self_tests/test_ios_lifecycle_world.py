@@ -26,8 +26,8 @@ class NativeScene(Scene):
 
 
 class Boundary:
-    def __init__(self):
-        self.scene=NativeScene();self.query=None;self.sequence=0;self.queries=[];self.live=True;self.mutate=None
+    def __init__(self,scene_factory=NativeScene):
+        self.scene=scene_factory();self.query=None;self.sequence=0;self.queries=[];self.live=True;self.mutate=None
         self.position=[0.,0.,0.];self.raw=[0.]*world.DRIVE_KEYS;self.disabled=[False]*world.DRIVE_KEYS
         self.avatar=uuid.uuid4().hex;self.domain='11111111-1111-4111-8111-111111111111'
     def send(self,query):self.query=deepcopy(query);self.queries.append(deepcopy(query))
