@@ -626,3 +626,32 @@ Finalarchive or full journey follows from these components.
 The explicit registry key is `ios-tablet-web-session-end`, writer 2 with reads
 1 and 2. No Finalizer architecture, cache, complete capability, product source
 pin, native compilation or input/transport deadline changed.
+
+## First normal Open admission boundary
+
+One new bounded component executes the normal manager, selected-file picker
+and Home input path, with an actual independent Actor baseline before input.
+Primary is interrupted only after its durable `waiting` boundary, before any
+Open click. The Actor then performs one original admission attempt while the
+Home/App controls still exist. Its actual app-original custody file must pass
+the existing `ready` decoder; Primary's waiting journal stays byte- and
+inode-identical throughout that independent read.
+
+Only after this original custody does the same public Open call resume. The
+actual generated app navigates once. Repeating the same ticket neither selects
+another file, loads another VM, nor navigates again. No prepared file-load
+shortcut, Stop, SDK deletion or borrowed Actor product facts are used. The
+Actor remains alive across admission and Open and exits only at this component
+boundary; this is not production worker retirement.
+
+`TabletOpenAdmissionTests` passes in 70.077s under an outer 90s host bound;
+all existing native/UI/transport/operation guards remain unchanged. Actual
+originals are retained at
+`.ios-host-tmp/tablet-web-field-revalidation-h3___q3h/tmpkw5ti7h9`, with log
+`open-admission.log` in that parent directory. Native/UI producers and their
+separate clocks remain host models; no physical timing is qualified.
+
+The first common Journey checkpoint is still open: public DOM/page facts,
+original PNG and independently published Actor facts must be joined for the
+opened page. This admission case supplies no such page/PNG checkpoint or
+retirement proof and does not change the complete capability or 5/14 count.
