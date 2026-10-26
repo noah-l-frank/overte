@@ -35,3 +35,13 @@ Initial parallel ownership is Emotes (5/14), Snapshot/Photos (11/14) and Assets
 interfaces and integrates verified packets. Agents are reused for remaining
 areas after completing their assigned vertical flow. All newly authored source,
 documentation and local commit messages remain in English.
+
+After the requested workstation restart, the user explicitly resumed work from
+`ab99da4c3f`. All source commits and the private evidence directory were present;
+the only initial untracked entry was `.ios-host-tmp/`. Three parallel workers
+resume Avatar (3/14), Snapshot/Photos (11/14) and Assets (13/14), with the
+coordinator continuing Lifecycle/Input (14/14). Emote (5/14) remains closed for
+the documented product Sit behavior and original peer-proof dependencies. This
+explicit resume supersedes the pause checkpoint; the backend goal status still
+cannot be changed to active through the available goal tools. Source scope and
+all no-build/no-device/local-only boundaries remain unchanged.

@@ -542,6 +542,12 @@ class FixtureState:
             try:navigation_replies_command(command,ios=True)
             except (ValueError,RuntimeError):raise ValueError("invalid native navigation reply request") from None
             valid=True
+        elif action == "feature-ios-lifecycle-inputs":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.lifecycle_inputs import command as lifecycle_inputs_command
+            try:lifecycle_inputs_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS Lifecycle input source request") from None
+            valid=True
         elif action == "feature-ios-keyboard":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.keyboard_source import command as keyboard_command

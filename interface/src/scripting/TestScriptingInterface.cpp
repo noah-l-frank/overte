@@ -730,6 +730,28 @@ QVariantMap TestScriptingInterface::featureIOSSnapshotInputs(const QVariantMap& 
     return originals.observation(overte::e2e::IOSNormalInputObservation::Profile::Snapshot,request,run).toVariantMap();
 }
 
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+QVariantMap TestScriptingInterface::featureIOSLifecycleInputs(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] {result=featureIOSLifecycleInputs(command);},Qt::BlockingQueuedConnection)) {return {};}
+        return result;
+    }
+    const auto keys=command.keys();const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString();const auto run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")
+            || QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","commandId","action","runId"}
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-lifecycle-inputs")
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) {return {};}
+    auto& originals=overte::e2e::IOSNormalInputObservation::shared(overte::e2e::IOSNormalInputObservation::Profile::Lifecycle);
+    return originals.observation(overte::e2e::IOSNormalInputObservation::Profile::Lifecycle,request,run).toVariantMap();
+}
+
+#endif
+
 QVariantMap TestScriptingInterface::featureIOSMarkerWorldSource(const QString& request,const QString& run,const QString& markerKind) {
     // Only the two gated native wrappers select a fixed marker profile. No
     // command can supply an expected entity, model, pose, camera or marker ID.
@@ -2789,7 +2811,7 @@ void TestScriptingInterface::clearCaches() {
 // Writes a JSON object from javascript to a file
 void TestScriptingInterface::saveObject(QVariant variant, const QString& filename) {
 #if !defined(OVERTE_E2E_FEATURE_TESTS) || !defined(Q_OS_IOS) || !defined(OVERTE_IOS_E2E_TEST_BUILD)
-    if (filename=="feature-ios-assets-files.json" || filename=="feature-ios-assets-replies.json" || filename=="feature-ios-keyboard.json") {return;}
+    if (filename=="feature-ios-assets-files.json" || filename=="feature-ios-assets-replies.json" || filename=="feature-ios-keyboard.json" || filename=="feature-ios-lifecycle-inputs.json") {return;}
 #endif
     if (_testResultsLocation.isNull()) {
         return;
@@ -2806,7 +2828,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     // Preserve these passive sources' native compact-byte bounds through AFC.
     // Adding whitespace can exceed the existing reader limit with no new data.
     // Other source writers keep their original encoding.
-    if (filename=="feature-ios-assets-files.json" || filename=="feature-ios-assets-replies.json" || filename=="feature-ios-keyboard.json" || filename=="feature-ios-snapshot-owned-files.json" || filename=="feature-ios-snapshot-file-remove.json" || filename=="feature-ios-snapshot-file-work.json" || filename=="feature-ios-snapshot-inputs.json" || filename=="feature-ios-snapshot-work.json" || filename=="feature-ios-snapshot-exports.json" || filename=="feature-ios-snapshot-captures.json"
+    if (filename=="feature-ios-assets-files.json" || filename=="feature-ios-assets-replies.json" || filename=="feature-ios-keyboard.json" || filename=="feature-ios-lifecycle-inputs.json" || filename=="feature-ios-snapshot-owned-files.json" || filename=="feature-ios-snapshot-file-remove.json" || filename=="feature-ios-snapshot-file-work.json" || filename=="feature-ios-snapshot-inputs.json" || filename=="feature-ios-snapshot-work.json" || filename=="feature-ios-snapshot-exports.json" || filename=="feature-ios-snapshot-captures.json"
             || filename=="feature-ios-tablet-web-dom.json" || filename=="feature-ios-tablet-web-deferred.json" || filename=="feature-ios-tablet-web-defer.json" || filename=="feature-ios-tablet-app-buttons.json" || filename=="feature-ios-uikit-input.json" || filename=="feature-ios-tablet-web-closures.json" || filename=="feature-ios-web-script-emissions.json" || filename=="feature-ios-tablet-web-state.json" || filename=="feature-ios-tablet-web.json" || filename=="feature-ios-tablet-sources.json" || filename=="feature-ios-world-web.json" || filename=="feature-ios-world-web-dom.json"
             || filename=="feature-ios-world-web-work.json" || filename=="feature-ios-world-web-geometry.json" || filename=="feature-ios-world-web-surfaces.json"
             || filename=="feature-ios-world-web-keys.json" || filename=="feature-ios-world-web-snapshot.json" || filename=="feature-ios-world-web-whole-snapshot.json") {
@@ -2821,7 +2843,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    if (filename == "feature-ios-assets-files.json" || filename == "feature-ios-assets-replies.json" || filename == "feature-ios-keyboard.json" || filename == "feature-ios-snapshot-owned-files.json" || filename == "feature-ios-snapshot-file-remove.json" || filename == "feature-ios-snapshot-file-work.json" || filename == "feature-ios-snapshot-inputs.json" || filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
+    if (filename == "feature-ios-assets-files.json" || filename == "feature-ios-assets-replies.json" || filename == "feature-ios-keyboard.json" || filename == "feature-ios-lifecycle-inputs.json" || filename == "feature-ios-snapshot-owned-files.json" || filename == "feature-ios-snapshot-file-remove.json" || filename == "feature-ios-snapshot-file-work.json" || filename == "feature-ios-snapshot-inputs.json" || filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "feature-ios-world-web-snapshot.json" || filename == "feature-ios-world-web-whole-snapshot.json" || filename == "feature-ios-world-web-keys.json" || filename == "feature-ios-world-web-work.json" || filename == "feature-ios-world-web-geometry.json" || filename == "feature-ios-world-web-surfaces.json"
             || filename == "feature-ios-tablet-web-dom.json" || filename == "feature-ios-tablet-web-deferred.json" || filename == "feature-ios-tablet-web-defer.json" || filename == "feature-ios-tablet-app-buttons.json" || filename == "feature-ios-uikit-input.json" || filename == "feature-ios-tablet-web-closures.json" || filename == "feature-ios-web-script-emissions.json" || filename == "feature-ios-tablet-web-state.json" || filename == "feature-ios-tablet-web.json" || filename == "feature-ios-tablet-sources.json" || filename == "feature-ios-world-web.json" || filename == "feature-ios-world-web-dom.json"
             || filename == "feature-ios-web-closures.json" || filename == "feature-ios-location-bookmarks.json" || filename == "feature-ios-places-model.json" || filename == "feature-ios-places-http.json" || filename == "feature-ios-navigation-dialogs.json" || filename == "feature-ios-navigation-state.json" || filename == "feature-ios-scene-inventory.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"

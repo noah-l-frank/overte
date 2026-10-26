@@ -1255,9 +1255,34 @@ QJsonObject NormalUiInput::request(const QJsonObject& command) {
         }
         auto& snapshotOriginals=overte::e2e::IOSNormalInputObservation::shared(overte::e2e::IOSNormalInputObservation::Profile::Snapshot);
         const auto snapshotInputId=snapshotOriginals.received(overte::e2e::IOSNormalInputObservation::Profile::Snapshot,command,snapshotControl,snapshotRoot);
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+        QString lifecycleControl;QJsonObject lifecycleRoot;
+        for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
+            if (it.value().token!=token) {continue;}
+            const auto control=it.key();QJsonObject root;
+            if (control=="tablet.back") {
+                auto row=overte::e2e::tabletBackControlObservation(it.value().item);
+                if (row.isEmpty()) {continue;}
+                row["id"]=control;row["token"]=it.value().token;
+                row["enabled"]=enabled(it.value().item);row["focused"]=it.value().item->hasActiveFocus();
+                root={{"kind","back"},{"observation",row}};
+            } else if (control=="chat.input" || control=="lifecycle.create.text" || control=="lifecycle.scripts.filter") {
+                const auto original=lifecycle_fields::notice(it.value().item);
+                if (original.isEmpty()) {continue;}
+                root={{"kind","field"},{"identity",original.value("identity")}};
+            } else {continue;}
+            if (!lifecycleControl.isEmpty()) {lifecycleControl.clear();lifecycleRoot={};break;}
+            lifecycleControl=control;lifecycleRoot=root;
+        }
+        auto& lifecycleOriginals=overte::e2e::IOSNormalInputObservation::shared(overte::e2e::IOSNormalInputObservation::Profile::Lifecycle);
+        const auto lifecycleInputId=lifecycleOriginals.received(overte::e2e::IOSNormalInputObservation::Profile::Lifecycle,command,lifecycleControl,lifecycleRoot);
+#endif
         result["status"]=edit(input);
         originals.returned(inputId,result);
         snapshotOriginals.returned(snapshotInputId,result);
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+        lifecycleOriginals.returned(lifecycleInputId,result);
+#endif
 #else
         result["status"]=edit(command.value("input").toObject());
 #endif

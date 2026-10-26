@@ -50,6 +50,9 @@ class SnapshotInputOwner:
     _owner_key='iosSnapshotInputOwnerVersion'
     _proof_namespace='snapshot-input-proof'
     _proof_schema='snapshotInputProof'
+    _reference=staticmethod(reference)
+    _input_source=inputs
+    _root_is_stable=True
 
     @staticmethod
     def store_name(role):return 'ios-snapshot-'+role+'-inputs.json'
@@ -91,16 +94,15 @@ class SnapshotInputOwner:
         for index,event in enumerate(state['events'],1):
             exact(event,{'index','phase','controlId','reference','command','receipt','proof'})
             need(type(event['index']) is int and event['index']==index and event['phase'] in ('reserved','issued','delivered'))
-            row=reference(event['reference'],event['controlId']);scope=event['reference']['scope'];command=event['command']
+            row=self._reference(event['reference'],event['controlId']);scope=event['reference']['scope'];command=event['command']
             current_root=self.root(event)
             if original_root is None:original_root=current_root
-            else:need(same(original_root,current_root))
-            inputs.native_command(command,event['controlId']);need(scope['processId']==self.pid and command['commandId'] not in commands);commands.add(command['commandId'])
+            elif self._root_is_stable:need(same(original_root,current_root))
+            self._input_source.native_command(command,event['controlId']);need(scope['processId']==self.pid and command['commandId'] not in commands);commands.add(command['commandId'])
             expected=dict(schemaVersion=1,commandId=command['commandId'],instance=scope['instance'],sequence=scope['sequence']+1,
                 observedElapsedMs=scope['elapsedMs'],fieldToken=row['token'],operation=command['operation'])
             if command['operation']=='replace':
-                need(row['focused'] and (row['snapshotNameOwned'] or row['snapshotNameSha256']==capture.EMPTY));expected['text']=command['text']
-                need(command['text']=='' or command['text'].startswith('parity-'+self.run[:16]+'-'))
+                self.replace_reference(event,row);expected['text']=command['text']
             need(same(command,expected))
             if previous is not None:need(scope['instance']==previous['instance'] and scope['sequence']>=previous['sequence']
                 and scope['elapsedMs']>=previous['elapsedMs'] and scope['sampleEpochMs']>=previous['sampleEpochMs'])
@@ -109,7 +111,7 @@ class SnapshotInputOwner:
             else:need(event['receipt'] is None and event['proof'] is None and index==len(state['events']))
             if event['proof'] is not None:
                 proof=self.proof_store();frame=proof.read(proof.expand(event['proof']));exact(frame,{'packet'})
-                actual=inputs.delivered(frame['packet'],command,event['controlId'],self.root(event));need(same(actual['originalReceipt'],event['receipt']))
+                actual=self._input_source.delivered(frame['packet'],command,event['controlId'],self.root(event));need(same(actual['originalReceipt'],event['receipt']))
         for key,value in state['storage'].items():
             need(type(key) is str and key.isdigit() and 1<=int(key)<=len(state['events']));self.proof_store().original(value);need(value['index']==int(key))
         return state
@@ -125,6 +127,14 @@ class SnapshotInputOwner:
     def root(event):
         row=reference(event['reference'],event['controlId']);return dict(rootId=row['snapshotRootId'],qmlSource=row['snapshotQmlSource'])
 
+    def replace_reference(self,event,row):
+        need(row['focused'] and (row['snapshotNameOwned'] or row['snapshotNameSha256']==capture.EMPTY))
+        text=event['command']['text'];need(text=='' or text.startswith('parity-'+self.run[:16]+'-'))
+
+    def check_current(self,event):
+        module=capture if event['controlId'] in capture.IDS else export
+        module.same_reference(event['reference'],module.project(self.native.capture()),event['controlId'])
+
     def current(self):
         self.bound();need(self.state['events']);return self.state['events'][-1]
 
@@ -135,19 +145,18 @@ class SnapshotInputOwner:
 
     def reserve(self,control,original,*,operation='activate',text=None):
         self.bound();need(not self.state['events'] or self.state['events'][-1]['phase']=='delivered');need(len(self.state['events'])<128)
-        row=reference(original,control);scope=original['scope'];command=dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=scope['instance'],
+        row=self._reference(original,control);scope=original['scope'];command=dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=scope['instance'],
             sequence=scope['sequence']+1,observedElapsedMs=scope['elapsedMs'],fieldToken=row['token'],operation=operation)
         if operation=='replace':command['text']=text
         else:need(text is None)
-        inputs.native_command(command,control)
+        self._input_source.native_command(command,control)
         self.state['events'].append(dict(index=len(self.state['events'])+1,phase='reserved',controlId=control,reference=deepcopy(original),
             command=command,receipt=None,proof=None));self.save();return deepcopy(command)
 
     def send(self):
         event=self.current()
         if event['phase']!='reserved':raise SnapshotInputPending('Retained Snapshot input cannot be sent again')
-        module=capture if event['controlId'] in capture.IDS else export
-        module.same_reference(event['reference'],module.project(self.native.capture()),event['controlId'])
+        self.check_current(event)
         # Persist issued before crossing the existing ordinary Qt transport.
         event['phase']='issued';self.save();self.native.deliver(deepcopy(event['command']))
         actual=deepcopy(self.native.last_receipt);receipt(actual,event['command'],self.pid,event['reference']['scope']['sampleEpochMs'])
@@ -170,8 +179,8 @@ class SnapshotInputOwner:
             if saved['phase']=='opened':saved=dict(saved,phase='saved');self.storage('original',saved)
             proof=store.compact(saved)
         else:
-            actual=inputs.delivered(packet,event['command'],event['controlId'],self.root(event))
+            actual=self._input_source.delivered(packet,event['command'],event['controlId'],self.root(event))
             proof=self.proof_store(live=True).write(event['index'],dict(packet=deepcopy(packet)))
-        actual=inputs.delivered(packet,event['command'],event['controlId'],self.root(event))
+        actual=self._input_source.delivered(packet,event['command'],event['controlId'],self.root(event))
         event.update(phase='delivered',receipt=deepcopy(actual['originalReceipt']),proof=proof);self.save()
         return dict(productOutcomeRequired=True)

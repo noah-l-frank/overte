@@ -277,6 +277,15 @@ class IOSNativeMixin:
         from ios.adapters.lifecycle_originals import IOSLifecycleSources
         return IOSLifecycleSources(IOSScriptRuntime(self)._sources(selector),run)
 
+    def _lifecycle_inputs(self,selector):
+        from ios.adapters.script_runtime import IOSScriptRuntime
+        sources=IOSScriptRuntime(self)._sources(selector)
+        return sources['observer'].lifecycle_inputs(clock_source=sources['clock_source'])
+
+    def _lifecycle_input_runtime(self):
+        from ios.adapters.lifecycle_input_runtime import IOSLifecycleInputRuntime
+        return IOSLifecycleInputRuntime(self)
+
     def _web_dom(self,selector):
         manager=self._scripts(selector);native=manager.ui.io.native
         return FeatureObservation(native.client,native.session,native.target,native.observe_process).web_dom()
@@ -375,6 +384,8 @@ class IOSNativeMixin:
         return state is None or all(key not in state for key in ('iosNormalNavigation','iosNormalSnapshot'))
 
     def cleanup_components(self, selector):
+        from ios.adapters.lifecycle_session_owners import ensure_released as ensure_lifecycle_released
+        ensure_lifecycle_released(self,selector)
         from ios.adapters.assets_session_owners import ensure_released as ensure_assets_released
         ensure_assets_released(self,selector)
         chat_error=False

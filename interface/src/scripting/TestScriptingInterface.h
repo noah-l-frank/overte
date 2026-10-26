@@ -203,6 +203,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSAssetsFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAssetsReplies(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSKeyboard(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSLifecycleInputs(const QVariantMap& command);
 #endif
     Q_INVOKABLE QVariantMap featureIOSAvatarState(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSSnapshotExports(const QVariantMap& command);

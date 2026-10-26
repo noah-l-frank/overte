@@ -42,9 +42,10 @@ interrupted parent append and unowned namespace files.
 
 ## Resume checkpoint
 
-This packet is complete as a source-history component. Next connect it to the
-durable ordinary page-navigation and input recipes, including their uncertain
-return recovery. The reader currently returns historical partial editor facts;
+This packet is complete as a source-history component. The later
+[normal field/Back input owner](LIFECYCLE_NORMAL_INPUT.md) supplies durable input
+and uncertain-return recovery. Next connect both to ordinary page-navigation
+and the complete held-input/lifecycle recipes. The reader returns historical partial editor facts;
 it is not a complete feature observer or input coordinator. Actual world gesture
 attempts, effective drive keys, original 3D grounded position/restoration,
 independent Actor evidence, lifecycle transitions, three-second cleanup and the

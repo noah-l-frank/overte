@@ -108,7 +108,7 @@ class NativePendingCommitOwner:
             started=self.monotonic();need(number(started,0,1e15));previous=started
             if request['operation']!='observe':
                 need(self.intent is not None)
-                self.intent(deepcopy(request)) # Durable owner intent precedes the one actual send.
+                need(self.intent(deepcopy(request)) is not False) # Durable owner intent precedes the one actual send.
                 need(self.guard() is not False)
             self.send(deepcopy(request))
             for attempt in range(51):

@@ -88,6 +88,12 @@ class Boundary:
 
 
 class PendingCommitOwnerTests(unittest.TestCase):
+    def test_refused_durable_intent_never_sends_original_native_input(self):
+        boundary=Boundary();owner=boundary.owner();owner.read(RUN);count=len(boundary.commands)
+        owner.intent=lambda command:False
+        with self.assertRaises(NativeUIError):owner.operate(RUN,'focus')
+        self.assertEqual(count,len(boundary.commands));self.assertFalse(boundary.focused)
+
     def test_actual_source_receipts_are_retained_across_new_context_attempt_and_cleanup(self):
         boundary=Boundary();owner=boundary.owner()
         owner.focus(RUN);owner.type_owned(RUN);held=owner.hold(RUN)

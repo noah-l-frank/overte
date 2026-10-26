@@ -9,6 +9,12 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-lifecycle-inputs": 1,
+    "ios-lifecycle-inputs-acquisition": 1,
+    "ios-lifecycle-input-delivery": 1,
+    "ios-lifecycle-input-owner": 1,
+    "lifecycle-input-proof-frame": 1,
+    "lifecycle-input-proof-original": 1,
     "snapshot-share-extension-original": 1,
     "snapshot-share-query-owner": 1,
     "snapshot-share-query-frame": 1,

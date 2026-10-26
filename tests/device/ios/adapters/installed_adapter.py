@@ -9,6 +9,7 @@ import stat
 
 from contracts import validate_operation_arguments
 from ios.adapters.assets_session_owners import installed_entry as assets_api_entry,ensure_released as ensure_assets_released
+from ios.adapters.lifecycle_session_owners import installed_entry as lifecycle_api_entry
 from ios.adapters.create_api_clock import installed_entry as create_api_entry
 from ios.adapters.emote_api_entry import installed_entry as emote_api_entry
 from ios.adapters.navigation_api_entry import installed_entry as navigation_api_entry
@@ -299,6 +300,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             need(state.get('processIdentity') == str(actual['pid']))
             return str(actual['pid'])
 
+        @lifecycle_api_entry
         def describe(self, selector):
             ensure_assets_released(self,selector)
             self._candidate_guard(complete=True)
@@ -316,6 +318,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
         @emote_api_entry
         @navigation_api_entry
         @world_web_api_entry
+        @lifecycle_api_entry
         def invoke(self, selector, operation, values):
             validate_operation_arguments(operation,values)
             need(operation not in ('app.install','app.upgrade'))
@@ -402,6 +405,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             finally:
                 self._operation = self._retiring = None
 
+        @lifecycle_api_entry
         def cleanup(self, selector):
             # Inspect the Assets successor before any feature finalization or
             # ordinary SDK teardown. Local client retirement cannot discharge
