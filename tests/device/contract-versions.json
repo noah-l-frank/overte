@@ -588,6 +588,7 @@
     "ios-tablet-web-input-frame": {"current": 1, "reads": [1]},
     "ios-tablet-web-input-original": {"current": 1, "reads": [1]},
     "ios-tablet-web-native-input": {"current": 1, "reads": [1]},
+    "ios-tablet-web-session-end": {"current": 2, "reads": [1, 2]},
     "ios-tablet-web-observer-admission": {"current": 2, "reads": [1, 2]},
     "ios-tablet-web-context": {"current": 1, "reads": [1]},
     "ios-tablet-web-bootstrap-packet": {"current": 1, "reads": [1]},

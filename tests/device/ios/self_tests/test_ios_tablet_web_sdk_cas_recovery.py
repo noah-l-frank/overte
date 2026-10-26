@@ -77,5 +77,23 @@ class TabletSDKCASRecoveryTests(unittest.TestCase):
             self.assertEqual(os_queries,self.f.os.queries);self.assertIsNotNone(self.f.sdk_store.read())
             self.assertIsNotNone(self.f.fixture.store.read());self.assertTrue(self.f.server.present)
 
+    def test_returned_present_OS_original_keeps_its_higher_counter_floor_across_reconstruction(self):
+        with self.f.lock.held():
+            owner=self.f.owner();owner.prepare();floor=owner.state['osOriginal']['sequence'];high=floor+1000
+            def present(value):
+                value['sequence']=high;value['pidChecks'][0]['running']=True
+            self.f.os.mutate=present
+            with self.assertRaises(NativeUIError):owner.advance()
+            self.assertEqual(high,self.f.os.original['sequence']);self.assertTrue(self.f.server.present)
+            self.assertEqual(0,sum(method=='DELETE' for method,_path in self.f.server.calls))
+            self.f.os.mutate=None;self.f.os.sequence=floor
+            # A different nonce cannot legitimize a counter behind the valid
+            # returned original which just prevented deletion. No retry may
+            # forget that source floor and turn a regressed packet into absence.
+            with self.assertRaises(NativeUIError):self.f.owner().advance()
+            self.assertTrue(self.f.server.present)
+            self.assertEqual(0,sum(method=='DELETE' for method,_path in self.f.server.calls))
+            self.assertIsNotNone(self.f.sdk_store.read());self.assertIsNotNone(self.f.fixture.store.read())
+
 
 if __name__=='__main__':unittest.main()

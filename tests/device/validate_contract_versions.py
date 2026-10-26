@@ -666,6 +666,7 @@ REQUIRED = {
     "ios-tablet-web-input-frame": 1,
     "ios-tablet-web-input-original": 1,
     "ios-tablet-web-native-input": 1,
+    "ios-tablet-web-session-end": 2,
     "ios-tablet-web-observer-admission": 2,
     "ios-tablet-web-context": 1,
     "ios-tablet-web-bootstrap-packet": 1,

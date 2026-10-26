@@ -13,6 +13,7 @@ from pathlib import Path
 from threading import Thread
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 from adapters.native_clock_join import digest
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_feature.lock import ScriptSourceLock
@@ -60,14 +61,13 @@ class TabletSessionEndTests(unittest.TestCase):
         self.process.originals_unchanged=lambda:None  # Prior full seal/lease is an explicit model in these transport tests.
         self.process.os_archive=lambda role,value:{'testOnlyPriorOSOwner':True}
         self.process.os_rows=lambda role,value:[dict(mode='observed',**deepcopy(self.prior))]
+        transport=patch('ios.adapters.tablet_web_session_end.IOSGraphicsRuntime._retired_process_observer',
+            side_effect=lambda *_args:self.os.reader())
+        transport.start();self.addCleanup(transport.stop)
     def owner(self):
         owner=TabletWebSessionEnd(self.process)
         owner.prior_os=lambda:deepcopy(self.prior)
-        def actual_modeled_os():
-            reader=self.os.reader();prior=self.prior if owner.state is None else owner.state['osHistory'][-1]
-            reader.last,reader.acquisition=deepcopy(prior['original']),deepcopy(prior['acquisition'])
-            raw=reader.read();return raw,deepcopy(reader.acquisition)
-        owner.os_current=actual_modeled_os;return owner
+        return owner
     def test_actual_DELETE_is_once_then_actual_GET404_precedes_exact_local_CAS(self):
         with self.lock.held():
             owner=self.owner();value=owner.advance();self.assertEqual('complete',owner.state['phase'])

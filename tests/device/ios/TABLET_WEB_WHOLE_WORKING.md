@@ -565,3 +565,64 @@ The new SDK and canonical test modules import their existing TestCase fixtures
 as modules, avoiding incidental duplicate exports of those older test classes.
 The final explicit selection of their nine own cases passes in 2.747s; no test
 discovery was run. Its log is `sdk-cas-fixture-final.log`.
+
+## Small two-host Stop/OS/SDK/worker suffix
+
+A new single component connects the existing real loopback transport fixture
+to unchanged ProcessEnd prepare/Stop, two actual host-process OS ledgers,
+SessionEnd deletion/CAS and the Actor's own worker retirement marker. Both
+hosts obtain their own original phase-floor response; the fixture retirement
+reply is genuine. Actual host PIDs are distinct and must match every role
+issuer. Each role has at least three original OS samples before SDK deletion.
+Exactly one normal Stop and one SDK DELETE occur. Repeated SDK completion and
+the worker's later historical reads send no SDK/OS/native request.
+
+The earlier complete native Tablet seal is an explicitly non-production
+`componentPriorNativeSealVersion` marker. No full Native/Tablet graph, native
+timing or whole canonical Finalarchive is created or qualified. The OS and
+native producers/clocks remain the existing separate host models. This
+qualifies the connected suffix mechanics, not Feature 7 or the 5/14 count.
+The first case passes in 2.776s (`end-suffix.log`), with retained originals at
+`.ios-host-tmp/tablet-web-field-revalidation-h3___q3h/tmp98egg4en`.
+
+## SessionEnd v2 owns every current OS query
+
+The smaller boundary exposed a real failure in the previous SessionEnd:
+a valid higher-counter original reporting a still-running PID was rejected
+before retention. Rebuilding then forgot that source floor and could accept
+a lower-counter original and delete the SDK. The exact pre-fix counterexample
+fails in 0.588s in `sdk-os-floor-before.log`.
+
+New SessionEnd writers use version 2; versions 1 and 2 remain literal readable
+formats. The existing parent WAL stores `preparing-os`, the original actual OS
+query ID and host-before intent before transmission. A slow journal remains
+inside the original 1.5s send/acquisition budget; that budget is never restarted.
+Returned original packets and their acquisition clocks, including valid
+presence, are saved unchanged. Presence sets a derived blocked flag and
+prevents more end input. Lost or invalid returns keep the original pending
+query and cannot trigger a query/DELETE retry after reconstruction.
+
+A returned packet saved before an acknowledgement loss is adopted without
+recapturing it. An unsaved packet leaves its issued query owned and blocking.
+Only a distinct, still-unissued pre-DELETE current check may follow a recovered
+successful preparation. Boolean/forged blocked metadata cannot relabel actual
+presence as absence. The fixture now injects the underlying original reader
+factory, allowing the actual production query-WAL path to execute.
+
+Completed v1 archives stay read-only and byte/inode-identical. An existing v1
+uncertain DELETE may reconcile GET/404 and exact local metadata CAS without
+another DELETE or OS query; its literal v1 envelope is retained. Unissued v1
+preparations have no v2 query responsibility proof and gain no new OS/DELETE
+authority. No old clock, original or state is silently upgraded.
+
+The focused selections qualify 19 distinct OS-WAL/legacy/SDK cases: eighteen
+pass in 10.048s (`sdk-os-v2-qualified.log`), and the added invalid-return case
+passes in the final three-case selection (3.879s, `sdk-os-v2-suffix.log`). That
+selection also rechecks the slow-write deadline and the connected two-host
+suffix with v2. Its actual originals remain at
+`.ios-host-tmp/tablet-web-field-revalidation-h3___q3h/tmpaoja3arz`. No complete
+Finalarchive or full journey follows from these components.
+
+The explicit registry key is `ios-tablet-web-session-end`, writer 2 with reads
+1 and 2. No Finalizer architecture, cache, complete capability, product source
+pin, native compilation or input/transport deadline changed.
