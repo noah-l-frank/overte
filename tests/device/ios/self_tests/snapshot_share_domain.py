@@ -24,6 +24,7 @@ from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.phase_fixture import PhaseFixtureReader
 from feature_journeys.witness import Client
 from ios.adapters import normal_input,snapshot_share_original
+from ios.adapters.snapshot_share_retirement import FILES
 from ios.adapters.installed_code import SDK
 from ios.adapters.snapshot_photos_context import PhotosClientContext
 from ios.adapters.snapshot_share_owner import IOSSnapshotShareOwner
@@ -75,6 +76,7 @@ class WDAView:
 class ShareArchiveDomain(ShareQueryDomain):
     def __init__(self,case,flow):
         self.flow=flow;self.ui=None;self.job=None;self.read_ref=None;self.held_reads=[];self.hold_read=False;self.read_count=0;self.import_count=0;self.chunk_count=0
+        self.retire_count=0;self.retirement=None;self.retirement_fail_after=None;self.retirement_seen=set();self.retirement_pins=None;self.retirement_start=None
         super().__init__(case,archive_pid=85,physical_selector=DEVICE,admission_ticket='f'*32,prepare_metadata=False)
         self.ui=WDAView(flow,'archive',self.scope['sessionId']);self.group=self.root/'AppGroup';self.group.mkdir(mode=0o700)
         self.node.call('mode',value='absent')
@@ -149,6 +151,11 @@ class ShareArchiveDomain(ShareQueryDomain):
         raw=target.read_bytes();self.flow.advance();self.imported=dict(intent,phase='complete',clockAfter=self.clock(),originalMetadataSha256=hashlib.sha256(metadata).hexdigest(),
             byteCount=target.stat().st_size,sha256=hashlib.sha256(raw).hexdigest(),artifactRevision=revision(target))
         path=self.archive_run/'import-original.json';path.write_text(json.dumps(self.imported,indent=1)+'\n');path.chmod(0o600)
+        self.retirement_pins=[]
+        for role,name in FILES:
+            path=(self.group_run if role=='group' else self.archive_run)/name;raw=path.read_bytes()
+            self.retirement_pins.append(dict(root=role,name=name,revision=revision(path),sha256=hashlib.sha256(raw).hexdigest(),byteCount=len(raw)))
+        self.retirement_parent_pins={role:(root.parent.stat().st_dev,root.parent.stat().st_ino) for role,root in (('group',self.group_run),('archive',self.archive_run))}
     def chunk(self,view):
         self.chunk_count+=1;nonce=view.fields['snapshot.share.archive.query'];offset=int(view.fields['snapshot.share.archive.offset']);path=self.archive_run/'original.bytes'
         need(revision(path)==self.imported['artifactRevision']);before=self.clock()
@@ -157,6 +164,52 @@ class ShareArchiveDomain(ShareQueryDomain):
             clockDomain='native-share-archive',clockBefore=before,clockAfter=self.clock(),revision=revision(path),byteCount=self.imported['byteCount'],sha256=self.imported['sha256'],
             offset=offset,eof=offset+len(raw)==self.imported['byteCount'],readerClosed=True,data=base64.b64encode(raw).decode())
         output=self.documents/'snapshot-share-chunk.json';output.write_text(json.dumps(packet));output.chmod(0o600)
+    def retirement_clock(self):
+        if self.retirement_start is None:self.retirement_start=(self.clock(),REAL_MONOTONIC())
+        initial,began=self.retirement_start;elapsed=int((REAL_MONOTONIC()-began)*1000)
+        return {key:value+elapsed for key,value in initial.items()}
+    def retire(self,view):
+        self.retire_count+=1;need(self.retirement is None);nonce=view.fields['snapshot.share.archive.query']
+        metadata=(self.archive_run/'original-extension.json').read_bytes();import_raw=(self.archive_run/'import-original.json').read_bytes()
+        self.retirement=dict(snapshotShareRetirementVersion=1,runId=RUN,instance=self.imported['instance'],processId=self.pid,bundleId=BUNDLE,
+            clockDomain='native-share-archive',originalMetadataSha256=hashlib.sha256(metadata).hexdigest(),importOriginalSha256=hashlib.sha256(import_raw).hexdigest(),
+            groupRootIdentity=self.imported['groupRootIdentity'],archiveRootIdentity=self.imported['archiveRootIdentity'],files=deepcopy(self.retirement_pins),
+            requestId=nonce,clockBefore=self.retirement_clock(),clockAfter=None,steps=[],complete=False,readersClosed=False)
+        path=self.documents/'snapshot-share-retire-intent.json';fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        with os.fdopen(fd,'w') as output:json.dump(self.retirement,output);output.flush();os.fsync(output.fileno())
+        valid=True
+        for role,root in (('group',self.group_run),('archive',self.archive_run)):
+            valid=valid and root_identity(root)==self.imported['groupRootIdentity' if role=='group' else 'archiveRootIdentity']
+            valid=valid and set(os.listdir(root))=={name for kind,name in FILES if kind==role}
+        for pin in self.retirement_pins:
+            path=(self.group_run if pin['root']=='group' else self.archive_run)/pin['name']
+            valid=valid and revision(path)==pin['revision'] and hashlib.sha256(path.read_bytes()).hexdigest()==pin['sha256']
+        self.retirement['readersClosed']=valid
+        for pin in self.retirement_pins:
+            if not valid:break
+            root=self.group_run if pin['root']=='group' else self.archive_run;path=root/pin['name'];valid=revision(path)==pin['revision']
+            if valid:path.unlink()
+            self.retirement['steps'].append(dict(sequence=len(self.retirement['steps'])+1,kind='unlink',root=pin['root'],name=pin['name'],succeeded=valid,clock=self.retirement_clock()))
+            if self.retirement_fail_after==len(self.retirement['steps']):valid=False
+        for role,root in (('group',self.group_run),('archive',self.archive_run)):
+            if not valid:break
+            valid=not os.listdir(root) and root_identity(root)==self.imported['groupRootIdentity' if role=='group' else 'archiveRootIdentity']
+            if valid:root.rmdir()
+            self.retirement['steps'].append(dict(sequence=len(self.retirement['steps'])+1,kind='rmdir',root=role,name=root.name,succeeded=valid,clock=self.retirement_clock()))
+        self.retirement.update(clockAfter=self.retirement_clock(),complete=valid)
+        path=self.documents/'snapshot-share-retire.json';path.write_text(json.dumps(self.retirement));path.chmod(0o600)
+    def inspect_retirement(self,view):
+        need(self.retirement is not None);nonce=view.fields['snapshot.share.archive.query'];need(nonce not in self.retirement_seen);self.retirement_seen.add(nonce)
+        before=self.retirement_clock();absent={};errors=False
+        for role,root in (('group',self.group_run),('archive',self.archive_run)):
+            parent=root.parent.stat();valid=(parent.st_dev,parent.st_ino)==self.retirement_parent_pins[role]
+            try:root.lstat();absent[role]=False
+            except FileNotFoundError:absent[role]=valid
+            except OSError:errors=True;absent[role]=False
+            errors=errors or not valid
+        packet=dict(snapshotShareRetirementObservationVersion=1,requestId=nonce,runId=RUN,processId=self.pid,clockDomain='native-share-archive',
+            clockBefore=before,clockAfter=self.retirement_clock(),retirement=deepcopy(self.retirement),groupRunAbsent=absent['group'],archiveRunAbsent=absent['archive'],observationErrors=errors)
+        path=self.documents/'snapshot-share-retirement-observation.json';path.write_text(json.dumps(packet));path.chmod(0o600)
 
 
 class SnapshotShareDomain:
@@ -220,6 +273,8 @@ class SnapshotShareDomain:
         if role=='archive':
             if name=='snapshot.share.archive.import':self.archive.import_original(view)
             elif name=='snapshot.share.archive.chunk':self.archive.chunk(view)
+            elif name=='snapshot.share.archive.retire':self.archive.retire(view)
+            elif name=='snapshot.share.archive.retire-inspect':self.archive.inspect_retirement(view)
             else:need(False)
         elif name==SYSTEM_UI['select']['value']:
             if not self.ignore_select:self.receiver_active=True;self.archive.node.call('mode',value='live')

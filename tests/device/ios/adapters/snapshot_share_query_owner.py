@@ -210,8 +210,13 @@ class SnapshotShareQueryOwner:
         row['wire']=None;packet=self.receiver()[0];self.save();return packet
 
     def quiet_result(self):
-        need(len(self.state['quiet'])==3);frames=[];packets=[];receiver=self.receiver()[0]
-        for index in self.state['quiet']:
+        return self.quiet_originals(self.state['quiet'])
+
+    def quiet_originals(self,indices):
+        """Read another closed quiet group without replacing earlier history."""
+        need(type(indices) is list and len(indices)==3);frames=[];packets=[];receiver=self.receiver()[0];old=0
+        for index in indices:
+            need(integer(index,old+1,len(self.state['queries'])));old=index
             frames.append(self.frame(self.state['queries'][index-1])[0]);packet=self.qualified(index)
             source.absent(packet,receiver,self.artifact,self.os_scope['source']);packets.append(packet)
         host_a,host_b=frames[0]['hostAfter'],frames[-1]['hostBefore'];host_clock(host_b,host_a)
@@ -219,7 +224,7 @@ class SnapshotShareQueryOwner:
         need(min(host_b['epochMs']-host_a['epochMs'],host_b['monotonicMs']-host_a['monotonicMs'],
             node_b['epochMs']-node_a['epochMs'],node_b['monotonicMs']-node_a['monotonicMs'])>=3000)
         return dict(snapshotShareExtensionQuietVersion=1,runId=self.run,receiverSha256=digest(receiver),originalPid=receiver['processId'],
-            queryIndices=deepcopy(self.state['quiet']),nodeMilliseconds=node_b['monotonicMs']-node_a['monotonicMs'],
+            queryIndices=deepcopy(indices),nodeMilliseconds=node_b['monotonicMs']-node_a['monotonicMs'],
             hostMilliseconds=host_b['monotonicMs']-host_a['monotonicMs'],historicalOriginalsOnly=True,
             filesystemRetirementRequired=True,wholeFeatureRequired=True)
 

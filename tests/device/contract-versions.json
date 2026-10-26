@@ -1,6 +1,10 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "snapshot-share-retirement": {"current": 1, "reads": [1]},
+    "snapshot-share-retirement-observation": {"current": 1, "reads": [1]},
+    "snapshot-share-files-quiet": {"current": 1, "reads": [1]},
+    "ios-snapshot-share-cleanup": {"current": 1, "reads": [1]},
     "ios-lifecycle-editors": {"current": 1, "reads": [1]},
     "snapshot-share-input-owner": {"current": 1, "reads": [1]},
     "share-input-proof-frame": {"current": 1, "reads": [1]},

@@ -26,7 +26,7 @@ from ios.adapters.tablet_web_admission import installed_forward
 from ios.adapters.snapshot_share_archive_runtime import IOSSnapshotShareArchiveRuntime
 from ios.adapters.snapshot_share_actions import SnapshotShareUIAction
 from ios.adapters.snapshot_share_packets import SnapshotShareInputs,PACKETS
-from ios.adapters import snapshot_exports as exports,snapshot_export_controls as controls,snapshot_share_original as share,snapshot_share_chunks as chunks
+from ios.adapters import snapshot_exports as exports,snapshot_export_controls as controls,snapshot_share_original as share,snapshot_share_chunks as chunks,snapshot_share_retirement as retirement,snapshot_share_process as extension
 from snapshot_observation import inspect_snapshot
 
 
@@ -123,7 +123,8 @@ class IOSSnapshotShareOwner:
                     if row['after'] is not None:self.handoff_original(row)
                 for index,row in enumerate(state['archiveSources'],1):
                     exact(row,{'index','label','path','limit','wire','proof'});need(type(row['index']) is int and row['index']==index and integer(row['limit'],1,720896)
-                        and row['path'] in {'snapshot-share-chunk.json','snapshot-share-'+self.run+'/import-original.json','snapshot-share-'+self.run+'/original-extension.json'})
+                        and row['path'] in {'snapshot-share-chunk.json','snapshot-share-retirement-observation.json'}|{
+                            'snapshot-share-'+self.run+'/'+name+'.json' for name in ('import-intent','import-original','original-extension')})
                     if row['wire'] is not None:
                         self.files.original(row['wire']);need(row['wire']['index']==index and row['proof'] is None)
                         if row['wire']['phase']!='planned':self.archive_source(index)
@@ -131,6 +132,7 @@ class IOSSnapshotShareOwner:
                 for index in state['chunks']:need(integer(index,1,len(state['archiveSources'])));self.archive_source(index)
                 if state['result'] is not None:
                     need(same(state['result'],self.proof()) and any(row['label']=='share-client' and row['after'] is not None for row in state['handoffs']))
+                if state['cleanup'] is not None:self.cleanup_state()
                 allowed={self.store.path,inputs_path}|{self.packet_store(row).path for row in state['slots']}
                 for path in self.root.iterdir():
                     if path.name.startswith(('snapshot-share-','share-native-','share-input-proof-')):need(path in allowed or path in reads)
@@ -207,6 +209,7 @@ class IOSSnapshotShareOwner:
             self.guard()
             if row['plan']['control'] not in ('snapshot.share.archive.retire','snapshot.share.archive.retire-inspect'):self.phase_guard()
             if row['role']=='archive':self.archive.probe(True)
+            if row['plan']['control']=='snapshot.share.archive.retire':self.cleanup_fresh(self.state['cleanup']['groups'][-1][-1])
             if row['role']=='receiver':
                 need(self.state['liveQueries']);index=self.state['liveQueries'][-1];packet=self.queries.qualified(index);need(packet['anchor'] is not None)
                 frame,_=self.queries.frame(self.queries.state['queries'][index-1]);need(0<=self.queries.stamp()['monotonicMs']-frame['hostAfter']['monotonicMs']<3000)
@@ -288,6 +291,9 @@ class IOSSnapshotShareOwner:
         need(type(frame['snapshotShareArchiveFrameVersion']) is int and frame['snapshotShareArchiveFrameVersion']==1 and frame['path']==row['path'])
         host_clock(frame['before']);host_clock(frame['after'],frame['before']);raw=base64.b64decode(frame['raw'],validate=True)
         need(1<=len(raw)<=row['limit'] and base64.b64encode(raw).decode()==frame['raw']);return raw
+    def archive_frame(self,index):
+        self.archive_source(index);row=self.state['archiveSources'][index-1]
+        return self.files.read(row['wire'] if row['proof'] is None else self.files.expand(row['proof']))
     def read_archive(self,label,path,limit):
         rows=[row for row in self.state['archiveSources'] if row['label']==label]
         if rows:row=rows[0];need(row['path']==path and row['limit']==limit)
@@ -295,8 +301,8 @@ class IOSSnapshotShareOwner:
             row=dict(index=len(self.state['archiveSources'])+1,label=label,path=path,limit=limit,wire=None,proof=None);self.state['archiveSources'].append(row);self.save()
         if row['proof'] is not None:return row['index'],self.archive_source(row['index'])
         if row['wire'] is None:
-            before=dict(epochMs=self.epoch_ms(),monotonicMs=self.monotonic()*1000);raw=self.archive_runtime().original_path(path,limit)
-            after=dict(epochMs=self.epoch_ms(),monotonicMs=self.monotonic()*1000)
+            stamp=self.queries.stamp if path=='snapshot-share-retirement-observation.json' else lambda:dict(epochMs=self.epoch_ms(),monotonicMs=self.monotonic()*1000)
+            before=stamp();raw=self.archive_runtime().original_path(path,limit);after=stamp()
             frame=dict(snapshotShareArchiveFrameVersion=1,path=path,before=before,after=after,raw=base64.b64encode(raw).decode());row['proof']=self.files.write(row['index'],frame)
         else:
             self.archive_source(row['index']);wire=row['wire'];need(wire['phase'] in ('opened','saved'))
@@ -403,3 +409,110 @@ class IOSSnapshotShareOwner:
         image=inspect_snapshot(raw,mode='still',file_format='png');need(image['sha256']==result['image']['sha256'])
         return dict(iosSnapshotShareTransferVersion=1,sharedOriginal=original,image=image,hostOriginalRetained=True,
             archiveCleanupRequired=True,extensionQuietRequired=True,captureCleanupRequired=True,nativePresentationCleanupRequired=True,wholeFeatureRequired=True)
+
+    def cleanup_state(self):
+        state=self.state['cleanup'];exact(state,{'intent','groups','retireNonce','after','result'});need(self.state['result'] is not None
+            and type(state['groups']) is list and 1<=len(state['groups'])<=16 and type(state['after']) is list and len(state['after'])<=32)
+        need(type(state['retireNonce']) is str and re.fullmatch('ios-[a-f0-9]{32}',state['retireNonce']))
+        if state['intent'] is not None:retirement.intent(self.archive_source(state['intent']),decode(self.archive_source(self.state['imported']).decode('utf-8')))
+        last=0
+        for group in state['groups']:
+            need(type(group) is list and len(group)<=3)
+            for index in group:
+                need(integer(index,last+1,len(self.queries.state['queries'])));last=index;self.cleanup_absent(index)
+            if len(group)==3:self.queries.quiet_originals(group)
+        for at,row in enumerate(state['after'],1):
+            exact(row,{'index','queryIndex','nonce','before','source','qualified'})
+            need(type(row['index']) is int and row['index']==at and type(row['nonce']) is str and re.fullmatch('ios-[a-f0-9]{32}',row['nonce'])
+                and row['qualified'] in (None,False,True) and (row['qualified'] is None or type(row['qualified']) is bool))
+            if row['queryIndex'] is not None:
+                need(integer(row['queryIndex'],last+1,len(self.queries.state['queries'])));last=row['queryIndex']
+            if row['before'] is not None:host_clock(row['before'])
+            if row['source'] is not None:self.archive_source(row['source'])
+            if row['qualified'] is True:self.cleanup_qualified(row)
+        if state['result'] is not None:need(same(state['result'],self.cleanup_proof()))
+
+    def cleanup_absent(self,index):
+        packet=self.queries.qualified(index);extension.absent(packet,self.queries.receiver()[0],self.queries.artifact,self.queries.os_scope['source']);return packet
+    def cleanup_fresh(self,index):
+        self.cleanup_absent(index);frame,_packet=self.queries.frame(self.queries.state['queries'][index-1]);now=self.queries.stamp();host_clock(now,frame['hostAfter'])
+        need(now['monotonicMs']-frame['hostAfter']['monotonicMs']<3000 and now['epochMs']-frame['hostAfter']['epochMs']<3000);return True
+    def cleanup_observation(self,row):
+        need(row['before'] is not None and row['source'] is not None);raw=self.archive_source(row['source']);value=decode(raw.decode('utf-8'))
+        state=self.state['cleanup'];retirement.observation(value,row['nonce'],state['retireNonce'],decode(self.archive_source(self.state['imported']).decode('utf-8')),
+            self.archive_source(self.state['metadata']),self.archive_source(self.state['imported']),self.archive_source(state['intent']),
+            receiver_bundle_id=self.archive.artifact['extension']['bundle']['bundleId'])
+        actions=[item for item in self.state['actions'] if item['label']=='retirement-inspect-'+str(row['index'])];need(len(actions)==1)
+        action=actions[0];child=self.action(action,True)
+        need(action['journal']==digest(child.previous) and child.state['issued'] and action['plan']['control']=='snapshot.share.archive.retire-inspect'
+            and dict(action['plan']['fields'])=={'snapshot.share.archive.query':row['nonce']})
+        previous=[item for item in state['after'] if item['index']<row['index'] and item['qualified'] is True]
+        if previous:
+            old=decode(self.archive_source(previous[-1]['source']).decode('utf-8'));need(same(value['retirement'],old['retirement']))
+            share.stamp(value['clockBefore'],old['clockAfter'])
+        return value
+    def cleanup_qualified(self,row):
+        value=self.cleanup_observation(row);retirement.qualified(value);self.cleanup_absent(row['queryIndex'])
+        frame=self.archive_frame(row['source']);after=frame['after'];host_clock(frame['before'],row['before']);host_clock(after,row['before'])
+        query_frame,_packet=self.queries.frame(self.queries.state['queries'][row['queryIndex']-1]);host_clock(row['before'],query_frame['hostAfter'])
+        need(after['monotonicMs']-row['before']['monotonicMs']<5500 and after['epochMs']-row['before']['epochMs']<5500
+            and after['monotonicMs']-query_frame['hostAfter']['monotonicMs']<5500
+            and value['clockAfter']['monotonicMs']-value['clockBefore']['monotonicMs']<=after['monotonicMs']-row['before']['monotonicMs']+250);return value
+    def cleanup_proof(self):
+        state=self.state['cleanup'];qualified=[row for row in state['after'] if row['qualified'] is True];need(len(qualified)>=3)
+        selected=qualified[-3:];values=[self.cleanup_qualified(row) for row in selected]
+        files=retirement.quiet(values,[dict(before=row['before'],after=self.archive_frame(row['source'])['after']) for row in selected],self.run)
+        before=self.queries.quiet_originals(state['groups'][-1]);after=self.queries.quiet_originals([row['queryIndex'] for row in selected])
+        need(any(row['label']=='share-retired-client' and row['after'] is not None for row in self.state['handoffs']))
+        presentation=[row for row in self.state['slots'] if row['label'].startswith('retirement-presentation-') and row['qualified'] is True];need(presentation)
+        packet=self.packet_original(presentation[-1]['label']);exports.drained(packet);need(exports.outcome(packet,self.op()['exportId'])['nativeResult']['detail']==dict(status='success',hasError=False))
+        return dict(iosSnapshotShareCleanupVersion=1,runId=self.run,transferSha256=digest(self.proof()),retirementSha256=digest(values[0]['retirement']),
+            extensionBefore=before,extensionAfter=after,fileQuiet=files,hostOriginalRetained=True,sourceJournalRetirementRequired=True,
+            captureCleanupRequired=True,nativePresentationCleanupRequired=True,wholeFeatureRequired=True)
+
+    @operation
+    def cleanup(self):
+        self.guard();need(self.state['result'] is not None)
+        if self.state['cleanup'] is not None and self.state['cleanup']['result'] is not None:
+            self.primary.probe(True);return self.cleanup_proof()
+        if self.state['cleanup'] is None:
+            self.state['cleanup']=dict(intent=None,groups=[[]],retireNonce='ios-'+uuid.uuid4().hex,after=[],result=None);self.save()
+        state=self.state['cleanup'];self.handoff('archive-retirement','archive')
+        if state['intent'] is None:
+            index,raw=self.read_archive('retirement-import-intent','snapshot-share-'+self.run+'/import-intent.json',262144)
+            retirement.intent(raw,decode(self.archive_source(self.state['imported']).decode('utf-8')));state['intent']=index;self.save()
+        issued=[row for row in self.state['actions'] if row['label']=='archive-retire']
+        if not issued or not self.action(issued[0],True).state['issued']:
+            group=state['groups'][-1]
+            if len(group)==3:
+                try:self.cleanup_fresh(group[-1])
+                except NativeUIError:need(len(state['groups'])<16);state['groups'].append([]);group=state['groups'][-1];self.save()
+            while len(group)<3:
+                if group:self.queries.sleep(1.6)
+                rows=self.queries.state['queries'];last=rows[-1] if rows else None
+                label=last['label'] if last is not None and last['phase']!='retained' and last['label'].startswith('retire-before-') else 'retire-before-'+str(len(rows)+1)
+                self.queries.query(label,retired=True);index=self.queries.state['queries'][-1]['index'];self.cleanup_absent(index);group.append(index);self.save()
+            self.queries.quiet_originals(group)
+        self.acted('archive-retire','archive','snapshot.share.archive.retire',[('snapshot.share.archive.query',state['retireNonce'])])
+        while sum(row['qualified'] is True for row in state['after'])<3:
+            rows=state['after']
+            if rows and rows[-1]['qualified'] is None:row=rows[-1]
+            else:
+                if rows:self.queries.sleep(1.6)
+                need(len(rows)<32);row=dict(index=len(rows)+1,queryIndex=None,nonce='ios-'+uuid.uuid4().hex,before=None,source=None,qualified=None);rows.append(row);self.save()
+            if row['queryIndex'] is None:
+                self.queries.query('retire-after-'+str(row['index']),retired=True);row['queryIndex']=self.queries.state['queries'][-1]['index'];self.save()
+            existing=[item for item in self.state['actions'] if item['label']=='retirement-inspect-'+str(row['index'])]
+            inspection_issued=bool(existing and self.action(existing[0],True).state['issued'])
+            if not inspection_issued:
+                try:self.cleanup_fresh(row['queryIndex'])
+                except NativeUIError:row['qualified']=False;self.save();raise SnapshotSharePending('The actual extension remains present, unknown or stale') from None
+            if row['before'] is None:row['before']=self.queries.stamp();self.save()
+            self.acted('retirement-inspect-'+str(row['index']),'archive','snapshot.share.archive.retire-inspect',[('snapshot.share.archive.query',row['nonce'])])
+            if row['source'] is None:
+                index,_raw=self.read_archive('retirement-observation-'+str(row['index']),'snapshot-share-retirement-observation.json',262144);row['source']=index;self.save()
+            try:self.cleanup_qualified(row)
+            except NativeUIError:row['qualified']=False;self.save();raise SnapshotSharePending('Actual native retirement or file/run absence remains unqualified') from None
+            row['qualified']=True;self.save()
+        self.handoff('share-retired-client','primary');self.next_source('retirement-presentation-','exports')
+        state['result']=self.cleanup_proof();self.save();return deepcopy(state['result'])

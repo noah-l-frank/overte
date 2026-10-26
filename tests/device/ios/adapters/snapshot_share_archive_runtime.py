@@ -17,7 +17,8 @@ class IOSSnapshotShareArchiveRuntime(IOSSnapshotShareAdmissionRuntime):
     def check(self):
         super().check();self.archive_admission.bound();return True
     def original_path(self,name,limit):
-        names={'snapshot-share-chunk.json'}|{'snapshot-share-'+self.archive_admission.run+'/'+kind+'.json' for kind in ('import-original','original-extension')}
+        names={'snapshot-share-chunk.json','snapshot-share-retirement-observation.json'}|{
+            'snapshot-share-'+self.archive_admission.run+'/'+kind+'.json' for kind in ('import-intent','import-original','original-extension')}
         need(type(name) is str and name in names
             and type(limit) is int and 1<=limit<=(720896 if name=='snapshot-share-chunk.json' else 262144))
         self.check();encoded=self.client.execute(self.session,'mobile: pullFile',dict(remotePath='@'+self.target['appId']+':documents/'+name))
