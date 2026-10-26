@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "assets-usage-controls": 1,
+    "ios-assets-usage-ui": 1,
     "ios-snapshot-journey-files-owner": 1,
     "ios-snapshot-journey-files-result": 1,
     "ios-lifecycle-pending-owner": 1,
@@ -859,7 +861,7 @@ REQUIRED = {
     "ios-asset-upload-work": 1,
     "asset-file-owner": 1,
     "asset-file-seal": 1,
-    "asset-control": 3,
+    "asset-control": 4,
     "asset-controls": 1,
     "ios-asset-controls": 1,
     "ios-snapshot-manifest-owner": 1,

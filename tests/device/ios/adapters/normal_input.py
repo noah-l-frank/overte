@@ -109,6 +109,12 @@ def observation(value, pid, now_ms=None):
                 or type(value.get('assetControlsVersion')) is not int or value['assetControlsVersion']!=1):
             raise NativeUIError('Native iOS Assets tree source version is invalid')
         tree_inventory(value.get('assetTreeInventory'),pid=pid,ui=value['assetInventory']);fields|={'assetTreeControlsVersion','assetTreeInventory'}
+    if type(value) is dict and 'assetUsageControlsVersion' in value:
+        from ios.adapters.assets_usage_controls import inventory as usage_inventory
+        if (type(value['assetUsageControlsVersion']) is not int or value['assetUsageControlsVersion']!=1
+                or type(value.get('assetTreeControlsVersion')) is not int or value['assetTreeControlsVersion']!=1):
+            raise NativeUIError('Native iOS Assets usage source is invalid')
+        usage_inventory(value.get('assetUsageInventory'),pid=pid,ui=value['assetInventory'],tree=value['assetTreeInventory']);fields|={'assetUsageControlsVersion','assetUsageInventory'}
     if type(value) is dict and 'navigationInventory' in value:
         from ios.adapters.navigation_ui import validate as navigation_inventory
         navigation_inventory(value['navigationInventory']);fields.add('navigationInventory')
@@ -254,6 +260,11 @@ def observation(value, pid, now_ms=None):
                 raise NativeUIError('Native iOS Assets bundle control lacks its original source')
             if control['assetControl']['assetControlVersion']==3 and value.get('assetTreeControlsVersion')!=1:
                 raise NativeUIError('Native iOS Assets tree control lacks its original source')
+            if control['assetControl']['assetControlVersion']==4:
+                from ios.adapters.assets_usage_controls import project as usage_project
+                from adapters.script_feature.history import same as same_usage_original
+                if value.get('assetUsageControlsVersion')!=1 or not same_usage_original(control['assetControl']['usage'],usage_project(value,control['assetControl']['rootId'])):
+                    raise NativeUIError('Native iOS Assets usage control lacks its original source')
             if control['assetControl']['controlId']!=control['id']:raise NativeUIError('Native iOS Assets control identity differs')
         elif type(control) is dict and control.get('id') in TABLET_APP_IDS:
             if value.get('tabletAppControlsVersion')!=1:raise NativeUIError('Native iOS Tablet app source is missing')
@@ -543,10 +554,12 @@ class NativeInput:
         from ios.adapters.assets_controls import project,same_reference,folder
         from ios.adapters.assets_bundle_controls import IDS as BUNDLE_IDS,destination
         from ios.adapters.assets_tree_controls import control_id as tree_control,owned_root
+        from ios.adapters.assets_usage_controls import control_id as usage_control
         if action not in ('activate','replace','submit','select-index') or not asset_control(identifier):
             raise NativeUIError('Native iOS Assets input is invalid')
         row=same_reference(reference,project(self.capture()),identifier)
         if not row['enabled']:raise NativeUIError('Native iOS Assets control is disabled')
+        if usage_control(identifier) and not row['assetControl']['inputReady']:raise NativeUIError('Native iOS Assets usage input is unavailable')
         if action in ('replace','submit') and (identifier not in ('asset-file.folder','assets.destination','assets.rename.path') or not row['focused']
                 or action=='submit' and identifier!='asset-file.folder'):
             raise NativeUIError('Native iOS Assets folder input lacks actual focus')
@@ -560,7 +573,7 @@ class NativeInput:
             sequence=scope['lastSequence']+1,observedElapsedMs=scope['elapsedMs'],fieldToken=row['token'],operation=action)
         if action=='replace':command['text']=text
         if action=='select-index':command['index']=index
-        if (identifier in BUNDLE_IDS or tree_control(identifier)) and not callable(before_send):raise NativeUIError('Native iOS Assets input requires durable ownership')
+        if (identifier in BUNDLE_IDS or tree_control(identifier) or usage_control(identifier)) and not callable(before_send):raise NativeUIError('Native iOS Assets input requires durable ownership')
         if before_send is not None and not callable(before_send):raise NativeUIError('Native iOS Assets intent callback is invalid')
         return self.deliver(command,before_send=None if before_send is None else lambda:before_send(deepcopy(command)))
 

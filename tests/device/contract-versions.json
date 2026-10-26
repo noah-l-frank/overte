@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "assets-usage-controls": {"current": 1, "reads": [1]},
+    "ios-assets-usage-ui": {"current": 1, "reads": [1]},
     "ios-snapshot-journey-files-owner": {"current": 1, "reads": [1]},
     "ios-snapshot-journey-files-result": {"current": 1, "reads": [1]},
     "ios-lifecycle-pending-owner": {"current": 1, "reads": [1]},
@@ -871,7 +873,7 @@
     "ios-asset-upload-work": {"current": 1, "reads": [1]},
     "asset-file-owner": {"current": 1, "reads": [1]},
     "asset-file-seal": {"current": 1, "reads": [1]},
-    "asset-control": {"current": 3, "reads": [1, 2, 3]},
+    "asset-control": {"current": 4, "reads": [1, 2, 3, 4]},
     "asset-controls": {"current": 1, "reads": [1]},
     "ios-asset-controls": {"current": 1, "reads": [1]},
     "ios-snapshot-manifest-owner": {"current": 1, "reads": [1]},

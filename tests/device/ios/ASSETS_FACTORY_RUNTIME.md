@@ -37,6 +37,10 @@ The private runtime methods are:
   Rename, actual primary reselection and confirmed root Delete, joined to fresh
   independent inventories. It retires client inputs while preserving server
   responsibility; see [mapping ownership](ASSETS_MAPPING_TREE.md).
+- `_assets_mapping_with_backend(...)` adds separately owned process/FS originals
+  and exact baseline restoration/worker/native-host quiet to the same upload
+  successor; see [backend restoration](ASSETS_BACKEND_RESTORATION.md). It does
+  not retire old picker phases or enable the whole feature.
 
 A failed or uncertain readback attempts observe/retirement through the exact
 durable read owner. It never repeats a start or cancellation. Secondary cleanup
@@ -58,8 +62,12 @@ installed-bundle/preflight boundaries and producer clocks are explicit models.
 It establishes no compiler, installed device, AssetServer, physical deadline,
 model consumer or oven qualification.
 
-Whole Assets remains partial. Original server blob/meta/worker retirement,
-permission ownership, shared scenario dispatch, Actor publication, baking and
+Whole Assets remains partial. The narrow backend restoration owner is now
+connected; permission ownership, shared scenario dispatch, Actor publication, baking and
 world import/rendering still need their source connections and cleanup
 qualification. Confirmed user-facing mapping absence and client cleanup do not
 supply backend or whole-feature completion.
+
+The later ordinary Usage source is described in [normal usage](ASSETS_NORMAL_USAGE.md).
+Its local FBX upload prerequisite still needs the measured packed-owner storage
+fix without increasing any global limit or changing its input pin.

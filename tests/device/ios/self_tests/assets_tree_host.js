@@ -37,7 +37,7 @@ module.exports=function({vm,fs,assets,treeSource,scope,qt,events,section}) {
     function snapshot() {return {treeRevision:tree.revision,filterText:tree.filterText,selectedPaths:tree.selectedIndexes.map(node=>node.path),
         currentPath:tree.currentIndex?tree.currentIndex.path:'',currentUrl:tree.currentIndex?'atp:'+tree.currentIndex.fullPath:'',
         modelRows:allRows(),rows:tree.rows.map((row,index)=>({index,model:modelRow(row.index),depth:row.depth,selected:tree.selectedKeys.includes(row.key),expanded:row.folder&&!!tree.expanded[row.key]})),
-        renameVisible,renameText:scope.renamePath.text,deleteVisible,canWrite,busy:scope.busy};}
+        renameVisible,renameText:scope.renamePath.text,deleteVisible,canWrite:scope.assetWriteAllowed,busy:scope.busy};}
     function finish(job) {
         const changes=[];let error=mutationError;
         if(!error) {
@@ -100,10 +100,11 @@ module.exports=function({vm,fs,assets,treeSource,scope,qt,events,section}) {
         if(renameVisible)return [{id:'assets.rename.path',focused:renameFocused},{id:'assets.rename.accept'},{id:'assets.rename.cancel'}];
         if(deleteVisible)return [{id:'assets.delete.accept'},{id:'assets.delete.cancel'}];
         return [{id:'assets.upload'},{id:'assets.home'},{id:'assets.refresh'},...tree.rows.map((row,index)=>({id:'assets.tree.row.'+index})),
-            {id:'assets.rename',enabled:canWrite&&!scope.busy&&scope.selectedItemCount===1},{id:'assets.delete',enabled:canWrite&&!scope.busy&&scope.selectedItemCount>0}];
+            {id:'assets.rename',enabled:scope.assetWriteAllowed&&!scope.busy&&scope.selectedItemCount===1},{id:'assets.delete',enabled:scope.assetWriteAllowed&&!scope.busy&&scope.selectedItemCount>0}];
     }
     refresh();
-    return {snapshot,dispatch,controls,publish:rows=>{for(const row of rows)data.set(row.path,{base64:row.base64,status:0,errors:''});},
+    return {snapshot,dispatch,controls,status:(paths,status,errors)=>{for(const path of paths){const row=data.get(path);if(row){row.status=status;row.errors=errors;}}},
+        publish:rows=>{for(const row of rows)data.set(row.path,{base64:row.base64,status:0,errors:''});},
         configure:value=>{if('canWrite' in value){canWrite=value.canWrite;scope.assetWriteAllowed=canWrite;}
             if('deferMappings' in value)defer=value.deferMappings;if('mappingError' in value)mutationError=value.mappingError;
             if(value.completeMappings)while(pending.length){const job=pending.shift();qt.callLater(()=>finish(job));}

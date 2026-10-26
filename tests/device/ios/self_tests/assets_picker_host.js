@@ -72,6 +72,7 @@ const assetScope={busy:false,status:'',pendingBundle:null,bundleRequest:'',selec
     }};
 assetScope.root=assetScope;vm.createContext(assetScope);
 const treeHarness=process.argv[5]?require('./assets_tree_host.js')({vm,fs,assets,treeSource:process.argv[5],scope:assetScope,qt,events:serviceEvents,section}):null;
+const usageHarness=process.argv[6]==='usage'?require('./assets_usage_host.js')({vm,crypto,assets,scope:assetScope,tree:treeHarness,qt,events:serviceEvents,section}):null;
 vm.runInContext(section(assets,'    function uploadClicked(', '    function uploadSingleClicked('),assetScope);
 vm.runInContext(section(assets,'    function uploadBundle(', '    function importUploadedMain('),assetScope);
 function finishUpload(id,error=uploadError){
@@ -97,7 +98,7 @@ function snapshot() {
             {id:'asset-file.select'},{id:'asset-file.cancel'});
     } else if(pageAlive && destinationVisible)controls.push({id:'assets.destination',focused:destinationFocused,fieldText:assetScope.bundleDestination.text},
         {id:'assets.destination.accept'},{id:'assets.destination.cancel'});
-    else if(pageAlive)controls.push(...(treeHarness?treeHarness.controls():[{id:'assets.upload'},{id:'assets.home'}]));
+    else if(pageAlive){const rows=treeHarness?treeHarness.controls():[{id:'assets.upload'},{id:'assets.home'}];controls.push(...(usageHarness?usageHarness.controls(rows):rows));}
     else controls.push({id:editOpen?'assets.open':'assets.menu'});
     const value={pageAlive,pickerAlive,controls,ui:pickerScope?{directory:String(pickerScope.dir),chosen:pickerScope.chosen,
         closing:pickerScope.closing,requestId:pickerScope.requestId,error:pickerScope.error,bundleReview:pickerScope.bundle!==null}:null,
@@ -108,6 +109,7 @@ function snapshot() {
         page:assetScope.pendingBundle?{...assetScope.pendingBundle,primaryIndex:assetScope.pendingBundle.relativePaths.indexOf(assetScope.pendingBundle.primaryPath)}:null,
         destinationVisible,destinationText:assetScope.bundleDestination.text,uploadedPrimaryUrl:assetScope.uploadedPrimaryUrl,serviceEvents};
     if(treeHarness)value.treeInfo=treeHarness.snapshot();
+    if(usageHarness)value.usageInfo=usageHarness.snapshot();
     return value;
 }
 function dispatch(command) {
@@ -132,6 +134,7 @@ function dispatch(command) {
         const original=new RegExp(id.endsWith('accept')?'onAccepted: ([^\\n]+)':'onRejected: ([^\\n]+)').exec(declaration);
         if(!original)throw Error('Original destination handler changed');vm.runInContext(original[1],assetScope);return;
     }
+    if(usageHarness&&usageHarness.dispatch(command))return;
     if(treeHarness&&treeHarness.dispatch(command))return;
     if(!pickerAlive)throw Error('Missing actual picker');
     if(id==='asset-file.bundle-primary'){
@@ -161,6 +164,7 @@ readline.createInterface({input:process.stdin,crlfDelay:Infinity}).on('line',lin
         const command=JSON.parse(line);
         if(command.op==='configure') {
             if(treeHarness)treeHarness.configure(command);
+            if(usageHarness)usageHarness.configure(command);
             if('hold' in command)held=command.hold;if('ignore' in command)ignored=command.ignore;if('lost' in command)lost=command.lost;
             if('initialDirectory' in command)assetScope.currentDirectory=pathToFileURL(command.initialDirectory).href;
             if('allowBundleUploads' in command)allowBundleUploads=command.allowBundleUploads;

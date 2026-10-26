@@ -42,6 +42,7 @@
 #include "../../tests/device/native/IOSAssetUiInventory.h"
 #include "../../tests/device/native/IOSAssetBundleControls.h"
 #include "../../tests/device/native/IOSAssetTreeControls.h"
+#include "../../tests/device/native/IOSAssetUsageControls.h"
 #include "../../tests/device/native/IOSTabletBackControls.h"
 #include "IOSLifecycleFieldControls.h"
 #include "IOSLifecycleNavigation.h"
@@ -78,11 +79,13 @@ QRectF visibleBounds(QQuickItem* item) {
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
 QString assetControl(QQuickItem* item) {
+    const auto usage=overte::e2e::asset_usage_ui::control(item);if (!usage.isEmpty()) {return usage;}
     const auto tree=overte::e2e::asset_tree_ui::control(item);if (!tree.isEmpty()) {return tree;}
     const auto bundle=overte::e2e::asset_bundle_ui::control(item);
     return bundle.isEmpty() ? overte::e2e::asset_ui::control(item) : bundle;
 }
 QJsonObject assetMetadata(QQuickItem* item) {
+    const auto usage=overte::e2e::asset_usage_ui::metadata(item);if (!usage.isEmpty()) {return usage;}
     const auto tree=overte::e2e::asset_tree_ui::metadata(item);if (!tree.isEmpty()) {return tree;}
     const auto bundle=overte::e2e::asset_bundle_ui::metadata(item);
     return bundle.isEmpty() ? overte::e2e::asset_ui::metadata(item) : bundle;
@@ -584,6 +587,8 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     result["assetBundleInventory"]=overte::e2e::asset_bundle_ui::inventory(overte::e2e::IOSAssetUiInventory::shared().retained());
     result["assetTreeControlsVersion"]=1;
     result["assetTreeInventory"]=overte::e2e::asset_tree_ui::inventory(overte::e2e::IOSAssetUiInventory::shared().retained());
+    result["assetUsageControlsVersion"]=1;
+    result["assetUsageInventory"]=overte::e2e::asset_usage_ui::inventory(overte::e2e::IOSAssetUiInventory::shared().retained());
 #endif
     result["loginRootOwnership"]=loginInventory.observation(inventoryComplete);
     result["tabletAppControlsVersion"]=1;
@@ -669,6 +674,8 @@ bool NormalUiInput::press(const QString& controlId, const QString& token) {
                 || overte::e2e::tabletBackControlSource(control)!=_controls.value(controlId).source) {return false;}
     }
     if (controlId.startsWith("assets.") || controlId.startsWith("asset-file.")) {
+        const auto actualAsset=assetMetadata(control);
+        if (actualAsset.value("assetControlVersion")==QJsonValue(4) && actualAsset.value("inputReady")!=QJsonValue(true)) {return false;}
         if (assetControl(control)!=controlId || assetSource(control)!=_controls.value(controlId).source
                 || !overte::e2e::NormalControlUi::ownsPoint(control,control->window(),control->mapToScene(overte::e2e::asset_tree_ui::point(control)))) {return false;}
     }

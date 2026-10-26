@@ -86,6 +86,14 @@ The mapping vertical now refreshes/selects the actual primary and reselects it
 after Rename. Shared checkpoint publication and the remaining original backend/
 consumer outcomes still require the complete coordinator.
 
+The normal checkbox/Add-to-World/model-dialog source route is now connected as
+documented in `ASSETS_NORMAL_USAGE.md`; 47 focused host cases passed. Its exact
+next blocker is local FBX file-owner WAL storage: inline originals for the
+unchanged 25,196-byte pinned input exceed the existing 48 KiB packed envelope.
+Move those originals to bounded immutable segments while retaining literal
+version-1 reads; do not raise limits, alter pins or call isolated seeded-server
+control cases an upload result.
+
 Resume with no source builds, dependency installation, native compilation,
 real services, device/lab runs or capability promotion unless the parent/user
 scope explicitly changes. Coordinate shared files/index and explicit host test

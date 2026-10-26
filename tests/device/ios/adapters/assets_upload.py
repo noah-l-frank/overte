@@ -169,6 +169,9 @@ class OwnedAssetsUpload:
             if 'assetTreeInventory' in previous['ui']:
                 need('assetTreeInventory' in ui);old,new=previous['ui']['assetTreeInventory'],ui['assetTreeInventory']
                 need(old['instance']==new['instance'] and new['sequence']>old['sequence'] and new['capturedEpochMs']>=old['capturedEpochMs'])
+            if 'assetUsageInventory' in previous['ui']:
+                need('assetUsageInventory' in ui);old,new=previous['ui']['assetUsageInventory'],ui['assetUsageInventory']
+                need(old['instance']==new['instance'] and new['sequence']>old['sequence'] and new['capturedEpochMs']>=old['capturedEpochMs'])
 
     def save(self):
         self.guard();need(same(self.store.read(),self.previous))

@@ -40,6 +40,15 @@ Rectangle {
     readonly property var featureAssetDeleteDialog: featureAssetBundleObservation ? deleteDialog : null
     readonly property var featureAssetDeleteAccept: featureAssetBundleObservation ? deleteDialog.standardButton(Dialog.Yes) : null
     readonly property var featureAssetDeleteCancel: featureAssetBundleObservation ? deleteDialog.standardButton(Dialog.No) : null
+    readonly property var featureAssetBakingControl: featureAssetBundleObservation ? assetBakingControl : null
+    readonly property var featureAssetImportButton: featureAssetBundleObservation ? assetImportButton : null
+    readonly property var featureAssetUploadedImportButton: featureAssetBundleObservation ? assetUploadedImportButton : null
+    readonly property var featureAssetModelDialog: featureAssetBundleObservation ? modelDialog : null
+    readonly property var featureAssetModelEditor: featureAssetBundleObservation ? modelUrl : null
+    readonly property var featureAssetModelShape: featureAssetBundleObservation ? shape : null
+    readonly property var featureAssetModelDynamic: featureAssetBundleObservation ? dynamic : null
+    readonly property var featureAssetModelAccept: featureAssetBundleObservation ? modelDialog.standardButton(Dialog.Ok) : null
+    readonly property var featureAssetModelCancel: featureAssetBundleObservation ? modelDialog.standardButton(Dialog.Cancel) : null
     property bool busy: false
     property string status: ""
     property var lifecycle: ({active: true})
@@ -223,7 +232,7 @@ Rectangle {
         Flow {
             Layout.fillWidth: true; spacing: 8
             Button { id: assetRefreshButton; objectName: "assetRefresh"; text: "Refresh"; implicitHeight: 48; onClicked: root.reload() }
-            Button { objectName: "assetImport"; text: "Add to World"; implicitHeight: 48; enabled: root.importAllowed && root.canAddToWorld(root.selectedUrl); onClicked: root.addToWorld() }
+            Button { id: assetImportButton; objectName: "assetImport"; text: "Add to World"; implicitHeight: 48; enabled: root.importAllowed && root.canAddToWorld(root.selectedUrl); onClicked: root.addToWorld() }
             Button { objectName: "assetCopyUrl"; text: "Copy URL"; implicitHeight: 48; enabled: root.selectedUrl.length > 0; onClicked: Window.copyToClipboard(root.selectedUrl) }
         }
         TextField { id: search; objectName: "assetFilter"; placeholderText: "Filter assets and folders"; Layout.fillWidth: true; implicitHeight: 48; onTextChanged: tree.filterText = text }
@@ -231,11 +240,11 @@ Rectangle {
         NativeModelTree { id: tree; objectName: "assetTree"; Layout.fillWidth: true; Layout.fillHeight: true; sourceModel: root.assetProxyModel; folderRole: 257; statusRole: 261 }
         Label { text: root.selectedUrl; color: "#cccccc"; elide: Text.ElideMiddle; Layout.fillWidth: true }
         Label { text: root.updatesCount, root.currentIndex !== null ? String(root.assetProxyModel.data(root.currentIndex, 262) || "") : ""; visible: text.length > 0; color: "#ffaaaa"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-        CheckBox { objectName: "assetBaking"; text: "Use baked version"; enabled: root.assetWriteAllowed && !root.busy && root.bakingAvailable(); checked: root.currentIndex !== null && root.bakingAvailable() && root.assetProxyModel.data(root.currentIndex, 261) !== "Not Baked"; onToggled: root.setBakingEnabled(checked) }
+        CheckBox { id: assetBakingControl; objectName: "assetBaking"; text: "Use baked version"; enabled: root.assetWriteAllowed && !root.busy && root.bakingAvailable(); checked: root.currentIndex !== null && root.bakingAvailable() && root.assetProxyModel.data(root.currentIndex, 261) !== "Not Baked"; onToggled: root.setBakingEnabled(checked) }
         Flow {
             Layout.fillWidth: true; spacing: 8
             Button { objectName: "assetBundleCancel"; text: "Cancel upload"; implicitHeight: 48; visible: !!root.bundleRequest; onClicked: { Assets.cancelUploadBundle(root.bundleRequest); root.status = "Canceling upload; waiting for the current server operation..."; } }
-            Button { objectName: "assetUploadedImport"; text: "Add uploaded model"; implicitHeight: 48; visible: /\.(fbx|obj|gltf|glb|vrm)$/i.test(root.uploadedPrimaryUrl); enabled: root.importAllowed && !root.busy; onClicked: root.importUploadedMain() }
+            Button { id: assetUploadedImportButton; objectName: "assetUploadedImport"; text: "Add uploaded model"; implicitHeight: 48; visible: /\.(fbx|obj|gltf|glb|vrm)$/i.test(root.uploadedPrimaryUrl); enabled: root.importAllowed && !root.busy; onClicked: root.importUploadedMain() }
             Button { objectName: "assetUpload"; text: "Upload with companions"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy; onClicked: root.uploadClicked() }
             Button { objectName: "assetSingleUpload"; text: "Upload one file"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy; onClicked: root.uploadSingleClicked() }
             Button { id: assetRenameButton; objectName: "assetRename"; text: "Rename"; implicitHeight: 48; enabled: root.assetWriteAllowed && !root.busy && root.selectedItemCount === 1; onClicked: { renamePath.text = root.selectedPath; renameDialog.open(); } }
