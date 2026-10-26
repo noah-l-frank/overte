@@ -90,5 +90,11 @@ after admission-reader closure, and retains their original byte joins through
 one readonly normal input. All six files still require conditional retirement;
 this inventory does not enable whole Snapshot acceptance.
 
+The [conditional source retirement](../SNAPSHOT_SHARE_SOURCE_RETIREMENT.md)
+then removes exactly those six pinned files and its own exclusive final intent.
+Actual unlink/sync/absence results and fresh native-file/Node/host quiet windows
+remain separate original proofs. Process/SDK retirement and the complete outer
+Snapshot journey are still required.
+
 The standalone packaging uses CMake's [App Extension embed phase](https://cmake.org/cmake/help/latest/prop_tgt/XCODE_EMBED_type.html)
 and Xcode's explicit [Info.plist build setting](https://developer.apple.com/documentation/xcode/build-settings-reference).

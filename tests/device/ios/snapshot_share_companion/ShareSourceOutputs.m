@@ -10,6 +10,10 @@
 #include <unistd.h>
 
 static NSArray* OVTSourceNames(void) {return @[@"snapshot-share-chunk.json",@"snapshot-share-retire-intent.json",@"snapshot-share-retire.json",@"snapshot-share-retirement-observation.json"];}
+static NSString* const OVTSourceFinalIntent=@"snapshot-share-source-retire-intent.json";
+static NSArray* OVTSourceAllNames(void) {
+    return [@[@"snapshot-share-companion-identity.json",@"snapshot-share-companion-clock.json"] arrayByAddingObjectsFromArray:OVTSourceNames()];
+}
 static NSString* OVTSourceSHA(NSData* bytes) {
     unsigned char raw[CC_SHA256_DIGEST_LENGTH];CC_SHA256(bytes.bytes,(CC_LONG)bytes.length,raw);NSMutableString* hash=[NSMutableString new];
     for (NSUInteger at=0;at<sizeof(raw);++at) {[hash appendFormat:@"%02x",raw[at]];}return hash;
@@ -34,8 +38,9 @@ static NSDictionary* OVTSourcePin(int parent,NSString* name,NSString* identity) 
     if (file>=0 && close(file)!=0) {valid=NO;}if (!valid) {return nil;}
     return @{@"name":name,@"revision":OVTShareFileRevision(before),@"sha256":OVTSourceSHA(bytes),@"byteCount":@(bytes.length),@"parentIdentity":identity};
 }
-static BOOL OVTSourceCensus(int parent) {
-    NSMutableSet* expected=[NSMutableSet setWithArray:OVTSourceNames()];[expected addObjectsFromArray:@[@"snapshot-share-companion-identity.json",@"snapshot-share-companion-clock.json"]];
+static BOOL OVTSourceCensusMask(int parent,NSUInteger mask) {
+    if (mask>127) {return NO;}NSArray* names=[OVTSourceAllNames() arrayByAddingObject:OVTSourceFinalIntent];NSMutableSet* expected=[NSMutableSet new];
+    for (NSUInteger index=0;index<names.count;++index) {if (mask&(1U<<index)) {[expected addObject:names[index]];}}
     int cursor=openat(parent,".",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);if (cursor<0) {return NO;}
     DIR* reader=fdopendir(cursor);if (!reader) {close(cursor);return NO;}NSMutableSet* seen=[NSMutableSet new];BOOL valid=YES;
     errno=0;struct dirent* entry;NSUInteger count=0;NSTimeInterval began=NSProcessInfo.processInfo.systemUptime;
@@ -49,6 +54,19 @@ static BOOL OVTSourceCensus(int parent) {
     }
     if (errno) {valid=NO;}if (closedir(reader)!=0) {valid=NO;}return valid && [seen isEqual:expected];
 }
+static BOOL OVTSourceCensus(int parent) {return OVTSourceCensusMask(parent,63);}
+static NSDictionary* OVTSourceExclusiveIntent(int directory,NSData* bytes,NSString* parent) {
+    int file=openat(directory,OVTSourceFinalIntent.UTF8String,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);
+    BOOL valid=file>=0 && bytes.length>0 && bytes.length<=262144;NSUInteger offset=0;struct stat written;
+    while (valid && offset<bytes.length) {
+        ssize_t count=write(file,(const char*)bytes.bytes+offset,bytes.length-offset);if (count<0 && errno==EINTR) {continue;}
+        if (count<=0) {valid=NO;break;}offset+=(NSUInteger)count;
+    }
+    if (file>=0) {if (fsync(file)!=0 || fstat(file,&written)!=0) {valid=NO;}if (close(file)!=0) {valid=NO;}}
+    NSDictionary* pin=valid?OVTSourcePin(directory,OVTSourceFinalIntent,parent):nil;
+    valid=valid && pin && [pin[@"revision"] isEqual:OVTShareFileRevision(written)] && [pin[@"sha256"] isEqual:OVTSourceSHA(bytes)] && fsync(directory)==0;
+    if (!valid) {return nil;}NSMutableDictionary* original=[pin mutableCopy];original[@"data"]=[bytes base64EncodedStringWithOptions:0];return original;
+}
 @interface OVTShareSourceOutputs ()
 @property(nonatomic,strong) NSURL* documents;
 @property(nonatomic,copy) NSString* parent;
@@ -60,6 +78,10 @@ static BOOL OVTSourceCensus(int parent) {
 @property(nonatomic,strong) NSData* inventoryBytes;
 @property BOOL frozen;
 @property BOOL failed;
+@property BOOL retirementIssued;
+@property(nonatomic,strong) NSData* retirementBytes;
+@property(nonatomic,strong) NSData* retirementObservationBytes;
+@property(nonatomic,strong) NSMutableSet* retirementQueries;
 @end
 @implementation OVTShareSourceOutputs
 + (instancetype)shared {
@@ -68,7 +90,7 @@ static BOOL OVTSourceCensus(int parent) {
 - (instancetype)init {
     if ((self=[super init])) {
         self.documents=[NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
-        self.instance=OVTShareID();self.born=OVTShareClock();self.pins=[NSMutableDictionary new];self.originals=[NSMutableDictionary new];struct stat parent;
+        self.instance=OVTShareID();self.born=OVTShareClock();self.pins=[NSMutableDictionary new];self.originals=[NSMutableDictionary new];self.retirementQueries=[NSMutableSet new];struct stat parent;
         self.parent=lstat(self.documents.fileSystemRepresentation,&parent)==0?OVTSourceParent(parent):nil;self.failed=!self.parent;
     }return self;
 }
@@ -150,4 +172,71 @@ static BOOL OVTSourceCensus(int parent) {
     if (!raw || raw.length>262144) {self.failed=YES;return nil;}self.inventoryBytes=raw;return raw;
 }
 - (NSData*)inventoryOriginal {return [NSThread isMainThread]?self.inventoryBytes:nil;}
+- (BOOL)retirementReady {
+    if (![NSThread isMainThread] || !self.frozen || self.failed || self.retirementIssued || !self.inventoryBytes) {return NO;}
+    NSDictionary* inventory=[NSJSONSerialization JSONObjectWithData:self.inventoryBytes options:0 error:nil];
+    return [inventory[@"current"] isEqual:@YES] && [inventory[@"readersClosed"] isEqual:@YES] && [inventory[@"frozen"] isEqual:@YES];
+}
+- (BOOL)parentCurrent:(int)directory {
+    struct stat opened,named;return directory>=0 && fstat(directory,&opened)==0 && [OVTSourceParent(opened) isEqual:self.parent]
+        && lstat(self.documents.fileSystemRepresentation,&named)==0 && [OVTSourceParent(named) isEqual:self.parent];
+}
+- (NSData*)retire:(NSString*)nonce {
+    if (![self retirementReady] || !OVTShareMatch(nonce,@"\\Aios-[a-f0-9]{32}\\z")) {return nil;}
+    NSDictionary* inventory=[NSJSONSerialization JSONObjectWithData:self.inventoryBytes options:0 error:nil];
+    NSDictionary* seal=[NSJSONSerialization JSONObjectWithData:self.sealBytes options:0 error:nil];
+    if ([nonce isEqual:inventory[@"requestId"]] || [nonce isEqual:seal[@"requestId"]]) {return nil;}
+    self.retirementIssued=YES;[self.retirementQueries addObject:nonce];[self.retirementQueries addObject:inventory[@"requestId"]];
+    [self.retirementQueries addObject:seal[@"requestId"]];NSMutableArray* files=[NSMutableArray new];
+    for (NSDictionary* original in inventory[@"outputs"]) {NSMutableDictionary* pin=[original mutableCopy];[pin removeObjectForKey:@"data"];[files addObject:pin];}
+    NSDictionary* imported=[NSJSONSerialization JSONObjectWithData:self.originals[@"snapshot-share-retire.json"] options:0 error:nil];
+    NSMutableDictionary* record=[@{@"snapshotShareSourceRetirementVersion":@1,@"requestId":nonce,@"runId":imported[@"runId"],
+        @"processId":@(getpid()),@"bundleId":NSBundle.mainBundle.bundleIdentifier,@"instance":self.instance,@"sourceInstance":seal[@"instance"],
+        @"sourceBirthClock":self.born,@"inventorySha256":OVTSourceSHA(self.inventoryBytes),@"parentIdentity":self.parent,@"outputs":files,
+        @"clockBefore":OVTShareClock(),@"clockAfter":NSNull.null,@"intent":NSNull.null,@"steps":[NSMutableArray new],
+        @"readersClosed":@NO,@"parentDescriptorClosed":@NO,@"complete":@NO} mutableCopy];
+    int directory=[self openParent];BOOL valid=directory>=0 && OVTSourceCensus(directory) && files.count==6;
+    for (NSDictionary* pin in files) {valid=valid && [pin isEqual:OVTSourcePin(directory,pin[@"name"],self.parent)];}
+    NSData* initial=valid?[NSJSONSerialization dataWithJSONObject:record options:0 error:nil]:nil;
+    NSDictionary* intent=initial?OVTSourceExclusiveIntent(directory,initial,self.parent):nil;
+    valid=valid && intent && [self parentCurrent:directory] && OVTSourceCensusMask(directory,127);
+    if (intent) {record[@"intent"]=intent;}record[@"readersClosed"]=@(valid);
+    NSArray* removal=intent?[files arrayByAddingObject:intent]:files;NSUInteger mask=intent?127:63;
+    for (NSDictionary* pin in removal) {
+        if (!valid) {break;}struct stat named;NSString* name=pin[@"name"];
+        valid=[self parentCurrent:directory] && fstatat(directory,name.UTF8String,&named,AT_SYMLINK_NOFOLLOW)==0
+            && [OVTShareFileRevision(named) isEqual:pin[@"revision"]];
+        BOOL unlinked=valid && unlinkat(directory,name.UTF8String,0)==0;BOOL synchronized=unlinked && fsync(directory)==0;
+        errno=0;int found=unlinked?fstatat(directory,name.UTF8String,&named,AT_SYMLINK_NOFOLLOW):0;
+        BOOL absent=unlinked && found<0 && errno==ENOENT && [self parentCurrent:directory];
+        NSUInteger index=[record[@"steps"] count];if (unlinked) {mask&=~(1U<<index);}
+        [record[@"steps"] addObject:@{@"sequence":@(index+1),@"name":name,@"unlinked":@(unlinked),@"synchronized":@(synchronized),@"absent":@(absent),@"clock":OVTShareClock()}];
+        valid=unlinked && synchronized && absent && OVTSourceCensusMask(directory,mask);
+    }
+    valid=valid && mask==0 && [record[@"steps"] count]==7 && [self parentCurrent:directory] && OVTSourceCensusMask(directory,0);
+    BOOL closed=directory>=0 && close(directory)==0;record[@"parentDescriptorClosed"]=@(closed);record[@"complete"]=@(valid && closed);
+    record[@"clockAfter"]=OVTShareClock();NSData* raw=[NSJSONSerialization dataWithJSONObject:record options:0 error:nil];
+    if (!raw || raw.length>262144) {self.failed=YES;return nil;}self.retirementBytes=raw;return raw;
+}
+- (NSData*)retirementOriginal {return [NSThread isMainThread]?self.retirementBytes:nil;}
+- (NSData*)inspectRetirement:(NSString*)nonce {
+    if (![NSThread isMainThread] || !self.retirementBytes || !OVTShareMatch(nonce,@"\\Aios-[a-f0-9]{32}\\z")
+        || [self.retirementQueries containsObject:nonce] || self.retirementQueries.count>=128) {return nil;}
+    [self.retirementQueries addObject:nonce];NSDictionary* original=[NSJSONSerialization JSONObjectWithData:self.retirementBytes options:0 error:nil];
+    NSDictionary* before=OVTShareClock();int directory=[self openParent];BOOL errors=directory<0;NSMutableArray* files=[NSMutableArray new];
+    for (NSString* name in [OVTSourceAllNames() arrayByAddingObject:OVTSourceFinalIntent]) {
+        struct stat named;errno=0;int found=directory>=0?fstatat(directory,name.UTF8String,&named,AT_SYMLINK_NOFOLLOW):0;
+        BOOL absent=directory>=0 && found<0 && errno==ENOENT;if (found<0 && errno!=ENOENT) {errors=YES;}
+        [files addObject:@{@"name":name,@"absent":@(absent)}];
+    }
+    BOOL empty=directory>=0 && OVTSourceCensusMask(directory,0);errors=errors || ![self parentCurrent:directory];
+    BOOL closed=directory>=0 && close(directory)==0;errors=errors || !closed;
+    NSDictionary* packet=@{@"snapshotShareSourceRetirementObservationVersion":@1,@"requestId":nonce,@"runId":original[@"runId"],
+        @"processId":@(getpid()),@"bundleId":NSBundle.mainBundle.bundleIdentifier,@"instance":self.instance,@"sourceInstance":original[@"sourceInstance"],
+        @"retirementSha256":OVTSourceSHA(self.retirementBytes),@"parentIdentity":self.parent,@"clockBefore":before,@"clockAfter":OVTShareClock(),
+        @"files":files,@"sourceNamespaceEmpty":@(empty),@"observationErrors":@(errors),@"parentDescriptorClosed":@(closed)};
+    NSData* raw=[NSJSONSerialization dataWithJSONObject:packet options:0 error:nil];if (!raw || raw.length>262144) {return nil;}
+    self.retirementObservationBytes=raw;return raw;
+}
+- (NSData*)retirementObservationOriginal {return [NSThread isMainThread]?self.retirementObservationBytes:nil;}
 @end

@@ -9,6 +9,19 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "snapshot-share-source-retirement": 1,
+    "snapshot-share-source-retirement-observation": 1,
+    "snapshot-share-source-files-quiet": 1,
+    "snapshot-share-source-retirement-owner": 1,
+    "snapshot-share-source-files-retired": 1,
+    "snapshot-share-source-retire-ui-action": 1,
+    "snapshot-share-source-retire-ui-output": 1,
+    "share-source-retirement-output-frame": 1,
+    "share-source-retirement-output-original": 1,
+    "snapshot-share-source-retire-inspection-ui-action": 1,
+    "snapshot-share-source-retire-inspection-ui-output": 1,
+    "share-source-absence-output-frame": 1,
+    "share-source-absence-output-original": 1,
     "snapshot-share-source-inventory": 1,
     "snapshot-share-source-inventory-result": 1,
     "snapshot-share-source-inventory-owner": 1,

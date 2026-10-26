@@ -531,6 +531,10 @@ class IOSSnapshotShareOwner:
         from ios.adapters.snapshot_share_inventory_owner import SnapshotShareSourceInventoryOwner
         self.live_guard();return SnapshotShareSourceInventoryOwner(self)
 
+    def source_retirement_owner(self):
+        from ios.adapters.snapshot_share_source_retirement_owner import SnapshotShareSourceRetirementOwner
+        self.live_guard();return SnapshotShareSourceRetirementOwner(self)
+
     @operation
     def cleanup(self):
         self.live_guard();need(self.state['result'] is not None)

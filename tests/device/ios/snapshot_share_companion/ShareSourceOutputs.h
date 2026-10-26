@@ -15,4 +15,9 @@ typedef NS_ENUM(NSUInteger, OVTShareSourceOutput) {
 - (BOOL)inventoryReady;
 - (NSData*)inventory:(NSString*)nonce;
 - (NSData*)inventoryOriginal;
+- (BOOL)retirementReady;
+- (NSData*)retire:(NSString*)nonce;
+- (NSData*)retirementOriginal;
+- (NSData*)inspectRetirement:(NSString*)nonce;
+- (NSData*)retirementObservationOriginal;
 @end

@@ -37,6 +37,30 @@
     return original.length>0 && original.length<=262144?[[NSString alloc] initWithData:original encoding:NSUTF8StringEncoding]:@"";
 }
 @end
+@interface OVTShareSourceRetireButton : UIButton
+@property(nonatomic,strong) OVTShareSourceOutputs* source;
+@end
+@implementation OVTShareSourceRetireButton
+- (BOOL)isEnabled {return [super isEnabled] && self.source.retirementReady;}
+@end
+@interface OVTShareSourceRetireOriginal : UILabel
+@property(nonatomic,strong) OVTShareSourceOutputs* source;
+@end
+@implementation OVTShareSourceRetireOriginal
+- (NSString*)accessibilityValue {
+    NSData* original=self.source.retirementOriginal;
+    return original.length>0 && original.length<=262144?[[NSString alloc] initWithData:original encoding:NSUTF8StringEncoding]:@"";
+}
+@end
+@interface OVTShareSourceRetireObservation : UILabel
+@property(nonatomic,strong) OVTShareSourceOutputs* source;
+@end
+@implementation OVTShareSourceRetireObservation
+- (NSString*)accessibilityValue {
+    NSData* original=self.source.retirementObservationOriginal;
+    return original.length>0 && original.length<=262144?[[NSString alloc] initWithData:original encoding:NSUTF8StringEncoding]:@"";
+}
+@end
 
 @interface OVTShareArchive : UIViewController
 @property(nonatomic,strong) UITextField* runField;
@@ -49,17 +73,20 @@
 @property(nonatomic,strong) OVTShareArchiveRetirement* retirement;
 @property(nonatomic,strong) UILabel* admissionSealOriginal;
 @property(nonatomic,strong) OVTShareSourceOutputs* sources;
+@property(nonatomic,strong) UIStackView* stack;
+- (void)refreshStages;
 @end
 @implementation OVTShareArchive
 - (void)viewDidLoad {
     [super viewDidLoad];self.view.backgroundColor=UIColor.systemBackgroundColor;
     self.sources=OVTShareSourceOutputs.shared;
-    UIStackView* stack=[UIStackView new];stack.axis=UILayoutConstraintAxisVertical;stack.spacing=16;stack.translatesAutoresizingMaskIntoConstraints=NO;
+    UIStackView* stack=[UIStackView new];stack.axis=UILayoutConstraintAxisVertical;stack.spacing=8;stack.translatesAutoresizingMaskIntoConstraints=NO;self.stack=stack;
     [self.view addSubview:stack];[NSLayoutConstraint activateConstraints:@[
         [stack.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor constant:20],
         [stack.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor constant:-20],
         [stack.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:20]]];
-    [stack addArrangedSubview:[OVTSnapshotCompanionIdentityPanel new]];
+    OVTSnapshotCompanionIdentityPanel* identity=[OVTSnapshotCompanionIdentityPanel new];identity.accessibilityIdentifier=@"snapshot.share.archive.admission-panel";
+    [stack addArrangedSubview:identity];
     self.runField=[UITextField new];self.runField.borderStyle=UITextBorderStyleRoundedRect;self.runField.placeholder=@"Completed Share run identifier";
     self.runField.autocorrectionType=UITextAutocorrectionTypeNo;self.runField.autocapitalizationType=UITextAutocapitalizationTypeNone;
     self.runField.accessibilityIdentifier=@"snapshot.share.archive.run";[stack addArrangedSubview:self.runField];
@@ -93,15 +120,46 @@
     [inventory addTarget:self action:@selector(inspectSourceOutputs) forControlEvents:UIControlEventTouchUpInside];[stack addArrangedSubview:inventory];
     OVTShareSourceInventoryOriginal* original=[OVTShareSourceInventoryOriginal new];original.source=self.sources;original.text=@"Original source inventory";
     original.accessibilityIdentifier=@"snapshot.share.archive.source-inventory-original";[stack addArrangedSubview:original];
+    OVTShareSourceRetireButton* retire=[[OVTShareSourceRetireButton alloc] initWithFrame:CGRectZero];retire.source=self.sources;
+    [retire setTitle:@"Retire frozen source files" forState:UIControlStateNormal];[retire setTitleColor:UIColor.systemBlueColor forState:UIControlStateNormal];
+    retire.accessibilityIdentifier=@"snapshot.share.archive.source-retire";
+    [retire addTarget:self action:@selector(retireSourceOutputs) forControlEvents:UIControlEventTouchUpInside];[stack addArrangedSubview:retire];
+    OVTShareSourceRetireOriginal* retired=[OVTShareSourceRetireOriginal new];retired.source=self.sources;retired.text=@"Original source retirement";
+    retired.accessibilityIdentifier=@"snapshot.share.archive.source-retirement-original";[stack addArrangedSubview:retired];
+    UIButton* inspect=[UIButton buttonWithType:UIButtonTypeSystem];[inspect setTitle:@"Inspect source file absence" forState:UIControlStateNormal];
+    inspect.accessibilityIdentifier=@"snapshot.share.archive.source-retire-inspect";
+    [inspect addTarget:self action:@selector(inspectSourceRetirement) forControlEvents:UIControlEventTouchUpInside];[stack addArrangedSubview:inspect];
+    OVTShareSourceRetireObservation* absent=[OVTShareSourceRetireObservation new];absent.source=self.sources;absent.text=@"Original source file absence";
+    absent.accessibilityIdentifier=@"snapshot.share.archive.source-retirement-observation-original";[stack addArrangedSubview:absent];
+    [self refreshStages];
+}
+- (void)refreshStages {
+    BOOL frozen=self.sources.producersFrozen,imported=self.importRecord!=nil;
+    NSSet* initial=[NSSet setWithArray:@[@"snapshot.share.archive.admission-panel",@"snapshot.share.archive.run",@"snapshot.share.archive.import"]];
+    NSSet* transfer=[NSSet setWithArray:@[@"snapshot.share.archive.offset",@"snapshot.share.archive.chunk",@"snapshot.share.archive.retire",@"snapshot.share.archive.retire-inspect",@"snapshot.share.archive.admission-seal"]];
+    for (UIView* view in self.stack.arrangedSubviews) {
+        NSString* name=view.accessibilityIdentifier;
+        if ([initial containsObject:name]) {view.hidden=imported||frozen;}
+        else if ([transfer containsObject:name]) {view.hidden=!imported||frozen;}
+        else if ([name isEqual:@"snapshot.share.archive.query"]) {view.hidden=!imported&&!frozen;}
+        else if ([view isKindOfClass:OVTShareAdmissionSealOriginal.class] || [name hasPrefix:@"snapshot.share.archive.source-"]) {view.hidden=!frozen;}
+    }
 }
 - (void)sealAdmission {
     NSDictionary* original=[OVTSnapshotCompanionIdentity.shared sealArchiveAdmission:self.queryField.text];
     NSData* raw=original?OVTSnapshotCompanionIdentity.shared.archiveAdmissionSealBytes:nil;
     if (original) {[self.sources freezeWithAdmissionSeal:raw];}
+    [self refreshStages];
     self.status.text=raw?@"Original admission close result retained":@"Original admission reader remains owned or unknown";
 }
 - (void)inspectSourceOutputs {
     self.status.text=[self.sources inventory:self.queryField.text]?@"Original frozen source inventory retained":@"Source originals remain owned or unknown";
+}
+- (void)retireSourceOutputs {
+    self.status.text=[self.sources retire:self.queryField.text]?@"Original source retirement retained":@"Source file responsibility remains owned or unknown";
+}
+- (void)inspectSourceRetirement {
+    self.status.text=[self.sources inspectRetirement:self.queryField.text]?@"Original source absence retained":@"Source file absence remains unknown";
 }
 - (void)importOriginal {
     if (self.sources.producersFrozen) {self.status.text=@"Original source producers are sealed";return;}
@@ -162,6 +220,7 @@
             metadata:metadata intent:intentBytes importedBytes:completedBytes sources:self.sources];
     }
     self.status.text=saved?@"Original bytes and unchanged extension ledger exposed in Documents":@"Import result failed; responsibility retained";
+    [self refreshStages];
 }
 - (void)retireOriginal {
     if (self.sources.producersFrozen) {self.status.text=@"Original source producers are sealed";return;}
