@@ -70,6 +70,44 @@ class AvatarFinalPureRoundTests(unittest.TestCase):
         self.owner.locks['actor']=original
         with self.assertRaises(NativeUIError):
             with scope(object(),self.argument):self.fail('Foreign owner admitted')
+    def test_extra_caller_guard_runs_at_admission_and_both_inventory_boundaries(self):
+        calls=[]
+        def guard():calls.append(True);return True
+        with scope(self.owner,self.argument,guard=guard):
+            self.assertGreaterEqual(len(calls),2)
+        self.assertEqual(3,len(calls))
+        with self.assertRaises(NativeUIError):
+            with scope(self.owner,self.argument,guard=lambda:False):self.fail('Changed caller admitted')
+        current=[True]
+        with self.assertRaises(NativeUIError):
+            with scope(self.owner,self.argument,guard=lambda:current[0]):current[0]=False
+    def test_final_source_caller_cannot_change_event_authority_runtime_or_responsibility(self):
+        from types import SimpleNamespace
+        from ios.adapters.avatar_feature import IOSAvatarFeature
+        def feature():
+            value=object.__new__(IOSAvatarFeature)
+            value.root,value.run,value.role=self.owner.root,self.owner.run,self.owner.role
+            value.state=dict(bindings=deepcopy(self.owner.bindings),cleanup=[]);value.previous={'original':True}
+            value.locks=self.owner.locks;value.store=self.owner.store;value.client=self.owner.authority.client
+            value.authority=self.owner.authority;value.selector='primary';value.selectors={'primary':'primary','actor':'actor'}
+            value.policy={};value.phase=SimpleNamespace(fixture_url=value.client.url)
+            path=lambda _selector:self.owner.store.path
+            value.runtime=SimpleNamespace(adapter=SimpleNamespace(state_path=path),state_path=path)
+            return value
+        for fault in ('event','state','selector','policy','endpoint','runtime','path','store','authority'):
+            value=feature();event={'original':[1]};guard=value.final_source_guard(event,self.owner)
+            self.assertTrue(guard())
+            if fault=='event':event['original'].append(2)
+            elif fault=='state':value.state['cleanup'].append({'uncertain':True})
+            elif fault=='selector':value.selector='actor'
+            elif fault=='policy':value.policy['new']=True
+            elif fault=='endpoint':value.phase.fixture_url+='changed'
+            elif fault=='runtime':value.runtime=SimpleNamespace(adapter=value.runtime.adapter,state_path=value.runtime.state_path)
+            elif fault=='path':value.runtime.adapter.state_path=lambda _selector:self.owner.store.path
+            elif fault=='store':value.store=PrivateFeatureState(value.store.path)
+            else:value.authority=AvatarAuthorityReader(value.client,value.run)
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):guard()
+
     def test_profile_cannot_inherit_from_scene_or_emote_and_exception_does_not_leak(self):
         for foreign in (SCENE,EMOTE):
             with self.subTest(profile=foreign),pure_scope(foreign,lambda:True),self.assertRaises(NativeUIError):

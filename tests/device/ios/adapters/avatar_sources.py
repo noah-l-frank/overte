@@ -7,6 +7,7 @@ or storage remains owned; it cannot be replayed as a fresh successful group.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from adapters.pure_original_validation import returning_input
 from pathlib import Path
 import time
 
@@ -130,6 +131,14 @@ class IOSAvatarSources:
         pending[kind]=deepcopy(value);self.save()
 
     def validate_frame(self,frame,previous=None):
+        # Only a literal validation success may be shared by an already
+        # guarded original scope. Actual reads/guards live outside this pure
+        # function, and the caller's ticket-stability result stays fresh.
+        returning_input(self._validate_frame,frame,previous,self.pid,self.run)
+        return frame['phaseBefore']['activations'][-1]['ticket']==frame['phaseAfter']['activations'][-1]['ticket']
+
+    @staticmethod
+    def _validate_frame(frame,previous,pid,run):
         current='avatarSourceGroupVersion' in frame
         exact(frame,{'originals','acquisitions','ui','clockJoin','phaseBefore','phaseAfter'}|({'avatarSourceGroupVersion'} if current else set()))
         if current:need(type(frame['avatarSourceGroupVersion']) is int and frame['avatarSourceGroupVersion']==2)
@@ -138,19 +147,19 @@ class IOSAvatarSources:
         exact(originals,set(channels)|{'native','widgets'})
         acquisitions=frame['acquisitions'];exact(acquisitions,set(channels))
         clock=validate_join(frame['clockJoin'],originals);first,last=clock['nativeBefore'],clock['nativeAfter']
-        need(first['processId']==last['processId']==self.pid)
+        need(first['processId']==last['processId']==pid)
         queries=[first['requestId'],last['requestId'],originals['native']['requestId']]+[originals[name]['requestId'] for name in channels]
         need(len(set(queries))==len(queries))
         if previous:follow_native(previous['clockJoin']['nativeAfter'],first)
         for name,module in channels.items():
             packet=originals[name];need(type(packet) is dict)
-            query=dict(schemaVersion=1,commandId=packet.get('requestId'),action=module.ACTION,runId=self.run)
+            query=dict(schemaVersion=1,commandId=packet.get('requestId'),action=module.ACTION,runId=run)
             prior=previous['originals'].get(name) if previous is not None else None
-            module.validate(packet,query,self.pid,previous=prior)
+            module.validate(packet,query,pid,previous=prior)
             version_key,version=VERSIONS[name];need(type(packet[version_key]) is int
                 and (packet[version_key]==version or name=='state' and packet[version_key]==3
                     or name in ('http','scripts') and packet[version_key]==1))
-            need(packet['processId']==self.pid and packet['runId']==self.run
+            need(packet['processId']==pid and packet['runId']==run
                  and first['capturedEpochMs']<=packet['clockBefore']['epochMs']<=packet['clockAfter']['epochMs']<=last['capturedEpochMs'])
             acquisition=acquisitions[name]
             exact(acquisition,{'hostBeforeMonotonic','hostAfterMonotonic','nativeRequestedEpochMs','nativeAfterEpochMs','originalSha256',ACQUISITIONS[name]})
@@ -160,8 +169,8 @@ class IOSAvatarSources:
                  and packet['clockAfter']['epochMs']<=acquisition['nativeAfterEpochMs']<=last['capturedEpochMs']
                  and number(acquisition['hostBeforeMonotonic'],clock['hostBeforeMonotonic'],clock['hostAfterMonotonic'])
                  and number(acquisition['hostAfterMonotonic'],acquisition['hostBeforeMonotonic'],clock['hostAfterMonotonic']))
-        native_widgets(originals['widgets'],self.pid,originals['widgets']['sampleEpochMs'])
-        need(same(project(originals['widgets']),frame['ui']) and originals['native']['processId']==self.pid)
+        native_widgets(originals['widgets'],pid,originals['widgets']['sampleEpochMs'])
+        need(same(project(originals['widgets']),frame['ui']) and originals['native']['processId']==pid)
         need(originals['people']['source']['tabletShown']==frame['ui']['open'])
         people_pages=[row for row in frame['ui']['controls'] if row['id']=='people.page']
         active_people=[row for row in originals['people']['source']['roots'] if row['active']]
@@ -173,19 +182,19 @@ class IOSAvatarSources:
         if self_rows:need(len(self_rows)==1 and self_rows[0]['sessionId']==originals['state']['source']['sessionId'])
         follow_native(first,originals['native']);follow_native(originals['native'],last)
         for name,host in (('phaseBefore','hostBeforeEpochMs'),('phaseAfter','hostAfterEpochMs')):
-            status=frame[name];phase_packet(status,run=self.run,area='avatar-people',request=status['requestId'],epoch=clock[host])
+            status=frame[name];phase_packet(status,run=run,area='avatar-people',request=status['requestId'],epoch=clock[host])
             need(status['active'] and status['activations'])
-        phase_packet(frame['phaseAfter'],run=self.run,area='avatar-people',request=frame['phaseAfter']['requestId'],
+        phase_packet(frame['phaseAfter'],run=run,area='avatar-people',request=frame['phaseAfter']['requestId'],
             epoch=clock['hostAfterEpochMs'],previous=frame['phaseBefore'])
         need(frame['phaseBefore']['activations'][-1]['activatedEpochMs']<=clock['hostBeforeEpochMs'])
         if previous:
-            phase_packet(frame['phaseBefore'],run=self.run,area='avatar-people',request=frame['phaseBefore']['requestId'],
+            phase_packet(frame['phaseBefore'],run=run,area='avatar-people',request=frame['phaseBefore']['requestId'],
                 epoch=clock['hostBeforeEpochMs'],previous=previous['phaseAfter'])
             left,right=previous['ui']['scope'],frame['ui']['scope']
             need(all(left[key]==right[key] for key in ('instance','generation','processId'))
                  and right['sourceSequence']>left['sourceSequence'] and right['sequence']>=left['sequence']
                  and right['elapsedMs']>=left['elapsedMs'] and right['capturedEpochMs']>=left['capturedEpochMs'])
-        return frame['phaseBefore']['activations'][-1]['ticket']==frame['phaseAfter']['activations'][-1]['ticket']
+        return frame
 
     def restore_readers(self):
         originals=self.frames[-1]['originals']

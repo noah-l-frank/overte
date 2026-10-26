@@ -1535,6 +1535,48 @@ class IOSAvatarFeature:
         need(proof['ticket']==self.state['cleanup'][0]['ticket'] and last['phaseInstance']==self.state['phaseInstance'])
         scene_event=next(row for row in self.state['cleanup'] if row['kind']=='scene');scene=self.scene_archive(scene_event);scene_proof,scene_parts=scene.joined(scene_event['reference'])
         self.paired_image_order(scene,scene_event)
+        if owner.VERSION==2:
+            from ios.adapters.avatar_final_pure_round import scope
+            with scope(owner,event,guard=self.final_source_guard(event,owner)):
+                lifetimes=self.final_source_lifetimes(event,owner,refs,last,scene,scene_event,validate_basis,origin)
+        else:lifetimes=self.final_source_lifetimes(event,owner,refs,last,scene,scene_event,validate_basis,origin)
+        markers=self.final_marker_lifetimes(event,owner,scene_event,scene_parts) if owner.VERSION==2 else {subject:[] for subject in ROLES}
+        resources=self.lifetime_resources(lifetimes,markers);held=resources[self.role]
+        # The legacy complete qualification may not silently discharge an
+        # actual cached Login operand. Only the explicit process-end path can
+        # carry it forward as retained responsibility.
+        need(type(terminal) is bool and (terminal or not any(resources.values())))
+        public=dict(schemaVersion=1,contractVersion=CONTRACT_VERSION,runId=self.run,sequence=proof['sequence'],capturedEpochMs=proof['capturedEpochMs'],
+            state=deepcopy(SCENARIOS['avatar-people']['baseline']),artifacts=[],resources=[row['resource'] for row in held],lifecycle=deepcopy(proof['lifecycle']))
+        result=dict(ticket=proof['ticket'],public=public,acquisition=deepcopy(proof['acquisition']),retirement=dict(originalSha256=proof['originalSha256'],
+            quiet=deepcopy(proof['bilateralQuiet'][self.role]),provenance=deepcopy(proof['provenance'])))
+        return result,lifetimes,markers
+
+    def final_source_guard(self,event,owner):
+        """Exact caller identity for the existing read-only Final2 boundary."""
+        need(type(self) is IOSAvatarFeature and type(event) is dict and owner.VERSION==2
+            and owner.run==self.run and owner.role==self.role and owner.root==self.root
+            and same(owner.bindings,self.state['bindings'])
+            and all(owner.locks[role] is self.locks[role] for role in ROLES))
+        def callable_identity(value):
+            return (id(getattr(value,'__self__',None)),id(getattr(value,'__func__',value)))
+        def identity():
+            return (type(self),type(self.runtime),id(self.runtime),id(self.runtime.adapter),
+                callable_identity(self.runtime.state_path),callable_identity(self.runtime.adapter.state_path),
+                type(self.store),id(self.store),str(self.store.path),type(self.client),id(self.client),self.client.url,
+                id(self.authority),type(self.authority),id(self.authority.client),self.authority.client.url,self.authority.run,
+                tuple((role,id(self.locks[role]),str(self.locks[role].path)) for role in ROLES),
+                digest(dict(root=str(self.root),runId=self.run,role=self.role,selector=self.selector,selectors=self.selectors,
+                    policy=self.policy,fixtureUrl=self.phase.fixture_url,previous=self.previous,state=self.state,event=event)))
+        original=identity()
+        def unchanged():
+            need(type(self) is IOSAvatarFeature and identity()==original)
+            for lock in self.locks.values():lock.assert_held()
+            return True
+        return unchanged
+
+    def final_source_lifetimes(self,event,owner,refs,last,scene,scene_event,validate_basis,origin):
+        """Unchanged original reads and derivations, before peer Scene roots."""
         checkpoint,checkpoint_proof=self.checkpoint_original()
         account_surface=self.account_surface_original()
         for subject in ROLES:
@@ -1559,18 +1601,7 @@ class IOSAvatarFeature:
             basis=validate_basis(dict(binding=self.state['bindings'][subject],receipt=widget,preferences=preferences),origin(self.client.url))
             need(same(basis['preferences'],login['preferences']['preferences']))
         if self.role=='actor':self.actor_logout_order(self.kept(event['inputs'])['actor']['login'])
-        lifetimes=self.final_login_lifetimes(event,owner)
-        markers=self.final_marker_lifetimes(event,owner,scene_event,scene_parts) if owner.VERSION==2 else {subject:[] for subject in ROLES}
-        resources=self.lifetime_resources(lifetimes,markers);held=resources[self.role]
-        # The legacy complete qualification may not silently discharge an
-        # actual cached Login operand. Only the explicit process-end path can
-        # carry it forward as retained responsibility.
-        need(type(terminal) is bool and (terminal or not any(resources.values())))
-        public=dict(schemaVersion=1,contractVersion=CONTRACT_VERSION,runId=self.run,sequence=proof['sequence'],capturedEpochMs=proof['capturedEpochMs'],
-            state=deepcopy(SCENARIOS['avatar-people']['baseline']),artifacts=[],resources=[row['resource'] for row in held],lifecycle=deepcopy(proof['lifecycle']))
-        result=dict(ticket=proof['ticket'],public=public,acquisition=deepcopy(proof['acquisition']),retirement=dict(originalSha256=proof['originalSha256'],
-            quiet=deepcopy(proof['bilateralQuiet'][self.role]),provenance=deepcopy(proof['provenance'])))
-        return result,lifetimes,markers
+        return self.final_login_lifetimes(event,owner)
 
     def final_login_lifetimes(self,event,owner):
         from ios.adapters.avatar_login_lifetime import AvatarLoginLifetime

@@ -41,7 +41,10 @@ source DTO or registered serialized contract changes. Emote and Scene profiles
 keep their identities. Cross-profile inherited reuse is rejected, while the
 inactive default remains unchanged.
 
-Only Final2's pure `parse` and `group` traversals enter this scope. Literal
+The initial packet scoped only Final2's pure `parse` and `group` traversals.
+The subsequent [original terminal witness packet](AVATAR_WITNESS_READ_COST.md)
+also scopes a bounded read-only source/Login section, with an additional exact
+caller identity guard and complete before/after immutable inventories. Literal
 Final1 continues through its original body. The helper requires the actual
 HeldFinal class and both exact already-held source locks, validates its original
 input paths, and inventories every target/artifact root without mutable

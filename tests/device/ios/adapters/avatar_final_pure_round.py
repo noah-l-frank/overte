@@ -25,9 +25,10 @@ def identity(owner):
 
 
 @contextmanager
-def scope(owner,value):
+def scope(owner,value,*,guard=None):
     from ios.adapters.avatar_held_final import IOSAvatarHeldFinal
-    need(type(owner) is IOSAvatarHeldFinal and type(value) is dict)
+    need(type(owner) is IOSAvatarHeldFinal and type(value) is dict and (guard is None or callable(guard)))
+    if guard is not None:need(guard() is not False)
     for lock in owner.locks.values():lock.assert_held()
     original=identity(owner);argument=digest(value);roots={Path(owner.root),owner.store.path.parent}
     for subject in ('primary','actor'):
@@ -39,6 +40,7 @@ def scope(owner,value):
         if not any(root.is_relative_to(parent) for parent in selected):selected.append(root)
     leases=[EmoteOriginalLease(root,[]) for root in selected]
     def unchanged():
+        if guard is not None:need(guard() is not False)
         need(type(owner) is IOSAvatarHeldFinal and identity(owner)==original and digest(value)==argument)
         for lock in owner.locks.values():lock.assert_held()
         for lease in leases:lease.guard()

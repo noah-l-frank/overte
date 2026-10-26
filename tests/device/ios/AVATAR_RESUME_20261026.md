@@ -5,6 +5,11 @@ The user resumed work. The latest complete diagnostic outcome is the
 The qualified paired-ready boundary remains recorded in
 [the paired Final-ready checkpoint](AVATAR_FINAL_READY_20261026.md).
 The full held end, canonical replay and unchanged full journey remain open.
+The next measured component is recorded in
+[original terminal witness read costs](AVATAR_WITNESS_READ_COST.md): the same
+Actor receipt preserves exact original reads/proof while reducing profiled host
+time. It is not a new whole-run result. No unchanged whole rerun has followed.
+
 
 ## Historical explicit pause
 
