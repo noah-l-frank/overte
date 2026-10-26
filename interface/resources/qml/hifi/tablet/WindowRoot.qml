@@ -38,6 +38,7 @@ Windows.ScrollingWindow {
     HifiControls.TouchUiProfile { id: touchUiProfile; objectName: "tabletTouchProfile" }
     property bool screenSpaceMode: false
     property real screenSpaceContentScale: touchUiProfile.screenSpaceContentScale
+    property bool screenSpaceCenterHorizontally: touchUiProfile.centerScreenSpaceHorizontally
     property int screenSpaceSafeInsetLeft: touchUiProfile.safeInsetLeft
     property int screenSpaceSafeInsetTop: touchUiProfile.safeInsetTop
     property int screenSpaceSafeInsetRight: touchUiProfile.safeInsetRight
