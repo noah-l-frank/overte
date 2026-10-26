@@ -8,7 +8,7 @@ no configuration admission, public feature dispatch or capability activation.
 from contextlib import contextmanager
 from types import SimpleNamespace
 from adapters.native_feature_observation import need
-from adapters.normal_feature_state import PrivateFeatureState
+from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUI
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.phase_fixture import PhaseFixtureReader
@@ -20,6 +20,24 @@ import time
 
 
 class IOSAudioRuntime(IOSScriptRuntime):
+    def background_owner(self,selector,run,lock,client,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,sleep=time.sleep):
+        """Reconstruct only the original OS scope until foreground is observed."""
+        from ios.adapters.audio_background import AudioBackground
+        from ios.adapters.audio_background_sources import AudioBackgroundSources
+        from ios.adapters.lifecycle_background import LifecycleOSContext
+        root=self.state_path(selector).parent
+        need(isinstance(lock,ScriptSourceLock) and lock.path==root/'script-feature-sources.lock');lock.assert_held()
+        parent_store=PrivateFeatureState(root/'ios-audio-recorded-owner.json');saved=parent_store.read()
+        need(type(saved) is dict and saved.get('runId')==run);binding=context(saved['binding'])
+        os=LifecycleOSContext(self,selector,binding)
+        register_scope(self.adapter,selector,binding,run,saved['artifactRoot'])
+        def sources(intent,previous):
+            lock.assert_held();os.probe(True);source=self._sources(selector)
+            need(source['binding']==binding)
+            return AudioBackgroundSources(source,run,client,intent,previous,epoch_ms=epoch_ms,monotonic=monotonic)
+        return AudioBackground(PrivateFeatureState(root/'ios-audio-background.json'),parent_store,os,run,lock,sources,
+            epoch_ms=epoch_ms,monotonic=monotonic,sleep=sleep)
+
     @contextmanager
     def recorded_owner(self,selector,run,root,client):
         lock=ScriptSourceLock(self.state_path(selector).with_name('script-feature-sources.lock'))

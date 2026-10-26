@@ -51,3 +51,7 @@ and Actor evidence, original page/resource quiet and paired process/SDK end.
 The [session ownership barrier](AUDIO_SESSION_OWNERSHIP.md) preserves these
 unfinished responsibilities before ordinary SDK work. Closing this page or
 retiring its PCM lease cannot bypass that barrier.
+
+The [background interruption child](AUDIO_BACKGROUND.md) now records actual
+same-process OS cancellation and native quiet independently. Its parent bridge
+is still required; ordinary recording cannot bypass the lifecycle guard.
