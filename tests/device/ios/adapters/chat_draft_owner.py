@@ -1,7 +1,7 @@
-"""Owned unsent Chat draft cancellation; deliberately no whole Chat capability.
+"""Owned Chat drafts and local Send/history effects; no whole Chat capability.
 
 Normal controls authorize input. Separate native model/settings and actual
-keyboard originals prove local effects. No Send, peer, mixer, settings mutation,
+keyboard originals prove local effects. No remote delivery, mixer, settings mutation,
 native lifetime retirement or successful whole-area result is available here.
 """
 # Copyright 2026 Overte contributors.
@@ -25,6 +25,8 @@ from ios.adapters.chat_draft_clock import operation
 from ios.adapters.graphics_history import follow_native
 from ios.adapters.normal_input import observation as ui_packet
 
+VERSION=2
+
 
 class IOSChatDraftOwner:
     def __init__(self,store,root,binding,run,lock,guard,*,native,io,view,phase,epoch_ms,monotonic,sleep):
@@ -39,7 +41,7 @@ class IOSChatDraftOwner:
         PrivateFeatureState(self.root/'boundary')._parent();lock.assert_held()
         self.guard,self.native,self.io,self.view,self.phase=guard,native,io,view,phase
         self.fixture_url,self.epoch_ms,self.monotonic,self.sleep=phase.fixture_url,epoch_ms,monotonic,sleep
-        self.historical=False;self.previous=store.read();self.state=self.empty()
+        self.historical=False;self.previous=store.read();self.version=self.read_version(self.previous);self.state=self.empty()
         self.frames=self.frame_store();self.ui=TokenChatUI(io,self.input_intent,run,monotonic=monotonic,sleep=sleep)
         if self.previous is not None:self.state=self.decode(self.previous)
         else:self.inventory(self.state)
@@ -55,14 +57,20 @@ class IOSChatDraftOwner:
         owner=object.__new__(cls);owner.store,owner.root,owner.binding,owner.run,owner.lock=store,Path(root),deepcopy(context(binding)),identifier(run),lock
         lock.assert_held();need(store.path==lock.path.with_name('ios-chat-draft-owner.json'))
         owner.fixture_url,owner.historical,owner.guard,owner.monotonic=fixture_url,True,lambda:True,time.monotonic
-        owner.previous=store.read();need(owner.previous is not None);owner.state=owner.empty();owner.frames=owner.frame_store()
+        owner.previous=store.read();need(owner.previous is not None);owner.version=owner.read_version(owner.previous)
+        owner.state=owner.empty();owner.frames=owner.frame_store()
         owner.state=owner.decode(owner.previous);return owner
+
+    @staticmethod
+    def read_version(value):
+        version=VERSION if value is None else value.get('iosChatDraftOwnerVersion')
+        need(type(version) is int and version in (1,2));return version
 
     def frame_store(self):
         return OriginalFrameStore(self.root,self.binding,self.run,'primary',self.bound,self.storage_intent,
             namespace='ios-chat-draft',schema_prefix='iosChatDraft',monotonic=self.monotonic)
     def envelope(self,state):
-        return dict(iosChatDraftOwnerVersion=1,runId=self.run,binding=self.binding,artifactRoot=str(self.root),fixtureUrl=self.fixture_url,payload=pack([state]))
+        return dict(iosChatDraftOwnerVersion=self.version,runId=self.run,binding=self.binding,artifactRoot=str(self.root),fixtureUrl=self.fixture_url,payload=pack([state]))
     def bound(self):
         self.lock.assert_held();need(same(self.store.read(),self.previous) and self.guard() is not False);return True
     def save(self):
@@ -76,7 +84,7 @@ class IOSChatDraftOwner:
 
     def frame(self,value,previous=None):
         exact(value,{'iosChatDraftObservationVersion','ticket','verb','inputs','phaseBefore','phaseAfter','originals','clockJoin','queries'})
-        need(type(value['iosChatDraftObservationVersion']) is int and value['iosChatDraftObservationVersion']==1)
+        need(type(value['iosChatDraftObservationVersion']) is int and value['iosChatDraftObservationVersion']==self.version)
         self.call(value['ticket'],value['verb'],value['inputs'])
         self.phase_original(value['phaseBefore'],value['ticket'],value['verb'],value['inputs'])
         self.phase_original(value['phaseAfter'],value['ticket'],value['verb'],value['inputs'],value['phaseBefore'])
@@ -99,15 +107,21 @@ class IOSChatDraftOwner:
             commandId=original['commandId'],runId=self.run),pid,last['capturedEpochMs'])
         need(commands.get(original['commandId'])==dict(schemaVersion=1,commandId=original['commandId'],action='feature-chat-view-observe',runId=self.run))
         local=measured_view(original);source=original['source'];page=TokenChatUI.row(end,'chat.page',enabled=False)
-        need(source['storage']['count']==source['storage']['unowned']==0 and source['storage']['events']==[])
+        stored=source['storage'];need(stored['unowned']==0)
+        if self.version==1:need(stored['count']==0 and stored['events']==[])
+        else:need(stored['count']==len(stored['events']))
         need(bool(page)==local['open'])
         if page is not None:
             editor=TokenChatUI.row(end,'chat.input',enabled=False);need(editor is not None)
             need(page['channel']==local['channel'] and editor['text']==local['draft'] and editor['focused']==local['focused']
                 and page['keyboardRequested']==source['ui']['keyboardRequested']
-                and page['localRowCount']==source['ui']['localRowCount']==0
-                and page['domainRowCount']==source['ui']['domainRowCount']==source['ui']['visibleRowCount']==0
-                and source['ui']['localMessages']==source['ui']['domainMessages']==source['ui']['visibleMessages']==[])
+                and page['localRowCount']==source['ui']['localRowCount']
+                and page['domainRowCount']==source['ui']['domainRowCount'])
+            histories={channel:[row['text'] for row in stored['events'] if row['channel']==channel] for channel in ('local','domain')}
+            for channel in ('local','domain'):
+                need(source['ui'][channel+'Messages']==histories[channel] and source['ui'][channel+'RowCount']==len(histories[channel]))
+            need(source['ui']['visibleMessages']==histories[local['channel']]
+                and source['ui']['visibleRowCount']==len(histories[local['channel']]))
         need(source['editorHasDraft'] is bool(local['draft']) and (not local['keyboard'] or local['focused']))
         if previous is not None:
             old=previous['originals'];follow_native(previous['clockJoin']['nativeAfter'],first)
@@ -119,6 +133,13 @@ class IOSChatDraftOwner:
                 and join['hostBeforeEpochMs']>=previous['clockJoin']['hostAfterEpochMs'])
             phase_packet(value['phaseBefore'],run=self.run,area='chat',request=value['phaseBefore']['requestId'],
                 epoch=value['phaseBefore']['capturedEpochMs'],previous=previous['phaseAfter'])
+            if self.version>=2:
+                prior=old['view']['source']['storage']
+                need(same(stored['events'][:len(prior['events'])],prior['events']))
+                if len(stored['events'])>len(prior['events']):
+                    operations=self.state['operations']+self.state['failures']+([] if self.state['pending'] is None else [self.state['pending']])
+                    causes=[op for op in operations if op['ticket']==value['ticket'] and op['verb']=='send']
+                    need(value['verb']=='send' and len(causes)==1);self.send_history(causes[0],value)
         return value
 
     def original(self,reference):return self.frame(self.frames.read(self.frames.expand(reference)))
@@ -126,7 +147,9 @@ class IOSChatDraftOwner:
     def local(frame):return measured_view(frame['originals']['view'])
     def storage(self,frame):
         if self.state['baseline'] is not None:
-            need(same(frame['originals']['view']['source']['storage'],self.original(self.state['baseline'])['originals']['view']['source']['storage']))
+            actual=frame['originals']['view']['source']['storage'];initial=self.original(self.state['baseline'])['originals']['view']['source']['storage']
+            if self.version==1:need(same(actual,initial))
+            else:need(actual['configSha256']==initial['configSha256'] and (actual['kind']=='array' if actual['events'] else actual['kind']==initial['kind']))
     def inventory(self,state):
         expected={self.frames.path(self.frames.expand(ref)) for ref in state['records']}|{self.store.path}
         if state['observation'] is not None and state['observation']['wire'] is not None:expected.add(self.frames.path(state['observation']['wire']))
@@ -137,7 +160,7 @@ class IOSChatDraftOwner:
 
     def decode(self,value):
         exact(value,{'iosChatDraftOwnerVersion','runId','binding','artifactRoot','fixtureUrl','payload'});rows=unpack(value['payload'])
-        need(type(value['iosChatDraftOwnerVersion']) is int and value['iosChatDraftOwnerVersion']==1 and len(rows)==1 and same(value,self.envelope(rows[0])))
+        need(type(value['iosChatDraftOwnerVersion']) is int and value['iosChatDraftOwnerVersion']==self.version and len(rows)==1 and same(value,self.envelope(rows[0])))
         state=rows[0];exact(state,set(self.empty()))
         need(type(state['records']) is list and len(state['records'])<=128 and all(type(state[key]) is list and len(state[key])<=32 for key in ('operations','failures','interrupted')))
         need(state['baseline'] is not None or not state['operations'] and not state['failures'] and state['pending'] is None)
@@ -173,7 +196,7 @@ class IOSChatDraftOwner:
         return deepcopy(state)
 
     def call(self,ticket,verb,inputs):
-        identifier(ticket);need(verb in ('open','type','close','cleanup'))
+        identifier(ticket);need(verb in ('open','type','close','cleanup') or self.version>=2 and verb in ('send','select-channel'))
         if verb=='cleanup':need(inputs=={} and type(inputs) is dict)
         else:arguments('feature.chat.act',dict(contractVersion=16,runId=self.run,fixtureUrl=self.fixture_url,ticket=ticket,verb=verb,inputs=inputs))
     @staticmethod
@@ -191,7 +214,8 @@ class IOSChatDraftOwner:
         holder['queries'].append(deepcopy(command));self.save()
     def intent_original(self,op,index,entry):
         exact(entry,{'input','phase'});value=entry['input'];exact(value,{'controlId','action','instance','generation','sequence'})
-        sequence=[('chat.entry','activate')] if op['verb']=='open' else [('chat.input','activate'),('chat.input','replace')] if op['verb']=='type' else [('chat.close','activate')]
+        sequence=[('chat.entry','activate')] if op['verb']=='open' else [('chat.input','activate'),('chat.input','replace')] if op['verb']=='type' else (
+            [('chat.send','activate')] if op['verb']=='send' else [('chat.'+op['inputs']['channel'],'activate')] if op['verb']=='select-channel' else [('chat.close','activate')])
         need(index<len(sequence) and (value['controlId'],value['action'])==sequence[index] and integer(value['sequence'],1))
         before=self.original(op['before'])['originals']['uiAfter']
         need(value['instance']==before['instance'] and value['generation']==before['chatGeneration'] and value['sequence']==before['lastSequence']+index+1)
@@ -227,7 +251,7 @@ class IOSChatDraftOwner:
         raw={key:deepcopy(partial[key]) for key in ('uiBefore','view','uiAfter','uiBeforeReceipt','uiAfterReceipt')}
         join=clock.finish(raw,[('uiBefore','sampleEpochMs'),('view','capturedEpochMs'),('uiAfter','sampleEpochMs')]);partial['join']=deepcopy(join);self.save()
         after=self.phase.status(status['status'])
-        value=dict(iosChatDraftObservationVersion=1,ticket=ticket,verb=verb,inputs=deepcopy(inputs),phaseBefore=status['status'],phaseAfter=after,originals=raw,clockJoin=join,
+        value=dict(iosChatDraftObservationVersion=self.version,ticket=ticket,verb=verb,inputs=deepcopy(inputs),phaseBefore=status['status'],phaseAfter=after,originals=raw,clockJoin=join,
             queries=deepcopy(self.state['observation']['queries']))
         self.frame(value,None if not self.state['records'] else self.original(self.state['records'][-1]));self.storage(value)
         ref=self.frames.write(len(self.state['records'])+1,value);self.state['records'].append(ref);self.state['observation']=None;self.save();return ref
@@ -235,18 +259,34 @@ class IOSChatDraftOwner:
     def baseline(self,frame):
         local=self.local(frame);controls=project(frame['originals']['uiAfter'])
         need(not local['open'] and not local['draft'] and not local['focused'] and not local['keyboard']
-            and TokenChatUI.row(controls,'chat.entry') is not None)
+            and TokenChatUI.row(controls,'chat.entry') is not None
+            and frame['originals']['view']['source']['storage']['count']==0)
+    def send_history(self,op,frame):
+        before=self.original(op['before']);prior=self.local(before)
+        previous=before['originals']['view']['source']['storage']['events'];current=frame['originals']['view']['source']['storage']['events']
+        need(len(op['intents'])==1 and len(current)==len(previous)+1 and same(current[:-1],previous)
+            and frame['originals']['uiAfter']['lastSequence']==before['originals']['uiAfter']['lastSequence']+1)
+        last=current[-1]
+        need(last['channel']==prior['channel'] and last['text']==prior['draft']
+            and before['clockJoin']['nativeAfter']['capturedEpochMs']<=last['timestamp']<=frame['originals']['view']['capturedEpochMs'])
     def effect(self,op,frame):
         need(frame['ticket']==op['ticket'] and frame['verb']==op['verb'] and same(frame['inputs'],op['inputs']))
         before=self.original(op['before']);local=self.local(frame);prior=self.local(before)
-        expected=2 if op['verb']=='type' else 0 if op['verb']=='cleanup' and not prior['open'] else 1
+        expected=2 if op['verb']=='type' else 0 if (op['verb']=='cleanup' and not prior['open']
+            or op['verb']=='select-channel' and prior['channel']==op['inputs']['channel']) else 1
         need(len(op['intents'])==expected and frame['originals']['uiAfter']['lastSequence']==before['originals']['uiAfter']['lastSequence']+expected)
         if op['verb']=='open':
             need(not prior['open'] and local['open'] and local['channel']=='local' and local['draft']=='')
             earlier=[item for item in self.state['operations'] if item['verb']=='open' and item['after']['index']<op['before']['index']]
             if earlier:need(frame['originals']['view']['source']['ui']['generation']!=self.original(earlier[-1]['after'])['originals']['view']['source']['ui']['generation'])
         elif op['verb']=='type':need(local['open'] and local['draft']==op['inputs']['text'] and local['focused'] and local['keyboard'])
+        elif op['verb']=='send':need(prior['open'] and prior['draft'] and local['open'] and local['channel']==prior['channel'] and local['draft']=='')
+        elif op['verb']=='select-channel':need(local['open'] and local['channel']==op['inputs']['channel'] and local['draft']==prior['draft'])
         else:need(not local['open'] and local['draft']=='' and not local['focused'] and not local['keyboard'])
+        if self.version>=2:
+            previous=before['originals']['view']['source']['storage']['events'];current=frame['originals']['view']['source']['storage']['events']
+            if op['verb']=='send':self.send_history(op,frame)
+            else:need(same(current,previous))
         self.storage(frame);return local
     def quiet(self,op):
         if op['verb'] not in ('close','cleanup'):need(op['quiet']==[]);return
@@ -261,7 +301,18 @@ class IOSChatDraftOwner:
     @operation
     def resolve(self):
         self.bound();need(not self.historical);self.recover_observation();op=self.state['pending'];need(op is not None)
-        ref=self.capture(op['ticket'],op['verb'],op['inputs']);self.effect(op,self.original(ref));quiet=[]
+        ref=self.capture(op['ticket'],op['verb'],op['inputs']);frame=self.original(ref)
+        if op['verb']=='send':
+            before=self.original(op['before'])
+            while same(frame['originals']['view']['source']['storage']['events'],before['originals']['view']['source']['storage']['events']):
+                # Editor clearing only proves input consumption. Wait for a
+                # real model/history callback under the same operation budget,
+                # keeping every original cut and never repeating Send.
+                local=self.local(frame);prior=self.local(before)
+                need(len(op['intents'])==1 and local['open'] and local['channel']==prior['channel'] and local['draft']==''
+                    and frame['originals']['uiAfter']['lastSequence']==before['originals']['uiAfter']['lastSequence']+1)
+                self.sleep(.25);ref=self.capture(op['ticket'],op['verb'],op['inputs']);frame=self.original(ref)
+        self.effect(op,frame);quiet=[]
         if op['verb'] in ('close','cleanup'):
             quiet.append(ref)
             for _index in range(2):
@@ -283,6 +334,8 @@ class IOSChatDraftOwner:
         local=self.local(before)
         if verb=='open':need(not local['open'] and TokenChatUI.row(project(before['originals']['uiAfter']),'chat.entry') is not None)
         elif verb=='type':need(local['open'] and local['draft']=='')
+        elif verb=='send':need(local['open'] and local['draft'] in self.ui.allowed())
+        elif verb=='select-channel':need(local['open'])
         elif verb=='close':need(local['open'])
         elif local['open']:
             # An actual owned entry and unchanged consumed cursor must precede
@@ -295,6 +348,8 @@ class IOSChatDraftOwner:
         self.state['pending']=dict(ticket=ticket,verb=verb,inputs=deepcopy(inputs),before=ref,intents=[],queries=[],after=None,quiet=[]);self.save()
         if verb=='open':self.ui.open()
         elif verb=='type':self.ui.type(inputs['text'])
+        elif verb=='send':self.ui.send()
+        elif verb=='select-channel':self.ui.select_channel(inputs['channel'])
         else:self.ui.close()
         return self.resolve()
 

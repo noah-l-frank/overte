@@ -5,11 +5,20 @@ existing SDK session and exact Script source lock. It is an internal partial
 owner. Configuration admission, catalog dispatch and complete Chat capability
 remain unavailable. Native instrumentation is uncompiled and devices untested.
 
+The same owner now writes version two and reads literal versions one and two.
+Its [normal local Send/history continuation](CHAT_MESSAGE_OWNER.md) adds channel
+selection and independently observed local acceptance. Literal version one
+retains the draft-only grammar described below. No old record is rewritten.
+The runtime also retains an external-artifact scope before input; ordinary
+session operations remain blocked while any unfinished `ios-chat-` ownership
+exists. Closing the page does not retire persisted messages or the scope.
+
 The normal tablet/Home and CHAT entry must already be available. Admission reads
 an absent Chat page, no focused/hidden draft or actual keyboard, and an empty
 persisted history with no unowned entries. A private existing page/draft/history
-is never cleared or adopted. The original storage kind and configuration digest
-must remain unchanged. This packet never sends a message or changes settings.
+is never cleared or adopted. The original configuration digest must remain
+unchanged. Literal version one also keeps the exact storage kind/body unchanged
+and cannot send a message or change settings.
 
 The vertical flow is ordinary open, controlled Unicode typing, BACK cancellation,
 ordinary reopening with an empty new page generation, and final close. Each

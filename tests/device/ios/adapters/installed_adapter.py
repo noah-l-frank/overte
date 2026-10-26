@@ -11,6 +11,7 @@ from contracts import validate_operation_arguments
 from ios.adapters.assets_session_owners import installed_entry as assets_api_entry,ensure_released as ensure_assets_released
 from ios.adapters.lifecycle_session_owners import installed_entry as lifecycle_api_entry
 from ios.adapters.audio_session_owners import installed_entry as audio_api_entry
+from ios.adapters.chat_session_owners import installed_entry as chat_api_entry
 from ios.adapters.create_api_clock import installed_entry as create_api_entry
 from ios.adapters.avatar_api_entry import installed_entry as avatar_api_entry
 from ios.adapters.avatar_session_cleanup import session_entry as avatar_session_entry
@@ -312,6 +313,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             need(state.get('processIdentity') == str(actual['pid']))
             return str(actual['pid'])
 
+        @chat_api_entry
         @audio_api_entry
         @lifecycle_api_entry
         def describe(self, selector):
@@ -326,6 +328,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                 return result
             finally:self._operation = None
 
+        @chat_api_entry
         @audio_api_entry
         @assets_api_entry
         @create_api_entry
@@ -432,6 +435,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             finally:
                 self._operation = self._retiring = None
 
+        @chat_api_entry
         @audio_api_entry
         @lifecycle_api_entry
         @avatar_session_entry

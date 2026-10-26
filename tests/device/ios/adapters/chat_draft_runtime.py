@@ -24,6 +24,8 @@ class IOSChatDraftRuntime(IOSScriptRuntime):
         with lock.held():
             try:
                 source=self._sources(selector);native,normal=source['clock_source'],source['native']
+                from ios.adapters.chat_session_owners import register_scope
+                register_scope(self.adapter,selector,source['binding'],run,root)
                 view=source['observer'].chat_view()
                 owner=IOSChatDraftOwner(PrivateFeatureState(self.state_path(selector).with_name('ios-chat-draft-owner.json')),
                     root,source['binding'],run,lock,source['check'],native=native,
