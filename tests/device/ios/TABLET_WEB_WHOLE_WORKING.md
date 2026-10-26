@@ -486,3 +486,53 @@ The complete real Tablet end graph, successful canonical archived cleanup and
 unchanged full ordinary journey are still unqualified. `COMPLETE_AREAS` and all
 serialized grammars/readable versions remain unchanged. Dispatch source wiring
 does not admit the closed Tablet configuration or change the 5/14 count.
+
+## Existing finish scope and bounded files-only diagnosis
+
+A single raw files-only diagnostic reconstructed the actual retained sealed
+prefix under its original source lock. Its setup took 18.725s; the checked
+replay then ran for 161.001s (159.775 CPU seconds) before the unchanged outer
+180s deadline interrupted it in `live_original -> TabletWebTail.decode ->
+TabletWebNativeReads.through`. All 861 actual original files retain identical
+bytes/inodes, and no SDK/HTTP/native/current-native-clock boundary was called.
+There was no completed proofhash. The outer read-membership set is incomplete
+after interruption and must not be treated as a complete read census.
+
+The partial cProfile contains 163,479 OriginalFrameStore reads and 381,555
+`posix.open` calls. Eleven Tail constructions account for 121.017 cumulative
+seconds; the trace includes 37,934 auxiliary record decodes. These are raw
+component costs: the diagnostic omitted the outer operation RecordCache, so
+they do not measure the production finish, imply a speedup, or justify a cache
+change. Two earlier private harness setup failures occurred before target
+profiling (callable adapter shape and empty pstats logging); their logs remain
+separate. No source or runtime guard was relaxed to repair the harness.
+`checked-profile-result.json`, `checked-profile.pstats`,
+`checked-profile-cpu.log` and both `checked-profile-inventory-*.json` remain in
+the same private terminal diagnostic directory. No process remains active.
+The earlier source drift still excludes the full run from qualification.
+
+The actual production chain has a different, already existing scope:
+
+1. `IOSTabletWebFeature.terminal` enters `operation`, creates one operation-local
+   TabletRecordCache and holds its record scope across the whole finish loop.
+   Nested `operation` calls retain that object and original deadline.
+2. `finish` stores the first original ProcessInventory before entering
+   `checked(terminal, mutable_paths(...))`.
+3. The checked constructor performs the full first `terminal.replay` and
+   `phase_floors` before installing its guarded replay handoff. Record-level
+   interpretation reuse cannot replace that initial complete graph proof.
+4. Later `terminal.replay` calls in the checked scope only reuse that existing
+   proof after current lock/file/context guards. `ProcessEnd.prepare` still
+   opens the original ProcessInventory through `write -> recover -> read`.
+   Inventory frames are separate ownership metadata; they are deliberately
+   outside the returned native-record interpretation cache.
+
+Two independent small cases pass in 0.240s through the real terminal operation
+entry, with an explicitly failing Finish sentinel rather than a modeled
+successful end. Real packet files share the same interpretation cache and
+exact read-membership under a nested operation; a same-bytes/same-inode rewrite
+still fails. Within that same scope, two actual Inventory reads each open their
+original chunk, and a rewritten chunk is rejected as well. No query is resent,
+no native authority is supplied, and no End journal is created. The retained
+log is `finish-scope-final.log` in the private field-revalidation directory.
+No production cache, limit, codec or capability changed for these cases.
