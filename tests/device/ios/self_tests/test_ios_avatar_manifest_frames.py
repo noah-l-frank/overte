@@ -2,14 +2,27 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from contextlib import contextmanager,nullcontext
 import time
 import unittest
 from unittest.mock import patch
 from adapters.native_clock_join import digest
 from adapters.normal_ui import NativeUIError
+from adapters.normal_feature_state import PrivateFeatureState
 from adapters.original_file_reads import scope
 from ios.adapters.avatar_observation import _AppearanceFrames,frame
 from ios.self_tests.test_ios_avatar_sources import AvatarSourcesTests
+
+
+@contextmanager
+def actual_reads(sources):
+    """Observe real reads without enabling original membership collection."""
+    paths=set();private=PrivateFeatureState.read;original=sources.originals.read
+    def metadata(store):
+        value=private(store);paths.add(store.path);return value
+    def frame_read(reference):
+        value=original(reference);paths.add(sources.originals.path(reference));return value
+    with patch.object(PrivateFeatureState,'read',metadata),patch.object(sources.originals,'read',side_effect=frame_read):yield paths
 
 
 def coherent_native_producer(fixture):
@@ -29,12 +42,15 @@ def coherent_native_producer(fixture):
 
 
 class AvatarManifestFrameTests(unittest.TestCase):
+    collector=True
     def setUp(self):
         self.f=AvatarSourcesTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
         coherent_native_producer(self.f.fixture)
         self.enterContext(self.f.lock.held());self.live=self.f.owner()
         for _ in range(4):self.live.read()
-        self.sources=self.f.owner(historical=True);self.reader=_AppearanceFrames(self.sources)
+        self.sources=self.f.owner(historical=True)
+        if self.collector:self.enterContext(scope(fresh=True))
+        self.reader=_AppearanceFrames(self.sources)
     def manifests(self):return sorted(self.sources.root.glob('avatar-index-sources-*.json'))
     def test_reuse_keeps_exact_manifest_membership_and_reopens_each_original_frame(self):
         calls=[];original=self.sources.originals.manifest;count=dict(self.f.fixture.sources)
@@ -51,7 +67,7 @@ class AvatarManifestFrameTests(unittest.TestCase):
         a['originals']['state']['source']['geometryLoaded']=False
         self.assertEqual(self.sources.frames[0],self.reader(1))
     def test_same_inode_same_bytes_manifest_rewrite_is_not_a_cached_original(self):
-        self.reader(1);path=self.manifests()[0];before=path.stat();raw=path.read_bytes();path.write_bytes(raw)
+        self.reader(1);path=self.sources.originals.manifest_path(self.sources.state['manifests'][0]);before=path.stat();raw=path.read_bytes();path.write_bytes(raw)
         self.assertEqual(before.st_ino,path.stat().st_ino)
         with self.assertRaises(NativeUIError):self.reader(4)
     def test_original_frame_tampering_is_rechecked_even_with_warm_manifest(self):
@@ -72,13 +88,41 @@ class AvatarManifestFrameTests(unittest.TestCase):
     def test_in_memory_source_mutation_and_final_manifest_mutation_both_refuse(self):
         self.reader(1);self.sources.frames[-1]['originals']['state']['source']['geometryLoaded']=False
         with self.assertRaises(NativeUIError):self.reader(4)
-        path=self.manifests()[0];path.write_bytes(path.read_bytes())
+        path=self.sources.originals.manifest_path(self.sources.state['manifests'][0]);path.write_bytes(path.read_bytes())
         with self.assertRaises(NativeUIError):self.reader.verify()
     def test_slow_index_reuse_preserves_the_existing_five_second_file_budget(self):
         store=self.sources.originals;now=[0.];store.clock=None;store.monotonic=lambda:now[0]
         self.reader(1);original=self.reader.cache.signatures
         def slow(paths):now[0]=5.;return original(paths)
         with patch.object(self.reader.cache,'signatures',side_effect=slow),self.assertRaises(NativeUIError):self.reader(4)
+
+
+class AvatarPlainManifestFrameTests(AvatarManifestFrameTests):
+    collector=False
+    def test_reuse_keeps_exact_manifest_membership_and_reopens_each_original_frame(self):
+        from adapters.original_file_reads import active
+        self.assertFalse(active());calls=[];original=self.sources.originals.manifest;count=dict(self.f.fixture.sources)
+        def read(ref):calls.append(deepcopy(ref));return original(ref)
+        with patch.object(self.sources.originals,'manifest',side_effect=read):
+            a=self.reader(1);b=self.reader(4);self.reader.verify()
+        self.assertFalse(active());self.assertEqual(2,len(calls));self.assertEqual(self.sources.frames[0],a)
+        self.assertEqual(self.sources.frames[-1],b);self.assertEqual(count,self.f.fixture.sources)
+    def test_missing_legacy_prefix_cannot_become_an_unchecked_dangling_link(self):
+        # Plain OriginalFrameStore.manifest never reads older prefixes. This
+        # memo preserves that exact read set; full collectors still reject it.
+        path=self.manifests()[0];path.unlink();self.reader(1)
+        path.symlink_to(self.sources.root/'missing-private-original')
+        self.assertEqual(self.sources.frames[-1],self.reader(4));self.reader.verify()
+    def test_immutable_store_path_and_actual_parent_identity_cannot_be_rebound(self):
+        self.reader(1);old=self.sources.store.path;self.sources.store.path=old.with_name('foreign-source.json')
+        with self.assertRaises(NativeUIError):self.reader(4)
+        self.sources.store.path=old;root=self.sources.root;moved=root.with_name(root.name+'-moved')
+        root.rename(moved);root.mkdir(mode=0o700)
+        for path in moved.iterdir():path.rename(root/path.name)
+        with self.assertRaises(NativeUIError):self.reader(4)
+    def test_traversal_cannot_switch_collector_mode_after_its_first_actual_read(self):
+        self.reader(1)
+        with scope(fresh=True),self.assertRaises(NativeUIError):self.reader(4)
 
 
 class AvatarManifestFrameBenchmarkTests(unittest.TestCase):
@@ -91,19 +135,24 @@ class AvatarManifestFrameBenchmarkTests(unittest.TestCase):
                 while len(live.frames)<count:live.read()
                 sources=f.owner(historical=True);paths=list(sources.root.iterdir())
                 original_files={path:(path.stat().st_ino,digest(path.read_bytes().hex())) for path in paths if path.is_file()}
-                query_count=dict(f.fixture.sources);measurements={};expected=None
-                for label,read in (('plain',lambda index:frame(sources,index)),('scoped',_AppearanceFrames(sources))):
-                    started=time.perf_counter()
-                    with scope(fresh=True) as membership:
-                        actual=[digest(read(index)) for index in range(1,count+1)]
-                        if label=='scoped':read.verify()
-                    measurements[label]=time.perf_counter()-started
-                    if expected is None:expected=actual;expected_members=set(membership)
-                    else:self.assertEqual(expected,actual);self.assertEqual(expected_members,membership)
-                self.assertEqual(original_files,{path:(path.stat().st_ino,digest(path.read_bytes().hex())) for path in paths if path.is_file()})
-                self.assertEqual(query_count,f.fixture.sources)
-                print('Avatar raw manifest collector replay frames='+str(count)+' files='+str(len(original_files))+' plain='+format(measurements['plain'],'.6f')
-                    +' scoped='+format(measurements['scoped'],'.6f')+' nativeQueries=0 originalFilesUnchanged=true',flush=True)
+                query_count=dict(f.fixture.sources)
+                for collected in (False,True):
+                    measurements={};expected=None
+                    for label,read in (('plain',lambda index:frame(sources,index)),('scoped',_AppearanceFrames(sources))):
+                        started=time.perf_counter()
+                        with actual_reads(sources) as reads:
+                            with scope(fresh=True) if collected else nullcontext(set()) as membership:
+                                actual=[digest(read(index)) for index in range(1,count+1)]
+                                if label=='scoped':read.verify()
+                        measurements[label]=time.perf_counter()-started
+                        if expected is None:expected=actual;expected_members=set(membership);expected_reads=set(reads)
+                        else:
+                            self.assertEqual(expected,actual);self.assertEqual(expected_members,membership);self.assertEqual(expected_reads,reads)
+                    self.assertEqual(original_files,{path:(path.stat().st_ino,digest(path.read_bytes().hex())) for path in paths if path.is_file()})
+                    self.assertEqual(query_count,f.fixture.sources)
+                    print('Avatar raw manifest replay collector='+str(collected)+' frames='+str(count)+' files='+str(len(original_files))
+                        +' plain='+format(measurements['plain'],'.6f')+' scoped='+format(measurements['scoped'],'.6f')
+                        +' nativeQueries=0 originalFilesUnchanged=true readSetsIdentical=true',flush=True)
 
 
 class AvatarAppearanceCollectorTests(unittest.TestCase):

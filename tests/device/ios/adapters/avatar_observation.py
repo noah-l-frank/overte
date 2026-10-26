@@ -20,6 +20,7 @@ from ios.adapters.avatar_peer import state_original
 from ios.adapters.avatar_sources import IOSAvatarSources
 from ios.adapters.avatar_source_recovery import IOSAvatarSourceRecovery
 from ios.adapters.avatar_record_cache import AvatarRecordCache
+from ios.adapters.emote_original_lease import EmoteOriginalLease
 
 VERSION=1
 
@@ -58,13 +59,42 @@ class _AppearanceFrames:
     """
     def __init__(self,sources):
         need(isinstance(sources,IOSAvatarSources) and sources.historical)
-        self.sources=sources;self.cache=AvatarRecordCache();self.missing={};self.references={}
+        self.sources=sources;self.cache=AvatarRecordCache();self.missing={};self.references={};self.plain={};self.mode=None
+        self.context=deepcopy(self.identity())
+        self.parents={path:EmoteOriginalLease.record(path.lstat()) for path in
+            {sources.root,sources.store.path.parent,sources.lock.path.parent}}
+
+    def identity(self):
+        source=self.sources;store=source.originals
+        return dict(binding=source.binding,runId=source.run,role=source.role,root=str(source.root),store=str(source.store.path),
+            lock=id(source.lock),namespace=store.namespace,schemaPrefix=store.schema_prefix,kind=store.kind,manifests=source.state['manifests'])
+
+    def plain_manifest(self,key,decode,reference):
+        """Reuse a plain index without enabling prefix-read membership.
+
+        Cold actual manifest bytes are decoded twice around original file
+        signatures. Every warm reuse and the final scope check guard that same
+        private inode. Actual frame bytes/hashes remain independent reads.
+        """
+        name=canonical(key);paths={self.sources.originals.manifest_path(reference)}
+        if name not in self.plain:
+            first=decode();signatures=self.cache.signatures(paths);confirmed=decode()
+            need(same(first,confirmed) and self.cache.signatures(paths)==signatures)
+            self.plain[name]=(deepcopy(confirmed),signatures)
+        entries,signatures=self.plain[name];need(self.cache.signatures(paths)==signatures)
+        result=deepcopy(entries);need(self.cache.signatures(paths)==signatures);return result
 
     def manifest(self,reference):
         source=self.sources;source.lock.assert_held();store=source.originals
         need(same(store.binding,source.binding) and store.run==source.run and store.role==source.role and store.root==source.root)
-        key=dict(binding=source.binding,runId=source.run,role=source.role,root=str(source.root),store=str(source.store.path),
-            lock=id(source.lock),namespace=store.namespace,schemaPrefix=store.schema_prefix,kind=store.kind,reference=reference)
+        need(same(self.context,self.identity()))
+        for path,original in self.parents.items():
+            PrivateFeatureState(path/'avatar-appearance-parent-boundary')._parent()
+            need(EmoteOriginalLease.record(path.lstat())==original)
+        collect=original_read_active()
+        if self.mode is None:self.mode=collect
+        else:need(self.mode is collect)
+        key=dict(self.context,reference=reference,membershipMode=collect)
         name=canonical(key);self.references[name]=deepcopy(reference)
         def decode():
             entries=store.manifest(reference)
@@ -73,14 +103,15 @@ class _AppearanceFrames:
             missing=set()
             # Legacy prefix snapshots may genuinely be absent. Their exact
             # deterministic paths must stay absent during this reuse scope.
-            for count in range(1,len(entries)):
+            for count in range(1,len(entries) if collect else 1):
                 raw=canonical(dict(body,entries=entries[:count]))
                 prior=dict(block=reference['block'],count=count,sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw))
                 path=store.manifest_path(prior)
                 if not os.path.lexists(path):missing.add(path)
             self.missing[name]=missing;return entries
         started=store.now();store.bound(started)
-        result=self.cache.read(key,decode,absent=lambda:self.missing[name])
+        result=(self.cache.read(key,decode,absent=lambda:self.missing[name]) if collect
+            else self.plain_manifest(key,decode,reference))
         store.bound(started);return result
 
     def __call__(self,index):
@@ -121,10 +152,9 @@ def appearance(sources,baseline_index,current_index,*,fixture_url,expected_code)
     Source/renderer/file originals establish effects and complete absence.
     """
     need(integer(baseline_index,1,current_index))
-    # A plain appearance read does not enumerate old manifest-prefix files.
-    # Keep that existing path; reuse is useful only where a complete original
-    # membership collector already requires those same prefix reads.
-    read=_AppearanceFrames(sources) if original_read_active() else lambda index:frame(sources,index)
+    # Plain traversal keeps its exact original index/frame read set. A complete
+    # membership traversal separately includes all original prefix snapshots.
+    read=_AppearanceFrames(sources)
     baseline=read(baseline_index);current=read(current_index)
     resource_root(fixture_url,sources.run);b,bc=state_original(baseline,sources.binding);s,sc=state_original(current,sources.binding)
     old,now=b['source'],s['source'];need(b['runId']==s['runId']==sources.run and old['sessionId']==now['sessionId'])
