@@ -65,3 +65,34 @@ operation deadlines. Native seal/fresh Stop and constructor admission remain
 explicit modeled seams in the connected cases. The complete normal native
 paired flow and real CPU/four-clock timing remain unqualified. No complete
 capability or device acceptance is enabled by this packet.
+
+## Historical key original decoding
+
+The existing complete-inventory archive round additionally reuses successful
+historical key receipt and raw-packet decodes. Each entry binds the literal
+original reference/query, complete owner/raw-store context and actual parser
+identities. The original raw guard, canonical private parents and complete
+unchanged census are checked before and after reuse. Cold entries still read
+and decode the real receipt and original wire bytes. Hits restore every actual
+file-read membership and return independent values. Reads outside the round's
+leased roots are never memoized. This shares the existing eight-MiB/512-entry
+bound and never survives the original round.
+
+Current key metadata, pending/abandoned responsibility, ordinal/raw bounds,
+receipt-to-receipt source/clock continuation, keyboard absence and complete
+quiet derivation remain outside the reused immutable values. Live key owners
+always execute the original decoder. No native packet, timestamp, operation
+deadline or installed-process guard is changed. Native sources remain
+uncompiled and devices are untested; a small key-carrier replay measurement
+cannot qualify the whole normal-input/end journey or actual API deadlines.
+
+The coordinated no-build selection passes all 29 key-round/ownership checks:
+twelve new immutable-read counterexamples, seven existing archive-round cases,
+nine existing key-source cases and one fresh replay measurement. The full
+coordinated selection passes 69 cases in 24.144 seconds. Eight reads of the
+same fresh host key original measured 0.117950 seconds with only the new memo
+disabled, versus 0.027057 seconds with reuse. Both paths retain the existing
+complete-inventory/pure-validator round. All eight original files remain
+unchanged, and replay issues no native query. This small component result does
+not qualify a large whole-run original tree, the common Emote journey, actual
+API acquisition budgets, native execution or devices.

@@ -21,6 +21,7 @@ from ios.adapters import world_web_keys
 from ios.adapters.emote_native_prefix import follow
 from ios.adapters.graphics_history import restore_native
 from ios.adapters.native_geometry import OriginalGeometry,validate as geometry_receipt
+from ios.adapters.emote_archive_round import key_original
 
 VERSION=1
 
@@ -53,8 +54,18 @@ class IOSEmoteKeys:
         need(integer(index,1,512));return PrivateFeatureState(self.root/('emote-keys-'+('abandoned-' if abandoned else '')+self.run+'-'+self.role+'-'+str(index)+'.json'))
 
     def packet(self,value):
+        # Even a warm immutable result retains the exact original carrier and
+        # query grammar. No current metadata or source floor is cached here.
+        self.raw.original(value['wire']);world_web_keys.command(value['query'])
+        return key_original(self,'packet',dict(wire=value['wire'],query=value['query']),lambda:self._packet(value),self.parsers())
+
+    def _packet(self,value):
         body=self.raw.read(value['wire']);need(same(body['query'],value['query']))
         packet=self.raw.packet(value['wire']);world_web_keys.privacy_qualified(packet);need(packet['runId']==self.run);return packet
+
+    def parsers(self):
+        return [self._original,self._packet,self.receipt,self.raw.read,self.raw.packet,world_web_keys.validate,
+            world_web_keys.privacy_qualified,geometry_receipt,validate_join,follow,unpack,digest]
 
     def receipt(self,value,previous=None):
         exact(value,{'iosEmoteKeyReceiptVersion','runId','role','binding','query','wire','wires','geometry','clockJoin'})
@@ -79,6 +90,11 @@ class IOSEmoteKeys:
         return value
 
     def original(self,ref):
+        exact(ref,{'index','sha256'});need(integer(ref['index'],1,512) and type(ref['sha256']) is str
+            and len(ref['sha256'])==64 and all(char in '0123456789abcdef' for char in ref['sha256']))
+        return key_original(self,'receipt',ref,lambda:self._original(ref),self.parsers())
+
+    def _original(self,ref):
         exact(ref,{'index','sha256'});value=self.file(ref['index']).read();need(value is not None and digest(value)==ref['sha256'])
         exact(value,{'iosEmoteKeyOriginalVersion','payload'});need(type(value['iosEmoteKeyOriginalVersion']) is int and value['iosEmoteKeyOriginalVersion']==1)
         rows=unpack(value['payload']);need(len(rows)==1);return self.receipt(rows[0])

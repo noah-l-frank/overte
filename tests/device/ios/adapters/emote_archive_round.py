@@ -97,6 +97,49 @@ def reference_packet(value):
     need(integer(value['index'],1,128) and type(value['sha256']) is str and re.fullmatch('[0-9a-f]{64}',value['sha256']))
 
 
+def key_original(owner,kind,operand,decode,parsers):
+    """Reuse immutable historical key bytes inside this exact frozen round.
+
+    Current key metadata, receipt-to-receipt continuation, abandoned floors,
+    pending responsibility and quiet derivation remain the caller's work.
+    A cold entry decodes the real receipt/raw carriers; a hit requires the
+    unchanged complete census and restores every original read membership.
+    """
+    current=_ACTIVE.get()
+    if current is None or getattr(owner,'historical',False) is not True:return decode()
+    need(kind in ('receipt','packet') and owner.lock in (current.lock,current.primary_lock)
+        and type(parsers) is list and parsers and all(callable(parser) for parser in parsers))
+    raw=owner.raw;store=raw.originals
+    context=dict(owner=type(owner).__module__+'.'+type(owner).__qualname__,path=str(owner.store.path),
+        envelope=owner.envelope(dict(records=[],abandoned=[],pending=None,serial=0)),
+        raw=dict(profile=raw.profile,binding=raw.binding,run=raw.run,role=raw.role,subject=raw.subject),
+        files=dict(root=str(store.root),binding=store.binding,run=store.run,role=store.role,
+            namespace=store.namespace,schemaPrefix=store.schema_prefix,kind=store.kind))
+    key=canonical(dict(emoteKeyOriginalMemoVersion=1,kind=kind,context=context,operand=operand,
+        parsers=[id(getattr(parser,'__func__',parser)) for parser in parsers]))
+    def bound():
+        owner.lock.assert_held()
+        PrivateFeatureState(owner.root/'emote-key-original-boundary')._parent()
+        PrivateFeatureState(store.root/'emote-key-raw-boundary')._parent()
+        need(store.guard() is not False);current.guard();need(store.guard() is not False)
+    bound()
+    if key in current.rows:
+        value,reads,_size=current.rows[key];result=deepcopy(value);bound()
+        for path in reads:record(path)
+        return result
+    with file_reads(fresh=True) as reads:value=decode()
+    bound();size=len(key)+len(canonical(value))
+    # A caller may fully validate another private scope. Such a read is still
+    # valid history, but this round cannot cache it without its own lease.
+    covered=all(any(path.is_relative_to(lease.root) for lease in current.leases) for path in reads)
+    if covered and size<=LIMIT:
+        while current.rows and (current.bytes+size>LIMIT or len(current.rows)>=512):
+            _,(_,_,removed)=current.rows.popitem();current.bytes-=removed
+        current.rows[key]=(deepcopy(value),set(reads),size);current.bytes+=size
+    for path in reads:record(path)
+    return value
+
+
 def component_read(owner,value,decode):
     """Scope pure original validation during a current component's read.
 
