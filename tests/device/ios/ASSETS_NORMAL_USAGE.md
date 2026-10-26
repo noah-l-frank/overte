@@ -54,8 +54,9 @@ blocker: the pinned 25,196-byte FBX plus inline original sources exceeds the
 existing file-owner's 48 KiB packed-WAL ceiling. No pin, body or packing limit
 was changed. Isolated browsing/control tests now begin with an explicitly seeded
 existing server asset, enter the actual browser with normal menu input and make
-no upload claim. The full FBX upload remains blocked until its source originals
-are moved to a bounded durable segmented owner with literal version-1 reads.
+no upload claim. The storage prerequisite is now addressed by the
+[version-2 file owner](ASSETS_FILE_SOURCES.md), with literal version-1 reads and
+exact immutable native originals. Full ordinary FBX upload remains unqualified.
 
 The corrected 43 cases passed in 2.807 seconds. Eleven final Usage cases plus
 36 existing tree/bundle/normal-input/Back/Keyboard cases then passed: 47/47 in
@@ -67,8 +68,8 @@ existing uploaded-URL consumption without claiming upload, cancel/zero returns,
 strict source/clock/types and required durable intents. Old default host paths
 remain literal when the optional Usage extension is absent.
 
-Next is the measured FBX file-owner WAL storage fix without increasing global
-limits or reconstructing observations. Then the durable normal bake/import
+The measured FBX file-owner WAL storage fix preserves existing limits and exact
+observation bytes. Next the durable normal bake/import
 action owner must join actual worker/meta/output, model/resource consumers,
 independent rendering and complete paired cleanup. Full capability admission
 and ordinary successful feature publication remain unavailable until that work

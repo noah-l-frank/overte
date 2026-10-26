@@ -116,7 +116,7 @@ class AssetsPickerTests(unittest.TestCase):
                 packet['clockBefore'][key]=base[key]+index*10;packet['clockAfter'][key]=base[key]+index*10+1
                 packet['source']['work']['clock'][key]=base[key]+index*10
             packet['source']['ui']['capturedEpochMs']=packet['clockBefore']['epochMs']
-        envelope=self.fixture.file_store.read();envelope['payload']=pack([state]);self.fixture.files.decode(envelope)
+        envelope=dict(iosAssetsFileOwnerVersion=1,runId=RUN,fixtureUrl=URL,binding=BINDING,payload=pack([state]));self.fixture.files.legacy_state(envelope)
         original=self.fixture.files.state;self.fixture.files.state=state
         try:
             self.owner._window_validate(window,self.owner.state,complete=False)

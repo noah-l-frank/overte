@@ -19,6 +19,7 @@ from adapters.original_frame_store import OriginalFrameStore
 from adapters.script_feature.history import same
 from feature_journeys.contract import identifier
 from ios.adapters.assets_files import OwnedAssetsFiles
+from ios.adapters.assets_file_sources import FileSources
 from ios.adapters.assets_picker import OwnedAssetsPicker
 from ios.adapters.assets_reply_owner import OwnedAssetsReplyReads
 from ios.adapters.assets_upload import OwnedAssetsUpload
@@ -28,6 +29,8 @@ from ios.adapters.assets_backend_owner import OwnedAssetsBackend,BackendSegments
 OWNER=re.compile(r'ios-assets-([a-f0-9]{32})-(primary|actor)-(files|picker|replies|upload|tree|backend)\.json')
 FRAME=re.compile(r'assets-upload-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
 BACKEND_FRAME=re.compile(r'assets-backend-(primary|actor)-parts-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
+FILE_SOURCE=re.compile(r'assets-files-native-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
+FILE_MIGRATION=re.compile(r'assets-files-migration-([a-f0-9]{32})-(primary|actor)\.json')
 
 
 def forbidden(*_args,**_kwargs):raise RuntimeError('Historical Assets inspection cannot acquire or write sources')
@@ -42,7 +45,7 @@ def directory_entries(directory):
 
 def inspect_directory(directory):
     """Return private responsibilities, not fresh product-state observations."""
-    directory=Path(directory);entries=directory_entries(directory);groups={};frame_paths={};backend_paths={}
+    directory=Path(directory);entries=directory_entries(directory);groups={};frame_paths={};backend_paths={};file_paths={}
     for path in entries:
         match=OWNER.fullmatch(path.name)
         if match:
@@ -52,8 +55,10 @@ def inspect_directory(directory):
         match=BACKEND_FRAME.fullmatch(path.name)
         if match:
             subject,run,role=match.groups();need(subject==role);backend_paths.setdefault((run,role),set()).add(path);continue
-        need(not path.name.startswith(('ios-assets-','assets-upload-','assets-backend-')))
-    need(len(groups)<=64 and set(frame_paths)<=set(groups) and set(backend_paths)<=set(groups));result=[]
+        match=FILE_SOURCE.fullmatch(path.name) or FILE_MIGRATION.fullmatch(path.name)
+        if match:file_paths.setdefault(match.groups(),set()).add(path);continue
+        need(not path.name.startswith(('ios-assets-','assets-upload-','assets-backend-','assets-files-')))
+    need(len(groups)<=64 and set(frame_paths)<=set(groups) and set(backend_paths)<=set(groups) and set(file_paths)<=set(groups));result=[]
     for (run,role),records in sorted(groups.items()):
         need(all(type(value) is dict for _path,value in records.values()))
         values={kind:value for kind,(_path,value) in records.items()};bindings=[context(value.get('binding')) for value in values.values()]
@@ -64,9 +69,14 @@ def inspect_directory(directory):
         # These are pure codec contexts, not alternate/live managers. Their
         # constructors are deliberately not called; no transports or clocks
         # can be acquired, and every attempted write is explicitly forbidden.
-        files=object.__new__(OwnedAssetsFiles);files.native=SimpleNamespace(pid=pid);files.run,files.url,files.binding=run,url,deepcopy(binding)
-        files.state=None
-        if 'files' in values:files.state=files.decode(values['files'])
+        files=object.__new__(OwnedAssetsFiles);files.native=SimpleNamespace(pid=pid,monotonic=time.monotonic);files.run,files.url,files.binding=run,url,deepcopy(binding)
+        files.state=None;files.role=role;file_covered=set();migration_pending=False
+        if 'files' in values:
+            files.store=PrivateFeatureState(records['files'][0]);files.sources=FileSources(files,role,lambda:True,forbidden)
+            files.state=files.decode(values['files']);file_covered=files.sources.owned_paths()
+            if files.storage_version==1:
+                extra=files.sources.legacy_migration_paths();file_covered|=extra;migration_pending=bool(extra)
+        need(file_paths.get((run,role),set())==file_covered)
         picker=object.__new__(OwnedAssetsPicker);picker.files,picker.binding=files,deepcopy(binding);picker.state=None
         if 'picker' in values:
             need(files.state is not None);picker.state=picker.decode(values['picker'])
@@ -98,6 +108,7 @@ def inspect_directory(directory):
         need(backend_paths.get((run,role),set())==backend_covered)
         responsibilities=[]
         if files.state is not None and files.state['phase']!='retired':responsibilities.append('input-files')
+        if files.state is not None and (migration_pending or files.sources.pending is not None):responsibilities.append('input-source-write')
         if picker.state is not None and picker.state['phase']!='retired' and upload is None:responsibilities.append('picker')
         if replies.state is not None and replies.state['phase']!='closed':responsibilities.append('read-leases')
         if upload is not None:

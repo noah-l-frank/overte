@@ -8,6 +8,11 @@ packet is documented in [mapping source and ownership](ASSETS_MAPPING_TREE.md).
 The pause/results below remain the original checkpoint; current source work
 still preserves all build/device/backend restrictions and closed capability.
 
+Current source dependency: the [version-2 file-owner packet](ASSETS_FILE_SOURCES.md)
+resolves the measured pinned-FBX packed-parent overflow while preserving exact
+native originals and literal v1 reads. Its final 14 focused host cases passed;
+normal FBX upload/bake/import/rendering and paired cleanup remain unqualified.
+
 ## Preserved source
 
 The owned worktree is

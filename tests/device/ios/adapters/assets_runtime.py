@@ -71,7 +71,7 @@ class IOSAssetsRuntime(IOSScriptRuntime):
     @operation
     def _assets_components(self,selector,run,role,fixture_url,lock):
         identifier(run);need(role in ('primary','actor'));sources=self._assets_sources(selector,lock)
-        files=OwnedAssetsFiles(sources['files'],self._assets_store(selector,run,role,'files'),sources['binding'],run,fixture_url,lock=lock)
+        files=OwnedAssetsFiles(sources['files'],self._assets_store(selector,run,role,'files'),sources['binding'],run,fixture_url,lock=lock,role=role)
         picker=OwnedAssetsPicker(sources['native'],files,self._assets_store(selector,run,role,'picker'),sources['binding'],lock=lock,
             monotonic=self.monotonic,sleep=sources['observer'].sleep)
         replies=OwnedAssetsReplyReads(sources['replies'],self._assets_store(selector,run,role,'replies'),sources['binding'],run,fixture_url,lock=lock)

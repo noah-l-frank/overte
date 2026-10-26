@@ -17,14 +17,16 @@ from adapters.native_feature_observation import decode,exact,fresh,integer,need,
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
 from adapters.operation_transport_guard import check as transport_check
-from adapters.script_feature.history import pack,unpack,same
+from adapters.script_feature.history import MAX_RAW,canonical,pack,unpack,same
 from feature_journeys.asset_fixture import BUNDLES,bundle
 from feature_journeys.contract import identifier
 from feature_journeys.fixtures import companion,pinned_resource
 from ios.adapters.assets_controls import identity,inventory,local,folder
 from ios.adapters.assets_budget import operation
+from ios.adapters.assets_file_sources import FileSources,sync
 
 VERSION=1
+OWNER_VERSION=2
 ACTION='feature-ios-assets-files'
 FILE=ACTION+'.json'
 LIMIT=262144
@@ -208,12 +210,12 @@ class IOSAssetsFiles:
         self.monotonic,self.sleep=monotonic,sleep;self.last=self.last_query=None
 
     @operation
-    def request(self,operation,run,ticket,token,resource,*,files=None,originals=None,retain=None):
+    def request(self,operation,run,ticket,token,resource,*,files=None,originals=None,retain=None,retain_raw=None):
         query=dict(schemaVersion=VERSION,commandId='ios-'+uuid.uuid4().hex,action=ACTION,operation=operation,
             runId=run,ticket=ticket,ownerToken=token,resource=resource)
         if files is not None:query['files']=deepcopy(files)
         if originals is not None:query['originals']=deepcopy(originals)
-        command(query);need(retain is None or callable(retain));need(self.guard() is not False)
+        command(query);need((retain is None or callable(retain)) and (retain_raw is None or callable(retain_raw)) and (retain is None or retain_raw is None));need(self.guard() is not False)
         started=last=self.monotonic();requested=self.clock_ms();need(number(started,0,1e15) and integer(requested,1))
         transport_check();self.send(query) # Never resend this input after uncertainty.
         for attempt in range(61):
@@ -222,6 +224,7 @@ class IOSAssetsFiles:
             except json.JSONDecodeError:value=None
             now=self.monotonic();need(number(now,last,started+1.5) and now-started<1.5);last=now
             if type(value) is dict and value.get('requestId')==query['commandId']:
+                if retain_raw is not None:retain_raw(deepcopy(query),deepcopy(value),raw)
                 if retain is not None:retain(deepcopy(query),deepcopy(value))
                 epoch=self.clock_ms();need(integer(epoch,requested));validate(value,query,self.pid,epoch,self.last)
                 need(value['clockBefore']['epochMs']>=requested and self.guard() is not False)
@@ -233,20 +236,49 @@ class IOSAssetsFiles:
 
 class OwnedAssetsFiles:
     """Write-ahead storage ownership; lost mutations are recovered by reads only."""
-    def __init__(self,native,store,binding,run,url,*,lock):
+    def __init__(self,native,store,binding,run,url,*,lock,role='primary'):
         need(isinstance(native,IOSAssetsFiles) and isinstance(store,PrivateFeatureState));context(binding);identifier(run)
         self.native,self.store,self.binding,self.run,self.url,self.lock=native,store,deepcopy(binding),run,url,lock
         need(str(native.pid)==binding['processIdentity']);lock.assert_held();self.previous=store.read();self.state=None
+        self.role=role;self.storage_version=OWNER_VERSION;self.sources=FileSources(self,role,self.source_guard,self.save)
         if self.previous is not None:
             self.state=self.decode(self.previous)
             if self.state['originals']:
                 last=self.state['originals'][-1];native.last=deepcopy(last['packet']);native.last_query=deepcopy(last['query'])
 
-    def decode(self,value):
+    def source_guard(self):
+        # These are retained local originals, not fresh device facts. Native
+        # candidate/process/clock guards remain on every actual native request.
+        self.lock.assert_held();PrivateFeatureState(self.store.path)._parent();return True
+
+    def legacy_state(self,value):
         exact(value,{'iosAssetsFileOwnerVersion','runId','fixtureUrl','binding','payload'})
         need(type(value['iosAssetsFileOwnerVersion']) is int and value['iosAssetsFileOwnerVersion']==VERSION
             and value['runId']==self.run and value['fixtureUrl']==self.url and same(value['binding'],self.binding))
         states=unpack(value['payload']);need(len(states)==1);state=states[0]
+        return self.validate_state(state)
+
+    def decode(self,value):
+        need(type(value) is dict and type(value.get('iosAssetsFileOwnerVersion')) is int)
+        if value['iosAssetsFileOwnerVersion']==VERSION:
+            self.storage_version=VERSION;return self.legacy_state(value)
+        exact(value,{'iosAssetsFileOwnerVersion','runId','fixtureUrl','binding','role','payload'})
+        need(value['iosAssetsFileOwnerVersion']==OWNER_VERSION and value['runId']==self.run and value['fixtureUrl']==self.url and same(value['binding'],self.binding) and value['role']==self.role)
+        states=unpack(value['payload']);need(len(states)==1);stored=states[0]
+        exact(stored,{'phase','token','ticket','resource','inputManifest','directory','sources'});self.sources.load(stored['sources'])
+        planned=inputs(self.run,stored['ticket'],self.url,stored['resource']);expected=[dict(path=path,bytes=len(original_bytes(raw)),sha256=hashlib.sha256(original_bytes(raw)).hexdigest()) for path,raw in planned.items()]
+        need(same(stored['inputManifest'],expected));entries=[]
+        for index,reference in enumerate(self.sources.refs):
+            record=self.sources.read_record(reference)
+            if record['kind']=='legacy-owner':
+                need(index==0 and self.sources.migration is not None);legacy=self.legacy_state(decode(base64.b64decode(record['rawBase64']).decode('utf-8'),limit=65536))
+                need(all(same(legacy[key],stored[key]) for key in ('token','ticket','resource')) and same(legacy['files'],planned));entries.extend(deepcopy(legacy['originals']))
+            else:entries.append(dict(query=deepcopy(record['query']),packet=decode(record['raw'])))
+        state=dict(phase=stored['phase'],token=stored['token'],ticket=stored['ticket'],resource=stored['resource'],files=planned,directory=stored['directory'],originals=entries)
+        need(self.sources.pending is None or state['phase']!='retired');self.storage_version=OWNER_VERSION;return self.validate_state(state)
+
+    def validate_state(self,state):
+        need(len(canonical(state))<=MAX_RAW)
         exact(state,{'phase','token','ticket','resource','files','directory','originals'})
         need(state['phase'] in ('reserved','staging','staged','retiring-primary','primary-retired','releasing','retired')
             and type(state['token']) is str and re.fullmatch('[a-f0-9]{64}',state['token']) and type(state['originals']) is list and len(state['originals'])<=128)
@@ -293,12 +325,26 @@ class OwnedAssetsFiles:
 
     def save(self):
         self.lock.assert_held();need(same(self.store.read(),self.previous) and self.native.guard() is not False)
-        value=dict(iosAssetsFileOwnerVersion=VERSION,runId=self.run,fixtureUrl=self.url,binding=self.binding,payload=pack([self.state]))
-        self.decode(value);self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
+        if self.storage_version==VERSION:self.sources.prepare_migration(self.previous);self.storage_version=OWNER_VERSION
+        state={key:deepcopy(self.state[key]) for key in ('phase','token','ticket','resource','directory')}
+        state['inputManifest']=[dict(path=path,bytes=len(original_bytes(raw)),sha256=hashlib.sha256(original_bytes(raw)).hexdigest()) for path,raw in self.state['files'].items()]
+        state['sources']=self.sources.manifest()
+        value=dict(iosAssetsFileOwnerVersion=OWNER_VERSION,runId=self.run,fixtureUrl=self.url,binding=self.binding,role=self.role,payload=pack([state]))
+        decoded=self.decode(value);need(same(decoded,self.state));self.store.write(value,self.previous);sync(self.store.path.parent);need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     def retain(self,query,packet):
-        need(self.state is not None and len(self.state['originals'])<128)
-        self.state['originals'].append(dict(query=deepcopy(query),packet=deepcopy(packet)));self.save()
+        # Legacy callback API remains accepted only with an actual original
+        # source string that reopens and decodes to precisely this packet.
+        raw=self.native.original();need(type(raw) is str and same(decode(raw),packet));return self.retain_raw(query,packet,raw)
+
+    def retain_raw(self,query,packet,raw):
+        need(self.state is not None and len(self.state['originals'])<128 and self.sources.pending is None and same(decode(raw),packet))
+        self.sources.capture(query,raw);return self.recover_capture()
+
+    def recover_capture(self):
+        reference,record=self.sources.completed_capture();packet=decode(record['raw']);previous=self.state['originals'][-1]['packet'] if self.state['originals'] else None
+        validate(packet,record['query'],self.native.pid,previous=previous)
+        self.sources.accept_capture();self.state['originals'].append(dict(query=deepcopy(record['query']),packet=packet));self.save();return packet
 
     @operation
     def reserve(self,ticket,resource='gltf-bundle/main.gltf'):
@@ -309,7 +355,9 @@ class OwnedAssetsFiles:
     @operation
     def request(self,operation,**values):
         need(self.state is not None);state=self.state
-        return self.native.request(operation,self.run,state['ticket'],state['token'],state['resource'],retain=self.retain,**values)
+        if self.storage_version==VERSION:self.save()
+        need(self.sources.pending is None)
+        return self.native.request(operation,self.run,state['ticket'],state['token'],state['resource'],retain_raw=self.retain_raw,**values)
 
     @operation
     def stage(self):
