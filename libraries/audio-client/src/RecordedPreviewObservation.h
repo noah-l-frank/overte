@@ -9,6 +9,7 @@
 #include <QDateTime>
 #include <QVariantMap>
 #include <QVariantList>
+#include <QtGlobal>
 
 namespace overte::e2e {
 class RecordedPreviewObservation {
@@ -18,9 +19,15 @@ public:
         ++_cycle;
         _format = format;
         _started = QDateTime::currentMSecsSinceEpoch();
-        _valid = format.sampleSize() == 16 && format.sampleType() == QAudioFormat::SignedInt
-            && format.byteOrder() == QAudioFormat::LittleEndian
-            && format.channelCount() >= 1 && format.channelCount() <= 2
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        // Qt 6 PCM uses native byte order; these original carriers are LE.
+        const bool pcm16le = format.sampleFormat() == QAudioFormat::Int16
+            && Q_BYTE_ORDER == Q_LITTLE_ENDIAN;
+#else
+        const bool pcm16le = format.sampleSize() == 16 && format.sampleType() == QAudioFormat::SignedInt
+            && format.byteOrder() == QAudioFormat::LittleEndian;
+#endif
+        _valid = pcm16le && format.channelCount() >= 1 && format.channelCount() <= 2
             && format.sampleRate() >= 8000 && format.sampleRate() <= 48000;
         return _cycle;
     }

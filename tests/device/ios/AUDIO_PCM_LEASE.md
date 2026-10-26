@@ -77,3 +77,11 @@ budget changes in this correction.
 The final 41-case explicit PCM, completion, background-bridge, legacy and
 authorized-page selection passes in 53.803 seconds, including malformed saved
 bindings. Earlier failure diagnostics remain retained separately.
+
+The dedicated native PCM observer also uses the repository's Qt-version
+boundary: Qt 6 accepts native-endian `QAudioFormat::Int16` only on little-endian
+hosts; Qt 5 retains its explicit signed-16/little-endian predicate. This avoids
+calling removed Qt 5 format members in the Qt 6 test build. Channel/rate limits,
+original bytes and observer gating are unchanged. This source correction was
+reviewed against `AudioDeviceCompat.h`; no compiler or native execution was
+used, so both native compilation paths remain unverified.
