@@ -48,7 +48,7 @@ metadata and a separate native import envelope. This transfer never retimes the
 extension's clocks or presents an archive read as a live extension observation.
 A repeated import or existing output directory is refused.
 
-`snapshot_share_original.py` validates the separate version-1 native and import
+`snapshot_share_original.py` validates the separate version-1 and version-2 native and import
 contracts, immutable histories, genuine callback entry/return/weak expiry,
 unique fresh live inspections and concrete image types. The final byte join
 requires equality with the independently acquired original Snapshot file,
@@ -56,6 +56,12 @@ the actual successful client Share callback, matching controlled filename and
 run, and original UTC ordering across processes. Their monotonic epochs remain
 separate. A successful activity ACK, cancelled Share, transformed file, stale
 inspection or held callback cannot supply that join.
+
+The [anchored archive chunk source](../SNAPSHOT_SHARE_CHUNKS.md) adds actual
+initial file/run identities to version 2 and an ordinary read-only 512 KiB
+chunk input. Its literal version-1 readers remain exact and independent. The
+admission-bound AFC facade reads unchanged source metadata and bounded archive
+chunks; it provides no extension process-absence or cleanup acknowledgement.
 
 Eight host tests exercise actual private files, original byte digests and the
 client native-export codecs over modeled UIKit/provider/process observations.

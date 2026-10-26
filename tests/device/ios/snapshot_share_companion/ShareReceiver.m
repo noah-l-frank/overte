@@ -71,26 +71,29 @@
     NSURL* group=OVTShareGroup();if (!group) {self.status.text=@"App Group unavailable";return;}
     NSURL* root=[group URLByAppendingPathComponent:[@"snapshot-share-" stringByAppendingString:run] isDirectory:YES];
     if (mkdir(root.fileSystemRepresentation,0700)!=0) {self.status.text=@"Existing or unavailable original; no reissue";return;}
+    struct stat birth;if (lstat(root.fileSystemRepresentation,&birth)!=0 || !OVTShareRootIdentity(birth)) {self.status.text=@"Original root identity unavailable";return;}
     OVTShareJournal* journal=[OVTShareJournal new];journal.root=root;self.journal=journal;
-    journal.record=[@{@"iosSnapshotShareOriginalVersion":@1,@"runId":run,@"basename":name,@"instance":OVTShareID(),
+    journal.record=[@{@"iosSnapshotShareOriginalVersion":@2,@"runId":run,@"basename":name,@"instance":OVTShareID(),
         @"processId":@(NSProcessInfo.processInfo.processIdentifier),@"receiverBundleId":NSBundle.mainBundle.bundleIdentifier,
         @"clockDomain":@"native-share-extension",@"createdClock":OVTShareClock(),@"phase":@"issued",@"artifact":@"original.bytes",
         @"attachmentCount":@(attachments.count),@"registeredTypes":registered,@"selectedType":types.firstObject,
-        @"receivedFilename":NSNull.null,@"byteCount":@0,@"sha256":@"",@"events":[NSMutableArray new],@"queries":[NSMutableArray new]} mutableCopy];
+        @"receivedFilename":NSNull.null,@"byteCount":@0,@"sha256":@"",@"artifactRevision":NSNull.null,@"rootIdentity":OVTShareRootIdentity(birth),
+        @"events":[NSMutableArray new],@"queries":[NSMutableArray new]} mutableCopy];
     if (![journal event:@"read-issued"]) {self.status.text=@"Intent persistence failed";return;}
     OVTShareRead* operation=[OVTShareRead new];operation.journal=journal;journal.operation=operation;
     // Apple's temporary representation exists only during the actual callback.
     // Copy unchanged bytes here, before returning; never UIImage/re-encode.
     [provider loadFileRepresentationForTypeIdentifier:types.firstObject completionHandler:^(NSURL* url,NSError* error) {
         OVTShareJournal* actual=operation.journal;[actual.lock lock];
-        BOOL entered=[actual event:@"callback-enter"];NSString* hash=nil;NSUInteger count=0;
+        BOOL entered=[actual event:@"callback-enter"];NSString* hash=nil,*revision=nil;NSUInteger count=0;
         BOOL valid=entered && !error && url.isFileURL && [url.lastPathComponent isEqual:actual.record[@"basename"]];
         if (valid) {
             actual.record[@"receivedFilename"]=url.lastPathComponent;
-            valid=OVTShareCopyFile(url,[actual.root URLByAppendingPathComponent:@"original.bytes"],&hash,&count);
+            struct stat current;valid=lstat(actual.root.fileSystemRepresentation,&current)==0 && [OVTShareRootIdentity(current) isEqual:actual.record[@"rootIdentity"]]
+                && OVTShareCopyFileAnchored(url,[actual.root URLByAppendingPathComponent:@"original.bytes"],&hash,&count,&revision);
         }
         actual.record[@"phase"]=valid?@"complete":@"failed";
-        if (valid) {actual.record[@"byteCount"]=@(count);actual.record[@"sha256"]=hash;}
+        if (valid) {actual.record[@"byteCount"]=@(count);actual.record[@"sha256"]=hash;actual.record[@"artifactRevision"]=revision;}
         [actual event:valid?@"read-completed":@"read-failed"];[actual event:@"callback-left"];[actual.lock unlock];
     }];
     self.status.text=@"Original requested once; inspect its actual owner";

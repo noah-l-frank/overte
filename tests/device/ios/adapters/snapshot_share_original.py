@@ -13,8 +13,10 @@ from adapters.script_feature.history import same
 from ios.adapters.snapshot_destination import stamp,MAX_BYTES,HEX
 from ios.adapters.snapshot_exports import FILE_NAME,original as export_original,outcome,history
 
-VERSION=1
-IMPORT_VERSION=1
+VERSION=2
+READS=(1,2)
+IMPORT_VERSION=2
+IMPORT_READS=(1,2)
 FIELDS={'iosSnapshotShareOriginalVersion','runId','basename','instance','processId','receiverBundleId','clockDomain',
     'createdClock','phase','artifact','attachmentCount','registeredTypes','selectedType','receivedFilename','byteCount','sha256','events','queries'}
 MUTABLE={'phase','receivedFilename','byteCount','sha256','events','queries'}
@@ -22,8 +24,9 @@ BUNDLE=r'[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+'
 
 
 def original(value,previous=None):
-    exact(value,FIELDS)
-    need(type(value['iosSnapshotShareOriginalVersion']) is int and value['iosSnapshotShareOriginalVersion']==VERSION
+    need(type(value) is dict);version=value.get('iosSnapshotShareOriginalVersion');need(type(version) is int and version in READS)
+    exact(value,FIELDS|({'artifactRevision','rootIdentity'} if version>=2 else set()))
+    need(type(value['iosSnapshotShareOriginalVersion']) is int and value['iosSnapshotShareOriginalVersion'] in READS
         and type(value['runId']) is str and re.fullmatch(HEX,value['runId'])
         and type(value['instance']) is str and re.fullmatch(HEX,value['instance']) and integer(value['processId'],1)
         and type(value['receiverBundleId']) is str and re.fullmatch(BUNDLE,value['receiverBundleId'])
@@ -55,6 +58,9 @@ def original(value,previous=None):
     need((value['phase']=='complete')==complete and (value['phase']=='failed')==failed)
     if complete:need(value['receivedFilename']==value['basename'] and value['byteCount']>0 and re.fullmatch('[0-9a-f]{64}',value['sha256']))
     else:need(value['byteCount']==0 and value['sha256']=='')
+    if version>=2:
+        need(type(value['rootIdentity']) is str and re.fullmatch('[a-f0-9]{64}',value['rootIdentity']))
+        need((type(value['artifactRevision']) is str and re.fullmatch('[a-f0-9]{64}',value['artifactRevision'])) if complete else value['artifactRevision'] is None)
     if 'finish-issued' in kinds:need(complete)
     query_clock=created;nonces=set();expiry=next((row['clock'] for row in value['events'] if row['kind']=='weak-expired'),None)
     for query in value['queries']:
@@ -70,6 +76,9 @@ def original(value,previous=None):
         for key in ('events','queries'):need(len(value[key])>=len(previous[key]) and same(value[key][:len(previous[key])],previous[key]))
         if previous['phase']!='issued':need(all(same(value[k],previous[k]) for k in ('phase','receivedFilename','byteCount','sha256')))
         if previous['receivedFilename'] is not None:need(value['receivedFilename']==previous['receivedFilename'])
+        if version>=2:
+            need(value['rootIdentity']==previous['rootIdentity'])
+            if previous['artifactRevision'] is not None:need(value['artifactRevision']==previous['artifactRevision'])
     return value
 
 
@@ -116,19 +125,31 @@ def imported_original(value,metadata,raw,*,pid,bundle_id,receiver_bundle_id):
     proof that the extension process disappeared. Installed-code admission and
     candidate-bound AFC acquisition remain mandatory outer obligations.
     """
+    packet=imported_metadata(value,metadata,pid=pid,bundle_id=bundle_id,receiver_bundle_id=receiver_bundle_id)
+    need(type(raw) is bytes and value['byteCount']==len(raw) and value['sha256']==hashlib.sha256(raw).hexdigest())
+    return packet
+
+
+def imported_metadata(value,metadata,*,pid,bundle_id,receiver_bundle_id):
+    """Original import provenance before the bounded byte stream is assembled."""
+    need(type(value) is dict);version=value.get('iosSnapshotShareImportVersion');need(type(version) is int and version in IMPORT_READS)
     exact(value,{'iosSnapshotShareImportVersion','runId','phase','clockBefore','clockAfter','instance','processId','bundleId',
-        'clockDomain','originalMetadataSha256','byteCount','sha256'})
-    need(type(value['iosSnapshotShareImportVersion']) is int and value['iosSnapshotShareImportVersion']==IMPORT_VERSION
-        and value['phase']=='complete' and value['processId']==pid and integer(pid,1)
+        'clockDomain','originalMetadataSha256','byteCount','sha256'}|({'basename','artifactRevision','archiveRootIdentity','sourceArtifactRevision','groupRootIdentity'} if version>=2 else set()))
+    need(type(value['iosSnapshotShareImportVersion']) is int and value['iosSnapshotShareImportVersion'] in IMPORT_READS
+        and value['phase']=='complete' and type(value['processId']) is int and value['processId']==pid and integer(pid,1)
         and value['bundleId']==bundle_id and type(bundle_id) is str and re.fullmatch(BUNDLE,bundle_id)
         and value['clockDomain']=='native-share-archive' and type(value['instance']) is str and re.fullmatch(HEX,value['instance'])
-        and type(metadata) is bytes and len(metadata)<=262144 and type(raw) is bytes
+        and type(metadata) is bytes and len(metadata)<=262144
         and value['originalMetadataSha256']==hashlib.sha256(metadata).hexdigest()
-        and integer(value['byteCount'],1,MAX_BYTES) and value['byteCount']==len(raw)
-        and value['sha256']==hashlib.sha256(raw).hexdigest())
+        and integer(value['byteCount'],1,MAX_BYTES) and type(value['sha256']) is str and re.fullmatch('[a-f0-9]{64}',value['sha256']))
     stamp(value['clockBefore']);stamp(value['clockAfter'],value['clockBefore']);packet=decode(metadata.decode('utf-8'))
     original(packet);need(packet['runId']==value['runId'] and packet['receiverBundleId']==receiver_bundle_id
         and packet['sha256']==value['sha256'] and packet['byteCount']==value['byteCount']
         and packet['events'][-1]['kind']=='finish-issued'
         and packet['events'][-1]['clock']['epochMs']<=value['clockBefore']['epochMs'])
+    if version>=2:
+        need(packet['iosSnapshotShareOriginalVersion']>=2 and value['basename']==packet['basename']
+            and value['sourceArtifactRevision']==packet['artifactRevision'] and value['groupRootIdentity']==packet['rootIdentity'])
+        for key in ('artifactRevision','archiveRootIdentity','sourceArtifactRevision','groupRootIdentity'):
+            need(type(value[key]) is str and re.fullmatch('[a-f0-9]{64}',value[key]))
     return deepcopy(packet)

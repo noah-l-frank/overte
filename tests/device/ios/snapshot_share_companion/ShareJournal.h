@@ -1,6 +1,7 @@
 // Copyright 2026 Overte contributors.
 // SPDX-License-Identifier: Apache-2.0
 #import <Foundation/Foundation.h>
+#include <sys/stat.h>
 #if !defined(OVERTE_E2E_FEATURE_TESTS)
 #error The Snapshot Share receiver is a separate explicitly selected E2E target.
 #endif
@@ -9,7 +10,11 @@ FOUNDATION_EXPORT NSString* OVTShareID(void);
 FOUNDATION_EXPORT BOOL OVTShareMatch(NSString* value,NSString* expression);
 FOUNDATION_EXPORT NSURL* OVTShareGroup(void);
 FOUNDATION_EXPORT BOOL OVTShareCopyFile(NSURL* source,NSURL* destination,NSString** hash,NSUInteger* count);
+FOUNDATION_EXPORT BOOL OVTShareCopyFileAnchored(NSURL* source,NSURL* destination,NSString** hash,NSUInteger* count,NSString** revision);
+FOUNDATION_EXPORT NSString* OVTShareFileRevision(struct stat value);
+FOUNDATION_EXPORT NSString* OVTShareRootIdentity(struct stat value);
 FOUNDATION_EXPORT BOOL OVTShareWrite(NSURL* root,NSString* basename,NSData* bytes);
+FOUNDATION_EXPORT BOOL OVTShareWriteChunk(NSURL* root,NSData* bytes);
 FOUNDATION_EXPORT NSData* OVTShareReadMetadata(NSURL* source);
 @interface OVTShareJournal : NSObject
 @property(nonatomic,strong) NSRecursiveLock* lock;

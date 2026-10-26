@@ -141,7 +141,7 @@ class SnapshotShareOriginalTests(unittest.TestCase):
         info=plistlib.loads((folder/'ExtensionInfo.plist.in').read_bytes());self.assertEqual('com.apple.share-services',info['NSExtension']['NSExtensionPointIdentifier'])
         for path in ('AppInfo.plist.in','Shared.entitlements.in'):plistlib.loads((folder/path).read_bytes())
         native=(folder/'ShareReceiver.m').read_text();journal=(folder/'ShareJournal.m').read_text();archive=(folder/'ArchiveApp.m').read_text()
-        self.assertIn('loadFileRepresentationForTypeIdentifier:',native);self.assertIn('OVTShareCopyFile(url,',native)
+        self.assertIn('loadFileRepresentationForTypeIdentifier:',native);self.assertIn('OVTShareCopyFileAnchored(url,',native)
         self.assertNotIn('loadPreviewImage',native);self.assertNotIn('UIImagePNGRepresentation',native)
         self.assertIn('@property(nonatomic,weak) NSObject* operation', (folder/'ShareJournal.h').read_text())
         self.assertIn('O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW',journal);self.assertIn('before.st_ctimespec.tv_nsec!=after.st_ctimespec.tv_nsec',journal)
