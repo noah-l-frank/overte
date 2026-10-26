@@ -50,6 +50,11 @@ requires a later quiet window and complete feature qualification. No immutable
 host query journal, repeated quiet interval, UI handoff or filesystem retirement
 is inferred from this component alone.
 
+The [durable query owner](SNAPSHOT_SHARE_QUERIES.md) now retains exact source
+JSON by original nonce, binds actual Receiver metadata and validates separate
+real Node/owner quiet intervals. This does not complete the outer normal Share
+input/import/retirement journey or activate the repository plugin.
+
 On 2026-10-26, the explicit host selection passed 37 tests in 7.935 seconds:
 eight new Share process tests, nine existing process-plugin tests, ten existing
 retired-process tests, three Photos factory/context tests and seven Share code

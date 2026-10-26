@@ -7,7 +7,7 @@ const CODE = 'OVT_IOS_PROCESS_SOURCE_UNAVAILABLE';
 function need(value) { if (!value) throw new Error(CODE); }
 function state(driver) {
   if (!states.has(driver)) states.set(driver, {instance: randomUUID().replaceAll('-', ''), busy: false, poisoned: false,
-    uncertain: false, lease: null, sequence: 0, last: null, retiredRequests: new Set(), shareRequests: new Set(), shareAnchor: null});
+    uncertain: false, lease: null, sequence: 0, last: null, retiredRequests: new Set(), shareRequests: new Set(), shareAnchor: null, shareOriginals: new Map()});
   return states.get(driver);
 }
 const clock = () => ({epochMs: Date.now(), monotonicMs: performance.now()});
@@ -166,7 +166,7 @@ async function shareExtension(driver, bundle, commandId, retired, timeoutMs) {
     Number.isInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 5000);
   if (anchor) need(anchor.owner.udid === owner.udid && anchor.owner.bundle === owner.bundle && anchor.owner.session === owner.session);
   if (retired) need(anchor);
-  row.shareRequests.add(commandId);row.busy = true;
+  row.shareRequests.add(commandId);row.shareOriginals.set(commandId,{owner: {...owner}, status:'issued', raw:null});row.busy = true;
   const sequence = ++row.sequence, beforeClock = clock(), began = performance.now();let expired = false, finished = false, timer;
   const current = () => need(!expired && performance.now() - began < timeoutMs && driver.sessionId === owner.session &&
     driver.opts.udid === owner.udid && driver.opts.bundleId === owner.bundle && row.shareAnchor === anchor);
@@ -216,11 +216,12 @@ async function shareExtension(driver, bundle, commandId, retired, timeoutMs) {
       row.shareAnchor = {owner: {...owner}, original: {sequence, pid: value.bundlePids[0], ...copy(value),
         clockBefore: beforeClock, clockAfter: clock()}};
     }
-    return {iosSnapshotShareExtensionProcessVersion: 1, kind: retired ? 'retired' : 'live', commandId, instance: row.instance, sequence,
+    const packet = {iosSnapshotShareExtensionProcessVersion: 1, kind: retired ? 'retired' : 'live', commandId, instance: row.instance, sequence,
       archiveBundleId: owner.bundle, receiverBundleId: subject, source: 'dvt-owned-share-extension-pid-and-bundle-state',
       clockDomain: 'appium-node-host', clockBefore: beforeClock, clockAfter: clock(), connectionClosed: true,
       anchor: row.shareAnchor ? copy(row.shareAnchor.original) : null, ...value};
-  } catch (_) {row.poisoned = true;throw new Error(CODE);}
+    row.shareOriginals.set(commandId,{owner: {...owner},status:'complete',raw:JSON.stringify(packet)});return copy(packet);
+  } catch (_) {row.poisoned = true;row.shareOriginals.set(commandId,{owner:{...owner},status:'failed',raw:null});throw new Error(CODE);}
   finally {clearTimeout(timer);if (finished) row.busy = false;}
 }
 async function observeSnapshotShareExtension(driver, bundle, commandId, timeoutMs = 5000) {
@@ -228,6 +229,13 @@ async function observeSnapshotShareExtension(driver, bundle, commandId, timeoutM
 }
 async function observeRetiredSnapshotShareExtension(driver, bundle, commandId, timeoutMs = 5000) {
   return shareExtension(driver, bundle, commandId, true, timeoutMs);
+}
+function snapshotShareExtensionOriginal(driver, bundle, commandId) {
+  const owner=scope(driver,bundle),row=state(driver);
+  need(typeof commandId==='string' && /^ios-[0-9a-f]{32}$/.test(commandId) && row.shareOriginals.has(commandId));
+  const original=row.shareOriginals.get(commandId);
+  need(original.owner.udid===owner.udid && original.owner.bundle===owner.bundle && original.owner.session===owner.session);
+  return {snapshotShareExtensionOriginalVersion:1,commandId,instance:row.instance,status:original.status,raw:original.raw};
 }
 async function cleanup(next, driver) {
   const row = states.get(driver); let result, failure;
@@ -238,4 +246,4 @@ async function cleanup(next, driver) {
   if (failure) throw failure;
   return result;
 }
-module.exports = {observe, observeRetired, observeSnapshotShareExtension, observeRetiredSnapshotShareExtension, sourceInfo, cleanup};
+module.exports = {observe, observeRetired, observeSnapshotShareExtension, observeRetiredSnapshotShareExtension, snapshotShareExtensionOriginal, sourceInfo, cleanup};

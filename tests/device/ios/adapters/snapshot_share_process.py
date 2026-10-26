@@ -9,6 +9,7 @@ from ios.adapters.snapshot_photos_context import PhotosCompanionContext
 from ios.adapters.snapshot_share_admission import IOSSnapshotShareAdmissionOwner,IOSSnapshotShareAdmissionRuntime
 from ios.adapters import snapshot_share_original as share
 from ios.adapters.installed_code import source as process_source
+from adapters.native_feature_observation import decode
 
 
 def stamp(value,previous=None):
@@ -76,6 +77,15 @@ def absent(value,receiver,artifact,os_source):
         sourceClock=deepcopy(value['clockAfter']),connectionClosed=True,quietWindowRequired=True,wholeFeatureRequired=True)
 
 
+def stored_original(value,nonce,artifact,os_source,previous=None):
+    exact(value,{'snapshotShareExtensionOriginalVersion','commandId','instance','status','raw'})
+    need(type(value['snapshotShareExtensionOriginalVersion']) is int and value['snapshotShareExtensionOriginalVersion']==1
+        and value['commandId']==nonce and value['instance']==os_source['instance'] and value['status'] in ('issued','complete','failed'))
+    if value['status']!='complete':need(value['raw'] is None);return None
+    need(type(value['raw']) is str and 1<=len(value['raw'].encode('utf-8'))<=65536)
+    return original(decode(value['raw'],limit=65536),nonce,artifact,os_source,previous)
+
+
 class SnapshotShareArchiveContext(PhotosCompanionContext):
     _admission_owner=IOSSnapshotShareAdmissionOwner
     _runtime=IOSSnapshotShareAdmissionRuntime
@@ -87,3 +97,7 @@ class SnapshotShareArchiveContext(PhotosCompanionContext):
         value=self.client.execute(self.session,command,dict(bundleId=self.target['appId'],commandId=nonce))
         after=self.probe();need(same(before['binding'],after['binding']) and same(before['source'],after['source']))
         original(value,nonce,self.artifact,self.os_scope['source'],previous);return deepcopy(value)
+    def extension_original(self,nonce,*,previous=None):
+        need(type(nonce) is str and re.fullmatch('ios-[a-f0-9]{32}',nonce));self.admission.bound();self.probe()
+        value=self.client.execute(self.session,'mobile: overteSnapshotShareExtensionOriginal',dict(bundleId=self.target['appId'],commandId=nonce))
+        self.probe();stored_original(value,nonce,self.artifact,self.os_scope['source'],previous);return deepcopy(value)
