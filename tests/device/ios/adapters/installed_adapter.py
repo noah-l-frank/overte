@@ -8,6 +8,7 @@ from pathlib import Path
 import stat
 
 from contracts import validate_operation_arguments
+from ios.adapters.assets_session_owners import installed_entry as assets_api_entry,ensure_released as ensure_assets_released
 from ios.adapters.create_api_clock import installed_entry as create_api_entry
 from ios.adapters.emote_api_entry import installed_entry as emote_api_entry
 from ios.adapters.navigation_api_entry import installed_entry as navigation_api_entry
@@ -299,6 +300,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             return str(actual['pid'])
 
         def describe(self, selector):
+            ensure_assets_released(self,selector)
             self._candidate_guard(complete=True)
             self._operation = 'describe'
             try:
@@ -309,6 +311,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                 return result
             finally:self._operation = None
 
+        @assets_api_entry
         @create_api_entry
         @emote_api_entry
         @navigation_api_entry
@@ -400,6 +403,10 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                 self._operation = self._retiring = None
 
         def cleanup(self, selector):
+            # Inspect the Assets successor before any feature finalization or
+            # ordinary SDK teardown. Local client retirement cannot discharge
+            # remaining server/oven/blob responsibility.
+            ensure_assets_released(self,selector)
             from ios.adapters.feature_configuration import configuration
             from ios.adapters.emote_runtime import IOSEmoteRuntime
             from ios.adapters.emote_rooted_session_cleanup import retire_existing as retire_rooted_emotes

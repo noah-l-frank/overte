@@ -61,7 +61,8 @@ at least three contiguous seconds of quiet on both original native clocks and
 independent host acquisition brackets. It retires read leases and releases only
 the sealed original staged input files, observing actual private root absence.
 Server mappings remain present. This is deliberately not namespace/blob/oven
-cleanup or a whole Assets completion. Installed cleanup must retain this server
+cleanup or a whole Assets completion. The separate
+[installed ownership guard](ASSETS_SESSION_OWNERS.md) now retains that server
 responsibility and the successor relationship until a later qualified owner
 establishes full retirement.
 
