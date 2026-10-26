@@ -119,4 +119,24 @@ class AssetsParsedOwnerTests(unittest.TestCase):
         self.assertEqual(native,self.f.boundary.native_clock.commands);self.assertFalse(self.o.sources.state and self.o.sources.state['frames'])
 
 
+class AssetsParsedInputOriginTests(unittest.TestCase):
+    def test_original_consumer_body_cannot_be_reconstructed_from_later_correct_server_bytes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path=Path(temporary);path.chmod(0o700);fixture=Fixture(path)
+            try:
+                with patch('adapters.asset_backend_client.build_opener',return_value=fixture):
+                    actual_input=b'actual foreign bytes consumed by the declared native loader'
+                    fixture.boundary.resolve_model=lambda _url:actual_input
+                    model,baking=fixture.prepared();id_=model.state['creation']['proof']['entityId']
+                    original=deepcopy(fixture.boundary.origin_rows[id_]);self.assertEqual(hashlib.sha256(actual_input).hexdigest(),original['sha256'])
+                    fixture.boundary.resolve_model=fixture.resolve_model
+                    owner=fixture.parsed(model,baking);owner.reserve()
+                    with self.assertRaises(NativeUIError):owner.observe()
+                    self.assertEqual(original,fixture.boundary.origin_rows[id_]);self.assertIsNone(owner.state['result'])
+                    restored=fixture.parsed(model,baking)
+                    with self.assertRaises(NativeUIError):restored.observe()
+                    self.assertEqual(original,fixture.boundary.origin_rows[id_]);self.assertIsNone(restored.state['result'])
+            finally:fixture.close()
+
+
 if __name__=='__main__':unittest.main()

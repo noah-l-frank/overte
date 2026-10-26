@@ -100,4 +100,6 @@ tree are explicit boundary models. The modeled output is derived from the
 original service input, not parsed by an actual FBX parser. The separate fresh
 pinned FBX upload qualification remains documented in the reply-source packet.
 No native compiler, device, server/oven/service, installation or remote write
-executes here.
+executes here. The later [fresh normal composition](ASSETS_FRESH_MODEL.md)
+connects the original unseeded upload, retained implicit work, normal OFF/ON,
+actual Model and parsed-byte join while keeping retirement responsibility open.

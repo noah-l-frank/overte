@@ -25,6 +25,7 @@ from ios.adapters.assets_model_sources import AssetsModelSources
 from ios.adapters.assets_model_owner import OwnedAssetsModel
 from ios.adapters.assets_parsed_sources import AssetsParsedSources
 from ios.adapters.assets_parsed_owner import OwnedAssetsParsedInput
+from ios.adapters.assets_usage_controls import project as usage_controls
 from ios.adapters.feature_observation import FeatureObservation
 from ios.adapters.normal_input import NativeInput
 from ios.adapters.script_runtime import IOSScriptRuntime
@@ -111,6 +112,71 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         source=AssetsParsedSources(parts['model'],parts['observer'].assets_model_origin(parts['upload'].clock),self._assets_store(selector,run,role,'parsed-sources'),lock=lock)
         parsed=OwnedAssetsParsedInput(source,parts['baking'],self._assets_store(selector,run,role,'parsed'),lock=lock)
         parts['check']();return dict(parts,parsed_sources=source,parsed=parsed)
+
+    @operation
+    def _assets_upload_model_bytes(self,selector,run,role,fixture_url,ticket,lock,backend_config,*,parts=None):
+        """Fresh ordinary FBX upload through parsed-output observation only.
+
+        All mutating commands belong to the existing child WALs. An uncertain
+        command is resolved from originals, never sent again. No Model/page,
+        cache, server or full feature retirement is implied by this return.
+        """
+        parts=self._assets_parsed_components(selector,run,role,fixture_url,lock,backend_config) if parts is None else parts
+        upload,backend,usage,baking,model,parsed=(parts[key] for key in ('upload','backend','usage','baking','model','parsed'))
+        parts['check']()
+        if backend.state is None or backend.state['phase']=='reserved':
+            for _ in range(32):
+                if backend.admit(ticket) is not None:break
+                backend.sleep(.1)
+            else:need(False)
+        if upload.state is None:self._assets_prepare_upload(selector,run,role,fixture_url,ticket,lock,resource='asset-stand.fbx',parts=parts)
+        need(upload.files.state['resource']=='asset-stand.fbx' and upload.files.state['ticket']==ticket)
+        if backend.state['phase']=='baseline':backend.attach()
+        if upload.state['phase'] in ('ready','review','destination','starting'):self._assets_finish_upload(upload)
+        need(upload.state['phase']=='uploaded')
+        if backend.state['uploadProof'] is None:self._assets_backend_checkpoint(backend,'uploaded-model-input',ticket);backend.uploaded('uploaded-model-input')
+        if usage.state is None:usage.reserve()
+        leaf=[entry for entry in usage.state['inputs'] if entry['slot']=='usage-select-1']
+        if leaf:
+            need(len(leaf)==1)
+            if leaf[0]['resolvedBy'] is None:usage.resolve('usage-select-1')
+        else:
+            roots=[entry for entry in usage.state['inputs'] if entry['slot']=='usage-select-0']
+            if roots and roots[0]['resolvedBy'] is None:usage.resolve('usage-select-0')
+            usage.select()
+        if baking.state is None or baking.state['phase']=='reserved':
+            off=[entry for entry in usage.state['inputs'] if entry['slot']=='usage-bake-off']
+            if not off:
+                current=usage_controls(usage.capture(),upload.state['page'])
+                if current['baking']['checked']:usage.baking(False)
+            elif off[0]['resolvedBy'] is None:usage.resolve('usage-bake-off')
+        if baking.state is None:baking.reserve()
+        if baking.state['phase'] in ('reserved','baseline'):
+            issued=any(entry['slot']=='usage-bake-on' and entry['command'] is not None for entry in usage.state['inputs'])
+            if issued:baking.recover()
+            else:
+                for _ in range(8):
+                    if baking.start() is not None:break
+                    backend.sleep(.1)
+                else:need(False)
+        if baking.state['phase']=='issued':baking.recover()
+        for _ in range(16):
+            if baking.qualify() is not None:break
+            backend.sleep(.1)
+        else:need(False)
+        if model.state is None:model.reserve()
+        if model.state['phase'] in ('reserved','baseline'):
+            accepted=any(entry['slot']=='usage-accept-model' and entry['command'] is not None for entry in usage.state['inputs'])
+            model.recover() if accepted else model.start()
+        if model.state['phase']=='issued':model.recover()
+        if model.state['phase'] in ('issued','adopted'):
+            for _ in range(16):
+                if model.observe() is not None:break
+                model.sources.readers['state'].sleep(.1)
+            else:need(False)
+        need(model.state['phase']=='geometry-observed')
+        if parsed.state is None:parsed.reserve()
+        result=parsed.observe();parts['check']();return result
 
     @operation
     def _assets_mapping_readback(self,selector,run,role,fixture_url,ticket,lock,*,resource='gltf-bundle/main.gltf'):

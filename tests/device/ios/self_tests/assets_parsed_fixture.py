@@ -28,22 +28,31 @@ class Boundary(model.Boundary,backend.Boundary):
         self.origin_rows={};self.origin_sequence=0;self.origin_instance=uuid.uuid4().hex;self.origin_history_instance=uuid.uuid4().hex;self.origin_fault=None
         super().__init__(directory)
 
+    def exchange(self,value):
+        result=super().exchange(value)
+        # The original normal API event has already created these actual
+        # boundary entities. Model their original loader consumption now,
+        # independently of every later source getter and server checkpoint.
+        for id_,entity in sorted(self.entities.items()):
+            if id_ not in self.origin_rows:self.consume(id_,entity)
+        return result
+
+    def consume(self,id_,entity):
+        raw=self.resolve_model(entity.properties['modelURL'])
+        def stamp():
+            epoch=self.tick();return dict(epochMs=epoch,monotonicMs=epoch-model.usage.picker.EPOCH)
+        stamps={key:stamp() for key in ('received','readerCreated','runEntered','queued','invokeReturned','deliveryEntered','deliveryReturned','runReturned')}
+        self.origin_rows[id_]=dict(id=uuid.uuid4().hex,kind='model',requestedUrl=entity.properties['modelURL'],effectiveUrl='atp:'+hashlib.sha256(raw).hexdigest(),
+            bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),base64=base64.b64encode(raw).decode(),**stamps,
+            invokeAccepted=True,resourceAlive=True,readerKnown=True,readerAlive=False,modelKnown=True,parsedModelAlive=True)
+
     def origin(self,query):
         self.origin_sequence+=1;before=self.tick();state=self.state();models=[]
         for id_,entity in sorted(self.entities.items()):
             actual=self.models[id_]
-            if id_ not in self.origin_rows:
-                # Explicit original consumer model: resolve the actual URL from
-                # the actual API-created entity, then read that backend output.
-                raw=self.resolve_model(entity.properties['modelURL']);stamp=lambda:dict(epochMs=self.tick(),monotonicMs=self.clock()-model.usage.picker.EPOCH)
-                stamps={key:stamp() for key in ('received','readerCreated','runEntered','queued','invokeReturned','deliveryEntered','deliveryReturned','runReturned')}
-                row=dict(id=uuid.uuid4().hex,kind='model',requestedUrl=entity.properties['modelURL'],effectiveUrl='atp:'+hashlib.sha256(raw).hexdigest(),
-                    bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),base64=base64.b64encode(raw).decode(),**stamps,
-                    invokeAccepted=True,resourceAlive=True,readerKnown=True,readerAlive=False,modelKnown=True,parsedModelAlive=True)
-                self.origin_rows[id_]=row
-            row=self.origin_rows[id_]
+            row=self.origin_rows.get(id_)
             models.append(dict(entityId=id_,present=True,loaded=actual.loaded,addedToScene=actual.added,failed=actual.failed,
-                origin=dict(modelUrl=entity.properties['modelURL'],watcherUrl=entity.properties['modelURL'],geometry=dict(readerId=row['id'],mappingIds=[]))))
+                origin=dict(modelUrl=entity.properties['modelURL'],watcherUrl=entity.properties['modelURL'],geometry=dict(readerId=row['id'] if row is not None else '',mappingIds=[]))))
         clock=dict(epochMs=self.tick(),monotonicMs=self.clock()-model.usage.picker.EPOCH);after=self.tick()
         value=dict(iosAssetsModelOriginVersion=1,requestId=query['commandId'],runId=query['runId'],instance=self.origin_instance,
             sequence=self.origin_sequence,processId=42,clockDomain='native-main-assets-model-origin',clockBefore=dict(epochMs=before,monotonicMs=before-model.usage.picker.EPOCH),
