@@ -55,7 +55,7 @@ class ChatMessageOwnerTests(unittest.TestCase):
         files={path:(path.stat().st_ino,path.read_bytes()) for path in self.f.root.iterdir() if path.is_file()}
         with self.f.lock.held(),patch.object(PrivateFeatureState,'write',side_effect=AssertionError('No historical writes')):
             owner=IOSChatDraftOwner.archive(self.f.store,self.f.root,BINDING,RUN,self.f.lock,self.m.owner.fixture_url)
-            self.assertEqual(2,owner.version);self.assertEqual(2,len(owner.original(owner.state['records'][-1])['originals']['view']['source']['storage']['events']))
+            self.assertEqual(3,owner.version);self.assertEqual(2,len(owner.original(owner.state['records'][-1])['originals']['view']['source']['storage']['events']))
             self.assertFalse(owner.local(owner.original(owner.state['records'][-1]))['open'])
         self.assertEqual(commands,self.m.widgets.calls);self.assertEqual(views,self.m.view_sequence)
         self.assertEqual(files,{path:(path.stat().st_ino,path.read_bytes()) for path in self.f.root.iterdir() if path.is_file()})
@@ -125,6 +125,16 @@ class ChatMessageOwnerTests(unittest.TestCase):
             self.assertEqual(1,owner.version)
             with self.assertRaises(NativeUIError):owner.act(self.m.ticket,'send',{})
         self.assertEqual(files,{path:(path.stat().st_ino,path.read_bytes()) for path in self.f.root.iterdir() if path.is_file()})
+
+    def test_literal_two_keeps_send_history_without_admitting_new_restore_verbs(self):
+        with patch('ios.adapters.chat_draft_owner.VERSION',2):self.typed();self.send()
+        self.action('close');files={path:(path.stat().st_ino,path.read_bytes()) for path in self.f.root.iterdir() if path.is_file()}
+        with self.f.owner() as owner:
+            self.assertEqual(2,owner.version)
+            with self.assertRaises(NativeUIError):owner.restore_history(self.m.ticket)
+            with self.assertRaises(NativeUIError):owner.act(self.m.ticket,'cleanup-settings',{})
+        self.assertEqual(files,{path:(path.stat().st_ino,path.read_bytes()) for path in self.f.root.iterdir() if path.is_file()})
+        self.assertEqual(1,len(self.m.widgets.sent))
 
     def test_actual_production_script_in_node_drives_normal_send_and_original_settings_history(self):
         from ios.self_tests.chat_message_script_domain import ScriptMessageModel

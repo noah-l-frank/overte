@@ -73,7 +73,7 @@ class DraftModel:
         self.query(command);self.tick();actual=self.widgets.capture()
         value=dict(schemaVersion=1,instance=actual['scope']['instance'],frameSpace='qt-window-logical',processId=42,
             sampleEpochMs=self.native_epoch(),elapsedMs=actual['scope']['elapsedMs'],lastSequence=actual['scope']['sequence'],
-            tabletShown=actual['open'],ready=actual['ready'],chatControlsVersion=1,chatGeneration=actual['scope']['generation'],
+            tabletShown=actual['open'],ready=actual['ready'],chatControlsVersion=actual['chatControlsVersion'],chatGeneration=actual['scope']['generation'],
             controls=[row|{'frame':dict(x=10,y=10,width=100,height=40)} for row in actual['controls']])
         ui_packet(value,42,self.native_epoch());self.last_receipt=dict(schemaVersion=1,commandId=command['commandId'],observation=deepcopy(value));return value
     def chat_input(self,identifier,action,*,reference,value=None):

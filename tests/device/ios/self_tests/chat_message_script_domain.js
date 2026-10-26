@@ -11,7 +11,8 @@ const Script = createScriptApi(), Tablet = createTabletApi(), Messages = createM
 const tablet = Tablet.getTablet('com.highfidelity.interface.tablet.system');
 tablet.toolbarMode = true; tablet.tabletShown = true;
 const values = new Map(), models = { local: [], domain: [] };
-let epoch = 100000, offset = 0, sent = 0, echo = true;
+if (process.argv[3] === '--initial-history-null') { values.set('ArmoredChat-Messages', null); }
+let epoch = 100000, offset = 0, sent = 0, erases = 0, echo = true;
 class NativeClockDate extends Date {
     constructor(...args) { super(...(args.length ? args : [epoch])); }
     static now() { return epoch; }
@@ -46,7 +47,7 @@ function output() {
     offset = tablet.qmlMessages.length;
     const present = values.has('ArmoredChat-Messages'), stored = values.get('ArmoredChat-Messages');
     return { local: models.local, domain: models.domain, historyPresent: present,
-        history: present ? stored : null, sent, subscriptions: Messages.subscriptions.size,
+        history: present ? stored : null, sent, erases, subscriptions: Messages.subscriptions.size,
         qmlEvents: tablet.qmlMessages };
 }
 const input = readline.createInterface({ input: process.stdin });
@@ -59,6 +60,8 @@ input.on('line', line => {
         else if (command.action === 'close') { tablet.fromQml.emit({ type: 'chat.close' }); }
         else if (command.action === 'send') {
             tablet.fromQml.emit({ type: 'send_message', message: command.text, channel: command.channel });
+        } else if (command.action === 'erase') {
+            ++erases; tablet.fromQml.emit({ type: 'action', action: 'erase_history' });
         } else if (command.action === 'typing') {
             tablet.fromQml.emit({ type: 'action', action: command.nonempty ? 'start_typing' : 'end_typing' });
         } else if (command.action === 'echo' && typeof command.enabled === 'boolean') {

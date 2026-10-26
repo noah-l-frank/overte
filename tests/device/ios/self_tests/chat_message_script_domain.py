@@ -9,9 +9,9 @@ from ios.self_tests.test_ios_chat_draft_owner import DraftModel
 
 
 class ScriptMessageModel(DraftModel):
-    def __init__(self,case):
+    def __init__(self,case,*,initial_history_null=False):
         super().__init__();root=Path(__file__).resolve().parents[4]
-        self.child=subprocess.Popen(['node',str(Path(__file__).with_suffix('.js')),str(root)],
+        self.child=subprocess.Popen(['node',str(Path(__file__).with_suffix('.js')),str(root),*(['--initial-history-null'] if initial_history_null else [])],
             stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
         case.addCleanup(self.close);self.source=None;self.command('read')
     def command(self,action,*,apply=False,**values):
@@ -34,6 +34,7 @@ class ScriptMessageModel(DraftModel):
         sent=len(self.widgets.sent);super().chat_input(identifier,action,reference=reference,value=value)
         if identifier=='chat.entry':self.command('open')
         elif identifier=='chat.close':self.command('close')
+        elif identifier=='chat.erase':self.command('erase')
         elif action=='replace':self.command('typing',nonempty=bool(value))
         if len(self.widgets.sent)>sent:
             channel,text=self.widgets.sent[-1];self.command('send',channel=channel,text=text)

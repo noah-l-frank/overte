@@ -3,7 +3,7 @@
 Feature 10 remains partial. The existing `IOSChatDraftOwner` and
 `IOSChatDraftRuntime.draft_owner` continue the same input/observation journal;
 no public operation, configuration or complete capability is enabled.
-Owner/observation writers are version two with literal readers one and two.
+Owner/observation writers are version three with literal readers one, two and three.
 Existing version-one journals remain version one and cannot admit new verbs.
 The immutable frame/original carrier grammar stays version one.
 
@@ -37,7 +37,9 @@ generation. Close still needs three advancing quiet originals spanning three
 seconds on host/native clocks. The retained messages are not called restored
 or deleted. Initial admission still requires an absent page/editor/keyboard
 and an empty private history; arbitrary prior private history is not adopted.
-Normal history/settings restoration remains required for whole Chat cleanup.
+The version-three normal null-history restoration is documented in
+[the cleanup continuation](CHAT_HISTORY_CLEANUP.md); arbitrary prior private
+representations remain unavailable.
 
 `chat_session_owners` retains any partial, malformed, orphan or unknown
 `ios-chat-` file before ordinary describe/invoke/cleanup/component cleanup.
@@ -64,7 +66,7 @@ product process, device, actual mixer or remote peer executes.
 
 Full Chat still requires loaded Script/QML byte ownership, independently bound
 Actor sending/movement and receive originals, mixer-only outage/recovery with
-no deferred replay, exact settings/history restoration and actual native/page/
+no deferred replay, exact restoration for all admitted profiles and actual native/page/
 callback/source/process/SDK retirement. Native compilation and devices remain
 unverified; none of these host cases changes the completed feature count.
 

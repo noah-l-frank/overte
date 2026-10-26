@@ -5,7 +5,7 @@ existing SDK session and exact Script source lock. It is an internal partial
 owner. Configuration admission, catalog dispatch and complete Chat capability
 remain unavailable. Native instrumentation is uncompiled and devices untested.
 
-The same owner now writes version two and reads literal versions one and two.
+The same owner now writes version three and reads literal versions one, two and three.
 Its [normal local Send/history continuation](CHAT_MESSAGE_OWNER.md) adds channel
 selection and independently observed local acceptance. Literal version one
 retains the draft-only grammar described below. No old record is rewritten.
@@ -48,9 +48,10 @@ loaded QML bytes. Full active Script/QML ownership remains a separate join.
 The shared 25-step Chat scenario still requires actual independent peer sending
 and movement, authenticated evidence for all ten state fields, owned mixer-only
 outage/recovery, three-second no-replay proof and exact private settings/history
-restoration. Existing passive history exports cannot restore arbitrary private
-history; normal Erase controls and a separately owned exact private snapshot are
-still missing. This packet enables none of those capabilities.
+restoration. [Normal Erase and exact null-history restoration](CHAT_HISTORY_CLEANUP.md)
+now exist for the deliberately narrow original-null profile. Arbitrary original
+private representations, peer/mixer effects and complete retirement remain
+unavailable. This packet enables none of those whole-area capabilities.
 
 Selected tests use actual private WAL/files, inode checks and the real original
 decoders over explicitly modeled Qt, native keyboard, settings, clocks and input

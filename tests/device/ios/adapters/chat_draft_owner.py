@@ -25,7 +25,9 @@ from ios.adapters.chat_draft_clock import operation
 from ios.adapters.graphics_history import follow_native
 from ios.adapters.normal_input import observation as ui_packet
 
-VERSION=2
+VERSION=3
+RESTORE_STEPS=frozenset(('cleanup-open','cleanup-settings','cleanup-erase','cleanup-discard','cleanup-rebuild-close','cleanup-rebuild-open'))
+RESTORE_READ='cleanup-inspect'
 
 
 class IOSChatDraftOwner:
@@ -65,7 +67,7 @@ class IOSChatDraftOwner:
     @staticmethod
     def read_version(value):
         version=VERSION if value is None else value.get('iosChatDraftOwnerVersion')
-        need(type(version) is int and version in (1,2));return version
+        need(type(version) is int and version in (1,2,3));return version
 
     def frame_store(self):
         return OriginalFrameStore(self.root,self.binding,self.run,'primary',self.bound,self.storage_intent,
@@ -80,6 +82,7 @@ class IOSChatDraftOwner:
 
     def phase_original(self,value,ticket,verb,inputs,previous=None):
         phase_packet(value,run=self.run,area='chat',request=value['requestId'],epoch=value['capturedEpochMs'],previous=previous)
+        if self.version>=3 and verb in RESTORE_STEPS|{RESTORE_READ}:verb='cleanup'
         need(value['active'] and value['activations'] and value['activations'][-1]['ticket']==ticket
             and same(value['activations'][-1]['stimulus'],dict(verb=verb,inputs=inputs)))
 
@@ -107,22 +110,24 @@ class IOSChatDraftOwner:
         original=raw['view'];view_packet(original,dict(schemaVersion=1,action='feature-chat-view-observe',
             commandId=original['commandId'],runId=self.run),pid,last['capturedEpochMs'])
         need(commands.get(original['commandId'])==dict(schemaVersion=1,commandId=original['commandId'],action='feature-chat-view-observe',runId=self.run))
-        local=measured_view(original);source=original['source'];page=TokenChatUI.row(end,'chat.page',enabled=False)
+        local=self.local(value);source=original['source'];page=TokenChatUI.row(end,'chat.page',enabled=False)
         stored=source['storage'];need(stored['unowned']==0)
         if self.version==1:need(stored['count']==0 and stored['events']==[])
         else:need(stored['count']==len(stored['events']))
         need(bool(page)==local['open'])
         if page is not None:
-            editor=TokenChatUI.row(end,'chat.input',enabled=False);need(editor is not None)
-            need(page['channel']==local['channel'] and editor['text']==local['draft'] and editor['focused']==local['focused']
+            editor=TokenChatUI.row(end,'chat.input',enabled=False)
+            if self.version>=3 and local['channel']=='settings':need(editor is None and local['draft']=='')
+            else:need(editor is not None and editor['text']==local['draft'] and editor['focused']==local['focused'])
+            need(page['channel']==local['channel']
                 and page['keyboardRequested']==source['ui']['keyboardRequested']
                 and page['localRowCount']==source['ui']['localRowCount']
                 and page['domainRowCount']==source['ui']['domainRowCount'])
             histories={channel:[row['text'] for row in stored['events'] if row['channel']==channel] for channel in ('local','domain')}
             for channel in ('local','domain'):
                 need(source['ui'][channel+'Messages']==histories[channel] and source['ui'][channel+'RowCount']==len(histories[channel]))
-            need(source['ui']['visibleMessages']==histories[local['channel']]
-                and source['ui']['visibleRowCount']==len(histories[local['channel']]))
+            visible=[] if local['channel']=='settings' else histories[local['channel']]
+            need(source['ui']['visibleMessages']==visible and source['ui']['visibleRowCount']==len(visible))
         need(source['editorHasDraft'] is bool(local['draft']) and (not local['keyboard'] or local['focused']))
         if previous is not None:
             old=previous['originals'];follow_native(previous['clockJoin']['nativeAfter'],first)
@@ -136,16 +141,25 @@ class IOSChatDraftOwner:
                 epoch=value['phaseBefore']['capturedEpochMs'],previous=previous['phaseAfter'])
             if self.version>=2:
                 prior=old['view']['source']['storage']
-                need(same(stored['events'][:len(prior['events'])],prior['events']))
-                if len(stored['events'])>len(prior['events']):
-                    operations=self.state['operations']+self.state['failures']+([] if self.state['pending'] is None else [self.state['pending']])
+                operations=self.state['operations']+self.state['failures']+([] if self.state['pending'] is None else [self.state['pending']])
+                if not same(stored['events'][:len(prior['events'])],prior['events']):
+                    causes=[op for op in operations if op['ticket']==value['ticket'] and op['verb']=='cleanup-erase']
+                    need(self.version>=3 and value['verb']=='cleanup-erase' and len(causes)==1);self.erase_effect(causes[0],value)
+                elif len(stored['events'])>len(prior['events']):
                     causes=[op for op in operations if op['ticket']==value['ticket'] and op['verb']=='send']
                     need(value['verb']=='send' and len(causes)==1);self.send_history(causes[0],value)
         return value
 
     def original(self,reference):return self.frame(self.frames.read(self.frames.expand(reference)))
     @staticmethod
-    def local(frame):return measured_view(frame['originals']['view'])
+    def local(frame):
+        value=frame['originals']['view'];source=value['source'];ui=source['ui']
+        if frame['iosChatDraftObservationVersion']>=3 and ui['present'] and ui['channel']=='settings':
+            view_packet(value,dict(schemaVersion=1,action='feature-chat-view-observe',commandId=value['commandId'],runId=value['runId']),value['processId'],value['capturedEpochMs'])
+            need(value['chatViewVersion']==2 and source['keyboard']['available']
+                and (not source['keyboard']['visible'] or source['editorFocused']))
+            return dict(open=True,channel='settings',draft=ui['draft'],focused=source['editorFocused'],keyboard=source['keyboard']['visible'],messages=[])
+        return measured_view(value)
     def storage(self,frame):
         if self.state['baseline'] is not None:
             actual=frame['originals']['view']['source']['storage'];initial=self.original(self.state['baseline'])['originals']['view']['source']['storage']
@@ -173,11 +187,13 @@ class IOSChatDraftOwner:
             if state['baseline'] is not None:
                 need(state['baseline'] in state['records']);self.baseline(self.original(state['baseline']))
                 for ref in state['records']:self.storage(self.original(ref))
-            tickets=set()
+            tickets={}
             for op in state['operations']+state['failures']+([] if state['pending'] is None else [state['pending']]):
                 exact(op,{'ticket','verb','inputs','before','intents','queries','after','quiet'});self.call(op['ticket'],op['verb'],op['inputs'])
-                need(op['ticket'] not in tickets and op['before'] in state['records']
-                    and op['before']['index']>=state['baseline']['index']);tickets.add(op['ticket'])
+                need(op['verb']!=RESTORE_READ and op['before'] in state['records'] and op['before']['index']>=state['baseline']['index'])
+                prior=tickets.setdefault(op['ticket'],set())
+                need(not prior or self.version>=3 and op['verb'] in RESTORE_STEPS|{'cleanup'} and prior<=RESTORE_STEPS|{'cleanup'})
+                need(op['verb'] not in prior);prior.add(op['verb'])
                 need(type(op['intents']) is list and len(op['intents'])<=2 and type(op['queries']) is list and len(op['queries'])<=128
                     and type(op['quiet']) is list and len(op['quiet'])<=3)
                 for index,intent in enumerate(op['intents']):self.intent_original(op,index,intent)
@@ -197,8 +213,9 @@ class IOSChatDraftOwner:
         return deepcopy(state)
 
     def call(self,ticket,verb,inputs):
-        identifier(ticket);need(verb in ('open','type','close','cleanup') or self.version>=2 and verb in ('send','select-channel'))
-        if verb=='cleanup':need(inputs=={} and type(inputs) is dict)
+        identifier(ticket);need(verb in ('open','type','close','cleanup') or self.version>=2 and verb in ('send','select-channel')
+            or self.version>=3 and verb in RESTORE_STEPS|{RESTORE_READ})
+        if verb=='cleanup' or verb in RESTORE_STEPS|{RESTORE_READ}:need(inputs=={} and type(inputs) is dict)
         else:arguments('feature.chat.act',dict(contractVersion=16,runId=self.run,fixtureUrl=self.fixture_url,ticket=ticket,verb=verb,inputs=inputs))
     @staticmethod
     def query(command):
@@ -215,7 +232,8 @@ class IOSChatDraftOwner:
         holder['queries'].append(deepcopy(command));self.save()
     def intent_original(self,op,index,entry):
         exact(entry,{'input','phase'});value=entry['input'];exact(value,{'controlId','action','instance','generation','sequence'})
-        sequence=[('chat.entry','activate')] if op['verb']=='open' else [('chat.input','activate'),('chat.input','replace')] if op['verb']=='type' else (
+        sequence=[('chat.entry','activate')] if op['verb'] in ('open','cleanup-open','cleanup-rebuild-open') else [('chat.input','activate'),('chat.input','replace')] if op['verb']=='type' else (
+            [('chat.settings','activate')] if op['verb']=='cleanup-settings' else [('chat.erase','activate')] if op['verb']=='cleanup-erase' else
             [('chat.send','activate')] if op['verb']=='send' else [('chat.'+op['inputs']['channel'],'activate')] if op['verb']=='select-channel' else [('chat.close','activate')])
         need(index<len(sequence) and (value['controlId'],value['action'])==sequence[index] and integer(value['sequence'],1))
         before=self.original(op['before'])['originals']['uiAfter']
@@ -241,7 +259,9 @@ class IOSChatDraftOwner:
 
     @operation
     def capture(self,ticket,verb,inputs):
-        self.bound();need(not self.historical);self.call(ticket,verb,inputs);self.recover_observation();need(len(self.state['records'])<128)
+        self.bound();need(not self.historical);self.call(ticket,verb,inputs);self.recover_observation()
+        limit=96 if self.version>=3 and verb not in RESTORE_STEPS|{RESTORE_READ,'cleanup'} else 128
+        need(len(self.state['records'])<limit)
         status=self.phase.read();self.phase_original(status['status'],ticket,verb,inputs)
         self.state['observation']=dict(ticket=ticket,verb=verb,inputs=deepcopy(inputs),queries=[],partial={},wire=None);self.save()
         partial=self.state['observation']['partial'];clock=NativeClockAcquisition(self.native,epoch_ms=self.epoch_ms,monotonic=self.monotonic)
@@ -270,27 +290,37 @@ class IOSChatDraftOwner:
         last=current[-1]
         need(last['channel']==prior['channel'] and last['text']==prior['draft']
             and before['clockJoin']['nativeAfter']['capturedEpochMs']<=last['timestamp']<=frame['originals']['view']['capturedEpochMs'])
+    def erase_effect(self,op,frame):
+        from ios.adapters.chat_history_value import unchanged_empty
+        before=self.original(op['before']);need(self.local(before)['channel']=='settings' and self.local(frame)['channel']=='settings'
+            and before['originals']['view']['source']['storage']['count']>0
+            and len(op['intents'])==1 and frame['originals']['uiAfter']['lastSequence']==before['originals']['uiAfter']['lastSequence']+1)
+        baseline=self.original(self.state['baseline'])['originals']['view'];need(baseline['source']['storage']['kind']=='null')
+        unchanged_empty(baseline,frame['originals']['view'])
     def effect(self,op,frame):
         need(frame['ticket']==op['ticket'] and frame['verb']==op['verb'] and same(frame['inputs'],op['inputs']))
         before=self.original(op['before']);local=self.local(frame);prior=self.local(before)
-        expected=2 if op['verb']=='type' else 0 if (op['verb']=='cleanup' and not prior['open']
+        expected=2 if op['verb']=='type' else 0 if (op['verb'] in ('cleanup','cleanup-discard','cleanup-rebuild-close') and not prior['open']
+            or op['verb']=='cleanup-settings' and prior['channel']=='settings'
             or op['verb']=='select-channel' and prior['channel']==op['inputs']['channel']) else 1
         need(len(op['intents'])==expected and frame['originals']['uiAfter']['lastSequence']==before['originals']['uiAfter']['lastSequence']+expected)
-        if op['verb']=='open':
+        if op['verb'] in ('open','cleanup-open','cleanup-rebuild-open'):
             need(not prior['open'] and local['open'] and local['channel']=='local' and local['draft']=='')
-            earlier=[item for item in self.state['operations'] if item['verb']=='open' and item['after']['index']<op['before']['index']]
+            earlier=[item for item in self.state['operations'] if item['verb'] in ('open','cleanup-open','cleanup-rebuild-open') and item['after']['index']<op['before']['index']]
             if earlier:need(frame['originals']['view']['source']['ui']['generation']!=self.original(earlier[-1]['after'])['originals']['view']['source']['ui']['generation'])
         elif op['verb']=='type':need(local['open'] and local['draft']==op['inputs']['text'] and local['focused'] and local['keyboard'])
         elif op['verb']=='send':need(prior['open'] and prior['draft'] and local['open'] and local['channel']==prior['channel'] and local['draft']=='')
         elif op['verb']=='select-channel':need(local['open'] and local['channel']==op['inputs']['channel'] and local['draft']==prior['draft'])
+        elif op['verb']=='cleanup-settings':need(prior['open'] and local['open'] and local['channel']=='settings' and local['draft']=='')
+        elif op['verb']=='cleanup-erase':self.erase_effect(op,frame)
         else:need(not local['open'] and local['draft']=='' and not local['focused'] and not local['keyboard'])
         if self.version>=2:
             previous=before['originals']['view']['source']['storage']['events'];current=frame['originals']['view']['source']['storage']['events']
             if op['verb']=='send':self.send_history(op,frame)
-            else:need(same(current,previous))
+            elif op['verb']!='cleanup-erase':need(same(current,previous))
         self.storage(frame);return local
     def quiet(self,op):
-        if op['verb'] not in ('close','cleanup'):need(op['quiet']==[]);return
+        if op['verb'] not in ('close','cleanup','cleanup-discard','cleanup-rebuild-close'):need(op['quiet']==[]);return
         need(len(op['quiet'])==3 and op['quiet'][-1]==op['after'] and all(ref in self.state['records'] for ref in op['quiet'])
             and [ref['index'] for ref in op['quiet']]==sorted({ref['index'] for ref in op['quiet']}))
         frames=[self.original(ref) for ref in op['quiet']]
@@ -314,7 +344,7 @@ class IOSChatDraftOwner:
                     and frame['originals']['uiAfter']['lastSequence']==before['originals']['uiAfter']['lastSequence']+1)
                 self.sleep(.25);ref=self.capture(op['ticket'],op['verb'],op['inputs']);frame=self.original(ref)
         self.effect(op,frame);quiet=[]
-        if op['verb'] in ('close','cleanup'):
+        if op['verb'] in ('close','cleanup','cleanup-discard','cleanup-rebuild-close'):
             quiet.append(ref)
             for _index in range(2):
                 self.sleep(1.6);ref=self.capture(op['ticket'],op['verb'],op['inputs']);self.effect(op,self.original(ref));quiet.append(ref)
@@ -323,20 +353,30 @@ class IOSChatDraftOwner:
         return dict(verifiedDraftAction=op['verb'],original=deepcopy(ref),local=self.local(self.original(ref)),failed=bool(self.state['failures']))
     @operation
     def act(self,ticket,verb,inputs):
-        self.bound();need(not self.historical);self.call(ticket,verb,inputs);self.recover_observation()
+        self.bound();need(not self.historical and verb!=RESTORE_READ);self.call(ticket,verb,inputs);self.recover_observation()
         if self.state['pending'] is not None:
             op=self.state['pending'];need(op['ticket']==ticket and op['verb']==verb and same(op['inputs'],inputs));return self.resolve()
-        retained=next((op for op in self.state['operations'] if op['ticket']==ticket),None)
+        group=[op for op in self.state['operations']+self.state['failures'] if op['ticket']==ticket]
+        if group:need(verb==group[0]['verb'] or self.version>=3 and verb in RESTORE_STEPS|{'cleanup'} and all(op['verb'] in RESTORE_STEPS|{'cleanup'} for op in group))
+        retained=next((op for op in self.state['operations'] if op['ticket']==ticket and (op['verb']==verb or self.version<3)),None)
         if retained is not None:
             need(retained['verb']==verb and same(retained['inputs'],inputs));ref=self.capture(ticket,verb,inputs)
             return dict(verifiedDraftAction=verb,original=ref,local=self.effect(retained,self.original(ref)),failed=bool(self.state['failures']))
         need(len(self.state['operations'])<32);ref=self.capture(ticket,verb,inputs);before=self.original(ref)
         if self.state['baseline'] is None:self.baseline(before);self.state['baseline']=ref;self.save()
         local=self.local(before)
-        if verb=='open':need(not local['open'] and TokenChatUI.row(project(before['originals']['uiAfter']),'chat.entry') is not None)
+        if verb in RESTORE_STEPS:
+            baseline=self.original(self.state['baseline'])['originals']['view']
+            need(baseline['chatViewVersion']==2 and baseline['source']['storage']['kind']=='null')
+        if verb in ('open','cleanup-open','cleanup-rebuild-open'):need(not local['open'] and TokenChatUI.row(project(before['originals']['uiAfter']),'chat.entry') is not None)
         elif verb=='type':need(local['open'] and local['draft']=='')
         elif verb=='send':need(local['open'] and local['draft'] in self.ui.allowed())
         elif verb=='select-channel':need(local['open'])
+        elif verb=='cleanup-settings':need(local['open'] and local['draft']=='')
+        elif verb=='cleanup-erase':
+            baseline=self.original(self.state['baseline'])['originals']['view']
+            need(self.version>=3 and baseline['chatViewVersion']==2 and baseline['source']['storage']['kind']=='null'
+                and local['channel']=='settings' and before['originals']['view']['source']['storage']['count']>0)
         elif verb=='close':need(local['open'])
         elif local['open']:
             # An actual owned entry and unchanged consumed cursor must precede
@@ -347,10 +387,12 @@ class IOSChatDraftOwner:
             intents=[entry['input']['sequence'] for item in prior for entry in item['intents']]
             need(entries and intents and before['originals']['uiAfter']['lastSequence']==max(intents))
         self.state['pending']=dict(ticket=ticket,verb=verb,inputs=deepcopy(inputs),before=ref,intents=[],queries=[],after=None,quiet=[]);self.save()
-        if verb=='open':self.ui.open()
+        if verb in ('open','cleanup-open','cleanup-rebuild-open'):self.ui.open()
         elif verb=='type':self.ui.type(inputs['text'])
         elif verb=='send':self.ui.send()
         elif verb=='select-channel':self.ui.select_channel(inputs['channel'])
+        elif verb=='cleanup-settings':self.ui.settings()
+        elif verb=='cleanup-erase':self.ui.erase_history()
         else:self.ui.close()
         return self.resolve()
 
@@ -363,3 +405,8 @@ class IOSChatDraftOwner:
             if pending['verb']=='cleanup':need(pending['ticket']==ticket);return self.resolve()
             need(len(self.state['failures'])<32);self.state['failures'].append(deepcopy(pending));self.state['pending']=None;self.save()
         return self.act(ticket,'cleanup',{})
+
+    @operation
+    def restore_history(self,ticket):
+        from ios.adapters.chat_history_cleanup import restore
+        return restore(self,ticket)
