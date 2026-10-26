@@ -277,6 +277,7 @@ REQUIRED = {
     "ios-emote-rooted-end-archive": 1,
     "ios-emote-rooted-process-frame": 1,
     "ios-emote-rooted-process-original": 1,
+    "ios-audio-scope": 1,
     "ios-audio-recorded-owner": 3,
     "ios-audio-recorded-observation": 3,
     "ios-audio-recorded-frame": 1,

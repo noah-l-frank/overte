@@ -391,6 +391,8 @@ class IOSNativeMixin:
 
     def component_owners_absent(self,selector):
         """Pure ownership checks; historical cleanup must not create sources."""
+        from ios.adapters.audio_session_owners import owners_absent as audio_owners_absent
+        if not audio_owners_absent(self,selector):return False
         from ios.adapters.assets_session_owners import owners_absent as assets_owners_absent
         if not assets_owners_absent(self,selector):return False
         stores=(self.script_store,self.chat_capture_store,self.private_login_input_store,self.script_restart_store,
@@ -401,6 +403,8 @@ class IOSNativeMixin:
         return state is None or all(key not in state for key in ('iosNormalNavigation','iosNormalSnapshot'))
 
     def cleanup_components(self, selector):
+        from ios.adapters.audio_session_owners import ensure_released as ensure_audio_released
+        ensure_audio_released(self,selector)
         from ios.adapters.lifecycle_session_owners import ensure_released as ensure_lifecycle_released
         ensure_lifecycle_released(self,selector)
         from ios.adapters.assets_session_owners import ensure_released as ensure_assets_released

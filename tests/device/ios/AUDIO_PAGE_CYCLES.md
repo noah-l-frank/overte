@@ -47,3 +47,7 @@ restoration or weak-object/callback death. All journals and originals remain
 owned. Still required are actual loaded Script/QML and setting ownership,
 microphone authorization, background/permission recovery, independent acoustic
 and Actor evidence, original page/resource quiet and paired process/SDK end.
+
+The [session ownership barrier](AUDIO_SESSION_OWNERSHIP.md) preserves these
+unfinished responsibilities before ordinary SDK work. Closing this page or
+retiring its PCM lease cannot bypass that barrier.

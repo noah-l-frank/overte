@@ -13,6 +13,7 @@ from adapters.normal_ui import NativeUI
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.phase_fixture import PhaseFixtureReader
 from ios.adapters.audio_recorded_owner import IOSAudioRecordedOwner
+from ios.adapters.audio_session_owners import register_scope
 from ios.adapters.normal_audio import IOSAudioIO
 from ios.adapters.script_runtime import IOSScriptRuntime
 import time
@@ -26,6 +27,7 @@ class IOSAudioRuntime(IOSScriptRuntime):
         with lock.held():
             try:
                 source=self._sources(selector);native=source['clock_source'];normal=source['native']
+                register_scope(self.adapter,selector,source['binding'],run,root)
                 io=IOSAudioIO(SimpleNamespace(capture=normal.capture,native=normal,ui=NativeUI(source['client'],source['session'],source['check'])))
                 owner=IOSAudioRecordedOwner(PrivateFeatureState(self.state_path(selector).with_name('ios-audio-recorded-owner.json')),
                     root,source['binding'],run,lock,source['check'],native=native,io=io,
