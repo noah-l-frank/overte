@@ -21,7 +21,9 @@ public:
     struct Roots { bool available {false}; QList<QQuickItem*> items; };
     using RootReader = std::function<Roots()>;
     using PointerInput = std::function<bool(QQuickItem*, QQuickWindow*, const QPointF&)>;
-    PendingFieldCommitOwner(RootReader roots, PointerInput pointer) : _roots(std::move(roots)), _pointer(std::move(pointer)) {
+    using IdentityObserver = std::function<void(const QString&, QQuickItem*, QQuickWindow*, QQmlContext*)>;
+    PendingFieldCommitOwner(RootReader roots, PointerInput pointer, IdentityObserver observer = {})
+        : _roots(std::move(roots)), _pointer(std::move(pointer)), _identityObserver(std::move(observer)) {
         _clock.start();
     }
 
@@ -165,6 +167,7 @@ private:
         const auto current = currentField(run);
         QVariantMap field{{"status", current.status}};
         if (current.status == "ready") {
+            if (_identityObserver) { _identityObserver(current.token,current.field,current.window,current.context); }
             field.insert("token", current.token);
             field.insert("componentUrl", current.context->baseUrl().toString(QUrl::FullyEncoded));
             field.insert("text", current.text); field.insert("focused", current.field->hasActiveFocus());
@@ -200,6 +203,7 @@ private:
     static QString nonce() { return QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-'); }
     RootReader _roots;
     PointerInput _pointer;
+    IdentityObserver _identityObserver;
     QElapsedTimer _clock;
     QString _instance {nonce()}, _lastId;
     QVariantMap _lastCommand, _lastReply;

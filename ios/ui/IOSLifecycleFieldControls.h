@@ -28,7 +28,7 @@ struct Field {
 };
 struct State {
     QElapsedTimer timer;QString instance=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
-    QList<Object> objects;QList<Field> fields;QList<QPointer<QQuickItem>> loaders;
+    QList<Object> objects;QList<Field> fields;QList<QPointer<QQuickItem>> loaders;QJsonArray pendingBindings;
     quint64 sequence=0;qint64 epoch=0,monotonic=0;bool complete=true;
     State() {timer.start();}
 };
@@ -91,6 +91,12 @@ inline QJsonObject current(const Field& row) {
     if (!row.field || !row.root || !row.context || !row.window || !row.loader) {return {};}
     QQmlContext* context=nullptr;const auto editor=role(row.field,&context);
     if (editor!=row.identity.value("editor").toString() || context!=row.context || row.field->window()!=row.window) {return {};}
+    bool descendant=false;int depth=0;
+    for (auto item=row.field.data();item && ++depth<=128;item=item->parentItem()) {
+        if (item->thread()!=qApp->thread()) {return {};}
+        if (item==row.root) {descendant=true;break;}
+    }
+    if (!descendant || row.loader->window()!=row.window || row.root->window()!=row.window) {return {};}
     const auto generation=row.loader->property("qmlLoadGeneration");
     const auto text=row.field->property("text"),readOnly=row.field->property("readOnly");
     if (generation.userType()!=QMetaType::Int || generation.toInt()<1 || text.userType()!=QMetaType::QString
@@ -125,6 +131,9 @@ inline QJsonObject notice(QQuickItem* field) {
     QJsonObject identity{{"editor",editor},{"componentSource",source},{"fieldName",field->objectName()},
         {"fieldId",id(field,"field")},{"rootId",id(root,"root")},{"contextId",id(context,"context")},
         {"windowId",id(field->window(),"window")},{"loaderId",id(loader,"loader")},{"loadGeneration",generation.toInt()}};
+    for (const auto& key:{"fieldId","rootId","contextId","windowId","loaderId"}) {
+        if (identity.value(key).toString().isEmpty()) {return {};}
+    }
     auto& s=state();for (const auto& row:s.fields) {if (row.identity==identity) {return current(row);}}
     if (s.fields.size()>=16) {s.complete=false;return {};}
     Field row;row.field=field;row.root=root;row.context=context;row.window=field->window();row.loader=loader;row.identity=identity;
@@ -138,6 +147,20 @@ inline QString controlId(QQuickItem* field) {
 inline QString controlSource(QQuickItem* field) {
     const auto actual=notice(field);return actual.isEmpty() ? QString() : QString::fromUtf8(QJsonDocument(actual).toJson(QJsonDocument::Compact));
 }
+inline void pendingIdentity(const QString& token,QQuickItem* field,QQuickWindow* window,QQmlContext* context) {
+    if (!enabled()) {return;}
+    auto& s=state();const auto current=notice(field),identity=current.value("identity").toObject();
+    QQmlContext* original=nullptr;
+    if (current.isEmpty() || role(field,&original)!="scripts" || original!=context || field->window()!=window
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(token).hasMatch()) {s.complete=false;return;}
+    const QJsonObject binding{{"token",token},{"identity",identity}};
+    for (const auto& value:s.pendingBindings) {
+        const auto row=value.toObject();
+        if (row.value("token")==QJsonValue(token)) {if (row!=binding) {s.complete=false;}return;}
+    }
+    if (s.pendingBindings.size()>=64) {s.complete=false;return;}
+    s.pendingBindings.append(binding);
+}
 inline QJsonObject inventory() {
     if (!enabled()) {return {};}
     auto& s=state();const auto before=clock();QJsonArray fields,objects,loaders;
@@ -149,9 +172,11 @@ inline QJsonObject inventory() {
                 || source.toString().size()>4096) {s.complete=false;continue;}
         const auto digest=QString::fromLatin1(QCryptographicHash::hash(source.toString().toUtf8(),QCryptographicHash::Sha256).toHex());
         const auto window=loader->window();
+        const auto rootId=root ? id(root,"root") : QString(),windowId=window ? id(window,"window") : QString();
+        if ((root && rootId.isEmpty()) || (window && windowId.isEmpty())) {s.complete=false;continue;}
         loaders.append(QJsonObject{{"loaderId",id(loader,"loader")},{"loadGeneration",generation.toInt()},
-            {"rootId",root ? QJsonValue(id(root,"root")) : QJsonValue(QJsonValue::Null)},
-            {"windowId",window ? QJsonValue(id(window,"window")) : QJsonValue(QJsonValue::Null)},
+            {"rootId",root ? QJsonValue(rootId) : QJsonValue(QJsonValue::Null)},
+            {"windowId",window ? QJsonValue(windowId) : QJsonValue(QJsonValue::Null)},
             {"sourceSha256",digest}});
     }
     for (const auto& row:s.fields) {
@@ -165,7 +190,8 @@ inline QJsonObject inventory() {
     }
     return {{"iosLifecycleFieldsVersion",1},{"instance",s.instance},{"sequence",static_cast<double>(++s.sequence)},
         {"processId",static_cast<double>(QCoreApplication::applicationPid())},{"complete",s.complete},
-        {"clockBefore",before},{"clockAfter",clock()},{"fields",fields},{"objects",objects},{"loaders",loaders}};
+        {"clockBefore",before},{"clockAfter",clock()},{"fields",fields},{"objects",objects},{"loaders",loaders},
+        {"pendingBindings",s.pendingBindings}};
 }
 }
 #endif

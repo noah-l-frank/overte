@@ -25,6 +25,9 @@
 #include <QtQml>
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
 #include "IOSNormalUiInput.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include "IOSLifecycleFieldControls.h"
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../tests/device/native/PendingFieldCommitOwner.h"
 #include "IOSKeyboardObservation.h"
@@ -363,7 +366,11 @@ void installIOSPendingCommitOwner() {
         }
         return delivered && released && original && surface;
     };
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    const auto owner = std::make_shared<PendingFieldCommitOwner>(roots, pointer,overte::ios::lifecycle_fields::pendingIdentity);
+#else
     const auto owner = std::make_shared<PendingFieldCommitOwner>(roots, pointer);
+#endif
     PendingCommitProvider provider = [owner](const QVariantMap& command) {
         if (!NSThread.isMainThread || !qApp || QThread::currentThread() != qApp->thread()
                 || !QCoreApplication::arguments().contains("--testScript")) { return QVariantMap(); }

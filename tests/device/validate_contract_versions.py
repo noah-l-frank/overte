@@ -9,6 +9,11 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "assets-bundle-controls": 1,
+    "ios-assets-bundle-ui": 1,
+    "ios-assets-upload-owner": 1,
+    "ios-assets-upload-frame": 1,
+    "ios-assets-upload-original": 1,
     "snapshot-share-companion-artifact": 1,
     "snapshot-share-companion-observation": 1,
     "snapshot-share-companion-code-admission": 1,
@@ -17,6 +22,7 @@ REQUIRED = {
     "ios-snapshot-share-code-frame": 1,
     "ios-snapshot-share-code-original": 1,
     "ios-lifecycle-fields": 1,
+    "ios-lifecycle-originals": 1,
     "ios-lifecycle-field-controls": 1,
     "photos-save-input-owner": 1,
     "photos-save-input-proof-frame": 1,
@@ -728,7 +734,7 @@ REQUIRED = {
     "ios-asset-upload-work": 1,
     "asset-file-owner": 1,
     "asset-file-seal": 1,
-    "asset-control": 1,
+    "asset-control": 2,
     "asset-controls": 1,
     "ios-asset-controls": 1,
     "ios-snapshot-manifest-owner": 1,

@@ -19,9 +19,9 @@ from ios.self_tests.test_ios_normal_input import Boundary
 
 
 class Census:
-    def __init__(self):
-        self.epoch=int(time.time()*1000)-100;self.tick=0;self.sequence=0
-        self.instance=uuid.uuid4().hex;self.objects=[];self.fields=[]
+    def __init__(self,epoch=None):
+        self.epoch=int(time.time()*1000)-100 if epoch is None else epoch;self.tick=0;self.sequence=0
+        self.instance=uuid.uuid4().hex;self.objects=[];self.fields=[];self.pending=[]
         self.loader=self.object('loader');self.window=self.object('window');self.root=self.object('root')
         self.loaders=[dict(loaderId=self.loader,rootId=self.root,windowId=self.window,loadGeneration=1,sourceSha256='a'*64)]
     def clock(self):
@@ -43,7 +43,8 @@ class Census:
     def packet(self):
         self.sequence+=1;before=self.clock()
         return deepcopy(dict(iosLifecycleFieldsVersion=1,instance=self.instance,sequence=self.sequence,processId=42,
-            complete=True,clockBefore=before,clockAfter=self.clock(),objects=self.objects,fields=self.fields,loaders=self.loaders))
+            complete=True,clockBefore=before,clockAfter=self.clock(),objects=self.objects,fields=self.fields,loaders=self.loaders,
+            pendingBindings=self.pending))
 
 
 class FieldBoundary(Boundary):
@@ -182,3 +183,80 @@ class LifecycleFieldInputTests(unittest.TestCase):
             lambda v:v['controls'][0].update(expectedText='acknowledged')):
             value=deepcopy(original);mutate(value)
             with self.subTest(mutate=mutate),self.assertRaises(NativeUIError):normal_input.observation(value,42)
+
+    def test_actual_reader_preserves_original_census_and_refuses_rewritten_or_missing_history(self):
+        self.native.capture();original=deepcopy(self.native.lifecycle_fields_previous)
+        for mutate in (lambda v:v['lifecycleFieldInventory']['objects'][0].update(born=dict(epochMs=1,monotonicMs=0)),
+            lambda v:v['lifecycleFieldInventory'].update(instance=uuid.uuid4().hex),
+            lambda v:(v.pop('lifecycleFieldsVersion'),v.pop('lifecycleFieldInventory'))):
+            self.b.change=mutate
+            with self.subTest(mutate=mutate),self.assertRaises(NativeUIError):self.native.capture()
+            self.assertEqual(original,self.native.lifecycle_fields_previous)
+        self.assertEqual([],self.inputs())
+
+
+class LifecyclePendingJoinTests(unittest.TestCase):
+    def setUp(self):
+        from self_tests.test_pending_commit_owner import Boundary as PendingBoundary,RUN
+        from adapters.pending_commit_owner import NativePendingCommitOwner
+        self.run=RUN;self.c=Census(epoch=19000);self.field=self.c.load('scripts',focused=False);self.p=PendingBoundary()
+        # Declared native producer identities and exact configured component URL.
+        self.field['identity']['componentSource']='qrc:/qml/hifi/dialogs/TabletRunningScripts.qml'
+        def producer(value):
+            value['processId']=42
+            if value['commit']:value['commit']['observation']['processId']=42
+        self.p.edit=producer
+        self.owner=NativePendingCommitOwner(self.p.send,self.p.original,self.p.epoch,lambda:True,42,
+            intent=self.p.intents.append,monotonic=lambda:self.p.clock,sleep=self.p.sleep)
+        self.c.pending.append(dict(token=self.p.token,identity=deepcopy(self.field['identity'])))
+    def joined(self):
+        self.c.tick=1001+round(self.p.clock*1000)
+        fields=self.c.packet();pending=deepcopy(self.owner.last)
+        return fields,pending,self.p.commands[-1]
+
+    def test_actual_pending_token_maps_original_context_and_separate_replacement(self):
+        self.owner.focus(self.run);self.owner.type_owned(self.run);held=self.owner.hold(self.run)
+        self.field.update(focused=True,text='retry-'+self.run,textSha256=hashlib.sha256(('retry-'+self.run).encode()).hexdigest(),textCodeUnits=38)
+        fields,pending,query=self.joined();joined=source.join_pending(fields,pending,query)
+        self.assertEqual(joined['current'],joined['held']);original=deepcopy(joined['held'])
+        self.p.replace_context();self.p.clock=.1;self.c.tick=1006
+        field=self.c.load('scripts',focused=False);field['identity']['componentSource']=self.field['identity']['componentSource']
+        self.c.pending.append(dict(token=self.p.token,identity=deepcopy(field['identity'])))
+        self.owner.attempt_retired(self.run,held['commit']['observation']['eventId'])
+        fields,pending,query=self.joined();after=source.join_pending(fields,pending,query)
+        self.assertEqual(original,after['held']);self.assertNotEqual(after['current'],after['held'])
+        self.assertEqual('context-retired',after['commit']['observation']['events'][-1]['reason'])
+        self.assertEqual([],after['resources']['pendingRuns'])
+
+    def test_matching_text_and_source_without_original_native_token_relation_is_insufficient(self):
+        self.owner.read(self.run);fields,pending,query=self.joined()
+        for mutate in (lambda v:v.update(pendingBindings=[]),
+            lambda v:v['pendingBindings'][0].update(token=uuid.uuid4().hex)):
+            value=deepcopy(fields);mutate(value)
+            with self.subTest(mutate=mutate),self.assertRaises(NativeUIError):source.join_pending(value,pending,query)
+
+    def test_native_token_relation_is_immutable_and_cannot_be_rebound_to_new_field(self):
+        self.owner.read(self.run);before,_,_=self.joined();self.c.tick=1005;self.c.load('scripts')
+        self.c.pending[0]['identity']=deepcopy(self.c.fields[-1]['identity']);after=self.c.packet()
+        with self.assertRaises(NativeUIError):source.validate(after,pid=42,previous=before)
+
+    def test_token_for_an_already_destroyed_context_cannot_claim_later_capture(self):
+        self.owner.focus(self.run);self.owner.type_owned(self.run);held=self.owner.hold(self.run)
+        original=deepcopy(self.field['identity']);self.p.replace_context();self.p.clock=.1;self.c.tick=1006
+        new=self.c.load('scripts',focused=False);new['identity']['componentSource']=original['componentSource']
+        self.c.pending.append(dict(token=self.p.token,identity=deepcopy(new['identity'])))
+        self.owner.attempt_retired(self.run,held['commit']['observation']['eventId'])
+        self.c.fields[0]['current']=None
+        for row in self.c.objects:
+            if row['id']==original['contextId']:
+                row.update(alive=False,expired=dict(epochMs=19999,monotonicMs=999))
+        fields,pending,query=self.joined();source.validate(fields,pid=42)
+        with self.assertRaises(NativeUIError):source.join_pending(fields,pending,query)
+
+    def test_late_observed_identity_or_disagreeing_current_state_cannot_join(self):
+        self.owner.read(self.run);fields,pending,query=self.joined()
+        for mutate in (lambda v:v['objects'][-1]['born'].update(epochMs=20001,monotonicMs=1001),
+            lambda v:v['fields'][0]['current'].update(focused=True),
+            lambda v:v.update(complete=False)):
+            value=deepcopy(fields);mutate(value)
+            with self.subTest(mutate=mutate),self.assertRaises(NativeUIError):source.join_pending(value,pending,query)

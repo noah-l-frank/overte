@@ -555,9 +555,12 @@ class FeatureObservation:
         return NativeNavigationReplies(self.send,lambda:self.original(remote=remote,limit=NATIVE_FEATURE_LIMIT),
             clock,self.guard,self.process['pid'],ios=True,monotonic=self.monotonic,sleep=self.sleep)
 
-    def pending_owner(self,intent=None):
+    def pending_owner(self,intent=None,clock_source=None):
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+PENDING_OWNER_FILE
-        def clock():return self.native_observer().read(0)['capturedEpochMs']
+        if clock_source is None:clock_source=self.native_observer()
+        if not isinstance(clock_source,NativeFeatureObservation) or not clock_source.ios or clock_source.pid!=self.process['pid']:
+            raise NativeUIError('Original pending-input clock does not match this iOS process')
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return NativePendingCommitOwner(self.send,lambda:self.original(remote=remote,limit=32768),
             clock,self.guard,self.process['pid'],ios=True,intent=intent,monotonic=self.monotonic,sleep=self.sleep)
 

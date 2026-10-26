@@ -268,8 +268,14 @@ class IOSNativeMixin:
         return sources['observer'].keyboard(clock_source=sources['clock_source'])
 
     def _pending_owner(self,selector,intent=None):
-        manager=self._scripts(selector);native=manager.ui.io.native
-        return FeatureObservation(native.client,native.session,native.target,native.observe_process).pending_owner(intent)
+        from ios.adapters.script_runtime import IOSScriptRuntime
+        sources=IOSScriptRuntime(self)._sources(selector)
+        return sources['observer'].pending_owner(intent,clock_source=sources['clock_source'])
+
+    def _lifecycle_sources(self,selector,run):
+        from ios.adapters.script_runtime import IOSScriptRuntime
+        from ios.adapters.lifecycle_originals import IOSLifecycleSources
+        return IOSLifecycleSources(IOSScriptRuntime(self)._sources(selector),run)
 
     def _web_dom(self,selector):
         manager=self._scripts(selector);native=manager.ui.io.native

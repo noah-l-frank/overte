@@ -74,6 +74,12 @@ def observation(value, pid, now_ms=None):
     now_ms = time.time() * 1000 if now_ms is None else now_ms
     fields = {'schemaVersion', 'instance', 'frameSpace', 'processId', 'sampleEpochMs',
               'elapsedMs', 'lastSequence', 'tabletShown', 'ready', 'controls'}
+    if type(value) is dict and 'lifecycleFieldsVersion' in value:
+        from ios.adapters.lifecycle_fields import validate as lifecycle_inventory
+        if type(value['lifecycleFieldsVersion']) is not int or value['lifecycleFieldsVersion']!=1:
+            raise NativeUIError('Native iOS Lifecycle field version is invalid')
+        lifecycle_inventory(value.get('lifecycleFieldInventory'),pid=pid,epoch=int(now_ms))
+        fields|={'lifecycleFieldsVersion','lifecycleFieldInventory'}
     if type(value) is dict and 'tabletBackControlsVersion' in value:
         if type(value['tabletBackControlsVersion']) is not int or value['tabletBackControlsVersion']!=1:
             raise NativeUIError('Native iOS Back source version is invalid')
@@ -86,6 +92,13 @@ def observation(value, pid, now_ms=None):
         if type(value['assetControlsVersion']) is not int or value['assetControlsVersion']!=1:
             raise NativeUIError('Native iOS Assets source version is invalid')
         asset_inventory(value.get('assetInventory'),pid=pid);fields|={'assetControlsVersion','assetInventory'}
+    if type(value) is dict and 'assetBundleControlsVersion' in value:
+        from ios.adapters.assets_bundle_controls import inventory as bundle_inventory
+        if (type(value['assetBundleControlsVersion']) is not int or value['assetBundleControlsVersion']!=1
+                or type(value.get('assetControlsVersion')) is not int or value['assetControlsVersion']!=1):
+            raise NativeUIError('Native iOS Assets bundle source version is invalid')
+        bundle_inventory(value.get('assetBundleInventory'),pid=pid,ui=value.get('assetInventory'))
+        fields|={'assetBundleControlsVersion','assetBundleInventory'}
     if type(value) is dict and 'navigationInventory' in value:
         from ios.adapters.navigation_ui import validate as navigation_inventory
         navigation_inventory(value['navigationInventory']);fields.add('navigationInventory')
@@ -194,6 +207,16 @@ def observation(value, pid, now_ms=None):
     seen, tokens = set(), set()
     for control in value['controls']:
         fields = {'id', 'token', 'enabled', 'focused', 'frame'}
+        from ios.adapters.lifecycle_fields import IDS as LIFECYCLE_IDS,metadata as lifecycle_metadata
+        is_lifecycle=type(control) is dict and control.get('id') in LIFECYCLE_IDS
+        if is_lifecycle:
+            if value.get('lifecycleFieldsVersion')!=1:raise NativeUIError('Native iOS Lifecycle field lacks its source')
+            actual=lifecycle_metadata(control.get('lifecycleField'));fields.add('lifecycleField')
+            if (actual['identity']['editor']!=LIFECYCLE_IDS[control['id']]
+                    or not actual['attached'] or not actual['visible']
+                    or actual['focused']!=control['focused']
+                    or not any(row['current']==actual for row in value['lifecycleFieldInventory']['fields'])):
+                raise NativeUIError('Native iOS Lifecycle field differs from its original inventory')
         if type(control) is dict and control.get('id')=='tablet.back':
             if value.get('tabletBackControlsVersion')!=1:raise NativeUIError('Native iOS Back source is missing')
             back_metadata(control);fields |= BACK_FIELDS
@@ -213,6 +236,8 @@ def observation(value, pid, now_ms=None):
         if is_asset:
             if value.get('assetControlsVersion')!=1:raise NativeUIError('Native iOS Assets source is missing')
             asset_metadata(control.get('assetControl'));fields.add('assetControl')
+            if control['assetControl']['assetControlVersion']==2 and value.get('assetBundleControlsVersion')!=1:
+                raise NativeUIError('Native iOS Assets bundle control lacks its original source')
             if control['assetControl']['controlId']!=control['id']:raise NativeUIError('Native iOS Assets control identity differs')
         elif type(control) is dict and control.get('id') in TABLET_APP_IDS:
             if value.get('tabletAppControlsVersion')!=1:raise NativeUIError('Native iOS Tablet app source is missing')
@@ -274,7 +299,7 @@ def observation(value, pid, now_ms=None):
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
-                or not (control['id'] in CONTROLS or control['id'] in TABLET_APP_IDS or control['id'] in SNAPSHOT_EXPORT_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id'] in VIEW_IDS or control['id']==REMEMBER_ID or is_asset or is_create and create_control(control['id']) or is_chat and chat_control(control['id']) or is_places and places_control(control['id']) or is_error or is_avatar and avatar_control(control['id']) or is_emote and emote_control(control['id'])) or control['id'] in seen
+                or not (is_lifecycle or control['id'] in CONTROLS or control['id'] in TABLET_APP_IDS or control['id'] in SNAPSHOT_EXPORT_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id'] in VIEW_IDS or control['id']==REMEMBER_ID or is_asset or is_create and create_control(control['id']) or is_chat and chat_control(control['id']) or is_places and places_control(control['id']) or is_error or is_avatar and avatar_control(control['id']) or is_emote and emote_control(control['id'])) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')
@@ -394,6 +419,11 @@ class NativeInput:
         value = observation(value, self.process['pid'], epoch)
         if self.instance is not None and value['instance'] != self.instance:
             raise NativeUIError('Native iOS input instance changed')
+        old_fields=getattr(self,'lifecycle_fields_previous',None)
+        if old_fields is not None or 'lifecycleFieldInventory' in value:
+            from ios.adapters.lifecycle_fields import validate as lifecycle_inventory
+            current_fields=lifecycle_inventory(value.get('lifecycleFieldInventory'),pid=self.process['pid'],previous=old_fields)
+            self.lifecycle_fields_previous=deepcopy(current_fields)
         self.instance = value['instance']
         return value
 
@@ -460,6 +490,23 @@ class NativeInput:
             command['index'] = index
         return self.deliver(command)
 
+    def lifecycle_input(self,identifier,action,*,reference,text=None,before_send=None):
+        from ios.adapters.lifecycle_fields import IDS,current_reference,owned_text
+        if not callable(before_send) or identifier not in IDS or action not in ('activate','replace'):
+            raise NativeUIError('Native iOS Lifecycle field input is invalid')
+        actual=current_reference(reference,self.capture(),identifier);row=actual['control'];field=row['lifecycleField']
+        if not row['enabled'] or field['readOnly'] or not field['enabled']:
+            raise NativeUIError('Native iOS Lifecycle editor is unavailable')
+        if action=='replace':
+            if not row['focused'] or not owned_text(text,IDS[identifier]):
+                raise NativeUIError('Native iOS Lifecycle replacement lacks focused original editor')
+        elif text is not None:raise NativeUIError('Native iOS Lifecycle activation carries unexpected text')
+        scope=reference['scope']
+        command=dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=scope['instance'],
+            sequence=scope['lastSequence']+1,observedElapsedMs=scope['elapsedMs'],fieldToken=row['token'],operation=action)
+        if action=='replace':command['text']=text
+        return self.deliver(command,before_send=lambda:before_send(deepcopy(command)))
+
     def navigation_error_input(self,*,reference):
         from ios.adapters.navigation_dialog_controls import project,same_reference
         row=same_reference(reference,project(self.capture()))
@@ -468,19 +515,27 @@ class NativeInput:
         return self.deliver(dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=original['instance'],
             sequence=original['sequence']+1,observedElapsedMs=original['elapsedMs'],fieldToken=row['token'],operation='activate'))
 
-    def assets_input(self,identifier,action,*,reference,text=None,before_send=None):
+    def assets_input(self,identifier,action,*,reference,text=None,index=None,before_send=None):
         from ios.adapters.assets_controls import project,same_reference,folder
-        if action not in ('activate','replace','submit') or not asset_control(identifier):
+        from ios.adapters.assets_bundle_controls import IDS as BUNDLE_IDS,destination
+        if action not in ('activate','replace','submit','select-index') or not asset_control(identifier):
             raise NativeUIError('Native iOS Assets input is invalid')
         row=same_reference(reference,project(self.capture()),identifier)
         if not row['enabled']:raise NativeUIError('Native iOS Assets control is disabled')
-        if action!='activate' and (identifier!='asset-file.folder' or not row['focused']):
+        if action in ('replace','submit') and (identifier not in ('asset-file.folder','assets.destination') or not row['focused']
+                or action=='submit' and identifier!='asset-file.folder'):
             raise NativeUIError('Native iOS Assets folder input lacks actual focus')
-        if action=='replace':folder(text)
+        if action=='select-index':
+            if identifier!='asset-file.bundle-primary' or type(index) is not int or not 0<=index<row['assetControl']['choiceCount']:
+                raise NativeUIError('Native iOS Assets primary index is invalid')
+        elif index is not None:raise NativeUIError('Native iOS Assets input has an unexpected index')
+        if action=='replace':(destination if identifier=='assets.destination' else folder)(text)
         elif text is not None:raise NativeUIError('Native iOS Assets input has unexpected text')
         scope=reference['scope'];command=dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=scope['instance'],
             sequence=scope['lastSequence']+1,observedElapsedMs=scope['elapsedMs'],fieldToken=row['token'],operation=action)
         if action=='replace':command['text']=text
+        if action=='select-index':command['index']=index
+        if identifier in BUNDLE_IDS and not callable(before_send):raise NativeUIError('Native iOS Assets bundle input requires durable ownership')
         if before_send is not None and not callable(before_send):raise NativeUIError('Native iOS Assets intent callback is invalid')
         return self.deliver(command,before_send=None if before_send is None else lambda:before_send(deepcopy(command)))
 

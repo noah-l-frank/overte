@@ -56,7 +56,7 @@ def metadata(value):
 
 
 def validate(value,*,pid,epoch=None,previous=None):
-    exact(value,{'iosLifecycleFieldsVersion','instance','sequence','processId','complete','clockBefore','clockAfter','fields','objects','loaders'})
+    exact(value,{'iosLifecycleFieldsVersion','instance','sequence','processId','complete','clockBefore','clockAfter','fields','objects','loaders','pendingBindings'})
     need(type(value['iosLifecycleFieldsVersion']) is int and value['iosLifecycleFieldsVersion']==VERSION
          and integer(pid,1) and type(value['processId']) is int and value['processId']==pid
          and integer(value['sequence'],1) and type(value['complete']) is bool)
@@ -65,7 +65,8 @@ def validate(value,*,pid,epoch=None,previous=None):
     if epoch is not None:fresh(b['epochMs'],epoch)
     need(type(value['objects']) is list and len(value['objects'])<=80
          and type(value['fields']) is list and len(value['fields'])<=16
-         and type(value['loaders']) is list and len(value['loaders'])<=8)
+         and type(value['loaders']) is list and len(value['loaders'])<=8
+         and type(value['pendingBindings']) is list and len(value['pendingBindings'])<=64)
     objects={}
     for row in value['objects']:
         exact(row,{'id','kind','born','alive','expired'});identifier(row['id'])
@@ -84,11 +85,12 @@ def validate(value,*,pid,epoch=None,previous=None):
         for key in ('rootId','windowId'):
             if row[key] is not None:identifier(row[key]);member(row[key],KINDS[key],True)
         loaders[row['loaderId']]=row
-    seen=set()
+    seen=set();identities=[]
     for row in value['fields']:
         exact(row,{'identity','current'});original=identity(row['identity'])
         key=(original['fieldId'],original['rootId'],original['contextId'],original['loadGeneration'])
         need(key not in seen);seen.add(key)
+        identities.append(original)
         for name,kind in KINDS.items():member(original[name],kind)
         if row['current'] is not None:
             current=metadata(row['current']);need(same(current['identity'],original))
@@ -96,6 +98,11 @@ def validate(value,*,pid,epoch=None,previous=None):
             if current['attached']:
                 loader=loaders.get(original['loaderId']);need(loader is not None)
                 need(all(loader[key]==original[key] for key in ('loadGeneration','rootId','windowId')))
+    tokens=set()
+    for row in value['pendingBindings']:
+        exact(row,{'token','identity'});identifier(row['token']);identity(row['identity'])
+        need(row['token'] not in tokens and row['identity']['editor']=='scripts' and row['identity'] in identities)
+        tokens.add(row['token'])
     if previous is not None:
         validate(previous,pid=pid);need(value['instance']==previous['instance'] and value['sequence']>previous['sequence'])
         clock(a,floor=previous['clockAfter'])
@@ -105,9 +112,10 @@ def validate(value,*,pid,epoch=None,previous=None):
             need(all(same(old[key],new[key]) for key in ('id','kind','born')))
             if old['expired'] is not None:need(same(old,new))
         for old,new in zip(previous['fields'],value['fields']):need(same(old['identity'],new['identity']))
+        need(same(previous['pendingBindings'],value['pendingBindings'][:len(previous['pendingBindings'])]))
         for old in previous['loaders']:
             new=loaders.get(old['loaderId'])
-            if new is None:need(not objects[old['loaderId']]['alive'])
+            if new is None:need(not value['complete'] or not objects[old['loaderId']]['alive'])
             else:
                 need(new['loadGeneration']>=old['loadGeneration'])
                 if new['loadGeneration']==old['loadGeneration']:
@@ -156,3 +164,35 @@ def current_reference(original,value,identifier):
          for key in ('instance','processId','lastSequence'))
          and integer(original['scope']['elapsedMs']) and actual['scope']['elapsedMs']>=original['scope']['elapsedMs'])
     return actual
+
+
+def join_pending(fields,pending,request):
+    """Join the native owner's actual weak-field token to the Qt census.
+
+    The iOS native IdentityObserver records the token/object relation during
+    the actual owner response. Matching text or a caller-supplied alias alone
+    cannot establish this relation.
+    """
+    from adapters.pending_commit_owner import validate as pending_packet
+    validate(fields,pid=fields['processId']);need(fields['complete'])
+    pending_packet(pending,request,fields['processId'],fields['clockAfter']['epochMs'])
+    need(pending['capturedEpochMs']<=fields['clockBefore']['epochMs']
+         and set(pending['resources']['pendingRuns'])<={request['runId']})
+    bindings={row['token']:row['identity'] for row in fields['pendingBindings']}
+    objects={row['id']:row for row in fields['objects']}
+    def existed(original,epoch):
+        need(all(objects[original[key]]['born']['epochMs']<=epoch
+                 and (objects[original[key]]['expired'] is None or objects[original[key]]['expired']['epochMs']>=epoch)
+                 for key in KINDS))
+    current=active(fields);actual=pending['current'];current_identity=None;held_identity=None
+    if actual['status']=='ready':
+        current_identity=bindings.get(actual['token']);need(current_identity is not None and current is not None)
+        need(same(current_identity,current['identity']) and current_identity['componentSource']==actual['componentUrl']
+             and current['textOwned'] and current['text']==actual['text'] and current['focused']==actual['focused'])
+        existed(current_identity,pending['capturedEpochMs'])
+    else:need(actual['status']=='none' and (current is None or current['identity']['editor']!='scripts'))
+    if pending['commit']:
+        commit=pending['commit'];held_identity=bindings.get(commit['fieldToken']);need(held_identity is not None)
+        need(held_identity['componentSource']==commit['observation']['source']['componentUrl'])
+        existed(held_identity,commit['observation']['createdEpochMs'])
+    return deepcopy(dict(current=current_identity,held=held_identity,commit=pending['commit'],resources=pending['resources']))

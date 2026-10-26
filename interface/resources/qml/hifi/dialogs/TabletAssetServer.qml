@@ -22,6 +22,13 @@ Rectangle {
     property var pendingBundle: null
     property string bundleRequest: ""
     property string uploadedPrimaryUrl: ""
+    // Passive E2E access to the existing rendered controls. No navigation,
+    // destination or handler is changed by these guarded getter bindings.
+    readonly property bool featureAssetBundleObservation: typeof Snapshot !== "undefined"
+        && typeof Snapshot.featureObservationEnabled === "function" && Snapshot.featureObservationEnabled()
+    readonly property var featureAssetDestinationEditor: featureAssetBundleObservation ? bundleDestination : null
+    readonly property var featureAssetDestinationAccept: featureAssetBundleObservation ? bundleDialog.standardButton(Dialog.Ok) : null
+    readonly property var featureAssetDestinationCancel: featureAssetBundleObservation ? bundleDialog.standardButton(Dialog.Cancel) : null
     property bool busy: false
     property string status: ""
     property var lifecycle: ({active: true})
