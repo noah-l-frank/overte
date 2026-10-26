@@ -120,5 +120,5 @@ def drained(value):
     validate(value)
     return (value['available'] and value['complete'] and not value['pendingBakes'] and not value['transferActiveThreads'] and not value['bakeActiveThreads']
         and not value['queuedRequests'] and not value['queueingRequests'] and all(not row['leaseAlive'] and row['pendingRuns']==row['pendingBodies']==0
-            and row['runEntered']==row['runReturned'] and row['callbackEntered']==row['callbackReturned']
-            and (row['kind']!='bake' or row['ownerKnown'] and row['ownerAlive'] is False and row['objectAlive'] is False) for row in value['jobs']))
+            and row['runEntered']==row['runReturned']==1 and row['callbackEntered']==row['callbackReturned']
+            and (row['kind']!='bake' or row['callbackEntered']>0 and row['ownerKnown'] and row['ownerAlive'] is False and row['objectAlive'] is False) for row in value['jobs']))

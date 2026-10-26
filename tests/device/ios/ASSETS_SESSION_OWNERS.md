@@ -21,9 +21,14 @@ keeps unfinished mapping actions owned. Confirmed mapping deletion plus client
 root death still retains `server-retirement`; the tree WAL cannot qualify stored
 blob, meta, worker or oven absence.
 
-A client-retired upload still has `server-retirement` responsibility because
-this partial vertical has no qualified namespace/blob/oven retirement owner.
-That responsibility blocks ordinary installed/session effects and teardown.
+The separate [backend successor](ASSETS_BACKEND_RESTORATION.md) now records its
+own immutable source segments. Historical inspection validates its exact same
+run/role/binding, file-owner token, page and picker. Complete original backend
+map/hidden/meta/blob restoration plus task/queue/weak drainage and independent
+native/host quiet can release the same upload's server responsibility. The old
+picker record is unchanged. Backend-only admission, partial originals, unknown
+queries and a client-retired upload without that complete backend successor
+still retain `server-retirement` and block installed/session effects or teardown.
 Local file absence, closed read leases and callback expiry cannot discharge
 server work. Fully decoded retired negative-picker or read-only ownership can
 remain as historical evidence without blocking ordinary cleanup; neither owner
@@ -46,3 +51,11 @@ clock/lifetime qualification was performed.
 
 Private validation log:
 `.ios-host-tmp/assets-successor-admission-20261026.log`.
+
+The current stricter backend packet additionally passed 51 focused host cases
+in 7.919 seconds and one fresh original-QML mapping/backend composition in
+86.738 seconds. The latter confirms same-successor retirement and original
+foreign inode retention; the pure inspector issues no new native/backend query.
+Logs are `assets-backend-owner-strict-first-20261026.log` and
+`assets-backend-mapping-strict-20261026.log` in the same private directory.
+Native sources remain uncompiled and the full Assets capability remains closed.

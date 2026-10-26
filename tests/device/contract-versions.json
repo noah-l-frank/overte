@@ -1,6 +1,14 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "asset-backend-bake-proof": {"current": 1, "reads": [1]},
+    "asset-backend-restoration-proof": {"current": 1, "reads": [1]},
+    "asset-backend-upload-proof": {"current": 1, "reads": [1]},
+    "ios-assets-backend-owner": {"current": 1, "reads": [1]},
+    "assets-backend-source-parts": {"current": 1, "reads": [1]},
+    "assets-backend-source-part-body": {"current": 1, "reads": [1]},
+    "assets-backend-source-part-frame": {"current": 1, "reads": [1]},
+    "assets-backend-source-part-original": {"current": 1, "reads": [1]},
     "ios-snapshot-pending-choice": {"current": 1, "reads": [1]},
     "native-ios-snapshot-pending-controls": {"current": 1, "reads": [1]},
     "ios-snapshot-pending-inputs": {"current": 1, "reads": [1]},

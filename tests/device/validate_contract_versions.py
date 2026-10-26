@@ -9,6 +9,14 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "asset-backend-bake-proof": 1,
+    "asset-backend-restoration-proof": 1,
+    "asset-backend-upload-proof": 1,
+    "ios-assets-backend-owner": 1,
+    "assets-backend-source-parts": 1,
+    "assets-backend-source-part-body": 1,
+    "assets-backend-source-part-frame": 1,
+    "assets-backend-source-part-original": 1,
     "ios-snapshot-pending-choice": 1,
     "native-ios-snapshot-pending-controls": 1,
     "ios-snapshot-pending-inputs": 1,

@@ -69,14 +69,17 @@ Whole Assets remains incomplete and its area/capability stays closed. Do not
 change the source-completion count on the strength of this partial vertical.
 Mapping-tree row/selection observation and ordinary Browse/Rename/Delete are now
 connected to independent mapping replies and durable recovery as documented
-above. The immediate next dependency is the original backend census and queued/
-run/return/weak-task observations, leading to hidden baked/meta mapping, unshared
-blob and worker retirement evidence. An upload's
-client-retired WAL intentionally still blocks ordinary session teardown on
-that missing `server-retirement` responsibility.
+above. The original backend census/queued/run/return/weak-task collector and
+ordinary mapping successor restoration now connect through the separately owned
+process and original-byte transport. See `ASSETS_BACKEND_SOURCE.md` and
+`ASSETS_BACKEND_RESTORATION.md`: 51 focused host cases plus one current strict
+original-QML/backend composition passed. The old picker phase stays literal.
+An upload without the complete same backend successor intentionally still blocks
+ordinary session teardown on `server-retirement`; partial/unknown queries or
+original writes also remain owned.
 
 Also remaining: permission ownership/propagation, supported automatic and
-explicit baking, original worker/meta/output sources, Add to World and actual
+explicit ordinary baking, Add to World and actual
 loaded geometry/texture consumers, independent peer rendering/publication,
 shared feature/scenario dispatch and complete paired fixture/process cleanup.
 The mapping vertical now refreshes/selects the actual primary and reselects it

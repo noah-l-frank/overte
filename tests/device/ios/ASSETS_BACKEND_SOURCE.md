@@ -82,12 +82,14 @@ return and lease/shared-owner/QObject expiry remain independently required.
 The source and parser retain oversized bodies as unknown rather than inventing
 readability or bake output. Native callback/Qt/FS behavior is still uncompiled.
 
-This packet supplies original transport, not complete backend retirement.
-No owner yet joins ordinary upload/baking/Add-to-World actions to fresh backend
-observations, shared/foreign mapping preservation, hidden meta/baked cleanup,
-unshared blob absence and native-plus-host quiet windows. Existing historical
-Assets session inspection therefore continues to retain `server-retirement`.
-No old picker phase, successor WAL, task permission or full capability changed.
+This packet supplies original transport. The later owner described in
+`ASSETS_BACKEND_RESTORATION.md` now joins the ordinary mapping/upload successor
+to fresh backend observations, exact baseline/foreign/hidden/blob preservation
+and native-plus-host quiet. Historical sessions without that complete same
+successor still retain `server-retirement`; old picker phases stay literal.
+Normal baking/Add-to-World, actual model consumers, whole dispatch and complete
+paired cleanup remain open. Native task permissions and full capability did not
+change.
 
 ## Exact host validation
 

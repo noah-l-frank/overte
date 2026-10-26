@@ -73,7 +73,7 @@ class BackendWorkTests(unittest.TestCase):
         model=NativeWorkModel();run=model.enter();callback=model.enter(True);model.leave(callback,True);model.leave(run)
         self.assertFalse(work.drained(model.capture()));model.expire('lease','owner');self.assertFalse(work.drained(model.capture()));model.expire('object');self.assertTrue(work.drained(model.capture()))
     def test_actual_pending_map_pool_and_queue_keep_responsibility_after_expiry(self):
-        model=NativeWorkModel();body=model.enter();model.leave(body);model.expire('lease','owner','object')
+        model=NativeWorkModel();body=model.enter();callback=model.enter(True);model.leave(callback,True);model.leave(body);model.expire('lease','owner','object');self.assertTrue(work.drained(model.capture()))
         for changes in (dict(pendingBakes=[dict(id=model.id,hash='a'*64)]),dict(transferActiveThreads=1),dict(bakeActiveThreads=1),dict(queuedRequests=1),dict(queueingRequests=True),dict(available=False),dict(complete=False)):
             with self.subTest(changes=changes):self.assertFalse(work.drained(model.capture(**changes)))
     def test_original_event_prefix_and_expiry_cannot_be_rewritten_or_resurrected(self):
@@ -90,12 +90,16 @@ class BackendWorkTests(unittest.TestCase):
         model=NativeWorkModel();body=model.enter();model.leave(uid());value=model.capture()
         with self.assertRaises(NativeUIError):work.validate(value)
 
+    def test_expired_unentered_queue_entry_or_unobserved_bake_callback_is_not_drained(self):
+        model=NativeWorkModel('upload');model.expire('lease');self.assertFalse(work.drained(model.capture()))
+        model=NativeWorkModel();body=model.enter();model.leave(body);model.expire('lease','owner','object');self.assertFalse(work.drained(model.capture()))
+
 
 class BackendSourceTests(unittest.TestCase):
     def setUp(self):
         directory=tempfile.TemporaryDirectory();self.addCleanup(directory.cleanup);self.root=Path(directory.name);self.root.chmod(0o700)
         self.data=self.root/'product';self.data.mkdir();self.files=self.data/'files';self.files.mkdir();self.export=self.root/'source';self.export.mkdir(mode=0o700)
-        self.server,self.domain=uid(),uid();self.work=NativeWorkModel();body=self.work.enter();self.work.leave(body);self.work.expire('lease','owner','object')
+        self.server,self.domain=uid(),uid();self.work=NativeWorkModel();body=self.work.enter();callback=self.work.enter(True);self.work.leave(callback,True);self.work.leave(body);self.work.expire('lease','owner','object')
     def record(self,path,raw):
         path.write_bytes(raw);path.chmod(0o600);return dict(name=path.name,exists=True,identity=kernel(path.stat()),body=dict(retained=True,base64=base64.b64encode(raw).decode(),sha256=hashlib.sha256(raw).hexdigest()))
     def dataset(self):

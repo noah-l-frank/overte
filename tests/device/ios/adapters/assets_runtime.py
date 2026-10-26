@@ -6,6 +6,7 @@ The narrow bundle input/readback owner does not establish oven/model outcomes.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import time
+from adapters.asset_backend_client import AssetsBackendClient
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_feature.lock import ScriptSourceLock
@@ -17,6 +18,7 @@ from ios.adapters.assets_picker import OwnedAssetsPicker
 from ios.adapters.assets_reply_owner import OwnedAssetsReplyReads
 from ios.adapters.assets_upload import OwnedAssetsUpload
 from ios.adapters.assets_tree_owner import OwnedAssetsTree
+from ios.adapters.assets_backend_owner import OwnedAssetsBackend
 from ios.adapters.feature_observation import FeatureObservation
 from ios.adapters.normal_input import NativeInput
 from ios.adapters.script_runtime import IOSScriptRuntime
@@ -43,7 +45,7 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         self.cleanup_errors=[] # Private diagnostics only; never feature facts.
 
     def _assets_store(self,selector,run,role,kind):
-        identifier(run);need(role in ('primary','actor') and kind in ('files','picker','replies','upload','tree'))
+        identifier(run);need(role in ('primary','actor') and kind in ('files','picker','replies','upload','tree','backend'))
         return PrivateFeatureState(self.state_path(selector).with_name('ios-assets-'+run+'-'+role+'-'+kind+'.json'))
 
     @operation
@@ -112,6 +114,63 @@ class IOSAssetsRuntime(IOSScriptRuntime):
             raise
         parts['check']();return result
 
+    @operation
+    def _assets_mapping_with_backend(self,selector,run,role,fixture_url,ticket,lock,backend_config,*,resource='gltf-bundle/main.gltf'):
+        """Ordinary mapping vertical with independently owned backend cleanup.
+
+        This internal source path advertises no feature. Baked model consumers,
+        normal bake controls and the complete Assets coordinator remain open.
+        """
+        parts=self._assets_components(selector,run,role,fixture_url,lock);upload,tree=parts['upload'],parts['tree']
+        backend=OwnedAssetsBackend(upload,AssetsBackendClient(backend_config,parts['check']),self._assets_store(selector,run,role,'backend'),lock=lock)
+        if backend.state is not None and backend.state['phase']=='restored':
+            need(tree.state is not None and tree.state['phase']=='deleted' and tree.state['clientClosedBy'] is not None);parts['check']();return backend.state['restoration']['proof']
+        try:
+            if backend.state is None or backend.state['phase']=='reserved':
+                for _ in range(32):
+                    if backend.admit(ticket) is not None:break
+                    backend.sleep(.1)
+                else:need(False)
+            if upload.state is None:self._assets_prepare_upload(selector,run,role,fixture_url,ticket,lock,resource=resource,parts=parts)
+            if backend.state['phase']=='baseline':backend.attach()
+            if upload.state['phase'] in ('ready','review','destination','starting'):self._assets_finish_upload(upload)
+            if upload.state['phase']=='uploaded':
+                if backend.state['uploadProof'] is None:
+                    self._assets_backend_checkpoint(backend,'uploaded',ticket);backend.uploaded('uploaded')
+                if tree.state is None:tree.reserve()
+                if tree.state['phase']=='reserved':tree.finish_browse() if tree.state['reads'] else tree.browse()
+                if tree.state['phase']=='browsed':tree.rename()
+                if tree.state['phase']=='renaming':tree.finish_rename()
+                if tree.state['phase']=='renamed':tree.delete()
+                if tree.state['phase']=='deleting':tree.finish_delete()
+            need(tree.state is not None and tree.state['phase']=='deleted');tree.close_clients()
+            first=None
+            for index in range(24):
+                slot='restoration-'+str(index);packet=self._assets_backend_checkpoint(backend,slot,ticket)
+                if backend.quiescent_baseline(packet):
+                    if first is not None:
+                        proof=backend.restore(first,slot)
+                        if proof is not None:parts['check']();return proof
+                        # A later already-returned job still interrupts quiet.
+                        previous=next(row for row in backend.state['samples'] if row['slot']==first)
+                        if backend.packet(previous)['source']['workAfter']['jobs']!=packet['source']['workBefore']['jobs']:first=slot
+                    else:first=slot
+                else:first=None
+                backend.sleep(.2)
+            need(False)
+        except BaseException:
+            try:
+                if upload.state is not None:tree.close_clients() if tree.state is not None else upload.cleanup(abort=True)
+            except BaseException as cleanup_error:self.cleanup_errors.append(cleanup_error)
+            raise
+
+    def _assets_backend_checkpoint(self,backend,slot,ticket):
+        for _ in range(32):
+            packet=backend.checkpoint(slot,ticket)
+            if packet is not None:return packet
+            backend.sleep(.1)
+        need(False)
+
     def _assets_finish_upload(self,owner):
         if owner.state['phase']=='ready':owner.review()
         if owner.state['phase']=='review':owner.destination()
@@ -119,8 +178,8 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         if owner.state['phase']=='starting':owner.uploaded()
         need(owner.state['phase']=='uploaded')
 
-    def _assets_prepare_upload(self,selector,run,role,fixture_url,ticket,lock,*,resource):
-        bundle(run,ticket,fixture_url,resource);parts=self._assets_components(selector,run,role,fixture_url,lock)
+    def _assets_prepare_upload(self,selector,run,role,fixture_url,ticket,lock,*,resource,parts=None):
+        bundle(run,ticket,fixture_url,resource);parts=self._assets_components(selector,run,role,fixture_url,lock) if parts is None else parts
         files,picker,replies,owner=parts['owned_files'],parts['picker'],parts['owned_replies'],parts['upload']
         if files.state is None:files.reserve(ticket,resource)
         need(files.state['ticket']==ticket and files.state['resource']==resource)
