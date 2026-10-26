@@ -23,6 +23,8 @@ from ios.adapters.graphics_history import follow_native
 from ios.adapters.normal_input import observation as ui_packet
 from ios.adapters.audio_api_clock import operation
 
+VERSION=2
+READS=(1,2)
 
 class IOSAudioRecordedOwner:
     def __init__(self,store,root,binding,run,lock,guard,*,native,io,phase,epoch_ms,monotonic,sleep):
@@ -35,6 +37,7 @@ class IOSAudioRecordedOwner:
         self.guard,self.native,self.phase,self.epoch_ms,self.monotonic,self.sleep=guard,native,phase,epoch_ms,monotonic,sleep
         self.fixture_url=phase.fixture_url;self.historical=False;self.lock.assert_held()
         self.previous=store.read();self.state=dict(records=[],operations=[],pending=None,observation=None)
+        self.version=VERSION if self.previous is None else self.previous.get('iosAudioRecordedOwnerVersion')
         self.frames=self.frame_store();self.ui=TokenAudioUI(io,self.input_intent,monotonic=monotonic,sleep=sleep)
         if self.previous is not None:self.state=self.decode(self.previous)
         else:self.inventory(self.state)
@@ -49,6 +52,7 @@ class IOSAudioRecordedOwner:
         owner.fixture_url=fixture_url;owner.historical=True;owner.guard=lambda:True
         import time
         owner.monotonic=time.monotonic;owner.previous=store.read();need(owner.previous is not None)
+        owner.version=owner.previous.get('iosAudioRecordedOwnerVersion')
         owner.frames=owner.frame_store();owner.state=owner.decode(owner.previous);return owner
 
     def frame_store(self):
@@ -56,7 +60,7 @@ class IOSAudioRecordedOwner:
             namespace='ios-audio-recorded',schema_prefix='iosAudioRecorded',monotonic=self.monotonic)
 
     def envelope(self,state):
-        return dict(iosAudioRecordedOwnerVersion=1,runId=self.run,binding=self.binding,artifactRoot=str(self.root),fixtureUrl=self.fixture_url,payload=pack([state]))
+        return dict(iosAudioRecordedOwnerVersion=self.version,runId=self.run,binding=self.binding,artifactRoot=str(self.root),fixtureUrl=self.fixture_url,payload=pack([state]))
 
     def bound(self):
         self.lock.assert_held();need(same(self.store.read(),self.previous) and self.guard() is not False);return True
@@ -68,12 +72,19 @@ class IOSAudioRecordedOwner:
     def phase_original(self,value,ticket,verb,previous=None):
         phase_packet(value,run=self.run,area='audio',request=value['requestId'],epoch=value['capturedEpochMs'],previous=previous)
         need(value['active'] and value['activations'] and value['activations'][-1]['ticket']==ticket
-            and value['activations'][-1]['stimulus']==dict(verb=verb,inputs={}))
+            and value['activations'][-1]['stimulus']['verb']==verb)
+        inputs=value['activations'][-1]['stimulus']['inputs']
+        if verb=='mute':
+            need(self.version>=2);exact(inputs,{'enabled'});need(type(inputs['enabled']) is bool)
+        else:need(inputs=={})
+        return inputs
 
     def frame(self,value,previous=None):
         exact(value,{'iosAudioRecordedObservationVersion','ticket','verb','phaseBefore','phaseAfter','originals','clockJoin'})
-        need(type(value['iosAudioRecordedObservationVersion']) is int and value['iosAudioRecordedObservationVersion']==1)
-        identifier(value['ticket']);need(value['verb'] in ('record-start','record-cancel'))
+        need(type(value['iosAudioRecordedObservationVersion']) is int and value['iosAudioRecordedObservationVersion'] in READS
+            and value['iosAudioRecordedObservationVersion']<=self.version)
+        identifier(value['ticket']);need(value['verb'] in ('record-start','record-cancel')
+            or value['iosAudioRecordedObservationVersion']>=2 and value['verb'] in ('mute','await-completion'))
         self.phase_original(value['phaseBefore'],value['ticket'],value['verb'])
         self.phase_original(value['phaseAfter'],value['ticket'],value['verb'],value['phaseBefore'])
         need(same(value['phaseBefore']['activations'],value['phaseAfter']['activations']))
@@ -91,6 +102,9 @@ class IOSAudioRecordedOwner:
         row=TokenAudioUI.row(controls,'audio.record')
         if row is not None:need(row['cycle']==voice['cycle'] and row['phase']==(voice['event']['phase'] if voice['events'] else 'idle')
             and row['nativeActive']==row['uiActive']==voice['active'])
+        mute=TokenAudioUI.row(controls,'audio.mute')
+        if mute is not None and value['iosAudioRecordedObservationVersion']>=2:
+            need(mute['nativeMuted']==current['audio']['muted'])
         if previous is not None:
             follow_native(previous['clockJoin']['nativeAfter'],first)
             need(first['lifecycle']==previous['clockJoin']['nativeAfter']['lifecycle']
@@ -115,36 +129,44 @@ class IOSAudioRecordedOwner:
 
     def decode(self,value):
         exact(value,{'iosAudioRecordedOwnerVersion','runId','binding','artifactRoot','fixtureUrl','payload'});rows=unpack(value['payload'])
-        need(type(value['iosAudioRecordedOwnerVersion']) is int and value['iosAudioRecordedOwnerVersion']==1 and len(rows)==1
+        need(type(value['iosAudioRecordedOwnerVersion']) is int and value['iosAudioRecordedOwnerVersion'] in READS
+            and value['iosAudioRecordedOwnerVersion']==self.version and len(rows)==1
             and same(value,self.envelope(rows[0])));state=rows[0]
         exact(state,{'records','operations','pending','observation'})
         need(type(state['records']) is list and len(state['records'])<=128 and type(state['operations']) is list and len(state['operations'])<=32)
         previous=None
         for index,reference in enumerate(state['records'],1):
             need(reference['index']==index);current=self.original(reference);self.frame(current,previous);previous=current
-        tickets=set()
+        tickets=set();completed=[]
         for operation in state['operations']+([] if state['pending'] is None else [state['pending']]):
-            exact(operation,{'ticket','verb','cycle','before','inputs','queries','after','quiet'})
+            keys={'ticket','verb','cycle','before','inputs','queries','after','quiet'}
+            if operation.get('verb')=='await-completion':
+                need(self.version>=2);keys.add('startedBy')
+                need(any(row['verb']=='record-start' and same(row['after'],operation.get('startedBy')) for row in completed))
+            exact(operation,keys)
             identifier(operation['ticket']);need(operation['ticket'] not in tickets);tickets.add(operation['ticket'])
-            need(operation['verb'] in ('record-start','record-cancel') and integer(operation['cycle'])
+            need((operation['verb'] in ('record-start','record-cancel') or self.version>=2 and operation['verb'] in ('mute','await-completion')) and integer(operation['cycle'])
                 and operation['before'] in state['records'] and type(operation['inputs']) is list and len(operation['inputs'])<=16
                 and type(operation['queries']) is list and len(operation['queries'])<=256
                 and type(operation['quiet']) is list and len(operation['quiet'])<=2)
             before=self.original(operation['before']);need(before['ticket']==operation['ticket'] and before['verb']==operation['verb']
                 and before['originals']['native']['audio']['recordedVoice']['cycle']==operation['cycle'])
             for item in operation['inputs']:
-                exact(item,{'verb','identifier','ui','phase'});need(item['verb'] in ('record-start','record-cancel','select-current-mode','scroll-up','scroll-down'))
+                exact(item,{'verb','identifier','ui','phase'});need(item['verb'] in ('record-start','record-cancel','select-current-mode','scroll-up','scroll-down')
+                    or self.version>=2 and item['verb']=='mute')
                 ui_packet(item['ui'],int(self.binding['processIdentity']),item['ui']['sampleEpochMs'])
                 self.phase_original(item['phase'],operation['ticket'],operation['verb'])
             for query in operation['queries']:self.query(query)
             if operation['after'] is not None:
                 need(operation in state['operations'] and operation['after'] in state['records']);self.effect(operation,self.original(operation['after']))
                 self.quiet(operation,state['records'])
+                completed.append(operation)
             else:need(operation is state['pending'])
         observation=state['observation']
         if observation is not None:
             exact(observation,{'ticket','verb','queries','wire'});identifier(observation['ticket'])
-            need(observation['verb'] in ('record-start','record-cancel') and type(observation['queries']) is list and len(observation['queries'])<=64)
+            need((observation['verb'] in ('record-start','record-cancel') or self.version>=2 and observation['verb'] in ('mute','await-completion'))
+                and type(observation['queries']) is list and len(observation['queries'])<=64)
             for query in observation['queries']:self.query(query)
             if observation['wire'] is not None:self.frames.original(observation['wire'])
         self.inventory(state)
@@ -168,8 +190,9 @@ class IOSAudioRecordedOwner:
     def input_intent(self,verb,value,identifier):
         self.bound();operation=self.state['pending'];need(operation is not None and len(operation['inputs'])<16)
         need(verb in ('select-current-mode','scroll-up','scroll-down',operation['verb']))
-        if verb in ('record-start','record-cancel'):need(not any(item['verb'] in ('record-start','record-cancel') for item in operation['inputs']))
-        status=self.phase.read();need(status['ticket']==operation['ticket'] and status['verb']==operation['verb'] and status['inputs']=={})
+        if verb in ('record-start','record-cancel','mute'):need(not any(item['verb'] in ('record-start','record-cancel','mute') for item in operation['inputs']))
+        status=self.phase.read();need(status['ticket']==operation['ticket'] and status['verb']==operation['verb'])
+        need(same(status['inputs'],self.phase_original(self.original(operation['before'])['phaseBefore'],operation['ticket'],operation['verb'])))
         operation['inputs'].append(dict(verb=verb,identifier=identifier,ui=deepcopy(value),phase=status['status']));self.save()
 
     def storage_intent(self,event,wire):
@@ -187,14 +210,14 @@ class IOSAudioRecordedOwner:
     @operation
     def capture(self,ticket,verb):
         self.bound();need(not self.historical and len(self.state['records'])<128 and self.state['observation'] is None)
-        status=self.phase.read();need(status['ticket']==ticket and status['verb']==verb and status['inputs']=={})
+        status=self.phase.read();self.phase_original(status['status'],ticket,verb)
         self.state['observation']=dict(ticket=ticket,verb=verb,queries=[],wire=None);self.save()
         acquisition=NativeClockAcquisition(self.native,epoch_ms=self.epoch_ms,monotonic=self.monotonic)
         acquisition.begin(self.epoch_ms());native=self.native.read(self.native.sequence,require_recorded_history=True);ui=self.ui.capture()
         originals=dict(native=native,ui=ui)
         join=acquisition.finish(originals,[('native','capturedEpochMs'),('ui','sampleEpochMs')])
         after=self.phase.status(status['status'])
-        value=dict(iosAudioRecordedObservationVersion=1,ticket=ticket,verb=verb,phaseBefore=status['status'],phaseAfter=after,originals=originals,clockJoin=join)
+        value=dict(iosAudioRecordedObservationVersion=self.version,ticket=ticket,verb=verb,phaseBefore=status['status'],phaseAfter=after,originals=originals,clockJoin=join)
         self.frame(value,None if not self.state['records'] else self.original(self.state['records'][-1]))
         reference=self.frames.write(len(self.state['records'])+1,value);self.state['records'].append(reference);self.state['observation']=None;self.save()
         return reference
@@ -203,21 +226,71 @@ class IOSAudioRecordedOwner:
         need(observation['ticket']==operation['ticket'] and observation['verb']==operation['verb'])
         voice=observation['originals']['native']['audio']['recordedVoice'];actual=measured_state(observation['originals']['native'])
         inputs=[item for item in operation['inputs'] if item['verb']==operation['verb']]
+        if operation['verb']=='mute':return self.mute_effect(operation,observation,inputs)
+        if operation['verb']=='await-completion':return self.completion_effect(operation,observation)
         need(len(inputs)==1 and inputs[0]['identifier']=='audio.record')
         rows=[row for row in inputs[0]['ui']['controls'] if row['id']=='audio.record']
         need(len(rows)==1 and rows[0]['cycle']==operation['cycle'] and rows[0]['inputReady'] and rows[0]['enabled'])
         need(observation['originals']['native']['capturedEpochMs']>=inputs[0]['ui']['sampleEpochMs'])
         if operation['verb']=='record-start':
-            need(voice['cycle']==operation['cycle']+1 and voice['events'] and voice['events'][0]['phase']=='capturing'
-                and voice['events'][0]['publishedEpochMs']>=inputs[0]['ui']['sampleEpochMs'] and actual['recordedFrames']>0)
+            need(voice['cycle']==operation['cycle']+1 and voice['events']
+                and voice['events'][0]['publishedEpochMs']>=inputs[0]['ui']['sampleEpochMs'])
+            before=self.original(operation['before'])['originals']['native']['audio']
+            if before['muted']:
+                need(self.version>=2 and observation['originals']['native']['audio']['muted'] and not voice['active']
+                    and actual['phase']=='error' and actual['history']==['error'] and actual['error']=='microphone-muted'
+                    and len(voice['events'])==1 and voice['capturedBytes']==voice['playedBytes']==0
+                    and actual['recordedFrames']==actual['playedFrames']==actual['bufferedFrames']==0)
+            else:need(voice['events'][0]['phase']=='capturing' and actual['recordedFrames']>0)
         else:
             need(voice['cycle']==operation['cycle'] and actual['phase']=='cancelled' and not voice['active']
                 and voice['capturedBytes']==voice['playedBytes']==actual['bufferedFrames']==0
                 and voice['events'][-1]['publishedEpochMs']>=inputs[0]['ui']['sampleEpochMs'])
         return actual
 
+    def completion_effect(self,operation,observation):
+        need(self.version>=2 and operation['inputs']==[] and operation['quiet']==[])
+        started=self.original(operation['startedBy']);need(started['verb']=='record-start')
+        first=started['originals']['native']['audio']['recordedVoice'];native=observation['originals']['native'];voice=native['audio']['recordedVoice']
+        actual=measured_state(native)
+        need(first['active'] and first['event']['phase']=='capturing' and first['cycle']==operation['cycle']==voice['cycle']
+            and same(first['events'],voice['events'][:len(first['events'])]) and not native['audio']['muted']
+            and not voice['active'] and actual['phase']=='completed' and actual['error']=='none'
+            and actual['history']==['capturing','playing','draining','completed']
+            and 24000<=actual['recordedFrames']<=144000 and actual['playedFrames']==actual['recordedFrames']
+            and actual['bufferedFrames']==0 and voice['capturedBytes']==voice['playedBytes']==0)
+        return actual
+
+    def mute_effect(self,operation,observation,inputs):
+        before=self.original(operation['before']);old=before['originals']['native']['audio'];new=observation['originals']['native']['audio']
+        wanted=self.phase_original(before['phaseBefore'],operation['ticket'],'mute')['enabled']
+        need(self.version>=2 and same(self.phase_original(observation['phaseBefore'],operation['ticket'],'mute'),dict(enabled=wanted)))
+        need(len(inputs)==int(old['muted']!=wanted) and new['muted'] is wanted and new['recordedVoice']['cycle']==operation['cycle'])
+        controls=observation['originals']['ui']['controls'];rows=[row for row in controls if row['id']=='audio.mute']
+        need(len(rows)==1 and rows[0]['inputReady'] and rows[0]['enabled'] and rows[0]['checked'] is wanted and rows[0]['nativeMuted'] is wanted)
+        if inputs:
+            item=inputs[0];need(item['identifier']=='audio.mute')
+            native_rows=[row for row in item['ui']['controls'] if row['id']=='audio.mute'];need(len(native_rows)==1)
+            row=native_rows[0];need(row['inputReady'] and row['enabled'] and row['nativeMuted'] is old['muted']
+                and row['checked'] is old['muted'] and observation['originals']['native']['capturedEpochMs']>=item['ui']['sampleEpochMs'])
+        voice=new['recordedVoice'];prior=old['recordedVoice'];actual=measured_state(observation['originals']['native'])
+        if wanted and prior['active']:
+            need(len(inputs)==1 and not voice['active'] and actual['phase']=='cancelled' and actual['error']=='microphone-muted'
+                and voice['capturedBytes']==voice['playedBytes']==actual['bufferedFrames']==0
+                and same(voice['events'][:len(prior['events'])],prior['events']) and len(voice['events'])==len(prior['events'])+1
+                and voice['events'][-1]['publishedEpochMs']>=inputs[0]['ui']['sampleEpochMs'])
+        else:
+            # Unmute must not start or replay a recording. Preserve the actual
+            # existing cycle/history, including an earlier error or completion.
+            need(same(voice,prior))
+        return actual
+
+    def quiet_required(self,operation):
+        if operation['verb']=='await-completion':return False
+        return operation['verb'] in ('record-cancel','mute') or self.version>=2 and self.original(operation['before'])['originals']['native']['audio']['muted']
+
     def quiet(self,operation,records):
-        if operation['verb']=='record-start':need(operation['quiet']==[]);return
+        if not self.quiet_required(operation):need(operation['quiet']==[]);return
         need(len(operation['quiet'])==2 and all(reference in records for reference in operation['quiet'])
             and operation['quiet'][-1]==operation['after'] and operation['quiet'][0]['index']<operation['quiet'][1]['index'])
         first,last=[self.original(reference) for reference in operation['quiet']]
@@ -228,9 +301,14 @@ class IOSAudioRecordedOwner:
     @operation
     def resolve(self):
         self.bound();need(not self.historical);self.recover_observation();operation=self.state['pending'];need(operation is not None)
-        reference=self.capture(operation['ticket'],operation['verb']);first=self.original(reference);self.effect(operation,first)
+        reference=self.capture(operation['ticket'],operation['verb']);first=self.original(reference)
+        if operation['verb']=='await-completion':
+            while first['originals']['native']['audio']['recordedVoice']['event'].get('phase') in ('capturing','playing','draining'):
+                need(first['originals']['native']['audio']['recordedVoice']['cycle']==operation['cycle'])
+                self.sleep(.25);reference=self.capture(operation['ticket'],operation['verb']);first=self.original(reference)
+        self.effect(operation,first)
         quiet=[]
-        if operation['verb']=='record-cancel':
+        if self.quiet_required(operation):
             quiet=[deepcopy(reference)]
             # Ask for a real margin; qualification still checks original >=300ms
             # intervals on both clocks, without rounding or retiming samples.
@@ -242,21 +320,41 @@ class IOSAudioRecordedOwner:
         return dict(performed=True,original=deepcopy(reference),state=actual)
 
     @operation
-    def act(self,ticket,verb):
-        self.bound();need(not self.historical);identifier(ticket);need(verb in ('record-start','record-cancel'))
+    def act(self,ticket,verb,*,enabled=None):
+        self.bound();need(not self.historical);identifier(ticket)
+        need(verb in ('record-start','record-cancel') and enabled is None
+             or self.version>=2 and verb=='await-completion' and enabled is None
+             or self.version>=2 and verb=='mute' and type(enabled) is bool)
         self.recover_observation()
         if self.state['pending'] is not None:
-            need(self.state['pending']['ticket']==ticket and self.state['pending']['verb']==verb);return self.resolve()
+            need(self.state['pending']['ticket']==ticket and self.state['pending']['verb']==verb)
+            if verb=='mute':need(self.phase_original(self.original(self.state['pending']['before'])['phaseBefore'],ticket,verb)['enabled']==enabled)
+            return self.resolve()
         retained=next((item for item in self.state['operations'] if item['ticket']==ticket),None)
         if retained is not None:
-            need(retained['verb']==verb);reference=self.capture(ticket,verb);actual=self.effect(retained,self.original(reference))
+            need(retained['verb']==verb)
+            if verb=='mute':need(self.phase_original(self.original(retained['before'])['phaseBefore'],ticket,verb)['enabled']==enabled)
+            reference=self.capture(ticket,verb);actual=self.effect(retained,self.original(reference))
             return dict(performed=True,original=reference,state=actual)
         need(len(self.state['operations'])<32);reference=self.capture(ticket,verb);before=self.original(reference)
         voice=before['originals']['native']['audio']['recordedVoice']
-        need(not before['originals']['native']['audio']['muted'])
-        if verb=='record-start':need(not voice['active'])
-        else:need(voice['active'] and voice['cycle']>0)
-        self.state['pending']=dict(ticket=ticket,verb=verb,cycle=voice['cycle'],before=reference,inputs=[],queries=[],after=None,quiet=[]);self.save()
+        started=None
+        if verb=='mute':need(self.phase_original(before['phaseBefore'],ticket,verb)['enabled']==enabled)
+        elif verb=='await-completion':
+            starts=[row for row in self.state['operations'] if row['verb']=='record-start' and row['after'] is not None
+                and self.original(row['after'])['originals']['native']['audio']['recordedVoice']['cycle']==voice['cycle']]
+            need(len(starts)==1 and not before['originals']['native']['audio']['muted']);started=deepcopy(starts[0]['after'])
+            initial=self.original(started)['originals']['native']['audio']['recordedVoice']
+            need(initial['active'] and initial['event']['phase']=='capturing')
+        else:
+            need(not before['originals']['native']['audio']['muted'] or self.version>=2 and verb=='record-start')
+            if verb=='record-start':need(not voice['active'])
+            else:need(voice['active'] and voice['cycle']>0)
+        self.state['pending']=dict(ticket=ticket,verb=verb,cycle=voice['cycle'],before=reference,inputs=[],queries=[],after=None,quiet=[])
+        if started is not None:self.state['pending']['startedBy']=started
+        self.save()
         if verb=='record-start':self.ui.start()
+        elif verb=='mute':self.ui.mute(enabled)
+        elif verb=='await-completion':pass # The product timer owns capture/play/drain; no preview/stop input.
         else:self.ui.cancel(voice['cycle'])
         return self.resolve()

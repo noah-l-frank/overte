@@ -13,6 +13,12 @@ Host UTC and monotonic clocks bound acquisition; they never replace native
 capture times. UI acknowledgements and requested values are not measured
 recording effects. Cancellation requires two newly acquired native cancelled
 observations separated by at least 300 ms, with empty native live counters.
+
+The [version-2 normal cycle extension](AUDIO_NORMAL_CYCLES.md) adds actual
+mute/unmute inputs, original muted Start rejection, cancellation by mute and
+no-input automatic completion. Literal-1 owners/observations remain readable.
+The connected new host flow joins completion to the existing original PCM lease;
+it does not claim independent acoustic output or complete Audio cleanup.
 The same 25-second host API budget spans nested owner calls and final transport
 guards; each original acquisition retains its separate 1.5-second clock bound.
 
@@ -31,7 +37,7 @@ This is an internal partial adapter packet. It does not activate an Audio
 capability or change the feature configuration. It does not allocate original
 PCM tap snapshots, remove tap files, assert independent acoustic output, or
 retire process/SDK ownership. The full shared Audio scenario still needs open,
-mute/unmute, automatic completion, PCM/file evidence and its durable tap lease,
+the remaining complete PCM/file and tap-lease lifecycle composition,
 independent acoustic/Actor evidence, permission and background recovery, page
 restoration, and final cleanup integration. Empty native recording counters do
 not establish absence of an independently allocated tap snapshot.
