@@ -23,8 +23,9 @@ VERSION=1
 
 
 class TabletWebBackground:
-    def __init__(self,runtime,selector,run,binding,*,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,runtime,selector,run,binding,*,fixture_url,monotonic=time.monotonic,sleep=time.sleep):
         self.runtime,self.selector,self.run=runtime,selector,identifier(run)
+        need(type(fixture_url) is str);self.fixture=fixture_url
         self.binding=deepcopy(context(binding));self.root=runtime.state_path(selector).parent
         self.lock=ScriptSourceLock(self.root/'script-feature-sources.lock')
         self.store=PrivateFeatureState(self.root/('tabletweb-background-'+run+'.json'))
@@ -41,7 +42,7 @@ class TabletWebBackground:
         rows=unpack(value['payload']);need(len(rows)==1);row=rows[0]
         exact(row,{'call','phase','before','background','after'})
         call=arguments('feature.tablet-web.act',row['call'])
-        need(call['runId']==self.run and call['verb']=='background-resume'
+        need(call['runId']==self.run and call['fixtureUrl']==self.fixture and call['verb']=='background-resume'
             and row['phase'] in ('background-issued','background-observed','foreground-issued','observed'))
         before=self.original(row['before'])
         if row['background'] is not None:
@@ -79,7 +80,8 @@ class TabletWebBackground:
     def start(self,observer,call):
         """Called under the actual existing observer's exact shared source lock."""
         self.lock=observer.observer.source.lock;self.bound();call=deepcopy(arguments('feature.tablet-web.act',call))
-        need(call['runId']==self.run and call['verb']=='background-resume' and same(observer.observer.source.binding,self.binding))
+        need(call['runId']==self.run and call['fixtureUrl']==self.fixture==observer.observer.source.fixture
+            and call['verb']=='background-resume' and same(observer.observer.source.binding,self.binding))
         if self.state is None:
             need(self.status()['foreground']);observer.read_auxiliary('native')
             before=deepcopy(observer.auxiliary('native').state['records'][-1])

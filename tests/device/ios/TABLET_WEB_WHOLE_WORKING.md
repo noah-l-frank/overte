@@ -387,3 +387,32 @@ test-only missing refresh of the decoded InputOwner record list. The corrected
 component reads the exact newly archived record. These are bounded host tests
 with modeled native/SDK producers, not a complete Tablet journey or device
 qualification. Feature 7 remains partial and the overall source count is 5/14.
+
+## Background input uses the original fixture
+
+The ordinary Background owner now requires the same configured fixture URL
+already used by the existing Feature client and Source owner. The public
+Feature rejects another fixture before opening its source scope. Background
+start independently joins the call, configured fixture and actual source;
+decoding an existing background journal also checks its original call URL
+before recovery can send an activation. All constructor sites pass that same
+existing client/source URL. The stored version-1 call already contains this
+field, so neither record grammar nor old same-fixture readability changes.
+
+The pre-fix focused negative accepted a foreign-fixture call and is retained
+in `background-fixture-before.log`. All six distinct background component
+cases now pass across `background-fixture-focused.log` and
+`background-fixture-final.log` in the private field-revalidation directory.
+The first selection passed five cases in 18.890s but the new lost-activation
+case expected NativeUIError instead of the actual WebDriverRequestError from
+the existing transport. That test-only expectation was corrected; its final
+two-case selection passes in 2.466s. No runtime exception behavior changed.
+
+Counterexamples prove no OS request or new input journal for a foreign call,
+including a caller-supplied matching foreign owner URL against the real source.
+A wrong-fixture recovery leaves the actual original bytes/inode, native reads
+and OS request list unchanged. Reopening with the right fixture observes the
+same delivered-but-unknown activation and never repeats background/activation.
+Existing PID/graphics/native-counter retention and ignored-ACK behavior still
+pass. This is the existing selector/HTTP host model, not canonical Installed
+outer admission, native compilation, physical backgrounding or full-area proof.

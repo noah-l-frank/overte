@@ -81,7 +81,8 @@ class IOSTabletWebFeature:
     @contextmanager
     def parts(self):
         if self.role=='primary':
-            background=TabletWebBackground(self.runtime,self.selector,self.run,self.binding,monotonic=self.monotonic,sleep=self.sleep)
+            background=TabletWebBackground(self.runtime,self.selector,self.run,self.binding,
+                fixture_url=self.client.url+'/runs/'+self.run+'/',monotonic=self.monotonic,sleep=self.sleep)
             if background.state is not None and background.state['phase']!='observed':background.recover_foreground()
         with ExitStack() as stack:
             while True:
@@ -133,14 +134,16 @@ class IOSTabletWebFeature:
             return observer.observe_image(Path(self.screen['artifactRoot']),self.screen['policy'],measured['ticket'],readiness=False,before=before)
         return original
     def act(self,call):
-        call=deepcopy(arguments('feature.tablet-web.act',call));need(self.role=='primary' and call['runId']==self.run)
+        call=deepcopy(arguments('feature.tablet-web.act',call));need(self.role=='primary' and call['runId']==self.run
+            and call['fixtureUrl']==self.client.url+'/runs/'+self.run+'/')
         with self.operation():
             while True:
                 with self.parts() as observer:
                     self.initial(observer);need(self.state['phase']=='active')
                     if call['verb']=='background-resume':
                         phase=observer.observer.phase.read();need(phase['ticket']==call['ticket'] and phase['verb']==call['verb'] and same(phase['inputs'],call['inputs']))
-                        background=TabletWebBackground(self.runtime,self.selector,self.run,self.binding,monotonic=self.monotonic,sleep=self.sleep)
+                        background=TabletWebBackground(self.runtime,self.selector,self.run,self.binding,
+                            fixture_url=self.client.url+'/runs/'+self.run+'/',monotonic=self.monotonic,sleep=self.sleep)
                         background.start(observer,call);result=background.finish(observer)
                     else:result=TabletWebActions(observer).act(call)
                     if result is not None:self.state['lastCall']=call;self.save(observer);return result
@@ -205,7 +208,8 @@ class IOSTabletWebFeature:
         # observer must not query a foreground-only native source while the
         # primary's actual ordinary background/activation is unresolved.
         with self.locked():
-            background=TabletWebBackground(self.runtime,self.selector,self.run,self.binding,monotonic=self.monotonic,sleep=self.sleep)
+            background=TabletWebBackground(self.runtime,self.selector,self.run,self.binding,
+                fixture_url=self.client.url+'/runs/'+self.run+'/',monotonic=self.monotonic,sleep=self.sleep)
             if background.state is not None and background.state['phase']!='observed':return None
             primary=PrivateFeatureState(self.root/('tabletweb-feature-'+self.run+'-primary.json')).read()
             if primary is not None:
