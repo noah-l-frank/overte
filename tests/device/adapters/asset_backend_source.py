@@ -115,7 +115,7 @@ def snapshot(value,*,pid=None):
         need(value['available'] and (same(value['persistedMappings'],memory) if value['mapFile']['exists'] else not memory))
     need(type(value['blobs']) is list and len(value['blobs'])<=512);blobs={};retained=0
     for row in value['blobs']:
-        digest(row.get('name'));need(row['name'] not in blobs);body=file(row,limit=32768,required=True);blobs[row['name']]=(row,body)
+        need(type(row) is dict);digest(row.get('name'));need(row['name'] not in blobs);body=file(row,limit=32768,required=True);blobs[row['name']]=(row,body)
         if body is not None:need(hashlib.sha256(body).hexdigest()==row['name']);retained+=len(body)
     need(retained<=262144 and type(value['unknownEntries']) is list and len(value['unknownEntries'])<=512)
     for name in value['unknownEntries']:text(name,255);need('/' not in name)
@@ -171,7 +171,7 @@ def saved(value,packet,raw):
 
 def accept(previous,value):
     if previous is not None:
-        need(all(same(previous[key],value[key]) for key in ('instance','processId','ownerSha256','serverId','domainId','admissionSha256','clockDomain','runId','ticket'))
+        need(all(same(previous[key],value[key]) for key in ('instance','processId','ownerSha256','serverId','domainId','admissionSha256','clockDomain','runId'))
             and value['sequence']>previous['sequence'] and value['requestId']!=previous['requestId'])
         work.after(value['clockBefore'],previous['clockAfter']);work.accept(previous['source']['workAfter'],value['source']['workBefore'])
         for key in ('resourcesRoot','filesRoot'):

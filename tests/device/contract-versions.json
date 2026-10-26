@@ -1,6 +1,15 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "asset-backend-work": {"current": 1, "reads": [1]},
+    "asset-backend-snapshot": {"current": 1, "reads": [1]},
+    "asset-backend-admission": {"current": 1, "reads": [1]},
+    "asset-backend-query": {"current": 1, "reads": [1]},
+    "asset-backend-observation": {"current": 1, "reads": [1]},
+    "asset-backend-saved": {"current": 1, "reads": [1]},
+    "asset-backend-export": {"current": 1, "reads": [1]},
+    "assets-backend-host-journal": {"current": 1, "reads": [1]},
+    "assets-backend-control": {"current": 1, "reads": [1]},
     "snapshot-share-retirement": {"current": 1, "reads": [1]},
     "snapshot-share-retirement-observation": {"current": 1, "reads": [1]},
     "snapshot-share-files-quiet": {"current": 1, "reads": [1]},

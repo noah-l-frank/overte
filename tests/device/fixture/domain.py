@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hmac
 from functools import partial
 from http.server import BaseHTTPRequestHandler, SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -98,6 +99,42 @@ class DomainControlHandler(BaseHTTPRequestHandler):
     collaboration = None
     mixer = None
     create_rez = None
+    assets_backend = None
+    assets_reader_token = None
+
+    def assets_observation(self) -> None:
+        """A separate credential can request only closed passive observations."""
+        tokens = self.headers.get_all("X-Overte-Assets-Reader", [])
+        expected = self.assets_reader_token
+        if (type(expected) is not str or len(tokens) != 1 or not tokens[0].isascii() or not 32 <= len(tokens[0]) <= 128
+                or not hmac.compare_digest(tokens[0], expected) or self.assets_backend is None):
+            self.send_error(404)
+            return
+        try:
+            from adapters.asset_backend_source import object_bytes
+            from fixture.asset_backend_control import command as assets_command
+            lengths = self.headers.get_all("Content-Length", [])
+            if (len(lengths) != 1 or not lengths[0].isdigit() or not 0 < int(lengths[0]) <= 1024
+                    or self.headers.get("Transfer-Encoding") or self.headers.get("Content-Encoding")
+                    or self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json"):
+                raise ValueError("invalid bounded Assets observation")
+            raw = self.rfile.read(int(lengths[0]))
+            if len(raw) != int(lengths[0]):
+                raise ValueError("incomplete Assets observation")
+            result = self.assets_backend(assets_command(object_bytes(raw, 1024)))
+            payload = json.dumps(result, separators=(",", ":"), allow_nan=False).encode("utf-8")
+            if len(payload) > 4 * 1024 * 1024:
+                raise ValueError("Assets original export exceeds its bound")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(payload)
+        except (ValueError, UnicodeError):
+            self.send_error(400, "invalid Assets observation")
+        except (OSError, RuntimeError):
+            self.send_error(503, "owned Assets observation is unavailable")
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         if self.path not in {"/v1/collaboration-state", "/v1/messages-mixer-state"} or self.headers.get("X-Overte-E2E-Token") != self.token:
@@ -115,6 +152,9 @@ class DomainControlHandler(BaseHTTPRequestHandler):
             self.send_error(503, "independent actor is not ready")
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        if self.path == "/v1/assets-backend":
+            self.assets_observation()
+            return
         if self.path not in {"/v1/domain-state", "/v1/collaboration-edit", "/v1/messages-mixer-state", "/v1/create-rez"} or self.headers.get(
                 "X-Overte-E2E-Token") != self.token:
             self.send_error(404)
@@ -291,6 +331,22 @@ def process_options(environment: dict[str, str], log) -> dict:
     return options
 
 
+def assets_assignment_environment(environment, assignment_type, source_root, enabled):
+    """Default-off source access is confined to the actual AssetServer role."""
+    need(type(enabled) is bool)
+    result = environment.copy()
+    result.pop("OVERTE_E2E_ASSETS_SOURCE_ROOT", None)
+    if enabled and assignment_type == "3":
+        need(sys.platform.startswith("linux"))
+        root = Path(source_root)
+        need(root.is_absolute() and root.resolve(strict=True) == root)
+        info = root.lstat()
+        import stat
+        need(stat.S_ISDIR(info.st_mode) and info.st_uid == os.geteuid() and stat.S_IMODE(info.st_mode) == 0o700)
+        result["OVERTE_E2E_ASSETS_SOURCE_ROOT"] = str(root)
+    return result
+
+
 def stop_process(process: subprocess.Popen | None, grace_seconds: int = 5) -> None:
     if process is None or process.poll() is not None:
         return
@@ -375,6 +431,8 @@ def parse_args() -> argparse.Namespace:
                         help="Opt in the dedicated peer to native E2E private Chat IPC; requires an instrumented Assignment Client.")
     parser.add_argument("--feature-create-rez", action="store_true",
                         help="Opt in isolated Create rez permission control through the normal owned domain settings API.")
+    parser.add_argument("--feature-assets-backend", action="store_true",
+                        help="Opt in passive original AssetServer observations; requires Linux and an instrumented owned Assignment Client.")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     for name in ("domain_port", "http_port"):
@@ -459,6 +517,8 @@ def main() -> int:
         "HIFI_DOMAIN_SERVER_HTTP_PORT": str(args.http_port),
         "OVERTE_DOMAIN_SERVER_WS_PORT": str(args.domain_port),
     })
+    # Only the explicit role-3 opt-in below may receive the passive source root.
+    environment.pop("OVERTE_E2E_ASSETS_SOURCE_ROOT", None)
     owned_processes = OwnedProcesses(environment)
 
     domain_log = (output / "domain-server.log").open("w", encoding="utf-8")
@@ -479,6 +539,8 @@ def main() -> int:
     stack_state = "offline"
     transition_lock = threading.Lock()
     stopping = threading.Event()
+    assets_process = assets_source = assets_journal = assets_backend = None
+    assets_reader_token = secrets.token_urlsafe(32) if getattr(args, "feature_assets_backend", False) else None
 
     def write_mixer_intent(value):
         nonlocal mixer_expected
@@ -497,19 +559,25 @@ def main() -> int:
         mixer_expected = None
 
     def spawn_assignment(assignment_type):
+        nonlocal assets_process
+        assignment_environment = assets_assignment_environment(environment, assignment_type, assets_source,
+            getattr(args, "feature_assets_backend", False))
         process = subprocess.Popen(
             [str(assignment_client), "-t", assignment_type, "-a", "127.0.0.1",
              "--server-port", str(args.domain_port),
              "--disable-domain-port-auto-discovery",
              "--log-directory", str(output / "assignment-logs"),
              "--logOptions", "nocolor,process_id,milliseconds"],
-            **process_options(environment, assignment_log))
+            **process_options(assignment_environment, assignment_log))
         assignment_processes.append(process)
+        if assignment_type == "3" and getattr(args, "feature_assets_backend", False):
+            assets_process = process
         return process
 
     def start_stack() -> None:
         nonlocal domain_process, assignment_processes, assignment_agent_processes
         nonlocal domain_id, generation, stack_state, mixer
+        nonlocal assets_source, assets_journal
         if stack_state == "online":
             return
         # The broker and assignment seed start afresh on each controlled
@@ -520,6 +588,12 @@ def main() -> int:
         content_runtime.mkdir(mode=0o700)
         for name in ("data", "cache"):
             (content_runtime / name).mkdir(mode=0o700)
+        if getattr(args, "feature_assets_backend", False):
+            need(sys.platform.startswith("linux"))
+            assets_source = content_runtime / "assets-backend-source"
+            assets_journal = content_runtime / "assets-backend-journal"
+            assets_source.mkdir(mode=0o700)
+            assets_journal.mkdir(mode=0o700)
         environment.update(XDG_DATA_HOME=str(content_runtime / "data"),
                            XDG_CACHE_HOME=str(content_runtime / "cache"))
         DomainResourceHandler.content_ready.clear()
@@ -593,8 +667,15 @@ def main() -> int:
     def stop_stack() -> None:
         nonlocal domain_process, assignment_processes, assignment_agent_processes
         nonlocal generation, stack_state, mixer
+        nonlocal assets_backend, assets_process
         was_online = stack_state == "online"
         stack_state = "offline"
+        if assets_backend is not None:
+            # Host detachment retains every original/WAL and makes no native
+            # task, mapping, file or whole-journey retirement claim.
+            assets_backend.detach()
+            assets_backend = None
+        assets_process = None
         for process in reversed(assignment_agent_processes):
             stop_process(process)
         for process in reversed(assignment_processes):
@@ -636,6 +717,21 @@ def main() -> int:
 
     create_rez = None
 
+    def assets_backend_owner():
+        nonlocal assets_backend
+        from fixture.asset_backend_control import AssetsBackendControl
+        from fixture.asset_backend_process import LinuxAssetsBackendProcess
+        need(stack_state == "online" and assets_process is not None and assets_process.poll() is None)
+        if assets_backend is None:
+            binding = LinuxAssetsBackendProcess(assets_process.pid, assets_source, owned_processes.config_home,
+                hashlib.sha256(assignment_client.read_bytes()).hexdigest(), hashlib.sha256(owned_processes.owner.encode("ascii")).hexdigest(), owned_processes.matches)
+            assets_backend = AssetsBackendControl(binding, assets_journal)
+        return assets_backend
+
+    def assets_backend_control(command):
+        with transition_lock:
+            return assets_backend_owner().handle(command)
+
     def create_rez_control(command):
         with transition_lock:
             need(stack_state == "online" and create_rez is not None)
@@ -651,6 +747,8 @@ def main() -> int:
     try:
         start_stack()
         DomainControlHandler.create_rez = None
+        DomainControlHandler.assets_reader_token = assets_reader_token
+        DomainControlHandler.assets_backend = staticmethod(assets_backend_control) if assets_reader_token is not None else None
         if getattr(args, "feature_create_rez", False):
             def owned_create_domain():
                 need(stack_state == "online" and domain_process is not None
@@ -694,12 +792,17 @@ def main() -> int:
         }
         if getattr(args, "feature_create_rez", False):
             ready["createRezControlUrl"] = f"http://127.0.0.1:{control.server_address[1]}/v1/create-rez"
+        if assets_reader_token is not None:
+            backend_process = assets_backend_owner().process
+            ready["assetsBackendReader"] = dict(url=f"http://127.0.0.1:{control.server_address[1]}/v1/assets-backend", token=assets_reader_token,
+                domainId=domain_id, processIdentity=backend_process.process_identity, executableSha256=backend_process.sha256,
+                ownerSha256=backend_process.owner_sha256, sourceRootIdentity=backend_process.root)
         if args.feature_chat_receiver and mixer is not None:
             ready["messagesMixerControlUrl"] = f"http://127.0.0.1:{control.server_address[1]}/v1/messages-mixer-state"
         if args.ready_file:
             atomic_json(args.ready_file.resolve(), ready)
         print(json.dumps({key: value for key, value in ready.items()
-                          if key != "controlToken"}, sort_keys=True), flush=True)
+                          if key not in {"controlToken", "assetsBackendReader"}}, sort_keys=True), flush=True)
         while not stopping.wait(0.25):
             # Serialize monitoring with an intentionally stopped service. Other
             # processes remain alive and are checked immediately afterwards.

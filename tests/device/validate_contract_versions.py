@@ -9,6 +9,15 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "asset-backend-work": 1,
+    "asset-backend-snapshot": 1,
+    "asset-backend-admission": 1,
+    "asset-backend-query": 1,
+    "asset-backend-observation": 1,
+    "asset-backend-saved": 1,
+    "asset-backend-export": 1,
+    "assets-backend-host-journal": 1,
+    "assets-backend-control": 1,
     "snapshot-share-retirement": 1,
     "snapshot-share-retirement-observation": 1,
     "snapshot-share-files-quiet": 1,

@@ -1,5 +1,10 @@
 # Assets backend WIP pause: 2026-10-26
 
+Resumed after this historical pause: the closed Python source/collector/domain
+route packet now has 32 passing host cases. See `ASSETS_BACKEND_SOURCE.md` for
+the current exact results and limits. The saved native hooks remain uncompiled;
+backend retirement and complete Feature 13 admission are still unfinished.
+
 Feature 13 remains closed. The completed ordinary mapping tree packet is
 `392d0cd635`; its three host whole-flow cases passed before this backend work.
 The source-complete area count remains 5/14. This new backend packet is a
