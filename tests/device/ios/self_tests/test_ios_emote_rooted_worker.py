@@ -61,3 +61,11 @@ class RootedWorkerTests(unittest.TestCase):
              patch.object(worker,'run_flow',return_value=0):
             self.assertEqual(0,worker.run(self.actor.runtime,self.value))
         self.assertEqual(1,len(calls));self.assertEqual((self.actor.selector,self.actor.run),calls[0][:2])
+    def test_live_publication_starts_after_both_control_read_leases_have_released(self):
+        self.actor.phase.status=lambda:dict(active=True)
+        def publish():
+            self.assertIsNone(self.actor.lock._owner);self.assertIsNone(self.actor.primary_lock._owner)
+            self.events.append('declared-publication-scheduling-model')
+        self.actor.publish=publish
+        self.assertEqual('published',worker.rooted_step(self.actor,self.value))
+        self.assertEqual(['declared-publication-scheduling-model'],self.events);self.assertEqual([],self.f.sdk_calls)

@@ -26,6 +26,10 @@ FIELDS={'worldBefore','capture','retirement','worldAfter','clockJoin'}
 REMOTE_FIELDS={'renderersBefore','renderersAfter'}
 
 
+class EmoteImagePending(AssertionError):
+    """Valid original images do not yet show independently changed pixels."""
+
+
 def originals(frame):return {key:frame[key] for key in frame.keys()-{'clockJoin'}}
 
 
@@ -140,5 +144,10 @@ def changed(run,binding,before,raw_before,ticket_before,after,raw_after,ticket_a
         and same(before['capture']['source']['renderTrace']['recordedView'],after['capture']['source']['renderTrace']['recordedView'])
         and same(before['capture']['source']['targetExtent'],after['capture']['source']['targetExtent'])
         and same(before['clockJoin']['nativeAfter']['graphics'],after['clockJoin']['nativeBefore']['graphics']))
-    measured,_=image_observation(raw_after,run,ticket_after,policy,previous=subject,changed=True)
+    try:measured,_=image_observation(raw_after,run,ticket_after,policy,previous=subject,changed=True)
+    except AssertionError as error:
+        # Both exact original PNGs, markers, ROIs, nonblank subjects and their
+        # actual temporal/body/camera joins passed above. Only the separate
+        # subject-change assertion remains pending; no result is committed.
+        raise EmoteImagePending(str(error)) from error
     return dict(iosEmoteImageChangeVersion=VERSION,before=left,after=right,subjectChangedFraction=measured['subjectChangedFraction'])

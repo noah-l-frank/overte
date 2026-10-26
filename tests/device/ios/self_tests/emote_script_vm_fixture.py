@@ -5,6 +5,7 @@ from copy import deepcopy
 import hashlib
 import json
 from pathlib import Path
+from urllib.parse import urlsplit
 import select
 import subprocess
 import uuid
@@ -26,7 +27,7 @@ readline.createInterface({input:process.stdin}).on('line',line=>{
  if(input.operation==='init'){
   const math=Object.create(Math);math.random=()=>[0,.42,.84][random++%3];
   vm.runInNewContext(input.code,{Math:math,isFinite,AnimationCache:{prefetch:url=>{const value={state:3};resources.set(url,value);return value;},
-   getAnimation:()=>({frames:Array.from({length:120},()=>({}))})},MyAvatar:{
+   getAnimation:url=>({frames:Array.from({length:input.frameCounts[new URL(url).pathname.split('/').pop().slice(0,-4)]},()=>({}))})},MyAvatar:{
    overrideAnimation:(url,framesPerSecond,loop,firstFrame,lastFrame)=>events.push({method:'overrideAnimation',epochMs:now,
     request:{url,framesPerSecond,loop,firstFrame,lastFrame}}),restoreAnimation:()=>events.push({method:'restoreAnimation',epochMs:now})},
    Script:{resolvePath:path=>new URL(path,input.scriptUrl).href,setTimeout:(callback,delay)=>{const id=++serial;timers.set(id,{callback,due:now+delay});return id;},
@@ -48,14 +49,20 @@ readline.createInterface({input:process.stdin}).on('line',line=>{
 
 
 class ActualEmoteVM:
-    def __init__(self,test,*,epoch=20000,root='qrc:/scripts'):
+    def __init__(self,test,*,epoch=20000,root='qrc:/scripts',frame_counts=None):
+        from ios.self_tests.emote_animation_fixture import NAMES
+        self.frame_counts={name:120 for name in NAMES} if frame_counts is None else deepcopy(frame_counts)
+        need(type(self.frame_counts) is dict and set(self.frame_counts)==set(NAMES)
+            and all(type(value) is int and 1<=value<=1000000 for value in self.frame_counts.values()))
         path=Path(__file__).resolve().parents[4]/'scripts/system/+android_phoneInterface/phoneEmote.js'
         code=path.read_bytes();utf16=code.decode().encode('utf-16le');sha=hashlib.sha256(utf16).hexdigest()
         matching=[row for row in pins() if row['sourcePath'].endswith('/phoneEmote.js') and row['sha256']==sha and row['codeUnits']==len(utf16)//2]
         need(len(matching)==1);self.pin=deepcopy(matching[0])
         self.process=subprocess.Popen(['node','-e',PROGRAM],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,bufsize=1)
         test.addCleanup(self.close);self.root=root;self.epoch=epoch;self.original_code=code;self.state=None
-        self.command('init',code=code.decode(),scriptUrl=root+'/system/+android_phoneInterface/phoneEmote.js')
+        self.command('init',code=code.decode(),scriptUrl=root+'/system/+android_phoneInterface/phoneEmote.js',frameCounts=self.frame_counts)
+
+    def loaded_frames(self,url):return self.frame_counts[Path(urlsplit(url).path).stem]
 
     def command(self,operation,**fields):
         need(self.process.poll() is None)

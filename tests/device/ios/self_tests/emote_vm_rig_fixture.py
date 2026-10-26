@@ -24,6 +24,7 @@ class ActualVMRig(RigPackets):
             if self.augment is not None:self.augment(value)
         self.code.mutate=original;self.code_reader.clock_ms=lambda:self.epoch
         self.sequence=0;self.frames=[];self.frame_sequence=0;self.value=None
+        self.lifecycle=dict(backgrounds=0,activations=1,launches=1)
 
     def manager(self):
         return dict(instance=self.code.engine['required']['instance'],assigned=True,url=self.code.engine['url'],loadGeneration=1,assignedEpochMs=14000)
@@ -52,11 +53,12 @@ class ActualVMRig(RigPackets):
         if playing:
             request=current['request'];frame['clip']=dict(request,requestedUrl=request['url'],
                 frame=min(request['lastFrame'],(self.epoch-current['capturedEpochMs'])*request['framesPerSecond']/1000.),
-                loadedFrames=120,evaluatedEpochMs=self.epoch,evaluationSequence=100+self.frame_sequence)
+                loadedFrames=self.vm.loaded_frames(request['url']),evaluatedEpochMs=self.epoch,evaluationSequence=100+self.frame_sequence)
         self.frames.append(frame);self.frames=self.frames[-32:]
         source=Features();source.sequence=self.sequence-1
         def original(value):
             value.update(instance='a'*32,processId=31,requestedEpochMs=self.epoch,capturedEpochMs=self.epoch)
+            value['lifecycle']=deepcopy(self.lifecycle)
             value['animationFence']=dict(rigId=2,sequence=99+self.frame_sequence,requestedEpochMs=self.epoch)
             animation=value['animation'];animation.update(rigId=2,capturedEpochMs=self.epoch,evaluationSequence=100+self.frame_sequence,
                 overrideActive=playing,joints=deepcopy(poses),history=dict(historyVersion=2,instance='e'*32,available=True,

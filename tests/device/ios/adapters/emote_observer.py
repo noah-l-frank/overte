@@ -241,6 +241,11 @@ class IOSEmoteObserver:
             need(len(events)<=1)
             if events:
                 if episode is None or self.decoder.source(episode['played'])['group']['native']['animation']['history']['overrideSequence']<events[0]['overrideSequence']:
+                    history=current['group']['native']['animation']['history']
+                    advancing=[row for row in history['frames'] if row['overrideActive']
+                        and row['overrideSequence']==events[0]['overrideSequence'] and 'clip' in row]
+                    if current['group']['native']['animation']['overrideActive'] and len(advancing)<2:
+                        raise EmoteObservationPending('A second actual loaded evaluation is still pending')
                     played=playback(current['group'],before['group']['native'],pid=self.decoder.pid,
                         epoch=current['clockJoin']['nativeAfter']['capturedEpochMs'])
                     episode=dict(before=deepcopy(barrier),played=self.source_reference());state['episode']=episode;self.save()

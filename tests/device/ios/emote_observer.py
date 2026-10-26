@@ -94,7 +94,10 @@ def rooted_step(flow,config):
         # No live query follows an actual sealed journal or typed end. An
         # inactive fixture without that end remains unresolved responsibility.
         if not flow.phase.status()['active']:return 'inactive'
-        flow.publish();return 'published'
+    # Ordinary observation may have to yield for an original effect or peer.
+    # Its own leases/deadline must unwind before that readiness poll; the
+    # control-journal read above cannot leave an enclosing SDK lease behind.
+    flow.publish();return 'published'
 
 
 def failure(flow,config,*,record=False):

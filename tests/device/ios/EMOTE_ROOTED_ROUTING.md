@@ -1,5 +1,8 @@
 # Explicit rooted Emote routing
 
+Current readiness work and remaining actual-source blockers are recorded in
+[the source handoff](EMOTE_REMAINING_SOURCE.md). Complete admission remains closed.
+
 The installed adapter reads configuration versions 1 through 6. Version 6 adds
 the exact `emoteCoordinatorVersion` field: integer `2` when `emotes` is selected,
 otherwise `null`. Versions 1 through 5 keep their literal previous field sets.

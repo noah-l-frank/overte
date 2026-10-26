@@ -26,6 +26,7 @@ from ios.adapters.emote_operation import operation
 
 
 class IOSEmoteRootedFeature(IOSEmoteFeature):
+    RETRY_OBSERVATION_READINESS=True
     FORMAT_VERSION=2
     Marker=IOSEmoteRootedMarkerScope
     Observer=IOSEmoteRootedObserver

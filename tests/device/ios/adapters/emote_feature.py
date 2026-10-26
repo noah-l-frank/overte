@@ -43,11 +43,14 @@ from ios.adapters.emote_samples import IOSEmoteSamples,EmoteMarkerPending
 from ios.adapters.emote_ui_inventory import absent as absent_chooser
 from ios.adapters.peer_admission import admit_existing_peer,validate as peer_admission
 from ios.adapters.emote_operation import operation,clock as operation_clock
+from ios.adapters.emote_images import EmoteImagePending
+from ios.adapters.emote_observation_operation import ObservationPending,retry_observation
 
 VERSION=1
 
 
 class IOSEmoteFeature:
+    RETRY_OBSERVATION_READINESS=False
     FORMAT_VERSION=1
     Marker=IOSEmoteMarkerScope
     Observer=IOSEmoteObserver
@@ -269,6 +272,7 @@ class IOSEmoteFeature:
 
     @operation(30)
     @retry_scene
+    @retry_observation
     def observe(self,call):
         call=arguments('feature.emotes.observe',call);need(call['runId']==self.run)
         with self.held(30):
@@ -280,7 +284,13 @@ class IOSEmoteFeature:
             need(self.state['phase']=='ready')
             barrier=(self.state['inputBarrier'] if self.role=='primary' and self.state['lastCall'] is not None
                 and self.state['lastCall']['ticket']==current['ticket'] else None)
-            result=observer.observe(call['afterSequence'],input_barrier=barrier)
+            try:result=observer.observe(call['afterSequence'],input_barrier=barrier)
+            except (EmoteObservationPending,EmoteImagePending):
+                if not self.RETRY_OBSERVATION_READINESS:raise
+                # The actual incomplete read and its GPU ownership remain in
+                # their original WALs. The next call abandons only independently
+                # returned/drained reads; no normal input is repeated.
+                raise ObservationPending(current['ticket']) from None
             if self.role=='actor':observer.publish_latest()
             return result
 
