@@ -106,6 +106,12 @@ public:
     // Passive provenance binding for the dedicated iOS Avatar observation.
     // This identity grants no access to mutate or invoke the resource watcher.
     const void* featureGeometryWatcherIdentity() const { return &_renderWatcher; }
+    // Actual render watcher/geometry provenance, independent of entity input.
+    QVariantMap featureAssetsModelOrigin() const {
+        return {{"modelUrl",_url.toString(QUrl::FullyEncoded)},
+            {"watcherUrl",_renderWatcher.getURL().toString(QUrl::FullyEncoded)},
+            {"geometry",_renderGeometry ? QVariant(_renderGeometry->featureAssetsOrigin()) : QVariant()}};
+    }
 #endif
 
     // new Scene/Engine rendering support

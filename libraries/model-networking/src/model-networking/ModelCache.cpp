@@ -12,6 +12,7 @@
 #include "ModelCache.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include "../../../../tests/device/native/IOSAvatarStateObservation.h"
+#include "../../../../tests/device/native/IOSAssetsModelOrigin.h"
 #endif
 #include <Finally.h>
 #include <FSTReader.h>
@@ -98,15 +99,30 @@ struct std::hash<GeometryExtra> {
 class GeometryReader : public QRunnable {
 public:
     GeometryReader(const ModelLoader& modelLoader, QWeakPointer<Resource>& resource, const QUrl& url, const GeometryMappingPair& mapping,
-                   const QByteArray& data, bool combineParts, const QString& webMediaType) :
+                   const QByteArray& data, bool combineParts, const QString& webMediaType
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+                   ,const QString& featureOrigin
+#endif
+                   ) :
         _modelLoader(modelLoader), _resource(resource), _url(url), _mapping(mapping), _data(data), _combineParts(combineParts), _webMediaType(webMediaType) {
-
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        _featureAssetsOrigin=featureOrigin;
+        if (!_featureAssetsOrigin.isEmpty()) {
+            _featureAssetsHolder=std::make_shared<int>(0);
+            overte::e2e::IOSAssetsModelOrigin::shared().reader(_featureAssetsOrigin,_featureAssetsHolder);
+        }
+#endif
         DependencyManager::get<StatTracker>()->incrementStat("PendingProcessing");
     }
 
     virtual void run() override;
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    // First member expires after every original reader field is destroyed.
+    std::shared_ptr<void> _featureAssetsHolder;
+    QString _featureAssetsOrigin;
+#endif
     ModelLoader _modelLoader;
     QWeakPointer<Resource> _resource;
     QUrl _url;
@@ -117,6 +133,9 @@ private:
 };
 
 void GeometryReader::run() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    const overte::e2e::IOSAssetsModelOrigin::Body featureBody(_featureAssetsOrigin);
+#endif
     DependencyManager::get<StatTracker>()->decrementStat("PendingProcessing");
     CounterStat counter("Processing");
     PROFILE_RANGE_EX(resource_parse_geometry, "GeometryReader::run", 0xFF00FF00, 0, { { "url", _url.toString() } });
@@ -191,8 +210,15 @@ void GeometryReader::run() {
         auto processedHFMModel = modelBaker.getHFMModel();
         auto materialMapping = modelBaker.getMaterialMapping();
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        overte::e2e::IOSAssetsModelOrigin::shared().queued(_featureAssetsOrigin,processedHFMModel);
+        const bool featureInvokeAccepted=
+#endif
         QMetaObject::invokeMethod(resource.data(), "setGeometryDefinition",
                 Q_ARG(HFMModel::Pointer, processedHFMModel), Q_ARG(MaterialMapping, materialMapping));
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        overte::e2e::IOSAssetsModelOrigin::shared().invokeReturned(_featureAssetsOrigin,featureInvokeAccepted);
+#endif
     } catch (const std::exception&) {
         auto resource = _resource.toStrongRef();
         if (resource) {
@@ -228,6 +254,10 @@ GeometryResource::GeometryResource(const GeometryResource& other) :
 }
 
 void GeometryResource::downloadFinished(const QByteArray& data) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    _featureAssetsDownloadId=overte::e2e::IOSAssetsModelOrigin::shared().download(
+        _self,_url,_effectiveBaseURL,data,_effectiveBaseURL.fileName().toLower().endsWith(".fst"));
+#endif
     if (_effectiveBaseURL.fileName().toLower().endsWith(".fst")) {
         PROFILE_ASYNC_BEGIN(resource_parse_geometry, "GeometryResource::downloadFinished", _url.toString(), { { "url", _url.toString() } });
 
@@ -298,12 +328,21 @@ void GeometryResource::downloadFinished(const QByteArray& data) {
             _url = _effectiveBaseURL;
             _textureBaseURL = _effectiveBaseURL;
         }
-        QThreadPool::globalInstance()->start(new GeometryReader(_modelLoader, _self, _effectiveBaseURL, _mappingPair, data, _combineParts, _request->getWebMediaType()));
+        QThreadPool::globalInstance()->start(new GeometryReader(_modelLoader, _self, _effectiveBaseURL, _mappingPair, data, _combineParts, _request->getWebMediaType()
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+            ,_featureAssetsDownloadId
+#endif
+        ));
     }
 }
 
 void GeometryResource::onGeometryMappingLoaded(bool success) {
     if (success && _geometryResource) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        _featureAssetsReaderId=_geometryResource->_featureAssetsReaderId;
+        _featureAssetsMappingIds=_geometryResource->_featureAssetsMappingIds;
+        if (!_featureAssetsDownloadId.isEmpty()) {_featureAssetsMappingIds.append(_featureAssetsDownloadId);}
+#endif
         _hfmModel = _geometryResource->_hfmModel;
         _materialMapping = _geometryResource->_materialMapping;
         _meshParts = _geometryResource->_meshParts;
@@ -328,6 +367,11 @@ void GeometryResource::setExtra(void* extra) {
 }
 
 void GeometryResource::setGeometryDefinition(HFMModel::Pointer hfmModel, const MaterialMapping& materialMapping) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    const auto featureOrigin=overte::e2e::IOSAssetsModelOrigin::shared().delivery(this,hfmModel);
+    const overte::e2e::IOSAssetsModelOrigin::Body featureBody(featureOrigin,true);
+    _featureAssetsReaderId=featureOrigin;_featureAssetsMappingIds.clear();
+#endif
     // Assume ownership of the processed HFMModel
     _hfmModel = hfmModel;
     _materialMapping = materialMapping;
@@ -475,6 +519,9 @@ QVariantList Geometry::featureCreateTextures() const {
 
 // FIXME: The materials should only be copied when modified, but the Model currently caches the original
 Geometry::Geometry(const Geometry& geometry) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    _featureAssetsReaderId=geometry._featureAssetsReaderId;_featureAssetsMappingIds=geometry._featureAssetsMappingIds;
+#endif
     _hfmModel = geometry._hfmModel;
     _materialMapping = geometry._materialMapping;
     _meshes = geometry._meshes;

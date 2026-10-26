@@ -1468,6 +1468,23 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-assets-model-origin") {
+            if (command.schemaVersion===1 && typeof command.commandId==="string" && /^ios-[a-f0-9]{32}$/.test(command.commandId) && command.commandId.length===36
+                    && typeof command.runId==="string" && /^[a-f0-9]{32}$/.test(command.runId) && command.runId.length===32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount>=4096) {return;}
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var assetModelOrigin={iosAssetsModelOriginVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSAssetsModelOrigin==="function") {
+                        var actualAssetModelOrigin=Test.featureIOSAssetsModelOrigin(command);
+                        if (actualAssetModelOrigin && actualAssetModelOrigin.requestId===command.commandId) {assetModelOrigin=actualAssetModelOrigin;}
+                    }
+                } catch (_assetModelOriginError) { /* Preserve unavailable, with the original nonce consumed. */ }
+                Test.saveObject(assetModelOrigin,"feature-ios-assets-model-origin.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-create-state") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36

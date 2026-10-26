@@ -122,6 +122,7 @@
 #include "../../../tests/device/native/IOSAssetUiInventory.h"
 #include "../../../tests/device/native/IOSAssetUploadWork.h"
 #include "../../../tests/device/native/IOSAssetReplyReads.h"
+#include "../../../tests/device/native/IOSAssetsModelObservation.h"
 #endif
 #include "../AvatarBookmarks.h"
 #include "../../../tests/device/native/NativeReadBracket.h"
@@ -1183,6 +1184,26 @@ QVariantMap TestScriptingInterface::featureIOSCreateState(const QVariantMap& com
 }
 
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
+QVariantMap TestScriptingInterface::featureIOSAssetsModelOrigin(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] {result=featureIOSAssetsModelOrigin(command);},Qt::BlockingQueuedConnection)) {return {};}
+        return result;
+    }
+    QStringList fields{"schemaVersion","commandId","action","runId"};fields.sort();const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=json.value("commandId").toString(),run=json.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-assets-model-origin")
+            || !QRegularExpression("\\Aios-[a-f0-9]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[a-f0-9]{32}\\z").match(run).hasMatch()
+            || !DependencyManager::isSet<EntityScriptingInterface>() || !DependencyManager::isSet<NodeList>()) {return {};}
+    const auto entities=DependencyManager::get<EntityScriptingInterface>();if (!entities || !entities->getEntityTree()) {return {};}
+    if (!_featureIOSAssetsModelOrigin) {_featureIOSAssetsModelOrigin=std::make_shared<overte::e2e::IOSAssetsModelObservation>();}
+    return _featureIOSAssetsModelOrigin->read(request,run,entities.data(),
+        DependencyManager::get<NodeList>()->getDomainHandler().getUUID().toString(QUuid::WithoutBraces));
+}
+
 #if defined(OVERTE_E2E_VOICE_TESTS)
 QVariantMap TestScriptingInterface::featureIOSAudioSession(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {

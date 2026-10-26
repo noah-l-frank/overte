@@ -56,6 +56,7 @@ public:
     const QVariantMap getTextures() const;
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     QVariantList featureCreateTextures() const;
+    QVariantMap featureAssetsOrigin() const {return {{"readerId",_featureAssetsReaderId},{"mappingIds",_featureAssetsMappingIds}};}
 #endif
     void setTextures(const QVariantMap& textureMap);
 
@@ -65,6 +66,11 @@ public:
     const hifi::VariantMultiHash& getMapping() const { return _mapping; }
 
 protected:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    // Immutable lineage copied only from the actual accepted resource/geometry.
+    QString _featureAssetsReaderId;
+    QStringList _featureAssetsMappingIds;
+#endif
     // Shared across all geometries, constant throughout lifetime
     HFMModel::ConstPointer _hfmModel;
     MaterialMapping _materialMapping;
@@ -118,6 +124,9 @@ protected:
 
 private:
     ModelLoader _modelLoader;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    QString _featureAssetsDownloadId;
+#endif
     GeometryMappingPair _mappingPair;
     QUrl _textureBaseURL;
     bool _combineParts;

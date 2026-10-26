@@ -746,6 +746,12 @@ class FixtureState:
             try:validate_ios_source(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS create state request") from None
             valid=True
+        elif action == "feature-ios-assets-model-origin":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.assets_model_origin import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS Assets model origin request") from None
+            valid=True
         elif action == "feature-ios-create-files":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.create_files import command as validate_ios_source

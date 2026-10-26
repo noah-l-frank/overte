@@ -76,6 +76,7 @@ from ios.adapters.assets_files import IOSAssetsFiles,FILE as ASSETS_FILES_FILE,L
 from ios.adapters.assets_replies import IOSAssetsReplies,FILE as ASSETS_REPLIES_FILE,LIMIT as ASSETS_REPLIES_LIMIT,command as assets_replies_command
 from ios.adapters.keyboard_source import IOSKeyboard,FILE as KEYBOARD_FILE,LIMIT as KEYBOARD_LIMIT,command as keyboard_command
 from ios.adapters.audio_session_source import IOSAudioSession,FILE as AUDIO_SESSION_FILE,LIMIT as AUDIO_SESSION_LIMIT,command as audio_session_command
+from ios.adapters.assets_model_origin import IOSAssetsModelOrigin,FILE as ASSETS_MODEL_ORIGIN_FILE,LIMIT as ASSETS_MODEL_ORIGIN_LIMIT,command as assets_model_origin_command
 from ios.adapters.lifecycle_inputs import IOSLifecycleInputs,FILE as LIFECYCLE_INPUTS_FILE,LIMIT as LIFECYCLE_INPUTS_LIMIT,command as lifecycle_inputs_command
 from ios.adapters.lifecycle_world import IOSLifecycleWorld,FILE as LIFECYCLE_WORLD_FILE,LIMIT as LIFECYCLE_WORLD_LIMIT,command as lifecycle_world_command
 from ios.adapters.lifecycle_pending_commands import IOSLifecyclePendingCommands,FILE as LIFECYCLE_PENDING_COMMANDS_FILE,LIMIT as LIFECYCLE_PENDING_COMMANDS_LIMIT,command as lifecycle_pending_commands_command
@@ -250,6 +251,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-pending-commit-owner':pending_owner_command(command,ios=True)
         elif command.get('action')=='feature-ios-keyboard':keyboard_command(command)
         elif command.get('action')=='feature-ios-audio-session':audio_session_command(command)
+        elif command.get('action')=='feature-ios-assets-model-origin':assets_model_origin_command(command)
         elif command.get('action')=='feature-ios-lifecycle-inputs':lifecycle_inputs_command(command)
         elif command.get('action')=='feature-ios-lifecycle-world':lifecycle_world_command(command)
         elif command.get('action')=='feature-ios-lifecycle-pending-commands':lifecycle_pending_commands_command(command)
@@ -511,6 +513,13 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSCreateState(self.send,lambda:self.original(remote=remote,limit=CREATE_STATE_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def assets_model_origin(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+ASSETS_MODEL_ORIGIN_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSAssetsModelOrigin(self.send,lambda:self.original(remote=remote,limit=ASSETS_MODEL_ORIGIN_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def create_files(self,clock_source=None):
