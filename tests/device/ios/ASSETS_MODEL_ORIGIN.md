@@ -35,6 +35,10 @@ and delivery bodies, and an accepted original dispatch. It reports a
 bytes are the independently read baked server output, that a pixel rendered,
 or that an independent actor consumed the model. Those joins remain required.
 
+The separate [retained parsed-input owner](ASSETS_PARSED_INPUT.md) joins these
+originals to an independently retained baked backend body. This getter alone
+still supplies only origin/reader observations.
+
 ## Retirement and qualification limits
 
 `resourceRetirementAvailable` is always false. Resource/HFM/parser weak

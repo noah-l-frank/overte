@@ -23,6 +23,19 @@ class AssetsRuntimeTests(unittest.TestCase):
             b.runtime._assets_store('test-only',RUN,'actor','files').path)
         self.assertEqual((sessions,launches),(b.f.sessions,b.f.launches));self.assertEqual([],b.asset_requests)
 
+    def test_parsed_factory_keeps_existing_model_usage_and_backend_before_any_read(self):
+        from ios.self_tests.assets_usage_backend_fixture import Fixture
+        from pathlib import Path
+        import tempfile
+        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup);path=Path(temporary.name);path.chmod(0o700)
+        fixture=Fixture(path);self.addCleanup(fixture.close)
+        b=self.b;parts=b.runtime._assets_parsed_components('test-only',RUN,'primary',URL,b.lock,fixture.backend.config)
+        self.assertIs(parts['usage'],parts['parsed'].model.usage);self.assertIs(parts['usage'],parts['baking'].usage)
+        self.assertIs(parts['upload'],parts['baking'].backend.upload)
+        self.assertEqual(b.root/('ios-assets-'+RUN+'-primary-parsed-sources.json'),parts['parsed_sources'].store.path)
+        self.assertIsNone(parts['parsed'].state);self.assertIsNone(parts['parsed_sources'].state)
+        self.assertEqual([],b.asset_requests);self.assertEqual([],b.afc);self.assertEqual([],fixture.requests)
+
     def test_independent_file_absence_and_server_bundle_flow_use_real_http_afc_factories(self):
         b=self.b;parts=b.components();packet=parts['files'].request('observe',RUN,TICKET,'a'*64,'gltf-bundle/main.gltf')
         self.assertEqual(dict(exists=False,files=[]),packet['source']['files'])

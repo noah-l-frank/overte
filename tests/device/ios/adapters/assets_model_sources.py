@@ -24,21 +24,35 @@ VERSION=1
 
 
 class AssetsModelSources:
+    OWNER_KEY='iosAssetsModelSourcesVersion'
+    FRAME_KEY='assetModelSourceFrameVersion'
+    NAMESPACE='assets-model-source'
+    SCHEMA_PREFIX='iosAssetsModelSource'
+    RAW_TYPE=ModelRawSources
+    ORIGINAL_KEYS={'ui','createBefore','work','createAfter'}
     def __init__(self,usage,native,state_reader,work_reader,store,*,lock,epoch_ms,monotonic):
         need(isinstance(usage,OwnedAssetsUsage) and isinstance(native,NativeFeatureObservation) and native.ios
             and native is usage.source.clock and isinstance(state_reader,create_state.IOSCreateState) and isinstance(work_reader,create_work.IOSCreateWork)
             and isinstance(store,PrivateFeatureState) and callable(epoch_ms) and callable(monotonic)
             and native.pid==state_reader.pid==work_reader.pid==usage.source.files.native.pid);lock.assert_held()
-        self.usage,self.native,self.readers,self.store,self.lock=usage,native,dict(state=state_reader,work=work_reader),store,lock
+        self.usage,self.native,self.readers,self.store,self.lock=usage,native,self.reader_map(state_reader,work_reader),store,lock
         self.epoch_ms,self.monotonic=epoch_ms,monotonic;self.previous=store.read();self.state=None;self._cached=[];self.active=False
         source=usage.source;self.binding,self.run,self.role=source.binding,source.files.run,source.role
-        self.raws=ModelRawSources(self,source.role,self.local_guard,self.save)
+        self.raws=self.RAW_TYPE(self,source.role,self.local_guard,self.save)
         self.originals=OriginalFrameStore(store.path.parent,source.binding,source.files.run,source.role,self.guard,self.intent,
-            namespace='assets-model-source',schema_prefix='iosAssetsModelSource',monotonic=monotonic)
+            namespace=self.NAMESPACE,schema_prefix=self.SCHEMA_PREFIX,monotonic=monotonic)
         if self.previous is not None:
             self.state=self.decode(self.previous)
             if self._cached:
-                self.readers['state'].last=deepcopy(self._cached[-1]['originals']['createAfter']);self.readers['work'].last=deepcopy(self._cached[-1]['originals']['work'])
+                self.restore_readers(self._cached[-1]['originals'])
+
+    def reader_map(self,state,work):return dict(state=state,work=work)
+    def restore_readers(self,originals):
+        self.readers['state'].last=deepcopy(originals['createAfter']);self.readers['work'].last=deepcopy(originals['work'])
+    def reader_module(self,kind):need(kind in ('state','work'));return create_state if kind=='state' else create_work
+    def external(self,originals):return [originals['createBefore'],originals['work'],originals['createAfter']]
+    def read_originals(self):
+        return dict(createBefore=self.readers['state'].read(self.run),work=self.readers['work'].read(self.run),createAfter=self.readers['state'].read(self.run))
 
     def guard(self):
         self.lock.assert_held();self.usage.guard();need(same(self.usage.store.read(),self.usage.previous));return True
@@ -47,15 +61,14 @@ class AssetsModelSources:
 
     def envelope(self):
         self.state['rawSources']=self.raws.manifest()
-        source=self.usage.source;return dict(iosAssetsModelSourcesVersion=VERSION,binding=source.binding,runId=source.files.run,role=source.role,fileOwnerToken=source.files.state['token'],page=source.state['page'],payload=pack([self.state]))
+        source=self.usage.source;return {self.OWNER_KEY:VERSION,**dict(binding=source.binding,runId=source.files.run,role=source.role,fileOwnerToken=source.files.state['token'],page=source.state['page'],payload=pack([self.state]))}
 
     def query(self,row):
         exact(row,{'kind','command'});query=row['command']
         if row['kind']=='clock':
             exact(query,{'schemaVersion','commandId','action'});need(type(query['schemaVersion']) is int and query['schemaVersion']==1 and query['action']=='feature-native-observe'
                 and type(query['commandId']) is str and __import__('re').fullmatch('ios-[a-f0-9]{32}',query['commandId']) is not None)
-        elif row['kind']=='state':create_state.command(query)
-        else:need(row['kind']=='work');create_work.command(query)
+        else:self.reader_module(row['kind']).command(query)
 
     def prefix(self,reference):
         self.originals.original(reference);path=self.originals.path(reference)
@@ -87,8 +100,8 @@ class AssetsModelSources:
         else:need(value['snapshot'] is None)
 
     def decode(self,value):
-        source=self.usage.source;exact(value,{'iosAssetsModelSourcesVersion','binding','runId','role','fileOwnerToken','page','payload'})
-        need(type(value['iosAssetsModelSourcesVersion']) is int and value['iosAssetsModelSourcesVersion']==VERSION and same(value['binding'],source.binding)
+        source=self.usage.source;exact(value,{self.OWNER_KEY,'binding','runId','role','fileOwnerToken','page','payload'})
+        need(type(value[self.OWNER_KEY]) is int and value[self.OWNER_KEY]==VERSION and same(value['binding'],source.binding)
             and value['runId']==source.files.run and value['role']==source.role and value['fileOwnerToken']==source.files.state['token'] and value['page']==source.state['page'])
         decoded=unpack(value['payload']);need(len(decoded)==1);state=decoded[0];exact(state,{'frames','pending','interrupted','nextIndex','rawSources'});self.raws.load(state['rawSources'])
         need(type(state['frames']) is list and len(state['frames'])<=32 and type(state['interrupted']) is list and len(state['interrupted'])<=8
@@ -117,12 +130,12 @@ class AssetsModelSources:
         need(self.state is None and self.usage.state is not None);self.state=dict(frames=[],pending=None,interrupted=[],nextIndex=1,rawSources=self.raws.manifest());self.save()
 
     def frame(self,frame,previous=None):
-        exact(frame,{'assetModelSourceFrameVersion','queries','rawRefs','uiFrame','clockJoin','originals'})
-        need(type(frame['assetModelSourceFrameVersion']) is int and frame['assetModelSourceFrameVersion']==VERSION and type(frame['queries']) is list and 1<=len(frame['queries'])<=24
+        exact(frame,{self.FRAME_KEY,'queries','rawRefs','uiFrame','clockJoin','originals'})
+        need(type(frame[self.FRAME_KEY]) is int and frame[self.FRAME_KEY]==VERSION and type(frame['queries']) is list and 1<=len(frame['queries'])<=24
             and type(frame['rawRefs']) is list and 1<=len(frame['rawRefs'])<=24 and integer(frame['uiFrame'],1,len(self.usage.source._cached)))
         self.pending(dict(queries=frame['queries'],rawRefs=frame['rawRefs'],original=None,snapshot=None),1)
         records=[self.raws.read_record(reference) for reference in frame['rawRefs']]
-        originals=frame['originals'];exact(originals,{'ui','createBefore','work','createAfter'});need(same(originals['ui'],self.usage.source._cached[frame['uiFrame']-1]['ui']))
+        originals=frame['originals'];exact(originals,self.ORIGINAL_KEYS);need(same(originals['ui'],self.usage.source._cached[frame['uiFrame']-1]['ui']))
         validate_join(frame['clockJoin'],originals);source=self.usage.source;pid=source.clock.pid;packets={};clocks=[];external=[]
         for row in frame['queries']:
             self.query(row);query=row['command'];identifier=query['commandId'];need(identifier not in packets)
@@ -131,10 +144,10 @@ class AssetsModelSources:
             if row['kind']=='clock':
                 native_packet(packet,identifier,pid,packet['capturedEpochMs']);clocks.append(packet)
             else:
-                module=create_state if row['kind']=='state' else create_work;module.validate(packet,query,pid);external.append(packet)
+                module=self.reader_module(row['kind']);module.validate(packet,query,pid);external.append(packet)
                 need(query['runId']==source.files.run and clocks and clocks[-1]['capturedEpochMs']<=packet['clockBefore']['epochMs'])
             packets[identifier]=packet
-        need(len(external)==3 and all(same(a,b) for a,b in zip(external,[originals['createBefore'],originals['work'],originals['createAfter']])))
+        wanted=self.external(originals);need(len(external)==len(wanted) and all(same(a,b) for a,b in zip(external,wanted)))
         need(len(clocks)>=2 and same(clocks[0],frame['clockJoin']['nativeBefore']) and same(clocks[-1],frame['clockJoin']['nativeAfter'])
             and same(clocks[0]['lifecycle'],clocks[-1]['lifecycle']))
         for a,b in zip(clocks,clocks[1:]):follow_native(a,b)
@@ -167,9 +180,8 @@ class AssetsModelSources:
             reader.send,reader.original=send,read
         try:
             clock=NativeClockAcquisition(self.native,epoch_ms=self.epoch_ms,monotonic=self.monotonic);clock.begin(host_barrier)
-            before=self.readers['state'].read(self.usage.source.files.run);work=self.readers['work'].read(self.usage.source.files.run);after=self.readers['state'].read(self.usage.source.files.run)
-            ui=self.usage.capture();originals=dict(ui=ui,createBefore=before,work=work,createAfter=after);join=clock.finish(originals,[('ui','sampleEpochMs')])
-            frame=dict(assetModelSourceFrameVersion=VERSION,queries=deepcopy(self.state['pending']['queries']),rawRefs=deepcopy(self.state['pending']['rawRefs']),uiFrame=len(self.usage.source.state['frames']),clockJoin=join,originals=originals)
+            originals=self.read_originals();originals['ui']=self.usage.capture();join=clock.finish(originals,[('ui','sampleEpochMs')])
+            frame={self.FRAME_KEY:VERSION,**dict(queries=deepcopy(self.state['pending']['queries']),rawRefs=deepcopy(self.state['pending']['rawRefs']),uiFrame=len(self.usage.source.state['frames']),clockJoin=join,originals=originals)}
             self.frame(frame,self._cached[-1] if self._cached else None);reference=self.originals.write(self.state['nextIndex'],frame)
             self.state['frames'].append(reference);self.state['pending']=None;self.state['nextIndex']+=1;self.save();return deepcopy(frame)
         except BaseException as primary:
