@@ -1586,6 +1586,24 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-lifecycle-navigation-inputs") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var lifecycleNavigation={iosNormalInputsVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSLifecycleNavigationInputs === "function") {
+                        var originalLifecycleNavigation=Test.featureIOSLifecycleNavigationInputs(command);
+                        if (originalLifecycleNavigation && originalLifecycleNavigation.requestId === command.commandId) { lifecycleNavigation=originalLifecycleNavigation; }
+                    }
+                } catch (_lifecycleNavigationError) { /* Missing original reception remains unknown. */ }
+                Test.saveObject(lifecycleNavigation,"feature-ios-lifecycle-navigation-inputs.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-lifecycle-world") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36

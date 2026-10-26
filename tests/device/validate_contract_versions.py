@@ -9,6 +9,13 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-lifecycle-navigation": 1,
+    "ios-lifecycle-navigation-inputs": 1,
+    "ios-lifecycle-navigation-inputs-acquisition": 1,
+    "ios-lifecycle-navigation-input-delivery": 1,
+    "ios-lifecycle-navigation-owner": 1,
+    "lifecycle-navigation-proof-frame": 1,
+    "lifecycle-navigation-proof-original": 1,
     "ios-lifecycle-world": 1,
     "ios-lifecycle-world-acquisition": 1,
     "ios-lifecycle-inputs": 1,

@@ -20,10 +20,11 @@ namespace overte::e2e {
 // dispatches no event and deliberately excludes all login/private input.
 class IOSNormalInputObservation {
 public:
-    enum class Profile { Avatar, Snapshot, Lifecycle };
+    enum class Profile { Avatar, Snapshot, Lifecycle, LifecycleNavigation };
     static IOSNormalInputObservation& shared(Profile profile=Profile::Avatar) {
         if (profile==Profile::Snapshot) {static IOSNormalInputObservation snapshot(Profile::Snapshot);return snapshot;}
         if (profile==Profile::Lifecycle) {static IOSNormalInputObservation lifecycle(Profile::Lifecycle);return lifecycle;}
+        if (profile==Profile::LifecycleNavigation) {static IOSNormalInputObservation navigation(Profile::LifecycleNavigation);return navigation;}
         static IOSNormalInputObservation value(Profile::Avatar);return value;
     }
 
@@ -55,6 +56,14 @@ public:
                         || (!text.isEmpty() && !QRegularExpression("\\A"+QRegularExpression::escape(prefix)+"[a-f0-9]{32}\\z").match(text).hasMatch())) {return {};}
             } else if (operation!="activate") {return {};}
             if (QSet<QString>(keys.begin(),keys.end())!=expected || input.value("schemaVersion")!=QJsonValue(1)) {return {};}
+        } else if (profile==Profile::LifecycleNavigation) {
+            const auto keys=input.keys();
+            const QSet<QString> expected{"schemaVersion","commandId","instance","sequence","observedElapsedMs","fieldToken","operation"};
+            if (root.isEmpty() || input.value("operation")!=QJsonValue("activate") || input.value("schemaVersion")!=QJsonValue(1)
+                    || QSet<QString>(keys.begin(),keys.end())!=expected
+                    || (!QStringList{"hud.tablet","tablet.home","tablet.close","create.entry","chat.entry","scripts.entry",
+                        "scripts.menu","scripts.menu-edit","scripts.menu-running"}.contains(control)
+                        && !QRegularExpression("\\Atablet\\.page\\.([1-9]|[12][0-9]|3[0-2])\\z").match(control).hasMatch())) {return {};}
         } else {
             if (!control.startsWith("avatar.") && !control.startsWith("people.")
                 && control!="tablet.home" && !control.startsWith("tablet.page.")) { return {}; }
@@ -76,7 +85,7 @@ public:
         QMutexLocker locker(&_mutex);const auto before=clock();
         if (profile!=_profile) { return {}; }
         QJsonObject source{{"complete",_complete},{"events",_events}};
-        return QJsonObject{{"iosNormalInputsVersion",1},{"profile",profile==Profile::Snapshot ? "snapshot" : profile==Profile::Lifecycle ? "lifecycle" : "avatar"},{"requestId",request},{"runId",run},{"instance",_instance},
+        return QJsonObject{{"iosNormalInputsVersion",1},{"profile",profile==Profile::Snapshot ? "snapshot" : profile==Profile::Lifecycle ? "lifecycle" : profile==Profile::LifecycleNavigation ? "lifecycle-navigation" : "avatar"},{"requestId",request},{"runId",run},{"instance",_instance},
             {"sequence",static_cast<double>(++_sequence)},{"processId",static_cast<double>(QCoreApplication::applicationPid())},
             {"clockDomain","native-process-normal-inputs"},{"clockBefore",before},{"clockAfter",clock()},{"source",source}};
     }

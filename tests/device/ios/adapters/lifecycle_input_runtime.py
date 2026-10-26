@@ -11,9 +11,13 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_feature.lock import ScriptSourceLock
 from ios.adapters.script_runtime import IOSScriptRuntime
 from ios.adapters.lifecycle_input_owner import LifecycleInputOwner
+from ios.adapters.lifecycle_navigation_owner import LifecycleNavigationOwner
 
 
 class IOSLifecycleInputRuntime:
+    _owner_type=LifecycleInputOwner
+    _reader_name='lifecycle_inputs'
+
     def __init__(self,adapter):self.adapter=adapter
 
     @contextmanager
@@ -23,9 +27,15 @@ class IOSLifecycleInputRuntime:
         with lock.held():
             def guard():
                 lock.assert_held();need(source['check']() is not False);return True
-            owner=LifecycleInputOwner(PrivateFeatureState(root/LifecycleInputOwner.store_name(role)),lock,source['binding'],run,role,source['native'],guard)
-            reader=source['observer'].lifecycle_inputs(clock_source=source['clock_source']);old_guard=reader.guard
+            owner_type=self._owner_type
+            owner=owner_type(PrivateFeatureState(root/owner_type.store_name(role)),lock,source['binding'],run,role,source['native'],guard)
+            reader=getattr(source['observer'],self._reader_name)(clock_source=source['clock_source']);old_guard=reader.guard
             def original_guard():guard();need(old_guard() is not False);return True
             reader.guard=original_guard
             yield owner,reader
             guard()
+
+
+class IOSLifecycleNavigationRuntime(IOSLifecycleInputRuntime):
+    _owner_type=LifecycleNavigationOwner
+    _reader_name='lifecycle_navigation_inputs'

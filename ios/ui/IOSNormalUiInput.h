@@ -42,6 +42,7 @@ private:
         QPointer<QQuickWindow> window;
         QString token;
         QString source;
+        QString lifecycleNavigationSource;
     };
     bool guiThread() const;
 #if defined(OVERTE_E2E_FEATURE_TESTS)

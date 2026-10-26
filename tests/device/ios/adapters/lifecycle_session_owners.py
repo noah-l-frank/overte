@@ -6,7 +6,7 @@ from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 
-PREFIXES=('ios-lifecycle-','lifecycle-editor-','lifecycle-input-proof-')
+PREFIXES=('ios-lifecycle-','lifecycle-editor-','lifecycle-input-proof-','lifecycle-navigation-proof-')
 
 
 def ensure_released(adapter,selector):

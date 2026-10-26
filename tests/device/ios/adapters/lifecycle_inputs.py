@@ -48,10 +48,10 @@ def root(value,control,request):
     return value
 
 
-def validate(value,query,pid,epoch=None,previous=None):
-    command(query);exact(value,{'iosNormalInputsVersion','profile','requestId','runId','instance','sequence','processId',
+def _validate(value,query,pid,epoch=None,previous=None,*,query_validator,input_validator,root_validator,profile):
+    query_validator(query);exact(value,{'iosNormalInputsVersion','profile','requestId','runId','instance','sequence','processId',
                                'clockDomain','clockBefore','clockAfter','source'})
-    need(type(value['iosNormalInputsVersion']) is int and value['iosNormalInputsVersion']==1 and value['profile']=='lifecycle'
+    need(type(value['iosNormalInputsVersion']) is int and value['iosNormalInputsVersion']==1 and value['profile']==profile
          and value['requestId']==query['commandId'] and value['runId']==query['runId'] and integer(pid,1)
          and type(value['processId']) is int and value['processId']==pid and integer(value['sequence'],1)
          and value['clockDomain']=='native-process-normal-inputs');identifier(value['instance'])
@@ -70,7 +70,7 @@ def validate(value,query,pid,epoch=None,previous=None):
         if row['kind']=='received':
             exact(details,{'outerCommandId','command','controlId','root'})
             need(key not in inputs and type(details['outerCommandId']) is str and re.fullmatch('ios-[a-f0-9]{32}',details['outerCommandId']) is not None)
-            native_command(details['command'],details['controlId']);root(details['root'],details['controlId'],details['command']);inputs[key]=row
+            input_validator(details['command'],details['controlId']);root_validator(details['root'],details['controlId'],details['command']);inputs[key]=row
         else:
             need(row['kind']=='returned' and key in inputs and key not in returned);returned.add(key)
             received=inputs[key];original=received['details'];inner=original['command']
@@ -83,26 +83,36 @@ def validate(value,query,pid,epoch=None,previous=None):
                  and integer(status['sampleEpochMs'],received['clock']['epochMs'],row['clock']['epochMs']))
     need(len(json.dumps(value,ensure_ascii=False,allow_nan=False).encode())<=LIMIT)
     if previous is not None:
-        validate(previous,dict(query,commandId=previous['requestId']),pid)
+        _validate(previous,dict(query,commandId=previous['requestId']),pid,query_validator=query_validator,
+                  input_validator=input_validator,root_validator=root_validator,profile=profile)
         need(value['instance']==previous['instance'] and value['sequence']>previous['sequence'] and value['requestId']!=previous['requestId'])
         clock(a,floor=previous['clockAfter'])
         need((previous['source']['complete'] or not source['complete']) and same(previous['source']['events'],source['events'][:len(previous['source']['events'])]))
     return value
 
 
+def validate(value,query,pid,epoch=None,previous=None):
+    return _validate(value,query,pid,epoch,previous,query_validator=command,input_validator=native_command,root_validator=root,profile='lifecycle')
+
+
 def original(value):
     return validate(value,dict(schemaVersion=1,action=ACTION,commandId=value.get('requestId'),runId=value.get('runId')),value.get('processId'))
 
 
-def delivered(value,expected,control,original_root):
-    original(value);native_command(expected,control);root(original_root,control,expected);need(value['source']['complete'])
+def _delivered(value,expected,control,original_root,*,original_validator,input_validator,root_validator,delivery_key):
+    original_validator(value);input_validator(expected,control);root_validator(original_root,control,expected);need(value['source']['complete'])
     rows=[row for row in value['source']['events'] if row['kind']=='received' and row['details']['command']['commandId']==expected['commandId']]
     need(len(rows)==1);received=rows[0]
     need(same(received['details']['command'],expected) and received['details']['controlId']==control and same(received['details']['root'],original_root))
     returned=[row for row in value['source']['events'] if row['kind']=='returned' and row['inputId']==received['inputId']]
     need(len(returned)==1 and returned[0]['details']['status']['performed'] is True)
-    return dict(iosLifecycleInputDeliveryVersion=1,command=deepcopy(expected),root=deepcopy(original_root),
-                originalReceipt=deepcopy(returned[0]['details']),productOutcomeRequired=True)
+    return {delivery_key:1,'command':deepcopy(expected),'root':deepcopy(original_root),
+            'originalReceipt':deepcopy(returned[0]['details']),'productOutcomeRequired':True}
+
+
+def delivered(value,expected,control,original_root):
+    return _delivered(value,expected,control,original_root,original_validator=original,input_validator=native_command,
+                      root_validator=root,delivery_key='iosLifecycleInputDeliveryVersion')
 
 
 class IOSLifecycleInputs(IOSPlacesModel):

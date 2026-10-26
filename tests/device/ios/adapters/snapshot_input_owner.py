@@ -111,13 +111,19 @@ class SnapshotInputOwner:
             else:need(event['receipt'] is None and event['proof'] is None and index==len(state['events']))
             if event['proof'] is not None:
                 proof=self.proof_store();frame=proof.read(proof.expand(event['proof']));exact(frame,{'packet'})
-                actual=self._input_source.delivered(frame['packet'],command,event['controlId'],self.root(event));need(same(actual['originalReceipt'],event['receipt']))
+                actual=self._input_source.delivered(self.packet(frame['packet']),command,event['controlId'],self.root(event));need(same(actual['originalReceipt'],event['receipt']))
         for key,value in state['storage'].items():
             need(type(key) is str and key.isdigit() and 1<=int(key)<=len(state['events']));self.proof_store().original(value);need(value['index']==int(key))
         return state
 
     def bound(self):
         self.lock.assert_held();need(self.guard() is not False and same(self.store.read(),self.previous))
+
+    def packet(self,value):
+        # The query's outer run/PID are part of retained ownership too. Exact
+        # inner commands and roots cannot authorize adopting another envelope.
+        need(type(value) is dict and value.get('runId')==self.run and type(value.get('processId')) is int
+             and value['processId']==self.pid);return value
 
     def save(self):
         self.bound();value=self.envelope();self.decode(value);self.store.write(value,self.previous)
@@ -175,11 +181,11 @@ class SnapshotInputOwner:
         """Read/adopt original reception; never deliver an input again."""
         event=self.current();need(event['phase']=='issued');store=self.proof_store();saved=self.state['storage'].get(str(event['index']))
         if saved is not None:
-            need(saved['phase'] in ('opened','saved'));frame=store.read(saved);exact(frame,{'packet'});packet=frame['packet']
+            need(saved['phase'] in ('opened','saved'));frame=store.read(saved);exact(frame,{'packet'});packet=self.packet(frame['packet'])
             if saved['phase']=='opened':saved=dict(saved,phase='saved');self.storage('original',saved)
             proof=store.compact(saved)
         else:
-            actual=self._input_source.delivered(packet,event['command'],event['controlId'],self.root(event))
+            packet=self.packet(packet);actual=self._input_source.delivered(packet,event['command'],event['controlId'],self.root(event))
             proof=self.proof_store(live=True).write(event['index'],dict(packet=deepcopy(packet)))
         actual=self._input_source.delivered(packet,event['command'],event['controlId'],self.root(event))
         event.update(phase='delivered',receipt=deepcopy(actual['originalReceipt']),proof=proof);self.save()

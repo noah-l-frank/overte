@@ -1,6 +1,13 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-lifecycle-navigation": {"current": 1, "reads": [1]},
+    "ios-lifecycle-navigation-inputs": {"current": 1, "reads": [1]},
+    "ios-lifecycle-navigation-inputs-acquisition": {"current": 1, "reads": [1]},
+    "ios-lifecycle-navigation-input-delivery": {"current": 1, "reads": [1]},
+    "ios-lifecycle-navigation-owner": {"current": 1, "reads": [1]},
+    "lifecycle-navigation-proof-frame": {"current": 1, "reads": [1]},
+    "lifecycle-navigation-proof-original": {"current": 1, "reads": [1]},
     "ios-lifecycle-world": {"current": 1, "reads": [1]},
     "ios-lifecycle-world-acquisition": {"current": 1, "reads": [1]},
     "ios-create-feature": {"current": 1, "reads": [1]},

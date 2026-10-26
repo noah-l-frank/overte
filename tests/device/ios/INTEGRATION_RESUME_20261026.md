@@ -45,3 +45,14 @@ the documented product Sit behavior and original peer-proof dependencies. This
 explicit resume supersedes the pause checkpoint; the backend goal status still
 cannot be changed to active through the available goal tools. Source scope and
 all no-build/no-device/local-only boundaries remain unchanged.
+
+After that restart the coordinator committed original Lifecycle field/Back
+input ownership and native drive/3D-position observations. The next local packet
+adds closed normal navigation reception and ownership; it does not complete
+the editor/world recipe. Avatar Scene publication remains blocked by repeated
+expensive original decoding in the fresh bounded host flow; historical pure
+validation improvements do not qualify its end. Snapshot Share now has a first
+normal host flow through immutable archive import and exact PNG comparison,
+with native resource retirement still pending. Assets mapping-tree operations
+are committed while real backend map/blob/worker retirement instrumentation is
+in progress. All complete capability gates and the five-area count are unchanged.

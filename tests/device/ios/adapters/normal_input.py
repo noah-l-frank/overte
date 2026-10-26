@@ -74,6 +74,9 @@ def observation(value, pid, now_ms=None):
     now_ms = time.time() * 1000 if now_ms is None else now_ms
     fields = {'schemaVersion', 'instance', 'frameSpace', 'processId', 'sampleEpochMs',
               'elapsedMs', 'lastSequence', 'tabletShown', 'ready', 'controls'}
+    if type(value) is dict and 'lifecycleNavigation' in value:
+        from ios.adapters.lifecycle_navigation_controls import inventory as navigation_inventory
+        navigation_inventory(value['lifecycleNavigation']);fields.add('lifecycleNavigation')
     if type(value) is dict and 'lifecycleFieldsVersion' in value:
         from ios.adapters.lifecycle_fields import validate as lifecycle_inventory
         if type(value['lifecycleFieldsVersion']) is not int or value['lifecycleFieldsVersion']!=1:
@@ -330,6 +333,9 @@ def observation(value, pid, now_ms=None):
             raise NativeUIError('Native iOS input frame is invalid')
         seen.add(control['id'])
         tokens.add(control['token'])
+    if 'lifecycleNavigation' in value:
+        from ios.adapters.lifecycle_navigation_controls import membership as navigation_membership
+        navigation_membership(value)
     return value
 
 

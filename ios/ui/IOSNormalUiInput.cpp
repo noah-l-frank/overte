@@ -43,6 +43,7 @@
 #include "../../tests/device/native/IOSAssetTreeControls.h"
 #include "../../tests/device/native/IOSTabletBackControls.h"
 #include "IOSLifecycleFieldControls.h"
+#include "IOSLifecycleNavigation.h"
 #endif
 #endif
 #include "../../tests/device/native/NormalNavigationErrorControls.h"
@@ -403,8 +404,15 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                     source = overte::e2e::audioControlSource(node, id, audioContext);
                 }
 #endif
-                const auto token = old.item == node && old.window == node->window() && old.source == source ? old.token : nonce();
-                controls.insert(id, { node, node->window(), token, source });
+                QString navigationSource;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+                if (lifecycle_navigation::control(id)) {
+                    navigationSource=lifecycle_navigation::source(node,id,id=="hud.tablet" ? hud : tablet);
+                }
+#endif
+                const auto token = old.item == node && old.window == node->window() && old.source == source
+                    && old.lifecycleNavigationSource==navigationSource ? old.token : nonce();
+                controls.insert(id, { node, node->window(), token, source, navigationSource });
             }
         }
         const auto children = node->childItems();
@@ -553,6 +561,14 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     result["lifecycleFieldsVersion"]=1;
     if (!inventoryComplete) {lifecycle_fields::state().complete=false;}
     result["lifecycleFieldInventory"]=lifecycle_fields::inventory();
+    QJsonArray navigationControls;bool navigationComplete=!ambiguous;
+    for (const auto& id:ids) {
+        if (!lifecycle_navigation::control(id)) {continue;}
+        const auto row=lifecycle_navigation::observation(controls.value(id).item,id,id=="hud.tablet" ? hud : tablet);
+        if (row.isEmpty()) {navigationComplete=false;continue;}
+        auto original=row;original["token"]=controls.value(id).token;navigationControls.append(original);
+    }
+    result["lifecycleNavigation"] = QJsonObject{{"iosLifecycleNavigationVersion",1},{"complete",navigationComplete},{"controls",navigationControls}};
     result["tabletBackControlsVersion"]=1;
     result["assetControlsVersion"]=1;
     result["assetInventory"]=overte::e2e::IOSAssetUiInventory::shared().read({hud,tablet});
@@ -625,6 +641,12 @@ bool NormalUiInput::press(const QString& controlId, const QString& token) {
     if (!control || !enabled(control)) { return false; }
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (lifecycle_navigation::control(controlId)) {
+        const auto container=controlId=="hud.tablet" ? _hud.data() : _tablet.data();
+        const auto original=lifecycle_navigation::observation(control,controlId,container);
+        if (original.value("inputReady")!=QJsonValue(true) || _controls.value(controlId).lifecycleNavigationSource.isEmpty()
+                || lifecycle_navigation::source(control,controlId,container)!=_controls.value(controlId).lifecycleNavigationSource) {return false;}
+    }
     if (controlId.startsWith("lifecycle.")) {
         const auto metadata=lifecycle_fields::notice(control);
         if (lifecycle_fields::controlId(control)!=controlId || !metadata.value("attached").toBool()
@@ -878,16 +900,28 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
     }
     // Ordinary tablet navigation uses the same consumed source-token sequence.
     if (action=="activate") {
-#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+#if defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
         for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
-            if (it.value().token==fieldToken && it.key()=="tablet.back") {
-                result["performed"]=press(it.key(),fieldToken);return result;
+            const auto identifier=it.key(); // press/item refresh the map: retain a value, not an iterator's key reference.
+            if (it.value().token==fieldToken && lifecycle_navigation::control(identifier)) {
+                const auto container=identifier=="hud.tablet" ? _hud.data() : _tablet.data();
+                const auto actual=lifecycle_navigation::observation(it.value().item,identifier,container);
+                if (actual.value("inputReady")!=QJsonValue(true) || it.value().lifecycleNavigationSource.isEmpty()
+                        || lifecycle_navigation::source(it.value().item,identifier,container)!=it.value().lifecycleNavigationSource) {return result;}
+                result["performed"]=press(identifier,fieldToken);return result;
+            }
+        }
+        for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
+            const auto identifier=it.key();
+            if (it.value().token==fieldToken && identifier=="tablet.back") {
+                result["performed"]=press(identifier,fieldToken);return result;
             }
         }
 #endif
         for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
-            if (it.value().token==fieldToken && (it.key()=="tablet.home" || it.key().startsWith("tablet.page."))) {
-                result["performed"]=press(it.key(),fieldToken);return result;
+            const auto identifier=it.key();
+            if (it.value().token==fieldToken && (identifier=="tablet.home" || identifier.startsWith("tablet.page."))) {
+                result["performed"]=press(identifier,fieldToken);return result;
             }
         }
     }
@@ -1285,12 +1319,23 @@ QJsonObject NormalUiInput::request(const QJsonObject& command) {
         }
         auto& lifecycleOriginals=overte::e2e::IOSNormalInputObservation::shared(overte::e2e::IOSNormalInputObservation::Profile::Lifecycle);
         const auto lifecycleInputId=lifecycleOriginals.received(overte::e2e::IOSNormalInputObservation::Profile::Lifecycle,command,lifecycleControl,lifecycleRoot);
+        QString navigationControl;QJsonObject navigationRoot;
+        for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
+            if (it.value().token!=token || !lifecycle_navigation::control(it.key())) {continue;}
+            const auto row=lifecycle_navigation::observation(it.value().item,it.key(),it.key()=="hud.tablet" ? _hud.data() : _tablet.data());
+            if (row.isEmpty()) {continue;}
+            if (!navigationControl.isEmpty()) {navigationControl.clear();navigationRoot={};break;}
+            navigationControl=it.key();navigationRoot=row;
+        }
+        auto& navigationOriginals=overte::e2e::IOSNormalInputObservation::shared(overte::e2e::IOSNormalInputObservation::Profile::LifecycleNavigation);
+        const auto navigationInputId=navigationOriginals.received(overte::e2e::IOSNormalInputObservation::Profile::LifecycleNavigation,command,navigationControl,navigationRoot);
 #endif
         result["status"]=edit(input);
         originals.returned(inputId,result);
         snapshotOriginals.returned(snapshotInputId,result);
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
         lifecycleOriginals.returned(lifecycleInputId,result);
+        navigationOriginals.returned(navigationInputId,result);
 #endif
 #else
         result["status"]=edit(command.value("input").toObject());
