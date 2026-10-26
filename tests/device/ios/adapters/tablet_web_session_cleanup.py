@@ -68,17 +68,23 @@ def session_entry(function,*,monotonic=time.monotonic):
 
 
 def retire_existing(runtime,selector,config):
-    need(type(runtime) is IOSTabletWebRuntime);check();directory=runtime.state_path(selector).parent
+    need(type(runtime) is IOSTabletWebRuntime);check();adapter=runtime.adapter;directory=runtime.state_path(selector).parent
     scopes=roots(directory,config);responsibility=set()
     for root,entire in scopes.items():responsibility.update(cues(root,entire=entire))
     if not responsibility:return None
     archives=sorted(directory.glob('tabletweb-final-archive-*.json'));need(1<=len(archives)<=64)
-    lock=ScriptSourceLock(directory/'script-feature-sources.lock');members=set()
+    lock=ScriptSourceLock(directory/'script-feature-sources.lock');members=set();bindings=[]
     with lock.held():
         for path in archives:
             run=identifier(path.name.removeprefix('tabletweb-final-archive-').removesuffix('.json'))
             check();actual=replay(runtime,selector,run,lock,check=check);members.update(actual['members'])
+            bindings.append({key:value for key,value in actual['binding'].items() if key!='processIdentity'})
             for root in actual['roots']:scopes[root]=root!=directory
         for root,entire in scopes.items():need(cues(root,entire=entire)<=members)
-        check();need(runtime.adapter.read_session(selector) is None and runtime.adapter._binding_store(selector).read() is None)
+        check();need(runtime.adapter is adapter and adapter.read_session(selector) is None and adapter._binding_store(selector).read() is None)
+        # Historical proof cannot authorize outward cleanup after the selected
+        # candidate changes during its potentially long complete graph read.
+        for binding in bindings:
+            check();need(runtime.adapter is adapter);adapter._retired_candidate_scope(selector,binding)
+            check();need(runtime.adapter is adapter)
     check();return {'cleaned':True}

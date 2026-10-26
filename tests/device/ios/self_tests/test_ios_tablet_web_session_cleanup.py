@@ -10,6 +10,7 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from ios.adapters.tablet_web_runtime import IOSTabletWebRuntime
 from ios.adapters.tablet_web_session_cleanup import retire_existing,session_entry
+from ios.self_tests.test_ios_tablet_web_packets import BINDING
 
 
 class TabletCanonicalCleanupTests(unittest.TestCase):
@@ -47,6 +48,28 @@ class TabletCanonicalCleanupTests(unittest.TestCase):
         wrapped=session_entry(lambda *_args:{'originalOtherCleanup':True},monotonic=lambda:0.)
         with patch('ios.adapters.feature_configuration.configuration',return_value=None):self.assertEqual({'originalOtherCleanup':True},wrapped(self.adapter,'private-existing-selector'))
         self.assertEqual([],list(self.root.iterdir()))
+
+    def test_candidate_change_or_adapter_swap_after_decoder_cannot_report_cleaned(self):
+        # The complete decoder is an explicit boundary sentinel in this case,
+        # not a modeled native/end proof. Only the final candidate fence is
+        # under test; the actual missing/forged archive cases stay separate.
+        path=self.root/('tabletweb-final-archive-'+'a'*32+'.json')
+        PrivateFeatureState(path).write(dict(explicitDecoderBoundary=True),None)
+        raw=path.read_bytes();inode=path.stat().st_ino
+        original=self.adapter;original.read_session=lambda _:None;original._binding_store=lambda _:SimpleNamespace(read=lambda:None)
+        for fault in ('candidate','adapter','after-candidate'):
+            self.runtime.adapter=original
+            def changed(*_args):
+                if fault=='after-candidate':self.runtime.adapter=SimpleNamespace();return {}
+                raise NativeUIError('Actual selected candidate changed during decoder')
+            original._retired_candidate_scope=changed
+            def decoded(*_args,**_kwargs):
+                if fault=='adapter':self.runtime.adapter=SimpleNamespace()
+                return dict(binding=BINDING,members=frozenset((path,)),roots=frozenset((self.root,)))
+            with self.subTest(fault=fault),patch('ios.adapters.tablet_web_session_cleanup.replay',side_effect=decoded):
+                with self.assertRaises(NativeUIError):retire_existing(self.runtime,'private-existing-selector',None)
+            self.assertEqual(raw,path.read_bytes());self.assertEqual(inode,path.stat().st_ino)
+        self.runtime.adapter=original
 
 
 if __name__=='__main__':unittest.main()

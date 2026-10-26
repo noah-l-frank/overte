@@ -15,6 +15,7 @@ from ios.adapters.chat_session_owners import installed_entry as chat_api_entry
 from ios.adapters.create_api_clock import installed_entry as create_api_entry
 from ios.adapters.avatar_api_entry import installed_entry as avatar_api_entry
 from ios.adapters.avatar_session_cleanup import session_entry as avatar_session_entry
+from ios.adapters.tablet_web_session_cleanup import session_entry as tablet_web_session_entry
 from ios.adapters.emote_api_entry import installed_entry as emote_api_entry
 from ios.adapters.navigation_api_entry import installed_entry as navigation_api_entry
 from ios.adapters.world_web_api_clock import installed_entry as world_web_api_entry
@@ -374,6 +375,10 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                         from ios.adapters.world_web_runtime import IOSWorldWebRuntime
                         config=configuration();runtime=IOSWorldWebRuntime(self)
                         flow=runtime._world_web_feature(selector,values['runId'],role='primary',client=reader(config),settings=config['worldWeb'])
+                    elif operation.split('.')[1]=='tablet-web':
+                        from ios.adapters.tablet_web_runtime import IOSTabletWebRuntime
+                        config=configuration();runtime=IOSTabletWebRuntime(self)
+                        flow=runtime._tablet_web_feature(selector,values['runId'],role='primary',client=reader(config),settings=config['tabletWeb'])
                     elif operation.split('.')[1]=='authentication':
                         from ios.adapters.authentication_runtime import IOSAuthenticationRuntime
                         runtime=IOSAuthenticationRuntime(self,reader(configuration()),values['runId'])
@@ -387,6 +392,9 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                         verify(flow,values,result)
                     elif operation=='feature.world-web.terminal' and values['stage']=='finish':
                         from ios.adapters.world_web_canonical_end import verify
+                        verify(flow,values,result)
+                    elif operation=='feature.tablet-web.terminal' and values['stage']=='finish':
+                        from ios.adapters.tablet_web_canonical_end import verify
                         verify(flow,values,result)
                     elif operation=='feature.emotes.terminal' and values['stage']=='finish':
                         from ios.adapters.emote_canonical_end import verify
@@ -438,6 +446,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
         @chat_api_entry
         @audio_api_entry
         @lifecycle_api_entry
+        @tablet_web_session_entry
         @avatar_session_entry
         def cleanup(self, selector):
             # Inspect the Assets successor before any feature finalization or
@@ -445,6 +454,12 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             # remaining server/oven/blob responsibility.
             ensure_assets_released(self,selector)
             from ios.adapters.feature_configuration import configuration
+            # Retained Tablet responsibility must be decoded before another
+            # feature finalizer or ordinary SDK fallback can perform teardown.
+            from ios.adapters.tablet_web_runtime import IOSTabletWebRuntime
+            from ios.adapters.tablet_web_session_cleanup import retire_existing as retire_tablet_web
+            tablet_web=retire_tablet_web(IOSTabletWebRuntime(self),selector,configuration())
+            if tablet_web is not None:return tablet_web
             from ios.adapters.avatar_runtime import IOSAvatarRuntime
             from ios.adapters.avatar_metadata_retirement import retire_existing as retire_avatar
             avatar=retire_avatar(IOSAvatarRuntime(self),selector,configuration())

@@ -416,3 +416,73 @@ same delivered-but-unknown activation and never repeats background/activation.
 Existing PID/graphics/native-counter retention and ignored-ACK behavior still
 pass. This is the existing selector/HTTP host model, not canonical Installed
 outer admission, native compilation, physical backgrounding or full-area proof.
+
+## Fresh unused-terminal diagnostic, 2026-10-26
+
+The existing single `TabletTerminalUnloadedFlowTests` case ran once with an
+outer 600-second host limit. Its original production operation, publication,
+transport and quiet deadlines were unchanged. The process ended with timeout
+exit 124, not a passing test, after both independent original cleanup quiet
+paths and the paired original live terminal seal. No process-end, session-end,
+worker-retirement or final archive journal exists. There was no preceding
+assertion or production-guard failure in the retained log. This is the
+never-loaded terminal branch, not the current full ordinary Tablet journey.
+
+This run is additionally **invalid as frozen-source qualification**: the
+parallel Snapshot work changed `tests/device/fixture/serve.py` and
+`tests/device/ios/adapters/feature_observation.py` at 21:23:55 UTC while the
+test was active (21:19:05–21:29:05 UTC). The original manifest was neither
+updated nor restored. New Snapshot-only routes do not excuse that provenance
+failure; no feature count or successful integrated result follows from it.
+The source inventory records both old and actual changed hashes/inodes.
+
+The private directory is
+`.ios-host-tmp/tablet-terminal-unloaded-current-pd39jqva`; actual original root
+is its `tmpsnov_3wj` child. Its 861 original files (2,311,135 bytes) are retained
+with a complete hash/inode inventory. `terminal-unloaded.log`,
+`source-freeze.json`, `source-inventory-before.json`, `provenance-drift.json`,
+`original-inventory-terminal.json` and `terminal-census.json` keep the exact
+diagnostic boundary. Final `/proc` census found no active process owning that
+private TMPDIR. The timeout also emitted a Python resource-tracker warning
+about one semaphore at shutdown; this is not original native cleanup proof.
+All shared-source and heavy-test reservations were explicitly released.
+
+No unchanged repeat or time-limit increase is planned. Existing
+`tablet_web_completed`, `tablet_web_canonical_end` and
+`tablet_web_session_cleanup` provide the next read-only canonical archive
+integration boundary. Their mere presence is not a terminal or capability
+qualification. Feature 7 remains partial, with the overall source count 5/14.
+
+## Canonical archive connection remains closed to full capability
+
+InstalledAdapter now selects the existing Tablet runtime for its Tablet branch
+and uses the existing read-only canonical end verifier after terminal finish,
+instead of attempting new live SDK verification after deletion. Normal cleanup
+first calls the existing Tablet archive retirement check, before unrelated
+feature finalizers or SDK fallback, under its original 60-second host budget.
+Unknown Tablet files, empty owned directories and malformed archive markers
+remain responsibilities and prevent fallback teardown. With no Tablet owner,
+existing unrelated cleanup stays usable and creates no Tablet journal.
+
+The archive check retains the original runtime adapter and rechecks each actual
+decoded candidate scope after complete graph/read-membership and absent SDK
+metadata checks. A changed candidate, swapped adapter, or adapter swap during
+that last candidate check cannot report cleaned. These checks acquire no SDK,
+native observation, refreshed source fact or replacement session. Existing
+Chat/Audio/Assets/Lifecycle/Avatar entry guards are preserved.
+
+Eleven focused Tablet canonical cases pass in 0.568s; two existing actual
+InstalledAdapter identity/candidate-loss cleanup cases also pass in the
+preceding 0.565s three-case selection. A valid synthetic public Tablet End is
+accepted by the common DTO codec but refused without its private original
+graph, both with an absent and a forged archive. The candidate-swap case uses
+an explicitly labeled decoder boundary sentinel and supplies no native/end
+proof. The pre-connection real canonical negative wrongly allowed SDK fallback
+and remains in `canonical-tablet-before.log`; final logs are
+`canonical-tablet-final.log` and `canonical-tablet-guards-final.log` in the
+existing private field-revalidation directory.
+
+The complete real Tablet end graph, successful canonical archived cleanup and
+unchanged full ordinary journey are still unqualified. `COMPLETE_AREAS` and all
+serialized grammars/readable versions remain unchanged. Dispatch source wiring
+does not admit the closed Tablet configuration or change the 5/14 count.
