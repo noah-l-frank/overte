@@ -1,7 +1,6 @@
 # Ordinary local Model removal and retained cached resources
 
-The new `OwnedAssetsModelRemoval` child is a checkpointed, unqualified
-integration draft. It uses existing normal Create tokens through `IOSCreateUI` and
+The private `OwnedAssetsModelRemoval` child uses existing normal Create tokens through `IOSCreateUI` and
 `NativeInput.deliver`; it invokes no Entity service, QML handler or cache API.
 Only the actually adopted Assets UUID may be selected or deleted. The first
 route admits no pre-existing editor, avoiding changes to foreign selections or
@@ -38,17 +37,52 @@ scope issues were corrected; no existing admission or source limit changed.
 The ordinary local removal case then passed in 82.835 seconds; private log:
 `.ios-host-tmp/assets-model-removal-refresh-20261026.log`. It observed the actual
 local entity/Model gone while the original shared lease expired and the actual
-cached QObject/HFM remained alive. The expanded context/parent-client closure
-and lost/ignored input recovery are still being qualified.
+cached QObject/HFM remained alive.
 
 The expanded case subsequently reached normal Home closure and parent cleanup,
 then was correctly rejected for the actual pre-existing-server upload child's
 `ready` phase (122.787 seconds). Its existing abort cleanup flag is now used
 for that phase; no uploaded phase was invented. The next case completed those
 methods but ended at a test-only wrong `parsed.usage` accessor after 133.214
-seconds. That assertion now uses `parsed.model.usage`; it has not yet been
-rerun. Neither expanded failure is a passing qualification. Exact continuation
-is in [the removal resume checkpoint](ASSETS_REMOVAL_RESUME_20261026.md).
+seconds. The corrected assertion uses `parsed.model.usage`. The exact expanded
+case subsequently passed in **133.050 seconds**, including normal Create Home,
+separate original context death and parent client/file quiet retirement. Private
+log: `.ios-host-tmp/assets-model-removal-corrected-assertion-20261026.log`.
+Earlier failure logs remain retained. Original shared lease death was observed
+while the actual cached QObject and HFM remained alive after parent closure.
+
+The new private runtime factory and rejection of a changed parsed-parent WAL
+passed two selected host cases in 13.361 seconds. Factory construction acquires
+no native/backend source or input. Pure historical membership now decodes the
+exact removal WAL with its original input and source references. It keeps
+separate `model-removal`, `model-removal-context` and
+`model-removal-resources` responsibilities, without clearing earlier server,
+origin or parsed-resource responsibilities.
+
+The original lost Delete return passed in **80.228 seconds**. The exact original
+error object is preserved. A new owner recovers the already executed removal
+from independent originals, and neither recovery nor repeated completed
+observation sends another input. Pure inspection preserves exact file bytes
+and inodes, performs no new native/backend queries, and keeps the live cached
+QObject/HFM and server responsibilities blocking. Private log:
+`.ios-host-tmp/assets-model-removal-lost-delete-20261026.log`.
+
+The independently ignored Delete with a lost return passed in **84.547
+seconds**. The native input sequence was consumed, but the actual entity/Model
+remained alive. Recovery refuses a removal verdict and retains its failed
+observation and unchanged original command. Restart cannot send another Delete
+or close the context. This case does not qualify an acknowledged-but-ignored
+Delete timeout. Private log:
+`.ios-host-tmp/assets-model-removal-ignored-delete-20261026.log`.
+The whole Assets coordinator/capability remains closed.
+
+The final selected Runtime12, historical Session7, InstalledAdmission2 and
+changed-parent/orphan1 regressions passed **22 cases in 69.062 seconds**;
+`.ios-host-tmp/assets-model-removal-runtime-pure-20261026.log`. Unsupported
+or orphan removal ownership cannot become absence, and earlier literal profiles
+keep their existing responsibilities and installed-operation admission.
+The five explicitly selected no-build project suites passed in 6.83 seconds;
+contract-version validation and `git diff --check` also passed.
 
 Assets upload/import QML and actual Python owners, original files, journals and
 weak objects run. The Create Qt widgets/controller/deletion and native APIs are

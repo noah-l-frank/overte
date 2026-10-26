@@ -89,15 +89,23 @@ class OwnedAssetsModelRemoval:
             and type(state['observations']) is list and len(state['observations'])<=16 and state['observations']==sorted(set(state['observations'])))
         if state['baseline'] is not None:self.frame(state['baseline'])
         else:need(state['phase']=='reserved' and not state['inputs'] and not state['observations'])
-        for event in state['inputs']:
+        if state['editor'] is not None:create_state.uuid(state['editor'])
+        elif state['phase'] in ('selecting','deleting','model-gone'):need(False)
+        commands=set();last_after=0
+        for position,event in enumerate(state['inputs']):
             exact(event,{'before','controlId','action','value','command','receipt','observed'});self.admit(event)
+            need(event['before']>=last_after and event['command']['commandId'] not in commands);commands.add(event['command']['commandId'])
             if event['receipt'] is not None:input_receipt(event['receipt'],self.intended(event),self.pid)
             if event['observed'] is not None:
                 after=controls.project(self.packet(event['observed']));before=controls.project(self.packet(event['before']))
-                need(all(after['scope'][key]==before['scope'][key] for key in ('instance','generation','processId'))
+                need(event['observed']>event['before'] and all(after['scope'][key]==before['scope'][key] for key in ('instance','generation','processId'))
                     and after['scope']['sequence']==event['command']['sequence'])
+                last_after=event['observed']
+            else:need(position==len(state['inputs'])-1)
+        for index in state['observations']:need(state['baseline'] is not None and index>state['baseline']);self.frame(index)
         if state['result'] is not None:need(state['phase']=='model-gone' and same(state['result'],self.removed(state)))
-        if state['phase']=='model-gone':need(state['result'] is not None)
+        if state['phase']=='model-gone':
+            need(state['result'] is not None and all(row['observed'] is not None or row['controlId']=='tablet.home' for row in state['inputs']))
         if state['contextClosedBy'] is not None:
             need(state['phase']=='model-gone');frame=self.frame(state['contextClosedBy']);roots=frame['originals']['createAfter']['source']['roots']
             rows=[row for row in roots if row['id']==state['editor']];need(len(rows)==1 and (rows[0]['destroyed'] or not rows[0]['active']))

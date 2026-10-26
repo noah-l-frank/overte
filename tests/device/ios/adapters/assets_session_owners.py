@@ -33,8 +33,9 @@ from ios.adapters.assets_model_raw_sources import ModelRawSources
 from ios.adapters.assets_model_owner import OwnedAssetsModel
 from ios.adapters.assets_parsed_sources import AssetsParsedSources,ParsedRawSources
 from ios.adapters.assets_parsed_owner import OwnedAssetsParsedInput
+from ios.adapters.assets_model_removal import OwnedAssetsModelRemoval
 
-OWNER=re.compile(r'ios-assets-([a-f0-9]{32})-(primary|actor)-(files|picker|replies|upload|tree|backend|usage|baking|model-sources|model|parsed-sources|parsed)\.json')
+OWNER=re.compile(r'ios-assets-([a-f0-9]{32})-(primary|actor)-(files|picker|replies|upload|tree|backend|usage|baking|model-sources|model|parsed-sources|parsed|model-removal)\.json')
 FRAME=re.compile(r'assets-upload-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
 BACKEND_FRAME=re.compile(r'assets-backend-(primary|actor)-parts-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
 FILE_SOURCE=re.compile(r'assets-files-native-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
@@ -105,7 +106,7 @@ def inspect_directory(directory):
             if replies.storage_version==1:
                 extra=replies.sources.legacy_migration_paths();reply_covered|=extra;reply_migration_pending=bool(extra)
         need(reply_paths.get((run,role),set())==reply_covered)
-        upload=None;tree=None;backend=None;usage=None;baking=None;model_source=None;model=None;parsed_source=None;parsed=None;covered=set();backend_covered=set();model_covered=set();parsed_covered=set()
+        upload=None;tree=None;backend=None;usage=None;baking=None;model_source=None;model=None;parsed_source=None;parsed=None;removal=None;covered=set();backend_covered=set();model_covered=set();parsed_covered=set()
         if 'upload' in values:
             need(files.state is not None and picker.state is not None and replies.state is not None)
             upload=object.__new__(OwnedAssetsUpload);upload.files,upload.picker,upload.replies=files,picker,replies
@@ -160,6 +161,10 @@ def inspect_directory(directory):
         need(parsed_paths.get((run,role),set())==parsed_covered)
         if 'parsed' in values:
             need(parsed_source is not None and baking is not None);parsed=object.__new__(OwnedAssetsParsedInput);parsed.sources,parsed.model,parsed.baking=parsed_source,model,baking;parsed.state=None;parsed.state=parsed.decode(values['parsed'])
+        if 'model-removal' in values:
+            need(parsed is not None and parsed.state['phase']=='observed');removal=object.__new__(OwnedAssetsModelRemoval)
+            removal.parsed,removal.model,removal.sources,removal.usage,removal.pid=parsed,model,parsed_source,usage,pid
+            removal.state=None;removal.state=removal.decode(values['model-removal'])
         responsibilities=[]
         if files.state is not None and files.state['phase']!='retired':responsibilities.append('input-files')
         if files.state is not None and (migration_pending or files.sources.pending is not None):responsibilities.append('input-source-write')
@@ -183,6 +188,12 @@ def inspect_directory(directory):
         if model is not None and any(entry['slot']=='usage-accept-model' and entry['command'] is not None for entry in usage.state['inputs']):responsibilities.append('model-resource-origin')
         if parsed_source is not None and (parsed_source.state['pending'] is not None or parsed_source.raws.pending is not None):responsibilities.append('parsed-source-write')
         if parsed is not None:responsibilities.append('parsed-resource-retirement')
+        if removal is not None:
+            if removal.state['phase']!='model-gone':responsibilities.append('model-removal')
+            if removal.state['contextClosedBy'] is None:responsibilities.append('model-removal-context')
+            # Local entity/Model death never retires cached QObject/HFM or the
+            # earlier origin, rendering, actor or server responsibilities.
+            responsibilities.append('model-removal-resources')
         result.append(dict(runId=run,role=role,binding=deepcopy(binding),responsibilities=responsibilities,
             successor=upload is not None,clientRetired=upload is not None and upload.state['phase']=='retired'))
         for kind,(path,value) in records.items():need(same(PrivateFeatureState(path).read(),value))

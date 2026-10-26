@@ -25,6 +25,7 @@ from ios.adapters.assets_model_sources import AssetsModelSources
 from ios.adapters.assets_model_owner import OwnedAssetsModel
 from ios.adapters.assets_parsed_sources import AssetsParsedSources
 from ios.adapters.assets_parsed_owner import OwnedAssetsParsedInput
+from ios.adapters.assets_model_removal import OwnedAssetsModelRemoval
 from ios.adapters.assets_usage_controls import project as usage_controls
 from ios.adapters.feature_observation import FeatureObservation
 from ios.adapters.normal_input import NativeInput
@@ -52,7 +53,7 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         self.cleanup_errors=[] # Private diagnostics only; never feature facts.
 
     def _assets_store(self,selector,run,role,kind):
-        identifier(run);need(role in ('primary','actor') and kind in ('files','picker','replies','upload','tree','backend','usage','baking','model','model-sources','parsed-sources','parsed'))
+        identifier(run);need(role in ('primary','actor') and kind in ('files','picker','replies','upload','tree','backend','usage','baking','model','model-sources','parsed-sources','parsed','model-removal'))
         return PrivateFeatureState(self.state_path(selector).with_name('ios-assets-'+run+'-'+role+'-'+kind+'.json'))
 
     @operation
@@ -112,6 +113,12 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         source=AssetsParsedSources(parts['model'],parts['observer'].assets_model_origin(parts['upload'].clock),self._assets_store(selector,run,role,'parsed-sources'),lock=lock)
         parsed=OwnedAssetsParsedInput(source,parts['baking'],self._assets_store(selector,run,role,'parsed'),lock=lock)
         parts['check']();return dict(parts,parsed_sources=source,parsed=parsed)
+
+    @operation
+    def _assets_model_removal_components(self,selector,run,role,fixture_url,lock,backend_config,*,parts=None):
+        parts=self._assets_parsed_components(selector,run,role,fixture_url,lock,backend_config) if parts is None else parts
+        removal=OwnedAssetsModelRemoval(parts['parsed'],self._assets_store(selector,run,role,'model-removal'),lock=lock)
+        parts['check']();return dict(parts,model_removal=removal)
 
     @operation
     def _assets_upload_model_bytes(self,selector,run,role,fixture_url,ticket,lock,backend_config,*,parts=None):

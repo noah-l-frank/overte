@@ -48,6 +48,17 @@ class AssetsRuntimeTests(unittest.TestCase):
         self.assertTrue(all(job['phase']=='retired' for job in restored.state['jobs']))
         self.assertEqual([],b.runtime.cleanup_errors)
 
+    def test_removal_factory_keeps_existing_parsed_owner_without_any_native_input_or_read(self):
+        from ios.self_tests.assets_usage_backend_fixture import Fixture
+        from pathlib import Path
+        import tempfile
+        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup);path=Path(temporary.name);path.chmod(0o700)
+        fixture=Fixture(path);self.addCleanup(fixture.close)
+        b=self.b;parts=b.runtime._assets_model_removal_components('test-only',RUN,'primary',URL,b.lock,fixture.backend.config)
+        self.assertIs(parts['parsed'],parts['model_removal'].parsed);self.assertIs(parts['usage'],parts['model_removal'].usage)
+        self.assertEqual(b.root/('ios-assets-'+RUN+'-primary-model-removal.json'),parts['model_removal'].store.path)
+        self.assertIsNone(parts['model_removal'].state);self.assertEqual([],b.asset_requests);self.assertEqual([],b.afc);self.assertEqual([],fixture.requests)
+
     def test_changed_candidate_blocks_before_any_native_asset_read(self):
         b=self.b;parts=b.components();b.f.artifact.write_bytes(b'Changed independently pinned candidate')
         with self.assertRaises((ValueError,RuntimeError,NativeUIError)):

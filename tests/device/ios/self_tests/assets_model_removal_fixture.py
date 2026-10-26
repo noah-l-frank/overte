@@ -44,7 +44,7 @@ class Product:
 
 class Boundary(parsed.Boundary):
     def __init__(self,directory):
-        self.create_product=None;self.create_widgets=None;self.input_ignored='';self.input_lost=''
+        self.create_product=None;self.create_widgets=None;self.input_ignored='';self.input_lost='';self.input_errors=[]
         super().__init__(directory)
 
     def attach_create(self):
@@ -96,7 +96,8 @@ class Boundary(parsed.Boundary):
                         reference=boundary.create_widgets.capture();value=command.get('text',command.get('index',command.get('direction')))
                         boundary.create_widgets.input(id_,command['operation'],reference,value)
                 boundary.tick()
-                if id_==boundary.input_lost:raise NativeUIError('lost original Create token return')
+                if id_==boundary.input_lost:
+                    error=NativeUIError('lost original Create token return');boundary.input_errors.append(error);raise error
                 self.last_receipt=dict(schemaVersion=1,commandId='ios-'+uuid.uuid4().hex,status=dict(schemaVersion=1,commandId=command['commandId'],instance=command['instance'],
                     sequence=command['sequence'],performed=True,processId=42,sampleEpochMs=boundary.clock()))
                 return dict(performed=True)
