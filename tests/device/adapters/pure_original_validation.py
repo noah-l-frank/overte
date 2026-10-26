@@ -13,10 +13,11 @@ import hashlib
 import marshal
 from adapters.normal_ui import NativeUIError
 
-VERSION=3
+VERSION=4
 PROFILE='ios-emote-rooted-archive-v1'
 AVATAR_PROFILE='ios-avatar-held-scene-archive-v1'
-PROFILES=frozenset((PROFILE,AVATAR_PROFILE))
+AVATAR_FINAL_PROFILE='ios-avatar-held-final-archive-v1'
+PROFILES=frozenset((PROFILE,AVATAR_PROFILE,AVATAR_FINAL_PROFILE))
 LIMIT=4096
 _ACTIVE=ContextVar('original_pure_validation_round',default=None)
 _PROFILE=ContextVar('original_pure_validation_profile',default=None)

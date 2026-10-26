@@ -187,6 +187,12 @@ class IOSAvatarFinal:
         return dict(post=post,tail=tail,pointers=pointer,model=body['model'],ui=ui,left=left,right=right,proof=proof)
 
     def group(self,value):
+        if self.VERSION==2:
+            from ios.adapters.avatar_final_pure_round import scope
+            with scope(self,value):return self._checked_group(value)
+        return self._checked_group(value)
+
+    def _checked_group(self,value):
         current=_ROUND.get()
         if not self.historical or current is None:return self._group(value)
         collector=None
@@ -225,6 +231,12 @@ class IOSAvatarFinal:
             if key in a:need(key in b and same(a[key],b[key][:len(a[key])]))
 
     def parse(self,value):
+        if self.VERSION==2:
+            from ios.adapters.avatar_final_pure_round import scope
+            with scope(self,value):return self._parse(value)
+        return self._parse(value)
+
+    def _parse(self,value):
         exact(value,{'iosAvatarFinalVersion','runId','role','bindings','artifactRoot','inputs','payload'})
         rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])));state=rows[0];exact(state,{'rows','pending'})
         need(type(state['rows']) is list and len(state['rows'])<=128);last={};sequence=0;components={};skip=0
