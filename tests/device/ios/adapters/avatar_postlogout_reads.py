@@ -148,7 +148,7 @@ class IOSAvatarPostLogoutReads(AvatarPostLogoutParts):
             # Recheck its complete actual read/absence inventory at the end;
             # no derived model/account/history verdict is reused.
             for row in state['rows']:
-                if 'partsCarrier' in row:self.row_material(row)
+                if 'partsCarrier' in row:self.row_material(row,check_only=True)
         return deepcopy(state)
 
     def save(self):
@@ -170,7 +170,7 @@ class IOSAvatarPostLogoutReads(AvatarPostLogoutParts):
     def record(self,row):
         material=self.row_material(row) if 'partsCarrier' in row else dict(partial=row,parts=row['parts'])
         self.part(material['parts']);p=self._record_fields(row,material)
-        if 'partsCarrier' in row:self.row_material(row)
+        if 'partsCarrier' in row:self.row_material(row,check_only=True)
         return p
 
     def _record_fields(self,row,material):

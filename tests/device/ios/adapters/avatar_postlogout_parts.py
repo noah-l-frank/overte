@@ -117,7 +117,7 @@ class AvatarPostLogoutParts:
         if 'parts' in row:return row
         return self.row_material(row)['partial']
 
-    def row_material(self,row):
+    def row_material(self,row,*,check_only=False):
         """Reuse only exact decoded immutable bytes, never a derived verdict."""
         from ios.adapters.avatar_record_cache import AvatarRecordCache
         if not hasattr(self,'part_cache'):
@@ -133,7 +133,8 @@ class AvatarPostLogoutParts:
                     if ref['phase']=='planned':missing.add(self.segments.store.path(ref))
             if value['original'] is not None and value['original']['phase']=='planned':missing.add(self.originals.path(value['original']))
             return dict(partial=value,parts=self.resolved_parts(value['parts'],value['index']))
-        return self.part_cache.read(key,decode,absent=lambda:missing)
+        read=self.part_cache.check if check_only else self.part_cache.read
+        return read(key,decode,absent=lambda:missing)
 
     def row_partial_original(self,row):
         parent=row['partsCarrier'];self.segments.parent(parent)

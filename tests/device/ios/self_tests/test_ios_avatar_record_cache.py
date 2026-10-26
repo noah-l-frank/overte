@@ -28,6 +28,35 @@ class AvatarRecordCacheTests(unittest.TestCase):
         self.assertEqual(old.st_ino,self.file.path.stat().st_ino)
         with self.assertRaises(NativeUIError):self.cache.read(dict(index=1),self.read)
         self.assertEqual(2,len(self.calls))
+    def test_check_keeps_original_membership_and_mutation_refusal_without_exposing_cached_tree(self):
+        with scope(fresh=True) as first:
+            self.assertIsNone(self.cache.check(dict(index=1),self.read))
+        self.assertEqual(2,len(self.calls))
+        self.assertEqual({self.file.path},first)
+        with scope(fresh=True) as second:
+            self.assertIsNone(self.cache.check(dict(index=1),self.read))
+        self.assertEqual(first,second)
+        value=self.cache.read(dict(index=1),self.read);value['actual'].append(9)
+        self.assertIsNone(self.cache.check(dict(index=1),self.read))
+        self.assertEqual(dict(actual=[1,2]),self.cache.read(dict(index=1),self.read))
+        raw=self.file.path.read_bytes();self.file.path.write_bytes(raw)
+        with self.assertRaises(NativeUIError):self.cache.check(dict(index=1),self.read)
+        self.assertEqual(2,len(self.calls))
+
+    def test_check_keeps_planned_absence_and_both_independent_signature_boundaries(self):
+        missing=self.root/'planned-original.json'
+        self.cache.read(dict(index=1),self.read,absent=lambda:{missing})
+        original=self.cache.signatures;calls=[]
+        def race(paths):
+            result=original(paths);calls.append(True)
+            if len(calls)==1:self.file.path.write_bytes(self.file.path.read_bytes())
+            return result
+        with patch.object(self.cache,'signatures',side_effect=race),self.assertRaises(NativeUIError):
+            self.cache.check(dict(index=1),self.read,absent=lambda:{missing})
+        self.assertEqual(2,len(calls))
+        cache=AvatarRecordCache();cache.check(dict(index=1),self.read,absent=lambda:{missing})
+        missing.symlink_to('not-created')
+        with self.assertRaises(NativeUIError):cache.check(dict(index=1),self.read,absent=lambda:{missing})
     def test_hardlink_and_change_between_discovery_and_validation_are_not_cached(self):
         self.cache.read(dict(index=1),self.read);os.link(self.file.path,self.root/'alias.json')
         with self.assertRaises(NativeUIError):self.cache.read(dict(index=1),self.read)

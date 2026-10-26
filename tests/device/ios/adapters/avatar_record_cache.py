@@ -43,6 +43,11 @@ class AvatarRecordCache:
         for path in paths:
             need(isinstance(path,Path));PrivateFeatureState(path)._parent();need(not os.path.lexists(path))
     def read(self,key,validate,*,absent=lambda:set()):
+        return self._read(key,validate,absent=absent,result=True)
+    def check(self,key,validate,*,absent=lambda:set()):
+        """Keep both original inventories and membership without a result copy."""
+        self._read(key,validate,absent=absent,result=False)
+    def _read(self,key,validate,*,absent,result):
         need(type(key) is dict and callable(validate) and callable(absent));key=canonical(key)
         if key not in self.rows:
             need(len(self.rows)<512)
@@ -52,6 +57,7 @@ class AvatarRecordCache:
             need(first==second and set(absent())==missing and self.signatures(second)==signatures and same(value,confirmed));self.absent(missing)
             self.rows[key]=(deepcopy(confirmed),signatures,missing)
         value,signatures,missing=self.rows[key];need(self.signatures(set(signatures))==signatures);self.absent(missing)
-        result=deepcopy(value);need(self.signatures(set(signatures))==signatures);self.absent(missing)
+        result=deepcopy(value) if result else None
+        need(self.signatures(set(signatures))==signatures);self.absent(missing)
         for path in signatures:record(path)
         return result
