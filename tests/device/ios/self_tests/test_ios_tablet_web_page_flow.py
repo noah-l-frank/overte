@@ -61,6 +61,32 @@ class TabletPageFlowTests(unittest.TestCase):
         original=self.observed(b);self.native_codecs(b);value=b.runtime.validate_original(original)['public']['state']
         self.assertEqual(message,value['text']);self.assertTrue(value['focused']);self.assertEqual(0,value['bridgeEchoes'])
         self.assertEqual(2,len(inputs.state['records']));self.assertIsNone(inputs.state['pending'])
+    def test_actual_nonempty_clear_then_unicode_uses_same_native_field_and_original_DOM_without_replay(self):
+        from copy import deepcopy
+        from ios.adapters.tablet_web_inputs import TabletWebInputs
+        b=self.opened();calls=[];actual=b.ui.call
+        def called(method,path,body=None):
+            calls.append((method,path,deepcopy(body)));return actual(method,path,body)
+        b.ui.call=called
+        def owner():return TabletWebInputs(b.ui,b.source.children['dom'],b.runtime.observer.readers['dom'],b.lock,b.runtime.native_clock,
+            monotonic=b.mono,epoch_ms=b.host)
+        inputs=owner();inputs.perform('b'*32,'focus-clear-field','tap','text')
+        inputs.perform('b'*32,'previous-native-text','replace','text',text='old actual field')
+        # Private source originals may retain actual intermediate text; public
+        # observations keep the unchanged run-bound fixed-text vocabulary.
+        from feature_journeys.fixtures import context
+        message=context(b.source.run)['unicode']
+        start=len(calls);reference=inputs.perform('b'*32,'nonempty-unicode','replace','text',text=message)
+        inputs.decode();original,_capture=inputs.document(inputs.records[-1])
+        self.assertEqual('old actual field',next(row['value'] for row in original['source']['dom']['elements'] if row['id']=='text'))
+        sent=[path.rsplit('/',1)[-1] for method,path,_ in calls[start:] if method=='POST' and '/element/wk-field-text/' in path]
+        self.assertEqual(['clear','value'],sent)
+        self.assertEqual(2,len([path for method,path,_ in calls[start:] if method=='GET' and path.endswith('/element/active')]))
+        value=b.runtime.validate_original(self.observed(b))['public']['state'];self.assertEqual(message,value['text'])
+        self.assertEqual(0,value['bridgeEchoes']);queries=len(b.source.children['dom'].state['records']);count=len(calls)
+        rebuilt=owner();self.assertEqual(reference,rebuilt.perform('b'*32,'nonempty-unicode','replace','text',text=message))
+        self.assertEqual(count,len(calls));self.assertEqual(queries,len(b.source.children['dom'].state['records']))
+
     def test_actual_normal_W3C_Send_derives_native_VM_call_stack_and_DOM_echo_without_ACK_facts(self):
         b=self.opened()
         from ios.adapters.tablet_web_inputs import TabletWebInputs

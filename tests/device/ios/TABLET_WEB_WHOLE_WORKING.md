@@ -264,3 +264,31 @@ the unchanged common Journey, real public direct-factory methods, ordinary
 selected files/JS/WDA, independent production Worker.run, original PNG reads
 and the separate terminal protocol. Canonical InstalledAdapter/OverteSession
 routing and its final archive admission remain separate unqualified work.
+
+
+## Current native field revalidation component
+
+Ordinary nonempty-field replacement now re-reads the same actual active UIKit
+field after returned Clear and before the remaining, unissued Text. It checks
+identity/type/geometry/label/visible/enabled state and independently reads the
+current empty value. Original Input1 ownership, once-input recovery and 1.5s
+budgets remain unchanged. A lost Clear is never repeated and changed focus
+blocks Text before reading another field's attributes/value.
+
+The bounded NativeInput/Input owner selection passed 22 cases in 1.572s. The
+actual generated host app and ordinary nonempty-Clear/Unicode composition
+passed two selected cases in 3.163s. The latter retains the original private
+nonempty DOM, performs exactly Clear/Value, independently observes final
+run-bound Unicode and reconstructs without another query or input. The Node
+fixture's native-field GET now reads actual current node values rather than
+its last immutable DOM snapshot; the old snapshot stays unchanged. Neither
+an ACK nor an expected empty value is substituted for that read.
+
+Logs are in `.ios-host-tmp/tablet-web-field-revalidation-h3___q3h`: `focused.log`,
+`actual-field-flow.log` and `page-regressions.log`. Earlier failed new-test setup
+and stale fixture-readback traces remain separately retained. The existing empty-field Unicode and foreign-URL/Send regressions also passed
+two cases in 9.991s against the actual current Node field readback. There are
+26 distinct passing selected cases across these bounded selections. No public
+string contract, native producer, source timestamp, schema/version or router changed.
+These ordinary-input component checks do not qualify the full Tablet journey,
+paired terminal/canonical chain, native compilation or physical device behavior.

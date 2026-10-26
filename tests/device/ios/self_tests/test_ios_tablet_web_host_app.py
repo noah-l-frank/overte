@@ -41,6 +41,10 @@ class TabletHostAppTests(unittest.TestCase):
         app.call('page-click',id='bridge',epoch=1700000000040)
         actual=app.call('page-read',requestId='ios-'+'2'*32,epoch=1700000000050)
         self.assertEqual('Überte 🙂',actual['dom']['editor']['text']);self.assertEqual(1,len(actual['dom']['echoes']))
+        self.assertEqual('Überte 🙂',app.call('read')['nativeFields']['text'])
+        app.call('page-text',id='text',text='',epoch=1700000000060)
+        self.assertEqual('',app.call('read')['nativeFields']['text'])
+        self.assertEqual('Überte 🙂',actual['dom']['editor']['text']) # Saved original is unchanged.
         self.assertEqual(actual['emissions'][-1]['message'],actual['dom']['echoes'][0]['message'])
         self.assertEqual('tablet',json.loads(actual['dom']['echoes'][0]['message'])['surface'])
         self.assertEqual(1,len([row for row in actual['dom']['events'] if row['kind']=='click' and row['target']['id']=='bridge']))

@@ -15,18 +15,21 @@ REPO=Path(__file__).resolve().parents[4]
 
 
 class SDK:
-    def __init__(self):self.calls=[];self.value='';self.rect=dict(x=20.,y=64.,width=200.,height=40.);self.kind='XCUIElementTypeTextField';self.label='Owned Tablet text';self.fail=False;self.after=None
+    def __init__(self):self.calls=[];self.value='';self.rect=dict(x=20.,y=64.,width=200.,height=40.);self.kind='XCUIElementTypeTextField';self.label='Owned Tablet text';self.fail=False;self.after=None;self.active='actual-owned-field';self.displayed=True;self.enabled=True;self.ignore_clear=False
     def call(self,method,path,body=None):
         self.calls.append((method,path,deepcopy(body)))
         if method in ('POST','DELETE'):
             if self.fail and method=='POST':raise OSError('Actual touch return lost')
+            if method=='POST' and path.endswith('/clear') and not self.ignore_clear:self.value=''
+            if method=='POST' and path.endswith('/value'):self.value=body['text']
             if self.after:self.after(method,path)
             return None
-        if path.endswith('/element/active'):return {W3C_ELEMENT:'actual-owned-field'}
+        if path.endswith('/element/active'):return {W3C_ELEMENT:self.active}
         if path.endswith('/attribute/type'):return self.kind
         if path.endswith('/attribute/label'):return self.label
         if path.endswith('/rect'):return deepcopy(self.rect)
-        if path.endswith('/displayed') or path.endswith('/enabled'):return True
+        if path.endswith('/displayed'):return self.displayed
+        if path.endswith('/enabled'):return self.enabled
         if path.endswith('/attribute/value'):return self.value
         raise AssertionError('Unreviewed native request')
 
@@ -71,11 +74,49 @@ process.stdout.write(JSON.stringify(result));'''
         with self.assertRaises(NativeUIError):self.input.tap(self.document(),'bridge')
         self.assertEqual([],self.client.calls)
     def test_current_owned_field_unicode_and_clear_are_separate_once_requests(self):
-        self.client.value='old fixture text';owner=self.input.replace(self.document(True),'text','Überte 🙂')
+        self.client.value='old fixture text';document=self.document(True);before=deepcopy(document)
+        owner=self.input.replace(document,'text','Überte 🙂')
+        self.assertEqual(before,document);self.assertEqual('Überte 🙂',self.client.value)
+        self.assertEqual(2,len([path for _,path,_ in self.client.calls if path.endswith('/element/active')]))
         calls=self.mutations();self.assertEqual(2,len(calls));self.assertTrue(calls[0][1].endswith('/actual-owned-field/clear'))
         self.assertTrue(calls[1][1].endswith('/actual-owned-field/value'));self.assertEqual('Überte 🙂',calls[1][2]['text'])
         self.assertEqual(list('Überte 🙂'),calls[1][2]['value']);self.assertEqual('text',owner['field'])
         self.assertEqual(['clear','clear','text','text'],[value['kind'] for _,value in self.events])
+    def test_clear_return_without_independently_empty_native_value_never_types(self):
+        self.client.value='old fixture text';self.client.ignore_clear=True
+        with self.assertRaises(NativeUIError):self.input.replace(self.document(True),'text','Überte 🙂')
+        self.assertEqual(['clear'],[path.rsplit('/',1)[-1] for _,path,_ in self.mutations()])
+        self.assertEqual(['clear','clear'],[value['kind'] for _,value in self.events])
+        self.assertEqual('old fixture text',self.client.value)
+    def test_changed_active_reference_after_clear_stops_before_unissued_text_or_other_field_read(self):
+        self.client.value='old fixture text'
+        def changed(method,path):
+            if path.endswith('/clear'):self.client.active='actual-other-field'
+        self.client.after=changed
+        with self.assertRaises(NativeUIError):self.input.replace(self.document(True),'text','Überte 🙂')
+        self.assertEqual(['clear'],[path.rsplit('/',1)[-1] for _,path,_ in self.mutations()])
+        self.assertFalse(any('/element/actual-other-field/' in path for _,path,_ in self.client.calls))
+        self.assertEqual(2,len([path for _,path,_ in self.client.calls if path.endswith('/element/active')]))
+    def test_same_reference_changed_secure_hidden_label_or_rect_after_clear_never_types(self):
+        for fault in ('secure','hidden','disabled','label','rect'):
+            self.setUp();self.client.value='old fixture text'
+            def changed(method,path):
+                if not path.endswith('/clear'):return
+                if fault=='secure':self.client.kind='XCUIElementTypeSecureTextField'
+                elif fault=='hidden':self.client.displayed=False
+                elif fault=='disabled':self.client.enabled=False
+                elif fault=='label':self.client.label='Unrelated actual field'
+                else:self.client.rect['x']+=20
+            self.client.after=changed
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):self.input.replace(self.document(True),'text','Überte 🙂')
+            self.assertEqual(['clear'],[path.rsplit('/',1)[-1] for _,path,_ in self.mutations()])
+            if fault=='secure':self.assertEqual(1,len([path for _,path,_ in self.client.calls if path.endswith('/attribute/value')]))
+    def test_unknown_clear_return_never_issues_text_or_another_clear(self):
+        self.client.value='old fixture text';self.client.fail=True
+        with self.assertRaises(NativeUIError):self.input.replace(self.document(True),'text','Überte 🙂')
+        self.assertEqual(['clear'],[path.rsplit('/',1)[-1] for _,path,_ in self.mutations()])
+        self.assertEqual(['clear'],[value['kind'] for _,value in self.events])
+
     def test_wrong_active_type_rect_value_pid_or_dom_focus_never_mutates(self):
         for fault in ('type','rect','label','value','pid','focus','responder','private','webdriver-key'):
             document=self.document();self.client.calls.clear();self.client.kind='XCUIElementTypeTextField';self.client.label='Owned Tablet text';self.client.rect['x']=20.;self.client.value=''

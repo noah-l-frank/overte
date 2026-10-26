@@ -79,7 +79,7 @@ class TabletPageBoundary(TabletNormalBoundary):
                 if method=='GET':
                     if path.endswith('/attribute/type'):return 'XCUIElementTypeTextField'
                     if path.endswith('/attribute/label'):return element['accessibilityLabel']
-                    if path.endswith('/attribute/value'):return element['value']
+                    if path.endswith('/attribute/value'):return self.host_app.call('read')['nativeFields'][field]
                     if path.endswith(('/displayed','/enabled')):return True
                     if path.endswith('/rect'):
                         from ios.adapters.tablet_web_native_input import TabletWebNativeInput

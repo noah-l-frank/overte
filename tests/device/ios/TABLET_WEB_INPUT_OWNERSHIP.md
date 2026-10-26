@@ -19,6 +19,16 @@ requires the exact optional-clear then optional-text sequence, each at most
 once, and the same closed text/control/length/WebDriver-key grammar as live input. Input acknowledgments
 supply no trusted DOM event, bridge effect or cleanup fact.
 
+After a successful nonempty-field Clear, live input reacquires the actual active
+UIKit element before issuing the remaining Text request. The element reference
+must still be the original one; type, visibility, enabled state, label and
+rectangle are checked again before its actual current value is read. That
+independent value must be empty. A Clear ACK cannot supply it. A changed or
+secure field, ignored Clear or unknown Clear return sends no new Text and
+never repeats Clear. The original DOM owner/hash and native/host acquisition
+deadlines remain unchanged. This live guard changes no Input1 record grammar;
+historical input metadata supplies no new current field/effect proof.
+
 Each request is durably issued before transmission; the canonical SDK transport
 guard remains active across slow preparation/journal/process reads. The entire
 source age is limited by its original host epoch/monotonic acquisition start,

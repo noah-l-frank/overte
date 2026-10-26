@@ -42,7 +42,9 @@ vm.runInNewContext(fs.readFileSync(filename,'utf8'),{Script,Tablet:{getTablet(id
 }}},{filename:url});
 function snapshot(){return {url,buttons:buttons.map(button=>({properties:button.properties,removed:button.removed,connections:button.clicked.size()})),
     connections:connections.size,navigations:navigations.map(row=>({...row})),emissions:emissions.map(row=>({...row})),requires:requires.map(row=>({...row})),
-    focusedElement:page&&page.doc.activeElement?page.doc.activeElement.id:null,nativeEpoch:pageClock,pageEvents:pageEvents.map(row=>({...row})),
+    focusedElement:page&&page.doc.activeElement?page.doc.activeElement.id:null,
+    nativeFields:page?{text:page.nodes.get('text').value,foreign:page.nodes.get('foreign').value}:null,
+    nativeEpoch:pageClock,pageEvents:pageEvents.map(row=>({...row})),
     pageRequests:pageRequests.map(row=>({...row})),deferredEvents:deferredEvents.map(row=>({...row})),render:page?{title:page.doc.title,href:page.global.location.href,
         markerSource:page.nodes.get('feature-marker').src||null,markerRect:page.nodes.get('feature-marker').getBoundingClientRect(),
         text:page.nodes.get('text').value,bridgeStatus:page.nodes.get('bridgeStatus').textContent}:null,stopped}}

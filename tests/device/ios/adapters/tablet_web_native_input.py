@@ -77,10 +77,10 @@ class TabletWebNativeInput:
             if attempted[0]:self._mutation('release','/actions',None,owner)
         return deepcopy(owner)
 
-    def replace(self,document,field,text):
-        input_text(field,text)
-        source,row,point=self.owned(document,field);need(row['focused'] and source['presentationAfter']['responders'])
+    def active_field(self,source,row,expected_value,*,expected_element=None):
+        """Read the current actual UIKit field; no clear ACK supplies value."""
         ui=self.ui;ui._check();reference=ui._request('GET','/element/active');element=ui._element(reference);ui._check()
+        if expected_element is not None:need(element==expected_element)
         kind=ui._request('GET',element+'/attribute/type');rect=ui._request('GET',element+'/rect')
         label=ui._request('GET',element+'/attribute/label')
         visible=ui._request('GET',element+'/displayed');enabled=ui._request('GET',element+'/enabled');ui._check()
@@ -89,10 +89,21 @@ class TabletWebNativeInput:
         need(all(number(rect[key],-1e6,1e6) for key in rect) and rect['width']>0 and rect['height']>0)
         expected=self.screen_rect(source,row)
         need(all(abs(rect[key]-expected[key])<=2. for key in rect))
-        value=ui._request('GET',element+'/attribute/value');ui._check();need(type(value) is str and value==row['value'])
+        value=ui._request('GET',element+'/attribute/value');ui._check();need(type(value) is str and value==expected_value)
+        return reference,element,kind,rect,label,value
+
+    def replace(self,document,field,text):
+        input_text(field,text)
+        source,row,point=self.owned(document,field);need(row['focused'] and source['presentationAfter']['responders'])
+        reference,element,kind,rect,label,value=self.active_field(source,row,row['value'])
         owner=dict(nativeView=deepcopy(source['nativeView']),domInstance=source['dom']['instance'],requestId=document['commandId'],
             nativeCapturedEpochMs=document['clockAfter']['epochMs'],field=field,birth=row['birth'],elementReference=deepcopy(reference),type=kind,accessibilityLabel=label,rect=deepcopy(rect),
             beforeTextSha256=hashlib.sha256(value.encode()).hexdigest(),point=point)
         if value:self._mutation('clear',element+'/clear',{},owner)
-        if text:self._mutation('text',element+'/value',{'text':text,'value':list(text)},owner)
+        if text:
+            # A successful clear can synchronously move focus or leave text
+            # unchanged. Reacquire current UIKit identity/state before the
+            # remaining, still-unissued text request; never repeat the clear.
+            if value:self.active_field(source,row,'',expected_element=element)
+            self._mutation('text',element+'/value',{'text':text,'value':list(text)},owner)
         return deepcopy(owner)

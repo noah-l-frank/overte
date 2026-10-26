@@ -139,6 +139,22 @@ class TabletWebInputsTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.owner()
         self.assertEqual(calls,self.client.calls)
 
+    def test_focus_change_after_clear_stays_failed_across_reconstruction_without_any_input_replay(self):
+        from ios.self_tests import test_ios_tablet_web_native_input as fixture
+        fixture.TabletWebNativeInputTests.setUpClass()
+        self.body=deepcopy(fixture.TabletWebNativeInputTests.bodies[1]);self.client.value='old fixture text'
+        def changed(method,path):
+            if path.endswith('/clear'):self.client.active='actual-other-field'
+        self.client.after=changed;owner=self.owner()
+        with self.assertRaises(NativeUIError):owner.perform('c'*32,'nonempty-unicode','replace','text',text='Überte 🙂')
+        self.assertEqual(['clear'],[path.rsplit('/',1)[-1] for _,path,_ in self.mutations()])
+        rebuilt=self.owner();self.assertTrue(rebuilt.blocked);self.assertEqual('failed',rebuilt.records[0]['phase'])
+        self.assertEqual(['clear'],[event['request']['kind'] for event in rebuilt.records[0]['events']])
+        queries=len(self.queries);calls=deepcopy(self.client.calls)
+        for label in ('nonempty-unicode','new-label'):
+            with self.subTest(label=label),self.assertRaises(NativeUIError):rebuilt.perform('c'*32,label,'replace','text',text='Überte 🙂')
+        self.assertEqual(queries,len(self.queries));self.assertEqual(calls,self.client.calls)
+
     def test_closed_text_grammar_is_checked_by_record_decoder_before_source_or_input_delivery(self):
         owner=self.owner();base=dict(tabletWebInputVersion=1,index=1,ticket='c'*32,label='invalid',kind='replace',control='text',text='owned',
             phase='reading',sourceIndex=1,sourceRef=None,sourceSha256=None,events=[],before=owner.stamp(),after=None)
