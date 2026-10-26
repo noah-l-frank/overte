@@ -119,6 +119,7 @@
     "lifecycle-navigation-proof-original": {"current": 1, "reads": [1]},
     "ios-lifecycle-world": {"current": 2, "reads": [1, 2]},
     "ios-lifecycle-touch": {"current": 1, "reads": [1]},
+    "ios-touch-lease": {"current": 1, "reads": [1]},
     "ios-lifecycle-world-attempt": {"current": 1, "reads": [1]},
     "ios-lifecycle-world-proof-frame": {"current": 1, "reads": [1]},
     "ios-lifecycle-world-proof-original": {"current": 1, "reads": [1]},

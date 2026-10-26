@@ -127,6 +127,7 @@ REQUIRED = {
     "lifecycle-navigation-proof-original": 1,
     "ios-lifecycle-world": 2,
     "ios-lifecycle-touch": 1,
+    "ios-touch-lease": 1,
     "ios-lifecycle-world-attempt": 1,
     "ios-lifecycle-world-proof-frame": 1,
     "ios-lifecycle-world-proof-original": 1,
