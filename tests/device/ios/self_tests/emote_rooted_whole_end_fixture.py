@@ -81,6 +81,7 @@ class WholeRootedEndFixture:
         self.root=Path(temporary.name);self.root.chmod(0o700);self.artifacts=self.root/'candidate';self.artifacts.mkdir(mode=0o700)
         self.trees={};self.targets={};self.bindings={};self.alive=dict(primary=True,actor=True);self.deleted=set()
         self.stops=[];self.calls=[];self.native_reads=[];self.source_factories=[];self.fault='';self.sessions={}
+        self.foreground=dict(primary=True,actor=True);self.lifecycle_inputs=[]
         self.fresh_roles=set();self.fresh_starts={};self.real_fence_to_stop={}
         files={'Info.plist':plistlib.dumps(dict(CFBundleIdentifier='org.example.overte',CFBundleExecutable='Overte',
             OverteE2ETestBuildContractVersion=1,UIFileSharingEnabled=True)),
@@ -129,7 +130,7 @@ class WholeRootedEndFixture:
                 current.calls.append((role,operation,deepcopy(values)));installation=current.installations[role]
                 if operation=='mobile: overteProcessSourceInfo':return deepcopy(installation.source)
                 if operation=='mobile: overteProcessInfo':
-                    return dict(bundleId='org.example.overte',pid=int(current.bindings[role]['processIdentity']),foreground=True) if current.alive[role] else None
+                    return dict(bundleId='org.example.overte',pid=int(current.bindings[role]['processIdentity']),foreground=current.foreground[role]) if current.alive[role] else None
                 if operation=='mobile: terminateApp':
                     need(current.base._binding_store(role).read()['phase']=='retiring' and role not in current.stops)
                     if role in current.fresh_starts:current.real_fence_to_stop[role]=time.monotonic()-current.fresh_starts[role]
@@ -152,7 +153,7 @@ class WholeRootedEndFixture:
         class Base:
             def __init__(_self,platform):need(platform=='ios');_self.platform=platform;_self.adapter_id='appium-ios'
             @classmethod
-            def advertised_capabilities(cls,target):return ['app.stop','app.process','app.foreground']
+            def advertised_capabilities(cls,target):return ['app.stop','app.process','app.foreground','app.launch','lifecycle.background']
             def target(_self,selector):need(selector in current.roles);return deepcopy(current.targets[selector])
             def state_path(_self,selector):return current.roles[selector].target.root/'session.json'
             def read_session(_self,selector):return PrivateFeatureState(_self.state_path(selector)).read()
@@ -162,6 +163,21 @@ class WholeRootedEndFixture:
             def ensure_session(_self,selector):
                 state=_self.read_session(selector);need(state is not None and selector not in current.deleted)
                 return current.clients[selector],state['sessionId'],deepcopy(state)
+            def query_app_state(_self,client,session,target):
+                role=client.role;need(session==current.bindings[role]['sessionId'] and current.alive[role])
+                return 4 if current.foreground[role] else 3
+            def invoke(_self,selector,operation,values):
+                # Declared WDA/OS lifecycle producer only. The physical adapter
+                # still surrounds these ordinary deliveries with its actual
+                # candidate, SDK, installed-source and same-process checks.
+                transport_check();need(selector=='primary' and current.alive[selector] and values=={}
+                    and operation in ('lifecycle.background','app.launch'))
+                current.lifecycle_inputs.append(operation);counters=current.normal.target.rig.lifecycle
+                if operation=='lifecycle.background':
+                    need(current.foreground[selector]);current.foreground[selector]=False;counters['backgrounds']+=1
+                else:
+                    need(not current.foreground[selector]);current.foreground[selector]=True;counters['activations']+=1
+                return {'backgrounded':True} if operation=='lifecycle.background' else {'launched':True}
         def preflight(_args):
             # Explicit candidate release/SBOM seam. IPA hashing and bundle tree
             # comparison below remain actual independent byte operations.
