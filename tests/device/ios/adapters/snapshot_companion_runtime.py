@@ -5,6 +5,7 @@ import base64
 from contextlib import contextmanager
 from copy import deepcopy
 import os
+import re
 from pathlib import Path
 import stat
 import time
@@ -30,7 +31,7 @@ class IOSSnapshotCompanionRuntime:
         self.artifact=artifact(self.artifact_path,scope['artifactSha256']);need(self.pin_artifact()==self.artifact_pin)
         need(target.get('appId')==self.artifact['bundle']['bundleId']);self.session=scope['sessionId'];self.original_session=session_state.read()
         need(type(self.original_session) is dict and self.original_session.get('sessionId')==self.session
-            and self.original_session.get('generation')==scope['generation'] and self.original_session.get('targetFingerprint')==scope['targetFingerprint'])
+            and type(self.original_session.get('generation')) is int and self.original_session.get('generation')==scope['generation'] and self.original_session.get('targetFingerprint')==scope['targetFingerprint'])
         self.client.call('GET','/session/'+self.session);self.initial=self.probe()
         self.binding=context(dict(scope,processIdentity=str(self.initial['process']['pid'])))
 
@@ -62,10 +63,16 @@ class IOSSnapshotCompanionRuntime:
     def check(self):self.probe();return True
 
     def original(self,action):
-        need(action in ('identity','clock'));self.check()
-        remote='@'+self.target['appId']+':documents/snapshot-companion-'+action+'.json'
+        need(action in ('identity','clock','photos'))
+        return self.original_path('snapshot-companion-'+action+'.json',262144)
+
+    def original_path(self,name,limit):
+        """Closed original output paths; never an arbitrary sandbox reader."""
+        need(type(name) is str and re.fullmatch(r'(snapshot-companion-(identity|clock|photos)\.json|snapshot-photos-(chunk|retire)\.json|snapshot-photos-[a-f0-9]{32}/photos-original\.json)',name)
+            and type(limit) is int and 1<=limit<=720896);self.check()
+        remote='@'+self.target['appId']+':documents/'+name
         encoded=self.client.execute(self.session,'mobile: pullFile',dict(remotePath=remote))
-        need(type(encoded) is str and len(encoded)<=349528);raw=base64.b64decode(encoded,validate=True);need(1<=len(raw)<=262144)
+        need(type(encoded) is str and len(encoded)<=4*((limit+2)//3));raw=base64.b64decode(encoded,validate=True);need(1<=len(raw)<=limit)
         self.check();return raw
 
     @contextmanager

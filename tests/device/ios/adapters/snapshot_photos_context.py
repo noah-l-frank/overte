@@ -38,6 +38,7 @@ class PhotosClientContext:
         actual=self.gate.continuity(allow_background=True);record=deepcopy(self.gate.record());installed_forward(self.installed,record)
         original=deepcopy(process_source(self.gate.process_source()));need(same(original,self.os_source)
             and actual['pid']==int(self.binding['processIdentity']) and (foreground is None or actual['foreground']==foreground))
+        self.installed=deepcopy(record)
         return dict(binding=deepcopy(self.binding),process=actual,source=original,installed=record)
 
     def foreground_sources(self):
@@ -56,7 +57,7 @@ class PhotosCompanionContext:
         need(target.get('platform')=='ios' and target.get('physical') is True and target.get('appId')==self.artifact['bundle']['bundleId']
             and digest(target)==binding['targetFingerprint'])
         self.session=binding['sessionId'];self.session_state=session_store.read();need(type(self.session_state) is dict
-            and self.session_state.get('sessionId')==self.session and self.session_state.get('generation')==binding['generation']
+            and self.session_state.get('sessionId')==self.session and type(self.session_state.get('generation')) is int and self.session_state.get('generation')==binding['generation']
             and self.session_state.get('targetFingerprint')==binding['targetFingerprint'])
         self.epoch_ms,self.monotonic,self.sleep=epoch_ms,monotonic,sleep
         # Reuse the pure no-follow stat pin helper, not the foreground runtime's
@@ -65,13 +66,13 @@ class PhotosCompanionContext:
 
     def probe(self,foreground=None):
         need(foreground is None or type(foreground) is bool)
-        need(self.session_store.read()==self.session_state and IOSSnapshotCompanionRuntime.pin_artifact(self)==self.artifact_pin)
+        need(same(self.session_store.read(),self.session_state) and IOSSnapshotCompanionRuntime.pin_artifact(self)==self.artifact_pin)
         query=dict(bundleId=self.target['appId']);before=deepcopy(process_source(self.client.execute(self.session,'mobile: overteProcessSourceInfo',query)))
         actual=self.client.execute(self.session,'mobile: overteProcessInfo',query);after=deepcopy(process_source(self.client.execute(self.session,'mobile: overteProcessSourceInfo',query)))
         need(type(actual) is dict and set(actual)=={'bundleId','pid','foreground'} and actual['bundleId']==self.target['appId']
             and type(actual['pid']) is int and actual['pid']==int(self.binding['processIdentity']) and type(actual['foreground']) is bool
             and (foreground is None or actual['foreground']==foreground) and same(before,after) and same(after,self.os_scope['source'])
-            and self.session_store.read()==self.session_state and IOSSnapshotCompanionRuntime.pin_artifact(self)==self.artifact_pin)
+            and same(self.session_store.read(),self.session_state) and IOSSnapshotCompanionRuntime.pin_artifact(self)==self.artifact_pin)
         return dict(binding=deepcopy(self.binding),process=deepcopy(actual),source=after)
 
     def foreground_runtime(self):

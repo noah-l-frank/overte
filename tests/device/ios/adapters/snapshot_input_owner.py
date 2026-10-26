@@ -47,12 +47,19 @@ def receipt(value,command,pid,after):
 
 
 class SnapshotInputOwner:
+    _owner_key='iosSnapshotInputOwnerVersion'
+    _proof_namespace='snapshot-input-proof'
+    _proof_schema='snapshotInputProof'
+
+    @staticmethod
+    def store_name(role):return 'ios-snapshot-'+role+'-inputs.json'
+
     @classmethod
     def history(cls,store,lock,binding,run,role):
         """Original-file reader after native/SDK retirement; no transport."""
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock) and role in ('primary','actor'))
         context(binding);identifier(run);need(re.fullmatch('[1-9][0-9]*',binding['processIdentity'])
-            and store.path.parent==lock.path.parent and store.path.name=='ios-snapshot-'+role+'-inputs.json')
+            and store.path.parent==lock.path.parent and store.path.name==cls.store_name(role))
         reader=cls.__new__(cls);reader.store,reader.lock,reader.binding,reader.run,reader.role=store,lock,deepcopy(binding),run,role
         reader.pid=int(binding['processIdentity']);reader.native=None
         def unavailable():raise NativeUIError('Historical Snapshot input owner cannot issue live operations')
@@ -63,21 +70,21 @@ class SnapshotInputOwner:
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock) and isinstance(native,NativeInput)
             and callable(guard) and role in ('primary','actor'));context(binding);identifier(run)
         self.store,self.lock,self.binding,self.run,self.role,self.native,self.guard=store,lock,deepcopy(binding),run,role,native,guard
-        need(store.path.parent==lock.path.parent and store.path.name=='ios-snapshot-'+role+'-inputs.json'
+        need(store.path.parent==lock.path.parent and store.path.name==self.store_name(role)
             and re.fullmatch('[1-9][0-9]*',binding['processIdentity']))
         self.pid=int(binding['processIdentity']);need(native.process is None or self.pid==native.process['pid'])
         lock.assert_held();self.previous=store.read();self.state=dict(events=[],storage={}) if self.previous is None else self.decode(self.previous)
 
     def proof_store(self,live=False):
         return OriginalFrameStore(self.store.path.parent,self.binding,self.run,self.role,self.guard if live else lambda:True,
-            self.storage if live else lambda *_:need(False),namespace='snapshot-input-proof',schema_prefix='snapshotInputProof')
+            self.storage if live else lambda *_:need(False),namespace=self._proof_namespace,schema_prefix=self._proof_schema)
 
     def envelope(self):
-        return dict(iosSnapshotInputOwnerVersion=VERSION,binding=self.binding,runId=self.run,role=self.role,payload=pack([self.state]))
+        return {self._owner_key:VERSION,'binding':self.binding,'runId':self.run,'role':self.role,'payload':pack([self.state])}
 
     def decode(self,value):
-        exact(value,{'iosSnapshotInputOwnerVersion','binding','runId','role','payload'});need(type(value['iosSnapshotInputOwnerVersion']) is int
-            and value['iosSnapshotInputOwnerVersion']==VERSION and same(value['binding'],self.binding) and value['runId']==self.run and value['role']==self.role)
+        exact(value,{self._owner_key,'binding','runId','role','payload'});need(type(value[self._owner_key]) is int
+            and value[self._owner_key]==VERSION and same(value['binding'],self.binding) and value['runId']==self.run and value['role']==self.role)
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0];exact(state,{'events','storage'})
         need(type(state['events']) is list and len(state['events'])<=128 and type(state['storage']) is dict)
         commands=set();previous=None;original_root=None

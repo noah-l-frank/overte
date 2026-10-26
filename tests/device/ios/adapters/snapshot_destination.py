@@ -8,7 +8,8 @@ from adapters.native_feature_observation import exact,integer,need
 from adapters.script_feature.history import same
 from ios.adapters.snapshot_exports import FILE_NAME,photos_asset
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 MAX_BYTES=256*1024*1024
 HEX=r'[0-9a-f]{32}'
 FIELDS={'iosSnapshotDestinationVersion','runId','kind','basename','photosIdentifier','instance','processId','clockDomain',
@@ -24,7 +25,9 @@ def stamp(value,floor=None):
 
 
 def original(value,previous=None):
-    exact(value,FIELDS);need(type(value['iosSnapshotDestinationVersion']) is int and value['iosSnapshotDestinationVersion']==VERSION
+    need(type(value) is dict);version=value.get('iosSnapshotDestinationVersion')
+    need(type(version) is int and version in READS);exact(value,FIELDS|({'artifactRevision'} if version>=2 else set()))
+    need(type(value['iosSnapshotDestinationVersion']) is int and value['iosSnapshotDestinationVersion'] in READS
         and value['kind']=='photos-resource' and value['clockDomain']=='native-companion-photos'
         and type(value['runId']) is str and re.fullmatch(HEX,value['runId'])
         and type(value['instance']) is str and re.fullmatch(HEX,value['instance']) and integer(value['processId'],1)
@@ -80,6 +83,9 @@ def original(value,previous=None):
     if value['phase']=='complete':need('read-completed' in seen and 'read-failed' not in seen and value['byteCount']>0
         and re.fullmatch('[0-9a-f]{64}',value['sha256']))
     else:need(value['sha256']=='' and ('read-failed' in seen)==(value['phase']=='failed') and 'read-completed' not in seen)
+    if version>=2:
+        need((type(value['artifactRevision']) is str and re.fullmatch('[a-f0-9]{64}',value['artifactRevision']))
+            if value['phase']=='complete' else value['artifactRevision'] is None)
     deletion=value['deletion']
     if deletion is None:need(not deletes)
     else:
@@ -107,6 +113,7 @@ def original(value,previous=None):
             and value['byteCount']>=previous['byteCount'])
         if previous['resource'] is not None:need(same(value['resource'],previous['resource']))
         if previous['phase']!='issued':need(value['phase']==previous['phase'] and value['byteCount']==previous['byteCount'] and value['sha256']==previous['sha256'])
+        if version>=2 and previous.get('artifactRevision') is not None:need(value['artifactRevision']==previous['artifactRevision'])
         if previous['deletion'] is not None:
             need(value['deletion'] is not None)
             if previous['deletion']['phase']!='issued':need(value['deletion']==previous['deletion'])

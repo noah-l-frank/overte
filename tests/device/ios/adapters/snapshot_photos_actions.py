@@ -17,8 +17,8 @@ class PhotosAction:
         self.root,self.lock,self.binding,self.run,self.index=root,lock,deepcopy(context(binding)),run,index
         need(integer(index,1,1024));self.plan=deepcopy(plan);exact(plan,{'label','fields','control','file','limit'})
         need(type(plan['label']) is str and re.fullmatch('[a-z][a-z0-9-]{0,63}',plan['label']) and type(plan['fields']) is list and 0<=len(plan['fields'])<=4
-            and plan['control'] in {'snapshot.companion.photos','snapshot.destination.read','snapshot.destination.inspect','snapshot.destination.delete','snapshot.destination.chunk'}
-            and type(plan['file']) is str and re.fullmatch(r'(snapshot-companion-photos\.json|snapshot-photos-chunk\.json|snapshot-photos-[a-f0-9]{32}/photos-original\.json)',plan['file'])
+            and plan['control'] in {'snapshot.companion.photos','snapshot.companion.clock','snapshot.destination.read','snapshot.destination.inspect','snapshot.destination.delete','snapshot.destination.chunk','snapshot.destination.retire','snapshot.destination.retire-inspect'}
+            and type(plan['file']) is str and re.fullmatch(r'(snapshot-companion-(photos|clock)\.json|snapshot-photos-(chunk|retire)\.json|snapshot-photos-[a-f0-9]{32}/photos-original\.json)',plan['file'])
             and integer(plan['limit'],1,720896))
         fields={'snapshot.companion.nonce','snapshot.destination.run','snapshot.destination.asset','snapshot.destination.basename','snapshot.destination.query','snapshot.destination.offset'}
         for row in plan['fields']:
@@ -65,6 +65,9 @@ class PhotosAction:
             and number(before['monotonic'],0,1e15) and number(after['monotonic'],before['monotonic'],before['monotonic']+1.5)
             and abs((after['epochMs']-before['epochMs'])-(after['monotonic']-before['monotonic'])*1000)<=250)
         return decode(raw.decode('utf-8'),limit=self.plan['limit'])
+    def original_bytes(self):
+        self.original();wire=self.frames.expand(self.state['frame']) if self.state['frame'] is not None else self.state['wire']
+        return base64.b64decode(self.frames.read(wire)['raw'],validate=True)
     def execute(self):
         self.bound();need(not self.historical)
         if self.state['frame'] is not None:return self.original()

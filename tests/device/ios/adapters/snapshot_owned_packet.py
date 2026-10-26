@@ -60,6 +60,7 @@ def qualified(frame,pid,kind='owned'):
 
 
 class SnapshotOwnedPacket:
+    _store_prefix='ios-snapshot'
     _name='native-owned'
     _key='iosSnapshotOwnedPacketVersion'
     _namespace='snapshot-native-owned'
@@ -80,7 +81,7 @@ class SnapshotOwnedPacket:
         need(re.fullmatch('[1-9][0-9]*',binding['processIdentity']))
         self.pid=int(binding['processIdentity']);need(self.pid>0 and str(self.pid)==binding['processIdentity']
             and lock.path==store.path.with_name('script-feature-sources.lock')
-            and store.path.name=='ios-snapshot-'+role+'-'+self._name+'-'+format(index,'04d')+'.json');lock.assert_held()
+            and store.path.name==self._store_prefix+'-'+role+'-'+self._name+'-'+format(index,'04d')+'.json');lock.assert_held()
 
     def __init__(self,store,lock,binding,run,role,index,feature,native,guard,*,epoch_ms,monotonic):
         self.setup(store,lock,binding,run,role,index)

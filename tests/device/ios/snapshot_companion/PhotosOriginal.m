@@ -30,6 +30,7 @@ static NSString* OVTIdentifier(void) {return [[NSUUID.UUID.UUIDString lowercaseS
 @property(nonatomic,strong) NSRecursiveLock* lock;
 @property(nonatomic,strong) NSURL* root;
 @property(nonatomic,strong) NSMutableDictionary* record;
+@property(nonatomic) struct stat rootBirth;
 @property(nonatomic,weak) OVTPhotosRead* operation;
 @property(nonatomic,weak) OVTPhotosDelete* deletion;
 @property BOOL valid;
@@ -110,6 +111,9 @@ static NSString* OVTIdentifier(void) {return [[NSUUID.UUID.UUIDString lowercaseS
 @property(nonatomic,strong) UITextField* queryField;
 @property(nonatomic,strong) UITextField* offsetField;
 @property(nonatomic,strong) NSMutableSet<NSString*>* chunkNonces;
+@property(nonatomic,strong) NSMutableSet<NSString*>* retirementNonces;
+@property(nonatomic,strong) NSDictionary* retirementReceipt;
+@property(nonatomic) BOOL retirementIssued;
 @property(nonatomic,strong) UILabel* status;
 @property(nonatomic,strong) OVTPhotosJournal* journal;
 @property(nonatomic,copy) NSString* instance;
@@ -139,11 +143,14 @@ static NSString* OVTIdentifier(void) {return [[NSUUID.UUID.UUIDString lowercaseS
     self.queryField=[self field:@"snapshot.destination.query" placeholder:@"Fresh read nonce" stack:stack];
     self.offsetField=[self field:@"snapshot.destination.offset" placeholder:@"Original byte offset" stack:stack];
     self.chunkNonces=[NSMutableSet new];
+    self.retirementNonces=[NSMutableSet new];
     [self button:@"Authorize Photos read" name:@"snapshot.destination.authorize" action:@selector(authorizePhotos) stack:stack];
     [self button:@"Read Photos original" name:@"snapshot.destination.read" action:@selector(readOriginal) stack:stack];
     [self button:@"Inspect original owner" name:@"snapshot.destination.inspect" action:@selector(inspectOriginal) stack:stack];
     [self button:@"Read unchanged original chunk" name:@"snapshot.destination.chunk" action:@selector(readOriginalChunk) stack:stack];
     [self button:@"Delete this owned Photos asset" name:@"snapshot.destination.delete" action:@selector(deleteOriginal) stack:stack];
+    [self button:@"Retire this owned original copy" name:@"snapshot.destination.retire" action:@selector(retireOriginal) stack:stack];
+    [self button:@"Inspect original copy retirement" name:@"snapshot.destination.retire-inspect" action:@selector(inspectOriginalRetirement) stack:stack];
     self.status=[UILabel new];self.status.numberOfLines=0;self.status.accessibilityIdentifier=@"snapshot.destination.status";
     self.status.text=@"No original acquired";[stack addArrangedSubview:self.status];
 }
@@ -171,10 +178,13 @@ static NSString* OVTIdentifier(void) {return [[NSUUID.UUID.UUIDString lowercaseS
     // is never adopted, overwritten or turned into a new owner.
     if (![NSFileManager.defaultManager createDirectoryAtURL:root withIntermediateDirectories:NO attributes:@{NSFilePosixPermissions:@0700} error:&error]) {[self fail];return;}
     OVTPhotosJournal* journal=[OVTPhotosJournal new];journal.root=root;self.journal=journal;
-    journal.record=[@{@"iosSnapshotDestinationVersion":@1,@"runId":run,@"kind":@"photos-resource",@"basename":name,
+    struct stat rootBirth;
+    if (lstat(root.path.fileSystemRepresentation,&rootBirth)!=0 || !S_ISDIR(rootBirth.st_mode) || rootBirth.st_uid!=geteuid() || (rootBirth.st_mode&0777)!=0700) {[self fail];return;}
+    journal.rootBirth=rootBirth;
+    journal.record=[@{@"iosSnapshotDestinationVersion":@2,@"runId":run,@"kind":@"photos-resource",@"basename":name,
         @"photosIdentifier":asset,@"instance":self.instance,@"processId":@(getpid()),@"clockDomain":@"native-companion-photos",
         @"createdClock":OVTClock(),@"events":[NSMutableArray new],@"queries":[NSMutableArray new],
-        @"phase":@"issued",@"resource":NSNull.null,@"byteCount":@0,@"sha256":@"",@"artifact":@"original.bytes",@"deletion":NSNull.null} mutableCopy];
+        @"phase":@"issued",@"resource":NSNull.null,@"byteCount":@0,@"sha256":@"",@"artifact":@"original.bytes",@"artifactRevision":NSNull.null,@"deletion":NSNull.null} mutableCopy];
     if (![journal event:@"read-issued" detail:@{}]) {[self fail];return;}
     PHFetchResult<PHAsset*>* fetched=[PHAsset fetchAssetsWithLocalIdentifiers:@[asset] options:nil];
     if (fetched.count!=1) {journal.record[@"phase"]=@"failed";[journal event:@"read-failed" detail:@{}];[self fail];return;}
@@ -210,12 +220,12 @@ static NSString* OVTIdentifier(void) {return [[NSUUID.UUID.UUIDString lowercaseS
         struct stat actual={};
         BOOL success=!failure && !operation.failed && journal.valid && operation.count>0
             && fsync(operation->descriptor)==0 && fstat(operation->descriptor,&actual)==0 && S_ISREG(actual.st_mode)
-            && actual.st_nlink==1 && actual.st_size==(off_t)operation.count;
+            && actual.st_nlink==1 && actual.st_size==(off_t)operation.count && actual.st_uid==geteuid() && (actual.st_mode&0777)==0600;
         if (close(operation->descriptor)!=0) {success=NO;}operation->descriptor=-1;
         if (success) {
             unsigned char digest[CC_SHA256_DIGEST_LENGTH];CC_SHA256_Final(digest,&operation->digest);NSMutableString* hex=[NSMutableString new];
             for (NSUInteger i=0;i<CC_SHA256_DIGEST_LENGTH;++i) {[hex appendFormat:@"%02x",digest[i]];}
-            journal.record[@"sha256"]=hex;journal.record[@"phase"]=@"complete";
+            journal.record[@"sha256"]=hex;journal.record[@"artifactRevision"]=OVTPhotosFileRevision(actual);journal.record[@"phase"]=@"complete";
             [journal event:@"read-completed" detail:@{}];
         } else {journal.record[@"phase"]=@"failed";[journal event:@"read-failed" detail:@{}];}
         [journal event:@"callback-left" detail:@{@"name":@"completion"}];[journal.lock unlock];
@@ -285,5 +295,27 @@ static NSString* OVTIdentifier(void) {return [[NSUUID.UUID.UUIDString lowercaseS
     NSDictionary* packet=OVTPhotosOriginalChunk(journal.root,journal.record,nonce,self.offsetField.text);
     NSURL* documents=[NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
     BOOL saved=OVTPhotosPersistChunk(documents,packet);[journal.lock unlock];self.status.text=saved?@"Unchanged original chunk persisted":@"Original chunk unavailable";
+}
+- (void)retireOriginal {
+    OVTPhotosJournal* journal=self.journal;NSString* nonce=self.queryField.text;
+    if (!journal || self.retirementIssued || !OVTMatch(nonce,@"\\Aios-[0-9a-f]{32}\\z") || [self.retirementNonces containsObject:nonce]) {[self fail];return;}
+    [journal.lock lock];
+    if (!journal.valid || journal.operation || journal.deletion) {[journal.lock unlock];[self fail];return;}
+    self.retirementIssued=YES;[self.retirementNonces addObject:nonce];
+    self.retirementReceipt=OVTPhotosRetireOriginal(journal.root,journal.rootBirth,journal.record);
+    NSDictionary* packet=OVTPhotosRetirementObservation(journal.root,journal.rootBirth,self.retirementReceipt,nonce);
+    NSURL* documents=[NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
+    BOOL saved=OVTPhotosPersistRetirement(documents,packet);[journal.lock unlock];
+    self.status.text=saved?@"Original copy retirement observed":@"Original copy retirement remains owned";
+}
+- (void)inspectOriginalRetirement {
+    OVTPhotosJournal* journal=self.journal;NSString* nonce=self.queryField.text;
+    if (!journal || !self.retirementIssued || !OVTMatch(nonce,@"\\Aios-[0-9a-f]{32}\\z")
+            || [self.retirementNonces containsObject:nonce] || self.retirementNonces.count>=32) {[self fail];return;}
+    [journal.lock lock];[self.retirementNonces addObject:nonce];
+    NSDictionary* packet=OVTPhotosRetirementObservation(journal.root,journal.rootBirth,self.retirementReceipt,nonce);
+    NSURL* documents=[NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
+    BOOL saved=OVTPhotosPersistRetirement(documents,packet);[journal.lock unlock];
+    self.status.text=saved?@"Original copy absence observed":@"Original copy retirement remains owned";
 }
 @end
