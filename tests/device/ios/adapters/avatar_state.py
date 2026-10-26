@@ -160,6 +160,11 @@ def validate(value,query,pid,epoch=None,previous=None):
 
 
 def original(value):
+    from adapters.pure_original_validation import returning_input
+    return returning_input(_original,value)
+
+
+def _original(value):
     return validate(value, dict(schemaVersion=1, commandId=value['requestId'], action=ACTION, runId=value['runId']),
                     value['processId'])
 

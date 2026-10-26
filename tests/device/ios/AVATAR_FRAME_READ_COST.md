@@ -110,3 +110,54 @@ runtime/SDK/HTTP/native factories remained forbidden. The log is
 `.ios-host-tmp/avatar-retained-scene-pure-round-j8foz3v_/runner.log`. This is a
 historical decoder measurement and equivalence check, not successful fresh
 publication or a terminal end. No deadline, source clock or receipt was changed.
+
+## Fresh boundary and repeated historical DTO validation
+
+A fresh 120-second diagnostic stopped at its external bound before successful
+Actor Scene publication. It did not pass the held-terminal test. Originals are
+retained at `.ios-host-tmp/avatar-fresh-scene-boundary-la8k8uip`. Both actual
+coordinators are still `cleaning`, each with one saved Scene record and no
+pending local Scene record. Primary has three original quiet cuts and a retained
+peer Scene barrier; Actor has thirteen cuts and no peer Scene barrier. Neither
+has a `scene-publication` event. The 105-second stack was Actor's second full
+derive in `cleanup_scene`. Source-order reconstruction from those original
+events implies at least eight complete Scene traversals before the bound;
+runtime counts were not instrumented, so no exact total is asserted.
+
+`retain` already derives a completed Scene before its acquisition guard returns.
+`cleanup_scene` immediately derives it again, then the scoped Login join fully
+derives it once more. Actor reentry and the two peer barriers repeat the same
+originals. The publication caller and `refresh` also each derive the old Scene.
+Those calls retain their original I/O and current guard boundaries in this
+packet; none is removed or replaced with a cached Scene/effect response.
+
+The smallest additional reuse is inside the existing exactly guarded Scene
+round: `avatar_state.original(value)` and `avatar_renderers.original(value)`
+perform pure identity-returning historical validation with `epoch=None` and
+`previous=None`. They now use the existing bounded `returning_input` helper.
+Each actual frame still opens, checks its original inode, reads/hashes/parses its
+actual bytes and contributes the same membership. The cache stores only a pure
+success keyed by complete literal arguments, and returns each caller's own
+input. Current `validate(...epoch,previous)` calls remain independent and
+unchanged. No current clock, freshness, previous-prefix guard, lifetime/effect
+calculation or normalized response is reused across samples or SDK calls.
+
+`avatar-pure-historical-dtos-20261026.log` records **36 passing explicit host
+tests in 25.050 seconds**: four profiled historical-wrapper cases, eleven State
+cases (including one actual Node probe), twelve Renderer cases, eight original
+Scene-round guard cases and one actual HeldScene record. Profiling counts real
+validator code without replacing it. Changed literals, caller mutation and
+mapping subclasses still revalidate/refuse. Warmed historical validation cannot
+make the current freshness or nonadvancing previous-prefix guards succeed.
+
+The same retained saved-proof profile returned in **10.639000 seconds** with
+exactly **871 actual original-frame reads** and 16 appearance traversals,
+unchanged from the previous profile. State's pure historical validator executes
+43 times and Renderer's 68 times; every original/inode remains unchanged and the
+derived proof still exactly equals the saved pre-optimization publisher proof.
+Its log is `.ios-host-tmp/avatar-retained-scene-dto-round-hv86vdfp/runner.log`.
+The roughly two-percent difference from 10.855482 seconds is within normal
+single-profile variation and establishes no meaningful whole-run improvement.
+No further unchanged fresh boundary or full end run is justified by that small
+difference. Normal canonical fixture/metadata integration remains a separate
+required vertical. Avatar and overall completion status remain unchanged.
