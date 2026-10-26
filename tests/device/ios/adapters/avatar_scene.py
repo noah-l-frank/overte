@@ -301,6 +301,12 @@ class IOSAvatarScene:
 
     def joined(self,reference):
         """One original traversal returns its proof and already checked inputs."""
+        if self.VERSION==2:
+            from ios.adapters.avatar_scene_round import scope
+            with scope(self):return self._joined(reference)
+        return self._joined(reference)
+
+    def _joined(self,reference):
         self.lock.assert_held();need(reference in self.state['records']);p=self.record(reference)
         exact(p,{'ticket','phaseInstance','sequence','baseline','paths','imagePolicy','fixtureUrl','expectedCode','source','recovery','scope',
             'endpoints','image','quiet','pointers','samples','close','acquisition'})

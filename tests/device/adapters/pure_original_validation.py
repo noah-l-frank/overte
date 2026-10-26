@@ -13,22 +13,26 @@ import hashlib
 import marshal
 from adapters.normal_ui import NativeUIError
 
-VERSION=2
+VERSION=3
 PROFILE='ios-emote-rooted-archive-v1'
+AVATAR_PROFILE='ios-avatar-held-scene-archive-v1'
+PROFILES=frozenset((PROFILE,AVATAR_PROFILE))
 LIMIT=4096
 _ACTIVE=ContextVar('original_pure_validation_round',default=None)
+_PROFILE=ContextVar('original_pure_validation_profile',default=None)
 
 
 @contextmanager
 def scope(profile,guard):
-    if profile!=PROFILE or not callable(guard):raise NativeUIError('Historical validation scope is unavailable')
+    if type(profile) is not str or profile not in PROFILES or not callable(guard):raise NativeUIError('Historical validation scope is unavailable')
     if guard() is False:raise NativeUIError('Historical validation inventory changed')
-    token=_ACTIVE.set({})
+    token=_ACTIVE.set({});profile_token=_PROFILE.set(profile)
     try:yield
     finally:
         try:
             if guard() is False:raise NativeUIError('Historical validation inventory changed')
-        finally:_ACTIVE.reset(token)
+        finally:
+            _PROFILE.reset(profile_token);_ACTIVE.reset(token)
 
 
 @contextmanager
@@ -42,7 +46,7 @@ def inherited_scope(profile,guard):
     if _ACTIVE.get() is None:
         with scope(profile,guard):yield
         return
-    if profile!=PROFILE or not callable(guard):raise NativeUIError('Historical validation scope is unavailable')
+    if type(profile) is not str or profile not in PROFILES or profile!=_PROFILE.get() or not callable(guard):raise NativeUIError('Historical validation scope is unavailable')
     if guard() is False:raise NativeUIError('Historical validation inventory changed')
     try:yield
     finally:
