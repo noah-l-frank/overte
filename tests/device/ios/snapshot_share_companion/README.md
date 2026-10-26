@@ -71,5 +71,12 @@ The byte receipt retains `extensionCompletionRequired` and `cleanupRequired`;
 it advertises no complete feature capability. Neither this receiver nor the
 separate Photos resource reader substitutes for the other destination.
 
+The [independent Share archive admission](../SNAPSHOT_SHARE_ADMISSION.md) now
+binds its selected final app and embedded `.appex` byte forests to original
+installed native observations. It uses a separate compile-time identity/clock
+profile and existing bound SDK; source and host models are tested without
+compiling this target. Live extension/system inputs, actual original transfer,
+process absence and retirement remain separate obligations.
+
 The standalone packaging uses CMake's [App Extension embed phase](https://cmake.org/cmake/help/latest/prop_tgt/XCODE_EMBED_type.html)
 and Xcode's explicit [Info.plist build setting](https://developer.apple.com/documentation/xcode/build-settings-reference).

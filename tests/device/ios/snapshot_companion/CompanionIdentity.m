@@ -5,7 +5,9 @@
 #endif
 #import "CompanionIdentity.h"
 #import <CommonCrypto/CommonDigest.h>
+#if !defined(OVT_SNAPSHOT_SHARE_ARCHIVE)
 #import <Photos/Photos.h>
+#endif
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -14,6 +16,20 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#if defined(OVT_SNAPSHOT_SHARE_ARCHIVE)
+static NSString* const OVTIdentityRole=@"share-archive";
+static NSString* const OVTIdentityVersion=@"snapshotShareCompanionObservationVersion";
+static NSString* const OVTIdentityPrefix=@"snapshot.share.companion";
+static NSString* const OVTIdentityFilePrefix=@"snapshot-share-companion";
+static NSArray* OVTIdentityActions(void) {return @[@"identity",@"clock"];}
+#else
+static NSString* const OVTIdentityRole=@"photos";
+static NSString* const OVTIdentityVersion=@"snapshotCompanionObservationVersion";
+static NSString* const OVTIdentityPrefix=@"snapshot.companion";
+static NSString* const OVTIdentityFilePrefix=@"snapshot-companion";
+static NSArray* OVTIdentityActions(void) {return @[@"identity",@"clock",@"photos"];}
+#endif
 
 static NSDictionary* OVTIdentityClock(void) {
     return @{ @"epochMs":@((long long)(NSDate.date.timeIntervalSince1970*1000)),
@@ -85,7 +101,7 @@ static BOOL OVTIdentityName(NSString* path) {
             || ![executable isEqual:original] || !OVTIdentityName(leaf) || [leaf containsString:@"/"]
             || !OVTIdentityMatch(self.bundle,@"\\A[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)+\\z")
             || ![[actual objectForInfoDictionaryKey:@"OVTSnapshotCompanionContractVersion"] isEqual:@1]
-            || ![[actual objectForInfoDictionaryKey:@"OVTSnapshotCompanionRole"] isEqual:@"photos"];
+            || ![[actual objectForInfoDictionaryKey:@"OVTSnapshotCompanionRole"] isEqual:OVTIdentityRole];
         self.rootPath=root;self.executable=leaf;
         if (!self.failed) {dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY,0),^{
             BOOL okay=[self collect];[self.lock lock];self.prepared=okay?OVTIdentityClock():nil;
@@ -124,9 +140,9 @@ static BOOL OVTIdentityName(NSString* path) {
         // visiting all descendants. Intermediate symlinks are never followed.
         if (fstat(child,&opened)!=0 || !OVTIdentitySame(opened,node->original)
                 || fstatat(parent,entry->d_name,&named,AT_SYMLINK_NOFOLLOW)!=0 || !OVTIdentitySame(named,node->original)) {okay=NO;}
-        close(child);if (!okay) {break;}errno=0;
+        if (close(child)!=0) {okay=NO;}if (!okay) {break;}errno=0;
     }
-    if (errno) {okay=NO;}closedir(directory);
+    if (errno) {okay=NO;}if (closedir(directory)!=0) {okay=NO;}
     struct stat directoryAfter;
     return okay && fstat(parent,&directoryAfter)==0 && OVTIdentitySame(directoryBefore,directoryAfter)
         && OVTIdentitySame(directoryAfter,original) && NSProcessInfo.processInfo.systemUptime-began<budget;
@@ -177,10 +193,10 @@ static BOOL OVTIdentityName(NSString* path) {
             okay=okay && count==(uint64_t)node->original.st_size;
             if (okay) {unsigned char hash[CC_SHA256_DIGEST_LENGTH];CC_SHA256_Final(hash,&digest);node.digest=[NSData dataWithBytes:hash length:sizeof(hash)];[self.nodes addObject:node];++*files;}
         }
-        struct stat after;if (fstat(file,&after)!=0 || !OVTIdentitySame(after,node->original)) {okay=NO;}close(file);
+        struct stat after;if (fstat(file,&after)!=0 || !OVTIdentitySame(after,node->original)) {okay=NO;}if (close(file)!=0) {okay=NO;}
         if (!okay) {break;}errno=0;
     }
-    if (errno) {okay=NO;}closedir(directory);return okay;
+    if (errno) {okay=NO;}if (closedir(directory)!=0) {okay=NO;}return okay;
 }
 - (BOOL)collect {
     NSTimeInterval began=NSProcessInfo.processInfo.systemUptime;
@@ -207,18 +223,23 @@ static BOOL OVTIdentityName(NSString* path) {
 }
 - (NSDictionary*)observe:(NSDictionary*)query {
     if (![NSThread isMainThread] || ![query isKindOfClass:NSDictionary.class] || query.count!=2
-            || !OVTIdentityMatch(query[@"nonce"],@"\\Aios-[0-9a-f]{32}\\z") || ![@[@"identity",@"clock",@"photos"] containsObject:query[@"action"]]) {return nil;}
+            || !OVTIdentityMatch(query[@"nonce"],@"\\Aios-[0-9a-f]{32}\\z") || ![OVTIdentityActions() containsObject:query[@"action"]]) {return nil;}
     [self.lock lock];NSString* nonce=query[@"nonce"],*action=query[@"action"];
     if (self.queries.count>=128 || [self.queries containsObject:nonce] || self.sequence>=9007199254740991ULL) {[self.lock unlock];return nil;}
     [self.queries addObject:nonce];NSDictionary* before=OVTIdentityClock();NSTimeInterval began=NSProcessInfo.processInfo.systemUptime;
+    NSInteger permissionBefore=0,permissionAfter=0;
+#if !defined(OVT_SNAPSHOT_SHARE_ARCHIVE)
     BOOL photos=[action isEqual:@"photos"];
-    PHAuthorizationStatus permissionBefore=photos?[PHPhotoLibrary authorizationStatusForAccessLevel:PHAccessLevelReadWrite]:PHAuthorizationStatusNotDetermined;
+    permissionBefore=photos?[PHPhotoLibrary authorizationStatusForAccessLevel:PHAccessLevelReadWrite]:PHAuthorizationStatusNotDetermined;
+#endif
     BOOL identity=[action isEqual:@"identity"];
     if (!self.failed && self.ready && ![self valid:began budget:1.5]) {self.failed=YES;}
-    PHAuthorizationStatus permissionAfter=photos?[PHPhotoLibrary authorizationStatusForAccessLevel:PHAccessLevelReadWrite]:PHAuthorizationStatusNotDetermined;
+#if !defined(OVT_SNAPSHOT_SHARE_ARCHIVE)
+    permissionAfter=photos?[PHPhotoLibrary authorizationStatusForAccessLevel:PHAccessLevelReadWrite]:PHAuthorizationStatusNotDetermined;
+#endif
     NSDictionary* after=OVTIdentityClock();
     if ([after[@"epochMs"] longLongValue]<[before[@"epochMs"] longLongValue] || [after[@"monotonicMs"] longLongValue]<[before[@"monotonicMs"] longLongValue]) {self.failed=YES;}
-    NSMutableDictionary* packet=[@{@"snapshotCompanionObservationVersion":@1,@"action":action,@"nonce":nonce,@"role":@"photos",
+    NSMutableDictionary* packet=[@{OVTIdentityVersion:@1,@"action":action,@"nonce":nonce,@"role":OVTIdentityRole,
         @"instance":self.instance,@"processId":@(getpid()),@"bundleId":self.bundle?:@"",@"sequence":@(++self.sequence),
         @"sourceBirthClock":self.born,@"clockBefore":before,@"clockAfter":after,@"status":self.failed?@"unavailable":identity&&!self.ready?@"pending":@"ready"} mutableCopy];
     if (identity) {packet[@"preparedClock"]=self.ready&&!self.failed?self.prepared:NSNull.null;packet[@"bundle"]=self.ready&&!self.failed?self.identity:@{};}
@@ -229,7 +250,7 @@ static BOOL OVTIdentityName(NSString* path) {
     [self.lock unlock];return packet;
 }
 - (BOOL)persist:(NSDictionary*)packet action:(NSString*)action {
-    if (!packet || ![@[@"identity",@"clock",@"photos"] containsObject:action]) {return NO;}
+    if (!packet || ![OVTIdentityActions() containsObject:action]) {return NO;}
     NSData* bytes=[NSJSONSerialization dataWithJSONObject:packet options:0 error:nil];if (!bytes || bytes.length>262144) {return NO;}
     NSURL* root=[NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
     NSString* temporary=[root.path stringByAppendingPathComponent:[@".companion-" stringByAppendingString:OVTIdentityID()]];
@@ -237,7 +258,7 @@ static BOOL OVTIdentityName(NSString* path) {
     NSUInteger offset=0;BOOL okay=YES;
     while (offset<bytes.length) {ssize_t count=write(output,(const char*)bytes.bytes+offset,bytes.length-offset);if (count<0 && errno==EINTR) {continue;}if (count<=0) {okay=NO;break;}offset+=(NSUInteger)count;}
     if (fsync(output)!=0) {okay=NO;}if (close(output)!=0) {okay=NO;}
-    NSString* destination=[root.path stringByAppendingPathComponent:[NSString stringWithFormat:@"snapshot-companion-%@.json",action]];
+    NSString* destination=[root.path stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-%@.json",OVTIdentityFilePrefix,action]];
     if (okay && rename(temporary.fileSystemRepresentation,destination.fileSystemRepresentation)!=0) {okay=NO;}
     int directory=open(root.path.fileSystemRepresentation,O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
     if (directory<0) {okay=NO;}else {if (fsync(directory)!=0) {okay=NO;}close(directory);}return okay;
@@ -252,15 +273,15 @@ static BOOL OVTIdentityName(NSString* path) {
 - (instancetype)init {
     if ((self=[super init])) {
         [OVTSnapshotCompanionIdentity shared];self.axis=UILayoutConstraintAxisVertical;self.spacing=6;
-        self.nonce=[UITextField new];self.nonce.accessibilityIdentifier=@"snapshot.companion.nonce";self.nonce.placeholder=@"Fresh installed-code inspection nonce";
+        self.nonce=[UITextField new];self.nonce.accessibilityIdentifier=[OVTIdentityPrefix stringByAppendingString:@".nonce"];self.nonce.placeholder=@"Fresh installed-code inspection nonce";
         self.nonce.borderStyle=UITextBorderStyleRoundedRect;self.nonce.autocorrectionType=UITextAutocorrectionTypeNo;self.nonce.autocapitalizationType=UITextAutocapitalizationTypeNone;[self addArrangedSubview:self.nonce];
-        for (NSString* action in @[@"identity",@"clock",@"photos"]) {
-            UIButton* button=[UIButton buttonWithType:UIButtonTypeSystem];button.accessibilityIdentifier=[@"snapshot.companion." stringByAppendingString:action];
+        for (NSString* action in OVTIdentityActions()) {
+            UIButton* button=[UIButton buttonWithType:UIButtonTypeSystem];button.accessibilityIdentifier=[OVTIdentityPrefix stringByAppendingFormat:@".%@",action];
             NSString* title=[action isEqual:@"identity"]?@"Inspect installed companion":[action isEqual:@"photos"]?@"Inspect Photos read permission":@"Inspect independent native clock";
             SEL selector=[action isEqual:@"identity"]?@selector(identity):[action isEqual:@"photos"]?@selector(photos):@selector(clock);
             [button setTitle:title forState:UIControlStateNormal];[button addTarget:self action:selector forControlEvents:UIControlEventTouchUpInside];[self addArrangedSubview:button];
         }
-        self.status=[UILabel new];self.status.accessibilityIdentifier=@"snapshot.companion.status";[self addArrangedSubview:self.status];
+        self.status=[UILabel new];self.status.accessibilityIdentifier=[OVTIdentityPrefix stringByAppendingString:@".status"];[self addArrangedSubview:self.status];
     }return self;
 }
 - (void)inspect:(NSString*)action {

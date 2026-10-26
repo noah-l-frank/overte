@@ -9,6 +9,13 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "snapshot-share-companion-artifact": 1,
+    "snapshot-share-companion-observation": 1,
+    "snapshot-share-companion-code-admission": 1,
+    "snapshot-share-companion-frame": 1,
+    "ios-snapshot-share-code-owner": 1,
+    "ios-snapshot-share-code-frame": 1,
+    "ios-snapshot-share-code-original": 1,
     "ios-lifecycle-fields": 1,
     "ios-lifecycle-field-controls": 1,
     "photos-save-input-owner": 1,

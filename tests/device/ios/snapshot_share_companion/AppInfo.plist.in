@@ -8,4 +8,6 @@
 <key>CFBundleShortVersionString</key><string>1.0</string><key>CFBundleVersion</key><string>1</string>
 <key>LSRequiresIPhoneOS</key><true/><key>UIFileSharingEnabled</key><true/>
 <key>OVTSnapshotShareGroup</key><string>@OVT_SNAPSHOT_SHARE_GROUP@</string>
+<key>OVTSnapshotCompanionContractVersion</key><integer>1</integer>
+<key>OVTSnapshotCompanionRole</key><string>share-archive</string>
 </dict></plist>

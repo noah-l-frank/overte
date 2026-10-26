@@ -23,12 +23,20 @@ class CompanionInspectionPending(NativeUIError):pass
 
 
 class IOSSnapshotCompanionOwner:
+    _namespace=NAMESPACE
+    _schema='iosSnapshotCompanion'
+    _owner_key='iosSnapshotCompanionOwnerVersion'
+    _frame_key='snapshotCompanionFrameVersion'
+    _control_prefix='snapshot.companion'
+    _source=source
+    _artifact_reader=staticmethod(artifact)
+    _artifact_role='photos'
     def __init__(self,runtime,lock,run,phase):
         from ios.adapters.snapshot_companion_runtime import IOSSnapshotCompanionRuntime
-        need(isinstance(runtime,IOSSnapshotCompanionRuntime));self.runtime,self.lock,self.run,self.phase=runtime,lock,identifier(run),phase
+        need(isinstance(runtime,IOSSnapshotCompanionRuntime) and runtime.artifact['role']==self._artifact_role);self.runtime,self.lock,self.run,self.phase=runtime,lock,identifier(run),phase
         self.binding=deepcopy(context(runtime.binding));self.artifact=deepcopy(runtime.artifact);self.os_scope=deepcopy(runtime.initial);self.fixture_url=phase.fixture_url
         self.monotonic,self.epoch_ms,self.sleep=runtime.monotonic,runtime.epoch_ms,runtime.sleep
-        self.store=PrivateFeatureState(runtime.session_state.path.with_name(NAMESPACE+'-owner.json'));self.historical=False
+        self.store=PrivateFeatureState(runtime.session_state.path.with_name(self._namespace+'-owner.json'));self.historical=False
         self.previous=self.store.read();self.state=dict(ticket=None,phaseOriginal=None,queries=[],result=None)
         self.frames=self.frame_store();lock.assert_held()
         self.ui=NativeUI(runtime.client,runtime.session,self.bound,monotonic=self.monotonic,sleep=self.sleep,timeout=1)
@@ -40,17 +48,17 @@ class IOSSnapshotCompanionOwner:
         """Actual archive/original-file reads only; no SDK or native factory."""
         import time
         owner=object.__new__(cls);owner.store,owner.lock,owner.binding,owner.run=store,lock,deepcopy(context(binding)),identifier(run)
-        owner.artifact=artifact(artifact_path,binding['artifactSha256']);owner.fixture_url=fixture_url;owner.historical=True
+        owner.artifact=cls._artifact_reader(artifact_path,binding['artifactSha256']);owner.fixture_url=fixture_url;owner.historical=True
         owner.monotonic=time.monotonic;lock.assert_held();owner.previous=store.read();need(owner.previous is not None)
         owner.os_scope=deepcopy(owner.previous['osScope'])
         owner.frames=owner.frame_store();owner.state=unpack(owner.previous['payload'])[0];owner.state=owner.decode(owner.previous);return owner
 
     def frame_store(self):
         return OriginalFrameStore(self.store.path.parent,self.binding,self.run,'primary',self.bound,self.storage,
-            namespace=NAMESPACE,schema_prefix='iosSnapshotCompanion',monotonic=self.monotonic)
+            namespace=self._namespace,schema_prefix=self._schema,monotonic=self.monotonic)
 
     def envelope(self,state):
-        return dict(iosSnapshotCompanionOwnerVersion=1,binding=self.binding,runId=self.run,fixtureUrl=self.fixture_url,artifact=self.artifact,osScope=self.os_scope,payload=pack([state]))
+        return {self._owner_key:1,'binding':self.binding,'runId':self.run,'fixtureUrl':self.fixture_url,'artifact':self.artifact,'osScope':self.os_scope,'payload':pack([state])}
 
     def bound(self):
         self.lock.assert_held();need(same(self.store.read(),self.previous))
@@ -74,11 +82,11 @@ class IOSSnapshotCompanionOwner:
         need(query['clicked'] and query['frame'] is None);query['wire']=deepcopy(wire);self.save();return True
 
     def frame(self,value,query,previous=None):
-        exact(value,{'snapshotCompanionFrameVersion','raw','osBefore','osAfter','phaseBefore','phaseAfter','hostBefore','hostAfter'})
-        need(type(value['snapshotCompanionFrameVersion']) is int and value['snapshotCompanionFrameVersion']==1
+        exact(value,{self._frame_key,'raw','osBefore','osAfter','phaseBefore','phaseAfter','hostBefore','hostAfter'})
+        need(type(value[self._frame_key]) is int and value[self._frame_key]==1
             and type(value['raw']) is str and len(value['raw'])<=349528)
         raw=base64.b64decode(value['raw'],validate=True);need(1<=len(raw)<=262144);packet=decode(raw.decode('utf-8'),limit=262144)
-        source.original(packet,action=query['action'],nonce=query['nonce'],pid=int(self.binding['processIdentity']),bundle=self.artifact['bundle']['bundleId'],previous=previous)
+        self._source.original(packet,action=query['action'],nonce=query['nonce'],pid=int(self.binding['processIdentity']),bundle=self.artifact['bundle']['bundleId'],previous=previous)
         if packet['action']=='identity' and packet['status']=='ready':
             from ios.adapters.bundle_identity import compare
             compare(packet['bundle'],self.artifact['bundle'])
@@ -109,11 +117,11 @@ class IOSSnapshotCompanionOwner:
             if query['frame'] is not None:paths.add(self.frames.path(self.frames.expand(query['frame'])))
         for index,path in enumerate(self.store.path.parent.iterdir()):
             need(index<8192)
-            if path.name.startswith(NAMESPACE+'-'):need(path in paths)
+            if path.name.startswith(self._namespace+'-'):need(path in paths)
 
     def decode(self,value):
-        exact(value,{'iosSnapshotCompanionOwnerVersion','binding','runId','fixtureUrl','artifact','osScope','payload'});rows=unpack(value['payload'])
-        need(type(value['iosSnapshotCompanionOwnerVersion']) is int and value['iosSnapshotCompanionOwnerVersion']==1 and len(rows)==1 and same(value,self.envelope(rows[0])))
+        exact(value,{self._owner_key,'binding','runId','fixtureUrl','artifact','osScope','payload'});rows=unpack(value['payload'])
+        need(type(value[self._owner_key]) is int and value[self._owner_key]==1 and len(rows)==1 and same(value,self.envelope(rows[0])))
         state=rows[0];exact(state,{'ticket','phaseOriginal','queries','result'});need(type(state['queries']) is list and len(state['queries'])<=96)
         exact(self.os_scope,{'process','source'})
         from ios.adapters.installed_code import source as process_source
@@ -153,20 +161,20 @@ class IOSSnapshotCompanionOwner:
             query=dict(index=len(rows)+1,action=action,nonce='ios-'+uuid.uuid4().hex,field=None,button=None,cleared=False,written=False,clicked=False,wire=None,frame=None)
             rows.append(query);self.save()
         if query['wire'] is None:
-            if query['field'] is None:query['field']=self.ui._resolve(Locator('accessibility id','snapshot.companion.nonce'));self.save()
+            if query['field'] is None:query['field']=self.ui._resolve(Locator('accessibility id',self._control_prefix+'.nonce'));self.save()
             if not query['cleared']:
                 query['cleared']=True;self.save();self.ui._request('POST',query['field']+'/clear',{})
             if not query['written']:
                 need(self.ui._request('GET',query['field']+'/text')=='');query['written']=True;self.save()
                 self.ui._request('POST',query['field']+'/value',dict(text=query['nonce'],value=list(query['nonce'])))
             need(self.ui._request('GET',query['field']+'/text')==query['nonce'])
-            if query['button'] is None:query['button']=self.ui._resolve(Locator('accessibility id','snapshot.companion.'+action));self.save()
+            if query['button'] is None:query['button']=self.ui._resolve(Locator('accessibility id',self._control_prefix+'.'+action));self.save()
             if not query['clicked']:
                 self.active();self.ui._check();query['clicked']=True;self.save();self.ui._request('POST',query['button']+'/click',{})
             before=self.runtime.probe();phase_before=self.active();start=dict(epochMs=self.epoch_ms(),monotonicMs=self.monotonic()*1000)
             raw=self.runtime.original(action);packet=decode(raw.decode('utf-8'),limit=262144);need(packet.get('nonce')==query['nonce'])
             end=dict(epochMs=self.epoch_ms(),monotonicMs=self.monotonic()*1000);after=self.runtime.probe();phase_after=self.active()
-            frame=dict(snapshotCompanionFrameVersion=1,raw=base64.b64encode(raw).decode(),osBefore=before,osAfter=after,
+            frame=dict({self._frame_key:1},raw=base64.b64encode(raw).decode(),osBefore=before,osAfter=after,
                 phaseBefore=phase_before,phaseAfter=phase_after,hostBefore=start,hostAfter=end)
             previous=None if len(rows)==1 else self.original(rows[-2]);self.frame(frame,query,previous)
             if packet['action']=='identity' and packet['status']=='ready':
@@ -185,7 +193,7 @@ class IOSSnapshotCompanionOwner:
             # Retain this exact unqualified group. A later admit starts a new
             # group with new nonces; this historical reply never becomes ready.
             raise CompanionInspectionPending('Retained companion inspection group remains unqualified')
-        return source.admission(identity,before,after,self.artifact['bundle'])
+        return self._source.admission(identity,before,after,self.artifact['bundle'])
 
     @operation
     def admit(self,ticket):

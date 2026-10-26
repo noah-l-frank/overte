@@ -21,8 +21,11 @@ are bounded ASCII, the same narrower naming profile in native and archive
 readers. Links, competing apps, ambiguous names and changed archive identity
 fail closed.
 
-`CompanionIdentity.m` is compiled only into the explicitly selected standalone
-E2E Photos target. The actual `NSBundle` root and actual process executable
+`CompanionIdentity.m` defaults to the explicitly selected standalone E2E Photos
+target. Its separately selected compile-time Share archive profile has distinct
+roles, DTO keys, controls and filenames, and no Photos permission dependency;
+see [Share admission](SNAPSHOT_SHARE_ADMISSION.md). No runtime-selected profile
+or source translation is accepted. The actual `NSBundle` root and actual process executable
 must agree. A background native collector hashes every real regular file,
 retaining actual kernel inode/size/mtime/ctime records and directory membership
 guards. Later reads perform a complete stat-only recursive census using real

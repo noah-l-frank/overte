@@ -11,6 +11,7 @@ import stat
 import time
 from adapters.native_clock_join import digest
 from adapters.native_feature_observation import need
+from adapters.script_feature.history import same
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUI
 from adapters.script_feature.lock import ScriptSourceLock
@@ -20,6 +21,7 @@ from ios.adapters.snapshot_companion_artifact import artifact
 
 
 class IOSSnapshotCompanionRuntime:
+    _artifact_reader=staticmethod(artifact)
     def __init__(self,client,session_state,target,scope,artifact_path,guard,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,sleep=time.sleep):
         need(isinstance(session_state,PrivateFeatureState) and type(target) is dict and target.get('platform')=='ios' and target.get('physical') is True
             and all(callable(fn) for fn in (guard,epoch_ms,monotonic,sleep)) and callable(getattr(client,'call',None)) and callable(getattr(client,'execute',None)))
@@ -28,7 +30,7 @@ class IOSSnapshotCompanionRuntime:
         need(type(scope) is dict and set(scope)=={'sourceRevision','artifactSha256','sessionId','generation','targetFingerprint'})
         context(dict(scope,processIdentity='1'));need(digest(target)==scope['targetFingerprint'])
         self.scope=deepcopy(scope);self.artifact_path=Path(artifact_path);self.artifact_pin=self.pin_artifact()
-        self.artifact=artifact(self.artifact_path,scope['artifactSha256']);need(self.pin_artifact()==self.artifact_pin)
+        self.artifact=self._artifact_reader(self.artifact_path,scope['artifactSha256']);need(self.pin_artifact()==self.artifact_pin)
         need(target.get('appId')==self.artifact['bundle']['bundleId']);self.session=scope['sessionId'];self.original_session=session_state.read()
         need(type(self.original_session) is dict and self.original_session.get('sessionId')==self.session
             and type(self.original_session.get('generation')) is int and self.original_session.get('generation')==scope['generation'] and self.original_session.get('targetFingerprint')==scope['targetFingerprint'])
@@ -48,14 +50,14 @@ class IOSSnapshotCompanionRuntime:
 
     def probe(self):
         need(self.guard() is not False and self.pin_artifact()==self.artifact_pin
-            and self.session_state.read()==self.original_session and digest(self.target)==self.scope['targetFingerprint'])
+            and same(self.session_state.read(),self.original_session) and digest(self.target)==self.scope['targetFingerprint'])
         query=dict(bundleId=self.target['appId'])
         before=deepcopy(process_source(self.client.execute(self.session,'mobile: overteProcessSourceInfo',query)))
         actual=self.client.execute(self.session,'mobile: overteProcessInfo',query)
         need(type(actual) is dict and set(actual)=={'bundleId','pid','foreground'} and actual['bundleId']==self.target['appId']
             and type(actual['pid']) is int and 0<actual['pid']<=2147483647 and actual['foreground'] is True)
         after=deepcopy(process_source(self.client.execute(self.session,'mobile: overteProcessSourceInfo',query)))
-        need(before==after and self.guard() is not False and self.pin_artifact()==self.artifact_pin and self.session_state.read()==self.original_session)
+        need(before==after and self.guard() is not False and self.pin_artifact()==self.artifact_pin and same(self.session_state.read(),self.original_session))
         value=dict(process=deepcopy(actual),source=after)
         if hasattr(self,'initial'):need(value==self.initial)
         return value

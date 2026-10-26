@@ -43,8 +43,12 @@ retirement join. One absence still requires the outer quiet window.
 
 The app's Documents directory contains:
 
-- `snapshot-photos-<run>/photos-original.json`: version-1 native original ledger.
+- `snapshot-photos-<run>/photos-original.json`: version-2 native original ledger
+  with the actual completed file's stat revision; literal version 1 stays readable.
 - `snapshot-photos-<run>/original.bytes`: the unmodified resource stream.
+- `snapshot-photos-chunk.json`: one fresh bounded unchanged original-byte chunk.
+- `snapshot-photos-retire.json`: actual conditional file/journal/run retirement
+  and later fresh absence observations.
 
 Metadata uses private atomic replacement with file and directory synchronization.
 The bytes file is exclusive and synchronized before completion. A later native
@@ -73,10 +77,14 @@ The standalone CMake entry requires explicit `CMAKE_SYSTEM_NAME=iOS`,
 install an app, alter the client or start any laboratory. CMake configuration,
 native compilation and device execution have deliberately not been performed.
 
-Whole Snapshot integration still needs explicit installed-code admission for
-the companion, ordinary candidate-bound UIKit input and original AFC transfer,
-the normal owned-asset deletion route and its quiet window, a separate Share recipient,
-the client's OS permission recovery and paired cleanup. The Photos result
+The [internal Photos owner](../SNAPSHOT_PHOTOS_OWNER.md) now joins independent
+installed-code admission, existing two-app scopes, normal Save and companion
+UIKit inputs, original AFC chunks, exact capture bytes, owned-asset deletion
+and native/host quiet file retirement. Its production factory and host models
+are tested; native and device qualification remain open. Whole Snapshot still
+needs a separate Share recipient integration, authenticated upload receipts,
+the client's actual OS permission/confirmation recovery, independent Actor and
+paired final cleanup. The Photos result
 retains `cleanupRequired: true`; it cannot advertise a complete feature or
 release ownership. An actual Share recipient cannot be substituted with this
 Photos resource reader.
