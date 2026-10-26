@@ -1,4 +1,4 @@
-# Original normal Chat controls v1
+# Original normal Chat controls
 
 `NormalChatControls.h`, `NormalControlUi::Surface::Chat` and `TokenChatUI` add an
 input component for the actual mobile `armored_chat.qml` page. Native code is
@@ -7,6 +7,33 @@ files, and qualify test logic only. Platform command/transport hooks, independen
 read original storage/UI history, actual OS/VR keyboard observations, independent
 peer stimuli/delivery, publisher and complete-run cleanup still need composition.
 No complete `feature.chat.*` capability is enabled by these helpers.
+
+The iOS dedicated observer now writes version two and the shared/iOS readers
+accept literal one and two. Phone/Pico native writers retain version one.
+Version two resolves the existing Settings-tab MouseArea by its actual QML id
+and the existing Erase button inside its actual labeled settings row. No QML
+object name, handler, setter or product behavior changes. The same native
+geometry/token/pointer path delivers both controls. The iOS metadata writer in
+`ios/ui/IOSNormalUiInput.cpp` and the generic iOS test survey agree on version
+two; only the gated observer metadata changes.
+
+`TokenChatUI.settings()` and `erase_history()` require version two, retain
+durable primitive intents and check actual consumed counters/page/model
+effects. An uncertain return is not retried inside either recipe. Callers
+still require their own once-issued operation journal across recovery. Literal
+one cannot carry either new control; cross-version original references are
+rejected even when other scope fields agree. Erase's empty visible models do
+not prove persisted Settings restoration, callback drainage or whole cleanup.
+The same [iOS Chat owner](../ios/CHAT_MESSAGE_OWNER.md) still retains all source
+and session responsibility; its exact-history restoration remains separate.
+
+The explicit 28-case version-two settings/iOS transport and legacy token/input
+selection passes in 0.740 seconds. Qt/native controls are declared models;
+the original Python HTTP/token codecs and private input paths execute. Native
+source changes remain uncompiled. One new fixture first included a navigation
+row field absent from the existing iOS envelope and failed before input; only
+that new fixture's original envelope was corrected. No source guard or input
+deadline was relaxed.
 
 ## Source and input
 
@@ -45,7 +72,7 @@ input effect, never message acceptance/rendering/delivery.
 
 ## Snapshot and original model reads
 
-The normalized input snapshot is exactly:
+The version-one normalized input snapshot is exactly:
 
 ```
 {chatControlsVersion:1, open:<boolean>, ready:<boolean>,

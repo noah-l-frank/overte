@@ -615,7 +615,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     result["emoteInventory"]=emoteInventory.observation(inventoryComplete);
     result["emoteSourceSequence"]=static_cast<double>(++_emoteObservationSequence);
     result["createControlsVersion"]=2;result["createGeneration"]=_loginGeneration;
-    result["chatControlsVersion"]=1;result["chatGeneration"]=_loginGeneration;
+    result["chatControlsVersion"]=2;result["chatGeneration"]=_loginGeneration;
     result["fileControlsVersion"] = 1;
     if (audioContext.valid) { result["audioControlsVersion"] = 1; }
     if (graphicsContext.valid) { result["graphicsControlsVersion"] = 1; }

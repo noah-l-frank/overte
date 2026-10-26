@@ -7,10 +7,10 @@ from adapters.token_chat_ui import control_id,snapshot
 
 
 def project(original):
-    need(type(original.get('chatControlsVersion')) is int and original['chatControlsVersion']==1)
+    need(type(original.get('chatControlsVersion')) is int and original['chatControlsVersion'] in (1,2))
     rows=deepcopy([row for row in original['controls'] if control_id(row['id'])])
     for row in rows:row.pop('frame') # NativeInput validated actual original geometry.
-    return snapshot(dict(chatControlsVersion=1,open=original['tabletShown'],ready=original['ready'],
+    return snapshot(dict(chatControlsVersion=original['chatControlsVersion'],open=original['tabletShown'],ready=original['ready'],
         scope=dict(instance=original['instance'],generation=original['chatGeneration'],sequence=original['lastSequence'],
                    elapsedMs=original['elapsedMs'],processId=original['processId']),controls=rows))
 

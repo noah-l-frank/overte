@@ -185,7 +185,7 @@ def observation(value, pid, now_ms=None):
             raise NativeUIError('Native iOS Places controls lack their original source sequence')
         fields |= {'placesControlsVersion','placesSourceSequence'}
     if type(value) is dict and 'chatControlsVersion' in value:
-        if type(value['chatControlsVersion']) is not int or value['chatControlsVersion']!=1 or not _uuid(value.get('chatGeneration')):
+        if type(value['chatControlsVersion']) is not int or value['chatControlsVersion'] not in (1,2) or not _uuid(value.get('chatGeneration')):
             raise NativeUIError('Native iOS Chat control version/context is invalid')
         fields |= {'chatControlsVersion','chatGeneration'}
     if type(value) is dict and 'avatarControlsVersion' in value:
@@ -283,8 +283,8 @@ def observation(value, pid, now_ms=None):
             if value.get('emoteControlsVersion') not in (1,2):raise NativeUIError('Native iOS Emote source is missing')
             original=dict(control);original.pop('frame',None);emote_metadata(original);fields=set(control)
         elif is_chat:
-            if value.get('chatControlsVersion')!=1:raise NativeUIError('Native iOS Chat controls lack their source extension')
-            original=dict(control);original.pop('frame',None);chat_metadata(original);fields=set(control)
+            if value.get('chatControlsVersion') not in (1,2):raise NativeUIError('Native iOS Chat controls lack their source extension')
+            original=dict(control);original.pop('frame',None);chat_metadata(original,version=value['chatControlsVersion']);fields=set(control)
         elif is_create:
             if value.get('createControlsVersion') not in (1,2):raise NativeUIError('Native iOS Create controls lack their source extension')
             if value['createControlsVersion']==1 and not legacy_create_control(control['id']):

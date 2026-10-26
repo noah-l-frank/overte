@@ -79,7 +79,21 @@ inline QString chatControlId(QQuickItem* item) {
     if (item->inherits("QQuickMouseArea") && item->parentItem()) {
         if (loginQmlId(item->parentItem(),"local_page")) { return "chat.local"; }
         if (loginQmlId(item->parentItem(),"domain_page")) { return "chat.domain"; }
+#if defined(Q_OS_IOS)
+        if (loginQmlId(item->parentItem(),"settings_page")) { return "chat.settings"; }
+#endif
     }
+#if defined(Q_OS_IOS)
+    if (page->property("pageVal").toString()=="settings" && item->property("text").toString()=="Erase"
+            && item->metaObject()->indexOfSignal("clicked()")>=0 && item->parentItem()) {
+        // Resolve the existing button in its actual settings row. No new QML
+        // object name, handler invocation or history setter is introduced.
+        for (auto sibling:item->parentItem()->childItems()) {
+            if (sibling!=item && sibling->inherits("QQuickText")
+                    && sibling->property("text").toString()=="Erase chat history") { return "chat.erase"; }
+        }
+    }
+#endif
     return {};
 }
 inline void appendChatControlObservation(QJsonObject& row,QQuickItem* item,const QString& id) {

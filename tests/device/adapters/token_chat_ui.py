@@ -9,11 +9,12 @@ from adapters.normal_ui import NativeUIError
 from adapters.token_create_ui import nonce,navigation,scope
 from feature_journeys.fixtures import context
 
-VERSION=1
+VERSION=2
 FIXED={'chat.page','chat.entry','chat.input','chat.send','chat.close','chat.local','chat.domain'}
+EXTENDED={'chat.settings','chat.erase'}
 
 
-def control_id(value):return type(value) is str and (value in FIXED or navigation(value))
+def control_id(value):return type(value) is str and (value in FIXED|EXTENDED or navigation(value))
 
 
 def text(value):
@@ -21,10 +22,12 @@ def text(value):
     return value
 
 
-def metadata(value):
+def metadata(value,*,version=VERSION):
+    need(type(version) is int and version in (1,2))
     need(type(value) is dict and control_id(value.get('id')) and nonce(value.get('token'))
          and type(value.get('enabled')) is bool)
     base={'id','token','enabled'};identifier=value['id']
+    need(version>=2 or identifier not in EXTENDED)
     if navigation(identifier):
         exact(value,base|({'focused'} if 'focused' in value else set())|({'inputReady'} if 'inputReady' in value else set()))
         need(all(type(value[k]) is bool for k in set(value)-base));return value
@@ -43,18 +46,19 @@ def metadata(value):
 
 def snapshot(value):
     exact(value,{'chatControlsVersion','open','ready','scope','controls'})
-    need(type(value['chatControlsVersion']) is int and value['chatControlsVersion']==VERSION
+    need(type(value['chatControlsVersion']) is int and value['chatControlsVersion'] in (1,2)
          and all(type(value[k]) is bool for k in ('open','ready')) and type(value['controls']) is list and len(value['controls'])<=64)
     scope(value['scope']);ids=set();tokens=set()
     for row in value['controls']:
-        metadata(row);need(row['id'] not in ids and row['token'] not in tokens);ids.add(row['id']);tokens.add(row['token'])
+        metadata(row,version=value['chatControlsVersion']);need(row['id'] not in ids and row['token'] not in tokens);ids.add(row['id']);tokens.add(row['token'])
     need(value['open'] or not value['controls'])
     return value
 
 
 def same_reference(original,current,identifier):
     snapshot(original);snapshot(current)
-    need(all(original['scope'][k]==current['scope'][k] for k in ('instance','generation','sequence','processId'))
+    need(original['chatControlsVersion']==current['chatControlsVersion']
+         and all(original['scope'][k]==current['scope'][k] for k in ('instance','generation','sequence','processId'))
          and 0<=current['scope']['elapsedMs']-original['scope']['elapsedMs']<=5000)
     old=[r for r in original['controls'] if r['id']==identifier];new=[r for r in current['controls'] if r['id']==identifier]
     need(len(old)==len(new)==1 and old[0]==new[0])
@@ -148,6 +152,17 @@ class TokenChatUI:
         if self.page(self.capture())['channel']==value:return
         self.input('chat.'+value)
         self.wait(lambda v:self.page(v)['channel']==value)
+
+    def settings(self):
+        current=self.capture();need(current['chatControlsVersion']==2)
+        if self.page(current)['channel']=='settings':return
+        self.input('chat.settings');self.wait(lambda v:self.page(v)['channel']=='settings')
+
+    def erase_history(self):
+        current=self.capture();need(current['chatControlsVersion']==2 and self.page(current)['channel']=='settings')
+        self.input('chat.erase')
+        self.wait(lambda v:all(self.page(v)[channel+'RowCount']==0 for channel in ('local','domain')))
+        # Actual Settings restoration and callback/source quiet remain separate.
 
     def send(self,*,enter=False):
         need(type(enter) is bool);current=self.capture();self.page(current)

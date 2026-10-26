@@ -732,7 +732,7 @@
     "world-render-receipt-cleanup": {"current": 1, "reads": [1]},
     "native-graphics-controls": {"current": 1, "reads": [1]},
     "native-private-login-input": {"current": 2, "reads": [2]},
-    "native-chat-controls": {"current": 1, "reads": [1]},
+    "native-chat-controls": {"current": 2, "reads": [1, 2]},
     "native-create-controls": {"current": 1, "reads": [1]},
     "native-login-controls": {"current": 2, "reads": [2]},
     "native-audio-controls": {"current": 1, "reads": [1]},
