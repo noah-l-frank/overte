@@ -6,6 +6,11 @@ runner. Whole Assets capability, the shared dispatcher, model/texture consumer
 proofs, peer rendering, bake-worker/meta/output qualification and domain-fixture
 ownership remain closed.
 
+The separate [canonical runtime connection](ASSETS_FACTORY_RUNTIME.md) now
+supplies existing-session factories, final candidate/clock/AFC transport guards
+and original-error-preserving read-lease cleanup. Its host checks do not enable
+the still-missing ordinary upload or whole Assets journey.
+
 `networking` receives a private dedicated definition only when the existing
 `IOS`, `OVERTE_E2E_FEATURE_TESTS`, and `OVERTE_IOS_E2E_TEST_BUILD` configuration
 is active. Native hooks and the reader also require the actual `--testScript`

@@ -1,7 +1,7 @@
 """One twenty-second host budget across a narrow Assets owner call.
 
 This host clock limits work only and supplies no product/native timestamp.
-The full feature runtime and candidate entry point remain unimplemented.
+The whole feature coordinator and public capability admission remain absent.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0

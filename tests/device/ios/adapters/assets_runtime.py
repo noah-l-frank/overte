@@ -29,15 +29,16 @@ class AssetsNativeInput(NativeInput):
 
     def _request(self,operation,native=None,*,before_send=None):
         def final_guard():
-            check();self.assets_guard()
+            check();need(self.assets_guard() is not False)
             if before_send is not None and before_send() is False:return False
-            check();self.assets_guard()
+            check();need(self.assets_guard() is not False)
         return super()._request(operation,native,before_send=final_guard)
 
 
 class IOSAssetsRuntime(IOSScriptRuntime):
     def __init__(self,adapter,*,monotonic=time.monotonic):
         super().__init__(adapter);need(callable(monotonic));self.monotonic=monotonic
+        self.cleanup_errors=[] # Private diagnostics only; never feature facts.
 
     def _assets_store(self,selector,run,role,kind):
         identifier(run);need(role in ('primary','actor') and kind in ('files','picker','replies'))
@@ -48,7 +49,7 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         need(isinstance(lock,ScriptSourceLock) and lock.path==self.state_path(selector).with_name('script-feature-sources.lock'));lock.assert_held()
         check();sources=super()._sources(selector);check();original_check=sources['check']
         def bound():
-            check();lock.assert_held();original_check();check()
+            check();lock.assert_held();need(original_check() is not False);check()
         def guarded_process():bound();return sources['process']()
         observer=sources['observer'];clock=sources['clock_source'];clock_transport=getattr(clock.send,'__self__',None)
         need(isinstance(observer,FeatureObservation) and isinstance(clock_transport,FeatureObservation))
@@ -79,4 +80,13 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         bundle(run,ticket,fixture_url,resource);components=self._assets_components(selector,run,role,fixture_url,lock);owner=components['owned_replies']
         if owner.state is None:owner.reserve(ticket,resource,namespace)
         need(owner.state['phase']=='open' and owner.state['ticket']==ticket and owner.state['resource']==resource and owner.state['namespace']==namespace)
-        result=owner.observe_bundle();owner.close();components['check']();return result
+        try:result=owner.observe_bundle()
+        except BaseException:
+            # A failed/uncertain read owns its exact issued job. Observe and
+            # retire that lease through the ordinary owner, never repeat its
+            # start or cancel. A secondary failure cannot hide the primary
+            # exception or erase the durable unresolved responsibility.
+            try:owner.close()
+            except BaseException as cleanup_error:self.cleanup_errors.append(cleanup_error)
+            raise
+        owner.close();components['check']();return result
