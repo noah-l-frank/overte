@@ -6,16 +6,20 @@ cleanup evidence. This module never publishes or starts a live SDK.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import hashlib
+import os
 from adapters.native_clock_join import digest
 from adapters.native_feature_observation import exact,integer,need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.original_frame_store import BLOCK
-from adapters.script_feature.history import same
+from adapters.original_file_reads import active as original_read_active
+from adapters.script_feature.history import same,canonical
 from feature_journeys.navigation_scene import resource_root
 from ios.adapters import avatar_state,avatar_renderers,avatar_bookmarks,avatar_entities
 from ios.adapters.avatar_peer import state_original
 from ios.adapters.avatar_sources import IOSAvatarSources
 from ios.adapters.avatar_source_recovery import IOSAvatarSourceRecovery
+from ios.adapters.avatar_record_cache import AvatarRecordCache
 
 VERSION=1
 
@@ -45,6 +49,51 @@ def frame(sources,index):
     state_original(value,sources.binding);return value
 
 
+class _AppearanceFrames:
+    """One synchronous appearance traversal, caching raw manifest indexes only.
+
+    Every actual frame still reopens its original inode and validates its byte
+    hash and typed source. No native clock, quiet/effect verdict or acquisition
+    result is reused by this local reader.
+    """
+    def __init__(self,sources):
+        need(isinstance(sources,IOSAvatarSources) and sources.historical)
+        self.sources=sources;self.cache=AvatarRecordCache();self.missing={};self.references={}
+
+    def manifest(self,reference):
+        source=self.sources;source.lock.assert_held();store=source.originals
+        need(same(store.binding,source.binding) and store.run==source.run and store.role==source.role and store.root==source.root)
+        key=dict(binding=source.binding,runId=source.run,role=source.role,root=str(source.root),store=str(source.store.path),
+            lock=id(source.lock),namespace=store.namespace,schemaPrefix=store.schema_prefix,kind=store.kind,reference=reference)
+        name=canonical(key);self.references[name]=deepcopy(reference)
+        def decode():
+            entries=store.manifest(reference)
+            body={store.key('ManifestVersion'):1,'kind':store.kind,'binding':store.binding,'runId':store.run,
+                'role':store.role,'block':reference['block'],'entries':entries}
+            missing=set()
+            # Legacy prefix snapshots may genuinely be absent. Their exact
+            # deterministic paths must stay absent during this reuse scope.
+            for count in range(1,len(entries)):
+                raw=canonical(dict(body,entries=entries[:count]))
+                prior=dict(block=reference['block'],count=count,sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw))
+                path=store.manifest_path(prior)
+                if not os.path.lexists(path):missing.add(path)
+            self.missing[name]=missing;return entries
+        started=store.now();store.bound(started)
+        result=self.cache.read(key,decode,absent=lambda:self.missing[name])
+        store.bound(started);return result
+
+    def __call__(self,index):
+        source=self.sources;source.lock.assert_held();need(integer(index,1,len(source.frames)))
+        reference=source.state['manifests'][(index-1)//BLOCK];entries=self.manifest(reference)
+        value=source.originals.read(source.originals.expand(entries[(index-1)%BLOCK]))
+        need(same(value,source.frames[index-1]) and value.get('avatarSourceGroupVersion')==2)
+        state_original(value,source.binding);return value
+
+    def verify(self):
+        for reference in tuple(self.references.values()):self.manifest(reference)
+
+
 def aliases(status,fixture_url,original_url):
     """Controlled input metadata labels only actual observed native URLs."""
     result={original_url:'original'}
@@ -71,7 +120,12 @@ def appearance(sources,baseline_index,current_index,*,fixture_url,expected_code)
     separately reviewed submitted VM code, never primary action metadata.
     Source/renderer/file originals establish effects and complete absence.
     """
-    need(integer(baseline_index,1,current_index));baseline=frame(sources,baseline_index);current=frame(sources,current_index)
+    need(integer(baseline_index,1,current_index))
+    # A plain appearance read does not enumerate old manifest-prefix files.
+    # Keep that existing path; reuse is useful only where a complete original
+    # membership collector already requires those same prefix reads.
+    read=_AppearanceFrames(sources) if original_read_active() else lambda index:frame(sources,index)
+    baseline=read(baseline_index);current=read(current_index)
     resource_root(fixture_url,sources.run);b,bc=state_original(baseline,sources.binding);s,sc=state_original(current,sources.binding)
     old,now=b['source'],s['source'];need(b['runId']==s['runId']==sources.run and old['sessionId']==now['sessionId'])
     initial=baseline['phaseBefore'];need(len(initial['activations'])==1 and initial['activations'][0]['stimulus']==dict(verb='baseline',inputs={}))
@@ -114,7 +168,7 @@ def appearance(sources,baseline_index,current_index,*,fixture_url,expected_code)
     need({key:value for key,value in current_rows.items() if key!=name}==base_rows)
     saved=None
     for index in range(baseline_index,current_index+1):
-        item=frame(sources,index)
+        item=read(index)
         source=item['originals']['state']['source'];rows=source['bookmarks']['entries']
         if name not in rows:continue
         bookmark_file(source,allow_missing=False)
@@ -127,5 +181,6 @@ def appearance(sources,baseline_index,current_index,*,fixture_url,expected_code)
     if name in current_rows:need(saved is not None and same(current_rows[name],saved))
     state=dict(requestedAvatar=requested,avatar=avatar,modelLoaded=loaded,loadFailed=failed,scale=now['modelScale'],
         wearable=any(row['present'] for row in owned.values()),bookmarked=name in current_rows)
+    if isinstance(read,_AppearanceFrames):read.verify()
     return dict(iosAvatarAppearanceVersion=VERSION,state=state,sessionId=now['sessionId'],ownedWearables=owned,bookmarkEntry=saved,
         baselineSha256=digest(baseline),sourceSha256=digest(current),sourceIndex=current_index,baselineIndex=baseline_index)
