@@ -536,3 +536,32 @@ original chunk, and a rewritten chunk is rejected as well. No query is resent,
 no native authority is supplied, and no End journal is created. The retained
 log is `finish-scope-final.log` in the private field-revalidation directory.
 No production cache, limit, codec or capability changed for these cases.
+
+## Smaller SDK end and interrupted local CAS
+
+Four additional existing-SessionEnd component cases pass in 2.240s with actual
+loopback HTTP and local metadata deletion. After original GET/present,
+once-DELETE and independent GET/404, a lost return after SDK metadata unlink
+leaves the old installed owner intact; reconstruction finishes only its exact
+CAS. A lost return after installed metadata unlink adopts that actual absence.
+Neither recovery sends another HTTP request, OS query, Stop or DELETE, and
+the original query/OS history and installed/SDK originals remain verbatim.
+Repeated completed reconstruction is likewise read-only.
+
+A foreign installed scope inserted after the original SDK CAS remains byte-
+and inode-identical and prevents completion. Its failed recovery does not
+rewrite the saved session-end journal or recreate the SDK. Actor is rejected
+before preparing a session-end journal or making any SDK/OS request.
+
+These cases use the existing SDK component fixture's explicitly modeled
+earlier complete Tablet/OS authority. The real SDK HTTP, CAS/unlink,
+reconstruction and existing decoder run; no successful paired live seal,
+worker retirement or native/device proof is supplied by the fixture. No
+production change was needed. `sdk-cas-recovery.log` is retained in the private
+field-revalidation directory. Full ordinary journey and terminal source
+qualification remain open, with the overall count unchanged at 5/14.
+
+The new SDK and canonical test modules import their existing TestCase fixtures
+as modules, avoiding incidental duplicate exports of those older test classes.
+The final explicit selection of their nine own cases passes in 2.747s; no test
+discovery was run. Its log is `sdk-cas-fixture-final.log`.

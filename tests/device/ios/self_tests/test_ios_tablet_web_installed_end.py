@@ -15,14 +15,14 @@ from feature_journeys.witness import Client
 from ios.adapters.tablet_web_canonical_end import verify
 from ios.adapters.tablet_web_feature import IOSTabletWebFeature
 from ios.adapters.tablet_web_runtime import IOSTabletWebRuntime
-from ios.self_tests.test_ios_installed_adapter import InstalledAdapterTests
+from ios.self_tests import test_ios_installed_adapter as installed_fixture
 from ios.self_tests.test_ios_tablet_web_packets import BINDING
 from self_tests.test_feature_terminal import Boundary
 
 
 class TabletInstalledEndTests(unittest.TestCase):
     def setUp(self):
-        self.f=InstalledAdapterTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
+        self.f=installed_fixture.InstalledAdapterTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
 
     def test_unresolved_tablet_original_blocks_actual_canonical_sdk_fallback(self):
         path=self.f.root/'tabletweb-actual-unresolved.json'
