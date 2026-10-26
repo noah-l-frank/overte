@@ -106,12 +106,7 @@ class Boundary:
         self.tick();ui=self.ui();controls=[]
         for index,item in enumerate(self.host_state['controls']):
             identifier=item['id'];role='menu' if identifier in ('assets.menu','assets.open') else 'picker' if identifier.startswith('asset-file.') else 'page'
-            metadata=dict(assetControlVersion=1,role=role,rootId=self.menu if role=='menu' else self.picker if role=='picker' else self.page,
-                windowId=self.window,componentSource='qrc:'+SUFFIXES[role],controlId=identifier)
-            if role=='menu':metadata.update(sourceType=2 if identifier=='assets.menu' else 1,
-                labelSha256=hashlib.sha256(('Edit' if identifier=='assets.menu' else 'Asset Browser').encode()).hexdigest())
-            else:metadata.update(ownerRootId=self.page,rowUrl=item.get('rowUrl',''),fieldText=item.get('fieldText',''),
-                navigationSource='qrc:/hifi/tablet/TabletNavigation.qml' if identifier=='assets.home' else '')
+            metadata=self.control_metadata(identifier,item,role)
             signature=json.dumps(metadata,sort_keys=True)
             old=self.tokens.get(identifier)
             if old is None or old[0]!=signature:self.tokens[identifier]=(signature,uid())
@@ -119,8 +114,19 @@ class Boundary:
                 frame=dict(x=0,y=index*48,width=100,height=48),assetControl=metadata))
         value=dict(schemaVersion=1,instance=self.normal_instance,frameSpace='qt-window-logical',processId=42,sampleEpochMs=self.clock(),
             elapsedMs=self.elapsed,lastSequence=self.sequence_input,tabletShown=self.host_state['pageAlive'],ready=True,controls=controls,
-            assetControlsVersion=1,assetInventory=ui)
+            assetControlsVersion=1,assetInventory=ui,**self.extensions(ui))
         return observation(value,42,self.clock())
+
+    def control_metadata(self,identifier,item,role):
+        metadata=dict(assetControlVersion=1,role=role,rootId=self.menu if role=='menu' else self.picker if role=='picker' else self.page,
+            windowId=self.window,componentSource='qrc:'+SUFFIXES[role],controlId=identifier)
+        if role=='menu':metadata.update(sourceType=2 if identifier=='assets.menu' else 1,
+            labelSha256=hashlib.sha256(('Edit' if identifier=='assets.menu' else 'Asset Browser').encode()).hexdigest())
+        else:metadata.update(ownerRootId=self.page,rowUrl=item.get('rowUrl',''),fieldText=item.get('fieldText',''),
+            navigationSource='qrc:/hifi/tablet/TabletNavigation.qml' if identifier=='assets.home' else '')
+        return metadata
+
+    def extensions(self,ui):return {}
 
     def native_input(self):
         boundary=self
@@ -128,13 +134,18 @@ class Boundary:
             def __init__(self):
                 self.monotonic=boundary.monotonic;self.sleep=boundary.sleep;self.native_epoch_ms=boundary.clock
                 self.process=dict(pid=42);self.instance=boundary.normal_instance;self.last_receipt=None
-            def capture(self):return boundary.normal()
+            def capture(self):
+                query=dict(schemaVersion=1,commandId='ios-'+uuid.uuid4().hex,action='normal-ui-input',operation='observe')
+                intent=getattr(self,'observe_intent',None)
+                if intent is not None:intent(deepcopy(query))
+                value=boundary.normal();self.last_receipt=dict(schemaVersion=1,commandId=query['commandId'],observation=deepcopy(value));return value
             def deliver(self,command,*,before_send=None):
                 if before_send is not None:need(before_send() is not False)
                 need(command['sequence']==boundary.sequence_input+1 and command['instance']==boundary.normal_instance)
                 controls=boundary.normal()['controls'];targets=[row for row in controls if row['token']==command['fieldToken']];need(len(targets)==1)
                 boundary.sequence_input=command['sequence'];boundary.inputs.append(deepcopy(command))
-                result=boundary.exchange(dict(op='input',id=targets[0]['id'],action=command['operation'],**({'text':command['text']} if 'text' in command else {})))
+                result=boundary.exchange(dict(op='input',id=targets[0]['id'],action=command['operation'],
+                    **{key:command[key] for key in ('text','index') if key in command}))
                 boundary.tick()
                 if result.get('lost'):raise NativeUIError('Modeled ordinary input return was lost')
                 self.last_receipt=dict(schemaVersion=1,commandId='ios-'+uuid.uuid4().hex,status=dict(schemaVersion=1,commandId=command['commandId'],

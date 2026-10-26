@@ -6,6 +6,11 @@ shared scenario dispatcher, independent publisher, AssetServer/oven worker
 inventory, upload/mapping/hash/bake/import result, or full cleanup qualification.
 No native source in this packet has been compiled or exercised on iOS.
 
+The later [ordinary upload successor](ASSETS_NORMAL_UPLOAD.md) reuses picker
+preparation while retaining a separate WAL for successful review/upload and
+client cleanup. It does not rewrite this negative-path owner's phase or supply
+whole Assets/server cleanup qualification.
+
 The dedicated native gate requires `OVERTE_E2E_FEATURE_TESTS`, `Q_OS_IOS`,
 `OVERTE_IOS_E2E_TEST_BUILD`, and the actual `--testScript` process. Interface's
 existing private dedicated definition covers both its `AssetMappings` source

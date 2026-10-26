@@ -8,8 +8,9 @@ ownership remain closed.
 
 The separate [canonical runtime connection](ASSETS_FACTORY_RUNTIME.md) now
 supplies existing-session factories, final candidate/clock/AFC transport guards
-and original-error-preserving read-lease cleanup. Its host checks do not enable
-the still-missing ordinary upload or whole Assets journey.
+and original-error-preserving read-lease cleanup. The separate
+[ordinary upload vertical](ASSETS_NORMAL_UPLOAD.md) now connects rendered bundle
+input and client holders to these reads. Neither packet enables whole Assets.
 
 `networking` receives a private dedicated definition only when the existing
 `IOS`, `OVERTE_E2E_FEATURE_TESTS`, and `OVERTE_IOS_E2E_TEST_BUILD` configuration

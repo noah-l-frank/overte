@@ -1,7 +1,7 @@
 """Assets owners on the canonical existing candidate/session/clock transport.
 
 No session is created, no build is installed, and no feature is advertised.
-Successful upload still needs its real review/destination normal input route.
+The narrow bundle input/readback owner does not establish oven/model outcomes.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
@@ -15,6 +15,7 @@ from ios.adapters.assets_budget import check,operation
 from ios.adapters.assets_files import OwnedAssetsFiles
 from ios.adapters.assets_picker import OwnedAssetsPicker
 from ios.adapters.assets_reply_owner import OwnedAssetsReplyReads
+from ios.adapters.assets_upload import OwnedAssetsUpload
 from ios.adapters.feature_observation import FeatureObservation
 from ios.adapters.normal_input import NativeInput
 from ios.adapters.script_runtime import IOSScriptRuntime
@@ -41,7 +42,7 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         self.cleanup_errors=[] # Private diagnostics only; never feature facts.
 
     def _assets_store(self,selector,run,role,kind):
-        identifier(run);need(role in ('primary','actor') and kind in ('files','picker','replies'))
+        identifier(run);need(role in ('primary','actor') and kind in ('files','picker','replies','upload'))
         return PrivateFeatureState(self.state_path(selector).with_name('ios-assets-'+run+'-'+role+'-'+kind+'.json'))
 
     @operation
@@ -71,8 +72,42 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         picker=OwnedAssetsPicker(sources['native'],files,self._assets_store(selector,run,role,'picker'),sources['binding'],lock=lock,
             monotonic=self.monotonic,sleep=sources['observer'].sleep)
         replies=OwnedAssetsReplyReads(sources['replies'],self._assets_store(selector,run,role,'replies'),sources['binding'],run,fixture_url,lock=lock)
+        upload=OwnedAssetsUpload(sources['native'],sources['clock_source'],files,picker,replies,self._assets_store(selector,run,role,'upload'),
+            sources['binding'],lock=lock,role=role,monotonic=self.monotonic,sleep=sources['observer'].sleep)
         sources['check']()
-        return dict(sources,owned_files=files,picker=picker,owned_replies=replies)
+        return dict(sources,owned_files=files,picker=picker,owned_replies=replies,upload=upload)
+
+    @operation
+    def _assets_upload_readback(self,selector,run,role,fixture_url,ticket,lock,*,resource='gltf-bundle/main.gltf'):
+        """Ordinary rendered input and independent reads; no whole-feature verdict."""
+        bundle(run,ticket,fixture_url,resource);parts=self._assets_components(selector,run,role,fixture_url,lock)
+        files,picker,replies,owner=parts['owned_files'],parts['picker'],parts['owned_replies'],parts['upload']
+        if files.state is None:files.reserve(ticket,resource)
+        need(files.state['ticket']==ticket and files.state['resource']==resource)
+        if files.state['phase']=='reserved':files.stage()
+        elif files.state['phase']=='staging':files.recover_stage()
+        need(files.state['phase']=='staged')
+        if picker.state is None:picker.reserve()
+        if picker.state['phase']=='reserved':picker.open_page()
+        if picker.state['phase']=='page-open':picker.open_picker()
+        if picker.state['phase']=='picker-open':picker.choose_primary()
+        need(picker.state['phase']=='primary-chosen')
+        if replies.state is None:replies.reserve(ticket,resource)
+        need(replies.state['phase']=='open' and replies.state['ticket']==ticket and replies.state['resource']==resource and replies.state['namespace']=='original')
+        if owner.state is None:owner.reserve()
+        try:
+            if owner.state['phase']=='ready':owner.review()
+            if owner.state['phase']=='review':owner.destination()
+            if owner.state['phase']=='destination':owner.start_upload()
+            if owner.state['phase']=='starting':owner.uploaded()
+            need(owner.state['phase']=='uploaded');result=owner.readback_proof(owner.state);owner.cleanup()
+        except BaseException:
+            # Each issued mutation remains in its own WAL. Cleanup observes
+            # those originals and never repeats uncertain input or release.
+            try:owner.cleanup(abort=True)
+            except BaseException as cleanup_error:self.cleanup_errors.append(cleanup_error)
+            raise
+        parts['check']();return result
 
     @operation
     def _assets_readback(self,selector,run,role,fixture_url,ticket,lock,*,resource='gltf-bundle/main.gltf',namespace='original'):
