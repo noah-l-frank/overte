@@ -86,7 +86,7 @@ were zero. The log is
 28-percent component improvement is a measured host result, including profiler
 overhead; it does not establish a whole-operation or physical device deadline.
 
-No whole case was repeated after the 600-second timeout. Remaining work includes
+The initial pure-scope qualification did not repeat the whole case. Remaining work includes
 the paired held end, canonical metadata CAS/repeated cleanup, production Actor
 exit and unchanged full Avatar journey. Avatar capability remains closed and
 complete areas remain 5/14. No native compilation, device, simulator,
@@ -102,3 +102,70 @@ two outstanding cases were then selected, passing in 14.070 seconds. Logs are
 case was repeated and no source/deadline was changed to obtain the two passes.
 These include actual pending ownership/no resend, original byte/inode/context
 mutation refusal, true final freshness and unchanged full-prefix exit checks.
+
+A subsequent bounded files-only comparison measured the same complete Primary
+four-row owner through `_parse` (independent guarded group scopes) and `parse`
+(one enclosing guarded pure scope). No source was changed for this comparison.
+Without a collector it measured 15.890206 versus 14.079603 seconds; with a
+collector, 16.204832 versus 14.265401 seconds. The additional roughly twelve
+percent improvement retained exactly 3,400 original-frame reads and 3,628 actual
+read calls in every run. Ordered traces, membership and returned raw owner
+state were identical; all original inventories remained unchanged and no
+native/SDK request ran. The log is
+`.ios-host-tmp/avatar-final-owner-parse-profile-lae7b283/runner.log`. This
+qualifies read-only batching over one owner, not new acquisition or final end.
+
+## Subsequent final-ready diagnostic
+
+One freshly justified diagnostic then ran the unchanged HeldTerminal test with
+an outer 600-second bound, stopping only if both actual `cleanup_final_round`
+methods returned true and both original Final2 ready events survived the
+existing current cleanup/API guards. It did not reach that boundary: the outer
+timeout exited 124. Primary's fourth round returned false at 549.160 seconds;
+Actor's fourth round was still in progress. Neither paired ready, held end,
+canonical cleanup nor the full journey is qualified. No production deadline or
+source clock was changed. All fresh originals remain in
+`.ios-host-tmp/avatar-final-ready-boundary-jtcencez`; the exact-TMPDIR process
+census was empty after termination. The same whole/boundary timeout was not
+repeated or enlarged. The read-only gain above did not remove the live
+capture/save bottleneck.
+
+## Fresh account parser return
+
+A separate fresh component diagnostic constructed the actual TerminalDomain
+fixture without preparation, Scene or cleanup orchestration, then performed
+sixteen ordinary account-owner reads. Each sample durably owned four actual
+native queries. The original modeled Rig producer naturally filled its
+32-frame history; no unowned warmup query or retained/retimed DTO was used.
+Only the sixteenth sample was profiled: 2.001751 seconds including profiler
+overhead, with 410 real original-frame reads. Its thirteen `parse` end copies
+used 0.371 seconds. The save path discards those returned copies.
+
+`IOSAvatarAccountReads.parse` now returns its freshly unpacked local JSON tree
+directly. The tree has no retained reader/validator alias. This removes only
+the redundant final deepcopy: codec versions, packet validation, independent
+actual file reads, ownership, query nonces and current time/source guards are
+unchanged. The postlogout parser is unchanged.
+
+On the exact retained sixteen-row account originals, the profiled parser
+measured 0.128636 versus 0.098929 seconds. The complete returned-state hash,
+ordered 32 actual frame-read trace and 16-file membership were identical.
+The complete original inode/byte inventory stayed unchanged; nested caller
+mutation could not affect the owner, persisted envelope or later parse.
+Both comparisons made zero native/SDK queries. Reproducible scripts and logs
+are in `.ios-host-tmp/avatar-account-dense-profile-gpzj5otv`.
+
+The explicit AccountReads and PostLogoutReads classes pass all 19 cases in
+9.777 seconds, including the new nested caller-mutation isolation case and
+existing original replacement, lost/unknown query, partial writer and actual
+freshness-boundary failures. The log is
+`.ios-host-tmp/avatar-account-fresh-return-20261026.log`. These component
+measurements do not qualify the paired end, physical timing or full journey.
+
+A second fresh sixteen-sample component run with the direct return also
+completed. Its profiled sixteenth sample took 1.632543 seconds versus 2.001751
+seconds before the change (roughly eighteen percent), retaining 410 actual
+frame reads and four new native queries. These are separate fresh modeled
+processes and measured profiler timings, not identical DTOs or a native device
+deadline claim. Originals and logs remain under
+`.ios-host-tmp/avatar-account-dense-fresh-return-ej6zbwjj`.

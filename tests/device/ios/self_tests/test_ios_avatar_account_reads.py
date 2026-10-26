@@ -80,6 +80,23 @@ class AvatarAccountReadsTests(unittest.TestCase):
             with patch.object(owner,'partial_file',side_effect=actual),self.assertRaises(NativeUIError):owner.parse(owner.previous)
             self.assertEqual([True],changed);self.assertEqual(before,self.commands)
 
+    def test_returned_parsed_tree_cannot_mutate_an_owner_original_or_later_parse(self):
+        with self.lock.held():
+            owner=self.owner();owner.read();expected=deepcopy(owner.state)
+            envelope=deepcopy(owner.previous);commands=deepcopy(self.commands)
+            frames={path:(path.stat().st_ino,path.read_bytes()) for path in self.artifacts.iterdir()}
+            parsed=owner.parse(envelope)
+            parsed['rows'][0]['query']['commandId']='caller-modified-query'
+            parsed['rows'][0]['clocks'][0]['packet']['account']['loggedIn']=False
+            parsed['rows'][0]['original']['file']['inode']=0
+            parsed['rows'].append({'caller':'new-row'})
+            self.assertEqual(expected,owner.state)
+            self.assertEqual(expected,owner.parse(envelope))
+            self.assertEqual(envelope,owner.previous)
+            self.assertEqual(envelope,self.store.read())
+            self.assertEqual(commands,self.commands)
+            self.assertEqual(frames,{path:(path.stat().st_ino,path.read_bytes()) for path in self.artifacts.iterdir()})
+
     def test_actual_runtime_factory_passes_its_bound_original_clock_without_avatar_query(self):
         reader,clock=self.readers();seen=[]
         def bound(actual_clock):self.assertIs(clock,actual_clock);seen.append(True);return reader

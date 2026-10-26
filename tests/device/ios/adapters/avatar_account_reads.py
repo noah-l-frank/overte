@@ -132,7 +132,9 @@ class IOSAvatarAccountReads:
             if row['original'] is not None and row['original']['phase']=='saved':need(same(previous,self.packet(row)))
         if state['pending'] is not None:
             exact(state['pending'],{'index','query','original','acquisition','clocks'});self.pending(state['pending'],len(state['rows'])+1)
-        return deepcopy(state)
+        # unpack() produced this call's fresh JSON tree. No part of it is
+        # retained by a reader or validator; save() also discards this result.
+        return state
 
     def save(self):
         self.bound();value=self.envelope(self.state);self.parse(value)
