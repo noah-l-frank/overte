@@ -48,3 +48,7 @@ Current microphone authorization, independent Actor/acoustic evidence and actual
 loaded code, settings, page, callback, source and process/SDK retirement remain
 required. The ordinary [session barrier](AUDIO_SESSION_OWNERSHIP.md) retains
 unfinished responsibility; complete Audio admission remains closed.
+
+The separate [passive authorization source](AUDIO_SESSION_SOURCE.md) now exposes
+actual OS permission independently of the cached Audio gate. Its durable
+authorization/recovery composition remains required.

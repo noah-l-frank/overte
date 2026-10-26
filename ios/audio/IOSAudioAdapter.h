@@ -43,6 +43,7 @@ public:
     audio::Outcome outcome() const { return _gate.outcome(); }
 #if defined(OVERTE_E2E_VOICE_TESTS)
     audio::IOSVoiceTestState voiceTestState() const override;
+    audio::IOSAudioSessionTestState audioSessionTestState() const override;
     audio::IOSAcousticTestState acousticTestState() const override;
     bool setAcousticTestMode(bool enabled) override;
 #endif

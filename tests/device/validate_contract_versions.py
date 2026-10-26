@@ -300,6 +300,8 @@ REQUIRED = {
     "ios-emote-rooted-end-archive": 1,
     "ios-emote-rooted-process-frame": 1,
     "ios-emote-rooted-process-original": 1,
+    "ios-audio-session": 1,
+    "ios-audio-session-acquisition": 1,
     "ios-audio-background": 1,
     "ios-audio-background-observation": 1,
     "ios-audio-background-frame": 1,

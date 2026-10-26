@@ -12,6 +12,7 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QThread>
+#include <QtCore/QElapsedTimer>
 #if defined(Q_OS_IOS)
 #include <QSaveFile>
 #endif
@@ -1182,6 +1183,36 @@ QVariantMap TestScriptingInterface::featureIOSCreateState(const QVariantMap& com
 }
 
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
+#if defined(OVERTE_E2E_VOICE_TESTS)
+QVariantMap TestScriptingInterface::featureIOSAudioSession(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] {result=featureIOSAudioSession(command);},Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=json.value("commandId").toString(),run=json.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || !QCoreApplication::arguments().contains("--testScript")
+            || command.size()!=4 || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble()!=1
+            || json.value("action").toString()!="feature-ios-audio-session"
+            || !QRegularExpression("\\Aios-[a-f0-9]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[a-f0-9]{32}\\z").match(run).hasMatch()) { return {}; }
+    const auto lifecycle=_featureLifecycle->snapshot();if (lifecycle.isEmpty()) { return {}; }
+    static const QElapsedTimer origin=[] {QElapsedTimer value;value.start();return value;}();
+    const auto stamp=[&] {return QVariantMap{{"epochMs",QDateTime::currentMSecsSinceEpoch()},{"monotonicMs",origin.elapsed()}};};
+    const auto before=stamp();const auto state=overteIOSAudioSessionTestState();const auto after=stamp();
+    if (_featureLifecycle->snapshot()!=lifecycle) { return {}; }
+    const QVariantMap source{{"available",state.available},{"osPermission",static_cast<int>(state.osPermission)},
+        {"gatePermission",static_cast<int>(state.gate.permission)},{"outcome",static_cast<int>(state.gate.outcome)},
+        {"foreground",state.gate.foreground},{"interrupted",state.gate.interrupted},{"captureAllowed",state.gate.captureAllowed},
+        {"playbackAllowed",state.playbackAllowed},{"outputRevision",QVariant::fromValue(state.outputRevision)}};
+    return {{"iosAudioSessionVersion",1},{"requestId",request},{"runId",run},{"instance",_featureObservationInstance},
+        {"sequence",QVariant::fromValue(++_featureIOSAudioSessionSequence)},{"processId",QCoreApplication::applicationPid()},
+        {"clockDomain","native-main-ios-audio-session"},{"clockBefore",before},{"clockAfter",after},
+        {"lifecycle",lifecycle.toVariantMap()},{"source",source}};
+}
+#endif
+
 QVariantMap TestScriptingInterface::featureIOSKeyboard(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) {return {};}QVariantMap result;
@@ -2930,6 +2961,9 @@ void TestScriptingInterface::clearCaches() {
 
 // Writes a JSON object from javascript to a file
 void TestScriptingInterface::saveObject(QVariant variant, const QString& filename) {
+#if !defined(OVERTE_E2E_FEATURE_TESTS) || !defined(Q_OS_IOS) || !defined(OVERTE_IOS_E2E_TEST_BUILD) || !defined(OVERTE_E2E_VOICE_TESTS)
+    if (filename=="feature-ios-audio-session.json") { return; }
+#endif
 #if !defined(OVERTE_E2E_FEATURE_TESTS) || !defined(Q_OS_IOS) || !defined(OVERTE_IOS_E2E_TEST_BUILD)
     if (filename=="feature-ios-assets-files.json" || filename=="feature-ios-assets-replies.json" || filename=="feature-ios-keyboard.json" || filename=="feature-ios-lifecycle-inputs.json" || filename=="feature-ios-lifecycle-world.json" || filename=="feature-ios-lifecycle-pending-commands.json" || filename=="feature-ios-lifecycle-navigation-inputs.json") {return;}
 #endif
@@ -2944,6 +2978,9 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     }
 
     QByteArray jsonData = jsonDocument.toJson();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_VOICE_TESTS)
+    if (filename=="feature-ios-audio-session.json") { jsonData=jsonDocument.toJson(QJsonDocument::Compact); }
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     // Preserve these passive sources' native compact-byte bounds through AFC.
     // Adding whitespace can exceed the existing reader limit with no new data.
@@ -2977,6 +3014,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-ios-snapshot-captures.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json"
+            || filename == "feature-ios-audio-session.json"
             || QRegularExpression("\\Aworld-render-storage-[0-9a-f]{32}\\.json\\z").match(filename).hasMatch()) {
         if (!QCoreApplication::arguments().contains("--testScript") || QFileInfo(filepath).isSymLink()) { return; }
         if (filename.startsWith("world-render-storage-")) {

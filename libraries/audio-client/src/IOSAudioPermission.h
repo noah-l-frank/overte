@@ -11,6 +11,13 @@ struct IOSVoiceTestState {
     Outcome outcome { Outcome::Stopped };
     bool foreground { false }, interrupted { false }, captureAllowed { false };
 };
+struct IOSAudioSessionTestState {
+    bool available { false };
+    Permission osPermission { Permission::Unknown };
+    IOSVoiceTestState gate;
+    bool playbackAllowed { false };
+    std::uint64_t outputRevision { 0 };
+};
 struct IOSAcousticTestState {
     bool builtInMicrophone { false }, builtInSpeaker { false }, measurementMode { false };
     float outputVolume { 0.0f };
@@ -36,6 +43,7 @@ public:
 #if defined(OVERTE_E2E_VOICE_TESTS)
     // Closed observations only; no device identifiers, routes or native messages.
     virtual IOSVoiceTestState voiceTestState() const { return {}; }
+    virtual IOSAudioSessionTestState audioSessionTestState() const { return {}; }
     virtual IOSAcousticTestState acousticTestState() const { return {}; }
     virtual bool setAcousticTestMode(bool enabled) { return !enabled; }
 #endif
@@ -60,6 +68,7 @@ std::uint64_t overteIOSAudioOutputRevision();
 
 #if defined(OVERTE_E2E_VOICE_TESTS)
 overte::audio::IOSVoiceTestState overteIOSVoiceTestState();
+overte::audio::IOSAudioSessionTestState overteIOSAudioSessionTestState();
 overte::audio::IOSAcousticTestState overteIOSAcousticTestState();
 bool overteIOSSetAcousticTestMode(bool enabled);
 #endif

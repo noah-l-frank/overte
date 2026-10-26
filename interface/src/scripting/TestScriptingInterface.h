@@ -205,6 +205,9 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSAssetsFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAssetsReplies(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSKeyboard(const QVariantMap& command);
+#if defined(OVERTE_E2E_VOICE_TESTS)
+    Q_INVOKABLE QVariantMap featureIOSAudioSession(const QVariantMap& command);
+#endif
     Q_INVOKABLE QVariantMap featureIOSLifecycleInputs(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSLifecyclePendingCommands(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSLifecycleNavigationInputs(const QVariantMap& command);
@@ -360,6 +363,9 @@ private:
 #endif
 #endif
     QString _featureObservationInstance;
+#if defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_VOICE_TESTS)
+    quint64 _featureIOSAudioSessionSequence { 0 };
+#endif
     quint64 _featureObservationSequence {0};
     QString _featurePendingRequest;
     qint64 _featurePendingEpochMs {0};

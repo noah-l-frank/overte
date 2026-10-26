@@ -10,6 +10,15 @@ audio::IOSVoiceTestState IOSAudioAdapter::voiceTestState() const {
     return { permission, outcome, _voiceTestForeground.load(), _voiceTestInterrupted.load(),
              _capture && permission == audio::Permission::Granted && outcome == audio::Outcome::Capturing };
 }
+audio::IOSAudioSessionTestState IOSAudioAdapter::audioSessionTestState() const {
+    if (!_native) { return {}; }
+    try {
+        // Read the OS permission directly. microphonePermissionGranted() calls
+        // refreshPermission(), which can change the gate and native session.
+        // This test-only observation must never request, refresh or apply it.
+        return { true, _native->permission(), voiceTestState(), playbackAllowed(), outputRevision() };
+    } catch (...) { return {}; }
+}
 audio::IOSAcousticTestState IOSAudioAdapter::acousticTestState() const {
     return _native ? _native->acousticTestState() : audio::IOSAcousticTestState {};
 }
