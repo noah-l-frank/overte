@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-lifecycle-editors": {"current": 1, "reads": [1]},
     "snapshot-share-input-owner": {"current": 1, "reads": [1]},
     "share-input-proof-frame": {"current": 1, "reads": [1]},
     "share-input-proof-original": {"current": 1, "reads": [1]},

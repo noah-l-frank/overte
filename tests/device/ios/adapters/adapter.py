@@ -286,6 +286,10 @@ class IOSNativeMixin:
         from ios.adapters.lifecycle_input_runtime import IOSLifecycleNavigationRuntime
         return IOSLifecycleNavigationRuntime(self)
 
+    def _lifecycle_editors_runtime(self):
+        from ios.adapters.lifecycle_editors_runtime import IOSLifecycleEditorsRuntime
+        return IOSLifecycleEditorsRuntime(self)
+
     def _lifecycle_inputs(self,selector):
         from ios.adapters.script_runtime import IOSScriptRuntime
         sources=IOSScriptRuntime(self)._sources(selector)

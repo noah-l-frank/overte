@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-lifecycle-editors": 1,
     "snapshot-share-input-owner": 1,
     "share-input-proof-frame": 1,
     "share-input-proof-original": 1,
