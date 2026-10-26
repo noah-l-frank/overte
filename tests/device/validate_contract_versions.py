@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-snapshot-journey-files-owner": 1,
+    "ios-snapshot-journey-files-result": 1,
     "ios-lifecycle-pending-owner": 1,
     "ios-lifecycle-pending-proof-frame": 1,
     "ios-lifecycle-pending-proof-original": 1,

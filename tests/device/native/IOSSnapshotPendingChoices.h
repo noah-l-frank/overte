@@ -3,7 +3,11 @@
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include "IOSSnapshotCaptureControls.h"
+#include <QJSValue>
 namespace overte::e2e {
+inline QObject* snapshotPendingObject(const QVariant& value) {
+    return value.userType()==qMetaTypeId<QJSValue>()?value.value<QJSValue>().toQObject():value.value<QObject*>();
+}
 inline QString snapshotPendingChoiceId(QQuickItem* item) {
     if (!item) {return {};}
     if (item->objectName()=="snapshotMode.option.animated") {return "snapshot.mode.animated";}
@@ -14,12 +18,12 @@ inline QJsonObject snapshotPendingChoiceObservation(QQuickItem* item) {
     const auto id=snapshotPendingChoiceId(item);if (id.isEmpty()) {return {};}
     // Popup items can be visually reparented. These readonly QML references
     // expose the actual delegate/combo/root bindings; no desired root is input.
-    auto root=qobject_cast<QQuickItem*>(item->property("featureSnapshotPendingRoot").value<QObject*>());
-    auto combo=qobject_cast<QQuickItem*>(item->property("featureSnapshotPendingCombo").value<QObject*>());
+    auto root=qobject_cast<QQuickItem*>(snapshotPendingObject(item->property("featureSnapshotPendingRoot")));
+    auto combo=qobject_cast<QQuickItem*>(snapshotPendingObject(item->property("featureSnapshotPendingCombo")));
     if (!root || !combo || !combo->isEnabled() || snapshotExportRoot(root)!=root || snapshotExportRoot(combo)!=root
             || combo->objectName()!="snapshotMode" || !item->window() || item->window()!=combo->window()
             || !qmlContext(item) || qmlContext(item)->baseUrl()!=qmlContext(root)->baseUrl()) {return {};}
-    auto popup=combo->property("popup").value<QObject*>();auto content=popup?qobject_cast<QQuickItem*>(popup->property("contentItem").value<QObject*>()):nullptr;
+    auto popup=snapshotPendingObject(combo->property("popup"));auto content=popup?qobject_cast<QQuickItem*>(snapshotPendingObject(popup->property("contentItem"))):nullptr;
     if (!content || popup->property("visible")!=QVariant(true)) {return {};}
     bool member=false;for (auto ancestor=item;ancestor;ancestor=ancestor->parentItem()) {if (ancestor==content) {member=true;break;}}
     const auto captured=snapshotCaptureControlObservation(combo);const auto checked=item->property("checked");

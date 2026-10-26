@@ -16,6 +16,8 @@ and root; native metadata independently checks the root's feature/QML gate,
 delegate context, current popup content ancestry, same window, enabled combo,
 actual checked mode, native blocking and owned input point. A retained combo
 identity prevents a replacement popup owner from extending an old choice.
+Actual QML `var` references are unwrapped from `QJSValue` when necessary before
+the same QObject/root/popup checks; no requested root is supplied.
 
 The existing `press` path remains the only input dispatch. The new native
 `SnapshotPending` journal records the original command, actual popup metadata
