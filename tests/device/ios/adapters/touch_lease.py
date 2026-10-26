@@ -17,6 +17,7 @@ import re
 import inspect
 import uuid
 from adapters.normal_feature_state import PrivateFeatureState,context
+from adapters.script_feature.history import same
 from ios.adapters.hid_session import touch_session
 from ios.adapters.touch import validate_actions
 
@@ -55,7 +56,7 @@ class TouchLease:
                     or not 0<self.state['deadlineMonotonic']-self.state['startedMonotonic']<=12
                     or self.state['failure'] is not None and (type(self.state['failure']) is not str or self.state['failure'] not in FAILURES)
                     or self.state['phase']=='closed' and self.state['failure'] in ('up','drain','journal')):raise TouchLeaseError('Touch lease journal is unavailable')
-        self.worker=None;self.context=None;self.hid=None;self.deadline=None
+        self.worker=None;self.context=None;self.hid=None;self._opening=None
         self.down_issued=False;self.up_issued=False;self.context_exit_returned=False;self.closed=self.state is not None and self.state['phase']=='closed'
         self.failure=None if self.state is None else self.state['failure'];self.journal_failed=False
         self.ready=asyncio.Event();self.request_release=asyncio.Event()
@@ -79,26 +80,31 @@ class TouchLease:
             raise TouchLeaseError('Original touch source continuity failed') from None
 
     def _record(self,phase):
-        value=dict(self.state,phase=phase,failure=self.failure)
+        # Only phase/failure are transitions. Coordinates, scope and the
+        # original deadline always come from the acknowledged durable intent.
+        value=deepcopy(self._opening if self.previous is None else self.previous)
+        value.update(phase=phase,failure=self.failure)
         try:
             self.store.write(value,self.previous)
-            if self.store.read()!=value:raise TouchLeaseError('Touch lease journal changed')
+            if not same(self.store.read(),value):raise TouchLeaseError('Touch lease journal changed')
         except Exception:
             self.journal_failed=True
             raise TouchLeaseError('Original touch journal update remains unresolved') from None
         self.previous=deepcopy(value);self.state=value
 
     def inspect(self):
-        if self.store.read()!=self.previous:raise TouchLeaseError('Touch lease journal changed')
+        if not same(self.store.read(),self.previous):raise TouchLeaseError('Touch lease journal changed')
         # Archived open responsibility cannot recreate its absent live worker.
-        responsibility=self.state is not None and (not self.closed or self.journal_failed)
+        responsibility=(self.previous is not None or self.worker is not None) and (not self.closed or self.journal_failed)
         return dict(hostResponsibility=responsibility,workerRunning=self.worker is not None and not self.worker.done(),
             downIssued=self.down_issued,upIssued=self.up_issued,contextExitReturned=self.context_exit_returned,
-            failure=self.failure,journal=deepcopy(self.state))
+            failure=self.failure,journal=deepcopy(self.previous))
+
+    def _deadline(self):return self.previous['deadlineMonotonic']
 
     async def _wait(self,task):
         if not task.done():
-            remaining=max(0.,self.deadline-asyncio.get_running_loop().time())
+            remaining=max(0.,self._deadline()-asyncio.get_running_loop().time())
             done,_pending=await asyncio.wait({task},timeout=remaining)
             if not done:
                 self.request_release.set()
@@ -106,15 +112,15 @@ class TouchLease:
         return task.result()
 
     async def begin(self,width,height,x,y,*,seconds):
-        if self.state is not None or self.worker is not None:raise TouchLeaseError('Touch intent cannot be repeated')
+        if self.previous is not None or self.worker is not None:raise TouchLeaseError('Touch intent cannot be repeated')
         if type(seconds) not in (int,float) or not math.isfinite(seconds) or not 0<seconds<=12:raise TouchLeaseError('Touch lease duration is unavailable')
         # Reuse the unchanged ordinary touch coordinate codec. No event is
         # dispatched by this closed validation-only skeleton.
         actions=validate_actions({'actions':[dict(type='pointer',id='owned-touch',parameters=dict(pointerType='touch'),actions=[
             dict(type='pointerMove',duration=0,origin='viewport',x=x,y=y),dict(type='pointerDown',button=0),dict(type='pointerUp',button=0)])]},width,height)
-        started=asyncio.get_running_loop().time();self.deadline=started+seconds
-        self.state=dict(iosTouchLeaseVersion=VERSION,binding=deepcopy(self.binding),runId=self.run,leaseId=uuid.uuid4().hex,position=list(actions[0][1]),
-            startedMonotonic=started,deadlineMonotonic=self.deadline,phase='opening',failure=None)
+        started=asyncio.get_running_loop().time()
+        self._opening=dict(iosTouchLeaseVersion=VERSION,binding=deepcopy(self.binding),runId=self.run,leaseId=uuid.uuid4().hex,position=list(actions[0][1]),
+            startedMonotonic=started,deadlineMonotonic=started+seconds,phase='opening',failure=None)
         self._record('opening')
         self.worker=asyncio.create_task(self._run())
         waiter=asyncio.create_task(self.ready.wait())
@@ -139,26 +145,26 @@ class TouchLease:
         return self.inspect()
 
     async def _watchdog(self):
-        await asyncio.sleep(max(0.,self.deadline-asyncio.get_running_loop().time()))
+        await asyncio.sleep(max(0.,self._deadline()-asyncio.get_running_loop().time()))
         self.failure=self.failure or 'deadline';self.request_release.set()
 
     async def _run(self):
         timer=asyncio.create_task(self._watchdog());entered=False;release_failed=False
-        factory=self._session_factory;actual_context=actual_hid=None;position=tuple(self.state['position'])
+        factory=self._session_factory;actual_context=actual_hid=None;position=tuple(self.previous['position'])
         try:
             await self._continuity()
             actual_context=factory();self.context=actual_context
             actual_hid=await actual_context.__aenter__();self.hid=actual_hid;entered=True
             await self._continuity()
-            if self.request_release.is_set() or asyncio.get_running_loop().time()>=self.deadline:
+            if self.request_release.is_set() or asyncio.get_running_loop().time()>=self._deadline():
                 self.failure=self.failure or 'deadline'
             else:
                 await self._continuity()
-                if self.request_release.is_set() or asyncio.get_running_loop().time()>=self.deadline:
+                if self.request_release.is_set() or asyncio.get_running_loop().time()>=self._deadline():
                     self.failure=self.failure or 'deadline';return
                 self._record('down-issued')
                 await self._continuity()
-                if self.request_release.is_set() or asyncio.get_running_loop().time()>=self.deadline:
+                if self.request_release.is_set() or asyncio.get_running_loop().time()>=self._deadline():
                     self.failure=self.failure or 'deadline';return
                 self.down_issued=True
                 try:await actual_hid.send_touchscreen(0xC2,*position)

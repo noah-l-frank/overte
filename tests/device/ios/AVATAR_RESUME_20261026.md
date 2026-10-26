@@ -1,6 +1,8 @@
 # Avatar 3/14: resume checkpoints
 
-The user resumed work. The latest qualified boundary is recorded in
+The user resumed work. The latest complete diagnostic outcome is the
+[full HeldTerminal timeout checkpoint](AVATAR_FULL_TIMEOUT_20261026.md).
+The qualified paired-ready boundary remains recorded in
 [the paired Final-ready checkpoint](AVATAR_FINAL_READY_20261026.md).
 The full held end, canonical replay and unchanged full journey remain open.
 

@@ -189,6 +189,23 @@ class TouchLeaseTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual('continuity',owner.inspect()['failure']);self.assertEqual([],self.factories)
         self.assertEqual([],foreign.events);self.assertEqual(0,foreign.entered)
 
+    async def test_mutable_state_alias_cannot_rewrite_persisted_position_scope_or_original_deadline(self):
+        await self.begin();original=self.store.read()
+        self.owner.state['position']=[0,0];self.owner.state['deadlineMonotonic']+=1000
+        self.owner.state['runId']='e'*32;self.owner.state['binding']['processIdentity']='99'
+        self.assertEqual(original,self.owner.inspect()['journal'])
+        await self.owner.release();retained=self.store.read()
+        for field in original:
+            if field not in ('phase','failure'):self.assertEqual(original[field],retained[field])
+        self.assertEqual([(0xC2,16384,13107),(0x02,16384,13107)],self.context.events)
+
+    async def test_mutated_state_deadline_cannot_extend_watchdog_request(self):
+        await self.begin(.3);original=self.store.read();self.owner.state['deadlineMonotonic']+=1000
+        await asyncio.wait_for(asyncio.shield(self.owner.worker),2)
+        self.assertEqual('deadline',self.owner.inspect()['failure'])
+        self.assertEqual(original['deadlineMonotonic'],self.store.read()['deadlineMonotonic'])
+        self.assertEqual([0xC2,0x02],self.states())
+
     async def test_late_acquisition_after_deadline_drains_same_context_without_down(self):
         self.context.enter_gate.clear()
         with self.assertRaises(TouchLeasePending):await self.begin(.3)
