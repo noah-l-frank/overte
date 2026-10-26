@@ -7,7 +7,7 @@ from adapters.native_feature_observation import number
 from adapters.normal_ui import NativeUIError
 from adapters.operation_transport_guard import scope
 
-BUDGETS={'feature.emotes.act':25,'feature.emotes.observe':30,'feature.emotes.cleanup':60}
+BUDGETS={'feature.emotes.act':25,'feature.emotes.observe':30,'feature.emotes.cleanup':60,'feature.emotes.terminal':30}
 
 
 def installed_entry(function,*,monotonic=time.monotonic):

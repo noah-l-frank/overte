@@ -3,6 +3,10 @@
 This packet connects the internal terminal `finish` path. It does not enable an
 area capability or establish native/device qualification.
 
+Explicit version-six configuration, rooted dispatch, the worker and canonical
+historical cleanup are documented in [rooted routing](EMOTE_ROOTED_ROUTING.md).
+Complete area admission remains separate and closed.
+
 The first finish requires the actual sealed paired original graph. A current
 inactive fixture observation must extend the complete retained source histories
 of both roles and follow the original role/publication completion floor. These

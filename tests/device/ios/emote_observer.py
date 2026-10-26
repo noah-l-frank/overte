@@ -26,14 +26,17 @@ from ios.adapters.emote_configuration import settings,selector
 from ios.adapters.emote_observer import EmoteObservationPending
 from ios.adapters.emote_runtime import IOSEmoteRuntime
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 
 
 def configuration(path):
     value=PrivateFeatureState(path).read()
+    need(type(value) is dict and type(value.get('iosEmoteObserverVersion')) is int and value['iosEmoteObserverVersion'] in READS)
+    version=value['iosEmoteObserverVersion']
     exact(value,{'iosEmoteObserverVersion','target','primaryTarget','runId','candidateArguments','fixtureUrl','actorToken',
-                 'durationSeconds','artifactRoot','imagePolicy'})
-    need(type(value['iosEmoteObserverVersion']) is int and value['iosEmoteObserverVersion']==VERSION
+                 'durationSeconds','artifactRoot','imagePolicy'}|({'primaryArtifactRoot','primaryImagePolicy'} if version>=2 else set()))
+    need(type(value['iosEmoteObserverVersion']) is int and value['iosEmoteObserverVersion'] in READS
         and type(value['candidateArguments']) is list and 1<=len(value['candidateArguments'])<=96
         and all(type(item) is str and bool(item) for item in value['candidateArguments'])
         and number(value['durationSeconds'],30,1800))
@@ -41,7 +44,57 @@ def configuration(path):
     from feature_journeys.graphics_resources import fixture_url
     fixture_url(value['fixtureUrl'])
     settings({key:value[key] for key in ('artifactRoot','imagePolicy','primaryTarget')},role='actor',target=value['target'])
+    if version>=2:
+        settings(dict(artifactRoot=value['primaryArtifactRoot'],imagePolicy=value['primaryImagePolicy'],actorTarget=value['target']),
+            role='primary',target=value['primaryTarget'])
+        need(value['primaryArtifactRoot']!=value['artifactRoot'])
     return value
+
+
+def rooted_step(flow,config):
+    """Publish before sealing; only the exact paired completed end permits exit."""
+    from ios.adapters.emote_rooted_feature import IOSEmoteRootedFeature
+    from ios.adapters.emote_canonical_end import completed
+    from adapters.script_feature.history import unpack
+    from feature_journeys.retirement_receipts import binding_from_context
+    from feature_journeys import terminal
+    need(type(flow) is IOSEmoteRootedFeature and flow.role=='actor')
+    with flow.held(30):
+        flow.load()
+        primary=IOSEmoteRootedFeature(flow.runtime,config['primaryTarget'],flow.client,flow.run,'primary',
+            config['primaryArtifactRoot'],config['primaryImagePolicy'],actor_selector=flow.selector,
+            epoch_ms=flow.epoch_ms,monotonic=flow.monotonic,sleep=flow.sleep)
+        primary.lock=primary.primary_lock=flow.primary_lock
+        end=PrivateFeatureState(primary.store.path.with_name('ios-emote-primary-'+flow.run+'-rooted-end.json')).read()
+        if end is not None:
+            exact(end,{'iosEmoteRootedEndArchiveVersion','runId','archiveSha256','seal','payload'})
+            need(type(end['iosEmoteRootedEndArchiveVersion']) is int and end['iosEmoteRootedEndArchiveVersion']==1
+                and end['runId']==flow.run)
+            rows=unpack(end['payload']);need(len(rows)==1 and type(rows[0]) is dict
+                and rows[0].get('phase') in ('prepared','retiring','complete'))
+            terminal.sealed(end['seal']);need(end['seal']['description']['runId']==flow.run)
+            if rows[0]['phase']=='complete':
+                actual=completed(primary,end['seal'],actor=flow);need(actual['stage']=='finish');return 'complete'
+            return 'sealed'
+        original=PrivateFeatureState(primary.store.path.with_name('ios-emote-primary-'+flow.run+'-terminal.json')).read()
+        if original is not None:
+            exact(original,{'iosEmoteTerminalJournalVersion','runId','artifactRoot','bindings','locks','payload'})
+            need(type(original['iosEmoteTerminalJournalVersion']) is int and original['iosEmoteTerminalJournalVersion']==1
+                and original['runId']==flow.run and original['artifactRoot']==str(primary.root)
+                and same(original['locks'],dict(primary=str(flow.primary_lock.path),actor=str(flow.lock.path))))
+            need(flow.state is not None and same(original['bindings'],
+                dict(primary=flow.state['primaryBinding'],actor=flow.state['binding'])))
+            rows=unpack(original['payload']);need(len(rows)==1 and type(rows[0]) is dict)
+            state=rows[0];terminal.description(state.get('description'),area='emotes',run=flow.run)
+            need(all(same(state['description']['roles'][role]['binding'],binding_from_context(binding))
+                for role,binding in (('primary',flow.state['primaryBinding']),('actor',flow.state['binding']))))
+            if state.get('phase') in ('sealing','sealed'):
+                terminal.sealed(state['seal'],state['description']);return 'sealed'
+            need(state.get('phase')=='inspected')
+        # No live query follows an actual sealed journal or typed end. An
+        # inactive fixture without that end remains unresolved responsibility.
+        if not flow.phase.status()['active']:return 'inactive'
+        flow.publish();return 'published'
 
 
 def failure(flow,config,*,record=False):
@@ -63,6 +116,9 @@ def run_flow(flow,config,*,monotonic=time.monotonic,sleep=time.sleep):
         previous=now
         failed=failure(flow,config) or failed
         try:
+            if config.get('iosEmoteObserverVersion',1)>=2:
+                if rooted_step(flow,config)=='complete':return 2 if failed else 0
+                sleep(.25);continue
             # publish() owns original acquisition/publication and independently
             # switches to final archival only on actual fixture retirement.
             result=flow.publish()
@@ -85,7 +141,8 @@ def run_flow(flow,config,*,monotonic=time.monotonic,sleep=time.sleep):
 def run(runtime,config,*,monotonic=time.monotonic,sleep=time.sleep):
     need(isinstance(runtime,IOSEmoteRuntime))
     selected=settings({key:config[key] for key in ('artifactRoot','imagePolicy','primaryTarget')},role='actor',target=config['target'])
-    flow=runtime._emote_feature(config['target'],config['runId'],role='actor',
+    factory=runtime._emote_rooted_feature if config.get('iosEmoteObserverVersion',1)>=2 else runtime._emote_feature
+    flow=factory(config['target'],config['runId'],role='actor',
         client=Client(config['fixtureUrl'],config['actorToken']),settings=selected)
     return run_flow(flow,config,monotonic=monotonic,sleep=sleep)
 

@@ -22,6 +22,7 @@ from ios.adapters.emote_scene_proof import rooted
 from ios.adapters.emote_scene_order import IOSEmoteSceneOrder
 from adapters.normal_feature_state import PrivateFeatureState
 from feature_journeys.retirement_receipts import stage
+from ios.adapters.emote_operation import operation
 
 
 class IOSEmoteRootedFeature(IOSEmoteFeature):
@@ -103,3 +104,19 @@ class IOSEmoteRootedFeature(IOSEmoteFeature):
         # Version-one finalization declares full native drainage. A rooted
         # source cannot use it before its separate actual process-end owner.
         raise EmoteObservationPending('Rooted Emote responsibility still requires its typed terminal process end')
+
+    @operation(30)
+    def terminal(self,call):
+        """Same installed operation path, with exact paired terminal owners."""
+        need(self.role=='primary')
+        from feature_journeys.terminal import arguments
+        call=arguments('emotes',call);need(call['runId']==self.run)
+        controller=self.runtime._emote_rooted_terminal(self)
+        while True:
+            try:return controller.invoke(call)
+            except EmoteObservationPending:
+                if call['stage']!='finish':raise
+                # The controller has unwound Actor -> Primary ownership before
+                # polling. Durable issued intents are reopened; never resent.
+                need(self.lock._owner is None and controller.actor.lock._owner is None)
+                self.clock();self.sleep(.05);self.clock()

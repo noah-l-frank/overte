@@ -335,7 +335,9 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                     elif operation.split('.')[1]=='emotes':
                         from ios.adapters.emote_runtime import IOSEmoteRuntime
                         config=configuration();runtime=IOSEmoteRuntime(self)
-                        flow=runtime._emote_feature(selector,values['runId'],role='primary',client=reader(config),settings=config['emotes'])
+                        factory=(runtime._emote_rooted_feature if config.get('iosFeatureAdapterVersion',0)>=6
+                            and config.get('emoteCoordinatorVersion')==2 else runtime._emote_feature)
+                        flow=factory(selector,values['runId'],role='primary',client=reader(config),settings=config['emotes'])
                     elif operation.split('.')[1]=='world-navigation':
                         from ios.adapters.navigation_runtime import IOSNavigationRuntime
                         config=configuration();runtime=IOSNavigationRuntime(self)
@@ -357,6 +359,9 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                         verify(flow,values,result)
                     elif operation=='feature.world-web.terminal' and values['stage']=='finish':
                         from ios.adapters.world_web_canonical_end import verify
+                        verify(flow,values,result)
+                    elif operation=='feature.emotes.terminal' and values['stage']=='finish':
+                        from ios.adapters.emote_canonical_end import verify
                         verify(flow,values,result)
                     elif operation=='feature.world-navigation.cleanup':
                         from ios.adapters.navigation_failed_preparation_cleanup import verify
@@ -395,6 +400,11 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                 self._operation = self._retiring = None
 
         def cleanup(self, selector):
+            from ios.adapters.feature_configuration import configuration
+            from ios.adapters.emote_runtime import IOSEmoteRuntime
+            from ios.adapters.emote_rooted_session_cleanup import retire_existing as retire_rooted_emotes
+            emotes=retire_rooted_emotes(IOSEmoteRuntime(self),selector,configuration())
+            if emotes is not None:return emotes
             # A typed Worlds end must precede any unrelated GPU-name scan or
             # fallback lifecycle input, including when its SDK is already gone.
             from ios.adapters.feature_configuration import configuration
@@ -436,7 +446,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                     need(self.component_owners_absent(selector))
                     transaction=IOSGraphicsSessionRetirement.from_receipt(IOSGraphicsRuntime(self),selector,graphics_receipt)
                     return transaction.historical(graphics_receipt)
-                config=configuration();need(config is not None and config['iosFeatureAdapterVersion'] in (2,3,4,5) and 'graphics' in config['areas'])
+                config=configuration();need(config is not None and config['iosFeatureAdapterVersion'] in (2,3,4,5,6) and 'graphics' in config['areas'])
                 transaction=IOSGraphicsSessionRetirement(IOSGraphicsRuntime(self),selector,reader(config),config['graphics'],original)
                 need(self.cleanup_components(selector) and self.component_owners_absent(selector))
                 return transaction.finalize()

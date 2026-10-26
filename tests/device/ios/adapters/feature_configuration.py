@@ -8,8 +8,8 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.feature_fixture_access import client as fixture_client
 from ios.adapters.normal_scripts import configuration as scripts_configuration
 
-VERSION=5
-READS=(1,2,3,4,5)
+VERSION=6
+READS=(1,2,3,4,5,6)
 WHOLE_SETTINGS={'world-navigation':('worldNavigation','navigation_configuration'),
     'avatar-people':('avatarPeople','avatar_configuration'),
     'world-web':('worldWeb','world_web_configuration'),
@@ -21,7 +21,7 @@ AREAS=LEGACY_AREAS|frozenset(WHOLE_SETTINGS)
 # before this area can again advertise a complete operation triple.
 COMPLETE_AREAS=frozenset(('scripts','authentication','graphics','create','world-navigation'))
 OPERATIONS=frozenset('feature.'+area+'.'+kind for area in AREAS for kind in ('act','observe','cleanup'))|frozenset(
-    'feature.'+area+'.terminal' for area in WHOLE_SETTINGS)
+    'feature.'+area+'.terminal' for area in set(WHOLE_SETTINGS)|{'emotes'})
 
 
 def configuration(path=None):
@@ -37,7 +37,8 @@ def validate(value):
     need(type(value) is dict and type(value.get('iosFeatureAdapterVersion')) is int and value['iosFeatureAdapterVersion'] in READS)
     version=value['iosFeatureAdapterVersion']
     exact(value,{'iosFeatureAdapterVersion','areas','fixtureConfig'}|({'graphics'} if version>=2 else set())|({'create'} if version>=3 else set())|({'emotes'} if version>=4 else set())
-        |({field for field,_module in WHOLE_SETTINGS.values()} if version>=5 else set()))
+        |({field for field,_module in WHOLE_SETTINGS.values()} if version>=5 else set())
+        |({'emoteCoordinatorVersion'} if version>=6 else set()))
     allowed=AREAS if version>=5 else LEGACY_AREAS if version==4 else LEGACY_AREAS-{'emotes'} if version==3 else LEGACY_AREAS-{'create','emotes'} if version==2 else LEGACY_AREAS-{'graphics','create','emotes'}
     need(type(value['iosFeatureAdapterVersion']) is int
          and type(value['areas']) is list and 1<=len(value['areas'])<=len(AREAS)
@@ -59,6 +60,10 @@ def validate(value):
             from ios.adapters.emote_configuration import settings
             settings(value['emotes'])
         else:need(value['emotes'] is None)
+    if version>=6:
+        if 'emotes' in value['areas']:
+            need(type(value['emoteCoordinatorVersion']) is int and value['emoteCoordinatorVersion']==2)
+        else:need(value['emoteCoordinatorVersion'] is None)
     if version>=5:
         from importlib import import_module
         for area,(field,module) in WHOLE_SETTINGS.items():
@@ -74,6 +79,10 @@ def capabilities(target):
     config=configuration()
     if config is None:return []
     need(set(config['areas'])<=COMPLETE_AREAS)
+    # Reading an old configuration does not upgrade its coordinator or admit
+    # rooted terminal ownership. Complete admission remains closed above.
+    if 'emotes' in config['areas']:
+        need(config['iosFeatureAdapterVersion']>=6 and config['emoteCoordinatorVersion']==2)
     need(scripts_configuration(target) is not None)
     if 'authentication' in config['areas']:
         from ios.adapters.authentication_origin import origin
