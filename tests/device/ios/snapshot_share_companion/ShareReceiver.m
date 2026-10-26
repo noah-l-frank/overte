@@ -17,6 +17,7 @@
 @property(nonatomic,strong) UITextField* nameField;
 @property(nonatomic,strong) UITextField* queryField;
 @property(nonatomic,strong) UILabel* status;
+@property(nonatomic,strong) UILabel* original;
 @property(nonatomic,strong) OVTShareJournal* journal;
 @end
 @implementation OVTShareReceiver
@@ -39,6 +40,8 @@
     self.runField=[self field:@"snapshot.share.run" placeholder:@"Run identifier" stack:stack];
     self.nameField=[self field:@"snapshot.share.basename" placeholder:@"Observed original capture filename" stack:stack];
     self.queryField=[self field:@"snapshot.share.query" placeholder:@"Fresh inspection nonce" stack:stack];
+    self.original=[UILabel new];self.original.text=@"Original native journal";self.original.isAccessibilityElement=YES;
+    self.original.accessibilityIdentifier=@"snapshot.share.original";self.original.accessibilityValue=@"";[stack addArrangedSubview:self.original];
     [self button:@"Receive original file" name:@"snapshot.share.receive" action:@selector(receiveOriginal) stack:stack];
     [self button:@"Inspect original owner" name:@"snapshot.share.inspect" action:@selector(inspectOriginal) stack:stack];
     [self button:@"Finish receiving" name:@"snapshot.share.finish" action:@selector(finishOriginal) stack:stack];
@@ -105,7 +108,12 @@
     for (NSDictionary* old in queries) {if ([old[@"requestId"] isEqual:request]) {[journal.lock unlock];return;}}
     if (!journal.valid || queries.count>=128) {journal.valid=NO;[journal.lock unlock];return;}
     [queries addObject:@{@"requestId":request,@"clock":OVTShareClock(),@"operationAlive":@(journal.operation!=nil)}];
-    BOOL saved=[journal persist];[journal.lock unlock];self.status.text=saved?@"Original inspection persisted":@"Inspection failed";
+    BOOL saved=[journal persist];NSData* raw=saved?OVTShareReadMetadata([journal.root URLByAppendingPathComponent:@"share-original.json"]):nil;
+    id actual=raw?[NSJSONSerialization JSONObjectWithData:raw options:0 error:nil]:nil;struct stat root;
+    saved=saved && actual && [actual isEqual:journal.record] && lstat(journal.root.fileSystemRepresentation,&root)==0
+        && [OVTShareRootIdentity(root) isEqual:journal.record[@"rootIdentity"]];
+    self.original.accessibilityValue=saved?[[NSString alloc] initWithData:raw encoding:NSUTF8StringEncoding]:@"";
+    [journal.lock unlock];self.status.text=saved?@"Original inspection persisted":@"Inspection failed";
 }
 - (void)finishOriginal {
     OVTShareJournal* journal=self.journal;if (!journal) {return;}[journal.lock lock];

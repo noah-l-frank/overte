@@ -27,6 +27,8 @@ PROFILES={'tabletweb-screen':dict(parent='tabletWebScreenSegmentsVersion',body='
         labels=frozenset({'png'}),subjects=frozenset({'primary','actor'})),
     'photos-save-sources':dict(parent='photosSaveSourcePartsVersion',body='photosSaveSourcePartBodyVersion',schema='photosSaveSourcePart',
         labels=frozenset({'raw'}),subjects=frozenset({'exports','inputs'})),
+    'share-native-sources':dict(parent='shareNativeSourcePartsVersion',body='shareNativeSourcePartBodyVersion',schema='shareNativeSourcePart',
+        labels=frozenset({'raw'}),subjects=frozenset({'exports','inputs'})),
     'snapshot-native-sources':dict(parent='snapshotSourcePartsVersion',body='snapshotSourcePartBodyVersion',schema='snapshotSourcePart',
         labels=frozenset({'raw'}),subjects=frozenset({'work','captures','exports','inputs'})),
     'snapshot-file-work':dict(parent='snapshotFileWorkPartsVersion',body='snapshotFileWorkPartBodyVersion',schema='snapshotFileWorkPart',
@@ -50,6 +52,7 @@ class OriginalPacketSegments:
         self.parent_key,self.body_key,self.labels=profile['parent'],profile['body'],profile['labels']
         namespace=('snapshot-'+subject+'-source-parts' if type(self).PROFILE=='snapshot-native-sources' else
             'photos-save-'+subject+'-parts' if type(self).PROFILE=='photos-save-sources' else
+            'share-native-'+subject+'-parts' if type(self).PROFILE=='share-native-sources' else
             'snapshot-'+subject+'-file-work-parts' if type(self).PROFILE=='snapshot-file-work' else
             'avatar-'+subject+'-tail-parts' if type(self).PROFILE=='avatar-tail' else
             'avatar-'+subject+'-postlogout-parts' if type(self).PROFILE=='avatar-postlogout' else

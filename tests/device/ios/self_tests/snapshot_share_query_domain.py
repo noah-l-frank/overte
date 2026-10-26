@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import subprocess
 import time
+from adapters.native_clock_join import digest
 from adapters.normal_ui import NativeUIError
 from ios.adapters.snapshot_share_archive_runtime import IOSSnapshotShareArchiveRuntime
 from ios.adapters.snapshot_share_process import SnapshotShareArchiveContext
@@ -62,16 +63,24 @@ class NodeQuerySource:
 
 
 class ShareQueryDomain(ShareAdmissionDomain):
-    def __init__(self,case):
-        super().__init__(case);self.node=NodeQuerySource(case);self.source=self.node.call('info')['instance'];self.foreground=True
+    def __init__(self,case,*,archive_pid=42,physical_selector=None,admission_ticket='d'*32,prepare_metadata=True):
+        super().__init__(case);self.pid=archive_pid
+        if physical_selector is not None:
+            self.target['capabilities']={'appium:udid':physical_selector};self.scope['targetFingerprint']=digest(self.target)
+            previous=self.session.read();self.session.write(dict(previous,targetFingerprint=self.scope['targetFingerprint']),previous)
+        self.node=NodeQuerySource(case);self.source=self.node.call('info')['instance'];self.foreground=True
         self.lose=False;self.ignore=False;self.query_deliveries=0
         with self.owner() as owner:
-            owner.admit('d'*32);self.admission_store,self.source_lock,self.binding,self.fixture_url=owner.store,owner.lock,owner.binding,owner.fixture_url
-        _native,_operation,_exports,record,raw=received();record.update(processId=84,receiverBundleId=BUNDLE+'.receiver')
-        _transfer,self.metadata,_finished=imported(record,raw)
-        output=self.documents/('snapshot-share-'+RUN);output.mkdir(mode=0o700);(output/'original-extension.json').write_bytes(self.metadata)
+            owner.admit(admission_ticket);self.admission_store,self.source_lock,self.binding,self.fixture_url=owner.store,owner.lock,owner.binding,owner.fixture_url
+        self.metadata=None
+        if prepare_metadata:
+            _native,_operation,_exports,record,raw=received();record.update(processId=84,receiverBundleId=BUNDLE+'.receiver')
+            _transfer,self.metadata,_finished=imported(record,raw)
+            output=self.documents/('snapshot-share-'+RUN);output.mkdir(mode=0o700);(output/'original-extension.json').write_bytes(self.metadata)
         self.foreground=False
     def execute(self,session,operation,query):
+        if operation=='mobile: overteProcessSourceInfo':
+            self.sdk.append((session,operation,deepcopy(query)));value=self.node.call('info');value['instance']=self.source;return value
         if operation in ('mobile: overteSnapshotShareExtensionInfo','mobile: overteRetiredSnapshotShareExtensionInfo'):
             self.sdk.append((session,operation,deepcopy(query)));self.query_deliveries+=1
             if self.ignore:raise NativeUIError('Declared query request not delivered')
