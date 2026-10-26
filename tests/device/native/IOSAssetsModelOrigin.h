@@ -7,6 +7,7 @@
 #include <QCryptographicHash>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QPointer>
 #include <QVector>
 #include <memory>
 
@@ -21,8 +22,9 @@ public:
     QString download(const QWeakPointer<Resource>& resource,const QUrl& requested,const QUrl& effective,const QByteArray& bytes,bool mapping) {
         if (!enabled() || (requested.scheme()!="atp" && effective.scheme()!="atp")) {return {};}
         QMutexLocker lock(&_mutex);
-        if (_rows.size()>=64 || resource.isNull() || requested.toEncoded().size()>4096 || effective.toEncoded().size()>4096) {_complete=false;return {};}
-        Row row;row.id=nonce();row.resource=resource;
+        if (!main() || _rows.size()>=64 || resource.isNull() || requested.toEncoded().size()>4096 || effective.toEncoded().size()>4096) {_complete=false;return {};}
+        Row row;row.id=nonce();row.resource=resource;row.object=resource.toStrongRef().data();
+        if (row.object.isNull()) {_complete=false;return {};}
         const bool retained=!bytes.isEmpty() && bytes.size()<=32768 && _bytes+bytes.size()<=65536;
         if (retained) {_bytes+=bytes.size();} else {_complete=false;}
         row.value={{"id",row.id},{"kind",mapping ? "mapping" : "model"},{"requestedUrl",requested.toString(QUrl::FullyEncoded)},
@@ -59,11 +61,12 @@ public:
     template<class T> QString delivery(Resource* resource,const std::shared_ptr<T>& model) {
         if (!enabled() || !resource || !model) {return {};}
         QMutexLocker lock(&_mutex);QString id;
+        if (!main()) {_complete=false;return {};}
         // Match the original queued argument's live shared ownership and actual
         // receiving resource, never its current URL or a wanted UUID.
         const std::shared_ptr<const void> actual=model;
         for (auto& row:_rows) {
-            if (!row.modelKnown || row.resource.toStrongRef().data()!=resource || row.model.expired()
+            if (!row.modelKnown || row.object.data()!=resource || row.model.expired()
                     || row.model.owner_before(actual) || actual.owner_before(row.model)) {continue;}
             if (!id.isEmpty() || !row.value.value("deliveryEntered").isNull()) {_complete=false;return {};}
             id=row.id;
@@ -71,18 +74,22 @@ public:
         return id;
     }
     QVariantMap snapshot() {
-        if (!enabled()) {return {};}QMutexLocker lock(&_mutex);QVariantList rows;
+        if (!enabled() || !main()) {return {};}QMutexLocker lock(&_mutex);QVariantList rows;
         for (const auto& row:_rows) {
-            auto value=row.value;value["resourceAlive"]=!row.resource.isNull();value["readerKnown"]=row.readerKnown;
+            // Resource::allReferencesCleared may recreate shared ownership for
+            // the same cached QObject. The original weak lease and actual
+            // QObject lifetime must remain independent observations.
+            auto value=row.value;value["resourceAlive"]=!row.resource.isNull();value["resourceObjectAlive"]=!row.object.isNull();value["readerKnown"]=row.readerKnown;
             value["readerAlive"]=row.readerKnown && !row.holder.expired();value["modelKnown"]=row.modelKnown;
             value["parsedModelAlive"]=row.modelKnown && !row.model.expired();rows.append(value);
         }
-        return {{"assetModelOriginHistoryVersion",1},{"instance",_instance},{"complete",_complete},{"clock",stamp()},{"downloads",rows}};
+        return {{"assetModelOriginHistoryVersion",2},{"instance",_instance},{"complete",_complete},{"clock",stamp()},{"downloads",rows}};
     }
 private:
-    struct Row {QString id;QWeakPointer<Resource> resource;std::weak_ptr<void> holder;std::weak_ptr<const void> model;
+    struct Row {QString id;QWeakPointer<Resource> resource;QPointer<Resource> object;std::weak_ptr<void> holder;std::weak_ptr<const void> model;
         bool readerKnown{false},modelKnown{false};QVariantMap value;};
     IOSAssetsModelOrigin() {_clock.start();}
+    static bool main() {const auto app=QCoreApplication::instance();return app && QThread::currentThread()==app->thread();}
     static QString nonce() {return QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');}
     QVariantMap stamp() const {return {{"epochMs",QDateTime::currentMSecsSinceEpoch()},{"monotonicMs",_clock.elapsed()}};}
     Row* find(const QString& id) {for (auto& row:_rows) {if (row.id==id) {return &row;}}return nullptr;}

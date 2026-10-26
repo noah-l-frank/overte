@@ -16,6 +16,8 @@ from ios.adapters.places_model import IOSPlacesModel
 from ios.adapters.scene_inventory import tree
 
 VERSION=1
+HISTORY_VERSION=2
+HISTORY_READS=(1,2)
 ACTION='feature-ios-assets-model-origin'
 FILE=ACTION+'.json'
 LIMIT=262144
@@ -45,17 +47,19 @@ def ordered(before,after):
 
 def history(value,epoch):
     exact(value,{'assetModelOriginHistoryVersion','instance','complete','clock','downloads'})
-    need(type(value['assetModelOriginHistoryVersion']) is int and value['assetModelOriginHistoryVersion']==1
+    version=value['assetModelOriginHistoryVersion']
+    need(type(version) is int and version in HISTORY_READS
         and type(value['complete']) is bool and type(value['downloads']) is list and len(value['downloads'])<=64)
     identity(value['instance']);stamp(value['clock']);need(value['clock']['epochMs']<=epoch);ids=set();total=0
     for row in value['downloads']:
         exact(row,{'id','kind','requestedUrl','effectiveUrl','bytes','sha256','base64','invokeAccepted',
-            'resourceAlive','readerKnown','readerAlive','modelKnown','parsedModelAlive'}|set(TIMES))
+            'resourceAlive','readerKnown','readerAlive','modelKnown','parsedModelAlive'}|set(TIMES)|({'resourceObjectAlive'} if version>=2 else set()))
         identity(row['id']);need(row['id'] not in ids);ids.add(row['id'])
         need(row['kind'] in ('model','mapping') and integer(row['bytes'],0,2**31-1)
             and type(row['sha256']) is str and re.fullmatch('[a-f0-9]{64}',row['sha256']))
         for key in ('requestedUrl','effectiveUrl'):create_state.text(row[key],4096)
         for key in ('resourceAlive','readerKnown','readerAlive','modelKnown','parsedModelAlive'):need(type(row[key]) is bool)
+        if version>=2:need(type(row['resourceObjectAlive']) is bool)
         need(row['readerKnown'] or not row['readerAlive']);need(row['modelKnown'] or not row['parsedModelAlive'])
         for key in TIMES:
             if row[key] is not None:stamp(row[key],value['clock'])
@@ -108,10 +112,11 @@ def validate(value,query,pid,epoch=None,previous=None):
             and source['domainId']==old['domainId'] and source['localSessionId']==old['localSessionId']
             and source['tree']['treeInstance']==old['tree']['treeInstance'] and (old['complete'] or not source['complete']))
         ordered(previous['clockAfter'],a);before=old['history'];after=source['history']
-        need(after['instance']==before['instance'] and len(after['downloads'])>=len(before['downloads']));ordered(before['clock'],after['clock'])
+        need(after['instance']==before['instance'] and after['assetModelOriginHistoryVersion']>=before['assetModelOriginHistoryVersion']
+            and len(after['downloads'])>=len(before['downloads']));ordered(before['clock'],after['clock'])
         for first,last in zip(before['downloads'],after['downloads']):
             for key in first:
-                if key in ('resourceAlive','readerAlive','parsedModelAlive'):continue
+                if key in ('resourceAlive','resourceObjectAlive','readerAlive','parsedModelAlive'):continue
                 if key in TIMES or key=='invokeAccepted':need(first[key] is None or same(first[key],last[key]))
                 elif key in ('readerKnown','modelKnown'):need(not first[key] or last[key])
                 else:need(same(first[key],last[key]))

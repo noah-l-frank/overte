@@ -94,8 +94,9 @@ closed and source completion remains 5/14.
 In particular, `Resource::allReferencesCleared` can create a new shared control
 block for the same cached QObject. Origin history version 1 `resourceAlive`
 observes only its original shared lease; false is not cached-object destruction.
-An actual QObject lifetime source or an independently owned process-retirement
-boundary is still needed before any such retirement claim. Entering ordinary
+History version 2 now adds the separate actual QObject observation; complete
+texture/GPU/decoder lifetime sources or an independently owned process-retirement
+boundary are still needed before full retirement. Entering ordinary
 Create for model removal also destroys the Assets page through Home; its real
 input/context owner must be adopted explicitly, without retiring the old picker
 phase from page absence alone.

@@ -10,6 +10,7 @@ from copy import deepcopy
 import hashlib
 import json
 import uuid
+import weakref
 from adapters.normal_feature_state import PrivateFeatureState
 from ios.adapters import assets_model_origin as origin
 from ios.adapters.assets_backend_owner import OwnedAssetsBackend
@@ -23,9 +24,17 @@ from ios.self_tests import assets_model_fixture as model,assets_usage_backend_fi
 RUN=model.RUN
 
 
+class CacheResource:
+    def __init__(self):self.hfm=Lease()
+
+
+class Lease:pass
+
+
 class Boundary(model.Boundary,backend.Boundary):
     def __init__(self,directory):
         self.origin_rows={};self.origin_sequence=0;self.origin_instance=uuid.uuid4().hex;self.origin_history_instance=uuid.uuid4().hex;self.origin_fault=None
+        self.model_resource_cache={};self.origin_weaks={}
         super().__init__(directory)
 
     def exchange(self,value):
@@ -39,6 +48,9 @@ class Boundary(model.Boundary,backend.Boundary):
 
     def consume(self,id_,entity):
         raw=self.resolve_model(entity.properties['modelURL'])
+        resource=CacheResource();lease=Lease();actual=self.models[id_];actual.origin_lease=lease;actual.origin_hfm=resource.hfm
+        self.model_resource_cache[id_]=resource
+        self.origin_weaks[id_]=dict(lease=weakref.ref(lease),object=weakref.ref(resource),hfm=weakref.ref(resource.hfm))
         def stamp():
             epoch=self.tick();return dict(epochMs=epoch,monotonicMs=epoch-model.usage.picker.EPOCH)
         stamps={key:stamp() for key in ('received','readerCreated','runEntered','queued','invokeReturned','deliveryEntered','deliveryReturned','runReturned')}
@@ -53,11 +65,15 @@ class Boundary(model.Boundary,backend.Boundary):
             row=self.origin_rows.get(id_)
             models.append(dict(entityId=id_,present=True,loaded=actual.loaded,addedToScene=actual.added,failed=actual.failed,
                 origin=dict(modelUrl=entity.properties['modelURL'],watcherUrl=entity.properties['modelURL'],geometry=dict(readerId=row['id'] if row is not None else '',mappingIds=[]))))
+        downloads=[]
+        for id_,original in self.origin_rows.items():
+            row=deepcopy(original);weak=self.origin_weaks[id_]
+            row.update(resourceAlive=weak['lease']() is not None,resourceObjectAlive=weak['object']() is not None,parsedModelAlive=weak['hfm']() is not None);downloads.append(row)
         clock=dict(epochMs=self.tick(),monotonicMs=self.clock()-model.usage.picker.EPOCH);after=self.tick()
         value=dict(iosAssetsModelOriginVersion=1,requestId=query['commandId'],runId=query['runId'],instance=self.origin_instance,
             sequence=self.origin_sequence,processId=42,clockDomain='native-main-assets-model-origin',clockBefore=dict(epochMs=before,monotonicMs=before-model.usage.picker.EPOCH),
             clockAfter=dict(epochMs=after,monotonicMs=after-model.usage.picker.EPOCH),source=dict(complete=True,domainId=state['source']['domainId'],localSessionId=state['source']['localSessionId'],
-                tree=state['source']['tree'],models=models,history=dict(assetModelOriginHistoryVersion=1,instance=self.origin_history_instance,complete=True,clock=clock,downloads=deepcopy(list(self.origin_rows.values()))),resourceRetirementAvailable=False))
+                tree=state['source']['tree'],models=models,history=dict(assetModelOriginHistoryVersion=2,instance=self.origin_history_instance,complete=True,clock=clock,downloads=downloads),resourceRetirementAvailable=False))
         if self.origin_fault:self.origin_fault(value)
         return value
 

@@ -45,7 +45,7 @@ REQUIRED = {
     "asset-model-creation-proof": 1,
     "asset-model-geometry-observation": 1,
     "ios-assets-model-origin": 1,
-    "asset-model-origin-history": 1,
+    "asset-model-origin-history": 2,
     "asset-model-parsed-input": 1,
     "ios-assets-parsed-sources": 1,
     "asset-parsed-source-frame": 1,

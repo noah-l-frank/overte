@@ -7,9 +7,11 @@ No native parser, render, compiler, network service or device is executed.
 from copy import deepcopy
 import base64
 import hashlib
+import gc
 import json
 import subprocess
 import unittest
+import weakref
 from unittest.mock import patch
 from adapters.normal_ui import NativeUIError
 from feature_journeys.fixtures import pinned_resource
@@ -173,6 +175,65 @@ class AssetsModelOriginRuntimeTests(unittest.TestCase):
             original=deepcopy(self.f.process);reader=self.reader();self.f.process.update(change)
             with self.assertRaises(NativeUIError):reader.read(RUN)
             self.f.process=original;self.assertEqual([],self.b.queries);self.assertEqual([],self.afc)
+    def test_history_two_actual_object_observation_uses_original_afc_and_native_clock(self):
+        self.b.state['history']['assetModelOriginHistoryVersion']=2;self.b.row.update(resourceAlive=False,resourceObjectAlive=True)
+        packet=self.reader().read(RUN);row=packet['source']['history']['downloads'][0]
+        self.assertFalse(row['resourceAlive']);self.assertTrue(row['resourceObjectAlive']);self.assertEqual(1,len(self.afc))
+        self.assertLess(packet['clockAfter']['epochMs'],100000);self.assertFalse(packet['source']['resourceRetirementAvailable'])
+
+
+class AssetsModelOriginObjectTests(unittest.TestCase):
+    def test_legacy_expired_shared_lease_keeps_actual_cached_object_inventory_unknown(self):
+        b=Boundary();b.row['resourceAlive']=False;packet=b.reader().read(RUN)
+        self.assertEqual(1,packet['source']['history']['assetModelOriginHistoryVersion'])
+        self.assertNotIn('resourceObjectAlive',packet['source']['history']['downloads'][0]);source.parsed_input(packet,create.ID)
+        self.assertFalse(packet['source']['resourceRetirementAvailable'])
+
+    def test_distinct_real_weak_shared_lease_and_object_lifetimes_survive_cache_reinsertion(self):
+        class Holder:pass
+        original_lease=Holder();cached_object=Holder();lease=weakref.ref(original_lease);object_=weakref.ref(cached_object)
+        b=Boundary()
+        def lifetime(packet):
+            history=packet['source']['history'];history['assetModelOriginHistoryVersion']=2
+            history['downloads'][0].update(resourceAlive=lease() is not None,resourceObjectAlive=object_() is not None)
+        b.mutate=lifetime;reader=b.reader();first=reader.read(RUN)
+        del original_lease;gc.collect();second=reader.read(RUN);row=second['source']['history']['downloads'][0]
+        self.assertFalse(row['resourceAlive']);self.assertTrue(row['resourceObjectAlive']);self.assertTrue(row['parsedModelAlive'])
+        self.assertEqual(first['source']['history']['downloads'][0]['received'],row['received']);source.parsed_input(second,create.ID)
+        del cached_object;gc.collect();third=reader.read(RUN)
+        self.assertFalse(third['source']['history']['downloads'][0]['resourceObjectAlive']);self.assertTrue(third['source']['history']['downloads'][0]['parsedModelAlive'])
+        self.assertFalse(third['source']['resourceRetirementAvailable'])
+
+    def test_new_object_field_requires_history_two_and_remains_exact_boolean_original(self):
+        for version,present,value in ((1,True,True),(2,False,None),(2,True,1),(True,True,True),(3,True,True)):
+            b=Boundary()
+            def malformed(packet):
+                packet['source']['history']['assetModelOriginHistoryVersion']=version
+                if present:packet['source']['history']['downloads'][0]['resourceObjectAlive']=value
+            b.mutate=malformed
+            with self.subTest(version=version,present=present,value=value),self.assertRaises(NativeUIError):b.reader().read(RUN)
+
+    def test_actual_object_observation_cannot_be_removed_by_a_history_version_rollback(self):
+        b=Boundary();b.state['history']['assetModelOriginHistoryVersion']=2;b.row['resourceObjectAlive']=True
+        reader=b.reader();original=reader.read(RUN)
+        b.state['history']['assetModelOriginHistoryVersion']=1;b.row.pop('resourceObjectAlive')
+        with self.assertRaises(NativeUIError):reader.read(RUN)
+        self.assertEqual(original,reader.last)
+
+    def test_actual_probe_preserves_history_two_object_observation_without_reissuing_getter(self):
+        b=Boundary();b.state['history']['assetModelOriginHistoryVersion']=2;b.row.update(resourceAlive=False,resourceObjectAlive=True)
+        packet=b.reader().read(RUN);query=b.queries[-1]
+        program='''const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
+const objectKeysMatch=(v,k)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(k.sort());
+const packet=PACKET;let calls=0,files=[];
+const Test={featureIOSAssetsModelOrigin:q=>{calls++;return {...packet,requestId:q.commandId};},saveObject:(v,f)=>files.push({v,f})};
+SOURCE
+const q=QUERY;applyClientCommand(q);applyClientCommand(q);
+if(calls!==1||files.length!==1||JSON.stringify(files[0].v.source)!==JSON.stringify(packet.source))throw Error('object source changed/replayed');
+const history=files[0].v.source.history;if(history.assetModelOriginHistoryVersion!==2||history.downloads[0].resourceAlive!==false||history.downloads[0].resourceObjectAlive!==true)throw Error('cached QObject confused with old lease');
+'''.replace('PACKET',json.dumps(packet)).replace('QUERY',json.dumps(query)).replace('SOURCE',probe_source())
+        result=subprocess.run(['node','-'],input=program,capture_output=True,text=True,timeout=5)
+        self.assertEqual(0,result.returncode,result.stderr)
 
 
 if __name__=='__main__':unittest.main()

@@ -41,6 +41,17 @@ still supplies only origin/reader observations.
 
 ## Retirement and qualification limits
 
+History version 2 adds `resourceObjectAlive`, observed directly by a main-thread
+`QPointer<Resource>`, separately from the original shared lease's legacy
+`resourceAlive`. `Resource::allReferencesCleared` can create a new shared control
+block for the same cached QObject; expiry of the old lease cannot prove that
+object died. Original queued HFM ownership now matches the actual receiving
+QObject, including that control-block distinction. The collector retains no
+Resource/HFM/task strongly; no cache entry is removed or retained by this hook.
+Literal history version 1 remains readable and supplies no object-lifetime
+field. Version rollback, unknown fields and non-boolean object observations
+are refused. The outer source and parsed-input schemas remain version 1.
+
 `resourceRetirementAvailable` is always false. Resource/HFM/parser weak
 liveness is observation only: cached Geometry, texture, decoder, GPU and
 queued work inventories are not complete. No cache is cleared, resource
@@ -81,3 +92,17 @@ changed original bytes/count/hash, over-limit or missing bodies, foreign
 entity/reader membership, invented retirement availability, changed old
 history, stale native clocks, changed candidate/process/background state,
 unknown command fields, reused nonces and a missing native getter.
+
+The history-v2 selection passed 20/20 in 26.882 seconds: eighteen old/new
+source/probe/AFC cases, the connected retained parser-input join and the
+original-consumer immutability case. Private log:
+`.ios-host-tmp/assets-origin-object-twenty-20261026.log`. Host weak-lifetime
+cases use actual separate weak lease/object/HFM holders. The connected SDK
+model's product cache owns the resource strongly, while the source ledger
+holds weak references only; its original Model owns the separate original
+lease. This prepares ordinary Model removal with the cache still observably
+alive. The C++ source remains uncompiled/unexecuted and complete texture/GPU/
+decoder retirement remains unavailable.
+Contract-version validation and the five explicitly selected no-build project
+suites passed in 6.75 seconds; private log:
+`.ios-host-tmp/assets-origin-object-project-five-20261026.log`.
