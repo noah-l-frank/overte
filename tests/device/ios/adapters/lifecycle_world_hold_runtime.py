@@ -18,6 +18,12 @@ from ios.adapters.lifecycle_world_hold import LifecycleWorldHold
 
 class IOSLifecycleWorldHoldRuntime:
     def __init__(self,adapter):self.adapter=adapter
+    def production_child(self,selector,editors,attempt,*,configuration=None):
+        from ios.adapters.lifecycle_touch_transport import admit
+        # Dependency admission precedes candidate/SDK work. No target value
+        # or caller-supplied factory may turn missing transport into support.
+        admit(configuration)
+
     def child(self,selector,editors,attempt,session_factory):
         need(type(editors) is LifecycleEditors and type(attempt) is LifecycleWorldAttempt and callable(session_factory))
         editors.history.check();attempt.bound();need(attempt.history is editors.history)

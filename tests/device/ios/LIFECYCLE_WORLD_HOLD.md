@@ -110,3 +110,51 @@ also destroy that ownership and is not a production integration.
 Full Lifecycle composition, background/cancellation, holder retirement,
 restoration, Actor evidence and canonical end remain open. A component's native
 quiet or returned context exit is not their completion proof.
+
+## Closed production admission and retained-worker guard
+
+The source audit used the installed local SDK **only as a read-only API
+reference**, not evidence of the live Proxmox runtime. In XCUITest 12.8.0,
+`build/lib/device/remote-xpc/facade.js` owns session-bound service acquisition;
+`HidIndigoClient.withHidIndigoService` closes its button service after each
+operation. The driver-local RemoteXPC 5.15.3 `src/services.ts` exposes
+`startDisplayService` and `startHidIndigoService`, but its
+`src/services/ios/hid-indigo/index.ts` implements button reports, not a retained
+universal touchscreen context. Existing finite WDA gestures remain usable for
+the first intercepted attempt.
+
+The pinned Python `RemoteServiceDiscoveryService` requires an owned endpoint
+and connection dialer; its handshake supplies actual peer identity. The
+existing `hid_session.touch_session` needs that authenticated object and the
+same tunnel's reachable media receiver stack. Canonical `_sources` supplies
+neither. A target address, expected PID, caller callback or another tunnel
+cannot supply the missing authenticated ownership transfer.
+
+`lifecycle_touch_transport.metadata()` therefore reports
+`nativeTouchSupport: false`. `WorldHoldRuntime.production_child` rejects the
+missing or explicitly disabled dependency **before candidate, SDK or native
+acquisition**. Its closed configuration cannot accept a selector, endpoint,
+expected PID or factory, and cannot enable support. The existing explicit
+`child(..., session_factory)` remains the source/model injection seam. No new
+RPC, service, environment setting or serialized contract was introduced.
+
+`RetainedTouchWorker` retains the actual existing TouchLease, Task, event loop,
+store, immutable intent and binding. Inspection/release cannot substitute a
+foreign task/loop/binding or reconstruct an absent worker. An uncertain Down
+keeps that same task and its actual descriptors until original completion and
+ordinary Up; no task is cancelled or moved to a new loop. Teardown refuses
+while host responsibility remains. Even after context exit returns it refuses
+resource retirement because the SDK/media/native original census is still
+missing. It supplies no native cleanup fact.
+
+Six closed-admission/retained-worker cases use actual private files and
+socketpair descriptors with the existing modeled HID. An initial fixture
+cleanup warning was corrected by transferring its cleanup callbacks to the
+actual async test runner. The clean six-case selection passed in 0.361s with
+`ResourceWarning` treated as an error. Its log is
+`transport-admission-final.log`; the final combined compatibility log is
+`transport-compatibility.log` in the private directory above: all **26** closed
+admission, retained-worker and unchanged TouchLease compatibility cases passed
+in **2.307s**, again with resource warnings treated as errors. Full production
+held input and Lifecycle 14 remain open; further unsupported factory/RPC
+placeholders are not a substitute for that dependency.
