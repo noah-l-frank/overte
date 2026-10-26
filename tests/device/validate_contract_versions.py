@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-lifecycle-world": 1,
+    "ios-lifecycle-world-acquisition": 1,
     "ios-lifecycle-inputs": 1,
     "ios-lifecycle-inputs-acquisition": 1,
     "ios-lifecycle-input-delivery": 1,

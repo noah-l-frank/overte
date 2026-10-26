@@ -76,6 +76,7 @@ from ios.adapters.assets_files import IOSAssetsFiles,FILE as ASSETS_FILES_FILE,L
 from ios.adapters.assets_replies import IOSAssetsReplies,FILE as ASSETS_REPLIES_FILE,LIMIT as ASSETS_REPLIES_LIMIT,command as assets_replies_command
 from ios.adapters.keyboard_source import IOSKeyboard,FILE as KEYBOARD_FILE,LIMIT as KEYBOARD_LIMIT,command as keyboard_command
 from ios.adapters.lifecycle_inputs import IOSLifecycleInputs,FILE as LIFECYCLE_INPUTS_FILE,LIMIT as LIFECYCLE_INPUTS_LIMIT,command as lifecycle_inputs_command
+from ios.adapters.lifecycle_world import IOSLifecycleWorld,FILE as LIFECYCLE_WORLD_FILE,LIMIT as LIFECYCLE_WORLD_LIMIT,command as lifecycle_world_command
 from adapters.private_login_input import command as private_input_command
 from adapters.native_account_origin import (NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE,
     command as account_origin_command)
@@ -244,6 +245,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-pending-commit-owner':pending_owner_command(command,ios=True)
         elif command.get('action')=='feature-ios-keyboard':keyboard_command(command)
         elif command.get('action')=='feature-ios-lifecycle-inputs':lifecycle_inputs_command(command)
+        elif command.get('action')=='feature-ios-lifecycle-world':lifecycle_world_command(command)
         elif command.get('action')=='feature-navigation-replies':navigation_replies_command(command,ios=True)
         elif command.get('action')=='feature-process-presence':process_presence_command(command,ios=True)
         elif command.get('action')=='feature-graphics-subject-observe':graphics_subject_command(command,ios=True)
@@ -508,6 +510,15 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSCreateFiles(self.send,lambda:self.original(remote=remote,limit=CREATE_FILES_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def lifecycle_world(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+LIFECYCLE_WORLD_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        if not isinstance(clock_source,NativeFeatureObservation) or not clock_source.ios or clock_source.pid!=self.process['pid']:
+            raise NativeUIError('Original Lifecycle world clock does not match this iOS process')
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSLifecycleWorld(self.send,lambda:self.original(remote=remote,limit=LIFECYCLE_WORLD_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def lifecycle_inputs(self,clock_source=None):

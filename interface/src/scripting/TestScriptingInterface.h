@@ -34,6 +34,7 @@ namespace overte::e2e { class IOSCreateStateObservation; class IOSCreateEntities
 namespace overte::e2e { class IOSPointerStateObservation; class IOSWorldWebGeometryObservation; class IOSWorldWebSurfacesObservation; class IOSWorldWebSnapshotObservation; class IOSWorldWebWholeSnapshotObservation; }
 namespace overte::e2e { class IOSAvatarStateObservation; }
 namespace overte::e2e { class NativeReadBracket; }
+namespace overte::e2e { class IOSLifecycleWorldObservation; }
 namespace overte::e2e { class IOSAssetReplyReads; }
 #endif
 #include <QUuid>
@@ -204,6 +205,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSAssetsReplies(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSKeyboard(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSLifecycleInputs(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSLifecycleWorld(const QVariantMap& command);
 #endif
     Q_INVOKABLE QVariantMap featureIOSAvatarState(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSSnapshotExports(const QVariantMap& command);
@@ -330,6 +332,9 @@ private:
     QVariantMap featureIOSMarkerWorldSource(const QString& request,const QString& run,const QString& markerKind);
     std::shared_ptr<overte::e2e::IOSEmoteWorldObservation> _featureIOSEmoteWorld;
     std::shared_ptr<overte::e2e::IOSAvatarWorldObservation> _featureIOSAvatarWorld;
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    std::shared_ptr<overte::e2e::IOSLifecycleWorldObservation> _featureIOSLifecycleWorld;
+#endif
     std::shared_ptr<overte::e2e::IOSAvatarRenderersObservation> _featureIOSAvatarRenderers;
     std::shared_ptr<overte::e2e::IOSAvatarScriptsObservation> _featureIOSAvatarScripts;
     std::shared_ptr<overte::e2e::IOSAvatarEntitiesObservation> _featureIOSAvatarEntities;

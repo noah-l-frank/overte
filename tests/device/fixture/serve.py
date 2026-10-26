@@ -542,6 +542,12 @@ class FixtureState:
             try:navigation_replies_command(command,ios=True)
             except (ValueError,RuntimeError):raise ValueError("invalid native navigation reply request") from None
             valid=True
+        elif action == "feature-ios-lifecycle-world":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.lifecycle_world import command as lifecycle_world_command
+            try:lifecycle_world_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS Lifecycle world source request") from None
+            valid=True
         elif action == "feature-ios-lifecycle-inputs":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.lifecycle_inputs import command as lifecycle_inputs_command

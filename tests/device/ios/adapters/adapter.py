@@ -277,6 +277,11 @@ class IOSNativeMixin:
         from ios.adapters.lifecycle_originals import IOSLifecycleSources
         return IOSLifecycleSources(IOSScriptRuntime(self)._sources(selector),run)
 
+    def _lifecycle_world(self,selector):
+        from ios.adapters.script_runtime import IOSScriptRuntime
+        sources=IOSScriptRuntime(self)._sources(selector)
+        return sources['observer'].lifecycle_world(clock_source=sources['clock_source'])
+
     def _lifecycle_inputs(self,selector):
         from ios.adapters.script_runtime import IOSScriptRuntime
         sources=IOSScriptRuntime(self)._sources(selector)

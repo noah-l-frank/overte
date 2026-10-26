@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-lifecycle-world": {"current": 1, "reads": [1]},
+    "ios-lifecycle-world-acquisition": {"current": 1, "reads": [1]},
     "ios-create-feature": {"current": 1, "reads": [1]},
     "ios-create-observer": {"current": 1, "reads": [1]},
     "ios-create-final-archive": {"current": 1, "reads": [1]},
