@@ -183,7 +183,7 @@ Test.featureChatViewObservation=c=>({commandId:'d'.repeat(32),source:{}});
 applyClientCommand({...c,commandId:'ios-'+'e'.repeat(32)});
 if(files.length!==3||files[2].v.available!==false)throw Error('foreign nonce accepted');
 '''.replace('SOURCE', probe_source())
-        result = subprocess.run(['node', '-e', program], capture_output=True, text=True, timeout=5)
+        result = subprocess.run(['node', '-'], input=program, capture_output=True, text=True, timeout=5)
         self.assertEqual(0, result.returncode, result.stderr)
 
 

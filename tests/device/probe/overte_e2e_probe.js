@@ -99,6 +99,7 @@
     var normalFeatureInstance = String(Uuid.generate()).replace(/[{}-]/g, "").toLowerCase();
     var normalFeatureSequence = 0;
     var lastChatObservationCommand="";
+    var lastChatViewCommand="";
     var lastIOSBundleDone="";
     function validChatObservationCommand(command) {
         return command && command.schemaVersion===1 && command.action==="feature-chat-observe"
@@ -2282,7 +2283,9 @@
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
                     && command.commandId.length === (command.commandId.indexOf("ios-") === 0 ? 36 : 32)
                     && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
-                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])
+                    && command.commandId!==lastChatViewCommand) {
+                lastChatViewCommand=String(command.commandId);
                 var chatView={chatViewVersion:1,commandId:command.commandId,available:false};
                 try {
                     if (typeof Test.featureChatViewObservation === "function") {

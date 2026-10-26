@@ -13,7 +13,7 @@ from adapters.native_feature_observation import decode, exact, fresh, integer, n
 from adapters.normal_ui import NativeUIError
 from feature_journeys.fixtures import context
 
-VERSION = 1
+VERSION = 2
 FILE = 'feature-chat-view-observation.json'
 HEX = '[0-9a-f]{32}'
 
@@ -32,7 +32,7 @@ def validate(value, request, pid, epoch):
     need(type(request['commandId']) is str)
     command(request, ios=request['commandId'].startswith('ios-'))
     exact(value, {'chatViewVersion', 'commandId', 'runId', 'instance', 'sequence', 'processId', 'capturedEpochMs', 'source'})
-    need(type(value['chatViewVersion']) is int and value['chatViewVersion'] == VERSION
+    need(type(value['chatViewVersion']) is int and value['chatViewVersion'] in (1,2)
          and value['commandId'] == request['commandId'] and value['runId'] == request['runId']
          and type(value['instance']) is str and re.fullmatch(HEX, value['instance'])
          and integer(value['sequence'], 1) and integer(pid, 1) and integer(value['processId'], 1) and value['processId'] == pid)
@@ -60,7 +60,9 @@ def validate(value, request, pid, epoch):
             need(type(rows) is list and integer(count, 0, 1000) and len(rows) <= count
                  and all(type(text) is str and text in texts for text in rows))
     storage = source['storage']
-    exact(storage, {'kind', 'count', 'unowned', 'events', 'configSha256'})
+    exact(storage, {'kind', 'count', 'unowned', 'events', 'configSha256'}|({'valueSha256'} if value['chatViewVersion']==2 else set()))
+    if value['chatViewVersion']==2:
+        need(type(storage['valueSha256']) is str and re.fullmatch('[0-9a-f]{64}',storage['valueSha256']))
     need(storage['kind'] in ('unset', 'null', 'empty-string', 'array', 'string-list')
          and integer(storage['count'], 0, 1000) and integer(storage['unowned'], 0, 1000)
          and type(storage['events']) is list and storage['count'] == storage['unowned'] + len(storage['events'])
@@ -101,6 +103,7 @@ class NativeChatView:
         self.send, self.original, self.clock_ms, self.guard, self.pid = send, read, clock_ms, guard, pid
         self.ios, self.monotonic, self.sleep = ios, monotonic, sleep
         self.instance, self.sequence, self.captured, self.run = None, 0, 0, None
+        self.version = None
 
     def read(self, run):
         try:
@@ -119,12 +122,13 @@ class NativeChatView:
                     # replaces a native timestamp from another clock domain.
                     epoch = value.get('capturedEpochMs') if self.ios else self.clock_ms()
                     validate(value, request, self.pid, epoch)
-                    need(self.instance in (None, value['instance']) and value['sequence'] > self.sequence
+                    need(self.version in (None,value['chatViewVersion']) and self.instance in (None, value['instance']) and value['sequence'] > self.sequence
                          and value['capturedEpochMs'] >= self.captured
                          and (self.ios or value['capturedEpochMs'] >= requested))
                     now = self.monotonic()
                     need(number(now, 0, 1e15) and previous <= now and now - started < 5 and self.guard() is not False)
                     self.run, self.instance, self.sequence, self.captured = run, value['instance'], value['sequence'], value['capturedEpochMs']
+                    self.version=value['chatViewVersion']
                     return value
                 now = self.monotonic(); need(number(now, 0, 1e15) and now >= previous); previous = now
                 if now - started >= 5 or attempt == 50: break

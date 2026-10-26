@@ -48,6 +48,7 @@ class IOSChatDraftOwner:
         if self.state['records']:
             last=self.original(self.state['records'][-1]);restore(native,last['clockJoin']['nativeAfter'])
             original=last['originals']['view'];view.run,view.instance,view.sequence,view.captured=(original[key] for key in ('runId','instance','sequence','capturedEpochMs'))
+            view.version=original['chatViewVersion']
 
     @staticmethod
     def empty():return dict(records=[],baseline=None,operations=[],failures=[],pending=None,observation=None,interrupted=[])

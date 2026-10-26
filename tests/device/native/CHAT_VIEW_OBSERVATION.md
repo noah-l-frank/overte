@@ -1,9 +1,14 @@
-# Original Chat UI and stored history source v1
+# Original Chat UI and stored history source
 
 `ChatViewObservation.h` and `adapters/native_chat_view.py` add a passive source,
 not a complete `feature.chat` adapter. Native code is uncompiled; devices are
 untested. Thirteen host cases exercise original JS/Python paths with synthetic
 GUI/settings state only. No full capability is advertised.
+
+The native observer now writes version two; the shared reader accepts literal
+one/two and pins the protocol for the original native instance. Recovery of
+the iOS local-message owner restores that original protocol pin. Version one
+remains readable without inventing a missing value/type hash.
 
 ## Request and acquisition
 
@@ -17,13 +22,13 @@ existing private results directory. Missing hooks and wrong nonces are unavailab
 The hook exists only in E2E builds with explicit `--testScript`, results location
 and valid lifecycle source. Native reads run on the original GUI thread, bounded
 to 4096 nodes/depth 128 and 1500 ms. Native wall-clock regression disables the
-source. Envelope fields are exactly `chatViewVersion:1`, `commandId`, `runId`,
+source. Envelope fields are exactly `chatViewVersion:1|2`, `commandId`, `runId`,
 `instance`, `sequence`, `processId`, `capturedEpochMs`, `source`. Instance is an
 actual source birth nonce; PID, increasing read sequence and time are native.
 
 The host uses existing installed-code/process/private-profile guards before and
 after acquisition, sends once and polls for at most 5 seconds/51 reads. Run,
-instance and PID stay pinned; sequence advances and native time cannot regress.
+instance, PID and protocol stay pinned; sequence advances and native time cannot regress.
 Android retains target-clock freshness (-250..1500 ms). iOS retains native time
 with a bounded actual AFC/PID transaction; host UTC never replaces native time.
 Missing, duplicate-key, malformed, oversized, foreign, stale and late sources fail.
@@ -65,6 +70,40 @@ capture. Other entries increment `unowned` without exporting private content.
 Config exports only SHA-256 of original QDataStream-encoded presence/value with
 bounded scalar/map types and size, never raw private settings. This hash proves
 equality of reads, not executable identity or file durability.
+
+Version two adds only `storage.valueSha256`: SHA-256 of the actual
+QDataStream-encoded history-key presence and original QVariant value. Every
+acquisition reads that value independently under the existing manager lock.
+It includes original type/presence, not a requested hash, filtered row list,
+host/AFC timestamp or reconstructed expected value. This distinguishes such
+otherwise similar empty/null representations before exact restoration.
+Builtin scalar/map/list types are checked before serialization; arbitrary
+custom QVariant stream operators are never called. Traversal is bounded to
+eight levels, 8192 values, 65536 string/key characters, 64 fields per map and
+1000 entries per list. A bounded QBuffer refuses writes past 256 KiB before
+allocation can grow beyond that limit. Unsupported/oversized values make the
+source unavailable. Configuration scalar types also remain explicitly bounded.
+No setting, model or history is written by the observer.
+
+The private iOS `chat_history_value.unchanged_empty` predicate compares two
+original version-two values on the same run/PID/source birth with advancing
+sequence and different request IDs. Exact empty history/configuration/type/
+presence hashes must agree. It does not acquire a current sample, grant normal
+input ownership, or establish page/callback/source/disk/process retirement.
+The normal Erase/restore coordinator remains separate work. The hash describes
+live Setting::Manager values; no QSettings write-worker flush or durable-file
+claim follows from it.
+
+The probe now consumes a repeated current Chat-view request before the native
+getter/save, matching its other original-source branches. The new original
+packet test first exposed the existing repeated-poll reread and passed after
+that narrow test-probe correction. A genuine new read needs a new nonce. The
+43-case source/hash/legacy and iOS draft/message selection passes in 49.082
+seconds; the original probe test uses unchanged assertions through Node stdin
+because the actual accumulated probe exceeds the per-argument limit. The hash
+relation tests use explicitly modeled QVariant bytes, not actual Qt
+serialization. The C++ serializer/type and allocation bounds remain source
+review only: no native build, compiler or device was used.
 
 `measured_view` projects only UI fields, never peer delivery or persisted history.
 Missing keyboard blocks it. Closed UI requires absent draft/focus/keyboard and

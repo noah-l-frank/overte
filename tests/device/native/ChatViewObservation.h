@@ -6,6 +6,7 @@
 #include <SettingManager.h>
 #include <DependencyManager.h>
 #include <QDataStream>
+#include <QBuffer>
 #include <QDateTime>
 #include <QPointer>
 #include <QSet>
@@ -90,12 +91,58 @@ public:
             keyboard={{"available",true},{"backend","native-touch-metrics"},{"visible",nativeKeyboard.value("keyboardVisible")}};
         }
         const auto captured=tick();if (!captured || captured-started>1500 || _sequence>=9007199254740991ULL) { return {}; }
-        return {{"chatViewVersion",1},{"commandId",id},{"runId",run},{"instance",_instance},
+        return {{"chatViewVersion",2},{"commandId",id},{"runId",run},{"instance",_instance},
             {"sequence",static_cast<qulonglong>(++_sequence)},{"processId",QCoreApplication::applicationPid()},
             {"capturedEpochMs",captured},{"source",QVariantMap{{"tabletShown",tabletShown},{"editorFocused",focused},{"editorHasDraft",hasDraft},
                 {"keyboard",keyboard},{"ui",ui},{"storage",stored}}}};
     }
 private:
+    class HistoryBuffer final : public QBuffer {
+    public:
+        using QBuffer::QBuffer;
+    protected:
+        qint64 writeData(const char* data,qint64 size) override {
+            // Private stored entries can have arbitrary extra fields. Bound
+            // the actual serialization while writing, before allocating or
+            // hashing an unbounded QByteArray. This never changes the value.
+            if (size<0 || size>256*1024-buffer().size()) { return -1; }
+            return QBuffer::writeData(data,size);
+        }
+    };
+    static bool historyValue(const QVariant& value,int depth,int& nodes,int& characters) {
+        if (depth>8 || ++nodes>8192) { return false; }
+        if (!value.isValid()) { return true; }
+        const auto type=value.userType();
+        if (type==QMetaType::Bool || type==QMetaType::Int || type==QMetaType::UInt
+                || type==QMetaType::LongLong || type==QMetaType::ULongLong
+                || type==QMetaType::Double || type==QMetaType::Float) { return true; }
+        if (type==QMetaType::QString) {
+            const auto text=value.toString();
+            if (text.size()>65536-characters) { return false; }
+            characters+=static_cast<int>(text.size());return true;
+        }
+        if (type==QMetaType::QVariantMap) {
+            const auto object=value.toMap();if (object.size()>64) { return false; }
+            for (auto it=object.cbegin();it!=object.cend();++it) {
+                if (it.key().size()>128 || it.key().size()>65536-characters) { return false; }
+                characters+=static_cast<int>(it.key().size());if (!historyValue(it.value(),depth+1,nodes,characters)) { return false; }
+            }
+            return true;
+        }
+        if (type==QMetaType::QVariantList || type==QMetaType::QStringList) {
+            QVariantList rows;
+            if (type==QMetaType::QVariantList) { rows=value.toList(); }
+            else {
+                const auto texts=value.toStringList();if (texts.size()>1000) { return false; }
+                for (const auto& text:texts) { rows.append(text); }
+            }
+            if (rows.size()>1000) { return false; }
+            for (const auto& row:rows) { if (!historyValue(row,depth+1,nodes,characters)) { return false; } }
+            return true;
+        }
+        // Never invoke a custom QVariant stream operator from a passive read.
+        return false;
+    }
     static QString nonce() { return QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-'); }
     static bool rows(QAbstractItemModel* model,const QString& run,QVariantList& result) {
         if (!model || model->rowCount()<0 || model->rowCount()>1000) { return false; }
@@ -110,8 +157,11 @@ private:
         return true;
     }
     static bool scalar(const QVariant& value,int textLimit) {
-        if (!value.isValid() || value.isNull() || value.userType()==QMetaType::Bool) { return true; }
-        if (value.userType()==QMetaType::QString) { return value.toString().size()<=textLimit; }
+        if (!value.isValid() || value.userType()==QMetaType::Bool) { return true; }
+        const auto type=value.userType();
+        if (type==QMetaType::QString) { return value.toString().size()<=textLimit; }
+        if (type!=QMetaType::Int && type!=QMetaType::UInt && type!=QMetaType::LongLong
+                && type!=QMetaType::ULongLong && type!=QMetaType::Double && type!=QMetaType::Float) { return false; }
         bool okay {false};const auto number=value.toDouble(&okay);
         return okay && std::isfinite(number) && std::abs(number)<=9007199254740991.0;
     }
@@ -137,9 +187,18 @@ private:
         else if (!history.isValid() || history.isNull()) { kind="null"; }
         else if (history.userType()==QMetaType::QString && history.toString().isEmpty()) { kind="empty-string"; }
         else if (history.userType()==QMetaType::QVariantList) { kind="array";original=history.toList(); }
-        else if (history.userType()==QMetaType::QStringList) { kind="string-list";for (const auto& value:history.toStringList()) { original.append(value); } }
+        else if (history.userType()==QMetaType::QStringList) {
+            kind="string-list";const auto texts=history.toStringList();if (texts.size()>1000) { return {}; }
+            for (const auto& value:texts) { original.append(value); }
+        }
         else { return {}; }
         if (original.size()>1000) { return {}; }
+        int nodes{0},characters{0};if (!historyValue(history,0,nodes,characters)) { return {}; }
+        QByteArray historyBytes;HistoryBuffer historyDevice(&historyBytes);
+        if (!historyDevice.open(QIODevice::WriteOnly)) { return {}; }
+        QDataStream historyStream(&historyDevice);historyStream<<historyPresent<<history;
+        if (historyStream.status()!=QDataStream::Ok || historyBytes.size()>256*1024) { return {}; }
+        const auto historySha=QString::fromLatin1(QCryptographicHash::hash(historyBytes,QCryptographicHash::Sha256).toHex());
         QVariantList events;int unowned {0};
         for (const auto& entry:original) {
             if (entry.userType()!=QMetaType::QVariantMap) { ++unowned;continue; }
@@ -154,7 +213,8 @@ private:
             // Display names and arbitrary extra/private fields are never kept.
             events.append(QVariantMap{{"channel",channel},{"text",raw},{"timestamp",stamp}});
         }
-        return {{"kind",kind},{"count",original.size()},{"unowned",unowned},{"events",events},{"configSha256",configSha}};
+        return {{"kind",kind},{"count",original.size()},{"unowned",unowned},{"events",events},
+            {"configSha256",configSha},{"valueSha256",historySha}};
     }
     qint64 tick() {
         const auto now=QDateTime::currentMSecsSinceEpoch();
