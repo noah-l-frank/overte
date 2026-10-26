@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "snapshot-share-archive-end-owner": {"current": 1, "reads": [1]},
+    "snapshot-share-archive-ended": {"current": 1, "reads": [1]},
     "snapshot-share-source-retirement": {"current": 1, "reads": [1]},
     "snapshot-share-source-retirement-observation": {"current": 1, "reads": [1]},
     "snapshot-share-source-files-quiet": {"current": 1, "reads": [1]},

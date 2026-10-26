@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "snapshot-share-archive-end-owner": 1,
+    "snapshot-share-archive-ended": 1,
     "snapshot-share-source-retirement": 1,
     "snapshot-share-source-retirement-observation": 1,
     "snapshot-share-source-files-quiet": 1,

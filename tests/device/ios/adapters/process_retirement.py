@@ -20,12 +20,14 @@ from ios.adapters.installed_code import source as process_source
 
 VERSION = 1
 RECORD_VERSION = 1
-PROFILES = {'graphics':'graphics','emote':'emote','worldweb':'world-web','navigation':'navigation','avatar':'avatar','tabletweb':'tablet-web'}
+PROFILES = {'graphics':'graphics','emote':'emote','worldweb':'world-web','navigation':'navigation','avatar':'avatar','tabletweb':'tablet-web',
+            'snapshotsharearchive':'snapshot-share-archive'}
 
 
 def filename(profile,role,stage):
     need(type(profile) is str and profile in PROFILES and role in ('primary','actor')
          and type(stage) is int and stage in (0,1))
+    need(profile!='snapshotsharearchive' or role=='primary' and stage==0)
     return 'ios-'+PROFILES[profile]+'-'+role+'-'+str(stage)+'-process-retirement.json'
 
 
