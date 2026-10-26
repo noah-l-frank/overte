@@ -520,6 +520,13 @@ class IOSSnapshotShareOwner:
             extensionBefore=before,extensionAfter=after,fileQuiet=files,hostOriginalRetained=True,sourceJournalRetirementRequired=True,
             captureCleanupRequired=True,nativePresentationCleanupRequired=True,wholeFeatureRequired=True)
 
+    def admission_seal_owner(self):
+        """Next owned lifetime after successful conditional run retirement."""
+        from ios.adapters.snapshot_share_seal_owner import SnapshotShareAdmissionSealOwner
+        self.live_guard();need(self.state['cleanup'] is not None and self.state['cleanup']['result'] is not None);self.cleanup_proof()
+        self.handoff('archive-source-seal','archive')
+        return SnapshotShareAdmissionSealOwner(self.archive,self.archive_lock,epoch_ms=self.queries.epoch_ms,monotonic=self.queries.monotonic)
+
     @operation
     def cleanup(self):
         self.live_guard();need(self.state['result'] is not None)

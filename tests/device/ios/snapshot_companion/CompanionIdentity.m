@@ -55,6 +55,39 @@ static BOOL OVTIdentityName(NSString* path) {
     NSArray* components=[path componentsSeparatedByString:@"/"];if (components.count>64) {return NO;}
     for (NSString* part in components) {if (!part.length || part.length>255 || [part isEqual:@"."] || [part isEqual:@".."]) {return NO;}}return YES;
 }
+#if defined(OVT_SNAPSHOT_SHARE_ARCHIVE)
+static NSString* OVTIdentitySHA(NSData* bytes) {
+    unsigned char value[CC_SHA256_DIGEST_LENGTH];CC_SHA256(bytes.bytes,(CC_LONG)bytes.length,value);
+    return OVTIdentityHash([NSData dataWithBytes:value length:sizeof(value)]);
+}
+static NSString* OVTIdentityParent(struct stat value) {
+    if (!S_ISDIR(value.st_mode) || value.st_uid!=geteuid()) {return nil;}
+    return OVTIdentitySHA([[NSString stringWithFormat:@"%llu:%llu:%u:%u:%u",(unsigned long long)value.st_dev,
+        (unsigned long long)value.st_ino,(unsigned)value.st_mode,(unsigned)value.st_uid,(unsigned)value.st_gid] dataUsingEncoding:NSUTF8StringEncoding]);
+}
+static NSString* OVTIdentityRevision(struct stat value) {
+    return OVTIdentitySHA([[NSString stringWithFormat:@"%llu:%llu:%u:%llu:%u:%u:%lld:%lld:%lld:%lld:%lld",(unsigned long long)value.st_dev,
+        (unsigned long long)value.st_ino,(unsigned)value.st_mode,(unsigned long long)value.st_nlink,(unsigned)value.st_uid,(unsigned)value.st_gid,
+        (long long)value.st_size,(long long)value.st_mtimespec.tv_sec,(long long)value.st_mtimespec.tv_nsec,
+        (long long)value.st_ctimespec.tv_sec,(long long)value.st_ctimespec.tv_nsec] dataUsingEncoding:NSUTF8StringEncoding]);
+}
+static NSDictionary* OVTIdentityOutput(int directory,NSString* name,NSString* parent) {
+    if (![@[@"snapshot-share-companion-identity.json",@"snapshot-share-companion-clock.json"] containsObject:name]) {return nil;}
+    int file=openat(directory,name.UTF8String,O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);struct stat before,after,named;
+    BOOL valid=file>=0 && fstat(file,&before)==0 && S_ISREG(before.st_mode) && before.st_nlink==1 && before.st_uid==geteuid()
+        && (before.st_mode&0777)==0600 && before.st_size>0 && before.st_size<=262144;
+    NSMutableData* raw=[NSMutableData new];unsigned char buffer[32768];NSTimeInterval began=NSProcessInfo.processInfo.systemUptime;
+    while (valid) {
+        ssize_t size=read(file,buffer,sizeof(buffer));if (size<0 && errno==EINTR) {continue;}
+        if (size<0 || NSProcessInfo.processInfo.systemUptime-began>=1.5) {valid=NO;break;}if (!size) {break;}
+        if (raw.length+(NSUInteger)size>262144) {valid=NO;break;}[raw appendBytes:buffer length:(NSUInteger)size];
+    }
+    valid=valid && raw.length==(NSUInteger)before.st_size && fstat(file,&after)==0 && OVTIdentitySame(before,after)
+        && fstatat(directory,name.UTF8String,&named,AT_SYMLINK_NOFOLLOW)==0 && OVTIdentitySame(before,named);
+    if (file>=0 && close(file)!=0) {valid=NO;}if (!valid) {return nil;}
+    return @{@"name":name,@"revision":OVTIdentityRevision(before),@"sha256":OVTIdentitySHA(raw),@"byteCount":@(raw.length),@"parentIdentity":parent};
+}
+#endif
 @interface OVTIdentityNode : NSObject {
 @public struct stat original;
 }
@@ -82,6 +115,17 @@ static BOOL OVTIdentityName(NSString* path) {
 @property NSUInteger sequence;
 @property BOOL ready;
 @property BOOL failed;
+#if defined(OVT_SNAPSHOT_SHARE_ARCHIVE)
+@property(nonatomic,strong) NSURL* archiveDocuments;
+@property(nonatomic,copy) NSString* archiveDocumentsIdentity;
+@property(nonatomic,strong) NSMutableDictionary* archiveOutputs;
+@property(nonatomic,strong) NSDictionary* lastArchiveObservation;
+@property(nonatomic,strong) NSDictionary* archiveSeal;
+@property(nonatomic,strong) NSData* archiveSealData;
+@property(nonatomic,weak) NSObject* archiveCollector;
+@property BOOL archiveSealed;
+- (BOOL)persistArchive:(NSDictionary*)packet action:(NSString*)action;
+#endif
 @end
 @implementation OVTSnapshotCompanionIdentity
 + (instancetype)shared {
@@ -91,6 +135,10 @@ static BOOL OVTIdentityName(NSString* path) {
 - (instancetype)init {
     if ((self=[super init])) {
         _root=-1;self.lock=[NSRecursiveLock new];self.instance=OVTIdentityID();self.born=OVTIdentityClock();self.queries=[NSMutableSet new];self.nodes=[NSMutableArray new];
+#if defined(OVT_SNAPSHOT_SHARE_ARCHIVE)
+        self.archiveOutputs=[NSMutableDictionary new];self.archiveDocuments=[NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
+        struct stat documents;self.archiveDocumentsIdentity=lstat(self.archiveDocuments.fileSystemRepresentation,&documents)==0?OVTIdentityParent(documents):nil;
+#endif
         NSBundle* actual=NSBundle.mainBundle;NSString* root=actual.bundleURL.URLByResolvingSymlinksInPath.path;
         NSString* executable=actual.executableURL.URLByResolvingSymlinksInPath.path;self.bundle=actual.bundleIdentifier;
         uint32_t size=0;_NSGetExecutablePath(NULL,&size);NSMutableData* name=[NSMutableData dataWithLength:size];
@@ -103,9 +151,18 @@ static BOOL OVTIdentityName(NSString* path) {
             || ![[actual objectForInfoDictionaryKey:@"OVTSnapshotCompanionContractVersion"] isEqual:@1]
             || ![[actual objectForInfoDictionaryKey:@"OVTSnapshotCompanionRole"] isEqual:OVTIdentityRole];
         self.rootPath=root;self.executable=leaf;
-        if (!self.failed) {dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY,0),^{
+        if (!self.failed) {
+#if defined(OVT_SNAPSHOT_SHARE_ARCHIVE)
+            NSObject* collector=[NSObject new];self.archiveCollector=collector;
+#endif
+            dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY,0),^{
             BOOL okay=[self collect];[self.lock lock];self.prepared=okay?OVTIdentityClock():nil;
             self.failed=!okay;self.ready=okay;[self.lock unlock];
+#if defined(OVT_SNAPSHOT_SHARE_ARCHIVE)
+            // The actual queued block owns this lease through its final use.
+            // Sealing cannot substitute ready=true for the lease's weak expiry.
+            [collector class];
+#endif
         });}
     }return self;
 }
@@ -225,6 +282,9 @@ static BOOL OVTIdentityName(NSString* path) {
     if (![NSThread isMainThread] || ![query isKindOfClass:NSDictionary.class] || query.count!=2
             || !OVTIdentityMatch(query[@"nonce"],@"\\Aios-[0-9a-f]{32}\\z") || ![OVTIdentityActions() containsObject:query[@"action"]]) {return nil;}
     [self.lock lock];NSString* nonce=query[@"nonce"],*action=query[@"action"];
+#if defined(OVT_SNAPSHOT_SHARE_ARCHIVE)
+    if (self.archiveSealed) {[self.lock unlock];return nil;}
+#endif
     if (self.queries.count>=128 || [self.queries containsObject:nonce] || self.sequence>=9007199254740991ULL) {[self.lock unlock];return nil;}
     [self.queries addObject:nonce];NSDictionary* before=OVTIdentityClock();NSTimeInterval began=NSProcessInfo.processInfo.systemUptime;
     NSInteger permissionBefore=0,permissionAfter=0;
@@ -247,9 +307,15 @@ static BOOL OVTIdentityName(NSString* path) {
         packet[@"readWriteAuthorizationBefore"]=@(permissionBefore);packet[@"readWriteAuthorizationAfter"]=@(permissionAfter);
         if (permissionBefore!=permissionAfter) {packet[@"status"]=@"unavailable";}
     }
+#if defined(OVT_SNAPSHOT_SHARE_ARCHIVE)
+    self.lastArchiveObservation=[packet copy];
+#endif
     [self.lock unlock];return packet;
 }
 - (BOOL)persist:(NSDictionary*)packet action:(NSString*)action {
+#if defined(OVT_SNAPSHOT_SHARE_ARCHIVE)
+    return [self persistArchive:packet action:action];
+#else
     if (!packet || ![OVTIdentityActions() containsObject:action]) {return NO;}
     NSData* bytes=[NSJSONSerialization dataWithJSONObject:packet options:0 error:nil];if (!bytes || bytes.length>262144) {return NO;}
     NSURL* root=[NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
@@ -262,7 +328,89 @@ static BOOL OVTIdentityName(NSString* path) {
     if (okay && rename(temporary.fileSystemRepresentation,destination.fileSystemRepresentation)!=0) {okay=NO;}
     int directory=open(root.path.fileSystemRepresentation,O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
     if (directory<0) {okay=NO;}else {if (fsync(directory)!=0) {okay=NO;}close(directory);}return okay;
+#endif
 }
+#if defined(OVT_SNAPSHOT_SHARE_ARCHIVE)
+- (BOOL)persistArchive:(NSDictionary*)packet action:(NSString*)action {
+    if (![NSThread isMainThread] || !packet || ![OVTIdentityActions() containsObject:action]) {return NO;}
+    [self.lock lock];BOOL valid=!self.archiveSealed && self.archiveDocumentsIdentity && [packet isEqual:self.lastArchiveObservation]
+        && [packet[@"action"] isEqual:action];NSData* bytes=valid?[NSJSONSerialization dataWithJSONObject:packet options:0 error:nil]:nil;
+    valid=valid && bytes.length>0 && bytes.length<=262144;struct stat opened,named,written,published;
+    int directory=valid?open(self.archiveDocuments.fileSystemRepresentation,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC):-1;
+    valid=valid && directory>=0 && fstat(directory,&opened)==0 && [OVTIdentityParent(opened) isEqual:self.archiveDocumentsIdentity]
+        && lstat(self.archiveDocuments.fileSystemRepresentation,&named)==0 && [OVTIdentityParent(named) isEqual:self.archiveDocumentsIdentity];
+    NSString* name=[NSString stringWithFormat:@"snapshot-share-companion-%@.json",action];NSDictionary* previous=self.archiveOutputs[action];
+    if (valid && previous) {valid=[previous isEqual:OVTIdentityOutput(directory,name,self.archiveDocumentsIdentity)];}
+    else if (valid) {errno=0;valid=fstatat(directory,name.UTF8String,&named,AT_SYMLINK_NOFOLLOW)!=0 && errno==ENOENT;}
+    NSString* temporary=[@".companion-" stringByAppendingString:OVTIdentityID()];
+    int output=valid?openat(directory,temporary.UTF8String,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600):-1;
+    valid=valid && output>=0;NSUInteger offset=0;NSTimeInterval began=NSProcessInfo.processInfo.systemUptime;
+    while (valid && offset<bytes.length) {
+        ssize_t count=write(output,(const char*)bytes.bytes+offset,bytes.length-offset);if (count<0 && errno==EINTR) {continue;}
+        if (count<=0 || NSProcessInfo.processInfo.systemUptime-began>=1.5) {valid=NO;break;}offset+=(NSUInteger)count;
+    }
+    if (output>=0) {
+        if (fsync(output)!=0 || fstat(output,&written)!=0) {valid=NO;}
+        if (close(output)!=0) {valid=NO;}
+    }
+    valid=valid && offset==bytes.length && S_ISREG(written.st_mode) && written.st_nlink==1 && written.st_uid==geteuid()
+        && (written.st_mode&0777)==0600 && written.st_size==(off_t)bytes.length;
+    if (valid && renameat(directory,temporary.UTF8String,directory,name.UTF8String)!=0) {valid=NO;}
+    valid=valid && fstatat(directory,name.UTF8String,&published,AT_SYMLINK_NOFOLLOW)==0 && published.st_dev==written.st_dev
+        && published.st_ino==written.st_ino && published.st_mode==written.st_mode && published.st_nlink==written.st_nlink
+        && published.st_uid==written.st_uid && published.st_gid==written.st_gid && published.st_size==written.st_size
+        && published.st_mtimespec.tv_sec==written.st_mtimespec.tv_sec && published.st_mtimespec.tv_nsec==written.st_mtimespec.tv_nsec;
+    NSDictionary* pin=valid?OVTIdentityOutput(directory,name,self.archiveDocumentsIdentity):nil;
+    valid=valid && pin && [pin[@"revision"] isEqual:OVTIdentityRevision(published)] && [pin[@"sha256"] isEqual:OVTIdentitySHA(bytes)]
+        && fstat(directory,&named)==0 && [OVTIdentityParent(named) isEqual:self.archiveDocumentsIdentity]
+        && lstat(self.archiveDocuments.fileSystemRepresentation,&named)==0 && [OVTIdentityParent(named) isEqual:self.archiveDocumentsIdentity];
+    if (directory>=0) {if (fsync(directory)!=0) {valid=NO;}if (close(directory)!=0) {valid=NO;}}
+    if (valid) {self.archiveOutputs[action]=pin;}else {self.failed=YES;}
+    [self.lock unlock];return valid;
+}
+- (NSDictionary*)sealArchiveAdmission:(NSString*)nonce {
+    if (![NSThread isMainThread] || !OVTIdentityMatch(nonce,@"\\Aios-[a-f0-9]{32}\\z")) {return nil;}
+    [self.lock lock];
+    if (self.archiveSealed || self.failed || !self.ready || self.archiveCollector || self.queries.count>=128 || [self.queries containsObject:nonce]
+        || self.sequence>=9007199254740991ULL || self.archiveOutputs.count!=2) {[self.lock unlock];return nil;}
+    [self.queries addObject:nonce];NSDictionary* before=OVTIdentityClock();NSTimeInterval began=NSProcessInfo.processInfo.systemUptime;
+    BOOL valid=[self valid:began budget:1.5];struct stat opened,named;
+    int directory=valid?open(self.archiveDocuments.fileSystemRepresentation,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC):-1;
+    valid=valid && directory>=0 && fstat(directory,&opened)==0 && [OVTIdentityParent(opened) isEqual:self.archiveDocumentsIdentity]
+        && lstat(self.archiveDocuments.fileSystemRepresentation,&named)==0 && [OVTIdentityParent(named) isEqual:self.archiveDocumentsIdentity];
+    NSMutableArray* outputs=[NSMutableArray new];
+    for (NSString* action in @[@"identity",@"clock"]) {
+        NSDictionary* pin=valid?OVTIdentityOutput(directory,[NSString stringWithFormat:@"snapshot-share-companion-%@.json",action],self.archiveDocumentsIdentity):nil;
+        valid=valid && pin && [pin isEqual:self.archiveOutputs[action]];if (valid) {[outputs addObject:pin];}
+    }
+    valid=valid && fstat(directory,&opened)==0 && [OVTIdentityParent(opened) isEqual:self.archiveDocumentsIdentity]
+        && lstat(self.archiveDocuments.fileSystemRepresentation,&named)==0 && [OVTIdentityParent(named) isEqual:self.archiveDocumentsIdentity];
+    if (directory>=0 && close(directory)!=0) {valid=NO;}
+    if (!valid || NSProcessInfo.processInfo.systemUptime-began>=1.5) {self.failed=YES;[self.lock unlock];return nil;}
+    // Fence observation and publication before closing the original descriptor.
+    // A failed close is immutable uncertainty; its numeric slot is never retried.
+    self.archiveSealed=YES;NSDictionary* closing=OVTIdentityClock();int descriptor=_root;_root=-1;
+    BOOL closed=descriptor>=0 && close(descriptor)==0;NSDictionary* ended=OVTIdentityClock();
+    self.archiveSeal=@{@"snapshotShareAdmissionSealVersion":@1,@"requestId":nonce,@"instance":self.instance,@"processId":@(getpid()),
+        @"bundleId":self.bundle,@"sequence":@(++self.sequence),@"sourceBirthClock":self.born,@"preparedClock":self.prepared,@"bundle":self.identity,
+        @"bundleRootIdentity":OVTIdentityRevision(_originalRoot),@"clockBefore":before,@"clockAfter":ended,@"outputs":outputs,
+        @"descriptorClose":@{@"clockBefore":closing,@"clockAfter":ended,@"succeeded":@(closed)},@"sealed":@YES,@"outputReadersClosed":@YES,
+        @"collectorAlive":@(self.archiveCollector!=nil),@"readerClosed":@(closed)};
+    self.archiveSealData=[NSJSONSerialization dataWithJSONObject:self.archiveSeal options:0 error:nil];
+    [self.lock unlock];return self.archiveSeal;
+}
+- (NSDictionary*)archiveAdmissionSealOriginal {
+    if (![NSThread isMainThread]) {return nil;}[self.lock lock];NSDictionary* original=self.archiveSeal;[self.lock unlock];return original;
+}
+- (NSData*)archiveAdmissionSealBytes {
+    if (![NSThread isMainThread]) {return nil;}[self.lock lock];NSData* original=self.archiveSealData;[self.lock unlock];return original;
+}
+- (BOOL)archiveAdmissionSealReady {
+    if (![NSThread isMainThread]) {return NO;}[self.lock lock];
+    BOOL ready=self.ready && !self.failed && !self.archiveSealed && !self.archiveCollector && _root>=0 && self.archiveOutputs.count==2;
+    [self.lock unlock];return ready;
+}
+#endif
 @end
 
 @interface OVTSnapshotCompanionIdentityPanel ()

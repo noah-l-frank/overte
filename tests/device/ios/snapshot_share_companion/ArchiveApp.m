@@ -8,6 +8,20 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+@interface OVTShareAdmissionSealButton : UIButton
+@end
+@implementation OVTShareAdmissionSealButton
+- (BOOL)isEnabled {return [super isEnabled] && OVTSnapshotCompanionIdentity.shared.archiveAdmissionSealReady;}
+@end
+@interface OVTShareAdmissionSealOriginal : UILabel
+@end
+@implementation OVTShareAdmissionSealOriginal
+- (NSString*)accessibilityValue {
+    NSData* original=OVTSnapshotCompanionIdentity.shared.archiveAdmissionSealBytes;
+    return original.length>0 && original.length<=262144?[[NSString alloc] initWithData:original encoding:NSUTF8StringEncoding]:@"";
+}
+@end
+
 @interface OVTShareArchive : UIViewController
 @property(nonatomic,strong) UITextField* runField;
 @property(nonatomic,strong) UILabel* status;
@@ -17,6 +31,7 @@
 @property(nonatomic,strong) NSDictionary* importRecord;
 @property(nonatomic,strong) NSURL* outputRoot;
 @property(nonatomic,strong) OVTShareArchiveRetirement* retirement;
+@property(nonatomic,strong) UILabel* admissionSealOriginal;
 @end
 @implementation OVTShareArchive
 - (void)viewDidLoad {
@@ -41,12 +56,24 @@
     UIButton* chunk=[UIButton buttonWithType:UIButtonTypeSystem];[chunk setTitle:@"Read unchanged imported original chunk" forState:UIControlStateNormal];
     chunk.accessibilityIdentifier=@"snapshot.share.archive.chunk";[chunk addTarget:self action:@selector(readOriginalChunk) forControlEvents:UIControlEventTouchUpInside];[stack addArrangedSubview:chunk];
     for (NSArray* control in @[@[@"Retire this imported original",@"snapshot.share.archive.retire",@"retireOriginal"],
-            @[@"Inspect original retirement",@"snapshot.share.archive.retire-inspect",@"inspectRetirement"]]) {
-        UIButton* action=[UIButton buttonWithType:UIButtonTypeSystem];[action setTitle:control[0] forState:UIControlStateNormal];
+            @[@"Inspect original retirement",@"snapshot.share.archive.retire-inspect",@"inspectRetirement"],
+            @[@"Seal original admission reader",@"snapshot.share.archive.admission-seal",@"sealAdmission"]]) {
+        BOOL seal=[control[1] isEqual:@"snapshot.share.archive.admission-seal"];
+        UIButton* action=seal?[[OVTShareAdmissionSealButton alloc] initWithFrame:CGRectZero]:[UIButton buttonWithType:UIButtonTypeSystem];
+        if (seal) {[action setTitleColor:UIColor.systemBlueColor forState:UIControlStateNormal];}
+        [action setTitle:control[0] forState:UIControlStateNormal];
         action.accessibilityIdentifier=control[1];[action addTarget:self action:NSSelectorFromString(control[2]) forControlEvents:UIControlEventTouchUpInside];[stack addArrangedSubview:action];
     }
     self.status=[UILabel new];self.status.numberOfLines=0;self.status.accessibilityIdentifier=@"snapshot.share.archive.status";
     self.status.text=@"No original imported";[stack addArrangedSubview:self.status];
+    self.admissionSealOriginal=[OVTShareAdmissionSealOriginal new];self.admissionSealOriginal.text=@"Original admission seal";
+    self.admissionSealOriginal.accessibilityIdentifier=@"snapshot.share.archive.admission-seal-original";
+    [stack addArrangedSubview:self.admissionSealOriginal];
+}
+- (void)sealAdmission {
+    NSDictionary* original=[OVTSnapshotCompanionIdentity.shared sealArchiveAdmission:self.queryField.text];
+    NSData* raw=original?OVTSnapshotCompanionIdentity.shared.archiveAdmissionSealBytes:nil;
+    self.status.text=raw?@"Original admission close result retained":@"Original admission reader remains owned or unknown";
 }
 - (void)importOriginal {
     NSString* run=self.runField.text;NSURL* group=OVTShareGroup();

@@ -1,6 +1,13 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "snapshot-share-admission-seal": {"current": 1, "reads": [1]},
+    "snapshot-share-admission-sealed": {"current": 1, "reads": [1]},
+    "snapshot-share-admission-seal-owner": {"current": 1, "reads": [1]},
+    "snapshot-share-admission-seal-ui-action": {"current": 1, "reads": [1]},
+    "snapshot-share-admission-seal-ui-output": {"current": 1, "reads": [1]},
+    "share-admission-seal-output-frame": {"current": 1, "reads": [1]},
+    "share-admission-seal-output-original": {"current": 1, "reads": [1]},
     "assets-usage-controls": {"current": 1, "reads": [1]},
     "ios-assets-usage-ui": {"current": 1, "reads": [1]},
     "ios-snapshot-journey-files-owner": {"current": 1, "reads": [1]},

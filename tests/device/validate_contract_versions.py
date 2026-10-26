@@ -9,6 +9,13 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "snapshot-share-admission-seal": 1,
+    "snapshot-share-admission-sealed": 1,
+    "snapshot-share-admission-seal-owner": 1,
+    "snapshot-share-admission-seal-ui-action": 1,
+    "snapshot-share-admission-seal-ui-output": 1,
+    "share-admission-seal-output-frame": 1,
+    "share-admission-seal-output-original": 1,
     "assets-usage-controls": 1,
     "ios-assets-usage-ui": 1,
     "ios-snapshot-journey-files-owner": 1,

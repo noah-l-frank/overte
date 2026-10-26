@@ -24,27 +24,35 @@ FIELDS={
 
 
 class SnapshotShareUIAction:
+    _fields=FIELDS
+    _store_prefix='share-normal-slot'
+    _namespace='share-normal'
+    _schema='shareNormalOutput'
+    _owner_key='snapshotShareUIActionVersion'
+    _frame_key='snapshotShareUIOutputVersion'
+    _output_control='snapshot.share.inspect'
+    _output_locator='snapshot.share.original'
     def __init__(self,root,lock,binding,run,index,plan,guard,*,client=None,session=None,epoch_ms=None,monotonic=time.monotonic,historical=False):
         self.root,self.lock,self.binding,self.run,self.index=root,lock,deepcopy(context(binding)),run,index
         need(integer(index,1,1024) and lock.path==root/'script-feature-sources.lock' and callable(guard));lock.assert_held()
         exact(plan,{'label','control','selector','fields'});need(type(plan['label']) is str and re.fullmatch('[a-z][a-z0-9-]{0,63}',plan['label'])
-            and plan['control'] in FIELDS and type(plan['fields']) is list and len(plan['fields'])<=2)
+            and plan['control'] in self._fields and type(plan['fields']) is list and len(plan['fields'])<=2)
         names=set()
         for row in plan['fields']:
-            need(type(row) in (tuple,list) and len(row)==2 and row[0] in FIELDS[plan['control']] and row[0] not in names
+            need(type(row) in (tuple,list) and len(row)==2 and row[0] in self._fields[plan['control']] and row[0] not in names
                 and type(row[1]) is str and 0<len(row[1].encode('utf-16le'))//2<=4096
                 and all(ord(char)>=32 and ord(char)!=127 and ord(char) not in WEBDRIVER_KEYS for char in row[1]));names.add(row[0])
-        need(names==FIELDS[plan['control']]);self.plan=deepcopy(plan)
+        need(names==self._fields[plan['control']]);self.plan=deepcopy(plan)
         if plan['control'].startswith('system-'):
             exact(plan['selector'],{'using','value'});need(plan['selector']['using']=='accessibility id');self.selector=Locator(**plan['selector'])
         else:need(plan['selector'] is None);self.selector=Locator('accessibility id',plan['control'])
         self.guard,self.epoch_ms,self.monotonic,self.historical=guard,epoch_ms,monotonic,historical
-        need(historical or session==binding['sessionId']);self.store=PrivateFeatureState(root/('share-normal-slot-'+format(index,'04d')+'.json'))
+        need(historical or session==binding['sessionId']);self.store=PrivateFeatureState(root/(self._store_prefix+'-'+format(index,'04d')+'.json'))
         self.previous=self.store.read();self.state=dict(fields=[dict(element=None,cleared=False,written=False) for _ in plan['fields']],button=None,issued=False,before=None,returned=False,output=None,wire=None,proof=None)
-        self.files=OriginalFrameStore(root,self.binding,run,'primary',self.bound,self.intent,namespace='share-normal',schema_prefix='shareNormalOutput',monotonic=monotonic)
+        self.files=OriginalFrameStore(root,self.binding,run,'primary',self.bound,self.intent,namespace=self._namespace,schema_prefix=self._schema,monotonic=monotonic)
         if not historical:self.ui=NativeUI(client,session,self.bound,timeout=1,monotonic=monotonic,sleep=lambda _:None)
         if self.previous is not None:self.state=self.load(self.previous)
-    def envelope(self):return dict(snapshotShareUIActionVersion=1,binding=self.binding,runId=self.run,index=self.index,plan=self.plan,payload=pack([self.state]))
+    def envelope(self):return {self._owner_key:1,'binding':self.binding,'runId':self.run,'index':self.index,'plan':self.plan,'payload':pack([self.state])}
     def bound(self):
         self.lock.assert_held();need(same(self.store.read(),self.previous) and self.guard() is not False);return True
     def save(self):
@@ -52,9 +60,9 @@ class SnapshotShareUIAction:
     @staticmethod
     def element(value):need(value is None or type(value) is str and re.fullmatch('/element/[A-Za-z0-9_.:%-]{1,480}',value))
     def load(self,value):
-        exact(value,{'snapshotShareUIActionVersion','binding','runId','index','plan','payload'});rows=unpack(value['payload']);need(len(rows)==1)
+        exact(value,{self._owner_key,'binding','runId','index','plan','payload'});rows=unpack(value['payload']);need(len(rows)==1)
         state=rows[0];prior=self.state;self.state=state
-        try:need(type(value['snapshotShareUIActionVersion']) is int and value['snapshotShareUIActionVersion']==1 and same(value,self.envelope()))
+        try:need(type(value[self._owner_key]) is int and value[self._owner_key]==1 and same(value,self.envelope()))
         finally:self.state=prior
         exact(state,set(prior));need(type(state['fields']) is list and len(state['fields'])==len(self.plan['fields'])
             and type(state['issued']) is bool and type(state['returned']) is bool and (not state['returned'] or state['issued']))
@@ -74,10 +82,10 @@ class SnapshotShareUIAction:
             and all(same(old[key],value[key]) for key in old if key not in ('phase','file')) and (old['file'] is None or same(old['file'],value['file'])))
         self.state['wire']=deepcopy(value);self.save()
     def original(self,state=None):
-        state=self.state if state is None else state;need(self.plan['control']=='snapshot.share.inspect')
+        state=self.state if state is None else state;need(self.plan['control']==self._output_control)
         ref=state['wire'] if state['proof'] is None else self.files.expand(state['proof']);need(ref is not None)
-        frame=self.files.read(ref);exact(frame,{'snapshotShareUIOutputVersion','plan','fields','button','output','hostBefore','hostAfter','raw'})
-        need(type(frame['snapshotShareUIOutputVersion']) is int and frame['snapshotShareUIOutputVersion']==1 and same(frame['plan'],self.plan)
+        frame=self.files.read(ref);exact(frame,{self._frame_key,'plan','fields','button','output','hostBefore','hostAfter','raw'})
+        need(type(frame[self._frame_key]) is int and frame[self._frame_key]==1 and same(frame['plan'],self.plan)
             and same(frame['fields'],state['fields']) and frame['button']==state['button'] and frame['output']==state['output']
             and state['issued'] is True and type(frame['raw']) is str and len(frame['raw'])<=349528)
         need(same(frame['hostBefore'],state['before']));host_clock(frame['hostBefore']);host_clock(frame['hostAfter'],frame['hostBefore'])
@@ -98,7 +106,7 @@ class SnapshotShareUIAction:
             if self.state['button'] is None:self.state['button']=self.ui._resolve(self.selector);self.save()
             self.ui._check();self.state['issued']=True;self.state['before']=self.stamp();self.save();self.ui._request('POST',self.state['button']+'/click',{})
             self.state['returned']=True;self.save()
-        if self.plan['control']!='snapshot.share.inspect':return dict(deliveryKnown=self.state['returned'],independentOutcomeRequired=True)
+        if self.plan['control']!=self._output_control:return dict(deliveryKnown=self.state['returned'],independentOutcomeRequired=True)
         if self.state['proof'] is not None:return self.original()
         if self.state['wire'] is not None:
             self.original();wire=self.state['wire'];need(wire['phase'] in ('opened','saved'))
@@ -106,13 +114,13 @@ class SnapshotShareUIAction:
             self.state['proof']=self.files.compact(wire)
         else:
             if self.state['output'] is None:
-                element=self.ui._find_once(Locator('accessibility id','snapshot.share.original'),require_enabled=False)
+                element=self.ui._find_once(Locator('accessibility id',self._output_locator),require_enabled=False)
                 if element is None:raise NativeUIError('Original Share journal view is unavailable')
                 self.state['output']=element;self.save()
             raw=self.ui._request('GET',self.state['output']+'/attribute/value');after=self.stamp()
             need(type(raw) is str and 1<=len(raw.encode('utf-8'))<=262144)
-            frame=dict(snapshotShareUIOutputVersion=1,plan=self.plan,fields=deepcopy(self.state['fields']),button=self.state['button'],output=self.state['output'],
-                hostBefore=deepcopy(self.state['before']),hostAfter=after,raw=base64.b64encode(raw.encode('utf-8')).decode())
+            frame={self._frame_key:1,'plan':self.plan,'fields':deepcopy(self.state['fields']),'button':self.state['button'],'output':self.state['output'],
+                'hostBefore':deepcopy(self.state['before']),'hostAfter':after,'raw':base64.b64encode(raw.encode('utf-8')).decode()}
             self.state['proof']=self.files.write(self.index,frame)
         self.state['wire']=None;self.save();return self.original()
     def qualified(self):
