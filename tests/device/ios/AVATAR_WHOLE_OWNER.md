@@ -36,8 +36,9 @@ qualified process-end boundary. The
 successful Scene/Complete codecs cannot be repurposed to certify that failed
 preparation. The separate [failed-preparation coordinator](AVATAR_FAILED_PREPARATION.md)
 joins credential/lease drainage, original preference restoration and the actual
-paired failed process/SDK end. Its canonical integration and ready-peer branch
-remain part of the whole qualification.
+paired failed process/SDK end. The closed [canonical routing packet](AVATAR_CANONICAL_ROUTING.md)
+now supplies dispatch and SDK-free metadata retirement after full original
+admission. Its whole qualification and ready-peer branch remain pending.
 
 ## Untouched frames and camera ordering
 

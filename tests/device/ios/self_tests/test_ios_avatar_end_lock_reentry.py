@@ -43,8 +43,8 @@ class AvatarEndLockReentryTests(unittest.TestCase):
         with self.held():
             before={role:(lock.path.stat().st_dev,lock.path.stat().st_ino,lock.path.read_bytes()) for role,lock in self.locks.items()}
             with patch('ios.adapters.avatar_ended_archive.IOSAvatarFeature.archive',side_effect=AtCompleteDecoder('actual decoder entry')) as decoder:
-                # ScriptSourceLock retains its closed exception boundary.
-                with self.assertRaises(NativeUIError):
+                # A valid held inode preserves the decoder's exact failure.
+                with self.assertRaises(AtCompleteDecoder):
                     verify(self.adapter,'primary',self.value,self.terminal,held_locks=self.locks)
                 self.assertEqual(1,decoder.call_count)
             for role,lock in self.locks.items():

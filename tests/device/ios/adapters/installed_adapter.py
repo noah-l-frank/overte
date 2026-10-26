@@ -11,6 +11,8 @@ from contracts import validate_operation_arguments
 from ios.adapters.assets_session_owners import installed_entry as assets_api_entry,ensure_released as ensure_assets_released
 from ios.adapters.lifecycle_session_owners import installed_entry as lifecycle_api_entry
 from ios.adapters.create_api_clock import installed_entry as create_api_entry
+from ios.adapters.avatar_api_entry import installed_entry as avatar_api_entry
+from ios.adapters.avatar_session_cleanup import session_entry as avatar_session_entry
 from ios.adapters.emote_api_entry import installed_entry as emote_api_entry
 from ios.adapters.navigation_api_entry import installed_entry as navigation_api_entry
 from ios.adapters.world_web_api_clock import installed_entry as world_web_api_entry
@@ -234,6 +236,15 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                  and scope['targetFingerprint']==fingerprint)
             return target
 
+        def _avatar_retired_binding_record(self,selector,scope,value):
+            # Decode historical Installed bytes against this actual selected
+            # candidate bundle, without acquiring any live SDK/native source.
+            self._retired_candidate_scope(selector,scope)
+            class Frozen:
+                def read(_self):return value
+            def forbidden():need(False)
+            return InstalledCodeBinding(Frozen(),scope,candidate['bundleIdentity'],forbidden,forbidden,forbidden).record()
+
         def _binding(self, selector, client, session, state, target):
             scope = self._scope(selector, session, state, target)
             def process():
@@ -315,6 +326,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
 
         @assets_api_entry
         @create_api_entry
+        @avatar_api_entry
         @emote_api_entry
         @navigation_api_entry
         @world_web_api_entry
@@ -344,6 +356,10 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                         factory=(runtime._emote_rooted_feature if config.get('iosFeatureAdapterVersion',0)>=6
                             and config.get('emoteCoordinatorVersion')==2 else runtime._emote_feature)
                         flow=factory(selector,values['runId'],role='primary',client=reader(config),settings=config['emotes'])
+                    elif operation.split('.')[1]=='avatar-people':
+                        from ios.adapters.avatar_runtime import IOSAvatarRuntime
+                        config=configuration();runtime=IOSAvatarRuntime(self)
+                        flow=runtime._avatar_feature(selector,values['runId'],role='primary',client=reader(config),settings=config['avatarPeople'])
                     elif operation.split('.')[1]=='world-navigation':
                         from ios.adapters.navigation_runtime import IOSNavigationRuntime
                         config=configuration();runtime=IOSNavigationRuntime(self)
@@ -369,6 +385,14 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                     elif operation=='feature.emotes.terminal' and values['stage']=='finish':
                         from ios.adapters.emote_canonical_end import verify
                         verify(flow,values,result)
+                    elif operation=='feature.avatar-people.terminal' and values['stage']=='finish':
+                        from ios.adapters.avatar_canonical_end import verify
+                        verify(flow,values,result)
+                    elif operation=='feature.avatar-people.cleanup':
+                        from ios.adapters.avatar_canonical_end import verify_failed_cleanup
+                        if not verify_failed_cleanup(flow,values,result):
+                            client,session,state,target,_scope=runtime._existing(selector)
+                            self._binding(selector,client,session,state,target).verify()
                     elif operation=='feature.world-navigation.cleanup':
                         from ios.adapters.navigation_failed_preparation_cleanup import verify
                         if not verify(flow,values,result):
@@ -406,12 +430,17 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                 self._operation = self._retiring = None
 
         @lifecycle_api_entry
+        @avatar_session_entry
         def cleanup(self, selector):
             # Inspect the Assets successor before any feature finalization or
             # ordinary SDK teardown. Local client retirement cannot discharge
             # remaining server/oven/blob responsibility.
             ensure_assets_released(self,selector)
             from ios.adapters.feature_configuration import configuration
+            from ios.adapters.avatar_runtime import IOSAvatarRuntime
+            from ios.adapters.avatar_metadata_retirement import retire_existing as retire_avatar
+            avatar=retire_avatar(IOSAvatarRuntime(self),selector,configuration())
+            if avatar is not None:return avatar
             from ios.adapters.emote_runtime import IOSEmoteRuntime
             from ios.adapters.emote_rooted_session_cleanup import retire_existing as retire_rooted_emotes
             emotes=retire_rooted_emotes(IOSEmoteRuntime(self),selector,configuration())

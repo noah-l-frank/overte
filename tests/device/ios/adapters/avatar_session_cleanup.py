@@ -19,6 +19,12 @@ from ios.adapters.avatar_session_carriers import configured_roots,scoped,covered
 _ACTIVE=ContextVar('ios_avatar_session_retirement_budget',default=None)
 
 
+def check(adapter,selector):
+    current=_ACTIVE.get()
+    if current is not None:
+        need(current[0] is adapter and current[1]==selector);current[2].check()
+
+
 class Budget:
     def __init__(self,monotonic,started):
         need(callable(monotonic) and number(started,0,1e15))
