@@ -4,6 +4,8 @@
 import base64
 from copy import deepcopy
 import re
+import time
+from types import SimpleNamespace
 import uuid
 from adapters.native_feature_observation import decode,exact,integer,need
 from adapters.native_clock_join import digest
@@ -13,6 +15,7 @@ from adapters.normal_ui import Locator,NativeUIError
 from adapters.original_frame_store import OriginalFrameStore
 from adapters.original_file_reads import scope as read_scope
 from adapters.script_feature.history import pack,unpack,same
+from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
 from ios.adapters.graphics_history import follow_native
@@ -20,7 +23,7 @@ from ios.adapters.snapshot_capture_clock import operation
 from ios.adapters.snapshot_capture_owner import IOSSnapshotCaptureOwner
 from ios.adapters.snapshot_photos_context import PhotosClientContext,same_device
 from ios.adapters.snapshot_share_process import SnapshotShareArchiveContext
-from ios.adapters.snapshot_share_query_owner import host_clock
+from ios.adapters.snapshot_share_query_owner import SnapshotShareQueryOwner,host_clock
 from ios.adapters.installed_code import source as process_source
 from ios.adapters.tablet_web_admission import installed_forward
 from ios.adapters.snapshot_share_archive_runtime import IOSSnapshotShareArchiveRuntime
@@ -45,19 +48,53 @@ class IOSSnapshotShareOwner:
         self.system_ui=deepcopy(system_ui);self.epoch_ms,self.monotonic,self.sleep=epoch_ms,monotonic,sleep
         self.root,self.archive_root=runtime.state_path(selector).parent,archive.session_store.path.parent
         need(self.root!=self.archive_root and lock.path==self.root/'script-feature-sources.lock' and archive_lock.path==self.archive_root/'script-feature-sources.lock')
-        self.store=PrivateFeatureState(self.root/'snapshot-share-owner.json');self.previous=self.store.read()
-        self.state=dict(capture=None,device=None,phaseOriginal=None,nativeTail=None,slots=[],opens=[],current=None,actions=[],liveQueries=[],receiverActions=[],
-            handoffs=[],archiveSources=[],selectTicket=None,readyReceiver=None,exportComplete=False,imported=None,metadata=None,chunks=[],result=None,cleanup=None)
+        self.store=PrivateFeatureState(self.root/'snapshot-share-owner.json');self.previous=self.store.read();self.historical=False
+        self.state=self.empty()
         self.queries=runtime.query_owner(self)
         self.files=OriginalFrameStore(self.archive_root,self.archive_binding,run,'primary',self.guard,self.source_intent,
             namespace='share-archive-source',schema_prefix='shareArchiveSource')
         if self.previous is not None:self.state=self.load(self.previous)
+
+    @staticmethod
+    def empty():
+        return dict(capture=None,device=None,phaseOriginal=None,nativeTail=None,slots=[],opens=[],current=None,actions=[],liveQueries=[],receiverActions=[],
+            handoffs=[],archiveSources=[],selectTicket=None,readyReceiver=None,exportComplete=False,imported=None,metadata=None,chunks=[],result=None,cleanup=None)
+
+    @classmethod
+    def history(cls,store,lock,archive_lock,binding,archive_binding,run,fixture_url,system_ui,primary_bundle,artifact_path,admission_store):
+        """Reopen retained originals without an SDK, fixture or native source."""
+        need(isinstance(store,PrivateFeatureState) and isinstance(admission_store,PrivateFeatureState)
+            and isinstance(lock,ScriptSourceLock) and isinstance(archive_lock,ScriptSourceLock))
+        lock.assert_held();archive_lock.assert_held();exact(system_ui,{'select','cancel'})
+        for value in system_ui.values():exact(value,{'using','value'});need(value['using']=='accessibility id');Locator(**value)
+        need(type(primary_bundle) is str and re.fullmatch('[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)+',primary_bundle))
+        result=object.__new__(cls);result.historical=True;result.runtime=result.selector=result.phase=None
+        result.root,result.archive_root=store.path.parent,admission_store.path.parent
+        need(result.root!=result.archive_root and store.path==result.root/'snapshot-share-owner.json'
+            and lock.path==result.root/'script-feature-sources.lock' and archive_lock.path==result.archive_root/'script-feature-sources.lock')
+        result.lock,result.archive_lock,result.store=lock,archive_lock,store
+        result.binding,result.archive_binding=deepcopy(context(binding)),deepcopy(context(archive_binding))
+        result.run,result.fixture_url,result.system_ui=identifier(run),fixture_url,deepcopy(system_ui)
+        result.epoch_ms=lambda:time.time()*1000;result.monotonic,result.sleep=time.monotonic,time.sleep
+        result.queries=SnapshotShareQueryOwner.history(PrivateFeatureState(result.archive_root/'snapshot-share-query-owner.json'),archive_lock,
+            result.archive_binding,result.run,fixture_url,artifact_path,admission_store)
+        result.primary=SimpleNamespace(target=dict(appId=primary_bundle))
+        result.archive=SimpleNamespace(target=dict(appId=result.queries.artifact['bundle']['bundleId']),artifact=result.queries.artifact)
+        result.previous=store.read();need(result.previous is not None);result.state=result.empty()
+        result.files=OriginalFrameStore(result.archive_root,result.archive_binding,result.run,'primary',result.guard,result.source_intent,
+            namespace='share-archive-source',schema_prefix='shareArchiveSource')
+        result.state=result.load(result.previous);return result
+
     def guard(self):
-        self.lock.assert_held();self.archive_lock.assert_held();need(same(self.store.read(),self.previous));self.primary.probe();self.archive.probe();return True
+        self.lock.assert_held();self.archive_lock.assert_held();need(same(self.store.read(),self.previous))
+        if self.historical:self.queries.local_check()
+        else:self.primary.probe();self.archive.probe()
+        return True
+    def live_guard(self):need(not self.historical);return self.guard()
     def envelope(self):return dict(iosSnapshotShareOwnerVersion=1,binding=self.binding,archiveBinding=self.archive_binding,runId=self.run,
         fixtureUrl=self.fixture_url,systemUI=self.system_ui,payload=pack([self.state]))
     def save(self):
-        self.guard();value=self.envelope();self.store.write(value,self.previous);need(same(value,self.store.read()));self.previous=deepcopy(value)
+        self.live_guard();value=self.envelope();self.store.write(value,self.previous);need(same(value,self.store.read()));self.previous=deepcopy(value)
     def load(self,value):
         exact(value,{'iosSnapshotShareOwnerVersion','binding','archiveBinding','runId','fixtureUrl','systemUI','payload'})
         rows=unpack(value['payload']);need(len(rows)==1 and type(value['iosSnapshotShareOwnerVersion']) is int and value['iosSnapshotShareOwnerVersion']==1)
@@ -149,22 +186,26 @@ class IOSSnapshotShareOwner:
         if self.state['capture'] is not None:need(same(pin,self.state['capture']))
         return owner,result,pin,raw
     def active(self,ticket,verb):
+        need(not self.historical)
         identifier(ticket);value=self.phase.read(self.state['phaseOriginal'])['status']
         phase_packet(value,run=self.run,area='snapshots',request=value['requestId'],epoch=value['capturedEpochMs'],
             previous=self.capture()[0].state['phaseOriginal'] if self.state['phaseOriginal'] is None else self.state['phaseOriginal'])
         need(value['active'] and value['activations'][-1]['ticket']==ticket and value['activations'][-1]['stimulus']==dict(verb=verb,inputs={}))
         self.state['phaseOriginal']=deepcopy(value);self.save()
     def phase_guard(self):
+        need(not self.historical)
         need(self.state['phaseOriginal'] is not None);value=self.phase.read(self.state['phaseOriginal'])['status']
         need(value['active'] and same(value['activations'],self.state['phaseOriginal']['activations']));return True
     def packet_store(self,row):return PrivateFeatureState(self.root/('snapshot-share-primary-'+PACKETS[row['kind']]._name+'-'+format(row['index'],'04d')+'.json'))
     def packet(self,row,history=False):
         cls=PACKETS[row['kind']];args=(self.packet_store(row),self.lock,self.binding,self.run,'primary',row['index'])
         if history:return cls.history(*args)
+        need(not self.historical)
         actual=self.primary.foreground_sources();native=actual['clock_source']
         if self.state['nativeTail'] is not None:restore(native,self.state['nativeTail'])
         return cls(*args,actual['observer'],native,self.guard,epoch_ms=self.epoch_ms,monotonic=self.monotonic)
     def observe(self,label,kind):
+        need(not self.historical)
         rows=[row for row in self.state['slots'] if row['label']==label]
         if rows:row=rows[0];need(row['kind']==kind)
         else:
@@ -197,6 +238,7 @@ class IOSSnapshotShareOwner:
     def inputs(self,history=False):
         args=(PrivateFeatureState(self.root/SnapshotShareInputs.store_name('primary')),self.lock,self.binding,self.run,'primary')
         if history:return SnapshotShareInputs.history(*args)
+        need(not self.historical)
         return SnapshotShareInputs(*args,self.primary.foreground_sources()['native'],self.guard)
     def op(self):
         need(integer(self.state['current'],1,len(self.state['opens'])));return self.state['opens'][self.state['current']-1]
@@ -204,6 +246,7 @@ class IOSSnapshotShareOwner:
         selected=[row for row in rows if row['label'].startswith(prefix)]
         return selected[-1]['label'] if selected and selected[-1]['journal'] is None else prefix+str(len(selected)+1)
     def action(self,row,history=False):
+        if not history:need(not self.historical)
         sdk=self.archive if row['role']=='archive' else self.primary;binding=self.archive_binding if row['role']=='archive' else self.binding
         def guard():
             self.guard()
@@ -217,6 +260,7 @@ class IOSSnapshotShareOwner:
         return SnapshotShareUIAction(self.archive_root,self.archive_lock,binding,self.run,row['index'],row['plan'],lambda:True if history else guard(),
             client=None if history else sdk.client,session=None if history else sdk.session,epoch_ms=self.epoch_ms,monotonic=self.monotonic,historical=history)
     def acted(self,label,role,control,fields=()):
+        need(not self.historical)
         selector=self.system_ui['select' if control=='system-select' else 'cancel'] if control.startswith('system-') else None
         plan=dict(label=label,control=control,selector=selector,fields=[list(value) for value in fields]);rows=[row for row in self.state['actions'] if row['label']==label]
         if rows:row=rows[0];need(row['role']==role and same(row['plan'],plan))
@@ -229,6 +273,7 @@ class IOSSnapshotShareOwner:
             row['journal']=digest(child.previous);self.save();return row,None
         value=child.execute();row['journal']=digest(child.previous);self.save();return row,value
     def live(self,prefix):
+        need(not self.historical)
         rows=self.queries.state['queries'];last=rows[-1] if rows else None
         label=last['label'] if last is not None and last['phase']!='retained' else prefix+str(len(rows)+1)
         packet=self.queries.query(label);index=self.queries.state['queries'][-1]['index'];self.queries.qualified(index)
@@ -245,6 +290,7 @@ class IOSSnapshotShareOwner:
         share.stamp(packet['queries'][-1]['clock'],packet['events'][-1]['clock'])
         live=self.queries.query_original(self.queries.state['anchorQuery']);need(packet['processId']==live['anchor']['pid']);return packet
     def inspect_receiver(self):
+        need(not self.historical)
         self.live('inspect-live-');label=self.latest_label('receiver-inspect-',self.state['actions'])
         rows=[row for row in self.state['actions'] if row['label']==label]
         nonce=dict(rows[0]['plan']['fields'])['snapshot.share.query'] if rows else 'ios-'+uuid.uuid4().hex
@@ -253,6 +299,7 @@ class IOSSnapshotShareOwner:
         if prior:share.original(packet,self.receiver_original(prior[-1]['index']))
         self.state['receiverActions'].append(row['index']);self.save();return packet
     def handoff(self,label,target):
+        need(not self.historical)
         rows=[row for row in self.state['handoffs'] if row['label']==label]
         if rows:row=rows[0];need(row['target']==target)
         else:
@@ -275,10 +322,12 @@ class IOSSnapshotShareOwner:
         need(row['before'][target]['process']['foreground'] is False and type(row['before'][other]['process']['foreground']) is bool
             and row['after'][target]['process']['foreground'] is True and row['after'][other]['process']['foreground'] is False)
     def archive_runtime(self):
+        need(not self.historical)
         scope={key:value for key,value in self.archive_binding.items() if key!='processIdentity'}
         return IOSSnapshotShareArchiveRuntime(self.archive.client,self.archive.session_store,self.archive.target,scope,self.archive.artifact_path,lambda:self.archive.probe(True) is not None,
             admission_store=self.archive.admission.store,lock=self.archive_lock,run=self.run,fixture_url=self.fixture_url,epoch_ms=self.epoch_ms,monotonic=self.monotonic,sleep=self.sleep)
     def source_intent(self,kind,value):
+        need(not self.historical)
         need(kind=='original');row=self.state['archiveSources'][-1];self.files.original(value);old=row['wire'];need(value['index']==row['index'] and row['proof'] is None)
         if old is None:need(value['phase']=='planned')
         else:need((old['phase'],value['phase']) in (('planned','opened'),('opened','saved')) and all(same(old[key],value[key]) for key in old if key not in ('phase','file'))
@@ -295,6 +344,7 @@ class IOSSnapshotShareOwner:
         self.archive_source(index);row=self.state['archiveSources'][index-1]
         return self.files.read(row['wire'] if row['proof'] is None else self.files.expand(row['proof']))
     def read_archive(self,label,path,limit):
+        need(not self.historical)
         rows=[row for row in self.state['archiveSources'] if row['label']==label]
         if rows:row=rows[0];need(row['path']==path and row['limit']==limit)
         else:
@@ -312,7 +362,7 @@ class IOSSnapshotShareOwner:
 
     @operation
     def open(self,ticket):
-        self.guard();self.active(ticket,'share-open')
+        self.live_guard();self.active(ticket,'share-open')
         if self.state['capture'] is None:
             capture,_result,pin,_raw=self.capture();self.state['capture']=pin;self.state['nativeTail']=deepcopy(capture.state['nativeTail'])
             self.state['device']=same_device(self.primary,self.archive);self.save()
@@ -344,7 +394,7 @@ class IOSSnapshotShareOwner:
 
     @operation
     def cancel(self,ticket):
-        self.guard();self.active(ticket,'share-cancel');row=self.op();need(row['status'] in ('open','cancelled'))
+        self.live_guard();self.active(ticket,'share-cancel');row=self.op();need(row['status'] in ('open','cancelled'))
         if row['status']=='cancelled':return self.cancel_result(row)
         self.acted('system-cancel-'+str(row['index']),'system','system-cancel');after=self.next_source('cancel-after-'+str(row['index'])+'-','exports')
         exports.drained(after);result=exports.outcome(after,row['exportId']);need(result['nativeResult']['detail']==dict(status='cancelled',hasError=False))
@@ -355,7 +405,7 @@ class IOSSnapshotShareOwner:
 
     @operation
     def select(self,ticket):
-        self.guard()
+        self.live_guard()
         identifier(ticket)
         if self.state['result'] is not None:need(self.state['selectTicket']==ticket);self.primary.probe(True);return self.proof()
         self.active(ticket,'share-select-owned')
@@ -472,7 +522,7 @@ class IOSSnapshotShareOwner:
 
     @operation
     def cleanup(self):
-        self.guard();need(self.state['result'] is not None)
+        self.live_guard();need(self.state['result'] is not None)
         if self.state['cleanup'] is not None and self.state['cleanup']['result'] is not None:
             self.primary.probe(True);return self.cleanup_proof()
         if self.state['cleanup'] is None:
