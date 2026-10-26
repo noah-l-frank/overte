@@ -178,6 +178,8 @@ Rectangle {
                 model: [qsTr("Still"), qsTr("Still + animated GIF"), qsTr("360° panorama"), qsTr("360° cubemap")]
                 delegate: Controls.RadioDelegate {
                     objectName: "snapshotMode.option." + ["still", "animated", "panorama", "cubemap"][index]
+                    readonly property var featureSnapshotPendingRoot: root.featureObservation ? root : null
+                    readonly property var featureSnapshotPendingCombo: root.featureObservation ? captureMode : null
                     width: captureMode.width
                     text: modelData
                     checked: captureMode.currentIndex === index

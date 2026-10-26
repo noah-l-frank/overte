@@ -33,6 +33,7 @@ from ios.adapters.account_preferences import CONTROL_ID as REMEMBER_ID,CONTROL_F
 from ios.adapters.view_controls import IDS as VIEW_IDS,FIELDS as VIEW_FIELDS,metadata as view_metadata
 from ios.adapters.snapshot_export_controls import IDS as SNAPSHOT_EXPORT_IDS,FIELDS as SNAPSHOT_EXPORT_FIELDS,metadata as snapshot_export_metadata
 from ios.adapters.snapshot_capture_controls import IDS as SNAPSHOT_CAPTURE_IDS,FIELDS as SNAPSHOT_CAPTURE_FIELDS,metadata as snapshot_capture_metadata
+from ios.adapters.snapshot_pending_choices import IDS as SNAPSHOT_PENDING_IDS,metadata as snapshot_pending_metadata
 from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
 from adapters.token_script_file_ui import (file_control, folder_text,
     metadata_fields as file_metadata_fields, validate_metadata as validate_file_metadata)
@@ -160,6 +161,10 @@ def observation(value, pid, now_ms=None):
         if type(value['snapshotCaptureControlsVersion']) is not int or value['snapshotCaptureControlsVersion']!=1:
             raise NativeUIError('Native iOS Snapshot capture source version is invalid')
         fields.add('snapshotCaptureControlsVersion')
+    if type(value) is dict and 'snapshotPendingControlsVersion' in value:
+        if type(value['snapshotPendingControlsVersion']) is not int or value['snapshotPendingControlsVersion']!=1:
+            raise NativeUIError('Native iOS Snapshot pending source version is invalid')
+        fields.add('snapshotPendingControlsVersion')
     if type(value) is dict and 'audioControlsVersion' in value:
         if type(value['audioControlsVersion']) is not int or value['audioControlsVersion'] != 1:
             raise NativeUIError('Native iOS Audio control version is invalid')
@@ -308,6 +313,11 @@ def observation(value, pid, now_ms=None):
             fields |= metadata_fields(control['id'])
         if isinstance(control, dict) and isinstance(control.get('id'), str) and control['id'] in SNAPSHOT_CHOICES:
             fields.add('checked')
+        if type(control) is dict and control.get('id') in SNAPSHOT_PENDING_IDS and value.get('snapshotPendingControlsVersion')==1:
+            actual=snapshot_pending_metadata(control.get('snapshotPendingChoice'))
+            if control.get('checked')!=actual['checked'] or control['id']!='snapshot.mode.'+actual['option']:
+                raise NativeUIError('Actual Snapshot popup choice and control disagree')
+            fields.add('snapshotPendingChoice')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
                 or not (is_lifecycle or control['id'] in CONTROLS or control['id'] in TABLET_APP_IDS or control['id'] in SNAPSHOT_EXPORT_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id'] in VIEW_IDS or control['id']==REMEMBER_ID or is_asset or is_create and create_control(control['id']) or is_chat and chat_control(control['id']) or is_places and places_control(control['id']) or is_error or is_avatar and avatar_control(control['id']) or is_emote and emote_control(control['id'])) or control['id'] in seen

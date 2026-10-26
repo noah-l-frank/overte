@@ -20,9 +20,10 @@ namespace overte::e2e {
 // dispatches no event and deliberately excludes all login/private input.
 class IOSNormalInputObservation {
 public:
-    enum class Profile { Avatar, Snapshot, Lifecycle, LifecycleNavigation };
+    enum class Profile { Avatar, Snapshot, SnapshotPending, Lifecycle, LifecycleNavigation };
     static IOSNormalInputObservation& shared(Profile profile=Profile::Avatar) {
         if (profile==Profile::Snapshot) {static IOSNormalInputObservation snapshot(Profile::Snapshot);return snapshot;}
+        if (profile==Profile::SnapshotPending) {static IOSNormalInputObservation pending(Profile::SnapshotPending);return pending;}
         if (profile==Profile::Lifecycle) {static IOSNormalInputObservation lifecycle(Profile::Lifecycle);return lifecycle;}
         if (profile==Profile::LifecycleNavigation) {static IOSNormalInputObservation navigation(Profile::LifecycleNavigation);return navigation;}
         static IOSNormalInputObservation value(Profile::Avatar);return value;
@@ -42,6 +43,11 @@ public:
                 const auto text=input.value("text").toString();
                 if (!text.isEmpty() && !QRegularExpression("\\Aparity-[0-9a-f]{16}-(still-png|still-jpg|animated|panorama|cubemap)\\z").match(text).hasMatch()) {return {};}
             } else if (operation!="activate") {return {};}
+        } else if (profile==Profile::SnapshotPending) {
+            const auto keys=input.keys();const QSet<QString> expected{"schemaVersion","commandId","instance","sequence","observedElapsedMs","fieldToken","operation"};
+            if (root.isEmpty() || (control!="snapshot.mode.animated" && control!="snapshot.mode.still")
+                    || input.value("operation")!=QJsonValue("activate") || input.value("schemaVersion")!=QJsonValue(1)
+                    || QSet<QString>(keys.begin(),keys.end())!=expected) {return {};}
         } else if (profile==Profile::Lifecycle) {
             if (root.isEmpty() || (control!="lifecycle.create.text" && control!="lifecycle.scripts.filter"
                     && control!="chat.input" && control!="tablet.back")) {return {};}
@@ -85,7 +91,7 @@ public:
         QMutexLocker locker(&_mutex);const auto before=clock();
         if (profile!=_profile) { return {}; }
         QJsonObject source{{"complete",_complete},{"events",_events}};
-        return QJsonObject{{"iosNormalInputsVersion",1},{"profile",profile==Profile::Snapshot ? "snapshot" : profile==Profile::Lifecycle ? "lifecycle" : profile==Profile::LifecycleNavigation ? "lifecycle-navigation" : "avatar"},{"requestId",request},{"runId",run},{"instance",_instance},
+        return QJsonObject{{"iosNormalInputsVersion",1},{"profile",profile==Profile::Snapshot ? "snapshot" : profile==Profile::SnapshotPending ? "snapshot-pending" : profile==Profile::Lifecycle ? "lifecycle" : profile==Profile::LifecycleNavigation ? "lifecycle-navigation" : "avatar"},{"requestId",request},{"runId",run},{"instance",_instance},
             {"sequence",static_cast<double>(++_sequence)},{"processId",static_cast<double>(QCoreApplication::applicationPid())},
             {"clockDomain","native-process-normal-inputs"},{"clockBefore",before},{"clockAfter",clock()},{"source",source}};
     }

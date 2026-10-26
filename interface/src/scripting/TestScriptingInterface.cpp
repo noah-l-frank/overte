@@ -713,6 +713,25 @@ QVariantMap TestScriptingInterface::featureIOSAvatarInputs(const QVariantMap& co
         overte::e2e::IOSNormalInputObservation::Profile::Avatar,request,run).toVariantMap();
 }
 
+QVariantMap TestScriptingInterface::featureIOSSnapshotPendingInputs(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] {result=featureIOSSnapshotPendingInputs(command);},Qt::BlockingQueuedConnection)) {return {};}
+        return result;
+    }
+    const auto keys=command.keys();const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString();const auto run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")
+            || QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","commandId","action","runId"}
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-snapshot-pending-inputs")
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) {return {};}
+    auto& originals=overte::e2e::IOSNormalInputObservation::shared(overte::e2e::IOSNormalInputObservation::Profile::SnapshotPending);
+    return originals.observation(overte::e2e::IOSNormalInputObservation::Profile::SnapshotPending,request,run).toVariantMap();
+}
+
 QVariantMap TestScriptingInterface::featureIOSSnapshotInputs(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) {return {};}

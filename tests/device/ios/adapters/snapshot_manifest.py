@@ -58,6 +58,7 @@ def absent(frame,pid,run,mode):
 
 
 class SnapshotManifest:
+    _store_prefix='ios-snapshot'
     _name='manifest'
     _owner_key='iosSnapshotManifestOwnerVersion'
     _namespace='snapshot-manifest'
@@ -77,7 +78,7 @@ class SnapshotManifest:
         """Construct only a local original reader after SDK retirement."""
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock));context(binding);identifier(run)
         need(role in ('primary','actor') and integer(index,1,cls._max_index) and re.fullmatch('[1-9][0-9]*',binding['processIdentity'])
-            and store.path.parent==lock.path.parent and store.path.name=='ios-snapshot-'+role+'-'+cls._name+'-'+format(index,'04d')+'.json')
+            and store.path.parent==lock.path.parent and store.path.name==cls._store_prefix+'-'+role+'-'+cls._name+'-'+format(index,'04d')+'.json')
         reader=cls.__new__(cls);reader.store,reader.lock,reader.binding=store,lock,deepcopy(binding)
         reader.run,reader.role,reader.index,reader.pid=run,role,index,int(binding['processIdentity'])
         reader.feature=reader.clock=None
@@ -90,7 +91,7 @@ class SnapshotManifest:
             and isinstance(feature,FeatureObservation) and isinstance(clock,NativeClockAcquisition) and callable(guard))
         context(binding);identifier(run);need(role in ('primary','actor') and integer(index,1,self._max_index)
             and re.fullmatch('[1-9][0-9]*',binding['processIdentity'])
-            and store.path.parent==lock.path.parent and store.path.name=='ios-snapshot-'+role+'-'+self._name+'-'+format(index,'04d')+'.json')
+            and store.path.parent==lock.path.parent and store.path.name==self._store_prefix+'-'+role+'-'+self._name+'-'+format(index,'04d')+'.json')
         self.store,self.lock,self.binding,self.run,self.role,self.index=store,lock,deepcopy(binding),run,role,index
         self.feature,self.clock,self.guard=feature,clock,guard;self.pid=int(binding['processIdentity'])
         need(clock.native.pid==self.pid and clock.native.ios)

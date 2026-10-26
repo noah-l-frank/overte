@@ -141,7 +141,7 @@ if(calls!==2||files.length!==2||files[0].f!=='feature-ios-snapshot-inputs.json'|
 applyClientCommand({...q,commandId:'ios-'+'d'.repeat(32),expectedDelivered:true});if(calls!==2)throw Error('expected result accepted');
 delete Test.featureIOSSnapshotInputs;applyClientCommand({...q,commandId:'ios-'+'e'.repeat(32)});if(files.at(-1).v.status!=='unavailable'||files.at(-1).v.source)throw Error('empty success');
 '''.replace('PACKET',json.dumps(packet)).replace('QUERY',json.dumps(query)).replace('SOURCE',probe_source())
-        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5);self.assertEqual(0,result.returncode,result.stderr)
+        result=subprocess.run(['node'],input=program,capture_output=True,text=True,timeout=5);self.assertEqual(0,result.returncode,result.stderr)
 
     def test_actual_factory_acquires_exact_native_original_file_and_clock(self):
         _producer,_reader,packet,_command,_root=completed();native=FeatureNative();observer=native.observer();reads=[];sent=[]

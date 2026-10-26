@@ -36,6 +36,7 @@
 #include "../../tests/device/native/IOSSnapshotExportControls.h"
 #include "../../tests/device/native/IOSTabletLauncherControls.h"
 #include "../../tests/device/native/IOSSnapshotCaptureControls.h"
+#include "../../tests/device/native/IOSSnapshotPendingChoices.h"
 #include "../../tests/device/native/IOSTabletAppButtonsObservation.h"
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
 #include "../../tests/device/native/IOSAssetUiInventory.h"
@@ -365,6 +366,10 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                     source=overte::e2e::snapshotCaptureControlSource(node);
                     if (source.isEmpty()) {ambiguous=true;return;}
                 }
+                if (overte::e2e::snapshotPendingChoiceId(node)==id) {
+                    source=overte::e2e::snapshotPendingChoiceSource(node);
+                    if (source.isEmpty()) {ambiguous=true;return;}
+                }
                 const auto launcherSource=overte::e2e::tabletLauncherControlSource(node,id);
                 if (!launcherSource.isEmpty()) {source=launcherSource;}
 #endif
@@ -510,6 +515,9 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
             const auto metadata=overte::e2e::snapshotCaptureControlObservation(control.item);
             for (auto it=metadata.begin();it!=metadata.end();++it) {row[it.key()]=it.value();}
         }
+        if (overte::e2e::snapshotPendingChoiceId(control.item)==id) {
+            row["snapshotPendingChoice"]=overte::e2e::snapshotPendingChoiceObservation(control.item);
+        }
         const auto launcher=overte::e2e::tabletLauncherControlObservation(control.item,id);
         for (auto it=launcher.begin();it!=launcher.end();++it) {row[it.key()]=it.value();}
 #endif
@@ -581,6 +589,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     result["tabletAppControlsVersion"]=1;
     result["snapshotExportControlsVersion"]=1;
     result["snapshotCaptureControlsVersion"]=1;
+    result["snapshotPendingControlsVersion"]=1;
     result["tabletLauncherControlsVersion"]=1;
 #endif
     result["placesControlsVersion"]=2;result["placesSourceSequence"]=static_cast<double>(++_placesObservationSequence);
@@ -676,6 +685,10 @@ bool NormalUiInput::press(const QString& controlId, const QString& token) {
     if (overte::e2e::snapshotCaptureControlId(control)==controlId) {
         const auto metadata=overte::e2e::snapshotCaptureControlObservation(control);
         if (!metadata.value("inputReady").toBool() || overte::e2e::snapshotCaptureControlSource(control)!=_controls.value(controlId).source) {return false;}
+    }
+    if (overte::e2e::snapshotPendingChoiceId(control)==controlId) {
+        const auto metadata=overte::e2e::snapshotPendingChoiceObservation(control);
+        if (!metadata.value("inputReady").toBool() || overte::e2e::snapshotPendingChoiceSource(control)!=_controls.value(controlId).source) {return false;}
     }
     const auto launcher=overte::e2e::tabletLauncherControlObservation(control,controlId);
     if (!launcher.isEmpty() && (!launcher.value("inputReady").toBool()
@@ -839,6 +852,15 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
         return result;
     }
 #endif
+    for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
+        const auto identifier=it.key();const auto target=it.value().item;
+        if (it.value().token!=fieldToken || overte::e2e::snapshotPendingChoiceId(target)!=identifier) {continue;}
+        const auto metadata=overte::e2e::snapshotPendingChoiceObservation(target);
+        if (action=="activate" && metadata.value("inputReady").toBool() && overte::e2e::snapshotPendingChoiceSource(target)==it.value().source) {
+            result["performed"]=press(identifier,fieldToken);
+        }
+        return result;
+    }
     for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
         auto target=it.value().item;
         const auto identifier=it.key(); // press()/item() refresh the map; retain no key reference across that call.
@@ -1298,6 +1320,15 @@ QJsonObject NormalUiInput::request(const QJsonObject& command) {
         }
         auto& snapshotOriginals=overte::e2e::IOSNormalInputObservation::shared(overte::e2e::IOSNormalInputObservation::Profile::Snapshot);
         const auto snapshotInputId=snapshotOriginals.received(overte::e2e::IOSNormalInputObservation::Profile::Snapshot,command,snapshotControl,snapshotRoot);
+        QString pendingControl;QJsonObject pendingRoot;
+        for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
+            if (it.value().token!=token || overte::e2e::snapshotPendingChoiceId(it.value().item)!=it.key()) {continue;}
+            const auto actual=overte::e2e::snapshotPendingChoiceObservation(it.value().item);if (actual.isEmpty()) {continue;}
+            if (!pendingControl.isEmpty()) {pendingControl.clear();pendingRoot={};break;}
+            pendingControl=it.key();pendingRoot=actual;
+        }
+        auto& pendingOriginals=overte::e2e::IOSNormalInputObservation::shared(overte::e2e::IOSNormalInputObservation::Profile::SnapshotPending);
+        const auto pendingInputId=pendingOriginals.received(overte::e2e::IOSNormalInputObservation::Profile::SnapshotPending,command,pendingControl,pendingRoot);
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
         QString lifecycleControl;QJsonObject lifecycleRoot;
         for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
@@ -1333,6 +1364,7 @@ QJsonObject NormalUiInput::request(const QJsonObject& command) {
         result["status"]=edit(input);
         originals.returned(inputId,result);
         snapshotOriginals.returned(snapshotInputId,result);
+        pendingOriginals.returned(pendingInputId,result);
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
         lifecycleOriginals.returned(lifecycleInputId,result);
         navigationOriginals.returned(navigationInputId,result);

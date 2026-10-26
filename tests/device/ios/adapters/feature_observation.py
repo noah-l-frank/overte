@@ -212,13 +212,15 @@ class FeatureObservation:
         elif command.get('action') in ('feature-ios-snapshot-owned-files','feature-ios-snapshot-file-remove'):
             from ios.adapters.snapshot_owned_files import command as observe_command,remove_command
             (remove_command if command['action']=='feature-ios-snapshot-file-remove' else observe_command)(command)
-        elif command.get('action') in ('feature-ios-snapshot-work','feature-ios-snapshot-file-work','feature-ios-snapshot-exports','feature-ios-snapshot-captures','feature-ios-snapshot-inputs'):
+        elif command.get('action') in ('feature-ios-snapshot-work','feature-ios-snapshot-file-work','feature-ios-snapshot-exports','feature-ios-snapshot-captures','feature-ios-snapshot-inputs','feature-ios-snapshot-pending-inputs'):
             if command['action']=='feature-ios-snapshot-work':
                 from ios.adapters.snapshot_work import command as snapshot_command
             elif command['action']=='feature-ios-snapshot-file-work':
                 from ios.adapters.snapshot_file_work import command as snapshot_command
             elif command['action']=='feature-ios-snapshot-inputs':
                 from ios.adapters.snapshot_inputs import command as snapshot_command
+            elif command['action']=='feature-ios-snapshot-pending-inputs':
+                from ios.adapters.snapshot_pending_inputs import command as snapshot_command
             elif command['action']=='feature-ios-snapshot-captures':
                 from ios.adapters.snapshot_captures import command as snapshot_command
             else:
@@ -690,6 +692,14 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSTabletWebClosures(self.send,lambda:self.original(remote=remote,limit=TABLET_CLOSURES_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def snapshot_pending_inputs(self,clock_source=None):
+        from ios.adapters.snapshot_pending_inputs import IOSSnapshotPendingInputs,FILE,LIMIT
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSSnapshotPendingInputs(self.send,lambda:self.original(remote=remote,limit=LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def snapshot_inputs(self,clock_source=None):

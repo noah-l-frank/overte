@@ -782,7 +782,7 @@ class FixtureState:
             try:(remove_command if action=="feature-ios-snapshot-file-remove" else observe_command)(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS snapshot owned-file request") from None
             valid=True
-        elif action in {"feature-ios-snapshot-work", "feature-ios-snapshot-file-work", "feature-ios-snapshot-exports", "feature-ios-snapshot-captures", "feature-ios-snapshot-inputs"}:
+        elif action in {"feature-ios-snapshot-work", "feature-ios-snapshot-file-work", "feature-ios-snapshot-exports", "feature-ios-snapshot-captures", "feature-ios-snapshot-inputs", "feature-ios-snapshot-pending-inputs"}:
             sys.path.insert(0,str(ROOT.parent))
             if action == "feature-ios-snapshot-work":
                 from ios.adapters.snapshot_work import command as validate_ios_source
@@ -790,6 +790,8 @@ class FixtureState:
                 from ios.adapters.snapshot_file_work import command as validate_ios_source
             elif action == "feature-ios-snapshot-inputs":
                 from ios.adapters.snapshot_inputs import command as validate_ios_source
+            elif action == "feature-ios-snapshot-pending-inputs":
+                from ios.adapters.snapshot_pending_inputs import command as validate_ios_source
             elif action == "feature-ios-snapshot-captures":
                 from ios.adapters.snapshot_captures import command as validate_ios_source
             else:
