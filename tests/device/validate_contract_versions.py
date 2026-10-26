@@ -319,6 +319,7 @@ REQUIRED = {
     "ios-emote-rooted-end-archive": 1,
     "ios-emote-rooted-process-frame": 1,
     "ios-emote-rooted-process-original": 1,
+    "ios-audio-authorized-starts": 1,
     "ios-audio-authorization-sources": 1,
     "ios-audio-authorization-observation": 1,
     "ios-audio-authorization-frame": 1,

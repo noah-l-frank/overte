@@ -17,8 +17,10 @@ from ios.self_tests.test_ios_audio_session_source import Boundary
 
 
 class AuthorizationDomain:
-    def __init__(self,case,*,started=True):
+    def __init__(self,case,*,started=True,model=None,model_factory=None):
         self.f=recording.AudioRecordedOwnerTests();self.f.setUp();case.addCleanup(self.f.doCleanups)
+        if model_factory is not None:self.f.model=model_factory(self.f.root)
+        if model is not None:self.f.model=model
         self.parent=case.enterContext(self.f.owner());self.m=self.f.model
         if started:self.parent.act(self.m.ticket,'record-start')
         self.reference=deepcopy(self.parent.state['operations'][-1]['after']) if started else None

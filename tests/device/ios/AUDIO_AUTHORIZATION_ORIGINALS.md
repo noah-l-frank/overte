@@ -43,8 +43,9 @@ the historical parent and constructs no native/SDK reader. Native/audio/OS and
 host clocks are explicit models; real private files, locks, normal input and
 strict source codecs execute. No device or native compilation is qualified.
 
-The collector does not issue recording or permission input. Still compose a
-durable grant/denial decision at the ordinary Start boundary, permission
+The collector does not issue recording or permission input. The separate
+[authorized Start coordinator](AUDIO_AUTHORIZED_START.md) now owns the durable
+grant/denial decision at the ordinary Start boundary. Still compose permission
 Settings/restart recovery, independent acoustic/Actor facts and whole Audio
 retirement. An observed OS grant alone never proves gate capture or playback.
 All carriers remain owned under the ordinary Audio session barrier; complete

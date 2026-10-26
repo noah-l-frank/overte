@@ -74,20 +74,21 @@ class AudioAuthorizationSources:
         if row['kind']=='clock':IOSAudioRecordedOwner.query(row['command']);need(row['command']['action']=='feature-native-observe')
         else:need(row['kind']=='session');session_source.command(row['command'])
 
-    def pending(self,value,index):
+    def pending(self,value,index,*,records=None):
         exact(value,{'ticket','stage','parent','queries','rawRefs','original','snapshot'})
         from feature_journeys.contract import identifier
         identifier(value['ticket']);need(value['stage'] in ('before-start','after-start') and value['parent'] in self.parent.state['records'])
         packet=self.parent.original(value['parent']);need(packet['ticket']==value['ticket'] and packet['verb']=='record-start')
         operation=self.parent_operation(value['ticket']);need(value['parent']==operation['before' if value['stage']=='before-start' else 'after'])
         need(type(value['queries']) is list and len(value['queries'])<=24 and type(value['rawRefs']) is list and len(value['rawRefs'])<=24)
+        if records is not None:need(type(records) is list and len(records)==len(value['rawRefs']))
         seen=set()
         for row in value['queries']:
             self.query(row);identifier=row['command']['commandId'];need(identifier not in seen);seen.add(identifier)
             if row['kind']=='session':need(row['command']['runId']==self.run)
         indices=[]
-        for reference in value['rawRefs']:
-            need(reference in self.raws.refs);record=self.raws.read_record(reference)
+        for offset,reference in enumerate(value['rawRefs']):
+            need(reference in self.raws.refs);record=self.raws.read_record(reference) if records is None else records[offset]
             need(record['kind']=='native' and any(same(record['query'],row['command']) for row in value['queries']));indices.append(reference['index'])
         need(indices==sorted(set(indices)))
         if value['original'] is not None:
@@ -132,7 +133,13 @@ class AudioAuthorizationSources:
         value=self.frames.read(self.frames.expand(reference))
         exact(value,{'iosAudioAuthorizationObservationVersion','ticket','stage','parent','parentInputs','queries','rawRefs','phaseBefore','phaseAfter','originals','clockJoin'})
         need(type(value['iosAudioAuthorizationObservationVersion']) is int and value['iosAudioAuthorizationObservationVersion']==1)
-        self.pending(dict(ticket=value['ticket'],stage=value['stage'],parent=value['parent'],queries=value['queries'],rawRefs=value['rawRefs'],original=None,snapshot=None),1)
+        need(type(value['rawRefs']) is list and len(value['rawRefs'])<=24)
+        # Read and pin every original once in this validation call. Reopening
+        # the entire list separately for each query added quadratic filesystem
+        # work after a real native sample. No success survives this call, and
+        # every query, raw body, inode/hash and parent guard is still checked.
+        records=[self.raws.read_record(ref) for ref in value['rawRefs']]
+        self.pending(dict(ticket=value['ticket'],stage=value['stage'],parent=value['parent'],queries=value['queries'],rawRefs=value['rawRefs'],original=None,snapshot=None),1,records=records)
         self.parent.phase_original(value['phaseBefore'],value['ticket'],'record-start')
         self.parent.phase_original(value['phaseAfter'],value['ticket'],'record-start',value['phaseBefore'])
         need(same(value['phaseBefore']['activations'],value['phaseAfter']['activations']))
@@ -143,8 +150,7 @@ class AudioAuthorizationSources:
         packets=[];external=[]
         for row in value['queries']:
             matches=[]
-            for ref in value['rawRefs']:
-                record=self.raws.read_record(ref)
+            for record in records:
                 if not same(record['query'],row['command']):continue
                 try:packet=decode(record['raw'],limit=262144)
                 except (ValueError,NativeUIError):continue

@@ -20,6 +20,11 @@ import time
 
 
 class IOSAudioRuntime(IOSScriptRuntime):
+    def authorized_starts(self,selector,owner,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic):
+        from ios.adapters.audio_authorized_start import AudioAuthorizedStarts
+        sources=self.authorization_sources(selector,owner,epoch_ms=epoch_ms,monotonic=monotonic)
+        return AudioAuthorizedStarts(PrivateFeatureState(owner.store.path.with_name('ios-audio-authorized-starts.json')),owner,sources)
+
     def authorization_sources(self,selector,owner,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic):
         from ios.adapters.audio_authorization_sources import AudioAuthorizationSources
         need(isinstance(owner,IOSAudioRecordedOwner) and owner.store.path==self.state_path(selector).with_name('ios-audio-recorded-owner.json'))
