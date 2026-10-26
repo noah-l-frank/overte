@@ -17,8 +17,8 @@ from ios.self_tests.test_ios_snapshot_work import packet as work_packet,timer
 
 
 class SnapshotPageDomain:
-    def __init__(self,case,*,count=3,index=2,snapshot_page=1,route='launcher'):
-        self.capture=SnapshotCaptureDomain(case);self.ctx=self.capture.ctx;self.f=self.capture.f
+    def __init__(self,case,*,count=3,index=2,snapshot_page=1,route='launcher',capture=None):
+        self.capture=SnapshotCaptureDomain(case) if capture is None else capture;self.ctx=self.capture.ctx;self.f=self.capture.f
         self.shown=False;self.route=route;self.count=count;self.index=index;self.snapshot_page=snapshot_page
         self.root=str(uuid.uuid4());self.generation=0;self.tokens={};self.elements={};self.clicks=[];self.requests=[]
         self.ignore=set();self.lose=set();self.swap_token=None;self.swap_root=None;self.held_work=False;self.work_cursor=1;self.call=0
@@ -27,14 +27,17 @@ class SnapshotPageDomain:
         original_observed=self.f.input_native.observed
         def observed():
             value=original_observed();value.update(tabletShown=self.shown,tabletLauncherControlsVersion=1)
-            capture=deepcopy(value['controls'][0]);rows=[]
+            snapshot_controls=deepcopy(value['controls']);rows=[]
             if self.shown:
                 rows.append(self.row('tablet.close'))
                 if self.route=='launcher':
                     if self.count>1:rows.extend(self.row('tablet.page.'+str(page+1),page) for page in range(self.count))
                     if self.index==self.snapshot_page:rows.append(self.row('snapshot.entry',-1))
                 elif self.route=='snapshot':
-                    rows.append(self.row('tablet.home'));capture['token']=self.token('snapshot.capture');rows.append(capture)
+                    rows.append(self.row('tablet.home'))
+                    for control in snapshot_controls:
+                        if control['id']=='snapshot.capture':control['token']=self.token('snapshot.capture')
+                    rows.extend(snapshot_controls)
                 else:rows.append(self.row('address.field'))
             else:rows.append(self.row('hud.tablet'))
             value['controls']=rows;return value

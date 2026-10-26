@@ -29,6 +29,10 @@ class SnapshotPagePending(NativeUIError):pass
 
 
 class IOSSnapshotPageOwner:
+    def store_namespace(self):return NAMESPACE
+
+    def restore_origin(self):return self.route(self.record(self.state['initial']))
+
     def __init__(self,runtime,selector,run,lock,sources,*,ui,phase,epoch_ms,monotonic,sleep):
         from ios.adapters.snapshot_page_runtime import IOSSnapshotPageRuntime
         need(isinstance(runtime,IOSSnapshotPageRuntime) and isinstance(ui,NativeUI) and isinstance(phase,PhaseFixtureReader)
@@ -36,7 +40,7 @@ class IOSSnapshotPageOwner:
         self.runtime,self.selector,self.run,self.lock,self.sources=runtime,selector,identifier(run),lock,sources
         self.binding=deepcopy(context(sources['binding']));self.guard=sources['check'];self.ui,self.phase=ui,phase
         self.epoch_ms,self.monotonic,self.sleep=epoch_ms,monotonic,sleep;self.fixture_url=phase.fixture_url
-        self.store=PrivateFeatureState(runtime.state_path(selector).with_name(NAMESPACE+'-owner.json'));self.historical=False
+        self.store=PrivateFeatureState(runtime.state_path(selector).with_name(self.store_namespace()+'-owner.json'));self.historical=False
         lock.assert_held();self.previous=self.store.read();self.state=dict(ticket=None,phaseOriginal=None,roots=None,setupQueries=[],records=[],observation=None,actions=[],initial=None,opened=None,restored=None,abandoned=[])
         self.frames=self.frame_store()
         if self.previous is not None:self.state=self.decode(self.previous)
@@ -61,7 +65,7 @@ class IOSSnapshotPageOwner:
 
     def frame_store(self):
         return OriginalFrameStore(self.store.path.parent,self.binding,self.run,'primary',self.bound,self.storage_intent,
-            namespace=NAMESPACE,schema_prefix='iosSnapshotPage',monotonic=self.monotonic)
+            namespace=self.store_namespace(),schema_prefix='iosSnapshotPage',monotonic=self.monotonic)
 
     def envelope(self,state):return dict(iosSnapshotPageOwnerVersion=1,runId=self.run,binding=self.binding,fixtureUrl=self.fixture_url,payload=pack([state]))
 
@@ -77,7 +81,7 @@ class IOSSnapshotPageOwner:
         if state['observation'] is not None and state['observation']['wire'] is not None:expected.add(self.frames.path(state['observation']['wire']))
         for index,path in enumerate(self.store.path.parent.iterdir()):
             need(index<8192)
-            if path.name.startswith(NAMESPACE+'-'):need(path in expected)
+            if path.name.startswith(self.store_namespace()+'-'):need(path in expected)
 
     def phase_original(self,value,ticket):
         phase_packet(value,run=self.run,area='snapshots',request=value['requestId'],epoch=value['capturedEpochMs'])
@@ -325,7 +329,7 @@ class IOSSnapshotPageOwner:
 
     def restoration(self):
         need(self.state['restored'] is not None);last=self.record(self.state['restored']);need(self.route(last)['kind']=='closed')
-        initial=self.route(self.record(self.state['initial']));actions={row['label']:row for row in self.state['actions']}
+        initial=self.restore_origin();actions={row['label']:row for row in self.state['actions']}
         if initial['kind']=='launcher':
             if self.state['opened'] is not None:need('restore-home' in actions and actions['restore-home']['after'] is not None)
             close=actions['restore-close'];route=self.route(self.record(close['before']));need(route['kind']=='launcher')
@@ -343,7 +347,7 @@ class IOSSnapshotPageOwner:
             fresh=self.observe();need(self.route(self.original(fresh))['kind']=='closed');self.state['restored']=fresh['index'];self.save();return self.restoration()
         if any(row['label']=='restore-close' for row in self.state['actions']):
             self.drive('restore-close','tablet.close');self.state['restored']=next(row['after'] for row in self.state['actions'] if row['label']=='restore-close');self.save();return self.restoration()
-        initial=self.route(self.record(self.state['initial']))
+        initial=self.restore_origin()
         if initial['kind']=='launcher':
             if any(row['label']=='restore-home' for row in self.state['actions']):self.drive('restore-home','tablet.home')
             current=self.original(self.observe());route=self.route(current)

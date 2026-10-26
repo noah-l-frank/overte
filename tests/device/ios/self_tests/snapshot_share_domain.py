@@ -77,7 +77,7 @@ class ShareArchiveDomain(ShareQueryDomain):
     def __init__(self,case,flow):
         self.flow=flow;self.ui=None;self.job=None;self.read_ref=None;self.held_reads=[];self.hold_read=False;self.read_count=0;self.import_count=0;self.chunk_count=0
         self.retire_count=0;self.retirement=None;self.retirement_fail_after=None;self.retirement_seen=set();self.retirement_pins=None;self.retirement_start=None
-        super().__init__(case,archive_pid=85,physical_selector=DEVICE,admission_ticket='f'*32,prepare_metadata=False)
+        super().__init__(case,archive_pid=85,physical_selector=DEVICE,admission_ticket=flow.activations[-1]['ticket'],prepare_metadata=False)
         self.ui=WDAView(flow,'archive',self.scope['sessionId']);self.group=self.root/'AppGroup';self.group.mkdir(mode=0o700)
         self.node.call('mode',value='absent')
     def epoch(self):return self.flow.main.epoch()
@@ -213,23 +213,30 @@ class ShareArchiveDomain(ShareQueryDomain):
 
 
 class SnapshotShareDomain:
+    def prepare_main(self,case):
+        main=SnapshotCaptureDomain(case)
+        with main.owner() as capture:
+            capture.capture('f'*32);activations=deepcopy(capture.state['phaseOriginal']['activations']);created=capture.state['phaseOriginal']['createdEpochMs']
+        return main,activations,created
     def __init__(self,case):
-        self.main=SnapshotCaptureDomain(case);self.main_foreground=True;self.receiver_active=False;self.pending_operation=None
+        self.main,self.activations,self.created=self.prepare_main(case);self.main_foreground=True;self.receiver_active=False;self.pending_operation=None
         self.share_count=0;self.ignore_share=False;self.ignore_select=False;self.ignore_cancel=False;self.lost_share=False;self.lost_buttons=set()
-        with self.main.owner() as capture:
-            capture.capture('f'*32);self.activations=deepcopy(capture.state['phaseOriginal']['activations']);self.created=capture.state['phaseOriginal']['createdEpochMs']
         self.archive=ShareArchiveDomain(case,self);self.primary_ui=WDAView(self,'primary',self.main.ctx.binding['sessionId']);self.share_token=str(uuid.uuid4())
         observed=self.main.f.input_native.observed
         def view():
-            value=observed();value['snapshotExportControlsVersion']=1;old=value['controls'][0];blocked=self.pending_operation is not None
+            value=observed();value['snapshotExportControlsVersion']=1
+            old=next((row for row in value['controls'] if row['id']=='snapshot.capture'),None)
+            if old is None:return value
+            blocked=self.pending_operation is not None
             row={key:deepcopy(old[key]) for key in ('token','enabled','focused','frame')};row.update(id='snapshot.share.0',token=self.share_token,enabled=not blocked,snapshotExportControlVersion=1,
                 snapshotRootId=old['snapshotRootId'],snapshotQmlSource=old['snapshotQmlSource'],snapshotRow=0,snapshotFileName=self.main.f.f.h.path.name,snapshotFileOwned=True,
                 snapshotExportTicket='' if self.pending_operation is None else self.pending_operation.id,snapshotCapturing=False,snapshotProcessing=False,snapshotSystemBlocked=blocked,inputReady=not blocked)
             value['controls'].append(row);return value
         self.main.f.input_native.observed=view
+        prior_input=normal_input.urlopen
         def send(request,timeout):
             query=json.loads(request.data);native=self.main.f.input_native
-            if query['operation']!='edit':return Boundary.post(native,request,timeout)
+            if query['operation']!='edit' or query['input']['fieldToken']!=self.share_token:return prior_input(request,timeout)
             row=view()['controls'][-1];identity=str(uuid.uuid4());native.event(identity,'received',dict(outerCommandId=query['commandId'],command=query['input'],controlId='snapshot.share.0',root=dict(rootId=row['snapshotRootId'],qmlSource=row['snapshotQmlSource'])))
             self.main.f.now=max(self.main.f.now,native.epoch);result=Boundary.post(native,request,timeout);self.share_count+=1
             if not self.ignore_share:
