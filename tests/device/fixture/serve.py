@@ -548,6 +548,12 @@ class FixtureState:
             try:lifecycle_navigation_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS Lifecycle navigation request") from None
             valid=True
+        elif action == "feature-ios-lifecycle-pending-commands":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.lifecycle_pending_commands import command as lifecycle_pending_command
+            try:lifecycle_pending_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS Lifecycle pending command observation") from None
+            valid=True
         elif action == "feature-ios-lifecycle-world":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.lifecycle_world import command as lifecycle_world_command

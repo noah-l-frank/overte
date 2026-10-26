@@ -182,7 +182,7 @@ for(const edit of [{expected:{}},{fieldPath:'any object'},{schemaVersion:true},{
 if(calls!==1)throw Error('unsafe command accepted');delete Test.featurePendingCommitOwner;
 applyClientCommand({...c,commandId:'ios-'+'d'.repeat(32)});if(files.length!==2||files[1].v.status!=='unavailable')throw Error('missing owner became green');
 '''.replace('SOURCE',probe_source())
-        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
+        result=subprocess.run(['node','-'],input=program,capture_output=True,text=True,timeout=5)
         self.assertEqual(0,result.returncode,result.stderr)
 
 

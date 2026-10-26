@@ -77,6 +77,7 @@ from ios.adapters.assets_replies import IOSAssetsReplies,FILE as ASSETS_REPLIES_
 from ios.adapters.keyboard_source import IOSKeyboard,FILE as KEYBOARD_FILE,LIMIT as KEYBOARD_LIMIT,command as keyboard_command
 from ios.adapters.lifecycle_inputs import IOSLifecycleInputs,FILE as LIFECYCLE_INPUTS_FILE,LIMIT as LIFECYCLE_INPUTS_LIMIT,command as lifecycle_inputs_command
 from ios.adapters.lifecycle_world import IOSLifecycleWorld,FILE as LIFECYCLE_WORLD_FILE,LIMIT as LIFECYCLE_WORLD_LIMIT,command as lifecycle_world_command
+from ios.adapters.lifecycle_pending_commands import IOSLifecyclePendingCommands,FILE as LIFECYCLE_PENDING_COMMANDS_FILE,LIMIT as LIFECYCLE_PENDING_COMMANDS_LIMIT,command as lifecycle_pending_commands_command
 from ios.adapters.lifecycle_navigation_inputs import IOSLifecycleNavigationInputs,FILE as LIFECYCLE_NAVIGATION_INPUTS_FILE,LIMIT as LIFECYCLE_NAVIGATION_INPUTS_LIMIT,command as lifecycle_navigation_inputs_command
 from adapters.private_login_input import command as private_input_command
 from adapters.native_account_origin import (NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE,
@@ -247,6 +248,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-ios-keyboard':keyboard_command(command)
         elif command.get('action')=='feature-ios-lifecycle-inputs':lifecycle_inputs_command(command)
         elif command.get('action')=='feature-ios-lifecycle-world':lifecycle_world_command(command)
+        elif command.get('action')=='feature-ios-lifecycle-pending-commands':lifecycle_pending_commands_command(command)
         elif command.get('action')=='feature-ios-lifecycle-navigation-inputs':lifecycle_navigation_inputs_command(command)
         elif command.get('action')=='feature-navigation-replies':navigation_replies_command(command,ios=True)
         elif command.get('action')=='feature-process-presence':process_presence_command(command,ios=True)
@@ -521,6 +523,15 @@ class FeatureObservation:
             raise NativeUIError('Original Lifecycle world clock does not match this iOS process')
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSLifecycleWorld(self.send,lambda:self.original(remote=remote,limit=LIFECYCLE_WORLD_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def lifecycle_pending_commands(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+LIFECYCLE_PENDING_COMMANDS_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        if not isinstance(clock_source,NativeFeatureObservation) or not clock_source.ios or clock_source.pid!=self.process['pid']:
+            raise NativeUIError('Original Lifecycle pending-command clock does not match this iOS process')
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSLifecyclePendingCommands(self.send,lambda:self.original(remote=remote,limit=LIFECYCLE_PENDING_COMMANDS_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def lifecycle_navigation_inputs(self,clock_source=None):
