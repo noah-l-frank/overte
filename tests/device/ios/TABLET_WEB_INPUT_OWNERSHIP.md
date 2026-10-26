@@ -29,6 +29,13 @@ never repeats Clear. The original DOM owner/hash and native/host acquisition
 deadlines remain unchanged. This live guard changes no Input1 record grammar;
 historical input metadata supplies no new current field/effect proof.
 
+The same check also runs when the requested replacement is empty: after Clear,
+the actual current same-field UIKit value must be empty before returning input
+metadata. Ignored Clear and changed focus fail even without a following Text
+request. The failed transcript retains the Clear ACK and blocks another input;
+reconstruction never repeats it. A later independent DOM original, rather than
+the Clear return, supplies the observed empty public text.
+
 Each request is durably issued before transmission; the canonical SDK transport
 guard remains active across slow preparation/journal/process reads. The entire
 source age is limited by its original host epoch/monotonic acquisition start,

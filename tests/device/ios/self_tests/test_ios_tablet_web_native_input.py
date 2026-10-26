@@ -107,6 +107,18 @@ process.stdout.write(JSON.stringify(result));'''
         self.assertEqual(['clear'],[path.rsplit('/',1)[-1] for _,path,_ in self.mutations()])
         self.assertEqual(['clear','clear'],[value['kind'] for _,value in self.events])
         self.assertEqual('old fixture text',self.client.value)
+    def test_requested_empty_value_requires_actual_same_field_empty_read_after_clear(self):
+        for ignored in (False,True):
+            self.setUp();self.client.value='old fixture text';self.client.ignore_clear=ignored
+            document=self.document(True);before=deepcopy(document)
+            if ignored:
+                with self.assertRaises(NativeUIError):self.input.replace(document,'text','')
+            else:self.input.replace(document,'text','')
+            self.assertEqual(before,document)
+            self.assertEqual(['clear'],[path.rsplit('/',1)[-1] for _,path,_ in self.mutations()])
+            self.assertEqual(2,len([path for _,path,_ in self.client.calls if path.endswith('/element/active')]))
+            self.assertEqual(2,len([path for _,path,_ in self.client.calls if path.endswith('/attribute/value')]))
+            self.assertEqual('old fixture text' if ignored else '',self.client.value)
     def test_changed_active_reference_after_clear_stops_before_unissued_text_or_other_field_read(self):
         self.client.value='old fixture text'
         def changed(method,path):
@@ -116,6 +128,14 @@ process.stdout.write(JSON.stringify(result));'''
         self.assertEqual(['clear'],[path.rsplit('/',1)[-1] for _,path,_ in self.mutations()])
         self.assertFalse(any('/element/actual-other-field/' in path for _,path,_ in self.client.calls))
         self.assertEqual(2,len([path for _,path,_ in self.client.calls if path.endswith('/element/active')]))
+    def test_requested_empty_value_cannot_adopt_focus_changed_by_clear(self):
+        self.client.value='old fixture text'
+        def changed(method,path):
+            if path.endswith('/clear'):self.client.active='actual-other-field'
+        self.client.after=changed
+        with self.assertRaises(NativeUIError):self.input.replace(self.document(True),'text','')
+        self.assertEqual(['clear'],[path.rsplit('/',1)[-1] for _,path,_ in self.mutations()])
+        self.assertFalse(any('/element/actual-other-field/' in path for _,path,_ in self.client.calls))
     def test_same_reference_changed_secure_hidden_label_or_rect_after_clear_never_types(self):
         for fault in ('secure','hidden','disabled','label','rect'):
             self.setUp();self.client.value='old fixture text'

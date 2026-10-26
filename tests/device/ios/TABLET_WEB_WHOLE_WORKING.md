@@ -361,3 +361,29 @@ actual lock release and no body/query retry; the four exact supported pending
 sentinels remain separately checked. No runtime/lock behavior changed to fix
 that test. The corrected transient class passes all three cases in 0.540s; logs are
 `abort-compatibility.log` and `abort-transients-final.log`.
+
+## Requested empty field replacement
+
+The existing same-field UIKit revalidation after Clear now also applies when
+empty text is the requested result. Previously this branch skipped the second
+read because no Text request followed Clear. It now requires the current
+original field identity, type, visibility, enabled state, label, rectangle and
+actual empty value; an ignored Clear or changed focus fails and remains owned.
+No new source query, retry, native timestamp, record grammar or acquisition
+deadline is introduced. Clear ACKs remain input metadata only.
+
+The focused NativeInput/InputOwner selection passes 37 cases in 2.998s. New
+cases prove actual empty readback, ignored Clear, changed focus without reading
+the foreign field, and failed-record reconstruction with no input/query replay.
+One generated-page component passes in 2.770s: an actual normal Clear empties
+the generated page, current native readback reports empty, and a later separate
+DOM original derives empty public text. The pre-Clear DOM original retains its
+old nonempty value and repeated ticket delivery sends no input or query.
+
+Logs `empty-clear-focused.log` and `empty-clear-page-final.log` remain in the
+existing private field-revalidation directory. `empty-clear-before.log` retains
+the pre-fix missing-read failure; the first `empty-clear-page.log` caught a
+test-only missing refresh of the decoded InputOwner record list. The corrected
+component reads the exact newly archived record. These are bounded host tests
+with modeled native/SDK producers, not a complete Tablet journey or device
+qualification. Feature 7 remains partial and the overall source count is 5/14.

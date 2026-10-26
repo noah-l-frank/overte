@@ -87,6 +87,31 @@ class TabletPageFlowTests(unittest.TestCase):
         rebuilt=owner();self.assertEqual(reference,rebuilt.perform('b'*32,'nonempty-unicode','replace','text',text=message))
         self.assertEqual(count,len(calls));self.assertEqual(queries,len(b.source.children['dom'].state['records']))
 
+    def test_actual_nonempty_field_clear_has_independent_empty_DOM_and_native_value_without_replay(self):
+        from copy import deepcopy
+        from ios.adapters.tablet_web_inputs import TabletWebInputs
+        b=self.opened();wire=[];actual=b.ui.call
+        def called(method,path,body=None):
+            result=actual(method,path,body);wire.append((method,path,deepcopy(result)));return result
+        b.ui.call=called
+        def owner():return TabletWebInputs(b.ui,b.source.children['dom'],b.runtime.observer.readers['dom'],b.lock,b.runtime.native_clock,
+            monotonic=b.mono,epoch_ms=b.host)
+        inputs=owner();inputs.perform('b'*32,'focus-empty-field','tap','text')
+        inputs.perform('b'*32,'old-empty-field-text','replace','text',text='old actual field')
+        start=len(wire);reference=inputs.perform('b'*32,'clear-to-empty','replace','text',text='');inputs.decode()
+        source,_capture=inputs.document(inputs.records[-1]);before=deepcopy(source)
+        self.assertEqual('old actual field',next(row['value'] for row in source['source']['dom']['elements'] if row['id']=='text'))
+        sent=[path.rsplit('/',1)[-1] for method,path,_ in wire[start:] if method=='POST']
+        self.assertEqual(['clear'],sent)
+        values=[value for method,path,value in wire[start:] if method=='GET' and path.endswith('/attribute/value')]
+        self.assertEqual(['old actual field',''],values)
+        measured=b.runtime.validate_original(self.observed(b))['public']['state']
+        self.assertEqual('',measured['text']);self.assertTrue(measured['focused']);self.assertEqual(0,measured['bridgeEchoes'])
+        queries=len(b.source.children['dom'].state['records']);count=len(wire)
+        rebuilt=owner();self.assertEqual(reference,rebuilt.perform('b'*32,'clear-to-empty','replace','text',text=''))
+        self.assertEqual(count,len(wire));self.assertEqual(queries,len(b.source.children['dom'].state['records']))
+        original,_capture=rebuilt.document(rebuilt.records[-1]);self.assertEqual(before,original)
+
     def test_cleanup_recovery_archives_interrupted_actual_Send_as_failed_without_new_input_or_query(self):
         from copy import deepcopy
         from ios.adapters.tablet_web_inputs import TabletWebInputs

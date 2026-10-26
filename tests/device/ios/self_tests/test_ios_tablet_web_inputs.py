@@ -304,6 +304,20 @@ class TabletWebInputsTests(unittest.TestCase):
             with self.subTest(field=field,length=len(text)),self.assertRaises(NativeUIError):owner.record(row,1)
         self.assertEqual([],self.client.calls);self.assertEqual([],self.queries)
 
+    def test_ignored_clear_for_empty_text_is_failed_and_blocks_reconstructed_input_without_replay(self):
+        from ios.self_tests import test_ios_tablet_web_native_input as fixture
+        fixture.TabletWebNativeInputTests.setUpClass()
+        self.body=deepcopy(fixture.TabletWebNativeInputTests.bodies[1]);self.client.value='old fixture text';self.client.ignore_clear=True
+        owner=self.owner()
+        with self.assertRaises(NativeUIError):owner.perform('c'*32,'clear-field','replace','text',text='')
+        rebuilt=self.owner();self.assertTrue(rebuilt.blocked);self.assertEqual('failed',rebuilt.records[0]['phase'])
+        self.assertEqual(['clear'],[event['request']['kind'] for event in rebuilt.records[0]['events']])
+        self.assertIsNotNone(rebuilt.records[0]['events'][0]['returned'])  # ACK is not the empty value.
+        calls=deepcopy(self.client.calls);queries=deepcopy(self.queries)
+        for label in ('clear-field','new-clear'):
+            with self.subTest(label=label),self.assertRaises(NativeUIError):rebuilt.perform('c'*32,label,'replace','text',text='')
+        self.assertEqual(calls,self.client.calls);self.assertEqual(queries,self.queries)
+
     def test_actual_unicode_text_is_bound_to_original_native_field_and_persists_once(self):
         owner=self.owner();ref=owner.perform('c'*32,'unicode','replace','text',text='Überte 🙂');rebuilt=self.owner()
         self.assertEqual(ref,rebuilt.perform('c'*32,'unicode','replace','text',text='Überte 🙂'))

@@ -106,11 +106,11 @@ class TabletWebNativeInput:
         owner=dict(nativeView=deepcopy(source['nativeView']),domInstance=source['dom']['instance'],requestId=document['commandId'],
             nativeCapturedEpochMs=document['clockAfter']['epochMs'],field=field,birth=row['birth'],elementReference=deepcopy(reference),type=kind,accessibilityLabel=label,rect=deepcopy(rect),
             beforeTextSha256=hashlib.sha256(value.encode()).hexdigest(),point=point)
-        if value:self._mutation('clear',element+'/clear',{},owner)
-        if text:
+        if value:
+            self._mutation('clear',element+'/clear',{},owner)
             # A successful clear can synchronously move focus or leave text
-            # unchanged. Reacquire current UIKit identity/state before the
-            # remaining, still-unissued text request; never repeat the clear.
-            if value:self.active_field(source,row,'',expected_element=element)
-            self._mutation('text',element+'/value',{'text':text,'value':list(text)},owner)
+            # unchanged. Reacquire current UIKit identity and empty value even
+            # when empty is the requested result; never repeat the clear.
+            self.active_field(source,row,'',expected_element=element)
+        if text:self._mutation('text',element+'/value',{'text':text,'value':list(text)},owner)
         return deepcopy(owner)
