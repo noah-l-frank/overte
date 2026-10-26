@@ -46,9 +46,10 @@ false`; it cannot replace an unavailable recording or authorize a whole Audio
 pass. Lost metadata, missing originals and incomplete original writes remain
 unresolved. Host originals are retained; this packet does not delete them.
 
-The full Audio adapter still needs independent acoustic and Actor evidence,
-configuration/public routing, automatic-completion observation, permissions,
-mute and background recovery, page restoration, cross-owner input fencing and
+The [current normal page/cycle owner](AUDIO_PAGE_CYCLES.md) now joins ordinary
+page/mute restoration and automatic completion to this lease. Full Audio still
+needs independent acoustic and Actor evidence, configuration/public routing,
+permissions and background recovery, actual page lifetimes, cross-owner input fencing and
 whole process/SDK cleanup. This internal packet activates no capability.
 Focused host tests use explicit UIKit/audio/native transport models with real
 private journals, locks and original carriers. Native compilation and devices

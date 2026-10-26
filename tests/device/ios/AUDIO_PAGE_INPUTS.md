@@ -31,6 +31,7 @@ declared models. Cases cover pagination and settings fallback, exact selection
 restoration, no-op observation, lost/ignored delivery, failed intent/foreground
 guards, ambiguous elements and missing routes. No device or compiler runs.
 
-Still join the recipe to a durable page/recording-child owner, immutable source
-and settings originals, live interruption recovery and actual page/resource
-retirement. It enables no capability and changes no existing default or schema.
+The [version-three recording owner](AUDIO_PAGE_CYCLES.md) now joins this recipe
+to its existing immutable original store and one-send recording/PCM lifetime.
+Actual page/resource retirement remains separate. This recipe itself enables
+no capability and changes no native control or default.

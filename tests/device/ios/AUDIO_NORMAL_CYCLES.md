@@ -1,7 +1,8 @@
 # Original normal Audio mute and automatic recording cycles
 
-The existing `IOSAudioRecordedOwner` now writes owner and observation version 2,
-reads literal versions 1 and 2, and retains the unchanged immutable frame and
+This cycle extension introduced owner and observation version 2. The current
+[page composition writes version 3](AUDIO_PAGE_CYCLES.md), reads all three
+literal versions, and retains the unchanged immutable frame and
 native source schemas. Literal-1 owners retain their prior supported inputs;
 their original files are neither rewritten nor retimed. The current installed
 runtime constructs the same owner under the existing candidate/process/source
@@ -67,7 +68,8 @@ microphone, physical sound, native compiler, device or simulator is used.
 
 The [ordinary page recipe](AUDIO_PAGE_INPUTS.md) now supplies normal toolbar,
 launcher, direct/fallback entry and selection restoration inputs. Its durable
-page/recording-child and lifetime composition remains required, along with current microphone
+page/recording composition is now joined in version three; actual lifetime
+retirement remains required, along with current microphone
 authorization, background/permission recovery, independent acoustic/Actor
 publication and full callback/source/page/process/SDK retirement. Accepted
 loopback sink writes are not acoustic playback. All complete capability gates

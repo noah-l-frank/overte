@@ -1,6 +1,6 @@
-"""Explicit Audio recording owner on an existing installed iOS candidate.
+"""Explicit Audio page/recording owner on an existing installed iOS candidate.
 
-The Audio page must already be open. This is a partial internal runtime, with
+Version three can open/restore the page in the same owner. This remains partial, with
 no configuration admission, public feature dispatch or capability activation.
 """
 # Copyright 2026 Overte contributors.

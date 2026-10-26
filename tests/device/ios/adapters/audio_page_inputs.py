@@ -18,9 +18,16 @@ PRIMARY={'hud.tablet':'OverteTabletOpen','tablet.close':'OverteTabletClose'}
 FIXED={'hud.tablet','tablet.close','tablet.home','audio.entry','settings.entry','audio.settings-entry','audio.back'}
 
 
+def action(label,control,element=None):
+    need(type(label) is str and re.fullmatch('[a-z][a-z0-9-]{0,63}',label) is not None and type(control) is str
+         and (control in FIXED or re.fullmatch(r'tablet\.page\.([1-9]|[12][0-9]|3[0-2])',control)))
+    if element is not None:need(type(element) is str and re.fullmatch(r'/element/[A-Za-z0-9_.:%-]{1,480}',element))
+
+
 class AudioPageInputs:
-    def __init__(self,io,native_ui,intent,*,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,io,native_ui,intent,*,returned=None,monotonic=time.monotonic,sleep=time.sleep):
         need(isinstance(io,IOSAudioIO) and isinstance(native_ui,NativeUI) and all(callable(fn) for fn in (intent,monotonic,sleep)))
+        need(returned is None or callable(returned));self.returned=returned
         self.io,self.native_ui,self.intent=io,native_ui,intent
         self.controls=TokenAudioUI(io,lambda *_:need(False),monotonic=monotonic,sleep=sleep)
         self.monotonic,self.sleep=monotonic,sleep
@@ -38,8 +45,7 @@ class AudioPageInputs:
         return 'foreign'
 
     def click(self,label,control):
-        need(type(label) is str and re.fullmatch('[a-z][a-z0-9-]{0,63}',label) is not None and type(control) is str
-             and (control in FIXED or re.fullmatch(r'tablet\.page\.([1-9]|[12][0-9]|3[0-2])',control)))
+        action(label,control)
         before=self.capture();rows=[row for row in before['controls'] if row['id']==control]
         need(len(rows)==1 and rows[0]['enabled'] and (control in PRIMARY or rows[0].get('inputReady',True)))
         row=rows[0];ui=self.native_ui;ui._check()
@@ -50,6 +56,7 @@ class AudioPageInputs:
         # original token check, and no click is retried after a lost return.
         need(self.intent(label,control,deepcopy(current),element) is not False)
         ui._check();ui._request('POST',element+'/click',{});ui._check()
+        if self.returned is not None:self.returned(label)
 
     def wait(self,predicate):
         started=self.monotonic();need(number(started,0,1e15));previous=started

@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 from adapters.normal_ui import NativeUIError
 from adapters.native_feature_observation import NativeFeatureObservation
-from ios.adapters.audio_recorded_owner import IOSAudioRecordedOwner
+from ios.adapters.audio_recorded_owner import IOSAudioRecordedOwner,VERSION
 from ios.self_tests.test_ios_audio_recorded_owner import AudioRecordedOwnerTests,Model,RUN,BINDING
 from self_tests.test_recorded_preview_history import voice,event
 
@@ -57,7 +57,7 @@ class AudioMutedStartTests(unittest.TestCase):
         f=self.f;m=f.model
         with f.owner() as owner:
             result=owner.act(m.ticket,'record-start');operation=owner.state['operations'][-1]
-            self.assertEqual(2,owner.version);self.assertEqual('error',result['state']['phase'])
+            self.assertEqual(VERSION,owner.version);self.assertEqual('error',result['state']['phase'])
             self.assertEqual('microphone-muted',result['state']['error']);self.assertEqual(['error'],result['state']['history'])
             self.assertEqual((0,0,0),tuple(result['state'][key] for key in ('recordedFrames','playedFrames','bufferedFrames')))
             self.assertEqual(2,len(operation['quiet']));self.assertFalse(m.active);self.assertEqual(1,m.actions.count('audio.record'))
@@ -131,6 +131,15 @@ class AudioMutedStartTests(unittest.TestCase):
             owner.version=1
             with self.assertRaises(NativeUIError):owner.act(m.ticket,'record-start')
         self.assertEqual([],m.actions)
+
+    def test_literal_two_rejected_start_and_quiet_reopen_without_new_page_contract(self):
+        f=self.f;m=f.model
+        with f.owner() as owner:
+            owner.version=2;owner.act(m.ticket,'record-start');url=owner.fixture_url;expected=deepcopy(owner.state)
+        with f.lock.held():
+            archive=IOSAudioRecordedOwner.archive(f.store,f.root,BINDING,RUN,f.lock,url)
+            self.assertEqual(2,archive.version);self.assertEqual(expected,archive.state)
+            archive.quiet(archive.state['operations'][0],archive.state['records'])
 
 
 class AudioMuteFlowTests(unittest.TestCase):

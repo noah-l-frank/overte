@@ -1,8 +1,9 @@
 # Partial iOS normal recording ownership
 
 `IOSAudioRuntime.recorded_owner` binds the existing installed candidate, SDK,
-foreground process and shared Script source lock. The Audio page must already
-be open. It constructs the existing `IOSAudioIO` / `TokenAudioUI` input recipe;
+foreground process and shared Script source lock. The [version-three page
+composition](AUDIO_PAGE_CYCLES.md) can now open and restore the ordinary page
+within this same owner. It constructs the existing `IOSAudioIO` / `TokenAudioUI` input recipe;
 it does not call a synthetic audio Start/Stop command.
 
 `IOSAudioRecordedOwner.act(ticket, verb)` supports `record-start` and
@@ -36,10 +37,11 @@ owner metadata cannot turn existing Audio original carriers into a new run.
 This is an internal partial adapter packet. It does not activate an Audio
 capability or change the feature configuration. It does not allocate original
 PCM tap snapshots, remove tap files, assert independent acoustic output, or
-retire process/SDK ownership. The full shared Audio scenario still needs open,
-the remaining complete PCM/file and tap-lease lifecycle composition,
-independent acoustic/Actor evidence, permission and background recovery, page
-restoration, and final cleanup integration. Empty native recording counters do
+retire process/SDK ownership. The new normal page/cycle/PCM composition keeps
+those responsibilities separate. The full shared Audio scenario still needs
+loaded code/settings ownership, independent acoustic/Actor evidence, permission
+and background recovery, weak page/resource retirement and final cleanup
+integration. Empty native recording counters do
 not establish absence of an independently allocated tap snapshot.
 
 The focused host tests use real private journals, OS locks, immutable original
