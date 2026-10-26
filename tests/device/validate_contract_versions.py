@@ -9,6 +9,9 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-lifecycle-editor-owner": 1,
+    "ios-lifecycle-editor-frame": 1,
+    "ios-lifecycle-editor-original": 1,
     "assets-bundle-controls": 1,
     "ios-assets-bundle-ui": 1,
     "ios-assets-upload-owner": 1,
