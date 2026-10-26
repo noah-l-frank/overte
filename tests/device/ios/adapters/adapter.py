@@ -262,6 +262,11 @@ class IOSNativeMixin:
     def _navigation_replies(self,selector):
         return self._native_source_scope(selector).navigation_replies()
 
+    def _keyboard_source(self,selector):
+        from ios.adapters.script_runtime import IOSScriptRuntime
+        sources=IOSScriptRuntime(self)._sources(selector)
+        return sources['observer'].keyboard(clock_source=sources['clock_source'])
+
     def _pending_owner(self,selector,intent=None):
         manager=self._scripts(selector);native=manager.ui.io.native
         return FeatureObservation(native.client,native.session,native.target,native.observe_process).pending_owner(intent)

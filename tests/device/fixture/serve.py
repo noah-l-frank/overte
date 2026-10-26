@@ -542,6 +542,12 @@ class FixtureState:
             try:navigation_replies_command(command,ios=True)
             except (ValueError,RuntimeError):raise ValueError("invalid native navigation reply request") from None
             valid=True
+        elif action == "feature-ios-keyboard":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.keyboard_source import command as keyboard_command
+            try:keyboard_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS keyboard source request") from None
+            valid=True
         elif action == "feature-pending-commit-owner":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.pending_commit_owner import command as pending_owner_command

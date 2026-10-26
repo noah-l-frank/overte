@@ -694,6 +694,8 @@
     "ios-snapshot-page-original": {"current": 1, "reads": [1]},
     "ios-tablet-launcher-control": {"current": 1, "reads": [1]},
     "ios-tablet-launcher-controls": {"current": 1, "reads": [1]},
+    "ios-keyboard": {"current": 1, "reads": [1]},
+    "ios-keyboard-acquisition": {"current": 1, "reads": [1]},
     "ios-tablet-back-controls": {"current": 1, "reads": [1]},
     "ios-tablet-back-control": {"current": 1, "reads": [1]},
     "ios-assets-replies": {"current": 1, "reads": [1]},

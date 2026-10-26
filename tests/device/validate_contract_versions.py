@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-keyboard": 1,
+    "ios-keyboard-acquisition": 1,
     "ios-tablet-back-controls": 1,
     "ios-tablet-back-control": 1,
     "ios-assets-replies": 1,

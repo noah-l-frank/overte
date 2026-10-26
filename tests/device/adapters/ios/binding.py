@@ -200,6 +200,9 @@ def create_adapter(args, base_class):
         def _pending_owner(self,*args,**kwargs):
             raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
 
+        def _keyboard_source(self,*args,**kwargs):
+            raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
+
         def _web_dom(self,*args,**kwargs):
             raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
 

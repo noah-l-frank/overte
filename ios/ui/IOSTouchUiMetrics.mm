@@ -27,6 +27,7 @@
 #include "IOSNormalUiInput.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../tests/device/native/PendingFieldCommitOwner.h"
+#include "IOSKeyboardObservation.h"
 #include "../web/IOSUIKitControlObservation.h"
 #include <QMouseEvent>
 #endif
@@ -610,6 +611,9 @@ IOSTouchUiMetrics::IOSTouchUiMetrics(QObject* parent) : QObject(parent) {
     state.layoutObserver.autoresizingMask = UIViewAutoresizingFlexibleWidth |
         UIViewAutoresizingFlexibleHeight;
     QPointer<IOSTouchUiMetrics> guarded(this);
+#if defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::ios::keyboard_source::install(this,[] {return applicationWindows();});
+#endif
     state.layoutObserver.geometryChanged = ^{
         if (guarded) { guarded->refresh(); }
     };
@@ -662,6 +666,9 @@ void IOSTouchUiMetrics::refresh(void* keyboardNotification) {
     OverteIOSMetricsState* state = (__bridge OverteIOSMetricsState*)_notificationTokens;
     UIWindow* window = activeWindow();
     NSNotification* notification = (__bridge NSNotification*)keyboardNotification;
+#if defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::ios::keyboard_source::received(notification,window);
+#endif
     const bool deactivating =
         [notification.name isEqualToString:UIApplicationWillResignActiveNotification] ||
         [notification.name isEqualToString:UIApplicationDidEnterBackgroundNotification] ||

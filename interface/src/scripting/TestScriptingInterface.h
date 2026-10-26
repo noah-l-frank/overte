@@ -202,6 +202,7 @@ public slots:
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
     Q_INVOKABLE QVariantMap featureIOSAssetsFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAssetsReplies(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSKeyboard(const QVariantMap& command);
 #endif
     Q_INVOKABLE QVariantMap featureIOSAvatarState(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSSnapshotExports(const QVariantMap& command);

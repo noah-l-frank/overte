@@ -1114,6 +1114,23 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-keyboard") {
+            if (command.schemaVersion===1 && typeof command.commandId==="string" && /^ios-[a-f0-9]{32}$/.test(command.commandId) && command.commandId.length===36
+                    && typeof command.runId==="string" && /^[a-f0-9]{32}$/.test(command.runId) && command.runId.length===32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount>=4096) {return;}
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var keyboardOriginal={iosKeyboardVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSKeyboard==="function") {
+                        var keyboardReply=Test.featureIOSKeyboard(command);
+                        if (keyboardReply && keyboardReply.requestId===command.commandId) {keyboardOriginal=keyboardReply;}
+                    }
+                } catch (_keyboardError) { /* Original unavailable is never known keyboard absence. */ }
+                Test.saveObject(keyboardOriginal,"feature-ios-keyboard.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-script-dialogs") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
