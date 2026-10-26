@@ -42,7 +42,9 @@ keyboard, world and pending-command compatibility selection also passes. Native
 Audio/OS/candidate producers are explicit models. The new C++/Objective-C++ is
 uncompiled; no native, build, device or permission-dialog qualification follows.
 
-Still compose these originals with durable recording authorization ownership,
+The [durable authorization collector](AUDIO_AUTHORIZATION_ORIGINALS.md) now
+retains exact raw/native/host originals around an owned normal Start.
+Still compose its explicit grant/denial input decision,
 ordinary Settings denial/recovery across actual process replacement, independent
 Actor/acoustic evidence and complete Audio lifetime/quiet/SDK retirement. The
 source is an observation component, not that complete protocol.
