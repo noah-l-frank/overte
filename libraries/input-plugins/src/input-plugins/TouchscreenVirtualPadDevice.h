@@ -27,6 +27,9 @@ using OverteTouchPoint = QTouchEvent::TouchPoint;
 #include <QtCore/QList>
 #include <QtCore/QSize>
 #include "VirtualPadManager.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include <QVariantMap>
+#endif
 
 class QTouchEvent;
 class QGestureEvent;
@@ -96,6 +99,21 @@ protected:
 
 public:
     const std::shared_ptr<InputDevice>& getInputDevice() const { return _inputDevice; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    // Read only; the dedicated iOS Test source is the sole caller. Do not
+    // reposition controls, update the plugin or change touch/axis state here.
+    QVariantMap featureLifecyclePad() {
+        if (_controlViewportSize.isEmpty()) {return {};}
+        auto& manager=VirtualPad::Manager::instance();
+        auto point=[](const glm::vec2& p) {return QVariantList{p.x,p.y};};
+        return {{"active",isActive()},{"enabled",manager.isEnabled()},{"hidden",manager.isHidden()},
+            {"viewport",QVariantList{_controlViewportSize.width(),_controlViewportSize.height()}},
+            {"fixed",_fixedPosition},{"center",point(_fixedCenterPosition)},{"radius",_fixedRadiusForCalc},
+            {"moveValid",_moveHasValidTouch},{"moveNativeId",_moveHasValidTouch?_moveCurrentTouchId:-1},
+            {"moveOrigin",point(_moveRefTouchPoint)},
+            {"movePoint",_moveHasValidTouch?QVariant(point(_moveCurrentTouchPoint)):QVariant()}};
+    }
+#endif
 
 protected:
 

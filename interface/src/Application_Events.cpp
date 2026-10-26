@@ -19,6 +19,9 @@
 #include "../../tests/device/native/IOSPointerObservation.h"
 #include "../../tests/device/native/IOSWorldWebKeysObservation.h"
 #endif
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include "../../tests/device/native/IOSLifecycleTouchObservation.h"
+#endif
 
 #include <QtCore/QMimeData>
 #include <QtCore/QCoreApplication>
@@ -942,11 +945,17 @@ void Application::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void Application::touchBeginEvent(QTouchEvent* event) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    overte::e2e::IOSLifecycleTouchObservation::Route featureRoute(event);
+#endif
 #if defined(Q_OS_IOS)
     // Mobile QML must get first refusal. Tablet scripts capture touches while
     // the tablet is open, so forwarding after isTouchCaptured() makes every
     // internal control unreachable.
     if (forwardMobileTouchToOffscreenUi(event, PointerEvent::Press, getOffscreenUI())) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        featureRoute.routed("ui");
+#endif
         _iosWorldTap.cancel();
         return;
     }
@@ -961,6 +970,9 @@ void Application::touchBeginEvent(QTouchEvent* event) {
     // if one of our scripts have asked to capture this event, then stop processing it
     if (_controllerScriptingInterface->isTouchCaptured()) {
 #if defined(Q_OS_IOS)
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        featureRoute.routed("captured");
+#endif
         _iosWorldTap.cancel();
 #endif
         return;
@@ -986,12 +998,21 @@ void Application::touchBeginEvent(QTouchEvent* event) {
     if (_touchscreenVirtualPadDevice && _touchscreenVirtualPadDevice->isActive()) {
         _touchscreenVirtualPadDevice->touchBeginEvent(event);
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    featureRoute.routed("world");
+#endif
 
 }
 
 void Application::touchEndEvent(QTouchEvent* event) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    overte::e2e::IOSLifecycleTouchObservation::Route featureRoute(event);
+#endif
 #if defined(Q_OS_IOS)
     if (forwardMobileTouchToOffscreenUi(event, PointerEvent::Release, getOffscreenUI())) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        featureRoute.routed("ui");
+#endif
         _iosWorldTap.cancel();
         return;
     }
@@ -1004,6 +1025,9 @@ void Application::touchEndEvent(QTouchEvent* event) {
     // if one of our scripts have asked to capture this event, then stop processing it
     if (_controllerScriptingInterface->isTouchCaptured()) {
 #if defined(Q_OS_IOS)
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        featureRoute.routed("captured");
+#endif
         _iosWorldTap.cancel();
 #endif
         return;
@@ -1018,6 +1042,9 @@ void Application::touchEndEvent(QTouchEvent* event) {
     if (_touchscreenVirtualPadDevice && _touchscreenVirtualPadDevice->isActive()) {
         _touchscreenVirtualPadDevice->touchEndEvent(event);
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    featureRoute.routed("world");
+#endif
     // put any application specific touch behavior below here..
 #if defined(Q_OS_IOS)
     const auto& points = event->points();
@@ -1045,9 +1072,17 @@ void Application::touchEndEvent(QTouchEvent* event) {
 }
 
 void Application::touchUpdateEvent(QTouchEvent* event) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    // touchBeginEvent calls this method with the same Begin event. Only the
+    // outer Begin owns that original, avoiding a synthetic second attempt.
+    overte::e2e::IOSLifecycleTouchObservation::Route featureRoute(event->type()==QEvent::TouchUpdate?event:nullptr);
+#endif
 #if defined(Q_OS_IOS)
     if (event->type() == QEvent::TouchUpdate &&
             forwardMobileTouchToOffscreenUi(event, PointerEvent::Move, getOffscreenUI())) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        featureRoute.routed("ui");
+#endif
         _iosWorldTap.cancel();
         return;
     }
@@ -1062,6 +1097,9 @@ void Application::touchUpdateEvent(QTouchEvent* event) {
     // if one of our scripts have asked to capture this event, then stop processing it
     if (_controllerScriptingInterface->isTouchCaptured()) {
 #if defined(Q_OS_IOS)
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        featureRoute.routed("captured");
+#endif
         _iosWorldTap.cancel();
 #endif
         return;
@@ -1089,6 +1127,9 @@ void Application::touchUpdateEvent(QTouchEvent* event) {
     if (_touchscreenVirtualPadDevice && _touchscreenVirtualPadDevice->isActive()) {
         _touchscreenVirtualPadDevice->touchUpdateEvent(event);
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    featureRoute.routed("world");
+#endif
 }
 
 void Application::touchGestureEvent(QGestureEvent* event) {

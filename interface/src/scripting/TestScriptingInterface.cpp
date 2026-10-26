@@ -102,6 +102,7 @@
 #include "../../../tests/device/native/IOSWebScriptEmissions.h"
 #include "../../../tests/device/native/IOSEmoteWorldObservation.h"
 #include "../../../tests/device/native/IOSLifecycleWorldObservation.h"
+#include <input-plugins/TouchscreenVirtualPadDevice.h>
 #include "../../../tests/device/native/IOSLifecyclePendingCommands.h"
 #include "../../../tests/device/native/IOSAvatarWorldObservation.h"
 #include "../../../tests/device/native/IOSNormalInputObservation.h"
@@ -847,7 +848,16 @@ QVariantMap TestScriptingInterface::featureIOSLifecycleWorld(const QVariantMap& 
         const auto origin=qApp->featureSceneCommitOrigin();
         if (domainId!=domain.getUUID() || session!=nodes->getSessionUUID() || origin.isEmpty()
                 || origin.value("currentGeneration")!=scene.value("source").toMap().value("commitOrigin").toMap().value("currentGeneration")) {return {};}
+        QVariant pad;
+        if (const auto plugin=qApp->_touchscreenVirtualPadDevice) {
+            auto actual=plugin->featureLifecyclePad();
+            const auto id=_featureIOSLifecycleWorld->avatarIdentity(plugin.get());
+            if (!actual.isEmpty() && !id.isEmpty()) {actual["objectId"]=id;pad=actual;}
+        }
+        const auto touch=overte::e2e::IOSLifecycleTouchObservation::shared().snapshot();
+        if (touch.isEmpty()) {return {};}
         return {{"scene",scene},{"lifecycle",_featureLifecycle->snapshot()},
+            {"touch",touch},{"pad",pad},
             {"domain",QVariantMap{{"connected",domain.isConnected()},{"serverless",domain.isServerless()},
                 {"domainId",domainId.toString(QUuid::WithoutBraces)},
                 {"selfSha256",overte::e2e::AvatarReceiveObservation::identity(session)},

@@ -25,7 +25,9 @@ reads refuse before HTTP or AFC.
 The codec checks the original native counter bounds, drive-key relationship,
 PID, clock ordering and full scene/domain/avatar context. Measured displacement
 is the three-dimensional difference from an original neutral grounded anchor.
-It does not supply a gesture ID or world-attempt count. A release position window
+Literal version 1 does not supply a gesture ID or world-attempt count. The
+[version-2 touch source](LIFECYCLE_TOUCH.md) now supplies original native contact
+attempts and current pad ownership independently of these physics facts. A release position window
 needs at least four originals spanning three native seconds, no effective held
 keys, bounded observation gaps and all positions within 2.5 cm of that same
 anchor. A constant-distance arc cannot pass by preserving only distance from
@@ -40,7 +42,9 @@ The new model's clock is selected before its modeled scene import, so no recorde
 scene origin is retimed to satisfy installed freshness. The final counter-bound
 counterexamples are checked with the same selection before commit.
 
-Still required are original normal gesture dispatch/ownership, editor and Back
-navigation integration, held-input release, independent Actor/image evidence,
-background/resume, restoration and repeated full cleanup. This component does
-not change the five-of-fourteen source-complete count.
+Normal editor/Back input, original pending callback rejection and Chat
+background/resume now have their separate documented owners. Still required are
+ordinary world gesture execution/ownership, held-input release, independent
+Actor/image evidence, restoration and repeated full cleanup. Neither this
+component nor its touch-source extension changes the five-of-fourteen
+source-complete count.

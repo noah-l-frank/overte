@@ -3,6 +3,7 @@
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
 #include "NativeReadBracket.h"
+#include "IOSLifecycleTouchObservation.h"
 #include <QPointer>
 #include <QList>
 #include <QPair>
@@ -18,7 +19,9 @@ public:
         _avatars.append(qMakePair(QPointer<QObject>(avatar),identity));return identity;
     }
     QVariantMap read(const QString& request,const QString& run,const std::function<QVariantMap()>& reader) {
-        return _bracket.read("iosLifecycleWorldVersion","native-main-lifecycle-world",request,run,reader);
+        auto result=_bracket.read("iosLifecycleWorldVersion","native-main-lifecycle-world",request,run,reader);
+        if (!result.isEmpty()) {result["iosLifecycleWorldVersion"]=2;}
+        return result;
     }
 private:
     NativeReadBracket _bracket;
