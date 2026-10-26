@@ -1,6 +1,6 @@
 # Explicit held-marker scene stage
 
-The proposed retirement body5 is restricted to `avatar-people` and
+The explicitly selected retirement body5 is restricted to `avatar-people` and
 `avatar-held-marker-scene-quiet`. It preserves the literal body1–4 readers and
 the default Complete writer2. A scene5 receipt never satisfies a Complete
 reader, closes an account, or proves that a retained Qt/native allocation died.
@@ -25,12 +25,20 @@ already decoded inputs for the later scoped/terminal join; this local dataflow
 does not cache a derived cleanup verdict. Scene1 keeps its existing schema and
 full-drain interpretation and rejects a scene2 envelope.
 
-The shared protocol patch is not yet applied to the repository. An isolated
-Python process loaded the exact proposed three source changes in memory:
-five new authenticated protocol cases passed, the 45 existing body1–4 and
-default Complete cases passed, and one complete Scene2 private-record case
-passed. All three repository source hashes remained unchanged. These runs are
-draft qualification, not production integration. Qt, native and GPU producers
-are explicit host models; the marker Script, HTTPS routes, private files,
-weak references and historical decoders execute as host code. Whole Avatar
-terminal/SDK end and physical CPU/native/iOS qualification remain separate.
+The protocol is now integrated in the actual shared receipt codec, publisher
+and reader. Explicit held publication writes body5; the ordinary Complete writer
+remains body2 and the literal body1–4 readers keep their existing meanings. A
+mixed body5/body2 journal retains both originals without conversion. Foreign
+areas cannot select the held stage, and the default Complete reader rejects a
+held Scene receipt. Existing once-only unknown-publication and one-Scene-per-
+ticket rules cover the new stage unchanged.
+
+The first actual repository selection passes 40 host cases in 31.037 seconds:
+five held-stage cases, 34 actual legacy body1–4 publisher/reader/Scene cases,
+and one complete Scene2 private-record case. A second seven-case held-stage
+selection passes in 0.335 seconds, including two additional mixed-version and
+foreign-area cases. No in-memory patch or overlay is involved. Qt, native and
+GPU producers remain explicit host models; the marker Script, authenticated
+HTTP routes, private files, weak references and historical decoders execute as
+host code. Whole Avatar terminal/SDK end and physical CPU/native/iOS
+qualification remain separate; no complete Avatar capability is advertised.

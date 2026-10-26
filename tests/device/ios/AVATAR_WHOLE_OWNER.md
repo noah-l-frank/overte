@@ -67,9 +67,9 @@ retirement additionally requires complete original pixels and native/host quiet.
 `AvatarHeldScopedScene`: current UI, listeners, Script/EntityItem owners,
 samplers and former marker pixels must be quiet, while actual cached Web/Qt
 allocations and admitted Login operands remain explicit holders. Its proposed
-Avatar-only retirement-v5 `avatar-held-marker-scene-quiet` stage is still
-awaiting shared integration. Isolated tests load that proposal in memory and
-do not establish repository integration. Neither stage is Complete; their
+Avatar-only retirement-v5 `avatar-held-marker-scene-quiet` stage is integrated
+in the actual shared receipt/publisher/reader sources. Its authenticated host
+qualification preserves all literal older stages and default Complete writer2. Neither stage is Complete; their
 literal older summaries are not reinterpreted or rewritten.
 
 Primary reads the actual admitted Actor Scene receipt before ordinary logout.
@@ -178,8 +178,8 @@ incomplete-census refusal and private Login receipt ordering. It uses the
 existing census within the original getter; it neither adds a second clock
 step nor modifies a retained original. Connected held end, production Actor
 Common checkpoints, canonical metadata retirement and the combined full journey
-remain under qualification. Shared Scene5 and canonical dispatch/CAS changes
-remain unapplied pending their integration review. No Avatar area capability is
+remain under qualification. Shared Scene5 is now integrated; canonical dispatch/CAS changes
+remain under qualification. No Avatar area capability is
 advertised.
 
 The cooperative driver uses the existing API scope independently for each role,

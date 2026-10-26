@@ -1,8 +1,7 @@
 """Scene2 immutable record composition; modeled native/Qt/GPU boundaries.
 
-The test requires the separately integrated held-scene protocol constants. A
-draft-only subprocess may load that protocol in memory; it is not a claim that
-the repository transport has been integrated.
+The test uses the actual integrated held-scene protocol constants and ordinary
+repository sources. Native execution and whole-end qualification remain separate.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0

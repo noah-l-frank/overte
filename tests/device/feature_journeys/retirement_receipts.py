@@ -13,13 +13,16 @@ from .contract import exact,identifier,number,result
 from .scenarios import SCENARIOS
 
 VERSION=2
-READS=(1,2,3,4)
+READS=(1,2,3,4,5)
 SCENE_STAGE="avatar-scene-retired"
 WEB_SCENE_STAGE="web-marker-scene-quiet"
 AVATAR_SCOPED_STAGE="avatar-marker-scene-quiet"
-SCENE_STAGES=(SCENE_STAGE,WEB_SCENE_STAGE,AVATAR_SCOPED_STAGE)
+AVATAR_HELD_STAGE="avatar-held-marker-scene-quiet"
+SCENE_STAGES=(SCENE_STAGE,WEB_SCENE_STAGE,AVATAR_SCOPED_STAGE,AVATAR_HELD_STAGE)
 AVATAR_SCOPED_CLASSES=("marker-entity", "marker-file", "marker-gpu", "marker-pixels", "avatar-people-qt-ui", "marker-script-listener", "marker-script-vm", "marker-script-timer", "restored-world-view")
 AVATAR_SCOPED_REMAINING=("account-session", "login-qt-roots", "native-process-resources")
+AVATAR_HELD_CLASSES=("marker-entity", "marker-file", "marker-gpu-sampler", "marker-pixels", "avatar-people-ui-current", "marker-script-ui-current", "marker-script-listener", "marker-script-vm", "marker-script-timer", "restored-world-view")
+AVATAR_HELD_REMAINING=("account-session", "login-qt-roots", "native-process-resources")
 WEB_SCENE_AREAS=('world-web','emotes')
 WEB_SCENE_CLASSES=("entity", "renderer-lease", "file", "gpu-sampler", "marker-pixels", "qt-ui", "script-listener", "script-vm", "timer", "world-view", "wk-callback")
 SCENE_CLASSES=("entity", "file", "gpu", "marker-pixels", "qt-ui", "script-listener", "script-vm", "timer", "world-view")
@@ -106,6 +109,15 @@ def avatar_scoped_scene(value,run,sequence):
     return value
 
 
+def avatar_held_scene(value,run,sequence):
+    exact(value,{'avatarHeldMarkerSceneQuietVersion','runId','sequence','capturedEpochMs','quiet','remaining','lifecycle'},'closed Avatar held marker scene quiet summary')
+    check(type(value['avatarHeldMarkerSceneQuietVersion']) is int and value['avatarHeldMarkerSceneQuietVersion']==1
+        and value['runId']==run and type(value['sequence']) is int and value['sequence']==sequence
+        and value['quiet']==list(AVATAR_HELD_CLASSES) and value['remaining']==list(AVATAR_HELD_REMAINING))
+    lifecycle(value['lifecycle']);number(value['capturedEpochMs'],1)
+    return value
+
+
 def lifecycle(value):
     exact(value,{'backgrounds','activations','launches'},'retirement lifecycle')
     check(all(type(count) is int and 0<=count<=1000000 for count in value.values()) and value['launches']>=1)
@@ -118,7 +130,9 @@ def body(value,*,run=None,area=None,phase_instance=None):
         and (kind!=WEB_SCENE_STAGE or version==3 and value.get('area') in WEB_SCENE_AREAS)
         and (version!=3 or kind==WEB_SCENE_STAGE)
         and (kind!=AVATAR_SCOPED_STAGE or version==4 and value.get('area')=='avatar-people')
-        and (version!=4 or kind==AVATAR_SCOPED_STAGE))
+        and (version!=4 or kind==AVATAR_SCOPED_STAGE)
+        and (kind!=AVATAR_HELD_STAGE or version==5 and value.get('area')=='avatar-people')
+        and (version!=5 or kind==AVATAR_HELD_STAGE))
     exact(value,{'phaseRetirementVersion','runId','area','phaseInstance','ticket','role','actorSequence','binding','originalSha256',
         'acquisition','quiet','provenance'}|({'stage'} if version>=2 else set())|({'scene'} if kind in SCENE_STAGES else {'cleanup'}),'retirement publication')
     check(value['role']=='actor' and value['area'] in SCENARIOS
@@ -130,6 +144,7 @@ def body(value,*,run=None,area=None,phase_instance=None):
     if kind==SCENE_STAGE:scene(public,value['runId'],value['actorSequence'])
     elif kind==WEB_SCENE_STAGE:web_scene(public,value['runId'],value['actorSequence'])
     elif kind==AVATAR_SCOPED_STAGE:avatar_scoped_scene(public,value['runId'],value['actorSequence'])
+    elif kind==AVATAR_HELD_STAGE:avatar_held_scene(public,value['runId'],value['actorSequence'])
     else:
         exact(public,{'schemaVersion','contractVersion','runId','sequence','capturedEpochMs','resources','lifecycle'},'closed complete retirement summary')
         check(type(public['schemaVersion']) is int and public['schemaVersion']==1 and type(public['contractVersion']) is int and public['contractVersion']==16

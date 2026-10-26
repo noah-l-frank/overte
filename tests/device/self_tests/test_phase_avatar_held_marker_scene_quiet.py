@@ -1,8 +1,7 @@
 """Explicit Avatar held-marker stage preserves all complete/legacy meanings.
 
-These tests require the actual held-stage protocol integration. A separate
-subprocess may qualify an unintegrated patch in memory, without changing the
-repository or claiming that its production entrypoint is integrated.
+These tests execute the actual shared repository protocol and authenticated
+publisher/reader; no in-memory source patch or native compilation is used.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
@@ -70,5 +69,30 @@ class AvatarHeldStage5Tests(unittest.TestCase):
             row['receiptSha256']=digest({key:value for key,value in row.items() if key not in ('sequence','receivedEpochMs','receiptSha256')})
             journal['entries'].append(row)
             with self.assertRaises((ValueError,RuntimeError)):owner.journal(journal)
+
+    def test_actual_scene5_then_complete_keeps_default_writer_two_and_both_original_formats(self):
+        with self.f.lock.held():
+            owner=self.owner();owner.publish(self.original())
+            default=self.f.owner();self.assertEqual(2,default._body_version)
+            self.assertEqual(2,default.publish(self.f.original(2)))
+            self.assertEqual(2,default._body_version)
+            rows=[default.load(ref)['intent']['body'] for ref in default.state['records']]
+            self.assertEqual([5,2],[row['phaseRetirementVersion'] for row in rows])
+            self.assertEqual([AVATAR_HELD_STAGE,'complete'],[row['stage'] for row in rows])
+        complete=self.f.primary_reader().read();self.assertEqual(2,complete['entry']['phaseRetirementVersion'])
+        self.assertEqual(5,complete['journal']['phaseRetirementJournalVersion'])
+        with self.assertRaises(PublicationPending):self.reader(AVATAR_HELD_STAGE).read()
+        # The metadata can retain both typed wire originals without HTTP or
+        # converting an old Scene/Complete body into another interpretation.
+        with patch.object(self.f.actor,'request',side_effect=AssertionError('Historical archive performs no transport')):
+            state=PhaseRetirementPublisher.archive(default.previous,store=default.store,binding=BINDING,
+                run=self.f.run,area=self.f.area,fixture_url=self.f.url,phase_instance=default.instance,
+                validate_original=self.f.validate_original)
+        self.assertEqual(default.state,state)
+
+    def test_explicit_held_stage_cannot_be_selected_for_another_area(self):
+        for area in ('world-web','emotes','create'):
+            self.f.attach(area)
+            with self.f.lock.held(),self.subTest(area=area),self.assertRaises(RuntimeError):self.owner()
 
 if __name__=='__main__':unittest.main()

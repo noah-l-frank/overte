@@ -13,10 +13,10 @@ from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.phase_retirement_publisher import PhaseRetirementPublisher,PublicationPending
 from adapters.script_feature.history import pack,unpack,same
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
-from feature_journeys.retirement_receipts import binding_from_context,summary as retirement_summary,stage as retirement_stage,SCENE_STAGE,WEB_SCENE_STAGE,WEB_SCENE_AREAS,AVATAR_SCOPED_STAGE
+from feature_journeys.retirement_receipts import binding_from_context,summary as retirement_summary,stage as retirement_stage,SCENE_STAGE,WEB_SCENE_STAGE,WEB_SCENE_AREAS,AVATAR_SCOPED_STAGE,AVATAR_HELD_STAGE
 
 VERSION=2
-READS=(1,2,3,4)
+READS=(1,2,3,4,5)
 
 
 class PhaseRetirementReader:
@@ -28,7 +28,7 @@ class PhaseRetirementReader:
         self.run,self.area,self.instance,self.url=phase.run,phase.area,phase.previous['instance'],phase.client.url
         self.epoch_ms,self.monotonic=epoch_ms,monotonic
         need(stage=='complete' or stage==SCENE_STAGE and self.area=='avatar-people' or stage==WEB_SCENE_STAGE and self.area in WEB_SCENE_AREAS
-            or stage==AVATAR_SCOPED_STAGE and self.area=='avatar-people');self.stage=stage
+            or stage in (AVATAR_SCOPED_STAGE,AVATAR_HELD_STAGE) and self.area=='avatar-people');self.stage=stage
         self.previous=store.read();self.state=dict(records=[])
         self.actor=self.admission()
         if self.previous is not None:self.state=self.decode(self.previous)
@@ -41,7 +41,7 @@ class PhaseRetirementReader:
         return binding_from_context(actor)
 
     def envelope(self,state,version=None):
-        if version is None:version=max([4 if self.stage==AVATAR_SCOPED_STAGE else 3 if self.stage==WEB_SCENE_STAGE else VERSION]+[row['journal']['phaseRetirementJournalVersion'] for row in state['records']])
+        if version is None:version=max([5 if self.stage==AVATAR_HELD_STAGE else 4 if self.stage==AVATAR_SCOPED_STAGE else 3 if self.stage==WEB_SCENE_STAGE else VERSION]+[row['journal']['phaseRetirementJournalVersion'] for row in state['records']])
         value=dict(phaseRetirementReaderVersion=version,runId=self.run,area=self.area,phaseInstance=self.instance,
             fixtureUrl=self.url,binding=self.binding,admittedOriginal=self.admitted_original,payload=pack([state]))
         if version>=2:value['stage']=self.stage

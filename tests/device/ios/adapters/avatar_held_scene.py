@@ -33,7 +33,7 @@ class IOSAvatarHeldScene(IOSAvatarScene):
     def holders_unchanged(first,last,scope):return scope.unchanged(first,last,scope.pid)
 
     def scene_summary(self,p,acquisition,native):
-        # Import after the separately reviewed shared protocol is installed.
+        # The explicitly versioned shared stage retains actual process holders.
         from feature_journeys.retirement_receipts import AVATAR_HELD_CLASSES,AVATAR_HELD_REMAINING
         return dict(avatarHeldMarkerSceneQuietVersion=1,runId=self.run,sequence=p['sequence'],capturedEpochMs=acquisition['hostAfterEpochMs'],
             quiet=list(AVATAR_HELD_CLASSES),remaining=list(AVATAR_HELD_REMAINING),lifecycle=deepcopy(native['lifecycle']))
