@@ -100,3 +100,41 @@ complete-inventory/pure-validator round. All eight original files remain
 unchanged, and replay issues no native query. This small component result does
 not qualify a large whole-run original tree, the common Emote journey, actual
 API acquisition budgets, native execution or devices.
+
+## Local fresh-fence historical validation batch
+
+The exact frozen-to-fresh Scope/key/pointer comparison in
+`emote_rooted_fence_original.local` now uses the existing
+`emote_archive_round.validation_batch`. The complete local artifact/state
+inventory is leased before decoding and checked again before returning.
+Only successful pure validators share that one read boundary. Every actual
+owner envelope, receipt and raw packet still runs its literal reader. No
+parsed result, pending journal, native clock, original age or current product
+observation is memoized. The paired seal and fresh Stop authority remain the
+caller's separate typed qualifications.
+
+A read-only diagnostic over the same 195 original files measured 4.920 seconds
+for literal validation and 2.197 seconds for the existing pure batch under
+cProfile. Both paths performed the same 127 key-original and 430 raw-packet
+decodes, returned identical metadata, and preserved every file's device/inode,
+size, bytes, mtime and ctime. Native reads, fixture/SDK requests, sockets,
+process creation and private-state writes/discards were blocked throughout.
+These profiler durations are a small component comparison, not real native
+freshness, a whole-run deadline or device qualification.
+
+The broader existing immutable-result round was measured separately on the
+same originals and was not selected: its repeated complete-census guards cost
+more than this pure-only batch. No guard was weakened or removed. An initial
+diagnostic correctly failed when it called the live `snapshot` method on an
+archived Scope; the corrected comparison uses the actual retained envelope.
+That original failure remains a failure and its diagnostic is retained.
+
+Four new batch cases preserve the exact original read membership, reject an
+in-place same-byte rewrite even with restored mtime, reject a missing original
+and reject a newly appearing unknown carrier. Pure successes are not reused
+after return. All four and the four existing local-fence cases reached passing
+individual verdicts. The original combined 17-case launcher then hit its outer
+90-second limit during the second SDK-storage setup, after the first SDK case
+passed; that launcher remains exit124. The remaining eight SDK-storage cases
+pass separately in 2.528 seconds. No production deadline was increased and no
+whole Emote result or completed-feature count follows from these host cases.

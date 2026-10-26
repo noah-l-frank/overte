@@ -13,6 +13,7 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_feature.history import same
 from feature_journeys.phase_fixture import validate as phase_packet
 from ios.adapters.emote_keys import IOSEmoteKeys
+from ios.adapters.emote_archive_round import validation_batch
 from ios.adapters.emote_pointers import IOSEmotePointers
 from ios.adapters.emote_rooted_fence import _seal,inactive,inactive_prefixes,clock_shape
 from ios.adapters.emote_rooted_final_archive import IOSEmoteRootedFinalArchive
@@ -36,7 +37,18 @@ def phase_link(value,seal,*,run,role,binding,instance,floor,retired,archive_sha)
 
 
 def local(value,copies,*,root,binding,run,role,lock,retirement=None):
-    """Decode exact local appends only; caller separately qualifies paired seal."""
+    """Decode exact local appends under one unchanged original inventory.
+
+    Only pure validation successes are shared. Actual owner metadata and every
+    original receipt/wire still run their literal readers; no result is memoized.
+    """
+    lock.assert_held();root=Path(root)
+    with validation_batch(dict(artifactRoot=str(root),stateRoot=str(lock.path.parent)),lock=lock,primary_lock=lock):
+        return _local(value,copies,root=root,binding=binding,run=run,role=role,lock=lock,retirement=retirement)
+
+
+def _local(value,copies,*,root,binding,run,role,lock,retirement=None):
+    """Literal local grammar; caller separately qualifies the paired seal."""
     exact(value,{'iosEmoteRootedFenceVersion','runId','role','binding','phaseBefore','phaseAfter','scope','keys','pointers','held',
         'acquisitions','nativeClock','archiveSha256','sealSha256'})
     need(type(value['iosEmoteRootedFenceVersion']) is int and value['iosEmoteRootedFenceVersion']==1
