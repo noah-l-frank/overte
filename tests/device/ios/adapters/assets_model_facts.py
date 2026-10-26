@@ -58,7 +58,18 @@ def imported(owned,before,after):
 
 def geometry(owned,before,after,original):
     """Observe actual wrapper geometry flags; resource origin stays separate."""
-    creation=imported(owned,before,after);create_state.original(original)
+    creation=imported(owned,before,after)
+    return _geometry_from_imported(owned,after,original,creation)
+
+
+def _geometry_from_imported(owned,after,original,creation):
+    """One synchronous decoder's just-validated imported result, never a cache.
+
+    Only the Model decoder composes this immediately after imported() on the
+    same immutable inputs. Public geometry() still performs its complete owner
+    and original-parent read. No result survives a decode or mutation boundary.
+    """
+    create_state.original(original)
     if original['requestId']==after['requestId']:need(same(original,after))
     else:create_state.validate(original,dict(schemaVersion=1,action=create_state.ACTION,commandId=original['requestId'],runId=creation['runId']),creation['processId'],previous=after)
     need(original['iosCreateStateVersion']>=3 and original['runId']==creation['runId'] and original['processId']==creation['processId']==owned.source.clock.pid

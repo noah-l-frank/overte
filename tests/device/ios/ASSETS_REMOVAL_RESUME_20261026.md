@@ -1,5 +1,27 @@
 # Assets removal continuation checkpoint — 2026-10-26
 
+Latest completed removal packet: **af5210efe9**, exact10 paths/two1 tags.
+The subsequent BakedTree/runtime/pure/fixture plus local Model-decode composition
+packet is qualified as a host component, with final confined commit pending.
+Read [the exact baked namespace boundary](ASSETS_BAKED_NAMESPACE.md) first.
+Its first fresh combined case timed out at360s after local namespace and Model
+removal; after the measured no-cache corrections a new fresh case passed in
+328.746s, including ordinary context/client and independent backend restoration.
+Originals remain in `.ios-host-tmp/tmpncj53r6y`; no own live fixture process
+remains. A first readonly4.450s profile identified duplicate semantic parent
+decodes. The new no-cache local composition and inode-replacement counterexample
+passed their focused21-case selection in86.664s; Runtime13/Session7/Installed2
+then passed22 cases57.425s. No own tests/processes are active at this boundary.
+A corrected second readonly diagnostic harness (both actual Assets HTTP alias
+and socket fallbacks forbidden) completed in3.515s with all290 originals and289
+actual memberships unchanged; Upload.decode14→8 and original-frame reads
+2,304→1,418. Exact fresh success log:
+`.ios-host-tmp/assets-baked-lifecycle-local-composition-20261027.log`.
+No own processes remain, and no unchanged full-case repeat is needed. Root
+granted the exact15-path/two1-tag window after Avatar a1a53c9187. No full Assets
+capability is enabled: actual cached QObject/HFM remains alive and blocking;
+independent actor/render/OS/cache lifetimes and shared journey remain open.
+
 This is a task-context handoff, not a user pause or feature completion.
 Continue Feature 13 autonomously in the owned worktree:
 `/home/user/Documents/github/overte-ios-feature-adapters-resume-20261026`, branch
@@ -129,20 +151,23 @@ with Root and Photos. No user pause has been requested; continue integration.
 
 ## Continue the actual vertical route
 
-1. The exact22-case compatibility selection and five selected project suites
-   are terminal PASS. Both closed owner/observation1 tags are registered. Commit
-   only the confined tested ten-path removal packet, then continue the concrete
-   Tree/FBX dependency below. Preserve all earlier failure logs. No unchanged
-   whole-flow rerun is needed.
+1. The ten-path removal packet is already committed as af5210efe9. The new
+   fifteen-path BakedTree/Model composition passed its fresh328.746s case,
+   Model21/compatibility22/admission8 and the five selected project suites6.77s.
+   Its two1/[1] tags are `ios-assets-baked-tree-owner` and
+   `asset-baked-tree-delete-proof`. Secure that exact packet, then immediately
+   continue the independent actor/render join. No unchanged full rerun needed.
 2. Additional input interruptions (acknowledged ignored Delete, Home/context
    loss, source-prefix and parent-CAS interruptions) remain separate gaps.
    No uncertain input may be resent and no failed source may be replaced.
 3. The private factory and exact pure membership are implemented. Retain cached
    QObject/HFM responsibility after normal context and parent file retirement;
    no fake old-picker phase retirement and no complete feature publication.
-4. Compose fresh upload/rebake/parser flow with ordinary local removal, then
-   independent actor/render/permission evidence, namespace Rename/Delete and
-   actual server/blob/meta/work quiet restoration.
+4. Fresh upload/rebake/parser→namespace Rename/Delete→ordinary local Model
+   removal→normal context/client closure→independent server/blob/meta/work quiet
+   restoration now qualifies as the explicitly declared host model component.
+   Bind independent actor/render/permission sources to that same actual Model
+   before removal; public shared journey and full retirement remain closed.
 5. Cached resources may persist naturally. Do not clear caches or infer object
    death from old QSharedPointer lease expiry. Actual QPointer/HFM/lifetimes,
    complete additional sources or properly owned process-stop/OS quiet boundary
@@ -153,10 +178,10 @@ so toggling an owned mapping can affect a foreign mapping sharing that hash.
 Review admission against independently observed foreign aliases before widening
 the full journey. No product fix or unqualified guard change was made for it.
 
-Another concrete next dependency: actual AssetServer.deleteMappings removes
+The next Tree dependency has been implemented: actual AssetServer.deleteMappings removes
 unused original blobs and then recursively removes its own hidden
 `/.baked/<inputHash>/` mappings/blobs/meta. The current Tree1 deletion proof
 requires only the renamed-prefix subtraction and will reject these additional
-legitimate owned FBX removals. Extend that closed proof with independent owned
-hash/alias evidence before composing baked Model removal and namespace cleanup;
-do not permit arbitrary foreign mapping deletion or change the product server.
+legitimate owned FBX removals. The separate BakedTree1 profile supplies the
+qualified independent owned-hash/alias delta while preserving Tree1 literally.
+No arbitrary foreign mapping deletion or product server change is permitted.

@@ -6,6 +6,7 @@ The narrow bundle input/readback owner does not establish oven/model outcomes.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import time
+import hashlib
 from adapters.asset_backend_client import AssetsBackendClient
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState
@@ -13,7 +14,7 @@ from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.asset_fixture import bundle
 from feature_journeys.contract import identifier
 from ios.adapters.assets_budget import check,operation
-from ios.adapters.assets_files import OwnedAssetsFiles
+from ios.adapters.assets_files import OwnedAssetsFiles,original_bytes
 from ios.adapters.assets_picker import OwnedAssetsPicker
 from ios.adapters.assets_reply_owner import OwnedAssetsReplyReads
 from ios.adapters.assets_upload import OwnedAssetsUpload
@@ -26,6 +27,7 @@ from ios.adapters.assets_model_owner import OwnedAssetsModel
 from ios.adapters.assets_parsed_sources import AssetsParsedSources
 from ios.adapters.assets_parsed_owner import OwnedAssetsParsedInput
 from ios.adapters.assets_model_removal import OwnedAssetsModelRemoval
+from ios.adapters.assets_baked_tree import OwnedAssetsBakedTree,fresh_baseline
 from ios.adapters.assets_usage_controls import project as usage_controls
 from ios.adapters.feature_observation import FeatureObservation
 from ios.adapters.normal_input import NativeInput
@@ -53,7 +55,7 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         self.cleanup_errors=[] # Private diagnostics only; never feature facts.
 
     def _assets_store(self,selector,run,role,kind):
-        identifier(run);need(role in ('primary','actor') and kind in ('files','picker','replies','upload','tree','backend','usage','baking','model','model-sources','parsed-sources','parsed','model-removal'))
+        identifier(run);need(role in ('primary','actor') and kind in ('files','picker','replies','upload','tree','backend','usage','baking','model','model-sources','parsed-sources','parsed','model-removal','baked-tree'))
         return PrivateFeatureState(self.state_path(selector).with_name('ios-assets-'+run+'-'+role+'-'+kind+'.json'))
 
     @operation
@@ -121,6 +123,12 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         parts['check']();return dict(parts,model_removal=removal)
 
     @operation
+    def _assets_baked_tree_components(self,selector,run,role,fixture_url,lock,backend_config,*,parts=None):
+        parts=self._assets_parsed_components(selector,run,role,fixture_url,lock,backend_config) if parts is None else parts
+        tree=OwnedAssetsBakedTree(parts['parsed'],self._assets_store(selector,run,role,'baked-tree'),lock=lock)
+        parts['check']();return dict(parts,baked_tree=tree)
+
+    @operation
     def _assets_upload_model_bytes(self,selector,run,role,fixture_url,ticket,lock,backend_config,*,parts=None):
         """Fresh ordinary FBX upload through parsed-output observation only.
 
@@ -139,6 +147,12 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         if upload.state is None:self._assets_prepare_upload(selector,run,role,fixture_url,ticket,lock,resource='asset-stand.fbx',parts=parts)
         need(upload.files.state['resource']=='asset-stand.fbx' and upload.files.state['ticket']==ticket)
         if backend.state['phase']=='baseline':backend.attach()
+        if upload.state['phase'] in ('ready','review','destination'):
+            # Reject already-owned/shared input hashes before the first upload
+            # can itself trigger an implicit bake. This original baseline is
+            # not a global actor lock or fresh permission proof at later inputs.
+            digest=hashlib.sha256(original_bytes(next(iter(upload.files.state['files'].values())))).hexdigest()
+            fresh_baseline(backend.packet(backend.state['samples'][backend.state['baseline']-1]),digest)
         if upload.state['phase'] in ('ready','review','destination','starting'):self._assets_finish_upload(upload)
         need(upload.state['phase']=='uploaded')
         if backend.state['uploadProof'] is None:self._assets_backend_checkpoint(backend,'uploaded-model-input',ticket);backend.uploaded('uploaded-model-input')

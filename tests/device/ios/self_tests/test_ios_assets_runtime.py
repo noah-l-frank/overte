@@ -59,6 +59,17 @@ class AssetsRuntimeTests(unittest.TestCase):
         self.assertEqual(b.root/('ios-assets-'+RUN+'-primary-model-removal.json'),parts['model_removal'].store.path)
         self.assertIsNone(parts['model_removal'].state);self.assertEqual([],b.asset_requests);self.assertEqual([],b.afc);self.assertEqual([],fixture.requests)
 
+    def test_baked_tree_factory_keeps_existing_parsed_backend_without_any_input_or_read(self):
+        from ios.self_tests.assets_usage_backend_fixture import Fixture
+        from pathlib import Path
+        import tempfile
+        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup);path=Path(temporary.name);path.chmod(0o700)
+        fixture=Fixture(path);self.addCleanup(fixture.close)
+        b=self.b;parts=b.runtime._assets_baked_tree_components('test-only',RUN,'primary',URL,b.lock,fixture.backend.config)
+        self.assertIs(parts['parsed'],parts['baked_tree'].parsed);self.assertIs(parts['backend'],parts['baked_tree'].backend)
+        self.assertEqual(b.root/('ios-assets-'+RUN+'-primary-baked-tree.json'),parts['baked_tree'].store.path)
+        self.assertIsNone(parts['baked_tree'].state);self.assertEqual([],b.asset_requests);self.assertEqual([],b.afc);self.assertEqual([],fixture.requests)
+
     def test_changed_candidate_blocks_before_any_native_asset_read(self):
         b=self.b;parts=b.components();b.f.artifact.write_bytes(b'Changed independently pinned candidate')
         with self.assertRaises((ValueError,RuntimeError,NativeUIError)):

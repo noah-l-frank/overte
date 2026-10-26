@@ -34,7 +34,10 @@ class RemovalIO:
         need(len(owner.state['inputs'])<48);owner.state['inputs'].append(event);owner.save()
         owner.native.deliver(command,before_send=owner.guard)
         event['receipt']=deepcopy(owner.native.last_receipt);input_receipt(event['receipt'],owner.intended(event),owner.pid);owner.save()
-        owner.capture_ui();return dict(performed=True)
+        # IOSCreateUI.input immediately performs its existing fresh after-read.
+        # That read adopts this exact ACK/sequence in capture_ui(); acquiring
+        # the same post-input UI here first duplicates history, not evidence.
+        return dict(performed=True)
     def activate(self,identifier,*,reference):return self.input(identifier,'activate',reference)
     def replace(self,identifier,value,*,reference):return self.input(identifier,'replace',reference,value)
     def select_index(self,identifier,value,*,reference):return self.input(identifier,'select-index',reference,value)

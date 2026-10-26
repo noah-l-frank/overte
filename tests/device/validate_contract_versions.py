@@ -75,6 +75,8 @@ REQUIRED = {
     "asset-model-geometry-observation": 1,
     "ios-assets-model-removal-owner": 1,
     "asset-model-removal-observation": 1,
+    "ios-assets-baked-tree-owner": 1,
+    "asset-baked-tree-delete-proof": 1,
     "ios-assets-model-origin": 1,
     "asset-model-origin-history": 2,
     "asset-model-parsed-input": 1,

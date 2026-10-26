@@ -48,13 +48,15 @@ class OwnedAssetsModel:
         if state['phase']!='reserved':need(state['baseline'] is not None)
         for index in state['observations']:need(integer(index,state['baseline']+1,len(self.sources._cached)))
         if state['phase'] in ('issued','adopted','geometry-observed'):need(self.input()['command'] is not None)
+        actual_creation=None
         if state['creation'] is not None:
             exact(state['creation'],{'frame','proof'});need(state['creation']['frame'] in state['observations'] and self.input()['resolvedBy'] is not None)
-            actual=facts.imported(self.usage,self.native(state['baseline']),self.native(state['creation']['frame']));need(same(actual,state['creation']['proof']))
+            actual_creation=facts.imported(self.usage,self.native(state['baseline']),self.native(state['creation']['frame']));need(same(actual_creation,state['creation']['proof']))
         if state['phase'] in ('adopted','geometry-observed'):need(state['creation'] is not None)
         if state['geometryObserved'] is not None:
             exact(state['geometryObserved'],{'frame','observation'});need(state['creation'] is not None and state['geometryObserved']['frame'] in state['observations'])
-            actual=facts.geometry(self.usage,self.native(state['baseline']),self.native(state['creation']['frame']),self.native(state['geometryObserved']['frame']));need(same(actual,state['geometryObserved']['observation']))
+            actual=facts._geometry_from_imported(self.usage,self.native(state['creation']['frame']),self.native(state['geometryObserved']['frame']),actual_creation)
+            need(same(actual,state['geometryObserved']['observation']))
         if state['phase']=='geometry-observed':need(state['geometryObserved'] is not None)
         return state
 

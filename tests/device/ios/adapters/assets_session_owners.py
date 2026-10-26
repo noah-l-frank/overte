@@ -34,8 +34,9 @@ from ios.adapters.assets_model_owner import OwnedAssetsModel
 from ios.adapters.assets_parsed_sources import AssetsParsedSources,ParsedRawSources
 from ios.adapters.assets_parsed_owner import OwnedAssetsParsedInput
 from ios.adapters.assets_model_removal import OwnedAssetsModelRemoval
+from ios.adapters.assets_baked_tree import OwnedAssetsBakedTree
 
-OWNER=re.compile(r'ios-assets-([a-f0-9]{32})-(primary|actor)-(files|picker|replies|upload|tree|backend|usage|baking|model-sources|model|parsed-sources|parsed|model-removal)\.json')
+OWNER=re.compile(r'ios-assets-([a-f0-9]{32})-(primary|actor)-(files|picker|replies|upload|tree|backend|usage|baking|model-sources|model|parsed-sources|parsed|model-removal|baked-tree)\.json')
 FRAME=re.compile(r'assets-upload-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
 BACKEND_FRAME=re.compile(r'assets-backend-(primary|actor)-parts-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
 FILE_SOURCE=re.compile(r'assets-files-native-frame-sources-([a-f0-9]{32})-(primary|actor)-[0-9]{4}-[a-f0-9]{64}\.json')
@@ -106,7 +107,7 @@ def inspect_directory(directory):
             if replies.storage_version==1:
                 extra=replies.sources.legacy_migration_paths();reply_covered|=extra;reply_migration_pending=bool(extra)
         need(reply_paths.get((run,role),set())==reply_covered)
-        upload=None;tree=None;backend=None;usage=None;baking=None;model_source=None;model=None;parsed_source=None;parsed=None;removal=None;covered=set();backend_covered=set();model_covered=set();parsed_covered=set()
+        upload=None;tree=None;backend=None;usage=None;baking=None;model_source=None;model=None;parsed_source=None;parsed=None;removal=None;baked_tree=None;covered=set();backend_covered=set();model_covered=set();parsed_covered=set()
         if 'upload' in values:
             need(files.state is not None and picker.state is not None and replies.state is not None)
             upload=object.__new__(OwnedAssetsUpload);upload.files,upload.picker,upload.replies=files,picker,replies
@@ -165,6 +166,9 @@ def inspect_directory(directory):
             need(parsed is not None and parsed.state['phase']=='observed');removal=object.__new__(OwnedAssetsModelRemoval)
             removal.parsed,removal.model,removal.sources,removal.usage,removal.pid=parsed,model,parsed_source,usage,pid
             removal.state=None;removal.state=removal.decode(values['model-removal'])
+        if 'baked-tree' in values:
+            need(parsed is not None and parsed.state['phase']=='observed');baked_tree=object.__new__(OwnedAssetsBakedTree)
+            baked_tree.parsed,baked_tree.backend,baked_tree.upload=parsed,backend,upload;baked_tree.state=None;baked_tree.state=baked_tree.decode(values['baked-tree'])
         responsibilities=[]
         if files.state is not None and files.state['phase']!='retired':responsibilities.append('input-files')
         if files.state is not None and (migration_pending or files.sources.pending is not None):responsibilities.append('input-source-write')
@@ -176,6 +180,9 @@ def inspect_directory(directory):
             if backend is None or backend.state['phase']!='restored':responsibilities.append('server-retirement')
         elif backend is not None:responsibilities.append('server-retirement')
         if tree is not None and tree.state['clientClosedBy'] is None:responsibilities.append('mapping-actions')
+        if baked_tree is not None:
+            if baked_tree.state['phase']!='deleted':responsibilities.append('baked-mapping-actions')
+            if baked_tree.state['clientClosedBy'] is None:responsibilities.append('baked-mapping-client')
         if usage is not None:
             if usage.state['clientClosedBy'] is None:responsibilities.append('usage-client')
             # A closed dialog/page and its ordinary input ACK never establish

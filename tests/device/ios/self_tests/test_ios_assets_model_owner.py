@@ -74,5 +74,13 @@ class AssetsModelOwnerTests(unittest.TestCase):
             produced=runtime._assets_model_components('test-only',RUN,'primary',self.f.files.url,self.f.lock,parts=parts)
         self.assertIs(self.usage,produced['model'].usage);self.assertIs(self.usage.source.clock,produced['model_sources'].native);self.assertEqual(before,self.b.native_clock.commands)
 
+    def test_replaced_saved_ui_inode_blocks_model_decode_after_previous_valid_creation(self):
+        self.o.start();self.o.observe();target=self.o.state['creation']['proof']['entityId'];self.b.models[target].loaded=True;self.b.models[target].added=True;self.o.observe()
+        source=self.usage.source;reference=source.originals.expand(source.state['frames'][0]);path=source.originals.path(reference);raw=path.read_bytes()
+        path.rename(self.path/'retained-original-ui');path.write_bytes(raw);path.chmod(0o600)
+        before=deepcopy(self.b.inputs);clocks=deepcopy(self.b.native_clock.commands)
+        with self.assertRaises(NativeUIError):self.o.decode(self.o.previous)
+        self.assertEqual(before,self.b.inputs);self.assertEqual(clocks,self.b.native_clock.commands)
+
 
 if __name__=='__main__':unittest.main()

@@ -67,6 +67,8 @@
     "asset-model-geometry-observation": {"current": 1, "reads": [1]},
     "ios-assets-model-removal-owner": {"current": 1, "reads": [1]},
     "asset-model-removal-observation": {"current": 1, "reads": [1]},
+    "ios-assets-baked-tree-owner": {"current": 1, "reads": [1]},
+    "asset-baked-tree-delete-proof": {"current": 1, "reads": [1]},
     "ios-assets-model-origin": {"current": 1, "reads": [1]},
     "asset-model-origin-history": {"current": 2, "reads": [1, 2]},
     "asset-model-parsed-input": {"current": 1, "reads": [1]},
