@@ -59,7 +59,22 @@ query is never resent by rebuilding this owner.
 Planned/opened/saved record transitions preserve interrupted original files.
 An actual complete opened/saved record may be reconstructed after a lost write
 return; an empty/partial opened inode remains present and cannot be replayed or
-promoted to complete. `historical=True` requires an already historical DOM
+promoted to complete. After the same original live admission returns,
+`abort_pending()` may archive an interrupted reading/prepared/issued/failed
+transcript as failed without another source capture or input/release request.
+Its original source descriptor, events and before stamp are unchanged. A known
+after stamp stays verbatim; only an unknown after receives actual host
+administrative archival time, never a native timestamp or refreshed input fact.
+A returned pending action and any planned/opened/saved immutable-record intent
+must use their existing archive/recovery path instead. Unknown DELETE stays
+unknown, failed input blocks new input, and a pending child DOM nonce remains
+owned separately.
+
+The existing runtime cleanup recovery calls this only for Primary and only
+when an input journal already exists. Actor never accesses Primary's input
+journal, and an absent journal is not created. This administrative recovery
+neither observes product effects nor satisfies native input/weak/quiet cleanup.
+`historical=True` requires an already historical DOM
 source and existing journal. It creates no SDK/reader and prohibits all input,
 archive, recovery and journal writes. Actual byte/hash/inode and source-prefix
 validation still apply; historical decoding is not current product evidence.

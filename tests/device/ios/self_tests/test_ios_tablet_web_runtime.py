@@ -69,6 +69,18 @@ class TabletWebRuntimeTests(unittest.TestCase):
         # bootstrap; current SDK/candidate admission is performed separately.
         with self.opened() as rebuilt:self.assertEqual('returned',rebuilt.bootstrap.state['status'])
         self.assertEqual(before+1,len(self.fixture.native.commands))
+    def test_cleanup_input_recovery_without_journal_creates_nothing_or_native_query(self):
+        with self.opened() as observer:
+            path=self.root/('tabletweb-inputs-'+RUN+'-primary.json');self.assertFalse(path.exists())
+            before=len(self.fixture.native.commands);self.assertIsNone(observer.recover_inputs())
+            self.assertFalse(path.exists());self.assertEqual(before,len(self.fixture.native.commands))
+    def test_actor_cleanup_input_recovery_cannot_read_or_write_primary_journal(self):
+        from ios.adapters.tablet_web_runtime import TabletRuntimeObserver
+        observer=object.__new__(TabletRuntimeObserver)
+        observer.observer=SimpleNamespace(source=SimpleNamespace(role='actor',bound=lambda:True))
+        with patch('ios.adapters.tablet_web_runtime.PrivateFeatureState',side_effect=AssertionError('Actor must not access a Primary input journal')):
+            self.assertIsNone(observer.recover_inputs())
+
     def test_actor_requires_real_primary_context_and_distinct_original_host_birth(self):
         with self.opened():pass
         before=len(self.fixture.native.commands)

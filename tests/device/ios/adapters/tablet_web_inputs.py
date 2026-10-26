@@ -174,6 +174,23 @@ class TabletWebInputs:
         self.state['records'].append(self.originals.compact(dict(reference,phase='saved')))
         self.state['pending']=self.state['original']=None;self.save();return deepcopy(self.state['records'][-1])
 
+    def abort_pending(self):
+        """Archive the confirmed interrupted input as failed, never resend it.
+
+        Current original admission is required again. Source-query ownership
+        and unknown request returns remain verbatim; this produces no effect
+        or cleanup fact and never relabels a known completed original.
+        """
+        self.bound();self.state=deepcopy(self.saved);self.decode()
+        if self.state['pending'] is None:return None
+        need(self.state['original'] is None and self.state['pending']['phase'] in ('reading','prepared','issued','failed'))
+        row=deepcopy(self.state['pending']);row['phase']='failed'
+        # Existing after is original host delivery/failure metadata. Only an
+        # unknown boundary receives this call's administrative closure time.
+        if row['after'] is None:row['after']=self.stamp()
+        self.record(row,len(self.state['records'])+1);self.state['pending']=row;self.save()
+        reference=self.archive();self.decode();return reference
+
     def release_intent(self,phase,request):
         """Only the original touch's release WAL survives lost live continuity.
 

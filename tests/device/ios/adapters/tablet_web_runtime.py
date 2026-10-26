@@ -150,13 +150,29 @@ class TabletRuntimeObserver:
         owner,reader,call=self.auxiliary_reader(kind,ownership=ownership,operation=operation,files=files)
         return owner.capture(reader,call)
 
+    def recover_inputs(self):
+        """Primary-only administrative recovery; no query or input is sent."""
+        source=self.observer.source;source.bound()
+        if source.role!='primary':return None
+        store=PrivateFeatureState(source.root/('tabletweb-inputs-'+source.run+'-'+source.role+'.json'))
+        if store.read() is None:return None
+        from ios.adapters.tablet_web_inputs import TabletWebInputs
+        owner=TabletWebInputs(self.client,source.children['dom'],self.observer.readers['dom'],source.lock,self.native_clock,
+            monotonic=source.monotonic,epoch_ms=source.epoch_ms)
+        reference=None
+        if owner.state['original'] is not None:reference=owner.recover_record()
+        if owner.state['pending'] is not None:
+            if owner.state['pending']['phase']=='returned':reference=owner.archive()
+            else:reference=owner.abort_pending()
+        return reference
+
     def recover_auxiliaries(self,ownerships):
         """Only original file/readback recovery; no query/input is repeated.
 
         A later ordinary observation must still acquire fresh bounded native
         data. Unsafe/rejected/incomplete originals remain blocking.
         """
-        source=self.observer.source;source.bound();files_by_run={row['runId']:row for row in ownerships}
+        source=self.observer.source;self.recover_inputs();files_by_run={row['runId']:row for row in ownerships}
         for kind in self.auxiliary_kinds():
             store=PrivateFeatureState(source.root/('tabletweb-aux-'+kind+'-'+source.run+'-'+source.role+'.json'))
             if store.read() is None:continue

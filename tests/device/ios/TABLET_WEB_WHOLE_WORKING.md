@@ -317,3 +317,47 @@ independent VM/native-route/DOM echo. No source/deadline changed for that import
 correction. Logs are `release-before.log`, `release-focused.log`,
 `release-final.log` and `release-alias-final.log` in the same private directory.
 These are bounded component results; the complete Tablet area remains partial.
+
+
+## Interrupted input archival in existing cleanup recovery
+
+The existing Primary `recover_auxiliaries` entry now also recovers an existing
+Input1 journal before further cleanup. Complete original records use the
+existing exact-byte recovery; already-returned metadata uses its existing
+archive. Other interrupted metadata can be archived only as failed after the
+same live admission returns. No absent journal is created, and Actor returns
+before reading or writing the Primary journal.
+
+`abort_pending` preserves every source descriptor/hash, native document clock,
+request/return event and original before stamp. Known after stamps remain
+verbatim. An unknown after can receive only this call's actual controller host
+archival time: Input1's stamp uses host `time.time`/`time.monotonic`, distinct
+from the native epoch reader. That administrative boundary grants no input or
+source freshness. Known returned input and any planned/opened/saved original
+are refused by abort; existing exact recovery handles the appropriate cases.
+Failed input still blocks another input. An unknown DELETE remains unknown;
+unknown child DOM nonces remain pending and still block current observation.
+
+All 22 explicit Input-owner cases passed in 2.734s, including six new recovery
+boundaries, preserved known host time with a forbidden new epoch callback,
+lost failed-archive adoption with unchanged inode/bytes, old partial/saved
+refusal and no input/query/release resend. Three runtime/ordinary-app cases
+passed in 2.436s. The actual generated app receives Send once; cleanup recovery
+archives its old input as failed without another query/action, and a later
+independent native-route/VM/DOM observation reports its actual echo. Missing-
+journal and Actor guards create/read no Primary input journal. Native/SDK/WK
+producers remain explicit host models; this is no full journey or device claim.
+
+Logs are `abort-focused.log` and `abort-runtime.log` in the same retained private
+directory. The original Input1 grammar, native/host deadlines and full-area
+admission remain unchanged.
+
+
+The remaining short runtime compatibility selection passed five cases and
+exposed one stale test expectation: the reviewed shared ScriptSourceLock
+contract preserves a protected body's exact fatal exception after validating
+its original lock. The test now requires that same fatal ValueError object,
+actual lock release and no body/query retry; the four exact supported pending
+sentinels remain separately checked. No runtime/lock behavior changed to fix
+that test. The corrected transient class passes all three cases in 0.540s; logs are
+`abort-compatibility.log` and `abort-transients-final.log`.

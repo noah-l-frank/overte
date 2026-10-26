@@ -138,6 +138,86 @@ class TabletWebInputsTests(unittest.TestCase):
         events=old_store.read()['pending']['events'];self.assertEqual(['touch','release'],[event['request']['kind'] for event in events])
         self.assertIsNotNone(events[-1]['returned']);self.assertFalse(foreign_store.path.exists())
 
+    def interrupted_touch(self,*,unknown_release=False):
+        current=[True]
+        def source(**kwargs):
+            return TabletWebPackets(self.root,BINDING,RUN,'primary',ROOT,31,'dom',lambda:current[0],
+                monotonic=lambda:self.mono,epoch_ms=lambda:self.now,**kwargs)
+        self.source=source;owner=self.owner()
+        def changed(method,path):
+            if method=='POST' and path.endswith('/actions'):current[0]=False
+            if unknown_release and method=='DELETE':raise OSError('Lost original release return')
+        self.client.after=changed
+        with self.assertRaises(NativeUIError):owner.perform('b'*32,'interrupted-input','tap','bridge')
+        return current,owner
+    def test_abort_after_original_admission_returns_archives_exact_failed_transcript_without_resend(self):
+        current,owner=self.interrupted_touch();pending=deepcopy(owner.store.read()['pending']);calls=deepcopy(self.client.calls);queries=len(self.queries)
+        saved=deepcopy(owner.store.read())
+        with self.assertRaises(NativeUIError):owner.abort_pending()
+        self.assertEqual(saved,owner.store.read())
+        current[0]=True;self.client.after=None;self.now+=2000;self.mono+=2;rebuilt=self.owner()
+        source_files={path:(path.stat().st_ino,path.read_bytes()) for path in self.root.iterdir() if path.name.startswith('tabletweb-dom-')}
+        reference=rebuilt.abort_pending();row=rebuilt.originals.read(rebuilt.originals.expand(reference))
+        self.assertEqual('failed',row['phase']);self.assertTrue(rebuilt.blocked)
+        for key in ('ticket','label','kind','control','text','sourceIndex','sourceRef','sourceSha256','events','before'):self.assertEqual(pending[key],row[key])
+        self.assertEqual(dict(epochMs=self.now,monotonic=self.mono),row['after'])
+        self.assertEqual(calls,self.client.calls);self.assertEqual(queries,len(self.queries));self.assertIsNone(rebuilt.abort_pending())
+        self.assertEqual(source_files,{path:(path.stat().st_ino,path.read_bytes()) for path in source_files})
+        with self.assertRaises(NativeUIError):rebuilt.perform('b'*32,'interrupted-input','tap','bridge')
+        self.assertEqual(calls,self.client.calls)
+    def test_abort_preserves_unknown_delete_and_never_settles_or_resends_it(self):
+        current,owner=self.interrupted_touch(unknown_release=True);pending=deepcopy(owner.store.read()['pending'])
+        self.assertIsNone(pending['events'][-1]['returned']);current[0]=True;self.client.after=None
+        rebuilt=self.owner();calls=deepcopy(self.client.calls);reference=rebuilt.abort_pending()
+        row=rebuilt.originals.read(rebuilt.originals.expand(reference));self.assertEqual(pending['events'],row['events'])
+        self.assertEqual('failed',row['phase']);self.assertIsNone(row['events'][-1]['returned'])
+        with self.assertRaises(NativeUIError):self.owner().perform('b'*32,'new-touch','tap','bridge')
+        self.assertEqual(calls,self.client.calls)
+    def test_abort_keeps_original_unknown_source_nonce_pending_without_query_or_touch(self):
+        current=[True]
+        def source(**kwargs):
+            return TabletWebPackets(self.root,BINDING,RUN,'primary',ROOT,31,'dom',lambda:current[0],
+                monotonic=lambda:self.mono,epoch_ms=lambda:self.now,**kwargs)
+        self.source=source;owner=self.owner()
+        def lost(query):self.queries.append(deepcopy(query));current[0]=False;raise OSError('Original DOM query return lost')
+        owner.reader.send=lost
+        with self.assertRaises(NativeUIError):owner.perform('b'*32,'unknown-source-input','tap','text')
+        pending=deepcopy(owner.source.store.read());current[0]=True;rebuilt=self.owner();calls=deepcopy(self.client.calls)
+        reference=rebuilt.abort_pending();row=rebuilt.originals.read(rebuilt.originals.expand(reference))
+        self.assertEqual('failed',row['phase']);self.assertIsNone(row['sourceRef']);self.assertEqual([],row['events'])
+        self.assertEqual(pending,rebuilt.source.store.read());self.assertIsNotNone(rebuilt.source.state['pending'])
+        self.assertEqual(1,len(self.queries));self.assertEqual(calls,self.client.calls)
+    def test_lost_failed_abort_archive_adopts_original_inode_bytes_without_any_input_replay(self):
+        current,_owner=self.interrupted_touch();current[0]=True;self.client.after=None;rebuilt=self.owner();write=rebuilt.originals.write
+        def lost(*args,**kwargs):write(*args,**kwargs);raise OSError('Lost failed record return after actual immutable save')
+        calls=deepcopy(self.client.calls);queries=len(self.queries)
+        with patch.object(rebuilt.originals,'write',side_effect=lost):
+            with self.assertRaises(OSError):rebuilt.abort_pending()
+        original=deepcopy(rebuilt.store.read()['original']);path=rebuilt.originals.path(original);saved=(path.stat().st_ino,path.read_bytes())
+        recovered=self.owner()
+        with self.assertRaises(NativeUIError):recovered.abort_pending()
+        reference=recovered.recover_record();self.assertEqual('failed',recovered.originals.read(recovered.originals.expand(reference))['phase'])
+        self.assertEqual(saved,(path.stat().st_ino,path.read_bytes()));self.assertEqual(calls,self.client.calls);self.assertEqual(queries,len(self.queries))
+
+    def test_abort_keeps_known_failed_host_after_stamp_without_observing_another_clock(self):
+        owner=self.owner();self.client.fail=True
+        with patch.object(owner,'archive',side_effect=OSError('Interrupted after actual failed metadata commit')):
+            with self.assertRaises(OSError):owner.perform('b'*32,'known-failed-boundary','tap','bridge')
+        pending=deepcopy(owner.store.read()['pending']);self.assertEqual('failed',pending['phase']);self.assertIsNotNone(pending['after'])
+        self.client.fail=False;self.now+=2000;self.mono+=2;rebuilt=self.owner();calls=deepcopy(self.client.calls)
+        rebuilt.epoch_ms=lambda:(_ for _ in ()).throw(AssertionError('Known host timestamp cannot be renewed'))
+        reference=rebuilt.abort_pending();row=rebuilt.originals.read(rebuilt.originals.expand(reference))
+        self.assertEqual(pending,row);self.assertEqual(calls,self.client.calls)
+    def test_abort_cannot_relabel_known_returned_pending_input_as_failed(self):
+        class Interrupted(BaseException):pass
+        owner=self.owner()
+        with patch.object(owner,'archive',side_effect=Interrupted('Stop after returned input metadata')):
+            with self.assertRaises(Interrupted):owner.perform('b'*32,'known-returned-boundary','tap','bridge')
+        pending=deepcopy(owner.store.read());self.assertEqual('returned',pending['pending']['phase']);self.assertIsNone(pending['original'])
+        rebuilt=self.owner();calls=deepcopy(self.client.calls)
+        with self.assertRaises(NativeUIError):rebuilt.abort_pending()
+        self.assertEqual(pending,rebuilt.store.read());self.assertEqual(calls,self.client.calls)
+
     def test_lost_query_return_keeps_owned_source_intent_without_touch_or_query_resend(self):
         owner=self.owner()
         def lost(q):self.queries.append(deepcopy(q));raise OSError('Actual query return lost')
@@ -163,7 +243,9 @@ class TabletWebInputsTests(unittest.TestCase):
         with patch.object(owner.originals,'write',side_effect=lost):
             with self.assertRaises(OSError):owner.perform('b'*32,'submit','tap','bridge')
         rebuilt=self.owner();self.assertTrue(rebuilt.inspect_original()['complete']);self.assertIsNotNone(rebuilt.state['pending'])
-        before=deepcopy(self.client.calls);ref=rebuilt.recover_record()
+        before=deepcopy(self.client.calls)
+        with self.assertRaises(NativeUIError):rebuilt.abort_pending()
+        ref=rebuilt.recover_record()
         self.assertEqual(ref,rebuilt.perform('b'*32,'submit','tap','bridge'));self.assertEqual(before,self.client.calls)
         self.assertEqual(1,len(self.queries));self.assertIsNone(rebuilt.state['pending'])
 
@@ -177,7 +259,7 @@ class TabletWebInputsTests(unittest.TestCase):
             with self.assertRaises(OSError):owner.perform('b'*32,'submit','tap','bridge')
         rebuilt=self.owner();partial=rebuilt.inspect_original();self.assertEqual(0,partial['bytes']);self.assertFalse(partial['complete'])
         path=rebuilt.originals.path(rebuilt.state['original']);before=(path.stat().st_ino,path.read_bytes(),deepcopy(self.client.calls))
-        for attempt in (rebuilt.recover_record,lambda:rebuilt.perform('b'*32,'submit','tap','bridge')):
+        for attempt in (rebuilt.recover_record,rebuilt.abort_pending,lambda:rebuilt.perform('b'*32,'submit','tap','bridge')):
             with self.assertRaises(NativeUIError):attempt()
         self.assertEqual(before,(path.stat().st_ino,path.read_bytes(),self.client.calls));self.assertEqual(1,len(self.queries))
 

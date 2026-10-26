@@ -36,7 +36,16 @@ class TabletRuntimeTransientTests(unittest.TestCase):
         finally:
             if lock is not None:lock.path.chmod(0o600)
     def test_arbitrary_source_error_is_still_closed_and_not_converted_to_pending(self):
-        with self.assertRaises(NativeUIError),self.fixture.opened():raise ValueError('Unqualified source')
+        actual=ValueError('Unqualified source');lock=None;entered=[];queries=None
+        with self.assertRaises(ValueError) as observed:
+            with self.fixture.opened() as observer:
+                lock=observer.observer.source.lock;queries=len(self.fixture.fixture.native.commands);entered.append(True)
+                raise actual
+        self.assertIs(actual,observed.exception);self.assertEqual([True],entered)
+        with self.assertRaises(NativeUIError):lock.assert_held()
+        self.assertEqual(queries,len(self.fixture.fixture.native.commands))
+        with self.fixture.opened():pass
+        self.assertEqual(queries,len(self.fixture.fixture.native.commands))
 
 
 if __name__=='__main__':unittest.main()

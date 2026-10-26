@@ -87,6 +87,35 @@ class TabletPageFlowTests(unittest.TestCase):
         rebuilt=owner();self.assertEqual(reference,rebuilt.perform('b'*32,'nonempty-unicode','replace','text',text=message))
         self.assertEqual(count,len(calls));self.assertEqual(queries,len(b.source.children['dom'].state['records']))
 
+    def test_cleanup_recovery_archives_interrupted_actual_Send_as_failed_without_new_input_or_query(self):
+        from copy import deepcopy
+        from ios.adapters.tablet_web_inputs import TabletWebInputs
+        b=self.opened();current=[True];b.source.guard=lambda:current[0]
+        actual=b.ui.call;wire=[]
+        def called(method,path,body=None):
+            result=actual(method,path,body)
+            if path.endswith('/actions'):
+                wire.append(method)
+                if method=='POST':current[0]=False
+            return result
+        b.ui.call=called
+        def owner():return TabletWebInputs(b.ui,b.source.children['dom'],b.runtime.observer.readers['dom'],b.lock,b.runtime.native_clock,
+            monotonic=b.mono,epoch_ms=b.host)
+        inputs=owner()
+        with self.assertRaises(NativeUIError):inputs.perform('b'*32,'interrupted-actual-send','tap','bridge')
+        self.assertEqual(['POST','DELETE'],wire);pending=deepcopy(inputs.store.read()['pending'])
+        self.assertEqual(1,len(b.host_app.call('read')['emissions']))
+        current[0]=True;before={name:deepcopy(child.state['records']) for name,child in b.source.children.items()}
+        b.runtime.recover_auxiliaries([])
+        rebuilt=owner();self.assertTrue(rebuilt.blocked);self.assertIsNone(rebuilt.state['pending'])
+        self.assertEqual('failed',rebuilt.records[-1]['phase']);self.assertEqual(pending['events'],rebuilt.records[-1]['events'])
+        self.assertEqual(before,{name:child.state['records'] for name,child in b.source.children.items()});self.assertEqual(['POST','DELETE'],wire)
+        with self.assertRaises(NativeUIError):rebuilt.perform('b'*32,'interrupted-actual-send','tap','bridge')
+        self.assertEqual(['POST','DELETE'],wire)
+        value=b.runtime.validate_original(self.observed(b))['public']['state']
+        self.assertEqual((1,1,1),tuple(value[key] for key in ('attemptedMessages','bridgeMessages','bridgeEchoes')))
+        self.assertEqual('failed',owner().records[-1]['phase'])
+
     def test_actual_normal_W3C_Send_derives_native_VM_call_stack_and_DOM_echo_without_ACK_facts(self):
         b=self.opened()
         from ios.adapters.tablet_web_inputs import TabletWebInputs
