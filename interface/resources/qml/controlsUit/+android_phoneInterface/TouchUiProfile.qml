@@ -20,6 +20,7 @@ SharedControls.TouchUiProfileBase {
     systemImeAvailable: true
     stackedTabletHeader: true
     screenSpacePresentation: true
+    centerScreenSpaceHorizontally: true
 
     // Live Android measurements replace these conservative startup defaults
     // as soon as the Qt host accepts its first runtime snapshot.
