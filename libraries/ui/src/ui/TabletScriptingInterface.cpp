@@ -675,8 +675,15 @@ void TabletProxy::resizeAndroidTablet(int width, int height) {
             || surfaceHeight <= topInset + bottomInset) {
         return;
     }
-    _desktopWindow->setPosition(leftInset, topInset);
-    _desktopWindow->setSize(surfaceWidth - leftInset - rightInset,
+    // Match TabletSurfaceGeometry's opt-in centered presentation. Keep the
+    // Android measurements intact; only the tablet's safe rectangle changes.
+    const int horizontalProtection = std::max(leftInset, rightInset);
+    const bool centered = root->property("screenSpaceCenterHorizontally").toBool()
+        && surfaceWidth > 2 * horizontalProtection;
+    const int tabletLeft = centered ? horizontalProtection : leftInset;
+    const int tabletRight = centered ? horizontalProtection : rightInset;
+    _desktopWindow->setPosition(tabletLeft, topInset);
+    _desktopWindow->setSize(surfaceWidth - tabletLeft - tabletRight,
                             surfaceHeight - topInset - bottomInset);
 }
 
