@@ -7,8 +7,10 @@ only. A cleanup outcome cannot replace an unavailable original snapshot.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import io
 from pathlib import Path
 import time
+import wave
 from adapters.native_clock_join import NativeClockAcquisition,digest
 from adapters.native_clock_source_history import restore
 from adapters.native_feature_observation import NativeFeatureObservation,exact,need
@@ -213,6 +215,19 @@ class IOSAudioPCMLease:
         self.bound();need(self.state['snapshot'] is not None);frame=self.originals.read(self.state['snapshot']);validation.snapshot(self,frame)
         return dict(recording=deepcopy(self.recording),original=deepcopy(self.state['snapshot']),packet=deepcopy(frame['packet']),
             pcm={kind:self.originals.pcm(frame,kind) for kind in ('input','sink')})
+
+    def input_wav(self):
+        """Lossless host WAV framing of original input PCM, never acoustic output.
+
+        The native originals remain PCM16LE chunks. Only a standard container
+        header is added for the common file detector; samples, rate and channel
+        order are taken exclusively from the validated original snapshot.
+        """
+        original=self.snapshot();source=original['packet']['source'];output=io.BytesIO()
+        with wave.open(output,'wb') as container:
+            container.setparams((source['channels'],2,source['sampleRate'],0,'NONE','not compressed'))
+            container.writeframes(original['pcm']['input'])
+        return output.getvalue()
 
     @operation
     def retire(self):

@@ -167,7 +167,9 @@ class AudioAuthorizedStartTests(unittest.TestCase):
 class AudioAuthorizedPageFlowTests(unittest.TestCase):
     def test_normal_page_grant_record_auto_completion_pcm_release_and_original_close(self):
         from ios.self_tests.audio_page_cycle_domain import AudioPageCycleDomain
-        from ios.self_tests.test_ios_audio_pcm_lease import PCMModel
+        from ios.self_tests.test_ios_audio_pcm_file import OriginalPCM,stereo
+        from feature_journeys.fixtures import challenge
+        from feature_journeys.evidence import file_observation
         from ios.adapters.audio_pcm_lease import IOSAudioPCMLease
         d=AuthorizationDomain(self,started=False,model_factory=AudioPageCycleDomain);parent=d.parent;m=d.m
         m.add_phase('open','3'*32);parent.act(m.ticket,'open');m.add_phase('record-start','4'*32)
@@ -175,11 +177,14 @@ class AudioAuthorizedPageFlowTests(unittest.TestCase):
         def guarded(locator,token):transport_check();return click(locator,token)
         ui.click_with_token=guarded
         starts=AudioAuthorizedStarts(PrivateFeatureState(d.f.root/'ios-audio-authorized-starts.json'),parent,d.owner)
-        result=starts.act(m.ticket);self.assertEqual('capturing',result['state']['phase'])
+        result=starts.act(m.ticket);record_ticket=m.ticket;self.assertEqual('capturing',result['state']['phase'])
         m.add_phase('await-completion','5'*32);parent.act(m.ticket,'await-completion')
-        pcm=PCMModel(m);native,preview=pcm.reader()
+        raw=stereo(challenge(parent.run,record_ticket).hex())
+        pcm=OriginalPCM(m,raw,b'\0'*len(raw)*2);native,preview=pcm.reader()
         lease=IOSAudioPCMLease(PrivateFeatureState(d.f.root/'ios-audio-pcm-lease.json'),parent,native=native,preview=preview)
-        lease.capture();lease.retire();m.add_phase('close','6'*32);self.assertFalse(parent.act(m.ticket,'close')['state']['open'])
+        lease.capture()
+        self.assertTrue(file_observation(lease.input_wav(),'audio',parent.run,lease.recording['ticket'],{})['passed'])
+        lease.retire();m.add_phase('close','6'*32);self.assertFalse(parent.act(m.ticket,'close')['state']['open'])
         self.assertEqual('closed',m.page_model.route);self.assertEqual(1,m.actions.count('audio.record'))
         archived_parent=IOSAudioRecordedOwner.archive(d.f.store,d.f.root,recording.BINDING,recording.RUN,d.f.lock,parent.fixture_url)
         archived_sources=AudioAuthorizationSources.archive(d.store,archived_parent)

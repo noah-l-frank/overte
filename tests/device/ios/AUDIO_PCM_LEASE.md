@@ -85,3 +85,25 @@ calling removed Qt 5 format members in the Qt 6 test build. Channel/rate limits,
 original bytes and observer gating are unchanged. This source correction was
 reviewed against `AudioDeviceCompat.h`; no compiler or native execution was
 used, so both native compilation paths remain unverified.
+
+`input_wav()` now provides lossless host RIFF/WAVE framing of the exact original
+input PCM, with its observed sample rate and channel order. It reads and
+validates the retained snapshot/chunks and adds only a standard container
+header in memory. It creates no native WAV/export, allocation, SDK request,
+current clock sample or new ownership journal. The original PCM carriers remain
+the authoritative files. This internal byte projection does not yet expose a
+complete public Audio observer.
+
+Five explicit framing/common-detector cases pass in 6.998 seconds. Original
+inverted stereo remains separate; wrong run/ticket/profile, a signal present
+only in the digital sink, missing chunks and same-byte inode replacements
+cannot qualify. Historical framing performs no queries or writes and preserves
+all source bodies/inodes. The connected ordinary authorized-page case now
+passes the unchanged shared `recorded-preview-v1` file detector before release
+and page close (5.411 seconds). Its audio waveform and native/WDA producers
+are declared models. The first connected edit used a nonexistent field on a
+compact source reference and failed before PCM delivery; the test now retains
+the actual normal Start ticket directly. No native source or evidence clock
+was changed to resolve that test error. Digital input detection establishes
+neither actual microphone origin nor independent acoustic playback/peer
+receipt; those remain required for full Audio admission.
