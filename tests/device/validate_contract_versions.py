@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-lifecycle-background": 1,
+    "ios-lifecycle-os-observation": 1,
     "asset-backend-work": 1,
     "asset-backend-snapshot": 1,
     "asset-backend-admission": 1,

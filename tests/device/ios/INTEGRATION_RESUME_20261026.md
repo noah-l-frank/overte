@@ -56,3 +56,13 @@ normal host flow through immutable archive import and exact PNG comparison,
 with native resource retirement still pending. Assets mapping-tree operations
 are committed while real backend map/blob/worker retirement instrumentation is
 in progress. All complete capability gates and the five-area count are unchanged.
+
+The user explicitly resumed again after pause checkpoint `808aff45a1`. The
+initial worktree was clean except for retained private originals. The coordinator
+continues Lifecycle (14/14), with Avatar (3/14), Snapshot (11/14) and Assets
+(13/14) delegated to the three reused workers. This explicit instruction ends
+the pause; the old backend goal text/status cannot be edited/resumed through
+the available goal API. All local/no-build/no-device boundaries still apply.
+The new [Chat background component](LIFECYCLE_BACKGROUND.md) joins ordinary OS
+input, same-process continuity and independently retained draft/keyboard/focus
+outcomes to the existing editor flow. It does not complete Feature 14.

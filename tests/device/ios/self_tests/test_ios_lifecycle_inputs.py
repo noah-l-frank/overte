@@ -177,7 +177,7 @@ applyClientCommand({...q,commandId:'ios-'+'d'.repeat(32),expectedDelivered:true}
 delete Test.featureIOSLifecycleInputs;applyClientCommand({...q,commandId:'ios-'+'e'.repeat(32)});
 if(files.at(-1).v.status!=='unavailable'||files.at(-1).v.source)throw Error('missing source qualified');
 '''.replace('PACKET',json.dumps(packet)).replace('QUERY',json.dumps(query)).replace('SOURCE',probe_source())
-        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
+        result=subprocess.run(['node','-'],input=program,capture_output=True,text=True,timeout=5)
         self.assertEqual(0,result.returncode,result.stderr);self.assertEqual(1,len(self.edits()))
 
 

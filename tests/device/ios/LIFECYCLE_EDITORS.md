@@ -48,8 +48,10 @@ lost child-reservation return, interrupted saved-original append, unchanged
 original inodes, operation-label substitution and candidate/scope refusal.
 These are host adapter-logic results, not product or device qualification.
 
-Still integrate normal Chat background/resume, the retained hold/replace/stale
-callback sequence, original bounded world gesture ownership/effective input,
+The [Chat background/resume component](LIFECYCLE_BACKGROUND.md) now composes
+under this same lock and continues to Scripts from the actual history CAS.
+Still integrate the retained hold/replace/stale callback sequence,
+original bounded world gesture ownership/effective input,
 independent Actor/image and grounded 3D restoration evidence. Full restoration,
 native lifetime/quiet windows, repeated cleanup, final end and the complete
 shared journey remain open. The source-complete area count remains five of

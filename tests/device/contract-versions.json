@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-lifecycle-background": {"current": 1, "reads": [1]},
+    "ios-lifecycle-os-observation": {"current": 1, "reads": [1]},
     "asset-backend-work": {"current": 1, "reads": [1]},
     "asset-backend-snapshot": {"current": 1, "reads": [1]},
     "asset-backend-admission": {"current": 1, "reads": [1]},
