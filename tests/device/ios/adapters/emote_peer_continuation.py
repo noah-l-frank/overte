@@ -74,6 +74,14 @@ def peer_follows(before,after,binding):
         right['nativeAfter']['capturedEpochMs'],before['renderers'])
 
 
+def source_follows(before,after):
+    """The original primary source cannot regress either host clock."""
+    left,right=before['clockJoin'],after['clockJoin']
+    follow(left['nativeAfter'],right['nativeBefore'])
+    need(right['hostBeforeMonotonic']>=left['hostAfterMonotonic']
+        and right['hostBeforeEpochMs']>=left['hostAfterEpochMs'])
+
+
 def derive(decoder,value,current,after):
     need(decoder.role=='actor' and value['peerBefore'] is not None)
     original=anchor_original(decoder,value['peerContinuation'],value['sequence'])
@@ -81,7 +89,7 @@ def derive(decoder,value,current,after):
         and original['source']['index']<value['source']['index']
         and original['peerAfter']['index']<=value['peerBefore']['index']<value['peerAfter']['index'])
     source=decoder.source(original['source'])
-    follow(source['clockJoin']['nativeAfter'],current['clockJoin']['nativeBefore'])
+    source_follows(source,current)
     phase_follows(source['phaseAfter'],current['phaseBefore'])
     anchor=decoder.retained(decoder.peers,original['peerAfter'])
     before=decoder.retained(decoder.peers,value['peerBefore'])

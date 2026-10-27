@@ -66,9 +66,37 @@ pins and bytes. Native/WDA/Rig/renderer producers and their clocks remain models
 
 Its log is `.ios-host-tmp/emote-peer-continuation-connected-first.log`; retained
 original roots are `tmpcyrk2xld` and `tmpv2vf7bs7` in the same private directory.
-There are nine distinct new cases plus ten old regressions; repeated positives
-are not counted again. This qualifies the rolling-motion source composition,
+That first packet contains nine distinct new cases plus ten old regressions;
+repeated positives are not counted again. This qualifies the rolling-motion source composition,
 not every static/restoration case, real physical timing or resource retirement.
 Whole normal/common journey, restoration and end integration remain unqualified.
 Native sources are uncompiled and devices are untested. The separately
 documented actual Sit timer mismatch is unchanged.
+
+## Original source clocks and lost saved-record return
+
+The continuation additionally compares both original host clocks of the actual
+anchored primary source and the current primary source. Advancing native packets
+cannot conceal a regressed host monotonic or epoch clock. The new counterexample
+first validates each cut's actual native/host interval and then verifies that
+the cross-cut regression is refused; no stored source is retimed.
+
+A fresh connected recovery case loses the return after the real version-two
+observation file is committed. The same pending original and earlier literal-one
+anchor survive in the actual WAL. A new rooted observer reopens and resolves
+that exact original inode/bytes without another source/peer acquisition, PNG
+capture, native evaluation, UDP receive or normal input. The injected exception
+retains its actual identity. This qualifies saved-record recovery, not missing
+worker reconstruction, complete cleanup or a new current product observation.
+
+The final selection passes all **11 tests in 34.049 seconds**: nine focused
+cases and both connected normal/recovery cases. It includes the prior normal
+composition against the tighter source-clock guard. Together with the ten
+unchanged literal regressions from the earlier selection, there are eleven
+distinct new cases and ten old regressions; repeated positives add no cases.
+The log is `.ios-host-tmp/emote-peer-continuation-recovery-and-clock11.log`.
+Its expected injected lost-return traceback is followed by a passing case.
+New retained roots are `tmp6oqbebmo`/`tmpz6kehmyk` for recovery and
+`tmpg_wmgfro`/`tmpb0bbjle5` for the current normal composition. All are under the
+same private directory. Native/WDA/Rig/renderer and clock boundaries remain
+declared models; device and full-feature qualification remain open.

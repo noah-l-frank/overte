@@ -104,6 +104,17 @@ class PeerContinuationTests(unittest.TestCase):
         fixture.reseal(after)
         with self.assertRaises(NativeUIError):continuation.peer_follows(before,after,fixture.ACTOR)
 
+    def test_advancing_native_source_cannot_hide_a_regressed_host_clock(self):
+        _,_,anchor=fixture.setup();before,_=late_pair()
+        continuation.source_follows(anchor,before)
+        for field in ('hostBeforeMonotonic','hostBeforeEpochMs'):
+            changed=deepcopy(before);end=field.replace('Before','After')
+            duration=changed['clockJoin'][end]-changed['clockJoin'][field]
+            changed['clockJoin'][field]=anchor['clockJoin'][field]-1
+            changed['clockJoin'][end]=changed['clockJoin'][field]+duration
+            fixture.peer.acquisition(changed,fixture.ACTOR)
+            with self.subTest(field=field),self.assertRaises(NativeUIError):continuation.source_follows(anchor,changed)
+
     def test_actual_anchor_hash_scope_and_acyclic_literal_original_are_required(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);root.chmod(0o700);calls=[]
@@ -157,6 +168,45 @@ class PeerContinuationTests(unittest.TestCase):
 
 
 class RootedPeerContinuationConnectedTests(unittest.TestCase):
+    def test_lost_saved_continuation_record_reopens_exact_original_without_another_acquisition(self):
+        from ios.self_tests.emote_rooted_whole_fixture import paired
+
+        f=paired(self,retain_originals=True);primary,actor=f.flow,f.actor.flow;target=f.actor.target
+        call=dict(contractVersion=16,runId=primary.run,afterSequence=0)
+        primary.observe(call);actor.observe(call);actor.sleep=target.domain.sleep
+        primary.act(f.call('play',name='Crying'));f.target.native.sleep(.25);actor.observe(call)
+        old=target.observer;anchor=deepcopy(old.state['records'][-1]);reader=f.target.rig.reader()
+        for _ in range(36):reader.read(reader.sequence)
+        path=old.record_store(len(old.state['records'])+1).path
+        write=PrivateFeatureState.write;lost=[];failure=OSError('Synthetic lost committed continuation record return')
+        def interrupted(store,value,previous):
+            write(store,value,previous)
+            if store.path==path and not lost:
+                stat=path.stat();lost.append((stat.st_dev,stat.st_ino,path.read_bytes()))
+                raise failure
+        with patch.object(PrivateFeatureState,'write',interrupted),self.assertRaises(OSError) as raised:
+            actor.observe(call)
+        self.assertIs(failure,raised.exception);self.assertEqual(1,len(lost))
+        self.assertIsNotNone(old.state['pending']);self.assertIsNone(old.state['pending']['reference'])
+        pending=deepcopy(old.state['pending']['original'])
+        counts=(len(old.sources.frames),len(old.peers.frames),f.target.rig.frame_sequence,target.receive_sequence,
+            len(target.packet_bytes),deepcopy(f.target.vm.state['events']),deepcopy(f.target.native.requests))
+        def forbidden(*_args,**_kwargs):raise AssertionError('Saved original recovery must not acquire or resend')
+        with actor.held(30):
+            with (patch.object(old.sources,'read',side_effect=forbidden),patch.object(old.peers,'read',side_effect=forbidden),
+                  patch.object(old.samples,'capture',side_effect=forbidden),patch.object(f.target.rig,'send',side_effect=forbidden),
+                  patch.object(target,'receive_reader',side_effect=forbidden)):
+                rebuilt=IOSEmoteRootedObserver(old.store,old.sources,old.binding,old.role,old.root,old.policy,old.phase,
+                    old.lock,old.guard,peers=old.peers,samples=old.samples,monotonic=old.monotonic,epoch_ms=old.epoch_ms)
+                self.assertEqual(pending,rebuilt.state['pending']['original']);self.assertTrue(rebuilt.resolve())
+                self.assertIsNone(rebuilt.state['pending'])
+                original=rebuilt.original(rebuilt.state['records'][-1])
+                self.assertEqual(2,original['iosEmoteObservationOriginalVersion']);self.assertEqual(anchor,original['peerContinuation'])
+                self.assertEqual('Crying',rebuilt.decoder.derive(original)['public']['state']['animation'])
+        stat=path.stat();self.assertEqual(lost[0],(stat.st_dev,stat.st_ino,path.read_bytes()))
+        self.assertEqual(counts,(len(old.sources.frames),len(old.peers.frames),f.target.rig.frame_sequence,target.receive_sequence,
+            len(target.packet_bytes),deepcopy(f.target.vm.state['events']),deepcopy(f.target.native.requests)))
+
     def test_normal_actor_publication_continues_from_original_motion_after_receive_ring_expires(self):
         from ios.self_tests.emote_rooted_whole_fixture import paired
         from ios.adapters.emote_sources import IOSEmoteSources
