@@ -800,6 +800,7 @@
     "ios-chat-receive-observation": {"current": 1, "reads": [1]},
     "ios-chat-receive-frame": {"current": 1, "reads": [1]},
     "ios-chat-receive-original": {"current": 1, "reads": [1]},
+    "ios-chat-send-receive-derived": {"current": 1, "reads": [1]},
     "owned-messages-mixer": {"current": 1, "reads": [1]},
     "native-chat-actor-files": {"current": 1, "reads": [1]},
     "native-chat-observation": {"current": 1, "reads": [1]},

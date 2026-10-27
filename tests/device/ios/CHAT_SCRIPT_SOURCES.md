@@ -252,6 +252,58 @@ receive history, physical original corruption/orphans, saved-original return
 loss, interrupted clock-floor identity and missing nested clock originals.
 Private files/codecs/locks execute;
 all native, SDK and clocks are declared boundaries. The normal Send-to-peer
-original join, source-bound UI/render outcomes, mixer control/recovery and
+operation coordinator, source-bound UI/render outcomes, mixer control/recovery and
 complete main-process/SDK cleanup remain open. This child enables no complete
 Chat capability and does not qualify native compilation or a physical device.
+
+## Historical normal Send and independent receive join
+
+`chat_send_receive.original_sent` now reads the existing source-bound draft4
+owner and immutable receive1 originals together. Both actual bindings, run,
+primary artifact-root identity and held lock must agree. It redecodes both
+private journals, rejects changed in-memory state and unresolved observations,
+and requires one completed normal Send with exactly one actual input intent.
+The before/after receive references must belong to the actual source journal.
+Both host clocks order the outer cuts around the complete Send; the primary's
+original native source instance, counters and full histories bridge the cuts.
+Peer native epochs remain independent and are never compared to primary UTC.
+
+Text and channel come from the actual original editor and saved message. Both
+native receive histories must preserve their complete original prefixes and
+append exactly one matching event from the actually observed primary identity,
+with `localOnly` false. A self echo alone, other sender, other allowed text,
+missing peer event, duplicate event or changed mixer cannot satisfy this join.
+Both sampled mixers and all intermediate cuts must retain the original domain
+identity. Every draft cut inside the outer window must belong to this Send;
+an earlier typing action cannot be hidden by choosing a later after-cut.
+
+The derived `iosChatSendReceiveDerivedVersion` one fact (registry
+`ios-chat-send-receive-derived`, current/read one) names the exact actual
+references and received events. It is historical and has no acquisition clock,
+input acknowledgement, cleanup verdict or whole-feature success. Pure archive
+reads the original files again and produces the same fact without a query,
+input or write. No additional owner, process, transport or receipt store is
+created by this derivation.
+
+Twelve connected cases plus seven existing source-bound owner and three actual
+Script restoration cases pass together in **35.890 seconds**. The fresh test
+domain executes the actual production Armored Chat script in Node, retaining
+the exact serialized `Messages.sendMessage("chat", ...)` output. Only those
+actual emitted bytes feed the explicitly modeled native primary/peer callback
+boundaries. One fresh primary native producer serves the draft and receive
+readers; the separate peer uses a different original epoch/instance despite
+equal numeric PIDs. Both normal local/domain sends, pure archive byte/inode
+stability, failed bindings, received multiplicity, absent mixer, foreign sender,
+other text and a lost normal Send return without another emission are covered.
+Actual peer rendering, physical mixer/network delivery, SDK behavior, QML
+execution identity and genuine device timing remain unqualified.
+
+The earlier fail-fast run passed eight cases and errored on its ninth in
+40.849 seconds because the replaced-mixer test expected rejection at the later
+join. The existing independent receiver already rejected it during capture.
+Only that negative test's expected boundary was corrected; no production guard
+was relaxed. Its original log remains
+`.ios-host-tmp/chat-send-receive-joined10.log`; the complete final selection is
+`.ios-host-tmp/chat-send-receive-final-and-legacy.log`. The first connected
+positive separately passed in 4.618 seconds. A canonical operation coordinator
+and full resource/process/SDK retirement are still required.

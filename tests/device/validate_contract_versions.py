@@ -856,6 +856,7 @@ REQUIRED = {
     "ios-chat-receive-observation": 1,
     "ios-chat-receive-frame": 1,
     "ios-chat-receive-original": 1,
+    "ios-chat-send-receive-derived": 1,
     "native-account-observation": 1,
     "native-account-probe": 1,
     "native-account-origin": 1,

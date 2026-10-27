@@ -13,13 +13,14 @@ tablet.toolbarMode = true; tablet.tabletShown = true;
 const values = new Map(), models = { local: [], domain: [] };
 if (process.argv[3] === '--initial-history-null') { values.set('ArmoredChat-Messages', null); }
 let epoch = 100000, offset = 0, sent = 0, erases = 0, echo = true;
+const chatSends = [];
 class NativeClockDate extends Date {
     constructor(...args) { super(...(args.length ? args : [epoch])); }
     static now() { return epoch; }
 }
 Messages.sendMessage = (channel, message, localOnly = false) => {
     // Declared MessagesClient local self-echo seam, never a peer receipt.
-    if (channel === 'chat') { ++sent; }
+    if (channel === 'chat') { ++sent; chatSends.push({ channel, message, localOnly, epoch }); }
     if (Messages.subscriptions.has(channel) && (channel !== 'chat' || echo)) {
         Messages.messageReceived.emit(channel, message, 'controlled-self', localOnly);
     }
@@ -48,7 +49,7 @@ function output() {
     const present = values.has('ArmoredChat-Messages'), stored = values.get('ArmoredChat-Messages');
     return { local: models.local, domain: models.domain, historyPresent: present,
         history: present ? stored : null, sent, erases, subscriptions: Messages.subscriptions.size,
-        qmlEvents: tablet.qmlMessages };
+        qmlEvents: tablet.qmlMessages, chatSends };
 }
 const input = readline.createInterface({ input: process.stdin });
 input.on('line', line => {
