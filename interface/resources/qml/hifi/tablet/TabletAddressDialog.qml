@@ -25,6 +25,7 @@ import QtQuick.Templates 2.2 as T
 
 StackView {
     id: root;
+    objectName: "tabletAddressDialog"
     HifiConstants { id: hifi }
     HifiStyles.HifiConstants { id: hifiStyleConstants }
     initialItem: addressBarDialog
@@ -135,6 +136,7 @@ StackView {
 
             ToolbarButton {
                 id: homeButton
+                objectName: "tabletAddressHome"
                 imageURL: "../../../images/home.svg"
                 onClicked: {
                     addressBarDialog.loadHome();
@@ -149,6 +151,7 @@ StackView {
             }
             ToolbarButton {
                 id: backArrow;
+                objectName: "tabletAddressBack"
                 buttonState: addressBarDialog.backEnabled;
                 imageURL: "../../../images/backward.svg";
                 buttonEnabled: addressBarDialog.backEnabled;
@@ -164,6 +167,7 @@ StackView {
             }
             ToolbarButton {
                 id: forwardArrow;
+                objectName: "tabletAddressForward"
                 buttonState: addressBarDialog.forwardEnabled;
                 imageURL: "../../../images/forward.svg";
                 buttonEnabled: addressBarDialog.forwardEnabled;
@@ -214,6 +218,7 @@ StackView {
 
             QQC2.TextField {
                 id: addressLine
+                objectName: "tabletAddressLine"
 
                 focus: true
                 width: addressLineContainer.width - addressLineContainer.anchors.leftMargin - addressLineContainer.anchors.rightMargin;

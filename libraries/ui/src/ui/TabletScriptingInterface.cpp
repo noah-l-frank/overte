@@ -29,6 +29,7 @@
 #include "../InfoView.h"
 #include "ToolbarScriptingInterface.h"
 #include "Logging.h"
+#include "NativeInlineHtmlSource.h"
 
 #include <AudioInjectorManager.h>
 
@@ -674,8 +675,15 @@ void TabletProxy::resizeAndroidTablet(int width, int height) {
             || surfaceHeight <= topInset + bottomInset) {
         return;
     }
-    _desktopWindow->setPosition(leftInset, topInset);
-    _desktopWindow->setSize(surfaceWidth - leftInset - rightInset,
+    // Match TabletSurfaceGeometry's opt-in centered presentation. Keep the
+    // Android measurements intact; only the tablet's safe rectangle changes.
+    const int horizontalProtection = std::max(leftInset, rightInset);
+    const bool centered = root->property("screenSpaceCenterHorizontally").toBool()
+        && surfaceWidth > 2 * horizontalProtection;
+    const int tabletLeft = centered ? horizontalProtection : leftInset;
+    const int tabletRight = centered ? horizontalProtection : rightInset;
+    _desktopWindow->setPosition(tabletLeft, topInset);
+    _desktopWindow->setSize(surfaceWidth - tabletLeft - tabletRight,
                             surfaceHeight - topInset - bottomInset);
 }
 
@@ -1034,11 +1042,21 @@ void TabletProxy::loadHTMLSourceOnTopImpl(const QString& url, const QString& inj
         if (localSafeContext) {
             hifi::scripting::setLocalAccessSafeThread(true);
         }
+        // Only this native source-navigation request can approve these exact
+        // HTML/script bytes. QML attaches the existing request to its real page.
+        auto* inlineSource = url.startsWith("data:", Qt::CaseInsensitive)
+            ? new NativeInlineHtmlSource(qobject_cast<QQuickItem*>(root), _name, url, injectedJavaScriptUrl, this)
+            : nullptr;
+        const auto nativeSource = QVariant::fromValue(static_cast<QObject*>(inlineSource));
+        bool loaded;
         if (loadOtherBase) {
-            QMetaObject::invokeMethod(root, "loadTabletWebBase", Q_ARG(const QVariant&, QVariant(url)), Q_ARG(const QVariant&, QVariant(injectedJavaScriptUrl)));
+            loaded = QMetaObject::invokeMethod(root, "loadTabletWebBase", Q_ARG(const QVariant&, QVariant(url)),
+                Q_ARG(const QVariant&, QVariant(injectedJavaScriptUrl)), Q_ARG(const QVariant&, nativeSource));
         } else {
-            QMetaObject::invokeMethod(root, "loadWebBase", Q_ARG(const QVariant&, QVariant(url)), Q_ARG(const QVariant&, QVariant(injectedJavaScriptUrl)));
+            loaded = QMetaObject::invokeMethod(root, "loadWebBase", Q_ARG(const QVariant&, QVariant(url)),
+                Q_ARG(const QVariant&, QVariant(injectedJavaScriptUrl)), Q_ARG(const QVariant&, nativeSource));
         }
+        if (!loaded && inlineSource) { inlineSource->retire(); }
         QMetaObject::invokeMethod(root, "setShown", Q_ARG(const QVariant&, QVariant(true)));
         if (_toolbarMode && _desktopWindow) {
             QMetaObject::invokeMethod(root, "setResizable", Q_ARG(const QVariant&, QVariant(false)));

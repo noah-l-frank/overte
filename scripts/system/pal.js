@@ -34,6 +34,61 @@ function printPrivatePalData(message) {
 
 var request = Script.require('request').request;
 var AppUi = Script.require('appUi');
+var connectionProtocol = Script.require('./libraries/peopleConnection.js');
+var accountConnectionGeneration = 0;
+var openingConnectionPage = false;
+var connectionRuntimeActive = true;
+var peopleConnections = connectionProtocol.create({
+    identity: function () {
+        return { self: MyAvatar.sessionUUID, domain: location.domainID,
+            endpoint: Account.metaverseServerURL, loggedIn: Account.isLoggedIn(),
+            account: Account.username, accountGeneration: accountConnectionGeneration };
+    },
+    peer: function (id) {
+        var identifiers = AvatarList.getAvatarIdentifiers();
+        for (var index = 0; index < identifiers.length; ++index) {
+            if (connectionProtocol.session(identifiers[index]) !== id) { continue; }
+            var avatar = AvatarList.getAvatar(identifiers[index]);
+            if (!avatar || connectionProtocol.session(avatar.sessionUUID) !== id) { return null; }
+            return { id: id, name: avatar.displayName || avatar.sessionDisplayName || 'Nearby person',
+                present: true, replicated: avatar.isReplicated === true,
+                ignored: Users.getIgnoreStatus(identifiers[index]) };
+        }
+        return null;
+    },
+    requestId: function () { return Uuid.generate(); },
+    request: request,
+    send: function (channel, message) { Messages.sendMessage(channel, message); },
+    now: function () { return Date.now(); },
+    setTimeout: function (callback, delay) { return Script.setTimeout(callback, delay); },
+    clearTimeout: function (timer) { Script.clearTimeout(timer); },
+    update: function (state) {
+        if (!ui) { return; }
+        if (state.phase === 'incoming' && !ui.isOpen && !openingConnectionPage) {
+            // AppUi sets isOpen only after onOpened returns. Keep the guard
+            // until that callback, including asynchronous tablet loading.
+            openingConnectionPage = true;
+            ui.open();
+        }
+        sendToQml({ method: 'connectionState', params: state });
+    },
+    connected: function (username) {
+        // Refresh server-owned relationship data; a peer message is never enough.
+        var accountGeneration = accountConnectionGeneration;
+        var accountName = String(Account.username);
+        var ownSession = String(MyAvatar.sessionUUID);
+        var domain = String(location.domainID);
+        var endpoint = String(Account.metaverseServerURL);
+        METAVERSE_BASE = endpoint;
+        getConnectionData(username, undefined, function () {
+            return connectionRuntimeActive && accountGeneration === accountConnectionGeneration
+                && Account.isLoggedIn() && accountName === String(Account.username)
+                && ownSession === String(MyAvatar.sessionUUID) && domain === String(location.domainID)
+                && endpoint === String(Account.metaverseServerURL);
+        });
+        sendToQml({ method: 'refreshConnections' });
+    }
+});
 
 var populateNearbyUserList, color, textures, removeOverlays,
     controllerComputePickRay, off,
@@ -261,6 +316,18 @@ function fromQml(message) { // messages are {method, params}, like json-rpc. See
         return;
     }
     switch (message.method) {
+    case 'connectionReady':
+        peopleConnections.publish();
+        break;
+    case 'connectionRequest':
+        peopleConnections.request(message.params);
+        break;
+    case 'connectionRespond':
+        if (typeof message.params === 'boolean') { peopleConnections.respond(message.params); }
+        break;
+    case 'connectionCancel':
+        peopleConnections.cancel();
+        break;
     case 'selected':
         selectedIds = message.params;
         if (isAndroidPhone) {
@@ -449,8 +516,9 @@ function getInfoAboutUser(specificUsername, callback) {
         callback(false);
     });
 }
-function getConnectionData(specificUsername, domain) { // Update all the usernames that I am entitled to see, using my login but not dependent on canKick.
+function getConnectionData(specificUsername, domain, currentConnection) { // Update all the usernames that I am entitled to see, using my login but not dependent on canKick.
     function frob(user) { // get into the right format
+        if (currentConnection && !currentConnection()) { return null; }
         if (!user || typeof user !== 'object' || typeof user.username !== 'string') {
             return null;
         }
@@ -819,6 +887,7 @@ function createUpdateInterval() {
 var previousRequestsDomainListData = Users.requestsDomainListData;
 var palRuntimeActive = false;
 function palOpened() {
+    openingConnectionPage = true;
     if (palRuntimeActive) {
         return;
     }
@@ -841,6 +910,8 @@ function palOpened() {
     }
     Users.usernameFromIDReply.connect(usernameFromIDReply);
     populateNearbyUserList();
+    peopleConnections.publish();
+    openingConnectionPage = false;
 }
 
 //
@@ -857,6 +928,7 @@ function cancelPendingSelect() {
 }
 
 function receiveMessage(channel, messageString, senderID) {
+    peopleConnections.receive(channel, messageString, senderID);
     if ((channel !== CHANNEL) || (senderID !== MyAvatar.sessionUUID)) {
         return;
     }
@@ -913,6 +985,7 @@ function avatarDisconnected(nodeID) {
 }
 
 function clearLocalQMLDataAndClosePAL() {
+    peopleConnections.invalidate();
     sendToQml({ method: 'clearLocalQMLData' });
     if (ui.isOpen) {
         ui.close();
@@ -996,7 +1069,15 @@ function isReturnedDataEmpty(data) {
     return usersArray.length === 0;
 }
 
+function accountConnectionContextChanged() {
+    ++accountConnectionGeneration;
+    peopleConnections.invalidate("account");
+}
 function startup() {
+    Account.myUsernameChanged.connect(accountConnectionContextChanged);
+    Account.loggedInChanged.connect(accountConnectionContextChanged);
+    Account.connected.connect(accountConnectionContextChanged);
+    Account.disconnected.connect(accountConnectionContextChanged);
     ui = new AppUi({
         buttonName: "PEOPLE",
         sortOrder: 7,
@@ -1013,6 +1094,7 @@ function startup() {
     });
     Window.domainChanged.connect(clearLocalQMLDataAndClosePAL);
     Window.domainConnectionRefused.connect(clearLocalQMLDataAndClosePAL);
+    Messages.subscribe(connectionProtocol.channel);
     Messages.subscribe(CHANNEL);
     Messages.messageReceived.connect(receiveMessage);
     Users.avatarDisconnected.connect(avatarDisconnected);
@@ -1023,6 +1105,8 @@ function startup() {
 startup();
 
 function off() {
+    openingConnectionPage = false;
+    peopleConnections.cancel();
     cancelPendingSelect();
     if (palRuntimeActive) {
         palRuntimeActive = false;
@@ -1045,6 +1129,13 @@ function off() {
 }
 
 function shutdown() {
+    connectionRuntimeActive = false;
+    Account.myUsernameChanged.disconnect(accountConnectionContextChanged);
+    Account.loggedInChanged.disconnect(accountConnectionContextChanged);
+    Account.connected.disconnect(accountConnectionContextChanged);
+    Account.disconnected.disconnect(accountConnectionContextChanged);
+    peopleConnections.dispose();
+    Messages.unsubscribe(connectionProtocol.channel);
     Window.domainChanged.disconnect(clearLocalQMLDataAndClosePAL);
     Window.domainConnectionRefused.disconnect(clearLocalQMLDataAndClosePAL);
     Messages.unsubscribe(CHANNEL);

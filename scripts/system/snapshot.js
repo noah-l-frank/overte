@@ -915,7 +915,20 @@ function startup() {
         buttonName: "SNAP",
         sortOrder: 5,
         home: Script.resolvePath(nativeReview ? "snapshot/NativeSnapshotReview.qml" : "html/SnapshotReview.html"),
-        onOpened: fillImageDataFromPrevious,
+        onOpened: function () {
+            fillImageDataFromPrevious();
+            // AppUi calls this only after wiring the actual native bridge.
+            // A QML ready signal emitted before that wiring cannot initialize
+            // the page. Keep the reply path too, and do not wait for a network
+            // permission lookup to enable a local capture.
+            if (nativeReview) {
+                this.sendMessage({
+                    type: "snapshot",
+                    action: "captureSettings",
+                    setting: Settings.getValue("alsoTakeAnimatedSnapshot", true)
+                });
+            }
+        },
         onMessage: onMessage,
         onClosed: onClosingWindow
     });
