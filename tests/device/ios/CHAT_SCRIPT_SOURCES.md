@@ -112,3 +112,13 @@ The final source-bound owner/production-Script/runtime selection passes all
 nine cases in 6.901 s on the same final fixture. Owner and observation contracts
 now register version four with literal readers one/two/three/four; live and
 archive profile selection remains explicit. Full Chat remains partial.
+
+Three further production-Script restoration cases pass in 7.087 s with v4:
+normal Erase/rebuild/close restores the original null history, lost Erase
+return recovery executes its handler once, and an independently changed
+manager blocks cleanup before another ordinary input. The successful archive
+replays without queries/writes and preserves every actual file byte and inode.
+These cases use the existing exact null-value/configuration proof and normal
+settings controls; they do not add a settings setter or admit other original
+history representations as restored. Native/Qt serialization and clocks remain
+declared boundaries; the original Chat Script and host streams execute.
