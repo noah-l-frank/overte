@@ -72,6 +72,47 @@ Private logs are `snapshot-combined-work-resume-20261027-loader01.log`,
 `snapshot-combined-work-resume-20261027-final06.log` under `.ios-host-tmp`.
 Native code remains uncompiled and unexecuted. This reader is a prerequisite,
 not normal capture/upload integration or a backend/native-effect proof. The
-next vertical must bind the normal combined manager's capture and upload to
-these originals and the actual frontend HTTP consumer, then join independent
-backend, Actor/image, restoration and process/SDK/resource-end evidence.
+normal upload and actual frontend HTTP consumer still need a join to these
+originals, followed by independent backend, Actor/image, restoration and
+process/SDK/resource-end evidence.
+
+The same capture runtime/coordinator now also has an explicit, closed
+`combined=True` profile. Its parent, completed-capture and decoded-capture
+envelopes use version 2; the default separate profile still writes its literal
+version 1. Reopening either profile requires the same explicit choice, rather
+than inferring a desired manager from stored bytes. Only the work child changes
+producer and storage namespace. Native capture/export/input sources, normal
+capture input, original manifests, immutable chunks, decoded PNG and file
+cleanup retain their existing source and ownership checks. Combined work has
+its own frame and part schemas, a primary-only capture subject and the existing
+32-character namespace and bounded original-file limits.
+Until its own combined profile is integrated, the existing Upload1 constructor
+explicitly refuses an archived CombinedCapture2 rather than crossing profiles.
+Its existing normal Upload1 positive case passed unchanged in 8.683 seconds.
+
+The declared combined capture boundary produces its own code/caller/timer
+originals from the same ordinary-input-driven model before persistence. It
+does not rewrite or relabel an old saved separate packet. The first normal
+capture/reopen/archive and namespace cases passed in 1.548 seconds; three
+lost-return, profile-substitution and saved-child-before-parent-CAS recovery
+cases passed in 1.586 seconds. They preserve exactly one capture, unchanged
+original bytes/inodes and the already-issued source/native counters. The first
+namespace attempt correctly failed because its new name exceeded the existing
+32-character limit; only the new name was shortened, leaving that limit intact.
+The final three normal-capture/profile-refusal, actual owned-file unlink and
+corrupt-PNG cases passed in 5.991 seconds. Thirteen unchanged separate capture,
+recovery and completion cases passed in 23.751 seconds. The cleanup preserves
+the original host PNG and observes the existing three-second window on the
+declared model clocks; it does not qualify real-device quiescence.
+These are modeled Qt/V8/native clocks and actual host file operations, not a
+compiled native or real device capture qualification. Upload, pending Cancel,
+current rendered review and frontend preflight consumption still need the same
+closed combined-profile integration and independent end evidence.
+
+Capture component logs are
+`snapshot-combined-capture-resume-20261027-positive02.log`,
+`snapshot-combined-capture-resume-20261027-recovery03.log`,
+`snapshot-combined-capture-resume-20261027-final04.log` and
+`snapshot-combined-capture-resume-20261027-legacy05.log`, plus the separate
+`snapshot-combined-capture-resume-20261027-uploadlegacy06.log`, under
+`.ios-host-tmp`.

@@ -32,7 +32,8 @@ class SnapshotCapturePending(NativeUIError):pass
 
 
 class IOSSnapshotCaptureOwner:
-    def __init__(self,runtime,selector,run,lock,sources,*,phase,epoch_ms,monotonic,sleep):
+    def __init__(self,runtime,selector,run,lock,sources,*,phase,epoch_ms,monotonic,sleep,combined=False):
+        need(type(combined) is bool);self.combined=combined
         need(isinstance(runtime,IOSSnapshotCaptureRuntime) and isinstance(phase,PhaseFixtureReader) and phase.area=='snapshots' and phase.run==run)
         self.runtime,self.selector,self.run,self.lock,self.sources=runtime,selector,identifier(run),lock,sources
         self.binding=deepcopy(context(sources['binding']));self.guard=sources['check'];self.phase=phase
@@ -46,16 +47,22 @@ class IOSSnapshotCaptureOwner:
         if self.state['nativeTail'] is not None:restore(sources['clock_source'],self.state['nativeTail'])
 
     @classmethod
-    def archive(cls,store,lock,binding,run,fixture_url):
+    def archive(cls,store,lock,binding,run,fixture_url,*,combined=False):
         """Actual local originals only; no SDK or live source construction."""
-        owner=object.__new__(cls);owner.runtime=object.__new__(IOSSnapshotCaptureRuntime)
+        need(type(combined) is bool);owner=object.__new__(cls);owner.runtime=object.__new__(IOSSnapshotCaptureRuntime);owner.combined=combined
         owner.selector=None;owner.run=identifier(run);owner.lock=lock;owner.binding=deepcopy(context(binding));owner.store=store
         owner.sources=None;owner.phase=SimpleNamespace(fixture_url=fixture_url);owner.guard=lambda:True;owner.historical=True
         lock.assert_held();owner.previous=store.read();need(owner.previous is not None);owner.state=unpack(owner.previous['payload'])[0]
         owner.state=owner.decode(owner.previous);return owner
 
     def envelope(self,state):
-        return dict(iosSnapshotCaptureOwnerVersion=1,runId=self.run,binding=self.binding,fixtureUrl=self.phase.fixture_url,payload=pack([state]))
+        return dict(iosSnapshotCaptureOwnerVersion=2 if self.combined else 1,runId=self.run,binding=self.binding,fixtureUrl=self.phase.fixture_url,payload=pack([state]))
+
+    def work_source(self):
+        if getattr(self,'combined',False):
+            from ios.adapters import snapshot_combined_work
+            return snapshot_combined_work
+        return snapshot_work
 
     def bound(self):
         self.lock.assert_held();need(same(self.store.read(),self.previous) and self.guard() is not False)
@@ -70,19 +77,19 @@ class IOSSnapshotCaptureOwner:
         # responsibility; no source/child metadata is discarded here.
         names={self.store.path.name,'ios-snapshot-primary-inputs.json'}
         for slot in self.state['slots']:
-            cls=TYPES[slot['kind']];kind=getattr(cls,'_name',slot['kind']);names.add('ios-snapshot-primary-'+kind+'-'+format(slot['index'],'04d')+'.json')
+            cls=self.runtime.component_type(self,slot['kind']);kind=getattr(cls,'_name',slot['kind']);names.add('ios-snapshot-primary-'+kind+'-'+format(slot['index'],'04d')+'.json')
         for index,path in enumerate(self.store.path.parent.iterdir()):
             need(index<8192)
             if path.name.startswith('ios-snapshot-primary-') and path.name.endswith('.json'):need(path.name in names)
             prefixes=('snapshot-manifest-','snapshot-chunk-','snapshot-input-proof-','snapshot-artifact-work-','snapshot-native-',
-                'snapshot-work-source-parts-','snapshot-captures-source-parts-','snapshot-exports-source-parts-','snapshot-inputs-source-parts-',
+                'snapshot-work-source-parts-','snapshot-combined-capture-parts-','snapshot-captures-source-parts-','snapshot-exports-source-parts-','snapshot-inputs-source-parts-',
                 'snapshot-file-work-parts-','snapshot-primary-file-work-parts-','snapshot-'+self.run+'-primary-')
             if path.name.startswith(prefixes):need(reads is not None and path in reads)
         if self.previous is None:need(not self.store.path.with_name('ios-snapshot-primary-inputs.json').exists())
 
     def decode(self,value):
         exact(value,{'iosSnapshotCaptureOwnerVersion','runId','binding','fixtureUrl','payload'});rows=unpack(value['payload'])
-        need(type(value['iosSnapshotCaptureOwnerVersion']) is int and value['iosSnapshotCaptureOwnerVersion']==1 and len(rows)==1
+        need(type(value['iosSnapshotCaptureOwnerVersion']) is int and value['iosSnapshotCaptureOwnerVersion']==(2 if self.combined else 1) and len(rows)==1
             and same(value,self.envelope(rows[0])));state=rows[0]
         exact(state,{'phase','ticket','phaseOriginal','roots','baseline','slots','inputSlots','captureInput','artifact','result','settled','quiet','nativeTail','originalName','restored','restoration'})
         need(state['phase'] in ('new','preparing','prepared','capturing','copied','cleaning','file-cleaned') and type(state['slots']) is list
@@ -122,7 +129,7 @@ class IOSSnapshotCaptureOwner:
         reserved/issued transition and must adopt its own exact saved proof.
         Incomplete or missing original bytes stay unresolved; none are written.
         """
-        kind=slot['kind'];name=getattr(TYPES[kind],'_name',kind)
+        kind=slot['kind'];name=getattr(self.runtime.component_type(self,kind),'_name',kind)
         path=self.store.path.with_name('ios-snapshot-primary-'+name+'-'+format(slot['index'],'04d')+'.json')
         if PrivateFeatureState(path).read() is None:
             need(slot['sha256'] is None);return
@@ -242,14 +249,14 @@ class IOSSnapshotCaptureOwner:
             self.input('name-focus','snapshot.name');self.input('name-set','snapshot.name',text=prefix)
         baseline=self.observed('empty-before','manifest');absent(baseline.historical(),int(self.binding['processIdentity']),self.run,'still-png')
         work=self.observed('work-before','work');native=self.observed('captures-before','captures')
-        snapshot_work.admit(work.historical()['packet'],self.root_original(self.state['roots']),quiet=True);snapshot_captures.drained(native.historical()['packet'])
+        self.work_source().admit(work.historical()['packet'],self.root_original(self.state['roots']),quiet=True);snapshot_captures.drained(native.historical()['packet'])
         self.state.update(phase='prepared',baseline=dict(manifest=baseline.index,work=work.index,captures=native.index));self.save()
 
     def packets(self,label):
         return {kind:self.observed(label+'-'+kind,kind) for kind in ('work','captures','exports')}
 
     def drained(self,values):
-        snapshot_work.admit(values['work'].historical()['packet'],self.root_original(self.state['roots']),quiet=True)
+        self.work_source().admit(values['work'].historical()['packet'],self.root_original(self.state['roots']),quiet=True)
         snapshot_captures.drained(values['captures'].historical()['packet']);snapshot_exports.drained(values['exports'].historical()['packet'])
 
     def settled(self):
@@ -272,7 +279,7 @@ class IOSSnapshotCaptureOwner:
         return snapshot_completion.decoded(self.runtime.inputs(self,historical=True),self.state['captureInput'],
             self.history('work',baseline['work']).historical()['packet'],self.history('work',settled['work']).historical()['packet'],
             self.history('captures',baseline['captures']).historical()['packet'],self.history('captures',settled['captures']).historical()['packet'],
-            self.history('manifest',baseline['manifest']),self.history('artifact',self.state['artifact']),self.root_original(self.state['roots']))
+            self.history('manifest',baseline['manifest']),self.history('artifact',self.state['artifact']),self.root_original(self.state['roots']),_combined=self.combined)
 
     @operation
     def capture(self,ticket):

@@ -15,7 +15,10 @@ from ios.adapters import snapshot_work as work,snapshot_captures as native
 from snapshot_observation import inspect_snapshot
 
 
-def _file_completion(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root,*,mode,output_format):
+def _file_completion(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root,*,mode,output_format,_combined=False):
+    need(type(_combined) is bool)
+    from ios.adapters import snapshot_combined_work
+    work_source=snapshot_combined_work if _combined else work
     need(type(inputs) is SnapshotInputOwner and type(before_files) is SnapshotManifest and type(artifact) is SnapshotArtifact)
     delivered=inputs.validate_original(index);event=inputs.state['events'][index-1]
     need(event['controlId']=='snapshot.capture' and event['command']['operation']=='activate')
@@ -34,9 +37,9 @@ def _file_completion(inputs,index,before_work,after_work,before_native,after_nat
     need(row['snapshotName']==before['query']['prefix'] and artifact.state is not None
         and artifact.state['phase']=='copied' and artifact.state['before']>before_files.index)
     fact,raw=artifact.originals();need(artifact.read()==raw)
-    work.validate(after_work,dict(schemaVersion=1,action=work.ACTION,commandId=after_work['requestId'],runId=inputs.run),
+    work_source.validate(after_work,dict(schemaVersion=1,action=work_source.ACTION,commandId=after_work['requestId'],runId=inputs.run),
         inputs.pid,previous=before_work)
-    initial=work.admit(before_work,scripts_root,quiet=True);final=work.admit(after_work,scripts_root,quiet=True)
+    initial=work_source.admit(before_work,scripts_root,quiet=True);final=work_source.admit(after_work,scripts_root,quiet=True)
     need(same(initial['manager'],final['manager']) and final['state']['mode']==mode
         and final['state']['captureCounter']==initial['state']['captureCounter']+1)
     native.validate(after_native,dict(schemaVersion=1,action=native.ACTION,commandId=after_native['requestId'],runId=inputs.run),
@@ -91,14 +94,14 @@ def _file_completion(inputs,index,before_work,after_work,before_native,after_nat
         decodedImageRequired=True,destinationOutcomeRequired=True,independentWitnessRequired=True,quietWindowRequired=True)
 
 
-def completed(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root):
+def completed(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root,*,_combined=False):
     # Keep the released still-only version-1 result and its exact field values.
     need(type(inputs) is SnapshotInputOwner and type(index) is int and 1<=index<=len(inputs.state['events']))
     event=inputs.state['events'][index-1]
     row=next(row for row in event['reference']['controls'] if row['id']=='snapshot.capture')
     result=_file_completion(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root,
-        mode='still',output_format=row['snapshotFormat'])
-    return dict(iosSnapshotCompletedCaptureVersion=1,**result)
+        mode='still',output_format=row['snapshotFormat'],_combined=_combined)
+    return dict(iosSnapshotCompletedCaptureVersion=2,workProfile='combined',**result) if _combined else dict(iosSnapshotCompletedCaptureVersion=1,**result)
 
 
 def output_set(inputs,index,before_work,after_work,before_native,after_native,before_files,artifacts,scripts_root):
@@ -158,14 +161,16 @@ def decoded_output_set(*args):
         destinationOutcomeRequired=True,independentWitnessRequired=True,quietWindowRequired=True)
 
 
-def decoded(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root):
+def decoded(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root,*,_combined=False):
     """Decode the same original file after the complete capture/source join.
 
     The common decoder verifies encoding and complete nonuniform pixels. Scene
     fidelity, system destinations and independent witness evidence stay open.
     """
-    capture=completed(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root)
+    capture=completed(inputs,index,before_work,after_work,before_native,after_native,before_files,artifact,scripts_root,_combined=_combined)
     raw=artifact.read();image=inspect_snapshot(raw,mode=capture['mode'],file_format=capture['format'])
     need(image['sha256']==capture['file']['sha256'] and image['bytes']==capture['file']['size'])
-    return dict(iosSnapshotDecodedCaptureVersion=1,capture=capture,image=image,sceneFidelityRequired=True,
+    result=dict(iosSnapshotDecodedCaptureVersion=2 if _combined else 1,capture=capture,image=image,sceneFidelityRequired=True,
         destinationOutcomeRequired=True,independentWitnessRequired=True,quietWindowRequired=True)
+    if _combined:result['workProfile']='combined'
+    return result

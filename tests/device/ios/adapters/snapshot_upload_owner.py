@@ -21,7 +21,7 @@ class SnapshotUploadPending(SnapshotInputPending):pass
 
 class IOSSnapshotUploadOwner:
     def __init__(self,runtime,selector,run,lock,sources,capture,phase,*,epoch_ms,monotonic,sleep):
-        need(type(capture) is IOSSnapshotCaptureOwner and capture.historical and capture.run==run and same(capture.binding,sources['binding'])
+        need(type(capture) is IOSSnapshotCaptureOwner and not getattr(capture,'combined',False) and capture.historical and capture.run==run and same(capture.binding,sources['binding'])
             and phase.run==run and phase.area=='snapshots' and phase.fixture_url==capture.phase.fixture_url)
         self.runtime,self.selector,self.run,self.lock,self.sources,self.capture,self.phase=runtime,selector,run,lock,sources,capture,phase
         self.binding,self.fixture_url=deepcopy(capture.binding),phase.fixture_url;self.epoch_ms,self.monotonic,self.sleep=epoch_ms,monotonic,sleep

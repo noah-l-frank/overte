@@ -35,20 +35,27 @@ class IOSSnapshotCaptureRuntime(IOSScriptRuntime):
             with self.existing_input_session(selector):yield owner
 
     @contextmanager
-    def capture_owner(self,selector,run,client):
+    def capture_owner(self,selector,run,client,*,combined=False):
         from ios.adapters.snapshot_capture_owner import IOSSnapshotCaptureOwner
         lock=ScriptSourceLock(self.state_path(selector).with_name('script-feature-sources.lock'));failure=None
         with lock.held():
             try:
                 source=self._sources(selector)
                 owner=IOSSnapshotCaptureOwner(self,selector,run,lock,source,
-                    phase=PhaseFixtureReader(client,run,'snapshots'),epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,sleep=time.sleep)
+                    phase=PhaseFixtureReader(client,run,'snapshots'),epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,sleep=time.sleep,combined=combined)
                 with self.existing_input_session(selector):yield owner
             except BaseException as original:failure=original
         if failure is not None:raise failure
 
+    @staticmethod
+    def component_type(owner,kind):
+        if kind=='work' and getattr(owner,'combined',False):
+            from ios.adapters.snapshot_combined_packets import CombinedCaptureWorkPacket
+            return CombinedCaptureWorkPacket
+        return TYPES[kind]
+
     def component(self,owner,kind,index,*,historical=False):
-        cls=TYPES[kind];name=cls._name if hasattr(cls,'_name') else kind
+        cls=self.component_type(owner,kind);name=cls._name if hasattr(cls,'_name') else kind
         store=PrivateFeatureState(owner.store.path.with_name('ios-snapshot-primary-'+name+'-'+format(index,'04d')+'.json'))
         arguments=(store,owner.lock,owner.binding,owner.run,'primary',index)
         if historical and kind!='artifact':return cls.history(*arguments)
