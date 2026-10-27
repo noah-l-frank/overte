@@ -70,7 +70,7 @@ class WorldWebInput:
             if row['phase']!='reading':
                 # Full actual immutable Source bytes/inodes are checked by
                 # the enclosing round; reuse only this exact pure row proof.
-                key=(digest(row),digest(self.binding),self.run,self.entity)
+                key=self.proof_key(row)
                 if key not in self._proof_cache:self.proof(row);self._proof_cache.add(key)
         return deepcopy(state)
 
@@ -80,6 +80,15 @@ class WorldWebInput:
     def save(self):
         self.bound();value=self.envelope(self.state);self.decode(value);api_check();self.store.write(value,self.previous)
         need(same(self.store.read(),value));self.previous=deepcopy(value);api_check()
+
+    def proof_key(self,row):
+        # Geometry/body validation reads none of the delivery-phase/ACK fields.
+        # Their exact grammar still runs above on every decode. The existing
+        # Source round continues reading/pinning all original bytes and every
+        # final transport guard checks those actual identities and current WAL.
+        original={key:row[key] for key in ('ticket','label','kind','control','text','source','window','point','body')}
+        parser=getattr(self.proof,'__func__',self.proof)
+        return (digest(original),digest(self.binding),self.run,self.entity,parser)
 
     def proof(self,row):
         frame=self.source.frame(row['source']);need(frame['ticket']==row['ticket'])
@@ -123,7 +132,7 @@ class WorldWebInput:
                 parameters=dict(pointerType='touch'),actions=[dict(type='pointerMove',duration=0,origin='viewport',
                 x=round(rect['x']+target['x']),y=round(rect['y']+target['y'])),dict(type='pointerDown',button=0),dict(type='pause',duration=100),dict(type='pointerUp',button=0)])])
         else:row['body']=dict(actions=[dict(type='key',id='overte-world-web-keyboard',actions=key_actions(text))])
-        self.proof(row)
+        self.proof(row);self._proof_cache.add(self.proof_key(row))
         # The final transport guard compares the exact durable intention.
         # Geometry/window/body must therefore be retained before its first
         # check, while the separate issued write still precedes the POST.

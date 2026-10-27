@@ -426,3 +426,27 @@ and zero native/SDK/HTTP queries. A separate actual-native-member join rejected
 missing membership, changed native source birth, context and counters even with
 repaired projection hashes (52.659 s). No capacity check was bypassed in either
 of these validation runs. A new complete 19-step end remains mandatory.
+
+The real-CPU input/source composition now passes all 19 ordinary actions and
+their independent production `derive_browser` state checks in 246.452 s. It
+executes the original Node/HTML/Script and private files, including foreign
+origin rejection, 404/recovery, recreated resume and the second bridge reply.
+Native/Qt/WK/SDK remain explicit models, but their producer clocks include
+actual CPU/storage elapsed time. Each action and each observation retains its
+original 25 s API budget; the original 1.5 s source-to-send check is unchanged.
+
+The preceding diagnostic passed 16 states and then rejected the resumed Submit
+before POST: delivery-journal saves repeated the identical immutable geometry
+proof inside that 1.5 s interval. The existing pure proof cache now keys only
+the fields the proof consumes, plus the exact binding, run, entity and parser
+function. Successful direct geometry validation seeds that same cache. Every
+save still checks the full phase/ACK grammar and source ordinal; original file
+bytes/inodes, current WAL and final transport freshness remain mandatory.
+Unknown delivery is never repeated. Three focused cases cover expensive proof
+reuse, invalid phase/ACK or modified geometry, and a changed parser; all pass.
+The nine existing input/round/deadline cases also pass. Earlier diagnostic
+timeouts and the rejected send remain failed attempts with retained originals.
+
+This CPU case stops after the ordinary Close state. It supplies no Actor,
+rendered PNG or paired terminal qualification. The full 19-step paired end and
+canonical routing still require their own complete qualification.
