@@ -23,6 +23,27 @@ class AssetsRuntimeTests(unittest.TestCase):
             b.runtime._assets_store('test-only',RUN,'actor','files').path)
         self.assertEqual((sessions,launches),(b.f.sessions,b.f.launches));self.assertEqual([],b.asset_requests)
 
+    def test_scene_factory_binds_actual_target_and_current_guard_before_any_source_query(self):
+        b=self.b;parts=b.runtime._assets_scene_source('test-only',RUN,'actor-primary',b.lock);source=parts['scene']
+        self.assertEqual(b.root/('ios-assets-scene-'+RUN+'-actor-primary.json'),source.store.path)
+        self.assertEqual('42',source.binding['processIdentity']);self.assertTrue(source.native.native_clock_bound)
+        self.assertEqual(42,source.readers['origin'].pid);self.assertIsNone(source.state)
+        self.assertEqual([],b.asset_requests);self.assertEqual([],b.afc)
+        b.f.process=dict(b.f.process,foreground=False)
+        with self.assertRaises((ValueError,RuntimeError,NativeUIError)):source.reserve()
+        self.assertIsNone(source.store.read());self.assertEqual([],b.asset_requests);self.assertEqual([],b.afc)
+
+    def test_peer_factory_refuses_same_actual_target_as_independent_actor_before_queries(self):
+        from ios.self_tests.assets_usage_backend_fixture import Fixture
+        from pathlib import Path
+        import tempfile
+        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup);path=Path(temporary.name);path.chmod(0o700)
+        fixture=Fixture(path);self.addCleanup(fixture.close);b=self.b
+        with self.assertRaises((ValueError,RuntimeError,NativeUIError)):
+            b.runtime._assets_peer_components('test-only','test-only',RUN,URL,b.lock,b.lock,fixture.backend.config)
+        self.assertEqual([],b.asset_requests);self.assertEqual([],b.afc);self.assertEqual([],fixture.requests)
+        self.assertFalse((b.root/('ios-assets-peer-'+RUN+'.json')).exists())
+
     def test_parsed_factory_keeps_existing_model_usage_and_backend_before_any_read(self):
         from ios.self_tests.assets_usage_backend_fixture import Fixture
         from pathlib import Path

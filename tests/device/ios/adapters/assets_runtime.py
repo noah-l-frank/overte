@@ -28,6 +28,8 @@ from ios.adapters.assets_parsed_sources import AssetsParsedSources
 from ios.adapters.assets_parsed_owner import OwnedAssetsParsedInput
 from ios.adapters.assets_model_removal import OwnedAssetsModelRemoval
 from ios.adapters.assets_baked_tree import OwnedAssetsBakedTree,fresh_baseline
+from ios.adapters.assets_scene_sources import AssetsSceneSources
+from ios.adapters.assets_peer_owner import OwnedAssetsPeer
 from ios.adapters.assets_usage_controls import project as usage_controls
 from ios.adapters.feature_observation import FeatureObservation
 from ios.adapters.normal_input import NativeInput
@@ -127,6 +129,26 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         parts=self._assets_parsed_components(selector,run,role,fixture_url,lock,backend_config) if parts is None else parts
         tree=OwnedAssetsBakedTree(parts['parsed'],self._assets_store(selector,run,role,'baked-tree'),lock=lock)
         parts['check']();return dict(parts,baked_tree=tree)
+
+    @operation
+    def _assets_scene_source(self,selector,run,role,lock):
+        identifier(run);need(role in ('primary','actor','actor-primary'));parts=self._assets_sources(selector,lock)
+        observer,clock=parts['observer'],parts['clock_source']
+        source=AssetsSceneSources(PrivateFeatureState(self.state_path(selector).with_name('ios-assets-scene-'+run+'-'+role+'.json')),
+            parts['binding'],run,role,lock,parts['check'],native=observer.bound_native_observer(clock),state=observer.create_state(clock),
+            domain=observer.emote_world(clock),origin=observer.assets_model_origin(clock),epoch_ms=observer.epoch_ms,monotonic=self.monotonic)
+        parts['check']();return dict(parts,scene=source)
+
+    @operation
+    def _assets_peer_components(self,selector,primary_selector,run,fixture_url,lock,primary_lock,backend_config,*,primary_parts=None,primary_scene_parts=None,peer_scene_parts=None):
+        primary_parts=self._assets_parsed_components(primary_selector,run,'primary',fixture_url,primary_lock,backend_config) if primary_parts is None else primary_parts
+        primary_scene_parts=self._assets_scene_source(primary_selector,run,'actor-primary',primary_lock) if primary_scene_parts is None else primary_scene_parts
+        peer_scene_parts=self._assets_scene_source(selector,run,'actor',lock) if peer_scene_parts is None else peer_scene_parts
+        for parts in (primary_parts,primary_scene_parts,peer_scene_parts):need(parts['check']() is not False)
+        owner=OwnedAssetsPeer(primary_parts['parsed'],primary_scene_parts['scene'],peer_scene_parts['scene'],
+            PrivateFeatureState(self.state_path(selector).with_name('ios-assets-peer-'+run+'.json')),lock)
+        for parts in (primary_parts,primary_scene_parts,peer_scene_parts):need(parts['check']() is not False)
+        return dict(primary=primary_parts,primary_scene=primary_scene_parts,peer_scene=peer_scene_parts,peer=owner)
 
     @operation
     def _assets_upload_model_bytes(self,selector,run,role,fixture_url,ticket,lock,backend_config,*,parts=None):

@@ -2,7 +2,7 @@
 
 Latest completed removal packet: **af5210efe9**, exact10 paths/two1 tags.
 The subsequent BakedTree/runtime/pure/fixture plus local Model-decode composition
-packet is qualified as a host component, with final confined commit pending.
+packet is committed as **620c65d0c5**, qualified only as a host component.
 Read [the exact baked namespace boundary](ASSETS_BAKED_NAMESPACE.md) first.
 Its first fresh combined case timed out at360s after local namespace and Model
 removal; after the measured no-cache corrections a new fresh case passed in
@@ -23,6 +23,16 @@ capability is enabled: actual cached QObject/HFM remains alive and blocking;
 independent actor/render/OS/cache lifetimes and shared journey remain open.
 
 This is a task-context handoff, not a user pause or feature completion.
+The next Actor/Scene source/WAL packet is described in
+[Assets peer originals](ASSETS_PEER_ORIGINALS.md); its exact terminal focused
+results and commit status are recorded there. Continue the actor/render join
+without repeating the unchanged 328.746-second successful composition.
+The three final Actor-original/pure/adoption cases passed in48.260s; ten final
+Scene/source cases passed1.383s; Runtime14+Session7+Installed2 passed23/57.118s.
+No own test/process remains at this boundary. The peer result remains private
+and both rendered pixels and resource retirement remain unavailable. The next
+work needs actual Model mesh bounds/items joined to original fenced pixels,
+ordinary removal and surviving peer/cache/GPU/decoder/OS responsibility.
 Continue Feature 13 autonomously in the owned worktree:
 `/home/user/Documents/github/overte-ios-feature-adapters-resume-20261026`, branch
 `test/ios/feature-adapters-resume-20261026`. Source count stays 5/14; Assets
