@@ -1,0 +1,22 @@
+{
+  "snapshotCombinedWorkSourcePinsVersion": 1,
+  "encoding": "utf-16le-code-units",
+  "sources": {
+    "defaultScripts.js": {
+      "codeUnits": 7711,
+      "sha256": "32a951b888769939e78d6f2c0a3ac6f478b3f365100c95d8b79ac9cd8f96607d"
+    },
+    "system/snapshot.js": {
+      "codeUnits": 41725,
+      "sha256": "3dd3320d76d33953aaa7cb039f40c0ff8ddfcc130210b47586b3bddd662af5ef"
+    },
+    "modules/request.js": {
+      "codeUnits": 3452,
+      "sha256": "d1a7bfbdef56ffb74bee06310d7405ac097cce49dd68ece76efdffce2aa5cacb"
+    },
+    "system/snapshot/featureSnapshotWork.js": {
+      "codeUnits": 1283,
+      "sha256": "b328658c836ee2f8c08a003743ffc09fa8461ac4aca2327fb218eff39bc9fe56"
+    }
+  }
+}

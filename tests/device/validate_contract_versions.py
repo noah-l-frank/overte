@@ -9,6 +9,11 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-snapshot-combined-work": 1,
+    "ios-snapshot-combined-work-acquisition": 1,
+    "ios-snapshot-combined-work-source-pins": 1,
+    "ios-snapshot-combined-sources": 1,
+    "ios-snapshot-combined-timer-work": 1,
     "ios-snapshot-preflight-http": 1,
     "ios-snapshot-preflight-http-acquisition": 1,
     "ios-snapshot-http-sources": 1,

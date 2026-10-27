@@ -28,18 +28,21 @@ MAIN='system/snapshot.js'
 HELPER='system/snapshot/featureSnapshotWork.js'
 PIN_FILE=Path(__file__).parents[1]/'snapshot-work-source-pins.v1.json'
 TIMER_SUFFIXES=('/system/snapshot.js','/system/snapshot/featureSnapshotWork.js','/modules/request.js','/system/request-service.js')
+COMBINED_FILES=('defaultScripts.js',MAIN,'modules/request.js',HELPER)
 CLOSURES={'takeSnapshot','cancelNativeCapture','clearNativeCaptureTimers','scheduleNativeCapture',
           'onNativeCaptureStatus','onNativeUploadStatus','onClosingWindow','onMessage'}
 
 
-def command(value):
+def command(value,*,_combined=False):
+    need(type(_combined) is bool)
     original=deepcopy(value);original['action']='feature-ios-create-state';state_command(original)
-    need(value['action']==ACTION);return value
+    need(value['action']==('feature-ios-snapshot-combined-work' if _combined else ACTION));return value
 
 
-def code_sources(value,epoch,previous=None):
-    exact(value,{'snapshotSourcesVersion','complete','evaluations'})
-    need(type(value['snapshotSourcesVersion']) is int and value['snapshotSourcesVersion']==1
+def code_sources(value,epoch,previous=None,*,_combined=False):
+    need(type(_combined) is bool);marker='snapshotCombinedSourcesVersion' if _combined else 'snapshotSourcesVersion'
+    exact(value,{marker,'complete','evaluations'})
+    need(type(value[marker]) is int and value[marker]==1
          and type(value['complete']) is bool and type(value['evaluations']) is list and len(value['evaluations'])<=64)
     stamp=0
     for index,row in enumerate(value['evaluations']):
@@ -47,13 +50,13 @@ def code_sources(value,epoch,previous=None):
         parsed=urlsplit(text(row['url']))
         need(type(row['sequence']) is int and row['sequence']==index+1 and parsed.scheme in ('file','qrc')
              and not parsed.netloc and not parsed.query and not parsed.fragment
-             and ('/system/snapshot/' in parsed.path or parsed.path.endswith('/'+MAIN))
+             and (parsed.path.endswith(tuple('/'+path for path in COMBINED_FILES)) if _combined else '/system/snapshot/' in parsed.path or parsed.path.endswith('/'+MAIN))
              and row['encoding']=='utf-16le-code-units' and integer(row['codeUnits'],1,4194304)
              and re.fullmatch('[a-f0-9]{64}',text(row['sha256'],64))
              and integer(row['submittedEpochMs'],1,epoch) and row['submittedEpochMs']>=stamp)
         stamp=row['submittedEpochMs']
     if previous is not None:
-        code_sources(previous,epoch)
+        code_sources(previous,epoch,_combined=_combined)
         need((previous['complete'] or not value['complete'])
              and same(value['evaluations'][:len(previous['evaluations'])],previous['evaluations']))
     return value
@@ -71,8 +74,9 @@ def pending(state):
     return bool(state['captureId'] or state['timerHandles'] or state['pendingUploads'] or state['overlaysHidden'])
 
 
-def event(value,epoch):
-    exact(value,{'sequence','capturedEpochMs','callerSequence','invokedEpochMs','event','closure','call','state'})
+def event(value,epoch,*,_combined=False):
+    exact(value,{'sequence','capturedEpochMs','callerSequence','invokedEpochMs','event','closure','call','state'}|({'callerStackId'} if _combined else set()))
+    if _combined:need(re.fullmatch('[a-f0-9]{32}',text(value['callerStackId'],32)))
     need(integer(value['sequence'],1,1000000000) and integer(value['callerSequence'],1,1000000000)
          and integer(value['capturedEpochMs'],1,epoch) and integer(value['invokedEpochMs'],1,value['capturedEpochMs'])
          and value['event'] in ('snapshot','entry','returned','finally','ending') and integer(value['call'],0,1000000000)
@@ -81,22 +85,25 @@ def event(value,epoch):
     pending(value['state']);return value
 
 
-def _member(value,epoch):
+def _member(value,epoch,*,_combined=False):
     membership(dict(complete=True,revision=1,managers=[value]),epoch)
-    need(value['assigned'] and value['url'].endswith('/'+MAIN))
+    need(value['assigned'] and value['url'].endswith('/defaultScripts.js' if _combined else '/'+MAIN))
 
 
-def _timers(value,epoch,previous=None):
+def _timers(value,epoch,previous=None,*,_combined=False):
     exact(value,{'complete','revision','workers'})
     need(type(value['complete']) is bool and integer(value['revision']) and type(value['workers']) is list
          and len(value['workers'])<=128 and value['revision']>=len(value['workers']))
     ids=[];old={row['membership']['instance']:row for row in previous['workers']} if previous else {}
     for row in value['workers']:
         exact(row,{'membership','code','running','stopping','finished','done','codeSources','timerWork'})
-        _member(row['membership'],epoch);ids.append(row['membership']['instance']);validate_code(row['code'],epoch)
+        _member(row['membership'],epoch,_combined=_combined);ids.append(row['membership']['instance']);validate_code(row['code'],epoch)
         need(all(type(row[key]) is bool for key in ('running','stopping','finished','done')))
-        prior=old.get(ids[-1]);code_sources(row['codeSources'],epoch,prior['codeSources'] if prior else None)
-        timer_work(row['timerWork'],epoch,prior['timerWork'] if prior else None,schema='snapshotTimerWorkVersion',suffixes=TIMER_SUFFIXES)
+        prior=old.get(ids[-1]);code_sources(row['codeSources'],epoch,prior['codeSources'] if prior else None,_combined=_combined)
+        if _combined:
+            timer_work(row['timerWork'],epoch,prior['timerWork'] if prior else None,schema='snapshotCombinedTimerWorkVersion',
+                suffixes=('/system/snapshot.js','/system/snapshot/featureSnapshotWork.js'),_combined=True,code=row['codeSources']['evaluations'])
+        else:timer_work(row['timerWork'],epoch,prior['timerWork'] if prior else None,schema='snapshotTimerWorkVersion',suffixes=TIMER_SUFFIXES)
         if prior:need(same(prior['membership'],row['membership']) and same(prior['code'],row['code'])
                       and (not prior['finished'] or row['finished']) and (not prior['done'] or row['done']))
     need(ids==sorted(set(ids)))
@@ -108,33 +115,47 @@ def _timers(value,epoch,previous=None):
     return value
 
 
-def validate(value,query,pid,epoch=None,previous=None):
-    command(query);exact(value,{'iosSnapshotWorkVersion','requestId','runId','instance','sequence','processId',
+def validate(value,query,pid,epoch=None,previous=None,*,_combined=False):
+    command(query,_combined=_combined);marker='iosSnapshotCombinedWorkVersion' if _combined else 'iosSnapshotWorkVersion'
+    exact(value,{marker,'requestId','runId','instance','sequence','processId',
                               'clockDomain','clockBefore','clockAfter','source'})
-    need(type(value['iosSnapshotWorkVersion']) is int and value['iosSnapshotWorkVersion']==1
+    need(type(value[marker]) is int and value[marker]==1
          and value['requestId']==query['commandId'] and value['runId']==query['runId'] and integer(pid,1)
          and type(value['processId']) is int and value['processId']==pid
          and re.fullmatch('[a-f0-9]{32}',text(value['instance'],32)) and integer(value['sequence'],1,1000000000)
-         and value['clockDomain']=='native-main-snapshot-work')
+         and value['clockDomain']==('native-main-snapshot-combined-work' if _combined else 'native-main-snapshot-work'))
     for clock in (value['clockBefore'],value['clockAfter']):
         exact(clock,{'epochMs','monotonicMs'});need(integer(clock['epochMs'],1) and integer(clock['monotonicMs']))
     before,after=value['clockBefore'],value['clockAfter'];delta=after['epochMs']-before['epochMs'];elapsed=after['monotonicMs']-before['monotonicMs']
     need(0<=delta<1500 and 0<=elapsed<1500 and abs(delta-elapsed)<=250)
     if epoch is not None:fresh(after['epochMs'],epoch)
-    source=value['source'];exact(source,{'complete','eventSequence','workers','timerSources'})
+    source=value['source'];exact(source,{'complete','eventSequence','workers','timerSources'}|({'callerStacks'} if _combined else set()))
     need(type(source['complete']) is bool and integer(source['eventSequence'],0,1000000000)
          and type(source['workers']) is list and len(source['workers'])<=8)
-    _timers(source['timerSources'],after['epochMs'])
+    _timers(source['timerSources'],after['epochMs'],_combined=_combined)
+    from ios.adapters import avatar_call_stack
+    caller_table=avatar_call_stack.table(source['callerStacks'],after['epochMs'],_combined=True) if _combined else {};caller_histories={}
     ids=[];sequences=set()
     for row in source['workers']:
         exact(row,{'sourceUrl','manager','code','codeSources','calls','events','ended','state','latest'})
-        _member(row['manager'],after['epochMs']);ids.append(row['manager']['instance'])
-        need(row['sourceUrl']==row['manager']['url'] and type(row['ended']) is bool)
-        validate_code(row['code'],after['epochMs']);code_sources(row['codeSources'],after['epochMs']);need(row['code']['submitted'])
+        _member(row['manager'],after['epochMs'],_combined=_combined);ids.append(row['manager']['instance'])
+        expected=row['manager']['url'][:-len('defaultScripts.js')]+MAIN if _combined else row['manager']['url']
+        need(row['sourceUrl']==expected and type(row['ended']) is bool)
+        validate_code(row['code'],after['epochMs']);code_sources(row['codeSources'],after['epochMs'],_combined=_combined);need(row['code']['submitted'])
+        if _combined:
+            main=[item for item in row['codeSources']['evaluations'] if item['url']==row['manager']['url']]
+            need(main and all(all(item[key]==row['code'][key] for key in ('encoding','codeUnits','sha256')) and item['submittedEpochMs']>=row['code']['submittedEpochMs'] for item in main))
+        def check_caller(entry,initial=False):
+            if not _combined:return
+            need(entry['callerStackId'] in caller_table);original=caller_table[entry['callerStackId']]
+            required={'/system/snapshot/featureSnapshotWork.js'}|({'/system/snapshot.js'} if initial else set())
+            avatar_call_stack.evaluated(original['callerStack'],original['callerModules'],entry['capturedEpochMs'],row['codeSources']['evaluations'],
+                required=required,top='/system/snapshot/featureSnapshotWork.js',_combined=True)
+            caller_histories.setdefault(row['manager']['instance'],avatar_call_stack.History()).accept(original['callerStack'])
         events=row['events'];need(type(events) is list and 1<=len(events)<=512 and events[0]['event']=='snapshot')
         stack=[];last_call=cursor=caller=stamp=0;ended=False
         for entry in events:
-            event(entry,after['epochMs'])
+            event(entry,after['epochMs'],_combined=_combined);check_caller(entry,entry is events[0])
             need(not ended and entry['sequence']>cursor and entry['callerSequence']>caller and entry['capturedEpochMs']>=stamp
                  and entry['sequence'] not in sequences and entry['sequence']<=source['eventSequence'])
             sequences.add(entry['sequence']);cursor,caller,stamp=(entry[key] for key in ('sequence','callerSequence','capturedEpochMs'))
@@ -146,7 +167,7 @@ def validate(value,query,pid,epoch=None,previous=None):
                 else:stack.pop()
             elif entry['event']=='ending':need(not stack);ended=True
         need(same(stack,row['calls']) and len(stack)<=32)
-        latest=event(row['latest'],after['epochMs']);need(cursor<=latest['sequence']<=source['eventSequence']
+        latest=event(row['latest'],after['epochMs'],_combined=_combined);check_caller(latest);need(cursor<=latest['sequence']<=source['eventSequence']
             and latest['callerSequence']>=caller and latest['capturedEpochMs']>=stamp and same(latest['state'],row['state'])
             and row['ended']==ended and row['ended']==(latest['event']=='ending'))
         if latest['sequence']==cursor:need(same(latest,events[-1]))
@@ -156,11 +177,13 @@ def validate(value,query,pid,epoch=None,previous=None):
             sequences.add(latest['sequence'])
     need(ids==sorted(set(ids)) and len(json.dumps(value,allow_nan=False).encode())<=LIMIT)
     if previous is not None:
-        validate(previous,dict(query,commandId=previous['requestId']),pid)
+        validate(previous,dict(query,commandId=previous['requestId']),pid,_combined=_combined)
         need(value['instance']==previous['instance'] and value['sequence']>previous['sequence'] and value['requestId']!=previous['requestId']
              and before['epochMs']>=previous['clockAfter']['epochMs'] and before['monotonicMs']>=previous['clockAfter']['monotonicMs']
              and source['eventSequence']>=previous['source']['eventSequence'] and (previous['source']['complete'] or not source['complete']))
-        _timers(source['timerSources'],after['epochMs'],previous['source']['timerSources'])
+        _timers(source['timerSources'],after['epochMs'],previous['source']['timerSources'],_combined=_combined)
+        if _combined:
+            old=previous['source']['callerStacks'];need(len(source['callerStacks'])>=len(old) and same(source['callerStacks'][:len(old)],old))
         current={row['manager']['instance']:row for row in source['workers']}
         for old in previous['source']['workers']:
             need(old['manager']['instance'] in current);new=current[old['manager']['instance']]
@@ -170,25 +193,28 @@ def validate(value,query,pid,epoch=None,previous=None):
             need(all(entry['sequence']>old['latest']['sequence'] and entry['callerSequence']>old['latest']['callerSequence']
                      and entry['capturedEpochMs']>=old['latest']['capturedEpochMs'] for entry in new['events'][len(old['events']):]))
             if new['latest']['sequence']==old['latest']['sequence']:need(same(old['latest'],new['latest']))
-            code_sources(new['codeSources'],after['epochMs'],old['codeSources'])
+            code_sources(new['codeSources'],after['epochMs'],old['codeSources'],_combined=_combined)
     return value
 
 
-def original(value):
-    return validate(value,dict(schemaVersion=1,action=ACTION,commandId=value.get('requestId'),runId=value.get('runId')),value.get('processId'))
+def original(value,*,_combined=False):
+    return validate(value,dict(schemaVersion=1,action='feature-ios-snapshot-combined-work' if _combined else ACTION,commandId=value.get('requestId'),runId=value.get('runId')),value.get('processId'),_combined=_combined)
 
 
-def admit(value,scripts_root,*,quiet=False):
-    original(value);root=root_url(scripts_root);source=value['source']
+def admit(value,scripts_root,*,quiet=False,_combined=False):
+    original(value,_combined=_combined);root=root_url(scripts_root);source=value['source']
     need(source['complete'] and source['timerSources']['complete'])
-    pins=json.loads(PIN_FILE.read_text());exact(pins,{'snapshotWorkSourcePinsVersion','encoding','sources'})
-    need(type(pins['snapshotWorkSourcePinsVersion']) is int and pins['snapshotWorkSourcePinsVersion']==1
-         and pins['encoding']=='utf-16le-code-units' and set(pins['sources'])=={MAIN,HELPER})
+    path=PIN_FILE.with_name('snapshot-combined-work-source-pins.v1.json') if _combined else PIN_FILE
+    marker='snapshotCombinedWorkSourcePinsVersion' if _combined else 'snapshotWorkSourcePinsVersion'
+    pins=json.loads(path.read_text());exact(pins,{marker,'encoding','sources'})
+    need(type(pins[marker]) is int and pins[marker]==1
+         and pins['encoding']=='utf-16le-code-units' and set(pins['sources'])==(set(COMBINED_FILES) if _combined else {MAIN,HELPER}))
     live=[row for row in source['workers'] if not row['ended']];need(len(live)==1);row=live[0]
-    need(row['sourceUrl']==root+MAIN and all(row['code'][key]==pins['sources'][MAIN][key] for key in ('sha256','codeUnits'))
+    main='defaultScripts.js' if _combined else MAIN
+    need(row['sourceUrl']==root+MAIN and row['manager']['url']==root+main and all(row['code'][key]==pins['sources'][main][key] for key in ('sha256','codeUnits'))
          and row['state']['nativeReview'] and row['codeSources']['complete'])
     fresh(row['latest']['capturedEpochMs'],value['clockAfter']['epochMs'])
-    for path in (MAIN,HELPER):
+    for path in (COMBINED_FILES if _combined else (MAIN,HELPER)):
         evaluations=[entry for entry in row['codeSources']['evaluations'] if entry['url']==root+path]
         need(len(evaluations)==1 and all(evaluations[0][key]==pins['sources'][path][key] for key in ('codeUnits','sha256')))
     native=[entry for entry in source['timerSources']['workers'] if entry['membership']['instance']==row['manager']['instance']]
@@ -196,6 +222,11 @@ def admit(value,scripts_root,*,quiet=False):
     need(same(native['membership'],row['manager']) and same(native['code'],row['code'])
          and same(native['codeSources'],row['codeSources']) and native['running']
          and not any(native[key] for key in ('stopping','finished','done')) and native['timerWork']['complete'])
+    if _combined:
+        from ios.adapters.avatar_call_stack import History
+        history=History();callers={entry['id']:entry for entry in source['callerStacks']}
+        for entry in row['events']+[row['latest']]:history.accept(callers[entry['callerStackId']]['callerStack'])
+        for entry in native['timerWork']['callerStacks']:history.accept(entry['callerStack'])
     if quiet:
         need(not row['calls'] and not pending(row['state']))
         # No timer may be retired while its native timerFired stack is still

@@ -12,23 +12,25 @@ SUFFIXES=('/system/avatarapp.js','/system/pal.js','/system/libraries/peopleConne
 IMMUTABLE=('timerId','handle','callerChain','createdEpochMs','singleShot','intervalMs','activeAtBirth','remainingAtBirthMs')
 COUNTERS=('fired','entered','left')
 TIMES=('destroyedEpochMs','lastFiredEpochMs','lastCallbackEpochMs','lastDispatchEpochMs')
+COMBINED_SUFFIXES=('/system/snapshot.js','/system/snapshot/featureSnapshotWork.js')
 
 
-def validate(value,epoch,previous=None,*,schema='avatarUiWorkVersion',suffixes=SUFFIXES):
+def validate(value,epoch,previous=None,*,schema='avatarUiWorkVersion',suffixes=SUFFIXES,_combined=False,code=None):
     """Validate a native timer instance with its original schema and filters.
 
     Snapshot uses a separate producer instance; its packet is never relabeled
     into an Avatar original. The defaults preserve the existing Avatar wire.
     """
+    need(type(_combined) is bool and (not _combined or schema=='snapshotCombinedTimerWorkVersion' and suffixes==COMBINED_SUFFIXES and type(code) is list))
     need(type(schema) is str and type(suffixes) is tuple and suffixes
         and all(type(suffix) is str and suffix.startswith('/') for suffix in suffixes))
-    version=value.get(schema) if type(value) is dict else None;actual=schema=='avatarUiWorkVersion' and version==2
+    version=value.get(schema) if type(value) is dict else None;actual=_combined or schema=='avatarUiWorkVersion' and version==2
     exact(value,{schema,'instance','complete','timers'}|({'callerStacks'} if actual else set()))
     need(type(version) is int and version in (READS if schema=='avatarUiWorkVersion' else (1,)) and identity(value['instance'])
         and type(value['complete']) is bool and type(value['timers']) is list and len(value['timers'])<=256)
     immutable=(set(IMMUTABLE)-{'callerChain'}|{'callerStackId'}) if actual else set(IMMUTABLE)
     from ios.adapters import avatar_call_stack
-    caller_table=avatar_call_stack.table(value['callerStacks'],epoch,single_engine=True) if actual else {}
+    caller_table=avatar_call_stack.table(value['callerStacks'],epoch,single_engine=True,_combined=_combined) if actual else {}
     used_callers=set();stack_history=avatar_call_stack.History()
     identifiers=[];handles=set()
     for row in value['timers']:
@@ -39,7 +41,10 @@ def validate(value,epoch,previous=None,*,schema='avatarUiWorkVersion',suffixes=S
             and (row['remainingAtBirthMs']>=0 if row['activeAtBirth'] else row['remainingAtBirthMs']==-1))
         if actual:
             identity(row['callerStackId']);need(row['callerStackId'] in caller_table);caller=caller_table[row['callerStackId']]
-            avatar_call_stack.validate(caller['callerStack'],caller['callerModules'],row['createdEpochMs'])
+            avatar_call_stack.validate(caller['callerStack'],caller['callerModules'],row['createdEpochMs'],_combined=_combined)
+            if _combined:
+                avatar_call_stack.evaluated(caller['callerStack'],caller['callerModules'],row['createdEpochMs'],code,_combined=True)
+                need(any(module['url'].endswith(COMBINED_SUFFIXES) for module in caller['callerModules']))
             need(caller['callerModules']);stack_history.accept(caller['callerStack']);used_callers.add(caller['id'])
         else:
             chain=row['callerChain'];need(type(chain) is list and 1<=len(chain)<=32)
@@ -65,7 +70,7 @@ def validate(value,epoch,previous=None,*,schema='avatarUiWorkVersion',suffixes=S
     need(identifiers==sorted(set(identifiers)))
     if actual and value['complete']:need(used_callers==set(caller_table))
     if previous is not None:
-        validate(previous,epoch,schema=schema,suffixes=suffixes);need(value['instance']==previous['instance']
+        validate(previous,epoch,schema=schema,suffixes=suffixes,_combined=_combined,code=code);need(value['instance']==previous['instance']
             and version==previous[schema] and (previous['complete'] or not value['complete']))
         current={row['timerId']:row for row in value['timers']}
         if actual:

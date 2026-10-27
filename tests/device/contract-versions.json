@@ -1,6 +1,11 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-snapshot-combined-work": {"current": 1, "reads": [1]},
+    "ios-snapshot-combined-work-acquisition": {"current": 1, "reads": [1]},
+    "ios-snapshot-combined-work-source-pins": {"current": 1, "reads": [1]},
+    "ios-snapshot-combined-sources": {"current": 1, "reads": [1]},
+    "ios-snapshot-combined-timer-work": {"current": 1, "reads": [1]},
     "ios-snapshot-preflight-http": {"current": 1, "reads": [1]},
     "ios-snapshot-preflight-http-acquisition": {"current": 1, "reads": [1]},
     "ios-snapshot-http-sources": {"current": 1, "reads": [1]},

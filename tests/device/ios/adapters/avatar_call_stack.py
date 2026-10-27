@@ -10,14 +10,16 @@ from ios.adapters.web_script_emissions import stack
 
 SUFFIXES=('/system/avatarapp.js','/system/pal.js','/system/libraries/peopleConnection.js','/modules/request.js','/system/request-service.js')
 SNAPSHOT_SUFFIXES=('/system/snapshot.js','/modules/request.js')
+COMBINED_SUFFIXES=('/defaultScripts.js','/system/snapshot.js','/modules/request.js','/system/snapshot/featureSnapshotWork.js')
 
 
-def _suffixes(snapshot):
-    need(type(snapshot) is bool);return SNAPSHOT_SUFFIXES if snapshot else SUFFIXES
+def _suffixes(snapshot,combined=False):
+    need(type(snapshot) is type(combined) is bool and not (snapshot and combined))
+    return COMBINED_SUFFIXES if combined else SNAPSHOT_SUFFIXES if snapshot else SUFFIXES
 
 
-def validate(value,modules,epoch,*,required=frozenset(),_snapshot=False):
-    suffixes=_suffixes(_snapshot)
+def validate(value,modules,epoch,*,required=frozenset(),_snapshot=False,_combined=False):
+    suffixes=_suffixes(_snapshot,_combined)
     stack(value,epoch);need(value is not None and value['complete'] and type(modules) is list and len(modules)<=32
         and type(required) in (set,frozenset) and required<=set(suffixes))
     scripts={}
@@ -33,12 +35,14 @@ def validate(value,modules,epoch,*,required=frozenset(),_snapshot=False):
         frame=value['frames'][index];compiled=frame['compiled'];sha=hashlib.sha256(url.encode('utf-8')).hexdigest()
         need(frame['sourceUrlSha256']==compiled['urlSha256']==sha)
         found.add(suffix)
-    need(required<=found);return value
+    need(required<=found)
+    if _combined:need(modules and [row['frame'] for row in modules]==list(range(len(value['frames']))))
+    return value
 
 
-def evaluated(value,modules,epoch,code,*,required=frozenset(),top=None,_snapshot=False):
+def evaluated(value,modules,epoch,code,*,required=frozenset(),top=None,_snapshot=False,_combined=False):
     """Join actual frame bytes to actual submitted code; no candidate-pin fact."""
-    validate(value,modules,epoch,required=required,_snapshot=_snapshot);suffixes=_suffixes(_snapshot)
+    validate(value,modules,epoch,required=required,_snapshot=_snapshot,_combined=_combined);suffixes=_suffixes(_snapshot,_combined)
     need(type(code) is list)
     last=0
     for sequence,row in enumerate(code,1):
@@ -53,19 +57,19 @@ def evaluated(value,modules,epoch,code,*,required=frozenset(),top=None,_snapshot
         need(not frame['isEval'])
         need(any(row['url']==url and row['sha256']==compiled['sha256'] and row['codeUnits']==compiled['codeUnits']
             and row['encoding']==compiled['encoding'] and row['submittedEpochMs']<=compiled['firstObservedEpochMs']<=epoch for row in code))
-        if _snapshot:need(all(row['sha256']==compiled['sha256'] and row['codeUnits']==compiled['codeUnits'] and row['encoding']==compiled['encoding'] for row in code if row['url']==url))
+        if _snapshot or _combined:need(all(row['sha256']==compiled['sha256'] and row['codeUnits']==compiled['codeUnits'] and row['encoding']==compiled['encoding'] for row in code if row['url']==url))
     if top is not None:
         need(type(top) is str and top in required and any(module['frame']==0 and module['url'].endswith(top) for module in modules))
     return deepcopy(value)
 
 
-def bound(value,modules,epoch,code,expected,*,required,top=None,_snapshot=False):
+def bound(value,modules,epoch,code,expected,*,required,top=None,_snapshot=False,_combined=False):
     """Join real frames to separately reviewed pins and actual evaluation logs.
 
     `firstObservedEpochMs` remains the first frame observation. The independent
     submitted-code timestamps, not that observation, establish evaluation order.
     """
-    evaluated(value,modules,epoch,code,required=required,top=top,_snapshot=_snapshot);suffixes=_suffixes(_snapshot)
+    evaluated(value,modules,epoch,code,required=required,top=top,_snapshot=_snapshot,_combined=_combined);suffixes=_suffixes(_snapshot,_combined)
     need(type(expected) is dict and set(expected)<=set(suffixes))
     for module in modules:
         frame=value['frames'][module['frame']];url=module['url'];compiled=frame['compiled']
@@ -85,14 +89,14 @@ def continuity(before,after):
     return after
 
 
-def table(values,epoch,*,single_engine=False,_snapshot=False):
+def table(values,epoch,*,single_engine=False,_snapshot=False,_combined=False):
     """Decode immutable actual stack entries; references never invent frames."""
     from ios.adapters.avatar_state import identity
-    _suffixes(_snapshot)
+    _suffixes(_snapshot,_combined)
     need(type(values) is list and len(values)<=128 and type(single_engine) is bool);result={};histories={};seen=[]
     for row in values:
         exact(row,{'id','callerStack','callerModules'});identity(row['id']);need(row['id'] not in result)
-        validate(row['callerStack'],row['callerModules'],epoch,_snapshot=_snapshot)
+        validate(row['callerStack'],row['callerModules'],epoch,_snapshot=_snapshot,_combined=_combined)
         histories.setdefault(row['callerStack']['instance'],History()).accept(row['callerStack'])
         if single_engine:need(len(histories)<=1)
         original=dict(callerStack=row['callerStack'],callerModules=row['callerModules'])

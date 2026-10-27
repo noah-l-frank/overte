@@ -40,11 +40,38 @@ guards, preserving the same layout across all participating translation units.
 No target-only ABI condition, CMake change, build, install, service or device
 operation is introduced.
 
-This packet is source-only and manually reviewed. Native code is uncompiled
-and unexecuted; no new public combined getter/probe/host-reader route is wired
-yet. The next packet must qualify that strict reader with actual source/main
-membership, compiled/submit mismatches, missing/foreign frames, unrelated
-timer births, live callback/dispatch responsibility and immutable prefixes.
-Existing separate1 and Social2 regression cases remain required. It must then
-join the complete normal capture/upload path and its independent consumer,
-backend, Actor/image, restoration and end evidence before area completion.
+The fixed `feature-ios-snapshot-combined-work` getter/probe/AFC route now has a
+strict host reader and independent repository UTF-16 source pins. Commands
+cannot request a manager, quiet state or profile. The existing query ledger
+consumes each nonce before observation, including unavailable or failed reads.
+The fixed Combined and preflight-HTTP original filenames use the existing
+compact, private-permission atomic writer and symlink refusal. The reader binds
+the actual process, native acquisition clocks and source prefixes; a normal
+work event and its manager's timer births must share their actual V8 engine
+and immutable compiled ScriptId identities. Every included source and the
+default manager's main code must match independently reviewed pins. The
+separate1 and Social1/2 readers keep their existing literal grammars.
+
+No-build evidence is deliberately limited to declared Qt/V8/native/HTTP/AFC
+models and actual unchanged JavaScript. The product default-script loader ran
+in Node with a read-only boundary: its normal mode included Snapshot exactly
+once, while its separate mode loaded it once; no option was changed. Eight
+new codec/negative cases passed in 0.172 seconds, and the actual probe plus
+three bound factory/transport cases passed in 0.185 seconds. Forty-eight
+focused compatibility/source-boundary cases passed in 0.172 seconds, including
+the old separate work, Avatar timer/caller and Social HTTP readers. The first
+codec attempt exposed a local function/integer name collision, which was
+corrected before these passing runs; its failed log remains unchanged.
+The final fourteen-case loader/codec/probe/runtime selection, including the
+private writer boundary, passed in 0.259 seconds.
+
+Private logs are `snapshot-combined-work-resume-20261027-loader01.log`,
+`snapshot-combined-work-resume-20261027-codec03.log`,
+`snapshot-combined-work-resume-20261027-transport04.log` and
+`snapshot-combined-work-resume-20261027-legacy05.log` and
+`snapshot-combined-work-resume-20261027-final06.log` under `.ios-host-tmp`.
+Native code remains uncompiled and unexecuted. This reader is a prerequisite,
+not normal capture/upload integration or a backend/native-effect proof. The
+next vertical must bind the normal combined manager's capture and upload to
+these originals and the actual frontend HTTP consumer, then join independent
+backend, Actor/image, restoration and process/SDK/resource-end evidence.
