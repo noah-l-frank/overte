@@ -775,3 +775,46 @@ membership and before/after inventories are retained beside `prefix.log`.
 The five approved no-build project suites pass for this diagnostic/test packet
 in 6.85 seconds. They do not turn the incomplete six-checkpoint case into a
 passing test or qualify the remaining Journey/retirement chain.
+
+## Same-image historical source pipeline
+
+The image validator now carries the historical source owner that its full
+observation decoder has just validated through the remaining screen/tail
+checks in that same call. It carries no frame result or current measurement
+across samples. Every tail still runs `frame_at` and `history` with real
+original reads, source continuation and original native clocks. A complete
+existing inventory lease covers the source and artifact roots before/after
+the call; canonical owner/child journals, exact role/run/binding/lock and the
+original monotonic function are checked throughout.
+
+An observation proof-cache hit supplies no new owner and uses the original
+tail path. Screen samples accept only that exact ordinary runtime method or
+the currently active image callback. Arbitrary no-op callbacks, another
+runtime's callback and an expired callback cannot skip tail validation. The
+same-image callback expires at scope exit; no new cache type, cache limit,
+codec, source timestamp or public capability is introduced.
+
+One comparison used the identical retained pending14 intent and cold existing
+operation cache, with the same read-only fences and all original files. Target
+wall time changed from 16.953s to 12.101s and CPU from 16.800s to 11.990s
+(28.6%). Intent/output hash, the exact 518-path membership set and all 1,358
+original byte/device/inode/mtime/ctime records match. Cache size stays at 415
+entries / 7,377,245 bytes. Actual target opens change from 10,548 to 7,826 by
+removing repeated owner construction; all nine selected-frame validations
+remain. Historical owner construction changes from nine to one, source
+histories from 18 to ten and child histories from 243 to 99.
+
+This comparison preceded the final callback-admission and entry-metadata
+hardening; it is not a fresh whole-prefix result. Nine focused context cases
+and 15 existing cache/image-measurement cases pass in 24.835 seconds after the
+hardening. They cover foreign frame/role, role/binding/lock mutation during
+decode, journal alias substitution and a real same-byte child inode
+replacement during a source read, with no additional native command.
+
+The final callback admission also rejects a valid capsule copied to another
+runtime; the nine context cases pass again in 19.281 seconds. Nine existing
+screen-image, original-before and historical-proof cases pass in 26.336
+seconds. Together with the 15 existing pure cases this covers 33 distinct
+focused host cases. The five approved no-build project suites pass in 6.97
+seconds. The incomplete six-step prefix remains a timeout; no new full run,
+native execution, retirement or source-complete count promotion is claimed.

@@ -27,11 +27,13 @@ VERSION=1
 
 
 class TabletWebSamples:
-    def __init__(self,runtime,root,policy,*,historical=False):
+    def __init__(self,runtime,root,policy,*,historical=False,tail_validator=None):
         self.runtime=runtime;source=runtime.observer.source
         self.source,self.binding,self.run,self.role,self.lock=source,source.binding,source.run,source.role,source.lock
         self.root=Path(root);need(self.root.is_absolute() and self.root.resolve()==self.root and self.root.is_dir())
         self.policy=deepcopy(policy);exact(policy,{'source','marker','subject'});need(policy['source']=='native-screen')
+        need(tail_validator is None or historical and callable(tail_validator))
+        self.tail_validator=runtime.validate_tail_source if tail_validator is None else runtime._image_tail_validator(tail_validator)
         self.historical=historical;self.started=self.last=None;self.failed=False
         self.store=PrivateFeatureState(source.root/('tabletweb-screen-samples-'+self.run+'-'+self.role+'.json'));self.saved=self.store.read()
         if self.saved is None:self.state=dict(records=[],pending=None,original=None,nextRaw=1);self.save()
@@ -73,7 +75,7 @@ class TabletWebSamples:
             and type(row['index']) is int and row['index']==index and row['status'] in ('acquiring','returned','failed'))
         identifier(row['ticket'])
         for name in ('before','after'):
-            if row[name] is not None:self.runtime.validate_tail_source(row[name])
+            if row[name] is not None:self.tail_validator(row[name])
         if row['raw'] is not None:
             raw_original(row['raw']);need(row['raw']['sessionId']==self.binding['sessionId'] and str(row['raw']['processId'])==self.binding['processIdentity'])
         if row['archive'] is not None:

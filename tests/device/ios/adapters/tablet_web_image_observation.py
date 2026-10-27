@@ -25,17 +25,18 @@ def validate(runtime,original):
     need(type(configured) is dict and type(configured.get('tabletWebFeatureVersion')) is int and configured['tabletWebFeatureVersion']==1
         and same(configured.get('binding'),source.binding) and configured.get('runId')==source.run and configured.get('role')==source.role
         and same(configured.get('screen'),dict(artifactRoot=str(root),policy=original['policy'])))
-    observed=runtime.validate_original(original['observation'])
-    samples=TabletWebSamples(runtime,root,original['policy'],historical=True);value=samples.read(original['sample']);row=value['row']
-    need(same(original['observation']['observation'],row['after']['observation']) and observed['ticket']==row['ticket'])
-    first=runtime.validate_tail_source(row['before'])['row']['clockJoin'];last=observed['acquisition'];clock=deepcopy(last)
-    clock['hostBeforeEpochMs']=min(last['hostBeforeEpochMs'],first['hostBeforeEpochMs'])
-    clock['hostBeforeMonotonic']=min(last['hostBeforeMonotonic'],first['hostBeforeMonotonic'])
-    duration=(clock['hostAfterMonotonic']-clock['hostBeforeMonotonic'])*1000
-    need(number(duration,0,1500) and duration<1500
-        and 0<=clock['hostAfterEpochMs']-clock['hostBeforeEpochMs']<1500
-        and abs(clock['hostAfterEpochMs']-clock['hostBeforeEpochMs']-duration)<=250)
-    public=deepcopy(observed['public']);public['capturedEpochMs']=clock['hostBeforeEpochMs']
-    public['artifacts']=[samples.artifact(original['sample'],public['sequence'])]
-    result('feature.tablet-web.observe',public)
-    return dict(ticket=observed['ticket'],public=public,acquisition=clock)
+    with runtime.image_observation_context(original['observation'],root) as (observed,tail):
+        samples=TabletWebSamples(runtime,root,original['policy'],historical=True,tail_validator=tail)
+        value=samples.read(original['sample']);row=value['row']
+        need(same(original['observation']['observation'],row['after']['observation']) and observed['ticket']==row['ticket'])
+        first=tail(row['before'])['row']['clockJoin'];last=observed['acquisition'];clock=deepcopy(last)
+        clock['hostBeforeEpochMs']=min(last['hostBeforeEpochMs'],first['hostBeforeEpochMs'])
+        clock['hostBeforeMonotonic']=min(last['hostBeforeMonotonic'],first['hostBeforeMonotonic'])
+        duration=(clock['hostAfterMonotonic']-clock['hostBeforeMonotonic'])*1000
+        need(number(duration,0,1500) and duration<1500
+            and 0<=clock['hostAfterEpochMs']-clock['hostBeforeEpochMs']<1500
+            and abs(clock['hostAfterEpochMs']-clock['hostBeforeEpochMs']-duration)<=250)
+        public=deepcopy(observed['public']);public['capturedEpochMs']=clock['hostBeforeEpochMs']
+        public['artifacts']=[samples.artifact(original['sample'],public['sequence'])]
+        result('feature.tablet-web.observe',public)
+        return dict(ticket=observed['ticket'],public=public,acquisition=clock)

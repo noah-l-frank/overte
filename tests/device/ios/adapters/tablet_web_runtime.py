@@ -10,11 +10,12 @@ separate and this component does not advertise a feature capability.
 from contextlib import contextmanager
 from copy import deepcopy
 import os
+from pathlib import Path
 import time
 from adapters.native_feature_observation import exact,need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.phase_witness_publisher import PhaseWitnessPublisher,PublicationPending
-from adapters.script_feature.history import same
+from adapters.script_feature.history import same,canonical
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.phase_fixture import PhaseFixtureReader,PhasePending
 from feature_journeys.contract import identifier
@@ -255,7 +256,8 @@ class TabletRuntimeObserver:
             return self.historical_proof('observation',original,self._validate_original)
         return self._validate_original(original,require_current=True)
 
-    def _validate_original(self,original,*,require_current=False):
+    def _validate_original(self,original,*,require_current=False,_source_sink=None):
+        need(_source_sink is None or callable(_source_sink))
         exact(original,{'tabletWebRuntimeObservationVersion','bootstrap','primaryBootstrap','observation','auxiliaries'})
         need(type(original['tabletWebRuntimeObservationVersion']) is int and original['tabletWebRuntimeObservationVersion']==VERSION)
         current=self.bootstrap
@@ -336,7 +338,80 @@ class TabletRuntimeObserver:
                 and not any(manager['rootVisible'] or manager['labelVisible'] for manager in inventory['managers'])
                 and not any(picker['visible'] or picker['closing'] or picker['requestId'] for picker in inventory['pickers'])
                 and geometry['keyboardVisible'] is False and geometry['imeInsetBottom']==0)
+        if _source_sink is not None:_source_sink(archived)
         return observed
+
+    @contextmanager
+    def image_observation_context(self,original,artifact_root):
+        """Carry one freshly decoded historical owner through this image only.
+
+        No frame/result is memoized here. Every tail still executes frame_at /
+        history and its original file reads. A proof-cache hit supplies no new
+        owner and takes the ordinary existing tail path instead.
+        """
+        from ios.adapters.emote_original_lease import EmoteOriginalLease
+        source=self.observer.source;lock=source.lock;monotonic=source.monotonic
+        lock.assert_held();holders=[];active=True
+        metadata=lambda item:(str(item.root),canonical(item.binding),item.run,item.role,item.fixture,item.pid)
+        expected=metadata(source)
+        roots=[source.root,*self.proof_roots,Path(artifact_root)]
+        roots=[path for index,path in enumerate(roots) if not any(path==prior or path.is_relative_to(prior) for prior in roots[:index])]
+        publisher=source.root/('phase-publication-tablet-web-'+source.run+'-'+source.role+'.json')
+        leases=[EmoteOriginalLease(root,[publisher]) for root in roots]
+        def unchanged():
+            need(active and self.observer.source is source and source.lock is lock
+                and source.monotonic is monotonic and metadata(source)==expected)
+            lock.assert_held()
+            for lease in leases:lease.guard()
+        def decoded(value):return self._validate_original(value,_source_sink=holders.append)
+        try:
+            observed=self.historical_proof('observation',original,decoded);unchanged();need(len(holders)<=1)
+            if not holders:
+                yield observed,self.validate_tail_source
+                return
+            owner=holders[0]
+            need(isinstance(owner,TabletWebSourceOwner) and owner.historical and owner.lock is lock and metadata(owner)==expected)
+            store=owner.store;path=store.path;state=canonical(owner.state);saved=canonical(owner.saved)
+            need(type(store) is PrivateFeatureState and path==source.root/('tabletweb-source-owner-'+source.run+'-'+source.role+'.json'))
+            children={name:(child,child.store,child.store.path,canonical(child.state),canonical(child.saved),
+                metadata(child),child.module,child.monotonic) for name,child in owner.children.items()}
+            need(all(type(entry[1]) is PrivateFeatureState and entry[2]==source.root/('tabletweb-'+name+'-queries-'+source.run+'-'+source.role+'.json')
+                and entry[5]==expected and entry[0].component==name for name,entry in children.items()))
+            def current_owner():
+                unchanged();need(getattr(self,'_image_tail',None) is capsule
+                    and owner.historical and owner.lock is lock and owner.monotonic is monotonic and metadata(source)==metadata(owner)==expected
+                    and owner.store is store and store.path==path and canonical(owner.state)==state
+                    and canonical(owner.saved)==saved and canonical(store.read())==state and state==saved
+                    and set(owner.children)==set(children))
+                for name,(child,child_store,child_path,child_state,child_saved,child_metadata,module,child_monotonic) in children.items():
+                    need(owner.children[name] is child and child.historical and metadata(child)==child_metadata
+                        and child.module is module and child.monotonic is child_monotonic and child.store is child_store
+                        and child_store.path==child_path and canonical(child.state)==child_state
+                        and canonical(child.saved)==child_saved and canonical(child_store.read())==child_state
+                        and child_state==child_saved)
+                unchanged()
+            def tail(value):
+                current_owner()
+                try:
+                    return self.historical_proof('tail',value,lambda item:self._validate_tail_source(item,_history=owner))
+                finally:current_owner()
+            capsule=(self,tail,current_owner);previous=getattr(self,'_image_tail',None);self._image_tail=capsule
+            try:current_owner();yield observed,tail
+            finally:
+                try:current_owner()
+                finally:self._image_tail=previous
+        finally:
+            try:unchanged()
+            finally:active=False
+
+    def _image_tail_validator(self,callback):
+        """No arbitrary callback can suppress original screen-tail validation."""
+        from types import MethodType
+        if (type(callback) is MethodType and callback.__self__ is self
+                and callback.__func__ is TabletRuntimeObserver.validate_tail_source):return callback
+        capsule=getattr(self,'_image_tail',None)
+        need(type(capsule) is tuple and len(capsule)==3 and capsule[0] is self and callback is capsule[1])
+        capsule[2]();return callback
 
     @staticmethod
     def auxiliary_kinds():
@@ -393,7 +468,7 @@ class TabletRuntimeObserver:
         """Full original prefix/birth validation without app/page fact inference."""
         return self.historical_proof('tail',value,self._validate_tail_source)
 
-    def _validate_tail_source(self,value):
+    def _validate_tail_source(self,value,*,_history=None):
         exact(value,{'tabletWebTailSourceVersion','bootstrap','primaryBootstrap','observation'})
         need(type(value['tabletWebTailSourceVersion']) is int and value['tabletWebTailSourceVersion']==1)
         source=self.observer.source;current=self.bootstrap
@@ -407,8 +482,14 @@ class TabletRuntimeObserver:
             primary=self.primary_bootstrap;need(same(value['primaryBootstrap'],primary.state['original'])
                 and primary.admission['hostProcessId']!=observed['hostProcessId']);primary.original()
         else:need(value['primaryBootstrap'] is None)
-        history=TabletWebSourceOwner(source.root,source.binding,source.run,source.role,source.fixture,source.pid,source.lock,
-            lambda:need(False),epoch_ms=lambda:need(False),monotonic=source.monotonic,historical=True)
+        history=_history
+        if history is None:
+            history=TabletWebSourceOwner(source.root,source.binding,source.run,source.role,source.fixture,source.pid,source.lock,
+                lambda:need(False),epoch_ms=lambda:need(False),monotonic=source.monotonic,historical=True)
+        else:
+            need(isinstance(history,TabletWebSourceOwner) and history.historical and history.lock is source.lock
+                and history.root==source.root and same(history.binding,source.binding)
+                and (history.run,history.role,history.fixture,history.pid)==(source.run,source.role,source.fixture,source.pid))
         row,frame,_frames=history.frame_at(observed['reference']);need(observed['hostProcessId']==row['hostProcessId'])
         follow_native(birth,row['nativeBefore'])
         if row['tabletWebAcquisitionVersion']>=2:admission_follows(current.admission,row['admission'],source.binding)
