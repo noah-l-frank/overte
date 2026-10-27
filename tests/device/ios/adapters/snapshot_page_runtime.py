@@ -25,7 +25,7 @@ class IOSSnapshotPageRuntime(IOSSnapshotCaptureRuntime):
         return dict(packet=packet,clockJoin=acquisition.finish(dict(roots=packet),[('roots','capturedEpochMs')]))
 
     @contextmanager
-    def page_owner(self,selector,run,client):
+    def page_owner(self,selector,run,client,*,combined=False):
         from ios.adapters.snapshot_page_owner import IOSSnapshotPageOwner
         lock=ScriptSourceLock(self.state_path(selector).with_name('script-feature-sources.lock'));failure=None
         with lock.held():
@@ -33,7 +33,7 @@ class IOSSnapshotPageRuntime(IOSSnapshotCaptureRuntime):
                 source=self._sources(selector)
                 owner=IOSSnapshotPageOwner(self,selector,run,lock,source,
                     ui=NativeUI(source['client'],source['session'],source['check']),
-                    phase=PhaseFixtureReader(client,run,'snapshots'),epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,sleep=time.sleep)
+                    phase=PhaseFixtureReader(client,run,'snapshots'),epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,sleep=time.sleep,combined=combined)
                 with self.existing_input_session(selector):yield owner
             except BaseException as original:failure=original
         if failure is not None:raise failure
@@ -47,7 +47,7 @@ class IOSSnapshotPageRuntime(IOSSnapshotCaptureRuntime):
         from adapters.native_feature_observation import need
         source=self._sources(owner.selector)
         child=IOSSnapshotCaptureOwner(self,owner.selector,owner.run,owner.lock,source,phase=owner.phase,
-            epoch_ms=owner.epoch_ms,monotonic=owner.monotonic,sleep=owner.sleep)
+            epoch_ms=owner.epoch_ms,monotonic=owner.monotonic,sleep=owner.sleep,combined=owner.combined_profile())
         page=owner.tail();capture=child.state['nativeTail']
         if capture is None:
             if page is not None:restore(source['clock_source'],page)

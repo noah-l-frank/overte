@@ -256,3 +256,57 @@ inode/body and original manager, with no archive query. Its private log is
 `snapshot-combined-clock-resume-20261027-flow06.log`. This is the bounded host
 component, not frontend preflight, rendered review, destination/witness or
 process/SDK-end acceptance; no area capability or source-complete count changes.
+
+The existing Page runtime/owner now has an explicit internal `combined=True`
+profile. Its owner and observation envelopes are version 2; Separate1 remains
+the default, including the existing Share-return subclass and its archive.
+The stored envelope cannot select or upgrade its own profile. Combined Page
+uses the fixed Combined work query/reader and the existing Capture2 child on
+the same held lock and actual native sequence floor. Its own
+`ios-snapshot-combined-page` original namespace and distinct typed frame keys
+retain the existing frame-store byte, inode, five-second and size limits.
+The main Page inventory refuses undeclared files from either page namespace;
+the literal Return1 inventory keeps its separate original scope.
+
+Normal launcher pagination, UIKit source tokens, once-only click responsibility,
+independent route effects and original selected-index restoration reuse the
+existing Page implementation. A lost return does not resend input. Page2 alone
+does not join Share2, Photos2, the full frontend Combined HTTP consumer,
+rendered review, backend/Actor/image agreement or process/SDK/witness endings.
+Feature 11 remains partial and capability-closed, with five of fourteen areas
+source-complete. Native compilation and all device qualification remain
+unexecuted.
+
+Eleven new no-build Page2 cases passed: the fixed query/Return1 literal
+selection in 0.000 seconds, the connected normal open/Capture2/PNG/unlink/
+launcher-restoration/read-only archive in 7.804 seconds, and nine recovery or
+refusal cases in 8.774 seconds. Lost entry, Home, selected-page and Close
+returns each retain their original once-only input responsibility. An ignored
+pagination input cannot be repeated on reconstruction. Opposite-profile
+owners, undeclared Combined originals and foreign compiled source bytes are
+refused before further input. A valid but retained native timer dispatch
+cannot authorize quiet navigation; an opened original recovers the same inode
+and bytes without another query. Literal Share-return1 additionally rejects
+Page2 before binding any child, since its matching Combined archives are open.
+
+The new domain independently produces its four-source/caller/timer originals
+before persistence. Native Qt/V8/UIKit/AFC and acquisition clocks are declared
+host models; actual W3C request handling, CAS, the OS lock, immutable PNG/frame
+files and owned unlink execute. The existing three-second child quiet window
+uses that declared model clock and does not establish device quiet. Archive
+reads issue no query/input or state write and preserve all original frame
+bytes/inodes and source/native counters. Private logs are
+`snapshot-combined-page-resume-20261027-query01.log`,
+`snapshot-combined-page-resume-20261027-normal02.log` and
+`snapshot-combined-page-resume-20261027-recovery03.log` under `.ios-host-tmp`.
+Fourteen existing Separate1 Page/launcher cases then passed in 20.225 seconds,
+including its connected normal PNG/file cleanup, lost input recovery, source
+token/root replacement, retained timer dispatch and unchanged original archive.
+Their private log is `snapshot-combined-page-resume-20261027-legacy04.log`.
+The existing complete Separate1 Share/Archive-end/two-prefix-cleanup/page-return
+archive case then passed in 140.990 seconds. It reconstructs the original
+Return1 subclass, preserving its default profile, own frame namespace and
+read-only historical proof. Its existing Node process uses declared OS/SDK
+responses and actual unconnected socket objects, then terminates during test
+cleanup; no device, real SDK service or compiler is used. Its private log is
+`snapshot-combined-page-resume-20261027-return05.log`.

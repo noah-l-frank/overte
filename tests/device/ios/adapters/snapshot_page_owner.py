@@ -31,9 +31,22 @@ class SnapshotPagePending(NativeUIError):pass
 class IOSSnapshotPageOwner:
     def store_namespace(self):return NAMESPACE
 
+    def combined_profile(self):return getattr(self,'combined',False)
+
+    def version(self):return 2 if self.combined_profile() else 1
+
+    def frame_namespace(self):return 'ios-snapshot-combined-page' if self.combined_profile() else self.store_namespace()
+
+    def work_source(self):
+        if self.combined_profile():
+            from ios.adapters import snapshot_combined_work
+            return snapshot_combined_work
+        return snapshot_work
+
     def restore_origin(self):return self.route(self.record(self.state['initial']))
 
-    def __init__(self,runtime,selector,run,lock,sources,*,ui,phase,epoch_ms,monotonic,sleep):
+    def __init__(self,runtime,selector,run,lock,sources,*,ui,phase,epoch_ms,monotonic,sleep,combined=False):
+        need(type(combined) is bool);self.combined=combined
         from ios.adapters.snapshot_page_runtime import IOSSnapshotPageRuntime
         need(isinstance(runtime,IOSSnapshotPageRuntime) and isinstance(ui,NativeUI) and isinstance(phase,PhaseFixtureReader)
             and phase.area=='snapshots' and phase.run==run)
@@ -46,7 +59,8 @@ class IOSSnapshotPageOwner:
         if self.previous is not None:self.state=self.decode(self.previous)
         else:self.inventory(self.state)
         if self.tail() is not None:restore(sources['clock_source'],self.tail())
-        self.work=sources['observer'].snapshot_work(sources['clock_source'])
+        factory=sources['observer'].snapshot_combined_work if self.combined_profile() else sources['observer'].snapshot_work
+        self.work=factory(sources['clock_source'])
         if self.state['records']:self.work.last=deepcopy(self.original(self.state['records'][-1])['originals']['work'])
         send=sources['clock_source'].send
         def query(command):self.query_intent(command);return send(command)
@@ -56,8 +70,10 @@ class IOSSnapshotPageOwner:
         self.work.send=work_query
 
     @classmethod
-    def archive(cls,store,lock,binding,run,fixture_url):
+    def archive(cls,store,lock,binding,run,fixture_url,*,combined=False):
+        need(type(combined) is bool)
         owner=object.__new__(cls);owner.store,owner.lock,owner.binding,owner.run=store,lock,deepcopy(context(binding)),identifier(run)
+        owner.combined=combined
         owner.fixture_url=fixture_url;owner.historical=True;owner.guard=lambda:True
         import time
         owner.monotonic=time.monotonic;lock.assert_held();owner.previous=store.read();need(owner.previous is not None)
@@ -65,9 +81,9 @@ class IOSSnapshotPageOwner:
 
     def frame_store(self):
         return OriginalFrameStore(self.store.path.parent,self.binding,self.run,'primary',self.bound,self.storage_intent,
-            namespace=self.store_namespace(),schema_prefix='iosSnapshotPage',monotonic=self.monotonic)
+            namespace=self.frame_namespace(),schema_prefix='iosSnapshotCombinedPage' if self.combined_profile() else 'iosSnapshotPage',monotonic=self.monotonic)
 
-    def envelope(self,state):return dict(iosSnapshotPageOwnerVersion=1,runId=self.run,binding=self.binding,fixtureUrl=self.fixture_url,payload=pack([state]))
+    def envelope(self,state):return dict(iosSnapshotPageOwnerVersion=self.version(),runId=self.run,binding=self.binding,fixtureUrl=self.fixture_url,payload=pack([state]))
 
     def bound(self):
         self.lock.assert_held();need(same(self.store.read(),self.previous) and self.guard() is not False);return True
@@ -79,9 +95,11 @@ class IOSSnapshotPageOwner:
     def inventory(self,state):
         expected={self.store.path}|{self.frames.path(self.frames.expand(row)) for row in state['records']}
         if state['observation'] is not None and state['observation']['wire'] is not None:expected.add(self.frames.path(state['observation']['wire']))
+        prefixes=(self.store_namespace()+'-',self.frame_namespace()+'-')
+        if self.store_namespace()==NAMESPACE:prefixes+=('ios-snapshot-combined-page-',)
         for index,path in enumerate(self.store.path.parent.iterdir()):
             need(index<8192)
-            if path.name.startswith(self.store_namespace()+'-'):need(path in expected)
+            if path.name.startswith(prefixes):need(path in expected)
 
     def phase_original(self,value,ticket):
         phase_packet(value,run=self.run,area='snapshots',request=value['requestId'],epoch=value['capturedEpochMs'])
@@ -94,29 +112,29 @@ class IOSSnapshotPageOwner:
 
     def frame(self,value,previous=None):
         exact(value,{'iosSnapshotPageObservationVersion','originals','clockJoin','phaseBefore','phaseAfter','queries'})
-        need(type(value['iosSnapshotPageObservationVersion']) is int and value['iosSnapshotPageObservationVersion']==1)
+        need(type(value['iosSnapshotPageObservationVersion']) is int and value['iosSnapshotPageObservationVersion']==self.version())
         self.phase_original(value['phaseBefore'],self.state['ticket']);self.phase_original(value['phaseAfter'],self.state['ticket'])
         phase_packet(value['phaseAfter'],run=self.run,area='snapshots',request=value['phaseAfter']['requestId'],epoch=value['phaseAfter']['capturedEpochMs'],previous=value['phaseBefore'])
         need(same(value['phaseBefore']['activations'],value['phaseAfter']['activations']))
         need(type(value['queries']) is list and len(value['queries'])<=64)
         seen=set()
         for query in value['queries']:
-            self.query(query);need(query['commandId'] not in seen);seen.add(query['commandId'])
+            self.query(query,combined=self.combined_profile());need(query['commandId'] not in seen);seen.add(query['commandId'])
         originals=value['originals'];exact(originals,{'ui','work'});join=validate_join(value['clockJoin'],originals)
         pid=int(self.binding['processIdentity']);need(join['nativeBefore']['processId']==pid
             and join['nativeBefore']['lifecycle']==join['nativeAfter']['lifecycle'])
-        ui=ui_packet(originals['ui'],pid,join['nativeAfter']['capturedEpochMs']);work=snapshot_work.original(originals['work'])
+        source=self.work_source();ui=ui_packet(originals['ui'],pid,join['nativeAfter']['capturedEpochMs']);work=source.original(originals['work'])
         need(work['processId']==pid and work['runId']==self.run
             and join['nativeBefore']['capturedEpochMs']<=work['clockBefore']['epochMs']<=work['clockAfter']['epochMs']<=join['nativeAfter']['capturedEpochMs'])
         for native in (join['nativeBefore'],join['nativeAfter']):need(native['requestId'] in seen)
         need(work['requestId'] in seen)
-        root=self.runtime_root();snapshot_work.admit(work,root,quiet=True)
+        root=self.runtime_root();source.admit(work,root,quiet=True)
         if previous is not None:
             old=previous['originals'];follow_native(previous['clockJoin']['nativeAfter'],join['nativeBefore'])
             need(join['hostBeforeEpochMs']>=previous['clockJoin']['hostAfterEpochMs'] and join['hostBeforeMonotonic']>=previous['clockJoin']['hostAfterMonotonic']
                 and join['nativeBefore']['lifecycle']==previous['clockJoin']['nativeAfter']['lifecycle']
                 and ui['instance']==old['ui']['instance'] and ui['elapsedMs']>=old['ui']['elapsedMs'] and ui['lastSequence']>=old['ui']['lastSequence'])
-            snapshot_work.validate(work,dict(schemaVersion=1,commandId=work['requestId'],action=snapshot_work.ACTION,runId=self.run),pid,previous=old['work'])
+            source.validate(work,dict(schemaVersion=1,commandId=work['requestId'],action=source.ACTION,runId=self.run),pid,previous=old['work'])
         return value
 
     def runtime_root(self):
@@ -149,9 +167,12 @@ class IOSSnapshotPageOwner:
         return dict(kind='foreign')
 
     @staticmethod
-    def query(command):
+    def query(command,*,combined=False):
+        need(type(combined) is bool)
+        from ios.adapters import snapshot_combined_work
+        source=snapshot_combined_work if combined else snapshot_work
         action=command.get('action') if type(command) is dict else None
-        if action==snapshot_work.ACTION:snapshot_work.command(command)
+        if action==source.ACTION:source.command(command)
         elif action=='feature-script-roots-observe':
             from adapters.native_script_roots import command as root_command
             root_command(command,ios=True)
@@ -162,7 +183,7 @@ class IOSSnapshotPageOwner:
             if action=='normal-ui-input':need(command['operation']=='observe')
 
     def query_intent(self,command):
-        self.bound();self.query(command)
+        self.bound();self.query(command,combined=self.combined_profile())
         if self.state['observation'] is None:
             need(self.state['roots'] is None and not self.state['records']);queries=self.state['setupQueries']
         else:queries=self.state['observation']['queries']
@@ -195,7 +216,7 @@ class IOSSnapshotPageOwner:
         phase_before=self.active();clock=NativeClockAcquisition(self.sources['clock_source'],epoch_ms=self.epoch_ms,monotonic=self.monotonic)
         clock.begin(self.epoch_ms());ui=self.sources['native'].capture();work=self.work.read(self.run)
         originals=dict(ui=ui,work=work);join=clock.finish(originals,[('ui','sampleEpochMs')]);phase_after=self.active()
-        value=dict(iosSnapshotPageObservationVersion=1,originals=originals,clockJoin=join,phaseBefore=phase_before,phaseAfter=phase_after,
+        value=dict(iosSnapshotPageObservationVersion=self.version(),originals=originals,clockJoin=join,phaseBefore=phase_before,phaseAfter=phase_after,
             queries=deepcopy(self.state['observation']['queries']))
         previous=None if not self.state['records'] else self.original(self.state['records'][-1]);self.frame(value,previous)
         reference=self.frames.write(len(self.state['records'])+1,value);self.state['records'].append(reference);self.state['observation']=None;self.save()
@@ -205,7 +226,7 @@ class IOSSnapshotPageOwner:
 
     def decode(self,value):
         exact(value,{'iosSnapshotPageOwnerVersion','runId','binding','fixtureUrl','payload'});rows=unpack(value['payload'])
-        need(type(value['iosSnapshotPageOwnerVersion']) is int and value['iosSnapshotPageOwnerVersion']==1 and len(rows)==1 and same(value,self.envelope(rows[0])))
+        need(type(value['iosSnapshotPageOwnerVersion']) is int and value['iosSnapshotPageOwnerVersion']==self.version() and len(rows)==1 and same(value,self.envelope(rows[0])))
         state=rows[0];exact(state,{'ticket','phaseOriginal','roots','setupQueries','records','observation','actions','initial','opened','restored','abandoned'})
         need(type(state['records']) is list and len(state['records'])<=384 and type(state['actions']) is list and len(state['actions'])<=72
             and type(state['abandoned']) is list and len(state['abandoned'])<=128)
@@ -213,7 +234,7 @@ class IOSSnapshotPageOwner:
         try:
             if state['ticket'] is not None:self.phase_original(state['phaseOriginal'],state['ticket'])
             need(type(state['setupQueries']) is list and len(state['setupQueries'])<=64)
-            for query in state['setupQueries']:self.query(query)
+            for query in state['setupQueries']:self.query(query,combined=self.combined_profile())
             if state['roots'] is not None:self.runtime_root()
             previous=None
             for index,reference in enumerate(state['records'],1):
@@ -228,7 +249,7 @@ class IOSSnapshotPageOwner:
                 if action['after'] is not None:need(action['issued'] and action['after']>action['before']);self.input_effect(action['control'],before,self.record(action['after']))
             for pending in state['abandoned']+([] if state['observation'] is None else [state['observation']]):
                 exact(pending,{'queries','wire','abandoned'});need(type(pending['queries']) is list and len(pending['queries'])<=64 and type(pending['abandoned']) is bool)
-                for query in pending['queries']:self.query(query)
+                for query in pending['queries']:self.query(query,combined=self.combined_profile())
                 if pending['wire'] is not None:
                     self.frames.original(pending['wire'])
                     if pending['wire']['phase']!='planned':self.frame(self.frames.read(pending['wire']))

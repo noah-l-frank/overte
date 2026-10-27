@@ -54,7 +54,7 @@ class SnapshotPageReturnOwner:
         self.engine=engine
         if self.state['result'] is not None:need(same(self.state['result'],self.proof()))
     def initialize(self,page,files,end,*,historical):
-        need(type(page) is IOSSnapshotPageOwner and page.historical and type(files) is IOSSnapshotJourneyFilesOwner and files.historical
+        need(type(page) is IOSSnapshotPageOwner and page.historical and not page.combined_profile() and type(files) is IOSSnapshotJourneyFilesOwner and files.historical
             and type(end) is SnapshotShareArchiveEndOwner and end.historical and type(historical) is bool)
         self.page,self.files,self.end,self.historical=page,files,end,historical;self.lock,self.binding,self.run,self.fixture_url=page.lock,deepcopy(page.binding),page.run,page.fixture_url
         self.root=page.store.path.parent;self.store=PrivateFeatureState(self.root/'snapshot-page-return-owner.json')

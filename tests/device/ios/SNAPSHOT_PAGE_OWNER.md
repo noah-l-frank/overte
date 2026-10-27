@@ -51,6 +51,19 @@ Script/native timer work under independent native before/after clock packets.
 The configured default Script root and exact loaded Snapshot source pins are
 validated; a request result or ACK cannot establish the current route.
 
+The internal runtime, owner and archive accept an explicit `combined=True`
+choice for the ordinary default-script manager that includes Snapshot.
+The owner and observation markers are then version 2. The same coordinator
+path refuses an opposite-profile envelope before observation or input; stored
+bytes never choose a profile. Combined uses only the fixed
+`feature-ios-snapshot-combined-work` reader, its four submitted-source pins
+and original V8 caller/timer histories. It uses the separate
+`ios-snapshot-combined-page` namespace with distinct version-1 frame/original
+keys, retaining the unchanged byte, inode, five-second storage and size limits.
+Undeclared files from either main Page namespace prevent new ownership.
+Default Separate1 frame keys, paths, query grammar and archive remain literal;
+the existing Share-return subclass retains its own Separate1 namespace.
+
 Actual native/work/UI query nonces are saved before transport. Unknown
 GET-style observations can be abandoned only with their whole owned nonce
 prefix retained; a new observation has entirely new nonces. An opened/saved
@@ -77,6 +90,8 @@ replay Close. Repeat opening also observes the actual current SNAP root.
 lock, transferring original native source floors without resetting a live
 reader. It keeps the capture packet unchanged. The child still owns its files,
 original bytes, callbacks and cleanup; navigating Home is not child cleanup.
+An explicit Combined Page constructs the same Capture coordinator with its
+explicit Combined2 profile, preserving its actual manager/work prefix.
 
 The outer API retains the shared 25-second monotonic operation budget. The
 native acquisition bracket remains below 1.5 seconds and every original
@@ -118,5 +133,13 @@ Shared reconciliation includes the passive properties in
 `interface/resources/qml/hifi/tablet/TabletHome.qml`, the iOS normal-control
 sampler/token/press recheck, and the optional Python launcher codec. The QML
 uses the existing `Snapshot.featureObservationEnabled()` build/runtime gate;
-no product route or setter changes. Register the six new page/launcher schema
-entries alongside the other platform registry union during later integration.
+no product route or setter changes. Reconcile the six existing page/launcher
+registry entries alongside the other platform union, including the explicit
+Page owner/observation version-2 choice and retained version-1 reads. The two
+separate Combined frame/original entries remain version 1.
+
+The separate Combined Page component is described in
+[the combined work handoff](SNAPSHOT_COMBINED_WORK.md). It retains the same
+ordinary launcher/input and restoration paths and does not imply a matching
+Photos2/Share2 return archive or frontend Combined HTTP consumer. Its closed
+versioned joins must be reconciled separately; no feature capability is enabled.
