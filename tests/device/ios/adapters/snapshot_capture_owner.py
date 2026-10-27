@@ -31,6 +31,13 @@ from types import SimpleNamespace
 class SnapshotCapturePending(NativeUIError):pass
 
 
+class _PreparedObservation:
+    """Unsent metadata responsibility only; it contains no acquired fact."""
+    def __init__(self,owner,slot,child):
+        self.owner,self.slot,self.child=owner,slot,child;self.used=False
+        self.header=owner.prepared_header(slot,child);self.state_sha=digest(child.state);self.previous_sha=digest(child.previous)
+
+
 class IOSSnapshotCaptureOwner:
     def __init__(self,runtime,selector,run,lock,sources,*,phase,epoch_ms,monotonic,sleep,combined=False):
         need(type(combined) is bool);self.combined=combined
@@ -190,6 +197,51 @@ class IOSSnapshotCaptureOwner:
         slot=dict(label=label,kind=kind,index=index,sha256=None);self.state['slots'].append(slot);self.save();return slot
 
     def child(self,slot,historical=False):return self.runtime.component(self,slot['kind'],slot['index'],historical=historical)
+
+    def prepared_header(self,slot,child):
+        kind=slot['kind'];need(kind in ('manifest','filework','owned'))
+        expected=self.runtime.component_type(self,kind);need(type(child) is expected and child.lock is self.lock and child.binding==self.binding
+            and child.run==self.run and child.role=='primary' and child.index==slot['index'] and child.pid==int(self.binding['processIdentity'])
+            and child.guard is self.guard and child.feature is self.sources['observer'])
+        native=child.clock.native if kind=='manifest' else child.native
+        need(native is self.sources['clock_source'])
+        name=expected._name
+        need(child.store.path==self.store.path.with_name('ios-snapshot-primary-'+name+'-'+format(slot['index'],'04d')+'.json'))
+        return (digest(slot),type(child),str(child.store.path),id(child.lock),digest(child.binding),child.run,child.role,child.index,child.pid,
+            id(child.guard),id(child.feature),id(native),id(self.guard),digest(self.binding))
+
+    def prepare_observation(self,label,kind,*,mode='still-png'):
+        self.bound();need(self.combined and self.state['phase']=='cleaning' and kind in ('manifest','filework','owned'))
+        need(re.fullmatch(r'journey-quiet-[1-3]-(?:animated|still-png|filework|owned)',label))
+        if kind=='manifest':need(mode in ('animated','still-png') and label.endswith('-'+mode))
+        else:need(label.endswith('-'+kind))
+        slot=self.slot(label,kind);child=self.child(slot)
+        if child.state is None:
+            if kind=='manifest':child.reserve(mode)
+            else:child.reserve()
+        # Constructor/load and reserve run before the first group acquisition.
+        # A retained or issued original is never assigned another nonce here.
+        return _PreparedObservation(self,slot,child)
+
+    def observe_prepared(self,prepared):
+        self.bound();need(self.combined and self.state['phase']=='cleaning' and type(prepared) is _PreparedObservation
+            and prepared.owner is self and not prepared.used and any(slot is prepared.slot for slot in self.state['slots']))
+        slot,child=prepared.slot,prepared.child
+        need(prepared.header==self.prepared_header(slot,child) and prepared.state_sha==digest(child.state) and prepared.previous_sha==digest(child.previous))
+        prepared.used=True;child.bound();kind=slot['kind'];known=slot['sha256'];tail=deepcopy(self.state['nativeTail'])
+        if child.state['phase']=='reserved':
+            if kind=='manifest':child.send(self.epoch_ms())
+            else:child.send()
+        if child.state['phase']=='issued':
+            if kind=='manifest':child.recover()
+            else:child.retain()
+        frame=child.historical()
+        if kind!='manifest':child.qualified()
+        if known is not None:need(digest(child.previous)==known);return child
+        span=frame['clockJoin' if 'clockJoin' in frame else 'acquisition']
+        if tail is not None:follow_native(tail,span['nativeBefore'])
+        slot['sha256']=digest(child.previous);self.state['nativeTail']=deepcopy(span['nativeAfter']);self.save()
+        return child
 
     def observed(self,label,kind,*,mode='still-png',manifest=None,basename=None,offset=None):
         slot=self.slot(label,kind);child=self.child(slot);known=slot['sha256'];tail=deepcopy(self.state['nativeTail'])

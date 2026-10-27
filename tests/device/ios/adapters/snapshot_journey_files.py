@@ -143,8 +143,17 @@ class IOSSnapshotJourneyFilesOwner:
         while len(self.state['quiet'])<3:
             if self.state['quiet']:self.sleep(1.6)
             number=len(self.state['quiet'])+1;label='journey-quiet-'+str(number)
-            manifests=[capture.observed(label+'-'+mode,'manifest',mode=mode).index for mode in ('animated','still-png')]
-            work=capture.observed(label+'-filework','filework');owned=capture.observed(label+'-owned','owned');self.admit(owned)
+            if self.combined:
+                # Reserve all four unchanged commands before the first actual
+                # NativeBefore/HostBefore. This makes no observation or fact.
+                prepared=[capture.prepare_observation(label+'-'+mode,'manifest',mode=mode) for mode in ('animated','still-png')]
+                prepared += [capture.prepare_observation(label+'-'+kind,kind) for kind in ('filework','owned')]
+                manifests=[capture.observe_prepared(child).index for child in prepared[:2]]
+                work=capture.observe_prepared(prepared[2]);owned=capture.observe_prepared(prepared[3])
+            else:
+                manifests=[capture.observed(label+'-'+mode,'manifest',mode=mode).index for mode in ('animated','still-png')]
+                work=capture.observed(label+'-filework','filework');owned=capture.observed(label+'-owned','owned')
+            self.admit(owned)
             group=([capture.history('manifest',index) for index in manifests],work,owned,[capture.history('remove',index) for index in self.state['removals']])
             snapshot_file_absence.sample(*group,guard=self.guard,epoch_ms=self.epoch_ms,monotonic=self.monotonic)
             sources=capture.packets(label);capture.drained(sources)
