@@ -204,3 +204,54 @@ ownership fails before receive queries. No native compilation or physical
 device testing is performed. This factory remains an internal composition
 component; the normal Send/immutable peer-original join and full Chat operation
 coordinator still need implementation.
+
+## Immutable receive cuts
+
+`IOSChatReceiveSources` is an internal observational child of those same
+components. It owns no normal input and opens no extra session or transport.
+The primary capture must already be admitted and active. Each cut uses both
+original candidate-bound native clocks around a newly acquired independent
+receive pair, retaining the complete raw DTO fields and all original native
+epochs. Both clock brackets and their combined host window keep the existing
+1.5-second bound; the existing twenty-second Chat checkpoint budget, 128-source
+cut limit, 128-native-event bound and original-file size limits stay unchanged.
+Fixture clocks in these host tests remain explicit models.
+
+Before each actual native command, the child saves its role and exact command
+in the bounded WAL. Every returned native-clock packet is durably retained too,
+including nested clock reads made by Chat's existing reader. Complete cuts
+require exact role/query order and retain the first/last clock packets as their
+bracket endpoints. Both sender and reader hooks are restored on every exit. The
+same `OriginalFrameStore` stores immutable typed actor frames with original
+hash, byte length, device and inode; no new storage service is introduced.
+Independent primary/peer PID, source instance, sequence, open-cache identity,
+complete event-prefix and query-nonce relationships are rederived from the
+stored packets. Duplicate messages remain duplicated. Foreign, corrupted,
+unowned-prefix or missing originals prevent archive admission.
+
+An interrupted passive read retains the exact query and observed native start
+packets. Reconstructed readers restore the greatest actually observed native
+cursor from both complete and interrupted originals, including every present
+history. A changed interrupted PID or native source instance fails before a
+new native query. The original host/native times are never refreshed. Lost
+saved-original CAS returns adopt the actual complete opened/saved file after
+its full typed/hash/inode checks, with no query or recapture. A subsequent
+capture always takes a new cut; recovered storage is not returned as a fresh
+measurement. Unresolved storage responsibility blocks archive admission.
+
+Pure archive uses independently supplied bindings, run, artifact roots, original
+peer-binding record and held locks. It reads the actual original files and
+checks membership without live SDK/native calls or writes. It does not release
+either cache, artifact root, binding or session scope. Four new contracts write
+and read only one: `ios-chat-receive-sources`, `ios-chat-receive-observation`,
+`ios-chat-receive-frame` and `ios-chat-receive-original`.
+
+Eight host cases pass in 3.768 s, including normal capture/reconstruction/pure
+archive, failed query WAL before send, changed current candidate, rewritten
+receive history, physical original corruption/orphans, saved-original return
+loss, interrupted clock-floor identity and missing nested clock originals.
+Private files/codecs/locks execute;
+all native, SDK and clocks are declared boundaries. The normal Send-to-peer
+original join, source-bound UI/render outcomes, mixer control/recovery and
+complete main-process/SDK cleanup remain open. This child enables no complete
+Chat capability and does not qualify native compilation or a physical device.
