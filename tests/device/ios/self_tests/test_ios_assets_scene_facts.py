@@ -11,6 +11,15 @@ from ios.self_tests.assets_scene_facts_fixture import pair,reseal
 
 
 class AssetsSceneFactsTests(unittest.TestCase):
+    def test_coincident_os_pid_keeps_native_app_instances_and_original_targets_independent(self):
+        primary,peer,lineage=pair(actor_pid=42);proof=peer_model(primary,peer,lineage)
+        self.assertEqual(proof['primaryBinding']['processIdentity'],proof['peerBinding']['processIdentity'])
+        self.assertNotEqual(proof['primaryBinding']['targetFingerprint'],proof['peerBinding']['targetFingerprint'])
+        self.assertFalse(proof['renderedPixelsAvailable']);self.assertFalse(proof['resourceRetirementAvailable'])
+        for key in ('nativeBefore','nativeAfter'):peer['clockJoin'][key]['instance']=primary['clockJoin'][key]['instance']
+        reseal(peer)
+        with self.assertRaises(NativeUIError):peer_model(primary,peer,lineage)
+
     def test_independent_actual_peer_and_each_original_parser_body_keep_pixels_and_retirement_unavailable(self):
         primary,peer,lineage=pair();before=deepcopy((primary,peer,lineage));proof=peer_model(primary,peer,lineage)
         self.assertEqual(lineage['entityId'],proof['entityId']);self.assertEqual(lineage['sha256'],proof['sha256'])

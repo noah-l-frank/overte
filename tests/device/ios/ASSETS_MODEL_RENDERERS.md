@@ -70,7 +70,8 @@ The original Model and peer/cache lifetimes remain independently owned after
 any successful image. Existing Create image/marker owners must retain their
 own schemas and responsibilities, not be relabeled as Assets publication.
 
-The private peer owner's conservative differing-PID admission also remains to
-be qualified for distinct devices with coincident numeric PIDs. Its existing
-candidate/source-instance identity checks must retain alias rejection when
-that admission is widened. See [peer originals](ASSETS_PEER_ORIGINALS.md).
+The private peer owner2 now admits independently bound targets with coincident
+numeric PIDs while retaining native/source-instance alias rejection and literal
+old1 admission. Its targeted connected/pure/legacy host cases passed; rendered
+pixels and all resource retirement remain separate. See
+[peer originals](ASSETS_PEER_ORIGINALS.md).

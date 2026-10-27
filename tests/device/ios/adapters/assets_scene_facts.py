@@ -61,6 +61,9 @@ def peer_model(primary,peer,lineage):
         and primary['role']=='actor-primary' and peer['role']=='actor' and primary['runId']==peer['runId']==lineage['runId'])
     digest(lineage['sha256']);need(integer(lineage['bytes'],1,32768));create_state.uuid(lineage['entityId']);create_state.uuid(lineage['domainId'])
     a,b=primary['originals'],peer['originals'];left,right=a['createAfter'],b['createAfter'];id_=lineage['entityId']
+    # PIDs are local to each operating system and may coincide on independent
+    # targets. Actual native clock instances still must identify two apps.
+    need(primary['clockJoin']['nativeBefore']['instance']!=peer['clockJoin']['nativeBefore']['instance'])
     independent(left,right,primary['binding'],peer['binding']);domains(left,right,a['domain'],b['domain'])
     need(lineage['processId']==left['processId'] and lineage['domainId']==left['source']['domainId'] and len(replicated(left,right,[id_],primary['binding'],peer['binding']))==1)
     parsed=[assets_model_origin.parsed_input(frame['origin'],id_) for frame in (a,b)]

@@ -30,10 +30,10 @@ def instantiate_native(epoch,pid,instance,sequence):
     stamp(value);value.update(processId=pid,instance=instance);return value
 
 
-def pair():
+def pair(*,actor_pid=43):
     frames=[];body=None
     for role,pid,session,fingerprint in (('actor-primary',42,create.SESSION,BINDING['targetFingerprint']),
-            ('actor',43,'55555555-5555-4555-8555-555555555555','a'*64)):
+            ('actor',actor_pid,'55555555-5555-4555-8555-555555555555','a'*64)):
         before=create.version2(create.packet());row=create.add_model(before);create.version2(before)
         before.update(iosCreateStateVersion=3,processId=pid,instance=uuid.uuid4().hex,requestId='ios-'+uuid.uuid4().hex)
         before['source']['localSessionId']=session;before['source']['tree']['treeInstance']=uuid.uuid4().hex

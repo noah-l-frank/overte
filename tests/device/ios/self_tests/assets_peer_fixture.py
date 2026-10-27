@@ -66,11 +66,11 @@ class Fixture(parsed.Fixture):
 
 
 class SceneEndpoint:
-    def __init__(self,fixture,parsed_owner,root,role):
+    def __init__(self,fixture,parsed_owner,root,role,*,pid=None):
         self.fixture,self.boundary,self.role=fixture,fixture.boundary,role;self.world=self.boundary if role=='actor-primary' else self.boundary.peer
-        self.root=Path(root);self.root.mkdir(mode=0o700,exist_ok=True);self.pid=42 if role=='actor-primary' else 43
+        self.root=Path(root);self.root.mkdir(mode=0o700,exist_ok=True);self.pid=(42 if role=='actor-primary' else 43) if pid is None else pid
         self.binding=deepcopy(parsed_owner.sources.binding)
-        if role=='actor':self.binding.update(processIdentity='43',targetFingerprint='9'*64,sessionId='actual-peer-boundary')
+        if role=='actor':self.binding.update(processIdentity=str(self.pid),targetFingerprint='9'*64,sessionId='actual-peer-boundary')
         self.lock=fixture.lock if role=='actor-primary' else ScriptSourceLock(self.root/'script-feature-sources.lock');self.lock_context=None
         if role=='actor':self.lock_context=self.lock.held();self.lock_context.__enter__()
         self.store=PrivateFeatureState(self.root/('ios-assets-scene-'+parsed.RUN+'-'+role+'.json'));self.raw={};self.counts=dict(clock=0,state=0,domain=0,origin=0);self.queries=[];self.good=True

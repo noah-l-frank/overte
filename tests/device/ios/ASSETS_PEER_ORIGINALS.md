@@ -117,9 +117,28 @@ draw counter, requested model URL, returned UUID or loaded wrapper cannot fill
 that gap. Existing actual Create marker/sample mechanisms must keep their own
 schemas and ownership; their Create publication is not an Assets publication.
 
-The current private owner additionally requires differing numeric native PIDs.
-That is a conservative admission limit, not a universal process identity rule:
-distinct devices may legitimately use the same PID. Before widening this
-admission, qualify distinct candidate/native/source-instance ownership for that
-case and reject native-instance aliasing. The present connected fixtures use
-different PIDs; no general same-PID multi-device qualification is claimed.
+## Owner2 coincident-PID admission
+
+The original private owner1 retains its exact differing-numeric-PID admission.
+Current owner2 reads both1 and2, and permits coincident OS PIDs on independently
+bound targets. Target fingerprints, original native clock instances, Create
+instances, local sessions, origin/history instances and actual parser reader
+identities must still be distinct; domain/mixer and retained actual model
+creation identity must agree. A numeric PID is local to its operating system,
+not a global device identity. The same actual selector/candidate is still
+rejected before source acquisition.
+
+`assets-peer2-coincident-small-20261027.log` passed twelve focused cases in
+1.627 seconds, including coincident PIDs, native-instance alias rejection,
+source-prefix/orphan/inode/guard checks and the same-target factory rejection.
+`assets-peer2-coincident-legacy-20261027.log` passed two connected components in
+32.729 seconds: actual normal primary creation and independently loaded peer
+with coincident PIDs, then pure inspection/reentry; and exact legacy1 reentry
+with different PIDs. Historical owner1 remains version1 and issues no query or
+input. Relabeling coincident-PID owner2 as old1 is rejected. All pixel and
+resource verdict flags remain false. These are declared host boundaries, not
+actual device qualifications. No unchanged whole journey was repeated.
+The five explicitly selected project suites passed in 6.77 seconds, with
+contract-version and whitespace validation also passing; exact project log:
+`assets-peer2-project5-20261027.log`. This changes only the peer owner version
+to2/reads1,2; observation, Scene and original-source schemas remain unchanged.

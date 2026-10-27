@@ -46,6 +46,10 @@ class AssetsPeerOwnerTests(unittest.TestCase):
                             with self.assertRaises(NativeUIError):restored.decode(envelope)
                         self.assertEqual(before,{str(path.relative_to(root)):(path.stat().st_ino,path.read_bytes()) for path in root.rglob('*') if path.is_file()})
                         self.assertEqual(queries,(primary.queries,peer.queries));self.assertEqual(inputs,fixture.boundary.inputs)
+                        legacy=deepcopy(store.read());legacy['iosAssetsPeerOwnerVersion']=1
+                        store.write(legacy,store.read());historical=OwnedAssetsPeer(parsed,primary.owner(),peer.owner(),store,peer.lock)
+                        self.assertEqual(result,historical.observe());self.assertEqual(1,store.read()['iosAssetsPeerOwnerVersion'])
+                        self.assertEqual(queries,(primary.queries,peer.queries));self.assertEqual(inputs,fixture.boundary.inputs)
                     finally:peer.close();primary.close()
             finally:fixture.close()
 
@@ -95,5 +99,25 @@ class AssetsPeerOwnerTests(unittest.TestCase):
                         restored=OwnedAssetsPeer(parsed,primary.owner(),peer.owner(),store,peer.lock);result=restored.observe()
                         self.assertEqual(parsed.state['result']['entityId'],result['entityId']);self.assertEqual(6,len(primary.queries));self.assertEqual(6,len(peer.queries))
                         self.assertEqual(inputs,fixture.boundary.inputs);self.assertEqual(a.state['frames'][0],restored.state['pending']['primary'])
+                    finally:peer.close();primary.close()
+            finally:fixture.close()
+
+    def test_owner_two_joins_coincident_native_pids_only_with_distinct_actual_targets_and_instances(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);root.chmod(0o700);fixture=Fixture(root)
+            try:
+                with patch('adapters.asset_backend_client.build_opener',return_value=fixture):
+                    parsed=fixture.prepared_peer();primary=SceneEndpoint(fixture,parsed,root,'actor-primary');peer=SceneEndpoint(fixture,parsed,root/'peer','actor',pid=42)
+                    try:
+                        store=PrivateFeatureState(peer.root/('ios-assets-peer-'+parsed.sources.run+'.json'));owner=OwnedAssetsPeer(parsed,primary.owner(),peer.owner(),store,peer.lock)
+                        owner.reserve();result=owner.observe();self.assertEqual(2,store.read()['iosAssetsPeerOwnerVersion'])
+                        self.assertEqual('42',result['primaryBinding']['processIdentity']);self.assertEqual('42',result['peerBinding']['processIdentity'])
+                        self.assertNotEqual(result['primaryBinding']['targetFingerprint'],result['peerBinding']['targetFingerprint'])
+                        self.assertEqual(6,len(primary.queries));self.assertEqual(6,len(peer.queries));before=deepcopy((primary.queries,peer.queries))
+                        self.assertEqual(['peer-resource-retirement'],inspect_directory(peer.root,primary_directory=root)[-1]['responsibilities'])
+                        restored=OwnedAssetsPeer(parsed,primary.owner(),peer.owner(),store,peer.lock);self.assertEqual(result,restored.observe())
+                        legacy=deepcopy(store.read());legacy['iosAssetsPeerOwnerVersion']=1
+                        with self.assertRaises(NativeUIError):restored.decode(legacy)
+                        self.assertEqual(before,(primary.queries,peer.queries));self.assertFalse(result['renderedPixelsAvailable']);self.assertFalse(result['resourceRetirementAvailable'])
                     finally:peer.close();primary.close()
             finally:fixture.close()

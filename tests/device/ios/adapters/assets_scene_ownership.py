@@ -81,7 +81,7 @@ def inspect_scenes(directory,entries,*,primary_directory=None):
             primary,_covered=source(primary_path,primary_value,run,'actor-primary');peer=sources[(run,'actor')][0]
             parsed=contexts[(run,'primary')]['parsed'];need(parsed is not None
                 and same(primary.binding,parsed.model.usage.source.binding)
-                and primary.binding['targetFingerprint']!=peer.binding['targetFingerprint'] and primary.pid!=peer.pid)
+                and primary.binding['targetFingerprint']!=peer.binding['targetFingerprint'])
             owner=object.__new__(OwnedAssetsPeer);owner.parsed,owner.primary,owner.peer=parsed,primary,peer
             owner.store=PrivateFeatureState(path);owner.run=run;owner.state=owner.decode(value)
             responsibilities=['peer-resource-retirement']

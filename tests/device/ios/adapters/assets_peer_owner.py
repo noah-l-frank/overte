@@ -16,7 +16,8 @@ from ios.adapters.assets_parsed_owner import OwnedAssetsParsedInput
 from ios.adapters.assets_scene_sources import AssetsSceneSources
 from ios.adapters.assets_scene_facts import peer_model
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 
 
 class OwnedAssetsPeer:
@@ -25,7 +26,7 @@ class OwnedAssetsPeer:
             and isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock) and lock is peer.lock
             and parsed.lock is primary.lock and primary.role=='actor-primary' and peer.role=='actor'
             and primary.run==peer.run==parsed.sources.run and same(primary.binding,parsed.model.usage.source.binding)
-            and primary.binding['targetFingerprint']!=peer.binding['targetFingerprint'] and primary.pid!=peer.pid
+            and primary.binding['targetFingerprint']!=peer.binding['targetFingerprint']
             and store.path.parent==peer.store.path.parent and parsed.store.path.parent==primary.store.path.parent
             and store.path.name=='ios-assets-peer-'+primary.run+'.json')
         self.parsed,self.primary,self.peer,self.store,self.lock=parsed,primary,peer,store,lock
@@ -80,10 +81,11 @@ class OwnedAssetsPeer:
         return peer_model(primary,peer,lineage)
     def decode(self,value):
         exact(value,{'iosAssetsPeerOwnerVersion','binding','primaryBinding','runId','primaryDirectory','primaryDirectoryIdentity','fileOwnerToken','entityId','payload'})
-        need(type(value['iosAssetsPeerOwnerVersion']) is int and value['iosAssetsPeerOwnerVersion']==VERSION and same(value['binding'],self.peer.binding)
+        need(type(value['iosAssetsPeerOwnerVersion']) is int and value['iosAssetsPeerOwnerVersion'] in READS and same(value['binding'],self.peer.binding)
             and same(value['primaryBinding'],self.primary.binding) and value['runId']==self.run
             and value['primaryDirectory']==str(self.primary.store.path.parent) and same(value['primaryDirectoryIdentity'],self.primary_identity())
             and value['fileOwnerToken']==self.parsed.model.usage.source.files.state['token'] and value['entityId']==self.lineage()['entityId'])
+        if value['iosAssetsPeerOwnerVersion']==1:need(self.primary.pid!=self.peer.pid)
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0];exact(state,{'attempts','pending','result'})
         need(type(state['attempts']) is list and len(state['attempts'])<=8);primary=[];peer=[]
         for attempt in state['attempts']+([] if state['pending'] is None else [state['pending']]):
