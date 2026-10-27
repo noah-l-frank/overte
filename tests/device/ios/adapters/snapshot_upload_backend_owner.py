@@ -29,20 +29,21 @@ class IOSSnapshotUploadBackendOwner:
     def __init__(self,native,client,*,epoch_ms,monotonic,sleep,domain_policy=None):
         need(type(native) is IOSSnapshotUploadOwner and native.historical and native.state['result'] is not None and isinstance(client,Client))
         need(client.url+'/runs/'+native.run+'/'==native.fixture_url);source.origin(client.url)
-        self.domain_policy=None if domain_policy is None else deepcopy(public_configuration(domain_policy));self.version=1 if domain_policy is None else 2
+        self.domain_policy=None if domain_policy is None else deepcopy(public_configuration(domain_policy));self.version=3 if native.frontend_http else 1 if domain_policy is None else 2
         self.native,self.client,self.epoch_ms,self.monotonic,self.sleep=native,client,epoch_ms,monotonic,sleep;self.historical=False;self.setup()
     @classmethod
     def history(cls,native,*,domain_policy=None):
         owner=object.__new__(cls);owner.native=native;owner.historical=True;owner.client=None;owner.monotonic=time.monotonic;owner.epoch_ms=owner.sleep=None
-        owner.domain_policy=None if domain_policy is None else deepcopy(public_configuration(domain_policy));owner.version=1 if domain_policy is None else 2
+        owner.domain_policy=None if domain_policy is None else deepcopy(public_configuration(domain_policy));owner.version=3 if native.frontend_http else 1 if domain_policy is None else 2
         owner.setup();need(owner.previous is not None);return owner
     def setup(self):
+        need(self.version!=3 or self.domain_policy is not None)
         native=self.native;need(native.historical and native.state['result'] is not None);self.run,self.binding,self.lock,self.fixture_url=native.run,deepcopy(native.binding),native.lock,native.fixture_url
         self.lock.assert_held();self.root=native.root;self.store=PrivateFeatureState(self.root/'snapshot-upload-backend-owner.json')
         self.pins=dict(nativeUploadOwnerSha256=digest(native.previous),nativeUploadResultSha256=digest(native.proof()))
-        if self.version==2:self.pins['domainPolicySha256']=digest(self.domain_policy)
+        if self.version>=2:self.pins['domainPolicySha256']=digest(self.domain_policy)
         self.previous=self.store.read();self.state=dict(slots=[],role=None,authority=None,admission=None,scope=None,joined=None,bodies=[],result=None)
-        if self.version==2:self.state.update(preflight=None,preflightJoined=None)
+        if self.version>=2:self.state.update(preflight=None,preflightJoined=None)
         if self.previous is not None:self.state=self.load(self.previous)
         elif not self.historical:
             need(not any(path.name.startswith('snapshot-upload-backend-') for path in self.root.iterdir()));self.save()
@@ -112,7 +113,7 @@ class IOSSnapshotUploadBackendOwner:
                 else:need(slot['proof'] is None)
             for key,kind in (('role','role'),('authority','authority'),('admission','source')):
                 if state[key] is not None:need(self.qualified(state[key])['query']['kind']==kind)
-            if self.version==2 and state['preflight'] is not None:
+            if self.version>=2 and state['preflight'] is not None:
                 need(state['joined'] is not None and self.qualified(state['preflight'])['query']['kind']=='preflight'
                     and all(state[key] is not None and state[key]<state['preflight'] for key in ('role','authority','admission')))
             if state['scope'] is not None:
@@ -123,11 +124,11 @@ class IOSSnapshotUploadBackendOwner:
                         if slot['query']['kind']=='preflight':need(same(self.scope(packet),state['scope']))
             if state['admission'] is not None:self.admitted()
             if state['joined'] is not None:need(same(state['joined'],self.join()))
-            if self.version==2 and state['preflightJoined'] is not None:need(same(state['preflightJoined'],self.preflight_join()))
+            if self.version>=2 and state['preflightJoined'] is not None:need(same(state['preflightJoined'],self.preflight_join()))
             need(type(state['bodies']) is list and len(state['bodies'])<=16)
             for offset,index in enumerate(state['bodies']):
                 packet=self.packet(index);need(packet['offset']==offset*source.PART and packet['upload']==state['joined']['upload']['instance'])
-                if self.version==2:need(state['preflightJoined'] is not None and index>state['preflight'])
+                if self.version>=2:need(state['preflightJoined'] is not None and index>state['preflight'])
             if state['result'] is not None:need(same(state['result'],self.proof()))
         finally:self.state=prior
         return deepcopy(state)
@@ -188,14 +189,14 @@ class IOSSnapshotUploadBackendOwner:
             if not self.timely(self.frame(index)):continue
             self.state['admission']=index;self.save()
         joined=self.join();self.state['joined']=joined;self.save()
-        if self.version==2:self.admit_preflight()
+        if self.version>=2:self.admit_preflight()
         return deepcopy(joined)
     def preflight_join(self):
-        need(self.version==2 and self.state['preflight'] is not None and self.state['joined'] is not None)
+        need(self.version>=2 and self.state['preflight'] is not None and self.state['joined'] is not None)
         self.qualified(self.state['preflight']);packet=self.packet(self.state['preflight']);backend=self.admitted();source.after(packet['clock'],backend['clock'])
         return source.concurrency_joined(packet,backend,self.state['joined'],self.native.state['ticket'])
     def admit_preflight(self):
-        need(self.version==2 and not self.historical)
+        need(self.version>=2 and not self.historical)
         while self.state['preflight'] is None:
             earlier=[(index,slot) for index,slot in enumerate(self.state['slots'],1) if slot['label']=='preflight' or slot['label'].startswith('preflight-')]
             if earlier and (earlier[-1][1]['phase']!='retained' or self.timely(self.frame(earlier[-1][0]))):label=earlier[-1][1]['label']
@@ -211,7 +212,7 @@ class IOSSnapshotUploadBackendOwner:
         upload=self.state['joined']['upload'];raw=[];expected=upload['file']
         need(len(self.state['bodies'])==(expected['bytes']+source.PART-1)//source.PART)
         previous_clock=self.admitted()['clock']
-        if self.version==2:
+        if self.version>=2:
             preflight_clock=self.packet(self.state['preflight'])['clock'];source.after(preflight_clock,previous_clock);previous_clock=preflight_clock
         for offset,index in enumerate(self.state['bodies']):
             packet=self.packet(index);need(packet['upload']==upload['instance'] and packet['offset']==offset*source.PART and packet['totalBytes']==expected['bytes'] and packet['sha256']==expected['sha256']
@@ -221,16 +222,19 @@ class IOSSnapshotUploadBackendOwner:
         result=dict(snapshotUploadBackendResultVersion=self.version,runId=self.run,binding=self.binding,pins=self.pins,scope=self.state['scope'],upload=upload['instance'],story=self.state['joined']['story']['id'],file=expected,
             authenticatedProtocolOriginalJoined=True,backendBodyOriginalRetained=True,readOnlyRoleAdmitted=True,backendServiceProcessAdmissionRequired=True,
             renderedReviewRequired=True,backendFixtureRetirementRequired=True,sourceJournalRetirementRequired=True,transportProcessProofRequired=True,wholeFeatureRequired=True)
-        if self.version==2:
+        if self.version>=2:
             preflight=self.preflight_join();need(same(preflight,self.state['preflightJoined']))
             result.update(controlledDomainPreflightOriginalJoined=True,domainPolicy=deepcopy(self.domain_policy),preflight=preflight,frontendResponseConsumptionRequired=True,externalMetaverseRegistrationRequired=True)
+        if self.version==3:
+            from ios.adapters.snapshot_frontend_consumption import joined
+            result.update(frontendResponseConsumptionRequired=False,frontendConsumption=joined(self),frontendBranchAcceptanceRequired=True)
         return result
     @operation
     def original(self):
         need(not self.historical);self.guard()
         if self.state['result'] is not None:return self.proof()
         if self.state['joined'] is None:self.admit()
-        if self.version==2 and self.state['preflightJoined'] is None:self.admit_preflight()
+        if self.version>=2 and self.state['preflightJoined'] is None:self.admit_preflight()
         upload=self.state['joined']['upload'];total=upload['file']['bytes']
         while len(self.state['bodies'])*source.PART<total:
             offset=len(self.state['bodies'])*source.PART;index=self.sample('body-'+str(offset),'body',upload=upload['instance'],offset=offset);self.state['bodies'].append(index);self.save()
@@ -238,10 +242,10 @@ class IOSSnapshotUploadBackendOwner:
 
 
 @contextmanager
-def backend_context(runtime,selector,run,client,binding,*,epoch_ms,monotonic,sleep,domain_policy=None,combined=False):
+def backend_context(runtime,selector,run,client,binding,*,epoch_ms,monotonic,sleep,domain_policy=None,combined=False,frontend_http=False):
     """Reopen exact original main binding; no SDK, native input or OS getter."""
-    need(type(combined) is bool)
+    need(type(combined) is type(frontend_http) is bool and (not frontend_http or combined))
     lock=ScriptSourceLock(runtime.state_path(selector).with_name('script-feature-sources.lock'))
     with lock.held():
-        native=IOSSnapshotUploadOwner.history(PrivateFeatureState(lock.path.with_name('snapshot-upload-owner.json')),lock,binding,run,client.url+'/runs/'+run+'/',combined=combined)
+        native=IOSSnapshotUploadOwner.history(PrivateFeatureState(lock.path.with_name('snapshot-upload-owner.json')),lock,binding,run,client.url+'/runs/'+run+'/',combined=combined,frontend_http=frontend_http)
         yield IOSSnapshotUploadBackendOwner(native,client,epoch_ms=epoch_ms,monotonic=monotonic,sleep=sleep,domain_policy=domain_policy)

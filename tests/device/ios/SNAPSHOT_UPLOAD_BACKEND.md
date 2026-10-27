@@ -33,7 +33,12 @@ owner/query/result versions 1 and 2, role admission, original frame format and
 deadlines remain unchanged. Their native owner/result pins retain the actual
 version-2 parent identity. Domain-policy selection remains a separate explicit
 argument. This factory binding does not satisfy either the native Upload2 or
-Backend2 frontend HTTP-consumption obligation.
+Backend2 frontend HTTP-consumption obligation. The separate explicit
+`frontend_http=True` Combined3 profile now reopens retained native HTTP slots
+and derives the [original consumer join](SNAPSHOT_FRONTEND_CONSUMPTION.md) in
+the same read-only owner. Its owner/query/result3 does not change literal
+profiles1/2. A matched responseText GET discharges response consumption while
+the causal Snapshot branch/caller remains independently required.
 
 Each query intent precedes dispatch. The provider materializes original source
 JSON bytes once per nonce and preserves their clock and cursor on retry. Actual

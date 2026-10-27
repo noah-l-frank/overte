@@ -77,11 +77,12 @@ not repeat dispatch. The private log is
 Native changes were reviewed at source level and remain uncompiled and
 unexecuted. Native UIKit, devices and real whole-call timing are unqualified.
 
-This is the fixed original consumer-source prerequisite. Its matching
-Capture2 manager/work/root, read-only backend/policy originals, response-ID and
-byte join, rendered review, normal Upload/failure/recovery, independent Actor/
-scene agreement, source retirement and process/SDK/witness endings must still
-compose the existing whole journey. Share2/Photos2 return archives remain open.
+The explicit [retained consumer join](SNAPSHOT_FRONTEND_CONSUMPTION.md) now
+binds matching Capture2 manager/work/root, normal Upload3 and Backend3 to
+protected response-ID/query/body originals and actual responseText consumption.
+The native causal Script branch/caller, rendered review, failed/recovered whole
+journey, independent Actor/scene agreement, source retirement and process/SDK/
+witness endings must still compose the existing whole journey. Share2/Photos2 return archives remain open.
 Feature 11 stays partial and capability-closed; five of fourteen areas remain
 source-complete. No installed-adapter or public capability changes are made.
 

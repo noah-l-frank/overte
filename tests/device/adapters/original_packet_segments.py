@@ -25,6 +25,8 @@ TABLET_COMPONENTS=frozenset({'native','sources','trace','dom','emissions','butto
 POSTLOGOUT_LABELS=frozenset({'parts','record','partial'})
 PROFILES={'tabletweb-screen':dict(parent='tabletWebScreenSegmentsVersion',body='tabletWebScreenSegmentBodyVersion',schema='tabletWebScreenSegment',
         labels=frozenset({'png'}),subjects=frozenset({'primary','actor'})),
+    'snapshot-combined-http':dict(parent='snapshotCombinedHttpPartsVersion',body='snapshotCombinedHttpPartBodyVersion',schema='snapshotCombinedHttpPart',
+        labels=frozenset({'raw'}),subjects=frozenset({'upload'})),
     'snapshot-combined-work':dict(parent='snapshotCombinedWorkPartsVersion',body='snapshotCombinedWorkPartBodyVersion',schema='snapshotCombinedWorkPart',
         labels=frozenset({'raw'}),subjects=frozenset({'capture','upload','pending'})),
     'assets-backend-sources':dict(parent='assetsBackendSourcePartsVersion',body='assetsBackendSourcePartBodyVersion',schema='assetsBackendSourcePart',
@@ -56,10 +58,11 @@ class OriginalPacketSegments:
     PROFILE=None
     def __init__(self,root,binding,run,role,subject,guard,intent,*,monotonic):
         need(type(self).PROFILE in PROFILES);profile=PROFILES[type(self).PROFILE]
-        need(type(self).PROFILE not in ('snapshot-upload-sources','snapshot-combined-work') or role=='primary')
+        need(type(self).PROFILE not in ('snapshot-upload-sources','snapshot-combined-work','snapshot-combined-http') or role=='primary')
         need(subject in profile['subjects'] and callable(intent));self.subject,self.intent=subject,intent
         self.parent_key,self.body_key,self.labels=profile['parent'],profile['body'],profile['labels']
-        namespace=('snapshot-combined-'+subject+'-parts' if type(self).PROFILE=='snapshot-combined-work' else
+        namespace=('snapshot-http-'+subject+'-parts' if type(self).PROFILE=='snapshot-combined-http' else
+            'snapshot-combined-'+subject+'-parts' if type(self).PROFILE=='snapshot-combined-work' else
             'assets-backend-'+subject+'-parts' if type(self).PROFILE=='assets-backend-sources' else
             'snapshot-'+subject+'-source-parts' if type(self).PROFILE=='snapshot-native-sources' else
             'photos-save-'+subject+'-parts' if type(self).PROFILE=='photos-save-sources' else

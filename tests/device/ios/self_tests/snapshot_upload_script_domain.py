@@ -19,7 +19,7 @@ from self_tests.snapshot_domain_fixture import PolicyFixture,DOMAIN
 
 
 class OriginalUploadScript:
-    def __init__(self,case,backend):self.case,self.backend=case,backend;self.events=[]
+    def __init__(self,case,backend,observer=None):self.case,self.backend,self.observer=case,backend,observer;self.events=[]
     def dispatch(self,path,*,domain='{'+DOMAIN+'}',replace_review=False,on_returned=None):
         root=Path(__file__).resolve().parents[4];driver=Path(__file__).with_name('snapshot_upload_preflight.js')
         process=subprocess.Popen(['node',str(driver),str(root)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,bufsize=0)
@@ -32,19 +32,25 @@ class OriginalUploadScript:
                     with selectors.DefaultSelector() as selector:
                         selector.register(process.stdout,selectors.EVENT_READ);need(bool(selector.select(5)))
                     raw=os.read(process.stdout.fileno(),4096);need(bool(raw));buffer+=raw;need(len(buffer)<=65536)
-                raw,buffer=buffer.split(b'\n',1);value=json.loads(raw);need(value.get('event') in ('http','returned','result'));self.events.append(value);return value
+                raw,buffer=buffer.split(b'\n',1);value=json.loads(raw);need(value.get('event') in ('http','returned','result','xhr-trace'));self.events.append(value)
+                if value['event']=='xhr-trace':
+                    need(self.observer is not None);self.observer.trace(value);return receive()
+                return value
             logged_in=self.backend.provider.resolve(self.backend._authorization)==RUN
-            send(dict(operation='start',origin='https://controlled.invalid',loggedIn=logged_in,domain=domain,href='hifi://controlled.invalid/snapshot-fixture',path=str(path)))
+            send(dict(operation='start',origin='https://controlled.invalid',loggedIn=logged_in,domain=domain,href='hifi://controlled.invalid/snapshot-fixture',path=str(path),traceHttp=self.observer is not None))
             value=receive();http=None
             if value['event']=='http':http=value;value=receive()
             need(value['event']=='returned')
             if on_returned is not None:on_returned(value)
             if http is not None:
                 parsed=urlsplit(http['uri']);need(http['method']=='GET' and http['body'] is None and parsed.scheme=='https' and parsed.netloc=='controlled.invalid' and parsed.path=='/api/v1/user_stories')
-                status,body=self.backend.call('GET',parsed.path+'?'+parsed.query)
+                status,body=(self.backend.call('GET',parsed.path+'?'+parsed.query) if self.observer is None else
+                    self.observer.exchange(parsed.path+'?'+parsed.query))
                 send(dict(operation='response',status=status,body=body.decode('utf8'),replaceReview=replace_review))
             value=receive()
-            need(value['event']=='result');send(dict(operation='stop'));_out,error=process.communicate(timeout=5);need(process.returncode==0 and not _out and not error);return value
+            need(value['event']=='result');send(dict(operation='stop'));_out,error=process.communicate(timeout=5);need(process.returncode==0 and not _out and not error)
+            if self.observer is not None:self.observer.finish(value)
+            return value
         finally:
             if process.poll() is None:process.terminate()
             try:process.communicate(timeout=5)

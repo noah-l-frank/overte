@@ -17,8 +17,9 @@ function section(first, last) {
 const original = section('var request;', 'function removeFromStoryIDsToMaybeDelete') +
     section('function fileExtensionMatches', 'var POLAROID_PRINT_SOUND') +
     section('function isDomainOpen', 'function stillSnapshotTaken');
-let context, pending, shares, messages, permissionUpdates, delivered = false;
+let context, pending, shares, messages, permissionUpdates, delivered = false, traceHttp = false, responseBody;
 function emit(value) { process.stdout.write(JSON.stringify(value) + '\n'); }
+function trace(kind, details) { if (traceHttp) { emit({event: 'xhr-trace', kind, details}); } }
 function result() {
     emit({event: 'result', shares, messages, permissionUpdates,
         pendingUploads: Object.keys(context.nativeUploadPaths).length,
@@ -31,14 +32,17 @@ lines.on('line', line => {
         const value = JSON.parse(line);
         if (value.operation === 'start') {
             if (context) { throw new Error('One original dispatch only'); }
-            shares = []; messages = []; permissionUpdates = 0; pending = null;
+            shares = []; messages = []; permissionUpdates = 0; pending = null; traceHttp = value.traceHttp === true;
             function XHR() {}
-            XHR.prototype.open = function (method, uri, async) { this.method = method; this.uri = uri; this.async = async; };
+            if (traceHttp) { Object.defineProperty(XHR.prototype, 'responseText', {get: function () {
+                trace('text-read', {body: responseBody}); return responseBody;
+            }}); }
+            XHR.prototype.open = function (method, uri, async) { this.method = method; this.uri = uri; this.async = async; trace('created', {method, uri}); };
             XHR.prototype.setRequestHeader = function () { throw new Error('Unexpected explicit Script header'); };
             XHR.prototype.getResponseHeader = function (name) { if (name !== 'content-type') { throw new Error('Unexpected header read'); } return 'application/json'; };
             XHR.prototype.send = function (body) {
                 if (pending || this.method !== 'GET' || !this.async || body !== null) { throw new Error('Unexpected original XHR'); }
-                pending = this; emit({event: 'http', method: this.method, uri: this.uri, body});
+                pending = this; trace('sent', {method: this.method, uri: this.uri, body}); emit({event: 'http', method: this.method, uri: this.uri, body});
             };
             const requestContext = vm.createContext({module: {exports: {}}, XMLHttpRequest: XHR, print: function () {}});
             vm.runInContext(requestSource, requestContext, {timeout: 1000});
@@ -64,8 +68,9 @@ lines.on('line', line => {
             delivered = true;
             if (value.replaceReview) { context.nativeReviewRevision++; }
             pending.status = value.status; pending.statusText = 'Declared original HTTP result';
-            pending.responseText = value.body; pending.readyState = 4;
-            pending.onreadystatechange(); result();
+            if (traceHttp) { responseBody = value.body; } else { pending.responseText = value.body; }
+            pending.readyState = 4; trace('callback-enter', {readyState: pending.readyState});
+            pending.onreadystatechange(); trace('callback-leave', {readyState: pending.readyState, released: pending.onreadystatechange === null}); result();
         } else if (value.operation === 'stop') { lines.close(); process.stdin.pause(); }
         else { throw new Error('Unknown private driver operation'); }
     } catch (_) { emit({event: 'failure', error: 'Original Script boundary rejected'}); process.exitCode = 1; lines.close(); process.stdin.pause(); }

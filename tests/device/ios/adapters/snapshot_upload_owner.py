@@ -12,7 +12,7 @@ from ios.adapters.graphics_history import follow_native
 from ios.adapters.snapshot_capture_clock import operation
 from ios.adapters.snapshot_capture_owner import IOSSnapshotCaptureOwner
 from ios.adapters.snapshot_input_owner import SnapshotInputPending
-from ios.adapters.snapshot_upload_packets import PACKETS,SnapshotUploadInputs
+from ios.adapters.snapshot_upload_packets import SnapshotUploadInputs,packet_types
 from ios.adapters import snapshot_uploads as uploads,snapshot_export_controls as controls,snapshot_inputs,snapshot_work,snapshot_captures,snapshot_exports
 
 
@@ -20,8 +20,8 @@ class SnapshotUploadPending(SnapshotInputPending):pass
 
 
 class IOSSnapshotUploadOwner:
-    def __init__(self,runtime,selector,run,lock,sources,capture,phase,*,epoch_ms,monotonic,sleep,combined=False):
-        need(type(combined) is bool);self.combined=combined
+    def __init__(self,runtime,selector,run,lock,sources,capture,phase,*,epoch_ms,monotonic,sleep,combined=False,frontend_http=False):
+        need(type(combined) is type(frontend_http) is bool and (not frontend_http or combined));self.combined,self.frontend_http=combined,frontend_http
         need(type(capture) is IOSSnapshotCaptureOwner and capture.combined==combined and capture.historical and capture.run==run and same(capture.binding,sources['binding'])
             and phase.run==run and phase.area=='snapshots' and phase.fixture_url==capture.phase.fixture_url)
         self.runtime,self.selector,self.run,self.lock,self.sources,self.capture,self.phase=runtime,selector,run,lock,sources,capture,phase
@@ -29,26 +29,30 @@ class IOSSnapshotUploadOwner:
         self.historical=False;self.root=capture.store.path.parent;self.setup()
         restore(sources['clock_source'],self.state['nativeTail'])
     @classmethod
-    def history(cls,store,lock,binding,run,fixture_url,*,combined=False):
-        need(type(combined) is bool)
+    def history(cls,store,lock,binding,run,fixture_url,*,combined=False,frontend_http=False):
+        need(type(combined) is type(frontend_http) is bool and (not frontend_http or combined))
         need(store.path==lock.path.with_name('snapshot-upload-owner.json'))
-        owner=object.__new__(cls);owner.store,owner.lock,owner.binding,owner.run,owner.fixture_url=store,lock,deepcopy(binding),run,fixture_url;owner.combined=combined
+        owner=object.__new__(cls);owner.store,owner.lock,owner.binding,owner.run,owner.fixture_url=store,lock,deepcopy(binding),run,fixture_url;owner.combined,owner.frontend_http=combined,frontend_http
         owner.historical=True;owner.sources=owner.runtime=owner.selector=owner.phase=None;owner.root=store.path.parent
         owner.capture=IOSSnapshotCaptureOwner.archive(PrivateFeatureState(owner.root/'ios-snapshot-primary-capture-owner.json'),lock,binding,run,fixture_url,combined=combined)
         owner.setup();need(owner.previous is not None);return owner
+    def version(self):return 3 if self.frontend_http else 2 if self.combined else 1
+    def packets(self):return packet_types(self.frontend_http)
     def setup(self):
         self.lock.assert_held();self.capture_result=self.capture.result();artifact=self.capture.history('artifact',self.capture.state['artifact']);fact,raw=artifact.originals()
         self.file=deepcopy(fact['file']);self.pins=dict(captureResultSha256=digest(self.capture_result),artifactJournalSha256=digest(artifact.previous))
         self.store=PrivateFeatureState(self.root/'snapshot-upload-owner.json');self.previous=self.store.read()
         self.state=dict(ticket=None,verb=None,phaseOriginal=None,slots=[],input=None,cancel=None,baseline=None,job=None,decision=None,quiet=[],result=None,
             inputSources={},nativeTail=deepcopy(self.capture.state['nativeTail']))
+        if self.frontend_http:self.state.update(httpBefore=None,httpAfter=None)
         if self.previous is not None:self.state=self.load(self.previous)
         elif not self.historical:
             prefixes=('snapshot-upload-','upload-native-','upload-input-proof-')
             if self.combined:prefixes+=('upload-combined-work-','snapshot-combined-upload-parts-')
+            if self.frontend_http:prefixes+=('upload-combined-http-','snapshot-http-upload-parts-')
             need(not any(path.name.startswith(prefixes) for path in self.root.iterdir()))
             self.save()
-    def envelope(self):return dict(snapshotUploadOwnerVersion=2 if self.combined else 1,binding=self.binding,runId=self.run,fixtureUrl=self.fixture_url,pins=self.pins,payload=pack([self.state]))
+    def envelope(self):return dict(snapshotUploadOwnerVersion=self.version(),binding=self.binding,runId=self.run,fixtureUrl=self.fixture_url,pins=self.pins,payload=pack([self.state]))
     def guard(self):
         self.lock.assert_held();self.capture.bound();need(same(self.store.read(),self.previous))
         if not self.historical:need(self.sources['check']() is not False)
@@ -61,9 +65,9 @@ class IOSSnapshotUploadOwner:
         try:
             need(type(value['snapshotUploadOwnerVersion']) is int and same(value,self.envelope()) and type(state['slots']) is list and len(state['slots'])<=512
                 and type(state['quiet']) is list and len(state['quiet'])<=3)
-            labels=set();counts={kind:0 for kind in PACKETS};tail=deepcopy(self.capture.state['nativeTail'])
+            labels=set();counts={kind:0 for kind in self.packets()};tail=deepcopy(self.capture.state['nativeTail'])
             for position,slot in enumerate(state['slots']):
-                exact(slot,{'kind','label','index','sha256'});need(slot['kind'] in PACKETS and type(slot['label']) is str and slot['label'] not in labels)
+                exact(slot,{'kind','label','index','sha256'});need(slot['kind'] in self.packets() and type(slot['label']) is str and slot['label'] not in labels)
                 labels.add(slot['label']);counts[slot['kind']]+=1;need(type(slot['index']) is int and slot['index']==counts[slot['kind']])
                 if slot['sha256'] is not None:
                     child=self.child(slot,True);need(digest(child.previous)==slot['sha256']);frame=child.historical()
@@ -87,6 +91,10 @@ class IOSSnapshotUploadOwner:
             if state['job'] is not None:need(state['input'] is not None)
             if state['decision'] is not None:need(uploads.decision(self.packet('uploads',state['decision']),state['job']))
             for group in state['quiet']:self.quiet_group(group)
+            if self.frontend_http:
+                if state['httpBefore'] is not None:need(state['ticket'] is not None);self.http_original(state['httpBefore'])
+                if state['httpAfter'] is not None:need(state['input'] is not None and state['httpBefore'] is not None);self.http_original(state['httpAfter'])
+                if state['job'] is not None:need(state['httpAfter'] is not None)
             if state['result'] is not None:need(same(state['result'],self.proof()))
         finally:self.state=prior
         return deepcopy(state)
@@ -100,10 +108,10 @@ class IOSSnapshotUploadOwner:
     def slot(self,label,kind):
         old=[row for row in self.state['slots'] if row['label']==label]
         if old:need(len(old)==1 and old[0]['kind']==kind);return old[0]
-        need(not self.historical and kind in PACKETS);row=dict(kind=kind,label=label,index=1+sum(item['kind']==kind for item in self.state['slots']),sha256=None)
+        need(not self.historical and kind in self.packets());row=dict(kind=kind,label=label,index=1+sum(item['kind']==kind for item in self.state['slots']),sha256=None)
         self.state['slots'].append(row);self.save();return row
     def child(self,slot,history=False):
-        cls=PACKETS[slot['kind']]
+        cls=self.packets()[slot['kind']]
         if self.combined and slot['kind']=='work':
             from ios.adapters.snapshot_combined_packets import CombinedUploadWorkPacket
             cls=CombinedUploadWorkPacket
@@ -125,6 +133,17 @@ class IOSSnapshotUploadOwner:
         if earlier:
             module=child._source;module.validate(frame['packet'],frame['query'],int(self.binding['processIdentity']),previous=self.packet(kind,earlier[-1]['index']))
         self.state['nativeTail']=deepcopy(tail);slot['sha256']=digest(child.previous);self.save();return slot['index']
+    def http_original(self,index):
+        from ios.adapters import snapshot_combined_preflight_http as http
+        need(self.frontend_http);value=self.packet('http',index)
+        root=self.capture.root_original(self.capture.state['roots']);http.admit(value,root)
+        settled=self.capture.history('work',self.capture.state['settled']['work']).historical()['packet']
+        worker=self.capture.work_source().admit(settled,root,quiet=True)
+        for state in http.events(value).values():
+            created=state['created']['details']
+            need(same(created['engine'],worker['manager']) and same(created['submitted'],worker['code'])
+                and same(created['codeSources'],worker['codeSources']))
+        return value
     def inputs(self,history=False):
         args=(PrivateFeatureState(self.root/SnapshotUploadInputs.store_name('primary')),self.lock,self.binding,self.run,'primary')
         return SnapshotUploadInputs.history(*args) if history else SnapshotUploadInputs(*args,self.sources['native'],self.guard)
@@ -205,10 +224,13 @@ class IOSSnapshotUploadOwner:
         need(spans[-1]['hostBeforeEpochMs']-spans[0]['hostAfterEpochMs']>=3000 and (spans[-1]['hostBeforeMonotonic']-spans[0]['hostAfterMonotonic'])*1000>=3000)
         self.inputs(True).validate_original(self.state['input'])
         if self.state['cancel'] is not None:self.inputs(True).validate_original(self.state['cancel'])
-        result=dict(snapshotUploadResultVersion=2 if self.combined else 1,runId=self.run,binding=self.binding,pins=self.pins,upload=self.state['job'],nativeDecision=decision,
+        result=dict(snapshotUploadResultVersion=self.version(),runId=self.run,binding=self.binding,pins=self.pins,upload=self.state['job'],nativeDecision=decision,
             knownObjectsAndBodyFDQuiet=True,hostOriginalRetained=True,authenticatedBackendOriginalRequired=True,nativeSignalDeliveryRequired=True,
             nativeScriptSignalReturned=True,originalReviewUIRequired=True,transportProcessProofRequired=True,wholeFeatureRequired=True)
         if self.combined:result.update(workProfile='combined',frontendHTTPConsumerRequired=True)
+        if self.frontend_http:
+            self.http_original(self.state['httpBefore']);self.http_original(self.state['httpAfter'])
+            result.update(frontendHTTPOriginalsRetained=True,frontendBranchAcceptanceRequired=True)
         return result
     @operation
     def start(self,ticket,verb='upload'):
@@ -221,11 +243,16 @@ class IOSSnapshotUploadOwner:
             return dict(nativeUploadObserved=True,upload=self.state['job'],independentBackendOriginalRequired=True,wholeFeatureRequired=True)
         if self.state['baseline'] is None:
             index=self.observe('baseline','uploads');self.baseline(self.packet('uploads',index));self.state['baseline']=index;self.save()
+        if self.frontend_http and self.state['httpBefore'] is None:
+            self.state['httpBefore']=self.observe('http-before','http');self.http_original(self.state['httpBefore']);self.save()
         if self.state['input'] is None:
             view=self.view();rows=[row for row in view['controls'] if row['id'].startswith('snapshot.upload.') and row['snapshotFileOwned'] and row['snapshotFileName']==self.file['name'] and row['inputReady']]
             need(len(rows)==1);control=rows[0]['id']
         else:control=self.inputs(True).state['events'][self.state['input']-1]['controlId']
-        self.deliver('input',control);index=self.observe('start-'+str(1+sum(row['label'].startswith('start-') for row in self.state['slots'])),'uploads')
+        self.deliver('input',control)
+        if self.frontend_http and self.state['httpAfter'] is None:
+            self.state['httpAfter']=self.observe('http-after','http');self.http_original(self.state['httpAfter']);self.save()
+        index=self.observe('start-'+str(1+sum(row['label'].startswith('start-') for row in self.state['slots'])),'uploads')
         self.state['job']=self.associate(self.packet('uploads',index));self.save();return dict(nativeUploadObserved=True,upload=self.state['job'],independentBackendOriginalRequired=True,wholeFeatureRequired=True)
     @operation
     def cancel(self):
