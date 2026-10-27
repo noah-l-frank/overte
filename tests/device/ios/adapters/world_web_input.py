@@ -71,7 +71,17 @@ class WorldWebInput:
                 # Full actual immutable Source bytes/inodes are checked by
                 # the enclosing round; reuse only this exact pure row proof.
                 key=self.proof_key(row)
-                if key not in self._proof_cache:self.proof(row);self._proof_cache.add(key)
+                if key not in self._proof_cache:
+                    # Reconstruction needs the same geometry/body predicate,
+                    # but consumes none of the public proof's complete frame.
+                    # Preserve the literal path for substituted proof or
+                    # projection readers; all original byte/identity guards
+                    # remain provided by the enclosing Source round.
+                    if (getattr(self.proof,'__func__',None) is WorldWebInput.proof
+                            and getattr(self.source.input_projection,'__func__',None) is WorldWebSources.input_projection):
+                        self._proof_projection(row,self.source.input_projection(row['source'],self.entity,row['kind'],row['control']))
+                    else:self.proof(row)
+                    self._proof_cache.add(key)
         return deepcopy(state)
 
     def bound(self):

@@ -64,5 +64,41 @@ class WorldInputProjectionTests(unittest.TestCase):
             with self.assertRaisesRegex(NativeUIError,'Declared changed input predicate'):
                 owner.decode(owner.previous)
 
+    def test_fresh_reconstruction_validates_actual_rows_without_public_frame_copies(self):
+        t=self.f
+        with t.held():
+            source=t.sdk.owner(t.source_store,t.lock);owner=t.owner(source)
+            owner.perform(t.sdk.ticket,'focus','tap','text')
+            owner.perform(t.sdk.ticket,'unicode','replace','text',text='Überte 🙂')
+            original=deepcopy(owner.state);posts=len(t.sdk.posted)
+            profile=cProfile.Profile();profile.enable()
+            try:fresh=t.owner(source)
+            finally:profile.disable()
+            code=WorldWebSources.frame.__code__
+            calls=pstats.Stats(profile).stats.get((code.co_filename,code.co_firstlineno,code.co_name))
+            self.assertIsNone(calls,'Reconstruction consumes projected operands, not a public frame')
+            self.assertEqual(original,fresh.state);self.assertEqual(posts,len(t.sdk.posted))
+            fresh.state['records'][0]['body']['actions'][0]['actions'][0]['x']+=500
+            with self.assertRaises(NativeUIError):fresh.decode(fresh.envelope(fresh.state))
+
+    def test_substituted_public_proof_keeps_literal_reconstruction(self):
+        t=self.f
+        with t.held():
+            source=t.sdk.owner(t.source_store,t.lock);owner=t.owner(source)
+            owner.perform(t.sdk.ticket,'focus','tap','text')
+            def replaced(_row):raise NativeUIError('Declared replacement public proof')
+            owner.proof=replaced
+            with self.assertRaisesRegex(NativeUIError,'Declared replacement public proof'):
+                owner.decode(owner.previous)
+
+    def test_substituted_projection_does_not_replace_literal_public_proof(self):
+        t=self.f
+        with t.held():
+            source=t.sdk.owner(t.source_store,t.lock);owner=t.owner(source)
+            owner.perform(t.sdk.ticket,'focus','tap','text')
+            def replaced(*_args):raise AssertionError('Substituted projection is not reconstruction authority')
+            source.input_projection=replaced
+            self.assertEqual(owner.state,owner.decode(owner.previous))
+
 
 if __name__=='__main__':unittest.main()

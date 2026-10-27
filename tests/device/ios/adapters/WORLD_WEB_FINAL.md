@@ -94,6 +94,29 @@ complete paired terminal. Installed-adapter construction/preflight and full
 resource/OS/SDK retirement still require their own whole qualification. Native,
 Qt, WK and SDK producers remain declared models; no device result follows.
 
+Input-WAL reconstruction now also consumes those existing guarded projection
+operands when both the public proof and projection reader are unchanged. It
+still runs the identical geometry/body predicate and full row grammar. A
+substituted proof retains its literal call, and a substituted projection cannot
+replace the public proof's original authority. Public proof/frame returns stay
+independent full frames. Three new reconstruction/body-mutation/substitution
+cases and sixteen existing projection/input/uncertainty/original/deadline cases
+pass **19 tests in 18.736 s**; log:
+`.ios-host-tmp/world-web-input-reconstruct-20261027.log`.
+
+A separate read-only reconstruction of the latest retained 66-Source/21-input
+graph takes **22.665 s for Source and 16.453 s for Input**. All 252 original
+files retain their exact before/after signatures and SHA256; native/SDK/network,
+process creation and private-state writes are forbidden. Imported sources were
+frozen by the collaborating agents, but this diagnostic did not take its own
+pre-run source-hash manifest. It establishes neither a speed comparison with a
+different graph nor a passing 25-second installed API: these two constructors
+alone still exceed that budget. Report:
+`.ios-host-tmp/world-web-input-reconstruction-readonly-20261027.json`.
+The previous nineteen-action result belongs to its recorded source revision;
+it is not transferred to this later reconstruction change. The remaining
+constructor/whole-observer/Actor/PNG/terminal qualification is still open.
+
 ## Earlier verification packets
 
 The newer paired census/end replay reached its 600-second diagnostic limit;
