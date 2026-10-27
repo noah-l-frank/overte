@@ -26,6 +26,7 @@ from feature_journeys.retirement_receipts import WEB_SCENE_STAGE
 from feature_journeys.witness import Client
 from ios.adapters.peer_admission import admit_existing_peer,validate as peer_admission
 from ios.adapters.world_web_api_clock import operation,check
+from ios.adapters.world_web_construction import construct as construct_source
 from ios.adapters.world_web_evidence import required as required_evidence
 from ios.adapters.world_web_identity import WorldWebLease
 from ios.adapters.world_web_retirement import WorldWebRetirement
@@ -80,13 +81,13 @@ class IOSWorldWebFeature:
         with ExitStack() as construction:return self._parts(construction)
     def _parts(self,construction):
         own=self.runtime._sources(self.selector);peer=None
-        source=self.runtime._world_web_source_owner(self.selector,self.run,self.role,self.phase,self.lock)
+        source=construction.enter_context(construct_source(
+            lambda:self.runtime._world_web_source_owner(self.selector,self.run,self.role,self.phase,self.lock)))
         need(own['binding']==source.binding==self.state['binding'])
-        construction.enter_context(source.validation_round())
         if self.role=='actor':
-            peer=source;source=self.runtime._world_web_source_owner(self.primary_selector,self.run,'actor-primary',self.phase,self.primary_lock)
+            peer=source;source=construction.enter_context(construct_source(
+                lambda:self.runtime._world_web_source_owner(self.primary_selector,self.run,'actor-primary',self.phase,self.primary_lock)))
             need(source.binding==self.state['primaryBinding'])
-            construction.enter_context(source.validation_round())
         scope=self.runtime._world_web_marker(self.primary_selector,self.root,self.run,'primary',self.phase.fixture_url,self.state['initialTicket'],self.primary_lock)
         references=self.state['lease'];lease=None if references is None else WorldWebLease(scope,source,references['before'],references['after'])
         if lease is not None:construction.enter_context(lease.validation_round())

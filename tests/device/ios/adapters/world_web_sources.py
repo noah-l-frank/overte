@@ -36,6 +36,7 @@ from ios.adapters.normal_input import NativeInput,observation as widgets_packet
 from ios.adapters import world_web_keys as keys,pointer_state as pointer,create_entities as entities
 
 from ios.adapters import world_web_surfaces as surfaces,web_closures as closures
+from ios.adapters.world_web_construction import begin as begin_construction
 
 NAMES=LEGACY_NAMES|{'surfaces','closures'}
 VERSION=5
@@ -69,9 +70,10 @@ class WorldWebSources:
                 and all(reader.pid==self.pid for name,reader in readers.items() if name not in ('uikit','widgets')))
             self.native=readers['native']
         lock.assert_held();self.previous=store.read();self.frames=[];self._cache={};self._round=None;self._round_pins=None;self._write_round=None;self._round_header=None;self.parts=WorldWebOriginalParts(self);self.state=dict(records=[],pending=None,interrupted=[])
-        if self.previous is not None:
-            if historical:self.version=self.previous['iosWorldWebSourcesVersion']
-            self.state,self.frames=self.decode(self.previous)
+        self._construction=None
+        if self.previous is not None and historical:self.version=self.previous['iosWorldWebSourcesVersion']
+        self._construction=begin_construction(self,_CONSTRUCTION_DECODERS)
+        if self.previous is not None:self.state,self.frames=self.decode(self.previous)
         self._saved_records=deepcopy(self.state['records']);self._round_state_sha=None
         self._remember_aux_prefix()
         if not historical and self.frames:
@@ -84,6 +86,7 @@ class WorldWebSources:
             if self.version>=4:
                 readers['snapshot'].last=self.parts.snapshot.packet(last['nativeSnapshot']);readers['surfaces'].last=deepcopy(raw['surfaces']);readers['closures'].last=deepcopy(raw['closures'])
             phase.previous=deepcopy(last['phaseAfter'])
+        if self._construction is not None:self._construction.completed(self)
 
     def envelope(self,state):
         return dict(iosWorldWebSourcesVersion=self.version,binding=self.binding,runId=self.run,role=self.role,payload=pack([state]))
@@ -312,6 +315,8 @@ class WorldWebSources:
         return {path:self.original_signature(path) for path in paths if packet is not None or path.exists()}
 
     def guard_originals(self):
+        construction=getattr(self,'_construction',None)
+        if construction is not None and construction.active:construction.check()
         self._guard_aux_prefix()
         if self._round_header is not None:need(same(self._round_header,(self.binding,self.run,self.role,self.pid,self.phase.fixture_url,self.version)))
         if self._round_pins is not None:
@@ -719,3 +724,8 @@ class WorldWebSources:
             original=[dict(ledger=frame['originals']['ledgerAfter'],document=frame['originals']['document'],work=frame['originals']['work'],browser=frame['originals']['browser'],**({'emissions':frame['originals']['emissions']} if self.version==5 else {})) for frame in frames]
             value=derive(original,ownership=deepcopy(ownership),directory=directory,entity=entity,origins=deepcopy(origins))
             self.guard_originals();return deepcopy(value)
+
+
+# A replaced or modified decoder retains the literal subsequent read round.
+_CONSTRUCTION_DECODERS=tuple((method,method.__code__) for method in
+    (WorldWebSources.decode,WorldWebSources._decode,WorldWebSources._decode_frames))

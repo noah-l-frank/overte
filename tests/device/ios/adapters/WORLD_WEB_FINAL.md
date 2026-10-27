@@ -147,6 +147,49 @@ construction/ownership wiring with declared model clocks. It does not qualify
 the large retained graph under real API CPU clocks, the full nineteen-step
 Observer/PNG/Actor/terminal journey, native compilation or a device.
 
+The next Source factory scope begins before its literal constructor reads any
+retained record. It pins the full original inventory and record/chunk identities,
+keeps the unchanged `copy_frames=True` public constructor, and borrows only that
+constructor's separately validated private cache during this same synchronous
+assembly. The saved packet fixes records, pending and interrupted acquisitions;
+factory-returned mutations cannot supply a different state. Existing owners or
+substituted decoders keep their literal subsequent validation round. No seed,
+current verdict or construction round survives assembly.
+
+Each use checks exact cache/frame/lock/store identities, decoder code, saved
+state/header and all original pins/inventory. Complete private frame contents
+are checked at both assembly boundaries before owners can return. Public frame
+and projection values remain independent copies. Lost tags fail closed and
+cleanup removes only this context's exact round/pin/header objects. A changed
+validator continues receiving the constructor's public predecessor copy; it
+cannot mutate the borrowed private predecessor. Eleven construction, legacy,
+interruption, alias and actual paired factory cases pass **29.025 s** with all
+540 selected/imported source hashes unchanged. They include coordinated state,
+private-frame and cache-key mutations, changed decoder/existing-owner fallback,
+unknown files, equal-byte replacement, lost ownership and foreign-round cleanup.
+Log: `.ios-host-tmp/world-web-construction-boundary-20261027.log`.
+
+The earlier changed-source cold diagnostic remains an error: it serialized the
+entire private frame graph at every internal guard and exceeded the real API
+budget (Source23.324 s, Input37.945 s, complete62.236 s). Its252 originals are
+unchanged; its result is not requalified. Complete private contents are now
+checked at entry/exit of the readonly assembly; current headers, identities,
+files and inventory remain guarded on each use. API checks also run before and
+after each construction guard.
+
+A separate current-source readonly diagnostic of the **same66-Source/21-input
+graph passes the unchanged real25-second component budget in24.653 s**:
+Source23.425 s, Input0.274 s, including complete entry/exit work. All252 original
+files retain their exact signatures/SHA256, and all188 participating source/
+launcher hashes remain unchanged. Native/SDK/network/process and private-state
+writes are forbidden. Log/report:
+`.ios-host-tmp/world-web-construction-api25-boundary-20261027.log` and
+`.ios-host-tmp/world-web-construction-api25-boundary-20261027.json`.
+This scopes construction like the real API, including its existing pure clock/
+snapshot memos. It is no isolated benchmark comparison with the earlier unscoped
+cold constructors. It includes no candidate SDK preflight, Scope/Observer/PNG/
+Actor or full terminal construction; the installed whole API remains unqualified.
+
 ## Earlier verification packets
 
 The newer paired census/end replay reached its 600-second diagnostic limit;

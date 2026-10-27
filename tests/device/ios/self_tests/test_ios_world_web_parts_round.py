@@ -6,6 +6,8 @@ clocks are declared host models; this does not qualify real API CPU bounds.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from hashlib import sha256
+import cProfile
+import pstats
 from unittest.mock import patch
 import unittest
 
@@ -44,24 +46,28 @@ class WorldWebPartsRoundTests(unittest.TestCase):
                         rows[str(path)]=(before,sha256(raw).hexdigest())
             return rows
 
-        decoded=[];derived=[];decode=WorldWebSources._decode_frames;derive=WorldWebLease._derive
-        def reading(owner,*args,**kwargs):decoded.append(owner);return decode(owner,*args,**kwargs)
-        def leasing(owner,*args,**kwargs):derived.append(owner);return derive(owner,*args,**kwargs)
+        def calls(profile,method):
+            code=method.__code__
+            return pstats.Stats(profile).stats[(code.co_filename,code.co_firstlineno,code.co_name)][1]
         before=census();posts=len(fixture.sdk.posted);requests=list(fixture.requests)
-        with flow.held(),patch.object(WorldWebSources,'_decode_frames',reading),patch.object(WorldWebLease,'_derive',leasing):
-            parts=flow.parts()
-            # One literal Source construction and one full guarded round:
-            # additional child constructors must not reopen the whole graph.
-            self.assertEqual([parts['source']]*2,decoded)
-            self.assertEqual([parts['lease']]*2,derived)
+        with flow.held():
+            profile=cProfile.Profile();profile.enable(subcalls=False,builtins=False)
+            try:parts=flow.parts()
+            finally:profile.disable()
+            # Keep production reader identities intact: the full literal
+            # constructor itself supplies this same guarded assembly round.
+            self.assertEqual(1,calls(profile,WorldWebSources._decode_frames))
+            self.assertEqual(2,calls(profile,WorldWebLease._derive))
             self.assertIsNone(parts['source']._round);self.assertIsNone(parts['lease']._round)
         self.assertEqual(before,census());self.assertEqual(posts,len(fixture.sdk.posted))
         self.assertEqual(requests,fixture.requests)
-        decoded.clear();derived.clear();before=census()
-        with fixture.secondary.held(),patch.object(WorldWebSources,'_decode_frames',reading),patch.object(WorldWebLease,'_derive',leasing):
-            actor_parts=fixture.secondary.parts()
-            self.assertEqual([actor_parts['peer']]*2+[actor_parts['source']]*2,decoded)
-            self.assertEqual([actor_parts['lease']]*2,derived)
+        before=census()
+        with fixture.secondary.held():
+            profile=cProfile.Profile();profile.enable(subcalls=False,builtins=False)
+            try:actor_parts=fixture.secondary.parts()
+            finally:profile.disable()
+            self.assertEqual(2,calls(profile,WorldWebSources._decode_frames))
+            self.assertEqual(2,calls(profile,WorldWebLease._derive))
             for owner in (actor_parts['peer'],actor_parts['source'],actor_parts['lease']):self.assertIsNone(owner._round)
         self.assertEqual(before,census());self.assertEqual(posts,len(fixture.sdk.posted))
         self.assertEqual(requests,fixture.requests)
