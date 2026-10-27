@@ -107,6 +107,7 @@
     "ios-assets-scene-raw-source-original": {"current": 1, "reads": [1]},
     "ios-assets-scene-raw-source-record": {"current": 1, "reads": [1]},
     "ios-assets-peer-owner": {"current": 2, "reads": [1, 2]},
+    "ios-assets-marker-owner": {"current": 1, "reads": [1]},
     "asset-model-peer-observation": {"current": 1, "reads": [1]},
     "ios-assets-model-owner": {"current": 1, "reads": [1]},
     "ios-assets-model-sources": {"current": 1, "reads": [1]},

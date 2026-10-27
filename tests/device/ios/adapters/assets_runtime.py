@@ -30,6 +30,8 @@ from ios.adapters.assets_model_removal import OwnedAssetsModelRemoval
 from ios.adapters.assets_baked_tree import OwnedAssetsBakedTree,fresh_baseline
 from ios.adapters.assets_scene_sources import AssetsSceneSources
 from ios.adapters.assets_peer_owner import OwnedAssetsPeer
+from ios.adapters.assets_marker_owner import OwnedAssetsMarker
+from ios.adapters.create_marker_scope import CreateMarkerScope
 from ios.adapters.assets_usage_controls import project as usage_controls
 from ios.adapters.feature_observation import FeatureObservation
 from ios.adapters.normal_input import NativeInput
@@ -149,6 +151,15 @@ class IOSAssetsRuntime(IOSScriptRuntime):
             PrivateFeatureState(self.state_path(selector).with_name('ios-assets-peer-'+run+'.json')),lock)
         for parts in (primary_parts,primary_scene_parts,peer_scene_parts):need(parts['check']() is not False)
         return dict(primary=primary_parts,primary_scene=primary_scene_parts,peer_scene=peer_scene_parts,peer=owner)
+
+    @operation
+    def _assets_marker_components(self,selector,run,role,fixture_url,ticket,artifact_root,lock):
+        identifier(run);identifier(ticket);need(role in ('primary','actor'));parts=self._assets_sources(selector,lock)
+        scope=CreateMarkerScope(self,selector,artifact_root,run,role,fixture_url,ticket,lock,namespace='assets',
+            epoch_ms=self.epoch_ms,monotonic=self.monotonic,sleep=parts['observer'].sleep)
+        need(scope.binding==parts['binding']);marker=OwnedAssetsMarker(scope,
+            PrivateFeatureState(self.state_path(selector).with_name('ios-assets-marker-'+run+'-'+role+'.json')))
+        parts['check']();return dict(parts,marker_scope=scope,marker=marker)
 
     @operation
     def _assets_upload_model_bytes(self,selector,run,role,fixture_url,ticket,lock,backend_config,*,parts=None):

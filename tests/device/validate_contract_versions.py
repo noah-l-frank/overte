@@ -115,6 +115,7 @@ REQUIRED = {
     "ios-assets-scene-raw-source-original": 1,
     "ios-assets-scene-raw-source-record": 1,
     "ios-assets-peer-owner": 2,
+    "ios-assets-marker-owner": 1,
     "asset-model-peer-observation": 1,
     "ios-assets-model-owner": 1,
     "ios-assets-model-sources": 1,
