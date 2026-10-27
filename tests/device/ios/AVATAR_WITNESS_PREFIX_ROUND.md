@@ -424,4 +424,17 @@ metadata-discard counterexamples. Logs and inventories are retained in
 `.ios-host-tmp/avatar-publisher-readonly-segments-proposal-20261027/`.
 These narrow protocol tests model the original decoder and do not qualify an
 actual Final graph, establish a measured improvement or complete Feature 3.
-The retained genuine Final-graph comparison remains a separate next check.
+The subsequent file-only traversal of the genuine retained Final graph passes
+under its unchanged 180-second outer bound. Canonical validation of the three
+actual publisher records takes 47.840 seconds. The new original/latest segment
+takes 81.232 seconds over actual kept references 29 and 27: both original
+callbacks, Final joins, quiet derivations and source/Login/Marker lifetime
+derivations run twice. The existing immutable-prefix mechanism parses five
+groups for the five-row and four-row original prefixes. All 785 typed read
+paths are actually opened within that segment. All 1,204 original files and
+5,591 independently pinned source/launcher files retain their bytes and metadata;
+no write, network, SDK operation or publication occurs. Logs and independent
+censuses are in `.ios-host-tmp/avatar-readonly-segment-actual-launch03-20261027/`.
+This checks the actual historical graph and scope boundary, without a literal
+timing comparison or a measured improvement claim. Two live terminal witness
+publications, seal/end and complete Avatar qualification remain open.
