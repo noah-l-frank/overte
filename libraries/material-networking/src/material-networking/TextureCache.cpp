@@ -1257,6 +1257,10 @@ ImageReader::ImageReader(const QWeakPointer<Resource>& resource, const QUrl& url
                 _featureTask=overte::e2e::IOSAssetsImageReaderObservation::created(
                     _resource,actual.staticCast<NetworkTexture>()->_featureCreateInstance,_featureMarker,
                     actual.staticCast<NetworkTexture>()->_textureSource,_url,_content.size());
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+                // Source1::created has returned and released its mutex.
+                if (_featureTask) { overte::e2e::IOSAssetsImageReaderQueueObservation::prepare(); }
+#endif
             } else {overte::e2e::IOSAssetsImageReaderObservation::unavailable();}
         }
     } QT_CATCH (...) {overte::e2e::IOSAssetsImageReaderObservation::unavailable();}

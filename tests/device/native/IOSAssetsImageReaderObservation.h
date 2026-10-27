@@ -3,6 +3,9 @@
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include "NativeReadBracket.h"
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include "../../../libraries/material-networking/src/material-networking/IOSAssetsImageReaderQueueObservation.h"
+#endif
 #include <ResourceCache.h>
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -68,19 +71,37 @@ public:
             : _previous(activeDispatch()) {
             _token=beginDispatch(task,target,gpu,width,height,branch);
             activeDispatch()=_token;
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+            if (_token) { _queue.begin(queueContext(_token,false),target); }
+#endif
         }
-        void returned(bool accepted) noexcept {_returned=true;invoked(_token,accepted);}
+        void returned(bool accepted) noexcept {
+            _returned=true;invoked(_token,accepted);
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+            if (_token) { _queue.returned(accepted); }
+#endif
+        }
         ~Dispatch() {if (_token && !_returned) {unavailable();}activeDispatch()=_previous;}
         Dispatch(const Dispatch&)=delete;Dispatch& operator=(const Dispatch&)=delete;
     private:quint64 _previous{0},_token{0};bool _returned{false};
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+        IOSAssetsImageReaderQueueObservation::Binding _queue;
+#endif
     };
     class Receiver {
     public:
         Receiver(Resource* target,const std::shared_ptr<const void>& source,const std::shared_ptr<const void>& gpu,int width,int height) noexcept
-            : _token(receiving(target,source,gpu,width,height)),_exceptions(std::uncaught_exceptions()) {}
+            : _token(receiving(target,source,gpu,width,height)),_exceptions(std::uncaught_exceptions()) {
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+            if (_token) { _queue.begin(queueContext(_token,true)); }
+#endif
+        }
         ~Receiver() {received(_token,std::uncaught_exceptions()>_exceptions);}
         Receiver(const Receiver&)=delete;Receiver& operator=(const Receiver&)=delete;
     private:quint64 _token{0};int _exceptions;
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+        IOSAssetsImageReaderQueueObservation::Receiver _queue;
+#endif
     };
     static QVariantMap snapshot() noexcept {
         if (!enabled() || !main()) {return {};}
@@ -113,6 +134,28 @@ private:
         QVariantMap clock() const {return {{"epochMs",QDateTime::currentMSecsSinceEpoch()},{"monotonicMs",timer.elapsed()}};}
         QMutex mutex;QElapsedTimer timer;QString instance{nonce()};QVector<Task> tasks;QVector<Event> dispatches,receivers;
     };
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    static IOSAssetsImageReaderQueueObservation::Context queueContext(quint64 token,bool receiver) noexcept {
+        QT_TRY {
+            auto& owner=state();QMutexLocker lock(&owner.mutex);
+            const auto& rows=receiver ? owner.receivers : owner.dispatches;
+            if (!token || token>quint64(rows.size())) {return {};}
+            const auto& row=rows[int(token-1)];IOSAssetsImageReaderQueueObservation::Context result;
+            result.ownerInstance=owner.instance;result.receiver=row.object.data();
+            if (receiver) {
+                result.receiverId=row.value.value("id").toString();
+                result.resourceId=row.value.value("resourceId").toString();
+            } else {
+                if (!row.task || row.task>quint64(owner.tasks.size())) {return {};}
+                const auto& task=owner.tasks[int(row.task-1)];
+                result.taskId=task.value.value("id").toString();result.dispatchId=row.value.value("id").toString();
+                result.resourceId=task.value.value("resourceId").toString();
+            }
+            // Return by value; caller enters Qt/Bridge only after this lock is gone.
+            return result;
+        } QT_CATCH (...) {return {};}
+    }
+#endif
     static std::atomic<bool>& failed() noexcept {static std::atomic<bool> value{false};return value;}
     static_assert(std::atomic<bool>::is_always_lock_free,"ImageReader failure health must not acquire a lock");
     static State& state() {static State value;return value;}
