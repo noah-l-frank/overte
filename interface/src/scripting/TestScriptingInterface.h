@@ -208,6 +208,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSAssetsFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAssetsReplies(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAssetsModelOrigin(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSAssetsImageReader(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAssetsModelRenderers(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSKeyboard(const QVariantMap& command);
 #if defined(OVERTE_E2E_VOICE_TESTS)
@@ -371,6 +372,7 @@ private:
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
     std::shared_ptr<overte::e2e::NativeReadBracket> _featureIOSAssetsFiles;
     std::shared_ptr<overte::e2e::IOSAssetsModelObservation> _featureIOSAssetsModelOrigin;
+    std::shared_ptr<overte::e2e::NativeReadBracket> _featureIOSAssetsImageReader;
     std::shared_ptr<overte::e2e::IOSAssetsModelRenderersObservation> _featureIOSAssetsModelRenderers;
     std::shared_ptr<overte::e2e::IOSAssetReplyReads> _featureIOSAssetsReplies;
     QMap<QString,QVariantMap> _featureIOSAssetsFileCommands, _featureIOSAssetsFileResults;

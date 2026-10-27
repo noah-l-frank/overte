@@ -10,6 +10,9 @@
 //
 
 #include "TextureCache.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "../../../../tests/device/native/IOSAssetsImageReaderObservation.h"
+#endif
 #if defined(Q_OS_IOS)
 #include "KtxAllocationBudget.h"
 #include <os/proc.h>
@@ -471,6 +474,10 @@ void NetworkTexture::setExtra(void* extra) {
 
 void NetworkTexture::setImage(gpu::TexturePointer texture, int originalWidth,
                               int originalHeight) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    const overte::e2e::IOSAssetsImageReaderObservation::Receiver featureReceiver(
+        this,_textureSource,texture,originalWidth,originalHeight);
+#endif
 
     // Passing ownership
     _textureSource->resetTexture(texture);
@@ -508,6 +515,12 @@ public:
     void read();
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    // First derived member: expires after this class's original fields, but
+    // before QRunnable base destruction; no external byte-copy/pool claim.
+    std::shared_ptr<void> _featureMarker;
+    quint64 _featureTask{0};
+#endif
     static void listSupportedImageFormats();
 
     QWeakPointer<Resource> _resource;
@@ -1234,6 +1247,20 @@ ImageReader::ImageReader(const QWeakPointer<Resource>& resource, const QUrl& url
     _maxNumPixels(maxNumPixels),
     _sourceChannel(sourceChannel)
 {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    QT_TRY {
+        if (overte::e2e::IOSAssetsImageReaderObservation::enabled()) {
+            const auto actual=_resource.toStrongRef();
+            if (actual && actual->thread()==QThread::currentThread()
+                    && QThread::currentThread()==QCoreApplication::instance()->thread()) {
+                _featureMarker=std::make_shared<int>(0);
+                _featureTask=overte::e2e::IOSAssetsImageReaderObservation::created(
+                    _resource,actual.staticCast<NetworkTexture>()->_featureCreateInstance,_featureMarker,
+                    actual.staticCast<NetworkTexture>()->_textureSource,_url,_content.size());
+            } else {overte::e2e::IOSAssetsImageReaderObservation::unavailable();}
+        }
+    } QT_CATCH (...) {overte::e2e::IOSAssetsImageReaderObservation::unavailable();}
+#endif
     DependencyManager::get<StatTracker>()->incrementStat("PendingProcessing");
     listSupportedImageFormats();
 
@@ -1255,6 +1282,9 @@ ImageReader::ImageReader(const QWeakPointer<Resource>& resource, const QUrl& url
         outFile.close();
     }
 #endif
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    overte::e2e::IOSAssetsImageReaderObservation::constructed(_featureTask);
+#endif
 }
 
 void ImageReader::listSupportedImageFormats() {
@@ -1266,6 +1296,9 @@ void ImageReader::listSupportedImageFormats() {
 }
 
 void ImageReader::run() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    const overte::e2e::IOSAssetsImageReaderObservation::Body featureBody(_featureTask,true);
+#endif
     PROFILE_RANGE_EX(resource_parse_image, __FUNCTION__, 0xffff0000, 0, { { "url", _url.toString() } });
     DependencyManager::get<StatTracker>()->decrementStat("PendingProcessing");
     CounterStat counter("Processing");
@@ -1281,6 +1314,9 @@ void ImageReader::run() {
 }
 
 void ImageReader::read() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    const overte::e2e::IOSAssetsImageReaderObservation::Body featureBody(_featureTask,false);
+#endif
     auto resource = _resource.lock(); // to ensure the resource is still needed
     if (!resource) {
         return;
@@ -1325,10 +1361,18 @@ void ImageReader::read() {
         // If we found the texture either because it's in use or via KTX deserialization,
         // set the image and return immediately.
         if (textureAndSize.first) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+            overte::e2e::IOSAssetsImageReaderObservation::Dispatch featureDispatch(
+                _featureTask,resource.data(),textureAndSize.first,textureAndSize.second.x,textureAndSize.second.y,"cache-reuse");
+            const bool featureInvoked=
+#endif
             QMetaObject::invokeMethod(resource.data(), "setImage",
                                       Q_ARG(gpu::TexturePointer, textureAndSize.first),
                                       Q_ARG(int, textureAndSize.second.x),
                                       Q_ARG(int, textureAndSize.second.y));
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+            featureDispatch.returned(featureInvoked);
+#endif
             return;
         }
     }
@@ -1355,10 +1399,18 @@ void ImageReader::read() {
         textureAndSize = image::processImage(std::move(buffer), _url.toString().toStdString(), _sourceChannel, processingPixels, networkTexture->getTextureType(), shouldCompress, target, false, decodePixels);
 
         if (!textureAndSize.first) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+            overte::e2e::IOSAssetsImageReaderObservation::Dispatch featureDispatch(
+                _featureTask,resource.data(),textureAndSize.first,0,0,"decode-failed");
+            const bool featureInvoked=
+#endif
             QMetaObject::invokeMethod(resource.data(), "setImage",
                                       Q_ARG(gpu::TexturePointer, textureAndSize.first),
                                       Q_ARG(int, 0),
                                       Q_ARG(int, 0));
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+            featureDispatch.returned(featureInvoked);
+#endif
             return;
         }
 
@@ -1387,10 +1439,18 @@ void ImageReader::read() {
         textureAndSize = textureCache->cacheTextureByHash(hash, textureAndSize);
     }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    overte::e2e::IOSAssetsImageReaderObservation::Dispatch featureDispatch(
+        _featureTask,resource.data(),textureAndSize.first,textureAndSize.second.x,textureAndSize.second.y,"final-output");
+    const bool featureInvoked=
+#endif
     QMetaObject::invokeMethod(resource.data(), "setImage",
                                 Q_ARG(gpu::TexturePointer, textureAndSize.first),
                                 Q_ARG(int, textureAndSize.second.x),
                                 Q_ARG(int, textureAndSize.second.y));
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    featureDispatch.returned(featureInvoked);
+#endif
 }
 
 NetworkTexturePointer TextureCache::getResourceTexture(const QUrl& resourceTextureUrl) {
