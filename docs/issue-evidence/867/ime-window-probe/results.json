@@ -1,0 +1,273 @@
+{
+  "job": "overte-phone-867-ime-window-probe",
+  "dockedMatrixBuild": 2,
+  "date": "2026-10-26",
+  "result": "NO_NATIVE_CENTERING_FIX_FOUND",
+  "overteApkSha256": "24a91c50829be4100aec76a73b5a03d4c49a6e62202437f3fd069812f2ae3b8a",
+  "probe": {
+    "package": "org.overte.test.imegeometry",
+    "apkSha256": "66ab903e1e366e284be1114cd6c1b420bf3f270ec9a604d6a0099828abb8e7e9",
+    "sources": {
+      "src/org/overte/test/imegeometry/ProbeActivity.java": "3530fbc176d57709adcc6c98b7f452da008eae6c00c5951e1ed3fc0fc0589228",
+      "AndroidManifest.xml": "c2cc955454b3a0992922e67f6de9f53d36dc6d7a25d912c88dc2290d50dce482"
+    },
+    "purpose": "Public app-window and IME-animation API geometry experiment; not an Overte fix candidate"
+  },
+  "gboard": {
+    "versionName": "18.4.4.985164140-release-arm64-v8a",
+    "versionCode": 176027246
+  },
+  "defaultImeBeforeAndAfter": "com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME",
+  "probeUninstalled": true,
+  "overteAppDataReset": false,
+  "settingsWrites": false,
+  "records": [
+    {
+      "mode": "edge",
+      "imeState": [
+        "mImeWindowVis=3",
+        "mInputShown=true",
+        "mFullscreenMode=false"
+      ],
+      "frames": [
+        {
+          "kind": "ime",
+          "rows": [
+            "mAttrs={(0,0)(fillxfill) gr=BOTTOM CENTER_VERTICAL sim={adjust=pan} ty=INPUT_METHOD fmt=TRANSPARENT wanim=0x1030056 receive insets ignoring z-order",
+            "mHasSurface=true isReadyForDisplay()=true mWindowRemovalAllowed=false",
+            "Frames: parent=[0,0][2268,1080] display=[0,0][2268,1080] frame=[0,0][2268,1080] last=[0,0][2268,1080] insetsChanged=false"
+          ]
+        },
+        {
+          "kind": "probe",
+          "rows": [
+            "mAttrs={(0,0)(fillxfill) sim={adjust=resize forwardNavigation} layoutInDisplayCutoutMode=always ty=BASE_APPLICATION wanim=0x103030d",
+            "mHasSurface=true isReadyForDisplay()=true mWindowRemovalAllowed=false",
+            "Frames: parent=[0,0][2400,1080] display=[0,0][2400,1080] frame=[0,0][2400,1080] last=[0,0][2400,1080] insetsChanged=false"
+          ]
+        }
+      ],
+      "displayCutoutInsets": [
+        [
+          0,
+          0,
+          132,
+          0
+        ]
+      ]
+    },
+    {
+      "mode": "fit",
+      "imeState": [
+        "mImeWindowVis=3",
+        "mInputShown=true",
+        "mFullscreenMode=false"
+      ],
+      "frames": [
+        {
+          "kind": "ime",
+          "rows": [
+            "mAttrs={(0,0)(fillxfill) gr=BOTTOM CENTER_VERTICAL sim={adjust=pan} ty=INPUT_METHOD fmt=TRANSPARENT wanim=0x1030056 receive insets ignoring z-order",
+            "mHasSurface=true isReadyForDisplay()=true mWindowRemovalAllowed=false",
+            "Frames: parent=[0,0][2268,1080] display=[0,0][2268,1080] frame=[0,0][2268,1080] last=[0,0][2268,1080] insetsChanged=false"
+          ]
+        },
+        {
+          "kind": "probe",
+          "rows": [
+            "mAttrs={(0,0)(fillxfill) sim={adjust=resize} layoutInDisplayCutoutMode=always ty=BASE_APPLICATION wanim=0x103030d",
+            "mHasSurface=true isReadyForDisplay()=true mWindowRemovalAllowed=false",
+            "Frames: parent=[0,0][2400,1080] display=[0,0][2400,1080] frame=[0,0][2400,1080] last=[0,0][2400,1080] insetsChanged=false"
+          ]
+        }
+      ],
+      "displayCutoutInsets": [
+        [
+          0,
+          0,
+          132,
+          0
+        ]
+      ]
+    },
+    {
+      "mode": "never",
+      "imeState": [
+        "mImeWindowVis=3",
+        "mInputShown=true",
+        "mFullscreenMode=false"
+      ],
+      "frames": [
+        {
+          "kind": "ime",
+          "rows": [
+            "mAttrs={(0,0)(fillxfill) gr=BOTTOM CENTER_VERTICAL sim={adjust=pan} ty=INPUT_METHOD fmt=TRANSPARENT wanim=0x1030056 receive insets ignoring z-order",
+            "mHasSurface=true isReadyForDisplay()=true mWindowRemovalAllowed=false",
+            "Frames: parent=[0,0][2268,1080] display=[0,0][2268,1080] frame=[0,0][2268,1080] last=[0,0][2268,1080] insetsChanged=false"
+          ]
+        },
+        {
+          "kind": "probe",
+          "rows": [
+            "mAttrs={(0,0)(fillxfill) sim={adjust=resize} layoutInDisplayCutoutMode=always ty=BASE_APPLICATION wanim=0x103030d",
+            "mHasSurface=true isReadyForDisplay()=true mWindowRemovalAllowed=false",
+            "Frames: parent=[0,0][2400,1080] display=[0,0][2400,1080] frame=[0,0][2400,1080] last=[0,0][2400,1080] insetsChanged=false"
+          ]
+        }
+      ],
+      "displayCutoutInsets": [
+        [
+          0,
+          0,
+          132,
+          0
+        ]
+      ]
+    },
+    {
+      "mode": "center",
+      "imeState": [
+        "mImeWindowVis=3",
+        "mInputShown=true",
+        "mFullscreenMode=false"
+      ],
+      "frames": [
+        {
+          "kind": "ime",
+          "rows": [
+            "mAttrs={(0,0)(fillxfill) gr=BOTTOM CENTER_VERTICAL sim={adjust=pan} ty=INPUT_METHOD fmt=TRANSPARENT wanim=0x1030056 receive insets ignoring z-order",
+            "mHasSurface=true isReadyForDisplay()=true mWindowRemovalAllowed=false",
+            "Frames: parent=[0,0][2268,1080] display=[0,0][2268,1080] frame=[0,0][2268,1080] last=[0,0][2268,1080] insetsChanged=false"
+          ]
+        },
+        {
+          "kind": "probe",
+          "rows": [
+            "mAttrs={(0,0)(2136xfill) gr=CENTER sim={adjust=resize} layoutInDisplayCutoutMode=shortEdges ty=BASE_APPLICATION wanim=0x103030d",
+            "mHasSurface=true isReadyForDisplay()=true mWindowRemovalAllowed=false",
+            "Frames: parent=[0,0][2400,1080] display=[0,0][2400,1080] frame=[132,0][2268,1080] last=[132,0][2268,1080] insetsChanged=false"
+          ]
+        }
+      ],
+      "displayCutoutInsets": [
+        [
+          0,
+          0,
+          132,
+          0
+        ]
+      ]
+    },
+    {
+      "mode": "dialog",
+      "imeState": [
+        "mImeWindowVis=3",
+        "mInputShown=true",
+        "mFullscreenMode=false"
+      ],
+      "frames": [
+        {
+          "kind": "ime",
+          "rows": [
+            "mAttrs={(0,0)(fillxfill) gr=BOTTOM CENTER_VERTICAL sim={adjust=pan} ty=INPUT_METHOD fmt=TRANSPARENT wanim=0x1030056 receive insets ignoring z-order",
+            "mHasSurface=true isReadyForDisplay()=true mWindowRemovalAllowed=false",
+            "Frames: parent=[0,0][2268,1080] display=[0,0][2268,1080] frame=[0,0][2268,1080] last=[0,0][2268,1080] insetsChanged=false"
+          ]
+        },
+        {
+          "kind": "probe",
+          "rows": [
+            "mAttrs={(0,0)(2136x700) gr=CENTER sim={adjust=resize} layoutInDisplayCutoutMode=shortEdges ty=BASE_APPLICATION fmt=TRANSLUCENT wanim=0x103030e surfaceInsets=Rect(84, 84 - 84, 84)",
+            "mHasSurface=true isReadyForDisplay()=true mWindowRemovalAllowed=false",
+            "Frames: parent=[0,0][2400,394] display=[0,0][2400,394] frame=[132,0][2268,394] last=[132,0][2268,394] insetsChanged=false"
+          ]
+        }
+      ],
+      "displayCutoutInsets": [
+        [
+          0,
+          0,
+          132,
+          0
+        ]
+      ]
+    },
+    {
+      "mode": "animation",
+      "imeState": [
+        "mImeWindowVis=3",
+        "mInputShown=true",
+        "mFullscreenMode=false"
+      ],
+      "frames": [
+        {
+          "kind": "ime",
+          "rows": [
+            "mAttrs={(0,0)(fillxfill) gr=BOTTOM CENTER_VERTICAL sim={adjust=pan} ty=INPUT_METHOD fmt=TRANSPARENT wanim=0x1030056 receive insets ignoring z-order",
+            "mHasSurface=true isReadyForDisplay()=true mWindowRemovalAllowed=false",
+            "Frames: parent=[0,0][2268,1080] display=[0,0][2268,1080] frame=[0,0][2268,1080] last=[0,0][2268,1080] insetsChanged=false"
+          ]
+        },
+        {
+          "kind": "probe",
+          "rows": [
+            "mAttrs={(0,0)(fillxfill) sim={adjust=resize} layoutInDisplayCutoutMode=always ty=BASE_APPLICATION wanim=0x103030d",
+            "mHasSurface=true isReadyForDisplay()=true mWindowRemovalAllowed=false",
+            "Frames: parent=[0,0][2400,1080] display=[0,0][2400,1080] frame=[0,0][2400,1080] last=[0,0][2400,1080] insetsChanged=false"
+          ]
+        }
+      ],
+      "displayCutoutInsets": [
+        [
+          0,
+          0,
+          132,
+          0
+        ]
+      ]
+    }
+  ],
+  "limitations": [
+    "An isolated native Android probe, not an Overte fix APK.",
+    "All six normal docked-IME window frames remained asymmetric; this is negative investigation evidence, not an issue acceptance PASS.",
+    "The camera cutout was on the right in this experiment, unlike the earlier left-cutout Overte baseline.",
+    "Build 1 used fullscreen extract mode and was superseded by the docked-mode comparison in build 2.",
+    "Build 3 collected an unscoped log-tail sample; it is not used as fresh per-process callback proof.",
+    "Build 4 failed while reading the newly started process ID before the process was ready; it is not centering evidence."
+  ],
+  "animationCallbackBuild": 5,
+  "freshAnimationObservation": {
+    "mode": "animation",
+    "frames": [
+      {
+        "kind": "ime",
+        "rows": [
+          "mAttrs={(0,0)(fillxfill) gr=BOTTOM CENTER_VERTICAL sim={adjust=pan} ty=INPUT_METHOD fmt=TRANSPARENT wanim=0x1030056 receive insets ignoring z-order",
+          "mHasSurface=true isReadyForDisplay()=true mWindowRemovalAllowed=false",
+          "Frames: parent=[0,0][2268,1080] display=[0,0][2268,1080] frame=[0,0][2268,1080] last=[0,0][2268,1080] insetsChanged=false"
+        ]
+      },
+      {
+        "kind": "probe",
+        "rows": [
+          "mAttrs={(0,0)(fillxfill) sim={adjust=resize forwardNavigation} layoutInDisplayCutoutMode=always ty=BASE_APPLICATION wanim=0x103030d",
+          "mHasSurface=true isReadyForDisplay()=true mWindowRemovalAllowed=false",
+          "Frames: parent=[0,0][2400,1080] display=[0,0][2400,1080] frame=[0,0][2400,1080] last=[0,0][2400,1080] insetsChanged=false"
+        ]
+      }
+    ],
+    "imeState": [
+      "mImeWindowVis=3",
+      "mInputShown=true",
+      "mFullscreenMode=false"
+    ],
+    "cutouts": [
+      "mDisplayCutout=DisplayCutout{insets=Rect(0, 0 - 0, 0) waterfall=Insets{left=0, top=0, right=0, bottom=0} boundingRect={Bounds=[Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0)]} cutoutPathParserInfo={CutoutPathParserInfo{displayWidth=0 displayHeight=0 physicalDisplayWidth=0 physicalDisplayHeight=0 density={0.0} cutoutSpec={} rotation={0} scale={0.0} physicalPixelDisplaySizeRatio={0.0}}} sideOverrides=null}",
+      "mDisplayCutout=DisplayCutout{insets=Rect(0, 0 - 132, 0) waterfall=Insets{left=0, top=0, right=0, bottom=0} boundingRect={Bounds=[Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0), Rect(2268, 480 - 2400, 625), Rect(0, 0 - 0, 0)]} cutoutPathParserInfo={CutoutPathParserInfo{displayWidth=1080 displayHeight=2400 physicalDisplayWidth=1080 physicalDisplayHeight=2400 density={2.625} cutoutSpec={M 507,66 a 33,33 0 1 0 66,0 33,33 0 1 0 -66,0 Z @left} rotation={3} scale={1.0} physicalPixelDisplaySizeRatio={1.0}}} sideOverrides={}}"
+    ],
+    "animationCallbackLog": [
+      "132 current=Insets{left=0, top=0, right=0, bottom=686} shown=Insets{left=0, top=0, right=0, bottom=686}"
+    ],
+    "logFilteredByCurrentProbeProcess": true
+  }
+}

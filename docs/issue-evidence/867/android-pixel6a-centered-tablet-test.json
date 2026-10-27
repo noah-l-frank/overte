@@ -1,0 +1,146 @@
+{
+  "jenkinsJob": "overte-phone-867-geometry",
+  "build": 7,
+  "result": "SUCCESS",
+  "startedUtc": "2026-10-26T14:08:47Z",
+  "candidate": {
+    "sha256": "24a91c50829be4100aec76a73b5a03d4c49a6e62202437f3fd069812f2ae3b8a",
+    "sourceRevision": "af952f1e047e89cf3e57eaaf1af8a6b966e71466"
+  },
+  "device": {
+    "model": "Pixel 6a",
+    "android": "17",
+    "sdk": "37",
+    "landscapePhysicalPixels": [
+      2400,
+      1080
+    ]
+  },
+  "records": [
+    {
+      "capture": "cycle-0-dismissed",
+      "screenshotSha256": "c07773250b6485d6febbbaac72dfdf720a8eebd22fe7c34e921f6cb1804b1be9",
+      "ime": [
+        "mImeWindowVis=0",
+        "mInputShown=false",
+        "mFullscreenMode=false",
+        "mIsInputViewShown=true mStatusIcon=0"
+      ]
+    },
+    {
+      "capture": "cycle-0-home",
+      "screenshotSha256": "dbca1c4fdc0812aa953eae71190d07b79692e922806edc2c3d68377ad223c3e0",
+      "ime": [
+        "mImeWindowVis=0",
+        "mInputShown=false",
+        "mFullscreenMode=false",
+        "mIsInputViewShown=true mStatusIcon=0"
+      ],
+      "renderedTabletX": [
+        132,
+        2268
+      ],
+      "visibleMargins": [
+        132,
+        132
+      ]
+    },
+    {
+      "capture": "cycle-0-ime",
+      "screenshotSha256": "d4255e1c2966262619a25e1ec0efeaa36848a1147873b80d23712115968eb1b1",
+      "ime": [
+        "mImeWindowVis=3",
+        "mInputShown=true",
+        "mFullscreenMode=false",
+        "mIsInputViewShown=true mStatusIcon=0"
+      ],
+      "nativeImeFrames": [
+        "Frames: parent=[132,0][2400,1080] display=[132,0][2400,1080] frame=[132,0][2400,1080] last=[132,0][2400,1080] insetsChanged=false"
+      ]
+    },
+    {
+      "capture": "cycle-1-dismissed",
+      "screenshotSha256": "86d54b04c67980ba3b5c9a44e97030c458df762f83745411ba64a004b5552022",
+      "ime": [
+        "mImeWindowVis=0",
+        "mInputShown=false",
+        "mFullscreenMode=false",
+        "mIsInputViewShown=true mStatusIcon=0"
+      ]
+    },
+    {
+      "capture": "cycle-1-home",
+      "screenshotSha256": "5fbd25101f7b1f2b5b3039be64eb72a3eadee09f3ad1c7677c1cbc7043cab42a",
+      "ime": [
+        "mImeWindowVis=0",
+        "mInputShown=false",
+        "mFullscreenMode=false",
+        "mIsInputViewShown=true mStatusIcon=0"
+      ],
+      "renderedTabletX": [
+        132,
+        2268
+      ],
+      "visibleMargins": [
+        132,
+        132
+      ]
+    },
+    {
+      "capture": "cycle-1-ime",
+      "screenshotSha256": "0c349ffafc60f92fb85fe791fc244001286dad588b7113ff1eef2469f2186a54",
+      "ime": [
+        "mImeWindowVis=3",
+        "mInputShown=true",
+        "mFullscreenMode=false",
+        "mIsInputViewShown=true mStatusIcon=0"
+      ],
+      "nativeImeFrames": [
+        "Frames: parent=[132,0][2400,1080] display=[132,0][2400,1080] frame=[132,0][2400,1080] last=[132,0][2400,1080] insetsChanged=false"
+      ]
+    },
+    {
+      "capture": "cycle-2-dismissed",
+      "screenshotSha256": "c237ce38ff372c012070d3204a409bc707db5fc3978a06597e64dc898dc25e47",
+      "ime": [
+        "mImeWindowVis=0",
+        "mInputShown=false",
+        "mFullscreenMode=false",
+        "mIsInputViewShown=true mStatusIcon=0"
+      ]
+    },
+    {
+      "capture": "cycle-2-home",
+      "screenshotSha256": "4ce5e152397925d5d3dfd47ad4f4420ccf098dcc5c46632c4a211d7be33a3bd8",
+      "ime": [
+        "mImeWindowVis=0",
+        "mInputShown=false",
+        "mFullscreenMode=false",
+        "mIsInputViewShown=true mStatusIcon=0"
+      ],
+      "renderedTabletX": [
+        132,
+        2268
+      ],
+      "visibleMargins": [
+        132,
+        132
+      ]
+    },
+    {
+      "capture": "cycle-2-ime",
+      "screenshotSha256": "94a4e97083778216b049759217249cdf245308246c05dc536bde078c58217d2c",
+      "ime": [
+        "mImeWindowVis=3",
+        "mInputShown=true",
+        "mFullscreenMode=false",
+        "mIsInputViewShown=true mStatusIcon=0"
+      ],
+      "nativeImeFrames": [
+        "Frames: parent=[132,0][2400,1080] display=[132,0][2400,1080] frame=[132,0][2400,1080] last=[132,0][2400,1080] insetsChanged=false"
+      ]
+    }
+  ],
+  "scope": "Tablet centering and three open/close/IME cycles; native Gboard remains asymmetric; not full issue acceptance",
+  "finalClosedScreenshotSha256": "d6df9c1c0011fdcf2275f1361727e57526265409ad26dfb0185ea6b0f5814558"
+}
