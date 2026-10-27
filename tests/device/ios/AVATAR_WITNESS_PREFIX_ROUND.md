@@ -392,3 +392,36 @@ saved observation, with no second publication intent or receipt. Its original
 journals remain authoritative and unmodified. This local publisher change has
 not rerun that producer or qualified two publications, seal/end, the complete
 Avatar journey, native compilation or devices. Feature 3 remains partial.
+
+
+## Separate readonly publication segments
+
+The shared publisher now exposes two literal read-only pieces of its existing
+`publish` sequence: the new original with the optional latest receipt, and the
+pending original with its latest phase floor. Avatar enables the existing
+`immutable_prefix_round` independently around each piece. Both original branch
+flags are evaluated before the latest-record callback, preserving the original
+behavior even if that callback changes pending/record metadata or returns None.
+The ordinary shared publisher extracts the same operations without prefix reuse;
+this compatible shared source change needs reconciliation with Phone and Pico.
+No serialized shape, contract version or deadline changes.
+
+The first scope closes before pending mutation or CAS/save; the second closes
+before the fresh phase read or HTTP. `resolve`, receipt writes/adoption, live
+phase requests and SDK queries are outside both scopes. Every original callback
+still runs, and all existing group owner/context, parser, source membership,
+file-pin, inventory and final-exit guards remain active. No result, quiet verdict,
+receipt or changing current observation is cached across the two scopes.
+
+The six new control/scope cases, seventeen existing shared publisher cases and
+four terminal transfer cases pass together as **27 tests in 1.487 seconds**.
+They include the original None-load failure, callback branch-order mutation,
+actual CAS/phase/HTTP scope boundaries, exception reset, lost issued POST
+recovery without replay, and independent scopes with fresh callbacks. All
+**5,590** source/launcher/publication pins remain byte/stat/hash identical;
+twenty-eight private roots retain ninety-two files after the unchanged
+metadata-discard counterexamples. Logs and inventories are retained in
+`.ios-host-tmp/avatar-publisher-readonly-segments-proposal-20261027/`.
+These narrow protocol tests model the original decoder and do not qualify an
+actual Final graph, establish a measured improvement or complete Feature 3.
+The retained genuine Final-graph comparison remains a separate next check.

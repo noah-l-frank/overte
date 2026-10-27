@@ -15,3 +15,11 @@ class AvatarWitnessPublisher(PhaseWitnessPublisher):
     def decode(self,value):
         need(self.area=='avatar-people')
         with immutable_prefix_round():return super().decode(value)
+
+    def publication_original(self,original):
+        need(self.area=='avatar-people')
+        with immutable_prefix_round():return super().publication_original(original)
+
+    def publication_pending(self,original):
+        need(self.area=='avatar-people')
+        with immutable_prefix_round():return super().publication_pending(original)

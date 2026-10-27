@@ -233,19 +233,31 @@ class PhaseWitnessPublisher:
             acquisition=clock, mode=mode, journal=journal, entry=entry))
         self.adopt(reference); return True
 
+    def publication_original(self, original):
+        """Read the new original and optional latest receipt before mutation."""
+        derived, body = self.original(original)
+        plan = self.state['pending'] is None
+        has_latest = plan and bool(self.state['records'])
+        latest = self.load(self.state['records'][-1]) if has_latest else None
+        return derived, body, plan, has_latest, latest
+
+    def publication_pending(self, original):
+        """Read the pending intent and phase floor before live phase I/O."""
+        pending = self.intent(self.state['pending'])
+        need(pending['phase'] == 'planned' and same(pending['original'], original))
+        floor = self.load(self.state['records'][-1])['phaseAfter'] if self.state['records'] else None
+        return pending, floor
+
     def publish(self, original):
-        self.bound(); self.resolve(); derived, body = self.original(original)
-        if self.state['pending'] is None:
-            if self.state['records']:
-                latest = self.load(self.state['records'][-1])
+        self.bound(); self.resolve(); derived, body, plan, has_latest, latest = self.publication_original(original)
+        if plan:
+            if has_latest:
                 if same(latest['intent']['original'], original):
                     need(latest['mode'] == 'published'); return latest['intent']['body']['actorSequence']
             need(len(self.state['records']) < 512)
             self.state['pending'] = dict(ordinal=len(self.state['records'])+1, original=deepcopy(original),
                 derived=derived, body=body, phase='planned'); self.save()
-        pending = self.intent(self.state['pending'])
-        need(pending['phase'] == 'planned' and same(pending['original'], original))
-        floor = self.load(self.state['records'][-1])['phaseAfter'] if self.state['records'] else None
+        pending, floor = self.publication_pending(original)
         active = self.phase.read(floor); self.bound(); clock = pending['derived']['acquisition']
         now, epoch = self.monotonic(), self.epoch_ms()
         need(active['ticket'] == pending['body']['ticket']
