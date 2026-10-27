@@ -5,8 +5,8 @@ not a complete `feature.chat` adapter. Native code is uncompiled; devices are
 untested. Thirteen host cases exercise original JS/Python paths with synthetic
 GUI/settings state only. No full capability is advertised.
 
-The native observer now writes version two; the shared reader accepts literal
-one/two and pins the protocol for the original native instance. Recovery of
+The iOS native observer now writes version three; other platform writers remain
+version two. The shared reader accepts literal one/two/three and pins the protocol for the original native instance. Recovery of
 the iOS local-message owner restores that original protocol pin. Version one
 remains readable without inventing a missing value/type hash.
 
@@ -22,7 +22,7 @@ existing private results directory. Missing hooks and wrong nonces are unavailab
 The hook exists only in E2E builds with explicit `--testScript`, results location
 and valid lifecycle source. Native reads run on the original GUI thread, bounded
 to 4096 nodes/depth 128 and 1500 ms. Native wall-clock regression disables the
-source. Envelope fields are exactly `chatViewVersion:1|2`, `commandId`, `runId`,
+source. Envelope fields are exactly `chatViewVersion:1|2|3`, `commandId`, `runId`,
 `instance`, `sequence`, `processId`, `capturedEpochMs`, `source`. Instance is an
 actual source birth nonce; PID, increasing read sequence and time are native.
 
@@ -39,7 +39,7 @@ and preserve the canonical iOS refusal until code association is implemented.
 ## Source fields
 
 `source` has exactly `tabletShown`, `editorFocused`, `editorHasDraft`, `keyboard`,
-`ui`, `storage`. Focus and draft-presence inspect original editors even when
+`ui`, `storage` and, in version three only, `rootOwnership`. Focus and draft-presence inspect original editors even when
 hidden; retained hidden drafts/focus cannot become successful close cleanup.
 
 Absent `ui` is exactly `{present:false}`, with no invented channel/history.
@@ -131,3 +131,16 @@ Counterexamples cover wrong visible bindings; distinct model/storage inventories
 order/multiplicity; hidden draft/focus/keyboard; requested-vs-actual keyboard;
 missing/ignored/foreign nonces; PID/run/instance/sequence/time loss; privacy and
 closed metadata; actual fixture admission and original JS dispatch.
+
+
+## iOS original QObject lifetimes
+
+[The version-three Chat root source](../ios/CHAT_ROOT_OWNERSHIP.md) reuses the
+existing original weak ledger with a Chat-only profile. Its actual complete
+walk joins page/editor/model/ListView identities and visibility. Hidden and
+detached objects remain alive until their real weak operands expire. The UI
+includes the actual visible page's `rootIdentity`; stale/mismatched membership,
+changed native root source and forgotten original prefixes are unavailable.
+The same existing owner retains these original bytes and their source cursor.
+History restoration and closed keyboard/UI never imply native object death.
+Native compilation and device execution remain unverified.

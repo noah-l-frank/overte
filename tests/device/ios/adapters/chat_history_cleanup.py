@@ -45,8 +45,8 @@ def restore(owner,ticket):
     if owner.state['baseline'] is None:
         owner.baseline(owner.original(reference));owner.state['baseline']=deepcopy(reference);owner.save()
     baseline=owner.original(owner.state['baseline'])['originals']['view']
-    need(baseline['chatViewVersion']==2 and baseline['source']['storage']['kind']=='null')
-    frame=owner.original(reference);local=owner.local(frame);need(frame['originals']['view']['chatViewVersion']==2)
+    need(baseline['chatViewVersion']>=2 and baseline['source']['storage']['kind']=='null')
+    frame=owner.original(reference);local=owner.local(frame);need(frame['originals']['view']['chatViewVersion']>=2)
     if local['draft']:
         owner.act(ticket,'cleanup-discard',{});reference=owner.capture(ticket,RESTORE_READ,{})
         frame=owner.original(reference);local=owner.local(frame)

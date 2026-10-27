@@ -16,17 +16,18 @@ HEX=r'[0-9a-f]{32}'
 
 
 def validate(value,*,pid=None,epoch=None,previous=None,profile="scripts"):
-    need(type(profile) is str and profile in ("scripts","login"))
-    schema="iosScriptUiRootOwnershipVersion" if profile=="scripts" else "iosLoginUiRootOwnershipVersion"
-    domain="native-main-ios-script-ui-roots" if profile=="scripts" else "native-main-ios-login-ui-roots"
+    need(type(profile) is str and profile in ("scripts","login","chat"))
+    schema="iosScriptUiRootOwnershipVersion" if profile=="scripts" else "iosLoginUiRootOwnershipVersion" if profile=="login" else "iosChatRootOwnershipVersion"
+    domain="native-main-ios-script-ui-roots" if profile=="scripts" else "native-main-ios-login-ui-roots" if profile=="login" else "native-main-ios-chat-roots"
     suffixes=({"manager":"/hifi/dialogs/TabletRunningScripts.qml","picker":"/dialogs/NativeFileBrowser.qml"} if profile=="scripts"
-        else {"tablet":"/dialogs/TabletLoginDialog.qml","overlay":"/OverlayLoginDialog.qml","dialog":"/LoginDialog.qml"})
-    need(type(value) is dict and len(json.dumps(value,ensure_ascii=False,separators=(',',':'),allow_nan=False).encode())<=LIMIT)
+        else {"tablet":"/dialogs/TabletLoginDialog.qml","overlay":"/OverlayLoginDialog.qml","dialog":"/LoginDialog.qml"} if profile=="login"
+        else {kind:"/armored-chat/armored_chat.qml" for kind in ("page","editor","local-model","domain-model","list","other-model")})
+    need(type(value) is dict and len(json.dumps(value,ensure_ascii=False,separators=(',',':'),allow_nan=False).encode())<=(65536 if profile=="chat" else LIMIT))
     need(type(value.get(schema)) is int and value[schema]==1 and type(value.get('available')) is bool)
     if not value['available']:
         exact(value,{schema,'available'});return value
     exact(value,{schema,'available','instance','sequence','processId','capturedEpochMs','monotonicMs','clockDomain',
-        'complete','wholeTreeReady','observationSequence','roots'})
+        'complete','wholeTreeReady','observationSequence','roots'}|({'pages'} if profile=='chat' else set()))
     need(value['clockDomain']==domain and type(value['instance']) is str and re.fullmatch(HEX,value['instance']) and integer(value['sequence'],1,9007199254740991)
         and integer(value['processId'],1,2147483647) and (pid is None or type(pid) is int and value['processId']==pid)
         and integer(value['capturedEpochMs'],1) and integer(value['monotonicMs']) and type(value['complete']) is bool

@@ -6,8 +6,8 @@ Literal versions one and two keep their exact grammars and cannot acquire the
 new cleanup authority. Frame/original carriers stay version one.
 
 The admitted original is an absent page/editor/keyboard and an actually empty
-history whose independently read native value is `null`. Native view version
-two supplies the SHA256 of the original QDataStream presence/value bytes and
+history whose independently read native value is `null`. Native view versions
+two and three supply the SHA256 of the original QDataStream presence/value bytes and
 the separate configuration digest. Neither a storage-kind label nor a requested
 value proves equality. Other original representations refuse cleanup input;
 their original journals and session responsibility remain owned. No native
@@ -70,3 +70,10 @@ actually wait at least 6.4 seconds. The synthetic native source has its own
 fixed epoch origin and continuously advancing elapsed counter; it never copies
 host UTC into retained native timestamps. Qt/transport/native production remain
 models. The case does not replace a compiled/native or device timing check.
+
+
+[Original Chat root ownership](CHAT_ROOT_OWNERSHIP.md) now remains independently
+visible throughout this same restoration. Cached Qt operands can stay alive
+after exact local history restoration; neither the result nor archival repeat
+claims their retirement. Both originals in an exact-value comparison must use
+the same actual native view protocol.

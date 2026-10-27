@@ -3,6 +3,9 @@
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "NormalControlUi.h"
+#if defined(Q_OS_IOS)
+#include "IOSChatRootOwnership.h"
+#endif
 #include <SettingManager.h>
 #include <DependencyManager.h>
 #include <QDataStream>
@@ -28,12 +31,16 @@ public:
                 || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(id).hasMatch()
                 || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) { return {}; }
         const auto started=tick();if (!started) { return {}; }
+#if defined(Q_OS_IOS)
+        _roots.begin();
+#endif
         QQuickItem* page {nullptr};bool invalid {false},focused {false},hasDraft {false},anyRoot {false};QSet<QQuickItem*> visited;
         std::function<void(QQuickItem*,int)> visit=[&](QQuickItem* item,int depth) {
             if (!item || invalid || visited.contains(item)) { return; }
             if (depth>128 || visited.size()>=4096 || item->thread()!=qApp->thread()) { invalid=true;return; }
             visited.insert(item);
-            if (!chatComponentSource(item).isEmpty()) {
+            const auto component=chatComponentSource(item);
+            if (!component.isEmpty()) {
                 auto actual=chatPage(item);
                 auto editor=qobject_cast<QQuickItem*>(createVariant(item->property("messageInput")).value<QObject*>());
                 if (actual!=item || !editor || chatPage(editor)!=item) { invalid=true;return; }
@@ -41,10 +48,22 @@ public:
                 if (text.userType()!=QMetaType::QString) { invalid=true;return; }
                 hasDraft=hasDraft || !text.toString().isEmpty();
                 focused=focused || editor->hasActiveFocus();
-                if (tabletShown && !NormalControlUi::visibleRect(item,item->window()).isEmpty()) {
+                const bool visible=tabletShown && !NormalControlUi::visibleRect(item,item->window()).isEmpty();
+#if defined(Q_OS_IOS)
+                _roots.page(item,editor,chatModel(item,"localHistory"),chatModel(item,"domainHistory"),component,visible);
+#endif
+                if (visible) {
                     if (page && page!=item) { invalid=true;return; }page=item;
                 }
             }
+#if defined(Q_OS_IOS)
+            if (item->inherits("QQuickListView") && loginQmlId(item,"listview")) {
+                if (auto actual=chatPage(item)) {
+                    auto model=qobject_cast<QAbstractItemModel*>(createVariant(item->property("model")).value<QObject*>());
+                    _roots.list(actual,item,model);
+                }
+            }
+#endif
             for (auto child:item->childItems()) { visit(child,depth+1); }
         };
         for (auto root:roots) { if (root && root->window()) { anyRoot=true;visit(root,0); } }
@@ -61,6 +80,9 @@ public:
             ui=histories;ui.insert("present",true);ui.insert("generation",_generation);
             ui.insert("channel",page->property("pageVal"));ui.insert("draft",editor->property("text"));
             ui.insert("keyboardRequested",page->property("keyboardRaised"));
+#if defined(Q_OS_IOS)
+            ui.insert("rootIdentity",_roots.identity(page));
+#endif
             // Read the actual visible ListView model too. The selected alias is
             // not evidence that the view really uses that model.
             QQuickItem* list {nullptr};int count {0};bool bad {false};
@@ -90,11 +112,18 @@ public:
                 && nativeKeyboard.value("keyboardVisible").userType()==QMetaType::Bool) {
             keyboard={{"available",true},{"backend","native-touch-metrics"},{"visible",nativeKeyboard.value("keyboardVisible")}};
         }
+        QVariantMap source{{"tabletShown",tabletShown},{"editorFocused",focused},{"editorHasDraft",hasDraft},
+            {"keyboard",keyboard},{"ui",ui},{"storage",stored}};
+#if defined(Q_OS_IOS)
+        source.insert("rootOwnership",_roots.read(true));
+        const int version=3;
+#else
+        const int version=2;
+#endif
         const auto captured=tick();if (!captured || captured-started>1500 || _sequence>=9007199254740991ULL) { return {}; }
-        return {{"chatViewVersion",2},{"commandId",id},{"runId",run},{"instance",_instance},
+        return {{"chatViewVersion",version},{"commandId",id},{"runId",run},{"instance",_instance},
             {"sequence",static_cast<qulonglong>(++_sequence)},{"processId",QCoreApplication::applicationPid()},
-            {"capturedEpochMs",captured},{"source",QVariantMap{{"tabletShown",tabletShown},{"editorFocused",focused},{"editorHasDraft",hasDraft},
-                {"keyboard",keyboard},{"ui",ui},{"storage",stored}}}};
+            {"capturedEpochMs",captured},{"source",source}};
     }
 private:
     class HistoryBuffer final : public QBuffer {
@@ -220,6 +249,9 @@ private:
         const auto now=QDateTime::currentMSecsSinceEpoch();
         if (now<=0 || now<_epoch) { _available=false;return 0; }_epoch=now;return now;
     }
+#if defined(Q_OS_IOS)
+    IOSChatRootOwnership _roots;
+#endif
     const QString _instance{nonce()};QString _generation{nonce()};QPointer<QQuickItem> _page;QPointer<QQuickWindow> _window;
     bool _available{true},_present{false};qint64 _epoch{0};quint64 _sequence{0};
 };

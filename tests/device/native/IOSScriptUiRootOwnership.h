@@ -12,6 +12,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QPointer>
+#include <QObject>
 #include <QQuickItem>
 #include <QThread>
 #include <QUuid>
@@ -30,17 +31,20 @@ inline bool enabled() noexcept {
     } catch (...) {return false;}
 }
 
-enum class Profile {Scripts,Login};
+enum class Profile {Scripts,Login,Chat};
 
 class Ledger {
     struct Root {
         QString id,kind,source;
-        QPointer<QQuickItem> item;
+        QPointer<QObject> item;
         qint64 observedEpoch,observedMono,expiredEpoch {0},expiredMono {0};
         quint64 observedSequence;
     };
     Profile _profile;
-    QString schema() const {return _profile==Profile::Scripts ? QStringLiteral("iosScriptUiRootOwnershipVersion") : QStringLiteral("iosLoginUiRootOwnershipVersion");}
+    QString schema() const {
+        return _profile==Profile::Scripts ? QStringLiteral("iosScriptUiRootOwnershipVersion")
+            : _profile==Profile::Login ? QStringLiteral("iosLoginUiRootOwnershipVersion") : QStringLiteral("iosChatRootOwnershipVersion");
+    }
     const QString _instance {QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
     QElapsedTimer _timer;
     std::vector<Root> _roots;
@@ -49,11 +53,15 @@ class Ledger {
     bool main() const noexcept {return qApp && QThread::currentThread()==qApp->thread();}
 public:
     explicit Ledger(Profile profile=Profile::Scripts) : _profile(profile) { _timer.start(); }
-    QString observe(QQuickItem* item,const QString& kind,const QString& source) noexcept {
+    QString observe(QObject* item,const QString& kind,const QString& source) noexcept {
         if (!enabled()) { return {}; }
         if (!main()) { _complete.store(false);return {}; }
         try {
-            if (!item || item->thread()!=qApp->thread() || (_profile==Profile::Scripts ? kind!="manager" && kind!="picker" : kind!="tablet" && kind!="overlay" && kind!="dialog") || source.isEmpty() || source.size()>4096) {
+            const bool kindKnown=_profile==Profile::Scripts ? kind=="manager" || kind=="picker"
+                : _profile==Profile::Login ? kind=="tablet" || kind=="overlay" || kind=="dialog"
+                : kind=="page" || kind=="editor" || kind=="local-model" || kind=="domain-model" || kind=="list" || kind=="other-model";
+            if (!item || item->thread()!=qApp->thread() || !kindKnown
+                    || (_profile!=Profile::Chat && !qobject_cast<QQuickItem*>(item)) || source.isEmpty() || source.size()>4096) {
                 _complete.store(false);return {};
             }
             for (const auto& root:_roots) {
@@ -63,7 +71,7 @@ public:
                 }
             }
             if (_roots.size()>=64 || _observations>=9007199254740991ULL) { _complete.store(false);return {}; }
-            _roots.push_back(Root{QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-'),kind,source,QPointer<QQuickItem>(item),
+            _roots.push_back(Root{QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-'),kind,source,QPointer<QObject>(item),
                 QDateTime::currentMSecsSinceEpoch(),_timer.elapsed(),0,0,++_observations});
             return _roots.back().id;
         } catch (...) { _complete.store(false);return {}; }
@@ -84,12 +92,13 @@ public:
                     {"weakAlive",alive},{"weakExpiredObservedEpochMs",root.expiredEpoch},{"weakExpiredObservedMonotonicMs",root.expiredMono}});
             }
             QJsonObject value{{schema(),1},{"available",true},{"instance",_instance},
-                {"clockDomain",_profile==Profile::Scripts ? "native-main-ios-script-ui-roots" : "native-main-ios-login-ui-roots"},
+                {"clockDomain",_profile==Profile::Scripts ? "native-main-ios-script-ui-roots"
+                    : _profile==Profile::Login ? "native-main-ios-login-ui-roots" : "native-main-ios-chat-roots"},
                 {"sequence",static_cast<double>(_sequence)},{"processId",QCoreApplication::applicationPid()},
                 {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"monotonicMs",_timer.elapsed()},
                 {"complete",_complete.load()},{"wholeTreeReady",wholeTreeReady},{"observationSequence",static_cast<double>(_observations)},
                 {"roots",roots}};
-            if (QJsonDocument(value).toJson(QJsonDocument::Compact).size()>16384) {
+            if (QJsonDocument(value).toJson(QJsonDocument::Compact).size()>(_profile==Profile::Chat ? 65536 : 16384)) {
                 _complete.store(false);value["complete"]=false;value["roots"]=QJsonArray();
             }
             return value;

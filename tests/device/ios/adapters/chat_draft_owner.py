@@ -51,6 +51,7 @@ class IOSChatDraftOwner:
             last=self.original(self.state['records'][-1]);restore(native,last['clockJoin']['nativeAfter'])
             original=last['originals']['view'];view.run,view.instance,view.sequence,view.captured=(original[key] for key in ('runId','instance','sequence','capturedEpochMs'))
             view.version=original['chatViewVersion']
+            if view.version>=3:view.ownership=deepcopy(original['source']['rootOwnership'])
 
     @staticmethod
     def empty():return dict(records=[],baseline=None,operations=[],failures=[],pending=None,observation=None,interrupted=[])
@@ -110,6 +111,11 @@ class IOSChatDraftOwner:
         original=raw['view'];view_packet(original,dict(schemaVersion=1,action='feature-chat-view-observe',
             commandId=original['commandId'],runId=self.run),pid,last['capturedEpochMs'])
         need(commands.get(original['commandId'])==dict(schemaVersion=1,commandId=original['commandId'],action='feature-chat-view-observe',runId=self.run))
+        if original['chatViewVersion']>=3:
+            from adapters.chat_root_ownership import validate as roots
+            owned=roots(original['source']['rootOwnership'],pid=pid,epoch=last['capturedEpochMs'],
+                previous=None if previous is None else previous['originals']['view']['source'].get('rootOwnership'))
+            if owned['available']:need(first['capturedEpochMs']<=owned['capturedEpochMs']<=original['capturedEpochMs'])
         local=self.local(value);source=original['source'];page=TokenChatUI.row(end,'chat.page',enabled=False)
         stored=source['storage'];need(stored['unowned']==0)
         if self.version==1:need(stored['count']==0 and stored['events']==[])
@@ -134,7 +140,7 @@ class IOSChatDraftOwner:
             need(same(first['lifecycle'],previous['clockJoin']['nativeAfter']['lifecycle'])
                 and a['instance']==old['uiAfter']['instance'] and a['lastSequence']>=old['uiAfter']['lastSequence']
                 and a['elapsedMs']>=old['uiAfter']['elapsedMs'] and original['instance']==old['view']['instance']
-                and original['sequence']>old['view']['sequence'] and original['capturedEpochMs']>=old['view']['capturedEpochMs']
+                and original['chatViewVersion']==old['view']['chatViewVersion'] and original['sequence']>old['view']['sequence'] and original['capturedEpochMs']>=old['view']['capturedEpochMs']
                 and join['hostBeforeMonotonic']>=previous['clockJoin']['hostAfterMonotonic']
                 and join['hostBeforeEpochMs']>=previous['clockJoin']['hostAfterEpochMs'])
             phase_packet(value['phaseBefore'],run=self.run,area='chat',request=value['phaseBefore']['requestId'],
@@ -156,7 +162,7 @@ class IOSChatDraftOwner:
         value=frame['originals']['view'];source=value['source'];ui=source['ui']
         if frame['iosChatDraftObservationVersion']>=3 and ui['present'] and ui['channel']=='settings':
             view_packet(value,dict(schemaVersion=1,action='feature-chat-view-observe',commandId=value['commandId'],runId=value['runId']),value['processId'],value['capturedEpochMs'])
-            need(value['chatViewVersion']==2 and source['keyboard']['available']
+            need(value['chatViewVersion']>=2 and source['keyboard']['available']
                 and (not source['keyboard']['visible'] or source['editorFocused']))
             return dict(open=True,channel='settings',draft=ui['draft'],focused=source['editorFocused'],keyboard=source['keyboard']['visible'],messages=[])
         return measured_view(value)
@@ -367,7 +373,7 @@ class IOSChatDraftOwner:
         local=self.local(before)
         if verb in RESTORE_STEPS:
             baseline=self.original(self.state['baseline'])['originals']['view']
-            need(baseline['chatViewVersion']==2 and baseline['source']['storage']['kind']=='null')
+            need(baseline['chatViewVersion']>=2 and baseline['source']['storage']['kind']=='null')
         if verb in ('open','cleanup-open','cleanup-rebuild-open'):need(not local['open'] and TokenChatUI.row(project(before['originals']['uiAfter']),'chat.entry') is not None)
         elif verb=='type':need(local['open'] and local['draft']=='')
         elif verb=='send':need(local['open'] and local['draft'] in self.ui.allowed())
@@ -375,7 +381,7 @@ class IOSChatDraftOwner:
         elif verb=='cleanup-settings':need(local['open'] and local['draft']=='')
         elif verb=='cleanup-erase':
             baseline=self.original(self.state['baseline'])['originals']['view']
-            need(self.version>=3 and baseline['chatViewVersion']==2 and baseline['source']['storage']['kind']=='null'
+            need(self.version>=3 and baseline['chatViewVersion']>=2 and baseline['source']['storage']['kind']=='null'
                 and local['channel']=='settings' and before['originals']['view']['source']['storage']['count']>0)
         elif verb=='close':need(local['open'])
         elif local['open']:

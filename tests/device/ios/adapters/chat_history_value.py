@@ -16,8 +16,8 @@ def unchanged_empty(before,after):
     for value in (before,after):
         need(type(value) is dict)
         request=dict(schemaVersion=1,action='feature-chat-view-observe',commandId=value.get('commandId'),runId=value.get('runId'))
-        validate(value,request,value.get('processId'),value.get('capturedEpochMs'));need(value['chatViewVersion']==2)
-    need(all(before[key]==after[key] for key in ('runId','instance','processId'))
+        validate(value,request,value.get('processId'),value.get('capturedEpochMs'));need(value['chatViewVersion']>=2)
+    need(all(before[key]==after[key] for key in ('runId','instance','processId','chatViewVersion'))
         and after['sequence']>before['sequence'] and after['commandId']!=before['commandId']
         and after['capturedEpochMs']>=before['capturedEpochMs'])
     first,last=(value['source']['storage'] for value in (before,after))
