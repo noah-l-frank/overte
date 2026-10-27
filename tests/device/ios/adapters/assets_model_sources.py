@@ -105,6 +105,9 @@ class AssetsModelSources:
         else:need(value['snapshot'] is None)
 
     def decode(self,value):
+        return self._decode_with_frame(value,self.frame)
+
+    def _decode_with_frame(self,value,read_frame):
         source=self.usage.source;exact(value,{self.OWNER_KEY,'binding','runId','role','fileOwnerToken','page','payload'})
         need(type(value[self.OWNER_KEY]) is int and value[self.OWNER_KEY]==VERSION and same(value['binding'],source.binding)
             and value['runId']==source.files.run and value['role']==source.role and value['fileOwnerToken']==source.files.state['token'] and value['page']==source.state['page'])
@@ -114,7 +117,7 @@ class AssetsModelSources:
         frames=[];seen=set();previous=None;raw_seen=[]
         for reference in state['frames']:
             original=self.originals.expand(reference);need(original['index'] not in seen and original['index']<state['nextIndex']);seen.add(original['index'])
-            frame=self.originals.read(original);self.frame(frame,previous);frames.append(frame);previous=frame;raw_seen.extend(frame['rawRefs'])
+            frame=self.originals.read(original);read_frame(frame,previous);frames.append(frame);previous=frame;raw_seen.extend(frame['rawRefs'])
         for row in state['interrupted']:
             exact(row,{'index','pending'});need(integer(row['index'],1,state['nextIndex']-1) and row['index'] not in seen);seen.add(row['index']);self.pending(row['pending'],row['index']);raw_seen.extend(row['pending']['rawRefs'])
         need(seen==set(range(1,state['nextIndex'])))

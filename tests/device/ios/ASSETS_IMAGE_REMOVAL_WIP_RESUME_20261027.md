@@ -91,6 +91,50 @@ for its peer packet and this exact six-path checkpoint before separate commits,
 then Tablet UIKit130 and Photos' later HTTP source window. No Assets registry
 changes are needed. Preserve shared import stability during those operations.
 
+## Subsequent exact readonly comparison
+
+The six-path checkpoint is secured in `58f207ceeb`; Root's single stable
+approved5 validation passed in 6.79s (`chat-peer-binding-project-checks.log`),
+with versions, documentation851 and whitespace checks also passing.
+
+After Tablet UIKit130 and Photos' actual atomic HTTP closure, the changed
+private comparison harness ran once under the same outer60s bound.
+`assets-removal-history-profile-paired-20261027.log` is terminal in 3.885s:
+all 257 original file bytes/dev/inodes/sizes/hashes unchanged, every forbidden
+SDK/input/network/write/Popen counter zero. Both paths reject at
+`assets_image_ownership.py:174`: the actual Marker is still active, rather
+than released. Both new comparison paths retain the exact refusal location;
+the first profile's unavailable traceback has not been reconstructed.
+
+The current path takes 1.923s/775 physical original reads. A preserved class
+hook deliberately restores only the literal duplicated-record read path and
+takes 1.948s/865 reads; it keeps the same current JSON parsing and therefore is
+not a complete old-version benchmark. Model raw reads are 26 versus 52, Parsed
+raw reads 72 versus 136, while Upload reads remain 600 in both. Removing 90 raw
+read duplicates saves about 25ms in this one diagnostic; this small difference
+does not establish that the120s prerequisite now completes. Do not rerun that
+unchanged full case or increase limits on the basis of this measurement.
+
+The dominant remaining dependency is the eight nested Upload owner decodes.
+Actual OriginalFrameStore reads invoke current candidate guards. Any further
+local owner-result dataflow must preserve those current callbacks and exact
+WAL/original-prefix checks; no persistent result, timestamp, source or native
+retirement cache has been introduced. Existing source files stay unchanged
+while Root coordinates the next narrow strategy and Tablet's lost-Open case.
+
+## Next bounded dataflow packet
+
+[Synchronous original Model dataflow](ASSETS_MODEL_CREATION_ROUND.md) records
+the new private helper/dispatch, six passing counterexamples, exact readonly
+parent-context reconstruction and the measured slowdown despite fewer file
+reads. The old four ParsedOwner compatibility cases are terminal
+PASS4/84.980s at 06:46:27 UTC. No own Python/Node process or source freeze
+remains. There will be no further live/runtime/heavy selection before the
+user's hard 07:55 Europe/Berlin pause (06:55 UTC); only final stable checks,
+the confined six-path checkpoint and handoff remain. No capability/source-count
+promotion is permitted. Resume from this documented boundary after the user
+authorizes continuation; preserve the retained 257-file root and all logs.
+
 ## Next vertical steps
 
 The local source change and its exact regressions are complete. Next obtain

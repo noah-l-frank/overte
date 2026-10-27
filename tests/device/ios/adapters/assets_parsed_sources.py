@@ -12,6 +12,7 @@ from ios.adapters import assets_model_origin as origin
 from ios.adapters.assets_model_owner import OwnedAssetsModel
 from ios.adapters.assets_model_raw_sources import ModelRawSources
 from ios.adapters.assets_model_sources import AssetsModelSources
+from ios.adapters.assets_model_creation_round import ModelCreationRound,eligible,function
 
 
 class ParsedRawSources(ModelRawSources):
@@ -48,15 +49,49 @@ class AssetsParsedSources(AssetsModelSources):
         return dict(createBefore=self.readers['state'].read(self.run),work=self.readers['work'].read(self.run),
             origin=self.origin_reader.read(self.run),createAfter=self.readers['state'].read(self.run))
 
-    def frame(self,value,previous=None):
-        super().frame(value,previous);originals=value['originals'];packet=originals['origin'];source=packet['source']
+    def decode(self,value):
+        if (type(self) is not AssetsParsedSources
+                or tuple(function(value) for value in (self.frame,self._frame_from_creation,self._origin_source,self._origin_frame))!=_FRAME_FUNCTIONS
+                or getattr(self._decode_with_frame,'__func__',None) is not _BASE_DECODE or not eligible(self)):
+            return super().decode(value)
+        round_=ModelCreationRound(self)
+        try:return self._decode_with_frame(value,lambda frame,previous:self._frame_from_creation(frame,previous,round_))
+        except BaseException as primary:
+            try:round_.close()
+            except BaseException as secondary:primary.add_note('Closing Assets original Model decode also failed: '+type(secondary).__name__)
+            raise
+        finally:
+            if round_.active:round_.close()
+
+    def _origin_source(self,value):
+        originals=value['originals'];packet=originals['origin'];source=packet['source']
         before,after=originals['createBefore'],originals['createAfter'];current=after['source']
         need(source['complete'] and source['domainId']==current['domainId'] and source['localSessionId']==current['localSessionId']
             and same(source['tree'],before['source']['tree']) and same(source['tree'],current['tree'])
             and before['clockAfter']['epochMs']<=packet['clockBefore']['epochMs']<=packet['clockAfter']['epochMs']<=after['clockBefore']['epochMs'])
+        return packet,source
+
+    def frame(self,value,previous=None):
+        super().frame(value,previous);self._origin_source(value)
         self.model.decode(self.model.previous);need(self.model.state['creation'] is not None)
-        proof=self.model.state['creation']['proof'];need(proof['runId']==packet['runId'] and proof['processId']==packet['processId']
+        return self._origin_frame(value,previous,self.model.state['creation'])
+
+    def _frame_from_creation(self,value,previous,round_):
+        round_.check();super().frame(value,previous);self._origin_source(value);round_.check()
+        result=self._origin_frame(value,previous,round_.creation);round_.check();return result
+
+    def _origin_frame(self,value,previous,creation):
+        packet=value['originals']['origin'];source=packet['source'];proof=creation['proof']
+        need(proof['runId']==packet['runId'] and proof['processId']==packet['processId']
             and proof['domainId']==source['domainId'] and proof['clientNodeId']==source['localSessionId'])
         if previous is not None:
             origin.validate(packet,dict(schemaVersion=1,action=origin.ACTION,commandId=packet['requestId'],runId=packet['runId']),packet['processId'],previous=previous['originals']['origin'])
         return value
+
+
+_PARSED_FRAME=AssetsParsedSources.frame
+_BASE_DECODE=AssetsModelSources._decode_with_frame
+_INTERNAL_FRAME=AssetsParsedSources._frame_from_creation
+_ORIGIN_SOURCE=AssetsParsedSources._origin_source
+_ORIGIN_FRAME=AssetsParsedSources._origin_frame
+_FRAME_FUNCTIONS=tuple(function(value) for value in (_PARSED_FRAME,_INTERNAL_FRAME,_ORIGIN_SOURCE,_ORIGIN_FRAME))
