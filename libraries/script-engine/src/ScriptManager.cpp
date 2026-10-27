@@ -1139,6 +1139,8 @@ void ScriptManager::run() {
 #if defined(Q_OS_IOS)
         _featureCreateSources.submitted(_fileNameString,_scriptContents);
         _featureSnapshotSources.submitted(_fileNameString,_scriptContents);
+        try { _featureSnapshotHttpSources.submitted(_fileNameString,_scriptContents); }
+        catch (...) { _featureSnapshotHttpSources.snapshotUnavailable(); }
         _featureAvatarScript->submitted(_fileNameString,_scriptContents);
 #endif
 #endif
@@ -1950,6 +1952,8 @@ ScriptValue ScriptManager::instantiateModule(const ScriptValue& module, const QS
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
         _featureCreateSources.submitted(modulePath,sourceCode);
         _featureSnapshotSources.submitted(modulePath,sourceCode);
+        try { _featureSnapshotHttpSources.submitted(modulePath,sourceCode); }
+        catch (...) { _featureSnapshotHttpSources.snapshotUnavailable(); }
         _featureAvatarScript->submitted(modulePath,sourceCode);
 #endif
         result = _engine->evaluateInClosure(closure, _engine->newProgram( sourceCode, modulePath ));
@@ -2173,6 +2177,8 @@ void ScriptManager::include(const QStringList& includeFiles, const ScriptValue& 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
                         _featureCreateSources.submitted(url.toString(),contents);
                         _featureSnapshotSources.submitted(url.toString(),contents);
+                        try { _featureSnapshotHttpSources.submitted(url.toString(),contents); }
+                        catch (...) { _featureSnapshotHttpSources.snapshotUnavailable(); }
                         _featureAvatarScript->submitted(url.toString(),contents);
 #endif
                         _engine->evaluate(contents, url.toString());

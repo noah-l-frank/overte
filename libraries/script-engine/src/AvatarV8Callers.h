@@ -51,6 +51,18 @@ struct AvatarV8Callers {
     bool hasSubmitted(const QString& suffix) const {
         for (const auto& url:submittedUrls) { if (PlacesHttpObservation::installed(url,suffix)) { return true; } }return false;
     }
+    bool snapshotPreflightOpen() const {
+        if (!top("/modules/request.js")) { return false; }
+        int index {0};
+        for (const auto& item:modules) {
+            const auto module=item.toMap();if (module.value("frame").toInt()!=index++) { return false; }
+            const auto url=module.value("url").toString();
+            if (PlacesHttpObservation::installed(url,"/system/snapshot.js")) { return true; }
+            if (!PlacesHttpObservation::installed(url,"/modules/request.js")) { return false; }
+        }
+        return false;
+    }
+    bool snapshotPreflightText() const { return top("/modules/request.js"); }
 };
 // The owning observer's original mutex protects this metadata-only table.
 // Exact repeated snapshots share one immutable entry; no stack is projected,

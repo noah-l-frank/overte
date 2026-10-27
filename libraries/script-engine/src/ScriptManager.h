@@ -1054,6 +1054,7 @@ public:
 #if defined(Q_OS_IOS)
     QVariantMap featureCreateSources() const { return _featureCreateSources.snapshot(); }
     QVariantMap featureSnapshotSources() const {return _featureSnapshotSources.snapshot();}
+    QVariantMap featureSnapshotHttpSources() const {return _featureSnapshotHttpSources.snapshot();}
     QVariantMap featureSnapshotTimerWork() const {return _featureSnapshotTimerWork->snapshot();}
     // Original indexed V8 frames; legacy callerChain helpers are unchanged.
     QVariantMap featureAvatarV8Stack() const;
@@ -1730,6 +1731,7 @@ protected:
 #if defined(Q_OS_IOS)
     overte::e2e::CreateSourceObservation _featureCreateSources;
     overte::e2e::CreateSourceObservation _featureSnapshotSources {"/system/snapshot/","snapshotSourcesVersion","/system/snapshot.js"};
+    overte::e2e::CreateSourceObservation _featureSnapshotHttpSources {overte::e2e::CreateSourceObservation::Profile::SnapshotPreflight};
     std::shared_ptr<overte::e2e::AvatarUiWorkObservation> _featureSnapshotTimerWork {
         std::make_shared<overte::e2e::AvatarUiWorkObservation>(QStringList{"/system/snapshot.js","/system/snapshot/featureSnapshotWork.js",
             "/modules/request.js","/system/request-service.js"},"snapshotTimerWorkVersion")};

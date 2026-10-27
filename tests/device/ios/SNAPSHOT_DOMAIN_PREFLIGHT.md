@@ -98,3 +98,33 @@ Failed then successful upload composition, actual frontend consumption,
 rendered review/Actor evidence, fixture and source-journal retirement,
 background return and paired main process/SDK closure remain open. Neither a
 local concurrency row nor an input ACK supplies those proofs.
+
+The next native prerequisite reuses the existing `AvatarSocialHttpObservation`
+with one closed SnapshotPreflight profile and a separate static ledger. The
+Social version-2 action/schema/endpoint remain the defaults; Places is unchanged.
+A closed `CreateSourceObservation` profile and a separate ScriptManager member
+retain only the actual evaluations of `snapshot.js` and `request.js`. The old
+Create and Snapshot source filters, records and grammars remain unchanged.
+The existing indexed V8 resolver checks these actual UTF-16 code identities:
+Open requires contiguous submitted request-module frames leading to the actual
+Snapshot module; response text reads require the actual request-module frame.
+The same real XHR ID/reply carries raw response hashes, callback entry/leave,
+abort, callback release and XHR/reply/timer destruction events. A response URL
+change or malformed/duplicate fixture-response ID poisons only this diagnostic.
+
+These new hooks are behind the existing uniform global E2E+iOS guards, including
+all affected value-type members. A target-only macro on a shared class member
+would change its ABI across translation units, so no new target-only layout
+condition or CMake change is introduced. New observer calls catch diagnostic
+failures locally, with an atomic incomplete flag; they do not abort or modify
+the actual request, response, Script callback or product exception behavior.
+Authorization values are not retained. Only the closed HTTPS concurrency GET
+with its real reply bytes is in scope; unrelated URLs/callers remain outside
+this profile.
+
+This native prerequisite is manually reviewed source only, uncompiled and
+unexecuted. Its static getter has no TestScripting/probe/host-reader route yet;
+it cannot supply frontend-consumption or cleanup qualification. The next small
+packet must wire that getter and a strict host reader, with negative cases for
+foreign/unmatched V8 frames or compiled code, wrong XHR/reply IDs, substituted
+response bytes, reads outside the actual DONE callback and retained resources.

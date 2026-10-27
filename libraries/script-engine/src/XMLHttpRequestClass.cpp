@@ -40,12 +40,114 @@ namespace {
 overte::e2e::PlacesHttpObservation& placesHttp() {
     static overte::e2e::PlacesHttpObservation ledger;return ledger;
 }
+void snapshotHttpEvent(const QString& id,const char* kind) noexcept {
+    if (id.isEmpty()) { return; }
+    try { overte::e2e::snapshotPreflightHttp().event(id,QString::fromLatin1(kind)); }
+    catch (...) { overte::e2e::AvatarSocialHttpObservation::snapshotUnavailable(); }
+}
+void snapshotHttpReplyEvent(const QString& id,const QString& reply,const char* kind) noexcept {
+    if (id.isEmpty()) { return; }
+    try { overte::e2e::snapshotPreflightHttp().event(id,QString::fromLatin1(kind),{{"replyId",reply}}); }
+    catch (...) { overte::e2e::AvatarSocialHttpObservation::snapshotUnavailable(); }
+}
+void snapshotHttpCallback(const QString& id,bool enter,int state,const char* callback="readystatechange") noexcept {
+    if (id.isEmpty()) { return; }
+    try { overte::e2e::snapshotPreflightHttp().event(id,enter ? "callback-enter" : "callback-leave",{{"callback",QString::fromLatin1(callback)},{"readyState",state}}); }
+    catch (...) { overte::e2e::AvatarSocialHttpObservation::snapshotUnavailable(); }
+}
 }
 
 QVariantMap XMLHttpRequestClass::featurePlacesHttpObservation(const QVariantMap& command) { return placesHttp().snapshot(command); }
 
 QVariantMap XMLHttpRequestClass::featureAvatarSocialHttpObservation(const QVariantMap& command) {
     return overte::e2e::avatarSocialHttp().snapshot(command);
+}
+
+QVariantMap XMLHttpRequestClass::featureSnapshotPreflightHttpObservation(const QVariantMap& command) noexcept {
+    try { return overte::e2e::snapshotPreflightHttp().snapshot(command); }
+    catch (...) { overte::e2e::AvatarSocialHttpObservation::snapshotUnavailable();return {}; }
+}
+
+void XMLHttpRequestClass::featureSnapshotPreflightOpen() noexcept {
+    try {
+        using Observation=overte::e2e::AvatarSocialHttpObservation;
+        if (!QCoreApplication::arguments().contains("--testScript") || !_async || _method!="GET" || !Observation::snapshotPreflightEndpoint(_url)
+                || !_engine || !_engine->manager() || QThread::currentThread()!=_engine->thread()) { return; }
+        const auto manager=_engine->manager();const auto membership=manager->featureLoadMembership(),submitted=manager->featureSourceIdentity();
+        if (membership.value("assigned").userType()!=QMetaType::Bool || !membership.value("assigned").toBool()
+                || !Observation::installed(membership.value("url").toString(),"/defaultScripts.js")
+                || submitted.value("submitted").userType()!=QMetaType::Bool || !submitted.value("submitted").toBool()) { return; }
+        const auto sources=manager->featureSnapshotHttpSources();
+        if (sources.value("snapshotHttpSourcesVersion")!=QVariant(1) || sources.value("complete").userType()!=QMetaType::Bool
+                || !sources.value("complete").toBool()) { Observation::snapshotUnavailable();return; }
+        const auto callers=overte::e2e::AvatarV8Callers::resolve(manager->featureAvatarV8Stack(),sources.value("evaluations").toList());
+        if (!callers.complete) { Observation::snapshotUnavailable();return; }
+        if (!callers.snapshotPreflightOpen()) { return; }
+        _featureSnapshotPreflightId=overte::e2e::snapshotPreflightHttp().create({{"engine",membership},{"submitted",submitted},
+            {"requestUrl",_url.toString(QUrl::FullyEncoded)},{"method",_method},{"protocolSignature",protocolVersionsSignatureBase64()}},callers);
+        if (_featureSnapshotPreflightId.isEmpty()) { return; }
+        const auto id=_featureSnapshotPreflightId;
+        QObject::connect(this,&QObject::destroyed,[id] { snapshotHttpEvent(id,"xhr-destroyed"); });
+        QObject::connect(&_timer,&QObject::destroyed,[id] { snapshotHttpEvent(id,"timer-destroyed"); });
+        QObject::connect(&_timer,&QTimer::timeout,this,[this] { featureSnapshotPreflightTimer(); });
+    } catch (...) { overte::e2e::AvatarSocialHttpObservation::snapshotUnavailable(); }
+}
+
+void XMLHttpRequestClass::featureSnapshotPreflightSent() noexcept {
+    if (_featureSnapshotPreflightId.isEmpty()) { return; }
+    try {
+        using Observation=overte::e2e::AvatarSocialHttpObservation;
+        if (!_reply || !Observation::snapshotPreflightEndpoint(_reply->url()) || !_sendData.isEmpty()
+                || !_request.rawHeader("Content-Type").isEmpty()) { Observation::snapshotUnavailable();return; }
+        _featureSnapshotPreflightReplyId=Observation::nonce();_featureSnapshotPreflightTextRead=false;
+        const auto id=_featureSnapshotPreflightId,reply=_featureSnapshotPreflightReplyId;
+        const auto authorization=_request.rawHeader("Authorization");
+        overte::e2e::snapshotPreflightHttp().event(id,"sent",{{"replyId",reply},{"url",_reply->url().toString(QUrl::FullyEncoded)},
+            {"method",_method},{"body",Observation::bytes(_sendData)},
+            {"authorizationAttached",authorization.startsWith("Bearer ") && authorization.size()>7},{"contentType",QString()}});
+        QObject::connect(_reply,&QObject::destroyed,[id,reply] { snapshotHttpReplyEvent(id,reply,"reply-destroyed"); });
+    } catch (...) { overte::e2e::AvatarSocialHttpObservation::snapshotUnavailable(); }
+}
+
+void XMLHttpRequestClass::featureSnapshotPreflightFinished() noexcept {
+    if (_featureSnapshotPreflightId.isEmpty()) { return; }
+    try {
+        using Observation=overte::e2e::AvatarSocialHttpObservation;
+        if (!_reply || !Observation::snapshotPreflightEndpoint(_reply->url()) || _reply->url().toEncoded()!=_url.toEncoded()) {
+            Observation::snapshotUnavailable();return;
+        }
+        QByteArray response;int count {0};
+        for (const auto& header:_reply->rawHeaderPairs()) { if (header.first.toLower()=="x-overte-fixture-response") { response=header.second;++count; } }
+        bool known=count==1 && response.size()==32;
+        for (const auto c:response) { known=known && ((c>='0' && c<='9') || (c>='a' && c<='f')); }
+        if (count>1 || (count && !known) || (known && _rawResponseData.size()>16384)) { Observation::snapshotUnavailable();return; }
+        overte::e2e::snapshotPreflightHttp().event(_featureSnapshotPreflightId,"reply-finished",{{"replyId",_featureSnapshotPreflightReplyId},
+            {"httpStatus",_reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()},{"networkError",static_cast<int>(_reply->error())},
+            {"responseId",QString::fromLatin1(response)},{"body",known ? QVariant(Observation::bytes(_rawResponseData)) : QVariant()}});
+    } catch (...) { overte::e2e::AvatarSocialHttpObservation::snapshotUnavailable(); }
+}
+
+void XMLHttpRequestClass::featureSnapshotPreflightText() const noexcept {
+    if (_featureSnapshotPreflightId.isEmpty() || _featureSnapshotPreflightTextRead || _readyState!=DONE) { return; }
+    try {
+        using Observation=overte::e2e::AvatarSocialHttpObservation;
+        if (!_engine || !_engine->manager() || QThread::currentThread()!=_engine->thread()) { Observation::snapshotUnavailable();return; }
+        const auto sources=_engine->manager()->featureSnapshotHttpSources();
+        if (sources.value("complete").userType()!=QMetaType::Bool || !sources.value("complete").toBool()) { Observation::snapshotUnavailable();return; }
+        const auto callers=overte::e2e::AvatarV8Callers::resolve(_engine->manager()->featureAvatarV8Stack(),sources.value("evaluations").toList());
+        if (!callers.complete) { Observation::snapshotUnavailable();return; }
+        if (!callers.snapshotPreflightText()) { return; }
+        _featureSnapshotPreflightTextRead=true;
+        overte::e2e::snapshotPreflightHttp().eventWithCallers(_featureSnapshotPreflightId,"text-read",{{"replyId",_featureSnapshotPreflightReplyId},
+            {"scriptSource",callers.modules.first().toMap().value("url")},
+            {"sha256",QString::fromLatin1(QCryptographicHash::hash(_rawResponseData,QCryptographicHash::Sha256).toHex())}},callers);
+    } catch (...) { overte::e2e::AvatarSocialHttpObservation::snapshotUnavailable(); }
+}
+
+void XMLHttpRequestClass::featureSnapshotPreflightTimer() const noexcept {
+    if (_featureSnapshotPreflightId.isEmpty()) { return; }
+    try { overte::e2e::snapshotPreflightHttp().event(_featureSnapshotPreflightId,"timer-state",{{"active",_timer.isActive()}}); }
+    catch (...) { overte::e2e::AvatarSocialHttpObservation::snapshotUnavailable(); }
 }
 
 QStringList XMLHttpRequestClass::featureAvatarSocialCallers() const {
@@ -199,11 +301,13 @@ XMLHttpRequestClass::~XMLHttpRequestClass() {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     placesHttp().event(_featurePlacesId,"callbacks-released");
     overte::e2e::avatarSocialHttp().event(_featureAvatarSocialId,"callbacks-released");
+    snapshotHttpEvent(_featureSnapshotPreflightId,"callbacks-released");
 #endif
 }
 
 ScriptValue XMLHttpRequestClass::getResponseText() const {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    featureSnapshotPreflightText();
     if (!_featureAvatarSocialId.isEmpty() && !_featureAvatarSocialTextRead && _readyState==DONE) {
         const auto callers=featureAvatarSocialV8Callers();
         if (!callers.complete) { overte::e2e::avatarSocialHttp().invalid(_featureAvatarSocialId); }
@@ -305,7 +409,8 @@ void XMLHttpRequestClass::setReadyState(ReadyState readyState) {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
             placesHttp().event(_featurePlacesId,"callback-enter",{{"callback","readystatechange"},{"readyState",static_cast<int>(_readyState)}});
             overte::e2e::avatarSocialHttp().event(_featureAvatarSocialId,"callback-enter",{{"callback","readystatechange"},{"readyState",static_cast<int>(_readyState)}});
-            Finally socialCallbackLeft([&] { overte::e2e::avatarSocialHttp().event(_featureAvatarSocialId,"callback-leave",{{"callback","readystatechange"},{"readyState",static_cast<int>(_readyState)}}); });
+            snapshotHttpCallback(_featureSnapshotPreflightId,true,static_cast<int>(_readyState));
+            Finally socialCallbackLeft([&] { overte::e2e::avatarSocialHttp().event(_featureAvatarSocialId,"callback-leave",{{"callback","readystatechange"},{"readyState",static_cast<int>(_readyState)}});snapshotHttpCallback(_featureSnapshotPreflightId,false,static_cast<int>(_readyState)); });
             Finally callbackLeft([&] { placesHttp().event(_featurePlacesId,"callback-leave",{{"callback","readystatechange"},{"readyState",static_cast<int>(_readyState)}}); });
 #endif
             _onReadyStateChange.call(_onReadyStateChange.engine()->nullValue());
@@ -342,6 +447,7 @@ void XMLHttpRequestClass::open(const QString& method, const QString& url, bool a
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
         featurePlacesOpen();
         featureAvatarSocialOpen();
+        featureSnapshotPreflightOpen();
 #endif
         setReadyState(OPENED);
     }
@@ -377,6 +483,7 @@ void XMLHttpRequestClass::doSend() {
     _reply = NetworkAccessManager::getInstance().sendCustomRequest(_request, _method.toLatin1(), _sendData);
     connectToReply(_reply);
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    featureSnapshotPreflightSent();
     if (!_featureAvatarSocialId.isEmpty()) {
         _featureAvatarSocialReplyId=overte::e2e::AvatarSocialHttpObservation::nonce();_featureAvatarSocialTextRead=false;
         const auto id=_featureAvatarSocialId,replyId=_featureAvatarSocialReplyId;
@@ -407,6 +514,7 @@ void XMLHttpRequestClass::doSend() {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     placesHttp().event(_featurePlacesId,"timer-state",{{"active",_timer.isActive()}});
     overte::e2e::avatarSocialHttp().event(_featureAvatarSocialId,"timer-state",{{"active",_timer.isActive()}});
+    featureSnapshotPreflightTimer();
 #endif
 }
 
@@ -419,7 +527,8 @@ void XMLHttpRequestClass::requestTimeout() {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
         placesHttp().event(_featurePlacesId,"callback-enter",{{"callback","timeout"},{"readyState",static_cast<int>(_readyState)}});
         overte::e2e::avatarSocialHttp().event(_featureAvatarSocialId,"callback-enter",{{"callback","timeout"},{"readyState",static_cast<int>(_readyState)}});
-        Finally socialCallbackLeft([&] { overte::e2e::avatarSocialHttp().event(_featureAvatarSocialId,"callback-leave",{{"callback","timeout"},{"readyState",static_cast<int>(_readyState)}}); });
+        snapshotHttpCallback(_featureSnapshotPreflightId,true,static_cast<int>(_readyState),"timeout");
+        Finally socialCallbackLeft([&] { overte::e2e::avatarSocialHttp().event(_featureAvatarSocialId,"callback-leave",{{"callback","timeout"},{"readyState",static_cast<int>(_readyState)}});snapshotHttpCallback(_featureSnapshotPreflightId,false,static_cast<int>(_readyState),"timeout"); });
         Finally callbackLeft([&] { placesHttp().event(_featurePlacesId,"callback-leave",{{"callback","timeout"},{"readyState",static_cast<int>(_readyState)}}); });
 #endif
         _onTimeout.call(_engine->nullValue());
@@ -459,6 +568,7 @@ void XMLHttpRequestClass::requestFinished() {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     featurePlacesFinished();
     featureAvatarSocialFinished();
+    featureSnapshotPreflightFinished();
 #endif
     setReadyState(DONE);
     emit requestComplete();
@@ -475,6 +585,7 @@ void XMLHttpRequestClass::abortRequest() {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
         placesHttp().event(_featurePlacesId,"aborted",{{"replyId",_featurePlacesReplyId}});
         overte::e2e::avatarSocialHttp().event(_featureAvatarSocialId,"aborted",{{"replyId",_featureAvatarSocialReplyId}});
+        snapshotHttpReplyEvent(_featureSnapshotPreflightId,_featureSnapshotPreflightReplyId,"aborted");
 #endif
         disconnectFromReply(_reply);
         _reply->abort();

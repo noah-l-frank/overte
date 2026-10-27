@@ -229,6 +229,7 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     static QVariantMap featurePlacesHttpObservation(const QVariantMap& command);
     static QVariantMap featureAvatarSocialHttpObservation(const QVariantMap& command);
+    static QVariantMap featureSnapshotPreflightHttpObservation(const QVariantMap& command) noexcept;
 #endif
     QString getResponseType() const { return _responseType; }
     void setResponseType(const QString& responseType) { _responseType = responseType; }
@@ -314,6 +315,14 @@ private:
     QString _featureAvatarSocialId;
     QString _featureAvatarSocialReplyId;
     mutable bool _featureAvatarSocialTextRead {false};
+    void featureSnapshotPreflightOpen() noexcept;
+    void featureSnapshotPreflightSent() noexcept;
+    void featureSnapshotPreflightFinished() noexcept;
+    void featureSnapshotPreflightText() const noexcept;
+    void featureSnapshotPreflightTimer() const noexcept;
+    QString _featureSnapshotPreflightId;
+    QString _featureSnapshotPreflightReplyId;
+    mutable bool _featureSnapshotPreflightTextRead {false};
     QString featurePlacesCaller() const;
     void featurePlacesOpen();
     void featurePlacesFinished();
