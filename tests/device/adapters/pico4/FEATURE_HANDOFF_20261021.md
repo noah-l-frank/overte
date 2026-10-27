@@ -1,5 +1,11 @@
 # Pico adapter handoff: 2026-10-21
 
+The current continuation branch is
+`test/android-pico/consolidated-adapters-20261027`. See the
+[2026-10-27 consolidation record](../../../../docs/interfaces/android/PICO_BRANCH_CONSOLIDATION_20261027.md)
+for the 18 preserved source tips, retained WIP, and consolidation checks.
+The branch identities in the historical evidence below remain unchanged.
+
 This branch completes three source-level Pico feature areas: Scripts,
 Authentication and Graphics. The other eleven remain partial or missing
 with concrete missing operations, original evidence, cleanup obligations and
