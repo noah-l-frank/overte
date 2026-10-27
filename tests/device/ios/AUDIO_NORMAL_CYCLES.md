@@ -1,7 +1,7 @@
 # Original normal Audio mute and automatic recording cycles
 
 This cycle extension introduced owner and observation version 2. The current
-[page composition writes version 3](AUDIO_PAGE_CYCLES.md), reads all three
+[page composition writes version 4](AUDIO_PAGE_CYCLES.md), reads all four
 literal versions, and retains the unchanged immutable frame and
 native source schemas. Literal-1 owners retain their prior supported inputs;
 their original files are neither rewritten nor retimed. The current installed

@@ -52,6 +52,12 @@ The [session ownership barrier](AUDIO_SESSION_OWNERSHIP.md) preserves these
 unfinished responsibilities before ordinary SDK work. Closing this page or
 retiring its PCM lease cannot bypass that barrier.
 
+The [fourteen-action normal composition](AUDIO_NORMAL_JOURNEY.md) now exercises
+the unchanged shared action/state sequence with current authorization, five
+recording cycles, original PCM and the same-process background bridge. Its
+pure archive repeat preserves all 131 original fixture files. Mandatory
+acoustic/Peer artifacts and resource/process/SDK retirement remain separate.
+
 The [background interruption child](AUDIO_BACKGROUND.md) records actual
 same-process OS cancellation and native quiet independently. Its
 [version-four parent bridge](AUDIO_BACKGROUND_BRIDGE.md) permits normal Close

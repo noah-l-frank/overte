@@ -17,12 +17,13 @@ TICKET='7'*32
 
 
 class AudioBackgroundDomain:
-    def __init__(self,case,*,pages=False):
+    def __init__(self,case,*,pages=False,prepare_recording=True):
         self.fixture=IOSScriptRuntimeTests();self.fixture.setUp();case.addCleanup(self.fixture.doCleanups)
         self.f=self.fixture.f;self.root=self.f.root;self.m=Model();self.m.muted=False
         if pages:
             from ios.self_tests.audio_page_cycle_domain import AudioPageCycleDomain
-            self.m=AudioPageCycleDomain(self.root);self.m.automatic=False;self.m.add_phase('open','3'*32)
+            self.m=AudioPageCycleDomain(self.root);self.m.automatic=False
+            if prepare_recording:self.m.add_phase('open','3'*32)
         self.runtime=IOSAudioRuntime(self.f.adapter);source=self.runtime._sources('test-only');self.binding=source['binding']
         self.lock=ScriptSourceLock(self.root/'script-feature-sources.lock');case.enterContext(self.lock.held())
         self.inputs=[];self.reads=0;self.fault=None;self.native_blocked=False
@@ -38,10 +39,11 @@ class AudioBackgroundDomain:
         parent=IOSAudioRecordedOwner(self.store,self.root,self.binding,RUN,self.lock,m.guard,native=m.reader(),io=m.io(),
             phase=PhaseFixtureReader(m.client(),RUN,'audio',epoch_ms=m.epoch,monotonic=lambda:m.clock),
             epoch_ms=m.epoch,monotonic=lambda:m.clock,sleep=m.sleep)
-        m.owner=parent
-        if pages:parent.act(m.ticket,'open');m.add_phase('record-start','4'*32)
-        parent.act(m.ticket,'record-start');self.parent_bytes=self.store.path.read_bytes()
-        m.add_phase('background-resume',TICKET)
+        m.owner=parent;self.parent=parent
+        if prepare_recording:
+            if pages:parent.act(m.ticket,'open');m.add_phase('record-start','4'*32)
+            parent.act(m.ticket,'record-start');self.parent_bytes=self.store.path.read_bytes()
+            m.add_phase('background-resume',TICKET)
         def sources(_selector):
             case.assertTrue(self.f.process['foreground']);case.assertFalse(self.native_blocked)
             source['check']()
@@ -88,7 +90,7 @@ class AudioBackgroundDomain:
             return True
         self.fixture.client.execute=os_input
         self.f.adapter.query_app_state=AppiumAdapter.query_app_state.__get__(self.f.adapter,type(self.f.adapter))
-        self.owner=self.reopen()
+        self.owner=self.reopen() if prepare_recording else None
 
     def reopen(self):
         m=self.m
