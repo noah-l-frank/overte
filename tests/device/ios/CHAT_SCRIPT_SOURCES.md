@@ -506,3 +506,12 @@ unqualified. The post-pass memo-cap and future-clock projections now pass17
 focused cases/14.522s plus the same immutable33-file original replay, followed
 by13 earlier primary6/peer5/primary4/runtime/prefix cases in59.174s. See the
 linked handoff for exact source and retained-failure boundaries.
+
+The final current committed source (`7a4627c34a`), including both memo storage
+bounds and all-WAL future-cut clock scope, now also passes the complete normal
+bidirectional host composition1/148.575s under unchanged20/1.5/180 limits.
+Log: `chat-archive-round-bidirectional-current-clock-scope-20261027.log`.
+The actual Script emission counters stay1 per direction, and the final original
+archives preserve file/input/query histories with writes forbidden. This adds
+current-source composition qualification to the focused/legacy cases above;
+loaded QML/native/physical execution and whole Chat ending remain open.

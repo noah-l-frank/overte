@@ -111,8 +111,8 @@ These are optimization storage limits, independent of existing wire/read caps,
 counterexample passes in the current17-case guard/scope packet. The preceding
 full pass remains tied to its preserved exact source snapshot. No whole
 composition was repeated for that focused fallback check. A fresh current-source
-180s composition remains the next qualification step after the combined storage
-and clock-scope changes.
+180s composition was subsequently executed after the combined storage and
+clock-scope changes; its exact result follows below.
 
 ## Full-WAL Send window scope
 
@@ -162,3 +162,22 @@ regressions and the exact immutable saved-state replay. The earlier fresh
 symmetric158.072s pass remains attributable to its preserved original source
 snapshot. No physical/native/device completion or whole Chat capability is
 claimed by combining these distinct qualification boundaries.
+
+## Current connected composition
+
+The complete unchanged normal bidirectional case subsequently passes again
+against the exact committed cap/clock-scope source at `7a4627c34a`:
+1/148.575 seconds, actual session40764 exit0, log
+`chat-archive-round-bidirectional-current-clock-scope-20261027.log`.
+This covers the normal primary Send, peer's admitted incoming history, normal
+peer reply, primary's admitted incoming history and both pure original archive
+reads with the new bounded memo and all-future-cut clock scope active.
+
+The existing20-second operation,1.5-second acquisition and outer180-second
+limits remain unchanged. No original is re-aged, Send replayed or required
+source/candidate/file guard disabled. Both actual Script emission counts remain
+exactly1; pure archive replay still forbids writes and preserves its file and
+command census. This is a declared host-model composition, with no physical
+clock, actual mixer, compiled native/QML or device qualification. No whole Chat
+capability or retirement completion follows from it. The earlier failures and
+158.072-second source snapshot remain retained and distinctly attributed.
