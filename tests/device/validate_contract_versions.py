@@ -9,6 +9,9 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "snapshot-upload-combined-work-packet": 1,
+    "snapshot-upload-combined-work-frame": 1,
+    "snapshot-upload-combined-work-original": 1,
     "ios-snapshot-combined-work-packet": 1,
     "ios-snapshot-native-combined-work-frame": 1,
     "ios-snapshot-native-combined-work-original": 1,
@@ -37,8 +40,8 @@ REQUIRED = {
     "snapshot-upload-backend-frame": 1,
     "snapshot-upload-backend-original": 1,
     "ios-snapshot-uploads-source": 2,
-    "snapshot-upload-owner": 1,
-    "snapshot-upload-result": 1,
+    "snapshot-upload-owner": 2,
+    "snapshot-upload-result": 2,
     "snapshot-upload-input-owner": 1,
     "snapshot-upload-input-proof-frame": 1,
     "snapshot-upload-input-proof-original": 1,

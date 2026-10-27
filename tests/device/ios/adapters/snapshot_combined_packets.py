@@ -18,3 +18,11 @@ class CombinedCaptureWorkPacket(SnapshotWorkPacket):
     _source=snapshot_combined_work
     _segments=CombinedWorkSegments
     _segment_subject='capture'
+
+
+class CombinedUploadWorkPacket(CombinedCaptureWorkPacket):
+    _store_prefix='snapshot-upload'
+    _key='snapshotUploadCombinedWorkPacketVersion'
+    _namespace='upload-combined-work'
+    _schema='uploadCombinedWork'
+    _segment_subject='upload'

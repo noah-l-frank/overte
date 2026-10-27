@@ -29,7 +29,7 @@ class SnapshotCombinedCaptureNamespaceTests(unittest.TestCase):
             self.assertTrue(new.store.path(combined['chunks'][0]).name.startswith('snapshot-combined-capture-parts-'))
             for reader,parent in ((old,combined),(new,original)):
                 with self.subTest(reader=type(reader).__name__),self.assertRaises(NativeUIError):reader.read(parent)
-            for role,subject in (('actor','capture'),('primary','upload'),('primary','work')):
+            for role,subject in (('actor','capture'),('primary','unknown'),('primary','work')):
                 with self.subTest(role=role,subject=subject),self.assertRaises(NativeUIError):
                     CombinedWorkSegments(f.root,f.binding,RUN,role,subject,lambda:True,intents.append,monotonic=time.monotonic)
 

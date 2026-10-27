@@ -26,7 +26,7 @@ POSTLOGOUT_LABELS=frozenset({'parts','record','partial'})
 PROFILES={'tabletweb-screen':dict(parent='tabletWebScreenSegmentsVersion',body='tabletWebScreenSegmentBodyVersion',schema='tabletWebScreenSegment',
         labels=frozenset({'png'}),subjects=frozenset({'primary','actor'})),
     'snapshot-combined-work':dict(parent='snapshotCombinedWorkPartsVersion',body='snapshotCombinedWorkPartBodyVersion',schema='snapshotCombinedWorkPart',
-        labels=frozenset({'raw'}),subjects=frozenset({'capture'})),
+        labels=frozenset({'raw'}),subjects=frozenset({'capture','upload'})),
     'assets-backend-sources':dict(parent='assetsBackendSourcePartsVersion',body='assetsBackendSourcePartBodyVersion',schema='assetsBackendSourcePart',
         labels=frozenset({'raw'}),subjects=frozenset({'primary','actor'})),
     'photos-save-sources':dict(parent='photosSaveSourcePartsVersion',body='photosSaveSourcePartBodyVersion',schema='photosSaveSourcePart',

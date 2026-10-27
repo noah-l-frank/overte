@@ -72,8 +72,8 @@ Private logs are `snapshot-combined-work-resume-20261027-loader01.log`,
 `snapshot-combined-work-resume-20261027-final06.log` under `.ios-host-tmp`.
 Native code remains uncompiled and unexecuted. This reader is a prerequisite,
 not normal capture/upload integration or a backend/native-effect proof. The
-normal upload and actual frontend HTTP consumer still need a join to these
-originals, followed by independent backend, Actor/image, restoration and
+actual frontend HTTP consumer still needs a join to these originals, followed
+by independent backend, Actor/image, restoration and
 process/SDK/resource-end evidence.
 
 The same capture runtime/coordinator now also has an explicit, closed
@@ -86,9 +86,9 @@ capture input, original manifests, immutable chunks, decoded PNG and file
 cleanup retain their existing source and ownership checks. Combined work has
 its own frame and part schemas, a primary-only capture subject and the existing
 32-character namespace and bounded original-file limits.
-Until its own combined profile is integrated, the existing Upload1 constructor
-explicitly refuses an archived CombinedCapture2 rather than crossing profiles.
-Its existing normal Upload1 positive case passed unchanged in 8.683 seconds.
+The default Upload1 constructor explicitly refuses an archived CombinedCapture2
+rather than crossing profiles. Its existing normal Upload1 positive case passed
+unchanged in 8.683 seconds before the additional Upload2 integration below.
 
 The declared combined capture boundary produces its own code/caller/timer
 originals from the same ordinary-input-driven model before persistence. It
@@ -105,9 +105,9 @@ recovery and completion cases passed in 23.751 seconds. The cleanup preserves
 the original host PNG and observes the existing three-second window on the
 declared model clocks; it does not qualify real-device quiescence.
 These are modeled Qt/V8/native clocks and actual host file operations, not a
-compiled native or real device capture qualification. Upload, pending Cancel,
-current rendered review and frontend preflight consumption still need the same
-closed combined-profile integration and independent end evidence.
+compiled native or real device capture qualification. Pending Cancel, current
+rendered review and frontend preflight consumption still need the same closed
+combined-profile integration and independent end evidence.
 
 Capture component logs are
 `snapshot-combined-capture-resume-20261027-positive02.log`,
@@ -116,3 +116,44 @@ Capture component logs are
 `snapshot-combined-capture-resume-20261027-legacy05.log`, plus the separate
 `snapshot-combined-capture-resume-20261027-uploadlegacy06.log`, under
 `.ios-host-tmp`.
+
+The existing Upload runtime/coordinator now accepts its own explicit
+`combined=True` choice, which must match the actual archived Capture2 profile.
+The default constructor/archive remains Separate1; no stored payload chooses a
+new profile implicitly. Combined owner/result envelopes use version 2, pin the
+original capture result/artifact hashes and retain their own upload-work frame
+and part namespace. The part profile adds only the fixed primary/upload
+subject. Each quiet work original must extend the actual settled capture work
+prefix and keep that same real manager; a new default manager cannot re-anchor
+responsibility. Normal Upload/Cancel and body/FD/native callback checks reuse
+their existing paths. The result explicitly requires frontend HTTP consumption;
+the separate-manager preflight-HTTP version 1 cannot serve that missing proof.
+
+The new namespace and normal Capture-to-Upload/archive cases passed in 9.139
+seconds. Five lost-return, normal Cancel, explicit-profile, foreign-manager and
+held-body-descriptor cases passed in 27.808 seconds. The actual original PNG
+inode/body bytes remain unchanged, lost delivery sends Upload once, and a live
+body descriptor still blocks quiet after the modeled QObjects die. The first
+namespace test expected only `NativeUIError`; the actual missing foreign path
+correctly raised `FileNotFoundError`. Only the test was corrected to accept
+the conservative filesystem failure; production error handling was unchanged.
+These host cases use declared native/Qt/V8 producers and actual files,
+descriptors and host clocks. They do not establish a compiled native result,
+frontend preflight consumption, backend/Actor/image agreement or process/SDK
+retirement. Feature 11 stays capability-closed, with five of fourteen areas
+source-complete.
+Nine existing Upload1/capture/namespace cases then passed in 40.885 seconds,
+including normal Cancel, live descriptors, inode replacement and child input
+WAL recovery. The old separate-profile output and its fixed namespaces remain
+unchanged.
+The final actual-file census case passed in 2.295 seconds: either orphaned
+Combined upload frame/part prefix prevents a fresh owner, preserves the file's
+original bytes/inode and issues no Upload. The healthy constructor proceeds
+only after those deliberately created test files are removed. This additional
+census applies only to Combined2; the default Separate1 census stays literal.
+
+Private Upload2 logs are
+`snapshot-combined-upload-resume-20261027-positive02.log` and
+`snapshot-combined-upload-resume-20261027-recovery03.log`, followed by
+`snapshot-combined-upload-resume-20261027-legacy04.log` and
+`snapshot-combined-upload-resume-20261027-census05.log`, under `.ios-host-tmp`.

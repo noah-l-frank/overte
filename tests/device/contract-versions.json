@@ -1,6 +1,9 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "snapshot-upload-combined-work-packet": {"current": 1, "reads": [1]},
+    "snapshot-upload-combined-work-frame": {"current": 1, "reads": [1]},
+    "snapshot-upload-combined-work-original": {"current": 1, "reads": [1]},
     "ios-snapshot-combined-work-packet": {"current": 1, "reads": [1]},
     "ios-snapshot-native-combined-work-frame": {"current": 1, "reads": [1]},
     "ios-snapshot-native-combined-work-original": {"current": 1, "reads": [1]},
@@ -29,8 +32,8 @@
     "snapshot-upload-backend-frame": {"current": 1, "reads": [1]},
     "snapshot-upload-backend-original": {"current": 1, "reads": [1]},
     "ios-snapshot-uploads-source": {"current": 2, "reads": [1, 2]},
-    "snapshot-upload-owner": {"current": 1, "reads": [1]},
-    "snapshot-upload-result": {"current": 1, "reads": [1]},
+    "snapshot-upload-owner": {"current": 2, "reads": [1, 2]},
+    "snapshot-upload-result": {"current": 2, "reads": [1, 2]},
     "snapshot-upload-input-owner": {"current": 1, "reads": [1]},
     "snapshot-upload-input-proof-frame": {"current": 1, "reads": [1]},
     "snapshot-upload-input-proof-original": {"current": 1, "reads": [1]},
