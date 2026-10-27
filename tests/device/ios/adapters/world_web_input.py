@@ -88,25 +88,30 @@ class WorldWebInput:
         # final transport guard checks those actual identities and current WAL.
         original={key:row[key] for key in ('ticket','label','kind','control','text','source','window','point','body')}
         parser=getattr(self.proof,'__func__',self.proof)
-        return (digest(original),digest(self.binding),self.run,self.entity,parser)
+        helpers=tuple(getattr(method,'__func__',method) for method in (self._proof_projection,
+            self.source.input_projection,self.source._input_projection,self.source.input_point,self.source.frame))
+        return (digest(original),digest(self.binding),self.run,self.entity,parser,helpers,geometry.point,geometry.point_snapshot)
 
     def proof(self,row):
-        frame=self.source.frame(row['source']);need(frame['ticket']==row['ticket'])
-        raw=frame['originals'];document=raw['document'];need(raw['ledgerAfter']['iosWorldWebVersion']>=2 and document is not None and document['source']['dom']['iosWorldWebDOMVersion']>=2
-            and not raw['widgets']['tabletShown'])
+        frame=self.source.frame(row['source'])
+        self._proof_projection(row,self.source._input_projection(frame,self.entity,row['kind'],row['control']))
+        return frame
+
+    def _proof_projection(self,row,observed):
+        need(observed['ticket']==row['ticket'])
         if row['kind']=='tap':
-            target=self.source.input_point(frame,self.entity,row['control']);need(same(target,row['point']))
+            target=observed['point'];need(same(target,row['point']))
             rect=row['window'];exact(rect,{'x','y','width','height'});need(all(number(rect[key],-10000,10000) for key in ('x','y'))
                 and abs(rect['width']-target['surfaceWidth'])<=1 and abs(rect['height']-target['surfaceHeight'])<=1)
             body=dict(actions=[dict(type='pointer',id='overte-world-web-'+row['ticket'],parameters=dict(pointerType='touch'),actions=[
                 dict(type='pointerMove',duration=0,origin='viewport',x=round(rect['x']+target['x']),y=round(rect['y']+target['y'])),
                 dict(type='pointerDown',button=0),dict(type='pause',duration=100),dict(type='pointerUp',button=0)])])
         else:
-            fields=[element for element in document['source']['dom']['elements'] if element['id']==row['control']]
-            need(len(fields)==1 and fields[0]['focused'] and fields[0]['enabled'] and fields[0]['visible'] and type(fields[0]['value']) is str
+            field=observed['field']
+            need(type(field) is dict and field['focused'] and field['enabled'] and field['visible'] and type(field['value']) is str
                 and row['window'] is row['point'] is None)
             body=dict(actions=[dict(type='key',id='overte-world-web-keyboard',actions=key_actions(row['text']))])
-        need(same(body,row['body']));return frame
+        need(same(body,row['body']))
 
     def perform(self,ticket,label,kind,control,*,text=None):
         self.bound();identifier(ticket);need(type(label) is str and kind in ('tap','replace'))
@@ -123,16 +128,18 @@ class WorldWebInput:
             return self._deliver(row,ticket,kind,control,text)
 
     def _deliver(self,row,ticket,kind,control,text):
-        self.save();frame=self.source.frame(row['source']);need(frame['ticket']==ticket)
-        raw=frame['originals']
+        self.save();observed=self.source.input_projection(row['source'],self.entity,kind,control);need(observed['ticket']==ticket)
         if kind=='tap':
             row['window']=deepcopy(self.ui._request('GET','/window/rect'))
-            row['point']=self.source.input_point(frame,self.entity,control)
+            row['point']=observed['point']
             target,rect=row['point'],row['window'];row['body']=dict(actions=[dict(type='pointer',id='overte-world-web-'+ticket,
                 parameters=dict(pointerType='touch'),actions=[dict(type='pointerMove',duration=0,origin='viewport',
                 x=round(rect['x']+target['x']),y=round(rect['y']+target['y'])),dict(type='pointerDown',button=0),dict(type='pause',duration=100),dict(type='pointerUp',button=0)])])
         else:row['body']=dict(actions=[dict(type='key',id='overte-world-web-keyboard',actions=key_actions(text))])
-        self.proof(row);self._proof_cache.add(self.proof_key(row))
+        if getattr(self.proof,'__func__',None) is WorldWebInput.proof:
+            self._proof_projection(row,observed)
+        else:self.proof(row)
+        self._proof_cache.add(self.proof_key(row))
         # The final transport guard compares the exact durable intention.
         # Geometry/window/body must therefore be retained before its first
         # check, while the separate issued write still precedes the POST.
@@ -140,7 +147,7 @@ class WorldWebInput:
         completed=False
         def fresh():
             api_check();self.source.guard_originals();self.source.guard_saved_state()
-            need(same(self.store.read(),self.previous) and same(self.previous,self.envelope(self.state)));joined=frame['clockJoin']
+            need(same(self.store.read(),self.previous) and same(self.previous,self.envelope(self.state)));joined=observed['clockJoin']
             if not completed:need(self.epoch_ms()<joined['hostBeforeEpochMs']+1500 and self.monotonic()<joined['hostBeforeMonotonic']+1.5)
         fresh();row['phase']='issued';self.save()
         try:

@@ -32,6 +32,36 @@ after. Repeated historical work before the final POST needs measured removal
 through guarded dataflow; neither a later timestamp nor a larger freshness
 window can repair this failed original. No unchanged journey retry is planned.
 
+The corrected read-only diagnostic passes its exact before/after byte/stat
+census for all 190 retained files. It performs no native/SDK/network/process or
+private-state write. Cold Source/Input reconstruction costs 18.272/13.875 s;
+these separate historical constructors are not a passing real API invocation.
+Within the retained read boundary, Source guards cost 0.001154 s, the complete
+inventory lease 0.003111 s and Input decoding 0.007827 s. Full-frame access plus
+the ordinary input proof spend 0.461653 s cumulatively in `deepcopy` under
+cProfile. These are diagnostic component measurements, not physical deadlines.
+Report: `.ios-host-tmp/world-web-input-readonly-profile-20261027.json`.
+The first diagnostic correctly refused to enter a live input round on a
+historical Source; the corrected diagnostic uses its literal read-only API.
+
+The next source packet removes only those redundant complete-frame copies
+from internal delivery. `WorldWebSources.input_projection` reads the already
+fully decoded private round and returns separate ticket/clock/point/focus
+operands. No private frame escapes. Both existing original guards still run;
+all before-POST source/WAL/candidate/time checks remain unchanged. Public
+`frame()` and `WorldWebInput.proof()` retain independent complete-frame returns.
+Replaced frame readers keep their literal path, and participating projection/
+predicate/geometry/frame parser identities bind the existing pure proof key.
+
+Four new actual-file/Node cases establish independent returned operands,
+zero complete public-frame copies during normal delivery, and rejection of
+changed readers/predicates. They and twelve existing ordinary input, uncertainty,
+immutable-carrier and final-deadline cases pass **16 tests in 29.526 s**.
+Log: `.ios-host-tmp/world-web-input-projection-20261027.log`.
+Native/SDK producers remain declared models. The changed nineteen-action CPU
+gate and full paired terminal remain unqualified until separately executed;
+the older failed original is neither rewritten nor assigned this result.
+
 ## Earlier verification packets
 
 The newer paired census/end replay reached its 600-second diagnostic limit;

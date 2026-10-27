@@ -403,6 +403,35 @@ class WorldWebSources:
         if self.version==3:return geometry.point(*arguments)
         original=self.parts.snapshot.packet(frame['nativeSnapshot']);return geometry.point_snapshot(*arguments,original)
 
+    def _input_projection(self,frame,entity,kind,control):
+        """Internal dataflow only; the complete frame never leaves its owner."""
+        need(kind in ('tap','replace') and control in geometry.dom.IDS)
+        raw=frame['originals'];document=raw['document']
+        need(raw['ledgerAfter']['iosWorldWebVersion']>=2 and document is not None
+            and document['source']['dom']['iosWorldWebDOMVersion']>=2 and not raw['widgets']['tabletShown'])
+        selected=[element for element in document['source']['dom']['elements'] if element['id']==control]
+        field=None if len(selected)!=1 else {name:selected[0][name] for name in ('focused','enabled','visible','value')}
+        return dict(ticket=frame['ticket'],clockJoin=deepcopy(frame['clockJoin']),
+            point=self.input_point(frame,entity,control) if kind=='tap' else None,
+            field=deepcopy(field))
+
+    def input_projection(self,reference,entity,kind,control):
+        """Small independent input operands under the existing full byte round.
+
+        Public frame() still returns an independent complete frame. A replaced
+        frame reader keeps that literal path instead of borrowing private data.
+        No private frame or mutable child reference escapes this method.
+        """
+        with self.validation_round():
+            self.guard_originals()
+            packet,state,frames=self._round
+            need(reference in state['records'])
+            frame=frames[reference['index']-1] if getattr(self.frame,'__func__',None) is WorldWebSources.frame else self.frame(reference)
+            result=self._input_projection(frame,entity,kind,control)
+            need(self._round is not None and self._round[0] is packet and self._round[1] is state and self._round[2] is frames)
+            self.guard_originals()
+            return result
+
     def snapshot_queries(self,rows):
         need(type(rows) is list and len(rows)<=1)
         for query in rows:
