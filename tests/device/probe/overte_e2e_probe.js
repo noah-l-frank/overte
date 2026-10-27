@@ -1339,6 +1339,24 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-chat-qml-sources") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourceChatQml={iosChatQmlSourcesVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSChatQmlSources === "function") {
+                        var originalChatQml=Test.featureIOSChatQmlSources(command);
+                        if (originalChatQml && originalChatQml.requestId === command.commandId) { sourceChatQml=originalChatQml; }
+                    }
+                } catch (_ChatQmlSourcesError) { /* Keep unknown responsibility; no native reissue on poll. */ }
+                Test.saveObject(sourceChatQml,"feature-ios-chat-qml-sources.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-people-model") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36

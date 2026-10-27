@@ -812,6 +812,12 @@ class FixtureState:
             try:validate_ios_source(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS Chat Script source request") from None
             valid=True
+        elif action == "feature-ios-chat-qml-sources":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.chat_qml_sources import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS Chat QML source request") from None
+            valid=True
         elif action == "feature-ios-people-model":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.people_model import command as validate_ios_source

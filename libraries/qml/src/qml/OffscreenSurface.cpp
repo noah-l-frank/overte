@@ -6,6 +6,9 @@
 //  See the accompanying file LICENSE or http://www.apache.org/licenses/LICENSE-2.0.html
 //
 #include "OffscreenSurface.h"
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include "IOSQmlSourceObservation.h"
+#endif
 
 #include <unordered_set>
 #include <unordered_map>
@@ -611,11 +614,17 @@ void OffscreenSurface::loadInternal(const QUrl& qmlSource,
 
     auto targetContext = contextForUrl(finalQmlSource, parent, createNewContext);
     contextCallback(targetContext);
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    const auto sourceTicket = IOSQmlSourceObservation::begin(qmlSource, finalQmlSource, targetContext);
+#endif
     QQmlComponent* qmlComponent;
     {
         PROFILE_RANGE(app, "new QQmlComponent");
         qmlComponent = new QQmlComponent(getSurfaceContext()->engine(), finalQmlSource, QQmlComponent::PreferSynchronous);
     }
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    IOSQmlSourceObservation::attach(sourceTicket, qmlComponent);
+#endif
     qmlComponent->setProperty("overteLoadGeneration", parent ? parent->property("qmlLoadGeneration").toInt() : 0);
     if (qmlComponent->isLoading()) {
         connect(qmlComponent, &QQmlComponent::statusChanged, this,
@@ -746,6 +755,9 @@ void OffscreenSurface::finishQmlLoad(QQmlComponent* qmlComponent,
         callback(qmlContext, newItem);
     }
     qmlComponent->completeCreate();
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    IOSQmlSourceObservation::complete(qmlComponent, qmlContext, newObject);
+#endif
 #if defined(Q_OS_IOS)
     if (qmlComponent->isError()) {
         logIOSQmlErrors("complete-create-error-detail", qmlComponent->errors());

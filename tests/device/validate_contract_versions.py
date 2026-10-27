@@ -9,6 +9,12 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "qt-overte-qml-compiler-input": 1,
+    "ios-loaded-qml-source": 1,
+    "ios-chat-qml-sources": 1,
+    "ios-chat-qml-sources-acquisition": 1,
+    "ios-chat-qml-source-pins": 1,
+
     "snapshot-photos-archive-result": 1,
 
     "snapshot-combined-journey-result": 2,

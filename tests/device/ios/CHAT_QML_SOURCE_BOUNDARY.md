@@ -1,8 +1,9 @@
 # Actual Chat QML load boundary
 
 Feature 10 remains partial. Submitted Chat JavaScript bytes and a live Chat
-page are independently observed; neither currently supplies the missing
-consumed/compiled QML-byte association. No additional capability is admitted.
+page are independently observed. A new [direct-unit compiler/root source](CHAT_LOADED_QML_SOURCE.md)
+now exists as uncompiled client code; complete loaded-code/SDK admission and
+cache/import provenance are still missing. No additional capability is admitted.
 
 ## Inspected production path
 
@@ -37,15 +38,17 @@ actual consumed bytes. Revision selection is not UI execution evidence.
 
 ## Missing observation and next executable step
 
-The current loader supplies no retained receipt of the source/compiled unit
+The baseline loader supplied no retained receipt of the source/compiled unit
 actually consumed by that `QQmlComponent`, tied to the actual created Chat
-root and context. Reading a current QFile separately, hashing the URL, choosing
+root and context. The new passive direct-unit source addresses that source-code
+boundary only; its native behavior remains unqualified. Reading a current QFile
+separately, hashing the URL, choosing
 an expected pin or replaying the JavaScript loader cannot supply this fact.
 
 The repository's [toolchain pin](../../../ios/versions.env) is Qt 6.11.1. This
 is configuration, not evidence of the installed client's Qt version. The
 source review below identifies the matching component/compiled-unit API. The
-remaining native client task must expose a passive consumption receipt. It
+new uncompiled native client packet exposes a passive direct-unit receipt. It
 must bind the real resolved source and compiled/source bytes to the exact
 component, final completion result, context, root object, process and native
 clock, retaining weak lifetime and original sequence responsibility. Imports
@@ -54,8 +57,9 @@ Qt provenance must independently admit it before ordinary input.
 
 The source-only Qt patch below introduces no alternate loader, forced cache
 clear, `setData` replacement or client source query. It is not applied to an
-SDK or wired into the client. Native compilation, client observation/transport,
-cache-provenance coverage and canonical Chat integration remain required; no
+SDK. The client loader/observation transport now contains the separate passive
+direct-unit source, still uncompiled. Native qualification, cache-provenance
+coverage and canonical Chat ownership integration remain required; no
 compiler, build, SDK installation or device access was attempted.
 
 ## Verified Qt source reference

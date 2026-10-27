@@ -1,0 +1,10 @@
+{
+  "iosChatQmlSourcePinsVersion": 1,
+  "encoding": "utf16-le-code-units",
+  "sources": {
+    "communityScripts/armored-chat/armored_chat.qml": {
+      "codeUnits": 20171,
+      "sha256": "3bb9c31300faffa08099e78a5453b2802200fdf2c6b82d69c261ebf0b594d879"
+    }
+  }
+}

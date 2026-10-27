@@ -1,6 +1,12 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "qt-overte-qml-compiler-input": {"current": 1, "reads": [1]},
+    "ios-loaded-qml-source": {"current": 1, "reads": [1]},
+    "ios-chat-qml-sources": {"current": 1, "reads": [1]},
+    "ios-chat-qml-sources-acquisition": {"current": 1, "reads": [1]},
+    "ios-chat-qml-source-pins": {"current": 1, "reads": [1]},
+
     "snapshot-photos-archive-result": {"current": 1, "reads": [1]},
 
     "snapshot-combined-journey-result": {"current": 2, "reads": [1, 2]},

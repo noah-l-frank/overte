@@ -63,6 +63,7 @@ from ios.adapters.snapshot_combined_preflight_http import IOSSnapshotCombinedPre
 from ios.adapters.snapshot_causal_dispatch import IOSSnapshotCausalDispatch,FILE as SNAPSHOT_CAUSAL_DISPATCH_FILE,LIMIT as SNAPSHOT_CAUSAL_DISPATCH_LIMIT,command as snapshot_causal_dispatch_command
 from ios.adapters.snapshot_combined_work import IOSSnapshotCombinedWork,FILE as SNAPSHOT_COMBINED_WORK_FILE,LIMIT as SNAPSHOT_COMBINED_WORK_LIMIT,command as snapshot_combined_work_command
 from ios.adapters.chat_script_sources import IOSChatScriptSources,FILE as CHAT_SCRIPT_SOURCES_FILE,LIMIT as CHAT_SCRIPT_SOURCES_LIMIT,command as chat_script_sources_command
+from ios.adapters.chat_qml_sources import IOSChatQmlSources,FILE as CHAT_QML_SOURCES_FILE,LIMIT as CHAT_QML_SOURCES_LIMIT,command as chat_qml_sources_command
 from ios.adapters.people_model import IOSPeopleModel,FILE as PEOPLE_MODEL_FILE,LIMIT as PEOPLE_MODEL_LIMIT,command as people_model_command
 from ios.adapters.create_work import IOSCreateWork,FILE as CREATE_WORK_FILE,LIMIT as CREATE_WORK_LIMIT,command as create_work_command
 from ios.adapters.avatar_scripts import IOSAvatarScripts,FILE as AVATAR_SCRIPTS_FILE,LIMIT as AVATAR_SCRIPTS_LIMIT,command as avatar_scripts_command
@@ -220,6 +221,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-ios-snapshot-causal-dispatch':snapshot_causal_dispatch_command(command)
         elif command.get('action')=='feature-ios-snapshot-combined-work':snapshot_combined_work_command(command)
         elif command.get('action')=='feature-ios-chat-script-sources':chat_script_sources_command(command)
+        elif command.get('action')=='feature-ios-chat-qml-sources':chat_qml_sources_command(command)
         elif command.get('action')=='feature-ios-people-model':people_model_command(command)
         elif command.get('action')=='feature-ios-create-work':create_work_command(command)
         elif command.get('action') in ('feature-ios-snapshot-owned-files','feature-ios-snapshot-file-remove'):
@@ -457,6 +459,15 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSChatScriptSources(self.send,lambda:self.original(remote=remote,limit=CHAT_SCRIPT_SOURCES_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def chat_qml_sources(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+CHAT_QML_SOURCES_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        if not isinstance(clock_source,NativeFeatureObservation) or not clock_source.ios or clock_source.pid!=self.process['pid']:
+            raise NativeUIError('Original Chat QML clock does not match this iOS process')
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSChatQmlSources(self.send,lambda:self.original(remote=remote,limit=CHAT_QML_SOURCES_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def people_model(self,clock_source=None):

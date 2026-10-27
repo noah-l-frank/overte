@@ -224,6 +224,9 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSSnapshotWork(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSSnapshotCombinedWork(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSChatScriptSources(const QVariantMap& command);
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    Q_INVOKABLE QVariantMap featureIOSChatQmlSources(const QVariantMap& command);
+#endif
     Q_INVOKABLE QVariantMap featureIOSSnapshotCaptures(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSSnapshotUploads(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSSnapshotCausalDispatch(const QVariantMap& command);
