@@ -23,13 +23,16 @@ class IOSCreateMarkerRecovery:
     def __init__(self,scope):
         from ios.adapters.create_marker_scope import CreateMarkerScope
         need(isinstance(scope,CreateMarkerScope));self.scope=scope
-        self.store=PrivateFeatureState(scope.store.path.with_name('ios-create-'+scope.role+'-marker-recovery.json'))
+        self.namespace=getattr(scope,'namespace','create');need(self.namespace in ('create','assets'))
+        self.version=VERSION if self.namespace=='create' else 2;self.store=scope.marker_store('recovery')
         self.previous=self.store.read();self.state=dict(records=[],pending=None)
         if self.previous is not None:self.state=self.decode(self.previous)
 
     def envelope(self,state):
         s=self.scope
-        return dict(iosCreateMarkerRecoveryVersion=VERSION,runId=s.run,role=s.role,binding=s.binding,artifactRoot=str(s.root),payload=pack([state]))
+        value=dict(iosCreateMarkerRecoveryVersion=self.version,runId=s.run,role=s.role,binding=s.binding,artifactRoot=str(s.root),payload=pack([state]))
+        if self.namespace=='assets':value['scopeNamespace']='assets'
+        return value
 
     def bound(self):self.scope.bound();need(same(self.store.read(),self.previous))
 
@@ -39,7 +42,8 @@ class IOSCreateMarkerRecovery:
 
     def record_store(self,index):
         need(integer(index,1,128));s=self.scope
-        return PrivateFeatureState(s.root/('create-marker-read-abandoned-'+s.run+'-'+s.role+'-'+str(index)+'.json'))
+        prefix='create-marker' if self.namespace=='create' else 'assets-marker'
+        return PrivateFeatureState(s.root/(prefix+'-read-abandoned-'+s.run+'-'+s.role+'-'+str(index)+'.json'))
 
     def prior(self,value):
         s=self.scope;frames=s.frames
@@ -60,15 +64,16 @@ class IOSCreateMarkerRecovery:
     def record(self,reference):
         exact(reference,{'index','sha256'});value=self.record_store(reference['index']).read()
         need(value is not None and digest(value)==reference['sha256'])
-        exact(value,{'iosCreateMarkerAbandonedReadVersion','index','priorOwner','partialFile'})
-        need(type(value['iosCreateMarkerAbandonedReadVersion']) is int and value['iosCreateMarkerAbandonedReadVersion']==VERSION
+        exact(value,{'iosCreateMarkerAbandonedReadVersion','index','priorOwner','partialFile'}|({'scopeNamespace'} if self.namespace=='assets' else set()))
+        need(type(value['iosCreateMarkerAbandonedReadVersion']) is int and value['iosCreateMarkerAbandonedReadVersion']==self.version
             and value['index']==reference['index'])
+        if self.namespace=='assets':need(value['scopeNamespace']=='assets')
         state=self.prior(value['priorOwner']);need(state['pending'] is not None
             and same(value['partialFile'],self.partial_file(state['pending']['original'])))
         return value
 
     def decode(self,value):
-        exact(value,{'iosCreateMarkerRecoveryVersion','runId','role','binding','artifactRoot','payload'})
+        exact(value,{'iosCreateMarkerRecoveryVersion','runId','role','binding','artifactRoot','payload'}|({'scopeNamespace'} if self.namespace=='assets' else set()))
         rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])));state=rows[0]
         exact(state,{'records','pending'});need(type(state['records']) is list and len(state['records'])<=128)
         for index,reference in enumerate(state['records'],1):need(reference['index']==index);self.record(reference)
@@ -86,8 +91,9 @@ class IOSCreateMarkerRecovery:
         if pending is None:
             if s.state['pending'] is None:return True
             need(len(self.state['records'])<128)
-            record=dict(iosCreateMarkerAbandonedReadVersion=VERSION,index=len(self.state['records'])+1,
+            record=dict(iosCreateMarkerAbandonedReadVersion=self.version,index=len(self.state['records'])+1,
                 priorOwner=deepcopy(s.previous),partialFile=self.partial_file(s.state['pending']['original']))
+            if self.namespace=='assets':record['scopeNamespace']='assets'
             target=deepcopy(s.state);target['pending']=None
             pending=dict(record=record,targetOwner=s.envelope(target),reference=None);self.state['pending']=pending;self.save()
         need(same(s.previous,pending['record']['priorOwner']) or same(s.previous,pending['targetOwner']))

@@ -28,7 +28,7 @@ from ios.adapters.create_marker_measurements import body_preserved,view_preserve
 from ios.adapters.create_marker_identity import PreparedCreateMarker
 from ios.adapters import create_state,create_entities
 from ios.adapters.create_actions import semantic_map
-from ios.adapters.create_originals import IOSCreateOriginals,MAX_FRAMES
+from ios.adapters.create_originals import IOSCreateOriginals,MAX_FRAMES,BLOCK
 from ios.adapters.emote_world import original as world_original,actual_domain,validate as world_packet,ACTION as WORLD_ACTION
 from ios.adapters.graphics_history import restore_native,follow_native
 from ios.adapters.normal_input import observation as widgets_packet
@@ -47,18 +47,26 @@ VERSION=2
 PHASES=('new','preparing','aborting-unused','ready','closing','stopping-marker','quiet','releasing-files','released')
 
 
+def marker_name(role,namespace='create',kind='scope'):
+    need(role in ('primary','actor') and namespace in ('create','assets') and kind in ('scope','files','script','recovery'))
+    prefix='ios-create-'+role+'-marker' if namespace=='create' else 'ios-assets-marker-scope-'+role
+    return prefix+('' if kind=='scope' else '-'+kind)+'.json'
+
+
 class CreateMarkerScope:
     @classmethod
-    def archive(cls,value,*,root,binding,run,role,lock,require_ready=False):
+    def archive(cls,value,*,root,binding,run,role,lock,require_ready=False,namespace='create'):
         """Read retained originals only; do not acquire a live SDK or guard."""
         need(isinstance(lock,ScriptSourceLock));lock.assert_held();context(binding);identifier(run)
-        need(role in ('primary','actor') and type(require_ready) is bool and type(value) is dict)
+        need(role in ('primary','actor') and namespace in ('create','assets') and type(require_ready) is bool and type(value) is dict)
         result=object.__new__(cls);result.root=Path(root);result.binding=deepcopy(binding);result.run=run;result.role=role
+        result.namespace=namespace
         result.pid=int(binding['processIdentity']);result.lock=lock;result.guard=lambda:True;result.failed=True;result.frames=[]
         need(result.root.is_absolute() and result.root.resolve()==result.root and result.root.is_dir())
         result.fixture_url=value.get('fixtureUrl');result.ticket=identifier(value.get('ticket'))
         result.files=OwnedCreateMarkerFiles(None,PrivateFeatureState(result.root/'archive-unused-marker-files.json'),binding)
-        result.originals=IOSCreateOriginals(root,binding,run,role,lambda:True,lambda *_:need(False),kind='inputs')
+        result.originals=IOSCreateOriginals(root,binding,run,role,lambda:True,lambda *_:need(False),kind='inputs',
+            namespace='create' if namespace=='create' else 'assets-marker')
         result._version=value.get('iosCreateMarkerScopeVersion');result.state=result.decode(value)
         if require_ready:
             need(result.state['phase']=='ready' and result.state['cleanupMode']=='full'
@@ -83,13 +91,13 @@ class CreateMarkerScope:
         return deepcopy(dict(nonce=nonce,sourceUrl=original['sourceUrl'],id=original['id']))
 
     def __init__(self,runtime,selector,root,run,role,fixture_url,ticket,lock,*,
-                 monotonic=time.monotonic,epoch_ms=lambda:time.time()*1000,sleep=time.sleep):
+                 monotonic=time.monotonic,epoch_ms=lambda:time.time()*1000,sleep=time.sleep,namespace='create'):
         need(isinstance(runtime,IOSScriptRuntime) and isinstance(lock,ScriptSourceLock) and role in ('primary','actor')
-            and all(callable(fn) for fn in (monotonic,epoch_ms,sleep)))
+            and namespace in ('create','assets') and all(callable(fn) for fn in (monotonic,epoch_ms,sleep)))
         self.runtime,self.selector,self.root=runtime,selector,Path(root)
         self.run,self.role,self.fixture_url,self.ticket=identifier(run),role,fixture_url,identifier(ticket)
-        self.lock,self.monotonic,self.epoch_ms,self.sleep=lock,monotonic,epoch_ms,sleep
-        self.store=PrivateFeatureState(runtime.state_path(selector).with_name('ios-create-'+role+'-marker.json'))
+        self.lock,self.monotonic,self.epoch_ms,self.sleep=lock,monotonic,epoch_ms,sleep;self.namespace=namespace
+        self.store=PrivateFeatureState(runtime.state_path(selector).with_name(marker_name(role,namespace)))
         need(lock.path==self.store.path.with_name('script-feature-sources.lock'));lock.assert_held()
         self.live=runtime._sources(selector);self.binding=deepcopy(context(self.live['binding']));self.pid=int(self.binding['processIdentity'])
         self.guard=self.live['check'];observer=self.live['observer'];clock=self.live['clock_source']
@@ -98,9 +106,10 @@ class CreateMarkerScope:
         self.terminals=observer.script_terminal(clock);self.work=observer.script_work(clock);self.web=observer.web_closures()
         self.dialogs=observer.script_dialogs(clock)
         self.files=OwnedCreateMarkerFiles(observer.script_fixture_files(),
-            PrivateFeatureState(self.store.path.with_name('ios-create-'+role+'-marker-files.json')),self.binding)
-        self.originals=IOSCreateOriginals(root,self.binding,run,role,self.guard,self.storage_intent,kind='inputs',monotonic=monotonic)
-        self.frames=[];self.failed=False;self.previous=self.store.read();self._version=VERSION if self.previous is None else self.previous.get('iosCreateMarkerScopeVersion')
+            self.marker_store('files'),self.binding)
+        self.originals=IOSCreateOriginals(root,self.binding,run,role,self.guard,self.storage_intent,kind='inputs',monotonic=monotonic,
+            namespace='create' if namespace=='create' else 'assets-marker')
+        self.frames=[];self.failed=False;self.previous=self.store.read();self._version=(VERSION if namespace=='create' else 3) if self.previous is None else self.previous.get('iosCreateMarkerScopeVersion')
         self.state=dict(phase='new',revision=0,manifests=[],pending=None,baseline=None,admission=None,admissionFrame=None,loadBarrier=None,
             stopBarrier=None,webAdmission=None,directory=None,fileOwnership=None,fileAbsence=None,operations=[],leases=dict(tablet=False,address=False,menu=False),quiet=[],cleanupMode='full')
         if self.previous is not None:
@@ -114,12 +123,20 @@ class CreateMarkerScope:
                 if work:self.work.restore(work)
 
     def envelope(self,state):
-        return dict(iosCreateMarkerScopeVersion=getattr(self,'_version',VERSION),runId=self.run,role=self.role,binding=self.binding,
+        version=getattr(self,'_version',VERSION);namespace=getattr(self,'namespace','create')
+        need((version in (1,2) and namespace=='create') or (version==3 and namespace=='assets'))
+        value=dict(iosCreateMarkerScopeVersion=version,runId=self.run,role=self.role,binding=self.binding,
             artifactRoot=str(self.root),fixtureUrl=self.fixture_url,ticket=self.ticket,payload=pack([state]))
+        if version==3:value['scopeNamespace']='assets'
+        return value
+
+    def marker_store(self,kind):
+        return PrivateFeatureState(self.store.path.with_name(marker_name(self.role,getattr(self,'namespace','create'),kind)))
 
     def decode(self,value):
-        exact(value,{'iosCreateMarkerScopeVersion','runId','role','binding','artifactRoot','fixtureUrl','ticket','payload'})
-        need(type(value['iosCreateMarkerScopeVersion']) is int and value['iosCreateMarkerScopeVersion'] in (1,2))
+        need(type(value) is dict);version=value.get('iosCreateMarkerScopeVersion');namespace=getattr(self,'namespace','create')
+        exact(value,{'iosCreateMarkerScopeVersion','runId','role','binding','artifactRoot','fixtureUrl','ticket','payload'}|({'scopeNamespace'} if version==3 else set()))
+        need(type(version) is int and ((version in (1,2) and namespace=='create') or (version==3 and namespace=='assets' and value['scopeNamespace']=='assets')))
         rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])));state=rows[0]
         exact(state,{'phase','revision','manifests','pending','baseline','admission','admissionFrame','loadBarrier','stopBarrier','webAdmission',
                      'directory','fileOwnership','fileAbsence','operations','leases','quiet','cleanupMode'})
@@ -149,6 +166,16 @@ class CreateMarkerScope:
             exact(state['pending'],{'label','original','manifest','partial'})
             need(type(state['pending']['label']) is str and type(state['pending']['partial']) is dict)
             if state['pending']['original'] is not None:self.originals.original(state['pending']['original'])
+            pending=state['pending'];manifest=pending['manifest']
+            if manifest is not None:
+                key=self.originals.key('ManifestVersion');exact(manifest,{key,'reference','phase'})
+                need(type(manifest[key]) is int and manifest[key]==1 and manifest['phase'] in ('planned','saved')
+                    and pending['original'] is not None and pending['original']['phase']=='saved'
+                    and pending['original']['index']==len(frames)+1)
+                reference=manifest['reference'];self.originals.manifest_reference(reference)
+                need((reference['block']-1)*BLOCK+reference['count']==pending['original']['index'])
+                if manifest['phase']=='saved' or self.originals.manifest_path(reference).exists():
+                    entries=self.originals.manifest(reference);need(same(self.originals.expand(entries[-1]),pending['original']))
         if state['phase'] not in ('new','preparing'):
             need(state['baseline'] is not None and (state['admission'] is not None or state['cleanupMode']=='unloaded'))
         if state['admission'] is not None:
@@ -218,7 +245,7 @@ class CreateMarkerScope:
                 and all(same(value[k],old[k]) for k in value if k not in ('phase','file'))
                 and (old['phase']=='planned' or same(old['file'],value['file'])))
         else:
-            exact(value,{'createManifestVersion','reference','phase'});need(value['createManifestVersion']==1
+            key=self.originals.key('ManifestVersion');exact(value,{key,'reference','phase'});need(value[key]==1
                 and pending['original'] is not None and pending['original']['phase']=='saved')
             self.originals.manifest_reference(value['reference'])
             need(value['phase']=='planned' if old is None else old['phase']=='planned' and value['phase']=='saved'
@@ -304,7 +331,7 @@ class CreateMarkerScope:
     def manager(self):
         ui,observe,binding,_check,_installed=self.runtime.normal_feature_runtime(self.selector)
         need(same(binding,self.binding));picker=TokenScriptFilePicker(ui.io,self.state['directory'])
-        return NormalScriptManager(ui,observe,PrivateFeatureState(self.store.path.with_name('ios-create-'+self.role+'-marker-script.json')),
+        return NormalScriptManager(ui,observe,self.marker_store('script'),
             binding,source_kind='script-file-bundle',file_owner=self.files,file_picker=picker)
 
     def prepare(self):
@@ -531,7 +558,7 @@ class CreateMarkerScope:
         self.save();return inventory
 
     def close_owned_manager(self,prefix):
-        store=PrivateFeatureState(self.store.path.with_name('ios-create-'+self.role+'-marker-script.json'))
+        store=self.marker_store('script')
         if store.read() is None:
             frame=self.capture(prefix+'-ui-absent');self.ui_absent(frame);return
         manager=self.manager();frame=self.capture(prefix+'-ui-before-close');inventory=self.resolve_closed_ui(frame,manager)
@@ -553,7 +580,7 @@ class CreateMarkerScope:
         if self.state['fileOwnership'] is None and self.files.store.read() is not None:
             value=self.files.owned();need(value['runId']==self.run and value['fixtureUrl']==self.fixture_url and value['ticket']==self.ticket)
             self.state['fileOwnership']=value;self.save()
-        child=PrivateFeatureState(self.store.path.with_name('ios-create-'+self.role+'-marker-script.json'))
+        child=self.marker_store('script')
         if child.read() is not None:
             need(self.state['directory'] is not None);manager=self.manager()
             need(manager.state['source'] in (None,self.state['directory']+'/script-bundle/main.js'))
@@ -635,7 +662,7 @@ class CreateMarkerScope:
     def retire_manager_metadata(self,frame):
         """Only retire uncertain child ownership after original GUI absence."""
         self.ui_absent(frame)
-        store=PrivateFeatureState(self.store.path.with_name('ios-create-'+self.role+'-marker-script.json'))
+        store=self.marker_store('script')
         if store.read() is not None:
             manager=self.manager();need(manager.state['source']==self.state['admission']['sourceUrl'])
             manager.mark(tabletOwned=False,managerOwned=False,dialogOwned=False,pickerOwned=False,loadAttempted=False)
