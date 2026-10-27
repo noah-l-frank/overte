@@ -122,9 +122,37 @@ Authorization values are not retained. Only the closed HTTPS concurrency GET
 with its real reply bytes is in scope; unrelated URLs/callers remain outside
 this profile.
 
-This native prerequisite is manually reviewed source only, uncompiled and
-unexecuted. Its static getter has no TestScripting/probe/host-reader route yet;
-it cannot supply frontend-consumption or cleanup qualification. The next small
-packet must wire that getter and a strict host reader, with negative cases for
-foreign/unmatched V8 frames or compiled code, wrong XHR/reply IDs, substituted
-response bytes, reads outside the actual DONE callback and retained resources.
+This native prerequisite remains manually reviewed source only, uncompiled and
+unexecuted. A separate fixed TestScripting/probe/host-reader route now retains
+its actual response/caller/resource originals. The created record includes the
+actual two-file evaluation list used by the native resolver, so the host checks
+compiled bytes against actual prior submissions independently. The reader uses
+closed Snapshot options in the existing Social lifecycle and indexed-callstack
+parsers. Social1/2 and existing caller suffixes remain their literal defaults;
+profile/command/schema substitution is rejected.
+
+The existing installed-session factory binds the original candidate/PID,
+foreground guard, independent native clock and fixed AFC filename without a
+new session or launch. Probe nonces are consumed once, including missing or
+throwing getters. A text read outside the actual DONE callback, a missing
+fixture-response ID, wrong compiled/submitted code, foreign XHR/reply/PID or
+changed historical prefix cannot supply a qualified response read. Native
+reply/callback/timer/XHR retirement stays separate from text consumption.
+
+Host evidence: thirty-one new/legacy DTO and serializer cases passed in
+0.070 seconds; four actual probe/fixture/bound-factory cases passed in
+0.182 seconds; the final ten Snapshot boundary cases passed in 0.046 seconds.
+They include actual authenticated HTTP serializer bytes, ACL denial that is
+only recorded as a read, unknown fixture identity, held resource lifetimes and
+immutable caller/event history. Final native/Python endpoint parity cases
+reject a null domain UUID or even an empty URL fragment. The Qt/V8/SDK producer
+is explicitly modeled using independently read current repository UTF-16
+bytes. No compiler, native
+runtime, listener or device is exercised. Private logs are
+`.ios-host-tmp/snapshot-preflight-reader-resume-20261027-{codec01,transport03,final06}.log`.
+
+The reader records response text consumption while explicitly requiring an
+independent authenticated backend original, normal Upload effect and resource
+retirement. These observations have not yet been parent-bound to the existing
+backend owner. Native execution and that complete consumer/effect/cleanup join
+remain required; this packet does not enable the complete feature.

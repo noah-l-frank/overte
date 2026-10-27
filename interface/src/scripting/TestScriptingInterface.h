@@ -185,6 +185,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSPeopleModel(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSPlacesHttp(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAvatarSocialHttp(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSSnapshotPreflightHttp(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSNavigationDialogs(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSNavigationState(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSScriptDialogs(const QVariantMap& command);

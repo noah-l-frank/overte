@@ -1638,6 +1638,17 @@ QVariantMap TestScriptingInterface::featureIOSAvatarSocialHttp(const QVariantMap
             || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
     return XMLHttpRequestClass::featureAvatarSocialHttpObservation(command);
 }
+QVariantMap TestScriptingInterface::featureIOSSnapshotPreflightHttp(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSSnapshotPreflightHttp(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    return XMLHttpRequestClass::featureSnapshotPreflightHttpObservation(command);
+}
 QVariantMap TestScriptingInterface::featureIOSPlacesHttp(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }

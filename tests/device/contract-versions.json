@@ -1,6 +1,9 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-snapshot-preflight-http": {"current": 1, "reads": [1]},
+    "ios-snapshot-preflight-http-acquisition": {"current": 1, "reads": [1]},
+    "ios-snapshot-http-sources": {"current": 1, "reads": [1]},
     "snapshot-concurrency-original": {"current": 1, "reads": [1]},
     "snapshot-concurrency-export": {"current": 1, "reads": [1]},
     "snapshot-domain-policy": {"current": 1, "reads": [1]},

@@ -782,6 +782,12 @@ class FixtureState:
             try:avatar_social_http_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS original social HTTP request") from None
             valid=True
+        elif action == "feature-ios-snapshot-preflight-http":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.snapshot_preflight_http import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS original Snapshot preflight HTTP request") from None
+            valid=True
         elif action == "feature-ios-people-model":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.people_model import command as validate_ios_source

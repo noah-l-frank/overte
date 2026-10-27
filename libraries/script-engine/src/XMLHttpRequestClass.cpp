@@ -84,7 +84,7 @@ void XMLHttpRequestClass::featureSnapshotPreflightOpen() noexcept {
         if (!callers.complete) { Observation::snapshotUnavailable();return; }
         if (!callers.snapshotPreflightOpen()) { return; }
         _featureSnapshotPreflightId=overte::e2e::snapshotPreflightHttp().create({{"engine",membership},{"submitted",submitted},
-            {"requestUrl",_url.toString(QUrl::FullyEncoded)},{"method",_method},{"protocolSignature",protocolVersionsSignatureBase64()}},callers);
+            {"requestUrl",_url.toString(QUrl::FullyEncoded)},{"method",_method},{"protocolSignature",protocolVersionsSignatureBase64()},{"codeSources",sources}},callers);
         if (_featureSnapshotPreflightId.isEmpty()) { return; }
         const auto id=_featureSnapshotPreflightId;
         QObject::connect(this,&QObject::destroyed,[id] { snapshotHttpEvent(id,"xhr-destroyed"); });

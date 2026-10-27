@@ -9,6 +9,9 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-snapshot-preflight-http": 1,
+    "ios-snapshot-preflight-http-acquisition": 1,
+    "ios-snapshot-http-sources": 1,
     "snapshot-concurrency-original": 1,
     "snapshot-concurrency-export": 1,
     "snapshot-domain-policy": 1,
