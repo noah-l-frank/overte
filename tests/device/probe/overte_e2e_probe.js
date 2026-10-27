@@ -1285,6 +1285,24 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-snapshot-causal-dispatch") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourceSnapshotCausalDispatch={iosSnapshotCausalDispatchVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSSnapshotCausalDispatch === "function") {
+                        var originalSnapshotCausalDispatch=Test.featureIOSSnapshotCausalDispatch(command);
+                        if (originalSnapshotCausalDispatch && originalSnapshotCausalDispatch.requestId === command.commandId) { sourceSnapshotCausalDispatch=originalSnapshotCausalDispatch; }
+                    }
+                } catch (_SnapshotCausalDispatchError) { /* Original uncertainty remains owned; no second invocation on poll. */ }
+                Test.saveObject(sourceSnapshotCausalDispatch,"feature-ios-snapshot-causal-dispatch.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-snapshot-combined-work") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36

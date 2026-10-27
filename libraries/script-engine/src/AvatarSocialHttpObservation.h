@@ -83,6 +83,31 @@ public:
         const auto callerId=_callers.retain(callers);if (callerId.isEmpty()) { _valid=false;return; }
         auto original=details;original.insert("callerStackId",callerId);append(id,kind,original);
     }
+    // Read only the actual currently executing DONE callback and the original
+    // responseText read it has already made. This helper adds no source event,
+    // changes no wire/profile and never enters a ScriptEngine heap.
+    QVariantMap activeSnapshotRead(const QString& xhr,const QString& reply) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        if (_profile!=Profile::SnapshotCombinedPreflight || !_valid || !enabled() || !_xhrs.contains(xhr)) {return {};}
+        QVariantMap created,sent,finished,read,readEntry;QVariantList stack;
+        for (const auto& item:_events) {
+            const auto event=item.toMap();if (event.value("xhrId")!=QVariant(xhr)) {continue;}
+            const auto kind=event.value("kind").toString();const auto detail=event.value("details").toMap();
+            if (kind=="created") {created=event;}
+            else if (kind=="callback-enter") {stack.append(event);}
+            else if (kind=="callback-leave") {if (stack.isEmpty()) {return {};}stack.removeLast();}
+            else if (kind=="sent" && detail.value("replyId")==QVariant(reply)) {sent=event;}
+            else if (kind=="reply-finished" && detail.value("replyId")==QVariant(reply)) {finished=event;}
+            else if (kind=="text-read" && detail.value("replyId")==QVariant(reply) && !stack.isEmpty()) {
+                read=event;readEntry=stack.last().toMap();
+            } else if (kind=="callbacks-released" || kind=="xhr-destroyed") {return {};}
+        }
+        if (created.isEmpty() || sent.isEmpty() || finished.isEmpty() || read.isEmpty() || stack.isEmpty()
+                || stack.last()!=QVariant(readEntry) || readEntry.value("details").toMap().value("callback")!=QVariant("readystatechange")
+                || readEntry.value("details").toMap().value("readyState")!=QVariant(4)) {return {};}
+        return {{"httpInstance",_instance},{"clockDomain","native-process-snapshot-combined-preflight-http"},
+            {"xhrId",xhr},{"replyId",reply},{"created",created},{"sent",sent},{"finished",finished},{"entered",readEntry},{"read",read}};
+    }
     void invalid(const QString& id) {
         if (id.isEmpty()) { return; }
         std::lock_guard<std::mutex> lock(_mutex);_valid=false;

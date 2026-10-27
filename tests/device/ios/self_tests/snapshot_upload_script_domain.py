@@ -37,7 +37,7 @@ class OriginalUploadScript:
                     need(self.observer is not None);self.observer.trace(value);return receive()
                 return value
             logged_in=self.backend.provider.resolve(self.backend._authorization)==RUN
-            send(dict(operation='start',origin='https://controlled.invalid',loggedIn=logged_in,domain=domain,href='hifi://controlled.invalid/snapshot-fixture',path=str(path),traceHttp=self.observer is not None))
+            send(dict(operation='start',origin='https://controlled.invalid',loggedIn=logged_in,domain=domain,href='hifi://controlled.invalid/snapshot-fixture',path=str(path),traceHttp=self.observer is not None,traceCalls=bool(getattr(self.observer,'trace_calls',False))))
             value=receive();http=None
             if value['event']=='http':http=value;value=receive()
             need(value['event']=='returned')

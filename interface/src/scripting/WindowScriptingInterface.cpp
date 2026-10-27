@@ -12,6 +12,11 @@
 //
 
 #include "WindowScriptingInterface.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include <ScriptManager.h>
+#include <XMLHttpRequestClass.h>
+#include "../../../tests/device/native/IOSSnapshotCausalDispatch.h"
+#endif
 
 #include <QClipboard>
 #include <QtCore/QDir>
@@ -579,6 +584,12 @@ void WindowScriptingInterface::takeSecondaryCamera360Snapshot(const glm::vec3& c
 }
 
 void WindowScriptingInterface::shareSnapshot(const QString& path, const QUrl& href) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    auto* causalBook=overte::e2e::IOSSnapshotCausalDispatch::get();
+    const auto causal=causalBook?causalBook->begin(path,ScriptManager::featureNativeCallContext(),
+        XMLHttpRequestClass::featureSnapshotActiveCallback()):overte::e2e::IOSSnapshotCausalDispatch::Pointer{};
+    overte::e2e::IOSSnapshotCausalDispatch::Scope causalWindow(causal,"window");
+#endif
     qApp->shareSnapshot(path, href);
 }
 

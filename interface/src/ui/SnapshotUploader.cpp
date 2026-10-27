@@ -12,6 +12,7 @@
 #include "SnapshotUploader.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
 #include "../../../tests/device/native/IOSSnapshotUploadObservation.h"
+#include "../../../tests/device/native/IOSSnapshotCausalDispatch.h"
 #endif
 
 #include <QtCore/QJsonDocument>
@@ -26,6 +27,7 @@ SnapshotUploader::SnapshotUploader(QUrl inWorldLocation, QString pathname) :
     _pathname(pathname) {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
     if (auto* book=overte::e2e::IOSSnapshotUploadObservation::get()) {_featureUploadId=book->begin(this,_pathname,_requests.snapshot());}
+    if (auto* causal=overte::e2e::IOSSnapshotCausalDispatch::get()) {causal->associated(_featureUploadId);}
 #endif
 }
 

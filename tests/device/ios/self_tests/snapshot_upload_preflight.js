@@ -17,7 +17,7 @@ function section(first, last) {
 const original = section('var request;', 'function removeFromStoryIDsToMaybeDelete') +
     section('function fileExtensionMatches', 'var POLAROID_PRINT_SOUND') +
     section('function isDomainOpen', 'function stillSnapshotTaken');
-let context, pending, shares, messages, permissionUpdates, delivered = false, traceHttp = false, responseBody;
+let context, pending, shares, messages, permissionUpdates, delivered = false, traceHttp = false, traceCalls = false, responseBody;
 function emit(value) { process.stdout.write(JSON.stringify(value) + '\n'); }
 function trace(kind, details) { if (traceHttp) { emit({event: 'xhr-trace', kind, details}); } }
 function result() {
@@ -32,7 +32,7 @@ lines.on('line', line => {
         const value = JSON.parse(line);
         if (value.operation === 'start') {
             if (context) { throw new Error('One original dispatch only'); }
-            shares = []; messages = []; permissionUpdates = 0; pending = null; traceHttp = value.traceHttp === true;
+            shares = []; messages = []; permissionUpdates = 0; pending = null; traceHttp = value.traceHttp === true; traceCalls = value.traceCalls === true;
             function XHR() {}
             if (traceHttp) { Object.defineProperty(XHR.prototype, 'responseText', {get: function () {
                 trace('text-read', {body: responseBody}); return responseBody;
@@ -51,7 +51,11 @@ lines.on('line', line => {
                 METAVERSE_BASE: value.origin,
                 Account: {metaverseServerURL: value.origin, isLoggedIn: () => value.loggedIn},
                 Settings: {getValue: key => ({previousSnapshotDomainID: value.domain, previousSnapshotHref: value.href})[key]},
-                Window: {shareSnapshot: (path, href) => shares.push({path, href})},
+                Window: {shareSnapshot: (path, href) => {
+                    if (traceCalls) { trace('window-share', {path, href}); }
+                    shares.push({path, href});
+                    if (traceCalls) { trace('window-return', {}); }
+                }},
                 ui: {sendMessage: message => messages.push(message)}, print: function () {},
                 Script: {require: name => { if (name !== 'request') { throw new Error('Unexpected module'); } return requestContext.module.exports; }},
                 updatePrintPermissions: () => { permissionUpdates++; },

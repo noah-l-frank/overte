@@ -1,6 +1,9 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-snapshot-causal-dispatch": {"current": 1, "reads": [1]},
+    "ios-snapshot-causal-dispatch-acquisition": {"current": 1, "reads": [1]},
+
     "ios-snapshot-combined-return-page-frame": {"current": 1, "reads": [1]},
     "ios-snapshot-combined-return-page-original": {"current": 1, "reads": [1]},
 

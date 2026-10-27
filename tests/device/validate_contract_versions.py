@@ -9,6 +9,9 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-snapshot-causal-dispatch": 1,
+    "ios-snapshot-causal-dispatch-acquisition": 1,
+
     "pending-snapshot-combined-work-packet": 1,
     "pending-snapshot-combined-work-frame": 1,
     "pending-snapshot-combined-work-original": 1,

@@ -13,6 +13,9 @@
 //
 
 #include "Application.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include "../../tests/device/native/IOSSnapshotCausalDispatch.h"
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include "../../ios/web/IOSUIKitInputObservation.h"
 #endif
@@ -902,7 +905,17 @@ void Application::takeSecondaryCamera360Snapshot(const glm::vec3& cameraPosition
 }
 
 void Application::shareSnapshot(const QString& path, const QUrl& href) {
-    postLambdaEvent([path, href] {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    const auto causal=overte::e2e::IOSSnapshotCausalDispatch::current();
+#endif
+    postLambdaEvent([path, href
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+            ,causal
+#endif
+            ] {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        overte::e2e::IOSSnapshotCausalDispatch::Scope causalApplication(causal,"application");
+#endif
         // not much to do here, everything is done in snapshot code...
         DependencyManager::get<Snapshot>()->uploadSnapshot(path, href);
     });

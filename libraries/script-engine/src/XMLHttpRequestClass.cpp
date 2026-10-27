@@ -37,6 +37,17 @@
 #include <QThread>
 #include <udt/PacketHeaders.h>
 namespace {
+struct SnapshotCallbackOriginal {QString xhr,reply;bool combined {false},done {false};};
+thread_local SnapshotCallbackOriginal snapshotCallbackOriginal;
+class SnapshotCallbackOriginalScope {
+public:
+    SnapshotCallbackOriginalScope(const QString& xhr,const QString& reply,bool combined,bool done) : _previous(snapshotCallbackOriginal) {
+        snapshotCallbackOriginal={xhr,reply,combined,done};
+    }
+    ~SnapshotCallbackOriginalScope() {snapshotCallbackOriginal=_previous;}
+private:
+    SnapshotCallbackOriginal _previous;
+};
 overte::e2e::PlacesHttpObservation& placesHttp() {
     static overte::e2e::PlacesHttpObservation ledger;return ledger;
 }
@@ -66,6 +77,14 @@ QVariantMap XMLHttpRequestClass::featureAvatarSocialHttpObservation(const QVaria
 QVariantMap XMLHttpRequestClass::featureSnapshotPreflightHttpObservation(const QVariantMap& command) noexcept {
     try { return overte::e2e::snapshotPreflightHttp().snapshot(command); }
     catch (...) { overte::e2e::AvatarSocialHttpObservation::snapshotUnavailable();return {}; }
+}
+
+QVariantMap XMLHttpRequestClass::featureSnapshotActiveCallback() noexcept {
+    try {
+        const auto current=snapshotCallbackOriginal;
+        if (!current.combined || !current.done || current.xhr.isEmpty() || current.reply.isEmpty()) {return {};}
+        return overte::e2e::snapshotPreflightHttp(true).activeSnapshotRead(current.xhr,current.reply);
+    } catch (...) {overte::e2e::AvatarSocialHttpObservation::snapshotUnavailable(true);return {};}
 }
 
 QVariantMap XMLHttpRequestClass::featureSnapshotCombinedPreflightHttpObservation(const QVariantMap& command) noexcept {
@@ -428,6 +447,7 @@ void XMLHttpRequestClass::setReadyState(ReadyState readyState) {
             placesHttp().event(_featurePlacesId,"callback-enter",{{"callback","readystatechange"},{"readyState",static_cast<int>(_readyState)}});
             overte::e2e::avatarSocialHttp().event(_featureAvatarSocialId,"callback-enter",{{"callback","readystatechange"},{"readyState",static_cast<int>(_readyState)}});
             snapshotHttpCallback(_featureSnapshotPreflightId,true,static_cast<int>(_readyState),"readystatechange",_featureSnapshotPreflightCombined);
+            SnapshotCallbackOriginalScope originalCallback(_featureSnapshotPreflightId,_featureSnapshotPreflightReplyId,_featureSnapshotPreflightCombined,_readyState==DONE);
             Finally socialCallbackLeft([&] { overte::e2e::avatarSocialHttp().event(_featureAvatarSocialId,"callback-leave",{{"callback","readystatechange"},{"readyState",static_cast<int>(_readyState)}});snapshotHttpCallback(_featureSnapshotPreflightId,false,static_cast<int>(_readyState),"readystatechange",_featureSnapshotPreflightCombined); });
             Finally callbackLeft([&] { placesHttp().event(_featurePlacesId,"callback-leave",{{"callback","readystatechange"},{"readyState",static_cast<int>(_readyState)}}); });
 #endif
@@ -546,6 +566,7 @@ void XMLHttpRequestClass::requestTimeout() {
         placesHttp().event(_featurePlacesId,"callback-enter",{{"callback","timeout"},{"readyState",static_cast<int>(_readyState)}});
         overte::e2e::avatarSocialHttp().event(_featureAvatarSocialId,"callback-enter",{{"callback","timeout"},{"readyState",static_cast<int>(_readyState)}});
         snapshotHttpCallback(_featureSnapshotPreflightId,true,static_cast<int>(_readyState),"timeout",_featureSnapshotPreflightCombined);
+        SnapshotCallbackOriginalScope originalCallback(_featureSnapshotPreflightId,_featureSnapshotPreflightReplyId,_featureSnapshotPreflightCombined,false);
         Finally socialCallbackLeft([&] { overte::e2e::avatarSocialHttp().event(_featureAvatarSocialId,"callback-leave",{{"callback","timeout"},{"readyState",static_cast<int>(_readyState)}});snapshotHttpCallback(_featureSnapshotPreflightId,false,static_cast<int>(_readyState),"timeout",_featureSnapshotPreflightCombined); });
         Finally callbackLeft([&] { placesHttp().event(_featurePlacesId,"callback-leave",{{"callback","timeout"},{"readyState",static_cast<int>(_readyState)}}); });
 #endif

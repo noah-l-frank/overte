@@ -46,6 +46,7 @@
 #include "SnapshotUploader.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
 #include "../../../tests/device/native/IOSSnapshotUploadObservation.h"
+#include "../../../tests/device/native/IOSSnapshotCausalDispatch.h"
 #endif
 #include "SnapshotAnimated.h"
 #include "SnapshotStorage.h"
@@ -680,8 +681,21 @@ QFile* Snapshot::savedFileForSnapshot(QImage& shot,
 }
 
 void Snapshot::uploadSnapshot(const QString& filename, const QUrl& href) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    const auto causal=overte::e2e::IOSSnapshotCausalDispatch::current();
+    overte::e2e::IOSSnapshotCausalDispatch::Scope causalSnapshot(causal,"snapshot");
+#endif
     if (QThread::currentThread() != thread()) {
-        QMetaObject::invokeMethod(this, [this, filename, href] { uploadSnapshot(filename, href); }, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(this, [this, filename, href
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+                ,causal
+#endif
+                ] {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+            overte::e2e::IOSSnapshotCausalDispatch::Scope causalQueue(causal,"snapshot-queue");
+#endif
+            uploadSnapshot(filename, href);
+        }, Qt::QueuedConnection);
         return;
     }
     if (_uploads.value(filename)) { emit uploadStatusChanged(filename, "error", "upload-busy"); return; }

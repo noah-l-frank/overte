@@ -1334,7 +1334,11 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* man
     if (!manager || !manager->_featureWorkEnabled || QThread::currentThread()!=manager->thread()
             || (method!="overrideAnimation" && method!="restoreAnimation"
 #if defined(Q_OS_IOS)
-                && method!="emitScriptEvent" && method!="featureIOSCreateEvent" && method!="featureIOSWorldWebEvent" && method!="featureIOSSnapshotEvent" && method!="addButton" && method!="addEntity" && method!="deleteEntity"
+                && method!="emitScriptEvent" && method!="featureIOSCreateEvent" && method!="featureIOSWorldWebEvent" && method!="featureIOSSnapshotEvent"
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+                && method!="shareSnapshot"
+#endif
+                && method!="addButton" && method!="addEntity" && method!="deleteEntity"
 #endif
                 )
             || manager->_featureNativeCallSequence>=1000000000) { return; }
@@ -1354,6 +1358,14 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* man
             _featureNativeCallContext.insert("snapshotCombinedStack",manager->featureAvatarV8Stack());
         } catch (...) { manager->_featureSnapshotCombinedSources.snapshotUnavailable(); }
     }
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (method=="shareSnapshot") {
+        try {
+            _featureNativeCallContext.insert("snapshotCombinedSources",manager->featureSnapshotCombinedSources());
+            _featureNativeCallContext.insert("snapshotCombinedStack",manager->featureAvatarV8Stack());
+        } catch (...) {manager->_featureSnapshotCombinedSources.snapshotUnavailable();}
+    }
+#endif
     if (method=="addEntity" || method=="deleteEntity") {
         _featureNativeCallContext.insert("callerChain",manager->featureAvatarTimerCallers());
         const auto original=manager->featureAvatarScriptObservation();
