@@ -106,7 +106,8 @@ class TabletNativeChildMetadataTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory,patch.object(closed._OwnPrefix,'__init__',actual),self.assertRaises(NativeUIError):
             closed.read_own(Path(directory),BINDING,RUN,'actor',ROOT,31,'sources',None)
         self.assertEqual(1,len(retained));self.assertFalse(retained[0].alive)
-        for operation in (retained[0].guard,retained[0].copy,retained[0].index,lambda:retained[0].save({})):
+        for operation in (retained[0].guard,retained[0].copy,retained[0].index,retained[0].recover_copy,
+                retained[0].recover_index,lambda:retained[0].save({})):
             with self.assertRaises(NativeUIError):operation()
 
 

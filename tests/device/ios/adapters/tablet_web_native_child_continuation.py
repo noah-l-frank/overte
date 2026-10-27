@@ -352,6 +352,45 @@ class TabletNativeChildClosedPrefix:
             refs=self.records.append(self.state['manifests'],ref);changed=deepcopy(self.state)
             changed.update(manifests=refs,manifestIntent=None);self.save(changed)
 
+    @contextmanager
+    def _existing_storage(self):
+        # A recovery can update this one mutable WAL, never an original or
+        # another owner. It cannot run inside the pure own-reader batch.
+        need(_OWN_READ.get() is None and self.state['active'] is None);self.guard()
+        lock=self.lock;lease=EmoteOriginalLease(self.root,[self.store.path])
+        try:yield
+        finally:
+            try:lock.assert_held()
+            finally:lease.guard()
+
+    def recover_copy(self):
+        """Adopt only complete existing opened/saved bytes at the owned inode."""
+        with self._existing_storage():
+            reference=self.state['copyIntent']
+            need(reference is not None and reference['phase'] in ('opened','saved')
+                and same(self.copies.read(reference),self.body()))
+            if reference['phase']=='opened':self.intent('original',dict(reference,phase='saved'))
+            self.guard();return deepcopy(self.copies.compact(self.state['copyIntent']))
+
+    def recover_index(self):
+        """Adopt a saved exact prefix; a planned file without ownership stays held."""
+        with self._existing_storage():
+            copy=self.state['copyIntent']
+            need(copy is not None and copy['phase']=='saved' and same(self.copies.read(copy),self.body()))
+            prior=self.state['manifests'];count=prior[0]['count'] if prior else 0
+            if prior:need(same(self.records.manifest(prior[0]),self.old['records'][:count]))
+            intent=self.state['manifestIntent']
+            if intent is None:
+                need(count>0);reference=prior[0]
+            else:
+                need(intent['phase']=='saved');reference=intent['reference']
+                need(reference['count']==count+1
+                    and same(self.records.manifest(reference),self.old['records'][:reference['count']]))
+            need(all(row['status']=='returned' for row in self.records.restore([reference],reference['count'])))
+            if intent is not None:
+                changed=deepcopy(self.state);changed.update(manifests=[deepcopy(reference)],manifestIntent=None);self.save(changed)
+            self.guard();return deepcopy(reference)
+
     def history(self):
         self.guard();lease=EmoteOriginalLease(self.root,[])
         need(self.state['copyIntent'] is not None and self.state['copyIntent']['phase'] in ('opened','saved')
@@ -380,7 +419,7 @@ class _OwnPrefix(TabletNativeChildClosedPrefix):
             batch.local();result=super().guard();batch.local();return result
         self.inventory.guard();result=super().guard();self.inventory.guard();return result
 
-    save=intent=copy=index=forbidden
+    save=intent=copy=index=recover_copy=recover_index=forbidden
 
 
 def read_own(root,binding,run,role,fixture_url,pid,component,lock,*,monotonic=time.monotonic):

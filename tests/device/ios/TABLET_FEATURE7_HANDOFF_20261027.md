@@ -1,5 +1,51 @@
 # Feature 7 continuation handoff
 
+## Existing-copy and saved-manifest recovery checkpoint
+
+Qualified baseline is local `d4ff8b0ce9`. Source-only work now adds
+`recover_copy` and `recover_index` to the existing generic closed-prefix
+owner. Three targeted selections now pass: complete owned recovery with lost
+successful CAS returns and later actual129 PASS1/99.466s; five copy ownership
+counterexamples PASS5/48.087s; four manifest counterexamples PASS4/40.438s. No shared primitive,
+serialized grammar, registry tag, native clock or cap changes.
+
+Copy recovery requires a known opened/saved original device/inode and the
+complete exact existing body. Only the existing opened-to-saved metadata
+transition may advance. Planned copies remain blocked even if an exact file
+is found. Index recovery accepts only an already saved intent or the current
+adopted exact manifest prefix; planned manifests stay blocked even when their
+file is complete. Every existing prefix entry must equal the original closed
+header's corresponding reference, and every referenced frame must remain
+returned. Missing, partial and foreign copies/memberships cannot be rewritten,
+recreated or replaced by discovering another file.
+
+Both operations keep the actual source/peer/parent/lock guards and an unchanged
+original inventory lease with only their own mutable WAL excluded. They make
+no native query, input, new original or clock refresh; they return storage
+references, never Ready/native freshness. They are forbidden during pure-own
+read batches and after active-segment opening. Own-reader subclasses explicitly
+forbid them, including retained instances after return.
+
+Fresh targeted cases are prepared in
+`self_tests/test_ios_tablet_web_native_child_storage_recovery.py`: complete
+opened-copy and saved-manifest adoption across lost successful CAS returns,
+idempotent existing-prefix reads and later first actual129; planned/absent or
+exact-but-unowned copies, opened-empty/missing/foreign/new-inode copies,
+planned-complete manifests, saved foreign membership and missing/partial
+manifest files. The previous metadata constructor-expiry case also names both
+new forbidden methods. All ten fresh cases reach their actual fault markers
+before checking the outcome; earlier damaged inodes cannot qualify later
+cases because every negative has its own real128 predecessor. Original
+files/WALs and native query counts stay unchanged across blocked recoveries.
+Logs in the existing private directory are `native-child-storage-existing-positive.log`,
+`native-child-storage-copy-five-negatives.log` and
+`native-child-storage-manifest-four-negatives.log`. The updated metadata/failure-expiry and old ChildRotation selection passes11
+in7.455s. The five approved project suites pass in7.37s; versions and
+whitespace pass. Exact local packet: two source/test updates, the new explicit
+recovery test module and these two existing guides, with no shared/registry
+changes. Native compilation/devices and whole Feature7 remain unqualified. The completed baseline results
+and retained failure evidence below stay specifically valid for `d4ff8b0ce9`.
+
 ## Seven native-child continuation and pure own-read checkpoint
 
 `tablet_web_native_child_continuation.py` extends the seven existing native

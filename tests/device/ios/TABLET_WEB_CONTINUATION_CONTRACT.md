@@ -124,6 +124,47 @@ The five approved project suites pass in7.16s; versions and whitespace pass.
 Feature7 remains partial; the completed source-area count stays5/14, native
 code is uncompiled and devices are untested.
 
+## Recovery of existing generic copy and manifest files
+
+The current source-only addition uses the existing `OriginalFrameStore.read`,
+`manifest` and `restore` primitives; the shared store and all serialized formats
+stay unchanged. Targeted real-file/modeled-native results pass: owned-copy/
+saved-manifest adoption with two lost successful CAS returns and later actual129
+PASS1/99.466s, five copy counterexamples PASS5/48.087s, and four manifest
+counterexamples PASS4/40.438s. Four updated metadata/failure-expiry cases plus
+seven old ChildRotation cases pass11/7.455s. The five approved project suites
+pass in7.37s; contract versions and whitespace pass. Native/device and whole
+Feature7 qualification remain separate.
+
+`TabletNativeChildClosedPrefix.recover_copy()` reads only an existing
+opened/saved original at its recorded device/inode and compares its complete
+canonical body with the exact closed-body descriptor. It may finish only the
+existing opened-to-saved WAL transition; saved returns are idempotent. A planned
+reference has no owned inode, so absence or an exact matching file cannot make
+it recoverable. Partial, missing and foreign bodies remain held.
+
+`recover_index()` validates the current adopted prefix and a pending saved
+manifest against `old.records[:count]`, then reads all referenced returned
+original frames before adopting that exact saved reference into the head.
+An already adopted prefix can be read idempotently. The manifest primitive
+records block/count/hash/bytes rather than file inode, so a planned reference
+cannot be upgraded solely from finding a complete matching file. Unknown
+ownership stays blocked; the method neither discovers nor creates snapshots.
+
+Recovery may update only its own mutable WAL under the existing real lock and
+source/parent/peer guards. Entry/exit inventory leases cover every other file,
+including failures after a successful CAS whose return was lost. No original,
+manifest or source query is written/repeated; no clock is refreshed and no
+native/peer/whole-source authority is returned. Pure-own batches and opened
+active segments cannot call these operations. Explicit source-only positive
+and missing/partial/foreign/unknown/inode cases are implemented in
+`self_tests/test_ios_tablet_web_native_child_storage_recovery.py`. Each negative
+uses its own genuine128 predecessor and proves its actual injected fault,
+with unchanged original files/WALs and query counts after blocked recovery.
+The positive case separately owns its first actual129 only after storage
+recovery has left its boundary. No compiler,
+device or whole-feature result follows.
+
 ## Concrete existing limit
 
 The current 26-step scenario contains 12 phases for which
