@@ -1,4 +1,4 @@
-"""Closed UIKit128 predecessor, independent original DOM link, no Ready.
+"""Closed UIKit128 and once-bound original129, scoped DOM link, no Ready.
 
 Every contact/object/dispatch field is replayed by the literal UIKit reader.
 Storage closure does not prove contact release, quiescence or weak retirement.
@@ -22,7 +22,10 @@ from ios.adapters import tablet_web_dom_original_link as dom_link
 from ios.adapters.emote_original_lease import EmoteOriginalLease
 from ios.adapters.tablet_web_packets import TabletWebPackets,CAPTURES,COMPONENTS
 
-VERSION=1
+VERSION=2
+READS=(1,2)
+BODY_VERSION=1
+FENCE_VERSION=1
 PROFILE='tabletweb-uikit-closed-prefix'
 
 
@@ -40,10 +43,12 @@ def _old(raw,expected):
 
 def decode(value,expected):
     expected=base._scope(expected)
+    version=value.get('tabletWebUIKitContinuationVersion') if type(value) is dict else None
+    need(type(version) is int and version in READS)
     exact(value,{'tabletWebPacketsVersion','tabletWebUIKitContinuationVersion','profile','phase','scope',
-        'parent','previousHeader','copyIntent','manifests','manifestIntent'})
+        'parent','previousHeader','copyIntent','manifests','manifestIntent'}|({'successor'} if version>=2 else set()))
     need(type(value['tabletWebPacketsVersion']) is int and value['tabletWebPacketsVersion']==3
-        and type(value['tabletWebUIKitContinuationVersion']) is int and value['tabletWebUIKitContinuationVersion']==VERSION
+        and type(value['tabletWebUIKitContinuationVersion']) is int and value['tabletWebUIKitContinuationVersion'] in READS
         and value['profile']==PROFILE and value['phase']=='rotating' and same(value['scope'],expected))
     parent=value['parent'];exact(parent,{'signature','sha256'});base._signature(parent['signature'],parent['signature']['bytes'])
     need(type(parent['sha256']) is str and len(parent['sha256'])==64 and all(c in '0123456789abcdef' for c in parent['sha256']))
@@ -66,6 +71,11 @@ def decode(value,expected):
         ref=intent['reference'];OriginalFrameStore.manifest_reference(ref)
         need(ref['block']==1 and ref['count']==(value['manifests'][0]['count'] if value['manifests'] else 0)+1)
     if value['copyIntent'] is not None:base._copy(value['copyIntent'],expected)
+    if version>=2:
+        ref=value['successor'];exact(ref,{'index','sha256','bytes','device','inode'})
+        need(type(ref['index']) is int and ref['index']==CAPTURES+1 and integer(ref['bytes'],2,1048576)
+            and integer(ref['device'],0,2**64-1) and integer(ref['inode'],1,2**64-1)
+            and type(ref['sha256']) is str and len(ref['sha256'])==64 and all(c in '0123456789abcdef' for c in ref['sha256']))
     need(len(canonical(value))+1<=base.MAX_HEAD_BYTES);return raw,old
 
 
@@ -89,7 +99,7 @@ def prepare(source):
     need(all(child.originals.read(child.originals.expand(ref))['status']=='returned' for ref in old['records']))
     parent=source.store.read();children.decode(parent,expected);descriptor=next(row for row in parent['children'] if row['component']=='uikit')
     need(signature==descriptor['signature'] and hashlib.sha256(raw).hexdigest()==descriptor['sha256'])
-    value=dict(tabletWebPacketsVersion=3,tabletWebUIKitContinuationVersion=VERSION,profile=PROFILE,phase='rotating',scope=expected,
+    value=dict(tabletWebPacketsVersion=3,tabletWebUIKitContinuationVersion=FENCE_VERSION,profile=PROFILE,phase='rotating',scope=expected,
         parent=dict(signature=parent_signature,sha256=hashlib.sha256(parent_raw).hexdigest()),
         previousHeader=dict(signature=signature,sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw),
             data=base64.b64encode(zlib.compress(raw,9)).decode('ascii')),copyIntent=None,manifests=[],manifestIntent=None)
@@ -146,7 +156,7 @@ class TabletUIKitClosedPrefix:
         return True
 
     def body(self):
-        return dict(tabletWebUIKitClosedBodyVersion=VERSION,profile=PROFILE,scope=deepcopy(self.expected),
+        return dict(tabletWebUIKitClosedBodyVersion=BODY_VERSION,profile=PROFILE,scope=deepcopy(self.expected),
             parent=deepcopy(self.state['parent']),previousHeader=deepcopy(self.state['previousHeader']))
 
     def save(self,value):
@@ -190,3 +200,28 @@ class TabletUIKitClosedPrefix:
         result=dict(component='uikit',historicalOnly=True,phase='rotating',globalIndex=CAPTURES,nextIndex=CAPTURES+1,
             nextRaw=self.old['nextRaw'],nativeFloor=deepcopy(packets[-1]))
         self.guard();lease.guard();return result
+
+    def successor(self,reference):
+        """Read an already owned UIKit129; no new query or release is issued."""
+        prefix=self.history();lease=EmoteOriginalLease(self.root,[])
+        reader=_snapshot(self.root,self.expected,self.old,self.monotonic)
+        ref=self.records.expand(reference);need(ref['index']==prefix['nextIndex'])
+        row=self.records.read(ref);need(row['status']=='returned' and row['query'] is not None)
+        prior=[self.records.read(self.records.expand(item)) for item in self.old['records']]
+        need(row['query']['commandId'] not in {item['query']['commandId'] for item in prior if item['query'] is not None})
+        clock=reader.clock;need(clock is not None and row['before']['epochMs']>=clock['epochMs'] and row['before']['monotonic']>=clock['monotonic'])
+        reader.blocked=False;tail,values=reader.record(row,ref['index'],prefix['nativeFloor']);need(not reader.blocked and values)
+        from ios.adapters.tablet_web_segments import CHUNK_BYTES
+        raw=prefix['nextRaw']
+        for part in row['raws']:
+            parent=part['segments'];need(parent['first']==raw);raw+=max(1,(parent['bytes']+CHUNK_BYTES-1)//CHUNK_BYTES)
+        need(raw<=MAX_FRAMES+1);self.guard();lease.guard()
+        return dict(component='uikit',historicalOnly=True,phase='rotating',globalIndex=ref['index'],nextIndex=ref['index']+1,
+            nextRaw=raw,nativeFloor=deepcopy(tail))
+
+    def bind_successor(self,reference):
+        need(self.state['tabletWebUIKitContinuationVersion']==FENCE_VERSION);self.successor(reference)
+        changed=deepcopy(self.state);changed.update(tabletWebUIKitContinuationVersion=VERSION,successor=deepcopy(reference));self.save(changed)
+
+    def adopted(self):
+        need(self.state['tabletWebUIKitContinuationVersion']==VERSION);return self.successor(self.state['successor'])

@@ -766,7 +766,7 @@ REQUIRED = {
     "ios-tablet-web-dom-continuation": 3,
     "ios-tablet-web-dom-closed-body": 1,
     "ios-tablet-web-dom-active-segment": 1,
-    "ios-tablet-web-uikit-continuation": 1,
+    "ios-tablet-web-uikit-continuation": 2,
     "ios-tablet-web-uikit-closed-body": 1,
     "ios-tablet-web-acquisition": 2,
     "ios-tablet-web-acquisition-frame": 1,

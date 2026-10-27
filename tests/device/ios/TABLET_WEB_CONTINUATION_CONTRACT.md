@@ -627,3 +627,36 @@ routes remain unchanged. The two new registry contracts are
 `ios-tablet-web-uikit-continuation` and `ios-tablet-web-uikit-closed-body`, both
 writer1/read1. Existing generic original/manifests and all native codecs retain
 their prior versions.
+
+## Once-bound original UIKit129
+
+UIKit continuation metadata2 adds exactly one non-null compact successor
+reference at global129. Metadata1 retains its literal field set; both exact
+Packet1 and Packet2 predecessor bytes remain readable without normalization.
+Preparation still installs metadata1, and the separate immutable UIKit closed
+body remains version1 with the same bytes and fields. Only a complete original
+proof permits the once-only CAS to metadata2. No active UIKit query segment or
+whole-source acquisition is introduced.
+
+Successor interpretation rereads the complete128-row prefix and the actual
+record129/raw originals. The existing UIKit validator compares sequence,
+instance, process, native clocks, installation, objects, targets, contacts,
+dispatches and pending dispatches against the actual packet128. The query nonce
+must be new, original host clocks must follow the prefix, and raw segments must
+start at the retained global raw cursor. Neither storage index129 nor a CAS
+acknowledgment substitutes for those observations. The bound reader reopens
+only the stored exact successor reference, without a query, release or retry
+after an uncertain return. Live DOM and public Source acquisition stay fenced.
+
+The original129 binding case passes in109.240s, including a successful CAS
+whose return is lost, reopening the actual metadata2, rejecting duplicate
+binding and retaining the exact closed body and all original bytes/inodes.
+Native sequence regression at storage129 and missing cumulative contacts and
+dispatches are separately rejected before metadata changes; those cases pass
+in72.543s and72.743s. Two metadata-only tests pass in0.009s and grant no file or
+native authority. The registry now advertises UIKit continuation writer2 with
+readers1/2, while the closed body stays writer1/read1. These are host-model
+source checks; native code remains uncompiled and physical devices untested.
+Feature7 remains partial and the completed source-area count remains5/14.
+The contract-version validator and whitespace check pass. The five approved
+documentation/input-selection/policy/coverage project suites pass in6.80s.
