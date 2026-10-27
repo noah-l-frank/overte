@@ -39,12 +39,12 @@ class TabletDOMInitialSegmentTests(unittest.TestCase):
         originals=self.f.originals();counts=self.f.native_counts();write=PrivateFeatureState.write;lost=[]
         def opened(store,value,previous):
             result=write(store,value,previous)
-            if store.path==prefix.store.path and value.get('tabletWebDOMContinuationVersion')==4:
+            if store.path==prefix.store.path and value.get('tabletWebDOMContinuationVersion')==closed.VERSION:
                 lost.append(True);raise OSError('Modeled lost successful initial DOM segment-open CAS return')
             return result
         with patch.object(PrivateFeatureState,'write',opened),self.assertRaises(OSError):self.open()
         self.assertEqual([True],lost);self.assertEqual(counts,self.f.native_counts());self.assertEqual(originals,self.f.originals())
-        owner=self.reopen();self.assertEqual(4,owner.closed.state['tabletWebDOMContinuationVersion'])
+        owner=self.reopen();self.assertEqual(closed.VERSION,owner.closed.state['tabletWebDOMContinuationVersion'])
         self.assertIsNone(owner.closed.state['successor']);self.assertEqual([],owner.state['records'])
         self.assertEqual((129,129),(owner._next_index(),owner.state['nextRaw']))
         self.assertEqual(128,self.read()['globalIndex'])
@@ -70,7 +70,7 @@ class TabletDOMInitialSegmentTests(unittest.TestCase):
         bound=[]
         def bound_return(store,value,previous):
             result=write(store,value,previous)
-            if store.path==rebuilt.store.path and value.get('tabletWebDOMContinuationVersion')==4 \
+            if store.path==rebuilt.store.path and value.get('tabletWebDOMContinuationVersion')==closed.VERSION \
                     and value['successor'] is not None and previous['successor'] is None:
                 bound.append(deepcopy(value['successor']));raise OSError('Modeled lost successful first DOM-original bind CAS return')
             return result

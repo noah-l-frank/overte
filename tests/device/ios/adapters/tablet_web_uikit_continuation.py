@@ -10,6 +10,7 @@ from copy import deepcopy
 import hashlib
 from pathlib import Path
 import time
+from types import MappingProxyType
 import zlib
 
 from adapters.native_feature_observation import decode as json_decode,exact,integer,need
@@ -22,8 +23,9 @@ from ios.adapters import tablet_web_dom_original_link as dom_link
 from ios.adapters.emote_original_lease import EmoteOriginalLease
 from ios.adapters.tablet_web_packets import TabletWebPackets,CAPTURES,COMPONENTS
 
-VERSION=4
-READS=(1,2,3,4)
+VERSION=5
+READS=(1,2,3,4,5)
+INITIAL_VERSIONS=(4,5)
 ACTIVE_VERSION=3
 BOUND_VERSION=2
 BODY_VERSION=1
@@ -75,7 +77,7 @@ def decode(value,expected):
     if value['copyIntent'] is not None:base._copy(value['copyIntent'],expected)
     if version>=2:
         ref=value['successor']
-        if ref is None:need(version==VERSION)
+        if ref is None:need(version in INITIAL_VERSIONS)
         else:
             exact(ref,{'index','sha256','bytes','device','inode'})
             need(type(ref['index']) is int and ref['index']==CAPTURES+1 and integer(ref['bytes'],2,1048576)
@@ -87,7 +89,7 @@ def decode(value,expected):
             and value['copyIntent'] is not None and value['copyIntent']['phase'] in ('opened','saved'))
         segment_header(value['active'],expected,value['successor'])
         need(value['active']['tabletWebUIKitActiveSegmentVersion']==(1 if version==ACTIVE_VERSION else 2))
-        if version==VERSION and not value['active']['records'] and value['active']['pending'] is None:
+        if version in INITIAL_VERSIONS and not value['active']['records'] and value['active']['pending'] is None:
             need(value['active']['nextRaw']==old['nextRaw']
                 and value['active']['recordIntent'] is value['active']['recordInspection'] is None)
     need(len(canonical(value))+1<=base.MAX_HEAD_BYTES);return raw,old
@@ -141,14 +143,21 @@ class TabletUIKitClosedPrefix:
         self.dom_path=self.root/children._name('dom',self.expected);raw,signature=children._raw(self.dom_path)
         dom_link.read(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
         self.dom_identity=signature;self.dom_sha=hashlib.sha256(raw).hexdigest();lease.guard()
+        self.native_peers=MappingProxyType({});self._admit_current_native()
+        self._pinned_native_peers=self.native_peers
         self.copies=OriginalFrameStore(root,binding,run,role,self.guard,self.intent,
             namespace='tabletweb-uikit-closed',schema_prefix='tabletWebClosedHeader',monotonic=monotonic)
         self.records=OriginalFrameStore(root,binding,run,role,self.guard,self.intent,
             namespace='tabletweb-uikit-packets',schema_prefix='tabletWebSourcePacket',monotonic=monotonic)
         self.guard()
 
+    def _admit_current_native(self):
+        if self.state['tabletWebUIKitContinuationVersion']!=VERSION:return
+        from ios.adapters.tablet_web_native_peer_admission import admit
+        self.native_peers=admit(self.root,self.expected,self.state['parent'],self.lock,monotonic=self.monotonic)
+
     def guard(self):
-        self.lock.assert_held();need(same(self.store.read(),self.state));raw,old=decode(self.state,self.expected)
+        self.lock.assert_held();need(self.native_peers is self._pinned_native_peers and same(self.store.read(),self.state));raw,old=decode(self.state,self.expected)
         need(raw==self.raw and same(old,self.old));expected=self.expected
         path=self.root/('tabletweb-source-owner-'+expected['runId']+'-'+expected['role']+'.json');raw,signature=children._raw(path)
         need(signature==self.state['parent']['signature'] and hashlib.sha256(raw).hexdigest()==self.state['parent']['sha256'])
@@ -165,7 +174,8 @@ class TabletUIKitClosedPrefix:
                     and child['lastRecord']==self.old['records'][-1] and child['nextRaw']==self.old['nextRaw'])
             else:
                 actual,identity=children._raw(self.root/child['headerName'])
-                prior,sha=(self.dom_identity,self.dom_sha) if child['component']=='dom' else (child['signature'],child['sha256'])
+                pin=self.native_peers.get(child['component'],child)
+                prior,sha=(self.dom_identity,self.dom_sha) if child['component']=='dom' else (pin['signature'],pin['sha256'])
                 need(identity==prior and hashlib.sha256(actual).hexdigest()==sha)
         return True
 

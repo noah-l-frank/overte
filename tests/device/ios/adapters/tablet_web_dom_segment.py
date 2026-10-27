@@ -77,7 +77,7 @@ class TabletDOMSegment(TabletWebPackets):
         self.monotonic,self.epoch_ms,self.historical,self.clock=monotonic,epoch_ms,historical,None
         self.component,self.module='dom',COMPONENTS['dom']
         self.closed=closed.TabletDOMClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
-        need(self.closed.state['tabletWebDOMContinuationVersion'] in (closed.ACTIVE_VERSION,closed.VERSION))
+        need(self.closed.state['tabletWebDOMContinuationVersion'] in (closed.ACTIVE_VERSION,)+closed.INITIAL_VERSIONS)
         self.store=self.closed.store;self.state=deepcopy(self.closed.state['active']);self.saved=deepcopy(self.state)
         self.guard=self.storage_guard=self._bound
         self._original_storage();self.history();self._bound()
@@ -111,7 +111,7 @@ class TabletDOMSegment(TabletWebPackets):
     def save(self):
         need(not self.historical);self._bound();need(same(self.saved,self.closed.state['active']))
         value=deepcopy(self.closed.state);value['active']=deepcopy(self.state)
-        if value['tabletWebDOMContinuationVersion']==closed.VERSION and value['successor'] is None and self.state['records']:
+        if value['tabletWebDOMContinuationVersion'] in closed.INITIAL_VERSIONS and value['successor'] is None and self.state['records']:
             need(not self.saved['records'] and len(self.state['records'])==1
                 and self.saved['pending'] is not None and self.saved['recordIntent'] is not None)
             reference=self.originals.original(self.saved['recordIntent'])

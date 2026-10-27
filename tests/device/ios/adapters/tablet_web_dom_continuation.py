@@ -10,6 +10,7 @@ from copy import deepcopy
 import hashlib
 from pathlib import Path
 import time
+from types import MappingProxyType
 import zlib
 
 from adapters.native_feature_observation import decode as json_decode,exact,integer,need
@@ -22,8 +23,9 @@ from ios.adapters.emote_original_lease import EmoteOriginalLease
 from ios.adapters.tablet_web_packets import TabletWebPackets,CAPTURES
 from ios.adapters.tablet_web_segments import CHUNK_BYTES
 
-VERSION=4
-READS=(1,2,3,4)
+VERSION=5
+READS=(1,2,3,4,5)
+INITIAL_VERSIONS=(4,5)
 ACTIVE_VERSION=3
 FENCE_VERSION=2
 BODY_VERSION=1
@@ -80,12 +82,12 @@ def decode(value,expected):
             and type(ref['sha256']) is str and len(ref['sha256'])==64 and all(c in '0123456789abcdef' for c in ref['sha256']))
     if version>=3:
         from ios.adapters.tablet_web_dom_segment import segment_header
-        need((version==VERSION or value['successor'] is not None) and value['manifestIntent'] is None and len(value['manifests'])==1
+        need((version in INITIAL_VERSIONS or value['successor'] is not None) and value['manifestIntent'] is None and len(value['manifests'])==1
             and value['manifests'][0]['count']==CAPTURES and value['copyIntent'] is not None
             and value['copyIntent']['phase'] in ('opened','saved'))
         segment_header(value['active'],expected,value['successor'])
         need(value['active']['tabletWebDOMActiveSegmentVersion']==(1 if version==ACTIVE_VERSION else 2))
-        if version==VERSION and not value['active']['records'] and value['active']['pending'] is None:
+        if version in INITIAL_VERSIONS and not value['active']['records'] and value['active']['pending'] is None:
             need(value['active']['nextRaw']==old['nextRaw']
                 and value['active']['recordIntent'] is value['active']['recordInspection'] is None)
     need(len(canonical(value))+1<=base.MAX_HEAD_BYTES);return raw,old
@@ -136,7 +138,8 @@ class TabletDOMClosedPrefix:
         need(isinstance(lock,ScriptSourceLock) and lock.path==self.root/'script-feature-sources.lock');lock.assert_held()
         self.store=PrivateFeatureState(self.root/('tabletweb-dom-queries-'+run+'-'+role+'.json'))
         self.state=self.store.read();self.raw,self.old=decode(self.state,self.expected)
-        self.uikit_peer=None;self._admit_current_uikit()
+        self.uikit_peer=None;self.native_peers=MappingProxyType({});self._admit_current_uikit();self._admit_current_native()
+        self._pinned_native_peers=self.native_peers
         self.copies=OriginalFrameStore(root,binding,run,role,self.guard,self.intent,
             namespace='tabletweb-dom-closed',schema_prefix='tabletWebClosedHeader',monotonic=monotonic)
         self.records=OriginalFrameStore(root,binding,run,role,self.guard,self.intent,
@@ -144,12 +147,12 @@ class TabletDOMClosedPrefix:
         self.guard()
 
     def _admit_current_uikit(self):
-        """DOM4 only: prove a known peer graph, then pin this read's head.
+        """DOM4/5 only: prove a known peer graph, then pin this read's head.
 
         Old metadata keeps literal peer guards. Own-only historical readers
         override this hook: they must never recursively admit another graph.
         """
-        if self.state['tabletWebDOMContinuationVersion']!=VERSION:return
+        if self.state['tabletWebDOMContinuationVersion'] not in INITIAL_VERSIONS:return
         expected=self.expected;path=self.root/('tabletweb-source-owner-'+expected['runId']+'-'+expected['role']+'.json')
         raw,signature=children._raw(path)
         need(signature==self.state['parent']['signature'] and hashlib.sha256(raw).hexdigest()==self.state['parent']['sha256'])
@@ -166,8 +169,14 @@ class TabletDOMClosedPrefix:
         need(confirmed_identity==identity and confirmed==actual)
         self.uikit_peer=dict(signature=identity,sha256=digest)
 
+    def _admit_current_native(self):
+        # Old1..4 keep all seven generic peer descriptors literal.
+        if self.state['tabletWebDOMContinuationVersion']!=VERSION:return
+        from ios.adapters.tablet_web_native_peer_admission import admit
+        self.native_peers=admit(self.root,self.expected,self.state['parent'],self.lock,monotonic=self.monotonic)
+
     def guard(self):
-        self.lock.assert_held();need(same(self.store.read(),self.state));raw,old=decode(self.state,self.expected)
+        self.lock.assert_held();need(self.native_peers is self._pinned_native_peers and same(self.store.read(),self.state));raw,old=decode(self.state,self.expected)
         need(raw==self.raw and same(old,self.old))
         expected=self.expected;path=self.root/('tabletweb-source-owner-'+expected['runId']+'-'+expected['role']+'.json')
         raw,signature=children._raw(path);need(signature==self.state['parent']['signature']
@@ -185,7 +194,8 @@ class TabletDOMClosedPrefix:
                     and row['lastRecord']==self.old['records'][-1] and row['nextRaw']==self.old['nextRaw'])
             else:
                 raw,signature=children._raw(self.root/row['headerName'])
-                prior=self.uikit_peer if row['component']=='uikit' and self.uikit_peer is not None else row
+                prior=(self.uikit_peer if row['component']=='uikit' and self.uikit_peer is not None
+                    else self.native_peers.get(row['component'],row))
                 need(signature==prior['signature'] and hashlib.sha256(raw).hexdigest()==prior['sha256'])
         return True
 

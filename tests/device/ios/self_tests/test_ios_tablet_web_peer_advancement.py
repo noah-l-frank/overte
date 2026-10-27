@@ -53,8 +53,8 @@ class TabletPeerAdvancementTests(unittest.TestCase):
     def test_both_real129_queries_then_independent130_and_mid_proof_mutation_unknown131_keep_authority_separate(self):
         first_dom,first_ui,dom129,ui129=self.start()
         self.assertEqual((129,129),(dom129['sequence'],ui129['sequence']))
-        self.assertEqual(4,first_dom.closed.state['tabletWebDOMContinuationVersion'])
-        self.assertEqual(4,first_ui.closed.state['tabletWebUIKitContinuationVersion'])
+        self.assertEqual(5,first_dom.closed.state['tabletWebDOMContinuationVersion'])
+        self.assertEqual(5,first_ui.closed.state['tabletWebUIKitContinuationVersion'])
         counts=self.dom_fixture.native_counts();originals=self.dom_fixture.originals()
         with self.assertRaises(NativeUIError):first_dom.history()
         prove=ui_link.read;seen=[]

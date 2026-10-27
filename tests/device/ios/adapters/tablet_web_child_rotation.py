@@ -142,18 +142,18 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
             continue
         if child['component']=='uikit':
             from ios.adapters.tablet_web_uikit_continuation import (decode as uikit_decode,BOUND_VERSION as UIKIT_BOUND,
-                ACTIVE_VERSION as UIKIT_ACTIVE,VERSION as UIKIT_INITIAL)
+                ACTIVE_VERSION as UIKIT_ACTIVE,INITIAL_VERSIONS as UIKIT_INITIAL)
             uikit_raw,uikit_state=uikit_decode(changed,expected)
-            need(changed['tabletWebUIKitContinuationVersion'] in (UIKIT_BOUND,UIKIT_ACTIVE,UIKIT_INITIAL)
+            need(changed['tabletWebUIKitContinuationVersion'] in (UIKIT_BOUND,UIKIT_ACTIVE)+UIKIT_INITIAL
                 and changed['previousHeader']['signature']==child['signature']
                 and hashlib.sha256(uikit_raw).hexdigest()==child['sha256'])
             uikit_changed=changed
             continue
         from ios.adapters.tablet_web_dom_continuation import (TabletDOMClosedPrefix,decode as dom_decode,FENCE_VERSION as DOM_VERSION,
-            ACTIVE_VERSION,VERSION as INITIAL_VERSION)
+            ACTIVE_VERSION,INITIAL_VERSIONS)
         dom_raw,dom_state=dom_decode(changed,expected)
-        need(changed['tabletWebDOMContinuationVersion'] in (DOM_VERSION,ACTIVE_VERSION,INITIAL_VERSION))
-        need((changed['tabletWebDOMContinuationVersion']==INITIAL_VERSION or changed['successor'] is not None)
+        need(changed['tabletWebDOMContinuationVersion'] in (DOM_VERSION,ACTIVE_VERSION)+INITIAL_VERSIONS)
+        need((changed['tabletWebDOMContinuationVersion'] in INITIAL_VERSIONS or changed['successor'] is not None)
             and changed['previousHeader']['signature']==child['signature']
             and hashlib.sha256(dom_raw).hexdigest()==child['sha256'])
         dom_changed=changed
@@ -172,7 +172,7 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
             uikit_prefix=TabletUIKitClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
             need(same(uikit_prefix.old,uikit_state));uikit_proof=uikit_prefix.adopted()
         else:
-            need(uikit_changed['tabletWebUIKitContinuationVersion'] in (UIKIT_ACTIVE,UIKIT_INITIAL))
+            need(uikit_changed['tabletWebUIKitContinuationVersion'] in (UIKIT_ACTIVE,)+UIKIT_INITIAL)
             from ios.adapters.tablet_web_uikit_segment import TabletUIKitSegment
             uikit_reader=TabletUIKitSegment(root,binding,run,role,fixture_url,pid,lock,forbidden,
                 monotonic=monotonic,epoch_ms=forbidden,historical=True)
@@ -184,7 +184,7 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
         if dom_changed['tabletWebDOMContinuationVersion']==DOM_VERSION:
             dom_prefix=TabletDOMClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
         else:
-            need(dom_changed['tabletWebDOMContinuationVersion'] in (ACTIVE_VERSION,INITIAL_VERSION))
+            need(dom_changed['tabletWebDOMContinuationVersion'] in (ACTIVE_VERSION,)+INITIAL_VERSIONS)
             from ios.adapters.tablet_web_dom_segment import TabletDOMSegment
             dom_reader=TabletDOMSegment(root,binding,run,role,fixture_url,pid,lock,forbidden,monotonic=monotonic,
                 epoch_ms=forbidden,historical=True)

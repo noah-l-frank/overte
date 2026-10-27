@@ -1102,6 +1102,73 @@ peer changes. This is separate from peer/native authority or a new aggregate.
 Remaining native children, aggregate/screen continuation, both roles, full
 26-step composition, double cleanup and final retirement remain open.
 
+## Explicit DOM/UIKit5 generic native-peer admission
+
+The additive continuation writer5 reads1..5 while preserving the original
+active-body2 and its old body1 reader. Initial4 remains explicit in decoding,
+segment construction, first-original binding, private own links and the
+historical parent selector. Changing the writer does not make old4 accept
+new native peer progress: DOM4's known UIKit proof and UIKit's existing DOM
+proof keep their previous scope, and their seven generic peers stay literal.
+
+Only DOM/UIKit5 invokes `tablet_web_native_peer_admission.admit`. It first
+checks the exact frozen parent bytes/signature and decodes that original
+parent. All seven current generic peer headers are read before any proof.
+Every header differing from its original descriptor requires the existing
+finite `read_own` for its own component, binding, run, role, fixture and PID.
+The returned fact must be `historicalOnly=True`, `subgraphOnly=True` and
+`peerAuthority=False`; no returned tail is used as DOM/UIKit native freshness.
+Actual bytes and the full file signature are checked after each proof and
+again for the whole set. An unchanged entry/exit original inventory lease
+and held lock fence this read. Current headers alone never count as proof.
+
+The result contains only immutable per-reader signature/digest pins. They
+are checked by the ordinary live guards, and an old reader cannot refresh
+them or substitute a new pin collection when a peer advances. A new reader
+must independently repeat the original proof. A same-byte/new-inode change
+during a proof, including one caused during a later sibling's proof, fails.
+The private own DOM/UIKit subclasses skip every new admission hook, retain
+their exact own-original and scoped peer continuity checks, and expire before
+returning detached own data. No peer authority or recursive admission follows.
+
+Final targeted unit verification is PASS20/0.311s, comprising eight new cases
+and twelve existing metadata regressions. Six new cases use actual small
+private headers/OS locks and explicitly modeled parent-decoder/own-proof
+boundaries. They prove the new header fencing and flag/metadata semantics,
+not a complete128-row graph, actual129 composition or native functionality.
+The earlier20/0.304s and20/0.297s results belong to preceding pin revisions,
+not forty additional cases. The final source also freezes old profiles' empty
+pin collections. All logs remain under the private
+`tablet-dom-continuation-20261027` directory.
+
+One separate actual-original-file/modeled-native DOM5+Sources case passes
+in285.587s, outer360, with two independently built128 predecessors frozen in
+the same nine-child parent. The existing Packet/WAL owns both actual129
+queries; no129 file is precreated. A new DOM5 reader invokes the actual
+Sources `read_own`, then captures DOM130. Immutable/rebound pin containers,
+same-byte/new-inode replacement after the actual own proof and an uncertain
+Sources130-issued CAS return all reach their intended assertions. Old readers
+expire; a new entry repeats the complete proof. The historical parent retains
+aggregate/document/sources originals1 while returning independently proved
+DOM130/Sources129. The unknown130 remains durable before send; it cannot
+admit a new DOM reader or cause query replay. The own DOM link returns only
+DOM130 without invoking any native peer proof or gaining peer authority.
+Read-only boundaries preserve the actual original identities and native query
+counts. Log: `continuation5-dom-sources129-actual01.log`; retained originals:
+`.ios-host-tmp/continuation5-dom-native-n9x426kn`.
+
+UIKit5 plus generic129, the required larger simultaneous composition and old4
+actual-binding regressions remain separate coordinated obligations. No cap,
+native clock, shared store,1.5-second acquisition/five-second file deadline,
+public SourceReady or whole Feature7 capability changes. Native code remains
+uncompiled and devices untested.
+
+Final common verification is five approved suites PASS7.03s under every
+active editor's confirmed source freeze, with versions,881-file documentation
+and whitespace checks green. The earlier common attempt preceded the last
+freeze acknowledgement and is retained separately without qualifying this
+source revision. No unchanged native/clock flow was retried.
+
 ## Scoped independent DOM and UIKit header advancement
 
 DOM4 can now follow a known completed UIKit continuation at a fresh reader

@@ -31,6 +31,11 @@ class _OriginalLinkPrefix(dom.TabletDOMClosedPrefix):
         # UIKit proof. Captured current peer bytes/inodes remain continuity.
         return
 
+    def _admit_current_native(self):
+        # Own-only DOM5 also bypasses every generic peer proof. Current peer
+        # header continuity never becomes independent peer/native authority.
+        return
+
     def __init__(self,root,binding,run,role,fixture_url,pid,lock,*,monotonic):
         self.alive=True;self.link_root=Path(root)
         need(isinstance(lock,ScriptSourceLock) and lock.path==self.link_root/'script-feature-sources.lock');lock.assert_held()
@@ -79,7 +84,7 @@ def read(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotonic):
         if prefix.state['tabletWebDOMContinuationVersion']==dom.FENCE_VERSION:
             result=prefix.adopted()
         else:
-            need(prefix.state['tabletWebDOMContinuationVersion'] in (dom.ACTIVE_VERSION,dom.VERSION))
+            need(prefix.state['tabletWebDOMContinuationVersion'] in (dom.ACTIVE_VERSION,)+dom.INITIAL_VERSIONS)
             # Build exactly the existing forced-historical segment. Its
             # prefix is private and scoped to this one complete original read;
             # no caller callback, reader or live guard escapes the function.

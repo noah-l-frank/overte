@@ -26,6 +26,10 @@ def forbidden(*_args,**_kwargs):need(False)
 
 class _OriginalLinkPrefix(uikit.TabletUIKitClosedPrefix):
     """Complete own originals, with scoped current peer identity only."""
+    def _admit_current_native(self):
+        # This private constructor never admits another graph, including5.
+        return
+
     def __init__(self,root,binding,run,role,fixture_url,pid,lock,*,monotonic):
         self.alive=True;self.root=self.link_root=Path(root)
         self.expected=uikit.base.scope(binding,run,role,fixture_url,pid);self.lock,self.monotonic=lock,monotonic
@@ -82,7 +86,7 @@ def read(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotonic):
         if version==uikit.FENCE_VERSION:result=prefix.history()
         elif version==uikit.BOUND_VERSION:result=prefix.adopted()
         else:
-            need(version in (uikit.ACTIVE_VERSION,uikit.VERSION))
+            need(version in (uikit.ACTIVE_VERSION,)+uikit.INITIAL_VERSIONS)
             reader=object.__new__(TabletUIKitSegment);reader.root=Path(root);reader.binding=deepcopy(binding)
             reader.run,reader.role,reader.fixture,reader.pid=run,role,fixture_url,pid
             reader.lock,reader._current_guard,reader._pinned_guard=lock,forbidden,forbidden

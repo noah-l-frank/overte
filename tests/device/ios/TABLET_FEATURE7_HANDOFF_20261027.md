@@ -1,5 +1,71 @@
 # Feature 7 continuation handoff
 
+## Explicit DOM/UIKit5 native-peer admission checkpoint
+
+The new DOM/UIKit continuation writer5 reads literal1..4 and explicit5;
+active bodies remain2/read1,2. Only5 can admit the seven generic native
+peers after their independent complete `read_own` proof. Each proof must
+remain historical, subgraph-only and without peer authority. The actual
+parent and all seven actual current headers are pinned before any proof,
+confirmed afterward, and checked through the reader lifetime. Pins are
+immutable; replacing the reader's pinned collection also fails its guard.
+Old DOM4 retains its known UIKit path and all seven literal native peers.
+Old UIKit1..4 keeps its previous DOM path and literal native peers.
+
+The initial4 grammar, first actual original binding, both segment constructors,
+private own links and historical parent selector explicitly retain4 alongside5.
+Both private own links bypass the entire new peer admission path. No result
+from those links can acquire peer authority or recursively authorize another
+graph. Existing open/recovery/peer test fault hooks now select the current
+writer; old4 metadata counterexamples remain explicit and unchanged.
+
+The small final selection passes20 in0.311s: eight new metadata/header cases
+plus twelve existing initial/segment metadata cases. Header cases read real
+private files and exercise exact bytes/inodes, parent replacement, a new
+inventory member, false/ambiguous proof flags and an earlier header changed
+during a later proof. Their parent decoder and own-original proof are explicit
+unit models. They do not prove a complete128-row graph, simultaneous actual129
+composition, native inputs or a deadline. Earlier revisions pass the same20
+in0.304s and0.297s, not40 additional cases. The final source also freezes
+initially empty native-peer containers for all old live profiles. Logs:
+`continuation5-pure20-first.log` and
+`continuation5-pure20-immutable-pins.log` and
+`continuation5-pure20-legacy-empty-frozen.log` in the existing private directory.
+
+The separate actual-file/modeled-native DOM5+Sources case now passes1 in
+285.587s, outer360. Two independent literal128 prefixes exist before the
+same nine-child parent fence; both129 queries run through the normal durable
+Packet path, without precreated129 files. A fresh DOM5 reader calls the real
+Sources `read_own`, reads actual Sources129 and captures DOM130. It rejects
+mutable/replaced pin collections. The historical selector reads DOM130 and
+Sources129 while aggregate/document/sources originals remain1, with unchanged
+old original identities and read-only query counts. A same-byte/new-inode
+Sources header born after its real own proof rejects entry and the old reader;
+only a fresh entry repeats the whole proof. Lost successful Sources130-issued
+CAS leaves the exact query unknown before send, and fresh DOM5 admission
+refuses it without resend. The private own DOM link still returns DOM130
+without any native-peer admission or peer authority.
+
+Log: `continuation5-dom-sources129-actual01.log`; all originals remain under
+`.ios-host-tmp/continuation5-dom-native-n9x426kn`, including the final unknown
+query WAL. Native producers and clocks are declared models; no physical input,
+native execution, real-time performance or full Feature7 follows.
+
+The two continuation registry entries/REQUIRED now match5/read1..5;
+team-owned Chat/Assets registry entries are preserved. No active-body version,
+original clock, query/file deadline, cap, shared store or public SourceReady
+changes. UIKit5 plus a changed generic peer, all required simultaneous child
+composition and old4 actual first-bind regressions remain required packets;
+Root owns their exclusive heavy-test windows. This checkpoint remains partial,
+with5/14 source-complete areas, native compilation unverified and devices
+untested. Final common verification under all editors' confirmed source freeze
+passes the five approved suites in7.03s, plus coherent versions,881-file
+documentation and whitespace checks. Log:
+`continuation5-project-checks-confirmed-freeze.log`. The earlier7.03s common
+run started before the last editor's explicit freeze acknowledgement; its
+separate log remains retained without current-source qualification. The local
+packet contains exactly17 paths and only its two continuation registry hunks.
+
 ## Existing-copy and saved-manifest recovery checkpoint
 
 Qualified baseline is local `d4ff8b0ce9`. Source-only work now adds

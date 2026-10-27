@@ -77,7 +77,7 @@ class TabletUIKitSegment(TabletWebPackets):
         self.monotonic,self.epoch_ms,self.historical,self.clock=monotonic,epoch_ms,historical,None
         self.component,self.module='uikit',COMPONENTS['uikit']
         self.closed=closed.TabletUIKitClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
-        need(self.closed.state['tabletWebUIKitContinuationVersion'] in (closed.ACTIVE_VERSION,closed.VERSION))
+        need(self.closed.state['tabletWebUIKitContinuationVersion'] in (closed.ACTIVE_VERSION,)+closed.INITIAL_VERSIONS)
         self.store=self.closed.store;self.state=deepcopy(self.closed.state['active']);self.saved=deepcopy(self.state)
         self.guard=self.storage_guard=self._bound
         self._original_storage();self.history();self._bound()
@@ -109,7 +109,7 @@ class TabletUIKitSegment(TabletWebPackets):
     def save(self):
         need(not self.historical);self._bound();need(same(self.saved,self.closed.state['active']))
         value=deepcopy(self.closed.state);value['active']=deepcopy(self.state)
-        if value['tabletWebUIKitContinuationVersion']==closed.VERSION and value['successor'] is None and self.state['records']:
+        if value['tabletWebUIKitContinuationVersion'] in closed.INITIAL_VERSIONS and value['successor'] is None and self.state['records']:
             # Bind only the first actual completed original held by the
             # previous durable intent. Both normal archive and opened-file
             # recovery reach this same CAS, without replaying query129.

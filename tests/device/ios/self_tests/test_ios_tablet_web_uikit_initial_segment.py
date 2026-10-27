@@ -39,13 +39,13 @@ class TabletUIKitInitialSegmentTests(unittest.TestCase):
         originals=self.evidence.originals();counts=self.evidence.native_counts();write=PrivateFeatureState.write;lost=[]
         def opened(store,value,previous):
             answer=write(store,value,previous)
-            if store.path==prefix.store.path and value.get('tabletWebUIKitContinuationVersion')==4:
+            if store.path==prefix.store.path and value.get('tabletWebUIKitContinuationVersion')==closed.VERSION:
                 lost.append(True);raise OSError('Modeled lost successful initial UIKit segment-open CAS')
             return answer
         with patch.object(PrivateFeatureState,'write',opened),self.assertRaises(OSError):self.open()
         self.assertEqual([True],lost);self.assertEqual(counts,self.evidence.native_counts())
         self.assertEqual(originals,self.evidence.originals());owner=self.reopen()
-        self.assertEqual(4,owner.closed.state['tabletWebUIKitContinuationVersion'])
+        self.assertEqual(closed.VERSION,owner.closed.state['tabletWebUIKitContinuationVersion'])
         self.assertIsNone(owner.closed.state['successor']);self.assertEqual([],owner.state['records'])
         self.assertEqual((129,129),(owner._next_index(),owner.state['nextRaw']))
         self.assertEqual(128,self.read()['globalIndex'])
@@ -72,7 +72,7 @@ class TabletUIKitInitialSegmentTests(unittest.TestCase):
         bound=[]
         def bound_return(store,value,previous):
             answer=write(store,value,previous)
-            if store.path==rebuilt.store.path and value.get('tabletWebUIKitContinuationVersion')==4 \
+            if store.path==rebuilt.store.path and value.get('tabletWebUIKitContinuationVersion')==closed.VERSION \
                     and value['successor'] is not None and previous['successor'] is None:
                 bound.append(deepcopy(value['successor']));raise OSError('Modeled lost successful first-original bind CAS return')
             return answer
@@ -128,7 +128,7 @@ class TabletUIKitInitialSegmentMetadataTests(unittest.TestCase):
     def test_empty_initial4_is_explicit_and_preserves_literal_predecessor(self):
         value,expected,raw=self.value();before=deepcopy(value);actual,_old=closed.decode(value,expected)
         self.assertEqual(raw,actual);self.assertEqual(before,value)
-        self.assertEqual((1,2,3,4),closed.READS);self.assertEqual((1,2),active.READS)
+        self.assertEqual((1,2,3,4,5),closed.READS);self.assertEqual((1,2),active.READS)
 
     def test_literal_packet_constructor_refuses_initial4_before_any_lower_original_factory(self):
         value,expected,_raw=self.value()
