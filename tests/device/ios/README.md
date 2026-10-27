@@ -5,6 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # Fedora iOS E2E handoff and immutable runtime
 
+The current continuation branch is `test/ios/consolidated-adapters-20261027`.
+The [2026-10-27 consolidation record](../../../docs/ios/TEST_BRANCH_CONSOLIDATION_20261027.md)
+lists all four preserved source tips and verification limits. Older handoff
+records retain their historical source identities.
+
 Current iOS source coverage and remaining whole-area prerequisites are recorded
 in [the 2026-10-21 audit](FEATURE_ADAPTER_COVERAGE_20261021.md). Earlier checkpoint
 claims below are historical. Scripts, Authentication, Graphics and Create now have
