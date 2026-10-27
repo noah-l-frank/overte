@@ -52,8 +52,8 @@ class AssetsNativeInput(NativeInput):
 
 
 class IOSAssetsRuntime(IOSScriptRuntime):
-    def __init__(self,adapter,*,monotonic=time.monotonic):
-        super().__init__(adapter);need(callable(monotonic));self.monotonic=monotonic
+    def __init__(self,adapter,*,monotonic=time.monotonic,epoch_ms=lambda:time.time()*1000):
+        super().__init__(adapter);need(callable(monotonic) and callable(epoch_ms));self.monotonic,self.epoch_ms=monotonic,epoch_ms
         self.cleanup_errors=[] # Private diagnostics only; never feature facts.
 
     def _assets_store(self,selector,run,role,kind):
@@ -106,7 +106,7 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         parts=self._assets_components(selector,run,role,fixture_url,lock) if parts is None else parts
         observer=parts['observer'];clock=parts['upload'].clock
         source=AssetsModelSources(parts['usage'],clock,observer.create_state(clock),observer.create_work(clock),self._assets_store(selector,run,role,'model-sources'),
-            lock=lock,epoch_ms=observer.epoch_ms,monotonic=self.monotonic)
+            lock=lock,epoch_ms=self.epoch_ms,monotonic=self.monotonic)
         model=OwnedAssetsModel(parts['usage'],source,self._assets_store(selector,run,role,'model'),lock=lock)
         parts['check']();return dict(parts,model_sources=source,model=model)
 
@@ -136,7 +136,7 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         observer,clock=parts['observer'],parts['clock_source']
         source=AssetsSceneSources(PrivateFeatureState(self.state_path(selector).with_name('ios-assets-scene-'+run+'-'+role+'.json')),
             parts['binding'],run,role,lock,parts['check'],native=observer.bound_native_observer(clock),state=observer.create_state(clock),
-            domain=observer.emote_world(clock),origin=observer.assets_model_origin(clock),epoch_ms=observer.epoch_ms,monotonic=self.monotonic)
+            domain=observer.emote_world(clock),origin=observer.assets_model_origin(clock),epoch_ms=self.epoch_ms,monotonic=self.monotonic)
         parts['check']();return dict(parts,scene=source)
 
     @operation
