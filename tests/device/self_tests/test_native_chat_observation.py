@@ -232,7 +232,7 @@ applyClientCommand({...c,commandId:"c".repeat(32),expected:[]});if(calls!==1)thr
 delete Test.featureChatObservation;applyClientCommand({...c,commandId:"ios-"+"d".repeat(32)});
 if(files.length!==2||files[1].v.available!==false)throw Error('missing hook green');
 '''.replace('SOURCE',probe_source())
-        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
+        result=subprocess.run(['node'],input=program,capture_output=True,text=True,timeout=5)
         self.assertEqual(0,result.returncode,result.stderr)
 
     def test_actual_fixture_accepts_only_closed_ios_metadata(self):

@@ -94,6 +94,23 @@ class NativeChatObservation:
         self.instance,self.sequence,self.captured,self.source=None,0,0,None
         self.run=None
 
+    def restore(self,value):
+        """Restore an owned historical prefix, without issuing a fresh read.
+
+        The durable caller must separately bind this original to its run and
+        installed candidate. The next actual native query still needs a new
+        nonce and strictly greater sequence; no historical time is refreshed.
+        """
+        need(self.run is None and self.instance is None and self.sequence==0
+             and self.captured==0 and self.source is None)
+        request=dict(schemaVersion=1,action='feature-chat-observe',
+                     **{key:value[key] for key in ('commandId','operation','runId')})
+        command(request,ios=self.ios)
+        validate(value,request,self.pid,value['capturedEpochMs'])
+        self.run,self.instance,self.sequence,self.captured=(value[key] for key in
+            ('runId','instance','sequence','capturedEpochMs'))
+        self.source=deepcopy(value['source'])
+
     def perform(self,run,operation):
         try:
             request=dict(schemaVersion=1,commandId=('ios-' if self.ios else '')+uuid.uuid4().hex,

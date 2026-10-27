@@ -122,3 +122,37 @@ These cases use the existing exact null-value/configuration proof and normal
 settings controls; they do not add a settings setter or admit other original
 history representations as restored. Native/Qt serialization and clocks remain
 declared boundaries; the original Chat Script and host streams execute.
+
+## Receive continuity across reconstruction
+
+The existing shared `IndependentChatReceiver` has an explicit
+`retain_originals=True` version-two profile. Default version one stays literal;
+neither profile adopts the other. Version two retains the exact latest primary
+inspect and peer observe packets in the existing bounded private journal using
+the existing packed-original codec. Native event limits, journal limits and
+the 1.5-second acquisition deadline do not change. This journal is a continuity
+floor, not an immutable archive or a current receipt after reopening.
+
+`NativeChatObservation.restore` validates a historical packet on a pristine
+reader without transport, clock sampling or writes. Candidate PID, iOS nonce
+grammar, run, original source identity and complete event prefix are restored.
+The next actual read requires a new nonce, greater sequence and unchanged
+history. Reconstructed primary and peer readers therefore reject changed text,
+sender, local-only flag or channel in an old event. Actual duplicate events
+remain duplicated. An unexpected journal change blocks queries; a lost return
+after a successful journal CAS requires reconstruction from the actual saved
+packet rather than replaying an input. Retirement still fences only the owned
+peer cache and leaves the primary owner responsible for its own scope.
+
+The initial seven iOS-prefix/journal cases plus 31 existing shared receive/ownership
+cases pass in 0.569 s. The final ten-case selection additionally retains both
+full 128-event originals, rejects dropped history and literal-one adoption,
+and preserves original mixer absence/replacement across reconstruction; it
+passes in 0.272 s. Native receive state and SDK boundaries are explicit
+models; private files, original codecs and the complete JavaScript probe run
+on the host. The existing full-probe test now passes its source through Node
+stdin because the expanded probe exceeds the operating system's per-argument
+limit; its assertions and source are unchanged. This profile does not yet wire
+the canonical iOS peer-admission factory or associate remote reception with a
+particular normal Send. Those joins, immutable receipt archives, UI rendering,
+outage/recovery effects and complete source/process/SDK retirement remain open.

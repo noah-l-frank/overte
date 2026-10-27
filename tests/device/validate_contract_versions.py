@@ -847,7 +847,7 @@ REQUIRED = {
     "ios-chat-root-ownership": 1,
     "native-chat-actor-files": 1,
     "owned-messages-mixer": 1,
-    "independent-chat-receiver": 1,
+    "independent-chat-receiver": 2,
     "native-account-observation": 1,
     "native-account-probe": 1,
     "native-account-origin": 1,
