@@ -164,3 +164,44 @@ passes belong to the earlier source revisions and are not additional cases.
 The final reference layout is `qt-qml-reference-layout8-oi578q5j` beneath that
 private directory. All eight original references retain their exact identities
 and bytes. The scope does not execute Qt, native code, a compiler or a device.
+
+## Concrete cache bridge boundary
+
+Additional read-only inspection of Qt 6.11.1 identifies the actual cache joins;
+it does not extend the qualified five-file patch or version-one reader above.
+The three small originals and their URL/byte/SHA records are retained under
+`.ios-host-tmp/qt-qml-cache-reference-7mweo7_4`. Initial requests against the
+incorrect `common` directory failed and remain separately recorded.
+
+The existing `SaveableUnitPointer::saveToDisk` temporarily sets the persistent
+`StaticData` flag while passing the actual unit buffer to `writeDataToFile`.
+That writer uses `QSaveFile` and its ordinary commit. A compiler-unit digest
+can therefore differ from the genuinely written cache bytes. Conversely, equal
+compiled digests alone do not identify the original source. A future bridge
+needs an actual successful compiler-to-write association and the original
+committed file identity, not a later independent path read.
+
+The [mapper interface](https://raw.githubusercontent.com/qt/qtdeclarative/v6.11.1/src/qml/jsruntime/qv4compilationunitmapper_p.h)
+has SHA-256 `ddb55373103cc006b8e89ef55467edfddab27ee92a534cd22da6ecef25254782`.
+Its [shared implementation](https://raw.githubusercontent.com/qt/qtdeclarative/v6.11.1/src/qml/jsruntime/qv4compilationunitmapper.cpp)
+has SHA-256 `db1f9f315d40271ee9f0a566becf9c3e60c5c13d368bb879c199a0af3b05da70`
+and can return a retained static mapping instead of reopening the named file.
+Mappings are copied within that actual cache; filename equality or current
+path bytes cannot identify the consumed mapping generation.
+
+The [Unix mapping implementation](https://raw.githubusercontent.com/qt/qtdeclarative/v6.11.1/src/qml/jsruntime/qv4compilationunitmapper_unix.cpp)
+has SHA-256 `1f0f0712637faffda11d8dc9c4922cd436166c66b24edf163af625f2a0a1678c`.
+It reads the real header through its opened descriptor, maps that descriptor's
+bytes, then closes the descriptor. The passive tap must bind the exact mapped
+file identity and immutable mapped bytes at this point. A retained-map hit
+needs the same original association carried through its actual mapper copy.
+
+Next implementation: an explicitly versioned Qt compiler/write/map causal
+receipt, scoped to the actual compilation owner, its mutation generations and
+the actual original cache-file inode; no forced cache miss or loader change.
+It must handle the existing preferred adjacent cache, failed/reverted mapping,
+equal-byte replacement and stale static mappings without inventing source
+lineage. A new cache receipt must keep the literal direct-unit version-one
+contract readable. Cold prebuilt/AOT units and imports still need independently
+admitted matching installed-build provenance. None of these future observations
+is implemented or counted as complete by this source audit.
