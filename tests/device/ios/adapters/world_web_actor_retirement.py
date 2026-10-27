@@ -55,10 +55,44 @@ class WorldWebActorRetirement:
         key=digest([original,self.state,self.previous,self.observer.round_header(),
             self.source._round[0],self.peer._round[0],None if self.observer.lease is None else self.observer.lease.packet()])
         if key in cache and cache[key][1].matches():return cache[key][0]
-        result=self._measure(original)
+        context=_ORIGINALS.get();proofs=None if context is None else context['frames'];borrowed=False
+        if proofs is not None and self.source._write_round is None and self.peer._write_round is None:
+            proof_key,entry=self.frame_proof_key(original);self.observer.round_guard()
+            if proof_key in proofs and proofs[proof_key].matches():
+                # Current readonly Source rounds have revalidated the complete
+                # byte graph. Borrow their private originals only inside this
+                # same guarded round; measure() still copies every public
+                # return. No frame/clock/current verdict lives in the API memo.
+                from ios.adapters.world_web_sources import WorldWebSources
+                if all(getattr(owner.frame,'__func__',None) is WorldWebSources.frame for owner in (self.source,self.peer)):
+                    result=self.source._round[2][entry['source']['index']-1],self.peer._round[2][entry['peer']['index']-1];borrowed=True
+                else:result=self._measure(original)
+            else:
+                result=self._measure(original)
+                if proof_key in proofs or len(proofs)<256:proofs[proof_key]=OriginalMembership()
+            self.observer.round_guard()
+        else:result=self._measure(original)
         if key in cache or len(cache)<256:
-            cache[key]=(deepcopy(result),OriginalMembership());return cache[key][0]
+            cache[key]=(result if borrowed else deepcopy(result),OriginalMembership());return cache[key][0]
         return result
+
+    def frame_proof_key(self,original):
+        observer=self.observer;need(observer.lease is not None and self.source is observer.source and self.peer is observer.peer)
+        exact(original,{'iosWorldWebObservationOriginalVersion','runId','role','binding','reference'})
+        need(type(original['iosWorldWebObservationOriginalVersion']) is int and original['iosWorldWebObservationOriginalVersion']==1
+            and same(original,observer.original(original['reference'])))
+        index=original['reference']['index'];need(type(index) is int and 1<=index<=len(observer.state['records']))
+        entry=observer.entries()[index-1]
+        def prefix(owner,reference):
+            rows=owner._round[1]['records']
+            need(reference in rows and type(reference['index']) is int and 1<=reference['index']<=len(rows))
+            return rows[:reference['index']]
+        value=[original,self.state['ticket'],observer.round_header(),observer.state['records'][:index],
+            prefix(self.source,entry['source']),prefix(self.peer,entry['peer']),self.source.version,self.peer.version,
+            self.source.historical,self.peer.historical,observer.lease.packet(),observer.lease.scope.previous]
+        parsers=tuple(getattr(method,'__func__',method) for method in (self._measure,self.native_frames,self.entry,
+            observer._derive,observer.validate_original,self.source.frame,self.peer.frame))
+        return (digest(value),parsers),entry
     @contextmanager
     def original_round(self):
         """Pure original-parent DTO reuse; no readonly Source over any write."""
@@ -70,7 +104,7 @@ class WorldWebActorRetirement:
             # This records only real reads; it adds no inferred member/path.
             stack.enter_context(read_scope())
             if _ORIGINALS.get() is None:
-                token=_ORIGINALS.set({});stack.callback(_ORIGINALS.reset,token)
+                token=_ORIGINALS.set(dict(originals={},frames={}));stack.callback(_ORIGINALS.reset,token)
             from ios.adapters.world_web_scope_archive import original_round
             stack.enter_context(original_round())
             for owner in (self.source,self.peer):stack.enter_context(owner.parts.snapshot.validation_round())
@@ -184,7 +218,7 @@ class WorldWebActorRetirement:
         from ios.adapters.emote_original_lease import EmoteOriginalLease
         with self.observer.validation_round():
             self.current_originals()
-            cache=_ORIGINALS.get();memo=cache is not None
+            context=_ORIGINALS.get();cache=None if context is None else context['originals'];memo=cache is not None
             # The complete actual original graph and mutable owner context are
             # part of this API-local key. New source acquisition, owner state,
             # lease or header cannot inherit an earlier deterministic result.

@@ -510,3 +510,31 @@ joined round takes 0.972 s under cProfile; cold original qualification takes
 1.146 s. All file bytes/signatures remain unchanged and live source/input/write
 paths are forbidden. These are historical decoder timings, not a fresh
 publication PASS or a reason to widen the original acquisition limit.
+
+The same original round additionally retains only successful historical
+frame-predicate markers, with the existing 256-entry frame bound. Keys bind the
+actual Observer reference/prefix, both actual Source prefixes through that
+reference, exact role/binding/version/lease/Scope context, cleanup ticket and
+participating parser functions. Every current readonly Source round still
+validates its full original byte graph and inventory. A new frame, changed
+prefix, parser or census must execute the actual predicate; table overflow
+falls back to validation. The separate original-result bound remains 64.
+
+The API marker stores no frames, timestamps, quiet result or current product
+state. A successful lookup borrows only the current readonly round's private
+validated Source frames when the canonical frame reader is unchanged; public
+`measure` returns remain separate copies. Original quiet comparisons, current
+candidate/WAL checks and final before-POST freshness still run independently.
+Six fresh actual-file cases pass in 62.104 s: same-API reuse and next-API reset,
+old-prefix continuation versus a new actual frame, independent read census,
+parser change, bounded-table fallback, changed ticket, outward mutation and
+equal-byte/new-inode rejection. Native/Qt/WK/SDK remain explicit models.
+
+The strengthened parser/census counterexample also passes after binding both
+the original-entry and Observer-original parsers. The following fresh real-CPU
+Actor publication attempt remains **unqualified**: the seven final paired
+acquisitions take 0.532–1.209 s; cleanup returns at 1.891 s after the final
+Primary-before, and publication exits at 2.129 s. The unchanged 1.5 s check
+rejects it before POST. The two-case command finishes in 22.167 s with one
+expected investigation failure, not an overall PASS. Both actual original
+roots and the log are retained; no original clock or deadline is changed.
