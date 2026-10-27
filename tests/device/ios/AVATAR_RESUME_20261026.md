@@ -12,8 +12,12 @@ time. It is not a new whole-run result. No unchanged whole rerun has followed.
 
 The newer [witness Final-prefix component](AVATAR_WITNESS_PREFIX_ROUND.md) is
 host-tested at its explicit immutable-prefix/mutation and compatibility seams.
-Its prepared two-receipt measurement and complete held end remain unexecuted;
-no additional complete-area capability or whole-run result follows from it.
+Its retained two-receipt attempt correctly rejected stale device identities;
+that old comparison and the complete held end remain unqualified. A fresh
+independent composed host case now passes through both actual publisher
+decoders, sharing three group decodes as two with unchanged original reads.
+Its projection/transport connection is a declared model seam. No additional
+complete-area capability or whole-run result follows from it.
 
 
 ## Historical explicit pause

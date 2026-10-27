@@ -76,6 +76,63 @@ and `avatar-witness-prefix-held-final1-20261027.log`.
 Only those two targeted cases were selected after the memory correction. The
 earlier four default-scope regressions and five distinct prefix countercases
 retain their earlier revision boundaries; no unchanged broad suite was rerun.
-A retained two-receipt literal/prefix comparison is prepared but has not run.
+The retained two-receipt literal comparison was selected with a fixed
+300-second outer bound. It failed during `IOSAvatarFeature.archive`, before
+loading either witness receipt: the first saved Actor whole-snapshot reference
+retains `(device, inode) = (52, 299049854)`, whereas its actual file now has
+`(36, 299049854)`. Its SHA-256 remains
+`51c0e4d669b439c1d9199743285f01d8151f38755b4dc0ff6d4633b5655df984`
+and its size remains 1,438 bytes. All 58 retained whole snapshots exist with
+unchanged bytes and inodes, but every stored device number differs. A mount
+identity change following reboot is plausible; its cause was not independently
+established. The original reader correctly rejects these old identities.
+
+The launcher terminated with exit 1 in 0.72 seconds. All 2,504 selected Python
+source/runner hashes remained unchanged. The prefix mode was not started;
+no old original was repaired, rewritten, rebound or accepted under a weaker
+guard. Local evidence is retained under
+`.ios-host-tmp/avatar-witness-prefix-pair-profile-3s4ytt_6/` in `literal.log`,
+`first-invalid-retained-reference.json`, `retained-snapshot-integrity.json`
+and the source manifests. No receipt comparison or performance result exists.
+A fresh independent host construction is required before such measurement.
 No speed improvement, whole witness-publisher integration pass or full
 held-end result is claimed.
+
+## Fresh composed publisher boundary
+
+A new independent host case in
+[test_ios_avatar_witness_publisher_composed.py](self_tests/test_ios_avatar_witness_publisher_composed.py)
+uses the existing `AvatarHeldFinalTests.owner/factory` and two ordinary
+`capture` calls. Both current Final2 prefixes retain their genuine newly
+created PostLogoutReads, HeldTail, Pointer and Web originals. Their authority,
+client and lock instances are shared by the normal archived owner constructors.
+No old retained original identity is migrated or rewritten.
+
+The actual `Journal`, `PhaseFixtureReader` and `PhaseWitnessPublisher.publish`
+produce two durable records. Their client dispatches directly to the real
+in-process journal; the native/SDK/GPU producers, transport and public
+projection are declared host models. The projection is a test connection
+between these components, not `IOSAvatarFeature.terminal_witness_original`.
+It supplies no full terminal or public product proof.
+
+The closed comparison then calls the actual shared publisher `archive/decode`
+and the actual Avatar subclass `archive/decode`. Each original callback runs
+`IOSAvatarHeldFinal.archive` on its complete saved prefix, using the original
+readers. Socket/process startup, writable opens, private-state writes and
+filesystem mutations are forbidden throughout that comparison.
+
+The shared decoder executes group sequences `[1, 1, 2]`; the Avatar decoder
+executes `[1, 2]`. Both results have identical complete decoded states,
+nonempty exact typed original-read membership and independently captured
+actual file-read paths. A separate complete byte/stat inventory remains
+identical before, between and after both modes. Native and Web query counts
+remain unchanged. The independent inventory reads are excluded from the
+recorded decoder-read paths.
+
+The single selection passes in 17.170 seconds under the fixed 180-second outer
+bound, including fresh production and both decodes. All 278 actually imported
+repository Python modules match the source hashes recorded before selection.
+The log and source manifests are retained under
+`.ios-host-tmp/avatar-witness-publisher-fresh-20261027/`. This demonstrates
+actual group sharing at this composed host boundary. It is no isolated timing
+benchmark, full terminal callback, native compilation or complete held end.
