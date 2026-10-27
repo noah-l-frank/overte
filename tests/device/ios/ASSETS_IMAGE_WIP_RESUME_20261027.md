@@ -224,3 +224,7 @@ Full Assets work still includes actor/render publication, normal removal's
 remaining cached QObject/HFM/texture/GPU/OS holders, whole paired admission and
 restoration, unsupported bake/input/permission branches and the shared end.
 Do not promote count/capability from source helpers or modeled component tests.
+
+The subsequent Marker-before-Model prerequisite, exact120s timeout/retained
+originals, readonly profile and narrowly measured source change are recorded in
+[the removal-image checkpoint](ASSETS_IMAGE_REMOVAL_WIP_RESUME_20261027.md).

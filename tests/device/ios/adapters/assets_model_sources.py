@@ -86,13 +86,18 @@ class AssetsModelSources:
         need(reference['phase']!='saved' or value['complete']);record_original_read(path);return value
 
     def pending(self,value,index):
+        return self._pending_with_reader(value,index,self.raws.read_record)
+
+    def _pending_with_reader(self,value,index,read_record):
+        # A frame decoder may carry the actual records it just opened into
+        # its next predicate. No record, guard or proof survives this call.
         exact(value,{'queries','rawRefs','original','snapshot'});need(type(value['queries']) is list and len(value['queries'])<=24 and type(value['rawRefs']) is list and len(value['rawRefs'])<=24)
         seen=set()
         for row in value['queries']:
             self.query(row);identifier=row['command']['commandId'];need(identifier not in seen);seen.add(identifier)
         indexes=[]
         for reference in value['rawRefs']:
-            need(reference in self.raws.refs);record=self.raws.read_record(reference);need(record['kind']=='native' and any(same(record['query'],row['command']) for row in value['queries']));indexes.append(reference['index'])
+            need(reference in self.raws.refs);record=read_record(reference);need(record['kind']=='native' and any(same(record['query'],row['command']) for row in value['queries']));indexes.append(reference['index'])
         need(indexes==sorted(set(indexes)))
         if value['original'] is not None:
             self.originals.original(value['original']);need(value['original']['index']==index);current=self.prefix(value['original'])
@@ -133,14 +138,24 @@ class AssetsModelSources:
         exact(frame,{self.FRAME_KEY,'queries','rawRefs','uiFrame','clockJoin','originals'})
         need(type(frame[self.FRAME_KEY]) is int and frame[self.FRAME_KEY]==VERSION and type(frame['queries']) is list and 1<=len(frame['queries'])<=24
             and type(frame['rawRefs']) is list and 1<=len(frame['rawRefs'])<=24 and integer(frame['uiFrame'],1,len(self.usage.source._cached)))
-        self.pending(dict(queries=frame['queries'],rawRefs=frame['rawRefs'],original=None,snapshot=None),1)
-        records=[self.raws.read_record(reference) for reference in frame['rawRefs']]
+        pending=dict(queries=frame['queries'],rawRefs=frame['rawRefs'],original=None,snapshot=None);records=[]
+        if getattr(self.pending,'__func__',None) is _PENDING_READER:
+            def read_record(reference):
+                record=self.raws.read_record(reference);records.append(record);return record
+            self._pending_with_reader(pending,1,read_record)
+        else:
+            # Preserve any explicit subclass/instance pending-reader hook.
+            self.pending(pending,1);records=[self.raws.read_record(reference) for reference in frame['rawRefs']]
         originals=frame['originals'];exact(originals,self.ORIGINAL_KEYS);need(same(originals['ui'],self.usage.source._cached[frame['uiFrame']-1]['ui']))
         validate_join(frame['clockJoin'],originals);source=self.usage.source;pid=source.clock.pid;packets={};clocks=[];external=[]
         for row in frame['queries']:
             self.query(row);query=row['command'];identifier=query['commandId'];need(identifier not in packets)
-            matches=[record['raw'] for record in records if same(record['query'],query) and decode(record['raw'],limit=262144).get('requestId')==identifier]
-            need(matches and all(raw==matches[0] for raw in matches));packet=decode(matches[0],limit=262144)
+            matches=[]
+            for record in records:
+                if same(record['query'],query):
+                    packet=decode(record['raw'],limit=262144)
+                    if packet.get('requestId')==identifier:matches.append((record['raw'],packet))
+            need(matches and all(raw==matches[0][0] for raw,_packet in matches));packet=matches[0][1]
             if row['kind']=='clock':
                 native_packet(packet,identifier,pid,packet['capturedEpochMs']);clocks.append(packet)
             else:
@@ -210,3 +225,8 @@ class AssetsModelSources:
             if pending['snapshot'] is not None:need(same(current,pending['snapshot']))
             pending['snapshot']=current
         self.state['interrupted'].append(dict(index=self.state['nextIndex'],pending=deepcopy(pending)));self.state['nextIndex']+=1;self.state['pending']=None;self.save()
+
+
+# Compare against the original method, not a subsequently replaced class
+# attribute. Class-level hooks must run just like subclass/instance hooks.
+_PENDING_READER=AssetsModelSources.pending
