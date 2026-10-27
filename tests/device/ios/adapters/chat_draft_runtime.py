@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from types import SimpleNamespace
 import time
 from adapters.native_feature_observation import need
+from adapters.native_script_roots import NativeScriptRoots,FILE as ROOTS_FILE,LIMIT as ROOTS_LIMIT
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.phase_fixture import PhaseFixtureReader
@@ -19,7 +20,8 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 class IOSChatDraftRuntime(IOSScriptRuntime):
     @contextmanager
-    def draft_owner(self,selector,run,root,client):
+    def draft_owner(self,selector,run,root,client,*,source_bound=False):
+        need(type(source_bound) is bool)
         lock=ScriptSourceLock(self.state_path(selector).with_name('script-feature-sources.lock'));failure=None
         with lock.held():
             try:
@@ -27,21 +29,32 @@ class IOSChatDraftRuntime(IOSScriptRuntime):
                 from ios.adapters.chat_session_owners import register_scope
                 register_scope(self.adapter,selector,source['binding'],run,root)
                 view=source['observer'].chat_view()
+                code_sources=code_roots=None
+                if source_bound:
+                    observer=source['observer'];code_sources=observer.chat_script_sources(clock_source=native)
+                    code_roots=NativeScriptRoots(observer.send,lambda:observer.original(remote=observer.remote.rsplit('/',1)[0]+'/'+ROOTS_FILE,limit=ROOTS_LIMIT),
+                        source['native_clock'],source['check'],native.pid,ios=True,monotonic=time.monotonic,sleep=time.sleep)
                 owner=IOSChatDraftOwner(PrivateFeatureState(self.state_path(selector).with_name('ios-chat-draft-owner.json')),
                     root,source['binding'],run,lock,source['check'],native=native,
                     io=IOSChatIO(SimpleNamespace(capture=normal.capture,native=normal)),view=view,
                     phase=PhaseFixtureReader(client,run,'chat'),epoch_ms=lambda:time.time()*1000,
-                    monotonic=time.monotonic,sleep=time.sleep)
+                    monotonic=time.monotonic,sleep=time.sleep,source_bound=source_bound,code_sources=code_sources,code_roots=code_roots)
                 native_send,view_send=native.send,view.send
                 observe_intent=getattr(normal,'observe_intent',None)
                 def send_native(command):owner.query_intent(command);return native_send(command)
                 def send_view(command):owner.query_intent(command);return view_send(command)
                 native.send,view.send=send_native,send_view;normal.observe_intent=owner.query_intent
+                original_sends=[]
+                for reader in (() if not source_bound else (code_roots,code_sources)):
+                    original_send=reader.send;original_sends.append((reader,original_send))
+                    def sending(command,original_send=original_send):owner.query_intent(command);return original_send(command)
+                    reader.send=sending
                 try:
                     with self.existing_input_session(selector):
                         yield owner;need(source['check']() is not False)
                 finally:
                     native.send,view.send=native_send,view_send
+                    for reader,original_send in original_sends:reader.send=original_send
                     if observe_intent is None:del normal.observe_intent
                     else:normal.observe_intent=observe_intent
             except BaseException as original:failure=original

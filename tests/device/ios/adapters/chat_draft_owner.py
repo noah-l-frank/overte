@@ -10,6 +10,7 @@ from copy import deepcopy
 from pathlib import Path
 import time
 from adapters.native_chat_view import NativeChatView,measured_view,validate as view_packet,command as view_command
+from adapters.native_script_roots import NativeScriptRoots,command as roots_command,validate as roots_packet
 from adapters.native_clock_join import NativeClockAcquisition,validate_join
 from adapters.native_clock_source_history import restore
 from adapters.native_feature_observation import NativeFeatureObservation,exact,integer,need
@@ -24,6 +25,7 @@ from ios.adapters.chat_controls import IOSChatIO,project
 from ios.adapters.chat_draft_clock import operation
 from ios.adapters.graphics_history import follow_native
 from ios.adapters.normal_input import observation as ui_packet
+from ios.adapters import chat_script_sources
 
 VERSION=3
 RESTORE_STEPS=frozenset(('cleanup-open','cleanup-settings','cleanup-erase','cleanup-discard','cleanup-rebuild-close','cleanup-rebuild-open'))
@@ -31,7 +33,8 @@ RESTORE_READ='cleanup-inspect'
 
 
 class IOSChatDraftOwner:
-    def __init__(self,store,root,binding,run,lock,guard,*,native,io,view,phase,epoch_ms,monotonic,sleep):
+    def __init__(self,store,root,binding,run,lock,guard,*,native,io,view,phase,epoch_ms,monotonic,sleep,
+            source_bound=False,code_sources=None,code_roots=None):
         need(type(store) is PrivateFeatureState and isinstance(lock,ScriptSourceLock)
             and isinstance(native,NativeFeatureObservation) and native.ios and not native.native_clock_bound
             and isinstance(io,IOSChatIO) and isinstance(view,NativeChatView) and view.ios
@@ -43,7 +46,11 @@ class IOSChatDraftOwner:
         PrivateFeatureState(self.root/'boundary')._parent();lock.assert_held()
         self.guard,self.native,self.io,self.view,self.phase=guard,native,io,view,phase
         self.fixture_url,self.epoch_ms,self.monotonic,self.sleep=phase.fixture_url,epoch_ms,monotonic,sleep
-        self.historical=False;self.previous=store.read();self.version=self.read_version(self.previous);self.state=self.empty()
+        need(type(source_bound) is bool and (isinstance(code_sources,chat_script_sources.IOSChatScriptSources)
+            and isinstance(code_roots,NativeScriptRoots) and code_roots.ios and code_roots.pid==code_sources.pid==native.pid
+            if source_bound else code_sources is None and code_roots is None))
+        self.source_bound,self.code_sources,self.code_roots=source_bound,code_sources,code_roots
+        self.historical=False;self.previous=store.read();self.version=self.read_version(self.previous,source_bound=source_bound);self.state=self.empty()
         self.frames=self.frame_store();self.ui=TokenChatUI(io,self.input_intent,run,monotonic=monotonic,sleep=sleep)
         if self.previous is not None:self.state=self.decode(self.previous)
         else:self.inventory(self.state)
@@ -52,23 +59,27 @@ class IOSChatDraftOwner:
             original=last['originals']['view'];view.run,view.instance,view.sequence,view.captured=(original[key] for key in ('runId','instance','sequence','capturedEpochMs'))
             view.version=original['chatViewVersion']
             if view.version>=3:view.ownership=deepcopy(original['source']['rootOwnership'])
+            if self.source_bound:
+                code_roots.restore(last['originals']['scriptRoots']);code_sources.last=deepcopy(last['originals']['scriptSources'])
 
     @staticmethod
     def empty():return dict(records=[],baseline=None,operations=[],failures=[],pending=None,observation=None,interrupted=[])
 
     @classmethod
-    def archive(cls,store,root,binding,run,lock,fixture_url):
+    def archive(cls,store,root,binding,run,lock,fixture_url,*,source_bound=False):
         owner=object.__new__(cls);owner.store,owner.root,owner.binding,owner.run,owner.lock=store,Path(root),deepcopy(context(binding)),identifier(run),lock
         lock.assert_held();need(store.path==lock.path.with_name('ios-chat-draft-owner.json'))
         owner.fixture_url,owner.historical,owner.guard,owner.monotonic=fixture_url,True,lambda:True,time.monotonic
-        owner.previous=store.read();need(owner.previous is not None);owner.version=owner.read_version(owner.previous)
+        owner.source_bound,owner.code_sources,owner.code_roots=source_bound,None,None
+        owner.previous=store.read();need(owner.previous is not None);owner.version=owner.read_version(owner.previous,source_bound=source_bound)
         owner.state=owner.empty();owner.frames=owner.frame_store()
         owner.state=owner.decode(owner.previous);return owner
 
     @staticmethod
-    def read_version(value):
-        version=VERSION if value is None else value.get('iosChatDraftOwnerVersion')
-        need(type(version) is int and version in (1,2,3));return version
+    def read_version(value,*,source_bound=False):
+        need(type(source_bound) is bool)
+        version=(4 if source_bound else VERSION) if value is None else value.get('iosChatDraftOwnerVersion')
+        need(type(version) is int and version in (1,2,3,4) and (version==4)==source_bound);return version
 
     def frame_store(self):
         return OriginalFrameStore(self.root,self.binding,self.run,'primary',self.bound,self.storage_intent,
@@ -93,13 +104,26 @@ class IOSChatDraftOwner:
         self.call(value['ticket'],value['verb'],value['inputs'])
         self.phase_original(value['phaseBefore'],value['ticket'],value['verb'],value['inputs'])
         self.phase_original(value['phaseAfter'],value['ticket'],value['verb'],value['inputs'],value['phaseBefore'])
-        exact(value['originals'],{'uiBefore','view','uiAfter','uiBeforeReceipt','uiAfterReceipt'});raw=value['originals'];join=validate_join(value['clockJoin'],raw)
+        exact(value['originals'],{'uiBefore','view','uiAfter','uiBeforeReceipt','uiAfterReceipt'}
+            |({'scriptRoots','scriptSources'} if self.source_bound else set()));raw=value['originals'];join=validate_join(value['clockJoin'],raw)
         need(type(value['queries']) is list and len(value['queries'])<=64);commands={}
         for query in value['queries']:
             self.query(query);need(query['commandId'] not in commands);commands[query['commandId']]=query
         first,last=join['nativeBefore'],join['nativeAfter'];pid=int(self.binding['processIdentity'])
         need(first['processId']==last['processId']==pid and same(first['lifecycle'],last['lifecycle']))
         for packet in (first,last):need(commands.get(packet['requestId'])==dict(schemaVersion=1,commandId=packet['requestId'],action='feature-native-observe'))
+        if self.source_bound:
+            roots,code=raw['scriptRoots'],raw['scriptSources'];root_query=dict(schemaVersion=1,commandId=roots['commandId'],action='feature-script-roots-observe')
+            roots_packet(roots,root_query,pid,last['capturedEpochMs'],previous=None if previous is None else previous['originals']['scriptRoots'])
+            source_query=dict(schemaVersion=1,commandId=code['requestId'],action=chat_script_sources.ACTION,runId=self.run)
+            chat_script_sources.validate(code,source_query,pid,last['capturedEpochMs'],None if previous is None else previous['originals']['scriptSources'])
+            actual=chat_script_sources.admit(code,roots['source']['defaultScriptsUrl'])
+            need(commands.get(roots['commandId'])==root_query and commands.get(code['requestId'])==source_query
+                and first['capturedEpochMs']<=roots['requestedEpochMs']<=roots['capturedEpochMs']
+                <=code['clockBefore']['epochMs']<=code['clockAfter']['epochMs']<=raw['uiBefore']['sampleEpochMs']<=last['capturedEpochMs'])
+            if previous is not None:
+                old=chat_script_sources.admit(previous['originals']['scriptSources'],previous['originals']['scriptRoots']['source']['defaultScriptsUrl'])
+                need(same(actual['membership'],old['membership']) and same(actual['code'],old['code']))
         for key in ('uiBefore','uiAfter'):
             receipt=raw[key+'Receipt'];exact(receipt,{'schemaVersion','commandId','observation'})
             need(type(receipt['schemaVersion']) is int and receipt['schemaVersion']==1 and same(receipt['observation'],raw[key])
@@ -211,7 +235,8 @@ class IOSChatDraftOwner:
             for observation in state['interrupted']+([] if state['observation'] is None else [state['observation']]):
                 exact(observation,{'ticket','verb','inputs','queries','partial','wire'});self.call(observation['ticket'],observation['verb'],observation['inputs'])
                 need(type(observation['queries']) is list and len(observation['queries'])<=64 and type(observation['partial']) is dict
-                    and set(observation['partial'])<={'start','uiBefore','view','uiAfter','uiBeforeReceipt','uiAfterReceipt','join'})
+                    and set(observation['partial'])<=({'start','uiBefore','view','uiAfter','uiBeforeReceipt','uiAfterReceipt','join'}
+                        |({'scriptRoots','scriptSources'} if self.source_bound else set())))
                 for query in observation['queries']:self.query(query)
                 if observation['wire'] is not None:self.frames.original(observation['wire'])
             self.inventory(state)
@@ -223,8 +248,11 @@ class IOSChatDraftOwner:
             or self.version>=3 and verb in RESTORE_STEPS|{RESTORE_READ})
         if verb=='cleanup' or verb in RESTORE_STEPS|{RESTORE_READ}:need(inputs=={} and type(inputs) is dict)
         else:arguments('feature.chat.act',dict(contractVersion=16,runId=self.run,fixtureUrl=self.fixture_url,ticket=ticket,verb=verb,inputs=inputs))
-    @staticmethod
-    def query(command):
+    def query(self,command):
+        if self.source_bound and type(command) is dict:
+            if command.get('action')=='feature-script-roots-observe':roots_command(command,ios=True);return
+            if command.get('action')==chat_script_sources.ACTION:
+                chat_script_sources.command(command);need(command['runId']==self.run);return
         need(type(command) is dict and command.get('action') in ('feature-native-observe','normal-ui-input','feature-chat-view-observe'))
         if command['action']=='feature-chat-view-observe':view_command(command,ios=True)
         else:
@@ -272,11 +300,17 @@ class IOSChatDraftOwner:
         self.state['observation']=dict(ticket=ticket,verb=verb,inputs=deepcopy(inputs),queries=[],partial={},wire=None);self.save()
         partial=self.state['observation']['partial'];clock=NativeClockAcquisition(self.native,epoch_ms=self.epoch_ms,monotonic=self.monotonic)
         clock.begin(status['status']['activations'][-1]['activatedEpochMs']);partial['start']=deepcopy(clock.started);self.save()
+        if self.source_bound:
+            partial['scriptRoots']=self.code_roots.read(0 if self.code_roots.last is None else self.code_roots.last['sequence']);self.save()
+            partial['scriptSources']=self.code_sources.read(self.run,native_before_floor=clock.started['nativeBefore']);self.save()
         partial['uiBefore']=deepcopy(self.io.original.capture());partial['uiBeforeReceipt']=deepcopy(self.io.original.native.last_receipt);self.save()
         partial['view']=self.view.read(self.run);self.save()
         partial['uiAfter']=deepcopy(self.io.original.capture());partial['uiAfterReceipt']=deepcopy(self.io.original.native.last_receipt);self.save()
-        raw={key:deepcopy(partial[key]) for key in ('uiBefore','view','uiAfter','uiBeforeReceipt','uiAfterReceipt')}
-        join=clock.finish(raw,[('uiBefore','sampleEpochMs'),('view','capturedEpochMs'),('uiAfter','sampleEpochMs')]);partial['join']=deepcopy(join);self.save()
+        raw={key:deepcopy(partial[key]) for key in ('uiBefore','view','uiAfter','uiBeforeReceipt','uiAfterReceipt')
+            +(('scriptRoots','scriptSources') if self.source_bound else ())}
+        fields=[('uiBefore','sampleEpochMs'),('view','capturedEpochMs'),('uiAfter','sampleEpochMs')]
+        if self.source_bound:fields.append(('scriptRoots','capturedEpochMs'))
+        join=clock.finish(raw,fields);partial['join']=deepcopy(join);self.save()
         after=self.phase.status(status['status'])
         value=dict(iosChatDraftObservationVersion=self.version,ticket=ticket,verb=verb,inputs=deepcopy(inputs),phaseBefore=status['status'],phaseAfter=after,originals=raw,clockJoin=join,
             queries=deepcopy(self.state['observation']['queries']))

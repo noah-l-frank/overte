@@ -1,7 +1,7 @@
 # Original Chat Script submissions
 
 Feature 10 remains partial and its complete capability stays closed. The
-existing normal Chat owner has not yet adopted this independent source child.
+existing normal Chat owner now offers the explicit source-bound profile below.
 Native additions are uncompiled; no product process or device was exercised.
 
 The actual `defaultScripts.js` places Armored Chat in
@@ -62,13 +62,53 @@ corrected before this result; no product setting or old original was changed.
 
 Submitted VM bytes alone do not identify loaded compiled QML bytes, prove an
 executing Chat callback, establish remote delivery or prove resource absence.
-Next integrate this actual source child into the existing draft/message owner
-before ordinary input, retaining its query/raw originals and immutable code
-binding through uncertain returns, recovery and cleanup. Loaded QML ownership,
-independent peer/mixer outcomes and complete native/process/SDK retirement
-remain separate mandatory work.
+The explicit normal-owner integration below retains this source child. Loaded
+QML ownership, executing-callback association, independent peer/mixer outcomes
+and complete native/process/SDK retirement remain separate mandatory work.
 
 The compatibility selection additionally passes seventeen existing Snapshot
 combined-source/default-loader/probe/factory and original Chat Script-semantics
 cases in 0.342 s. The native additions were manually reviewed for their feature
 and iOS preprocessor gates; compilation was deliberately not attempted.
+
+## Explicit source-bound normal owner
+
+`IOSChatDraftRuntime.draft_owner(..., source_bound=True)` uses the same existing
+installed session, lock, normal input channel and `IOSChatDraftOwner` WAL. It
+selects owner/observation version four. The default version-three profile and
+literal one/two readers remain unchanged; neither live construction nor pure
+archive adopts version four without the explicit flag. The existing original
+frame envelope/namespace, history, operation, query and storage limits remain.
+
+Each v4 observation durably retains its actual query before sending it. The
+original configured Script root and submitted-code packet are acquired inside
+the same original native/host clock bracket before UI/model reads. Their PID,
+nonce, run, original native epochs and exact current manager/main-code binding
+are rederived from those packets. The actual configured root, not a requested
+path, selects the reviewed code. A different manager cannot re-anchor an
+unfinished owner even if its Script bytes match. An absent/foreign source
+therefore prevents normal input. Every later observation preserves the same
+source identity, and reconstruction restores only the actual retained reader
+clock/sequence state. No original is retimed.
+
+Lost passive source returns remain in the existing interrupted observation
+with their exact query. Later passive reads use distinct nonces. Lost Send
+returns still resolve independent actual history without another Send. The
+existing source-query intent hooks are restored on context exit, including
+errors. Source queries outside a durably owned observation fail before HTTP.
+Pure archive checks the original root/code files and native relations without
+querying the app or writing metadata. This binding observes the pre-existing
+product Script; it does not claim to create or retire that global manager.
+
+Six normal-owner/error/archive cases pass in 4.453 s. Two canonical runtime
+factory/candidate/context-exit cases pass in 0.079 s. A separate connected case
+executes the unchanged production Chat Script in Node and passes normal
+Send/close/reopen with the same v4 owner in 2.654 s. These are host logic
+results with declared native/QML/SDK/clocks, not compiled iOS or remote Chat
+acceptance. Thirty existing v1/v2/v3 draft/message/session/admission cases
+pass in 41.764 s.
+
+The final source-bound owner/production-Script/runtime selection passes all
+nine cases in 6.901 s on the same final fixture. Owner and observation contracts
+now register version four with literal readers one/two/three/four; live and
+archive profile selection remains explicit. Full Chat remains partial.
