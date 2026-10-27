@@ -59,8 +59,19 @@ changed readers/predicates. They and twelve existing ordinary input, uncertainty
 immutable-carrier and final-deadline cases pass **16 tests in 29.526 s**.
 Log: `.ios-host-tmp/world-web-input-projection-20261027.log`.
 Native/SDK producers remain declared models. The changed nineteen-action CPU
-gate and full paired terminal remain unqualified until separately executed;
-the older failed original is neither rewritten nor assigned this result.
+gate was then executed on a fresh source snapshot. All first eighteen complete
+action/state checks pass, including the previously refused replacement and its
+subsequent Submit/Clear. The fixed outer240-second watchdog then ends the run
+with exit124 during remaining final-step verification. No complete test PASS follows.
+The actual final `close` WAL is already `returned`, Source has 66 completed
+records with no pending acquisition, and Input has 21 records; that metadata
+does not replace the unfinished public state assertion. All 334 selected source
+hashes remain unchanged. Originals: `.ios-host-tmp/tmpx2jrpglb`; log:
+`.ios-host-tmp/world-web-cpu19-projection-current-20261027.log`.
+The full paired terminal and real final-call bounds remain unqualified. Next:
+profile the retained browser-history derivation before another changed-source
+run, keeping the same watchdog, API and original freshness bounds. The earlier
+failed originals are neither rewritten nor assigned later results.
 
 ## Earlier verification packets
 
