@@ -26,12 +26,13 @@ class SnapshotPreflightHttpTests(unittest.TestCase):
             else:caller['callerModules'][0]['frame']=1
             with self.subTest(fault=fault),self.assertRaises(NativeUIError):source.original(value)
     def test_compiled_bytes_and_actual_submitted_code_cannot_be_substituted(self):
-        for fault in ('compiled','submitted','late','incomplete'):
+        for fault in ('compiled','submitted','late','incomplete','manager-code'):
             value=deepcopy(self.value);created=value['events'][0]['details']
             if fault=='compiled':value['callerStacks'][0]['callerStack']['frames'][1]['compiled']['sha256']='0'*64
             elif fault=='submitted':created['codeSources']['evaluations'][1]['sha256']='0'*64
             elif fault=='late':created['codeSources']['evaluations'][1]['submittedEpochMs']=value['clockBefore']['epochMs']
-            else:created['codeSources']['complete']=False
+            elif fault=='incomplete':created['codeSources']['complete']=False
+            else:created['submitted']['sha256']='0'*64
             with self.subTest(fault=fault),self.assertRaises(NativeUIError):source.original(value)
     def test_reply_and_original_response_body_cannot_be_replaced(self):
         for index,key,value in ((7,'replyId','0'*32),(5,'body',dict(bytes=0,sha256='0'*64,contentBase64='')),(7,'sha256','0'*64),(3,'url','https://foreign.invalid/api/v1/user_stories')):
@@ -57,6 +58,8 @@ class SnapshotPreflightHttpTests(unittest.TestCase):
         for url in (original_url+'#',original_url.replace(self.f.policy.binding['domainId'],'00000000-0000-0000-0000-000000000000')):
             value=deepcopy(self.value);value['events'][0]['details']['requestUrl']=value['events'][3]['details']['url']=url
             with self.subTest(url=url[-38:]),self.assertRaises(NativeUIError):source.original(value)
+        value=deepcopy(self.value);value['events'][0]['details']['engine']['url']='qrc:/scripts/defaultScripts.js'
+        with self.assertRaises(NativeUIError):source.original(value)
     def test_foreign_process_clock_or_typed_schema_does_not_validate_a_bound_read(self):
         query=dict(schemaVersion=1,commandId=self.value['requestId'],action=source.ACTION,runId=RUN)
         for fault in ('pid','clock','schema'):

@@ -92,11 +92,14 @@ def source(value,version=1,epoch=None,caller=None,*,_snapshot=False):
     endpoint(value['requestUrl'],_snapshot=_snapshot);signature(value['protocolSignature']);need(value['method'] in (('GET',) if _snapshot else ('GET','POST','DELETE')))
     engine=value['engine'];exact(engine,{'instance','assigned','url','loadGeneration','assignedEpochMs'})
     identifier(engine['instance']);need(engine['assigned'] is True and integer(engine['loadGeneration'],1)
-         and integer(engine['assignedEpochMs'],1));installed(engine['url'],'/defaultScripts.js')
+         and integer(engine['assignedEpochMs'],1));installed(engine['url'],'/system/snapshot.js' if _snapshot else '/defaultScripts.js')
     submitted=value['submitted'];exact(submitted,{'submitted','encoding','codeUnits','sha256','submittedEpochMs'})
     need(submitted['submitted'] is True and submitted['encoding']=='utf-16le-code-units'
          and integer(submitted['codeUnits'],1,4194304) and type(submitted['sha256']) is str and SHA.fullmatch(submitted['sha256'])
          and integer(submitted['submittedEpochMs'],engine['assignedEpochMs']))
+    if _snapshot:
+        actual=[row for row in value['codeSources']['evaluations'] if row['url']==engine['url']]
+        need(actual and all(all(row[key]==submitted[key] for key in ('encoding','codeUnits','sha256')) and row['submittedEpochMs']>=submitted['submittedEpochMs'] for row in actual))
 
 
 def body(value, maximum=65536):

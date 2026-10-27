@@ -49,12 +49,12 @@ class SnapshotPreflightHttpBoundary:
         identities=[row.split(b':',1)[1].strip().decode() for row in header.split(b'\r\n') if row.lower().startswith(b'x-overte-fixture-response:')];assert len(identities)==1
         stack,modules,code=callers(('/modules/request.js','/system/snapshot.js'),epoch)
         read_stack,read_modules,_read_code=callers(('/modules/request.js',),epoch)
-        main=(ROOT/'scripts/defaultScripts.js').read_text().encode('utf-16-le')
+        main=(ROOT/'scripts/system/snapshot.js').read_text().encode('utf-16-le')
         self.xhr,self.reply='7'*32,'8'*32
         self.value=dict(iosSnapshotPreflightHttpVersion=1,requestId='ios-'+'5'*32,runId=RUN,instance='6'*32,sequence=1,processId=42,
             clockDomain='native-process-snapshot-preflight-http',clockBefore=dict(epochMs=epoch+1000,monotonicMs=1000),clockAfter=dict(epochMs=epoch+1001,monotonicMs=1001),events=[],
             callerStacks=[dict(id='a3'*16,callerStack=stack,callerModules=modules),dict(id='a4'*16,callerStack=read_stack,callerModules=read_modules)])
-        created=dict(callerStackId='a3'*16,engine=dict(instance='b'*32,assigned=True,url='qrc:/scripts/defaultScripts.js',loadGeneration=1,assignedEpochMs=epoch-120),
+        created=dict(callerStackId='a3'*16,engine=dict(instance='b'*32,assigned=True,url='qrc:/scripts/system/snapshot.js',loadGeneration=1,assignedEpochMs=epoch-120),
             submitted=dict(submitted=True,encoding='utf-16le-code-units',codeUnits=len(main)//2,sha256=hashlib.sha256(main).hexdigest(),submittedEpochMs=epoch-110),
             codeSources=dict(snapshotHttpSourcesVersion=1,complete=True,evaluations=code),requestUrl='https://controlled.invalid/api/v1/user_stories?'+actual_query(),method='GET',protocolSignature=base64.b64encode(b'p'*16).decode())
         self.add('created',created);self.add('callback-enter',dict(callback='readystatechange',readyState=1));self.add('callback-leave',dict(callback='readystatechange',readyState=1))

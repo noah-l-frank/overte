@@ -108,6 +108,10 @@ Create and Snapshot source filters, records and grammars remain unchanged.
 The existing indexed V8 resolver checks these actual UTF-16 code identities:
 Open requires contiguous submitted request-module frames leading to the actual
 Snapshot module; response text reads require the actual request-module frame.
+This profile admits only the separately assigned `system/snapshot.js` manager
+and requires its actually submitted main code to match the corresponding real
+evaluation records. The existing separate Snapshot work/capture admission uses
+that same manager; a `defaultScripts.js` manager cannot substitute for it.
 The same real XHR ID/reply carries raw response hashes, callback entry/leave,
 abort, callback release and XHR/reply/timer destruction events. A response URL
 change or malformed/duplicate fixture-response ID poisons only this diagnostic.
@@ -139,20 +143,32 @@ fixture-response ID, wrong compiled/submitted code, foreign XHR/reply/PID or
 changed historical prefix cannot supply a qualified response read. Native
 reply/callback/timer/XHR retirement stays separate from text consumption.
 
-Host evidence: thirty-one new/legacy DTO and serializer cases passed in
-0.070 seconds; four actual probe/fixture/bound-factory cases passed in
-0.182 seconds; the final ten Snapshot boundary cases passed in 0.046 seconds.
-They include actual authenticated HTTP serializer bytes, ACL denial that is
-only recorded as a read, unknown fixture identity, held resource lifetimes and
-immutable caller/event history. Final native/Python endpoint parity cases
-reject a null domain UUID or even an empty URL fragment. The Qt/V8/SDK producer
-is explicitly modeled using independently read current repository UTF-16
-bytes. No compiler, native
-runtime, listener or device is exercised. Private logs are
-`.ios-host-tmp/snapshot-preflight-reader-resume-20261027-{codec01,transport03,final06}.log`.
+The corrected manager/reader selection passed thirty-seven host cases in
+0.257 seconds, including Snapshot, Social1/2, indexed-callstack legacy,
+actual probe/fixture and bound HTTP/AFC factory cases. Negative cases include
+the wrong default-script manager, independently wrong main submitted code,
+null domain UUID, even an empty URL fragment, foreign V8/reply identities and
+changed prefixes. Actual serialized ACL JSON remains only a response read,
+with Upload effects still required. The Qt/V8/SDK producer is explicitly
+modeled using independently read current repository UTF-16 bytes. No compiler,
+native runtime, listener or device is exercised. The final log is
+`.ios-host-tmp/snapshot-preflight-reader-resume-20261027-manager08.log`.
+
+The earlier `codec01`, `transport03` and `final06` logs remain unchanged prior
+model attempts. Their new Snapshot fixture incorrectly copied the Social
+default-script manager; they are not qualification for the corrected separate
+manager profile and are not relabeled as such.
 
 The reader records response text consumption while explicitly requiring an
 independent authenticated backend original, normal Upload effect and resource
 retirement. These observations have not yet been parent-bound to the existing
 backend owner. Native execution and that complete consumer/effect/cleanup join
 remain required; this packet does not enable the complete feature.
+
+Normal `defaultScripts.js` includes Snapshot into its own combined manager by
+default. Its separate debug option uses `Script.load` instead. The existing
+Snapshot work/capture version-1 admission supports the separate case only;
+neither this HTTP reader nor its corrected fixture closes the combined-mode
+gap. The next source profile must observe actual default-manager inclusion,
+Snapshot/Request submissions, indexed callers and timer ownership independently.
+No debug option is enabled or changed as a workaround.

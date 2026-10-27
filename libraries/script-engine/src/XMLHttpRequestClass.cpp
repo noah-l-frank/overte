@@ -75,11 +75,20 @@ void XMLHttpRequestClass::featureSnapshotPreflightOpen() noexcept {
                 || !_engine || !_engine->manager() || QThread::currentThread()!=_engine->thread()) { return; }
         const auto manager=_engine->manager();const auto membership=manager->featureLoadMembership(),submitted=manager->featureSourceIdentity();
         if (membership.value("assigned").userType()!=QMetaType::Bool || !membership.value("assigned").toBool()
-                || !Observation::installed(membership.value("url").toString(),"/defaultScripts.js")
+                || !Observation::installed(membership.value("url").toString(),"/system/snapshot.js")
                 || submitted.value("submitted").userType()!=QMetaType::Bool || !submitted.value("submitted").toBool()) { return; }
         const auto sources=manager->featureSnapshotHttpSources();
         if (sources.value("snapshotHttpSourcesVersion")!=QVariant(1) || sources.value("complete").userType()!=QMetaType::Bool
                 || !sources.value("complete").toBool()) { Observation::snapshotUnavailable();return; }
+        bool mainCode {false};
+        for (const auto& item:sources.value("evaluations").toList()) {
+            const auto row=item.toMap();if (row.value("url")!=membership.value("url")) { continue; }
+            if (row.value("encoding")!=submitted.value("encoding") || row.value("codeUnits")!=submitted.value("codeUnits")
+                    || row.value("sha256")!=submitted.value("sha256")
+                    || row.value("submittedEpochMs").toLongLong()<submitted.value("submittedEpochMs").toLongLong()) { Observation::snapshotUnavailable();return; }
+            mainCode=true;
+        }
+        if (!mainCode) { Observation::snapshotUnavailable();return; }
         const auto callers=overte::e2e::AvatarV8Callers::resolve(manager->featureAvatarV8Stack(),sources.value("evaluations").toList());
         if (!callers.complete) { Observation::snapshotUnavailable();return; }
         if (!callers.snapshotPreflightOpen()) { return; }
