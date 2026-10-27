@@ -68,9 +68,46 @@ before Share or Save input; and lost ordinary Share return with once-only
 recovery/cancellation. The existing independent PNG transfer and child
 resource obligations remain intact.
 
-Current whole Combined Return qualification, additional Combined Photos
-permission/lost-return cases, affected Separate1 regressions and final
-project/contract checks are still pending. This source packet does not yet qualify a complete Snapshot journey.
+The full new Combined Return path passed in221.705 seconds in
+`.ios-host-tmp/snapshot-combined-return-resume-20261027-whole05.log` on merged
+local HEAD`51e4637b9899`. One original main continues through Page2, normal
+Pending2 cancellation, PNG Capture2, Share2 transfer/cleanup, Archive source
+retirement, the original Archive process/SDK end, two-prefix file cleanup and
+Return2. Original PNG bytes/inode remain retained; normal launcher restoration,
+repeated Return and pure history do not repeat input or query retired SDKs.
+The actual outer240-second and existing25-second operation budgets remain
+unchanged. This qualifies that path, not physical native timing or a complete
+Snapshot journey.
+
+Two further Combined Photos2 cases passed in10.261 seconds in
+`.ios-host-tmp/snapshot-combined-return-resume-20261027-photos-neg06.log`:
+limited/denied independent Photos permission blocks before Save input; a lost
+normal Save return recovers actual original reception and completes owned
+cleanup without replay. Eleven distinct new cases are qualified across the
+five component selections and the whole Return selection, plus the two old
+literal guards in contract01.
+
+The affected complete Separate1 Share/Archive-end/two-prefix-cleanup/Return/
+pure-history path passed in141.994 seconds in
+`.ios-host-tmp/snapshot-combined-return-resume-20261027-legacy07.log`, preserving
+its default profile, original short frame namespace, clocks and once-only
+cleanup. The existing outer240-second budget was unchanged.
+
+The old Photos1 normal Save, same original PNG and repeated once-only cleanup
+case also passed in7.288 seconds in
+`.ios-host-tmp/snapshot-combined-return-resume-20261027-photos-legacy08.log`.
+The approved five project suites passed in6.81 seconds, followed by contract
+versions, the offline860-Markdown documentation scan and whitespace checks.
+The retained log is
+`.ios-host-tmp/snapshot-combined-return-resume-20261027-project09.log`.
+Its frozen boundary was HEAD`a68dae9e81` plus the current dirty workspace,
+including unrelated unqualified Chat6/native/Assets edits. Common checks do
+not qualify those new scenarios or native compilation. The Snapshot profile
+implementation itself was preserved in checkpoint`44b769cfe6` and merged
+unchanged through`51e4637b9899`; the subsequent qualification required no
+adapter, product, timeout or source-clock changes.
+
+This source packet does not yet qualify a complete Snapshot journey.
 The installed causal Snapshot Upload branch/caller, rendered review,
 independent Actor/scene agreement, failed/recovered whole-flow composition
 and complete main process/SDK/witness endings remain mandatory. Feature11
