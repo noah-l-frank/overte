@@ -1141,6 +1141,8 @@ void ScriptManager::run() {
         _featureSnapshotSources.submitted(_fileNameString,_scriptContents);
         try { _featureSnapshotHttpSources.submitted(_fileNameString,_scriptContents); }
         catch (...) { _featureSnapshotHttpSources.snapshotUnavailable(); }
+        try { _featureSnapshotCombinedSources.submitted(_fileNameString,_scriptContents); }
+        catch (...) { _featureSnapshotCombinedSources.snapshotUnavailable(); }
         _featureAvatarScript->submitted(_fileNameString,_scriptContents);
 #endif
 #endif
@@ -1343,7 +1345,13 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* man
 #if defined(Q_OS_IOS)
     if (method=="emitScriptEvent") { _featureNativeCallContext.insert("emitStack",emitStack.isEmpty()?QVariant():QVariant(emitStack)); }
     if (method=="featureIOSCreateEvent") { _featureNativeCallContext.insert("codeSources",manager->featureCreateSources()); }
-    if (method=="featureIOSSnapshotEvent") {_featureNativeCallContext.insert("codeSources",manager->featureSnapshotSources());}
+    if (method=="featureIOSSnapshotEvent") {
+        _featureNativeCallContext.insert("codeSources",manager->featureSnapshotSources());
+        try {
+            _featureNativeCallContext.insert("snapshotCombinedSources",manager->featureSnapshotCombinedSources());
+            _featureNativeCallContext.insert("snapshotCombinedStack",manager->featureAvatarV8Stack());
+        } catch (...) { manager->_featureSnapshotCombinedSources.snapshotUnavailable(); }
+    }
     if (method=="addEntity" || method=="deleteEntity") {
         _featureNativeCallContext.insert("callerChain",manager->featureAvatarTimerCallers());
         const auto original=manager->featureAvatarScriptObservation();
@@ -1491,7 +1499,8 @@ void ScriptManager::timerFired(int handle) {
     const auto avatarUiTimer=_featureAvatarUiWork->fired(handle,timer.get());
     Finally avatarUiDispatchReturned([&] { _featureAvatarUiWork->dispatchReturned(avatarUiTimer); });
     const auto snapshotTimer=_featureSnapshotTimerWork->fired(handle,timer.get());
-    Finally snapshotDispatchReturned([&] {_featureSnapshotTimerWork->dispatchReturned(snapshotTimer);});
+    const auto combinedSnapshotTimer=featureSnapshotCombinedTimerFired(handle,timer.get());
+    Finally snapshotDispatchReturned([&] {_featureSnapshotTimerWork->dispatchReturned(snapshotTimer);featureSnapshotCombinedTimerReturned(combinedSnapshotTimer);});
 #endif
 
     if (!timer->isActive()) {
@@ -1512,7 +1521,8 @@ void ScriptManager::timerFired(int handle) {
         _featureAvatarUiWork->callback(avatarUiTimer,true);
         Finally avatarUiCallbackLeft([&] { _featureAvatarUiWork->callback(avatarUiTimer,false); });
         _featureSnapshotTimerWork->callback(snapshotTimer,true);
-        Finally snapshotCallbackLeft([&] {_featureSnapshotTimerWork->callback(snapshotTimer,false);});
+        featureSnapshotCombinedTimerCallback(combinedSnapshotTimer,true);
+        Finally snapshotCallbackLeft([&] {_featureSnapshotTimerWork->callback(snapshotTimer,false);featureSnapshotCombinedTimerCallback(combinedSnapshotTimer,false);});
 #endif
         callWithEnvironment(data.definingEntityIdentifier, data.definingSandboxURL, data.function, data.function, ScriptValueList(), data.consentRequest);
         auto postTimer = p_high_resolution_clock::now();
@@ -1528,6 +1538,18 @@ void ScriptManager::timerFired(int handle) {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+QString ScriptManager::featureSnapshotCombinedTimerFired(int handle,const QTimer* timer) noexcept {
+    try { return _featureSnapshotCombinedTimerWork->fired(handle,timer); }
+    catch (...) { _featureSnapshotCombinedTimerWork->snapshotUnavailable();return {}; }
+}
+void ScriptManager::featureSnapshotCombinedTimerCallback(const QString& id,bool enter) noexcept {
+    try { _featureSnapshotCombinedTimerWork->callback(id,enter); }
+    catch (...) { _featureSnapshotCombinedTimerWork->snapshotUnavailable(); }
+}
+void ScriptManager::featureSnapshotCombinedTimerReturned(const QString& id) noexcept {
+    try { _featureSnapshotCombinedTimerWork->dispatchReturned(id); }
+    catch (...) { _featureSnapshotCombinedTimerWork->snapshotUnavailable(); }
+}
 QVariantMap ScriptManager::featureAvatarV8Stack() const {
     if (!overte::e2e::IOSV8ScriptStack::enabled() || !_engine || QThread::currentThread()!=thread()) { return {}; }
     const auto engine=qobject_cast<ScriptEngineV8*>(_engine.get());
@@ -1599,6 +1621,22 @@ int ScriptManager::setupTimerWithInterval(const ScriptValue& function, int inter
         const auto observer=_featureSnapshotTimerWork;
         QObject::connect(newTimer.get(),&QObject::destroyed,[observer,snapshotTimer] {observer->destroyed(snapshotTimer);});
     }
+    try {
+        if (overte::e2e::PlacesHttpObservation::installed(featureLoadMembership().value("url").toString(),"/defaultScripts.js")) {
+            const auto sources=_featureSnapshotCombinedSources.snapshot();
+            if (sources.value("complete").userType()!=QMetaType::Bool || !sources.value("complete").toBool()) {_featureSnapshotCombinedTimerWork->snapshotUnavailable();}
+            else {
+                const auto combinedCallers=overte::e2e::AvatarV8Callers::resolve(featureAvatarV8Stack(),sources.value("evaluations").toList());
+                const auto combinedTimer=_featureSnapshotCombinedTimerWork->created(handle,combinedCallers,newTimer.get());
+                if (!combinedTimer.isEmpty()) {
+                    const auto observer=_featureSnapshotCombinedTimerWork;
+                    QObject::connect(newTimer.get(),&QObject::destroyed,[observer,combinedTimer] {
+                        try { observer->destroyed(combinedTimer); } catch (...) { observer->snapshotUnavailable(); }
+                    });
+                }
+            }
+        }
+    } catch (...) { _featureSnapshotCombinedTimerWork->snapshotUnavailable(); }
 #endif
     return handle;
 }
@@ -1954,6 +1992,8 @@ ScriptValue ScriptManager::instantiateModule(const ScriptValue& module, const QS
         _featureSnapshotSources.submitted(modulePath,sourceCode);
         try { _featureSnapshotHttpSources.submitted(modulePath,sourceCode); }
         catch (...) { _featureSnapshotHttpSources.snapshotUnavailable(); }
+        try { _featureSnapshotCombinedSources.submitted(modulePath,sourceCode); }
+        catch (...) { _featureSnapshotCombinedSources.snapshotUnavailable(); }
         _featureAvatarScript->submitted(modulePath,sourceCode);
 #endif
         result = _engine->evaluateInClosure(closure, _engine->newProgram( sourceCode, modulePath ));
@@ -2179,6 +2219,8 @@ void ScriptManager::include(const QStringList& includeFiles, const ScriptValue& 
                         _featureSnapshotSources.submitted(url.toString(),contents);
                         try { _featureSnapshotHttpSources.submitted(url.toString(),contents); }
                         catch (...) { _featureSnapshotHttpSources.snapshotUnavailable(); }
+                        try { _featureSnapshotCombinedSources.submitted(url.toString(),contents); }
+                        catch (...) { _featureSnapshotCombinedSources.snapshotUnavailable(); }
                         _featureAvatarScript->submitted(url.toString(),contents);
 #endif
                         _engine->evaluate(contents, url.toString());

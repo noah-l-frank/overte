@@ -83,6 +83,7 @@ public:
 #if defined(Q_OS_IOS)
     QVariantMap featureAvatarScriptObservation();
     QVariantMap featureSnapshotScriptObservation();
+    QVariantMap featureSnapshotCombinedScriptObservation();
 #endif
     QVariantMap featureScriptWorkObservation(const QString& managerInstance, const QString& requestId);
 #endif
@@ -409,6 +410,9 @@ protected slots:
     void onScriptFinished(const QString& fileNameString, ScriptManagerPointer manager);
 
 protected:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    QVariantMap featureSnapshotScriptObservationFor(bool combined);
+#endif
     ScriptManagerPointer reloadScript(const QString& scriptName, bool isUserLoaded = true) { return loadScript(scriptName, isUserLoaded, false, false, true); }
     void onScriptEngineLoaded(const QString& scriptFilename);
     void quitWhenFinished();

@@ -518,6 +518,12 @@ QVariantMap ScriptEngines::featureAvatarScriptObservation() {
 }
 
 QVariantMap ScriptEngines::featureSnapshotScriptObservation() {
+    return featureSnapshotScriptObservationFor(false);
+}
+QVariantMap ScriptEngines::featureSnapshotCombinedScriptObservation() {
+    return featureSnapshotScriptObservationFor(true);
+}
+QVariantMap ScriptEngines::featureSnapshotScriptObservationFor(bool combined) {
     if (!QCoreApplication::arguments().contains("--testScript")) {return {};}
     QSet<ScriptManagerPointer> known;quint64 revision{0};
     {QMutexLocker lock(&_allScriptsMutex);
@@ -527,13 +533,14 @@ QVariantMap ScriptEngines::featureSnapshotScriptObservation() {
     QMap<QString,QVariant> workers;
     for (const auto& manager:known) {
         if (!manager) {return {};}
-        if (!QUrl(manager->getFilename()).path().endsWith("/system/snapshot.js")) {continue;}
+        if (!QUrl(manager->getFilename()).path().endsWith(combined ? "/defaultScripts.js" : "/system/snapshot.js")) {continue;}
         const auto member=manager->featureLoadMembership(),code=manager->featureSourceIdentity();
         const auto id=member.value("instance").toString();
         if (member.isEmpty() || code.isEmpty() || id.isEmpty() || workers.contains(id)) {return {};}
         workers.insert(id,QVariantMap{{"membership",member},{"code",code},{"running",manager->isRunning()},
             {"stopping",manager->isStopping()},{"finished",manager->isFinished()},{"done",manager->isDoneRunning()},
-            {"codeSources",manager->featureSnapshotSources()},{"timerWork",manager->featureSnapshotTimerWork()}});
+            {"codeSources",combined ? manager->featureSnapshotCombinedSources() : manager->featureSnapshotSources()},
+            {"timerWork",combined ? manager->featureSnapshotCombinedTimerWork() : manager->featureSnapshotTimerWork()}});
         if (member!=manager->featureLoadMembership() || code!=manager->featureSourceIdentity()) {return {};}
     }
     {QMutexLocker lock(&_allScriptsMutex);if (_featureKnownScriptRevision!=revision) {return {};}}

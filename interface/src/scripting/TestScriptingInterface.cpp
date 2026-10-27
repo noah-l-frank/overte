@@ -1377,6 +1377,8 @@ QVariantMap TestScriptingInterface::featureIOSCreateFiles(const QVariantMap& com
 void TestScriptingInterface::featureIOSSnapshotEvent(const QVariantMap& value) {
     if (_testResultsLocation.isEmpty() || !QCoreApplication::arguments().contains("--testScript")) {return;}
     overte::e2e::IOSSnapshotWorkObservation::instance().event(value,ScriptManager::featureNativeCallContext());
+    try {overte::e2e::IOSSnapshotWorkObservation::combinedInstance().event(value,ScriptManager::featureNativeCallContext());}
+    catch (...) {overte::e2e::IOSSnapshotWorkObservation::combinedUnavailable();}
 }
 
 QVariantMap TestScriptingInterface::featureIOSSnapshotWork(const QVariantMap& command) {

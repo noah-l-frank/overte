@@ -63,6 +63,21 @@ struct AvatarV8Callers {
         return false;
     }
     bool snapshotPreflightText() const { return top("/modules/request.js"); }
+    bool snapshotCombinedKnown() const {
+        if (!complete || modules.isEmpty() || modules.size()!=stack.value("frames").toList().size()) { return false; }
+        int index {0};
+        for (const auto& item:modules) {
+            const auto module=item.toMap();const auto url=module.value("url").toString();
+            if (module.value("frame").toInt()!=index++ || !(PlacesHttpObservation::installed(url,"/defaultScripts.js")
+                    || PlacesHttpObservation::installed(url,"/system/snapshot.js") || PlacesHttpObservation::installed(url,"/modules/request.js")
+                    || PlacesHttpObservation::installed(url,"/system/snapshot/featureSnapshotWork.js"))) { return false; }
+        }
+        return true;
+    }
+    bool snapshotCombinedWork() const { return snapshotCombinedKnown() && top("/system/snapshot/featureSnapshotWork.js"); }
+    bool snapshotCombinedTimer() const {
+        return snapshotCombinedKnown() && (has("/system/snapshot.js") || has("/system/snapshot/featureSnapshotWork.js"));
+    }
 };
 // The owning observer's original mutex protects this metadata-only table.
 // Exact repeated snapshots share one immutable entry; no stack is projected,

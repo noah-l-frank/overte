@@ -10,6 +10,7 @@
 #include <QMutexLocker>
 #include <QTimer>
 #include <utility>
+#include <atomic>
 
 namespace overte::e2e {
 // Actual installed Avatar/Pal timer state. Counter snapshots avoid logging a
@@ -18,13 +19,18 @@ namespace overte::e2e {
 // including singleShot destruction before callback entry.
 class AvatarUiWorkObservation {
 public:
+    enum class Profile { SnapshotCombined };
     explicit AvatarUiWorkObservation(QStringList suffixes={"/system/avatarapp.js","/system/pal.js","/system/libraries/peopleConnection.js",
         "/modules/request.js","/system/request-service.js"},QString schema="avatarUiWorkVersion",int version=1) :
         _suffixes(std::move(suffixes)),_schema(std::move(schema)),_version(version) {
         if ((_version!=1 && _version!=2) || (_version==2 && _schema!="avatarUiWorkVersion")) { _complete=false; }
     }
+    explicit AvatarUiWorkObservation(Profile profile) : _suffixes({"/system/snapshot.js","/system/snapshot/featureSnapshotWork.js"}),
+        _schema("snapshotCombinedTimerWorkVersion"),_version(1),_snapshotCombined(profile==Profile::SnapshotCombined) {
+        if (!_snapshotCombined) { _complete=false; }
+    }
     QString created(int handle,const QStringList& callers,const QTimer* timer) {
-        if (_version!=1) { unavailable();return {}; }
+        if (_version!=1 || _snapshotCombined) { unavailable();return {}; }
         bool relevant{false};for (const auto& caller:callers) { for (const auto& suffix:_suffixes) {
             relevant=relevant || PlacesHttpObservation::installed(caller,suffix);
         } }
@@ -41,9 +47,16 @@ public:
         return id;
     }
     QString created(int handle,const AvatarV8Callers& callers,const QTimer* timer) {
-        if (!enabled() || !(callers.hasSubmitted("/system/avatarapp.js") || callers.hasSubmitted("/system/pal.js")
-                || callers.hasSubmitted("/system/libraries/peopleConnection.js"))) { return {}; }
-        if (_version!=2 || !callers.complete) { unavailable();return {}; }
+        if (_snapshotCombined) {
+            if (!enabled() || !callers.hasSubmitted("/system/snapshot.js")) { return {}; }
+            if (!callers.complete) { snapshotUnavailable();return {}; }
+            if (!callers.has("/system/snapshot.js") && !callers.has("/system/snapshot/featureSnapshotWork.js")) { return {}; }
+            if (!callers.snapshotCombinedTimer()) { snapshotUnavailable();return {}; }
+        } else {
+            if (!enabled() || !(callers.hasSubmitted("/system/avatarapp.js") || callers.hasSubmitted("/system/pal.js")
+                    || callers.hasSubmitted("/system/libraries/peopleConnection.js"))) { return {}; }
+            if (_version!=2 || !callers.complete) { unavailable();return {}; }
+        }
         bool relevant {false};for (const auto& suffix:_suffixes) { relevant=relevant || callers.has(suffix); }
         if (!relevant) { return {}; }QMutexLocker lock(&_mutex);
         if (!_complete || !timer || handle<=0 || _handles.contains(handle) || _states.size()>=256) { _complete=false;return {}; }
@@ -86,10 +99,11 @@ public:
     QVariantMap snapshot() const {
         QMutexLocker lock(&_mutex);QVariantList states;
         for (auto it=_states.cbegin();it!=_states.cend();++it) { states.append(it.value()); }
-        QVariantMap result{{_schema,_version},{"instance",_instance},{"complete",_complete},{"timers",states}};
-        if (_version==2) { result.insert("callerStacks",_callers.snapshot()); }return result;
+        QVariantMap result{{_schema,_version},{"instance",_instance},{"complete",_complete && (!_snapshotCombined || !_snapshotFailed.load(std::memory_order_relaxed))},{"timers",states}};
+        if (_version==2 || _snapshotCombined) { result.insert("callerStacks",_callers.snapshot()); }return result;
     }
     void unavailable() { QMutexLocker lock(&_mutex);_complete=false; }
+    void snapshotUnavailable() noexcept { _snapshotFailed.store(true,std::memory_order_relaxed); }
 private:
     static bool enabled() { return QCoreApplication::instance() && QCoreApplication::arguments().contains("--testScript"); }
     void increment(QVariantMap& row,const QString& field) {
@@ -107,6 +121,7 @@ private:
     QMap<QString,QVariantMap> _states;AvatarV8CallerTable _callers;
     qint64 _epoch{0};bool _complete{true};
     const QStringList _suffixes;const QString _schema;const int _version;
+    const bool _snapshotCombined {false};std::atomic_bool _snapshotFailed {false};
 };
 } // namespace overte::e2e
 #endif
