@@ -1,5 +1,34 @@
 # Feature 7 continuation handoff
 
+## Current DOM first-query129 checkpoint
+
+The four DOM4/segment2 source files preserved as unqualified WIP in
+`44b769cfe6` are now exercised after the source-preserving consolidation
+`51e4637b98`. New registry writer4/read1,2,3,4 and active body2/read1,2 agree
+with those codecs. The first real DOM129 is owned by the unchanged Packet
+WAL/capture/raw/original path; it is no longer precreated by the fixture.
+
+The normal129/lost-open/lost-original/lost-successful-bind-CAS/normal130/
+historical-parent case passes1 in47.876s. The separate first-issued-CAS
+unknown/archive/no-resend case passes1 in35.881s. Four new plus two old
+metadata/fence cases pass in0.017s. The approved five project suites pass
+in6.81s; versions,860-file documentation and whitespace checks pass. These
+are real-file/modeled-native checks, with deliberately modeled clocks, not
+native compilation, physical input or CPU deadline qualification. Full
+Feature7 remains partial and the completed source-area count remains5/14.
+Logs, exact operation semantics and remaining limits are in
+[the DOM bootstrap section](TABLET_WEB_CONTINUATION_CONTRACT.md#first-query-dom-bootstrap).
+
+Next executable dependency: a fresh DOM4 reader must independently prove a
+known completed UIKit original graph and pin its actual current header across
+the read, so legitimate sibling progress can be followed without accepting an
+arbitrary peer mutation. An old DOM reader still fails when UIKit advances.
+The own historical DOM link must keep `peerAuthority=False` and must not
+recursively acquire peer authority. Old DOM1/2/3 guards remain literal. No
+such live peer-advancement path is implemented by this checkpoint. Whole
+SourceReady, the other seven children, aggregate and32-to33 screen
+continuation, both-role Journey and full retirement remain separate work.
+
 ## Current first-query129 integration checkpoint
 
 After committed UIKit-only link `8c6200bc3a`, current source work addresses a

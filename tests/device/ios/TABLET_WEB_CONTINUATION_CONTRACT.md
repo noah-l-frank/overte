@@ -876,3 +876,72 @@ The common five project suites/versions/docs/whitespace pass on the team's
 dirty source checkpoint in9.27s; those checks do not qualify an unfinished
 runtime scenario. Native code remains uncompiled, devices untested and
 Feature7 incomplete.
+
+## First-query DOM bootstrap
+
+The DOM counterpart now owns the first actual query129 through the existing
+Packet capture/WAL/raw/original implementation. The source was preserved as
+explicitly unqualified WIP in local checkpoint `44b769cfe6`; the consolidation
+merge changed no source bytes. The focused cases below qualify this component,
+not a whole Tablet journey or device.
+
+Continuation4/read1,2,3,4 and active segment2/read1,2 are explicit. Existing
+continuation1/2 and active3/segment1 retain their exact literal grammar.
+`open_initial_segment` accepts only an unbound, completely copied/indexed
+closed128 graph, then once-CAS opens an empty active portion at129. It issues
+no native query and creates no file129. A preexisting bound129 or active
+profile cannot be silently reopened as empty. The exact old raw cursor is
+mandatory when an empty portion has no pending responsibility.
+
+The first normal capture saves its preparing/issued129 intent before send.
+Only the actual existing original intent, exact compact reference and actual
+file matching the previously saved pending body can establish the first
+owned-record association. Native DOM instance/sequence, queries, original
+clocks, raw floors and accepted original payloads retain their existing
+validators. An abandoned first record is storage responsibility, not proof
+of a native129 result. Full active history and historical source selection
+continue to block unresolved/non-returned rows. The old bound2 mutator cannot
+downgrade an initial4 header. The own DOM link expires even if its constructor
+fails; it still exports no reader, write API or peer authority.
+
+The composed normal129 case passes (1 case,47.876s), including a lost
+successful empty-open CAS return, durable issued intent with no precreated
+original129, a lost complete-original return and a lost successful first-bind
+CAS return. Reopening recovers the exact actual file/reference with unchanged
+bytes/inodes and no query or rewrite. A normal130 uses a new nonce. The own
+DOM link and all-nine historical selector return that actual DOM130, while
+the frozen aggregate remains1 with its original document1 and native/phase
+clocks. The exact log is
+`.ios-host-tmp/tablet-dom-continuation-20261027/dom-initial129-original-recovery-positive.log`.
+
+The first-issued-CAS negative passes (1 case,35.881s). A lost successful129
+intent CAS leaves the exact original query and before/after endpoints held.
+Reopening and archival issue no native query. Raw cursor129 remains unchanged;
+the actual abandoned original is retained in that fixture's ownership graph,
+and another capture, own-link tail and historical parent admission all fail.
+Its log is
+`.ios-host-tmp/tablet-dom-continuation-20261027/dom-initial129-lost-issued-archive.log`.
+Successful temporary unit fixtures clean themselves normally; retained logs
+do not imply those originals remain on disk after test completion.
+
+Four new and two existing metadata/fence cases pass in0.017s. They preserve
+old literal1/2 bytes, distinguish old/new active body versions, reject cap
+growth, index/raw reset and mismatched first associations, exercise early
+default-Packet refusal before lower frame/raw factories, and refuse a private
+own-link scope after constructor failure. Contract versions and whitespace
+checks pass. The producers, SDK/native boundaries and host/native clocks in
+these cases are declared models; no physical input or CPU deadline is
+qualified. Native code remains uncompiled and devices untested.
+The five approved project suites pass in6.81s on the team's current source
+checkpoint; contract versions,860-file documentation and whitespace checks
+also pass. These common checks do not replace either focused DOM scenario.
+
+Active128, global1024,64KiB metadata,1.5s query and five-second original-file
+bounds remain unchanged. Public SourceReady and whole-feature acquisition
+stay closed. DOM's live guard still requires the literal UIKit peer head;
+after a legitimate UIKit continuation, the next required integration is an
+independent original UIKit proof with scoped actual head continuity for a
+fresh DOM4 reader. Existing reader instances must still fail after their
+peer changes. This is separate from peer/native authority or a new aggregate.
+Remaining native children, aggregate/screen continuation, both roles, full
+26-step composition, double cleanup and final retirement remain open.
