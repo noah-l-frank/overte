@@ -179,11 +179,11 @@ AvatarManager::~AvatarManager() {
 void AvatarManager::init() {
     _myAvatar->init();
 #if defined(Q_OS_ANDROID) && !defined(ANDROID_APP_PHONE_INTERFACE)
-    // The Pico client is first-person only.  Do not submit the local body to
-    // the render scene; its rig/IK work is also skipped in MyAvatar::simulate.
-    // World motion, collision and avatar network position remain active.
+    // Hide the Pico first-person mesh while retaining normal rig/IK work.
+    // Tracking, emotes, attached wearables and outbound joint data still need
+    // an updated skeleton even when its local rendering is disabled.
     _myAvatar->setProperty("shouldRenderLocally", false);
-    qInfo() << "PICO_LOCAL_AVATAR rendering and animation disabled";
+    qInfo() << "PICO_LOCAL_AVATAR rendering disabled; pose simulation remains active";
 #endif
     {
         QWriteLocker locker(&_hashLock);

@@ -31,19 +31,21 @@ def load_command(manifest_path: Path) -> list[str]:
 def invoke(manifest: Path, target: str, operation: str,
            arguments: dict[str, object] | None = None) -> object:
     command = load_command(manifest)
-    # Package transfers and native permission UI transactions include bounded
+    # Package/original-file transfers and native permission UI include bounded
     # device work and restoration. Keep the outer adapter deadline above that
     # work; the portable module retains its own total deadline and assertions.
     if operation in {"app.install", "app.upgrade"}:
         timeout = 240
-    elif operation in {"permission.snapshot", "permission.set"}:
+    elif operation in {"permission.snapshot", "permission.set", "snapshot.files"}:
         timeout = 120
     else:
         timeout = 60
     adapter_environment = os.environ.copy()
     # Product expectations belong exclusively to the shared assertion module.
     # An adapter must report observed UI and must never receive the policy path.
-    adapter_environment.pop("OVERTE_E2E_TABLET_POLICY", None)
+    for name in ('OVERTE_E2E_TABLET_POLICY', 'OVERTE_E2E_WEB_VIDEO_ROIS',
+                 'OVERTE_E2E_SCRIPTS_CONTROL_TOKEN', 'OVERTE_E2E_CREATE_CONTROL_TOKEN'):
+        adapter_environment.pop(name, None)
     try:
         result = subprocess.run(
             [*command, "invoke", "--target", target, "--operation", operation,
