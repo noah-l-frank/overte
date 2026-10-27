@@ -792,6 +792,7 @@
     "ios-installed-code-binding": {"current": 4, "reads": [1, 2, 3, 4]},
     "ios-process-observer": {"current": 1, "reads": [1]},
     "independent-chat-receiver": {"current": 2, "reads": [1, 2]},
+    "ios-chat-peer-binding": {"current": 1, "reads": [1]},
     "owned-messages-mixer": {"current": 1, "reads": [1]},
     "native-chat-actor-files": {"current": 1, "reads": [1]},
     "native-chat-observation": {"current": 1, "reads": [1]},

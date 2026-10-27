@@ -848,6 +848,7 @@ REQUIRED = {
     "native-chat-actor-files": 1,
     "owned-messages-mixer": 1,
     "independent-chat-receiver": 2,
+    "ios-chat-peer-binding": 1,
     "native-account-observation": 1,
     "native-account-probe": 1,
     "native-account-origin": 1,

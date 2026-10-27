@@ -2,8 +2,10 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import unittest
+from unittest.mock import patch
 from adapters.native_script_roots import NativeScriptRoots
 from adapters.normal_ui import NativeUIError
+from adapters.script_feature.lock import ScriptSourceLock
 from ios.adapters.chat_draft_runtime import IOSChatDraftRuntime
 from ios.adapters.chat_script_sources import IOSChatScriptSources
 from ios.adapters.chat_session_owners import owners_absent
@@ -38,6 +40,20 @@ class ChatSourceBoundRuntimeTests(unittest.TestCase):
         with self.assertRaises((ValueError,RuntimeError)):
             with self.runtime.draft_owner('test-only',RUN,self.root,self.client,source_bound=True):self.fail('entered foreign candidate')
         self.assertEqual(before,(self.f.sessions,self.f.launches));self.assertFalse(self.f.adapter._session_recreation_forbidden)
+    def test_explicit_held_canonical_lock_is_shared_with_the_same_draft_owner(self):
+        lock=ScriptSourceLock(self.runtime.state_path('test-only').with_name('script-feature-sources.lock'))
+        before=self.f.sessions,self.f.launches
+        with lock.held():
+            with self.runtime.draft_owner('test-only',RUN,self.root,self.client,source_bound=True,lock=lock) as owner:
+                self.assertIs(lock,owner.lock);lock.assert_held();self.assertEqual(4,owner.version)
+            lock.assert_held()
+        self.assertEqual(before,(self.f.sessions,self.f.launches))
+    def test_explicit_unheld_or_foreign_lock_refuses_before_candidate_queries(self):
+        path=self.runtime.state_path('test-only').with_name('script-feature-sources.lock')
+        for lock in (ScriptSourceLock(path),ScriptSourceLock(path.with_name('foreign-lock'))):
+            with self.subTest(path=lock.path),patch.object(self.runtime,'_sources',side_effect=AssertionError('No candidate query')),self.assertRaises(NativeUIError):
+                with self.runtime.draft_owner('test-only',RUN,self.root,self.client,source_bound=True,lock=lock):self.fail('entered')
+        self.assertTrue(owners_absent(self.f.adapter,'test-only'))
 
 
 if __name__=='__main__':unittest.main()

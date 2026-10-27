@@ -152,7 +152,55 @@ passes in 0.272 s. Native receive state and SDK boundaries are explicit
 models; private files, original codecs and the complete JavaScript probe run
 on the host. The existing full-probe test now passes its source through Node
 stdin because the expanded probe exceeds the operating system's per-argument
-limit; its assertions and source are unchanged. This profile does not yet wire
-the canonical iOS peer-admission factory or associate remote reception with a
-particular normal Send. Those joins, immutable receipt archives, UI rendering,
-outage/recovery effects and complete source/process/SDK retirement remain open.
+limit; its assertions and source are unchanged. The canonical iOS factory below
+uses this profile. Association with a particular normal Send, immutable receipt
+archives, UI rendering, outage/recovery effects and complete source/process/SDK
+retirement remain open.
+
+## Existing-candidate receive factory
+
+The same `IOSChatDraftRuntime` now exposes the internal
+`_chat_receive_components(primary_selector, peer_selector, run, primary_root,
+peer_root, primary_lock, peer_lock)` factory. Both exact canonical lock objects
+must already be held. It reuses `_sources` and `admit_existing_peer`, retaining
+the actual original installed-code admission from the separately prepared
+physical peer. Targets and sessions must differ, source/artifact must match,
+and both current foreground processes must remain bound. Equal numeric PIDs
+on different targets are valid. The factory creates or repairs no SDK session,
+launch, install, transport or product configuration.
+
+The private `iosChatPeerBindingVersion` one record (registry
+`ios-chat-peer-binding`, current/read one) binds both actual caller-supplied
+artifact roots by path, device and inode. Original admission clocks remain
+unchanged. Reconstruction validates a fresh independent admission and current
+candidate checks while retaining the first original record. A foreign root,
+lost lock or changed admitted candidate prevents Chat queries. A lost return
+after the binding CAS can adopt the actual existing record without creating a
+cache. Binding metadata and both Chat scopes remain owned.
+
+Construction sends no Chat command. The returned `primary_capture` must first
+open its cache through the existing `OwnedChatCapture` admission and journal.
+`IOSOwnedChatReceiver` extends the existing independent receiver with that
+actual primary ownership: an unadmitted/inactive primary cannot authorize a
+sample. Reconstructed pairs also validate both original source identities
+against their retained active capture journals. Receiver reads retain the v2
+original prefixes described above. `receiver.retire()` fences only the peer;
+`primary_capture.retire()` separately fences the primary. Neither operation
+releases the enclosing binding, artifact roots or session scopes, nor proves
+global callback/process/SDK death.
+
+`draft_owner(..., lock=primary_lock, source_bound=True)` explicitly shares that
+same already held lock, allowing normal Chat ownership to compose without a
+second lock acquisition domain. Unheld and foreign lock objects fail before
+candidate queries. The default constructor still creates its own canonical
+lock and keeps the literal earlier profiles.
+
+The final twelve-case host selection passes in 0.814 s: eight actual
+admission/scope/receive-prefix/CAS/owner counterexamples plus four canonical
+source-bound runtime and lock cases. Private stores, original decoders and
+locks execute; SDK/native receive producers are declared models. Construction
+and reconstruction create no modeled Chat effects, and absent/foreign primary
+ownership fails before receive queries. No native compilation or physical
+device testing is performed. This factory remains an internal composition
+component; the normal Send/immutable peer-original join and full Chat operation
+coordinator still need implementation.

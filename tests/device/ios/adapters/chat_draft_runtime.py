@@ -19,10 +19,17 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSChatDraftRuntime(IOSScriptRuntime):
+    def _chat_receive_components(self,primary_selector,peer_selector,run,primary_root,peer_root,primary_lock,peer_lock):
+        from ios.adapters.chat_receive_runtime import receive_components
+        return receive_components(self,primary_selector,peer_selector,run,primary_root,peer_root,primary_lock,peer_lock)
+
     @contextmanager
-    def draft_owner(self,selector,run,root,client,*,source_bound=False):
+    def draft_owner(self,selector,run,root,client,*,source_bound=False,lock=None):
         need(type(source_bound) is bool)
-        lock=ScriptSourceLock(self.state_path(selector).with_name('script-feature-sources.lock'));failure=None
+        path=self.state_path(selector).with_name('script-feature-sources.lock')
+        if lock is None:lock=ScriptSourceLock(path)
+        else:need(isinstance(lock,ScriptSourceLock) and lock.path==path);lock.assert_held()
+        failure=None
         with lock.held():
             try:
                 source=self._sources(selector);native,normal=source['clock_source'],source['native']
