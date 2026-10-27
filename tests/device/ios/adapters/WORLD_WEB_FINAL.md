@@ -117,6 +117,36 @@ The previous nineteen-action result belongs to its recorded source revision;
 it is not transferred to this later reconstruction change. The remaining
 constructor/whole-observer/Actor/PNG/terminal qualification is still open.
 
+The actual `IOSWorldWebFeature.parts` assembly now surrounds its child
+constructors with one existing read-only Source round per role and one
+existing Lease round. The Source constructor still performs its literal
+initial decode; no constructor seed, persistent memo or freshness verdict is
+introduced. Every round closes and checks original signatures, headers,
+state and inventories before any owner is returned. Later actions and reads
+must enter their normal validation boundaries again.
+
+A fresh connected host case passes **1 test in 14.433 s**: real Primary/Actor
+baseline, ordinary Open and canonical Unicode input, independent Actor text,
+then actual factory reconstruction of both roles. Each Source executes one
+constructor decode and one complete round decode, independently of the number
+of child constructors. Lease derives at construction and round entry. Actual
+before/after byte/stat censuses are equal, no product input or SDK request is
+repeated during assembly, and all returned rounds are closed. A same-byte
+replacement of an original carrier during a child constructor is refused at
+exit; the displaced original inode is retained separately. All 538 selected
+or imported source hashes, including the launcher, remain unchanged. Log:
+`.ios-host-tmp/world-web-parts-round-canonical-unicode-20261027.log`; roots:
+`.ios-host-tmp/tmpteechmqm` and `.ios-host-tmp/tmpv4e_qawx`.
+
+The first launcher correctly received fixture HTTP400 for a noncanonical
+Unicode parameter before any text input. Its separate roots/log remain an
+error, and its missing pre-run launcher hash is not counted as source drift
+or as a passing qualification. The fresh test uses the unchanged shared
+scenario context and the same outer180-second bound. This tests actual
+construction/ownership wiring with declared model clocks. It does not qualify
+the large retained graph under real API CPU clocks, the full nineteen-step
+Observer/PNG/Actor/terminal journey, native compilation or a device.
+
 ## Earlier verification packets
 
 The newer paired census/end replay reached its 600-second diagnostic limit;

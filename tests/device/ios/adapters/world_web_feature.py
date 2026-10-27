@@ -73,14 +73,23 @@ class IOSWorldWebFeature:
         check();self.lock.assert_held();need(same(self.store.read(),self.previous));value=self.envelope(self.state);self.store.write(value,self.previous)
         need(same(self.store.read(),value));self.previous=deepcopy(value);check()
     def parts(self):
+        # Constructor reads belong to one synchronous, read-only assembly.
+        # Each Source enters by decoding its complete actual byte graph and
+        # keeps the existing identity/header/state guards through every child
+        # constructor and final exit. No round escapes in the returned owners.
+        with ExitStack() as construction:return self._parts(construction)
+    def _parts(self,construction):
         own=self.runtime._sources(self.selector);peer=None
         source=self.runtime._world_web_source_owner(self.selector,self.run,self.role,self.phase,self.lock)
         need(own['binding']==source.binding==self.state['binding'])
+        construction.enter_context(source.validation_round())
         if self.role=='actor':
             peer=source;source=self.runtime._world_web_source_owner(self.primary_selector,self.run,'actor-primary',self.phase,self.primary_lock)
             need(source.binding==self.state['primaryBinding'])
+            construction.enter_context(source.validation_round())
         scope=self.runtime._world_web_marker(self.primary_selector,self.root,self.run,'primary',self.phase.fixture_url,self.state['initialTicket'],self.primary_lock)
         references=self.state['lease'];lease=None if references is None else WorldWebLease(scope,source,references['before'],references['after'])
+        if lease is not None:construction.enter_context(lease.validation_round())
         images={}
         def sample(request):
             need(self.role=='primary')
