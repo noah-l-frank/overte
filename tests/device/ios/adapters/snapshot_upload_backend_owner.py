@@ -238,9 +238,10 @@ class IOSSnapshotUploadBackendOwner:
 
 
 @contextmanager
-def backend_context(runtime,selector,run,client,binding,*,epoch_ms,monotonic,sleep,domain_policy=None):
+def backend_context(runtime,selector,run,client,binding,*,epoch_ms,monotonic,sleep,domain_policy=None,combined=False):
     """Reopen exact original main binding; no SDK, native input or OS getter."""
+    need(type(combined) is bool)
     lock=ScriptSourceLock(runtime.state_path(selector).with_name('script-feature-sources.lock'))
     with lock.held():
-        native=IOSSnapshotUploadOwner.history(PrivateFeatureState(lock.path.with_name('snapshot-upload-owner.json')),lock,binding,run,client.url+'/runs/'+run+'/')
+        native=IOSSnapshotUploadOwner.history(PrivateFeatureState(lock.path.with_name('snapshot-upload-owner.json')),lock,binding,run,client.url+'/runs/'+run+'/',combined=combined)
         yield IOSSnapshotUploadBackendOwner(native,client,epoch_ms=epoch_ms,monotonic=monotonic,sleep=sleep,domain_policy=domain_policy)

@@ -25,6 +25,16 @@ authority. The source's PID, instance, principal/account scope and HTTPS origin
 are retained. Native upload/story response hashes select the actual backend
 rows, including when another earlier upload used the same PNG bytes.
 
+The internal factory also accepts an explicit `combined=True` choice to reopen
+the already archived Capture2/Upload2 chain. The default remains Separate1.
+This choice is forwarded to the existing strict native archive reader, before
+any backend GET; payload bytes never choose their own profile. Backend
+owner/query/result versions 1 and 2, role admission, original frame format and
+deadlines remain unchanged. Their native owner/result pins retain the actual
+version-2 parent identity. Domain-policy selection remains a separate explicit
+argument. This factory binding does not satisfy either the native Upload2 or
+Backend2 frontend HTTP-consumption obligation.
+
 Each query intent precedes dispatch. The provider materializes original source
 JSON bytes once per nonce and preserves their clock and cursor on retry. Actual
 body reads use fixed 512 KiB chunks, original per-part hashes and real closed
@@ -96,3 +106,27 @@ policy hosts and frontend consumption retain independent clock domains. Actual
 frontend consumption and real external metaverse registration remain separate
 obligations; requested IDs, an input ACK or a hardcoded nonempty result cannot
 substitute for those sources.
+
+The explicit Combined factory was checked with the existing ordinary input,
+actual Script/request-module and protected serializer flow over declared
+Qt/V8/SDK boundaries. Normal Capture2/Upload2, backend/preflight originals and
+read-only historical replay retain the same PNG inode/body and original native
+manager; the default factory rejects the version-2 native archive before any
+backend GET. The first three-case selection had two passes and one comparison
+failure in 31.736 seconds. That test incorrectly equated the first cached export
+with a later selected fresh admission after Combined archive reconstruction.
+
+The corrected lost-GET case passed in 13.550 seconds. It measures a real
+1.65-second wait, preserves the first nonce/export byte-for-byte in its own
+original slot and provider cache, refuses that late acquisition under the
+unchanged 1.5-second freshness rule, and qualifies a new read nonce. Principal,
+PID/instance scope, original requests and response bytes remain identical;
+normal Upload runs once. Production clocks, limits, guards and retry behavior
+were unchanged. Four existing Separate1/preflight-original cases then passed
+in 38.116 seconds, including immutable frame recovery and independent domain
+binding refusal. Private logs are
+`snapshot-combined-backend-resume-20261027-normal01.log`,
+`snapshot-combined-backend-resume-20261027-recovery02.log` and
+`snapshot-combined-backend-resume-20261027-legacy03.log` under `.ios-host-tmp`.
+Frontend consumer composition, native compilation, real devices and whole
+Feature 11 qualification remain open.
