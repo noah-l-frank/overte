@@ -44,7 +44,10 @@ class TabletWebPackets:
         self.store=PrivateFeatureState(self.root/('tabletweb-'+component+'-queries-'+run+'-'+role+'.json'))
         self.state=self.store.read()
         if self.state is not None and self.state.get('tabletWebPacketsVersion')==3:
-            from ios.adapters.tablet_web_dom_continuation import read_barrier
+            if component=='uikit':
+                from ios.adapters.tablet_web_uikit_continuation import read_barrier
+            else:
+                from ios.adapters.tablet_web_dom_continuation import read_barrier
             read_barrier(self.state,binding,run,role,fixture_url,pid,component)
         self._original_storage()
         if self.state is None:

@@ -581,3 +581,49 @@ unchanged. The captured private scope is dead after return and cannot persist
 or reread data. A peer inode change during actual original reads and a foreign
 binding generation refuse the result without another native query. These
 host-model cases do not qualify UIKit, peer readiness or a physical device.
+
+## Closed UIKit predecessor contract
+
+The next isolated child is UIKit, which also receives independent toolbar and
+cleanup acquisitions. Preparation requires its actual literal Packet1/2 head
+with128 returned rows and no pending/unsafe/record-write responsibility, plus
+the completed all-nine historical parent proof. It records exact UIKit header
+bytes/signature and the unchanged parent identity before structural CAS at the
+canonical UIKit head. The new marker is an explicitly closed
+`tabletWebUIKitContinuationVersion: 1`, Packet3/`rotating`; it admits no query
+or whole-source capture.
+
+The UIKit constructor first reads the complete current DOM original link. Its
+actually observed DOM head bytes/inode are then fixed for this object's I/O
+scope, while the parent/copy and remaining seven peer headers retain their
+literal guards. A changed DOM identity invalidates that scope; it cannot reuse
+the earlier link or create a copy file. This reads no peer as newly native-ready
+and does not change the existing DOM live guard.
+
+The existing original store writes the separate UIKit closed body and128-row
+manifest with durable copy/manifest intent. Historical replay opens every exact
+raw/record and runs the existing UIKit validator across all128 packets. The
+native floor is the actual final UIKit packet, including its full objects,
+targets, contacts, dispatches and pending-dispatch arrays. A storage cursor129
+cannot replace those data or imply release, quiescence or weak-object death.
+The old aggregate and every original identity remain retained; literal caps,
+global1024 and native/file deadlines remain unchanged. Active UIKit successor,
+the multi-child Source selector and SourceReady remain unimplemented at this
+closed-only boundary.
+
+The full UIKit128 closure case passes in68.132s with literal old header bytes,
+all old frame/raw identities and every object/contact/dispatch/pending-dispatch
+field preserved. Its historical native floor is actual sequence128 and its
+global next-row/raw cursor129. Two further cases pass in119.933s: lost
+successful UIKit CAS retains the exact new rotating head without a lower-writer
+fallback or another query, and a changed DOM head inode invalidates the copy
+scope before a file or intent is created. The live DOM guard remains blocked
+after UIKit storage rotation. These are three host-model cases across1+2
+selections, not physical release, quiescence, weak retirement or SourceReady.
+The separate48-case Packet/SourceOwner/Fence/ChildRotation/metadata selection
+passes in18.924s. The constructor dispatch recognizes only this new UIKit3
+closed profile before original/raw store construction; ordinary literal1/2
+routes remain unchanged. The two new registry contracts are
+`ios-tablet-web-uikit-continuation` and `ios-tablet-web-uikit-closed-body`, both
+writer1/read1. Existing generic original/manifests and all native codecs retain
+their prior versions.

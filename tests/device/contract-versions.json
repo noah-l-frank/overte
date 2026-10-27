@@ -681,6 +681,8 @@
     "ios-tablet-web-dom-continuation": {"current": 3, "reads": [1, 2, 3]},
     "ios-tablet-web-dom-closed-body": {"current": 1, "reads": [1]},
     "ios-tablet-web-dom-active-segment": {"current": 1, "reads": [1]},
+    "ios-tablet-web-uikit-continuation": {"current": 1, "reads": [1]},
+    "ios-tablet-web-uikit-closed-body": {"current": 1, "reads": [1]},
     "ios-tablet-web-acquisition": {"current": 2, "reads": [1, 2]},
     "ios-tablet-web-acquisition-frame": {"current": 1, "reads": [1]},
     "ios-tablet-web-acquisition-original": {"current": 1, "reads": [1]},
