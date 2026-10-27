@@ -25,6 +25,12 @@ Diagnostic callback exceptions or capacity loss make the source incomplete;
 they produce no product input or cleanup. Native locking and exception behavior
 are source-reviewed only.
 
+The subsequent [clone-failure correction](ASSETS_TEXTURE_CLONE_FAILURE.md)
+adds a process-long allocation-free atomic health sink. A scope-copy failure
+must poison the global registry even when the unpublished clone lost every
+observer. Its three declared-boundary host cases pass, while the changed C++
+exception/atomic path remains uncompiled and unexecuted.
+
 The callback reads only `TextureMap::getTextureSource()`, which returns its
 sharing pointer. `isDefined`, `getTextureView`, `getGPUTexture` and the texture
 operator are never called by the observer. The reviewed source assigns a

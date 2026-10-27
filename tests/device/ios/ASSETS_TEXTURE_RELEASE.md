@@ -15,9 +15,11 @@ These shared checks do not qualify other untested feature scenarios.
 
 The native review separately found an unqualified allocation-failure path:
 a Material clone can lose its diagnostic scope copy without immediately
-poisoning the global registry. That needs a separate fail-closed correction;
-the host producer here models successful original registration and does not
-execute or qualify that C++ failure path.
+poisoning the global registry. The separate
+[fail-closed correction](ASSETS_TEXTURE_CLONE_FAILURE.md) has three declared
+boundary cases; its C++ path remains uncompiled and unexecuted. The225.251s
+producer models successful registration and cannot retroactively qualify that
+subsequent native change.
 
 ## Explicit new context
 

@@ -17,11 +17,21 @@
 
 #include "GraphicsLogging.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include <atomic>
 #include <QtCore/QCoreApplication>
 #endif
 
 using namespace graphics;
 using namespace gpu;
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+namespace {
+// Independent of callback allocation/registration and never reset. A failed
+// diagnostic clone must not hide future replacement groups from old scopes.
+std::atomic<bool> featureAssetsTextureFailed { false };
+static_assert(std::atomic<bool>::is_always_lock_free, "Feature texture failure health must not acquire a lock");
+}
+#endif
 
 const float Material::DEFAULT_EMISSIVE { 0.0f };
 const float Material::DEFAULT_OPACITY { 1.0f };
@@ -115,7 +125,7 @@ Material::Material(const Material& material) :
             }
         }
     } QT_CATCH (...) {
-        _featureTextureComplete = false;
+        featureAssetsTextureIncomplete();
     }
 #endif
 }
@@ -245,7 +255,13 @@ void Material::setTextureMap(MapChannel channel, const TextureMapPointer& textur
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+bool Material::featureAssetsTextureObservationComplete() noexcept {
+    return !featureAssetsTextureFailed.load();
+}
+
 void Material::featureAssetsTextureIncomplete() noexcept {
+    // Store first, even when a failed copy left no callbacks to notify.
+    featureAssetsTextureFailed.store(true);
     _featureTextureComplete = false;
     for (const auto& entry : _featureTextureScopes) {
         QT_TRY { entry.incomplete(); } QT_CATCH (...) { }
@@ -269,7 +285,8 @@ bool Material::featureAssetsObserveTextureMaps(const std::string& scope,
         if (!QCoreApplication::instance()
                 || !QCoreApplication::arguments().contains(QStringLiteral("--testScript"))) { return false; }
         std::lock_guard<std::recursive_mutex> lock(_textureMapsMutex);
-        if (!_featureTextureComplete || scope.empty() || scope.size() > 128 || !observe || !incomplete) {
+        if (!featureAssetsTextureObservationComplete() || !_featureTextureComplete
+                || scope.empty() || scope.size() > 128 || !observe || !incomplete) {
             featureAssetsTextureIncomplete(); return false;
         }
         for (const auto& entry : _featureTextureScopes) {

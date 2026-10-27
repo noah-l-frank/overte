@@ -4,6 +4,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include "NativeReadBracket.h"
 #include <ResourceCache.h>
+#include <graphics/Material.h>
 #include <QCryptographicHash>
 #include <QMutex>
 #include <QMutexLocker>
@@ -156,6 +157,10 @@ public:
     }
     QVariantMap snapshot() {
         if (!enabled() || !main()) {return {};}QMutexLocker lock(&_mutex);QVariantList rows,geometries,consumers,textures,textureLinks;
+        // Static lock-free health read only. Never enter a Material object or
+        // acquire its mutex while holding the registry lock. Scope-copy failure
+        // must invalidate old good history even if the clone lost all scopes.
+        _complete=_complete && graphics::Material::featureAssetsTextureObservationComplete();
         for (const auto& row:_rows) {
             // Resource::allReferencesCleared may recreate shared ownership for
             // the same cached QObject. The original weak lease and actual

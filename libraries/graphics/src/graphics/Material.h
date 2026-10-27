@@ -406,6 +406,8 @@ public:
     // Diagnostic callbacks carry scope identifiers, never a strong product
     // Material/Geometry/Resource/GPU reference.
     using FeatureTextureObserver = std::function<void(int, const TextureMapPointer&)>;
+    // Static atomic health only; no Material object or mutex is entered.
+    static bool featureAssetsTextureObservationComplete() noexcept;
     bool featureAssetsObserveTextureMaps(const std::string& scope,
             FeatureTextureObserver observe, std::function<void()> incomplete);
 #endif
@@ -533,7 +535,8 @@ private:
     };
     std::vector<FeatureTextureScope> _featureTextureScopes;
     bool _featureTextureComplete { true };
-    // Caller holds the existing material mutex. Observer registries must
+    // Caller holds the existing material mutex, or owns an unpublished clone.
+    // Observer registries must
     // never enter a Material while holding their registry lock.
     void featureAssetsTextureChanged(int channel, const TextureMapPointer& map) noexcept;
     void featureAssetsTextureIncomplete() noexcept;
