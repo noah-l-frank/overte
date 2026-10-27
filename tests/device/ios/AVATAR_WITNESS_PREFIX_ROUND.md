@@ -307,3 +307,52 @@ Evidence is retained separately under
 source manifests and `actor-scene-profile.pstats`. The prior profile and all
 actual original files remain preserved. Final/terminal/end qualification and
 complete Feature 3 remain open.
+
+## Fresh Final2 producer: retained failure before peer barrier
+
+A new whole-domain host producer selected exactly three ordinary paired Final
+rounds, with two declared passive 1.7-second sleeps. The existing acquisition,
+API/cleanup 25-second deadlines and three-second quiet predicates were unchanged.
+Both genuine owners saved `final-ready` with three original references. The
+selection then failed in the first actual `wait_peer_final`, before either
+normal terminal-ready transition or the two intended Actor publications.
+
+The production adapter's manually reconstructed peer view omitted `selector`.
+Its real `terminal_live_proof` reached `final_source_guard`, which correctly
+required the complete owner envelope and raised `AttributeError`. This is a
+peer archive-construction defect, not a missing native observation or a reason
+to weaken the guard. Both manual peer views now initialize their selector from
+their independently owned role, matching the normal constructor and canonical
+`archive` method. No clock, proof predicate or current-input behavior changes.
+
+The fixed 1,200-second diagnostic ended with one error in **570.838 seconds**;
+there was no timeout or test pass. Its 4,089 selected source/JS/QML/own-launcher
+hashes match before/after. The fresh Primary and Actor roots retain **1,068
+original files**, including the failed partial journals, under
+`.ios-host-tmp/avatar-genuine-actor-terminal-two-refs-launch02-20261027/`.
+Two read-only byte/stat inventories after failure and completed fixture teardown
+agree; no before/after producer-original equality is claimed for this failed
+selection. The SDK fixtures have stopped and will not be resumed from this graph.
+
+The earlier launcher failed at import in 0.822 seconds because its Python path
+omitted existing test-helper directories. It created no domain or originals.
+Its logs and unchanged source inventory remain separately retained; the fresh
+selection above used the corrected four-path environment and byte-identical
+launcher. There is no unchanged retry of the 570.838-second failure.
+
+The new focused regression cases stop at actual peer-view construction, before
+decoding explicitly modeled metadata. They inspect both roles and both manual
+view sites and exercise the actual Final caller guard's selector-mutation
+rejection. They supply no Final facts or cleanup result. The first focused
+selection failed in 0.085 seconds because its modeled admission omitted the
+existing `kind` discriminator; all three existing lock cases passed, but the
+selection was not green. Its log and all unchanged source hashes remain retained.
+After adding only `kind='admission'` to that test boundary, the exact two new
+methods and the existing three lock cases pass in **0.082 seconds**, under the
+same fixed 60-second outer bound. All **4,091** selected source/JS/QML/own-launcher
+hashes match before/after. Logs are separately retained in
+`.ios-host-tmp/avatar-peer-template-binding-five-20261027/` and
+`.ios-host-tmp/avatar-peer-template-binding-five-02-20261027/`.
+This qualifies peer-view binding and lock/guard compatibility only. Final peer
+barriers, two normal Actor terminal references, seal/end, native compilation,
+physical-device verification and complete Feature 3 remain open.

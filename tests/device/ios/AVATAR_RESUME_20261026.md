@@ -32,6 +32,22 @@ all 856 frame reads, exact state/read sets and 676 original files remain
 unchanged, with fewer metadata/open calls. Its one measured time is 14.347
 seconds versus the prior 13.942 seconds; no time improvement is claimed.
 
+A subsequent fresh-domain Final2 diagnostic reached both real `final-ready`
+owners with three original references each, then failed at the first peer Final
+barrier in 570.838 seconds. The adapter's manual peer archive view omitted its
+role's `selector`, required by the unchanged actual Final caller guard. Both
+manual peer-view sites now initialize that binding consistently with the normal
+constructor and canonical archive. The focused construction/guard regression
+cases and three existing lock tests now pass in 0.082 seconds with 4,091
+source/launcher hashes unchanged. An earlier focused selection failed in 0.085
+seconds because its modeled admission omitted `kind`; that test-only omission
+was corrected, with both logs retained. All 4,089 selected sources/own-launcher
+hashes remained unchanged during the failed whole selection; 1,068 fresh original files and
+partial journals are retained. The postfailure byte/stat census is distinct
+from a before/after producer qualification. No Actor terminal reference, seal,
+end or whole-feature pass follows. See the detailed retained-failure boundary in
+[the witness ledger](AVATAR_WITNESS_PREFIX_ROUND.md).
+
 
 ## Historical explicit pause
 

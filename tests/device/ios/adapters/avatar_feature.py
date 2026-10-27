@@ -857,7 +857,7 @@ class IOSAvatarFeature:
                         def discard(_self,*_args):need(False)
                     template.lock=self.locks[other];template.store=Frozen(path)
                     template.run=self.run
-                    template.phase=self.phase;template.selectors=self.selectors
+                    template.phase=self.phase;template.selectors=self.selectors;template.selector=template.selectors[other]
                     template.root=Path(raw.get('artifactRoot',''));template.policy=raw.get('imagePolicy')
                     template.load()
                     peer=template.state
@@ -1718,7 +1718,8 @@ class IOSAvatarFeature:
                 if raw is not None:
                     template=object.__new__(IOSAvatarFeature);template.runtime=self.runtime;template.role=other
                     template.lock=self.locks[other];template.locks=self.locks;template.store=Frozen(path,raw);template.run=self.run;template.phase=self.phase
-                    template.client=self.client;template.authority=self.authority;template.selectors=self.selectors;template.root=Path(raw['artifactRoot']);template.policy=raw['imagePolicy'];template.load()
+                    template.client=self.client;template.authority=self.authority;template.selectors=self.selectors;template.selector=template.selectors[other]
+                    template.root=Path(raw['artifactRoot']);template.policy=raw['imagePolicy'];template.load()
                     need(same(template.state['bindings'],self.state['bindings']) and template.state['phaseInstance']==self.state['phaseInstance'])
                     rows=[row for row in template.state['cleanup'] if row['kind']=='final-ready']
                     if rows:
