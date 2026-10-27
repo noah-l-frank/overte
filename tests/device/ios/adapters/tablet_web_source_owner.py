@@ -72,8 +72,9 @@ class TabletWebSourceOwner:
         self._original_storage()
         self.history()
 
-    def _original_storage(self,*,closed_dom_state=None,closed_dom_reader=None):
+    def _original_storage(self,*,closed_dom_state=None,closed_dom_reader=None,closed_uikit_state=None):
         need(closed_dom_state is None or self.historical and type(closed_dom_state) is dict)
+        need(closed_uikit_state is None or self.historical and type(closed_uikit_state) is dict)
         need(closed_dom_state is None or closed_dom_reader is None)
         if closed_dom_reader is not None:
             from ios.adapters.tablet_web_dom_segment import TabletDOMSegment
@@ -87,14 +88,20 @@ class TabletWebSourceOwner:
             namespace='tabletweb-acquisitions',schema_prefix='tabletWebAcquisition',monotonic=self.monotonic)
         self.app_originals=OriginalFrameStore(self.root,self.binding,self.run,self.role,self.stored_original_guard,self.app_intent,
             namespace='tabletweb-app-origins',schema_prefix='tabletWebAppAdmission',monotonic=self.monotonic)
+        uikit_reader=None
+        if closed_uikit_state is not None:
+            from ios.adapters.tablet_web_rotation_fence import scope
+            from ios.adapters.tablet_web_uikit_continuation import _snapshot
+            uikit_reader=_snapshot(self.root,scope(self.binding,self.run,self.role,self.fixture,self.pid),closed_uikit_state,self.monotonic)
         self.children={name:(closed_dom_reader if name=='dom' and closed_dom_reader is not None else
             TabletWebPackets._closed_dom(self.root,self.binding,self.run,self.role,self.fixture,self.pid,
                 closed_dom_state,monotonic=self.monotonic) if name=='dom' and closed_dom_state is not None else
+            uikit_reader if name=='uikit' and uikit_reader is not None else
             TabletWebPackets(self.root,self.binding,self.run,self.role,self.fixture,self.pid,name,self.original_guard,
                 storage_guard=self.local_original_guard,epoch_ms=self.epoch_ms,monotonic=self.monotonic,historical=self.historical)) for name in ORDER}
 
     @classmethod
-    def _closed_snapshot(cls,root,binding,run,role,fixture_url,pid,lock,state,*,monotonic=time.monotonic,closed_dom_state=None,closed_dom_reader=None):
+    def _closed_snapshot(cls,root,binding,run,role,fixture_url,pid,lock,state,*,monotonic=time.monotonic,closed_dom_state=None,closed_dom_reader=None,closed_uikit_state=None):
         """Literal old header for a guarded closed-prefix reader, never live.
 
         The caller validates its actual immutable copy and all current child
@@ -114,7 +121,8 @@ class TabletWebSourceOwner:
         owner.store=PrivateFeatureState(owner.root/('tabletweb-source-owner-'+run+'-'+role+'.json'))
         owner.state=deepcopy(state);owner.saved=deepcopy(state)
         need(type(state.get('tabletWebSourceOwnerVersion')) is int and state['tabletWebSourceOwnerVersion'] in (1,2))
-        owner._original_storage(closed_dom_state=closed_dom_state,closed_dom_reader=closed_dom_reader);owner.history();return owner
+        owner._original_storage(closed_dom_state=closed_dom_state,closed_dom_reader=closed_dom_reader,
+            closed_uikit_state=closed_uikit_state);owner.history();return owner
 
     def bound(self):
         need(not self.historical);self.lock.assert_held();need(self.guard() is not False)

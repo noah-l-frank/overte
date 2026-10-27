@@ -14,6 +14,8 @@ from adapters.normal_ui import NativeUIError
 from adapters.original_frame_store import OriginalFrameStore
 from adapters.script_feature.history import canonical
 from ios.adapters import tablet_web_uikit_continuation as closed
+from ios.adapters import tablet_web_child_rotation as parent,tablet_web_record_cache as cache
+from ios.adapters.tablet_web_packets import TabletWebPackets
 from ios.adapters.tablet_web_segments import TabletWebSourceSegments,sha
 from ios.self_tests import test_ios_tablet_web_dom_segment as existing
 
@@ -103,6 +105,34 @@ class TabletUIKitContinuationTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):owner.bind_successor(reference)
         self.assertEqual(before,owner.store.path.read_bytes());self.assertEqual(counts,self.f.native_counts())
         self.assertEqual(inventory,self.f.inventory());self.assertEqual(1,owner.state['tabletWebUIKitContinuationVersion'])
+
+    def test_historical_Source_selector_joins_actual_DOM130_UIKit129_without_rewriting_aggregate_or_trusting_cached_membership(self):
+        self.build();owner=self.complete();reference,packet=self.model_row(129,129);owner.bind_successor(reference)
+        s=self.source;aggregate_ref=deepcopy(s.state['records'][0])
+        aggregates=OriginalFrameStore(s.root,s.binding,s.run,s.role,lambda:True,lambda *_:self.fail('No fixture write'),
+            namespace='tabletweb-acquisitions',schema_prefix='tabletWebAcquisition',monotonic=s.monotonic)
+        aggregate=aggregates.read(aggregates.expand(aggregate_ref))
+        before=self.f.originals();inventory=self.f.inventory();counts=self.f.native_counts();memo=cache.TabletRecordCache()
+        def restore():return parent.restore(s.root,s.binding,s.run,s.role,s.fixture,s.pid,s.lock,monotonic=s.monotonic)
+        with cache.scope(memo):
+            actual=restore()
+            self.assertTrue(actual['historicalOnly']);self.assertEqual('rotating',actual['phase']);self.assertEqual(1,actual['globalIndex'])
+            self.assertEqual(aggregate_ref,actual['lastRecord']);self.assertEqual(aggregate['nativeAfter'],actual['nativeFloor'])
+            self.assertEqual(aggregate['phaseAfter'],actual['phaseFloor']);self.assertEqual(packet,actual['children']['uikit'])
+            self.assertEqual(130,actual['children']['dom']['sequence']);self.assertEqual(1,actual['frames'][0]['document']['sequence'])
+            self.assertEqual(1,actual['frames'][0]['touches']['sequence']);self.assertEqual(before,self.f.originals())
+            self.assertEqual(inventory,self.f.inventory());self.assertEqual(counts,self.f.native_counts())
+            original=TabletWebPackets.reference;wrong=[]
+            def substituted(child,index):
+                if child.component=='uikit' and index==1:
+                    wrong.append(True);return deepcopy(child.state['records'][1])
+                return original(child,index)
+            with patch.object(TabletWebPackets,'reference',substituted),self.assertRaises(NativeUIError):restore()
+            self.assertTrue(wrong);self.assertEqual(inventory,self.f.inventory());self.assertEqual(counts,self.f.native_counts())
+            peer=s.children['trace'];old=peer.store.read();peer.store.write(old,old);changed=self.f.inventory()
+            with self.assertRaises(NativeUIError):restore()
+            self.assertEqual(changed,self.f.inventory());self.assertEqual(before,self.f.originals());self.assertEqual(counts,self.f.native_counts())
+        with self.assertRaises(NativeUIError):self.dom.history()
 
     def test_original_UIKit128_tail_keeps_every_contact_object_dispatch_and_global_raw_cursor(self):
         self.build();packet=self.uikit.history()[-1];old=self.uikit.store.path.read_bytes();before=self.f.originals();self.freeze()

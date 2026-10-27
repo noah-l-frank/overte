@@ -124,25 +124,44 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
     raw=decode(value,expected);reference=value['copyIntent']
     need(reference is not None and reference['phase'] in ('opened','saved'))
     lease=EmoteOriginalLease(root,[])
-    current_children={};dom_prefix=None;dom_state=None;dom_reader=None
+    current_children={};dom_prefix=None;dom_state=None;dom_reader=None;dom_changed=None
+    uikit_state=None;uikit_prefix=None
     def forbidden(*_args,**_kwargs):need(False)
     for child in value['children']:
         old,signature=_raw(root/child['headerName']);digest=hashlib.sha256(old).hexdigest()
         current_children[child['component']]=(signature,digest)
         if signature==child['signature'] and digest==child['sha256']:continue
-        # Only an explicitly bound DOM successor can replace a literal old
-        # child head during this historical read. No other route or fallback.
-        need(child['component']=='dom')
-        from ios.adapters.tablet_web_dom_continuation import TabletDOMClosedPrefix,decode as dom_decode,FENCE_VERSION as DOM_VERSION,VERSION as ACTIVE_VERSION
+        # Each changed child needs its own original proof. A DOM subgraph
+        # cannot authorize UIKit or the whole Source selector.
+        need(child['component'] in ('dom','uikit'))
         changed=PrivateFeatureState(root/child['headerName']).read()
+        if child['component']=='uikit':
+            from ios.adapters.tablet_web_uikit_continuation import decode as uikit_decode,VERSION as UIKIT_VERSION
+            uikit_raw,uikit_state=uikit_decode(changed,expected)
+            need(changed['tabletWebUIKitContinuationVersion']==UIKIT_VERSION
+                and changed['previousHeader']['signature']==child['signature']
+                and hashlib.sha256(uikit_raw).hexdigest()==child['sha256'])
+            continue
+        from ios.adapters.tablet_web_dom_continuation import TabletDOMClosedPrefix,decode as dom_decode,FENCE_VERSION as DOM_VERSION,VERSION as ACTIVE_VERSION
         dom_raw,dom_state=dom_decode(changed,expected)
         need(changed['tabletWebDOMContinuationVersion'] in (DOM_VERSION,ACTIVE_VERSION))
         need(changed['successor'] is not None and changed['previousHeader']['signature']==child['signature']
             and hashlib.sha256(dom_raw).hexdigest()==child['sha256'])
-        if changed['tabletWebDOMContinuationVersion']==DOM_VERSION:
+        dom_changed=changed
+    dom_proof=None;uikit_proof=None
+    if uikit_state is not None:
+        need(dom_state is not None)
+        from ios.adapters.tablet_web_dom_original_link import read as dom_original_link
+        from ios.adapters.tablet_web_uikit_continuation import TabletUIKitClosedPrefix
+        dom_proof=dom_original_link(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
+        need(dom_proof['component']=='dom' and dom_proof['subgraphOnly'] is True and dom_proof['peerAuthority'] is False)
+        uikit_prefix=TabletUIKitClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
+        need(same(uikit_prefix.old,uikit_state));uikit_proof=uikit_prefix.adopted()
+    elif dom_changed is not None:
+        if dom_changed['tabletWebDOMContinuationVersion']==DOM_VERSION:
             dom_prefix=TabletDOMClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
         else:
-            need(changed['tabletWebDOMContinuationVersion']==ACTIVE_VERSION)
+            need(dom_changed['tabletWebDOMContinuationVersion']==ACTIVE_VERSION)
             from ios.adapters.tablet_web_dom_segment import TabletDOMSegment
             dom_reader=TabletDOMSegment(root,binding,run,role,fixture_url,pid,lock,forbidden,monotonic=monotonic,
                 epoch_ms=forbidden,historical=True)
@@ -158,23 +177,26 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
     copies=OriginalFrameStore(root,binding,run,role,unchanged,forbidden,
         namespace='tabletweb-closed-headers',schema_prefix='tabletWebClosedHeader',monotonic=monotonic)
     need(same(copies.read(reference),copy_body(value,expected)));unchanged()
-    dom_proof=None if dom_prefix is None else dom_prefix.adopted();unchanged()
+    if dom_prefix is not None:dom_proof=dom_prefix.adopted()
+    unchanged()
     # The capsule bytes remain literal. Parsing them is not a newer Source3
     # ready state and never authorizes native/channel capture.
     state=base._legacy(raw,expected)
     owner=TabletWebSourceOwner._closed_snapshot(root,binding,run,role,fixture_url,pid,lock,state,
-        monotonic=monotonic,closed_dom_state=dom_state if dom_reader is None else None,closed_dom_reader=dom_reader)
+        monotonic=monotonic,closed_dom_state=dom_state if dom_reader is None else None,closed_dom_reader=dom_reader,
+        closed_uikit_state=uikit_state)
     need(not owner.blocked);frames=owner.history();tails={}
     for child in value['children']:
         component=child['component'];actual=owner.children[component];packets=actual.history()
-        if dom_reader is not None and component!='dom':
+        if (dom_reader is not None and component!='dom') or uikit_proof is not None:
             need(all(actual.originals.read(actual.originals.expand(ref))['status']=='returned' for ref in actual.state['records']))
         legacy=actual.closed.old if component=='dom' and dom_reader is not None else actual.state
         need(not actual.blocked and actual.state['pending'] is actual.state['recordIntent'] is actual.state['recordInspection'] is None
             and legacy['tabletWebPacketsVersion']==child['version'] and len(legacy['records'])==child['count']
             and legacy['nextRaw']==child['nextRaw']
             and same(None if not legacy['records'] else legacy['records'][-1],child['lastRecord']))
-        tails[component]=(deepcopy(dom_proof['nativeFloor']) if component=='dom' and dom_proof is not None
+        tails[component]=(deepcopy(uikit_proof['nativeFloor']) if component=='uikit' and uikit_proof is not None
+            else deepcopy(dom_proof['nativeFloor']) if component=='dom' and dom_proof is not None
             else None if not packets else deepcopy(packets[-1]))
     result=dict(historicalOnly=True,phase='rotating',scope=deepcopy(expected),globalIndex=len(state['records']),
         lastRecord=None if not state['records'] else deepcopy(state['records'][-1]),nativeFloor=deepcopy(owner.native_floor),

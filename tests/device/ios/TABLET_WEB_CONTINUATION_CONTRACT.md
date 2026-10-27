@@ -660,3 +660,40 @@ source checks; native code remains uncompiled and physical devices untested.
 Feature7 remains partial and the completed source-area count remains5/14.
 The contract-version validator and whitespace check pass. The five approved
 documentation/input-selection/policy/coverage project suites pass in6.80s.
+
+## Historical parent selector for independent DOM and UIKit successors
+
+The closed all-nine parent can now inspect a once-bound UIKit129 together with
+its separately validated DOM continuation. It first inventories every actual
+child header identity. Each changed DOM/UIKit header must preserve the exact
+parent descriptor's literal predecessor bytes and identity, and each obtains
+its own complete original proof. The DOM helper remains explicitly
+`subgraphOnly` with `peerAuthority=False`; it exports no reader and does not
+authorize the UIKit or parent result. The UIKit proof independently reads its
+closed copy,128-row manifest and exact bound129 with the existing native and
+host/raw floors. Every other child retains its literal header and returned
+original requirements. All actual child identities are checked again after
+aggregate interpretation.
+
+The aggregate reader uses only the original frozen Packet1/2 DOM and UIKit
+states. Its new private `closed_uikit_state` seam is forced historical, with
+the same ordinary UIKit decoder and original-file reader. Existing Source
+rows keep their exact child references, original host/native/phase clocks and
+clock joins. The separately reported current child tails can therefore be
+DOM130 and UIKit129 while the original aggregate remains1. Neither a child
+cursor nor either independent child proof becomes a newer aggregate or
+SourceReady. The DOM live guard and all public Source acquisition fences stay
+unchanged. This adds no serialized grammar, native version, cap or deadline.
+
+The composed host-model selector case passes in94.965s. It reads actual
+DOM130/UIKit129, preserves aggregate1/native/phase and every original byte and
+inode, then rejects a substituted UIKit global reference in the same operation
+cache. Replacing another peer header with identical bytes at a new inode also
+blocks that cached selector before a new query or original write. The fixture
+reads the aggregate payload through the unchanged validated original reader.
+Native code remains uncompiled,
+devices untested, Feature7 partial and the completed source-area count5/14.
+The existing DOM-only actual130 acquisition/restoration case passes in37.562s.
+The explicit50-case Packet/SourceOwner/Fence/ChildRotation and both metadata
+classes pass in18.935s. The five approved project suites pass in6.80s; contract
+versions and whitespace checks pass without any registry change.
