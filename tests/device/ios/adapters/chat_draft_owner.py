@@ -7,6 +7,8 @@ native lifetime retirement or successful whole-area result is available here.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from ios.adapters import chat_archive_round
+from contextvars import ContextVar
 from pathlib import Path
 import time
 from adapters.native_chat_view import NativeChatView,measured_view,validate as view_packet,command as view_command
@@ -31,6 +33,7 @@ VERSION=3
 RESTORE_STEPS=frozenset(('cleanup-open','cleanup-settings','cleanup-erase','cleanup-discard','cleanup-rebuild-close','cleanup-rebuild-open'))
 RESTORE_READ='cleanup-inspect'
 PEER_STEPS=frozenset(('open','select-channel','type','send'))
+_ARCHIVE_FRONTIERS=ContextVar('ios_chat_archive_frontiers',default=())
 
 
 class IOSChatDraftOwner:
@@ -52,10 +55,12 @@ class IOSChatDraftOwner:
             if source_bound else code_sources is None and code_roots is None))
         need(type(peer_actor) is bool and (not peer_actor or source_bound))
         from ios.adapters.chat_peer_receipts import IOSChatPeerReceipts
-        need(peer_receipts is None or isinstance(peer_receipts,IOSChatPeerReceipts) and source_bound and not peer_actor)
+        need(peer_receipts is None or isinstance(peer_receipts,IOSChatPeerReceipts) and source_bound
+            and peer_receipts.recipient_role==('peer' if peer_actor else 'primary'))
         self.peer_receipts=peer_receipts
         self.source_bound,self.peer_actor,self.code_sources,self.code_roots=source_bound,peer_actor,code_sources,code_roots
-        self.historical=False;self.previous=store.read();self.version=self.read_version(self.previous,source_bound=source_bound,peer_actor=peer_actor,peer_receipts=peer_receipts is not None);self.state=self.empty()
+        self.historical=False;self.frontier=self.frontier_ticket=None;self.subgraph_only=False
+        self.previous=store.read();self.version=self.read_version(self.previous,source_bound=source_bound,peer_actor=peer_actor,peer_receipts=peer_receipts is not None);self.state=self.empty()
         self.frames=self.frame_store();self.ui=(IOSPeerChatUI if peer_actor else TokenChatUI)(io,self.input_intent,run,monotonic=monotonic,sleep=sleep)
         if self.previous is not None:self.state=self.decode(self.previous)
         else:self.inventory(self.state)
@@ -71,13 +76,17 @@ class IOSChatDraftOwner:
     def empty():return dict(records=[],baseline=None,operations=[],failures=[],pending=None,observation=None,interrupted=[])
 
     @classmethod
-    def archive(cls,store,root,binding,run,lock,fixture_url,*,source_bound=False,peer_actor=False,peer_receipts=None):
+    def archive(cls,store,root,binding,run,lock,fixture_url,*,source_bound=False,peer_actor=False,peer_receipts=None,through=None,ticket=None):
         owner=object.__new__(cls);owner.store,owner.root,owner.binding,owner.run,owner.lock=store,Path(root),deepcopy(context(binding)),identifier(run),lock
         lock.assert_held();need(store.path==lock.path.with_name('ios-chat-draft-owner.json'))
         owner.fixture_url,owner.historical,owner.guard,owner.monotonic=fixture_url,True,lambda:True,time.monotonic
+        need((through is None)==(ticket is None) and (through is None or source_bound and type(through) is dict))
+        owner.frontier=deepcopy(through);owner.frontier_ticket=None if ticket is None else identifier(ticket)
+        owner.subgraph_only=through is not None
         owner.source_bound,owner.peer_actor,owner.code_sources,owner.code_roots=source_bound,peer_actor,None,None
         from ios.adapters.chat_peer_receipts import IOSChatPeerReceipts
-        need(peer_receipts is None or isinstance(peer_receipts,IOSChatPeerReceipts) and source_bound and not peer_actor)
+        need(peer_receipts is None or isinstance(peer_receipts,IOSChatPeerReceipts) and source_bound
+            and peer_receipts.recipient_role==('peer' if peer_actor else 'primary'))
         owner.peer_receipts=peer_receipts
         owner.previous=store.read();need(owner.previous is not None);owner.version=owner.read_version(owner.previous,source_bound=source_bound,peer_actor=peer_actor,peer_receipts=peer_receipts is not None)
         owner.state=owner.empty();owner.frames=owner.frame_store()
@@ -86,10 +95,10 @@ class IOSChatDraftOwner:
     @staticmethod
     def read_version(value,*,source_bound=False,peer_actor=False,peer_receipts=False):
         need(all(type(flag) is bool for flag in (source_bound,peer_actor,peer_receipts))
-            and (not peer_actor or source_bound) and (not peer_receipts or source_bound and not peer_actor))
-        version=(6 if peer_receipts else 5 if peer_actor else 4 if source_bound else VERSION) if value is None else value.get('iosChatDraftOwnerVersion')
-        need(type(version) is int and version in (1,2,3,4,5,6) and (version>=4)==source_bound
-            and (version==5)==peer_actor and (version==6)==peer_receipts);return version
+            and (not peer_actor or source_bound) and (not peer_receipts or source_bound))
+        version=(7 if peer_receipts and peer_actor else 6 if peer_receipts else 5 if peer_actor else 4 if source_bound else VERSION) if value is None else value.get('iosChatDraftOwnerVersion')
+        need(type(version) is int and version in (1,2,3,4,5,6,7) and (version>=4)==source_bound
+            and (version in (5,7))==peer_actor and (version>=6)==peer_receipts);return version
 
     def frame_store(self):
         return OriginalFrameStore(self.root,self.binding,self.run,'primary',self.bound,self.storage_intent,
@@ -101,14 +110,15 @@ class IOSChatDraftOwner:
         if self.peer_receipts is not None:self.peer_receipts.bound(self)
         return True
     def save(self):
+        chat_archive_round.mutation()
         need(not self.historical);self.bound();value=self.envelope(self.state);self.store.write(value,self.previous)
         need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     def phase_original(self,value,ticket,verb,inputs,previous=None):
         phase_packet(value,run=self.run,area='chat',request=value['requestId'],epoch=value['capturedEpochMs'],previous=previous)
-        if self.version==6 and verb=='peer-receive':
+        if self.version>=6 and verb=='peer-receive':
             need(value['active'] and value['activations'] and value['activations'][-1]['ticket']==ticket
-                and value['activations'][-1]['stimulus']['verb']=='peer-send' and inputs=={})
+                and value['activations'][-1]['stimulus']['verb']==('send' if self.peer_actor else 'peer-send') and inputs=={})
             return
         if self.peer_actor and verb in PEER_STEPS and value['activations'] and value['activations'][-1]['stimulus']['verb']=='peer-send':
             activation=value['activations'][-1];stimulus=activation['stimulus']['inputs']
@@ -122,13 +132,21 @@ class IOSChatDraftOwner:
             and same(value['activations'][-1]['stimulus'],dict(verb=verb,inputs=inputs)))
 
     def frame(self,value,previous=None):
+        return self._frame(value,previous,_dependencies=True)
+
+    def _frame(self,value,previous=None,*,_dependencies):
+        need(type(_dependencies) is bool and (_dependencies or self.historical and self.subgraph_only))
         exact(value,{'iosChatDraftObservationVersion','ticket','verb','inputs','phaseBefore','phaseAfter','originals','clockJoin','queries'}
-            |({'peerReceipt'} if self.version==6 else set()))
+            |({'peerReceipt'} if self.version>=6 else set()))
         need(type(value['iosChatDraftObservationVersion']) is int and value['iosChatDraftObservationVersion']==self.version)
         self.call(value['ticket'],value['verb'],value['inputs'])
-        if self.version==6:
+        if self.version>=6:
             if value['verb']=='peer-receive':
-                fact,*_=self.peer_receipts.read(value['peerReceipt']);need(fact['ticket']==value['ticket'])
+                if _dependencies:
+                    fact,*_=self.peer_receipts.read(value['peerReceipt']);need(fact['ticket']==value['ticket'])
+                else:
+                    self.peer_receipts.shape(value['peerReceipt'])
+                    need(value['peerReceipt']['ticket']==value['ticket'])
             else:need(value['peerReceipt'] is None)
         self.phase_original(value['phaseBefore'],value['ticket'],value['verb'],value['inputs'])
         self.phase_original(value['phaseAfter'],value['ticket'],value['verb'],value['inputs'],value['phaseBefore'])
@@ -201,7 +219,7 @@ class IOSChatDraftOwner:
                 and join['hostBeforeEpochMs']>=previous['clockJoin']['hostAfterEpochMs'])
             phase_packet(value['phaseBefore'],run=self.run,area='chat',request=value['phaseBefore']['requestId'],
                 epoch=value['phaseBefore']['capturedEpochMs'],previous=previous['phaseAfter'])
-            if self.version>=2:
+            if self.version>=2 and _dependencies:
                 prior=old['view']['source']['storage']
                 operations=self.state['operations']+self.state['failures']+([] if self.state['pending'] is None else [self.state['pending']])
                 if not same(stored['events'][:len(prior['events'])],prior['events']):
@@ -209,13 +227,31 @@ class IOSChatDraftOwner:
                     need(self.version>=3 and value['verb']=='cleanup-erase' and len(causes)==1);self.erase_effect(causes[0],value)
                 elif len(stored['events'])>len(prior['events']):
                     causes=[op for op in operations if op['ticket']==value['ticket'] and op['verb']=='send']
-                    if self.version==6 and value['verb']=='peer-receive':
+                    if self.version>=6 and value['verb']=='peer-receive':
                         causes=[op for op in operations if op['ticket']==value['ticket'] and op['verb']=='peer-receive']
                         need(len(causes)==1);self.peer_receipts.effect(self,causes[0],value)
                     else:need(value['verb']=='send' and len(causes)==1);self.send_history(causes[0],value)
         return value
 
     def original(self,reference):return self.frame(self.frames.read(self.frames.expand(reference)))
+
+    def _clock_cuts(self):
+        """All actual WAL cuts, only their source/clock context for Send scope.
+
+        Future effects and Receipt dependencies are not adopted or retired.
+        This projection is internal to an already validated historical prefix.
+        """
+        need(self.historical and self.subgraph_only);self.bound()
+        rows=unpack(self.previous['payload']);need(len(rows)==1)
+        references=rows[0]['records'];need(type(references) is list and len(references)<=128)
+        previous=None
+        for index,reference in enumerate(references,1):
+            need(reference['index']==index)
+            current=self.frames.read(self.frames.expand(reference))
+            self._frame(current,previous,_dependencies=False)
+            yield current
+            previous=current
+        self.bound()
     @staticmethod
     def local(frame):
         value=frame['originals']['view'];source=value['source'];ui=source['ui']
@@ -238,13 +274,61 @@ class IOSChatDraftOwner:
                 need(index<4096)
                 if path.name.startswith('ios-chat-draft-'):need(path in expected)
 
+    def send_prefix(self,state):
+        """Read only the actual completed-Send subgraph, leaving later duties.
+
+        No current metadata is rewritten. Future records remain in inventory;
+        their effects and unresolved responsibilities are outside this reader.
+        """
+        need(self.historical and self.subgraph_only and self.frontier in state['records'])
+        limit=self.frontier['index'];need(type(limit) is int and 1<=limit<=len(state['records']))
+        for index,reference in enumerate(state['records'],1):
+            need(reference['index']==index);self.frames.expand(reference)
+        sends=[op for op in state['operations'] if op['ticket']==self.frontier_ticket and op['verb']=='send']
+        need(len(sends)==1 and same(sends[0]['after'],self.frontier))
+        def included(op):
+            need(type(op) is dict and op['before'] in state['records'])
+            if op['before']['index']>limit:return False
+            if (self.version>=6 and op['verb']=='peer-receive' and same(op['before'],self.frontier)
+                    and (op['after'] is None or op['after']['index']>limit)):
+                # Passive reads deliberately retain an earlier before-cut.
+                # Prove their later placement from actual receive originals;
+                # do not recursively adopt the sender or later read's effect.
+                link=op['peerReceipt'];self.call(op['ticket'],op['verb'],op['inputs'])
+                need(link['ticket']==op['ticket'] and op['ticket']!=self.frontier_ticket)
+                first=self.frame(self.frames.read(self.frames.expand(self.frontier)))['clockJoin']
+                later=self.peer_receipts.receive.original(link['receiveBefore'])['joins'][self.peer_receipts.recipient_role]
+                follow_native(first['nativeAfter'],later['nativeBefore'])
+                need(first['hostAfterEpochMs']<=later['hostBeforeEpochMs']
+                    and first['hostAfterMonotonic']<=later['hostBeforeMonotonic'])
+                return False
+            need(op['after'] is None or op['after'] in state['records'] and op['after']['index']<=limit)
+            return True
+        need(state['pending'] is None or not included(state['pending']))
+        result=dict(records=deepcopy(state['records'][:limit]),baseline=deepcopy(state['baseline']),
+            operations=[deepcopy(op) for op in state['operations'] if included(op)],
+            failures=[deepcopy(op) for op in state['failures'] if included(op)],
+            pending=None,observation=None,interrupted=deepcopy(state['interrupted']))
+        need(result['baseline'] in result['records']);return result
+
     def decode(self,value):
+        if not self.subgraph_only:return chat_archive_round.decode(self,value,lambda:self.decode_body(value))
+        self.frames.expand(self.frontier)
+        stack=_ARCHIVE_FRONTIERS.get();key=(str(self.store.path),self.run,self.frontier_ticket,self.frontier['index'],self.frontier['sha256'])
+        need(len(stack)<128 and key not in stack)
+        token=_ARCHIVE_FRONTIERS.set(stack+(key,))
+        try:return chat_archive_round.decode(self,value,lambda:self.decode_body(value))
+        finally:_ARCHIVE_FRONTIERS.reset(token)
+
+    def decode_body(self,value):
         exact(value,{'iosChatDraftOwnerVersion','runId','binding','artifactRoot','fixtureUrl','payload'});rows=unpack(value['payload'])
         need(type(value['iosChatDraftOwnerVersion']) is int and value['iosChatDraftOwnerVersion']==self.version and len(rows)==1 and same(value,self.envelope(rows[0])))
         state=rows[0];exact(state,set(self.empty()))
         need(type(state['records']) is list and len(state['records'])<=128 and all(type(state[key]) is list and len(state[key])<=32 for key in ('operations','failures','interrupted')))
         need(state['baseline'] is not None or not state['operations'] and not state['failures'] and state['pending'] is None)
-        old=self.state;self.state=state
+        inventory=state
+        if self.subgraph_only:state=self.send_prefix(state)
+        old=self.state;chat_archive_round.set_state(self,state)
         try:
             previous=None
             for index,ref in enumerate(state['records'],1):
@@ -254,8 +338,8 @@ class IOSChatDraftOwner:
                 for ref in state['records']:self.storage(self.original(ref))
             tickets={}
             for op in state['operations']+state['failures']+([] if state['pending'] is None else [state['pending']]):
-                exact(op,{'ticket','verb','inputs','before','intents','queries','after','quiet'}|({'peerReceipt'} if self.version==6 else set()));self.call(op['ticket'],op['verb'],op['inputs'])
-                if self.version==6:
+                exact(op,{'ticket','verb','inputs','before','intents','queries','after','quiet'}|({'peerReceipt'} if self.version>=6 else set()));self.call(op['ticket'],op['verb'],op['inputs'])
+                if self.version>=6:
                     if op['verb']=='peer-receive':
                         fact,*_=self.peer_receipts.read(op['peerReceipt']);need(fact['ticket']==op['ticket'])
                     else:need(op['peerReceipt'] is None)
@@ -279,13 +363,13 @@ class IOSChatDraftOwner:
                         |({'scriptRoots','scriptSources'} if self.source_bound else set())))
                 for query in observation['queries']:self.query(query)
                 if observation['wire'] is not None:self.frames.original(observation['wire'])
-            self.inventory(state)
-        finally:self.state=old
+            self.inventory(inventory)
+        finally:chat_archive_round.set_state(self,old)
         return deepcopy(state)
 
     def call(self,ticket,verb,inputs):
         identifier(ticket);need(verb in ('open','type','close','cleanup') or self.version>=2 and verb in ('send','select-channel')
-            or self.version>=3 and verb in RESTORE_STEPS|{RESTORE_READ} or self.version==6 and verb=='peer-receive')
+            or self.version>=3 and verb in RESTORE_STEPS|{RESTORE_READ} or self.version>=6 and verb=='peer-receive')
         if verb=='cleanup' or verb in RESTORE_STEPS|{RESTORE_READ,'peer-receive'}:need(inputs=={} and type(inputs) is dict)
         elif self.peer_actor and verb=='type':
             exact(inputs,{'text'})
@@ -305,6 +389,7 @@ class IOSChatDraftOwner:
                 and command['commandId'].startswith('ios-'));identifier(command['commandId'][4:])
             if command['action']=='normal-ui-input':need(command['operation']=='observe')
     def query_intent(self,command):
+        chat_archive_round.mutation()
         self.bound();need(not self.historical);self.query(command)
         holder=self.state['observation'] or self.state['pending'];need(holder is not None and len(holder['queries'])<(64 if self.state['observation'] is not None else 128))
         holder['queries'].append(deepcopy(command));self.save()
@@ -318,10 +403,12 @@ class IOSChatDraftOwner:
         need(value['instance']==before['instance'] and value['generation']==before['chatGeneration'] and value['sequence']==before['lastSequence']+index+1)
         self.phase_original(entry['phase'],op['ticket'],op['verb'],op['inputs'])
     def input_intent(self,value):
+        chat_archive_round.mutation()
         self.bound();op=self.state['pending'];need(op is not None)
         status=self.phase.read();entry=dict(input=deepcopy(value),phase=status['status'])
         self.intent_original(op,len(op['intents']),entry);op['intents'].append(entry);self.save()
     def storage_intent(self,event,wire):
+        chat_archive_round.mutation()
         need(not self.historical and event=='original' and self.state['observation'] is not None)
         self.state['observation']['wire']=deepcopy(wire);self.save()
     def recover_observation(self):
@@ -337,6 +424,7 @@ class IOSChatDraftOwner:
 
     @operation
     def capture(self,ticket,verb,inputs):
+        chat_archive_round.mutation()
         self.bound();need(not self.historical);self.call(ticket,verb,inputs);self.recover_observation()
         limit=96 if self.version>=3 and verb not in RESTORE_STEPS|{RESTORE_READ,'cleanup'} else 128
         need(len(self.state['records'])<limit)
@@ -358,7 +446,7 @@ class IOSChatDraftOwner:
         after=self.phase.status(status['status'])
         value=dict(iosChatDraftObservationVersion=self.version,ticket=ticket,verb=verb,inputs=deepcopy(inputs),phaseBefore=status['status'],phaseAfter=after,originals=raw,clockJoin=join,
             queries=deepcopy(self.state['observation']['queries']))
-        if self.version==6:value['peerReceipt']=deepcopy(self.state['pending']['peerReceipt']) if verb=='peer-receive' else None
+        if self.version>=6:value['peerReceipt']=deepcopy(self.state['pending']['peerReceipt']) if verb=='peer-receive' else None
         self.frame(value,None if not self.state['records'] else self.original(self.state['records'][-1]));self.storage(value)
         ref=self.frames.write(len(self.state['records'])+1,value);self.state['records'].append(ref);self.state['observation']=None;self.save();return ref
 
@@ -487,7 +575,7 @@ class IOSChatDraftOwner:
             intents=[entry['input']['sequence'] for item in prior for entry in item['intents']]
             need(entries and intents and before['originals']['uiAfter']['lastSequence']==max(intents))
         self.state['pending']=dict(ticket=ticket,verb=verb,inputs=deepcopy(inputs),before=ref,intents=[],queries=[],after=None,quiet=[])
-        if self.version==6:self.state['pending']['peerReceipt']=None
+        if self.version>=6:self.state['pending']['peerReceipt']=None
         self.save()
         if verb in ('open','cleanup-open','cleanup-rebuild-open'):self.ui.open()
         elif verb=='type':self.ui.type(inputs['text'])
@@ -506,7 +594,7 @@ class IOSChatDraftOwner:
         acquired cut that already contains the incoming effect. All dependency
         originals are checked before the passive query intent is persisted.
         """
-        self.bound();need(self.version==6);self.call(ticket,'peer-receive',{})
+        self.bound();need(self.version>=6 and not self.subgraph_only);self.call(ticket,'peer-receive',{})
         fact,*_=self.peer_receipts.read(link);need(fact['ticket']==ticket)
         if self.historical:need(self.state['pending'] is None and self.state['observation'] is None)
         else:self.recover_observation()
@@ -539,7 +627,7 @@ class IOSChatDraftOwner:
     @operation
     def cleanup(self,ticket):
         """Explicitly cancel an owned pending action without making it passed."""
-        self.bound();need(not self.historical);self.recover_observation()
+        self.bound();need(not self.historical and not self.subgraph_only);self.recover_observation()
         if self.state['pending'] is not None:
             pending=self.state['pending']
             if pending['verb']=='cleanup':need(pending['ticket']==ticket);return self.resolve()
@@ -548,5 +636,9 @@ class IOSChatDraftOwner:
 
     @operation
     def restore_history(self,ticket):
+        need(not self.subgraph_only)
         from ios.adapters.chat_history_cleanup import restore
         return restore(self,ticket)
+
+
+chat_archive_round.register(__name__,globals())

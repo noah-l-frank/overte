@@ -8,6 +8,7 @@ creates no session, configuration entry, capability or public feature dispatch.
 from contextlib import contextmanager
 from types import SimpleNamespace
 import time
+from ios.adapters import chat_archive_round
 from adapters.native_feature_observation import need
 from adapters.native_script_roots import NativeScriptRoots,FILE as ROOTS_FILE,LIMIT as ROOTS_LIMIT
 from adapters.normal_feature_state import PrivateFeatureState
@@ -19,6 +20,24 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSChatDraftRuntime(IOSScriptRuntime):
+    def _chat_receipt_contexts(self,primary_selector,peer_selector,run,client,receive):
+        from ios.adapters.chat_peer_receipts import IOSChatPeerReceipts
+        from ios.adapters.chat_receive_sources import IOSChatReceiveSources
+        need(isinstance(receive,IOSChatReceiveSources) and run==receive.run
+            and receive.primary_lock.path==self.state_path(primary_selector).with_name('script-feature-sources.lock')
+            and receive.lock.path==self.state_path(peer_selector).with_name('script-feature-sources.lock'))
+        receive.bound();fixture_url=PhaseFixtureReader(client,run,'chat').fixture_url;contexts={}
+        for recipient,sender_role,selector in (('primary','peer',peer_selector),('peer','primary',primary_selector)):
+            @contextmanager
+            def sender(ticket,through,role=sender_role,selector=selector):
+                binding=receive.primary_binding if role=='primary' else receive.binding
+                lock=receive.primary_lock if role=='primary' else receive.lock;lock.assert_held()
+                yield IOSChatDraftOwner.archive(PrivateFeatureState(self.state_path(selector).with_name('ios-chat-draft-owner.json')),
+                    receive.bound_record[role+'ArtifactRoot']['path'],binding,run,lock,fixture_url,
+                    source_bound=True,peer_actor=role=='peer',peer_receipts=contexts[role],through=through,ticket=ticket)
+            contexts[recipient]=IOSChatPeerReceipts(receive,sender,recipient_role=recipient,bounded_sender=True)
+        return contexts
+
     def _chat_peer_receipts(self,peer_selector,run,client,receive):
         from ios.adapters.chat_peer_receipts import IOSChatPeerReceipts
         from ios.adapters.chat_receive_sources import IOSChatReceiveSources
@@ -39,8 +58,8 @@ class IOSChatDraftRuntime(IOSScriptRuntime):
         from ios.adapters.chat_send_operation import IOSChatSendOperation
         from ios.adapters.chat_peer_receipts import IOSChatPeerReceipts
         need(type(sender_role) is str and sender_role in ('primary','peer'))
-        need(peer_receipts is None or sender_role=='primary' and isinstance(peer_receipts,IOSChatPeerReceipts)
-            and peer_receipts.receive is receive)
+        need(peer_receipts is None or isinstance(peer_receipts,IOSChatPeerReceipts)
+            and peer_receipts.receive is receive and peer_receipts.recipient_role==sender_role)
         need(isinstance(receive,IOSChatReceiveSources) and run==receive.run
             and str(Path(root))==receive.bound_record[sender_role+'ArtifactRoot']['path'])
         lock=receive.primary_lock if sender_role=='primary' else receive.lock
@@ -59,7 +78,8 @@ class IOSChatDraftRuntime(IOSScriptRuntime):
     def draft_owner(self,selector,run,root,client,*,source_bound=False,lock=None,peer_actor=False,peer_receipts=None):
         from ios.adapters.chat_peer_receipts import IOSChatPeerReceipts
         need(type(source_bound) is bool and type(peer_actor) is bool and (not peer_actor or source_bound)
-            and (peer_receipts is None or isinstance(peer_receipts,IOSChatPeerReceipts) and source_bound and not peer_actor))
+            and (peer_receipts is None or isinstance(peer_receipts,IOSChatPeerReceipts) and source_bound
+                and peer_receipts.recipient_role==('peer' if peer_actor else 'primary')))
         path=self.state_path(selector).with_name('script-feature-sources.lock')
         if lock is None:lock=ScriptSourceLock(path)
         else:need(isinstance(lock,ScriptSourceLock) and lock.path==path);lock.assert_held()
@@ -101,3 +121,6 @@ class IOSChatDraftRuntime(IOSScriptRuntime):
                     else:normal.observe_intent=observe_intent
             except BaseException as original:failure=original
         if failure is not None:raise failure
+
+
+chat_archive_round.register(__name__,globals())

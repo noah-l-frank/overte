@@ -6,6 +6,7 @@ cleanup result or whole Chat capability. It sends no input or passive query.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from ios.adapters import chat_archive_round
 from adapters.native_feature_observation import need
 from adapters.script_feature.history import same
 from feature_journeys.contract import identifier
@@ -27,8 +28,8 @@ def original_sent(draft,receive,ticket,before,after,*,sender_role='primary'):
         and isinstance(draft,IOSChatDraftOwner) and isinstance(receive,IOSChatReceiveSources))
     sender_binding=receive.primary_binding if sender_role=='primary' else receive.binding
     sender_lock=receive.primary_lock if sender_role=='primary' else receive.lock
-    need(draft.source_bound and (draft.version==5 if sender_role=='peer' else draft.version in (4,6)) and identifier(ticket)==ticket)
-    if draft.version==6:need(draft.peer_receipts.receive is receive)
+    need(draft.source_bound and (draft.version in (5,7) if sender_role=='peer' else draft.version in (4,6)) and identifier(ticket)==ticket)
+    if draft.version>=6:need(draft.peer_receipts.matches(receive))
     draft.bound();receive.bound()
     need(draft.previous is not None and receive.previous is not None
         and same(draft.decode(draft.previous),draft.state)
@@ -57,8 +58,9 @@ def original_sent(draft,receive,ticket,before,after,*,sender_role='primary'):
     need(same(lifecycle,right['joins'][sender_role]['nativeAfter']['lifecycle']))
     # Every draft cut inside the outer window belongs to this Send. A second
     # normal action cannot be hidden by selecting only the desired after-cut.
-    for reference in draft.state['records']:
-        frame=draft.original(reference);join=frame['clockJoin']
+    cuts=(draft._clock_cuts() if draft.subgraph_only else (draft.original(reference) for reference in draft.state['records']))
+    for frame in cuts:
+        join=frame['clockJoin']
         overlaps=(join['hostAfterEpochMs']>=a['hostAfterEpochMs']
             and join['hostBeforeEpochMs']<=d['hostBeforeEpochMs'])
         if overlaps:need(frame['ticket']==ticket and frame['verb']=='send')
@@ -92,7 +94,10 @@ def original_sent(draft,receive,ticket,before,after,*,sender_role='primary'):
             and same(lifecycle,frame['joins'][sender_role]['nativeAfter']['lifecycle']))
     draft.bound();receive.bound()
     profile=(dict(iosChatSendReceiveDerivedVersion=2 if draft.version==6 else VERSION,primaryBinding=deepcopy(draft.binding))
-        if sender_role=='primary' else dict(iosChatPeerSendReceiveDerivedVersion=VERSION,peerBinding=deepcopy(draft.binding)))
+        if sender_role=='primary' else dict(iosChatPeerSendReceiveDerivedVersion=2 if draft.version==7 else VERSION,peerBinding=deepcopy(draft.binding)))
     return dict(profile,runId=draft.run,ticket=ticket,peerBindingRecord=deepcopy(receive.bound_record),
         receiveBefore=deepcopy(before),receiveAfter=deepcopy(after),
         sendBefore=deepcopy(send['before']),sendAfter=deepcopy(send['after']),events=events)
+
+
+chat_archive_round.register(__name__,globals())

@@ -7,6 +7,7 @@ Native packets keep their own clocks. Storage recovery never becomes freshness.
 # SPDX-License-Identifier: Apache-2.0
 from contextlib import contextmanager
 from copy import deepcopy
+from ios.adapters import chat_archive_round
 import time
 from pathlib import Path
 from adapters.native_chat_observation import command as chat_command,validate as chat_packet
@@ -79,6 +80,7 @@ class IOSChatReceiveSources:
             self.bound_record['primaryArtifactRoot']['path'],self.root)
         return True
     def save(self):
+        chat_archive_round.mutation()
         need(not self.historical);self.bound();value=self.envelope(self.state)
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
     def query(self,value):
@@ -92,6 +94,7 @@ class IOSChatReceiveSources:
                 and command['action']=='feature-native-observe' and type(command['commandId']) is str
                 and command['commandId'].startswith('ios-'));identifier(command['commandId'][4:])
     def query_intent(self,role,command):
+        chat_archive_round.mutation()
         self.bound();pending=self.state['pending'];need(not self.historical and pending is not None and len(pending['queries'])<64)
         value=dict(role=role,command=deepcopy(command));self.query(value)
         need(not any(row['role']==role and row['command']['commandId']==command['commandId'] for row in pending['queries']))
@@ -172,6 +175,7 @@ class IOSChatReceiveSources:
             if previous is not None:result[role]=previous
         return result
     def storage_intent(self,event,wire):
+        chat_archive_round.mutation()
         need(not self.historical and event=='original' and self.state['pending'] is not None)
         self.frames.original(wire);need(wire['index']==len(self.state['records'])+1)
         old=self.state['pending']['wire']
@@ -236,6 +240,8 @@ class IOSChatReceiveSources:
                 need(index<4096)
                 if path.name.startswith('ios-chat-receive-'):need(path in expected)
     def decode(self,value):
+        return chat_archive_round.decode(self,value,lambda:self.decode_body(value))
+    def decode_body(self,value):
         exact(value,{'iosChatReceiveSourcesVersion','binding','primaryBinding','runId','artifactRoot','peerBindingRecord','payload'})
         rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])))
         state=rows[0];exact(state,set(self.empty()));need(type(state['records']) is list and len(state['records'])<=128
@@ -265,6 +271,7 @@ class IOSChatReceiveSources:
         self.state['pending']=None;self.save()
     @operation
     def capture(self):
+        chat_archive_round.mutation()
         self.bound();need(not self.historical);self.recover();need(len(self.state['records'])<128)
         owned=self.parts['primary_capture'].owner.owned()
         need(owned is not None and owned['runId']==self.run and owned['active'] and owned['admitted'])
@@ -286,3 +293,6 @@ class IOSChatReceiveSources:
             and number(mono,joins['peer']['hostAfterMonotonic'],first['hostBeforeMonotonic']+1.5)
             and now-first['hostBeforeEpochMs']<1500 and mono-first['hostBeforeMonotonic']<1.5)
         return deepcopy(reference)
+
+
+chat_archive_round.register(__name__,globals())

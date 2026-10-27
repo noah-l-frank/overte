@@ -473,3 +473,36 @@ contract-version validation, 860 Markdown files and whitespace checks. The share
 source boundary includes unqualified Snapshot causal-dispatch WIP; those checks
 do not qualify its scenario or native behavior. The retained common log is
 `.ios-host-tmp/chat-peer-receipts6-tablet-peer-common-checks.log`.
+
+## Symmetric incoming history and bounded original Send scope
+
+The peer now has an explicit source-bound7 incoming-history profile. The same
+independently admitted pair supplies primary6 and peer7 receipts with compact
+receipt-link2 and an explicit recipient role. Peer7's ordinary reply writes
+peer-derived2; literal peer5/derived1 and the earlier primary profiles remain
+separate. Owner/observation readers1–7 and derived/link readers1/2 are registered.
+
+Each cross-owner receipt reopens only the actual completed sender's bounded
+Send subgraph, retaining the complete current WAL and inventory as separate
+responsibilities. A prefix cannot receive, restore history or clean up later
+work. Native/host placement distinguishes a later passive read that reuses an
+earlier before-cut; active frontier cycles remain unavailable. The Send window
+also needs all later actual WAL cuts' strict source/clock context, without
+recursively adopting their receipt dependencies or future outcomes.
+
+Before the narrower storage/scope reviews, the unchanged complete host
+composition passed1/158.072s: primary normal
+Send, actual peer history, peer normal reply, actual primary history and both
+pure original archives. Its20s operation,1.5s acquisition and outer180 limits
+remain unchanged. Earlier timeout180 and final-budget ERROR173.675 remain
+retained. Exact source snapshot, narrow synchronous proof reuse, new memo
+storage bounds, full-WAL clock-scope review and remaining qualification are
+recorded in [the archive round handoff](CHAT_ARCHIVE_ROUND.md).
+
+This adds no whole Chat capability. Source/loaded QML callback identity,
+distant Local filtering, mixer outage/no-replay, settings/resource/process and
+SDK retirement remain separate; native and physical-device behavior remains
+unqualified. The post-pass memo-cap and future-clock projections now pass17
+focused cases/14.522s plus the same immutable33-file original replay, followed
+by13 earlier primary6/peer5/primary4/runtime/prefix cases in59.174s. See the
+linked handoff for exact source and retained-failure boundaries.
