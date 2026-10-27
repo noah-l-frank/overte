@@ -268,6 +268,39 @@ overlap and must not be added or compared with uninstrumented API timings.
 Raw profile/report:
 `.ios-host-tmp/world-web-cold-source-next-profile-20261027/`.
 
+## Independent paired frame copies
+
+Only a default WorldWebSources cold cache miss with public frame copying can
+combine its two adjacent copies. The [pure pair copier](world_web_json_pair.py)
+scans exact builtin JSON data, serializes its own memory once and loads two
+independent mutable graphs. The dumps and loads APIs explicitly forbid code.
+Values, types, Unicode, float bits and mutable aliases/cycles remain intact;
+immutable Python object identities are not a frame/native binding contract.
+
+The default owner, cache descriptor/identity, builtin keys and absent entry
+are checked after actual validation and again before insertion. Helper/code/
+default or copier changes, unsupported values, resource budgets and codec or
+audit-policy errors keep the original caller's two separate deepcopy lookups
+and cache assignment between them. The helper never performs fallback copies.
+Warm-cache and single-copy paths remain literal. Initial carriers, state,
+PUBLICprevious and all original reads, clocks and deadlines stay unchanged.
+
+The exact current selection passes **31 cases in18.037 s**:21 pair/callback/
+ownership cases plus4 Source and6 construction regressions. Its two-frame case
+mutates only the actual public predecessor after the genuine validator and
+retains independent cache/public frames and unchanged stored headers. All5607
+source/launcher byte/stat/SHA pins agree;423 original files remain retained.
+
+The same actual66-Source/21-input readonly component passes its unchanged real
+API25 boundary, including teardown, in **23.363 s**. All252 original files and
+complete directory membership, plus5608 full source/launcher pins, are unchanged.
+Logs: `.ios-host-tmp/world-web-json-pair-source-proposal-20261028/small31-first.log`
+and `.ios-host-tmp/world-web-json-pair-api25-20261028/component-first.log`.
+This is one current component result, not an isolated speed comparison.
+SDK preflight, Scope/Observer/PNG/Actor and full terminal construction remain
+unqualified here. The whole capability stays closed; native code is uncompiled
+and devices are untested.
+
 ## Earlier verification packets
 
 The newer paired census/end replay reached its 600-second diagnostic limit;

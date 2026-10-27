@@ -7,6 +7,7 @@ originals; recovery starts a distinct read and never replays an input.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from ios.adapters.world_web_json_pair import clone_pair
 from contextlib import contextmanager
 import time
 import os
@@ -37,6 +38,10 @@ from ios.adapters import world_web_keys as keys,pointer_state as pointer,create_
 
 from ios.adapters import world_web_surfaces as surfaces,web_closures as closures
 from ios.adapters.world_web_construction import begin as begin_construction
+
+_JSON_PAIR=clone_pair
+_JSON_PAIR_CODE=clone_pair.__code__
+_JSON_PAIR_DEFAULTS=clone_pair.__defaults__
 
 NAMES=LEGACY_NAMES|{'surfaces','closures'}
 VERSION=5
@@ -198,12 +203,32 @@ class WorldWebSources:
             key=(index,reference['sha256'],None if not frames else state['records'][index-2]['sha256'],digest(abandoned))
             items=unpack(record['payload']);need(len(items)==1 and items[0]['index']==index)
             frame=deepcopy(items[0]);need(all(reference['acquisitionId']==frame['clockJoin']['nativeBefore']['requestId'] for reference in frame['originals'].values()))
-            if key not in self._cache:
+            cache_at_entry=self._cache
+            if key not in cache_at_entry:
                 frame['originals']=self.expand_originals(frame['originals'])
                 self.validate_frame(frame,None if not frames else frames[-1])
                 for item in abandoned:
                     floor=clock_queries(item['nativeQueries'],self.pid)
                     if floor is not None:follow_native(floor,frame['clockJoin']['nativeBefore'])
+                # Only the ordinary MISS/public path has two adjacent copies.
+                # The pure helper performs neither literal fallback nor cache
+                # writes; preserve the old caller sequence on every unknown.
+                if copy_frames is True:
+                    clone=clone_pair;ready=_pair_cache_ready;copier=deepcopy
+                    if (clone is _JSON_PAIR and clone.__code__ is _JSON_PAIR_CODE
+                        and clone.__defaults__ is _JSON_PAIR_DEFAULTS and clone.__kwdefaults__ is None
+                        and clone_pair is clone and ready is _PAIR_CACHE_READY
+                        and ready.__code__ is _PAIR_CACHE_CODE and ready.__defaults__ is _PAIR_CACHE_DEFAULTS
+                        and ready.__kwdefaults__ is None):
+                        cache=ready(self,key,cache_at_entry)
+                        if cache is not None:
+                            pair=clone(frame,copier)
+                            if (pair is not None and deepcopy is copier and clone_pair is clone
+                                and clone.__code__ is _JSON_PAIR_CODE and clone.__defaults__ is _JSON_PAIR_DEFAULTS
+                                and clone.__kwdefaults__ is None and _pair_cache_ready is ready
+                                and ready.__code__ is _PAIR_CACHE_CODE and ready.__defaults__ is _PAIR_CACHE_DEFAULTS
+                                and ready.__kwdefaults__ is None and ready(self,key,cache_at_entry) is cache):
+                                cache[key]=pair[0];frames.append(pair[1]);continue
                 self._cache[key]=deepcopy(frame)
             else:
                 # The actual carrier hash fixes every field/reference. Reopen
@@ -725,6 +750,35 @@ class WorldWebSources:
             value=derive(original,ownership=deepcopy(ownership),directory=directory,entity=entity,origins=deepcopy(origins))
             self.guard_originals();return deepcopy(value)
 
+
+
+
+def _pair_cache_ready(owner,key,entry,_literal=(WorldWebSources,object.__getattribute__,
+        WorldWebSources.__dict__['__dict__'],WorldWebSources.__bases__,type,len,dict,tuple,int,str,MAX_FRAMES)):
+    owner_type,getattribute,descriptor,bases,kind,length,dict_type,tuple_type,int_type,text_type,max_frames=_literal
+    if (kind(owner) is not owner_type or WorldWebSources is not owner_type
+        or owner_type.__getattribute__ is not getattribute or owner_type.__bases__ is not bases
+        or owner_type.__dict__.get('__dict__') is not descriptor or '_cache' in owner_type.__dict__
+        or MAX_FRAMES is not max_frames):return None
+    attributes=descriptor.__get__(owner,owner_type);cache=attributes.get('_cache')
+    if kind(cache) is not dict_type or cache is not entry or length(cache)>max_frames:return None
+    def builtin_key(value):
+        return (kind(value) is tuple_type and length(value)==4
+            and kind(value[0]) is int_type and 1<=value[0]<=max_frames
+            and kind(value[1]) is text_type and length(value[1])==64
+            and (value[2] is None or kind(value[2]) is text_type and length(value[2])==64)
+            and kind(value[3]) is text_type and length(value[3])==64)
+    if not builtin_key(key):return None
+    # Validate all stored key types BEFORE membership can call equality on a
+    # foreign collision key. Exact tuple/int/str keys have no user callbacks.
+    for stored in cache:
+        if not builtin_key(stored):return None
+    return cache if key not in cache else None
+
+
+_PAIR_CACHE_READY=_pair_cache_ready
+_PAIR_CACHE_CODE=_pair_cache_ready.__code__
+_PAIR_CACHE_DEFAULTS=_pair_cache_ready.__defaults__
 
 # A replaced or modified decoder retains the literal subsequent read round.
 _CONSTRUCTION_DECODERS=tuple((method,method.__code__) for method in
