@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 from pathlib import Path
-import json,subprocess,unittest
+import json,re,shutil,subprocess,tempfile,unittest
 from unittest.mock import patch
 from adapters.normal_ui import NativeUIError
 from ios.adapters import assets_image_reader_processing as source,assets_image_processing_lifecycle as lifecycle
@@ -148,3 +148,37 @@ if(files.at(-1).v.status!=='unavailable'||files.at(-1).v.source)throw Error('mis
         self.assertIn('output.setDirectWriteFallback(false)',private)
         self.assertIn('output.setPermissions(QFile::ReadOwner | QFile::WriteOwner)',private)
         self.assertIn('output.write(jsonData) == jsonData.size()',private)
+
+    def test_actual_image_target_definition_over_all_eight_option_combinations_without_configure(self):
+        # cmake -P interprets the actual target file with inert helpers and
+        # fatal build/compiler/package/filesystem-mutator commands. No target
+        # is created; this is neither CMake configuration nor native execution.
+        cmake=shutil.which('cmake')
+        if cmake is None:self.skipTest('CMake script interpreter unavailable; no dependency installed')
+        root=Path(__file__).resolve().parents[4]
+        image=root/'libraries/image/CMakeLists.txt'
+        script=Path(__file__).with_name('assets_image_processing_image_build_metadata.cmake')
+        # This is a closed execution constraint for the reviewed flat input,
+        # not a generic CMake parser or an arbitrary-source sandbox. Inert or
+        # fatal stubs must be reviewed before accepting another command name.
+        admitted={'set','if','endif','setup_hifi_library','link_hifi_libraries',
+            'target_nvtt','target_tbb','target_etc2comp','target_openexr',
+            'target_compile_definitions','find_package','target_link_libraries','add_compile_definitions'}
+        source=image.read_text()
+        commands=re.findall(r'(?<![A-Za-z_0-9])([A-Za-z_][A-Za-z_0-9]*)\s*\(',source)
+        self.assertTrue(commands)
+        self.assertTrue(all(name.lower() in admitted for name in commands),commands)
+        before=(image.read_bytes(),script.read_bytes())
+        directory=Path(tempfile.mkdtemp(prefix='assets-image-processing-image-metadata-'));directory.chmod(0o700)
+        print('retained metadata root',directory,flush=True)
+        result=subprocess.run([cmake,'-DOVERTE_METADATA_IMAGE_CMAKE:FILEPATH='+str(image),'-P',str(script)],
+            cwd=directory,capture_output=True,text=True,timeout=15)
+        print(result.stdout,end='',flush=True)
+        self.assertEqual(0,result.returncode,result.stdout+result.stderr)
+        cases=re.findall(r'OVERTE_IMAGE_METADATA_CASE=(OFF|ON),(OFF|ON),(OFF|ON),([01])',result.stdout)
+        self.assertEqual(8,len(cases));self.assertEqual(8,len(set(cases)))
+        self.assertEqual({(a,b,c,'1' if a==b==c=='ON' else '0')
+            for a in ('OFF','ON') for b in ('OFF','ON') for c in ('OFF','ON')},set(cases))
+        self.assertIn('OVERTE_IMAGE_METADATA_CASES=8;NO_CONFIGURE_OR_COMPILER',result.stdout)
+        self.assertEqual(before,(image.read_bytes(),script.read_bytes()))
+        self.assertEqual([],list(directory.iterdir()))

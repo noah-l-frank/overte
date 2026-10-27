@@ -116,3 +116,35 @@ eight files remain retained. This checks the native source contract and existing
 modeled transport logic, not Qt execution. Matching-SDK native serialization,
 QSaveFile/symlink/permission behavior, compilation and installed execution remain
 UNRUN. No earlier connected result transfers to this changed native source.
+
+
+The image library's translation units also require the dedicated iOS test-build
+macro. Target-private definitions on material-networking, qml or interface do
+not define it while compiling image. Its CMake target now requests
+OVERTE_IOS_E2E_TEST_BUILD=1 privately only when IOS, OVERTE_E2E_FEATURE_TESTS and
+OVERTE_IOS_E2E_TEST_BUILD are all enabled. This wires the existing processing
+implementation and TextureProcessing hooks into that diagnostic target without
+changing global build options, safeguards or CI.
+
+The new metadata check uses only `cmake -P` script mode to evaluate
+the actual image target file over all eight Boolean option combinations. Its
+ordinary project/package helpers are inert functions; target-definition calls
+are captured instead of creating a target. Compiler, configuration, package,
+external-process, target-creation and file-mutating commands are fatal stubs.
+Only the all-enabled case may request the image-private diagnostic definition.
+The Python caller admits the reviewed flat input's command set and preserves
+its source bytes; this is not an arbitrary-source execution sandbox.
+
+The single metadata case passes in 0.043 seconds, with all eight distinct
+actual interpreter results retained. Seven combinations capture no definition;
+only all three enabled options capture one image-private definition. The inert
+setup hook also establishes target readiness before any captured definition.
+All 5591 complete source/launcher/own-hunk pins remain byte/stat/SHA-identical.
+The retained private script working directory remains empty: no cache, generated
+build files or targets were created. The previous seventeen source/model cases
+were not rerun because their implementation did not change.
+
+No CMake configure/generate step, compiler, linker, Qt execution, iOS build or
+installed-client check has run. Earlier host results retain their recorded
+source scope and do not establish native symbol or SDK compatibility. This is
+an actual CMake-script metadata result, not native compilation qualification.

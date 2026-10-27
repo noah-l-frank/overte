@@ -1,5 +1,9 @@
 set(TARGET_NAME image)
 setup_hifi_library()
+
+if (IOS AND OVERTE_E2E_FEATURE_TESTS AND OVERTE_IOS_E2E_TEST_BUILD)
+    target_compile_definitions(${TARGET_NAME} PRIVATE OVERTE_IOS_E2E_TEST_BUILD=1)
+endif()
 link_hifi_libraries(shared gpu)
 target_nvtt()
 target_tbb()
