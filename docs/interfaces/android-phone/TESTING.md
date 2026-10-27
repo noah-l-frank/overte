@@ -17,6 +17,12 @@ cd android/phone
 The host gate uses source, unit, contract, JavaScript, Java, and mock-ADB checks.
 It does not prove an APK build or physical runtime behavior.
 
+The Phone package-binding fixture requires Clang with AArch64 target support.
+It prefers the configured Android NDK and otherwise uses `clang` on `PATH`
+(`clang` on Ubuntu). It compiles real host and Android-target archive fixtures
+without Android headers or linking, including when the host contract has no SDK
+in its private home directory. Missing compiler support fails the fixture.
+
 The repository quick profile also runs the Phone default microphone selection
 and editor focus teardown contracts registered in
 [`tests/platform-profile.json`](../../../tests/platform-profile.json).

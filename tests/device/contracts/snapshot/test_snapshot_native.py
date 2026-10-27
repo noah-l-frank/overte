@@ -6,6 +6,7 @@ Qt image codecs, encoder, capture atomics and production callback bodies are rea
 No Apple/Android SDK compilation or device evidence is inferred from this test.
 """
 from pathlib import Path
+import argparse
 import hashlib
 import os
 import shlex
@@ -16,6 +17,10 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[4]
 HERE = Path(__file__).resolve().parent
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--formats-only', action='store_true',
+                    help='Run the real Qt encoder/format-preference contract only')
+options = parser.parse_args()
 
 def block(source, marker):
     start = source.index(marker)
@@ -37,6 +42,36 @@ tools = Path(subprocess.check_output(['pkg-config','--variable=' +
 if not (tools/'moc').is_file() and os.environ.get('PKG_CONFIG_SYSROOT_DIR'):
     tools = Path(os.environ['PKG_CONFIG_SYSROOT_DIR']) / str(tools).lstrip('/')
 moc = tools/'moc'
+source = (ROOT / 'interface/src/ui/Snapshot.cpp').read_text()
+baseline = os.environ.get('OVERTE_SNAPSHOT_FORMATS_BASELINE')
+if baseline:
+    if not options.formats_only:
+        parser.error('OVERTE_SNAPSHOT_FORMATS_BASELINE requires --formats-only')
+    source = subprocess.check_output(['git','-C',str(ROOT),'show',
+        baseline+':interface/src/ui/Snapshot.cpp'],text=True)
+with tempfile.TemporaryDirectory(prefix='overte-snapshot-formats-') as temporary:
+    stage = Path(temporary)
+    (stage/'production-formats.inc').write_text(''.join(block(source, marker) for marker in (
+        'QString Snapshot::getSnapshotFormat(', 'void Snapshot::setSnapshotFormat(',
+        'QStringList Snapshot::getAvailableSnapshotFormats(',
+        'QStringList Snapshot::getAvailableSnapshotFormatsWithDescriptions(')))
+    binary = stage/'formats'
+    format_flags = flags
+    if qt == 'Qt5' and os.environ.get('PKG_CONFIG_SYSROOT_DIR'):
+        library = stage/'qt-link'; library.mkdir()
+        sdk = Path(os.environ['PKG_CONFIG_SYSROOT_DIR'])/'usr/lib64'
+        for name in ('Core','Gui','Concurrent','Network'):
+            (library/('libQt5'+name+'.so')).symlink_to(sdk/('libQt5'+name+'.so.5'))
+        format_flags = ['-L'+str(library),*flags]
+    subprocess.run(['c++','-std=c++17','-Wall','-Wextra','-Werror','-fPIC',
+        '-I'+str(stage),str(HERE/'snapshot-formats-test.cpp'),'-o',str(binary),*format_flags],
+        check=True,timeout=30)
+    for isolated in (True, False):
+        subprocess.run([str(binary),*(['--no-plugins'] if isolated else [])],
+            check=True,timeout=15,env=os.environ|{'QT_QPA_PLATFORM':'offscreen'})
+print('Snapshot actual encoder/preference contract: both plugin environments passed ('+qt+').', flush=True)
+if options.formats_only:
+    raise SystemExit(0)
 with zipfile.ZipFile(HERE / 'fixtures/GifCreator.zip') as archive:
     fixture_header = archive.read('GifCreator.h')
 assert hashlib.sha256(fixture_header).hexdigest() == '275e4fd71a1d3bdc80279aee59d6abf530d628ea77aec01a2cd155220be2c8be'
@@ -59,7 +94,6 @@ with tempfile.TemporaryDirectory(prefix='overte-snapshot-native-') as temporary:
     (stage / 'scripting/WindowScriptingInterface.h').write_text('#include "services.h"\n')
     shutil.copy2(HERE / 'snapshot-native-test.cpp', stage / 'snapshot-native-test.cpp')
     shutil.copy2(HERE / 'services.h', stage / 'services.h')
-    source = (ROOT / 'interface/src/ui/Snapshot.cpp').read_text()
     glm_flags = ['-isystem',os.environ['OVERTE_TEST_GLM_INCLUDE']] if os.environ.get('OVERTE_TEST_GLM_INCLUDE') else []
     dimension = source[source.index('static const float CUBEMAP_SIDE_PIXEL_DIMENSION'):source.index('void Snapshot::save360Snapshot(')]
     (stage / 'production-360-constants.inc').write_text(dimension)
@@ -72,7 +106,9 @@ with tempfile.TemporaryDirectory(prefix='overte-snapshot-native-') as temporary:
         'void Snapshot::takeNextSnapshot()', 'void Snapshot::restoreSecondaryCamera()',
         'void Snapshot::complete360(', 'void Snapshot::uploadSnapshot(',
         'void Snapshot::cancelUpload(', 'void Snapshot::cancelUploads(',
-        'QUrl Snapshot::snapshotFileUrl(')))
+        'QUrl Snapshot::snapshotFileUrl(', 'QString Snapshot::getSnapshotFormat(',
+        'void Snapshot::setSnapshotFormat(', 'QStringList Snapshot::getAvailableSnapshotFormats(',
+        'QStringList Snapshot::getAvailableSnapshotFormatsWithDescriptions(')))
     window=(ROOT/'interface/src/scripting/WindowScriptingInterface.cpp').read_text()
     (stage/'production-window.inc').write_text(''.join(block(window,marker) for marker in (
         'void WindowScriptingInterface::takeSnapshot(', 'void WindowScriptingInterface::takeSecondaryCamera360Snapshot(')))

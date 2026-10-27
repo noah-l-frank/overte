@@ -5,12 +5,22 @@ readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly android_root="$(cd -- "$script_dir/../.." && pwd)"
 readonly fixture="$(mktemp -d "${TMPDIR:-/tmp}/overte-phone-prepare.XXXXXXXX")"
 trap 'rm -rf -- "$fixture"' EXIT INT TERM
-android_clang="$(find "${ANDROID_SDK_ROOT:-${ANDROID_HOME:-${HOME}/Android/Sdk}}/ndk" \
-    -path '*/toolchains/llvm/prebuilt/linux-x86_64/bin/clang' -print 2>/dev/null \
-    | sort -V | tail -1)"
+readonly ndk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-${HOME}/Android/Sdk}}/ndk"
+android_clang=""
+if [[ -d "$ndk_root" ]]; then
+    android_clang="$(find "$ndk_root" \
+        -path '*/toolchains/llvm/prebuilt/linux-x86_64/bin/clang' -print 2>/dev/null \
+        | sort -V | tail -1)"
+fi
+if [[ ! -x "$android_clang" ]]; then
+    # These freestanding fixtures need real AArch64 objects but no Android
+    # headers or linking. System Clang can emit the same Android target when
+    # the isolated host contract has no SDK in its private home directory.
+    android_clang="$(command -v clang || true)"
+fi
 [[ -x "$android_clang" ]] || {
-    printf 'SKIP: Android NDK clang is unavailable\n'
-    exit 0
+    printf 'ERROR: An Android NDK or Clang with AArch64 target support is required.\n' >&2
+    exit 1
 }
 
 sed \

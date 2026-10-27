@@ -7,6 +7,7 @@
 #include <QTemporaryDir>
 #include <QFile>
 #include <QImageReader>
+#include <QImageWriter>
 #include <QElapsedTimer>
 #include <QPainter>
 #include <QFutureWatcher>

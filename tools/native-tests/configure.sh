@@ -17,7 +17,18 @@ if [[ "$mode" == core ]]; then
   cmake "${common[@]}" -DOVERTE_BUILD_CLIENT=OFF -DOVERTE_BUILD_SERVER=OFF -DOVERTE_BUILD_TOOLS=OFF \
     -DOVERTE_TEST_GROUPS=shared -DOVERTE_USE_SYSTEM_LIBS=ON
 else
-  groups="$(python3 -c 'import json; print(";".join(sorted({name.rsplit("-", 1)[0] for name in json.load(open(".github/native-tests.json"))["tests"]})))')"
+  # Use the same source-presence rule as selection, including descendant tests.
+  groups="$(python3 -I -S -B - "$(dirname "${BASH_SOURCE[0]}")/select.py" <<'PYTHON'
+import json
+from pathlib import Path
+import runpy
+import sys
+select = runpy.run_path(sys.argv[1])
+policy = json.loads(Path(".github/native-tests.json").read_text())
+names = select["configured_test_names"](policy, Path.cwd(), "full")
+print(";".join(sorted({name.rsplit("-", 1)[0] for name in names})))
+PYTHON
+)"
   cmake "${common[@]}" -DOVERTE_BUILD_CLIENT=ON -DOVERTE_BUILD_SERVER=ON -DOVERTE_BUILD_TOOLS=ON \
     -DOVERTE_USE_SYSTEM_LIBS=OFF "-DOVERTE_TEST_GROUPS=$groups" \
     -DCMAKE_TOOLCHAIN_FILE=generators/conan_toolchain.cmake

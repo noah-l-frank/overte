@@ -66,6 +66,9 @@ printf 'Signer #1 certificate SHA-256 digest: %064d\n' 0
 
     def run_verifier(self, env=None, *extra):
         variables = os.environ.copy()
+        # Fake APK gates own their scratch so host contracts leave the source
+        # checkout clean for the subsequent authenticated native consumer.
+        variables["PHONE_APK_VERIFY_TMPDIR"] = str(self.directory / "verification-tmp")
         variables.update(env or {})
         return subprocess.run([
             str(VERIFIER), str(self.apk), "--package-gate", str(self.gate),
@@ -75,7 +78,10 @@ printf 'Signer #1 certificate SHA-256 digest: %064d\n' 0
 
     def test_emits_complete_verified_manifest(self):
         revision = "a" * 40
-        result = self.run_verifier(None, "--expect-debuggable", "1", "--source-revision", revision)
+        result = self.run_verifier(
+            {"MOCK_EXPECT_TMPDIR": str(self.directory / "verification-tmp")},
+            "--expect-debuggable", "1", "--source-revision", revision,
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         manifest = json.loads(result.stdout)
         self.assertEqual(manifest["package"], "io.github.noah_be.overte.phone")

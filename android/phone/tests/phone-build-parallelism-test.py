@@ -3,6 +3,7 @@
 
 from pathlib import Path
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -58,6 +59,25 @@ class PhoneBuildParallelismTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('exact graph and isolated cache checks passed', result.stdout)
+
+    def test_phone_dependency_lookup_runs_with_clang_without_an_sdk_directory(self):
+        compiler = shutil.which('clang')
+        if compiler is None:
+            sdk = Path(os.environ.get('ANDROID_SDK_ROOT') or os.environ.get('ANDROID_HOME')
+                       or Path.home() / 'Android/Sdk')
+            compiler = next(sdk.glob('ndk/*/toolchains/llvm/prebuilt/linux-x86_64/bin/clang'), None)
+        self.assertIsNotNone(compiler, 'The architecture fixture requires an NDK or Clang compiler')
+        with tempfile.TemporaryDirectory() as directory:
+            variables = os.environ.copy()
+            variables['PATH'] = str(Path(compiler).parent) + os.pathsep + variables['PATH']
+            variables['ANDROID_SDK_ROOT'] = str(Path(directory) / 'missing-sdk')
+            result = subprocess.run(
+                ['bash', str(ROOT / 'android/phone/tests/phone-prepare-architecture-test.sh')],
+                text=True, capture_output=True, env=variables, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('exact graph and isolated cache checks passed', result.stdout)
+            self.assertNotIn('SKIP:', result.stdout)
 
     def test_invalid_phone_limit_fails_before_building(self):
         variables = os.environ.copy()

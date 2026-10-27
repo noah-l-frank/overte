@@ -37,6 +37,13 @@ class DockerCommandTests(unittest.TestCase):
         # owned home instead of depending on the workstation's NSS lookup.
         self.clean_env = patch.dict(os.environ, {"HOME": str(self.root)}, clear=True)
         self.clean_env.start(); self.addCleanup(self.clean_env.stop)
+        # Command assembly uses explicit public tool facts, including during a
+        # controller rollout inside an older boundary with no awk alternative.
+        # The real resolver is tested separately against controlled paths.
+        self.resolve_public_aliases = R._public_tool_aliases
+        self.alias_fixture = ["--symlink", "/usr/bin/prepared-awk", "/etc/alternatives/awk"]
+        self.aliases = patch.object(R, "_public_tool_aliases", return_value=self.alias_fixture)
+        self.aliases.start(); self.addCleanup(self.aliases.stop)
 
     def command(self, command=None, **kwargs):
         return R.docker_command(self.candidate, command or ["python3", "tests/one.py"], **kwargs)
@@ -105,6 +112,7 @@ class DockerCommandTests(unittest.TestCase):
         self.assertNotIn("--dev-bind", argv)
         self.assertNotIn("--cap-add", argv)
         self.assertNotIn("--unshare-user-try", argv)
+        self.assertIn(self.alias_fixture, [argv[i:i + 3] for i in range(len(argv) - 2)])
         self.assertGreater(argv.index("--nproc=512:512"), argv.index(R.BWRAP))
         self.assertIn("--as=" + str(128 * 1024 ** 3), argv)
         ro = [argv[index + 1:index + 3] for index, word in enumerate(argv) if word == "--ro-bind"]
@@ -137,6 +145,25 @@ class DockerCommandTests(unittest.TestCase):
         self.assertEqual(1, call.call_count)
         self.assertEqual(R.PRLIMIT, call.call_args.args[0][0])
         self.assertEqual({"PATH", "LANG", "LC_ALL"}, set(call.call_args.kwargs["env"]))
+
+    def test_public_tool_alternatives_preserve_only_usr_targets(self):
+        aliases = {"/usr/bin/" + name: "/etc/alternatives/" + name
+                   for name in ("ld", "cc", "c++", "awk")}
+        targets = {name: Path("/usr/bin/prepared-" + name.rsplit("/", 1)[1]) for name in aliases}
+        with patch.object(Path, "is_symlink", lambda path: str(path) in aliases), \
+                patch.object(R.os, "readlink", lambda path: aliases[str(path)]), \
+                patch.object(Path, "resolve", lambda path, **kwargs: targets[str(path)]), \
+                patch.object(Path, "is_file", return_value=True):
+            actual = self.resolve_public_aliases()
+            self.assertEqual([part for tool, alias in aliases.items()
+                              for part in ("--symlink", str(targets[tool]), alias)], actual)
+            for tool in ("c++", "awk"):
+                with self.subTest(tool=tool):
+                    original = targets["/usr/bin/" + tool]
+                    targets["/usr/bin/" + tool] = Path("/home/private/tool")
+                    with self.assertRaises(R.RunError):
+                        self.resolve_public_aliases()
+                    targets["/usr/bin/" + tool] = original
 
     def test_private_tmp_cannot_hide_an_explicit_prepared_runtime(self):
         with tempfile.TemporaryDirectory(prefix="pr-ci-prepared-", dir="/tmp") as temporary:
