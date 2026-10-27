@@ -1,0 +1,17 @@
+{
+  "qtVersion": "6.11.1",
+  "apiVersion": 1,
+  "patch": "qtdeclarative-overte-e2e-qml-source-receipts.patch",
+  "sourceSha256": {
+    "qtdeclarative/src/qml/common/qv4compileddata_p.h": "97515f80b0ad8e5ad1465db0cc532f286f27be2d1ab4e9861dbe087eb23c6ff3",
+    "qtdeclarative/src/qml/common/qv4compileddata.cpp": "1b0e725e00b52f3bb61c6b6e5dfd5724475fd304fe782b18a494626885d21240",
+    "qtdeclarative/src/qml/jsruntime/qv4executablecompilationunit_p.h": "853ec1242470df783f1515a76b07178dbdf69d2d8bc840218e08f46a545e40cc",
+    "qtdeclarative/src/qml/qml/qqmltypedata_p.h": "54d732b64bb03817e83ebe071cced92e9a94e0bb8fd95c8107314c3e666da089",
+    "qtdeclarative/src/qml/qml/qqmltypedata.cpp": "a353c4d89e3d4500beffc35129f1b20993adb3ac095824a6729892ec3c23e0c5"
+  },
+  "referenceSha256": {
+    "qtdeclarative/src/qml/qml/qqmlcomponent_p.h": "93cfa3ae0fb9fbea9b1afb39f85f8992892b0660a012babdfc8b5501917d79d4",
+    "qtdeclarative/src/qml/qml/qqmldata_p.h": "4945ed8c20b6635e869c45b29089f605de4238fc46ed2cb20e40c7262ec5022e",
+    "qtdeclarative/src/qml/qml/qqmldatablob.cpp": "9e4fd53d9d8a82d9e1b8a32b9b39b4cf33d51135f9176e191a144e156e78bbe3"
+  }
+}

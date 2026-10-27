@@ -1,0 +1,396 @@
+--- a/qtdeclarative/src/qml/common/qv4compileddata_p.h
++++ b/qtdeclarative/src/qml/common/qv4compileddata_p.h
+@@ -27,6 +27,13 @@
+ #include <QtCore/qurl.h>
+ #include <QtCore/qvector.h>
+ #include <QtCore/qtyperevision.h>
++
++#if defined(Q_OS_IOS)
++// Dedicated Overte E2E Qt package; inactive until explicit native admission.
++// This changes only the in-memory owner, never the persistent Unit format.
++#define QT_OVERTE_E2E_QML_SOURCE_RECEIPTS 1
++#include <QtCore/qvariant.h>
++#endif
+
+ #if QT_CONFIG(temporaryfile)
+ #include <QtCore/qsavefile.h>
+@@ -1494,6 +1501,17 @@
+     const QmlUnit *qmlData = nullptr;
+     QStringList dynamicStrings;
+     const QQmlPrivate::AOTCompiledFunction *aotCompiledFunctions = nullptr;
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    // Owned by this actual compiled unit. No URL/global/raw-pointer cache.
++    QVariantMap overteE2eSourceReceipt;
++    quint64 overteE2eSourceGeneration = 0;
++    void overteE2eInvalidateSourceReceipt()
++    {
++        overteE2eSourceReceipt.clear();
++        if (overteE2eSourceGeneration < 1000000000)
++            ++overteE2eSourceGeneration;
++    }
++#endif
+
+     // pointers either to data->constants() or little-endian memory copy.
+     const StaticValue *constants = nullptr;
+@@ -1551,6 +1569,9 @@
+     void setUnitData(const Unit *unitData, const QmlUnit *qmlUnit = nullptr,
+                      const QString &fileName = QString(), const QString &finalUrlString = QString())
+     {
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++        overteE2eInvalidateSourceReceipt();
++#endif
+         data = unitData;
+         qmlData = nullptr;
+ #if Q_BYTE_ORDER == Q_BIG_ENDIAN
+--- a/qtdeclarative/src/qml/common/qv4compileddata.cpp
++++ b/qtdeclarative/src/qml/common/qv4compileddata.cpp
+@@ -82,6 +82,9 @@
+
+ CompilationUnit::~CompilationUnit()
+ {
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    overteE2eInvalidateSourceReceipt();
++#endif
+     qDeleteAll(resolvedTypes);
+
+     if (data) {
+@@ -120,6 +123,10 @@
+ bool CompilationUnit::loadFromDisk(
+         const QUrl &url, const QDateTime &sourceTimeStamp, QString *errorString)
+ {
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    // Invalidate before every cache attempt, even failure or equal-byte reload.
++    overteE2eInvalidateSourceReceipt();
++#endif
+     if (!QQmlFile::isLocalFile(url)) {
+         *errorString = QStringLiteral("File has to be a local file.");
+         return false;
+--- a/qtdeclarative/src/qml/jsruntime/qv4executablecompilationunit_p.h
++++ b/qtdeclarative/src/qml/jsruntime/qv4executablecompilationunit_p.h
+@@ -196,6 +196,17 @@
+     void setValue(const QV4::Value &value) { m_valueOrModule = value; }
+
+     const CompiledData::Unit *unitData() const { return m_compilationUnit->data; }
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    QVariantMap overteE2eSourceReceipt() const
++    {
++        const auto &owner = *m_compilationUnit;
++        if (owner.aotCompiledFunctions || owner.overteE2eSourceGeneration >= 1000000000
++                || owner.overteE2eSourceReceipt.value(QStringLiteral("unitGeneration")).toULongLong()
++                        != owner.overteE2eSourceGeneration)
++            return {};
++        return owner.overteE2eSourceReceipt;
++    }
++#endif
+
+     QString stringAt(uint index) const { return m_compilationUnit->stringAt(index); }
+
+--- a/qtdeclarative/src/qml/qml/qqmltypedata_p.h
++++ b/qtdeclarative/src/qml/qml/qqmltypedata_p.h
+@@ -26,6 +26,9 @@
+ QT_BEGIN_NAMESPACE
+
+ Q_DECLARE_LOGGING_CATEGORY(lcCycle)
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++class QQmlComponent;
++#endif
+
+ class Q_AUTOTEST_EXPORT QQmlTypeData : public QQmlNotifyingBlob
+ {
+@@ -60,6 +63,12 @@
+     ~QQmlTypeData() override;
+
+     QV4::CompiledData::CompilationUnit *compilationUnit() const;
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    static Q_QML_EXPORT int overteE2eSourceObservationApiVersion();
++    static Q_QML_EXPORT void setOverteE2eSourceObservationEnabled(bool enabled);
++    static Q_QML_EXPORT QVariantMap overteE2eSourceReceiptForObject(
++            const QObject *object, const QQmlComponent *component = nullptr);
++#endif
+
+     QQmlType qmlType(const QString &inlineComponentName = QString()) const;
+     QByteArray typeClassName() const { return m_typeClassName; }
+@@ -104,6 +113,12 @@
+             const QString &nameSpace, const QString &qualifier) override;
+
+     SourceCodeData m_backupSourceCode; // used when cache verification fails.
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    QVariantMap m_overteE2eSourceInput;
++    const QV4::CompiledData::CompilationUnit *m_overteE2eDirectOwner = nullptr;
++    const QV4::CompiledData::Unit *m_overteE2eDirectUnit = nullptr;
++    quint64 m_overteE2eDirectGeneration = 0;
++#endif
+     QScopedPointer<QmlIR::Document> m_document;
+     QV4::CompiledData::TypeReferenceMap m_typeReferences;
+
+--- a/qtdeclarative/src/qml/qml/qqmltypedata.cpp
++++ b/qtdeclarative/src/qml/qml/qqmltypedata.cpp
+@@ -18,10 +18,123 @@
+ #include <QtCore/qcryptographichash.h>
+
+ #include <memory>
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++#include <private/qqmlcomponent_p.h>
++#include <private/qqmldata_p.h>
++#include <QtCore/qcoreapplication.h>
++#include <QtCore/qdatetime.h>
++#include <QtCore/qthread.h>
++#include <QtCore/quuid.h>
++#include <atomic>
++#endif
+
+ QT_BEGIN_NAMESPACE
+
+ Q_LOGGING_CATEGORY(lcCycle, "qt.qml.typeresolution.cycle", QtWarningMsg)
++
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++namespace {
++std::atomic<bool> overteE2eSourceEnabled { false };
++std::atomic<quint64> overteE2eSourceSequence { 0 };
++
++QVariantMap overteE2eCompilerInput(const QString &source, const QString &requested,
++                                 const QString &resolved)
++{
++    QT_TRY {
++    if (!overteE2eSourceEnabled.load(std::memory_order_acquire)
++            || source.isEmpty() || source.size() > 1024 * 1024)
++        return {};
++    static const QString instance = QUuid::createUuid().toString(QUuid::WithoutBraces)
++            .remove(QLatin1Char('-'));
++    const auto before = QDateTime::currentMSecsSinceEpoch();
++    QCryptographicHash hash(QCryptographicHash::Sha256);
++    // Exact decoded QString code units, not a guessed QFile encoding.
++    for (const QChar character : source) {
++        const auto unit = character.unicode();
++        const char bytes[2] { char(unit & 255), char(unit >> 8) };
++        hash.addData(QByteArrayView(bytes, 2));
++    }
++    const auto sequence = overteE2eSourceSequence.fetch_add(1) + 1;
++    if (sequence == 0 || sequence > 1000000000) {
++        overteE2eSourceEnabled.store(false, std::memory_order_release);
++        return {};
++    }
++    return {{QStringLiteral("qtOverteQmlCompilerInputVersion"), 1},
++            {QStringLiteral("instance"), instance},
++            {QStringLiteral("sequence"), qulonglong(sequence)},
++            {QStringLiteral("processId"), QCoreApplication::applicationPid()},
++            {QStringLiteral("qtVersion"), QString::fromLatin1(qVersion())},
++            {QStringLiteral("encoding"), QStringLiteral("utf16-le-code-units")},
++            {QStringLiteral("codeUnits"), qlonglong(source.size())},
++            {QStringLiteral("sha256"), QString::fromLatin1(hash.result().toHex())},
++            {QStringLiteral("requestedUrl"), requested},
++            {QStringLiteral("resolvedUrl"), resolved},
++            {QStringLiteral("sourceBeforeEpochMs"), before}};
++    } QT_CATCH (...) {
++        // Observation failure never changes the actual compiler input/result.
++        return {};
++    }
++}
++}
++
++int QQmlTypeData::overteE2eSourceObservationApiVersion()
++{
++    return 1;
++}
++
++void QQmlTypeData::setOverteE2eSourceObservationEnabled(bool enabled)
++{
++    overteE2eSourceEnabled.store(false, std::memory_order_release);
++    QT_TRY {
++    const bool admitted = enabled && QCoreApplication::instance()
++            && QCoreApplication::arguments().contains(QStringLiteral("--testScript"));
++    overteE2eSourceEnabled.store(admitted, std::memory_order_release);
++    } QT_CATCH (...) {
++        // Remain disabled without changing ordinary application loading.
++    }
++}
++
++QVariantMap QQmlTypeData::overteE2eSourceReceiptForObject(
++        const QObject *object, const QQmlComponent *component)
++{
++    QT_TRY {
++        if (!overteE2eSourceEnabled.load(std::memory_order_acquire)
++                || !QCoreApplication::instance() || !object
++                || object->thread() != QThread::currentThread())
++            return {};
++        const auto *data = QQmlData::get(object);
++        if (!data || !data->compilationUnit)
++            return {};
++        const auto actual = data->compilationUnit;
++        if (component) {
++            if (component->thread() != QThread::currentThread()
++                    || !component->isReady() || component->isError())
++                return {};
++            const auto owner = QQmlComponentPrivate::get(
++                    const_cast<QQmlComponent *>(component))->compilationUnit();
++            if (owner.data() != actual.data())
++                return {};
++        }
++        const auto receipt = actual->overteE2eSourceReceipt();
++        const auto *unit = actual->unitData();
++        if (receipt.isEmpty() || !unit || unit->unitSize < sizeof(QV4::CompiledData::Unit)
++                || unit->unitSize > 4 * 1024 * 1024
++                || (unit->flags & QV4::CompiledData::Unit::PendingTypeCompilation)
++                || receipt.value(QStringLiteral("unitBytes")).toLongLong() != qint64(unit->unitSize)
++                || receipt.value(QStringLiteral("processId")).toLongLong() != QCoreApplication::applicationPid())
++            return {};
++        const auto bytes = QByteArray::fromRawData(reinterpret_cast<const char *>(unit),
++                                                  qsizetype(unit->unitSize));
++        const auto digest = QString::fromLatin1(QCryptographicHash::hash(
++                bytes, QCryptographicHash::Sha256).toHex());
++        if (receipt.value(QStringLiteral("unitSha256")).toString() != digest)
++            return {};
++        return receipt;
++    } QT_CATCH (...) {
++        return {};
++    }
++}
++#endif
+
+ QString QQmlTypeData::TypeReference::qualifiedName() const
+ {
+@@ -524,6 +637,48 @@
+     assertTypeLoaderThread();
+
+     auto cleanup = qScopeGuard([this]{
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++        QT_TRY {
++        // Publish only the successful actual source -> completed unit join.
++        // Disk/AOT cache construction does not invent an input receipt.
++        if (!isError() && m_compiledData && !m_overteE2eSourceInput.isEmpty()
++                && m_overteE2eSourceInput.contains(QStringLiteral("sourceAfterEpochMs"))
++                && m_overteE2eSourceInput.contains(QStringLiteral("compilerUnitSha256"))
++                && m_compiledData.data() == m_overteE2eDirectOwner
++                && m_compiledData->data == m_overteE2eDirectUnit
++                && m_compiledData->overteE2eSourceGeneration == m_overteE2eDirectGeneration
++                && m_overteE2eDirectGeneration < 1000000000) {
++            const auto *unit = m_compiledData->data;
++            if (unit && unit->unitSize >= sizeof(QV4::CompiledData::Unit)
++                    && unit->unitSize <= 4 * 1024 * 1024
++                    && !m_compiledData->aotCompiledFunctions) {
++                auto receipt = m_overteE2eSourceInput;
++                const auto bytes = QByteArray::fromRawData(reinterpret_cast<const char *>(unit),
++                                                          qsizetype(unit->unitSize));
++                const auto digest = QString::fromLatin1(QCryptographicHash::hash(
++                        bytes, QCryptographicHash::Sha256).toHex());
++                if (receipt.value(QStringLiteral("compilerUnitBytes")).toLongLong() == qint64(unit->unitSize)
++                        && receipt.value(QStringLiteral("compilerUnitSha256")).toString() == digest) {
++                    receipt.insert(QStringLiteral("unitBytes"), qlonglong(unit->unitSize));
++                    receipt.insert(QStringLiteral("unitGeneration"), qulonglong(m_overteE2eDirectGeneration));
++                    receipt.insert(QStringLiteral("unitSha256"), digest);
++                    const auto completed = QDateTime::currentMSecsSinceEpoch();
++                    const auto before = receipt.value(QStringLiteral("sourceBeforeEpochMs")).toLongLong();
++                    const auto after = receipt.value(QStringLiteral("sourceAfterEpochMs")).toLongLong();
++                    if (before > 0 && before <= after && after <= completed) {
++                        receipt.insert(QStringLiteral("compiledEpochMs"), completed);
++                        m_compiledData->overteE2eSourceReceipt = std::move(receipt);
++                    }
++                }
++            }
++        }
++        } QT_CATCH (...) {
++            // The ordinary Qt cleanup and error/result path still run.
++        }
++        m_overteE2eSourceInput.clear();
++        m_overteE2eDirectOwner = nullptr;
++        m_overteE2eDirectUnit = nullptr;
++#endif
+         m_backupSourceCode = SourceCodeData();
+         m_document.reset();
+         m_typeReferences.clear();
+@@ -717,6 +872,11 @@
+ {
+     assertTypeLoaderThread();
+
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    m_overteE2eSourceInput.clear();
++    m_overteE2eDirectOwner = nullptr;
++    m_overteE2eDirectUnit = nullptr;
++#endif
+     m_backupSourceCode = data;
+
+     if (tryLoadFromDiskCache())
+@@ -744,6 +904,11 @@
+ void QQmlTypeData::initializeFromCachedUnit(const QQmlPrivate::CachedQmlUnit *unit)
+ {
+     assertTypeLoaderThread();
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    m_overteE2eSourceInput.clear();
++    m_overteE2eDirectOwner = nullptr;
++    m_overteE2eDirectUnit = nullptr;
++#endif
+
+     if (unit->qmlData->qmlUnit()->nObjects == 0) {
+         setError(QQmlTypeLoader::tr("Cached QML Unit has no objects"));
+@@ -777,6 +942,11 @@
+         return false;
+     }
+
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    m_overteE2eDirectOwner = nullptr;
++    m_overteE2eDirectUnit = nullptr;
++    m_overteE2eSourceInput = overteE2eCompilerInput(source, urlString(), finalUrlString());
++#endif
+     if (!compiler.generateFromQml(source, finalUrlString(), m_document.data())) {
+         QList<QQmlError> errors;
+         errors.reserve(compiler.errors.size());
+@@ -791,6 +961,17 @@
+         setError(errors);
+         return false;
+     }
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    QT_TRY {
++        if (!m_overteE2eSourceInput.isEmpty())
++            m_overteE2eSourceInput.insert(QStringLiteral("sourceAfterEpochMs"),
++                                        QDateTime::currentMSecsSinceEpoch());
++    } QT_CATCH (...) {
++        m_overteE2eSourceInput.clear();
++        m_overteE2eDirectOwner = nullptr;
++        m_overteE2eDirectUnit = nullptr;
++    }
++#endif
+     return true;
+ }
+
+@@ -904,10 +1085,41 @@
+         return;
+     }
+
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    QT_TRY {
++        // Bind the compiler's direct output before Qt's existing cache reload.
++        // A later different cache body cannot inherit this source association.
++        const auto *unit = compilationUnit->data;
++        if (!m_overteE2eSourceInput.isEmpty() && unit
++                && unit->unitSize >= sizeof(QV4::CompiledData::Unit)
++                && unit->unitSize <= 4 * 1024 * 1024
++                && !compilationUnit->aotCompiledFunctions) {
++            const auto bytes = QByteArray::fromRawData(reinterpret_cast<const char *>(unit),
++                                                      qsizetype(unit->unitSize));
++            m_overteE2eSourceInput.insert(QStringLiteral("compilerUnitBytes"), qlonglong(unit->unitSize));
++            m_overteE2eSourceInput.insert(QStringLiteral("compilerUnitSha256"), QString::fromLatin1(
++                    QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex()));
++            m_overteE2eDirectOwner = compilationUnit.data();
++            m_overteE2eDirectUnit = unit;
++            m_overteE2eDirectGeneration = compilationUnit->overteE2eSourceGeneration;
++        }
++    } QT_CATCH (...) {
++        m_overteE2eSourceInput.clear();
++        m_overteE2eDirectOwner = nullptr;
++        m_overteE2eDirectUnit = nullptr;
++    }
++#endif
+     const bool trySaveToDisk = m_typeLoader->writeCacheFile() && !typeRecompilation;
+     if (trySaveToDisk) {
+         QString errorString;
+         if (compilationUnit->saveToDisk(url(), &errorString)) {
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++            // A cache read can replace even a byte-equivalent direct unit.
++            // It needs its own actual generation/handle provenance bridge.
++            m_overteE2eSourceInput.clear();
++            m_overteE2eDirectOwner = nullptr;
++            m_overteE2eDirectUnit = nullptr;
++#endif
+             QString error;
+             if (!compilationUnit->loadFromDisk(url(), m_backupSourceCode.sourceTimeStamp(), &error)) {
+                 // ignore error, keep using the in-memory compilation unit.

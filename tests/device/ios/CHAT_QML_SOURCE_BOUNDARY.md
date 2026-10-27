@@ -43,20 +43,20 @@ root and context. Reading a current QFile separately, hashing the URL, choosing
 an expected pin or replaying the JavaScript loader cannot supply this fact.
 
 The repository's [toolchain pin](../../../ios/versions.env) is Qt 6.11.1. This
-is configuration, not evidence of the installed client's Qt version. The next
-source task is to inspect the matching verified Qt source/package's actual
-component/compiled-unit API and identify a passive consumption receipt. It
+is configuration, not evidence of the installed client's Qt version. The
+source review below identifies the matching component/compiled-unit API. The
+remaining native client task must expose a passive consumption receipt. It
 must bind the real resolved source and compiled/source bytes to the exact
 component, final completion result, context, root object, process and native
 clock, retaining weak lifetime and original sequence responsibility. Imports
 and overrides must remain explicit. The actual installed candidate and matching
 Qt provenance must independently admit it before ordinary input.
 
-This packet deliberately introduces no guessed private Qt API, alternate
-loader, forced cache clear, `setData` replacement, new source query or asserted
-loaded-byte field. Product loading behavior is unchanged. Native implementation,
-host counterexamples and canonical Chat integration of that receipt remain
-required; no compiler, build, SDK installation or device access was attempted.
+The source-only Qt patch below introduces no alternate loader, forced cache
+clear, `setData` replacement or client source query. It is not applied to an
+SDK or wired into the client. Native compilation, client observation/transport,
+cache-provenance coverage and canonical Chat integration remain required; no
+compiler, build, SDK installation or device access was attempted.
 
 ## Verified Qt source reference
 
@@ -74,9 +74,9 @@ the concrete private interfaces for the next implementation:
   can bypass that call, and its completion cleanup discards the temporary source.
 
 These are reviewed source interfaces, not an installed private ABI or a native
-runtime result. The six exact reference files, original URLs, byte counts and
+runtime result. The eight exact reference files, original URLs, byte counts and
 SHA-256 hashes are retained privately under
-`.ios-host-tmp/qt-qml-readonly-6.11.1-9es8y5lo`, with two status manifests.
+`.ios-host-tmp/qt-qml-readonly-6.11.1-9es8y5lo`, with four status manifests.
 Only small source files were read; no Qt archive, dependency or SDK was installed.
 
 The next native packet should observe the actual compiler input and completed
@@ -87,4 +87,76 @@ after completion cannot replace the input tap. An opaque disk/AOT cache hit
 without independently retained source association must remain unavailable;
 neither clearing caches nor treating the observed digest as its own expected
 pin is acceptable. Imported units and native AOT dependencies need their own
-explicit admission. No such receipt or Qt source patch is implemented yet.
+explicit admission. The first direct-unit source patch is now present as
+described below; none of its native/runtime behavior is qualified yet.
+
+## Unapplied direct-unit source patch
+
+The [exact Qt 6.11.1 patch](../../../ios/patches/qtdeclarative-overte-e2e-qml-source-receipts.patch)
+records the actual decoded QString immediately before the existing IR compiler.
+It hashes exact little-endian UTF-16 code units and their measured count;
+it does not call those values original QFile/network bytes. The successful
+direct compiler unit must retain both its managed owner and its actual data
+identity through completion, with unchanged bounded unit bytes. Metadata is
+owned by that actual Qt CompilationUnit, not a global URL/pointer table.
+
+The patch retains Qt's ordinary compiler and cache calls. In particular,
+`compile()` can save and reload its output. **Every attempted post-save cache
+reload clears the direct input receipt**, even when the final compiled digest
+is equal or the reload fails. Different inputs can compile to equivalent data;
+equality cannot prove which input produced a substituted cache generation.
+Opaque disk/AOT units remain unavailable. A causal cache write/read bridge
+is still required for that normal path; this packet does not substitute a
+smaller successful profile for complete loaded-QML coverage.
+
+Every actual `setUnitData`, cache-load attempt and destructor invalidates the
+unit's receipt centrally. A bounded mutation generation also fences a pending
+publication; restoring equal bytes or reusing an address cannot restore its
+old input association. The getter checks the retained generation again.
+Inspection of the reviewed implementation found its live data replacement in
+the central setter and its final direct null assignment in the destructor;
+both are covered by this source patch.
+
+Exported API-version, enable and object-receipt functions are defined inside
+the patched Qt binary. The object reader checks the actual QObject's unit,
+optionally its exact component unit, the owning thread, native process and
+current immutable unit bytes. Client integration must call these binary APIs,
+not access newly added private fields using only a header marker. A matching
+dedicated E2E Qt package and independent binary/source admission are required;
+existing Qt cache/toolchain identities cannot be reused as proof of this ABI.
+The added private wrapper fields change its memory layout: every affected Qt
+private consumer in that dedicated SDK must use the same patched headers and
+be rebuilt together. Replacing only the QtQml library in an old SDK is outside
+this design. The persistent QML Unit/cache format itself remains unchanged.
+
+The observer is initially disabled and requires explicit native enable plus
+`--testScript`; its additions compile only for iOS. Future client activation
+must also use the existing dedicated feature-test configuration. Errors in
+diagnostics do not replace the ordinary compiler input/result. Qt's inspected
+[completion dispatch](https://raw.githubusercontent.com/qt/qtdeclarative/v6.11.1/src/qml/qml/qqmldatablob.cpp)
+invokes `done()` before publishing Complete and dispatching ready callbacks;
+the source patch publishes metadata inside that completion scope. No source
+patch was applied to the workstation Qt, a build cache or another checkout.
+
+The [offline verifier](verify_qt_qml_source_patch.py) verifies all eight exact
+source-reference hashes from the [manifest](qt-qml-source-patch.json), applies
+the five-file patch only to a new private copy, checks reverse application and
+rechecks every original file's identity/bytes. It never compiles or installs:
+
+```sh
+python3 tests/device/ios/verify_qt_qml_source_patch.py \
+  --source-root /path/to/reviewed/qt-everywhere-src-6.11.1 \
+  --scratch-parent .ios-host-tmp
+```
+
+Three host cases exercise actual private application, foreign-source rejection
+before mutation and refusal of an external scratch directory. Runtime API,
+compilation and device flags in the actual verification report remain false.
+These checks establish source-patch integrity, not native correctness, loaded
+client execution, the still-missing cache bridge or a complete Chat capability.
+The final central-invalidation selection passes **3 tests in 0.017 seconds**;
+log: `.ios-host-tmp/qt-qml-source-patch-central-invalidation3.log`. Prior three-case
+passes belong to the earlier source revisions and are not additional cases.
+The final reference layout is `qt-qml-reference-layout8-oi578q5j` beneath that
+private directory. All eight original references retain their exact identities
+and bytes. The scope does not execute Qt, native code, a compiler or a device.
