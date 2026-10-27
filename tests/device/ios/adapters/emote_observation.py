@@ -33,6 +33,8 @@ from ios.adapters.emote_world import actual_domain
 from ios.adapters.emote_native_prefix import follow as follow_native
 
 VERSION=1
+ORIGINAL_FIELDS={'iosEmoteObservationOriginalVersion','runId','role','binding','primaryBinding','sequence','ticket',
+    'source','sourceRecovery','peerRecovery','proof','peerBefore','peerAfter','marker','imageBefore','image','acquisition'}
 
 
 class IOSEmoteObservationDecoder:
@@ -121,13 +123,19 @@ class IOSEmoteObservationDecoder:
             need(scope.bind_image_world(frame[key])=={k:marker[k] for k in ('nonce','url')})
         return frame,raw,image,name
 
+    def original_shape(self,value):
+        exact(value,ORIGINAL_FIELDS)
+        need(type(value['iosEmoteObservationOriginalVersion']) is int and value['iosEmoteObservationOriginalVersion']==VERSION)
+
+    def peer_movement(self,value,current,after):
+        need(value['peerBefore'] is not None)
+        return movement(current['world'],self.primary_binding,self.retained(self.peers,value['peerBefore'])['peer'],after['peer'],self.binding)
+
     def derive(self,value):
         """Strict original callback for PhaseWitnessPublisher; entirely read-only."""
         self.lock.assert_held();self.sources.lock.assert_held()
-        exact(value,{'iosEmoteObservationOriginalVersion','runId','role','binding','primaryBinding','sequence','ticket',
-            'source','sourceRecovery','peerRecovery','proof','peerBefore','peerAfter','marker','imageBefore','image','acquisition'})
-        need(type(value['iosEmoteObservationOriginalVersion']) is int and value['iosEmoteObservationOriginalVersion']==VERSION
-            and value['runId']==self.run and value['role']==self.role and same(value['binding'],self.binding)
+        self.original_shape(value)
+        need(value['runId']==self.run and value['role']==self.role and same(value['binding'],self.binding)
             and same(value['primaryBinding'],self.primary_binding) and integer(value['sequence'],1,512))
         ticket=identifier(value['ticket']);current=self.source(value['source']);clock=PhaseWitnessPublisher.acquisition(value['acquisition'])
         recovery_path=self.sources.store.path.with_name('ios-emote-'+self.role+'-source-recovery.json')
@@ -172,8 +180,7 @@ class IOSEmoteObservationDecoder:
             need(clock['hostBeforeEpochMs']<=acquired['hostBeforeEpochMs']<=acquired['hostAfterEpochMs']<=clock['hostAfterEpochMs']
                 and clock['hostBeforeMonotonic']<=acquired['hostBeforeMonotonic']<=acquired['hostAfterMonotonic']<=clock['hostAfterMonotonic'])
             if value['proof']['kind'] in ('playback','restoration'):
-                need(value['peerBefore'] is not None)
-                peer=movement(current['world'],self.primary_binding,self.retained(self.peers,value['peerBefore'])['peer'],after['peer'],self.binding)
+                peer=self.peer_movement(value,current,after)
             if value['image'] is not None:need(value['image']['avatarId']==remote)
         else:need(value['peerBefore'] is value['peerAfter'] is value['peerRecovery'] is None)
         artifacts=[]

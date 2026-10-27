@@ -312,6 +312,9 @@ class IOSEmoteObserver:
                     return original['peerAfter'],original['image']
         return self.state['peerBarrier'],self.state['imageBarrier']
 
+    def prepare_original(self,original):
+        return original
+
     def observe(self,after_sequence,*,input_barrier=None,retired=False):
         self.bound();need(integer(after_sequence,0,len(self.state['records'])) and type(retired) is bool)
         if not self.resolve():raise EmoteObservationPending('A prior original acquisition still owns its unresolved reads')
@@ -353,6 +356,7 @@ class IOSEmoteObserver:
             peerBefore=peer_before,peerAfter=pending['peer'],marker=marker,
             imageBefore=image_before if marker is not None else None,
             image=None if pending['sample'] is None else self.sample(pending['sample']),acquisition=acquisition)
+        original=self.prepare_original(original)
         derived=self.decoder.derive(original);pending['original']=pack([original]);self.save();self.resolve()
         self.bound();now,mono=self.epoch_ms(),self.monotonic()
         need(number(now,acquisition['hostAfterEpochMs'],acquisition['hostBeforeEpochMs']+1500)

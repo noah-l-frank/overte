@@ -82,7 +82,11 @@ caller/override/clip/restoration/source/candidate identity and phase history,
 then join a newly received joint record and fresh native/render/image originals
 inside the current clock cut. New animation, source or fixture boundaries need
 their own real initial proof. Missing motion must never be inferred from dropped
-records. No such continuation has been implemented or qualified in this packet.
+records. The additive [rooted original-two continuation](EMOTE_PEER_CONTINUATION.md)
+is now implemented with eight focused host cases plus ten old regressions. Its
+connected ordinary-input/UDP/PNG/publication and pure archival case passes in
+19.202 seconds. It does not qualify every static/restoration case, the whole
+feature or common scenario.
 
 The full common driver remains unqualified work in progress. Five fresh attempts
 and one focused first-play diagnostic retained their own originals; the last
