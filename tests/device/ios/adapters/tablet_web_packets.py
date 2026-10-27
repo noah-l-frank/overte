@@ -204,6 +204,10 @@ class TabletWebPackets:
 
     def _next_index(self):return self._record_start()+len(self.state['records'])
 
+    def reference(self,index):
+        need(integer(index,1,len(self.state['records'])))
+        reference=self.state['records'][index-1];need(reference['index']==index);return deepcopy(reference)
+
     def _history_prefix(self):return None,[],1,set(),None
 
     def _header(self):

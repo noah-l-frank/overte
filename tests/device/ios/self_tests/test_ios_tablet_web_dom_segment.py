@@ -61,7 +61,9 @@ class TabletDOMSegmentTests(unittest.TestCase):
         self.assertEqual([129,130],[row['index'] for row in owner.state['records']]);self.assertEqual(131,owner.state['nextRaw'])
         counts=f.native_counts();reopened=self.reopen();self.assertEqual(value,reopened.history()[-1]);self.assertEqual(counts,f.native_counts())
         self.assertEqual(131,reopened._next_index());s=f.source
-        with self.assertRaises(NativeUIError):parent.restore(s.root,s.binding,s.run,s.role,s.fixture,s.pid,s.lock)
+        historical=parent.restore(s.root,s.binding,s.run,s.role,s.fixture,s.pid,s.lock,monotonic=s.monotonic)
+        self.assertTrue(historical['historicalOnly']);self.assertEqual('rotating',historical['phase'])
+        self.assertEqual(value,historical['children']['dom']);self.assertEqual(counts,f.native_counts())
         with self.assertRaises(NativeUIError):TabletWebPackets(s.root,s.binding,s.run,s.role,s.fixture,s.pid,'dom',lambda:True,historical=True)
         inventory=f.inventory();self.allowed[0]=False
         with self.assertRaises(NativeUIError):reopened.capture(f.f.boundary.reader('dom'))

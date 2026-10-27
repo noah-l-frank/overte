@@ -433,9 +433,10 @@ unchanged global index and actual inode without another send. Lost CAS returns
 cannot reconstruct a missing query result, and reconstruction never resends.
 
 The normal SourceOwner and Packet constructors still refuse the fenced head.
-Parent historical restore continues to support completed continuation2 only;
-it rejects active continuation3 rather than silently returning its earlier129
-tail. Parent/full-feature admission remains unavailable until the other eight
+The initial active-segment packet kept Parent historical restore limited to
+completed continuation2 and refused active continuation3 instead of returning
+its earlier129 tail. The subsequent historical selector is specified below.
+Parent/full-feature admission remains unavailable until the other eight
 child continuations, screen32→33, aggregate continuation, whole recovery and
 retirement paths are qualified. Active SourceOwner/Packet writer2 and native
 schemas are unchanged; Feature7 and the5/14 source-complete count do not advance.
@@ -469,3 +470,74 @@ Registry advancement is limited to `ios-tablet-web-dom-continuation`
 writer3/read1,2,3 and the separate `ios-tablet-web-dom-active-segment`
 writer1/read1. Closed body1, existing manifests, source-packet records1/2,
 active SourceOwner/ordinary Packet writer2 and native codecs remain unchanged.
+
+## Current historical selector over all nine actual child tails
+
+The next reader boundary inspects the real SourceOwner dispatch instead of
+claiming that the active DOM class alone enables whole acquisition. Normal
+capture still iterates all nine components under its unchanged NativeClock/
+Phase bracket. Besides those aggregate captures, DOM has independent input
+reads; Sources/Trace/UIKit/State have toolbar and cleanup reads; Buttons has
+app-admission/control reads; Deferred has explicit fault-command reads. Their
+tail counts cannot be inferred from the aggregate ordinal. Screen samples
+also require a genuine current complete aggregate and current last references
+for every child, while retaining their32-row bound.
+
+Two old addressing assumptions prevent direct active-DOM dispatch:
+`SourceOwner.capture` derives a child index from its active-list length, and
+historical source/operation-cache membership previously used global index-1
+against that list. An active segment starts at129 and contains only its own
+bounded references. Live dispatch is therefore still unavailable. The narrow
+reader adds `reference(global_index)`: ordinary Packet1/2 retains its exact
+existing indexing, while DOM3 selects actual old1..128 or active129..256
+references. Both Source record interpretation and the existing operation cache
+use that same membership check; the cache also pins the reference parser's
+identity. There is no new memo, moved I/O or cache-based selector authority.
+
+A forced-historical TabletDOMSegment can read the existing active metadata3,
+whole copied/manifests predecessor and complete active native/raw histories.
+It never invokes the live current-source guard or epoch sampler. It cannot
+capture, save, stamp, archive, reconcile or recover. The private SourceOwner
+snapshot accepts exactly that historical class, same physical scope/root,
+run/role/fixture/PID, actual lock and bound history/reference methods. The
+ordinary SourceOwner and Packet constructor fences remain in place.
+
+Parent historical selection now accepts actual completed metadata3 as well as
+the previously qualified bound metadata2 path. The new3 path requires all nine
+actual current header signatures and a complete original census throughout;
+the active DOM must have no blocked/pending/original-write responsibility, and
+every other child's retained rows must be returned. An unknown non-DOM row
+cannot disappear behind a newer DOM tail. Literal metadata1 stays blocked;
+the prior metadata2/legacy-reader semantics are unchanged. A current active
+tail is returned only after actual native/raw validation, never by falling
+back to129 or by using a manifest ordinal as a native floor.
+
+Old source aggregates still open their own exact original child references,
+so aggregate1 can retain actual ready DOM1 while the separate current child
+tail is actual unavailable DOM130. Parent native and phase floors remain the
+literal aggregate values. Output stays `historicalOnly` and `rotating`, not
+SourceReady or a new image/input admission. Source acquisition, remaining
+child continuations, aggregate/screen boundaries and whole retirement remain
+open. No serialized field/codec changes or registry promotion are needed for
+this reader-only addition to the already explicit metadata3 contract.
+
+The first full all-nine selector case passes in39.143s. Two complete parent
+restores in one existing operation-cache scope return identical results and
+preserve all original bytes, device/inodes, mtime/ctime and native/SDK counters.
+They retain original ready DOM1 in aggregate1 and independently return actual
+DOM130 as the current historical child tail. Three boundary cases then pass in
+97.076s: a historical segment calls no current guard/epoch sampler and refuses
+every write/input/recovery path; no-op history/reference or foreign-PID reader
+objects cannot authorize the private snapshot; unresolved DOM query131 blocks
+before snapshot construction; and an actually archived unknown Trace2 query
+remains byte/inode-owned and blocks the new all-nine selector.
+
+The older active-row130 regression now expects this verified historical parent
+readability and continues to require public constructor refusal. It no longer
+equates historical visibility with SourceReady. Other default/literal routes
+and the existing whole-feature gates are retained.
+The final explicit49-case selection passes in58.221s:46 existing Packet,
+SourceOwner, Fence and ChildRotation cases, two metadata cases and the adapted
+active-row130 case. The four new selector cases pass separately as1/39.143s
+and3/97.076s; no whole Journey, native timing or physical-device result is
+inferred from these host fixtures.

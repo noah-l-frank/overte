@@ -124,7 +124,8 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
     raw=decode(value,expected);reference=value['copyIntent']
     need(reference is not None and reference['phase'] in ('opened','saved'))
     lease=EmoteOriginalLease(root,[])
-    current_children={};dom_prefix=None;dom_state=None
+    current_children={};dom_prefix=None;dom_state=None;dom_reader=None
+    def forbidden(*_args,**_kwargs):need(False)
     for child in value['children']:
         old,signature=_raw(root/child['headerName']);digest=hashlib.sha256(old).hexdigest()
         current_children[child['component']]=(signature,digest)
@@ -132,13 +133,21 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
         # Only an explicitly bound DOM successor can replace a literal old
         # child head during this historical read. No other route or fallback.
         need(child['component']=='dom')
-        from ios.adapters.tablet_web_dom_continuation import TabletDOMClosedPrefix,decode as dom_decode,FENCE_VERSION as DOM_VERSION
+        from ios.adapters.tablet_web_dom_continuation import TabletDOMClosedPrefix,decode as dom_decode,FENCE_VERSION as DOM_VERSION,VERSION as ACTIVE_VERSION
         changed=PrivateFeatureState(root/child['headerName']).read()
         dom_raw,dom_state=dom_decode(changed,expected)
-        need(changed['tabletWebDOMContinuationVersion']==DOM_VERSION and changed['successor'] is not None
-            and changed['previousHeader']['signature']==child['signature']
+        need(changed['tabletWebDOMContinuationVersion'] in (DOM_VERSION,ACTIVE_VERSION))
+        need(changed['successor'] is not None and changed['previousHeader']['signature']==child['signature']
             and hashlib.sha256(dom_raw).hexdigest()==child['sha256'])
-        dom_prefix=TabletDOMClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
+        if changed['tabletWebDOMContinuationVersion']==DOM_VERSION:
+            dom_prefix=TabletDOMClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
+        else:
+            need(changed['tabletWebDOMContinuationVersion']==ACTIVE_VERSION)
+            from ios.adapters.tablet_web_dom_segment import TabletDOMSegment
+            dom_reader=TabletDOMSegment(root,binding,run,role,fixture_url,pid,lock,forbidden,monotonic=monotonic,
+                epoch_ms=forbidden,historical=True)
+            dom_reader.history()
+            need(not dom_reader.blocked and dom_reader.state['pending'] is dom_reader.state['recordIntent'] is dom_reader.state['recordInspection'] is None)
     def unchanged():
         lock.assert_held();lease.guard();need(same(head.read(),value))
         for child in value['children']:
@@ -146,7 +155,6 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
             expected_signature,expected_digest=current_children[child['component']]
             need(signature==expected_signature and hashlib.sha256(old).hexdigest()==expected_digest)
         return True
-    def forbidden(*_args,**_kwargs):need(False)
     copies=OriginalFrameStore(root,binding,run,role,unchanged,forbidden,
         namespace='tabletweb-closed-headers',schema_prefix='tabletWebClosedHeader',monotonic=monotonic)
     need(same(copies.read(reference),copy_body(value,expected)));unchanged()
@@ -155,14 +163,17 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
     # ready state and never authorizes native/channel capture.
     state=base._legacy(raw,expected)
     owner=TabletWebSourceOwner._closed_snapshot(root,binding,run,role,fixture_url,pid,lock,state,
-        monotonic=monotonic,closed_dom_state=dom_state)
+        monotonic=monotonic,closed_dom_state=dom_state if dom_reader is None else None,closed_dom_reader=dom_reader)
     need(not owner.blocked);frames=owner.history();tails={}
     for child in value['children']:
         component=child['component'];actual=owner.children[component];packets=actual.history()
+        if dom_reader is not None and component!='dom':
+            need(all(actual.originals.read(actual.originals.expand(ref))['status']=='returned' for ref in actual.state['records']))
+        legacy=actual.closed.old if component=='dom' and dom_reader is not None else actual.state
         need(not actual.blocked and actual.state['pending'] is actual.state['recordIntent'] is actual.state['recordInspection'] is None
-            and actual.state['tabletWebPacketsVersion']==child['version'] and len(actual.state['records'])==child['count']
-            and actual.state['nextRaw']==child['nextRaw']
-            and same(None if not actual.state['records'] else actual.state['records'][-1],child['lastRecord']))
+            and legacy['tabletWebPacketsVersion']==child['version'] and len(legacy['records'])==child['count']
+            and legacy['nextRaw']==child['nextRaw']
+            and same(None if not legacy['records'] else legacy['records'][-1],child['lastRecord']))
         tails[component]=(deepcopy(dom_proof['nativeFloor']) if component=='dom' and dom_proof is not None
             else None if not packets else deepcopy(packets[-1]))
     result=dict(historicalOnly=True,phase='rotating',scope=deepcopy(expected),globalIndex=len(state['records']),

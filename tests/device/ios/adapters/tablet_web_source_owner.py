@@ -72,19 +72,29 @@ class TabletWebSourceOwner:
         self._original_storage()
         self.history()
 
-    def _original_storage(self,*,closed_dom_state=None):
+    def _original_storage(self,*,closed_dom_state=None,closed_dom_reader=None):
         need(closed_dom_state is None or self.historical and type(closed_dom_state) is dict)
+        need(closed_dom_state is None or closed_dom_reader is None)
+        if closed_dom_reader is not None:
+            from ios.adapters.tablet_web_dom_segment import TabletDOMSegment
+            reader=closed_dom_reader
+            need(self.historical and type(reader) is TabletDOMSegment and reader.historical and reader.root==self.root
+                and same(reader.binding,self.binding) and (reader.run,reader.role,reader.fixture,reader.pid)==(self.run,self.role,self.fixture,self.pid)
+                and reader.lock is self.lock and getattr(reader.history,'__func__',None) is TabletDOMSegment.history
+                and getattr(reader.reference,'__func__',None) is TabletDOMSegment.reference)
+            reader._bound()
         self.originals=OriginalFrameStore(self.root,self.binding,self.run,self.role,self.stored_original_guard,self.frame_intent,
             namespace='tabletweb-acquisitions',schema_prefix='tabletWebAcquisition',monotonic=self.monotonic)
         self.app_originals=OriginalFrameStore(self.root,self.binding,self.run,self.role,self.stored_original_guard,self.app_intent,
             namespace='tabletweb-app-origins',schema_prefix='tabletWebAppAdmission',monotonic=self.monotonic)
-        self.children={name:(TabletWebPackets._closed_dom(self.root,self.binding,self.run,self.role,self.fixture,self.pid,
+        self.children={name:(closed_dom_reader if name=='dom' and closed_dom_reader is not None else
+            TabletWebPackets._closed_dom(self.root,self.binding,self.run,self.role,self.fixture,self.pid,
                 closed_dom_state,monotonic=self.monotonic) if name=='dom' and closed_dom_state is not None else
             TabletWebPackets(self.root,self.binding,self.run,self.role,self.fixture,self.pid,name,self.original_guard,
                 storage_guard=self.local_original_guard,epoch_ms=self.epoch_ms,monotonic=self.monotonic,historical=self.historical)) for name in ORDER}
 
     @classmethod
-    def _closed_snapshot(cls,root,binding,run,role,fixture_url,pid,lock,state,*,monotonic=time.monotonic,closed_dom_state=None):
+    def _closed_snapshot(cls,root,binding,run,role,fixture_url,pid,lock,state,*,monotonic=time.monotonic,closed_dom_state=None,closed_dom_reader=None):
         """Literal old header for a guarded closed-prefix reader, never live.
 
         The caller validates its actual immutable copy and all current child
@@ -104,7 +114,7 @@ class TabletWebSourceOwner:
         owner.store=PrivateFeatureState(owner.root/('tabletweb-source-owner-'+run+'-'+role+'.json'))
         owner.state=deepcopy(state);owner.saved=deepcopy(state)
         need(type(state.get('tabletWebSourceOwnerVersion')) is int and state['tabletWebSourceOwnerVersion'] in (1,2))
-        owner._original_storage(closed_dom_state=closed_dom_state);owner.history();return owner
+        owner._original_storage(closed_dom_state=closed_dom_state,closed_dom_reader=closed_dom_reader);owner.history();return owner
 
     def bound(self):
         need(not self.historical);self.lock.assert_held();need(self.guard() is not False)
@@ -233,7 +243,7 @@ class TabletWebSourceOwner:
             exact(part,{'component','index','reference'});name=part['component'];need(name==ORDER[ordinal] and integer(part['index'],1))
             child=self.children[name]
             if part['reference'] is None:need(value['status']!='returned' and ordinal==len(value['components'])-1);continue
-            need(part['index']<=len(child.state['records']) and same(child.state['records'][part['index']-1],part['reference']))
+            need(same(child.reference(part['index']),part['reference']))
             row=child.originals.read(child.originals.expand(part['reference']));need(row['index']==part['index'] and row['status']=='returned')
             need(row['before']['epochMs']>=before['epochMs'] and row['before']['monotonic']>=before['monotonic'])
             if value['after'] is not None:need(row['after']['epochMs']<=value['after']['epochMs'] and row['after']['monotonic']<=value['after']['monotonic'])

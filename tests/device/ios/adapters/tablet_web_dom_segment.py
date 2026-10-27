@@ -50,11 +50,12 @@ def open_segment(root,binding,run,role,fixture_url,pid,lock,guard,*,monotonic=ti
 
 
 class TabletDOMSegment(TabletWebPackets):
-    def __init__(self,root,binding,run,role,fixture_url,pid,lock,guard,*,monotonic=time.monotonic,epoch_ms=lambda:int(time.time()*1000)):
-        need(all(callable(fn) for fn in (guard,monotonic,epoch_ms)) and guard() is not False)
+    def __init__(self,root,binding,run,role,fixture_url,pid,lock,guard,*,monotonic=time.monotonic,epoch_ms=lambda:int(time.time()*1000),historical=False):
+        need(type(historical) is bool and all(callable(fn) for fn in (guard,monotonic,epoch_ms))
+            and (historical or guard() is not False))
         self.root=Path(root);self.binding=deepcopy(binding);self.run,self.role,self.fixture,self.pid=run,role,fixture_url,pid
         self.lock,self._current_guard,self._pinned_guard=lock,guard,guard
-        self.monotonic,self.epoch_ms,self.historical,self.clock=monotonic,epoch_ms,False,None
+        self.monotonic,self.epoch_ms,self.historical,self.clock=monotonic,epoch_ms,historical,None
         self.component,self.module='dom',COMPONENTS['dom']
         self.closed=closed.TabletDOMClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
         need(self.closed.state['tabletWebDOMContinuationVersion']==closed.VERSION)
@@ -63,7 +64,7 @@ class TabletDOMSegment(TabletWebPackets):
         self._original_storage();self.history();self._bound()
 
     def _bound(self):
-        need(not self.historical and self._current_guard is self._pinned_guard and self._current_guard() is not False
+        need(self._current_guard is self._pinned_guard and (self.historical or self._current_guard() is not False)
             and self.lock is self.closed.lock
             and same(closed.base.scope(self.binding,self.run,self.role,self.fixture,self.pid),self.closed.expected))
         return self.closed.guard()
@@ -71,6 +72,14 @@ class TabletDOMSegment(TabletWebPackets):
     def _header(self):segment_header(self.state,self.closed.expected,self.closed.state['successor'])
 
     def _record_start(self):return FIRST
+
+    def stamp(self):
+        need(not self.historical);return super().stamp()
+
+    def reference(self,index):
+        self._bound();self._header();need(integer(index,1,self._next_index()-1))
+        reference=(self.closed.old['records'][index-1] if index<FIRST else self.state['records'][index-FIRST])
+        need(reference['index']==index);return deepcopy(reference)
 
     def history(self):
         self._bound();lease=EmoteOriginalLease(self.root,[]);result=super().history()
@@ -81,7 +90,7 @@ class TabletDOMSegment(TabletWebPackets):
         self._bound();lease.guard();return result
 
     def save(self):
-        self._bound();need(same(self.saved,self.closed.state['active']));self._header()
+        need(not self.historical);self._bound();need(same(self.saved,self.closed.state['active']));self._header()
         value=deepcopy(self.closed.state);value['active']=deepcopy(self.state)
         self.closed.save(value);self.saved=deepcopy(self.state)
 

@@ -89,10 +89,9 @@ def parent_record(owner,value,index,previous,decode):
         source.exact(part,{'component','index','reference'});name=source.ORDER[ordinal]
         need(part['component']==name and source.integer(part['index'],1))
         child=owner.children[name]
-        need(part['reference'] is not None and part['index']<=len(child.state['records'])
-            and same(child.state['records'][part['index']-1],part['reference']))
+        need(part['reference'] is not None and same(child.reference(part['index']),part['reference']))
         parsers.append(dict(component=name,module=child.module.__name__,functions=[id(child.module.original),
-            id(child.module.validate),id(type(child)._record),id(type(child).record)],
+            id(child.module.validate),id(type(child)._record),id(type(child).record),id(type(child).reference)],
             versions=[getattr(child.module,'VERSION',None),getattr(child.module,'READS',None),child.module.LIMIT]))
     key=dict(tabletImmutableParentVersion=1,root=str(owner.root),binding=owner.binding,run=owner.run,role=owner.role,
         fixture=owner.fixture,pid=owner.pid,row=value,index=index,previous=previous,children=parsers,
