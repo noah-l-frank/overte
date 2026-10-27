@@ -1,5 +1,36 @@
 # Feature 7 continuation handoff
 
+## Resumed UIKit-only link checkpoint
+
+The user resumed autonomous work after the scheduled pause and again requested
+maximum parallel subagents. The earlier07:55 cutoff below was fulfilled; it
+does not impose a new deadline on the resumed work.
+
+`tablet_web_uikit_original_link.py` now implements the previously missing
+UIKit-only reader. One composed actual-file/modeled-native case passes
+in119.190s, reading complete closed128, bound129 and active130 profiles while
+preserving original native contacts/dispatches/raw floors. Current peers are
+only scoped actual byte/inode continuity; the result is always UIKit-only,
+`subgraphOnly=True` and `peerAuthority=False`. Public live/all-nine admission
+stays blocked after another peer's same-byte/new-inode replacement. Mid-read
+peer mutation, foreign binding, expired private scope including constructor
+failure, and own original corruption are rejected without a new query.
+No registry/schema/cap/deadline change is involved. Source and test paths are
+new; existing DOM/UIKit constructors and parent selector remain unchanged.
+The detailed contract and exact log are in
+[the scoped UIKit section](TABLET_WEB_CONTINUATION_CONTRACT.md#scoped-uikit-original-link-during-independent-peer-rotation).
+The existing literal/fence/rotation/UIKit metadata selection passes50 cases
+in62.353s; its `uikit-original-link-legacy52.log` filename predates the exact
+selection and is not a52-case claim. No timing qualification is inferred.
+
+Next work is independent remaining-child continuation and its historical
+all-nine join, followed by bounded aggregate and32-to33 screen continuation.
+The full26-step normal Journey, both roles, double cleanup and retirement
+still need actual current composition. Do not repeat an unchanged historical
+multi-hour Journey or promote public SourceReady from either own-link helper.
+The old statement below that UIKit-only link has not been implemented is an
+explicit historical checkpoint, superseded only by this qualified source packet.
+
 This is a source-work checkpoint, not a completed feature or device result.
 The user has now explicitly scheduled a pause at 2026-10-27 07:55 Europe/Berlin
 (06:55UTC), with all long runs terminal by06:50UTC. Root owns the goal pause;

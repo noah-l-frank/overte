@@ -748,3 +748,58 @@ complete Journey cleanup and retirement remain necessary. Feature7 stays
 partial and the source-complete area count remains5/14.
 The five approved project suites pass in6.87s; version, documentation and
 whitespace checks pass with the final registry entries.
+
+## Scoped UIKit original link during independent peer rotation
+
+`tablet_web_uikit_original_link.read` now supplies the corresponding UIKit-only
+original boundary. It reads the actual own canonical continuation header,
+frozen parent/copy, exact literal predecessor, complete128-row copy/manifest,
+all original raw/native UIKit packets and, for active3, the entire bounded
+active segment. Complete closed1, bound2 and active3 remain distinct readers;
+their actual tails can be128,129 and130 respectively. Original objects,
+targets, contacts, dispatches, pending dispatches, query uniqueness, native
+clocks and global raw floors still pass through the existing UIKit decoder.
+No new serialized codec, registry entry, transport or limit is introduced.
+
+Each current sibling header is read as actual guarded bytes and full file
+identity at this one call's entry, then checked again throughout the own
+original read. A sibling already changed relative to its frozen parent
+descriptor is not authorized by this check. The own graph does not execute a
+DOM/peer original proof or return peer observations: its result is explicitly
+`component='uikit'`, `historicalOnly=True`, `subgraphOnly=True` and
+`peerAuthority=False`. The live UIKit prefix and all-nine parent retain their
+literal peer admission requirements. SourceReady, new acquisition and public
+capabilities remain closed until their complete integration is present.
+
+The reader and its mutation methods never escape. Its private scope expires
+in `finally`, including a constructor failure; original-copy/index/bind/save
+operations are forbidden even during the read. A post-return guard, history
+or original bind cannot revive that authority. No query, native release,
+resource retirement or SDK teardown occurs.
+
+One composed real-file/modeled-native case passes in119.190s. It separately
+reads closed128 and bound129 before normal active130, preserves all original
+bytes/inodes and native query counts, then replaces another peer header with
+identical bytes at a new inode. Live UIKit and whole Source remain blocked
+while the isolated own UIKit130 graph still validates. It checks successful
+and failed-constructor scope expiry, foreign binding refusal, a peer mutation
+during an actual own original read, and corruption of an actual own original.
+The exact log is
+`.ios-host-tmp/tablet-dom-continuation-20261027/uikit-original-link-profiles-and-guards.log`.
+Successful temporary fixtures clean themselves normally; this log does not
+claim their original files remain retained. Native producers and clocks are
+declared models, native code remains uncompiled and devices untested.
+
+This closes the next own-graph prerequisite, not Feature7. Independent
+remaining-child, aggregate and screen continuation, current whole26-step
+composition for both roles, double cleanup and final retirement remain open.
+The completed source-area count remains5/14.
+The explicit existing Packet/SourceOwner/Fence/ChildRotation and UIKit
+metadata selection passes50 cases in62.353s under parallel host load. Its
+modeled clocks provide functional regression evidence, not CPU deadline
+qualification. The log is
+`.ios-host-tmp/tablet-dom-continuation-20261027/uikit-original-link-legacy52.log`;
+the historical filename does not change the actual50-case result. The two
+DOM segment metadata cases were not included in this selection. Shared
+project checks are coordinated separately by Root after the current team
+packets stabilize.
