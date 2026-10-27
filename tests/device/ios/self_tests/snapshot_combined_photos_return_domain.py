@@ -14,5 +14,7 @@ class CombinedPhotosReturnFlow(CombinedUploadReturnFlow):
         self.photos=SharedPhotosDomain(case,main=self.main,phase_client=self.client,foreground_owner=self,physical_selector=DEVICE)
     def __init__(self,case):
         super().__init__(case);self.activate('save','7'*32)
+        self.finish_photos(case)
+    def finish_photos(self,_case):
         with self.photos.owner() as owner:
             self.photos_saved=owner.save('7'*32);self.photos_cleaned=owner.cleanup()

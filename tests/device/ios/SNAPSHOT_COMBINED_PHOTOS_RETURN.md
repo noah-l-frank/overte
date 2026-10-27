@@ -84,6 +84,41 @@ any other agent's unqualified work. The explicit
 journey-result2/read1,2 and photos-archive-result1 registrations describe these
 closed profiles; registration alone admits no scenario or native code.
 
+## Delivered Save return recovery
+
+The separate explicit whole recovery case passed in 213.682 seconds in
+`.ios-host-tmp/snapshot-photos-recovery-resume-20261027-whole01.log`, under
+the unchanged outer 300 and original 25-second/1.5-second/250 ms bounds.
+Its fresh producer used the same original PNG graph and lost only the normal
+Save return after the existing native input handler created its export and
+Photos library bytes. The failed owner retained one issued input and no Saved2
+result. A newly constructed production owner decoded the exact persisted owner
+and input journals, preserved the original command and control reference,
+recovered delivered reception and continued independent read/Delete/helper
+cleanup before the existing Share/Return and historical Result2 proof. Capture
+journal, host PNG inode and bytes stayed identical; Save/read/Delete/retire/
+Upload stayed once-only. Original evidence was read from retained stores,
+rather than a live context being accepted as a new original. The normal
+qualified constructor retains its default through a small completion hook.
+
+This is one additional distinct case, not a second execution of the normal
+case. It reuses that case's full assertions with an explicit lost-return
+producer. All three new original roots remain private: `tmp7nj2m3hp`,
+`snapshot-companion-456fxo_6` and `snapshot-companion-uqluzf_v`. The run
+coincided only with three tiny source-application checks permitted by the
+coordinator; it is not an isolated timing benchmark. Final approved shared
+suites passed in 6.97 seconds in
+`.ios-host-tmp/snapshot-photos-recovery-resume-20261027-common02.log`;
+versions, all 875 documentation files and whitespace checks passed. These are
+contract/inventory checks and do not qualify other agents' new scenarios or
+native code.
+
+This case models loss of one return and reconstruction of the owner. It does
+not qualify a full process crash, denied Save whole journey, Actor/rendered
+fidelity or final SDK/source retirement. No result grammar, original clock or
+cap is changed. The literal Result2 still reports its remaining whole-feature
+obligations.
+
 Native/Qt/V8/PhotoKit/OS/SDK/TLS remain declared host models. Actual host PNG,
 Node callback, protected backend serialization, private bytes and production
 coordinators do not establish installed iOS execution. Independent Actor/scene/
