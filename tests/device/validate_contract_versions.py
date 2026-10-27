@@ -731,6 +731,8 @@ REQUIRED = {
     "ios-tablet-web-bootstrap-original": 1,
     "ios-tablet-web-app-origin": 1,
     "ios-tablet-web-source-owner": 2,
+    "ios-tablet-web-child-rotation": 1,
+    "ios-tablet-web-child-closed-header-body": 1,
     "ios-tablet-web-acquisition": 2,
     "ios-tablet-web-acquisition-frame": 1,
     "ios-tablet-web-acquisition-original": 1,

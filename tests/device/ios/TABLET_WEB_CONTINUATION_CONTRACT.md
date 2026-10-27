@@ -197,3 +197,63 @@ completion or full journey.
 
 The five approved no-build project suites pass in 6.76s for this four-file
 fence packet. Source writer2 and the contract registry stay unchanged.
+
+## Child-bound rotation profile and read-only predecessor
+
+The next isolated profile keeps Source3/`rotating` and adds its own explicit
+`tabletWebChildRotationVersion: 1` with closed profile
+`tabletweb-native-child-prefix`. A new profile can be prepared only while the
+actual canonical parent is still literal Source1/2. Old unbound Source3 fences
+remain literal blocked metadata and cannot be enriched after the fact.
+
+Before CAS, the preparer runs the existing full parent/child histories and
+captures all nine canonical child headers. Each descriptor contains exactly
+component, derived header basename, actual byte hash and full file signature,
+literal packet-header version, count, exact final original reference and
+unchanged raw-fragment cursor. These are independent child tails, not inferred
+from the aggregate ordinal. Unresolved pending/query/raw/app ownership blocks
+preparation. A complete original inventory brackets the capture.
+
+The copied body has its own `tabletWebChildClosedHeaderBodyVersion: 1`, same
+profile/scope, literal parent capsule and all child descriptors. Only an actual
+complete readable original copy can enter read-only restore. The canonical
+head stays `rotating`. Restore verifies every current child header byte/inode
+signature, reads the exact immutable copy and loads its old parent through the
+existing literal SourceOwner history with `historical=True`. Every child
+history is then replayed through its real last record, preserving its native
+query IDs, packet sequences, clocks and raw/record floors. Capture/save remain
+unavailable; neither a complete copy nor a hash grants Ready3.
+
+The independent tail counterexample models an additional input-channel DOM
+query after the last complete aggregate. Its new original can report
+`unavailable` while the retained aggregate still contains the earlier ready
+DOM. Restore must retain the actual newer disposition and sequence. Such a
+disposition proves neither current document availability nor disappearance,
+UI/resource retirement or permission to ignore a failed input. It is original
+history only. The earlier aggregate and generated JS bytes are not rewritten.
+
+The implementation still does not admit another native acquisition, select a
+new live segment, resolve component continuation or advertise Source3 Ready.
+
+Seven focused child-rotation cases pass in 6.835s. The independent DOM tail is
+an actually acquired modeled-native `unavailable` original with sequence2,
+while aggregate1 retains its earlier ready DOM. Its genuine tail and all old
+native/phase bytes are retained; no SDK/native query or publication occurs
+during restore. Unbound old Source3 fences, unresolved child ownership,
+missing/foreign child descriptions, same-byte head replacement and a child
+inode change during a real original read are refused. A further 25 existing
+SourceOwner/fence cases pass in 10.944s.
+
+The private `_closed_snapshot` entry is forced historical and cannot capture
+or save. It loads the old Source1/2 body through the existing storage/history
+code; it does not read the fenced head as an empty successful source. The
+normal constructor still blocks rotating metadata before child construction.
+Both copied header body and child profile have explicit separate version1
+markers. Source writer2 and native clocks/counters remain unchanged.
+
+The two separate metadata contracts are
+`ios-tablet-web-child-rotation` and
+`ios-tablet-web-child-closed-header-body`, both writer1/read1. The active
+`ios-tablet-web-source-owner` remains writer2/read1,2. Version validation and
+the five approved no-build project suites pass (6.82s); no Ready3 or full
+source continuation is advertised.

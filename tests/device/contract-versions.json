@@ -653,6 +653,8 @@
     "ios-tablet-web-bootstrap-original": {"current": 1, "reads": [1]},
     "ios-tablet-web-app-origin": {"current": 1, "reads": [1]},
     "ios-tablet-web-source-owner": {"current": 2, "reads": [1, 2]},
+    "ios-tablet-web-child-rotation": {"current": 1, "reads": [1]},
+    "ios-tablet-web-child-closed-header-body": {"current": 1, "reads": [1]},
     "ios-tablet-web-acquisition": {"current": 2, "reads": [1, 2]},
     "ios-tablet-web-acquisition-frame": {"current": 1, "reads": [1]},
     "ios-tablet-web-acquisition-original": {"current": 1, "reads": [1]},

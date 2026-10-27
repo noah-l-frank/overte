@@ -99,6 +99,9 @@ def _copy(value,expected):
 
 
 def decode(value,expected):
+    if type(value) is dict and 'tabletWebChildRotationVersion' in value:
+        from ios.adapters.tablet_web_child_rotation import decode as child_rotation
+        return child_rotation(value,expected)
     expected=_scope(expected)
     exact(value,{'tabletWebSourceOwnerVersion','phase','scope','legacyVersion','previousHeader','copyIntent'})
     need(type(value['tabletWebSourceOwnerVersion']) is int and value['tabletWebSourceOwnerVersion']==VERSION

@@ -69,11 +69,39 @@ class TabletWebSourceOwner:
                 apps=[],records=[],pending=None,intent=None,inspection=None,appIntent=None,appPending=None,appInspection=None,reconciled=[])
             self.store.write(self.state,None)
         self.saved=deepcopy(self.state)
-        self.originals=OriginalFrameStore(root,binding,run,role,self.stored_original_guard,self.frame_intent,namespace='tabletweb-acquisitions',schema_prefix='tabletWebAcquisition',monotonic=monotonic)
-        self.app_originals=OriginalFrameStore(root,binding,run,role,self.stored_original_guard,self.app_intent,namespace='tabletweb-app-origins',schema_prefix='tabletWebAppAdmission',monotonic=monotonic)
-        self.children={name:TabletWebPackets(root,binding,run,role,fixture_url,pid,name,self.original_guard,
-            storage_guard=self.local_original_guard,epoch_ms=epoch_ms,monotonic=monotonic,historical=historical) for name in ORDER}
+        self._original_storage()
         self.history()
+
+    def _original_storage(self):
+        self.originals=OriginalFrameStore(self.root,self.binding,self.run,self.role,self.stored_original_guard,self.frame_intent,
+            namespace='tabletweb-acquisitions',schema_prefix='tabletWebAcquisition',monotonic=self.monotonic)
+        self.app_originals=OriginalFrameStore(self.root,self.binding,self.run,self.role,self.stored_original_guard,self.app_intent,
+            namespace='tabletweb-app-origins',schema_prefix='tabletWebAppAdmission',monotonic=self.monotonic)
+        self.children={name:TabletWebPackets(self.root,self.binding,self.run,self.role,self.fixture,self.pid,name,self.original_guard,
+            storage_guard=self.local_original_guard,epoch_ms=self.epoch_ms,monotonic=self.monotonic,historical=self.historical) for name in ORDER}
+
+    @classmethod
+    def _closed_snapshot(cls,root,binding,run,role,fixture_url,pid,lock,state,*,monotonic=time.monotonic):
+        """Literal old header for a guarded closed-prefix reader, never live.
+
+        The caller validates its actual immutable copy and all current child
+        signatures. This does not route around the constructor's live fence.
+        Every old row/native/phase/child continuation still runs in history.
+        """
+        owner=object.__new__(cls);owner.root=Path(root);owner.binding=deepcopy(context(binding))
+        owner.run,owner.role,owner.fixture,owner.pid=run,role,fixture_url,pid
+        need(isinstance(lock,ScriptSourceLock) and lock.path==owner.root/'script-feature-sources.lock'
+            and owner.binding['processIdentity']==str(pid) and role in ('primary','actor') and callable(monotonic))
+        lock.assert_held()
+        COMPONENTS['sources'].command(dict(schemaVersion=1,action=COMPONENTS['sources'].ACTION,
+            commandId='ios-'+'0'*32,runId=run,fixtureUrl=fixture_url))
+        def forbidden(*_args,**_kwargs):need(False)
+        owner.lock,owner.guard,owner.epoch_ms,owner.monotonic=lock,forbidden,forbidden,monotonic
+        owner.historical=True;owner.admission=None;owner._stored_read_depth=0
+        owner.store=PrivateFeatureState(owner.root/('tabletweb-source-owner-'+run+'-'+role+'.json'))
+        owner.state=deepcopy(state);owner.saved=deepcopy(state)
+        need(type(state.get('tabletWebSourceOwnerVersion')) is int and state['tabletWebSourceOwnerVersion'] in (1,2))
+        owner._original_storage();owner.history();return owner
 
     def bound(self):
         need(not self.historical);self.lock.assert_held();need(self.guard() is not False)
