@@ -87,3 +87,9 @@ decoder, GPU and full resource retirement remain unavailable. No original
 TextureRelease1 result, Owner metadata, Actor/peer/backend/source/process/SDK
 responsibility is retired by these lifecycle observations. Assets remains
 incomplete and overall source completion remains5/14.
+
+The separate [optional QtCore MetaCall source packet](ASSETS_QT_METACALL_BOUNDARY.md)
+prepares exact indexed-invocation/event/delivery/argument-destructor identity for
+a future matching SDK. It remains unapplied and uncompiled, adds no application
+bridge or wire migration, and leaves current Source1 queued attribution and all
+completion flags unchanged.

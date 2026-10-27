@@ -1,0 +1,370 @@
+--- a/qtbase/src/corelib/kernel/qobject_p.h
++++ b/qtbase/src/corelib/kernel/qobject_p.h
+@@ -82,10 +82,54 @@
+     static void (*setWidgetParent)(QObject *, QObject *); // Used by the QML engine to specify parents for widgets. Set by QtWidgets.
+ };
+
++
++#if defined(Q_OS_IOS)
++#  if QT_VERSION != QT_VERSION_CHECK(6, 11, 1)
++#    error "Overte MetaCall observation requires the reviewed complete Qt 6.11.1 SDK"
++#  endif
++#  define QT_OVERTE_E2E_METACALL_RECEIPTS 1
++// Private optional diagnostic ABI. Rebuild all Qt/private-header consumers together.
++// This structure contains no argument data and owns neither receiver nor payload.
++struct QOverteE2eMetaCallReceipt
++{
++    enum Phase { Created = 1, DeliveryEntered, DeliveryReturned, DeliveryUnwound,
++                 ArgumentValuesDestroyed };
++    quint64 eventId = 0;
++    quint64 invocationHigh = 0;
++    quint64 invocationLow = 0;
++    int methodIndex = -1;
++    Phase phase = Created;
++    QObject *receiver = nullptr; // callback-local identity; never export this address
++    qint64 epochMs = 0;
++    qint64 steadyNs = 0;
++};
++using QOverteE2eMetaCallObserver = bool (*)(const QOverteE2eMetaCallReceipt &);
++struct QOverteE2eMetaCallCookie
++{
++    quint64 eventId = 0;
++    quint64 invocationHigh = 0;
++    quint64 invocationLow = 0;
++    int methodIndex = -1;
++};
++#endif
++
+ class Q_CORE_EXPORT QObjectPrivate : public QObjectData
+ {
+ public:
+     Q_DECLARE_PUBLIC(QObject)
++
++#if defined(QT_OVERTE_E2E_METACALL_RECEIPTS)
++    // Admission is disabled until the E2E/testScript-gated app installs its observer.
++    // Observer false/throw, replacement, disable-after-enable, or overflow is sticky.
++    static int overteE2eMetaCallApiVersion() noexcept;
++    static void setOverteE2eMetaCallObserver(QOverteE2eMetaCallObserver, bool enabled) noexcept;
++    static bool overteE2eMetaCallObservationAvailable() noexcept;
++    static quint64 beginOverteE2eMetaCallBinding(QObject *, int methodIndex,
++                                               quint64 invocationHigh, quint64 invocationLow) noexcept;
++    static quint64 endOverteE2eMetaCallBinding(quint64 bindingToken) noexcept;
++    static quint64 claimOverteE2eIndexedInvocation(QObject *, int methodIndex) noexcept;
++    static quint64 currentOverteE2eMetaCallEvent(const QObject *) noexcept;
++#endif
+
+     struct ExtraData
+     {
+@@ -376,6 +420,10 @@
+         ushort method_relative_;
+     } d;
+
++#if defined(QT_OVERTE_E2E_METACALL_RECEIPTS)
++    QOverteE2eMetaCallCookie overteE2eCookie;
++#endif
++
+     inline QMetaCallEvent(const QObject *sender, int signalId, Data &&data);
+ };
+
+@@ -399,6 +447,11 @@
+
+     ~QQueuedMetaCallEvent() override;
+
++#if defined(QT_OVERTE_E2E_METACALL_RECEIPTS)
++    // Called only by the actual indexed invoke path, after original argument copying.
++    void overteE2eAdoptMetaCallBinding(QObject *, int methodIndex, quint64 invocationToken) noexcept;
++#endif
++
+ private:
+     inline void allocArgs();
+     inline void copyArgValues(int argCount, const QtPrivate::QMetaTypeInterface * const *argTypes,
+@@ -416,7 +469,7 @@
+     static constexpr int InplaceValuesCapacity = 3;
+     ArgValueStorage valuesPrealloc_[InplaceValuesCapacity];
+ };
+-// The total QQueuedMetaCallEvent size is 224 bytes which is a 32-byte multiple, efficient for memory allocators.
++// Unpatched QQueuedMetaCallEvent is 224 bytes; the optional iOS receipt changes its private ABI.
+
+ struct QAbstractDynamicMetaObject;
+ struct Q_CORE_EXPORT QDynamicMetaObjectData
+--- a/qtbase/src/corelib/kernel/qobject.cpp
++++ b/qtbase/src/corelib/kernel/qobject.cpp
+@@ -42,8 +42,228 @@
+
+ #include <ctype.h>
+ #include <limits.h>
++#if defined(QT_OVERTE_E2E_METACALL_RECEIPTS)
++#include <array>
++#include <atomic>
++#include <chrono>
++#include <exception>
++#include <QtCore/qdatetime.h>
++#endif
+
+ QT_BEGIN_NAMESPACE
++
++
++#if defined(QT_OVERTE_E2E_METACALL_RECEIPTS)
++namespace {
++// No dynamic Qt-side registry, payload inspection, strong QObject owner, or reset.
++std::atomic<bool> overteMetaCallEnabled { false };
++std::atomic<bool> overteMetaCallFailed { false };
++std::atomic<QOverteE2eMetaCallObserver> overteMetaCallObserver { nullptr };
++std::atomic<quint64> overteMetaCallBindingSequence { 0 };
++std::atomic<quint64> overteMetaCallEventSequence { 0 };
++static_assert(std::atomic<bool>::is_always_lock_free);
++static_assert(std::atomic<quint64>::is_always_lock_free);
++static_assert(std::atomic<QOverteE2eMetaCallObserver>::is_always_lock_free);
++constexpr unsigned OverteBindingLimit = 16;
++constexpr quint64 OverteEventLimit = 256;
++constexpr quint64 OverteBindingSequenceLimit = 1048576;
++struct OverteMetaCallBinding {
++    QObject *receiver = nullptr; // synchronous scope only; never dereferenced here
++    int methodIndex = -1;
++    quint64 high = 0, low = 0, token = 0, eventId = 0;
++    bool invocationClaimed = false;
++};
++thread_local std::array<OverteMetaCallBinding, OverteBindingLimit> overteBindings;
++thread_local unsigned overteBindingDepth = 0;
++thread_local QOverteE2eMetaCallCookie overteCurrentEvent;
++thread_local const QObject *overteCurrentReceiver = nullptr;
++thread_local unsigned overteDeliveryDepth = 0;
++thread_local bool overteInsideCallback = false;
++
++bool overteMetaCallHealthy() noexcept
++{
++    return overteMetaCallEnabled.load(std::memory_order_acquire)
++            && !overteMetaCallFailed.load(std::memory_order_acquire)
++            && overteMetaCallObserver.load(std::memory_order_acquire);
++}
++
++void overteMetaCallFail() noexcept
++{
++    overteMetaCallFailed.store(true, std::memory_order_release);
++}
++
++void overteMetaCallEmit(const QOverteE2eMetaCallCookie &cookie,
++                       QOverteE2eMetaCallReceipt::Phase phase, QObject *receiver) noexcept
++{
++    if (!cookie.eventId || !overteMetaCallHealthy())
++        return;
++    if (overteInsideCallback) {
++        overteMetaCallFail();
++        return;
++    }
++    overteInsideCallback = true;
++    try {
++        QOverteE2eMetaCallReceipt receipt;
++        receipt.eventId = cookie.eventId;
++        receipt.invocationHigh = cookie.invocationHigh;
++        receipt.invocationLow = cookie.invocationLow;
++        receipt.methodIndex = cookie.methodIndex;
++        receipt.phase = phase;
++        receipt.receiver = receiver;
++        receipt.epochMs = QDateTime::currentMSecsSinceEpoch();
++        receipt.steadyNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
++                std::chrono::steady_clock::now().time_since_epoch()).count();
++        auto observer = overteMetaCallObserver.load(std::memory_order_acquire);
++        if (!observer || !observer(receipt))
++            overteMetaCallFail();
++    } catch (...) {
++        overteMetaCallFail();
++    }
++    overteInsideCallback = false;
++}
++
++struct OverteMetaCallDelivery {
++    QOverteE2eMetaCallCookie saved = overteCurrentEvent;
++    const QObject *savedReceiver = overteCurrentReceiver;
++    QOverteE2eMetaCallCookie cookie;
++    QObject *receiver;
++    unsigned savedDepth = overteDeliveryDepth;
++    int exceptions = 0;
++    bool active = overteMetaCallHealthy();
++    OverteMetaCallDelivery(const QOverteE2eMetaCallCookie &value, QObject *object) noexcept
++        : cookie(value), receiver(object)
++    {
++        if (!active)
++            return;
++        exceptions = std::uncaught_exceptions();
++        // Unobserved nested queued events mask the outer identity as well.
++        overteCurrentEvent = value;
++        overteCurrentReceiver = object;
++        if (overteDeliveryDepth == OverteBindingLimit)
++            overteMetaCallFail();
++        else
++            ++overteDeliveryDepth;
++        overteMetaCallEmit(cookie, QOverteE2eMetaCallReceipt::DeliveryEntered, object);
++    }
++    ~OverteMetaCallDelivery() noexcept
++    {
++        if (!active)
++            return;
++        overteMetaCallEmit(cookie, std::uncaught_exceptions() == exceptions
++                ? QOverteE2eMetaCallReceipt::DeliveryReturned
++                : QOverteE2eMetaCallReceipt::DeliveryUnwound, receiver);
++        overteDeliveryDepth = savedDepth;
++        overteCurrentEvent = saved;
++        overteCurrentReceiver = savedReceiver;
++    }
++};
++} // namespace
++
++int QObjectPrivate::overteE2eMetaCallApiVersion() noexcept { return 1; }
++
++void QObjectPrivate::setOverteE2eMetaCallObserver(QOverteE2eMetaCallObserver observer,
++                                               bool enabled) noexcept
++{
++    if (!enabled) {
++        if (overteMetaCallEnabled.exchange(false, std::memory_order_acq_rel))
++            overteMetaCallFail();
++        return;
++    }
++    if (!observer || overteMetaCallFailed.load(std::memory_order_acquire)) {
++        overteMetaCallFail();
++        return;
++    }
++    QOverteE2eMetaCallObserver expected = nullptr;
++    if (!overteMetaCallObserver.compare_exchange_strong(expected, observer,
++                                                       std::memory_order_acq_rel)
++            && expected != observer) {
++        overteMetaCallFail();
++        return;
++    }
++    overteMetaCallEnabled.store(true, std::memory_order_release);
++}
++
++bool QObjectPrivate::overteE2eMetaCallObservationAvailable() noexcept
++{
++    return overteMetaCallHealthy();
++}
++
++quint64 QObjectPrivate::beginOverteE2eMetaCallBinding(QObject *receiver, int methodIndex,
++                                                    quint64 high, quint64 low) noexcept
++{
++    if (!overteMetaCallHealthy())
++        return 0;
++    if (!receiver || methodIndex < 0 || !(high || low)
++            || overteBindingDepth == OverteBindingLimit || overteInsideCallback) {
++        overteMetaCallFail();
++        return 0;
++    }
++    const auto token = overteMetaCallBindingSequence.fetch_add(1, std::memory_order_relaxed) + 1;
++    if (token > OverteBindingSequenceLimit) {
++        overteMetaCallFail();
++        return 0;
++    }
++    overteBindings[overteBindingDepth++] = {receiver, methodIndex, high, low, token, 0, false};
++    return token;
++}
++
++quint64 QObjectPrivate::endOverteE2eMetaCallBinding(quint64 token) noexcept
++{
++    if (!token)
++        return 0;
++    if (!overteBindingDepth || overteBindings[overteBindingDepth - 1].token != token) {
++        overteMetaCallFail();
++        return 0;
++    }
++    const auto value = overteBindings[--overteBindingDepth];
++    overteBindings[overteBindingDepth] = {};
++    return overteMetaCallHealthy() ? value.eventId : 0;
++}
++
++quint64 QObjectPrivate::currentOverteE2eMetaCallEvent(const QObject *receiver) noexcept
++{
++    return overteMetaCallHealthy() && !overteInsideCallback && receiver == overteCurrentReceiver
++            ? overteCurrentEvent.eventId : 0;
++}
++
++quint64 QObjectPrivate::claimOverteE2eIndexedInvocation(QObject *receiver,
++                                                      int methodIndex) noexcept
++{
++    if (!overteMetaCallHealthy() || !overteBindingDepth || overteInsideCallback)
++        return 0;
++    auto &binding = overteBindings[overteBindingDepth - 1];
++    if (binding.receiver != receiver || binding.methodIndex != methodIndex
++            || binding.invocationClaimed)
++        return 0;
++    // Claim before any product metatype registration or argument copy can reenter.
++    binding.invocationClaimed = true;
++    return binding.token;
++}
++
++void QQueuedMetaCallEvent::overteE2eAdoptMetaCallBinding(QObject *receiver,
++                                                       int methodIndex, quint64 token) noexcept
++{
++    if (!token || !overteMetaCallHealthy() || !overteBindingDepth)
++        return;
++    auto &binding = overteBindings[overteBindingDepth - 1];
++    if (binding.receiver != receiver || binding.methodIndex != methodIndex
++            || !binding.invocationClaimed || binding.token != token)
++        return;
++    if (binding.eventId || overteE2eCookie.eventId || overteInsideCallback) {
++        overteMetaCallFail();
++        return;
++    }
++    const auto id = overteMetaCallEventSequence.fetch_add(1, std::memory_order_relaxed) + 1;
++    if (id > OverteEventLimit) {
++        overteMetaCallFail();
++        return;
++    }
++    binding.eventId = id;
++    overteE2eCookie = {id, binding.high, binding.low, methodIndex};
++    overteMetaCallEmit(overteE2eCookie, QOverteE2eMetaCallReceipt::Created, receiver);
++}
++
++#endif
+
+ Q_TRACE_POINT(qtcore, QObject_ctor, QObject *object);
+ Q_TRACE_POINT(qtcore, QObject_dtor, QObject *object);
+@@ -543,6 +763,9 @@
+  */
+ void QMetaCallEvent::placeMetaCall(QObject *object)
+ {
++#if defined(QT_OVERTE_E2E_METACALL_RECEIPTS)
++    OverteMetaCallDelivery observation(overteE2eCookie, object);
++#endif
+     if (d.slotObj_) {
+         d.slotObj_->call(object, d.args_);
+     } else if (d.callFunction_ && d.method_offset_ <= object->metaObject()->methodOffset()) {
+@@ -627,6 +850,10 @@
+         if (static_cast<void *>(d.args_) != prealloc_)
+             QtPrivate::sizedFree(d.args_, d.nargs_, PtrAndTypeSize);
+     }
++#if defined(QT_OVERTE_E2E_METACALL_RECEIPTS)
++    // Only the argument values are now destroyed. The event/base storage still exists.
++    overteMetaCallEmit(overteE2eCookie, QOverteE2eMetaCallReceipt::ArgumentValuesDestroyed, nullptr);
++#endif
+ }
+
+ /*!
+--- a/qtbase/src/corelib/kernel/qmetaobject.cpp
++++ b/qtbase/src/corelib/kernel/qmetaobject.cpp
+@@ -2754,6 +2754,10 @@
+ {
+     auto object = static_cast<QObject *>(target);
+     auto priv = QMetaMethodPrivate::get(&self);
++#if defined(QT_OVERTE_E2E_METACALL_RECEIPTS)
++    const auto overteInvocationToken = QObjectPrivate::claimOverteE2eIndexedInvocation(
++            object, self.methodIndex());
++#endif
+     constexpr bool MetaTypesAreOptional = QT_VERSION < QT_VERSION_CHECK(7, 0, 0);
+     auto methodMetaTypes = priv->parameterMetaTypeInterfaces();
+     auto param = const_cast<void **>(parameters);
+@@ -2919,8 +2923,15 @@
+             argTypes.emplace_back(type.iface());
+         }
+
++#if defined(QT_OVERTE_E2E_METACALL_RECEIPTS)
++        auto *event = new QQueuedMetaCallEvent(idx_offset, idx_relative, callFunction, nullptr,
++                                              -1, paramCount, argTypes.data(), parameters);
++        event->overteE2eAdoptMetaCallBinding(object, idx_offset + idx_relative, overteInvocationToken);
++        QCoreApplication::postEvent(object, event);
++#else
+         QCoreApplication::postEvent(object, new QQueuedMetaCallEvent(idx_offset, idx_relative, callFunction, nullptr,
+                                                                      -1, paramCount, argTypes.data(), parameters));
++#endif
+     } else { // blocking queued connection
+ #if QT_CONFIG(thread)
+         if (receiverInSameThread()) {

@@ -1,0 +1,10 @@
+{
+  "qtVersion": "6.11.1",
+  "apiVersion": 1,
+  "patch": "qtbase-overte-e2e-metacall-receipts.patch",
+  "sourceSha256": {
+    "qtbase/src/corelib/kernel/qobject_p.h": "5fa0582289ed0af15fb19de364b249b79f434ef4158df6810d4f22d6a0c68772",
+    "qtbase/src/corelib/kernel/qobject.cpp": "937574b0def9e2afc48e8b8e8a2c51d42572b128af5b6137bfc69837e3a2fbbf",
+    "qtbase/src/corelib/kernel/qmetaobject.cpp": "d91a6cea78c54ef455e206bd8042eadfc7fbd4dff6fdceea8b7d7645fd0757ba"
+  }
+}
