@@ -8,6 +8,7 @@ private PNG and protected backend bytes drive the modeled source events.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import hashlib
+import re
 from pathlib import Path
 import uuid
 import weakref
@@ -40,7 +41,10 @@ class CausalDispatchDomain(CombinedConsumerDomain):
         need(self.lease is None)
         # This event arrives only from the actual running Window function in
         # the Node edge, between actual text-read and callback-leave events.
-        model=self.work_template['source']['workers'][0];raw_stack,_modules=caller(('system/snapshot.js','modules/request.js'),BASE)
+        model=self.work_template['source']['workers'][0]
+        frames=re.findall(r'qrc:/scripts/([^:\n()]+):([0-9]+):([0-9]+)',parameters['stack'])
+        need(bool(frames));raw_stack,_modules=caller(tuple(row[0] for row in frames),BASE)
+        for observed,(_path,line,column) in zip(raw_stack['frames'],frames):observed.update(line=int(line),column=int(column))
         observed=dict(callerVersion=1,method='shareSnapshot',sequence=len(self.calls)+1,invokedEpochMs=self.epoch(),
             manager=deepcopy(model['manager']),code=deepcopy(model['code']),snapshotCombinedSources=deepcopy(model['codeSources']),snapshotCombinedStack=raw_stack)
         events={row['kind']:row for row in self.http.events};link=dict(httpInstance=self.http.instance,
@@ -61,10 +65,12 @@ class CausalDispatchDomain(CombinedConsumerDomain):
         if self.calls:self.left('window')
     def new_upload(self):
         need(self.lease is not None);self.entered('application');self.entered('snapshot')
-        upload=super().new_upload();self.advance();self.calls[-1].update(upload=upload.upload['instance'],associatedEpochMs=self.epoch())
+        upload=super().new_upload();self.complete_dispatch(upload);return upload
+    def complete_dispatch(self,upload):
+        self.advance();self.calls[-1].update(upload=upload.upload['instance'],associatedEpochMs=self.epoch())
         self.left('snapshot');self.left('application')
         if self.hold_dispatch:self.held.append(self.lease)
-        self.lease=None;return upload
+        self.lease=None
     def causal_packet(self,query):
         self.advance();self.causal_sequence+=1;before=self.clock();self.advance();after=self.clock()
         rows=deepcopy(self.calls)

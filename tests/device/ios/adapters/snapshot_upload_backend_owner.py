@@ -29,15 +29,15 @@ class IOSSnapshotUploadBackendOwner:
     def __init__(self,native,client,*,epoch_ms,monotonic,sleep,domain_policy=None):
         need(type(native) is IOSSnapshotUploadOwner and native.historical and native.state['result'] is not None and isinstance(client,Client))
         need(client.url+'/runs/'+native.run+'/'==native.fixture_url);source.origin(client.url)
-        self.domain_policy=None if domain_policy is None else deepcopy(public_configuration(domain_policy));self.version=3 if native.frontend_http else 1 if domain_policy is None else 2
+        self.domain_policy=None if domain_policy is None else deepcopy(public_configuration(domain_policy));self.version=4 if native.frontend_caller else 3 if native.frontend_http else 1 if domain_policy is None else 2
         self.native,self.client,self.epoch_ms,self.monotonic,self.sleep=native,client,epoch_ms,monotonic,sleep;self.historical=False;self.setup()
     @classmethod
     def history(cls,native,*,domain_policy=None):
         owner=object.__new__(cls);owner.native=native;owner.historical=True;owner.client=None;owner.monotonic=time.monotonic;owner.epoch_ms=owner.sleep=None
-        owner.domain_policy=None if domain_policy is None else deepcopy(public_configuration(domain_policy));owner.version=3 if native.frontend_http else 1 if domain_policy is None else 2
+        owner.domain_policy=None if domain_policy is None else deepcopy(public_configuration(domain_policy));owner.version=4 if native.frontend_caller else 3 if native.frontend_http else 1 if domain_policy is None else 2
         owner.setup();need(owner.previous is not None);return owner
     def setup(self):
-        need(self.version!=3 or self.domain_policy is not None)
+        need(self.version<3 or self.domain_policy is not None)
         native=self.native;need(native.historical and native.state['result'] is not None);self.run,self.binding,self.lock,self.fixture_url=native.run,deepcopy(native.binding),native.lock,native.fixture_url
         self.lock.assert_held();self.root=native.root;self.store=PrivateFeatureState(self.root/'snapshot-upload-backend-owner.json')
         self.pins=dict(nativeUploadOwnerSha256=digest(native.previous),nativeUploadResultSha256=digest(native.proof()))
@@ -225,9 +225,12 @@ class IOSSnapshotUploadBackendOwner:
         if self.version>=2:
             preflight=self.preflight_join();need(same(preflight,self.state['preflightJoined']))
             result.update(controlledDomainPreflightOriginalJoined=True,domainPolicy=deepcopy(self.domain_policy),preflight=preflight,frontendResponseConsumptionRequired=True,externalMetaverseRegistrationRequired=True)
-        if self.version==3:
+        if self.version>=3:
             from ios.adapters.snapshot_frontend_consumption import joined
             result.update(frontendResponseConsumptionRequired=False,frontendConsumption=joined(self),frontendBranchAcceptanceRequired=True)
+        if self.version==4:
+            from ios.adapters.snapshot_frontend_branch import joined
+            result.update(frontendBranchAcceptanceRequired=False,frontendBranch=joined(self,result['frontendConsumption']))
         return result
     @operation
     def original(self):
@@ -242,10 +245,10 @@ class IOSSnapshotUploadBackendOwner:
 
 
 @contextmanager
-def backend_context(runtime,selector,run,client,binding,*,epoch_ms,monotonic,sleep,domain_policy=None,combined=False,frontend_http=False):
+def backend_context(runtime,selector,run,client,binding,*,epoch_ms,monotonic,sleep,domain_policy=None,combined=False,frontend_http=False,frontend_caller=False):
     """Reopen exact original main binding; no SDK, native input or OS getter."""
-    need(type(combined) is type(frontend_http) is bool and (not frontend_http or combined))
+    need(type(combined) is type(frontend_http) is type(frontend_caller) is bool and (not frontend_http or combined) and (not frontend_caller or frontend_http))
     lock=ScriptSourceLock(runtime.state_path(selector).with_name('script-feature-sources.lock'))
     with lock.held():
-        native=IOSSnapshotUploadOwner.history(PrivateFeatureState(lock.path.with_name('snapshot-upload-owner.json')),lock,binding,run,client.url+'/runs/'+run+'/',combined=combined,frontend_http=frontend_http)
+        native=IOSSnapshotUploadOwner.history(PrivateFeatureState(lock.path.with_name('snapshot-upload-owner.json')),lock,binding,run,client.url+'/runs/'+run+'/',combined=combined,frontend_http=frontend_http,frontend_caller=frontend_caller)
         yield IOSSnapshotUploadBackendOwner(native,client,epoch_ms=epoch_ms,monotonic=monotonic,sleep=sleep,domain_policy=domain_policy)

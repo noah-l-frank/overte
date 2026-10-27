@@ -17,7 +17,7 @@ from ios.adapters import snapshot_combined_preflight_http as http
 
 def joined(backend):
     native=backend.native
-    need(backend.version==3 and native.frontend_http and native.combined and native.historical
+    need(backend.version in (3,4) and native.frontend_http and native.combined and native.historical
         and native.state['result'] is not None and native.state['httpBefore'] is not None and native.state['httpAfter'] is not None)
     before=native.http_original(native.state['httpBefore']);after=native.http_original(native.state['httpAfter'])
     http.validate(after,dict(schemaVersion=1,action=http.ACTION,commandId=after['requestId'],runId=native.run),

@@ -6,7 +6,7 @@ from adapters.original_packet_segments import OriginalPacketSegments
 from ios.adapters.snapshot_input_owner import SnapshotInputOwner
 from ios.adapters.snapshot_source_packet import SnapshotWorkPacket,SnapshotCapturesPacket,SnapshotExportsPacket,SnapshotInputsPacket
 from ios.adapters.snapshot_file_work_packet import SnapshotFileWorkPacket
-from ios.adapters import snapshot_uploads,snapshot_combined_preflight_http
+from ios.adapters import snapshot_uploads,snapshot_combined_preflight_http,snapshot_causal_dispatch
 
 
 class UploadSegments(OriginalPacketSegments):PROFILE='snapshot-upload-sources'
@@ -61,6 +61,16 @@ class CombinedUploadHttpPacket(SnapshotFileWorkPacket):
     _source=snapshot_combined_preflight_http;_segments=CombinedHttpSegments;_segment_subject='upload'
 
 
-def packet_types(frontend_http=False):
-    need(type(frontend_http) is bool)
-    return dict(PACKETS,http=CombinedUploadHttpPacket) if frontend_http else PACKETS
+class CausalDispatchSegments(OriginalPacketSegments):PROFILE='snapshot-causal-dispatch'
+
+
+class UploadCausalDispatchPacket(SnapshotFileWorkPacket):
+    _store_prefix='snapshot-upload';_name='native-causal-dispatch';_key='snapshotUploadCausalDispatchPacketVersion'
+    _namespace='upload-causal-dispatch';_schema='uploadCausalDispatch';_kind='causal-dispatch'
+    _source=snapshot_causal_dispatch;_segments=CausalDispatchSegments;_segment_subject='upload'
+
+
+def packet_types(frontend_http=False,frontend_caller=False):
+    need(type(frontend_http) is type(frontend_caller) is bool and (not frontend_caller or frontend_http))
+    result=dict(PACKETS,http=CombinedUploadHttpPacket) if frontend_http else PACKETS
+    return dict(result,causal=UploadCausalDispatchPacket) if frontend_caller else result

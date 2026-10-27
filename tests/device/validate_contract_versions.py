@@ -9,6 +9,16 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "snapshot-upload-causal-dispatch-packet": 1,
+    "snapshot-upload-causal-dispatch-frame": 1,
+    "snapshot-upload-causal-dispatch-original": 1,
+    "snapshot-causal-dispatch-parts": 1,
+    "snapshot-causal-dispatch-part-body": 1,
+    "snapshot-causal-dispatch-part-frame": 1,
+    "snapshot-causal-dispatch-part-original": 1,
+    "snapshot-causal-callsite-pins": 1,
+    "snapshot-frontend-branch": 1,
+
     "ios-snapshot-causal-dispatch": 1,
     "ios-snapshot-causal-dispatch-acquisition": 1,
 
@@ -54,14 +64,14 @@ REQUIRED = {
     "snapshot-upload-backend": 1,
     "snapshot-upload-backend-body": 1,
     "snapshot-upload-backend-export": 1,
-    "snapshot-upload-backend-query": 3,
-    "snapshot-upload-backend-owner": 3,
-    "snapshot-upload-backend-result": 3,
+    "snapshot-upload-backend-query": 4,
+    "snapshot-upload-backend-owner": 4,
+    "snapshot-upload-backend-result": 4,
     "snapshot-upload-backend-frame": 1,
     "snapshot-upload-backend-original": 1,
     "ios-snapshot-uploads-source": 2,
-    "snapshot-upload-owner": 3,
-    "snapshot-upload-result": 3,
+    "snapshot-upload-owner": 4,
+    "snapshot-upload-result": 4,
     "snapshot-upload-input-owner": 1,
     "snapshot-upload-input-proof-frame": 1,
     "snapshot-upload-input-proof-original": 1,

@@ -17,6 +17,17 @@ function section(first, last) {
 const original = section('var request;', 'function removeFromStoryIDsToMaybeDelete') +
     section('function fileExtensionMatches', 'var POLAROID_PRINT_SOUND') +
     section('function isDomainOpen', 'function stillSnapshotTaken');
+// Optional causal fixtures preserve each original line/column in the actual
+// executing slices. Gaps contain only whitespace, never replacement product
+// code. The existing tracing-disabled driver keeps its literal old source.
+function locatedOriginal() {
+    const spans = [['var request;', 'function removeFromStoryIDsToMaybeDelete'],
+        ['function fileExtensionMatches', 'var POLAROID_PRINT_SOUND'],
+        ['function isDomainOpen', 'function stillSnapshotTaken']].map(pair => {
+        const begin = source.indexOf(pair[0]); return [begin, source.indexOf(pair[1], begin + pair[0].length)];
+    });
+    return source.split('').map((ch, index) => spans.some(span => span[0] <= index && index < span[1]) || ch === '\n' || ch === '\r' ? ch : ' ').join('');
+}
 let context, pending, shares, messages, permissionUpdates, delivered = false, traceHttp = false, traceCalls = false, responseBody;
 function emit(value) { process.stdout.write(JSON.stringify(value) + '\n'); }
 function trace(kind, details) { if (traceHttp) { emit({event: 'xhr-trace', kind, details}); } }
@@ -45,14 +56,14 @@ lines.on('line', line => {
                 pending = this; trace('sent', {method: this.method, uri: this.uri, body}); emit({event: 'http', method: this.method, uri: this.uri, body});
             };
             const requestContext = vm.createContext({module: {exports: {}}, XMLHttpRequest: XHR, print: function () {}});
-            vm.runInContext(requestSource, requestContext, {timeout: 1000});
+            vm.runInContext(requestSource, requestContext, traceCalls ? {timeout: 1000, filename: 'qrc:/scripts/modules/request.js'} : {timeout: 1000});
             context = vm.createContext({
                 nativeReview: true, nativeReviewRevision: 1, nativeUploadPaths: {},
                 METAVERSE_BASE: value.origin,
                 Account: {metaverseServerURL: value.origin, isLoggedIn: () => value.loggedIn},
                 Settings: {getValue: key => ({previousSnapshotDomainID: value.domain, previousSnapshotHref: value.href})[key]},
                 Window: {shareSnapshot: (path, href) => {
-                    if (traceCalls) { trace('window-share', {path, href}); }
+                    if (traceCalls) { trace('window-share', {path, href, stack: new Error().stack}); }
                     shares.push({path, href});
                     if (traceCalls) { trace('window-return', {}); }
                 }},
@@ -62,7 +73,7 @@ lines.on('line', line => {
                 mostRecentStillSnapshotFilename: '', mostRecentGifSnapshotFilename: '',
                 snapshotToShareAfterLogin: [], shareAfterLogin: false
             });
-            vm.runInContext(original, context, {timeout: 1000});
+            vm.runInContext(traceCalls ? locatedOriginal() : original, context, traceCalls ? {timeout: 1000, filename: 'qrc:/scripts/system/snapshot.js'} : {timeout: 1000});
             context.message = {type: 'snapshot', action: 'shareSnapshotForUrl', data: value.path};
             vm.runInContext('onMessage(message)', context, {timeout: 1000});
             emit({event: 'returned', pendingUploads: Object.keys(context.nativeUploadPaths).length});

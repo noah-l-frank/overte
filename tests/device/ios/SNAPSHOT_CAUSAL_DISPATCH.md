@@ -112,16 +112,17 @@ use the `snapshot-causal-dispatch-resume-20261027-` prefix with
 `whitespace06.log`. These source checks do not qualify the other agents'
 unfinished Chat7, Assets or Tablet scenario changes, or the native code here.
 
-## Required parent integration
+## Parent integration
 
-This source packet is not yet an admitted live Upload/Backend branch proof.
-The parent must durably reserve and retain its exact original query/raw/frame,
-require the same Capture/Upload manager/root and compiled V8 instance/ScriptId
-history, bind the operation's reviewed actual Window call site, join the exact
-HTTP callback and backend response to the native job ID, and require all
-diagnostic queue leases/scopes drained. Lost dispatch/query/result and opened
-file prefixes must remain owned without normal-input resend or retiming.
-No fresh result or successful branch is inferred by this standalone codec.
+The standalone source packet does not admit a live Upload/Backend branch.
+The explicit [Upload4/Backend4 composition](SNAPSHOT_FRONTEND_BRANCH.md) adds
+durable original query/raw/frame ownership, the same Capture manager/root and
+compiled V8 history, a separately reviewed full normal Window callsite, the
+exact HTTP callback/backend/native job join and diagnostic lease/scope drain.
+Its qualification and remaining limits are recorded separately. Lost
+dispatch/query/result and opened file prefixes remain owned without normal
+input resend or retiming. Default HTTP-consumer3 retains its branch obligation;
+no stronger result is inferred by this standalone codec.
 
 Rendered review, independent Actor/scene agreement, failed/recovered whole
 composition and complete source/main/SDK/witness endings remain separate

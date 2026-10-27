@@ -20,8 +20,8 @@ class SnapshotUploadPending(SnapshotInputPending):pass
 
 
 class IOSSnapshotUploadOwner:
-    def __init__(self,runtime,selector,run,lock,sources,capture,phase,*,epoch_ms,monotonic,sleep,combined=False,frontend_http=False):
-        need(type(combined) is type(frontend_http) is bool and (not frontend_http or combined));self.combined,self.frontend_http=combined,frontend_http
+    def __init__(self,runtime,selector,run,lock,sources,capture,phase,*,epoch_ms,monotonic,sleep,combined=False,frontend_http=False,frontend_caller=False):
+        need(type(combined) is type(frontend_http) is type(frontend_caller) is bool and (not frontend_http or combined) and (not frontend_caller or frontend_http));self.combined,self.frontend_http,self.frontend_caller=combined,frontend_http,frontend_caller
         need(type(capture) is IOSSnapshotCaptureOwner and capture.combined==combined and capture.historical and capture.run==run and same(capture.binding,sources['binding'])
             and phase.run==run and phase.area=='snapshots' and phase.fixture_url==capture.phase.fixture_url)
         self.runtime,self.selector,self.run,self.lock,self.sources,self.capture,self.phase=runtime,selector,run,lock,sources,capture,phase
@@ -29,15 +29,15 @@ class IOSSnapshotUploadOwner:
         self.historical=False;self.root=capture.store.path.parent;self.setup()
         restore(sources['clock_source'],self.state['nativeTail'])
     @classmethod
-    def history(cls,store,lock,binding,run,fixture_url,*,combined=False,frontend_http=False):
-        need(type(combined) is type(frontend_http) is bool and (not frontend_http or combined))
+    def history(cls,store,lock,binding,run,fixture_url,*,combined=False,frontend_http=False,frontend_caller=False):
+        need(type(combined) is type(frontend_http) is type(frontend_caller) is bool and (not frontend_http or combined) and (not frontend_caller or frontend_http))
         need(store.path==lock.path.with_name('snapshot-upload-owner.json'))
-        owner=object.__new__(cls);owner.store,owner.lock,owner.binding,owner.run,owner.fixture_url=store,lock,deepcopy(binding),run,fixture_url;owner.combined,owner.frontend_http=combined,frontend_http
+        owner=object.__new__(cls);owner.store,owner.lock,owner.binding,owner.run,owner.fixture_url=store,lock,deepcopy(binding),run,fixture_url;owner.combined,owner.frontend_http,owner.frontend_caller=combined,frontend_http,frontend_caller
         owner.historical=True;owner.sources=owner.runtime=owner.selector=owner.phase=None;owner.root=store.path.parent
         owner.capture=IOSSnapshotCaptureOwner.archive(PrivateFeatureState(owner.root/'ios-snapshot-primary-capture-owner.json'),lock,binding,run,fixture_url,combined=combined)
         owner.setup();need(owner.previous is not None);return owner
-    def version(self):return 3 if self.frontend_http else 2 if self.combined else 1
-    def packets(self):return packet_types(self.frontend_http)
+    def version(self):return 4 if self.frontend_caller else 3 if self.frontend_http else 2 if self.combined else 1
+    def packets(self):return packet_types(self.frontend_http,self.frontend_caller)
     def setup(self):
         self.lock.assert_held();self.capture_result=self.capture.result();artifact=self.capture.history('artifact',self.capture.state['artifact']);fact,raw=artifact.originals()
         self.file=deepcopy(fact['file']);self.pins=dict(captureResultSha256=digest(self.capture_result),artifactJournalSha256=digest(artifact.previous))
@@ -45,11 +45,13 @@ class IOSSnapshotUploadOwner:
         self.state=dict(ticket=None,verb=None,phaseOriginal=None,slots=[],input=None,cancel=None,baseline=None,job=None,decision=None,quiet=[],result=None,
             inputSources={},nativeTail=deepcopy(self.capture.state['nativeTail']))
         if self.frontend_http:self.state.update(httpBefore=None,httpAfter=None)
+        if self.frontend_caller:self.state.update(causalBefore=None,causalAfter=None)
         if self.previous is not None:self.state=self.load(self.previous)
         elif not self.historical:
             prefixes=('snapshot-upload-','upload-native-','upload-input-proof-')
             if self.combined:prefixes+=('upload-combined-work-','snapshot-combined-upload-parts-')
             if self.frontend_http:prefixes+=('upload-combined-http-','snapshot-http-upload-parts-')
+            if self.frontend_caller:prefixes+=('upload-causal-dispatch-','snapshot-causal-upload-parts-')
             need(not any(path.name.startswith(prefixes) for path in self.root.iterdir()))
             self.save()
     def envelope(self):return dict(snapshotUploadOwnerVersion=self.version(),binding=self.binding,runId=self.run,fixtureUrl=self.fixture_url,pins=self.pins,payload=pack([self.state]))
@@ -65,13 +67,16 @@ class IOSSnapshotUploadOwner:
         try:
             need(type(value['snapshotUploadOwnerVersion']) is int and same(value,self.envelope()) and type(state['slots']) is list and len(state['slots'])<=512
                 and type(state['quiet']) is list and len(state['quiet'])<=3)
-            labels=set();counts={kind:0 for kind in self.packets()};tail=deepcopy(self.capture.state['nativeTail'])
+            labels=set();counts={kind:0 for kind in self.packets()};tail=deepcopy(self.capture.state['nativeTail']);causal_previous=None
             for position,slot in enumerate(state['slots']):
                 exact(slot,{'kind','label','index','sha256'});need(slot['kind'] in self.packets() and type(slot['label']) is str and slot['label'] not in labels)
                 labels.add(slot['label']);counts[slot['kind']]+=1;need(type(slot['index']) is int and slot['index']==counts[slot['kind']])
                 if slot['sha256'] is not None:
                     child=self.child(slot,True);need(digest(child.previous)==slot['sha256']);frame=child.historical()
                     follow_native(tail,frame['acquisition']['nativeBefore']);tail=frame['acquisition']['nativeAfter']
+                    if self.frontend_caller and slot['kind']=='causal':
+                        child._source.validate(frame['packet'],frame['query'],int(self.binding['processIdentity']),previous=causal_previous)
+                        causal_previous=frame['packet']
                 else:need(position==len(state['slots'])-1)
             need(same(tail,state['nativeTail']))
             if state['ticket'] is None:
@@ -95,6 +100,10 @@ class IOSSnapshotUploadOwner:
                 if state['httpBefore'] is not None:need(state['ticket'] is not None);self.http_original(state['httpBefore'])
                 if state['httpAfter'] is not None:need(state['input'] is not None and state['httpBefore'] is not None);self.http_original(state['httpAfter'])
                 if state['job'] is not None:need(state['httpAfter'] is not None)
+            if self.frontend_caller:
+                if state['causalBefore'] is not None:need(state['ticket'] is not None);self.causal_original(state['causalBefore'])
+                if state['causalAfter'] is not None:need(state['input'] is not None and state['causalBefore'] is not None);self.causal_original(state['causalAfter'])
+                if state['job'] is not None:need(state['causalAfter'] is not None);self.causal_call(self.packet('causal',state['causalAfter']))
             if state['result'] is not None:need(same(state['result'],self.proof()))
         finally:self.state=prior
         return deepcopy(state)
@@ -144,6 +153,29 @@ class IOSSnapshotUploadOwner:
             need(same(created['engine'],worker['manager']) and same(created['submitted'],worker['code'])
                 and same(created['codeSources'],worker['codeSources']))
         return value
+    def causal_original(self,index):
+        from ios.adapters.snapshot_frontend_branch import original
+        need(self.frontend_caller);return original(self,self.packet('causal',index))
+    def causal_call(self,value):
+        from ios.adapters.snapshot_frontend_branch import call
+        need(self.frontend_caller);return call(self,value)
+    def causal_label(self,prefix):
+        rows=[row for row in self.state['slots'] if row['kind']=='causal' and row['label'].startswith(prefix+'-')]
+        if rows and rows[-1]['sha256'] is None:return rows[-1]['label']
+        return prefix+'-'+str(len(rows)+1)
+    def causal_quiet_span(self):
+        need(self.frontend_caller and len(self.state['quiet'])==3)
+        frames=[]
+        for group in self.state['quiet']:
+            slot=next(row for row in self.state['slots'] if row['kind']=='causal' and row['index']==group['causal'])
+            frames.append(self.child(slot,True).historical())
+        for before,after in zip(frames,frames[1:]):
+            need(after['packet']['sequence']>before['packet']['sequence']
+                and after['acquisition']['hostBeforeMonotonic']>=before['acquisition']['hostAfterMonotonic'])
+        first,last=frames[0],frames[-1]
+        need(all(last['packet']['clockBefore'][key]-first['packet']['clockAfter'][key]>=3000 for key in ('epochMs','monotonicMs'))
+            and last['acquisition']['hostBeforeEpochMs']-first['acquisition']['hostAfterEpochMs']>=3000
+            and (last['acquisition']['hostBeforeMonotonic']-first['acquisition']['hostAfterMonotonic'])*1000>=3000)
     def inputs(self,history=False):
         args=(PrivateFeatureState(self.root/SnapshotUploadInputs.store_name('primary')),self.lock,self.binding,self.run,'primary')
         return SnapshotUploadInputs.history(*args) if history else SnapshotUploadInputs(*args,self.sources['native'],self.guard)
@@ -198,7 +230,10 @@ class IOSSnapshotUploadOwner:
         if self.state['job'] is not None:need(self.state['job']==row['instance'])
         return row['instance']
     def quiet_group(self,group):
-        exact(group,{'uploads','work','captures','exports'});value=self.packet('uploads',group['uploads']);need(self.associate(value)==self.state['job'])
+        exact(group,{'uploads','work','captures','exports'}|({'causal'} if self.frontend_caller else set()));value=self.packet('uploads',group['uploads']);need(self.associate(value)==self.state['job'])
+        if self.frontend_caller:
+            from ios.adapters import snapshot_causal_dispatch as causal
+            packet=self.causal_original(group['causal']);call=self.causal_call(packet);need(causal.drained(packet,[call['instance']]))
         uploads.local_objects_gone(value,self.state['job']);work=self.packet('work',group['work']);source=self.capture.work_source()
         root=self.capture.root_original(self.capture.state['roots']);actual=source.admit(work,root,quiet=True)
         if self.combined:
@@ -231,6 +266,9 @@ class IOSSnapshotUploadOwner:
         if self.frontend_http:
             self.http_original(self.state['httpBefore']);self.http_original(self.state['httpAfter'])
             result.update(frontendHTTPOriginalsRetained=True,frontendBranchAcceptanceRequired=True)
+        if self.frontend_caller:
+            self.causal_quiet_span()
+            result.update(frontendCausalOriginalsRetained=True,diagnosticQueueScopesDrained=True)
         return result
     @operation
     def start(self,ticket,verb='upload'):
@@ -245,6 +283,12 @@ class IOSSnapshotUploadOwner:
             index=self.observe('baseline','uploads');self.baseline(self.packet('uploads',index));self.state['baseline']=index;self.save()
         if self.frontend_http and self.state['httpBefore'] is None:
             self.state['httpBefore']=self.observe('http-before','http');self.http_original(self.state['httpBefore']);self.save()
+        if self.frontend_caller and self.state['causalBefore'] is None:
+            from ios.adapters import snapshot_causal_dispatch as causal
+            label=self.causal_label('causal-before')
+            before=self.observe(label,'causal');value=self.causal_original(before)
+            if value['source']['calls']:need(causal.drained(value,[row['instance'] for row in value['source']['calls']]))
+            self.state['causalBefore']=before;self.save()
         if self.state['input'] is None:
             view=self.view();rows=[row for row in view['controls'] if row['id'].startswith('snapshot.upload.') and row['snapshotFileOwned'] and row['snapshotFileName']==self.file['name'] and row['inputReady']]
             need(len(rows)==1);control=rows[0]['id']
@@ -253,7 +297,17 @@ class IOSSnapshotUploadOwner:
         if self.frontend_http and self.state['httpAfter'] is None:
             self.state['httpAfter']=self.observe('http-after','http');self.http_original(self.state['httpAfter']);self.save()
         index=self.observe('start-'+str(1+sum(row['label'].startswith('start-') for row in self.state['slots'])),'uploads')
-        self.state['job']=self.associate(self.packet('uploads',index));self.save();return dict(nativeUploadObserved=True,upload=self.state['job'],independentBackendOriginalRequired=True,wholeFeatureRequired=True)
+        job=self.associate(self.packet('uploads',index))
+        if self.frontend_caller:
+            # The existing upload observer can publish its real ID before the
+            # causal constructor association/queue has returned on its thread.
+            # Retain that pending source fact, then let a later start acquire a
+            # new original after recovering the already delivered input.
+            label=self.causal_label('causal-after')
+            self.state['causalAfter']=self.observe(label,'causal');self.causal_original(self.state['causalAfter']);self.save()
+        self.state['job']=job
+        if self.frontend_caller:self.causal_call(self.packet('causal',self.state['causalAfter']))
+        self.save();return dict(nativeUploadObserved=True,upload=self.state['job'],independentBackendOriginalRequired=True,wholeFeatureRequired=True)
     @operation
     def cancel(self):
         need(not self.historical and self.state['job'] is not None and self.state['result'] is None);self.guard();self.active()
@@ -274,6 +328,6 @@ class IOSSnapshotUploadOwner:
         while len(self.state['quiet'])<3:
             if self.state['quiet']:self.sleep(1.6)
             attempt=1+sum(row['kind']=='uploads' and row['label'].startswith('quiet-') for row in self.state['slots'])
-            label='quiet-'+str(attempt);group={kind:self.observe(label+'-'+kind,kind) for kind in ('uploads','work','captures','exports')}
+            label='quiet-'+str(attempt);group={kind:self.observe(label+'-'+kind,kind) for kind in (('uploads','work','captures','exports','causal') if self.frontend_caller else ('uploads','work','captures','exports'))}
             self.quiet_group(group);self.state['quiet'].append(group);self.save()
         result=self.proof();self.state['result']=deepcopy(result);self.save();return result

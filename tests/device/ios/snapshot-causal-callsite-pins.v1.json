@@ -1,0 +1,16 @@
+{
+  "snapshotCausalCallsitePinsVersion": 1,
+  "encoding": "utf-16le-code-units",
+  "profile": "normal-share-for-url",
+  "sources": {
+    "system/snapshot.js": {"codeUnits": 41725, "sha256": "3dd3320d76d33953aaa7cb039f40c0ff8ddfcc130210b47586b3bddd662af5ef"},
+    "modules/request.js": {"codeUnits": 3452, "sha256": "d1a7bfbdef56ffb74bee06310d7405ac097cce49dd68ece76efdffce2aa5cacb"}
+  },
+  "frames": [
+    {"source": "system/snapshot.js", "line": 175, "column": 32, "token": "shareSnapshot("},
+    {"source": "system/snapshot.js", "line": 611, "column": 67, "token": "originalCallback("},
+    {"source": "system/snapshot.js", "line": 635, "column": 13, "token": "callback("},
+    {"source": "system/snapshot.js", "line": 59, "column": 71, "token": "callback("},
+    {"source": "modules/request.js", "line": 43, "column": 17, "token": "callback("}
+  ]
+}
