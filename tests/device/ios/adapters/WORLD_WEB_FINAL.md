@@ -225,6 +225,49 @@ The final legacy-only bypass does not qualify the large auxiliary path anew.
 Whole installed-operation CPU bounds, original freshness and the full terminal
 remain open. No native, device or complete feature qualification follows.
 
+The current World API scope also shares only literal successful KeySource
+validation for an identical complete input tree and original native epoch.
+Packet headers, freshness, process identity and explicit previous-packet joins
+remain outside this pure memo and run on every call. Outside an active World
+budget the validator stays literal. Nested scopes keep the original deadline;
+all successes disappear on scope exit or exception. The original validator
+body is unchanged. Function/code/default identities, constants and the actual
+serializer/hash functions are pinned; changed or unsupported readers stay
+literal. Type-preserving disposable marshal-format2 bytes avoid shared-object
+reference markers, so independent JSON reads and harmless scalar aliases have
+the same key. Nothing is loaded as code or persisted. At most256 success
+digests are retained; the8-MiB storage budget charges their actual32-byte keys,
+and the separate8-MiB candidate serialization limit remains unchanged.
+
+Every cache return and stored success checks the complete input again after
+its final budget check: even a supplied monotonic callable cannot change the
+tree between validation and return. The unchanged25-second budget is now also
+checked after all pure context teardown. An earlier diagnostic's logical guard
+returned success despite25.026 s complete elapsed time; it does not qualify
+this later complete boundary. No clock or native observation was retimed.
+
+Twenty current pure-input/deadline/legacy-transport/actual paired factory cases
+pass **15.517 s**, with all544 selected/imported source and launcher hashes
+unchanged. They include forged constant hashes/selective encoders, exact code
+replacement, equal-comparing callables, byte/entry overflow, independent JSON
+trees, clock-callback mutation and teardown deadline expiry. Log:
+`.ios-host-tmp/world-web-key-validation-complete-boundary-20261027.log`.
+The current same66-Source/21-input readonly component passes the complete real
+API25 boundary in **23.913 s** (Source22.665 s, Input0.267 s), preserving all252
+original files and190 participating source/launcher hashes. Log:
+`.ios-host-tmp/world-web-key-validation-complete-boundary-api25-20261027.log`.
+This is still only Source/Input construction, with no SDK preflight,
+Scope/Observer/PNG/Actor/full-terminal or device qualification.
+
+The preceding dedicated cold-Source profile is a diagnostic error, not a
+deadline result: instrumentation completes in37.539 s before the unchanged
+API guard refuses it. Its252 originals and4091 selected sources are unchanged.
+It records26,100,795 deepcopy calls,14.609 s cumulative copy cost,10.344 s self
+time in JSON encoding, and461 KeySource calls/4.469 s cumulative. These costs
+overlap and must not be added or compared with uninstrumented API timings.
+Raw profile/report:
+`.ios-host-tmp/world-web-cold-source-next-profile-20261027/`.
+
 ## Earlier verification packets
 
 The newer paired census/end replay reached its 600-second diagnostic limit;

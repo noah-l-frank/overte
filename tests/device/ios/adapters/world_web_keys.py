@@ -2,6 +2,10 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from contextlib import contextmanager
+from contextvars import ContextVar
+import hashlib
+import marshal
 import re
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from ios.adapters.places_model import IOSPlacesModel,text
@@ -13,6 +17,10 @@ ACTION='feature-ios-world-web-keys'
 FILE=ACTION+'.json'
 LIMIT=1048576
 HEX='[0-9a-f]{32}'
+_SOURCE_VALIDATION=ContextVar('world_web_pure_key_source_validation',default=None)
+_SOURCE_ENTRIES=256
+_SOURCE_BYTES=8*1024*1024
+_SOURCE_INPUT_BYTES=8*1024*1024
 
 
 def command(value):
@@ -22,7 +30,7 @@ def command(value):
 def nonce(value):need(type(value) is str and re.fullmatch(HEX,value));return value
 
 
-def source(value,epoch):
+def _source(value,epoch):
     exact(value,{'iosWorldWebKeySourceVersion','instance','bornEpochMs','complete','startup','eventSequence','events','dispatches',
         'pendingDispatches','down','ended','preedit','devices','targets','qtModifiers'})
     version=value['iosWorldWebKeySourceVersion']
@@ -119,6 +127,69 @@ def source(value,epoch):
         expected=seen[row['id']]
         need(bool(row['returnedSequence'])==('returned' in expected) and bool(row['finallySequence'])==('finally' in expected))
     return value
+
+
+def _source_metadata():
+    readers=(_source,nonce,exact,integer,need,number,text,re.fullmatch,marshal.dumps,hashlib.sha256)
+    return tuple((id(function),id(getattr(function,'__code__',None)),marshal.dumps((
+        getattr(function,'__defaults__',None),getattr(function,'__kwdefaults__',None)),4)) for function in readers),marshal.dumps((HEX,READS),4)
+
+
+# Keep the exact original objects alive as well as their identity numbers.
+_ORIGINAL_SOURCE_READERS=(_source,nonce,exact,integer,need,number,text,re.fullmatch,marshal.dumps,hashlib.sha256)
+_ORIGINAL_SOURCE_CODES=tuple(getattr(function,'__code__',None) for function in _ORIGINAL_SOURCE_READERS)
+_ORIGINAL_SOURCE_METADATA=_source_metadata()
+
+
+def _literal_source():
+    try:return _source_metadata()==_ORIGINAL_SOURCE_METADATA
+    except (TypeError,ValueError,OverflowError,RecursionError):return False
+
+
+def _source_key(value,epoch):
+    try:
+        # Format2 has no shared-object reference encoding: independent JSON
+        # reads of equal trees must not depend on Python aliases/refcounts.
+        encoded=marshal.dumps((value,epoch),2)
+        if len(encoded)<=_SOURCE_INPUT_BYTES:
+            key=hashlib.sha256(encoded).digest()
+            # Only this digest is retained; encoded inputs are discarded.
+            return key,len(key)
+    except (TypeError,ValueError,OverflowError,RecursionError):pass
+    return None,0
+
+
+@contextmanager
+def validation_round():
+    """Pure successes belong only to the enclosing, unchanged World API budget."""
+    from ios.adapters.world_web_api_clock import active
+    if not active() or _SOURCE_VALIDATION.get() is not None:yield;return
+    token=_SOURCE_VALIDATION.set(dict(entries=set(),bytes=0))
+    try:yield
+    finally:_SOURCE_VALIDATION.reset(token)
+
+
+def source(value,epoch):
+    cache=_SOURCE_VALIDATION.get()
+    if cache is None:return _source(value,epoch)
+    from ios.adapters.world_web_api_clock import active,check
+    if not active():return _source(value,epoch)
+    check()
+    if not _literal_source():return _source(value,epoch)
+    # Marshal bytes preserve bool/int/float distinctions. No parser output,
+    # packet, file membership or current clock enters the cache.
+    key,cost=_source_key(value,epoch)
+    if key is None:return _source(value,epoch)
+    if key in cache['entries']:
+        check()
+        # Even the supplied monotonic callable may mutate memory. A successful
+        # old tree cannot qualify changed bytes after the final budget check.
+        need(_literal_source() and _source_key(value,epoch)[0]==key);return value
+    result=_source(value,epoch);check()
+    need(_literal_source() and _source_key(value,epoch)[0]==key)
+    if (result is value and len(cache['entries'])<_SOURCE_ENTRIES and cache['bytes']+cost<=_SOURCE_BYTES):
+        cache['entries'].add(key);cache['bytes']+=cost
+    return result
 
 
 def validate(value,query,pid,epoch=None,previous=None):

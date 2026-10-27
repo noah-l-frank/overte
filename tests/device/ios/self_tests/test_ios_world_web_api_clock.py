@@ -2,12 +2,23 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import unittest
+from contextlib import contextmanager
 from unittest.mock import patch
 from adapters.normal_ui import NativeUIError
 from ios.adapters import world_web_api_clock as api
 
 
 class WorldWebAPIClockTests(unittest.TestCase):
+    def test_scope_teardown_cannot_escape_the_original_deadline(self):
+        from ios.adapters import world_web_keys
+        clock=[0.]
+        @contextmanager
+        def delayed_exit():
+            yield
+            clock[0]=25.
+        with patch.object(world_web_keys,'validation_round',delayed_exit):
+            with self.assertRaises(NativeUIError),api.scope(lambda:clock[0]):api.check()
+        self.assertFalse(api.active())
     def test_nested_calls_share_original_deadline_and_expiry_is_sticky(self):
         clock=[0.]
         with self.assertRaises(NativeUIError),api.scope(lambda:clock[0]):
