@@ -697,3 +697,54 @@ The existing DOM-only actual130 acquisition/restoration case passes in37.562s.
 The explicit50-case Packet/SourceOwner/Fence/ChildRotation and both metadata
 classes pass in18.935s. The five approved project suites pass in6.80s; contract
 versions and whitespace checks pass without any registry change.
+
+## Explicit active UIKit segment
+
+UIKit continuation metadata3 adds one explicit active segment at global129,
+with the already bound original129 as its first record. Metadata1/2 retain
+their exact field sets and the immutable closed body stays version1. The
+bound version2 is separate from active version3: `adopted()` remains an exact
+bound129 reader, while active callers must replay the full active history.
+Opening requires the actual complete closed copy/128-row manifest and validated
+bound129 before a once-only CAS. Opening issues no passive native query.
+
+The new UIKit segment uses the existing Packet query, durable before-send WAL,
+raw segments, record writer, readbacks and complete-original recovery. It
+supplies only its original128 predecessor, global indices and caller guard.
+The native floor retains every object, target, contact, dispatch and pending
+dispatch; query uniqueness, original host/native clocks and global raw cursor
+continue across the boundary. The active range129..256 keeps the128-record
+cap, global1024 raw/frame limits,64KiB head,1.5s query and five-second file
+guards. Ordinary Packet1/2 constructors stay literal and cannot open this
+explicit profile. The DOM live guard and public Source acquisition stay
+fenced.
+
+Source historical restoration distinguishes bound2 from active3. For active3
+it constructs the exact forced-historical UIKit segment and checks its whole
+actual history and outstanding responsibility before selecting a native tail.
+The aggregate still replays only its original Packet1/2 child states, clocks,
+native/phase endpoints and references. A separate UIKit130 tail cannot turn
+aggregate1 into a new acquisition. An unresolved query remains blocking after
+archival, including an issued-journal CAS whose return was lost before SDK
+send; neither a resend nor a lower writer is admitted. A complete returned
+original can be adopted at its exact existing bytes/device/inode without a
+new query or raw allocation.
+
+Three individual modeled-native/real-original cases pass: actual query130,
+durable before-send, full contacts/dispatches, reopen, historical DOM130 and
+UIKit130 at aggregate1, default fences and guard binding in115.956s; lost
+open/issued CAS plus durable unknown-query archival refusal in124.996s; exact
+complete-original130 recovery without query/raw reset in102.193s. The old
+bound2 Source selector remains valid in97.911s, including cache membership and
+peer inode counterexamples. Four metadata-only cases pass in0.014s and the
+explicit52-case literal/metadata selection passes in19.655s. These fixtures
+provide no physical input, real-device timing, release or weak-retirement
+qualification. Native code remains uncompiled and devices untested.
+
+Registry writer3/readers1/2/3 now describes UIKit continuation, alongside the
+new active-segment writer1/read1. Closed body1, Packet2 and native UIKit2 are
+unchanged. Whole-source/remaining-child/screen continuation, both roles,
+complete Journey cleanup and retirement remain necessary. Feature7 stays
+partial and the source-complete area count remains5/14.
+The five approved project suites pass in6.87s; version, documentation and
+whitespace checks pass with the final registry entries.

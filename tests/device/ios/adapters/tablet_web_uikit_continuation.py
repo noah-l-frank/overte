@@ -22,8 +22,9 @@ from ios.adapters import tablet_web_dom_original_link as dom_link
 from ios.adapters.emote_original_lease import EmoteOriginalLease
 from ios.adapters.tablet_web_packets import TabletWebPackets,CAPTURES,COMPONENTS
 
-VERSION=2
-READS=(1,2)
+VERSION=3
+READS=(1,2,3)
+BOUND_VERSION=2
 BODY_VERSION=1
 FENCE_VERSION=1
 PROFILE='tabletweb-uikit-closed-prefix'
@@ -46,7 +47,7 @@ def decode(value,expected):
     version=value.get('tabletWebUIKitContinuationVersion') if type(value) is dict else None
     need(type(version) is int and version in READS)
     exact(value,{'tabletWebPacketsVersion','tabletWebUIKitContinuationVersion','profile','phase','scope',
-        'parent','previousHeader','copyIntent','manifests','manifestIntent'}|({'successor'} if version>=2 else set()))
+        'parent','previousHeader','copyIntent','manifests','manifestIntent'}|({'successor'} if version>=2 else set())|({'active'} if version>=3 else set()))
     need(type(value['tabletWebPacketsVersion']) is int and value['tabletWebPacketsVersion']==3
         and type(value['tabletWebUIKitContinuationVersion']) is int and value['tabletWebUIKitContinuationVersion'] in READS
         and value['profile']==PROFILE and value['phase']=='rotating' and same(value['scope'],expected))
@@ -76,6 +77,11 @@ def decode(value,expected):
         need(type(ref['index']) is int and ref['index']==CAPTURES+1 and integer(ref['bytes'],2,1048576)
             and integer(ref['device'],0,2**64-1) and integer(ref['inode'],1,2**64-1)
             and type(ref['sha256']) is str and len(ref['sha256'])==64 and all(c in '0123456789abcdef' for c in ref['sha256']))
+    if version>=3:
+        from ios.adapters.tablet_web_uikit_segment import segment_header
+        need(value['manifestIntent'] is None and len(value['manifests'])==1 and value['manifests'][0]['count']==CAPTURES
+            and value['copyIntent'] is not None and value['copyIntent']['phase'] in ('opened','saved'))
+        segment_header(value['active'],expected,value['successor'])
     need(len(canonical(value))+1<=base.MAX_HEAD_BYTES);return raw,old
 
 
@@ -221,7 +227,7 @@ class TabletUIKitClosedPrefix:
 
     def bind_successor(self,reference):
         need(self.state['tabletWebUIKitContinuationVersion']==FENCE_VERSION);self.successor(reference)
-        changed=deepcopy(self.state);changed.update(tabletWebUIKitContinuationVersion=VERSION,successor=deepcopy(reference));self.save(changed)
+        changed=deepcopy(self.state);changed.update(tabletWebUIKitContinuationVersion=BOUND_VERSION,successor=deepcopy(reference));self.save(changed)
 
     def adopted(self):
-        need(self.state['tabletWebUIKitContinuationVersion']==VERSION);return self.successor(self.state['successor'])
+        need(self.state['tabletWebUIKitContinuationVersion']==BOUND_VERSION);return self.successor(self.state['successor'])

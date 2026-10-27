@@ -125,7 +125,7 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
     need(reference is not None and reference['phase'] in ('opened','saved'))
     lease=EmoteOriginalLease(root,[])
     current_children={};dom_prefix=None;dom_state=None;dom_reader=None;dom_changed=None
-    uikit_state=None;uikit_prefix=None
+    uikit_state=None;uikit_changed=None
     def forbidden(*_args,**_kwargs):need(False)
     for child in value['children']:
         old,signature=_raw(root/child['headerName']);digest=hashlib.sha256(old).hexdigest()
@@ -136,11 +136,12 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
         need(child['component'] in ('dom','uikit'))
         changed=PrivateFeatureState(root/child['headerName']).read()
         if child['component']=='uikit':
-            from ios.adapters.tablet_web_uikit_continuation import decode as uikit_decode,VERSION as UIKIT_VERSION
+            from ios.adapters.tablet_web_uikit_continuation import decode as uikit_decode,BOUND_VERSION as UIKIT_BOUND,VERSION as UIKIT_ACTIVE
             uikit_raw,uikit_state=uikit_decode(changed,expected)
-            need(changed['tabletWebUIKitContinuationVersion']==UIKIT_VERSION
+            need(changed['tabletWebUIKitContinuationVersion'] in (UIKIT_BOUND,UIKIT_ACTIVE)
                 and changed['previousHeader']['signature']==child['signature']
                 and hashlib.sha256(uikit_raw).hexdigest()==child['sha256'])
+            uikit_changed=changed
             continue
         from ios.adapters.tablet_web_dom_continuation import TabletDOMClosedPrefix,decode as dom_decode,FENCE_VERSION as DOM_VERSION,VERSION as ACTIVE_VERSION
         dom_raw,dom_state=dom_decode(changed,expected)
@@ -155,8 +156,18 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
         from ios.adapters.tablet_web_uikit_continuation import TabletUIKitClosedPrefix
         dom_proof=dom_original_link(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
         need(dom_proof['component']=='dom' and dom_proof['subgraphOnly'] is True and dom_proof['peerAuthority'] is False)
-        uikit_prefix=TabletUIKitClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
-        need(same(uikit_prefix.old,uikit_state));uikit_proof=uikit_prefix.adopted()
+        if uikit_changed['tabletWebUIKitContinuationVersion']==UIKIT_BOUND:
+            uikit_prefix=TabletUIKitClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
+            need(same(uikit_prefix.old,uikit_state));uikit_proof=uikit_prefix.adopted()
+        else:
+            need(uikit_changed['tabletWebUIKitContinuationVersion']==UIKIT_ACTIVE)
+            from ios.adapters.tablet_web_uikit_segment import TabletUIKitSegment
+            uikit_reader=TabletUIKitSegment(root,binding,run,role,fixture_url,pid,lock,forbidden,
+                monotonic=monotonic,epoch_ms=forbidden,historical=True)
+            packets=uikit_reader.history()
+            need(not uikit_reader.blocked and packets and same(uikit_reader.closed.old,uikit_state)
+                and uikit_reader.state['pending'] is uikit_reader.state['recordIntent'] is uikit_reader.state['recordInspection'] is None)
+            uikit_proof=dict(nativeFloor=deepcopy(packets[-1]))
     elif dom_changed is not None:
         if dom_changed['tabletWebDOMContinuationVersion']==DOM_VERSION:
             dom_prefix=TabletDOMClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
