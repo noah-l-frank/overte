@@ -132,7 +132,29 @@ integration check, retaining responsibility and the explicit WIP distinctions.
 The fourteen-area completion count remains five source-complete, host-tested
 areas. Integration of branches does not complete another feature.
 
-## Captured source files
+## Completed local history integration
+
+The source preservation checkpoint is `44b769cfe6`. Local merge
+`51e4637b98999a2a6122e01c9247866b36dedc31` has that checkpoint and the pinned
+remote `a0742e97e7323572f50c2b63378c47cb80cdb106` as its two parents. All
+previous local commits and all four original remote tips were verified as
+ancestors. Every one of the 37 captured source files remained byte-identical
+after merging. No conflict or adapter change was introduced by the merge.
+
+The incoming net change was two Markdown documents. The README now distinguishes
+the remote consolidation baseline from the active isolated local continuation;
+its historical tests do not qualify newer packets. Fourteen existing Chat
+source-bound owner/restoration/runtime cases passed after merge in 16.980s.
+The approved five project suites passed in 6.79s, followed by contract versions,
+860 Markdown files and working/staged whitespace checks. Logs are
+`.ios-host-tmp/consolidation-20261027-chat-legacy14.log` and
+`.ios-host-tmp/consolidation-20261027-project-checks.log`.
+
+All three workers were released to resume their original feature tasks on the
+merged local branch. This does not promote unqualified DOM/Return WIP or complete
+another feature. No remote branch/reference mutation was performed.
+
+## Captured source inventory
 
 - `tests/device/contract-versions.json`
 - `tests/device/ios/ASSETS_IMAGE_REMOVAL_WIP_RESUME_20261027.md`

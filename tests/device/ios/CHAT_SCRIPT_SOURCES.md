@@ -351,6 +351,60 @@ versions, 856 Markdown files and whitespace checks on the stable packet sources.
 That common check included other agents' incomplete packets and does not qualify
 their scenario behavior. The final first-foreign-append case was added and run
 separately afterwards; documentation-only verification records this final text.
-Whole Chat still requires loaded QML/callback identity, peer normal sending and
-movement/rendering, mixer outage/recovery without replay, original-setting
+At that first composition stage, whole Chat still required loaded QML/callback
+identity, peer normal sending and movement/rendering, mixer outage/recovery without replay, original-setting
 restoration for every admitted whole profile and complete native/process/SDK end.
+
+## Explicit normal peer input on the same receive pair
+
+The same draft owner/runtime now has an explicitly selected
+`source_bound=True, peer_actor=True` profile5. Default primary source-bound4 and
+literal1/2/3 remain distinct. Owner and observation contracts read1/2/3/4/5 and
+register current5; a default primary reader cannot adopt a peer5 journal.
+The peer uses its own existing candidate/root/held lock and separately acquired
+Script roots, manager/code, original UI/model/storage, native clock and keyboard.
+No new receiver, cache, session or transport is created.
+
+Peer typing accepts only the existing closed actor text inventory. Actual
+selected channel/text must satisfy the unchanged public `peer-send` inventory
+before Send and again during historical validation. Internal normal Open,
+channel, Type and Send primitives may share that exact actual parent ticket;
+each retains its own original intent, before/after files and no-retry behavior.
+The parent phase remains a real `peer-send` activation. Neither the generic
+phase validator nor the public primary Type inventory was widened. A phase
+channel/text mismatch cannot become permission for a normal input.
+
+`_chat_send_operation(..., sender_role='peer')` selects that same owner factory
+with the actual peer lock. The common Send/receive join uses the sender's native
+clock and source identity and the opposite actual receiver ledger. Default
+primary derived1 stays literal. Peer facts use the new
+`iosChatPeerSendReceiveDerivedVersion`1 and registry
+`ios-chat-peer-send-receive-derived`, current/read1. All existing original
+clocks, event multiplicity, source binding, freshness and budget limits remain.
+
+Six new peer cases plus twelve primary join and six existing Send-operation
+cases pass together: **24 tests in 134.729s**. They cover normal Domain/Local,
+two actual independent production Chat scripts, exact serialized outgoing bytes,
+actual other-script message parsing/history, independent native receive cuts,
+pure repeat/archive, lost peer Send without another emission, missing opposite
+receipt, wrong role and literal4 refusal of peer5. Both modeled native epochs
+are selected before source creation and stay independent; the fresh fixture's
+host clock is shared explicitly. Actual native/Qt/widgets/bus/SDK producers
+remain declared models. Physical network, device timing and QML execution are
+not qualified.
+
+The first new run stopped in 3.186s at the primary-only Type input inventory.
+After the actor owner was introduced, a second run stopped in 2.926s at the
+still-primary-only phase stimulus. The final implementation binds peer
+primitives to the actual unchanged `peer-send` phase; its first positive passed
+in 9.495s. Logs remain `.ios-host-tmp/chat-peer-send-first.log`,
+`chat-peer-send-profile5-first.log`, `chat-peer-send-phase-bound-first.log` and
+`chat-peer-and-primary-profiles.log` in the same private log directory.
+
+The actual primary Script's received history is exercised, but admission of
+that incoming append into the primary draft owner's original/history WAL still
+needs a parent-bound read path. Current default draft validation correctly
+rejects an unexplained append. Peer position/distant Local filtering, loaded
+QML/callback identity, rendered results, mixer outage/no-replay and complete
+resource/process/SDK retirement remain required. This packet does not enable a
+whole Chat capability.
