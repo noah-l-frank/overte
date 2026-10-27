@@ -26,6 +26,11 @@ def forbidden(*_args,**_kwargs):need(False)
 
 class _OriginalLinkPrefix(dom.TabletDOMClosedPrefix):
     """Scoped private reader, without a mutable or peer-admission interface."""
+    def _admit_current_uikit(self):
+        # Own graph only, even when the live DOM4 constructor needs a known
+        # UIKit proof. Captured current peer bytes/inodes remain continuity.
+        return
+
     def __init__(self,root,binding,run,role,fixture_url,pid,lock,*,monotonic):
         self.alive=True;self.link_root=Path(root)
         need(isinstance(lock,ScriptSourceLock) and lock.path==self.link_root/'script-feature-sources.lock');lock.assert_held()

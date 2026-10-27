@@ -945,3 +945,65 @@ fresh DOM4 reader. Existing reader instances must still fail after their
 peer changes. This is separate from peer/native authority or a new aggregate.
 Remaining native children, aggregate/screen continuation, both roles, full
 26-step composition, double cleanup and final retirement remain open.
+
+## Scoped independent DOM and UIKit header advancement
+
+DOM4 can now follow a known completed UIKit continuation at a fresh reader
+entry. It first checks its exact frozen parent identity and descriptor. A
+literal unchanged UIKit head keeps the existing path. A changed UIKit head
+must pass the complete existing UIKit-own original reader for the same
+binding/run/role/fixture/PID, including the actual copy/manifest,128-row
+predecessor, active originals and unresolved-query gates. The returned proof
+is explicitly UIKit-only and `peerAuthority=False`; its native floor is not
+published as a DOM or whole-source measurement. Actual current UIKit bytes
+and their full file signature are pinned before that read and checked again
+after it. Any change within this one proof, including identical bytes at a
+new inode, fails entry.
+
+The established reader then guards that exact current peer head throughout
+its existing operations. It never refreshes an old reader in place after a
+peer changes. A new reader independently repeats the whole proof. The other
+seven peer heads retain their literal original requirements, and old DOM
+metadata1/2/3 keeps its previous literal UIKit guard. This changes no wire
+grammar, schema version, native protocol, transport, cap or deadline.
+
+The private own DOM link overrides the new admission hook without reading a
+peer graph. It still reads its complete actual own original graph and checks
+scoped current peer byte/inode continuity, but cannot acquire or export peer
+authority. This also prevents the existing UIKit-to-DOM link from recursively
+requesting UIKit authority. Both helpers remain read-only and expire before
+returning. Public SourceReady and whole-source acquisition remain closed.
+
+One composed real-file/modeled-native case passes in174.806s. Its explicitly
+declared builders establish UIKit128 before the nine-child parent freezes,
+then DOM128. Both actual129 queries run through the normal Packet owner; no
+builder creates a129 successor. A fresh DOM reader follows actual UIKit129
+and captures DOM130; a fresh UIKit reader follows that actual DOM130 and
+captures UIKit130. Old readers fail against the changed peer heads. The
+historical parent reports those independently proved130 tails while its
+aggregate/document/touches originals remain1, with unchanged original clocks,
+bytes/inodes and query counts at read-only boundaries.
+
+The same case replaces UIKit's head with identical bytes at a new inode
+during its actual own proof. Entry and the previous reader fail; only a new
+entry with a newly completed original proof can adopt the current head.
+A lost successful UIKit131 issued-CAS return then preserves unresolved
+responsibility without sending the query. A fresh live DOM reader refuses
+that unknown peer. The own historical DOM link can still read actual DOM130
+without invoking a UIKit proof, returning `peerAuthority=False`; it cannot
+authorize UIKit131 or a complete Source. Exact log:
+`.ios-host-tmp/tablet-dom-continuation-20261027/dom-uikit-both-initial-peer-advance.log`.
+Successful temporary fixtures clean themselves normally. Native/SDK producers
+and clocks remain declared models; this qualifies no physical input, native
+compilation, CPU deadline, contact release, resource retirement or full Journey.
+The targeted compatibility selection passes7 cases in29.689s: the existing
+actual DOM3-only original-link case still refuses a changed UIKit peer for
+live/whole authority, preserves its independent own-only result and expires
+its private scope; the six DOM bootstrap metadata/fence cases also pass.
+Its log is
+`.ios-host-tmp/tablet-dom-continuation-20261027/dom-peer-advance-literal-regression7.log`.
+The five approved common project suites pass in6.99s; contract versions,
+860-file documentation and whitespace checks pass. The shared log is
+`.ios-host-tmp/chat-peer-receipts6-tablet-peer-common-checks.log`.
+Those checks cover the current shared inventory, not the unqualified Photos
+causal-dispatch scenario or any physical/native execution.

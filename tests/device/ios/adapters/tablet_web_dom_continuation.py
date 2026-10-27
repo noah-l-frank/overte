@@ -136,11 +136,35 @@ class TabletDOMClosedPrefix:
         need(isinstance(lock,ScriptSourceLock) and lock.path==self.root/'script-feature-sources.lock');lock.assert_held()
         self.store=PrivateFeatureState(self.root/('tabletweb-dom-queries-'+run+'-'+role+'.json'))
         self.state=self.store.read();self.raw,self.old=decode(self.state,self.expected)
+        self.uikit_peer=None;self._admit_current_uikit()
         self.copies=OriginalFrameStore(root,binding,run,role,self.guard,self.intent,
             namespace='tabletweb-dom-closed',schema_prefix='tabletWebClosedHeader',monotonic=monotonic)
         self.records=OriginalFrameStore(root,binding,run,role,self.guard,self.intent,
             namespace='tabletweb-dom-packets',schema_prefix='tabletWebSourcePacket',monotonic=monotonic)
         self.guard()
+
+    def _admit_current_uikit(self):
+        """DOM4 only: prove a known peer graph, then pin this read's head.
+
+        Old metadata keeps literal peer guards. Own-only historical readers
+        override this hook: they must never recursively admit another graph.
+        """
+        if self.state['tabletWebDOMContinuationVersion']!=VERSION:return
+        expected=self.expected;path=self.root/('tabletweb-source-owner-'+expected['runId']+'-'+expected['role']+'.json')
+        raw,signature=children._raw(path)
+        need(signature==self.state['parent']['signature'] and hashlib.sha256(raw).hexdigest()==self.state['parent']['sha256'])
+        parent=PrivateFeatureState(path).read();children.decode(parent,expected)
+        child=next(row for row in parent['children'] if row['component']=='uikit')
+        peer=self.root/child['headerName'];actual,identity=children._raw(peer);digest=hashlib.sha256(actual).hexdigest()
+        if identity==child['signature'] and digest==child['sha256']:return
+        from ios.adapters.tablet_web_uikit_original_link import read
+        proof=read(self.root,expected['binding'],expected['runId'],expected['role'],expected['fixtureUrl'],
+            expected['processId'],self.lock,monotonic=self.monotonic)
+        need(proof['component']=='uikit' and proof['historicalOnly'] is True
+            and proof['subgraphOnly'] is True and proof['peerAuthority'] is False)
+        confirmed,confirmed_identity=children._raw(peer)
+        need(confirmed_identity==identity and confirmed==actual)
+        self.uikit_peer=dict(signature=identity,sha256=digest)
 
     def guard(self):
         self.lock.assert_held();need(same(self.store.read(),self.state));raw,old=decode(self.state,self.expected)
@@ -161,7 +185,8 @@ class TabletDOMClosedPrefix:
                     and row['lastRecord']==self.old['records'][-1] and row['nextRaw']==self.old['nextRaw'])
             else:
                 raw,signature=children._raw(self.root/row['headerName'])
-                need(signature==row['signature'] and hashlib.sha256(raw).hexdigest()==row['sha256'])
+                prior=self.uikit_peer if row['component']=='uikit' and self.uikit_peer is not None else row
+                need(signature==prior['signature'] and hashlib.sha256(raw).hexdigest()==prior['sha256'])
         return True
 
     def save(self,value):

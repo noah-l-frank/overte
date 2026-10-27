@@ -1,5 +1,35 @@
 # Feature 7 continuation handoff
 
+## Current scoped peer-header advancement checkpoint
+
+After DOM bootstrap qualification `cc240ba657`, DOM4 can independently prove
+a known completed UIKit original graph at fresh reader entry and pin the
+actual current peer header across that proof. Existing reader instances are
+not refreshed in place. Old DOM1/2/3 guards and the other seven literal peers
+remain strict. Own historical DOM links explicitly skip peer admission and
+retain `peerAuthority=False`; no recursive or whole-source authority is added.
+There is no new registry/schema/cap/deadline or transport change.
+
+The new composed real-file/modeled-native case passes1 in174.806s. Both
+actual129 queries are owned through normal Packet capture with no prebuilt
+successors. Fresh readers then follow actual DOM130/UIKit130; old scopes
+fail, while the historical parent remains aggregate1. Mid-proof same-byte/
+new-inode mutation fails. Unknown issuedUIKit131 blocks DOM-live, but the
+own DOM130 archive remains readable without a peer proof or peer authority.
+The targeted old DOM3 own-link and bootstrap metadata/fence regression
+selection passes7 in29.689s. No own test/process remains.
+The five approved project suites pass in6.99s; versions,860-file documentation
+and whitespace checks pass. Shared check scope does not qualify the team's
+separate causal-dispatch WIP or native/device execution.
+The exact log and boundaries are in
+[the peer advancement section](TABLET_WEB_CONTINUATION_CONTRACT.md#scoped-independent-dom-and-uikit-header-advancement).
+
+This is independent component progress, not a live all-nine acquisition.
+Remaining child/aggregate/screen continuation, a parent that owns legitimate
+child advances within one full acquisition, both-role26-step composition,
+double cleanup and retirement remain open. All native code is uncompiled,
+devices untested and the completed source-area count remains5/14.
+
 ## Current DOM first-query129 checkpoint
 
 The four DOM4/segment2 source files preserved as unqualified WIP in
