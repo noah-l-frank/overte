@@ -11,7 +11,7 @@ from adapters.original_publication_delivery import delivery
 from feature_journeys.phase_fixture import PhaseFixtureReader
 from feature_journeys.retirement_receipts import WEB_SCENE_STAGE
 from ios.adapters.world_web_observer import WorldWebObserver
-from ios.adapters.world_web_actor_retirement import WorldWebActorRetirement
+from ios.adapters.world_web_setup_retirement import WorldWebSetupRetirement
 from ios.self_tests.world_web_actor_fixture import IndependentActor
 from ios.self_tests.world_web_network_fixture import NetworkWorldWeb
 
@@ -23,8 +23,9 @@ class WorldWebPublicationRoundTests(unittest.TestCase):
         try:
             whole=network.whole;actor=IndependentActor(whole)
             try:
-                observer=WorldWebObserver(PrivateFeatureState(actor.root/'ios-world-web-actor-observer.json'),actor.primary,whole.sdk.origins,lambda:True,role='actor',peer=actor.peer)
-                observer.capture();retirement=WorldWebActorRetirement(PrivateFeatureState(actor.root/'ios-world-web-actor-retirement.json'),observer,sleep=whole.sdk.sleep)
+                observer=WorldWebObserver(PrivateFeatureState(actor.root/'ios-world-web-actor-observer.json'),actor.primary,whole.sdk.origins,lambda:True,role='actor',peer=actor.peer,setup_scope=whole.scope)
+                observer.capture();retirement=WorldWebSetupRetirement(PrivateFeatureState(actor.root/'ios-world-web-actor-setup-retirement.json'),whole.scope,
+                    observer,actor.primary.state['records'][0],sleep=whole.sdk.sleep)
                 phase=PhaseFixtureReader(network.actor,network.run,'world-web',epoch_ms=whole.sdk.host_epoch,monotonic=lambda:whole.sdk.time);phase.read()
                 publisher=PhaseRetirementPublisher(PrivateFeatureState(actor.root/('phase-retirement-world-web-'+network.run+'-actor.json')),actor.sdk.binding,phase,actor.lock,lambda:True,
                     retirement.validate_original,stage=WEB_SCENE_STAGE,epoch_ms=whole.sdk.host_epoch,monotonic=lambda:whole.sdk.time)

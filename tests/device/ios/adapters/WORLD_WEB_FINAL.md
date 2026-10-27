@@ -450,3 +450,30 @@ timeouts and the rejected send remain failed attempts with retained originals.
 This CPU case stops after the ordinary Close state. It supplies no Actor,
 rendered PNG or paired terminal qualification. The full 19-step paired end and
 canonical routing still require their own complete qualification.
+
+Actor cleanup now groups each captured graph's pure activity/quiet comparisons
+in the existing Observer/Source/lease validation round. That round ends before
+either retirement-owner CAS or another source capture. The exact same original
+three-second quiet predicates, separate final dual acquisition, all census and
+file-identity guards, and the final publication deadline remain required.
+A readonly profile on the actual retained 118-file graph returns identical
+measurements in 1.158 s versus 2.791 s for four separate rounds; every byte,
+device, inode, size, mtime and ctime remains unchanged. No native acquisition,
+input or private-owner write is used by this historical comparison.
+
+The CPU-accounted Actor case still fails closed. Its independently measured
+dual acquisition takes at most 0.620 s, but the original's age at cleanup return
+falls only from 2.323 s to 1.620 s; publication then correctly refuses the
+unchanged 1.5 s limit. Both original role roots and measured stage costs are now
+retained by that diagnostic. This is a measured improvement, not Actor or Whole
+CPU qualification. Cold full-original qualification after the final capture is
+the next concrete cost to remove through guarded dataflow. No original clock
+has been reset or rewritten.
+
+The existing normal Source3 Actor/archival case passes after the batching
+change. A combined fail-fast launcher then exposed an outdated publication
+fixture: it constructed an admitted Actor retirement without any lease. The
+fixture now uses the actual incomplete-setup retirement for that state; no
+production guard is relaxed. All nine publication/CAS/expiry, separate-quiet
+and Source entry/exit countercases pass in 3.910 s. The preceding launcher
+remains failed and is not reported as a ten-case PASS.

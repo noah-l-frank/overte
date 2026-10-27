@@ -5,6 +5,7 @@ retimed and the actual fixture and publisher keep their 1.5s/25s ceilings.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+import json
 import time
 import unittest
 
@@ -18,12 +19,15 @@ from ios.adapters.world_web_identity import WorldWebLease
 from ios.adapters.world_web_observer import WorldWebObserver
 from ios.self_tests.world_web_actor_fixture import IndependentActor
 from ios.self_tests.world_web_network_fixture import NetworkWorldWeb
+from ios.self_tests.retained_host_roots import retain_owned_root
 
 
 class WorldWebActorCpuTests(unittest.TestCase):
     def test_real_cpu_actor_originals_then_scene_publication_without_retiming(self):
         network=NetworkWorldWeb(wall_clock=True,use_whole_snapshot=True);self.addCleanup(network.close);whole=network.whole;sdk=whole.sdk
         actor=IndependentActor(whole);self.addCleanup(actor.close)
+        for directory,root in ((whole.fixture.fixture.temp,whole.scope.root),(actor.temp,actor.root)):
+            print('Retained real-clock World actor originals: '+str(retain_owned_root(directory,expected_root=root)),flush=True)
         observer=WorldWebObserver(PrivateFeatureState(actor.root/'ios-world-web-actor-observer.json'),actor.primary,sdk.origins,lambda:True,role='actor',peer=actor.peer)
         capture=observer.capture
         def measured_capture(**arguments):
@@ -49,7 +53,18 @@ class WorldWebActorCpuTests(unittest.TestCase):
             publisher=PhaseRetirementPublisher(PrivateFeatureState(actor.root/('phase-retirement-world-web-'+network.run+'-actor.json')),actor.sdk.binding,
                 phase,actor.lock,lambda:True,retirement.validate_original,stage=WEB_SCENE_STAGE,epoch_ms=sdk.host_epoch,monotonic=lambda:sdk.time)
             self.assertTrue(publisher.resolve());original=retirement.cleanup(sdk.ticket)
-            with retirement.publication_round(publisher):publisher.publish(original)
+            final=actor.primary.frames[-1]['clockJoin'];costs=[];actual_original=publisher.original
+            costs.append(dict(stage='cleanup-return',ageSeconds=sdk.time-final['hostBeforeMonotonic']))
+            def measured_original(*args,**kwargs):
+                before=time.perf_counter()
+                try:return actual_original(*args,**kwargs)
+                finally:costs.append(dict(stage='original-validation',seconds=time.perf_counter()-before))
+            publisher.original=measured_original
+            try:
+                with retirement.publication_round(publisher):publisher.publish(original)
+            finally:
+                costs.append(dict(stage='publication-exit',ageSeconds=sdk.time-final['hostBeforeMonotonic']))
+                print('Actual World actor publication costs: '+json.dumps(costs),flush=True)
         self.assertLess(time.perf_counter()-started,25)
         self.assertIsNone(publisher.state['pending']);self.assertEqual('published',publisher.load(publisher.state['records'][-1])['mode'])
 

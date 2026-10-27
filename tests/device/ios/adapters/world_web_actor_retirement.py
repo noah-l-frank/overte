@@ -120,16 +120,23 @@ class WorldWebActorRetirement:
         if self.state['ticket'] is None:self.state.update(ticket=ticket,phase='quiet');self.save()
         need(self.state['ticket']==ticket);self.state['phase']='quiet';self.save();started=self.peer.monotonic()
         for _attempt in range(61):
-            original,_public=self.observer.capture();current=self.measure(original)
-            if self.state['quiet']:
-                old=self.measure(self.state['quiet'][-1])
-                if any(not same(activity(a),activity(b)) for a,b in zip(old,current)):self.state['quiet']=[]
-            self.state['records'].append(original);self.state['quiet'].append(original);self.save()
-            if len(self.state['quiet'])>=4:
-                first_a,first_b=self.measure(self.state['quiet'][0]);last_a,last_b=self.measure(self.state['quiet'][-2])
-                try:quiet(first_a,last_a);quiet(first_b,last_b)
-                except NativeUIError:pass
-                else:self.state['phase']='retired';self.save();return self.original()
+            original,_public=self.observer.capture();qualified=False
+            # All following native comparisons are pure reads of this exact
+            # captured graph. Keep their existing census/Source/lease round
+            # together, ending it before either owner CAS or another capture.
+            with self.observer.validation_round():
+                current=self.measure(original);candidate=deepcopy(self.state['quiet'])
+                if candidate:
+                    old=self.measure(candidate[-1])
+                    if any(not same(activity(a),activity(b)) for a,b in zip(old,current)):candidate=[]
+                candidate.append(original)
+                if len(candidate)>=4:
+                    first_a,first_b=self.measure(candidate[0]);last_a,last_b=self.measure(candidate[-2])
+                    try:quiet(first_a,last_a);quiet(first_b,last_b)
+                    except NativeUIError:pass
+                    else:qualified=True
+            self.state['records'].append(original);self.state['quiet']=candidate;self.save()
+            if qualified:self.state['phase']='retired';self.save();return self.original()
             need(self.peer.monotonic()-started<15);self.sleep(.1)
         need(False)
     def qualification(self,state):
