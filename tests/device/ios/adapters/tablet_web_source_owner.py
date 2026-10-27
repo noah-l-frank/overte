@@ -60,6 +60,9 @@ class TabletWebSourceOwner:
         if not historical:self.bound()
         self.store=PrivateFeatureState(self.root/('tabletweb-source-owner-'+run+'-'+role+'.json'))
         self.state=self.store.read()
+        if self.state is not None:
+            from ios.adapters.tablet_web_rotation_fence import read_barrier,scope
+            read_barrier(self.state,scope(self.binding,self.run,self.role,self.fixture,self.pid))
         if self.state is None:
             need(not historical)
             self.state=dict(tabletWebSourceOwnerVersion=VERSION,binding=self.binding,runId=run,role=role,fixtureUrl=fixture_url,processId=pid,
