@@ -57,7 +57,7 @@ def root_digest(entries):
     return dict(bundleSha256=digest.hexdigest(),nodeCount=len(entries),fileCount=files,totalBytes=total)
 
 
-def artifact_bundle(path,expected_sha256):
+def artifact_bundle(path,expected_sha256,*,_image=None):
     """Read a stable original IPA without extracting or executing any member.
 
     All installed app bytes participate, including signatures and Info.plist.
@@ -65,7 +65,8 @@ def artifact_bundle(path,expected_sha256):
     final artifact. Such a mismatch is never normalized into success here.
     """
     need(type(expected_sha256) is str and re.fullmatch('[0-9a-f]{64}',expected_sha256))
-    path=Path(path);need(file_digest(path)==expected_sha256)
+    need(_image is None or type(_image) is tuple and len(_image)==2 and type(_image[1]) is dict and not _image[1])
+    path=Path(path);actual_artifact_sha=file_digest(path);need(actual_artifact_sha==expected_sha256)
     fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
     try:
         with os.fdopen(fd,'rb') as stream:
@@ -122,6 +123,16 @@ def artifact_bundle(path,expected_sha256):
                      and type(info.get('OverteE2ETestBuildContractVersion')) is int
                      and info['OverteE2ETestBuildContractVersion']==1 and info.get('UIFileSharingEnabled') is True)
                 output=dict(bundleContractVersion=VERSION,bundleId=bundle,executableSha256=entries[exe][2].hex(),**root_digest(entries))
+                if _image is not None:
+                    relative,result=_image;need(name(relative)==relative and relative in entries and entries[relative][0]=='F')
+                    member=entries[relative]
+                    with archive.open(APP+relative) as image:
+                        header=image.read(32);need(len(header)==32)
+                        command_bytes=struct.unpack_from('<I',header,20)[0];need(command_bytes<=4*1024*1024)
+                        commands=image.read(command_bytes)
+                    observed=macho_image(header,commands,member[1])
+                    result.update(relativePath=relative,isMainExecutable=relative==exe,fileBytes=member[1],
+                        fileSha256=member[2].hex(),artifactSha256=actual_artifact_sha,macho=observed)
             after=os.fstat(stream.fileno())
             need((before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns,before.st_ctime_ns)==
                  (after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns,after.st_ctime_ns))
@@ -131,6 +142,41 @@ def artifact_bundle(path,expected_sha256):
         raise ValueError('OVT_IOS_BUNDLE_IDENTITY_REJECTED') from None
     finally:
         if fd>=0:os.close(fd)
+
+
+def macho_image(header,commands,file_size):
+    """Original thin arm64 image metadata; not a code-signing/source verdict."""
+    need(type(header) is bytes and len(header)==32 and type(commands) is bytes)
+    magic,cpu,subtype,kind,count,size,_flags,_reserved=struct.unpack('<IiiIIIII',header)
+    need(magic==0xfeedfacf and cpu==0x0100000c and kind==2 and count<=4096
+        and size==len(commands) and size<=4*1024*1024 and 32+size<=file_size)
+    offset=0;uuid=None;ranges=[];platforms=[]
+    for _ in range(count):
+        need(offset+8<=len(commands));command,length=struct.unpack_from('<II',commands,offset)
+        need(length>=8 and length%8==0 and offset+length<=len(commands))
+        if command==0x1b:
+            need(length==24 and uuid is None);uuid=commands[offset+8:offset+24].hex()
+        elif command==0x19:
+            need(length>=72)
+            _cmd,_len,_name,vmaddr,vmsize,fileoff,filesize,_maxprot,prot,sections,_segflags=struct.unpack_from('<II16sQQQQiiII',commands,offset)
+            need(sections<=4096 and 72+80*sections<=length and filesize<=vmsize
+                and fileoff<=file_size and filesize<=file_size-fileoff)
+            if prot&4 and filesize:ranges.append((fileoff,filesize))
+        elif command==0x32:
+            need(length>=24 and 24+8*struct.unpack_from('<I',commands,offset+20)[0]==length);platforms.append(struct.unpack_from('<I',commands,offset+8)[0])
+        offset+=length
+    need(offset==len(commands) and uuid is not None and ranges and platforms==[2])
+    # LC_BUILD_VERSION platform2 is iPhoneOS (platform7 is iOS Simulator).
+    return dict(uuid=uuid,headerSha256=hashlib.sha256(header+commands).hexdigest(),
+        executableFileRanges=ranges,cpuType=cpu,cpuSubtype=subtype,platform=2)
+
+
+def artifact_member_image(path,expected_sha256,relative):
+    """Reuse the complete existing IPA byte reader, adding one member view."""
+    need(name(relative)==relative)
+    actual={};bundle=artifact_bundle(path,expected_sha256,_image=(relative,actual))
+    need(actual and actual['relativePath']==relative)
+    return dict(bundle=bundle,image=actual)
 
 
 def compare(original,artifact):

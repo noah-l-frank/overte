@@ -25,6 +25,17 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <cerrno>
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include <dlfcn.h>
+#include <mach-o/dyld.h>
+#include <mach-o/loader.h>
+#include <mach/vm_prot.h>
+#include <limits>
+#include <cstring>
+#if __has_feature(ptrauth_calls)
+#include <ptrauth.h>
+#endif
+#endif
 
 namespace overte::e2e {
 // Original CF main-bundle bytes only. No requested path, digest, expected
@@ -83,6 +94,98 @@ public:
             {"sequence",static_cast<qulonglong>(++_sequence)},{"processId",QCoreApplication::applicationPid()},
             {"capturedEpochMs",captured},{"status",status},{"preparedEpochMs",prepared},{"bundle",result}};
     }
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    // A passive extension of this SAME already prepared byte-manifest owner.
+    // No requested path/hash, new bundle walker, device query or product owner.
+    QVariantMap observeQtEntryImage(const void *actualEntry) {
+        if (!qApp || QThread::currentThread()!=qApp->thread() || !actualEntry || !_state || _failed
+                || !QCoreApplication::arguments().contains("--testScript") || _imageSequence>=1000000000ULL) return {};
+        const auto started=Clock::now();const auto before=QDateTime::currentMSecsSinceEpoch();
+        const void *entry=actualEntry;
+#if __has_feature(ptrauth_calls)
+        entry=ptrauth_strip(entry,ptrauth_key_function_pointer);
+#endif
+        Dl_info info{};
+        // The current reviewed iOS runtime is static. Its actual API entry must
+        // be in the non-unloadable main executable. Dynamic image lifetimes
+        // need a separate dyld add/remove observer, never a dlopen retention.
+        const auto *header=_dyld_get_image_header(0);
+        if (!header || header->magic!=MH_MAGIC_64 || !::dladdr(entry,&info) || info.dli_fbase!=header
+                || !info.dli_fname || reinterpret_cast<const mach_header_64 *>(header)->cputype!=CPU_TYPE_ARM64) return {};
+        QString root,executable,bundle;
+        if (!originalBundle(root,executable,bundle)) return {};
+        QMutexLocker lock(&_state->mutex);
+        if (!_state->ready || _state->failed || _state->path!=root || _state->executable!=executable || _state->bundle!=bundle
+                || !valid(*_state,started,1500)
+                || QFileInfo(QString::fromUtf8(info.dli_fname)).canonicalFilePath()!=root+"/"+executable) return {};
+        const Node *node=nullptr;
+        for (const auto &value:_state->nodes) if (!value.directory && value.path==executable.toUtf8()) { node=&value;break; }
+        if (!node || node->sha.size()!=32) return {};
+        FD fd(::openat(_state->root,node->raw.constData(),O_RDONLY|O_NOFOLLOW|O_CLOEXEC|O_NONBLOCK));struct stat first{},last{};
+        if (fd.value<0 || ::fstat(fd.value,&first)!=0 || !same(first,node->original)) return {};
+        auto read=[&](void *data,size_t size,off_t offset) {
+            auto *bytes=static_cast<char *>(data);size_t count=0;
+            while (count<size) {
+                const auto amount=::pread(fd.value,bytes+count,size-count,offset+off_t(count));
+                if (amount<0 && errno==EINTR) continue;
+                if (amount<=0 || elapsed(started)>1500) return false;count+=size_t(amount);
+            }
+            return true;
+        };
+        mach_header_64 disk{};
+        if (!read(&disk,sizeof(disk),0) || disk.magic!=MH_MAGIC_64 || disk.cputype!=CPU_TYPE_ARM64
+                || disk.filetype!=MH_EXECUTE || disk.ncmds>4096 || disk.sizeofcmds>4*1024*1024
+                || quint64(sizeof(disk))+disk.sizeofcmds>quint64(first.st_size)) return {};
+        QByteArray commands(qsizetype(disk.sizeofcmds),'\0');
+        if (!read(commands.data(),size_t(commands.size()),sizeof(disk))) return {};
+        // dyld's main header cannot be unloaded. Match its original commands
+        // to the same actual descriptor, not a separately hashed pathname.
+        if (::memcmp(header,&disk,sizeof(disk)) || ::memcmp(reinterpret_cast<const char *>(header)+sizeof(disk),commands.constData(),size_t(commands.size()))) return {};
+        QByteArray uuid;quint64 offset=0,fileOffset=0;bool found=false;int uuids=0;
+        const auto address=reinterpret_cast<uintptr_t>(entry);const auto slide=_dyld_get_image_vmaddr_slide(0);
+        for (quint32 index=0;index<disk.ncmds;++index) {
+            if (offset+sizeof(load_command)>quint64(commands.size())) return {};
+            load_command command{};::memcpy(&command,commands.constData()+offset,sizeof(command));
+            if (command.cmdsize<sizeof(command) || command.cmdsize%8 || offset+command.cmdsize>quint64(commands.size())) return {};
+            if (command.cmd==LC_UUID) {
+                if (command.cmdsize!=sizeof(uuid_command) || ++uuids!=1) return {};
+                uuid=QByteArray(commands.constData()+offset+8,16).toHex();
+            }
+            if (command.cmd==LC_SEGMENT_64) {
+                segment_command_64 segment{};
+                if (command.cmdsize<sizeof(segment)) return {};
+                ::memcpy(&segment,commands.constData()+offset,sizeof(segment));
+                if (segment.fileoff>quint64(first.st_size) || segment.filesize>quint64(first.st_size)-segment.fileoff) return {};
+                if (segment.nsects>4096 || quint64(sizeof(segment))+quint64(segment.nsects)*sizeof(section_64)>command.cmdsize
+                        || segment.filesize>segment.vmsize) return {};
+                quint64 start=0;
+                if (slide>=0) {
+                    if (segment.vmaddr>std::numeric_limits<quint64>::max()-quint64(slide)) return {};
+                    start=segment.vmaddr+quint64(slide);
+                } else {
+                    const auto amount=quint64(-(slide+1))+1;
+                    if (segment.vmaddr<amount) return {};start=segment.vmaddr-amount;
+                }
+                if ((segment.initprot&VM_PROT_EXECUTE) && address>=start && quint64(address)-start<segment.filesize) {
+                    if (found) return {};fileOffset=segment.fileoff+(quint64(address)-start);found=true;
+                }
+            }
+            offset+=command.cmdsize;
+        }
+        if (!found || uuids!=1 || offset!=quint64(commands.size()) || ::fstat(fd.value,&last)!=0 || !same(first,last)
+                || !valid(*_state,started,1500) || elapsed(started)>1500) return {};
+        QByteArray original(reinterpret_cast<const char *>(&disk),sizeof(disk));original+=commands;
+        const auto after=QDateTime::currentMSecsSinceEpoch();if (after<before) return {};
+        return {{"iosQtEntryImageVersion",1},{"source","native-main-image-entry-fd"},{"instance",_instance},
+            {"sequence",qulonglong(++_imageSequence)},{"processId",QCoreApplication::applicationPid()},
+            {"beforeEpochMs",before},{"afterEpochMs",after},{"bundlePreparedEpochMs",_state->prepared},
+            {"bundle",_state->result},{"relativePath",executable},{"fileBytes",QString::number(qulonglong(first.st_size))},
+            {"fileSha256",QString::fromLatin1(node->sha.toHex())},{"imageUuid",QString::fromLatin1(uuid)},
+            {"headerSha256",QString::fromLatin1(QCryptographicHash::hash(original,QCryptographicHash::Sha256).toHex())},
+            {"symbolFileOffset",QString::number(fileOffset)},
+            {"fileDevice",QString::number(qulonglong(first.st_dev))},{"fileInode",QString::number(qulonglong(first.st_ino))}};
+    }
+#endif
 private:
     static qint64 elapsed(Clock::time_point began) { return std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now()-began).count(); }
     static QString string(CFStringRef value) {
@@ -195,6 +298,9 @@ private:
         return true;
     }
     std::shared_ptr<State> _state;bool _failed{false};qint64 _epoch{0};quint64 _sequence{0};
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    quint64 _imageSequence{0};
+#endif
     const QString _instance{QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
 };
 } // namespace overte::e2e

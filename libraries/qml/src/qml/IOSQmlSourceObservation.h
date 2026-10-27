@@ -20,5 +20,7 @@ public:
     static void complete(QQmlComponent* component, QQmlContext* context, QObject* object) noexcept;
     static QVariantMap read(QObject* object) noexcept;
     static QList<QObject*> liveObjects() noexcept;
+    // Internal native bridge only. No pointer enters a Script/JSON receipt.
+    static const void* cacheObservationSymbol(QObject* object) noexcept;
 };
 }

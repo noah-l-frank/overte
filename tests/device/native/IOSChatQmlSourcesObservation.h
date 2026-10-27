@@ -11,12 +11,41 @@
 #include <QPointer>
 #include <QThread>
 #include <QUuid>
+#include <functional>
+#include <cmath>
+
+namespace overte::e2e {
+inline bool chatQmlWireValue(const QVariant &value,int depth,int &nodes) {
+    if (depth>32 || ++nodes>16384) return false;
+    switch (value.metaType().id()) {
+    case QMetaType::QVariantMap:
+        for (const auto &child:value.toMap()) if (!chatQmlWireValue(child,depth+1,nodes)) return false;
+        return true;
+    case QMetaType::QVariantList:
+        for (const auto &child:value.toList()) if (!chatQmlWireValue(child,depth+1,nodes)) return false;
+        return true;
+    case QMetaType::QString:case QMetaType::Bool:case QMetaType::Int:case QMetaType::UInt:return true;
+    // Actual V8 cast converts Long/ULong through toInt/toUInt, even on LP64.
+    case QMetaType::Long:return value.toLongLong()>=-2147483648LL && value.toLongLong()<=2147483647LL;
+    case QMetaType::ULong:return value.toULongLong()<=4294967295ULL;
+    case QMetaType::LongLong:return value.toLongLong()>=-9007199254740991LL && value.toLongLong()<=9007199254740991LL;
+    case QMetaType::ULongLong:return value.toULongLong()<=9007199254740991ULL;
+    case QMetaType::Float:case QMetaType::Double: {
+        const auto number=value.toDouble();return std::isfinite(number) && std::trunc(number)==number && std::abs(number)<=9007199254740991.0;
+    }
+    default:return false;
+    }
+}
+inline bool chatQmlWireValue(const QVariantMap &value) { int nodes=0;return chatQmlWireValue(QVariant(value),0,nodes); }
+}
+
 
 namespace overte::e2e {
 class IOSChatQmlSourcesObservation {
 public:
     static IOSChatQmlSourcesObservation& instance() { static IOSChatQmlSourcesObservation value; return value; }
-    QVariantMap read(const QString& request, const QString& run) {
+    QVariantMap read(const QString& request, const QString& run,
+            const std::function<QVariantMap(const void *)>& imageReader = {}) {
         if (!qApp || QThread::currentThread() != qApp->thread()
                 || !QCoreApplication::arguments().contains("--testScript") || _sequence >= 1000000000ULL) { return {}; }
         const auto before = clock();
@@ -32,12 +61,22 @@ public:
         const auto source = hifi::qml::IOSQmlSourceObservation::read(page);
         const auto control = chatControlSource(page, "chat.page");
         if (source.isEmpty() || control.isEmpty()) { return {}; }
+        QVariantMap image;
+        const bool cached=source.value("iosLoadedQmlSourceVersion").toInt()==2;
+        if (cached) {
+            const auto actual=hifi::qml::IOSQmlSourceObservation::cacheObservationSymbol(page);
+            if (!actual || !imageReader) return {};
+            image=imageReader(actual);if (image.isEmpty()) return {};
+        }
         const auto after = clock();
-        QVariantMap result {{"iosChatQmlSourcesVersion", 1}, {"requestId", request}, {"runId", run},
+        QVariantMap result {{"iosChatQmlSourcesVersion", cached?2:1}, {"requestId", request}, {"runId", run},
             {"instance", _instance}, {"sequence", qulonglong(++_sequence)}, {"processId", QCoreApplication::applicationPid()},
             {"clockDomain", "native-main-chat-qml-sources"}, {"clockBefore", before}, {"clockAfter", after},
             {"pageControlSourceSha256", control}, {"source", source}};
-        return QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size() <= 65536 ? result : QVariantMap();
+        if (cached) result.insert("qtEntryImage",image);
+        // Check before the actual QVariantMap -> ScriptEngineV8 -> JSNumber
+        // conversion. Filesystem IDs/offsets are strings; every Number is exact.
+        return chatQmlWireValue(result) && QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size() <= 65536 ? result : QVariantMap();
     }
 private:
     IOSChatQmlSourcesObservation() { _timer.start(); }

@@ -86,7 +86,7 @@ def compiler_input(value, pid, epoch):
     return value
 
 
-def loaded(value, pid, epoch):
+def _loaded_direct(value, pid, epoch):
     exact(value, {'iosLoadedQmlSourceVersion', 'instance', 'loadSequence', 'loadId', 'objectId',
         'creationContextId', 'objectContextId', 'processId', 'clockDomain', 'loadBefore', 'loadCompleted',
         'requestedUrl', 'selectedUrl', 'componentUrl', 'creationContextUrl', 'objectContextUrl', 'compilerInput'})
@@ -109,7 +109,21 @@ def loaded(value, pid, epoch):
     return value
 
 
-def validate(value, query, pid, epoch=None, previous=None):
+def loaded(value,pid,epoch,*,read_after_epoch=None):
+    need(type(value) is dict and type(value.get('iosLoadedQmlSourceVersion')) is int)
+    if value['iosLoadedQmlSourceVersion']==1:return _loaded_direct(value,pid,epoch)
+    need(value['iosLoadedQmlSourceVersion']==2)
+    from ios.adapters.chat_qml_cache_loaded import loaded as cached
+    return cached(value,pid,epoch,read_after_epoch)
+
+
+def _compiler_origin(value):
+    if value['iosLoadedQmlSourceVersion']==1:return value['compilerInput']
+    from ios.adapters.chat_qml_cache_loaded import compiler_origin
+    return compiler_origin(value)
+
+
+def _validate_v1(value, query, pid, epoch=None, previous=None):
     command(query)
     exact(value, {'iosChatQmlSourcesVersion', 'requestId', 'runId', 'instance', 'sequence', 'processId',
         'clockDomain', 'clockBefore', 'clockAfter', 'pageControlSourceSha256', 'source'})
@@ -121,7 +135,7 @@ def validate(value, query, pid, epoch=None, previous=None):
     interval(value['clockBefore'], value['clockAfter'], current=True)
     if epoch is not None:
         fresh(value['clockAfter']['epochMs'], epoch)
-    current = loaded(value['source'], pid, value['clockBefore']['epochMs'])
+    current = loaded(value['source'], pid, value['clockBefore']['epochMs'],read_after_epoch=value['clockAfter']['epochMs'])
     need(len(json.dumps(value, ensure_ascii=False, allow_nan=False).encode()) <= LIMIT)
     if previous is not None:
         validate(previous, dict(query, commandId=previous['requestId']), pid)
@@ -132,14 +146,77 @@ def validate(value, query, pid, epoch=None, previous=None):
         old = previous['source']
         need(current['instance'] == old['instance'])
         if current['loadId'] == old['loadId']:
-            need(same(current, old))
+            need(current['iosLoadedQmlSourceVersion']==old['iosLoadedQmlSourceVersion'])
+            if current['iosLoadedQmlSourceVersion']==1:need(same(current,old))
+            else:
+                from ios.adapters.chat_qml_cache_loaded import same_load
+                same_load(current,old)
         else:
+            code,old_code=_compiler_origin(current),_compiler_origin(old)
             need(current['loadSequence'] > old['loadSequence'] and current['objectId'] != old['objectId']
                 and current['loadBefore']['epochMs'] >= old['loadCompleted']['epochMs']
                 and current['loadBefore']['monotonicMs'] >= old['loadCompleted']['monotonicMs']
-                and current['compilerInput']['instance'] == old['compilerInput']['instance']
-                and current['compilerInput']['sequence'] > old['compilerInput']['sequence'])
+                and code['instance']==old_code['instance'])
+            # Literal v1 still requires a new actual compiler input. Cache v2
+            # may consume an old genuinely associated unit without retiming it.
+            if current['iosLoadedQmlSourceVersion']==1:need(code['sequence']>old_code['sequence'])
     return value
+
+
+def _validate_v2(value, query, pid, epoch=None, previous=None):
+    command(query)
+    exact(value, {'iosChatQmlSourcesVersion', 'requestId', 'runId', 'instance', 'sequence', 'processId',
+        'clockDomain', 'clockBefore', 'clockAfter', 'pageControlSourceSha256', 'source','qtEntryImage'})
+    need(type(value['iosChatQmlSourcesVersion']) is int and value['iosChatQmlSourcesVersion'] == 2
+        and value['requestId'] == query['commandId'] and value['runId'] == query['runId']
+        and integer(pid, 1) and type(value['processId']) is int and value['processId'] == pid
+        and integer(value['sequence'], 1, 1000000000) and value['clockDomain'] == 'native-main-chat-qml-sources')
+    identity(value['instance']); digest(value['pageControlSourceSha256'])
+    interval(value['clockBefore'], value['clockAfter'], current=True)
+    if epoch is not None:
+        fresh(value['clockAfter']['epochMs'], epoch)
+    current = loaded(value['source'], pid, value['clockBefore']['epochMs'],read_after_epoch=value['clockAfter']['epochMs'])
+    need(len(json.dumps(value, ensure_ascii=False, allow_nan=False).encode()) <= LIMIT)
+    if previous is not None:
+        validate(previous, dict(query, commandId=previous['requestId']), pid)
+        need(value['instance'] == previous['instance'] and value['sequence'] > previous['sequence']
+            and value['requestId'] != previous['requestId']
+            and value['clockBefore']['epochMs'] >= previous['clockAfter']['epochMs']
+            and value['clockBefore']['monotonicMs'] >= previous['clockAfter']['monotonicMs'])
+        old = previous['source']
+        need(current['instance'] == old['instance'])
+        if current['loadId'] == old['loadId']:
+            need(current['iosLoadedQmlSourceVersion']==old['iosLoadedQmlSourceVersion'])
+            if current['iosLoadedQmlSourceVersion']==1:need(same(current,old))
+            else:
+                from ios.adapters.chat_qml_cache_loaded import same_load
+                same_load(current,old)
+        else:
+            code,old_code=_compiler_origin(current),_compiler_origin(old)
+            need(current['loadSequence'] > old['loadSequence'] and current['objectId'] != old['objectId']
+                and current['loadBefore']['epochMs'] >= old['loadCompleted']['epochMs']
+                and current['loadBefore']['monotonicMs'] >= old['loadCompleted']['monotonicMs']
+                and code['instance']==old_code['instance'])
+            # Literal v1 still requires a new actual compiler input. Cache v2
+            # may consume an old genuinely associated unit without retiming it.
+            if current['iosLoadedQmlSourceVersion']==1:need(code['sequence']>old_code['sequence'])
+    from ios.adapters.qt_image_bytes import validate as image
+    observed=image(value['qtEntryImage'],pid)
+    need(current['iosLoadedQmlSourceVersion']==2
+        and value['clockBefore']['epochMs']<=observed['beforeEpochMs']<=observed['afterEpochMs']<=value['clockAfter']['epochMs'])
+    if previous is not None and previous['iosChatQmlSourcesVersion']==2:
+        old_image=previous['qtEntryImage']
+        need(observed['sequence']>old_image['sequence']
+            and all(same(observed[key],old_image[key]) for key in observed
+                if key not in ('sequence','beforeEpochMs','afterEpochMs')))
+    return value
+
+
+def validate(value,query,pid,epoch=None,previous=None):
+    need(type(value) is dict and type(value.get('iosChatQmlSourcesVersion')) is int)
+    if value['iosChatQmlSourcesVersion']==1:return _validate_v1(value,query,pid,epoch,previous)
+    need(value['iosChatQmlSourcesVersion']==2)
+    return _validate_v2(value,query,pid,epoch,previous)
 
 
 def original(value):
@@ -163,6 +240,7 @@ def pins():
 def admit_direct_unit(value, expected_url):
     """Only a pinned direct QML unit; no imported-code or installed-SDK admission."""
     original(value)
+    need(value['source']['iosLoadedQmlSourceVersion']==1)
     actual = value['source']['compilerInput']; expected = pins()
     need(url(actual['resolvedUrl']) == url(expected_url)
         and all(actual[field] == expected[field] for field in ('codeUnits', 'sha256')))

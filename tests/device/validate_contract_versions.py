@@ -10,8 +10,14 @@ from pathlib import Path
 
 REQUIRED = {
     "qt-overte-qml-compiler-input": 1,
-    "ios-loaded-qml-source": 1,
-    "ios-chat-qml-sources": 1,
+    "ios-loaded-qml-source": 2,
+    "ios-chat-qml-sources": 2,
+    "qt-overte-qml-cache-write-original": 1,
+    "qt-overte-qml-cache-mapping-original": 1,
+    "qt-overte-qml-cache-unit-original": 1,
+    "qt-overte-qml-object-cache-original": 1,
+    "ios-qt-entry-image": 1,
+    "qt-entry-image-byte-binding": 1,
     "ios-chat-qml-sources-acquisition": 1,
     "ios-chat-qml-source-pins": 1,
 

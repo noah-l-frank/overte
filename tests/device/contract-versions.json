@@ -2,8 +2,14 @@
   "schemaVersion": 1,
   "contracts": {
     "qt-overte-qml-compiler-input": {"current": 1, "reads": [1]},
-    "ios-loaded-qml-source": {"current": 1, "reads": [1]},
-    "ios-chat-qml-sources": {"current": 1, "reads": [1]},
+    "ios-loaded-qml-source": {"current": 2, "reads": [1, 2]},
+    "ios-chat-qml-sources": {"current": 2, "reads": [1, 2]},
+    "qt-overte-qml-cache-write-original": {"current": 1, "reads": [1]},
+    "qt-overte-qml-cache-mapping-original": {"current": 1, "reads": [1]},
+    "qt-overte-qml-cache-unit-original": {"current": 1, "reads": [1]},
+    "qt-overte-qml-object-cache-original": {"current": 1, "reads": [1]},
+    "ios-qt-entry-image": {"current": 1, "reads": [1]},
+    "qt-entry-image-byte-binding": {"current": 1, "reads": [1]},
     "ios-chat-qml-sources-acquisition": {"current": 1, "reads": [1]},
     "ios-chat-qml-source-pins": {"current": 1, "reads": [1]},
 

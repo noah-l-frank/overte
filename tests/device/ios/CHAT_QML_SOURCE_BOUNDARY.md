@@ -2,8 +2,11 @@
 
 Feature 10 remains partial. Submitted Chat JavaScript bytes and a live Chat
 page are independently observed. A new [direct-unit compiler/root source](CHAT_LOADED_QML_SOURCE.md)
-now exists as uncompiled client code; complete loaded-code/SDK admission and
-cache/import provenance are still missing. No additional capability is admitted.
+now exists as uncompiled client code. The subsequent
+[cached-unit/file-byte connection](CHAT_LOADED_QML_SOURCE.md#cached-unit-and-installed-file-connection)
+adds causal cache originals and the installed-file association; complete
+loaded-code/SDK and import/AOT admission remain missing. No additional
+capability is admitted.
 
 ## Inspected production path
 
@@ -109,9 +112,9 @@ The patch retains Qt's ordinary compiler and cache calls. In particular,
 reload clears the direct input receipt**, even when the final compiled digest
 is equal or the reload fails. Different inputs can compile to equivalent data;
 equality cannot prove which input produced a substituted cache generation.
-Opaque disk/AOT units remain unavailable. A causal cache write/read bridge
-is still required for that normal path; this packet does not substitute a
-smaller successful profile for complete loaded-QML coverage.
+Opaque disk/AOT units remain unavailable. The separate cached-unit bridge now
+records causal originals for that normal path; it does not substitute a smaller
+successful profile for complete loaded-QML coverage.
 
 Every actual `setUnitData`, cache-load attempt and destructor invalidates the
 unit's receipt centrally. A bounded mutation generation also fences a pending
@@ -142,9 +145,9 @@ invokes `done()` before publishing Complete and dispatching ready callbacks;
 the source patch publishes metadata inside that completion scope. No source
 patch was applied to the workstation Qt, a build cache or another checkout.
 
-The [offline verifier](verify_qt_qml_source_patch.py) verifies all eight exact
+The [offline verifier](verify_qt_qml_source_patch.py) verifies all eleven exact
 source-reference hashes from the [manifest](qt-qml-source-patch.json), applies
-the five-file patch only to a new private copy, checks reverse application and
+the nine-file patch only to a new private copy, checks reverse application and
 rechecks every original file's identity/bytes. It never compiles or installs:
 
 ```sh
@@ -157,8 +160,8 @@ Three host cases exercise actual private application, foreign-source rejection
 before mutation and refusal of an external scratch directory. Runtime API,
 compilation and device flags in the actual verification report remain false.
 These checks establish source-patch integrity, not native correctness, loaded
-client execution, the still-missing cache bridge or a complete Chat capability.
-The final central-invalidation selection passes **3 tests in 0.017 seconds**;
+client execution or a complete Chat capability. The earlier five-file
+central-invalidation selection passes **3 tests in 0.017 seconds**;
 log: `.ios-host-tmp/qt-qml-source-patch-central-invalidation3.log`. Prior three-case
 passes belong to the earlier source revisions and are not additional cases.
 The final reference layout is `qt-qml-reference-layout8-oi578q5j` beneath that
@@ -167,8 +170,9 @@ and bytes. The scope does not execute Qt, native code, a compiler or a device.
 
 ## Concrete cache bridge boundary
 
-Additional read-only inspection of Qt 6.11.1 identifies the actual cache joins;
-it does not extend the qualified five-file patch or version-one reader above.
+The following historical read-only inspection identified the actual cache
+joins. Its implementation is now the separate versioned cached-unit path linked
+above; the literal direct-unit v1 reader remains readable.
 The three small originals and their URL/byte/SHA records are retained under
 `.ios-host-tmp/qt-qml-cache-reference-7mweo7_4`. Initial requests against the
 incorrect `common` directory failed and remain separately recorded.
@@ -196,12 +200,10 @@ bytes, then closes the descriptor. The passive tap must bind the exact mapped
 file identity and immutable mapped bytes at this point. A retained-map hit
 needs the same original association carried through its actual mapper copy.
 
-Next implementation: an explicitly versioned Qt compiler/write/map causal
-receipt, scoped to the actual compilation owner, its mutation generations and
-the actual original cache-file inode; no forced cache miss or loader change.
-It must handle the existing preferred adjacent cache, failed/reverted mapping,
-equal-byte replacement and stale static mappings without inventing source
-lineage. A new cache receipt must keep the literal direct-unit version-one
-contract readable. Cold prebuilt/AOT units and imports still need independently
-admitted matching installed-build provenance. None of these future observations
-is implemented or counted as complete by this source audit.
+The implemented compiler/write/map receipt is scoped to the actual compilation
+owner, mutation generations and original cache-file identity. It adds no forced
+cache miss or loader change. Equal-byte replacement and missing mapping lineage
+remain unavailable. Cold prebuilt/AOT units and imports still require their own
+sources and independently admitted SDK/build provenance. The current45-case
+qualification is recorded in the linked cached-unit guide; this historical
+source audit supplies no additional completion or native-execution claim.

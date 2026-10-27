@@ -1552,7 +1552,9 @@ QVariantMap TestScriptingInterface::featureIOSChatQmlSources(const QVariantMap& 
                 || !json.value("commandId").isString() || !json.value("runId").isString()
                 || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
                 || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) {return {};}
-        return overte::e2e::IOSChatQmlSourcesObservation::instance().read(request,run);
+        return overte::e2e::IOSChatQmlSourcesObservation::instance().read(request,run,[this](const void *actualEntry) {
+            return _featureIOSBundle ? _featureIOSBundle->observeQtEntryImage(actualEntry) : QVariantMap();
+        });
     } catch (...) {return {};}
 }
 #endif

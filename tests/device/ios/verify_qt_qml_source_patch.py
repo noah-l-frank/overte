@@ -11,6 +11,22 @@ import subprocess
 import tempfile
 
 
+REVIEWED_SOURCE_PATHS = frozenset({
+    'qtdeclarative/src/qml/common/qv4compileddata.cpp',
+    'qtdeclarative/src/qml/common/qv4compileddata_p.h',
+    'qtdeclarative/src/qml/jsruntime/qv4compilationunitmapper.cpp',
+    'qtdeclarative/src/qml/jsruntime/qv4compilationunitmapper_p.h',
+    'qtdeclarative/src/qml/jsruntime/qv4compilationunitmapper_unix.cpp',
+    'qtdeclarative/src/qml/jsruntime/qv4executablecompilationunit_p.h',
+    'qtdeclarative/src/qml/qml/qqmlcomponent_p.h',
+    'qtdeclarative/src/qml/qml/qqmltypedata.cpp',
+    'qtdeclarative/src/qml/qml/qqmltypedata_p.h',
+})
+REVIEWED_REFERENCE_PATHS = frozenset({
+    'qtdeclarative/src/qml/qml/qqmldata_p.h',
+    'qtdeclarative/src/qml/qml/qqmldatablob.cpp',
+})
+
 REPO = Path(__file__).resolve().parents[3]
 MANIFEST = REPO / 'tests/device/ios/qt-qml-source-patch.json'
 
@@ -44,7 +60,8 @@ def verify(source_root, scratch_parent):
         and manifest['apiVersion'] == 1, 'Unreviewed patch manifest')
     changed = manifest['sourceSha256']
     refs = manifest['referenceSha256']
-    require(type(changed) is dict and len(changed) == 5 and type(refs) is dict and len(refs) == 3
+    require(type(changed) is dict and set(changed) == REVIEWED_SOURCE_PATHS
+        and type(refs) is dict and set(refs) == REVIEWED_REFERENCE_PATHS
         and not changed.keys() & refs.keys(), 'Unreviewed reference inventory')
     require(type(manifest['patch']) is str and Path(manifest['patch']).name == manifest['patch'],
         'Unreviewed patch filename')
@@ -57,7 +74,7 @@ def verify(source_root, scratch_parent):
     require(patch.parent == REPO / 'ios/patches' and patch.suffix == '.patch', 'Unreviewed patch path')
     patch_data = patch.read_bytes()
     names = re.findall(rb'^--- a/([^\n]+)\n\+\+\+ b/([^\n]+)$', patch_data, re.M)
-    require(len(names) == 5 and all(left == right for left, right in names)
+    require(len(names) == len(REVIEWED_SOURCE_PATHS) and all(left == right for left, right in names)
         and {left.decode() for left, _ in names} == set(changed), 'Patch escapes its reviewed file inventory')
     inputs = {}
     for name, expected in (changed | refs).items():

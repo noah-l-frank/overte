@@ -1,4 +1,4 @@
-# Direct Chat QML compiler/root observation
+# Observed Chat QML compiler, cache and root sources
 
 Feature 10 remains partial. This packet adds a passive direct-unit source to the
 existing iOS observation transport. It enables no complete Chat capability and
@@ -88,9 +88,48 @@ Sixteen existing submitted-Script-source/transport cases pass in 0.311 seconds;
 log: `.ios-host-tmp/chat-qml-source-legacy-regression-20261027.log`.
 These are logic/transport results, not a compiled hook or product effect.
 
-Remaining prerequisites include causal disk-cache write/read provenance (the
-Qt patch deliberately clears its direct receipt on every post-save reload),
-import/AOT dependency admission, independently measured matching installed Qt
-and client identity, durable normal-input ownership/recovery composition, and
-the remaining Chat peer/outage/restoration/native-process/SDK retirement flow.
-Neither this packet nor a successful direct-unit model closes those boundaries.
+## Cached-unit and installed-file connection
+
+The separate cached-unit path now joins the actual pre-save compiler owner and
+generation to the original QSaveFile handle, successful write/commit and actual
+mapper FD/bytes. The temporary StaticData write digest remains distinct from
+the pre-save compiler-unit digest. Static mapper copies carry their original
+mapping identity; a filename, equal digest or new load cannot create that
+association. The existing direct-unit v1 reader remains available.
+
+The owning-thread object/component getter compares actual executable-unit
+identity and weak object lifetimes around two current unit reads. Loaded-source
+v2 preserves its original load-time receipt and takes a separate fresh unit
+receipt on each query. Compiler/write/map clocks remain historical. No strong
+product-unit reference, cache clearing or replacement source selector is added.
+
+The existing installed-bundle observer also binds the actual called Qt getter
+entry to the non-unloadable main Mach-O image and its original executable FD.
+The existing complete IPA reader independently checks the selected artifact,
+bundle bytes, header/UUID and executable file range. Device/inode/offset values
+use canonical decimal strings across the unchanged JS/AFC path; other numbers
+are bounded before V8 conversion. This establishes an entry-image/file-byte
+association, not live instruction-page measurement or Qt SDK source provenance.
+
+`IOSInstalledAdapter._chat_qml_cache_source(selector, run)` connects these
+existing readers and InstalledCodeBinding using the already established SDK
+session. Candidate/process/source continuity and the original journal must
+agree before and after. A lost read raises without replay or returning an old
+successful receipt. Its internal result keeps SDK-source, import and AOT
+availability false and cannot admit a complete Chat capability.
+
+The exact current selection passes **45 host cases in 0.819 seconds**: thirty
+cache/file/byte-binding and physical-adapter cases, three existing offline Qt
+patch cases and twelve direct-v1/HTTP/AFC regressions. Real private application
+and reverse-check cover nine Qt files plus two unchanged references. All5632
+source/launcher/reference byte/stat/membership pins agree;161 test files remain
+retained and the owned process group is absent. Log:
+`.ios-host-tmp/chat-qml-cache-integration-20261028/root45-first.log`.
+Qt, dyld, OS and SDK producers remain explicit models; the native code was not
+compiled, linked, installed or run on a device.
+
+Complete import/AOT and actual SDK source/build-ledger admission remain missing,
+as do durable normal-input composition and the remaining Chat peer/outage/
+restoration/resource/process/SDK retirement flow. The image-byte connection does
+not close these boundaries. Feature10 remains partial; five of fourteen areas
+are source-complete.

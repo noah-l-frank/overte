@@ -35,6 +35,27 @@ bool local(const QUrl& url) {
     return (url.scheme() == "file" || url.scheme() == "qrc") && url.authority().isEmpty()
         && !url.hasQuery() && !url.hasFragment() && url.toString(QUrl::FullyEncoded).size() <= 4096;
 }
+QVariantMap cacheReceipt(QObject *object,QQmlComponent *component=nullptr,const void **called=nullptr) {
+#if defined(QT_OVERTE_E2E_QML_CACHE_ORIGINALS)
+    if (QQmlTypeData::overteE2eCacheObservationApiVersion()==1) {
+        const auto actual=&QQmlTypeData::overteE2eCacheReceiptForObject;
+        if (called) *called=reinterpret_cast<const void *>(actual);
+        return actual(object,component);
+    }
+#endif
+    Q_UNUSED(object);Q_UNUSED(component);Q_UNUSED(called);return {};
+}
+bool sameCacheIdentity(const QVariantMap &original,const QVariantMap &current) {
+    if (original.isEmpty() || current.isEmpty()) return false;
+    auto a=original,b=current;
+    if (!a.value("componentMatched").toBool() || b.value("componentMatched").toBool()) return false;
+    a.remove("componentMatched");b.remove("componentMatched");
+    auto au=a.value("unit").toMap(),bu=b.value("unit").toMap();
+    for (const auto &name : {QStringLiteral("unitReadBefore"),QStringLiteral("unitReadAfter")}) {
+        au.remove(name);bu.remove(name);
+    }
+    a.insert("unit",au);b.insert("unit",bu);return a==b;
+}
 struct Load {
     QString ticket, objectId, contextId, objectContextId;
     QString componentUrl, creationContextUrl, objectContextUrl;
@@ -42,8 +63,9 @@ struct Load {
     QPointer<QQmlContext> context, objectContext;
     QPointer<QObject> object;
     QUrl requested, selected;
-    QVariantMap before, after, source;
+    QVariantMap before, after, source, cache;
     bool completed { false };
+    const void *cacheFunction { nullptr };
 };
 struct State {
     State() { timer.start(); }
@@ -125,16 +147,29 @@ void IOSQmlSourceObservation::complete(QQmlComponent* component, QQmlContext* co
             row.objectContextUrl = actualContext->baseUrl().toString(QUrl::FullyEncoded);
             row.objectContextId = nonce(); row.completed = true;
             const auto source = QQmlTypeData::overteE2eSourceReceiptForObject(object, component);
-            if (source.isEmpty()) { return; }
+            // The version-one direct path stays unchanged. Cache observation
+            // is a distinct optional version, never a guessed direct receipt.
+            const void *cacheFunction=nullptr;
+            const auto cache=source.isEmpty() ? cacheReceipt(object,component,&cacheFunction) : QVariantMap();
+            if (source.isEmpty() && cache.isEmpty()) { return; }
             const auto after = owner.clock();
             const auto start = row.before.value("epochMs").toLongLong();
             const auto end = after.value("epochMs").toLongLong();
             const auto delta = end - start;
             const auto elapsed = after.value("monotonicMs").toLongLong() - row.before.value("monotonicMs").toLongLong();
-            if (start <= 0 || delta < 0 || elapsed < 0 || qAbs(delta - elapsed) > 250
-                    || source.value("sourceBeforeEpochMs").toLongLong() < start
-                    || source.value("compiledEpochMs").toLongLong() > end) { return; }
-            row.after = after; row.source = source;
+            if (start <= 0 || delta < 0 || elapsed < 0 || qAbs(delta - elapsed) > 250) { return; }
+            if (!source.isEmpty()) {
+                if (source.value("sourceBeforeEpochMs").toLongLong() < start
+                        || source.value("compiledEpochMs").toLongLong() > end) return;
+            } else {
+                const auto unit=cache.value("unit").toMap();
+                if (!cache.value("componentMatched").toBool()
+                        || unit.value("unitReadBefore").toMap().value("epochMs").toLongLong()<start
+                        || unit.value("unitReadAfter").toMap().value("epochMs").toLongLong()>end) return;
+            }
+            // Compiler/write/map clocks inside cache remain their old values.
+            // These are actual load-time unit reads, not a new compilation.
+            row.after = after; row.source = source;row.cache=cache;row.cacheFunction=cacheFunction;
             return;
         }
     } catch (...) {
@@ -155,11 +190,18 @@ QVariantMap IOSQmlSourceObservation::read(QObject* object) noexcept {
         for (qsizetype index = 0; index < owner.loads.size(); ++index) {
             const auto& row = owner.loads.at(index);
             if (!row.completed || !row.object || row.object != object) { continue; }
-            if (row.source.isEmpty() || !row.context || !row.objectContext || QQmlEngine::contextForObject(object) != row.objectContext
+            if ((row.source.isEmpty() && row.cache.isEmpty()) || !row.context || !row.objectContext
+                    || QQmlEngine::contextForObject(object) != row.objectContext
                     || row.context->baseUrl().toString(QUrl::FullyEncoded) != row.creationContextUrl
-                    || row.objectContext->baseUrl().toString(QUrl::FullyEncoded) != row.objectContextUrl
-                    || QQmlTypeData::overteE2eSourceReceiptForObject(object) != row.source) { return {}; }
-            QVariantMap result {{"iosLoadedQmlSourceVersion", 1}, {"instance", owner.instance},
+                    || row.objectContext->baseUrl().toString(QUrl::FullyEncoded) != row.objectContextUrl) { return {}; }
+            QVariantMap currentCache;
+            if (!row.source.isEmpty()) {
+                if (QQmlTypeData::overteE2eSourceReceiptForObject(object)!=row.source) return {};
+            } else {
+                const void *currentFunction=nullptr;currentCache=cacheReceipt(object,nullptr,&currentFunction);
+                if (!row.cacheFunction || currentFunction!=row.cacheFunction || !sameCacheIdentity(row.cache,currentCache)) return {};
+            }
+            QVariantMap result {{"iosLoadedQmlSourceVersion", row.cache.isEmpty()?1:2}, {"instance", owner.instance},
                 {"loadSequence", qlonglong(index + 1)}, {"loadId", row.ticket},
                 {"objectId", row.objectId}, {"creationContextId", row.contextId}, {"objectContextId", row.objectContextId},
                 {"processId", QCoreApplication::applicationPid()}, {"clockDomain", "native-main-qml-load"},
@@ -170,6 +212,12 @@ QVariantMap IOSQmlSourceObservation::read(QObject* object) noexcept {
                 {"creationContextUrl", row.creationContextUrl},
                 {"objectContextUrl", row.objectContextUrl},
                 {"compilerInput", row.source}};
+            if (!row.cache.isEmpty()) {
+                result.remove("compilerInput");result.insert("sourceKind","observed-cache");
+                result.insert("cacheAtLoad",row.cache);result.insert("cacheAtRead",currentCache);
+                result.insert("coverage",QVariantMap{{"importGraphAvailable",false},
+                    {"aotGraphAvailable",false},{"installedQtSourceAvailable",false}});
+            }
             if (QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size() > 32768) { return {}; }
             return result;
         }
@@ -178,6 +226,20 @@ QVariantMap IOSQmlSourceObservation::read(QObject* object) noexcept {
     Q_UNUSED(object);
 #endif
     return {};
+}
+
+const void* IOSQmlSourceObservation::cacheObservationSymbol(QObject* object) noexcept {
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(QT_OVERTE_E2E_QML_CACHE_ORIGINALS)
+    try {
+        if (!enabled() || !object || object->thread()!=QThread::currentThread()) return nullptr;
+        const auto current=reinterpret_cast<const void *>(&QQmlTypeData::overteE2eCacheReceiptForObject);
+        for (const auto &row:state().loads)
+            if (row.completed && row.object==object && !row.cache.isEmpty() && row.cacheFunction==current) return current;
+    } catch (...) { observationFailed.store(true); }
+#else
+    Q_UNUSED(object);
+#endif
+    return nullptr;
 }
 
 QList<QObject*> IOSQmlSourceObservation::liveObjects() noexcept {

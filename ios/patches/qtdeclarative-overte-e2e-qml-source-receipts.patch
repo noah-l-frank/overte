@@ -1,50 +1,26 @@
---- a/qtdeclarative/src/qml/common/qv4compileddata_p.h
-+++ b/qtdeclarative/src/qml/common/qv4compileddata_p.h
-@@ -27,6 +27,13 @@
- #include <QtCore/qurl.h>
- #include <QtCore/qvector.h>
- #include <QtCore/qtyperevision.h>
-+
-+#if defined(Q_OS_IOS)
-+// Dedicated Overte E2E Qt package; inactive until explicit native admission.
-+// This changes only the in-memory owner, never the persistent Unit format.
-+#define QT_OVERTE_E2E_QML_SOURCE_RECEIPTS 1
-+#include <QtCore/qvariant.h>
-+#endif
-
- #if QT_CONFIG(temporaryfile)
- #include <QtCore/qsavefile.h>
-@@ -1494,6 +1501,17 @@
-     const QmlUnit *qmlData = nullptr;
-     QStringList dynamicStrings;
-     const QQmlPrivate::AOTCompiledFunction *aotCompiledFunctions = nullptr;
-+#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
-+    // Owned by this actual compiled unit. No URL/global/raw-pointer cache.
-+    QVariantMap overteE2eSourceReceipt;
-+    quint64 overteE2eSourceGeneration = 0;
-+    void overteE2eInvalidateSourceReceipt()
-+    {
-+        overteE2eSourceReceipt.clear();
-+        if (overteE2eSourceGeneration < 1000000000)
-+            ++overteE2eSourceGeneration;
-+    }
-+#endif
-
-     // pointers either to data->constants() or little-endian memory copy.
-     const StaticValue *constants = nullptr;
-@@ -1551,6 +1569,9 @@
-     void setUnitData(const Unit *unitData, const QmlUnit *qmlUnit = nullptr,
-                      const QString &fileName = QString(), const QString &finalUrlString = QString())
-     {
-+#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
-+        overteE2eInvalidateSourceReceipt();
-+#endif
-         data = unitData;
-         qmlData = nullptr;
- #if Q_BYTE_ORDER == Q_BIG_ENDIAN
 --- a/qtdeclarative/src/qml/common/qv4compileddata.cpp
 +++ b/qtdeclarative/src/qml/common/qv4compileddata.cpp
-@@ -82,6 +82,9 @@
+@@ -17,6 +17,19 @@
+ #include <QtCore/qxpfunctional.h>
+
+ QT_BEGIN_NAMESPACE
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++namespace QV4::OverteCacheOriginals {
++namespace { std::atomic<bool> admitted { false },unavailable { false };std::atomic<quint64> sequence { 0 }; }
++bool active() noexcept { return admitted.load() && !unavailable.load(); }
++void setEnabled(bool value) noexcept { admitted.store(value); }
++void fail() noexcept { unavailable.store(true); }
++quint64 next() noexcept {
++    const auto value=sequence.fetch_add(1)+1;
++    if (value==0 || value>1000000000) { fail();return 0; }
++    return value;
++}
++}
++#endif
+
+ namespace QV4 {
+ namespace CompiledData {
+@@ -82,6 +95,9 @@
 
  CompilationUnit::~CompilationUnit()
  {
@@ -54,24 +30,410 @@
      qDeleteAll(resolvedTypes);
 
      if (data) {
-@@ -120,6 +123,10 @@
+@@ -120,6 +136,12 @@
  bool CompilationUnit::loadFromDisk(
          const QUrl &url, const QDateTime &sourceTimeStamp, QString *errorString)
  {
 +#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
-+    // Invalidate before every cache attempt, even failure or equal-byte reload.
++    // Preserve only the actual preceding write as a candidate; the mapper
++    // must independently bind its opened FD and mapped bytes before adoption.
++    const auto observedCacheWrite=overteE2eCacheWriteOriginal;
 +    overteE2eInvalidateSourceReceipt();
 +#endif
      if (!QQmlFile::isLocalFile(url)) {
          *errorString = QStringLiteral("File has to be a local file.");
          return false;
+@@ -127,6 +149,9 @@
+
+     const QString sourcePath = QQmlFile::urlToLocalFileOrQrc(url);
+     auto cacheFile = std::make_unique<CompilationUnitMapper>();
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    cacheFile->setOverteE2eExpectedWrite(observedCacheWrite);
++#endif
+
+     const QStringList cachePaths = { sourcePath + QLatin1Char('c'), localCacheFilePath(url) };
+     for (const QString &cachePath : cachePaths) {
+@@ -179,11 +204,42 @@
+         return false;
+     }
+
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    // This executes BEFORE SaveableUnitPointer temporarily changes StaticData.
++    QVariantMap compilerInput;
++    const auto *observedUnit=data;const auto observedGeneration=overteE2eSourceGeneration;
++    QT_TRY {
++        if (OverteCacheOriginals::active() && data && !aotCompiledFunctions
++                && !overteE2ePendingCompilerInput.isEmpty()
++                && data->unitSize>0 && data->unitSize<=4*1024*1024
++                && OverteCacheOriginals::sha(data,data->unitSize)
++                    ==overteE2ePendingCompilerInput.value("compilerUnitSha256").toString()) {
++            if (overteE2eOwnerId.isEmpty()) overteE2eOwnerId=OverteCacheOriginals::nonce();
++            compilerInput=overteE2ePendingCompilerInput;
++        }
++        if (data!=observedUnit || overteE2eSourceGeneration!=observedGeneration) compilerInput.clear();
++        overteE2eCacheWriteOriginal.clear();
++    } QT_CATCH (...) { OverteCacheOriginals::fail(); }
++#endif
+     return SaveableUnitPointer(unitData()).saveToDisk<char>(
+-            [&unitUrl, errorString](const char *data, quint32 size) {
++            [this,&unitUrl, errorString
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++             ,compilerInput,observedUnit,observedGeneration
++#endif
++             ](const char *data, quint32 size) {
+                 const QString cachePath = localCacheFilePath(unitUrl);
+                 if (SaveableUnitPointer::writeDataToFile(
+-                            cachePath, data, size, errorString)) {
++                            cachePath, data, size, errorString
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++                            ,(unitData()==observedUnit && overteE2eSourceGeneration==observedGeneration
++                                && data==reinterpret_cast<const char *>(observedUnit)) ? &overteE2eCacheWriteOriginal : nullptr,
++                            compilerInput,overteE2eOwnerId,observedGeneration
++#endif
++                            )) {
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++                    if (unitData()!=observedUnit || overteE2eSourceGeneration!=observedGeneration)
++                        overteE2eCacheWriteOriginal.clear();
++#endif
+                     CompilationUnitMapper::invalidate(cachePath);
+                     return true;
+                 }
+@@ -191,6 +247,27 @@
+                 return false;
+             });
+ }
++
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++QVariantMap CompilationUnit::overteE2eCacheOriginalForCurrentUnit() const
++{
++    QT_TRY {
++        if (!OverteCacheOriginals::active() || !data || !backingFile || aotCompiledFunctions
++                || overteE2eOwnerId.isEmpty() || overteE2eSourceGeneration>=1000000000) return {};
++        const auto *pointer=data;const auto generation=overteE2eSourceGeneration;
++        const auto bytes=pointer->unitSize;const auto before=OverteCacheOriginals::clock();
++        const auto actual=backingFile->overteE2eOriginalFor(pointer);
++        const auto after=OverteCacheOriginals::clock();
++        if (actual.isEmpty() || data!=pointer || overteE2eSourceGeneration!=generation || pointer->unitSize!=bytes) return {};
++        return {{QStringLiteral("qtOverteQmlCacheUnitVersion"),1},{QStringLiteral("clockDomain"),QStringLiteral("native-qt-steady-clock")},{QStringLiteral("processId"),QCoreApplication::applicationPid()},
++            {QStringLiteral("unitOwnerId"),overteE2eOwnerId},{QStringLiteral("unitReadBefore"),before},{QStringLiteral("unitReadAfter"),after},
++            {QStringLiteral("unitGeneration"),qulonglong(generation)},
++            {QStringLiteral("unitBytes"),qlonglong(bytes)},
++            {QStringLiteral("unitSha256"),actual.value(QStringLiteral("mappedSha256"))},
++            {QStringLiteral("mappingOriginal"),actual}};
++    } QT_CATCH (...) { OverteCacheOriginals::fail();return {}; }
++}
++#endif
+
+ QStringList CompilationUnit::moduleRequests() const
+ {
+--- a/qtdeclarative/src/qml/common/qv4compileddata_p.h
++++ b/qtdeclarative/src/qml/common/qv4compileddata_p.h
+@@ -28,6 +28,14 @@
+ #include <QtCore/qvector.h>
+ #include <QtCore/qtyperevision.h>
+
++#if defined(Q_OS_IOS)
++// Dedicated Overte E2E Qt package; inactive until explicit native admission.
++// This changes only the in-memory owner, never the persistent Unit format.
++#define QT_OVERTE_E2E_QML_SOURCE_RECEIPTS 1
++#define QT_OVERTE_E2E_QML_CACHE_ORIGINALS 1
++#include <QtCore/qvariant.h>
++#endif
++
+ #if QT_CONFIG(temporaryfile)
+ #include <QtCore/qsavefile.h>
+ #endif
+@@ -42,6 +50,117 @@
+
+ #include <functional>
+ #include <limits.h>
++
++// Copyright 2026 Overte contributors.
++// SPDX-License-Identifier: Apache-2.0
++// Optional, unapplied extension of the reviewed Overte Qt6.11.1 E2E patch.
++// Native sources are uncompiled; this is not installed-code admission.
++#include <QtCore/qglobal.h>
++#if defined(Q_OS_IOS) && defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++#include <QtCore/qcoreapplication.h>
++#include <QtCore/qcryptographichash.h>
++#include <QtCore/qdatetime.h>
++#if QT_CONFIG(temporaryfile)
++#include <QtCore/qsavefile.h>
++#endif
++#include <QtCore/quuid.h>
++#include <QtCore/qvariant.h>
++#include <atomic>
++#include <chrono>
++#include <fcntl.h>
++#include <sys/stat.h>
++#include <unistd.h>
++
++QT_BEGIN_NAMESPACE
++namespace QV4::OverteCacheOriginals {
++// State lives in the patched Qt binary, never a consumer-local header copy.
++Q_QML_EXPORT bool active() noexcept;
++Q_QML_EXPORT void setEnabled(bool value) noexcept;
++Q_QML_EXPORT void fail() noexcept;
++Q_QML_EXPORT quint64 next() noexcept;
++inline QVariantMap clock() {
++    return {{QStringLiteral("epochMs"),QDateTime::currentMSecsSinceEpoch()},
++        {QStringLiteral("monotonicMs"),qlonglong(std::chrono::duration_cast<std::chrono::milliseconds>(
++            std::chrono::steady_clock::now().time_since_epoch()).count())}};
++}
++inline QString nonce() { return QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-'); }
++inline QString sha(const void *data, qsizetype size) {
++    return QString::fromLatin1(QCryptographicHash::hash(
++        QByteArrayView(static_cast<const char *>(data),size),QCryptographicHash::Sha256).toHex());
++}
++inline QVariantMap file(int fd) {
++    struct stat actual;
++    if (::fstat(fd,&actual)!=0 || !S_ISREG(actual.st_mode) || actual.st_size<0) return {};
++    // Decimal strings preserve 64-bit inode/device identity through JSON.
++    return {{QStringLiteral("device"),QString::number(qulonglong(actual.st_dev))},
++        {QStringLiteral("inode"),QString::number(qulonglong(actual.st_ino))},{QStringLiteral("bytes"),qlonglong(actual.st_size)},
++        {QStringLiteral("modifiedSeconds"),qlonglong(actual.st_mtimespec.tv_sec)},
++        {QStringLiteral("modifiedNanoseconds"),qlonglong(actual.st_mtimespec.tv_nsec)},
++        {QStringLiteral("changedSeconds"),qlonglong(actual.st_ctimespec.tv_sec)},
++        {QStringLiteral("changedNanoseconds"),qlonglong(actual.st_ctimespec.tv_nsec)}};
++}
++inline bool sameFile(const QVariantMap &a,const QVariantMap &b) {
++    return !a.isEmpty() && !b.isEmpty() && a.value(QStringLiteral("device"))==b.value(QStringLiteral("device")) && a.value(QStringLiteral("inode"))==b.value(QStringLiteral("inode"));
++}
++#if QT_CONFIG(temporaryfile)
++class Write final {
++    Q_DISABLE_COPY_MOVE(Write)
++public:
++    Write(QSaveFile &actual,const char *data,quint32 size,const QVariantMap &compiler,
++          const QString &owner,quint64 generation) noexcept {
++        QT_TRY {
++            if (!active() || !data || !size || size>4*1024*1024 || compiler.isEmpty()
++                    || owner.isEmpty() || generation>=1000000000 || actual.handle()<0) return;
++            // Retain exactly the opened QSaveFile description across commit's
++            // rename/close. Never obtain identity by reopening its path.
++            retained=::dup(actual.handle());if (retained<0) return;
++            before=file(retained);if (before.isEmpty()) return;
++            original={{QStringLiteral("qtOverteQmlCacheWriteVersion"),1},{QStringLiteral("clockDomain"),QStringLiteral("native-qt-steady-clock")},{QStringLiteral("writerId"),nonce()},
++                {QStringLiteral("processId"),QCoreApplication::applicationPid()},{QStringLiteral("compilerOwnerId"),owner},
++                {QStringLiteral("compilerOwnerGeneration"),qulonglong(generation)},{QStringLiteral("compilerInput"),compiler},
++                {QStringLiteral("writeSequence"),qulonglong(next())},{QStringLiteral("writeBefore"),clock()},
++                {QStringLiteral("bytes"),qlonglong(size)},{QStringLiteral("writeArgumentSha256"),sha(data,size)},{QStringLiteral("fileBefore"),before}};
++        } QT_CATCH (...) { fail();original.clear(); }
++    }
++    ~Write() { if (retained>=0) ::close(retained); }
++    QVariantMap committed(qint64 actualWritten,bool actualCommit) noexcept {
++        QT_TRY {
++            if (!active() || original.isEmpty() || retained<0 || !actualCommit
++                    || actualWritten!=original.value(QStringLiteral("bytes")).toLongLong()) return {};
++            const auto after=file(retained);
++            if (!sameFile(before,after) || after.value(QStringLiteral("bytes"))!=original.value(QStringLiteral("bytes"))) return {};
++            auto result=original;result.insert(QStringLiteral("written"),actualWritten);result.insert(QStringLiteral("committed"),true);
++            result.insert(QStringLiteral("fileCommitted"),after);result.insert(QStringLiteral("writeAfter"),clock());
++            return result;
++        } QT_CATCH (...) { fail();return {}; }
++    }
++private:
++    int retained=-1;
++    QVariantMap before,original;
++};
++#endif
++inline QVariantMap mapped(int actualFd,const void *actualData,qsizetype length,
++                          const QVariantMap &writeOriginal) noexcept {
++    QT_TRY {
++        if (!active() || !actualData || length<=0 || length>4*1024*1024 || writeOriginal.isEmpty()) return {};
++        const auto before=file(actualFd);const auto started=clock();
++        const auto digest=sha(actualData,length);const auto after=file(actualFd);
++        if (before.isEmpty() || before!=after || before!=writeOriginal.value(QStringLiteral("fileCommitted")).toMap()
++                || before.value(QStringLiteral("bytes")).toLongLong()!=length
++                || writeOriginal.value(QStringLiteral("writeArgumentSha256")).toString()!=digest
++                || writeOriginal.value(QStringLiteral("processId")).toLongLong()!=QCoreApplication::applicationPid()) return {};
++        // Stored by the actual mapper, and copied with that mapper on a static
++        // hit. No filename lookup can create or replace this association.
++        return {{QStringLiteral("qtOverteQmlCacheMappingVersion"),1},{QStringLiteral("clockDomain"),QStringLiteral("native-qt-steady-clock")},{QStringLiteral("mappingId"),nonce()},
++            {QStringLiteral("mappingSequence"),qulonglong(next())},{QStringLiteral("processId"),QCoreApplication::applicationPid()},
++            {QStringLiteral("mapBefore"),started},{QStringLiteral("mapAfter"),clock()},
++            {QStringLiteral("mappedFile"),after},{QStringLiteral("mappedBytes"),qlonglong(length)},{QStringLiteral("mappedSha256"),digest},
++            {QStringLiteral("writeOriginal"),writeOriginal}};
++    } QT_CATCH (...) { fail();return {}; }
++}
++} // namespace QV4::OverteCacheOriginals
++QT_END_NAMESPACE
++#endif
+
+ QT_BEGIN_NAMESPACE
+
+@@ -1494,6 +1613,22 @@
+     const QmlUnit *qmlData = nullptr;
+     QStringList dynamicStrings;
+     const QQmlPrivate::AOTCompiledFunction *aotCompiledFunctions = nullptr;
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    // Owned by this actual compiled unit. No URL/global/raw-pointer cache.
++    QVariantMap overteE2eSourceReceipt;
++    // Actual source/output capture, not an expected source selector.
++    QVariantMap overteE2ePendingCompilerInput, overteE2eCacheWriteOriginal;
++    QString overteE2eOwnerId;
++    Q_QML_EXPORT QVariantMap overteE2eCacheOriginalForCurrentUnit() const;
++    quint64 overteE2eSourceGeneration = 0;
++    void overteE2eInvalidateSourceReceipt()
++    {
++        overteE2eSourceReceipt.clear();
++        overteE2ePendingCompilerInput.clear();overteE2eCacheWriteOriginal.clear();
++        if (overteE2eSourceGeneration < 1000000000)
++            ++overteE2eSourceGeneration;
++    }
++#endif
+
+     // pointers either to data->constants() or little-endian memory copy.
+     const StaticValue *constants = nullptr;
+@@ -1551,6 +1686,13 @@
+     void setUnitData(const Unit *unitData, const QmlUnit *qmlUnit = nullptr,
+                      const QString &fileName = QString(), const QString &finalUrlString = QString())
+     {
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++        overteE2eInvalidateSourceReceipt();
++        QT_TRY {
++            if (OverteCacheOriginals::active() && overteE2eOwnerId.isEmpty())
++                overteE2eOwnerId=OverteCacheOriginals::nonce();
++        } QT_CATCH (...) { OverteCacheOriginals::fail(); }
++#endif
+         data = unitData;
+         qmlData = nullptr;
+ #if Q_BYTE_ORDER == Q_BIG_ENDIAN
+@@ -1801,16 +1943,31 @@
+     }
+
+     static bool writeDataToFile(const QString &outputFileName, const char *data, quint32 size,
+-                                QString *errorString)
++                                QString *errorString
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++                                , QVariantMap *writeOriginal = nullptr,
++                                const QVariantMap &compilerInput = {},
++                                const QString &compilerOwner = {},quint64 compilerGeneration = 0
++#endif
++                                )
+     {
+ #if QT_CONFIG(temporaryfile)
+         QSaveFile cacheFile(outputFileName);
+-        if (!cacheFile.open(QIODevice::WriteOnly | QIODevice::Truncate)
+-                || cacheFile.write(data, size) != size
+-                || !cacheFile.commit()) {
+-            *errorString = cacheFile.errorString();
+-            return false;
++        if (!cacheFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
++            *errorString = cacheFile.errorString();return false;
+         }
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++        OverteCacheOriginals::Write observed(cacheFile,data,size,compilerInput,compilerOwner,compilerGeneration);
++#endif
++        const auto actualWritten = cacheFile.write(data,size);
++        if (actualWritten != size) { *errorString=cacheFile.errorString();return false; }
++        const bool actualCommit=cacheFile.commit();
++        if (!actualCommit) { *errorString=cacheFile.errorString();return false; }
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++        QT_TRY {
++            if (writeOriginal) *writeOriginal=observed.committed(actualWritten,actualCommit);
++        } QT_CATCH (...) { OverteCacheOriginals::fail(); }
++#endif
+
+         errorString->clear();
+         return true;
+--- a/qtdeclarative/src/qml/jsruntime/qv4compilationunitmapper.cpp
++++ b/qtdeclarative/src/qml/jsruntime/qv4compilationunitmapper.cpp
+@@ -73,6 +73,20 @@
+     }
+ }
+
++#if defined(Q_OS_IOS)
++QVariantMap CompilationUnitMapper::overteE2eOriginalFor(const void *actualUnit) const
++{
++    QT_TRY {
++        if (!OverteCacheOriginals::active() || !dataPtr || actualUnit!=dataPtr || overteMappingOriginal.isEmpty()) return {};
++        const auto *unit=static_cast<const CompiledData::Unit *>(dataPtr);
++        if (unit->unitSize<sizeof(CompiledData::Unit) || unit->unitSize>4*1024*1024
++                || unit->unitSize!=overteMappingOriginal.value(QStringLiteral("mappedBytes")).toLongLong()
++                || OverteCacheOriginals::sha(dataPtr,unit->unitSize)!=overteMappingOriginal.value(QStringLiteral("mappedSha256")).toString()) return {};
++        return overteMappingOriginal;
++    } QT_CATCH (...) { OverteCacheOriginals::fail();return {}; }
++}
++#endif
++
+ void CompilationUnitMapper::invalidate(const QString &cacheFilePath)
+ {
+     StaticUnitCache cache;
+--- a/qtdeclarative/src/qml/jsruntime/qv4compilationunitmapper_p.h
++++ b/qtdeclarative/src/qml/jsruntime/qv4compilationunitmapper_p.h
+@@ -18,6 +18,9 @@
+
+ #include <private/qv4global_p.h>
+ #include <QFile>
++#if defined(Q_OS_IOS)
++#include <QtCore/qvariant.h>
++#endif
+
+ QT_BEGIN_NAMESPACE
+
+@@ -33,6 +36,10 @@
+     CompiledData::Unit *get(
+             const QString &cacheFilePath, const QDateTime &sourceTimeStamp, QString *errorString);
+     static void invalidate(const QString &cacheFilePath);
++#if defined(Q_OS_IOS)
++    void setOverteE2eExpectedWrite(const QVariantMap &value) { overteExpectedWrite=value; }
++    QVariantMap overteE2eOriginalFor(const void *actualUnit) const;
++#endif
+
+ private:
+     CompiledData::Unit *open(
+@@ -43,6 +50,10 @@
+     size_t length = 0;
+ #endif
+     void *dataPtr = nullptr;
++#if defined(Q_OS_IOS)
++    // Default mapper copies retain this exact mapping generation and source.
++    QVariantMap overteExpectedWrite,overteMappingOriginal;
++#endif
+ };
+
+ }
+--- a/qtdeclarative/src/qml/jsruntime/qv4compilationunitmapper_unix.cpp
++++ b/qtdeclarative/src/qml/jsruntime/qv4compilationunitmapper_unix.cpp
+@@ -62,12 +62,19 @@
+         return nullptr;
+     }
+     dataPtr = ptr;
++#if defined(Q_OS_IOS)
++    overteMappingOriginal=OverteCacheOriginals::mapped(fd,ptr,qsizetype(length),overteExpectedWrite);
++    overteExpectedWrite.clear();
++#endif
+
+     return reinterpret_cast<CompiledData::Unit*>(dataPtr);
+ }
+
+ void CompilationUnitMapper::close()
+ {
++#if defined(Q_OS_IOS)
++    overteMappingOriginal.clear();
++#endif
+     // Do not unmap the data here.
+     if (dataPtr != nullptr) {
+         // Do not unmap cache files that are built with the StaticData flag. That's the majority of
 --- a/qtdeclarative/src/qml/jsruntime/qv4executablecompilationunit_p.h
 +++ b/qtdeclarative/src/qml/jsruntime/qv4executablecompilationunit_p.h
-@@ -196,6 +196,17 @@
+@@ -196,6 +196,29 @@
      void setValue(const QV4::Value &value) { m_valueOrModule = value; }
 
      const CompiledData::Unit *unitData() const { return m_compilationUnit->data; }
 +#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    QString overteE2eExecutableIdentity() const
++    {
++        QT_TRY {
++            if (!OverteCacheOriginals::active()) return {};
++            if (m_overteE2eExecutableId.isEmpty()) m_overteE2eExecutableId=OverteCacheOriginals::nonce();
++            return m_overteE2eExecutableId;
++        } QT_CATCH (...) { OverteCacheOriginals::fail();return {}; }
++    }
++    QVariantMap overteE2eCacheOriginal() const
++    {
++        return m_compilationUnit->overteE2eCacheOriginalForCurrentUnit();
++    }
 +    QVariantMap overteE2eSourceReceipt() const
 +    {
 +        const auto &owner = *m_compilationUnit;
@@ -85,47 +447,34 @@
 
      QString stringAt(uint index) const { return m_compilationUnit->stringAt(index); }
 
---- a/qtdeclarative/src/qml/qml/qqmltypedata_p.h
-+++ b/qtdeclarative/src/qml/qml/qqmltypedata_p.h
-@@ -26,6 +26,9 @@
- QT_BEGIN_NAMESPACE
+@@ -254,6 +277,10 @@
+     friend struct ExecutionEngine;
 
- Q_DECLARE_LOGGING_CATEGORY(lcCycle)
+     QQmlRefPointer<CompiledData::CompilationUnit> m_compilationUnit;
 +#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
-+class QQmlComponent;
++    // Diagnostic lifetime identity, not a product/unit reference.
++    mutable QString m_overteE2eExecutableId;
 +#endif
+     Value m_valueOrModule = QV4::Value::emptyValue();
 
- class Q_AUTOTEST_EXPORT QQmlTypeData : public QQmlNotifyingBlob
- {
-@@ -60,6 +63,12 @@
-     ~QQmlTypeData() override;
+     struct ResolveSetEntry
+--- a/qtdeclarative/src/qml/qml/qqmlcomponent_p.h
++++ b/qtdeclarative/src/qml/qml/qqmlcomponent_p.h
+@@ -200,6 +200,11 @@
+     const QQmlObjectCreator *creator() const { return m_state.creator(); }
 
-     QV4::CompiledData::CompilationUnit *compilationUnit() const;
-+#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
-+    static Q_QML_EXPORT int overteE2eSourceObservationApiVersion();
-+    static Q_QML_EXPORT void setOverteE2eSourceObservationEnabled(bool enabled);
-+    static Q_QML_EXPORT QVariantMap overteE2eSourceReceiptForObject(
-+            const QObject *object, const QQmlComponent *component = nullptr);
+     QQmlEngine *engine() const { return m_engine; }
++#if defined(Q_OS_IOS)
++    // Diagnostic identity comparison only; no observer refcount increment.
++    const QV4::ExecutableCompilationUnit *overteE2eCompilationUnitIdentity() const
++    { return m_compilationUnit.data(); }
 +#endif
-
-     QQmlType qmlType(const QString &inlineComponentName = QString()) const;
-     QByteArray typeClassName() const { return m_typeClassName; }
-@@ -104,6 +113,12 @@
-             const QString &nameSpace, const QString &qualifier) override;
-
-     SourceCodeData m_backupSourceCode; // used when cache verification fails.
-+#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
-+    QVariantMap m_overteE2eSourceInput;
-+    const QV4::CompiledData::CompilationUnit *m_overteE2eDirectOwner = nullptr;
-+    const QV4::CompiledData::Unit *m_overteE2eDirectUnit = nullptr;
-+    quint64 m_overteE2eDirectGeneration = 0;
-+#endif
-     QScopedPointer<QmlIR::Document> m_document;
-     QV4::CompiledData::TypeReferenceMap m_typeReferences;
-
+     QQmlRefPointer<QV4::ExecutableCompilationUnit> compilationUnit() const
+     {
+         return m_compilationUnit;
 --- a/qtdeclarative/src/qml/qml/qqmltypedata.cpp
 +++ b/qtdeclarative/src/qml/qml/qqmltypedata.cpp
-@@ -18,10 +18,123 @@
+@@ -18,10 +18,174 @@
  #include <QtCore/qcryptographichash.h>
 
  #include <memory>
@@ -135,6 +484,7 @@
 +#include <QtCore/qcoreapplication.h>
 +#include <QtCore/qdatetime.h>
 +#include <QtCore/qthread.h>
++#include <QtCore/qpointer.h>
 +#include <QtCore/quuid.h>
 +#include <atomic>
 +#endif
@@ -196,10 +546,12 @@
 +void QQmlTypeData::setOverteE2eSourceObservationEnabled(bool enabled)
 +{
 +    overteE2eSourceEnabled.store(false, std::memory_order_release);
++    QV4::OverteCacheOriginals::setEnabled(false);
 +    QT_TRY {
 +    const bool admitted = enabled && QCoreApplication::instance()
 +            && QCoreApplication::arguments().contains(QStringLiteral("--testScript"));
 +    overteE2eSourceEnabled.store(admitted, std::memory_order_release);
++    QV4::OverteCacheOriginals::setEnabled(admitted);
 +    } QT_CATCH (...) {
 +        // Remain disabled without changing ordinary application loading.
 +    }
@@ -246,10 +598,58 @@
 +    }
 +}
 +#endif
++
++#if defined(QT_OVERTE_E2E_QML_CACHE_ORIGINALS)
++int QQmlTypeData::overteE2eCacheObservationApiVersion() { return 1; }
++QVariantMap QQmlTypeData::overteE2eCacheReceiptForObject(
++        const QObject *object,const QQmlComponent *component)
++{
++    QT_TRY {
++        if (!overteE2eSourceEnabled.load(std::memory_order_acquire)
++                || !QV4::OverteCacheOriginals::active() || !QCoreApplication::instance()
++                || !object || object->thread()!=QThread::currentThread()) return {};
++        QPointer<const QObject> weakObject(object);
++        QPointer<const QQmlComponent> weakComponent(component);
++        const auto *data=QQmlData::get(object);
++        if (!data || !data->compilationUnit) return {};
++        const auto *actual=data->compilationUnit.data();
++        if (component && (component->thread()!=QThread::currentThread() || !component->isReady()
++                || component->isError() || QQmlComponentPrivate::get(const_cast<QQmlComponent *>(component))
++                    ->overteE2eCompilationUnitIdentity()!=actual)) return {};
++        const auto unit=actual->overteE2eCacheOriginal();
++        const auto executableId=actual->overteE2eExecutableIdentity();
++        if (executableId.isEmpty() || unit.isEmpty() || unit.value(QStringLiteral("processId")).toLongLong()!=QCoreApplication::applicationPid()) return {};
++        const auto sourceUrl=actual->url().toString(QUrl::FullyEncoded);
++        const auto finalUrl=actual->finalUrl().toString(QUrl::FullyEncoded);
++        if (!weakObject || (component && !weakComponent)) return {};
++        const auto *current=QQmlData::get(object);
++        if (!current || current->compilationUnit.data()!=actual) return {};
++        if (component && QQmlComponentPrivate::get(const_cast<QQmlComponent *>(component))
++                    ->overteE2eCompilationUnitIdentity()!=actual) return {};
++        const auto reread=actual->overteE2eCacheOriginal();
++        auto originalIdentity=unit;auto currentIdentity=reread;
++        for (const auto &name : {QStringLiteral("unitReadBefore"),QStringLiteral("unitReadAfter")}) {
++            originalIdentity.remove(name);currentIdentity.remove(name);
++        }
++        if (reread.isEmpty() || originalIdentity!=currentIdentity || !weakObject
++                || actual->overteE2eExecutableIdentity()!=executableId) return {};
++        const auto *last=QQmlData::get(object);
++        if (!last || last->compilationUnit.data()!=actual || (component && (!weakComponent
++                || QQmlComponentPrivate::get(const_cast<QQmlComponent *>(component))
++                    ->overteE2eCompilationUnitIdentity()!=actual))) return {};
++        return {{QStringLiteral("qtOverteQmlObjectCacheReceiptVersion"),1},
++            {QStringLiteral("processId"),QCoreApplication::applicationPid()},
++            {QStringLiteral("executableUnitId"),executableId},
++            {QStringLiteral("componentMatched"),component!=nullptr},
++            {QStringLiteral("unitSourceUrl"),sourceUrl},{QStringLiteral("unitFinalUrl"),finalUrl},
++            {QStringLiteral("unit"),reread}};
++    } QT_CATCH (...) { QV4::OverteCacheOriginals::fail();return {}; }
++}
++#endif
 
  QString QQmlTypeData::TypeReference::qualifiedName() const
  {
-@@ -524,6 +637,48 @@
+@@ -524,6 +688,48 @@
      assertTypeLoaderThread();
 
      auto cleanup = qScopeGuard([this]{
@@ -298,7 +698,7 @@
          m_backupSourceCode = SourceCodeData();
          m_document.reset();
          m_typeReferences.clear();
-@@ -717,6 +872,11 @@
+@@ -717,6 +923,11 @@
  {
      assertTypeLoaderThread();
 
@@ -310,7 +710,7 @@
      m_backupSourceCode = data;
 
      if (tryLoadFromDiskCache())
-@@ -744,6 +904,11 @@
+@@ -744,6 +955,11 @@
  void QQmlTypeData::initializeFromCachedUnit(const QQmlPrivate::CachedQmlUnit *unit)
  {
      assertTypeLoaderThread();
@@ -322,7 +722,7 @@
 
      if (unit->qmlData->qmlUnit()->nObjects == 0) {
          setError(QQmlTypeLoader::tr("Cached QML Unit has no objects"));
-@@ -777,6 +942,11 @@
+@@ -777,6 +993,11 @@
          return false;
      }
 
@@ -334,7 +734,7 @@
      if (!compiler.generateFromQml(source, finalUrlString(), m_document.data())) {
          QList<QQmlError> errors;
          errors.reserve(compiler.errors.size());
-@@ -791,6 +961,17 @@
+@@ -791,6 +1012,17 @@
          setError(errors);
          return false;
      }
@@ -352,7 +752,7 @@
      return true;
  }
 
-@@ -904,10 +1085,41 @@
+@@ -904,10 +1136,42 @@
          return;
      }
 
@@ -370,6 +770,7 @@
 +            m_overteE2eSourceInput.insert(QStringLiteral("compilerUnitBytes"), qlonglong(unit->unitSize));
 +            m_overteE2eSourceInput.insert(QStringLiteral("compilerUnitSha256"), QString::fromLatin1(
 +                    QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex()));
++            compilationUnit->overteE2ePendingCompilerInput=m_overteE2eSourceInput;
 +            m_overteE2eDirectOwner = compilationUnit.data();
 +            m_overteE2eDirectUnit = unit;
 +            m_overteE2eDirectGeneration = compilationUnit->overteE2eSourceGeneration;
@@ -394,3 +795,45 @@
              QString error;
              if (!compilationUnit->loadFromDisk(url(), m_backupSourceCode.sourceTimeStamp(), &error)) {
                  // ignore error, keep using the in-memory compilation unit.
+--- a/qtdeclarative/src/qml/qml/qqmltypedata_p.h
++++ b/qtdeclarative/src/qml/qml/qqmltypedata_p.h
+@@ -26,6 +26,9 @@
+ QT_BEGIN_NAMESPACE
+
+ Q_DECLARE_LOGGING_CATEGORY(lcCycle)
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++class QQmlComponent;
++#endif
+
+ class Q_AUTOTEST_EXPORT QQmlTypeData : public QQmlNotifyingBlob
+ {
+@@ -60,6 +63,17 @@
+     ~QQmlTypeData() override;
+
+     QV4::CompiledData::CompilationUnit *compilationUnit() const;
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    static Q_QML_EXPORT int overteE2eSourceObservationApiVersion();
++    static Q_QML_EXPORT void setOverteE2eSourceObservationEnabled(bool enabled);
++    static Q_QML_EXPORT QVariantMap overteE2eSourceReceiptForObject(
++            const QObject *object, const QQmlComponent *component = nullptr);
++#if defined(QT_OVERTE_E2E_QML_CACHE_ORIGINALS)
++    static Q_QML_EXPORT int overteE2eCacheObservationApiVersion();
++    static Q_QML_EXPORT QVariantMap overteE2eCacheReceiptForObject(
++            const QObject *object, const QQmlComponent *component = nullptr);
++#endif
++#endif
+
+     QQmlType qmlType(const QString &inlineComponentName = QString()) const;
+     QByteArray typeClassName() const { return m_typeClassName; }
+@@ -104,5 +118,11 @@
+             const QString &nameSpace, const QString &qualifier) override;
+
+     SourceCodeData m_backupSourceCode; // used when cache verification fails.
++#if defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
++    QVariantMap m_overteE2eSourceInput;
++    const QV4::CompiledData::CompilationUnit *m_overteE2eDirectOwner = nullptr;
++    const QV4::CompiledData::Unit *m_overteE2eDirectUnit = nullptr;
++    quint64 m_overteE2eDirectGeneration = 0;
++#endif
+     QScopedPointer<QmlIR::Document> m_document;
+     QV4::CompiledData::TypeReferenceMap m_typeReferences;
