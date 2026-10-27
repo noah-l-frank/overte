@@ -517,6 +517,31 @@ QVariantMap ScriptEngines::featureAvatarScriptObservation() {
     return {{"complete",true},{"revision",static_cast<qulonglong>(revision)},{"workers",result}};
 }
 
+QVariantMap ScriptEngines::featureChatScriptSourcesObservation() {
+    if (!QCoreApplication::arguments().contains("--testScript")) {return {};}
+    QSet<ScriptManagerPointer> known;quint64 revision{0};
+    {QMutexLocker lock(&_allScriptsMutex);
+        if (_allKnownScriptManagers.size()>128 || _featureKnownScriptRevision>9007199254740991ULL) {return {};}
+        known=_allKnownScriptManagers;revision=_featureKnownScriptRevision;
+    }
+    QMap<QString,QVariant> workers;
+    for (const auto& manager:known) {
+        if (!manager) {return {};}
+        if (!QUrl(manager->getFilename()).path().endsWith("/communityScripts/armored-chat/armored_chat.js")) {continue;}
+        const auto member=manager->featureLoadMembership(),code=manager->featureSourceIdentity(),sources=manager->featureChatSources();
+        const auto id=member.value("instance").toString();
+        const bool running=manager->isRunning(),stopping=manager->isStopping(),finished=manager->isFinished(),done=manager->isDoneRunning();
+        if (member.isEmpty() || code.isEmpty() || sources.isEmpty() || id.isEmpty() || workers.contains(id)) {return {};}
+        workers.insert(id,QVariantMap{{"membership",member},{"code",code},{"codeSources",sources},
+            {"running",running},{"stopping",stopping},{"finished",finished},{"done",done}});
+        if (member!=manager->featureLoadMembership() || code!=manager->featureSourceIdentity() || sources!=manager->featureChatSources()
+                || running!=manager->isRunning() || stopping!=manager->isStopping() || finished!=manager->isFinished() || done!=manager->isDoneRunning()) {return {};}
+    }
+    {QMutexLocker lock(&_allScriptsMutex);if (_featureKnownScriptRevision!=revision) {return {};}}
+    QVariantList rows;for (auto it=workers.cbegin();it!=workers.cend();++it) {rows.append(it.value());}
+    return {{"complete",true},{"revision",static_cast<qulonglong>(revision)},{"workers",rows}};
+}
+
 QVariantMap ScriptEngines::featureSnapshotScriptObservation() {
     return featureSnapshotScriptObservationFor(false);
 }

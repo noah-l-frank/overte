@@ -1056,6 +1056,7 @@ public:
     QVariantMap featureSnapshotSources() const {return _featureSnapshotSources.snapshot();}
     QVariantMap featureSnapshotHttpSources() const {return _featureSnapshotHttpSources.snapshot();}
     QVariantMap featureSnapshotCombinedSources() const {return _featureSnapshotCombinedSources.snapshot();}
+    QVariantMap featureChatSources() const {return _featureChatSources.snapshot();}
     QVariantMap featureSnapshotCombinedTimerWork() const {return _featureSnapshotCombinedTimerWork->snapshot();}
     QVariantMap featureSnapshotTimerWork() const {return _featureSnapshotTimerWork->snapshot();}
     // Original indexed V8 frames; legacy callerChain helpers are unchanged.
@@ -1735,6 +1736,7 @@ protected:
     overte::e2e::CreateSourceObservation _featureSnapshotSources {"/system/snapshot/","snapshotSourcesVersion","/system/snapshot.js"};
     overte::e2e::CreateSourceObservation _featureSnapshotHttpSources {overte::e2e::CreateSourceObservation::Profile::SnapshotPreflight};
     overte::e2e::CreateSourceObservation _featureSnapshotCombinedSources {overte::e2e::CreateSourceObservation::Profile::SnapshotCombined};
+    overte::e2e::CreateSourceObservation _featureChatSources {overte::e2e::CreateSourceObservation::Profile::ChatSeparate};
     std::shared_ptr<overte::e2e::AvatarUiWorkObservation> _featureSnapshotTimerWork {
         std::make_shared<overte::e2e::AvatarUiWorkObservation>(QStringList{"/system/snapshot.js","/system/snapshot/featureSnapshotWork.js",
             "/modules/request.js","/system/request-service.js"},"snapshotTimerWorkVersion")};

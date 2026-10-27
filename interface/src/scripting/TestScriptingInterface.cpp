@@ -83,6 +83,7 @@
 #include "../../../tests/device/native/IOSTabletAppButtonsObservation.h"
 #include "../../../ios/snapshot/IOSSnapshotObservation.h"
 #include "../../../tests/device/native/IOSSnapshotWorkObservation.h"
+#include "../../../tests/device/native/IOSChatScriptSourcesObservation.h"
 #include "../../../tests/device/native/IOSSnapshotFileWorkObservation.h"
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
 #include "../../../tests/device/native/IOSSnapshotOwnedFilesObservation.h"
@@ -1420,6 +1421,26 @@ QVariantMap TestScriptingInterface::featureIOSSnapshotCombinedWork(const QVarian
         const auto scripts=DependencyManager::get<ScriptEngines>();if (!scripts) {return {};}
         return overte::e2e::IOSSnapshotWorkObservation::combinedInstance().read(request,run,[scripts] {return scripts->featureSnapshotCombinedScriptObservation();});
     } catch (...) {overte::e2e::IOSSnapshotWorkObservation::combinedUnavailable();return {};}
+}
+
+QVariantMap TestScriptingInterface::featureIOSChatScriptSources(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] {result=featureIOSChatScriptSources(command);},Qt::BlockingQueuedConnection)) {return {};}
+        return result;
+    }
+    try {
+        QStringList fields{"schemaVersion","commandId","action","runId"};fields.sort();
+        const auto json=QJsonObject::fromVariantMap(command);const auto request=command.value("commandId").toString(),run=command.value("runId").toString();
+        if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty() || !QCoreApplication::arguments().contains("--testScript")
+                || command.keys()!=fields || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-chat-script-sources")
+                || !json.value("commandId").isString() || !json.value("runId").isString()
+                || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+                || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch() || !DependencyManager::isSet<ScriptEngines>()) {return {};}
+        const auto scripts=DependencyManager::get<ScriptEngines>();if (!scripts) {return {};}
+        return overte::e2e::IOSChatScriptSourcesObservation::instance().read(request,run,[scripts] {return scripts->featureChatScriptSourcesObservation();});
+    } catch (...) {return {};}
 }
 
 QVariantMap TestScriptingInterface::featureIOSSnapshotFileWork(const QVariantMap& command) {
@@ -3089,7 +3110,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     // Adding whitespace can exceed the existing reader limit with no new data.
     // Other source writers keep their original encoding.
     if (filename=="feature-ios-assets-files.json" || filename=="feature-ios-assets-replies.json" || filename=="feature-ios-keyboard.json" || filename=="feature-ios-lifecycle-inputs.json" || filename=="feature-ios-lifecycle-world.json" || filename=="feature-ios-lifecycle-pending-commands.json" || filename=="feature-ios-lifecycle-navigation-inputs.json" || filename=="feature-ios-snapshot-owned-files.json" || filename=="feature-ios-snapshot-file-remove.json" || filename=="feature-ios-snapshot-file-work.json" || filename=="feature-ios-snapshot-inputs.json" || filename=="feature-ios-snapshot-work.json" || filename=="feature-ios-snapshot-exports.json" || filename=="feature-ios-snapshot-captures.json" || filename=="feature-ios-snapshot-uploads.json"
-            || filename=="feature-ios-snapshot-combined-work.json" || filename=="feature-ios-snapshot-preflight-http.json"
+            || filename=="feature-ios-snapshot-combined-work.json" || filename=="feature-ios-chat-script-sources.json" || filename=="feature-ios-snapshot-preflight-http.json"
             || filename=="feature-ios-tablet-web-dom.json" || filename=="feature-ios-tablet-web-deferred.json" || filename=="feature-ios-tablet-web-defer.json" || filename=="feature-ios-tablet-app-buttons.json" || filename=="feature-ios-uikit-input.json" || filename=="feature-ios-tablet-web-closures.json" || filename=="feature-ios-web-script-emissions.json" || filename=="feature-ios-tablet-web-state.json" || filename=="feature-ios-tablet-web.json" || filename=="feature-ios-tablet-sources.json" || filename=="feature-ios-world-web.json" || filename=="feature-ios-world-web-dom.json"
             || filename=="feature-ios-world-web-work.json" || filename=="feature-ios-world-web-geometry.json" || filename=="feature-ios-world-web-surfaces.json"
             || filename=="feature-ios-world-web-keys.json" || filename=="feature-ios-world-web-snapshot.json" || filename=="feature-ios-world-web-whole-snapshot.json") {
@@ -3115,7 +3136,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-ios-script-dialogs.json" || filename == "feature-ios-emote-world.json" || filename == "feature-ios-avatar-world.json" || filename == "feature-ios-avatar-inputs.json" || filename == "feature-ios-avatar-social-http.json" || filename == "feature-ios-avatar-state.json" || filename == "feature-ios-avatar-renderers.json" || filename == "feature-ios-avatar-scripts.json" || filename == "feature-ios-avatar-entities.json" || filename == "feature-ios-create-entities.json" || filename == "feature-ios-pointer-state.json"
             || filename == "feature-ios-people-model.json" || filename == "feature-ios-create-work.json" || filename == "feature-ios-create-state.json" || filename == "feature-ios-create-files.json"
             || filename == "feature-ios-snapshot-work.json" || filename == "feature-ios-snapshot-exports.json"
-            || filename == "feature-ios-snapshot-combined-work.json" || filename == "feature-ios-snapshot-preflight-http.json"
+            || filename == "feature-ios-snapshot-combined-work.json" || filename == "feature-ios-chat-script-sources.json" || filename == "feature-ios-snapshot-preflight-http.json"
             || filename == "feature-ios-snapshot-captures.json"
             || filename == "feature-ios-snapshot-uploads.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"

@@ -1,0 +1,10 @@
+{
+  "iosChatScriptSourcePinsVersion": 1,
+  "encoding": "utf-16le-code-units",
+  "sources": {
+    "communityScripts/armored-chat/armored_chat.js": {
+      "codeUnits": 18706,
+      "sha256": "266e75a11f20263841e35fb818c0f661aec18bfb5ceb39b6cd36df50a65fba49"
+    }
+  }
+}

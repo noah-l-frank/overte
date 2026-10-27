@@ -9,6 +9,10 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-chat-script-sources": 1,
+    "ios-chat-script-sources-acquisition": 1,
+    "ios-chat-script-source-pins": 1,
+    "ios-chat-script-code-sources": 1,
     "snapshot-upload-combined-work-packet": 1,
     "snapshot-upload-combined-work-frame": 1,
     "snapshot-upload-combined-work-original": 1,

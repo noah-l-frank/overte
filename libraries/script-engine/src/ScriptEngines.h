@@ -84,6 +84,7 @@ public:
     QVariantMap featureAvatarScriptObservation();
     QVariantMap featureSnapshotScriptObservation();
     QVariantMap featureSnapshotCombinedScriptObservation();
+    QVariantMap featureChatScriptSourcesObservation();
 #endif
     QVariantMap featureScriptWorkObservation(const QString& managerInstance, const QString& requestId);
 #endif

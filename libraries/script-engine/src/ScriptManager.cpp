@@ -1143,6 +1143,8 @@ void ScriptManager::run() {
         catch (...) { _featureSnapshotHttpSources.snapshotUnavailable(); }
         try { _featureSnapshotCombinedSources.submitted(_fileNameString,_scriptContents); }
         catch (...) { _featureSnapshotCombinedSources.snapshotUnavailable(); }
+        try { _featureChatSources.submitted(_fileNameString,_scriptContents); }
+        catch (...) { _featureChatSources.unavailable(); }
         _featureAvatarScript->submitted(_fileNameString,_scriptContents);
 #endif
 #endif
@@ -1994,6 +1996,8 @@ ScriptValue ScriptManager::instantiateModule(const ScriptValue& module, const QS
         catch (...) { _featureSnapshotHttpSources.snapshotUnavailable(); }
         try { _featureSnapshotCombinedSources.submitted(modulePath,sourceCode); }
         catch (...) { _featureSnapshotCombinedSources.snapshotUnavailable(); }
+        try { _featureChatSources.submitted(modulePath,sourceCode); }
+        catch (...) { _featureChatSources.unavailable(); }
         _featureAvatarScript->submitted(modulePath,sourceCode);
 #endif
         result = _engine->evaluateInClosure(closure, _engine->newProgram( sourceCode, modulePath ));
@@ -2221,6 +2225,8 @@ void ScriptManager::include(const QStringList& includeFiles, const ScriptValue& 
                         catch (...) { _featureSnapshotHttpSources.snapshotUnavailable(); }
                         try { _featureSnapshotCombinedSources.submitted(url.toString(),contents); }
                         catch (...) { _featureSnapshotCombinedSources.snapshotUnavailable(); }
+                        try { _featureChatSources.submitted(url.toString(),contents); }
+                        catch (...) { _featureChatSources.unavailable(); }
                         _featureAvatarScript->submitted(url.toString(),contents);
 #endif
                         _engine->evaluate(contents, url.toString());

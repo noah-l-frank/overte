@@ -1,6 +1,10 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "ios-chat-script-sources": {"current": 1, "reads": [1]},
+    "ios-chat-script-sources-acquisition": {"current": 1, "reads": [1]},
+    "ios-chat-script-source-pins": {"current": 1, "reads": [1]},
+    "ios-chat-script-code-sources": {"current": 1, "reads": [1]},
     "snapshot-upload-combined-work-packet": {"current": 1, "reads": [1]},
     "snapshot-upload-combined-work-frame": {"current": 1, "reads": [1]},
     "snapshot-upload-combined-work-original": {"current": 1, "reads": [1]},
