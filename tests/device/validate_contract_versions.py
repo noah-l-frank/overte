@@ -152,6 +152,7 @@ REQUIRED = {
     "asset-model-consumer-ownership": 1,
     "asset-model-strong-consumers": 1,
     "asset-model-geometry-release": 1,
+    "asset-model-strong-release": 1,
     "asset-model-parsed-input": 1,
     "ios-assets-parsed-sources": 1,
     "asset-parsed-source-frame": 1,

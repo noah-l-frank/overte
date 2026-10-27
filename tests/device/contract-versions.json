@@ -146,6 +146,7 @@
     "asset-model-consumer-ownership": {"current": 1, "reads": [1]},
     "asset-model-strong-consumers": {"current": 1, "reads": [1]},
     "asset-model-geometry-release": {"current": 1, "reads": [1]},
+    "asset-model-strong-release": {"current": 1, "reads": [1]},
     "asset-model-parsed-input": {"current": 1, "reads": [1]},
     "ios-assets-parsed-sources": {"current": 1, "reads": [1]},
     "asset-parsed-source-frame": {"current": 1, "reads": [1]},

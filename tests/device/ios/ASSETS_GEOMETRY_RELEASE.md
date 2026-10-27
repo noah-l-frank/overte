@@ -136,3 +136,11 @@ ownership metadata remains blocking. Actual texture/material/mesh/GPU/OS
 holders, independent Actor observations, backend/source restoration and final
 process/SDK retirement still require their own original joins. The complete
 Assets capability remains closed.
+
+The subsequent [original mesh/material quiet join](ASSETS_STRONG_RELEASE.md)
+uses a private one-call `_context` traversal of these same actual ancestors and
+originals. The public Geometry release1 wrapper and all original guards remain
+unchanged. New History4 normal-input qualification passes1/192.085s and proves
+why Geometry/QObject/HFM absence alone cannot admit a separately retained
+mesh/material consumer. Independent model cache/renderer events remain explicit;
+no automatic product cleanup, destructor/GPU/OS end or owner retirement follows.

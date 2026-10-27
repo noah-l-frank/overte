@@ -81,8 +81,8 @@ def quiet(first,last):
         and right['domain']['clockBefore']['monotonicMs']-left['domain']['clockAfter']['monotonicMs']>=3000)
 
 
-def compose(owner,source,references):
-    """Reopen actual normal-removal ancestry and exact latest scene originals."""
+def _context(owner,source,references):
+    """One pure caller's fully guarded ancestry and exact source originals."""
     need(isinstance(owner,OwnedAssetsModelRemoval) and isinstance(source,AssetsSceneSources)
         and source.lock is owner.lock and source.store.path.parent==owner.store.path.parent
         and source.run==owner.sources.run and same(source.binding,owner.sources.binding))
@@ -108,8 +108,16 @@ def compose(owner,source,references):
         current=frame['originals']['origin']['source']['history']
         need(same({k:v for k,v in first.items() if k!='clock'},{k:v for k,v in current.items() if k!='clock'}))
     for child in (owner,owner.sources,source):need(same(child.store.read(),child.previous))
-    return dict(assetModelGeometryReleaseVersion=VERSION,runId=source.run,binding=deepcopy(source.binding),
+    result=dict(assetModelGeometryReleaseVersion=VERSION,runId=source.run,binding=deepcopy(source.binding),
         entityId=lineage['entityId'],readerId=lineage['readerId'],bodySha256=lineage['sha256'],bodyBytes=lineage['bytes'],
         removalCommandId=owner.state['result']['inputCommandId'],closedOriginal=parent_ref,sourceOriginals=deepcopy(references),
         observations=observations,capturedEpochMs=frames[-1]['clockJoin']['hostBeforeEpochMs'],
         originalConsumersGone=True,resourceRetirementAvailable=False)
+
+    return result,lineage,baseline,frames
+
+
+def compose(owner,source,references):
+    """Reopen actual normal-removal ancestry and exact latest scene originals."""
+    result,*_=_context(owner,source,references)
+    return result
