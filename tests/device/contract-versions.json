@@ -1,7 +1,9 @@
 {
   "schemaVersion": 1,
   "contracts": {
-    "snapshot-combined-journey-result": {"current": 1, "reads": [1]},
+    "snapshot-photos-archive-result": {"current": 1, "reads": [1]},
+
+    "snapshot-combined-journey-result": {"current": 2, "reads": [1, 2]},
 
     "snapshot-upload-causal-dispatch-packet": {"current": 1, "reads": [1]},
     "snapshot-upload-causal-dispatch-frame": {"current": 1, "reads": [1]},

@@ -45,9 +45,12 @@ class CombinedUploadReturnFlow(CombinedPageReturnFlow):
         # own original deep copy. Main and Share readers cannot diverge.
         main.activations=self.activations
         if not self.main_foreground:self.primary.activate()
+        self.prepare_destinations(case)
         main.advance();ticket='b'*32
         main.activations.append(dict(sequence=len(main.activations)+1,ticket=ticket,activatedEpochMs=main.epoch(),stimulus=dict(verb='upload',inputs={})))
         main.backend.accounts.activate(RUN,ticket);main.backend.provider.activate(RUN,ticket);main.control_server.journal.runs[RUN]['ticket']=ticket
         with main.upload_owner() as upload:upload.start(ticket);self.upload_result=upload.finish()
         with main.backend_owner() as backend:self.backend_result=backend.original()
         need(main.upload_count==1)
+
+    def prepare_destinations(self,_case):pass

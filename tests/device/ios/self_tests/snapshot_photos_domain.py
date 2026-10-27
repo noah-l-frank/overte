@@ -31,6 +31,7 @@ from ios.adapters.snapshot_photos_owner import IOSSnapshotPhotosOwner
 from ios.adapters.snapshot_photos_runtime import IOSSnapshotPhotosRuntime
 from ios.self_tests.snapshot_capture_domain import SnapshotCaptureDomain,RUN,BASE
 from ios.self_tests.snapshot_companion_domain import SnapshotCompanionDomain,BUNDLE
+from ios.self_tests.snapshot_pending_domain import REAL_TIME
 from ios.self_tests.test_ios_normal_input import Boundary
 
 
@@ -52,7 +53,7 @@ class PhotosCompanionDomain(SnapshotCompanionDomain):
         self.read_ref=self.delete_ref=None;self.held_reads=[];self.held_deletes=[];self.hold_read=False;self.hold_delete=False
         self.data_changed=False;self.ignore_controls=set();self.lost_controls=set();self.foreground=False;self.replace_on_chunk=False
         self.file_replaced=False;self.read_count=self.delete_count=self.retire_count=0;self.deleted=False
-        self.target['capabilities']={'appium:udid':'HOST-PHYSICAL-DEVICE-MODEL','appium:platformVersion':'99.1'}
+        self.target['capabilities']={'appium:udid':domain.physical_selector,'appium:platformVersion':'99.1'}
         self.scope['targetFingerprint']=digest(self.target);old=self.session.read()
         self.session.write(dict(old,targetFingerprint=self.scope['targetFingerprint']),old)
     def epoch(self):return self.domain.main.epoch()
@@ -164,26 +165,43 @@ class PhotosCompanionDomain(SnapshotCompanionDomain):
 
 
 class SnapshotPhotosDomain:
-    def __init__(self,case):
-        self.main=SnapshotCaptureDomain(case);self.main_foreground=True;self.library={};self.save_count=0;self.ignore_save=False;self.lose_save=False;self.hold_save=None
-        with self.main.owner() as capture:self.capture_result=capture.capture('f'*32)
+    @property
+    def main_foreground(self):
+        return self._foreground_owner.main_foreground if self._foreground_owner is not None else self._local_foreground
+    @main_foreground.setter
+    def main_foreground(self,value):
+        if self._foreground_owner is not None:self._foreground_owner.main_foreground=value
+        else:self._local_foreground=value
+    def __init__(self,case,*,main=None,phase_client=None,foreground_owner=None,physical_selector='HOST-PHYSICAL-DEVICE-MODEL'):
+        self._foreground_owner=foreground_owner;self.phase_client=phase_client;self.physical_selector=physical_selector;self.shared_main=main is not None
+        need(type(physical_selector) is str and 8<=len(physical_selector)<=128)
+        self.main=SnapshotCaptureDomain(case) if main is None else main;self.main_foreground=True;self.library={};self.save_count=0;self.ignore_save=False;self.lose_save=False;self.hold_save=None
+        if self.shared_main:
+            with self.main.capture_owner() as capture:
+                need(capture.combined and capture.state['phase']=='copied');self.capture_result=capture.result();capture_ticket=capture.state['ticket']
+        else:
+            with self.main.owner() as capture:self.capture_result=capture.capture('f'*32);capture_ticket='f'*32
         self.helper=PhotosCompanionDomain(case,self);self.helper.foreground=True;self.main_foreground=False
         self.helper.client=self.main.client
-        with self.helper.owner() as owner:owner.admit('f'*32);self.admission_store=owner.store;self.helper_binding=deepcopy(owner.binding)
+        with self.helper.owner() as owner:owner.admit(capture_ticket);self.admission_store=owner.store;self.helper_binding=deepcopy(owner.binding)
         self.helper.foreground=False;self.main_foreground=True
         self.save_activated=int(self.main.epoch());self.save_token=str(uuid.uuid4())
         self.phase_sequence=0;self.helper_lock=ScriptSourceLock(self.helper.root/'script-feature-sources.lock')
         observed=self.main.f.input_native.observed
         def current():
-            value=observed();value['snapshotExportControlsVersion']=1;row=deepcopy(value['controls'][0])
+            value=observed();value['snapshotExportControlsVersion']=1;capture_row=next((row for row in value['controls'] if row['id']=='snapshot.capture'),None)
+            if capture_row is None:return value
+            row=deepcopy(capture_row)
             row={key:row[key] for key in ('token','enabled','focused','frame')};row.update(token=self.save_token,id='snapshot.save.0',snapshotExportControlVersion=1,
-                snapshotRootId=value['controls'][0]['snapshotRootId'],snapshotQmlSource='qrc:/scripts/system/snapshot/NativeSnapshotReview.qml',snapshotRow=0,
+                snapshotRootId=capture_row['snapshotRootId'],snapshotQmlSource='qrc:/scripts/system/snapshot/NativeSnapshotReview.qml',snapshotRow=0,
                 snapshotFileName=self.main.f.f.h.path.name,snapshotFileOwned=True,snapshotExportTicket='',snapshotCapturing=False,snapshotProcessing=False,snapshotSystemBlocked=False,inputReady=True)
             value['controls'].append(row);return value
         self.main.f.input_native.observed=current
+        original_input=normal_input.urlopen
         def saving(request,timeout):
             query=json.loads(request.data)
-            if query['operation']!='edit':return Boundary.post(self.main.f.input_native,request,timeout)
+            if query['operation']!='edit' or query['input']['fieldToken']!=self.save_token:return original_input(request,timeout)
+            need(query['input']['operation']=='activate')
             self.advance();native=self.main.f.input_native;row=current()['controls'][-1];identifier=str(uuid.uuid4())
             native.event(identifier,'received',dict(outerCommandId=query['commandId'],command=query['input'],controlId='snapshot.save.0',
                 root=dict(rootId=row['snapshotRootId'],qmlSource=row['snapshotQmlSource'])))
@@ -205,12 +223,12 @@ class SnapshotPhotosDomain:
                 need(domain.main_foreground);value=domain.main.runtime._sources(selector)
                 value['native'].monotonic=domain.main.mono;value['native'].sleep=domain.main.sleep;return value
         adapter=SimpleNamespace(state_path=lambda _:self.main.ctx.root/'session.json',_candidate_guard=lambda:True,_binding=lambda:None)
-        def attest(_client,_session,target):need(target['capabilities']['appium:udid']=='HOST-PHYSICAL-DEVICE-MODEL')
+        def attest(_client,_session,target):need(target['capabilities']['appium:udid']==domain.physical_selector)
         adapter.attest_physical_target=attest;self.runtime=Runtime(adapter)
         class Primary(PhotosClientContext):
             def __init__(self):
                 self.runtime=domain.runtime;self.binding=deepcopy(domain.main.ctx.binding)
-                self.target=dict(appId='org.example.client',capabilities={'appium:udid':'HOST-PHYSICAL-DEVICE-MODEL'})
+                self.target=dict(appId='org.example.client',capabilities={'appium:udid':domain.physical_selector})
                 self.client=None;self.session='main-photos-session';self.os_source=dict(processSourceVersion=1,source='dvt-bundle-pid-xcuitest-state',instance='8'*32,available=True,cleanupPending=False,sdk=deepcopy(SDK))
             def probe(self,foreground=None):
                 need(domain.main.good and (foreground is None or domain.main_foreground==foreground))
@@ -218,8 +236,15 @@ class SnapshotPhotosDomain:
             def foreground_sources(self):self.probe(True);return domain.runtime._sources('primary')
             def activate(self):self.probe(False);domain.main_foreground=True;domain.helper.foreground=False;return True
         self.primary=Primary()
-    def advance(self,amount=1):self.main.f.now+=amount
+    def advance(self,amount=1):
+        if self.shared_main:
+            # This fresh shared producer reads the actual host epoch on each
+            # modeled SDK boundary. Fast passive guard calls add no invented
+            # millisecond drift; every earlier original remains unchanged.
+            self.main.f.now=max(self.main.f.now,self.main.f.input_native.epoch,int(REAL_TIME()*1000))
+        else:self.main.f.now+=amount
     def client(self):
+        if self.phase_client is not None:return self.phase_client()
         domain=self
         class Phase(Client):
             def request(self,path,value=None,method=None,*,phase_nonce=None,**kwargs):
