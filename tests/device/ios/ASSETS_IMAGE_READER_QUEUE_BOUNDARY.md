@@ -15,6 +15,13 @@ actual runtime --testScript keeps the new source unavailable. The library only
 links CorePrivate in the dedicated iOS feature-test configuration. No SDK is
 modified or built by this packet.
 
+The bridge header includes the public QtGlobal header before testing Q_OS_IOS.
+Its standalone .cpp includes this header first, so platform detection cannot
+depend on an earlier unrelated Qt include or an assumed compiler definition.
+The library's existing setup_hifi_library already links Qt Core. A static source
+guard checks this include order, including the prior missing-include shape;
+it does not preprocess or compile C++.
+
 The existing main-thread ImageReader construction path prepares observation
 after Source1::created returns. Existing Source1 task/dispatch/receiver/resource
 IDs and weak target are copied under Source1's mutex, which is released before

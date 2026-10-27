@@ -101,6 +101,21 @@ class Bridge:
 
 
 class BridgeBoundaryModels(unittest.TestCase):
+    def test_standalone_cpp_gets_public_qt_platform_detection_before_its_gate(self):
+        # Static integration guard only: no C++ preprocessing/compilation is run.
+        from pathlib import Path
+        root = Path(__file__).resolve().parents[4]
+        directory = root / 'libraries/material-networking/src/material-networking'
+        header = (directory / 'IOSAssetsImageReaderQueueObservation.h').read_text()
+        cpp = (directory / 'IOSAssetsImageReaderQueueObservation.cpp').read_text()
+        first_include = next(line for line in cpp.splitlines() if line.startswith('#include'))
+        self.assertEqual(first_include, '#include "IOSAssetsImageReaderQueueObservation.h"')
+        platform_gate = header.index('#if defined(Q_OS_IOS)')
+        self.assertIn('#include <QtCore/qglobal.h>', header[:platform_gate])
+        self.assertNotIn('QtCore/private/', header[:platform_gate])
+        old_header = header.replace('#include <QtCore/qglobal.h>\n', '', 1)
+        self.assertNotIn('#include <QtCore/qglobal.h>', old_header[:old_header.index('#if defined(Q_OS_IOS)')])
+
     def setup_entry(self, bridge=None, dispatch='native-dispatch-A', receiver=None):
         bridge = bridge or Bridge()
         receiver = receiver or Resource()
