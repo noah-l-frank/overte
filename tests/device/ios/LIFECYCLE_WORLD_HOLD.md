@@ -158,3 +158,22 @@ admission, retained-worker and unchanged TouchLease compatibility cases passed
 in **2.307s**, again with resource warnings treated as errors. Full production
 held input and Lifecycle 14 remain open; further unsupported factory/RPC
 placeholders are not a substitute for that dependency.
+
+## Media receiver failure cleanup
+
+The existing `hid_session.touch_session` now closes its actual local receiver
+in a nested `finally` even when its retained media drain raises an unexpected
+exception. The exception still propagates: descriptor closure does not turn
+failed drainage into successful context exit. A failed media-stop call also
+cancels the retained drain and closes the receiver. The original UUID remains
+the stop request's argument; no second negotiation or stop is issued.
+
+Five focused HID cases and the unchanged twenty TouchLease cases pass together
+in 2.855 seconds with `ResourceWarning` treated as an error. The new drain-failure
+case owns a real local socketpair and verifies its descriptor is closed; the
+service and media producers remain explicit models. The original private log
+is `.ios-host-tmp/lifecycle-hid-drain-final25.log`. This is local adapter cleanup
+verification, not device-side stream absence, SDK session isolation or complete
+Lifecycle qualification. The pinned Python reference sends the selected UUID;
+the separate Node display API's stop-all operation must not be substituted for
+that request or accepted as proof of exclusive cleanup.

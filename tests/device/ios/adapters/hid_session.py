@@ -47,12 +47,17 @@ async def touch_session(rsd, local_address, *, display_factory=None,
                 async with hid_factory(rsd) as hid:
                     yield hid
             finally:
-                # Use the UUID chosen before negotiation: even a lost reply
-                # cannot leave an unowned stream or stop another session.
+                # Request stop using the UUID chosen before negotiation, even
+                # after a lost reply. A returned SDK call alone does not prove
+                # native stream absence or device-side session isolation.
                 await asyncio.wait_for(display.stop_media_stream(stream_id), timeout=5)
     finally:
-        if drain is not None:
-            drain.cancel()
-            with suppress(asyncio.CancelledError, OSError):
-                await drain
-        receiver.close()
+        try:
+            if drain is not None:
+                drain.cancel()
+                with suppress(asyncio.CancelledError, OSError):
+                    await drain
+        finally:
+            # A failed drain remains an error, but must not prevent the local
+            # receiver from releasing its own descriptor.
+            receiver.close()
