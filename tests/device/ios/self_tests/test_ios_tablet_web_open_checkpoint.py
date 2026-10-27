@@ -55,6 +55,7 @@ class TabletOpenCheckpointTests(unittest.TestCase):
         self.assertTrue(all(row['witness'] is not None and row['evidence'] for row in journey.samples[-3:]))
         self.assertEqual([],f.sdk.errors);self.assertEqual([],b.ui.lifecycle_inputs)
         print('Actual first common Tablet Open DOM/PNG/Actor checkpoint passed',flush=True)
+        return journey
 
 
 if __name__=='__main__':unittest.main()

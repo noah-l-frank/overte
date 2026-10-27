@@ -713,3 +713,65 @@ unchanged.
 The five approved no-build documentation, documentation-contracts,
 ios-input-selection, policy-consistency and project-coverage suites pass in
 6.82 seconds for this checkpoint packet.
+
+## Bundled normal input and history prefix: bounded incomplete run
+
+One new fresh case retains the same independent Actor across normal selection,
+the first Open checkpoint, Unicode focus/type, Send, clear, link to B and Back.
+It uses the original scenario rows and common `Journey.call`/`Journey.wait`
+implementation, including the existing 20-second checkpoint, image-transition,
+PID and freshness guards. Only the test composition changes; no prepared-load
+shortcut or production/cache change is introduced.
+
+The single run reached the unchanged outer 600-second host bound with exit124.
+Its log records completed common Open, Unicode, Send and clear checkpoints.
+Their original facts include one bridge delivery/echo. The normal link-to-B
+action also returned, but its common checkpoint had not completed; Back was
+never issued. This is not a passing six-checkpoint case or a whole Journey.
+
+The retained Actor publisher head contains 13 receipts and issued pending
+ordinal14. Its separate immutable receipt14 already exists with original
+phase/journal/entry fields, while the head still retains responsibility. No
+query, input or publication is resent. Final Primary/Actor import audits did
+not execute before timeout. A terminal census nevertheless found all 814
+declared Python/JS hashes unchanged and no owned host processes.
+
+The 1,358 original files (6,718,005 bytes), their hash/device/inode census,
+unchanged source manifest and log remain at
+`.ios-host-tmp/tablet-common-history-prefix-4h5umi1a`, original root
+`tmpkcb904kx`. A read-only process sample during the clear phase measured about
+449 combined Python-host CPU seconds; this does not identify a decoder hotspot
+by itself. The next diagnostic is one bounded historical pending-intent
+validation in the existing operation record scope, with all live and mutation
+boundaries blocked. No unchanged full-prefix rerun or complete capability
+promotion follows from this timeout.
+
+One subsequent files-only profile completed the exact original pending14
+`PhaseWitnessPublisher.intent` decoder. The target used a cold existing
+`TabletRecordCache`/`record_scope`, with historical observer reconstruction
+reported separately: setup 1.301s, target 16.953s wall / 16.800s CPU, total
+18.311s. This is one historical intent, not the complete live publisher
+constructor, its guards, transport, or the whole operation.
+
+The target output hash exactly matches the original intent hash
+`2df938a0e813ffe32ce792c21f8d7fc335d113dff9ec5229169e48b84939b99a`.
+All 1,358 originals stayed byte/device/inode/mtime/ctime identical. Actual
+target OS opens numbered 10,548 (setup 3,645); combined read membership covered
+518 paths. The existing operation cache held 415 entries / 7,377,245 bytes.
+SDK, Client, socket, Popen, file mutation and discard fences recorded zero
+attempts. The original timeline and pending responsibility remain unchanged.
+
+The target graph spends 10.551 cumulative seconds constructing/decoding the
+six existing screen-sample records. Their 17 tail-validation calls cause eight
+actual tail decoders and nine historical source-owner constructions; the
+source histories execute 18 times and child histories 243 times. The operation
+cache is active (5,516 reads); this is not evidence of a missing cache scope.
+Copying, signature guards and actual original reads contribute overlapping
+cumulative times. The profile identifies repeated screen/tail prefix work;
+it does not justify a new cache type, larger cache limit, skipped originals,
+weaker guards, or a new unchanged prefix run. Exact stats, ordered opens,
+membership and before/after inventories are retained beside `prefix.log`.
+
+The five approved no-build project suites pass for this diagnostic/test packet
+in 6.85 seconds. They do not turn the incomplete six-checkpoint case into a
+passing test or qualify the remaining Journey/retirement chain.
