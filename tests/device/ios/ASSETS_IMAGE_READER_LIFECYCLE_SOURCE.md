@@ -85,3 +85,12 @@ History1 and TextureRelease1 results retain their own recorded source scope.
 Native compilation/runtime, arbitrary bytes, QRunnable/base/pool, decoder,
 physical GPU, actor/backend/process/SDK and whole Resource retirement remain
 open. The source-completion count remains 5/14.
+
+The separate [processing and input-device source](ASSETS_IMAGE_PROCESSING_SOURCE.md)
+adds actual task-bound QIODevice/body observations. Its 27 new small host cases
+and the previous 43 regressions pass together in 3.689 seconds. A separate
+197.721-second connected declared-SDK case keeps an independent actual Python
+input buffer after this image join closes, requires the processing join to
+refuse, then releases only the test holder before acquiring fresh quiet originals.
+These host results do not qualify native execution or whole Resource retirement;
+the earlier 190.753-second result above retains its own recorded source revision.

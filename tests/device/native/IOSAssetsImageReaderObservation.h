@@ -18,6 +18,9 @@
 #include <QUuid>
 #include <QVector>
 #include <atomic>
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include <image/IOSImageProcessingObservation.h>
+#endif
 #include <exception>
 #include <memory>
 
@@ -104,6 +107,17 @@ public:
 #endif
     };
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    static image::e2e::IOSImageProcessingObservation::Task processingContext(quint64 token) noexcept {
+        if (!enabled() || !main() || !token) {return {};}
+        QT_TRY {
+            auto& owner=state();QMutexLocker lock(&owner.mutex);
+            if (failed().load() || token>quint64(owner.tasks.size())) {return {};}
+            const auto& row=owner.tasks[int(token-1)];
+            image::e2e::IOSImageProcessingObservation::Task result;
+            result.source1Instance=owner.instance;result.marker=row.marker;result.taskId=row.value.value("id").toString();
+            result.resourceId=row.value.value("resourceId").toString();return result;
+        } QT_CATCH (...) {unavailable();return {};}
+    }
     struct TextureContexts {
         QString instance;QVariantMap clock;bool complete{false};
         QVector<IOSAssetsImageReaderQueueObservation::Context> tasks,receivers;

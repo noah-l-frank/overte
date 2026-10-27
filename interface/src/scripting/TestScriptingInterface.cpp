@@ -133,6 +133,7 @@
 #include "../../../tests/device/native/IOSAssetsModelObservation.h"
 #include "../../../tests/device/native/IOSAssetsImageReaderObservation.h"
 #include <material-networking/IOSAssetsImageReaderQueueObservation.h>
+#include <image/IOSImageProcessingObservation.h>
 #include "../../../tests/device/native/IOSAssetsModelRenderersObservation.h"
 #endif
 #include "../AvatarBookmarks.h"
@@ -1236,6 +1237,27 @@ QVariantMap TestScriptingInterface::featureIOSAssetsImageReaderQueue(const QVari
             [] {return overte::e2e::IOSAssetsImageReaderQueueObservation::snapshot();});
         return result;
     } QT_CATCH (...) {overte::e2e::IOSAssetsImageReaderQueueObservation::disarm();return {};}
+}
+
+QVariantMap TestScriptingInterface::featureIOSAssetsImageReaderProcessing(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] {result=featureIOSAssetsImageReaderProcessing(command);},Qt::BlockingQueuedConnection)) {return {};}
+        return result;
+    }
+    QT_TRY {
+        QStringList fields{"schemaVersion","commandId","action","runId"};fields.sort();const auto json=QJsonObject::fromVariantMap(command);
+        const auto request=json.value("commandId").toString(),run=json.value("runId").toString();
+        if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+                || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+                || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-assets-image-reader-processing")
+                || !QRegularExpression("\\Aios-[a-f0-9]{32}\\z").match(request).hasMatch()
+                || !QRegularExpression("\\A[a-f0-9]{32}\\z").match(run).hasMatch()) {return {};}
+        if (!_featureIOSAssetsImageReaderProcessing) {_featureIOSAssetsImageReaderProcessing=std::make_shared<overte::e2e::NativeReadBracket>();}
+        const auto result=_featureIOSAssetsImageReaderProcessing->read("iosAssetsImageReaderProcessingVersion","native-main-assets-image-reader-processing",request,run,
+            [] {return image::e2e::IOSImageProcessingObservation::snapshot();});
+        return result;
+    } QT_CATCH (...) {image::e2e::IOSImageProcessingObservation::disarm();return {};}
 }
 
 QVariantMap TestScriptingInterface::featureIOSAssetsModelOrigin(const QVariantMap& command) {

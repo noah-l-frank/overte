@@ -11,6 +11,7 @@
 
 #include "TextureProcessing.h"
 #include "DecodeLimits.h"
+#include "IOSImageProcessingObservation.h"
 
 #include <cmath>
 #include <glm/gtc/packing.hpp>
@@ -273,6 +274,9 @@ Image readBoundedImage(QImageReader& reader, std::uint64_t maxDecodedPixels) {
 }
 
 Image processRawImageData(QIODevice& content, const std::string& filename, std::uint64_t maxDecodedPixels) {
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    const ::image::e2e::IOSImageProcessingObservation::Body featureProcessingBody(::image::e2e::IOSImageProcessingObservation::Kind::Raw);
+#endif
     // Help the Image loader by extracting the image file format from the url filename ext.
     // Some tga are not created properly without it.
     auto filenameExtension = filename.substr(filename.find_last_of('.') + 1);
@@ -358,11 +362,20 @@ void mapToRedChannel(Image& image, ColorChannel sourceChannel) {
 std::pair<gpu::TexturePointer, glm::ivec2> processImage(std::shared_ptr<QIODevice> content, const std::string& filename, ColorChannel sourceChannel,
                                                         int maxNumPixels, TextureUsage::Type textureType,
                                                         bool compress, BackendTarget target, const std::atomic<bool>& abortProcessing, std::uint64_t maxDecodedPixels) {
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    const ::image::e2e::IOSImageProcessingObservation::Body featureProcessingBody(::image::e2e::IOSImageProcessingObservation::Kind::Processing);
+#endif
 
     Image image = processRawImageData(*content.get(), filename, maxDecodedPixels);
     // Texture content can take up a lot of memory. Here we release our ownership of that content
     // in case it can be released.
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    ::image::e2e::IOSImageProcessingObservation::contentResetEntering();
+#endif
     content.reset();
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    ::image::e2e::IOSImageProcessingObservation::contentResetReturned();
+#endif
 
     int imageWidth = image.getWidth();
     int imageHeight = image.getHeight();

@@ -520,6 +520,9 @@ private:
     // before QRunnable base destruction; no external byte-copy/pool claim.
     std::shared_ptr<void> _featureMarker;
     quint64 _featureTask{0};
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    image::e2e::IOSImageProcessingObservation::Task _featureProcessing;
+#endif
 #endif
     static void listSupportedImageFormats();
 
@@ -1259,7 +1262,13 @@ ImageReader::ImageReader(const QWeakPointer<Resource>& resource, const QUrl& url
                     actual.staticCast<NetworkTexture>()->_textureSource,_url,_content.size());
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
                 // Source1::created has returned and released its mutex.
-                if (_featureTask) { overte::e2e::IOSAssetsImageReaderQueueObservation::prepare(); }
+                if (_featureTask) {
+                    overte::e2e::IOSAssetsImageReaderQueueObservation::prepare();
+                    // Source1 copied its actual constructor task context and
+                    // released its mutex before this separate observer enters.
+                    _featureProcessing=image::e2e::IOSImageProcessingObservation::prepare(
+                        overte::e2e::IOSAssetsImageReaderObservation::processingContext(_featureTask));
+                }
 #endif
             } else {overte::e2e::IOSAssetsImageReaderObservation::unavailable();}
         }
@@ -1388,6 +1397,9 @@ void ImageReader::read() {
 
         // IMPORTANT: _content is empty past this point
         auto buffer = std::shared_ptr<QIODevice>((QIODevice*)new OwningBuffer(std::move(_content)));
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        const image::e2e::IOSImageProcessingObservation::Binding featureProcessing(_featureProcessing,buffer);
+#endif
 
         const bool shouldCompress = hifi::properties::getGraphicsAPI() ==
                                         hifi::properties::GraphicsAPI::GLES32;

@@ -41,7 +41,8 @@ def inventory_path(name):
     # does not validate/retire them; the full Session reader must run their
     # independent ownership validator. Unknown lookalike names stay blocking.
     from ios.adapters.assets_image_reader_lifecycle_ownership import lifecycle_path
-    if lifecycle_path(name):return False
+    from ios.adapters.assets_image_processing_ownership import processing_path
+    if lifecycle_path(name) or processing_path(name):return False
     return name.startswith(('ios-assets-image-','assets-image-','ios-assets-marker-','assets-marker-'))
 
 
