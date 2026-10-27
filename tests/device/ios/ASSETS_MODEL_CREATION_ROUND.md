@@ -112,3 +112,12 @@ marshal encoder, cache or relaxed memory guard was adopted in adapter code.
 The next actual implementation is the separate
 [normal Model-removal image join](ASSETS_REMOVAL_IMAGES.md), rather than an
 unchanged rerun of the old120s prerequisite.
+
+
+After the new original-image integration, a fresh normal Marker→Model→PNG→
+Delete/Home→second PNG→pure pixel join→Marker cleanup composition passes
+1/265.358s, with369 original files retained. The exact sources, preceding
+failures, unchanged operation budgets and remaining cached-resource/Actor/end
+responsibilities are recorded in [the removal-image handoff](ASSETS_REMOVAL_IMAGES.md).
+This functional host qualification does not change the earlier measured CPU
+comparison or establish a performance improvement from the local dataflow.

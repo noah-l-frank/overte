@@ -137,15 +137,13 @@ authorizes continuation; preserve the retained 257-file root and all logs.
 
 ## Next vertical steps
 
-The local source change and its exact regressions are complete. Next obtain
-a new bounded readonly comparison of the retained graph's actual decoder cost
-and exact error location, then a justified fresh prerequisite from concrete
-measurements. Preserve
-the old120s failure and every original byte/inode. Compose two actual original
-PNG attempts under distinct owned request/frame identities with the same live
-challenge; verify the real normal Delete proof, unchanged unowned scene/view/
-avatar/settings and changed subject pixels. A model-absent image must not be
-qualified by the old present-Model predicate or replaced by a requested flag.
+The current successful normal removal/image boundary is recorded below and
+in [the original removal-image join](ASSETS_REMOVAL_IMAGES.md). Preserve the
+old120s timeout,246.837s failure and every original byte/device/inode. Do not
+repeat the unchanged265.358s successful flow. Next join actual resource
+retirement and independent Actor/peer observations to the already qualified
+normal Delete/two-image originals, without reusing the present-Model predicate
+for absence or replacing any measured result with a requested flag.
 
 Retain independent cached QObject/HFM/texture/GPU/OS holders, Actor/peer image
 and publication, actual server/worker restoration, unsupported input/permission
@@ -159,8 +157,8 @@ Qt/parser and raster behavior are declared host boundaries, not device proof.
 image profile anchored in the actual prior mesh/PNG and a typed join to the
 existing normal Model-removal WAL. Six new pure cases plus six old present
 image cases pass12/0.847s. A fresh complete normal two-image composition is
-being qualified separately; no whole-feature promotion follows from this
-component. The old257 originals are preserved, and current reconstruction
+recorded in the later successful result below; no whole-feature promotion
+follows from this component. The old257 originals are preserved, and current reconstruction
 correctly refuses their recorded device52 versus actual device36, while all
 old names/inodes/bytes/sizes/hashes still match. No pins were repaired.
 
@@ -172,5 +170,21 @@ PNG. The retained root `assets-removal-image-flow-8ty53izb` preserves the
 failed second image's opened GPU ownership and all originals. The exact
 single-request test-producer retirement mismatch and fresh per-request model
 fix are documented in [the removal-image join](ASSETS_REMOVAL_IMAGES.md).
-New GPU2 plus image6 plus old image6 pass14/1.063s. The complete normal pair
-and original Marker cleanup still require a fresh qualified run.
+New GPU2 plus image6 plus old image6 pass14/1.063s. The later fresh normal pair
+and original Marker cleanup pass1/265.358s in
+`assets-removal-images-owned-flow-third-20261027.log`. The369 original files
+are retained at `.ios-host-tmp/assets-removal-image-flow-xdt0j068`, with the
+exact read-only inventory digest in [the image handoff](ASSETS_REMOVAL_IMAGES.md).
+Both Marker owners are released and the actual owned entity world is empty;
+Delete is sent once, both distinct PNG attempts retain the same challenge and
+the pure pixel/normal-input join passes. The old cached object/HFM remain
+alive, and Actor/resource/source/server/process/SDK retirement stays open.
+No full Assets capability, native compilation or device qualification follows.
+
+
+The next original lifetime interface is now present in source: History3 of
+[the existing Model-origin getter](ASSETS_MODEL_ORIGIN.md) observes actual
+Geometry resource/adoption/copy holders through weak first-member tokens.
+New and old host source cases pass24/0.462s. This does not retire cached
+QObject/HFM or external mesh/texture/GPU/OS holders; the exact ordinary
+removal/image parent join, quiet lifetime proof and complete end still remain.

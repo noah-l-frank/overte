@@ -1,7 +1,7 @@
-"""Actual parsed-model input and render-geometry lineage, never a render verdict.
+"""Original parser lineage and actual weak Geometry consumer lifetimes.
 
-The separate source observes existing native download/parser/accept bodies.
-Cache, texture and decoder ownership remains explicitly unavailable.
+The source observes existing native download/parser/accept/copy bodies.
+Rendered pixels and complete cache/texture/decoder retirement stay separate.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
@@ -16,8 +16,8 @@ from ios.adapters.places_model import IOSPlacesModel
 from ios.adapters.scene_inventory import tree
 
 VERSION=1
-HISTORY_VERSION=2
-HISTORY_READS=(1,2)
+HISTORY_VERSION=3
+HISTORY_READS=(1,2,3)
 ACTION='feature-ios-assets-model-origin'
 FILE=ACTION+'.json'
 LIMIT=262144
@@ -46,8 +46,9 @@ def ordered(before,after):
 
 
 def history(value,epoch):
-    exact(value,{'assetModelOriginHistoryVersion','instance','complete','clock','downloads'})
-    version=value['assetModelOriginHistoryVersion']
+    need(type(value) is dict)
+    version=value.get('assetModelOriginHistoryVersion')
+    exact(value,{'assetModelOriginHistoryVersion','instance','complete','clock','downloads'}|({'geometries'} if type(version) is int and version>=3 else set()))
     need(type(version) is int and version in HISTORY_READS
         and type(value['complete']) is bool and type(value['downloads']) is list and len(value['downloads'])<=64)
     identity(value['instance']);stamp(value['clock']);need(value['clock']['epochMs']<=epoch);ids=set();total=0
@@ -75,7 +76,28 @@ def history(value,epoch):
             need(type(row['base64']) is str and len(row['base64'])<=43692);raw=base64.b64decode(row['base64'],validate=True)
             need(0<len(raw)<=32768 and base64.b64encode(raw).decode()==row['base64'] and len(raw)==row['bytes']
                 and hashlib.sha256(raw).hexdigest()==row['sha256']);total+=len(raw)
-    need(total<=65536);return value
+    need(total<=65536)
+    if version>=3:geometry_history(value['geometries'],{row['id']:row for row in value['downloads']},value['clock'])
+    return value
+
+
+
+def geometry_history(rows,downloads,clock):
+    need(type(rows) is list and len(rows)<=128);seen=set()
+    for row in rows:
+        exact(row,{'id','readerId','mappingIds','kind','born','alive','destructionObserved'})
+        identity(row['id']);need(row['id'] not in seen);seen.add(row['id']);identity(row['readerId'])
+        reader=downloads.get(row['readerId'])
+        need(reader is not None and reader['kind']=='model' and reader['modelKnown']
+            and type(row['mappingIds']) is list and len(row['mappingIds'])<=8
+            and row['kind'] in ('resource','mapping-resource','copy') and type(row['alive']) is bool)
+        mappings=row['mappingIds'];need(all(type(id_) is str for id_ in mappings) and len(set(mappings))==len(mappings))
+        for id_ in mappings:need(id_ in downloads and downloads[id_]['kind']=='mapping')
+        stamp(row['born'],clock);ordered(reader['queued'],row['born'])
+        if row['destructionObserved'] is None:need(row['alive'])
+        else:
+            need(not row['alive']);stamp(row['destructionObserved'],clock);ordered(row['born'],row['destructionObserved'])
+    return rows
 
 
 def validate(value,query,pid,epoch=None,previous=None):
@@ -120,6 +142,12 @@ def validate(value,query,pid,epoch=None,previous=None):
                 if key in TIMES or key=='invokeAccepted':need(first[key] is None or same(first[key],last[key]))
                 elif key in ('readerKnown','modelKnown'):need(not first[key] or last[key])
                 else:need(same(first[key],last[key]))
+        if before['assetModelOriginHistoryVersion']>=3:
+            need(len(after['geometries'])>=len(before['geometries']))
+            for first,last in zip(before['geometries'],after['geometries']):
+                need(all(same(first[key],last[key]) for key in first if key not in ('alive','destructionObserved'))
+                    and (first['alive'] or not last['alive'])
+                    and (first['destructionObserved'] is None or same(first['destructionObserved'],last['destructionObserved'])))
     return value
 
 
@@ -139,6 +167,22 @@ def parsed_input(value,entity_id):
         entityId=entity_id,readerId=reader['id'],modelUrl=model['origin']['modelUrl'],watcherUrl=model['origin']['watcherUrl'],
         requestedUrl=reader['requestedUrl'],effectiveUrl=reader['effectiveUrl'],bytes=reader['bytes'],sha256=reader['sha256'],
         mappingIds=deepcopy(geometry['mappingIds']))
+
+
+def geometry_consumers(value,reader_id):
+    """Actual scoped Geometry holders; never texture/cache/GPU retirement."""
+    original(value);identity(reader_id);source=value['source'];history_=source['history']
+    need(source['complete'] and history_['assetModelOriginHistoryVersion']>=3)
+    readers=[row for row in history_['downloads'] if row['id']==reader_id]
+    need(len(readers)==1);reader=readers[0]
+    need(reader['kind']=='model' and reader['readerKnown'] and reader['modelKnown']
+        and reader['base64'] is not None and all(reader[key] is not None for key in TIMES) and reader['invokeAccepted'] is True)
+    rows=[row for row in history_['geometries'] if row['readerId']==reader_id];need(rows)
+    return dict(assetModelGeometryConsumersVersion=1,runId=value['runId'],processId=value['processId'],requestId=value['requestId'],
+        historyInstance=history_['instance'],readerId=reader_id,bodySha256=reader['sha256'],bodyBytes=reader['bytes'],
+        nativeEpochMs=value['clockAfter']['epochMs'],geometries=deepcopy(rows),
+        readerAlive=reader['readerAlive'],originalLeaseAlive=reader['resourceAlive'],resourceObjectAlive=reader['resourceObjectAlive'],
+        hfmAlive=reader['parsedModelAlive'],allKnownGeometryDead=all(not row['alive'] for row in rows),resourceRetirementAvailable=False)
 
 
 class IOSAssetsModelOrigin(IOSPlacesModel):

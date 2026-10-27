@@ -97,8 +97,8 @@ owned replay → Marker cleanup composition. Its first bounded host run errors i
 Marker preparation: a duplicate fresh fixture `state` override accidentally
 shadowed Marker inclusion and caused an entity-tree membership refusal. The
 existing source guard correctly refused it. Combining the two fixture
-projections fixes that test-producer mistake; the next full run remains
-pending qualification. It uses original QML and staged Marker JavaScript with
+projections fixes that test-producer mistake. The subsequent failures and
+latest successful run are recorded below. It uses original QML and staged Marker JavaScript with
 explicit native/Qt/controller/parser/backend/GPU models. The new fresh removal
 fixture selects one coherent host clock at birth,5000ms ahead of its unchanged
 native producer, and derives tablet visibility from actual current controller
@@ -138,6 +138,31 @@ when its first read begins. A new read still refuses another active or
 undrained request. Two focused actual host transport cases verify these
 boundaries, including old-holder refusal. With the six new image cases and
 six old present-image cases, `assets-removal-images-gpu-final-first-20261027.log`
-is terminal PASS14/1.063s. The complete new normal run remains unqualified
-until a fresh bounded run reaches both image originals, the owned pure join
-and unchanged Marker cleanup; no failed request is reused or repaired.
+is terminal PASS14/1.063s. The subsequent fresh normal run is terminal
+**PASS1/265.358s** in
+`assets-removal-images-owned-flow-third-20261027.log`. It executes the normal
+Marker-before-Model baseline, actual Model import, first qualified PNG,
+exactly one normal Delete, Home/context closure, second original captured PNG,
+pure original-bound removal/pixel join, and unchanged Marker-Scope3 cleanup.
+Both Marker owners finish `released`, the owned entity world is empty and
+`contextClosedBy:5` remains the actual closing source reference. No old failed
+request is reused, recaptured or repaired.
+
+The successful source root is
+`.ios-host-tmp/assets-removal-image-flow-xdt0j068`:369 regular files totaling
+5,043,143bytes. Two read-only device/inode/size/SHA256 censuses are identical;
+the ordered inventory digest is
+`656f9e5e10c2555a244c29e6ce27e3572b37db0adbcd778f28ba164065fb8aaa`.
+The owned Python and Node processes are terminal. Pure replay forbids state
+writes, process/socket creation and additional native/input/backend commands;
+missing current GPU metadata and changed parent closure memory refuse replay.
+The second sample remains `captured`, with the distinct absent-image result
+supplied only by the original-bound join. It is not relabeled as a qualified
+present-Model sample.
+
+The original cached resource object and HFM remain actually alive in the
+successful run, with `resourceRetirementAvailable:false`. Actual native
+parser/rendering/SDK behavior remains modeled;265.358s is a host test duration,
+not iOS timing or device qualification. Actor/peer originals, cache/texture/
+GPU/OS lifetime drainage, source/parent/server restoration and final process/
+SDK retirement remain open. The full Assets capability stays closed.

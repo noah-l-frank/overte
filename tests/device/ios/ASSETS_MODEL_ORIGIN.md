@@ -106,3 +106,65 @@ decoder retirement remains unavailable.
 Contract-version validation and the five explicitly selected no-build project
 suites passed in 6.75 seconds; private log:
 `.ios-host-tmp/assets-origin-object-project-five-20261026.log`.
+
+## Original Geometry consumer lifetime boundary
+
+History3 adds a bounded, append-only `geometries` list to the existing source;
+versions1 and2 remain literal readable histories and contain no invented
+Geometry inventory. Up to128 records retain an original opaque consumer ID,
+actual reader/mapping lineage, constructor/acceptance kind and native birth
+clock. `alive` observes a weak first-member token. Its first observed death
+gets a separate immutable `destructionObserved` clock; this is observed death,
+not an invented destructor timestamp. Missing rows, changed original IDs/
+lineage/births, reordered prefixes, rollback, resurrection and rewritten death
+observations refuse continuity. Overflow makes the existing completeness flag
+false rather than truncating to a successful inventory.
+
+The native Geometry default/copy path owns the token as its first data member,
+so destruction releases all actual Geometry fields before that token. The
+registry keeps only weak ownership. Existing accepted resource definitions,
+FST geometry adoption and copy construction register their actual already
+assigned lineage. Copy registration can run on the original constructing
+thread; it inspects standard weak ownership and immutable IDs under the
+existing mutex, without reading QObjects there. Source snapshots still use
+the original main-thread getter. No cache is emptied, parser repeated, Model
+created, callback invoked or resource/Geometry/material/texture held strongly
+by this observer. All additions are iOS/feature-test compiled and inactive
+without `--testScript`.
+
+`geometry_consumers(packet, reader_id)` resolves the reader only after the
+complete original packet is acquired. The native command has no requested
+reader/consumer/alive/retire selector. A complete accepted/returned parser and
+at least one known actual consumer are mandatory; an empty or legacy history
+cannot establish absence. The separate `assetModelGeometryConsumersVersion1`
+returns original reader/body identity, actual Geometry records and independent
+reader/original-lease/QObject/HFM liveness. `allKnownGeometryDead` describes only
+those observed Geometry owners. `resourceRetirementAvailable` remains false:
+external mesh/material/texture/GPU/OS holders and final whole-resource/SDK
+retirement remain unqualified even if every known Geometry token expired.
+
+The real-weak-reference host case retains an actual copied Geometry/HFM after
+the old original lease and cached QObject die. Only releasing that copy makes
+its token and HFM expire; prior packets and first observed death clocks stay
+unchanged. Other counterexamples cover unknown/duplicate/oversized or untyped
+inventories, impossible birth/death ordering, missing original consumers,
+foreign mapping/reader IDs, prefix loss/reordering/rewrite/resurrection and
+unsupported history versions. The actual full JavaScript probe preserves
+History3 once per nonce; the existing installed/native-clock/AFC path retains
+the unchanged original packet without app launches.
+
+`assets-geometry-consumers-second-20261027.log` passes24 cases in0.462s:
+five new weak/history/probe cases, one new canonical native-clock/AFC case
+and the eighteen old Origin/probe/runtime/object cases. The first log retains
+five passing new cases followed by a test assertion failure: the existing
+runtime fixture had already launched once during setup. Comparing the launch
+counter before/after the new read correctly verifies no additional launch;
+no adapter or runtime behavior changed. The old unsupported-version negative
+now uses4, because3 is explicitly supported with mandatory Geometry records.
+
+Native code remains uncompiled and unexecuted. These tests prove Python/Node
+codecs, declared weak ownership, packet immutability and modeled SDK transport;
+they do not qualify C++ destructor ordering, real cache eviction, rendering,
+physical timing or iOS devices. Next bind these original consumer records to
+the already qualified ordinary removal/two-image parent, then implement actual
+quiet lifetime drainage and the remaining texture/Actor/source/process/SDK end.

@@ -30,11 +30,20 @@ using GeometryMappingPair = std::pair<QUrl, hifi::VariantMultiHash>;
 Q_DECLARE_METATYPE(GeometryMappingPair)
 
 class Geometry {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    // First member: its weak token expires after all actual Geometry fields.
+    // It owns no Resource, HFM, mesh, material or texture.
+    std::shared_ptr<void> _featureAssetsLifetime;
+#endif
 public:
     using Pointer = std::shared_ptr<Geometry>;
     using WeakPointer = std::weak_ptr<Geometry>;
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    Geometry();
+#else
     Geometry() = default;
+#endif
     Geometry(const Geometry& geometry);
     virtual ~Geometry() = default;
 
@@ -67,6 +76,7 @@ public:
 
 protected:
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    void featureAssetsObserveGeometry(const QString& kind) const;
     // Immutable lineage copied only from the actual accepted resource/geometry.
     QString _featureAssetsReaderId;
     QStringList _featureAssetsMappingIds;

@@ -355,6 +355,9 @@ void GeometryResource::onGeometryMappingLoaded(bool success) {
         disconnect(_connection); // FIXME Should not have to do this
     }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    if (success) { featureAssetsObserveGeometry("mapping-resource"); }
+#endif
     PROFILE_ASYNC_END(resource_parse_geometry, "GeometryResource::downloadFinished", _url.toString());
     finishedLoading(success);
 }
@@ -403,6 +406,9 @@ void GeometryResource::setGeometryDefinition(HFMModel::Pointer hfmModel, const M
     }
     _meshes = meshes;
     _meshParts = parts;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    featureAssetsObserveGeometry("resource");
+#endif
 
     finishedLoading(true);
 }
@@ -517,9 +523,23 @@ QVariantList Geometry::featureCreateTextures() const {
 }
 #endif
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+Geometry::Geometry() {
+    if (overte::e2e::IOSAssetsModelOrigin::enabled()) { _featureAssetsLifetime=std::make_shared<int>(0); }
+}
+
+void Geometry::featureAssetsObserveGeometry(const QString& kind) const {
+    if (!_featureAssetsReaderId.isEmpty()) {
+        overte::e2e::IOSAssetsModelOrigin::shared().geometry(
+            _featureAssetsReaderId,_featureAssetsMappingIds,_featureAssetsLifetime,kind);
+    }
+}
+#endif
+
 // FIXME: The materials should only be copied when modified, but the Model currently caches the original
 Geometry::Geometry(const Geometry& geometry) {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    if (overte::e2e::IOSAssetsModelOrigin::enabled()) { _featureAssetsLifetime=std::make_shared<int>(0); }
     _featureAssetsReaderId=geometry._featureAssetsReaderId;_featureAssetsMappingIds=geometry._featureAssetsMappingIds;
 #endif
     _hfmModel = geometry._hfmModel;
@@ -539,6 +559,9 @@ Geometry::Geometry(const Geometry& geometry) {
     _animGraphOverrideUrl = geometry._animGraphOverrideUrl;
     _waitForWearables = geometry._waitForWearables;
     _mapping = geometry._mapping;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    featureAssetsObserveGeometry("copy");
+#endif
 }
 
 void Geometry::setTextures(const QVariantMap& textureMap) {
