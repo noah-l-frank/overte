@@ -206,7 +206,7 @@ class WorldWebSources:
                 # The actual carrier hash fixes every field/reference. Reopen
                 # every original chunk with its original inode and SHA; equal
                 # assembled native bytes need no second JSON interpretation.
-                for part in frame['originals'].values():self.parts.verify(part)
+                self.parts.verify_frame(frame['originals'])
             # Internal rounds borrow only private validated cache objects.
             # Public decode/frame/browser_frames always return independent data.
             frames.append(deepcopy(self._cache[key]) if copy_frames else self._cache[key])

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from adapters.script_feature.history import canonical
 from copy import deepcopy
+from adapters.native_clock_join import digest
 from adapters.native_feature_observation import exact,need
 from ios.adapters.world_web_parts import WorldWebParts
 from ios.adapters.world_web_snapshot_parts import WorldWebSnapshotParts
@@ -36,6 +37,27 @@ class WorldWebOriginalParts:
         elif 'worldWebSurfacesPartVersion' in value:self.surfaces.read_bytes(value)
         elif 'worldWebSnapshotProjectionVersion' in value:self.snapshot.verify_projection(value)
         else:self.legacy.read_bytes(value)
+    def verify_frame(self,originals):
+        """Read each actual auxiliary parent once in this synchronous frame.
+
+        Four closed projections can name the same original bundle. Validate
+        every projection and the entire typed bundle, retaining only local
+        inode pins until this call exits. No result survives this call and a
+        later frame/census must execute the original readers again.
+        """
+        need(type(originals) is dict);parents={}
+        def guard():
+            for _reference,pins in parents.values():self.snapshot.guard(pins)
+        try:
+            for value in originals.values():
+                if 'worldWebAuxProjectionVersion' not in value:self.verify(value);guard();continue
+                self.aux_projection(value);parent=value['parent'];key=digest(parent)
+                if key not in parents:
+                    pins={path:self.snapshot.signature(path) for path in self.paths(parent)}
+                    parents[key]=(deepcopy(parent),pins);self.aux_original(parent)
+                else:need(parent==parents[key][0])
+                guard()
+        finally:guard()
     def paths(self,value):
         if 'worldWebAuxProjectionVersion' in value:
             self.aux_projection(value);return self.paths(value['parent'])

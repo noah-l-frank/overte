@@ -538,3 +538,21 @@ Primary-before, and publication exits at 2.129 s. The unchanged 1.5 s check
 rejects it before POST. The two-case command finishes in 22.167 s with one
 expected investigation failure, not an overall PASS. Both actual original
 roots and the log are retained; no original clock or deadline is changed.
+
+Warm Source-frame verification now decodes the common auxiliary parent once
+for its four closed projections. This is a synchronous local read, with every
+projection validated and original inode/byte signatures checked after each
+use and at exit. No memo, DTO, original-file membership or clock survives the
+call. Standalone original readers and public return copies remain unchanged.
+Five actual-file cases pass in 0.046 s, including independent read censuses,
+malformed bundle/projection, damaged bytes and same-byte inode replacement.
+All thirteen Sources3/4/5 reconstruction/nonce/ownership cases then pass.
+
+That fourteen-case command is not green: its following genuine-CPU case fails
+in the pre-existing marker fixture before Actor cleanup/publication. The
+modeled `Domain.world` samples both outer clocks before its embedded Script
+requested/captured clocks; a real CPU tick can therefore produce a child after
+its parent boundary. The unchanged validator rejects that original. The
+11.515 s command and both original roots are retained. This gives no new
+publication timing result; correction must occur in the producer when a new
+packet is constructed, never by modifying those old originals.
