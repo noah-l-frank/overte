@@ -78,7 +78,8 @@ class IOSWorldWebFeature:
         # Each Source enters by decoding its complete actual byte graph and
         # keeps the existing identity/header/state guards through every child
         # constructor and final exit. No round escapes in the returned owners.
-        with ExitStack() as construction:return self._parts(construction)
+        from ios.adapters.world_web_scope_archive import original_round
+        with original_round(),ExitStack() as construction:return self._parts(construction)
     def _parts(self,construction):
         own=self.runtime._sources(self.selector);peer=None
         source=construction.enter_context(construct_source(

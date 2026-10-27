@@ -301,6 +301,38 @@ SDK preflight, Scope/Observer/PNG/Actor and full terminal construction remain
 unqualified here. The whole capability stays closed; native code is uncompiled
 and devices are untested.
 
+## Scope archive reads during construction
+
+The same synchronous `IOSWorldWebFeature.parts()` assembly now enters the
+existing [immutable Scope DTO round](world_web_scope_archive.py). Its first
+Scope archive still reads and validates the actual retained originals. The
+immediately following Lease round reuses an independent DTO copy: the actual
+factory case verifies **one Scope archive instead of two per assembly**.
+Live Scope construction and all Lease/Source/current/inventory guards remain.
+
+Reuse binds the five actual Scope archive/decode/frame entry points, their
+function/code identities, defaults and required `super()` class cells. Changed
+or unknown parser shapes execute the current literal archive. A new or cleared
+actual-read census reopens the original readers; before replacing an entry,
+its earlier file pins are checked so equal bytes on a new inode cannot erase
+original ownership. No persistent cache or validation verdict is introduced.
+
+The first selection stops after 9 passing cases and 1 test ERROR in 40.334 s:
+`unittest.mock` could not restore a function's `__code__` descriptor. That error
+log remains retained. Explicit save/assign/finally restoration of code and
+defaults, including identity checks, corrects the test lifetime. The fresh
+selection passes **14 cases in 56.649 s**: 10 new factory/parser/ownership cases,
+3 Scope-archive regressions and 1 actual Primary/Actor factory case. All 5,648
+source/launcher/evidence pins and public hunks are unchanged; 2,238 original
+files remain in 66 retained roots, including both attempts. Logs:
+`.ios-host-tmp/world-web-scope-construction-round-proposal-20261028/first14-raw.log`
+and `restore-fixed14-raw.log` in the same directory.
+
+This proves the stated archive-call reduction and host ownership behavior with
+declared model clocks. No real API25, whole-construction or speed qualification
+was run for this change. Scope/Observer/PNG/Actor/full-terminal CPU limits remain
+open; native code is uncompiled and devices are untested.
+
 ## Earlier verification packets
 
 The newer paired census/end replay reached its 600-second diagnostic limit;
