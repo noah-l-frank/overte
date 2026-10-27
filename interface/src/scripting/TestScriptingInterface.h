@@ -31,7 +31,7 @@ namespace overte::e2e { class IOSNavigationStateObservation; }
 namespace overte::e2e { class IOSAvatarRenderersObservation; class IOSAvatarScriptsObservation; class IOSAvatarEntitiesObservation; }
 namespace overte::e2e { class IOSEmoteWorldObservation; class IOSAvatarWorldObservation; }
 namespace overte::e2e { class IOSCreateStateObservation; class IOSCreateEntitiesObservation; }
-namespace overte::e2e { class IOSAssetsModelObservation; }
+namespace overte::e2e { class IOSAssetsModelObservation; class IOSAssetsModelRenderersObservation; }
 namespace overte::e2e { class IOSPointerStateObservation; class IOSWorldWebGeometryObservation; class IOSWorldWebSurfacesObservation; class IOSWorldWebSnapshotObservation; class IOSWorldWebWholeSnapshotObservation; }
 namespace overte::e2e { class IOSAvatarStateObservation; }
 namespace overte::e2e { class NativeReadBracket; }
@@ -206,6 +206,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSAssetsFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAssetsReplies(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAssetsModelOrigin(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSAssetsModelRenderers(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSKeyboard(const QVariantMap& command);
 #if defined(OVERTE_E2E_VOICE_TESTS)
     Q_INVOKABLE QVariantMap featureIOSAudioSession(const QVariantMap& command);
@@ -362,6 +363,7 @@ private:
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
     std::shared_ptr<overte::e2e::NativeReadBracket> _featureIOSAssetsFiles;
     std::shared_ptr<overte::e2e::IOSAssetsModelObservation> _featureIOSAssetsModelOrigin;
+    std::shared_ptr<overte::e2e::IOSAssetsModelRenderersObservation> _featureIOSAssetsModelRenderers;
     std::shared_ptr<overte::e2e::IOSAssetReplyReads> _featureIOSAssetsReplies;
     QMap<QString,QVariantMap> _featureIOSAssetsFileCommands, _featureIOSAssetsFileResults;
 #endif

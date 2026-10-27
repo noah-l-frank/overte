@@ -86,6 +86,8 @@ REQUIRED = {
     "ios-assets-baked-tree-owner": 1,
     "asset-baked-tree-delete-proof": 1,
     "ios-assets-model-origin": 1,
+    "ios-assets-model-renderers": 1,
+    "ios-assets-model-renderers-acquisition": 1,
     "asset-model-origin-history": 2,
     "asset-model-parsed-input": 1,
     "ios-assets-parsed-sources": 1,

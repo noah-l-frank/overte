@@ -126,6 +126,7 @@
 #include "../../../tests/device/native/IOSAssetUploadWork.h"
 #include "../../../tests/device/native/IOSAssetReplyReads.h"
 #include "../../../tests/device/native/IOSAssetsModelObservation.h"
+#include "../../../tests/device/native/IOSAssetsModelRenderersObservation.h"
 #endif
 #include "../AvatarBookmarks.h"
 #include "../../../tests/device/native/NativeReadBracket.h"
@@ -1204,6 +1205,26 @@ QVariantMap TestScriptingInterface::featureIOSAssetsModelOrigin(const QVariantMa
     const auto entities=DependencyManager::get<EntityScriptingInterface>();if (!entities || !entities->getEntityTree()) {return {};}
     if (!_featureIOSAssetsModelOrigin) {_featureIOSAssetsModelOrigin=std::make_shared<overte::e2e::IOSAssetsModelObservation>();}
     return _featureIOSAssetsModelOrigin->read(request,run,entities.data(),
+        DependencyManager::get<NodeList>()->getDomainHandler().getUUID().toString(QUuid::WithoutBraces));
+}
+
+QVariantMap TestScriptingInterface::featureIOSAssetsModelRenderers(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] {result=featureIOSAssetsModelRenderers(command);},Qt::BlockingQueuedConnection)) {return {};}
+        return result;
+    }
+    QStringList fields{"schemaVersion","commandId","action","runId"};fields.sort();const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=json.value("commandId").toString(),run=json.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-assets-model-renderers")
+            || !QRegularExpression("\\Aios-[a-f0-9]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[a-f0-9]{32}\\z").match(run).hasMatch()
+            || !DependencyManager::isSet<EntityScriptingInterface>() || !DependencyManager::isSet<NodeList>()) {return {};}
+    const auto entities=DependencyManager::get<EntityScriptingInterface>();if (!entities || !entities->getEntityTree()) {return {};}
+    if (!_featureIOSAssetsModelRenderers) {_featureIOSAssetsModelRenderers=std::make_shared<overte::e2e::IOSAssetsModelRenderersObservation>();}
+    return _featureIOSAssetsModelRenderers->read(request,run,entities.data(),
         DependencyManager::get<NodeList>()->getDomainHandler().getUUID().toString(QUuid::WithoutBraces));
 }
 
