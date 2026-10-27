@@ -164,7 +164,10 @@ class OwnedAssetsModelRemoval:
         need(id_ in old and id_ not in new and set(new)==set(old)-{id_} and all(same(row,new[key]) for key,row in old.items() if key!=id_))
         life=last['work']['source']['entityLifetimes'];need(life['complete']);entries=[row for row in life['entities'] if row['id']==id_]
         need(len(entries)==1 and entries[0]['destroyed'] and entries[0]['models'] and all(row['destroyed'] for row in entries[0]['models']))
-        packet=last['origin'];history=packet['source']['history'];need(history['assetModelOriginHistoryVersion']==2)
+        packet=last['origin'];history=packet['source']['history']
+        # Both validated histories retain the same original QObject/HFM
+        # observations. Geometry3 adds its separate weak consumer inventory.
+        need(type(history['assetModelOriginHistoryVersion']) is int and history['assetModelOriginHistoryVersion'] in (2,3))
         original=self.parsed.frame(self.parsed.state['sourceIndex'])['originals']['origin'];known={row['id'] for row in original['source']['history']['downloads']}
         resources=[dict(id=row['id'],originalLeaseAlive=row['resourceAlive'],objectAlive=row['resourceObjectAlive'],hfmAlive=row['parsedModelAlive'])
             for row in history['downloads'] if row['id'] in known];need(len(resources)==len(known))

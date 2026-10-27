@@ -128,6 +128,7 @@
     "ios-assets-model-renderers-acquisition": {"current": 1, "reads": [1]},
     "asset-model-origin-history": {"current": 3, "reads": [1, 2, 3]},
     "asset-model-geometry-consumers": {"current": 1, "reads": [1]},
+    "asset-model-geometry-release": {"current": 1, "reads": [1]},
     "asset-model-parsed-input": {"current": 1, "reads": [1]},
     "ios-assets-parsed-sources": {"current": 1, "reads": [1]},
     "asset-parsed-source-frame": {"current": 1, "reads": [1]},

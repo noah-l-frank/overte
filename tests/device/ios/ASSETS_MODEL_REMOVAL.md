@@ -88,3 +88,44 @@ Assets upload/import QML and actual Python owners, original files, journals and
 weak objects run. The Create Qt widgets/controller/deletion and native APIs are
 explicit SDK models. No native compiler, renderer, device, service or server/
 oven executes. The native history-v2 hook remains uncompiled/unexecuted.
+
+## Validated History2/3 compatibility
+
+The original owner/result wires remain1. Its resource predicate accepts strict
+integer History2 or3 because both preserve the same original shared-lease,
+actual QObject and HFM fields. History3 adds its independently observed weak
+Geometry records; it does not change those earlier resource observations.
+Legacy1, unsupported4, boolean/float versions and missing actual Entity/Model
+death or original resource membership remain unavailable.
+
+This narrow adapter correction follows a retained240s timeout in the new
+Geometry-release composition. The saved source already showed Entity/Model
+absence but the old `History==2` consumer predicate refused History3 and kept
+collecting passive observations. The exact220 files are retained at
+`.ios-host-tmp/assets-geometry-release-flow-t4qlg6qx`. The normal Delete occurs
+once with its original ACK and UI after-read61; the owner remains `deleting`
+and the next three query intents/two raw originals remain unresolved.
+
+The same original read-only removed() call refuses at the old predicate in
+0.949s and returns the actual original removal result after the correction
+in0.944s. Both censuses preserve all220 bytes/device/inodes/sizes/hashes and
+make0 forbidden input/SDK/network/process/write calls. The result retains the
+same original Delete nonce, actual expired lease and still-alive cached
+QObject/HFM, with `resourceRetirementAvailable:false`. No source clock is
+refreshed, input replayed, pending query cleared or result adopted into that
+old WAL. Logs: `assets-geometry-removal-readonly-before-20261027.log` and
+`assets-geometry-removal-readonly-after-20261027.log`.
+
+Three focused compatibility/effect cases plus the five new weak-consumer/
+quiet fact cases pass8/0.044s
+(`assets-removal-history-geometry-facts-first-20261027.log`). These are pure
+predicate cases; fresh connected normal-input qualification remains separate.
+The stronger original-History3 requirement for Geometry retirement is unchanged.
+
+The subsequent fresh History3 normal-input/weak-consumer composition passes
+1/181.720s with the unchanged strict2/3 consumer and original owner/result
+wires. It observes the still-live cache before a separately declared external
+model eviction event, then qualifies only scoped original consumer absence
+and quiet Scene originals. Exact clocks, preceding immutable failure roots
+and explicit nonqualification of automatic/product/whole-resource retirement
+are recorded in [the Geometry release handoff](ASSETS_GEOMETRY_RELEASE.md).

@@ -168,3 +168,10 @@ they do not qualify C++ destructor ordering, real cache eviction, rendering,
 physical timing or iOS devices. Next bind these original consumer records to
 the already qualified ordinary removal/two-image parent, then implement actual
 quiet lifetime drainage and the remaining texture/Actor/source/process/SDK end.
+
+The new [original post-Delete consumer join](ASSETS_GEOMETRY_RELEASE.md) now
+passes one connected host case in181.720s after literal2/new3 removal
+compatibility and fresh producer-clock qualification. It requires History3
+already in the original parsed-input parent and never upgrades an old
+History2 packet into Geometry evidence. An explicit external test-model cache
+eviction is separate from adapter behavior; complete retirement remains false.

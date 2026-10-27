@@ -134,6 +134,7 @@ REQUIRED = {
     "ios-assets-model-renderers-acquisition": 1,
     "asset-model-origin-history": 3,
     "asset-model-geometry-consumers": 1,
+    "asset-model-geometry-release": 1,
     "asset-model-parsed-input": 1,
     "ios-assets-parsed-sources": 1,
     "asset-parsed-source-frame": 1,
