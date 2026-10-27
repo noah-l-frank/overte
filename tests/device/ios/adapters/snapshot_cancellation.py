@@ -14,7 +14,10 @@ from ios.adapters import snapshot_work
 
 
 def pending(owner,capture_index,cancel_index,native_before,work_pending,work_cancelled,native_after,
-            before_manifest,after_manifest,scripts_root):
+            before_manifest,after_manifest,scripts_root,*,_combined=False):
+    need(type(_combined) is bool)
+    from ios.adapters import snapshot_combined_work
+    module=snapshot_combined_work if _combined else snapshot_work
     need(isinstance(owner,SnapshotInputOwner) and isinstance(before_manifest,SnapshotManifest) and isinstance(after_manifest,SnapshotManifest)
         and integer(capture_index,1) and integer(cancel_index,capture_index+1))
     # Reopen actual durable input originals, including any lost-return proof.
@@ -44,11 +47,11 @@ def pending(owner,capture_index,cancel_index,native_before,work_pending,work_can
         and first_clock['requestId']!=last_clock['requestId']
         and all(last_clock['lifecycle'][key]>=count for key,count in first_clock['lifecycle'].items()))
     before_absence,after_absence=(absent(frame,owner.pid,owner.run,file_mode) for frame in (first,last))
-    proof=pending_cancellation(native_before,work_pending,work_cancelled,native_after,scripts_root)
+    proof=pending_cancellation(native_before,work_pending,work_cancelled,native_after,scripts_root,_combined=_combined)
     need(proof['processId']==owner.pid and proof['runId']==owner.run)
-    work=snapshot_work.admit(work_pending,scripts_root);need(work['state']['mode']==mode)
+    work=module.admit(work_pending,scripts_root);need(work['state']['mode']==mode)
     take=[entry for entry in work['events'] if entry['closure']=='takeSnapshot' and entry['event']=='entry']
-    finished=snapshot_work.admit(work_cancelled,scripts_root)
+    finished=module.admit(work_cancelled,scripts_root)
     cancel_entries=[entry for entry in finished['events'] if entry['closure']=='cancelNativeCapture'
         and entry['event']=='entry' and entry['call']==proof['cancelCall']]
     need(take and len(cancel_entries)==1)
@@ -63,7 +66,9 @@ def pending(owner,capture_index,cancel_index,native_before,work_pending,work_can
         and work_pending['clockAfter']['epochMs']<=cancel_scope['sampleEpochMs']<=cancel_entries[0]['invokedEpochMs']
         and cancel_return<=work_cancelled['clockBefore']['epochMs']
         and native_after['clockAfter']['epochMs']<=last['clockJoin']['nativeBefore']['capturedEpochMs'])
-    return dict(iosSnapshotOwnedPendingCancellationVersion=1,runId=owner.run,role=owner.role,processId=owner.pid,
+    result=dict(iosSnapshotOwnedPendingCancellationVersion=2 if _combined else 1,runId=owner.run,role=owner.role,processId=owner.pid,
         captureId=proof['captureId'],root=deepcopy(deliveries[0]['root']),captureInput=capture_index,cancelInput=cancel_index,
         cancelCall=proof['cancelCall'],beforeManifest=before_manifest.index,afterManifest=after_manifest.index,
         beforeAbsence=before_absence,afterAbsence=after_absence,quietWindowRequired=True,independentWitnessRequired=True)
+    if _combined:result['workProfile']='combined'
+    return result

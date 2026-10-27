@@ -28,7 +28,8 @@ class SnapshotPendingCapturePending(NativeUIError):pass
 
 class IOSSnapshotPendingOwner(IOSSnapshotCaptureOwner):
     """Reuse the existing child/input machinery in its own closed profile."""
-    def __init__(self,runtime,selector,run,lock,sources,*,phase,epoch_ms,monotonic,sleep):
+    def __init__(self,runtime,selector,run,lock,sources,*,phase,epoch_ms,monotonic,sleep,combined=False):
+        need(type(combined) is bool);self.combined=combined
         from ios.adapters.snapshot_pending_runtime import IOSSnapshotPendingRuntime
         need(isinstance(runtime,IOSSnapshotPendingRuntime) and isinstance(phase,PhaseFixtureReader) and phase.run==run and phase.area=='snapshots')
         self.runtime,self.selector,self.run,self.lock,self.sources=runtime,selector,identifier(run),lock,sources
@@ -43,12 +44,12 @@ class IOSSnapshotPendingOwner(IOSSnapshotCaptureOwner):
     def empty():return dict(ticket=None,phaseOriginal=None,roots=None,nativeTail=None,slots=[],inputSlots=[],choiceSlots=[],initial=None,baseline=None,
         captureInput=None,pendingWork=None,cancelInput=None,cancelledWork=None,afterNative=None,afterManifest=None,cancellation=None,restoration=None,quiet=[],result=None)
     @classmethod
-    def archive(cls,store,lock,binding,run,fixture_url):
+    def archive(cls,store,lock,binding,run,fixture_url,*,combined=False):
         from ios.adapters.snapshot_pending_runtime import IOSSnapshotPendingRuntime
-        owner=object.__new__(cls);owner.store,owner.lock,owner.binding,owner.run=store,lock,deepcopy(context(binding)),identifier(run)
+        need(type(combined) is bool);owner=object.__new__(cls);owner.store,owner.lock,owner.binding,owner.run=store,lock,deepcopy(context(binding)),identifier(run);owner.combined=combined
         owner.runtime=object.__new__(IOSSnapshotPendingRuntime);owner.phase=SimpleNamespace(fixture_url=fixture_url);owner.guard=lambda:True;owner.historical=True
         lock.assert_held();owner.previous=store.read();need(owner.previous is not None);owner.state=owner.empty();owner.state=owner.decode(owner.previous);return owner
-    def envelope(self,state):return dict(iosSnapshotPendingOwnerVersion=1,binding=self.binding,runId=self.run,fixtureUrl=self.phase.fixture_url,payload=pack([state]))
+    def envelope(self,state):return dict(iosSnapshotPendingOwnerVersion=2 if self.combined else 1,binding=self.binding,runId=self.run,fixtureUrl=self.phase.fixture_url,payload=pack([state]))
     def phase_original(self,value,ticket):
         phase_packet(value,run=self.run,area='snapshots',request=value['requestId'],epoch=value['capturedEpochMs'])
         need(value['active'] and value['activations'][-1]['ticket']==ticket and value['activations'][-1]['stimulus']==dict(verb='capture-cancel',inputs=dict(mode='animated',format='png')))
@@ -58,12 +59,19 @@ class IOSSnapshotPendingOwner(IOSSnapshotCaptureOwner):
     def inventory(self,reads):
         allowed={self.store.path}|{self.child_store(slot).path for slot in self.state['slots']}|{
             self.store.path.with_name(cls.store_name('primary')) for cls in (PendingInputs,PendingChoices)}
+        prefixes=('pending-snapshot-',)
+        if self.combined:prefixes+=('pending-combined-work-','snapshot-combined-pending-parts-')
         for path in self.store.path.parent.iterdir():
-            if path.name.startswith('pending-snapshot-'):need(path in allowed or path in reads)
-    def child_store(self,slot):return PrivateFeatureState(self.store.path.with_name('pending-snapshot-primary-'+PACKETS[slot['kind']]._name+'-'+format(slot['index'],'04d')+'.json'))
+            if path.name.startswith(prefixes):need(path in allowed or path in reads)
+    def packet_class(self,kind):
+        if self.combined and kind=='work':
+            from ios.adapters.snapshot_combined_packets import CombinedPendingWorkPacket
+            return CombinedPendingWorkPacket
+        return PACKETS[kind]
+    def child_store(self,slot):return PrivateFeatureState(self.store.path.with_name('pending-snapshot-primary-'+self.packet_class(slot['kind'])._name+'-'+format(slot['index'],'04d')+'.json'))
     def decode(self,value):
         exact(value,{'iosSnapshotPendingOwnerVersion','binding','runId','fixtureUrl','payload'});rows=unpack(value['payload']);need(len(rows)==1)
-        state=rows[0];exact(state,set(self.empty()));need(type(value['iosSnapshotPendingOwnerVersion']) is int and value['iosSnapshotPendingOwnerVersion']==1 and same(value,self.envelope(state)))
+        state=rows[0];exact(state,set(self.empty()));need(type(value['iosSnapshotPendingOwnerVersion']) is int and value['iosSnapshotPendingOwnerVersion']==(2 if self.combined else 1) and same(value,self.envelope(state)))
         prior=self.state;self.state=state
         try:
             need(type(state['slots']) is list and len(state['slots'])<=256 and type(state['inputSlots']) is list and len(state['inputSlots'])<=16
@@ -160,14 +168,14 @@ class IOSSnapshotPendingOwner(IOSSnapshotCaptureOwner):
         return pending(self.runtime.inputs(self,historical=True),self.state['captureInput'],self.state['cancelInput'],
             self.history('captures',baseline['captures']).historical()['packet'],self.history('work',self.state['pendingWork']).historical()['packet'],
             self.history('work',self.state['cancelledWork']).historical()['packet'],self.history('captures',self.state['afterNative']).historical()['packet'],
-            self.history('manifest',baseline['manifest']),self.history('manifest',self.state['afterManifest']),self.root_original(self.state['roots']))
+            self.history('manifest',baseline['manifest']),self.history('manifest',self.state['afterManifest']),self.root_original(self.state['roots']),_combined=self.combined)
     def quiet_sample(self,group):
         exact(group,{'manifest','work','captures','exports'});frames=[]
         for kind in ('manifest','work','captures','exports'):
             index=group[kind]
             need(integer(index,1,128));frames.append(self.history(kind,index).historical())
         absent(frames[0],int(self.binding['processIdentity']),self.run,'animated')
-        snapshot_work.admit(frames[1]['packet'],self.root_original(self.state['roots']),quiet=True);snapshot_captures.drained(frames[2]['packet']);snapshot_exports.drained(frames[3]['packet'])
+        self.work_source().admit(frames[1]['packet'],self.root_original(self.state['roots']),quiet=True);snapshot_captures.drained(frames[2]['packet']);snapshot_exports.drained(frames[3]['packet'])
         spans=[frame.get('clockJoin',frame.get('acquisition')) for frame in frames]
         return dict(nativeBefore=min(span['nativeBefore']['capturedEpochMs'] for span in spans),nativeAfter=max(span['nativeAfter']['capturedEpochMs'] for span in spans),
             hostBefore=min(span['hostBeforeMonotonic'] for span in spans)*1000,hostAfter=max(span['hostAfterMonotonic'] for span in spans)*1000)
@@ -182,9 +190,11 @@ class IOSSnapshotPendingOwner(IOSSnapshotCaptureOwner):
         need(self.state['cancellation'] is not None and len(self.state['quiet'])==3 and self.state['restoration'] is not None);self.restoration_original()
         proof=self.cancellation();samples=[self.quiet_sample(group) for group in self.state['quiet']]
         need(samples[-1]['nativeBefore']-samples[0]['nativeAfter']>=3000 and samples[-1]['hostBefore']-samples[0]['hostAfter']>=3000)
-        return dict(iosSnapshotPendingResultVersion=1,runId=self.run,cancellation=proof,nativeQuietMilliseconds=samples[-1]['nativeBefore']-samples[0]['nativeAfter'],
+        result=dict(iosSnapshotPendingResultVersion=2 if self.combined else 1,runId=self.run,cancellation=proof,nativeQuietMilliseconds=samples[-1]['nativeBefore']-samples[0]['nativeAfter'],
             hostQuietMilliseconds=samples[-1]['hostBefore']-samples[0]['hostAfter'],originalSettingsRestored=True,
             originalJournalRetirementRequired=True,independentWitnessRequired=True,wholeFeatureRequired=True)
+        if self.combined:result['workProfile']='combined'
+        return result
     @operation
     def cancel(self,ticket):
         self.bound();identifier(ticket)
@@ -204,7 +214,7 @@ class IOSSnapshotPendingOwner(IOSSnapshotCaptureOwner):
         if self.state['cancelInput'] is None:self.state['cancelInput']=self.input('pending-cancel','snapshot.cancel');self.save()
         if self.state['cancelledWork'] is None:
             child=self.next_observed('actual-cancelled-','work')
-            try:snapshot_work.admit(child.historical()['packet'],self.root_original(self.state['roots']),quiet=True)
+            try:self.work_source().admit(child.historical()['packet'],self.root_original(self.state['roots']),quiet=True)
             except NativeUIError:raise SnapshotPendingCapturePending('Actual script timers/callbacks remain owned') from None
             self.state['cancelledWork']=child.index;self.save()
         if self.state['afterNative'] is None:

@@ -137,13 +137,15 @@ def drained(value):
     return deepcopy(source)
 
 
-def pending_cancellation(native_before,pending_work,cancelled_work,native_after,scripts_root):
+def pending_cancellation(native_before,pending_work,cancelled_work,native_after,scripts_root,*,_combined=False):
     """Prove the actual two-delay capture was cancelled before native begin.
 
     The result still requires independent owned-file absence and the normal
     input owner. It does not count a successful capture/export or finish a run.
     """
-    from ios.adapters import snapshot_work as work
+    need(type(_combined) is bool)
+    from ios.adapters import snapshot_work,snapshot_combined_work
+    work=snapshot_combined_work if _combined else snapshot_work
     drained(native_before);drained(native_after)
     validate(native_after,dict(schemaVersion=1,action=ACTION,commandId=native_after['requestId'],runId=native_after['runId']),
              native_before['processId'],previous=native_before)
@@ -165,12 +167,14 @@ def pending_cancellation(native_before,pending_work,cancelled_work,native_after,
              and row['state']['captureId']==capture and row['sequence']>pending['latest']['sequence']]
     need(len(entries)==1);entry=entries[0]
     finish=[row for row in cancelled['events'] if row['closure']==entry['closure'] and row['call']==entry['call']]
-    need([row['event'] for row in finish]==['entry','returned','finally'] and all(not work.pending(row['state']) for row in finish[1:])
+    need([row['event'] for row in finish]==['entry','returned','finally'] and all(not snapshot_work.pending(row['state']) for row in finish[1:])
          and native_after['clockBefore']['epochMs']>=finish[-1]['capturedEpochMs'])
     need(all(row['requestId']!=capture for row in native_after['source']['captures']))
-    return dict(iosSnapshotPendingCancellationVersion=1,captureId=capture,processId=native_after['processId'],
+    result=dict(iosSnapshotPendingCancellationVersion=2 if _combined else 1,captureId=capture,processId=native_after['processId'],
         runId=native_after['runId'],cancelCall=entry['call'],cancelledEpochMs=finish[-1]['capturedEpochMs'],
         nativeAfterSequence=native_after['sequence'],normalInputOwnerRequired=True,fileAbsenceRequired=True)
+    if _combined:result['workProfile']='combined'
+    return result
 
 
 class IOSSnapshotCaptures(IOSPlacesModel):

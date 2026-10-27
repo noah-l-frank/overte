@@ -105,9 +105,9 @@ recovery and completion cases passed in 23.751 seconds. The cleanup preserves
 the original host PNG and observes the existing three-second window on the
 declared model clocks; it does not qualify real-device quiescence.
 These are modeled Qt/V8/native clocks and actual host file operations, not a
-compiled native or real device capture qualification. Pending Cancel, current
-rendered review and frontend preflight consumption still need the same closed
-combined-profile integration and independent end evidence.
+compiled native or real device capture qualification. Current rendered review
+and frontend preflight consumption still need the same closed combined-profile
+integration and independent end evidence; Pending2 is described below.
 
 Capture component logs are
 `snapshot-combined-capture-resume-20261027-positive02.log`,
@@ -157,3 +157,39 @@ Private Upload2 logs are
 `snapshot-combined-upload-resume-20261027-recovery03.log`, followed by
 `snapshot-combined-upload-resume-20261027-legacy04.log` and
 `snapshot-combined-upload-resume-20261027-census05.log`, under `.ios-host-tmp`.
+
+The same Pending/Cancel runtime and original archiver now have an explicit
+Combined2 profile. Owner/result and the derived native/owned cancellation
+proofs use version 2; Separate1 remains the literal default. The normal mode
+choice, capture and Cancel inputs, original popup/receipt bindings, absence
+manifests, QTimer weak lifetimes and three-second host/native-model quiet checks
+reuse their existing paths. Only the work child switches to the fixed combined
+reader and its own pending frame/part namespace. The closed part profile adds
+the primary/pending subject. Both initial and historical inventory account for
+those new owned prefixes; foreign originals cannot be discarded or adopted.
+
+The first new census case passed. The first normal case exposed a missing
+common-state helper on the closed wrapper; the native-cancellation codec now
+uses the existing shared state validator while keeping the combined original
+and manager checks. Its normal Pending-to-Cancel/settings-restoration/archive
+rerun passed in 7.580 seconds. It retained one capture and one Cancel, actual
+host quiet windows and file absence, and replayed originals without another
+query. The default Separate1 archiver rejects Combined2. This still uses a
+declared Qt/native/SDK boundary; no compiled or real-device cancellation is
+qualified. Recovery/held-resource/ignored-input and old-profile regressions
+are covered by the following focused checks. Four new cases passed in 19.033
+seconds: lost Cancel return, retained real timer objects, acknowledged ignored
+Cancel, and saved actual pending child before the parent digest CAS. They
+preserve one normal input dispatch, the original query nonce and unchanged
+original bytes/inodes. An ignored ACK never becomes cancellation or quiet.
+Twenty-three existing Separate1 Pending/cancellation/capture cases passed in
+42.683 seconds, including popup/restore recovery and unchanged native original
+transport. The complete normal Capture-to-Upload and Pending2 components still
+require the shared JourneyFiles cleanup, actual rendered review, frontend
+consumer and independent end/witness joins before area completion.
+
+Private Pending2 logs are
+`snapshot-combined-pending-resume-20261027-positive01.log` and
+`snapshot-combined-pending-resume-20261027-positive02.log`, followed by
+`snapshot-combined-pending-resume-20261027-recovery03.log` and
+`snapshot-combined-pending-resume-20261027-legacy04.log`, under `.ios-host-tmp`.

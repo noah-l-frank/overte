@@ -26,3 +26,11 @@ class CombinedUploadWorkPacket(CombinedCaptureWorkPacket):
     _namespace='upload-combined-work'
     _schema='uploadCombinedWork'
     _segment_subject='upload'
+
+
+class CombinedPendingWorkPacket(CombinedCaptureWorkPacket):
+    _store_prefix='pending-snapshot'
+    _key='pendingSnapshotCombinedWorkPacketVersion'
+    _namespace='pending-combined-work'
+    _schema='pendingCombinedWork'
+    _segment_subject='pending'

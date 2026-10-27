@@ -13,19 +13,19 @@ from ios.adapters.snapshot_pending_packets import PACKETS,PendingInputs,PendingC
 
 class IOSSnapshotPendingRuntime(IOSSnapshotCaptureRuntime):
     @contextmanager
-    def pending_owner(self,selector,run,client,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,sleep=time.sleep):
+    def pending_owner(self,selector,run,client,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,sleep=time.sleep,combined=False):
         from ios.adapters.snapshot_pending_owner import IOSSnapshotPendingOwner
         lock=ScriptSourceLock(self.state_path(selector).with_name('script-feature-sources.lock'))
         with lock.held():
             sources=self._sources(selector)
             owner=IOSSnapshotPendingOwner(self,selector,run,lock,sources,phase=PhaseFixtureReader(client,run,'snapshots',epoch_ms=epoch_ms,monotonic=monotonic),
-                epoch_ms=epoch_ms,monotonic=monotonic,sleep=sleep)
+                epoch_ms=epoch_ms,monotonic=monotonic,sleep=sleep,combined=combined)
             with self.existing_input_session(selector):yield owner
 
     def component(self,owner,kind,index,*,historical=False):
         from ios.adapters.snapshot_pending_owner import IOSSnapshotPendingOwner
         if not isinstance(owner,IOSSnapshotPendingOwner):return super().component(owner,kind,index,historical=historical)
-        cls=PACKETS[kind];store=PrivateFeatureState(owner.store.path.with_name('pending-snapshot-primary-'+cls._name+'-'+format(index,'04d')+'.json'))
+        cls=owner.packet_class(kind);store=PrivateFeatureState(owner.store.path.with_name('pending-snapshot-primary-'+cls._name+'-'+format(index,'04d')+'.json'))
         args=(store,owner.lock,owner.binding,owner.run,'primary',index)
         if historical:return cls.history(*args)
         if kind=='manifest':return cls(*args,owner.sources['observer'],NativeClockAcquisition(owner.sources['clock_source'],epoch_ms=owner.epoch_ms,monotonic=owner.monotonic),owner.guard)
