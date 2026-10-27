@@ -82,9 +82,9 @@ class LifecycleIndependentActorTests(unittest.TestCase):
         self.marker=secrets.token_hex(32)
         self.worker=subprocess.Popen([sys.executable,str(self.entry),'--config',str(self.configuration.path)],
             stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
-            env={'PYTHONDONTWRITEBYTECODE':'1','OVT_LIFECYCLE_SOURCE_OWNER':self.marker})
+            env={'PYTHONDONTWRITEBYTECODE':'1','OVT_LIFECYCLE_SOURCE_OWNER':self.marker,'TMPDIR':str(self.root.parent)})
         self.addCleanup(self.close_worker)
-        waiting=self.receive('waiting');self.assertNotEqual(host_identity(),waiting['host'])
+        waiting=self.receive('waiting');self.waiting=waiting;self.assertNotEqual(host_identity(),waiting['host'])
         def owned(pid):
             if pid!=self.worker.pid or self.worker.poll() is not None:return False
             return ('OVT_LIFECYCLE_SOURCE_OWNER='+self.marker).encode() in (Path('/proc')/str(pid)/'environ').read_bytes().split(b'\0')

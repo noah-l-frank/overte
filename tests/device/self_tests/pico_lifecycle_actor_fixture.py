@@ -100,7 +100,7 @@ class LifecycleProducts(ProductSources):
                 native.drive.source['feetPosition'][0]+=1
                 native.drive.source['bodyPosition'][0]+=1
             actual=native.drive.source
-            self.subject.source.update(subjectVersion=2,sceneUrl=actual['sceneUrl'],
+            self.subject.source.update(subjectVersion=3 if self.subject.source['subjectVersion']==3 else 2,sceneUrl=actual['sceneUrl'],
                 absentIds=list(subject_ids(value['runId']).values()),avatarPose=dict(
                     feetPosition=deepcopy(actual['feetPosition']),orientation=deepcopy(actual['orientation']),modelScale=actual['modelScale']))
             self.subject.epoch=native.epoch()
@@ -134,22 +134,114 @@ class IndependentLifecycleSources:
             ui_source,axes,avatar,pending,native,subject,phases,self.guard,self.lock,self.config['parentHost'],monotonic=self.clock.now)
 
 
+class CanonicalIndependentLifecycleSources(IndependentLifecycleSources):
+    """Actual canonical factory, with its original synthetic APK/OS boundary.
+
+    All six target source bytes still originate in the existing Parent target.
+    The child fixture's native transport contributes candidate/OS metadata only;
+    no child Qt/pose model supplies Actor facts.
+    """
+    def __init__(self,config):
+        import hashlib,sys
+        sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'android/vr/pico/tests/device'))
+        import test_normal_scripts as canonical
+        super().__init__(config)
+        import tempfile
+        from unittest.mock import patch
+        temporary=tempfile.TemporaryDirectory
+        def retained(*args,**kwargs):
+            result=temporary(*args,**kwargs);result._finalizer.detach();result.cleanup=lambda:None
+            return result
+        self.fixture=canonical.PicoNormalScriptsTests()
+        with patch.object(tempfile,'TemporaryDirectory',retained):self.fixture.setUp()
+        original=self.fixture.fixture.fixture.fixture.temporary
+        original._finalizer.detach();original.cleanup=lambda:None
+        self.adapter,self.target=self.fixture.instance,self.fixture.native.target
+        # The existing generic fixture's textual synthetic-start is not a
+        # native kernel start. Configure this OS model before factory/source
+        # acquisition to the original target's already numeric PID:start.
+        original_identity=config['binding']['processIdentity']
+        self.fixture.native.identity=original_identity
+        self.fixture.native.require_process_identity=lambda value:need(type(value) is str and value==original_identity)
+        installed=self.adapter._installation(self.target);identity=self.adapter.require_controlled_debug_identity(self.target)
+        self.binding=dict(sourceRevision=installed['sourceRevision'],artifactSha256=installed['artifactSha256'],
+            processIdentity=identity,sessionId=self.fixture.native.bridge_id,generation=0,
+            targetFingerprint=hashlib.sha256((self.target+'\0'+str(self.adapter.pico_configuration)).encode()).hexdigest())
+        self.pid=int(identity.split(':')[0])
+        self.root=self.adapter._lifecycle_world_store(self.target).path.parent
+        self.lock=ScriptSourceLock(self.root/'script-sources.lock')
+        self.adapter._scripts=lambda *_args:need(False)
+        from adapters.native_feature_observation import FILE as NATIVE_FILE
+        from adapters.native_graphics_subject import FILE as SUBJECT_FILE
+        from adapters.pending_commit_owner import FILE as PENDING_FILE
+        names={'ui':ui.FILE,'gesture':gesture.FILE,'drive':drive.FILE,'pending':PENDING_FILE,'feature':NATIVE_FILE,'subject':SUBJECT_FILE}
+        actions={gesture.ACTION:'gesture',drive.ACTION:'drive','feature-pending-commit-owner':'pending',
+            'feature-native-observe':'feature','feature-graphics-subject-observe':'subject'}
+        replies={}
+        def send(request):
+            name=actions[request['action']];replies[names[name]]=self.rpc.call(name,request)
+        original_native=self.adapter._native_feature_observer
+        def native(target):
+            need(target==self.target);reader=original_native(target)
+            original_guard=reader.guard
+            def guard():original_guard();return self.guard()
+            reader.guard=guard
+            reader.send=send;reader.clock_ms=self.clock.epoch;reader.monotonic=self.clock.now;reader.sleep=self.clock.sleep
+            return reader
+        self.adapter._native_feature_observer=native
+        original_read=self.adapter.adb.read_debug_app_file;original_write=self.adapter.adb.write_debug_app_file
+        def read(target,package,path,**kwargs):
+            key=path.removeprefix('files/overte-e2e/')
+            if key in names.values():
+                need(target==self.target and package=='org.overte.pico');return replies.get(key,'')
+            return original_read(target,package,path,**kwargs)
+        def write(target,package,path,raw):
+            if path==ui.COMMAND:
+                need(target==self.target and package=='org.overte.pico')
+                replies[ui.FILE]=self.rpc.call('ui',json.loads(raw));return None
+            return original_write(target,package,path,raw)
+        self.adapter.adb.read_debug_app_file=read;self.adapter.adb.write_debug_app_file=write
+
+    def source(self,client):
+        phases=PhaseFixtureReader(client,self.config['run'],'lifecycle-input',epoch_ms=self.clock.epoch,monotonic=self.clock.now)
+        # Retain the actual inner test failure before the unchanged public
+        # binding sanitizer, without bypassing any factory/guard invocation.
+        import sys,traceback
+        previous=sys.gettrace();recorded=[]
+        def trace(frame,event,error):
+            if event=='exception' and frame.f_code.co_name=='_lifecycle_actor_source' and not recorded:
+                recorded.append(True);traceback.print_exception(*error,file=sys.stderr)
+            return trace
+        try:
+            sys.settrace(trace)
+            return self.adapter._lifecycle_actor_source(self.target,self.config['run'],binding=self.binding,
+                phases=phases,parent_host=self.config['parentHost'],source_lock=self.lock)
+        finally:sys.settrace(previous)
+
+    def close(self):
+        try:super().close()
+        finally:self.fixture.doCleanups()
+
+
 WORKER='''import json,sys
 from pathlib import Path
 sys.path.insert(0,DEVICE_PATH)
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.host_process_identity import host_identity
 from feature_journeys.witness import Client
-from self_tests.pico_lifecycle_actor_fixture import IndependentLifecycleSources
+from self_tests.pico_lifecycle_actor_fixture import IndependentLifecycleSources,CanonicalIndependentLifecycleSources
 config=PrivateFeatureState(Path(sys.argv[2])).read()
 client=Client(config['fixture'],config['actorToken'])
-transport=IndependentLifecycleSources(config);source=None
-print(json.dumps({'event':'waiting','host':host_identity()}),flush=True)
+transport=(CanonicalIndependentLifecycleSources if config.get('canonicalFactory') else IndependentLifecycleSources)(config);source=None
+waiting={'event':'waiting','host':host_identity()}
+if config.get('canonicalFactory'):waiting.update(binding=transport.binding,root=str(transport.root))
+print(json.dumps(waiting),flush=True)
 try:
  for line in sys.stdin:
   command=json.loads(line)
   if command=={'operation':'exit'}:break
-  if command not in ({'operation':'sample'},{'operation':'sample-regress-ui'},{'operation':'sample-lost-reply'},{'operation':'sample-replace-root-exit'},{'operation':'sample-late-publication'}):raise ValueError('Source-only worker command')
+  if command not in ({'operation':'sample'},{'operation':'sample-regress-ui'},{'operation':'sample-lost-reply'},{'operation':'sample-replace-root-exit'},{'operation':'sample-late-publication'},{'operation':'sample-foreign-factory-fingerprint'}):raise ValueError('Source-only worker command')
+  if command['operation']=='sample-foreign-factory-fingerprint':transport.binding=dict(transport.binding,targetFingerprint='0'*64)
   if source is None:source=transport.source(client)
   if command['operation']=='sample-replace-root-exit':
    from contextlib import contextmanager

@@ -2389,6 +2389,39 @@ def create_adapter(args, base_class):
                 world.store.path.with_name('lifecycle-primary-observation.json'))
 
         @_private
+        def _lifecycle_actor_source(self,target,run,*,binding,phases,parent_host,source_lock=None):
+            from copy import deepcopy
+            from adapters.host_process_identity import host_identity
+            from adapters.normal_feature_state import context
+            from adapters.observer_return import host
+            from adapters.pico4.lifecycle_actor_source import PicoLifecycleActorSource
+            from adapters.pico4.lifecycle_process import identity as native_identity
+            from adapters.pico4.lifecycle_source import nonce
+            from feature_journeys.phase_fixture import PhaseFixtureReader
+            from feature_journeys.contract import typed_equal
+            binding=deepcopy(context(binding));pid,_start=native_identity(binding);host(parent_host)
+            _need(nonce(run) and parent_host!=host_identity() and type(phases) is PhaseFixtureReader
+                and phases.run==run and phases.area=='lifecycle-input' and binding['generation']==0)
+            lock=self._script_journey()._lock(target,source_lock)
+            configuration=self.pico_configuration;installed=self._installation(target)
+            identity=binding['processIdentity'];native=self._native_feature_observer(target)
+            _need(native.pid==pid
+                and self.require_controlled_debug_identity(target)==self.require_pico_session_identity(target)==identity
+                and all(binding[key]==installed[key] for key in ('sourceRevision','artifactSha256'))
+                and binding['targetFingerprint']==hashlib.sha256((target+'\0'+str(configuration)).encode()).hexdigest())
+            def current():
+                native.guard()
+                _need(self.pico_configuration==configuration and typed_equal(self._installation(target),installed)
+                    and self.require_controlled_debug_identity(target)==self.require_pico_session_identity(target)==identity)
+                return True
+            current()
+            return PicoLifecycleActorSource(self._lifecycle_world_store(target).path.with_name('lifecycle-actor-originals.json'),
+                run,binding,self._lifecycle_ui_source(target,source_lock=lock),
+                self._lifecycle_gesture_source(target,source_lock=lock),self._lifecycle_drive_source(target,source_lock=lock),
+                self._pending_owner(target,binding=binding),native,self._graphics_subject_observer(target),
+                phases,current,lock,parent_host,monotonic=native.monotonic)
+
+        @_private
         def _lifecycle_primary_operations(self,target,run,*,source,phases):
             from adapters.pico4.lifecycle_observation import PicoLifecycleObservation
             from adapters.pico4.lifecycle_operations import PicoLifecycleOperations
