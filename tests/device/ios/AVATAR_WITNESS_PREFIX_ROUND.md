@@ -356,3 +356,39 @@ hashes match before/after. Logs are separately retained in
 This qualifies peer-view binding and lock/guard compatibility only. Final peer
 barriers, two normal Actor terminal references, seal/end, native compilation,
 physical-device verification and complete Feature 3 remain open.
+
+
+## One held terminal publisher per observation
+
+The ordinary Actor `observe_terminal` now passes its already constructed and
+resolved local publisher to the post-save publication step within the same
+held operation. It preserves the second fresh `phase.read()` at the original
+factory boundary and checks the Actor binding, store path, phase, lock, clock
+functions and current bound original/deadline callbacks before publishing.
+There is no publisher retained across operations and no decoded verdict cache.
+The shared publisher still performs its complete `bound`, `resolve`, original
+callback, latest receipt, CAS/save/decode, phase-floor read, unchanged 1.5-second
+delivery checks, durable issued intent, POST and original receipt resolution.
+
+The [four transfer tests](self_tests/test_ios_avatar_terminal_publisher_reuse.py)
+pass in **0.137 seconds**. They exercise real private-state CAS, loopback HTTP,
+phase and publisher implementations with the existing explicit modeled original
+decoder; they supply no Final or product facts. Separate Feature metadata CAS
+is allowed, while changed publisher CAS, actual phase replacement and foreign
+binding/callback/deadline/clock/lock cannot send a sample. The existing seventeen
+shared publisher protocol cases separately pass in **1.311 seconds**, including
+uncertain delivery, lost receipt, stale clocks and issued-intent recovery.
+All **5,575** selected source/launcher/publication pins remain byte/stat/hash
+identical in each selection. Four new-test roots retain ten original files;
+twenty-one protocol roots retain seventy-three files after their intentional
+metadata-discard counterexamples. Temporary-root finalizers do not remove them.
+Logs and source/retention manifests are under
+`.ios-host-tmp/avatar-terminal-publisher-reuse-proposal-20261027/`.
+
+These selections do not measure a whole-observation improvement. The preceding
+fresh 1,200-second producer stopped during its second ordinary Actor terminal
+observation. It produced exactly one terminal witness publication and a second
+saved observation, with no second publication intent or receipt. Its original
+journals remain authoritative and unmodified. This local publisher change has
+not rerun that producer or qualified two publications, seal/end, the complete
+Avatar journey, native compilation or devices. Feature 3 remains partial.

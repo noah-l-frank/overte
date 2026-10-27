@@ -1832,6 +1832,24 @@ class IOSAvatarFeature:
             self.state['bindings']['actor'],self.phase,self.lock,self.cleanup_deadline,self.terminal_witness_original,
             epoch_ms=self.epoch_ms,monotonic=self.monotonic)
 
+    def publish_terminal_witness(self,publisher,original):
+        """Reuse this held Actor publisher; every live delivery guard remains."""
+        need(self.role=='actor' and type(publisher) is AvatarWitnessPublisher)
+        # Keep the same fresh phase read as the previous second factory call.
+        self.phase.read()
+        def current(method,actual):
+            return (getattr(method,'__self__',None) is self
+                and getattr(actual,'__self__',None) is self
+                and getattr(method,'__func__',None) is getattr(actual,'__func__',None))
+        need(publisher.phase is self.phase and publisher.lock is self.lock
+            and publisher.run==self.run and publisher.area=='avatar-people'
+            and same(publisher.binding,self.state['bindings']['actor'])
+            and publisher.store.path==self.store.path.with_name('phase-publication-avatar-people-'+self.run+'-actor.json')
+            and publisher.epoch_ms is self.epoch_ms and publisher.monotonic is self.monotonic
+            and current(publisher.validate_original,self.terminal_witness_original)
+            and current(publisher.guard,self.cleanup_deadline))
+        return publisher.publish(original)
+
     def observe_terminal(self,after_sequence):
         """A fresh original observation retaining cached native resources."""
         need(integer(after_sequence,0));old=getattr(self,'final_read_clock',None)
@@ -1852,7 +1870,7 @@ class IOSAvatarFeature:
                 self.state['cleanup'].append(event);self.save()
                 if self.role=='actor':
                     original=dict(iosAvatarTerminalObservationReferenceVersion=1,reference=self.keep(event))
-                    self.terminal_witness_publisher().publish(original)
+                    self.publish_terminal_witness(publisher,original)
                 owner.fresh(owner.record(reference));self.cleanup_deadline();return deepcopy(proof['public'])
         finally:self.final_read_clock=old
 
