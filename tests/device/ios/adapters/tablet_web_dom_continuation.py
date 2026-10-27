@@ -22,8 +22,9 @@ from ios.adapters.emote_original_lease import EmoteOriginalLease
 from ios.adapters.tablet_web_packets import TabletWebPackets,CAPTURES
 from ios.adapters.tablet_web_segments import CHUNK_BYTES
 
-VERSION=2
-READS=(1,2)
+VERSION=3
+READS=(1,2,3)
+FENCE_VERSION=2
 BODY_VERSION=1
 PROFILE='tabletweb-dom-closed-prefix'
 
@@ -45,7 +46,7 @@ def decode(value,expected):
     version=value.get('tabletWebDOMContinuationVersion') if type(value) is dict else None
     need(type(version) is int and version in READS)
     exact(value,{'tabletWebPacketsVersion','tabletWebDOMContinuationVersion','profile','phase','scope',
-        'parent','previousHeader','copyIntent','manifests','manifestIntent'}|({'successor'} if version>=2 else set()))
+        'parent','previousHeader','copyIntent','manifests','manifestIntent'}|({'successor'} if version>=2 else set())|({'active'} if version>=3 else set()))
     need(type(value['tabletWebPacketsVersion']) is int and value['tabletWebPacketsVersion']==3
         and type(value['tabletWebDOMContinuationVersion']) is int and value['tabletWebDOMContinuationVersion'] in READS
         and value['profile']==PROFILE and value['phase']=='rotating' and same(value['scope'],expected))
@@ -76,6 +77,12 @@ def decode(value,expected):
         need(type(ref['index']) is int and ref['index']==CAPTURES+1 and integer(ref['bytes'],2,1048576)
             and integer(ref['device'],0,2**64-1) and integer(ref['inode'],1,2**64-1)
             and type(ref['sha256']) is str and len(ref['sha256'])==64 and all(c in '0123456789abcdef' for c in ref['sha256']))
+    if version>=3:
+        from ios.adapters.tablet_web_dom_segment import segment_header
+        need(value['successor'] is not None and value['manifestIntent'] is None and len(value['manifests'])==1
+            and value['manifests'][0]['count']==CAPTURES and value['copyIntent'] is not None
+            and value['copyIntent']['phase'] in ('opened','saved'))
+        segment_header(value['active'],expected,value['successor'])
     need(len(canonical(value))+1<=base.MAX_HEAD_BYTES);return raw,old
 
 
@@ -102,7 +109,7 @@ def prepare(source):
     descriptor=next(row for row in parent['children'] if row['component']=='dom')
     need(signature==descriptor['signature'] and hashlib.sha256(raw).hexdigest()==descriptor['sha256']
         and old['records'][-1]==descriptor['lastRecord'] and old['nextRaw']==descriptor['nextRaw'])
-    result=dict(tabletWebPacketsVersion=3,tabletWebDOMContinuationVersion=VERSION,profile=PROFILE,phase='rotating',scope=expected,
+    result=dict(tabletWebPacketsVersion=3,tabletWebDOMContinuationVersion=FENCE_VERSION,profile=PROFILE,phase='rotating',scope=expected,
         parent=dict(signature=parent_signature,sha256=hashlib.sha256(parent_raw).hexdigest()),
         previousHeader=dict(signature=signature,sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw),
             data=base64.b64encode(zlib.compress(raw,9)).decode('ascii')),
@@ -223,9 +230,9 @@ class TabletDOMClosedPrefix:
         need(self.state.get('successor') is None);self.successor(reference)
         # The former capsule/copy stays literal even when an old profile1 is
         # promoted after complete actual replay. Only the mutable fence moves.
-        changed=deepcopy(self.state);changed.update(tabletWebDOMContinuationVersion=VERSION,successor=deepcopy(reference))
+        changed=deepcopy(self.state);changed.update(tabletWebDOMContinuationVersion=FENCE_VERSION,successor=deepcopy(reference))
         self.save(changed)
 
     def adopted(self):
-        need(self.state['tabletWebDOMContinuationVersion']==VERSION and self.state['successor'] is not None)
+        need(self.state['tabletWebDOMContinuationVersion']==FENCE_VERSION and self.state['successor'] is not None)
         return self.successor(self.state['successor'])

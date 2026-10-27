@@ -200,15 +200,23 @@ class TabletWebPackets:
         else:need(value['resultSha256'] is None)
         return previous,values
 
-    def history(self):
-        if not self.historical:need(self.guard() is not False)
+    def _record_start(self):return 1
+
+    def _next_index(self):return self._record_start()+len(self.state['records'])
+
+    def _history_prefix(self):return None,[],1,set(),None
+
+    def _header(self):
         value=self.state
         exact(value,{'tabletWebPacketsVersion','binding','runId','role','fixtureUrl','processId','component','nextRaw','records','pending','recordIntent','recordInspection'})
         need(type(value['tabletWebPacketsVersion']) is int and value['tabletWebPacketsVersion'] in READS and same(value['binding'],self.binding)
             and value['runId']==self.run and value['role']==self.role and value['fixtureUrl']==self.fixture and type(value['processId']) is int
             and value['processId']==self.pid and value['component']==self.component and integer(value['nextRaw'],1,MAX_FRAMES+1)
             and type(value['records']) is list and len(value['records'])<=CAPTURES)
-        self.blocked=False;previous=None;result=[];raw_floor=1;queries=set();capture_clock=None
+    def history(self):
+        if not self.historical:need(self.guard() is not False)
+        self._header();value=self.state;self.blocked=False
+        previous,result,raw_floor,queries,capture_clock=self._history_prefix()
         def floor(row):
             nonlocal raw_floor,capture_clock
             if capture_clock is not None:need(row['before']['epochMs']>=capture_clock['epochMs'] and row['before']['monotonic']>=capture_clock['monotonic'])
@@ -218,16 +226,16 @@ class TabletWebPackets:
             for part in row['raws']:
                 parent=part['segments'];need(parent['first']==raw_floor)
                 raw_floor+=max(1,(parent['bytes']+CHUNK_BYTES-1)//CHUNK_BYTES)
-        for index,ref in enumerate(value['records'],1):
+        for index,ref in enumerate(value['records'],self._record_start()):
             original=self.originals.expand(ref);need(original['index']==index)
             row=self.originals.read(original);need(row['status'] in ('returned','failed','abandoned'))
             previous,packets=self.record(row,index,previous);result.extend(packets);floor(row)
         if value['pending'] is not None:
             need(len(value['records'])<CAPTURES)
-            previous,packets=self.record(value['pending'],len(value['records'])+1,previous);result.extend(packets);floor(value['pending'])
+            previous,packets=self.record(value['pending'],self._next_index(),previous);result.extend(packets);floor(value['pending'])
         need(value['nextRaw']==raw_floor)
         if value['recordIntent'] is not None:
-            ref=self.originals.original(value['recordIntent']);need(value['pending'] is not None and ref['index']==len(value['records'])+1)
+            ref=self.originals.original(value['recordIntent']);need(value['pending'] is not None and ref['index']==self._next_index())
             inspection=self.inspect_record()
             if value['recordInspection'] is not None:need(same(inspection,value['recordInspection']))
         else:need(value['recordInspection'] is None)
@@ -323,7 +331,7 @@ class TabletWebPackets:
             if self.component=='dom':
                 need(reader.accepted is None or same(reader.accepted,previous[-1]));reader.accepted=deepcopy(previous[-1])
         else:need(reader.last is None and getattr(reader,'accepted',None) is None)
-        pending=dict(tabletWebSourcePacketVersion=VERSION,index=len(self.state['records'])+1,before=self.stamp(),after=None,
+        pending=dict(tabletWebSourcePacketVersion=VERSION,index=self._next_index(),before=self.stamp(),after=None,
             query=None,sendReturned=False,status='preparing',raws=[],unsafe=[],resultSha256=None,readbacks=[])
         self.state['pending']=pending;self.save();send,original=reader.send,reader.original
         last=deepcopy(previous[-1]) if previous else None

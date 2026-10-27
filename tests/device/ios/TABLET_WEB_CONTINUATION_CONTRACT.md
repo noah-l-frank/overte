@@ -392,3 +392,80 @@ raw/frame/copy bytes and device/inodes, the exact old copy reference and closed
 body1 are unchanged. This gives five distinct new reader/migration cases
 across the4-case and1-case selections. Version validation and the five approved
 no-build project suites pass (6.80s).
+
+## Explicit active DOM segment contract
+
+The isolated active component is `tablet_web_dom_segment.TabletDOMSegment`.
+It is not wired into ordinary SourceOwner/InstalledAdapter acquisition. Before
+opening, the actual source lock and mandatory current source guard must hold;
+the complete copied/indexed old128 prefix and permanently bound original129
+are read and validated. The same canonical DOM head then advances by structural
+CAS from continuation2 to continuation3, with one new
+`tabletWebDOMActiveSegmentVersion: 1` body. Original129 is its first unchanged
+compact reference. Its actual raw/native/clock floors are retained, not
+replaced by the storage ordinal. A lost open return is inspected as the exact
+new fenced head, never a lower version or a repeated query.
+
+This active portion holds at most128 references, global rows129 through256.
+Its existing Raw/FrameStore namespaces and global1024 bounds are unchanged.
+The unchanged 64KiB state-file, packet byte limits, 1.5s query transport bound
+and five-second original-file guards remain in force. No signature, native
+counter, nonce or original timestamp is recreated or refreshed. A full active
+portion blocks row257 before any query; it does not reset to row1 or raise a
+capacity. Other segments require separate future qualification.
+
+The ordinary Packet implementation retains literal1/2 header checks and fixed
+default start1/empty-prefix hooks. The new class supplies only its explicit
+DOM-segment header, fixed start129 and fully replayed immutable predecessor.
+Existing `capture`, raw segmentation, issued-before-send WAL, archive,
+reconcile and complete-record recovery methods remain the writers. Every
+history reopens its actual original prefix and brackets all active reads with
+a complete file inventory. The current guard's identity, physical scope and
+held lock remain required during construction, reads and saves; no new SDK,
+transport factory or authentication selector is introduced.
+
+Pending/issued/failed rows, unsafe raw digests, partial originals and record
+write intent remain durably owned in this explicit segment. A failed or
+abandoned archived row keeps this first active profile blocked. Archiving an
+unknown query does not admit another query or turn it into a successful
+observation. A complete actually saved returned record may be recovered by its
+unchanged global index and actual inode without another send. Lost CAS returns
+cannot reconstruct a missing query result, and reconstruction never resends.
+
+The normal SourceOwner and Packet constructors still refuse the fenced head.
+Parent historical restore continues to support completed continuation2 only;
+it rejects active continuation3 rather than silently returning its earlier129
+tail. Parent/full-feature admission remains unavailable until the other eight
+child continuations, screen32→33, aggregate continuation, whole recovery and
+retirement paths are qualified. Active SourceOwner/Packet writer2 and native
+schemas are unchanged; Feature7 and the5/14 source-complete count do not advance.
+
+The first actual inherited row130 capture passes in29.705s, including durable
+issued-before-send query130, unchanged opening originals, reconstruction with
+actual native tail130/raw cursor131, mandatory current-guard refusal and
+continued public/parent fencing. A subsequent four-case selection finishes in
+131.214s with three passing statuses (full128 active capacity, lost successful
+open/issued CAS and complete original130 recovery) and one error: its test
+expected a raw OSError, whereas the existing SourceReader correctly wraps
+that transport error as NativeUIError. Only the assertion was corrected. The
+isolated corrected unknown-send case passes in33.962s: query130 and its
+original failed clocks remain owned, raw cursor130/native floor129 are not
+invented, and archiving uncertainty still blocks another query. The failed
+unit fixture cleans its temporary files normally; its full error log remains,
+not a retained-original qualification claim. No unchanged four-case repeat was
+used or reported as a passing suite.
+
+These are five distinct active-component cases across the three selections.
+The128-row capacity fixture directly generates independent modeled original
+rows130..256 through unchanged raw/frame primitives, then reopens the actual
+bounded head; it does not claim127 production captures or native time evidence.
+A separate48-case selection passes in19.786s:46 existing Packet/Source/Fence/
+ChildRotation cases plus two pure metadata cases. They preserve literal
+metadata1/2 bytes and refuse active-cap growth, raw cursor1026, index reset,
+gapped references and a foreign active binding generation. Synthetic metadata
+references in those two syntax cases have no original-file/native authority.
+
+Registry advancement is limited to `ios-tablet-web-dom-continuation`
+writer3/read1,2,3 and the separate `ios-tablet-web-dom-active-segment`
+writer1/read1. Closed body1, existing manifests, source-packet records1/2,
+active SourceOwner/ordinary Packet writer2 and native codecs remain unchanged.

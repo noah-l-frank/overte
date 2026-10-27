@@ -132,7 +132,7 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
         # Only an explicitly bound DOM successor can replace a literal old
         # child head during this historical read. No other route or fallback.
         need(child['component']=='dom')
-        from ios.adapters.tablet_web_dom_continuation import TabletDOMClosedPrefix,decode as dom_decode,VERSION as DOM_VERSION
+        from ios.adapters.tablet_web_dom_continuation import TabletDOMClosedPrefix,decode as dom_decode,FENCE_VERSION as DOM_VERSION
         changed=PrivateFeatureState(root/child['headerName']).read()
         dom_raw,dom_state=dom_decode(changed,expected)
         need(changed['tabletWebDOMContinuationVersion']==DOM_VERSION and changed['successor'] is not None
