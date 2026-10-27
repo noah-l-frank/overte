@@ -1157,14 +1157,35 @@ Read-only boundaries preserve the actual original identities and native query
 counts. Log: `continuation5-dom-sources129-actual01.log`; retained originals:
 `.ios-host-tmp/continuation5-dom-native-n9x426kn`.
 
-UIKit5 plus generic129, the required larger simultaneous composition and old4
-actual-binding regressions remain separate coordinated obligations. No cap,
+A separate three-prefix UIKit5/DOM5/Sources case now passes1 in332.238s,
+outer480. All three literal128 predecessors exist before the same nine-child
+parent fence. The existing durable Packet path acquires actual DOM129,
+UIKit129 and Sources129, without precreated129 originals. A fresh UIKit5
+reader independently invokes the actual Sources own-original proof, then
+acquires UIKit130 while preserving the original cumulative UIKit arrays.
+The historical parent returns DOM129, UIKit130 and Sources129 while keeping
+globalIndex1 and the original document/UIKit/source frame sequences1. The own UIKit
+reader bypasses native-peer admission and returns only its historical
+subgraph, with no peer authority; the superseded DOM reader refuses entry.
+
+All5591 source/launcher byte/stat/SHA pins remain unchanged. The new scope
+retains1190 original files/1191 nodes; two post-stop original censuses agree,
+and the bound runner/timeout/supervisor processes are gone. Log:
+`tablet-uikit5-native-peer-first-20261027/test-first.log`; retained originals:
+`.ios-host-tmp/continuation5-dom-native-d3rgfonh`. Native/UIKit/Qt producers
+and clocks remain declared host models. This case proves the stated
+original-file composition, not physical input, native execution, whole
+Source acquisition, feature cleanup or a complete Feature7 adapter.
+
+Uncovered generic native-peer129 cases, the required larger simultaneous
+composition and old4 actual-binding regressions remain separate obligations. No cap,
 native clock, shared store,1.5-second acquisition/five-second file deadline,
 public SourceReady or whole Feature7 capability changes. Native code remains
 uncompiled and devices untested.
 
-Final common verification is five approved suites PASS7.03s under every
-active editor's confirmed source freeze, with versions,881-file documentation
+The earlier writer5 packet's common verification is five approved suites
+PASS7.03s under every active editor's confirmed source freeze, with versions,
+881-file documentation
 and whitespace checks green. The earlier common attempt preceded the last
 freeze acknowledgement and is retained separately without qualifying this
 source revision. No unchanged native/clock flow was retried.

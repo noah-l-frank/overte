@@ -51,15 +51,36 @@ Log: `continuation5-dom-sources129-actual01.log`; all originals remain under
 query WAL. Native producers and clocks are declared models; no physical input,
 native execution, real-time performance or full Feature7 follows.
 
+A separate three-prefix UIKit5/DOM5/Sources case now passes1 in332.238s,
+outer480. All three literal128 predecessors exist before the same nine-child
+parent fence. The existing durable Packet path acquires actual DOM129,
+UIKit129 and Sources129, without precreated129 originals. A fresh UIKit5
+reader independently invokes the actual Sources own-original proof, then
+acquires UIKit130 while preserving the original cumulative UIKit arrays.
+The historical parent returns DOM129, UIKit130 and Sources129 while keeping
+globalIndex1 and the original document/UIKit/source frame sequences1. The own UIKit
+reader bypasses native-peer admission and returns only its historical
+subgraph, with no peer authority; the superseded DOM reader refuses entry.
+
+All5591 source/launcher byte/stat/SHA pins remain unchanged. The new scope
+retains1190 original files/1191 nodes; two post-stop original censuses agree,
+and the bound runner/timeout/supervisor processes are gone. Log:
+`tablet-uikit5-native-peer-first-20261027/test-first.log`; retained originals:
+`.ios-host-tmp/continuation5-dom-native-d3rgfonh`. Native/UIKit/Qt producers
+and clocks remain declared host models. This case proves the stated
+original-file composition, not physical input, native execution, whole
+Source acquisition, feature cleanup or a complete Feature7 adapter.
+
 The two continuation registry entries/REQUIRED now match5/read1..5;
 team-owned Chat/Assets registry entries are preserved. No active-body version,
 original clock, query/file deadline, cap, shared store or public SourceReady
-changes. UIKit5 plus a changed generic peer, all required simultaneous child
+changes. Uncovered generic native-peer129 cases, larger simultaneous child
 composition and old4 actual first-bind regressions remain required packets;
 Root owns their exclusive heavy-test windows. This checkpoint remains partial,
 with5/14 source-complete areas, native compilation unverified and devices
-untested. Final common verification under all editors' confirmed source freeze
-passes the five approved suites in7.03s, plus coherent versions,881-file
+untested. The earlier17-path writer5 packet's common verification under all
+editors' confirmed source freeze passes the five approved suites in7.03s,
+plus coherent versions,881-file
 documentation and whitespace checks. Log:
 `continuation5-project-checks-confirmed-freeze.log`. The earlier7.03s common
 run started before the last editor's explicit freeze acknowledgement; its

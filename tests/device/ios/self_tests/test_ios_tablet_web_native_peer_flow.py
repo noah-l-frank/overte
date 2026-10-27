@@ -16,6 +16,8 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from ios.adapters import tablet_web_dom_continuation as dom_closed,tablet_web_dom_segment as dom
 from ios.adapters import tablet_web_dom_original_link as dom_own
+from ios.adapters import tablet_web_uikit_continuation as uikit_closed,tablet_web_uikit_segment as uikit
+from ios.adapters import tablet_web_uikit_original_link as uikit_own
 from ios.adapters import tablet_web_native_child_continuation as native,tablet_web_child_rotation as parent
 from ios.self_tests import test_ios_tablet_web_native_child_continuation as existing
 from ios.self_tests import test_ios_tablet_web_source_owner as source_fixture
@@ -122,6 +124,65 @@ class TabletNativePeerDOMFlowTests(unittest.TestCase):
             own=self.own_dom()
         self.assertEqual(later,own['nativeFloor']);self.assertTrue(own['subgraphOnly']);self.assertFalse(own['peerAuthority'])
         self.assertEqual(counts,self.f.fixture.native_counts());self.assertEqual(originals,self.f.fixture.originals())
+
+
+class TabletNativePeerUIKitFlowTests(unittest.TestCase):
+    """A separate three-prefix bridge; no inherited DOM test is rerun."""
+    @classmethod
+    def setUpClass(cls):existing.TabletNativeChildContinuationTests.setUpClass()
+
+    setUp=TabletNativePeerDOMFlowTests.setUp
+    dom_arguments=TabletNativePeerDOMFlowTests.dom_arguments
+
+    def start(self):
+        self.boundary.frame['document'].update(status='unavailable',source={})
+        # UIKit's independent DOM dependency makes this a three-prefix scope.
+        # All three literal128 heads precede the same nine original descriptors.
+        self.f.build(['sources','dom','uikit'])
+        value=dom_closed.prepare(self.s);dom_closed.install(self.s,value)
+        dom_prefix=dom_closed.TabletDOMClosedPrefix(*self.dom_arguments()[:-1],monotonic=self.s.monotonic)
+        dom_prefix.copy();dom_prefix.index()
+        first_dom=dom.open_initial_segment(*self.dom_arguments(),**self.f.clocks())
+        dom129=first_dom.capture(self.boundary.reader('dom'))
+        value=uikit_closed.prepare(self.s);uikit_closed.install(self.s,value)
+        ui_prefix=uikit_closed.TabletUIKitClosedPrefix(*self.dom_arguments()[:-1],monotonic=self.s.monotonic)
+        ui_prefix.copy();ui_prefix.index()
+        first_ui=uikit.open_initial_segment(*self.dom_arguments(),**self.f.clocks())
+        self.assertEqual(5,first_ui.closed.state['tabletWebUIKitContinuationVersion'])
+        ui129=first_ui.capture(self.boundary.reader('uikit'))
+        self.f.complete('sources');source=self.f.open('sources')
+        self.assertIsNone(source.closed.state['firstRecord']);self.assertEqual([],source.state['records'])
+        source129=source.capture(self.boundary.reader('sources'))
+        return first_dom,first_ui,dom129,ui129,source129
+
+    def test_actual_UIKit5_proves_sources129_before_normal130_and_preserves_original_DOM_and_parent(self):
+        first_dom,first_ui,dom129,ui129,source129=self.start()
+        self.assertEqual((129,129,129),(dom129['sequence'],ui129['sequence'],source129['sequence']))
+        counts=self.f.fixture.native_counts();originals=self.f.fixture.originals()
+        with self.assertRaises(NativeUIError):first_ui.history()
+        proof=native.read_own;seen=[]
+        def actual(*args,**kwargs):
+            result=proof(*args,**kwargs);seen.append(deepcopy(result));return result
+        with patch.object(native,'read_own',actual):
+            current=uikit.TabletUIKitSegment(*self.dom_arguments(),**self.f.clocks())
+        self.assertEqual(1,len(seen));self.assertEqual('sources',seen[0]['component'])
+        self.assertTrue(seen[0]['historicalOnly']);self.assertTrue(seen[0]['subgraphOnly']);self.assertFalse(seen[0]['peerAuthority'])
+        self.assertEqual(source129,seen[0]['nativeFloor']);self.assertEqual(ui129,current.history()[-1])
+        self.assertEqual(counts,self.f.fixture.native_counts());self.assertEqual(originals,self.f.fixture.originals())
+        ui130=current.capture(self.boundary.reader('uikit'));self.assertEqual(130,ui130['sequence'])
+        for key in ('objects','targets','contacts','dispatches','pendingDispatches'):
+            self.assertEqual(ui130[key],current.history()[-1][key])
+        s=self.s;counts=self.f.fixture.native_counts();originals=self.f.fixture.originals()
+        historical=parent.restore(s.root,s.binding,s.run,s.role,s.fixture,s.pid,s.lock,monotonic=s.monotonic)
+        self.assertEqual(dom129,historical['children']['dom']);self.assertEqual(ui130,historical['children']['uikit'])
+        self.assertEqual(source129,historical['children']['sources']);self.assertEqual(1,historical['globalIndex'])
+        self.assertEqual(1,historical['frames'][0]['document']['sequence'])
+        self.assertEqual(1,historical['frames'][0]['touches']['sequence']);self.assertEqual(1,historical['frames'][0]['sources']['sequence'])
+        with patch.object(native,'read_own',side_effect=AssertionError('No native peer authority from own UIKit')):
+            own=uikit_own.read(s.root,s.binding,s.run,s.role,s.fixture,s.pid,s.lock,monotonic=s.monotonic)
+        self.assertEqual(ui130,own['nativeFloor']);self.assertTrue(own['subgraphOnly']);self.assertFalse(own['peerAuthority'])
+        self.assertEqual(counts,self.f.fixture.native_counts());self.assertEqual(originals,self.f.fixture.originals())
+        with self.assertRaises(NativeUIError):first_dom.history()
 
 
 if __name__=='__main__':unittest.main()
