@@ -20,8 +20,13 @@ Its projection/transport connection is a declared model seam. A second fresh
 case also passes through the original saved-reference callback and live-proof
 wrapper, with missing/changed/unadmitted references rejected before the named
 inner Scene/Login/Marker join model. The real whole closure and Actor-only
-factory remain open. No additional complete-area capability or whole-run result
-follows from these component cases.
+factory remain open. A subsequent genuine `TerminalDomain` prefix now passes
+through ordinary producers to the pre-Final boundary, retaining 676 unchanged
+original files. A separate file-only profile exercises the real Actor Scene
+retirement callback with its actual Scene/Login/Marker closure in 13.942 seconds.
+This adds no Final/terminal/end qualification or comparison speed claim. No
+additional complete-area capability or whole-run result follows from these
+component cases.
 
 
 ## Historical explicit pause

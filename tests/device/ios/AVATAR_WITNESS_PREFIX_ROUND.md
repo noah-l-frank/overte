@@ -193,3 +193,67 @@ real producer, a predeclared bounded stop/checkpoint and retained exact original
 files. Neither the rejected stale-device archive nor another narrower model
 can provide it. No unchanged whole-timeout retry or renewed production deadline
 has been authorized by this component result.
+
+## Genuine fresh closure producers and Actor Scene callback
+
+The next bounded selection uses the existing `TerminalDomain`, original
+`AvatarHeldTerminalTests.prepare`, independent role API contexts and the
+existing cooperative Scene schedule. The actual preparation, baseline
+observations, checkpoints, native Scene barriers, Scene publication, ordered
+account logout, postlogout/account-surface reads and authority retirement run
+without a replacement Feature predicate or decoder. Only outer stage timings
+are added. Native/SDK/GPU boundaries remain the declared host fixture models;
+HTTPS authority and Node Script producers run through their ordinary fixtures.
+
+The case deliberately stops immediately before the first Final round. Both
+actual Feature owners remain `cleaning`; neither a Final file nor a saved
+`final-ready`/`final-observation` exists. Existing `retain_owned_root` keeps the
+genuine new original identities. The selection passes in 207.814 seconds under
+a fixed 360-second outer bound. All 676 original files and complete directory/
+byte/stat inventories remain unchanged after fixture teardown. All 4,068
+selected test/device, Script-JS, hifi-QML and private-launcher source hashes
+remain unchanged. The largest measured stages are Actor Scene publication
+(56.790 seconds), paired Scenes (56.114 seconds) and Actor checkpoint
+(13.213 seconds). These are stage observations, not a timing comparison.
+
+Evidence and current original roots are retained under
+`.ios-host-tmp/avatar-genuine-closure-prefix-20261027/`: `producer.log`,
+`producer-report.json`, `originals-after-fixture-cleanup.json` and the source
+manifests. Its original roots are `tmplpvr_vum` and `tmp_6lmlw_c` in that
+private prefix. No old stale-device snapshot was repaired or reused.
+
+This actual graph contains one published Actor Scene retirement record,
+ordinal 1, with SHA-256
+`8328e38a627597739295243938ef7c0b3de3c8aead4d15e6327a476e66f26035`.
+Its metadata/body version is 5 and its journal has no pending intent. A
+separately authorized fixed-180-second file-only profile calls the actual
+`PhaseRetirementPublisher.archive/decode`, `IOSAvatarFeature.retirement_original`,
+`scoped_scene`, `Scene.joined` and original Login/Marker lifetime readers.
+The canonical `IOSAvatarFeature.archive` reconstructs the actual Actor metadata
+with its original bindings and authority scope. No metadata carrier, modeled
+inner join or replacement validator callback is introduced on this traversal.
+
+That literal profile exits 0 in 13.942 profiled host seconds. The separate cold
+Feature archive takes 0.023 seconds. The complete decoded state equals the
+actual saved publisher state and hashes to
+`429b49aff74f66e95e7654a376344053a6d5ad679826a20ce6cc6c8d5c456267`.
+It reads 856 original frames and 3,824 private metadata envelopes through 9,385
+instrumented open calls. Typed membership and independently observed read paths each contain
+234 original files. All 676 original files/directory pins remain unchanged;
+all 4,073 selected source/JS/QML/launcher hashes match their before-selection
+inventory. SDK, HTTP/native requests, process startup and filesystem writes are
+forbidden throughout the closed traversal. The real Actor binding is preserved.
+
+The profile attributes 11.407 cumulative seconds to the one `Scene.joined`;
+15 `restored_sources` calls account for 6.598 cumulative seconds below it.
+These nested times are not additive. Logs, exact input/output references,
+source inventories and cProfile data are retained alongside the producer in
+`actor-scene-profile.log`, `actor-scene-profile-report.json` and
+`actor-scene-profile.pstats`. They identify a measured read/validation path;
+no optimization or speed improvement is established by this one profile.
+
+The genuine Actor Scene callback is now exercised with its actual connected
+closure, including independent sources, authority, Login and Marker originals.
+Final native quiet, a complete terminal witness callback, Actor process end,
+canonical end/worker closure and the complete Feature remain unqualified.
+The fixture SDK/Node teardown is not product process-retirement evidence.
