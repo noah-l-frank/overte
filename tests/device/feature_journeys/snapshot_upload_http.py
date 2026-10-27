@@ -13,7 +13,8 @@ def handle(handler,parsed):
     provider=getattr(handler.server,'snapshot_upload_provider',None);handler.close_connection=True
     if provider is None or not isinstance(handler.connection,ssl.SSLSocket) or handler.connection.version() not in ('TLSv1.2','TLSv1.3'):
         handler.send(404,dict(error='not-found'));return True
-    if parsed.scheme or parsed.netloc or parsed.query or parsed.fragment:raise ValueError('Invalid original Snapshot route')
+    concurrency=parsed.path==STORIES and handler.command=='GET' and bool(parsed.query)
+    if parsed.scheme or parsed.netloc or parsed.fragment or parsed.query and not concurrency:raise ValueError('Invalid original Snapshot route')
     auth=handler.headers.get_all('Authorization',[]);lengths=handler.headers.get_all('Content-Length',[]);types=handler.headers.get_all('Content-Type',[]);hosts=handler.headers.get_all('Host',[])
     if len(auth)!=1 or len(auth[0])>512 or len(lengths)>1 or len(types)>1 or len(hosts)!=1 or not hosts[0].isascii() or len(hosts[0])>512 or handler.headers.get('Transfer-Encoding') or handler.headers.get('Content-Encoding'):
         raise ValueError('Invalid bounded original Snapshot headers')
@@ -27,6 +28,11 @@ def handle(handler,parsed):
     elif size:raise ValueError('Original Snapshot read/delete cannot carry a body')
     from feature_journeys.server import read_account_body
     raw=read_account_body(handler.rfile,handler.connection,size) if size else b''
+    if concurrency:
+        if provider.concurrency is None:handler.send(503,dict(error='snapshot-domain-policy-unavailable'));return True
+        with provider.concurrency.response(parsed.query,auth[0]) as response:
+            status,body,response_id,written=response;handler.send(status,body,response_id=response_id,observe_write=written)
+        return True
     with provider.response(handler.command,parsed.path,types[0] if types else '',raw,auth[0],'https://'+hosts[0]) as response:
         status,body,response_id,written=response
         handler.send(status,body,content_type='image/png' if status==200 and parsed.path.endswith('/image') else 'application/json',response_id=response_id,observe_write=written)
@@ -49,6 +55,9 @@ def run_handle(handler,parts,body,*,reader,actor,adapter_reader):
         nonces=handler.headers.get_all('X-Overte-Snapshot-Read',[])
         if len(nonces)!=1:raise ValueError('One original Snapshot read nonce is required')
         handler.send(200,provider.original(run,identifier(nonces[0]),'source'));return True
+    if handler.command=='GET' and route==['preflight'] and (reader or actor or adapter_reader):
+        if provider.concurrency is None:handler.send(503,dict(error='snapshot-domain-policy-unavailable'));return True
+        handler.send(200,provider.concurrency.snapshot(run));return True
     if handler.command=='GET' and len(route)==3 and route[0]=='bodies' and (reader or actor or adapter_reader):
         nonces=handler.headers.get_all('X-Overte-Snapshot-Read',[])
         if len(nonces)!=1 or not re.fullmatch('0|[1-9][0-9]{0,7}',route[2]):raise ValueError('One exact original Snapshot body query is required')

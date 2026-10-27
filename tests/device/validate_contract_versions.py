@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "snapshot-domain-policy": 1,
+    "snapshot-concurrency": 1,
     "snapshot-upload-backend": 1,
     "snapshot-upload-backend-body": 1,
     "snapshot-upload-backend-export": 1,

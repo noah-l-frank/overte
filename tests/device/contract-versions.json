@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "snapshot-domain-policy": {"current": 1, "reads": [1]},
+    "snapshot-concurrency": {"current": 1, "reads": [1]},
     "snapshot-upload-backend": {"current": 1, "reads": [1]},
     "snapshot-upload-backend-body": {"current": 1, "reads": [1]},
     "snapshot-upload-backend-export": {"current": 1, "reads": [1]},

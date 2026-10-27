@@ -101,6 +101,8 @@ class DomainControlHandler(BaseHTTPRequestHandler):
     create_rez = None
     assets_backend = None
     assets_reader_token = None
+    snapshot_domain_policy = None
+    snapshot_domain_reader_token = None
 
     def assets_observation(self) -> None:
         """A separate credential can request only closed passive observations."""
@@ -137,6 +139,10 @@ class DomainControlHandler(BaseHTTPRequestHandler):
             self.send_error(503, "owned Assets observation is unavailable")
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        if self.path == "/v1/snapshot-domain-policy":
+            from fixture.snapshot_domain_policy import serve
+            serve(self)
+            return
         if self.path not in {"/v1/collaboration-state", "/v1/messages-mixer-state"} or self.headers.get("X-Overte-E2E-Token") != self.token:
             self.send_error(404)
             return
@@ -433,6 +439,8 @@ def parse_args() -> argparse.Namespace:
                         help="Opt in isolated Create rez permission control through the normal owned domain settings API.")
     parser.add_argument("--feature-assets-backend", action="store_true",
                         help="Opt in passive original AssetServer observations; requires Linux and an instrumented owned Assignment Client.")
+    parser.add_argument("--feature-snapshot-domain-policy", action="store_true",
+                        help="Opt in passive owned domain identity and effective Snapshot sharing-policy observations; changes no permission.")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     for name in ("domain_port", "http_port"):
@@ -749,20 +757,33 @@ def main() -> int:
         DomainControlHandler.create_rez = None
         DomainControlHandler.assets_reader_token = assets_reader_token
         DomainControlHandler.assets_backend = staticmethod(assets_backend_control) if assets_reader_token is not None else None
+        # This is an actual read-only process binding. Defining it does not
+        # prepare Create permissions or start/change any service.
+        def owned_create_domain():
+            need(stack_state == "online" and domain_process is not None
+                 and domain_process.poll() is None and owned_processes.matches(domain_process.pid))
+            actual = Path("/proc") / str(domain_process.pid)
+            fields = (actual / "stat").read_text().rsplit(")", 1)[1].split()
+            need(len(fields) > 19 and fields[0] not in ("Z", "X") and fields[19].isdecimal()
+                 and (actual / "exe").resolve() == domain_server.resolve())
+            command = (actual / "cmdline").read_bytes().split(b"\0")
+            need(command.count(b"--user-config") == 1
+                 and command[command.index(b"--user-config") + 1] == os.fsencode(config_path))
+            env = (actual / "environ").read_bytes().split(b"\0")
+            need(f"HIFI_DOMAIN_SERVER_HTTP_PORT={args.http_port}".encode() in env)
+            return {"processId": domain_process.pid, "startIdentity": fields[19], "domainId": domain_id}
+        snapshot_domain_reader = None
+        DomainControlHandler.snapshot_domain_policy = None
+        DomainControlHandler.snapshot_domain_reader_token = None
+        if getattr(args, "feature_snapshot_domain_policy", False):
+            from fixture.snapshot_domain_policy import SnapshotDomainPolicy
+            snapshot_domain_reader = SnapshotDomainPolicy(f"http://127.0.0.1:{args.http_port}", owned_create_domain)
+            def snapshot_domain_observation(run, nonce):
+                with transition_lock:
+                    return snapshot_domain_reader.read(run, nonce)
+            DomainControlHandler.snapshot_domain_policy = staticmethod(snapshot_domain_observation)
+            DomainControlHandler.snapshot_domain_reader_token = secrets.token_urlsafe(32)
         if getattr(args, "feature_create_rez", False):
-            def owned_create_domain():
-                need(stack_state == "online" and domain_process is not None
-                     and domain_process.poll() is None and owned_processes.matches(domain_process.pid))
-                actual = Path("/proc") / str(domain_process.pid)
-                fields = (actual / "stat").read_text().rsplit(")", 1)[1].split()
-                need(len(fields) > 19 and fields[0] not in ("Z", "X") and fields[19].isdecimal()
-                     and (actual / "exe").resolve() == domain_server.resolve())
-                command = (actual / "cmdline").read_bytes().split(b"\0")
-                need(command.count(b"--user-config") == 1
-                     and command[command.index(b"--user-config") + 1] == os.fsencode(config_path))
-                env = (actual / "environ").read_bytes().split(b"\0")
-                need(f"HIFI_DOMAIN_SERVER_HTTP_PORT={args.http_port}".encode() in env)
-                return {"processId": domain_process.pid, "startIdentity": fields[19], "domainId": domain_id}
             authority = CreateRezAuthority(f"http://127.0.0.1:{args.http_port}",
                 PrivateFeatureState(output / "create-rez-settings.json"), owned_create_domain)
             authority.prepare()
@@ -797,12 +818,15 @@ def main() -> int:
             ready["assetsBackendReader"] = dict(url=f"http://127.0.0.1:{control.server_address[1]}/v1/assets-backend", token=assets_reader_token,
                 domainId=domain_id, processIdentity=backend_process.process_identity, executableSha256=backend_process.sha256,
                 ownerSha256=backend_process.owner_sha256, sourceRootIdentity=backend_process.root)
+        if snapshot_domain_reader is not None:
+            ready["snapshotDomainReader"] = dict(url=f"http://127.0.0.1:{control.server_address[1]}/v1/snapshot-domain-policy",
+                token=DomainControlHandler.snapshot_domain_reader_token, binding=snapshot_domain_reader.binding, instance=snapshot_domain_reader.instance)
         if args.feature_chat_receiver and mixer is not None:
             ready["messagesMixerControlUrl"] = f"http://127.0.0.1:{control.server_address[1]}/v1/messages-mixer-state"
         if args.ready_file:
             atomic_json(args.ready_file.resolve(), ready)
         print(json.dumps({key: value for key, value in ready.items()
-                          if key not in {"controlToken", "assetsBackendReader"}}, sort_keys=True), flush=True)
+                          if key not in {"controlToken", "assetsBackendReader", "snapshotDomainReader"}}, sort_keys=True), flush=True)
         while not stopping.wait(0.25):
             # Serialize monitoring with an intentionally stopped service. Other
             # processes remain alive and are checked immediately afterwards.

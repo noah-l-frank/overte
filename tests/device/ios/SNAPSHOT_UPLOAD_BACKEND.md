@@ -82,8 +82,11 @@ failed-upload then successful-upload composition, background return, backend
 source/fixture retirement and paired main process/SDK closure remain open.
 The actual Script also performs a concurrency-query GET on
 `/api/v1/user_stories` to establish domain shareability before native Upload.
-That preflight is still modeled by the host UI/Script boundary; the optional
-provider does not implement it yet. It must be joined to independently observed
-owned-domain online/shareability state before the complete normal Script path
-can qualify. Requested IDs, an input ACK or a hardcoded nonempty result cannot
-substitute for that source.
+The [measured domain-policy preflight](SNAPSHOT_DOMAIN_PREFLIGHT.md) now supplies
+an optional controlled-fixture concurrency projection from independently read
+owned-domain identity/effective policy and actual account scope. Actual Script
+and request-module cases distinguish an allowed share from ACL/foreign-domain/
+revoked-account denial and stale-review callback exclusion. Durable preflight
+original admission into this owner and real external metaverse registration
+remain separate obligations; requested IDs, an input ACK or a hardcoded
+nonempty result cannot substitute for that source.

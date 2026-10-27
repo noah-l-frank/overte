@@ -33,11 +33,15 @@ def sha(raw):return hashlib.sha256(raw).hexdigest()
 
 
 class SnapshotUploadProvider:
-    def __init__(self,authenticate,*,epoch_ms=lambda:int(time.time()*1000),monotonic=time.monotonic):
+    def __init__(self,authenticate,*,epoch_ms=lambda:int(time.time()*1000),monotonic=time.monotonic,domain_client=None):
         if type(authenticate) is not AccountAuthenticator or not callable(epoch_ms) or not callable(monotonic):
             raise ValueError('Actual original Snapshot OAuth authority and clocks are required')
         self.authenticate,self.epoch_ms,self.monotonic=authenticate,epoch_ms,monotonic
         self.lock=threading.RLock();self.instance=secrets.token_hex(16);self.runs={};self.retired=set();self.last_epoch=0;self.last_mono=0.;self.sequence=0;self.story_id=0
+        self.concurrency=None
+        if domain_client is not None:
+            from feature_journeys.snapshot_concurrency import SnapshotConcurrency
+            self.concurrency=SnapshotConcurrency(self,domain_client)
     def clock(self):
         epoch,mono=self.epoch_ms(),self.monotonic()
         if type(epoch) is not int or epoch<max(1,self.last_epoch) or type(mono) not in (int,float) or not math.isfinite(mono) or not self.last_mono<=mono<1e15:
@@ -199,6 +203,7 @@ class SnapshotUploadProvider:
                 raise ValueError('Actual Snapshot OAuth authority remains active')
             if any(request['left'] is None or request['prepared'] is None or not (request['written'] or request['writeFailed']) for request in row['requests'].values()):
                 raise ValueError('Snapshot backend response responsibility remains uncertain')
+            if self.concurrency is not None:self.concurrency.assert_quiet_locked(run)
             row['fenceClock']=self.clock();row['fenced']=True;self.event(run,'authority-fenced',accountOriginal=authority)
     def retirement_ready(self,run):
         row=self.runs[run];now=self.clock()
@@ -225,6 +230,7 @@ class SnapshotUploadProvider:
         identifier(run)
         with self.lock:
             row=self.retirement_ready(run)
+            if self.concurrency is not None:self.concurrency.assert_quiet_locked(run)
             if any(upload['retired'] is None or upload['body'] is not None for upload in row['uploads'].values()) or any(story['deleted'] is story['retired'] is None for story in row['stories'].values()):
                 raise ValueError('Snapshot backend still owns original bodies or stories')
             return True

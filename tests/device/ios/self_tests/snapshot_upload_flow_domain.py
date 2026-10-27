@@ -53,17 +53,19 @@ class SnapshotUploadFlowDomain(SnapshotJourneyFilesDomain):
             if control=='snapshot.upload.0':
                 self.upload_count+=1
                 if not self.ignore_upload:
-                    self.call_sequence+=1;call=self.call_sequence;self.event('entry','onMessage',call)
-                    self.script_state['pendingUploads']+=1;self.event('returned','onMessage',call);self.event('finally','onMessage',call)
-                    self.upload=self.new_upload()
-                    if self.auto_complete:self.upload.complete(close_fd=not self.hold_fd);self.script_completion()
-                    else:self.upload.request('upload')
+                    self.dispatch_upload()
             else:
                 self.upload_cancel_count+=1;need(self.upload is not None);self.upload.cancel(close_fd=not self.hold_fd);self.script_completion()
             native.receipt['status']['sampleEpochMs']=max(int(native.receipt['status']['sampleEpochMs']),native.epoch);native.event(key,'returned',native.receipt);self.advance()
             if self.lost_upload:self.lost_upload=False;raise OSError('Declared lost actual ordinary Upload return')
             return result
         case.enterContext(patch.object(normal_input,'urlopen',send))
+    def dispatch_upload(self):
+        self.call_sequence+=1;call=self.call_sequence;self.event('entry','onMessage',call)
+        self.script_state['pendingUploads']+=1;self.event('returned','onMessage',call);self.event('finally','onMessage',call)
+        self.upload=self.new_upload()
+        if self.auto_complete:self.upload.complete(close_fd=not self.hold_fd);self.script_completion()
+        else:self.upload.request('upload')
     def new_upload(self):return UploadDomain(self.case,path=self.f.f.h.path,version=2,now=self.epoch)
     def script_completion(self):
         self.call_sequence+=1;call=self.call_sequence;self.event('entry','onNativeUploadStatus',call)
