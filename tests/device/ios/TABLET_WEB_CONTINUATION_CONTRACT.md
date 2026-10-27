@@ -541,3 +541,43 @@ SourceOwner, Fence and ChildRotation cases, two metadata cases and the adapted
 active-row130 case. The four new selector cases pass separately as1/39.143s
 and3/97.076s; no whole Journey, native timing or physical-device result is
 inferred from these host fixtures.
+
+## Scoped DOM original link during a peer storage rotation
+
+A second child cannot currently rotate underneath the live DOM segment: its
+guard deliberately pins all eight peer heads to the original parent
+descriptors. Making that live guard accept an unqualified successor would
+weaken the existing admission boundary. The next prerequisite is therefore
+the isolated `tablet_web_dom_original_link.read` archive reader.
+
+It validates its actual held lock and physical scope, current DOM head,
+unchanged parent signature/hash and fully read parent copy, original DOM
+capsule/descriptor, DOM copy and manifest, all128 old rows/raws and the entire
+completed active portion. It uses the existing forced-historical DOM segment
+and global reference/native/raw continuity checks. Pending, failed, unsafe or
+partial DOM responsibility cannot produce a complete link result. No current
+SDK guard, epoch sampler, query, input or metadata mutation is invoked.
+
+The scope also captures and actually reads the current peer header bytes and
+file identities before/after its own original graph. Those comparisons prove
+continuity during this read, not that a changed peer is valid or native-ready.
+A same-byte peer inode replacement inside the read invalidates it. The result
+is explicitly `component: dom`, `subgraphOnly: true`, `peerAuthority: false`,
+`historicalOnly: true`, `phase: rotating`. It provides no peer/whole-source
+authority. The private prefix cannot save intents or copies; its reader never
+escapes, and its lifetime ends in `finally` even after failure.
+
+Live DOM guard and parent all-nine selector retain their existing strict peer
+checks. This helper allows a later UIKit predecessor/copy to inspect the
+already owned DOM originals without recursive live peer admission. It does
+not itself introduce UIKit continuation, SourceReady or a new transport,
+serialized codec, cap, native floor or deadline.
+
+Two explicit original-link cases pass in56.567s. A same-byte UIKit head
+replacement before entry leaves the live DOM guard and all-nine parent
+selector blocked; only the independently validated DOM130 subgraph is returned.
+Its original bytes/device/inodes/mtime/ctime and native/SDK counters remain
+unchanged. The captured private scope is dead after return and cannot persist
+or reread data. A peer inode change during actual original reads and a foreign
+binding generation refuse the result without another native query. These
+host-model cases do not qualify UIKit, peer readiness or a physical device.
