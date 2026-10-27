@@ -41,6 +41,28 @@ class WorldWebObserver:
         origins=self.origins,payload=pack([state]))
     def record_store(self,index):return PrivateFeatureState(self.store.path.with_name('ios-world-web-'+self.role+'-observation-'+str(index)+'.json'))
     def entries(self):
+        if self._round is None:return self._entries()
+        context=self._round
+        key=(digest([self.state['records'],self.binding,self.run,self.role,str(self.store.path)]),
+            tuple(getattr(method,'__func__',method) for method in (self._entries,self.record_store,unpack)))
+        def signature(path):
+            try:return EmoteOriginalLease.signature(path.lstat())
+            except FileNotFoundError:need(False)
+        def guard(pins):
+            for path,original in pins.items():need(signature(path)==original)
+        prior=context.get('entries')
+        if prior is not None and prior[0]==key and prior[2].matches():
+            guard(prior[3]);entries=deepcopy(prior[1]);guard(prior[3]);return entries
+        paths={self.record_store(row['index']).path for row in self.state['records']}
+        pins={path:signature(path) for path in paths}
+        entries=self._entries();guard(pins)
+        # One current reference prefix, bounded by the original 256 records.
+        # No entry/observation/current verdict survives this readonly round.
+        # The enclosing round still guards the complete root inventory and
+        # current Source/Scope/WAL boundaries. This local reuse guards only
+        # these already-read immutable carriers, as the literal reader does.
+        context['entries']=(key,entries,OriginalMembership(),pins);return deepcopy(entries)
+    def _entries(self):
         entries=[]
         for reference in self.state['records']:
             carrier=self.record_store(reference['index']).read();need(carrier is not None and digest(carrier)==reference['sha256'])

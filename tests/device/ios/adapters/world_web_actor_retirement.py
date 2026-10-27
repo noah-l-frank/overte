@@ -219,13 +219,21 @@ class WorldWebActorRetirement:
         with self.observer.validation_round():
             self.current_originals()
             context=_ORIGINALS.get();cache=None if context is None else context['originals'];memo=cache is not None
-            # The complete actual original graph and mutable owner context are
-            # part of this API-local key. New source acquisition, owner state,
-            # lease or header cannot inherit an earlier deterministic result.
-            key=digest([value,self.state,self.previous,self.observer.state,self.observer.previous,
-                self.observer.round_header(),self.source._round,self.peer._round,
+            # The readonly Source round has decoded the complete actual graph
+            # and guards its original byte/inode inventory. Its exact durable
+            # header and state bind those validated frame references; hashing
+            # the expanded private DTOs again supplies no new original read.
+            # New acquisitions, parser, owner, census or lease cannot inherit
+            # an earlier result. Public data still receives separate copies.
+            boundary=digest([value,self.state,self.previous,self.observer.state,self.observer.previous,
+                self.observer.round_header(),self.source._round[:2],self.peer._round[:2],
                 self.source.historical,self.peer.historical,
                 None if self.observer.lease is None else [self.observer.lease.packet(),self.observer.lease.scope.previous]])
+            methods=(self._validate_original,self.decode,self._decode,self.qualification,self._historical_frames,
+                self._measure,self.native_frames,self.observer.derive,self.observer._derive,self.observer.validate_original,
+                self.observer.entries,self.observer._entries)
+            for owner in (self.source,self.peer):methods+=(owner._decode,owner._decode_frames,owner.validate_frame,owner.frame,owner.parts.verify_frame)
+            key=boundary,tuple(getattr(method,'__func__',method) for method in methods)
             def guarded(pins):
                 for path,signature in pins.items():need(EmoteOriginalLease.signature(path.lstat())==signature)
                 self.current_originals()

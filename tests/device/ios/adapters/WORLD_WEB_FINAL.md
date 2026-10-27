@@ -570,3 +570,35 @@ acquisitions take 0.527–0.644 s, cleanup returns at 1.235 s and publication ex
 at 1.505 s. The original final-opener 1.5 s guard still rejects delivery. The
 four-case command finishes in 14.824 s with one error; no overall or
 publication PASS is claimed, no input is retried and both actual roots remain.
+
+## Exact Actor boundaries and current CPU publication
+
+The Actor original-result memo now binds the exact already-decoded durable
+Source headers and reference states rather than repeatedly hashing expanded
+private frame DTOs. Participating decoder functions are strong key members.
+Complete actual byte decoding, current file/inventory/WAL/Scope guards, exact
+read membership and the unchanged 64-result bound still precede reuse.
+
+The Observer separately retains one current decoded record prefix only in its
+existing readonly round, within the original 256-record bound. Every carrier
+is read and hash/type-checked before reuse; exact inode/signature pins guard
+its cached uses. Returned entries remain separate copies. A different actual
+read census, run, role, binding, parser or reference prefix executes the literal
+reader again. The complete enclosing inventory and current Source/Scope/WAL
+checks remain unchanged. Six new entry cases and four existing Observer cases
+pass in 7.509 s after preserving the literal missing-carrier error behavior.
+
+The final four Actor-boundary and four current/historical Scope cases plus the
+genuine-CPU publication case all **PASS in 67.423 s**. The original CPU attempt
+includes actual Node/loopback/private-file execution and reaches authenticated
+Scene3 publication with the unchanged final HTTP opener's 1.5 s acquisition
+limit. Seven paired acquisitions take 0.569–0.587 s; cleanup returns at 1.214 s.
+Publication completes at 1.906 s including subsequent historical validation;
+that later completion is not substituted for the original acquisition clock.
+No before-send deadline, quiet interval or native bound is enlarged.
+
+The earlier 55.188 s and 65.936 s commands each passed their boundary cases but
+failed publication; their logs and actual original roots remain unchanged.
+The newer successful component does not transfer a PASS to the full nineteen
+steps, paired PNG evidence, process/SDK end, native compilation or devices.
+Native/Qt/WK/SDK producers remain explicit models.
