@@ -44,8 +44,8 @@ New files, intentionally not yet linked into runtime or schema registry:
   attempts cannot capture again; a fully saved logical original can be
   adopted after losing the parent return. Interrupted source prefixes retain
   their inode/hash; original errors survive retention failures. Missing GPU
-  metadata after entering the read remains unresolved. This successful
-  capture path is **not tested yet**.
+  metadata after entering the read remains unresolved. The successful primary
+  host-model capture and its two recovery paths now pass, as recorded below.
 - `self_tests/test_ios_assets_model_images.py`: pure declared packet/PNG tests.
 - `self_tests/test_ios_assets_image_sample.py`: actual canonical constructor and
   precondition tests, without any source/GPU capture.
@@ -71,24 +71,88 @@ Latest exact private host logs:
   remain identical. A released marker can supply only its verified historical
   ready prefix, and a loose parsed proof dictionary supplies no authority.
 
-AST checks pass. No image packet project suites, successful image acquisition,
-runtime route, source admission, global pure ownership inventory, actor sample,
-publication, comparative normal Model removal image or complete journey/end
-has qualified. Source basis/raw/acquisition names are draft, not registered.
+The original seven-path draft is secured in `10b3093aac`; its five approved
+project suites passed in 6.82 seconds. Subsequent joined-source work adds
+`self_tests/assets_image_combined_fixture.py` and
+`self_tests/test_ios_assets_image_combined.py`. AST checks pass.
+
+## Subsequent actual joined-source qualification
+
+The new fixture creates the original normal QML Model and its actual observed
+ParsedInput parent before preparing the normal staged Script marker. Both are
+on PID42/run-a, the same EntityTree identity and the same continuous native
+sequence/driver clock from initialization. Actual QML Model insertion events and
+actual marker Script return events feed the complete modeled lifetime tree.
+Only fresh producer packets are instantiated; no retained original is altered.
+The host initial camera/animation state is declared before any observation.
+
+The raster and native/parser boundaries remain declared models. Actual QML,
+staged JS, raw/logical journals, original PNG bytes, FD closure, private file
+identity and pure ownership replay execute. This is not native/device proof.
+
+Exact private logs:
+
+- `assets-image-combined-parents-first-20261027.log`: PASS1/29.110s. Actual
+  normal Model and marker share target/tree/run/clock; marker cleanup preserves
+  the already loaded Model.
+- `assets-image-sampler-owned-png-first-20261027.log`: ERROR1/24.813s before
+  any GPU/image query. The standalone fixture's `assets.lock` did not meet the
+  unchanged Vulkan child's canonical `script-feature-sources.lock` guard.
+- `assets-image-canonical-lock-first-20261027.log`: the first narrow fixture
+  patch targeted a bypassed picker constructor. The final correction targets
+  the actual upload constructor, before any owner/original exists. Existing
+  standalone fixture defaults and every runtime guard remain unchanged.
+- `assets-image-canonical-lock-final-20261027.log`: PASS1/0.071s, shared
+  canonical lock selected before original owner activity.
+- `assets-image-sampler-owned-png-canonical-20261027.log`: PASS1/31.571s.
+  Actual raw journals, immutable logical sample, Vulkan child transcript,
+  original PNG and native-model absence proof qualify. The result replays
+  after actual marker cleanup with native/HTTP/input/state writes forbidden;
+  every retained file byte and inode remains identical.
+- `assets-image-sampler-recoveries-first-20261027.log`: PASS2/59.799s. A
+  delivered native read with a lost return remains on the **same physical
+  modeled GPU child** across owner reconstruction, is retired independently,
+  and is never recaptured. A fully saved immutable logical original with a lost
+  parent return is adopted/qualified without another native/GPU query. The
+  fixture now preserves the GPU object instead of constructing an empty model
+  during recovery.
+- `assets-image-sampler-original-negatives-first-20261027.log`:
+  PASS2/60.033s. An interrupted raw write keeps the actual zero-byte prefix and
+  inode, verifies the actual Linux FD is closed, rejects changed prefix and
+  reacquisition, and never issues a GPU read. Corrupt actual PNG, raw source
+  and logical source files refuse reconstruction without native/GPU queries;
+  restoration of the exact same inode/bytes preserves legitimate qualification.
+
+No canonical image runtime factory, source admission, global pure ownership
+inventory, actor sample, publication, comparative normal Model removal image
+or complete journey/end has qualified. Source basis/raw/acquisition names
+remain unregistered. Generic Assets inspection deliberately rejects these
+unknown namespaces, keeping ordinary session replacement/cleanup closed rather
+than interpreting missing observation as resource retirement.
 
 ## Exact next work
 
-The actual basis2 selection is complete; do not repeat it unchanged. Build a
-**fresh** combined producer for successful sample capture. Current
-independent fixtures use Model PID42/run-a and Marker PID31/run-c; do not alter
-or relabel already acquired originals to combine them. Both must be instantiated
-before capture on one actual modeled target/tree/clock and follow their actual
-normal API/Script events. Retain Source/GPU lost delivery, logical saved-before-
-adoption, partial source write and pure historical replay counterexamples.
+The actual basis2, combined parent, primary sampler, recovery2 and negative2
+selections are complete; do not repeat unchanged whole selections. Continue the
+same Assets integration immediately with the canonical runtime factory, pure
+ownership admission and normal removal comparison. Restrict roots from
+independently supplied configuration; never follow an artifactRoot or filename
+from an untrusted image/marker envelope. Separate marker/image parent leases
+must remain explicit and preserve cached Model/HFM/texture/renderer/OS owners.
 
-Review the complete draft and actual entrypoints before tests. Constructor-only
-green does not qualify `capture`, `recover_completed_capture`, `qualify` or GPU
-cleanup. Keep one heavy/timing case at a time and announce terminal releases.
+Review current sampler `capture`, `recover_completed_capture`, `qualify` and
+`retire_runtime` against the now-qualified host cases. Add missing context,
+orphan/alias, actual same-source-before/after, and interrupted cleanup guards
+where required by the closed inventory/factory composition. Native absence in
+the host model does not retire real cached Model/renderer resources. Loaded
+mesh bounds/items plus global forward draw count do not alone establish a
+per-Model committed scene draw; retain normal removal/image comparison and
+actor/publication as independent required joins.
+
+Review complete source and actual entrypoints before new tests. The canonical
+constructor tests and joined host-model flows have distinct declared boundaries;
+neither upgrades the uncompiled native path. Keep one heavy/timing case at a time
+and announce terminal releases.
 Serialize index/registry with Root/Avatar/Photos; there is no window held by
 Assets at this checkpoint. All own earlier processes are terminal.
 
