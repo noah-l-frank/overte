@@ -220,3 +220,39 @@ No frame store, clock or product behavior was changed.
 Private logs are `snapshot-combined-journey-resume-20261027-positive01.log` and
 `snapshot-combined-journey-resume-20261027-recovery02.log`, followed by
 `snapshot-combined-journey-resume-20261027-legacy03.log`, under `.ios-host-tmp`.
+
+The actual native load path records assignment before main-code submission.
+Four new pure timing counterexamples initially found two impossible
+pre-assignment originals being accepted and a genuine first submission after
+an unsubmitted observation being rejected (0.011 seconds). The Combined reader
+now binds submitted main/evaluated code to the original assignment timestamp.
+A genuine first submission or new evaluation after an earlier observation
+must follow that observation's original before-clock; already submitted code,
+manager identity and existing evaluation records remain immutable. The empty
+unsubmitted observation remains readable and cannot qualify quiet/absence.
+No original timestamp, byte, nonce or PID is changed.
+
+An additional later-evaluation case exposed a historical-caller join error:
+later code was being checked against an earlier caller's timestamp. Historical
+work/timer callers now retain their actual event/birth bound, while the entire
+unchanged evaluation ledger is validated against the actual observation time.
+The existing evaluation-before-compiled-first-observation relationship remains
+required. Future caller facts cannot serve an earlier work event or timer.
+Duplicate evaluations stay readable facts but do not pass unique pinned-source
+admission. These changes are confined to the closed Combined branches; the
+Separate1 and Avatar1/2 grammars/defaults remain literal.
+
+Eight final pure clock/caller cases passed in 0.021 seconds, followed by
+forty-four existing separate/Avatar/combined DTO, actual probe and modeled HTTP/AFC
+runtime cases in 0.523 seconds. Native remains uncompiled. Logs are
+`snapshot-combined-clock-resume-20261027-before01.log`,
+`snapshot-combined-clock-resume-20261027-after02.log`,
+`snapshot-combined-clock-resume-20261027-extended03.log`,
+`snapshot-combined-clock-resume-20261027-final04.log` and
+`snapshot-combined-clock-resume-20261027-legacy05.log` under `.ios-host-tmp`.
+The existing normal Combined Capture-to-Upload/original-archive component then
+passed in 9.801 seconds on the corrected reader, retaining the actual same PNG
+inode/body and original manager, with no archive query. Its private log is
+`snapshot-combined-clock-resume-20261027-flow06.log`. This is the bounded host
+component, not frontend preflight, rendered review, destination/witness or
+process/SDK-end acceptance; no area capability or source-complete count changes.

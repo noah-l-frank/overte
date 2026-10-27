@@ -90,7 +90,7 @@ def _member(value,epoch,*,_combined=False):
     need(value['assigned'] and value['url'].endswith('/defaultScripts.js' if _combined else '/'+MAIN))
 
 
-def _timers(value,epoch,previous=None,*,_combined=False):
+def _timers(value,epoch,previous=None,*,_combined=False,_after_original=None):
     exact(value,{'complete','revision','workers'})
     need(type(value['complete']) is bool and integer(value['revision']) and type(value['workers']) is list
          and len(value['workers'])<=128 and value['revision']>=len(value['workers']))
@@ -101,11 +101,20 @@ def _timers(value,epoch,previous=None,*,_combined=False):
         need(all(type(row[key]) is bool for key in ('running','stopping','finished','done')))
         prior=old.get(ids[-1]);code_sources(row['codeSources'],epoch,prior['codeSources'] if prior else None,_combined=_combined)
         if _combined:
+            assigned=row['membership']['assignedEpochMs']
+            if row['code']['submitted']:need(row['code']['submittedEpochMs']>=assigned)
+            need(all(entry['submittedEpochMs']>=assigned for entry in row['codeSources']['evaluations']))
             timer_work(row['timerWork'],epoch,prior['timerWork'] if prior else None,schema='snapshotCombinedTimerWorkVersion',
                 suffixes=('/system/snapshot.js','/system/snapshot/featureSnapshotWork.js'),_combined=True,code=row['codeSources']['evaluations'])
         else:timer_work(row['timerWork'],epoch,prior['timerWork'] if prior else None,schema='snapshotTimerWorkVersion',suffixes=TIMER_SUFFIXES)
-        if prior:need(same(prior['membership'],row['membership']) and same(prior['code'],row['code'])
-                      and (not prior['finished'] or row['finished']) and (not prior['done'] or row['done']))
+        if prior:
+            need(same(prior['membership'],row['membership']) and (not prior['finished'] or row['finished']) and (not prior['done'] or row['done']))
+            if not _combined or prior['code']['submitted']:need(same(prior['code'],row['code']))
+            elif row['code']['submitted']:need(integer(_after_original,1) and row['code']['submittedEpochMs']>=_after_original)
+            else:need(same(prior['code'],row['code']))
+            if _combined:
+                need(integer(_after_original,1) and all(entry['submittedEpochMs']>=_after_original
+                    for entry in row['codeSources']['evaluations'][len(prior['codeSources']['evaluations']):]))
     need(ids==sorted(set(ids)))
     if previous:
         need((previous['complete'] or not value['complete']) and value['revision']>=previous['revision'])
@@ -143,13 +152,16 @@ def validate(value,query,pid,epoch=None,previous=None,*,_combined=False):
         need(row['sourceUrl']==expected and type(row['ended']) is bool)
         validate_code(row['code'],after['epochMs']);code_sources(row['codeSources'],after['epochMs'],_combined=_combined);need(row['code']['submitted'])
         if _combined:
+            need(row['code']['submittedEpochMs']>=row['manager']['assignedEpochMs'] and all(
+                item['submittedEpochMs']>=row['manager']['assignedEpochMs'] for item in row['codeSources']['evaluations']))
             main=[item for item in row['codeSources']['evaluations'] if item['url']==row['manager']['url']]
             need(main and all(all(item[key]==row['code'][key] for key in ('encoding','codeUnits','sha256')) and item['submittedEpochMs']>=row['code']['submittedEpochMs'] for item in main))
         def check_caller(entry,initial=False):
             if not _combined:return
             need(entry['callerStackId'] in caller_table);original=caller_table[entry['callerStackId']]
             required={'/system/snapshot/featureSnapshotWork.js'}|({'/system/snapshot.js'} if initial else set())
-            avatar_call_stack.evaluated(original['callerStack'],original['callerModules'],entry['capturedEpochMs'],row['codeSources']['evaluations'],
+            avatar_call_stack.validate(original['callerStack'],original['callerModules'],entry['capturedEpochMs'],required=required,_combined=True)
+            avatar_call_stack.evaluated(original['callerStack'],original['callerModules'],after['epochMs'],row['codeSources']['evaluations'],
                 required=required,top='/system/snapshot/featureSnapshotWork.js',_combined=True)
             caller_histories.setdefault(row['manager']['instance'],avatar_call_stack.History()).accept(original['callerStack'])
         events=row['events'];need(type(events) is list and 1<=len(events)<=512 and events[0]['event']=='snapshot')
@@ -181,7 +193,8 @@ def validate(value,query,pid,epoch=None,previous=None,*,_combined=False):
         need(value['instance']==previous['instance'] and value['sequence']>previous['sequence'] and value['requestId']!=previous['requestId']
              and before['epochMs']>=previous['clockAfter']['epochMs'] and before['monotonicMs']>=previous['clockAfter']['monotonicMs']
              and source['eventSequence']>=previous['source']['eventSequence'] and (previous['source']['complete'] or not source['complete']))
-        _timers(source['timerSources'],after['epochMs'],previous['source']['timerSources'],_combined=_combined)
+        _timers(source['timerSources'],after['epochMs'],previous['source']['timerSources'],_combined=_combined,
+            _after_original=previous['clockBefore']['epochMs'] if _combined else None)
         if _combined:
             old=previous['source']['callerStacks'];need(len(source['callerStacks'])>=len(old) and same(source['callerStacks'][:len(old)],old))
         current={row['manager']['instance']:row for row in source['workers']}

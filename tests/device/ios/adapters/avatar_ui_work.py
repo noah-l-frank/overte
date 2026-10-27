@@ -43,7 +43,7 @@ def validate(value,epoch,previous=None,*,schema='avatarUiWorkVersion',suffixes=S
             identity(row['callerStackId']);need(row['callerStackId'] in caller_table);caller=caller_table[row['callerStackId']]
             avatar_call_stack.validate(caller['callerStack'],caller['callerModules'],row['createdEpochMs'],_combined=_combined)
             if _combined:
-                avatar_call_stack.evaluated(caller['callerStack'],caller['callerModules'],row['createdEpochMs'],code,_combined=True)
+                avatar_call_stack.evaluated(caller['callerStack'],caller['callerModules'],epoch,code,_combined=True)
                 need(any(module['url'].endswith(COMBINED_SUFFIXES) for module in caller['callerModules']))
             need(caller['callerModules']);stack_history.accept(caller['callerStack']);used_callers.add(caller['id'])
         else:
