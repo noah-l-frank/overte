@@ -25,6 +25,8 @@
     "ios-snapshot-combined-timer-work": {"current": 1, "reads": [1]},
     "ios-snapshot-preflight-http": {"current": 1, "reads": [1]},
     "ios-snapshot-preflight-http-acquisition": {"current": 1, "reads": [1]},
+    "ios-snapshot-combined-preflight-http": {"current": 1, "reads": [1]},
+    "ios-snapshot-combined-preflight-http-acquisition": {"current": 1, "reads": [1]},
     "ios-snapshot-http-sources": {"current": 1, "reads": [1]},
     "snapshot-concurrency-original": {"current": 1, "reads": [1]},
     "snapshot-concurrency-export": {"current": 1, "reads": [1]},

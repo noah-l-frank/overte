@@ -310,3 +310,12 @@ read-only historical proof. Its existing Node process uses declared OS/SDK
 responses and actual unconnected socket objects, then terminates during test
 cleanup; no device, real SDK service or compiler is used. Its private log is
 `snapshot-combined-page-resume-20261027-return05.log`.
+
+The subsequent [Combined HTTP original source](SNAPSHOT_COMBINED_HTTP.md)
+adds the normal manager's fixed XHR/DONE-callback reader through the existing
+observer, with independent original instance/clock/schema, complete actual V8
+frames and separately observed root/four-source admission. It preserves the
+literal separate HTTP1 and Social1/2 profiles. This source prerequisite does
+not yet join the exact Capture2 manager, backend/policy bytes and normal Upload
+effect or close rendered review, destinations, witnesses and process/SDK ends.
+Native remains uncompiled, Feature 11 remains partial and the count stays five.

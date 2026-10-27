@@ -1267,6 +1267,24 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-snapshot-combined-preflight-http") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var sourceSnapshotCombinedPreflightHttp={iosSnapshotCombinedPreflightHttpVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSSnapshotCombinedPreflightHttp === "function") {
+                        var originalSnapshotCombinedPreflightHttp=Test.featureIOSSnapshotCombinedPreflightHttp(command);
+                        if (originalSnapshotCombinedPreflightHttp && originalSnapshotCombinedPreflightHttp.requestId === command.commandId) { sourceSnapshotCombinedPreflightHttp=originalSnapshotCombinedPreflightHttp; }
+                    }
+                } catch (_SnapshotCombinedPreflightHttpError) { /* Original uncertainty remains owned; no second invocation on poll. */ }
+                Test.saveObject(sourceSnapshotCombinedPreflightHttp,"feature-ios-snapshot-combined-preflight-http.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-snapshot-combined-work") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36

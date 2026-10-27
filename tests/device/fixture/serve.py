@@ -788,6 +788,12 @@ class FixtureState:
             try:validate_ios_source(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS original Snapshot preflight HTTP request") from None
             valid=True
+        elif action == "feature-ios-snapshot-combined-preflight-http":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.snapshot_combined_preflight_http import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS original Combined Snapshot preflight HTTP request") from None
+            valid=True
         elif action == "feature-ios-snapshot-combined-work":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.snapshot_combined_work import command as validate_ios_source

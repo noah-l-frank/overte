@@ -25,7 +25,7 @@ namespace overte::e2e {
 // enters a ScriptEngine heap, calls a handler or waits for a script thread.
 class AvatarSocialHttpObservation {
 public:
-    enum class Profile { AvatarSocial, SnapshotPreflight };
+    enum class Profile { AvatarSocial, SnapshotPreflight, SnapshotCombinedPreflight };
     explicit AvatarSocialHttpObservation(Profile profile=Profile::AvatarSocial) : _profile(profile) { _clock.start(); }
     static QString nonce() { return QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-'); }
     static bool installed(const QString& value,const QString& suffix) {
@@ -89,27 +89,31 @@ public:
     }
     void unavailable() { std::lock_guard<std::mutex> lock(_mutex);_valid=false; }
     // A diagnostic failure cannot escape into the actual XHR/callback path.
-    static void snapshotUnavailable() noexcept { snapshotFailure().store(true,std::memory_order_relaxed); }
+    static void snapshotUnavailable(bool combined=false) noexcept { snapshotFailure(combined).store(true,std::memory_order_relaxed); }
     QVariantMap snapshot(const QVariantMap& command) {
         std::lock_guard<std::mutex> lock(_mutex);
         const auto value=QJsonObject::fromVariantMap(command);const auto keys=value.keys();
-        const bool snapshot=_profile==Profile::SnapshotPreflight;
-        if (!enabled() || !_valid || (snapshot && snapshotFailure().load(std::memory_order_relaxed))
+        const bool combined=_profile==Profile::SnapshotCombinedPreflight;
+        const bool snapshot=_profile==Profile::SnapshotPreflight || combined;
+        if (!enabled() || !_valid || (snapshot && snapshotFailure(combined).load(std::memory_order_relaxed))
                 || (_profile!=Profile::AvatarSocial && !snapshot) || QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","commandId","action","runId"}
-                || value.value("schemaVersion")!=QJsonValue(1) || value.value("action")!=QJsonValue(snapshot ? "feature-ios-snapshot-preflight-http" : "feature-ios-avatar-social-http")
+                || value.value("schemaVersion")!=QJsonValue(1) || value.value("action")!=QJsonValue(combined ? "feature-ios-snapshot-combined-preflight-http" : snapshot ? "feature-ios-snapshot-preflight-http" : "feature-ios-avatar-social-http")
                 || !identifier(value.value("commandId").toString(),true) || !identifier(value.value("runId").toString())
                 || _sequence>=1000000000) { return {}; }
         const auto before=clock();if (before.isEmpty()) { return {}; }
         const auto events=_events;const auto after=clock();if (after.isEmpty()) { return {}; }
-        QVariantMap result {{snapshot ? "iosSnapshotPreflightHttpVersion" : "iosAvatarSocialHttpVersion",snapshot ? 1 : 2},{"requestId",command.value("commandId")},{"runId",command.value("runId")},
+        QVariantMap result {{combined ? "iosSnapshotCombinedPreflightHttpVersion" : snapshot ? "iosSnapshotPreflightHttpVersion" : "iosAvatarSocialHttpVersion",snapshot ? 1 : 2},{"requestId",command.value("commandId")},{"runId",command.value("runId")},
             {"instance",_instance},{"sequence",static_cast<double>(++_sequence)},
-            {"processId",static_cast<double>(QCoreApplication::applicationPid())},{"clockDomain",snapshot ? "native-process-snapshot-preflight-http" : "native-process-avatar-social-http"},
+            {"processId",static_cast<double>(QCoreApplication::applicationPid())},{"clockDomain",combined ? "native-process-snapshot-combined-preflight-http" : snapshot ? "native-process-snapshot-preflight-http" : "native-process-avatar-social-http"},
             {"clockBefore",before},{"clockAfter",after},{"events",events},{"callerStacks",_callers.snapshot()}};
         if (QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size()>262144) { _valid=false;return {}; }
         return result;
     }
 private:
-    static std::atomic_bool& snapshotFailure() noexcept { static std::atomic_bool failed {false};return failed; }
+    static std::atomic_bool& snapshotFailure(bool combined=false) noexcept {
+        if (combined) { static std::atomic_bool failed {false};return failed; }
+        static std::atomic_bool failed {false};return failed;
+    }
     static bool identifier(const QString& value,bool query=false) {
         if (query) { if (!value.startsWith("ios-")) { return false; }return identifier(value.mid(4)); }
         if (value.size()!=32) { return false; }
@@ -136,7 +140,8 @@ private:
     AvatarV8CallerTable _callers;quint64 _sequence {0};qint64 _epoch {0},_elapsed {0};bool _valid {true};
 };
 inline AvatarSocialHttpObservation& avatarSocialHttp() { static AvatarSocialHttpObservation ledger;return ledger; }
-inline AvatarSocialHttpObservation& snapshotPreflightHttp() {
+inline AvatarSocialHttpObservation& snapshotPreflightHttp(bool combined=false) {
+    if (combined) { static AvatarSocialHttpObservation ledger(AvatarSocialHttpObservation::Profile::SnapshotCombinedPreflight);return ledger; }
     static AvatarSocialHttpObservation ledger(AvatarSocialHttpObservation::Profile::SnapshotPreflight);return ledger;
 }
 } // namespace overte::e2e

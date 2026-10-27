@@ -59,6 +59,7 @@ from ios.adapters.navigation_state import IOSNavigationState,FILE as NAVIGATION_
 from ios.adapters.scene_inventory import IOSSceneInventory,FILE as SCENE_INVENTORY_FILE,LIMIT as SCENE_INVENTORY_LIMIT,command as scene_inventory_command
 from ios.adapters.avatar_social_http import IOSAvatarSocialHttp,FILE as AVATAR_SOCIAL_HTTP_FILE,LIMIT as AVATAR_SOCIAL_HTTP_LIMIT,command as avatar_social_http_command
 from ios.adapters.snapshot_preflight_http import IOSSnapshotPreflightHttp,FILE as SNAPSHOT_PREFLIGHT_HTTP_FILE,LIMIT as SNAPSHOT_PREFLIGHT_HTTP_LIMIT,command as snapshot_preflight_http_command
+from ios.adapters.snapshot_combined_preflight_http import IOSSnapshotCombinedPreflightHttp,FILE as SNAPSHOT_COMBINED_PREFLIGHT_HTTP_FILE,LIMIT as SNAPSHOT_COMBINED_PREFLIGHT_HTTP_LIMIT,command as snapshot_combined_preflight_http_command
 from ios.adapters.snapshot_combined_work import IOSSnapshotCombinedWork,FILE as SNAPSHOT_COMBINED_WORK_FILE,LIMIT as SNAPSHOT_COMBINED_WORK_LIMIT,command as snapshot_combined_work_command
 from ios.adapters.chat_script_sources import IOSChatScriptSources,FILE as CHAT_SCRIPT_SOURCES_FILE,LIMIT as CHAT_SCRIPT_SOURCES_LIMIT,command as chat_script_sources_command
 from ios.adapters.people_model import IOSPeopleModel,FILE as PEOPLE_MODEL_FILE,LIMIT as PEOPLE_MODEL_LIMIT,command as people_model_command
@@ -214,6 +215,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-ios-scene-inventory':scene_inventory_command(command)
         elif command.get('action')=='feature-ios-avatar-social-http':avatar_social_http_command(command)
         elif command.get('action')=='feature-ios-snapshot-preflight-http':snapshot_preflight_http_command(command)
+        elif command.get('action')=='feature-ios-snapshot-combined-preflight-http':snapshot_combined_preflight_http_command(command)
         elif command.get('action')=='feature-ios-snapshot-combined-work':snapshot_combined_work_command(command)
         elif command.get('action')=='feature-ios-chat-script-sources':chat_script_sources_command(command)
         elif command.get('action')=='feature-ios-people-model':people_model_command(command)
@@ -425,6 +427,13 @@ class FeatureObservation:
         if clock_source is None:clock_source=self.native_observer()
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSSnapshotPreflightHttp(self.send,lambda:self.original(remote=remote,limit=SNAPSHOT_PREFLIGHT_HTTP_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def snapshot_combined_preflight_http(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+SNAPSHOT_COMBINED_PREFLIGHT_HTTP_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSSnapshotCombinedPreflightHttp(self.send,lambda:self.original(remote=remote,limit=SNAPSHOT_COMBINED_PREFLIGHT_HTTP_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def snapshot_combined_work(self,clock_source=None):

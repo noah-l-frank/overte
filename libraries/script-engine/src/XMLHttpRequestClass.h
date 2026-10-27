@@ -230,6 +230,7 @@ public:
     static QVariantMap featurePlacesHttpObservation(const QVariantMap& command);
     static QVariantMap featureAvatarSocialHttpObservation(const QVariantMap& command);
     static QVariantMap featureSnapshotPreflightHttpObservation(const QVariantMap& command) noexcept;
+    static QVariantMap featureSnapshotCombinedPreflightHttpObservation(const QVariantMap& command) noexcept;
 #endif
     QString getResponseType() const { return _responseType; }
     void setResponseType(const QString& responseType) { _responseType = responseType; }
@@ -323,6 +324,7 @@ private:
     QString _featureSnapshotPreflightId;
     QString _featureSnapshotPreflightReplyId;
     mutable bool _featureSnapshotPreflightTextRead {false};
+    bool _featureSnapshotPreflightCombined {false};
     QString featurePlacesCaller() const;
     void featurePlacesOpen();
     void featurePlacesFinished();

@@ -23,10 +23,24 @@ SHA=re.compile('[a-f0-9]{64}\\Z')
 def identifier(value):need(type(value) is str and HEX.fullmatch(value));return value
 
 
-def command(value,*,_snapshot=False):
-    need(type(_snapshot) is bool)
+def _profile(snapshot,combined):
+    need(type(snapshot) is type(combined) is bool and not (snapshot and combined));return snapshot or combined
+
+
+def _action(snapshot,combined):
+    _profile(snapshot,combined)
+    return 'feature-ios-snapshot-combined-preflight-http' if combined else 'feature-ios-snapshot-preflight-http' if snapshot else ACTION
+
+
+def _marker(snapshot,combined):
+    _profile(snapshot,combined)
+    return 'iosSnapshotCombinedPreflightHttpVersion' if combined else 'iosSnapshotPreflightHttpVersion' if snapshot else 'iosAvatarSocialHttpVersion'
+
+
+def command(value,*,_snapshot=False,_combined=False):
+    snapshot=_profile(_snapshot,_combined)
     exact(value,{'schemaVersion','commandId','action','runId'})
-    need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['action']==('feature-ios-snapshot-preflight-http' if _snapshot else ACTION)
+    need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['action']==_action(_snapshot,_combined)
          and type(value['commandId']) is str and re.fullmatch('ios-[a-f0-9]{32}',value['commandId']))
     identifier(value['runId']);return value
 
@@ -39,12 +53,12 @@ def installed(value,suffix):
     return value
 
 
-def endpoint(value,*,_snapshot=False):
-    need(type(_snapshot) is bool)
+def endpoint(value,*,_snapshot=False,_combined=False):
+    snapshot=_profile(_snapshot,_combined)
     need(type(value) is str and len(value)<=4096 and all(ord(c)>32 and ord(c)!=127 for c in value))
     url=urlsplit(value);url.port
     need(url.scheme=='https' and url.hostname and url.username is None and url.password is None and not url.fragment)
-    if _snapshot:
+    if snapshot:
         from feature_journeys.snapshot_concurrency import query
         need(url.path=='/api/v1/user_stories' and '#' not in value);actual=query(url.query)
         need(actual['domain_id']!='00000000-0000-0000-0000-000000000000');return value
@@ -58,25 +72,29 @@ def signature(value):
     raw=base64.b64decode(value,validate=True);need(len(raw)==16 and base64.b64encode(raw).decode()==value);return value
 
 
-def source(value,version=1,epoch=None,caller=None,*,_snapshot=False):
-    need(type(_snapshot) is bool)
+def source(value,version=1,epoch=None,caller=None,*,_snapshot=False,_combined=False):
+    snapshot=_profile(_snapshot,_combined)
     need(type(version) is int and version in READS)
     exact(value,{'engine','submitted','requestUrl','method','protocolSignature'}|
-        ({'callerChain'} if version==1 else {'callerStackId'})|({'codeSources'} if _snapshot else set()))
-    suffixes=('/system/snapshot.js',) if _snapshot else ('/system/pal.js','/system/libraries/peopleConnection.js','/system/request-service.js')
+        ({'callerChain'} if version==1 else {'callerStackId'})|({'codeSources'} if snapshot else set()))
+    suffixes=('/system/snapshot.js',) if snapshot else ('/system/pal.js','/system/libraries/peopleConnection.js','/system/request-service.js')
     if version==1:
         chain=value['callerChain'];need(type(chain) is list and 1<=len(chain)<=32)
         installed(chain[0],'/modules/request.js')
     else:
         from ios.adapters import avatar_call_stack
         identifier(value['callerStackId']);need(integer(epoch,1) and type(caller) is dict and caller['id']==value['callerStackId'])
-        avatar_call_stack.validate(caller['callerStack'],caller['callerModules'],epoch,_snapshot=_snapshot)
+        avatar_call_stack.validate(caller['callerStack'],caller['callerModules'],epoch,_snapshot=_snapshot,_combined=_combined)
         chain=[module['url'] for module in caller['callerModules']]
         need(caller['callerModules'] and caller['callerModules'][0]['frame']==0);installed(chain[0],'/modules/request.js')
-    if _snapshot:
-        need(version==2);code=value['codeSources'];exact(code,{'snapshotHttpSourcesVersion','complete','evaluations'})
-        need(type(code['snapshotHttpSourcesVersion']) is int and code['snapshotHttpSourcesVersion']==1 and code['complete'] is True and type(code['evaluations']) is list and len(code['evaluations'])<=64)
-        avatar_call_stack.evaluated(caller['callerStack'],caller['callerModules'],epoch,code['evaluations'],required={'/system/snapshot.js','/modules/request.js'},top='/modules/request.js',_snapshot=True)
+    if snapshot:
+        need(version==2);code=value['codeSources'];marker='snapshotCombinedSourcesVersion' if _combined else 'snapshotHttpSourcesVersion'
+        exact(code,{marker,'complete','evaluations'})
+        need(type(code[marker]) is int and code[marker]==1 and code['complete'] is True and type(code['evaluations']) is list and len(code['evaluations'])<=64)
+        if _combined:
+            from ios.adapters.snapshot_work import code_sources
+            code_sources(code,epoch,_combined=True)
+        avatar_call_stack.evaluated(caller['callerStack'],caller['callerModules'],epoch,code['evaluations'],required={'/system/snapshot.js','/modules/request.js'},top='/modules/request.js',_snapshot=_snapshot,_combined=_combined)
         for index,module in enumerate(caller['callerModules']):
             need(module['frame']==index)
             if module['url'].endswith('/system/snapshot.js'):break
@@ -89,17 +107,18 @@ def source(value,version=1,epoch=None,caller=None,*,_snapshot=False):
     for caller in chain:
         for suffix in suffixes:
             if urlsplit(caller).path.endswith(suffix):installed(caller,suffix)
-    endpoint(value['requestUrl'],_snapshot=_snapshot);signature(value['protocolSignature']);need(value['method'] in (('GET',) if _snapshot else ('GET','POST','DELETE')))
+    endpoint(value['requestUrl'],_snapshot=_snapshot,_combined=_combined);signature(value['protocolSignature']);need(value['method'] in (('GET',) if snapshot else ('GET','POST','DELETE')))
     engine=value['engine'];exact(engine,{'instance','assigned','url','loadGeneration','assignedEpochMs'})
     identifier(engine['instance']);need(engine['assigned'] is True and integer(engine['loadGeneration'],1)
-         and integer(engine['assignedEpochMs'],1));installed(engine['url'],'/system/snapshot.js' if _snapshot else '/defaultScripts.js')
+         and integer(engine['assignedEpochMs'],1));installed(engine['url'],'/defaultScripts.js' if _combined else '/system/snapshot.js' if snapshot else '/defaultScripts.js')
     submitted=value['submitted'];exact(submitted,{'submitted','encoding','codeUnits','sha256','submittedEpochMs'})
     need(submitted['submitted'] is True and submitted['encoding']=='utf-16le-code-units'
          and integer(submitted['codeUnits'],1,4194304) and type(submitted['sha256']) is str and SHA.fullmatch(submitted['sha256'])
          and integer(submitted['submittedEpochMs'],engine['assignedEpochMs']))
-    if _snapshot:
+    if snapshot:
         actual=[row for row in value['codeSources']['evaluations'] if row['url']==engine['url']]
         need(actual and all(all(row[key]==submitted[key] for key in ('encoding','codeUnits','sha256')) and row['submittedEpochMs']>=submitted['submittedEpochMs'] for row in actual))
+        if _combined:need(all(row['submittedEpochMs']>=engine['assignedEpochMs'] for row in value['codeSources']['evaluations']))
 
 
 def body(value, maximum=65536):
@@ -115,14 +134,14 @@ def clock(value):
     exact(value,{'epochMs','monotonicMs'});need(integer(value['epochMs'],1) and integer(value['monotonicMs'],0));return value
 
 
-def events(value,*,_snapshot=False):
+def events(value,*,_snapshot=False,_combined=False):
     """Derive lifetime conditions from original ordered events, preserving them."""
-    need(type(_snapshot) is bool)
+    snapshot=_profile(_snapshot,_combined)
     need(type(value['events']) is list and len(value['events'])<=1024)
-    version=value['iosSnapshotPreflightHttpVersion' if _snapshot else 'iosAvatarSocialHttpVersion'];need(type(version) is int and version in ((1,) if _snapshot else READS))
-    if _snapshot:version=2
+    version=value[_marker(_snapshot,_combined)];need(type(version) is int and version in ((1,) if snapshot else READS))
+    if snapshot:version=2
     from ios.adapters import avatar_call_stack
-    caller_table=avatar_call_stack.table(value['callerStacks'],value['clockBefore']['epochMs'],_snapshot=_snapshot) if version==2 else {};used_callers=set()
+    caller_table=avatar_call_stack.table(value['callerStacks'],value['clockBefore']['epochMs'],_snapshot=_snapshot,_combined=_combined) if version==2 else {};used_callers=set()
     histories={};states={};ids=set();replies=set();last=dict(epochMs=0,monotonicMs=0)
     for sequence,event in enumerate(value['events'],1):
         exact(event,{'sequence','eventId','xhrId','kind','clock','details'})
@@ -133,7 +152,7 @@ def events(value,*,_snapshot=False):
         if kind=='created':
             need(event['xhrId'] not in states and len(states)<128)
             if version==2:need(type(detail) is dict and detail.get('callerStackId') in caller_table)
-            actual=caller_table[detail['callerStackId']] if version==2 else None;source(detail,version,now['epochMs'],actual,_snapshot=_snapshot)
+            actual=caller_table[detail['callerStackId']] if version==2 else None;source(detail,version,now['epochMs'],actual,_snapshot=_snapshot,_combined=_combined)
             need(detail['submitted']['submittedEpochMs']<=now['epochMs'])
             if version==2:
                 history=histories.setdefault(detail['engine']['instance'],avatar_call_stack.History());history.accept(actual['callerStack']);used_callers.add(actual['id'])
@@ -143,11 +162,11 @@ def events(value,*,_snapshot=False):
         need(event['xhrId'] in states);state=states[event['xhrId']]
         need(not state['destroyed'] or kind=='reply-destroyed')
         if kind=='sent':
-            exact(detail,{'replyId','url','method','body','authorizationAttached','contentType'});identifier(detail['replyId']);endpoint(detail['url'],_snapshot=_snapshot)
+            exact(detail,{'replyId','url','method','body','authorizationAttached','contentType'});identifier(detail['replyId']);endpoint(detail['url'],_snapshot=_snapshot,_combined=_combined)
             need(detail['method'] in ('GET','POST','DELETE') and type(detail['authorizationAttached']) is bool
                  and type(detail['contentType']) is str and len(detail['contentType'])<=512)
             body(detail['body'],4096)
-            if _snapshot:need(detail['method']=='GET' and detail['url']==state['created']['details']['requestUrl'] and body(detail['body'],4096)==b'' and detail['contentType']=='')
+            if snapshot:need(detail['method']=='GET' and detail['url']==state['created']['details']['requestUrl'] and body(detail['body'],4096)==b'' and detail['contentType']=='')
             need(not state['released'] and detail['replyId'] not in replies)
             if state['current'] is not None:
                 prior=state['replies'][state['current']];need(prior['finished'] is not None or prior['aborted'])
@@ -160,7 +179,7 @@ def events(value,*,_snapshot=False):
                 exact(detail,{'replyId','httpStatus','networkError','responseId','body'})
                 need(not reply['aborted'] and reply['finished'] is None and integer(detail['httpStatus'],0,599)
                      and integer(detail['networkError'],0,499) and type(detail['responseId']) is str)
-                if detail['responseId']:identifier(detail['responseId']);body(detail['body'],16384 if _snapshot else 65536)
+                if detail['responseId']:identifier(detail['responseId']);body(detail['body'],16384 if snapshot else 65536)
                 else:need(detail['body'] is None)
                 reply['finished']=deepcopy(event)
             elif kind=='text-read':
@@ -172,9 +191,9 @@ def events(value,*,_snapshot=False):
                      and type(detail['sha256']) is str and SHA.fullmatch(detail['sha256']))
                 if version==2:
                     identifier(detail['callerStackId']);need(detail['callerStackId'] in caller_table);actual=caller_table[detail['callerStackId']]
-                    avatar_call_stack.validate(actual['callerStack'],actual['callerModules'],now['epochMs'],required={'/modules/request.js'},_snapshot=_snapshot)
+                    avatar_call_stack.validate(actual['callerStack'],actual['callerModules'],now['epochMs'],required={'/modules/request.js'},_snapshot=_snapshot,_combined=_combined)
                     need(actual['callerModules'] and actual['callerModules'][0]==dict(frame=0,url=original_source))
-                    if _snapshot:avatar_call_stack.evaluated(actual['callerStack'],actual['callerModules'],now['epochMs'],created['codeSources']['evaluations'],required={'/modules/request.js'},top='/modules/request.js',_snapshot=True)
+                    if snapshot:avatar_call_stack.evaluated(actual['callerStack'],actual['callerModules'],now['epochMs'],created['codeSources']['evaluations'],required={'/modules/request.js'},top='/modules/request.js',_snapshot=_snapshot,_combined=_combined)
                     histories[created['engine']['instance']].accept(actual['callerStack']);used_callers.add(actual['id'])
                 if reply['finished']['details']['body'] is not None:need(detail['sha256']==reply['finished']['details']['body']['sha256'])
                 reply['read']=deepcopy(event);reply['callbackRead']=bool(state['stack'] and state['stack'][-1]==('readystatechange',4))
@@ -200,38 +219,39 @@ def events(value,*,_snapshot=False):
     return states
 
 
-def validate(value,query,pid,epoch=None,previous=None,*,_snapshot=False):
-    command(query,_snapshot=_snapshot);marker='iosSnapshotPreflightHttpVersion' if _snapshot else 'iosAvatarSocialHttpVersion';version=value.get(marker) if type(value) is dict else None
+def validate(value,query,pid,epoch=None,previous=None,*,_snapshot=False,_combined=False):
+    snapshot=_profile(_snapshot,_combined)
+    command(query,_snapshot=_snapshot,_combined=_combined);marker=_marker(_snapshot,_combined);version=value.get(marker) if type(value) is dict else None
     exact(value,{marker,'requestId','runId','instance','sequence','processId',
-        'clockDomain','clockBefore','clockAfter','events'}|({'callerStacks'} if _snapshot or version==2 else set()))
-    need(type(version) is int and version in ((1,) if _snapshot else READS)
+        'clockDomain','clockBefore','clockAfter','events'}|({'callerStacks'} if snapshot or version==2 else set()))
+    need(type(version) is int and version in ((1,) if snapshot else READS)
          and value['requestId']==query['commandId'] and value['runId']==query['runId'] and integer(pid,1)
          and type(value['processId']) is int and value['processId']==pid and integer(value['sequence'],1,1_000_000_000)
-         and value['clockDomain']==('native-process-snapshot-preflight-http' if _snapshot else 'native-process-avatar-social-http'));identifier(value['instance'])
+         and value['clockDomain']==('native-process-snapshot-combined-preflight-http' if _combined else 'native-process-snapshot-preflight-http' if snapshot else 'native-process-avatar-social-http'));identifier(value['instance'])
     before,after=clock(value['clockBefore']),clock(value['clockAfter'])
     utc=after['epochMs']-before['epochMs'];mono=after['monotonicMs']-before['monotonicMs']
     need(0<=utc<1500 and 0<=mono<1500 and abs(utc-mono)<=250)
     if epoch is not None:fresh(after['epochMs'],epoch)
-    events(value,_snapshot=_snapshot);need(len(json.dumps(value,allow_nan=False,ensure_ascii=False).encode())<=LIMIT)
+    events(value,_snapshot=_snapshot,_combined=_combined);need(len(json.dumps(value,allow_nan=False,ensure_ascii=False).encode())<=LIMIT)
     if previous is not None:
-        validate(previous,dict(query,commandId=previous['requestId'],runId=previous['runId']),pid,_snapshot=_snapshot)
+        validate(previous,dict(query,commandId=previous['requestId'],runId=previous['runId']),pid,_snapshot=_snapshot,_combined=_combined)
         old=previous['events'];need(value['instance']==previous['instance'] and value['sequence']>previous['sequence']
             and version==previous[marker]
             and value['requestId']!=previous['requestId'] and len(value['events'])>=len(old) and value['events'][:len(old)]==old
             and all(before[key]>=previous['clockAfter'][key] for key in before))
-        if _snapshot or version==2:
+        if snapshot or version==2:
             old=previous['callerStacks'];need(len(value['callerStacks'])>=len(old) and value['callerStacks'][:len(old)]==old)
     return value
 
 
-def original(value,*,_snapshot=False):
+def original(value,*,_snapshot=False,_combined=False):
     need(type(value) is dict)
-    return validate(value,dict(schemaVersion=1,commandId=value.get('requestId'),action='feature-ios-snapshot-preflight-http' if _snapshot else ACTION,runId=value.get('runId')),value.get('processId'),_snapshot=_snapshot)
+    return validate(value,dict(schemaVersion=1,commandId=value.get('requestId'),action=_action(_snapshot,_combined),runId=value.get('runId')),value.get('processId'),_snapshot=_snapshot,_combined=_combined)
 
 
-def drained(value,owned_xhrs,*,_snapshot=False):
-    original(value,_snapshot=_snapshot);need(type(owned_xhrs) in (list,tuple) and bool(owned_xhrs) and len(set(owned_xhrs))==len(owned_xhrs))
-    actual=events(value,_snapshot=_snapshot)
+def drained(value,owned_xhrs,*,_snapshot=False,_combined=False):
+    original(value,_snapshot=_snapshot,_combined=_combined);need(type(owned_xhrs) in (list,tuple) and bool(owned_xhrs) and len(set(owned_xhrs))==len(owned_xhrs))
+    actual=events(value,_snapshot=_snapshot,_combined=_combined)
     for owned in owned_xhrs:
         identifier(owned);need(owned in actual);state=actual[owned]
         if not (state['destroyed'] and state['released'] and state['timerDestroyed'] and not state['stack']

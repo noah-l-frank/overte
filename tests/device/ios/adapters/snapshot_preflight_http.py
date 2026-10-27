@@ -26,8 +26,12 @@ def original(value):
 
 
 def response_reads(value):
-    original(value);result=[]
-    for xhr,state in events(value).items():
+    original(value);return _response_reads(value,events(value))
+
+
+def _response_reads(value,states):
+    result=[]
+    for xhr,state in states.items():
         for reply,observed in state['replies'].items():
             finished,read=observed['finished'],observed['read']
             if finished is None or read is None or not observed.get('callbackRead'):continue

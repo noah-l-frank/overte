@@ -74,6 +74,8 @@ struct AvatarV8Callers {
         }
         return true;
     }
+    bool snapshotCombinedPreflightOpen() const { return snapshotCombinedKnown() && snapshotPreflightOpen(); }
+    bool snapshotCombinedPreflightText() const { return snapshotCombinedKnown() && snapshotPreflightText(); }
     bool snapshotCombinedWork() const { return snapshotCombinedKnown() && top("/system/snapshot/featureSnapshotWork.js"); }
     bool snapshotCombinedTimer() const {
         return snapshotCombinedKnown() && (has("/system/snapshot.js") || has("/system/snapshot/featureSnapshotWork.js"));
