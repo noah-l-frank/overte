@@ -82,7 +82,7 @@ def read(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotonic):
         if version==uikit.FENCE_VERSION:result=prefix.history()
         elif version==uikit.BOUND_VERSION:result=prefix.adopted()
         else:
-            need(version==uikit.VERSION)
+            need(version in (uikit.ACTIVE_VERSION,uikit.VERSION))
             reader=object.__new__(TabletUIKitSegment);reader.root=Path(root);reader.binding=deepcopy(binding)
             reader.run,reader.role,reader.fixture,reader.pid=run,role,fixture_url,pid
             reader.lock,reader._current_guard,reader._pinned_guard=lock,forbidden,forbidden

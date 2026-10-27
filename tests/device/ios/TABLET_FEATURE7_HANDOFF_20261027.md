@@ -1,5 +1,32 @@
 # Feature 7 continuation handoff
 
+## Current first-query129 integration checkpoint
+
+After committed UIKit-only link `8c6200bc3a`, current source work addresses a
+real dispatch gap: active3's tests precreate UIKit129 through their explicit
+builder before binding it. The new explicit continuation4/active-segment2
+starts from closed128 with no file129, owns the first real query129 through
+the unchanged Packet WAL/capture/raw/original path, and binds its first
+actual file only against the previously held durable intent and saved body.
+Existing bound2/active3 grammars remain literal; no cap/deadline/public feature
+gate changes. The two registry entries/REQUIRED have matching4/read1..4 and
+2/read1,2 changes alongside team-owned WIP; stage no other agent's entries.
+
+The first normal-flow/recovery attempt ERROR1/113.834s exposes a Save-order
+error at first-file adoption. That source transition is now corrected with
+the actual owned file/intent check, without retiming or a resend. The corrected
+composed actual129/lost-open/lost-original/lost-successful-bind-CAS/normal130/
+historical-parent case passes1 in204.630s. Eight new/old metadata and early
+Packet-fence cases pass separately in0.047s. The first-issued-CAS negative
+scenario passes1 in159.398s: exact query/before-clock and raw129 remain owned
+after archival, with no resend or parent/own-link admission. No complete
+feature pass is claimed.
+The exact old failure log and operation details are in
+[the bootstrap section](TABLET_WEB_CONTINUATION_CONTRACT.md#first-query-uikit-bootstrap).
+Keep every `.ios-host-tmp` log unchanged. Root coordinates heavy tests, shared
+registry and exact-path index windows; actual host/device boundaries remain
+unchanged. No current test/process is owned by this checkpoint description.
+
 ## Resumed UIKit-only link checkpoint
 
 The user resumed autonomous work after the scheduled pause and again requested

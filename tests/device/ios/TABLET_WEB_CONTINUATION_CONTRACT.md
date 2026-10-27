@@ -803,3 +803,76 @@ the historical filename does not change the actual50-case result. The two
 DOM segment metadata cases were not included in this selection. Shared
 project checks are coordinated separately by Root after the current team
 packets stabilize.
+
+## First-query UIKit bootstrap
+
+The previous active3/segment1 path intentionally starts from an already bound
+original129. Its fixtures produce that129 through their explicit raw/original
+builder. That proves interpretation of retained originals, not the real
+adapter path that first owns and dispatches query129 after closing128.
+
+The current source adds explicit continuation4/read1,2,3,4 and active segment2/
+read1,2. The profiles remain distinct:
+
+| Continuation | Active body | First association |
+| --- | --- | --- |
+| 1 | None | Complete closed original128 only. |
+| 2 | None | Once-bound, already existing original129. |
+| 3 | Segment1 | Already bound129 starts the nonempty active segment. |
+| 4 | Segment2 | Empty at129; the first actual owned record is associated after its original file exists. |
+
+Existing closed1, bound2 and active3/segment1 keep their literal field
+sets and exact predecessor bytes. `open_initial_segment` validates the complete
+closed128 original graph and once-CAS opens an empty segment at129, preserving
+the actual raw/native floors. It creates no original129 and sends no query.
+The unchanged Packet capture implementation then holds preparing/issued129
+before the ordinary passive send and retains its raw replies, clocks and
+actual original intent. Segment2 preserves the128-active/global1024 limits.
+An empty initial state without pending responsibility must retain exactly the
+old raw cursor; it cannot reset it.
+
+The first nonempty record association is derived only from the actual
+previously held129 original intent, its exact compact reference and a reread
+of the actual original file matching the saved pending body. Both normal
+archive and complete-opened-file recovery use this same CAS. The new profile's
+`successor` field therefore associates the first owned record; an abandoned
+record can own that position without becoming a native success. Full history,
+own-link and parent interpretation still block non-returned records. No old
+bound2 reader, native input or public SourceReady is enabled by that reference.
+
+The first attempted normal129/recovery case terminates ERROR (1 case,113.834s):
+the Save method checked its old empty first-reference association before
+binding the newly adopted actual129 file. The retained diagnostic is
+`.ios-host-tmp/tablet-dom-continuation-20261027/uikit-initial129-original-recovery-positive.log`.
+The source now validates the previous owned intent/file and the proposed
+association together before the changed-header CAS. The corrected composed
+case passes (1 case,204.630s) in
+`.ios-host-tmp/tablet-dom-continuation-20261027/uikit-initial129-original-recovery-positive-fixed.log`.
+It loses the successful empty-open CAS return, reconstructs without a query,
+then dispatches the first actual129 only after its exact issued intent is
+saved and with no precreated129 file. It retains a complete actual129 whose
+return is lost, recovers that same file and loses the successful first-bind
+CAS return as well. Reconstruction adopts the actual durable association
+without another query or rewrite. The next normal130 is independently read;
+the own original link and all-nine historical selector report that actual
+UIKit130 while the original aggregate1 and its clocks remain unchanged.
+All old original bytes/inodes and native query counts remain exact at the
+read-only boundaries. These are real-file/modeled-native checks, with no
+physical input or CPU deadline qualification.
+
+Eight new/old metadata and early-fence cases pass separately in0.047s. They include
+the literal Packet constructor rejecting initial4 before any lower raw/frame
+factory, without changing the actual head bytes or inode. The separate
+first-issued-CAS negative scenario passes (1 case,159.398s) in
+`.ios-host-tmp/tablet-dom-continuation-20261027/uikit-initial129-lost-issued-archive.log`.
+A successful issued129 CAS whose return is lost preserves its exact query
+and original before-clock on reopening. No native query is resent. Archival
+keeps that unknown responsibility, the unchanged raw cursor129 and the actual
+abandoned original. Its stored first-record association cannot admit another
+capture, an own-link native tail or the historical all-nine parent selector.
+The first ERROR log remains unchanged and is not a passing result. DOM's
+first-query129 bootstrap remains a separate missing path.
+The common five project suites/versions/docs/whitespace pass on the team's
+dirty source checkpoint in9.27s; those checks do not qualify an unfinished
+runtime scenario. Native code remains uncompiled, devices untested and
+Feature7 incomplete.

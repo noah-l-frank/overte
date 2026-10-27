@@ -1,4 +1,4 @@
-"""Closed UIKit128 and once-bound original129, scoped DOM link, no Ready.
+"""Closed UIKit128, bound129 and explicit initial/active segments, no Ready.
 
 Every contact/object/dispatch field is replayed by the literal UIKit reader.
 Storage closure does not prove contact release, quiescence or weak retirement.
@@ -22,8 +22,9 @@ from ios.adapters import tablet_web_dom_original_link as dom_link
 from ios.adapters.emote_original_lease import EmoteOriginalLease
 from ios.adapters.tablet_web_packets import TabletWebPackets,CAPTURES,COMPONENTS
 
-VERSION=3
-READS=(1,2,3)
+VERSION=4
+READS=(1,2,3,4)
+ACTIVE_VERSION=3
 BOUND_VERSION=2
 BODY_VERSION=1
 FENCE_VERSION=1
@@ -73,15 +74,22 @@ def decode(value,expected):
         need(ref['block']==1 and ref['count']==(value['manifests'][0]['count'] if value['manifests'] else 0)+1)
     if value['copyIntent'] is not None:base._copy(value['copyIntent'],expected)
     if version>=2:
-        ref=value['successor'];exact(ref,{'index','sha256','bytes','device','inode'})
-        need(type(ref['index']) is int and ref['index']==CAPTURES+1 and integer(ref['bytes'],2,1048576)
-            and integer(ref['device'],0,2**64-1) and integer(ref['inode'],1,2**64-1)
-            and type(ref['sha256']) is str and len(ref['sha256'])==64 and all(c in '0123456789abcdef' for c in ref['sha256']))
+        ref=value['successor']
+        if ref is None:need(version==VERSION)
+        else:
+            exact(ref,{'index','sha256','bytes','device','inode'})
+            need(type(ref['index']) is int and ref['index']==CAPTURES+1 and integer(ref['bytes'],2,1048576)
+                and integer(ref['device'],0,2**64-1) and integer(ref['inode'],1,2**64-1)
+                and type(ref['sha256']) is str and len(ref['sha256'])==64 and all(c in '0123456789abcdef' for c in ref['sha256']))
     if version>=3:
         from ios.adapters.tablet_web_uikit_segment import segment_header
         need(value['manifestIntent'] is None and len(value['manifests'])==1 and value['manifests'][0]['count']==CAPTURES
             and value['copyIntent'] is not None and value['copyIntent']['phase'] in ('opened','saved'))
         segment_header(value['active'],expected,value['successor'])
+        need(value['active']['tabletWebUIKitActiveSegmentVersion']==(1 if version==ACTIVE_VERSION else 2))
+        if version==VERSION and not value['active']['records'] and value['active']['pending'] is None:
+            need(value['active']['nextRaw']==old['nextRaw']
+                and value['active']['recordIntent'] is value['active']['recordInspection'] is None)
     need(len(canonical(value))+1<=base.MAX_HEAD_BYTES);return raw,old
 
 
