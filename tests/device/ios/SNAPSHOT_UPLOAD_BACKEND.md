@@ -86,7 +86,13 @@ The [measured domain-policy preflight](SNAPSHOT_DOMAIN_PREFLIGHT.md) now supplie
 an optional controlled-fixture concurrency projection from independently read
 owned-domain identity/effective policy and actual account scope. Actual Script
 and request-module cases distinguish an allowed share from ACL/foreign-domain/
-revoked-account denial and stale-review callback exclusion. Durable preflight
-original admission into this owner and real external metaverse registration
-remain separate obligations; requested IDs, an input ACK or a hardcoded
-nonempty result cannot substitute for that source.
+revoked-account denial and stale-review callback exclusion. The owner's
+explicit version-2 profile now retains and joins actual preflight query/reply/
+policy originals through its existing nonce/WAL/frame machinery, with the
+independent domain-reader public binding pinned from admission through pure
+history. Default/literal version 1 remains unchanged. Backend write/leave
+precedes the actual multipart request on the same backend clock; native jobs,
+policy hosts and frontend consumption retain independent clock domains. Actual
+frontend consumption and real external metaverse registration remain separate
+obligations; requested IDs, an input ACK or a hardcoded nonempty result cannot
+substitute for those sources.

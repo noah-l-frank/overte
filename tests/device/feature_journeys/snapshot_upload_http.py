@@ -58,6 +58,11 @@ def run_handle(handler,parts,body,*,reader,actor,adapter_reader):
     if handler.command=='GET' and route==['preflight'] and (reader or actor or adapter_reader):
         if provider.concurrency is None:handler.send(503,dict(error='snapshot-domain-policy-unavailable'));return True
         handler.send(200,provider.concurrency.snapshot(run));return True
+    if handler.command=='GET' and route==['preflight','original'] and (reader or actor or adapter_reader):
+        if provider.concurrency is None:handler.send(503,dict(error='snapshot-domain-policy-unavailable'));return True
+        nonces=handler.headers.get_all('X-Overte-Snapshot-Read',[])
+        if len(nonces)!=1:raise ValueError('One original Snapshot preflight read nonce is required')
+        handler.send(200,provider.concurrency.original(run,identifier(nonces[0])));return True
     if handler.command=='GET' and len(route)==3 and route[0]=='bodies' and (reader or actor or adapter_reader):
         nonces=handler.headers.get_all('X-Overte-Snapshot-Read',[])
         if len(nonces)!=1 or not re.fullmatch('0|[1-9][0-9]{0,7}',route[2]):raise ValueError('One exact original Snapshot body query is required')

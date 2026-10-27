@@ -22,8 +22,24 @@ def configuration(value):
     process(value['binding']);identifier(value['instance']);return value
 
 
+def public_configuration(value):
+    exact(value,{'url','tokenSha256','binding','instance'});url=urlsplit(value['url'])
+    need(url.scheme=='http' and url.hostname is not None and ipaddress.ip_address(url.hostname).is_loopback and url.port is not None
+        and url.path=='/v1/snapshot-domain-policy' and not url.username and not url.password and not url.query and not url.fragment
+        and type(value['tokenSha256']) is str and re.fullmatch('[0-9a-f]{64}',value['tokenSha256']))
+    process(value['binding']);identifier(value['instance']);return value
+
+
 def packet(value,config,run,nonce):
-    configuration(config);identifier(run);identifier(nonce)
+    configuration(config);return _packet(value,config,run,nonce)
+
+
+def public_packet(value,config,run,nonce):
+    public_configuration(config);return _packet(value,config,run,nonce)
+
+
+def _packet(value,config,run,nonce):
+    identifier(run);identifier(nonce)
     exact(value,{'snapshotDomainPolicyVersion','instance','sequence','runId','requestId','binding','clockDomain','clockBefore','clockAfter','domainId','online',
         'standardConnect','restriction','idOriginal','settingsOriginal','externalRegistrationRequired','controlledFixtureProjectionOnly','resourceRetirementRequired'})
     need(type(value['snapshotDomainPolicyVersion']) is int and value['snapshotDomainPolicyVersion']==1 and integer(value['sequence'],1)

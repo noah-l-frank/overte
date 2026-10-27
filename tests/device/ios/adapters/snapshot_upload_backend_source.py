@@ -156,3 +156,87 @@ def joined(value,native_packet,identifier_value,file_fact,fixture_url):
             and backend['responseBytes']==responses[0]['detail']['byteCount'] and backend['responseSha256']==responses[0]['detail']['sha256'])
         network=created[0]['detail'];need(network['scheme']==endpoint[0] and network['port']==endpoint[2] and network['hostSha256']==hashlib.sha256(endpoint[1].encode()).hexdigest() and network['authorizationPresent'])
     return deepcopy(dict(upload=upload,story=story))
+
+
+def concurrency_bytes(value,limit):
+    exact(value,{'base64','bytes','sha256'});need(integer(value['bytes'],1,limit) and type(value['base64']) is str and len(value['base64'])<=4*((value['bytes']+2)//3))
+    try:raw=base64.b64decode(value['base64'],validate=True)
+    except (TypeError,ValueError):need(False)
+    need(len(raw)==value['bytes'] and base64.b64encode(raw).decode()==value['base64'] and hashlib.sha256(raw).hexdigest()==sha(value['sha256']));return raw
+
+
+def concurrency_export(value,query,domain):
+    from feature_journeys.snapshot_concurrency import query as actual_query
+    from feature_journeys.snapshot_domain_client import public_configuration,public_packet
+    public_configuration(domain);exact(value,{'snapshotConcurrencyExportVersion','runId','requestId','original'})
+    need(type(value['snapshotConcurrencyExportVersion']) is int and value['snapshotConcurrencyExportVersion']==1 and query['kind']=='preflight'
+        and all(value[key]==query[key] for key in ('runId','requestId')))
+    raw=concurrency_bytes(value['original'],SOURCE_LIMIT);packet=decode(raw.decode('utf-8'),limit=SOURCE_LIMIT);need(canonical(packet)==raw)
+    exact(packet,{'snapshotConcurrencyOriginalVersion','runId','requestId','sequence','clock','instance','processId','clockDomain','accountProvider','accountRun','principalSha256','created','ticket','snapshot','responses',
+        'sourceJournalRetirementRequired','frontendResponseConsumptionRequired','wholeFeatureRequired'})
+    need(type(packet['snapshotConcurrencyOriginalVersion']) is int and packet['snapshotConcurrencyOriginalVersion']==1 and integer(packet['sequence'],1) and integer(packet['processId'],1)
+        and packet['clockDomain']=='snapshot-backend-host' and packet['sourceJournalRetirementRequired'] is packet['frontendResponseConsumptionRequired'] is packet['wholeFeatureRequired'] is True
+        and all(packet[key]==query[key] for key in ('runId','requestId')))
+    for key in ('instance','accountProvider','accountRun','ticket'):identifier(packet[key])
+    need(sha(packet['principalSha256'])==hashlib.sha256(('e2e-'+packet['accountRun']).encode()).hexdigest());after(packet['clock'],packet['created'])
+    snapshot=packet['snapshot'];exact(snapshot,{'snapshotConcurrencyVersion','runId','configuration','requests','controlledFixtureProjectionOnly','externalRegistrationRequired','resourceRetirementRequired'})
+    need(type(snapshot['snapshotConcurrencyVersion']) is int and snapshot['snapshotConcurrencyVersion']==1 and snapshot['runId']==packet['runId'] and same(snapshot['configuration'],domain)
+        and snapshot['controlledFixtureProjectionOnly'] is snapshot['externalRegistrationRequired'] is snapshot['resourceRetirementRequired'] is True)
+    requests=rows(snapshot['requests'],'requestId',64);responses=rows(packet['responses'],'requestId',64);need(set(responses)==set(requests));previous=packet['created']
+    for identity,row in requests.items():
+        identifier(identity);exact(row,{'requestId','query','querySha256','ticket','domainReadNonce','source','entered','status','responseBytes','responseSha256','written','failed','left'})
+        identifier(row['ticket']);identifier(row['domainReadNonce']);sha(row['querySha256']);after(row['entered'],previous);after(packet['clock'],row['entered'])
+        need(type(row['written']) is type(row['failed']) is bool)
+        if row['left'] is not None:after(row['left'],row['entered']);after(packet['clock'],row['left']);previous=row['left']
+        if row['source'] is not None:
+            original=row['source'];exact(original,{'packet','rawBase64','hostBefore','hostAfter','configuration'});need(same(original['configuration'],domain))
+            need(type(original['rawBase64']) is str and len(original['rawBase64'])<=22000)
+            try:source_raw=base64.b64decode(original['rawBase64'],validate=True)
+            except (TypeError,ValueError):need(False)
+            need(len(source_raw)<=16384 and base64.b64encode(source_raw).decode()==original['rawBase64'] and canonical(original['packet'])==source_raw)
+            policy=public_packet(original['packet'],domain,packet['runId'],row['domainReadNonce']);before,ending=original['hostBefore'],original['hostAfter']
+            after(ending,before);elapsed={key:ending[key]-before[key] for key in before};need(all(item<5000 for item in elapsed.values()) and abs(elapsed['epochMs']-elapsed['monotonicMs'])<=250)
+            need(before['epochMs']-250<=policy['clockBefore']['epochMs']<=policy['clockAfter']['epochMs']<=ending['epochMs']+250 and ending['epochMs']-policy['clockAfter']['epochMs']<=1500
+                and row['entered']['epochMs']-250<=before['epochMs'] and ending['epochMs']<=packet['clock']['epochMs']+250)
+        evidence=responses[identity];exact(evidence,{'requestId','prepared','written','requestQueryOriginal','original'})
+        query_raw=concurrency_bytes(evidence['requestQueryOriginal'],1024);need(evidence['requestQueryOriginal']['sha256']==row['querySha256'] and same(actual_query(query_raw.decode('ascii')),row['query']))
+        if evidence['original'] is None:
+            need(evidence['prepared'] is evidence['written'] is row['status'] is row['responseBytes'] is row['responseSha256'] is None and not row['written']);continue
+        reply_raw=concurrency_bytes(evidence['original'],16384);need(row['status']==200 and row['source'] is not None
+            and (row['responseBytes'],row['responseSha256'])==(evidence['original']['bytes'],evidence['original']['sha256']))
+        reply=decode(reply_raw.decode('utf-8'),limit=16384);need(canonical(reply)==reply_raw)
+        policy=row['source']['packet'];count=int(policy['online'] and policy['domainId']==row['query']['domain_id'] and policy['restriction'] in ('open','hifi'))
+        need(same(reply,dict(status='success',total_entries=count,user_stories=[dict(action='concurrency',domain_id=policy['domainId'])] if count else [],
+            fixtureConcurrency=dict(controlled=True,externalRegistrationRequired=True,domainId=policy['domainId'],restriction=policy['restriction']))))
+        after(evidence['prepared'],row['entered']);after(packet['clock'],evidence['prepared'])
+        need(row['source']['hostAfter']['epochMs']<=evidence['prepared']['epochMs']+250)
+        if evidence['written'] is None:need(not row['written'])
+        else:
+            need(row['written']);after(evidence['written'],evidence['prepared']);after(packet['clock'],evidence['written'])
+            if row['left'] is not None:after(row['left'],evidence['written'])
+    return packet
+
+
+def concurrency_joined(packet,backend,joined,ticket):
+    need(all(same(packet[key],backend[key]) for key in ('instance','processId','clockDomain','accountProvider','accountRun','principalSha256','created')))
+    sent=next(row for row in backend['requests'] if row['instance']==joined['upload']['request']);eligible=[]
+    for row in packet['snapshot']['requests']:
+        if row['ticket']!=ticket or row['status']!=200 or not row['written'] or row['failed'] or row['left'] is None or row['source'] is None:continue
+        if row['source']['packet']['restriction'] not in ('open','hifi') or row['query']['domain_id']!=row['source']['packet']['domainId']:continue
+        # These two events share the actual backend clock domain. Native job
+        # clocks and frontend consumption remain independent obligations.
+        if all(row['left'][key]<=sent['entered'][key] for key in row['left']):eligible.append(row)
+    need(len(eligible)==1);row=eligible[0];reply=next(value for value in packet['responses'] if value['requestId']==row['requestId'])
+    return dict(requestId=row['requestId'],ticket=ticket,querySha256=row['querySha256'],responseSha256=reply['original']['sha256'],
+        domainId=row['source']['packet']['domainId'],restriction=row['source']['packet']['restriction'],backendWritten=reply['written'],backendLeft=row['left'],
+        frontendResponseConsumptionRequired=True,externalMetaverseRegistrationRequired=True)
+
+
+def concurrency_accept(previous,value):
+    if previous is not None:
+        need(all(same(value[key],previous[key]) for key in ('instance','processId','clockDomain','accountProvider','accountRun','principalSha256','created'))
+            and value['sequence']>previous['sequence'] and value['requestId']!=previous['requestId']);after(value['clock'],previous['clock'])
+        for key in ('requests',):
+            old=previous['snapshot'][key];new=value['snapshot'][key];need(len(new)>=len(old) and same(new[:len(old)],old))
+        old=previous['responses'];new=value['responses'];need(len(new)>=len(old) and same(new[:len(old)],old))
+    return value

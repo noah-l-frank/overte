@@ -64,8 +64,37 @@ production deadline nor original evidence was adjusted. A subsequent source
 review corrected the new fixture's VM-return publication to precede the async
 response, as the actual Script does. The final cases above include that change.
 
-Durable preflight-original admission into the backend owner, failed then
-successful upload composition, actual rendered review/Actor evidence, fixture
-and source-journal retirement, background return and paired main process/SDK
-closure remain open. Neither a local concurrency row nor an input ACK supplies
-those proofs.
+The explicit version-2 profile of the existing backend owner now admits
+preflight originals through the same closed private GET, nonce, frame-store
+and parent-CAS machinery. It pins the independently supplied domain-reader
+public binding; literal default/version-1 records and transport envelopes stay
+unchanged. Version-2 history requires that same independent binding and rejects
+a version-1/default reader. A failed policy read retains its original query
+bytes and unresolved response fields. A prepared response retains its actual
+bytes separately, including missing-write responsibility. This evidence never
+comes from reserializing a parsed response into a purported original.
+
+The join requires the exact upload ticket/account and first backend PID/scope,
+one allowed preflight, observed complete write/departure, and the subsequent
+actual multipart request. Only those backend events share a clock domain;
+policy, native jobs and frontend callbacks retain their independent clocks.
+It proves backend chronology and preserves the actual response/query/policy
+bytes. Actual frontend response consumption and external metaverse registration
+remain explicitly required; a GET acknowledgment is not a native effect.
+
+The new original codec passed seven focused byte/binding/chronology cases as
+part of an eighteen-case selection in 0.054 seconds. The version-2 normal
+Script→Upload→durable original→pure history component passed in 9.685 seconds;
+three recovery/negative components passed in 27.599 seconds. They cover lost
+same-nonce GET returns, original inode adoption after saved-frame/parent-CAS
+interruption, and an independently wrong domain PID before body acquisition.
+The final affected selection passed thirty-seven cases in 9.385 seconds,
+including the original default/version-1 backend owner and provider/HTTP,
+policy, concurrency, byte-codec and actual Script boundaries.
+Private logs are
+`.ios-host-tmp/snapshot-preflight-original-resume-20261027-{source01,owner02,recovery03,compat04}.log`.
+
+Failed then successful upload composition, actual frontend consumption,
+rendered review/Actor evidence, fixture and source-journal retirement,
+background return and paired main process/SDK closure remain open. Neither a
+local concurrency row nor an input ACK supplies those proofs.

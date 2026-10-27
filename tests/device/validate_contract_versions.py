@@ -9,14 +9,16 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "snapshot-concurrency-original": 1,
+    "snapshot-concurrency-export": 1,
     "snapshot-domain-policy": 1,
     "snapshot-concurrency": 1,
     "snapshot-upload-backend": 1,
     "snapshot-upload-backend-body": 1,
     "snapshot-upload-backend-export": 1,
-    "snapshot-upload-backend-query": 1,
-    "snapshot-upload-backend-owner": 1,
-    "snapshot-upload-backend-result": 1,
+    "snapshot-upload-backend-query": 2,
+    "snapshot-upload-backend-owner": 2,
+    "snapshot-upload-backend-result": 2,
     "snapshot-upload-backend-frame": 1,
     "snapshot-upload-backend-original": 1,
     "ios-snapshot-uploads-source": 2,
