@@ -243,7 +243,7 @@ class WorldWebSources:
 
     def expand_originals(self,originals):
         need(type(originals) is dict and set(originals)<=(NAMES|{'emissions'}))
-        return {name:self.parts.read(reference) for name,reference in originals.items()}
+        return self.parts.read_frame(originals)
 
     def save(self):
         # These writes retain intent only. Full immutable carriers/chunks are

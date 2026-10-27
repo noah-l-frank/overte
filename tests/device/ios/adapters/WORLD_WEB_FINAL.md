@@ -190,6 +190,41 @@ snapshot memos. It is no isolated benchmark comparison with the earlier unscoped
 cold constructors. It includes no candidate SDK preflight, Scope/Observer/PNG/
 Actor or full terminal construction; the installed whole API remains unqualified.
 
+Source expansion now reads the shared auxiliary parent once per synchronous
+frame call, instead of independently decoding it for the browser, UIKit,
+widget receipt and widget observation projections. Every projection still
+validates its closed reference and gets an independent copy. Each actual parent
+is read and hashed through the original typed chunk reader, with private file
+signatures checked throughout and at exit. Distinct parents remain distinct.
+Current owner/process guards run before and after every auxiliary projection;
+the chunk reader's original deadlines remain, with an additional five-second
+bound around each projected parent operation. Owner/store/header changes fail
+closed. A fresh or cleared actual-read census must reopen the original parent;
+lost membership at the last current guard cannot escape as a successful read.
+No membership paths are inferred. Changed reader functions, code or instance
+overrides keep literal dispatch; frames without auxiliary references also keep
+their literal path. No DTO survives this one call.
+
+Nine focused copy/parent/census/current-guard/reader-substitution cases, five
+existing auxiliary verification cases, four legacy Source cases and the actual
+paired ordinary Open/Unicode/factory case pass **19 tests in19.508 s** with all
+542 selected/imported source and launcher hashes unchanged. Log:
+`.ios-host-tmp/world-web-auxiliary-read-final-20261027.log`.
+
+The separate large retained66-Source/21-input diagnostic remains an **API25
+error**, completing in25.379 s (Source24.130 s, Input0.269 s). Its252 original
+files are unchanged. There is no demonstrated cold or whole-operation speed
+gain. One newly imported Assets source was absent from that launcher's selected
+path list; its identical hash is independently present in the earlier complete
+before-import focused manifest. The two original manifests account for all190
+participating sources without changes; the manifest correction does not turn
+the deadline failure into a pass. Original log and correction:
+`.ios-host-tmp/world-web-auxiliary-api25-20261027.log` and
+`.ios-host-tmp/world-web-auxiliary-api25-source-manifest-correction-20261027.json`.
+The final legacy-only bypass does not qualify the large auxiliary path anew.
+Whole installed-operation CPU bounds, original freshness and the full terminal
+remain open. No native, device or complete feature qualification follows.
+
 ## Earlier verification packets
 
 The newer paired census/end replay reached its 600-second diagnostic limit;
