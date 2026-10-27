@@ -1594,6 +1594,23 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-assets-image-reader-queue") {
+            if (command.schemaVersion===1 && typeof command.commandId==="string" && /^ios-[a-f0-9]{32}$/.test(command.commandId) && command.commandId.length===36
+                    && typeof command.runId==="string" && /^[a-f0-9]{32}$/.test(command.runId) && command.runId.length===32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount>=4096) {return;}
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var assetsImageReaderQueue={iosAssetsImageReaderQueueVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSAssetsImageReaderQueue==="function") {
+                        var actualAssetsImageReaderQueue=Test.featureIOSAssetsImageReaderQueue(command);
+                        if (actualAssetsImageReaderQueue && actualAssetsImageReaderQueue.requestId===command.commandId) {assetsImageReaderQueue=actualAssetsImageReaderQueue;}
+                    }
+                } catch (_assetsImageReaderQueueError) { /* Retain unavailable and consume the original nonce. */ }
+                Test.saveObject(assetsImageReaderQueue,"feature-ios-assets-image-reader-queue.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-assets-model-origin") {
             if (command.schemaVersion===1 && typeof command.commandId==="string" && /^ios-[a-f0-9]{32}$/.test(command.commandId) && command.commandId.length===36
                     && typeof command.runId==="string" && /^[a-f0-9]{32}$/.test(command.runId) && command.runId.length===32
