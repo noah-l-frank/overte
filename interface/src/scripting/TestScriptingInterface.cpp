@@ -133,6 +133,7 @@
 #include "../../../tests/device/native/IOSAssetsModelObservation.h"
 #include "../../../tests/device/native/IOSAssetsImageReaderObservation.h"
 #include <material-networking/IOSAssetsImageReaderQueueObservation.h>
+#include <material-networking/IOSAssetsImageReaderStorageObservation.h>
 #include <image/IOSImageProcessingObservation.h>
 #include "../../../tests/device/native/IOSAssetsModelRenderersObservation.h"
 #endif
@@ -1258,6 +1259,27 @@ QVariantMap TestScriptingInterface::featureIOSAssetsImageReaderProcessing(const 
             [] {return image::e2e::IOSImageProcessingObservation::snapshot();});
         return result;
     } QT_CATCH (...) {image::e2e::IOSImageProcessingObservation::disarm();return {};}
+}
+
+QVariantMap TestScriptingInterface::featureIOSAssetsImageReaderStorage(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] {result=featureIOSAssetsImageReaderStorage(command);},Qt::BlockingQueuedConnection)) {return {};}
+        return result;
+    }
+    QT_TRY {
+        QStringList fields{"schemaVersion","commandId","action","runId"};fields.sort();const auto json=QJsonObject::fromVariantMap(command);
+        const auto request=json.value("commandId").toString(),run=json.value("runId").toString();
+        if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+                || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+                || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-assets-image-reader-storage")
+                || !QRegularExpression("\\Aios-[a-f0-9]{32}\\z").match(request).hasMatch()
+                || !QRegularExpression("\\A[a-f0-9]{32}\\z").match(run).hasMatch()) {return {};}
+        if (!_featureIOSAssetsImageReaderStorage) {_featureIOSAssetsImageReaderStorage=std::make_shared<overte::e2e::NativeReadBracket>();}
+        const auto result=_featureIOSAssetsImageReaderStorage->read("iosAssetsImageReaderStorageVersion","native-main-assets-image-reader-storage",request,run,
+            [] {return overte::e2e::IOSAssetsImageReaderStorageObservation::snapshot();});
+        return result;
+    } QT_CATCH (...) {overte::e2e::IOSAssetsImageReaderStorageObservation::disarm();return {};}
 }
 
 QVariantMap TestScriptingInterface::featureIOSAssetsModelOrigin(const QVariantMap& command) {
@@ -3217,7 +3239,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 #endif
 #if !defined(OVERTE_E2E_FEATURE_TESTS) || !defined(Q_OS_IOS) || !defined(OVERTE_IOS_E2E_TEST_BUILD)
     if (filename=="feature-ios-assets-image-reader.json") {return;}
-    if (filename=="feature-ios-assets-image-reader-queue.json" || filename=="feature-ios-assets-image-reader-processing.json") {return;}
+    if (filename=="feature-ios-assets-image-reader-queue.json" || filename=="feature-ios-assets-image-reader-processing.json" || filename=="feature-ios-assets-image-reader-storage.json") {return;}
     if (filename=="feature-ios-assets-files.json" || filename=="feature-ios-assets-replies.json" || filename=="feature-ios-keyboard.json" || filename=="feature-ios-lifecycle-inputs.json" || filename=="feature-ios-lifecycle-world.json" || filename=="feature-ios-lifecycle-pending-commands.json" || filename=="feature-ios-lifecycle-navigation-inputs.json") {return;}
 #endif
     if (_testResultsLocation.isNull()) {
@@ -3239,7 +3261,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     // Adding whitespace can exceed the existing reader limit with no new data.
     // Other source writers keep their original encoding.
     if (filename=="feature-ios-assets-image-reader.json") {jsonData=jsonDocument.toJson(QJsonDocument::Compact);}
-    if (filename=="feature-ios-assets-image-reader-queue.json" || filename=="feature-ios-assets-image-reader-processing.json") {jsonData=jsonDocument.toJson(QJsonDocument::Compact);}
+    if (filename=="feature-ios-assets-image-reader-queue.json" || filename=="feature-ios-assets-image-reader-processing.json" || filename=="feature-ios-assets-image-reader-storage.json") {jsonData=jsonDocument.toJson(QJsonDocument::Compact);}
     if (filename=="feature-ios-assets-files.json" || filename=="feature-ios-assets-replies.json" || filename=="feature-ios-keyboard.json" || filename=="feature-ios-lifecycle-inputs.json" || filename=="feature-ios-lifecycle-world.json" || filename=="feature-ios-lifecycle-pending-commands.json" || filename=="feature-ios-lifecycle-navigation-inputs.json" || filename=="feature-ios-snapshot-owned-files.json" || filename=="feature-ios-snapshot-file-remove.json" || filename=="feature-ios-snapshot-file-work.json" || filename=="feature-ios-snapshot-inputs.json" || filename=="feature-ios-snapshot-work.json" || filename=="feature-ios-snapshot-exports.json" || filename=="feature-ios-snapshot-captures.json" || filename=="feature-ios-snapshot-uploads.json"
             || filename=="feature-ios-snapshot-combined-work.json" || filename=="feature-ios-chat-script-sources.json" || filename=="feature-ios-chat-qml-sources.json" || filename=="feature-ios-snapshot-preflight-http.json" || filename=="feature-ios-snapshot-combined-preflight-http.json" || filename=="feature-ios-snapshot-causal-dispatch.json"
             || filename=="feature-ios-tablet-web-dom.json" || filename=="feature-ios-tablet-web-deferred.json" || filename=="feature-ios-tablet-web-defer.json" || filename=="feature-ios-tablet-app-buttons.json" || filename=="feature-ios-uikit-input.json" || filename=="feature-ios-tablet-web-closures.json" || filename=="feature-ios-web-script-emissions.json" || filename=="feature-ios-tablet-web-state.json" || filename=="feature-ios-tablet-web.json" || filename=="feature-ios-tablet-sources.json" || filename=="feature-ios-world-web.json" || filename=="feature-ios-world-web-dom.json"
@@ -3256,7 +3278,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    if (filename == "feature-ios-assets-image-reader-processing.json" || filename == "feature-ios-assets-image-reader-queue.json" || filename == "feature-ios-assets-image-reader.json" || filename == "feature-ios-assets-files.json" || filename == "feature-ios-assets-replies.json" || filename == "feature-ios-keyboard.json" || filename == "feature-ios-lifecycle-inputs.json" || filename == "feature-ios-lifecycle-world.json" || filename == "feature-ios-lifecycle-pending-commands.json" || filename == "feature-ios-lifecycle-navigation-inputs.json" || filename == "feature-ios-snapshot-owned-files.json" || filename == "feature-ios-snapshot-file-remove.json" || filename == "feature-ios-snapshot-file-work.json" || filename == "feature-ios-snapshot-inputs.json" || filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
+    if (filename == "feature-ios-assets-image-reader-processing.json" || filename == "feature-ios-assets-image-reader-storage.json" || filename == "feature-ios-assets-image-reader-queue.json" || filename == "feature-ios-assets-image-reader.json" || filename == "feature-ios-assets-files.json" || filename == "feature-ios-assets-replies.json" || filename == "feature-ios-keyboard.json" || filename == "feature-ios-lifecycle-inputs.json" || filename == "feature-ios-lifecycle-world.json" || filename == "feature-ios-lifecycle-pending-commands.json" || filename == "feature-ios-lifecycle-navigation-inputs.json" || filename == "feature-ios-snapshot-owned-files.json" || filename == "feature-ios-snapshot-file-remove.json" || filename == "feature-ios-snapshot-file-work.json" || filename == "feature-ios-snapshot-inputs.json" || filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "feature-ios-world-web-snapshot.json" || filename == "feature-ios-world-web-whole-snapshot.json" || filename == "feature-ios-world-web-keys.json" || filename == "feature-ios-world-web-work.json" || filename == "feature-ios-world-web-geometry.json" || filename == "feature-ios-world-web-surfaces.json"
             || filename == "feature-ios-tablet-web-dom.json" || filename == "feature-ios-tablet-web-deferred.json" || filename == "feature-ios-tablet-web-defer.json" || filename == "feature-ios-tablet-app-buttons.json" || filename == "feature-ios-uikit-input.json" || filename == "feature-ios-tablet-web-closures.json" || filename == "feature-ios-web-script-emissions.json" || filename == "feature-ios-tablet-web-state.json" || filename == "feature-ios-tablet-web.json" || filename == "feature-ios-tablet-sources.json" || filename == "feature-ios-world-web.json" || filename == "feature-ios-world-web-dom.json"
             || filename == "feature-ios-web-closures.json" || filename == "feature-ios-location-bookmarks.json" || filename == "feature-ios-places-model.json" || filename == "feature-ios-places-http.json" || filename == "feature-ios-navigation-dialogs.json" || filename == "feature-ios-navigation-state.json" || filename == "feature-ios-scene-inventory.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"

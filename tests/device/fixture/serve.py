@@ -764,6 +764,12 @@ class FixtureState:
             try:validate_ios_source(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS Assets image reader processing request") from None
             valid=True
+        elif action == "feature-ios-assets-image-reader-storage":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.assets_image_reader_storage import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS Assets image reader storage request") from None
+            valid=True
         elif action == "feature-ios-assets-model-origin":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.assets_model_origin import command as validate_ios_source

@@ -10,6 +10,10 @@
 //
 
 #include "TextureCache.h"
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include "IOSAssetsImageReaderStorageObservation.h"
+#include <new>
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include "../../../../tests/device/native/IOSAssetsImageReaderObservation.h"
 #endif
@@ -508,6 +512,42 @@ gpu::TexturePointer NetworkTexture::getFallbackTexture() const {
 
 class ImageReader : public QRunnable {
 public:
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    // Exact ordinary scalar allocation only; no placement/array/aligned path.
+    static void* operator new(std::size_t bytes) {
+        const auto attempt=overte::e2e::IOSAssetsImageReaderStorageObservation::allocationEntering(bytes);
+        void* actual=nullptr;
+#ifdef __cpp_exceptions
+        try {actual=::operator new(bytes);}
+        catch (...) {overte::e2e::IOSAssetsImageReaderStorageObservation::allocationThrew(attempt);throw;}
+#else
+        actual=::operator new(bytes);
+#endif
+        overte::e2e::IOSAssetsImageReaderStorageObservation::allocationReturned(attempt,actual);return actual;
+    }
+#ifdef __cpp_sized_deallocation
+    // This is an explicit diagnostic test-build delegation, not evidence
+    // of the original compiled deleting-destructor ABI. Defining both
+    // class forms would make lookup prefer the unsized form.
+    static void operator delete(void* actual,std::size_t bytes) noexcept {
+        const auto captured=overte::e2e::IOSAssetsImageReaderStorageObservation::deleteEntering(actual,bytes,true);
+        ::operator delete(actual,bytes);
+        overte::e2e::IOSAssetsImageReaderStorageObservation::deleteReturned(captured);
+    }
+#else
+    static void operator delete(void* actual) noexcept {
+        const auto captured=overte::e2e::IOSAssetsImageReaderStorageObservation::deleteEntering(actual,0,false);
+        ::operator delete(actual);
+        overte::e2e::IOSAssetsImageReaderStorageObservation::deleteReturned(captured);
+    }
+#endif
+    ~ImageReader() override {
+        // Matching operator delete is also called on constructor failure,
+        // which does not invoke this most-derived destructor. Keep that fact
+        // independent before deriving any complete virtual-chain observation.
+        overte::e2e::IOSAssetsImageReaderStorageObservation::destructorEntering(this);
+    }
+#endif
     ImageReader(const QWeakPointer<Resource>& resource, const QUrl& url,
                 const QByteArray& data, size_t extraHash, int maxNumPixels,
                 image::ColorChannel sourceChannel);
@@ -533,6 +573,9 @@ private:
     int _maxNumPixels;
     image::ColorChannel _sourceChannel;
 };
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+static_assert(alignof(ImageReader)<=__STDCPP_DEFAULT_NEW_ALIGNMENT__,"Storage observer draft supports ordinary alignment only");
+#endif
 
 NetworkTexture::~NetworkTexture() {
     if (_ktxHeaderRequest || _ktxMipRequest) {
@@ -1265,9 +1308,10 @@ ImageReader::ImageReader(const QWeakPointer<Resource>& resource, const QUrl& url
                 if (_featureTask) {
                     overte::e2e::IOSAssetsImageReaderQueueObservation::prepare();
                     // Source1 copied its actual constructor task context and
-                    // released its mutex before this separate observer enters.
-                    _featureProcessing=image::e2e::IOSImageProcessingObservation::prepare(
-                        overte::e2e::IOSAssetsImageReaderObservation::processingContext(_featureTask));
+                    // released its mutex before either separate observer enters.
+                    const auto actualContext=overte::e2e::IOSAssetsImageReaderObservation::processingContext(_featureTask);
+                    overte::e2e::IOSAssetsImageReaderStorageObservation::attach(this,actualContext);
+                    _featureProcessing=image::e2e::IOSImageProcessingObservation::prepare(actualContext);
                 }
 #endif
             } else {overte::e2e::IOSAssetsImageReaderObservation::unavailable();}

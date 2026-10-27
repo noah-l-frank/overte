@@ -141,10 +141,23 @@ only all three enabled options capture one image-private definition. The inert
 setup hook also establishes target readiness before any captured definition.
 All 5591 complete source/launcher/own-hunk pins remain byte/stat/SHA-identical.
 The retained private script working directory remains empty: no cache, generated
-build files or targets were created. The previous seventeen source/model cases
+build files or targets were created. On that metadata-only revision, the previous seventeen source/model cases
 were not rerun because their implementation did not change.
 
 No CMake configure/generate step, compiler, linker, Qt execution, iOS build or
 installed-client check has run. Earlier host results retain their recorded
 source scope and do not establish native symbol or SDK compatibility. This is
 an actual CMake-script metadata result, not native compilation qualification.
+
+
+The separate [runnable storage source](ASSETS_IMAGE_STORAGE_SOURCE.md) observes
+allocation generations, successful constructor/destructor entry and original
+deallocation-call return. Its thirty new small host cases pass together with
+the twenty-nine Processing and forty-three Lifecycle/Queue regressions: 102
+cases in 6.314 seconds. A fresh 204.277-second connected declared-allocator case
+holds free returns after this processing join closes, requires Storage to
+refuse, releases only test-owned barriers and acquires new quiet originals.
+These host results do not establish native class deletion, the previous compiled
+allocator ABI, complete QThreadPool drainage or whole Resource retirement.
+Earlier Processing/writer/image-target results above retain their own recorded
+source revisions; the 102-case run supplies regressions on this new packet.
