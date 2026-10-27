@@ -21,6 +21,9 @@ REQUIRED = {
     "snapshot-causal-callsite-pins": 1,
     "snapshot-frontend-branch": 1,
 
+    "ios-tablet-web-native-child-continuation": 1,
+    "ios-tablet-web-native-child-closed-body": 1,
+    "ios-tablet-web-native-child-active-segment": 1,
     "ios-snapshot-causal-dispatch": 1,
     "ios-snapshot-causal-dispatch-acquisition": 1,
 

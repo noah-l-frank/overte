@@ -9,6 +9,121 @@ Source writer2 and its literal1/2 readers remain unchanged; no registry version
 is promoted. The current runtime still has its literal limits and cannot
 qualify the complete common Tablet journey.
 
+## Seven native-channel first-segment continuation
+
+`tablet_web_native_child_continuation.py` uses one finite profile for the
+existing `sources`, `trace`, `buttons`, `state`, `closures`, `emissions` and
+`deferred` Packet journals. Its continuation, immutable closed body and active
+segment each use explicit version1. This profile does not route DOM or UIKit,
+change their existing literal formats, or enable a complete Tablet capability.
+The ordinary Packet constructor encounters the canonical rotating header and
+refuses before lower raw/frame factories. Parent acquisition stays fenced.
+
+Preparation checks the actual frozen parent/copy and the component's exact
+literal Packet1/2 header, all128 returned original rows, final native packet,
+raw cursor and physical header signature. Installing the rotating header uses
+the existing structural CAS; it never rewrites a predecessor original. The
+closed body carries the exact compressed original bytes/signature and frozen
+parent reference. All128 original frame references enter the existing bounded
+manifest primitive. Only then can an explicit empty129..256 active segment
+open. No successor file is precreated to make this transition appear complete.
+
+The first actual query129 uses the unchanged Packet capture/WAL, native
+validator, raw segmentation, file inspection and archival path. Its first
+actual frame can bind only against the previously owned original intent and
+exact pending body. Index129 is an original global reference, independent of
+the active records' list offset. Active128, global1024,64KiB headers,1.5s query
+and5s file guards remain unchanged. Stored clocks, query IDs, counters, bytes
+and inodes retain their actual original values.
+
+Each new live native-child reader independently proves any changed known
+peer's own original graph, then confirms and pins that actual peer header
+through the read. An existing reader expires when its peer header advances;
+it cannot silently refresh. The private `read_own` reader instead checks its
+complete own graph under scoped actual peer-header continuity. It expires in
+`finally`, including constructor failure, exposes no live reader or mutator,
+and always returns `subgraphOnly=True`, `peerAuthority=False`. Current peer
+bytes alone never supply peer native authority. The historical all-nine parent
+selector independently reads every changed native-child graph and retains
+its original aggregate/native/phase floor while returning separate actual
+component tails. No original aggregate is retimed to match a later child.
+
+A subsequent private pure-own-read batch addresses the measured growing
+census work. Only `read_own` batches the global inventory census; the complete
+entry/exit census and real locks remain mandatory, including on exceptions.
+Every original, raw fragment, manifest, header, parent and peer still uses its
+literal reader and existing byte/reference/inode/privacy/deadline checks.
+Expected and observed read dependencies must belong to that original inventory
+and fresh read membership. Ambient immutable-record/native DTO memos are
+suspended within the pure read and restored before any live operation.
+No decoded proof, DTO or result is cached. No save, input or query is admitted.
+Scoped Packet/frame/raw readers carry the exact private lifetime token and
+cannot read or act after return; only detached original data may escape.
+Final-source four metadata/fence cases pass in0.062s; the independent deferred
+actual129/reopen/own/parent1/peer-inode case passes1/110.917s. Literal129-file
+read/ambient-memo isolation/expired-reader checks pass1/82.356s. The targeted
+census/scope/dependency mutation case passes1/108.931s and proves the actual
+injection point for every variant. All original native bytes/inodes and input
+counts remain unchanged. The earlier timings below belong to pre-batch WIP.
+
+The repaired actual sources129 case passes1/35.331s; four syntax, default-fence
+and expired-reader cases pass in0.060s. The original35.125s log covered only
+empty-segment opening because the capture assertions had been misplaced; it
+is retained and superseded solely by the separate full positive log. The lost-open/complete-Packet-original/first-bind-CAS recovery case separately
+passes1/30.034s without a query repeat or original rewrite. This is not a raw
+flush recovery claim. The first-issued-CAS unknown/archive case passes1 in
+36.562s without consuming raw129 or admitting another capture/own/parent read;
+it preserves the actual durable failed-after rather than inventing an issued
+completion. A subsequent monolithic six-channel attempt timed out at its
+outer900s bound (exit124, no unittest result): five returned129 originals are
+retained while deferred remains literal128. Final all-six tail/immutability
+assertions were not reached, so it does not qualify the complete matrix.
+Repeated whole-graph restoration grows with the frozen graph; no retained
+stack identifies the precise timed-out call. No clock or original guard was
+changed. Independent complete channel cases now replace that scenario. All
+seven are final-source qualified individually: deferred as above, buttons/
+state/closures as passing entries in the five-case run (which itself has two
+test errors), repaired trace/emissions PASS2/241.027s, and final sources129/
+original-recovery/unknown plus seven old ChildRotation cases PASS10/245.600s.
+The two alias errors used component names instead of actual `FRAME_KEYS`; no
+production body or observation changed. Raw interruption cases pass2/175.660s:
+exact observed native-reader error wrapper and one actual saved/opened marker,
+unchanged failed body/raw floor130, no resend/recreate and no success promotion.
+The first raw attempt errors1/21.459s on its old wrong exception expectation;
+that retained error is not an ownership qualification.
+The individual cases do not prove collective six-child coexistence. These are actual Python files/journals at
+modeled native/SDK and host/native clocks, not native or CPU deadline proof.
+
+Retained logs live under
+`.ios-host-tmp/tablet-dom-continuation-20261027/`:
+`native-child-sources129-positive.log` (opening only),
+`native-child-sources129-full-positive.log` (full repaired case), and
+`native-child-metadata4-repaired.log`, `native-child-sources129-recovery.log`,
+`native-child-sources129-unknown.log`, `native-child-six-channel129-matrix.log`
+(exit124), and `native-child-six-channel129-matrix-outer900-partial.json`.
+Final-source logs are `native-child-own-batch-final-metadata4.log`,
+`native-child-own-batch-deferred129.log`,
+`native-child-own-batch-literal-lifetime.log` and
+`native-child-own-batch-mutations.log`,
+`native-child-own-batch-independent-five129.log` (three passes/two test errors),
+`native-child-own-batch-trace-emissions-repaired.log`,
+`native-child-own-batch-complete-raw129-negative.log` (initial test error),
+`native-child-own-batch-raw129-negatives-repaired.log` and
+`native-child-final-source-recovery-unknown-legacy10.log`.
+The exact pre-split test source is preserved privately as
+`native-child-test-before-independent-split.py` (SHA256
+`6a98803eb7474df7b4f272e750b548d7d05cd72c75546a848460e406dbdec37c`).
+Use the explicit entries in
+`test_ios_tablet_web_native_child_continuation.py`; do not run discovery or a
+compiler/device suite to qualify this storage component.
+
+Copy/manifest interruption recovery, live DOM/UIKit admission of these new
+native peers, live all-nine acquisition, aggregate/screen continuation and the
+full both-role Journey with double cleanup/retirement remain separate work.
+The five approved project suites pass in7.16s; versions and whitespace pass.
+Feature7 remains partial; the completed source-area count stays5/14, native
+code is uncompiled and devices are untested.
+
 ## Concrete existing limit
 
 The current 26-step scenario contains 12 phases for which

@@ -13,6 +13,9 @@
     "snapshot-causal-callsite-pins": {"current": 1, "reads": [1]},
     "snapshot-frontend-branch": {"current": 1, "reads": [1]},
 
+    "ios-tablet-web-native-child-continuation": {"current": 1, "reads": [1]},
+    "ios-tablet-web-native-child-closed-body": {"current": 1, "reads": [1]},
+    "ios-tablet-web-native-child-active-segment": {"current": 1, "reads": [1]},
     "ios-snapshot-causal-dispatch": {"current": 1, "reads": [1]},
     "ios-snapshot-causal-dispatch-acquisition": {"current": 1, "reads": [1]},
 

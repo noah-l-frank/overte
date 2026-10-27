@@ -125,7 +125,7 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
     need(reference is not None and reference['phase'] in ('opened','saved'))
     lease=EmoteOriginalLease(root,[])
     current_children={};dom_prefix=None;dom_state=None;dom_reader=None;dom_changed=None
-    uikit_state=None;uikit_changed=None
+    uikit_state=None;uikit_changed=None;native_states={};native_proofs={}
     def forbidden(*_args,**_kwargs):need(False)
     for child in value['children']:
         old,signature=_raw(root/child['headerName']);digest=hashlib.sha256(old).hexdigest()
@@ -133,8 +133,13 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
         if signature==child['signature'] and digest==child['sha256']:continue
         # Each changed child needs its own original proof. A DOM subgraph
         # cannot authorize UIKit or the whole Source selector.
-        need(child['component'] in ('dom','uikit'))
         changed=PrivateFeatureState(root/child['headerName']).read()
+        if child['component'] not in ('dom','uikit'):
+            from ios.adapters.tablet_web_native_child_continuation import decode as native_decode,read_own
+            native_raw,native_state=native_decode(changed,expected,child['component'])
+            need(changed['previousHeader']['signature']==child['signature'] and hashlib.sha256(native_raw).hexdigest()==child['sha256'])
+            native_states[child['component']]=native_state
+            continue
         if child['component']=='uikit':
             from ios.adapters.tablet_web_uikit_continuation import (decode as uikit_decode,BOUND_VERSION as UIKIT_BOUND,
                 ACTIVE_VERSION as UIKIT_ACTIVE,VERSION as UIKIT_INITIAL)
@@ -153,6 +158,10 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
             and hashlib.sha256(dom_raw).hexdigest()==child['sha256'])
         dom_changed=changed
     dom_proof=None;uikit_proof=None
+    for name in native_states:
+        native_proofs[name]=read_own(root,binding,run,role,fixture_url,pid,name,lock,monotonic=monotonic)
+        need(native_proofs[name]['component']==name and native_proofs[name]['subgraphOnly'] is True
+            and native_proofs[name]['peerAuthority'] is False)
     if uikit_state is not None:
         need(dom_state is not None)
         from ios.adapters.tablet_web_dom_original_link import read as dom_original_link
@@ -198,18 +207,19 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
     state=base._legacy(raw,expected)
     owner=TabletWebSourceOwner._closed_snapshot(root,binding,run,role,fixture_url,pid,lock,state,
         monotonic=monotonic,closed_dom_state=dom_state if dom_reader is None else None,closed_dom_reader=dom_reader,
-        closed_uikit_state=uikit_state)
+        closed_uikit_state=uikit_state,closed_native_states=native_states or None)
     need(not owner.blocked);frames=owner.history();tails={}
     for child in value['children']:
         component=child['component'];actual=owner.children[component];packets=actual.history()
-        if (dom_reader is not None and component!='dom') or uikit_proof is not None:
+        if (dom_reader is not None and component!='dom') or uikit_proof is not None or native_proofs:
             need(all(actual.originals.read(actual.originals.expand(ref))['status']=='returned' for ref in actual.state['records']))
         legacy=actual.closed.old if component=='dom' and dom_reader is not None else actual.state
         need(not actual.blocked and actual.state['pending'] is actual.state['recordIntent'] is actual.state['recordInspection'] is None
             and legacy['tabletWebPacketsVersion']==child['version'] and len(legacy['records'])==child['count']
             and legacy['nextRaw']==child['nextRaw']
             and same(None if not legacy['records'] else legacy['records'][-1],child['lastRecord']))
-        tails[component]=(deepcopy(uikit_proof['nativeFloor']) if component=='uikit' and uikit_proof is not None
+        tails[component]=(deepcopy(native_proofs[component]['nativeFloor']) if component in native_proofs
+            else deepcopy(uikit_proof['nativeFloor']) if component=='uikit' and uikit_proof is not None
             else deepcopy(dom_proof['nativeFloor']) if component=='dom' and dom_proof is not None
             else None if not packets else deepcopy(packets[-1]))
     result=dict(historicalOnly=True,phase='rotating',scope=deepcopy(expected),globalIndex=len(state['records']),

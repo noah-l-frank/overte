@@ -1,5 +1,114 @@
 # Feature 7 continuation handoff
 
+## Seven native-child continuation and pure own-read checkpoint
+
+`tablet_web_native_child_continuation.py` extends the seven existing native
+Packet journals (`sources`, `trace`, `buttons`, `state`, `closures`,
+`emissions`, `deferred`) with literal128 predecessors and explicit empty
+129..256 active segments. It reuses existing query WALs, raw originals,
+native validators and file guards. Its three new registry tags are version1.
+The ordinary Packet/whole Source gates remain fenced. Feature7 stays partial,
+completed source-area count stays5/14, native is uncompiled and devices untested.
+
+The new pure `read_own` batch performs the complete unchanged inventory census
+at entry and exit, including exceptions, while keeping literal per-file,
+header/parent/peer and lock checks. Every required and observed read dependency
+must belong to the entry inventory and fresh membership. Ambient record/native
+DTO memos are disabled only within this pure call and restored before live
+work. No proof/DTO/result is cached; no input, query or metadata write can span
+the batch. Every scoped Packet/frame/raw reader expires before detached data
+returns. No existing format, cap, clock or transport deadline changes.
+
+Final-source explicit results:
+
+| Selection | Actual result |
+| --- | --- |
+| Four metadata/default-fence/constructor-expiry cases | PASS4/0.062s |
+| Full independent deferred128/actual129, WAL before send, first bind/reopen/own link, historical parent1 and peer-inode negative | PASS1/110.917s, outer120 |
+| All129 source Packet/raw files read literally under warm ambient memos; retained reader expiry, no writes/inputs/reentry, detached output | PASS1/82.356s, outer240 |
+| Ten injected census/scope/dependency variants plus suppressed actual read membership | PASS1/108.931s, outer240 |
+| Independent buttons/state/closures actual129 cases | Three complete passing entries in the retained five-case run below |
+| Repaired independent trace/emissions actual129 cases | PASS2/241.027s, outer300 |
+| Complete-raw-return-loss and opened-empty-partial-raw failure retention | PASS2/175.660s, outer300 |
+| Final complete sources129, original/open/bind recovery, unknown archival and seven old ChildRotation cases | PASS10/245.600s, outer360 |
+
+The mutation case verifies its real literal Packet-read injection point for
+every variant. It covers ctime-only on a synthetic probe, same-byte/new-inode,
+new/missing files, a foreign actual read, candidate/root/lock replacement,
+decoder exceptions with/without mutation and lost membership. The native
+original hashes/inodes and query counts remain unchanged throughout. Earlier
+mutations do not qualify later cases by causing an unrelated initial failure.
+Logs are `native-child-own-batch-final-metadata4.log`,
+`native-child-own-batch-deferred129.log`,
+`native-child-own-batch-literal-lifetime.log` and
+`native-child-own-batch-mutations.log` in the usual private log directory.
+These real-file checks use modeled native/SDK and host/native acquisition
+clocks; no native or CPU deadline qualification follows.
+
+All seven native channels now have independent complete actual128-to129
+cases against the final production source, each including reopen, own-original
+read, unchanged old originals, historical parent1 and peer-inode counterexamples.
+This does not prove simultaneous changed-child coexistence or live parent
+acquisition. Raw interruption preserves complete or opened-empty raw129 at
+nextRaw130 through failed archival; capture/reconcile/own/parent stay blocked,
+no file is recreated and no failed span becomes successful. Both raw cases
+verify exactly one real saved/opened injection marker, the exact observed
+native-reader `NativeUIError` wrapper and the unchanged durable failed body.
+
+The five-case run completes in524.963s with three passes (buttons/state/closures)
+and two test errors (trace/emissions). Those two use the wrong historical
+aggregate keys after already proving actual129/own/parent1; the corrected
+helper reuses existing `FRAME_KEYS` aliases (`ledger`, `emitter`). Only those
+two are rerun and pass in241.027s. The initial raw complete-loss case errors
+in21.459s because its test expected `OSError` instead of the existing native
+reader's `NativeUIError` wrapper; its ownership assertions were not reached.
+The corrected two-case raw selection passes as recorded above. No production
+observation, schema, clock or cap changes in either test correction. Preserve
+all original failure logs; the failed five-case run is never called PASS5.
+
+Final additional logs: `native-child-own-batch-independent-five129.log`
+(three passes/two errors), `native-child-own-batch-trace-emissions-repaired.log`,
+`native-child-own-batch-complete-raw129-negative.log` (initial error),
+`native-child-own-batch-raw129-negatives-repaired.log` and
+`native-child-final-source-recovery-unknown-legacy10.log`. Common project,
+version/documentation/whitespace checks are now green: the five approved
+project suites pass in7.16s, contract versions are coherent and whitespace
+passes. No own test/process remains. Only the exact local commit is pending.
+
+Copy/manifest recovery, live DOM/UIKit admission of generic peers, live parent
+acquisition, aggregate/screen continuation, both-role Journey and paired
+cleanup/retirement remain separate executable work.
+
+### Retained pre-batch attempts and corrected proof boundary
+
+The original `native-child-sources129-positive.log` PASS1/35.125s proves only
+opening an empty segment: source review found the test ended before capture.
+Its actual129/bind/reopen/own/parent assertions had been misplaced after the
+unknown test. They were restored; the separate full positive passes1/35.331s.
+The earlier log and private handoff are unchanged. Pre-batch lost-open,
+complete Packet-original and lost first-bind-CAS recovery passes1/30.034s;
+unknown issued-CAS/archive passes1/36.562s. These timings are pre-batch evidence,
+not final-source reruns. Unknown archival preserves actual durable failed-after,
+not the earlier issued state's absent `after`; nextRaw129 stays unconsumed.
+Complete Packet-original recovery is not a raw-flush recovery claim.
+
+The pre-batch monolithic six-channel case reached outer900/exit124 without a
+unittest result. Five returned129 originals remain retained (trace/buttons/
+state/closures/emissions), each nextRaw130 and no pending WAL; deferred remains
+literal128/nextRaw129. No final all-six tail/immutability/stale-scope assertion
+or matrix pass is claimed. Retain `native-child-six-channel129-matrix.log`,
+`native-child-six-channel129-matrix-outer900-partial.json`, its exact original
+directory, and `native-child-test-before-independent-split.py` (SHA256
+`6a98803eb7474df7b4f272e750b548d7d05cd72c75546a848460e406dbdec37c`).
+
+Read-only host-file gaps between completed129 originals grow84.518s,144.186s,
+210.859s and283.359s. Those filesystem intervals describe test progression,
+never native freshness or a CPU profile. Source inspection identifies repeated
+global census inside every nested own-graph guard as a concrete growing cost;
+no retained stack identifies the exact timed-out inner call. The six new
+independent cases replace this unqualified monolith without resetting its
+originals or model counters. Do not repeat that unchanged scenario.
+
 ## Current scoped peer-header advancement checkpoint
 
 After DOM bootstrap qualification `cc240ba657`, DOM4 can independently prove
