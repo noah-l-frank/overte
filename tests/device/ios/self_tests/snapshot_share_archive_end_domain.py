@@ -115,4 +115,4 @@ class SourceArchiveEndFlow(SourceRetirementFlow):
             need(runtime is self.runtime and selector=='primary' and binding==self.primary.binding);return self.primary
         with patch.object(snapshot_share_runtime,'PhotosClientContext',primary):
             with self.runtime.archive_end_owner('primary',RUN,self.client(),self.archive_config(),SYSTEM_UI,
-                    epoch_ms=lambda:REAL_TIME()*1000,monotonic=REAL_MONOTONIC,sleep=REAL_SLEEP) as owner:yield owner
+                    epoch_ms=lambda:REAL_TIME()*1000,monotonic=REAL_MONOTONIC,sleep=REAL_SLEEP,combined=getattr(self,'combined',False)) as owner:yield owner

@@ -19,23 +19,27 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSChatDraftRuntime(IOSScriptRuntime):
-    def _chat_send_operation(self,selector,run,root,client,receive):
+    def _chat_send_operation(self,selector,run,root,client,receive,*,sender_role='primary'):
         from pathlib import Path
         from ios.adapters.chat_receive_sources import IOSChatReceiveSources
         from ios.adapters.chat_send_operation import IOSChatSendOperation
+        need(type(sender_role) is str and sender_role in ('primary','peer'))
         need(isinstance(receive,IOSChatReceiveSources) and run==receive.run
-            and str(Path(root))==receive.bound_record['primaryArtifactRoot']['path']
-            and receive.primary_lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
+            and str(Path(root))==receive.bound_record[sender_role+'ArtifactRoot']['path'])
+        lock=receive.primary_lock if sender_role=='primary' else receive.lock
+        need(lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
+        options=dict(source_bound=True,lock=lock)
+        if sender_role=='peer':options['peer_actor']=True
         return IOSChatSendOperation(receive,lambda:self.draft_owner(selector,run,root,client,
-            source_bound=True,lock=receive.primary_lock))
+            **options),sender_role=sender_role)
 
     def _chat_receive_components(self,primary_selector,peer_selector,run,primary_root,peer_root,primary_lock,peer_lock):
         from ios.adapters.chat_receive_runtime import receive_components
         return receive_components(self,primary_selector,peer_selector,run,primary_root,peer_root,primary_lock,peer_lock)
 
     @contextmanager
-    def draft_owner(self,selector,run,root,client,*,source_bound=False,lock=None):
-        need(type(source_bound) is bool)
+    def draft_owner(self,selector,run,root,client,*,source_bound=False,lock=None,peer_actor=False):
+        need(type(source_bound) is bool and type(peer_actor) is bool and (not peer_actor or source_bound))
         path=self.state_path(selector).with_name('script-feature-sources.lock')
         if lock is None:lock=ScriptSourceLock(path)
         else:need(isinstance(lock,ScriptSourceLock) and lock.path==path);lock.assert_held()
@@ -55,7 +59,7 @@ class IOSChatDraftRuntime(IOSScriptRuntime):
                     root,source['binding'],run,lock,source['check'],native=native,
                     io=IOSChatIO(SimpleNamespace(capture=normal.capture,native=normal)),view=view,
                     phase=PhaseFixtureReader(client,run,'chat'),epoch_ms=lambda:time.time()*1000,
-                    monotonic=time.monotonic,sleep=time.sleep,source_bound=source_bound,code_sources=code_sources,code_roots=code_roots)
+                    monotonic=time.monotonic,sleep=time.sleep,source_bound=source_bound,code_sources=code_sources,code_roots=code_roots,peer_actor=peer_actor)
                 native_send,view_send=native.send,view.send
                 observe_intent=getattr(normal,'observe_intent',None)
                 def send_native(command):owner.query_intent(command);return native_send(command)

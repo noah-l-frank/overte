@@ -22,8 +22,9 @@ from ios.adapters.emote_original_lease import EmoteOriginalLease
 from ios.adapters.tablet_web_packets import TabletWebPackets,CAPTURES
 from ios.adapters.tablet_web_segments import CHUNK_BYTES
 
-VERSION=3
-READS=(1,2,3)
+VERSION=4
+READS=(1,2,3,4)
+ACTIVE_VERSION=3
 FENCE_VERSION=2
 BODY_VERSION=1
 PROFILE='tabletweb-dom-closed-prefix'
@@ -79,10 +80,14 @@ def decode(value,expected):
             and type(ref['sha256']) is str and len(ref['sha256'])==64 and all(c in '0123456789abcdef' for c in ref['sha256']))
     if version>=3:
         from ios.adapters.tablet_web_dom_segment import segment_header
-        need(value['successor'] is not None and value['manifestIntent'] is None and len(value['manifests'])==1
+        need((version==VERSION or value['successor'] is not None) and value['manifestIntent'] is None and len(value['manifests'])==1
             and value['manifests'][0]['count']==CAPTURES and value['copyIntent'] is not None
             and value['copyIntent']['phase'] in ('opened','saved'))
         segment_header(value['active'],expected,value['successor'])
+        need(value['active']['tabletWebDOMActiveSegmentVersion']==(1 if version==ACTIVE_VERSION else 2))
+        if version==VERSION and not value['active']['records'] and value['active']['pending'] is None:
+            need(value['active']['nextRaw']==old['nextRaw']
+                and value['active']['recordIntent'] is value['active']['recordInspection'] is None)
     need(len(canonical(value))+1<=base.MAX_HEAD_BYTES);return raw,old
 
 
@@ -227,7 +232,8 @@ class TabletDOMClosedPrefix:
 
     def bind_successor(self,reference):
         """Once-bind an existing validated original, never write/acquire one."""
-        need(self.state.get('successor') is None);self.successor(reference)
+        need(self.state['tabletWebDOMContinuationVersion'] in (1,FENCE_VERSION)
+            and self.state.get('successor') is None);self.successor(reference)
         # The former capsule/copy stays literal even when an old profile1 is
         # promoted after complete actual replay. Only the mutable fence moves.
         changed=deepcopy(self.state);changed.update(tabletWebDOMContinuationVersion=FENCE_VERSION,successor=deepcopy(reference))

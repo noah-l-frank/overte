@@ -28,7 +28,7 @@ class PageJourneyDomain(SnapshotPageDomain):
         main.event('returned',closure,call);main.event('finally',closure,call)
     @contextmanager
     def owner(self):
-        with self.runtime.page_owner('primary',RUN,self.capture.client()) as owner:
+        with self.runtime.page_owner('primary',RUN,self.capture.client(),combined=getattr(self,'combined',False)) as owner:
             owner.epoch_ms=lambda:int(REAL_TIME()*1000);owner.monotonic=REAL_MONOTONIC;owner.sleep=self.capture.sleep
             owner.phase.epoch_ms=owner.epoch_ms;owner.phase.monotonic=REAL_MONOTONIC;yield owner
     def prepare_png(self):
@@ -62,4 +62,4 @@ class PageReturnFlow(SourceArchiveEndFlow):
         with patch.object(snapshot_share_runtime,'PhotosClientContext',primary):
             with self.runtime.page_return_owner('primary',RUN,self.client(),self.archive_config(),
                     SYSTEM_UI,
-                    epoch_ms=lambda:REAL_TIME()*1000,monotonic=REAL_MONOTONIC,sleep=self.main.sleep) as owner:yield owner
+                    epoch_ms=lambda:REAL_TIME()*1000,monotonic=REAL_MONOTONIC,sleep=self.main.sleep,combined=getattr(self,'combined',False)) as owner:yield owner

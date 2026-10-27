@@ -64,3 +64,51 @@ The next measurement must isolate memory/directory guard costs and choose a
 bounded local dataflow change without weakening the current callbacks,
 immutable bytes/inodes, parser identities or parent prefixes. No unchanged
 full-flow rerun is authorized by the results above.
+
+
+## Resumed filesystem identity and fresh comparison
+
+The resumed read-only diagnostic cannot adopt the retained 257-file removal
+graph as current originals. Its recorded file references and prior census
+pin device52; the actual mount reports device36. All257 names, inodes, sizes
+and SHA256 values still match the prior census; only the device number
+changes. `OriginalFrameStore.file` correctly refuses this mismatch before
+`inspect_directory` can expose a Parsed context. No device pin, original byte,
+inode or source time was repaired or relabeled. This does not establish the
+cause of the mount identity change.
+
+`assets-model-memory-profile-contended-location2-20261027.log` records the
+exact refusal through `assets_files.decode` and `OriginalFrameStore.file`,
+followed by the diagnostic harness's unavailable-context KeyError. It takes
+0.027s, makes no forbidden call and leaves all257 files unchanged. This is a
+historical-file identity boundary, not a newly discovered product failure or
+an authorization to weaken original-file validation.
+
+A fresh isolated fixture was therefore prepared from birth on the current
+filesystem at `.ios-host-tmp/assets-model-memory-fresh-8qtouj01`. It executes
+ordinary original QML operations with the same explicitly modeled native,
+parser and backend boundaries. Four original Parsed frames and148 files are
+retained. Preparation takes about95s; the subsequent pure paired comparison
+is separate from that preparation.
+
+`assets-model-memory-fresh-profile-first-20261027.log` records three successful
+pure decoder arms over those same actual148 files, forbidden calls0 and exact
+before/after byte/device/inode/size/hash equality. The existing guarded JSON
+memory signature takes0.521s; a diagnostic-only opaque marshal-v2 comparison
+takes0.428s; the literal public-frame path takes0.375s. The two local paths
+reopen31 Upload originals instead of124 and additionally reopen26 Model raw
+and two logical originals. The marshal-v2 experiment is still slower than
+the literal path. No production source optimization or full removal rerun
+is justified by those measurements. The test-owned Node/backend fixture has
+closed; the retained files remain evidence rather than fresh observations.
+
+
+A second read-only comparison over the fresh148-file graph is terminal in
+1.632s (`assets-model-memory4-fresh-readonly-first-20261027.log`). All original
+bytes/device/inodes/sizes/hashes remain equal and forbidden calls stay0.
+JSON-local0.460s, diagnostic-only reference-aware marshal-v4 local0.316s,
+and literal public-frame0.296s again show no win over the literal path. No
+marshal encoder, cache or relaxed memory guard was adopted in adapter code.
+The next actual implementation is the separate
+[normal Model-removal image join](ASSETS_REMOVAL_IMAGES.md), rather than an
+unchanged rerun of the old120s prerequisite.

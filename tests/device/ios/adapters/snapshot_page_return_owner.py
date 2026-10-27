@@ -7,6 +7,7 @@ from adapters.native_clock_join import digest
 from adapters.native_feature_observation import exact,need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUI
+from adapters.original_frame_store import OriginalFrameStore
 from adapters.script_feature.history import pack,unpack,same
 from feature_journeys.phase_fixture import validate as phase_packet
 from ios.adapters.graphics_history import follow_native
@@ -23,6 +24,17 @@ def initial_snapshot(frame,root):
 
 class _ReturnPage(IOSSnapshotPageOwner):
     def store_namespace(self):return 'ios-snapshot-return-page'
+    def frame_namespace(self):return 'ios-snapshot-combined-return' if self.combined_profile() else self.store_namespace()
+    def frame_store(self):
+        if not self.combined_profile():return super().frame_store()
+        return OriginalFrameStore(self.store.path.parent,self.binding,self.run,'primary',self.bound,self.storage_intent,
+            namespace=self.frame_namespace(),schema_prefix='iosSnapshotCombinedReturnPage',monotonic=self.monotonic)
+    def inventory(self,state):
+        super().inventory(state)
+        expected={self.frames.path(self.frames.expand(row)) for row in state['records']}
+        if state['observation'] is not None and state['observation']['wire'] is not None:expected.add(self.frames.path(state['observation']['wire']))
+        for path in self.store.path.parent.iterdir():
+            if path.name.startswith('ios-snapshot-combined-return-'):need(self.combined_profile() and path in expected)
     def restore_origin(self):self.outer.bound();return self.outer.page.restore_origin()
     def phase_original(self,value,ticket):
         phase_packet(value,run=self.run,area='snapshots',request=value['requestId'],epoch=value['capturedEpochMs'])
@@ -33,7 +45,7 @@ class _ReturnPage(IOSSnapshotPageOwner):
     def capture(self,*_args):need(False)
     @classmethod
     def history(cls,outer):
-        owner=object.__new__(cls);owner.outer=outer;owner.store=PrivateFeatureState(outer.root/'ios-snapshot-return-page-owner.json')
+        owner=object.__new__(cls);owner.combined=outer.combined;owner.outer=outer;owner.store=PrivateFeatureState(outer.root/'ios-snapshot-return-page-owner.json')
         owner.lock,owner.binding,owner.run,owner.fixture_url=outer.lock,deepcopy(outer.binding),outer.run,outer.fixture_url
         owner.historical=True;owner.guard=outer.bound;owner.monotonic=time.monotonic;owner.lock.assert_held();owner.previous=owner.store.read()
         need(owner.previous is not None);owner.frames=owner.frame_store();owner.state=unpack(owner.previous['payload'])[0]
@@ -41,21 +53,24 @@ class _ReturnPage(IOSSnapshotPageOwner):
 
 
 class SnapshotPageReturnOwner:
-    def __init__(self,runtime,selector,primary,phase,page,files,end,*,epoch_ms,monotonic,sleep):
+    def __init__(self,runtime,selector,primary,phase,page,files,end,*,epoch_ms,monotonic,sleep,combined=False):
+        need(type(combined) is bool)
         self.primary,self.epoch_ms,self.monotonic,self.sleep=primary,epoch_ms,monotonic,sleep
-        need(isinstance(primary,PhotosClientContext));self.initialize(page,files,end,historical=False);need(same(primary.binding,self.binding))
+        need(isinstance(primary,PhotosClientContext));self.initialize(page,files,end,historical=False,combined=combined);need(same(primary.binding,self.binding))
         need(phase.fixture_url==self.fixture_url and phase.run==self.run and phase.area=='snapshots')
         sources=runtime._sources(selector);need(same(sources['binding'],self.binding));check=sources['check']
         def guard():need(check() is not False);return self.bound()
         sources['check']=guard
         engine=object.__new__(_ReturnPage);engine.outer=self
         _ReturnPage.__init__(engine,runtime,selector,self.run,self.lock,sources,ui=NativeUI(sources['client'],sources['session'],guard),phase=phase,
-            epoch_ms=epoch_ms,monotonic=monotonic,sleep=sleep)
+            epoch_ms=epoch_ms,monotonic=monotonic,sleep=sleep,combined=self.combined)
         self.engine=engine
         if self.state['result'] is not None:need(same(self.state['result'],self.proof()))
-    def initialize(self,page,files,end,*,historical):
-        need(type(page) is IOSSnapshotPageOwner and page.historical and not page.combined_profile() and type(files) is IOSSnapshotJourneyFilesOwner and files.historical
-            and type(end) is SnapshotShareArchiveEndOwner and end.historical and type(historical) is bool)
+    def initialize(self,page,files,end,*,historical,combined=False):
+        need(type(combined) is bool)
+        need(type(page) is IOSSnapshotPageOwner and page.historical and page.combined_profile()==combined and type(files) is IOSSnapshotJourneyFilesOwner and files.historical and files.combined==combined
+            and type(end) is SnapshotShareArchiveEndOwner and end.historical and end.share.combined==combined and type(historical) is bool)
+        self.combined=combined
         self.page,self.files,self.end,self.historical=page,files,end,historical;self.lock,self.binding,self.run,self.fixture_url=page.lock,deepcopy(page.binding),page.run,page.fixture_url
         self.root=page.store.path.parent;self.store=PrivateFeatureState(self.root/'snapshot-page-return-owner.json')
         need(historical or same(self.primary.binding,self.binding))
@@ -77,11 +92,11 @@ class SnapshotPageReturnOwner:
         for path in self.root.iterdir():
             if path.name.startswith('snapshot-page-return-'):need(path==self.store.path)
     @classmethod
-    def history(cls,page,files,end):
-        owner=object.__new__(cls);owner.initialize(page,files,end,historical=True);owner.engine=_ReturnPage.history(owner)
+    def history(cls,page,files,end,*,combined=False):
+        owner=object.__new__(cls);owner.initialize(page,files,end,historical=True,combined=combined);owner.engine=_ReturnPage.history(owner)
         if owner.state['result'] is not None:need(same(owner.state['result'],owner.proof()))
         return owner
-    def envelope(self):return dict(snapshotPageReturnOwnerVersion=1,runId=self.run,binding=self.binding,fixtureUrl=self.fixture_url,pins=self.pins,payload=pack([self.state]))
+    def envelope(self):return dict(snapshotPageReturnOwnerVersion=2 if self.combined else 1,runId=self.run,binding=self.binding,fixtureUrl=self.fixture_url,pins=self.pins,payload=pack([self.state]))
     def bound(self):
         self.lock.assert_held();self.page.bound();self.files.guard();self.end.bound()
         need(same(self.store.read(),self.previous) and self.pins==dict(pageOwnerSha256=digest(self.page.previous),journeyFilesOwnerSha256=digest(self.files.previous),
@@ -94,7 +109,7 @@ class SnapshotPageReturnOwner:
         self.bound();need(self.state['engineSha256'] is not None and digest(self.engine.previous)==self.state['engineSha256'])
         initial_snapshot(self.engine.record(self.engine.state['initial']),self.files.pending.state['initial']['rootId'])
         restored=self.engine.restoration()
-        return dict(snapshotPageReturnedVersion=1,runId=self.run,binding=self.binding,pins=deepcopy(self.pins),pageReturnEngineSha256=self.state['engineSha256'],
+        return dict(snapshotPageReturnedVersion=2 if self.combined else 1,runId=self.run,binding=self.binding,pins=deepcopy(self.pins),pageReturnEngineSha256=self.state['engineSha256'],
             restoration=restored,archiveEnded=True,mainProcessStillOwned=True,primarySDKRetirementRequired=True,wholeFeatureRequired=True)
     @operation
     def restore(self):

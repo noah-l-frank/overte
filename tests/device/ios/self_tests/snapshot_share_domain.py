@@ -300,4 +300,4 @@ class SnapshotShareDomain:
             archive=SnapshotShareArchiveContext(self.archive,self.archive.session,self.archive.target,self.archive.binding,self.archive.ipa,self.archive.admission_store,self.archive.source_lock,RUN,self.archive.fixture_url,
                 epoch_ms=self.main.epoch,monotonic=self.main.mono,sleep=self.main.sleep)
             yield IOSSnapshotShareOwner(self.runtime,'primary',RUN,self.primary,archive,self.main.ctx.lock,self.archive.source_lock,
-                PhaseFixtureReader(self.client(),RUN,'snapshots',epoch_ms=self.main.epoch,monotonic=self.main.mono),SYSTEM_UI,epoch_ms=self.main.epoch,monotonic=self.main.mono,sleep=self.main.sleep)
+                PhaseFixtureReader(self.client(),RUN,'snapshots',epoch_ms=self.main.epoch,monotonic=self.main.mono),SYSTEM_UI,epoch_ms=self.main.epoch,monotonic=self.main.mono,sleep=self.main.sleep,combined=getattr(self,'combined',False))

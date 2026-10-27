@@ -9,6 +9,7 @@ input/WAL/raw/PNG files and independent weak objects execute.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import hashlib
+import uuid
 from types import SimpleNamespace
 import weakref
 from unittest.mock import patch
@@ -45,6 +46,12 @@ class Boundary(combined.CombinedBoundary,removal.Boundary):
     def state(self,request_id=None):
         value=super().state(request_id)
         if self.marker_domain is not None:self.marker_domain.include_marker(value)
+        # This fresh controller model reports its actual current visible roots,
+        # including the ordinary Home close. It never rewrites saved packets.
+        product=self.create_product
+        value['source']['tabletShown']=self.host_state['pageAlive'] or (product is not None and any(
+            not row['destroyed'] and row.get('visible',False) and row.get('active',False) for row in product.roots)) or (
+            self.marker_domain is not None and self.marker_domain.io.qt.opened)
         return value
     def attach_create(self):
         self.create_product=Product(self)
@@ -55,6 +62,11 @@ class ParsedFixture(combined.ParsedFixture):boundary_type=Boundary
 
 
 class Domain(combined.CombinedMarkerDomain):
+    def attach_readers(self,scope):
+        super().attach_readers(scope)
+        # One fresh host producer for Marker/Model/image acquisition. The
+        # native producer keeps its original independent5000ms offset.
+        scope.epoch_ms=lambda:self.driver.clock()+5000
     def current(self):return self.driver.state()
     def include_marker(self,value):
         source=value['source'];entities=source['entities'];tree=source['tree']
@@ -86,3 +98,52 @@ class Fixture(combined.Fixture):
         self.model,self.baking=self.f.prepared();self.parsed=self.f.parsed(self.model,self.baking);self.parsed.reserve();self.proof=self.parsed.observe()
         self.model.usage.close_clients();self.image_sources=None
     def attach_removal(self):self.f.boundary.attach_create()
+    def sample(self,request):
+        owner,source=super().sample(request)
+        assert owner.previous is None and owner.state is None
+        owner.epoch_ms=lambda:self.f.boundary.clock()+5000
+        return owner,source
+
+
+class RemovalImageSources(combined.ImageSources):
+    def __init__(self,fixture):
+        self.present_policy=None
+        super().__init__(fixture);self.gpu=RemovalImageGpu(self)
+    def regions(self):
+        if self.f.proof['entityId'] in self.b.entities:
+            policy=super().regions();self.present_policy=deepcopy(policy);return policy
+        # This is only a proposed crop from the actual earlier mesh. It never
+        # supplies a current model, bounds observation, pixel or image verdict.
+        assert self.present_policy is not None
+        return deepcopy(self.present_policy)
+
+
+class RemovalImageGpu:
+    """Existing native model per ticket, one actual service sequence/clock.
+
+    Matches FeatureCompletedFrames request-local retired/holder state. Old
+    slots remain owned; a new read cannot bypass their undrained callbacks.
+    """
+    def __init__(self,source):
+        self.source=source;self.slots={};self.last=None;self.sequence=0;self.frame=0
+    def drained(self,slot):
+        return slot.request is None or (slot.retired and not slot.gpu_pending and not (
+            slot.held and (slot.no_fence or slot.clock<slot.callback_due)))
+    def send(self,query):
+        request=query['requestId']
+        if request not in self.slots:
+            slot=combined.ImageGpu(self.source)
+            original=slot.fault
+            def decorate(value,slot=slot,original=original):
+                original(value)
+                if 'renderTrace' in value.get('source',{}):value['source']['renderTrace']['frameId']=slot.original_frame_id
+            slot.fault=decorate;self.slots[request]=slot
+        slot=self.slots[request];self.last=slot;slot.sequence=self.sequence
+        if query['operation']=='read' and slot.request is None:
+            # The real source refuses a second active/undrained acquisition.
+            # Do not reset or discard another request's retained World state.
+            assert all(other is slot or self.drained(other) for other in self.slots.values())
+            self.frame+=1;slot.frame_index=self.frame;slot.original_frame_id=uuid.uuid4().hex
+        slot.send(query);self.sequence=slot.sequence
+    def original(self):
+        self.last.sequence=self.sequence;raw=self.last.original();self.sequence=self.last.sequence;return raw

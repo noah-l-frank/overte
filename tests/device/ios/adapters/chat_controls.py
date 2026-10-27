@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 from adapters.native_feature_observation import need
-from adapters.token_chat_ui import control_id,snapshot
+from adapters.token_chat_ui import TokenChatUI,control_id,snapshot
 
 
 def project(original):
@@ -21,3 +21,10 @@ class IOSChatIO:
     def activate(self,identifier,*,reference):self.original.native.chat_input(identifier,'activate',reference=reference)
     def replace(self,identifier,value,*,reference):self.original.native.chat_input(identifier,'replace',reference=reference,value=value)
     def submit(self,identifier,*,reference):self.original.native.chat_input(identifier,'submit',reference=reference)
+
+
+class IOSPeerChatUI(TokenChatUI):
+    """Only the closed actor texts, independently measured by normal controls."""
+    def allowed(self):
+        from feature_journeys.fixtures import context
+        owned=context(self.run);return (owned['reply'],owned['hidden'])

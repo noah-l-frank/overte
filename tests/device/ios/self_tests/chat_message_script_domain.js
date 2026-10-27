@@ -67,6 +67,11 @@ input.on('line', line => {
             tablet.fromQml.emit({ type: 'action', action: command.nonempty ? 'start_typing' : 'end_typing' });
         } else if (command.action === 'echo' && typeof command.enabled === 'boolean') {
             echo = command.enabled;
+        } else if (command.action === 'receive' && typeof command.message === 'string'
+                && typeof command.localOnly === 'boolean') {
+            // Explicit MessagesClient incoming callback seam. The caller must
+            // supply actual other-script wire bytes, never a desired model row.
+            Messages.messageReceived.emit('chat', command.message, 'controlled-peer', command.localOnly);
         } else if (command.action === 'end') { Script.end(); }
         else if (command.action !== 'read') { throw Error('Action'); }
         process.stdout.write(JSON.stringify({ ok: true, source: output() }) + '\n');

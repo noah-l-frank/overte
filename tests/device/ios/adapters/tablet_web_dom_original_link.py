@@ -68,12 +68,13 @@ class _OriginalLinkPrefix(dom.TabletDOMClosedPrefix):
 
 def read(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotonic):
     """Return only an original DOM tail; never expose the scoped reader."""
-    prefix=_OriginalLinkPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
+    prefix=object.__new__(_OriginalLinkPrefix)
     try:
+        prefix.__init__(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
         if prefix.state['tabletWebDOMContinuationVersion']==dom.FENCE_VERSION:
             result=prefix.adopted()
         else:
-            need(prefix.state['tabletWebDOMContinuationVersion']==dom.VERSION)
+            need(prefix.state['tabletWebDOMContinuationVersion'] in (dom.ACTIVE_VERSION,dom.VERSION))
             # Build exactly the existing forced-historical segment. Its
             # prefix is private and scoped to this one complete original read;
             # no caller callback, reader or live guard escapes the function.

@@ -43,7 +43,8 @@ def clock(value,previous=None):
 
 
 class IOSSnapshotPhotosOwner:
-    def __init__(self,runtime,selector,run,primary,companion,primary_lock,companion_lock,phase,*,epoch_ms,monotonic,sleep):
+    def __init__(self,runtime,selector,run,primary,companion,primary_lock,companion_lock,phase,*,epoch_ms,monotonic,sleep,combined=False):
+        need(type(combined) is bool);self.combined=combined
         from ios.adapters.snapshot_photos_runtime import IOSSnapshotPhotosRuntime
         need(isinstance(runtime,IOSSnapshotPhotosRuntime) and isinstance(primary,PhotosClientContext)
             and isinstance(companion,PhotosCompanionContext) and isinstance(phase,PhaseFixtureReader)
@@ -66,7 +67,7 @@ class IOSSnapshotPhotosOwner:
         self.lock.assert_held();self.companion_lock.assert_held();transport_check()
         need(same(self.store.read(),self.previous));self.primary.probe();self.companion.probe();transport_check();return True
     def envelope(self):
-        return dict(iosSnapshotPhotosOwnerVersion=1,binding=self.binding,companionBinding=self.companion_binding,
+        return dict(iosSnapshotPhotosOwnerVersion=2 if self.combined else 1,binding=self.binding,companionBinding=self.companion_binding,
             runId=self.run,fixtureUrl=self.fixture_url,companionArtifact=str(self.companion.artifact_path),payload=pack([self.state]))
     def save_state(self):
         self.guard();value=self.envelope();self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
@@ -81,7 +82,7 @@ class IOSSnapshotPhotosOwner:
             if path.name.startswith('photos-normal-'):need(path in named or path in reads)
     def decode(self,value):
         exact(value,{'iosSnapshotPhotosOwnerVersion','binding','companionBinding','runId','fixtureUrl','companionArtifact','payload'})
-        rows=unpack(value['payload']);need(len(rows)==1 and type(value['iosSnapshotPhotosOwnerVersion']) is int and value['iosSnapshotPhotosOwnerVersion']==1)
+        rows=unpack(value['payload']);need(len(rows)==1 and type(value['iosSnapshotPhotosOwnerVersion']) is int and value['iosSnapshotPhotosOwnerVersion']==(2 if self.combined else 1))
         state=rows[0];exact(state,set(self.state));prior=self.state;self.state=state
         try:
             need(same(value,self.envelope()) and type(state['slots']) is list and len(state['slots'])<=256
@@ -119,7 +120,7 @@ class IOSSnapshotPhotosOwner:
         return deepcopy(state)
 
     def capture(self):
-        owner=IOSSnapshotCaptureOwner.archive(PrivateFeatureState(self.root/'ios-snapshot-primary-capture-owner.json'),self.lock,self.binding,self.run,self.fixture_url)
+        owner=IOSSnapshotCaptureOwner.archive(PrivateFeatureState(self.root/'ios-snapshot-primary-capture-owner.json'),self.lock,self.binding,self.run,self.fixture_url,combined=self.combined)
         result=owner.result();artifact=owner.history('artifact',owner.state['artifact']);fact,raw=artifact.originals()
         if self.state['capture'] is not None:
             need(self.state['capture']==dict(resultSha256=digest(result),artifactSha256=digest(artifact.previous),file=fact['file']))
@@ -265,7 +266,7 @@ class IOSSnapshotPhotosOwner:
         copied=source.original_bytes(chunks,original,int(self.companion_binding['processIdentity']));need(copied==raw)
         saved=destination.saved_original(original,self.packet_original(self.state['export']['label']),self.state['export']['id'],copied)
         image=inspect_snapshot(copied,mode='still',file_format='png');need(image['sha256']==result['image']['sha256'])
-        return dict(iosSnapshotPhotosSavedVersion=1,savedOriginal=saved,image=image,hostOriginalRetained=True,
+        return dict(iosSnapshotPhotosSavedVersion=2 if self.combined else 1,savedOriginal=saved,image=image,hostOriginalRetained=True,
             photosCleanupRequired=True,captureCleanupRequired=True,independentWitnessRequired=True,wholeFeatureRequired=True)
 
     @operation
@@ -346,7 +347,7 @@ class IOSSnapshotPhotosOwner:
         need(last['epochMs']-first['epochMs']>=3000 and last['monotonicMs']-first['monotonicMs']>=3000)
         return dict(nativeMilliseconds=last['epochMs']-first['epochMs'],hostMilliseconds=rows[-1]['before']['epochMs']-rows[0]['after']['epochMs'])
     def cleanup_proof(self):
-        return dict(iosSnapshotPhotosCleanupVersion=1,saved=self.proof(),photoQuiet=self.quiet(self.state['photoQuiet']),
+        return dict(iosSnapshotPhotosCleanupVersion=2 if self.combined else 1,saved=self.proof(),photoQuiet=self.quiet(self.state['photoQuiet']),
             fileQuiet=self.quiet(self.state['fileQuiet'],files=True),photosAssetAbsent=True,companionRunFilesAbsent=True,
             hostOriginalRetained=True,captureCleanupRequired=True,pairedCleanupRequired=True,wholeFeatureRequired=True)
 

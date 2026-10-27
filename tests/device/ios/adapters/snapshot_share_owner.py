@@ -37,7 +37,8 @@ class SnapshotSharePending(NativeUIError):pass
 
 
 class IOSSnapshotShareOwner:
-    def __init__(self,runtime,selector,run,primary,archive,lock,archive_lock,phase,system_ui,*,epoch_ms,monotonic,sleep):
+    def __init__(self,runtime,selector,run,primary,archive,lock,archive_lock,phase,system_ui,*,epoch_ms,monotonic,sleep,combined=False):
+        need(type(combined) is bool);self.combined=combined
         from ios.adapters.snapshot_share_runtime import IOSSnapshotShareRuntime
         need(isinstance(runtime,IOSSnapshotShareRuntime) and isinstance(primary,PhotosClientContext) and isinstance(archive,SnapshotShareArchiveContext)
             and isinstance(phase,PhaseFixtureReader) and phase.area=='snapshots' and phase.run==run)
@@ -61,14 +62,15 @@ class IOSSnapshotShareOwner:
             handoffs=[],archiveSources=[],selectTicket=None,readyReceiver=None,exportComplete=False,imported=None,metadata=None,chunks=[],result=None,cleanup=None)
 
     @classmethod
-    def history(cls,store,lock,archive_lock,binding,archive_binding,run,fixture_url,system_ui,primary_bundle,artifact_path,admission_store):
+    def history(cls,store,lock,archive_lock,binding,archive_binding,run,fixture_url,system_ui,primary_bundle,artifact_path,admission_store,*,combined=False):
         """Reopen retained originals without an SDK, fixture or native source."""
+        need(type(combined) is bool)
         need(isinstance(store,PrivateFeatureState) and isinstance(admission_store,PrivateFeatureState)
             and isinstance(lock,ScriptSourceLock) and isinstance(archive_lock,ScriptSourceLock))
         lock.assert_held();archive_lock.assert_held();exact(system_ui,{'select','cancel'})
         for value in system_ui.values():exact(value,{'using','value'});need(value['using']=='accessibility id');Locator(**value)
         need(type(primary_bundle) is str and re.fullmatch('[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)+',primary_bundle))
-        result=object.__new__(cls);result.historical=True;result.runtime=result.selector=result.phase=None
+        result=object.__new__(cls);result.combined=combined;result.historical=True;result.runtime=result.selector=result.phase=None
         result.root,result.archive_root=store.path.parent,admission_store.path.parent
         need(result.root!=result.archive_root and store.path==result.root/'snapshot-share-owner.json'
             and lock.path==result.root/'script-feature-sources.lock' and archive_lock.path==result.archive_root/'script-feature-sources.lock')
@@ -91,13 +93,13 @@ class IOSSnapshotShareOwner:
         else:self.primary.probe();self.archive.probe()
         return True
     def live_guard(self):need(not self.historical);return self.guard()
-    def envelope(self):return dict(iosSnapshotShareOwnerVersion=1,binding=self.binding,archiveBinding=self.archive_binding,runId=self.run,
+    def envelope(self):return dict(iosSnapshotShareOwnerVersion=2 if self.combined else 1,binding=self.binding,archiveBinding=self.archive_binding,runId=self.run,
         fixtureUrl=self.fixture_url,systemUI=self.system_ui,payload=pack([self.state]))
     def save(self):
         self.live_guard();value=self.envelope();self.store.write(value,self.previous);need(same(value,self.store.read()));self.previous=deepcopy(value)
     def load(self,value):
         exact(value,{'iosSnapshotShareOwnerVersion','binding','archiveBinding','runId','fixtureUrl','systemUI','payload'})
-        rows=unpack(value['payload']);need(len(rows)==1 and type(value['iosSnapshotShareOwnerVersion']) is int and value['iosSnapshotShareOwnerVersion']==1)
+        rows=unpack(value['payload']);need(len(rows)==1 and type(value['iosSnapshotShareOwnerVersion']) is int and value['iosSnapshotShareOwnerVersion']==(2 if self.combined else 1))
         state=rows[0];exact(state,set(self.state));prior=self.state;self.state=state
         try:
             need(same(value,self.envelope()) and type(state['slots']) is list and len(state['slots'])<=256
@@ -180,7 +182,7 @@ class IOSSnapshotShareOwner:
         finally:self.state=prior
         return deepcopy(state)
     def capture(self):
-        owner=IOSSnapshotCaptureOwner.archive(PrivateFeatureState(self.root/'ios-snapshot-primary-capture-owner.json'),self.lock,self.binding,self.run,self.fixture_url)
+        owner=IOSSnapshotCaptureOwner.archive(PrivateFeatureState(self.root/'ios-snapshot-primary-capture-owner.json'),self.lock,self.binding,self.run,self.fixture_url,combined=self.combined)
         result=owner.result();artifact=owner.history('artifact',owner.state['artifact']);fact,raw=artifact.originals()
         pin=dict(resultSha256=digest(result),artifactSha256=digest(artifact.previous),file=fact['file'])
         if self.state['capture'] is not None:need(same(pin,self.state['capture']))
@@ -457,7 +459,7 @@ class IOSSnapshotShareOwner:
         receiver=share.imported_original(imported,metadata,raw,pid=int(self.archive_binding['processIdentity']),bundle_id=self.archive.target['appId'],receiver_bundle_id=self.archive.artifact['extension']['bundle']['bundleId'])
         need(self.queries.receiver()[1]==metadata);_capture,result,_pin,captured=self.capture();original=share.received_original(receiver,self.packet_original(row['exportLabel']),row['exportId'],raw,captured)
         image=inspect_snapshot(raw,mode='still',file_format='png');need(image['sha256']==result['image']['sha256'])
-        return dict(iosSnapshotShareTransferVersion=1,sharedOriginal=original,image=image,hostOriginalRetained=True,
+        return dict(iosSnapshotShareTransferVersion=2 if self.combined else 1,sharedOriginal=original,image=image,hostOriginalRetained=True,
             archiveCleanupRequired=True,extensionQuietRequired=True,captureCleanupRequired=True,nativePresentationCleanupRequired=True,wholeFeatureRequired=True)
 
     def cleanup_state(self):
@@ -516,7 +518,7 @@ class IOSSnapshotShareOwner:
         need(any(row['label']=='share-retired-client' and row['after'] is not None for row in self.state['handoffs']))
         presentation=[row for row in self.state['slots'] if row['label'].startswith('retirement-presentation-') and row['qualified'] is True];need(presentation)
         packet=self.packet_original(presentation[-1]['label']);exports.drained(packet);need(exports.outcome(packet,self.op()['exportId'])['nativeResult']['detail']==dict(status='success',hasError=False))
-        return dict(iosSnapshotShareCleanupVersion=1,runId=self.run,transferSha256=digest(self.proof()),retirementSha256=digest(values[0]['retirement']),
+        return dict(iosSnapshotShareCleanupVersion=2 if self.combined else 1,runId=self.run,transferSha256=digest(self.proof()),retirementSha256=digest(values[0]['retirement']),
             extensionBefore=before,extensionAfter=after,fileQuiet=files,hostOriginalRetained=True,sourceJournalRetirementRequired=True,
             captureCleanupRequired=True,nativePresentationCleanupRequired=True,wholeFeatureRequired=True)
 

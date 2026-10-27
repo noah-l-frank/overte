@@ -21,7 +21,7 @@ class ChatSourceBoundOwnerTests(unittest.TestCase):
         self.f=legacy_fixture.ChatDraftOwnerTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
         self.m=self.f.model=SourceBoundMessageModel();self.run=legacy_fixture.RUN;self.binding=legacy_fixture.BINDING
     @contextmanager
-    def owner(self,*,source_bound=True):
+    def owner(self,*,source_bound=True,peer_actor=False):
         model=self.m;failure=None
         with self.f.lock.held():
             try:
@@ -30,7 +30,7 @@ class ChatSourceBoundOwnerTests(unittest.TestCase):
                     native=model.native_reader(),io=IOSChatIO(SimpleNamespace(capture=model.capture,native=model)),view=model.view_reader(),
                     phase=PhaseFixtureReader(model.client(),self.run,'chat',epoch_ms=model.epoch,monotonic=lambda:model.widgets.clock),
                     epoch_ms=model.epoch,monotonic=lambda:model.widgets.clock,sleep=model.sleep,
-                    source_bound=source_bound,code_roots=roots,code_sources=code)
+                    source_bound=source_bound,code_roots=roots,code_sources=code,peer_actor=peer_actor)
                 model.owner=owner;yield owner
             except BaseException as error:failure=error
         if failure is not None:raise failure

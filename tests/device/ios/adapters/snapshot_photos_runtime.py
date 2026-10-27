@@ -13,7 +13,8 @@ from ios.adapters.snapshot_photos_context import PhotosClientContext,PhotosCompa
 
 class IOSSnapshotPhotosRuntime(IOSSnapshotPageRuntime):
     @contextmanager
-    def photos_owner(self,selector,run,fixture_client,companion,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,sleep=time.sleep):
+    def photos_owner(self,selector,run,fixture_client,companion,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,sleep=time.sleep,combined=False):
+        need(type(combined) is bool)
         from ios.adapters.snapshot_photos_owner import IOSSnapshotPhotosOwner
         exact(companion,{'client','sessionStore','target','binding','artifactPath','admissionStore'})
         need(isinstance(companion['sessionStore'],PrivateFeatureState) and isinstance(companion['admissionStore'],PrivateFeatureState))
@@ -27,5 +28,5 @@ class IOSSnapshotPhotosRuntime(IOSSnapshotPageRuntime):
             phase=PhaseFixtureReader(fixture_client,run,'snapshots',epoch_ms=epoch_ms,monotonic=monotonic)
             separate=PhotosCompanionContext(companion['client'],companion['sessionStore'],companion['target'],companion['binding'],
                 companion['artifactPath'],companion['admissionStore'],helper,run,phase.fixture_url,epoch_ms=epoch_ms,monotonic=monotonic,sleep=sleep)
-            owner=IOSSnapshotPhotosOwner(self,selector,run,primary,separate,main,helper,phase,epoch_ms=epoch_ms,monotonic=monotonic,sleep=sleep)
+            owner=IOSSnapshotPhotosOwner(self,selector,run,primary,separate,main,helper,phase,epoch_ms=epoch_ms,monotonic=monotonic,sleep=sleep,combined=combined)
             with self.existing_input_session(selector):yield owner

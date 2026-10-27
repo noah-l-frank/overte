@@ -21,7 +21,7 @@ from adapters.script_feature.lock import ScriptSourceLock
 from adapters.token_chat_ui import TokenChatUI
 from feature_journeys.contract import arguments,identifier
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
-from ios.adapters.chat_controls import IOSChatIO,project
+from ios.adapters.chat_controls import IOSChatIO,IOSPeerChatUI,project
 from ios.adapters.chat_draft_clock import operation
 from ios.adapters.graphics_history import follow_native
 from ios.adapters.normal_input import observation as ui_packet
@@ -30,11 +30,12 @@ from ios.adapters import chat_script_sources
 VERSION=3
 RESTORE_STEPS=frozenset(('cleanup-open','cleanup-settings','cleanup-erase','cleanup-discard','cleanup-rebuild-close','cleanup-rebuild-open'))
 RESTORE_READ='cleanup-inspect'
+PEER_STEPS=frozenset(('open','select-channel','type','send'))
 
 
 class IOSChatDraftOwner:
     def __init__(self,store,root,binding,run,lock,guard,*,native,io,view,phase,epoch_ms,monotonic,sleep,
-            source_bound=False,code_sources=None,code_roots=None):
+            source_bound=False,code_sources=None,code_roots=None,peer_actor=False):
         need(type(store) is PrivateFeatureState and isinstance(lock,ScriptSourceLock)
             and isinstance(native,NativeFeatureObservation) and native.ios and not native.native_clock_bound
             and isinstance(io,IOSChatIO) and isinstance(view,NativeChatView) and view.ios
@@ -49,9 +50,10 @@ class IOSChatDraftOwner:
         need(type(source_bound) is bool and (isinstance(code_sources,chat_script_sources.IOSChatScriptSources)
             and isinstance(code_roots,NativeScriptRoots) and code_roots.ios and code_roots.pid==code_sources.pid==native.pid
             if source_bound else code_sources is None and code_roots is None))
-        self.source_bound,self.code_sources,self.code_roots=source_bound,code_sources,code_roots
-        self.historical=False;self.previous=store.read();self.version=self.read_version(self.previous,source_bound=source_bound);self.state=self.empty()
-        self.frames=self.frame_store();self.ui=TokenChatUI(io,self.input_intent,run,monotonic=monotonic,sleep=sleep)
+        need(type(peer_actor) is bool and (not peer_actor or source_bound))
+        self.source_bound,self.peer_actor,self.code_sources,self.code_roots=source_bound,peer_actor,code_sources,code_roots
+        self.historical=False;self.previous=store.read();self.version=self.read_version(self.previous,source_bound=source_bound,peer_actor=peer_actor);self.state=self.empty()
+        self.frames=self.frame_store();self.ui=(IOSPeerChatUI if peer_actor else TokenChatUI)(io,self.input_intent,run,monotonic=monotonic,sleep=sleep)
         if self.previous is not None:self.state=self.decode(self.previous)
         else:self.inventory(self.state)
         if self.state['records']:
@@ -66,20 +68,20 @@ class IOSChatDraftOwner:
     def empty():return dict(records=[],baseline=None,operations=[],failures=[],pending=None,observation=None,interrupted=[])
 
     @classmethod
-    def archive(cls,store,root,binding,run,lock,fixture_url,*,source_bound=False):
+    def archive(cls,store,root,binding,run,lock,fixture_url,*,source_bound=False,peer_actor=False):
         owner=object.__new__(cls);owner.store,owner.root,owner.binding,owner.run,owner.lock=store,Path(root),deepcopy(context(binding)),identifier(run),lock
         lock.assert_held();need(store.path==lock.path.with_name('ios-chat-draft-owner.json'))
         owner.fixture_url,owner.historical,owner.guard,owner.monotonic=fixture_url,True,lambda:True,time.monotonic
-        owner.source_bound,owner.code_sources,owner.code_roots=source_bound,None,None
-        owner.previous=store.read();need(owner.previous is not None);owner.version=owner.read_version(owner.previous,source_bound=source_bound)
+        owner.source_bound,owner.peer_actor,owner.code_sources,owner.code_roots=source_bound,peer_actor,None,None
+        owner.previous=store.read();need(owner.previous is not None);owner.version=owner.read_version(owner.previous,source_bound=source_bound,peer_actor=peer_actor)
         owner.state=owner.empty();owner.frames=owner.frame_store()
         owner.state=owner.decode(owner.previous);return owner
 
     @staticmethod
-    def read_version(value,*,source_bound=False):
-        need(type(source_bound) is bool)
-        version=(4 if source_bound else VERSION) if value is None else value.get('iosChatDraftOwnerVersion')
-        need(type(version) is int and version in (1,2,3,4) and (version==4)==source_bound);return version
+    def read_version(value,*,source_bound=False,peer_actor=False):
+        need(type(source_bound) is bool and type(peer_actor) is bool and (not peer_actor or source_bound))
+        version=(5 if peer_actor else 4 if source_bound else VERSION) if value is None else value.get('iosChatDraftOwnerVersion')
+        need(type(version) is int and version in (1,2,3,4,5) and (version>=4)==source_bound and (version==5)==peer_actor);return version
 
     def frame_store(self):
         return OriginalFrameStore(self.root,self.binding,self.run,'primary',self.bound,self.storage_intent,
@@ -94,6 +96,13 @@ class IOSChatDraftOwner:
 
     def phase_original(self,value,ticket,verb,inputs,previous=None):
         phase_packet(value,run=self.run,area='chat',request=value['requestId'],epoch=value['capturedEpochMs'],previous=previous)
+        if self.peer_actor and verb in PEER_STEPS and value['activations'] and value['activations'][-1]['stimulus']['verb']=='peer-send':
+            activation=value['activations'][-1];stimulus=activation['stimulus']['inputs']
+            need(value['active'] and activation['ticket']==ticket)
+            if verb=='type':need(inputs==dict(text=stimulus['text']))
+            elif verb=='select-channel':need(inputs==dict(channel=stimulus['channel']))
+            else:need(inputs=={})
+            return
         if self.version>=3 and verb in RESTORE_STEPS|{RESTORE_READ}:verb='cleanup'
         need(value['active'] and value['activations'] and value['activations'][-1]['ticket']==ticket
             and same(value['activations'][-1]['stimulus'],dict(verb=verb,inputs=inputs)))
@@ -141,6 +150,10 @@ class IOSChatDraftOwner:
                 previous=None if previous is None else previous['originals']['view']['source'].get('rootOwnership'))
             if owned['available']:need(first['capturedEpochMs']<=owned['capturedEpochMs']<=original['capturedEpochMs'])
         local=self.local(value);source=original['source'];page=TokenChatUI.row(end,'chat.page',enabled=False)
+        if self.peer_actor and value['verb'] in ('type','send'):
+            activation=value['phaseBefore']['activations'][-1];stimulus=activation['stimulus']
+            need(stimulus['verb']=='peer-send' and local['channel']==stimulus['inputs']['channel'])
+            if local['draft']:need(local['draft']==stimulus['inputs']['text'])
         stored=source['storage'];need(stored['unowned']==0)
         if self.version==1:need(stored['count']==0 and stored['events']==[])
         else:need(stored['count']==len(stored['events']))
@@ -222,7 +235,8 @@ class IOSChatDraftOwner:
                 exact(op,{'ticket','verb','inputs','before','intents','queries','after','quiet'});self.call(op['ticket'],op['verb'],op['inputs'])
                 need(op['verb']!=RESTORE_READ and op['before'] in state['records'] and op['before']['index']>=state['baseline']['index'])
                 prior=tickets.setdefault(op['ticket'],set())
-                need(not prior or self.version>=3 and op['verb'] in RESTORE_STEPS|{'cleanup'} and prior<=RESTORE_STEPS|{'cleanup'})
+                need(not prior or self.version>=3 and op['verb'] in RESTORE_STEPS|{'cleanup'} and prior<=RESTORE_STEPS|{'cleanup'}
+                    or self.peer_actor and op['verb'] in PEER_STEPS and prior<=PEER_STEPS)
                 need(op['verb'] not in prior);prior.add(op['verb'])
                 need(type(op['intents']) is list and len(op['intents'])<=2 and type(op['queries']) is list and len(op['queries'])<=128
                     and type(op['quiet']) is list and len(op['quiet'])<=3)
@@ -247,6 +261,10 @@ class IOSChatDraftOwner:
         identifier(ticket);need(verb in ('open','type','close','cleanup') or self.version>=2 and verb in ('send','select-channel')
             or self.version>=3 and verb in RESTORE_STEPS|{RESTORE_READ})
         if verb=='cleanup' or verb in RESTORE_STEPS|{RESTORE_READ}:need(inputs=={} and type(inputs) is dict)
+        elif self.peer_actor and verb=='type':
+            exact(inputs,{'text'})
+            arguments('feature.chat.act',dict(contractVersion=16,runId=self.run,fixtureUrl=self.fixture_url,
+                ticket=ticket,verb='peer-send',inputs=dict(text=inputs['text'],channel='domain')))
         else:arguments('feature.chat.act',dict(contractVersion=16,runId=self.run,fixtureUrl=self.fixture_url,ticket=ticket,verb=verb,inputs=inputs))
     def query(self,command):
         if self.source_bound and type(command) is dict:
@@ -324,6 +342,11 @@ class IOSChatDraftOwner:
             and frame['originals']['view']['source']['storage']['count']==0)
     def send_history(self,op,frame):
         before=self.original(op['before']);prior=self.local(before)
+        if self.peer_actor:
+            arguments('feature.chat.act',dict(contractVersion=16,runId=self.run,fixtureUrl=self.fixture_url,
+                ticket=op['ticket'],verb='peer-send',inputs=dict(text=prior['draft'],channel=prior['channel'])))
+            phase=before['phaseBefore']['activations'][-1]
+            need(phase['ticket']==op['ticket'] and phase['stimulus']==dict(verb='peer-send',inputs=dict(text=prior['draft'],channel=prior['channel'])))
         previous=before['originals']['view']['source']['storage']['events'];current=frame['originals']['view']['source']['storage']['events']
         need(len(op['intents'])==1 and len(current)==len(previous)+1 and same(current[:-1],previous)
             and frame['originals']['uiAfter']['lastSequence']==before['originals']['uiAfter']['lastSequence']+1)
@@ -397,7 +420,8 @@ class IOSChatDraftOwner:
         if self.state['pending'] is not None:
             op=self.state['pending'];need(op['ticket']==ticket and op['verb']==verb and same(op['inputs'],inputs));return self.resolve()
         group=[op for op in self.state['operations']+self.state['failures'] if op['ticket']==ticket]
-        if group:need(verb==group[0]['verb'] or self.version>=3 and verb in RESTORE_STEPS|{'cleanup'} and all(op['verb'] in RESTORE_STEPS|{'cleanup'} for op in group))
+        if group:need(verb==group[0]['verb'] or self.version>=3 and verb in RESTORE_STEPS|{'cleanup'} and all(op['verb'] in RESTORE_STEPS|{'cleanup'} for op in group)
+            or self.peer_actor and verb in PEER_STEPS and all(op['verb'] in PEER_STEPS for op in group))
         retained=next((op for op in self.state['operations'] if op['ticket']==ticket and (op['verb']==verb or self.version<3)),None)
         if retained is not None:
             need(retained['verb']==verb and same(retained['inputs'],inputs));ref=self.capture(ticket,verb,inputs)
@@ -410,7 +434,11 @@ class IOSChatDraftOwner:
             need(baseline['chatViewVersion']>=2 and baseline['source']['storage']['kind']=='null')
         if verb in ('open','cleanup-open','cleanup-rebuild-open'):need(not local['open'] and TokenChatUI.row(project(before['originals']['uiAfter']),'chat.entry') is not None)
         elif verb=='type':need(local['open'] and local['draft']=='')
-        elif verb=='send':need(local['open'] and local['draft'] in self.ui.allowed())
+        elif verb=='send':
+            need(local['open'] and local['draft'] in self.ui.allowed())
+            if self.peer_actor:
+                arguments('feature.chat.act',dict(contractVersion=16,runId=self.run,fixtureUrl=self.fixture_url,
+                    ticket=ticket,verb='peer-send',inputs=dict(text=local['draft'],channel=local['channel'])))
         elif verb=='select-channel':need(local['open'])
         elif verb=='cleanup-settings':need(local['open'] and local['draft']=='')
         elif verb=='cleanup-erase':

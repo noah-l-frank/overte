@@ -315,7 +315,11 @@ The subsequent [Combined HTTP original source](SNAPSHOT_COMBINED_HTTP.md)
 adds the normal manager's fixed XHR/DONE-callback reader through the existing
 observer, with independent original instance/clock/schema, complete actual V8
 frames and separately observed root/four-source admission. It preserves the
-literal separate HTTP1 and Social1/2 profiles. This source prerequisite does
-not yet join the exact Capture2 manager, backend/policy bytes and normal Upload
-effect or close rendered review, destinations, witnesses and process/SDK ends.
+literal separate HTTP1 and Social1/2 profiles. The subsequent explicit [consumer parent](SNAPSHOT_FRONTEND_CONSUMPTION.md)
+now joins the exact Capture2 manager, protected backend/policy response bytes
+and a later normal Upload3 job through retained Combined HTTP originals. The
+causal installed Script branch/caller, rendered review, witnesses and complete
+process/SDK ends remain mandatory. Explicit matching
+[Combined Share/Photos/Return profiles](SNAPSHOT_COMBINED_RETURN.md) are in
+progress with separate component/whole-flow qualification.
 Native remains uncompiled, Feature 11 remains partial and the count stays five.

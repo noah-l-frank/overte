@@ -235,4 +235,4 @@ class SnapshotPhotosDomain:
             companion=PhotosCompanionContext(self.helper,self.helper.session,self.helper.target,self.helper_binding,self.helper.ipa,self.admission_store,
                 self.helper_lock,RUN,phase.fixture_url,epoch_ms=self.main.epoch,monotonic=self.main.mono,sleep=self.main.sleep)
             yield IOSSnapshotPhotosOwner(self.runtime,'primary',RUN,self.primary,companion,self.main.ctx.lock,self.helper_lock,phase,
-                epoch_ms=self.main.epoch,monotonic=self.main.mono,sleep=self.main.sleep)
+                epoch_ms=self.main.epoch,monotonic=self.main.mono,sleep=self.main.sleep,combined=getattr(self,'combined',False))

@@ -20,6 +20,7 @@ from feature_journeys.evidence import image_observation,rectangle
 from ios.adapters import assets_model_renderers as models,avatar_renderers,create_state
 from ios.adapters.create_marker_identity import marker
 from ios.adapters.emote_images import avatar_box,within
+from ios.adapters.graphics_history import follow_native
 
 VERSION=1
 FIELDS={'createBefore','modelsBefore','avatarsBefore','capture','retirement','avatarsAfter','modelsAfter','createAfter','clockJoin'}
@@ -73,7 +74,7 @@ def exclusions(create,model_packet,avatar_packet,entity_id,marker_id,roi,view,ex
     need(not any(row['visible'] and row['addedToScene'] for row in avatar_packet['source']['avatarEntities']))
 
 
-def compose(run,ticket,binding,frame,raw,policy,parsed_proof,marker_original,*,after_epoch,previous=None,changed=False):
+def compose(run,ticket,binding,frame,raw,policy,parsed_proof,marker_original,*,after_epoch,previous=None,changed=False,absence_basis=None):
     identifier(run);identifier(ticket);context(binding);exact(frame,FIELDS);exact(parsed_proof,PROOF)
     for key in ('domainId','entityId'):create_state.uuid(parsed_proof[key])
     for key in ('creationRequestId','originRequestId','nativeGeometryRequestId'):
@@ -95,16 +96,30 @@ def compose(run,ticket,binding,frame,raw,policy,parsed_proof,marker_original,*,a
         create_state.original(packet);need(packet['iosCreateStateVersion']>=3 and packet['runId']==run and packet['processId']==pid)
     create_state.validate(after,dict(schemaVersion=1,commandId=after['requestId'],action=create_state.ACTION,runId=run),pid,epoch,before)
     need(same(before['source'],after['source']) and before['source']['complete'] and not before['source']['tabletShown']
-        and not before['source']['roots'] and before['source']['domainId']==parsed_proof['domainId'])
+        and (not before['source']['roots'] if absence_basis is None else all(row['destroyed'] for row in before['source']['roots']))
+        and before['source']['domainId']==parsed_proof['domainId'])
     entity_id=parsed_proof['entityId'];rows=[row for row in before['source']['entities'] if row['id']==entity_id]
-    need(len(rows)==1);entity=rows[0];need(entity['type']=='Model' and entity['hostType']=='domain' and entity['visible']
-        and entity['modelURL']=='atp:'+parsed_proof['path'] and entity['model']['present'] and entity['model']['loaded']
-        and entity['model']['addedToScene'] and not entity['model']['failed'])
+    basis=None
+    if absence_basis is None:
+        need(len(rows)==1);entity=rows[0];need(entity['type']=='Model' and entity['hostType']=='domain' and entity['visible']
+            and entity['modelURL']=='atp:'+parsed_proof['path'] and entity['model']['present'] and entity['model']['loaded']
+            and entity['model']['addedToScene'] and not entity['model']['failed'])
+    else:
+        need(type(absence_basis) is tuple and len(absence_basis)==2 and not rows and previous is None and changed is False)
+        prior,prior_raw=absence_basis
+        basis,_subject=compose(run,ticket,binding,prior,prior_raw,policy,parsed_proof,marker_original,after_epoch=after_epoch)
+        follow_native(prior['clockJoin']['nativeAfter'],clock['nativeBefore'])
+        need(clock['hostBeforeMonotonic']>=prior['clockJoin']['hostAfterMonotonic']
+            and clock['hostBeforeEpochMs']>=prior['clockJoin']['hostAfterEpochMs'])
     left,right=frame['modelsBefore'],frame['modelsAfter']
     models.validate(right,dict(schemaVersion=1,commandId=right['requestId'],action=models.ACTION,runId=run),pid,epoch,left)
-    rendered=[models.model(value,entity_id) for value in (left,right)]
-    need(same(rendered[0],rendered[1]) and rendered[0]['origin']['geometry']['readerId']==parsed_proof['readerId']
-        and rendered[0]['origin']['modelUrl']==entity['modelURL'])
+    if basis is None:
+        rendered=[models.model(value,entity_id) for value in (left,right)]
+        need(same(rendered[0],rendered[1]) and rendered[0]['origin']['geometry']['readerId']==parsed_proof['readerId']
+            and rendered[0]['origin']['modelUrl']==entity['modelURL'])
+    else:
+        need(all(not any(row['entityId']==entity_id for row in packet['source']['models']) for packet in (left,right)))
+        rendered=[models.model(prior['modelsAfter'],entity_id)]
     a,b=frame['avatarsBefore'],frame['avatarsAfter']
     avatar_renderers.validate(b,dict(schemaVersion=1,commandId=b['requestId'],action=avatar_renderers.ACTION,runId=run),pid,epoch,a)
     need(a['iosAvatarRenderersVersion']>=4 and b['iosAvatarRenderersVersion']>=4)
@@ -136,7 +151,17 @@ def compose(run,ticket,binding,frame,raw,policy,parsed_proof,marker_original,*,a
     subject_box=box(rendered[0]['bounds'],view,extent);need(subject_box is not None);within(policy['subject'],subject_box)
     for create,model_packet,avatar_packet in ((before,left,a),(after,right,b)):
         exclusions(create,model_packet,avatar_packet,entity_id,marker_original['id'],policy['subject'],view,extent)
-    image,subject=image_observation(raw,run,ticket,policy,previous=previous,changed=changed)
-    return dict(assetModelImageVersion=VERSION,runId=run,processId=pid,domainId=parsed_proof['domainId'],entityId=entity_id,
+    if basis is None:image,subject=image_observation(raw,run,ticket,policy,previous=previous,changed=changed)
+    else:
+        from ios.adapters.avatar_images import _unavailable_pixels
+        image,subject=_unavailable_pixels(raw,run,ticket,policy)
+        need(same(prior['capture']['source']['renderTrace']['recordedView'],view)
+            and same(prior['capture']['source']['targetExtent'],extent)
+            and same(prior['createAfter']['source']['view'],camera)
+            and prior['capture']['requestId']!=capture['requestId'] and basis['frameId']!=trace['frameId'])
+    result=dict(assetModelImageVersion=VERSION,runId=run,processId=pid,domainId=parsed_proof['domainId'],entityId=entity_id,
         readerId=parsed_proof['readerId'],bodySha256=parsed_proof['sha256'],bodyBytes=parsed_proof['bytes'],renderItemIds=deepcopy(rendered[0]['renderItemIds']),
-        meshBounds=deepcopy(rendered[0]['bounds']),markerId=marker_original['id'],frameId=trace['frameId'],capturedEpochMs=clock['hostBeforeEpochMs'],nativeEpochMs=order[0],image=image),subject
+        meshBounds=deepcopy(rendered[0]['bounds']),markerId=marker_original['id'],frameId=trace['frameId'],capturedEpochMs=clock['hostBeforeEpochMs'],nativeEpochMs=order[0],image=image)
+    if basis is not None:
+        del result['assetModelImageVersion'];result.update(assetModelAbsentImageVersion=VERSION,renderItemIds=[],basisFrameId=basis['frameId'])
+    return result,subject

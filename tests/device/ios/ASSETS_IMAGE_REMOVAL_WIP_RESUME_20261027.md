@@ -151,3 +151,26 @@ Retain independent cached QObject/HFM/texture/GPU/OS holders, Actor/peer image
 and publication, actual server/worker restoration, unsupported input/permission
 branches, normal parent closure and shared journey/end obligations. Native,
 Qt/parser and raster behavior are declared host boundaries, not device proof.
+
+
+## Resumed present/absent image integration
+
+[Original removal images](ASSETS_REMOVAL_IMAGES.md) adds an explicit absent
+image profile anchored in the actual prior mesh/PNG and a typed join to the
+existing normal Model-removal WAL. Six new pure cases plus six old present
+image cases pass12/0.847s. A fresh complete normal two-image composition is
+being qualified separately; no whole-feature promotion follows from this
+component. The old257 originals are preserved, and current reconstruction
+correctly refuses their recorded device52 versus actual device36, while all
+old names/inodes/bytes/sizes/hashes still match. No pins were repaired.
+
+
+The first actual new two-image composition is now terminal ERROR1/246.837s
+at the after-image's first GPU inspect. Unlike the old timeout it saves normal
+Delete and Home/context closure (`contextClosedBy:5`) and qualifies the first
+PNG. The retained root `assets-removal-image-flow-8ty53izb` preserves the
+failed second image's opened GPU ownership and all originals. The exact
+single-request test-producer retirement mismatch and fresh per-request model
+fix are documented in [the removal-image join](ASSETS_REMOVAL_IMAGES.md).
+New GPU2 plus image6 plus old image6 pass14/1.063s. The complete normal pair
+and original Marker cleanup still require a fresh qualified run.

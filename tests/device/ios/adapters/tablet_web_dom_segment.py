@@ -17,20 +17,25 @@ from ios.adapters import tablet_web_dom_continuation as closed
 from ios.adapters.emote_original_lease import EmoteOriginalLease
 from ios.adapters.tablet_web_packets import TabletWebPackets,CAPTURES,COMPONENTS
 
-VERSION=1
+VERSION=2
+READS=(1,2)
+BOUND_VERSION=1
 FIRST=CAPTURES+1
 
 
 def segment_header(value,expected,first_ref):
     exact(value,{'tabletWebDOMActiveSegmentVersion','binding','runId','role','fixtureUrl','processId','component',
         'firstIndex','nextRaw','records','pending','recordIntent','recordInspection'})
-    need(type(value['tabletWebDOMActiveSegmentVersion']) is int and value['tabletWebDOMActiveSegmentVersion']==VERSION
+    version=value['tabletWebDOMActiveSegmentVersion']
+    need(type(version) is int and version in READS
         and all(same(value[key],expected[key]) for key in expected) and value['component']=='dom'
         and type(value['firstIndex']) is int and value['firstIndex']==FIRST
         and integer(value['nextRaw'],1,MAX_FRAMES+1) and type(value['records']) is list
-        and 1<=len(value['records'])<=CAPTURES and same(value['records'][0],first_ref)
+        and (1 if version==BOUND_VERSION else 0)<=len(value['records'])<=CAPTURES
         and all(type(ref) is dict and type(ref.get('index')) is int and ref['index']==FIRST+offset
             for offset,ref in enumerate(value['records'])))
+    need((first_ref is None and version==VERSION and not value['records'])
+        or first_ref is not None and value['records'] and same(value['records'][0],first_ref))
     need(value['pending'] is None or type(value['pending']) is dict)
     need(value['recordIntent'] is None or type(value['recordIntent']) is dict)
     need(value['recordInspection'] is None or type(value['recordInspection']) is dict)
@@ -41,10 +46,24 @@ def open_segment(root,binding,run,role,fixture_url,pid,lock,guard,*,monotonic=ti
     need(callable(guard) and guard() is not False)
     prefix=closed.TabletDOMClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
     proof=prefix.adopted();need(guard() is not False)
-    active=dict(tabletWebDOMActiveSegmentVersion=VERSION,binding=deepcopy(binding),runId=run,role=role,
+    active=dict(tabletWebDOMActiveSegmentVersion=BOUND_VERSION,binding=deepcopy(binding),runId=run,role=role,
         fixtureUrl=fixture_url,processId=pid,component='dom',firstIndex=FIRST,nextRaw=proof['nextRaw'],
         records=[deepcopy(prefix.state['successor'])],pending=None,recordIntent=None,recordInspection=None)
-    changed=deepcopy(prefix.state);changed.update(tabletWebDOMContinuationVersion=closed.VERSION,active=active)
+    changed=deepcopy(prefix.state);changed.update(tabletWebDOMContinuationVersion=closed.ACTIVE_VERSION,active=active)
+    prefix.save(changed)
+    return TabletDOMSegment(root,binding,run,role,fixture_url,pid,lock,guard,monotonic=monotonic,epoch_ms=epoch_ms)
+
+
+def open_initial_segment(root,binding,run,role,fixture_url,pid,lock,guard,*,monotonic=time.monotonic,epoch_ms=lambda:int(time.time()*1000)):
+    """Own the first actual query129 after complete unbound closure128."""
+    need(callable(guard) and guard() is not False)
+    prefix=closed.TabletDOMClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
+    need(prefix.state['tabletWebDOMContinuationVersion'] in (1,closed.FENCE_VERSION) and prefix.state.get('successor') is None)
+    proof=prefix.history();need(guard() is not False)
+    active=dict(tabletWebDOMActiveSegmentVersion=VERSION,binding=deepcopy(binding),runId=run,role=role,
+        fixtureUrl=fixture_url,processId=pid,component='dom',firstIndex=FIRST,nextRaw=proof['nextRaw'],
+        records=[],pending=None,recordIntent=None,recordInspection=None)
+    changed=deepcopy(prefix.state);changed.update(tabletWebDOMContinuationVersion=closed.VERSION,successor=None,active=active)
     prefix.save(changed)
     return TabletDOMSegment(root,binding,run,role,fixture_url,pid,lock,guard,monotonic=monotonic,epoch_ms=epoch_ms)
 
@@ -58,7 +77,7 @@ class TabletDOMSegment(TabletWebPackets):
         self.monotonic,self.epoch_ms,self.historical,self.clock=monotonic,epoch_ms,historical,None
         self.component,self.module='dom',COMPONENTS['dom']
         self.closed=closed.TabletDOMClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
-        need(self.closed.state['tabletWebDOMContinuationVersion']==closed.VERSION)
+        need(self.closed.state['tabletWebDOMContinuationVersion'] in (closed.ACTIVE_VERSION,closed.VERSION))
         self.store=self.closed.store;self.state=deepcopy(self.closed.state['active']);self.saved=deepcopy(self.state)
         self.guard=self.storage_guard=self._bound
         self._original_storage();self.history();self._bound()
@@ -90,8 +109,17 @@ class TabletDOMSegment(TabletWebPackets):
         self._bound();lease.guard();return result
 
     def save(self):
-        need(not self.historical);self._bound();need(same(self.saved,self.closed.state['active']));self._header()
+        need(not self.historical);self._bound();need(same(self.saved,self.closed.state['active']))
         value=deepcopy(self.closed.state);value['active']=deepcopy(self.state)
+        if value['tabletWebDOMContinuationVersion']==closed.VERSION and value['successor'] is None and self.state['records']:
+            need(not self.saved['records'] and len(self.state['records'])==1
+                and self.saved['pending'] is not None and self.saved['recordIntent'] is not None)
+            reference=self.originals.original(self.saved['recordIntent'])
+            need(reference['index']==FIRST and reference['phase'] in ('opened','saved')
+                and same(self.originals.compact(dict(reference,phase='saved')),self.state['records'][0])
+                and same(self.originals.read(reference),self.saved['pending']))
+            value['successor']=deepcopy(self.state['records'][0])
+        segment_header(self.state,self.closed.expected,value['successor'])
         self.closed.save(value);self.saved=deepcopy(self.state)
 
     def _history_prefix(self):

@@ -19,18 +19,23 @@ from ios.adapters.graphics_history import follow_native
 
 
 class IOSChatSendOperation:
-    def __init__(self,receive,draft_owner):
+    def __init__(self,receive,draft_owner,*,sender_role='primary'):
         need(isinstance(receive,IOSChatReceiveSources) and not receive.historical and callable(draft_owner))
+        need(type(sender_role) is str and sender_role in ('primary','peer'));self.sender_role=sender_role
+        self.recipient_role='peer' if sender_role=='primary' else 'primary'
         self.receive,self.draft_owner,self.monotonic=receive,draft_owner,receive.monotonic
 
     @contextmanager
     def owner(self):
         self.receive.bound()
         with self.draft_owner() as draft:
-            need(isinstance(draft,IOSChatDraftOwner) and not draft.historical and draft.source_bound and draft.version==4
-                and draft.run==self.receive.run and same(draft.binding,self.receive.primary_binding)
-                and str(draft.root)==self.receive.bound_record['primaryArtifactRoot']['path']
-                and draft.lock.path==self.receive.primary_lock.path)
+            binding=self.receive.primary_binding if self.sender_role=='primary' else self.receive.binding
+            lock=self.receive.primary_lock if self.sender_role=='primary' else self.receive.lock
+            need(isinstance(draft,IOSChatDraftOwner) and not draft.historical and draft.source_bound
+                and draft.version==(4 if self.sender_role=='primary' else 5)
+                and draft.run==self.receive.run and same(draft.binding,binding)
+                and str(draft.root)==self.receive.bound_record[self.sender_role+'ArtifactRoot']['path']
+                and draft.lock.path==lock.path)
             draft.bound();need(draft.previous is None or same(draft.decode(draft.previous),draft.state))
             yield draft
             draft.bound();self.receive.bound()
@@ -40,7 +45,7 @@ class IOSChatSendOperation:
         need(not any(row['ticket']==ticket for row in draft.state['failures']))
         pending=draft.state['pending']
         need(pending is None or pending['ticket']==ticket and pending['verb']=='send')
-        rows=[row for row in draft.state['operations'] if row['ticket']==ticket]
+        rows=[row for row in draft.state['operations'] if row['ticket']==ticket and row['verb']=='send']
         if pending is not None:rows.append(pending)
         need(len(rows)<=1)
         if not rows:return None
@@ -54,17 +59,17 @@ class IOSChatSendOperation:
             if (join['hostAfterEpochMs']<=first['hostBeforeEpochMs']
                     and join['hostAfterMonotonic']<=first['hostBeforeMonotonic']):eligible.append(reference)
         need(eligible);reference=eligible[-1]
-        follow_native(self.receive.original(reference)['joins']['primary']['nativeAfter'],first['nativeBefore'])
+        follow_native(self.receive.original(reference)['joins'][self.sender_role]['nativeAfter'],first['nativeBefore'])
         return deepcopy(reference)
 
     def after(self,draft,send,before):
         last=draft.original(send['after'])['clockJoin']
-        baseline=self.receive.original(before)['sample']['peer']['source']['events']
+        baseline=self.receive.original(before)['sample'][self.recipient_role]['source']['events']
         for reference in self.receive.state['records'][before['index']:]:
             frame=self.receive.original(reference);join=frame['joins']['primary']
             if (last['hostAfterEpochMs']<=join['hostBeforeEpochMs']
                     and last['hostAfterMonotonic']<=join['hostBeforeMonotonic']):
-                events=frame['sample']['peer']['source']['events']
+                events=frame['sample'][self.recipient_role]['source']['events']
                 need(same(events[:len(baseline)],baseline))
                 # Empty cuts remain original evidence of no delivery. The first
                 # actual append must pass the full join; it cannot be skipped
@@ -89,4 +94,4 @@ class IOSChatSendOperation:
             need(send is not None and send['after'] is not None)
             after=self.after(draft,send,before)
         if after is None:after=self.receive.capture()
-        with self.owner() as draft:return original_sent(draft,self.receive,ticket,before,after)
+        with self.owner() as draft:return original_sent(draft,self.receive,ticket,before,after,sender_role=self.sender_role)

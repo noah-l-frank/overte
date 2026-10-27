@@ -144,10 +144,12 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
                 and hashlib.sha256(uikit_raw).hexdigest()==child['sha256'])
             uikit_changed=changed
             continue
-        from ios.adapters.tablet_web_dom_continuation import TabletDOMClosedPrefix,decode as dom_decode,FENCE_VERSION as DOM_VERSION,VERSION as ACTIVE_VERSION
+        from ios.adapters.tablet_web_dom_continuation import (TabletDOMClosedPrefix,decode as dom_decode,FENCE_VERSION as DOM_VERSION,
+            ACTIVE_VERSION,VERSION as INITIAL_VERSION)
         dom_raw,dom_state=dom_decode(changed,expected)
-        need(changed['tabletWebDOMContinuationVersion'] in (DOM_VERSION,ACTIVE_VERSION))
-        need(changed['successor'] is not None and changed['previousHeader']['signature']==child['signature']
+        need(changed['tabletWebDOMContinuationVersion'] in (DOM_VERSION,ACTIVE_VERSION,INITIAL_VERSION))
+        need((changed['tabletWebDOMContinuationVersion']==INITIAL_VERSION or changed['successor'] is not None)
+            and changed['previousHeader']['signature']==child['signature']
             and hashlib.sha256(dom_raw).hexdigest()==child['sha256'])
         dom_changed=changed
     dom_proof=None;uikit_proof=None
@@ -173,7 +175,7 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
         if dom_changed['tabletWebDOMContinuationVersion']==DOM_VERSION:
             dom_prefix=TabletDOMClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
         else:
-            need(dom_changed['tabletWebDOMContinuationVersion']==ACTIVE_VERSION)
+            need(dom_changed['tabletWebDOMContinuationVersion'] in (ACTIVE_VERSION,INITIAL_VERSION))
             from ios.adapters.tablet_web_dom_segment import TabletDOMSegment
             dom_reader=TabletDOMSegment(root,binding,run,role,fixture_url,pid,lock,forbidden,monotonic=monotonic,
                 epoch_ms=forbidden,historical=True)
