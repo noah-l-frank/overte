@@ -63,6 +63,12 @@ class WorldWebActorRetirement:
     def original_round(self):
         """Pure original-parent DTO reuse; no readonly Source over any write."""
         with ExitStack() as stack:
+            from adapters.original_file_reads import scope as read_scope
+            # Retain the actual reads already made by this same operation.
+            # A later original decode must not start a different census and
+            # reread the immutable pre-capture Scope inside the send window.
+            # This records only real reads; it adds no inferred member/path.
+            stack.enter_context(read_scope())
             if _ORIGINALS.get() is None:
                 token=_ORIGINALS.set({});stack.callback(_ORIGINALS.reset,token)
             from ios.adapters.world_web_scope_archive import original_round
@@ -74,7 +80,7 @@ class WorldWebActorRetirement:
         from ios.adapters.world_web_publication_round import WorldWebPublicationRound
         with WorldWebPublicationRound(self,publisher).held():yield
     def _measure(self,original):
-        entry=self.entry(original);need(self.observer.lease is not None);owned=self.observer.lease.packet()
+        entry=self.entry(original);need(self.observer.lease is not None)
         b=self.peer.frame(entry['peer']);primary=self.source.frame(entry['source'])
         return self.native_frames(primary,b)
     def native_frames(self,primary,b):

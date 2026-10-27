@@ -64,7 +64,7 @@ class WorldWebObserver:
             stack.enter_context(self.source.validation_round())
             if self.peer is not None:stack.enter_context(self.peer.validation_round())
             if self.lease is not None:stack.enter_context(self.lease.validation_round())
-            header=self.round_header();self._round=dict(header=header,leases=leases,derived={},scopes={})
+            header=self.round_header();self._round=dict(header=header,leases=leases,derived={},scopes={},scopeMembership=OriginalMembership())
             if publication is not None:publication.attach(leases)
             try:self.round_guard();yield;self.round_guard()
             finally:self._round=None
@@ -112,8 +112,16 @@ class WorldWebObserver:
             cache=self._round['scopes']
             if key in cache and cache[key][1].matches():scope_state=deepcopy(cache[key][0])
             else:
-                archived=IOSWorldWebScope.archive(entry['scope'],root=scope.root,binding=self.source.binding,run=self.run,role='primary',lock=self.source.lock)
-                scope_state=deepcopy(archived.state)
+                if (self.lease is not None and scope is self.lease.scope and same(entry['scope'],scope.previous)
+                        and self._round['scopeMembership'].matches()):
+                    # The enclosing lease round already decoded this exact
+                    # current Scope and guards its whole original inventory.
+                    # Historical/different envelopes and new read-membership
+                    # scopes must execute their literal original readers.
+                    scope_state=self.lease.scope_state()
+                else:
+                    archived=IOSWorldWebScope.archive(entry['scope'],root=scope.root,binding=self.source.binding,run=self.run,role='primary',lock=self.source.lock)
+                    scope_state=deepcopy(archived.state)
                 if key in cache or len(cache)<256:cache[key]=(deepcopy(scope_state),OriginalMembership())
             need(scope_state is not None)
             if entry['lease'] is not None:need(same(scope_state['fileOwnership'],entry['lease']['files']))

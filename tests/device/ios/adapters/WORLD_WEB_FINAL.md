@@ -477,3 +477,36 @@ fixture now uses the actual incomplete-setup retirement for that state; no
 production guard is relaxed. All nine publication/CAS/expiry, separate-quiet
 and Source entry/exit countercases pass in 3.910 s. The preceding launcher
 remains failed and is not reported as a ten-case PASS.
+
+Current Observer Scope projection now borrows the exact state already fully
+decoded by its enclosing lease round. Older/different envelopes and a new
+actual-read census retain their literal Scope reader. The existing membership
+marker binds this reuse to the same completed reads; it adds no guessed path.
+Actor's existing original round keeps one actual file-read collection across
+the operation. Scope DTO pins contain only that Scope decoder's actual reads,
+with those successful child reads preserved in the caller's collection.
+Unrelated mutable Source/publisher journals cannot become immutable Scope pins.
+The ordinary Source/Scope bytes, complete inventories and final current guards
+are still checked. No serialized schema, cache type or deadline changes.
+
+Four new current/historical Scope, outward-alias, separate-census and actual
+Source-append cases plus eight existing identity/replay/inode cases pass in
+12.264 s. The append case changes the actual Source WAL inode while preserving
+the immutable Scope; an equal-byte or same-inode change to a real Scope operand
+still fails. The CPU fixture also now matches production `cleanup_originals`:
+publisher metadata is prepared before the original read round, with all work
+still charged to the same 25 s API. Its preceding wrong-order attempt remains
+a retained failure, not a successful publication.
+
+The corrected CPU case remains ERROR (10.060 s): the final original is already
+1.503 s old at cleanup return and 1.742 s at the unchanged before-POST guard.
+No POST or receipt is invented. Further repeated historical frame/observation
+qualification after the final paired capture must be removed through guarded
+dataflow before this Actor path can qualify; the whole capability stays closed.
+
+The final readonly comparison on the same 118 originals returns identical
+measurements: four separate historical reads take 2.011 s and the existing
+joined round takes 0.972 s under cProfile; cold original qualification takes
+1.146 s. All file bytes/signatures remain unchanged and live source/input/write
+paths are forbidden. These are historical decoder timings, not a fresh
+publication PASS or a reason to widen the original acquisition limit.

@@ -44,15 +44,20 @@ def archived(scope,source):
     def decode():
         original=IOSWorldWebScope.archive(scope.previous,root=scope.root,binding=source.binding,run=source.run,role='primary',lock=source.lock)
         return SimpleNamespace(state=deepcopy(original.state),frames=deepcopy(original.frames))
-    if memo and not active():
-        with read_scope(fresh=True) as reads:
-            dto=decode();pins={path:EmoteOriginalLease.signature(path.lstat()) for path in reads|{scope.store.path}}
+    if memo:
+        # Pin exactly the Scope decoder's actual reads. An enclosing operation
+        # can also have read mutable Source/publisher heads; those unrelated
+        # files are not immutable Scope operands and must not enter its pins.
+        with read_scope(fresh=True) as scope_reads:dto=decode()
+        pins={path:EmoteOriginalLease.signature(path.lstat()) for path in scope_reads|{scope.store.path}}
     else:
         dto=decode();pins={scope.store.path:own}
-        if memo:
-            with read_scope() as reads:
-                pins.update({path:EmoteOriginalLease.signature(path.lstat()) for path in reads})
     continuity.guard();need(EmoteOriginalLease.signature(scope.store.path.lstat())==own and same(scope.store.read(),scope.previous));guard(pins)
     if memo:
+        if active():
+            # These paths were really read by the completed typed decoder in
+            # its child census. Preserve those reads in the current caller;
+            # cache hits never invent/restore membership in a new census.
+            with read_scope() as reads:reads.update(scope_reads)
         need(key in entries or len(entries)<64);entries[key]=(deepcopy(dto),pins,OriginalMembership())
     return dto
