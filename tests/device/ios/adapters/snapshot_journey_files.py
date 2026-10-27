@@ -19,22 +19,23 @@ from ios.adapters import snapshot_file_absence,snapshot_capture_controls as cont
 
 
 class IOSSnapshotJourneyFilesOwner:
-    def __init__(self,capture):
-        need(type(capture) is IOSSnapshotCaptureOwner and not capture.historical)
+    def __init__(self,capture,*,combined=False):
+        need(type(combined) is bool);self.combined=combined
+        need(type(capture) is IOSSnapshotCaptureOwner and capture.combined==combined and not capture.historical)
         self.capture,self.lock,self.binding,self.run=capture,capture.lock,deepcopy(context(capture.binding)),capture.run
         self.fixture_url=capture.phase.fixture_url;self.monotonic,self.epoch_ms,self.sleep=capture.monotonic,capture.epoch_ms,capture.sleep
         self.historical=False;self.setup()
     @classmethod
-    def archive(cls,store,lock,binding,run,fixture_url):
-        owner=object.__new__(cls);owner.lock,owner.binding,owner.run,owner.fixture_url=lock,deepcopy(context(binding)),run,fixture_url
-        owner.capture=IOSSnapshotCaptureOwner.archive(PrivateFeatureState(store.path.with_name('ios-snapshot-primary-capture-owner.json')),lock,binding,run,fixture_url)
+    def archive(cls,store,lock,binding,run,fixture_url,*,combined=False):
+        need(type(combined) is bool);owner=object.__new__(cls);owner.lock,owner.binding,owner.run,owner.fixture_url=lock,deepcopy(context(binding)),run,fixture_url;owner.combined=combined
+        owner.capture=IOSSnapshotCaptureOwner.archive(PrivateFeatureState(store.path.with_name('ios-snapshot-primary-capture-owner.json')),lock,binding,run,fixture_url,combined=combined)
         owner.historical=True;owner.setup(store);need(owner.previous is not None);return owner
     def setup(self,store=None):
         self.lock.assert_held();self.store=store or PrivateFeatureState(self.capture.store.path.with_name('ios-snapshot-journey-files-owner.json'))
         need(self.store.path==self.capture.store.path.with_name('ios-snapshot-journey-files-owner.json'))
         for path in self.store.path.parent.iterdir():
             if path.name.startswith('ios-snapshot-journey-files-'):need(path==self.store.path)
-        self.pending=IOSSnapshotPendingOwner.archive(PrivateFeatureState(self.store.path.with_name('pending-snapshot-owner.json')),self.lock,self.binding,self.run,self.fixture_url)
+        self.pending=IOSSnapshotPendingOwner.archive(PrivateFeatureState(self.store.path.with_name('pending-snapshot-owner.json')),self.lock,self.binding,self.run,self.fixture_url,combined=self.combined)
         self.pins=self.pair();self.previous=self.store.read();self.state=dict(owned=None,removals=[],restored=False,quiet=[],result=None)
         if self.previous is not None:self.state=self.load(self.previous)
     def pair(self):
@@ -44,17 +45,25 @@ class IOSSnapshotJourneyFilesOwner:
         reference=next(value for value in row['reference']['controls'] if value['id']=='snapshot.capture')
         need(reference['snapshotRootId']==self.pending.state['initial']['rootId'] and reference['snapshotQmlSource']==self.pending.state['initial']['qmlSource'])
         artifact=self.capture.history('artifact',self.capture.state['artifact'])
-        return dict(pendingJournalSha256=digest(self.pending.previous),pendingResultSha256=digest(pending),captureResultSha256=digest(captured),artifactJournalSha256=digest(artifact.previous))
+        pins=dict(pendingJournalSha256=digest(self.pending.previous),pendingResultSha256=digest(pending),captureResultSha256=digest(captured),artifactJournalSha256=digest(artifact.previous))
+        if self.combined:
+            root=self.capture.root_original(self.capture.state['roots']);need(root==self.pending.root_original(self.pending.state['roots']))
+            first=self.pending.history('work',self.pending.state['quiet'][-1]['work']).historical()['packet']
+            before=self.capture.history('work',self.capture.state['baseline']['work']).historical()['packet'];source=self.capture.work_source()
+            source.validate(before,dict(schemaVersion=1,action=source.ACTION,commandId=before['requestId'],runId=self.run),int(self.binding['processIdentity']),previous=first)
+            manager=source.admit(first,root,quiet=True)['manager'];need(same(manager,source.admit(before,root,quiet=True)['manager']))
+            pins['managerSha256']=digest(manager)
+        return pins
     def guard(self):
         self.capture.bound();need(same(self.store.read(),self.previous) and same(self.pending.store.read(),self.pending.previous));return True
-    def envelope(self):return dict(iosSnapshotJourneyFilesOwnerVersion=1,binding=self.binding,runId=self.run,fixtureUrl=self.fixture_url,pins=self.pins,payload=pack([self.state]))
+    def envelope(self):return dict(iosSnapshotJourneyFilesOwnerVersion=2 if self.combined else 1,binding=self.binding,runId=self.run,fixtureUrl=self.fixture_url,pins=self.pins,payload=pack([self.state]))
     def save(self):
         need(not self.historical);self.guard();value=self.envelope();self.store.write(value,self.previous);need(same(value,self.store.read()));self.previous=deepcopy(value)
     def load(self,value):
         exact(value,{'iosSnapshotJourneyFilesOwnerVersion','binding','runId','fixtureUrl','pins','payload'});rows=unpack(value['payload']);need(len(rows)==1)
         state=rows[0];exact(state,set(self.state));prior=self.state;self.state=state
         try:
-            need(type(value['iosSnapshotJourneyFilesOwnerVersion']) is int and value['iosSnapshotJourneyFilesOwnerVersion']==1 and same(value,self.envelope())
+            need(type(value['iosSnapshotJourneyFilesOwnerVersion']) is int and value['iosSnapshotJourneyFilesOwnerVersion']==(2 if self.combined else 1) and same(value,self.envelope())
                 and type(state['removals']) is list and len(state['removals'])<=1 and type(state['quiet']) is list and len(state['quiet'])<=3 and type(state['restored']) is bool)
             if state['owned'] is not None:self.admit(self.capture.history('owned',state['owned']))
             for index in state['removals']:need(integer(index,1,128));self.capture.history('remove',index).proof()
@@ -95,8 +104,10 @@ class IOSSnapshotJourneyFilesOwner:
         need(self.state['restored'] and len(self.state['quiet'])==3 and same(self.pins,self.pair()))
         groups=[self.group(row) for row in self.state['quiet']];samples=[self.sample(row) for row in self.state['quiet']]
         quiet=snapshot_file_absence.quiet(groups,samples)
-        return dict(iosSnapshotJourneyFilesResultVersion=1,runId=self.run,pins=deepcopy(self.pins),fileChannel=quiet,
+        result=dict(iosSnapshotJourneyFilesResultVersion=2 if self.combined else 1,runId=self.run,pins=deepcopy(self.pins),fileChannel=quiet,
             hostOriginalRetained=True,standaloneCaptureFinalized=False,originalJournalRetirementRequired=True,independentWitnessRequired=True,pairedCleanupRequired=True,wholeFeatureRequired=True)
+        if self.combined:result['workProfile']='combined'
+        return result
     @operation
     def cleanup(self):
         need(not self.historical);self.guard()

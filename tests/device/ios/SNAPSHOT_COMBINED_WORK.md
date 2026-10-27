@@ -193,3 +193,30 @@ Private Pending2 logs are
 `snapshot-combined-pending-resume-20261027-positive02.log`, followed by
 `snapshot-combined-pending-resume-20261027-recovery03.log` and
 `snapshot-combined-pending-resume-20261027-legacy04.log`, under `.ios-host-tmp`.
+
+The existing two-prefix JourneyFiles coordinator/runtime and archive now also
+have an explicit Combined2 choice. Both original Pending2 and Capture2 profiles
+must match it. The original pending quiet work must precede and extend into the
+capture baseline without changing the actual root, manager or retained work
+prefix; the manager digest is pinned alongside the existing journal/result and
+artifact hashes. Owner/result envelopes use version 2. The default Separate1
+constructor/archive and their result shape remain unchanged.
+
+The normal Pending2-to-PNG conditional cleanup/archive component passed in
+20.785 seconds. It accounted for both originally empty prefixes, unlinked the
+owned native PNG once, retained the original host PNG bytes/inode, restored the
+settings and retained the existing quiet proof. Replaying its archive issued no
+query. Two lost-unlink-return/default-profile cases passed in 25.344 seconds:
+the actual original unlink receipt recovers without a second delete or capture,
+and Separate1 cannot adopt or remove the Combined2 pair. These remain declared
+Qt/native/SDK models with actual host files/clocks, not full Snapshot, rendered
+review, destination/consumer/witness or process/SDK-end qualification. The new
+manager-substitution counterexample and six old JourneyFiles regressions then
+passed together in 83.933 seconds. A new default manager cannot re-anchor the
+original pair or authorize unlink; held removal callbacks, third prefixes,
+changed original manifest nonces and expired original admission remain closed.
+No frame store, clock or product behavior was changed.
+
+Private logs are `snapshot-combined-journey-resume-20261027-positive01.log` and
+`snapshot-combined-journey-resume-20261027-recovery02.log`, followed by
+`snapshot-combined-journey-resume-20261027-legacy03.log`, under `.ios-host-tmp`.
