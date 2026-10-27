@@ -257,3 +257,53 @@ closure, including independent sources, authority, Login and Marker originals.
 Final native quiet, a complete terminal witness callback, Actor process end,
 canonical end/worker closure and the complete Feature remain unqualified.
 The fixture SDK/Node teardown is not product process-retirement evidence.
+
+## Joined manifest-reader revision
+
+A subsequent source-only change passes one existing `_AppearanceFrames` raw
+manifest-index reader through the 15 distinct restoration calls inside the
+same `Scene._joined` and its own newly reconstructed Source history. It caches
+no appearance/restoration/quiet result. Each original frame still uses its
+literal file read, hash, identity and typed validator. The default public and
+legacy paths retain their independent readers.
+
+The new local wrapper binds the exact Scene/Source/reader/stores/locks and
+complete owner states, previous envelopes, original argument and participating
+parser methods before and after use. Complete Source frame content and original
+inventories are checked at entry/exit; a closed or failed reader cannot reenter.
+Counterexamples cover separate read collections/owners, coordinated metadata
+mutation, parser replacement, original replacement, inventory growth, in-memory
+frame mutation and lost locks. Their Scene header is an explicit guard fixture;
+the retained genuine Actor graph remains the separate integration boundary.
+
+The exact six new counterexample methods pass in 0.815 seconds under their
+fixed 120-second outer bound. The parser counterexample also replaces the
+underlying manifest `key` and `manifest_reference` helpers. All 275 actually
+imported repository Python sources and the private launcher match their
+before-selection hashes. Evidence is in
+`.ios-host-tmp/avatar-scene-manifest-reader-six-20261027/run.log` and the
+adjacent source manifests. These are guard/reader tests, not Scene effect proofs.
+
+A separate actual 676-file Actor comparison then selects the complete genuine
+Scene retirement callback on the new revision under the same fixed 180-second
+outer bound. It exits 0 in 14.347 profiled seconds. The saved record, complete
+returned-state SHA, full original graph identity, exact typed membership and
+independently observed file-read path sets match the prior profile. Both sets
+contain 234 files; all 856 original frame reads still execute. All 676 original
+files/directory pins remain unchanged, and all 4,080 selected Source/JS/QML/own
+launcher hashes match before/after.
+
+Private metadata reads decrease from 3,824 to 2,564 and instrumented open calls
+from 9,385 to 6,865. The measured elapsed time increases from 13.942 to 14.347
+seconds in this one comparison; no time improvement is observed or claimed.
+The added owner/parser guards consume work too. This establishes functional
+Actor Scene parity and less repeated manifest I/O, not a faster whole journey
+or a device benchmark. No unchanged profile was repeated. The earlier source's
+13.942-second result is not transferred as a timing result for this revision.
+
+Evidence is retained separately under
+`.ios-host-tmp/avatar-scene-manifest-reader-actor-compare-20261027/` in
+`run.log`, `comparison-contract.json`, `actor-scene-profile-report.json`,
+source manifests and `actor-scene-profile.pstats`. The prior profile and all
+actual original files remain preserved. Final/terminal/end qualification and
+complete Feature 3 remain open.

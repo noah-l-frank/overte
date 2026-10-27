@@ -144,7 +144,7 @@ def bookmark_file(source,*,allow_missing):
     return avatar_bookmarks.persisted(source['bookmarkFile'],loaded)
 
 
-def appearance(sources,baseline_index,current_index,*,fixture_url,expected_code):
+def appearance(sources,baseline_index,current_index,*,fixture_url,expected_code,_manifest_reader=None):
     """Derive seven appearance fields from independent original source reads.
 
     Returned UUID ownership comes from actual native addEntity returns and
@@ -154,7 +154,10 @@ def appearance(sources,baseline_index,current_index,*,fixture_url,expected_code)
     need(integer(baseline_index,1,current_index))
     # Plain traversal keeps its exact original index/frame read set. A complete
     # membership traversal separately includes all original prefix snapshots.
-    read=_AppearanceFrames(sources)
+    if _manifest_reader is None:read=_AppearanceFrames(sources)
+    else:
+        from ios.adapters.avatar_scene_manifest_reader import checked
+        read=checked(_manifest_reader,sources)
     baseline=read(baseline_index);current=read(current_index)
     resource_root(fixture_url,sources.run);b,bc=state_original(baseline,sources.binding);s,sc=state_original(current,sources.binding)
     old,now=b['source'],s['source'];need(b['runId']==s['runId']==sources.run and old['sessionId']==now['sessionId'])
@@ -211,6 +214,7 @@ def appearance(sources,baseline_index,current_index,*,fixture_url,expected_code)
     if name in current_rows:need(saved is not None and same(current_rows[name],saved))
     state=dict(requestedAvatar=requested,avatar=avatar,modelLoaded=loaded,loadFailed=failed,scale=now['modelScale'],
         wearable=any(row['present'] for row in owned.values()),bookmarked=name in current_rows)
-    if isinstance(read,_AppearanceFrames):read.verify()
+    if _manifest_reader is not None:read.verify()
+    elif isinstance(read,_AppearanceFrames):read.verify()
     return dict(iosAvatarAppearanceVersion=VERSION,state=state,sessionId=now['sessionId'],ownedWearables=owned,bookmarkEntry=saved,
         baselineSha256=digest(baseline),sourceSha256=digest(current),sourceIndex=current_index,baselineIndex=baseline_index)

@@ -314,6 +314,14 @@ class IOSAvatarScene:
             and p['paths']=={key:str(path) for key,path in self.paths.items()} and p['expectedCode']==pins())
         history=source_history(p['source'],p['recovery'],store=Frozen(self.paths['sources'],p['source']),root=self.root,
             binding=self.binding,run=self.run,role=self.role,lock=self.lock)
+        if self.VERSION==2:
+            from ios.adapters.avatar_scene_manifest_reader import JoinedManifestReader
+            with JoinedManifestReader(self,p,history) as reader:
+                return self._joined_history(reference,p,history,reader)
+        return self._joined_history(reference,p,history)
+
+    def _joined_history(self,reference,p,history,reader=None):
+        options={} if reader is None else dict(_manifest_reader=reader)
         scope=self.Marker.archive(p['scope'],root=self.root,binding=self.binding,run=self.run,role=self.role,lock=self.lock)
         need(scope.state['phase']=='released' and scope.state['pending'] is None and scope.state['cleanupMode']=='full'
             and scope.fixture_url==p['fixtureUrl'] and scope.state['webAdmission'] is not None)
@@ -333,7 +341,7 @@ class IOSAvatarScene:
         follow(file['clockJoin']['nativeAfter'],end_frame['clockJoin']['nativeBefore'])
         weak=avatar_cleanup_sources.wearable_lifetimes(history,self.baseline['index'],endpoint['source']['index'],
             entities.original(entities.state['records'][0])['packet'],entities.latest()['packet'],fixture_url=scope.fixture_url,expected_code=p['expectedCode'])
-        closed=self.restored_sources(history,self.baseline['index'],endpoint['source']['index'],fixture_url=scope.fixture_url,expected_code=p['expectedCode'])
+        closed=self.restored_sources(history,self.baseline['index'],endpoint['source']['index'],fixture_url=scope.fixture_url,expected_code=p['expectedCode'],**options)
         need(endpoint['native']['capturedEpochMs']>=max(weak['endpointEpochMs'],closed['endpointEpochMs']))
         image=p['image'];exact(image,{'owner','baseline','current','proof'})
         frames=IOSAvatarRestorationFrames.archive(image['owner'],store=Frozen(self.paths['restoration'],image['owner']),root=self.root,
@@ -359,7 +367,7 @@ class IOSAvatarScene:
             self.resource_quiet(frame,scope)
             follow(image_end,frame['clockJoin']['nativeBefore'])
             component=self.restored_sources(history,self.baseline['index'],cut['source']['index'],
-                fixture_url=scope.fixture_url,expected_code=p['expectedCode'])
+                fixture_url=scope.fixture_url,expected_code=p['expectedCode'],**options)
             if first_source is None:first_source=current
             need(component['endpointEpochMs']<=first_source['clockJoin']['nativeBefore']['capturedEpochMs'])
             # No actual model/request/wearable API or owned HTTP suffix can run

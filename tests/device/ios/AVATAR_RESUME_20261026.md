@@ -26,7 +26,11 @@ original files. A separate file-only profile exercises the real Actor Scene
 retirement callback with its actual Scene/Login/Marker closure in 13.942 seconds.
 This adds no Final/terminal/end qualification or comparison speed claim. No
 additional complete-area capability or whole-run result follows from these
-component cases.
+component cases. The later joined raw-manifest-reader revision now passes six
+focused counterexamples and a separate genuine Actor Scene parity comparison:
+all 856 frame reads, exact state/read sets and 676 original files remain
+unchanged, with fewer metadata/open calls. Its one measured time is 14.347
+seconds versus the prior 13.942 seconds; no time improvement is claimed.
 
 
 ## Historical explicit pause

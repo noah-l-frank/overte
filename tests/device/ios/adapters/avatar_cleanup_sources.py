@@ -53,12 +53,13 @@ def restored(sources,baseline_index,current_index,*,fixture_url,expected_code):
     return _restored(sources,baseline_index,current_index,fixture_url=fixture_url,expected_code=expected_code,held_ui=False)
 
 
-def restored_held(sources,baseline_index,current_index,*,fixture_url,expected_code):
+def restored_held(sources,baseline_index,current_index,*,fixture_url,expected_code,_manifest_reader=None):
     """Explicit v2 leaves actual hidden Avatar/People roots process-owned."""
-    return _restored(sources,baseline_index,current_index,fixture_url=fixture_url,expected_code=expected_code,held_ui=True)
+    options={} if _manifest_reader is None else dict(_manifest_reader=_manifest_reader)
+    return _restored(sources,baseline_index,current_index,fixture_url=fixture_url,expected_code=expected_code,held_ui=True,**options)
 
 
-def _restored(sources,baseline_index,current_index,*,fixture_url,expected_code,held_ui):
+def _restored(sources,baseline_index,current_index,*,fixture_url,expected_code,held_ui,_manifest_reader=None):
     """Select only new original lifetimes; this is one cleanup proof component.
 
     It needs the independent entity weak-lifetime, input dispatch, account,
@@ -70,7 +71,8 @@ def _restored(sources,baseline_index,current_index,*,fixture_url,expected_code,h
     need(integer(baseline_index,1,current_index))
     before=avatar_observation.frame(sources,baseline_index);after=avatar_observation.frame(sources,current_index)
     baseline,current=before['originals'],after['originals']
-    appearance=avatar_observation.appearance(sources,baseline_index,current_index,fixture_url=fixture_url,expected_code=expected_code)
+    options={} if _manifest_reader is None else dict(_manifest_reader=_manifest_reader)
+    appearance=avatar_observation.appearance(sources,baseline_index,current_index,fixture_url=fixture_url,expected_code=expected_code,**options)
     state=appearance['state'];need(state['requestedAvatar']==state['avatar']=='original' and state['modelLoaded']
         and not state['loadFailed'] and not state['wearable'] and not state['bookmarked'] and abs(state['scale']-1.)<.0001)
     need(type(held_ui) is bool and not after['ui']['open'] and not after['ui']['controls'] and people_model.drained(current['people']))
