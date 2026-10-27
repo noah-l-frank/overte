@@ -175,3 +175,10 @@ compatibility and fresh producer-clock qualification. It requires History3
 already in the original parsed-input parent and never upgrades an old
 History2 packet into Geometry evidence. An explicit external test-model cache
 eviction is separate from adapter behavior; complete retirement remains false.
+
+The following [mesh/material sharing-group source](ASSETS_STRONG_CONSUMERS.md)
+now writes History4 while preserving literal readers1–3. It records actual weak
+ownership groups at Geometry accept/copy/material-rebuild points and keeps
+external Mesh/NetworkMaterial holders visible after Geometry death. The new
+host cases pass10/0.303s plus24 existing cases/0.474s. This is not proof that a
+destructor returned or GPU/OS work drained; both completion flags remain false.

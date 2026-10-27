@@ -16,8 +16,8 @@ from ios.adapters.places_model import IOSPlacesModel
 from ios.adapters.scene_inventory import tree
 
 VERSION=1
-HISTORY_VERSION=3
-HISTORY_READS=(1,2,3)
+HISTORY_VERSION=4
+HISTORY_READS=(1,2,3,4)
 ACTION='feature-ios-assets-model-origin'
 FILE=ACTION+'.json'
 LIMIT=262144
@@ -48,7 +48,9 @@ def ordered(before,after):
 def history(value,epoch):
     need(type(value) is dict)
     version=value.get('assetModelOriginHistoryVersion')
-    exact(value,{'assetModelOriginHistoryVersion','instance','complete','clock','downloads'}|({'geometries'} if type(version) is int and version>=3 else set()))
+    exact(value,{'assetModelOriginHistoryVersion','instance','complete','clock','downloads'}
+        |({'geometries'} if type(version) is int and version>=3 else set())
+        |({'consumerOwnership'} if type(version) is int and version>=4 else set()))
     need(type(version) is int and version in HISTORY_READS
         and type(value['complete']) is bool and type(value['downloads']) is list and len(value['downloads'])<=64)
     identity(value['instance']);stamp(value['clock']);need(value['clock']['epochMs']<=epoch);ids=set();total=0
@@ -78,6 +80,7 @@ def history(value,epoch):
                 and hashlib.sha256(raw).hexdigest()==row['sha256']);total+=len(raw)
     need(total<=65536)
     if version>=3:geometry_history(value['geometries'],{row['id']:row for row in value['downloads']},value['clock'])
+    if version>=4:consumer_ownership(value['consumerOwnership'],value['geometries'],value['clock'])
     return value
 
 
@@ -98,6 +101,24 @@ def geometry_history(rows,downloads,clock):
         else:
             need(not row['alive']);stamp(row['destructionObserved'],clock);ordered(row['born'],row['destructionObserved'])
     return rows
+
+
+def consumer_ownership(value,geometries,clock):
+    exact(value,{'assetModelConsumerOwnershipVersion','rows'})
+    need(type(value['assetModelConsumerOwnershipVersion']) is int and value['assetModelConsumerOwnershipVersion']==1
+        and type(value['rows']) is list and len(value['rows'])<=256)
+    parents={row['id']:row for row in geometries};seen=set()
+    for row in value['rows']:
+        exact(row,{'id','geometryId','kind','slot','born','strongOwnersAlive','ownershipExpiryObserved'})
+        identity(row['id']);need(row['id'] not in seen);seen.add(row['id'])
+        need(type(row['geometryId']) is str and row['geometryId'] in parents
+            and row['kind'] in ('mesh','material') and integer(row['slot'],0,255) and type(row['strongOwnersAlive']) is bool)
+        stamp(row['born'],clock);ordered(parents[row['geometryId']]['born'],row['born'])
+        if row['ownershipExpiryObserved'] is None:need(row['strongOwnersAlive'])
+        else:
+            need(not row['strongOwnersAlive']);stamp(row['ownershipExpiryObserved'],clock)
+            ordered(row['born'],row['ownershipExpiryObserved'])
+    return value
 
 
 def validate(value,query,pid,epoch=None,previous=None):
@@ -148,6 +169,13 @@ def validate(value,query,pid,epoch=None,previous=None):
                 need(all(same(first[key],last[key]) for key in first if key not in ('alive','destructionObserved'))
                     and (first['alive'] or not last['alive'])
                     and (first['destructionObserved'] is None or same(first['destructionObserved'],last['destructionObserved'])))
+        if before['assetModelOriginHistoryVersion']>=4:
+            left,right=before['consumerOwnership']['rows'],after['consumerOwnership']['rows']
+            need(len(right)>=len(left))
+            for first,last in zip(left,right):
+                need(all(same(first[key],last[key]) for key in first if key not in ('strongOwnersAlive','ownershipExpiryObserved'))
+                    and (first['strongOwnersAlive'] or not last['strongOwnersAlive'])
+                    and (first['ownershipExpiryObserved'] is None or same(first['ownershipExpiryObserved'],last['ownershipExpiryObserved'])))
     return value
 
 
@@ -183,6 +211,21 @@ def geometry_consumers(value,reader_id):
         nativeEpochMs=value['clockAfter']['epochMs'],geometries=deepcopy(rows),
         readerAlive=reader['readerAlive'],originalLeaseAlive=reader['resourceAlive'],resourceObjectAlive=reader['resourceObjectAlive'],
         hfmAlive=reader['parsedModelAlive'],allKnownGeometryDead=all(not row['alive'] for row in rows),resourceRetirementAvailable=False)
+
+
+def strong_consumers(value,reader_id):
+    """Original mesh/material sharing groups; expiry is not GPU/destructor end."""
+    geometry=geometry_consumers(value,reader_id);history_=value['source']['history']
+    need(history_['assetModelOriginHistoryVersion']>=4)
+    parents={row['id'] for row in geometry['geometries']}
+    rows=[row for row in history_['consumerOwnership']['rows'] if row['geometryId'] in parents]
+    # No ownership row is not evidence that a rendered model had no mesh.
+    need(any(row['kind']=='mesh' for row in rows))
+    return dict(assetModelStrongConsumersVersion=1,runId=geometry['runId'],processId=geometry['processId'],
+        requestId=geometry['requestId'],historyInstance=geometry['historyInstance'],readerId=reader_id,
+        nativeEpochMs=geometry['nativeEpochMs'],bodySha256=geometry['bodySha256'],bodyBytes=geometry['bodyBytes'],consumers=deepcopy(rows),
+        allKnownStrongOwnersGone=all(not row['strongOwnersAlive'] for row in rows),
+        destructorCompletionAvailable=False,resourceRetirementAvailable=False)
 
 
 class IOSAssetsModelOrigin(IOSPlacesModel):

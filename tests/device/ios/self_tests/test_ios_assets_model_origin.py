@@ -205,7 +205,7 @@ class AssetsModelOriginObjectTests(unittest.TestCase):
         self.assertFalse(third['source']['resourceRetirementAvailable'])
 
     def test_new_object_field_requires_history_two_and_remains_exact_boolean_original(self):
-        for version,present,value in ((1,True,True),(2,False,None),(2,True,1),(True,True,True),(4,True,True)):
+        for version,present,value in ((1,True,True),(2,False,None),(2,True,1),(True,True,True),(5,True,True)):
             b=Boundary()
             def malformed(packet):
                 packet['source']['history']['assetModelOriginHistoryVersion']=version

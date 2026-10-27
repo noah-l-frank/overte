@@ -129,3 +129,11 @@ model eviction event, then qualifies only scoped original consumer absence
 and quiet Scene originals. Exact clocks, preceding immutable failure roots
 and explicit nonqualification of automatic/product/whole-resource retirement
 are recorded in [the Geometry release handoff](ASSETS_GEOMETRY_RELEASE.md).
+
+The subsequent sharing-group source adds validated History4 to the same
+unchanged owner/result1 predicate. Literal2, Geometry3 and ownership4 retain
+the original QObject/HFM/lease fields; unsupported5,1,bool/float and missing
+actual effect/membership still refuse. Three compatibility cases are included
+in the new10/0.303s packet. Its24 previous Origin/Geometry cases also remain
+green; [the separate sharing-group handoff](ASSETS_STRONG_CONSUMERS.md) states
+the exact model/native boundary. No removal is reissued or old original upgraded.

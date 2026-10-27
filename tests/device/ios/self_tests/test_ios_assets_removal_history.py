@@ -1,4 +1,4 @@
-"""Validated native origin2/3 compatibility for the existing removal predicate.
+"""Validated native origin2/3/4 compatibility for the existing removal predicate.
 
 These are pure predicate cases, without normal input, file-owner qualification,
 a native parser, renderer or device. The connected flow remains separate.
@@ -18,8 +18,9 @@ from ios.self_tests import test_ios_create_state as create
 class AssetsRemovalHistoryTests(unittest.TestCase):
     def owner(self,version):
         b=Boundary();b.state['history']['assetModelOriginHistoryVersion']=version;b.row['resourceObjectAlive']=True
-        if version==3:b.state['history']['geometries']=[dict(id='4'*32,readerId=b.row['id'],mappingIds=[],kind='resource',
+        if version>=3:b.state['history']['geometries']=[dict(id='4'*32,readerId=b.row['id'],mappingIds=[],kind='resource',
             born=dict(epochMs=b.epoch+9,monotonicMs=9),alive=True,destructionObserved=None)]
+        if version>=4:b.state['history']['consumerOwnership']=dict(assetModelConsumerOwnershipVersion=1,rows=[])
         first=b.reader().read(RUN)
         before=create.version2(create.packet());create.add_model(before);create.version2(before)
         b.state['models']=[];b.state['tree'].update(entities=[],totalEntities=0,revisionBefore=2,revisionAfter=2)
@@ -34,17 +35,17 @@ class AssetsRemovalHistoryTests(unittest.TestCase):
         owner.state=dict(baseline=1,observations=[2],inputs=[dict(controlId='create.delete',command=dict(commandId='actual-owned-delete'))])
         return owner,frames
     def test_literal_history_two_and_validated_three_retain_identical_original_cache_responsibility(self):
-        for version in (2,3):
+        for version in (2,3,4):
             owner,frames=self.owner(version);original=deepcopy(frames);observed=owner.removed()
             self.assertEqual(original,frames);self.assertEqual('actual-owned-delete',observed['inputCommandId'])
             self.assertEqual([dict(id='1'*32,originalLeaseAlive=False,objectAlive=True,hfmAlive=True)],observed['resources'])
             self.assertFalse(observed['resourceRetirementAvailable'])
     def test_legacy_without_qobject_or_unknown_versions_cannot_supply_known_resource_absence(self):
-        for version in (1,4,True,2.0):
+        for version in (1,5,True,2.0):
             owner,frames=self.owner(2);frames[2]['originals']['origin']['source']['history']['assetModelOriginHistoryVersion']=version
             with self.subTest(version=version),self.assertRaises(NativeUIError):owner.removed()
     def test_same_version_without_actual_model_death_or_expected_resource_membership_is_not_removal(self):
-        for version in (2,3):
+        for version in (2,3,4):
             for fault in ('entity-still-present','model-still-alive','missing-original-resource'):
                 owner,frames=self.owner(version)
                 if fault=='entity-still-present':frames[2]['originals']['createAfter']['source']['tree']=deepcopy(frames[1]['originals']['createAfter']['source']['tree'])

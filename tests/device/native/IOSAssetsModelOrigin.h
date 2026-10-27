@@ -75,30 +75,54 @@ public:
         }
         return id;
     }
-    void geometry(const QString& reader,const QStringList& mappings,const std::shared_ptr<void>& holder,const QString& kind) {
+    struct Consumer {QString kind;int slot;std::weak_ptr<const void> holder;};
+    void geometry(const QString& reader,const QStringList& mappings,const std::shared_ptr<void>& holder,const QString& kind,
+            const QVector<Consumer>& consumers) {
         if (!enabled() || reader.isEmpty()) {return;}QMutexLocker lock(&_mutex);auto source=find(reader);
         // Copy construction can occur off the main thread. Only weak standard
         // ownership and immutable lineage are inspected here, never QObjects.
         if (!source || source->value.value("kind")!="model" || !source->modelKnown || !holder
-                || mappings.size()>8 || (kind!="resource" && kind!="mapping-resource" && kind!="copy")) {_complete=false;return;}
+                || mappings.size()>8 || consumers.size()>256
+                || (kind!="resource" && kind!="mapping-resource" && kind!="copy")) {_complete=false;return;}
         QSet<QString> seen;
         for (const auto& id:mappings) {
             const auto row=find(id);
             if (!row || row->value.value("kind")!="mapping" || seen.contains(id)) {_complete=false;return;}
             seen.insert(id);
         }
-        for (const auto& row:_geometries) {
-            if (row.reader==reader && row.mappings==mappings && row.kind==kind
-                    && !row.holder.owner_before(holder) && !holder.owner_before(row.holder)) {return;}
+        GeometryRow* geometry=nullptr;
+        for (auto& row:_geometries) {
+            if (row.reader==reader && row.mappings==mappings
+                    && !row.holder.owner_before(holder) && !holder.owner_before(row.holder)) {geometry=&row;break;}
         }
-        if (_geometries.size()>=128) {_complete=false;return;}
-        GeometryRow row;row.reader=reader;row.mappings=mappings;row.kind=kind;row.holder=holder;
-        row.value={{"id",nonce()},{"readerId",reader},{"mappingIds",mappings},{"kind",kind},{"born",stamp()},
-            {"destructionObserved",QVariant()}};
-        _geometries.append(row);
+        if (!geometry) {
+            if (_geometries.size()>=128) {_complete=false;return;}
+            GeometryRow row;row.reader=reader;row.mappings=mappings;row.kind=kind;row.holder=holder;
+            row.value={{"id",nonce()},{"readerId",reader},{"mappingIds",mappings},{"kind",kind},{"born",stamp()},
+                {"destructionObserved",QVariant()}};
+            _geometries.append(row);geometry=&_geometries.last();
+        }
+        const auto geometryId=geometry->value.value("id").toString();
+        QSet<QString> slots;
+        for (const auto& consumer:consumers) {
+            const auto slot=consumer.kind+":"+QString::number(consumer.slot);
+            if ((consumer.kind!="mesh" && consumer.kind!="material") || consumer.slot<0 || consumer.slot>=256
+                    || consumer.holder.expired() || slots.contains(slot)) {_complete=false;return;}
+            slots.insert(slot);bool known=false;
+            for (const auto& row:_consumers) {
+                if (row.geometry==geometryId && row.kind==consumer.kind && row.slot==consumer.slot
+                        && !row.holder.owner_before(consumer.holder) && !consumer.holder.owner_before(row.holder)) {known=true;break;}
+            }
+            if (known) {continue;}
+            if (_consumers.size()>=256) {_complete=false;return;}
+            ConsumerRow row;row.geometry=geometryId;row.kind=consumer.kind;row.slot=consumer.slot;row.holder=consumer.holder;
+            row.value={{"id",nonce()},{"geometryId",geometryId},{"kind",consumer.kind},{"slot",consumer.slot},
+                {"born",stamp()},{"ownershipExpiryObserved",QVariant()}};
+            _consumers.append(row);
+        }
     }
     QVariantMap snapshot() {
-        if (!enabled() || !main()) {return {};}QMutexLocker lock(&_mutex);QVariantList rows,geometries;
+        if (!enabled() || !main()) {return {};}QMutexLocker lock(&_mutex);QVariantList rows,geometries,consumers;
         for (const auto& row:_rows) {
             // Resource::allReferencesCleared may recreate shared ownership for
             // the same cached QObject. The original weak lease and actual
@@ -112,11 +136,20 @@ public:
             if (!alive && row.value.value("destructionObserved").isNull()) {row.value["destructionObserved"]=stamp();}
             auto value=row.value;value["alive"]=alive;geometries.append(value);
         }
-        return {{"assetModelOriginHistoryVersion",3},{"instance",_instance},{"complete",_complete},{"clock",stamp()},
-            {"downloads",rows},{"geometries",geometries}};
+        for (auto& row:_consumers) {
+            // weak_ptr expiry reports zero strong owners, not completion of a
+            // destructor, renderer command, GPU fence or backend allocation.
+            const bool alive=!row.holder.expired();
+            if (!alive && row.value.value("ownershipExpiryObserved").isNull()) {row.value["ownershipExpiryObserved"]=stamp();}
+            auto value=row.value;value["strongOwnersAlive"]=alive;consumers.append(value);
+        }
+        return {{"assetModelOriginHistoryVersion",4},{"instance",_instance},{"complete",_complete},{"clock",stamp()},
+            {"downloads",rows},{"geometries",geometries},
+            {"consumerOwnership",QVariantMap{{"assetModelConsumerOwnershipVersion",1},{"rows",consumers}}}};
     }
 private:
     struct GeometryRow {QString reader,kind;QStringList mappings;std::weak_ptr<void> holder;QVariantMap value;};
+    struct ConsumerRow {QString geometry,kind;int slot;std::weak_ptr<const void> holder;QVariantMap value;};
     struct Row {QString id;QWeakPointer<Resource> resource;QPointer<Resource> object;std::weak_ptr<void> holder;std::weak_ptr<const void> model;
         bool readerKnown{false},modelKnown{false};QVariantMap value;};
     IOSAssetsModelOrigin() {_clock.start();}
@@ -131,7 +164,8 @@ private:
                 || (returned && row->value.value(entered).isNull())) {_complete=false;return;}
         row->value[field]=stamp();
     }
-    QMutex _mutex;QVector<Row> _rows;QVector<GeometryRow> _geometries;bool _complete{true};qint64 _bytes{0};QElapsedTimer _clock;QString _instance{nonce()};
+    QMutex _mutex;QVector<Row> _rows;QVector<GeometryRow> _geometries;QVector<ConsumerRow> _consumers;
+    bool _complete{true};qint64 _bytes{0};QElapsedTimer _clock;QString _instance{nonce()};
 };
 } // namespace overte::e2e
 #endif

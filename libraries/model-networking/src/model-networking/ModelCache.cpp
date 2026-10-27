@@ -432,6 +432,9 @@ void GeometryResource::setTextures() {
             qDebug() << "GeometryResource::setTextures: TextureCache dependency not available, skipping textures";
         }
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    featureAssetsObserveGeometry(_featureAssetsMappingIds.isEmpty() ? "resource" : "mapping-resource");
+#endif
 }
 
 void GeometryResource::resetTextures() {
@@ -530,8 +533,23 @@ Geometry::Geometry() {
 
 void Geometry::featureAssetsObserveGeometry(const QString& kind) const {
     if (!_featureAssetsReaderId.isEmpty()) {
+        // Register the actual sharing groups, without retaining any strong
+        // mesh/material owner in the observation registry.
+        QVector<overte::e2e::IOSAssetsModelOrigin::Consumer> consumers;
+        int slot=0;
+        if (_meshes) {
+            for (const auto& mesh:*_meshes) {
+                if (consumers.size()>256) {break;}
+                consumers.append({"mesh",slot++,std::shared_ptr<const void>(mesh)});
+            }
+        }
+        slot=0;
+        for (const auto& material:_materials) {
+            if (consumers.size()>256) {break;}
+            consumers.append({"material",slot++,std::shared_ptr<const void>(material)});
+        }
         overte::e2e::IOSAssetsModelOrigin::shared().geometry(
-            _featureAssetsReaderId,_featureAssetsMappingIds,_featureAssetsLifetime,kind);
+            _featureAssetsReaderId,_featureAssetsMappingIds,_featureAssetsLifetime,kind,consumers);
     }
 }
 #endif
