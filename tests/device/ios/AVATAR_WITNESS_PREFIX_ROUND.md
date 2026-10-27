@@ -136,3 +136,60 @@ The log and source manifests are retained under
 `.ios-host-tmp/avatar-witness-publisher-fresh-20261027/`. This demonstrates
 actual group sharing at this composed host boundary. It is no isolated timing
 benchmark, full terminal callback, native compilation or complete held end.
+
+## Original callback and snapshot connection
+
+The next independent case,
+[test_ios_avatar_witness_callback_connection.py](self_tests/test_ios_avatar_witness_callback_connection.py),
+adds the actual `AvatarWholeSnapshots.retain/read`, `IOSAvatarFeature.kept`,
+`terminal_witness_original` and `terminal_live_proof` methods to the closed
+publisher traversal. Four ordinary fresh Final2 captures provide two complete
+prefixes with references 1–3 and 1–4. Both actual Final2 `archive` and `quiet`
+readers still run, including the original bilateral native/host quiet checks.
+
+The private metadata carrier is an explicit fixture; it does not claim
+`IOSAvatarFeature.load` admission. Its `_final_join` is the one named inner
+connection model: it joins the genuine Final2 originals but does not supply the
+missing Preparation, Initial, Checkpoint, Scene/PeerScene or Login/Marker lifetime
+closure. Its empty modeled resources establish no product cleanup. The existing
+Final2 fixture produces a Primary owner, so the carrier and publisher use that
+same observer's role and binding. No Primary facts become Actor facts, and the
+Actor-only terminal publisher factory remains outside this qualification.
+
+Before either publisher comparison, the actual callback rejects a missing
+snapshot index, a changed snapshot-reference hash and a separately retained
+snapshot absent from cleanup membership. All three fail before the modeled
+inner join. Both valid references are then decoded through the actual shared
+publisher and Avatar subclass, with transport/process/write operations forbidden.
+The literal mode executes groups `[1, 2, 3, 1, 2, 3, 4]`; the Avatar mode executes
+`[1, 2, 3, 4]`. Complete decoded states, typed read membership, separately
+recorded actual decoder file paths and the independent complete byte/stat
+inventory match. Native and Web query counts remain unchanged.
+
+This single selection passes in 68.922 seconds under its fixed 120-second outer
+bound, including fresh production, counterexamples and both decodes. All 331
+actually imported repository Python sources and the private launcher match their
+hashes recorded before selection. Evidence is retained in
+`.ios-host-tmp/avatar-witness-callback-connection-20261027/run.log` and the
+adjacent source manifests. It is a connected host counterexample test, not a
+complete Actor, whole terminal callback closure, timing or device qualification.
+
+## Remaining genuine closure producer
+
+Further narrowing of that modeled join would not complete Feature 3. The existing
+`TerminalDomain` and `AvatarHeldTerminalTests.prepare` supply the real connected
+Preparation/Initial/Checkpoint/Scene/Login/Marker producers; their ordinary
+cleanup and independent passive Final rounds are required before two complete
+terminal witness originals exist. The retained old run reached its first Final
+round at 207.217 host seconds and both Final-ready states at 867.248 seconds.
+These are historical stage observations, not predictions for current source.
+The old valid 73.056-second receipt profile attributed 33.179 seconds to
+`final_owner` (32.408 to Final archive), 29.690 to its seven original groups,
+and 14.327 cumulative seconds to the two Scene joins. These nested costs are
+not additive and do not measure the current prefix change.
+
+The next closure checkpoint needs fresh current-identity originals from that
+real producer, a predeclared bounded stop/checkpoint and retained exact original
+files. Neither the rejected stale-device archive nor another narrower model
+can provide it. No unchanged whole-timeout retry or renewed production deadline
+has been authorized by this component result.

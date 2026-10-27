@@ -16,8 +16,12 @@ Its retained two-receipt attempt correctly rejected stale device identities;
 that old comparison and the complete held end remain unqualified. A fresh
 independent composed host case now passes through both actual publisher
 decoders, sharing three group decodes as two with unchanged original reads.
-Its projection/transport connection is a declared model seam. No additional
-complete-area capability or whole-run result follows from it.
+Its projection/transport connection is a declared model seam. A second fresh
+case also passes through the original saved-reference callback and live-proof
+wrapper, with missing/changed/unadmitted references rejected before the named
+inner Scene/Login/Marker join model. The real whole closure and Actor-only
+factory remain open. No additional complete-area capability or whole-run result
+follows from these component cases.
 
 
 ## Historical explicit pause
