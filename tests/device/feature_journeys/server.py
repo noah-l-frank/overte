@@ -34,6 +34,8 @@ from feature_journeys.avatar_social_provider import AvatarSocialProvider
 from feature_journeys.avatar_accounts import AvatarAccountScopes
 from feature_journeys.avatar_account_http import handle as avatar_account_request
 from feature_journeys.avatar_social_http import AccountAuthenticator, handle as avatar_social_request
+from feature_journeys.snapshot_upload_provider import SnapshotUploadProvider
+from feature_journeys.snapshot_upload_http import handle as snapshot_upload_request,run_handle as snapshot_upload_run_request
 
 PREFIX = '/feature-fixture/v1'
 
@@ -226,6 +228,7 @@ class Handler(BaseHTTPRequestHandler):
             adapter_markers=self.headers.get_all('X-Overte-Fixture-Adapter-Read',[])
             if adapter_markers and (adapter_markers!=['1'] or not adapter_reader):return self.send(403,{'error':'forbidden'})
             if adapter_reader and self.command!='GET':return self.send(403,{'error':'forbidden'})
+            if snapshot_upload_request(self,parsed):return
             if avatar_social_request(self,parsed):return
             if self.account_request(parsed):return
             if self.navigation_request(parsed):return
@@ -344,6 +347,7 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) < 2 or parts[0] != 'runs':
                 return self.send(404, {'error': 'not-found'})
             run = identifier(parts[1])
+            if snapshot_upload_run_request(self,parts,body,reader=reader,actor=actor,adapter_reader=adapter_reader):return
             if avatar_account_request(self,parts,body,reader=reader,actor=actor,adapter_reader=adapter_reader):return
             if parts[2:]==['phase']:
                 if self.command!='GET':return self.send(403,{'error':'forbidden'})
@@ -455,6 +459,8 @@ class Handler(BaseHTTPRequestHandler):
                         self.server.account_provider.control(run,'release-delayed')
                     elif stimulus['verb']=='cleanup':
                         self.server.account_provider.control(run,'revoke-issued')
+                if self.server.snapshot_upload_provider is not None and run in self.server.snapshot_upload_provider.runs:
+                    self.server.snapshot_upload_provider.activate(run,body['ticket'])
                 return self.send(200, {})
             if self.command == 'GET' and parts[2:] == ['active']:
                 return self.send(200, self.server.journal.active(run))
@@ -497,6 +503,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(200,{})
                 if self.server.navigation_resources is not None and run in self.server.navigation_resources.runs:
                     self.server.navigation_resources.retire(run)
+                if self.server.snapshot_upload_provider is not None and run in self.server.snapshot_upload_provider.runs:
+                    self.server.snapshot_upload_provider.assert_retired(run)
                 if self.server.account_provider is not None and run in self.server.account_provider.runs:
                     self.server.account_provider.retire(run)
                 self.server.journal.close(run)
@@ -535,7 +543,7 @@ class FixtureServer(ThreadingHTTPServer):
         super().server_close()
 
 
-def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,emote_resources=None,avatar_social_provider=None,adapter_token=None):
+def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,emote_resources=None,avatar_social_provider=None,adapter_token=None,snapshot_upload_provider=None):
     if adapter_token is not None and (type(adapter_token) is not str or not 32<=len(adapter_token)<=256
             or not adapter_token.isascii() or any(not 33<=ord(c)<=126 for c in adapter_token)
             or adapter_token in (reader_token,actor_token)):
@@ -564,6 +572,11 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
             or type(avatar_social_provider.authenticate) is not AccountAuthenticator
             or avatar_social_provider.authenticate.provider is not account_provider):
         raise ValueError('Social provider requires its original trusted account HTTPS primary owner')
+    if snapshot_upload_provider is not None and (type(snapshot_upload_provider) is not SnapshotUploadProvider
+            or account_provider is None or tls_context is None or browser_peer_of is not None
+            or type(snapshot_upload_provider.authenticate) is not AccountAuthenticator
+            or snapshot_upload_provider.authenticate.provider is not account_provider):
+        raise ValueError('Snapshot uploads require the original trusted account HTTPS primary owner')
     if account_provider is not None:account_provider._attach(reader_token,actor_token)
     server = FixtureServer(address, Handler)
     server.account_provider,server.tls_context=account_provider,tls_context
@@ -571,6 +584,7 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
     server.graphics_resources=graphics_resources
     server.emote_resources=emote_resources
     server.avatar_social_provider=avatar_social_provider
+    server.snapshot_upload_provider=snapshot_upload_provider
     server.avatar_accounts=AvatarAccountScopes(account_provider,avatar_social_provider) if avatar_social_provider is not None else None
     server.script_resources=ScriptResources() if browser_peer_of is None else browser_peer_of.script_resources
     server.internal_errors=0

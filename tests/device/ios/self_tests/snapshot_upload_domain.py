@@ -38,7 +38,7 @@ class UploadDomain:
         self.fd=os.open(self.path,os.O_RDONLY|os.O_NOFOLLOW);self.open_fds={self.fd};case.addCleanup(self.close)
         self.instance=uuid.uuid4().hex;self.sequence=0;self.mono=time.monotonic_ns()//10**6
         self.owner=uuid.uuid4().hex;self.events=[];self.resources={};self.live={};self.requests={};self.callbacks={};self.stacks={};self.weak_stacks={}
-        self.received=BytesIO();self.send_count=0;self.health=True;self.current_generation=1;self.finished=False
+        self.received=BytesIO();self.reply_bodies={};self.send_count=0;self.health=True;self.current_generation=1;self.finished=False
         self.upload=dict(instance=self.owner,bornEpochMs=self.now(),privateName=True,fileName=self.path.name,fileNameSha256=hashlib.sha256(self.path.name.encode()).hexdigest(),
             requests=[],scopeGeneration='1',scopeActive=True)
         self.uploader=self.resource('uploader');self.event('begin');self.file=self.resource('file')
@@ -67,18 +67,21 @@ class UploadDomain:
             if observer_failure:raise RuntimeError('Declared passive observer failure')
         except RuntimeError:self.health=False;row['diagnosticsComplete']=False
         self.send_count+=1
+        status,network_error,body=self.perform_request(stage);self.reply_bodies[identifier]=body
+        self.event('reply-finished',request=identifier,reply=reply,status=status,networkError=network_error,ticketActive=True);return identifier
+    def perform_request(self,stage):
         if stage=='upload':
             while True:
                 part=os.read(self.fd,65536)
                 if not part:break
                 self.received.write(part)
-        self.event('reply-finished',request=identifier,reply=reply,status=200,networkError=0,ticketActive=True);return identifier
+        return 200,0,b'{"actual":"'+stage.encode()+b' response"}'
     def callback(self,request,*,leave=True):
         sent=self.requests[request];identifier=uuid.uuid4().hex;marker=Lifetime();self.stacks[identifier]=marker;self.weak_stacks[identifier]=weakref.ref(marker)
         row=dict(instance=identifier,upload=self.owner,method=sent['stage']+'-success',reply=sent['reply'],enteredEpochMs=self.now(),leftEpochMs=None,
             finishedAtEntry=False,scopeGeneration=sent['generation'],scopeActiveAtEntry=True,request=request,requestGeneration=sent['generation'],requestActiveAtEntry=True,stackAlive=True)
         self.callbacks[identifier]=row;self.event('callback-enter',callback=identifier)
-        response=BytesIO(b'{"actual":"'+sent['stage'].encode()+b' response"}');original=response.read()
+        response=BytesIO(self.reply_bodies[request]);original=response.read()
         self.event('response-original',reply=sent['reply'],byteCount=len(original),sha256=hashlib.sha256(original).hexdigest())
         if leave:row['leftEpochMs']=self.now();self.event('callback-left',callback=identifier)
         self.stacks.pop(identifier);del marker

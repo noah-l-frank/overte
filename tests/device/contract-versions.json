@@ -1,6 +1,14 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "snapshot-upload-backend": {"current": 1, "reads": [1]},
+    "snapshot-upload-backend-body": {"current": 1, "reads": [1]},
+    "snapshot-upload-backend-export": {"current": 1, "reads": [1]},
+    "snapshot-upload-backend-query": {"current": 1, "reads": [1]},
+    "snapshot-upload-backend-owner": {"current": 1, "reads": [1]},
+    "snapshot-upload-backend-result": {"current": 1, "reads": [1]},
+    "snapshot-upload-backend-frame": {"current": 1, "reads": [1]},
+    "snapshot-upload-backend-original": {"current": 1, "reads": [1]},
     "ios-snapshot-uploads-source": {"current": 2, "reads": [1, 2]},
     "snapshot-upload-owner": {"current": 1, "reads": [1]},
     "snapshot-upload-result": {"current": 1, "reads": [1]},
