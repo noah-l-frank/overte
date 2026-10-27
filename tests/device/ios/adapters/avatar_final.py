@@ -30,6 +30,7 @@ from ios.adapters.emote_original_lease import EmoteOriginalLease
 VERSION=1
 ROLES=('primary','actor')
 _ROUND=ContextVar('ios_avatar_final_original_round',default=None)
+_PREFIX_ROUND=ContextVar('ios_avatar_final_immutable_prefix_round',default=False)
 
 
 @contextmanager
@@ -50,18 +51,50 @@ def checked(function):
     return call
 
 
-def group_context(owner):
+@contextmanager
+def immutable_prefix_round():
+    """Only read-only Avatar witness decoding may share equal old groups.
+
+    Each complete owner prefix is still parsed literally. No quiet/effect,
+    source acquisition, publisher result or changing metadata enters this memo.
+    The ordinary Final1/Final2 cache keeps its exact previous-envelope key.
+    """
+    token=_PREFIX_ROUND.set(True)
+    try:
+        with validation_round():yield
+    finally:_PREFIX_ROUND.reset(token)
+
+
+def group_context(owner,*,prefix=False):
     for lock in owner.locks.values():lock.assert_held()
-    return (type(owner),str(owner.root),str(owner.store.path),owner.run,owner.role,
+    result=(type(owner),str(owner.root),str(owner.store.path),owner.run,owner.role,
         (type(owner.authority),id(owner.authority),owner.authority.run,type(owner.authority.client),id(owner.authority.client),owner.authority.client.url),
         tuple((role,id(owner.locks[role]),str(owner.locks[role].path)) for role in ROLES),
-        canonical(dict(original=owner.previous,bindings=owner.bindings,inputs=owner.inputs)))
+        canonical(dict(bindings=owner.bindings,inputs=owner.inputs)))
+    if not prefix:return result+(canonical(owner.previous),)
+    # A group depends on this exact immutable argument and these implementations,
+    # not on later rows in another already parsed prefix of the same owner.
+    methods=tuple((name,getattr(getattr(owner,name),'__func__',getattr(owner,name)))
+        for name in ('_group','archives','component','input','record','components','component_prefix','envelope','parse','_parse'))
+    children=tuple((cls,name,getattr(getattr(cls,name),'__func__',getattr(cls,name)))
+        for cls,names in ((IOSAvatarPostLogoutReads,('archive','parse','proof','record')),
+            (owner.Tail,('archive','parse','proof','record')),(IOSAvatarPointers,('archive','decode','original')))
+        for name in names)
+    if 'web' in owner.COMPONENTS:
+        from ios.adapters.avatar_marker_web_receipts import IOSAvatarMarkerWebReceipts
+        children+=tuple((IOSAvatarMarkerWebReceipts,name,getattr(getattr(IOSAvatarMarkerWebReceipts,name),'__func__',
+            getattr(IOSAvatarMarkerWebReceipts,name))) for name in ('archive','parse','packet'))
+    authority=getattr(owner.authority.validate,'__func__',owner.authority.validate)
+    grammar=canonical(dict(version=owner.VERSION,components=owner.COMPONENTS,
+        componentVersions=owner.COMPONENT_VERSIONS,tailReads=owner.TAIL_READS))
+    return result+('immutable-prefix-v1',methods,children,authority,owner.Tail,grammar)
 
 
 class _HistoricalGroup:
     """Already decoded original components, never a cached quiet verdict."""
-    def __init__(self,owner,value,collector):
-        need(owner.historical);self.owner,self.context,self.collector=owner,group_context(owner),collector
+    def __init__(self,owner,value,collector,*,prefix=False):
+        need(owner.historical);self.prefix=prefix;self.owner,self.context,self.collector=owner,group_context(owner,prefix=prefix),collector
+        self.owners={};self.watch(owner)
         roots={owner.root,owner.store.path.parent}
         for subject in ROLES:
             item=owner.input(subject);roots.add(Path(item['root']))
@@ -71,8 +104,19 @@ class _HistoricalGroup:
         self.pins={path:EmoteOriginalLease.signature(path.lstat()) for path in reads}
         self.guard()
 
+    def watch(self,owner):
+        if not self.prefix:return
+        need(owner.historical and group_context(owner,prefix=self.prefix)==self.context)
+        key=id(owner)
+        if key not in self.owners:
+            need(len(self.owners)<512);self.owners[key]=(owner,digest(owner.previous))
+        expected_owner,original=self.owners[key]
+        need(expected_owner is owner and digest(owner.previous)==original)
+        if hasattr(owner,'state'):need(same(owner.envelope(owner.state),owner.previous))
+
     def guard(self,*,finished=False):
-        owner=self.owner;need(owner.historical and group_context(owner)==self.context)
+        owner=self.owner;need(owner.historical and group_context(owner,prefix=self.prefix)==self.context)
+        for current,_original in tuple(self.owners.values()):self.watch(current)
         if finished:need(hasattr(owner,'state'))
         if hasattr(owner,'state'):need(same(owner.envelope(owner.state),owner.previous))
         for subject,parts in self.parts.items():
@@ -87,7 +131,8 @@ class _HistoricalGroup:
         for path,pin in self.pins.items():
             PrivateFeatureState(path)._parent();need(EmoteOriginalLease.signature(path.lstat())==pin)
 
-    def read(self):
+    def read(self,owner):
+        self.watch(owner)
         self.guard()
         result={subject:{key:(value if key in self.owner.COMPONENTS else deepcopy(value)) for key,value in parts.items()}
             for subject,parts in self.parts.items()}
@@ -198,10 +243,11 @@ class IOSAvatarFinal:
         collector=None
         if reading():
             with read_scope() as collector:pass
-        key=(group_context(self),canonical(value),id(collector))
+        prefix=_PREFIX_ROUND.get()
+        key=(group_context(self,prefix=prefix),canonical(value),id(collector))
         if key not in current:
-            need(len(current)<256);current[key]=_HistoricalGroup(self,value,collector)
-        entry=current[key];need(entry.collector is collector);return entry.read()
+            need(len(current)<256);current[key]=_HistoricalGroup(self,value,collector,prefix=prefix)
+        entry=current[key];need(entry.collector is collector);return entry.read(self)
 
     def _group(self,value):
         exact(value,{'ticket','phaseInstance','sequence','subjects','provider','providerClock','acquisition'})

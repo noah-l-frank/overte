@@ -21,6 +21,7 @@ from adapters.normal_ui import NativeUI,NativeUIError
 from adapters.original_avatar_peer_recovery import OriginalAvatarPeerRecovery
 from adapters.operation_transport_guard import scope as transport_scope
 from adapters.phase_witness_publisher import PhaseWitnessPublisher
+from ios.adapters.avatar_witness_publisher import AvatarWitnessPublisher
 from adapters.phase_retirement_publisher import PhaseRetirementPublisher,PublicationPending
 from adapters.phase_retirement_reader import PhaseRetirementReader
 from feature_journeys.retirement_receipts import AVATAR_SCOPED_STAGE as SCENE_STAGE
@@ -1826,7 +1827,7 @@ class IOSAvatarFeature:
 
     def terminal_witness_publisher(self):
         need(self.role=='actor');self.phase.read()
-        return PhaseWitnessPublisher(PrivateFeatureState(self.store.path.with_name('phase-publication-avatar-people-'+self.run+'-actor.json')),
+        return AvatarWitnessPublisher(PrivateFeatureState(self.store.path.with_name('phase-publication-avatar-people-'+self.run+'-actor.json')),
             self.state['bindings']['actor'],self.phase,self.lock,self.cleanup_deadline,self.terminal_witness_original,
             epoch_ms=self.epoch_ms,monotonic=self.monotonic)
 
