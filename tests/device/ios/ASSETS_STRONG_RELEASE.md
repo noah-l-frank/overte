@@ -3,6 +3,9 @@
 StrongRelease1 explicitly accepts original History4 only. The additive
 [History5 texture source](ASSETS_TEXTURE_CONSUMERS.md) does not silently extend
 this qualified composition; it requires a separate connected texture contract.
+The new [TextureRelease1](ASSETS_TEXTURE_RELEASE.md) has a fixed History5 wrapper
+and scoped pure facts, plus a fresh225.251s connected model pass after explicit
+external events. It does not extend this earlier contract or prove native end.
 
 The four new pure original-fact cases and five previous Geometry fact cases
 pass together9/0.074s. A fresh connected normal-input/weak-holder composition

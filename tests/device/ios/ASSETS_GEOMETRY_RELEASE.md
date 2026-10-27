@@ -3,7 +3,10 @@
 GeometryRelease1 explicitly accepts original History3/4. The additive
 [History5 texture source](ASSETS_TEXTURE_CONSUMERS.md) is readable by the
 collector but rejected by this existing composition. A connected texture
-context requires a separate contract; prior saved parents are never upgraded.
+context uses the separate [TextureRelease1](ASSETS_TEXTURE_RELEASE.md) contract;
+its fresh scoped connected model case passes225.251s after explicit external
+holder/cache events. Prior saved parents are never upgraded, and complete
+resource retirement remains false.
 
 This is a scoped resource integration packet, not complete Assets retirement.
 Native cache/Qt/parser/scene behavior remains modeled in host tests; C++ additions

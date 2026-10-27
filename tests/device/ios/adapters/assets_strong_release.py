@@ -13,11 +13,10 @@ from ios.adapters import assets_geometry_release as geometry,assets_model_origin
 VERSION=1
 
 
-def strong_history(baseline,packets,lineage):
+def _strong_history(baseline,packets,lineage,history_version):
     """Actual original positive mesh ownership and its subsequent observations."""
-    # This contract covers the original History4 mesh/material composition.
-    # An additive texture inventory is readable, but not a silent new proof.
-    need(baseline['source']['history']['assetModelOriginHistoryVersion']==4)
+    need(type(history_version) is int and history_version in (4,5)
+        and baseline['source']['history']['assetModelOriginHistoryVersion']==history_version)
     reader=lineage['readerId'];original=origin.strong_consumers(baseline,reader)
     need(original['bodySha256']==lineage['sha256'] and original['bodyBytes']==lineage['bytes']
         and original['processId']==lineage['processId'] and original['runId']==lineage['runId']
@@ -25,7 +24,7 @@ def strong_history(baseline,packets,lineage):
         and type(packets) is list and 1<=len(packets)<=8)
     observations=[];previous=baseline
     for packet in packets:
-        need(packet['source']['history']['assetModelOriginHistoryVersion']==4)
+        need(packet['source']['history']['assetModelOriginHistoryVersion']==history_version)
         origin.validate(packet,dict(schemaVersion=1,action=origin.ACTION,commandId=packet['requestId'],runId=lineage['runId']),
             lineage['processId'],previous=previous)
         earlier=previous['source']['history'];known={row['id']:row for row in earlier['consumerOwnership']['rows']}
@@ -40,6 +39,16 @@ def strong_history(baseline,packets,lineage):
                 [row['id'] for row in facts['consumers'][:len(original['consumers'])]]))
         observations.append(facts);previous=packet
     return original,observations
+
+
+def strong_history(baseline,packets,lineage):
+    """Existing StrongRelease1 is fixed to original History4."""
+    return _strong_history(baseline,packets,lineage,4)
+
+
+def _texture_strong_history(baseline,packets,lineage):
+    """The new texture composition's explicit History5 mesh/material basis."""
+    return _strong_history(baseline,packets,lineage,5)
 
 
 def compose(owner,source,references):

@@ -158,6 +158,7 @@ REQUIRED = {
     "asset-model-origin-history": 5,
     "asset-model-texture-ownership": 1,
     "asset-model-texture-consumers": 1,
+    "asset-model-texture-release": 1,
     "asset-model-geometry-consumers": 1,
     "asset-model-consumer-ownership": 1,
     "asset-model-strong-consumers": 1,

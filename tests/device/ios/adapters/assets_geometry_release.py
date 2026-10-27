@@ -16,7 +16,8 @@ from ios.adapters.graphics_history import follow_native
 VERSION=1
 
 
-def parent(owner):
+def _parent(owner,history_versions):
+    need(history_versions in ((3,4),(5,)))
     need(isinstance(owner,OwnedAssetsModelRemoval));owner.lock.assert_held()
     parsed=owner.parsed;source=owner.sources
     need(owner.previous is not None and same(owner.store.read(),owner.previous)
@@ -26,15 +27,18 @@ def parent(owner):
     parsed.authoritative();state=owner.decode(owner.previous)
     need(same(state,owner.state) and state['phase']=='model-gone' and state['contextClosedBy'] is not None)
     lineage=parsed.state['result'];baseline=parsed.frame(parsed.state['sourceIndex'])['originals']['origin']
-    # GeometryRelease1 was qualified for History3/4. History5 adds texture
-    # mutation context and needs a separate explicit composition contract.
-    need(baseline['source']['history']['assetModelOriginHistoryVersion'] in (3,4))
+    need(baseline['source']['history']['assetModelOriginHistoryVersion'] in history_versions)
     original=origin.geometry_consumers(baseline,lineage['readerId'])
     need(original['bodySha256']==lineage['sha256'] and original['bodyBytes']==lineage['bytes']
         and original['processId']==lineage['processId'] and original['runId']==lineage['runId'])
     closed=owner.frame(state['contextClosedBy'])
     reference=next(ref for ref in source.state['frames'] if ref['index']==state['contextClosedBy'])
     return lineage,baseline,closed,deepcopy(source.originals.expand(reference))
+
+
+def parent(owner):
+    """The existing GeometryRelease1 parent remains History3/4 only."""
+    return _parent(owner,(3,4))
 
 
 def source_frames(source,references):
@@ -84,16 +88,17 @@ def quiet(first,last):
         and right['domain']['clockBefore']['monotonicMs']-left['domain']['clockAfter']['monotonicMs']>=3000)
 
 
-def _context(owner,source,references):
+def _context_for_history(owner,source,references,history_versions):
     """One pure caller's fully guarded ancestry and exact source originals."""
+    need(history_versions in ((3,4),(5,)))
     need(isinstance(owner,OwnedAssetsModelRemoval) and isinstance(source,AssetsSceneSources)
         and source.lock is owner.lock and source.store.path.parent==owner.store.path.parent
         and source.run==owner.sources.run and same(source.binding,owner.sources.binding))
-    lineage,baseline,closed,parent_ref=parent(owner);frames=source_frames(source,references)
+    lineage,baseline,closed,parent_ref=_parent(owner,history_versions);frames=source_frames(source,references)
     previous=closed;observations=[];prior_origin=baseline
     for frame in frames:
         window=frame['clockJoin'];old_window=previous['clockJoin'];originals=frame['originals']
-        need(originals['origin']['source']['history']['assetModelOriginHistoryVersion'] in (3,4))
+        need(originals['origin']['source']['history']['assetModelOriginHistoryVersion'] in history_versions)
         need(window['hostBeforeEpochMs']>=old_window['hostAfterEpochMs']
             and window['hostBeforeMonotonic']>=old_window['hostAfterMonotonic'])
         follow_native(old_window['nativeAfter'],window['nativeBefore'])
@@ -112,13 +117,24 @@ def _context(owner,source,references):
         current=frame['originals']['origin']['source']['history']
         need(same({k:v for k,v in first.items() if k!='clock'},{k:v for k,v in current.items() if k!='clock'}))
     for child in (owner,owner.sources,source):need(same(child.store.read(),child.previous))
-    result=dict(assetModelGeometryReleaseVersion=VERSION,runId=source.run,binding=deepcopy(source.binding),
+    result=dict(runId=source.run,binding=deepcopy(source.binding),
         entityId=lineage['entityId'],readerId=lineage['readerId'],bodySha256=lineage['sha256'],bodyBytes=lineage['bytes'],
         removalCommandId=owner.state['result']['inputCommandId'],closedOriginal=parent_ref,sourceOriginals=deepcopy(references),
         observations=observations,capturedEpochMs=frames[-1]['clockJoin']['hostBeforeEpochMs'],
         originalConsumersGone=True,resourceRetirementAvailable=False)
 
     return result,lineage,baseline,frames
+
+
+def _context(owner,source,references):
+    """Fixed earlier contract; no caller option can adopt History5."""
+    result,*rest=_context_for_history(owner,source,references,(3,4))
+    return dict(assetModelGeometryReleaseVersion=VERSION,**result),*rest
+
+
+def _texture_context(owner,source,references):
+    """Fixed new History5 context, without a GeometryRelease1 result label."""
+    return _context_for_history(owner,source,references,(5,))
 
 
 def compose(owner,source,references):

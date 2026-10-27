@@ -152,6 +152,7 @@
     "asset-model-origin-history": {"current": 5, "reads": [1, 2, 3, 4, 5]},
     "asset-model-texture-ownership": {"current": 1, "reads": [1]},
     "asset-model-texture-consumers": {"current": 1, "reads": [1]},
+    "asset-model-texture-release": {"current": 1, "reads": [1]},
     "asset-model-geometry-consumers": {"current": 1, "reads": [1]},
     "asset-model-consumer-ownership": {"current": 1, "reads": [1]},
     "asset-model-strong-consumers": {"current": 1, "reads": [1]},

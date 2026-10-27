@@ -63,7 +63,10 @@ GeometryRelease1 explicitly accepts History3/4; StrongRelease1 explicitly
 accepts History4. They reject History5 instead of silently adopting a new
 texture mutation context. Their preserved connected passes remain separate;
 no old parent or original is upgraded. A connected History5 texture/quiet join
-requires a distinct future contract and qualification.
+uses the distinct [TextureRelease1](ASSETS_TEXTURE_RELEASE.md) contract. Its pure
+facts are separately qualified; the fresh connected normal-input model flow
+passes225.251s after explicit external holder/cache events. Decoder, GPU and
+whole-resource completion remain unavailable.
 
 ## Host qualification and open duties
 
