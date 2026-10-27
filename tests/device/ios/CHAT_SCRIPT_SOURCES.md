@@ -408,3 +408,68 @@ rejects an unexplained append. Peer position/distant Local filtering, loaded
 QML/callback identity, rendered results, mixer outage/no-replay and complete
 resource/process/SDK retirement remain required. This packet does not enable a
 whole Chat capability.
+
+## Parent-owned incoming history
+
+The same primary draft owner now has an explicit source-bound6 profile, selected
+with `peer_receipts=IOSChatPeerReceipts(...)`. Default primary4, peer5 and
+literal1/2/3 remain separate; readers1 through6 are registered. The existing
+runtime constructs the receipt context from the actual independently admitted
+pair and the peer's actual private draft journal. Both original artifact roots,
+bindings, run and held locks must agree. The context acquires no input, transport
+or additional journal. Its compact `iosChatPeerReceiptLinkVersion`1 (registry
+`ios-chat-peer-receipt-link`, current/read1) stores the actual peer binding and
+exact Send/receive references. Text and channel are rederived from those actual
+originals rather than accepted as requested observer values.
+
+`receive_peer(ticket, link)` persists a passive operation in the existing main
+journal before querying. Its before-reference is the actual preceding main
+original, captured before the peer action. Original native counters/history and
+both host clocks bridge that cut, the independently captured receive pair and
+the fresh main UI/model/storage observation. The original main storage must
+append exactly one actual received message with its actual native timestamp;
+visible/hidden channel models remain independently measured. Current phase
+before/after must authorize the same original peer ticket, channel and text.
+No main control is consumed. A foreign link, unexplained append, modified parent
+phase or absent actual app callback cannot satisfy the read.
+
+Delayed app callbacks retain empty original cuts and are observed passively
+under the same twenty-second budget; Send is not repeated. Lost saved-original
+returns recover the existing exact file and complete the passive operation with
+no new query or input. Historical repeat reopens the actual dependency files.
+Pure archive explicitly uses archived receive sources and the archived peer
+owner; a test blocks the live SDK/candidate callback and all writes while this
+replay succeeds. A live current-candidate guard is not described as offline
+archive acquisition.
+
+The same primary6 owner can normally Type/Send after accepting that incoming
+history. Its derived outgoing fact writes version2; primary4 still writes
+literal1, and `ios-chat-send-receive-derived` reads1/2. Source6 frames and
+operations carry their explicit peer-receipt dependency; earlier wire layouts
+do not acquire an extra field. A default primary4 reader refuses source6.
+
+Seven new incoming-history cases pass in 67.596s, including actual independent
+production Scripts, ordinary peer Send, real other-script history parsing,
+normal main Send afterwards, delayed callback, lost immutable-original return,
+foreign dependencies, unexplained actual app append and literal4 refusal. A
+further parent-phase counterexample plus the normal case and fourteen previous
+owner/restoration/runtime cases pass in 35.009s. The canonical runtime receipt
+factory separately passes 1/3.415s. The strengthened archive case, with the live
+candidate hook forbidden, passes 1/13.036s. These are nine distinct new cases;
+the repeated normal case is not counted twice. Logs remain under
+`.ios-host-tmp/chat-peer-receipts-*`. All native/Qt/widget/bus/SDK/clock producers
+remain declared host models; physical timing, native compilation and devices
+remain unqualified.
+
+This first coupled profile reads incoming peer history on the primary. The
+peer's own incoming-history admission and bounded cross-owner archive reads are
+still needed for the unchanged full primary-Send/peer-reply sequence. Loaded
+QML/callback identity, distant Local filtering, mixer outage/no replay, complete
+settings restoration and native/resource/process/SDK end remain open. No whole
+Chat capability is enabled by these components.
+
+The qualified packet also passed the approved five project suites in 6.99s,
+contract-version validation, 860 Markdown files and whitespace checks. The shared
+source boundary includes unqualified Snapshot causal-dispatch WIP; those checks
+do not qualify its scenario or native behavior. The retained common log is
+`.ios-host-tmp/chat-peer-receipts6-tablet-peer-common-checks.log`.

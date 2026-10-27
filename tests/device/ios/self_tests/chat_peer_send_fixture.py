@@ -39,13 +39,13 @@ class PairScriptModel(BusScriptModel):
 
 
 class PeerSendFixture:
-    def __init__(self,case):
+    def __init__(self,case,*,model_class=PairScriptModel,clock=None):
         self.pair=IOSChatReceiveRuntimeTests();self.pair.setUp();case.addCleanup(self.pair.doCleanups)
-        self.clock=HostClock();self.models={};self.drafts={};self.opened={}
+        self.clock=HostClock() if clock is None else clock;self.models={};self.drafts={};self.opened={}
         self.drop_primary=False;self.mutate_wire=None
         self.pair.sources['primary']['binding']['processIdentity']='42';self.pair.sources['primary']['observer'].pid=42
         for role in ('primary','peer'):
-            model=self.models[role]=PairScriptModel(case,self.clock,role)
+            model=self.models[role]=model_class(case,self.clock,role)
             draft=self.drafts[role]=ChatSourceBoundOwnerTests();draft.setUp();case.addCleanup(draft.doCleanups)
             draft.m=draft.f.model=model;draft.binding=deepcopy(self.pair.sources[role]['binding'])
             draft.f.root=self.pair.artifacts[role];draft.f.lock=self.pair.locks[role]

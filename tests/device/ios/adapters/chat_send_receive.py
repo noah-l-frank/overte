@@ -27,7 +27,8 @@ def original_sent(draft,receive,ticket,before,after,*,sender_role='primary'):
         and isinstance(draft,IOSChatDraftOwner) and isinstance(receive,IOSChatReceiveSources))
     sender_binding=receive.primary_binding if sender_role=='primary' else receive.binding
     sender_lock=receive.primary_lock if sender_role=='primary' else receive.lock
-    need(draft.source_bound and draft.version==(4 if sender_role=='primary' else 5) and identifier(ticket)==ticket)
+    need(draft.source_bound and (draft.version==5 if sender_role=='peer' else draft.version in (4,6)) and identifier(ticket)==ticket)
+    if draft.version==6:need(draft.peer_receipts.receive is receive)
     draft.bound();receive.bound()
     need(draft.previous is not None and receive.previous is not None
         and same(draft.decode(draft.previous),draft.state)
@@ -90,7 +91,7 @@ def original_sent(draft,receive,ticket,before,after,*,sender_role='primary'):
         need(same(lifecycle,frame['joins'][sender_role]['nativeBefore']['lifecycle'])
             and same(lifecycle,frame['joins'][sender_role]['nativeAfter']['lifecycle']))
     draft.bound();receive.bound()
-    profile=(dict(iosChatSendReceiveDerivedVersion=VERSION,primaryBinding=deepcopy(draft.binding))
+    profile=(dict(iosChatSendReceiveDerivedVersion=2 if draft.version==6 else VERSION,primaryBinding=deepcopy(draft.binding))
         if sender_role=='primary' else dict(iosChatPeerSendReceiveDerivedVersion=VERSION,peerBinding=deepcopy(draft.binding)))
     return dict(profile,runId=draft.run,ticket=ticket,peerBindingRecord=deepcopy(receive.bound_record),
         receiveBefore=deepcopy(before),receiveAfter=deepcopy(after),

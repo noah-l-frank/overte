@@ -32,10 +32,11 @@ class IOSChatSendOperation:
             binding=self.receive.primary_binding if self.sender_role=='primary' else self.receive.binding
             lock=self.receive.primary_lock if self.sender_role=='primary' else self.receive.lock
             need(isinstance(draft,IOSChatDraftOwner) and not draft.historical and draft.source_bound
-                and draft.version==(4 if self.sender_role=='primary' else 5)
+                and (draft.version==5 if self.sender_role=='peer' else draft.version in (4,6))
                 and draft.run==self.receive.run and same(draft.binding,binding)
                 and str(draft.root)==self.receive.bound_record[self.sender_role+'ArtifactRoot']['path']
                 and draft.lock.path==lock.path)
+            if draft.version==6:need(draft.peer_receipts.receive is self.receive)
             draft.bound();need(draft.previous is None or same(draft.decode(draft.previous),draft.state))
             yield draft
             draft.bound();self.receive.bound()

@@ -19,17 +19,35 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSChatDraftRuntime(IOSScriptRuntime):
-    def _chat_send_operation(self,selector,run,root,client,receive,*,sender_role='primary'):
+    def _chat_peer_receipts(self,peer_selector,run,client,receive):
+        from ios.adapters.chat_peer_receipts import IOSChatPeerReceipts
+        from ios.adapters.chat_receive_sources import IOSChatReceiveSources
+        need(isinstance(receive,IOSChatReceiveSources) and run==receive.run
+            and receive.lock.path==self.state_path(peer_selector).with_name('script-feature-sources.lock'))
+        receive.bound();fixture_url=PhaseFixtureReader(client,run,'chat').fixture_url
+        @contextmanager
+        def sender():
+            receive.lock.assert_held()
+            yield IOSChatDraftOwner.archive(PrivateFeatureState(self.state_path(peer_selector).with_name('ios-chat-draft-owner.json')),
+                receive.bound_record['peerArtifactRoot']['path'],receive.binding,run,receive.lock,fixture_url,
+                source_bound=True,peer_actor=True)
+        return IOSChatPeerReceipts(receive,sender)
+
+    def _chat_send_operation(self,selector,run,root,client,receive,*,sender_role='primary',peer_receipts=None):
         from pathlib import Path
         from ios.adapters.chat_receive_sources import IOSChatReceiveSources
         from ios.adapters.chat_send_operation import IOSChatSendOperation
+        from ios.adapters.chat_peer_receipts import IOSChatPeerReceipts
         need(type(sender_role) is str and sender_role in ('primary','peer'))
+        need(peer_receipts is None or sender_role=='primary' and isinstance(peer_receipts,IOSChatPeerReceipts)
+            and peer_receipts.receive is receive)
         need(isinstance(receive,IOSChatReceiveSources) and run==receive.run
             and str(Path(root))==receive.bound_record[sender_role+'ArtifactRoot']['path'])
         lock=receive.primary_lock if sender_role=='primary' else receive.lock
         need(lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
         options=dict(source_bound=True,lock=lock)
         if sender_role=='peer':options['peer_actor']=True
+        if peer_receipts is not None:options['peer_receipts']=peer_receipts
         return IOSChatSendOperation(receive,lambda:self.draft_owner(selector,run,root,client,
             **options),sender_role=sender_role)
 
@@ -38,8 +56,10 @@ class IOSChatDraftRuntime(IOSScriptRuntime):
         return receive_components(self,primary_selector,peer_selector,run,primary_root,peer_root,primary_lock,peer_lock)
 
     @contextmanager
-    def draft_owner(self,selector,run,root,client,*,source_bound=False,lock=None,peer_actor=False):
-        need(type(source_bound) is bool and type(peer_actor) is bool and (not peer_actor or source_bound))
+    def draft_owner(self,selector,run,root,client,*,source_bound=False,lock=None,peer_actor=False,peer_receipts=None):
+        from ios.adapters.chat_peer_receipts import IOSChatPeerReceipts
+        need(type(source_bound) is bool and type(peer_actor) is bool and (not peer_actor or source_bound)
+            and (peer_receipts is None or isinstance(peer_receipts,IOSChatPeerReceipts) and source_bound and not peer_actor))
         path=self.state_path(selector).with_name('script-feature-sources.lock')
         if lock is None:lock=ScriptSourceLock(path)
         else:need(isinstance(lock,ScriptSourceLock) and lock.path==path);lock.assert_held()
@@ -59,7 +79,8 @@ class IOSChatDraftRuntime(IOSScriptRuntime):
                     root,source['binding'],run,lock,source['check'],native=native,
                     io=IOSChatIO(SimpleNamespace(capture=normal.capture,native=normal)),view=view,
                     phase=PhaseFixtureReader(client,run,'chat'),epoch_ms=lambda:time.time()*1000,
-                    monotonic=time.monotonic,sleep=time.sleep,source_bound=source_bound,code_sources=code_sources,code_roots=code_roots,peer_actor=peer_actor)
+                    monotonic=time.monotonic,sleep=time.sleep,source_bound=source_bound,code_sources=code_sources,code_roots=code_roots,
+                    peer_actor=peer_actor,peer_receipts=peer_receipts)
                 native_send,view_send=native.send,view.send
                 observe_intent=getattr(normal,'observe_intent',None)
                 def send_native(command):owner.query_intent(command);return native_send(command)
