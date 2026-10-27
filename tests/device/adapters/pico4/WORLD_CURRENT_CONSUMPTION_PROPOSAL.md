@@ -88,7 +88,10 @@ nativeAfter, lifetime, frame, availableFrames, terminal. Unavailable adds
 exactly `reason` to those keys; unavailable fields can explicitly be null when
 the original owner can no longer be safely sampled. No null invents death.
 Reason is a closed enum: expired, weak-unavailable, authority-changed,
-source-changed, event-overrun, raw-overrun, wrong-thread, incomplete-dispatch.
+source-changed, event-overrun, raw-overrun, wrong-thread, incomplete-dispatch,
+encoding-unavailable. Unpaired UTF16 surrogates remain exact raw originals and
+are encoding-unavailable even when two encoders emit identical replacement
+bytes; replacement equality is never an exact-match success.
 
 attemptReference is exactly nonce/itemInstance/sourceInstance. focusReference
 is exactly commandId/instance/sequence of the actual native cached focus packet;

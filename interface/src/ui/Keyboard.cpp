@@ -19,6 +19,7 @@
 #include <EntityScriptingInterface.h>
 #include <EntityItemProperties.h>
 #include <EntityTypes.h>
+#include "../../../tests/device/native/PicoWorldCurrentConsumptionBridge.h"
 #endif
 
 #include <glm/gtc/quaternion.hpp>
@@ -665,8 +666,20 @@ void Keyboard::dispatchKey(int keyCode, Qt::KeyboardModifiers modifiers, const Q
     if (currentFocus != UNKNOWN_ENTITY_ID && !currentFocus.isNull() && !containsID(currentFocus)) {
         _inputTarget = currentFocus;
     }
-    qApp->dispatchVirtualKeyboardEvent(&pressEvent, _inputTarget);
-    qApp->dispatchVirtualKeyboardEvent(&releaseEvent, _inputTarget);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    {
+        auto consumption=overte::e2e::picoCurrentTraceKeyboard(this,&pressEvent,_inputTarget.toString(QUuid::WithoutBraces));
+#endif
+        qApp->dispatchVirtualKeyboardEvent(&pressEvent, _inputTarget);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    }
+    {
+        auto consumption=overte::e2e::picoCurrentTraceKeyboard(this,&releaseEvent,_inputTarget.toString(QUuid::WithoutBraces));
+#endif
+        qApp->dispatchVirtualKeyboardEvent(&releaseEvent, _inputTarget);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    }
+#endif
 }
 
 void Keyboard::handleTriggerBegin(const QUuid& id, const PointerEvent& event) {
@@ -716,6 +729,9 @@ void Keyboard::handleTriggerBegin(const QUuid& id, const PointerEvent& event) {
 
         auto tablet = DependencyManager::get<TabletScriptingInterface>()->getTablet("com.highfidelity.interface.tablet.system");
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        auto consumptionOrigin=overte::e2e::picoCurrentTraceTrigger(this,id.toString(QUuid::WithoutBraces),int(key.getKeyType()));
+#endif
         switch (key.getKeyType()) {
             case Key::Type::CLOSE:
                 setRaised(false);
