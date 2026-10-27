@@ -257,3 +257,80 @@ The two separate metadata contracts are
 `ios-tablet-web-source-owner` remains writer2/read1,2. Version validation and
 the five approved no-build project suites pass (6.82s); no Ready3 or full
 source continuation is advertised.
+
+## DOM-only closed predecessor and row 129 reader
+
+`tablet_web_dom_continuation` is the next deliberately historical boundary.
+It accepts exactly a complete literal DOM1/2 head with 128 retained rows,
+after the nine-child parent has already been fenced and its immutable copy
+fully read and validated. It binds the actual current parent signature/hash
+and the parent's exact DOM descriptor, including the original header bytes,
+observed signature, final record and raw cursor. Archived failed/unknown
+queries cannot close under this first narrow profile. No reader replaces a
+native floor with the aggregate index or the value 128.
+
+Installation revalidates that same complete source before structural CAS at
+the existing DOM head path. The first new child head is Packets3/`rotating`,
+with separate `tabletWebDOMContinuationVersion: 1`; there is no ready phase.
+The Packet constructor checks this fence immediately after reading its head,
+before constructing raw-segment or original-frame stores. Active Packet
+writer2 and its literal1/2 record grammar remain unchanged. The separate
+fence is not a Packet3 acquisition writer.
+
+Only after this CAS may the immutable closed body be written in the fixed
+`tabletweb-dom-closed` namespace. Its own copy device/inode is distinct from
+the previous mutable DOM head's documented identity. The body has
+`tabletWebDOMClosedBodyVersion: 1` and retains the exact compressed old bytes
+and parent binding. The unchanged DOM original store then appends its actual
+128 references through the existing block128 manifest primitive, with durable
+planned/saved manifest intent before each transition. No frame/raw file is
+rewritten or removed. Lost copy/CAS/manifest returns stay owned and fenced;
+this packet supplies no retry, reset or manifest-adoption recovery.
+
+Historical replay requires the completed copy and full manifest, compares
+every reference against the literal old head and validates every original
+row/raw through the existing DOM history. It returns global next row129 and
+the original raw cursor, which may differ from129 when earlier replies used
+multiple fragments. The native floor is the actual final validated DOM
+packet, including an independently acquired input-channel tail beyond the
+last aggregate. A historical `unavailable` disposition proves no current
+document absence, resource retirement or permission to ignore input failure.
+
+The successor reader can inspect one already retained original at row129.
+It requires the exact next row, a new query nonce, nondecreasing original host
+clock boundaries, continuous raw-fragment indices and literal DOM native
+continuity against the old tail. A higher storage row cannot excuse a native
+sequence regression or raw gap. A complete inventory brackets both reads;
+same-byte original inode replacement during replay blocks the result.
+
+This is not an active successor journal and does not create row129, capture
+new native data, admit another input or unblock the parent. The existing
+parent restore correctly refuses its changed child header. Other eight
+child successors, aggregate/screen continuation, complete ownership/recovery
+and runtime selection remain prerequisites for any acquisition admission.
+Feature 7 and the source-complete count 5/14 remain unqualified by this packet.
+
+The initial nine explicit DOM cases pass in 110.130s, including the literal
+128→129 boundary, native sequence regression, raw gap, lost successful CAS,
+lost saved-manifest return without retry, archived failed query, short prefix,
+early constructor refusal and mid-read original inode replacement. After the
+parent-copy and in-memory-header guards were strengthened, four explicit
+boundary/constructor/alias/parent-copy cases pass in 47.479s. The boundary also
+compares the complete private file inventory before/after suffix replay:
+original bytes, device/inode, mtime and ctime remain unchanged, with no native,
+SDK or publication calls during historical reads. These are eleven distinct
+host cases across the two selections, not eleven final-source rerun results.
+
+The bounded fixture creates 128 independent modeled-native query replies with
+actual private raw and frame files through unchanged stores. It does not run
+128 full Journey captures or qualify production native timing. Its independent
+DOM tail is128 while the last aggregate still references DOM1. Row129 is
+likewise an explicitly produced fixture original; the production successor
+reader only reads it. Existing Packet14, SourceOwner12 and Fence13 cases pass
+as a separate 39-case selection in 12.358s after the final source changes.
+
+The new metadata registry entries are
+`ios-tablet-web-dom-continuation`, `ios-tablet-web-dom-closed-body` and the
+newly used existing primitive's `ios-tablet-web-source-packet-manifest`, each
+writer1/read1. No active Packet/SourceOwner writer or native codec is promoted.
+The version validator and five approved no-build project suites pass (6.86s).

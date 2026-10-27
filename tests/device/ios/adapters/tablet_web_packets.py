@@ -42,16 +42,36 @@ class TabletWebPackets:
         self.module.command(dict(schemaVersion=1,action=self.module.ACTION,commandId='ios-'+'0'*32,runId=run,fixtureUrl=fixture_url))
         need(role in ('primary','actor'));self.clock=None
         self.store=PrivateFeatureState(self.root/('tabletweb-'+component+'-queries-'+run+'-'+role+'.json'))
-        self.segments=TabletWebSourceSegments(root,binding,run,role,component,self.original_guard,self.segment_intent,monotonic=monotonic)
-        self.originals=OriginalFrameStore(root,binding,run,role,self.original_guard,self.record_intent,
-            namespace='tabletweb-'+component+'-packets',schema_prefix='tabletWebSourcePacket',monotonic=monotonic)
         self.state=self.store.read()
+        if self.state is not None and self.state.get('tabletWebPacketsVersion')==3:
+            from ios.adapters.tablet_web_dom_continuation import read_barrier
+            read_barrier(self.state,binding,run,role,fixture_url,pid,component)
+        self._original_storage()
         if self.state is None:
             need(not self.historical)
             self.state=dict(tabletWebPacketsVersion=VERSION,binding=self.binding,runId=run,role=role,fixtureUrl=fixture_url,
                 processId=pid,component=component,nextRaw=1,records=[],pending=None,recordIntent=None,recordInspection=None)
             self.store.write(self.state,None)
         self.saved=deepcopy(self.state);self.history()
+
+    def _original_storage(self):
+        root,binding,run,role,component,monotonic=self.root,self.binding,self.run,self.role,self.component,self.monotonic
+        self.segments=TabletWebSourceSegments(root,binding,run,role,component,self.original_guard,self.segment_intent,monotonic=monotonic)
+        self.originals=OriginalFrameStore(root,binding,run,role,self.original_guard,self.record_intent,
+            namespace='tabletweb-'+component+'-packets',schema_prefix='tabletWebSourcePacket',monotonic=monotonic)
+
+    @classmethod
+    def _closed_dom(cls,root,binding,run,role,fixture_url,pid,state,*,monotonic=time.monotonic):
+        """Literal, read-only DOM replay after its canonical head is fenced."""
+        owner=object.__new__(cls);owner.root=Path(root);owner.binding=deepcopy(context(binding))
+        owner.run,owner.role,owner.fixture,owner.pid=run,role,fixture_url,pid
+        need(role in ('primary','actor') and owner.binding['processIdentity']==str(pid))
+        owner.component,owner.module='dom',tablet_web_dom
+        def forbidden(*_args,**_kwargs):need(False)
+        owner.guard=owner.storage_guard=owner.epoch_ms=forbidden;owner.monotonic=monotonic
+        owner.historical=True;owner.clock=None
+        owner.store=PrivateFeatureState(owner.root/('tabletweb-dom-queries-'+run+'-'+role+'.json'))
+        owner.state=deepcopy(state);owner.saved=deepcopy(state);owner._original_storage();owner.history();return owner
 
     def original_guard(self):
         # Historical file reconstruction is deliberately SDK/query-free. All
