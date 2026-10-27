@@ -38,12 +38,22 @@ class IOSSnapshotUploadOwner:
         owner.setup();need(owner.previous is not None);return owner
     def version(self):return 4 if self.frontend_caller else 3 if self.frontend_http else 2 if self.combined else 1
     def packets(self):return packet_types(self.frontend_http,self.frontend_caller)
+    def capture_tail(self):
+        if not self.frontend_caller:return self.capture.state['nativeTail']
+        # Later JourneyFiles cleanup appends actual Capture originals. Those
+        # cannot replace the immutable original boundary where this upload
+        # acquired its already copied PNG.
+        rows=[row for row in self.capture.state['slots'] if row['kind']=='filework' and row['label']=='copy-filework']
+        need(len(rows)==1);child=self.capture.history('filework',rows[0]['index']);frame=child.historical();child.qualified()
+        tail=frame['acquisition']['nativeAfter']
+        if not same(tail,self.capture.state['nativeTail']):follow_native(tail,self.capture.state['nativeTail'])
+        return deepcopy(tail)
     def setup(self):
         self.lock.assert_held();self.capture_result=self.capture.result();artifact=self.capture.history('artifact',self.capture.state['artifact']);fact,raw=artifact.originals()
         self.file=deepcopy(fact['file']);self.pins=dict(captureResultSha256=digest(self.capture_result),artifactJournalSha256=digest(artifact.previous))
         self.store=PrivateFeatureState(self.root/'snapshot-upload-owner.json');self.previous=self.store.read()
         self.state=dict(ticket=None,verb=None,phaseOriginal=None,slots=[],input=None,cancel=None,baseline=None,job=None,decision=None,quiet=[],result=None,
-            inputSources={},nativeTail=deepcopy(self.capture.state['nativeTail']))
+            inputSources={},nativeTail=deepcopy(self.capture_tail()))
         if self.frontend_http:self.state.update(httpBefore=None,httpAfter=None)
         if self.frontend_caller:self.state.update(causalBefore=None,causalAfter=None)
         if self.previous is not None:self.state=self.load(self.previous)
@@ -67,7 +77,7 @@ class IOSSnapshotUploadOwner:
         try:
             need(type(value['snapshotUploadOwnerVersion']) is int and same(value,self.envelope()) and type(state['slots']) is list and len(state['slots'])<=512
                 and type(state['quiet']) is list and len(state['quiet'])<=3)
-            labels=set();counts={kind:0 for kind in self.packets()};tail=deepcopy(self.capture.state['nativeTail']);causal_previous=None
+            labels=set();counts={kind:0 for kind in self.packets()};tail=deepcopy(self.capture_tail());causal_previous=None
             for position,slot in enumerate(state['slots']):
                 exact(slot,{'kind','label','index','sha256'});need(slot['kind'] in self.packets() and type(slot['label']) is str and slot['label'] not in labels)
                 labels.add(slot['label']);counts[slot['kind']]+=1;need(type(slot['index']) is int and slot['index']==counts[slot['kind']])

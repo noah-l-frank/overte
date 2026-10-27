@@ -53,6 +53,11 @@ continues to require the branch. Rendered review, external registration and
 whole-feature obligations remain explicit. No new source query is made during
 pure archival proof.
 
+The later [same-PNG upload/return composition](SNAPSHOT_COMBINED_UPLOAD_RETURN.md)
+anchors Upload4 history to the original qualified Capture `copy-filework`
+boundary. Later legitimate Capture cleanup can advance its current tail without
+replacing that original boundary or borrowing a fresh clock packet.
+
 ## Qualification boundary
 
 The three new flag/parts/full-stack-pin contract cases and seven existing

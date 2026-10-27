@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "snapshot-combined-journey-result": 1,
+
     "snapshot-upload-causal-dispatch-packet": 1,
     "snapshot-upload-causal-dispatch-frame": 1,
     "snapshot-upload-causal-dispatch-original": 1,

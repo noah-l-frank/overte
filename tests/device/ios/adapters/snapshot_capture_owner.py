@@ -320,6 +320,32 @@ class IOSSnapshotCaptureOwner:
         return value
 
     @operation
+    def restore_name_before_destination(self):
+        """Restore actual controls while this original Capture phase is active.
+
+        Later destination phases keep the PNG, and paired file cleanup can use
+        this already owned UI original without issuing a late name edit.
+        """
+        need(self.combined and not self.historical and self.state['phase']=='copied' and self.state['result'] is not None)
+        self.bound()
+        if self.state['restored']:return deepcopy(self.restoration_original())
+        self.active()
+        if self.state['originalName']=='':
+            # An already issued name edit may have reached the native UI. Its
+            # original input journal must recover before testing the current
+            # restored field, without another ordinary edit.
+            known=any(row['label']=='journey-restore-name' for row in self.state['inputSlots'])
+            if not known:
+                view=controls.project(self.sources['native'].capture());row=next(row for row in view['controls'] if row['id']=='snapshot.name')
+                need(row['snapshotNameOwned'] and row['snapshotName']=='parity-'+self.run[:16]+'-still-png')
+            self.input('journey-restore-focus','snapshot.name');self.input('journey-restore-name','snapshot.name',text='')
+        acquisition=NativeClockAcquisition(self.sources['clock_source'],epoch_ms=self.epoch_ms,monotonic=self.monotonic)
+        acquisition.begin(self.epoch_ms());ui=self.sources['native'].capture()
+        self.state['restoration']=dict(ui=ui,clockJoin=acquisition.finish(dict(ui=ui),[('ui','sampleEpochMs')]))
+        self.restoration_original();self.state['nativeTail']=deepcopy(self.state['restoration']['clockJoin']['nativeAfter'])
+        self.state['restored']=True;self.save();return deepcopy(self.state['restoration'])
+
+    @operation
     def cleanup(self):
         self.bound();need(self.state['phase'] in ('capturing','copied','cleaning','file-cleaned'))
         if self.state['phase']=='file-cleaned':return self.cleanup_original()
