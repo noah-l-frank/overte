@@ -23,6 +23,7 @@
 #include <QtCore/QJsonArray>
 #include <QtNetwork/QHttpMultiPart>
 #include <QPainter>
+#include <QImageWriter>
 #include <QtConcurrent/QtConcurrentRun>
 
 #include <AccountManager.h>
@@ -527,8 +528,8 @@ QFile* Snapshot::savedFileForSnapshot(QImage& shot,
         }
     } else {
         QString selectedFormat(DEFAULT_FORMAT);
-        if (_snapshotFormat.get() != "") {
-            selectedFormat = _snapshotFormat.get();
+        if (getSnapshotFormat() != "") {
+            selectedFormat = getSnapshotFormat();
         }
         filename = FILENAME_PATH_FORMAT.arg(username, now.toString(DATETIME_FORMAT)) + "." + selectedFormat;
         QFileInfo snapshotFileInfo(filename);
@@ -707,7 +708,9 @@ void Snapshot::setSnapshotsLocation(const QString& location) {
 }
 
 QString Snapshot::getSnapshotFormat(){
-    return _snapshotFormat.get();
+    const auto available = getAvailableSnapshotFormats();
+    const auto saved = _snapshotFormat.get();
+    return available.contains(saved) ? saved : available.value(0);
 }
 
 void Snapshot::setSnapshotFormat(const QString& format){
@@ -731,11 +734,28 @@ void Snapshot::setAnimatedSnapshotFormat(const QString& format){
 }
 
 QStringList Snapshot::getAvailableSnapshotFormats() {
-    return QStringList({"png", "jpg", "webp"});
+    const auto supported = QImageWriter::supportedImageFormats();
+    QStringList available;
+    for (const auto& format : {QStringLiteral("png"), QStringLiteral("jpg"), QStringLiteral("webp")}) {
+        if (supported.contains(format.toLatin1())) {
+            available.append(format);
+        }
+    }
+    return available;
 }
 
 QStringList Snapshot::getAvailableSnapshotFormatsWithDescriptions() {
-    return QStringList({"PNG - lossless, large file size", "JPG - lossy, fast compression", "WEBP - lossy, higher quality and file size than JPG"});
+    QStringList descriptions;
+    for (const auto& format : getAvailableSnapshotFormats()) {
+        if (format == QStringLiteral("png")) {
+            descriptions.append(QStringLiteral("PNG - lossless, large file size"));
+        } else if (format == QStringLiteral("jpg")) {
+            descriptions.append(QStringLiteral("JPG - lossy, fast compression"));
+        } else if (format == QStringLiteral("webp")) {
+            descriptions.append(QStringLiteral("WEBP - lossy, higher quality and file size than JPG"));
+        }
+    }
+    return descriptions;
 }
 
 QStringList Snapshot::getAvailableAnimatedSnapshotFormats() {

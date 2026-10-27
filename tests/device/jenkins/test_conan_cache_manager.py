@@ -168,6 +168,8 @@ class ConanCacheManagerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="overte-cache-adopt-test-") as name:
             root = Path(name) / "existing"
             root.mkdir(mode=0o755)
+            # Establish the permission fixture even under a private runner umask.
+            root.chmod(0o755)
             existing = root / "keep.txt"
             existing.write_text("keep", encoding="utf-8")
             with self.assertRaisesRegex(MANAGER.CacheError, "unmarked"):

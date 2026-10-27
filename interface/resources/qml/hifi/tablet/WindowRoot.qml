@@ -34,10 +34,21 @@ Windows.ScrollingWindow {
     property string subMenu: ""
     property var tabletProxy: Tablet.getTablet("com.highfidelity.interface.tablet.system")
     property var semanticSourceHistory: []
+    property var _inlineSource: null
+    property var _webLoadTicket: null
+
+    Component.onDestruction: _retireInlineSource()
+
+    function _retireInlineSource() {
+        _webLoadTicket = {};
+        if (_inlineSource) { _inlineSource.retire(); }
+        _inlineSource = null;
+    }
     property string semanticBackTarget: ""
     HifiControls.TouchUiProfile { id: touchUiProfile; objectName: "tabletTouchProfile" }
     property bool screenSpaceMode: false
     property real screenSpaceContentScale: touchUiProfile.screenSpaceContentScale
+    property bool screenSpaceCenterHorizontally: touchUiProfile.centerScreenSpaceHorizontally
     property int screenSpaceSafeInsetLeft: touchUiProfile.safeInsetLeft
     property int screenSpaceSafeInsetTop: touchUiProfile.safeInsetTop
     property int screenSpaceSafeInsetRight: touchUiProfile.safeInsetRight
@@ -84,6 +95,7 @@ Windows.ScrollingWindow {
     Connections {
         target: tabletRoot
         function onShownChanged() {
+            if (!tabletRoot.shown) { tabletRoot._retireInlineSource(); }
             // Host/window closes can bypass the navigation footer. Release the
             // shared mobile input capture whenever the tablet is dismissed.
             // Observe the requested state, not visibility during a fade.
@@ -139,6 +151,7 @@ Windows.ScrollingWindow {
     }
 
     function loadSource(url) {
+        _retireInlineSource();
         var restoringPrevious = semanticBackTarget !== "" && semanticBackTarget === url
         semanticBackTarget = ""
         if (url === "hifi/tablet/TabletHome.qml") {
@@ -176,24 +189,43 @@ Windows.ScrollingWindow {
         return true
     }
 
-    function loadWebContent(source, url, injectJavaScriptUrl) {
+    function loadWebContent(source, url, injectJavaScriptUrl, nativeSource) {
+        if (_inlineSource) {
+            if (_inlineSource === nativeSource) { _inlineSource.suspend(); }
+            else { _inlineSource.retire(); }
+        }
+        _inlineSource = nativeSource || null;
+        var ticket = {};
+        _webLoadTicket = ticket;
         loader.load(source, function() {
-            loader.item.scriptURL = injectJavaScriptUrl;
-            loader.item.url = url;
-            if (loader.item.hasOwnProperty("closeButtonVisible")) {
-                loader.item.closeButtonVisible = false;
-            }
+            // The native surface may invoke this callback before visual
+            // parenting and completeCreate. Wait for real ancestry, while the
+            // page URL remains empty and cannot create a native navigation.
+            Qt.callLater(function() {
+                if (_webLoadTicket !== ticket) { return; }
+                if (nativeSource && loader.item.hasOwnProperty("inlineDocument")) {
+                    loader.item.sourceIdentity = nativeSource.sourceIdentity;
+                    if (nativeSource.bind(loader.item)) {
+                        loader.item.inlineDocument = Qt.binding(function() { return nativeSource.document; });
+                    }
+                }
+                loader.item.scriptURL = injectJavaScriptUrl;
+                loader.item.url = url;
+                if (loader.item.hasOwnProperty("closeButtonVisible")) {
+                    loader.item.closeButtonVisible = false;
+                }
             
-            screenChanged("Web", url);
+                screenChanged("Web", url);
+            });
         });
     }
 
-    function loadWebBase(url, injectJavaScriptUrl) {
-        loadWebContent("hifi/tablet/TabletWebView.qml", url, injectJavaScriptUrl);
+    function loadWebBase(url, injectJavaScriptUrl, nativeSource) {
+        loadWebContent("hifi/tablet/TabletWebView.qml", url, injectJavaScriptUrl, nativeSource);
     }
 
-    function loadTabletWebBase(url, injectJavaScriptUrl) {
-        loadWebContent("hifi/tablet/BlocksWebView.qml", url, injectJavaScriptUrl);
+    function loadTabletWebBase(url, injectJavaScriptUrl, nativeSource) {
+        loadWebContent("hifi/tablet/BlocksWebView.qml", url, injectJavaScriptUrl, nativeSource);
     }
 
     // used to send a message from qml to interface script.

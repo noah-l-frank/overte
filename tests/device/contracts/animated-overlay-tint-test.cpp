@@ -2,6 +2,8 @@
 #include <QGuiApplication>
 #include <QQuickView>
 #include <QQuickItem>
+#include <QQuickItemGrabResult>
+#include <QSignalSpy>
 #include <QPointer>
 #include <QTest>
 #include <QQmlEngine>
@@ -12,7 +14,15 @@ int main(int argc,char**argv){
  auto update=[&](const QVariantMap& m){assert(QMetaObject::invokeMethod(root,"updatePropertiesFromScript",Q_ARG(QVariant,QVariant(m))));};
  update({{"width",64},{"height",64},{"imageURL",QUrl::fromLocalFile(argv[2]).toString()},{"color",QVariantMap{{"red",0},{"green",0},{"blue",255}}}});view.resize(64,64);view.show();QTest::qWait(200);
  QQuickItem* image=nullptr;for(auto i:root->findChildren<QQuickItem*>())if(i->inherits("QQuickAnimatedImage"))image=i;assert(image);image->setProperty("playing",false);assert(image->property("frameCount").toInt()==2);
- auto pixels=[&]{QTest::qWait(130);auto p=view.grabWindow();assert(!p.isNull());return p;};
+ // Capture the actual content with its alpha channel, independent of the
+ // platform window backing store (Qt 6.4 offscreen windows can be RGB-only).
+ auto pixels=[&]{
+  QTest::qWait(130);
+  auto result=view.contentItem()->grabToImage();assert(result);
+  QSignalSpy ready(result.data(),&QQuickItemGrabResult::ready);
+  if(result->image().isNull())assert(ready.wait(1000));
+  auto p=result->image();assert(!p.isNull());return p;
+ };
  for(int frame:{0,1,0,1}){image->setProperty("currentFrame",frame);auto p=pixels();assert(p.pixelColor(frame?48:16,32)==QColor(Qt::blue));assert(p.pixelColor(frame?16:48,32).alpha()==0);}
  image->setProperty("playing",true);bool left=false,right=false;
  for(int i=0;i<12;++i){QTest::qWait(60);auto p=view.grabWindow();left=left||p.pixelColor(16,32)==QColor(Qt::blue);right=right||p.pixelColor(48,32)==QColor(Qt::blue);}assert(left&&right);image->setProperty("playing",false);image->setProperty("currentFrame",1);pixels();
