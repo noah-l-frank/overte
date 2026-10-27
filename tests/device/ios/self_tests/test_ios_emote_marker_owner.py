@@ -46,8 +46,12 @@ class Domain:
     def world(self,run):
         assert run==RUN;sequence=self.tick('world');value=deepcopy(self.world_template)
         value.update(sequence=sequence,requestId='ios-'+format(sequence+3000,'032x'))
-        for key in ('clockBefore','clockAfter'):value[key]=dict(epochMs=self.epoch(),monotonicMs=round(self.time*1000))
+        # Construct the new packet in acquisition order. A real CPU clock may
+        # tick between these reads; sampling the parent end first would place
+        # the subsequent Script sample outside its original bracket.
+        value['clockBefore']=dict(epochMs=self.epoch(),monotonicMs=round(self.time*1000))
         value['source']['scriptOriginal'].update(requestedEpochMs=self.epoch(),capturedEpochMs=self.epoch())
+        value['clockAfter']=dict(epochMs=self.epoch(),monotonicMs=round(self.time*1000))
         return value
     def terminal(self,_after):
         sequence=self.tick('terminal');p=terminal_packet(0);p.update(commandId='ios-'+format(sequence+4000,'032x'),sequence=sequence,

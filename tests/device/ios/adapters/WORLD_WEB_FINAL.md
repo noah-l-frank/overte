@@ -556,3 +556,17 @@ its parent boundary. The unchanged validator rejects that original. The
 11.515 s command and both original roots are retained. This gives no new
 publication timing result; correction must occur in the producer when a new
 packet is constructed, never by modifying those old originals.
+
+The new-packet marker model now samples parent-before, embedded Script request
+and capture, then parent-after in acquisition order. The failed retained
+pending original has exact clocks `[29389, 29389, 29390, 29389]`; it remains
+unchanged. A forced millisecond tick per producer read reproduces the old
+ordering failure and both new regression cases pass in 0.001 s. They preserve
+an earlier packet across a later read and still reject a future child.
+
+All three existing marker cleanup/recovery cases then pass. The following
+genuine-CPU Actor attempt reaches the final transport opener: seven paired
+acquisitions take 0.527–0.644 s, cleanup returns at 1.235 s and publication exits
+at 1.505 s. The original final-opener 1.5 s guard still rejects delivery. The
+four-case command finishes in 14.824 s with one error; no overall or
+publication PASS is claimed, no input is retried and both actual roots remain.
