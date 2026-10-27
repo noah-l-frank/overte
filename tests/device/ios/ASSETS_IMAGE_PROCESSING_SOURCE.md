@@ -97,3 +97,22 @@ free/realloc completion, QRunnable base/delete/pool drainage, plugin/decoder or
 decoded-image-data completion, physical GPU allocation/fence retirement,
 actor/backend/process/SDK end, or whole Resource retirement. These interfaces
 remain required for the full Assets feature and are not hidden behind this join.
+
+
+The existing Processing diagnostic filename must use the same three native
+writer branches as Queue: refusal outside the dedicated iOS test build, compact
+JSON to preserve the original byte limit through AFC, and the private atomic
+QSaveFile writer with symlink refusal, owner-only permissions and no direct-write
+fallback. The generic iOS writer is not this source's publication contract.
+The narrow correction adds only the existing Processing filename; it changes no
+getter, Source1/History wire shape, requested input or original acquisition limit.
+
+The earlier 70-case and 197.721-second results above retain their recorded source
+revision and modeled saveObject boundary. They do not execute this native writer.
+The new native-writer source-contract guard passes within seventeen selected
+host cases in 0.576 seconds. All 5590 complete source/launcher/own-hunk pins
+remain byte/stat/SHA-identical during that run; four private runtime roots and
+eight files remain retained. This checks the native source contract and existing
+modeled transport logic, not Qt execution. Matching-SDK native serialization,
+QSaveFile/symlink/permission behavior, compilation and installed execution remain
+UNRUN. No earlier connected result transfers to this changed native source.

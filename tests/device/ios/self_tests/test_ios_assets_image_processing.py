@@ -128,3 +128,23 @@ if(files.at(-1).v.status!=='unavailable'||files.at(-1).v.source)throw Error('mis
         self.assertIn('std::atomic_exchange_explicit(publication(),Pin{}',cpp)
         self.assertIn('pending && pending->_ready && !pending->_claimed',cpp)
         self.assertLess(cpp.index('if (!connected) {fail();return;}'),cpp.index('_ready=true;'))
+
+    def test_existing_processing_filename_uses_native_test_gate_compact_encoding_and_private_atomic_writer(self):
+        # Source-contract check only; no Qt/JSON/QSaveFile/SDK execution.
+        root=Path(__file__).resolve().parents[4]
+        cpp=(root/'interface/src/scripting/TestScriptingInterface.cpp').read_text().split('void TestScriptingInterface::saveObject(',1)[1]
+        name='feature-ios-assets-image-reader-processing.json'
+        gate=cpp.split('    if (_testResultsLocation.isNull())',1)[0]
+        self.assertIn('!defined(OVERTE_E2E_FEATURE_TESTS)',gate)
+        self.assertIn('!defined(Q_OS_IOS)',gate);self.assertIn('!defined(OVERTE_IOS_E2E_TEST_BUILD)',gate)
+        gated_line=next(line for line in gate.splitlines() if name in line)
+        self.assertIn('{return;}',gated_line)
+        compact=cpp.split('// Append trailing slash if needed',1)[0]
+        compact_line=next(line for line in compact.splitlines() if name in line and 'QJsonDocument::Compact' in line)
+        self.assertIn('filename=="'+name+'"',compact_line)
+        private=cpp.split('    if (filename == "'+name+'"',1)[1].split('#endif',1)[0]
+        self.assertIn('QFileInfo(filepath).isSymLink()',private)
+        self.assertIn('QCoreApplication::arguments().contains("--testScript")',private)
+        self.assertIn('output.setDirectWriteFallback(false)',private)
+        self.assertIn('output.setPermissions(QFile::ReadOwner | QFile::WriteOwner)',private)
+        self.assertIn('output.write(jsonData) == jsonData.size()',private)
