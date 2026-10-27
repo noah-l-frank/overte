@@ -76,18 +76,18 @@ public:
         return id;
     }
     struct Consumer {QString kind;int slot;std::weak_ptr<const void> holder;};
-    void geometry(const QString& reader,const QStringList& mappings,const std::shared_ptr<void>& holder,const QString& kind,
+    QString geometry(const QString& reader,const QStringList& mappings,const std::shared_ptr<void>& holder,const QString& kind,
             const QVector<Consumer>& consumers) {
-        if (!enabled() || reader.isEmpty()) {return;}QMutexLocker lock(&_mutex);auto source=find(reader);
+        if (!enabled() || reader.isEmpty()) {return {};}QMutexLocker lock(&_mutex);auto source=find(reader);
         // Copy construction can occur off the main thread. Only weak standard
         // ownership and immutable lineage are inspected here, never QObjects.
         if (!source || source->value.value("kind")!="model" || !source->modelKnown || !holder
                 || mappings.size()>8 || consumers.size()>256
-                || (kind!="resource" && kind!="mapping-resource" && kind!="copy")) {_complete=false;return;}
+                || (kind!="resource" && kind!="mapping-resource" && kind!="copy")) {_complete=false;return {};}
         QSet<QString> seen;
         for (const auto& id:mappings) {
             const auto row=find(id);
-            if (!row || row->value.value("kind")!="mapping" || seen.contains(id)) {_complete=false;return;}
+            if (!row || row->value.value("kind")!="mapping" || seen.contains(id)) {_complete=false;return {};}
             seen.insert(id);
         }
         GeometryRow* geometry=nullptr;
@@ -96,7 +96,7 @@ public:
                     && !row.holder.owner_before(holder) && !holder.owner_before(row.holder)) {geometry=&row;break;}
         }
         if (!geometry) {
-            if (_geometries.size()>=128) {_complete=false;return;}
+            if (_geometries.size()>=128) {_complete=false;return {};}
             GeometryRow row;row.reader=reader;row.mappings=mappings;row.kind=kind;row.holder=holder;
             row.value={{"id",nonce()},{"readerId",reader},{"mappingIds",mappings},{"kind",kind},{"born",stamp()},
                 {"destructionObserved",QVariant()}};
@@ -107,22 +107,55 @@ public:
         for (const auto& consumer:consumers) {
             const auto slot=consumer.kind+":"+QString::number(consumer.slot);
             if ((consumer.kind!="mesh" && consumer.kind!="material") || consumer.slot<0 || consumer.slot>=256
-                    || consumer.holder.expired() || slots.contains(slot)) {_complete=false;return;}
+                    || consumer.holder.expired() || slots.contains(slot)) {_complete=false;return {};}
             slots.insert(slot);bool known=false;
             for (const auto& row:_consumers) {
                 if (row.geometry==geometryId && row.kind==consumer.kind && row.slot==consumer.slot
                         && !row.holder.owner_before(consumer.holder) && !consumer.holder.owner_before(row.holder)) {known=true;break;}
             }
             if (known) {continue;}
-            if (_consumers.size()>=256) {_complete=false;return;}
+            if (_consumers.size()>=256) {_complete=false;return {};}
             ConsumerRow row;row.geometry=geometryId;row.kind=consumer.kind;row.slot=consumer.slot;row.holder=consumer.holder;
             row.value={{"id",nonce()},{"geometryId",geometryId},{"kind",consumer.kind},{"slot",consumer.slot},
                 {"born",stamp()},{"ownershipExpiryObserved",QVariant()}};
             _consumers.append(row);
         }
+        return geometryId;
+    }
+    // Callbacks enter here while the Material mutex is held. No registry path
+    // calls back into Material; arguments retain no product owner after return.
+    void texture(const QString& geometry,int slot,int channel,const std::shared_ptr<const void>& map,
+            const std::shared_ptr<const void>& source) {
+        QMutexLocker lock(&_mutex);
+        if (!_complete) {return;}
+        bool known=false;
+        for (const auto& row:_geometries) {if (row.value.value("id")==geometry) {known=true;break;}}
+        if (!known || slot<0 || slot>=256 || channel<-1 || channel>=256
+                || (channel==-1 && (map || source)) || (!map && source) || _textureRevision>=1048576) {
+            _complete=false;return;
+        }
+        const auto observed=stamp();++_textureRevision;
+        // A -1 marker records initial/copy/assignment snapshots, including
+        // empty maps. Repeated identities still advance the mutation revision.
+        const auto mapId=textureNode("map",map,observed);
+        const auto sourceId=textureNode("source",source,observed);
+        if (!_complete) {return;}
+        for (auto& row:_textureLinks) {
+            if (row.geometry==geometry && row.slot==slot && row.channel==channel && row.map==mapId && row.source==sourceId) {
+                row.value["lastObserved"]=observed;row.value["revision"]=_textureRevision;return;
+            }
+        }
+        if (_textureLinks.size()>=512) {_complete=false;return;}
+        TextureLink row;row.geometry=geometry;row.slot=slot;row.channel=channel;row.map=mapId;row.source=sourceId;
+        row.value={{"id",nonce()},{"geometryId",geometry},{"materialSlot",slot},{"channel",channel},
+            {"mapId",mapId},{"sourceId",sourceId},{"born",observed},{"lastObserved",observed},{"revision",_textureRevision}};
+        _textureLinks.append(row);
+    }
+    void textureIncomplete() noexcept {
+        QMutexLocker lock(&_mutex);_complete=false;
     }
     QVariantMap snapshot() {
-        if (!enabled() || !main()) {return {};}QMutexLocker lock(&_mutex);QVariantList rows,geometries,consumers;
+        if (!enabled() || !main()) {return {};}QMutexLocker lock(&_mutex);QVariantList rows,geometries,consumers,textures,textureLinks;
         for (const auto& row:_rows) {
             // Resource::allReferencesCleared may recreate shared ownership for
             // the same cached QObject. The original weak lease and actual
@@ -143,18 +176,38 @@ public:
             if (!alive && row.value.value("ownershipExpiryObserved").isNull()) {row.value["ownershipExpiryObserved"]=stamp();}
             auto value=row.value;value["strongOwnersAlive"]=alive;consumers.append(value);
         }
-        return {{"assetModelOriginHistoryVersion",4},{"instance",_instance},{"complete",_complete},{"clock",stamp()},
+        for (auto& row:_textures) {
+            const bool alive=!row.holder.expired();
+            if (!alive && row.value.value("ownershipExpiryObserved").isNull()) {row.value["ownershipExpiryObserved"]=stamp();}
+            auto value=row.value;value["strongOwnersAlive"]=alive;textures.append(value);
+        }
+        for (const auto& row:_textureLinks) {textureLinks.append(row.value);}
+        return {{"assetModelOriginHistoryVersion",5},{"instance",_instance},{"complete",_complete},{"clock",stamp()},
             {"downloads",rows},{"geometries",geometries},
-            {"consumerOwnership",QVariantMap{{"assetModelConsumerOwnershipVersion",1},{"rows",consumers}}}};
+            {"consumerOwnership",QVariantMap{{"assetModelConsumerOwnershipVersion",1},{"rows",consumers}}},
+            {"textureOwnership",QVariantMap{{"assetModelTextureOwnershipVersion",1},{"revision",_textureRevision},
+                {"nodes",textures},{"links",textureLinks}}}};
     }
 private:
     struct GeometryRow {QString reader,kind;QStringList mappings;std::weak_ptr<void> holder;QVariantMap value;};
     struct ConsumerRow {QString geometry,kind;int slot;std::weak_ptr<const void> holder;QVariantMap value;};
+    struct TextureNode {QString kind,id;std::weak_ptr<const void> holder;QVariantMap value;};
+    struct TextureLink {QString geometry,map,source;int slot,channel;QVariantMap value;};
     struct Row {QString id;QWeakPointer<Resource> resource;QPointer<Resource> object;std::weak_ptr<void> holder;std::weak_ptr<const void> model;
         bool readerKnown{false},modelKnown{false};QVariantMap value;};
     IOSAssetsModelOrigin() {_clock.start();}
     static bool main() {const auto app=QCoreApplication::instance();return app && QThread::currentThread()==app->thread();}
     static QString nonce() {return QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');}
+    QString textureNode(const QString& kind,const std::shared_ptr<const void>& holder,const QVariantMap& born) {
+        if (!holder) {return {};}
+        for (const auto& row:_textures) {
+            if (row.kind==kind && !row.holder.owner_before(holder) && !holder.owner_before(row.holder)) {return row.id;}
+        }
+        if (_textures.size()>=256) {_complete=false;return {};}
+        TextureNode row;row.kind=kind;row.id=nonce();row.holder=holder;
+        row.value={{"id",row.id},{"kind",kind},{"born",born},{"ownershipExpiryObserved",QVariant()}};
+        _textures.append(row);return row.id;
+    }
     QVariantMap stamp() const {return {{"epochMs",QDateTime::currentMSecsSinceEpoch()},{"monotonicMs",_clock.elapsed()}};}
     Row* find(const QString& id) {for (auto& row:_rows) {if (row.id==id) {return &row;}}return nullptr;}
     void body(const QString& id,bool delivery,bool returned) {
@@ -165,6 +218,7 @@ private:
         row->value[field]=stamp();
     }
     QMutex _mutex;QVector<Row> _rows;QVector<GeometryRow> _geometries;QVector<ConsumerRow> _consumers;
+    QVector<TextureNode> _textures;QVector<TextureLink> _textureLinks;qint64 _textureRevision{0};
     bool _complete{true};qint64 _bytes{0};QElapsedTimer _clock;QString _instance{nonce()};
 };
 } // namespace overte::e2e

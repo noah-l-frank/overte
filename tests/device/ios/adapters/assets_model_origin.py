@@ -14,10 +14,11 @@ from adapters.script_feature.history import same
 from ios.adapters import create_state
 from ios.adapters.places_model import IOSPlacesModel
 from ios.adapters.scene_inventory import tree
+from ios.adapters import assets_texture_ownership
 
 VERSION=1
-HISTORY_VERSION=4
-HISTORY_READS=(1,2,3,4)
+HISTORY_VERSION=5
+HISTORY_READS=(1,2,3,4,5)
 ACTION='feature-ios-assets-model-origin'
 FILE=ACTION+'.json'
 LIMIT=262144
@@ -50,7 +51,8 @@ def history(value,epoch):
     version=value.get('assetModelOriginHistoryVersion')
     exact(value,{'assetModelOriginHistoryVersion','instance','complete','clock','downloads'}
         |({'geometries'} if type(version) is int and version>=3 else set())
-        |({'consumerOwnership'} if type(version) is int and version>=4 else set()))
+        |({'consumerOwnership'} if type(version) is int and version>=4 else set())
+        |({'textureOwnership'} if type(version) is int and version>=5 else set()))
     need(type(version) is int and version in HISTORY_READS
         and type(value['complete']) is bool and type(value['downloads']) is list and len(value['downloads'])<=64)
     identity(value['instance']);stamp(value['clock']);need(value['clock']['epochMs']<=epoch);ids=set();total=0
@@ -81,6 +83,7 @@ def history(value,epoch):
     need(total<=65536)
     if version>=3:geometry_history(value['geometries'],{row['id']:row for row in value['downloads']},value['clock'])
     if version>=4:consumer_ownership(value['consumerOwnership'],value['geometries'],value['clock'])
+    if version>=5:assets_texture_ownership.validate(value['textureOwnership'],value['geometries'],value['consumerOwnership']['rows'],value['clock'],value['complete'])
     return value
 
 
@@ -176,6 +179,8 @@ def validate(value,query,pid,epoch=None,previous=None):
                 need(all(same(first[key],last[key]) for key in first if key not in ('strongOwnersAlive','ownershipExpiryObserved'))
                     and (first['strongOwnersAlive'] or not last['strongOwnersAlive'])
                     and (first['ownershipExpiryObserved'] is None or same(first['ownershipExpiryObserved'],last['ownershipExpiryObserved'])))
+        if before['assetModelOriginHistoryVersion']>=5:
+            assets_texture_ownership.successor(before['textureOwnership'],after['textureOwnership'],before['clock'])
     return value
 
 

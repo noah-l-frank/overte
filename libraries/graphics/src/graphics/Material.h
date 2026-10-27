@@ -17,6 +17,7 @@
 #include <bitset>
 #include <unordered_map>
 #include <queue>
+#include <functional>
 
 #include <ColorUtils.h>
 
@@ -401,6 +402,13 @@ public:
     void setTextureMap(MapChannel channel, const TextureMapPointer& textureMap);
     virtual TextureMaps getTextureMaps() const { return _textureMaps; } // FIXME - not thread safe...
     const TextureMapPointer getTextureMap(MapChannel channel) const;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    // Diagnostic callbacks carry scope identifiers, never a strong product
+    // Material/Geometry/Resource/GPU reference.
+    using FeatureTextureObserver = std::function<void(int, const TextureMapPointer&)>;
+    bool featureAssetsObserveTextureMaps(const std::string& scope,
+            FeatureTextureObserver observe, std::function<void()> incomplete);
+#endif
 
     void setSampler(MapChannel channel, const Sampler& sampler);
     void applySampler(MapChannel channel);
@@ -517,6 +525,19 @@ private:
     std::unordered_map<uint, bool> _propertyFallthroughs { NUM_TOTAL_FLAGS };
 
     mutable std::recursive_mutex _textureMapsMutex;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    struct FeatureTextureScope {
+        std::string scope;
+        FeatureTextureObserver observe;
+        std::function<void()> incomplete;
+    };
+    std::vector<FeatureTextureScope> _featureTextureScopes;
+    bool _featureTextureComplete { true };
+    // Caller holds the existing material mutex. Observer registries must
+    // never enter a Material while holding their registry lock.
+    void featureAssetsTextureChanged(int channel, const TextureMapPointer& map) noexcept;
+    void featureAssetsTextureIncomplete() noexcept;
+#endif
 };
 typedef std::shared_ptr<Material> MaterialPointer;
 

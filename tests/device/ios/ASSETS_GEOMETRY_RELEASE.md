@@ -1,5 +1,10 @@
 # Original post-Delete Geometry-consumer quiet join
 
+GeometryRelease1 explicitly accepts original History3/4. The additive
+[History5 texture source](ASSETS_TEXTURE_CONSUMERS.md) is readable by the
+collector but rejected by this existing composition. A connected texture
+context requires a separate contract; prior saved parents are never upgraded.
+
 This is a scoped resource integration packet, not complete Assets retirement.
 Native cache/Qt/parser/scene behavior remains modeled in host tests; C++ additions
 remain uncompiled and devices untested. Texture, GPU/OS, independent Actor,

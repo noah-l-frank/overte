@@ -16,6 +16,9 @@
 #include <Transform.h>
 
 #include "GraphicsLogging.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include <QtCore/QCoreApplication>
+#endif
 
 using namespace graphics;
 using namespace gpu;
@@ -92,6 +95,29 @@ Material::Material(const Material& material) :
     _defaultFallthrough(material._defaultFallthrough),
     _propertyFallthroughs(material._propertyFallthroughs)
 {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    // Only diagnostic metadata is copied under the source mutex. The existing
+    // product-copy behavior above is not changed or repaired here.
+    QT_TRY {
+        if (QCoreApplication::instance()
+                && QCoreApplication::arguments().contains(QStringLiteral("--testScript"))) {
+            {
+                std::lock_guard<std::recursive_mutex> source(material._textureMapsMutex);
+                _featureTextureScopes = material._featureTextureScopes;
+                _featureTextureComplete = material._featureTextureComplete;
+            }
+            std::lock_guard<std::recursive_mutex> lock(_textureMapsMutex);
+            if (!_featureTextureScopes.empty()) {
+                featureAssetsTextureChanged(-1, {});
+                for (const auto& entry : _textureMaps) {
+                    featureAssetsTextureChanged(int(entry.first), entry.second);
+                }
+            }
+        }
+    } QT_CATCH (...) {
+        _featureTextureComplete = false;
+    }
+#endif
 }
 
 Material& Material::operator=(const Material& material) {
@@ -118,6 +144,17 @@ Material& Material::operator=(const Material& material) {
 
     _defaultFallthrough = material._defaultFallthrough;
     _propertyFallthroughs = material._propertyFallthroughs;
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    // Assignment preserves the actual receiver's observed lineage. New map
+    // groups append to it; old weak groups are never overwritten or retired.
+    if (!_featureTextureScopes.empty()) {
+        featureAssetsTextureChanged(-1, {});
+        for (const auto& entry : _textureMaps) {
+            featureAssetsTextureChanged(int(entry.first), entry.second);
+        }
+    }
+#endif
 
     return (*this);
 }
@@ -201,7 +238,56 @@ void Material::setTextureMap(MapChannel channel, const TextureMapPointer& textur
 
     _materialParams = (textureMap ? glm::vec2(textureMap->getMappingMode(), textureMap->getRepeat()) : glm::vec2(MaterialMappingMode::UV, 1.0));
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    featureAssetsTextureChanged(int(channel), textureMap);
+#endif
+
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+void Material::featureAssetsTextureIncomplete() noexcept {
+    _featureTextureComplete = false;
+    for (const auto& entry : _featureTextureScopes) {
+        QT_TRY { entry.incomplete(); } QT_CATCH (...) { }
+    }
+}
+
+void Material::featureAssetsTextureChanged(int channel, const TextureMapPointer& map) noexcept {
+    if (_featureTextureScopes.empty()) { return; }
+    if (!_featureTextureComplete) { featureAssetsTextureIncomplete(); return; }
+    QT_TRY {
+        for (const auto& entry : _featureTextureScopes) { entry.observe(channel, map); }
+    } QT_CATCH (...) {
+        // Diagnostic failure cannot change product setter/exception behavior.
+        featureAssetsTextureIncomplete();
+    }
+}
+
+bool Material::featureAssetsObserveTextureMaps(const std::string& scope,
+        FeatureTextureObserver observe, std::function<void()> incomplete) {
+    QT_TRY {
+        if (!QCoreApplication::instance()
+                || !QCoreApplication::arguments().contains(QStringLiteral("--testScript"))) { return false; }
+        std::lock_guard<std::recursive_mutex> lock(_textureMapsMutex);
+        if (!_featureTextureComplete || scope.empty() || scope.size() > 128 || !observe || !incomplete) {
+            featureAssetsTextureIncomplete(); return false;
+        }
+        for (const auto& entry : _featureTextureScopes) {
+            if (entry.scope == scope) { return true; }
+        }
+        if (_featureTextureScopes.size() >= 32) { featureAssetsTextureIncomplete(); return false; }
+        _featureTextureScopes.push_back({scope, std::move(observe), std::move(incomplete)});
+        // Initial real snapshot and all later mutations use this same mutex.
+        const auto& entry = _featureTextureScopes.back();
+        entry.observe(-1, {});
+        for (const auto& item : _textureMaps) { entry.observe(int(item.first), item.second); }
+        return true;
+    } QT_CATCH (...) {
+        std::lock_guard<std::recursive_mutex> lock(_textureMapsMutex);
+        featureAssetsTextureIncomplete(); return false;
+    }
+}
+#endif
 
 void Material::setSampler(MapChannel channel, const Sampler& sampler) {
     std::lock_guard<std::recursive_mutex> locker(_textureMapsMutex);

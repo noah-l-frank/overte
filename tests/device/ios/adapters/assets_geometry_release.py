@@ -26,6 +26,9 @@ def parent(owner):
     parsed.authoritative();state=owner.decode(owner.previous)
     need(same(state,owner.state) and state['phase']=='model-gone' and state['contextClosedBy'] is not None)
     lineage=parsed.state['result'];baseline=parsed.frame(parsed.state['sourceIndex'])['originals']['origin']
+    # GeometryRelease1 was qualified for History3/4. History5 adds texture
+    # mutation context and needs a separate explicit composition contract.
+    need(baseline['source']['history']['assetModelOriginHistoryVersion'] in (3,4))
     original=origin.geometry_consumers(baseline,lineage['readerId'])
     need(original['bodySha256']==lineage['sha256'] and original['bodyBytes']==lineage['bytes']
         and original['processId']==lineage['processId'] and original['runId']==lineage['runId'])
@@ -90,6 +93,7 @@ def _context(owner,source,references):
     previous=closed;observations=[];prior_origin=baseline
     for frame in frames:
         window=frame['clockJoin'];old_window=previous['clockJoin'];originals=frame['originals']
+        need(originals['origin']['source']['history']['assetModelOriginHistoryVersion'] in (3,4))
         need(window['hostBeforeEpochMs']>=old_window['hostAfterEpochMs']
             and window['hostBeforeMonotonic']>=old_window['hostAfterMonotonic'])
         follow_native(old_window['nativeAfter'],window['nativeBefore'])

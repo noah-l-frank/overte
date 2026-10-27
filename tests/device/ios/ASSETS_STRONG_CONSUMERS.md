@@ -69,10 +69,13 @@ Ten focused cases pass in0.303 seconds
 Probe cases, one actual canonical AFC/native-clock carrier case and three strict
 Removal2/3/4 compatibility/effect cases. Twenty-four previous Origin1–3 and
 Geometry3 tests pass in0.474 seconds
-(`assets-strong-consumers-origin-legacy24-first-20261027.log`). The unknown
-history negative now uses unsupported5; actual4 is a supported exact schema.
+(`assets-strong-consumers-origin-legacy24-first-20261027.log`). The then-current
+unknown-history negative used unsupported5; actual4 was a supported exact
+schema. History5 is now separately supported by the additive
+[texture inventory](ASSETS_TEXTURE_CONSUMERS.md); unknown negatives use6.
 
-Registry `asset-model-origin-history` now writes4 and reads1–4. Distinct
+That packet's registry wrote4 and read1–4; the current additive source writes5
+and reads1–5. Distinct
 `asset-model-consumer-ownership` and `asset-model-strong-consumers` write/read1.
 No whole Assets journey, automatic cache eviction, complete transitive resource
 inventory or native compilation is qualified by these narrow cases.

@@ -15,6 +15,9 @@ VERSION=1
 
 def strong_history(baseline,packets,lineage):
     """Actual original positive mesh ownership and its subsequent observations."""
+    # This contract covers the original History4 mesh/material composition.
+    # An additive texture inventory is readable, but not a silent new proof.
+    need(baseline['source']['history']['assetModelOriginHistoryVersion']==4)
     reader=lineage['readerId'];original=origin.strong_consumers(baseline,reader)
     need(original['bodySha256']==lineage['sha256'] and original['bodyBytes']==lineage['bytes']
         and original['processId']==lineage['processId'] and original['runId']==lineage['runId']
@@ -22,6 +25,7 @@ def strong_history(baseline,packets,lineage):
         and type(packets) is list and 1<=len(packets)<=8)
     observations=[];previous=baseline
     for packet in packets:
+        need(packet['source']['history']['assetModelOriginHistoryVersion']==4)
         origin.validate(packet,dict(schemaVersion=1,action=origin.ACTION,commandId=packet['requestId'],runId=lineage['runId']),
             lineage['processId'],previous=previous)
         earlier=previous['source']['history'];known={row['id']:row for row in earlier['consumerOwnership']['rows']}

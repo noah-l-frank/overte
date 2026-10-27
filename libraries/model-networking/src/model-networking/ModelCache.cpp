@@ -13,6 +13,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include "../../../../tests/device/native/IOSAvatarStateObservation.h"
 #include "../../../../tests/device/native/IOSAssetsModelOrigin.h"
+#include <graphics/TextureMap.h>
 #endif
 #include <Finally.h>
 #include <FSTReader.h>
@@ -548,8 +549,30 @@ void Geometry::featureAssetsObserveGeometry(const QString& kind) const {
             if (consumers.size()>256) {break;}
             consumers.append({"material",slot++,std::shared_ptr<const void>(material)});
         }
-        overte::e2e::IOSAssetsModelOrigin::shared().geometry(
+        const auto geometryId=overte::e2e::IOSAssetsModelOrigin::shared().geometry(
             _featureAssetsReaderId,_featureAssetsMappingIds,_featureAssetsLifetime,kind,consumers);
+        if (geometryId.isEmpty()) {return;}
+        // geometry() has released the registry lock before any Material entry.
+        // Callback captures contain identifiers only, never product ownership.
+        QT_TRY {
+            slot=0;
+            for (const auto& material:_materials) {
+                const int materialSlot=slot++;
+                if (!material) {overte::e2e::IOSAssetsModelOrigin::shared().textureIncomplete();continue;}
+                const auto scope=(geometryId+":"+QString::number(materialSlot)).toStdString();
+                const bool observed=material->featureAssetsObserveTextureMaps(scope,
+                    [geometryId,materialSlot](int channel,const graphics::TextureMapPointer& map) {
+                        // getTextureSource returns a sharing pointer only. GPU
+                        // getters/isDefined may execute operators and are forbidden.
+                        const auto source=map ? map->getTextureSource() : gpu::TextureSourcePointer();
+                        overte::e2e::IOSAssetsModelOrigin::shared().texture(geometryId,materialSlot,channel,
+                            std::shared_ptr<const void>(map),std::shared_ptr<const void>(source));
+                    },[] {overte::e2e::IOSAssetsModelOrigin::shared().textureIncomplete();});
+                if (!observed) {overte::e2e::IOSAssetsModelOrigin::shared().textureIncomplete();}
+            }
+        } QT_CATCH (...) {
+            overte::e2e::IOSAssetsModelOrigin::shared().textureIncomplete();
+        }
     }
 }
 #endif

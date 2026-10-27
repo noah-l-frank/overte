@@ -176,9 +176,16 @@ already in the original parsed-input parent and never upgrades an old
 History2 packet into Geometry evidence. An explicit external test-model cache
 eviction is separate from adapter behavior; complete retirement remains false.
 
-The following [mesh/material sharing-group source](ASSETS_STRONG_CONSUMERS.md)
-now writes History4 while preserving literal readers1–3. It records actual weak
+The earlier [mesh/material sharing-group source](ASSETS_STRONG_CONSUMERS.md)
+wrote History4 while preserving literal readers1–3. It records actual weak
 ownership groups at Geometry accept/copy/material-rebuild points and keeps
 external Mesh/NetworkMaterial holders visible after Geometry death. The new
 host cases pass10/0.303s plus24 existing cases/0.474s. This is not proof that a
 destructor returned or GPU/OS work drained; both completion flags remain false.
+
+The additive [TextureMap/TextureSource source](ASSETS_TEXTURE_CONSUMERS.md)
+now writes History5 and reads literal1–5. Its11 focused and43 earlier host cases
+retain the same original parser/lease/QObject/HFM semantics. The separate weak
+texture-group fact carries no decoder/destructor/GPU/resource completion.
+Existing GeometryRelease1/StrongRelease1 explicitly reject History5 until a
+distinct connected texture-context contract is qualified. C++ remains unbuilt.

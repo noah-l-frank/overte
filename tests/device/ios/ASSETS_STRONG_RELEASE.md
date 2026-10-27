@@ -1,5 +1,9 @@
 # Original mesh and material quiet join after normal Model deletion
 
+StrongRelease1 explicitly accepts original History4 only. The additive
+[History5 texture source](ASSETS_TEXTURE_CONSUMERS.md) does not silently extend
+this qualified composition; it requires a separate connected texture contract.
+
 The four new pure original-fact cases and five previous Geometry fact cases
 pass together9/0.074s. A fresh connected normal-input/weak-holder composition
 now passes1/192.085s. Native C++, actual renderer/GPU/OS behavior and devices

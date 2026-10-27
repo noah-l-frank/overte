@@ -1,5 +1,10 @@
 # Ordinary local Model removal and retained cached resources
 
+The current additive [texture source](ASSETS_TEXTURE_CONSUMERS.md) explicitly
+extends this same QObject/HFM/lease predicate to validated History5. Literal
+History2–4 remain readable, unknown6 refuses, and no texture/resource completion
+authority is added. The earlier release1 compositions explicitly reject5.
+
 The private `OwnedAssetsModelRemoval` child uses existing normal Create tokens through `IOSCreateUI` and
 `NativeInput.deliver`; it invokes no Entity service, QML handler or cache API.
 Only the actually adopted Assets UUID may be selected or deleted. The first
