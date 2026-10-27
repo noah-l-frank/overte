@@ -35,7 +35,12 @@ class WorldWebCpuJourneyTests(unittest.TestCase):
                         actions.inputs.entity=lease.packet()['returned']['returned']['entityId']
                 action_seconds=time.perf_counter()-started;self.assertLess(action_seconds,25)
                 started=time.perf_counter()
-                with scope(lambda:sdk.time):
+                # Match the actual WorldWebObserver's single read boundary:
+                # Source and Lease qualify their full byte graphs on entry,
+                # remain guarded through derivation and recheck on exit. The
+                # outer API budget includes both entries and both exits.
+                # This is still an input/state component, without PNG/Actor.
+                with scope(lambda:sdk.time),source.validation_round(),lease.validation_round():
                     owned=lease.packet()
                     observed=source.derive_browser(ownership=owned['files'],directory=owned['directory'],
                         entity=owned['returned']['returned']['entityId'],origins=sdk.origins)['public']

@@ -73,6 +73,27 @@ profile the retained browser-history derivation before another changed-source
 run, keeping the same watchdog, API and original freshness bounds. The earlier
 failed originals are neither rewritten nor assigned later results.
 
+The next fresh input/state gate passes **all nineteen steps in 237.962 s**
+under the same outer240-second watchdog. Its observation composition now
+matches the actual `WorldWebObserver.validation_round`: one existing Source
+round and one existing Lease round surround the original lease read and browser
+derivation. The 25-second API budget is outermost, so all round entry and exit
+work remains charged. Normal action paths and state assertions are unchanged.
+Each complete byte graph is decoded at round entry; original/header/inventory
+and current guards remain active through use and final exit. No original
+timestamp, freshness bound, native query or normal input is replayed to qualify
+an old result.
+
+The maximum actual component action/observation costs are 16.828/11.156 s.
+All 334 selected source hashes remain unchanged. Log:
+`.ios-host-tmp/world-web-cpu19-joined-round-current-20261027.log`; original root:
+`.ios-host-tmp/tmp3ieeyyp4`. The earlier exit124 corpus remains unqualified.
+This models the production read boundary but does not include the additional
+Observer journals, SDK/artifact leases, independent Actor, PNG evidence or the
+complete paired terminal. Installed-adapter construction/preflight and full
+resource/OS/SDK retirement still require their own whole qualification. Native,
+Qt, WK and SDK producers remain declared models; no device result follows.
+
 ## Earlier verification packets
 
 The newer paired census/end replay reached its 600-second diagnostic limit;
