@@ -3,6 +3,37 @@
 The World Web whole owner is not advertised as complete. Its final composition
 is under host verification; native sources remain uncompiled.
 
+## Current CPU-accounted nineteen-action gate
+
+The 2026-10-27 current-source input/state selection is **ERROR1 in 162.959 s**.
+All first fifteen ordinary actions and independent original state assertions
+passed, including foreign-origin rejection, resource recovery and background/
+resume. The sixteenth `focus-type` action passed its normal focus input but
+its subsequent replacement was refused by the existing final transport guard:
+the original Source acquisition had exceeded its unchanged 1.5-second age.
+No replacement POST was issued. The input WAL remains `issued` with its actual
+release return; this uncertainty must not be resent or treated as successful
+text input. No complete nineteen-step, Actor/PNG or terminal result follows.
+
+The retained original root is `.ios-host-tmp/tmp0c_d6uuj`, containing 56 Source
+records and 18 input records with no pending Source acquisition. All 333
+selected source hashes remained unchanged during the run. Log:
+`.ios-host-tmp/world-web-cpu19-current-corrected-launch-20261027.log`.
+The first launcher failed during import because its shared self-test search
+path was missing; it executed no journey and is retained separately. Correcting
+that launcher did not repeat any product input. The actual selection used
+the existing 25-second API and 1.5-second Source limits inside an outer
+240-second diagnostic bound, which was not reached.
+
+The next diagnostic isolates actual Source inventory guards and Input-WAL
+validation on that retained graph, with all native/SDK/network/process/state
+writes forbidden and exact original file signatures/bytes checked before and
+after. Repeated historical work before the final POST needs measured removal
+through guarded dataflow; neither a later timestamp nor a larger freshness
+window can repair this failed original. No unchanged journey retry is planned.
+
+## Earlier verification packets
+
 The newer paired census/end replay reached its 600-second diagnostic limit;
 it has no passing result. All 1,919 original paths retained their recorded
 device/inode/size identities. A separate 90-second readonly profile also timed
