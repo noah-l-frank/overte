@@ -5,9 +5,20 @@ SPDX-License-Identifier: Apache-2.0
 
 # Fedora iOS E2E handoff and immutable runtime
 
+The remote consolidation baseline is `test/ios/consolidated-adapters-20261027`.
+The [2026-10-27 consolidation record](../../../docs/ios/TEST_BRANCH_CONSOLIDATION_20261027.md)
+lists its four preserved remote source tips and historical verification limits.
+The active isolated local continuation is
+`test/ios/feature-adapters-resume-20261026`, which combines that baseline with
+the newer local adapter history and preserved in-progress packets. The
+[local consolidation checkpoint](LOCAL_CONSOLIDATION_CHECKPOINT_20261027.md)
+records their exact tested and unqualified boundaries. Older handoff records
+retain their historical source identities; their results do not qualify newer
+local packets.
+
 Current iOS source coverage and remaining whole-area prerequisites are recorded
 in [the 2026-10-21 audit](FEATURE_ADAPTER_COVERAGE_20261021.md). Earlier checkpoint
-claims below are historical. Scripts, Authentication, Graphics and Create now have
+claims below are historical. Scripts, Authentication, Graphics, Create and Navigation now have
 complete source-level triples; compilation and device qualification remain
 unexecuted. Component counts below do not establish device results.
 The [Create operation handoff](adapters/CREATE_FEATURE.md) covers all 21 normal
