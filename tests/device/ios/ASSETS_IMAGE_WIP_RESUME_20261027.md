@@ -22,9 +22,9 @@ The actual original child's full-to-partial-execution cleanup transition is
 accepted only under cleanup intent with identical manager/code/URL/marker and
 preserved frames. Marker retirement never retires Model/cache/peer/GPU/OS.
 
-## Current image draft
+## Secured original image draft
 
-New files, intentionally not yet linked into runtime or schema registry:
+Files secured in `10b3093aac`, before runtime or schema integration:
 
 - `adapters/assets_model_images.py`: pure independent Assets image predicate;
   no Create product projection. It joins current complete Create/tree/view,
@@ -123,19 +123,75 @@ Exact private logs:
   and logical source files refuse reconstruction without native/GPU queries;
   restoration of the exact same inode/bytes preserves legitimate qualification.
 
-No canonical image runtime factory, source admission, global pure ownership
-inventory, actor sample, publication, comparative normal Model removal image
-or complete journey/end has qualified. Source basis/raw/acquisition names
-remain unregistered. Generic Assets inspection deliberately rejects these
-unknown namespaces, keeping ordinary session replacement/cleanup closed rather
-than interpreting missing observation as resource retirement.
+The `dd6efd6759` checkpoint still had no canonical image runtime factory or
+pure ownership integration. Its later continuation is recorded below. Actor
+sample/publication, comparative normal Model removal image and complete
+journey/end remain unqualified. Ordinary session replacement/cleanup stays
+closed rather than interpreting missing observation as resource retirement.
+
+## Canonical runtime and explicit pure inventory continuation
+
+[Image runtime and ownership](ASSETS_IMAGE_OWNERSHIP.md) documents the closed
+factory and independently authorized historical inventory. The inventory
+supplies no live transport, new clock, write or resource-retirement verdict.
+Generic inventory without the explicit root/binding/run/ticket/held-lock
+context rejects Marker/image owners and orphan image originals. Even with
+that context, original normal Marker cleanup and exact physical original-file
+coverage are required; retained Model/cache/original responsibilities stay
+blocking. Active or uncertain Marker metadata remains unavailable.
+
+Exact private logs so far:
+
+- `assets-image-canonical-factory-five-20261027.log`: the first actual factory
+  expectation incorrectly required no additional native guard reads. The
+  diagnostic `assets-image-canonical-factory-trace-20261027.log` showed that
+  the three reads are the existing mandatory `installed_code.verify` checks.
+  Only the test expectation changed; no native or installed guard was removed.
+- `assets-image-canonical-factory-final-20261027.log`: PASS5/0.884s. Actual
+  existing parents/readers construct, host callback identity is preserved,
+  malformed nonce refuses before ownership/source creation, foreground loss
+  refuses under the existing installed-code guard, and no image/Model/GPU
+  acquisition or input is implicit.
+- `assets-image-ownership-admission-first-20261027.log`: PASS4/0.573s,
+  covering independent roots/parents, orphan raw/logical originals, unsupported
+  owner/profile/role and substituted run/binding without queries or writes.
+- `assets-image-ownership-actual-first-20261027.log`: PASS1/33.012s. Actual
+  fresh normal Model/Marker and PNG sampling execute; after child retirement
+  and normal Marker cleanup, all raw/logical/PNG/current Vulkan metadata is
+  reopened purely. Later child transcript reads preserve the frozen prefix.
+  Missing GPU metadata and foreign roots refuse. SDK/HTTP/writes are forbidden,
+  retained bytes/inodes and native/GPU command lists remain unchanged, and
+  `image-originals` stays owned.
+- `assets-image-session-admission-first-20261027.log`: PASS12/73.852s:
+  five current image admission cases and all seven unchanged historical Assets
+  session ownership cases. Orphan image raw files now refuse default admission;
+  the old empty/read-only/picker/upload/server responsibilities stay literal.
+
+- `assets-image-session-context-first-20261027.log`: PASS1/38.604s. A new
+  fresh actual Model/Marker/image sample composes with the existing complete
+  Assets inventory after normal Marker cleanup. Active Marker, missing
+  explicit context, foreign roots/tickets/bindings and an orphan Marker
+  recovery original refuse. During pure replay SDK, HTTP and state writes are
+  forbidden; every file byte/inode and native/GPU command list stays identical.
+  Existing `parsed-resource-retirement` plus `marker-originals` and
+  `image-originals` responsibilities remain; no empty/end claim is produced.
+
+The factory/inventory packet aligns seven explicit v1/read1 contracts:
+`ios-assets-image-owner`, the `ios-assets-image-source-{frame,original}` pair,
+the `ios-assets-image-raw-source-{frame,original,record}` trio, and
+`asset-model-image`. No legacy profile/schema was widened. The five approved
+project suites passed in 7.29 seconds in
+`assets-image-inventory-project-five-20261027.log`; contract versions and
+`git diff --check` passed. No own test/process or heavy/source reservation
+remains at this boundary. Index/registry is released after the confined commit;
+the next removal-image work is autonomous continuation, not a user pause.
 
 ## Exact next work
 
-The actual basis2, combined parent, primary sampler, recovery2 and negative2
-selections are complete; do not repeat unchanged whole selections. Continue the
-same Assets integration immediately with the canonical runtime factory, pure
-ownership admission and normal removal comparison. Restrict roots from
+The actual basis2, combined parent, primary sampler, recovery2, negative2,
+canonical factory5 and explicit pure inventory are complete; do not repeat
+unchanged whole selections. Continue immediately with normal removal
+comparison. Restrict roots from
 independently supplied configuration; never follow an artifactRoot or filename
 from an untrusted image/marker envelope. Separate marker/image parent leases
 must remain explicit and preserve cached Model/HFM/texture/renderer/OS owners.
@@ -148,6 +204,14 @@ the host model does not retire real cached Model/renderer resources. Loaded
 mesh bounds/items plus global forward draw count do not alone establish a
 per-Model committed scene draw; retain normal removal/image comparison and
 actor/publication as independent required joins.
+
+The ordinary original Marker child preserves its initial entity tree. Removing
+an already-present Model while that Marker is active therefore needs an
+explicit independently typed removal-authorized transition or successor;
+changing a fixture baseline or silently relaxing the old Create/Scope3
+invariant is not a valid cleanup proof. Keep that dependency and the complete
+Model/cache/resource owners visible while composing comparative post-delete
+images. A primary ParsedInput proof cannot be relabeled as Actor authority.
 
 Review complete source and actual entrypoints before new tests. The canonical
 constructor tests and joined host-model flows have distinct declared boundaries;

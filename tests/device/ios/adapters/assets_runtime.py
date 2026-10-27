@@ -7,9 +7,12 @@ The narrow bundle input/readback owner does not establish oven/model outcomes.
 # SPDX-License-Identifier: Apache-2.0
 import time
 import hashlib
+import re
+from pathlib import Path
 from adapters.asset_backend_client import AssetsBackendClient
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.owned_vulkan_world_frame import VulkanWorldFrameOwner
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.asset_fixture import bundle
 from feature_journeys.contract import identifier
@@ -31,6 +34,7 @@ from ios.adapters.assets_baked_tree import OwnedAssetsBakedTree,fresh_baseline
 from ios.adapters.assets_scene_sources import AssetsSceneSources
 from ios.adapters.assets_peer_owner import OwnedAssetsPeer
 from ios.adapters.assets_marker_owner import OwnedAssetsMarker
+from ios.adapters.assets_image_sample import AssetsImageSample
 from ios.adapters.create_marker_scope import CreateMarkerScope
 from ios.adapters.assets_usage_controls import project as usage_controls
 from ios.adapters.feature_observation import FeatureObservation
@@ -160,6 +164,24 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         need(scope.binding==parts['binding']);marker=OwnedAssetsMarker(scope,
             PrivateFeatureState(self.state_path(selector).with_name('ios-assets-marker-'+run+'-'+role+'.json')))
         parts['check']();return dict(parts,marker_scope=scope,marker=marker)
+
+    @operation
+    def _assets_image_components(self,selector,run,fixture_url,ticket,artifact_root,lock,backend_config,request_id,*,parts=None,marker_parts=None):
+        """Construct one primary image owner; no setup or capture is implicit."""
+        identifier(run);identifier(ticket);need(type(request_id) is str and re.fullmatch('ios-[a-f0-9]{32}',request_id))
+        root=Path(artifact_root);PrivateFeatureState(root/'assets-image-boundary.json')._parent()
+        parts=self._assets_parsed_components(selector,run,'primary',fixture_url,lock,backend_config) if parts is None else parts
+        marker_parts=self._assets_marker_components(selector,run,'primary',fixture_url,ticket,root,lock) if marker_parts is None else marker_parts
+        need(parts['binding']==marker_parts['binding'] and marker_parts['marker'].scope.root==root)
+        observer,clock=parts['observer'],parts['clock_source'];parts['check']();marker_parts['check']()
+        frame=VulkanWorldFrameOwner(PrivateFeatureState(self.state_path(selector).with_name('graphics-world-frame-primary-0-'+request_id[4:]+'.json')),
+            root,parts['binding'],run,'primary',0,request_id,observer.vulkan_world_frame,parts['check'],source_lock=lock,
+            monotonic=self.monotonic,sleep=observer.sleep)
+        sample=AssetsImageSample(PrivateFeatureState(self.state_path(selector).with_name('ios-assets-image-'+run+'-primary-'+request_id[4:]+'.json')),
+            lock,parts['binding'],run,request_id,parts['check'],parsed=parts['parsed'],marker=marker_parts['marker'],native=observer.bound_native_observer(clock),
+            state=observer.create_state(clock),models=observer.assets_model_renderers(clock),avatars=observer.avatar_renderers(clock),frame_owner=frame,
+            epoch_ms=self.epoch_ms,monotonic=self.monotonic)
+        parts['check']();marker_parts['check']();return dict(parts,image=sample,image_marker=marker_parts['marker'],image_frame=frame)
 
     @operation
     def _assets_upload_model_bytes(self,selector,run,role,fixture_url,ticket,lock,backend_config,*,parts=None):

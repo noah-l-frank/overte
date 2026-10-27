@@ -52,3 +52,22 @@ class AssetsImageSampleFactoryTests(unittest.TestCase):
         count=len(self.b.f.clock.commands)
         with self.assertRaises(NativeUIError):self.owner(pid=43)
         self.assertEqual(count,len(self.b.f.clock.commands));self.assertEqual([],self.b.asset_requests)
+    def canonical(self,request=REQUEST):
+        return self.b.runtime._assets_image_components('test-only',RUN,URL,TICKET,self.b.root,self.b.lock,self.backend.backend.config,request)
+    def test_canonical_image_factory_uses_owned_parents_independent_host_epoch_and_current_guard(self):
+        count=len(self.b.f.clock.commands);parts=self.canonical();owner=parts['image']
+        self.assertIs(parts['parsed'],owner.parsed);self.assertIs(parts['image_marker'],owner.marker);self.assertIs(parts['image_frame'],owner.frame_owner)
+        self.assertIs(self.b.runtime.epoch_ms,owner.epoch_ms);self.assertEqual(self.b.root,owner.frame_owner.root)
+        self.assertIsNone(owner.store.read());self.assertIsNone(owner.marker.store.read());self.assertIsNone(owner.frame_owner.store.read())
+        # Existing installed-code verification acquires its original native
+        # guard clock. No image/Model/Avatar/native input command is sent.
+        self.assertTrue(all(row['action']=='feature-native-observe' for row in self.b.f.clock.commands[count:]))
+        self.assertEqual([],self.b.asset_requests);after=len(self.b.f.clock.commands)
+        self.b.f.process['foreground']=False
+        with self.assertRaisesRegex(ValueError,'OVT_IOS_INSTALLED_CODE_BINDING_REJECTED'):owner.capture(TICKET,1900000000000)
+        self.assertIsNone(owner.store.read());self.assertEqual(after,len(self.b.f.clock.commands))
+    def test_canonical_factory_rejects_unbounded_request_before_any_source_or_wal(self):
+        count=len(self.b.f.clock.commands)
+        for request in ('ios-readable','../image','ios-'+'a'*33,True,None):
+            with self.subTest(request=request),self.assertRaises(NativeUIError):self.canonical(request)
+        self.assertEqual(count,len(self.b.f.clock.commands));self.assertEqual([],self.b.asset_requests)

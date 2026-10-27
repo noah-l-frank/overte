@@ -57,11 +57,15 @@ def directory_entries(directory):
     result=list(directory.iterdir());need(len(result)<=4096);return sorted(result,key=lambda path:path.name)
 
 
-def inspect_directory(directory,*,primary_directory=None,_contexts=None):
+def inspect_directory(directory,*,primary_directory=None,_contexts=None,image_context=None):
     """Return private responsibilities, not fresh product-state observations."""
     from ios.adapters.assets_scene_ownership import scene_path,inspect_scenes
+    from ios.adapters.assets_image_ownership import ImageInventoryContext,inventory_path,inspect_session
+    need(image_context is None or isinstance(image_context,ImageInventoryContext))
     directory=Path(directory);entries=directory_entries(directory);groups={};frame_paths={};backend_paths={};file_paths={};reply_paths={};model_paths={};parsed_paths={}
     for path in entries:
+        if inventory_path(path.name):
+            need(image_context is not None);continue
         if scene_path(path.name):continue
         match=OWNER.fullmatch(path.name)
         if match:
@@ -81,6 +85,7 @@ def inspect_directory(directory,*,primary_directory=None,_contexts=None):
         if match:parsed_paths.setdefault(match.groups(),set()).add(path);continue
         need(not path.name.startswith(('ios-assets-','assets-upload-','assets-backend-','assets-files-','assets-replies-','assets-model-','assets-parsed-','assets-scene-')))
     need(len(groups)<=64 and all(set(paths)<=set(groups) for paths in (frame_paths,backend_paths,file_paths,reply_paths,model_paths,parsed_paths)));result=[]
+    image_parsed=None;image_url=None
     for (run,role),records in sorted(groups.items()):
         need(all(type(value) is dict for _path,value in records.values()))
         values={kind:value for kind,(_path,value) in records.items()};bindings=[context(value.get('binding')) for value in values.values()]
@@ -165,6 +170,9 @@ def inspect_directory(directory,*,primary_directory=None,_contexts=None):
         if 'parsed' in values:
             need(parsed_source is not None and baking is not None);parsed=object.__new__(OwnedAssetsParsedInput);parsed.sources,parsed.model,parsed.baking=parsed_source,model,baking
             parsed.store=PrivateFeatureState(records['parsed'][0]);parsed.previous=deepcopy(values['parsed']);parsed.state=None;parsed.state=parsed.decode(values['parsed'])
+        if image_context is not None and (run,role)==(image_context.run,'primary'):
+            need(parsed is not None and same(binding,image_context.binding));parsed.lock=image_context.lock
+            image_parsed,image_url=parsed,url
         if 'model-removal' in values:
             need(parsed is not None and parsed.state['phase']=='observed');removal=object.__new__(OwnedAssetsModelRemoval)
             removal.parsed,removal.model,removal.sources,removal.usage,removal.pid=parsed,model,parsed_source,usage,pid
@@ -209,6 +217,9 @@ def inspect_directory(directory,*,primary_directory=None,_contexts=None):
         if _contexts is not None:_contexts[(run,role)]=dict(parsed=parsed)
         for kind,(path,value) in records.items():need(same(PrivateFeatureState(path).read(),value))
     result+=inspect_scenes(directory,entries,primary_directory=primary_directory)
+    if image_context is not None:
+        need(image_parsed is not None);report=inspect_session(directory,image_context,image_parsed,image_url)
+        result.append({key:value for key,value in report.items() if key!='paths'})
     need([path.name for path in directory_entries(directory)]==[path.name for path in entries]);return result
 
 
