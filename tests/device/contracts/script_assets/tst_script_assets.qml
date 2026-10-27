@@ -24,6 +24,21 @@ TestCase {
     function initTestCase() {TestServices.bindSurface(testCase);}
     function init() {TestServices.reset(); selectedUrls = [];}
     function cleanup() {TestServices.removePicker();}
+    function test_normalTouchAppEntriesLoadActualScriptsAndReadOnlyAssets() {
+        var scriptsSource = TestServices.firstPartyAppSource("SCRIPTS");
+        compare(scriptsSource, "hifi/dialogs/TabletRunningScripts.qml");
+        var scripts = production(scriptsSource);
+        compare(scripts.objectName, "RunningScripts");
+        verify(control(scripts, "scriptFromUrl").visible);
+        scripts.visible = false;
+        var assetSource = TestServices.firstPartyAppSource("ASSETS");
+        compare(assetSource, "hifi/dialogs/TabletAssetServer.qml");
+        var assets = production(assetSource);
+        compare(assets.objectName, "AssetServer");
+        verify(!assets.assetWriteAllowed);
+        verify(!control(assets, "assetUpload").enabled);
+        compare(TestServices.assetCalls.length, 0);
+    }
     function test_actualAssetMenuAndDesktopTabletRoutes() {
         var routes = TestServices.exerciseAssetMenuRoutes();
         verify(routes.readable); verify(routes.desktop); verify(routes.tabletOnce);

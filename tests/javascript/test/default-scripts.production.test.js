@@ -5,6 +5,12 @@ const path = require("node:path");
 const test = require("node:test");
 const { runProductionScript } = require("../support");
 
+// Keep these complete shipped-script contracts in the selected product owner.
+// Non-discovery filenames avoid duplicate execution in a full Node test scan.
+require("../production/avatar-app.cases.js");
+require("../production/people-connection.cases.js");
+require("../production/request.cases.js");
+
 const source = path.resolve(__dirname, "../../../scripts/+android_phoneInterface/defaultScripts.js");
 const expected = [
     "system/request-service.js",

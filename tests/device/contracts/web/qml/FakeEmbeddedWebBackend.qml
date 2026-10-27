@@ -9,6 +9,7 @@ Item {
     property bool useBackground: true
     property string eventBridgeJavaScript: ""
     property string sourceIdentity: ""
+    property var inlineDocument: null
     property string surface: "world-entity"
     property string currentUrl: url
     property bool loading: false
@@ -35,7 +36,7 @@ Item {
     function stop() { operations.push("stop"); }
     function unfocus() { operations.push("unfocus"); }
     Component.onCompleted: {
-        initial = { url: url, scriptUrl: scriptUrl, userAgent: userAgent,
+        initial = { inlineDocument: inlineDocument, url: url, scriptUrl: scriptUrl, userAgent: userAgent,
                     sourceIdentity: sourceIdentity, surface: surface,
                     eventBridgeJavaScript: eventBridgeJavaScript };
     }
