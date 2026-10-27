@@ -78,10 +78,11 @@ class SendReceiveFixture:
             self.peer_clock.sample.pop('animationFence',None)
         self.parts['peer']['clock_source']=NativeFeatureObservation(send,self.peer_clock.original,
             self.epoch['peer'],model.guard,42,ios=True,monotonic=lambda:model.widgets.clock,sleep=model.sleep)
-    def deliver(self,wire):
+    def deliver(self,wire,*,roles=('primary','peer')):
         assert wire['channel']=='chat' and wire['localOnly'] is False
         body=json.loads(wire['message']);assert body['action']=='send_chat_message'
         for role,native in (('primary',self.pair.primary),('peer',self.pair.peer)):
+            if role not in roles:continue
             if role=='peer' and self.drop_peer:continue
             for _ in range(2 if role=='peer' and self.duplicate_peer else 1):
                 from feature_journeys.fixtures import context

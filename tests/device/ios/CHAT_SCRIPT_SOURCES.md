@@ -305,5 +305,52 @@ Only that negative test's expected boundary was corrected; no production guard
 was relaxed. Its original log remains
 `.ios-host-tmp/chat-send-receive-joined10.log`; the complete final selection is
 `.ios-host-tmp/chat-send-receive-final-and-legacy.log`. The first connected
-positive separately passed in 4.618 seconds. A canonical operation coordinator
-and full resource/process/SDK retirement are still required.
+positive separately passed in 4.618 seconds. Full resource/process/SDK
+retirement remains required.
+
+## Retry-safe composition on the existing journals
+
+The canonical runtime's internal `_chat_send_operation` now constructs
+`IOSChatSendOperation` with the same source-bound draft owner factory and held
+primary lock. It checks the selected run, actual root and canonical selector's
+lock before entering the factory. The operation uses the existing twenty-second
+Chat budget. It opens no SDK session, transport or delivery service, creates no
+additional WAL and changes no existing wire version or query/original limit.
+
+The first call stores an actual receive cut before invoking the normal draft
+Send. The draft's existing durable primitive intent precedes the actual input.
+On reconstruction, the latest actual cut preceding that Send is rederived from
+both host clocks and the same original native source/counter. An unresolved
+draft Send resolves its own existing WAL; a completed Send is not invoked again.
+The operation selects the first stored post-Send peer append and runs the full
+historical join. A later valid-looking event cannot hide an earlier foreign or
+duplicate append. Completed historical results repeat without input, passive
+queries or writes.
+
+Missing delivery keeps the actual empty after-cut and returns failure. A later
+invocation may take a new passive cut under its unchanged budget while retaining
+every earlier original; it does not deliver Send again. Lost saved-original
+returns first recover the existing exact file through the original source WAL,
+then derive the result without requerying or replacing that file. Unknown normal
+delivery responsibility remains in the draft WAL, while passive query/storage
+responsibility remains in the receive-source WAL.
+
+Five new operation cases pass in **14.325 seconds**: canonical factory normal
+Send/pure repeat, lost normal return, delayed original peer callback retaining
+the empty cut, lost saved after-original return, and foreign runtime context
+before factory/query/input. A further first-foreign-append counterexample plus
+four existing runtime/held-lock regressions pass in **7.320 seconds**. Logs are
+`.ios-host-tmp/chat-send-operation-first5.log` and
+`.ios-host-tmp/chat-send-operation-foreign-and-runtime.log`. These cases use the
+same actual production Script output and declared native/SDK/mixer/QML/clock
+boundaries as the join selection above. They establish operation and recovery
+logic, not physical remote delivery, rendering or device timing.
+
+The shared approved five project suites passed in 9.27 seconds with contract
+versions, 856 Markdown files and whitespace checks on the stable packet sources.
+That common check included other agents' incomplete packets and does not qualify
+their scenario behavior. The final first-foreign-append case was added and run
+separately afterwards; documentation-only verification records this final text.
+Whole Chat still requires loaded QML/callback identity, peer normal sending and
+movement/rendering, mixer outage/recovery without replay, original-setting
+restoration for every admitted whole profile and complete native/process/SDK end.

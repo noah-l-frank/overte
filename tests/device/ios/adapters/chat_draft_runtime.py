@@ -19,6 +19,16 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSChatDraftRuntime(IOSScriptRuntime):
+    def _chat_send_operation(self,selector,run,root,client,receive):
+        from pathlib import Path
+        from ios.adapters.chat_receive_sources import IOSChatReceiveSources
+        from ios.adapters.chat_send_operation import IOSChatSendOperation
+        need(isinstance(receive,IOSChatReceiveSources) and run==receive.run
+            and str(Path(root))==receive.bound_record['primaryArtifactRoot']['path']
+            and receive.primary_lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
+        return IOSChatSendOperation(receive,lambda:self.draft_owner(selector,run,root,client,
+            source_bound=True,lock=receive.primary_lock))
+
     def _chat_receive_components(self,primary_selector,peer_selector,run,primary_root,peer_root,primary_lock,peer_lock):
         from ios.adapters.chat_receive_runtime import receive_components
         return receive_components(self,primary_selector,peer_selector,run,primary_root,peer_root,primary_lock,peer_lock)
