@@ -1,8 +1,8 @@
 # Independent ImageReader queue source
 
 This separate source protocol reads the optional ImageReader Qt-event bridge.
-It does not migrate ImageReader Source1 or ModelOrigin History5, add a retirement
-join, or establish native/device execution. All physical storage, arbitrary
+It does not migrate ImageReader Source1 or ModelOrigin History5, establish native/device execution, or close whole Resource retirement. The separate
+observed-edge lifecycle join is described in [its source boundary](ASSETS_IMAGE_READER_LIFECYCLE_SOURCE.md). All physical storage, arbitrary
 byte-copy, base/pool, decoder, GPU and Resource completion flags remain false.
 Actor/backend/source/process/SDK end responsibilities and overall5/14 source
 completion remain open. The native bridge and optional QtCore patch are still
@@ -23,8 +23,10 @@ The canonical host factory preserves the current session, exact candidate,
 current PID and foreground guards and original AFC file. No ScriptManager
 product NativeCall-whitelist entry is added for this passive getter.
 
-History1, outer read1 and acquisition1 are independent contracts, current/read1
-only. The strict codec rejects unknown fields/versions, bool-as-integer values,
+Queue History2 is current and reads literal History1/2. Outer read1 and acquisition1
+remain current/read1. History1 cannot grant native sharing-owner identity authority
+or be upgraded within its existing observer instance. History2 additionally records
+the full Source1 task and receiver prefixes and native H5 weak-owner lookup cuts. The strict codec rejects unknown fields/versions, bool-as-integer values,
 malformed/foreign identities, oversized/empty histories, duplicate event or
 receiver identities, phase loss/rebinding, clock rewrite/regression, weak
 resurrection, failure healing and invented completion. Actual event identity
@@ -56,7 +58,8 @@ exposed only after actual-parent verification; callers composing durable proof
 must retain both original packets and acquisitions. Failed binding clears
 current bound facts. No source row is a cleanup or physical-end receipt.
 
-The exact fifteen focused cases passed. They cover actual two-source model originals, reversed
+The prior History1 revision passed exactly fifteen focused cases. This evidence
+does not qualify the later History2 or lifecycle revision. Those cases cover actual two-source model originals, reversed
 equal-payload events, direct/cancel/early-delivery paths, buffered original
 clocks, foreign/forged parents, schema/type/capacity/history/failure negatives,
 full Probe nonce/missing-getter behavior, and actual canonical host/AFC methods
@@ -64,3 +67,13 @@ with an explicit SDK fixture. All5124 source/launcher paths retained identical
 bytes, metadata and SHA-256 before and after that selection. These cases execute
 the actual host/Probe/AFC methods with declared native producers; they execute
 no Qt/C++ or device and establish no native, performance or end qualification.
+
+The current History2 packet additionally passed the 43-case host selection in
+1.973 seconds and the fresh normal-Delete/Home lifecycle composition in
+190.753 seconds. The latter retains 300 original files and verifies complete
+global ownership routing. A prior 191.910-second run stopped at that final
+routing boundary; its error and originals remain retained. Only exact namespace
+routing changed, with the connected test byte-identical and all original
+operation/acquisition/quiet limits preserved. See the
+[lifecycle source boundary](ASSETS_IMAGE_READER_LIFECYCLE_SOURCE.md) for the
+independent-holder negative and the remaining Resource/GPU/native limits.

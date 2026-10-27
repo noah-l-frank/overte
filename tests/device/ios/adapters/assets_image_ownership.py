@@ -37,6 +37,11 @@ class ImageInventoryContext:
 
 
 def inventory_path(name):
+    # Lifecycle originals are a separate closed namespace. This component
+    # does not validate/retire them; the full Session reader must run their
+    # independent ownership validator. Unknown lookalike names stay blocking.
+    from ios.adapters.assets_image_reader_lifecycle_ownership import lifecycle_path
+    if lifecycle_path(name):return False
     return name.startswith(('ios-assets-image-','assets-image-','ios-assets-marker-','assets-marker-'))
 
 

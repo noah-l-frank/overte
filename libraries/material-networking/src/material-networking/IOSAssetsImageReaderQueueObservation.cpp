@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "IOSAssetsImageReaderQueueObservation.h"
 #if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include "../../../../tests/device/native/IOSAssetsModelOrigin.h"
+#include "../../../../tests/device/native/IOSAssetsImageReaderObservation.h"
+#endif
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
 #if defined(OVERTE_E2E_METACALL_PRIVATE_API)
 #include <QtCore/private/qobject_p.h>
 #endif
@@ -52,6 +56,7 @@ bool words(const QString &value, quint64 &high, quint64 &low) {
 }
 struct Entry {
     Observation::Context context;
+    std::weak_ptr<const void> receiverSource;
     quint64 high { 0 }, low { 0 }, eventId { 0 };
     int methodIndex { -1 };
     QVariantMap value;
@@ -283,6 +288,7 @@ void Observation::Receiver::begin(const Context &context) noexcept {
                     || entry.context.resourceId != context.resourceId
                     || entry.value.value("deliveryEntered").isNull()
                     || !entry.value.value("receiverId").isNull()) { fail(); return; }
+            entry.receiverSource = context.source;
             entry.value["receiverId"] = context.receiverId;
             entry.value["receiverEntered"] = owner->clock();
             _row = quint64(index + 1); _exceptions = std::uncaught_exceptions(); return;
@@ -313,6 +319,7 @@ QVariantMap Observation::snapshot() noexcept {
         auto owner = acquire();
         if (!owner) { return {}; }
         QVariantMap result;
+        QVector<std::weak_ptr<const void>> receiverSources;
         {
             // Admission alone is not an actual observed Source1 parent.
             // Before the first native Dispatch context, this source is unavailable.
@@ -322,8 +329,9 @@ QVariantMap Observation::snapshot() noexcept {
             for (const auto &entry : owner->entries) {
                 auto value = entry.value; value["receiverObjectAlive"] = !entry.context.receiver.isNull();
                 entries.append(value);
+                receiverSources.append(entry.receiverSource);
             }
-            result = {{"assetImageReaderQueueHistoryVersion", 1}, {"instance", owner->instance},
+            result = {{"assetImageReaderQueueHistoryVersion", 2}, {"instance", owner->instance},
                 {"source1Instance", owner->source1Instance}, {"complete", admitted()},
                 {"clockDomain", "native-assets-image-reader-queue-observer"}, {"clock", owner->clock()},
                 {"qtClockDomain", "qtcore-metacall-steady-nanoseconds"}, {"entries", entries},
@@ -331,6 +339,63 @@ QVariantMap Observation::snapshot() noexcept {
                 {"basePoolCompletionAvailable", false}, {"decoderCompletionAvailable", false},
                 {"gpuCompletionAvailable", false}, {"resourceRetirementAvailable", false}};
         }
+        // Release Bridge BEFORE Source1, then release Source1 BEFORE H5.
+        // The full Source1 task prefix includes tasks with no dispatch yet; a
+        // dispatched-only table could hide a selected pending reader.
+        const auto taskContexts=IOSAssetsImageReaderObservation::textureSourceContexts();
+        if (!taskContexts.complete || taskContexts.instance!=result.value("source1Instance")
+                || taskContexts.tasks.size()>64 || taskContexts.receivers.size()>256) {fail();return {};}
+        QVector<std::weak_ptr<const void>> sources;
+        for (const auto& task:taskContexts.tasks) {sources.append(task.source);}
+        for (const auto& receiver:taskContexts.receivers) {sources.append(receiver.source);}
+        // H5 compares weak owners only, including expired control blocks. No
+        // lookup creates a group or enters Source1/Bridge/Material object locks/GPU;
+        // H5 health uses only the existing static lock-free Material atomic.
+        const auto linked=IOSAssetsModelOrigin::shared().textureSources(sources);
+        const auto ids=linked.value("sourceIds").toList();
+        const auto states=linked.value("sourceStates").toList();
+        auto entries=result.value("entries").toList();
+        if (linked.isEmpty() || !linked.value("complete").toBool()
+                || ids.size()!=taskContexts.tasks.size()+taskContexts.receivers.size() || states.size()!=ids.size()) {fail();return {};}
+        QVariantList taskSources;
+        for (int index=0;index<taskContexts.tasks.size();++index) {
+            const auto& task=taskContexts.tasks[index];
+            taskSources.append(QVariantMap{{"taskId",task.taskId},{"resourceId",task.resourceId},
+                {"textureSourceId",ids[index]},{"textureSourceState",states[index]}});
+        }
+        QVariantList receiverTable;
+        for (int index=0;index<taskContexts.receivers.size();++index) {
+            const auto& receiver=taskContexts.receivers[index];const int offset=taskContexts.tasks.size()+index;
+            receiverTable.append(QVariantMap{{"receiverId",receiver.receiverId},{"resourceId",receiver.resourceId},
+                {"textureSourceId",ids[offset]},{"textureSourceState",states[offset]}});
+        }
+        for (int index=0;index<entries.size();++index) {
+            auto row=entries[index].toMap();const auto receiverId=row.value("receiverId").toString();
+            QString selected=QStringLiteral(""),state=QStringLiteral("not-observed");
+            if (!receiverId.isEmpty()) {
+                int found=-1;
+                for (int candidate=0;candidate<taskContexts.receivers.size();++candidate) {
+                    if (taskContexts.receivers[candidate].receiverId==receiverId) {
+                        if (found>=0) {fail();return {};}found=candidate;
+                    }
+                }
+                if (found<0) {fail();return {};}
+                const auto& actual=taskContexts.receivers[found];
+                if (actual.resourceId!=row.value("resourceId").toString()
+                        || actual.source.owner_before(receiverSources[index])
+                        || receiverSources[index].owner_before(actual.source)) {fail();return {};}
+                selected=ids[taskContexts.tasks.size()+found].toString();state=states[taskContexts.tasks.size()+found].toString();
+            }
+            row["receiverTextureSourceId"]=selected;row["receiverTextureSourceState"]=state;entries[index]=row;
+        }
+        result["entries"]=entries;
+        result["taskTextureSources"]=taskSources;
+        result["receiverTextureSources"]=receiverTable;
+        result["source1TextureReference"]=QVariantMap{{"instance",taskContexts.instance},
+            {"clockDomain","native-assets-image-reader-observer"},{"clock",taskContexts.clock}};
+        result["originTextureReference"]=QVariantMap{{"instance",linked.value("instance")},
+            {"revision",linked.value("revision")},{"clockDomain","native-assets-model-origin"},
+            {"clock",linked.value("clock")}};
         // Disarm/failure racing a snapshot cannot return a former complete result.
         if (!admitted() || !qtHealthy()) { return {}; }
         return result;

@@ -7,6 +7,7 @@
 #include <QPointer>
 #include <QString>
 #include <QVariantMap>
+#include <memory>
 
 namespace overte::e2e {
 // Separate optional source. Existing ImageReader Source1/History5 wires do not change.
@@ -15,6 +16,7 @@ public:
     struct Context {
         QString ownerInstance, taskId, dispatchId, receiverId, resourceId;
         QPointer<QObject> receiver;
+        std::weak_ptr<const void> source;
     };
     // Prepare on the original main-thread ImageReader construction path, after
     // Source1's mutex has been released. No existing SDK is modified here.

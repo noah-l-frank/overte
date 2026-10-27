@@ -103,6 +103,30 @@ public:
         IOSAssetsImageReaderQueueObservation::Receiver _queue;
 #endif
     };
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    struct TextureContexts {
+        QString instance;QVariantMap clock;bool complete{false};
+        QVector<IOSAssetsImageReaderQueueObservation::Context> tasks,receivers;
+    };
+    static TextureContexts textureSourceContexts() noexcept {
+        if (!enabled() || !main()) {return {};}
+        QT_TRY {
+            auto& owner=state();QMutexLocker lock(&owner.mutex);TextureContexts result;
+            result.instance=owner.instance;result.complete=!failed().load();
+            for (const auto& task:owner.tasks) {
+                IOSAssetsImageReaderQueueObservation::Context row;row.ownerInstance=owner.instance;
+                row.taskId=task.value.value("id").toString();row.resourceId=task.value.value("resourceId").toString();
+                row.source=task.source;result.tasks.append(row);
+            }
+            for (const auto& receiver:owner.receivers) {
+                IOSAssetsImageReaderQueueObservation::Context row;row.ownerInstance=owner.instance;
+                row.receiverId=receiver.value.value("id").toString();row.resourceId=receiver.value.value("resourceId").toString();
+                row.source=receiver.source;result.receivers.append(row);
+            }
+            result.clock=owner.clock();return result;
+        } QT_CATCH (...) {return {};}
+    }
+#endif
     static QVariantMap snapshot() noexcept {
         if (!enabled() || !main()) {return {};}
         QT_TRY {
@@ -143,11 +167,13 @@ private:
             const auto& row=rows[int(token-1)];IOSAssetsImageReaderQueueObservation::Context result;
             result.ownerInstance=owner.instance;result.receiver=row.object.data();
             if (receiver) {
+                result.source=row.source;
                 result.receiverId=row.value.value("id").toString();
                 result.resourceId=row.value.value("resourceId").toString();
             } else {
                 if (!row.task || row.task>quint64(owner.tasks.size())) {return {};}
                 const auto& task=owner.tasks[int(row.task-1)];
+                result.source=task.source;
                 result.taskId=task.value.value("id").toString();result.dispatchId=row.value.value("id").toString();
                 result.resourceId=task.value.value("resourceId").toString();
             }

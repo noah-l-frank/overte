@@ -152,6 +152,32 @@ public:
             {"mapId",mapId},{"sourceId",sourceId},{"born",observed},{"lastObserved",observed},{"revision",_textureRevision}};
         _textureLinks.append(row);
     }
+    // Pure weak-control-block identity lookup. Never create a group, dereference
+    // a Source, inspect URLs/payloads, or enter a Material object/mutex or GPU.
+    // Health below is the existing static lock-free Material atomic only.
+    QVariantMap textureSources(const QVector<std::weak_ptr<const void>>& sources) {
+        if (!enabled() || !main() || sources.size()>512) {return {};}
+        QMutexLocker lock(&_mutex);QVariantList ids,states;
+        const std::weak_ptr<const void> empty;
+        for (const auto& source:sources) {
+            QString selected=QStringLiteral("");
+            // An expired nonempty weak owner still has its original control-block
+            // identity. It must not be confused with an empty unknown weak value.
+            const bool known=source.owner_before(empty) || empty.owner_before(source);
+            if (known) {
+                for (const auto& row:_textures) {
+                    if (row.kind=="source" && !row.holder.owner_before(source) && !source.owner_before(row.holder)) {
+                        if (!selected.isEmpty()) {return {};}
+                        selected=row.id;
+                    }
+                }
+            }
+            ids.append(selected);states.append(!known ? QStringLiteral("empty") : selected.isEmpty() ? QStringLiteral("unmatched") : QStringLiteral("matched"));
+        }
+        return {{"instance",_instance},{"revision",_textureRevision},{"clock",stamp()},
+            {"complete",_complete && graphics::Material::featureAssetsTextureObservationComplete()},
+            {"sourceIds",ids},{"sourceStates",states}};
+    }
     void textureIncomplete() noexcept {
         QMutexLocker lock(&_mutex);_complete=false;
     }

@@ -12,8 +12,8 @@ from ios.adapters import assets_image_reader as parent_source
 from ios.adapters.places_model import IOSPlacesModel
 
 VERSION=1
-HISTORY_VERSION=1
-HISTORY_READS=(1,)
+HISTORY_VERSION=2
+HISTORY_READS=(1,2)
 ACTION='feature-ios-assets-image-reader-queue'
 FILE=ACTION+'.json'
 LIMIT=262144
@@ -45,20 +45,64 @@ def qt_ordered(before,after):
             and int(before['steadyNs'])<=int(after['steadyNs']))
 
 
+def lookup(state,id_,*,unobserved=False):
+    need(type(state) is str and type(id_) is str)
+    if unobserved:need(state=='not-observed' and id_=='')
+    else:
+        need(state in ('empty','unmatched','matched') and (bool(id_)==(state=='matched')))
+        if id_:identity(id_)
+
+
+def lookup_successor(old,old_id,new,new_id,old_revision,new_revision,*,can_observe=False):
+    if can_observe and old=='not-observed':return
+    if old=='unmatched' and new=='matched':need(new_revision>old_revision)
+    else:need(old==new and old_id==new_id)
+
+
 def history(value,before,after):
+    need(type(value) is dict and type(value.get('assetImageReaderQueueHistoryVersion')) is int
+        and value['assetImageReaderQueueHistoryVersion'] in HISTORY_READS)
+    version=value['assetImageReaderQueueHistoryVersion']
     exact(value,{'assetImageReaderQueueHistoryVersion','instance','source1Instance','complete',
-        'clockDomain','clock','qtClockDomain','entries'}|set(UNAVAILABLE))
-    need(type(value['assetImageReaderQueueHistoryVersion']) is int and value['assetImageReaderQueueHistoryVersion']==1
-        and type(value['complete']) is bool and value['clockDomain']=='native-assets-image-reader-queue-observer'
+        'clockDomain','clock','qtClockDomain','entries'}|set(UNAVAILABLE)
+        |({'taskTextureSources','receiverTextureSources','source1TextureReference','originTextureReference'} if version==2 else set()))
+    need(type(value['complete']) is bool and value['clockDomain']=='native-assets-image-reader-queue-observer'
         and value['qtClockDomain']=='qtcore-metacall-steady-nanoseconds'
         and all(value[key] is False for key in UNAVAILABLE))
     identity(value['instance']);identity(value['source1Instance']);stamp(value['clock'])
     need(before['epochMs']<=value['clock']['epochMs']<=after['epochMs']
         and type(value['entries']) is list and 1<=len(value['entries'])<=256)
+    if version==2:
+        a,b=value['source1TextureReference'],value['originTextureReference']
+        exact(a,{'instance','clockDomain','clock'});exact(b,{'instance','clockDomain','clock','revision'})
+        identity(a['instance']);identity(b['instance']);stamp(a['clock']);stamp(b['clock'])
+        need(a['instance']==value['source1Instance'] and a['clockDomain']=='native-assets-image-reader-observer'
+            and b['clockDomain']=='native-assets-model-origin' and integer(b['revision'],0,1048576)
+            and value['clock']['epochMs']<=a['clock']['epochMs']<=b['clock']['epochMs']<=after['epochMs'])
+        need(type(value['taskTextureSources']) is list and 1<=len(value['taskTextureSources'])<=64)
+        tasks=set();observed_receivers={}
+        for name,id_key,cap in (('taskTextureSources','taskId',64),('receiverTextureSources','receiverId',256)):
+            need(type(value[name]) is list and len(value[name])<=cap)
+            seen=set()
+            for row in value[name]:
+                exact(row,{id_key,'resourceId','textureSourceId','textureSourceState'})
+                identity(row[id_key]);identity(row['resourceId']);need(row[id_key] not in seen);seen.add(row[id_key])
+                lookup(row['textureSourceState'],row['textureSourceId'])
+                if id_key=='taskId':tasks.add(row[id_key])
+                else:observed_receivers[row[id_key]]=row
     dispatches=set();events=set();receivers=set();clock=value['clock']
     for row in value['entries']:
         exact(row,{'dispatchId','taskId','resourceId','methodIndex','invokeAccepted','eventId','receiverId',
-            'receiverObjectAlive'}|set(PHASES)|set(QT_PHASES))
+            'receiverObjectAlive'}|set(PHASES)|set(QT_PHASES)
+            |({'receiverTextureSourceId','receiverTextureSourceState'} if version==2 else set()))
+        if version==2:
+            need(type(row['taskId']) is str and row['taskId'] in tasks)
+            lookup(row['receiverTextureSourceState'],row['receiverTextureSourceId'],unobserved=row['receiverId'] is None)
+            if row['receiverId'] is not None:
+                need(type(row['receiverId']) is str and row['receiverId'] in observed_receivers)
+                actual=observed_receivers[row['receiverId']]
+                need(actual['resourceId']==row['resourceId'] and actual['textureSourceId']==row['receiverTextureSourceId']
+                    and actual['textureSourceState']==row['receiverTextureSourceState'])
         for key in ('dispatchId','taskId','resourceId'):identity(row[key])
         need(row['dispatchId'] not in dispatches);dispatches.add(row['dispatchId'])
         need(integer(row['methodIndex'],0,131070) and type(row['receiverObjectAlive']) is bool
@@ -102,13 +146,29 @@ def history(value,before,after):
 
 
 def successor(before,after):
-    need(before['instance']==after['instance'] and before['source1Instance']==after['source1Instance']
+    need(before['assetImageReaderQueueHistoryVersion']==after['assetImageReaderQueueHistoryVersion']
+        and before['instance']==after['instance'] and before['source1Instance']==after['source1Instance']
         and (before['complete'] or not after['complete']) and len(after['entries'])>=len(before['entries']))
     ordered(before['clock'],after['clock'])
+    if before['assetImageReaderQueueHistoryVersion']==2:
+        old,new=before['originTextureReference'],after['originTextureReference']
+        need(old['instance']==new['instance'] and new['revision']>=old['revision']);ordered(old['clock'],new['clock'])
+        ordered(before['source1TextureReference']['clock'],after['source1TextureReference']['clock'])
+        for name,key in (('taskTextureSources','taskId'),('receiverTextureSources','receiverId')):
+            need(len(after[name])>=len(before[name]))
+            for a,b in zip(before[name],after[name]):
+                need(a[key]==b[key] and a['resourceId']==b['resourceId'])
+                lookup_successor(a['textureSourceState'],a['textureSourceId'],b['textureSourceState'],b['textureSourceId'],
+                    old['revision'],new['revision'])
     mutable=set(PHASES[1:])|set(QT_PHASES)|{'eventId','receiverId','invokeAccepted'}
     for first,last in zip(before['entries'],after['entries']):
         for key in first:
-            if key=='receiverObjectAlive':need(first[key] or not last[key])
+            if key in ('receiverTextureSourceId','receiverTextureSourceState'):
+                lookup_successor(first['receiverTextureSourceState'],first['receiverTextureSourceId'],
+                    last['receiverTextureSourceState'],last['receiverTextureSourceId'],
+                    before['originTextureReference']['revision'],after['originTextureReference']['revision'],
+                    can_observe=first['receiverId'] is None)
+            elif key=='receiverObjectAlive':need(first[key] or not last[key])
             elif key in mutable:
                 if first[key] is not None:need(same(first[key],last[key]))
                 elif type(last[key]) is dict and key in PHASES:
@@ -142,6 +202,18 @@ def original(value):
     return validate(value,dict(schemaVersion=1,action=ACTION,commandId=value.get('requestId'),runId=value.get('runId')),value.get('processId'))
 
 
+def acquisition(packet,value,key):
+    exact(value,{'hostBeforeMonotonic','hostAfterMonotonic','nativeRequestedEpochMs',
+        'nativeAfterEpochMs','originalSha256',key})
+    need(type(value[key]) is int and value[key]==1 and value['originalSha256']==digest(packet)
+        and number(value['hostBeforeMonotonic'],0,1e15)
+        and number(value['hostAfterMonotonic'],value['hostBeforeMonotonic'],value['hostBeforeMonotonic']+1.5)
+        and value['hostAfterMonotonic']-value['hostBeforeMonotonic']<1.5
+        and integer(value['nativeRequestedEpochMs'],1,packet['clockBefore']['epochMs'])
+        and integer(value['nativeAfterEpochMs'],value['nativeRequestedEpochMs']))
+    fresh(packet['clockAfter']['epochMs'],value['nativeAfterEpochMs']);return value
+
+
 def parent_links(value,parent):
     """Structural link check only; authoritative reader additionally reads actual parent bytes."""
     original(value);parent_source.original(parent)
@@ -152,6 +224,14 @@ def parent_links(value,parent):
     tasks={row['id']:row for row in parent['source']['tasks']}
     dispatches={row['id']:row for row in parent['source']['dispatches']}
     receivers={row['id']:row for row in parent['source']['receivers']}
+    if value['source']['assetImageReaderQueueHistoryVersion']==2:
+        table=value['source']['taskTextureSources']
+        need([row['taskId'] for row in table]==[row['id'] for row in parent['source']['tasks'][:len(table)]])
+        ordered(value['source']['source1TextureReference']['clock'],parent['source']['clock'])
+        for row in table:need(row['taskId'] in tasks and row['resourceId']==tasks[row['taskId']]['resourceId'])
+        table_=value['source']['receiverTextureSources']
+        need([row['receiverId'] for row in table_]==[row['id'] for row in parent['source']['receivers'][:len(table_)]])
+        for row in table_:need(row['receiverId'] in receivers and row['resourceId']==receivers[row['receiverId']]['resourceId'])
     for row in value['source']['entries']:
         need(row['taskId'] in tasks and row['dispatchId'] in dispatches)
         task,dispatch=tasks[row['taskId']],dispatches[row['dispatchId']]
@@ -175,6 +255,49 @@ def parent_links(value,parent):
                 if row[source_key] is not None:
                     need(receiver[parent_key] is not None and receiver[parent_key]['epochMs']<=row[source_key]['epochMs'])
     return deepcopy(value['source'])
+
+
+def texture_links(value,parent,origin_packet,model_reader):
+    """Actual native sharing-owner IDs only; never URL/hash/payload selection."""
+    from ios.adapters import assets_model_origin as origin,assets_texture_ownership as texture
+    source=parent_links(value,parent);need(source['assetImageReaderQueueHistoryVersion']==2)
+    origin.original(origin_packet);history_=origin_packet['source']['history'];reference=source['originTextureReference']
+    need(history_['assetModelOriginHistoryVersion']==5 and history_['complete']
+        and reference['instance']==history_['instance'] and reference['revision']==history_['textureOwnership']['revision']
+        and origin_packet['processId']==value['processId'] and origin_packet['runId']==value['runId']
+        and value['clockAfter']['epochMs']<=origin_packet['clockBefore']['epochMs'])
+    ordered(reference['clock'],history_['clock'])
+    actual=texture.consumers(origin_packet,model_reader)
+    selected={row['id'] for row in actual['nodes'] if row['kind']=='source'};need(selected)
+    all_sources={row['id'] for row in history_['textureOwnership']['nodes'] if row['kind']=='source'}
+    nodes={row['id']:row for row in history_['textureOwnership']['nodes'] if row['kind']=='source'}
+    parent_tasks={row['id']:row for row in parent['source']['tasks']}
+    parent_receivers={row['id']:row for row in parent['source']['receivers']}
+    table=source['taskTextureSources']
+    for row in table:
+        if row['textureSourceId']:
+            need(row['textureSourceId'] in all_sources)
+            if not parent_tasks[row['taskId']]['sourceOwnersAlive']:need(not nodes[row['textureSourceId']]['strongOwnersAlive'])
+    for row in source['receiverTextureSources']:
+        if row['textureSourceId']:
+            need(row['textureSourceId'] in all_sources)
+            receiver=parent_receivers[row['receiverId']];need(receiver['sourceKnown'])
+            if not receiver['sourceOwnersAlive']:need(not nodes[row['textureSourceId']]['strongOwnersAlive'])
+    # Every task/receiver has positive native owner comparison evidence. An
+    # unmatched NONEMPTY weak owner differs from every H5 group at this EXACT
+    # revision; it is not inferred from expiry, URL, payload or missing bytes.
+    need(all(row['textureSourceState']!='empty' for row in table+source['receiverTextureSources']))
+    tasks={row['taskId'] for row in table if row['textureSourceId'] in selected}
+    tasks|={row['taskId'] for row in source['entries'] if row['receiverTextureSourceId'] in selected}
+    resources={row['resourceId'] for row in table if row['taskId'] in tasks}
+    resources|={row['resourceId'] for row in source['receiverTextureSources'] if row['textureSourceId'] in selected}
+    tasks|={row['taskId'] for row in table if row['resourceId'] in resources}
+    linked={row['textureSourceId'] for row in table if row['taskId'] in tasks and row['textureSourceId']}
+    linked|={row['textureSourceId'] for row in source['receiverTextureSources'] if row['resourceId'] in resources and row['textureSourceId']}
+    need(selected<=linked and tasks)
+    return dict(sourceIds=sorted(selected),taskIds=sorted(tasks),resourceIds=sorted(resources),
+        entries=[deepcopy(row) for row in source['entries'] if row['taskId'] in tasks],
+        modelReaderId=model_reader,historyInstance=history_['instance'],bodySha256=actual['bodySha256'],bodyBytes=actual['bodyBytes'])
 
 
 class IOSAssetsImageReaderQueue(IOSPlacesModel):
