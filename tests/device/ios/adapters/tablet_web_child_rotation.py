@@ -124,20 +124,38 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
     raw=decode(value,expected);reference=value['copyIntent']
     need(reference is not None and reference['phase'] in ('opened','saved'))
     lease=EmoteOriginalLease(root,[])
+    current_children={};dom_prefix=None;dom_state=None
+    for child in value['children']:
+        old,signature=_raw(root/child['headerName']);digest=hashlib.sha256(old).hexdigest()
+        current_children[child['component']]=(signature,digest)
+        if signature==child['signature'] and digest==child['sha256']:continue
+        # Only an explicitly bound DOM successor can replace a literal old
+        # child head during this historical read. No other route or fallback.
+        need(child['component']=='dom')
+        from ios.adapters.tablet_web_dom_continuation import TabletDOMClosedPrefix,decode as dom_decode,VERSION as DOM_VERSION
+        changed=PrivateFeatureState(root/child['headerName']).read()
+        dom_raw,dom_state=dom_decode(changed,expected)
+        need(changed['tabletWebDOMContinuationVersion']==DOM_VERSION and changed['successor'] is not None
+            and changed['previousHeader']['signature']==child['signature']
+            and hashlib.sha256(dom_raw).hexdigest()==child['sha256'])
+        dom_prefix=TabletDOMClosedPrefix(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
     def unchanged():
         lock.assert_held();lease.guard();need(same(head.read(),value))
         for child in value['children']:
             old,signature=_raw(root/child['headerName'])
-            need(signature==child['signature'] and hashlib.sha256(old).hexdigest()==child['sha256'])
+            expected_signature,expected_digest=current_children[child['component']]
+            need(signature==expected_signature and hashlib.sha256(old).hexdigest()==expected_digest)
         return True
     def forbidden(*_args,**_kwargs):need(False)
     copies=OriginalFrameStore(root,binding,run,role,unchanged,forbidden,
         namespace='tabletweb-closed-headers',schema_prefix='tabletWebClosedHeader',monotonic=monotonic)
     need(same(copies.read(reference),copy_body(value,expected)));unchanged()
+    dom_proof=None if dom_prefix is None else dom_prefix.adopted();unchanged()
     # The capsule bytes remain literal. Parsing them is not a newer Source3
     # ready state and never authorizes native/channel capture.
     state=base._legacy(raw,expected)
-    owner=TabletWebSourceOwner._closed_snapshot(root,binding,run,role,fixture_url,pid,lock,state,monotonic=monotonic)
+    owner=TabletWebSourceOwner._closed_snapshot(root,binding,run,role,fixture_url,pid,lock,state,
+        monotonic=monotonic,closed_dom_state=dom_state)
     need(not owner.blocked);frames=owner.history();tails={}
     for child in value['children']:
         component=child['component'];actual=owner.children[component];packets=actual.history()
@@ -145,7 +163,8 @@ def restore(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotoni
             and actual.state['tabletWebPacketsVersion']==child['version'] and len(actual.state['records'])==child['count']
             and actual.state['nextRaw']==child['nextRaw']
             and same(None if not actual.state['records'] else actual.state['records'][-1],child['lastRecord']))
-        tails[component]=None if not packets else deepcopy(packets[-1])
+        tails[component]=(deepcopy(dom_proof['nativeFloor']) if component=='dom' and dom_proof is not None
+            else None if not packets else deepcopy(packets[-1]))
     result=dict(historicalOnly=True,phase='rotating',scope=deepcopy(expected),globalIndex=len(state['records']),
         lastRecord=None if not state['records'] else deepcopy(state['records'][-1]),nativeFloor=deepcopy(owner.native_floor),
         phaseFloor=deepcopy(owner.phase_floor),children=tails,frames=deepcopy(frames))

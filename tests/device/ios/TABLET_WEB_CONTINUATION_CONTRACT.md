@@ -334,3 +334,61 @@ The new metadata registry entries are
 newly used existing primitive's `ios-tablet-web-source-packet-manifest`, each
 writer1/read1. No active Packet/SourceOwner writer or native codec is promoted.
 The version validator and five approved no-build project suites pass (6.86s).
+
+## Bound DOM successor in historical parent replay
+
+The next metadata codec is DOM continuation2/read1,2. It adds exactly one
+`successor` compact original reference, either null or the actually retained
+global row129. Closed body1, Packet writer2, SourceOwner writer2 and all native
+schemas stay literal. Binding this reference first performs the full original
+copy/manifest/128-row replay and actual row129 raw/native continuity checks,
+then uses the existing DOM head's structural CAS. It creates no row or raw
+file, issues no query and does not retry an uncertain binding. After a lost
+successful CAS return, a fresh reader can inspect the exact persisted reference;
+another bind call is refused even when supplied the same reference.
+
+Parent historical replay now recognizes exactly this completed child proof.
+An unchanged literal child still follows its original path. A changed child
+must be DOM with the bound continuation2 profile: its previous literal header
+bytes/signature must match the old parent's exact DOM descriptor, its current
+head stays identical throughout the read, and the actual closed copy, manifest,
+all128 original rows/raws and bound original129 must validate. Changed non-DOM
+heads, literal continuation1, unbound continuation2 or incomplete/lost metadata
+remain blocked. Original129 inode/hash failure cannot fall back to DOM128.
+
+Only the private forced-historical SourceOwner snapshot can receive that exact
+old DOM state. The existing SourceOwner aggregate records are revalidated
+against their actual old child references, including DOM1. Parent native and
+phase floors therefore remain the actual values from the old aggregates. The
+separate returned DOM child tail is the independently validated original129.
+All other eight child histories, app sources, parent rows and cross-record
+continuity still run literally; complete file census and all nine current
+header signatures bracket replay. The public constructors remain fenced and
+the parent stays `rotating`, with no Ready, active segment or acquisition
+admission. This partial DOM bridge does not qualify the whole Tablet journey.
+
+Four new bound-child-reader cases pass in 77.172s: the full historical parent
+path with actual independent DOM129 and unchanged aggregate-native/phase
+floors; unbound continuation2 and literal continuation1 before parent snapshot
+construction; lost successful successor CAS with exact read-only discovery
+and no second bind; and a same-byte replacement of original129's inode which
+cannot fall back to128. Complete private original byte/device/inode/mtime/ctime
+inventories remain identical across successful historical parent replay and
+post-loss inspection. Native/SDK/publication counters do not change during
+these readers. The same modeled producers and explicit bounded fixture are
+used; this is no physical or production-timing evidence.
+
+A further 46 existing Packet14, SourceOwner12, Fence13 and ChildRotation7 cases
+pass in 19.490s. The only registry advancement for this packet is
+`ios-tablet-web-dom-continuation` to writer2/read1,2; its immutable closed body
+and source-packet manifest remain writer1/read1. The active Packet and
+SourceOwner journals remain writer2/read1,2.
+
+An additional explicit full legacy-copy migration case passes in 22.252s. A
+literal continuation1 fence with its complete copy and128-entry manifest is
+read historically while Parent remains blocked. Binding the actual independent
+original129 upgrades only the mutable fence to continuation2. All existing
+raw/frame/copy bytes and device/inodes, the exact old copy reference and closed
+body1 are unchanged. This gives five distinct new reader/migration cases
+across the4-case and1-case selections. Version validation and the five approved
+no-build project suites pass (6.80s).

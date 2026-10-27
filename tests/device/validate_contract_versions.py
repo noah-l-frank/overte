@@ -734,7 +734,7 @@ REQUIRED = {
     "ios-tablet-web-source-owner": 2,
     "ios-tablet-web-child-rotation": 1,
     "ios-tablet-web-child-closed-header-body": 1,
-    "ios-tablet-web-dom-continuation": 1,
+    "ios-tablet-web-dom-continuation": 2,
     "ios-tablet-web-dom-closed-body": 1,
     "ios-tablet-web-acquisition": 2,
     "ios-tablet-web-acquisition-frame": 1,
