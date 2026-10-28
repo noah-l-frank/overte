@@ -42,7 +42,18 @@ class IOSEmoteRootedObserver(IOSEmoteHeldObserver):
                 # Validation, including actual files and full initial motion,
                 # happens in the decoder before the new original is retained.
                 latest=self.state['lastPeer'];need(latest is not None and not same(latest,value['peerAfter']))
+                # A fully returned peer cut can survive a failed passive image
+                # acquisition. Its durable abandonment does not make any public
+                # fact: the unchanged decoder must prove this actual BEFORE
+                # frame, the original v1 episode and fresh strict motion again.
+                for abandoned in self.state['abandoned']:
+                    pending=abandoned['pending'];candidate=pending.get('peer')
+                    if pending.get('ticket')!=value['ticket'] or candidate is None:continue
+                    exact(candidate,{'index','sha256'})
+                    need(type(candidate['index']) is int and 1<=candidate['index']<=512)
+                    if latest['index']<candidate['index']<value['peerAfter']['index']:
+                        latest=candidate
                 return dict(value,iosEmoteObservationOriginalVersion=continuation.VERSION,
-                    peerBefore=latest,peerContinuation=reference.copy())
+                    peerBefore=latest.copy(),peerContinuation=reference.copy())
         # No original anchor exists. Keep the unchanged strict decoder failure.
         return value

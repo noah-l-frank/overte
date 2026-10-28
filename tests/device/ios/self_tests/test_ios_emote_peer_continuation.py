@@ -157,7 +157,7 @@ class PeerContinuationTests(unittest.TestCase):
         owner=object.__new__(IOSEmoteRootedObserver);owner.role='actor'
         owner.decoder=SimpleNamespace(retained=lambda _owner,ref:dict(peer=dict(receive=dict(source=
             dict(receiveSequence=0,droppedRecords=0) if ref['index']==1 else dict(receiveSequence=40,droppedRecords=8)))))
-        owner.peers=object();owner.state=dict(records=[],lastPeer=dict(index=8))
+        owner.peers=object();owner.state=dict(records=[],lastPeer=dict(index=8),abandoned=[])
         self.assertEqual(value,owner.prepare_original(deepcopy(value)))
         reference=dict(index=2,sha256='a'*64);owner.state['records']=[reference]
         owner.original=lambda ref:dict(iosEmoteObservationOriginalVersion=1,proof=proof,peerAfter=dict(index=2))
@@ -268,6 +268,109 @@ class RootedPeerContinuationConnectedTests(unittest.TestCase):
                     else:bad['proof']['played']=bad['source']
                     with self.subTest(fault=fault),self.assertRaises(NativeUIError):decoder.derive(bad)
             self.assertEqual(before,{path:pins(path) for path in paths})
+
+
+class AbandonedPeerSelectionTests(unittest.TestCase):
+    """Declared journal-selection models; no native or public facts."""
+    def setUp(self):
+        self.proof=dict(kind='playback',baseline=dict(index=1),before=dict(index=2),played=dict(index=3),inputBarrier=None)
+        self.value=dict(iosEmoteObservationOriginalVersion=1,ticket='a'*32,proof=self.proof,
+            peerBefore=dict(index=1),peerAfter=dict(index=9))
+        self.owner=object.__new__(IOSEmoteRootedObserver);self.owner.role='actor';self.owner.peers=object()
+        self.owner.decoder=SimpleNamespace(retained=lambda _owner,ref:dict(peer=dict(receive=dict(source=
+            dict(receiveSequence=0,droppedRecords=0) if ref['index']==1 else dict(receiveSequence=40,droppedRecords=8)))))
+        self.anchor=dict(index=2,sha256='a'*64)
+        self.owner.state=dict(records=[self.anchor],lastPeer=dict(index=3,sha256='b'*64),abandoned=[])
+        self.owner.original=lambda ref:dict(iosEmoteObservationOriginalVersion=1,proof=self.proof,peerAfter=dict(index=2))
+
+    def abandoned(self,index,*,ticket=None):
+        return dict(pending=dict(ticket=ticket or self.value['ticket'],peer=dict(index=index,sha256='c'*64)))
+
+    def test_latest_same_ticket_abandoned_peer_is_only_a_copied_before_reference(self):
+        self.owner.state['abandoned']=[self.abandoned(7),self.abandoned(4),self.abandoned(6)]
+        state=deepcopy(self.owner.state);actual=self.owner.prepare_original(deepcopy(self.value))
+        self.assertEqual(7,actual['peerBefore']['index']);self.assertEqual(self.anchor,actual['peerContinuation'])
+        self.assertEqual(2,actual['iosEmoteObservationOriginalVersion']);self.assertEqual(state,self.owner.state)
+        actual['peerBefore']['index']=99;self.assertEqual(state,self.owner.state)
+
+    def test_foreign_ticket_old_current_future_and_missing_peer_never_become_the_cut(self):
+        self.owner.state['abandoned']=[self.abandoned(8,ticket='b'*32),self.abandoned(2),self.abandoned(3),
+            self.abandoned(9),self.abandoned(10),dict(pending=dict(ticket=self.value['ticket'],peer=None))]
+        actual=self.owner.prepare_original(deepcopy(self.value))
+        self.assertEqual(self.owner.state['lastPeer'],actual['peerBefore'])
+        for malformed in (True,0,513):
+            self.owner.state['abandoned']=[self.abandoned(malformed)]
+            with self.subTest(index=malformed),self.assertRaises(NativeUIError):self.owner.prepare_original(deepcopy(self.value))
+
+    def test_no_literal_original_episode_cannot_borrow_an_abandoned_peer(self):
+        self.owner.state['abandoned']=[self.abandoned(7)]
+        for fault in ('missing','continuation','other-episode'):
+            self.owner.state['records']=[] if fault=='missing' else [self.anchor]
+            self.owner.original=lambda ref:dict(iosEmoteObservationOriginalVersion=2 if fault=='continuation' else 1,
+                proof=dict(self.proof,played=dict(index=4)) if fault=='other-episode' else self.proof,peerAfter=dict(index=2))
+            with self.subTest(fault=fault):self.assertEqual(self.value,self.owner.prepare_original(deepcopy(self.value)))
+
+
+class AbandonedPeerContinuationConnectedTests(unittest.TestCase):
+    def test_lost_passive_return_keeps_actual_peer_for_fresh_strict_continuation_without_input_replay(self):
+        from functools import partial
+        from ios.self_tests import emote_active_observer_fixture as primary_observation
+        from ios.self_tests.emote_rooted_whole_fixture import paired
+        from ios.self_tests.emote_vm_rig_fixture import ActualVMRig
+
+        # Declare the modeled producer before the first capture, using the
+        # ordinary JS request's frame range/fps rather than an Emote name.
+        with patch.object(primary_observation,'ActualVMRig',partial(ActualVMRig,pose_profile='requested-clip')):
+            f=paired(self,retain_originals=True)
+        self.assertIs(ActualVMRig,primary_observation.ActualVMRig)
+        self.assertEqual('requested-clip',f.target.rig.pose_profile)
+        primary,actor=f.flow,f.actor.flow;target=f.actor.target
+        call=dict(contractVersion=16,runId=primary.run,afterSequence=0)
+        primary.observe(call);actor.observe(call);actor.sleep=target.domain.sleep
+        primary.act(f.call('play',name='Crying'));f.target.native.sleep(.25);first=actor.observe(call)
+        owner=target.observer;anchor_ref=deepcopy(owner.state['records'][-1]);last_peer=deepcopy(owner.state['lastPeer'])
+        anchor=owner.original(anchor_ref);self.assertEqual(1,anchor['iosEmoteObservationOriginalVersion'])
+        reader=f.target.rig.reader()
+        for _ in range(36):reader.read(reader.sequence)
+        normal=(deepcopy(f.target.vm.state['events']),deepcopy(f.target.native.requests))
+        failure=OSError('Declared lost passive return after real source, peer and PNG acquisition')
+        with patch.object(owner,'prepare_original',side_effect=failure),self.assertRaises(OSError) as raised:
+            actor.observe(dict(call,afterSequence=first['sequence']))
+        self.assertIs(failure,raised.exception);pending=deepcopy(owner.state['pending'])
+        self.assertIsNotNone(pending['peer']);self.assertIsNotNone(pending['sample']);self.assertIsNone(pending['original'])
+        with actor.held(30):
+            self.assertTrue(owner.abandon_read())
+        self.assertEqual(pending,owner.state['abandoned'][-1]['pending']);self.assertEqual(last_peer,owner.state['lastPeer'])
+        self.assertGreater(pending['peer']['index'],last_peer['index'])
+        for _ in range(3):
+            # At 2s/clip, a 5ms evaluation moves only 0.001 (delta squared
+            # equals the strict 1e-6 boundary); let ordinary model time elapse.
+            f.target.domain.sleep(.02);reader.read(reader.sequence)
+        later=actor.observe(dict(call,afterSequence=first['sequence']))
+        original=owner.original(owner.state['records'][-1])
+        self.assertEqual(2,original['iosEmoteObservationOriginalVersion']);self.assertEqual(anchor_ref,original['peerContinuation'])
+        self.assertEqual(pending['peer'],original['peerBefore']);self.assertEqual('Crying',later['state']['animation'])
+        self.assertTrue(later['artifacts']);self.assertTrue(target.packet_bytes)
+        self.assertEqual(normal,(f.target.vm.state['events'],f.target.native.requests))
+        paths=[path for root in (f.target.root,target.root) for path in root.rglob('*') if path.is_file()]
+        def pin(path):
+            info=path.lstat()
+            return tuple(getattr(info,key) for key in ('st_dev','st_ino','st_mode','st_uid','st_gid','st_nlink',
+                'st_size','st_mtime_ns','st_ctime_ns'))+(path.read_bytes(),)
+        before={path:pin(path) for path in paths}
+        def forbidden(*_args,**_kwargs):raise AssertionError('Original continuation replay must not acquire, write or resend')
+        with actor.held(30):
+            with (patch.object(owner.sources,'read',side_effect=forbidden),patch.object(owner.peers,'read',side_effect=forbidden),
+                  patch.object(owner.samples,'capture',side_effect=forbidden),patch.object(PrivateFeatureState,'write',side_effect=forbidden),
+                  patch.object(PrivateFeatureState,'discard',side_effect=forbidden)):
+                self.assertEqual(later,owner.decoder.derive(original)['public'])
+                current=owner.decoder.source(original['source'])
+                old=owner.decoder.retained(owner.peers,last_peer)['peer']
+                after=owner.decoder.retained(owner.peers,original['peerAfter'])['peer']
+                with self.assertRaises(NativeUIError):movement(current['world'],owner.sources.binding,old,after,owner.binding)
+                bad=deepcopy(original);bad['peerBefore']['sha256']='0'*64
+                with self.assertRaises(NativeUIError):owner.decoder.derive(bad)
+        self.assertEqual(before,{path:pin(path) for path in paths})
 
 
 if __name__=='__main__':unittest.main()

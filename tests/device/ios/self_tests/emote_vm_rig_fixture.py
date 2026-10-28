@@ -10,7 +10,10 @@ from self_tests.test_emote_source_profile import actual
 
 
 class ActualVMRig(RigPackets):
-    def __init__(self,vm,clock):
+    def __init__(self,vm,clock,*,pose_profile='legacy-one-second'):
+        if type(pose_profile) is not str or pose_profile not in ('legacy-one-second','requested-clip'):
+            raise ValueError('Unknown declared modeled Rig pose profile')
+        self.pose_profile=pose_profile
         super().__init__(root=vm.root);self.vm,self.clock=vm,clock
         self.root_reader=self.roots.reader(ios=True)
         self.code,self.code_reader=actual(vm.pin,root=vm.root+'/');observed=self.code.mutate
@@ -46,6 +49,12 @@ class ActualVMRig(RigPackets):
         events,override=self.calls();playing=bool(events and events[-1]['kind']=='override')
         current=events[-1] if playing else None
         progress=0. if current is None else min(1.,(self.epoch-current['capturedEpochMs'])/1000.)
+        if current is not None and self.pose_profile=='requested-clip':
+            # This declared host model moves through the actual requested clip;
+            # the ordinary JS VM still owns its unchanged restore timer.
+            request=current['request']
+            duration_ms=1000.*(request['lastFrame']-request['firstFrame'])/request['framesPerSecond']
+            progress=min(1.,(self.epoch-current['capturedEpochMs'])/duration_ms)
         pose=[0.,0.,0.,1.,.1+progress*.4,.2,.3]
         poses=[pose,[0.,0.,0.,1.,0.,0.,0.],[0.,0.,0.,1.,0.,0.,0.]]
         frame=dict(frameSequence=self.frame_sequence,overrideSequence=override,evaluationSequence=100+self.frame_sequence,

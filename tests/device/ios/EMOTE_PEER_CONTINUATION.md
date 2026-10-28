@@ -17,8 +17,8 @@ continuation, self/future reference or missing original cannot supply the anchor
 
 The original baseline/before/played references must still identify the same
 episode. Actual source/peer phase births and activation prefixes must continue,
-as must native/source/receive/renderer identity and clocks. The latest completed
-peer cut supplies the new before reference. The unchanged strict movement
+as must native/source/receive/renderer identity and clocks. The latest eligible
+retained peer cut supplies the new before reference. The unchanged strict movement
 decoder then requires at least two actually new differing joint records and a
 changed evaluated external pose. Dropped intervals themselves prove no motion.
 No absent row is recreated, no old clock is renewed, and no input is repeated.
@@ -100,3 +100,37 @@ New retained roots are `tmp6oqbebmo`/`tmpz6kehmyk` for recovery and
 `tmpg_wmgfro`/`tmpb0bbjle5` for the current normal composition. All are under the
 same private directory. Native/WDA/Rig/renderer and clock boundaries remain
 declared models; device and full-feature qualification remain open.
+
+## Abandoned passive acquisitions
+
+An explicitly abandoned passive acquisition may already have retained a complete
+peer cut. With an existing literal-one anchor, the rooted observer can select
+the latest such cut from the same ticket, strictly after the last completed
+peer and before the current peer. It copies only that before-reference. The
+unchanged decoder reopens the actual files, original episode and identities,
+and still requires new differing received joints and current independent PNGs.
+Abandonment supplies no public outcome or input-delivery acknowledgement.
+Missing initial anchors and unresolved child acquisitions remain blocking.
+
+Fifteen selected host cases pass in 52.540 seconds: three reduced journal
+selection cases, nine existing codec/selector cases, the new connected lost
+passive-return case and both existing default-model connected regressions.
+The new fault occurs after complete source/peer/PNG acquisition and before
+original derivation. Historical replay forbids acquisition and private writes,
+rejects stale peer cuts and altered hashes, and preserves original bytes/inodes.
+This does not newly qualify an interrupted image child or an unanchored ring.
+
+The first selection passed twelve cases but failed its connected motion check.
+Retained originals show the declared Rig model reaching its one-second pose
+limit while the ordinary JavaScript-requested two-second clip was still active.
+The new case now selects a separate request-duration model before its first
+capture and allows ordinary modeled evaluation time between fresh reads.
+The strict motion threshold and default model remain unchanged; both default
+connected cases pass. No retained original or clock was rewritten.
+
+All 424 new original files in 13 actual fixture roots and all 145 prior failed-run
+files remain unchanged through the final censuses. All 5,981 source, launcher
+and reference pins remain unchanged, and owned processes have exited. These
+are host logic results using real JavaScript, loopback HTTP/UDP and files;
+native, SDK, Qt, GPU and clocks remain declared models. Complete feature, physical
+timing and process/SDK-end qualification remain open.
