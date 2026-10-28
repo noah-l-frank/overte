@@ -43,7 +43,8 @@ def inventory_path(name):
     from ios.adapters.assets_image_reader_lifecycle_ownership import lifecycle_path
     from ios.adapters.assets_image_processing_ownership import processing_path
     from ios.adapters.assets_image_storage_ownership import storage_path
-    if lifecycle_path(name) or processing_path(name) or storage_path(name):return False
+    from ios.adapters.assets_image_pool_ownership import pool_path
+    if lifecycle_path(name) or processing_path(name) or storage_path(name) or pool_path(name):return False
     return name.startswith(('ios-assets-image-','assets-image-','ios-assets-marker-','assets-marker-'))
 
 

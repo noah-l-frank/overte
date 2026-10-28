@@ -1,0 +1,641 @@
+--- a/qtbase/src/corelib/thread/qthreadpool_p.h
++++ b/qtbase/src/corelib/thread/qthreadpool_p.h
+@@ -27,6 +27,94 @@
+
+ QT_BEGIN_NAMESPACE
+
++// Optional matching Qt6.11.1 private SDK protocol. Native/runtime UNVERIFIED.
++#define QT_OVERTE_E2E_RUNNABLE_POOL 1
++struct QOverteE2ePoolKey { quint64 high{0},low{0}; };
++enum class QOverteE2ePoolEventKind : quint32 {
++    PoolCreated=1,PoolDestructorBodyTailObserved,
++    Registered,RegistrationRetired,
++    StartEntered,StartReturned,StartUnwound,TryStartEntered,TryStartReturned,TryStartUnwound,
++    ReservedEntered,ReservedReturned,ReservedUnwound,
++    Enqueued,SlotRemoved,WorkerAssigned,
++    RunEntered,RunReturned,RunUnwound,AutoDeleteEntered,AutoDeleteReturned,
++    IterationReturned,IterationUnwound,CancelDeleteEntered,CancelDeleteReturned,CancelScopeReturned,CancelScopeUnwound,
++    TryTakeEntered,TryTakeReturned,TryTakeUnwound,TakeMatched
++};
++struct QOverteE2ePoolEvent {
++    quint64 sequence{0},pool{0},registration{0},admission{0},slot{0},thread{0},operation{0};
++    qint64 epochMs{0};quint64 steadyNs{0};QOverteE2ePoolEventKind kind{};quint32 flags{0};
++};
++struct QOverteE2ePoolRegistration {
++    quint64 id{0};QOverteE2ePoolKey allocation;bool live{false};
++};
++struct QOverteE2ePoolAdmission {
++    quint64 id{0},pool{0},registration{0};QOverteE2ePoolEventKind operation{};
++};
++struct QOverteE2ePoolSnapshot {
++    enum {MaxPools=64,MaxThreads=128,MaxRegistrations=64,MaxAdmissions=128,MaxEvents=2048};
++    quint32 version{1};bool healthy{false},cutComplete{false};QOverteE2ePoolKey instance;
++    qint64 epochMs{0};quint64 steadyNs{0},mutationSerial{0},inFlight{0};
++    quint64 poolCount{0},registrationCount{0},admissionCount{0},eventCount{0};
++    QOverteE2ePoolRegistration registrations[MaxRegistrations];
++    QOverteE2ePoolAdmission admissions[MaxAdmissions];
++    QOverteE2ePoolEvent events[MaxEvents];
++};
++class QRunnable;
++Q_CORE_EXPORT bool qOverteE2ePoolArm(QOverteE2ePoolKey instance) noexcept;
++Q_CORE_EXPORT void qOverteE2ePoolDisarm() noexcept;
++Q_CORE_EXPORT bool qOverteE2ePoolHealthy() noexcept;
++Q_CORE_EXPORT quint64 qOverteE2ePoolRegister(QRunnable* actual,QOverteE2ePoolKey allocation) noexcept;
++Q_CORE_EXPORT bool qOverteE2ePoolRetire(quint64 registration) noexcept;
++Q_CORE_EXPORT bool qOverteE2ePoolCopy(QOverteE2ePoolSnapshot* target) noexcept;
++Q_CORE_EXPORT quint64 qOverteE2ePoolCreated() noexcept;
++Q_CORE_EXPORT void qOverteE2ePoolDestructorBodyTailObserved(quint64 pool) noexcept;
++Q_CORE_EXPORT quint64 qOverteE2ePoolCurrentAdmission() noexcept;
++Q_CORE_EXPORT quint64 qOverteE2ePoolTakeLastAdmission() noexcept;
++Q_CORE_EXPORT quint64 qOverteE2ePoolEnqueued(quint64 admission) noexcept;
++Q_CORE_EXPORT void qOverteE2ePoolSlotRemoved(quint64 admission,quint64 slot,quint32 reason) noexcept;
++Q_CORE_EXPORT void qOverteE2ePoolWorkerAssigned(quint64 pool,quint64 admission,QRunnable* actual) noexcept;
++class Q_CORE_EXPORT QOverteE2ePoolAdmissionScope {
++public:
++    QOverteE2ePoolAdmissionScope(quint64 pool,QRunnable* actual,QOverteE2ePoolEventKind operation) noexcept;
++    ~QOverteE2ePoolAdmissionScope();
++    void returned(bool accepted=true) noexcept {_accepted=accepted;_returned=true;}
++private:
++    quint64 _pool{0},_registration{0},_admission{0},_previous{0};
++    QOverteE2ePoolEventKind _operation;bool _returned{false},_accepted{false};
++};
++class Q_CORE_EXPORT QOverteE2ePoolTransferScope {
++public:
++    explicit QOverteE2ePoolTransferScope(quint64 admission) noexcept;
++    ~QOverteE2ePoolTransferScope();
++private:quint64 _previous{0};
++};
++class Q_CORE_EXPORT QOverteE2ePoolRunScope {
++public:
++    QOverteE2ePoolRunScope(quint64 pool,quint64 admission,QRunnable* actual,bool autoDelete,quint32 path) noexcept;
++    ~QOverteE2ePoolRunScope();
++    void returned() noexcept;
++    void deleting() noexcept;
++    void deleted() noexcept;
++private:quint64 _pool{0},_admission{0};bool _returned{false},_deleteEntered{false},_deleteReturned{false},_autoDelete{false};
++};
++class Q_CORE_EXPORT QOverteE2ePoolTakeScope {
++public:
++    QOverteE2ePoolTakeScope(quint64 pool,QRunnable* actual) noexcept;
++    ~QOverteE2ePoolTakeScope();
++    void removed(quint64 admission,quint64 slot) noexcept;
++    void returned(bool removed) noexcept {_returned=true;_removed=removed;}
++private:quint64 _pool{0},_registration{0},_admission{0},_operation{0};bool _returned{false},_removed{false};
++};
++class Q_CORE_EXPORT QOverteE2ePoolCancelScope {
++public:
++    QOverteE2ePoolCancelScope(quint64 pool,quint64 admission) noexcept;
++    ~QOverteE2ePoolCancelScope();
++    void deleted() noexcept;
++private:quint64 _pool{0},_admission{0};bool _returned{false};
++};
++Q_CORE_EXPORT void qOverteE2ePoolUnsupported() noexcept;
++
++
+ class QDeadlineTimer;
+
+ class QueuePage
+@@ -48,6 +136,8 @@
+         Q_ASSERT(!isFull());
+         m_lastIndex += 1;
+         m_entries[m_lastIndex] = runnable;
++        m_featureAdmission[m_lastIndex]=qOverteE2ePoolCurrentAdmission();
++        m_featureSlot[m_lastIndex]=qOverteE2ePoolEnqueued(m_featureAdmission[m_lastIndex]);
+     }
+
+     void skipToNextOrEnd()
+@@ -65,7 +155,8 @@
+         return runnable;
+     }
+
+-    QRunnable *pop()
++    quint64 featureAdmission() const { return m_featureAdmission[m_firstIndex]; }
++    QRunnable *pop(quint32 featureReason=0)
+     {
+         Q_ASSERT(!isFinished());
+         QRunnable *runnable = first();
+@@ -73,6 +164,8 @@
+
+         // clear the entry although this should not be necessary
+         m_entries[m_firstIndex] = nullptr;
++        qOverteE2ePoolSlotRemoved(m_featureAdmission[m_firstIndex],m_featureSlot[m_firstIndex],featureReason);
++        m_featureAdmission[m_firstIndex]=m_featureSlot[m_firstIndex]=0;
+         m_firstIndex += 1;
+
+         // make sure the next runnable returned by first() is not a nullptr
+@@ -81,12 +174,15 @@
+         return runnable;
+     }
+
+-    bool tryTake(QRunnable *runnable)
++    bool tryTake(QRunnable *runnable,QOverteE2ePoolTakeScope* featureTake=nullptr)
+     {
+         Q_ASSERT(!isFinished());
+         for (int i = m_firstIndex; i <= m_lastIndex; i++) {
+             if (m_entries[i] == runnable) {
+                 m_entries[i] = nullptr;
++                qOverteE2ePoolSlotRemoved(m_featureAdmission[i],m_featureSlot[i],3);
++                if (featureTake) {featureTake->removed(m_featureAdmission[i],m_featureSlot[i]);}
++                m_featureAdmission[i]=m_featureSlot[i]=0;
+                 if (i == m_firstIndex) {
+                     // make sure first() does not return a nullptr
+                     skipToNextOrEnd();
+@@ -104,6 +200,7 @@
+     int m_firstIndex = 0;
+     int m_lastIndex = -1;
+     QRunnable *m_entries[MaxPageSize];
++    quint64 m_featureAdmission[MaxPageSize]{},m_featureSlot[MaxPageSize]{};
+ };
+
+ class QThreadPoolThread;
+@@ -132,6 +229,7 @@
+     void stealAndRunRunnable(QRunnable *runnable);
+     void deletePageIfFinished(QueuePage *page);
+
++    quint64 featurePoolId{0};
+     mutable QMutex mutex;
+     QSet<QThreadPoolThread *> allThreads;
+     QQueue<QThreadPoolThread *> waitingThreads;
+--- a/qtbase/src/corelib/thread/qthreadpool.cpp
++++ b/qtbase/src/corelib/thread/qthreadpool.cpp
+@@ -12,12 +12,273 @@
+ #include <algorithm>
+ #include <climits> // For INT_MAX
+ #include <memory>
++#include <atomic>
++#include <chrono>
+
+ using namespace std::chrono_literals;
+
+ QT_BEGIN_NAMESPACE
+
+ using namespace Qt::StringLiterals;
++
++// Fixed-capacity diagnostic storage; no allocator, app callback, product call
++// or blocking lock is used from a pool-locked observation point.
++namespace {
++using PoolEvent=QOverteE2ePoolEvent;
++using PoolKind=QOverteE2ePoolEventKind;
++using PoolSnapshot=QOverteE2ePoolSnapshot;
++struct PoolRegistrationCell {
++    std::atomic<bool> ready{false},live{false};
++    std::atomic<QRunnable*> pointer{nullptr};
++    QOverteE2ePoolRegistration value;std::atomic<quint64> admission{0};
++};
++struct PoolAdmissionCell {std::atomic<bool> ready{false};QOverteE2ePoolAdmission value;};
++struct PoolEventCell {std::atomic<bool> ready{false};PoolEvent value;};
++struct PoolThreadCell {
++    // Qt::HANDLE never leaves the SDK. It selects a bounded context slot,
++    // not a certified OS-thread lifetime generation. All mutable fields are
++    // atomic so even a reused OS handle cannot race stale non-atomic state.
++    std::atomic<Qt::HANDLE> key{nullptr};
++    std::atomic<quint64> currentAdmission{0},lastTakenAdmission{0};
++};
++struct PoolState {
++    std::atomic<bool> armed{false},failed{false};QOverteE2ePoolKey instance;
++    std::atomic<quint64> pools{0},registrations{0},admissions{0},events{0},slots{0},operations{0},serial{0},writers{0};
++    PoolThreadCell thread[PoolSnapshot::MaxThreads];
++    PoolRegistrationCell registration[PoolSnapshot::MaxRegistrations];
++    PoolAdmissionCell admission[PoolSnapshot::MaxAdmissions];
++    PoolEventCell event[PoolSnapshot::MaxEvents];
++};
++PoolState poolState;
++static_assert(std::atomic<quint64>::is_always_lock_free);
++static_assert(std::atomic<bool>::is_always_lock_free);
++static_assert(std::atomic<QRunnable*>::is_always_lock_free);
++static_assert(std::atomic<Qt::HANDLE>::is_always_lock_free);
++void poolFail() noexcept {poolState.failed.store(true,std::memory_order_release);}
++bool poolArmed() noexcept {return poolState.armed.load(std::memory_order_acquire);}
++bool poolHealthy() noexcept {return poolArmed() && !poolState.failed.load(std::memory_order_acquire);}
++struct PoolMutation {
++    bool active{false};
++    PoolMutation() noexcept {
++        if (poolArmed()) {poolState.writers.fetch_add(1,std::memory_order_acq_rel);poolState.serial.fetch_add(1,std::memory_order_acq_rel);active=true;}
++    }
++    ~PoolMutation() {
++        if (active) {poolState.serial.fetch_add(1,std::memory_order_release);poolState.writers.fetch_sub(1,std::memory_order_release);}
++    }
++};
++qint64 poolEpoch() noexcept {
++    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
++}
++quint64 poolSteady() noexcept {
++    return quint64(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
++}
++PoolThreadCell* poolThreadCell() noexcept {
++    if (!poolArmed()) {return nullptr;}
++    // Exact Qt6.11.1 Darwin ARM64 fallback is currentThreadIdImpl() ->
++    // to_HANDLE(pthread_self()). No QThread/QObject is obtained or read.
++    const auto key=QThread::currentThreadId();if (!key) {poolFail();return nullptr;}
++    for (auto& row:poolState.thread) {
++        auto found=row.key.load(std::memory_order_acquire);
++        if (found==key) {return &row;}
++        if (!found && row.key.compare_exchange_strong(found,key,std::memory_order_acq_rel)) {return &row;}
++    }
++    poolFail();return nullptr;
++}
++quint64 poolThreadId() noexcept {
++    auto* row=poolThreadCell();return row ? quint64(row-poolState.thread)+1 : 0;
++}
++quint64 poolCurrent() noexcept {auto* row=poolThreadCell();return row ? row->currentAdmission.load(std::memory_order_relaxed) : 0;}
++void poolSetCurrent(quint64 id) noexcept {if (auto* row=poolThreadCell()) {row->currentAdmission.store(id,std::memory_order_relaxed);}}
++quint64 poolTakeLast() noexcept {auto* row=poolThreadCell();return row ? row->lastTakenAdmission.exchange(0,std::memory_order_relaxed) : 0;}
++void poolSetLast(quint64 id) noexcept {if (auto* row=poolThreadCell()) {row->lastTakenAdmission.store(id,std::memory_order_relaxed);}}
++PoolRegistrationCell* poolRegistration(quint64 id) noexcept {
++    if (!id || id>PoolSnapshot::MaxRegistrations) {poolFail();return nullptr;}
++    auto& row=poolState.registration[id-1];
++    if (!row.ready.load(std::memory_order_acquire)) {poolFail();return nullptr;}
++    return &row;
++}
++PoolAdmissionCell* poolAdmission(quint64 id) noexcept {
++    if (!id || id>PoolSnapshot::MaxAdmissions) {poolFail();return nullptr;}
++    auto& row=poolState.admission[id-1];
++    if (!row.ready.load(std::memory_order_acquire)) {poolFail();return nullptr;}
++    return &row;
++}
++quint64 poolLookup(QRunnable* actual) noexcept {
++    const auto count=poolState.registrations.load(std::memory_order_acquire);
++    if (count>PoolSnapshot::MaxRegistrations) {poolFail();return 0;}
++    quint64 found=0;
++    for (quint64 i=0;i<count;++i) {
++        auto& row=poolState.registration[i];
++        if (row.ready.load(std::memory_order_acquire) && row.live.load(std::memory_order_acquire)
++                && row.pointer.load(std::memory_order_acquire)==actual) {
++            if (found) {poolFail();return 0;}found=i+1;
++        }
++    }
++    return found;
++}
++void poolRecord(PoolKind kind,quint64 pool=0,quint64 registration=0,quint64 admission=0,quint64 slot=0,quint32 flags=0,quint64 operation=0) noexcept {
++    if (!poolArmed()) {return;}
++    PoolMutation mutation;
++    // The original event time is sampled before publishing/reserving a cell.
++    PoolEvent value;value.kind=kind;value.pool=pool;value.registration=registration;value.admission=admission;value.slot=slot;value.flags=flags;value.operation=operation;
++    value.epochMs=poolEpoch();value.steadyNs=poolSteady();value.thread=poolThreadId();
++    const auto index=poolState.events.fetch_add(1,std::memory_order_acq_rel);
++    if (index>=PoolSnapshot::MaxEvents) {poolFail();return;}
++    value.sequence=index+1;auto& row=poolState.event[index];row.value=value;row.ready.store(true,std::memory_order_release);
++}
++void poolValidate(quint64 pool,quint64 admission,QRunnable* actual) noexcept {
++    if (!admission || !poolArmed()) {return;}auto* entry=poolAdmission(admission);if (!entry) {return;}
++    if (!pool || entry->value.pool!=pool || poolLookup(actual)!=entry->value.registration) {poolFail();}
++}
++} // namespace
++
++bool qOverteE2ePoolArm(QOverteE2ePoolKey instance) noexcept {
++    if (!(instance.high || instance.low) || poolArmed() || poolState.failed.load(std::memory_order_acquire)) {poolFail();return false;}
++    // One original process bootstrap only, before any selected pool is created.
++    poolState.instance=instance;poolState.armed.store(true,std::memory_order_release);return true;
++}
++void qOverteE2ePoolDisarm() noexcept {poolFail();poolState.armed.store(false,std::memory_order_release);}
++bool qOverteE2ePoolHealthy() noexcept {return poolHealthy();}
++quint64 qOverteE2ePoolRegister(QRunnable* actual,QOverteE2ePoolKey allocation) noexcept {
++    if (!poolHealthy()) {return 0;}PoolMutation mutation;
++    if (!actual || !(allocation.high || allocation.low) || poolLookup(actual)) {poolFail();return 0;}
++    const auto index=poolState.registrations.fetch_add(1,std::memory_order_acq_rel);
++    if (index>=PoolSnapshot::MaxRegistrations) {poolFail();return 0;}
++    for (quint64 i=0;i<index;++i) {
++        auto& other=poolState.registration[i];
++        if (other.ready.load(std::memory_order_acquire) && other.value.allocation.high==allocation.high && other.value.allocation.low==allocation.low) {poolFail();return 0;}
++    }
++    auto& row=poolState.registration[index];row.value.id=index+1;row.value.allocation=allocation;
++    row.pointer.store(actual,std::memory_order_relaxed);row.live.store(true,std::memory_order_relaxed);row.ready.store(true,std::memory_order_release);
++    poolRecord(PoolKind::Registered,0,index+1);return index+1;
++}
++bool qOverteE2ePoolRetire(quint64 id) noexcept {
++    if (!poolHealthy()) {return false;}PoolMutation mutation;auto* row=poolRegistration(id);if (!row) {return false;}
++    if (!row->live.exchange(false,std::memory_order_acq_rel)) {poolFail();return false;}
++    // Actual pointer is discarded BEFORE native global deallocation. Future
++    // slot/run events retain their captured admission/generation, not this key.
++    row->pointer.store(nullptr,std::memory_order_release);poolRecord(PoolKind::RegistrationRetired,0,id);return true;
++}
++quint64 qOverteE2ePoolCreated() noexcept {
++    if (!poolHealthy()) {return 0;}PoolMutation mutation;
++    const auto id=poolState.pools.fetch_add(1,std::memory_order_acq_rel)+1;
++    if (id>PoolSnapshot::MaxPools) {poolFail();return 0;}poolRecord(PoolKind::PoolCreated,id);return id;
++}
++void qOverteE2ePoolDestructorBodyTailObserved(quint64 pool) noexcept {if (pool) {poolRecord(PoolKind::PoolDestructorBodyTailObserved,pool);}}
++quint64 qOverteE2ePoolCurrentAdmission() noexcept {return poolCurrent();}
++quint64 qOverteE2ePoolTakeLastAdmission() noexcept {return poolTakeLast();}
++quint64 qOverteE2ePoolEnqueued(quint64 admission) noexcept {
++    if (!admission || !poolHealthy()) {return 0;}auto* row=poolAdmission(admission);if (!row) {return 0;}
++    const auto slot=poolState.slots.fetch_add(1,std::memory_order_acq_rel)+1;
++    poolRecord(PoolKind::Enqueued,row->value.pool,row->value.registration,admission,slot);return slot;
++}
++void qOverteE2ePoolSlotRemoved(quint64 admission,quint64 slot,quint32 reason) noexcept {
++    if (!admission) {return;}auto* row=poolAdmission(admission);if (!row || !slot) {poolFail();return;}
++    poolRecord(PoolKind::SlotRemoved,row->value.pool,row->value.registration,admission,slot,reason);
++}
++void qOverteE2ePoolWorkerAssigned(quint64 pool,quint64 admission,QRunnable* actual) noexcept {
++    if (!admission) {return;}poolValidate(pool,admission,actual);auto* row=poolAdmission(admission);if (row) {poolRecord(PoolKind::WorkerAssigned,pool,row->value.registration,admission);}
++}
++QOverteE2ePoolAdmissionScope::QOverteE2ePoolAdmissionScope(quint64 pool,QRunnable* actual,PoolKind operation) noexcept
++    :_pool(pool),_previous(poolCurrent()),_operation(operation) {
++    if (!poolHealthy()) {return;}PoolMutation mutation;_registration=poolLookup(actual);
++    if (!_registration) {poolSetCurrent(0);return;}
++    if (!pool) {poolFail();poolSetCurrent(0);return;}auto* registered=poolRegistration(_registration);if (!registered) {return;}
++    const auto index=poolState.admissions.fetch_add(1,std::memory_order_acq_rel);
++    if (index>=PoolSnapshot::MaxAdmissions) {poolFail();return;}_admission=index+1;
++    quint64 empty=0;if (!registered->admission.compare_exchange_strong(empty,_admission,std::memory_order_acq_rel)) {poolFail();return;}
++    auto& row=poolState.admission[index];row.value={_admission,pool,_registration,operation};row.ready.store(true,std::memory_order_release);
++    poolSetCurrent(_admission);poolRecord(operation,pool,_registration,_admission);
++}
++QOverteE2ePoolAdmissionScope::~QOverteE2ePoolAdmissionScope() {
++    if (_admission) {
++        auto kind=_operation==PoolKind::StartEntered ? (_returned ? PoolKind::StartReturned : PoolKind::StartUnwound)
++            : _operation==PoolKind::TryStartEntered ? (_returned ? PoolKind::TryStartReturned : PoolKind::TryStartUnwound)
++            : (_returned ? PoolKind::ReservedReturned : PoolKind::ReservedUnwound);
++        poolRecord(kind,_pool,_registration,_admission,0,_accepted ? 1U : 0U);
++    }
++    poolSetCurrent(_previous);
++}
++QOverteE2ePoolTransferScope::QOverteE2ePoolTransferScope(quint64 admission) noexcept:_previous(poolCurrent()) {poolSetCurrent(admission);}
++QOverteE2ePoolTransferScope::~QOverteE2ePoolTransferScope() {poolSetCurrent(_previous);}
++QOverteE2ePoolRunScope::QOverteE2ePoolRunScope(quint64 pool,quint64 admission,QRunnable* actual,bool autoDelete,quint32 path) noexcept
++    :_pool(pool),_admission(admission),_autoDelete(autoDelete) {
++    if (_admission) {poolValidate(pool,admission,actual);auto* row=poolAdmission(admission);if (row) {poolRecord(PoolKind::RunEntered,pool,row->value.registration,admission,0,(autoDelete ? 1U : 0U) | (path<<1));}}
++}
++void QOverteE2ePoolRunScope::returned() noexcept {
++    _returned=true;if (_admission) {auto* row=poolAdmission(_admission);if (row) {poolRecord(PoolKind::RunReturned,_pool,row->value.registration,_admission);}}
++}
++void QOverteE2ePoolRunScope::deleting() noexcept {
++    _deleteEntered=true;if (_admission) {auto* row=poolAdmission(_admission);if (row) {poolRecord(PoolKind::AutoDeleteEntered,_pool,row->value.registration,_admission);}}
++}
++void QOverteE2ePoolRunScope::deleted() noexcept {
++    _deleteReturned=true;if (_admission) {auto* row=poolAdmission(_admission);if (row) {poolRecord(PoolKind::AutoDeleteReturned,_pool,row->value.registration,_admission);}}
++}
++QOverteE2ePoolRunScope::~QOverteE2ePoolRunScope() {
++    if (!_admission) {return;}auto* row=poolAdmission(_admission);if (!row) {return;}
++    if ((_deleteEntered && !_deleteReturned) || (_autoDelete && _returned && !_deleteReturned)) {poolFail();}
++    if (!_returned) {poolRecord(PoolKind::RunUnwound,_pool,row->value.registration,_admission);}
++    poolRecord(_returned ? PoolKind::IterationReturned : PoolKind::IterationUnwound,_pool,row->value.registration,_admission);
++}
++QOverteE2ePoolTakeScope::QOverteE2ePoolTakeScope(quint64 pool,QRunnable* actual) noexcept:_pool(pool) {
++    poolSetLast(0);
++    if (poolHealthy()) {
++        _registration=poolLookup(actual);
++        if (_registration) {
++            _operation=poolState.operations.fetch_add(1,std::memory_order_acq_rel)+1;
++            if (!pool) {poolFail();}
++            poolRecord(PoolKind::TryTakeEntered,pool,_registration,0,0,0,_operation);
++        }
++    }
++}
++void QOverteE2ePoolTakeScope::removed(quint64 admission,quint64 slot) noexcept {
++    if (!admission) {if (_registration) {poolFail();}return;}auto* row=poolAdmission(admission);if (!row) {return;}
++    // A stale raw-address match must never retire a newer allocation's
++    // registration or relabel the old queue slot with its current generation.
++    if (_admission) {poolFail();}
++    _admission=admission;
++    if (!_operation || !slot || _registration!=row->value.registration || _pool!=row->value.pool) {poolFail();}
++    poolRecord(PoolKind::TakeMatched,_pool,row->value.registration,admission,slot,0,_operation);
++}
++QOverteE2ePoolTakeScope::~QOverteE2ePoolTakeScope() {
++    poolSetLast(_returned && _removed ? _admission : 0);
++    if (_registration) {poolRecord(_returned ? PoolKind::TryTakeReturned : PoolKind::TryTakeUnwound,_pool,_registration,_admission,0,_removed ? 1U : 0U,_operation);}
++}
++QOverteE2ePoolCancelScope::QOverteE2ePoolCancelScope(quint64 pool,quint64 admission) noexcept:_pool(pool),_admission(admission) {
++    if (_admission) {auto* row=poolAdmission(_admission);if (row) {poolRecord(PoolKind::CancelDeleteEntered,pool,row->value.registration,admission);}}
++}
++void QOverteE2ePoolCancelScope::deleted() noexcept {
++    _returned=true;if (_admission) {auto* row=poolAdmission(_admission);if (row) {poolRecord(PoolKind::CancelDeleteReturned,_pool,row->value.registration,_admission);}}
++}
++QOverteE2ePoolCancelScope::~QOverteE2ePoolCancelScope() {
++    if (_admission) {auto* row=poolAdmission(_admission);if (row) {poolRecord(_returned ? PoolKind::CancelScopeReturned : PoolKind::CancelScopeUnwound,_pool,row->value.registration,_admission);}}
++}
++void qOverteE2ePoolUnsupported() noexcept {if (poolArmed()) {poolFail();}}
++bool qOverteE2ePoolCopy(PoolSnapshot* out) noexcept {
++    if (!out || !poolArmed()) {return false;}const auto serial=poolState.serial.load(std::memory_order_acquire);
++    out->version=1;out->instance=poolState.instance;out->healthy=poolHealthy();out->inFlight=poolState.writers.load(std::memory_order_acquire);
++    out->poolCount=poolState.pools.load(std::memory_order_acquire);out->registrationCount=poolState.registrations.load(std::memory_order_acquire);
++    out->admissionCount=poolState.admissions.load(std::memory_order_acquire);out->eventCount=poolState.events.load(std::memory_order_acquire);
++    bool complete=out->inFlight==0 && out->poolCount<=PoolSnapshot::MaxPools && out->registrationCount<=PoolSnapshot::MaxRegistrations
++        && out->admissionCount<=PoolSnapshot::MaxAdmissions && out->eventCount<=PoolSnapshot::MaxEvents;
++    const auto registrations=qMin<quint64>(out->registrationCount,PoolSnapshot::MaxRegistrations);
++    for (quint64 i=0;i<registrations;++i) {
++        auto& row=poolState.registration[i];if (!row.ready.load(std::memory_order_acquire)) {complete=false;continue;}
++        out->registrations[i]=row.value;out->registrations[i].live=row.live.load(std::memory_order_acquire);
++    }
++    const auto admissions=qMin<quint64>(out->admissionCount,PoolSnapshot::MaxAdmissions);
++    for (quint64 i=0;i<admissions;++i) {
++        auto& row=poolState.admission[i];if (!row.ready.load(std::memory_order_acquire)) {complete=false;continue;}out->admissions[i]=row.value;
++    }
++    const auto events=qMin<quint64>(out->eventCount,PoolSnapshot::MaxEvents);
++    for (quint64 i=0;i<events;++i) {
++        auto& row=poolState.event[i];if (!row.ready.load(std::memory_order_acquire)) {complete=false;continue;}out->events[i]=row.value;
++    }
++    out->epochMs=poolEpoch();out->steadyNs=poolSteady();out->mutationSerial=poolState.serial.load(std::memory_order_acquire);
++    out->inFlight=poolState.writers.load(std::memory_order_acquire);out->healthy=poolHealthy();
++    out->cutComplete=complete && out->inFlight==0 && serial==out->mutationSerial;return true;
++}
++
+
+ /*
+     QThread wrapper, provides synchronization against a ThreadPool
+@@ -33,6 +294,7 @@
+     QWaitCondition runnableReady;
+     QThreadPoolPrivate *manager;
+     QRunnable *runnable;
++    quint64 featureAdmission{0};
+ };
+
+ /*
+@@ -57,12 +319,14 @@
+     QMutexLocker locker(&manager->mutex);
+     for(;;) {
+         QRunnable *r = runnable;
++        quint64 feature=featureAdmission;featureAdmission=0;
+         runnable = nullptr;
+
+         do {
+             if (r) {
+                 // If autoDelete() is false, r might already be deleted after run(), so check status now.
+                 const bool del = r->autoDelete();
++                QOverteE2ePoolRunScope featureRun(manager->featurePoolId,feature,r,del,1);
+
+                 // run the task
+                 locker.unlock();
+@@ -70,6 +334,7 @@
+                 try {
+ #endif
+                     r->run();
++                    featureRun.returned();
+ #ifndef QT_NO_EXCEPTIONS
+                 } catch (...) {
+                     qWarning("Qt Concurrent has caught an exception thrown from a worker thread.\n"
+@@ -80,8 +345,11 @@
+                 }
+ #endif
+
+-                if (del)
++                if (del) {
++                    featureRun.deleting();
+                     delete r;
++                    featureRun.deleted();
++                }
+                 locker.relock();
+             }
+
+@@ -94,7 +362,9 @@
+                 break;
+
+             QueuePage *page = manager->queue.constFirst();
+-            r = page->pop();
++            feature=page->featureAdmission();
++            r = page->pop(1);
++            qOverteE2ePoolWorkerAssigned(manager->featurePoolId,feature,r);
+
+             if (page->isFinished()) {
+                 manager->queue.removeFirst();
+@@ -172,6 +442,8 @@
+         ++activeThreads;
+
+         thread->runnable = task;
++        thread->featureAdmission=qOverteE2ePoolCurrentAdmission();
++        qOverteE2ePoolWorkerAssigned(featurePoolId,thread->featureAdmission,task);
+
+         // Ensure that the thread has actually finished, otherwise the following
+         // start() has no effect.
+@@ -217,10 +489,11 @@
+     // try to push tasks on the queue to any available threads
+     while (!queue.isEmpty()) {
+         QueuePage *page = queue.constFirst();
++        QOverteE2ePoolTransferScope featureTransfer(page->featureAdmission());
+         if (!tryStart(page->first()))
+             break;
+
+-        page->pop();
++        page->pop(4);
+
+         if (page->isFinished()) {
+             queue.removeFirst();
+@@ -257,6 +530,8 @@
+     ++activeThreads;
+
+     thread->runnable = runnable;
++    thread->featureAdmission=qOverteE2ePoolCurrentAdmission();
++    qOverteE2ePoolWorkerAssigned(featurePoolId,thread->featureAdmission,runnable);
+     thread.release()->start(threadPriority);
+ }
+
+@@ -314,11 +589,16 @@
+     while (!queue.isEmpty()) {
+         auto *page = queue.takeLast();
+         while (!page->isFinished()) {
+-            QRunnable *r = page->pop();
++            const auto feature=page->featureAdmission();
++            QRunnable *r = page->pop(2);
+             if (r && r->autoDelete()) {
++                QOverteE2ePoolCancelScope featureCancel(featurePoolId,feature);
+                 locker.unlock();
+                 delete r;
++                featureCancel.deleted();
+                 locker.relock();
++            } else if (feature) {
++                qOverteE2ePoolUnsupported();
+             }
+         }
+         delete page;
+@@ -349,17 +629,20 @@
+     if (runnable == nullptr)
+         return false;
+
++    QOverteE2ePoolTakeScope featureTake(d->featurePoolId,runnable);
+     QMutexLocker locker(&d->mutex);
+     for (QueuePage *page : std::as_const(d->queue)) {
+-        if (page->tryTake(runnable)) {
++        if (page->tryTake(runnable,&featureTake)) {
+             if (page->isFinished()) {
+                 d->queue.removeOne(page);
+                 delete page;
+             }
++            featureTake.returned(true);
+             return true;
+         }
+     }
+
++    featureTake.returned(false);
+     return false;
+ }
+
+@@ -376,11 +659,16 @@
+         return;
+     // If autoDelete() is false, runnable might already be deleted after run(), so check status now.
+     const bool del = runnable->autoDelete();
++    const auto feature=qOverteE2ePoolTakeLastAdmission();
++    QOverteE2ePoolRunScope featureRun(featurePoolId,feature,runnable,del,2);
+
+     runnable->run();
+-
+-    if (del)
++    featureRun.returned();
++    if (del) {
++        featureRun.deleting();
+         delete runnable;
++        featureRun.deleted();
++    }
+ }
+
+ /*!
+@@ -443,6 +731,7 @@
+     : QObject(*new QThreadPoolPrivate, parent)
+ {
+     Q_D(QThreadPool);
++    d->featurePoolId=qOverteE2ePoolCreated();
+     connect(this, &QObject::objectNameChanged, this, [d](const QString &newName) {
+         // We keep a copy of the name under our own lock, so we can access it thread-safely.
+         QMutexLocker locker(&d->mutex);
+@@ -460,6 +749,7 @@
+     waitForDone();
+     Q_ASSERT(d->queue.isEmpty());
+     Q_ASSERT(d->allThreads.isEmpty());
++    qOverteE2ePoolDestructorBodyTailObserved(d->featurePoolId);
+ }
+
+ /*!
+@@ -497,10 +787,12 @@
+         return;
+
+     Q_D(QThreadPool);
++    QOverteE2ePoolAdmissionScope featureCall(d->featurePoolId,runnable,QOverteE2ePoolEventKind::StartEntered);
+     QMutexLocker locker(&d->mutex);
+
+     if (!d->tryStart(runnable))
+         d->enqueueTask(runnable, priority);
++    featureCall.returned();
+ }
+
+ /*!
+@@ -542,11 +834,11 @@
+         return false;
+
+     Q_D(QThreadPool);
+-    QMutexLocker locker(&d->mutex);
+-    if (d->tryStart(runnable))
+-        return true;
+-
+-    return false;
++    QOverteE2ePoolAdmissionScope featureCall(d->featurePoolId,runnable,QOverteE2ePoolEventKind::TryStartEntered);
++    QMutexLocker locker(&d->mutex);
++    const bool accepted=d->tryStart(runnable);
++    featureCall.returned(accepted);
++    return accepted;
+ }
+
+ /*!
+@@ -802,6 +1094,7 @@
+         return releaseThread();
+
+     Q_D(QThreadPool);
++    QOverteE2ePoolAdmissionScope featureCall(d->featurePoolId,runnable,QOverteE2ePoolEventKind::ReservedEntered);
+     QMutexLocker locker(&d->mutex);
+     Q_ASSERT(d->reservedThreads > 0);
+     --d->reservedThreads;
+@@ -811,6 +1104,7 @@
+         // and something took the one minimum thread.
+         d->enqueueTask(runnable, INT_MAX);
+     }
++    featureCall.returned();
+ }
+
+ /*!

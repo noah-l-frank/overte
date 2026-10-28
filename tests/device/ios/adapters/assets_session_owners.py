@@ -63,11 +63,12 @@ def inspect_directory(directory,*,primary_directory=None,_contexts=None,image_co
     from ios.adapters.assets_image_reader_lifecycle_ownership import lifecycle_path,inspect_lifecycles
     from ios.adapters.assets_image_processing_ownership import processing_path,inspect_processing
     from ios.adapters.assets_image_storage_ownership import storage_path,inspect_storage
+    from ios.adapters.assets_image_pool_ownership import pool_path,inspect_pool
     from ios.adapters.assets_image_ownership import ImageInventoryContext,inventory_path,inspect_session
     need(image_context is None or isinstance(image_context,ImageInventoryContext))
     directory=Path(directory);entries=directory_entries(directory);groups={};frame_paths={};backend_paths={};file_paths={};reply_paths={};model_paths={};parsed_paths={}
     for path in entries:
-        if lifecycle_path(path.name) or processing_path(path.name) or storage_path(path.name):continue
+        if lifecycle_path(path.name) or processing_path(path.name) or storage_path(path.name) or pool_path(path.name):continue
         if inventory_path(path.name):
             need(image_context is not None);continue
         if scene_path(path.name):continue
@@ -87,7 +88,7 @@ def inspect_directory(directory,*,primary_directory=None,_contexts=None,image_co
         if match:model_paths.setdefault(match.groups(),set()).add(path);continue
         match=PARSED_FRAME.fullmatch(path.name)
         if match:parsed_paths.setdefault(match.groups(),set()).add(path);continue
-        need(not path.name.startswith(('ios-assets-','assets-upload-','assets-backend-','assets-files-','assets-replies-','assets-model-','assets-parsed-','assets-scene-','assets-image-reader-','assets-image-process-','assets-image-storage-')))
+        need(not path.name.startswith(('ios-assets-','assets-upload-','assets-backend-','assets-files-','assets-replies-','assets-model-','assets-parsed-','assets-scene-','assets-image-reader-','assets-image-process-','assets-image-storage-','assets-image-pool-')))
     need(len(groups)<=64 and all(set(paths)<=set(groups) for paths in (frame_paths,backend_paths,file_paths,reply_paths,model_paths,parsed_paths)));result=[]
     image_parsed=None;image_url=None
     for (run,role),records in sorted(groups.items()):
@@ -224,6 +225,7 @@ def inspect_directory(directory,*,primary_directory=None,_contexts=None,image_co
     result+=inspect_lifecycles(directory,entries)
     result+=inspect_processing(directory,entries)
     result+=inspect_storage(directory,entries)
+    result+=inspect_pool(directory,entries)
     if image_context is not None:
         need(image_parsed is not None);report=inspect_session(directory,image_context,image_parsed,image_url)
         result.append({key:value for key,value in report.items() if key!='paths'})

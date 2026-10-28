@@ -4,6 +4,7 @@
 #include <QtCore/qglobal.h>
 #if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
 #include <QVariantMap>
+#include <QRunnable>
 #include <image/IOSImageProcessingObservation.h>
 #include <cstddef>
 #include <memory>
@@ -22,7 +23,7 @@ public:
     static Token allocationEntering(std::size_t bytes) noexcept;
     static void allocationReturned(const Token& attempt,void* actual) noexcept;
     static void allocationThrew(const Token& attempt) noexcept;
-    static void attach(void* actual,const image::e2e::IOSImageProcessingObservation::Task& task) noexcept;
+    static void attach(void* actual,QRunnable* actualBase,const image::e2e::IOSImageProcessingObservation::Task& task) noexcept;
     static void destructorEntering(void* actual) noexcept;
     static Token deleteEntering(void* actual,std::size_t bytes,bool sized) noexcept;
     static void deleteReturned(const Token& captured) noexcept;

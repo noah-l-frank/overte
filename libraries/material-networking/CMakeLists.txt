@@ -11,5 +11,6 @@ if (IOS AND OVERTE_E2E_FEATURE_TESTS AND OVERTE_IOS_E2E_TEST_BUILD)
         # Rebuild the complete SDK and all private-header consumers together.
         target_link_libraries(${TARGET_NAME} PRIVATE Qt6::CorePrivate)
         target_compile_definitions(${TARGET_NAME} PRIVATE OVERTE_E2E_METACALL_PRIVATE_API=1)
+        target_compile_definitions(${TARGET_NAME} PRIVATE OVERTE_E2E_RUNNABLE_POOL_PRIVATE_API=1)
     endif()
 endif()

@@ -1,0 +1,9 @@
+{
+  "qtVersion": "6.11.1",
+  "apiVersion": 1,
+  "patch": "qtbase-overte-e2e-runnable-pool.patch",
+  "sourceSha256": {
+    "qtbase/src/corelib/thread/qthreadpool_p.h": "205faa562f40bcdf2723e78f3002809830e8ec16af2c9f4e6ef9bc180b1129f7",
+    "qtbase/src/corelib/thread/qthreadpool.cpp": "36e6f7e77253f15cf113ac06f052136baf164fe7a9ef63a46bcfec55db4ff7fb"
+  }
+}

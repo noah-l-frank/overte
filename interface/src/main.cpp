@@ -23,6 +23,9 @@
 #include <QTranslator>
 #include <QStandardPaths>
 
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include <material-networking/IOSAssetsImageReaderPoolObservation.h>
+#endif
 #include <BuildInfo.h>
 #include <SandboxUtils.h>
 #include <SharedUtil.h>
@@ -89,6 +92,9 @@ extern "C" {
 #endif
 
 int main(int argc, const char* argv[]) {
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    overte::e2e::IOSAssetsImageReaderPoolObservation::bootstrap(argc,argv);
+#endif
 #ifdef Q_OS_IOS
     // Keep the physical-device renderer on the same MoltenVK resource-binding
     // path exercised by the iOS simulator acceptance harness. MoltenVK 1.4.2

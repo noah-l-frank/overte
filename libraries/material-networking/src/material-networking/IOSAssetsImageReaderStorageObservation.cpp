@@ -1,6 +1,7 @@
 // Copyright 2026 Overte contributors.
 // SPDX-License-Identifier: Apache-2.0
 #include "IOSAssetsImageReaderStorageObservation.h"
+#include "IOSAssetsImageReaderPoolObservation.h"
 #if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
 #include <QCoreApplication>
 #include <QDateTime>
@@ -37,7 +38,7 @@ bool identity(const QString& id) {
 }
 thread_local QString actualThreadContext;
 QString threadContext() {if (actualThreadContext.isEmpty()) {actualThreadContext=nonce();}return actualThreadContext;}
-struct Row {QVariantMap value;std::weak_ptr<void> marker;};
+struct Row {QVariantMap value;std::weak_ptr<void> marker;quint64 poolRegistration{0};};
 struct State {
     State() {timer.start();}
     QVariantMap clock() const {return {{"epochMs",QDateTime::currentMSecsSinceEpoch()},{"monotonicMs",timer.elapsed()}};}
@@ -108,12 +109,14 @@ void Observation::allocationThrew(const Token& attempt) noexcept {
         setPhase(owner,attempt._row,"allocationThrew",original);
     } catch (...) {fail();}
 }
-void Observation::attach(void* actual,const image::e2e::IOSImageProcessingObservation::Task& task) noexcept {
+void Observation::attach(void* actual,QRunnable* actualBase,const image::e2e::IOSImageProcessingObservation::Task& task) noexcept {
     Callback callback;if (!callback.entered) {return;}
     try {
         if (!admitted()) {return;}auto owner=acquire();if (!owner || !mainThread()) {fail();return;}
         if (!identity(task.source1Instance) || !identity(task.taskId) || !identity(task.resourceId) || task.marker.expired()) {fail();return;}
-        const auto original=owner->phase();QMutexLocker lock(&owner->mutex);if (!admitted()) {return;}
+        const auto original=owner->phase();quint64 index=0;QString allocation;
+        {
+        QMutexLocker lock(&owner->mutex);if (!admitted()) {return;}
         const auto found=owner->addresses.constFind(actual);
         if (found==owner->addresses.cend() || (!owner->source1Instance.isEmpty() && owner->source1Instance!=task.source1Instance)) {fail();return;}
         for (const auto& row:owner->rows) {if (row.value.value("taskId")==task.taskId) {fail();return;}}
@@ -121,6 +124,13 @@ void Observation::attach(void* actual,const image::e2e::IOSImageProcessingObserv
         if (!row.value.value("sourceAttached").isNull()) {fail();return;}
         owner->source1Instance=task.source1Instance;row.marker=task.marker;
         row.value["taskId"]=task.taskId;row.value["resourceId"]=task.resourceId;row.value["sourceAttached"]=original;
+        index=found.value();allocation=row.value.value("id").toString();
+        }
+        // Actual live base conversion was captured by the constructor. SDK
+        // registration runs outside Storage/Source1/Pool observer mutexes.
+        const auto registered=IOSAssetsImageReaderPoolObservation::registration(actualBase,allocation,
+            task.source1Instance,task.taskId,task.resourceId);
+        {QMutexLocker lock(&owner->mutex);owner->rows[int(index-1)].poolRegistration=registered;}
     } catch (...) {fail();}
 }
 void Observation::destructorEntering(void* actual) noexcept {
@@ -139,14 +149,21 @@ Observation::Token Observation::deleteEntering(void* actual,std::size_t bytes,bo
     Token result;
     try {
         if (!admitted()) {return result;}auto owner=acquire();if (!owner) {fail();return result;}
-        const auto original=owner->phase();QMutexLocker lock(&owner->mutex);if (!admitted()) {return result;}
+        const auto original=owner->phase();quint64 registered=0;
+        {
+        QMutexLocker lock(&owner->mutex);if (!admitted()) {return result;}
         const auto found=owner->addresses.find(actual);if (found==owner->addresses.end()) {fail();return result;}
         const auto index=found.value();auto& row=owner->rows[int(index-1)].value;
         if (!row.value("deleteEntered").isNull() || (sized && row.value("storageBytes").toULongLong()!=bytes)) {fail();return result;}
         row["deleteEntered"]=original;row["sizedDelete"]=sized;
         // Capture the exact generation and diagnostic State BEFORE global
         // deallocation. Never inspect the address or dead object afterward.
-        result._state=owner;result._row=index;owner->addresses.erase(found);return result;
+        registered=owner->rows[int(index-1)].poolRegistration;
+        result._state=owner;result._row=index;owner->addresses.erase(found);
+        }
+        // Retire the captured generation before free; no address lookup or
+        // product access occurs after deallocation, even on address reuse.
+        IOSAssetsImageReaderPoolObservation::retiring(registered);return result;
     } catch (...) {fail();return result;}
 }
 void Observation::deleteReturned(const Token& captured) noexcept {

@@ -128,3 +128,13 @@ preserved from the preceding fixes. This packet adds only Storage's getter,
 exact filename routes and independent protocol. It does not repeat or overwrite
 the image-target macro correction, alter Source1/Processing/Queue wire grammars
 or modify non-iOS/non-test product allocation behavior.
+
+
+The separate [selected pool source](ASSETS_IMAGE_POOL_SOURCE.md) provides an
+optional matching-SDK admission/slot/run/delete/scope protocol. Its 30 new host
+cases, 102 existing component regressions and three private source-patch checks
+pass; the new connected flow passes in 227.727 seconds. Storage closes while a
+declared selected pool iteration remains held, and the Pool join refuses until
+independent release and fresh quiet samples. Storage remains an independent
+component. These host results do not execute the Qt SDK patch; global pool
+drainage, arbitrary bytes, GPU and whole Resource retirement remain unavailable.

@@ -1310,7 +1310,7 @@ ImageReader::ImageReader(const QWeakPointer<Resource>& resource, const QUrl& url
                     // Source1 copied its actual constructor task context and
                     // released its mutex before either separate observer enters.
                     const auto actualContext=overte::e2e::IOSAssetsImageReaderObservation::processingContext(_featureTask);
-                    overte::e2e::IOSAssetsImageReaderStorageObservation::attach(this,actualContext);
+                    overte::e2e::IOSAssetsImageReaderStorageObservation::attach(this,static_cast<QRunnable*>(this),actualContext);
                     _featureProcessing=image::e2e::IOSImageProcessingObservation::prepare(actualContext);
                 }
 #endif
