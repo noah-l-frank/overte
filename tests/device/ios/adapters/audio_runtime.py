@@ -20,6 +20,24 @@ import time
 
 
 class IOSAudioRuntime(IOSScriptRuntime):
+    def settings_owner(self,selector,parent,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,sleep=time.sleep):
+        from ios.adapters.audio_settings_sources import AudioSettingsSources
+        from ios.adapters.audio_settings_owner import AudioSettingsOwner
+        need(isinstance(parent,IOSAudioRecordedOwner) and not parent.historical
+            and parent.store.path==self.state_path(selector).with_name('ios-audio-recorded-owner.json'))
+        parent.bound();source=self._sources(selector);need(source['binding']==parent.binding)
+        collector=AudioSettingsSources(PrivateFeatureState(parent.store.path.with_name('ios-audio-settings-source-owner.json')),
+            parent,source,epoch_ms=epoch_ms,monotonic=monotonic)
+        normal=source['native'];io=IOSAudioIO(SimpleNamespace(capture=normal.capture,native=normal,
+            ui=NativeUI(source['client'],source['session'],source['check'])))
+        owner=AudioSettingsOwner(PrivateFeatureState(parent.store.path.with_name('ios-audio-settings-restore.json')),collector,io,sleep=sleep)
+        normal.observe_intent=owner.query_intent;send=source['clock_source'].send
+        def observed(query):
+            if not collector.active:owner.query_intent(query)
+            return send(query)
+        source['clock_source'].send=observed
+        return owner
+
     def authorized_starts(self,selector,owner,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic):
         from ios.adapters.audio_authorized_start import AudioAuthorizedStarts
         sources=self.authorization_sources(selector,owner,epoch_ms=epoch_ms,monotonic=monotonic)

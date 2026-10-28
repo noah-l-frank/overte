@@ -8,6 +8,7 @@
 //  SPDX-License-Identifier: Apache-2.0
 //
 #include "TestScriptingInterface.h"
+#include "Audio.h"
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QLoggingCategory>
@@ -1345,6 +1346,53 @@ QVariantMap TestScriptingInterface::featureIOSAssetsModelRenderers(const QVarian
 }
 
 #if defined(OVERTE_E2E_VOICE_TESTS)
+QVariantMap TestScriptingInterface::featureIOSAudioSettings(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] {result=featureIOSAudioSettings(command);},Qt::BlockingQueuedConnection)) {return {};}
+        return result;
+    }
+    QStringList fields{"schemaVersion","commandId","action","runId"};fields.sort();const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=json.value("commandId").toString(),run=json.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || !QCoreApplication::arguments().contains("--testScript")
+            || command.keys()!=fields || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-audio-settings")
+            || !QRegularExpression("\\Aios-[a-f0-9]{32}\\z").match(request).hasMatch() || !QRegularExpression("\\A[a-f0-9]{32}\\z").match(run).hasMatch()
+            || !DependencyManager::isSet<scripting::Audio>() || !DependencyManager::isSet<AudioClient>() || !DependencyManager::isSet<NodeList>()) {return {};}
+    const auto life=_featureLifecycle->snapshot();if (life.isEmpty()) {return {};}
+    const auto audio=DependencyManager::get<scripting::Audio>();const auto client=DependencyManager::get<AudioClient>();const auto mixer=DependencyManager::get<NodeList>();
+    const auto readOnOwner=[](QObject* owner,const std::function<void()>& read) {
+        if (!owner || !owner->thread() || !owner->thread()->isRunning()) {return false;}
+        if (QThread::currentThread()==owner->thread()) {read();return true;}
+        return QMetaObject::invokeMethod(owner,read,Qt::BlockingQueuedConnection);
+    };
+    static const QElapsedTimer origin=[] {QElapsedTimer value;value.start();return value;}();
+    const auto stamp=[&] {return QVariantMap{{"epochMs",QDateTime::currentMSecsSinceEpoch()},{"monotonicMs",origin.elapsed()}};};
+    const auto before=stamp();QVariantMap source{{"iosAudioSettingsReadVersion",1},{"nativeHmd",qApp->isHMDMode()}};
+    for (const auto& suffix:QStringList{"Before","After"}) {
+        QVariantMap scriptValues,clientValues,mixerValues;
+        if (!readOnOwner(audio.data(),[&] {scriptValues=audio->featureSettingsObservation();})
+                || !readOnOwner(client.data(),[&] {
+                    const auto voice=client->featureRecordedVoiceObservation();
+                    if (voice.value("active").userType()!=QMetaType::Bool) {return;}
+                    clientValues={{"muted",client->isMuted()},{"localEcho",client->getLocalEcho()},
+                        {"serverEcho",client->getServerEcho()},{"stereoInput",client->isStereoInput()},{"recording",client->getRecording()},
+                        {"voiceActive",voice.value("active")}};})
+                || !readOnOwner(mixer.data(),[&] {mixerValues={{"avatarGain",mixer->getAvatarGain(QUuid())},{"serverInjectorGain",mixer->getInjectorGain()}};})
+                || scriptValues.isEmpty() || clientValues.isEmpty() || mixerValues.isEmpty()) {return {};}
+        source["script"+suffix]=scriptValues;source["client"+suffix]=clientValues;source["mixer"+suffix]=mixerValues;
+    }
+    const auto after=stamp();
+    if (life!=_featureLifecycle->snapshot() || source["nativeHmd"].toBool()!=qApp->isHMDMode()
+            || source["scriptBefore"]!=source["scriptAfter"] || source["clientBefore"]!=source["clientAfter"]
+            || source["mixerBefore"]!=source["mixerAfter"]) {return {};}
+    // Two equal sequential reads are not an atomic snapshot or an end proof.
+    return {{"iosAudioSettingsVersion",1},{"requestId",request},{"runId",run},{"instance",_featureObservationInstance},
+        {"sequence",QVariant::fromValue(++_featureIOSAudioSettingsSequence)},{"processId",QCoreApplication::applicationPid()},
+        {"clockDomain","native-main-ios-audio-settings"},{"clockBefore",before},{"clockAfter",after},{"lifecycle",life.toVariantMap()},
+        {"source",source},{"wholeSettingsRestorationAvailable",false},{"independentAcousticsAvailable",false},
+        {"processSdkRetirementAvailable",false}};
+}
+
 QVariantMap TestScriptingInterface::featureIOSAudioSession(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }QVariantMap result;
@@ -3259,7 +3307,7 @@ void TestScriptingInterface::clearCaches() {
 // Writes a JSON object from javascript to a file
 void TestScriptingInterface::saveObject(QVariant variant, const QString& filename) {
 #if !defined(OVERTE_E2E_FEATURE_TESTS) || !defined(Q_OS_IOS) || !defined(OVERTE_IOS_E2E_TEST_BUILD) || !defined(OVERTE_E2E_VOICE_TESTS)
-    if (filename=="feature-ios-audio-session.json") { return; }
+    if (filename=="feature-ios-audio-session.json" || filename=="feature-ios-audio-settings.json") { return; }
 #endif
 #if !defined(OVERTE_E2E_FEATURE_TESTS) || !defined(Q_OS_IOS) || !defined(OVERTE_IOS_E2E_TEST_BUILD)
     if (filename=="feature-ios-assets-image-reader.json") {return;}
@@ -3278,7 +3326,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 
     QByteArray jsonData = jsonDocument.toJson();
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_VOICE_TESTS)
-    if (filename=="feature-ios-audio-session.json") { jsonData=jsonDocument.toJson(QJsonDocument::Compact); }
+    if (filename=="feature-ios-audio-session.json" || filename=="feature-ios-audio-settings.json") { jsonData=jsonDocument.toJson(QJsonDocument::Compact); }
 #endif
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     // Preserve these passive sources' native compact-byte bounds through AFC.
@@ -3318,7 +3366,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-ios-snapshot-uploads.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json"
-            || filename == "feature-ios-audio-session.json"
+            || filename == "feature-ios-audio-session.json" || filename == "feature-ios-audio-settings.json"
             || QRegularExpression("\\Aworld-render-storage-[0-9a-f]{32}\\.json\\z").match(filename).hasMatch()) {
         if (!QCoreApplication::arguments().contains("--testScript") || QFileInfo(filepath).isSymLink()) { return; }
         if (filename.startsWith("world-render-storage-")) {

@@ -82,6 +82,7 @@ from ios.adapters.assets_files import IOSAssetsFiles,FILE as ASSETS_FILES_FILE,L
 from ios.adapters.assets_replies import IOSAssetsReplies,FILE as ASSETS_REPLIES_FILE,LIMIT as ASSETS_REPLIES_LIMIT,command as assets_replies_command
 from ios.adapters.keyboard_source import IOSKeyboard,FILE as KEYBOARD_FILE,LIMIT as KEYBOARD_LIMIT,command as keyboard_command
 from ios.adapters.audio_session_source import IOSAudioSession,FILE as AUDIO_SESSION_FILE,LIMIT as AUDIO_SESSION_LIMIT,command as audio_session_command
+from ios.adapters.audio_settings_source import IOSAudioSettings,FILE as AUDIO_SETTINGS_FILE,LIMIT as AUDIO_SETTINGS_LIMIT,command as audio_settings_command
 from ios.adapters.assets_model_origin import IOSAssetsModelOrigin,FILE as ASSETS_MODEL_ORIGIN_FILE,LIMIT as ASSETS_MODEL_ORIGIN_LIMIT,command as assets_model_origin_command
 from ios.adapters.assets_image_reader import IOSAssetsImageReader,FILE as ASSETS_IMAGE_READER_FILE,LIMIT as ASSETS_IMAGE_READER_LIMIT,command as assets_image_reader_command
 from ios.adapters.assets_image_reader_queue import IOSAssetsImageReaderQueue,FILE as ASSETS_IMAGE_READER_QUEUE_FILE,LIMIT as ASSETS_IMAGE_READER_QUEUE_LIMIT,command as assets_image_reader_queue_command
@@ -271,6 +272,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-pending-commit-owner':pending_owner_command(command,ios=True)
         elif command.get('action')=='feature-ios-keyboard':keyboard_command(command)
         elif command.get('action')=='feature-ios-audio-session':audio_session_command(command)
+        elif command.get('action')=='feature-ios-audio-settings':audio_settings_command(command)
         elif command.get('action')=='feature-ios-assets-model-origin':assets_model_origin_command(command)
         elif command.get('action')=='feature-ios-assets-image-reader':assets_image_reader_command(command)
         elif command.get('action')=='feature-ios-assets-image-reader-queue':assets_image_reader_queue_command(command)
@@ -684,6 +686,15 @@ class FeatureObservation:
             raise NativeUIError('Original Audio session clock does not match this iOS process')
         def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
         return IOSAudioSession(self.send,lambda:self.original(remote=remote,limit=AUDIO_SESSION_LIMIT),
+            clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
+
+    def audio_settings(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+AUDIO_SETTINGS_FILE
+        if clock_source is None:clock_source=self.native_observer()
+        if not isinstance(clock_source,NativeFeatureObservation) or not clock_source.ios or clock_source.pid!=self.process['pid']:
+            raise NativeUIError('Original Audio session clock does not match this iOS process')
+        def clock():return clock_source.read(clock_source.sequence)['capturedEpochMs']
+        return IOSAudioSettings(self.send,lambda:self.original(remote=remote,limit=AUDIO_SETTINGS_LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
     def keyboard(self,clock_source=None):

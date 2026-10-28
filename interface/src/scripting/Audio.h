@@ -163,6 +163,9 @@ public:
 
     // Settings handlers
     void saveData();
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_VOICE_TESTS)
+    QVariantMap featureSettingsObservation() const;
+#endif
     void loadData();
 
     /*@jsdoc

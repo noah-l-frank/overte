@@ -572,6 +572,12 @@ class FixtureState:
             try:audio_session_command(command)
             except (ValueError,RuntimeError):raise ValueError('Invalid passive iOS Audio session command') from None
             valid=True
+        elif action == "feature-ios-audio-settings":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.audio_settings_source import command as audio_session_command
+            try:audio_session_command(command)
+            except (ValueError,RuntimeError):raise ValueError('Invalid passive iOS Audio session command') from None
+            valid=True
         elif action == "feature-ios-keyboard":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.keyboard_source import command as keyboard_command

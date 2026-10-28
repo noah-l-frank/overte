@@ -1132,6 +1132,23 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-audio-settings") {
+            if (command.schemaVersion===1 && typeof command.commandId==="string" && /^ios-[a-f0-9]{32}$/.test(command.commandId) && command.commandId.length===36
+                    && typeof command.runId==="string" && /^[a-f0-9]{32}$/.test(command.runId) && command.runId.length===32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount>=4096) {return;}
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var audioSettingsOriginal={iosAudioSettingsVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSAudioSettings==="function") {
+                        var audioSettingsReply=Test.featureIOSAudioSettings(command);
+                        if (audioSettingsReply && audioSettingsReply.requestId===command.commandId) {audioSettingsOriginal=audioSettingsReply;}
+                    }
+                } catch (_audioSettingsError) { /* Missing typed settings is never inferred from a requested state. */ }
+                Test.saveObject(audioSettingsOriginal,"feature-ios-audio-settings.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-keyboard") {
             if (command.schemaVersion===1 && typeof command.commandId==="string" && /^ios-[a-f0-9]{32}$/.test(command.commandId) && command.commandId.length===36
                     && typeof command.runId==="string" && /^[a-f0-9]{32}$/.test(command.runId) && command.runId.length===32

@@ -10,6 +10,8 @@
 //
 
 #include "Audio.h"
+#include <QCoreApplication>
+#include <QThread>
 
 #include <shared/QtHelpers.h>
 
@@ -246,6 +248,30 @@ void Audio::setPTTHMD(bool enabled) {
         emit pushToTalkHMDChanged(enabled);
     }
 }
+
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_VOICE_TESTS)
+QVariantMap Audio::featureSettingsObservation() const {
+    if (!qApp || QThread::currentThread()!=thread() || !QCoreApplication::arguments().contains("--testScript")) {return {};}
+    return resultWithReadLock<QVariantMap>([&] {
+        // Read this Audio owner's actual fields/handles only. Mixer and client
+        // operands are sampled independently on their actual owner threads.
+        const QVariantMap persisted{{"mutedDesktop",_mutedDesktopSetting.get()},{"mutedHmd",_mutedHMDSetting.get()},
+            {"pttDesktop",_pttDesktopSetting.get()},{"pttHmd",_pttHMDSetting.get()},
+            {"avatarGain",_avatarGainSetting.get()},{"serverInjectorGain",_injectorGainSetting.get()},
+            {"localInjectorGain",_localInjectorGainSetting.get()},{"systemInjectorGain",_systemInjectorGainSetting.get()},
+            {"noiseReduction",enableNoiseReductionSetting.get()},{"noiseReductionAutomatic",enableNoiseReductionAutomaticSetting.get()},
+            {"noiseReductionThreshold",setNoiseReductionThresholdSetting.get()},{"warnWhenMuted",enableWarnWhenMutedSetting.get()},
+            {"acousticEchoCancellation",enableAcousticEchoCancellationSetting.get()}};
+        return QVariantMap{{"settingsLoaded",_settingsLoaded},{"hmdContext",_contextIsHMD},
+            {"mutedDesktop",_mutedDesktop},{"mutedHmd",_mutedHMD},{"pttDesktop",_pttDesktop},{"pttHmd",_pttHMD},
+            {"pushingToTalk",_pushingToTalk},{"noiseReduction",_enableNoiseReduction},{"noiseReductionAutomatic",_noiseReductionAutomatic},
+            {"noiseReductionThreshold",_noiseReductionThreshold},{"warnWhenMuted",_enableWarnWhenMuted},
+            {"acousticEchoCancellation",_enableAcousticEchoCancellation},{"inputVolume",_inputVolume},
+            {"localInjectorGain",_localInjectorGain},{"systemInjectorGain",_systemInjectorGain},{"pttOutputGainDesktop",_pttOutputGainDesktop},
+            {"persisted",persisted}};
+    });
+}
+#endif
 
 void Audio::saveData() {
     _avatarGainSetting.set(getAvatarGain());
