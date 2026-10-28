@@ -112,7 +112,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             from ios.adapters.script_runtime import IOSScriptRuntime
             from ios.adapters.tablet_web_admission import installed_forward
             identifier(run)
-            need(type(action) is str and action in ('feature-native-observe','feature-ios-lifecycle-world','native-geometry-snapshot'))
+            need(type(action) is str and action in ('feature-native-observe','feature-ios-lifecycle-world','native-geometry-snapshot','ios-bundle-observe'))
             self._candidate_guard(complete=True)
             client,session,state,target,scope=IOSScriptRuntime(self)._existing(selector)
             gate=self._binding(selector,client,session,state,target)
@@ -135,14 +135,16 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             # from this diagnostic reply or a requested revision/hash.
             gate.verify();before=deepcopy(gate.record());installed_forward(initial,before);physical(before)
             artifact=artifact_bundle(path,artifact_sha);compare(artifact,before['observation']['bundle']);physical(before)
+            bundle_profile=action=='ios-bundle-observe'
+            profile={'nativeBundleProfileVersion':1} if bundle_profile else {}
             value=client.execute(session,'mobile: overteOriginalKeeperOperation',dict(operation='touch-native-query',
                 args=dict(binding=deepcopy(binding),runId=run,resultsDirectory=target['testBuild']['resultsDirectory'],
-                          origin=target['testBuild']['fixtureOrigin'],action=action)))
+                          origin=target['testBuild']['fixtureOrigin'],action=action,**profile)))
             physical(before)
             exact(value,{'originalKeeperNativeQueryVersion','ownerInstance','index','query','queryIntentOwned','httpReturnObserved',
                 'nativeDeliveryAcknowledged','freshNativeAcquisitionEstablished','installedCandidateBound',
                 'nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished'})
-            need(type(value['originalKeeperNativeQueryVersion']) is int and value['originalKeeperNativeQueryVersion']==1
+            need(type(value['originalKeeperNativeQueryVersion']) is int and value['originalKeeperNativeQueryVersion']==(2 if bundle_profile else 1)
                 and integer(value['index'],1,32) and value['queryIntentOwned'] is True and value['httpReturnObserved'] is True
                 and all(value[key] is False for key in ('nativeDeliveryAcknowledged','freshNativeAcquisitionEstablished',
                     'installedCandidateBound','nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished')))
@@ -153,13 +155,44 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             need(type(query['schemaVersion']) is int and query['schemaVersion']==1 and query['action']==action
                 and type(query['commandId']) is str and re.fullmatch('ios-[0-9a-f]{32}',query['commandId']) is not None
                 and (action!='feature-ios-lifecycle-world' or query['runId']==run))
+            child_bundle=None;child_original=None
+            if bundle_profile:
+                # The path/nonce is selected here, but ALL observed bundle facts
+                # come from the original child's retained RSD file transaction.
+                from adapters.native_feature_observation import decode
+                from ios.adapters.bundle_observation import validate as validate_bundle
+                child_original=client.execute(session,'mobile: overteOriginalKeeperOperation',dict(operation='touch-native-original-read',
+                    args=dict(binding=deepcopy(binding),runId=run,resultsDirectory=target['testBuild']['resultsDirectory'],
+                              query=deepcopy(query),nativeBundleProfileVersion=1)))
+                physical(before)
+                flags={'queryIssuanceOwned','freshNativeAcquisitionEstablished','installedCandidateBound','physicalFileIdentityEstablished',
+                    'nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished'}
+                exact(child_original,{'originalKeeperNativeFileVersion','ownerInstance','source','action','requestId','rawJson','bytes','sha256'}|flags)
+                need(type(child_original['originalKeeperNativeFileVersion']) is int and child_original['originalKeeperNativeFileVersion']==2
+                    and child_original['ownerInstance']==value['ownerInstance'] and child_original['source']=='original-rsd-house-arrest'
+                    and child_original['action']==action and child_original['requestId']==query['commandId']
+                    and type(child_original['rawJson']) is str and type(child_original['bytes']) is int
+                    and child_original['bytes']==len(child_original['rawJson'].encode('utf-8'))
+                    and child_original['sha256']==hashlib.sha256(child_original['rawJson'].encode('utf-8')).hexdigest()
+                    and all(child_original[key] is False for key in flags))
+                child_bundle=decode(child_original['rawJson'],limit=262144);validate_bundle(child_bundle,query,int(binding['processIdentity']))
+                need(child_bundle['status']=='ready');compare(child_bundle['bundle'],artifact)
+                prior=before['observation']
+                need(child_bundle['instance']==prior['instance'] and child_bundle['preparedEpochMs']==prior['preparedEpochMs']
+                    and child_bundle['sequence']>prior['sequence'] and child_bundle['capturedEpochMs']>=prior['capturedEpochMs'])
             gate.verify();after=deepcopy(gate.record());installed_forward(before,after);physical(after)
+            if child_bundle is not None:
+                final=after['observation']
+                need(child_bundle['instance']==final['instance'] and child_bundle['preparedEpochMs']==final['preparedEpochMs']
+                    and child_bundle['sequence']<final['sequence'] and child_bundle['capturedEpochMs']<=final['capturedEpochMs'])
             final_artifact=artifact_bundle(path,artifact_sha);compare(final_artifact,artifact)
             compare(final_artifact,after['observation']['bundle']);physical(after)
-            return dict(originalKeeperInstalledQueryVersion=1,binding=deepcopy(binding),queryOriginal=deepcopy(value),
+            result=dict(originalKeeperInstalledQueryVersion=2 if bundle_profile else 1,binding=deepcopy(binding),queryOriginal=deepcopy(value),
                 installedBefore=before,installedAfter=after,selectedArtifactBundle=artifact,
                 nativeAcquisitionBound=False,originalChildCandidateBound=False,nativeMotionGuardAvailable=False,
                 nativeTouchSupport=False,resourceRetirementEstablished=False)
+            if child_original is not None:result['childBundleOriginal']=deepcopy(child_original)
+            return result
 
         def _chat_qml_cache_source(self,selector,run):
             # Diagnostic source acquisition only. No normal Chat input,

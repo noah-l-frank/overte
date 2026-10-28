@@ -549,11 +549,14 @@ class OriginalKeeperOperations:
         from adapters.operation_transport_guard import scope as transport_scope
         from ios.adapters.appium_adapter import AppiumAdapter
         from ios.adapters.feature_observation import send_original_command
-        if type(args) is not dict or set(args)!={'binding','runId','resultsDirectory','origin','action'}:raise LaunchError('request')
+        bundle_profile=type(args) is dict and 'nativeBundleProfileVersion' in args
+        expected={'binding','runId','resultsDirectory','origin','action'}|({'nativeBundleProfileVersion'} if bundle_profile else set())
+        if (type(args) is not dict or set(args)!=expected or (bundle_profile and
+                (type(args['nativeBundleProfileVersion']) is not int or args['nativeBundleProfileVersion']!=1 or args['action']!='ios-bundle-observe'))):raise LaunchError('request')
         binding=deepcopy(context(args['binding']));run=args['runId'];directory=args['resultsDirectory'];origin=args['origin'];action=args['action']
         if (binding['sessionId']!=session or type(run) is not str or re.fullmatch('[0-9a-f]{32}',run) is None
                 or type(directory) is not str or len(directory)>128 or re.fullmatch('[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*',directory) is None
-                or action not in ('feature-native-observe','feature-ios-lifecycle-world','native-geometry-snapshot')
+                or action not in (('ios-bundle-observe',) if bundle_profile else ('feature-native-observe','feature-ios-lifecycle-world','native-geometry-snapshot'))
                 or AppiumAdapter.normalized_http_origin(origin,'original native fixture')!=origin):raise LaunchError('request')
         loop=asyncio.get_running_loop();task=asyncio.current_task();source=self.source;rsd=self.scope(session)
         claim_owner=self.session;claim=deepcopy(self.session);touch=self.touch;resource=self.touch_resources
@@ -615,6 +618,7 @@ class OriginalKeeperOperations:
                     if store.read()!=journal['previous']:raise LaunchError('session-lifetime')
             packet=deepcopy(journal['previous']) if journal['previous'] is not None else dict(
                 originalKeeperNativeQueryOwnerVersion=1,binding=deepcopy(binding),runId=run,ownerInstance=self.instance,records=[])
+            if bundle_profile:packet['originalKeeperNativeQueryOwnerVersion']=2
             if len(packet['records'])>=32:raise LaunchError('session-lifetime')
             query=dict(schemaVersion=1,commandId='ios-'+uuid.uuid4().hex,action=action)
             if action=='feature-ios-lifecycle-world':query['runId']=run
@@ -655,7 +659,7 @@ class OriginalKeeperOperations:
             if failure is not None:raise failure
             if 'error' in outcome:raise outcome['error']
             current();await self.fresh_touch_scope(binding);current()
-            return dict(originalKeeperNativeQueryVersion=1,ownerInstance=self.instance,index=record['index'],query=deepcopy(issued_query),
+            return dict(originalKeeperNativeQueryVersion=2 if bundle_profile else 1,ownerInstance=self.instance,index=record['index'],query=deepcopy(issued_query),
                 queryIntentOwned=True,httpReturnObserved=True,nativeDeliveryAcknowledged=False,freshNativeAcquisitionEstablished=False,
                 installedCandidateBound=False,nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
         finally:
@@ -679,7 +683,10 @@ class OriginalKeeperOperations:
         from adapters.normal_feature_state import context
         from adapters.native_feature_observation import decode,validate as native_packet
         from ios.adapters import lifecycle_world as world,native_geometry
-        if type(args) is not dict or set(args)!={'binding','runId','resultsDirectory','query'}:
+        bundle_profile=type(args) is dict and 'nativeBundleProfileVersion' in args
+        expected={'binding','runId','resultsDirectory','query'}|({'nativeBundleProfileVersion'} if bundle_profile else set())
+        if (type(args) is not dict or set(args)!=expected or (bundle_profile and
+                (type(args['nativeBundleProfileVersion']) is not int or args['nativeBundleProfileVersion']!=1))):
             raise LaunchError('request')
         binding=deepcopy(context(args['binding']));query=deepcopy(args['query']);directory=args['resultsDirectory']
         if (binding['sessionId']!=session or type(args['runId']) is not str or re.fullmatch('[0-9a-f]{32}',args['runId']) is None
@@ -688,7 +695,10 @@ class OriginalKeeperOperations:
                 or type(query.get('commandId')) is not str or re.fullmatch('ios-[0-9a-f]{32}',query['commandId']) is None):
             raise LaunchError('request')
         action=query.get('action')
-        if action==world.ACTION:
+        if bundle_profile:
+            from ios.adapters import bundle_observation
+            bundle_observation.command(query);filename=bundle_observation.FILE;limit=262144
+        elif action==world.ACTION:
             world.command(query)
             if query['runId']!=args['runId']:raise LaunchError('request')
             filename=world.FILE;limit=world.LIMIT
@@ -702,7 +712,23 @@ class OriginalKeeperOperations:
         acquisition=self.native_acquisition
         if acquisition is not None and acquisition[0] is not task:raise LaunchError('session-lifetime')
         started=loop.time();deadline=started+1.5
+        query_journal=None;query_previous=None
+        if bundle_profile:
+            query_journal=self.native_query_journals.get(args['runId'])
+            if (query_journal is None or query_journal['source'] is not original_source or query_journal['rsd'] is not rsd
+                    or query_journal['loop'] is not loop or query_journal['claim'] is not original_claim
+                    or query_journal['binding']!=binding or query_journal['directory']!=directory or query_journal['pending'] is not None):
+                raise LaunchError('session-lifetime')
+            query_previous=deepcopy(query_journal['previous'])
+            if (query_previous is None or query_previous['originalKeeperNativeQueryOwnerVersion']!=2
+                    or not any(row['query']==query and row['phase']=='http-returned' for row in query_previous['records'])):
+                raise LaunchError('session-lifetime')
         def current():
+            if query_journal is not None:
+                if (self.native_query_journals.get(args['runId']) is not query_journal or query_journal['pending'] is not None
+                        or query_journal['previous']!=query_previous):raise LaunchError('session-lifetime')
+                with query_journal['lock'].held():
+                    if query_journal['store'].read()!=query_previous:raise LaunchError('session-lifetime')
             if acquisition is not None:
                 if self.native_acquisition is not acquisition:raise LaunchError('session-lifetime')
                 acquisition[1]()
@@ -740,7 +766,8 @@ class OriginalKeeperOperations:
             after=await service.stat(path);current()
             if type(raw) is not bytes or len(raw)!=before['st_size'] or before!=after:raise LaunchError('request')
             text=raw.decode('utf-8');packet=decode(text,limit=limit)
-            if action==world.ACTION:world.validate(packet,query,int(binding['processIdentity']))
+            if bundle_profile:bundle_observation.validate(packet,query,int(binding['processIdentity']))
+            elif action==world.ACTION:world.validate(packet,query,int(binding['processIdentity']))
             elif action=='feature-native-observe':native_packet(packet,query['commandId'],int(binding['processIdentity']),packet['capturedEpochMs'])
             else:native_geometry.validate(packet,query['commandId'],native_epoch_ms=packet['observation']['sampleEpochMs'])
             current()
@@ -761,7 +788,7 @@ class OriginalKeeperOperations:
                 if failure is None:raise
                 failure.add_note('Original native file cleanup is unresolved; original Source responsibility retained.')
         current();await self.fresh_touch_scope(binding);current()
-        result=dict(originalKeeperNativeFileVersion=1,ownerInstance=self.instance,source='original-rsd-house-arrest',
+        result=dict(originalKeeperNativeFileVersion=2 if bundle_profile else 1,ownerInstance=self.instance,source='original-rsd-house-arrest',
             action=action,requestId=query['commandId'],rawJson=text,bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),
             queryIssuanceOwned=False,freshNativeAcquisitionEstablished=False,installedCandidateBound=False,
             physicalFileIdentityEstablished=False,nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)

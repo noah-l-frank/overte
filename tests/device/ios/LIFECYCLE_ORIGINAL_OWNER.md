@@ -166,3 +166,23 @@ pins. Both runs pass their original FD/task/thread/child censuses. The first
 model attempt used an incorrect empty-list expectation for an empty dictionary;
 its 13 files and failure remain retained. No native, authentication, device or
 whole-lifecycle qualification follows.
+
+## Source-owned native bundle observations
+
+The optional bundle query profile now joins the existing source-owned HTTP
+nonce and durable query journal to the original child's fixed bundle file.
+Only that live journal can authorize the read. The host compares the original
+bytes with the independently measured selected IPA and brackets their native
+instance, preparation, sequence and capture time with the existing installed
+binding. Pending native preparation stays pending; a diagnostic query never
+grants child candidate or motion authority. Legacy query/file profiles remain
+readable and use their original routes.
+
+Twelve new host source models pass in 1.190 seconds, retaining 126 files in
+24 genuine roots. The 24 distinct original file/query/installed-binding cases
+pass again in 5.150 seconds, retaining 94 files in 30 genuine roots. Both runs
+preserve actual source/launcher/SDK pins and pass their original FD, task,
+thread and child censuses. Native, RSD and SDK producers remain declared
+models. The selected IPA still needs independent admission inside the original
+child before it can support motion; native/device and whole-feature gates
+remain closed.
