@@ -174,7 +174,34 @@ class WorldWebTerminal:
             if saved is not None:need(same(row,saved))
             roles[flow.role]=row;parts[flow.role]=component
         need(roles['primary']['measured']['ticket']==roles['actor']['measured']['ticket'])
+        self.retained_inputs(parts,historical=historical)
         return roles,parts
+
+    def retained_inputs(self,parts,*,historical=False):
+        """Close the current role decode over real GPU and publication files.
+
+        Frozen sample/GPU snapshots and Scene3 do not read these separate
+        runtime/publication heads. Only existing typed decoders can admit
+        their actual reads before the unchanged rooted orphan census.
+        """
+        from ios.adapters.world_web_retirement import WorldWebRetirement
+        from ios.adapters.world_web_setup_retirement import WorldWebSetupRetirement
+        primary=parts['primary']['retirement'];actor=parts['actor']['retirement']
+        need(type(primary) in (WorldWebRetirement,WorldWebSetupRetirement) and primary.role=='primary'
+            and primary.state['phase']=='retired' and primary.state['records'])
+        with actor.observer.validation_round():
+            if type(primary) is WorldWebRetirement:
+                rows=primary.gpu_rows(primary.frame(primary.state['records'][-1]))
+                expected={row['requestId']:row['owner'] for row in rows};need(len(expected)==len(rows))
+            else:
+                row=primary.state['records'][-1];values=primary.values(row)
+                expected={request:values['gpu-owner:'+request] for request in row['images']}
+            need(set(expected)==set(primary.state['images']))
+            for request,original in expected.items():primary.sample(request).current_owner_original(original)
+            # Empty selection still invokes the original full archive/load
+            # decoder and exact record inventory. It publishes nothing and
+            # does not rename, adopt or guess any carrier into membership.
+            self.actor_publications(parts['actor'],[],historical=historical)
 
     def descriptor(self,roles):
         value=dict(featureTerminalVersion=1,profile=terminal.PROFILE,area='world-web',runId=self.flow.run,
@@ -189,8 +216,14 @@ class WorldWebTerminal:
         store=PrivateFeatureState(self.actor.store.path.with_name('phase-publication-world-web-'+self.flow.run+'-actor.json'))
         self.actor.lock.assert_held();observer.round_guard()
         if not historical:need(observer.guard() is not False)
-        signature=WorldWebRetirement.record_signature(store.path);original=store.read();need(original is not None)
         def inventory():return set(store.path.parent.glob(store.path.stem+'-*.json'))
+        try:signature=WorldWebRetirement.record_signature(store.path)
+        except FileNotFoundError:
+            # Inspect may have no earlier witness publication at all. An
+            # absent head grants no receipt: record-only responsibility and
+            # a requested live window still fail closed without a decoder.
+            need(store.read() is None and not samples and not inventory());return []
+        original=store.read();need(original is not None)
         present=inventory();need(len(present)<=512)
         pins={path:WorldWebRetirement.record_signature(path) for path in present};pins[store.path]=signature
         # Sealing reads actual committed originals. A newly reconstructed actor

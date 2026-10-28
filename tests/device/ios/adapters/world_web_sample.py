@@ -75,6 +75,31 @@ class WorldWebSample:
         try:observed=self.measure()
         except BaseException:self.state['phase']='failed';self.save();raise
         self.state.update(phase='qualified',qualification=observed);self.save();return deepcopy(observed)
+    def current_owner_original(self,expected):
+        """Read current GPU custody, joined to its last actual retirement row.
+
+        This is neither a new native inspection nor an image/effect verdict.
+        Historical sample pixels retain their separate acquisition decoder.
+        """
+        from copy import copy
+        from ios.adapters.emote_original_lease import EmoteOriginalLease
+        from ios.adapters.world_web_final_archive import file_original
+        self.lock.assert_held();frame=self.frame_owner
+        need(type(frame) is VulkanWorldFrameOwner and frame.lock is self.lock and frame.role=='primary' and frame.stage==0
+            and frame.binding==self.binding and frame.run==self.run and frame.request_id==self.request
+            and frame.store.path==self.store.path.with_name('graphics-world-frame-primary-0-'+self.request[4:]+'.json'))
+        before=EmoteOriginalLease.signature(frame.store.path.lstat())
+        # Same actual store and original decoder, with fail-closed transport.
+        # Current installed/native guards are the enclosing role's boundary;
+        # this passive custody replay must not acquire a new SDK/native fact.
+        readonly=copy(frame);readonly.guard=lambda:True;readonly.factory=lambda *_args:need(False)
+        readonly.verify_owned_artifact();need(same(readonly.state,expected))
+        if readonly.state['file'] is not None:
+            original=file_original(readonly.root/readonly.name)
+            need((original['device'],original['inode'])==(readonly.state['file']['device'],readonly.state['file']['inode']))
+        need(same(frame.store.read(),expected) and EmoteOriginalLease.signature(frame.store.path.lstat())==before)
+        return deepcopy(readonly.state)
+
     def retire_runtime(self):
         self.lock.assert_held()
         if self.frame_owner.store.read() is not None:

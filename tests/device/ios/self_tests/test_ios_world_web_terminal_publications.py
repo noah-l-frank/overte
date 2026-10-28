@@ -70,4 +70,50 @@ class WorldWebTerminalPublicationsTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):terminal.actor_publications(parts,samples)
 
 
+    def test_empty_requested_selection_still_decodes_all_actual_publisher_originals(self):
+        from adapters.original_file_reads import scope as read_scope
+        f=self.f
+        with f.lock.held():
+            terminal,parts,_samples,publisher=self.journal()
+            with patch.object(f.actor,'request',side_effect=AssertionError('No HTTP in custody replay')),read_scope(fresh=True) as reads:
+                self.assertEqual([],terminal.actor_publications(parts,[]))
+                self.assertIn(publisher.store.path,reads)
+                for reference in publisher.state['records']:self.assertIn(publisher.record_store(reference['ordinal']).path,reads)
+            self.assertIsNone(terminal.actor.phase.previous)
+
+    def test_empty_selection_cannot_hide_same_inode_record_rewrite_inside_actual_archive_decode(self):
+        import os
+        import time
+        f=self.f
+        with f.lock.held():
+            terminal,parts,_samples,publisher=self.journal();path=publisher.record_store(1).path
+            validate=parts['retirement'].observer.validate_original;changed=[]
+            def rewritten(value):
+                result=validate(value)
+                if not changed:
+                    changed.append(True);before=path.stat();raw=path.read_bytes();time.sleep(.002)
+                    path.write_bytes(raw);os.utime(path,ns=(before.st_atime_ns,before.st_mtime_ns))
+                    self.assertEqual(before.st_ino,path.stat().st_ino);self.assertEqual(raw,path.read_bytes())
+                return result
+            parts['retirement'].observer.validate_original=rewritten
+            with self.assertRaises(NativeUIError):terminal.actor_publications(parts,[])
+            self.assertEqual([True],changed)
+
+
+    def test_absent_unrequested_publisher_is_not_created_and_record_only_orphan_refuses(self):
+        f=self.f
+        with f.lock.held():
+            terminal=object.__new__(WorldWebTerminal);terminal.flow=SimpleNamespace(run=f.run)
+            terminal.actor=SimpleNamespace(store=PrivateFeatureState(f.root/'ios-world-web-actor-feature.json'),lock=f.lock)
+            parts=dict(retirement=SimpleNamespace(observer=SimpleNamespace(guard=lambda:True,round_guard=lambda:None)))
+            path=f.root/('phase-publication-world-web-'+f.run+'-actor.json')
+            with patch.object(PrivateFeatureState,'write',side_effect=AssertionError('Read must not create a publisher')):
+                self.assertEqual([],terminal.actor_publications(parts,[]));self.assertFalse(path.exists())
+                with self.assertRaises(NativeUIError):terminal.actor_publications(parts,[dict(unqualifiedSelection=True)])
+            orphan=PrivateFeatureState(path.with_name(path.stem+'-1.json'));value=dict(unqualifiedOrphan=True)
+            orphan.write(value,None)
+            with self.assertRaises(NativeUIError):terminal.actor_publications(parts,[])
+            self.assertEqual(value,orphan.read());self.assertFalse(path.exists())
+
+
 if __name__=='__main__':unittest.main()

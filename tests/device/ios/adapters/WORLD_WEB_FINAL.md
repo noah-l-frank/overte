@@ -964,3 +964,34 @@ was not preserved. All 1,110 files from this attempt and the earlier 1,124 files
 remain retained and unchanged. A separate immediate-error diagnostic is prepared;
 neither terminal recovery, the full nineteen-step journey nor public capability
 admission receives a PASS from these focused tests.
+
+## Actual retained GPU and Actor publication inputs
+
+The subsequent immediate-error diagnostic identifies the exact missing-read
+boundary: the rooted census finds 583 files, while 576 actual reads and two
+typed terminal-owned paths omit three GPU owner WALs and the Actor publication
+head plus three records. That single case fails at the inventory subset check
+in 215.399 seconds; all 589 original files remain unchanged.
+
+Role reconstruction now opens each actual current GPU owner through its existing
+custody decoder, matches the exact last retirement row and reads its bounded
+retained file bytes. Empty or partial artifacts prove custody only; historical
+pixel/effect qualification remains separate. It also runs the existing full
+Actor publication archive/load decoder even when no live samples are selected.
+An absent publication head is legal only with an empty requested selection and
+no record files. No head is created, orphan adopted or pathname promoted into
+membership. The rooted inventory implementation remains byte-identical.
+
+Twelve focused real-file/PNG/publisher cases pass in 1.065 seconds, covering
+actual read membership, mismatched ownership, same-inode rewrite, same-byte
+replacement, extra GPU/publication records, incomplete custody and absent-head
+refusal. All 55 files and 7,669 source/launcher/reference pins remain unchanged;
+owned processes and listeners have exited. Native producers remain models.
+
+The corrected connected normal case still reaches the unchanged 300-second
+outer bound without an observed exception. It retains 645 unchanged files and
+7,680 unchanged source pins. Its journals now include a committed first terminal
+live-window record; the timeout is later in the second cleanup-window
+observation, before its next live record commits. No process/SDK endpoint or
+whole-feature PASS is claimed. The separate lost-complete-return case remains
+unrun against this correction while that connected boundary is unresolved.
