@@ -115,3 +115,24 @@ WALs, Python execution, loop/thread lifetimes and loopback transport checks
 execute. The JavaScript operation allowlist additions receive source review
 only. Native compilation and device/authentication qualification
 remain unverified. Earlier failed model setups remain retained separately.
+
+## Source-owned acquisition originals
+
+The keeper joins four distinct source-born queries (native-before, geometry,
+World and native-after) under one shared 1.5-second acquisition deadline.
+Original file bytes enter the retained frame store before the compact reference
+is returned. The runtime reconstructs that same original through bounded
+4096-byte reads and checks its full digest, file identity, binding, query nonces
+and native clock join. Original payloads do not expand the existing reply or
+pipe limits. An uncertain saved return retains its original pending frame and
+cannot authorize another acquisition.
+
+Eight additional source-model cases pass in 3.483 seconds, retaining 36 files
+in eight genuine roots with 8,508 source/launcher/reference pins unchanged.
+They cover the real query/WAL/file/chunk-consumer path, foreign nonces, RSD
+replacement, the shared deadline, uncertain returns, inode replacement,
+truncated chunks and stale geometry. Original FD/task/thread/child guards pass.
+Native, RSD, HTTP and SDK producers remain declared models. The JavaScript
+route receives source review only; its cold WDA binding and the original-child
+motion connection still require integration. Installed-candidate, native-touch,
+resource-retirement and whole-lifecycle gates remain closed.
