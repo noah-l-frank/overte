@@ -57,9 +57,16 @@ def motion_original(value,binding,run):
     from ios.adapters.lifecycle_world_hold import coordinates
     from ios.adapters import lifecycle_world as world
     exact(value,{'iosLifecycleTouchResourceOwnerVersion','binding','runId','state'})
-    need(type(value['iosLifecycleTouchResourceOwnerVersion']) is int and value['iosLifecycleTouchResourceOwnerVersion']==2
+    need(type(value['iosLifecycleTouchResourceOwnerVersion']) is int and value['iosLifecycleTouchResourceOwnerVersion'] in (2,3)
         and same(context(value['binding']),binding) and value['runId']==run)
-    state=deepcopy(value['state']);exact(state,{'phase','ownerInstance','hostProcessId','frame','path','seconds','sourceContext'})
+    state=deepcopy(value['state']);keys={'phase','ownerInstance','hostProcessId','frame','path','seconds','sourceContext'}
+    if value['iosLifecycleTouchResourceOwnerVersion']==3:keys.add('acquisitionReference')
+    exact(state,keys)
+    if value['iosLifecycleTouchResourceOwnerVersion']==3:
+        from ios.adapters.keyboard_source import sha
+        ref=state['acquisitionReference'];exact(ref,{'index','sha256','bytes','device','inode'});sha(ref['sha256'])
+        need(integer(ref['index'],1,1024) and integer(ref['bytes'],2,1024*1024)
+            and integer(ref['device'],0,2**64-1) and integer(ref['inode'],1,2**64-1))
     need(state['phase']=='motion-prepared' and integer(state['hostProcessId'],1) and number(state['seconds'],0,12) and state['seconds']>0)
     identifier(state['ownerInstance']);frame=state['frame'];exact(frame,{'originals','clockJoin'})
     exact(frame['originals'],{'world','worldClock','geometry','window'})
@@ -78,6 +85,95 @@ def motion_original(value,binding,run):
     validate_actions(body,path['window']['width'],path['window']['height']);return state
 
 
+class _NativeMotionReference:
+    """Local source-born receipt; JSON/reference content is never authority.
+
+    Weak SDK/source/task pairing plus live journal membership is mandatory on
+    EACH real original reread. No native verdict or product owner is retained.
+    """
+    def __init__(self,owner,journal,reference,window_task,window_function,started):
+        source=owner.source;loop=asyncio.get_running_loop();creator=source._creator_task()
+        need(type(source._native_motion_key) is object and isinstance(creator,asyncio.Task)
+            and creator.get_loop() is loop and not creator.done() and source._loop is loop
+            and isinstance(owner.wda,asyncio.Task) and owner.wda.get_loop() is loop and not owner.wda.done()
+            and isinstance(window_task,asyncio.Task) and window_task.get_loop() is loop and window_task.done()
+            and not window_task.cancelled() and window_task.exception() is None)
+        self._owner,self._source,self._rsd,self._loop=weakref.ref(owner),weakref.ref(source),weakref.ref(journal['rsd']),weakref.ref(loop)
+        self._creator,self._wda=weakref.ref(creator),weakref.ref(owner.wda)
+        self._source_function=source.current.__func__;self._current_function=owner._native_acquisition_current.__func__
+        self._files_function=owner._native_acquisition_files.__func__;self._key=source._native_motion_key
+        self._window_getter=owner._native_motion_window_function.__func__
+        self._run=journal['run'];self._journal_key=journal.setdefault('motionBirth',object())
+        self._reference,self._window_task=deepcopy(reference),window_task
+        self._window_function,self._window_session=window_function,owner.wda_session
+        self._capture=weakref.ref(asyncio.current_task());self._started=started;self._deadline=started+1.5
+        self._target=None;self._failed=False
+    @property
+    def reference(self):return deepcopy(self._reference)
+    def _original_journal(self):
+        owner=self._owner();need(owner is not None)
+        journal=owner.native_acquisition_journals.get(self._run)
+        need(journal is not None and journal.get('motionBirth') is self._journal_key)
+        return journal
+    def _check(self):
+        try:
+            source,owner,rsd,loop=self._source(),self._owner(),self._rsd(),self._loop()
+            creator,wda,capture=self._creator(),self._wda(),self._capture()
+            need(not self._failed and source is not None and owner is not None and rsd is not None
+                and loop is asyncio.get_running_loop() and source._loop is loop and source._native_motion_key is self._key
+                and source.current.__func__ is self._source_function and owner.source is source
+                and owner._native_acquisition_current.__func__ is self._current_function
+                and owner._native_acquisition_files.__func__ is self._files_function
+                and owner._native_motion_window_function.__func__ is self._window_getter
+                and owner._native_motion_window_function() is self._window_function
+                and creator is not None and not creator.done() and creator.get_loop() is loop
+                and wda is not None and owner.wda is wda and not wda.done() and wda.get_loop() is loop
+                and owner.wda_session==self._window_session and owner.wda_binding_claimed
+                and capture is not None and capture.done() and not capture.cancelled() and capture.exception() is None
+                and self._window_task.done() and not self._window_task.cancelled() and self._window_task.exception() is None
+                and not source._leases and not source._born and owner.touch is None
+                and loop.time()<self._deadline and owner.instance==self._original_journal()['previous']['ownerInstance'])
+            target=None if self._target is None else self._target()
+            need((self._target is None and owner.touch_resources is None)
+                or (target is not None and owner.touch_resources is target))
+            owner._native_acquisition_current(self._original_journal(),self._original_journal()['binding']['sessionId'])
+            need(self._original_journal()['rsd'] is rsd and self._original_journal().get('motionOriginals',{}).get(self._reference['sha256']) is self
+                and self._reference in self._original_journal()['previous']['frames'] and self._original_journal()['previous']['pending'] is None)
+        except BaseException:
+            self._failed=True # Observed unknown scope never revives by ABA.
+            raise
+    def revoke(self):self._failed=True
+    def bind(self,source,resource,owner_instance):
+        owner=self._owner();need(source is self._source() and owner is not None and owner.instance==owner_instance
+            and self._target is None and owner.touch_resources is resource and resource.lock is self._original_journal()['lock']
+            and resource.binding==self._original_journal()['binding'] and resource.run==self._original_journal()['run']
+            and resource.version==1 and resource.previous is None and resource._factory is None)
+        # The actual existing Source.prepare_motion calls this only after its
+        # exact Source/Resource type checks; no RPC field can supply this object.
+        self._target=weakref.ref(resource);self._check()
+    def original(self,source,resource,owner_instance):
+        from adapters.native_clock_join import validate_join
+        from ios.adapters.lifecycle_world_attempt import source_frame_original
+        self._check();owner=self._owner();need(source is self._source() and owner.instance==owner_instance
+            and (resource is None or self._target is not None and self._target() is resource))
+        files=owner._native_acquisition_files(self._original_journal(),self._check)
+        frame=files.read(files.expand(self._reference));self._check()
+        exact(frame,{'originalKeeperNativeAcquisitionFrameVersion','originals','clockJoin','reads','sdkWindow'})
+        need(type(frame['originalKeeperNativeAcquisitionFrameVersion']) is int and frame['originalKeeperNativeAcquisitionFrameVersion']==2
+            and frame['clockJoin']['hostBeforeMonotonic']==self._started)
+        exact(frame['originals'],{'world','worldClock','geometry','window'})
+        sdk=frame['sdkWindow'];exact(sdk,{'method','path','reply','hostBeforeMonotonic','hostAfterMonotonic'})
+        from urllib.parse import quote
+        need(sdk['method']=='GET' and sdk['path']=='/session/'+quote(self._window_session,safe='')+'/window/rect'
+            and sdk['reply']==self._window_task.result() and type(sdk['reply']) is dict
+            and sdk['reply'].get('value')==frame['originals']['window']
+            and self._started<=sdk['hostBeforeMonotonic']<=sdk['hostAfterMonotonic']
+            <=frame['clockJoin']['hostAfterMonotonic']<self._deadline)
+        validate_join(frame['clockJoin'],frame['originals']);source_frame_original(frame,self._original_journal()['binding'],self._original_journal()['run'])
+        result=dict(originals=deepcopy(frame['originals']),clockJoin=deepcopy(frame['clockJoin']))
+        self._check();return result
+
+
 class LifecycleTouchResourceOwner:
     def __init__(self,store,binding,run,lock,guard):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock) and callable(guard))
@@ -85,9 +181,9 @@ class LifecycleTouchResourceOwner:
         need(store.path.name=='ios-lifecycle-touch-resources-'+run+'.json' and lock.path==store.path.parent/'script-feature-sources.lock')
         self.previous=store.read();self.state=None;self._source=None;self._lease=None;self._retained=None;self._factory=None;self._loop=None
         self.version=1 if self.previous is None else self.previous.get('iosLifecycleTouchResourceOwnerVersion')
-        need(type(self.version) is int and self.version in (1,2))
+        need(type(self.version) is int and self.version in (1,2,3))
         self._motion_source=self._motion_rsd=self._motion_loop=self._motion_current_function=self._motion_address=None
-        self._motion_failed=False
+        self._motion_failed=False;self._motion_original=None
         self.files=OriginalFrameStore(store.path.parent,self.binding,run,'primary',self.file_guard,self.intent,
             namespace='lifecycle-touch-resource',schema_prefix='iosLifecycleTouchResource')
         if self.previous is not None:self.state=self.decode(self.previous)
@@ -99,7 +195,7 @@ class LifecycleTouchResourceOwner:
         self.file_guard();value=self.envelope();self.store.write(value,self.previous)
         need(same(self.store.read(),value));self.previous=deepcopy(value)
     def decode(self,value):
-        if self.version==2:return motion_original(value,self.binding,self.run)
+        if self.version in (2,3):return motion_original(value,self.binding,self.run)
         state=owner_header(value,self.binding,self.run)
         previous=None
         for index,ref in enumerate(state['frames'],1):
@@ -110,7 +206,7 @@ class LifecycleTouchResourceOwner:
         return state
     def frame(self,value,state=None,previous=None):
         return capture_original(value,self.state if state is None else state,previous)
-    def prepare_motion(self,source,owner_instance,frame,*,seconds):
+    def prepare_motion(self,source,owner_instance,original,*,seconds):
         """Record immutable intent before Down; does not acquire a worker.
 
         Called only by the actual original keeper Source. Weak actual object/
@@ -118,28 +214,36 @@ class LifecycleTouchResourceOwner:
         """
         from ios.adapters.lifecycle_world_hold import coordinates
         from ios.adapters import lifecycle_world as world
-        self.current();need(self.version==1 and self.previous is None and self._factory is None)
+        self.current();need(self.version==1 and self.previous is None and self._factory is None
+            and type(original) is _NativeMotionReference)
+        frame=original.original(source,self,owner_instance)
         loop=asyncio.get_running_loop();need(source._loop is loop)
         original_rsd,address=source.current();current_function=source.current.__func__
         state=dict(phase='motion-prepared',ownerInstance=identifier(owner_instance),hostProcessId=os.getpid(),
-            frame=deepcopy(frame),path=coordinates(frame),seconds=seconds,sourceContext=world.context(frame['originals']['world']))
-        envelope=dict(iosLifecycleTouchResourceOwnerVersion=2,binding=deepcopy(self.binding),runId=self.run,state=state)
+            frame=deepcopy(frame),path=coordinates(frame),seconds=seconds,sourceContext=world.context(frame['originals']['world']),
+            acquisitionReference=original.reference)
+        envelope=dict(iosLifecycleTouchResourceOwnerVersion=3,binding=deepcopy(self.binding),runId=self.run,state=state)
         motion_original(envelope,self.binding,self.run)
         # These motion-pair fields add only weak SDK/Source/product edges.
         # The existing owner guard/factory retains its original responsibility;
         # a restored DTO cannot recreate that source/loop or authorize input.
         self._motion_source=weakref.ref(source);self._motion_rsd=weakref.ref(original_rsd);self._motion_loop=weakref.ref(loop)
         self._motion_current_function=current_function;self._motion_address=address
-        self.version=2;self.state=state;self.save();self.motion_current();return deepcopy(self.previous)
+        self.version=3;self.state=state;self._motion_original=original;self.save();self.motion_current();return deepcopy(self.previous)
     def motion_current(self):
         try:
-            self.current();need(self.version==2 and not self._motion_failed and self._motion_source is not None
+            self.current();need(self.version in (2,3) and not self._motion_failed and self._motion_source is not None
                 and self.state['hostProcessId']==os.getpid() and same(self.envelope(),self.previous))
             source=self._motion_source();loop=self._motion_loop();rsd=self._motion_rsd()
             need(source is not None and loop is asyncio.get_running_loop() and source._loop is loop and rsd is not None
                 and source.current.__func__ is self._motion_current_function)
             current,address=source.current();need(current is rsd and address==self._motion_address)
-            motion_original(self.previous,self.binding,self.run);return True
+            motion_original(self.previous,self.binding,self.run)
+            if self.version==3:
+                need(type(self._motion_original) is _NativeMotionReference
+                    and self._motion_original.reference==self.state['acquisitionReference']
+                    and self._motion_original.original(source,self,self.state['ownerInstance'])==self.state['frame'])
+            return True
         except BaseException:
             self._motion_failed=True # Observed unknown scope cannot revive by ABA.
             raise
@@ -152,6 +256,8 @@ class LifecycleTouchResourceOwner:
         """
         if self.version==2:
             raise TouchTransportUnavailable('Original child native world/geometry/current deadline guard is not connected for motion')
+        if self.version==3:
+            raise TouchTransportUnavailable('Independent child installed-candidate bytes and native current movement admission are unavailable')
         # Refuse another owner namespace before constructing or touching a
         # TouchLease journal, including this resource-owner pathname itself.
         need(isinstance(store,PrivateFeatureState) and store.path!=self.store.path

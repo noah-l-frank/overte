@@ -103,7 +103,9 @@ async function tryOriginalKeeperLaunch(driver, remoteXpc, options) {
             if (retained && (!originalClaimAccepted || originalKeeperRoutes.get(driver) !== bridge ||
                 !args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).length !== 0))
                 throw new Error('Original retained touch owner unavailable');
-            if (operation === 'touch-begin') await bindWda();
+            const nativeRead = ['touch-begin', 'touch-native-query', 'touch-native-original-read', 'touch-native-acquire', 'touch-native-motion-acquire'].includes(operation);
+            if (nativeRead) await bindWda();
+            if (nativeRead || operation === 'touch-motion-prepare') originalWda();
             const liveScope = () => driver.opts.udid === udid && driver.opts.bundleId === archive &&
                 ((cleanup && operation === 'wda-stop') || driver.sessionId === session);
             if (!retained && !liveScope()) throw new Error('Original keeper scope changed');
@@ -113,7 +115,7 @@ async function tryOriginalKeeperLaunch(driver, remoteXpc, options) {
             });
             if (response?.originalKeeperOperationVersion !== 1 || response.ownerInstance !== retainedScope.ownerInstance ||
                 (!retained && !liveScope())) throw new Error('Original keeper scope changed');
-            if (operation === 'touch-begin') originalWda();
+            if (nativeRead || operation === 'touch-motion-prepare') originalWda();
             return response.result;
         },
         async cleanup() {
@@ -127,7 +129,7 @@ async function tryOriginalKeeperLaunch(driver, remoteXpc, options) {
     originalKeeperRoutes.set(driver, bridge);
     Object.defineProperty(driver, ORIGINAL_KEEPER_ROUTE, {value: Object.freeze({
         request: (operation, args) => {
-            if (!['process-read', 'touch-begin', 'touch-release', 'touch-inspect', 'touch-settle', 'touch-resource-capture', 'touch-resource-recover', 'touch-motion-prepare', 'touch-native-original-read', 'touch-native-query', 'touch-native-acquire', 'touch-native-acquisition-read'].includes(operation))
+            if (!['process-read', 'touch-begin', 'touch-release', 'touch-inspect', 'touch-settle', 'touch-resource-capture', 'touch-resource-recover', 'touch-motion-prepare', 'touch-native-original-read', 'touch-native-query', 'touch-native-acquire', 'touch-native-acquisition-read', 'touch-native-motion-acquire'].includes(operation))
                 throw new Error('Original keeper operation unavailable');
             return bridge.request(operation, args);
         },

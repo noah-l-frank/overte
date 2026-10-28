@@ -194,6 +194,7 @@ class OriginalKeeperSource:
         self._tunnel = weakref.ref(tunnel)
         self._source = tunnel.original_source()
         self._loop = asyncio.get_running_loop()
+        self._creator_task=weakref.ref(asyncio.current_task());self._native_motion_key=object()
         self._leases = []
         self._born = []
         self._native_reads = []
@@ -272,14 +273,15 @@ class OriginalKeeperSource:
         self._leases.append(lease)
         return lease
 
-    def prepare_motion(self,resource,owner_instance,frame,*,seconds):
-        from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner
+    def prepare_motion(self,resource,owner_instance,original,*,seconds):
+        from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner,_NativeMotionReference
         if (type(self) is not OriginalKeeperSource or self._closing or type(resource) is not LifecycleTouchResourceOwner
-                or asyncio.get_running_loop() is not self._loop):raise LaunchError('session-lifetime')
+                or type(original) is not _NativeMotionReference or asyncio.get_running_loop() is not self._loop):raise LaunchError('session-lifetime')
         self.current()
         # This actual Source object/loop remains local. The serialized owner ID
         # is correlation only, never a callable or authentication capability.
-        return resource.prepare_motion(self,owner_instance,frame,seconds=seconds)
+        original.bind(self,resource,owner_instance)
+        return resource.prepare_motion(self,owner_instance,original,seconds=seconds)
 
     async def _close_native_read(self,row):
         # Cleanup uses the ORIGINAL retained bound method on the ORIGINAL
@@ -572,7 +574,7 @@ class OriginalKeeperOperations:
                 if self.native_query_journals.get(run) is not journal or journal['pending'] is not None or query!=issued_query:raise LaunchError('session-lifetime')
                 with journal['lock'].held():
                     if journal['store'].read()!=journal['previous']:raise LaunchError('session-lifetime')
-            if resource is not None and resource.version==2:
+            if resource is not None and resource.version in (2,3):
                 with resource.lock.held():resource.motion_current()
             if touch is not None:
                 born=next((row for row in source._born if row['lease'] is touch),None)
@@ -707,7 +709,7 @@ class OriginalKeeperOperations:
             if (asyncio.get_running_loop() is not loop or self.source is not original_source or original_source._closing or self.draining or self.closed
                     or self.session is not original_claim or self.session!=claim or self.scope(session) is not rsd or self.touch is not touch
                     or self.touch_resources is not resource or loop.time()>=deadline):raise LaunchError('session-lifetime')
-            if resource is not None and resource.version==2:
+            if resource is not None and resource.version in (2,3):
                 with resource.lock.held():resource.motion_current()
             if touch is not None:
                 born=next((row for row in self.source._born if row['lease'] is touch),None)
@@ -766,6 +768,8 @@ class OriginalKeeperOperations:
         if len(json.dumps(result,separators=(',',':'),ensure_ascii=True).encode('ascii'))>12000:raise LaunchError('request')
         return result
 
+    def _native_motion_window_function(self):return WdaServiceClient._request_json
+
     def _native_acquisition_owner(self,binding,run,session):
         from copy import deepcopy
         from adapters.normal_feature_state import PrivateFeatureState,context
@@ -823,7 +827,7 @@ class OriginalKeeperOperations:
         return OriginalFrameStore(self.state_root,journal['binding'],journal['run'],'primary',guard,intent,
             namespace='lifecycle-native-acquisition',schema_prefix='iosLifecycleNativeAcquisition')
 
-    async def native_acquire(self,args,session):
+    async def native_acquire(self,args,session,*,_motion_window=False):
         """Four actual owned query/file pairs; immutable raw originals, no motion."""
         from copy import deepcopy
         from adapters.native_feature_observation import decode
@@ -841,6 +845,12 @@ class OriginalKeeperOperations:
         loop=asyncio.get_running_loop();task=asyncio.current_task()
         if self.native_acquisition is not None or not isinstance(task,asyncio.Task):raise LaunchError('session-lifetime')
         journal=self._native_acquisition_owner(binding,run,session);touch=self.touch;resource=self.touch_resources
+        if _motion_window:
+            creator=journal['source']._creator_task()
+            if (touch is not None or resource is not None or journal['source']._leases or journal['source']._born
+                    or not isinstance(creator,asyncio.Task) or creator.done() or creator.get_loop() is not loop
+                    or not isinstance(self.wda,asyncio.Task) or self.wda.done() or self.wda.get_loop() is not loop
+                    or self.wda_session is None or not self.wda_binding_claimed):raise LaunchError('session-lifetime')
         if journal['previous']['pending'] is not None or len(journal['previous']['frames'])>=8:raise LaunchError('session-lifetime')
         started=loop.time();epoch=time.time()*1000;deadline=started+1.5;token=None
         def current():
@@ -864,9 +874,36 @@ class OriginalKeeperOperations:
                 return decode(value['rawJson'],limit=262144)
             first=await original('feature-native-observe')
             geometry=await original('native-geometry-snapshot')
+            sdk_window=None;window_task=None;window_function=None
+            if _motion_window:
+                from copy import deepcopy
+                from adapters.native_feature_observation import number
+                await self.fresh_touch_scope(binding);current()
+                wda=self.wda;wda_session=self.wda_session;client=WdaServiceClient(journal['rsd'],port=8100,timeout=2.0)
+                read=client._request_json;window_function=self._native_motion_window_function()
+                if read.__self__ is not client or read.__func__ is not window_function:raise LaunchError('session-lifetime')
+                path='/session/'+quote(wda_session,safe='')+'/window/rect';before=loop.time()
+                window_task=asyncio.create_task(read('GET',path),name='original-native-motion-window')
+                failure=None
+                # SDK's timeout attribute is not an enforced deadline. Keep
+                # THIS actual operation Task alive until its original return.
+                while not window_task.done():
+                    try:await asyncio.shield(window_task)
+                    except BaseException as error:failure=failure or error
+                reply=deepcopy(window_task.result())
+                if failure is not None:raise failure
+                current();await self.fresh_touch_scope(binding);current()
+                if (self.wda is not wda or self.wda_session!=wda_session or wda.done()
+                        or self._native_motion_window_function() is not window_function):raise LaunchError('session-lifetime')
+                rect=reply.get('value') if type(reply) is dict else None
+                if (type(rect) is not dict or set(rect)!={'x','y','width','height'}
+                        or not all(number(rect[k],-10000,10000) for k in ('x','y'))
+                        or not all(number(rect[k],1,10000) for k in ('width','height'))):raise LaunchError('request')
+                sdk_window=dict(method='GET',path=path,reply=reply,hostBeforeMonotonic=before,hostAfterMonotonic=loop.time())
             packet=await original(world.ACTION)
             last=await original('feature-native-observe');current()
             originals=dict(world=packet,worldClock=dict(capturedEpochMs=packet['clockAfter']['epochMs']),geometry=geometry)
+            if _motion_window:originals['window']=deepcopy(sdk_window['reply']['value'])
             joined=dict(clockJoinVersion=1,hostBeforeEpochMs=epoch,hostAfterEpochMs=time.time()*1000,
                 hostBeforeMonotonic=started,hostAfterMonotonic=loop.time(),nativeBefore=first,nativeAfter=last,
                 sourceTimes=[dict(source='worldClock',field='capturedEpochMs',epochMs=packet['clockAfter']['epochMs'])],
@@ -879,16 +916,22 @@ class OriginalKeeperOperations:
             # Canonical frame retains exact RAW file strings and their original
             # byte hashes as well as typed join. Aggregate bytes stay on disk;
             # no result/pipe cap is enlarged or original truncated.
-            frame=dict(originalKeeperNativeAcquisitionFrameVersion=1,originals=originals,clockJoin=joined,reads=reads)
+            frame=dict(originalKeeperNativeAcquisitionFrameVersion=2 if _motion_window else 1,originals=originals,clockJoin=joined,reads=reads)
+            if _motion_window:frame['sdkWindow']=sdk_window
             reference=files.write(len(journal['previous']['frames'])+1,frame);current()
             value=deepcopy(journal['previous']);value['frames'].append(reference);value['pending']=None
             self._native_acquisition_save(journal,value);current();files.read(files.expand(reference));current()
+            if _motion_window:
+                from ios.adapters.lifecycle_touch_resource_owner import _NativeMotionReference
+                receipt=_NativeMotionReference(self,journal,reference,window_task,window_function,started)
             payload=canonical(dict(binding=binding,runId=run,reference=reference)).decode('ascii')
-            result=dict(originalKeeperNativeAcquisitionVersion=1,ownerInstance=self.instance,encoding='canonical-json-ascii',
+            result=dict(originalKeeperNativeAcquisitionVersion=2 if _motion_window else 1,ownerInstance=self.instance,encoding='canonical-json-ascii',
                 acquisitionJson=payload,nativeAcquisitionBound=False,installedCandidateBound=False,nativeMotionGuardAvailable=False,
                 nativeTouchSupport=False,resourceRetirementEstablished=False)
             if len(json.dumps(result,separators=(',',':'),ensure_ascii=True).encode('ascii'))>12000:raise LaunchError('request')
-            current();return result
+            current()
+            if _motion_window:journal.setdefault('motionOriginals',{})[reference['sha256']]=receipt
+            return result
         finally:
             # Nested original query/file helpers retain and await their actual
             # HTTP Thread/AFC close even on cancellation or scope/deadline loss.
@@ -1027,6 +1070,7 @@ class OriginalKeeperOperations:
             return dict(originalKeeperDrainVersion=1,ownerInstance=self.instance,inputAdmissionClosed=True,
                         originalTouchWorkersSettled=True,originalOperationsSettled=True,
                         nativeTouchSupport=False,resourceRetirementEstablished=False)
+        if operation=='touch-native-motion-acquire':return await self.native_acquire(args,session,_motion_window=True)
         if operation=='touch-native-acquire':return await self.native_acquire(args,session)
         if operation=='touch-native-acquisition-read':return self.native_acquisition_read(args,session)
         if operation=='touch-native-query':return await self.native_query(args,session)
@@ -1105,28 +1149,43 @@ class OriginalKeeperOperations:
             result=await self.process(args['bundleId'],args['originalPid'],terminate=operation=='process-terminate')
             self.scope(session);return result
         if operation=='touch-motion-prepare':
-            if (type(args) is not dict or set(args)!={'binding','runId','frame','seconds'}
+            # Old RPC Frame JSON is deliberately refused. Only THIS live
+            # Source's exact actual immutable acquisition ref can be loaded.
+            if (type(args) is not dict or set(args)!={'binding','runId','referenceJson','seconds'}
                     or self.touch is not None or self.touch_resources is not None):raise LaunchError('request')
             from adapters.normal_feature_state import PrivateFeatureState,context
-            from adapters.script_feature.lock import ScriptSourceLock
-            from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner
-            binding=context(args['binding'])
-            if binding['sessionId']!=session or type(args['runId']) is not str or re.fullmatch('[0-9a-f]{32}',args['runId']) is None:
-                raise LaunchError('session-lifetime')
-            await self.fresh_touch_scope(binding)
-            if self.scope(session) is not rsd:raise LaunchError('session-lifetime')
-            original_session=self.session;original_source=self.source
-            def resource_current():
-                if self.session is not original_session or self.source is not original_source:
-                    raise LaunchError('session-lifetime')
-                original_source.current();return True
-            lock=ScriptSourceLock(self.state_root/'script-feature-sources.lock')
-            with lock.held():
-                resource=LifecycleTouchResourceOwner(PrivateFeatureState(self.state_root/('ios-lifecycle-touch-resources-'+args['runId']+'.json')),
-                    binding,args['runId'],lock,resource_current)
-                self.touch_resources=resource # Retain original duty BEFORE a saved ACK can be lost.
-                self.source.prepare_motion(resource,self.instance,args['frame'],seconds=args['seconds'])
-            return dict(originalKeeperMotionPreparationVersion=1,ownerInstance=self.instance,preparationRecorded=True,
+            from adapters.native_feature_observation import number
+            from adapters.script_feature.history import canonical
+            from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner,_NativeMotionReference
+            binding=context(args['binding']);run=args['runId']
+            if (binding['sessionId']!=session or type(run) is not str or re.fullmatch('[0-9a-f]{32}',run) is None
+                    or type(args['referenceJson']) is not str or len(args['referenceJson'])>2048
+                    or not number(args['seconds'],0,12) or args['seconds']<=0):raise LaunchError('request')
+            reference=decode_owner_packet(args['referenceJson'])
+            if canonical(reference).decode('ascii')!=args['referenceJson']:raise LaunchError('request')
+            journal=self.native_acquisition_journals.get(run)
+            if journal is None or journal['binding']!=binding:raise LaunchError('session-lifetime')
+            receipt=journal.get('motionOriginals',{}).get(reference.get('sha256') if type(reference) is dict else None)
+            if type(receipt) is not _NativeMotionReference or receipt.reference!=reference:raise LaunchError('session-lifetime')
+            try:
+                # One actual SDK/PID fence encloses ALL original frame reads
+                # and the preparation CAS. No fresh values replace that frame.
+                await self.fresh_touch_scope(binding);receipt.original(self.source,None,self.instance)
+                original_session=self.session;original_source=self.source
+                def resource_current():
+                    if self.session is not original_session or self.source is not original_source:raise LaunchError('session-lifetime')
+                    original_source.current();return True
+                lock=journal['lock']
+                with lock.held():
+                    resource=LifecycleTouchResourceOwner(PrivateFeatureState(self.state_root/('ios-lifecycle-touch-resources-'+run+'.json')),
+                        binding,run,lock,resource_current)
+                    self.touch_resources=resource # Retain actual duty before any saved ACK can be lost.
+                    self.source.prepare_motion(resource,self.instance,receipt,seconds=args['seconds'])
+                await self.fresh_touch_scope(binding);receipt._check()
+            except BaseException:
+                receipt.revoke() # Observed SDK/read/ACK uncertainty cannot revive.
+                raise
+            return dict(originalKeeperMotionPreparationVersion=2,ownerInstance=self.instance,preparationRecorded=True,
                 nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
         if operation in ('touch-resource-capture','touch-resource-recover'):
             resource=self.touch_resources

@@ -136,3 +136,33 @@ Native, RSD, HTTP and SDK producers remain declared models. The JavaScript
 route receives source review only; its cold WDA binding and the original-child
 motion connection still require integration. Installed-candidate, native-touch,
 resource-retirement and whole-lifecycle gates remain closed.
+
+## Live original references for motion preparation
+
+Motion preparation now accepts only a reference registered by the live original
+keeper after its own completed acquisition task. The original issued-request
+table retains that task; a JSON frame, an old acquisition without a window,
+or a restored owner header cannot create the local receipt. The optional second
+acquisition profile includes the actual existing WDA window rectangle in the
+same 1.5-second cut. It preserves the first profile and uses the existing
+coordinate derivation without inferring window origins.
+
+Preparation rereads the actual retained frame and checks its source, RSD,
+creator, WDA owner, task, file identity and deadline around the resource CAS.
+Observed identity or reply changes revoke the receipt, including after apparent
+restoration. The original window task and its resources remain owned until its
+actual return when cancellation interrupts a request. Resource profile 3 records
+the acquisition reference; historical profile 2 remains readable. Input remains
+closed pending the independent original-child installed-candidate and native
+movement admission.
+
+Ten new Python models pass in 4.363 seconds, retaining 47 files in ten roots
+with 8,615 source/launcher/reference pins unchanged. Four actual JavaScript
+source-route cases also pass, covering cold binding to the existing WDA session,
+scope drift, owner replacement and the independent historical chunk route.
+They execute declared HTTP/SDK producers without a service or device. The eight
+unchanged acquisition-profile-1 cases pass again, retaining 36 files with 8,589
+pins. Both runs pass their original FD/task/thread/child censuses. The first
+model attempt used an incorrect empty-list expectation for an empty dictionary;
+its 13 files and failure remain retained. No native, authentication, device or
+whole-lifecycle qualification follows.
