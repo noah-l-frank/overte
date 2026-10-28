@@ -6,6 +6,7 @@ from copy import deepcopy
 import hashlib
 import json
 import re
+from types import BuiltinFunctionType
 from urllib.parse import urlsplit,unquote
 
 from adapters.native_feature_observation import decode,exact,fresh,integer,need
@@ -20,6 +21,13 @@ LIMIT=262144
 HEX=re.compile('[a-f0-9]{32}\\Z')
 SHA=re.compile('[a-f0-9]{64}\\Z')
 
+# Immutable born pattern scans the CURRENT exact string, never a verdict memo.
+# Changed module aliases/ord retain the literal original character loop.
+_INSTALLED_CONTROLS=re.compile(r'[\x00-\x1f\x7f]')
+_INSTALLED_CONTROLS_BIRTH=_INSTALLED_CONTROLS
+_INSTALLED_PATTERN_TYPE=type(_INSTALLED_CONTROLS)
+_INSTALLED_ORD=ord
+
 
 def identifier(value):need(type(value) is str and HEX.fullmatch(value));return value
 
@@ -32,7 +40,12 @@ def command(value):
 
 
 def installed(value,suffix):
-    need(type(value) is str and len(value)<=4096 and all(ord(c)>=32 and ord(c)!=127 for c in value))
+    need(type(value) is str and len(value)<=4096 and (
+        _INSTALLED_CONTROLS.search(value) is None
+        if (_INSTALLED_CONTROLS is _INSTALLED_CONTROLS_BIRTH and type(_INSTALLED_CONTROLS) is _INSTALLED_PATTERN_TYPE
+            and type(_INSTALLED_ORD) is BuiltinFunctionType and _INSTALLED_ORD.__module__=='builtins'
+            and _INSTALLED_ORD.__name__=='ord' and ord is _INSTALLED_ORD)
+        else all(ord(c)>=32 and ord(c)!=127 for c in value)))
     url=urlsplit(value);path=unquote(url.path,encoding='utf-8',errors='strict')
     need(url.scheme in ('qrc','file') and not url.netloc and not url.query and not url.fragment and path.endswith(suffix)
          and not any(part in ('.','..') for part in path.split('/')))
