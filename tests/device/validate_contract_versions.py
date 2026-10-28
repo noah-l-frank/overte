@@ -384,7 +384,7 @@ REQUIRED = {
     "original-keeper-ddi-status": 1,
     "original-keeper-preflight": 1,
     "original-keeper-drain": 1,
-    "ios-original-keeper-touch": 1,
+    "ios-original-keeper-touch": 2,
     "original-keeper-wda-session": 1,
     "original-keeper-wda": 1,
     "original-keeper-claim": 1,

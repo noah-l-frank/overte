@@ -378,7 +378,7 @@
     "original-keeper-ddi-status": {"current": 1, "reads": [1]},
     "original-keeper-preflight": {"current": 1, "reads": [1]},
     "original-keeper-drain": {"current": 1, "reads": [1]},
-    "ios-original-keeper-touch": {"current": 1, "reads": [1]},
+    "ios-original-keeper-touch": {"current": 2, "reads": [1, 2]},
     "original-keeper-wda-session": {"current": 1, "reads": [1]},
     "original-keeper-wda": {"current": 1, "reads": [1]},
     "original-keeper-claim": {"current": 1, "reads": [1]},

@@ -294,3 +294,22 @@ censuses pass. Earlier missing-import, own-pending-write and stale test-event
 failures remain retained. SDK, HID and native producers are models. The existing
 RPC and canonical coordinator still need this private worker connection; no
 complete Lifecycle capability or device qualification is enabled.
+
+## Existing RPC connection to the original motion worker
+
+The existing `touch-begin` route accepts an explicit native-motion profile
+only with the exact live Resource4 owned by its original source. The saved
+preparation supplies the immutable full path and duration; caller coordinates
+can only match it. The route uses the actual born TouchLease and retained
+worker, including the fresh pre-Down and post-Down cuts. Ordinary unprofiled
+requests retain their existing behavior. Successful profiled replies use Touch
+response version 2 and keep all capability and retirement claims false.
+
+Six host source models pass in 10.780 seconds, retaining 87 files with 12,174
+source/launcher/reference pins unchanged. They cover the actual dispatch,
+integer and floating-point observed window sizes, invalid boolean dimensions,
+foreign or restored resources, immutable paths, lost saved replies and original
+release/inspect after source loss. Original task/thread/FD/child censuses pass.
+The run supplies modeled SDK/native producers, not device qualification.
+Genuinely later held/released/quiet originals and the canonical coordinator
+remain required before the whole Lifecycle adapter can be admitted.

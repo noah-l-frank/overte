@@ -1618,6 +1618,36 @@ class OriginalKeeperOperations:
                 raise LaunchError('request')
             return result
         if operation=='touch-begin':
+            motion_profile=type(args) is dict and 'nativeMotionProfileVersion' in args
+            if motion_profile:
+                from copy import deepcopy
+                from adapters.normal_feature_state import context
+                from adapters.native_feature_observation import number
+                from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner,_NativeMotionReference
+                fields={'binding','runId','width','height','x','y','seconds','nativeMotionProfileVersion'}
+                if (set(args)!=fields or type(args['nativeMotionProfileVersion']) is not int or args['nativeMotionProfileVersion']!=1
+                        or self.touch is not None or type(self.touch_resources) is not LifecycleTouchResourceOwner):raise LaunchError('request')
+                resource=self.touch_resources;binding=context(args['binding'])
+                if (resource.version!=4 or resource.binding!=binding or resource.run!=args['runId']
+                        or binding['sessionId']!=session or type(resource._motion_original) is not _NativeMotionReference
+                        or resource._motion_original._owner() is not self or resource._motion_original._source() is not self.source
+                        or resource._native_step is not None or resource._factory is not None or resource._lease is not None):raise LaunchError('session-lifetime')
+                # The selector is NOT input authority. Only THIS live source's
+                # historical preparation determines the immutable full path;
+                # the new actual input boundaries each acquire their own cut.
+                with resource.lock.held():
+                    resource.file_guard();path=deepcopy(resource.previous['state']['path']);seconds=resource.previous['state']['seconds']
+                    if (not number(args['width'],1,10000) or not number(args['height'],1,10000)
+                            or type(args['x']) is not int or type(args['y']) is not int
+                            or (args['width'],args['height'],args['x'],args['y'])!=(path['window']['width'],path['window']['height'],*path['start'])
+                            or not number(args['seconds'],0,12) or args['seconds']!=seconds):raise LaunchError('request')
+                    lease=self.motion_worker_lease(resource)
+                # No caller-supplied coordinate/seconds is reread after await.
+                # Actual Source._birth/RetainedTouchWorker precede all input.
+                value=await lease.begin(path['window']['width'],path['window']['height'],*path['start'],seconds=seconds)
+                with resource.lock.held():resource._native_step.scope()
+                return dict(iosOriginalKeeperTouchVersion=2,ownerInstance=self.instance,inspection=value,
+                    nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
             if self.touch is not None or self.touch_resources is not None or set(args)!={'binding','runId','width','height','x','y','seconds'}:raise LaunchError('request')
             from adapters.normal_feature_state import PrivateFeatureState,context
             binding=context(args['binding'])
