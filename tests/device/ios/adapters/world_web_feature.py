@@ -189,7 +189,15 @@ class IOSWorldWebFeature:
                 need(parts['lease'] is not None)
                 required=required_evidence(self.run,status['verb'],status['inputs']);changed='changed' in required
                 if required&{'image','changed'}:
-                    previous=next((parts['sample'](request) for request in reversed(self.state['images']) if parts['sample'](request).state is not None and parts['sample'](request).state['phase']=='qualified'),None)
+                    # Repeated reads must compare a changed phase with its same
+                    # prior-phase baseline, not demand another change from the
+                    # already qualified current page. Image-only reads keep
+                    # their original nearest-qualified predecessor behavior.
+                    for request in reversed(self.state['images']):
+                        candidate=parts['sample'](request)
+                        if (candidate.state is not None and candidate.state['phase']=='qualified'
+                                and (not changed or candidate.state['ticket']!=status['ticket'])):
+                            previous=candidate;break
                     request='ios-'+uuid.uuid4().hex;self.state['images'].append(request);self.save();sample=parts['sample'](request)
             original,measured=parts['history'].capture(sample=sample,policy=self.policy,previous=previous,changed=changed)
             if self.role=='actor':

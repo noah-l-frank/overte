@@ -56,3 +56,26 @@ seconds; this is one observed call, not complete timing qualification. All605
 original files and7715 source/launcher/reference pins remain unchanged, with
 owned processes and new threads gone. No complete World Web acceptance follows
 from this failed attempt; its image and cleanup failures remain retained.
+
+
+## Phase-stable image baselines
+
+A repeated observation in a changed-image phase now selects the latest
+qualified image from an earlier ticket. It retains that original comparison
+through subsequent reads of the same phase. Image-only phases keep their
+nearest qualified predecessor. Failed or incomplete samples cannot supply a
+baseline. The original pixel threshold, marker exclusion, fresh frame custody
+and before/after causal checks are unchanged.
+
+Four connected actual Node/page/PNG cases pass in91.043 seconds, preserving729
+original files and7726 source/launcher/reference pins. Repeated same-page
+images qualify against the same earlier image with distinct fresh frame IDs.
+Missing prior images and a genuinely unchanged subject on a new changed-image
+ticket still fail. The earlier605 failed-run originals remain unchanged; owned
+processes and new threads are gone.
+
+The changed full19 attempt passes the former image failure and subsequently
+fails its unchanged API25 boundary during Primary foreign-URL input, while
+re-decoding Source history after capture. Its791 originals remain retained and
+unchanged; this failed run supplies no whole-journey or timing qualification.
+The successful focused cases retain declared native/SDK/GPU/OS models.
