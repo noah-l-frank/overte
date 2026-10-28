@@ -8,6 +8,8 @@
  */
 
 import {spawn} from 'node:child_process';
+import {randomUUID} from 'node:crypto';
+import {WebDriverProxy} from '@appium/base-driver';
 import {supportsApiLevel18, supportsApiLevel27} from '../utils/index.js';
 
 const PYTHON = '/usr/bin/python3.14';
@@ -39,6 +41,104 @@ const XCODE_ONLY_CAPS = [
     'resultBundlePath',
 ];
 const activeXctestKeepers = new Map();
+const originalKeeperRoutes = new WeakMap();
+const ORIGINAL_KEEPER_ROUTE = Symbol.for('overte.originalKeeperRoute.v1');
+const ORIGINAL_WDA_SESSION_GETTER = WebDriverProxy.prototype.getOriginalDownstreamSessionSource;
+
+async function tryOriginalKeeperLaunch(driver, remoteXpc, options) {
+    if (typeof remoteXpc.originalKeeperOperation !== 'function') return false;
+    const {udid, bundleId, env} = options;
+    const id = () => randomUUID().replaceAll('-', '');
+    const originalOperation = remoteXpc.originalKeeperOperation;
+    const probe = await originalOperation.call(remoteXpc, udid, {
+        schemaVersion: 2, requestId: id(), ownerInstance: null,
+        sessionId: null, operation: 'inspect', args: {},
+    });
+    if (probe?.originalKeeperOperationVersion !== 1) throw new Error('Original creator route unavailable');
+    if (probe.result?.creatorMode === 'kernel') return false;
+    if (probe.result?.creatorMode !== 'userspace-keeper' || probe.result.nativeTouchSupport !== false ||
+        typeof probe.ownerInstance !== 'string' || !/^[0-9a-f]{32}$/.test(probe.ownerInstance) ||
+        typeof driver.sessionId !== 'string' || !driver.sessionId || driver.opts.udid !== udid ||
+        typeof driver.opts.bundleId !== 'string' || !driver.opts.bundleId)
+        throw new Error('Original creator binding unavailable');
+    if (originalKeeperRoutes.has(driver)) throw new Error('Original keeper already claimed');
+    const session = driver.sessionId, archive = driver.opts.bundleId, instance = probe.ownerInstance;
+    // Only these original lexical capabilities route retained cleanup. Current
+    // driver fields may revoke forward input, never redirect old Up/drain.
+    const retainedScope = Object.freeze({ownerInstance: instance, sessionId: session, udid, archive});
+    let originalClaimAccepted = false;
+    let wdaBinding = null, wdaBind = null, wdaUnavailable = false;
+    const originalWda = () => {
+        if (wdaUnavailable) throw new Error('Original WDA session source was revoked');
+        try {
+        const wda = driver.wda, proxy = wda?.jwproxy;
+        if (!proxy || Object.getPrototypeOf(proxy) !== WebDriverProxy.prototype ||
+            typeof ORIGINAL_WDA_SESSION_GETTER !== 'function' ||
+            WebDriverProxy.prototype.getOriginalDownstreamSessionSource !== ORIGINAL_WDA_SESSION_GETTER)
+            throw new Error('Original WDA session source unavailable');
+        const source = ORIGINAL_WDA_SESSION_GETTER.call(proxy);
+        if (!source || typeof source.sessionId !== 'string') throw new Error('Original WDA session source unavailable');
+        if (wdaBinding && (wdaBinding.wda.deref() !== wda || wdaBinding.proxy.deref() !== proxy || wdaBinding.source !== source))
+            throw new Error('Original WDA session source changed');
+        return {wda, proxy, source};
+        } catch (error) {
+            // Only an already-bound original can be revoked. Initial absence
+            // before normal POST/session does not manufacture a birth.
+            if (wdaBinding) wdaUnavailable = true;
+            throw error;
+        }
+    };
+    const bindWda = async () => {
+        const current = originalWda();
+        if (!wdaBinding) wdaBinding = {wda: new WeakRef(current.wda), proxy: new WeakRef(current.proxy), source: current.source};
+        if (!wdaBind) wdaBind = bridge.request('wda-bind', {wdaSessionId: current.source.sessionId});
+        await wdaBind;
+        originalWda();
+    };
+    const bridge = {
+        async request(operation, args, cleanup = false) {
+            // Gate only NEW input. Existing original Up/drain/cleanup remains
+            // available if the WDA source is later revoked or disappears.
+            const retained = ['touch-release', 'touch-inspect', 'touch-settle'].includes(operation);
+            if (retained && (!originalClaimAccepted || originalKeeperRoutes.get(driver) !== bridge ||
+                !args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).length !== 0))
+                throw new Error('Original retained touch owner unavailable');
+            if (operation === 'touch-begin') await bindWda();
+            const liveScope = () => driver.opts.udid === udid && driver.opts.bundleId === archive &&
+                ((cleanup && operation === 'wda-stop') || driver.sessionId === session);
+            if (!retained && !liveScope()) throw new Error('Original keeper scope changed');
+            const response = await originalOperation.call(remoteXpc, retainedScope.udid, {
+                schemaVersion: 2, requestId: id(), ownerInstance: instance,
+                sessionId: retainedScope.sessionId, operation, args,
+            });
+            if (response?.originalKeeperOperationVersion !== 1 || response.ownerInstance !== retainedScope.ownerInstance ||
+                (!retained && !liveScope())) throw new Error('Original keeper scope changed');
+            if (operation === 'touch-begin') originalWda();
+            return response.result;
+        },
+        async cleanup() {
+            // Original worker settle precedes WDA and creator teardown. Any
+            // timeout remains an error; no new owner/Down/SDK fallback occurs.
+            await bridge.request('touch-settle', {});
+            await bridge.request('wda-stop', {}, true);
+            await bridge.request('process-terminate', {bundleId, originalPid: 0}, true);
+        },
+    };
+    originalKeeperRoutes.set(driver, bridge);
+    Object.defineProperty(driver, ORIGINAL_KEEPER_ROUTE, {value: Object.freeze({
+        request: (operation, args) => {
+            if (!['process-read', 'touch-begin', 'touch-release', 'touch-inspect', 'touch-settle', 'touch-resource-capture', 'touch-resource-recover', 'touch-motion-prepare'].includes(operation))
+                throw new Error('Original keeper operation unavailable');
+            return bridge.request(operation, args);
+        },
+        ownerInstance: instance,
+    }), writable: false, configurable: false});
+    await bridge.request('claim', {sessionId: session, archiveBundleId: archive, wdaBundleId: bundleId});
+    originalClaimAccepted = true;
+    await bridge.request('wda-start', {environment: stringifyLaunchEnvironment(env), wdaPort: WDA_PORT});
+    return true;
+}
+
 
 export function isStrictHostUtilityMode(opts, platform = process.platform) {
     return platform !== 'darwin' && Boolean(opts.webDriverAgentUrl || opts.usePreinstalledWDA);
@@ -128,6 +228,8 @@ function createSimulatorHostOps(driver) {
 }
 
 async function terminateExactRunner(driver, udid, bundleId) {
+    const original = originalKeeperRoutes.get(driver);
+    if (original) { await original.request('process-terminate', {bundleId, originalPid: 0}, true); return; }
     const dvt = await driver.remoteXPCFacade.requireService(
         'terminate preinstalled WebDriverAgent',
         (Services) => Services.startDVTService(udid),
@@ -272,6 +374,7 @@ async function launchWithPymobiledevice3(driver, options) {
         throw new Error('The immutable PyMobileDevice3 runtime is unavailable');
     }
     const remoteXpc = await driver.remoteXPCFacade.requireModule();
+    if (await tryOriginalKeeperLaunch(driver, remoteXpc, options)) return;
     const endpoint = await remoteXpc.getTunnelForDevice(udid, {waitMs: 15000});
     if (!endpoint || endpoint.udid !== udid || typeof endpoint.host !== 'string' ||
         !Number.isInteger(endpoint.port) || endpoint.port < 1 || endpoint.port > 65535) {
@@ -379,6 +482,8 @@ function createRealDevicePreinstalledHostOps(driver) {
             }
         },
         async terminate({udid, bundleId}) {
+            const original = originalKeeperRoutes.get(driver);
+            if (original) { await original.cleanup(); return; }
             try {
                 const key = keeperKey(udid, bundleId);
                 let cleanupError;

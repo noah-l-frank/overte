@@ -1,0 +1,18 @@
+{
+  "sourceProfileVersion": 1,
+  "upstreamVersion": "11.1.5",
+  "sources": [
+    {
+      "path": "pymobiledevice3/lockdown.py",
+      "originalSha256": "3c61dab4566fae78eaba039d1111682474e4bdf604a129cbbbf60ee2d4a8de81",
+      "payload": "source-patches/original-owner-python/lockdown.py",
+      "payloadSha256": "f77bfd84c7d2f721611b48d79e010528756ad44a5a32a7f6935c3285e66af193"
+    },
+    {
+      "path": "pymobiledevice3/remote/userspace_tunnel.py",
+      "originalSha256": "27da62f89c646c965cdfd39d41194b739ed02f669c50106d0babb3dd44fa9106",
+      "payload": "source-patches/original-owner-python/userspace_tunnel.py",
+      "payloadSha256": "9f4c57ceecf5f95e5ad8a78590ecfb00926f14901cb0b6c074dd2eaa3c25bc13"
+    }
+  ]
+}

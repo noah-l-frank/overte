@@ -1,0 +1,74 @@
+# Original iOS child ownership and passive resource connection
+
+Feature 14 remains partial. The source integration retains the original creator,
+authentication, RSD, userspace stack and worker in their original process and
+loop. No JSON identifier or saved resource record can recreate those objects.
+Canonical production-child admission and native movement authority remain
+closed. SDK source assemblies, installed-tree admission, native compilation and
+devices remain unverified.
+
+The source-controlled Python and Appium payloads retain the existing creators
+and transports. The optional userspace creator requires the actual successful
+Lockdown validation epoch and its original channel; automatic pairing and
+provider fallback are excluded from that profile. Its weak source borrow
+checks the original dial implementation, RSD/provider/stack/writer identities,
+loop and current transport. The kernel default keeps its original command
+arguments and requires no new option from the installed legacy creator.
+
+The existing registry and child pipe carry versioned operations. The original
+Appium proxy's successful downstream session response creates the retained
+WDA receipt; a matching session string alone cannot create or revive it.
+A changed driver/session can revoke new input while the original retained
+release/inspection/drain route remains available. All creator admissions close
+before the first cleanup await. Unknown Down, failed Up, failed drain and
+unresolved child exit retain their original responsibility. SIGTERM is permitted
+only after the original typed host-drain response; no forced kill establishes
+release or native retirement.
+
+`LifecycleTouchResourceOwner` now runs inside that same original lease worker
+and source lock. Passive capture/recovery uses the existing route. Its exact
+run/binding and original frame hash are checked by the canonical
+`IOSLifecycleWorldHoldRuntime.resource_metadata` reader. Canonical ASCII JSON
+text preserves uint64 metadata through Node without number rounding. This is
+content correlation, not remote inode, Task, authentication or resource-end
+authority. Existing frame, private-WAL, pipe and operation limits are unchanged.
+
+The explicit owner version 2 records an original world/geometry/native-clock
+preparation and its derived path before any worker or Down. Version 1 retains
+its original grammar and behavior. A restored version-2 journal cannot recreate
+the original weak source/loop pair, and observed identity uncertainty cannot
+revive through an ABA change. The original child still lacks the complete fresh
+native movement/query ownership connection. Version 2 therefore refuses lease
+acquisition; preparation, host drain and passive resource responses keep native
+support and retirement qualification false.
+
+The source profiles and operation packet families are registered explicitly.
+Old source-bound defaults are unchanged; opt-in owner version 2 reads versions
+1 and 2. The version-2 passive resource wrapper reads only its published version
+2; the earlier private prototype is not a historical public contract.
+
+The staged host results are:
+
+- 16 Python and 19 Node ownership/route/lifetime models pass in 0.413 seconds
+  and 89.671 milliseconds respectively. Five actual files in five roots remain
+  retained; 8,029 source/launcher/reference pins stay unchanged.
+- Two separate extracted-serve cases preserve the literal kernel arguments and
+  check explicit userspace selection. They execute no real privileged process,
+  SDK or service.
+- Eleven connected resource models pass in 4.375 seconds, retaining 44 actual
+  files in 11 roots with 8,023 source pins unchanged.
+- Seven motion-preparation models pass in 29.907 seconds, retaining 160 files
+  in 14 roots with 8,442 pins unchanged. Their first attempt passed its assertions
+  but failed the open-FD guard; its 160 originals remain separately retained.
+  The correction transfers the original fixture callbacks into the running
+  isolated test context and awaits its original teardown before LIFO cleanup.
+- Four post-version-2 regressions of the existing version-1 worker/resource
+  path pass in 1.583 seconds, retaining 17 files in four roots and 8,199 pins.
+
+Every qualified run checks actual thread, Task, child and file-descriptor
+absence around its terminal original censuses. Native/SDK/HTTP producers are
+explicit models; selected source AST and executed model code hashes are recorded
+before execution. The original SDK sources and their retained copies remain
+unchanged. These results qualify the source/controller logic only. The original
+native query/nonce and installed-candidate connection, independent contact/quiet,
+media/SDK/tunnel end and the complete lifecycle journey remain open.

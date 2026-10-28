@@ -36,11 +36,14 @@ class TouchLease:
         try:return context(value)==expected
         except Exception:return False
 
-    def __init__(self,store,session_factory,*,binding,run,check):
+    def __init__(self,store,session_factory,*,binding,run,check,admit_begin=None,on_worker_birth=None):
         if not isinstance(store,PrivateFeatureState) or not callable(session_factory) or not callable(check):raise TouchLeaseError('Touch lease owner is unavailable')
         try:self.binding=deepcopy(context(binding))
         except Exception:raise TouchLeaseError('Touch lease source binding is unavailable') from None
         if type(run) is not str or re.fullmatch('[0-9a-f]{32}',run) is None:raise TouchLeaseError('Touch lease run is unavailable')
+        if any(callback is not None and not callable(callback) for callback in (admit_begin,on_worker_birth)):raise TouchLeaseError('Touch worker owner is unavailable')
+        self._admit_begin,self._on_worker_birth=admit_begin,on_worker_birth
+        self._original_admit_begin,self._original_worker_birth=admit_begin,on_worker_birth
         self.run,self.check=run,check;self._binding,self._expected_run,self._check_callback=deepcopy(self.binding),run,check
         self.store,self.session_factory=store,session_factory;self._session_factory=session_factory
         self.previous=store.read();self.state=deepcopy(self.previous)
@@ -112,6 +115,12 @@ class TouchLease:
         return task.result()
 
     async def begin(self,width,height,x,y,*,seconds):
+        # Optional host-owner admission is synchronous and precedes the WAL or
+        # worker. It supplies no authentication/native touch fact.
+        if self._admit_begin is not self._original_admit_begin or self._on_worker_birth is not self._original_worker_birth:raise TouchLeaseError('Original touch worker owner changed')
+        if self._admit_begin is not None:
+            admitted=self._admit_begin()
+            if inspect.isawaitable(admitted) or admitted is False:raise TouchLeaseError('Touch acquisition is unavailable')
         if self.previous is not None or self.worker is not None:raise TouchLeaseError('Touch intent cannot be repeated')
         if type(seconds) not in (int,float) or not math.isfinite(seconds) or not 0<seconds<=12:raise TouchLeaseError('Touch lease duration is unavailable')
         # Reuse the unchanged ordinary touch coordinate codec. No event is
@@ -123,6 +132,11 @@ class TouchLease:
             startedMonotonic=started,deadlineMonotonic=started+seconds,phase='opening',failure=None)
         self._record('opening')
         self.worker=asyncio.create_task(self._run())
+        if self._on_worker_birth is not None:
+            try:self._on_worker_birth(self,self.worker)
+            except BaseException:
+                self.request_release.set()
+                raise
         waiter=asyncio.create_task(self.ready.wait())
         try:
             await self._wait(waiter)

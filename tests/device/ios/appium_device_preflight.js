@@ -9,6 +9,8 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const {pathToFileURL} = require('node:url');
+const {randomUUID} = require('node:crypto');
 
 const MAX_INPUT = 4096;
 const OVERTE_ID = 'org.overte.interface.e2e';
@@ -30,23 +32,27 @@ async function readRequest() {
     chunks.push(chunk);
   }
   const request = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  const originalOwnerRequired = request?.originalOwnerRequired === true;
+  if (request && Object.hasOwn(request, 'originalOwnerRequired') && !originalOwnerRequired)
+    throw new Error('invalid private request');
+  if (originalOwnerRequired) delete request.originalOwnerRequired;
   if (!request || typeof request.udid !== 'string' || request.udid.length < 8 ||
       request.udid.length > 128 || /[\0\r\n]/.test(request.udid)) {
     throw new Error('invalid private request');
   }
   const keys = Object.keys(request).sort();
   if (keys.length === 1 && keys[0] === 'udid') {
-    return {...request, overteBundleId: OVERTE_ID, wdaBundleId: WDA_ID,
+    return {...request, originalOwnerRequired, overteBundleId: OVERTE_ID, wdaBundleId: WDA_ID,
       discoverRemappedBundleIds: false};
   }
   if (keys.join(',') === 'discoverRemappedBundleIds,udid' &&
       request.discoverRemappedBundleIds === true) {
-    return request;
+    return {...request, originalOwnerRequired};
   }
   if (keys.join(',') === 'overteBundleId,udid,wdaBundleId' &&
       validBundleId(request.overteBundleId) && validBundleId(request.wdaBundleId) &&
       request.overteBundleId !== request.wdaBundleId) {
-    return {...request, discoverRemappedBundleIds: false};
+    return {...request, originalOwnerRequired, discoverRemappedBundleIds: false};
   }
   throw new Error('invalid private request');
 }
@@ -62,9 +68,40 @@ async function main() {
   if (metadata.name !== 'appium-ios-device' || metadata.version !== '3.1.21') {
     throw new Error('immutable device helper dependency mismatch');
   }
+  let applications;
+  let originalOwner = null, remoteXpc = null;
+  if (request.originalOwnerRequired) {
+    remoteXpc = await import(pathToFileURL(path.join(runtime, 'appium', 'node_modules',
+      'appium-ios-remotexpc', 'build', 'src', 'index.js')).href);
+    if (typeof remoteXpc.originalKeeperOperation !== 'function') throw new Error('original owner unavailable');
+    const probe = await remoteXpc.originalKeeperOperation(request.udid, {
+      schemaVersion: 2, requestId: randomUUID().replaceAll('-', ''), ownerInstance: null,
+      sessionId: null, operation: 'inspect', args: {},
+    });
+    if (probe?.originalKeeperOperationVersion !== 1) throw new Error('original owner unavailable');
+    if (probe.result?.creatorMode === 'userspace-keeper') {
+      if (typeof probe.ownerInstance !== 'string' || !/^[0-9a-f]{32}$/.test(probe.ownerInstance))
+        throw new Error('original owner unavailable');
+      originalOwner = probe.ownerInstance;
+    } else throw new Error('required original userspace owner unavailable');
+  }
+  if (originalOwner !== null) {
+    const value = await remoteXpc.originalKeeperOperation(request.udid, {
+      schemaVersion: 2, requestId: randomUUID().replaceAll('-', ''), ownerInstance: originalOwner,
+      sessionId: null, operation: 'apps-preflight', args: {
+        overteBundleId: request.overteBundleId ?? OVERTE_ID,
+        wdaBundleId: request.wdaBundleId ?? WDA_ID,
+        discoverRemappedBundleIds: request.discoverRemappedBundleIds,
+      },
+    });
+    if (value?.originalKeeperOperationVersion !== 1 || value.ownerInstance !== originalOwner ||
+        value.result?.originalKeeperPreflightVersion !== 1 || value.result.ownerInstance !== originalOwner ||
+        value.result.source !== 'original-rsd-installation-proxy' || value.result.nativeTouchSupport !== false ||
+        value.result.resourceRetirementEstablished !== false) throw new Error('original preflight unavailable');
+    applications = value.result.applications;
+  } else {
   const {services} = require(modulePath);
   const proxy = await services.startInstallationProxyService(request.udid);
-  let applications;
   try {
     const query = {
       applicationType: 'User',
@@ -81,6 +118,7 @@ async function main() {
     applications = await proxy.lookupApplications(query);
   } finally {
     proxy.close();
+  }
   }
   if (!applications || typeof applications !== 'object') {
     throw new Error('required apps are unavailable');

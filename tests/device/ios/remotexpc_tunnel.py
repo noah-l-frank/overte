@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 from datetime import datetime, timedelta, timezone
 import hashlib
 from importlib.metadata import distributions
@@ -511,6 +512,231 @@ def copy_python_site_packages(source: Path, destination: Path) -> None:
             fail("PyMobileDevice3 site-packages contains a special file")
 
 
+def original_owner_python_members(repo: Path) -> list[tuple[Path, Path, str]]:
+    """Conservative literal import closure, read/AST only; never import it."""
+    root = repo / "tests/device"
+    pending = ["ios.adapters.touch_lease", "ios.adapters.hid_session", "ios.adapters.lifecycle_touch_transport", "ios.adapters.lifecycle_touch_resource_owner"]
+    seen, members = set(), {}
+    def resolve(name):
+        parts = name.split(".")
+        if not all(part.isidentifier() for part in parts):return None
+        for target in (root.joinpath(*parts).with_suffix(".py"), root.joinpath(*parts) / "__init__.py"):
+            if target.is_symlink():fail("original-owner module is a symbolic link")
+            if target.is_file():
+                if target.resolve() != target:fail("original-owner module parent changed")
+                if "self_tests" in target.relative_to(root).parts:fail("original-owner production import requires test sources")
+                return target
+        return None
+    while pending:
+        name = pending.pop()
+        if name in seen:continue
+        seen.add(name);path = resolve(name)
+        if path is None:continue  # Existing standard-library/locked SDK dependency.
+        relative = path.relative_to(root);raw = path.read_bytes()
+        members[relative] = (path, relative, hashlib.sha256(raw).hexdigest())
+        # A real package initializer may import further modules. Namespace
+        # packages need only their one canonical directory in this SDK root.
+        parts = name.split(".")
+        for count in range(1, len(parts)):
+            parent = ".".join(parts[:count])
+            if resolve(parent) is not None:pending.append(parent)
+        package = name if path.name == "__init__.py" else name.rpartition(".")[0]
+        for node in ast.walk(ast.parse(raw, filename=str(path))):
+            if isinstance(node, ast.Import):pending.extend(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom):
+                if node.level:
+                    prefix = package.split(".") if package else []
+                    if node.level > len(prefix):fail("original-owner relative import escapes package")
+                    base = ".".join(prefix[:len(prefix)-node.level+1] + ((node.module or "").split(".") if node.module else []))
+                else:base = node.module or ""
+                if base:pending.append(base)
+                pending.extend(base + "." + alias.name for alias in node.names if base and alias.name != "*")
+            elif (isinstance(node, ast.Call) and node.args and isinstance(node.args[0], ast.Constant)
+                  and isinstance(node.args[0].value, str)
+                  and ((isinstance(node.func, ast.Name) and node.func.id == "__import__")
+                       or (isinstance(node.func, ast.Attribute) and node.func.attr == "import_module"))):
+                pending.append(node.args[0].value)
+    return [members[key] for key in sorted(members)]
+
+
+def assemble_original_owner_python(arguments: argparse.Namespace) -> int:
+    """Assemble SOURCE bytes in owned scratch; never import/install an SDK.
+
+    Existing immutable Python-tree hashing/installer remains the consumer. The
+    measured final tree hash must be reviewed in the lock before installation.
+    This command does not update that lock or advertise runtime capability.
+    """
+    repo = Path(__file__).resolve().parents[3]
+    scratch = repo / ".ios-host-tmp"
+    source, destination = arguments.source_site_packages, arguments.destination
+    parent = destination.parent
+    if (not source.is_absolute() or source.resolve(strict=True) != source
+            or not destination.is_absolute() or destination.exists() or destination.is_symlink()
+            or parent.resolve(strict=True) != parent or scratch not in (parent, *parent.parents)
+            or source == destination or source in destination.parents or destination in source.parents):
+        fail("original-owner source assembly requires an owned, absent scratch destination")
+    current = parent
+    while True:
+        info = current.lstat()
+        if (current.is_symlink() or not stat.S_ISDIR(info.st_mode)
+                or info.st_uid != os.geteuid() or info.st_mode & 0o077):
+            fail("original-owner scratch parent is not private and owned")
+        if current == scratch:break
+        current = current.parent
+    manifest_path = Path(__file__).with_name("original-owner-python-sources.json")
+    manifest = json.loads(manifest_path.read_text())
+    expected_paths = {"pymobiledevice3/lockdown.py", "pymobiledevice3/remote/userspace_tunnel.py"}
+    if (set(manifest) != {"sourceProfileVersion", "upstreamVersion", "sources"}
+            or type(manifest["sourceProfileVersion"]) is not int or manifest["sourceProfileVersion"] != 1
+            or manifest["upstreamVersion"] != "11.1.5" or type(manifest["sources"]) is not list
+            or any(type(row) is not dict for row in manifest["sources"])
+            or {row.get("path") for row in manifest["sources"]} != expected_paths
+            or len(manifest["sources"]) != 2):
+        fail("unreviewed original-owner Python source profile")
+    payloads = []
+    for row in manifest["sources"]:
+        if set(row) != {"path", "originalSha256", "payload", "payloadSha256"}:
+            fail("unreviewed original-owner source member")
+        payload = Path(__file__).parent / row["payload"]
+        expected_payload = Path("source-patches/original-owner-python") / Path(row["path"]).name
+        if Path(row["payload"]) != expected_payload or payload.is_symlink() or not payload.is_file():
+            fail("original-owner payload path is unavailable")
+        if file_sha256(source / row["path"]) != row["originalSha256"] or file_sha256(payload) != row["payloadSha256"]:
+            fail("original SDK or reviewed source payload changed")
+        payloads.append((row, payload))
+    sources = original_owner_python_members(repo)
+    if not sources:fail("original-owner Python namespace is empty")
+    # Include actual transitive modules OUTSIDE adapters/ios, including
+    # script_feature.history -> feature_journeys.contract and plain contracts,
+    # scripts_observation/create_observation. One source-controlled root only.
+    tops = {relative.parts[0] for _path, relative, _sha in sources}
+    for top in tops:
+        target = source / top
+        stem = Path(top).stem if top.endswith(".py") else top
+        if target.exists() or target.is_symlink() or any(source.glob(stem + ".*")):
+            fail("original-owner namespace conflicts with the SDK source")
+    original_tree = python_site_packages_tree_sha256(source)
+    copy_python_site_packages(source, destination)
+    for row, payload in payloads:
+        target = destination / row["path"]
+        if file_sha256(target) != row["originalSha256"]:fail("copied original SDK changed")
+        shutil.copyfile(payload, target);target.chmod(0o600)
+        if file_sha256(target) != row["payloadSha256"]:fail("copied source payload changed")
+    for origin, relative, expected in sources:
+        target = destination / relative;target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        shutil.copyfile(origin, target);target.chmod(0o600)
+        if file_sha256(origin) != expected or file_sha256(target) != expected:fail("copied adapter source changed")
+    # Recompute the actual literal import closure and all byte hashes after
+    # copying; no concurrent dependency/member/content change may disappear.
+    if original_owner_python_members(repo) != sources:
+        fail("original-owner source import closure changed")
+    if python_site_packages_tree_sha256(source) != original_tree:
+        fail("read-only original SDK tree changed during assembly")
+    assembled_tree = python_site_packages_tree_sha256(destination)
+    report = dict(originalOwnerPythonSourceProfileVersion=1,
+        originalTreeSha256=original_tree, assembledTreeSha256=assembled_tree,
+        manifestSha256=file_sha256(manifest_path),
+        sdkSources={row["path"]: row["payloadSha256"] for row, _payload in payloads},
+        adapterSources={str(relative): expected for _origin, relative, expected in sources},
+        pythonPathRoot="site-packages", sdkImported=False, sdkInstalled=False,
+        lockUpdated=False, compiledSdkQualified=False, nativeTouchSupport=False, deviceQualified=False)
+    report_path = destination.with_name(destination.name + "-original-owner-source-profile.json")
+    descriptor = os.open(report_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w") as output:
+        json.dump(report, output, indent=2, sort_keys=True);output.write("\n");output.flush();os.fsync(output.fileno())
+    print(json.dumps(dict(sourceProfileVersion=1, assembledTreeSha256=assembled_tree,
+                         adapterSourceFiles=len(sources), sdkImported=False, sdkInstalled=False)))
+    return 0
+
+
+def assemble_original_owner_appium(arguments: argparse.Namespace) -> int:
+    """Source-only copy into private scratch; never load, install, or admit it."""
+    repo = Path(__file__).resolve().parents[3]
+    scratch = repo / ".ios-host-tmp"
+    source, destination = arguments.source_appium, arguments.destination
+    parent = destination.parent
+    if (not source.is_absolute() or source.resolve(strict=True) != source
+            or not destination.is_absolute() or destination.exists() or destination.is_symlink()
+            or parent.resolve(strict=True) != parent or scratch not in (parent, *parent.parents)
+            or source == destination or source in destination.parents or destination in source.parents):
+        fail("original-owner Appium assembly requires an absent private scratch destination")
+    current = parent
+    while True:
+        value = current.lstat()
+        if (current.is_symlink() or not stat.S_ISDIR(value.st_mode)
+                or value.st_uid != os.geteuid() or value.st_mode & 0o077):
+            fail("original-owner Appium scratch parent is not private and owned")
+        if current == scratch:break
+        current = current.parent
+    if (type(arguments.expected_source_tree_sha256) is not str
+            or re.fullmatch("[0-9a-f]{64}", arguments.expected_source_tree_sha256) is None):
+        fail("reviewed original Appium source tree pin is required")
+    original_tree = tree_sha256(source)
+    if original_tree != arguments.expected_source_tree_sha256:
+        fail("actual original Appium source tree differs from reviewed source pin")
+    manifest_path = Path(__file__).with_name("original-owner-appium-sources.json")
+    manifest_bytes = manifest_path.read_bytes()
+    manifest = json.loads(manifest_bytes)
+    expected_paths = set(['node_modules/appium-ios-remotexpc/build/src/index.d.ts', 'node_modules/appium-ios-remotexpc/build/src/index.js', 'node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-api-client.d.ts', 'node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-api-client.js', 'node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-registry-server.d.ts', 'node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-registry-server.js', 'node_modules/appium-ios-remotexpc/scripts/lib/userspace-keeper.mjs', 'node_modules/appium-ios-remotexpc/scripts/tunnel-creation.mjs', 'node_modules/appium-ios-remotexpc/src/index.ts', 'node_modules/appium-ios-remotexpc/src/lib/tunnel/tunnel-api-client.ts', 'node_modules/appium-ios-remotexpc/src/lib/tunnel/tunnel-registry-server.ts', 'node_modules/appium-xcuitest-driver/node_modules/@appium/base-driver/build/lib/jsonwp-proxy/proxy.d.ts', 'node_modules/appium-xcuitest-driver/node_modules/@appium/base-driver/build/lib/jsonwp-proxy/proxy.js', 'node_modules/appium-xcuitest-driver/node_modules/@appium/base-driver/lib/jsonwp-proxy/proxy.ts', 'node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/index.d.ts', 'node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/index.js', 'node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-api-client.d.ts', 'node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-api-client.js', 'node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-registry-server.d.ts', 'node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-registry-server.js', 'node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/src/index.ts', 'node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/src/lib/tunnel/tunnel-api-client.ts', 'node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/src/lib/tunnel/tunnel-registry-server.ts'])
+    if (type(manifest) is not dict or set(manifest) != {"sourceProfileVersion", "sources"}
+            or type(manifest["sourceProfileVersion"]) is not int or manifest["sourceProfileVersion"] != 1
+            or type(manifest["sources"]) is not list or len(manifest["sources"]) != len(expected_paths)
+            or any(type(row) is not dict for row in manifest["sources"])
+            or {row.get("path") for row in manifest["sources"]} != expected_paths):
+        fail("unreviewed exact original-owner Appium source inventory")
+    payloads = []
+    for row in manifest["sources"]:
+        if (set(row) != {"path", "originalSha256", "payload", "payloadSha256"}
+                or type(row["payloadSha256"]) is not str
+                or re.fullmatch("[0-9a-f]{64}", row["payloadSha256"]) is None
+                or (row["originalSha256"] is not None and (type(row["originalSha256"]) is not str
+                    or re.fullmatch("[0-9a-f]{64}", row["originalSha256"]) is None))):
+            fail("invalid original-owner Appium source member")
+        relative = Path(row["path"])
+        if row["payload"] != str(Path("source-patches/original-owner-appium") / relative):
+            fail("unreviewed Appium payload location")
+        payload = Path(__file__).parent / row["payload"]
+        if payload.is_symlink() or payload.resolve(strict=True) != payload or not payload.is_file():
+            fail("Appium source payload is not an ordinary original")
+        if file_sha256(payload) != row["payloadSha256"]:
+            fail("Appium source payload changed")
+        original = source / relative
+        if row["originalSha256"] is None:
+            if original.exists() or original.is_symlink():fail("new Appium source member already exists")
+        elif not original.is_file() or file_sha256(original) != row["originalSha256"]:
+            fail("original Appium source member changed")
+        payloads.append((row, payload))
+    copy_plain_tree(source, destination)
+    if tree_sha256(destination) != original_tree:fail("copied original Appium tree changed")
+    for row, payload in payloads:
+        target = destination / row["path"]
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if row["originalSha256"] is None:
+            if target.exists() or target.is_symlink():fail("new Appium payload target already exists")
+        elif file_sha256(target) != row["originalSha256"]:
+            fail("copied original Appium member changed")
+        mode = 0o700 if target.exists() and target.stat().st_mode & 0o111 else 0o600
+        shutil.copyfile(payload, target);target.chmod(mode)
+        if file_sha256(target) != row["payloadSha256"]:fail("copied Appium payload changed")
+    if manifest_path.read_bytes() != manifest_bytes or tree_sha256(source) != original_tree:
+        fail("original Appium tree or source inventory changed during assembly")
+    for row, payload in payloads:
+        if file_sha256(payload) != row["payloadSha256"]:fail("Appium source payload changed during assembly")
+    assembled_tree = tree_sha256(destination)
+    report = dict(originalOwnerAppiumSourceProfileVersion=1, originalTreeSha256=original_tree,
+        assembledTreeSha256=assembled_tree, manifestSha256=hashlib.sha256(manifest_bytes).hexdigest(),
+        changedSources={row["path"]: row["payloadSha256"] for row, _ in payloads},
+        sdkImported=False, sdkInstalled=False, compilerRun=False, lockUpdated=False,
+        loadedSourceQualified=False, nativeTouchSupport=False, deviceQualified=False)
+    report_path = destination.with_name(destination.name + "-original-owner-appium-source-profile.json")
+    descriptor = os.open(report_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w") as output:
+        json.dump(report, output, indent=2, sort_keys=True);output.write("\n");output.flush();os.fsync(output.fileno())
+    print(json.dumps(dict(sourceProfileVersion=1, assembledTreeSha256=assembled_tree,
+                         changedSourceFiles=len(payloads), sdkImported=False, sdkInstalled=False)))
+    return 0
+
+
 def require_immutable_tree(root: Path, owner_uid: int = 0) -> None:
     if not root.is_absolute() or not root.is_dir() or root.is_symlink():
         fail("installed service runtime is not a safe absolute directory")
@@ -835,21 +1061,28 @@ def install_service_runtime(appium_home: Path, pymobiledevice3_home: Path,
 
 
 def serve(arguments: argparse.Namespace) -> int:
+    creator_mode = getattr(arguments, "creator_mode", "kernel")
     if os.name != "posix" or not sys.platform.startswith("linux"):
         fail("RemoteXPC tunnel service is supported only on Linux")
     if os.geteuid() != 0:
         fail("RemoteXPC tunnel creation must run as root")
     node, script = verify_service_runtime(arguments.service_runtime)
-    if not Path("/dev/net/tun").exists():
+    if creator_mode == "kernel" and not Path("/dev/net/tun").exists():
         fail("/dev/net/tun is unavailable")
     command = [
         str(node), str(script),
         "--tunnel-registry-port", str(arguments.port),
         "--reconnect-retries", "3",
     ]
+    environment=None
+    if creator_mode == "userspace-keeper":
+        command.extend(["--creator-mode", "userspace-keeper"])
+        environment=os.environ.copy()
+        environment["OVERTE_PYMOBILEDEVICE3_SITE_PACKAGES"]=str(arguments.service_runtime/PYMOBILEDEVICE3_SITE_PACKAGES)
+        environment["OVERTE_PYMOBILEDEVICE3_XCTEST_HELPER"]=str(arguments.service_runtime/PYMOBILEDEVICE3_XCTEST_FILE.name)
     child = subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, bufsize=1,
+        text=True, bufsize=1, env=environment,
     )
 
     def forward_signal(signum, _frame):
@@ -1083,6 +1316,8 @@ def device_ddi(arguments: argparse.Namespace) -> int:
             "udid": request["udid"],
             "imageSha384": lock["developerDiskImage"]["files"]["Image.dmg"]["sha384"],
         }
+        if getattr(arguments, "creator_mode", "kernel") == "userspace-keeper":
+            helper_request["originalOwnerRequired"] = True
         validated_files = None
         if arguments.action == "device-ddi-mount":
             validated_files = validate_developer_disk_image(request, lock)
@@ -1125,17 +1360,31 @@ def device_ddi(arguments: argparse.Namespace) -> int:
             result = subprocess.run(
                 [str(node), str(arguments.service_runtime / DEVICE_DDI_FILE.name)],
                 input=json.dumps(helper_request, separators=(",", ":")).encode("utf-8"),
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                 cwd=arguments.service_runtime, env=environment,
                 timeout=5 * 60 if arguments.action == "device-ddi-mount" else 60,
                 check=False,
             )
         if result.returncode:
             fail("private Developer Disk Image helper failed")
+        original_status = bool(result.stdout)
+        if original_status:
+            if len(result.stdout)>1024 or arguments.action != "device-ddi-status":
+                fail("unexpected original-owner DDI status")
+            value=json.loads(result.stdout)
+            if (type(value) is not dict or set(value)!={"originalKeeperDdiStatusVersion","imageSignatureMatched",
+                    "serviceTcpEndpointsConnected","serviceProtocolReadinessEstablished"}
+                    or type(value["originalKeeperDdiStatusVersion"]) is not int or value["originalKeeperDdiStatusVersion"]!=1
+                    or value["imageSignatureMatched"] is not True or value["serviceTcpEndpointsConnected"] is not True
+                    or value["serviceProtocolReadinessEstablished"] is not False):
+                fail("unavailable original-owner DDI status")
     except (TunnelError, OSError, UnicodeError, json.JSONDecodeError,
             plistlib.InvalidFileException, subprocess.SubprocessError, KeyError, TypeError):
         fail("private iOS Developer Disk Image request failed")
-    print("PASS: iOS Personalized DDI and XCTest services are ready")
+    if original_status:
+        print("PASS: original-owner DDI signature and required TCP endpoints verified; protocol readiness unqualified")
+    else:
+        print("PASS: iOS Personalized DDI and XCTest services are ready")
     return 0
 
 
@@ -1374,11 +1623,30 @@ def device_preflight(arguments: argparse.Namespace) -> int:
         "PATH": str(arguments.service_runtime / "bin") + ":/usr/sbin:/usr/bin",
         "HOME": "/nonexistent",
     }
-    result = subprocess.run(
-        [str(node), str(helper)], input=payload, stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL, cwd=arguments.service_runtime,
-        env=environment, timeout=60, check=False,
-    )
+    original_required = getattr(arguments, "creator_mode", "kernel") == "userspace-keeper"
+    if original_required:
+        request["originalOwnerRequired"] = True
+        payload=json.dumps(request,separators=(",", ":")).encode("utf-8")
+        # Same original registry route selection as existing DDI/host paths;
+        # no second tunnel, session, server or dependency import is started.
+        with tempfile.TemporaryDirectory(prefix="overte-ios-original-preflight-") as name:
+            data_home=Path(name)/"data";data_home.mkdir(mode=0o700)
+            port_file=data_home/TUNNEL_PORT_ITEM;port_file.parent.mkdir(parents=True,mode=0o700)
+            descriptor=os.open(port_file,os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,"O_NOFOLLOW",0),0o600)
+            with os.fdopen(descriptor,"w",encoding="ascii") as output:
+                output.write(str(arguments.port));output.flush();os.fsync(output.fileno())
+            environment["XDG_DATA_HOME"]=str(data_home)
+            result = subprocess.run(
+                [str(node), str(helper)], input=payload, stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL, cwd=arguments.service_runtime,
+                env=environment, timeout=60, check=False,
+            )
+    else:
+        result = subprocess.run(
+            [str(node), str(helper)], input=payload, stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL, cwd=arguments.service_runtime,
+            env=environment, timeout=60, check=False,
+        )
     if result.returncode:
         fail("installed iOS app preflight failed")
     if discovery:
@@ -1553,12 +1821,20 @@ def install_unit(arguments: argparse.Namespace) -> int:
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser(description=__doc__)
     subparsers = value.add_subparsers(dest="action", required=True)
+    appium_assembly = subparsers.add_parser("assemble-original-owner-appium")
+    appium_assembly.add_argument("--source-appium", type=Path, required=True)
+    appium_assembly.add_argument("--destination", type=Path, required=True)
+    appium_assembly.add_argument("--expected-source-tree-sha256", required=True)
+    assembly_parser = subparsers.add_parser("assemble-original-owner-python")
+    assembly_parser.add_argument("--source-site-packages", type=Path, required=True)
+    assembly_parser.add_argument("--destination", type=Path, required=True)
     preflight_parser = subparsers.add_parser("preflight")
     preflight_parser.add_argument("--appium-home", type=Path, required=True)
 
     serve_parser = subparsers.add_parser("serve")
     serve_parser.add_argument("--service-runtime", type=Path, required=True)
     serve_parser.add_argument("--port", type=int, default=DEFAULT_PORT)
+    serve_parser.add_argument("--creator-mode", choices=("kernel","userspace-keeper"), default="kernel")
 
     status_parser = subparsers.add_parser("status")
     status_parser.add_argument(
@@ -1575,6 +1851,8 @@ def parser() -> argparse.ArgumentParser:
     appium_parser.add_argument("--state-root", type=Path, required=True)
 
     pre_session_parser = subparsers.add_parser("device-preflight")
+    pre_session_parser.add_argument("--creator-mode", choices=("kernel","userspace-keeper"), default="kernel")
+    pre_session_parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     pre_session_parser.add_argument(
         "--service-runtime", type=Path, default=default_service_runtime(),
     )
@@ -1586,6 +1864,7 @@ def parser() -> argparse.ArgumentParser:
 
     for action in ("device-ddi-status", "device-ddi-mount"):
         ddi_parser = subparsers.add_parser(action)
+        ddi_parser.add_argument("--creator-mode", choices=("kernel","userspace-keeper"), default="kernel")
         ddi_parser.add_argument(
             "--service-runtime", type=Path, default=default_service_runtime(),
         )
@@ -1613,6 +1892,10 @@ def main() -> int:
         if (hasattr(arguments, "tunnel_registry_port")
                 and not 1 <= arguments.tunnel_registry_port <= 65535):
             fail("tunnel registry port must be between 1 and 65535")
+        if arguments.action == "assemble-original-owner-appium":
+            return assemble_original_owner_appium(arguments)
+        if arguments.action == "assemble-original-owner-python":
+            return assemble_original_owner_python(arguments)
         if arguments.action == "preflight":
             preflight(arguments.appium_home)
             print("PASS: pinned RemoteXPC runtime and /dev/net/tun are available")

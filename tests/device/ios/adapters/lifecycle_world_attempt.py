@@ -47,6 +47,18 @@ def gesture(packet,geometry,window,pointer):
         dict(type='pause',duration=300),dict(type='pointerUp',button=0)])])
 
 
+def source_frame_original(frame,binding,run):
+    need(type(frame) is dict and 'originals' in frame and 'clockJoin' in frame)
+    raw=frame['originals'];joined=validate_join(frame['clockJoin'],raw);packet=raw['world'];world.original(packet)
+    need(same(raw['worldClock'],dict(capturedEpochMs=packet['clockAfter']['epochMs'])))
+    need(packet['runId']==run and str(packet['processId'])==binding['processIdentity']
+         and joined['nativeBefore']['processId']==packet['processId']
+         and joined['nativeBefore']['capturedEpochMs']<=packet['clockBefore']['epochMs']
+         <=packet['clockAfter']['epochMs']<=joined['nativeAfter']['capturedEpochMs'])
+    return packet
+
+
+
 class LifecycleWorldAttempt:
     def __init__(self,store,history,sources,reader,geometry,ui,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic):
         need(isinstance(store,PrivateFeatureState) and isinstance(history,LifecycleEditorHistory)
@@ -127,15 +139,7 @@ class LifecycleWorldAttempt:
         join=clock.finish(raw,[('worldClock','capturedEpochMs')])
         return dict(originals=raw,clockJoin=join)
 
-    def source_frame(self,frame):
-        need(type(frame) is dict and 'originals' in frame and 'clockJoin' in frame)
-        raw=frame['originals'];joined=validate_join(frame['clockJoin'],raw);packet=raw['world'];world.original(packet)
-        need(same(raw['worldClock'],dict(capturedEpochMs=packet['clockAfter']['epochMs'])))
-        need(packet['runId']==self.run and str(packet['processId'])==self.binding['processIdentity']
-             and joined['nativeBefore']['processId']==packet['processId']
-             and joined['nativeBefore']['capturedEpochMs']<=packet['clockBefore']['epochMs']
-             <=packet['clockAfter']['epochMs']<=joined['nativeAfter']['capturedEpochMs'])
-        return packet
+    def source_frame(self,frame):return source_frame_original(frame,self.binding,self.run)
 
     def prepared(self):
         frame=self.frame(self.state['before']);exact(frame,{'originals','clockJoin'})

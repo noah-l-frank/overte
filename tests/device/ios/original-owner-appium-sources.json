@@ -1,0 +1,143 @@
+{
+  "sourceProfileVersion": 1,
+  "sources": [
+    {
+      "path": "node_modules/appium-xcuitest-driver/node_modules/@appium/base-driver/build/lib/jsonwp-proxy/proxy.js",
+      "originalSha256": "e5e7eba130a4bc5c39297c43dadf985d83e28d220143acd41186900eb56d340d",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-xcuitest-driver/node_modules/@appium/base-driver/build/lib/jsonwp-proxy/proxy.js",
+      "payloadSha256": "797a2af29cb4dca47417f7a91acad6388758e53d5ab2251bdfdabbae82cacd9e"
+    },
+    {
+      "path": "node_modules/appium-xcuitest-driver/node_modules/@appium/base-driver/build/lib/jsonwp-proxy/proxy.d.ts",
+      "originalSha256": "4a37aaef64ea64d2951b110ac1cf5f8604613373c3f3e70ee76c2567bf6ec6f6",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-xcuitest-driver/node_modules/@appium/base-driver/build/lib/jsonwp-proxy/proxy.d.ts",
+      "payloadSha256": "2b2cf6cbc7ea01dbaf2ba7ec4093736dbdacfb51e426d2e5a28d090a365a74ca"
+    },
+    {
+      "path": "node_modules/appium-ios-remotexpc/src/index.ts",
+      "originalSha256": "98c10d44455cfd38e12c98f12666a86617b1aa56682cb1856801f8aaee2a046e",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-ios-remotexpc/src/index.ts",
+      "payloadSha256": "42bbe832d8a3871f70a4ee6af0af6d924024d66e9a309bc6812aa985762c97ca"
+    },
+    {
+      "path": "node_modules/appium-ios-remotexpc/src/lib/tunnel/tunnel-api-client.ts",
+      "originalSha256": "49995fb632d04070878d586106c6cbfd483292cb7c1b8e298d8f8928c44052b0",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-ios-remotexpc/src/lib/tunnel/tunnel-api-client.ts",
+      "payloadSha256": "5b5ab6282258c80e791dd99fe605efd8475c02172575b0842f2f63f78ed7402e"
+    },
+    {
+      "path": "node_modules/appium-ios-remotexpc/src/lib/tunnel/tunnel-registry-server.ts",
+      "originalSha256": "6981806fb862224094dd394348a7fc58b1f91bbb5157c595b55beca5df31b491",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-ios-remotexpc/src/lib/tunnel/tunnel-registry-server.ts",
+      "payloadSha256": "6031128ec8524a7d0dc3eb71d068d7e9b1bfb4a697629ea91dda9bfe2993f69e"
+    },
+    {
+      "path": "node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-api-client.js",
+      "originalSha256": "6a22cd9fe4637fd2cd4b5de8d52973be6747ff65e3a00a3e5e37242fcedb79d2",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-api-client.js",
+      "payloadSha256": "d2f8e63009d3f88d1e707496da23b8791c30d12e6362db90675222d221ea8799"
+    },
+    {
+      "path": "node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-api-client.d.ts",
+      "originalSha256": "26be7469255f62abc71690997b9f7d5bf3f5963393d1a8137b4b24df8b7f7ad8",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-api-client.d.ts",
+      "payloadSha256": "3c441d4605210e474470630dc4a57a3c593a5b4e9f187d60e36a703d14f31c1f"
+    },
+    {
+      "path": "node_modules/appium-ios-remotexpc/build/src/index.js",
+      "originalSha256": "ab39084dda6f281f6c336d5ae9f411f01e2dc814604bee4a29b2f0f9da571eb2",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-ios-remotexpc/build/src/index.js",
+      "payloadSha256": "ac7d509b390dfd7ab321c3b8635af72940b8b5cd1ee781ca58f523abf84b0e2b"
+    },
+    {
+      "path": "node_modules/appium-ios-remotexpc/build/src/index.d.ts",
+      "originalSha256": "88d9d574bba709cd660e6d5802fcc7f325c5bd40f767c9478e34702350ac54f9",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-ios-remotexpc/build/src/index.d.ts",
+      "payloadSha256": "34754a7e6e528238190ddc9455067afb03d30677e4c7698b3aed3704d2bc41bf"
+    },
+    {
+      "path": "node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-registry-server.js",
+      "originalSha256": "839dc269c669db7996a6dced4e4e46da326ae267d06a1b62992b0d29c878eee2",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-registry-server.js",
+      "payloadSha256": "3bdac050e7c468ff2b10caff84e42b6791b74f9866d4d7b12b3c79728c41c3e7"
+    },
+    {
+      "path": "node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-registry-server.d.ts",
+      "originalSha256": "85db03ed1947758aa07c5ebe22bf2edead8d50420ae79493062b65dcd9eee128",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-registry-server.d.ts",
+      "payloadSha256": "1012fd9755c9f7174009ed3f0a94537a7ede46f1e546b9ae32cdd7ebf0952b0d"
+    },
+    {
+      "path": "node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/src/index.ts",
+      "originalSha256": "98c10d44455cfd38e12c98f12666a86617b1aa56682cb1856801f8aaee2a046e",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/src/index.ts",
+      "payloadSha256": "42bbe832d8a3871f70a4ee6af0af6d924024d66e9a309bc6812aa985762c97ca"
+    },
+    {
+      "path": "node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/src/lib/tunnel/tunnel-api-client.ts",
+      "originalSha256": "49995fb632d04070878d586106c6cbfd483292cb7c1b8e298d8f8928c44052b0",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/src/lib/tunnel/tunnel-api-client.ts",
+      "payloadSha256": "5b5ab6282258c80e791dd99fe605efd8475c02172575b0842f2f63f78ed7402e"
+    },
+    {
+      "path": "node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/src/lib/tunnel/tunnel-registry-server.ts",
+      "originalSha256": "6981806fb862224094dd394348a7fc58b1f91bbb5157c595b55beca5df31b491",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/src/lib/tunnel/tunnel-registry-server.ts",
+      "payloadSha256": "6031128ec8524a7d0dc3eb71d068d7e9b1bfb4a697629ea91dda9bfe2993f69e"
+    },
+    {
+      "path": "node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-api-client.js",
+      "originalSha256": "6a22cd9fe4637fd2cd4b5de8d52973be6747ff65e3a00a3e5e37242fcedb79d2",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-api-client.js",
+      "payloadSha256": "d2f8e63009d3f88d1e707496da23b8791c30d12e6362db90675222d221ea8799"
+    },
+    {
+      "path": "node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-api-client.d.ts",
+      "originalSha256": "26be7469255f62abc71690997b9f7d5bf3f5963393d1a8137b4b24df8b7f7ad8",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-api-client.d.ts",
+      "payloadSha256": "3c441d4605210e474470630dc4a57a3c593a5b4e9f187d60e36a703d14f31c1f"
+    },
+    {
+      "path": "node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/index.js",
+      "originalSha256": "ab39084dda6f281f6c336d5ae9f411f01e2dc814604bee4a29b2f0f9da571eb2",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/index.js",
+      "payloadSha256": "ac7d509b390dfd7ab321c3b8635af72940b8b5cd1ee781ca58f523abf84b0e2b"
+    },
+    {
+      "path": "node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/index.d.ts",
+      "originalSha256": "88d9d574bba709cd660e6d5802fcc7f325c5bd40f767c9478e34702350ac54f9",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/index.d.ts",
+      "payloadSha256": "34754a7e6e528238190ddc9455067afb03d30677e4c7698b3aed3704d2bc41bf"
+    },
+    {
+      "path": "node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-registry-server.js",
+      "originalSha256": "839dc269c669db7996a6dced4e4e46da326ae267d06a1b62992b0d29c878eee2",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-registry-server.js",
+      "payloadSha256": "3bdac050e7c468ff2b10caff84e42b6791b74f9866d4d7b12b3c79728c41c3e7"
+    },
+    {
+      "path": "node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-registry-server.d.ts",
+      "originalSha256": "85db03ed1947758aa07c5ebe22bf2edead8d50420ae79493062b65dcd9eee128",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc/build/src/lib/tunnel/tunnel-registry-server.d.ts",
+      "payloadSha256": "1012fd9755c9f7174009ed3f0a94537a7ede46f1e546b9ae32cdd7ebf0952b0d"
+    },
+    {
+      "path": "node_modules/appium-xcuitest-driver/node_modules/@appium/base-driver/lib/jsonwp-proxy/proxy.ts",
+      "originalSha256": "95ee87240759cce82015ca8ae72e0b451d3c0b9af52eab8bf3f18ebfcbfd73a8",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-xcuitest-driver/node_modules/@appium/base-driver/lib/jsonwp-proxy/proxy.ts",
+      "payloadSha256": "bdf71646dfe412b5d8f5d26f1cfbb37cadae4748954fa27abb527f5a57f39cea"
+    },
+    {
+      "path": "node_modules/appium-ios-remotexpc/scripts/tunnel-creation.mjs",
+      "originalSha256": "9d3e36232f5cc3d680ad092ad6c09b93b5da9ede796457fe233dff26138a4508",
+      "payload": "source-patches/original-owner-appium/node_modules/appium-ios-remotexpc/scripts/tunnel-creation.mjs",
+      "payloadSha256": "36f95063808fd5c96406bab60fe664f53b440f9826d1278e3ba9872d8b3c365c"
+    },
+    {
+      "path": "node_modules/appium-ios-remotexpc/scripts/lib/userspace-keeper.mjs",
+      "originalSha256": null,
+      "payload": "source-patches/original-owner-appium/node_modules/appium-ios-remotexpc/scripts/lib/userspace-keeper.mjs",
+      "payloadSha256": "88011f2c245a1b0ece0dfcd0e4f534d5f37e7f6b13d4517a302dd5b21b303fa4"
+    }
+  ]
+}

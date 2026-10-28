@@ -13,6 +13,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const {pathToFileURL} = require('node:url');
+const {randomUUID} = require('node:crypto');
 
 const MAX_INPUT = 16 * 1024;
 const SERVICES = [
@@ -30,6 +31,10 @@ async function readRequest() {
     chunks.push(chunk);
   }
   const value = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  const originalOwnerRequired = value?.originalOwnerRequired === true;
+  if (value && Object.hasOwn(value, 'originalOwnerRequired') && !originalOwnerRequired)
+    throw new Error('invalid private DDI request');
+  if (originalOwnerRequired) delete value.originalOwnerRequired;
   if (!value || typeof value.udid !== 'string' || value.udid.length < 8 ||
       value.udid.length > 128 || /[\0\r\n]/.test(value.udid) ||
       !['mount', 'status'].includes(value.action) ||
@@ -37,13 +42,13 @@ async function readRequest() {
     throw new Error('invalid private DDI request');
   }
   const keys = Object.keys(value).sort().join(',');
-  if (value.action === 'status' && keys === 'action,imageSha384,udid') return value;
+  if (value.action === 'status' && keys === 'action,imageSha384,udid') return {...value, originalOwnerRequired};
   if (value.action === 'mount' &&
       keys === 'action,image,imageSha384,manifest,trustcache,udid' &&
       [value.image, value.manifest, value.trustcache].every((item) =>
         typeof item === 'string' && item.length > 0 && item.length <= 4096 &&
         !/[\0\r\n]/.test(item))) {
-    return value;
+    return {...value, originalOwnerRequired};
   }
   throw new Error('invalid private DDI request');
 }
@@ -63,6 +68,34 @@ async function main() {
   const remoteXpc = await import(pathToFileURL(
     path.join(packageRoot, 'build', 'src', 'index.js')
   ).href);
+  if (request.originalOwnerRequired) {
+    if (typeof remoteXpc.originalKeeperOperation !== 'function') throw new Error('original owner unavailable');
+    const probe = await remoteXpc.originalKeeperOperation(request.udid, {
+      schemaVersion: 2, requestId: randomUUID().replaceAll('-', ''), ownerInstance: null,
+      sessionId: null, operation: 'inspect', args: {},
+    });
+    if (probe?.originalKeeperOperationVersion !== 1) throw new Error('original owner unavailable');
+    if (probe.result?.creatorMode === 'userspace-keeper') {
+      if (request.action !== 'status' || typeof probe.ownerInstance !== 'string' ||
+          !/^[0-9a-f]{32}$/.test(probe.ownerInstance)) throw new Error('original read-only DDI owner unavailable');
+      const value = await remoteXpc.originalKeeperOperation(request.udid, {
+        schemaVersion: 2, requestId: randomUUID().replaceAll('-', ''), ownerInstance: probe.ownerInstance,
+        sessionId: null, operation: 'ddi-status', args: {imageSha384: request.imageSha384},
+      });
+      const result = value?.result;
+      if (value?.originalKeeperOperationVersion !== 1 || value.ownerInstance !== probe.ownerInstance ||
+          result?.originalKeeperDdiStatusVersion !== 1 || result.ownerInstance !== probe.ownerInstance ||
+          result.source !== 'original-rsd-personalized-image-and-tcp' || result.imageSignatureMatched !== true ||
+          result.serviceTcpEndpointsConnected !== true || result.serviceProtocolReadinessEstablished !== false ||
+          result.nativeTouchSupport !== false || result.resourceRetirementEstablished !== false)
+        throw new Error('original read-only DDI status unavailable');
+      process.stdout.write(JSON.stringify({originalKeeperDdiStatusVersion: 1,
+        imageSignatureMatched: true, serviceTcpEndpointsConnected: true,
+        serviceProtocolReadinessEstablished: false}));
+      return;
+    }
+    throw new Error('required original userspace owner unavailable');
+  }
   const imageMounter = await remoteXpc.Services.startMobileImageMounterService(
     request.udid
   );

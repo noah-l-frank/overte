@@ -7,14 +7,19 @@
 from __future__ import annotations
 
 import asyncio
-from contextlib import suppress
+from contextlib import asynccontextmanager, suppress
 import ctypes
 from importlib.metadata import version
 import ipaddress
+import inspect
+import weakref
 import json
 import os
 import re
 import signal
+import time
+import uuid
+from urllib.parse import quote
 import sys
 
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
@@ -130,6 +135,15 @@ def read_request() -> dict:
         value = json.loads(line)
     except (UnicodeError, json.JSONDecodeError) as error:
         raise LaunchError("request") from error
+    if type(value) is dict and type(value.get("schemaVersion")) is int and value["schemaVersion"]==2:
+        value=decode_owner_packet(line)
+        if (set(value)!={"schemaVersion","creatorMode","udid","stateRoot"}
+                or value["creatorMode"]!="original-userspace-owner" or type(value["udid"]) is not str
+                or not 8<=len(value["udid"])<=128 or any(ch in value["udid"] for ch in "\0\r\n")
+                or type(value["stateRoot"]) is not str or not value["stateRoot"].startswith("/")
+                or any(ch in value["stateRoot"] for ch in "\0\r\n")):
+            raise LaunchError("request")
+        return value
     keys = {"schemaVersion", "udid", "rsdHost", "rsdPort", "wdaBundleId",
             "wdaPort", "environment"}
     if (not isinstance(value, dict) or set(value) != keys
@@ -166,18 +180,181 @@ def read_request() -> dict:
     return value
 
 
-async def run_xctest(request: dict) -> None:
-    stop = asyncio.Event()
+class OriginalKeeperSource:
+    """Same-loop borrow from the ORIGINAL creator; construction opens nothing.
+
+    The creator must already have selected its exclusive userspace path before
+    any external Node tunnel is created. Nothing in this class can prove that
+    missing cross-process selection or the Appium session route.
+    """
+    def __init__(self, tunnel):
+        from pymobiledevice3.remote.userspace_tunnel import UserspaceRsdTunnel
+        if type(tunnel) is not UserspaceRsdTunnel:
+            raise LaunchError("rsd-connect")
+        self._tunnel = weakref.ref(tunnel)
+        self._source = tunnel.original_source()
+        self._loop = asyncio.get_running_loop()
+        self._leases = []
+        self._born = []
+        self._closing = False
+
+    def current(self):
+        tunnel = self._tunnel()
+        if (tunnel is None or asyncio.get_running_loop() is not self._loop
+                or tunnel.original_source() is not self._source):
+            raise LaunchError("rsd-connect")
+        return self._source.current()
+
+    def _birth(self, lease, task):
+        from ios.adapters.lifecycle_touch_transport import RetainedTouchWorker
+        # Capture the ACTUAL born Task before validation can fail. Even a
+        # changed public worker slot cannot erase this original responsibility.
+        existing = next((row for row in self._born if row['lease'] is lease), None)
+        if existing is not None:
+            if existing['worker'] is not task:
+                raise LaunchError("session-lifetime")
+            if existing['owner'] is None:
+                raise LaunchError("session-lifetime")
+            existing['owner']._status()
+            return existing
+        row = dict(lease=lease, worker=task, loop=task.get_loop(),
+                   release=lease.request_release, owner=None)
+        self._born.append(row)
+        if asyncio.get_running_loop() is not self._loop or row['loop'] is not self._loop:
+            raise LaunchError("session-lifetime")
+        row['owner'] = RetainedTouchWorker(lease)
+        return row
+
+    def touch_lease(self, store, *, binding, run, check, resource_owner=None):
+        from ios.adapters.touch_lease import TouchLease
+        from ios.adapters.hid_session import touch_session
+        def admission():
+            if self._closing:
+                raise LaunchError("session-lifetime")
+            self.current()
+            return True
+        admission()
+        async def continuity():
+            self._birth(lease, asyncio.current_task())
+            # Only forward acquisition/Down is gated. Existing worker finally
+            # sends its original ordinary Up/drain without this admission.
+            admission()
+            result = check()
+            if inspect.isawaitable(result):
+                result = await result
+            admission()
+            return result
+        @asynccontextmanager
+        async def session():
+            admission()
+            rsd, local_address = self.current()
+            async with touch_session(rsd, local_address,
+                                     socket_factory=self._source.udp_socket) as hid:
+                admission()
+                yield hid
+        if resource_owner is None:
+            lease = TouchLease(store, session, binding=binding, run=run, check=continuity,
+                               admit_begin=admission, on_worker_birth=self._birth)
+        else:
+            from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner
+            if (type(resource_owner) is not LifecycleTouchResourceOwner
+                    or resource_owner.binding!=binding or resource_owner.run!=run
+                    or resource_owner.store.path.parent!=store.path.parent):
+                raise LaunchError("session-lifetime")
+            rsd,local_address=self.current()
+            # The existing resource owner runs INSIDE the original lease
+            # worker. Actual auth/RSD/stack/loop remain owned here, not in JSON.
+            lease=resource_owner.make_lease(store,rsd,local_address,check=continuity,
+                options={'socket_factory':self._source.udp_socket},admit_begin=admission,
+                on_worker_birth=self._birth,worker_lock=True)
+        self._leases.append(lease)
+        return lease
+
+    def prepare_motion(self,resource,owner_instance,frame,*,seconds):
+        from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner
+        if (type(self) is not OriginalKeeperSource or self._closing or type(resource) is not LifecycleTouchResourceOwner
+                or asyncio.get_running_loop() is not self._loop):raise LaunchError('session-lifetime')
+        self.current()
+        # This actual Source object/loop remains local. The serialized owner ID
+        # is correlation only, never a callable or authentication capability.
+        return resource.prepare_motion(self,owner_instance,frame,seconds=seconds)
+
+    async def settle_touches(self):
+        # Close ALL future begin/acquire/Down admission before any await.
+        self._closing = True
+        failure = None
+        for row in tuple(self._born):
+            lease, worker, owner = row['lease'], row['worker'], row['owner']
+            try:
+                if (row['loop'] is not self._loop or worker.get_loop() is not self._loop
+                        or lease.request_release is not row['release'] or owner is None):
+                    raise LaunchError("session-lifetime")
+                await owner.release()
+            except BaseException as error:
+                failure = failure or error
+                # Request cleanup on the ORIGINAL worker's retained event. A
+                # failed source check never cancels or replaces that worker.
+                row['release'].set()
+            while not worker.done():
+                try:
+                    await asyncio.shield(worker)
+                except BaseException as error:
+                    failure = failure or error
+        if failure is not None:
+            raise failure
+
+
+@asynccontextmanager
+async def create_original_keeper_source(udid):
+    """Original creator extension, only after exclusive creator selection.
+
+    Not wired to main or Node: their kernel creator must be excluded BEFORE
+    this function is called. It must never be used as a second-tunnel fallback.
+    """
+    from pymobiledevice3.remote.userspace_tunnel import UserspaceRsdTunnel
+    tunnel = UserspaceRsdTunnel(
+        serial=udid, autopair=False, remotepairing_fallback=False,
+        require_validated_source=True)
+    async with tunnel:
+        source = OriginalKeeperSource(tunnel)
+        source.current()
+        try:
+            yield source
+        finally:
+            await source.settle_touches()
+
+
+@asynccontextmanager
+async def original_service_provider(request, original_source):
+    if original_source is None:
+        async with RemoteServiceDiscoveryService(
+                (request["rsdHost"], request["rsdPort"])) as service_provider:
+            yield service_provider
+        return
+    if type(original_source) is not OriginalKeeperSource:
+        raise LaunchError("rsd-connect")
+    service_provider, _address = original_source.current()
+    if service_provider.udid != request["udid"]:
+        raise LaunchError("rsd-identity")
+    # The original creator retains its AsyncExitStack through this await; the
+    # keeper never closes/recreates its borrowed RSD or tunnel.
+    yield service_provider
+
+
+async def run_xctest(request: dict, *, original_source=None, owned_stop=None, owned_ready=None) -> None:
+    stop = asyncio.Event() if owned_stop is None else owned_stop
     loop = asyncio.get_running_loop()
-    for signal_number in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(signal_number, stop.set)
+    if owned_stop is None:
+        for signal_number in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(signal_number, stop.set)
 
     phase = "rsd-connect"
     try:
-        async with RemoteServiceDiscoveryService(
-                (request["rsdHost"], request["rsdPort"])) as service_provider:
+        async with original_service_provider(request, original_source) as service_provider:
             if service_provider.udid != request["udid"]:
                 raise LaunchError("rsd-identity")
+            if original_source is not None:
+                original_source.current()
             phase = "xctest-config"
             configuration = await TestConfig.create_for(
                 service_provider, runner_bundle_id=request["wdaBundleId"]
@@ -199,6 +376,8 @@ async def run_xctest(request: dict) -> None:
             deadline = loop.time() + READY_TIMEOUT_SECONDS
             phase = "wda-ready"
             while True:
+                if original_source is not None:
+                    original_source.current()
                 if runner.done():
                     failure_phase = completed_runner_phase(runner, "wda-ready")
                     raise LaunchError(failure_phase)
@@ -209,6 +388,8 @@ async def run_xctest(request: dict) -> None:
                     status = await asyncio.wait_for(
                         client.get_status(), timeout=min(2.5, remaining)
                     )
+                    if original_source is not None:
+                        original_source.current()
                 except Exception:
                     await asyncio.sleep(min(0.1, max(0.0, deadline - loop.time())))
                     continue
@@ -218,8 +399,11 @@ async def run_xctest(request: dict) -> None:
                     break
                 await asyncio.sleep(0.1)
 
-            sys.stdout.write("READY\n")
-            sys.stdout.flush()
+            if owned_ready is None:
+                sys.stdout.write("READY\n")
+                sys.stdout.flush()
+            else:
+                owned_ready.set_result(None)
             phase = "session-lifetime"
             stopped = asyncio.create_task(stop.wait(), name="overte-wda-stop")
             done, _pending = await asyncio.wait(
@@ -251,12 +435,425 @@ async def run_xctest(request: dict) -> None:
                 await runner
 
 
+class OriginalKeeperOperations:
+    """Versioned existing-pipe dispatch; JSON routes, live originals admit."""
+    def __init__(self, source, state_root):
+        self.source=source;self.instance=uuid.uuid4().hex;self.session=None
+        self.wda=None;self.wda_stop=None;self.wda_session=None;self.wda_binding_claimed=False;self.touch=None;self.closed=False;self.draining=False
+        self.issued={};self.operations=set();self.state_root=state_root;self.touch_resources=None
+
+    def scope(self, session):
+        if self.closed or self.draining or self.session is None or session!=self.session['sessionId']:
+            raise LaunchError('session-lifetime')
+        return self.source.current()[0]
+
+    async def process(self, bundle, original_pid=0, *, terminate=False):
+        from pymobiledevice3.services.dvt.instruments.dvt_provider import DvtProvider
+        from pymobiledevice3.services.dvt.instruments.process_control import ProcessControl
+        from pymobiledevice3.services.dvt.instruments.device_info import DeviceInfo
+        rsd=self.source.current()[0];before=dict(epochMs=time.time()*1000,monotonicMs=time.monotonic()*1000)
+        provider=DvtProvider(rsd)
+        async with provider:
+            async with ProcessControl(provider) as control:
+                first=await control.process_identifier_for_bundle_identifier(bundle)
+                if type(first) is not int or not 0<=first<=2147483647:raise LaunchError('session-lifetime')
+                if terminate and self.draining:raise LaunchError('session-lifetime')
+                if terminate and first:await control.kill(first)
+                second=await control.process_identifier_for_bundle_identifier(bundle)
+                if type(second) is not int or not 0<=second<=2147483647:raise LaunchError('session-lifetime')
+                checks=[]
+                if original_pid:
+                    async with DeviceInfo(provider) as device:
+                        checks=[await device.is_running_pid(original_pid),await device.is_running_pid(original_pid)]
+                        if any(type(value) is not bool for value in checks):raise LaunchError('session-lifetime')
+        self.source.current()
+        # Exact new source type: an awaited Python provider exit is not the
+        # v1 Node socket close event or independent native resource retirement.
+        return dict(iosOriginalKeeperProcessVersion=1,source='pmd-original-rsd-dvt',
+                    ownerInstance=self.instance,bundlePids=[first,second],pidChecks=checks,
+                    clockDomain='python-original-keeper-host',clockBefore=before,
+                    clockAfter=dict(epochMs=time.time()*1000,monotonicMs=time.monotonic()*1000),
+                    providerExitReturned=True,providerDtxCleared=provider._dtx is None,
+                    resourceRetirementEstablished=False)
+
+    async def fresh_touch_scope(self, binding):
+        rsd=self.scope(binding['sessionId'])
+        observation=await self.process(self.session['archiveBundleId'])
+        if observation['bundlePids']!=[int(binding['processIdentity'])]*2:
+            raise LaunchError('session-lifetime')
+        # Existing WDA HTTP service uses its ordinary USB transport. It does
+        # not create a new RSD/auth/tunnel or a new WDA session here.
+        if self.wda_session is None:raise LaunchError('session-lifetime')
+        state=await WdaServiceClient(rsd,port=8100,timeout=2.0)._request_json(
+            'POST','/session/'+quote(self.wda_session,safe='')+'/wda/apps/state',{'bundleId':self.session['archiveBundleId']})
+        if type(state.get('value')) is not int or state['value']!=4:
+            raise LaunchError('session-lifetime')
+        if self.scope(binding['sessionId']) is not rsd:raise LaunchError('session-lifetime')
+        after=await self.process(self.session['archiveBundleId'])
+        if (self.scope(binding['sessionId']) is not rsd
+                or after['bundlePids']!=[int(binding['processIdentity'])]*2):
+            raise LaunchError('session-lifetime')
+        return True
+
+    def pre_session_rsd(self):
+        if self.closed or self.draining or self.session is not None:raise LaunchError('session-lifetime')
+        return self.source.current()[0]
+
+    async def preflight_apps(self, args):
+        from pymobiledevice3.services.installation_proxy import InstallationProxyService
+        if (type(args) is not dict or set(args)!={'overteBundleId','wdaBundleId','discoverRemappedBundleIds'}
+                or type(args['discoverRemappedBundleIds']) is not bool
+                or any(type(args[key]) is not str or len(args[key])>255 or BUNDLE_ID.fullmatch(args[key]) is None
+                       for key in ('overteBundleId','wdaBundleId'))
+                or args['overteBundleId']==args['wdaBundleId']):raise LaunchError('request')
+        rsd=self.pre_session_rsd()
+        attributes=['CFBundleIdentifier','CFBundleExecutable','ApplicationType','ProfileValidated','SignerIdentity',
+                    'UIFileSharingEnabled','OverteE2ETestBuildContractVersion','Entitlements',
+                    'OverteE2EWebDriverAgentVersion','OverteE2EXCUITestDriverVersion']
+        query={'ApplicationType':'User','ReturnAttributes':attributes}
+        if not args['discoverRemappedBundleIds']:query['BundleIDs']=[args['overteBundleId'],args['wdaBundleId']]
+        async with InstallationProxyService(rsd) as proxy:
+            applications=await proxy.lookup(query)
+        if self.pre_session_rsd() is not rsd or type(applications) is not dict:raise LaunchError('session-lifetime')
+        if args['discoverRemappedBundleIds']:
+            values=list(applications.values())
+            overte=[app for app in values if type(app) is dict
+                    and type(app.get('OverteE2ETestBuildContractVersion')) is int and app['OverteE2ETestBuildContractVersion']==1
+                    and app.get('UIFileSharingEnabled') is True]
+            wda=[app for app in values if type(app) is dict and app.get('OverteE2EWebDriverAgentVersion')=='16.8.0'
+                 and app.get('OverteE2EXCUITestDriverVersion')=='12.8.0' and type(app.get('CFBundleExecutable')) is str
+                 and app['CFBundleExecutable'].endswith('-Runner')]
+            if len(overte)!=1 or len(wda)!=1:raise LaunchError('request')
+            selected=[overte[0],wda[0]]
+        else:
+            if set(applications)!={args['overteBundleId'],args['wdaBundleId']}:raise LaunchError('request')
+            selected=[applications[args['overteBundleId']],applications[args['wdaBundleId']]]
+        output={}
+        for app in selected:
+            if type(app) is not dict:raise LaunchError('request')
+            bundle=app.get('CFBundleIdentifier')
+            if type(bundle) is not str or len(bundle)>255 or BUNDLE_ID.fullmatch(bundle) is None or bundle in output:
+                raise LaunchError('request')
+            value={key:app[key] for key in attributes if key in app}
+            # Transport only fields actually consumed by existing validation,
+            # preserving their observed values; no inferred signing result.
+            entitlements=value.get('Entitlements')
+            if type(entitlements) is dict:
+                value['Entitlements']={key:entitlements[key] for key in
+                    ('com.apple.developer.team-identifier','application-identifier') if key in entitlements}
+            output[bundle]=value
+        if len(json.dumps(output,separators=(',',':'),ensure_ascii=True).encode())>12000:raise LaunchError('request')
+        if self.pre_session_rsd() is not rsd:raise LaunchError('session-lifetime')
+        return dict(originalKeeperPreflightVersion=1,ownerInstance=self.instance,applications=output,
+                    source='original-rsd-installation-proxy',nativeTouchSupport=False,resourceRetirementEstablished=False)
+
+    async def ddi_status(self, args):
+        from pymobiledevice3.services.mobile_image_mounter import PersonalizedImageMounter
+        if (type(args) is not dict or set(args)!={'imageSha384'} or type(args['imageSha384']) is not str
+                or re.fullmatch('[0-9a-f]{96}',args['imageSha384']) is None):raise LaunchError('request')
+        rsd=self.pre_session_rsd()
+        async with PersonalizedImageMounter(rsd) as mounter:
+            # Same SDK LookupImage exchange as public lookup_image, retaining
+            # ALL returned signatures rather than silently selecting first.
+            original=await mounter._send_recv({'Command':'LookupImage','ImageType':'Personalized'})
+        if self.pre_session_rsd() is not rsd or type(original) is not dict or original.get('ImagePresent') is False:
+            raise LaunchError('session-lifetime')
+        signatures=original.get('ImageSignature')
+        if type(signatures) is bytes:signatures=[signatures]
+        if (type(signatures) is not list or not signatures or any(type(value) is not bytes for value in signatures)
+                or bytes.fromhex(args['imageSha384']) not in signatures):raise LaunchError('request')
+        ports={}
+        for name in ('com.apple.dt.testmanagerd.remote','com.apple.instruments.dtservicehub'):
+            if self.pre_session_rsd() is not rsd:raise LaunchError('session-lifetime')
+            port=rsd.get_service_port(name)
+            if type(port) is not int or not 1<=port<=65535:raise LaunchError('request')
+            # Read-only actual TCP connect through the original pinned dialer;
+            # not a new RSD, tunnel, pairing or developer application session.
+            connection=await rsd.create_service_connection(port)
+            try:
+                if self.pre_session_rsd() is not rsd:raise LaunchError('session-lifetime')
+            finally:
+                await connection.close()
+            if self.pre_session_rsd() is not rsd:raise LaunchError('session-lifetime')
+            ports[name]=port
+        return dict(originalKeeperDdiStatusVersion=1,ownerInstance=self.instance,imageSignatureMatched=True,
+                    serviceTcpEndpointsConnected=True,serviceProtocolReadinessEstablished=False,
+                    source='original-rsd-personalized-image-and-tcp',nativeTouchSupport=False,
+                    resourceRetirementEstablished=False)
+
+    async def execute(self, operation, args, session):
+        if operation=='owner-drain':
+            if args or session is not None or asyncio.get_running_loop() is not self.source._loop:
+                raise LaunchError('session-lifetime')
+            self.draining=True
+            # Close all forward input before the first await. Actual retained
+            # workers settle without cancellation or fresh SDK admission.
+            await self.source.settle_touches()
+            current=asyncio.current_task()
+            for row in tuple(self.issued.values()):
+                task=row.get('task')
+                if (task is None or task is current or row['request']['operation'] in
+                        ('owner-drain','touch-release','touch-inspect','touch-settle')):continue
+                while not task.done():await asyncio.shield(task)
+            return dict(originalKeeperDrainVersion=1,ownerInstance=self.instance,inputAdmissionClosed=True,
+                        originalTouchWorkersSettled=True,originalOperationsSettled=True,
+                        nativeTouchSupport=False,resourceRetirementEstablished=False)
+        if operation in ('apps-preflight','ddi-status'):
+            if session is not None:raise LaunchError('request')
+            return await (self.preflight_apps(args) if operation=='apps-preflight' else self.ddi_status(args))
+        if operation=='inspect':
+            if args or session is not None:raise LaunchError('request')
+            self.source.current()
+            return dict(originalKeeperOwnerVersion=1,creatorMode='userspace-keeper',
+                        ownerInstance=self.instance,sourceLive=True,nativeTouchSupport=False)
+        if operation=='claim':
+            if (self.closed or self.draining or self.session is not None or type(args) is not dict
+                    or set(args)!={'sessionId','archiveBundleId','wdaBundleId'} or session!=args['sessionId']
+                    or any(type(args[key]) is not str or not args[key] or len(args[key])>255
+                           or any(ch in args[key] for ch in '\0\r\n') for key in args)
+                    or any(BUNDLE_ID.fullmatch(args[key]) is None for key in ('archiveBundleId','wdaBundleId'))):
+                raise LaunchError('request')
+            if re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}',args['sessionId']) is None:raise LaunchError('request')
+            self.source.current();self.session=dict(args)
+            return dict(originalKeeperClaimVersion=1,ownerInstance=self.instance)
+        if operation in ('touch-release','touch-inspect','touch-settle'):
+            # Original claim/session and retained worker identity are sufficient
+            # for OLD handle cleanup. No current SDK/RSD/PID is reacquired and
+            # no new input/process/WDA mutation is admitted by this branch.
+            if (args or self.session is None or session!=self.session['sessionId']
+                    or asyncio.get_running_loop() is not self.source._loop):raise LaunchError('session-lifetime')
+            if operation!='touch-settle' and self.touch is None:raise LaunchError('request')
+            if operation in ('touch-release','touch-settle'):
+                await self.source.settle_touches()
+            inspection=None
+            if self.touch is not None:
+                row=next((row for row in self.source._born if row['lease'] is self.touch),None)
+                if row is None or row['owner'] is None:raise LaunchError('session-lifetime')
+                inspection=row['owner']._status()
+            return dict(iosOriginalKeeperTouchVersion=1,ownerInstance=self.instance,inspection=inspection,
+                        nativeTouchSupport=False,resourceRetirementEstablished=False)
+        rsd=self.scope(session)
+        if operation=='wda-start':
+            if set(args)!={'environment','wdaPort'} or self.wda is not None or args['wdaPort']!=8100:
+                raise LaunchError('request')
+            env=args['environment']
+            if (type(env) is not dict or set(env)!=ENVIRONMENT_KEYS or env['USE_PORT']!='8100'
+                    or env['WDA_PRODUCT_BUNDLE_IDENTIFIER']!=self.session['wdaBundleId']):raise LaunchError('request-environment')
+            ready=asyncio.get_running_loop().create_future();self.wda_stop=asyncio.Event()
+            request=dict(udid=rsd.udid,wdaBundleId=self.session['wdaBundleId'],wdaPort=8100,environment=dict(env))
+            self.wda=asyncio.create_task(run_xctest(request,original_source=self.source,
+                                      owned_stop=self.wda_stop,owned_ready=ready),name='original-owner-wda')
+            done,_=await asyncio.wait({ready,self.wda},return_when=asyncio.FIRST_COMPLETED)
+            if ready not in done:self.wda.result();raise LaunchError('wda-ready')
+            await ready;self.scope(session)
+            return dict(originalKeeperWdaVersion=1,ownerInstance=self.instance,ready=True)
+        if operation=='wda-bind':
+            if (set(args)!={'wdaSessionId'} or self.wda_binding_claimed or self.wda_session is not None or self.wda is None or self.wda.done()
+                    or type(args['wdaSessionId']) is not str
+                    or re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}',args['wdaSessionId']) is None):
+                raise LaunchError('request')
+            # Correlated JSON is NOT a session birth producer. The Appium
+            # original proxy receipt is held in its owning process; this side
+            # independently queries that EXISTING FBSession on original target.
+            self.wda_binding_claimed=True
+            original=await WdaServiceClient(rsd,port=8100,timeout=2.0)._request_json(
+                'GET','/session/'+quote(args['wdaSessionId'],safe=''))
+            if (self.scope(session) is not rsd or self.wda.done() or type(original.get('value')) is not dict
+                    or original['value'].get('sessionId')!=args['wdaSessionId']):
+                raise LaunchError('session-lifetime')
+            self.wda_session=args['wdaSessionId']
+            return dict(originalKeeperWdaSessionVersion=1,ownerInstance=self.instance,existingSessionBound=True,
+                        nativeTouchSupport=False,resourceRetirementEstablished=False)
+        if operation in ('process-read','process-terminate'):
+            allowed={self.session['archiveBundleId'],self.session['archiveBundleId']+'.receiver'}
+            if operation=='process-terminate':allowed={self.session['wdaBundleId']}
+            if set(args)!={'bundleId','originalPid'} or args['bundleId'] not in allowed or type(args['originalPid']) is not int or not 0<=args['originalPid']<=2147483647:
+                raise LaunchError('request')
+            result=await self.process(args['bundleId'],args['originalPid'],terminate=operation=='process-terminate')
+            self.scope(session);return result
+        if operation=='touch-motion-prepare':
+            if (type(args) is not dict or set(args)!={'binding','runId','frame','seconds'}
+                    or self.touch is not None or self.touch_resources is not None):raise LaunchError('request')
+            from adapters.normal_feature_state import PrivateFeatureState,context
+            from adapters.script_feature.lock import ScriptSourceLock
+            from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner
+            binding=context(args['binding'])
+            if binding['sessionId']!=session or type(args['runId']) is not str or re.fullmatch('[0-9a-f]{32}',args['runId']) is None:
+                raise LaunchError('session-lifetime')
+            await self.fresh_touch_scope(binding)
+            if self.scope(session) is not rsd:raise LaunchError('session-lifetime')
+            original_session=self.session;original_source=self.source
+            def resource_current():
+                if self.session is not original_session or self.source is not original_source:
+                    raise LaunchError('session-lifetime')
+                original_source.current();return True
+            lock=ScriptSourceLock(self.state_root/'script-feature-sources.lock')
+            with lock.held():
+                resource=LifecycleTouchResourceOwner(PrivateFeatureState(self.state_root/('ios-lifecycle-touch-resources-'+args['runId']+'.json')),
+                    binding,args['runId'],lock,resource_current)
+                self.touch_resources=resource # Retain original duty BEFORE a saved ACK can be lost.
+                self.source.prepare_motion(resource,self.instance,args['frame'],seconds=args['seconds'])
+            return dict(originalKeeperMotionPreparationVersion=1,ownerInstance=self.instance,preparationRecorded=True,
+                nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
+        if operation in ('touch-resource-capture','touch-resource-recover'):
+            resource=self.touch_resources
+            if type(args) is not dict or set(args)!={'binding','runId'} or resource is None or resource.version!=1:
+                raise LaunchError('request')
+            from adapters.normal_feature_state import context
+            if context(args['binding'])!=resource.binding or args['runId']!=resource.run:
+                raise LaunchError('session-lifetime')
+            # Existing live candidate/session checks apply to NEW captures.
+            # Saved-only metadata recovery performs no SDK query or input.
+            if operation=='touch-resource-capture':
+                await self.fresh_touch_scope(self.touch._binding)
+                if self.scope(session) is not rsd:raise LaunchError('session-lifetime')
+            with resource.lock.held():
+                value=resource.capture() if operation=='touch-resource-capture' else resource.recover_capture()
+                original=resource.files.read(resource.files.expand(resource.state['frames'][-1]))
+                if original!=value:raise LaunchError('session-lifetime')
+                owner=resource.previous
+            # Lossless transport through Node JSON: original uint64 device/
+            # inode metadata stays inside canonical JSON TEXT, never JS Number.
+            resource_json=json.dumps(dict(capture=value,owner=owner),sort_keys=True,separators=(',',':'),ensure_ascii=True,allow_nan=False)
+            if len(resource_json)>12288:raise LaunchError('request')
+            result=dict(originalKeeperTouchResourceVersion=2,ownerInstance=self.instance,
+                        encoding='canonical-json-ascii',resourceJson=resource_json,
+                        nativeTouchSupport=False,resourceRetirementEstablished=False)
+            # The escaped string itself must fit the existing 16KiB pipe frame,
+            # leaving room for its unchanged outer request/status envelope.
+            if len(json.dumps(result,separators=(',',':'),ensure_ascii=True).encode('ascii'))>12000:
+                raise LaunchError('request')
+            return result
+        if operation=='touch-begin':
+            if self.touch is not None or self.touch_resources is not None or set(args)!={'binding','runId','width','height','x','y','seconds'}:raise LaunchError('request')
+            from adapters.normal_feature_state import PrivateFeatureState,context
+            binding=context(args['binding'])
+            if binding['sessionId']!=session or not re.fullmatch('[1-9][0-9]{0,9}',binding['processIdentity']):raise LaunchError('request')
+            if type(args['runId']) is not str or re.fullmatch('[0-9a-f]{32}',args['runId']) is None:raise LaunchError('request')
+            from adapters.script_feature.lock import ScriptSourceLock
+            from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner
+            original_session=self.session;original_source=self.source
+            def resource_current():
+                if self.session is not original_session or self.source is not original_source:
+                    raise LaunchError('session-lifetime')
+                original_source.current();return True
+            lock=ScriptSourceLock(self.state_root/'script-feature-sources.lock')
+            with lock.held():
+                resource=LifecycleTouchResourceOwner(PrivateFeatureState(self.state_root/('ios-lifecycle-touch-resources-'+args['runId']+'.json')),
+                    binding,args['runId'],lock,resource_current)
+                # Retain the actual owner before an original factory/ACK can
+                # fail. No restored WAL recreates an absent source or worker.
+                self.touch_resources=resource
+                self.touch=self.source.touch_lease(PrivateFeatureState(self.state_root/('ios-lifecycle-touch-lease-'+args['runId']+'.json')),
+                    binding=binding,run=args['runId'],check=lambda:self.fresh_touch_scope(binding),resource_owner=resource)
+            value=await self.touch.begin(args['width'],args['height'],args['x'],args['y'],seconds=args['seconds'])
+            return dict(iosOriginalKeeperTouchVersion=1,ownerInstance=self.instance,inspection=value,
+                        nativeTouchSupport=False,resourceRetirementEstablished=False)
+        if operation=='wda-stop':
+            if args or self.wda is None:raise LaunchError('request')
+            await self.source.settle_touches();self.wda_stop.set()
+            await asyncio.shield(self.wda)
+            return dict(originalKeeperWdaVersion=1,ownerInstance=self.instance,stopReturned=True,
+                        resourceRetirementEstablished=False)
+        raise LaunchError('request')
+
+    async def finish(self):
+        self.closed=True
+        failure=None
+        try:await self.source.settle_touches()
+        except BaseException as error:failure=error
+        for task in tuple(self.operations):
+            while not task.done():
+                try:await asyncio.shield(task)
+                except BaseException as error:failure=failure or error
+        if self.wda is not None:
+            self.wda_stop.set()
+            while not self.wda.done():
+                try:await asyncio.shield(self.wda)
+                except BaseException as error:failure=failure or error
+        if failure is not None:raise failure
+
+
+def decode_owner_packet(raw):
+    def pairs(items):
+        result={}
+        for key,value in items:
+            if key in result:raise LaunchError('request')
+            result[key]=value
+        return result
+    def constant(_value):raise LaunchError('request')
+    return json.loads(raw,object_pairs_hook=pairs,parse_constant=constant)
+
+
+def write_owner_packet(value):
+    raw=json.dumps(value,separators=(',',':'),ensure_ascii=True)
+    if len(raw.encode())>MAX_REQUEST_BYTES:raise LaunchError('request')
+    sys.stdout.write(raw+'\n');sys.stdout.flush()
+
+
+async def run_original_owner(request):
+    from pathlib import Path
+    root=Path(request['stateRoot']);value=root.lstat()
+    if (not root.is_absolute() or root.is_symlink() or root.resolve()!=root or not root.is_dir()
+            or value.st_uid!=os.geteuid() or value.st_mode&0o077):raise LaunchError('request')
+    stop=asyncio.Event();loop=asyncio.get_running_loop()
+    for sig in (signal.SIGINT,signal.SIGTERM):loop.add_signal_handler(sig,stop.set)
+    reader=asyncio.StreamReader(limit=MAX_REQUEST_BYTES+1)
+    await loop.connect_read_pipe(lambda:asyncio.StreamReaderProtocol(reader),sys.stdin.buffer)
+    async with create_original_keeper_source(request['udid']) as source:
+        operations=OriginalKeeperOperations(source,root)
+        write_owner_packet(dict(schemaVersion=2,event='owner-ready',ownerInstance=operations.instance))
+        async def dispatch(value):
+            request_id=value['requestId'];row=operations.issued[request_id]
+            try:
+                result=await operations.execute(value['operation'],value['args'],value['sessionId'])
+                packet=dict(schemaVersion=2,requestId=request_id,ownerInstance=operations.instance,status='complete',result=result)
+            except BaseException:
+                packet=dict(schemaVersion=2,requestId=request_id,ownerInstance=operations.instance,status='failed',result=None)
+            row['original']=packet
+            write_owner_packet(packet)
+        stopping=asyncio.create_task(stop.wait())
+        try:
+            while not stop.is_set():
+                reading=asyncio.create_task(reader.readline())
+                done,_=await asyncio.wait({reading,stopping},return_when=asyncio.FIRST_COMPLETED)
+                if stopping in done:
+                    reading.cancel()
+                    with suppress(asyncio.CancelledError):await reading
+                    break
+                raw=reading.result()
+                if not raw:break
+                if len(raw)>MAX_REQUEST_BYTES or not raw.endswith(b'\n') or b'\0' in raw or b'\r' in raw:raise LaunchError('request')
+                value=decode_owner_packet(raw)
+                if (type(value) is not dict or set(value)!={'schemaVersion','requestId','ownerInstance','sessionId','operation','args'}
+                        or type(value['schemaVersion']) is not int or value['schemaVersion']!=2
+                        or type(value['requestId']) is not str or re.fullmatch('[0-9a-f]{32}',value['requestId']) is None
+                        or value['ownerInstance']!=operations.instance or type(value['operation']) is not str
+                        or type(value['args']) is not dict):raise LaunchError('request')
+                prior=operations.issued.get(value['requestId'])
+                if prior is not None:
+                    if prior['request']!=value:raise LaunchError('request')
+                    # Delivery of ORIGINAL bytes only; never rerun a touch or
+                    # retime an old result as a fresh observation.
+                    if prior['original'] is not None:write_owner_packet(prior['original'])
+                    continue
+                if len(operations.issued)>=4096 or len(operations.operations)>=32:raise LaunchError('request')
+                operations.issued[value['requestId']]=dict(request=value,original=None,task=None)
+                task=asyncio.create_task(dispatch(value));operations.issued[value['requestId']]['task']=task;operations.operations.add(task)
+                task.add_done_callback(operations.operations.discard)
+        finally:
+            stopping.cancel()
+            with suppress(asyncio.CancelledError):await stopping
+            await operations.finish()
+
+
 def main() -> int:
     try:
         parent_death_signal()
         if version("pymobiledevice3") != "11.1.5":
             raise LaunchError("runtime-version")
-        asyncio.run(run_xctest(read_request()))
+        request=read_request()
+        asyncio.run(run_original_owner(request) if request["schemaVersion"]==2 else run_xctest(request))
         return 0
     except BaseException as error:
         phase = error.phase if isinstance(error, LaunchError) else "unexpected"

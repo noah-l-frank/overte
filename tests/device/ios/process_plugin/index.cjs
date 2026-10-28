@@ -7,6 +7,15 @@ if (sdk.appium !== '3.7.0' || sdk.xcuitest !== '12.8.0' || sdk.remoteXpc !== '5.
   throw new Error('OVT_IOS_PROCESS_SOURCE_SDK_UNAVAILABLE');
 class OverteProcessPlugin extends BasePlugin {
   async execute(next, driver, script, args) {
+    if (script === 'mobile: overteOriginalKeeperOperation') {
+      if (!Array.isArray(args) || args.length !== 1 || !args[0] || typeof args[0] !== 'object' ||
+          Object.keys(args[0]).sort().join(',') !== 'args,operation') throw new Error('OVT_IOS_ORIGINAL_KEEPER_UNAVAILABLE');
+      const original = driver[Symbol.for('overte.originalKeeperRoute.v1')];
+      if (!original || typeof original.request !== 'function') throw new Error('OVT_IOS_ORIGINAL_KEEPER_UNAVAILABLE');
+      // New typed source profile only. Never fabricate old Node DVT socket
+      // callbacks/connectionClosed-v1 from a Python provider exit.
+      return await original.request(args[0].operation, args[0].args);
+    }
     const retired = script === 'mobile: overteRetiredProcessInfo';
     const share = script === 'mobile: overteSnapshotShareExtensionInfo', shareRetired = script === 'mobile: overteRetiredSnapshotShareExtensionInfo';
     const shareOriginal=script==='mobile: overteSnapshotShareExtensionOriginal';
