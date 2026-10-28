@@ -15,10 +15,11 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_feature.history import same,unpack
 from ios.adapters import avatar_renderers
 from ios.adapters.emote_native_prefix import follow
-from ios.adapters.emote_peer import acquisition,movement
+from ios.adapters.emote_peer import acquisition,movement,session_sha,pose_changed
 from ios.adapters.emote_world import actual_domain
 
 VERSION=2
+RESTORED_VERSION=3
 
 
 def episode(left,right):
@@ -99,3 +100,73 @@ def derive(decoder,value,current,after):
     # This is the unchanged strict motion proof inside the new current cut:
     # two real fresh differing joint records and a changed evaluated pose.
     return deepcopy(movement(current['world'],decoder.primary_binding,before['peer'],after['peer'],decoder.binding))
+
+
+def restored_derive(decoder,value,current,after):
+    """Original restored peer pose, never a claim of fresh continuing motion.
+
+    Native restore/caller/Rig history was independently checked by state().
+    The original literal playback supplies only the Actor's actual pre-effect
+    peer baseline. Every later cut still supplies fresh receiver/renderer data.
+    """
+    need(decoder.role=='actor' and value['proof']['kind']=='restoration' and value['peerBefore'] is not None)
+    original=anchor_original(decoder,value['peerContinuation'],value['sequence'])
+    need(original['proof']['kind']=='playback' and episode(original['proof'],value['proof'])
+        and original['peerBefore'] is not None and original['peerAfter'] is not None
+        and original['source']['index']<value['source']['index']
+        and original['peerAfter']['index']<=value['peerBefore']['index']<value['peerAfter']['index'])
+    source=decoder.source(original['source']);source_follows(source,current)
+    phase_follows(source['phaseAfter'],current['phaseBefore'])
+    baseline=decoder.retained(decoder.peers,original['peerBefore'])
+    anchor=decoder.retained(decoder.peers,original['peerAfter'])
+    before=decoder.retained(decoder.peers,value['peerBefore'])
+    phase_follows(baseline['phaseAfter'],anchor['phaseBefore'])
+    phase_follows(anchor['phaseAfter'],before['phaseBefore'] if not same(anchor,before) else before['phaseAfter'])
+    phase_follows(before['phaseAfter'],after['phaseBefore'])
+    peer_follows(baseline['peer'],anchor['peer'],decoder.binding)
+    peer_follows(anchor['peer'],before['peer'],decoder.binding)
+    peer_follows(before['peer'],after['peer'],decoder.binding)
+    need(current['world']['processId']==int(decoder.primary_binding['processIdentity'])
+        and current['world']['runId']==after['peer']['world']['runId']==decoder.run
+        and decoder.primary_binding['sourceRevision']==decoder.binding['sourceRevision']
+        and decoder.primary_binding['artifactSha256']==decoder.binding['artifactSha256']
+        and decoder.primary_binding['targetFingerprint']!=decoder.binding['targetFingerprint']
+        and decoder.primary_binding['sessionId']!=decoder.binding['sessionId'])
+    primary=actual_domain(current['world']);actor=actual_domain(after['peer']['world'])
+    need(primary['domainId']==actor['domainId'] and primary['avatarMixerSha256']==actor['avatarMixerSha256']
+        and primary['selfSha256']!=actor['selfSha256'])
+    rows=[row for row in after['peer']['renderers']['source']['avatars'] if session_sha(row['sessionId'])==primary['selfSha256']]
+    need(len(rows)==1);remote=rows[0]['sessionId']
+    old=avatar_renderers.avatar(baseline['peer']['renderers'],remote,remote=True)
+    new=avatar_renderers.avatar(after['peer']['renderers'],remote,remote=True)
+    need(old['requestedUrl']==old['resourceUrl']==new['requestedUrl']==new['resourceUrl']
+        and old['jointNames']==new['jointNames'] and old['jointIndices']==new['jointIndices']
+        and old['hipsIndex']==new['hipsIndex'] and abs(old['modelScale']-new['modelScale'])<.0001)
+    first=acquisition(baseline['peer'],decoder.binding);cut=acquisition(before['peer'],decoder.binding);last=acquisition(after['peer'],decoder.binding)
+    neutral=avatar_renderers.external(baseline['peer']['renderers'],remote,after_epoch=first['nativeBefore']['capturedEpochMs'])
+    restored=avatar_renderers.external(after['peer']['renderers'],remote,after_epoch=cut['nativeAfter']['capturedEpochMs'])
+    need(not pose_changed(neutral,restored))
+    left=before['peer']['receive']['source'];right=after['peer']['receive']['source']
+    need(right['droppedRecords']<=left['receiveSequence'])
+    received=[row for row in right['records'] if row['receiveSequence']>left['receiveSequence'] and row['carriesJoints']]
+    need(len(received)>=2)
+    neutral_suffix=[]
+    for row in received:
+        need(row['avatarSha256']==primary['selfSha256'] and row['mixerSha256']==actor['avatarMixerSha256'] and row['advertisedModelUrl']==new['resourceUrl']
+            and row['jointCount']==neutral['totalJoints']==restored['totalJoints']
+            and abs(row['targetScale']-new['modelScale'])<.0001
+            and cut['nativeAfter']['capturedEpochMs']<=row['capturedEpochMs']<=after['peer']['receive']['capturedEpochMs'])
+        mapped={joint['index']:joint for joint in row['joints']}
+        matches=True
+        for index,pose in enumerate(neutral['joints']):
+            need(index in mapped and mapped[index]['rotation'] is not None and mapped[index]['translation'] is not None)
+            joint=mapped[index];rotation=joint['rotation'];translation=joint['translation']
+            matches=matches and min(sum((a-b)**2 for a,b in zip(rotation,pose[:4])),sum((a+b)**2 for a,b in zip(rotation,pose[:4])))<=1e-6
+            matches=matches and sum((a-b)**2 for a,b in zip(translation,pose[4:]))<=1e-6
+        # A real receive cut may first deliver pre-restore queued frames. Only
+        # the contiguous original neutral tail supplies the restoration fact.
+        if matches:neutral_suffix.append(row)
+        else:neutral_suffix=[]
+    need(len(neutral_suffix)>=2)
+    return dict(kind='original-restored-peer-continuation',receivedSequences=[row['receiveSequence'] for row in neutral_suffix],
+        baseline=deepcopy(neutral),restored=deepcopy(restored),acquisition=deepcopy(last))

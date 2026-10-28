@@ -520,7 +520,7 @@
     "ios-emote-sample": {"current": 3, "reads": [1, 2, 3]},
     "ios-emote-sample-recovery": {"current": 1, "reads": [1]},
     "ios-emote-abandoned-sample": {"current": 1, "reads": [1]},
-    "ios-emote-observation-original": {"current": 2, "reads": [1, 2]},
+    "ios-emote-observation-original": {"current": 3, "reads": [1, 2, 3]},
     "ios-emote-observer": {"current": 2, "reads": [1, 2]},
     "ios-emote-sample-reference": {"current": 1, "reads": [1]},
     "ios-emote-observer-record": {"current": 1, "reads": [1]},

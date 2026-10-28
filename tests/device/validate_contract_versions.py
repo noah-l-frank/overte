@@ -598,7 +598,7 @@ REQUIRED = {
     "ios-emote-sample": 3,
     "ios-emote-sample-recovery": 1,
     "ios-emote-abandoned-sample": 1,
-    "ios-emote-observation-original": 2,
+    "ios-emote-observation-original": 3,
     "ios-emote-observer": 2,
     "ios-emote-sample-reference": 1,
     "ios-emote-observer-record": 1,

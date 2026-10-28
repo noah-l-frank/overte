@@ -134,3 +134,22 @@ and reference pins remain unchanged, and owned processes have exited. These
 are host logic results using real JavaScript, loopback HTTP/UDP and files;
 native, SDK, Qt, GPU and clocks remain declared models. Complete feature, physical
 timing and process/SDK-end qualification remain open.
+
+## Fresh restoration after the receive ring advances
+
+The explicit rooted decoder accepts original version three for restoration
+only. It reopens its earlier literal playback original and the actual original
+neutral peer pose. Fresh later receiver, source and renderer cuts must match
+the same episode, participants, model and domain. At least two newly received
+neutral joint records must form the contiguous tail; queued earlier poses do
+not supply that tail. The current externally evaluated pose must also match
+the original neutral pose. This is restoration evidence, not continuing motion.
+
+Five connected host cases pass, retaining 743 files. The existing 18 regressions
+also pass, retaining 424 files. After the Callback consumer changes, the same
+five restoration cases pass again in 114.175 seconds with 8,056 source pins and
+all prior originals unchanged; owned processes exit. Cases reject missing or
+future anchors, changed episodes, stale cuts, replaced original inodes, a wrong
+rendered pose and a foreign UDP sender. JavaScript, files, loopback transport
+and publication are actual host operations; native, SDK, Rig and renderer
+producers remain models. Whole-feature and device qualification remain open.
