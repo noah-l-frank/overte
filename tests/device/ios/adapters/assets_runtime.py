@@ -146,6 +146,23 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         parts['check']();return dict(parts,scene=source)
 
     @operation
+    def _assets_image_pool_source(self,selector,run,lock):
+        """Construct the existing primary Pool/Storage/Source1 owner only.
+
+        No reserve, capture, removal, pool/cache operation or retirement is
+        implicit. The caller must hold this selected SDK's existing lock.
+        """
+        from ios.adapters.assets_image_pool_sources import AssetsImageReaderPoolSources
+        identifier(run);parts=self._assets_sources(selector,lock)
+        observer,clock=parts['observer'],parts['clock_source'];parts['check']()
+        source=AssetsImageReaderPoolSources(
+            PrivateFeatureState(self.state_path(selector).with_name('ios-assets-image-pool-'+run+'.json')),
+            parts['binding'],run,lock,parts['check'],native=observer.bound_native_observer(clock),
+            pool=observer.assets_image_reader_pool(clock),storage=observer.assets_image_reader_storage(clock),
+            image_reader=observer.assets_image_reader(clock),epoch_ms=self.epoch_ms,monotonic=self.monotonic)
+        parts['check']();return dict(parts,image_pool_sources=source)
+
+    @operation
     def _assets_peer_components(self,selector,primary_selector,run,fixture_url,lock,primary_lock,backend_config,*,primary_parts=None,primary_scene_parts=None,peer_scene_parts=None):
         primary_parts=self._assets_parsed_components(primary_selector,run,'primary',fixture_url,primary_lock,backend_config) if primary_parts is None else primary_parts
         primary_scene_parts=self._assets_scene_source(primary_selector,run,'actor-primary',primary_lock) if primary_scene_parts is None else primary_scene_parts

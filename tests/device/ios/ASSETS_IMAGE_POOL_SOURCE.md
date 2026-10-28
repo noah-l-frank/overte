@@ -168,3 +168,26 @@ Qt serializer/QSaveFile and device paths are explicit models or uncompiled
 source. Native compile/link, SDK patch execution, allocator/constructor-failure
 ABI, actual scheduler concurrency and independently retained byte/GPU/product
 resources remain required. No whole-resource end claim is introduced.
+
+
+## Canonical runtime source factory
+
+`IOSAssetsRuntime._assets_image_pool_source` now constructs the existing
+Pool/Storage/Source1 owner through the selected candidate, session, PID,
+foreground and held SDK lock. Construction makes no Pool reservation or query.
+Explicit capture uses the existing transport and durable original store.
+Reopening validates retained Pool originals without querying that Pool again;
+the normal installed-binding verification can still update its own journal.
+
+Seven selected host cases pass in 2.090 seconds, preserving 46 original files
+in seven actual fixture roots and all 7,687 source/launcher/reference pins.
+They reject a valid foreign SDK lock, changed candidate/PID/foreground, late
+source loss and same-byte inode replacement; lost delivery remains owned
+without resend. The test selects consistent declared producer clocks before
+capture. Earlier clock-fixture and missing-parent failures remain retained,
+alongside all 722 previous originals. Owned processes and new threads are gone.
+
+These execute canonical transport methods over declared HTTP/AFC, SDK and
+native response models. No actual HTTP server, SDK, Qt allocator or native
+resource retirement is qualified. Byte/decoder/GPU and whole Assets end remain
+open; this factory enables no complete capability.
