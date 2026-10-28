@@ -151,7 +151,7 @@ class _NativeMotionReference:
         self._reference,self._window_task=deepcopy(reference),window_task
         self._window_function,self._window_session=window_function,owner.wda_session
         self._capture=weakref.ref(asyncio.current_task());self._started=started;self._deadline=started+1.5
-        self._target=None;self._failed=False;self._selected=selected;self._selected_id=selected_id
+        self._target=None;self._failed=False;self._selected=selected;self._selected_id=selected_id;self._worker_guard=None;self._worker_phase=None
         self._selected_birth=None
         if selected is not None:
             query_owner=owner.native_query_journals.get(self._run)
@@ -188,14 +188,23 @@ class _NativeMotionReference:
                 and owner.wda_session==self._window_session and owner.wda_binding_claimed
                 and capture is not None and capture.done() and not capture.cancelled() and capture.exception() is None
                 and self._window_task.done() and not self._window_task.cancelled() and self._window_task.exception() is None
-                and not source._leases and not source._born and owner.touch is None
                 and owner.instance==self._original_journal()['previous']['ownerInstance'])
+            if self._worker_guard is None:need(not source._leases and not source._born and owner.touch is None)
+            else:
+                need(type(self._worker_guard) is _NativeMotionWorkerGuard and self._worker_guard._original() is not None
+                    and self._worker_guard._original()._selected is self._selected)
+                self._worker_guard._scope_without_ref()
             target=None if self._target is None else self._target()
             need((self._target is None and owner.touch_resources is None)
                 or (target is not None and owner.touch_resources is target))
             owner._native_acquisition_current(self._original_journal(),self._original_journal()['binding']['sessionId'])
             need(self._original_journal()['rsd'] is rsd and self._original_journal().get('motionOriginals',{}).get(self._reference['sha256']) is self
-                and self._reference in self._original_journal()['previous']['frames'] and self._original_journal()['previous']['pending'] is None)
+                and self._reference in self._original_journal()['previous']['frames'])
+            pending=self._original_journal()['previous']['pending']
+            if pending is not None:
+                step=self._worker_guard
+                need(type(step) is _NativeMotionWorkerGuard and type(step._pending_write) is _NativeMotionPendingWrite)
+                step._pending_write.identity(self._original_journal(),pending)
         except BaseException:
             self.revoke() # Observed unknown scope never revives by ABA.
             raise
@@ -226,6 +235,9 @@ class _NativeMotionReference:
             and resource._motion_original is self and self._target is not None and self._target() is resource)
         return self._read(source,resource,owner_instance,self._identity)
     def _read(self,source,resource,owner_instance,guard):
+        # Consumer reads never borrow a writer's pending/adoption permission.
+        if self._original_journal()['previous']['pending'] is not None:
+            self.revoke();need(False)
         from adapters.native_clock_join import validate_join
         from ios.adapters.lifecycle_world_attempt import source_frame_original
         guard();owner=self._owner();need(source is self._source() and owner.instance==owner_instance
@@ -253,6 +265,162 @@ class _NativeMotionReference:
         guard();return result
 
 
+class _NativeMotionPendingWrite:
+    """Ephemeral actual writer responsibility; never pending-file adoption."""
+    def __init__(self,step,task,cut,token,journal,files,index,frame):
+        import hashlib
+        from adapters.script_feature.history import canonical
+        from adapters.original_frame_store import VERSION as frame_version
+        need(type(step) is _NativeMotionWorkerGuard and type(files) is OriginalFrameStore
+            and step._pending_write is None and asyncio.current_task() is task
+            and files.guard is token[1] and files.root==step._resource().store.path.parent
+            and files.namespace=='lifecycle-native-acquisition' and files.schema_prefix=='iosLifecycleNativeAcquisition'
+            and files.kind=='sources' and files.role=='primary' and files.binding==journal['binding'] and files.run==journal['run']
+            and index==len(journal['previous']['frames'])+1 and 1<=index<=8 and journal['previous']['pending'] is None)
+        body=dict({files.key('FrameVersion'):frame_version},kind=files.kind,binding=files.binding,runId=files.run,
+            role=files.role,index=index,frame=frame)
+        raw=canonical(body)
+        self._step,self._task,self._files=weakref.ref(step),weakref.ref(task),weakref.ref(files)
+        self._cut,self._token,self._journal=cut,token,journal
+        self._expected=dict(index=index,sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw));self._pending=None
+    def _scope(self):
+        step,task,files=self._step(),self._task(),self._files()
+        need(type(step) is _NativeMotionWorkerGuard and isinstance(task,asyncio.Task) and type(files) is OriginalFrameStore
+            and task is asyncio.current_task() and not task.done() and task.get_loop() is asyncio.get_running_loop()
+            and step._pending_write is self)
+        step._scope_without_ref();owner=step._owner();resource=step._resource()
+        need(owner is not None and owner.native_current_cuts.get(task) is self._cut and len(self._cut)==6
+            and self._cut[0] is resource and self._cut[4] is step and self._cut[5] in ('before-down','after-down')
+            and owner.native_acquisition is self._token and self._token[0] is task and self._token[1] is files.guard
+            and task.get_loop().time()<self._cut[3] and resource.lock is self._journal['lock']
+            and resource._motion_original._original_journal() is self._journal)
+        return files
+    def record(self,reference):
+        files=self._scope();files.original(reference)
+        need({key:reference[key] for key in self._expected}==self._expected)
+        previous=self._pending
+        if previous is None:need(reference['phase']=='planned' and reference['file'] is None)
+        else:
+            need(reference['phase']=={'planned':'opened','opened':'saved'}.get(previous['phase'])
+                and all(same(previous[k],reference[k]) for k in previous if k not in ('phase','file'))
+                and (previous['phase']=='planned' or same(previous['file'],reference['file'])))
+        self._pending=deepcopy(reference)
+    def identity(self,journal,pending):
+        files=self._scope();files.original(pending)
+        need(journal is self._journal and self._pending is not None and same(pending,self._pending)
+            and {key:pending[key] for key in self._expected}==self._expected
+            and pending['index']==len(journal['previous']['frames'])+1)
+
+
+class _NativeMotionWorkerGuard:
+    """Original local lease and born Task, never a DTO or restored capability.
+
+    The two actual input boundaries each acquire their OWN <=1.5s cut. The
+    unchanged <=12s wait issues no input and makes no current native claim.
+    Failure requests the existing ordinary Up; cleanup never calls this guard.
+    """
+    def __init__(self,resource,source,owner):
+        need(type(resource) is LifecycleTouchResourceOwner and resource.version==4
+            and type(resource._motion_original) is _NativeMotionReference
+            and 0<resource.state['seconds']<=12 and resource._factory is None and resource._lease is None
+            and resource._native_step is None and owner.source is source and owner.touch_resources is resource)
+        need(same(resource.envelope(),resource.previous))
+        original=resource._motion_original;original.anchor(source,resource,owner.instance)
+        need(original._owner() is owner and original._selected is not None and owner.touch is None
+            and not source._leases and not source._born)
+        self._resource,self._source,self._owner,self._loop=weakref.ref(resource),weakref.ref(source),weakref.ref(owner),weakref.ref(asyncio.get_running_loop())
+        self._original=weakref.ref(original);self._lease=self._worker=None;self._opening=self._factory=None
+        self._failed=False;self._current=None;self._phase=None;self._contact=None;self._pending_write=None
+        from ios.adapters.touch import validate_actions
+        path=resource.state['path'];window=path['window']
+        actions=validate_actions(dict(actions=[dict(type='pointer',id='original-motion-worker',parameters=dict(pointerType='touch'),actions=[
+            dict(type='pointerMove',duration=0,origin='viewport',x=path['start'][0],y=path['start'][1]),
+            dict(type='pointerDown',button=0),dict(type='pointerMove',duration=0,origin='viewport',x=path['end'][0],y=path['end'][1]),
+            dict(type='pointerUp',button=0)])]),window['width'],window['height'])
+        self._hid_start,self._hid_end=actions[0][1],actions[2][1]
+        self._step_function=owner.native_motion_step.__func__
+        need(original._selected[3].get('motionGuard') is None)
+        resource._native_step=self;original._worker_guard=self
+        original._selected[3]['motionGuard']=weakref.ref(self)
+    def _scope_without_ref(self):
+        resource,source,owner,loop=self._resource(),self._source(),self._owner(),self._loop()
+        need(not self._failed and resource is not None and source is not None and owner is not None
+            and loop is asyncio.get_running_loop() and source._loop is loop and resource._native_step is self
+            and owner.source is source and owner.touch_resources is resource and resource.version==4
+            and resource._motion_original is self._original() and resource.state['hostProcessId']==os.getpid()
+            and not source._closing and not owner.closed and not owner.draining
+            and owner.native_motion_step.__self__ is owner and owner.native_motion_step.__func__ is self._step_function)
+        resource.file_guard();need(same(resource.envelope(),resource.previous))
+        if self._lease is None:
+            need(owner.touch is None and not source._leases and not source._born);return
+        lease=self._lease();need(type(lease) is TouchLease and lease._session_factory is self._factory
+            and lease.store.path.parent==resource.store.path.parent and lease.binding==resource.binding and lease.run==resource.run
+            and same(lease.store.read(),lease.previous) and resource._lease() is lease)
+        if self._worker is None:
+            need(lease.worker is None and lease.previous is None and not source._born
+                and (source._leases==[] and owner.touch is None or source._leases==[lease] and owner.touch in (None,lease)));return
+        worker=self._worker();need(isinstance(worker,asyncio.Task) and worker is lease.worker and worker.get_loop() is loop
+            and not worker.done() and owner.touch is lease and source._leases==[lease] and len(source._born)==1
+            and source._born[0]['lease'] is lease and source._born[0]['worker'] is worker
+            and source._born[0]['owner'] is not None and not lease.request_release.is_set() and loop.time()<lease._deadline())
+        source._born[0]['owner']._status()
+        from ios.adapters.lifecycle_touch_transport import intent
+        need(self._opening is not None and intent(lease.previous)==intent(self._opening))
+    def scope(self):
+        try:
+            original=self._original();need(original is not None and original._worker_guard is self)
+            original._identity()
+        except BaseException:
+            self.fail();raise
+    def fail(self):
+        self._failed=True
+        original=self._original()
+        if original is not None:original.revoke()
+        resource=self._resource()
+        if resource is not None:resource._motion_failed=True
+        lease=None if self._lease is None else self._lease()
+        if lease is not None:lease.request_release.set()
+    def bind_lease(self,lease,factory):
+        need(self._lease is None and type(lease) is TouchLease and lease.worker is None and lease.previous is None
+            and lease._session_factory is factory and self._resource()._lease() is lease)
+        self._lease,self._factory=weakref.ref(lease),factory
+    def born(self,lease,worker):
+        source,owner=self._source(),self._owner()
+        if self._worker is not None:
+            need(self._lease() is lease and self._worker() is worker);return
+        need(self._lease is not None and self._lease() is lease and worker is lease.worker
+            and isinstance(worker,asyncio.Task) and worker.get_loop() is self._loop() and owner.touch is lease
+            and source._leases==[lease] and len(source._born)==1 and source._born[0]['lease'] is lease
+            and source._born[0]['worker'] is worker and source._born[0]['owner'] is not None
+            and lease.previous is not None and lease.previous['phase']=='opening' and lease.previous['failure'] is None)
+        source._born[0]['owner']._status();self._worker=weakref.ref(worker);self._opening=deepcopy(lease.previous)
+        path=self._resource().state['path'];need(tuple(lease.previous['position'])==tuple(self._hid_start)
+            and lease.previous['deadlineMonotonic']==lease.previous['startedMonotonic']+self._resource().state['seconds'])
+    def checkpoint(self,phase):
+        resource=self._resource();lease=None if self._lease is None else self._lease()
+        with resource.lock.held():
+            self.scope();need(lease is not None and asyncio.current_task() is self._worker()
+                and type(self._current) is _NativeMotionReference and self._phase==phase
+                and self._current._worker_guard is self and self._current._worker_phase==phase
+                and asyncio.get_running_loop().time()<self._current._deadline and not lease.request_release.is_set())
+    async def continuity(self):
+        resource,owner=self._resource(),self._owner();lease=self._lease()
+        with resource.lock.held():
+            self.scope();await owner.fresh_touch_scope(resource.binding);self.scope()
+            if lease.previous['phase']=='down-issued' and not lease.down_issued:
+                self._current=await owner.native_motion_step(resource,self,'before-down');self._phase='before-down'
+                self.checkpoint('before-down')
+    async def movement(self):
+        resource,owner=self._resource(),self._owner()
+        try:
+            with resource.lock.held():
+                self.scope();need(asyncio.current_task() is self._worker() and self._lease().down_issued)
+                self._current=await owner.native_motion_step(resource,self,'after-down');self._phase='after-down'
+                self.checkpoint('after-down')
+        except BaseException:
+            self.fail();raise
+
+
 class LifecycleTouchResourceOwner:
     def __init__(self,store,binding,run,lock,guard):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock) and callable(guard))
@@ -262,7 +430,7 @@ class LifecycleTouchResourceOwner:
         self.version=1 if self.previous is None else self.previous.get('iosLifecycleTouchResourceOwnerVersion')
         need(type(self.version) is int and self.version in (1,2,3,4))
         self._motion_source=self._motion_rsd=self._motion_loop=self._motion_current_function=self._motion_address=None
-        self._motion_failed=False;self._motion_original=None
+        self._motion_failed=False;self._motion_original=None;self._native_step=None
         self.files=OriginalFrameStore(store.path.parent,self.binding,run,'primary',self.file_guard,self.intent,
             namespace='lifecycle-touch-resource',schema_prefix='iosLifecycleTouchResource')
         if self.previous is not None:self.state=self.decode(self.previous)
@@ -346,7 +514,10 @@ class LifecycleTouchResourceOwner:
         if self.version==3:
             raise TouchTransportUnavailable('Independent child installed-candidate bytes and native current movement admission are unavailable')
         if self.version==4:
-            raise TouchTransportUnavailable('Original selected-IPA preparation exists; fresh current Down/movement guard is not connected')
+            if type(self._native_step) is not _NativeMotionWorkerGuard:
+                raise TouchTransportUnavailable('Original selected-IPA preparation exists; fresh current Down/movement guard is not connected')
+            return self._make_native_motion_lease(store,rsd,local_address,check=check,options=options,
+                admit_begin=admit_begin,on_worker_birth=on_worker_birth,worker_lock=worker_lock)
         # Refuse another owner namespace before constructing or touching a
         # TouchLease journal, including this resource-owner pathname itself.
         need(isinstance(store,PrivateFeatureState) and store.path!=self.store.path
@@ -384,6 +555,34 @@ class LifecycleTouchResourceOwner:
         lease=TouchLease(store,selected_factory,binding=self.binding,run=self.run,check=check,
                          admit_begin=admit_begin,on_worker_birth=on_worker_birth)
         self._lease=weakref.ref(lease);return lease
+    def _make_native_motion_lease(self,store,rsd,local_address,*,check,options,admit_begin,on_worker_birth,worker_lock):
+        # Private source-born seam only. The normal RPC cannot install the
+        # actual weak owner/lease bridge; restored DTO/WAL cannot recreate it.
+        from ios.adapters.lifecycle_world_hold import _MotionContext
+        step=self._native_step;step.scope()
+        need(isinstance(store,PrivateFeatureState) and store.path!=self.store.path and store.read() is None
+            and store.path.parent==self.store.path.parent and store.path.name=='ios-lifecycle-touch-lease-'+self.run+'.json'
+            and rsd is self._motion_rsd() and local_address==self._motion_address and self._factory is None
+            and callable(check) and worker_lock is True and callable(admit_begin) and callable(on_worker_birth))
+        options={} if options is None else dict(options)
+        need(set(options)<={'display_factory','hid_factory','socket_factory'} and all(callable(value) for value in options.values()))
+        @asynccontextmanager
+        async def selected_factory():
+            # The SAME original worker owns this lock, SDK context and HID.
+            with self.lock.held():
+                step.scope();lease=self._lease()
+                need(lease is not None and lease.worker is asyncio.current_task() and lease._session_factory is self._factory)
+                self._source=resources.TouchResourceObservation(rsd);self._retained=RetainedTouchWorker(lease)
+                self._loop=asyncio.get_running_loop()
+                actual=lambda:touch_session(rsd,local_address,observation=self._source,**options)
+                async with _MotionContext(actual,step._hid_start,step._hid_end,step.movement,
+                        before_down=lambda:step.checkpoint('before-down')) as hid:yield hid
+        self._factory=selected_factory
+        lease=TouchLease(store,selected_factory,binding=self.binding,run=self.run,check=check,
+            admit_begin=admit_begin,on_worker_birth=on_worker_birth)
+        self._lease=weakref.ref(lease);lease._original_motion_resource=self
+        step.bind_lease(lease,selected_factory);return lease
+
     def intent(self,kind,reference):
         self.file_guard();need(kind=='original' and self.state is not None and len(self.state['frames'])<32 and reference['index']==len(self.state['frames'])+1)
         self.files.original(reference);prior=self.state['pending']

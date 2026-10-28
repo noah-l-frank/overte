@@ -227,6 +227,12 @@ class OriginalKeeperSource:
         if asyncio.get_running_loop() is not self._loop or row['loop'] is not self._loop:
             raise LaunchError("session-lifetime")
         row['owner'] = RetainedTouchWorker(lease)
+        resource=getattr(lease,'_original_motion_resource',None)
+        if resource is not None:
+            from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner,_NativeMotionWorkerGuard
+            if type(resource) is not LifecycleTouchResourceOwner or type(resource._native_step) is not _NativeMotionWorkerGuard:
+                raise LaunchError('session-lifetime')
+            resource._native_step.born(lease,task)
         return row
 
     def touch_lease(self, store, *, binding, run, check, resource_owner=None):
@@ -592,10 +598,18 @@ class OriginalKeeperOperations:
                         or owner.scope(session) is not rsd_ref() or original_creator.done()
                         or original_task.cancelled() or original_task.get_loop() is not loop
                         or (original_task.done() and original_task.exception() is not None)
-                        or owner.touch is not None or actual._born or actual._leases
                         or (state['motionTarget'] is None and owner.touch_resources is not None)
                         or (state['motionTarget'] is not None and (state['motionTarget']() is None or owner.touch_resources is not state['motionTarget']()))):
                     raise LaunchError('session-lifetime')
+                worker_guard=state.get('motionGuard')
+                if worker_guard is None:
+                    if owner.touch is not None or actual._born or actual._leases:raise LaunchError('session-lifetime')
+                else:
+                    from ios.adapters.lifecycle_touch_resource_owner import _NativeMotionWorkerGuard
+                    bridge=worker_guard()
+                    if type(bridge) is not _NativeMotionWorkerGuard or bridge._source() is not actual or bridge._owner() is not owner:
+                        raise LaunchError('session-lifetime')
+                    bridge._scope_without_ref()
                 if state['returned']:result['lease'].guard()
             except BaseException:
                 state['revoked']=True;raise
@@ -1010,9 +1024,18 @@ class OriginalKeeperOperations:
             elif (reference['phase']!={'planned':'opened','opened':'saved'}.get(old['phase'])
                     or any(old[key]!=reference[key] for key in old if key not in ('phase','file'))
                     or (old['phase']!='planned' and reference['file']!=old['file'])):raise LaunchError('request')
-            value['pending']=deepcopy(reference);self._native_acquisition_save(journal,value)
-        return OriginalFrameStore(self.state_root,journal['binding'],journal['run'],'primary',guard,intent,
+            value['pending']=deepcopy(reference)
+            task=asyncio.current_task();cut=self.native_current_cuts.get(task)
+            if cut is not None and len(cut)==6:
+                from ios.adapters.lifecycle_touch_resource_owner import _NativeMotionWorkerGuard,_NativeMotionPendingWrite
+                step=cut[4]
+                if (type(step) is not _NativeMotionWorkerGuard or type(step._pending_write) is not _NativeMotionPendingWrite
+                        or step._pending_write._files() is not files):raise LaunchError('session-lifetime')
+                step._pending_write.record(reference)
+            self._native_acquisition_save(journal,value)
+        files=OriginalFrameStore(self.state_root,journal['binding'],journal['run'],'primary',guard,intent,
             namespace='lifecycle-native-acquisition',schema_prefix='iosLifecycleNativeAcquisition')
+        return files
 
     async def native_acquire(self,args,session,*,_motion_window=False,_current_resource=None):
         """Four actual owned query/file pairs; immutable raw originals, no motion."""
@@ -1035,7 +1058,7 @@ class OriginalKeeperOperations:
                 or AppiumAdapter.normalized_http_origin(origin,'original native fixture')!=origin):raise LaunchError('request')
         loop=asyncio.get_running_loop();task=asyncio.current_task()
         if self.native_acquisition is not None or not isinstance(task,asyncio.Task):raise LaunchError('session-lifetime')
-        current_cut=None
+        current_cut=None;worker_step=None;pending_write=None
         if _current_resource is not None:
             from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner
             current_cut=self.native_current_cuts.get(task)
@@ -1044,6 +1067,12 @@ class OriginalKeeperOperations:
                     or current_cut is None or current_cut[0] is not _current_resource
                     or _current_resource.state['selectedQueryId']!=selected_id):raise LaunchError('session-lifetime')
             _current_resource.file_guard()
+            if len(current_cut)==6:
+                from ios.adapters.lifecycle_touch_resource_owner import _NativeMotionWorkerGuard
+                worker_step=current_cut[4]
+                if type(worker_step) is not _NativeMotionWorkerGuard or _current_resource._native_step is not worker_step:raise LaunchError('session-lifetime')
+                worker_step.scope()
+            elif len(current_cut)!=4:raise LaunchError('session-lifetime')
         journal=self._native_acquisition_owner(binding,run,session);touch=self.touch;resource=self.touch_resources
         selected=None;selected_owner=None
         if selected_profile:
@@ -1059,17 +1088,19 @@ class OriginalKeeperOperations:
             selected[1]()
         if _motion_window:
             creator=journal['source']._creator_task()
-            if (touch is not None or (resource is not None and resource is not _current_resource) or journal['source']._leases or journal['source']._born
+            if (((worker_step is None and (touch is not None or journal['source']._leases or journal['source']._born))
+                    or (resource is not None and resource is not _current_resource))
                     or not isinstance(creator,asyncio.Task) or creator.done() or creator.get_loop() is not loop
                     or not isinstance(self.wda,asyncio.Task) or self.wda.done() or self.wda.get_loop() is not loop
                     or self.wda_session is None or not self.wda_binding_claimed):raise LaunchError('session-lifetime')
         if journal['previous']['pending'] is not None or len(journal['previous']['frames'])>=8:raise LaunchError('session-lifetime')
         started=loop.time();epoch=time.time()*1000;deadline=started+1.5;token=None
-        if current_cut is not None:started,epoch,deadline=current_cut[1:]
+        if current_cut is not None:started,epoch,deadline=current_cut[1:4]
         def current():
             if current_cut is not None:
                 if self.native_current_cuts.get(task) is not current_cut:raise LaunchError('session-lifetime')
                 _current_resource.file_guard()
+                if worker_step is not None:worker_step.scope()
             if selected is not None:
                 if (self.native_query_journals.get(run) is not selected_owner
                         or selected_owner.get('selectedOriginals',{}).get(selected_id) is not selected):raise LaunchError('session-lifetime')
@@ -1150,6 +1181,10 @@ class OriginalKeeperOperations:
             if _motion_window:frame['sdkWindow']=sdk_window
             if selected is not None:frame['selectedCandidate']=dict(originalKeeperSelectedMotionCandidateVersion=1,selectionQueryId=selected_id,
                 bundleRead=selected_read,selectedArtifactBundle=deepcopy(selected[2]),reads=deepcopy(reads))
+            if worker_step is not None:
+                from ios.adapters.lifecycle_touch_resource_owner import _NativeMotionPendingWrite
+                pending_write=_NativeMotionPendingWrite(worker_step,task,current_cut,token,journal,files,len(journal['previous']['frames'])+1,frame)
+                worker_step._pending_write=pending_write
             reference=files.write(len(journal['previous']['frames'])+1,frame);current()
             value=deepcopy(journal['previous']);value['frames'].append(reference);value['pending']=None
             self._native_acquisition_save(journal,value);current();files.read(files.expand(reference));current()
@@ -1157,6 +1192,7 @@ class OriginalKeeperOperations:
                 from ios.adapters.lifecycle_touch_resource_owner import _NativeMotionReference
                 receipt=_NativeMotionReference(self,journal,reference,window_task,window_function,started,selected=selected,selected_id=selected_id)
                 if current_cut is not None:receipt._target=weakref.ref(_current_resource)
+                if worker_step is not None:receipt._worker_guard=worker_step;receipt._worker_phase=current_cut[5]
             payload=canonical(dict(binding=binding,runId=run,reference=reference)).decode('ascii')
             result=dict(originalKeeperNativeAcquisitionVersion=(3 if selected is not None else 2) if _motion_window else 1,ownerInstance=self.instance,encoding='canonical-json-ascii',
                 acquisitionJson=payload,nativeAcquisitionBound=False,installedCandidateBound=False,nativeMotionGuardAvailable=False,
@@ -1171,7 +1207,81 @@ class OriginalKeeperOperations:
         finally:
             # Nested original query/file helpers retain and await their actual
             # HTTP Thread/AFC close even on cancellation or scope/deadline loss.
+            if worker_step is not None and worker_step._pending_write is pending_write:worker_step._pending_write=None
             if self.native_acquisition is token:self.native_acquisition=None
+
+    def motion_worker_lease(self,resource):
+        """Private local source integration; no RPC/configuration capability."""
+        from adapters.normal_feature_state import PrivateFeatureState
+        from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner,_NativeMotionWorkerGuard
+        if (type(resource) is not LifecycleTouchResourceOwner or resource is not self.touch_resources
+                or self.touch is not None or self.source._born or self.source._leases):raise LaunchError('session-lifetime')
+        with resource.lock.held():
+            step=_NativeMotionWorkerGuard(resource,self.source,self)
+            try:
+                lease=self.source.touch_lease(PrivateFeatureState(resource.store.path.with_name('ios-lifecycle-touch-lease-'+resource.run+'.json')),
+                    binding=resource.binding,run=resource.run,check=step.continuity,resource_owner=resource)
+                self.touch=lease;step.scope();return lease
+            except BaseException:
+                step.fail();raise
+
+    async def native_motion_step(self,resource,step,phase):
+        """OWN native original interval at each actual Down/Move boundary."""
+        from copy import deepcopy
+        from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner,_NativeMotionWorkerGuard,_NativeMotionReference
+        from ios.adapters import lifecycle_world as world,native_geometry
+        if (type(resource) is not LifecycleTouchResourceOwner or type(step) is not _NativeMotionWorkerGuard
+                or resource._native_step is not step or phase not in ('before-down','after-down')
+                or asyncio.current_task() is not step._worker()):raise LaunchError('session-lifetime')
+        step.scope();lease=step._lease()
+        if ((phase=='before-down' and (lease.down_issued or lease.previous['phase']!='down-issued'))
+                or (phase=='after-down' and (not lease.down_issued or lease.up_issued))):raise LaunchError('session-lifetime')
+        loop=asyncio.get_running_loop();started=loop.time();epoch=time.time()*1000;deadline=min(started+1.5,lease._deadline())
+        original=resource._motion_original
+        try:
+            anchor=original.anchor(self.source,resource,self.instance);step.scope()
+            owner=self.native_query_journals[resource.run]
+            args=dict(binding=deepcopy(resource.binding),runId=resource.run,resultsDirectory=owner['directory'],origin=owner['origin'],selectedQueryId=resource.state['selectedQueryId'])
+            if len(self.source._native_current_tasks)>=8 or any(not t.done() for t in self.source._native_current_tasks):raise LaunchError('session-lifetime')
+            async def acquire():
+                try:return await self.native_acquire(args,resource.binding['sessionId'],_motion_window=True,_current_resource=resource)
+                finally:self.native_current_cuts.pop(asyncio.current_task(),None)
+            task=asyncio.create_task(acquire(),name='original-native-motion-'+phase)
+            self.native_current_cuts[task]=(resource,started,epoch,deadline,step,phase)
+            self.source._native_current_tasks.append(task);self.operations.add(task);task.add_done_callback(self.operations.discard)
+            done,_=await asyncio.wait({task},timeout=max(0.,deadline-loop.time()))
+            if task not in done:raise LaunchError('session-lifetime')
+            receipt=task.result()
+            if type(receipt) is not _NativeMotionReference:raise LaunchError('session-lifetime')
+            current=receipt.original(self.source,resource,self.instance);step.scope()
+            old,new=anchor['originals']['world'],current['originals']['world']
+            if world.context(old)!=world.context(new) or anchor['originals']['window']!=current['originals']['window']:raise LaunchError('session-lifetime')
+            geometry=[]
+            for frame in (anchor,current):
+                raw=frame['originals']['geometry'];doc,view=native_geometry.validate(raw,raw['commandId'],native_epoch_ms=frame['clockJoin']['nativeAfter']['capturedEpochMs'])
+                geometry.append((doc['nativeUi'],doc['window'],view))
+            if geometry[0]!=geometry[1]:raise LaunchError('session-lifetime')
+            a,b=world.touch.pad(old['source']['pad']),world.touch.pad(new['source']['pad'])
+            if (a is None or b is None or not b['active'] or not b['enabled'] or b['hidden'] or not b['fixed']
+                    or any(a[k]!=b[k] for k in ('objectId','viewport','fixed','center','radius'))):raise LaunchError('session-lifetime')
+            facts=world.measure(old,new)
+            if facts['heldInputs'] or facts['worldDisplacement']>.025 or any(new['source']['drive']['raw']):raise LaunchError('session-lifetime')
+            if phase=='before-down':
+                if b['moveValid'] or new['source']['touch']['active']:raise LaunchError('session-lifetime')
+            else:
+                contact=world.contact_attempt(old,new)
+                if (new['source']['touch']['active']!=[contact['contactId']] or contact['ended'] is not None
+                        or contact['route']!='world' or contact['lastRoute']!='world' or not b['moveValid']
+                        or contact['nativeId']!=b['moveNativeId'] or b['moveOrigin']!=a['center']
+                        or contact['position']!=b['movePoint']
+                        or any(abs(x-y)>1 for x,y in zip(contact['position'],a['center']))):raise LaunchError('session-lifetime')
+                events=[e for e in new['source']['touch']['events'] if any(p['id']==contact['contactId'] for p in e['points'])]
+                if not events or any(e['route']!='world' for e in events):raise LaunchError('session-lifetime')
+                step._contact=contact['contactId']
+            if loop.time()>=deadline:raise LaunchError('session-lifetime')
+            return receipt
+        except BaseException:
+            step.fail();raise
 
     async def native_before_down(self,resource):
         """Real fresh native cut, still NO worker/input/Down permission.

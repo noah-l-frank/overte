@@ -33,11 +33,12 @@ def coordinates(frame):
 
 class _MotionContext:
     """One retained actual context/HID, with the complete path already durable."""
-    def __init__(self,factory,start,end,check):
+    def __init__(self,factory,start,end,check,*,before_down=None):
         self.factory,self.start,self.end,self.check=factory,tuple(start),tuple(end),check
+        need(before_down is None or callable(before_down));self.before_down=before_down
         self.actual=None;self.hid=None;self.sent=False;self._actual_exit=None
     async def __aenter__(self):
-        start,end,check=self.start,self.end,self.check
+        start,end,check,before_down=self.start,self.end,self.check,self.before_down
         actual=self.factory();self.actual=actual;self._actual_exit=actual.__aexit__
         hid=await actual.__aenter__();self.hid=hid
         class Motion:
@@ -45,6 +46,8 @@ class _MotionContext:
                 need((x,y)==start)
                 if state==0xC2:
                     need(not self.sent);self.sent=True
+                    if before_down is not None:
+                        result=before_down();need(not inspect.isawaitable(result) and result is not False)
                     await hid.send_touchscreen(state,*start)
                     result=check()
                     if inspect.isawaitable(result):result=await result

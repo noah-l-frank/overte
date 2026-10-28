@@ -269,3 +269,28 @@ capture; its 69 files and failure remain retained. No input gate is enabled:
 the actual retained touch worker and post-Down, pre-move cut still need to be
 connected. Native/RSD/WDA/SDK producers remain models; device and whole-feature
 qualification remain open.
+
+## Original worker at both input boundaries
+
+The private source entry `motion_worker_lease` now connects the actual resource
+to its original TouchLease, born task, retained HID context and immutable full
+path. A new native cut precedes Down; another follows the actual Down and
+precedes the upper move. The unchanged twelve-second watchdog owns the later
+wait and ordinary Up. That wait issues no native queries and makes no claim
+that an earlier native cut remains fresh.
+
+Only the actual capture task's typed write ticket may retain its own pending
+FrameStore transitions. It binds the source cut, acquisition token, original
+store and exact canonical reference. Historical original and anchor readers
+still reject pending acquisitions. Foreign tasks, changed references, mutable
+paths and delayed-context callback substitution cannot borrow that permission.
+Unknown SDK returns retain their original task and descriptors through drainage;
+source or freshness failure cannot block the worker's once-only Up.
+
+Fourteen host models pass in 42.954 seconds, retaining 212 files in 28 genuine
+roots with 11,828 pins unchanged. The original 26 touch/held-input cases and nine
+pre-Down cases also pass, retaining 161 and 122 files. Their original resource
+censuses pass. Earlier missing-import, own-pending-write and stale test-event
+failures remain retained. SDK, HID and native producers are models. The existing
+RPC and canonical coordinator still need this private worker connection; no
+complete Lifecycle capability or device qualification is enabled.
