@@ -75,11 +75,12 @@ class IOSChatDraftRuntime(IOSScriptRuntime):
         return receive_components(self,primary_selector,peer_selector,run,primary_root,peer_root,primary_lock,peer_lock)
 
     @contextmanager
-    def draft_owner(self,selector,run,root,client,*,source_bound=False,lock=None,peer_actor=False,peer_receipts=None):
+    def draft_owner(self,selector,run,root,client,*,source_bound=False,lock=None,peer_actor=False,peer_receipts=None,qml_bound=False):
         from ios.adapters.chat_peer_receipts import IOSChatPeerReceipts
         need(type(source_bound) is bool and type(peer_actor) is bool and (not peer_actor or source_bound)
             and (peer_receipts is None or isinstance(peer_receipts,IOSChatPeerReceipts) and source_bound
                 and peer_receipts.recipient_role==('peer' if peer_actor else 'primary')))
+        need(type(qml_bound) is bool and (not qml_bound or source_bound and not peer_actor and peer_receipts is None))
         path=self.state_path(selector).with_name('script-feature-sources.lock')
         if lock is None:lock=ScriptSourceLock(path)
         else:need(isinstance(lock,ScriptSourceLock) and lock.path==path);lock.assert_held()
@@ -89,25 +90,29 @@ class IOSChatDraftRuntime(IOSScriptRuntime):
                 source=self._sources(selector);native,normal=source['clock_source'],source['native']
                 from ios.adapters.chat_session_owners import register_scope
                 register_scope(self.adapter,selector,source['binding'],run,root)
-                view=source['observer'].chat_view()
+                view=source['observer'].chat_view(loaded_object_identity=True) if qml_bound else source['observer'].chat_view()
                 code_sources=code_roots=None
                 if source_bound:
                     observer=source['observer'];code_sources=observer.chat_script_sources(clock_source=native)
                     code_roots=NativeScriptRoots(observer.send,lambda:observer.original(remote=observer.remote.rsplit('/',1)[0]+'/'+ROOTS_FILE,limit=ROOTS_LIMIT),
                         source['native_clock'],source['check'],native.pid,ios=True,monotonic=time.monotonic,sleep=time.sleep)
+                qml_sources=source['observer'].chat_qml_sources(clock_source=native) if qml_bound else None
+                qml_artifact=self.adapter._chat_qml_owner_artifact(selector) if qml_bound else None
+                qml_images=(lambda value:self.adapter._chat_qml_owner_image_originals(selector,value)) if qml_bound else None
                 owner=IOSChatDraftOwner(PrivateFeatureState(self.state_path(selector).with_name('ios-chat-draft-owner.json')),
                     root,source['binding'],run,lock,source['check'],native=native,
                     io=IOSChatIO(SimpleNamespace(capture=normal.capture,native=normal)),view=view,
                     phase=PhaseFixtureReader(client,run,'chat'),epoch_ms=lambda:time.time()*1000,
                     monotonic=time.monotonic,sleep=time.sleep,source_bound=source_bound,code_sources=code_sources,code_roots=code_roots,
-                    peer_actor=peer_actor,peer_receipts=peer_receipts)
+                    peer_actor=peer_actor,peer_receipts=peer_receipts,qml_bound=qml_bound,qml_sources=qml_sources,
+                    qml_artifact=qml_artifact,qml_images=qml_images)
                 native_send,view_send=native.send,view.send
                 observe_intent=getattr(normal,'observe_intent',None)
                 def send_native(command):owner.query_intent(command);return native_send(command)
                 def send_view(command):owner.query_intent(command);return view_send(command)
                 native.send,view.send=send_native,send_view;normal.observe_intent=owner.query_intent
                 original_sends=[]
-                for reader in (() if not source_bound else (code_roots,code_sources)):
+                for reader in (() if not source_bound else (code_roots,code_sources)) + (() if not qml_bound else (qml_sources,)):
                     original_send=reader.send;original_sends.append((reader,original_send))
                     def sending(command,original_send=original_send):owner.query_intent(command);return original_send(command)
                     reader.send=sending

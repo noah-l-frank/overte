@@ -21,6 +21,19 @@ namespace overte::e2e {
 class ChatViewObservation {
 public:
     QVariantMap request(const QVariantMap& input,const QList<QQuickItem*>& roots,bool tabletShown,const QVariantMap& nativeKeyboard) {
+        return requestOriginal(input,roots,tabletShown,nativeKeyboard,false);
+    }
+#if defined(Q_OS_IOS)
+    // Explicit diagnostic identity cut. request() keeps its literal DTO;
+    // the iOS test bridge marshals this cut only for the selected View-4 profile.
+    QVariantMap requestWithLoadedObjectIdentities(const QVariantMap& input,const QList<QQuickItem*>& roots,
+            bool tabletShown,const QVariantMap& nativeKeyboard) {
+        return requestOriginal(input,roots,tabletShown,nativeKeyboard,true);
+    }
+#endif
+private:
+    QVariantMap requestOriginal(const QVariantMap& input,const QList<QQuickItem*>& roots,bool tabletShown,
+            const QVariantMap& nativeKeyboard,bool loadedObjectIdentities) {
         if (!qApp || QThread::currentThread()!=qApp->thread() || roots.isEmpty()
                 || !QCoreApplication::arguments().contains("--testScript") || !_available
                 || !DependencyManager::isSet<Setting::Manager>()) { return {}; }
@@ -32,7 +45,7 @@ public:
                 || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) { return {}; }
         const auto started=tick();if (!started) { return {}; }
 #if defined(Q_OS_IOS)
-        _roots.begin();
+        _roots.begin(loadedObjectIdentities);const auto rootCensus=_roots.census();
 #endif
         QQuickItem* page {nullptr};bool invalid {false},focused {false},hasDraft {false},anyRoot {false};QSet<QQuickItem*> visited;
         std::function<void(QQuickItem*,int)> visit=[&](QQuickItem* item,int depth) {
@@ -121,9 +134,26 @@ public:
         const int version=2;
 #endif
         const auto captured=tick();if (!captured || captured-started>1500 || _sequence>=9007199254740991ULL) { return {}; }
-        return {{"chatViewVersion",version},{"commandId",id},{"runId",run},{"instance",_instance},
+        QVariantMap original{{"chatViewVersion",version},{"commandId",id},{"runId",run},{"instance",_instance},
             {"sequence",static_cast<qulonglong>(++_sequence)},{"processId",QCoreApplication::applicationPid()},
             {"capturedEpochMs",captured},{"source",source}};
+#if defined(Q_OS_IOS)
+        if (loadedObjectIdentities) {
+            const auto rootSource=source.value("rootOwnership").toMap();
+            if (!rootSource.value("available").toBool() || !rootSource.value("complete").toBool()
+                    || !rootSource.value("wholeTreeReady").toBool()) return {};
+            auto links=_roots.loadedObjectLinks(rootCensus);if (links.isEmpty()) return {};
+            links.insert("rootSourceInstance",rootSource.value("instance"));
+            links.insert("rootObservationSequence",rootSource.value("sequence"));
+            const auto completed=tick();if (!completed || completed-started>1500) return {};
+            const QVariantMap cut{{"chatViewLoadedObjectIdentityCutVersion",1},{"view",original},{"objectLinks",links},
+                {"cutCompletedEpochMs",completed}};
+            return QJsonDocument::fromVariant(cut).toJson(QJsonDocument::Compact).size()<=131072 ? cut : QVariantMap();
+        }
+#else
+        Q_UNUSED(loadedObjectIdentities);
+#endif
+        return original;
     }
 private:
     class HistoryBuffer final : public QBuffer {

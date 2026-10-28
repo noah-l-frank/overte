@@ -1,6 +1,7 @@
 """Canonical physical iOS adapter guarded by actual original installed app bytes."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
 import hashlib
 import json
 import os
@@ -187,6 +188,35 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             result=gate.qt_entry_images_bytes([value['qtEntryImage'],value['qtDependencyEntryImage']],path,candidate['artifactIdentity']['artifactSha256'])
             self._candidate_guard();need(self._scope(selector,session,state,target)==scope)
             return result
+
+
+        def _chat_qml_owner_artifact(self,selector):
+            # An independently selected candidate path, never a path from a
+            # native observation, WAL or desired source hash.
+            from ios.adapters.script_runtime import IOSScriptRuntime
+            self._candidate_guard()
+            _client,session,state,target,scope=IOSScriptRuntime(self)._existing(selector)
+            need(type(candidate.get('runtime')) is dict and type(candidate.get('artifactIdentity')) is dict)
+            relative=candidate['runtime'].get('artifact');need(type(relative) is str)
+            path=Path(args.artifact_root)/relative
+            need(path.is_absolute() and path.resolve(strict=True)==path
+                and path.is_relative_to(Path(args.artifact_root).resolve(strict=True)))
+            self._candidate_guard();need(self._scope(selector,session,state,target)==scope)
+            return path,candidate['artifactIdentity']['artifactSha256']
+
+
+        def _chat_qml_owner_image_originals(self,selector,value):
+            from ios.adapters.script_runtime import IOSScriptRuntime
+            from ios.adapters.chat_qml_sources import original
+            original(value);need(value['iosChatQmlSourcesVersion']==3)
+            self._candidate_guard()
+            client,session,state,target,scope=IOSScriptRuntime(self)._existing(selector)
+            gate=self._binding(selector,client,session,state,target)
+            record=deepcopy(gate.record());need(record is not None and record['phase']=='bound')
+            path,digest=self._chat_qml_owner_artifact(selector)
+            bound=gate.qt_entry_images_bytes([value['qtEntryImage'],value['qtDependencyEntryImage']],path,digest)
+            self._candidate_guard();need(self._scope(selector,session,state,target)==scope and gate.record()==record)
+            return dict(bindingOriginal=record,entryBindings=bound)
 
 
         def _native_source_scope(self,*args,**kwargs):

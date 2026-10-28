@@ -20,6 +20,9 @@ public:
     static void complete(QQmlComponent* component, QQmlContext* context, QObject* object) noexcept;
     static QVariantMap read(QObject* object) noexcept;
     static QList<QObject*> liveObjects() noexcept;
+    // Native diagnostic identity only: this exact live weak QObject's
+    // existing observed-load birth. No code/source/retirement authority.
+    static QVariantMap objectIdentity(QObject* object) noexcept;
     // Internal native bridge only. No pointer enters a Script/JSON receipt.
     static const void* cacheObservationSymbol(QObject* object) noexcept;
     static const void* dependencyObservationSymbol(QObject* object) noexcept;

@@ -20,8 +20,11 @@ HEX = '[0-9a-f]{32}'
 
 
 def command(value, *, ios=False):
-    exact(value, {'schemaVersion', 'commandId', 'action', 'runId'})
-    need(type(ios) is bool and type(value['schemaVersion']) is int and value['schemaVersion'] == 1
+    need(type(value) is dict)
+    selected=value.get('schemaVersion')==2
+    exact(value, {'schemaVersion', 'commandId', 'action', 'runId'}|({'profile'} if selected else set()))
+    need(type(ios) is bool and type(value['schemaVersion']) is int and value['schemaVersion'] in (1,2)
+         and (not selected or ios and value['profile']=='loaded-qml-object')
          and value['action'] == 'feature-chat-view-observe'
          and type(value['commandId']) is str and re.fullmatch(('ios-' if ios else '') + HEX, value['commandId'])
          and type(value['runId']) is str and re.fullmatch(HEX, value['runId']))
@@ -29,9 +32,17 @@ def command(value, *, ios=False):
 
 
 def validate(value, request, pid, epoch):
-    exact(request, {'schemaVersion', 'commandId', 'action', 'runId'})
-    need(type(request['commandId']) is str)
+    need(type(request) is dict and type(request.get('commandId')) is str)
     command(request, ios=request['commandId'].startswith('ios-'))
+    if request['schemaVersion']==2:
+        exact(value, {'chatViewVersion','commandId','runId','instance','sequence','processId','capturedEpochMs','source','loadedObjectIdentity'})
+        need(type(value['chatViewVersion']) is int and value['chatViewVersion']==4)
+        legacy=deepcopy(value);cut=legacy.pop('loadedObjectIdentity');legacy['chatViewVersion']=3
+        query=dict(request);query.pop('profile');query['schemaVersion']=1
+        validate(legacy,query,pid,epoch)
+        from adapters.chat_root_loaded_identity import validate as identity_cut
+        identity_cut(cut,value['source']['rootOwnership'],pid=pid,captured=value['capturedEpochMs'])
+        return value
     exact(value, {'chatViewVersion', 'commandId', 'runId', 'instance', 'sequence', 'processId', 'capturedEpochMs', 'source'})
     need(type(value['chatViewVersion']) is int and value['chatViewVersion'] in (1,2,3)
          and value['commandId'] == request['commandId'] and value['runId'] == request['runId']
@@ -95,6 +106,7 @@ def measured_view(value):
     """
     request = dict(schemaVersion=1, action='feature-chat-view-observe',
                    **{key: value[key] for key in ('commandId', 'runId')})
+    if value['chatViewVersion']==4:request.update(schemaVersion=2,profile='loaded-qml-object')
     validate(value, request, value['processId'], value['capturedEpochMs'])
     source = value['source']; ui = source['ui']; keyboard = source['keyboard']
     need(keyboard['available'])
@@ -107,8 +119,10 @@ def measured_view(value):
 
 
 class NativeChatView:
-    def __init__(self, send, read, clock_ms, guard, pid, *, ios=False, monotonic=time.monotonic, sleep=time.sleep):
+    def __init__(self, send, read, clock_ms, guard, pid, *, ios=False, monotonic=time.monotonic, sleep=time.sleep, loaded_object_identity=False):
         need(all(callable(v) for v in (send, read, clock_ms, guard, monotonic, sleep)) and integer(pid, 1) and type(ios) is bool)
+        need(type(loaded_object_identity) is bool and (not loaded_object_identity or ios))
+        self.loaded_object_identity=loaded_object_identity;self.identity_cut=None
         self.send, self.original, self.clock_ms, self.guard, self.pid = send, read, clock_ms, guard, pid
         self.ios, self.monotonic, self.sleep = ios, monotonic, sleep
         self.instance, self.sequence, self.captured, self.run = None, 0, 0, None
@@ -118,6 +132,7 @@ class NativeChatView:
         try:
             request = dict(schemaVersion=1, commandId=('ios-' if self.ios else '') + uuid.uuid4().hex,
                            action='feature-chat-view-observe', runId=run)
+            if self.loaded_object_identity:request.update(schemaVersion=2,profile='loaded-qml-object')
             command(request, ios=self.ios)
             need(self.run in (None, run) and self.guard() is not False)
             started = previous = self.monotonic(); need(number(started, 0, 1e15))
@@ -134,12 +149,17 @@ class NativeChatView:
                     if value['chatViewVersion']>=3:
                         from adapters.chat_root_ownership import validate as roots
                         roots(value['source']['rootOwnership'],pid=self.pid,epoch=epoch,previous=self.ownership)
+                    if self.loaded_object_identity:
+                        from adapters.chat_root_loaded_identity import validate as identity_cut
+                        identity_cut(value['loadedObjectIdentity'],value['source']['rootOwnership'],pid=self.pid,
+                            captured=value['capturedEpochMs'],previous=self.identity_cut)
                     need(self.version in (None,value['chatViewVersion']) and self.instance in (None, value['instance']) and value['sequence'] > self.sequence
                          and value['capturedEpochMs'] >= self.captured
                          and (self.ios or value['capturedEpochMs'] >= requested))
                     now = self.monotonic()
                     need(number(now, 0, 1e15) and previous <= now and now - started < 5 and self.guard() is not False)
                     self.run, self.instance, self.sequence, self.captured = run, value['instance'], value['sequence'], value['capturedEpochMs']
+                    if self.loaded_object_identity:self.identity_cut=deepcopy(value['loadedObjectIdentity'])
                     self.version=value['chatViewVersion']
                     if self.version>=3:self.ownership=deepcopy(value['source']['rootOwnership'])
                     return value

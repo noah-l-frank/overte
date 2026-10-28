@@ -230,6 +230,44 @@ void IOSQmlSourceObservation::complete(QQmlComponent* component, QQmlContext* co
 #endif
 }
 
+QVariantMap IOSQmlSourceObservation::objectIdentity(QObject* object) noexcept {
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
+    try {
+        if (!enabled() || !object || object->thread()!=QThread::currentThread()) return {};
+        QPointer<QObject> selected(object);auto& owner=state();
+        if (owner.failed || !selected) return {};
+        const auto before=owner.clock();QVariantMap result;
+        for (qsizetype index=0;index<owner.loads.size();++index) {
+            const auto row=owner.loads.at(index);
+            if (!row.completed || !row.object || row.object!=selected) continue;
+            // Pointer comparison stays internal and is guarded by the OLD
+            // zeroing weak birth. A new object at a reused address cannot
+            // revive that old row. Duplicate matches remain unavailable.
+            if (!result.isEmpty() || row.ticket.isEmpty() || row.objectId.isEmpty()
+                    || !row.context || !row.objectContext
+                    || row.context->thread()!=QThread::currentThread()
+                    || row.objectContext->thread()!=QThread::currentThread()
+                    || QQmlEngine::contextForObject(selected.data())!=row.objectContext
+                    || row.context->baseUrl().toString(QUrl::FullyEncoded)!=row.creationContextUrl
+                    || row.objectContext->baseUrl().toString(QUrl::FullyEncoded)!=row.objectContextUrl) return {};
+            result={{"qmlObservedLoadObjectIdentityVersion",1},{"observerInstance",owner.instance},
+                {"loadSequence",qlonglong(index+1)},{"loadId",row.ticket},{"objectId",row.objectId},
+                {"processId",QCoreApplication::applicationPid()},{"clockDomain","native-main-qml-load"},
+                {"readBefore",before}};
+        }
+        if (!selected || selected.data()!=object || result.isEmpty() || owner.failed) return {};
+        const auto after=owner.clock();
+        const auto elapsed=after.value("monotonicMs").toLongLong()-before.value("monotonicMs").toLongLong();
+        const auto delta=after.value("epochMs").toLongLong()-before.value("epochMs").toLongLong();
+        if (before.value("epochMs").toLongLong()<=0 || delta<0 || elapsed<0
+                || delta>=1500 || elapsed>=1500 || qAbs(delta-elapsed)>250) return {};
+        result.insert("readAfter",after);return result;
+    } catch (...) { return {}; }
+#else
+    Q_UNUSED(object);return {};
+#endif
+}
+
 QVariantMap IOSQmlSourceObservation::read(QObject* object) noexcept {
 #if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(QT_OVERTE_E2E_QML_SOURCE_RECEIPTS)
     try {

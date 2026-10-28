@@ -38,7 +38,8 @@ _ARCHIVE_FRONTIERS=ContextVar('ios_chat_archive_frontiers',default=())
 
 class IOSChatDraftOwner:
     def __init__(self,store,root,binding,run,lock,guard,*,native,io,view,phase,epoch_ms,monotonic,sleep,
-            source_bound=False,code_sources=None,code_roots=None,peer_actor=False,peer_receipts=None):
+            source_bound=False,code_sources=None,code_roots=None,peer_actor=False,peer_receipts=None,
+            qml_bound=False,qml_sources=None,qml_artifact=None,qml_images=None):
         need(type(store) is PrivateFeatureState and isinstance(lock,ScriptSourceLock)
             and isinstance(native,NativeFeatureObservation) and native.ios and not native.native_clock_bound
             and isinstance(io,IOSChatIO) and isinstance(view,NativeChatView) and view.ios
@@ -58,9 +59,16 @@ class IOSChatDraftOwner:
         need(peer_receipts is None or isinstance(peer_receipts,IOSChatPeerReceipts) and source_bound
             and peer_receipts.recipient_role==('peer' if peer_actor else 'primary'))
         self.peer_receipts=peer_receipts
+        from ios.adapters.chat_qml_sources import IOSChatQmlSources
+        from ios.adapters.chat_qml_owner_binding import selected_artifact
+        need(type(qml_bound) is bool and (not qml_bound or source_bound and not peer_actor and peer_receipts is None))
+        need((isinstance(qml_sources,IOSChatQmlSources) and qml_sources.pid==native.pid and callable(qml_images)
+            and view.loaded_object_identity and selected_artifact(qml_artifact,self.binding)
+            if qml_bound else qml_sources is None and qml_artifact is None and qml_images is None and not view.loaded_object_identity))
+        self.qml_bound,self.qml_sources,self.qml_artifact,self.qml_images=qml_bound,qml_sources,qml_artifact,qml_images
         self.source_bound,self.peer_actor,self.code_sources,self.code_roots=source_bound,peer_actor,code_sources,code_roots
         self.historical=False;self.frontier=self.frontier_ticket=None;self.subgraph_only=False
-        self.previous=store.read();self.version=self.read_version(self.previous,source_bound=source_bound,peer_actor=peer_actor,peer_receipts=peer_receipts is not None);self.state=self.empty()
+        self.previous=store.read();self.version=self.read_version(self.previous,source_bound=source_bound,peer_actor=peer_actor,peer_receipts=peer_receipts is not None,qml_bound=qml_bound);self.state=self.empty()
         self.frames=self.frame_store();self.ui=(IOSPeerChatUI if peer_actor else TokenChatUI)(io,self.input_intent,run,monotonic=monotonic,sleep=sleep)
         if self.previous is not None:self.state=self.decode(self.previous)
         else:self.inventory(self.state)
@@ -69,6 +77,9 @@ class IOSChatDraftOwner:
             original=last['originals']['view'];view.run,view.instance,view.sequence,view.captured=(original[key] for key in ('runId','instance','sequence','capturedEpochMs'))
             view.version=original['chatViewVersion']
             if view.version>=3:view.ownership=deepcopy(original['source']['rootOwnership'])
+            if self.qml_bound:
+                view.identity_cut=deepcopy(original['loadedObjectIdentity'])
+                qml_sources.last=deepcopy(self.qml_history(original,include_current=True)[0])
             if self.source_bound:
                 code_roots.restore(last['originals']['scriptRoots']);code_sources.last=deepcopy(last['originals']['scriptSources'])
 
@@ -76,7 +87,7 @@ class IOSChatDraftOwner:
     def empty():return dict(records=[],baseline=None,operations=[],failures=[],pending=None,observation=None,interrupted=[])
 
     @classmethod
-    def archive(cls,store,root,binding,run,lock,fixture_url,*,source_bound=False,peer_actor=False,peer_receipts=None,through=None,ticket=None):
+    def archive(cls,store,root,binding,run,lock,fixture_url,*,source_bound=False,peer_actor=False,peer_receipts=None,through=None,ticket=None,qml_bound=False,qml_artifact=None):
         owner=object.__new__(cls);owner.store,owner.root,owner.binding,owner.run,owner.lock=store,Path(root),deepcopy(context(binding)),identifier(run),lock
         lock.assert_held();need(store.path==lock.path.with_name('ios-chat-draft-owner.json'))
         owner.fixture_url,owner.historical,owner.guard,owner.monotonic=fixture_url,True,lambda:True,time.monotonic
@@ -88,17 +99,22 @@ class IOSChatDraftOwner:
         need(peer_receipts is None or isinstance(peer_receipts,IOSChatPeerReceipts) and source_bound
             and peer_receipts.recipient_role==('peer' if peer_actor else 'primary'))
         owner.peer_receipts=peer_receipts
-        owner.previous=store.read();need(owner.previous is not None);owner.version=owner.read_version(owner.previous,source_bound=source_bound,peer_actor=peer_actor,peer_receipts=peer_receipts is not None)
+        from ios.adapters.chat_qml_owner_binding import selected_artifact
+        need(type(qml_bound) is bool and (not qml_bound or source_bound and not peer_actor and peer_receipts is None and through is None)
+            and (selected_artifact(qml_artifact,owner.binding) if qml_bound else qml_artifact is None))
+        owner.qml_bound,owner.qml_sources,owner.qml_artifact,owner.qml_images=qml_bound,None,qml_artifact,None
+        owner.previous=store.read();need(owner.previous is not None);owner.version=owner.read_version(owner.previous,source_bound=source_bound,peer_actor=peer_actor,peer_receipts=peer_receipts is not None,qml_bound=qml_bound)
         owner.state=owner.empty();owner.frames=owner.frame_store()
         owner.state=owner.decode(owner.previous);return owner
 
     @staticmethod
-    def read_version(value,*,source_bound=False,peer_actor=False,peer_receipts=False):
-        need(all(type(flag) is bool for flag in (source_bound,peer_actor,peer_receipts))
-            and (not peer_actor or source_bound) and (not peer_receipts or source_bound))
-        version=(7 if peer_receipts and peer_actor else 6 if peer_receipts else 5 if peer_actor else 4 if source_bound else VERSION) if value is None else value.get('iosChatDraftOwnerVersion')
-        need(type(version) is int and version in (1,2,3,4,5,6,7) and (version>=4)==source_bound
-            and (version in (5,7))==peer_actor and (version>=6)==peer_receipts);return version
+    def read_version(value,*,source_bound=False,peer_actor=False,peer_receipts=False,qml_bound=False):
+        need(all(type(flag) is bool for flag in (source_bound,peer_actor,peer_receipts,qml_bound))
+            and (not peer_actor or source_bound) and (not peer_receipts or source_bound)
+            and (not qml_bound or source_bound and not peer_actor and not peer_receipts))
+        version=(8 if qml_bound else 7 if peer_receipts and peer_actor else 6 if peer_receipts else 5 if peer_actor else 4 if source_bound else VERSION) if value is None else value.get('iosChatDraftOwnerVersion')
+        need(type(version) is int and version in (1,2,3,4,5,6,7,8) and (version>=4)==source_bound
+            and (version in (5,7))==peer_actor and (version in (6,7))==peer_receipts and (version==8)==qml_bound);return version
 
     def frame_store(self):
         return OriginalFrameStore(self.root,self.binding,self.run,'primary',self.bound,self.storage_intent,
@@ -116,7 +132,7 @@ class IOSChatDraftOwner:
 
     def phase_original(self,value,ticket,verb,inputs,previous=None):
         phase_packet(value,run=self.run,area='chat',request=value['requestId'],epoch=value['capturedEpochMs'],previous=previous)
-        if self.version>=6 and verb=='peer-receive':
+        if self.version in (6,7) and verb=='peer-receive':
             need(value['active'] and value['activations'] and value['activations'][-1]['ticket']==ticket
                 and value['activations'][-1]['stimulus']['verb']==('send' if self.peer_actor else 'peer-send') and inputs=={})
             return
@@ -137,10 +153,10 @@ class IOSChatDraftOwner:
     def _frame(self,value,previous=None,*,_dependencies):
         need(type(_dependencies) is bool and (_dependencies or self.historical and self.subgraph_only))
         exact(value,{'iosChatDraftObservationVersion','ticket','verb','inputs','phaseBefore','phaseAfter','originals','clockJoin','queries'}
-            |({'peerReceipt'} if self.version>=6 else set()))
+            |({'peerReceipt'} if self.version in (6,7) else set()))
         need(type(value['iosChatDraftObservationVersion']) is int and value['iosChatDraftObservationVersion']==self.version)
         self.call(value['ticket'],value['verb'],value['inputs'])
-        if self.version>=6:
+        if self.version in (6,7):
             if value['verb']=='peer-receive':
                 if _dependencies:
                     fact,*_=self.peer_receipts.read(value['peerReceipt']);need(fact['ticket']==value['ticket'])
@@ -151,7 +167,8 @@ class IOSChatDraftOwner:
         self.phase_original(value['phaseBefore'],value['ticket'],value['verb'],value['inputs'])
         self.phase_original(value['phaseAfter'],value['ticket'],value['verb'],value['inputs'],value['phaseBefore'])
         exact(value['originals'],{'uiBefore','view','uiAfter','uiBeforeReceipt','uiAfterReceipt'}
-            |({'scriptRoots','scriptSources'} if self.source_bound else set()));raw=value['originals'];join=validate_join(value['clockJoin'],raw)
+            |({'scriptRoots','scriptSources'} if self.source_bound else set())
+            |({'qmlSources','qmlBindingOriginal','qmlEntryBindings'} if self.qml_bound else set()));raw=value['originals'];join=validate_join(value['clockJoin'],raw)
         need(type(value['queries']) is list and len(value['queries'])<=64);commands={}
         for query in value['queries']:
             self.query(query);need(query['commandId'] not in commands);commands[query['commandId']]=query
@@ -178,9 +195,19 @@ class IOSChatDraftOwner:
         a,b=[ui_packet(raw[key],pid,last['capturedEpochMs']) for key in ('uiBefore','uiAfter')]
         need(a['instance']==b['instance'] and a['lastSequence']==b['lastSequence'] and a['elapsedMs']<=b['elapsedMs'])
         controls,end=project(a),project(b);need(same(controls['controls'],end['controls']))
-        original=raw['view'];view_packet(original,dict(schemaVersion=1,action='feature-chat-view-observe',
-            commandId=original['commandId'],runId=self.run),pid,last['capturedEpochMs'])
-        need(commands.get(original['commandId'])==dict(schemaVersion=1,commandId=original['commandId'],action='feature-chat-view-observe',runId=self.run))
+        original=raw['view'];view_query=dict(schemaVersion=1,action='feature-chat-view-observe',commandId=original['commandId'],runId=self.run)
+        if self.qml_bound:view_query.update(schemaVersion=2,profile='loaded-qml-object')
+        view_packet(original,view_query,pid,last['capturedEpochMs'])
+        need(commands.get(original['commandId'])==view_query)
+        if self.qml_bound:
+            from ios.adapters.chat_qml_owner_binding import validate as qml_join
+            old_qml,old_links=self.qml_history(original)
+            qml_join(raw,binding=self.binding,artifact=self.qml_artifact,run=self.run,first=first,last=last,
+                commands=commands,previous_qml=old_qml,historical_links=old_links)
+            if previous is not None:
+                from adapters.chat_root_loaded_identity import validate as identity_cut
+                identity_cut(original['loadedObjectIdentity'],original['source']['rootOwnership'],pid=pid,
+                    captured=original['capturedEpochMs'],previous=previous['originals']['view']['loadedObjectIdentity'])
         if original['chatViewVersion']>=3:
             from adapters.chat_root_ownership import validate as roots
             owned=roots(original['source']['rootOwnership'],pid=pid,epoch=last['capturedEpochMs'],
@@ -227,11 +254,26 @@ class IOSChatDraftOwner:
                     need(self.version>=3 and value['verb']=='cleanup-erase' and len(causes)==1);self.erase_effect(causes[0],value)
                 elif len(stored['events'])>len(prior['events']):
                     causes=[op for op in operations if op['ticket']==value['ticket'] and op['verb']=='send']
-                    if self.version>=6 and value['verb']=='peer-receive':
+                    if self.version in (6,7) and value['verb']=='peer-receive':
                         causes=[op for op in operations if op['ticket']==value['ticket'] and op['verb']=='peer-receive']
                         need(len(causes)==1);self.peer_receipts.effect(self,causes[0],value)
                     else:need(value['verb']=='send' and len(causes)==1);self.send_history(causes[0],value)
         return value
+
+    def qml_history(self,view,*,include_current=False):
+        previous=None;links=[]
+        for ref in self.state['records']:
+            raw=self.frames.read(self.frames.expand(ref))['originals'];old=raw['view']
+            if old['sequence']>view['sequence']:break
+            if old['sequence']==view['sequence']:
+                # Reopen needs the last QML source including this actual frame.
+                if include_current and raw.get('qmlSources') is not None:previous=raw['qmlSources']
+                continue
+            need(old['chatViewVersion']==4 and old['instance']==view['instance'])
+            links.append(old['loadedObjectIdentity']['objectLinks']['links'])
+            if raw.get('qmlSources') is not None:previous=raw['qmlSources']
+        # _frame must validate against the preceding read, not itself.
+        return deepcopy(previous),deepcopy(links)
 
     def original(self,reference):return self.frame(self.frames.read(self.frames.expand(reference)))
 
@@ -256,7 +298,9 @@ class IOSChatDraftOwner:
     def local(frame):
         value=frame['originals']['view'];source=value['source'];ui=source['ui']
         if frame['iosChatDraftObservationVersion']>=3 and ui['present'] and ui['channel']=='settings':
-            view_packet(value,dict(schemaVersion=1,action='feature-chat-view-observe',commandId=value['commandId'],runId=value['runId']),value['processId'],value['capturedEpochMs'])
+            query=dict(schemaVersion=1,action='feature-chat-view-observe',commandId=value['commandId'],runId=value['runId'])
+            if value['chatViewVersion']==4:query.update(schemaVersion=2,profile='loaded-qml-object')
+            view_packet(value,query,value['processId'],value['capturedEpochMs'])
             need(value['chatViewVersion']>=2 and source['keyboard']['available']
                 and (not source['keyboard']['visible'] or source['editorFocused']))
             return dict(open=True,channel='settings',draft=ui['draft'],focused=source['editorFocused'],keyboard=source['keyboard']['visible'],messages=[])
@@ -289,7 +333,7 @@ class IOSChatDraftOwner:
         def included(op):
             need(type(op) is dict and op['before'] in state['records'])
             if op['before']['index']>limit:return False
-            if (self.version>=6 and op['verb']=='peer-receive' and same(op['before'],self.frontier)
+            if (self.version in (6,7) and op['verb']=='peer-receive' and same(op['before'],self.frontier)
                     and (op['after'] is None or op['after']['index']>limit)):
                 # Passive reads deliberately retain an earlier before-cut.
                 # Prove their later placement from actual receive originals;
@@ -338,8 +382,8 @@ class IOSChatDraftOwner:
                 for ref in state['records']:self.storage(self.original(ref))
             tickets={}
             for op in state['operations']+state['failures']+([] if state['pending'] is None else [state['pending']]):
-                exact(op,{'ticket','verb','inputs','before','intents','queries','after','quiet'}|({'peerReceipt'} if self.version>=6 else set()));self.call(op['ticket'],op['verb'],op['inputs'])
-                if self.version>=6:
+                exact(op,{'ticket','verb','inputs','before','intents','queries','after','quiet'}|({'peerReceipt'} if self.version in (6,7) else set()));self.call(op['ticket'],op['verb'],op['inputs'])
+                if self.version in (6,7):
                     if op['verb']=='peer-receive':
                         fact,*_=self.peer_receipts.read(op['peerReceipt']);need(fact['ticket']==op['ticket'])
                     else:need(op['peerReceipt'] is None)
@@ -360,7 +404,8 @@ class IOSChatDraftOwner:
                 exact(observation,{'ticket','verb','inputs','queries','partial','wire'});self.call(observation['ticket'],observation['verb'],observation['inputs'])
                 need(type(observation['queries']) is list and len(observation['queries'])<=64 and type(observation['partial']) is dict
                     and set(observation['partial'])<=({'start','uiBefore','view','uiAfter','uiBeforeReceipt','uiAfterReceipt','join'}
-                        |({'scriptRoots','scriptSources'} if self.source_bound else set())))
+                        |({'scriptRoots','scriptSources'} if self.source_bound else set())
+                        |({'qmlSources','qmlBindingOriginal','qmlEntryBindings'} if self.qml_bound else set())))
                 for query in observation['queries']:self.query(query)
                 if observation['wire'] is not None:self.frames.original(observation['wire'])
             self.inventory(inventory)
@@ -369,7 +414,7 @@ class IOSChatDraftOwner:
 
     def call(self,ticket,verb,inputs):
         identifier(ticket);need(verb in ('open','type','close','cleanup') or self.version>=2 and verb in ('send','select-channel')
-            or self.version>=3 and verb in RESTORE_STEPS|{RESTORE_READ} or self.version>=6 and verb=='peer-receive')
+            or self.version>=3 and verb in RESTORE_STEPS|{RESTORE_READ} or self.version in (6,7) and verb=='peer-receive')
         if verb=='cleanup' or verb in RESTORE_STEPS|{RESTORE_READ,'peer-receive'}:need(inputs=={} and type(inputs) is dict)
         elif self.peer_actor and verb=='type':
             exact(inputs,{'text'})
@@ -381,8 +426,13 @@ class IOSChatDraftOwner:
             if command.get('action')=='feature-script-roots-observe':roots_command(command,ios=True);return
             if command.get('action')==chat_script_sources.ACTION:
                 chat_script_sources.command(command);need(command['runId']==self.run);return
+        if self.qml_bound and type(command) is dict:
+            from ios.adapters import chat_qml_sources
+            if command.get('action')==chat_qml_sources.ACTION:
+                chat_qml_sources.command(command);need(command['runId']==self.run);return
         need(type(command) is dict and command.get('action') in ('feature-native-observe','normal-ui-input','feature-chat-view-observe'))
-        if command['action']=='feature-chat-view-observe':view_command(command,ios=True)
+        if command['action']=='feature-chat-view-observe':
+            view_command(command,ios=True);need(command['schemaVersion']==(2 if self.qml_bound else 1))
         else:
             exact(command,{'schemaVersion','commandId','action'}|({'operation'} if command['action']=='normal-ui-input' else set()))
             need(type(command['schemaVersion']) is int and command['schemaVersion']==1 and type(command['commandId']) is str
@@ -437,16 +487,25 @@ class IOSChatDraftOwner:
             partial['scriptSources']=self.code_sources.read(self.run,native_before_floor=clock.started['nativeBefore']);self.save()
         partial['uiBefore']=deepcopy(self.io.original.capture());partial['uiBeforeReceipt']=deepcopy(self.io.original.native.last_receipt);self.save()
         partial['view']=self.view.read(self.run);self.save()
+        if self.qml_bound:
+            partial.update(qmlSources=None,qmlBindingOriginal=None,qmlEntryBindings=[]);self.save()
+            links=partial['view']['loadedObjectIdentity']['objectLinks']['links']
+            if links:
+                need(len(links)==1)
+                partial['qmlSources']=self.qml_sources.read(self.run,native_before_floor=clock.started['nativeBefore']);self.save()
+                images=self.qml_images(partial['qmlSources']);exact(images,{'bindingOriginal','entryBindings'})
+                partial['qmlBindingOriginal']=deepcopy(images['bindingOriginal']);partial['qmlEntryBindings']=deepcopy(images['entryBindings']);self.save()
         partial['uiAfter']=deepcopy(self.io.original.capture());partial['uiAfterReceipt']=deepcopy(self.io.original.native.last_receipt);self.save()
         raw={key:deepcopy(partial[key]) for key in ('uiBefore','view','uiAfter','uiBeforeReceipt','uiAfterReceipt')
-            +(('scriptRoots','scriptSources') if self.source_bound else ())}
+            +(('scriptRoots','scriptSources') if self.source_bound else ())
+            +(('qmlSources','qmlBindingOriginal','qmlEntryBindings') if self.qml_bound else ())}
         fields=[('uiBefore','sampleEpochMs'),('view','capturedEpochMs'),('uiAfter','sampleEpochMs')]
         if self.source_bound:fields.append(('scriptRoots','capturedEpochMs'))
         join=clock.finish(raw,fields);partial['join']=deepcopy(join);self.save()
         after=self.phase.status(status['status'])
         value=dict(iosChatDraftObservationVersion=self.version,ticket=ticket,verb=verb,inputs=deepcopy(inputs),phaseBefore=status['status'],phaseAfter=after,originals=raw,clockJoin=join,
             queries=deepcopy(self.state['observation']['queries']))
-        if self.version>=6:value['peerReceipt']=deepcopy(self.state['pending']['peerReceipt']) if verb=='peer-receive' else None
+        if self.version in (6,7):value['peerReceipt']=deepcopy(self.state['pending']['peerReceipt']) if verb=='peer-receive' else None
         self.frame(value,None if not self.state['records'] else self.original(self.state['records'][-1]));self.storage(value)
         ref=self.frames.write(len(self.state['records'])+1,value);self.state['records'].append(ref);self.state['observation']=None;self.save();return ref
 
@@ -575,7 +634,7 @@ class IOSChatDraftOwner:
             intents=[entry['input']['sequence'] for item in prior for entry in item['intents']]
             need(entries and intents and before['originals']['uiAfter']['lastSequence']==max(intents))
         self.state['pending']=dict(ticket=ticket,verb=verb,inputs=deepcopy(inputs),before=ref,intents=[],queries=[],after=None,quiet=[])
-        if self.version>=6:self.state['pending']['peerReceipt']=None
+        if self.version in (6,7):self.state['pending']['peerReceipt']=None
         self.save()
         if verb in ('open','cleanup-open','cleanup-rebuild-open'):self.ui.open()
         elif verb=='type':self.ui.type(inputs['text'])
@@ -594,7 +653,7 @@ class IOSChatDraftOwner:
         acquired cut that already contains the incoming effect. All dependency
         originals are checked before the passive query intent is persisted.
         """
-        self.bound();need(self.version>=6 and not self.subgraph_only);self.call(ticket,'peer-receive',{})
+        self.bound();need(self.version in (6,7) and not self.subgraph_only);self.call(ticket,'peer-receive',{})
         fact,*_=self.peer_receipts.read(link);need(fact['ticket']==ticket)
         if self.historical:need(self.state['pending'] is None and self.state['observation'] is None)
         else:self.recover_observation()

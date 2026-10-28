@@ -2516,11 +2516,15 @@
             return true;
         }
         if (command && command.action === "feature-chat-view-observe") {
-            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+            var loadedObjectProfile=command.schemaVersion === 2 && command.profile === "loaded-qml-object"
+                && typeof command.commandId === "string" && /^ios-[0-9a-f]{32}$/.test(command.commandId)
+                && objectKeysMatch(command,["schemaVersion","commandId","action","runId","profile"]);
+            var literalChatView=command.schemaVersion === 1
+                && objectKeysMatch(command,["schemaVersion","commandId","action","runId"]);
+            if ((literalChatView || loadedObjectProfile) && typeof command.commandId === "string"
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
                     && command.commandId.length === (command.commandId.indexOf("ios-") === 0 ? 36 : 32)
                     && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
-                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])
                     && command.commandId!==lastChatViewCommand) {
                 lastChatViewCommand=String(command.commandId);
                 var chatView={chatViewVersion:1,commandId:command.commandId,available:false};

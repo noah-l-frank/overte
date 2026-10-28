@@ -7,6 +7,8 @@
 #include <QAbstractItemModel>
 #include <QList>
 #include <QVariantMap>
+#include <qml/IOSQmlSourceObservation.h>
+#include <limits>
 
 namespace overte::e2e {
 // Reuse the original zeroing-weak ledger. Page/model association is an actual
@@ -18,14 +20,20 @@ class IOSChatRootOwnership {
         QPointer<QQuickItem> item;
         QPointer<QAbstractItemModel> local,domain;
         QString source;
-        QVariantMap ids;
+        QVariantMap ids,loadedObjectIdentity;
     };
     script_ui_roots::Ledger _ledger {script_ui_roots::Profile::Chat};
     QList<Page> _pages;
-    bool _ready {false},_failed {false};
+    bool _ready {false},_failed {false},_observeLoadedObjects {false};
+    quint64 _census {0};
 public:
-    void begin() noexcept {
-        _pages.clear();_ready=true;
+    void begin(bool observeLoadedObjects=false) noexcept {
+        _pages.clear();_ready=true;_observeLoadedObjects=observeLoadedObjects;
+        if (_census==std::numeric_limits<quint64>::max()) {_failed=true;_ready=false;return;}
+        ++_census;
+    }
+    quint64 census() const noexcept {
+        return QCoreApplication::instance() && QThread::currentThread()==QCoreApplication::instance()->thread() ? _census : 0;
     }
     void page(QQuickItem* item,QQuickItem* editor,QAbstractItemModel* local,QAbstractItemModel* domain,const QString& source,bool visible) noexcept {
         if (!script_ui_roots::enabled() || _failed) {return;}
@@ -33,6 +41,11 @@ public:
             if (!item || _pages.size()>=64) {_failed=true;return;}
             for (const auto& page:_pages) {if (page.item==item) {_failed=true;return;}}
             Page row;row.item=item;row.local=local;row.domain=domain;row.source=source;
+            if (_observeLoadedObjects) {
+                // This is the EXACT item being added by the existing walk,
+                // never a URL/SHA/serialized-address association.
+                row.loadedObjectIdentity=hifi::qml::IOSQmlSourceObservation::objectIdentity(item);
+            }
             row.ids={{"page",_ledger.observe(item,"page",source)},
                 {"editor",editor?_ledger.observe(editor,"editor",source):QString()},
                 {"localModel",local?_ledger.observe(local,"local-model",source):QString()},
@@ -67,6 +80,32 @@ public:
             }}
         } catch (...) {}
         return {};
+    }
+    QVariantMap loadedObjectLinks(quint64 expectedCensus) const noexcept {
+        if (!QCoreApplication::instance() || QThread::currentThread()!=QCoreApplication::instance()->thread()
+                || !script_ui_roots::enabled() || _failed || !_ready || !_observeLoadedObjects
+                || !expectedCensus || expectedCensus!=_census) return {};
+        try {
+            QVariantList links;const auto pages=_pages; // Weak operands and metadata only.
+            for (const auto& row:pages) {
+                if (!row.item || row.item->thread()!=QThread::currentThread()
+                        || row.loadedObjectIdentity.isEmpty()) return {};
+                const auto current=hifi::qml::IOSQmlSourceObservation::objectIdentity(row.item.data());
+                if (current.isEmpty()) return {};
+                auto first=row.loadedObjectIdentity,second=current;
+                first.remove("readBefore");first.remove("readAfter");
+                second.remove("readBefore");second.remove("readAfter");
+                const auto end=row.loadedObjectIdentity.value("readAfter").toMap();
+                const auto start=current.value("readBefore").toMap();
+                if (first!=second || !row.item || expectedCensus!=_census
+                        || end.value("epochMs").toLongLong()>start.value("epochMs").toLongLong()
+                        || end.value("monotonicMs").toLongLong()>start.value("monotonicMs").toLongLong()) return {};
+                const auto root=row.ids.value("page").toString();if (root.isEmpty()) return {};
+                links.append(QVariantMap{{"rootIdentity",root},{"atWalk",row.loadedObjectIdentity},{"atRead",current}});
+            }
+            if (expectedCensus!=_census) return {};
+            return {{"chatRootLoadedObjectLinksVersion",1},{"census",QString::number(_census)},{"links",links}};
+        } catch (...) { return {}; }
     }
     QVariantMap read(bool wholeTreeReady) noexcept {
         if (!script_ui_roots::enabled() || _failed) {return {{"iosChatRootOwnershipVersion",1},{"available",false}};}

@@ -971,10 +971,10 @@ class FeatureObservation:
         return IOSSnapshotOwnedFiles(self.send,lambda:self.original(remote=remote,limit=LIMIT),
             clock,self.guard,self.process['pid'],monotonic=self.monotonic,sleep=self.sleep)
 
-    def chat_view(self):
+    def chat_view(self,*,loaded_object_identity=False):
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+CHAT_VIEW_FILE
         return NativeChatView(self.send,lambda:self.original(remote=remote,limit=NATIVE_FEATURE_LIMIT),
-            self.epoch_ms,self.guard,self.process['pid'],ios=True,monotonic=self.monotonic,sleep=self.sleep)
+            self.epoch_ms,self.guard,self.process['pid'],ios=True,monotonic=self.monotonic,sleep=self.sleep,loaded_object_identity=loaded_object_identity)
 
     def chat_capture(self,owner,run):
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+CHAT_FILE

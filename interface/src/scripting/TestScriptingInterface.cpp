@@ -2550,6 +2550,21 @@ QVariantMap TestScriptingInterface::featureChatViewObservation(const QVariantMap
         }
     }
     if (!_featureChatView) { _featureChatView=std::make_shared<overte::e2e::ChatViewObservation>(); }
+#if defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+    if (QJsonObject::fromVariantMap(command).value("schemaVersion")==QJsonValue(2)) {
+        // One explicit diagnostic profile; old requests retain their literal DTO.
+        if (command.size()!=5 || command.value("profile").userType()!=QMetaType::QString
+                || command.value("profile").toString()!=QStringLiteral("loaded-qml-object")
+                || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(command.value("commandId").toString()).hasMatch()) return {};
+        auto originalCommand=command;originalCommand.remove("profile");originalCommand.insert("schemaVersion",1);
+        const auto cut=_featureChatView->requestWithLoadedObjectIdentities(originalCommand,roots,shown,metrics);
+        auto original=cut.value("view").toMap();
+        if (cut.size()!=4 || cut.value("chatViewLoadedObjectIdentityCutVersion").toInt()!=1
+                || original.value("chatViewVersion").toInt()!=3 || original.value("commandId")!=command.value("commandId")) return {};
+        auto identity=cut;identity.remove("view");original.insert("chatViewVersion",4);
+        original.insert("loadedObjectIdentity",identity);return original;
+    }
+#endif
     return _featureChatView->request(command,roots,shown,metrics);
 }
 
