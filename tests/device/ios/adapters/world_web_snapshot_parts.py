@@ -20,6 +20,7 @@ from adapters.native_clock_join import digest
 from adapters.script_feature.history import canonical,same
 from ios.adapters import world_web_snapshot as snapshot
 from ios.adapters import world_web_whole_snapshot as whole_snapshot
+from ios.adapters.world_web_json_pair import clone_pair
 
 CHUNK=512*1024
 NAMES=frozenset(snapshot.ACTIONS)|frozenset(whole_snapshot.ACTIONS)
@@ -28,6 +29,30 @@ NAMES=frozenset(snapshot.ACTIONS)|frozenset(whole_snapshot.ACTIONS)
 def decoder(value):
     version=value.get('iosWorldWebSnapshotVersion');need(type(version) is int and version in (1,2))
     return snapshot if version==1 else whole_snapshot
+
+
+_COPY_PAIR=clone_pair
+_COPY_PAIR_CODE=clone_pair.__code__
+_COPY_PAIR_DEFAULTS=clone_pair.__defaults__
+
+
+def _detached_original(value):
+    """Copy only this process's exact JSON graph; never reuse a verdict.
+
+    All existing parent reads and inode/ordinal checks precede this call. The
+    already qualified pair copier preserves mutable aliases and cycles; using
+    its first detached copy adds no borrowed outward reference. Unsupported or
+    changed copying semantics retain the literal deepcopy call.
+    """
+    clone,copier=clone_pair,deepcopy
+    def literal():
+        return (clone_pair is clone and clone is _COPY_PAIR
+            and clone.__code__ is _COPY_PAIR_CODE and clone.__defaults__ is _COPY_PAIR_DEFAULTS
+            and clone.__kwdefaults__ is None and deepcopy is copier)
+    if literal():
+        pair=clone(value,copier)
+        if pair is not None and literal():return pair[0]
+    return deepcopy(value)
 
 
 class WorldWebSnapshotParts:
@@ -126,7 +151,7 @@ class WorldWebSnapshotParts:
     def read(self,value):
         self.projection(value);_parent,body,parts=self._original(value['parent'])
         need(value['worldWebSnapshotProjectionVersion']==_parent['iosWorldWebSnapshotVersion']
-            and value['ordinal']==body['originals'][value['name']]);return deepcopy(parts[value['name']])
+            and value['ordinal']==body['originals'][value['name']]);return _detached_original(parts[value['name']])
     def verify_projection(self,value):
         """Verify actual original ownership without copying its decoded DTO.
 

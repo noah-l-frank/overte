@@ -49,3 +49,20 @@ history resets, held callbacks after eviction, privacy downgrade, malformed
 compression, and a high entropy original body exceeding 2 MiB plain while its
 actual compressed wire remains within the fixed transport bound. This packet
 alone does not qualify or advertise the complete World Web feature.
+
+## Detached projection copies
+
+Each selected projection still validates its exact parent, original ordinal,
+actual read membership and unchanged private file identity. Its outward value
+can now use the existing in-memory JSON graph copier. One detached result from
+that copier replaces the literal deep copy for supported builtin graphs; no
+decoded verdict or current observation is reused. Changed helper aliases, code,
+defaults or copying semantics retain the original copying behavior and error.
+
+Six new and six existing projection cases pass in 0.341 seconds, retaining 18
+original files with 7,998 source/launcher/reference pins unchanged. They cover
+Snapshot1 and Whole Snapshot2, independent returned values, graph aliases and
+cycles, Unicode, changed copiers, fresh original-read scopes and same-byte
+inode replacement. All owned process/thread and retained-original checks pass.
+This targets copying costs measured in the failing normal World Web action;
+it does not qualify that full journey or change its 25-second API budget.
