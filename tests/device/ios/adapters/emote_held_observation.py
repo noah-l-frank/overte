@@ -16,12 +16,13 @@ from ios.adapters.emote_samples import archived_sample
 
 class IOSEmoteHeldObservationDecoder(IOSEmoteObservationDecoder):
     Marker=IOSEmoteHeldMarkerScope
+    ImageArchive=staticmethod(archived_sample)
 
     def image(self,value,marker):
         exact(marker,{'nonce','url','scope'});identifier(marker['nonce'])
         scope=self.Marker.archive(marker['scope'],root=self.root,binding=self.binding,run=self.run,role=self.role,
             lock=self.lock,require_ready=True)
-        frame,raw,image,name=archived_sample(value,root=self.root,binding=self.binding,run=self.run,role=self.role,
+        frame,raw,image,name=self.ImageArchive(value,root=self.root,binding=self.binding,run=self.run,role=self.role,
             lock=self.lock,policy=self.policy,marker_nonce=marker['nonce'],marker_url=marker['url'])
         need(value['iosEmoteSampleVersion']>=2 and (image is None or image['iosEmoteImageVersion']>=2))
         for key in ('worldBefore','worldAfter'):need(scope.bind_image_world(frame[key])=={k:marker[k] for k in ('nonce','url')})

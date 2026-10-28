@@ -142,9 +142,9 @@ def compose(run,ticket,binding,frame,raw,policy,*,marker_nonce,marker_url,avatar
         **(dict(callbackPending=pending) if callback_only else {})),subject
 
 
-def changed(run,binding,before,raw_before,ticket_before,after,raw_after,ticket_after,policy,*,marker_nonce,marker_url,avatar_id=None):
-    left,subject=compose(run,ticket_before,binding,before,raw_before,policy,marker_nonce=marker_nonce,marker_url=marker_url,avatar_id=avatar_id)
-    right,_=compose(run,ticket_after,binding,after,raw_after,policy,marker_nonce=marker_nonce,marker_url=marker_url,avatar_id=avatar_id)
+def changed(run,binding,before,raw_before,ticket_before,after,raw_after,ticket_after,policy,*,marker_nonce,marker_url,avatar_id=None,callback_only=False):
+    left,subject=compose(run,ticket_before,binding,before,raw_before,policy,marker_nonce=marker_nonce,marker_url=marker_url,avatar_id=avatar_id,callback_only=callback_only)
+    right,_=compose(run,ticket_after,binding,after,raw_after,policy,marker_nonce=marker_nonce,marker_url=marker_url,avatar_id=avatar_id,callback_only=callback_only)
     need(before['capture']['requestId']!=after['capture']['requestId'] and left['frameId']!=right['frameId']
         and after['clockJoin']['hostBeforeMonotonic']>=before['clockJoin']['hostAfterMonotonic'])
     follow_native(before['clockJoin']['nativeAfter'],after['clockJoin']['nativeBefore'])
@@ -160,4 +160,4 @@ def changed(run,binding,before,raw_before,ticket_before,after,raw_after,ticket_a
         # actual temporal/body/camera joins passed above. Only the separate
         # subject-change assertion remains pending; no result is committed.
         raise EmoteImagePending(str(error)) from error
-    return dict(iosEmoteImageChangeVersion=VERSION,before=left,after=right,subjectChangedFraction=measured['subjectChangedFraction'])
+    return dict(iosEmoteImageChangeVersion=3 if callback_only else VERSION,before=left,after=right,subjectChangedFraction=measured['subjectChangedFraction'])

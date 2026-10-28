@@ -38,6 +38,10 @@ ORIGINAL_FIELDS={'iosEmoteObservationOriginalVersion','runId','role','binding','
 
 
 class IOSEmoteObservationDecoder:
+    ImageChange=staticmethod(changed_pixels)
+
+    def image_resources(self,value):return []
+
     def __init__(self,sources,binding,role,root,policy,lock,*,phase_instance,peers=None):
         need(isinstance(sources,IOSEmoteSources) and sources.role==role and role in ('primary','actor')
             and isinstance(lock,ScriptSourceLock) and (role=='primary' or isinstance(peers,IOSEmotePeerSources)))
@@ -199,7 +203,7 @@ class IOSEmoteObservationDecoder:
             if value['proof']['kind'] in ('playback','restoration'):
                 need(value['imageBefore'] is not None)
                 before,old_raw,old,_name=self.image(value['imageBefore'],value['marker']);need(old is not None)
-                changed_pixels(self.run,self.binding,before,old_raw,value['imageBefore']['ticket'],frame,raw,ticket,self.policy,
+                self.ImageChange(self.run,self.binding,before,old_raw,value['imageBefore']['ticket'],frame,raw,ticket,self.policy,
                     marker_nonce=value['marker']['nonce'],marker_url=value['marker']['url'],avatar_id=value['image']['avatarId'])
             artifacts=[dict(kind='image',name=name,sequence=value['sequence'],capturedEpochMs=image['capturedEpochMs'],ticket=ticket,source='world-render-target')]
         else:
@@ -210,6 +214,7 @@ class IOSEmoteObservationDecoder:
             inventory=ui_inventory(current['widgets']['emoteInventory']);need(inventory['complete'])
             if inventory['roots']:resources.append('panel:emote-chooser')
         elif state['panel']:resources.append('panel:emote-chooser')
+        resources.extend(self.image_resources(value))
         if value['proof']['kind']=='retired':need(not resources)
         public=result('feature.emotes.observe',dict(schemaVersion=1,contractVersion=16,runId=self.run,sequence=value['sequence'],
             capturedEpochMs=clock['hostBeforeEpochMs'],state=state,artifacts=artifacts,resources=resources,

@@ -50,12 +50,14 @@ def retained_file(owner,root,binding,run,role,request,lock):
     return dict(identity=deepcopy(scope.state['file']),bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest())
 
 
-def validate_abandonment(sample,*,root,binding,run,role,lock):
+def validate_abandonment(sample,*,root,binding,run,role,lock,sample_versions=None):
     """Historical only: no native reader, live SDK, input or fresh envelope."""
     from ios.adapters.emote_samples import READS
     from ios.adapters.avatar_state import session
+    if sample_versions is None:sample_versions=READS
+    else:need(type(sample_versions) is tuple and len(sample_versions)==1 and type(sample_versions[0]) is int and sample_versions[0]==3)
     exact(sample,{'iosEmoteSampleVersion','runId','role','binding','requestId','ticket','avatarId','phase','payload','owner'})
-    need(type(sample['iosEmoteSampleVersion']) is int and sample['iosEmoteSampleVersion'] in READS and sample['runId']==run
+    need(type(sample['iosEmoteSampleVersion']) is int and sample['iosEmoteSampleVersion'] in sample_versions and sample['runId']==run
         and sample['role']==role and same(sample['binding'],binding) and type(sample['requestId']) is str and sample['requestId'].startswith('ios-'))
     identifier(sample['requestId'][4:]);identifier(sample['ticket'])
     if sample['avatarId'] is not None:session(sample['avatarId'])
@@ -90,16 +92,20 @@ def validate_abandonment(sample,*,root,binding,run,role,lock):
 
 
 class IOSEmoteSampleRecovery:
+    FormatVersion=VERSION
+    SampleReads=(1,2)
+    ValidateAbandonment=staticmethod(validate_abandonment)
+
     def __init__(self,samples):
         from ios.adapters.emote_samples import IOSEmoteSamples
-        need(isinstance(samples,IOSEmoteSamples));self.samples=samples
+        need(isinstance(samples,IOSEmoteSamples) and samples.SampleVersion in self.SampleReads);self.samples=samples
         self.store=PrivateFeatureState(samples.store.path.with_name('ios-emote-'+samples.role+'-sample-recovery.json'))
         self.previous=self.store.read();self.state=dict(records=[],pending=None)
         if self.previous is not None:self.state=self.decode(self.previous)
 
     def envelope(self,state):
         s=self.samples
-        return dict(iosEmoteSampleRecoveryVersion=VERSION,runId=s.run,role=s.role,binding=s.binding,artifactRoot=str(s.root),payload=pack([state]))
+        return dict(iosEmoteSampleRecoveryVersion=self.FormatVersion,runId=s.run,role=s.role,binding=s.binding,artifactRoot=str(s.root),payload=pack([state]))
 
     def bound(self):self.samples.bound();need(same(self.store.read(),self.previous))
 
@@ -128,7 +134,7 @@ class IOSEmoteSampleRecovery:
                     need(inspection['command']['requestId']==pending['row']['requestId'] and inspection['command']['operation'] in ('inspect','release'))
                     if inspection['receipt'] is not None:need(absent(inspection['receipt']))
             if pending['sample'] is not None:
-                validate_abandonment(pending['sample'],root=self.samples.root,binding=self.samples.binding,
+                self.ValidateAbandonment(pending['sample'],root=self.samples.root,binding=self.samples.binding,
                     run=self.samples.run,role=self.samples.role,lock=self.samples.lock)
             if pending['reference'] is not None:
                 need(pending['sample'] is not None and same(self.samples.sample_store(pending['row']).read(),pending['sample'])
@@ -179,10 +185,9 @@ class IOSEmoteSampleRecovery:
             prior=unpack(pending['priorOwner']['payload'])[0]['cursors']
             frame=dict(iosEmoteAbandonedSampleVersion=VERSION,priorCursors=deepcopy(prior),phaseBefore=phase,phaseAfter=attempt['phaseAfter'],
                 clockJoin=attempt['clockJoin'],absence=proof,partialFile=attempt['partialFile'],inspection=attempt['inspection'])
-            from ios.adapters.emote_samples import VERSION as SAMPLE_VERSION
-            sample=dict(iosEmoteSampleVersion=SAMPLE_VERSION,runId=s.run,role=s.role,binding=s.binding,requestId=row['requestId'],ticket=row['ticket'],
+            sample=dict(iosEmoteSampleVersion=s.SampleVersion,runId=s.run,role=s.role,binding=s.binding,requestId=row['requestId'],ticket=row['ticket'],
                 avatarId=row['avatarId'],phase='abandoned',payload=pack([frame]),owner=pack([attempt['owner']]))
-            validate_abandonment(sample,root=s.root,binding=s.binding,run=s.run,role=s.role,lock=s.lock)
+            self.ValidateAbandonment(sample,root=s.root,binding=s.binding,run=s.run,role=s.role,lock=s.lock)
             pending['sample']=sample;self.save()
         sample=pending['sample'];store=s.sample_store(row);saved=store.read()
         if saved is None:store.write(sample,None)

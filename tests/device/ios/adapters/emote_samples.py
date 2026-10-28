@@ -136,6 +136,10 @@ class IOSEmoteSamples:
             lambda intent,receipt:observer.vulkan_world_frame(intent,receipt),live['check'],source_lock=self.lock,
             monotonic=self.monotonic,sleep=self.sleep)
 
+    def validate_abandonment(self,value):
+        from ios.adapters.emote_sample_recovery import validate_abandonment
+        return validate_abandonment(value,root=self.root,binding=self.binding,run=self.run,role=self.role,lock=self.lock)
+
     def record(self,row):
         value=self.sample_store(row).read();need(value is not None and digest(value)==row['sampleSha256'])
         exact(value,{'iosEmoteSampleVersion','runId','role','binding','requestId','ticket','avatarId','phase','payload','owner'})
@@ -144,8 +148,7 @@ class IOSEmoteSamples:
         frames=unpack(value['payload']);need(len(frames)==1 and type(frames[0]) is dict)
         owners=unpack(value['owner']);need(len(owners)==1 and (owners[0] is None or type(owners[0]) is dict))
         if row['phase']=='abandoned':
-            from ios.adapters.emote_sample_recovery import validate_abandonment
-            validate_abandonment(value,root=self.root,binding=self.binding,run=self.run,role=self.role,lock=self.lock)
+            self.validate_abandonment(value)
         return deepcopy(value)
 
     def archive(self,row):

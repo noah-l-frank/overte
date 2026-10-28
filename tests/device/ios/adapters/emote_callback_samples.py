@@ -60,6 +60,10 @@ class IOSEmoteCallbackSamples(IOSEmoteSamples):
     ImageCompose=staticmethod(partial(compose,callback_only=True))
     ArchivedSample=staticmethod(archived_sample)
 
+    def validate_abandonment(self,value):
+        from ios.adapters.emote_callback_observation import validate_abandonment3
+        return validate_abandonment3(value,root=self.root,binding=self.binding,run=self.run,role=self.role,lock=self.lock)
+
     def before_capture(self):
         # No new row/nonce/capture exists until every old duty is actually
         # absent. A fresh INSPECT is mandatory even after prior release return.

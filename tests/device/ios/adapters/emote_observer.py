@@ -35,6 +35,10 @@ class EmoteObservationPending(NativeUIError):pass
 
 
 class IOSEmoteObserver:
+    OwnerVersion=OWNER_VERSION
+    OwnerReads=OWNER_READS
+    SampleRecovery=IOSEmoteSampleRecovery
+
     def __init__(self,store,sources,binding,role,root,policy,phase,lock,guard,*,peers=None,samples=None,
                  monotonic=time.monotonic,epoch_ms=lambda:time.time()*1000):
         need(isinstance(store,PrivateFeatureState) and isinstance(sources,IOSEmoteSources) and not sources.historical
@@ -47,7 +51,7 @@ class IOSEmoteObserver:
         self.peers,self.samples=peers,samples
         self.peer_recovery=None if peers is None else OriginalAvatarPeerRecovery(peers)
         self.recovery=IOSEmoteSourceRecovery(sources)
-        self.sample_recovery=None if samples is None else IOSEmoteSampleRecovery(samples)
+        self.sample_recovery=None if samples is None else self.SampleRecovery(samples)
         need(store.path.name=='ios-emote-'+role+'-observer.json' and lock.path==store.path.with_name('script-feature-sources.lock'))
         self.decoder=IOSEmoteObservationDecoder(sources,binding,role,root,policy,lock,
             phase_instance=phase.previous['instance'],peers=peers)
@@ -57,7 +61,8 @@ class IOSEmoteObserver:
         if self.previous is None:self.save()
         else:self.state=self.decode(self.previous)
 
-    def envelope(self,state,version=OWNER_VERSION):
+    def envelope(self,state,version=None):
+        if version is None:version=self.OwnerVersion
         return dict(iosEmoteObserverVersion=version,runId=self.run,role=self.role,binding=self.binding,
             primaryBinding=self.sources.binding,fixtureUrl=self.phase.fixture_url,phaseInstance=self.decoder.phase_instance,
             artifactRoot=str(self.root),imagePolicy=self.policy,payload=pack([state]))
@@ -95,7 +100,7 @@ class IOSEmoteObserver:
 
     def decode(self,value):
         exact(value,{'iosEmoteObserverVersion','runId','role','binding','primaryBinding','fixtureUrl','phaseInstance','artifactRoot','imagePolicy','payload'})
-        version=value['iosEmoteObserverVersion'];need(type(version) is int and version in OWNER_READS)
+        version=value['iosEmoteObserverVersion'];need(type(version) is int and version in self.OwnerReads)
         rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0],version)));state=rows[0]
         exact(state,{'records','pending','baseline','phaseTicket','phaseBarrier','peerBarrier','imageBarrier','lastSource','lastPeer','lastImage','episode','abandoned'})
         need(type(state['records']) is list and len(state['records'])<=512 and type(state['abandoned']) is list and len(state['abandoned'])<=512)
