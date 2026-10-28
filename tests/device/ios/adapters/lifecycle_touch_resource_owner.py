@@ -312,6 +312,161 @@ class _NativeMotionPendingWrite:
             and pending['index']==len(journal['previous']['frames'])+1)
 
 
+class _NativePassiveQueryCallback:
+    """Exact original query's scheduled check, never a generic loop callback."""
+    def __init__(self,scope,guard,bridges,journal,record):
+        import threading,types
+        owner,task=scope._owner(),scope._task()
+        need(type(scope) is _NativeMotionPassiveRead and task is asyncio.current_task()
+            and owner.native_passive_tasks.get(task) is scope and owner.native_query_task is task
+            and scope._query_callback is None and owner.native_passive_callback is None)
+        def nested(code,name):
+            found=[v for v in code.co_consts if isinstance(v,types.CodeType) and v.co_name==name]
+            need(len(found)==1);return found[0]
+        root=scope._query_function.__code__
+        need(guard.__code__ is nested(root,'current') and guard.__globals__ is scope._query_function.__globals__)
+        self._worker_guard_code=nested(root,'worker_guard');self._worker_code=nested(root,'worker')
+        self._check_code=nested(self._worker_guard_code,'check')
+        self._thread=self._worker_function=self._finished=None
+        self._scope,self._task=weakref.ref(scope),weakref.ref(task)
+        self._guard,self._bridges,self._journal=guard,bridges,journal
+        self._record=deepcopy(record);self._registered={};self._lock=threading.Lock();self._active=False
+    def bind_thread(self,thread,worker,finished):
+        import threading
+        scope,task=self._scope(),self._task();owner=scope._owner()
+        need(scope is not None and task is asyncio.current_task() and self._thread is None
+            and owner.native_query_task is task and owner.native_passive_tasks.get(task) is scope
+            and type(thread) is threading.Thread and thread.ident is None and not thread.is_alive()
+            and worker.__code__ is self._worker_code and worker.__globals__ is scope._query_function.__globals__
+            and any(row[0] is task and row[1] is thread and row[2] is finished and row[3] is task.get_loop()
+                    for row in owner.source._native_queries))
+        self._thread,self._worker_function,self._finished=thread,worker,finished
+    def register(self,check,future):
+        # Only the born HTTP thread's original worker_guard may register its
+        # bridge. Copied same-code functions on another thread/Task are not
+        # the source which owns this actual original send.
+        import sys,threading
+        scope=self._scope();need(scope is not None and self._thread is threading.current_thread()
+            and self._thread.is_alive() and not self._finished.is_set()
+            and sys._getframe(1).f_code is self._worker_guard_code
+            and check.__code__ is self._check_code
+            and check.__globals__ is scope._query_function.__globals__ and future in self._bridges and not future.done())
+        with self._lock:
+            need(check not in self._registered);self._registered[check]=future
+    def task_for(self,scope):
+        owner,task=scope._owner(),self._task()
+        need(self._active and self._scope() is scope and scope._query_callback is self
+            and asyncio.current_task() is None and isinstance(task,asyncio.Task) and not task.done()
+            and asyncio.get_running_loop() is task.get_loop() and owner.source._loop is task.get_loop()
+            and owner.native_passive_callback is self and owner.native_query_task is task
+            and owner.native_passive_tasks.get(task) is scope)
+        return task
+    def execute(self,check,future):
+        import sys
+        scope=self._scope();need(scope is not None and sys._getframe(1).f_code is self._check_code
+            and check.__code__ is self._check_code and asyncio.current_task() is None)
+        owner,task=scope._owner(),self._task();need(owner is not None and owner.native_passive_callback is None)
+        with self._lock:
+            need(self._registered.pop(check,None) is future and not future.done())
+        need(owner.native_query_journals.get(scope._resource().run) is self._journal
+            and self._journal['loop'] is task.get_loop() and self._journal['pending'] is None)
+        row=self._journal['previous']['records'][self._record['index']-1]
+        need(row['index']==self._record['index'] and row['query']==self._record['query']
+            and row['passiveLeaseId']==self._record['passiveLeaseId'] and row['passivePhase']==self._record['passivePhase']
+            and row['phase'] in ('intent','http-returned'))
+        self._active=True;owner.native_passive_callback=self
+        try:
+            self.task_for(scope);self._guard()
+        finally:owner.native_passive_callback=None;self._active=False
+
+
+class _NativeMotionPassiveRead:
+    """Actual same-source observation Task while held or after own Up/drain.
+
+    This is read admission only. No source/native freshness, new input or
+    resource-retirement claim follows from the old worker's returned context.
+    """
+    def __init__(self,owner,session,action,binding,run):
+        from ios.adapters import lifecycle_world as world
+        resource=owner.touch_resources;lease=owner.touch;task=asyncio.current_task()
+        need(type(resource) is LifecycleTouchResourceOwner and resource.version==4
+            and type(resource._native_step) is _NativeMotionWorkerGuard and type(lease) is TouchLease
+            and resource._lease() is lease and getattr(lease,'_original_motion_resource',None) is resource
+            and action in (world.ACTION,'feature-native-observe') and session==resource.binding['sessionId']
+            and same(context(binding),resource.binding) and run==resource.run
+            and isinstance(task,asyncio.Task) and task.get_loop() is owner.source._loop
+            and owner.native_acquisition is None and owner.native_query_task is None and not owner.native_passive_tasks)
+        # A known still-opening/moving/draining worker is not a readable
+        # boundary. Refusal here does not revoke its immutable source; later
+        # actual original return may establish a new readable phase.
+        if lease.worker is None or (not lease.worker.done() and (lease.request_release.is_set() or lease.previous['phase']!='holding')):
+            raise TouchTransportUnavailable('Original touch has not reached a stable held or returned context boundary')
+        step=resource._native_step
+        self._owner,self._resource,self._step,self._lease,self._task=weakref.ref(owner),weakref.ref(resource),weakref.ref(step),weakref.ref(lease),weakref.ref(task)
+        self._action,self._session=action,session;self._query_callback=None
+        self._phase='released' if lease.worker is not None and lease.worker.done() else 'holding'
+        self._query_function=owner.native_query.__func__;self._file_function=owner.native_original_read.__func__
+        owner.native_passive_tasks[task]=self
+        try:self.current()
+        except BaseException:
+            owner.native_passive_tasks.pop(task,None);raise
+    def lease_identity(self,source,owner,lease,worker):
+        resource,step,task=self._resource(),self._step(),self._task()
+        need(owner is self._owner() and resource is not None and step is resource._native_step
+            and step._source() is source and step._owner() is owner and step._lease() is lease
+            and lease is self._lease() and worker is step._worker() and worker is lease.worker
+            and task is self.execution_task() and isinstance(task,asyncio.Task) and not task.done()
+            and task.get_loop() is source._loop and owner.native_passive_tasks.get(task) is self
+            and owner.native_query.__func__ is self._query_function and owner.native_original_read.__func__ is self._file_function
+            and owner.touch is lease and source._leases==[lease] and len(source._born)==1
+            and source._born[0]['lease'] is lease and source._born[0]['worker'] is worker
+            and source._born[0]['loop'] is source._loop and source._born[0]['release'] is lease.request_release
+            and source._born[0]['owner'] is not None and source._born[0].get('motionResource') is resource)
+        status=source._born[0]['owner']._status()
+        need(not lease.journal_failed and lease.down_issued)
+        if self._phase=='holding':
+            need(not worker.done() and not lease.request_release.is_set() and not lease.up_issued
+                and lease.previous['phase']=='holding' and status['workerRunning'] and status['hostResponsibility']
+                and not status['contextExitReturned'] and source._loop.time()<lease._deadline())
+        else:
+            need(worker.done() and not worker.cancelled() and worker.exception() is None and lease.request_release.is_set()
+                and lease.closed and lease.up_issued and status['contextExitReturned']
+                and not status['workerRunning'] and not status['hostResponsibility'])
+        from ios.adapters.lifecycle_touch_transport import intent
+        need(same(intent(lease.previous),intent(step._opening)))
+    def execution_task(self):
+        task=self._task();owner=self._owner();current=asyncio.current_task()
+        if current is task and owner is not None and owner.native_passive_tasks.get(task) is self:return task
+        callback=self._query_callback
+        if current is None and type(callback) is _NativePassiveQueryCallback and owner is not None and owner.native_passive_callback is callback:
+            return callback.task_for(self)
+        raise TouchTransportUnavailable('Original passive request execution is unavailable')
+    def bind_query(self,guard,bridges,journal,record):
+        callback=_NativePassiveQueryCallback(self,guard,bridges,journal,record);self._query_callback=callback;return callback
+    def current(self):
+        self.execution_task()
+        owner,resource,step=self._owner(),self._resource(),self._step()
+        need(owner is not None and resource is not None and step is not None
+            and owner.touch_resources is resource and resource._native_step is step)
+        lease=self._lease();worker=step._worker()
+        if lease is None or worker is None or lease.worker is not worker:
+            step.fail();need(False)
+        if self._phase=='holding' and (worker.done() or lease.request_release.is_set()):
+            # A known ordinary release changes the observation phase; reject
+            # THIS result without inventing source loss or preventing later
+            # independently acquired released observations.
+            raise TouchTransportUnavailable('Original touch observation crossed its held boundary')
+        with resource.lock.held():step.scope()
+        need(owner.scope(self._session) is resource._motion_rsd());return True
+    @property
+    def lease_id(self):
+        self.current();return self._lease().previous['leaseId']
+    def close(self):
+        owner,task=self._owner(),self._task()
+        need(owner is not None and task is asyncio.current_task() and owner.native_passive_tasks.get(task) is self)
+        del owner.native_passive_tasks[task]
+
+
 class _NativeMotionWorkerGuard:
     """Original local lease and born Task, never a DTO or restored capability.
 
@@ -359,7 +514,14 @@ class _NativeMotionWorkerGuard:
         if self._worker is None:
             need(lease.worker is None and lease.previous is None and not source._born
                 and (source._leases==[] and owner.touch is None or source._leases==[lease] and owner.touch in (None,lease)));return
-        worker=self._worker();need(isinstance(worker,asyncio.Task) and worker is lease.worker and worker.get_loop() is loop
+        worker=self._worker();passive=owner.native_passive_tasks.get(asyncio.current_task())
+        callback=owner.native_passive_callback
+        if passive is None and asyncio.current_task() is None and type(callback) is _NativePassiveQueryCallback:
+            passive=callback._scope();callback.task_for(passive)
+        if passive is not None:
+            need(type(passive) is _NativeMotionPassiveRead and passive._step() is self)
+            passive.lease_identity(source,owner,lease,worker);return
+        need(isinstance(worker,asyncio.Task) and worker is lease.worker and worker.get_loop() is loop
             and not worker.done() and owner.touch is lease and source._leases==[lease] and len(source._born)==1
             and source._born[0]['lease'] is lease and source._born[0]['worker'] is worker
             and source._born[0]['owner'] is not None and not lease.request_release.is_set() and loop.time()<lease._deadline())

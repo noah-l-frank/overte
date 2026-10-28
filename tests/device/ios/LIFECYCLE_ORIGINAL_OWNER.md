@@ -313,3 +313,33 @@ release/inspect after source loss. Original task/thread/FD/child censuses pass.
 The run supplies modeled SDK/native producers, not device qualification.
 Genuinely later held/released/quiet originals and the canonical coordinator
 remain required before the whole Lifecycle adapter can be admitted.
+
+## Original observations while held and after ordinary Up
+
+The original query/file routes accept an explicit passive-read profile for
+the actual born motion worker. Each request binds its own real RPC task,
+source, RSD, loop, selected original, immutable input intent and held or returned
+context phase. After ordinary Up and context return, profiled `touch-release`
+keeps that same source available for new observations; `touch-settle` remains
+the final source drain. Default version-one release still closes its source.
+Query/file replies and the query journal use version four, with the actual
+lease and phase preserved. A prior nonce cannot borrow the new read context.
+
+HTTP-thread checks return to the original loop through their exact registered
+Future and source-defined callback. The callback binds its actual request task,
+query row, original HTTP thread and worker-guard code. A generic loop callback,
+foreign task or copied same-code callback cannot gain that context. Scope loss
+refuses new reads while the original worker remains independently releasable.
+
+Eleven host source models pass in 28.965 seconds, retaining 166 files in 22
+genuine roots with 12,413 pins unchanged. Their original task/thread/FD/child
+censuses pass. An earlier callback-context failure and a later fixture timeout
+remain retained. The latter fixture ran all queries in one still-running test
+task, which the unchanged final source drain correctly waited for. The corrected
+fixture uses the existing actual per-RPC task creation and awaits those tasks
+before final drain; source responsibility rules are unchanged.
+
+These results use modeled SDK/native/HID producers. Query32, acquisition-frame8,
+reply12000 and freshness bounds are unchanged. A separately retained original
+clock carrier and four genuinely later quiet cuts still need their connected
+collector. Native/device, canonical input and whole-feature gates remain closed.
