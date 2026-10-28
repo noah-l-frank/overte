@@ -121,6 +121,31 @@ def post_request(request, timeout):
         raise NativeUIError('Native iOS feature HTTP request failed') from None
 
 
+def send_original_command(origin,command,limit,*,before_send=None,after_send=None):
+    """Existing bounded native HTTP sender; supplies no native/source verdict."""
+    payload = json.dumps(command).encode()
+    if len(payload) > limit:
+        raise NativeUIError("Native iOS feature command exceeds its transport bound")
+    if before_send is not None and (not callable(before_send) or before_send() is False):
+        raise NativeUIError('Native iOS feature transport guard refused delivery')
+    with post_request(Request(origin + '/e2e-client-command.json', data=payload,
+            method='POST', headers={'Content-Type': 'application/json'}), timeout=5) as response:
+        content = response.read(limit + 1)
+        def pairs(items):
+            value = {}
+            for key, item in items:
+                if key in value:
+                    raise ValueError()
+                value[key] = item
+            return value
+        echo = json.loads(content, object_pairs_hook=pairs)
+        if (response.status != 200 or len(content) > limit or echo != command
+                or type(echo) is not dict
+                or any(type(echo[key]) is not type(command[key]) for key in command)):
+            raise ValueError()
+    if after_send is not None:after_send()
+
+
 class FeatureObservation:
     def __init__(self, client, session, target, observe_process, *,
                  monotonic=time.monotonic, sleep=time.sleep, epoch_ms=lambda: int(time.time() * 1000)):
@@ -295,28 +320,7 @@ class FeatureObservation:
         elif command.get('action') == 'feature-account-origin':account_origin_command(command,ios=True)
         elif command.get('action') == 'feature-world-render-storage':world_storage_command(command,ios=True)
         elif command.get('action') == 'feature-world-render-receipt':world_receipt_command(command,ios=True)
-        payload = json.dumps(command).encode()
-        if len(payload) > limit:
-            raise NativeUIError("Native iOS feature command exceeds its transport bound")
-        before_send=getattr(self,'before_send',None)
-        if before_send is not None and (not callable(before_send) or before_send() is False):
-            raise NativeUIError('Native iOS feature transport guard refused delivery')
-        with post_request(Request(self.origin + '/e2e-client-command.json', data=payload,
-                method='POST', headers={'Content-Type': 'application/json'}), timeout=5) as response:
-            content = response.read(limit + 1)
-            def pairs(items):
-                value = {}
-                for key, item in items:
-                    if key in value:
-                        raise ValueError()
-                    value[key] = item
-                return value
-            echo = json.loads(content, object_pairs_hook=pairs)
-            if (response.status != 200 or len(content) > limit or echo != command
-                    or type(echo) is not dict
-                    or any(type(echo[key]) is not type(command[key]) for key in command)):
-                raise ValueError()
-        self.guard()
+        send_original_command(self.origin,command,limit,before_send=getattr(self,'before_send',None),after_send=self.guard)
 
     def native_observer(self):
         self.guard()

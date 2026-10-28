@@ -72,3 +72,46 @@ before execution. The original SDK sources and their retained copies remain
 unchanged. These results qualify the source/controller logic only. The original
 native query/nonce and installed-candidate connection, independent contact/quiet,
 media/SDK/tunnel end and the complete lifecycle journey remain open.
+
+
+## Original native file and query ownership
+
+The original keeper now reads the existing fixed geometry, native-clock and
+Lifecycle World result files through its own retained RSD/HouseArrest service.
+VendContainer precedes the AFC reader. The same source, session claim, loop,
+original task and touch-release request are checked around each await. Original
+file bytes are typed and returned with their digest; a supplied nonce remains
+correlation and cannot establish fresh native acquisition. The existing1.5s
+fence and12000-byte escaped reply bound remain unchanged.
+
+The service and its original bound close method are retained before its first
+await. Cleanup remains possible after forward admission fails. An unresolved
+read or close retains the original creator until that same service settles;
+closing another service or cancelling a caller cannot discharge it.
+
+The separate source-owned query operation creates its own nonce and commits
+its intent before starting the existing HTTP sender in one retained worker.
+Every final send guard executes on the original SDK loop through a local
+thread-safe bridge. SDK/native access stays on that loop. Lost HTTP returns
+retain uncertainty; later passive queries use distinct nonces. A cold JSON WAL
+or a lost committed intent acknowledgement cannot authorize delivery.
+
+The installed adapter additionally joins the actual session store and existing
+InstalledCodeBinding to independently selected IPA bytes before and after one
+owned query. It uses the existing bundle reader, full byte comparison and
+forward-only installed observations. This host admission remains separate from
+original-child candidate and native-acquisition authority. All motion, native
+touch, native-end and whole-feature gates remain closed.
+
+Eight file-channel and ten query-owner source-model cases pass, followed by
+the unchanged eight file cases on the new query source. Nine existing sender
+regressions and six installed-candidate composition cases also pass. These are
+33 distinct cases; the eight regressions repeat the same eight IDs. Their
+qualified runs retain9,15,9,0 and70 actual files respectively across8,10,8,0
+and12 genuine roots. Original FD/task/thread/process censuses close cleanly,
+and source/SDK/launcher pins remain unchanged. Native/RSD/WDA/preflight/HTTP
+service producers are declared models; real host files, IPA/directory bytes,
+WALs, Python execution, loop/thread lifetimes and loopback transport checks
+execute. The JavaScript operation allowlist additions receive source review
+only. Native compilation and device/authentication qualification
+remain unverified. Earlier failed model setups remain retained separately.

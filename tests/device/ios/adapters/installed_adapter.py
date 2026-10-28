@@ -97,6 +97,70 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                 need(preflight(args) == candidate)
                 lease.guard()
 
+        def _lifecycle_owned_native_query(self,selector,run,action):
+            """Actual selected IPA/installed continuity around ONE owned query.
+
+            Host byte admission is deliberately separate from the original
+            child's SDK/loop authority. No serialized callback or successful
+            JSON bit grants a child motion/native-acquisition capability.
+            """
+            from adapters.native_feature_observation import exact,integer
+            from adapters.normal_feature_state import context
+            from adapters.script_feature.history import same
+            from feature_journeys.contract import identifier
+            from ios.adapters.bundle_identity import artifact_bundle,compare
+            from ios.adapters.script_runtime import IOSScriptRuntime
+            from ios.adapters.tablet_web_admission import installed_forward
+            identifier(run)
+            need(type(action) is str and action in ('feature-native-observe','feature-ios-lifecycle-world','native-geometry-snapshot'))
+            self._candidate_guard(complete=True)
+            client,session,state,target,scope=IOSScriptRuntime(self)._existing(selector)
+            gate=self._binding(selector,client,session,state,target)
+            need(type(gate) is InstalledCodeBinding)
+            initial=deepcopy(gate.record());need(initial is not None and initial['phase']=='bound')
+            actual=deepcopy(gate.continuity());binding=context(dict(scope,processIdentity=str(actual['pid'])))
+            need(type(candidate.get('runtime')) is dict and type(candidate.get('artifactIdentity')) is dict)
+            relative=candidate['runtime'].get('artifact');need(type(relative) is str)
+            root=Path(args.artifact_root);path=root/relative
+            need(root.is_absolute() and root.resolve(strict=True)==root and path.is_absolute()
+                and path.resolve(strict=True)==path and path.is_relative_to(root))
+            artifact_sha=candidate['artifactIdentity']['artifactSha256']
+            def physical(record):
+                self._candidate_guard(complete=True)
+                need(same(self.read_session(selector),state) and same(self._scope(selector,session,state,target),scope)
+                    and same(gate.record(),record) and same(gate.continuity(),actual))
+            physical(initial)
+            # Existing verifier observes fresh native installed bytes. The
+            # independently selected ORIGINAL IPA is fully read, never selected
+            # from this diagnostic reply or a requested revision/hash.
+            gate.verify();before=deepcopy(gate.record());installed_forward(initial,before);physical(before)
+            artifact=artifact_bundle(path,artifact_sha);compare(artifact,before['observation']['bundle']);physical(before)
+            value=client.execute(session,'mobile: overteOriginalKeeperOperation',dict(operation='touch-native-query',
+                args=dict(binding=deepcopy(binding),runId=run,resultsDirectory=target['testBuild']['resultsDirectory'],
+                          origin=target['testBuild']['fixtureOrigin'],action=action)))
+            physical(before)
+            exact(value,{'originalKeeperNativeQueryVersion','ownerInstance','index','query','queryIntentOwned','httpReturnObserved',
+                'nativeDeliveryAcknowledged','freshNativeAcquisitionEstablished','installedCandidateBound',
+                'nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished'})
+            need(type(value['originalKeeperNativeQueryVersion']) is int and value['originalKeeperNativeQueryVersion']==1
+                and integer(value['index'],1,32) and value['queryIntentOwned'] is True and value['httpReturnObserved'] is True
+                and all(value[key] is False for key in ('nativeDeliveryAcknowledged','freshNativeAcquisitionEstablished',
+                    'installedCandidateBound','nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished')))
+            identifier(value['ownerInstance']);query=value['query'];fields={'schemaVersion','commandId','action'}
+            if action=='feature-ios-lifecycle-world':fields.add('runId')
+            exact(query,fields)
+            import re
+            need(type(query['schemaVersion']) is int and query['schemaVersion']==1 and query['action']==action
+                and type(query['commandId']) is str and re.fullmatch('ios-[0-9a-f]{32}',query['commandId']) is not None
+                and (action!='feature-ios-lifecycle-world' or query['runId']==run))
+            gate.verify();after=deepcopy(gate.record());installed_forward(before,after);physical(after)
+            final_artifact=artifact_bundle(path,artifact_sha);compare(final_artifact,artifact)
+            compare(final_artifact,after['observation']['bundle']);physical(after)
+            return dict(originalKeeperInstalledQueryVersion=1,binding=deepcopy(binding),queryOriginal=deepcopy(value),
+                installedBefore=before,installedAfter=after,selectedArtifactBundle=artifact,
+                nativeAcquisitionBound=False,originalChildCandidateBound=False,nativeMotionGuardAvailable=False,
+                nativeTouchSupport=False,resourceRetirementEstablished=False)
+
         def _chat_qml_cache_source(self,selector,run):
             # Diagnostic source acquisition only. No normal Chat input,
             # SDK/session creation, source-graph approval or complete receipt.

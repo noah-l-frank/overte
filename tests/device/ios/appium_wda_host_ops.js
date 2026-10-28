@@ -127,7 +127,7 @@ async function tryOriginalKeeperLaunch(driver, remoteXpc, options) {
     originalKeeperRoutes.set(driver, bridge);
     Object.defineProperty(driver, ORIGINAL_KEEPER_ROUTE, {value: Object.freeze({
         request: (operation, args) => {
-            if (!['process-read', 'touch-begin', 'touch-release', 'touch-inspect', 'touch-settle', 'touch-resource-capture', 'touch-resource-recover', 'touch-motion-prepare'].includes(operation))
+            if (!['process-read', 'touch-begin', 'touch-release', 'touch-inspect', 'touch-settle', 'touch-resource-capture', 'touch-resource-recover', 'touch-motion-prepare', 'touch-native-original-read', 'touch-native-query'].includes(operation))
                 throw new Error('Original keeper operation unavailable');
             return bridge.request(operation, args);
         },

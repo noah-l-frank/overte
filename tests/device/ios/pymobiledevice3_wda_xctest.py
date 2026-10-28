@@ -196,6 +196,8 @@ class OriginalKeeperSource:
         self._loop = asyncio.get_running_loop()
         self._leases = []
         self._born = []
+        self._native_reads = []
+        self._native_queries = []
         self._closing = False
 
     def current(self):
@@ -279,6 +281,20 @@ class OriginalKeeperSource:
         # is correlation only, never a callable or authentication capability.
         return resource.prepare_motion(self,owner_instance,frame,seconds=seconds)
 
+    async def _close_native_read(self,row):
+        # Cleanup uses the ORIGINAL retained bound method on the ORIGINAL
+        # service/loop. A changed current SDK/session cannot redirect it.
+        service,close,task,loop,closed,lock=row
+        if asyncio.get_running_loop() is not self._loop or loop is not self._loop or task.get_loop() is not loop or close.__self__ is not service:
+            return False
+        async with lock:
+            if closed.is_set():return True
+            try:
+                await close()
+                if service._service is not None or service._afc_reader_task is not None or service._afc_pending:return False
+            except BaseException:return False
+            closed.set();return True
+
     async def settle_touches(self):
         # Close ALL future begin/acquire/Down admission before any await.
         self._closing = True
@@ -300,6 +316,30 @@ class OriginalKeeperSource:
                     await asyncio.shield(worker)
                 except BaseException as error:
                     failure = failure or error
+        for task,thread,finished,loop in tuple(getattr(self,'_native_queries',())):
+            if loop is not self._loop or task.get_loop() is not loop:raise LaunchError('session-lifetime')
+            while not task.done() or thread.is_alive():
+                try:await asyncio.sleep(.01)
+                except BaseException as error:failure=failure or error
+            if thread.ident is not None:thread.join(timeout=0)
+        # Same original native-read Task/service remains owned until the
+        # actual bound AFC close returned. Unknown read/close never permits
+        # this Source context to unwind its original RSD/tunnel underneath it.
+        for row in tuple(getattr(self,'_native_reads',())):
+            service,close,task,loop,closed,lock=row
+            if loop is not self._loop or task.get_loop() is not self._loop or close.__self__ is not service:
+                raise LaunchError('session-lifetime')
+            while not task.done():
+                try:await asyncio.shield(task)
+                except BaseException as error:failure=failure or error
+            await self._close_native_read(row)
+            # Another explicit existing cleanup call may retry this exact close.
+            # Unknown close never becomes permission to unwind the original RSD.
+            while not closed.is_set():
+                try:await closed.wait()
+                except BaseException as error:failure=failure or error
+            if service._service is not None or service._afc_reader_task is not None or service._afc_pending:
+                raise LaunchError('session-lifetime')
         if failure is not None:
             raise failure
 
@@ -441,6 +481,7 @@ class OriginalKeeperOperations:
         self.source=source;self.instance=uuid.uuid4().hex;self.session=None
         self.wda=None;self.wda_stop=None;self.wda_session=None;self.wda_binding_claimed=False;self.touch=None;self.closed=False;self.draining=False
         self.issued={};self.operations=set();self.state_root=state_root;self.touch_resources=None
+        self.native_query_task=None;self.native_query_journals={}
 
     def scope(self, session):
         if self.closed or self.draining or self.session is None or session!=self.session['sessionId']:
@@ -494,6 +535,225 @@ class OriginalKeeperOperations:
                 or after['bundlePids']!=[int(binding['processIdentity'])]*2):
             raise LaunchError('session-lifetime')
         return True
+
+    async def native_query(self,args,session):
+        """Own ONE diagnostic query nonce/intent; never candidate/motion authority."""
+        from concurrent.futures import Future
+        from copy import deepcopy
+        import threading
+        from adapters.normal_feature_state import PrivateFeatureState,context
+        from adapters.script_feature.lock import ScriptSourceLock
+        from adapters.operation_transport_guard import scope as transport_scope
+        from ios.adapters.appium_adapter import AppiumAdapter
+        from ios.adapters.feature_observation import send_original_command
+        if type(args) is not dict or set(args)!={'binding','runId','resultsDirectory','origin','action'}:raise LaunchError('request')
+        binding=deepcopy(context(args['binding']));run=args['runId'];directory=args['resultsDirectory'];origin=args['origin'];action=args['action']
+        if (binding['sessionId']!=session or type(run) is not str or re.fullmatch('[0-9a-f]{32}',run) is None
+                or type(directory) is not str or len(directory)>128 or re.fullmatch('[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*',directory) is None
+                or action not in ('feature-native-observe','feature-ios-lifecycle-world','native-geometry-snapshot')
+                or AppiumAdapter.normalized_http_origin(origin,'original native fixture')!=origin):raise LaunchError('request')
+        loop=asyncio.get_running_loop();task=asyncio.current_task();source=self.source;rsd=self.scope(session)
+        claim_owner=self.session;claim=deepcopy(self.session);touch=self.touch;resource=self.touch_resources
+        if loop is not source._loop or not isinstance(task,asyncio.Task) or self.native_query_task is not None:raise LaunchError('session-lifetime')
+        started=loop.time();deadline=started+1.5
+        journal=None;issued_query=None;query=None;owns_task=False
+        def current():
+            if (asyncio.get_running_loop() is not loop or self.source is not source or source._closing or self.closed or self.draining
+                    or self.session is not claim_owner or self.session!=claim or self.scope(session) is not rsd
+                    or self.touch is not touch or self.touch_resources is not resource or loop.time()>=deadline
+                    or (owns_task and self.native_query_task is not task)):raise LaunchError('session-lifetime')
+            if journal is not None:
+                if self.native_query_journals.get(run) is not journal or journal['pending'] is not None or query!=issued_query:raise LaunchError('session-lifetime')
+                with journal['lock'].held():
+                    if journal['store'].read()!=journal['previous']:raise LaunchError('session-lifetime')
+            if resource is not None and resource.version==2:
+                with resource.lock.held():resource.motion_current()
+            if touch is not None:
+                born=next((row for row in source._born if row['lease'] is touch),None)
+                if (born is None or born['owner'] is None or born['worker'] is not touch.worker or born['loop'] is not loop
+                        or born['release'] is not touch.request_release or touch.request_release.is_set()
+                        or loop.time()>=touch._deadline() or touch.binding!=binding):raise LaunchError('session-lifetime')
+                status=born['owner']._status()
+                if not status['workerRunning'] or not status['hostResponsibility']:raise LaunchError('session-lifetime')
+        current();self.native_query_task=task;owns_task=True;thread=None;query=None;packet=None;record=None;store=None;lock=None;outcome={}
+        def save():
+            # A lost write/readback never grants adoption or delivery permission.
+            # Retain the exact attempted envelope in THIS original owner.
+            previous=journal['previous']
+            with lock.held():
+                if journal['pending'] is not None or store.read()!=previous:raise LaunchError('session-lifetime')
+                attempted=deepcopy(packet);journal['pending']=attempted
+                store.write(attempted,previous)
+                if store.read()!=attempted:raise LaunchError('session-lifetime')
+                journal['previous']=deepcopy(attempted);journal['pending']=None
+        try:
+            await self.fresh_touch_scope(binding);current()
+            store=PrivateFeatureState(self.state_root/('ios-lifecycle-native-query-owner-'+run+'.json'))
+            lock=ScriptSourceLock(self.state_root/'script-feature-sources.lock')
+            journal=self.native_query_journals.get(run)
+            if journal is None:
+                # Never adopt a pre-existing JSON history as source ownership.
+                with lock.held():
+                    if store.read() is not None:raise LaunchError('session-lifetime')
+                journal=dict(source=source,rsd=rsd,loop=loop,claim=claim_owner,binding=deepcopy(binding),
+                    origin=origin,directory=directory,store=store,lock=lock,previous=None,pending=None)
+                self.native_query_journals[run]=journal
+            else:
+                if (journal['source'] is not source or journal['rsd'] is not rsd or journal['loop'] is not loop
+                        or journal['claim'] is not claim_owner or journal['binding']!=binding or journal['origin']!=origin
+                        or journal['directory']!=directory or journal['pending'] is not None):raise LaunchError('session-lifetime')
+                store=journal['store'];lock=journal['lock']
+                with lock.held():
+                    if store.read()!=journal['previous']:raise LaunchError('session-lifetime')
+            packet=deepcopy(journal['previous']) if journal['previous'] is not None else dict(
+                originalKeeperNativeQueryOwnerVersion=1,binding=deepcopy(binding),runId=run,ownerInstance=self.instance,records=[])
+            if len(packet['records'])>=32:raise LaunchError('session-lifetime')
+            query=dict(schemaVersion=1,commandId='ios-'+uuid.uuid4().hex,action=action)
+            if action=='feature-ios-lifecycle-world':query['runId']=run
+            issued_query=deepcopy(query)
+            record=dict(index=len(packet['records'])+1,query=deepcopy(query),origin=origin,resultsDirectory=directory,phase='intent',
+                hostStartedMonotonic=started,hostDeadlineMonotonic=deadline)
+            packet['records'].append(record);save();current()
+            # All SDK/source/release checks execute on the ORIGINAL loop.
+            # This local bridge never serializes a callable or queries SDK in
+            # the HTTP worker. No new event loop/session/endpoint is created.
+            bridges=[];finished=threading.Event()
+            def worker_guard():
+                future=Future();bridges.append(future)
+                def check():
+                    try:current();future.set_result(None)
+                    except BaseException as error:future.set_exception(error)
+                loop.call_soon_threadsafe(check)
+                return future.result()
+            def worker():
+                try:
+                    with transport_scope(worker_guard):send_original_command(origin,query,4096,before_send=worker_guard,after_send=worker_guard)
+                    outcome['returned']=True
+                except BaseException as error:outcome['error']=error
+                finally:finished.set()
+            thread=threading.Thread(target=worker,name='original-native-query',daemon=False)
+            source._native_queries.append((task,thread,finished,loop))
+            current();thread.start()
+            # Waiting is responsibility, NOT accepted native acquisition. Never
+            # cancel or mark a live/uncertain worker as completed on timeout.
+            failure=None
+            while thread.is_alive():
+                try:await asyncio.sleep(.01)
+                except BaseException as error:failure=failure or error
+            if thread.ident is not None:thread.join(timeout=0)
+            if not finished.is_set() or any(not future.done() for future in bridges):raise LaunchError('session-lifetime')
+            record['phase']='http-returned' if outcome.get('returned') is True else 'http-uncertain'
+            save()
+            if failure is not None:raise failure
+            if 'error' in outcome:raise outcome['error']
+            current();await self.fresh_touch_scope(binding);current()
+            return dict(originalKeeperNativeQueryVersion=1,ownerInstance=self.instance,index=record['index'],query=deepcopy(issued_query),
+                queryIntentOwned=True,httpReturnObserved=True,nativeDeliveryAcknowledged=False,freshNativeAcquisitionEstablished=False,
+                installedCandidateBound=False,nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
+        finally:
+            if thread is not None:
+                while thread.is_alive():
+                    try:await asyncio.sleep(.01)
+                    except BaseException:pass
+                if thread.ident is not None:thread.join(timeout=0)
+            if self.native_query_task is task:self.native_query_task=None
+
+    async def native_original_read(self,args,session):
+        """Read a fixed native original through THIS original RSD/provider.
+
+        The caller's nonce is correlation only: this method does not own its
+        HTTP query issuance and CANNOT establish a fresh native acquisition,
+        installed-candidate binding, motion permit or resource retirement.
+        """
+        from pymobiledevice3.services.house_arrest import HouseArrestService
+        from copy import deepcopy
+        import hashlib
+        from adapters.normal_feature_state import context
+        from adapters.native_feature_observation import decode,validate as native_packet
+        from ios.adapters import lifecycle_world as world,native_geometry
+        if type(args) is not dict or set(args)!={'binding','runId','resultsDirectory','query'}:
+            raise LaunchError('request')
+        binding=deepcopy(context(args['binding']));query=deepcopy(args['query']);directory=args['resultsDirectory']
+        if (binding['sessionId']!=session or type(args['runId']) is not str or re.fullmatch('[0-9a-f]{32}',args['runId']) is None
+                or type(directory) is not str or len(directory)>128 or re.fullmatch('[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*',directory) is None
+                or type(query) is not dict or type(query.get('schemaVersion')) is not int or query['schemaVersion']!=1
+                or type(query.get('commandId')) is not str or re.fullmatch('ios-[0-9a-f]{32}',query['commandId']) is None):
+            raise LaunchError('request')
+        action=query.get('action')
+        if action==world.ACTION:
+            world.command(query)
+            if query['runId']!=args['runId']:raise LaunchError('request')
+            filename=world.FILE;limit=world.LIMIT
+        elif action in ('feature-native-observe','native-geometry-snapshot') and set(query)=={'schemaVersion','commandId','action'}:
+            filename='feature-native-observation.json' if action=='feature-native-observe' else 'ios-ui-request-result.json'
+            limit=262144 if action=='feature-native-observe' else 65536
+        else:raise LaunchError('request')
+        loop=asyncio.get_running_loop();task=asyncio.current_task()
+        if loop is not self.source._loop or not isinstance(task,asyncio.Task):raise LaunchError('session-lifetime')
+        original_source=self.source;rsd=self.scope(session);original_claim=self.session;claim=deepcopy(self.session);touch=self.touch;resource=self.touch_resources
+        started=loop.time();deadline=started+1.5
+        def current():
+            if (asyncio.get_running_loop() is not loop or self.source is not original_source or original_source._closing or self.draining or self.closed
+                    or self.session is not original_claim or self.session!=claim or self.scope(session) is not rsd or self.touch is not touch
+                    or self.touch_resources is not resource or loop.time()>=deadline):raise LaunchError('session-lifetime')
+            if resource is not None and resource.version==2:
+                with resource.lock.held():resource.motion_current()
+            if touch is not None:
+                born=next((row for row in self.source._born if row['lease'] is touch),None)
+                if (born is None or born['owner'] is None or born['loop'] is not loop or born['worker'] is not touch.worker
+                        or born['release'] is not touch.request_release or touch.request_release.is_set()
+                        or loop.time()>=touch._deadline() or touch.binding!=binding):raise LaunchError('session-lifetime')
+                status=born['owner']._status()
+                if not status['workerRunning'] or not status['hostResponsibility']:raise LaunchError('session-lifetime')
+        current();await self.fresh_touch_scope(binding);current()
+        if len(original_source._native_reads)>=32:raise LaunchError('request')
+        service=HouseArrestService(rsd,documents_only=False);close=service.aclose;closed=asyncio.Event()
+        # The ORIGINAL service/task/close are retained BEFORE its first await.
+        # This is local lifetime responsibility, never a serialized capability.
+        row=(service,close,task,loop,closed,asyncio.Lock());original_source._native_reads.append(row)
+        handle=None;failure=None;raw=None
+        try:
+            # Vend plist MUST precede __aenter__: AFC entry starts its demux
+            # reader, which must never race the original HouseArrest handshake.
+            current();await service.send_command(claim['archiveBundleId'],'VendContainer');current()
+            actual=await service.__aenter__();current()
+            if actual is not service:raise LaunchError('session-lifetime')
+            path='/Documents/'+directory+'/'+filename
+            before=await service.stat(path);current()
+            if (type(before) is not dict or before.get('st_ifmt')!='S_IFREG' or before.get('st_nlink')!=1
+                    or type(before.get('st_size')) is not int or not 2<=before['st_size']<=limit):raise LaunchError('request')
+            handle=await service.fopen(path,'r');current()
+            raw=await service.fread(handle,before['st_size']);current()
+            after=await service.stat(path);current()
+            if type(raw) is not bytes or len(raw)!=before['st_size'] or before!=after:raise LaunchError('request')
+            text=raw.decode('utf-8');packet=decode(text,limit=limit)
+            if action==world.ACTION:world.validate(packet,query,int(binding['processIdentity']))
+            elif action=='feature-native-observe':native_packet(packet,query['commandId'],int(binding['processIdentity']),packet['capturedEpochMs'])
+            else:native_geometry.validate(packet,query['commandId'],native_epoch_ms=packet['observation']['sampleEpochMs'])
+            current()
+        except BaseException as error:
+            failure=error;raise
+        finally:
+            try:
+                try:
+                    # AFC.fclose lazily calls connect(); do not recreate a
+                    # service if its original connection has already vanished.
+                    if handle is not None and service._service is not None:await service.fclose(handle)
+                finally:
+                    # Original SDK AFC-reader cancellation is its actual close
+                    # contract; it is never a touch Up or native-end proof.
+                    if not await original_source._close_native_read(row):
+                        raise LaunchError('session-lifetime')
+            except BaseException:
+                if failure is None:raise
+                failure.add_note('Original native file cleanup is unresolved; original Source responsibility retained.')
+        current();await self.fresh_touch_scope(binding);current()
+        result=dict(originalKeeperNativeFileVersion=1,ownerInstance=self.instance,source='original-rsd-house-arrest',
+            action=action,requestId=query['commandId'],rawJson=text,bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),
+            queryIssuanceOwned=False,freshNativeAcquisitionEstablished=False,installedCandidateBound=False,
+            physicalFileIdentityEstablished=False,nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
+        if len(json.dumps(result,separators=(',',':'),ensure_ascii=True).encode('ascii'))>12000:raise LaunchError('request')
+        return result
 
     def pre_session_rsd(self):
         if self.closed or self.draining or self.session is not None:raise LaunchError('session-lifetime')
@@ -598,6 +858,8 @@ class OriginalKeeperOperations:
             return dict(originalKeeperDrainVersion=1,ownerInstance=self.instance,inputAdmissionClosed=True,
                         originalTouchWorkersSettled=True,originalOperationsSettled=True,
                         nativeTouchSupport=False,resourceRetirementEstablished=False)
+        if operation=='touch-native-query':return await self.native_query(args,session)
+        if operation=='touch-native-original-read':return await self.native_original_read(args,session)
         if operation in ('apps-preflight','ddi-status'):
             if session is not None:raise LaunchError('request')
             return await (self.preflight_apps(args) if operation=='apps-preflight' else self.ddi_status(args))
