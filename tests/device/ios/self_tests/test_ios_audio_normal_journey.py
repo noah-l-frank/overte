@@ -33,7 +33,7 @@ class AudioNormalJourneyTests(unittest.TestCase):
     def test_all_fourteen_normal_actions_authorized_cycles_pcm_and_same_process_resume(self):
         self.run_normal_journey()
 
-    def run_normal_journey(self,*,pcm_model=PCMModel,pcm_profile=None,close_evidence=False):
+    def run_normal_journey(self,*,pcm_model=PCMModel,pcm_profile=None,close_evidence=False,runtime_pcm=False):
         b=AudioBackgroundDomain(self,pages=True,prepare_recording=False);m=b.m;parent=b.parent;m.automatic=True
         class Session(Boundary):
             def stamp(self):m.tick();return dict(epochMs=m.native_epoch(),monotonicMs=round(m.clock*1000))
@@ -55,6 +55,18 @@ class AudioNormalJourneyTests(unittest.TestCase):
         authorization=b.runtime.authorization_sources('test-only',parent,epoch_ms=m.epoch,monotonic=lambda:m.clock)
         starts=AudioAuthorizedStarts(PrivateFeatureState(b.root/'ios-audio-authorized-starts.json'),parent,authorization)
         lease=None;retired=None;steps=[];closing=[False];close_results=[]
+        pcm=None
+        if runtime_pcm:
+            # Explicit new test profile: expose the actual existing observer
+            # factory before any recording, keeping original session queries.
+            runtime_sources=b.runtime._sources
+            def runtime_pcm_sources(selector):
+                from types import SimpleNamespace
+                value=runtime_sources(selector);observer=value['observer']
+                value['observer']=SimpleNamespace(audio_session=observer.audio_session,
+                    recorded_preview_observer=lambda:pcm.reader()[1])
+                return value
+            b.runtime._sources=runtime_pcm_sources
         source_before_close=b.runtime._sources
         if close_evidence:
             def closing_sources(selector):
@@ -83,7 +95,11 @@ class AudioNormalJourneyTests(unittest.TestCase):
             print(json.dumps(steps[-1]),flush=True)
             if verb=='await-completion':
                 pcm=pcm_model(m);native,preview=pcm.reader()
-                lease=IOSAudioPCMLease(PrivateFeatureState(b.root/'ios-audio-pcm-lease.json'),parent,native=native,preview=preview,profile=pcm_profile)
+                if runtime_pcm:
+                    from ios.adapters.audio_pcm_runtime import lease as runtime_lease
+                    lease=runtime_lease(b.runtime,'test-only',parent,profile=pcm_profile)
+                else:
+                    lease=IOSAudioPCMLease(PrivateFeatureState(b.root/'ios-audio-pcm-lease.json'),parent,native=native,preview=preview,profile=pcm_profile)
                 snapshot=lease.capture();self.assertEqual(ticket,parent.state['operations'][-1]['ticket'])
                 self.assertEqual(3,snapshot['recording']['cycle']);retired=lease.retire()
                 activate=m.activate
@@ -124,6 +140,7 @@ class AudioNormalJourneyTests(unittest.TestCase):
                 self.assertEqual(close_results[0],closed.retired());self.assertIsNone(closed.state['allocation'])
         self.assertEqual(inputs,(m.actions,m.page_model.actions,b.inputs));self.assertEqual(queries,(b.reads,len(session.queries),pcm.commands))
         self.assertEqual(originals,census());print('Unchanged original Audio files: '+str(len(originals)),flush=True)
+        if close_evidence and runtime_pcm:return lease,retired,close_results[0],pcm,b.runtime
         if close_evidence:return lease,retired,close_results[0],pcm
         return lease,retired
 
