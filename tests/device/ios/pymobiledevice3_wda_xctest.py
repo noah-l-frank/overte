@@ -702,6 +702,15 @@ class OriginalKeeperOperations:
             lock=ScriptSourceLock(self.state_root/'script-feature-sources.lock')
             journal=self.native_query_journals.get(run)
             if journal is None:
+                if acquisition is not None:
+                    owned=self.native_acquisition_journals.get(run)
+                    if (owned is None or owned['source'] is not source or owned['rsd'] is not rsd or owned['loop'] is not loop
+                            or owned['claim'] is not claim_owner or owned['binding']!=binding
+                            or type(owned['lock']) is not ScriptSourceLock or owned['lock'].path!=lock.path):raise LaunchError('session-lifetime')
+                    self._native_acquisition_current(owned,session)
+                    # Reuse the ACTUAL existing source owner lock. A second
+                    # object at this same file would self-contend in worker.
+                    lock=owned['lock']
                 # Never adopt a pre-existing JSON history as source ownership.
                 with lock.held():
                     if store.read() is not None:raise LaunchError('session-lifetime')
@@ -940,6 +949,16 @@ class OriginalKeeperOperations:
         if journal is None:
             store=PrivateFeatureState(self.state_root/('ios-lifecycle-native-acquisition-'+run+'.json'))
             lock=ScriptSourceLock(self.state_root/'script-feature-sources.lock')
+            query_owner=self.native_query_journals.get(run)
+            if query_owner is not None:
+                if (query_owner['source'] is not source or query_owner['rsd'] is not rsd or query_owner['loop'] is not loop
+                        or query_owner['claim'] is not claim or query_owner['binding']!=binding or query_owner['pending'] is not None
+                        or type(query_owner['lock']) is not ScriptSourceLock or query_owner['lock'].path!=lock.path
+                        or self.native_query_task is not None and self.native_query_task is not asyncio.current_task()):
+                    raise LaunchError('session-lifetime')
+                lock=query_owner['lock']
+                with lock.held():
+                    if query_owner['store'].read()!=query_owner['previous']:raise LaunchError('session-lifetime')
             with lock.held():
                 if store.read() is not None:raise LaunchError('session-lifetime')
             journal=dict(source=source,rsd=rsd,loop=loop,claim=claim,claimValue=claim_value,binding=deepcopy(binding),

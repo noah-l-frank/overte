@@ -230,3 +230,22 @@ Both runs preserve 9,888 source/launcher/reference pins and pass original
 FD/task/thread/child censuses. These remain declared native/RSD/WDA/SDK models.
 The input gate stays closed until an actual current guard connects the fresh
 pre-Down and movement cuts to the same original source and input worker.
+
+## Shared original query and acquisition serialization
+
+The native query and acquisition journals now reuse the same existing source
+lock when their source, RSD, loop, claim, binding and run match exactly. This
+keeps a nested native cut inside the original input worker's selected context
+in the same lock domain. A separate lock object at the same pathname cannot
+stand in for that ownership. Original inode, entry, exit and store checks remain
+unchanged; a foreign binding cannot create an acquisition owner from the query
+journal.
+
+Three source models pass in 1.489 seconds, retaining 36 files in six genuine
+roots with 10,213 source/launcher/reference pins unchanged. Their original
+FD/task/thread/child censuses pass. The existing eight acquisition cases also
+pass, retaining 36 files. An earlier model advanced Scene and Touch clock pairs
+inconsistently; the real validator rejected its second cut. Those 13 original
+files remain retained. The corrected producer selects both genuine elapsed
+clock mappings before their first birth or capture. Native, SDK, device and
+current-movement admission remain unqualified.
