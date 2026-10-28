@@ -210,3 +210,23 @@ fixture creates and cleans up the actual task on its original loop.
 These are host source models with declared native/RSD/SDK producers. The
 selected receipt still needs a fresh native motion cut and current movement
 admission. Native input, device and whole-lifecycle gates remain closed.
+
+## Selected original and fresh native motion preparation
+
+The live selected-IPA receipt can now join a new five-query native acquisition.
+That cut measures native-before, geometry, the original native bundle, World
+and native-after, together with the existing WDA window, inside the unchanged
+1.5-second deadline. The retained frame preserves all five original file
+strings and their byte hashes. Resource profile 4 accepts only the local
+receipt registered by the original completed source task; a selected query
+identifier or saved JSON cannot supply that receipt.
+
+Eight additional host source models pass in 2.745 seconds, retaining 92 files
+in 16 genuine roots. They cover the actual selected-byte/frame/resource join,
+missing local ownership, foreign or stale bundle originals, creator replacement
+and same-byte frame inode substitution. The ten existing Python and four
+JavaScript source-route cases pass again, retaining 47 files in ten roots.
+Both runs preserve 9,888 source/launcher/reference pins and pass original
+FD/task/thread/child censuses. These remain declared native/RSD/WDA/SDK models.
+The input gate stays closed until an actual current guard connects the fresh
+pre-Down and movement cuts to the same original source and input worker.
