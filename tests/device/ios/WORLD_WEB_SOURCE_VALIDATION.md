@@ -149,3 +149,22 @@ this does not prove a native freshness failure or a whole-run pass. All 789
 new originals and 7,804 source pins remain unchanged after original Node close
 and complete owned process/thread drainage. Further constructor/action cost
 integration remains required; the complete-area count stays five.
+
+## Scoped pure clock-query validation
+
+Source validation can now share the existing API-local pure query calculation
+between its clock bracket and query-list checks. Actual original bytes, inode
+identity, frame-prefix and clock-floor checks still execute. Source entries use
+a separate key and literal decoder/function/receiver/default/scope epoch;
+substituted helpers fall back to literal validation. Closed builtin snapshots
+avoid calling marshal or opaque buffer hooks on caller-owned containers. The
+shared bracket and GPU decoder retain their default paths.
+
+All 25 selected host cases pass in 7.134 seconds, retaining 229 files in 28
+genuine roots. The supervisor retains exit 1 because its initial metadata
+prediction expected 27 roots. A separate read-only review verifies the exact
+25 results, actual 28 roots, original audit-child return and stream closure,
+empty thread/process receipts, 7,828 unchanged run pins and 17,460 earlier
+original files. No tests were repeated to correct that prediction. These
+results qualify pure validation and counterexamples only; the full nineteen
+steps, physical timing, native compilation and devices remain unqualified.

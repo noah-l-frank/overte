@@ -17,7 +17,8 @@ from adapters.native_feature_observation import NativeFeatureObservation,exact,i
 from adapters.operation_transport_guard import scope as transport_scope
 from ios.adapters.emote_original_lease import EmoteOriginalLease
 from adapters.normal_feature_state import PrivateFeatureState,context
-from adapters.original_marker_clock_queries import owned as clock_owned,queries as clock_queries,bracket as clock_bracket
+from adapters.original_marker_clock_queries import owned as clock_owned,bracket as clock_bracket
+from ios.adapters.world_web_clock_validation import source_queries as clock_queries,source_eligible as source_clock_eligible
 from adapters.script_feature.history import pack,unpack,same
 from adapters.script_feature.lock import ScriptSourceLock
 from feature_journeys.contract import identifier
@@ -111,7 +112,11 @@ class WorldWebSources:
         raw=frame['originals'];exact(raw,(NAMES|{'emissions'} if self.version==5 else NAMES) if self.version>=4 else LEGACY_NAMES)
         join=validate_join(frame['clockJoin'],raw);first,last=join['nativeBefore'],join['nativeAfter'];epoch=last['capturedEpochMs']
         need(first['processId']==last['processId']==self.pid and same(first['lifecycle'],last['lifecycle']))
-        clock_bracket(self.PROFILE,frame,self.pid);clock_queries(frame['nativeQueries'],self.pid);self.clock_floors(frame)
+        # Only this literal bracket opts into the existing API-local pure
+        # query decoder. Replaced callables retain their original call shape.
+        if _source_clock_bracket_literal():clock_bracket(self.PROFILE,frame,self.pid,query_decoder=_source_clock_decode)
+        else:clock_bracket(self.PROFILE,frame,self.pid)
+        clock_queries(frame['nativeQueries'],self.pid);self.clock_floors(frame)
         old=None if previous is None else previous['originals'];before,after=raw['ledgerBefore'],raw['ledgerAfter']
         for packet,prior in ((before,None if old is None else old['ledgerAfter']),(after,before)):
             ledger.validate(packet,dict(schemaVersion=1,commandId=packet['commandId'],action=ledger.ACTION,runId=self.run,fixtureUrl=self.phase.fixture_url),self.pid,epoch,prior)
@@ -902,6 +907,45 @@ _CONSTRUCTION_DECODERS=tuple((method,method.__code__) for method in
     (WorldWebSources.decode,WorldWebSources._decode,WorldWebSources._decode_frames))
 
 
+_SOURCE_CLOCK_BRACKET=clock_bracket
+_SOURCE_CLOCK_BRACKET_CODE=clock_bracket.__code__
+_SOURCE_CLOCK_BRACKET_DEFAULTS=clock_bracket.__defaults__
+_SOURCE_CLOCK_BRACKET_KEYWORDS=clock_bracket.__kwdefaults__
+_SOURCE_CLOCK_BRACKET_KEY=next(iter(clock_bracket.__kwdefaults__))
+_SOURCE_CLOCK_QUERY=clock_queries
+_SOURCE_CLOCK_QUERY_CODE=clock_queries.__code__
+_SOURCE_CLOCK_QUERY_DEFAULTS=clock_queries.__defaults__
+_SOURCE_CLOCK_QUERY_KEYWORDS=clock_queries.__kwdefaults__
+_SOURCE_CLOCK_QUERY_KEY=next(iter(clock_queries.__kwdefaults__))
+_SOURCE_CLOCK_ELIGIBLE=source_clock_eligible
+_SOURCE_CLOCK_ELIGIBLE_CODE=source_clock_eligible.__code__
+
+
+def _source_clock_bracket_literal():
+    bracket_keys=clock_bracket.__kwdefaults__ if clock_bracket is _SOURCE_CLOCK_BRACKET else None
+    query_keys=clock_queries.__kwdefaults__ if clock_queries is _SOURCE_CLOCK_QUERY else None
+    return (clock_bracket is _SOURCE_CLOCK_BRACKET and clock_bracket.__code__ is _SOURCE_CLOCK_BRACKET_CODE
+        and clock_bracket.__defaults__ is _SOURCE_CLOCK_BRACKET_DEFAULTS
+        and bracket_keys is _SOURCE_CLOCK_BRACKET_KEYWORDS and type(bracket_keys) is dict and len(bracket_keys)==1
+        and all(key is _SOURCE_CLOCK_BRACKET_KEY and value is None for key,value in bracket_keys.items())
+        and getattr(clock_bracket,'__self__',None) is None and clock_queries is _SOURCE_CLOCK_QUERY
+        and clock_queries.__code__ is _SOURCE_CLOCK_QUERY_CODE and clock_queries.__defaults__ is _SOURCE_CLOCK_QUERY_DEFAULTS
+        and query_keys is _SOURCE_CLOCK_QUERY_KEYWORDS and type(query_keys) is dict and len(query_keys)==1
+        and all(key is _SOURCE_CLOCK_QUERY_KEY and value is True for key,value in query_keys.items())
+        and getattr(clock_queries,'__self__',None) is None and source_clock_eligible is _SOURCE_CLOCK_ELIGIBLE
+        and source_clock_eligible.__code__ is _SOURCE_CLOCK_ELIGIBLE_CODE
+        and source_clock_eligible.__defaults__ is None and source_clock_eligible.__kwdefaults__ is None
+        and source_clock_eligible())
+
+
+def _source_clock_decode(rows,pid):
+    # The profile check above can call a substituted module helper. Check the
+    # actual opt-in callback again at its call point; otherwise the common
+    # literal query decoder remains the fallback, with no cached authority.
+    from adapters.original_marker_clock_queries import queries as literal_queries
+    return _SOURCE_CLOCK_QUERY(rows,pid) if _source_clock_bracket_literal() else literal_queries(rows,pid)
+
+
 def _sequence_function(value):
     function=getattr(value,'__func__',value)
     wrapped=getattr(function,'__wrapped__',None)
@@ -918,6 +962,7 @@ def _sequence_literal(source):
         for name in ('read','read_frame','verify','verify_frame','paths'))
     helpers=tuple(_sequence_function(value) for value in (type,len,id,getattr,tuple,dict,deepcopy,digest,same,pack,unpack,clock_queries,clock_bracket,
         ledger.validate,dom.validate,work.validate,world.validate,geometry.validate,keys.validate,pointer.validate,entities.validate,
+        _source_clock_bracket_literal,_source_clock_decode,source_clock_eligible,
         surfaces.validate,closures.validate,uikit_packet,widgets_packet,EmoteOriginalLease.snapshot,EmoteOriginalLease.guard,
         PrivateFeatureState.read,PrivateFeatureState.write))
     stores=tuple(_sequence_function(getattr(PrivateFeatureState if source is None else source.store,name))

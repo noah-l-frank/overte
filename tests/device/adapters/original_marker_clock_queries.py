@@ -40,9 +40,13 @@ def queries(rows,pid,*,strict=True):
     return last
 
 
-def bracket(profile,value,pid):
+def bracket(profile,value,pid,*,query_decoder=None):
     if not fields(profile):return
-    last=queries(value['nativeQueries'],pid);need(last is not None and same(last,value['clockJoin']['nativeAfter']))
+    # An explicit pure decoder belongs only to this synchronous validation.
+    # The default/shared/legacy path still calls its original queries directly.
+    need(query_decoder is None or callable(query_decoder))
+    last=(queries if query_decoder is None else query_decoder)(value['nativeQueries'],pid)
+    need(last is not None and same(last,value['clockJoin']['nativeAfter']))
     first=value['clockJoin']['nativeBefore'];matched=False
     for row in value['nativeQueries']:
         if row['query']['commandId']!=first['requestId']:continue
