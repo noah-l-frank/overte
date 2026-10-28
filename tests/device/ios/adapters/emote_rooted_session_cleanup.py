@@ -28,23 +28,35 @@ def retire_existing(runtime,selector,config,*,monotonic=time.monotonic):
     for role in ('primary','actor'):
         value=PrivateFeatureState(directory/('ios-emote-'+role+'-feature.json')).read()
         if value is not None:need(type(value) is dict)
-        if value is not None and value.get('iosEmoteFeatureVersion')==2:
+        if value is not None and value.get('iosEmoteFeatureVersion') in (2,3):
             need(type(value['iosEmoteFeatureVersion']) is int);rooted=True;runs.add(identifier(value.get('runId')))
     if not rooted:return None
     # Missing/legacy configuration cannot redirect remaining rooted ownership
     # through the old component finalizer or an ordinary SDK teardown.
     from ios.adapters.feature_configuration import validate
     validate(config);need(config['iosFeatureAdapterVersion']>=6 and config['emoteCoordinatorVersion']==2
-        and 'emotes' in config['areas'] and selector!=config['emotes']['actorTarget'] and len(runs)==1)
-    run=runs.pop();store=PrivateFeatureState(directory/('ios-emote-primary-'+run+'-rooted-end.json'))
+        and 'emotes' in config['areas'] and len(runs)==1)
+    pair=None;primary_selector=selector
+    if config['iosFeatureAdapterVersion']>=8:
+        from ios.adapters.emote_target_pair import configuration
+        pair=configuration(config['emoteTargets'])
+        need(selector in (pair['primaryTarget'],pair['actorTarget'])
+            and config['emotes']['actorTarget']==pair['actorTarget']
+            and config['emotes']['artifactRoot']==pair['primaryArtifactRoot'])
+        primary_selector=pair['primaryTarget']
+    else:need(selector!=config['emotes']['actorTarget'])
+    # Configuration selects only a passive lookup. The original Feature3 pair
+    # and the complete two-role end proof below must agree before any success.
+    primary_directory=runtime.state_path(primary_selector).parent
+    run=runs.pop();store=PrivateFeatureState(primary_directory/('ios-emote-primary-'+run+'-rooted-end.json'))
     value=store.read();need(type(value) is dict and value.get('runId')==run)
     rows=unpack(value.get('payload'));need(len(rows)==1 and type(rows[0]) is dict and rows[0].get('phase')=='complete')
     with budget(runtime.adapter,selector,monotonic=monotonic,started=started) as work:
         from ios.adapters.emote_rooted_bootstrap import primary
         from ios.adapters.emote_canonical_end import completed
-        flow=primary(runtime,selector,run,config['emotes']);work.check()
+        flow=primary(runtime,primary_selector,run,config['emotes'],target_pair=pair);work.check()
         result=completed(flow,value['seal']);need(result['stage']=='finish');work.check()
-        for target in (selector,config['emotes']['actorTarget']):
+        for target in (primary_selector,config['emotes']['actorTarget']):
             need(runtime.adapter.read_session(target) is None and runtime.adapter._binding_store(target).read() is None
                 and runtime.adapter.component_owners_absent(target))
             for path in runtime.state_path(target).parent.iterdir():

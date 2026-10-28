@@ -25,9 +25,14 @@ from feature_journeys.retirement_receipts import stage
 from ios.adapters.emote_operation import operation
 
 
+VERSION=3
+READS=(2,3)
+
 class IOSEmoteRootedFeature(IOSEmoteFeature):
     RETRY_OBSERVATION_READINESS=True
     FORMAT_VERSION=2
+    PAIRED_FORMAT_VERSION=3
+    PAIRED_PROFILE_FIELDS=frozenset({'targetPair'})
     Marker=IOSEmoteRootedMarkerScope
     Observer=IOSEmoteRootedObserver
     NativeRetirement=IOSEmoteRootedNativeRetirement
@@ -37,6 +42,27 @@ class IOSEmoteRootedFeature(IOSEmoteFeature):
     scene_validator=staticmethod(rooted)
     retirement_stage=WEB_SCENE_STAGE
     paired_retirement_kind='primary-scene-ordered'
+
+    def __init__(self,*args,target_pair=None,**kwargs):
+        from ios.adapters.emote_target_pair import configuration
+        self.configured_pair=None if target_pair is None else configuration(target_pair)
+        if self.configured_pair is not None:
+            self.FORMAT_VERSION=self.PAIRED_FORMAT_VERSION;self.PROFILE_FIELDS=self.PAIRED_PROFILE_FIELDS
+        super().__init__(*args,**kwargs)
+        if self.configured_pair is not None:
+            chosen=self.configured_pair
+            need(self.selector==chosen[self.role+'Target'] and self.primary_selector==chosen['primaryTarget']
+                and (self.role=='actor' or self.actor_selector==chosen['actorTarget'])
+                and str(self.root)==chosen[self.role+'ArtifactRoot'])
+
+    def profile_envelope(self,state):
+        if getattr(self,'configured_pair',None) is None:return {}
+        from ios.adapters.emote_target_pair import bind
+        value=bind(self,state)
+        if self.previous is not None:
+            need(type(self.previous.get('iosEmoteFeatureVersion')) is int and self.previous['iosEmoteFeatureVersion']==self.PAIRED_FORMAT_VERSION
+                and same(value,self.previous['targetPair']))
+        return dict(targetPair=value)
 
     @staticmethod
     def quiet_refresh(scope,*,clock,sleep,pointers,keys):

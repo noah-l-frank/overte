@@ -58,3 +58,19 @@ OS and candidate-preflight producers. Typed terminal authorization and canonical
 installed-source Stop gates remain actual. The full scenario, its timing and
 end must pass before complete area admission can be enabled. A bounded profiling
 attempt or a passing Waving-only path is not that qualification.
+
+## Explicit original target pair
+
+Private Feature3 owners can retain the selected Primary and Actor targets,
+actual SDK directories, artifact directories and admitted bindings before live
+source work. Every reopen checks that exact pair under the existing source
+locks. Cross-role ancestor directories, changed selectors, foreign bindings
+and late directory rebinding cannot borrow the saved original. Literal Feature2
+owners keep their previous shape and cannot silently adopt Feature3.
+
+The paired bootstrap, terminal decoder and session cleanup can read those
+originals, preserving their existing complete typed-end requirement. This
+source support does not publish prospective whole-feature configuration or
+qualify a missing process/SDK end. Six pair codec cases pass within the retained
+nine-case metadata selection; ten selected routing/admission regressions also
+pass. Those metadata cases execute no native, source or SDK transport.

@@ -49,14 +49,14 @@ class IOSEmoteRuntime(IOSScriptRuntime):
                 guard();return base.invoke(owner.flow.selector,'app.stop',{})
         finally:base._operation=outer
 
-    def _emote_rooted_feature(self,selector,run,*,role,client,settings):
+    def _emote_rooted_feature(self,selector,run,*,role,client,settings,target_pair=None):
         """Explicit internal v2 owner; legacy configuration keeps its reader."""
         from ios.adapters.emote_configuration import settings as validate_settings
         from ios.adapters.emote_rooted_feature import IOSEmoteRootedFeature
         need(role in ('primary','actor') and client is not None)
         selected=validate_settings(settings,role=role,target=selector)
         return IOSEmoteRootedFeature(self,selector,client,run,role,selected['artifactRoot'],selected['imagePolicy'],
-            primary_selector=selected.get('primaryTarget'),actor_selector=selected.get('actorTarget'))
+            primary_selector=selected.get('primaryTarget'),actor_selector=selected.get('actorTarget'),target_pair=target_pair)
 
     def _emote_rooted_terminal(self,primary,actor=None):
         from ios.adapters.emote_terminal import IOSEmoteTerminal

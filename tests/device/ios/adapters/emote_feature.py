@@ -52,8 +52,10 @@ VERSION=1
 class IOSEmoteFeature:
     RETRY_OBSERVATION_READINESS=False
     FORMAT_VERSION=1
+    PROFILE_FIELDS=frozenset()
     Marker=IOSEmoteMarkerScope
     Observer=IOSEmoteObserver
+    Samples=IOSEmoteSamples
     NativeRetirement=IOSEmoteRetirement
     RenderedRetirement=IOSEmoteRenderedRetirement
     KeyedRetirement=IOSEmoteKeyedRetirement
@@ -98,14 +100,16 @@ class IOSEmoteFeature:
             self.clock()
         finally:self.deadline=old
 
+    def profile_envelope(self,state):return {}
+
     def envelope(self,state):
         return dict(iosEmoteFeatureVersion=self.FORMAT_VERSION,runId=self.run,role=self.role,artifactRoot=str(self.root),
-            fixtureUrl=self.phase.fixture_url,imagePolicy=self.policy,payload=pack([state]))
+            fixtureUrl=self.phase.fixture_url,imagePolicy=self.policy,payload=pack([state]),**self.profile_envelope(state))
 
     def load(self):
         self.lock.assert_held();self.previous=self.store.read()
         if self.previous is None:self.state=None;return
-        exact(self.previous,{'iosEmoteFeatureVersion','runId','role','artifactRoot','fixtureUrl','imagePolicy','payload'})
+        exact(self.previous,{'iosEmoteFeatureVersion','runId','role','artifactRoot','fixtureUrl','imagePolicy','payload'}|self.PROFILE_FIELDS)
         rows=unpack(self.previous['payload']);need(len(rows)==1 and same(self.previous,self.envelope(rows[0])));state=rows[0]
         exact(state,{'phase','binding','primaryBinding','actorAdmission','phaseInstance','initialTicket','lastCall','inputBarrier','cleanup','retirement'})
         need(state['phase'] in ('preparing','ready','cleaning','cleaned','retired'));context(state['binding']);context(state['primaryBinding'])
@@ -147,7 +151,7 @@ class IOSEmoteFeature:
             peers=IOSEmotePeerSources(PrivateFeatureState(self.runtime.state_path(self.selector).with_name('ios-emote-actor-peer-sources.json')),
                 self.root,own['binding'],self.run,self.phase,self.lock,own['check'],runtime=self.runtime,selector=self.selector,
                 monotonic=self.monotonic,epoch_ms=self.epoch_ms)
-        samples=IOSEmoteSamples(self.runtime,self.selector,scope,self.root,self.policy,self.phase,self.lock,
+        samples=self.Samples(self.runtime,self.selector,scope,self.root,self.policy,self.phase,self.lock,
             monotonic=self.monotonic,epoch_ms=self.epoch_ms,sleep=self.sleep)
         observer=self.Observer(PrivateFeatureState(self.runtime.state_path(self.selector).with_name('ios-emote-'+self.role+'-observer.json')),
             sources,own['binding'],self.role,self.root,self.policy,self.phase,self.lock,own['check'],peers=peers,samples=samples,

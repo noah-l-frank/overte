@@ -30,7 +30,7 @@ def passive(url,run):
     client=object.__new__(Client);client.url=base;client.request=forbidden;return client
 
 
-def primary(runtime,selector,run,chosen,*,monotonic=None,epoch_ms=None,sleep=None):
+def primary(runtime,selector,run,chosen,*,monotonic=None,epoch_ms=None,sleep=None,target_pair=None):
     """Reopen exact saved configuration, then construct no live components."""
     chosen=settings(chosen,role='primary',target=selector);identifier(run)
     directory=runtime.state_path(selector).parent;peer_directory=runtime.state_path(chosen['actorTarget']).parent
@@ -58,11 +58,18 @@ def primary(runtime,selector,run,chosen,*,monotonic=None,epoch_ms=None,sleep=Non
         archive=IOSEmoteRootedFinalArchive(store,root,binding,run,'primary',lock,lock,paths,check,forbidden)
         need(archive.state is not None and archive.state['phase']=='validated')
         feature=archive.copies().get(str(directory/'ios-emote-primary-feature.json'))
-        exact(feature,{'iosEmoteFeatureVersion','runId','role','artifactRoot','fixtureUrl','imagePolicy','payload'})
-        need(type(feature['iosEmoteFeatureVersion']) is int and feature['iosEmoteFeatureVersion']==2
-            and feature['runId']==run and feature['role']=='primary' and feature['artifactRoot']==str(root)
-            and same(feature['imagePolicy'],chosen['imagePolicy']))
+        need(type(feature) is dict and type(feature.get('iosEmoteFeatureVersion')) is int and feature['iosEmoteFeatureVersion'] in (2,3))
+        version=feature['iosEmoteFeatureVersion']
+        exact(feature,{'iosEmoteFeatureVersion','runId','role','artifactRoot','fixtureUrl','imagePolicy','payload'}|({'targetPair'} if version==3 else set()))
+        need(feature['runId']==run and feature['role']=='primary' and feature['artifactRoot']==str(root)
+            and same(feature['imagePolicy'],chosen['imagePolicy']) and (version==3) is (target_pair is not None))
+        if target_pair is not None:
+            from ios.adapters.emote_target_pair import configuration,selected
+            pair=configuration(target_pair);need(same(selected(feature['targetPair']),pair)
+                and pair['primaryTarget']==selector and pair['actorTarget']==chosen['actorTarget']
+                and feature['targetPair']['primaryStateRoot']==str(directory)
+                and feature['targetPair']['actorStateRoot']==str(peer_directory))
         client=passive(feature['fixtureUrl'],run);check();need(same(store.read(),value))
     clocks={key:fn for key,fn in (('monotonic',monotonic),('epoch_ms',epoch_ms),('sleep',sleep)) if fn is not None}
     return IOSEmoteRootedFeature(runtime,selector,client,run,'primary',root,chosen['imagePolicy'],
-        actor_selector=chosen['actorTarget'],**clocks)
+        actor_selector=chosen['actorTarget'],target_pair=target_pair,**clocks)

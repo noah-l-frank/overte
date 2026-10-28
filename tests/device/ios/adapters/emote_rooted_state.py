@@ -74,15 +74,30 @@ class IOSEmoteRootedState:
     def role(self,role):
         lock=self.locks[role];primary_lock=self.locks['primary']
         feature_store=self.store(lock.path.with_name('ios-emote-'+role+'-feature.json'));value=feature_store.read()
-        exact(value,{'iosEmoteFeatureVersion','runId','role','artifactRoot','fixtureUrl','imagePolicy','payload'})
-        need(type(value['iosEmoteFeatureVersion']) is int and value['iosEmoteFeatureVersion']==2
-            and value['runId']==self.run and value['role']==role)
+        need(type(value) is dict and type(value.get('iosEmoteFeatureVersion')) is int and value['iosEmoteFeatureVersion'] in (2,3))
+        version=value['iosEmoteFeatureVersion']
+        exact(value,{'iosEmoteFeatureVersion','runId','role','artifactRoot','fixtureUrl','imagePolicy','payload'}|({'targetPair'} if version==3 else set()))
+        need(value['runId']==self.run and value['role']==role)
+        pair=None
+        if version==3:
+            from ios.adapters.emote_target_pair import original,selected
+            pair=selected(original(value['targetPair']))
+            need(all(str(self.locks[key].path.parent)==value['targetPair'][key+'StateRoot'] for key in ('primary','actor')))
         policy=settings(dict(artifactRoot=value['artifactRoot'],imagePolicy=value['imagePolicy']))
         root=Path(policy['artifactRoot']);flow=object.__new__(IOSEmoteRootedFeature)
         flow.run,flow.role,flow.root,flow.policy=self.run,role,root,policy['imagePolicy']
         flow.lock,flow.primary_lock,flow.store=lock,primary_lock,feature_store
         flow.phase=SimpleNamespace(fixture_url=value['fixtureUrl']);flow.runtime=self.runtime
-        flow.selector,flow.primary_selector=role,'primary';flow.load()
+        flow.configured_pair=pair;flow.FORMAT_VERSION=version
+        flow.PROFILE_FIELDS=frozenset({'targetPair'}) if version==3 else frozenset()
+        flow.selector,flow.primary_selector=role,'primary';flow.actor_selector='actor' if role=='primary' else None
+        if pair is not None:
+            paths={pair[key+'Target']:self.locks[key].path.with_name('session.json') for key in ('primary','actor')}
+            def state_path(selector):need(selector in paths);return paths[selector]
+            flow.runtime=SimpleNamespace(state_path=state_path)
+            flow.selector=pair[role+'Target'];flow.primary_selector=pair['primaryTarget']
+            flow.actor_selector=pair['actorTarget'] if role=='primary' else None
+        flow.load()
         need(flow.state['phase']=='cleaned' and flow.state['cleanup'])
         suffix='/runs/'+self.run+'/';need(value['fixtureUrl'].endswith(suffix))
         flow.client=SimpleNamespace(url=value['fixtureUrl'][:-len(suffix)])
@@ -163,6 +178,10 @@ class IOSEmoteRootedState:
             need(p.root!=a.root and p.phase.fixture_url==a.phase.fixture_url and p.state['phaseInstance']==a.state['phaseInstance']
                 and same(admitted(p.state['actorAdmission'],p.state['binding']),a.state['binding'])
                 and same(a.state['primaryBinding'],p.state['binding']))
+            need(same(getattr(p,'configured_pair',None),getattr(a,'configured_pair',None)))
+            if getattr(p,'configured_pair',None) is not None:
+                need(p.previous['iosEmoteFeatureVersion']==a.previous['iosEmoteFeatureVersion']==3
+                    and same(p.previous['targetPair'],a.previous['targetPair']))
             need(self.used==set(self.copies))
             window=IOSEmoteTerminalWindow(roles['primary'][1],roles['actor'][1])
         return window

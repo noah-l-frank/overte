@@ -41,15 +41,21 @@ class IOSEmoteTerminal:
                 archive,ownership=existing_archive(primary,actor_lock)
                 need(archive is not None);ownership.read()
                 value=archive.copies().get(str(path));need(type(value) is dict)
-            exact(value,{'iosEmoteFeatureVersion','runId','role','artifactRoot','fixtureUrl','imagePolicy','payload'})
-            need(type(value['iosEmoteFeatureVersion']) is int and value['iosEmoteFeatureVersion']==2
-                and value['runId']==primary.run and value['role']=='actor' and value['fixtureUrl']==primary.phase.fixture_url)
+            need(type(value) is dict and type(value.get('iosEmoteFeatureVersion')) is int and value['iosEmoteFeatureVersion'] in (2,3))
+            version=value['iosEmoteFeatureVersion']
+            exact(value,{'iosEmoteFeatureVersion','runId','role','artifactRoot','fixtureUrl','imagePolicy','payload'}|({'targetPair'} if version==3 else set()))
+            need(value['runId']==primary.run and value['role']=='actor' and value['fixtureUrl']==primary.phase.fixture_url)
+            pair=getattr(primary,'configured_pair',None)
+            need((version==3) is (pair is not None))
+            if pair is not None:
+                from ios.adapters.emote_target_pair import selected as pair_configuration
+                need(same(pair_configuration(value['targetPair']),pair))
             selected=settings(dict(artifactRoot=value['artifactRoot'],imagePolicy=value['imagePolicy'],primaryTarget=primary.selector),
                 role='actor',target=primary.actor_selector)
             need(selected['artifactRoot']!=str(primary.root))
             actor=IOSEmoteRootedFeature(primary.runtime,primary.actor_selector,primary.client,primary.run,'actor',
                 selected['artifactRoot'],selected['imagePolicy'],primary_selector=primary.selector,monotonic=primary.monotonic,
-                epoch_ms=primary.epoch_ms,sleep=primary.sleep)
+                epoch_ms=primary.epoch_ms,sleep=primary.sleep,target_pair=pair)
             actor.lock,actor.primary_lock=actor_lock,primary.lock
             actor.load();need(same(actor.previous,actual));return actor
 
@@ -60,6 +66,7 @@ class IOSEmoteTerminal:
             and actor.run==primary.run and actor.selector==primary.actor_selector and actor.primary_selector==primary.selector
             and actor.primary_lock is primary.lock and primary.primary_lock is primary.lock
             and actor.phase.fixture_url==primary.phase.fixture_url and actor.root!=primary.root)
+        need(same(getattr(primary,'configured_pair',None),getattr(actor,'configured_pair',None)))
         self.flow,self.actor,self.runtime=primary,actor,primary.runtime
         self.monotonic,self.deadline,self.last_clock=primary.monotonic,None,None
         self.responsibilities=[]
