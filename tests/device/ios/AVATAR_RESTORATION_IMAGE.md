@@ -22,3 +22,15 @@ distinguished from stale Avatar or wearable pixels. That limitation is explicit;
 unchanged pixels still do not replace separate entity weak expiry, timer and Qt
 callback closure, account retirement, native quiet intervals or paired cleanup.
 No device robustness or native compilation is claimed by these host tests.
+
+The strict full-frame comparison now compares complete decoded RGBA bytes
+directly, preserving the same zero-difference condition without Python work
+per pixel. RGB changes beneath transparent alpha still refuse qualification;
+different PNG compression with identical decoded pixels remains acceptable.
+All original-file, format, extent, marker and native-barrier checks remain.
+Four new cases and three existing restoration cases pass in 5.673 seconds,
+including each RGBA channel outside the marker, rejected RGB/L/P/JPEG and
+extent substitution. All 5,641 source/launcher pins and 107 retained original
+files remain unchanged across the run, with no remaining owned processes.
+This gives no new whole-run timing, second Actor publication, seal or SDK-end
+result. Avatar remains partial and the completion count remains 5/14.
