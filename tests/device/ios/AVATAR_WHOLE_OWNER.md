@@ -86,6 +86,32 @@ qualification to public preparation recovery and marker admission. It does
 not qualify public observation, Actor checkpoint publication, SDK delivery ACK,
 input/touch worker end, cleanup, the process/SDK endpoint or the full journey.
 
+### Recovered preparation through active observations and checkpoint
+
+A later connected case continues those same two recovered owners through a
+normal scale action, fresh independent Actor observations, original GPU/PNG
+decoding and actual Actor publication. The early Actor read refuses until the
+Primary input returns; retrying that input sends no second widget request.
+Both roles then restore ordinary inputs and reach the existing bilateral
+cleanup checkpoint while retaining live resource responsibility. The original
+Close intents, before-frames, protected account journals and untouched initial
+frames retain their bytes and file identities throughout.
+
+This case selects the existing `StrongDomain` producer before construction and
+the first native capture. Its actual Pal/People/request JavaScript supplies
+version-two caller/timer originals. The initial `ImageDomain` attempt failed
+at the first observation in 13.139 seconds because the stronger decoder requires
+those originals; no archived version-one DTO was upgraded and no check was
+relaxed. The corrected connected case passes in 87.188 seconds, preserving
+469 original files in five roots and 7,684 source/launcher/reference pins.
+The unchanged default preparation case also passes after its helper refactor
+in 8.131 seconds, preserving 102 files. All owned processes and new threads exit.
+
+This extends the connected host qualification to ordinary restoration and the
+live checkpoint. Scene/Final, logout, input-worker drainage, canonical installed
+dispatch, process/SDK end, real-host deadlines, native compilation and the whole
+Avatar journey remain open. No complete capability is enabled.
+
 ## Untouched frames and camera ordering
 
 Both roles capture and retain their untouched initial original fenced PNG

@@ -17,6 +17,7 @@ from self_tests import test_account_provider as tls
 
 class AvatarPrepareComposedTests(unittest.TestCase):
     retain_originals=True
+    domain_type=PrepareDomain
     @classmethod
     def setUpClass(cls):
         tls.AccountProviderTests.setUpClass()
@@ -27,7 +28,7 @@ class AvatarPrepareComposedTests(unittest.TestCase):
         setup=installed.InstalledCodeTests.setUp
         def retained(case):
             setup(case);retain_owned_root(case.temp,expected_root=Path(case.temp.name))
-        with patch.object(installed.InstalledCodeTests,'setUp',retained):return PrepareDomain(self)
+        with patch.object(installed.InstalledCodeTests,'setUp',retained):return self.domain_type(self)
 
     def test_actual_both_owned_accounts_then_both_untouched_frames_and_normal_scripts(self):
         d=self.domain();primary,actor=d.owners['primary'],d.owners['actor']
@@ -234,7 +235,7 @@ class AvatarPrepareComposedTests(unittest.TestCase):
 
 
 
-    def test_both_public_prepare_retries_after_lost_actual_uikit_close_reach_paired_initial_and_marker_admission_once(self):
+    def recovered_public_preparation(self):
         from contextlib import ExitStack
         from adapters.normal_feature_state import PrivateFeatureState
         from adapters.normal_ui import NativeUIError
@@ -341,9 +342,12 @@ class AvatarPrepareComposedTests(unittest.TestCase):
             authority=d.server.avatar_accounts.snapshot(RUN)
             self.assertEqual('ready',authority['phase']);self.assertEqual(2,sum(row['accountExists'] for row in authority['accounts'].values()))
             for owner in d.owners.values():self.assertEqual(owner.state['sessions']['input'],{key:authority['sessionBinding'][key] for key in ('sessions','domain')})
-            # observed proves the native close effect only. This case does
-            # not invent an SDK delivery ACK, release touch/input workers,
-            # close either SDK, run public observe(), or seal/end the journey.
+            # This helper establishes only preparation/marker admission.
+            # The caller must independently acquire any later active facts.
+            return d,kept
+
+    def test_both_public_prepare_retries_after_lost_actual_uikit_close_reach_paired_initial_and_marker_admission_once(self):
+        self.recovered_public_preparation()
 
 
 if __name__=='__main__':unittest.main()
