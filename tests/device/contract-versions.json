@@ -476,7 +476,7 @@
     "ios-audio-recorded-observation": {"current": 4, "reads": [1, 2, 3, 4]},
     "ios-audio-recorded-frame": {"current": 1, "reads": [1]},
     "ios-audio-recorded-original": {"current": 1, "reads": [1]},
-    "ios-audio-pcm-lease": {"current": 1, "reads": [1]},
+    "ios-audio-pcm-lease": {"current": 2, "reads": [1, 2]},
     "ios-audio-pcm-chunk": {"current": 1, "reads": [1]},
     "ios-audio-pcm-snapshot": {"current": 1, "reads": [1]},
     "ios-audio-pcm-absence": {"current": 1, "reads": [1]},

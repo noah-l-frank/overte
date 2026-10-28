@@ -52,3 +52,37 @@ corrected the final directory recheck and executable-only iOS build admission
 before publication; neither correction is presented as a native runtime test.
 Compilation, physical microphone identity, acoustic/peer measurements, complete
 resource retirement and the whole Audio journey remain unqualified.
+
+## Required origin in the existing PCM lease
+
+The existing `ios.adapters.audio_pcm_runtime.lease` factory accepts the explicit
+`profile='qt-source-read-to-preview-tap'`. It stores PCM lease version two with
+that profile before allocation. The same original snapshot, native-clock join,
+PCM chunks and fragment validator must then establish available version-two
+callback provenance. A legacy packet, unavailable origin or fragment mismatch
+cannot supply the required capture. Cleanup can still retire the original
+allocation without claiming a captured result; uncertain allocation or release
+is never sent again.
+
+Default new leases retain literal version one. Default reopening of an existing
+version-two lease preserves its original strict requirement. An explicit strict
+request cannot reclassify an existing version-one allocation. Unknown profiles
+refuse before runtime source acquisition, and changed requested profile fields
+refuse before allocation. Chunk, snapshot, absence and public result grammars
+remain unchanged; only the lease registry entry advances to two, reading one
+and two. The native observer, limits and deadlines are unchanged.
+
+All 25 selected component cases pass in 24.724 seconds: eight new required-profile
+and recovery cases plus seventeen existing PCM cases, preserving 520 original
+files in 24 roots. The connected fourteen-action recording/resume flow passes
+with required origin in 112.218 seconds and with the unchanged default profile
+in 111.544 seconds. Each preserves 131 original files in one root. All three
+selections preserve 7,686 source/launcher/reference pins; owned processes and
+new threads are gone. The test-only fixture import correction prevents duplicate
+collection of the reused test classes.
+
+These are real host ownership/byte/ordinary-action checks over declared native,
+callback, SDK, OS and timer models. Later recording cycles still own their own
+evidence memory. Independent acoustic/peer artifacts, full settings restoration,
+resource/process/SDK retirement, native compilation and the complete Audio
+adapter remain open. No complete capability is enabled by this profile.

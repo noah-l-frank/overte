@@ -25,12 +25,17 @@ from ios.adapters import audio_pcm_validation as validation
 from ios.adapters.graphics_history import follow_native
 
 
+VERSION=2
+READS=(1,2)
+INPUT_ORIGIN_PROFILE='qt-source-read-to-preview-tap'
+
+
 class IOSAudioPCMLease:
-    def __init__(self,store,recorded,*,native,preview):
+    def __init__(self,store,recorded,*,native,preview,profile=None):
         need(isinstance(store,PrivateFeatureState) and type(recorded) is IOSAudioRecordedOwner and not recorded.historical
             and isinstance(native,NativeFeatureObservation) and native.ios and not native.native_clock_bound
             and isinstance(preview,RecordedPreviewEvidence) and preview.ios and native.pid==preview.pid==int(recorded.binding['processIdentity']))
-        self.initialize(store,recorded);self.native,self.preview=native,preview;self.historical=False
+        self.initialize(store,recorded,profile=profile);self.native,self.preview=native,preview;self.historical=False
         self.phase,self.epoch_ms,self.monotonic=recorded.phase,recorded.epoch_ms,recorded.monotonic
         self.previous=store.read();self.state=dict(phase='new',allocation=None,release=None,queries=[],records=[],pending=None,snapshot=None,absence=None)
         self.originals=AudioPCMOriginals(self)
@@ -61,7 +66,8 @@ class IOSAudioPCMLease:
             return raw
         preview.original=original
 
-    def initialize(self,store,recorded):
+    def initialize(self,store,recorded,*,profile=None):
+        need(profile is None or type(profile) is str and profile==INPUT_ORIGIN_PROFILE)
         need(type(recorded) is IOSAudioRecordedOwner);recorded.bound()
         need(recorded.state['pending'] is recorded.state['observation'] is None and same(recorded.envelope(recorded.state),recorded.previous))
         starts=[value for value in recorded.state['operations'] if value['verb']=='record-start'];need(starts)
@@ -71,6 +77,16 @@ class IOSAudioPCMLease:
             return dict(ticket=selected['ticket'],cycle=original['originals']['native']['audio']['recordedVoice']['cycle'],
                 original=selected['after'],operationSha256=digest(selected))
         saved=store.read()
+        if saved is None:self.version=1 if profile is None else VERSION
+        else:
+            need(type(saved) is dict and type(saved.get('iosAudioPCMLeaseVersion')) is int
+                and saved['iosAudioPCMLeaseVersion'] in READS)
+            self.version=saved['iosAudioPCMLeaseVersion']
+            # A strict request cannot reclassify an existing legacy allocation.
+            # Default recovery preserves the actual durable stronger profile.
+            if profile is not None:need(self.version==2 and saved.get('profile')==profile)
+        self.profile=INPUT_ORIGIN_PROFILE if self.version==2 else None
+        self._requested_profile=(self.version,self.profile)
         if saved is None:self.recording=recording(starts[-1])
         else:
             # An existing lease owns its original Start, even when subsequent
@@ -91,10 +107,11 @@ class IOSAudioPCMLease:
         owner.state=owner.decode(owner.previous);return owner
 
     def envelope(self,state):
-        return dict(iosAudioPCMLeaseVersion=1,runId=self.run,binding=self.binding,artifactRoot=str(self.root),recordedStore=str(self.recorded.store.path),recording=self.recording,payload=pack([state]))
+        return dict(iosAudioPCMLeaseVersion=self.version,runId=self.run,binding=self.binding,artifactRoot=str(self.root),recordedStore=str(self.recorded.store.path),recording=self.recording,payload=pack([state])) | ({'profile':self.profile} if self.version==2 else {})
 
     def bound(self):
-        self.recorded.bound();need(same(self.store.read(),self.previous)
+        self.recorded.bound();need(type(self.version) is int and (self.version,self.profile)==self._requested_profile
+            and same(self.store.read(),self.previous)
             and self.recorded.state['pending'] is self.recorded.state['observation'] is None
             and same(self.recorded.envelope(self.recorded.state),self.recorded.previous));return True
 
@@ -123,8 +140,8 @@ class IOSAudioPCMLease:
         self.bound();need(event=='original' and not self.historical);self.state['pending']=deepcopy(wire);self.save();return True
 
     def decode(self,value):
-        exact(value,{'iosAudioPCMLeaseVersion','runId','binding','artifactRoot','recordedStore','recording','payload'});rows=unpack(value['payload'])
-        need(type(value['iosAudioPCMLeaseVersion']) is int and value['iosAudioPCMLeaseVersion']==1 and len(rows)==1
+        exact(value,{'iosAudioPCMLeaseVersion','runId','binding','artifactRoot','recordedStore','recording','payload'} | ({'profile'} if self.version==2 else set()));rows=unpack(value['payload'])
+        need(type(value['iosAudioPCMLeaseVersion']) is int and value['iosAudioPCMLeaseVersion']==self.version and len(rows)==1
             and same(value,self.envelope(rows[0])));state=rows[0]
         exact(state,{'phase','allocation','release','queries','records','pending','snapshot','absence'})
         need(state['phase'] in ('new','allocating','captured','release-issued','retired') and type(state['queries']) is list and len(state['queries'])<=512

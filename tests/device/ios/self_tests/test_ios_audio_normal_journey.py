@@ -31,6 +31,9 @@ from ios.self_tests.test_ios_audio_session_source import Boundary
 
 class AudioNormalJourneyTests(unittest.TestCase):
     def test_all_fourteen_normal_actions_authorized_cycles_pcm_and_same_process_resume(self):
+        self.run_normal_journey()
+
+    def run_normal_journey(self,*,pcm_model=PCMModel,pcm_profile=None):
         b=AudioBackgroundDomain(self,pages=True,prepare_recording=False);m=b.m;parent=b.parent;m.automatic=True
         class Session(Boundary):
             def stamp(self):m.tick();return dict(epochMs=m.native_epoch(),monotonicMs=round(m.clock*1000))
@@ -65,8 +68,8 @@ class AudioNormalJourneyTests(unittest.TestCase):
             steps.append(dict(step=index,verb=verb,phase=observed['phase'],cycle=original['originals']['native']['audio']['recordedVoice']['cycle']))
             print(json.dumps(steps[-1]),flush=True)
             if verb=='await-completion':
-                pcm=PCMModel(m);native,preview=pcm.reader()
-                lease=IOSAudioPCMLease(PrivateFeatureState(b.root/'ios-audio-pcm-lease.json'),parent,native=native,preview=preview)
+                pcm=pcm_model(m);native,preview=pcm.reader()
+                lease=IOSAudioPCMLease(PrivateFeatureState(b.root/'ios-audio-pcm-lease.json'),parent,native=native,preview=preview,profile=pcm_profile)
                 snapshot=lease.capture();self.assertEqual(ticket,parent.state['operations'][-1]['ticket'])
                 self.assertEqual(3,snapshot['recording']['cycle']);retired=lease.retire()
                 activate=m.activate
@@ -98,6 +101,7 @@ class AudioNormalJourneyTests(unittest.TestCase):
             self.assertEqual(retired,IOSAudioPCMLease.archive(lease.store,archive).retired())
         self.assertEqual(inputs,(m.actions,m.page_model.actions,b.inputs));self.assertEqual(queries,(b.reads,len(session.queries),pcm.commands))
         self.assertEqual(originals,census());print('Unchanged original Audio files: '+str(len(originals)),flush=True)
+        return lease,retired
 
 
 if __name__=='__main__':unittest.main()

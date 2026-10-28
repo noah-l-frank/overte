@@ -50,7 +50,7 @@ def snapshot(owner,value):
     exact(value['chunks'],{'input','sink'})
     for kind in ('input','sink'):
         raw=owner.originals.pcm(value,kind)
-        if kind=='input':validate_input_origin(packet,raw)
+        if kind=='input':validate_input_origin(packet,raw,required=owner.version==2)
     return value
 
 
