@@ -241,7 +241,8 @@ class IOSAvatarFeature:
             else:need(False)
         close=value['preparationClose']
         if close is not None:
-            exact(close,{'phase','before','after'});need(close['phase'] in ('issued','delivered','observed'))
+            exact(close,{'phase','before','after'}|({'issuedIntent'} if 'issuedIntent' in close else set()));need(close['phase'] in ('issued','delivered','observed'))
+            if 'issuedIntent' in close:exact(close['issuedIntent'],{'index','sha256'})
             exact(close['before'],{'index','sha256'});need(close['phase']=='observed' or close['after'] is None)
             if close['after'] is not None:exact(close['after'],{'index','sha256'})
         if value['cleanup']:need(value['phase'] in ('cleaning','terminal-ready','cleaned','retired'))
@@ -251,8 +252,9 @@ class IOSAvatarFeature:
         if self.state['initialBarrier'] is not None:
             exact(self.state['initialBarrier'],{'subject','owner','reference'});self.kept(self.state['initialBarrier']['owner'])
         if self.state['preparationClose'] is not None:
-            for key in ('before','after'):
-                if self.state['preparationClose'][key] is not None:self.kept(self.state['preparationClose'][key])
+            for key in ('before','after','issuedIntent'):
+                if self.state['preparationClose'].get(key) is not None:self.kept(self.state['preparationClose'][key])
+            if 'issuedIntent' in self.state['preparationClose']:self.preparation_issued_original()
         for event in self.state['cleanup']:
             for key in ('owner','actorOwner','publisher'):
                 if event.get(key) is not None:self.kept(event[key])
@@ -335,12 +337,36 @@ class IOSAvatarFeature:
         return self.keep(dict(owner=deepcopy(source.previous),recovery=deepcopy(IOSAvatarSourceRecovery(source).store.read()),
             frame=IOSAvatarObserver.reference(source)))
 
+    def preparation_issued_value(self,event):
+        return dict(kind='avatar-preparation-close-issued',runId=self.run,role=self.role,
+            binding=deepcopy(self.state['bindings'][self.role]),fixtureUrl=self.phase.fixture_url,
+            intent=dict(phase='issued',before=deepcopy(event['before']),after=None))
+
+    def preparation_issued_original(self):
+        """Immutable original intent only; no SDK return or input-worker end."""
+        self.lock.assert_held();event=self.state['preparationClose'];need(event is not None and 'issuedIntent' in event)
+        original=self.kept(event['issuedIntent']);need(same(original,self.preparation_issued_value(event)))
+        before=self.preparation_source(event['before'])
+        need(before['ui']['open'] and before['originals']['native']['account']['loggedIn'])
+        return original
+
+    def retain_preparation_issued(self):
+        self.lock.assert_held();event=self.state['preparationClose'];need(event is not None and event['phase']=='issued' and event['after'] is None)
+        if 'issuedIntent' not in event:
+            # The issued WAL is already saved. The existing immutable carrier
+            # deduplicates a lost local retain return without changing before.
+            need(same(self.previous,self.envelope(self.state)))
+            event['issuedIntent']=self.keep(self.preparation_issued_value(event));self.save()
+        self.preparation_issued_original()
+
     def close_preparation_tablet(self):
         """Own one ordinary UIKit close after our completed normal login."""
         self.lock.assert_held();event=self.state['preparationClose']
         if event is not None and event['phase']=='observed':self.preparation_closed_original();return
-        if event is not None and event['phase']=='issued':
-            raise AvatarFeaturePending('Original preparation tablet close remains owned; UIKit input is not repeated')
+        # An issued close can have reached UIKit before its SDK return was
+        # lost. The existing original-only polling below may resolve its real
+        # closed effect; only event=None can ever send the ordinary click.
+        if event is not None and event['phase']=='issued':self.retain_preparation_issued()
         source=self.own_source();IOSAvatarSourceRecovery(source).recover()
         if event is None:
             frame=source.read();need(not any(row['id'] in ('avatar.page','people.page') for row in frame['ui']['controls']))
@@ -348,6 +374,7 @@ class IOSAvatarFeature:
             if not frame['ui']['open']:
                 self.state['preparationClose']=dict(phase='observed',before=before,after=before);self.save();self.preparation_closed_original();return
             event=dict(phase='issued',before=before,after=None);self.state['preparationClose']=event;self.save()
+            self.retain_preparation_issued()
             actual=self.runtime._sources(self.selector);need(same(actual['binding'],self.state['bindings'][self.role]))
             sdk=NativeUI(actual['client'],actual['session'],actual['check']);private=copy(sdk)
             def continuous():self.clock();need(sdk.check_continuity() is not False);self.clock();return True
@@ -357,12 +384,16 @@ class IOSAvatarFeature:
         for _ in range(101):
             frame=source.read();self.clock()
             if not frame['ui']['open']:
+                # observed describes only the actual native closed effect.
+                # The immutable issued intent remains; no delivery ACK, input
+                # worker, touch owner or OS/SDK responsibility is discharged.
                 event.update(phase='observed',after=self.preparation_reference(source));self.save();self.preparation_closed_original();return
             self.sleep(.1)
         raise AvatarFeaturePending('Original owned preparation tablet has not actually closed')
 
     def preparation_closed_original(self):
         self.lock.assert_held();event=self.state['preparationClose'];need(event is not None and event['phase']=='observed' and event['after'] is not None)
+        if 'issuedIntent' in event:self.preparation_issued_original()
         before,after=(self.preparation_source(event[key]) for key in ('before','after'))
         need(not after['ui']['open'] and not any(row['id'] in ('avatar.page','people.page') for row in before['ui']['controls']))
         if same(event['before'],event['after']):need(not before['ui']['open'] and same(before,after))

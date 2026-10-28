@@ -40,6 +40,36 @@ paired failed process/SDK end. The closed [canonical routing packet](AVATAR_CANO
 now supplies dispatch and SDK-free metadata retirement after full original
 admission. Its whole qualification and ready-peer branch remain pending.
 
+## Preparation Close recovery
+
+The ordinary preparation Close retains its issued WAL and an immutable
+`issuedIntent` original before the single UIKit click. Reopening an issued
+attempt reads fresh native originals to resolve an actually closed tablet;
+it never repeats Close or login. The original before-frame and issued intent
+remain unchanged. An open current tablet remains pending, and a changed
+installed process rejects recovery before another input.
+
+The existing whole-snapshot carrier deduplicates a successful original retain
+whose local return was lost before Close. Archive reconstruction reopens the
+actual issued intent and historical source files without live SDK/source calls,
+input, writes or product clocks. Original file-store host time budgets remain
+active. `observed` records only the independent native closed effect; it does
+not recover an SDK delivery return or retire input, touch or worker resources.
+The separate Scene Close policy and process/SDK end obligations are unchanged.
+
+Six selected host cases pass in 10.992 seconds with real loopback HTTPS and
+retained private originals; native/Qt/SDK/OS producers are explicit models.
+They cover lost UIKit return, current-open refusal, independent installed-process
+replacement, unowned-open refusal, lost original-retain return and pure archive
+reconstruction with invalid reference counterexamples. All 70 original files
+in 25 actual fixture roots remain unchanged through two post-stop censuses,
+and all 5,933 source/launcher/reference pins remain unchanged. The first run
+passed five cases but exposed an ineffective process-change test: its separate
+installed-code OS producer still returned the old PID. The corrected case
+changes that producer and checks its exact binding rejection. Both runs and
+their originals remain retained. This qualifies the preparation Close component,
+not full public preparation recovery, the full journey or physical deadlines.
+
 ## Untouched frames and camera ordering
 
 Both roles capture and retain their untouched initial original fenced PNG
