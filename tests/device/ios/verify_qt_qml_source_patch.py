@@ -18,11 +18,18 @@ REVIEWED_SOURCE_PATHS = frozenset({
     'qtdeclarative/src/qml/jsruntime/qv4compilationunitmapper_p.h',
     'qtdeclarative/src/qml/jsruntime/qv4compilationunitmapper_unix.cpp',
     'qtdeclarative/src/qml/jsruntime/qv4executablecompilationunit_p.h',
+    'qtdeclarative/src/qml/jsruntime/qv4resolvedtypereference_p.h',
     'qtdeclarative/src/qml/qml/qqmlcomponent_p.h',
+    'qtdeclarative/src/qml/qml/qqmlscriptblob.cpp',
+    'qtdeclarative/src/qml/qml/qqmlscriptdata.cpp',
+    'qtdeclarative/src/qml/qml/qqmlscriptdata_p.h',
     'qtdeclarative/src/qml/qml/qqmltypedata.cpp',
     'qtdeclarative/src/qml/qml/qqmltypedata_p.h',
 })
 REVIEWED_REFERENCE_PATHS = frozenset({
+    'qtdeclarative/src/qml/jsruntime/qv4executablecompilationunit.cpp',
+    'qtdeclarative/src/qml/jsruntime/qv4module.cpp',
+    'qtdeclarative/src/qml/jsruntime/qv4module_p.h',
     'qtdeclarative/src/qml/qml/qqmldata_p.h',
     'qtdeclarative/src/qml/qml/qqmldatablob.cpp',
 })

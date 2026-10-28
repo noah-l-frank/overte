@@ -22,5 +22,6 @@ public:
     static QList<QObject*> liveObjects() noexcept;
     // Internal native bridge only. No pointer enters a Script/JSON receipt.
     static const void* cacheObservationSymbol(QObject* object) noexcept;
+    static const void* dependencyObservationSymbol(QObject* object) noexcept;
 };
 }

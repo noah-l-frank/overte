@@ -262,6 +262,10 @@ class InstalledCodeBinding:
         from ios.adapters.qt_image_bytes import bind
         return bind(self,value,artifact,artifact_sha256)
 
+    def qt_entry_images_bytes(self,values,artifact,artifact_sha256):
+        from ios.adapters.qt_image_bytes import bind_many
+        return bind_many(self,values,artifact,artifact_sha256)
+
     def begin_retirement(self):
         previous = self.record()
         self.continuity(allow_background=True)

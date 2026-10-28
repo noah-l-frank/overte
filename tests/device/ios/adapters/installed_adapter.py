@@ -141,6 +141,54 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             self._candidate_guard();need(self._scope(selector,session,state,target)==scope)
             return result
 
+        def _chat_qml_dependency_source(self,selector,run):
+            # Diagnostic source acquisition only. No normal Chat input,
+            # SDK/session creation, source-graph approval or complete receipt.
+            from ios.adapters.script_runtime import IOSScriptRuntime
+            from ios.adapters.feature_observation import FeatureObservation
+            self._candidate_guard()
+            client,session,state,target,scope=IOSScriptRuntime(self)._existing(selector)
+            gate=self._binding(selector,client,session,state,target)
+            record=gate.record();need(record is not None and record['phase']=='bound')
+            process=gate.continuity()
+            def check():
+                self._candidate_guard()
+                need(self._scope(selector,session,state,target)==scope
+                    and gate.continuity()==process and gate.record()==record)
+            def current_process():
+                check();return dict(process)
+            observer=FeatureObservation(client,session,target,current_process)
+            clock=observer.native_observer()
+            reader=observer.chat_qml_sources(clock_source=clock)
+            original=reader.read(run)
+            # A lost read is not replayed. A later binding failure raises and
+            # cannot return the previous query's successful root or receipt.
+            bound=self._chat_qt_dependency_images_bytes(selector,original)
+            check()
+            need(type(bound) is list and len(bound)==2 and all(value['imageBytesBound'] is True
+                and value['qtSdkSourceAvailable'] is False and value['importGraphAvailable'] is False
+                and value['aotGraphAvailable'] is False for value in bound))
+            return original,bound
+
+
+        def _chat_qt_dependency_images_bytes(self,selector,value):
+            # The already admitted candidate supplies the selector; a requested
+            # Qt/version/hash cannot choose another IPA or native code address.
+            from ios.adapters.script_runtime import IOSScriptRuntime
+            from ios.adapters.chat_qml_sources import original
+            original(value);need(value['iosChatQmlSourcesVersion']==3)
+            self._candidate_guard()
+            client,session,state,target,scope=IOSScriptRuntime(self)._existing(selector)
+            gate=self._binding(selector,client,session,state,target)
+            need(type(candidate.get('runtime')) is dict and type(candidate.get('artifactIdentity')) is dict)
+            relative=candidate['runtime'].get('artifact');need(type(relative) is str)
+            path=Path(args.artifact_root)/relative
+            need(path.is_absolute() and path.resolve(strict=True).is_relative_to(Path(args.artifact_root).resolve(strict=True)))
+            result=gate.qt_entry_images_bytes([value['qtEntryImage'],value['qtDependencyEntryImage']],path,candidate['artifactIdentity']['artifactSha256'])
+            self._candidate_guard();need(self._scope(selector,session,state,target)==scope)
+            return result
+
+
         def _native_source_scope(self,*args,**kwargs):
             self._candidate_guard()
             return super()._native_source_scope(*args,**kwargs)

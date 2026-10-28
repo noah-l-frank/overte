@@ -212,11 +212,73 @@ def _validate_v2(value, query, pid, epoch=None, previous=None):
     return value
 
 
+def _validate_v3(value, query, pid, epoch=None, previous=None):
+    command(query)
+    exact(value, {'iosChatQmlSourcesVersion', 'requestId', 'runId', 'instance', 'sequence', 'processId',
+        'clockDomain', 'clockBefore', 'clockAfter', 'pageControlSourceSha256', 'source','qtEntryImage','qtDependencyEntryImage'})
+    need(type(value['iosChatQmlSourcesVersion']) is int and value['iosChatQmlSourcesVersion'] == 3
+        and value['requestId'] == query['commandId'] and value['runId'] == query['runId']
+        and integer(pid, 1) and type(value['processId']) is int and value['processId'] == pid
+        and integer(value['sequence'], 1, 1000000000) and value['clockDomain'] == 'native-main-chat-qml-sources')
+    identity(value['instance']); digest(value['pageControlSourceSha256'])
+    interval(value['clockBefore'], value['clockAfter'], current=True)
+    if epoch is not None:
+        fresh(value['clockAfter']['epochMs'], epoch)
+    from ios.adapters.chat_qml_cache_loaded import loaded_dependencies, same_load_dependencies
+    current = loaded_dependencies(value['source'], pid, value['clockBefore']['epochMs'],read_after_epoch=value['clockAfter']['epochMs'])
+    need(len(json.dumps(value, ensure_ascii=False, allow_nan=False).encode()) <= LIMIT)
+    if previous is not None:
+        validate(previous, dict(query, commandId=previous['requestId']), pid)
+        need(value['instance'] == previous['instance'] and value['sequence'] > previous['sequence']
+            and value['requestId'] != previous['requestId']
+            and value['clockBefore']['epochMs'] >= previous['clockAfter']['epochMs']
+            and value['clockBefore']['monotonicMs'] >= previous['clockAfter']['monotonicMs'])
+        old = previous['source']
+        need(current['instance'] == old['instance'])
+        if current['loadId'] == old['loadId']:
+            need(current['iosLoadedQmlSourceVersion']==old['iosLoadedQmlSourceVersion'])
+            if current['iosLoadedQmlSourceVersion']==1:need(same(current,old))
+            else:
+                same_load_dependencies(current,old)
+        else:
+            code,old_code=_compiler_origin(current),_compiler_origin(old)
+            need(current['loadSequence'] > old['loadSequence'] and current['objectId'] != old['objectId']
+                and current['loadBefore']['epochMs'] >= old['loadCompleted']['epochMs']
+                and current['loadBefore']['monotonicMs'] >= old['loadCompleted']['monotonicMs']
+                and code['instance']==old_code['instance'])
+            # Literal v1 still requires a new actual compiler input. Cache v2
+            # may consume an old genuinely associated unit without retiming it.
+            if current['iosLoadedQmlSourceVersion']==1:need(code['sequence']>old_code['sequence'])
+    from ios.adapters.qt_image_bytes import validate as image
+    observed=image(value['qtEntryImage'],pid)
+    need(current['iosLoadedQmlSourceVersion']==3
+        and value['clockBefore']['epochMs']<=observed['beforeEpochMs']<=observed['afterEpochMs']<=value['clockAfter']['epochMs'])
+    if previous is not None and previous['iosChatQmlSourcesVersion']==3:
+        old_image=previous['qtEntryImage']
+        need(observed['sequence']>old_image['sequence']
+            and all(same(observed[key],old_image[key]) for key in observed
+                if key not in ('sequence','beforeEpochMs','afterEpochMs')))
+    dependency=image(value['qtDependencyEntryImage'],pid)
+    need(value['clockBefore']['epochMs']<=dependency['beforeEpochMs']<=dependency['afterEpochMs']<=value['clockAfter']['epochMs']
+        and dependency['sequence']>observed['sequence']
+        and observed['beforeEpochMs']>=current['dependencyAtRead']['source']['after']['epochMs']
+        and dependency['beforeEpochMs']>=observed['afterEpochMs']
+        and all(same(dependency[key],observed[key]) for key in observed
+            if key not in ('sequence','beforeEpochMs','afterEpochMs','symbolFileOffset')))
+    if previous is not None and previous['iosChatQmlSourcesVersion']==3:
+        old_dependency=previous['qtDependencyEntryImage']
+        need(dependency['sequence']>old_dependency['sequence']
+            and all(same(dependency[key],old_dependency[key]) for key in dependency
+                if key not in ('sequence','beforeEpochMs','afterEpochMs')))
+    return value
+
+
 def validate(value,query,pid,epoch=None,previous=None):
     need(type(value) is dict and type(value.get('iosChatQmlSourcesVersion')) is int)
     if value['iosChatQmlSourcesVersion']==1:return _validate_v1(value,query,pid,epoch,previous)
-    need(value['iosChatQmlSourcesVersion']==2)
-    return _validate_v2(value,query,pid,epoch,previous)
+    if value['iosChatQmlSourcesVersion']==2:return _validate_v2(value,query,pid,epoch,previous)
+    need(value['iosChatQmlSourcesVersion']==3)
+    return _validate_v3(value,query,pid,epoch,previous)
 
 
 def original(value):

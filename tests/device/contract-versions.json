@@ -1,9 +1,12 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "qt-overte-qml-dependency-original": {"current": 1, "reads": [1]},
+    "qt-overte-qml-object-dependency-original": {"current": 1, "reads": [1]},
+    "qt-overte-qml-script-evaluation": {"current": 1, "reads": [1]},
     "qt-overte-qml-compiler-input": {"current": 1, "reads": [1]},
-    "ios-loaded-qml-source": {"current": 2, "reads": [1, 2]},
-    "ios-chat-qml-sources": {"current": 2, "reads": [1, 2]},
+    "ios-loaded-qml-source": {"current": 3, "reads": [1, 2, 3]},
+    "ios-chat-qml-sources": {"current": 3, "reads": [1, 2, 3]},
     "qt-overte-qml-cache-write-original": {"current": 1, "reads": [1]},
     "qt-overte-qml-cache-mapping-original": {"current": 1, "reads": [1]},
     "qt-overte-qml-cache-unit-original": {"current": 1, "reads": [1]},

@@ -145,9 +145,9 @@ invokes `done()` before publishing Complete and dispatching ready callbacks;
 the source patch publishes metadata inside that completion scope. No source
 patch was applied to the workstation Qt, a build cache or another checkout.
 
-The [offline verifier](verify_qt_qml_source_patch.py) verifies all eleven exact
+The [offline verifier](verify_qt_qml_source_patch.py) verifies all eighteen exact
 source-reference hashes from the [manifest](qt-qml-source-patch.json), applies
-the nine-file patch only to a new private copy, checks reverse application and
+the thirteen-file patch with five reference-only inputs to a new private copy, checks reverse application and
 rechecks every original file's identity/bytes. It never compiles or installs:
 
 ```sh
@@ -204,6 +204,8 @@ The implemented compiler/write/map receipt is scoped to the actual compilation
 owner, mutation generations and original cache-file identity. It adds no forced
 cache miss or loader change. Equal-byte replacement and missing mapping lineage
 remain unavailable. Cold prebuilt/AOT units and imports still require their own
-sources and independently admitted SDK/build provenance. The current45-case
-qualification is recorded in the linked cached-unit guide; this historical
+sources and independently admitted SDK/build provenance. The preceding45-case
+qualification is recorded in the linked cached-unit guide; the later
+[dependency/evaluation transport](CHAT_QML_DEPENDENCIES.md) has a separate59-case
+host result. This historical
 source audit supplies no additional completion or native-execution claim.

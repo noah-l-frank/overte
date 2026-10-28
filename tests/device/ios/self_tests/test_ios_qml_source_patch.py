@@ -33,7 +33,7 @@ class QtQmlSourcePatchTests(unittest.TestCase):
         self.assertTrue(report['privateApplicationChecked'])
         self.assertTrue(report['reverseApplicationChecked'])
         self.assertTrue(report['sourceOriginalsUnchanged'])
-        self.assertEqual(11, len(report['appliedSha256']))
+        self.assertEqual(18, len(report['appliedSha256']))
         self.assertEqual(checker.REVIEWED_SOURCE_PATHS, set(self.manifest['sourceSha256']))
         self.assertEqual(checker.REVIEWED_REFERENCE_PATHS, set(self.manifest['referenceSha256']))
         self.assertEqual(set(names), set(report['appliedSha256']))

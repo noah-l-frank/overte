@@ -118,7 +118,7 @@ agree before and after. A lost read raises without replay or returning an old
 successful receipt. Its internal result keeps SDK-source, import and AOT
 availability false and cannot admit a complete Chat capability.
 
-The exact current selection passes **45 host cases in 0.819 seconds**: thirty
+The preceding Chat27 selection passes **45 host cases in 0.819 seconds**: thirty
 cache/file/byte-binding and physical-adapter cases, three existing offline Qt
 patch cases and twelve direct-v1/HTTP/AFC regressions. Real private application
 and reverse-check cover nine Qt files plus two unchanged references. All5632
@@ -133,3 +133,8 @@ as do durable normal-input composition and the remaining Chat peer/outage/
 restoration/resource/process/SDK retirement flow. The image-byte connection does
 not close these boundaries. Feature10 remains partial; five of fourteen areas
 are source-complete.
+
+The later [dependency/evaluation connection](CHAT_QML_DEPENDENCIES.md) extends
+the same readers to version three and binds both actual Qt getter entries to
+one original IPA. Its 59-case host selection and immutable loader-DTO limits
+are recorded separately; the preceding 45-case timings are not transferred.

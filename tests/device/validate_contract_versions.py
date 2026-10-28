@@ -9,9 +9,12 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "qt-overte-qml-dependency-original": 1,
+    "qt-overte-qml-object-dependency-original": 1,
+    "qt-overte-qml-script-evaluation": 1,
     "qt-overte-qml-compiler-input": 1,
-    "ios-loaded-qml-source": 2,
-    "ios-chat-qml-sources": 2,
+    "ios-loaded-qml-source": 3,
+    "ios-chat-qml-sources": 3,
     "qt-overte-qml-cache-write-original": 1,
     "qt-overte-qml-cache-mapping-original": 1,
     "qt-overte-qml-cache-unit-original": 1,

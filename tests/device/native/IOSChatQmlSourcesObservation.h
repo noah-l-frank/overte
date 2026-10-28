@@ -61,19 +61,28 @@ public:
         const auto source = hifi::qml::IOSQmlSourceObservation::read(page);
         const auto control = chatControlSource(page, "chat.page");
         if (source.isEmpty() || control.isEmpty()) { return {}; }
-        QVariantMap image;
-        const bool cached=source.value("iosLoadedQmlSourceVersion").toInt()==2;
+        QVariantMap image,dependencyImage;
+        const auto version=source.value("iosLoadedQmlSourceVersion").toInt();
+        const bool cached=version==2 || version==3;
         if (cached) {
             const auto actual=hifi::qml::IOSQmlSourceObservation::cacheObservationSymbol(page);
             if (!actual || !imageReader) return {};
             image=imageReader(actual);if (image.isEmpty()) return {};
         }
+        if (version==3) {
+            const auto actual=hifi::qml::IOSQmlSourceObservation::dependencyObservationSymbol(page);
+            if (!actual || !imageReader) return {};
+            dependencyImage=imageReader(actual);if (dependencyImage.isEmpty()) return {};
+        }
+        if (!page || (cached && !hifi::qml::IOSQmlSourceObservation::cacheObservationSymbol(page))
+                || (version==3 && !hifi::qml::IOSQmlSourceObservation::dependencyObservationSymbol(page))) return {};
         const auto after = clock();
-        QVariantMap result {{"iosChatQmlSourcesVersion", cached?2:1}, {"requestId", request}, {"runId", run},
+        QVariantMap result {{"iosChatQmlSourcesVersion", version==3?3:cached?2:1}, {"requestId", request}, {"runId", run},
             {"instance", _instance}, {"sequence", qulonglong(++_sequence)}, {"processId", QCoreApplication::applicationPid()},
             {"clockDomain", "native-main-chat-qml-sources"}, {"clockBefore", before}, {"clockAfter", after},
             {"pageControlSourceSha256", control}, {"source", source}};
         if (cached) result.insert("qtEntryImage",image);
+        if (version==3) result.insert("qtDependencyEntryImage",dependencyImage);
         // Check before the actual QVariantMap -> ScriptEngineV8 -> JSNumber
         // conversion. Filesystem IDs/offsets are strings; every Number is exact.
         return chatQmlWireValue(result) && QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size() <= 65536 ? result : QVariantMap();

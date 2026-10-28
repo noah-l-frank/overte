@@ -45,6 +45,49 @@ QVariantMap cacheReceipt(QObject *object,QQmlComponent *component=nullptr,const 
 #endif
     Q_UNUSED(object);Q_UNUSED(component);Q_UNUSED(called);return {};
 }
+bool dependencyApiPresent() {
+#if defined(QT_OVERTE_E2E_QML_DEPENDENCY_ORIGINALS)
+    return true;
+#else
+    return false;
+#endif
+}
+QVariantMap dependencyReceipt(QObject *object,QQmlComponent *component=nullptr,const void **called=nullptr) {
+#if defined(QT_OVERTE_E2E_QML_DEPENDENCY_ORIGINALS)
+    if (QQmlTypeData::overteE2eDependencyObservationApiVersion()==1) {
+        const auto actual=&QQmlTypeData::overteE2eDependencyOriginalForObject;
+        if (called) *called=reinterpret_cast<const void *>(actual);
+        return actual(object,component);
+    }
+#endif
+    Q_UNUSED(object);Q_UNUSED(component);Q_UNUSED(called);return {};
+}
+bool dependencyMatchesCache(const QVariantMap &graph,const QVariantMap &cache) {
+    if (graph.isEmpty() || cache.isEmpty() || graph.value("executableUnitId")!=cache.value("executableUnitId")
+            || graph.value("componentMatched")!=cache.value("componentMatched")) return false;
+    const auto nodes=graph.value("source").toMap().value("afterOriginal").toMap().value("nodes").toList();
+    if (nodes.isEmpty()) return false;
+    const auto root=nodes.first().toMap().value("unit").toMap();const auto unit=cache.value("unit").toMap();
+    if (root.value("aot").toBool()) return false;
+    for (const auto &key:{"unitOwnerId","unitGeneration","unitBytes","unitSha256"})
+        if (!root.contains(key) || root.value(key)!=unit.value(key)) return false;
+    return true;
+}
+QVariantMap dependencyMembership(const QVariantMap &object) {
+    auto original=object.value("source").toMap().value("afterOriginal").toMap();
+    auto nodes=original.value("nodes").toList();auto edges=original.value("edges").toList();
+    for (auto &value:nodes) {
+        auto node=value.toMap();auto source=node.value("sourceOriginal").toMap();
+        node.remove("captureBefore");node.remove("captureAfter");
+        if (node.value("sourceKind").toString()==QStringLiteral("mapped-cache")) {
+            source.remove("unitReadBefore");source.remove("unitReadAfter");node.insert("sourceOriginal",source);
+        }
+        value=node;
+    }
+    for (auto &value:edges) {auto edge=value.toMap();edge.remove("evaluation");value=edge;}
+    original.insert("nodes",nodes);original.insert("edges",edges);return original;
+}
+
 bool sameCacheIdentity(const QVariantMap &original,const QVariantMap &current) {
     if (original.isEmpty() || current.isEmpty()) return false;
     auto a=original,b=current;
@@ -66,6 +109,7 @@ struct Load {
     QVariantMap before, after, source, cache;
     bool completed { false };
     const void *cacheFunction { nullptr };
+    QVariantMap dependency;const void *dependencyFunction { nullptr };bool dependencyRequired{false};
 };
 struct State {
     State() { timer.start(); }
@@ -152,6 +196,10 @@ void IOSQmlSourceObservation::complete(QQmlComponent* component, QQmlContext* co
             const void *cacheFunction=nullptr;
             const auto cache=source.isEmpty() ? cacheReceipt(object,component,&cacheFunction) : QVariantMap();
             if (source.isEmpty() && cache.isEmpty()) { return; }
+            const bool dependencyRequired=source.isEmpty() && dependencyApiPresent();
+            const void *dependencyFunction=nullptr;
+            const auto dependency=dependencyRequired ? dependencyReceipt(object,component,&dependencyFunction) : QVariantMap();
+            if (dependencyRequired && !dependencyMatchesCache(dependency,cache)) return;
             const auto after = owner.clock();
             const auto start = row.before.value("epochMs").toLongLong();
             const auto end = after.value("epochMs").toLongLong();
@@ -170,6 +218,7 @@ void IOSQmlSourceObservation::complete(QQmlComponent* component, QQmlContext* co
             // Compiler/write/map clocks inside cache remain their old values.
             // These are actual load-time unit reads, not a new compilation.
             row.after = after; row.source = source;row.cache=cache;row.cacheFunction=cacheFunction;
+            row.dependency=dependency;row.dependencyFunction=dependencyFunction;row.dependencyRequired=dependencyRequired;
             return;
         }
     } catch (...) {
@@ -194,14 +243,20 @@ QVariantMap IOSQmlSourceObservation::read(QObject* object) noexcept {
                     || QQmlEngine::contextForObject(object) != row.objectContext
                     || row.context->baseUrl().toString(QUrl::FullyEncoded) != row.creationContextUrl
                     || row.objectContext->baseUrl().toString(QUrl::FullyEncoded) != row.objectContextUrl) { return {}; }
-            QVariantMap currentCache;
+            QVariantMap currentCache,currentDependency;
             if (!row.source.isEmpty()) {
                 if (QQmlTypeData::overteE2eSourceReceiptForObject(object)!=row.source) return {};
             } else {
                 const void *currentFunction=nullptr;currentCache=cacheReceipt(object,nullptr,&currentFunction);
                 if (!row.cacheFunction || currentFunction!=row.cacheFunction || !sameCacheIdentity(row.cache,currentCache)) return {};
             }
-            QVariantMap result {{"iosLoadedQmlSourceVersion", row.cache.isEmpty()?1:2}, {"instance", owner.instance},
+            if (row.dependencyRequired) {
+                const void *function=nullptr;currentDependency=dependencyReceipt(object,nullptr,&function);
+                if (!row.dependencyFunction || function!=row.dependencyFunction
+                        || !dependencyMatchesCache(currentDependency,currentCache)
+                        || dependencyMembership(row.dependency)!=dependencyMembership(currentDependency)) return {};
+            }
+            QVariantMap result {{"iosLoadedQmlSourceVersion", row.cache.isEmpty()?1:row.dependencyRequired?3:2}, {"instance", owner.instance},
                 {"loadSequence", qlonglong(index + 1)}, {"loadId", row.ticket},
                 {"objectId", row.objectId}, {"creationContextId", row.contextId}, {"objectContextId", row.objectContextId},
                 {"processId", QCoreApplication::applicationPid()}, {"clockDomain", "native-main-qml-load"},
@@ -218,7 +273,10 @@ QVariantMap IOSQmlSourceObservation::read(QObject* object) noexcept {
                 result.insert("coverage",QVariantMap{{"importGraphAvailable",false},
                     {"aotGraphAvailable",false},{"installedQtSourceAvailable",false}});
             }
-            if (QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size() > 32768) { return {}; }
+            if (row.dependencyRequired) {
+                result.insert("dependencyAtLoad",row.dependency);result.insert("dependencyAtRead",currentDependency);
+            }
+            if (QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size() > (row.dependencyRequired?57344:32768)) { return {}; }
             return result;
         }
     } catch (...) { observationFailed.store(true, std::memory_order_release); return {}; }
@@ -235,6 +293,21 @@ const void* IOSQmlSourceObservation::cacheObservationSymbol(QObject* object) noe
         const auto current=reinterpret_cast<const void *>(&QQmlTypeData::overteE2eCacheReceiptForObject);
         for (const auto &row:state().loads)
             if (row.completed && row.object==object && !row.cache.isEmpty() && row.cacheFunction==current) return current;
+    } catch (...) { observationFailed.store(true); }
+#else
+    Q_UNUSED(object);
+#endif
+    return nullptr;
+}
+
+const void* IOSQmlSourceObservation::dependencyObservationSymbol(QObject* object) noexcept {
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(QT_OVERTE_E2E_QML_DEPENDENCY_ORIGINALS)
+    try {
+        if (!enabled() || !object || object->thread()!=QThread::currentThread()) return nullptr;
+        const auto actual=reinterpret_cast<const void *>(&QQmlTypeData::overteE2eDependencyOriginalForObject);
+        for (const auto &row:state().loads)
+            if (row.completed && row.object==object && row.dependencyRequired && !row.dependency.isEmpty()
+                    && row.dependencyFunction==actual) return actual;
     } catch (...) { observationFailed.store(true); }
 #else
     Q_UNUSED(object);

@@ -53,3 +53,31 @@ def bind(binding,value,artifact,artifact_sha256):
     return dict(qtEntryImageByteBindingVersion=1,original=deepcopy(value),artifactSha256=image['artifactSha256'],
         bundleSha256=actual['bundle']['bundleSha256'],imageBytesBound=True,
         qtSdkSourceAvailable=False,importGraphAvailable=False,aotGraphAvailable=False)
+
+
+def bind_many(binding,values,artifact,artifact_sha256):
+    """Two actual Qt callsites in one existing IPA view; no verdict cache."""
+    from ios.adapters.installed_code import InstalledCodeBinding
+    need(type(binding) is InstalledCodeBinding and type(values) is list and len(values)==2)
+    before=binding.record();need(before is not None and before['phase']=='bound')
+    binding.continuity();pid=before['process']['pid']
+    for value in values:
+        validate(value,pid)
+        need(before['scope']['artifactSha256']==artifact_sha256
+            and value['instance']==before['observation']['instance']
+            and value['bundlePreparedEpochMs']==before['observation']['preparedEpochMs'])
+        compare(value['bundle'],before['observation']['bundle'])
+    need(values[0]['relativePath']==values[1]['relativePath'])
+    actual=artifact_member_image(artifact,artifact_sha256,values[0]['relativePath']);image=actual['image']
+    output=[]
+    for value in values:
+        compare(actual['bundle'],value['bundle'])
+        need(image['isMainExecutable'] is True and image['fileBytes']==int(value['fileBytes'])
+            and image['fileSha256']==value['fileSha256'] and image['macho']['uuid']==value['imageUuid']
+            and image['macho']['headerSha256']==value['headerSha256'])
+        offset=int(value['symbolFileOffset'])
+        need(any(start<=offset<start+length for start,length in image['macho']['executableFileRanges']))
+        output.append(dict(qtEntryImageByteBindingVersion=1,original=deepcopy(value),artifactSha256=image['artifactSha256'],
+            bundleSha256=actual['bundle']['bundleSha256'],imageBytesBound=True,
+            qtSdkSourceAvailable=False,importGraphAvailable=False,aotGraphAvailable=False))
+    binding.continuity();need(same(binding.record(),before));return output
