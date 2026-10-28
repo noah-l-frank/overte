@@ -387,29 +387,39 @@ class WorldWebSources:
         self._round=(packet,state,frames+[deepcopy(frame)])
 
     @contextmanager
-    def input_round(self,mutable):
+    def input_round(self,mutable,*,passive=False):
         with self.parts.snapshot.validation_round(),ledger.validation_round():
-            with self._input_round(mutable):yield
+            with self._input_round(mutable,passive=passive):yield
 
     @contextmanager
-    def _input_round(self,mutable):
+    def _input_round(self,mutable,*,passive=False):
         # Only this explicit append path may add acquisitions to a validated
         # original round. It validates the full old byte graph before a fresh
         # query, journals every new carrier before write and admits only the
         # fully validated original frame. No cache survives the call.
-        need(self._round is None and self._write_round is None and isinstance(mutable,PrivateFeatureState)
+        need(type(passive) is bool and self._round is None and self._write_round is None and isinstance(mutable,PrivateFeatureState)
             and mutable.path.parent==self.store.path.parent and mutable.path.name=='ios-world-web-inputs.json')
         self.bound();header=(deepcopy(self.binding),self.run,self.role,self.pid,self.phase.fixture_url,self.version)
-        continuity=EmoteOriginalLease(self.store.path.parent,[self.store.path,mutable.path]);packet=self.store.read();pins=self.original_pins(packet)
+        # Passive acquisition owns only Source transitions. The input WAL,
+        # including its absence, remains an immutable census member.
+        mutable_paths=[self.store.path] if passive else [self.store.path,mutable.path]
+        continuity=EmoteOriginalLease(self.store.path.parent,mutable_paths);packet=self.store.read();pins=self.original_pins(packet)
         pins.pop(self.store.path,None)
         state,frames=(dict(records=[],pending=None,interrupted=[]),[]) if packet is None else self._decode(packet,copy_frames=False)
         need(same(state,self.state));continuity.guard();self._round=(packet,state,frames);self._round_pins=pins;self._write_round=(continuity,{});self._round_header=header;self._round_state_sha=digest(state)
+        failure=None
         try:
             with transport_scope(self.guard_originals):self.guard_originals();yield
+        except BaseException as error:
+            failure=error;raise
         finally:
             try:
-                self.guard_originals();need(same(self.store.read(),self.previous) and self._round_state_sha==digest(self.state)
-                    and same(header,(self.binding,self.run,self.role,self.pid,self.phase.fixture_url,self.version)))
+                try:
+                    self.guard_originals();need(same(self.store.read(),self.previous) and self._round_state_sha==digest(self.state)
+                        and same(header,(self.binding,self.run,self.role,self.pid,self.phase.fixture_url,self.version)))
+                except BaseException:
+                    if failure is None:raise
+                    failure.add_note('Source append-boundary validation also failed; original error preserved.')
             finally:self._round=None;self._round_pins=None;self._write_round=None;self._round_header=None;self._round_state_sha=None
 
 

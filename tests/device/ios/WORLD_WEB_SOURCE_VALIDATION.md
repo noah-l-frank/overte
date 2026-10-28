@@ -51,9 +51,9 @@ do not establish full-journey completion, native compilation or device timing.
 
 The changed-source public 19-step attempt subsequently fails after 262.825
 seconds at the mandatory subject-pixel change check. The earlier Actor
-observation14 now returns within its unchanged real API25 boundary in12.494
-seconds; this is one observed call, not complete timing qualification. All605
-original files and7715 source/launcher/reference pins remain unchanged, with
+observation 14 now returns within its unchanged real API25 boundary in 12.494
+seconds; this is one observed call, not complete timing qualification. All 605
+original files and 7715 source/launcher/reference pins remain unchanged, with
 owned processes and new threads gone. No complete World Web acceptance follows
 from this failed attempt; its image and cleanup failures remain retained.
 
@@ -67,15 +67,48 @@ nearest qualified predecessor. Failed or incomplete samples cannot supply a
 baseline. The original pixel threshold, marker exclusion, fresh frame custody
 and before/after causal checks are unchanged.
 
-Four connected actual Node/page/PNG cases pass in91.043 seconds, preserving729
-original files and7726 source/launcher/reference pins. Repeated same-page
+Four connected actual Node/page/PNG cases pass in 91.043 seconds, preserving 729
+original files and 7726 source/launcher/reference pins. Repeated same-page
 images qualify against the same earlier image with distinct fresh frame IDs.
 Missing prior images and a genuinely unchanged subject on a new changed-image
-ticket still fail. The earlier605 failed-run originals remain unchanged; owned
+ticket still fail. The earlier 605 failed-run originals remain unchanged; owned
 processes and new threads are gone.
 
 The changed full19 attempt passes the former image failure and subsequently
 fails its unchanged API25 boundary during Primary foreign-URL input, while
-re-decoding Source history after capture. Its791 originals remain retained and
+re-decoding Source history after capture. Its 791 originals remain retained and
 unchanged; this failed run supplies no whole-journey or timing qualification.
 The successful focused cases retain declared native/SDK/GPU/OS models.
+
+
+## Passive current acquisition and primary errors
+
+`WorldWebActions.current()` enters the existing Source append boundary only
+for capture and its frame read. This passive variant permits Source-WAL
+transitions while retaining the input WAL, including its prior absence, in the
+immutable original census. Ordinary input rounds retain their existing mutable
+input-WAL boundary. No action WAL, input delivery or scope mutation occurs in
+the passive round. Newly acquired frames avoid a second semantic validation;
+old originals still receive complete byte, inode and membership checks.
+
+If an operation and its mandatory Source exit validation both fail, the same
+original exception survives with a constant secondary-failure note. Exit-only
+failures still reject the round, and all temporary round state is cleared.
+The inventory, header, state-digest and compare-and-swap checks remain active.
+
+All 15 selected host cases pass in 74.700 seconds, retaining 1,059 original
+files across 27 roots with 7,762 source/launcher/reference pins unchanged. They
+cover fresh frames, foreign navigation through normal inputs, unknown files,
+changed original bytes/inodes, header drift, input-WAL birth/replacement/change
+and original exception identity. Owned processes and new threads are gone.
+Two earlier test expectation failures and the corrected 12-case pass remain
+retained separately; no expected product measurements were substituted.
+
+The subsequent full 19-step attempt fails after 485.408 seconds. Its explicitly
+retained exception-context chain establishes API25 exhaustion during Primary
+foreign-URL input: the next native acquisition saves its original-clock query
+and reaches the unchanged API guard. All 789 originals and 7,762 source pins
+remain unchanged after owned processes and fixture threads stop. This does not
+qualify the whole journey or attribute earlier flattened failures to the same
+inner cause. Native/SDK/GPU/OS behavior remains modeled and native compilation
+and devices remain unverified.

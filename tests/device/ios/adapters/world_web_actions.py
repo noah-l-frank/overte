@@ -41,7 +41,11 @@ class WorldWebActions:
     def save(self):
         check();self.lock.assert_held();need(self.guard() is not False and same(self.store.read(),self.previous));value=self.envelope(self.state);self.decode(value)
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value);check()
-    def current(self,label):return self.source.frame(self.source.capture(label))
+    def current(self,label):
+        # Reuse only this acquisition's existing append/validation boundary.
+        # No Action WAL, input delivery or Scope mutation belongs to it.
+        with self.source.input_round(self.inputs.store,passive=True):
+            return self.source.frame(self.source.capture(label))
     def click(self,call,label,control):return self.inputs.perform(call['ticket'],label,'tap',control)
     def replace(self,call,label,control,text):return self.inputs.perform(call['ticket'],label,'replace',control,text=text)
     @staticmethod
