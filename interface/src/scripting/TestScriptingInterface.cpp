@@ -62,6 +62,7 @@
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/FeatureLifecycle.h"
+#include <QPointer>
 #include "../../../tests/device/native/NormalAudioControls.h"
 #include "../../../tests/device/native/NormalGraphicsControls.h"
 #include "../../../tests/device/native/NormalLoginControls.h"
@@ -481,6 +482,16 @@ QVariantMap TestScriptingInterface::iosRenderObservation() {
 #endif
 
 void TestScriptingInterface::setTestResultsLocation(const QString path) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Test configuration already belongs to the GUI/lifecycle owner. Keep the
+    // passive revocation and final serializer on that same owner event loop.
+    if (QThread::currentThread() != thread()) {
+        QMetaObject::invokeMethod(this, [this, path] { setTestResultsLocation(path); }, Qt::BlockingQueuedConnection);
+        return;
+    }
+    if (_featurePreviewAdmission) { _featurePreviewAdmission->revoke(); }
+    _featurePreviewAdmission.reset();
+#endif
     _testResultsLocation = path;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (!_featureLifecycle && !path.isEmpty() && QCoreApplication::arguments().contains("--testScript")
@@ -526,6 +537,20 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
         });
 #endif
     }
+#if defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_VOICE_TESTS)
+    if (QThread::currentThread() == qApp->thread() && _featureLifecycle && !path.isEmpty()
+            && QCoreApplication::arguments().contains("--testScript") && overte::e2e::previewDirectory(path)) {
+        _featurePreviewAdmission = _featureLifecycle->admitPreview(path, _featureObservationInstance);
+    }
+    if (DependencyManager::isSet<AudioClient>()) {
+        const auto audio = DependencyManager::get<AudioClient>();
+        const QPointer<AudioClient> weakAudio(audio.data());
+        const std::shared_ptr<const overte::e2e::RecordedPreviewAdmission> admission = _featurePreviewAdmission;
+        QMetaObject::invokeMethod(audio.data(), [weakAudio, admission] {
+            if (weakAudio) { weakAudio->observeRecordedPreviewAdmission(admission); }
+        }, Qt::QueuedConnection);
+    }
+#endif
 #endif
 }
 
@@ -2614,6 +2639,19 @@ QVariantMap TestScriptingInterface::featureNativeObservation(const QString& requ
     return result;
 }
 
+bool TestScriptingInterface::featurePreviewOriginCurrent(const QVariantMap& packet) const {
+    if (!packet.value("source").toMap().contains("inputOrigin")) { return true; }
+    if (QThread::currentThread() != thread() || QThread::currentThread() != qApp->thread()
+            || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || _testResultsLocation.isEmpty() || !QCoreApplication::arguments().contains("--testScript")
+            || !overte::e2e::previewDirectory(_testResultsLocation)) { return false; }
+    const auto origin = packet.value("source").toMap().value("inputOrigin").toMap();
+    if (!origin.value("available").toBool()) { return true; }
+    return _featurePreviewAdmission && overte::e2e::RecordedPreviewAdmission::available(_featurePreviewAdmission->state())
+        && origin.value("instance").toString() == _featureObservationInstance
+        && origin.value("admissionEpoch").toUInt() == _featurePreviewAdmission->state();
+}
+
 QVariantMap TestScriptingInterface::featureRecordedVoiceEvidence(const QString& requestId) {
     if (QThread::currentThread() != thread()) {
         QVariantMap result;
@@ -2624,7 +2662,9 @@ QVariantMap TestScriptingInterface::featureRecordedVoiceEvidence(const QString& 
             || !QCoreApplication::arguments().contains("--testScript")
             || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(requestId).hasMatch()
             || !overte::e2e::previewDirectory(_testResultsLocation)) { return {}; }
-    if (_featurePreviewRequest == requestId) { return _featurePreviewObservation; }
+    if (_featurePreviewRequest == requestId) {
+        return featurePreviewOriginCurrent(_featurePreviewObservation) ? _featurePreviewObservation : QVariantMap();
+    }
     const auto requested = QDateTime::currentMSecsSinceEpoch();
     QVariantMap source;
     const auto audio = DependencyManager::get<AudioClient>();
@@ -2643,10 +2683,11 @@ QVariantMap TestScriptingInterface::featureRecordedVoiceEvidence(const QString& 
     };
     source["input"] = artifact("recorded-preview-input.pcm16le", "capture-before-normalization", input, _featurePreviewInputDigest);
     source["sink"] = artifact("recorded-preview-sink.pcm16le", "loopback-device-accepted-write", sink, _featurePreviewSinkDigest);
-    QVariantMap result{{"schemaVersion", 1}, {"requestId", requestId}, {"instance", _featureObservationInstance},
+    QVariantMap result{{"schemaVersion", source.contains("inputOrigin") ? 2 : 1}, {"requestId", requestId}, {"instance", _featureObservationInstance},
         {"sequence", static_cast<qulonglong>(++_featurePreviewSequence)}, {"requestedEpochMs", requested},
         {"capturedEpochMs", QDateTime::currentMSecsSinceEpoch()}, {"processId", QCoreApplication::applicationPid()},
         {"source", source}};
+    if (!featurePreviewOriginCurrent(result)) { return {}; }
     _featurePreviewRequest = requestId;
     _featurePreviewObservation = result;
     const auto lease = ++_featurePreviewLease;
@@ -3306,6 +3347,17 @@ void TestScriptingInterface::clearCaches() {
 
 // Writes a JSON object from javascript to a file
 void TestScriptingInterface::saveObject(QVariant variant, const QString& filename) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const bool previewOrigin = filename == "recorded-preview-observation.json"
+        && variant.toMap().value("schemaVersion").toInt() == 2;
+    if (previewOrigin) {
+        if (QThread::currentThread() != thread()) {
+            QMetaObject::invokeMethod(this, [this, variant, filename] { saveObject(variant, filename); }, Qt::BlockingQueuedConnection);
+            return;
+        }
+        if (variant.toMap() != _featurePreviewObservation || !featurePreviewOriginCurrent(variant.toMap())) { return; }
+    }
+#endif
 #if !defined(OVERTE_E2E_FEATURE_TESTS) || !defined(Q_OS_IOS) || !defined(OVERTE_IOS_E2E_TEST_BUILD) || !defined(OVERTE_E2E_VOICE_TESTS)
     if (filename=="feature-ios-audio-session.json" || filename=="feature-ios-audio-settings.json") { return; }
 #endif
@@ -3325,6 +3377,14 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     }
 
     QByteArray jsonData = jsonDocument.toJson();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (previewOrigin) {
+        jsonData = jsonDocument.toJson(QJsonDocument::Compact);
+        // Preserve the existing actual AFC reader/decode ceiling. Never widen
+        // it to accommodate a trace. Original memory lease remains unchanged.
+        if (jsonData.size() > 262144) { return; }
+    }
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_VOICE_TESTS)
     if (filename=="feature-ios-audio-session.json" || filename=="feature-ios-audio-settings.json") { jsonData=jsonDocument.toJson(QJsonDocument::Compact); }
 #endif
@@ -3386,10 +3446,12 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
                 return;
             }
         }
+        if (previewOrigin && !featurePreviewOriginCurrent(variant.toMap())) { return; }
         QSaveFile output(filepath);
         output.setDirectWriteFallback(false);
         if (output.open(QIODevice::WriteOnly) && output.setPermissions(QFile::ReadOwner | QFile::WriteOwner)
-                && output.write(jsonData) == jsonData.size()) { output.commit(); }
+                && output.write(jsonData) == jsonData.size()
+                && (!previewOrigin || featurePreviewOriginCurrent(variant.toMap()))) { output.commit(); }
         return;
     }
 #endif

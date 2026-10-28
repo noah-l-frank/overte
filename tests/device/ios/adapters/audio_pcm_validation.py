@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from adapters.native_clock_join import validate_join
 from adapters.native_feature_observation import exact,integer,need
-from adapters.recorded_preview_evidence import INPUT,SINK,validate as preview_packet
+from adapters.recorded_preview_evidence import INPUT,SINK,validate as preview_packet,validate_input_origin
 from adapters.script_feature.history import same
 from feature_journeys.phase_fixture import validate as phase_packet
 from ios.adapters.graphics_history import follow_native
@@ -48,7 +48,9 @@ def snapshot(owner,value):
         and source['sampleRate']==native['captureSampleRate'] and source['channels']==native['captureChannels']
         and same(native['events'][:len(source['events'])],source['events']))
     exact(value['chunks'],{'input','sink'})
-    for kind in ('input','sink'):owner.originals.pcm(value,kind)
+    for kind in ('input','sink'):
+        raw=owner.originals.pcm(value,kind)
+        if kind=='input':validate_input_origin(packet,raw)
     return value
 
 

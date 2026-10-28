@@ -1322,7 +1322,7 @@
     "ios-script-ui-root-ownership": {"current": 1, "reads": [1]},
     "native-script-observation": {"current": 1, "reads": [1]},
     "recorded-preview-signal": {"current": 1, "reads": [1]},
-    "recorded-preview-evidence": {"current": 1, "reads": [1]},
+    "recorded-preview-evidence": {"current": 2, "reads": [1, 2]},
     "recorded-preview-history": {"current": 1, "reads": [1]},
     "fixture-environment": {"current": 1, "reads": [1]},
     "matrix-summary": {"current": 1, "reads": [1]},

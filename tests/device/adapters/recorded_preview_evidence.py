@@ -24,7 +24,7 @@ MAX_BYTES = 32 * 1024 * 1024
 def validate(value, request, pid, epoch):
     exact(value, {'schemaVersion', 'requestId', 'instance', 'sequence', 'requestedEpochMs',
                   'capturedEpochMs', 'processId', 'source'})
-    need(type(value['schemaVersion']) is int and value['schemaVersion'] == 1
+    need(type(value['schemaVersion']) is int and value['schemaVersion'] in (1, 2)
          and value['requestId'] == request and integer(value['processId'], 1) and value['processId'] == pid
          and type(value['instance']) is str and re.fullmatch('[0-9a-f]{32}', value['instance'])
          and integer(value['sequence'], 1) and integer(value['requestedEpochMs'], 1)
@@ -33,7 +33,8 @@ def validate(value, request, pid, epoch):
     fresh(value['capturedEpochMs'], epoch)
     source = value['source']
     exact(source, {'cycle', 'startedEpochMs', 'sampleRate', 'channels', 'inputLastEpochMs',
-                   'sinkLastEpochMs', 'events', 'input', 'sink'})
+                   'sinkLastEpochMs', 'events', 'input', 'sink'} |
+          ({'inputOrigin'} if value['schemaVersion'] == 2 else set()))
     need(integer(source['cycle'], 1) and integer(source['sampleRate'], 8000, 48000)
          and integer(source['channels'], 1, 2) and integer(source['startedEpochMs'], 1)
          and 0 <= value['capturedEpochMs'] - source['startedEpochMs'] < 30000)
@@ -77,7 +78,72 @@ def validate(value, request, pid, epoch):
     if last['phase'] == 'completed':
         need(last['capturedBytes'] == last['playedBytes'] == limit
              and source['sink']['bytes'] >= limit)
+    validate_input_origin(value)
     return value
+
+
+def validate_input_origin(packet, input_bytes=None, *, required=False):
+    """Optional callback-path facts; never a physical/acoustic/peer verdict.
+
+    Original callback times stay historical. Actual transport/archive bytes
+    revalidate each appended fragment; no new recording or WAV projection.
+    """
+    need(type(required) is bool)
+    if packet['schemaVersion'] == 1:
+        need('inputOrigin' not in packet['source'] and not required)
+        return False
+    need(type(packet['schemaVersion']) is int and packet['schemaVersion'] == 2)
+    source = packet['source']; origin = source['inputOrigin']
+    need(type(origin) is dict and type(origin.get('originVersion')) is int
+         and origin['originVersion'] == 1 and type(origin.get('available')) is bool)
+    if not origin['available']:
+        exact(origin, {'originVersion', 'available'}); need(not required)
+        return False
+    exact(origin, {'originVersion', 'available', 'profile', 'instance', 'admissionEpoch',
+                   'coveredBytes', 'rows', 'physicalADCQualified', 'acousticQualified', 'peerQualified', 'resamplerHistoryQualified'})
+    need(origin['profile'] == 'qt-source-read-to-preview-tap' and origin['instance'] == packet['instance']
+         and integer(origin['admissionEpoch'], 1, 4000000000) and origin['admissionEpoch'] & 3 == 1
+         and integer(source['cycle'], 1, 1000000000)
+         and integer(origin['coveredBytes'], 1, 16 * 1024 * 1024)
+         and origin['coveredBytes'] == source['input']['bytes'])
+    for name in ('physicalADCQualified', 'acousticQualified', 'peerQualified', 'resamplerHistoryQualified'):
+        need(origin[name] is False)
+    rows = origin['rows']; need(type(rows) is list and 1 <= len(rows) <= 384)
+    offset = previous_sequence = 0; last_epoch = source['startedEpochMs']; last_mono = 0
+    identity = None
+    if input_bytes is not None:
+        need(type(input_bytes) is bytes and len(input_bytes) == source['input']['bytes']
+             and hashlib.sha256(input_bytes).hexdigest() == source['input']['sha256'])
+    for row in rows:
+        exact(row, {'sequence', 'generation', 'readBytes', 'readSha256', 'inputRate', 'inputChannels',
+                    'resamplerUsed', 'routeRevision', 'readBeforeEpochMs', 'readAfterEpochMs', 'readBeforeMonotonicMs',
+                    'readAfterMonotonicMs', 'tapEpochMs', 'tapMonotonicMs', 'offset', 'bytes', 'convertedBytes', 'sha256'})
+        need(type(row['resamplerUsed']) is bool and integer(row['sequence'], previous_sequence + 1, 1000000000)
+             and integer(row['generation'], 1, 1000000000) and integer(row['inputRate'], 8000, 48000)
+             and integer(row['inputChannels'], 1, 2) and integer(row['readBytes'], 1, 16 * 1024 * 1024)
+             and row['readBytes'] % (row['inputChannels'] * 2) == 0
+             and type(row['routeRevision']) is str and re.fullmatch('0|[1-9][0-9]{0,19}', row['routeRevision'])
+             and int(row['routeRevision']) <= 18446744073709551615)
+        current = (row['generation'], row['inputRate'], row['inputChannels'], row['routeRevision'])
+        need(identity in (None, current)); identity = current
+        for name in ('readSha256', 'sha256'):
+            need(type(row[name]) is str and re.fullmatch('[0-9a-f]{64}', row[name]))
+        for names, previous, maximum in (
+                (('readBeforeEpochMs', 'readAfterEpochMs', 'tapEpochMs'), last_epoch, source['inputLastEpochMs']),
+                (('readBeforeMonotonicMs', 'readAfterMonotonicMs', 'tapMonotonicMs'), last_mono, 1000000000000000)):
+            for name in names:
+                need(integer(row[name], previous, maximum)); previous = row[name]
+        need(integer(row['offset'], 0, 16 * 1024 * 1024) and row['offset'] == offset
+             and integer(row['convertedBytes'], 1, 16 * 1024 * 1024)
+             and integer(row['bytes'], 1, row['convertedBytes'])
+             and row['bytes'] % (source['channels'] * 2) == 0)
+        end = offset + row['bytes']; need(end <= origin['coveredBytes'])
+        if input_bytes is not None:
+            need(hashlib.sha256(input_bytes[offset:end]).hexdigest() == row['sha256'])
+        offset = end; previous_sequence = row['sequence']
+        last_epoch = row['tapEpochMs']; last_mono = row['tapMonotonicMs']
+    need(offset == origin['coveredBytes'])
+    return True
 
 
 class RecordedPreviewEvidence:
@@ -141,6 +207,7 @@ class RecordedPreviewEvidence:
                      and hashlib.sha256(raw).hexdigest() == item['sha256']
                      and self.guard() is not False)
                 original[kind] = raw
+            validate_input_origin(value, original['input'])
             completed = self.monotonic()
             need(number(completed, 0, 1e15) and started <= completed and completed - started < 5)
             self.instance, self.sequence, self.cycle = value['instance'], value['sequence'], source['cycle']

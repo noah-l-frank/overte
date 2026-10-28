@@ -39,7 +39,7 @@ namespace overte::e2e { class IOSLifecycleWorldObservation; }
 namespace overte::e2e { class IOSAssetReplyReads; }
 #endif
 #include <QUuid>
-namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class PrivateLoginInput; }
+namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class PrivateLoginInput; class RecordedPreviewAdmission; }
 #endif
 
 class AudioInjector;
@@ -344,6 +344,8 @@ private:
     QString _testResultsLocation;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     overte::e2e::FeatureLifecycle* _featureLifecycle {nullptr};
+    std::shared_ptr<overte::e2e::RecordedPreviewAdmission> _featurePreviewAdmission;
+    bool featurePreviewOriginCurrent(const QVariantMap& packet) const;
     overte::e2e::AccountOriginLease* _featureAccountOriginLease {nullptr};
     QSharedPointer<overte::e2e::PrivateLoginInput> _privateLoginInput;
     std::shared_ptr<overte::e2e::ChatViewObservation> _featureChatView;

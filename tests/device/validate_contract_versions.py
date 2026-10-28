@@ -1308,7 +1308,7 @@ REQUIRED = {
     "native-host-clock-join": 1,
     "native-script-observation": 1,
     "recorded-preview-signal": 1,
-    "recorded-preview-evidence": 1,
+    "recorded-preview-evidence": 2,
     "recorded-preview-history": 1,
     "native-navigation-replies": 1,
     "feature-navigation-provider": 1,

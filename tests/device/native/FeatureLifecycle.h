@@ -4,6 +4,7 @@
 
 // Dedicated test-build instrumentation. No lifecycle operation is performed
 // here: counters describe application notifications and actual process starts.
+#include <RecordedPreviewInputOrigin.h>
 #include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -20,6 +21,13 @@ class FeatureLifecycle : public QObject {
 public:
     explicit FeatureLifecycle(QObject* parent) : QObject(parent) {}
 
+    ~FeatureLifecycle() override { if (_previewAdmission) { _previewAdmission->revoke(); } }
+    std::shared_ptr<RecordedPreviewAdmission> admitPreview(const QString& directory, const QString& instance) {
+        if (_previewAdmission) { _previewAdmission->revoke(); }
+        if (snapshot().isEmpty() || _path != directory + QStringLiteral("/feature-lifecycle.v1.json")) { return {}; }
+        _previewAdmission = std::make_shared<RecordedPreviewAdmission>(instance);
+        _previewAdmission->advance(true); return _previewAdmission;
+    }
     bool start(const QString& directory) {
         if (_started || QThread::currentThread() != qApp->thread()) { return false; }
         _path = directory + QStringLiteral("/feature-lifecycle.v1.json");
@@ -77,6 +85,7 @@ private:
             _background = false;
         }
         if (_backgrounds > LIMIT || _activations > LIMIT || !persist()) { _valid = false; }
+        if (_previewAdmission) { _previewAdmission->advance(_valid); }
     }
 
     bool persist() const {
@@ -91,6 +100,7 @@ private:
         return output.write(bytes) == bytes.size() && output.commit();
     }
 
+    std::shared_ptr<RecordedPreviewAdmission> _previewAdmission;
     QString _path;
     int _backgrounds {0}, _activations {0}, _launches {0};
     bool _started {false}, _valid {true}, _background {false}, _everActive {false};

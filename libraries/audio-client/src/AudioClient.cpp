@@ -1791,6 +1791,47 @@ QVariantMap AudioClient::featureRecordedVoiceObservation() const {
         {"events", _e2eRecordedVoiceHistory}};
 }
 
+void AudioClient::observeRecordedPreviewAdmission(std::shared_ptr<const overte::e2e::RecordedPreviewAdmission> admission) {
+    if (QThread::currentThread() != thread()) { return; }
+    _e2ePreviewAdmission = std::move(admission);
+}
+
+void AudioClient::e2eInputReplaced(QObject* source, QObject* device) {
+    // Actual replacement boundaries, including stop/start at the same address.
+    // Never called by a getter or a preview cycle begin/clear operation.
+    if (_e2eInputGeneration < 1000000001) { ++_e2eInputGeneration; }
+    _e2eInputSource = source; _e2eInputDevice = device;
+}
+
+bool AudioClient::e2ePreviewInputCurrent() const {
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_VOICE_TESTS) && QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    if (QThread::currentThread() != thread() || !QCoreApplication::arguments().contains("--testScript")
+            || !_e2ePreviewAdmission || !overte::e2e::RecordedPreviewAdmission::available(_e2ePreviewAdmission->state())
+            || !_e2eRecordedPreview.origin().current() || _e2eRecordedPreview.origin().admission() != _e2ePreviewAdmission
+            || !_recordedVoiceTestActive || _e2eRecordedPreview.cycle() > 1000000000 || _isMuted || _audioPaused || !_audioLifecycleRunning || _shouldEchoLocally
+            || _isPlayingBackRecording || !_audioInput || !_inputDevice || _dummyAudioInput
+            || _audioInput->state() != QAudio::ActiveState || _audioInput->error() != QAudio::NoError
+            || _e2eInputSource.data() != _audioInput || _e2eInputDevice.data() != _inputDevice
+            || !_e2eInputGeneration || _e2eInputGeneration > 1000000000
+            || _inputFormat.sampleFormat() != QAudioFormat::Int16 || Q_BYTE_ORDER != Q_LITTLE_ENDIAN
+            || _inputFormat.channelCount() < 1 || _inputFormat.channelCount() > 2
+            || _inputFormat.sampleRate() < 8000 || _inputFormat.sampleRate() > 48000) { return false; }
+#if defined(OVERTE_E2E_VOICE_TESTS)
+    if (_voiceTestInputEnabled || _voiceTestSignal.active() || _acousticCapture.active()) { return false; }
+#endif
+    // Read only after all existing diagnostic launch/owner/cycle gates.
+    // Unlike microphonePermissionGranted(), this getter never refreshes or
+    // applies permission, nor activates/deactivates the native session.
+    const auto native = overteIOSAudioSessionTestState();
+    return native.available && native.osPermission == overte::audio::Permission::Granted
+        && native.gate.permission == overte::audio::Permission::Granted && native.gate.captureAllowed
+        && native.gate.foreground && !native.gate.interrupted
+        && native.gate.outcome == overte::audio::Outcome::Capturing;
+#else
+    return false;
+#endif
+}
+
 QVariantMap AudioClient::featureRecordedVoiceEvidence() const {
     if (QThread::currentThread() != thread() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
     return _e2eRecordedPreview.snapshot();
@@ -1855,7 +1896,7 @@ void AudioClient::startRecordedVoiceTest() {
         _e2eRecordedVoiceCaptureChannels = _outputFormat.channelCount();
         _e2eRecordedVoiceHistory.clear();
         _e2eRecordedVoiceHistoryComplete = true;
-        const auto cycle = _e2eRecordedPreview.begin(_outputFormat);
+        const auto cycle = _e2eRecordedPreview.begin(_outputFormat, _e2ePreviewAdmission);
         QTimer::singleShot(30000, this, [this, cycle] {
             if (_e2eRecordedPreview.cycle() == cycle) { _e2eRecordedPreview.clear(); }
         });
@@ -1915,7 +1956,11 @@ void AudioClient::startRecordedVoiceTest() {
     publishRecordedVoiceTestStatus("capturing");
 }
 
-void AudioClient::handleLocalEchoAndReverb(QByteArray& inputByteArray) {
+void AudioClient::handleLocalEchoAndReverb(QByteArray& inputByteArray
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    , overte::e2e::RecordedPreviewReadTicket* origin
+#endif
+) {
     if (_recordedVoiceTestActive && (_isMuted || _audioPaused || !_audioLifecycleRunning)) {
         finishRecordedVoiceTest("cancelled", "input-or-lifecycle-changed");
         return;
@@ -2021,7 +2066,16 @@ void AudioClient::handleLocalEchoAndReverb(QByteArray& inputByteArray) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
             const auto capturedAfter = _recordedVoiceTest.capturedBytes();
             if (capturedAfter >= capturedBefore) {
-                _e2eRecordedPreview.input(outputBytes->constData(), static_cast<qint64>(capturedAfter - capturedBefore));
+                const auto count = static_cast<qint64>(capturedAfter - capturedBefore);
+                quint64 routeRevision {0};
+#if defined(Q_OS_IOS)
+                if (_e2eRecordedPreview.origin().armed()) { routeRevision = overteIOSAudioOutputRevision(); }
+#endif
+                _e2eRecordedPreview.origin().append(origin, inputByteArray, outputBytes->constData(), outputBytes->size(),
+                    static_cast<qint64>(capturedBefore), count, e2ePreviewInputCurrent(), _e2eInputGeneration,
+                    _audioInput, _inputDevice, _e2eRecordedPreview.cycle(), _inputFormat.sampleRate(),
+                    _inputFormat.channelCount(), routeRevision, _loopbackResampler != nullptr);
+                _e2eRecordedPreview.input(outputBytes->constData(), count);
             }
 #endif
             if (_recordedVoiceTest.playing() && !_recordedVoiceTest.hasSignal()) {
@@ -2323,8 +2377,38 @@ void AudioClient::handleMicAudioInput() {
     _inputReadsSinceLastCheck++;
 #endif
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::e2e::RecordedPreviewReadTicket origin;
+    if (e2ePreviewInputCurrent() && _e2eInputReadSequence < 1000000000) {
+        origin.eligible = true; origin.source = _audioInput; origin.device = _inputDevice;
+        origin.ownerThread = QThread::currentThread(); origin.admission = _e2ePreviewAdmission;
+        origin.admissionState = origin.admission->state(); origin.generation = _e2eInputGeneration;
+        origin.sequence = ++_e2eInputReadSequence; origin.cycle = _e2eRecordedPreview.cycle();
+        origin.rate = _inputFormat.sampleRate(); origin.channels = _inputFormat.channelCount();
+#if defined(Q_OS_IOS)
+        origin.routeRevision = overteIOSAudioOutputRevision();
+#endif
+        origin.beforeEpoch = QDateTime::currentMSecsSinceEpoch();
+        origin.beforeMono = overte::e2e::previewOriginMonotonicMs();
+    }
+#endif
     QByteArray inputByteArray = _inputDevice->readAll();
-    processMicAudioInput(inputByteArray);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (origin.eligible) {
+        origin.afterEpoch = QDateTime::currentMSecsSinceEpoch();
+        origin.afterMono = overte::e2e::previewOriginMonotonicMs(); origin.bytes = &inputByteArray;
+        if (!inputByteArray.isEmpty() && inputByteArray.size() <= 16 * 1024 * 1024) {
+            origin.readDigest = QCryptographicHash::hash(inputByteArray, QCryptographicHash::Sha256);
+        }
+        origin.eligible = e2ePreviewInputCurrent() && !inputByteArray.isEmpty()
+            && inputByteArray.size() <= 16 * 1024 * 1024;
+    }
+#endif
+    processMicAudioInput(inputByteArray
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        , &origin
+#endif
+    );
 }
 
 #if defined(ANDROID_APP_PICO_INTERFACE)
@@ -2423,7 +2507,11 @@ void AudioClient::resetAcousticCapture() {
 }
 #endif
 
-void AudioClient::processMicAudioInput(QByteArray& inputByteArray) {
+void AudioClient::processMicAudioInput(QByteArray& inputByteArray
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    , overte::e2e::RecordedPreviewReadTicket* origin
+#endif
+) {
 #if defined(OVERTE_E2E_VOICE_TESTS)
     if (_voiceTestInputEnabled) { ++_voiceTestMicCallbacks; }
 #if defined(Q_OS_IOS)
@@ -2475,7 +2563,11 @@ void AudioClient::processMicAudioInput(QByteArray& inputByteArray) {
     }
 #endif
 
-    handleLocalEchoAndReverb(inputByteArray);
+    handleLocalEchoAndReverb(inputByteArray
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        , origin
+#endif
+    );
 
     _inputRingBuffer.writeData(inputByteArray.data(), inputByteArray.size());
 
@@ -3034,6 +3126,9 @@ bool AudioClient::switchInputToAudioDevice(const HifiAudioDeviceInfo inputDevice
         // The call to stop() causes _inputDevice to be destructed.
         // That in turn causes it to be disconnected (see for example
         // http://stackoverflow.com/questions/9264750/qt-signals-and-slots-object-disconnect).
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        e2eInputReplaced(nullptr, nullptr);
+#endif
         _audioInput->stop();
         _inputDevice = NULL;
 
@@ -3163,6 +3258,9 @@ bool AudioClient::switchInputToAudioDevice(const HifiAudioDeviceInfo inputDevice
                 }
 #endif
                 _inputDevice = _audioInput->start();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                e2eInputReplaced(_audioInput, _inputDevice);
+#endif
 
                 if (_inputDevice) {
                     connect(_inputDevice, SIGNAL(readyRead()), this, SLOT(handleMicAudioInput()));
@@ -3220,6 +3318,9 @@ void AudioClient::audioInputStateChanged(QAudio::State state) {
                 }
                 Lock lock(_deviceMutex);
                 _inputDevice = _audioInput->start();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                e2eInputReplaced(_audioInput, _inputDevice);
+#endif
                 lock.unlock();
                 if (_inputDevice) {
                     connect(_inputDevice, SIGNAL(readyRead()), this, SLOT(handleMicAudioInput()));
@@ -3269,6 +3370,9 @@ void AudioClient::checkInputTimeout() {
             qInfo() << "PICO_MIC_WATCHDOG_RESTART" << overte::security::diagnosticEvent(overte::security::DiagnosticEvent::Redacted)
                 << "reads" << _inputReadsSinceLastCheck;
         }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        e2eInputReplaced(nullptr, nullptr);
+#endif
         _audioInput->stop();
     } else {
         _inputReadsSinceLastCheck = 0;

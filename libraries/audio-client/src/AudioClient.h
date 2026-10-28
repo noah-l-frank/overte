@@ -288,6 +288,8 @@ public slots:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap featureRecordedVoiceObservation() const;
     QVariantMap featureRecordedVoiceEvidence() const;
+    // Diagnostic admission only; called on AudioClient owner thread. No audio operation.
+    void observeRecordedPreviewAdmission(std::shared_ptr<const overte::e2e::RecordedPreviewAdmission> admission);
     void releaseFeatureRecordedVoiceEvidence();
 #endif
 
@@ -383,7 +385,11 @@ private:
 
     void outputFormatChanged();
     void handleAudioInput(QByteArray& audioBuffer);
-    void processMicAudioInput(QByteArray& inputByteArray);
+    void processMicAudioInput(QByteArray& inputByteArray
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        , overte::e2e::RecordedPreviewReadTicket* origin = nullptr
+#endif
+    );
     void prepareLocalAudioInjectors(std::unique_ptr<Lock> localAudioLock = nullptr);
     bool mixLocalAudioInjectors(float* mixBuffer);
     float azimuthForSource(const glm::vec3& relativePosition);
@@ -455,6 +461,11 @@ private:
     bool _e2eRecordedVoiceHistoryComplete {true};
     QVariantList _e2eRecordedVoiceHistory;
     overte::e2e::RecordedPreviewObservation _e2eRecordedPreview;
+    std::shared_ptr<const overte::e2e::RecordedPreviewAdmission> _e2ePreviewAdmission;
+    QPointer<QObject> _e2eInputSource, _e2eInputDevice;
+    quint64 _e2eInputGeneration {0}, _e2eInputReadSequence {0};
+    bool e2ePreviewInputCurrent() const;
+    void e2eInputReplaced(QObject* source, QObject* device);
 #endif
     void finishRecordedVoiceTest(const QString& phase, const QString& error = QString());
     void publishRecordedVoiceTestStatus(const QString& phase, const QString& error = QString());
@@ -529,7 +540,11 @@ private:
     // Adds Reverb
     void configureReverb();
     void updateReverbOptions();
-    void handleLocalEchoAndReverb(QByteArray& inputByteArray);
+    void handleLocalEchoAndReverb(QByteArray& inputByteArray
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        , overte::e2e::RecordedPreviewReadTicket* origin = nullptr
+#endif
+    );
 
 #if defined(WEBRTC_AUDIO)
     static const int WEBRTC_SAMPLE_RATE_MAX = 96000;
