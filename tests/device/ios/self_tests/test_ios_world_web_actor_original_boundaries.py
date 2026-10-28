@@ -43,4 +43,80 @@ class WorldWebActorOriginalBoundariesTests(unittest.TestCase):
             owner.validate_original(original)
 
 
+    def test_prior_unrelated_mutable_wal_read_does_not_become_decoder_operand(self):
+        from adapters.normal_feature_state import PrivateFeatureState
+        with actor_scene() as (whole,actor,_observer,owner,original,_publisher):
+            metadata=PrivateFeatureState(actor.root/'world-web-mutable-feature-test.json')
+            cleaning=dict(phase='cleaning');cleaned=dict(phase='cleaned')
+            metadata.write(cleaning,None)
+            queries=deepcopy([whole.sdk.counts,actor.sdk.counts])
+            with scope(fresh=True) as reads:
+                self.assertEqual(cleaning,metadata.read())
+                with patch.object(owner,'_validate_original',wraps=owner._validate_original) as literal:
+                    expected=owner.validate_original(original)
+                    original_inode=metadata.path.stat().st_ino
+                    metadata.write(cleaned,cleaning)
+                    self.assertNotEqual(original_inode,metadata.path.stat().st_ino)
+                    self.assertEqual(expected,owner.validate_original(original))
+                    self.assertEqual(1,literal.call_count)
+                self.assertIn(metadata.path,reads)
+                self.assertIn(owner.store.path,reads)
+            self.assertEqual(queries,[whole.sdk.counts,actor.sdk.counts])
+
+    def test_wal_actually_read_by_decoder_remains_inode_pinned_after_normal_cas(self):
+        from adapters.normal_feature_state import PrivateFeatureState
+        with actor_scene() as (_whole,actor,_observer,owner,original,_publisher):
+            metadata=PrivateFeatureState(actor.root/'world-web-mutable-feature-test.json')
+            cleaning=dict(phase='cleaning');cleaned=dict(phase='cleaned')
+            metadata.write(cleaning,None);literal=owner._validate_original
+            def decoder(value):
+                self.assertEqual(cleaning,metadata.read())
+                return literal(value)
+            with scope(fresh=True),patch.object(owner,'_validate_original',side_effect=decoder) as actual_decoder:
+                owner.validate_original(original)
+                old_inode=metadata.path.stat().st_ino;metadata.write(cleaned,cleaning)
+                self.assertNotEqual(old_inode,metadata.path.stat().st_ino)
+                with self.assertRaises(NativeUIError):owner.validate_original(original)
+                self.assertEqual(1,actual_decoder.call_count)
+
+
+    def test_fresh_census_same_body_inode_cas_cannot_replace_prior_original_pins(self):
+        from adapters.normal_feature_state import PrivateFeatureState
+        with actor_scene() as (whole,actor,_observer,owner,original,_publisher):
+            metadata=PrivateFeatureState(actor.root/'world-web-mutable-feature-test.json')
+            body=dict(phase='cleaning',declaredMetadataOnly=True);metadata.write(body,None)
+            queries=deepcopy([whole.sdk.counts,actor.sdk.counts])
+            literal=owner._validate_original;completed=[]
+            def decoder(value):
+                metadata.read()  # An actual operand, without a value fault.
+                result=literal(value)
+                completed.append(deepcopy(result))
+                return result
+            # The identical decoder callable spans both censuses, keeping the
+            # original cache key. Only actual read-set identity and file inode
+            # change; no second parser/guard mutation may mask this fault.
+            with patch.object(owner,'_validate_original',side_effect=decoder) as actual_decoder:
+                with scope(fresh=True) as first_reads:
+                    expected=owner.validate_original(original)
+                    self.assertIn(metadata.path,first_reads)
+                old_inode=metadata.path.stat().st_ino;old_bytes=metadata.path.read_bytes()
+                metadata.write(deepcopy(body),body)
+                self.assertNotEqual(old_inode,metadata.path.stat().st_ino)
+                self.assertEqual(old_bytes,metadata.path.read_bytes())
+                with scope(fresh=True) as second_reads:
+                    self.assertIsNot(first_reads,second_reads)
+                    with self.assertRaises(NativeUIError):owner.validate_original(original)
+                    self.assertEqual(2,actual_decoder.call_count)
+                    self.assertEqual([expected,expected],completed)
+                    self.assertIn(metadata.path,second_reads)
+                    # A refused refresh must not first install new pins and
+                    # then raise. The same census must still refuse a cached
+                    # success on the next call, without another mutation.
+                    with self.assertRaises(NativeUIError):owner.validate_original(original)
+                    self.assertEqual(3,actual_decoder.call_count)
+                    self.assertEqual([expected,expected,expected],completed)
+            self.assertEqual(queries,[whole.sdk.counts,actor.sdk.counts])
+
+
+
 if __name__=='__main__':unittest.main()

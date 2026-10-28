@@ -240,10 +240,21 @@ class WorldWebActorRetirement:
             if memo and key in cache and cache[key][2].matches():
                 result,pins,_membership=cache[key];guarded(pins);result=deepcopy(result);guarded(pins);return result
             if memo:
-                with read_scope(fresh=not active()) as reads:result=self._validate_original(value)
+                # Isolate the complete decoder's actual operands. The outer
+                # cleanup census also read mutable Feature/publisher heads;
+                # their later normal CAS is not an immutable proof mutation.
+                with read_scope(fresh=True) as reads:result=self._validate_original(value)
                 paths=reads|{self.store.path,self.observer.store.path,self.source.store.path,self.peer.store.path}
                 pins={path:EmoteOriginalLease.signature(path.lstat()) for path in paths}
-                guarded(pins);need(key in cache or len(cache)<64);cache[key]=(deepcopy(result),pins,OriginalMembership())
+                guarded(pins)
+                # Propagate only reads actually performed by the successful
+                # child decoder. A cache hit never invents new membership.
+                if active():
+                    with read_scope() as parent_reads:parent_reads.update(reads)
+                # A new census cannot adopt replaced immutable operands by
+                # silently refreshing this same exact original's old pins.
+                if key in cache:guarded(cache[key][1])
+                need(key in cache or len(cache)<64);cache[key]=(deepcopy(result),pins,OriginalMembership())
             else:result=self._validate_original(value)
             self.current_originals();return deepcopy(result)
 

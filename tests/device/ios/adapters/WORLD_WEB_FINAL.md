@@ -934,3 +934,33 @@ failed publication; their logs and actual original roots remain unchanged.
 The newer successful component does not transfer a PASS to the full nineteen
 steps, paired PNG evidence, process/SDK end, native compilation or devices.
 Native/Qt/WK/SDK producers remain explicit models.
+
+## Actor decoder read census
+
+The Actor retirement decoder now creates its own fresh actual-read census.
+An enclosing cleanup operation may already have read a mutable Feature or
+publisher journal; those prior reads do not become immutable decoder operands.
+Successful child reads propagate to the enclosing census. Actual decoder reads
+and all four durable retirement/Observer/Source/Peer heads remain inode-pinned.
+A different census performs the literal decode again and checks the old pins
+before replacing a same-key cache entry. Cache hits add no invented membership.
+
+Seven focused cases pass in 83.835 seconds, including genuine unrelated-journal
+CAS, rejection when that same journal is an actual decoder operand, and same-byte
+inode replacement between fresh censuses. The latter performs the full decoder
+again and rejects both attempted cache refresh and subsequent reuse. All 962
+original files and 5,680 source/launcher/reference pins remain unchanged; owned
+processes and listener threads have exited. Native and SDK boundaries are models.
+
+The connected terminal selection remains unqualified. Its first run failed both
+cases before Actor publication in 191.757 seconds; the exact offending cached
+path was not logged. The overbroad census diagnosis follows from source review
+and retained journal ordering, rather than a captured path/signature mismatch.
+After this correction, the first case reaches published Actor retirement and
+an inspected terminal journal but still reports an error. The second case is
+interrupted by the unchanged 300-second aggregate limit (exit 124). Its unittest
+runner deferred the first traceback until suite completion, so that traceback
+was not preserved. All 1,110 files from this attempt and the earlier 1,124 files
+remain retained and unchanged. A separate immediate-error diagnostic is prepared;
+neither terminal recovery, the full nineteen-step journey nor public capability
+admission receives a PASS from these focused tests.
