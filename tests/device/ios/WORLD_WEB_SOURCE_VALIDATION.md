@@ -168,3 +168,17 @@ empty thread/process receipts, 7,828 unchanged run pins and 17,460 earlier
 original files. No tests were repeated to correct that prediction. These
 results qualify pure validation and counterexamples only; the full nineteen
 steps, physical timing, native compilation and devices remain unqualified.
+
+The API-local clock-query memo now evicts its least recently used pure entries
+when either the existing 512-entry or 8 MiB bound is reached. Source and GPU
+entries share that bound. Every hit still checks the original callable, scope,
+decoder and receiver identities; unknown keys or accounting fall back to the
+literal validator. Original file, inode, membership and clock checks remain
+outside the memo.
+
+Twelve focused LRU cases and the unchanged 25 compatibility cases pass. A
+separate unprofiled replay of the retained 789-file graph completes its original
+25-second API scope in 19.118 seconds, including the source and lease rounds.
+It reads historical originals only and does not qualify current SDK admission,
+input, the full nineteen-step journey or physical timing. Profiled and
+unprofiled durations are not a measured performance comparison.

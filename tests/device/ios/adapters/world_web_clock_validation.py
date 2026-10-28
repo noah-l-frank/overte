@@ -24,7 +24,7 @@ def scope():
     active=_ACTIVE
     if active is not _SOURCE_ACTIVE:yield;return
     if active.get() is not None:yield;return
-    token=active.set(dict(entries={},bytes=0))
+    token=active.set(dict(entries={},costs={},bytes=0))
     try:yield
     finally:active.reset(token)
 
@@ -47,17 +47,90 @@ def bounded(rows,pid,strict):
     return True
 
 
+def _memo_key(key):
+    if type(key) is bytes:return len(key)==32
+    return (type(key) is tuple and len(key)==3 and key[0] is _SOURCE_KEY
+        and key[1] is _SOURCE_EPOCH and type(key[2]) is bytes and len(key[2])==32)
+
+
+def _memo_state(cache):
+    # Complete bounded accounting, without reading/deepcopying entry values or
+    # invoking opaque keys/equality. Detached/corrupt ledgers are not adopted.
+    if type(cache) is not dict:return None
+    names=tuple(cache)
+    if len(names)!=3 or any(type(name) is not str for name in names):return None
+    if not all(name in ('entries','costs','bytes') for name in names):return None
+    entries,costs,total=cache['entries'],cache['costs'],cache['bytes']
+    if (type(entries) is not dict or type(costs) is not dict or type(total) is not int
+        or total<0 or total>MAX_BYTES or len(entries)!=len(costs) or len(entries)>MAX_ENTRIES):return None
+    # Validate both key sets before looking up any key. Unknown user keys can
+    # never execute __hash__/__eq__ as part of eviction or accounting.
+    if any(not _memo_key(key) for key in entries) or any(not _memo_key(key) for key in costs):return None
+    actual=0
+    for key,cost in costs.items():
+        if type(cost) is not int or not 0<cost<=MAX_BYTES or key not in entries:return None
+        actual+=cost
+        if actual>MAX_BYTES:return None
+    if actual!=total:return None
+    return entries,costs,total
+
+
+def _memo_get(cache,key):
+    state=_memo_state(cache)
+    if state is None:return False,None
+    entries,costs,_total=state
+    if key not in entries:return False,None
+    # Recency is a pure interpretation detail, never an original-file verdict.
+    value=entries.pop(key);cost=costs.pop(key)
+    entries[key]=value;costs[key]=cost
+    return True,value
+
+
+def _memo_store(cache,key,value,cost):
+    state=_memo_state(cache)
+    if state is None or not _memo_key(key) or type(cost) is not int or not 0<cost<=MAX_BYTES or MAX_ENTRIES<1:return False
+    entries,costs,total=state
+    if key in entries:return False
+    while entries and (len(entries)>=MAX_ENTRIES or total+cost>MAX_BYTES):
+        oldest=next(iter(entries));entries.pop(oldest);total-=costs.pop(oldest)
+    if len(entries)>=MAX_ENTRIES or total+cost>MAX_BYTES:return False
+    entries[key]=value;costs[key]=cost;cache['bytes']=total+cost
+    return True
+
+
+def _memo_valid():
+    if (type is not _SOURCE_TYPE or len is not _SOURCE_LEN or tuple is not _SOURCE_TUPLE
+        or dict is not _SOURCE_DICT or bytes is not _MEMO_BYTES or int is not _SOURCE_INT
+        or str is not _SOURCE_STR or any is not _SOURCE_ANY or all is not _MEMO_ALL
+        or iter is not _MEMO_ITER or next is not _MEMO_NEXT or _MEMO_FUNCTIONS is not _MEMO_LITERAL_FUNCTIONS
+        or _literal_function is not _SOURCE_LITERAL_FUNCTION[0]
+        or _literal_function.__code__ is not _SOURCE_LITERAL_FUNCTION[1]):return False
+    return all(_literal_function(function,stamp) for function,stamp in (
+        (_memo_key,_MEMO_FUNCTIONS[0]),(_memo_state,_MEMO_FUNCTIONS[1]),
+        (_memo_get,_MEMO_FUNCTIONS[2]),(_memo_store,_MEMO_FUNCTIONS[3])))
+
+
+def _memo_enabled():
+    # Do not invoke a replaced eligibility helper even to choose fallback.
+    if (_memo_valid is not _MEMO_VALID_FUNCTION or _memo_valid.__code__ is not _MEMO_VALID_CODE
+        or _memo_valid.__defaults__ is not None or _memo_valid.__kwdefaults__ is not None):return False
+    return _memo_valid()
+
+
 def queries(rows,pid,*,strict=True):
     cache=_ACTIVE.get()
-    if cache is None or not bounded(rows,pid,strict):return original_queries(rows,pid,strict=strict)
+    if (_memo_enabled is not _MEMO_ENABLED_FUNCTION or _memo_enabled.__code__ is not _MEMO_ENABLED_CODE
+        or _memo_enabled.__defaults__ is not None or _memo_enabled.__kwdefaults__ is not None):
+        return original_queries(rows,pid,strict=strict)
+    if cache is None or not _memo_enabled() or not bounded(rows,pid,strict):return original_queries(rows,pid,strict=strict)
     encoded=marshal.dumps((rows,pid,strict),4)
     if len(encoded)>MAX_BYTES:return original_queries(rows,pid,strict=strict)
     key=hashlib.sha256(encoded).digest()
-    if key in cache['entries']:return deepcopy(cache['entries'][key])
+    found,cached=_memo_get(cache,key)
+    if found:return deepcopy(cached)
     result=original_queries(rows,pid,strict=strict)
     cost=len(encoded)+len(marshal.dumps(result,4))+len(key)
-    if len(cache['entries'])<MAX_ENTRIES and cache['bytes']+cost<=MAX_BYTES:
-        cache['entries'][key]=deepcopy(result);cache['bytes']+=cost
+    _memo_store(cache,key,deepcopy(result),cost)
     return result
 
 
@@ -131,6 +204,8 @@ def _source_epoch():
         or list is not _SOURCE_LIST or any is not _SOURCE_ANY or zip is not _SOURCE_ZIP
         or ValueError is not _SOURCE_VALUE_ERROR or UnicodeError is not _SOURCE_UNICODE_ERROR
         or OverflowError is not _SOURCE_OVERFLOW_ERROR or RecursionError is not _SOURCE_RECURSION_ERROR
+        or bytes is not _MEMO_BYTES or all is not _MEMO_ALL or iter is not _MEMO_ITER or next is not _MEMO_NEXT
+        or _MEMO_FUNCTIONS is not _MEMO_LITERAL_FUNCTIONS
         or FunctionType is not _SOURCE_FUNCTION_TYPE or _ACTIVE is not _SOURCE_ACTIVE
         or MAX_BYTES is not _SOURCE_MAX_BYTES or MAX_ENTRIES is not _SOURCE_MAX_ENTRIES
         or hashlib.sha256 is not _SOURCE_SHA
@@ -165,8 +240,9 @@ def source_queries(rows,pid,*,strict=True):
         return _SOURCE_ORIGINAL_QUERY(rows,pid,strict=strict)
     current=_source_snapshot([rows,pid,strict])
     if current is None or current[1]!=encoded:return _SOURCE_ORIGINAL_QUERY(rows,pid,strict=strict)
-    if key in cache['entries']:
-        copied=_source_snapshot(cache['entries'][key])
+    found,cached=_memo_get(cache,key)
+    if found:
+        copied=_source_snapshot(cached)
         return copied[0] if copied is not None else _SOURCE_ORIGINAL_QUERY(rows,pid,strict=strict)
     result=_SOURCE_ORIGINAL_QUERY(private_rows,private_pid,strict=private_strict)
     if _source_epoch()!=epoch or _ACTIVE is not active or active.get() is not cache:return result
@@ -175,8 +251,7 @@ def source_queries(rows,pid,*,strict=True):
     copied=_source_snapshot(result)
     if copied is None:return result
     copied_result,result_bytes=copied;cost=len(encoded)+len(result_bytes)+len(key[2])
-    if len(cache['entries'])<MAX_ENTRIES and cache['bytes']+cost<=MAX_BYTES:
-        cache['entries'][key]=copied_result;cache['bytes']+=cost
+    _memo_store(cache,key,copied_result,cost)
     return result
 
 
@@ -200,8 +275,14 @@ _SOURCE_SHA=hashlib.sha256
 _SOURCE_QUERY_LIMIT=_SOURCE_ORIGINAL_QUERY.__globals__['LIMIT']
 _SOURCE_KEY=object()
 _SOURCE_LITERAL_FUNCTION=_function_stamp(_literal_function)
+_MEMO_BYTES,_MEMO_ALL,_MEMO_ITER,_MEMO_NEXT=bytes,all,iter,next
+_MEMO_FUNCTIONS=tuple(_function_stamp(function) for function in (_memo_key,_memo_state,_memo_get,_memo_store))
+_MEMO_LITERAL_FUNCTIONS=_MEMO_FUNCTIONS
+_MEMO_VALID_FUNCTION,_MEMO_VALID_CODE=_memo_valid,_memo_valid.__code__
+_MEMO_ENABLED_FUNCTION,_MEMO_ENABLED_CODE=_memo_enabled,_memo_enabled.__code__
 _SOURCE_FUNCTIONS=tuple((getter,_function_stamp(getter),_function_stamp(getter())) for getter in (
     lambda:original_queries,lambda:bounded,lambda:deepcopy,lambda:scope,lambda:_source_snapshot,
+    lambda:_memo_key,lambda:_memo_state,lambda:_memo_get,lambda:_memo_store,lambda:_memo_valid,lambda:_memo_enabled,
     lambda:scope.__wrapped__,lambda:queries,lambda:source_queries,lambda:source_eligible,
     lambda:original_queries.__globals__['decode'],lambda:original_queries.__globals__['validate'],
     lambda:original_queries.__globals__['follow'],lambda:original_queries.__globals__['exact'],
