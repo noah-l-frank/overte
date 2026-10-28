@@ -20,6 +20,12 @@ import time
 
 
 class IOSAudioRuntime(IOSScriptRuntime):
+    def close_recording_evidence(self,selector,owner):
+        from ios.adapters.audio_pcm_runtime import close_lease
+        owner.bound()
+        if not any(row['verb']=='record-start' for row in owner.state['operations']):return None
+        return close_lease(self,selector,owner).retire()
+
     def settings_owner(self,selector,parent,*,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,sleep=time.sleep):
         from ios.adapters.audio_settings_sources import AudioSettingsSources
         from ios.adapters.audio_settings_owner import AudioSettingsOwner
@@ -90,7 +96,8 @@ class IOSAudioRuntime(IOSScriptRuntime):
                 io=IOSAudioIO(SimpleNamespace(capture=normal.capture,native=normal,ui=NativeUI(source['client'],source['session'],source['check'])))
                 owner=IOSAudioRecordedOwner(PrivateFeatureState(self.state_path(selector).with_name('ios-audio-recorded-owner.json')),
                     root,source['binding'],run,lock,source['check'],native=native,io=io,
-                    phase=PhaseFixtureReader(client,run,'audio'),epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,sleep=time.sleep)
+                    phase=PhaseFixtureReader(client,run,'audio'),epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,sleep=time.sleep,
+                    close_evidence=lambda owner:self.close_recording_evidence(selector,owner))
                 send=native.send
                 def observed(command):owner.query_intent(command);return send(command)
                 native.send=observed;normal.observe_intent=owner.query_intent

@@ -69,8 +69,10 @@ version-two lease preserves its original strict requirement. An explicit strict
 request cannot reclassify an existing version-one allocation. Unknown profiles
 refuse before runtime source acquisition, and changed requested profile fields
 refuse before allocation. Chunk, snapshot, absence and public result grammars
-remain unchanged; only the lease registry entry advances to two, reading one
-and two. The native observer, limits and deadlines are unchanged.
+remain unchanged. The required profile introduced lease version two; the
+separate [normal Close cleanup](AUDIO_PCM_LEASE.md#normal-close-and-later-cycle-evidence-memory)
+now adds readable cleanup-only version three. The native observer, limits and
+deadlines of this required-profile path are unchanged.
 
 All 25 selected component cases pass in 24.724 seconds: eight new required-profile
 and recovery cases plus seventeen existing PCM cases, preserving 520 original
@@ -82,7 +84,7 @@ new threads are gone. The test-only fixture import correction prevents duplicate
 collection of the reused test classes.
 
 These are real host ownership/byte/ordinary-action checks over declared native,
-callback, SDK, OS and timer models. Later recording cycles still own their own
-evidence memory. Independent acoustic/peer artifacts, full settings restoration,
+callback, SDK, OS and timer models. Later recording cycles create separately owned
+evidence memory; the normal Close path now retires the latest owned cycle. Independent acoustic/peer artifacts, full settings restoration,
 resource/process/SDK retirement, native compilation and the complete Audio
 adapter remain open. No complete capability is enabled by this profile.

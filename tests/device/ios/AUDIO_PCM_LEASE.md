@@ -107,3 +107,42 @@ the actual normal Start ticket directly. No native source or evidence clock
 was changed to resolve that test error. Digital input detection establishes
 neither actual microphone origin nor independent acoustic playback/peer
 receipt; those remain required for full Audio admission.
+
+## Normal Close and later-cycle evidence memory
+
+Normal runtime-created recording owners now retire diagnostic evidence after
+saving the original completed Close. The existing PCM lease has a separate
+cleanup-only version-three mode in `ios-audio-close-lease.json`; its carriers
+use the existing original store with the `ios-audio-close` namespace. Default
+capture remains version one and the required callback profile remains version
+two. Old envelopes are read literally without migration.
+
+This mode binds the latest owned original Start and the unique final completed
+Close, including cycle, native start timestamp and original operation digests.
+A fresh files query must find both tap paths absent. It never allocates another
+Observe snapshot. The release intent is durable before delivery; an uncertain
+return permits only fresh independent files/memory reads. Release acknowledgement
+alone cannot retire the lease. Original Start identity is preserved; the
+validated post-background Close supplies the absence clock floor.
+
+The gated native command additionally checks the original source instance,
+private test/results owner, empty cached tap metadata and absence of existing
+or symlink files. On the AudioClient owner thread it checks the expected current
+cycle/start and inactive recording atomically before clearing diagnostic memory.
+It creates or removes no files and invokes no normal audio operation. No owned
+Start means no release of preexisting memory. A new cycle, changed source,
+remaining memory or foreign file prevents a successful retirement claim.
+
+The lost-return host case reconstructs a fresh lease through the runtime
+callback from the durable WAL. It retains the same parent/runtime/process;
+it does not establish complete process cold-restart recovery. Native code is
+uncompiled, and Audio/Qt/SDK/OS/clock producers remain declared host models.
+Acoustic/peer evidence, full restoration and process/SDK end remain open.
+
+All35 selected host cases pass: seven new refusal/recovery cases, the connected
+fourteen-action normal Close case,25 existing PCM/profile components and both
+unchanged normal-profile flows. They retain1025 original files across34 actual
+roots; all7702 source/launcher/reference pins remain unchanged, with owned
+processes and new threads gone. The new connected Close case passes in111.928
+seconds and retires cycle5 without a second Observe allocation or another
+normal Close input. Detailed timings are in the retained local run records.

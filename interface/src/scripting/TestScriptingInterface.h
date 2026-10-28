@@ -271,6 +271,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureRecordedVoiceEvidence(const QString& requestId);
     Q_INVOKABLE QVariantMap releaseFeatureRecordedVoiceEvidence(const QString& requestId);
     Q_INVOKABLE QVariantMap featureRecordedVoiceFiles(const QString& requestId);
+    Q_INVOKABLE QVariantMap releaseOwnedFeatureRecordedVoiceEvidence(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAvatarReceive(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureScriptTerminal(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureScriptRoots(const QVariantMap& command);

@@ -2721,6 +2721,47 @@ QVariantMap TestScriptingInterface::releaseFeatureRecordedVoiceEvidence(const QS
     return {{"schemaVersion", 1}, {"requestId", requestId}, {"released", memoryCleared && inputRemoved && sinkRemoved}};
 }
 
+QVariantMap TestScriptingInterface::releaseOwnedFeatureRecordedVoiceEvidence(const QVariantMap& command) {
+#if defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_VOICE_TESTS)
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        QMetaObject::invokeMethod(this, [&] { result = releaseOwnedFeatureRecordedVoiceEvidence(command); }, Qt::BlockingQueuedConnection);
+        return result;
+    }
+    const auto json = QJsonObject::fromVariantMap(command);
+    auto keys = json.keys(); keys.sort();
+    QStringList expected {"schemaVersion", "commandId", "action", "expected"}; expected.sort();
+    const auto selected = json.value("expected").toObject(); auto fields = selected.keys(); fields.sort();
+    QStringList wanted {"instance", "cycle", "startedEpochMs"}; wanted.sort();
+    const auto cycle = selected.value("cycle").toDouble(-1);
+    const auto started = selected.value("startedEpochMs").toDouble(-1);
+    if (keys != expected || fields != wanted || json.value("schemaVersion") != QJsonValue(2)
+            || json.value("action") != QJsonValue("feature-recorded-audio-release")
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(json.value("commandId").toString()).hasMatch()
+            || selected.value("instance") != QJsonValue(_featureObservationInstance)
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(selected.value("instance").toString()).hasMatch()
+            || cycle < 1 || cycle > 1000000000 || cycle != static_cast<quint64>(cycle)
+            || started < 1 || started > 1000000000000000.0 || started != static_cast<qint64>(started)
+            || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || _testResultsLocation.isEmpty()
+            || !overte::e2e::previewDirectory(_testResultsLocation)
+            || !_featurePreviewRequest.isEmpty() || !_featurePreviewObservation.isEmpty()
+            || !_featurePreviewInputDigest.isEmpty() || !_featurePreviewSinkDigest.isEmpty()) { return {}; }
+    const QDir directory(_testResultsLocation);
+    // A cleanup-only request never creates, overwrites or sweeps tap files.
+    for (const auto& name : {QStringLiteral("recorded-preview-input.pcm16le"), QStringLiteral("recorded-preview-sink.pcm16le")}) {
+        const QFileInfo file(directory.filePath(name)); if (file.exists() || file.isSymLink()) { return {}; }
+    }
+    const auto audio = DependencyManager::get<AudioClient>(); bool released = false;
+    const auto clear = [&] { released = audio->releaseOwnedFeatureRecordedVoiceEvidence(static_cast<quint64>(cycle), static_cast<qint64>(started)); };
+    if (QThread::currentThread() == audio->thread()) { clear(); }
+    else { QMetaObject::invokeMethod(audio.data(), clear, Qt::BlockingQueuedConnection); }
+    return {{"schemaVersion", 1}, {"requestId", command.value("commandId")}, {"released", released}};
+#else
+    Q_UNUSED(command); return {};
+#endif
+}
+
 QVariantMap TestScriptingInterface::featureRecordedVoiceFiles(const QString& requestId) {
     if (QThread::currentThread() != thread()) {
         QVariantMap result;

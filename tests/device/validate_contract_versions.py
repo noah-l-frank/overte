@@ -554,7 +554,7 @@ REQUIRED = {
     "ios-audio-recorded-observation": 4,
     "ios-audio-recorded-frame": 1,
     "ios-audio-recorded-original": 1,
-    "ios-audio-pcm-lease": 2,
+    "ios-audio-pcm-lease": 3,
     "ios-audio-pcm-chunk": 1,
     "ios-audio-pcm-snapshot": 1,
     "ios-audio-pcm-absence": 1,

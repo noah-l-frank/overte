@@ -1837,6 +1837,21 @@ QVariantMap AudioClient::featureRecordedVoiceEvidence() const {
     return _e2eRecordedPreview.snapshot();
 }
 
+bool AudioClient::releaseOwnedFeatureRecordedVoiceEvidence(quint64 cycle, qint64 startedEpochMs) {
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_VOICE_TESTS)
+    // Same owner-thread check and mutation: an intervening normal Start must
+    // never make an earlier owner's cleanup clear a different current cycle.
+    if (QThread::currentThread() != thread() || !QCoreApplication::arguments().contains("--testScript")
+            || !cycle || !startedEpochMs || _recordedVoiceTestActive
+            || _e2eRecordedVoiceCycle != cycle || _e2eRecordedVoiceStarted != startedEpochMs
+            || _e2eRecordedPreview.cycle() != cycle) { return false; }
+    _e2eRecordedPreview.clear();
+    return _e2eRecordedPreview.snapshot().isEmpty();
+#else
+    Q_UNUSED(cycle); Q_UNUSED(startedEpochMs); return false;
+#endif
+}
+
 void AudioClient::releaseFeatureRecordedVoiceEvidence() {
     if (QThread::currentThread() == thread() && QCoreApplication::arguments().contains("--testScript")) {
         _e2eRecordedPreview.clear();

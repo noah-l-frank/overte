@@ -14,7 +14,7 @@ class AudioPCMOriginals:
     def __init__(self,owner):
         self.owner=owner
         self.files=OriginalFrameStore(owner.root,owner.binding,owner.run,'primary',owner.bound,owner.storage_intent,
-            namespace='ios-audio-pcm',schema_prefix='iosAudioPCM',monotonic=owner.monotonic)
+            namespace='ios-audio-close' if owner.version==3 else 'ios-audio-pcm',schema_prefix='iosAudioPCM',monotonic=owner.monotonic)
     def read(self,reference):return self.files.read(self.files.expand(reference))
     def write(self,value):
         owner=self.owner;owner.bound();need(owner.state['pending'] is None and len(owner.state['records'])<1024)
@@ -59,4 +59,4 @@ class AudioPCMOriginals:
         if state['pending'] is not None:expected.add(self.files.path(state['pending']))
         for index,path in enumerate(self.owner.root.iterdir()):
             need(index<8192)
-            if path.name.startswith('ios-audio-pcm-'):need(path in expected)
+            if path.name.startswith('ios-audio-close-' if self.owner.version==3 else 'ios-audio-pcm-'):need(path in expected)

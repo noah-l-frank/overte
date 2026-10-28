@@ -27,7 +27,7 @@ VERSION=4
 READS=(1,2,3,4)
 
 class IOSAudioRecordedOwner:
-    def __init__(self,store,root,binding,run,lock,guard,*,native,io,phase,epoch_ms,monotonic,sleep):
+    def __init__(self,store,root,binding,run,lock,guard,*,native,io,phase,epoch_ms,monotonic,sleep,close_evidence=None):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock)
             and isinstance(native,NativeFeatureObservation) and native.ios and not native.native_clock_bound
             and isinstance(phase,PhaseFixtureReader) and phase.run==run and phase.area=='audio'
@@ -35,6 +35,7 @@ class IOSAudioRecordedOwner:
         self.store,self.root,self.binding,self.run,self.lock=store,Path(root),deepcopy(context(binding)),identifier(run),lock
         need(self.root.is_absolute() and self.root.resolve()==self.root and native.pid==int(self.binding['processIdentity']))
         self.guard,self.native,self.phase,self.epoch_ms,self.monotonic,self.sleep=guard,native,phase,epoch_ms,monotonic,sleep
+        need(close_evidence is None or callable(close_evidence));self.close_evidence=close_evidence
         self.fixture_url=phase.fixture_url;self.historical=False;self.lock.assert_held()
         self.previous=store.read();self.state=dict(records=[],operations=[],pending=None,observation=None)
         self.version=VERSION if self.previous is None else self.previous.get('iosAudioRecordedOwnerVersion')
@@ -461,6 +462,7 @@ class IOSAudioRecordedOwner:
         actual=self.effect(operation,self.original(reference));completed=dict(deepcopy(operation),after=deepcopy(reference),quiet=quiet)
         self.quiet(completed,self.state['records'])
         self.state['operations'].append(completed);self.state['pending']=None;self.save()
+        if completed['verb']=='close' and self.close_evidence is not None:self.close_evidence(self)
         return dict(performed=True,original=deepcopy(reference),state=actual)
 
     @operation
@@ -481,6 +483,7 @@ class IOSAudioRecordedOwner:
             need(retained['verb']==verb)
             if verb=='mute':need(self.phase_original(self.original(retained['before'])['phaseBefore'],ticket,verb)['enabled']==enabled)
             reference=self.capture(ticket,verb);actual=self.effect(retained,self.original(reference))
+            if verb=='close' and self.close_evidence is not None:self.close_evidence(self)
             return dict(performed=True,original=reference,state=actual)
         need(len(self.state['operations'])<32);reference=self.capture(ticket,verb);before=self.original(reference)
         voice=before['originals']['native']['audio']['recordedVoice']

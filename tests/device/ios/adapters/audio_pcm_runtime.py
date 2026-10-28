@@ -15,3 +15,13 @@ def lease(runtime,selector,recorded,*,profile=None):
     preview=source['observer'].recorded_preview_observer()
     return IOSAudioPCMLease(PrivateFeatureState(runtime.state_path(selector).with_name('ios-audio-pcm-lease.json')),
         recorded,native=source['clock_source'],preview=preview,profile=profile)
+
+
+def close_lease(runtime,selector,recorded):
+    """Existing owner, explicit no-allocation close mode on the original SDK."""
+    need(isinstance(runtime,IOSAudioRuntime));recorded.bound()
+    need(recorded.store.path==runtime.state_path(selector).with_name('ios-audio-recorded-owner.json'))
+    source=runtime._sources(selector);need(source['binding']==recorded.binding)
+    preview=source['observer'].recorded_preview_observer()
+    return IOSAudioPCMLease(PrivateFeatureState(runtime.state_path(selector).with_name('ios-audio-close-lease.json')),
+        recorded,native=source['clock_source'],preview=preview,close_only=True)

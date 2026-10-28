@@ -33,7 +33,7 @@ class AudioNormalJourneyTests(unittest.TestCase):
     def test_all_fourteen_normal_actions_authorized_cycles_pcm_and_same_process_resume(self):
         self.run_normal_journey()
 
-    def run_normal_journey(self,*,pcm_model=PCMModel,pcm_profile=None):
+    def run_normal_journey(self,*,pcm_model=PCMModel,pcm_profile=None,close_evidence=False):
         b=AudioBackgroundDomain(self,pages=True,prepare_recording=False);m=b.m;parent=b.parent;m.automatic=True
         class Session(Boundary):
             def stamp(self):m.tick();return dict(epochMs=m.native_epoch(),monotonicMs=round(m.clock*1000))
@@ -54,7 +54,21 @@ class AudioNormalJourneyTests(unittest.TestCase):
         ui.click_with_token=guarded
         authorization=b.runtime.authorization_sources('test-only',parent,epoch_ms=m.epoch,monotonic=lambda:m.clock)
         starts=AudioAuthorizedStarts(PrivateFeatureState(b.root/'ios-audio-authorized-starts.json'),parent,authorization)
-        lease=None;retired=None;steps=[]
+        lease=None;retired=None;steps=[];closing=[False];close_results=[]
+        source_before_close=b.runtime._sources
+        if close_evidence:
+            def closing_sources(selector):
+                value=source_before_close(selector)
+                if closing[0]:
+                    from types import SimpleNamespace
+                    value['observer']=SimpleNamespace(recorded_preview_observer=lambda:pcm.reader()[1])
+                return value
+            b.runtime._sources=closing_sources
+            def close_owner(owner):
+                closing[0]=True
+                try:close_results.append(b.runtime.close_recording_evidence('test-only',owner))
+                finally:closing[0]=False
+            parent.close_evidence=close_owner
         for index,step in enumerate(SCENARIOS['audio']['steps'],1):
             verb,inputs=step['verb'],step['inputs'];ticket=format(index+32,'032x');m.add_phase(verb,ticket,**inputs)
             if verb=='record-start':result=starts.act(ticket)
@@ -82,8 +96,14 @@ class AudioNormalJourneyTests(unittest.TestCase):
         self.assertEqual(4,m.actions.count('audio.mute'));self.assertEqual(2,len(b.inputs));self.assertEqual('closed',m.page_model.route)
         self.assertTrue(retired['retired']);self.assertIsNone(parent.state['pending']);self.assertIsNone(authorization.state['pending'])
         # Later product cycles allocate fresh evidence memory. Retirement of
-        # cycle3 cannot establish absence for cycles4/5 or complete Audio.
-        self.assertTrue(pcm.memory)
+        # cycle3 alone cannot establish absence for cycles4/5 or complete Audio.
+        # Explicit Close integration separately retires the latest owned cycle.
+        self.assertEqual(not close_evidence,pcm.memory)
+        if close_evidence:
+            self.assertEqual(1,len(close_results));self.assertTrue(close_results[0]['retired']);self.assertFalse(close_results[0]['captured'])
+            self.assertEqual(5,close_results[0]['recording']['cycle']);self.assertFalse(pcm.files)
+            self.assertEqual(1,pcm.count('feature-recorded-audio-observe'))
+            self.assertEqual(1,sum(row['action']=='feature-recorded-audio-release' and row['schemaVersion']==2 for row in pcm.commands))
         def census():
             files={}
             for path in sorted(b.root.rglob('*')):
@@ -99,8 +119,12 @@ class AudioNormalJourneyTests(unittest.TestCase):
             archived_starts=AudioAuthorizedStarts.archive(starts.store,archive,archived_authorization)
             self.assertEqual(parent.state,archive.state);self.assertEqual(starts.state,archived_starts.state)
             self.assertEqual(retired,IOSAudioPCMLease.archive(lease.store,archive).retired())
+            if close_evidence:
+                closed=IOSAudioPCMLease.archive(PrivateFeatureState(b.root/'ios-audio-close-lease.json'),archive)
+                self.assertEqual(close_results[0],closed.retired());self.assertIsNone(closed.state['allocation'])
         self.assertEqual(inputs,(m.actions,m.page_model.actions,b.inputs));self.assertEqual(queries,(b.reads,len(session.queries),pcm.commands))
         self.assertEqual(originals,census());print('Unchanged original Audio files: '+str(len(originals)),flush=True)
+        if close_evidence:return lease,retired,close_results[0],pcm
         return lease,retired
 
 

@@ -19,7 +19,11 @@ def phases(owner,value,*,active):
 def clock(owner,value,name,others=None):
     packet=value['packet'];join=validate_join(value['clockJoin'],{name:packet}|({} if others is None else others))
     first,last=join['nativeBefore'],join['nativeAfter'];follow_native(first,last)
-    initial=owner.recorded.original(owner.recording['original'])['clockJoin']['nativeAfter'];follow_native(initial,first)
+    # Close-only mode follows the already fully validated parent Close after
+    # its original background bridge; it cannot require the pre-background
+    # Start lifecycle counters to equal today's counters or retime that Start.
+    reference=owner.closing['original'] if owner.version==3 else owner.recording['original']
+    initial=owner.recorded.original(reference)['clockJoin']['nativeAfter'];follow_native(initial,first)
     need(first['processId']==last['processId']==int(owner.binding['processIdentity']) and first['lifecycle']==last['lifecycle']==initial['lifecycle'])
     for native in (first,last):
         need(native['audio']['recordedVoice']['cycle']==owner.recording['cycle'])

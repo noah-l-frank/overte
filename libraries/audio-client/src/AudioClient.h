@@ -291,6 +291,7 @@ public slots:
     // Diagnostic admission only; called on AudioClient owner thread. No audio operation.
     void observeRecordedPreviewAdmission(std::shared_ptr<const overte::e2e::RecordedPreviewAdmission> admission);
     void releaseFeatureRecordedVoiceEvidence();
+    bool releaseOwnedFeatureRecordedVoiceEvidence(quint64 cycle, qint64 startedEpochMs);
 #endif
 
     virtual bool getServerEcho() override { return _shouldEchoToServer; }

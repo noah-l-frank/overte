@@ -215,6 +215,16 @@
         } catch (_scriptSourceReadError) { /* Missing native source cannot qualify execution. */ }
         Test.saveObject(value, "feature-script-observation.json");
     }
+    function saveOwnedRecordedPreviewRelease(command) {
+        var value = {schemaVersion: 1, requestId: command.commandId, available: false};
+        try {
+            if (typeof Test.releaseOwnedFeatureRecordedVoiceEvidence === "function") {
+                var native = Test.releaseOwnedFeatureRecordedVoiceEvidence(command);
+                if (native && native.requestId === command.commandId) { value = native; }
+            }
+        } catch (_ownedPreviewReleaseError) { /* No cleanup or delivery fact is inferred. */ }
+        Test.saveObject(value, "recorded-preview-observation.json");
+    }
     function saveRecordedPreviewObservation(requestId, action) {
         var value = {schemaVersion: 1, requestId: requestId, available: false};
         try {
@@ -2808,6 +2818,15 @@
             if (command.commandId !== lastScriptSourceRequest) {
                 lastScriptSourceRequest = String(command.commandId);
                 saveScriptSourceObservation(command.commandId);
+            }
+            return;
+        }
+        if (command && command.schemaVersion === 2 && command.action === "feature-recorded-audio-release"
+                && /^ios-[0-9a-f]{32}$/.test(String(command.commandId))
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "expected"])) {
+            if (command.commandId !== lastRecordedPreviewRequest) {
+                lastRecordedPreviewRequest = String(command.commandId);
+                saveOwnedRecordedPreviewRelease(command);
             }
             return;
         }
