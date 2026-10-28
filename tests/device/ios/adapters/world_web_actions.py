@@ -79,11 +79,14 @@ class WorldWebActions:
         elif verb=='back':self.click(call,'back-document','back')
         elif verb=='reload':self.click(call,'reload-document','reload')
         elif verb=='navigate-foreign':
-            current=self.current('before-foreign-navigation');actual=current['originals']['document']['source']['nativeView'];selected=urlsplit(self.origins['foreign'])
-            url=urlunsplit((selected.scheme,selected.netloc,urlsplit(actual['url']).path.rsplit('/',1)[0]+'/'+call['inputs']['resource'],'',''))
-            self.click(call,'focus-foreign-url','foreign');self.replace(call,'type-foreign-url','foreign',url)
-            field=self.field(self.current('foreign-url-observed'),'foreign');need(field['focused'] and field['value']==url)
-            self.click(call,'navigate-foreign-url','navigate')
+            # One contiguous input sequence, with all existing fresh reads and
+            # before-send guards. Action/Scope WALs remain immutable members.
+            with self.source.input_sequence(self.inputs.store):
+                current=self.current('before-foreign-navigation');actual=current['originals']['document']['source']['nativeView'];selected=urlsplit(self.origins['foreign'])
+                url=urlunsplit((selected.scheme,selected.netloc,urlsplit(actual['url']).path.rsplit('/',1)[0]+'/'+call['inputs']['resource'],'',''))
+                self.click(call,'focus-foreign-url','foreign');self.replace(call,'type-foreign-url','foreign',url)
+                field=self.field(self.current('foreign-url-observed'),'foreign');need(field['focused'] and field['value']==url)
+                self.click(call,'navigate-foreign-url','navigate')
         elif verb=='restore-resource':
             # Reader-owned activation has already changed only server recovery
             # availability. No second control and no product input is sent.

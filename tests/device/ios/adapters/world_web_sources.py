@@ -75,7 +75,7 @@ class WorldWebSources:
                 and all(reader.pid==self.pid for name,reader in readers.items() if name not in ('uikit','widgets')))
             self.native=readers['native']
         lock.assert_held();self.previous=store.read();self.frames=[];self._cache={};self._round=None;self._round_pins=None;self._write_round=None;self._round_header=None;self.parts=WorldWebOriginalParts(self);self.state=dict(records=[],pending=None,interrupted=[])
-        self._construction=None
+        self._construction=None;self._input_sequence=None
         if self.previous is not None and historical:self.version=self.previous['iosWorldWebSourcesVersion']
         self._construction=begin_construction(self,_CONSTRUCTION_DECODERS)
         if self.previous is not None:self.state,self.frames=self.decode(self.previous)
@@ -340,6 +340,7 @@ class WorldWebSources:
         return {path:self.original_signature(path) for path in paths if packet is not None or path.exists()}
 
     def guard_originals(self):
+        self.guard_input_sequence()
         construction=getattr(self,'_construction',None)
         if construction is not None and construction.active:construction.check()
         self._guard_aux_prefix()
@@ -357,6 +358,7 @@ class WorldWebSources:
                 else:need(path in self._round_pins)
 
     def guard_saved_state(self):
+        self.guard_input_sequence(deep=True)
         # Product input may use only the exact latest durably retained state.
         # Passive process preflight during an intentional metadata transition
         # is separate and may run before that transition's CAS write.
@@ -374,6 +376,7 @@ class WorldWebSources:
 
     def admit_round_frame(self,frame,reference):
         if self._write_round is None:return
+        self.guard_input_sequence(deep=True)
         packet,state,frames=self._round;need(reference['index']==len(frames)+1 and self.state['records'][-1]==reference)
         store=self.record_store(reference['index']);actual=store.read();need(actual is not None and digest(actual)==reference['sha256'])
         retained=unpack(actual['payload']);need(len(retained)==1)
@@ -385,9 +388,113 @@ class WorldWebSources:
         # A newly written record was reserved before its atomic write. An
         # interrupted complete record may instead be adopted unchanged.
         self._round=(packet,state,frames+[deepcopy(frame)])
+        self.checkpoint_input_sequence()
+
+    def guard_input_sequence(self,*,deep=False):
+        sequence=self._input_sequence
+        if sequence is None:return
+        need(type(deep) is bool and self._write_round is sequence['write'] and self._round is not None
+            and self._round_header is sequence['header'] and _sequence_methods(self)==sequence['methods']
+            and self._cache is sequence['cache'] and tuple((id(key),id(frame)) for key,frame in self._cache.items())==sequence['cacheRows'])
+        frames=self._round[2]
+        need(tuple(id(frame) for frame in frames)==sequence['frameIds'])
+        if deep:need(digest(frames)==sequence['frameSha'])
+        passive=sequence['passiveOriginal']
+        if passive is not None:need(self._passive_input_original(sequence['mutable'])==passive)
+
+    def checkpoint_input_sequence(self):
+        sequence=self._input_sequence
+        if sequence is None:return
+        # Only admit_round_frame calls this, after checking the previous full
+        # private prefix and validating/rereading the actual newly saved parts.
+        frames=self._round[2]
+        sequence['frameIds']=tuple(id(frame) for frame in frames);sequence['frameSha']=digest(frames)
+
+    @contextmanager
+    def input_sequence(self,mutable):
+        need(self._input_sequence is None)
+        # A substituted parser retains every literal per-input/current round.
+        # No altered callable inherits a previous private-frame proof.
+        if _sequence_literal(self)!=_INPUT_SEQUENCE_LITERAL or not _sequence_receivers_literal(self):
+            yield;return
+        sequence=None;owned_cache=self._cache;invalid=False
+        try:
+            with self.input_round(mutable):
+                # The actual old graph read can invoke original guards. A callable
+                # changed there must not become the new post-read proof baseline.
+                if _sequence_literal(self)!=_INPUT_SEQUENCE_LITERAL or not _sequence_receivers_literal(self):
+                    need(False)
+                sequence=dict(mutable=mutable,write=self._write_round,header=self._round_header,
+                    methods=_sequence_methods(self),boundOriginals=_sequence_bound_values(self),cache=self._cache,
+                    cacheRows=tuple((id(key),id(frame)) for key,frame in self._cache.items()),frameIds=(),frameSha=None,passiveOriginal=None)
+                self._input_sequence=sequence;failure=None
+                try:
+                    self.checkpoint_input_sequence();self.guard_originals();yield
+                except BaseException as error:failure=error;invalid=True;raise
+                finally:
+                    try:self.guard_input_sequence(deep=True);self.guard_originals()
+                    except BaseException:
+                        invalid=True
+                        if failure is None:raise
+                        failure.add_note('Source input-sequence validation also failed; original error preserved.')
+        except BaseException:
+            invalid=True;raise
+        finally:
+            # Keep the callable/receiver epoch through every enclosing append
+            # round exit guard. Clearing it before that exit could let the
+            # mandatory store read invoke a receiver already found foreign.
+            # Entry rejection also invalidates its own cache, after exit guards
+            # have finished any original reads that can populate that cache.
+            self._input_sequence=None
+            if invalid and self._cache is owned_cache:self._cache={}
+
+    def _passive_input_original(self,mutable):
+        path=mutable.path
+        try:before=path.lstat()
+        except FileNotFoundError:
+            need(mutable.read() is None and not path.exists() and not path.is_symlink());return None,None
+        self.original_signature(path);signature=EmoteOriginalLease.signature(before)
+        descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
+        with os.fdopen(descriptor,'rb') as stream:
+            need(EmoteOriginalLease.signature(os.fstat(stream.fileno()))==signature)
+            raw=stream.read(65537);need(len(raw)<=65536)
+            need(EmoteOriginalLease.signature(os.fstat(stream.fileno()))==signature
+                and EmoteOriginalLease.signature(path.lstat())==signature)
+        # Reuse the real strict private JSON reader too; raw equality below
+        # keeps whitespace and every original byte, not only parsed equality.
+        need(mutable.read() is not None and EmoteOriginalLease.signature(path.lstat())==signature)
+        return raw,signature
+
+    @contextmanager
+    def _nested_input_round(self,mutable,*,passive):
+        sequence=self._input_sequence
+        need(type(passive) is bool and sequence is not None and mutable is sequence['mutable'])
+        self.bound();need(self._write_round is sequence['write'] and self._round is not None)
+        # The enclosing active sequence owns mutable Input metadata. A passive
+        # current still freezes that exact original WAL/absence independently.
+        need(sequence['passiveOriginal'] is None)
+        original=self._passive_input_original(mutable) if passive else None
+        if passive:sequence['passiveOriginal']=original
+        failure=None
+        try:
+            self.guard_originals();yield
+        except BaseException as error:failure=error;raise
+        finally:
+            try:
+                try:
+                    self.guard_originals();need(same(self.store.read(),self.previous) and self._round_state_sha==digest(self.state))
+                    if passive:need(self._passive_input_original(mutable)==original)
+                except BaseException:
+                    if failure is None:raise
+                    failure.add_note('Nested Source input-boundary validation also failed; original error preserved.')
+            finally:
+                if passive:sequence['passiveOriginal']=None
 
     @contextmanager
     def input_round(self,mutable,*,passive=False):
+        if self._input_sequence is not None:
+            with self._nested_input_round(mutable,passive=passive):yield
+            return
         with self.parts.snapshot.validation_round(),ledger.validation_round():
             with self._input_round(mutable,passive=passive):yield
 
@@ -793,3 +900,65 @@ _PAIR_CACHE_DEFAULTS=_pair_cache_ready.__defaults__
 # A replaced or modified decoder retains the literal subsequent read round.
 _CONSTRUCTION_DECODERS=tuple((method,method.__code__) for method in
     (WorldWebSources.decode,WorldWebSources._decode,WorldWebSources._decode_frames))
+
+
+def _sequence_function(value):
+    function=getattr(value,'__func__',value)
+    wrapped=getattr(function,'__wrapped__',None)
+    return (function,getattr(function,'__code__',None),getattr(function,'__defaults__',None),
+        tuple(sorted((getattr(function,'__kwdefaults__',None) or {}).items())),wrapped,getattr(wrapped,'__code__',None))
+
+
+def _sequence_literal(source):
+    names=('decode','_decode','_decode_frames','validate_frame','frame','input_projection','_input_projection','input_point',
+        'guard_originals','guard_saved_state','admit_round_frame','save','original_signature','_input_round','input_round',
+        'input_sequence','guard_input_sequence','checkpoint_input_sequence','_passive_input_original','_nested_input_round')
+    methods=tuple(_sequence_function(getattr(WorldWebSources if source is None else source,name)) for name in names)
+    parts=tuple(_sequence_function(getattr(WorldWebOriginalParts if source is None else source.parts,name))
+        for name in ('read','read_frame','verify','verify_frame','paths'))
+    helpers=tuple(_sequence_function(value) for value in (type,len,id,getattr,tuple,dict,deepcopy,digest,same,pack,unpack,clock_queries,clock_bracket,
+        ledger.validate,dom.validate,work.validate,world.validate,geometry.validate,keys.validate,pointer.validate,entities.validate,
+        surfaces.validate,closures.validate,uikit_packet,widgets_packet,EmoteOriginalLease.snapshot,EmoteOriginalLease.guard,
+        PrivateFeatureState.read,PrivateFeatureState.write))
+    stores=tuple(_sequence_function(getattr(PrivateFeatureState if source is None else source.store,name))
+        for name in ('read','write','_parent'))
+    return methods,parts,stores,helpers
+
+
+def _sequence_methods(source):
+    return (_sequence_literal(source),digest((source.binding,source.run,source.role,source.pid,source.version,source.phase.fixture_url)),
+        id(source.store),str(source.store.path),id(source.lock),id(source.parts),
+        id(source.parts.snapshot),id(source.parts.legacy),id(source.native),_sequence_function(source.native.read),
+        _sequence_function(source.parts.snapshot.packet),_sequence_function(source.lock.assert_held),_sequence_function(source.guard),
+        _sequence_function(source.monotonic),_sequence_function(source.epoch_ms),
+        tuple(id(getattr(value,'__self__',None)) for value in _sequence_bound_values(source)))
+
+
+def _sequence_bound_values(source):
+    # Retain the original bound callables for the entire context so receiver
+    # IDs cannot be recycled. Runtime comparisons use IDs, never receiver ==.
+    names=('decode','_decode','_decode_frames','validate_frame','frame','input_projection','_input_projection','input_point',
+        'guard_originals','guard_saved_state','admit_round_frame','save','original_signature','_input_round','input_round',
+        'input_sequence','guard_input_sequence','checkpoint_input_sequence','_passive_input_original','_nested_input_round')
+    values=[getattr(source,name) for name in names]
+    values.extend(getattr(source.parts,name) for name in ('read','read_frame','verify','verify_frame','paths'))
+    values.extend(getattr(source.store,name) for name in ('read','write','_parent'))
+    values.extend((source.native.read,source.parts.snapshot.packet,source.lock.assert_held,source.guard,source.monotonic,source.epoch_ms))
+    return tuple(values)
+
+
+def _sequence_receivers_literal(source):
+    names=('decode','_decode','_decode_frames','validate_frame','frame','input_projection','_input_projection','input_point',
+        'guard_originals','guard_saved_state','admit_round_frame','save','original_signature','_input_round','input_round',
+        'input_sequence','guard_input_sequence','checkpoint_input_sequence','_passive_input_original','_nested_input_round')
+    for name in names:
+        if getattr(getattr(source,name),'__self__',None) is not (None if name=='original_signature' else source):return False
+    for owner,names in ((source.parts,('read','read_frame','verify','verify_frame','paths')),
+            (source.store,('read','write','_parent')),(source.native,('read',)),
+            (source.parts.snapshot,('packet',)),(source.lock,('assert_held',))):
+        for name in names:
+            if getattr(getattr(owner,name),'__self__',None) is not owner:return False
+    return True
+
+
+_INPUT_SEQUENCE_LITERAL=_sequence_literal(None)

@@ -112,3 +112,40 @@ remain unchanged after owned processes and fixture threads stop. This does not
 qualify the whole journey or attribute earlier flattened failures to the same
 inner cause. Native/SDK/GPU/OS behavior remains modeled and native compilation
 and devices remain unverified.
+
+
+## Contiguous foreign-navigation input sequence
+
+The existing foreign-navigation action retains one synchronous Source append
+round across its fresh current reads and three ordinary inputs. Its original
+file lease permits only Source and input-WAL transitions; action and Scope WALs
+remain immutable. Each passive current additionally freezes the exact input-WAL
+bytes and identity, including prior absence. No original frame is retimed.
+
+The entered round retains literal decoder code and bound receiver identities,
+original callable references, owner/header/store/cache identity and a digest of
+its complete private frame prefix. Every admitted new frame first checks the old
+prefix and reads its actual retained parts. Before input, the private prefix is
+checked again. Changed callables, foreign receivers, private-memory mutation,
+new namespace members and original byte/inode replacement refuse reuse.
+The callable epoch survives every enclosing exit guard. Failed rounds clear
+only their original cache after those exits; the same primary error survives.
+Replaced readers at entry keep the existing literal per-input path.
+
+The final revision passes 31 focused cases in 149.687 seconds and one genuine
+54-frame history case in 51.632 seconds. The latter acquires all earlier frames
+through the real source path, then derives the foreign-page result from new
+originals after the normal inputs; repeating the same action sends no input.
+The two runs retain 2,193 and 240 files across 59 and two roots, with all 7,804
+source pins and 12,535 earlier originals unchanged. All 32 original Node
+children exit zero with their original streams closed; no owned process or
+fixture thread remains. Native, SDK and acquisition clocks are explicit host
+models. This component result does not establish physical timing or whole
+World Web completion. The earlier failed revision and its 969 files remain
+retained separately. The subsequent current public nineteen-step attempt fails in 482.738 seconds
+at the unchanged real API25 boundary during foreign-URL text replacement.
+Its explicit exception chain reaches Source capture admission/save/bound;
+this does not prove a native freshness failure or a whole-run pass. All 789
+new originals and 7,804 source pins remain unchanged after original Node close
+and complete owned process/thread drainage. Further constructor/action cost
+integration remains required; the complete-area count stays five.
