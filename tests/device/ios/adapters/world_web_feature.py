@@ -164,7 +164,7 @@ class IOSWorldWebFeature:
     def publisher(self,parts):
         need(self.role=='actor')
         return PhaseWitnessPublisher(PrivateFeatureState(self.store.path.with_name('phase-publication-world-web-'+self.run+'-actor.json')),self.state['binding'],self.phase,self.lock,parts['own']['check'],
-            parts['history'].validate_original,epoch_ms=self.epoch_ms,monotonic=self.monotonic)
+            parts['history'].validate_original,epoch_ms=self.epoch_ms,monotonic=self.monotonic,decode_context=parts['history'].validation_round)
     @operation
     def observe(self,call):
         call=arguments('feature.world-web.observe',call);need(call['runId']==self.run)

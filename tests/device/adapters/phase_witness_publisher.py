@@ -34,15 +34,16 @@ class PhaseWitnessPublisher:
         scope = object.__new__(cls)
         scope.store, scope.binding, scope.run, scope.area = store, deepcopy(context(binding)), identifier(run), area
         scope.url, scope.instance, scope.validate_original = fixture_url, identifier(phase_instance), validate_original
-        scope.live = False
+        scope.live = False; scope.decode_context = None
         need(store.path.name == 'phase-publication-'+area+'-'+run+'-actor.json')
         return deepcopy(scope.decode(value))
 
     def __init__(self, store, binding, phase, lock, guard, validate_original, *,
-                 epoch_ms=lambda: time.time()*1000, monotonic=time.monotonic):
+                 epoch_ms=lambda: time.time()*1000, monotonic=time.monotonic, decode_context=None):
         need(isinstance(store, PrivateFeatureState) and isinstance(phase, PhaseFixtureReader)
              and isinstance(lock, ScriptSourceLock) and phase.previous is not None
              and all(callable(fn) for fn in (guard, validate_original, epoch_ms, monotonic)))
+        need(decode_context is None or callable(decode_context)); self.decode_context = decode_context
         self.store, self.binding, self.phase, self.lock = store, deepcopy(context(binding)), phase, lock
         self.run, self.area, self.url = phase.run, phase.area, phase.client.url
         self.instance = identifier(phase.previous['instance'])
@@ -164,6 +165,14 @@ class PhaseWitnessPublisher:
         row = self.receipt(rows[0]); need(row['intent']['ordinal'] == reference['ordinal']); return row
 
     def decode(self, value):
+        # Optional pure original-reader scope covers ONLY this literal decode.
+        # __init__ may save an empty WAL; save/store_record/POST must stay
+        # outside the immutable Source/Scope round. No wire/result cache here.
+        factory = getattr(self, 'decode_context', None)
+        if factory is None: return self._decode(value)
+        with factory(): return self._decode(value)
+
+    def _decode(self, value):
         exact(value, {'phaseWitnessPublisherVersion', 'binding', 'runId', 'area', 'fixtureUrl', 'phaseInstance', 'payload'})
         rows = unpack(value['payload']); need(len(rows) == 1 and type(value['phaseWitnessPublisherVersion']) is int
             and value['phaseWitnessPublisherVersion'] == VERSION and same(value, self.envelope(rows[0])))
